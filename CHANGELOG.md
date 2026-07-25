@@ -5,6 +5,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [v1.0.3] - 2026-07-25
+### Added
+- Project delete button in Recent Projects table — removes all snapshots and metrics for a project
+- Hover tooltips on KPI tiles explaining each metric
+- 134 Python tests + 44 JavaScript tests covering all modules (metrics, parser, calendars, DB, server, report, CLI)
+
+### Changed
+- UI refactored from monolithic `app.js` into ES modules (`state.js`, `format.js`, `render.js`, `history.js`, `events.js`) — no functional change, better maintainability
+
+### Fixed
+- HTML injection in Recent Projects table: file paths and names are now properly escaped before being inserted into the DOM
+
+---
+
 ## [v1.0.2] - 2026-07-25
 ### Fixed
 - Disabled UPX compression in PyInstaller build to reduce antivirus false positives
