@@ -140,6 +140,30 @@ JOIN metrics m ON m.snapshot_id = s.id
 
 ---
 
+## Release process
+
+1. Update `CHANGELOG.md` — add a new section at the top:
+   ```markdown
+   ## [vX.Y.Z] - YYYY-MM-DD
+   ### Added / Fixed / Changed
+   - ...
+   ```
+2. Commit and push the changelog (and any other changes for the release)
+3. Tag and push — this triggers the build workflow:
+   ```bash
+   git tag vX.Y.Z
+   git push origin master vX.Y.Z
+   ```
+
+The GitHub Actions workflow (`.github/workflows/build-release.yml`) builds `dist/P6EVMTool.exe`
+via PyInstaller and creates a GitHub Release. It extracts the `[vX.Y.Z]` section from
+`CHANGELOG.md` automatically as the release notes — **never use `generate_release_notes: true`
+or manual release note inputs**; the changelog is the single source of truth.
+
+**Never tag without updating `CHANGELOG.md` first.**
+
+---
+
 ## Do not touch
 
 - `p6_evm/` — core computation modules; changes here break CLI + GUI
