@@ -112,8 +112,9 @@ body {
   flex: 1; background: var(--card-bg); border: 1px solid var(--border);
   border-radius: 10px; padding: 18px 14px 14px;
   display: flex; flex-direction: column; align-items: center; gap: 6px;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background 0.2s, border-color 0.15s;
 }
+.import-card:not(.disabled):hover { border-color: var(--accent); }
 .import-card.disabled { opacity: 0.4; pointer-events: none; }
 .card-icon {
   width: 36px; height: 36px; border-radius: 8px;
@@ -181,7 +182,13 @@ body {
 .kpi-tile {
   flex: 1; min-width: 120px; background: var(--card-bg);
   border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
-  transition: background 0.2s, border-color 0.2s;
+  cursor: default;
+  transition: background 0.2s, border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.kpi-tile:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
 }
 .kpi-label  { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
 .kpi-value  { font-size: 22px; font-weight: 800; margin-top: 4px; }
@@ -192,8 +199,9 @@ body {
 .color-neutral{ color: var(--text); }
 
 /* Category progress */
-.category-progress { display: flex; flex-direction: column; gap: 10px; }
-.cat-row   { display: flex; align-items: center; gap: 12px; }
+.category-progress { display: flex; flex-direction: column; gap: 2px; }
+.cat-row   { display: flex; align-items: center; gap: 12px; padding: 6px 8px; margin: 0 -8px; border-radius: 6px; transition: background 0.15s; }
+.cat-row:hover { background: var(--row-hover); }
 .cat-name  { width: 170px; font-size: 12px; flex-shrink: 0; }
 .cat-bars  { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .bar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
@@ -221,6 +229,28 @@ body {
   transition: background 0.15s;
 }
 .btn-secondary:hover { background: var(--card-bg); }
+
+/* ── Tooltips ─────────────────────────────────────────────────────────────── */
+[data-tooltip] { position: relative; }
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 9px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 100;
+}
+[data-tooltip]:hover::after { opacity: 1; }
 
 /* ── Light-mode surface reinforcement ───────────────────────────────────── */
 :root.light .kpi-tile {
@@ -254,6 +284,7 @@ body {
 .recent-table tbody tr:hover td { background: var(--row-hover); }
 .mini-progress { height: 4px; background: var(--border); border-radius: 2px; min-width: 70px; margin-bottom: 3px; }
 .mini-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+.row-actions { display: flex; align-items: center; gap: 6px; }
 .open-btn {
   padding: 4px 12px; background: transparent; border: 1px solid var(--border);
   border-radius: 6px; font-size: 11px; color: var(--muted); cursor: pointer;
@@ -261,4 +292,14 @@ body {
 }
 .open-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .open-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.delete-btn {
+  padding: 4px 6px; background: transparent; border: 1px solid transparent;
+  border-radius: 6px; cursor: pointer; color: var(--muted); line-height: 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.delete-btn:hover:not(:disabled) {
+  color: var(--danger); border-color: var(--danger);
+  background: rgba(239,68,68,0.08);
+}
+.delete-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .empty-row td { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }

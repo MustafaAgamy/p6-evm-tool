@@ -1,0 +1,81 @@
+import { state }                                                  from './state.js';
+import { setLoading, showError, clearError, renderResults, renderHistory } from './render.js';
+
+async function apiFetch(path, options) {
+  const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
+  if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+  return resp.json();
+}
+
+// showSpinner: show the browse-card spinner (true for Browse/drag-drop, false for history opens)
+export async function importFile(filePath, { showSpinner = true } = {}) {
+  clearError();
+  if (showSpinner) setLoading(true);
+  try {
+    const data = await apiFetch('api/parse', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ path: filePath, overrides_path: null }),
+    });
+    if (!data.ok) { showError(data.error || 'Parse failed.'); return; }
+    state.currentResult      = data.result;
+    state.currentXmlPath     = filePath;
+    state.currentCachedPath  = data.cached_path || null;
+    renderResults(data.result, filePath);
+    await loadHistory();
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  } finally {
+    if (showSpinner) setLoading(false);
+  }
+}
+
+export async function loadHistory() {
+  try {
+    const history = await apiFetch('api/history');
+    renderHistory(history);
+  } catch {
+    // Non-fatal — table stays as-is
+  }
+}
+
+class ButtonState {
+  constructor(el, idleText) { this.el = el; this.idleText = idleText; }
+  loading(text)               { this.el.disabled = true;  this.el.textContent = text; }
+  reset()                     { this.el.disabled = false; this.el.textContent = this.idleText; }
+  success(text, delay = 2500) { this.el.textContent = text; setTimeout(() => this.reset(), delay); }
+}
+
+export async function deleteProject(projectId) {
+  return apiFetch('api/project/delete', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ project_id: projectId }),
+  });
+}
+
+export async function generatePdf() {
+  if (!state.currentXmlPath) return;
+  const btn = new ButtonState(document.getElementById('pdf-btn'), 'Generate PDF Report');
+  btn.loading('Generating…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('weekly_report.pdf');
+    if (!outputPath) { btn.reset(); return; }
+
+    const data = await apiFetch('api/report', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        xml_path:       state.currentXmlPath,
+        cached_path:    state.currentCachedPath,
+        output_path:    outputPath,
+        overrides_path: null,
+      }),
+    });
+    if (!data.ok) { showError(`PDF generation failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ PDF Saved'); }
+  } catch {
+    showError('PDF generation failed. Check the output path and try again.');
+    btn.reset();
+  }
+}

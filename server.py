@@ -38,6 +38,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_parse(body)
         elif self.path == '/api/report':
             self._handle_report(body)
+        elif self.path == '/api/project/delete':
+            self._handle_project_delete(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -199,6 +201,18 @@ class Handler(BaseHTTPRequestHandler):
             os.unlink(html_path)
             self._json(200, {'ok': True})
 
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/project/delete ────────────────────────────────────────────────
+    def _handle_project_delete(self, body):
+        project_id = body.get('project_id')
+        if not project_id:
+            self._json(200, {'ok': False, 'error': 'project_id required'})
+            return
+        try:
+            db.delete_project(project_id)
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

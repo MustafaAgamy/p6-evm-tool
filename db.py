@@ -239,6 +239,19 @@ def get_recent_projects(limit=10):
         ).fetchall()
     return [dict(r) for r in rows]
 
+def delete_project(project_id):
+    """Remove a project and all its snapshots/metrics — explicit cascade (no FK CASCADE in schema)."""
+    with get_conn() as conn:
+        snap_ids = [r[0] for r in conn.execute(
+            'SELECT id FROM snapshots WHERE project_id = ?', (project_id,)
+        ).fetchall()]
+        if snap_ids:
+            ph = ','.join('?' * len(snap_ids))
+            conn.execute(f'DELETE FROM category_metrics WHERE snapshot_id IN ({ph})', snap_ids)
+            conn.execute(f'DELETE FROM metrics          WHERE snapshot_id IN ({ph})', snap_ids)
+            conn.execute('DELETE FROM snapshots WHERE project_id = ?', (project_id,))
+        conn.execute('DELETE FROM projects WHERE id = ?', (project_id,))
+
 def get_project_snapshots(project_id):
     """All snapshots for one project — for trend charts (future dashboards)."""
     with get_conn() as conn:

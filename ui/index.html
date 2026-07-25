@@ -116,7 +116,7 @@
       <!-- Error banner -->
       <div class="error-banner hidden" id="error-banner">
         <span id="error-text"></span>
-        <button class="error-close" onclick="clearError()">✕</button>
+        <button class="error-close" id="error-close">✕</button>
       </div>
 
       <!-- Results section (hidden until a file is parsed) -->
@@ -125,8 +125,8 @@
         <div class="kpi-row" id="kpi-row"></div>
         <div class="category-progress" id="category-progress"></div>
         <div class="action-buttons">
-          <button class="btn-secondary" onclick="loadAnother()">Load Another File</button>
-          <button class="btn-primary" id="pdf-btn" onclick="generatePdf()">Generate PDF Report</button>
+          <button class="btn-secondary" id="load-another-btn">Load Another File</button>
+          <button class="btn-primary" id="pdf-btn">Generate PDF Report</button>
         </div>
       </section>
 
@@ -153,6 +153,6 @@
     </main>
   </div>
 </div>
-<script src="/ui/app.js"></script>
+<script type="module" src="/ui/app.js"></script>
 </body>
 </html>
