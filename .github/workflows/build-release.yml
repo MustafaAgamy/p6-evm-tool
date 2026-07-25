@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       release_notes:
-        description: 'Release notes (shown on the GitHub Release page)'
+        description: 'Release notes (optional — commits are appended automatically)'
         required: false
         default: ''
 
@@ -21,6 +21,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history needed for git log
+
+      - name: Build commit log since last tag
+        id: commits
+        shell: bash
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            LOG=$(git log --oneline --no-decorate)
+          else
+            LOG=$(git log "${LAST_TAG}..HEAD" --oneline --no-decorate)
+          fi
+          if [ -z "$LOG" ]; then
+            LOG="No new commits since last release."
+          fi
+          {
+            echo "log<<EOF"
+            echo "$LOG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "last_tag=$LAST_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,7 +64,11 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.version }}
           name: P6 EVM Tool ${{ github.event.inputs.version }}
-          body: ${{ github.event.inputs.release_notes }}
+          body: |
+            ${{ github.event.inputs.release_notes }}
+
+            ## Commits
+            ${{ steps.commits.outputs.log }}
           files: dist/P6EVMTool.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
