@@ -1,5 +1,5 @@
-import { state }                        from './state.js';
-import { fmtEGP, fmtDate, kpiColor }   from './format.js';
+import { state }                                   from './state.js';
+import { fmtEGP, fmtDate, kpiColor, escapeHtml }  from './format.js';
 
 const KPI_TOOLTIPS = {
   'Finish Delay':  'Days behind schedule — positive = late, negative = ahead',
@@ -106,10 +106,9 @@ export function renderHistory(history) {
     const spiTxt   = h.spi != null ? h.spi.toFixed(2) : '—';
     const spiCol   = h.spi != null ? kpiColor(h.spi, 'index') : '';
     const pct      = h.construction_pct != null ? (h.construction_pct * 100) : null;
-    // Paths stored in data attributes — no inline JS, no escaping needed
     return `
       <tr>
-        <td title="${h.path || ''}">${h.filename}</td>
+        <td title="${escapeHtml(h.path)}">${escapeHtml(h.filename)}</td>
         <td>${fmtDate(h.data_date)}</td>
         <td class="${delayCol}">${delayTxt}</td>
         <td class="${spiCol}">${spiTxt}</td>
@@ -125,13 +124,13 @@ export function renderHistory(history) {
           <div class="row-actions">
             <button
               class="open-btn"
-              data-path="${h.path || ''}"
-              data-cached="${h.cached_path || ''}"
+              data-path="${escapeHtml(h.path)}"
+              data-cached="${escapeHtml(h.cached_path)}"
               data-tooltip="Re-open this schedule"
             >Open</button>
             <button
               class="delete-btn"
-              data-project-id="${h.project_id}"
+              data-project-id="${escapeHtml(h.project_id)}"
               data-tooltip="Remove all history for this project"
               aria-label="Delete project"
             >

@@ -241,6 +241,23 @@ def test_cache_xml_copies_file(temp_db, tmp_path):
     assert os.path.exists(cached)
     assert open(cached, 'rb').read() == b'<project/>'
 
+def test_xml_eviction_removes_oldest(temp_db):
+    """Beyond 20 cached XMLs, _cleanup_old_xml_files drops the oldest by mtime."""
+    sdir = temp_db / 'schedules'
+    # Create 21 files with distinct, ordered mtimes (i seconds from epoch)
+    for i in range(21):
+        f = sdir / f'file_{i:02d}.xml'
+        f.write_bytes(b'<project/>')
+        os.utime(f, (i, i))
+
+    db._cleanup_old_xml_files()
+
+    remaining = list(sdir.glob('*.xml'))
+    assert len(remaining) == 20
+    assert not (sdir / 'file_00.xml').exists()  # oldest evicted
+    assert (sdir / 'file_20.xml').exists()       # newest kept
+
+
 def test_cache_xml_dedup_same_hash(temp_db, tmp_path):
     xml = tmp_path / 'test.xml'
     xml.write_bytes(b'<project/>')

@@ -1,3 +1,12 @@
+export function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export function fmtEGP(n) {
   if (n == null) return '—';
   const abs = Math.abs(n);

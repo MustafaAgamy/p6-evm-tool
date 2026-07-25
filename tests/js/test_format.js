@@ -3,7 +3,7 @@
  * Run: node tests/js/test_format.js
  */
 import assert from 'node:assert/strict';
-import { fmtEGP, fmtDate, kpiColor } from '../../ui/modules/format.js';
+import { fmtEGP, fmtDate, kpiColor, escapeHtml } from '../../ui/modules/format.js';
 
 let passed = 0;
 let failed = 0;
@@ -69,6 +69,16 @@ test('index exactly 1.0 → color-green', () => assert.equal(kpiColor(1.0, 'inde
 test('index 1.1 → color-green',          () => assert.equal(kpiColor(1.1, 'index'), 'color-green'));
 test('index 1.5 → color-green',          () => assert.equal(kpiColor(1.5, 'index'), 'color-green'));
 test('unknown type → color-neutral',     () => assert.equal(kpiColor(5, 'unknown'), 'color-neutral'));
+
+// ── escapeHtml ────────────────────────────────────────────────────────────
+console.log('\nescapeHtml');
+
+test('null → empty string',          () => assert.equal(escapeHtml(null), ''));
+test('undefined → empty string',     () => assert.equal(escapeHtml(undefined), ''));
+test('ampersand escaped',            () => assert.equal(escapeHtml('a&b'), 'a&amp;b'));
+test('less-than escaped',            () => assert.equal(escapeHtml('<script>'), '&lt;script&gt;'));
+test('double-quote escaped',         () => assert.equal(escapeHtml('"quoted"'), '&quot;quoted&quot;'));
+test('plain string unchanged',       () => assert.equal(escapeHtml('hello world'), 'hello world'));
 
 // ── Summary ────────────────────────────────────────────────────────────────
 console.log(`\n${passed} passed, ${failed} failed\n`);

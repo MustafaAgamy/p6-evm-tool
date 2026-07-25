@@ -145,5 +145,15 @@ def test_project_delete_invalid_id_still_ok(test_server):
     _, data = _post_json(test_server, '/api/project/delete', {'project_id': 999999})
     assert data['ok'] is True
 
+def test_project_delete_with_string_id(test_server, xml_path):
+    # The browser sends dataset.projectId which is always a string
+    _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    _, _, body = _get(test_server, '/api/history')
+    project_id = json.loads(body)[0]['project_id']
+    _, del_data = _post_json(test_server, '/api/project/delete', {'project_id': str(project_id)})
+    assert del_data['ok'] is True
+    _, _, body_after = _get(test_server, '/api/history')
+    assert json.loads(body_after) == []
+
 
 # ── POST /api/report not tested — requires Chrome ─────────────────────────

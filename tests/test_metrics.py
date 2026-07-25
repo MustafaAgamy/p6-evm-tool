@@ -230,3 +230,97 @@ def test_planned_pct_with_calendar():
     baseline = {'planned_start': datetime(2024, 7, 1), 'planned_finish': datetime(2024, 7, 8)}
     result = activity_planned_pct(act, {'A1': baseline}, datetime(2024, 7, 1), {'C1': cal})
     assert result == pytest.approx(0.0)
+
+def test_planned_pct_calendar_nonzero_elapsed():
+    # signed_working_days is exclusive of start, inclusive of end.
+    # Mon Jul 1 → Mon Jul 8 = 5 working days (Tue 2, Wed 3, Thu 4, Fri 5, Mon 8).
+    # data_date=Wed Jul 3 → elapsed = 2 (Tue 2, Wed 3) → 2/5 = 0.4
+    cal = Calendar('C1', 'Test', nonworking_days={'Saturday', 'Sunday'})
+    act = {'id': 'A1', 'calendar_id': 'C1'}
+    baseline = {'planned_start': datetime(2024, 7, 1), 'planned_finish': datetime(2024, 7, 8)}
+    result = activity_planned_pct(act, {'A1': baseline}, datetime(2024, 7, 3), {'C1': cal})
+    assert result == pytest.approx(2 / 5)
+
+
+# ── Multi-category weighting ────────────────────────────────────────────────
+
+def make_two_category_schedule():
+    data = make_schedule()
+    data.wbs['W2'] = {'name': 'Phase II Engineering Works', 'parent_object_id': None}
+    data.activities['OBJ003'] = {
+        'object_id': 'OBJ003', 'id': 'ACT003', 'name': 'Act 3',
+        'status': 'In Progress', 'calendar_id': None, 'wbs_id': 'W2',
+        'percent_complete': 0.8, 'planned_duration': 90.0,
+        'planned_start': datetime(2024, 1, 1),
+        'planned_finish': datetime(2024, 6, 30),
+        'remaining_early_start': None, 'remaining_early_finish': None,
+        'remaining_late_start': None,  'remaining_late_finish': None,
+    }
+    # Milestone: start==finish → planned_pct=1.0 when data_date>=finish
+    data.baseline_by_id['ACT003'] = {
+        'planned_start': datetime(2024, 1, 1),
+        'planned_finish': datetime(2024, 1, 1),
+    }
+    data.bac_by_activity['OBJ003'] = 4000.0
+    data.ac_by_activity['OBJ003']  = 3000.0
+    return data
+
+
+TWO_CAT_CONFIG = {
+    'categories': [
+        {'name': 'Construction', 'weight': 0.6, 'wbs_match': 'Phase I Construction Works'},
+        {'name': 'Engineering',  'weight': 0.4, 'wbs_match': 'Phase II Engineering Works'},
+    ]
+}
+
+
+def test_multi_category_overall_pcts():
+    # Construction: weight=0.6, planned_pct=1/3, actual_pct=1/6
+    # Engineering:  weight=0.4, planned_pct=1.0,  actual_pct=0.8
+    # overall_planned = 0.6*(1/3) + 0.4*1.0 = 0.2 + 0.4 = 0.6
+    # overall_actual  = 0.6*(1/6) + 0.4*0.8 = 0.1 + 0.32 = 0.42
+    result = compute(make_two_category_schedule(), TWO_CAT_CONFIG)
+    assert result['overall_planned_pct'] == pytest.approx(0.6)
+    assert result['overall_actual_pct']  == pytest.approx(0.42)
+
+
+def test_multi_category_pv_ev():
+    # costed_planned_pct = (3000*(1/3) + 4000*1.0) / 7000 = 5000/7000 = 5/7
+    # costed_actual_pct  = (3000*(1/6) + 4000*0.8) / 7000 = 3700/7000
+    # PV = 7000 * 5/7 = 5000
+    # EV = 7000 * 37/70 = 3700
+    result = compute(make_two_category_schedule(), TWO_CAT_CONFIG)
+    assert result['pv'] == pytest.approx(5000.0)
+    assert result['ev'] == pytest.approx(3700.0)
+
+
+# ── Zero-BAC duration-weighted fallback ─────────────────────────────────────
+
+def test_zero_bac_uses_duration_weight(test_config):
+    data = make_schedule()
+    data.bac_by_activity = {}  # no BAC → duration fallback
+    # OBJ001: planned_duration=180, planned_pct=1.0, actual_pct=0.5
+    # OBJ002: planned_duration=184, planned_pct=0.0, actual_pct=0.0
+    # weighted planned_pct = (180*1.0 + 184*0.0) / 364 = 180/364
+    # weighted actual_pct  = (180*0.5 + 184*0.0) / 364 = 90/364
+    result = compute(data, test_config)
+    assert result['pv'] == pytest.approx(0.0)
+    assert result['ev'] == pytest.approx(0.0)
+    cat = result['categories']['Construction']
+    assert cat['bac'] == 0.0
+    assert cat['planned_pct'] == pytest.approx(180 / 364, abs=0.001)
+    assert cat['actual_pct']  == pytest.approx(90  / 364, abs=0.001)
+
+
+# ── WBS ancestor nesting ─────────────────────────────────────────────────────
+
+def test_wbs_ancestor_matching(test_config):
+    data = make_schedule()
+    # Place a child WBS under 'Phase I Construction Works'
+    data.wbs['W_CHILD'] = {'name': 'Subworks', 'parent_object_id': 'W1'}
+    # Move OBJ001 onto the child — it no longer names the category directly
+    data.activities['OBJ001']['wbs_id'] = 'W_CHILD'
+    # classify_activity must still resolve it via the parent WBS name
+    result = compute(data, test_config)
+    cat = result['categories']['Construction']
+    assert cat['activity_count'] == 2
