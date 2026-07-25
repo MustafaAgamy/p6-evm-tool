@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<APIBusinessObjects>
+  <Calendar>
+    <ObjectId>CAL1</ObjectId>
+    <Name>Standard Calendar</Name>
+    <StandardWorkWeek>
+      <StandardWorkHours><DayOfWeek>Saturday</DayOfWeek></StandardWorkHours>
+      <StandardWorkHours><DayOfWeek>Sunday</DayOfWeek></StandardWorkHours>
+    </StandardWorkWeek>
+  </Calendar>
+  <Project>
+    <ObjectId>1</ObjectId>
+    <Id>PRJ-001</Id>
+    <Name>Test Project</Name>
+    <DataDate>2024-07-01T00:00:00</DataDate>
+    <CurrentBaselineProjectObjectId>10</CurrentBaselineProjectObjectId>
+    <WBS>
+      <ObjectId>100</ObjectId>
+      <Name>Phase I Construction Works</Name>
+      <ParentObjectId></ParentObjectId>
+    </WBS>
+    <Activity>
+      <ObjectId>OBJ001</ObjectId>
+      <Id>ACT001</Id>
+      <Name>Activity One</Name>
+      <Status>In Progress</Status>
+      <CalendarObjectId>CAL1</CalendarObjectId>
+      <WBSObjectId>100</WBSObjectId>
+      <PercentComplete>0.5</PercentComplete>
+      <PlannedDuration>180</PlannedDuration>
+      <PlannedStartDate>2024-01-01T00:00:00</PlannedStartDate>
+      <PlannedFinishDate>2024-07-01T00:00:00</PlannedFinishDate>
+    </Activity>
+    <Activity>
+      <ObjectId>OBJ002</ObjectId>
+      <Id>ACT002</Id>
+      <Name>Activity Two</Name>
+      <Status>Not Started</Status>
+      <CalendarObjectId>CAL1</CalendarObjectId>
+      <WBSObjectId>100</WBSObjectId>
+      <PercentComplete>0</PercentComplete>
+      <PlannedDuration>184</PlannedDuration>
+      <PlannedStartDate>2024-07-01T00:00:00</PlannedStartDate>
+      <PlannedFinishDate>2024-12-31T00:00:00</PlannedFinishDate>
+    </Activity>
+    <ResourceAssignment>
+      <ActivityObjectId>OBJ001</ActivityObjectId>
+      <PlannedCost>1000</PlannedCost>
+      <ActualCost>800</ActualCost>
+    </ResourceAssignment>
+    <ResourceAssignment>
+      <ActivityObjectId>OBJ002</ActivityObjectId>
+      <PlannedCost>2000</PlannedCost>
+      <ActualCost>0</ActualCost>
+    </ResourceAssignment>
+  </Project>
+  <BaselineProject>
+    <Activity>
+      <Id>ACT001</Id>
+      <PlannedStartDate>2024-01-01T00:00:00</PlannedStartDate>
+      <PlannedFinishDate>2024-01-01T00:00:00</PlannedFinishDate>
+    </Activity>
+    <Activity>
+      <Id>ACT002</Id>
+      <PlannedStartDate>2024-07-01T00:00:00</PlannedStartDate>
+      <PlannedFinishDate>2024-12-31T00:00:00</PlannedFinishDate>
+    </Activity>
+  </BaselineProject>
+</APIBusinessObjects>
