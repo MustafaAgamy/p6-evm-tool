@@ -1,0 +1,46 @@
+name: Build & Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Release notes (shown on the GitHub Release page)'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pywebview pyinstaller playwright
+          pip install -r requirements.txt
+          playwright install chromium
+
+      - name: Build exe
+        run: pyinstaller p6evm.spec
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: P6 EVM Tool ${{ github.event.inputs.version }}
+          body: ${{ github.event.inputs.release_notes }}
+          files: dist/P6EVMTool.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
