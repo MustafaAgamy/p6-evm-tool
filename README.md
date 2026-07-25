@@ -40,6 +40,7 @@ pyinstaller p6evm.spec
 2. Results appear inline: 6 KPI tiles + category progress bars.
 3. Click **Generate PDF Report** to save a one-page PDF.
 4. The **Recent Projects** table shows the last 10 imports — click **Open** to re-load any of them.
+   Files are cached locally so they re-open even if the original has been moved or deleted.
 
 ---
 
@@ -97,6 +98,21 @@ See `sample_overrides.json` for a working example.
 
 ---
 
+## Local data storage
+
+The app stores data locally — nothing is sent to any server.
+
+| What | Where |
+|------|-------|
+| Project metrics DB | `%APPDATA%\P6EVMTool\p6evm.db` |
+| Cached XML copies | `%APPDATA%\P6EVMTool\schedules\` |
+
+Each Windows user account has its own isolated folder. Cached XMLs are capped at 20 files;
+older ones are deleted automatically. To clear all app data, delete the `P6EVMTool` folder
+from `%APPDATA%`.
+
+---
+
 ## What the report does NOT include
 
 Only data derivable from the P6 schedule is computed: Delay / Duration Status,
@@ -114,3 +130,5 @@ Progress Photos require data outside the P6 export and are out of scope.
 | "No Chrome/Chromium found" | Install Google Chrome, or run the installer (`scripts/install.*`) |
 | Numbers look off | Check `config.json` `wbs_match` strings match your project's WBS names |
 | CPI shows ≈ 1 always | P6 has AutoComputeActuals enabled — AC is derived from PV, not real cost data |
+| Recent project won't open | Original file was deleted and no cached copy exists — re-import the file |
+| Want to reset all history | Delete `%APPDATA%\P6EVMTool\` folder |

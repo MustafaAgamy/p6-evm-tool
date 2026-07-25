@@ -20,7 +20,8 @@ required on the target machine.
 | **Metrics** | `p6_evm/metrics.py` | `compute(data, config, overrides)` → EVM dict |
 | **Report** | `p6_evm/report.py` | `render_html(result, meta)` → HTML string; Chrome headless → PDF |
 | **CLI** | `cli.py` | Terminal usage (no GUI needed) |
-| **Utils** | `utils.py` | `resource_path()` for PyInstaller, `exe_dir()` for history.json |
+| **Database** | `db.py` | SQLite schema, XML caching, all DB read/write operations |
+| **Utils** | `utils.py` | `resource_path()` for PyInstaller, `app_data_dir()` / `schedules_dir()` for per-user storage |
 | **Build** | `p6evm.spec` | PyInstaller spec → `dist/P6EVMTool.exe` |
 
 ---
@@ -33,10 +34,13 @@ app.py starts server on random port → injects window.__SERVER_PORT__ into inde
 User picks XML file (Browse button or drag-drop)
   ↓
 POST /api/parse  →  parse_file() + compute()  →  JSON result (records stripped)
+              →  hash_file() dedup → cache_xml() copies to %APPDATA%/schedules/
+              →  upsert_project() + insert_snapshot() + insert_metrics() + insert_category_metrics()
   ↓
 renderResults() fills KPI tiles + category progress bars inline
   ↓
-POST /api/report  →  re-parses XML → render_html() → Chrome headless → PDF saved
+POST /api/report  →  resolve_xml_path() (original → cached fallback)
+              →  re-parses XML → render_html() → Chrome headless → PDF saved
 ```
 
 ---
@@ -47,9 +51,9 @@ POST /api/report  →  re-parses XML → render_html() → Chrome headless → P
 |--------|------|------|---------|
 | GET | `/` | — | `ui/index.html` with `window.__SERVER_PORT__` injected |
 | GET | `/ui/*` | — | Static CSS / JS |
-| GET | `/api/history` | — | JSON array of last 10 imports |
-| POST | `/api/parse` | `{path, overrides_path}` | `{ok, result}` |
-| POST | `/api/report` | `{xml_path, output_path, overrides_path}` | `{ok}` or `{ok, error}` |
+| GET | `/api/history` | — | JSON array of last 10 projects (most recent snapshot each) |
+| POST | `/api/parse` | `{path, overrides_path}` | `{ok, result, cached_path}` |
+| POST | `/api/report` | `{xml_path, cached_path, output_path, overrides_path}` | `{ok}` or `{ok, error}` |
 
 ---
 
@@ -97,9 +101,42 @@ Data bundled: `ui/`, `p6_evm/`, `config.json`. `resource_path()` in `utils.py` r
 
 ---
 
-## history.json
+## Persistence (db.py)
 
-Saved next to the `.exe` (prod) or project root (dev) — user-specific, gitignored. Stores last 10 imports: `path`, `filename`, `data_date`, `delay`, `spi`, `construction_pct`.
+**DB location:** `%APPDATA%\P6EVMTool\p6evm.db` (Windows) / `~/.p6evmtool/p6evm.db` (Mac/Linux) — one per OS user, gitignored.
+
+**XML cache:** `%APPDATA%\P6EVMTool\schedules\{hash12}_{filename}` — capped at 20 files, oldest deleted on overflow. Dedup by SHA256: importing the same file twice stores one copy.
+
+**Schema:**
+
+```
+projects         — one row per unique P6 project (identified by p6_project_id, fallback to name)
+snapshots        — one row per import event (original_path, cached_path, file_hash, data_date)
+metrics          — EVM numbers per snapshot (pv, ev, ac, spi, cpi, delay_days, overall_pcts)
+category_metrics — per-category rows per snapshot (name, weight, planned_pct, actual_pct, bac, ac)
+```
+
+**Key functions in db.py:**
+- `init_db()` — creates schema + indexes; called by `make_server()` on startup
+- `hash_file(path)` — SHA256 of file content
+- `cache_xml(path, hash)` — copies XML to schedules dir, reuses existing if hash matches
+- `upsert_project(p6_id, name)` — returns existing project id or inserts new
+- `insert_snapshot / insert_metrics / insert_category_metrics` — called together after every successful parse
+- `get_recent_projects(limit)` — one row per project, most recent snapshot, used by `/api/history`
+- `get_project_snapshots(project_id)` — all snapshots for one project, for future trend dashboards
+- `resolve_xml_path(original, cached)` — returns best available path for PDF re-generation
+- `migrate_history_json(path)` — one-time import of legacy `history.json` → renames to `.migrated`
+
+**Dashboard-ready queries (already supported by schema):**
+```sql
+-- Weekly SPI trend for a project
+SELECT data_date, spi FROM snapshots JOIN metrics USING(id) WHERE project_id = ?
+
+-- Multi-project delay comparison
+SELECT p.name, m.delay_days, m.spi FROM projects p
+JOIN snapshots s ON s.id = (SELECT id FROM snapshots WHERE project_id=p.id ORDER BY imported_at DESC LIMIT 1)
+JOIN metrics m ON m.snapshot_id = s.id
+```
 
 ---
 
