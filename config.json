@@ -1,0 +1,8 @@
+{
+    "categories": [
+        {"name": "Design Phase I", "weight": 0.015, "wbs_match": "Phase I Design"},
+        {"name": "Engineering Phase I", "weight": 0.015, "wbs_match": "Phase I Engineering"},
+        {"name": "Phase II Design", "weight": 0.02, "wbs_match": "Phase II Design"},
+        {"name": "Construction", "weight": 0.95, "wbs_match": "Phase I Construction Works"}
+    ]
+}

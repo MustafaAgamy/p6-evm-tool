@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+
+# PyInstaller build output
+build/
+dist/
+
+# Runtime user data
+history.json
+
+# Images / media dropped into the project folder
+*.jpeg
+*.jpg
+*.png
+*.gif
+*.bmp
+*.webp
+
+# Session notes and AI context files
+SESSION_NOTES.md
+session_notes.md
+
+# Superpowers / docs folders
+docs/
+.superpowers/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
