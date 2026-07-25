@@ -3,7 +3,8 @@ import json
 import os
 import sys
 from datetime import datetime, date
-from utils import resource_path, exe_dir
+from utils import resource_path, exe_dir, app_data_dir
+import db
 
 
 class _Encoder(json.JSONEncoder):
@@ -97,30 +98,56 @@ class Handler(BaseHTTPRequestHandler):
             data = parse_file(xml_path)
             result = compute(data, config, overrides=overrides)
 
-            # Strip the large records list — UI only needs the rolled-up metrics
+            # Strip the large records list — UI only needs rolled-up metrics
             safe_result = {k: v for k, v in result.items() if k != 'records'}
-            # Augment with counts the UI shows in the file info bar
             safe_result['activity_count'] = len(data.activities)
             safe_result['calendar_count'] = len(data.calendars)
-            safe_result['project_name'] = data.project.get('name', '')
+            safe_result['project_name']   = data.project.get('name', '')
 
-            _save_history(xml_path, safe_result)
-            self._json(200, {'ok': True, 'result': safe_result})
+            # ── Persist to DB ──────────────────────────────────────────────
+            file_hash   = db.hash_file(xml_path)
+            cached_path = db.cache_xml(xml_path, file_hash)
+
+            p6_id = data.project.get('id', '') or ''
+            name  = data.project.get('name', '') or os.path.basename(xml_path)
+            pid   = db.upsert_project(p6_id, name)
+
+            sid = db.insert_snapshot(
+                project_id     = pid,
+                data_date      = result.get('data_date'),
+                original_path  = xml_path,
+                cached_path    = cached_path,
+                file_hash      = file_hash,
+                activity_count = len(data.activities),
+                calendar_count = len(data.calendars),
+            )
+            db.insert_metrics(sid, result)
+            db.insert_category_metrics(sid, result.get('categories'))
+            # ──────────────────────────────────────────────────────────────
+
+            self._json(200, {'ok': True, 'result': safe_result, 'cached_path': cached_path})
 
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/report ────────────────────────────────────────────────────────
     def _handle_report(self, body):
-        xml_path = body.get('xml_path', '')
-        output_path = body.get('output_path', '')
+        xml_path     = body.get('xml_path', '')
+        output_path  = body.get('output_path', '')
         overrides_path = body.get('overrides_path')
+        cached_path  = body.get('cached_path')  # optional, sent by frontend if known
 
         if not output_path:
             self._json(200, {'ok': False, 'error': 'No output path provided'})
             return
-        if not xml_path or not os.path.isfile(xml_path):
-            self._json(200, {'ok': False, 'error': f'Original XML not found: {xml_path}. Re-import the file first.'})
+
+        # Resolve best available XML — original first, cached fallback
+        resolved = db.resolve_xml_path(xml_path, cached_path)
+        if not resolved:
+            self._json(200, {'ok': False, 'error': (
+                'Original XML not found and no cached copy available. '
+                'Re-import the file to generate a PDF.'
+            )})
             return
 
         try:
@@ -138,7 +165,7 @@ class Handler(BaseHTTPRequestHandler):
                 with open(overrides_path) as f:
                     overrides = json.load(f)
 
-            data = parse_file(xml_path)
+            data   = parse_file(resolved)
             result = compute(data, config, overrides=overrides)
 
             fm = find_finish_milestone(result)
@@ -149,9 +176,9 @@ class Handler(BaseHTTPRequestHandler):
                     milestone_baseline_finish = baseline['planned_finish']
 
             meta = {
-                'project_name': data.project.get('name') or 'Weekly Report',
-                'project_id': data.project.get('id') or '',
-                'source_file': os.path.basename(xml_path),
+                'project_name':              data.project.get('name') or 'Weekly Report',
+                'project_id':                data.project.get('id') or '',
+                'source_file':               os.path.basename(resolved),
                 'milestone_baseline_finish': milestone_baseline_finish,
             }
 
@@ -161,7 +188,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
 
-            chrome = _find_chrome()
+            chrome  = _find_chrome()
             out_path = os.path.abspath(output_path)
             subprocess.run([
                 chrome, '--headless', '--disable-gpu', '--no-sandbox',
@@ -177,10 +204,25 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/history ───────────────────────────────────────────────────────
     def _handle_history(self):
-        self._json(200, _load_history())
+        rows = db.get_recent_projects(limit=10)
+        # Normalise to the shape app.js already expects
+        history = []
+        for r in rows:
+            history.append({
+                'path':             r.get('original_path', ''),
+                'cached_path':      r.get('cached_path', ''),
+                'filename':         os.path.basename(r.get('original_path') or r.get('name') or ''),
+                'data_date':        r.get('data_date', ''),
+                'delay':            r.get('delay'),
+                'spi':              r.get('spi'),
+                'construction_pct': r.get('construction_pct'),
+                'project_id':       r.get('project_id'),
+                'snapshot_id':      r.get('snapshot_id'),
+            })
+        self._json(200, history)
 
 
-# ── Chrome finder (mirrors generate_report.py) ─────────────────────────────
+# ── Chrome finder ──────────────────────────────────────────────────────────
 CHROME_CANDIDATES = [
     r'C:\Program Files\Google\Chrome\Application\chrome.exe',
     r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
@@ -200,41 +242,16 @@ def _find_chrome():
         if os.path.exists(path):
             return path
     raise RuntimeError(
-        'No Chrome/Chromium found. Install Google Chrome or run: pip install playwright && playwright install chromium'
+        'No Chrome/Chromium found. Install Google Chrome or run: '
+        'pip install playwright && playwright install chromium'
     )
 
 
-# ── History helpers ────────────────────────────────────────────────────────
-def _history_file():
-    return os.path.join(exe_dir(), 'history.json')
-
-def _load_history():
-    path = _history_file()
-    if not os.path.exists(path):
-        return []
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return []
-
-def _save_history(xml_path, result):
-    history = _load_history()
-    categories = result.get('categories') or {}
-    construction = categories.get('Construction', {})
-    entry = {
-        'path':             xml_path,
-        'filename':         os.path.basename(xml_path),
-        'data_date':        str(result.get('data_date', '')),
-        'delay':            result.get('delay_days'),
-        'spi':              result.get('spi'),
-        'construction_pct': construction.get('actual_pct'),
-    }
-    history = [h for h in history if h.get('path') != xml_path]
-    history.insert(0, entry)
-    with open(_history_file(), 'w') as f:
-        json.dump(history[:10], f, indent=2, cls=_Encoder)
-
-
 def make_server():
+    # Run migration from legacy history.json if it exists
+    legacy = os.path.join(exe_dir(), 'history.json')
+    if os.path.exists(legacy):
+        db.migrate_history_json(legacy)
+
+    db.init_db()
     return HTTPServer(('127.0.0.1', 0), Handler)

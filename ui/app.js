@@ -3,7 +3,8 @@
 // ── State ──────────────────────────────────────────────────────────────────
 let serverPort = null;
 let currentResult = null;
-let currentXmlPath = null;  // needed by /api/report to re-parse for PDF
+let currentXmlPath = null;
+let currentCachedPath = null;  // fallback for PDF if original file is moved/deleted
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 function initTheme() {
@@ -63,8 +64,9 @@ async function importFile(filePath) {
       showError(data.error || 'Parse failed.');
       return;
     }
-    currentResult  = data.result;
-    currentXmlPath = filePath;
+    currentResult     = data.result;
+    currentXmlPath    = filePath;
+    currentCachedPath = data.cached_path || null;
     renderResults(data.result, filePath);
     loadHistory();
   } catch (err) {
@@ -99,8 +101,9 @@ function clearError() {
 function loadAnother() {
   document.getElementById('results-section').classList.add('hidden');
   document.getElementById('topbar-sub').textContent = 'Home · Import';
-  currentResult  = null;
-  currentXmlPath = null;
+  currentResult     = null;
+  currentXmlPath    = null;
+  currentCachedPath = null;
   loadHistory();
 }
 
@@ -221,7 +224,8 @@ function renderHistory(history) {
     const spiCol   = h.spi != null ? kpiColor(h.spi, 'index') : '';
     const pct      = h.construction_pct != null ? (h.construction_pct * 100) : null;
     // Escape the path for use in inline onclick
-    const safePath = h.path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const safePath   = (h.path || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const safeCached = (h.cached_path || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
     return `
       <tr>
@@ -238,15 +242,18 @@ function renderHistory(history) {
           ` : '<span style="color:var(--muted)">—</span>'}
         </td>
         <td>
-          <button class="open-btn" onclick="openFromHistory('${safePath}')">Open</button>
+          <button class="open-btn" onclick="openFromHistory('${safePath}','${safeCached}')">Open</button>
         </td>
       </tr>
     `;
   }).join('');
 }
 
-async function openFromHistory(filePath) {
-  await importFile(filePath);
+async function openFromHistory(filePath, cachedPath) {
+  // Use original path if it still exists, otherwise fall back to the cached copy
+  const path = filePath || cachedPath;
+  currentCachedPath = cachedPath || null;
+  await importFile(path);
 }
 
 // ── PDF generation ─────────────────────────────────────────────────────────
@@ -264,7 +271,12 @@ async function generatePdf() {
     const resp = await fetch(`http://localhost:${serverPort}/api/report`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ xml_path: currentXmlPath, output_path: outputPath, overrides_path: null }),
+      body:    JSON.stringify({
+        xml_path:      currentXmlPath,
+        cached_path:   currentCachedPath,
+        output_path:   outputPath,
+        overrides_path: null,
+      }),
     });
     const data = await resp.json();
     if (!data.ok) {

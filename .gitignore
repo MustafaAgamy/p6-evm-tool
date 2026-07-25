@@ -13,6 +13,8 @@ dist/
 
 # Runtime user data
 history.json
+history.json.migrated
+p6evm.db
 
 # Images / media dropped into the project folder
 *.jpeg
