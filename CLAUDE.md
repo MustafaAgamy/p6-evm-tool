@@ -177,7 +177,7 @@ or manual release note inputs**; the changelog is the single source of truth.
 | Multi-project comparison | SQL join across `projects → snapshots → metrics` |
 | PDF generation | Exception — needs full `ScheduleData.baseline_by_id`; re-parse is acceptable here |
 
-**Known gap:** importing the same file twice re-parses even though the hash matches an existing snapshot. Fix before dashboard work: in `_handle_parse`, if `file_hash` matches an existing snapshot with metrics, call `get_project_result` and return early.
+**Re-importing the same file:** always re-parses and creates a new snapshot — intentional. The hash covers only the XML, not `config.json`, so silently returning the cached result would show stale metrics if the user changed category weights between imports. A blocking "file already exists" prompt is not needed; the Browse/drag-drop action itself is the user's intent signal. A future nice-to-have: a subtle info line in the results bar ("Previously imported on [date] · results updated") so the user passively knows there was a prior import — not blocking, just context.
 
 ---
 
