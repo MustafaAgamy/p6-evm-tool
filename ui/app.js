@@ -2,10 +2,12 @@ import { state }                              from './modules/state.js';
 import { initTheme, toggleTheme }            from './modules/theme.js';
 import { importFile, loadProject, loadHistory, generatePdf, deleteProject } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
+import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
   initTheme();
+  initTooltips();
   loadHistory();
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);

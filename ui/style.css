@@ -231,13 +231,9 @@ body {
 .btn-secondary:hover { background: var(--card-bg); }
 
 /* ── Tooltips ─────────────────────────────────────────────────────────────── */
-[data-tooltip] { position: relative; }
-[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+/* ── Global tooltip (positioned by tooltip.js — never overflows viewport) ── */
+#g-tooltip {
+  position: fixed;
   background: var(--text);
   color: var(--bg);
   font-size: 11px;
@@ -248,9 +244,9 @@ body {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s;
-  z-index: 100;
+  z-index: 9999;
 }
-[data-tooltip]:hover::after { opacity: 1; }
+#g-tooltip.visible { opacity: 1; }
 
 /* ── Light-mode surface reinforcement ───────────────────────────────────── */
 :root.light .kpi-tile {
