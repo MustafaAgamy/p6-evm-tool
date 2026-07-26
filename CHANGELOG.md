@@ -5,6 +5,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [v1.0.4] - 2026-07-26
+### Added
+- "Previously imported on [date] · results updated" note in the file info bar when the same XML is imported again
+
+### Fixed
+- Flash of dark theme on startup — theme class now applied synchronously before first paint
+- Tooltips no longer clip at screen edges — replaced CSS pseudo-element tooltips with a single JS-positioned element that clamps to the viewport and flips direction automatically; all future `data-tooltip` elements get this behaviour for free
+
+### Performance
+- Opening an existing project from Recent Projects now loads stored metrics from SQLite instead of re-parsing the XML file
+
+---
+
 ## [v1.0.3] - 2026-07-25
 ### Added
 - Project delete button in Recent Projects table — removes all snapshots and metrics for a project
