@@ -22,11 +22,33 @@ jobs:
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME}"
-          # Extract the block between ## [TAG] and the next ## [
+          REPO="${{ github.repository }}"
+
+          # 1. Extract the human-written block from CHANGELOG.md
           NOTES=$(awk "/^## \[${TAG}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
           if [ -z "$NOTES" ]; then
             NOTES="See CHANGELOG.md for details."
           fi
+
+          # 2. Build commit list since the previous tag, excluding changelog bumps
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -1)
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..${TAG}"
+          else
+            RANGE="${TAG}"
+          fi
+          COMMITS=$(git log "$RANGE" --no-merges \
+            --pretty="format:* %s ([%h](https://github.com/${REPO}/commit/%H))" \
+            | grep -v "^\* chore: bump changelog")
+
+          # 3. Combine
+          if [ -n "$COMMITS" ]; then
+            NOTES="${NOTES}
+
+## Commits
+${COMMITS}"
+          fi
+
           {
             echo "notes<<EOF"
             echo "$NOTES"
