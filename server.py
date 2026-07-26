@@ -109,8 +109,9 @@ class Handler(BaseHTTPRequestHandler):
             safe_result['project_name']   = data.project.get('name', '')
 
             # ── Persist to DB ──────────────────────────────────────────────
-            file_hash   = db.hash_file(xml_path)
-            cached_path = db.cache_xml(xml_path, file_hash)
+            file_hash      = db.hash_file(xml_path)
+            prior_import   = db.get_prior_import_date(file_hash)
+            cached_path    = db.cache_xml(xml_path, file_hash)
 
             p6_id = data.project.get('id', '') or ''
             name  = data.project.get('name', '') or os.path.basename(xml_path)
@@ -129,7 +130,8 @@ class Handler(BaseHTTPRequestHandler):
             db.insert_category_metrics(sid, result.get('categories'))
             # ──────────────────────────────────────────────────────────────
 
-            self._json(200, {'ok': True, 'result': safe_result, 'cached_path': cached_path})
+            self._json(200, {'ok': True, 'result': safe_result, 'cached_path': cached_path,
+                             'previous_import': prior_import})
 
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

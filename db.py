@@ -252,6 +252,21 @@ def delete_project(project_id):
             conn.execute('DELETE FROM snapshots WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM projects WHERE id = ?', (project_id,))
 
+def get_prior_import_date(file_hash):
+    """
+    Return the imported_at timestamp of the most recent snapshot with this
+    file_hash, or None if this is the first time the file is seen.
+    Called before inserting a new snapshot so the result reflects only
+    genuinely prior imports.
+    """
+    with get_conn() as conn:
+        row = conn.execute(
+            'SELECT imported_at FROM snapshots WHERE file_hash = ? ORDER BY imported_at DESC LIMIT 1',
+            (file_hash,)
+        ).fetchone()
+    return row['imported_at'] if row else None
+
+
 def get_project_result(project_id):
     """
     Load the stored result for a project's most recent snapshot directly from

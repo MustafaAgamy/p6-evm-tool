@@ -21,7 +21,7 @@ export async function importFile(filePath, { showSpinner = true } = {}) {
     state.currentResult      = data.result;
     state.currentXmlPath     = filePath;
     state.currentCachedPath  = data.cached_path || null;
-    renderResults(data.result, filePath);
+    renderResults(data.result, filePath, { previousImport: data.previous_import || null });
     await loadHistory();
   } catch {
     showError('Could not reach the local server. Try restarting the app.');

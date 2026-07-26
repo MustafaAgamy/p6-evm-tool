@@ -37,14 +37,17 @@ export function loadAnother() {
   state.currentCachedPath  = null;
 }
 
-export function renderResults(result, filePath) {
+export function renderResults(result, filePath, { previousImport = null } = {}) {
   const filename = filePath.split(/[\\/]/).pop();
   const dataDate = fmtDate(result.data_date);
   const actCount = result.activity_count ?? '?';
   const calCount = result.calendar_count  ?? '?';
 
+  const prevNote = previousImport
+    ? `  ·  Previously imported ${fmtDate(previousImport.slice(0, 10))} · results updated`
+    : '';
   document.getElementById('file-info-bar').textContent =
-    `${filename}  ·  Data date: ${dataDate}  ·  ${actCount} activities  ·  ${calCount} calendars`;
+    `${filename}  ·  Data date: ${dataDate}  ·  ${actCount} activities  ·  ${calCount} calendars${prevNote}`;
   document.getElementById('topbar-sub').textContent = `${filename} · ${dataDate}`;
 
   const delay  = result.delay_days;
