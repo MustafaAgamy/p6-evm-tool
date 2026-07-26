@@ -38,6 +38,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_parse(body)
         elif self.path == '/api/report':
             self._handle_report(body)
+        elif self.path == '/api/project/load':
+            self._handle_project_load(body)
         elif self.path == '/api/project/delete':
             self._handle_project_delete(body)
         else:
@@ -203,6 +205,22 @@ class Handler(BaseHTTPRequestHandler):
 
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/project/load ─────────────────────────────────────────────────
+    def _handle_project_load(self, body):
+        """Return stored metrics for a project without re-parsing the XML."""
+        project_id = body.get('project_id')
+        if not project_id:
+            self._json(200, {'ok': False, 'error': 'project_id required'})
+            return
+        result = db.get_project_result(project_id)
+        if result is None:
+            self._json(200, {'ok': False, 'error': 'Project not found'})
+            return
+        cached_path   = result.pop('_cached_path', None)
+        original_path = result.pop('_original_path', None)
+        self._json(200, {'ok': True, 'result': result,
+                         'cached_path': cached_path, 'original_path': original_path})
 
     # ── /api/project/delete ────────────────────────────────────────────────
     def _handle_project_delete(self, body):

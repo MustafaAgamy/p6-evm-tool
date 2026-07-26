@@ -126,6 +126,7 @@ export function renderHistory(history) {
               class="open-btn"
               data-path="${escapeHtml(h.path)}"
               data-cached="${escapeHtml(h.cached_path)}"
+              data-project-id="${escapeHtml(h.project_id)}"
               data-tooltip="Re-open this schedule"
             >Open</button>
             <button

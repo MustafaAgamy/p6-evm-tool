@@ -252,6 +252,68 @@ def delete_project(project_id):
             conn.execute('DELETE FROM snapshots WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM projects WHERE id = ?', (project_id,))
 
+def get_project_result(project_id):
+    """
+    Load the stored result for a project's most recent snapshot directly from
+    the DB — no XML parsing, no metric recomputation.
+    Returns a dict shaped identically to what /api/parse puts in data['result'],
+    or None if the project doesn't exist.
+    """
+    with get_conn() as conn:
+        snap = conn.execute(
+            '''SELECT s.id, s.data_date, s.activity_count, s.calendar_count,
+                      s.original_path, s.cached_path,
+                      p.name AS project_name,
+                      m.pv, m.ev, m.ac, m.spi, m.cpi, m.delay_days,
+                      m.overall_planned_pct, m.overall_actual_pct, m.variance
+               FROM snapshots s
+               JOIN projects p ON p.id = s.project_id
+               LEFT JOIN metrics m ON m.snapshot_id = s.id
+               WHERE s.project_id = ?
+               ORDER BY s.imported_at DESC LIMIT 1''',
+            (project_id,)
+        ).fetchone()
+        if not snap:
+            return None
+        cats = conn.execute(
+            '''SELECT name, weight, planned_pct, actual_pct, bac, ac,
+                      activity_count, overridden
+               FROM category_metrics WHERE snapshot_id = ?''',
+            (snap['id'],)
+        ).fetchall()
+
+    categories = {
+        c['name']: {
+            'weight':         c['weight'],
+            'planned_pct':    c['planned_pct'],
+            'actual_pct':     c['actual_pct'],
+            'bac':            c['bac'],
+            'ac':             c['ac'],
+            'activity_count': c['activity_count'],
+            'overridden':     bool(c['overridden']),
+        }
+        for c in cats
+    }
+    return {
+        'pv':                  snap['pv'],
+        'ev':                  snap['ev'],
+        'ac':                  snap['ac'],
+        'spi':                 snap['spi'],
+        'cpi':                 snap['cpi'],
+        'delay_days':          snap['delay_days'],
+        'variance':            snap['variance'],
+        'overall_planned_pct': snap['overall_planned_pct'],
+        'overall_actual_pct':  snap['overall_actual_pct'],
+        'data_date':           snap['data_date'],
+        'activity_count':      snap['activity_count'],
+        'calendar_count':      snap['calendar_count'],
+        'project_name':        snap['project_name'],
+        'categories':          categories,
+        '_cached_path':        snap['cached_path'],
+        '_original_path':      snap['original_path'],
+    }
+
+
 def get_project_snapshots(project_id):
     """All snapshots for one project — for trend charts (future dashboards)."""
     with get_conn() as conn:

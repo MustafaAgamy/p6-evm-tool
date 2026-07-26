@@ -46,6 +46,24 @@ class ButtonState {
   success(text, delay = 2500) { this.el.textContent = text; setTimeout(() => this.reset(), delay); }
 }
 
+export async function loadProject(projectId, filePath, cachedPath) {
+  clearError();
+  try {
+    const data = await apiFetch('api/project/load', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ project_id: projectId }),
+    });
+    if (!data.ok) { showError(data.error || 'Load failed.'); return; }
+    state.currentResult      = data.result;
+    state.currentXmlPath     = filePath   || data.original_path || '';
+    state.currentCachedPath  = cachedPath || data.cached_path   || null;
+    renderResults(data.result, state.currentXmlPath || cachedPath || '');
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  }
+}
+
 export async function deleteProject(projectId) {
   return apiFetch('api/project/delete', {
     method:  'POST',

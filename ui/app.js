@@ -1,6 +1,6 @@
 import { state }                              from './modules/state.js';
 import { initTheme, toggleTheme }            from './modules/theme.js';
-import { importFile, loadHistory, generatePdf, deleteProject } from './modules/api.js';
+import { importFile, loadProject, loadHistory, generatePdf, deleteProject } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -51,16 +51,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Open button
     const openBtn = e.target.closest('.open-btn');
     if (openBtn) {
-      const filePath   = openBtn.dataset.path   || '';
-      const cachedPath = openBtn.dataset.cached || '';
-      const path = filePath || cachedPath;
-      if (!path) return;
-      state.currentCachedPath = cachedPath || null;
+      const filePath   = openBtn.dataset.path      || '';
+      const cachedPath = openBtn.dataset.cached    || '';
+      const projectId  = openBtn.dataset.projectId || '';
       const origText = openBtn.textContent;
       openBtn.disabled = true;
       openBtn.textContent = '…';
       try {
-        await importFile(path, { showSpinner: false });
+        await loadProject(projectId, filePath, cachedPath);
         document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } finally {
         openBtn.disabled = false;
