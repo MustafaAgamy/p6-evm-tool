@@ -123,6 +123,7 @@ category_metrics — per-category rows per snapshot (name, weight, planned_pct, 
 - `upsert_project(p6_id, name)` — returns existing project id or inserts new
 - `insert_snapshot / insert_metrics / insert_category_metrics` — called together after every successful parse
 - `get_recent_projects(limit)` — one row per project, most recent snapshot, used by `/api/history`
+- `get_project_result(project_id)` — full result dict for the most recent snapshot, used by `/api/project/load` (no XML touched)
 - `get_project_snapshots(project_id)` — all snapshots for one project, for future trend dashboards
 - `resolve_xml_path(original, cached)` — returns best available path for PDF re-generation
 - `migrate_history_json(path)` — one-time import of legacy `history.json` → renames to `.migrated`
@@ -161,6 +162,22 @@ via PyInstaller and creates a GitHub Release. It extracts the `[vX.Y.Z]` section
 or manual release note inputs**; the changelog is the single source of truth.
 
 **Never tag without updating `CHANGELOG.md` first.**
+
+---
+
+## Architectural rule: DB is the read path, XML is the write path
+
+**Parse once, read from DB forever.** XML parsing and metric computation happen exactly once — on import (`POST /api/parse`). Every subsequent read (re-opening a project, dashboard charts, trend views) must query the DB, never re-parse.
+
+| Operation | Path |
+|-----------|------|
+| New import | `parse_file()` → `compute()` → `insert_snapshot/metrics/category_metrics` |
+| Re-open existing project | `GET db.get_project_result(project_id)` via `/api/project/load` |
+| Dashboard trend chart | `get_project_snapshots(project_id)` — all snapshots, no XML |
+| Multi-project comparison | SQL join across `projects → snapshots → metrics` |
+| PDF generation | Exception — needs full `ScheduleData.baseline_by_id`; re-parse is acceptable here |
+
+**Known gap:** importing the same file twice re-parses even though the hash matches an existing snapshot. Fix before dashboard work: in `_handle_parse`, if `file_hash` matches an existing snapshot with metrics, call `get_project_result` and return early.
 
 ---
 
