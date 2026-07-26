@@ -43,10 +43,7 @@ jobs:
 
           # 3. Combine
           if [ -n "$COMMITS" ]; then
-            NOTES="${NOTES}
-
-## Commits
-${COMMITS}"
+            NOTES=$(printf '%s\n\n## Commits\n%s' "$NOTES" "$COMMITS")
           fi
 
           {
