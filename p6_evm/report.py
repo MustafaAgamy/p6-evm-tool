@@ -30,7 +30,52 @@ def bar_svg(pairs, width=560, bar_h=28, gap=14, max_value=None, value_fmt=None):
     return f'<svg viewBox="0 0 {width} {height}" width="100%" height="{height}">{"".join(rows)}</svg>'
 
 
-def render_html(result, meta):
+def render_audit_section(audit):
+    """HTML for the Schedule Health section of the PDF. Empty string if no audit."""
+    if not audit:
+        return ''
+    ov = audit.get('scores', {}).get('overall', {})
+    counts = audit.get('counts', {})
+    by_sev = counts.get('by_severity', {})
+    total_areas = audit.get('total_review_areas', 5)
+    evaluated = ov.get('categories_evaluated', 0)
+    sev_bits = ' &nbsp; '.join(
+        f'{s}: {by_sev.get(s, 0)}' for s in ('Critical', 'High', 'Medium', 'Low')
+    )
+    rows = []
+    for f in audit.get('findings', []):
+        rows.append(f'''
+          <tr>
+            <td>{html.escape(f.get('severity', ''))}</td>
+            <td>{html.escape(f.get('check_name', ''))}</td>
+            <td>{html.escape(f.get('activity_id', ''))}<br>
+                <span style="color:#666;font-size:11px">{html.escape(f.get('activity_name', ''))}</span></td>
+            <td style="font-size:11px;color:#555">{html.escape(f.get('wbs_path', ''))}</td>
+            <td>{html.escape(f.get('summary', ''))}<br>
+                <span style="color:#666;font-size:11px">{html.escape(f.get('recommendation', ''))}</span></td>
+          </tr>''')
+    findings_table = (
+        '<table class="data"><tr><th>Severity</th><th>Check</th>'
+        '<th>Activity</th><th>WBS Path</th><th>Issue &amp; Recommendation</th></tr>'
+        + ''.join(rows) + '</table>'
+    ) if rows else '<p class="note">No findings — the schedule passed all built checks.</p>'
+    return f'''
+      <h2>Schedule Health</h2>
+      <div class="kpi-row">
+        <div class="kpi"><div class="label">Health Score</div>
+             <div class="value">{ov.get('score', '—')} / 100</div></div>
+        <div class="kpi"><div class="label">Grade</div>
+             <div class="value">{html.escape(str(ov.get('grade', '—')))}</div></div>
+        <div class="kpi"><div class="label">Findings</div>
+             <div class="value">{counts.get('total', 0)}</div></div>
+      </div>
+      <p class="note">Based on {evaluated} of {total_areas} review areas built so far
+         (Schedule Logic &amp; Float Analysis). &nbsp; {sev_bits}</p>
+      {findings_table}
+    '''
+
+
+def render_html(result, meta, audit=None):
     fm = find_finish_milestone(result)
     delay = result['delay_days']
 
@@ -82,6 +127,8 @@ def render_html(result, meta):
             <td class="num">{delay}</td>
           </tr>
         '''
+
+    audit_section = render_audit_section(audit)
 
     excluded_note = '''
       <p class="note">
@@ -154,6 +201,8 @@ def render_html(result, meta):
         {"".join(cat_rows)}
       </table>
       {category_bar}
+
+      {audit_section}
 
       {excluded_note}
 
