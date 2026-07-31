@@ -6,6 +6,16 @@ from p6_evm.calendars import Calendar
 
 DATETIME_FMT = '%Y-%m-%dT%H:%M:%S'
 
+XML_TASK_TYPE = {
+    'Task Dependent': 'Task', 'Resource Dependent': 'ResourceDependent',
+    'Level of Effort': 'LOE', 'Start Milestone': 'StartMilestone',
+    'Finish Milestone': 'FinishMilestone', 'WBS Summary': 'WBSSummary',
+}
+XML_REL_TYPE = {
+    'Finish to Start': 'FS', 'Start to Start': 'SS',
+    'Finish to Finish': 'FF', 'Start to Finish': 'SF',
+}
+
 
 def parse_datetime(s):
     if not s:
@@ -148,6 +158,29 @@ def parse_file(path) -> ScheduleData:
             'remaining_late_start': parse_datetime(text(act_el, 'RemainingLateStartDate')),
             'remaining_late_finish': parse_datetime(text(act_el, 'RemainingLateFinishDate')),
         }
+        # Audit fields — additive, never alter EVM keys above
+        act = data.activities[object_id]
+        act['task_type'] = XML_TASK_TYPE.get(text(act_el, 'Type'), 'Task')
+        cal = data.calendars.get(act['calendar_id'])
+        day_hours = cal.day_hours if cal else 8.0
+        tf_hours_raw = text(act_el, 'TotalFloatHours')
+        ff_hours_raw = text(act_el, 'FreeFloatHours')
+        tf_hours = parse_float(tf_hours_raw, None) if tf_hours_raw else None
+        ff_hours = parse_float(ff_hours_raw, None) if ff_hours_raw else None
+        if tf_hours is not None:
+            act['total_float_days'] = tf_hours / day_hours
+        else:
+            from p6_evm.calendars import signed_working_days
+            act['total_float_days'] = (
+                signed_working_days(cal, act['remaining_early_start'], act['remaining_late_start'])
+                if (cal and act['remaining_early_start'] and act['remaining_late_start']) else None
+            )
+        act['free_float_days'] = (ff_hours / day_hours) if ff_hours is not None else None
+        act['is_critical'] = (act['total_float_days'] is not None and act['total_float_days'] <= 0)
+        act['constraint_type'] = text(act_el, 'PrimaryConstraintType')
+        act['constraint_date'] = parse_datetime(text(act_el, 'PrimaryConstraintDate'))
+        act['activity_codes'] = {}
+        act['wbs_path'] = full_wbs_path(act['wbs_id'], data.wbs)
 
     for ra_el in project_el.findall(tag('ResourceAssignment')):
         activity_id = text(ra_el, 'ActivityObjectId')
@@ -157,5 +190,19 @@ def parse_file(path) -> ScheduleData:
         actual_cost = parse_float(text(ra_el, 'ActualCost'))
         data.bac_by_activity[activity_id] = data.bac_by_activity.get(activity_id, 0.0) + planned_cost
         data.ac_by_activity[activity_id] = data.ac_by_activity.get(activity_id, 0.0) + actual_cost
+
+    for rel_el in project_el.findall(tag('Relationship')):
+        pred = text(rel_el, 'PredecessorActivityObjectId')
+        succ = text(rel_el, 'SuccessorActivityObjectId')
+        if not pred or not succ:
+            continue
+        cal = data.calendars.get(data.activities.get(succ, {}).get('calendar_id'))
+        day_hours = cal.day_hours if cal else 8.0
+        lag_hours = parse_float(text(rel_el, 'Lag'), 0.0)
+        data.relationships.append({
+            'pred_id': pred, 'succ_id': succ,
+            'type': XML_REL_TYPE.get(text(rel_el, 'Type'), 'FS'),
+            'lag_days': (lag_hours or 0.0) / day_hours,
+        })
 
     return data
