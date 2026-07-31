@@ -12,14 +12,15 @@
             "Construction": "High"
         },
         "severity_penalties": {
-            "Critical": 25,
-            "High": 12,
-            "Medium": 5,
-            "Low": 2
+            "Critical": 40,
+            "High": 18,
+            "Medium": 8,
+            "Low": 3
         },
         "category_weights": {
             "Schedule Logic": 0.5,
             "Float Analysis": 0.5
-        }
+        },
+        "total_review_areas": 5
     }
 }
