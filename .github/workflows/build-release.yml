@@ -73,7 +73,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: P6EVMTool-${{ github.ref_name }}-${{ github.run_number }}
+          name: P6EVMTool-${{ github.run_number }}
           path: dist/P6EVMTool.exe
           retention-days: 14
 
