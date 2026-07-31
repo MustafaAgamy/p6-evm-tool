@@ -5,6 +5,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+### Added
+- **AI Schedule Audit** — the tool now reviews a schedule's quality alongside the EVM numbers:
+  - **Schedule Audit screen** (new sidebar shield + tab on the results view) showing a **Schedule Health Score** out of 100 with a grade, honestly labelled "based on 2 of 5 review areas".
+  - Four rule-based checks: **Open Ends**, **Dangling Logic**, **Circular Logic**, and **Float Analysis** (negative and excessive float).
+  - Findings list with **Activity ID + name + full WBS path**, plain-English issue and recommendation, and a stable reference code per finding; filterable by severity, check type, WBS, and free-text search.
+  - **XER import** — Primavera `.xer` exports are read into the same schedule model as XML (Browse, drag-drop, and the XER card).
+  - Audit results are **stored per import** so re-opening a project shows them instantly with no re-parse.
+  - Audit added to the **PDF report** (new Schedule Health section) and a new **Excel export** of the findings.
+### Changed
+- Schedule Health score tuned harsher so serious issues (logic loops, critical-path open ends) pull the score down clearly.
+
+---
+
 ## [v1.0.4] - 2026-07-26
 ### Added
 - "Previously imported on [date] · results updated" note in the file info bar when the same XML is imported again
