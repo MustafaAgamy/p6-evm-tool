@@ -55,6 +55,10 @@ def _detect_namespace(path):
 
 
 def parse_file(path) -> ScheduleData:
+    if path.lower().endswith('.xer'):
+        from p6_evm.xer import parse_xer
+        return parse_xer(path)
+    # ---- existing XML parsing continues unchanged below ----
     ns_uri = _detect_namespace(path)
     ns = f'{{{ns_uri}}}' if ns_uri else ''
 
