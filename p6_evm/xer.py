@@ -70,8 +70,10 @@ def parse_xer(path):
     proj = (tables.get('PROJECT') or [{}])[0]
     proj_id = proj.get('proj_id')
 
-    # Derive the human-readable project name from the root WBS node (proj_node_flag='Y')
-    root_wbs = next((w for w in tables.get('PROJWBS', []) if w.get('proj_node_flag') == 'Y'), {})
+    # Derive the human-readable project name from this project's root WBS node (proj_node_flag='Y')
+    root_wbs = next((w for w in tables.get('PROJWBS', [])
+                     if w.get('proj_node_flag') == 'Y'
+                     and (not proj_id or w.get('proj_id') in (None, '', proj_id))), {})
     data.project = {
         'object_id': proj_id,
         'id': proj.get('proj_short_name'),
@@ -117,7 +119,7 @@ def parse_xer(path):
             'calendar_id': t.get('clndr_id'),
             'wbs_id': t.get('wbs_id'),
             'task_type': TASK_TYPE.get(t.get('task_type'), 'Task'),
-            'percent_complete': _num(t.get('phys_complete_pct'), 0.0) or 0.0,
+            'percent_complete': (_num(t.get('phys_complete_pct'), 0.0) or 0.0) / 100.0,
             'planned_duration': _num(t.get('target_drtn_hr_cnt'), 0.0),
             'total_float_days': tf_days,
             'free_float_days': ff_days,

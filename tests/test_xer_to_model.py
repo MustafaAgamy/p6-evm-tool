@@ -19,7 +19,7 @@ SAMPLE = (
 def test_parse_xer_builds_model(tmp_path):
     p = tmp_path / "s.xer"; p.write_text(SAMPLE, encoding='cp1252')
     data = parse_xer(str(p))
-    assert data.project['name'] == 'TOWER33'
+    assert data.project['name'] == 'Tower 33'   # from root WBS node, not proj_short_name
     a = data.activities['1002']
     assert a['id'] == 'A240'
     assert a['task_type'] == 'Task'
@@ -49,19 +49,21 @@ def test_project_name_from_root_wbs(tmp_path):
 
 
 def test_non_zero_lag_divided_by_day_hours(tmp_path):
-    # C2: 16 hr lag on an 8 hr/day calendar should produce lag_days = 2.0
+    # C2: 16 hr lag on a 10 hr/day calendar should produce lag_days = 1.6
+    # Using 10 hr/day (not the 8 hr default) so a wrong fallback-to-8 would give 2.0 instead
     sample = (
         "ERMHDR\t19.12\n"
         "%T\tPROJECT\n%F\tproj_id\tproj_short_name\tlast_recalc_date\n%R\t1\tP1\t2026-07-24 00:00\n"
-        "%T\tCALENDAR\n%F\tclndr_id\tclndr_name\tday_hr_cnt\n%R\t10\t5-Day\t8\n"
+        "%T\tCALENDAR\n%F\tclndr_id\tclndr_name\tday_hr_cnt\n%R\t10\t10hr-Day\t10\n"
         "%T\tPROJWBS\n%F\twbs_id\twbs_name\tparent_wbs_id\tproj_node_flag\n%R\t100\tProj\t\tY\n"
         "%T\tTASK\n"
         "%F\ttask_id\tproj_id\twbs_id\tclndr_id\ttask_type\ttask_code\ttask_name\ttotal_float_hr_cnt\tfree_float_hr_cnt\tcstr_type\tcstr_date\n"
         "%R\t1001\t1\t100\t10\tTT_Task\tA1\tTask A\t0\t0\t\t\n"
-        "%R\t1002\t1\t100\t10\tTT_Task\tA2\tTask B\t80\t40\t\t\n"
+        "%R\t1002\t1\t100\t10\tTT_Task\tA2\tTask B\t100\t50\t\t\n"
         "%T\tTASKPRED\n%F\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\n%R\t1002\t1001\tPR_FS\t16\n"
         "%E\n"
     )
     p = tmp_path / "lag.xer"; p.write_text(sample, encoding='cp1252')
     data = parse_xer(str(p))
-    assert data.relationships[0]['lag_days'] == 2.0   # 16 hr / 8 hr per day
+    assert data.relationships[0]['lag_days'] == 1.6   # 16 hr / 10 hr per day
+    assert data.activities['1002']['total_float_days'] == 10.0   # 100 hr / 10 hr per day
