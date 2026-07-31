@@ -8,7 +8,7 @@ class Api:
         """Open native file picker; returns absolute path string or None."""
         result = webview.windows[0].create_file_dialog(
             webview.OPEN_DIALOG,
-            file_types=('P6 XML Files (*.xml)',)
+            file_types=('P6 Schedule Files (*.xml;*.xer)', 'P6 XML Files (*.xml)', 'P6 XER Files (*.xer)')
         )
         return result[0] if result else None
 

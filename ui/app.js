@@ -22,6 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (path) importFile(path);
   });
 
+  document.getElementById('xer-btn').addEventListener('click', async () => {
+    const path = await window.pywebview.api.choose_file();
+    if (path) importFile(path);
+  });
+
   document.getElementById('error-close').addEventListener('click', clearError);
   document.getElementById('load-another-btn').addEventListener('click', () => { loadAnother(); loadHistory(); });
   document.getElementById('pdf-btn').addEventListener('click', generatePdf);
@@ -41,8 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
     dropStrip.classList.remove('drag-over');
     const file = e.dataTransfer.files[0];
     if (!file) return;
-    if (!file.path || !file.path.toLowerCase().endsWith('.xml')) {
-      showError('Please drop a .xml file exported from Primavera P6.');
+    const ext = file.path ? file.path.toLowerCase().split('.').pop() : '';
+    if (!file.path || !['xml', 'xer'].includes(ext)) {
+      showError('Please drop a .xml or .xer file exported from Primavera P6.');
       return;
     }
     importFile(file.path);
