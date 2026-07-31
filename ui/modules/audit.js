@@ -46,7 +46,9 @@ export function switchView(view) {
   document.getElementById('audit-panel').classList.toggle('hidden', view !== 'audit');
   document.getElementById('tab-evm').classList.toggle('active', view === 'evm');
   document.getElementById('tab-audit').classList.toggle('active', view === 'audit');
+  // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
   document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
+  document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');
 }
 
 export function renderAudit(audit) {

@@ -35,6 +35,9 @@ export function clearError() {
 export function loadAnother() {
   document.getElementById('results-section').classList.add('hidden');
   document.getElementById('topbar-sub').textContent = 'Home · Import';
+  // Back to the import screen: Home highlighted, Audit shield cleared.
+  document.getElementById('sb-home-btn').classList.add('active');
+  document.getElementById('sb-audit-btn').classList.remove('active');
   state.currentResult      = null;
   state.currentXmlPath     = null;
   state.currentCachedPath  = null;
