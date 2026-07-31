@@ -16,7 +16,7 @@ def check_float(graph, config):
             cat = act.get('category')
             findings.append(Finding(
                 check_id='FLOAT-001', check_name='Float Analysis', category=cat,
-                severity=resolve_severity('High', cat, True, config),  # negative float => behind => critical-ish
+                severity=resolve_severity('High', cat, bool(act.get('is_critical')), config),
                 activity_id=act['id'], activity_name=act['name'], wbs_path=graph.wbs_path(oid),
                 summary='Negative float — activity is behind the schedule need date',
                 basis=f'total_float = {tf:g} working days',

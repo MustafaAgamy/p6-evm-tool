@@ -18,6 +18,10 @@ class ScheduleGraph:
     def preds_of(self, oid):
         return self._pred.get(oid, [])
 
+    # Plan-documented aliases
+    successors = succs_of
+    predecessors = preds_of
+
     def is_real_activity(self, oid):
         act = self.activities.get(oid)
         return bool(act) and act.get('task_type') == 'Task'

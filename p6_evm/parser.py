@@ -2,7 +2,7 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-from p6_evm.calendars import Calendar
+from p6_evm.calendars import Calendar, signed_working_days
 
 DATETIME_FMT = '%Y-%m-%dT%H:%M:%S'
 
@@ -107,9 +107,11 @@ def parse_file(path) -> ScheduleData:
                     added_work.add(d.date())
                 else:
                     holidays.add(d.date())
+        hours_raw = text(cal_el, 'HoursPerDay')
         data.calendars[object_id] = Calendar(
             object_id=object_id, name=name, nonworking_days=nonworking,
             holidays=holidays, added_work_days=added_work,
+            day_hours=parse_float(hours_raw, 8.0) or 8.0,
         )
 
     project_el = root.find(tag('Project'))
@@ -170,7 +172,6 @@ def parse_file(path) -> ScheduleData:
         if tf_hours is not None:
             act['total_float_days'] = tf_hours / day_hours
         else:
-            from p6_evm.calendars import signed_working_days
             act['total_float_days'] = (
                 signed_working_days(cal, act['remaining_early_start'], act['remaining_late_start'])
                 if (cal and act['remaining_early_start'] and act['remaining_late_start']) else None

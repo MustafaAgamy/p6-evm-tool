@@ -8,7 +8,8 @@ PRED_TYPE = {'PR_FS': 'FS', 'PR_SS': 'SS', 'PR_FF': 'FF', 'PR_SF': 'SF'}
 
 
 def _read_text(path):
-    for enc in ('cp1252', 'utf-8'):
+    # Try UTF-8 first (fails loudly on cp1252 high bytes); cp1252 last resort
+    for enc in ('utf-8-sig', 'cp1252'):
         try:
             with open(path, encoding=enc) as f:
                 return f.read()
@@ -67,10 +68,14 @@ def parse_xer(path):
     data = ScheduleData()
 
     proj = (tables.get('PROJECT') or [{}])[0]
+    proj_id = proj.get('proj_id')
+
+    # Derive the human-readable project name from the root WBS node (proj_node_flag='Y')
+    root_wbs = next((w for w in tables.get('PROJWBS', []) if w.get('proj_node_flag') == 'Y'), {})
     data.project = {
-        'object_id': proj.get('proj_id'),
+        'object_id': proj_id,
         'id': proj.get('proj_short_name'),
-        'name': proj.get('proj_short_name'),
+        'name': root_wbs.get('wbs_name') or proj.get('proj_short_name'),
         'data_date': _dt(proj.get('last_recalc_date')),
         'baseline_object_id': None,
     }
@@ -82,13 +87,19 @@ def parse_xer(path):
             day_hours=_num(c.get('day_hr_cnt'), 8.0) or 8.0,
         )
 
+    # Only import WBS nodes belonging to this project
     for w in tables.get('PROJWBS', []):
+        if proj_id and w.get('proj_id') not in (None, '', proj_id):
+            continue
         data.wbs[w.get('wbs_id')] = {
             'name': w.get('wbs_name'),
             'parent_object_id': w.get('parent_wbs_id') or None,
         }
 
     for t in tables.get('TASK', []):
+        # Skip activities from other projects in multi-project XER exports
+        if proj_id and t.get('proj_id') not in (None, '', proj_id):
+            continue
         oid = t.get('task_id')
         cal = data.calendars.get(t.get('clndr_id'))
         day_hours = cal.day_hours if cal else 8.0
@@ -96,6 +107,8 @@ def parse_xer(path):
         ff = _num(t.get('free_float_hr_cnt'))
         tf_days = (tf / day_hours) if tf is not None else None
         ff_days = (ff / day_hours) if ff is not None else None
+        planned_start = _dt(t.get('target_start_date'))
+        planned_finish = _dt(t.get('target_end_date'))
         data.activities[oid] = {
             'object_id': oid,
             'id': t.get('task_code'),
@@ -113,19 +126,29 @@ def parse_xer(path):
             'constraint_date': _dt(t.get('cstr_date')),
             'activity_codes': {},
             'wbs_path': full_wbs_path(t.get('wbs_id'), data.wbs),
-            # EVM-facing date fields absent in this minimal XER mapping:
-            'planned_start': None, 'planned_finish': None,
-            'remaining_early_start': None, 'remaining_early_finish': None,
-            'remaining_late_start': None, 'remaining_late_finish': None,
+            'planned_start': planned_start,
+            'planned_finish': planned_finish,
+            'remaining_early_start': _dt(t.get('remain_early_start_date')),
+            'remaining_early_finish': _dt(t.get('remain_early_end_date')),
+            'remaining_late_start': _dt(t.get('remain_late_start_date')),
+            'remaining_late_finish': _dt(t.get('remain_late_end_date')),
         }
+        # Populate baseline_by_id so EVM compute() can derive planned percentages
+        task_code = t.get('task_code')
+        if task_code:
+            data.baseline_by_id[task_code] = {
+                'planned_start': planned_start,
+                'planned_finish': planned_finish,
+            }
 
     for r in tables.get('TASKPRED', []):
         succ = r.get('task_id')
         pred = r.get('pred_task_id')
-        day_hours = 8.0
+        # Only include relationships whose both endpoints belong to this project
+        if succ not in data.activities or pred not in data.activities:
+            continue
         cal = data.calendars.get((data.activities.get(succ) or {}).get('calendar_id'))
-        if cal:
-            day_hours = cal.day_hours
+        day_hours = cal.day_hours if cal else 8.0
         lag_hr = _num(r.get('lag_hr_cnt'), 0.0) or 0.0
         data.relationships.append({
             'pred_id': pred, 'succ_id': succ,
@@ -135,7 +158,7 @@ def parse_xer(path):
 
     for ra in tables.get('TASKRSRC', []):
         tid = ra.get('task_id')
-        if not tid:
+        if not tid or tid not in data.activities:
             continue
         bac = _num(ra.get('target_cost'), 0.0) or 0.0
         ac = (_num(ra.get('act_reg_cost'), 0.0) or 0.0) + (_num(ra.get('act_ot_cost'), 0.0) or 0.0)

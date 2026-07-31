@@ -15,12 +15,12 @@ def _act(oid, **kw):
          'is_critical': False, 'wbs_path': '', 'category': None}; b.update(kw); return b
 
 
-def test_ss_only_predecessor_flags_dangling_start():
-    # b is driven only by SS from a on its start; a also FS-> nothing? give a a successor via SS to keep it out of scope for finish
+def test_ff_only_predecessor_flags_dangling_start():
+    # b is preceded only by FF from a — FF ties a's finish to b's finish, not b's start
+    # so b's start is uncontrolled (no FS or SS incoming) → dangling-start finding expected
     g = _g({'a': _act('a'), 'b': _act('b'), 'c': _act('c')},
-           [{'pred_id': 'a', 'succ_id': 'b', 'type': 'SS', 'lag_days': 0},
+           [{'pred_id': 'a', 'succ_id': 'b', 'type': 'FF', 'lag_days': 0},
             {'pred_id': 'b', 'succ_id': 'c', 'type': 'FS', 'lag_days': 0}])
-    # b: has predecessor edges (SS only) -> start not controlled -> flag
     b = [f for f in check_dangling(g, CONFIG) if f.activity_id == 'b']
     assert len(b) == 1
     assert 'start' in b[0].basis.lower()

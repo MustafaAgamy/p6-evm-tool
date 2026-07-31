@@ -38,3 +38,23 @@ def test_critical_ids():
 def test_wbs_path_reads_from_activity():
     g = ScheduleGraph(_data())
     assert g.wbs_path('b') == 'P > Enable'
+
+
+def test_unknown_relationship_endpoints_are_skipped():
+    # C1: cross-project links or dangling references must not raise KeyError
+    data = ScheduleData()
+    data.activities = {'a': {'object_id': 'a', 'id': 'A1', 'name': 'x', 'task_type': 'Task',
+                             'is_critical': False, 'wbs_path': ''}}
+    data.relationships = [
+        {'pred_id': 'a', 'succ_id': 'UNKNOWN', 'type': 'FS', 'lag_days': 0.0},
+        {'pred_id': 'MISSING', 'succ_id': 'a', 'type': 'FS', 'lag_days': 0.0},
+    ]
+    g = ScheduleGraph(data)
+    assert g.succs_of('a') == []
+    assert g.preds_of('a') == []
+
+
+def test_plan_aliases_work():
+    g = ScheduleGraph(_data())
+    assert g.successors('a') == g.succs_of('a')
+    assert g.predecessors('b') == g.preds_of('b')

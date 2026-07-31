@@ -59,17 +59,19 @@ def _sccs(graph):
 def check_circular(graph, config):
     findings = []
     for comp in _sccs(graph):
-        ids = sorted(graph.activities[o]['id'] for o in comp)
-        anchor_oid = min(comp, key=lambda o: graph.activities[o]['id'])
+        # Use fallback to object-id when activity id is None (blank task_code)
+        ids = sorted((graph.activities[o]['id'] or o) for o in comp)
+        anchor_oid = min(comp, key=lambda o: graph.activities[o]['id'] or o)
         anchor = graph.activities[anchor_oid]
-        chain = ' → '.join(ids + [ids[0]])
+        n = len(comp)
+        noun = 'activity' if n == 1 else 'activities'
         findings.append(Finding(
             check_id='LOGIC-003', check_name='Circular Logic', category=anchor.get('category'),
             severity=resolve_severity('Critical', anchor.get('category'), True, config),
-            activity_id=anchor['id'], activity_name=anchor['name'],
+            activity_id=anchor['id'] or anchor_oid, activity_name=anchor['name'] or anchor_oid,
             wbs_path=graph.wbs_path(anchor_oid),
-            summary=f'Logic loop of {len(comp)} activities — P6 cannot compute a valid schedule',
-            basis=f'cycle: {chain}',
+            summary=f'Logic loop involving {n} {noun} — P6 cannot compute a valid schedule',
+            basis=f'loop members: {", ".join(ids)}',
             recommendation='Break the loop by removing or re-typing one relationship in the chain.',
         ))
     return findings

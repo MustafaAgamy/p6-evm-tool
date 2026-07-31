@@ -32,3 +32,11 @@ def test_three_node_loop_is_one_critical_finding():
 def test_two_independent_loops_two_findings():
     g = _g([('a', 'b'), ('b', 'a'), ('c', 'd'), ('d', 'c')], ['a', 'b', 'c', 'd'])
     assert len(check_circular(g, CONFIG)) == 2
+
+
+def test_self_loop_is_detected():
+    # C4: single activity referencing itself as its own successor
+    g = _g([('a', 'a')], ['a'])
+    findings = check_circular(g, CONFIG)
+    assert len(findings) == 1
+    assert 'a' in findings[0].basis
