@@ -1,8 +1,16 @@
 // ── Pure helpers (unit-tested in tests/js/test_audit.js) ──────────────────
 
-export function filterFindings(findings, { severity, check, wbs, query } = {}) {
+export function areaOf(finding) {
+  const id = finding.check_id || '';
+  if (id.startsWith('FLOAT')) return 'Float Analysis';
+  if (id.startsWith('LOGIC')) return 'Schedule Logic';
+  return '';
+}
+
+export function filterFindings(findings, { severity, check, wbs, query, area } = {}) {
   const q = (query || '').trim().toLowerCase();
   return findings.filter(f => {
+    if (area && areaOf(f) !== area) return false;
     if (severity && f.severity !== severity) return false;
     if (check && f.check_name !== check) return false;
     if (wbs && !(f.wbs_path || '').toLowerCase().includes(wbs.toLowerCase())) return false;
@@ -39,7 +47,7 @@ import { state } from './state.js';
 import { escapeHtml } from './format.js';
 
 const SEV_ORDER = ['Critical', 'High', 'Medium', 'Low'];
-let _filters = { severity: '', check: '', wbs: '', query: '' };
+let _filters = { severity: '', check: '', wbs: '', query: '', area: '' };
 
 export function switchView(view) {
   document.getElementById('evm-panel').classList.toggle('hidden', view !== 'evm');
@@ -53,7 +61,7 @@ export function switchView(view) {
 
 export function renderAudit(audit) {
   state.currentAudit = audit || null;
-  _filters = { severity: '', check: '', wbs: '', query: '' };
+  _filters = { severity: '', check: '', wbs: '', query: '', area: '' };
   const body = document.getElementById('audit-body');
   if (!audit || !audit.findings) {
     body.innerHTML = '<p style="color:var(--muted);font-size:13px">No audit available for this schedule.</p>';
@@ -96,10 +104,11 @@ export function renderAudit(audit) {
 
 function renderCatCards(categories) {
   return Object.entries(categories || {}).map(([name, c]) => `
-    <div class="catcard">
+    <div class="catcard" data-area="${escapeHtml(name)}" title="Click to show only ${escapeHtml(name)} findings">
       <div class="cn">${escapeHtml(name)}</div>
       <div class="cv ${scoreColor(c.score)}">${c.score}</div>
       <div class="cvbar"><div class="cvfill ${scoreColor(c.score)}" style="width:${Math.max(0, Math.min(100, c.score))}%"></div></div>
+      <div class="cfoot">${c.finding_count || 0} finding${c.finding_count === 1 ? '' : 's'}</div>
     </div>`).join('');
 }
 
@@ -139,11 +148,22 @@ function wireFilters() {
       document.getElementById('f-sev').value = _filters.severity;
       syncChips(); renderRows();
     }));
+  // Score cards act as area filters (click Float Analysis → only its findings)
+  document.querySelectorAll('.catcard').forEach(card =>
+    card.addEventListener('click', () => {
+      const a = card.dataset.area;
+      _filters.area = (_filters.area === a) ? '' : a;
+      _filters.check = '';                              // area supersedes the check dropdown
+      document.getElementById('f-check').value = '';
+      syncChips(); renderRows();
+    }));
 }
 
 function syncChips() {
   document.querySelectorAll('.sevchip').forEach(c =>
     c.classList.toggle('on', _filters.severity === c.dataset.sev));
+  document.querySelectorAll('.catcard').forEach(c =>
+    c.classList.toggle('on', _filters.area === c.dataset.area));
 }
 
 function renderRows() {

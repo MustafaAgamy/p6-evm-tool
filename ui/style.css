@@ -332,9 +332,12 @@ body {
 .coverage b { color: var(--text); }
 .catcards { display: flex; flex-direction: column; gap: 10px; width: 210px; }
 .catcard { background: var(--card-bg); border: 1px solid var(--border);
-  border-radius: 10px; padding: 11px 13px; }
+  border-radius: 10px; padding: 11px 13px; cursor: pointer; transition: border-color 0.15s; }
+.catcard:hover { border-color: var(--accent); }
+.catcard.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .catcard .cn { font-size: 11px; color: var(--muted); font-weight: 600; }
 .catcard .cv { font-size: 20px; font-weight: 800; margin-top: 1px; }
+.catcard .cfoot { font-size: 10px; color: var(--muted); margin-top: 6px; }
 .catcard .cvbar { height: 5px; background: var(--border); border-radius: 3px;
   margin-top: 7px; overflow: hidden; }
 .catcard .cvfill { height: 100%; border-radius: 3px; }
