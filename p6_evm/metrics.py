@@ -28,10 +28,13 @@ def activity_planned_pct(activity, baseline_by_id, data_date, calendars):
 
 
 def activity_total_float(activity, calendars):
+    tf = activity.get('total_float_days')
+    if tf is not None:
+        return tf
     cal = calendars.get(activity['calendar_id'])
-    if activity['remaining_late_start'] and activity['remaining_early_start']:
+    if activity.get('remaining_late_start') and activity.get('remaining_early_start'):
         return signed_working_days(cal, activity['remaining_early_start'], activity['remaining_late_start'])
-    if activity['remaining_late_finish'] and activity['remaining_early_finish']:
+    if activity.get('remaining_late_finish') and activity.get('remaining_early_finish'):
         return signed_working_days(cal, activity['remaining_early_finish'], activity['remaining_late_finish'])
     return None
 

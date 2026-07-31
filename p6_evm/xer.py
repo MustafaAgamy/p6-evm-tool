@@ -130,10 +130,10 @@ def parse_xer(path):
             'wbs_path': full_wbs_path(t.get('wbs_id'), data.wbs),
             'planned_start': planned_start,
             'planned_finish': planned_finish,
-            'remaining_early_start': _dt(t.get('remain_early_start_date')),
-            'remaining_early_finish': _dt(t.get('remain_early_end_date')),
-            'remaining_late_start': _dt(t.get('remain_late_start_date')),
-            'remaining_late_finish': _dt(t.get('remain_late_end_date')),
+            'remaining_early_start': _dt(t.get('restart_date')),
+            'remaining_early_finish': _dt(t.get('reend_date')),
+            'remaining_late_start': _dt(t.get('rem_late_start_date')),
+            'remaining_late_finish': _dt(t.get('rem_late_end_date')),
         }
         # Populate baseline_by_id so EVM compute() can derive planned percentages
         task_code = t.get('task_code')
