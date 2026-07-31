@@ -7,6 +7,7 @@ import sqlite3
 import os
 import hashlib
 import shutil
+import json as _json
 from datetime import datetime, timezone
 from utils import app_data_dir, schedules_dir
 
@@ -76,12 +77,43 @@ def init_db():
                 overridden     INTEGER
             );
 
+            CREATE TABLE IF NOT EXISTS audit_scores (
+                snapshot_id          INTEGER PRIMARY KEY REFERENCES snapshots(id),
+                overall_score        REAL,
+                grade                TEXT,
+                categories_evaluated INTEGER,
+                categories_total     INTEGER,
+                total_review_areas   INTEGER,
+                categories_json      TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS audit_findings (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                snapshot_id           INTEGER NOT NULL REFERENCES snapshots(id),
+                seq                   INTEGER,
+                finding_id            TEXT,
+                check_id              TEXT,
+                check_name            TEXT,
+                category              TEXT,
+                severity              TEXT,
+                activity_id           TEXT,
+                activity_name         TEXT,
+                wbs_path              TEXT,
+                related_activity_id   TEXT,
+                related_activity_name TEXT,
+                summary               TEXT,
+                basis                 TEXT,
+                recommendation        TEXT
+            );
+
             CREATE INDEX IF NOT EXISTS idx_snapshots_project
                 ON snapshots(project_id, imported_at DESC);
             CREATE INDEX IF NOT EXISTS idx_snapshots_hash
                 ON snapshots(file_hash);
             CREATE INDEX IF NOT EXISTS idx_category_snapshot
                 ON category_metrics(snapshot_id);
+            CREATE INDEX IF NOT EXISTS idx_audit_findings_snapshot
+                ON audit_findings(snapshot_id);
         ''')
 
 
@@ -204,6 +236,98 @@ def insert_category_metrics(snapshot_id, categories):
         )
 
 
+# ── Audit persistence ──────────────────────────────────────────────────────
+
+def insert_audit(snapshot_id, audit_result, total_review_areas):
+    """Store one audit run (scores + findings) for a snapshot."""
+    scores = audit_result.get('scores', {})
+    overall = scores.get('overall', {})
+    categories = scores.get('categories', {})
+    findings = audit_result.get('findings', [])
+    with get_conn() as conn:
+        conn.execute(
+            '''INSERT OR REPLACE INTO audit_scores
+               (snapshot_id, overall_score, grade, categories_evaluated,
+                categories_total, total_review_areas, categories_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (snapshot_id, overall.get('score'), overall.get('grade'),
+             overall.get('categories_evaluated'), overall.get('categories_total'),
+             total_review_areas, _json.dumps(categories))
+        )
+        rows = []
+        for seq, f in enumerate(findings):
+            rows.append((
+                snapshot_id, seq, f.get('finding_id'), f.get('check_id'),
+                f.get('check_name'), f.get('category'), f.get('severity'),
+                f.get('activity_id'), f.get('activity_name'), f.get('wbs_path'),
+                f.get('related_activity_id'), f.get('related_activity_name'),
+                f.get('summary'), f.get('basis'), f.get('recommendation'),
+            ))
+        if rows:
+            conn.executemany(
+                '''INSERT INTO audit_findings
+                   (snapshot_id, seq, finding_id, check_id, check_name, category,
+                    severity, activity_id, activity_name, wbs_path,
+                    related_activity_id, related_activity_name, summary, basis, recommendation)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                rows
+            )
+
+
+def get_latest_snapshot_id(project_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            'SELECT id FROM snapshots WHERE project_id = ? ORDER BY imported_at DESC LIMIT 1',
+            (project_id,)
+        ).fetchone()
+    return row['id'] if row else None
+
+
+def get_audit_for_snapshot(snapshot_id):
+    """Reconstruct the {findings, scores, counts, total_review_areas} shape the
+    UI/engine use, from stored rows. Returns None if no audit was stored."""
+    with get_conn() as conn:
+        score_row = conn.execute(
+            'SELECT * FROM audit_scores WHERE snapshot_id = ?', (snapshot_id,)
+        ).fetchone()
+        if not score_row:
+            return None
+        frows = conn.execute(
+            'SELECT * FROM audit_findings WHERE snapshot_id = ? ORDER BY seq ASC',
+            (snapshot_id,)
+        ).fetchall()
+
+    findings = []
+    by_severity = {}
+    for r in frows:
+        findings.append({
+            'finding_id': r['finding_id'], 'check_id': r['check_id'],
+            'check_name': r['check_name'], 'category': r['category'],
+            'severity': r['severity'], 'activity_id': r['activity_id'],
+            'activity_name': r['activity_name'], 'wbs_path': r['wbs_path'],
+            'related_activity_id': r['related_activity_id'],
+            'related_activity_name': r['related_activity_name'],
+            'summary': r['summary'], 'basis': r['basis'],
+            'recommendation': r['recommendation'], 'confidence': None,
+        })
+        by_severity[r['severity']] = by_severity.get(r['severity'], 0) + 1
+
+    return {
+        'findings': findings,
+        'scores': {
+            'categories': _json.loads(score_row['categories_json'] or '{}'),
+            'overall': {
+                'score': score_row['overall_score'],
+                'grade': score_row['grade'],
+                'categories_evaluated': score_row['categories_evaluated'],
+                'categories_total': score_row['categories_total'],
+            },
+        },
+        'counts': {'total': len(findings), 'by_severity': by_severity},
+        'total_review_areas': score_row['total_review_areas'],
+    }
+
+
 # ── Queries ────────────────────────────────────────────────────────────────
 
 def get_recent_projects(limit=10):
@@ -247,6 +371,8 @@ def delete_project(project_id):
         ).fetchall()]
         if snap_ids:
             ph = ','.join('?' * len(snap_ids))
+            conn.execute(f'DELETE FROM audit_findings   WHERE snapshot_id IN ({ph})', snap_ids)
+            conn.execute(f'DELETE FROM audit_scores     WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM category_metrics WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM metrics          WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute('DELETE FROM snapshots WHERE project_id = ?', (project_id,))
@@ -324,6 +450,7 @@ def get_project_result(project_id):
         'calendar_count':      snap['calendar_count'],
         'project_name':        snap['project_name'],
         'categories':          categories,
+        '_snapshot_id':        snap['id'],
         '_cached_path':        snap['cached_path'],
         '_original_path':      snap['original_path'],
     }

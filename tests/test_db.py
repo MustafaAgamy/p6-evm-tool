@@ -302,3 +302,76 @@ def test_migrate_history_json_bad_json(temp_db, tmp_path):
     bad = tmp_path / 'history.json'
     bad.write_text('NOT JSON', encoding='utf-8')
     db.migrate_history_json(str(bad))   # must not raise
+
+
+# ── audit persistence ──────────────────────────────────────────────────────
+
+def _audit_result():
+    return {
+        'findings': [
+            {'finding_id': 'aaa', 'check_id': 'LOGIC-003', 'check_name': 'Circular Logic',
+             'category': 'Construction', 'severity': 'Critical', 'activity_id': 'A1',
+             'activity_name': 'Loop', 'wbs_path': 'T > S', 'related_activity_id': None,
+             'related_activity_name': None, 'summary': 'loop', 'basis': 'cycle: A1 -> A1',
+             'recommendation': 'break it', 'confidence': None},
+            {'finding_id': 'bbb', 'check_id': 'LOGIC-001', 'check_name': 'Open Ends',
+             'category': None, 'severity': 'High', 'activity_id': 'A2', 'activity_name': 'End',
+             'wbs_path': 'T', 'related_activity_id': None, 'related_activity_name': None,
+             'summary': 'no succ', 'basis': 'successor_count = 0', 'recommendation': 'link it',
+             'confidence': None},
+        ],
+        'scores': {
+            'categories': {'Schedule Logic': {'score': 40, 'finding_count': 2, 'weight': 0.5},
+                           'Float Analysis': {'score': 100, 'finding_count': 0, 'weight': 0.5}},
+            'overall': {'score': 70, 'categories_evaluated': 2, 'categories_total': 2, 'grade': 'Good'},
+        },
+        'counts': {'total': 2, 'by_severity': {'Critical': 1, 'High': 1}},
+    }
+
+
+def test_insert_and_get_audit_roundtrip(temp_db):
+    pid = db.upsert_project('P1', 'Proj')
+    sid = db.insert_snapshot(pid, '2024-07-01', '/p.xml', '/c.xml', 'h', 5, 1)
+    db.insert_audit(sid, _audit_result(), total_review_areas=5)
+    got = db.get_audit_for_snapshot(sid)
+    assert got is not None
+    assert got['total_review_areas'] == 5
+    assert got['scores']['overall']['grade'] == 'Good'
+    assert got['scores']['categories']['Schedule Logic']['score'] == 40
+    assert got['counts']['total'] == 2
+    assert got['counts']['by_severity']['Critical'] == 1
+    # order preserved: Critical finding first
+    assert got['findings'][0]['finding_id'] == 'aaa'
+    assert got['findings'][0]['wbs_path'] == 'T > S'
+
+
+def test_get_audit_none_when_absent(temp_db):
+    pid = db.upsert_project('P1', 'Proj')
+    sid = db.insert_snapshot(pid, '2024-07-01', '/p.xml', '/c.xml', 'h', 5, 1)
+    assert db.get_audit_for_snapshot(sid) is None
+
+
+def test_delete_project_clears_audit_tables(temp_db):
+    pid = db.upsert_project('P1', 'Proj')
+    sid = db.insert_snapshot(pid, '2024-07-01', '/p.xml', '/c.xml', 'h', 5, 1)
+    db.insert_audit(sid, _audit_result(), total_review_areas=5)
+    db.delete_project(pid)
+    conn = sqlite3.connect(temp_db / 'p6evm.db')
+    assert conn.execute('SELECT COUNT(*) FROM audit_findings').fetchone()[0] == 0
+    assert conn.execute('SELECT COUNT(*) FROM audit_scores').fetchone()[0] == 0
+    conn.close()
+
+
+def test_get_latest_snapshot_id(temp_db):
+    pid = db.upsert_project('P1', 'Proj')
+    s1 = db.insert_snapshot(pid, '2024-06-01', '/a.xml', '/c.xml', 'h1', 5, 1)
+    s2 = db.insert_snapshot(pid, '2024-07-01', '/b.xml', '/c.xml', 'h2', 5, 1)
+    assert db.get_latest_snapshot_id(pid) == s2
+
+
+def test_get_project_result_includes_snapshot_id(temp_db):
+    pid = db.upsert_project('P1', 'Proj')
+    sid = db.insert_snapshot(pid, '2024-07-01', '/p.xml', '/c.xml', 'h', 5, 1)
+    db.insert_metrics(sid, {'spi': 0.9})
+    res = db.get_project_result(pid)
+    assert res['_snapshot_id'] == sid
