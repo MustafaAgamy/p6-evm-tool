@@ -19,6 +19,12 @@
           <polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
       </button>
+      <button class="sb-item" id="sb-audit-btn" title="Schedule Audit">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </button>
       <button class="sb-item disabled" title="Reports (coming soon)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="20" x2="18" y2="10"/>
@@ -125,11 +131,27 @@
       <!-- Results section (hidden until a file is parsed) -->
       <section class="results-section hidden" id="results-section">
         <div class="file-info-bar" id="file-info-bar"></div>
-        <div class="kpi-row" id="kpi-row"></div>
-        <div class="category-progress" id="category-progress"></div>
-        <div class="action-buttons">
-          <button class="btn-secondary" id="load-another-btn">Load Another File</button>
-          <button class="btn-primary" id="pdf-btn">Generate PDF Report</button>
+
+        <div class="view-tabs">
+          <button class="view-tab active" id="tab-evm" data-view="evm">EVM Results</button>
+          <button class="view-tab" id="tab-audit" data-view="audit">Schedule Audit</button>
+        </div>
+
+        <div class="view-panel" id="evm-panel">
+          <div class="kpi-row" id="kpi-row"></div>
+          <div class="category-progress" id="category-progress"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="load-another-btn">Load Another File</button>
+            <button class="btn-primary" id="pdf-btn">Generate PDF Report</button>
+          </div>
+        </div>
+
+        <div class="view-panel hidden" id="audit-panel">
+          <div id="audit-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="excel-btn">Export to Excel</button>
+            <button class="btn-primary" id="pdf-btn-audit">Generate PDF Report</button>
+          </div>
         </div>
       </section>
 

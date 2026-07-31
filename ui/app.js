@@ -1,7 +1,8 @@
 import { state }                              from './modules/state.js';
 import { initTheme, toggleTheme }            from './modules/theme.js';
-import { importFile, loadProject, loadHistory, generatePdf, deleteProject } from './modules/api.js';
+import { importFile, loadProject, loadHistory, generatePdf, exportExcel, deleteProject } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
+import { switchView }                          from './modules/audit.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -30,6 +31,22 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('error-close').addEventListener('click', clearError);
   document.getElementById('load-another-btn').addEventListener('click', () => { loadAnother(); loadHistory(); });
   document.getElementById('pdf-btn').addEventListener('click', generatePdf);
+  document.getElementById('pdf-btn-audit').addEventListener('click', generatePdf);
+  document.getElementById('excel-btn').addEventListener('click', exportExcel);
+
+  // View tabs (EVM ⇄ Schedule Audit)
+  document.getElementById('tab-evm').addEventListener('click', () => switchView('evm'));
+  document.getElementById('tab-audit').addEventListener('click', () => switchView('audit'));
+
+  // Sidebar shield → jump to the Audit view when a schedule is loaded
+  document.getElementById('sb-audit-btn').addEventListener('click', () => {
+    if (state.currentResult) {
+      switchView('audit');
+      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      document.querySelector('.import-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
 
   // Drag-and-drop
   const dropTarget = document.getElementById('drop-target');

@@ -4,4 +4,6 @@ export const state = {
   currentResult:     null,
   currentXmlPath:    null,
   currentCachedPath: null,
+  currentSnapshotId: null,
+  currentAudit:      null,
 };

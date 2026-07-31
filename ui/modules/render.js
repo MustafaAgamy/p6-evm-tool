@@ -1,5 +1,6 @@
 import { state }                                   from './state.js';
 import { fmtEGP, fmtDate, kpiColor, escapeHtml }  from './format.js';
+import { renderAudit, switchView }                 from './audit.js';
 
 const KPI_TOOLTIPS = {
   'Finish Delay':  'Days behind schedule — positive = late, negative = ahead',
@@ -37,6 +38,8 @@ export function loadAnother() {
   state.currentResult      = null;
   state.currentXmlPath     = null;
   state.currentCachedPath  = null;
+  state.currentSnapshotId  = null;
+  state.currentAudit       = null;
 }
 
 export function renderResults(result, filePath, { previousImport = null } = {}) {
@@ -94,6 +97,9 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
 
   document.getElementById('category-progress').innerHTML =
     catHTML || '<p style="color:var(--muted);font-size:12px">No category data found in config.json</p>';
+
+  renderAudit(result.audit);
+  switchView('evm');   // always land on EVM first; Audit is one click away
 
   document.getElementById('results-section').classList.remove('hidden');
 }

@@ -21,6 +21,7 @@ export async function importFile(filePath, { showSpinner = true } = {}) {
     state.currentResult      = data.result;
     state.currentXmlPath     = filePath;
     state.currentCachedPath  = data.cached_path || null;
+    state.currentSnapshotId  = data.snapshot_id || null;
     renderResults(data.result, filePath, { previousImport: data.previous_import || null });
     await loadHistory();
   } catch {
@@ -58,6 +59,7 @@ export async function loadProject(projectId, filePath, cachedPath) {
     state.currentResult      = data.result;
     state.currentXmlPath     = filePath   || data.original_path || '';
     state.currentCachedPath  = cachedPath || data.cached_path   || null;
+    state.currentSnapshotId  = data.snapshot_id || null;
     renderResults(data.result, state.currentXmlPath || cachedPath || '');
   } catch {
     showError('Could not reach the local server. Try restarting the app.');
@@ -70,6 +72,26 @@ export async function deleteProject(projectId) {
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ project_id: projectId }),
   });
+}
+
+export async function exportExcel() {
+  if (!state.currentSnapshotId) { showError('Import or open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('audit_findings.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/export/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
 }
 
 export async function generatePdf() {
