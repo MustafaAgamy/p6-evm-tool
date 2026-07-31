@@ -42,6 +42,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
             self._handle_project_delete(body)
+        elif self.path == '/api/export/excel':
+            self._handle_export_excel(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -108,6 +110,17 @@ class Handler(BaseHTTPRequestHandler):
             safe_result['calendar_count'] = len(data.calendars)
             safe_result['project_name']   = data.project.get('name', '')
 
+            # ── Schedule audit (never break EVM import if it fails) ─────────
+            audit_result = None
+            try:
+                from p6_audit import audit as run_audit
+                audit_result = run_audit(data, config)
+                audit_result['total_review_areas'] = config.get('audit', {}).get('total_review_areas', 5)
+            except Exception as audit_exc:
+                audit_result = None
+                print(f'[audit] skipped: {audit_exc}', file=sys.stderr)
+            safe_result['audit'] = audit_result
+
             # ── Persist to DB ──────────────────────────────────────────────
             file_hash      = db.hash_file(xml_path)
             prior_import   = db.get_prior_import_date(file_hash)
@@ -128,10 +141,12 @@ class Handler(BaseHTTPRequestHandler):
             )
             db.insert_metrics(sid, result)
             db.insert_category_metrics(sid, result.get('categories'))
+            if audit_result is not None:
+                db.insert_audit(sid, audit_result, audit_result.get('total_review_areas', 5))
             # ──────────────────────────────────────────────────────────────
 
             self._json(200, {'ok': True, 'result': safe_result, 'cached_path': cached_path,
-                             'previous_import': prior_import})
+                             'previous_import': prior_import, 'snapshot_id': sid})
 
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -174,6 +189,14 @@ class Handler(BaseHTTPRequestHandler):
             data   = parse_file(resolved)
             result = compute(data, config, overrides=overrides)
 
+            audit_result = None
+            try:
+                from p6_audit import audit as run_audit
+                audit_result = run_audit(data, config)
+                audit_result['total_review_areas'] = config.get('audit', {}).get('total_review_areas', 5)
+            except Exception:
+                audit_result = None
+
             fm = find_finish_milestone(result)
             milestone_baseline_finish = None
             if fm is not None:
@@ -188,7 +211,7 @@ class Handler(BaseHTTPRequestHandler):
                 'milestone_baseline_finish': milestone_baseline_finish,
             }
 
-            html_content = render_html(result, meta)
+            html_content = render_html(result, meta, audit=audit_result)
 
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -219,9 +242,11 @@ class Handler(BaseHTTPRequestHandler):
         if result is None:
             self._json(200, {'ok': False, 'error': 'Project not found'})
             return
+        snapshot_id   = result.pop('_snapshot_id', None)
         cached_path   = result.pop('_cached_path', None)
         original_path = result.pop('_original_path', None)
-        self._json(200, {'ok': True, 'result': result,
+        result['audit'] = db.get_audit_for_snapshot(snapshot_id) if snapshot_id else None
+        self._json(200, {'ok': True, 'result': result, 'snapshot_id': snapshot_id,
                          'cached_path': cached_path, 'original_path': original_path})
 
     # ── /api/project/delete ────────────────────────────────────────────────
@@ -232,6 +257,33 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             db.delete_project(project_id)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/export/excel ──────────────────────────────────────────────────
+    def _handle_export_excel(self, body):
+        """Write the stored audit findings to an .xlsx (read path = DB)."""
+        snapshot_id = body.get('snapshot_id')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        audit = db.get_audit_for_snapshot(snapshot_id) if snapshot_id else None
+        if not audit:
+            self._json(200, {'ok': False, 'error': 'No audit found for this schedule.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.xlsx_writer import write_xlsx
+            headers = ['Severity', 'Check', 'Activity ID', 'Activity Name', 'WBS Path',
+                       'Issue', 'Basis', 'Recommendation', 'Finding ID']
+            rows = [[
+                f.get('severity', ''), f.get('check_name', ''), f.get('activity_id', ''),
+                f.get('activity_name', ''), f.get('wbs_path', ''), f.get('summary', ''),
+                f.get('basis', ''), f.get('recommendation', ''), f.get('finding_id', ''),
+            ] for f in audit['findings']]
+            write_xlsx(os.path.abspath(output_path), 'Schedule Audit', headers, rows)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

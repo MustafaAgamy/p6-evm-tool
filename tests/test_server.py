@@ -156,4 +156,44 @@ def test_project_delete_with_string_id(test_server, xml_path):
     assert json.loads(body_after) == []
 
 
+# ── Audit dashboard (Plan 2) ──────────────────────────────────────────────
+
+def test_parse_returns_audit_and_snapshot(test_server, xml_path):
+    _, data = _post_json(test_server, '/api/parse', {'path': str(xml_path), 'overrides_path': None})
+    assert data['ok'] is True
+    assert 'snapshot_id' in data and isinstance(data['snapshot_id'], int)
+    audit = data['result']['audit']
+    assert 'findings' in audit and 'scores' in audit and 'counts' in audit
+    assert audit['total_review_areas'] == 5
+    # minimal.xml has two unlinked activities -> open-end findings exist
+    assert audit['counts']['total'] >= 1
+
+
+def test_project_load_returns_audit(test_server, xml_path):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    _, _, body = _get(test_server, '/api/history')
+    project_id = json.loads(body)[0]['project_id']
+    _, data = _post_json(test_server, '/api/project/load', {'project_id': project_id})
+    assert data['ok'] is True
+    assert data['result']['audit'] is not None
+    assert data['result']['audit']['counts']['total'] >= 1
+    assert isinstance(data['snapshot_id'], int)
+
+
+def test_export_excel_writes_file(test_server, xml_path, tmp_path):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    sid = parsed['snapshot_id']
+    out = str(tmp_path / 'findings.xlsx')
+    _, data = _post_json(test_server, '/api/export/excel',
+                         {'snapshot_id': sid, 'output_path': out})
+    assert data['ok'] is True
+    import os
+    assert os.path.exists(out)
+
+
+def test_export_excel_missing_output_path(test_server):
+    _, data = _post_json(test_server, '/api/export/excel', {'snapshot_id': 1})
+    assert data['ok'] is False
+
+
 # ── POST /api/report not tested — requires Chrome ─────────────────────────
