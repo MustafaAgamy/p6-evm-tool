@@ -13,6 +13,8 @@ const KPI_TOOLTIPS = {
 export function setLoading(active) {
   document.getElementById('browse-btn').classList.toggle('hidden', active);
   document.getElementById('browse-spinner').classList.toggle('hidden', !active);
+  document.getElementById('xer-btn').classList.toggle('hidden', active);
+  document.getElementById('xer-spinner').classList.toggle('hidden', !active);
   if (active) {
     document.getElementById('topbar-sub').textContent = 'Parsing…';
   } else if (!state.currentResult) {
