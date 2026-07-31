@@ -28,6 +28,23 @@ class ScheduleData:
         self.baseline_by_id = {}   # activity Id (code) -> {PlannedStartDate, PlannedFinishDate}
         self.bac_by_activity = {}  # ActivityObjectId -> planned cost (BAC)
         self.ac_by_activity = {}   # ActivityObjectId -> actual cost
+        self.relationships = []    # list of {pred_id, succ_id, type, lag_days}
+
+
+def full_wbs_path(wbs_id, wbs_map):
+    """Root-first WBS path string, e.g. 'Tower 33 > Foundation > Raft'."""
+    names = []
+    seen = set()
+    current = wbs_id
+    while current and current not in seen:
+        seen.add(current)
+        node = wbs_map.get(current)
+        if not node:
+            break
+        if node.get('name'):
+            names.append(node['name'])
+        current = node.get('parent_object_id')
+    return ' > '.join(reversed(names))
 
 
 def _detect_namespace(path):

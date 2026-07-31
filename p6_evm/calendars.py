@@ -11,6 +11,7 @@ class Calendar:
     nonworking_days: set = field(default_factory=set)
     holidays: set = field(default_factory=set)
     added_work_days: set = field(default_factory=set)
+    day_hours: float = 8.0
 
     def is_working_day(self, d: date) -> bool:
         if d in self.added_work_days:
