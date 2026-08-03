@@ -7,8 +7,15 @@ from p6_audit.checks.dangling import check_dangling
 from p6_audit.checks.circular import check_circular
 from p6_audit.checks.float_snapshot import check_float
 from p6_audit.scoring import score_categories, overall_score
+from p6_audit.modules.dangling import run_dangling
+from p6_audit.modules.float_analysis import run_float
 
 CHECKS = [check_open_ends, check_dangling, check_circular, check_float]
+
+# V2: isolated modules, ordered. Each is fully self-contained (own KPIs, score,
+# grade, findings). Overall Schedule Health Score is deferred until all modules
+# exist and is then computed from module scores × weights, never from findings.
+MODULE_RUNNERS = [run_dangling, run_float]
 
 
 def _enrich(data, config):
@@ -44,3 +51,20 @@ def audit(data, config):
         'scores': {'categories': cats, 'overall': overall},
         'counts': {'total': len(findings), 'by_severity': by_sev},
     }
+
+
+def audit_modules(data, config):
+    """V2 entry point — isolated per-module results (Dangling, Float).
+
+    Returns {'modules': {name: module_result}, 'module_order': [...]}.
+    No combined findings table and no overall score (deferred by design).
+    """
+    _enrich(data, config)
+    graph = ScheduleGraph(data)
+    modules = {}
+    order = []
+    for runner in MODULE_RUNNERS:
+        result = runner(graph, config)
+        modules[result['module']] = result
+        order.append(result['module'])
+    return {'modules': modules, 'module_order': order}

@@ -42,6 +42,18 @@ class Finding:
         return {'finding_id': d.pop('finding_id'), **d}
 
 
+def content_id(*parts):
+    """Stable 12-char id from content parts — same inputs → same id across imports."""
+    key = '|'.join(str(p or '') for p in parts)
+    return hashlib.sha1(key.encode('utf-8')).hexdigest()[:12]
+
+
+def bump_severity(sev):
+    """Escalate one level (e.g. critical-path activities). Critical stays Critical."""
+    i = _rank(sev)
+    return SEVERITY_ORDER[min(i + 1, len(SEVERITY_ORDER) - 1)]
+
+
 def _rank(sev):
     return SEVERITY_ORDER.index(sev) if sev in SEVERITY_ORDER else 0
 
