@@ -375,3 +375,61 @@ def test_get_project_result_includes_snapshot_id(temp_db):
     db.insert_metrics(sid, {'spi': 0.9})
     res = db.get_project_result(pid)
     assert res['_snapshot_id'] == sid
+
+
+# ── V2 isolated module persistence ──────────────────────────────────────────
+
+def _modules_result():
+    return {
+        'module_order': ['dangling', 'float'],
+        'modules': {
+            'dangling': {
+                'module': 'dangling', 'name': 'Dangling Activities',
+                'score': 94, 'grade': 'Excellent', 'pct': 1.2,
+                'kpis': {'total_activities': 1466, 'total_dangling': 18},
+                'wbs_summary': [],
+                'findings': [{'finding_id': 'd1', 'activity_id': 'A1',
+                              'logic_issue': 'Dangling Start + Finish', 'severity': 'High'}],
+            },
+            'float': {
+                'module': 'float', 'name': 'Float Analysis',
+                'score': 0, 'grade': 'Critical', 'pct': 40.3,
+                'kpis': {'total_activities': 1466, 'above_threshold': 591},
+                'wbs_summary': [{'wbs': 'Civil', 'high': 6, 'activities': 7, 'pct': 85.7}],
+                'findings': [{'finding_id': 'f1', 'activity_id': 'A2', 'impact': 5.6,
+                              'severity': 'High', 'status': 'Excessive Float'}],
+            },
+        },
+    }
+
+
+def test_insert_and_get_audit_modules_roundtrip(temp_db):
+    pid = db.upsert_project('P1', 'Proj')
+    sid = db.insert_snapshot(pid, '2024-07-01', '/p.xml', '/c.xml', 'h', 5, 1)
+    db.insert_audit_modules(sid, _modules_result())
+    got = db.get_audit_modules_for_snapshot(sid)
+    assert got is not None
+    assert got['module_order'] == ['dangling', 'float']
+    fm = got['modules']['float']
+    assert fm['score'] == 0 and fm['grade'] == 'Critical' and fm['pct'] == 40.3
+    assert fm['kpis']['above_threshold'] == 591
+    assert fm['wbs_summary'][0]['wbs'] == 'Civil'
+    assert fm['findings'][0]['impact'] == 5.6
+    assert got['modules']['dangling']['findings'][0]['logic_issue'] == 'Dangling Start + Finish'
+
+
+def test_get_audit_modules_none_when_absent(temp_db):
+    pid = db.upsert_project('P1', 'Proj')
+    sid = db.insert_snapshot(pid, '2024-07-01', '/p.xml', '/c.xml', 'h', 5, 1)
+    assert db.get_audit_modules_for_snapshot(sid) is None
+
+
+def test_delete_project_clears_audit_modules(temp_db):
+    import sqlite3
+    pid = db.upsert_project('P1', 'Proj')
+    sid = db.insert_snapshot(pid, '2024-07-01', '/p.xml', '/c.xml', 'h', 5, 1)
+    db.insert_audit_modules(sid, _modules_result())
+    db.delete_project(pid)
+    conn = sqlite3.connect(temp_db / 'p6evm.db')
+    assert conn.execute('SELECT COUNT(*) FROM audit_modules').fetchone()[0] == 0
+    conn.close()

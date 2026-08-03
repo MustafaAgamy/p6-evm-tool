@@ -114,6 +114,22 @@ def init_db():
                 ON category_metrics(snapshot_id);
             CREATE INDEX IF NOT EXISTS idx_audit_findings_snapshot
                 ON audit_findings(snapshot_id);
+
+            CREATE TABLE IF NOT EXISTS audit_modules (
+                snapshot_id       INTEGER NOT NULL REFERENCES snapshots(id),
+                module            TEXT NOT NULL,
+                seq               INTEGER,
+                name              TEXT,
+                score             REAL,
+                grade             TEXT,
+                pct               REAL,
+                kpis_json         TEXT,
+                wbs_summary_json  TEXT,
+                findings_json     TEXT,
+                PRIMARY KEY (snapshot_id, module)
+            );
+            CREATE INDEX IF NOT EXISTS idx_audit_modules_snapshot
+                ON audit_modules(snapshot_id);
         ''')
 
 
@@ -277,7 +293,7 @@ def insert_audit(snapshot_id, audit_result, total_review_areas):
 def get_latest_snapshot_id(project_id):
     with get_conn() as conn:
         row = conn.execute(
-            'SELECT id FROM snapshots WHERE project_id = ? ORDER BY imported_at DESC LIMIT 1',
+            'SELECT id FROM snapshots WHERE project_id = ? ORDER BY imported_at DESC, id DESC LIMIT 1',
             (project_id,)
         ).fetchone()
     return row['id'] if row else None
@@ -328,6 +344,60 @@ def get_audit_for_snapshot(snapshot_id):
     }
 
 
+# ── V2 isolated module persistence ─────────────────────────────────────────
+
+def insert_audit_modules(snapshot_id, modules_result):
+    """Store each isolated module report (JSON) for a snapshot."""
+    order = modules_result.get('module_order', [])
+    modules = modules_result.get('modules', {})
+    rows = []
+    for seq, key in enumerate(order):
+        m = modules.get(key, {})
+        rows.append((
+            snapshot_id, key, seq, m.get('name'),
+            m.get('score'), m.get('grade'), m.get('pct'),
+            _json.dumps(m.get('kpis', {})),
+            _json.dumps(m.get('wbs_summary', [])),
+            _json.dumps(m.get('findings', [])),
+        ))
+    if not rows:
+        return
+    with get_conn() as conn:
+        conn.executemany(
+            '''INSERT OR REPLACE INTO audit_modules
+               (snapshot_id, module, seq, name, score, grade, pct,
+                kpis_json, wbs_summary_json, findings_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            rows
+        )
+
+
+def get_audit_modules_for_snapshot(snapshot_id):
+    """Reconstruct {'modules': {...}, 'module_order': [...]} or None."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            'SELECT * FROM audit_modules WHERE snapshot_id = ? ORDER BY seq ASC',
+            (snapshot_id,)
+        ).fetchall()
+    if not rows:
+        return None
+    modules = {}
+    order = []
+    for r in rows:
+        order.append(r['module'])
+        modules[r['module']] = {
+            'module':      r['module'],
+            'name':        r['name'],
+            'score':       r['score'],
+            'grade':       r['grade'],
+            'pct':         r['pct'],
+            'kpis':        _json.loads(r['kpis_json'] or '{}'),
+            'wbs_summary': _json.loads(r['wbs_summary_json'] or '[]'),
+            'findings':    _json.loads(r['findings_json'] or '[]'),
+        }
+    return {'modules': modules, 'module_order': order}
+
+
 # ── Queries ────────────────────────────────────────────────────────────────
 
 def get_recent_projects(limit=10):
@@ -371,6 +441,7 @@ def delete_project(project_id):
         ).fetchall()]
         if snap_ids:
             ph = ','.join('?' * len(snap_ids))
+            conn.execute(f'DELETE FROM audit_modules    WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM audit_findings   WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM audit_scores     WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM category_metrics WHERE snapshot_id IN ({ph})', snap_ids)
@@ -411,7 +482,7 @@ def get_project_result(project_id):
                JOIN projects p ON p.id = s.project_id
                LEFT JOIN metrics m ON m.snapshot_id = s.id
                WHERE s.project_id = ?
-               ORDER BY s.imported_at DESC LIMIT 1''',
+               ORDER BY s.imported_at DESC, s.id DESC LIMIT 1''',
             (project_id,)
         ).fetchone()
         if not snap:
