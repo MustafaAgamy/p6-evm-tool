@@ -74,6 +74,26 @@ def _dashboard(m, verdict):
       <div class="dcma">{_DCMA.get(m['module'], '')}</div>'''
 
 
+def _summary_stats(m):
+    k = m.get('kpis', {})
+    n_findings = len(m.get('findings', []))
+    if m['module'] == 'dangling':
+        stats = [('Total Activities', f"{k.get('total_activities', 0):,}"),
+                 ('Total Dangling Findings', n_findings),
+                 ('Dangling Percentage', f"{k.get('dangling_pct', 0)}%"),
+                 ('Schedule Logic Score', f"{m.get('score', 0)} / 100 ({_esc(m.get('grade', ''))})")]
+    else:
+        stats = [('Total Activities', f"{k.get('total_activities', 0):,}"),
+                 ('Activities Above Threshold', k.get('above_threshold', 0)),
+                 ('Float Percentage', f"{k.get('float_pct', 0)}%"),
+                 ('Float Analysis Score', f"{m.get('score', 0)} / 100 ({_esc(m.get('grade', ''))})")]
+    rows = ''.join(f'<tr><td>{_esc(lbl)}</td><td class="num">{_esc(val)}</td></tr>' for lbl, val in stats)
+    return f'''
+      <h2 class="sec">Summary Statistics</h2>
+      <table class="summary"><thead><tr><th>KPI</th><th class="num">Value</th></tr></thead>
+        <tbody>{rows}</tbody></table>'''
+
+
 def _wbs_summary(m):
     ws = m.get('wbs_summary', [])
     if not ws:
@@ -105,7 +125,7 @@ def _findings_table(m):
     if m['module'] == 'dangling':
         head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>'
                 '<th>Severity</th><th>Logic Issue</th><th>Predecessor(s)</th>'
-                '<th>Successor(s)</th><th>Suggested Logic Fix</th>')
+                '<th>Successor(s)</th><th>Suggested Logic Fix</th><th>Recommendation</th>')
         rows = []
         for i, f in enumerate(findings, 1):
             rows.append(
@@ -116,11 +136,12 @@ def _findings_table(m):
                 f'<td>{_esc(f.get("logic_issue"))}</td>'
                 f'<td class="mut">{_esc(f.get("predecessors"))}</td>'
                 f'<td class="mut">{_esc(f.get("successors"))}</td>'
-                f'<td>{_esc(f.get("suggested_fix"))}</td></tr>')
+                f'<td>{_esc(f.get("suggested_fix"))}</td>'
+                f'<td class="mut">{_esc(f.get("recommendation"))}</td></tr>')
     else:
         head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>'
                 '<th class="num">Total Float</th><th class="num">Threshold</th><th class="num">Impact</th>'
-                '<th>Severity</th><th>Reason</th><th>Recommendation</th>')
+                '<th>Status</th><th>Severity</th><th>Recommendation</th>')
         rows = []
         for i, f in enumerate(findings, 1):
             impact = f.get('impact')
@@ -132,9 +153,9 @@ def _findings_table(m):
                 f'<td class="num">{_esc(f.get("total_float_days"))} d</td>'
                 f'<td class="num">{_esc(f.get("threshold"))} d</td>'
                 f'<td class="num">{impact_s}</td>'
+                f'<td>{_esc(f.get("status"))}</td>'
                 f'<td>{_sev_badge(f.get("severity"))}</td>'
-                f'<td class="mut">{_esc(f.get("reason"))}</td>'
-                f'<td>{_esc(f.get("recommendation"))}</td></tr>')
+                f'<td class="mut">{_esc(f.get("recommendation"))}</td></tr>')
     return f'''
       <h2 class="sec">Detailed Findings</h2>
       <table class="findings"><thead><tr>{head}</tr></thead>
@@ -185,6 +206,7 @@ def render_module_report(module_result, meta):
   th {{ background: #26517d; color: #fff; text-align: left; padding: 7px 8px; font-weight: 600; font-size: 9.5px; }}
   td {{ padding: 6px 8px; border-bottom: 1px solid #eef1f5; vertical-align: top; }}
   tbody tr:nth-child(even) {{ background: #f7f9fb; }}
+  table.summary {{ max-width: 420px; }}
   .num {{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }}
   .mono {{ font-family: 'Consolas', monospace; white-space: nowrap; }}
   .mut {{ color: #6b7480; font-size: 9.5px; }}
@@ -207,6 +229,8 @@ def render_module_report(module_result, meta):
 
   <h2 class="sec">Executive Dashboard</h2>
   {_dashboard(m, _verdict(m))}
+
+  {_summary_stats(m)}
 
   {_wbs_summary(m)}
 

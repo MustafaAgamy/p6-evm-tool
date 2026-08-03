@@ -12,20 +12,21 @@ def excel_columns(module_result):
 
     if module == 'dangling':
         headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity',
-                   'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix']
+                   'Logic Issue', 'Predecessor(s)', 'Successor(s)',
+                   'Suggested Logic Fix', 'Engineering Recommendation']
         rows = [[
             i, f.get('activity_id', ''), f.get('activity_name', ''), f.get('wbs_path', ''),
             f.get('severity', ''), f.get('logic_issue', ''), f.get('predecessors', ''),
-            f.get('successors', ''), f.get('suggested_fix', ''),
+            f.get('successors', ''), f.get('suggested_fix', ''), f.get('recommendation', ''),
         ] for i, f in enumerate(findings, 1)]
         return headers, rows
 
     # float
     headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float (d)',
-               'Threshold (d)', 'Impact', 'Severity', 'Reason', 'Engineering Recommendation']
+               'Threshold (d)', 'Impact', 'Status', 'Severity', 'Reason', 'Engineering Recommendation']
     rows = [[
         i, f.get('activity_id', ''), f.get('activity_name', ''), f.get('wbs_path', ''),
         f.get('total_float_days', ''), f.get('threshold', ''), _impact_str(f.get('impact')),
-        f.get('severity', ''), f.get('reason', ''), f.get('recommendation', ''),
+        f.get('status', ''), f.get('severity', ''), f.get('reason', ''), f.get('recommendation', ''),
     ] for i, f in enumerate(findings, 1)]
     return headers, rows

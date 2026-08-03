@@ -212,8 +212,8 @@ function renderRows() {
   const rows = filterFindings(m.findings, { severity: _filters.severity, query: _filters.query });
 
   const cols = m.module === 'dangling'
-    ? ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix']
-    : ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float', 'Threshold', 'Impact', 'Severity', 'Reason', 'Recommendation'];
+    ? ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix', 'Recommendation']
+    : ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float', 'Threshold', 'Impact', 'Status', 'Severity', 'Recommendation'];
   thead.innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>`;
 
   if (!rows.length) {
@@ -230,7 +230,8 @@ function renderRows() {
         <td>${escapeHtml(f.logic_issue)}</td>
         <td class="mut">${escapeHtml(f.predecessors)}</td>
         <td class="mut">${escapeHtml(f.successors)}</td>
-        <td>${escapeHtml(f.suggested_fix)}</td></tr>`;
+        <td>${escapeHtml(f.suggested_fix)}</td>
+        <td class="mut">${escapeHtml(f.recommendation)}</td></tr>`;
     }
     const impact = f.impact != null ? `${f.impact}×` : '—';
     return `<tr><td class="num">${i + 1}</td>
@@ -238,8 +239,8 @@ function renderRows() {
       <td>${escapeHtml(f.activity_name)}</td>${wbs}
       <td class="num">${escapeHtml(f.total_float_days)} d</td>
       <td class="num">${escapeHtml(f.threshold)} d</td>
-      <td class="num">${impact}</td>${sev}
-      <td class="mut">${escapeHtml(f.reason)}</td>
-      <td>${escapeHtml(f.recommendation)}</td></tr>`;
+      <td class="num">${impact}</td>
+      <td>${escapeHtml(f.status)}</td>${sev}
+      <td class="mut">${escapeHtml(f.recommendation)}</td></tr>`;
   }).join('');
 }

@@ -31,21 +31,23 @@ def run_float(graph, config):
         if over:
             above += 1
 
+        leaf = (graph.wbs_path(oid) or '').split('>')[-1].strip() or 'this WBS package'
         if negative:
             severity, status = 'Critical', 'Negative Float'
             impact = None
             reason = 'Negative float — behind the finish need date'
-            recommendation = 'Investigate the driving path.'
+            recommendation = 'Investigate the driving logic or delay; the finish milestone is threatened.'
         else:
             impact = round(tf / threshold, 1) if threshold else None
             if impact is not None and impact > 3:
                 severity = 'High'
                 reason = f'Severely excessive float ({impact}× threshold)'
+                recommendation = f'Assign a driving Finish-to-Start successor — {impact}× float points to missing logic in "{leaf}".'
             else:
                 severity = 'Medium'
                 reason = 'Excessive float above threshold'
+                recommendation = 'Review whether a Finish-to-Start successor is missing so the activity is properly driven.'
             status = 'Excessive Float'
-            recommendation = 'Review missing successor logic.'
 
         findings.append({
             'finding_id':       content_id('FLOAT', act['id'], status),

@@ -48,19 +48,23 @@ def test_dangling_report_has_sections_and_no_float_content():
     assert 'Dangling Activities' in html
     assert 'Excellent' in html and '94' in html
     assert 'A240' in html and 'Dangling Start' in html
-    assert 'Add an FS predecessor.' in html
+    assert 'Add an FS predecessor.' in html      # suggested fix
+    assert 'Summary Statistics' in html          # Output 2
+    assert 'Recommendation' in html              # Recommendation column present
     # isolation: no float wording
     assert 'Float Analysis' not in html
     # repeated header support
     assert 'table-header-group' in html
 
 
-def test_float_report_has_wbs_summary_and_impact():
+def test_float_report_has_wbs_summary_impact_and_status():
     html = render_module_report(_float(), META)
     assert 'Float Analysis' in html
     assert 'WBS Summary' in html
+    assert 'Summary Statistics' in html
     assert '5.6' in html            # impact
     assert '247' in html            # total float
+    assert 'Excessive Float' in html  # Status column value
     assert 'Dangling' not in html    # isolation
 
 
