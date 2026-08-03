@@ -24,20 +24,22 @@ def test_no_pred_no_succ_is_start_and_finish_high():
     assert f['severity'] == 'High'
     assert f['predecessors'] == 'No Predecessor'
     assert f['successors'] == 'No Successor'
-    assert 'Finish-to-Start' in f['suggested_fix']
-    assert f['recommendation']            # engineering 'why' present
+    # suggested fix is a two-part predecessor + successor solution
+    assert 'Predecessor:' in f['suggested_fix'] and 'Successor:' in f['suggested_fix']
+    assert 'recommendation' not in f          # Recommendation column removed
 
 
-def test_suggested_fix_names_existing_relationship_to_review():
-    # b has only an SS successor (start ok via nothing? b has no pred -> also dangling start)
-    # Use: a --FS--> b, b --SS--> c. b start driven (FS), finish dangling (only SS succ).
+def test_suggested_fix_names_existing_relationship_to_retie():
+    # a --FS--> b, b --SS--> c. b start driven (FS), finish dangling (only SS succ).
     g = _g({'a': _act('a'), 'b': _act('b'), 'c': _act('c')},
            [{'pred_id': 'a', 'succ_id': 'b', 'type': 'FS', 'lag_days': 0},
             {'pred_id': 'b', 'succ_id': 'c', 'type': 'SS', 'lag_days': 0}])
     b = {f['activity_id']: f for f in run_dangling(g, CONFIG)['findings']}['b']
     assert b['logic_issue'] == 'Dangling Finish'
-    # names the existing successor 'c' and its wrong type SS
-    assert 'c' in b['suggested_fix'] and 'SS' in b['suggested_fix']
+    # successor part names the existing successor 'c' and its wrong type SS to retie
+    assert 'c' in b['suggested_fix'] and 'SS' in b['suggested_fix'] and 'retie' in b['suggested_fix']
+    # predecessor part keeps the good FS predecessor 'a'
+    assert 'keep a' in b['suggested_fix']
 
 
 def test_no_pred_suggests_adding_predecessor_in_wbs():
@@ -47,6 +49,7 @@ def test_no_pred_suggests_adding_predecessor_in_wbs():
     a = {f['activity_id']: f for f in run_dangling(g, CONFIG)['findings']}['a']
     assert a['logic_issue'] == 'Dangling Start'
     assert 'Silo 8' in a['suggested_fix']
+    assert 'Predecessor: add' in a['suggested_fix']
 
 
 def test_ss_pred_only_flags_finish_only_medium():

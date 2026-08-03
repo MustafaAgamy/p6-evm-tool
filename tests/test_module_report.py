@@ -48,9 +48,10 @@ def test_dangling_report_has_sections_and_no_float_content():
     assert 'Dangling Activities' in html
     assert 'Excellent' in html and '94' in html
     assert 'A240' in html and 'Dangling Start' in html
-    assert 'Add an FS predecessor.' in html      # suggested fix
+    assert 'Add an FS predecessor.' in html      # suggested fix rendered
     assert 'Summary Statistics' in html          # Output 2
-    assert 'Recommendation' in html              # Recommendation column present
+    assert '<th>Suggested Logic Fix</th>' in html
+    assert '<th>Recommendation</th>' not in html  # Recommendation column removed from Dangling
     # isolation: no float wording
     assert 'Float Analysis' not in html
     # repeated header support

@@ -212,7 +212,7 @@ function renderRows() {
   const rows = filterFindings(m.findings, { severity: _filters.severity, query: _filters.query });
 
   const cols = m.module === 'dangling'
-    ? ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix', 'Recommendation']
+    ? ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix']
     : ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float', 'Threshold', 'Impact', 'Status', 'Severity', 'Recommendation'];
   thead.innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>`;
 
@@ -230,8 +230,7 @@ function renderRows() {
         <td>${escapeHtml(f.logic_issue)}</td>
         <td class="mut">${escapeHtml(f.predecessors)}</td>
         <td class="mut">${escapeHtml(f.successors)}</td>
-        <td>${escapeHtml(f.suggested_fix)}</td>
-        <td class="mut">${escapeHtml(f.recommendation)}</td></tr>`;
+        <td>${escapeHtml(f.suggested_fix)}</td></tr>`;
     }
     const impact = f.impact != null ? `${f.impact}×` : '—';
     return `<tr><td class="num">${i + 1}</td>

@@ -37,32 +37,38 @@ def _first_other(graph, edges):
     return None, None
 
 
-def _reason(graph, issue, preds, succs, wbs_path):
-    """Deterministic engineering reasoning → (suggested_fix, recommendation).
-
-    Names the specific relationship to review from the activity's existing
-    predecessors/successors and its WBS position — a suggestion only, never a
-    schedule edit.
+def _reason(graph, preds, succs, wbs_path):
+    """Deterministic engineering solution → suggested_fix, expressed as a
+    Predecessor relationship AND a Successor relationship that would resolve the
+    dangling condition. A suggestion only — never a schedule edit.
     """
     leaf = _wbs_leaf(wbs_path)
-    if issue == 'Dangling Start':
-        if preds:  # has predecessors, but none tie the start (wrong type)
+    start_driven = any(e['type'] in ('FS', 'SS') for e in preds)
+    finish_driven = any(e['type'] in ('FS', 'FF') for e in succs)
+
+    # Predecessor part
+    if not start_driven:
+        if preds:  # has a predecessor, but the wrong type to drive the start
             pid, ptype = _first_other(graph, preds)
-            fix = f'Review predecessor {pid} (currently {ptype}) — a Finish-to-Start driver is expected.'
+            pred_part = f'Predecessor: retie {pid} (currently {ptype}) as Finish-to-Start'
         else:
-            fix = f'Add the missing Finish-to-Start predecessor from the preceding activity in "{leaf}".'
-        rec = 'Verify the predecessor against the construction sequence so the start is driven by real logic.'
-    elif issue == 'Dangling Finish':
+            pred_part = f'Predecessor: add a Finish-to-Start tie from the preceding activity in "{leaf}"'
+    else:
+        pid, ptype = _first_other(graph, preds)
+        pred_part = f'Predecessor: keep {pid} ({ptype})'
+
+    # Successor part
+    if not finish_driven:
         if succs:
             sid, stype = _first_other(graph, succs)
-            fix = f'Review successor {sid} (currently {stype}) — a Finish-to-Start driver is expected.'
+            succ_part = f'Successor: retie {sid} (currently {stype}) as Finish-to-Start'
         else:
-            fix = f'Add the missing Finish-to-Start successor to the next activity in "{leaf}".'
-        rec = 'Verify the successor so completion drives downstream work and the float stays realistic.'
-    else:  # Dangling Start + Finish
-        fix = f'Add a Finish-to-Start predecessor and successor to embed this activity in the "{leaf}" sequence.'
-        rec = 'Fully connect this isolated activity to its construction sequence; open ends distort the critical path and float.'
-    return fix, rec
+            succ_part = f'Successor: add a Finish-to-Start tie to the next activity in "{leaf}"'
+    else:
+        sid, stype = _first_other(graph, succs)
+        succ_part = f'Successor: keep {sid} ({stype})'
+
+    return f'{pred_part}   |   {succ_part}'
 
 
 def run_dangling(graph, config):
@@ -90,7 +96,6 @@ def run_dangling(graph, config):
 
         severity = bump_severity(base) if act.get('is_critical') else base
         wbs_path = graph.wbs_path(oid)
-        fix, recommendation = _reason(graph, issue, preds, succs, wbs_path)
         findings.append({
             'finding_id':     content_id('DANGLING', act['id'], issue),
             'activity_id':    act['id'],
@@ -100,8 +105,7 @@ def run_dangling(graph, config):
             'logic_issue':    issue,
             'predecessors':   _edge_str(graph, preds, 'No Predecessor'),
             'successors':     _edge_str(graph, succs, 'No Successor'),
-            'suggested_fix':  fix,
-            'recommendation': recommendation,
+            'suggested_fix':  _reason(graph, preds, succs, wbs_path),
             'is_critical':    bool(act.get('is_critical')),
         })
 

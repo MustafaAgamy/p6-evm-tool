@@ -12,12 +12,11 @@ def excel_columns(module_result):
 
     if module == 'dangling':
         headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity',
-                   'Logic Issue', 'Predecessor(s)', 'Successor(s)',
-                   'Suggested Logic Fix', 'Engineering Recommendation']
+                   'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix']
         rows = [[
             i, f.get('activity_id', ''), f.get('activity_name', ''), f.get('wbs_path', ''),
             f.get('severity', ''), f.get('logic_issue', ''), f.get('predecessors', ''),
-            f.get('successors', ''), f.get('suggested_fix', ''), f.get('recommendation', ''),
+            f.get('successors', ''), f.get('suggested_fix', ''),
         ] for i, f in enumerate(findings, 1)]
         return headers, rows
 

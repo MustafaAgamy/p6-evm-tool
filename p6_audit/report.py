@@ -125,7 +125,7 @@ def _findings_table(m):
     if m['module'] == 'dangling':
         head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>'
                 '<th>Severity</th><th>Logic Issue</th><th>Predecessor(s)</th>'
-                '<th>Successor(s)</th><th>Suggested Logic Fix</th><th>Recommendation</th>')
+                '<th>Successor(s)</th><th>Suggested Logic Fix</th>')
         rows = []
         for i, f in enumerate(findings, 1):
             rows.append(
@@ -136,8 +136,7 @@ def _findings_table(m):
                 f'<td>{_esc(f.get("logic_issue"))}</td>'
                 f'<td class="mut">{_esc(f.get("predecessors"))}</td>'
                 f'<td class="mut">{_esc(f.get("successors"))}</td>'
-                f'<td>{_esc(f.get("suggested_fix"))}</td>'
-                f'<td class="mut">{_esc(f.get("recommendation"))}</td></tr>')
+                f'<td>{_esc(f.get("suggested_fix"))}</td></tr>')
     else:
         head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>'
                 '<th class="num">Total Float</th><th class="num">Threshold</th><th class="num">Impact</th>'
