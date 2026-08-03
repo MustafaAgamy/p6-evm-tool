@@ -44,6 +44,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_project_delete(body)
         elif self.path == '/api/export/excel':
             self._handle_export_excel(body)
+        elif self.path == '/api/report/module':
+            self._handle_module_report(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -110,16 +112,15 @@ class Handler(BaseHTTPRequestHandler):
             safe_result['calendar_count'] = len(data.calendars)
             safe_result['project_name']   = data.project.get('name', '')
 
-            # ── Schedule audit (never break EVM import if it fails) ─────────
-            audit_result = None
+            # ── Schedule audit — isolated modules (never break EVM import) ──
+            audit_modules_result = None
             try:
-                from p6_audit import audit as run_audit
-                audit_result = run_audit(data, config)
-                audit_result['total_review_areas'] = config.get('audit', {}).get('total_review_areas', 5)
+                from p6_audit import audit_modules as run_audit_modules
+                audit_modules_result = run_audit_modules(data, config)
             except Exception as audit_exc:
-                audit_result = None
+                audit_modules_result = None
                 print(f'[audit] skipped: {audit_exc}', file=sys.stderr)
-            safe_result['audit'] = audit_result
+            safe_result['audit_modules'] = audit_modules_result
 
             # ── Persist to DB ──────────────────────────────────────────────
             file_hash      = db.hash_file(xml_path)
@@ -141,8 +142,8 @@ class Handler(BaseHTTPRequestHandler):
             )
             db.insert_metrics(sid, result)
             db.insert_category_metrics(sid, result.get('categories'))
-            if audit_result is not None:
-                db.insert_audit(sid, audit_result, audit_result.get('total_review_areas', 5))
+            if audit_modules_result is not None:
+                db.insert_audit_modules(sid, audit_modules_result)
             # ──────────────────────────────────────────────────────────────
 
             self._json(200, {'ok': True, 'result': safe_result, 'cached_path': cached_path,
@@ -189,14 +190,6 @@ class Handler(BaseHTTPRequestHandler):
             data   = parse_file(resolved)
             result = compute(data, config, overrides=overrides)
 
-            audit_result = None
-            try:
-                from p6_audit import audit as run_audit
-                audit_result = run_audit(data, config)
-                audit_result['total_review_areas'] = config.get('audit', {}).get('total_review_areas', 5)
-            except Exception:
-                audit_result = None
-
             fm = find_finish_milestone(result)
             milestone_baseline_finish = None
             if fm is not None:
@@ -211,7 +204,7 @@ class Handler(BaseHTTPRequestHandler):
                 'milestone_baseline_finish': milestone_baseline_finish,
             }
 
-            html_content = render_html(result, meta, audit=audit_result)
+            html_content = render_html(result, meta)
 
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -245,7 +238,7 @@ class Handler(BaseHTTPRequestHandler):
         snapshot_id   = result.pop('_snapshot_id', None)
         cached_path   = result.pop('_cached_path', None)
         original_path = result.pop('_original_path', None)
-        result['audit'] = db.get_audit_for_snapshot(snapshot_id) if snapshot_id else None
+        result['audit_modules'] = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
         self._json(200, {'ok': True, 'result': result, 'snapshot_id': snapshot_id,
                          'cached_path': cached_path, 'original_path': original_path})
 
@@ -263,27 +256,59 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/export/excel ──────────────────────────────────────────────────
     def _handle_export_excel(self, body):
-        """Write the stored audit findings to an .xlsx (read path = DB)."""
+        """Excel for ONE isolated module (never mixed). Read path = DB."""
         snapshot_id = body.get('snapshot_id')
+        module      = body.get('module')
         output_path = body.get('output_path', '')
         if not output_path:
             self._json(200, {'ok': False, 'error': 'No output path provided'})
             return
-        audit = db.get_audit_for_snapshot(snapshot_id) if snapshot_id else None
-        if not audit:
-            self._json(200, {'ok': False, 'error': 'No audit found for this schedule.'})
+        mods = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
+        m = (mods or {}).get('modules', {}).get(module)
+        if not m:
+            self._json(200, {'ok': False, 'error': 'No audit found for this module.'})
             return
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.xlsx_writer import write_xlsx
-            headers = ['Severity', 'Check', 'Activity ID', 'Activity Name', 'WBS Path',
-                       'Issue', 'Basis', 'Recommendation', 'Finding ID']
-            rows = [[
-                f.get('severity', ''), f.get('check_name', ''), f.get('activity_id', ''),
-                f.get('activity_name', ''), f.get('wbs_path', ''), f.get('summary', ''),
-                f.get('basis', ''), f.get('recommendation', ''), f.get('finding_id', ''),
-            ] for f in audit['findings']]
-            write_xlsx(os.path.abspath(output_path), 'Schedule Audit', headers, rows)
+            from p6_audit.exporters import excel_columns
+            headers, rows = excel_columns(m)
+            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Audit')[:31], headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/report/module ─────────────────────────────────────────────────
+    def _handle_module_report(self, body):
+        """Standalone consultant PDF for ONE isolated module."""
+        snapshot_id = body.get('snapshot_id')
+        module      = body.get('module')
+        output_path = body.get('output_path', '')
+        meta_in     = body.get('meta') or {}
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        mods = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
+        m = (mods or {}).get('modules', {}).get(module)
+        if not m:
+            self._json(200, {'ok': False, 'error': 'No audit found for this module.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.report import render_module_report
+            import subprocess, tempfile
+            html_content = render_module_report(m, meta_in)
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            out_path = os.path.abspath(output_path)
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

@@ -158,41 +158,52 @@ def test_project_delete_with_string_id(test_server, xml_path):
 
 # ── Audit dashboard (Plan 2) ──────────────────────────────────────────────
 
-def test_parse_returns_audit_and_snapshot(test_server, xml_path):
+def test_parse_returns_modules_and_snapshot(test_server, xml_path):
     _, data = _post_json(test_server, '/api/parse', {'path': str(xml_path), 'overrides_path': None})
     assert data['ok'] is True
     assert 'snapshot_id' in data and isinstance(data['snapshot_id'], int)
-    audit = data['result']['audit']
-    assert 'findings' in audit and 'scores' in audit and 'counts' in audit
-    assert audit['total_review_areas'] == 5
-    # minimal.xml has two unlinked activities -> open-end findings exist
-    assert audit['counts']['total'] >= 1
+    am = data['result']['audit_modules']
+    assert set(am['modules'].keys()) == {'dangling', 'float'}
+    assert am['module_order'] == ['dangling', 'float']
+    # minimal.xml has two unlinked activities -> dangling module finds them
+    assert am['modules']['dangling']['kpis']['total_dangling'] >= 1
+    # each module carries its own isolated score/grade
+    assert 'score' in am['modules']['float'] and 'grade' in am['modules']['float']
 
 
-def test_project_load_returns_audit(test_server, xml_path):
+def test_project_load_returns_modules(test_server, xml_path):
     _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
     _, _, body = _get(test_server, '/api/history')
     project_id = json.loads(body)[0]['project_id']
     _, data = _post_json(test_server, '/api/project/load', {'project_id': project_id})
     assert data['ok'] is True
-    assert data['result']['audit'] is not None
-    assert data['result']['audit']['counts']['total'] >= 1
+    am = data['result']['audit_modules']
+    assert am is not None
+    assert 'dangling' in am['modules'] and 'float' in am['modules']
     assert isinstance(data['snapshot_id'], int)
 
 
-def test_export_excel_writes_file(test_server, xml_path, tmp_path):
+def test_export_excel_per_module_writes_file(test_server, xml_path, tmp_path):
     _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
     sid = parsed['snapshot_id']
-    out = str(tmp_path / 'findings.xlsx')
+    out = str(tmp_path / 'dangling.xlsx')
     _, data = _post_json(test_server, '/api/export/excel',
-                         {'snapshot_id': sid, 'output_path': out})
+                         {'snapshot_id': sid, 'module': 'dangling', 'output_path': out})
     assert data['ok'] is True
     import os
     assert os.path.exists(out)
 
 
+def test_export_excel_unknown_module_fails(test_server, xml_path, tmp_path):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    sid = parsed['snapshot_id']
+    _, data = _post_json(test_server, '/api/export/excel',
+                         {'snapshot_id': sid, 'module': 'nope', 'output_path': str(tmp_path / 'x.xlsx')})
+    assert data['ok'] is False
+
+
 def test_export_excel_missing_output_path(test_server):
-    _, data = _post_json(test_server, '/api/export/excel', {'snapshot_id': 1})
+    _, data = _post_json(test_server, '/api/export/excel', {'snapshot_id': 1, 'module': 'float'})
     assert data['ok'] is False
 
 
