@@ -75,9 +75,13 @@ export function renderAudit(auditModules) {
   state.currentModules = auditModules || null;
   const body = document.getElementById('audit-body');
   const tabs = document.getElementById('module-tabs');
+  // Always rebuild a fresh #module-body so repeated renders never hit a
+  // container that a prior "no audit" render replaced.
+  body.innerHTML = '<div id="module-body"></div>';
   if (!auditModules || !auditModules.module_order || !auditModules.module_order.length) {
     tabs.innerHTML = '';
-    body.innerHTML = '<p style="color:var(--muted);font-size:13px">No audit available for this schedule.</p>';
+    document.getElementById('module-body').innerHTML =
+      '<p style="color:var(--muted);font-size:13px">No audit available for this schedule.</p>';
     return;
   }
   tabs.innerHTML = auditModules.module_order.map(key => {
