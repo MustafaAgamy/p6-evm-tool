@@ -390,3 +390,42 @@ body {
 .wbs { color: var(--muted); font-size: 10.5px; margin-top: 3px; }
 .issue { line-height: 1.4; } .rec { color: var(--muted); font-size: 11px; margin-top: 4px; line-height: 1.4; }
 .fid { font-size: 9.5px; color: var(--muted); font-family: ui-monospace, monospace; margin-top: 4px; }
+
+/* ── V2 isolated modules ───────────────────────────────────────────────── */
+.module-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.module-tab {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
+  font-size: 12px; font-weight: 600; color: var(--text); cursor: pointer;
+  transition: border-color 0.15s;
+}
+.module-tab:hover { border-color: var(--accent); }
+.module-tab.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.mt-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.mt-score { font-weight: 800; color: var(--muted); }
+
+/* grade colours (4-level) — dots, badges */
+.g-exc { background: var(--success); } .g-acc { background: #d9a520; }
+.g-need { background: #e07b1a; } .g-crit { background: var(--danger); }
+.grade-badge {
+  display: inline-block; padding: 5px 16px; border-radius: 20px;
+  font-size: 13px; font-weight: 800; color: #fff; align-self: flex-start;
+}
+.gbadge { display: inline-block; padding: 1px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; color: #fff; }
+
+/* KPI tiles inside a module dashboard */
+.kpi-tiles { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; min-width: 300px; }
+.kpi-tiles .kpi { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }
+.kpi-tiles .kpi .k { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
+.kpi-tiles .kpi .v { font-size: 21px; font-weight: 800; margin-top: 2px; }
+
+.mod-sec { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .8px; margin: 4px 0 2px; }
+
+/* findings table — cleaner, lighter, roomier */
+.findings-table { min-width: 760px; }
+.findings-table th { background: #26517d; color: #fff; }
+:root.light .findings-table th { background: #26517d; }
+.findings-table td { padding: 9px 10px; }
+.findings-table .mono { font-family: ui-monospace, 'Consolas', monospace; white-space: nowrap; font-weight: 600; }
+.findings-table .mut { color: var(--muted); font-size: 11px; }

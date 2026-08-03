@@ -1,6 +1,6 @@
 import { state }                              from './modules/state.js';
 import { initTheme, toggleTheme }            from './modules/theme.js';
-import { importFile, loadProject, loadHistory, generatePdf, exportExcel, deleteProject } from './modules/api.js';
+import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView }                          from './modules/audit.js';
 import { initTooltips }                        from './modules/tooltip.js';
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('error-close').addEventListener('click', clearError);
   document.getElementById('load-another-btn').addEventListener('click', () => { loadAnother(); loadHistory(); });
   document.getElementById('pdf-btn').addEventListener('click', generatePdf);
-  document.getElementById('pdf-btn-audit').addEventListener('click', generatePdf);
+  document.getElementById('pdf-btn-audit').addEventListener('click', generateModulePdf);
   document.getElementById('excel-btn').addEventListener('click', exportExcel);
 
   // View tabs (EVM ⇄ Schedule Audit)

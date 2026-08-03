@@ -3,7 +3,7 @@
  * Run: node tests/js/test_audit.js
  */
 import assert from 'node:assert/strict';
-import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf }
+import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass }
   from '../../ui/modules/audit.js';
 
 let passed = 0, failed = 0;
@@ -49,6 +49,14 @@ test('gauge full at 0',  () => assert.equal(gaugeDashoffset(0, 100), 100));
 test('gauge empty at 100', () => assert.equal(gaugeDashoffset(100, 100), 0));
 test('unique checks sorted', () => assert.deepEqual(uniqueValues(F, 'check_name'),
      ['Circular Logic', 'Float Analysis', 'Open Ends']));
+
+console.log('\nshortWbs / gradeClass (V2)');
+test('shortWbs keeps last 3',   () => assert.equal(shortWbs('A > B > C > D > E'), 'C > D > E'));
+test('shortWbs short path',     () => assert.equal(shortWbs('Only > Two'), 'Only > Two'));
+test('shortWbs empty',          () => assert.equal(shortWbs(''), ''));
+test('gradeClass excellent',    () => assert.equal(gradeClass('Excellent'), 'g-exc'));
+test('gradeClass critical',     () => assert.equal(gradeClass('Critical'), 'g-crit'));
+test('gradeClass needs',        () => assert.equal(gradeClass('Needs Attention'), 'g-need'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

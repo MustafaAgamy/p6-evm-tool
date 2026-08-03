@@ -74,22 +74,54 @@ export async function deleteProject(projectId) {
   });
 }
 
+function moduleMeta() {
+  const r = state.currentResult || {};
+  const file = (state.currentXmlPath || '').split(/[\\/]/).pop();
+  return {
+    project_name: r.project_name || 'Schedule',
+    data_date:    r.data_date || '',
+    source_file:  file,
+    report_date:  new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+  };
+}
+
 export async function exportExcel() {
-  if (!state.currentSnapshotId) { showError('Import or open a schedule first.'); return; }
-  const btn = new ButtonState(document.getElementById('excel-btn'), 'Export to Excel');
+  if (!state.currentSnapshotId || !state.currentModule) { showError('Open a schedule and pick a module first.'); return; }
+  const btn = new ButtonState(document.getElementById('excel-btn'), 'Export Module to Excel');
   btn.loading('Exporting…');
   try {
-    const outputPath = await window.pywebview.api.choose_save_path('audit_findings.xlsx', 'xlsx');
+    const outputPath = await window.pywebview.api.choose_save_path(`${state.currentModule}_findings.xlsx`, 'xlsx');
     if (!outputPath) { btn.reset(); return; }
     const data = await apiFetch('api/export/excel', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, output_path: outputPath }),
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, module: state.currentModule, output_path: outputPath }),
     });
     if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
     else          { btn.success('✓ Excel Saved'); }
   } catch {
     showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+export async function generateModulePdf() {
+  if (!state.currentSnapshotId || !state.currentModule) { showError('Open a schedule and pick a module first.'); return; }
+  const btn = new ButtonState(document.getElementById('pdf-btn-audit'), 'Generate Module PDF');
+  btn.loading('Generating…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path(`${state.currentModule}_report.pdf`, 'pdf');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/report/module', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, module: state.currentModule,
+                                output_path: outputPath, meta: moduleMeta() }),
+    });
+    if (!data.ok) { showError(`PDF generation failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ PDF Saved'); }
+  } catch {
+    showError('PDF generation failed. Check the output path and try again.');
     btn.reset();
   }
 }

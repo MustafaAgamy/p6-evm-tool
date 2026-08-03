@@ -42,7 +42,8 @@ export function loadAnother() {
   state.currentXmlPath     = null;
   state.currentCachedPath  = null;
   state.currentSnapshotId  = null;
-  state.currentAudit       = null;
+  state.currentModules     = null;
+  state.currentModule      = null;
 }
 
 export function renderResults(result, filePath, { previousImport = null } = {}) {
@@ -101,7 +102,7 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
   document.getElementById('category-progress').innerHTML =
     catHTML || '<p style="color:var(--muted);font-size:12px">No category data found in config.json</p>';
 
-  renderAudit(result.audit);
+  renderAudit(result.audit_modules);
   switchView('evm');   // always land on EVM first; Audit is one click away
 
   document.getElementById('results-section').classList.remove('hidden');
