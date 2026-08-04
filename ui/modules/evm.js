@@ -27,10 +27,24 @@ export function overallProgress(categories, weights) {
   return { planned: sumW ? pw / sumW : 0, actual: sumW ? wa / sumW : 0 };
 }
 
+// Overall project Planned % / Actual % — the *unnormalised* weighted sum, matching
+// the Overall row of the Category Weights table exactly (Σ weight×%). Used by the
+// top slicer so its numbers equal what the category table shows.
+export function projectProgress(categories, weights) {
+  let planned = 0, actual = 0;
+  for (const [name, c] of Object.entries(categories || {})) {
+    const w = (weights && weights[name] != null) ? weights[name] : (c.weight || 0);
+    planned += w * (c.planned_pct || 0);
+    actual += w * (c.actual_pct || 0);
+  }
+  return { planned, actual };
+}
+
 // ── module state ──────────────────────────────────────────────────────────
 let _weights = {};       // {category: weight fraction}
 let _actualCost = null;  // user override (EGP) or null → use P6
 let _gap = null;
+let _slice = 'Overall';  // current slicer selection (Overall or a category name)
 
 function _wkey() { return `p6evm_w_${(state.currentResult || {}).project_name || 'x'}`; }
 function _ackey() { return `p6evm_ac_${(state.currentResult || {}).project_name || 'x'}`; }
@@ -66,7 +80,11 @@ export function renderEvm(result) {
   _gap = result.gap || null;
   const body = document.getElementById('evm-body');
   if (!body) return;
+  _slice = 'Overall';
   body.innerHTML = `
+    <div class="evm-sec">Project Progress — Planned vs Actual
+      <span class="evm-hdr-right" id="evm-slicer-chips"></span></div>
+    <div id="evm-slicer"></div>
     <div class="evm-sec">Executive Dashboard
       <button class="btn-mini" id="evm-edit-inputs">✎ Edit Inputs</button></div>
     <div id="evm-dash"></div>
@@ -82,6 +100,7 @@ export function renderEvm(result) {
       <span class="evm-hdr-right">Group by <select class="evm-sel" id="evm-gap-dim"></select></span></div>
     <div id="evm-gap"></div>`;
 
+  renderSlicer(result);
   renderDashboard(result);
   renderBar(result);
   renderCats(result);
@@ -99,6 +118,48 @@ function tile(label, value, note, cls, accent) {
   const n = note ? `<div class="kpi-note">${escapeHtml(note)}</div>` : '';
   return `<div class="kpi-tile"${a}><div class="kpi-label">${escapeHtml(label)}</div>
     <div class="kpi-value ${cls || 'color-neutral'}">${escapeHtml(value)}</div>${n}</div>`;
+}
+
+function renderSlicer(result) {
+  const cats = result.categories || {};
+  const chips = ['Overall', ...Object.keys(cats)];
+  if (!chips.includes(_slice)) _slice = 'Overall';
+  const chipBox = document.getElementById('evm-slicer-chips');
+  if (chipBox) {
+    chipBox.innerHTML = chips.map(n =>
+      `<button class="evm-chip${n === _slice ? ' on' : ''}" data-slice="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('');
+    chipBox.querySelectorAll('.evm-chip').forEach(b =>
+      b.addEventListener('click', () => { _slice = b.dataset.slice; renderSlicer(result); }));
+  }
+
+  let planned, actual, subP, subA, scope, scale;
+  if (_slice === 'Overall' || !cats[_slice]) {
+    const t = projectProgress(cats, _weights);          // matches Category Weights Overall row
+    planned = t.planned; actual = t.actual;
+    subP = 'Overall Planned Weight %'; subA = 'Overall Weighted Actual %'; scope = 'Overall project';
+    scale = Math.max(planned, actual, 0.0001);
+  } else {
+    const c = cats[_slice];
+    planned = c.planned_pct || 0; actual = c.actual_pct || 0;
+    subP = `${_slice} Planned %`; subA = `${_slice} Actual %`; scope = _slice;
+    scale = 1;
+  }
+  const v = actual - planned, behind = v < 0;
+  const vTxt = `${behind ? '−' : '+'}${(Math.abs(v) * 100).toFixed(2)}%`;
+  const pct = x => `${(x * 100).toFixed(2)}%`;
+  const box = document.getElementById('evm-slicer');
+  if (!box) return;
+  box.innerHTML = `
+    <div class="evm-slice-scope">Showing: <b>${escapeHtml(scope)}</b></div>
+    <div class="evm-slice-ro">
+      <div class="evm-ro plan"><div class="k">Planned %</div><div class="v">${pct(planned)}</div><div class="n">${escapeHtml(subP)}</div></div>
+      <div class="evm-ro act"><div class="k">Actual %</div><div class="v">${pct(actual)}</div><div class="n">${escapeHtml(subA)}</div></div>
+      <div class="evm-ro var"><div class="k">Variance</div><div class="v ${behind ? 'behind' : 'ahead'}">${vTxt}</div><div class="n">${behind ? 'behind plan' : 'ahead of plan'}</div></div>
+    </div>
+    <div class="evm-slice-bars">
+      <div class="evm-dbar"><span class="dl">Planned</span><span class="dtrack"><span class="dfill s" style="width:${(planned / scale * 100).toFixed(1)}%"></span></span><span class="dv">${pct(planned)}</span></div>
+      <div class="evm-dbar"><span class="dl">Actual</span><span class="dtrack"><span class="dfill a" style="width:${(actual / scale * 100).toFixed(1)}%"></span></span><span class="dv">${pct(actual)}</span></div>
+    </div>`;
 }
 
 function renderDashboard(result) {
@@ -235,6 +296,7 @@ function openInputsEditor(result) {
     _actualCost = isNaN(acv) ? null : acv;
     _saveInputs();
     close();
+    renderSlicer(result);
     renderDashboard(result);
     renderCats(result);
   });

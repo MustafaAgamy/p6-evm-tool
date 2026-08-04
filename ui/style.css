@@ -479,6 +479,31 @@ body {
 .evm-empty { color: var(--muted); font-size: 12px; font-style: italic; padding: 8px 0; }
 .evm-note { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
 
+/* Project Progress slicer (top of EVM layout) */
+.evm-chip { background: var(--card-bg); border: 1px solid var(--border); color: var(--muted);
+  font-size: 11px; font-weight: 600; padding: 4px 11px; border-radius: 20px; cursor: pointer; transition: .12s; }
+.evm-chip:hover { border-color: var(--accent); color: var(--text); }
+.evm-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.evm-slice-scope { font-size: 11px; color: var(--muted); margin: 2px 0 10px; }
+.evm-slice-scope b { color: var(--text); }
+.evm-slice-ro { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+.evm-ro { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.evm-ro .k { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
+.evm-ro .v { font-size: 26px; font-weight: 800; margin-top: 2px; }
+.evm-ro.plan .v { color: var(--accent); }
+.evm-ro.act .v { color: var(--success); }
+.evm-ro .v.behind { color: var(--danger); }
+.evm-ro .v.ahead { color: var(--success); }
+.evm-ro .n { font-size: 10px; color: var(--muted); margin-top: 3px; }
+.evm-slice-bars { margin-bottom: 4px; }
+.evm-dbar { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 11px; }
+.evm-dbar .dl { width: 70px; color: var(--muted); font-weight: 600; }
+.evm-dbar .dtrack { flex: 1; background: var(--border); border-radius: 4px; height: 15px; overflow: hidden; }
+.evm-dbar .dfill { display: block; height: 100%; border-radius: 4px; }
+.evm-dbar .dfill.s { background: var(--accent); }
+.evm-dbar .dfill.a { background: var(--success); }
+.evm-dbar .dv { width: 64px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+
 /* Edit-inputs modal */
 .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center;
   justify-content: center; z-index: 100; }

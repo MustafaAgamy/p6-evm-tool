@@ -137,15 +137,13 @@ export async function generatePdf() {
 
     const r = state.currentResult || {};
     const inputs = evmInputs();
-    // Engineering for the PDF: E1 rows if uploaded, else P6 rows mapped to the report shape
+    // Engineering for the PDF: E1 rows if uploaded, else the P6 rows as-is — the
+    // report renders the four P6 columns (Planned/Actual SUB, Planned/Actual APP) itself.
     let engineering = null;
     if (r.engineering_e1 && r.engineering_e1.length) {
       engineering = { mode: 'E1', rows: r.engineering_e1 };
     } else if (r.engineering_p6 && r.engineering_p6.length) {
-      engineering = { mode: 'P6', rows: r.engineering_p6.map(x => ({
-        trade: x.trade, submittal_type: x.submittal_type, req: x.req, planned: x.planned_sub,
-        submitted_rows: x.actual_sub, approved_rows: x.actual_appr, not_approved_rows: '', under_review_rows: '',
-        planned_pct: x.planned_sub_pct, submitted_pct: x.actual_sub_pct, approved_pct: x.actual_appr_pct })) };
+      engineering = { mode: 'P6', rows: r.engineering_p6 };
     }
     const meta = {
       project_name: r.project_name || 'Schedule', data_date: (r.data_date || '').slice(0, 10),

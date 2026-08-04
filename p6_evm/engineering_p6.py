@@ -3,13 +3,26 @@
 Engineering drawings appear in P6 as Submittal + Approval activity pairs, coded
 by Trade Design (Civil/MEP/Arch) and Design Cycle (Schematic/Detailed/IFC/Shop).
 Per Trade x Drawing Type: Req = submittal activities; Submitted/Approved = the
-submittal/approval activities that are complete; Planned = those whose baseline
+submittal/approval activities that have *started*; Planned = those whose baseline
 finish is on/before the data date. Percentages are count / Req.
+
+"Started" (not "100% complete") is the counting rule Ibrahim chose: a drawing
+counts as Submitted the moment its submittal activity has begun in P6, and as
+Approved the moment its approval activity has begun — so the columns move with
+real progress instead of staying at zero until an activity is fully finished.
+See vault: 07 Calculation Rules — Engineering counts once started.
 """
 
 
-def _is_done(a):
-    return (a.get('percent_complete') or 0) >= 0.999
+def _is_started(a):
+    """True once a P6 activity has begun — In Progress / Completed status, or any
+    progress recorded. Not Started (or no progress) is False."""
+    status = (a.get('status') or '').strip().lower().replace(' ', '')
+    if status in ('inprogress', 'completed'):
+        return True
+    if status == 'notstarted':
+        return False
+    return (a.get('percent_complete') or 0) > 0
 
 
 def _drawing_type(codes):
@@ -41,15 +54,15 @@ def engineering_from_p6(data):
         g = groups.setdefault((trade, dtype), {
             'req': 0, 'planned_sub': 0, 'actual_sub': 0,
             'planned_appr': 0, 'actual_appr': 0})
-        done = _is_done(a)
+        started = _is_started(a)
         bl = (data.baseline_by_id.get(aid) or {}).get('planned_finish')
         planned = bl is not None and data_date is not None and bl <= data_date
         if is_sub:
             g['req'] += 1
-            g['actual_sub'] += 1 if done else 0
+            g['actual_sub'] += 1 if started else 0
             g['planned_sub'] += 1 if planned else 0
         if is_app:
-            g['actual_appr'] += 1 if done else 0
+            g['actual_appr'] += 1 if started else 0
             g['planned_appr'] += 1 if planned else 0
 
     result = {}

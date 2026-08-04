@@ -46,6 +46,30 @@ def test_planned_by_baseline_vs_data_date():
     assert g['planned_sub_pct'] == 50.0
 
 
+def test_actual_counts_once_started_not_only_complete():
+    # Submittal partway done (30%) and approval just started via status — both count
+    # under the "started" rule, even though neither is 100% complete.
+    acts = [
+        _act('1', 'DD.SUB.S.1', 'Civil', 'Detailed Design', 'Detailed Design Submittal', 0.30),
+        _act('2', 'DD.APP.S.1', 'Civil', 'Detailed Design', 'Detailed Design Approval', 0.0),
+        _act('3', 'DD.SUB.S.2', 'Civil', 'Detailed Design', 'Detailed Design Submittal', 0.0),
+    ]
+    acts[1]['status'] = 'In Progress'   # approval started but no % yet
+    g = engineering_from_p6(_data(acts))[('Civil', 'Detailed Design')]
+    assert g['req'] == 2
+    assert g['actual_sub'] == 1          # the 30% submittal counts (started)
+    assert g['actual_appr'] == 1         # the In Progress approval counts (started)
+    assert g['actual_sub_pct'] == 50.0
+    assert g['actual_appr_pct'] == 50.0
+
+
+def test_not_started_activity_does_not_count():
+    acts = [_act('1', 'DD.SUB.N.1', 'MEP', 'Detailed Design', 'Detailed Design Submittal', 0.0)]
+    acts[0]['status'] = 'Not Started'
+    g = engineering_from_p6(_data(acts))[('MEP', 'Detailed Design')]
+    assert g['actual_sub'] == 0
+
+
 def test_non_engineering_ignored():
     acts = [{'object_id': '1', 'id': 'CONS.1', 'name': 'Pour', 'percent_complete': 0.5,
              'activity_codes': {'Type of Works': 'Civil Works'}}]

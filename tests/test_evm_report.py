@@ -1,5 +1,5 @@
 from datetime import datetime
-from p6_evm.evm_report import render_evm_report, spi_status
+from p6_evm.evm_report import render_evm_report, spi_status, _fmt_date
 
 
 def _result():
@@ -37,8 +37,8 @@ def test_report_has_dashboard_as_percentages_and_no_actual_cost_in_bar():
     assert 'Actual Cost (AC)' not in html
     # editable AC reflected (entered value 350M)
     assert '350.0M' in html
-    # baseline / expected finish + delay
-    assert '28-Feb-27' in html and '18-Mar-27' in html and '18 days' in html
+    # baseline / expected finish + delay — dates in 09-Feb.2026 style
+    assert '28-Feb.2027' in html and '18-Mar.2027' in html and '18 days' in html
 
 
 def test_report_category_planned_weight_columns():
@@ -60,6 +60,44 @@ def test_engineering_section_and_order():
     assert 'Shop Drawing' in html and '95.6%' in html
     # order: engineering appears before the PV-EV gap section
     assert html.index('Engineering Progress') < html.index('PV vs EV Gap Analysis')
+
+
+def test_fmt_date_day_mon_year():
+    # datetime, ISO string, and day-first string all render as 09-Feb.2026
+    assert _fmt_date(datetime(2026, 2, 9)) == '09-Feb.2026'
+    assert _fmt_date('2026-02-09T00:00:00') == '09-Feb.2026'
+    assert _fmt_date('2026-02-09') == '09-Feb.2026'
+    assert _fmt_date(None) == '—'
+
+
+def test_report_dates_from_iso_strings():
+    # The dashboard sends dates as JSON strings — they must still format correctly.
+    meta = dict(META, baseline_finish='2027-02-28T00:00:00', expected_finish='2027-03-18')
+    html = render_evm_report(_result(), meta)
+    assert '28-Feb.2027' in html and '18-Mar.2027' in html
+
+
+def test_progress_band_matches_category_overall():
+    html = render_evm_report(_result(), META)
+    assert 'Project Progress — Planned vs Actual' in html
+    # Overall Planned % = Σ weight×planned% = .95×.345 + .015×.80 = 0.3398 → 33.98%
+    # Overall Actual %  = .95×.324 + .015×.72 = 0.3186 → 31.86%
+    assert '33.98%' in html and '31.86%' in html
+    # band sits above the Executive Dashboard
+    assert html.index('Project Progress — Planned vs Actual') < html.index('Executive Dashboard')
+
+
+def test_engineering_p6_mode_shows_four_columns():
+    eng = {'mode': 'P6', 'rows': [
+        {'trade': 'Civil', 'submittal_type': 'IFC Drawings', 'req': 24,
+         'planned_sub': 10, 'actual_sub': 9, 'planned_appr': 6, 'actual_appr': 4,
+         'planned_sub_pct': 41.7, 'actual_sub_pct': 37.5,
+         'planned_appr_pct': 25.0, 'actual_appr_pct': 16.7}]}
+    html = render_evm_report(_result(), META, engineering=eng)
+    for col in ('Planned SUB', 'Actual SUB', 'Planned APP', 'Actual APP'):
+        assert col in html
+    assert 'once its submittal / approval activity has started' in html
+    assert '37.5%' in html and '16.7%' in html
 
 
 def test_report_gap_section_optional():

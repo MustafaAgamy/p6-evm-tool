@@ -6,6 +6,7 @@ optional Engineering Progress. EVM only — never mixed with the audit modules.
 render_evm_report() returns HTML; the caller renders it to PDF via Chrome.
 """
 import html as _html
+from datetime import datetime
 
 
 def _esc(v):
@@ -44,12 +45,30 @@ def _tile(label, value, note='', accent=None):
 
 
 def _fmt_date(d):
-    if d is None:
+    """Format a date as e.g. 09-Feb.2026 (day-Mon.year).
+
+    Accepts a datetime OR a string (ISO like 2026-02-09T00:00:00, or already
+    day-first). The dashboard passes dates as JSON strings, so we coerce first —
+    otherwise strftime fails silently and the raw ISO string leaks into the PDF.
+    """
+    if d is None or d == '':
         return '—'
-    try:
-        return d.strftime('%d-%b-%y')
-    except AttributeError:
-        return str(d)[:10]
+    if not hasattr(d, 'strftime'):
+        s = str(d).strip()
+        parsed = None
+        try:
+            parsed = datetime.fromisoformat(s.replace('Z', '').replace('T', ' ').strip())
+        except ValueError:
+            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d-%b-%Y', '%d-%b-%y', '%m/%d/%Y'):
+                try:
+                    parsed = datetime.strptime(s[:10] if fmt == '%Y-%m-%d' else s, fmt)
+                    break
+                except ValueError:
+                    continue
+        if parsed is None:
+            return s[:11]
+        d = parsed
+    return d.strftime('%d-%b.%Y')
 
 
 def _dashboard(result, meta):
@@ -81,6 +100,35 @@ def _pv_ev_bar(result):
                 f'<div class="bar-val">{_egp(val)}</div></div>')
     return (row('Planned Value (PV)', pv, '#3b6fa8')
             + row('Earned Value (EV)', ev, '#8bb648'))
+
+
+def _progress_band(result):
+    """Top-of-report 'Project Progress · Planned vs Actual' summary.
+
+    Planned % / Actual % are the Overall totals of the Category Weights table
+    (unweighted sum of weight × %), so they match that section exactly. On the
+    PDF this is the static summary; the on-screen view adds the discipline slicer.
+    """
+    cats = result.get('categories', {}) or {}
+    planned = sum((c.get('weight') or 0) * (c.get('planned_pct') or 0) for c in cats.values())
+    actual = sum((c.get('weight') or 0) * (c.get('actual_pct') or 0) for c in cats.values())
+    var = actual - planned
+    behind = var < 0
+    var_txt = f"{'−' if behind else '+'}{abs(var) * 100:.2f}%"
+    tiles = (_tile('Planned %', f'{planned * 100:.2f}%', 'Overall Planned Weight %')
+             + _tile('Actual %', f'{actual * 100:.2f}%', 'Overall Weighted Actual %')
+             + _tile('Variance', var_txt, 'behind plan' if behind else 'ahead of plan',
+                     accent='#c0392b' if behind else '#2e8b57'))
+    mx = max(planned, actual, 0.0001)
+
+    def bar(label, val, color):
+        w = 100.0 * val / mx
+        return (f'<div class="bar-row"><div class="bar-label">{label}</div>'
+                f'<div class="bar-track"><div class="bar-fill" style="width:{w:.1f}%;background:{color}"></div></div>'
+                f'<div class="bar-val">{val * 100:.2f}%</div></div>')
+    bars = bar('Planned', planned, '#3b6fa8') + bar('Actual', actual, '#5aa86f')
+    return (f'<div class="dash-grid" style="grid-template-columns:repeat(3,1fr)">{tiles}</div>'
+            f'<div style="margin-top:10px">{bars}</div>')
 
 
 def _category_table(result):
@@ -133,23 +181,44 @@ def _engineering_section(engineering):
     if not engineering or not engineering.get('rows'):
         return ''
     mode = engineering.get('mode', 'E1')
-    src = ('E1 Log (Approved ÷ Req)' if mode == 'E1'
-           else 'P6 fallback (in-progress ÷ total per trade)')
     rows = []
-    for r in engineering['rows']:
-        rows.append(
-            f'<tr><td>{_esc(r.get("trade"))}</td><td>{_esc(r.get("submittal_type"))}</td>'
-            f'<td class="num">{r.get("req", "")}</td><td class="num">{r.get("planned", "")}</td>'
-            f'<td class="num">{r.get("submitted_rows", "")}</td><td class="num">{r.get("approved_rows", "")}</td>'
-            f'<td class="num">{r.get("not_approved_rows", "")}</td><td class="num">{r.get("under_review_rows", "")}</td>'
-            f'<td class="num">{r.get("planned_pct", "")}%</td><td class="num">{r.get("submitted_pct", "")}%</td>'
-            f'<td class="num">{r.get("approved_pct", "")}%</td></tr>')
-    table = (
-        '<div style="overflow-x:auto"><table style="min-width:720px"><thead><tr>'
-        '<th>Trade</th><th>Submittal Type</th><th class="num">Req</th><th class="num">Planned</th>'
-        '<th class="num">Submitted</th><th class="num">Approved</th><th class="num">Not Appr</th>'
-        '<th class="num">Under Rev</th><th class="num">Planned %</th><th class="num">Submitted %</th>'
-        f'<th class="num">Approved %</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
+    if mode == 'P6':
+        # Straight from P6: four submittal/approval columns, counted "once started".
+        for r in engineering['rows']:
+            rows.append(
+                f'<tr><td>{_esc(r.get("trade"))}</td><td>{_esc(r.get("submittal_type"))}</td>'
+                f'<td class="num">{r.get("req", "")}</td>'
+                f'<td class="num">{r.get("planned_sub", "")}</td><td class="num">{r.get("actual_sub", "")}</td>'
+                f'<td class="num">{r.get("planned_appr", "")}</td><td class="num">{r.get("actual_appr", "")}</td>'
+                f'<td class="num">{r.get("actual_sub_pct", "")}%</td>'
+                f'<td class="num">{r.get("actual_appr_pct", "")}%</td></tr>')
+        table = (
+            '<div style="overflow-x:auto"><table style="min-width:720px"><thead><tr>'
+            '<th>Trade</th><th>Submittal Type</th><th class="num">Req</th>'
+            '<th class="num">Planned SUB</th><th class="num">Actual SUB</th>'
+            '<th class="num">Planned APP</th><th class="num">Actual APP</th>'
+            '<th class="num">Sub %</th><th class="num">Appr %</th>'
+            f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
+        note = ('Source: P6 (Mode B). A drawing counts as Submitted / Approved once its '
+                'submittal / approval activity has started. Planned = baseline finish on/before the '
+                'data date. Sub % = Actual SUB ÷ Req; Appr % = Actual APP ÷ Req.')
+    else:
+        for r in engineering['rows']:
+            rows.append(
+                f'<tr><td>{_esc(r.get("trade"))}</td><td>{_esc(r.get("submittal_type"))}</td>'
+                f'<td class="num">{r.get("req", "")}</td><td class="num">{r.get("planned", "")}</td>'
+                f'<td class="num">{r.get("submitted_rows", "")}</td><td class="num">{r.get("approved_rows", "")}</td>'
+                f'<td class="num">{r.get("not_approved_rows", "")}</td><td class="num">{r.get("under_review_rows", "")}</td>'
+                f'<td class="num">{r.get("planned_pct", "")}%</td><td class="num">{r.get("submitted_pct", "")}%</td>'
+                f'<td class="num">{r.get("approved_pct", "")}%</td></tr>')
+        table = (
+            '<div style="overflow-x:auto"><table style="min-width:720px"><thead><tr>'
+            '<th>Trade</th><th>Submittal Type</th><th class="num">Req</th><th class="num">Planned</th>'
+            '<th class="num">Submitted</th><th class="num">Approved</th><th class="num">Not Appr</th>'
+            '<th class="num">Under Rev</th><th class="num">Planned %</th><th class="num">Submitted %</th>'
+            f'<th class="num">Approved %</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
+        note = ('Source: E1 Log. % Submitted = (Submitted − Not Approved) ÷ Req; '
+                '% Approved = Approved ÷ Req.')
     gap = engineering.get('gap') or []
     gap_html = ''
     if gap:
@@ -163,8 +232,7 @@ def _engineering_section(engineering):
             '<th class="num">Actual Appr</th><th class="num">Gap</th><th class="num">% of Gap</th>'
             f'</tr></thead><tbody>{grows}</tbody></table>')
     return (f'<h2 class="sec">Engineering Progress — Drawings by Trade</h2>'
-            f'<p class="note">Source: {_esc(src)}. % Submitted = (Submitted − Not Approved) ÷ Req; '
-            f'% Approved = Approved ÷ Req.</p>{table}{gap_html}')
+            f'<p class="note">{_esc(note)}</p>{table}{gap_html}')
 
 
 def render_evm_report(result, meta, gap=None, engineering=None):
@@ -212,6 +280,9 @@ def render_evm_report(result, meta, gap=None, engineering=None):
       <div><span>Schedule File:</span> {_esc(meta.get('source_file', ''))}</div>
     </div>
   </div>
+
+  <h2 class="sec">Project Progress — Planned vs Actual</h2>
+  {_progress_band(result)}
 
   <h2 class="sec">Executive Dashboard</h2>
   {_dashboard(result, meta)}
