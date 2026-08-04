@@ -23,11 +23,16 @@ def test_gap_groups_by_code_and_shares():
     assert out['groups'][0]['code'] == 'Piles Works'
 
 
-def test_uncoded_activities_bucketed():
-    records = [_rec({}, 10.0, 1.0, 0.5)]   # no code for this dimension
+def test_uncoded_activities_excluded():
+    records = [
+        _rec({}, 10.0, 1.0, 0.5),                          # no code → excluded
+        _rec({'Type of Works': 'Piles Works'}, 20.0, 1.0, 0.5),
+    ]
     out = gap_by_code(records, 'Type of Works')
-    assert out['groups'][0]['code'] == '(uncoded)'
-    assert round(out['groups'][0]['gap'], 1) == 5.0
+    codes = [g['code'] for g in out['groups']]
+    assert '(uncoded)' not in codes
+    assert codes == ['Piles Works']
+    assert round(out['total_pv'], 1) == 20.0               # uncoded PV not counted
 
 
 def test_none_planned_pct_skipped():

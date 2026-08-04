@@ -5,9 +5,6 @@ value of the selected activity-code dimension, the gap (PV − EV) shows where
 the schedule slippage concentrates (e.g. Piles Works 50%, Columns Works 50%).
 """
 
-UNCODED = '(uncoded)'
-
-
 def gap_by_code(records, dimension):
     """records: metrics compute() records (each has 'activity', 'bac',
     'planned_pct', 'actual_pct'). dimension: activity-code name to group by.
@@ -19,10 +16,12 @@ def gap_by_code(records, dimension):
         planned = r.get('planned_pct')
         if planned is None:
             continue
+        code = (r.get('activity', {}).get('activity_codes', {}) or {}).get(dimension)
+        if not code:
+            continue      # skip activities not coded for this dimension (no "uncoded" bucket)
         bac = r.get('bac') or 0.0
         pv = bac * planned
         ev = bac * (r.get('actual_pct') or 0.0)
-        code = (r.get('activity', {}).get('activity_codes', {}) or {}).get(dimension) or UNCODED
         b = buckets.setdefault(code, {'code': code, 'pv': 0.0, 'ev': 0.0})
         b['pv'] += pv
         b['ev'] += ev

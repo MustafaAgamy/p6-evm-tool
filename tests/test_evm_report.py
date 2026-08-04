@@ -46,6 +46,22 @@ def test_report_category_planned_weight_columns():
     assert 'Planned Weight %' in html and 'Weighted Actual %' in html
 
 
+def test_engineering_section_and_order():
+    eng = {'mode': 'E1', 'rows': [
+        {'trade': 'Civil', 'submittal_type': 'Shop Drawing', 'req': 45, 'planned': 45,
+         'submitted_rows': 56, 'approved_rows': 43, 'not_approved_rows': 13,
+         'under_review_rows': 0, 'planned_pct': 100.0, 'submitted_pct': 95.6, 'approved_pct': 95.6}],
+        'gap': [{'trade': 'Mechanical', 'planned_appr': 27, 'actual_appr': 20, 'gap': 7, 'pct_of_gap': 37}]}
+    gap = {'dimension': 'Type of Works', 'total_gap': 1e6,
+           'groups': [{'code': 'Piles Works', 'pv': 4e6, 'ev': 3e6, 'gap': 1e6, 'pct_of_gap': 100}]}
+    html = render_evm_report(_result(), META, gap=gap, engineering=eng)
+    assert 'Engineering Progress — Drawings by Trade' in html
+    assert 'Engineering Gap Analysis' in html
+    assert 'Shop Drawing' in html and '95.6%' in html
+    # order: engineering appears before the PV-EV gap section
+    assert html.index('Engineering Progress') < html.index('PV vs EV Gap Analysis')
+
+
 def test_report_gap_section_optional():
     gap = {'dimension': 'Type of Works', 'total_gap': 23.7e6,
            'groups': [{'code': 'Piles Works', 'pv': 42e6, 'ev': 30.1e6, 'gap': 11.9e6, 'pct_of_gap': 50.2}]}

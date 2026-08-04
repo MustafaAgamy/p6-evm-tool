@@ -126,8 +126,50 @@ def _gap_section(gap):
         f'<tbody>{"".join(rows)}</tbody></table>')
 
 
-def render_evm_report(result, meta, gap=None):
+def _engineering_section(engineering):
+    """engineering: {'mode': 'E1'|'P6', 'rows': [ {trade, submittal_type, req, planned,
+    submitted_rows, approved_rows, not_approved_rows, under_review_rows,
+    planned_pct, submitted_pct, approved_pct} ]}. Empty string when absent."""
+    if not engineering or not engineering.get('rows'):
+        return ''
+    mode = engineering.get('mode', 'E1')
+    src = ('E1 Log (Approved ÷ Req)' if mode == 'E1'
+           else 'P6 fallback (in-progress ÷ total per trade)')
+    rows = []
+    for r in engineering['rows']:
+        rows.append(
+            f'<tr><td>{_esc(r.get("trade"))}</td><td>{_esc(r.get("submittal_type"))}</td>'
+            f'<td class="num">{r.get("req", "")}</td><td class="num">{r.get("planned", "")}</td>'
+            f'<td class="num">{r.get("submitted_rows", "")}</td><td class="num">{r.get("approved_rows", "")}</td>'
+            f'<td class="num">{r.get("not_approved_rows", "")}</td><td class="num">{r.get("under_review_rows", "")}</td>'
+            f'<td class="num">{r.get("planned_pct", "")}%</td><td class="num">{r.get("submitted_pct", "")}%</td>'
+            f'<td class="num">{r.get("approved_pct", "")}%</td></tr>')
+    table = (
+        '<div style="overflow-x:auto"><table style="min-width:720px"><thead><tr>'
+        '<th>Trade</th><th>Submittal Type</th><th class="num">Req</th><th class="num">Planned</th>'
+        '<th class="num">Submitted</th><th class="num">Approved</th><th class="num">Not Appr</th>'
+        '<th class="num">Under Rev</th><th class="num">Planned %</th><th class="num">Submitted %</th>'
+        f'<th class="num">Approved %</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
+    gap = engineering.get('gap') or []
+    gap_html = ''
+    if gap:
+        grows = ''.join(
+            f'<tr><td>{_esc(g.get("trade"))}</td><td class="num">{g.get("planned_appr", "")}</td>'
+            f'<td class="num">{g.get("actual_appr", "")}</td><td class="num">{g.get("gap", "")}</td>'
+            f'<td class="num">{g.get("pct_of_gap", 0):.0f}%</td></tr>' for g in gap)
+        gap_html = (
+            '<h2 class="sec">Engineering Gap Analysis — Planned vs Actual Approval by Trade</h2>'
+            '<table><thead><tr><th>Trade</th><th class="num">Planned Appr</th>'
+            '<th class="num">Actual Appr</th><th class="num">Gap</th><th class="num">% of Gap</th>'
+            f'</tr></thead><tbody>{grows}</tbody></table>')
+    return (f'<h2 class="sec">Engineering Progress — Drawings by Trade</h2>'
+            f'<p class="note">Source: {_esc(src)}. % Submitted = (Submitted − Not Approved) ÷ Req; '
+            f'% Approved = Approved ÷ Req.</p>{table}{gap_html}')
+
+
+def render_evm_report(result, meta, gap=None, engineering=None):
     gap_html = _gap_section(gap)
+    eng_html = _engineering_section(engineering)
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>EVM Results — {_esc(meta.get('project_name', ''))}</title>
 <style>
@@ -180,7 +222,9 @@ def render_evm_report(result, meta, gap=None):
   <h2 class="sec">Category Weights &amp; Overall Progress</h2>
   {_category_table(result)}
 
+  {eng_html}
+
   {gap_html}
 
-  <div class="foot">EVM computed from the P6 schedule. This report covers EVM only, isolated from the Schedule Audit modules. · {_esc(meta.get('project_name', ''))}</div>
+  <div class="foot">EVM computed from the P6 schedule; Engineering % from the E1 Log when provided. This report covers EVM only, isolated from the Schedule Audit modules. · {_esc(meta.get('project_name', ''))}</div>
 </body></html>'''
