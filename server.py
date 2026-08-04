@@ -122,6 +122,19 @@ class Handler(BaseHTTPRequestHandler):
                 print(f'[audit] skipped: {audit_exc}', file=sys.stderr)
             safe_result['audit_modules'] = audit_modules_result
 
+            # ── EVM v2 extras: engineering (Mode B, from P6) + code dimensions ──
+            try:
+                from p6_evm.engineering_p6 import engineering_from_p6
+                eng_p6 = engineering_from_p6(data)
+                safe_result['engineering_p6'] = [
+                    {'trade': t, 'submittal_type': ty, **vals}
+                    for (t, ty), vals in sorted(eng_p6.items())
+                ]
+            except Exception as eng_exc:
+                safe_result['engineering_p6'] = []
+                print(f'[evm] engineering skipped: {eng_exc}', file=sys.stderr)
+            safe_result['activity_code_types'] = list(getattr(data, 'activity_code_types', []) or [])
+
             # ── Persist to DB ──────────────────────────────────────────────
             file_hash      = db.hash_file(xml_path)
             prior_import   = db.get_prior_import_date(file_hash)

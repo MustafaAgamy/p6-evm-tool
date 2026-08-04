@@ -171,6 +171,14 @@ def test_parse_returns_modules_and_snapshot(test_server, xml_path):
     assert 'score' in am['modules']['float'] and 'grade' in am['modules']['float']
 
 
+def test_parse_returns_evm_extras(test_server, xml_path):
+    _, data = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    assert data['ok'] is True
+    r = data['result']
+    assert 'engineering_p6' in r and isinstance(r['engineering_p6'], list)
+    assert 'activity_code_types' in r and isinstance(r['activity_code_types'], list)
+
+
 def test_project_load_returns_modules(test_server, xml_path):
     _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
     _, _, body = _get(test_server, '/api/history')
