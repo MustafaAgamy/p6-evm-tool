@@ -215,4 +215,25 @@ def test_export_excel_missing_output_path(test_server):
     assert data['ok'] is False
 
 
+def test_gap_route_reparses(test_server, xml_path):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    _, data = _post_json(test_server, '/api/gap', {
+        'xml_path': str(xml_path), 'cached_path': parsed.get('cached_path'), 'dimension': 'Type of Works'})
+    assert data['ok'] is True
+    assert 'gap' in data and 'groups' in data['gap']
+
+
+def test_e1_upload_missing_file(test_server):
+    _, data = _post_json(test_server, '/api/e1/upload', {'snapshot_id': 1, 'path': '/nope.xlsx'})
+    assert data['ok'] is False
+
+
+def test_parse_returns_gap_and_finish_extras(test_server, xml_path):
+    _, data = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    r = data['result']
+    assert 'gap' in r                    # present (may be None if no codes)
+    # engineering + code types already covered; ensure keys exist
+    assert 'engineering_p6' in r
+
+
 # ── POST /api/report not tested — requires Chrome ─────────────────────────
