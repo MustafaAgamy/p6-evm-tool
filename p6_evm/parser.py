@@ -85,6 +85,35 @@ def parse_file(path) -> ScheduleData:
     root = ET.parse(path).getroot()
     data = ScheduleData()
 
+    # ── Activity-code lookups (XML equivalent of the XER path in xer.py) ──────
+    # <ActivityCodeType> defines a dimension (ObjectId -> Name); <ActivityCode>
+    # defines a value (ObjectId -> Description, falling back to CodeValue); each
+    # activity carries <Code><TypeObjectId>/<ValueObjectId></Code> assignments.
+    _code_type_name = {}
+    for t_el in root.iter(tag('ActivityCodeType')):
+        oid = text(t_el, 'ObjectId')
+        nm = text(t_el, 'Name')
+        if oid and nm:
+            _code_type_name[oid] = nm
+    _code_value = {}
+    for v_el in root.iter(tag('ActivityCode')):
+        oid = text(v_el, 'ObjectId')
+        val = text(v_el, 'Description') or text(v_el, 'CodeValue')
+        if oid and val:
+            _code_value[oid] = val
+
+    def _activity_codes(act_el):
+        codes = {}
+        for code_el in act_el.findall(tag('Code')):
+            tid = text(code_el, 'TypeObjectId')
+            vid = text(code_el, 'ValueObjectId')
+            if tid and vid:
+                dim = _code_type_name.get(tid)
+                val = _code_value.get(vid)
+                if dim and val:
+                    codes[dim] = val
+        return codes
+
     for cal_el in root.findall(tag('Calendar')):
         object_id = text(cal_el, 'ObjectId')
         name = text(cal_el, 'Name')
@@ -181,8 +210,12 @@ def parse_file(path) -> ScheduleData:
         act['is_critical'] = (act['total_float_days'] is not None and act['total_float_days'] <= 0)
         act['constraint_type'] = text(act_el, 'PrimaryConstraintType')
         act['constraint_date'] = parse_datetime(text(act_el, 'PrimaryConstraintDate'))
-        act['activity_codes'] = {}
+        act['activity_codes'] = _activity_codes(act_el)
         act['wbs_path'] = full_wbs_path(act['wbs_id'], data.wbs)
+
+    # Dimensions actually assigned to this project's activities (for the gap dropdown)
+    data.activity_code_types = sorted(
+        {dim for a in data.activities.values() for dim in a['activity_codes']})
 
     for ra_el in project_el.findall(tag('ResourceAssignment')):
         activity_id = text(ra_el, 'ActivityObjectId')
