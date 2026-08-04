@@ -50,6 +50,9 @@ const SEV_ORDER = ['Critical', 'High', 'Medium', 'Low'];
 let _filters = { severity: '', check: '', wbs: '', query: '', area: '' };
 
 export function switchView(view) {
+  // Reveal the chosen analysis (the chooser gates this on import)
+  document.getElementById('analysis-chooser').classList.add('hidden');
+  document.getElementById('analysis-views').classList.remove('hidden');
   document.getElementById('evm-panel').classList.toggle('hidden', view !== 'evm');
   document.getElementById('audit-panel').classList.toggle('hidden', view !== 'audit');
   document.getElementById('tab-evm').classList.toggle('active', view === 'evm');
@@ -57,6 +60,14 @@ export function switchView(view) {
   // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
   document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
   document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');
+}
+
+// Show the "EVM vs Schedule Audit" choice; hide both analysis views until picked.
+export function showChooser() {
+  document.getElementById('analysis-chooser').classList.remove('hidden');
+  document.getElementById('analysis-views').classList.add('hidden');
+  document.getElementById('sb-audit-btn').classList.remove('active');
+  document.getElementById('sb-home-btn').classList.add('active');
 }
 
 export function shortWbs(path, n = 3) {

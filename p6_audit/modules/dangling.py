@@ -24,64 +24,29 @@ def _edge_str(graph, edges, empty):
     return '; '.join(parts)
 
 
-def _wbs_leaf(wbs_path):
-    if not wbs_path:
-        return 'this WBS package'
-    return wbs_path.split('>')[-1].strip() or 'this WBS package'
-
-
-def _first_other(graph, edges):
-    for e in edges:
-        o = graph.activities.get(e['other'], {})
-        return o.get('id', ''), e.get('type', 'FS')
-    return None, None
-
-
-def _first_driving(graph, edges, types):
-    """Prefer the edge that actually drives this end (FS/SS for start,
-    FS/FF for finish); fall back to the first edge."""
-    for e in edges:
-        if e['type'] in types:
-            o = graph.activities.get(e['other'], {})
-            return o.get('id', ''), e['type']
-    return _first_other(graph, edges)
-
-
-_DRIVE_NAME = {'FS': 'Finish-to-Start', 'SS': 'Start-to-Start',
-               'FF': 'Finish-to-Finish', 'SF': 'Start-to-Finish'}
-
-
-def _fix(graph, preds, succs, wbs_path, pred_drive, succ_drive):
-    """A two-part predecessor + successor solution to the dangling, using the
-    given driving relationship types. Fix 1 uses FS/FS; Fix 2 uses the
+def _fix(preds, succs, pred_drive, succ_drive):
+    """A two-part predecessor + successor solution to the dangling, stated as a
+    relationship-type change only (no activity IDs — those are in the
+    Predecessor(s)/Successor(s) columns). Fix 1 uses FS/FS; Fix 2 uses the
     alternative valid types SS (start driver) / FF (finish driver).
     A suggestion only — never a schedule edit.
     """
-    leaf = _wbs_leaf(wbs_path)
     start_driven = any(e['type'] in ('FS', 'SS') for e in preds)
     finish_driven = any(e['type'] in ('FS', 'FF') for e in succs)
 
     # Predecessor part (drives the start)
     if not start_driven:
-        if preds:  # has a predecessor, but the wrong type to drive the start
-            pid, ptype = _first_other(graph, preds)
-            pred_part = f'Predecessor: retie {pid} (currently {ptype}) as {_DRIVE_NAME[pred_drive]}'
-        else:
-            pred_part = f'Predecessor: add a {_DRIVE_NAME[pred_drive]} tie from the preceding activity in "{leaf}"'
+        pred_part = (f'Predecessor: change relationship to {pred_drive}' if preds
+                     else f'Predecessor: add relationship ({pred_drive})')
     else:
-        pid, ptype = _first_driving(graph, preds, ('FS', 'SS'))
-        pred_part = f'Predecessor: keep {pid} ({ptype})'
+        pred_part = 'Predecessor: OK'
 
     # Successor part (drives the finish)
     if not finish_driven:
-        if succs:
-            sid, stype = _first_other(graph, succs)
-            succ_part = f'Successor: retie {sid} (currently {stype}) as {_DRIVE_NAME[succ_drive]}'
-        else:
-            succ_part = f'Successor: add a {_DRIVE_NAME[succ_drive]} tie to the next activity in "{leaf}"'
+        succ_part = (f'Successor: change relationship to {succ_drive}' if succs
+                     else f'Successor: add relationship ({succ_drive})')
     else:
-        sid, stype = _first_driving(graph, succs, ('FS', 'FF'))
-        succ_part = f'Successor: keep {sid} ({stype})'
+        succ_part = 'Successor: OK'
 
     return f'{pred_part}   |   {succ_part}'
 
@@ -111,9 +76,9 @@ def run_dangling(graph, config):
 
         severity = bump_severity(base) if act.get('is_critical') else base
         wbs_path = graph.wbs_path(oid)
-        fix1 = _fix(graph, preds, succs, wbs_path, 'FS', 'FS')
-        fix2 = _fix(graph, preds, succs, wbs_path, 'SS', 'FF')
-        if fix2 == fix1:                     # alternative adds nothing new
+        fix1 = _fix(preds, succs, 'FS', 'FS')
+        fix2 = _fix(preds, succs, 'SS', 'FF')
+        if fix2 == fix1:                     # no alternative beyond Fix 1
             fix2 = 'N/A'
         findings.append({
             'finding_id':      content_id('DANGLING', act['id'], issue),

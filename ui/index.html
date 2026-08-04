@@ -132,9 +132,36 @@
       <section class="results-section hidden" id="results-section">
         <div class="file-info-bar" id="file-info-bar"></div>
 
+        <!-- Choose which analysis to view (EVM is not auto-generated) -->
+        <div class="analysis-chooser" id="analysis-chooser">
+          <div class="section-label">Choose what to view for this schedule</div>
+          <div class="chooser-cards">
+            <button class="chooser-card" data-view="evm">
+              <div class="cc-icon evm">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+              </div>
+              <div class="cc-title">EVM Results</div>
+              <div class="cc-sub">Planned vs Earned Value, SPI, CPI, Finish Delay, category progress</div>
+            </button>
+            <button class="chooser-card" data-view="audit">
+              <div class="cc-icon audit">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>
+                </svg>
+              </div>
+              <div class="cc-title">Schedule Audit</div>
+              <div class="cc-sub">Dangling Activities &amp; Float Analysis — isolated module reports</div>
+            </button>
+          </div>
+        </div>
+
+        <div id="analysis-views" class="hidden">
         <div class="view-tabs">
           <button class="view-tab active" id="tab-evm" data-view="evm">EVM Results</button>
           <button class="view-tab" id="tab-audit" data-view="audit">Schedule Audit</button>
+          <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
 
         <div class="view-panel" id="evm-panel">
@@ -156,6 +183,7 @@
             <button class="btn-primary" id="pdf-btn-audit">Generate Module PDF</button>
           </div>
         </div>
+        </div><!-- /analysis-views -->
       </section>
 
       <!-- Recent projects -->

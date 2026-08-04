@@ -24,36 +24,38 @@ def test_no_pred_no_succ_is_start_and_finish_high():
     assert f['severity'] == 'High'
     assert f['predecessors'] == 'No Predecessor'
     assert f['successors'] == 'No Successor'
-    # Fix 1 is the Finish-to-Start two-part solution
+    # Fix 1 is the FS two-part solution (generic, no activity ids)
     assert 'Predecessor:' in f['suggested_fix'] and 'Successor:' in f['suggested_fix']
-    assert 'Finish-to-Start' in f['suggested_fix']
+    assert 'FS' in f['suggested_fix']
     # Fix 2 uses the alternative types (SS predecessor / FF successor), and differs
     assert f['suggested_fix_2'] != f['suggested_fix']
-    assert 'Start-to-Start' in f['suggested_fix_2'] and 'Finish-to-Finish' in f['suggested_fix_2']
+    assert 'SS' in f['suggested_fix_2'] and 'FF' in f['suggested_fix_2']
     assert 'recommendation' not in f          # Recommendation column removed
 
 
-def test_suggested_fix_names_existing_relationship_to_retie():
-    # a --FS--> b, b --SS--> c. b start driven (FS), finish dangling (only SS succ).
-    g = _g({'a': _act('a'), 'b': _act('b'), 'c': _act('c')},
+def test_fix_is_generic_no_activity_ids():
+    # a --FS--> b, b --SS--> ZZZ. b start driven (FS), finish dangling (only SS succ).
+    g = _g({'a': _act('a'), 'b': _act('b'), 'ZZZ': _act('ZZZ')},
            [{'pred_id': 'a', 'succ_id': 'b', 'type': 'FS', 'lag_days': 0},
-            {'pred_id': 'b', 'succ_id': 'c', 'type': 'SS', 'lag_days': 0}])
+            {'pred_id': 'b', 'succ_id': 'ZZZ', 'type': 'SS', 'lag_days': 0}])
     b = {f['activity_id']: f for f in run_dangling(g, CONFIG)['findings']}['b']
     assert b['logic_issue'] == 'Dangling Finish'
-    # successor part names the existing successor 'c' and its wrong type SS to retie
-    assert 'c' in b['suggested_fix'] and 'SS' in b['suggested_fix'] and 'retie' in b['suggested_fix']
-    # predecessor part keeps the good FS predecessor 'a'
-    assert 'keep a' in b['suggested_fix']
+    assert 'change relationship to FS' in b['suggested_fix']
+    assert 'change relationship to FF' in b['suggested_fix_2']
+    assert 'Predecessor: OK' in b['suggested_fix']       # start already driven
+    # generic — the successor activity id is NOT embedded in the fix text
+    assert 'ZZZ' not in b['suggested_fix'] and 'ZZZ' not in b['suggested_fix_2']
 
 
-def test_no_pred_suggests_adding_predecessor_in_wbs():
-    # a --FS--> b : 'a' has no predecessor (dangling start), suggestion references WBS
+def test_no_pred_adds_predecessor_relationship():
+    # a --FS--> b : 'a' has no predecessor (dangling start)
     g = _g({'a': _act('a', wbs_path='Civil > Silo 8'), 'b': _act('b')},
            [{'pred_id': 'a', 'succ_id': 'b', 'type': 'FS', 'lag_days': 0}])
     a = {f['activity_id']: f for f in run_dangling(g, CONFIG)['findings']}['a']
     assert a['logic_issue'] == 'Dangling Start'
-    assert 'Silo 8' in a['suggested_fix']
-    assert 'Predecessor: add' in a['suggested_fix']
+    assert 'add relationship (FS)' in a['suggested_fix']
+    assert 'Silo 8' not in a['suggested_fix']            # WBS no longer embedded
+    assert 'Successor: OK' in a['suggested_fix']
 
 
 def test_ss_pred_only_flags_finish_only_medium():

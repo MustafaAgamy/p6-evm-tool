@@ -2,7 +2,7 @@ import { state }                              from './modules/state.js';
 import { initTheme, toggleTheme }            from './modules/theme.js';
 import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
-import { switchView }                          from './modules/audit.js';
+import { switchView, showChooser }             from './modules/audit.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -33,6 +33,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('pdf-btn').addEventListener('click', generatePdf);
   document.getElementById('pdf-btn-audit').addEventListener('click', generateModulePdf);
   document.getElementById('excel-btn').addEventListener('click', exportExcel);
+
+  // Analysis chooser (shown after upload) → reveal the chosen view
+  document.querySelectorAll('.chooser-card').forEach(card =>
+    card.addEventListener('click', () => switchView(card.dataset.view)));
+  document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
   // View tabs (EVM ⇄ Schedule Audit)
   document.getElementById('tab-evm').addEventListener('click', () => switchView('evm'));

@@ -1,6 +1,6 @@
 import { state }                                   from './state.js';
 import { fmtEGP, fmtDate, kpiColor, escapeHtml }  from './format.js';
-import { renderAudit, switchView }                 from './audit.js';
+import { renderAudit, showChooser }                from './audit.js';
 
 const KPI_TOOLTIPS = {
   'Finish Delay':  'Days behind schedule — positive = late, negative = ahead',
@@ -103,7 +103,7 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
     catHTML || '<p style="color:var(--muted);font-size:12px">No category data found in config.json</p>';
 
   renderAudit(result.audit_modules);
-  switchView('evm');   // always land on EVM first; Audit is one click away
+  showChooser();   // do NOT auto-open EVM — let the user pick EVM or Schedule Audit
 
   document.getElementById('results-section').classList.remove('hidden');
 }
