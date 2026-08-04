@@ -1,5 +1,6 @@
 import { state }                                                  from './state.js';
 import { setLoading, showError, clearError, renderResults, renderHistory } from './render.js';
+import { evmInputs }                                             from './evm.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -127,25 +128,42 @@ export async function generateModulePdf() {
 }
 
 export async function generatePdf() {
-  if (!state.currentXmlPath) return;
-  const btn = new ButtonState(document.getElementById('pdf-btn'), 'Generate PDF Report');
+  if (!state.currentXmlPath && !state.currentCachedPath) return;
+  const btn = new ButtonState(document.getElementById('pdf-btn'), 'Generate EVM PDF');
   btn.loading('Generating…');
   try {
-    const outputPath = await window.pywebview.api.choose_save_path('weekly_report.pdf');
+    const outputPath = await window.pywebview.api.choose_save_path('EVM_report.pdf');
     if (!outputPath) { btn.reset(); return; }
 
-    const data = await apiFetch('api/report', {
+    const r = state.currentResult || {};
+    const inputs = evmInputs();
+    // Engineering for the PDF: E1 rows if uploaded, else P6 rows mapped to the report shape
+    let engineering = null;
+    if (r.engineering_e1 && r.engineering_e1.length) {
+      engineering = { mode: 'E1', rows: r.engineering_e1 };
+    } else if (r.engineering_p6 && r.engineering_p6.length) {
+      engineering = { mode: 'P6', rows: r.engineering_p6.map(x => ({
+        trade: x.trade, submittal_type: x.submittal_type, req: x.req, planned: x.planned_sub,
+        submitted_rows: x.actual_sub, approved_rows: x.actual_appr, not_approved_rows: '', under_review_rows: '',
+        planned_pct: x.planned_sub_pct, submitted_pct: x.actual_sub_pct, approved_pct: x.actual_appr_pct })) };
+    }
+    const meta = {
+      project_name: r.project_name || 'Schedule', data_date: (r.data_date || '').slice(0, 10),
+      report_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      source_file: (state.currentXmlPath || '').split(/[\\/]/).pop(),
+      baseline_finish: r.baseline_finish, expected_finish: r.expected_finish,
+    };
+    const data = await apiFetch('api/report/evm', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
-        xml_path:       state.currentXmlPath,
-        cached_path:    state.currentCachedPath,
-        output_path:    outputPath,
-        overrides_path: null,
+        xml_path: state.currentXmlPath, cached_path: state.currentCachedPath, output_path: outputPath,
+        meta, weights: inputs.weights, actual_cost: inputs.actualCost,
+        dimension: inputs.gap && inputs.gap.dimension, engineering,
       }),
     });
     if (!data.ok) { showError(`PDF generation failed: ${data.error}`); btn.reset(); }
-    else          { btn.success('✓ PDF Saved'); }
+    else          { btn.success('✓ EVM PDF Saved'); }
   } catch {
     showError('PDF generation failed. Check the output path and try again.');
     btn.reset();

@@ -46,6 +46,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_export_excel(body)
         elif self.path == '/api/report/module':
             self._handle_module_report(body)
+        elif self.path == '/api/gap':
+            self._handle_gap(body)
+        elif self.path == '/api/e1/upload':
+            self._handle_e1_upload(body)
+        elif self.path == '/api/report/evm':
+            self._handle_evm_report(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -133,7 +139,26 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as eng_exc:
                 safe_result['engineering_p6'] = []
                 print(f'[evm] engineering skipped: {eng_exc}', file=sys.stderr)
-            safe_result['activity_code_types'] = list(getattr(data, 'activity_code_types', []) or [])
+            # Baseline vs expected finish (from the finish milestone) for the dashboard
+            try:
+                from p6_evm.report import find_finish_milestone
+                fm = find_finish_milestone(result)
+                if fm is not None:
+                    safe_result['expected_finish'] = fm['activity'].get('planned_finish')
+                    bl = data.baseline_by_id.get(fm['activity'].get('id'))
+                    safe_result['baseline_finish'] = bl['planned_finish'] if bl else None
+            except Exception:
+                pass
+
+            code_types = list(getattr(data, 'activity_code_types', []) or [])
+            safe_result['activity_code_types'] = code_types
+            # Default PV-EV gap on a sensible dimension (records still present on `result`)
+            try:
+                from p6_evm.gap import gap_by_code
+                default_dim = 'Type of Works' if 'Type of Works' in code_types else (code_types[0] if code_types else None)
+                safe_result['gap'] = gap_by_code(result['records'], default_dim) if default_dim else None
+            except Exception:
+                safe_result['gap'] = None
 
             # ── Persist to DB ──────────────────────────────────────────────
             file_hash      = db.hash_file(xml_path)
@@ -157,6 +182,13 @@ class Handler(BaseHTTPRequestHandler):
             db.insert_category_metrics(sid, result.get('categories'))
             if audit_modules_result is not None:
                 db.insert_audit_modules(sid, audit_modules_result)
+            db.save_evm_extras(sid, {
+                'engineering_p6': safe_result.get('engineering_p6', []),
+                'activity_code_types': safe_result.get('activity_code_types', []),
+                'gap': safe_result.get('gap'),
+                'baseline_finish': safe_result.get('baseline_finish'),
+                'expected_finish': safe_result.get('expected_finish'),
+            })
             # ──────────────────────────────────────────────────────────────
 
             self._json(200, {'ok': True, 'result': safe_result, 'cached_path': cached_path,
@@ -252,6 +284,13 @@ class Handler(BaseHTTPRequestHandler):
         cached_path   = result.pop('_cached_path', None)
         original_path = result.pop('_original_path', None)
         result['audit_modules'] = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
+        extras = (db.get_evm_extras(snapshot_id) or {}) if snapshot_id else {}
+        result['engineering_p6'] = extras.get('engineering_p6', [])
+        result['activity_code_types'] = extras.get('activity_code_types', [])
+        result['gap'] = extras.get('gap')
+        result['baseline_finish'] = extras.get('baseline_finish')
+        result['expected_finish'] = extras.get('expected_finish')
+        result['engineering_e1'] = db.get_e1_summary(snapshot_id) if snapshot_id else None
         self._json(200, {'ok': True, 'result': result, 'snapshot_id': snapshot_id,
                          'cached_path': cached_path, 'original_path': original_path})
 
@@ -319,6 +358,90 @@ class Handler(BaseHTTPRequestHandler):
             subprocess.run([
                 chrome, '--headless', '--disable-gpu', '--no-sandbox',
                 f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/gap ───────────────────────────────────────────────────────────
+    def _handle_gap(self, body):
+        """Re-group the PV-EV gap by a different activity code (re-parses XML)."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        dim = body.get('dimension')
+        if not resolved or not dim:
+            self._json(200, {'ok': False, 'error': 'schedule or dimension unavailable'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.gap import gap_by_code
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            result = compute(parse_file(resolved), config)
+            self._json(200, {'ok': True, 'gap': gap_by_code(result['records'], dim)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/e1/upload ─────────────────────────────────────────────────────
+    def _handle_e1_upload(self, body):
+        """Read an E1 Log Excel → drawings summary (Mode A); store per snapshot."""
+        path = body.get('path', '')
+        snapshot_id = body.get('snapshot_id')
+        if not path or not os.path.isfile(path):
+            self._json(200, {'ok': False, 'error': f'Excel not found: {path}'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.e1_log import read_e1_rows, summarize_e1
+            summ = summarize_e1(read_e1_rows(path))
+            eng_rows = [{'trade': t, 'submittal_type': ty, **vals} for (t, ty), vals in sorted(summ.items())]
+            if snapshot_id:
+                db.save_e1_summary(snapshot_id, eng_rows)
+            self._json(200, {'ok': True, 'engineering_e1': eng_rows})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/report/evm ────────────────────────────────────────────────────
+    def _handle_evm_report(self, body):
+        """Render the consultant EVM report PDF with the user's weights/AC/engineering."""
+        output_path = body.get('output_path', '')
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import the file.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.gap import gap_by_code
+            from p6_evm.evm_report import render_evm_report
+            import subprocess, tempfile
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            weights = body.get('weights') or {}
+            for c in config.get('categories', []):
+                if c['name'] in weights:
+                    c['weight'] = weights[c['name']]
+            result = compute(parse_file(resolved), config)
+            meta_in = body.get('meta') or {}
+            if body.get('actual_cost') is not None:
+                meta_in['actual_cost'] = body.get('actual_cost')
+            dim = body.get('dimension')
+            gap = gap_by_code(result['records'], dim) if dim else None
+            html_content = render_evm_report(result, meta_in, gap=gap, engineering=body.get('engineering'))
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
                 f'file:///{html_path.replace(os.sep, "/")}',
             ], check=True, capture_output=True)
             os.unlink(html_path)

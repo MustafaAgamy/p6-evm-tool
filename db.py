@@ -130,6 +130,16 @@ def init_db():
             );
             CREATE INDEX IF NOT EXISTS idx_audit_modules_snapshot
                 ON audit_modules(snapshot_id);
+
+            CREATE TABLE IF NOT EXISTS e1_summary (
+                snapshot_id INTEGER PRIMARY KEY REFERENCES snapshots(id),
+                rows_json   TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS evm_extras (
+                snapshot_id INTEGER PRIMARY KEY REFERENCES snapshots(id),
+                extras_json TEXT
+            );
         ''')
 
 
@@ -372,6 +382,32 @@ def insert_audit_modules(snapshot_id, modules_result):
         )
 
 
+def save_e1_summary(snapshot_id, eng_rows):
+    with get_conn() as conn:
+        conn.execute('INSERT OR REPLACE INTO e1_summary (snapshot_id, rows_json) VALUES (?, ?)',
+                     (snapshot_id, _json.dumps(eng_rows)))
+
+
+def get_e1_summary(snapshot_id):
+    with get_conn() as conn:
+        row = conn.execute('SELECT rows_json FROM e1_summary WHERE snapshot_id = ?',
+                           (snapshot_id,)).fetchone()
+    return _json.loads(row['rows_json']) if row and row['rows_json'] else None
+
+
+def save_evm_extras(snapshot_id, extras):
+    with get_conn() as conn:
+        conn.execute('INSERT OR REPLACE INTO evm_extras (snapshot_id, extras_json) VALUES (?, ?)',
+                     (snapshot_id, _json.dumps(extras, default=str)))
+
+
+def get_evm_extras(snapshot_id):
+    with get_conn() as conn:
+        row = conn.execute('SELECT extras_json FROM evm_extras WHERE snapshot_id = ?',
+                           (snapshot_id,)).fetchone()
+    return _json.loads(row['extras_json']) if row and row['extras_json'] else None
+
+
 def get_audit_modules_for_snapshot(snapshot_id):
     """Reconstruct {'modules': {...}, 'module_order': [...]} or None."""
     with get_conn() as conn:
@@ -441,6 +477,8 @@ def delete_project(project_id):
         ).fetchall()]
         if snap_ids:
             ph = ','.join('?' * len(snap_ids))
+            conn.execute(f'DELETE FROM e1_summary       WHERE snapshot_id IN ({ph})', snap_ids)
+            conn.execute(f'DELETE FROM evm_extras       WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM audit_modules    WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM audit_findings   WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM audit_scores     WHERE snapshot_id IN ({ph})', snap_ids)

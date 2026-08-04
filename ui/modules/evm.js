@@ -1,0 +1,278 @@
+import { state } from './state.js';
+import { escapeHtml, fmtDate } from './format.js';
+
+// ── pure helpers (unit-tested in tests/js/test_evm.js) ────────────────────
+export function egp(n) {
+  if (n == null) return '—';
+  const a = Math.abs(n);
+  if (a >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (a >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  return Math.round(n).toLocaleString();
+}
+export function asPct(x) { return x == null ? '—' : `${Math.round(x * 100)}%`; }
+export function spiStatus(spi) {
+  if (spi == null) return { label: 'n/a', cls: 'color-neutral' };
+  if (spi >= 1.0) return { label: 'Ahead / On Schedule', cls: 'color-green' };
+  if (spi >= 0.95) return { label: 'Slightly Behind', cls: 'color-amber' };
+  return { label: 'Behind Schedule', cls: 'color-red' };
+}
+export function overallProgress(categories, weights) {
+  let sumW = 0, pw = 0, wa = 0;
+  for (const [name, c] of Object.entries(categories || {})) {
+    const w = (weights && weights[name] != null) ? weights[name] : (c.weight || 0);
+    sumW += w;
+    pw += w * (c.planned_pct || 0);
+    wa += w * (c.actual_pct || 0);
+  }
+  return { planned: sumW ? pw / sumW : 0, actual: sumW ? wa / sumW : 0 };
+}
+
+// ── module state ──────────────────────────────────────────────────────────
+let _weights = {};       // {category: weight fraction}
+let _actualCost = null;  // user override (EGP) or null → use P6
+let _gap = null;
+
+function _wkey() { return `p6evm_w_${(state.currentResult || {}).project_name || 'x'}`; }
+function _ackey() { return `p6evm_ac_${(state.currentResult || {}).project_name || 'x'}`; }
+
+function _loadInputs(result) {
+  const cats = result.categories || {};
+  _weights = {};
+  for (const [n, c] of Object.entries(cats)) _weights[n] = c.weight || 0;
+  try {
+    const w = JSON.parse(localStorage.getItem(_wkey()) || 'null');
+    if (w) Object.assign(_weights, w);
+    const ac = localStorage.getItem(_ackey());
+    _actualCost = ac != null && ac !== '' ? Number(ac) : null;
+  } catch { /* ignore */ }
+}
+function _saveInputs() {
+  try {
+    localStorage.setItem(_wkey(), JSON.stringify(_weights));
+    if (_actualCost == null) localStorage.removeItem(_ackey());
+    else localStorage.setItem(_ackey(), String(_actualCost));
+  } catch { /* ignore */ }
+}
+
+function _effectiveAC(result) {
+  if (_actualCost != null) return _actualCost;
+  return result.ac;   // P6 value (editable when it equals EV)
+}
+
+// ── main render ─────────────────────────────────────────────────────────
+export function renderEvm(result) {
+  if (!result) return;
+  _loadInputs(result);
+  _gap = result.gap || null;
+  const body = document.getElementById('evm-body');
+  if (!body) return;
+  body.innerHTML = `
+    <div class="evm-sec">Executive Dashboard
+      <button class="btn-mini" id="evm-edit-inputs">✎ Edit Inputs</button></div>
+    <div id="evm-dash"></div>
+    <div class="evm-sec">Planned Value vs Earned Value</div>
+    <div id="evm-bar"></div>
+    <div class="evm-sec">Category Weights &amp; Overall Progress</div>
+    <div id="evm-cats"></div>
+    <div class="evm-sec">Engineering Progress
+      <span class="evm-hdr-right"><span id="evm-eng-src"></span>
+        <button class="btn-mini primary" id="evm-upload-e1">⬆ Upload E1 Log</button></span></div>
+    <div id="evm-eng"></div>
+    <div class="evm-sec">PV vs EV Gap Analysis
+      <span class="evm-hdr-right">Group by <select class="evm-sel" id="evm-gap-dim"></select></span></div>
+    <div id="evm-gap"></div>`;
+
+  renderDashboard(result);
+  renderBar(result);
+  renderCats(result);
+  renderEngineering(result);
+  renderGapDimOptions(result);
+  renderGap();
+
+  document.getElementById('evm-edit-inputs').addEventListener('click', () => openInputsEditor(result));
+  document.getElementById('evm-upload-e1').addEventListener('click', () => uploadE1(result));
+  document.getElementById('evm-gap-dim').addEventListener('change', (e) => changeGapDim(result, e.target.value));
+}
+
+function tile(label, value, note, cls, accent) {
+  const a = accent ? ` style="border-left:3px solid var(--${accent})"` : '';
+  const n = note ? `<div class="kpi-note">${escapeHtml(note)}</div>` : '';
+  return `<div class="kpi-tile"${a}><div class="kpi-label">${escapeHtml(label)}</div>
+    <div class="kpi-value ${cls || 'color-neutral'}">${escapeHtml(value)}</div>${n}</div>`;
+}
+
+function renderDashboard(result) {
+  const spi = result.spi, st = spiStatus(spi);
+  const ac = _effectiveAC(result);
+  const cpi = (ac && result.ev != null) ? result.ev / ac : result.cpi;
+  const acNote = _actualCost != null ? 'entered' : 'from P6';
+  document.getElementById('evm-dash').innerHTML = `<div class="evm-tiles">
+    ${tile('SPI · Schedule', asPct(spi), st.label, st.cls, st.cls === 'color-red' ? 'danger' : (st.cls === 'color-amber' ? 'warning' : 'success'))}
+    ${tile('Planned Value', egp(result.pv), 'EGP')}
+    ${tile('Earned Value', egp(result.ev), 'EGP')}
+    ${tile('Actual Cost', egp(ac), acNote, _actualCost != null ? 'color-blue' : '')}
+    ${tile('CPI · Cost', asPct(cpi), 'auto from Actual Cost')}
+    ${tile('Baseline Finish', fmtDate(result.baseline_finish))}
+    ${tile('Expected Finish', fmtDate(result.expected_finish))}
+    ${tile('Delay', result.delay_days != null ? `${result.delay_days} days` : '—',
+           '', result.delay_days > 0 ? 'color-red' : 'color-green')}
+  </div>`;
+}
+
+function renderBar(result) {
+  const pv = result.pv || 0, ev = result.ev || 0, mx = Math.max(pv, ev, 1);
+  const row = (label, v, color) =>
+    `<div class="evm-barrow"><div class="evm-barlabel">${label}</div>
+      <div class="evm-bartrack"><div class="evm-barfill" style="width:${(100 * v / mx).toFixed(1)}%;background:${color}"></div></div>
+      <div class="evm-barval">${egp(v)}</div></div>`;
+  document.getElementById('evm-bar').innerHTML =
+    row('Planned Value (PV)', pv, '#3b6fa8') + row('Earned Value (EV)', ev, '#8bb648');
+}
+
+function renderCats(result) {
+  const cats = result.categories || {};
+  let rows = '', totPW = 0, totWA = 0;
+  for (const [name, c] of Object.entries(cats)) {
+    const w = _weights[name] != null ? _weights[name] : (c.weight || 0);
+    const pw = w * (c.planned_pct || 0) * 100, wa = w * (c.actual_pct || 0) * 100;
+    totPW += pw; totWA += wa;
+    rows += `<tr><td>${escapeHtml(name)}</td><td class="num">${(w * 100).toFixed(1)}%</td>
+      <td class="num">${((c.planned_pct || 0) * 100).toFixed(1)}%</td>
+      <td class="num">${((c.actual_pct || 0) * 100).toFixed(1)}%</td>
+      <td class="num">${pw.toFixed(2)}%</td><td class="num">${wa.toFixed(2)}%</td></tr>`;
+  }
+  document.getElementById('evm-cats').innerHTML = `<div class="tblwrap"><table class="evm-table">
+    <thead><tr><th>WBS Category</th><th class="num">Weight %</th><th class="num">Planned %</th>
+    <th class="num">Actual %</th><th class="num">Planned Wt %</th><th class="num">Weighted Act %</th></tr></thead>
+    <tbody>${rows}<tr class="evm-tot"><td>Overall</td><td class="num">—</td><td class="num">—</td>
+    <td class="num">—</td><td class="num">${totPW.toFixed(2)}%</td><td class="num">${totWA.toFixed(2)}%</td></tr></tbody></table></div>`;
+}
+
+function renderEngineering(result) {
+  const e1 = result.engineering_e1, p6 = result.engineering_p6 || [];
+  const src = document.getElementById('evm-eng-src');
+  const box = document.getElementById('evm-eng');
+  if (e1 && e1.length) {
+    src.innerHTML = '<span class="src-chip on">Source: E1 Log</span>';
+    box.innerHTML = engTable(e1, true);
+  } else if (p6.length) {
+    src.innerHTML = '<span class="src-chip p6">Source: P6 (Mode B)</span>';
+    box.innerHTML = engTable(p6, false);
+  } else {
+    src.innerHTML = '';
+    box.innerHTML = '<p class="evm-empty">No engineering activities in P6. Upload the E1 Log to populate this section.</p>';
+  }
+}
+
+function engTable(rows, isE1) {
+  const head = isE1
+    ? ['Trade', 'Type', 'Req', 'Planned', 'Submitted', 'Approved', 'Not Appr', 'Sub %', 'Appr %']
+    : ['Trade', 'Type', 'Req', 'Pl. Sub', 'Act. Sub', 'Pl. Appr', 'Act. Appr', 'Sub %', 'Appr %'];
+  const body = rows.map(r => isE1
+    ? `<tr><td>${escapeHtml(r.trade)}</td><td>${escapeHtml(r.submittal_type)}</td>
+       <td class="num">${r.req}</td><td class="num">${r.planned}</td><td class="num">${r.submitted_rows}</td>
+       <td class="num">${r.approved_rows}</td><td class="num">${r.not_approved_rows}</td>
+       <td class="num">${r.submitted_pct}%</td><td class="num">${r.approved_pct}%</td></tr>`
+    : `<tr><td>${escapeHtml(r.trade)}</td><td>${escapeHtml(r.submittal_type)}</td>
+       <td class="num">${r.req}</td><td class="num">${r.planned_sub}</td><td class="num">${r.actual_sub}</td>
+       <td class="num">${r.planned_appr}</td><td class="num">${r.actual_appr}</td>
+       <td class="num">${r.actual_sub_pct}%</td><td class="num">${r.actual_appr_pct}%</td></tr>`).join('');
+  return `<div class="tblwrap" style="overflow-x:auto"><table class="evm-table" style="min-width:640px">
+    <thead><tr>${head.map(h => `<th class="num">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function renderGapDimOptions(result) {
+  const dims = result.activity_code_types || [];
+  const cur = (_gap && _gap.dimension) || (dims[0] || '');
+  document.getElementById('evm-gap-dim').innerHTML =
+    dims.map(d => `<option value="${escapeHtml(d)}"${d === cur ? ' selected' : ''}>${escapeHtml(d)}</option>`).join('');
+}
+
+function renderGap() {
+  const box = document.getElementById('evm-gap');
+  if (!_gap || !_gap.groups || !_gap.groups.length) {
+    box.innerHTML = '<p class="evm-empty">No PV–EV gap on this update (Earned Value ≈ Planned Value), or activities are uncoded for this dimension.</p>';
+    return;
+  }
+  const mx = Math.max(..._gap.groups.map(g => Math.abs(g.gap)), 1);
+  const bars = _gap.groups.slice(0, 12).map(g =>
+    `<div class="evm-barrow"><div class="evm-barlabel">${escapeHtml(g.code)}</div>
+      <div class="evm-bartrack"><div class="evm-barfill" style="width:${(100 * Math.abs(g.gap) / mx).toFixed(1)}%;background:#c0764a"></div></div>
+      <div class="evm-barval">${egp(g.gap)} · ${Math.round(g.pct_of_gap)}%</div></div>`).join('');
+  box.innerHTML = `<p class="evm-note">Total gap (PV − EV) = ${egp(_gap.total_gap)} EGP</p>${bars}`;
+}
+
+// ── interactions ──────────────────────────────────────────────────────────
+function openInputsEditor(result) {
+  const cats = Object.keys(result.categories || {});
+  const wRows = cats.map(n =>
+    `<label class="edit-row"><span>${escapeHtml(n)}</span>
+      <input class="edit-w" data-cat="${escapeHtml(n)}" value="${((_weights[n] || 0) * 100).toFixed(2)}"> %</label>`).join('');
+  const acVal = _actualCost != null ? _actualCost : (result.ac || 0);
+  const html = `<div class="modal-back" id="evm-modal">
+    <div class="modal">
+      <div class="modal-title">Edit Inputs — weights &amp; Actual Cost</div>
+      <div class="modal-body">
+        <div class="edit-grp">Category Weights (%)</div>${wRows}
+        <div class="edit-grp">Actual Cost (EGP)</div>
+        <label class="edit-row"><span>Actual Cost</span><input class="edit-ac" id="evm-ac-input" value="${acVal}"></label>
+        <div class="edit-hint">CPI recomputes from Actual Cost. Weights recompute the overall progress. Saved per project.</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-secondary" id="evm-modal-cancel">Cancel</button>
+        <button class="btn-primary" id="evm-modal-apply">Apply</button>
+      </div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  const close = () => document.getElementById('evm-modal').remove();
+  document.getElementById('evm-modal-cancel').addEventListener('click', close);
+  document.getElementById('evm-modal-apply').addEventListener('click', () => {
+    document.querySelectorAll('.edit-w').forEach(inp => {
+      const v = parseFloat(inp.value);
+      if (!isNaN(v)) _weights[inp.dataset.cat] = v / 100;
+    });
+    const acv = parseFloat(document.getElementById('evm-ac-input').value);
+    _actualCost = isNaN(acv) ? null : acv;
+    _saveInputs();
+    close();
+    renderDashboard(result);
+    renderCats(result);
+  });
+}
+
+async function uploadE1(result) {
+  try {
+    const path = await window.pywebview.api.choose_excel();
+    if (!path) return;
+    const src = document.getElementById('evm-eng-src');
+    src.innerHTML = '<span class="src-chip p6">Reading E1 Log…</span>';
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/e1/upload`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, path }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      result.engineering_e1 = data.engineering_e1;
+      renderEngineering(result);
+    } else {
+      src.innerHTML = `<span class="src-chip p6">E1 read failed</span>`;
+      alert('E1 Log read failed: ' + (data.error || 'unknown'));
+      renderEngineering(result);
+    }
+  } catch {
+    renderEngineering(result);
+  }
+}
+
+async function changeGapDim(result, dim) {
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/gap`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ xml_path: state.currentXmlPath, cached_path: state.currentCachedPath, dimension: dim }),
+    });
+    const data = await resp.json();
+    if (data.ok) { _gap = data.gap; renderGap(); }
+  } catch { /* ignore */ }
+}
+
+export function evmInputs() { return { weights: _weights, actualCost: _actualCost, gap: _gap }; }

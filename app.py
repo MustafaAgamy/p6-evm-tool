@@ -12,6 +12,14 @@ class Api:
         )
         return result[0] if result else None
 
+    def choose_excel(self):
+        """Open native picker for an Excel file (E1 Log); returns path or None."""
+        result = webview.windows[0].create_file_dialog(
+            webview.OPEN_DIALOG,
+            file_types=('Excel Files (*.xlsx;*.xlsm)', 'All Files (*.*)')
+        )
+        return result[0] if result else None
+
     def choose_save_path(self, default_name='report.pdf', file_type='pdf'):
         """Open native save dialog; returns absolute path string or None.
 
