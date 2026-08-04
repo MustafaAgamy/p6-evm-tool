@@ -20,12 +20,16 @@ def test_no_pred_no_succ_is_start_and_finish_high():
     g = _g({'a': _act('a')}, [])
     r = run_dangling(g, CONFIG)
     f = r['findings'][0]
-    assert f['logic_issue'] == 'Dangling Start + Finish'
+    assert f['logic_issue'] == 'Dangling Start + Dangling Finish'
     assert f['severity'] == 'High'
     assert f['predecessors'] == 'No Predecessor'
     assert f['successors'] == 'No Successor'
-    # suggested fix is a two-part predecessor + successor solution
+    # Fix 1 is the Finish-to-Start two-part solution
     assert 'Predecessor:' in f['suggested_fix'] and 'Successor:' in f['suggested_fix']
+    assert 'Finish-to-Start' in f['suggested_fix']
+    # Fix 2 uses the alternative types (SS predecessor / FF successor), and differs
+    assert f['suggested_fix_2'] != f['suggested_fix']
+    assert 'Start-to-Start' in f['suggested_fix_2'] and 'Finish-to-Finish' in f['suggested_fix_2']
     assert 'recommendation' not in f          # Recommendation column removed
 
 

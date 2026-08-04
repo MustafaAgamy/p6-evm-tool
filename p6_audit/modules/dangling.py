@@ -37,35 +37,50 @@ def _first_other(graph, edges):
     return None, None
 
 
-def _reason(graph, preds, succs, wbs_path):
-    """Deterministic engineering solution → suggested_fix, expressed as a
-    Predecessor relationship AND a Successor relationship that would resolve the
-    dangling condition. A suggestion only — never a schedule edit.
+def _first_driving(graph, edges, types):
+    """Prefer the edge that actually drives this end (FS/SS for start,
+    FS/FF for finish); fall back to the first edge."""
+    for e in edges:
+        if e['type'] in types:
+            o = graph.activities.get(e['other'], {})
+            return o.get('id', ''), e['type']
+    return _first_other(graph, edges)
+
+
+_DRIVE_NAME = {'FS': 'Finish-to-Start', 'SS': 'Start-to-Start',
+               'FF': 'Finish-to-Finish', 'SF': 'Start-to-Finish'}
+
+
+def _fix(graph, preds, succs, wbs_path, pred_drive, succ_drive):
+    """A two-part predecessor + successor solution to the dangling, using the
+    given driving relationship types. Fix 1 uses FS/FS; Fix 2 uses the
+    alternative valid types SS (start driver) / FF (finish driver).
+    A suggestion only — never a schedule edit.
     """
     leaf = _wbs_leaf(wbs_path)
     start_driven = any(e['type'] in ('FS', 'SS') for e in preds)
     finish_driven = any(e['type'] in ('FS', 'FF') for e in succs)
 
-    # Predecessor part
+    # Predecessor part (drives the start)
     if not start_driven:
         if preds:  # has a predecessor, but the wrong type to drive the start
             pid, ptype = _first_other(graph, preds)
-            pred_part = f'Predecessor: retie {pid} (currently {ptype}) as Finish-to-Start'
+            pred_part = f'Predecessor: retie {pid} (currently {ptype}) as {_DRIVE_NAME[pred_drive]}'
         else:
-            pred_part = f'Predecessor: add a Finish-to-Start tie from the preceding activity in "{leaf}"'
+            pred_part = f'Predecessor: add a {_DRIVE_NAME[pred_drive]} tie from the preceding activity in "{leaf}"'
     else:
-        pid, ptype = _first_other(graph, preds)
+        pid, ptype = _first_driving(graph, preds, ('FS', 'SS'))
         pred_part = f'Predecessor: keep {pid} ({ptype})'
 
-    # Successor part
+    # Successor part (drives the finish)
     if not finish_driven:
         if succs:
             sid, stype = _first_other(graph, succs)
-            succ_part = f'Successor: retie {sid} (currently {stype}) as Finish-to-Start'
+            succ_part = f'Successor: retie {sid} (currently {stype}) as {_DRIVE_NAME[succ_drive]}'
         else:
-            succ_part = f'Successor: add a Finish-to-Start tie to the next activity in "{leaf}"'
+            succ_part = f'Successor: add a {_DRIVE_NAME[succ_drive]} tie to the next activity in "{leaf}"'
     else:
-        sid, stype = _first_other(graph, succs)
+        sid, stype = _first_driving(graph, succs, ('FS', 'FF'))
         succ_part = f'Successor: keep {sid} ({stype})'
 
     return f'{pred_part}   |   {succ_part}'
@@ -85,7 +100,7 @@ def run_dangling(graph, config):
             continue
 
         if start_dangling and finish_dangling:
-            issue, base = 'Dangling Start + Finish', 'High'
+            issue, base = 'Dangling Start + Dangling Finish', 'High'
             both_n += 1
         elif start_dangling:
             issue, base = 'Dangling Start', 'Medium'
@@ -96,17 +111,22 @@ def run_dangling(graph, config):
 
         severity = bump_severity(base) if act.get('is_critical') else base
         wbs_path = graph.wbs_path(oid)
+        fix1 = _fix(graph, preds, succs, wbs_path, 'FS', 'FS')
+        fix2 = _fix(graph, preds, succs, wbs_path, 'SS', 'FF')
+        if fix2 == fix1:                     # alternative adds nothing new
+            fix2 = 'N/A'
         findings.append({
-            'finding_id':     content_id('DANGLING', act['id'], issue),
-            'activity_id':    act['id'],
-            'activity_name':  act.get('name', ''),
-            'wbs_path':       wbs_path,
-            'severity':       severity,
-            'logic_issue':    issue,
-            'predecessors':   _edge_str(graph, preds, 'No Predecessor'),
-            'successors':     _edge_str(graph, succs, 'No Successor'),
-            'suggested_fix':  _reason(graph, preds, succs, wbs_path),
-            'is_critical':    bool(act.get('is_critical')),
+            'finding_id':      content_id('DANGLING', act['id'], issue),
+            'activity_id':     act['id'],
+            'activity_name':   act.get('name', ''),
+            'wbs_path':        wbs_path,
+            'severity':        severity,
+            'logic_issue':     issue,
+            'predecessors':    _edge_str(graph, preds, 'No Predecessor'),
+            'successors':      _edge_str(graph, succs, 'No Successor'),
+            'suggested_fix':   fix1,
+            'suggested_fix_2': fix2,
+            'is_critical':     bool(act.get('is_critical')),
         })
 
     total = len(real)

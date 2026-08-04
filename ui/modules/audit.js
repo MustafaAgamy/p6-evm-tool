@@ -111,9 +111,9 @@ function kpiTiles(m) {
     ? [['Total Activities', (k.total_activities || 0).toLocaleString()],
        ['Total Dangling', k.total_dangling || 0],
        ['Dangling %', `${k.dangling_pct ?? 0}%`],
-       ['Start', k.start_dangling || 0],
-       ['Finish', k.finish_dangling || 0],
-       ['Start + Finish', k.both_dangling || 0]]
+       ['Dangling Start', k.start_dangling || 0],
+       ['Dangling Finish', k.finish_dangling || 0],
+       ['Dangling Start + Dangling Finish', k.both_dangling || 0]]
     : [['Total Activities', (k.total_activities || 0).toLocaleString()],
        ['Above Threshold', k.above_threshold || 0],
        ['Float %', `${k.float_pct ?? 0}%`],
@@ -212,7 +212,7 @@ function renderRows() {
   const rows = filterFindings(m.findings, { severity: _filters.severity, query: _filters.query });
 
   const cols = m.module === 'dangling'
-    ? ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix']
+    ? ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix', 'Suggested Logic Fix 2']
     : ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float', 'Threshold', 'Impact', 'Status', 'Severity', 'Recommendation'];
   thead.innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>`;
 
@@ -230,7 +230,8 @@ function renderRows() {
         <td>${escapeHtml(f.logic_issue)}</td>
         <td class="mut">${escapeHtml(f.predecessors)}</td>
         <td class="mut">${escapeHtml(f.successors)}</td>
-        <td>${escapeHtml(f.suggested_fix)}</td></tr>`;
+        <td>${escapeHtml(f.suggested_fix)}</td>
+        <td class="mut">${escapeHtml(f.suggested_fix_2)}</td></tr>`;
     }
     const impact = f.impact != null ? `${f.impact}×` : '—';
     return `<tr><td class="num">${i + 1}</td>

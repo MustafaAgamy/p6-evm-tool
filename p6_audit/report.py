@@ -44,12 +44,12 @@ def _dashboard(m, verdict):
     if m['module'] == 'dangling':
         k = m['kpis']
         tiles = [
-            _kpi('Total Activities', f"{k.get('total_activities', 0):,}"),
+            _kpi('Total Activities', f"{k.get('total_activities', 0):,}", 'task-dependent'),
             _kpi('Total Dangling', k.get('total_dangling', 0), 'unique activities'),
             _kpi('Dangling %', f"{k.get('dangling_pct', 0)}%"),
             _kpi('Dangling Start', k.get('start_dangling', 0)),
             _kpi('Dangling Finish', k.get('finish_dangling', 0)),
-            _kpi('Start + Finish', k.get('both_dangling', 0)),
+            _kpi('Dangling Start + Dangling Finish', k.get('both_dangling', 0)),
         ]
     else:
         k = m['kpis']
@@ -125,7 +125,7 @@ def _findings_table(m):
     if m['module'] == 'dangling':
         head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>'
                 '<th>Severity</th><th>Logic Issue</th><th>Predecessor(s)</th>'
-                '<th>Successor(s)</th><th>Suggested Logic Fix</th>')
+                '<th>Successor(s)</th><th>Suggested Logic Fix</th><th>Suggested Logic Fix 2</th>')
         rows = []
         for i, f in enumerate(findings, 1):
             rows.append(
@@ -136,7 +136,8 @@ def _findings_table(m):
                 f'<td>{_esc(f.get("logic_issue"))}</td>'
                 f'<td class="mut">{_esc(f.get("predecessors"))}</td>'
                 f'<td class="mut">{_esc(f.get("successors"))}</td>'
-                f'<td>{_esc(f.get("suggested_fix"))}</td></tr>')
+                f'<td>{_esc(f.get("suggested_fix"))}</td>'
+                f'<td class="mut">{_esc(f.get("suggested_fix_2"))}</td></tr>')
     else:
         head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>'
                 '<th class="num">Total Float</th><th class="num">Threshold</th><th class="num">Impact</th>'
@@ -159,6 +160,13 @@ def _findings_table(m):
       <h2 class="sec">Detailed Findings</h2>
       <table class="findings"><thead><tr>{head}</tr></thead>
         <tbody>{''.join(rows)}</tbody></table>'''
+
+
+def _scope_note(m):
+    if m['module'] == 'dangling':
+        return (' The assessment population is <b>Task-Dependent</b> activities; Start/Finish '
+                'Milestones and Level-of-Effort are excluded, as they legitimately carry open ends.')
+    return ''
 
 
 def _verdict(m):
@@ -239,6 +247,6 @@ def render_module_report(module_result, meta):
     This report covers the <b>{_esc(name)}</b> module only, in isolation from other Schedule Audit
     checks and from cost / earned-value / progress. Module score is derived from the module KPI
     percentage on the approved band curve. Findings are engineering guidance and require planner
-    verification. &nbsp;·&nbsp; {_esc(meta.get('project_name', ''))} · {_esc(name)}
+    verification.{_scope_note(m)} &nbsp;·&nbsp; {_esc(meta.get('project_name', ''))} · {_esc(name)}
   </div>
 </body></html>'''

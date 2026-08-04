@@ -14,6 +14,7 @@ def _dangling():
             'wbs_path': 'Project > Civil > Silo 8 > Columns', 'severity': 'High',
             'logic_issue': 'Dangling Start', 'predecessors': 'No Predecessor',
             'successors': 'A260 - Slab (FS)', 'suggested_fix': 'Add an FS predecessor.',
+            'suggested_fix_2': 'Predecessor: add a Start-to-Start tie',
         }],
     }
 
@@ -51,7 +52,10 @@ def test_dangling_report_has_sections_and_no_float_content():
     assert 'Add an FS predecessor.' in html      # suggested fix rendered
     assert 'Summary Statistics' in html          # Output 2
     assert '<th>Suggested Logic Fix</th>' in html
+    assert '<th>Suggested Logic Fix 2</th>' in html  # alternative-types column
     assert '<th>Recommendation</th>' not in html  # Recommendation column removed from Dangling
+    assert 'Dangling Start + Dangling Finish' in html  # relabelled KPI tile
+    assert 'Task-Dependent' in html                    # scope note
     # isolation: no float wording
     assert 'Float Analysis' not in html
     # repeated header support
