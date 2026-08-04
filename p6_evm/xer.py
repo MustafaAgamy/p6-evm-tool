@@ -98,6 +98,19 @@ def parse_xer(path):
             'parent_object_id': w.get('parent_wbs_id') or None,
         }
 
+    # ── Activity codes: dimension names + per-task assignments ──────────────
+    actv_type_name = {a.get('actv_code_type_id'): a.get('actv_code_type')
+                      for a in tables.get('ACTVTYPE', []) if a.get('actv_code_type')}
+    actv_code_val = {c.get('actv_code_id'): (c.get('actv_code_name') or c.get('short_name'))
+                     for c in tables.get('ACTVCODE', [])}
+    task_codes = {}
+    for r in tables.get('TASKACTV', []):
+        dim = actv_type_name.get(r.get('actv_code_type_id'))
+        val = actv_code_val.get(r.get('actv_code_id'))
+        if dim and val:
+            task_codes.setdefault(r.get('task_id'), {})[dim] = val
+    data.activity_code_types = sorted(actv_type_name.values())
+
     for t in tables.get('TASK', []):
         # Skip activities from other projects in multi-project XER exports
         if proj_id and t.get('proj_id') not in (None, '', proj_id):
@@ -126,7 +139,7 @@ def parse_xer(path):
             'is_critical': (tf_days is not None and tf_days <= 0),
             'constraint_type': t.get('cstr_type') or None,
             'constraint_date': _dt(t.get('cstr_date')),
-            'activity_codes': {},
+            'activity_codes': task_codes.get(oid, {}),
             'wbs_path': full_wbs_path(t.get('wbs_id'), data.wbs),
             'planned_start': planned_start,
             'planned_finish': planned_finish,

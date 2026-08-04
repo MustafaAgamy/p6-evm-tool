@@ -39,6 +39,7 @@ class ScheduleData:
         self.bac_by_activity = {}  # ActivityObjectId -> planned cost (BAC)
         self.ac_by_activity = {}   # ActivityObjectId -> actual cost
         self.relationships = []    # list of {pred_id, succ_id, type, lag_days}
+        self.activity_code_types = []  # available activity-code dimensions, e.g. ['Type of Works', ...]
 
 
 def full_wbs_path(wbs_id, wbs_map):
