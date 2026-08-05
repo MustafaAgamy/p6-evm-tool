@@ -240,6 +240,22 @@ def _engineering_section(engineering):
         note = ('Source: E1 Log. Design = any non-Shop drawing; Engineering = Shop drawings. '
                 '% Submitted = (Submitted − Not Approved) ÷ Req; % Approved = Approved ÷ Req.')
 
+    # Totals by trade — Total Civil = every Civil drawing across types.
+    by_trade = engineering.get('by_trade') or []
+    trade_html = ''
+    if by_trade:
+        trows = ''.join(
+            f'<tr style="font-weight:700;background:#f4f7fb"><td>Total {_esc(t.get("trade"))}</td>'
+            f'<td class="num">{t.get("req", "")}</td><td class="num">{t.get("submitted_rows", "")}</td>'
+            f'<td class="num">{t.get("approved_rows", "")}</td><td class="num">{t.get("not_approved_rows", "")}</td>'
+            f'<td class="num">{t.get("submitted_pct", "")}%</td><td class="num">{t.get("approved_pct", "")}%</td></tr>'
+            for t in by_trade)
+        trade_html = (
+            '<h2 class="sec">Engineering — Totals by Trade</h2>'
+            '<table><thead><tr><th>Trade</th><th class="num">Req</th><th class="num">Submitted</th>'
+            '<th class="num">Approved</th><th class="num">Not Appr</th><th class="num">Sub %</th>'
+            f'<th class="num">Appr %</th></tr></thead><tbody>{trows}</tbody></table>')
+
     # Engineering Gap — same logic as the PV-EV gap (Planned − Approved, share of total),
     # split into Design and Engineering(Shop).
     gaps = engineering.get('gaps') or {}
@@ -259,7 +275,7 @@ def _engineering_section(engineering):
     gap_html = (_gap_table('Engineering Gap — Design Drawings (Planned vs Approved by Trade)', gaps.get('design'))
                 + _gap_table('Engineering Gap — Shop Drawings (Planned vs Approved by Trade)', gaps.get('engineering')))
     return (f'<h2 class="sec">Engineering Progress — Drawings by Trade</h2>'
-            f'<p class="note">{_esc(note)}</p>{table}{gap_html}')
+            f'<p class="note">{_esc(note)}</p>{table}{trade_html}{gap_html}')
 
 
 def render_evm_report(result, meta, gap=None, engineering=None):

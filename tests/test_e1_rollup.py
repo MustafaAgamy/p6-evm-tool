@@ -44,6 +44,21 @@ def test_explicit_bucket_overrides_type():
     assert o['engineering']['req'] == 8 and o['engineering']['approved_rows'] == 5
 
 
+def test_trade_totals_sum_all_types():
+    from p6_evm.e1_rollup import trade_totals
+    rows = [
+        {'trade': 'Civil', 'submittal_type': 'RFT', 'req': 29, 'planned': 29,
+         'submitted_rows': 58, 'approved_rows': 36, 'not_approved_rows': 15, 'under_review_rows': 0},
+        {'trade': 'Civil', 'submittal_type': 'Concrete', 'req': 17, 'planned': 17,
+         'submitted_rows': 29, 'approved_rows': 20, 'not_approved_rows': 6, 'under_review_rows': 0},
+        {'trade': 'Steel', 'submittal_type': 'SD', 'req': 17, 'planned': 17,
+         'submitted_rows': 54, 'approved_rows': 16, 'not_approved_rows': 22, 'under_review_rows': 0},
+    ]
+    tt = {t['trade']: t for t in trade_totals(rows)}
+    assert tt['Civil']['req'] == 46 and tt['Civil']['approved_rows'] == 56   # both civil types
+    assert tt['Steel']['req'] == 17
+
+
 def test_e1_file_bucket_from_name():
     from p6_evm.classify import e1_file_bucket
     assert e1_file_bucket('Shop Drawing Log.xlsx') == 'engineering'

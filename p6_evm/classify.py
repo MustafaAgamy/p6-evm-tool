@@ -33,7 +33,7 @@ E1_FIELD_SYNONYMS = {
     'submittal_type': ['type of submittal', 'submittal type', 'drawing type', 'document type', 'deliverable', 'type'],
     'building':       ['building', 'area', 'zone', 'location', 'block'],
     'description':    ['description', 'drawing title', 'document title', 'drawing name', 'title', 'subject'],
-    'submitted':      ['date submitted', 'submitted', 'submission', 'transmittal'],
+    'submitted':      ['date submitted', 'submitted', 'submission', 'sent date', 'sent', 'transmittal date'],
     'planned':        ['planned submission', 'planned', 'target', 'baseline', 'forecast'],
     'action_code':    ['action code', 'action', 'review code', 'disposition', 'status', 'code', 'response'],
 }

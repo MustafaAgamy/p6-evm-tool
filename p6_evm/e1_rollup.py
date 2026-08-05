@@ -112,10 +112,25 @@ def engineering_gaps(rows):
     return {'design': _gap_groups(design), 'engineering': _gap_groups(shop)}
 
 
+def trade_totals(rows):
+    """Total per trade — Total Civil = every Civil drawing (Concrete Dimension + RFT + …),
+    using the same agreed counting as the per-type rows."""
+    by = {}
+    for r in rows:
+        by.setdefault(r.get('trade') or '', []).append(r)
+    out = []
+    for trade, rs in sorted(by.items()):
+        agg = _agg(rs)
+        agg['trade'] = trade
+        out.append(agg)
+    return out
+
+
 def e1_extras(rows, category_names):
     """Everything the UI/PDF need from an E1 upload, in one call."""
     return {
         'overall': overall_split(rows),
+        'by_trade': trade_totals(rows),
         'category_actuals': category_actuals(rows, category_names),
         'gaps': engineering_gaps(rows),
     }

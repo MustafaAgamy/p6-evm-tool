@@ -466,6 +466,7 @@ class Handler(BaseHTTPRequestHandler):
                 cats = result.get('categories', {})
                 ex = e1_extras(engineering['rows'], list(cats.keys()))
                 engineering['overall'] = ex['overall']
+                engineering['by_trade'] = ex['by_trade']
                 engineering['gaps'] = ex['gaps']
                 for name, actual in ex['category_actuals'].items():
                     if name in cats:

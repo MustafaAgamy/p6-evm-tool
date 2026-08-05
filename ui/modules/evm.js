@@ -231,7 +231,9 @@ function renderEngineering(result) {
   const box = document.getElementById('evm-eng');
   if (e1 && e1.length) {
     src.innerHTML = '<span class="src-chip on">Source: E1 Log</span>';
-    box.innerHTML = engTable(e1, true) + engGaps(_e1Extras && _e1Extras.gaps);
+    box.innerHTML = engTable(e1, true)
+      + engTradeTotals(_e1Extras && _e1Extras.by_trade)
+      + engGaps(_e1Extras && _e1Extras.gaps);
   } else if (p6.length) {
     src.innerHTML = '<span class="src-chip p6">Source: P6 (Mode B)</span>';
     box.innerHTML = engTable(p6, false);
@@ -267,6 +269,18 @@ function engTable(rows, isE1) {
   const thead = head.map((h, i) => `<th${i < 2 ? '' : ' class="num"'}>${h}</th>`).join('');
   return `<div class="tblwrap" style="overflow-x:auto"><table class="evm-table" style="min-width:640px">
     <thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function engTradeTotals(byTrade) {
+  if (!byTrade || !byTrade.length) return '';
+  const body = byTrade.map(t => `<tr><td>Total ${escapeHtml(t.trade)}</td>
+    <td class="num">${t.req}</td><td class="num">${t.submitted_rows}</td><td class="num">${t.approved_rows}</td>
+    <td class="num">${t.not_approved_rows}</td><td class="num">${t.submitted_pct}%</td><td class="num">${t.approved_pct}%</td></tr>`).join('');
+  return `<div class="evm-sec" style="margin-top:16px">Totals by Trade</div>
+    <div class="tblwrap" style="overflow-x:auto"><table class="evm-table" style="min-width:520px">
+      <thead><tr><th>Trade</th><th class="num">Req</th><th class="num">Submitted</th><th class="num">Approved</th>
+        <th class="num">Not Appr</th><th class="num">Sub %</th><th class="num">Appr %</th></tr></thead>
+      <tbody>${body}</tbody></table></div>`;
 }
 
 function engGaps(gaps) {
