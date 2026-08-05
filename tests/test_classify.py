@@ -31,6 +31,16 @@ def test_top_phase_wins_over_leaf_word():
     assert classify_wbs_name('Delivery Bins Mechanical Installation Works') == 'Construction'
 
 
+def test_project_root_name_does_not_swallow_categories():
+    # regression: a project named "... Detailed Schedule" must NOT match Design and
+    # make every activity Design (this happened on the real XER baseline).
+    assert classify_wbs_name('Grain Bulk Terminal - Phase I Scope Detailed Schedule') is None
+    names = ['Rebar', 'Foundations', 'Phase I Construction Works', 'GBT Detailed Schedule']
+    assert classify_branch_names(names) == 'Construction'
+    # but a real "Detailed Design" branch is still Design (via 'design')
+    assert classify_wbs_name('Civil Detailed Design') == 'Design'
+
+
 def test_default_weights_construction_95_rest_share_5():
     w = default_weights({'Construction', 'Engineering', 'Design', 'Procurement'})
     assert w['Construction'] == 0.95

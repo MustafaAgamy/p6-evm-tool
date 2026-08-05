@@ -15,7 +15,7 @@ accepted phrase. See vault: 01 Scope — Auto Project Setup, 07 Calculation Rule
 # ── Categories (priority order — first match wins; Construction is the fallback) ──
 CATEGORY_RULES = [
     ('Procurement', ['procure', 'supply', 'purchase', 'vendor', 'supplier']),
-    ('Design',      ['design', 'ifc', 'ifa', 'schematic', 'detailed', 'concept',
+    ('Design',      ['design', 'ifc', 'ifa', 'schematic', 'concept',
                      'preliminary', 'issued for construction', 'issued for approval']),
     ('Engineering', ['engineer', 'shop drawing', 'shop', 'submittal', 'approval',
                      'technical', 'detailing', 'coordination', 'fabricat']),
