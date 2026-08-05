@@ -28,6 +28,22 @@ def test_is_shop():
     assert not is_shop('Detailed Design') and not is_shop('IFC')
 
 
+def test_other_drawings_count_into_engineering():
+    # As-built / coordination are neither design nor shop → Engineering bucket (Ibrahim's rule)
+    rows = [
+        {'trade': 'Civil', 'submittal_type': 'Detailed Design', 'req': 10, 'planned': 10,
+         'submitted_rows': 5, 'approved_rows': 4, 'not_approved_rows': 1, 'under_review_rows': 0},
+        {'trade': 'Civil', 'submittal_type': 'As-Built', 'req': 4, 'planned': 4,
+         'submitted_rows': 2, 'approved_rows': 2, 'not_approved_rows': 0, 'under_review_rows': 0},
+        {'trade': 'Civil', 'submittal_type': 'Shop Drawing', 'req': 6, 'planned': 6,
+         'submitted_rows': 6, 'approved_rows': 6, 'not_approved_rows': 0, 'under_review_rows': 0},
+    ]
+    o = overall_split(rows)
+    assert o['design']['req'] == 10                       # only the design drawing
+    assert o['engineering']['req'] == 10                  # As-Built (4) + Shop (6)
+    assert o['engineering']['approved_rows'] == 8         # 2 + 6
+
+
 def test_overall_split_design_vs_shop():
     o = overall_split(_rows())
     # Design = every non-Shop row: Req 237, Approved 38 -> 16.0%

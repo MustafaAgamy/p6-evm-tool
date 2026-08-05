@@ -54,15 +54,21 @@ def wbs_ancestor_names(wbs_id, wbs_map):
     return names
 
 
-def classify_activity(activity, wbs_map, categories):
+def classify_activity(activity, wbs_map, categories, classifier=None):
     names = wbs_ancestor_names(activity['wbs_id'], wbs_map)
+    if classifier is not None:
+        # Auto mode: classify by WBS meaning (construction synonyms). Only keep the
+        # result if it's one of the configured category names.
+        cat = classifier(names)
+        valid = {c['name'] for c in categories}
+        return cat if cat in valid else None
     for cat in categories:
-        if any(cat['wbs_match'] in name for name in names):
+        if cat.get('wbs_match') and any(cat['wbs_match'] in name for name in names):
             return cat['name']
     return None
 
 
-def compute(data, config, overrides=None):
+def compute(data, config, overrides=None, classifier=None):
     """Compute per-activity records and rolled-up EVM metrics.
 
     Cost-based PV/EV/AC/SPI/CPI/Variance are scoped to whichever configured
@@ -89,7 +95,7 @@ def compute(data, config, overrides=None):
         planned_pct = activity_planned_pct(activity, data.baseline_by_id, data_date, data.calendars)
         actual_pct = activity['percent_complete']
         total_float = activity_total_float(activity, data.calendars)
-        category = classify_activity(activity, data.wbs, categories)
+        category = classify_activity(activity, data.wbs, categories, classifier)
         records.append({
             'activity': activity,
             'bac': bac,

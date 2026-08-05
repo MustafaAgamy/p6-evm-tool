@@ -109,8 +109,10 @@ class Handler(BaseHTTPRequestHandler):
                 with open(overrides_path) as f:
                     overrides = json.load(f)
 
+            from p6_evm.classify import auto_categories, classify_branch_names
             data = parse_file(xml_path)
-            result = compute(data, config, overrides=overrides)
+            config['categories'] = auto_categories(data)   # auto-detect categories per project
+            result = compute(data, config, overrides=overrides, classifier=classify_branch_names)
 
             # Strip the large records list — UI only needs rolled-up metrics
             safe_result = {k: v for k, v in result.items() if k != 'records'}
@@ -232,8 +234,10 @@ class Handler(BaseHTTPRequestHandler):
                 with open(overrides_path) as f:
                     overrides = json.load(f)
 
+            from p6_evm.classify import auto_categories, classify_branch_names
             data   = parse_file(resolved)
-            result = compute(data, config, overrides=overrides)
+            config['categories'] = auto_categories(data)
+            result = compute(data, config, overrides=overrides, classifier=classify_branch_names)
 
             fm = find_finish_milestone(result)
             milestone_baseline_finish = None
@@ -382,9 +386,12 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.parser import parse_file
             from p6_evm.metrics import compute
             from p6_evm.gap import gap_by_code
+            from p6_evm.classify import auto_categories, classify_branch_names
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
-            result = compute(parse_file(resolved), config)
+            data = parse_file(resolved)
+            config['categories'] = auto_categories(data)
+            result = compute(data, config, classifier=classify_branch_names)
             self._json(200, {'ok': True, 'gap': gap_by_code(result['records'], dim)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -428,13 +435,13 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.gap import gap_by_code
             from p6_evm.evm_report import render_evm_report
             import subprocess, tempfile
+            from p6_evm.classify import auto_categories, classify_branch_names
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             weights = body.get('weights') or {}
-            for c in config.get('categories', []):
-                if c['name'] in weights:
-                    c['weight'] = weights[c['name']]
-            result = compute(parse_file(resolved), config)
+            data = parse_file(resolved)
+            config['categories'] = auto_categories(data, saved_weights=weights)
+            result = compute(data, config, classifier=classify_branch_names)
             meta_in = body.get('meta') or {}
             if body.get('actual_cost') is not None:
                 meta_in['actual_cost'] = body.get('actual_cost')

@@ -89,7 +89,7 @@ export function renderEvm(result) {
       <span class="evm-hdr-right" id="evm-slicer-chips"></span></div>
     <div id="evm-slicer"></div>
     <div class="evm-sec">Executive Dashboard
-      <button class="btn-mini" id="evm-edit-inputs">✎ Edit Inputs</button></div>
+      <button class="btn-mini" id="evm-edit-inputs">✎ Project Setup</button></div>
     <div id="evm-dash"></div>
     <div class="evm-sec">Planned Value vs Earned Value</div>
     <div id="evm-bar"></div>
@@ -309,12 +309,12 @@ function openInputsEditor(result) {
   const acVal = _actualCost != null ? _actualCost : (result.ac || 0);
   const html = `<div class="modal-back" id="evm-modal">
     <div class="modal">
-      <div class="modal-title">Edit Inputs — weights &amp; Actual Cost</div>
+      <div class="modal-title">Project Setup — weights &amp; Actual Cost</div>
       <div class="modal-body">
-        <div class="edit-grp">Category Weights (%)</div>${wRows}
+        <div class="edit-grp">Category Weights (%) <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">· auto-detected from the schedule</span></div>${wRows}
         <div class="edit-grp">Actual Cost (EGP)</div>
         <label class="edit-row"><span>Actual Cost</span><input class="edit-ac" id="evm-ac-input" value="${acVal}"></label>
-        <div class="edit-hint">CPI recomputes from Actual Cost. Weights recompute the overall progress. Saved per project.</div>
+        <div class="edit-hint">Categories are detected automatically (Construction / Engineering / Design / Procurement); every weight is editable, including Construction. Engineering drawings: Design types drive Design, everything else (Shop + other) drives Engineering. CPI recomputes from Actual Cost. Saved per project.</div>
       </div>
       <div class="modal-foot">
         <button class="btn-secondary" id="evm-modal-cancel">Cancel</button>

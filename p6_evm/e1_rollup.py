@@ -14,8 +14,13 @@ on-screen view and the PDF never diverge.
 """
 
 
+from p6_evm.classify import is_design_drawing
+
+
 def is_shop(submittal_type):
-    return 'shop' in (submittal_type or '').lower()
+    # Kept for compatibility; "engineering" now means "not a design drawing"
+    # (Shop + Other + unknown), per Ibrahim's decision to count Other into Engineering.
+    return not is_design_drawing(submittal_type)
 
 
 def _agg(rows):

@@ -68,42 +68,41 @@ def summarize_e1(rows, cutoff=None):
     return result
 
 
+E1_FIELDS = ('trade', 'building', 'description', 'submittal_type', 'submitted', 'planned', 'action_code')
+
+
 def read_e1_rows(path):
     """Read every E1 Log sheet into flat row dicts (uses openpyxl).
-    Locates the header row (contains 'Descipline' + 'Type of Submittal') on each
-    sheet and maps the columns by name, so minor layout shifts are tolerated.
+
+    Columns are matched by MEANING (see classify.match_e1_field), not exact spelling,
+    so any E1 Log format reads — Discipline == Descipline == Trade == Division, etc.
+    A sheet's header row is the first row that carries both a Discipline/Trade column
+    and a Drawing/Submittal-Type column.
     """
     import openpyxl
+    from p6_evm.classify import match_e1_field
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
-
-    def norm(s):
-        return str(s).strip().lower() if s is not None else ''
 
     rows = []
     for ws in wb.worksheets:
         sheet = list(ws.iter_rows(values_only=True))
-        hdr_i = None
+        hdr_i, ci = None, None
         for i, r in enumerate(sheet):
-            vals = [norm(c) for c in r]
-            if 'descipline' in vals and any('type of submittal' in v for v in vals):
-                hdr_i = i
+            fields = {}
+            for j, cell_val in enumerate(r):
+                f = match_e1_field(cell_val)
+                if f and f not in fields:        # first column wins for a field
+                    fields[f] = j
+            if 'trade' in fields and 'submittal_type' in fields:
+                hdr_i, ci = i, fields
                 break
         if hdr_i is None:
             continue
-        hdr = [norm(c) for c in sheet[hdr_i]]
-
-        def col(name):
-            return next((j for j, h in enumerate(hdr) if name in h), None)
-
-        ci = {'trade': col('descipline'), 'building': col('building'),
-              'description': col('description'), 'submittal_type': col('type of submittal'),
-              'submitted': col('submitted'), 'planned': col('planned submission'),
-              'action_code': col('action')}
         for r in sheet[hdr_i + 1:]:
             def cell(k):
-                j = ci[k]
+                j = ci.get(k)
                 return r[j] if (j is not None and j < len(r)) else None
             if not cell('trade') or not cell('submittal_type'):
                 continue
-            rows.append({k: cell(k) for k in ci})
+            rows.append({k: cell(k) for k in E1_FIELDS})
     return rows

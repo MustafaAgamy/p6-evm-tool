@@ -1,0 +1,118 @@
+"""Construction-knowledge classification, shared by the schedule (WBS) and the E1 Log.
+
+One meaning-based matcher used everywhere so a project's own vocabulary doesn't matter:
+  * classify_wbs_name / auto_categories  — tag WBS branches as Construction / Engineering
+    / Design / Procurement and build the default-weighted category set for any project.
+  * is_design_drawing                    — a drawing type is Design (Concept/Schematic/
+    Detailed/IFC/…); everything else (Shop, as-built, coordination, unknown) is Engineering.
+  * match_e1_field                       — map an E1 Log column heading to a known field by
+    meaning, so any format reads (Discipline == Descipline == Trade == Division == …).
+
+Matching is case/space/punctuation-insensitive and matches when the text CONTAINS an
+accepted phrase. See vault: 01 Scope — Auto Project Setup, 07 Calculation Rules.
+"""
+
+# ── Categories (priority order — first match wins; Construction is the fallback) ──
+CATEGORY_RULES = [
+    ('Procurement', ['procure', 'supply', 'purchase', 'vendor', 'supplier']),
+    ('Design',      ['design', 'ifc', 'ifa', 'schematic', 'detailed', 'concept',
+                     'preliminary', 'issued for construction', 'issued for approval']),
+    ('Engineering', ['engineer', 'shop drawing', 'shop', 'submittal', 'approval',
+                     'technical', 'detailing', 'coordination', 'fabricat']),
+    ('Construction', ['construct', 'civil', 'structural', 'structure', 'works',
+                      'erection', 'installation', 'concrete', 'mep', 'execution', 'site work']),
+]
+DEFAULT_CATEGORY = 'Construction'
+CATEGORY_ORDER = ['Construction', 'Engineering', 'Design', 'Procurement']
+
+DESIGN_DRAWING_KW = ['design', 'ifc', 'ifa', 'schematic', 'detailed', 'concept',
+                     'preliminary', 'basic', 'issued for']
+
+E1_FIELD_SYNONYMS = {
+    'trade':          ['descipline', 'discipline', 'trade', 'division', 'system', 'speciality', 'specialty'],
+    'submittal_type': ['type of submittal', 'submittal type', 'drawing type', 'document type', 'deliverable', 'type'],
+    'building':       ['building', 'area', 'zone', 'location', 'block'],
+    'description':    ['description', 'drawing title', 'document title', 'drawing name', 'title', 'subject'],
+    'submitted':      ['date submitted', 'submitted', 'submission', 'transmittal'],
+    'planned':        ['planned submission', 'planned', 'target', 'baseline', 'forecast'],
+    'action_code':    ['action code', 'action', 'review code', 'disposition', 'status', 'code', 'response'],
+}
+
+
+def _norm(s):
+    return ' '.join(str(s or '').lower().replace('_', ' ').replace('-', ' ').replace('.', ' ').split())
+
+
+def classify_wbs_name(name):
+    """Category for a single WBS/branch name, or None if nothing matches."""
+    n = _norm(name)
+    if not n:
+        return None
+    for cat, kws in CATEGORY_RULES:
+        if any(k in n for k in kws):
+            return cat
+    return None
+
+
+def classify_branch_names(names):
+    """Category for an activity given its WBS ancestor names (leaf → root order).
+    Decided by the TOP-MOST branch that carries a meaning (the phase), so a leaf word
+    like 'Approval' under a Construction phase doesn't steal it into Engineering.
+    Falls back to Construction so every activity lands somewhere."""
+    for name in reversed(names):   # root/phase first
+        cat = classify_wbs_name(name)
+        if cat:
+            return cat
+    return DEFAULT_CATEGORY
+
+
+def default_weights(present):
+    """Construction 95%, the rest share 5% (all editable later). `present` is the set
+    of category names that actually occur in the schedule."""
+    cats = [c for c in CATEGORY_ORDER if c in present]
+    if not cats:
+        return {}
+    if 'Construction' in cats and len(cats) > 1:
+        others = [c for c in cats if c != 'Construction']
+        share = 0.05 / len(others)
+        w = {'Construction': 0.95}
+        for c in others:
+            w[c] = share
+        return w
+    # no Construction, or Construction only → split evenly
+    share = 1.0 / len(cats)
+    return {c: share for c in cats}
+
+
+def auto_categories(data, saved_weights=None):
+    """Category config for compute(): classify every activity's WBS by meaning, keep the
+    categories that occur, apply default weights (Construction 95% / rest share 5%) unless
+    the user has saved weight overrides for this project."""
+    from p6_evm.metrics import wbs_ancestor_names
+    present = set()
+    for a in data.activities.values():
+        present.add(classify_branch_names(wbs_ancestor_names(a['wbs_id'], data.wbs)))
+    weights = dict(default_weights(present))
+    if saved_weights:
+        weights.update({k: v for k, v in saved_weights.items() if k in present})
+    return [{'name': c, 'weight': weights.get(c, 0.0), 'wbs_match': None}
+            for c in CATEGORY_ORDER if c in present]
+
+
+def is_design_drawing(submittal_type):
+    d = _norm(submittal_type)
+    return any(k in d for k in DESIGN_DRAWING_KW)
+
+
+def match_e1_field(header):
+    """Map an E1 column heading to a field name by the LONGEST matching synonym
+    (so 'Type of Submittal' beats the generic 'type'). None if nothing matches."""
+    h = _norm(header)
+    if not h:
+        return None
+    best_field, best_len = None, 0
+    for field, syns in E1_FIELD_SYNONYMS.items():
+        for s in syns:
+            if s in h and len(s) > best_len:
+                best_field, best_len = field, len(s)
+    return best_field
