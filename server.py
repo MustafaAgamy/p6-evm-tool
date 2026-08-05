@@ -398,18 +398,29 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/e1/upload ─────────────────────────────────────────────────────
     def _handle_e1_upload(self, body):
-        """Read an E1 Log Excel → drawings summary (Mode A); store per snapshot."""
-        path = body.get('path', '')
+        """Read one or more E1 / Design / Shop-drawing log Excels → combined drawings
+        summary (Mode A); store per snapshot. A whole file whose NAME says Shop/Design
+        tags all its rows to that bucket; a combined log is split by drawing type."""
+        paths = body.get('paths') or ([body['path']] if body.get('path') else [])
+        paths = [p for p in paths if p and os.path.isfile(p)]
         snapshot_id = body.get('snapshot_id')
-        if not path or not os.path.isfile(path):
-            self._json(200, {'ok': False, 'error': f'Excel not found: {path}'})
+        if not paths:
+            self._json(200, {'ok': False, 'error': 'No Excel log file found.'})
             return
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.e1_log import read_e1_rows, summarize_e1
             from p6_evm.e1_rollup import e1_extras
-            summ = summarize_e1(read_e1_rows(path))
-            eng_rows = [{'trade': t, 'submittal_type': ty, **vals} for (t, ty), vals in sorted(summ.items())]
+            from p6_evm.classify import e1_file_bucket
+            eng_rows = []
+            for p in paths:
+                bucket = e1_file_bucket(os.path.basename(p))   # 'design' | 'engineering' | None
+                summ = summarize_e1(read_e1_rows(p))
+                for (t, ty), vals in sorted(summ.items()):
+                    row = {'trade': t, 'submittal_type': ty, **vals}
+                    if bucket:
+                        row['bucket'] = bucket
+                    eng_rows.append(row)
             if snapshot_id:
                 db.save_e1_summary(snapshot_id, eng_rows)
             extras = e1_extras(eng_rows, body.get('category_names') or [])

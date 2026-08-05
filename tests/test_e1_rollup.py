@@ -28,6 +28,29 @@ def test_is_shop():
     assert not is_shop('Detailed Design') and not is_shop('IFC')
 
 
+def test_explicit_bucket_overrides_type():
+    # Two-file case: a Shop Drawing Log tags all its rows 'engineering' even if a row's
+    # type doesn't say "shop"; a Design Log tags all 'design'.
+    rows = [
+        {'trade': 'Civil', 'submittal_type': 'GA Drawing', 'req': 8, 'planned': 8,
+         'submitted_rows': 6, 'approved_rows': 5, 'not_approved_rows': 1, 'under_review_rows': 0,
+         'bucket': 'engineering'},                                   # from the Shop log
+        {'trade': 'Civil', 'submittal_type': 'Layout', 'req': 10, 'planned': 10,
+         'submitted_rows': 4, 'approved_rows': 3, 'not_approved_rows': 1, 'under_review_rows': 0,
+         'bucket': 'design'},                                        # from the Design log
+    ]
+    o = overall_split(rows)
+    assert o['design']['req'] == 10 and o['design']['approved_rows'] == 3
+    assert o['engineering']['req'] == 8 and o['engineering']['approved_rows'] == 5
+
+
+def test_e1_file_bucket_from_name():
+    from p6_evm.classify import e1_file_bucket
+    assert e1_file_bucket('Shop Drawing Log.xlsx') == 'engineering'
+    assert e1_file_bucket('Design Log.xlsx') == 'design'
+    assert e1_file_bucket('E1 Log.xlsx') is None            # combined → split by type
+
+
 def test_other_drawings_count_into_engineering():
     # As-built / coordination are neither design nor shop → Engineering bucket (Ibrahim's rule)
     rows = [

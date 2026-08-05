@@ -97,7 +97,7 @@ export function renderEvm(result) {
     <div id="evm-cats"></div>
     <div class="evm-sec">Engineering Progress
       <span class="evm-hdr-right"><span id="evm-eng-src"></span>
-        <button class="btn-mini primary" id="evm-upload-e1">⬆ Upload E1 Log</button></span></div>
+        <button class="btn-mini primary" id="evm-upload-e1">⬆ Upload Log(s)</button></span></div>
     <div id="evm-eng"></div>
     <div class="evm-sec">PV vs EV Gap Analysis
       <span class="evm-hdr-right">Group by <select class="evm-sel" id="evm-gap-dim"></select></span></div>
@@ -341,13 +341,13 @@ function openInputsEditor(result) {
 
 async function uploadE1(result) {
   try {
-    const path = await window.pywebview.api.choose_excel();
-    if (!path) return;
+    const paths = await window.pywebview.api.choose_excel();
+    if (!paths || !paths.length) return;
     const src = document.getElementById('evm-eng-src');
-    src.innerHTML = '<span class="src-chip p6">Reading E1 Log…</span>';
+    src.innerHTML = `<span class="src-chip p6">Reading ${paths.length} log${paths.length > 1 ? 's' : ''}…</span>`;
     const resp = await fetch(`http://localhost:${state.serverPort}/api/e1/upload`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, path,
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, paths,
                              category_names: Object.keys(result.categories || {}) }),
     });
     const data = await resp.json();

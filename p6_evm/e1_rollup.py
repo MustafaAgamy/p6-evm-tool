@@ -43,9 +43,20 @@ def _agg(rows):
 
 
 def _split(rows):
-    design = [r for r in rows if not is_shop(r.get('submittal_type'))]
-    shop = [r for r in rows if is_shop(r.get('submittal_type'))]
-    return design, shop
+    """Design vs Engineering. A row's explicit 'bucket' (set when the whole file is a
+    Design Log or a Shop Drawing Log) wins; otherwise classify by drawing type."""
+    design, eng = [], []
+    for r in rows:
+        b = r.get('bucket')
+        if b == 'design':
+            design.append(r)
+        elif b == 'engineering':
+            eng.append(r)
+        elif is_design_drawing(r.get('submittal_type')):
+            design.append(r)
+        else:
+            eng.append(r)
+    return design, eng
 
 
 def overall_split(rows):

@@ -99,6 +99,18 @@ def auto_categories(data, saved_weights=None):
             for c in CATEGORY_ORDER if c in present]
 
 
+def e1_file_bucket(filename):
+    """Which engineering bucket a whole log file belongs to, from its file name:
+    'engineering' if the name says Shop, 'design' if it says Design, else None
+    (a combined log — split it row-by-row by drawing type instead)."""
+    n = _norm(filename)
+    if 'shop' in n:
+        return 'engineering'
+    if 'design' in n:
+        return 'design'
+    return None
+
+
 def is_design_drawing(submittal_type):
     d = _norm(submittal_type)
     return any(k in d for k in DESIGN_DRAWING_KW)
