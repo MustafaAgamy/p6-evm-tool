@@ -63,6 +63,30 @@ def _dt(s):
     return None
 
 
+def _pct_complete(t):
+    """Activity % complete on the SAME basis P6 uses (complete_pct_type), so the XER
+    matches the XML and P6's Earned Value. The old code always read physical %, which is
+    0 for Duration-type activities — making the XER's EV wrong. Now:
+      CP_Drtn  -> duration %  = (target − remaining) / target duration
+      CP_Phys  -> physical % complete
+      CP_Units -> units %     = actual units / (actual + remaining units)
+    A completed activity is 100%.
+    """
+    if (t.get('status_code') or '') == 'TK_Complete':
+        return 1.0
+    typ = t.get('complete_pct_type') or 'CP_Drtn'
+    if typ == 'CP_Phys':
+        return max(0.0, min(1.0, (_num(t.get('phys_complete_pct'), 0.0) or 0.0) / 100.0))
+    if typ == 'CP_Units':
+        aw = _num(t.get('act_work_qty'), 0.0) or 0.0
+        rw = _num(t.get('remain_work_qty'), 0.0) or 0.0
+        tot = aw + rw
+        return max(0.0, min(1.0, aw / tot)) if tot else 0.0
+    tgt = _num(t.get('target_drtn_hr_cnt'), 0.0) or 0.0
+    rem = _num(t.get('remain_drtn_hr_cnt'), 0.0) or 0.0
+    return max(0.0, min(1.0, (tgt - rem) / tgt)) if tgt else 0.0
+
+
 def parse_xer(path):
     tables = read_xer_tables(path)
     data = ScheduleData()
@@ -132,7 +156,7 @@ def parse_xer(path):
             'calendar_id': t.get('clndr_id'),
             'wbs_id': t.get('wbs_id'),
             'task_type': TASK_TYPE.get(t.get('task_type'), 'Task'),
-            'percent_complete': (_num(t.get('phys_complete_pct'), 0.0) or 0.0) / 100.0,
+            'percent_complete': _pct_complete(t),
             'planned_duration': _num(t.get('target_drtn_hr_cnt'), 0.0),
             'total_float_days': tf_days,
             'free_float_days': ff_days,
