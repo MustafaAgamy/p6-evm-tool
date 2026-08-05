@@ -87,6 +87,16 @@ def test_category_actuals_mapping():
     assert 'Construction' not in a          # untouched
 
 
+def test_shop_only_log_does_not_zero_design():
+    # Uploading ONLY a Shop log must not override (zero) the Design categories.
+    rows = [{'trade': 'Civil', 'submittal_type': 'Shop Drawing', 'req': 10, 'planned': 10,
+             'submitted_rows': 8, 'approved_rows': 6, 'not_approved_rows': 2, 'under_review_rows': 0}]
+    a = category_actuals(rows, ['Design Phase I', 'Engineering Phase I', 'Construction'])
+    assert 'Design Phase I' not in a                    # left alone (keeps its schedule value)
+    assert round(a['Engineering Phase I'] * 100, 1) == 60.0
+    assert 'Construction' not in a
+
+
 def test_engineering_gaps_separate_design_and_shop():
     g = engineering_gaps(_rows())
     # Design gap by trade: planned - approved; sorted by gap desc, shares sum to 100

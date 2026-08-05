@@ -75,6 +75,17 @@ def test_e1_field_matching_by_meaning():
     assert match_e1_field('Totally Unrelated') is None
 
 
+def test_action_code_by_meaning():
+    from p6_evm.classify import classify_action_code
+    for a in ['A', 'B', 'Approved', 'AAN', 'Approved as noted', 'Accepted', 'Code A']:
+        assert classify_action_code(a) == 'approved', a
+    for a in ['C', 'Rejected', 'Not Approved', 'Revise and Resubmit', 'RNS']:
+        assert classify_action_code(a) == 'not_approved', a
+    for a in ['P', 'Under Review', 'Pending', 'In Progress']:
+        assert classify_action_code(a) == 'under_review', a
+    assert classify_action_code('') is None and classify_action_code(None) is None
+
+
 def test_type_of_submittal_beats_generic_type():
     # longest-match wins so the specific phrase isn't stolen by the generic 'type'
     assert match_e1_field('Type of Submittal') == 'submittal_type'

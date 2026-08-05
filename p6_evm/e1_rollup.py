@@ -67,16 +67,22 @@ def overall_split(rows):
 
 def category_actuals(rows, category_names):
     """{category_name: actual_fraction 0-1}. Design Approved% -> categories whose name
-    contains 'design'; Engineering(Shop) Approved% -> names containing 'engineering'."""
+    contains 'design'; Engineering(Shop) Approved% -> names containing 'engineering'.
+
+    Only override a category when its bucket actually has drawings — so uploading ONLY a
+    Shop log doesn't wipe the Design categories to 0 (they keep their schedule value), and
+    vice-versa."""
     split = overall_split(rows)
     d = (split['design']['approved_pct'] or 0) / 100.0
     e = (split['engineering']['approved_pct'] or 0) / 100.0
+    has_design = split['design']['req'] > 0
+    has_eng = split['engineering']['req'] > 0
     out = {}
     for name in category_names or []:
         low = (name or '').lower()
-        if 'engineering' in low:
+        if 'engineering' in low and has_eng:
             out[name] = e
-        elif 'design' in low:
+        elif 'design' in low and has_design:
             out[name] = d
     return out
 

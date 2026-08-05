@@ -99,6 +99,30 @@ def auto_categories(data, saved_weights=None):
             for c in CATEGORY_ORDER if c in present]
 
 
+def classify_action_code(raw):
+    """Read an E1 approval status by MEANING, not one fixed coding scheme — different
+    projects use A/B/C/P, or words ('Approved', 'Rejected', 'Under Review'), or 'AAN'
+    (approved as noted), 'RNS' (revise & resubmit). Returns
+    'approved' | 'not_approved' | 'under_review' | None."""
+    c = _norm(raw)
+    if not c:
+        return None
+    # order matters: "not approved" contains "approv"
+    if 'not approv' in c or 'reject' in c or 'resubmit' in c or 'revise' in c or c in ('c', 'rns', 'rr'):
+        return 'not_approved'
+    if 'under' in c or 'review' in c or 'pend' in c or 'progress' in c or c in ('p', 'ur'):
+        return 'under_review'
+    if 'approv' in c or 'as noted' in c or 'accepted' in c or c in ('a', 'b', 'aan', 'aab'):
+        return 'approved'
+    # standalone letter-code fallback (A/B = approved, C = not, P = pending) — token-based
+    # so "Code A" reads as A, not as a word starting with C
+    toks = set(c.split())
+    for letter, verdict in (('a', 'approved'), ('b', 'approved'), ('c', 'not_approved'), ('p', 'under_review')):
+        if letter in toks:
+            return verdict
+    return None
+
+
 def e1_file_bucket(filename):
     """Which engineering bucket a whole log file belongs to, from its file name:
     'engineering' if the name says Shop, 'design' if it says Design, else None

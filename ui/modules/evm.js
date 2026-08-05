@@ -16,6 +16,11 @@ export function spiStatus(spi) {
   if (spi >= 0.95) return { label: 'Slightly Behind', cls: 'color-amber' };
   return { label: 'Behind Schedule', cls: 'color-red' };
 }
+// Show a gap as "Ahead X" when Earned > Planned (negative gap) instead of a confusing minus.
+export function gapText(v, fmt = (x) => x) {
+  if (v == null) return '—';
+  return v < 0 ? `Ahead ${fmt(-v)}` : fmt(v);
+}
 export function overallProgress(categories, weights) {
   let sumW = 0, pw = 0, wa = 0;
   for (const [name, c] of Object.entries(categories || {})) {
@@ -273,7 +278,7 @@ function engGaps(gaps) {
         <th class="num">Gap</th><th class="num">% of Gap</th></tr></thead>
       <tbody>${groups.map(g => `<tr><td>${escapeHtml(g.trade)}</td>
         <td class="num">${g.planned}</td><td class="num">${g.approved}</td>
-        <td class="num">${g.gap}</td><td class="num">${Math.round(g.pct_of_gap)}%</td></tr>`).join('')}</tbody>
+        <td class="num">${gapText(g.gap)}</td><td class="num">${Math.round(Math.abs(g.pct_of_gap))}%</td></tr>`).join('')}</tbody>
     </table></div>`;
   return one('Engineering Gap — Design Drawings (Planned vs Approved)', gaps.design)
        + one('Engineering Gap — Shop Drawings (Planned vs Approved)', gaps.engineering);
@@ -295,9 +300,9 @@ function renderGap() {
   const mx = Math.max(..._gap.groups.map(g => Math.abs(g.gap)), 1);
   const bars = _gap.groups.slice(0, 12).map(g =>
     `<div class="evm-barrow"><div class="evm-barlabel">${escapeHtml(g.code)}</div>
-      <div class="evm-bartrack"><div class="evm-barfill" style="width:${(100 * Math.abs(g.gap) / mx).toFixed(1)}%;background:#c0764a"></div></div>
-      <div class="evm-barval">${egp(g.gap)} · ${Math.round(g.pct_of_gap)}%</div></div>`).join('');
-  box.innerHTML = `<p class="evm-note">Total gap (PV − EV) = ${egp(_gap.total_gap)} EGP</p>${bars}`;
+      <div class="evm-bartrack"><div class="evm-barfill" style="width:${(100 * Math.abs(g.gap) / mx).toFixed(1)}%;background:${g.gap < 0 ? '#5aa86f' : '#c0764a'}"></div></div>
+      <div class="evm-barval">${gapText(g.gap, egp)} · ${Math.round(Math.abs(g.pct_of_gap))}%</div></div>`).join('');
+  box.innerHTML = `<p class="evm-note">Total gap (PV − EV) = ${gapText(_gap.total_gap, egp)} EGP</p>${bars}`;
 }
 
 // ── interactions ──────────────────────────────────────────────────────────

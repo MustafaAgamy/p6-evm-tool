@@ -6,7 +6,7 @@ Not Approved (C), Under Review (P); percentages are on a distinct-drawing basis
 (a drawing counts once regardless of resubmissions). Reading the .xlsx uses
 openpyxl; the aggregation (summarize_e1) is pure and unit-tested.
 """
-APPROVED_CODES = ('A', 'B')
+from p6_evm.classify import classify_action_code
 
 
 def _has(v):
@@ -36,12 +36,12 @@ def summarize_e1(rows, cutoff=None):
         if _has(r.get('submitted')):
             g['submitted_rows'] += 1
 
-        act = str(r.get('action_code') or '').strip().upper()
-        if act in APPROVED_CODES:
+        act = classify_action_code(r.get('action_code'))
+        if act == 'approved':
             g['approved_rows'] += 1
-        elif act == 'C':
+        elif act == 'not_approved':
             g['not_approved_rows'] += 1
-        elif act == 'P':
+        elif act == 'under_review':
             g['under_review_rows'] += 1
 
         planned = r.get('planned')
@@ -71,13 +71,29 @@ def summarize_e1(rows, cutoff=None):
 E1_FIELDS = ('trade', 'building', 'description', 'submittal_type', 'submitted', 'planned', 'action_code')
 
 
-def read_e1_rows(path):
-    """Read every E1 Log sheet into flat row dicts (uses openpyxl).
+_SHEET_NOISE = ('drawing', 'drawings', 'log', 'logs', 'sheet', 'submittal', 'submittals',
+                'register', 'status', 'e1', 'list', 'schedule', 'dwg', 'dwgs')
 
-    Columns are matched by MEANING (see classify.match_e1_field), not exact spelling,
-    so any E1 Log format reads — Discipline == Descipline == Trade == Division, etc.
-    A sheet's header row is the first row that carries both a Discipline/Trade column
-    and a Drawing/Submittal-Type column.
+
+def _sheet_trade(title):
+    """A per-discipline sheet ('Civil Drawings', 'Arch. Log') carries the discipline in
+    its NAME. Strip the noise words, leaving the trade ('Civil', 'Arch.')."""
+    if not title:
+        return None
+    words = [w for w in str(title).split() if w.strip().lower().strip('.') not in _SHEET_NOISE]
+    name = ' '.join(words).strip()
+    return name or None
+
+
+def read_e1_rows(path):
+    """Read every sheet of every E1 / Design / Shop log into flat row dicts (openpyxl).
+
+    Robust to any format:
+      * columns matched by MEANING (classify.match_e1_field), not exact spelling;
+      * a header row is the first row carrying a Drawing/Submittal-Type column plus at
+        least one more recognised column;
+      * a per-discipline sheet with no Discipline column takes its trade from the SHEET
+        NAME (so a workbook split into Civil / Arch / MEP sheets still reads).
     """
     import openpyxl
     from p6_evm.classify import match_e1_field
@@ -93,16 +109,20 @@ def read_e1_rows(path):
                 f = match_e1_field(cell_val)
                 if f and f not in fields:        # first column wins for a field
                     fields[f] = j
-            if 'trade' in fields and 'submittal_type' in fields:
+            if 'submittal_type' in fields and len(fields) >= 2:
                 hdr_i, ci = i, fields
                 break
         if hdr_i is None:
             continue
+        default_trade = _sheet_trade(ws.title) if 'trade' not in ci else None
         for r in sheet[hdr_i + 1:]:
             def cell(k):
                 j = ci.get(k)
                 return r[j] if (j is not None and j < len(r)) else None
-            if not cell('trade') or not cell('submittal_type'):
+            trade = cell('trade') or default_trade
+            if not trade or not cell('submittal_type'):
                 continue
-            rows.append({k: cell(k) for k in E1_FIELDS})
+            row = {k: cell(k) for k in E1_FIELDS}
+            row['trade'] = trade
+            rows.append(row)
     return rows

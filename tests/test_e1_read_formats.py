@@ -14,6 +14,28 @@ def _write(path, headers, data_rows):
     wb.save(path)
 
 
+def test_per_discipline_sheets_take_trade_from_sheet_name(tmp_path):
+    # A workbook split into per-discipline sheets, with NO discipline column — the
+    # trade comes from the sheet name. Also uses word-based approval statuses.
+    p = tmp_path / "e1_multisheet.xlsx"
+    wb = openpyxl.Workbook()
+    ws1 = wb.active
+    ws1.title = 'Civil Drawings'
+    ws1.append(['Drawing Type', 'Drawing Title', 'Submission Date', 'Planned', 'Status'])
+    ws1.append(['Shop Drawing', 'Rebar', '2026-01-10', '2026-01-05', 'Approved'])
+    ws1.append(['Shop Drawing', 'Formwork', None, '2026-01-20', 'Under Review'])
+    ws2 = wb.create_sheet('Arch.')
+    ws2.append(['Drawing Type', 'Drawing Title', 'Submission Date', 'Planned', 'Status'])
+    ws2.append(['Detailed Design', 'Facade', '2026-02-01', '2026-01-25', 'Rejected'])
+    wb.save(p)
+    rows = read_e1_rows(str(p))
+    trades = {r['trade'] for r in rows}
+    assert 'Civil' in trades and 'Arch.' in trades         # from sheet names
+    summ = summarize_e1(rows)
+    assert summ[('Civil', 'Shop Drawing')]['approved_rows'] == 1     # 'Approved' word read
+    assert summ[('Arch.', 'Detailed Design')]['not_approved_rows'] == 1  # 'Rejected' read
+
+
 def test_reads_alternative_headers(tmp_path):
     p = tmp_path / "e1_alt.xlsx"
     # None of these match Ibrahim's exact spellings — all matched by meaning

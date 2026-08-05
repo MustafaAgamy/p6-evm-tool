@@ -167,11 +167,16 @@ def compute(data, config, overrides=None, classifier=None):
     cpi = (ev / total_ac) if total_ac else None
     variance = ev - pv
 
+    # Delay = float of the project finish milestone, in whole working days.
+    # Prefer an actual Finish Milestone; fall back to the latest-finishing activity.
     with_finish = [r for r in records if r['activity']['planned_finish']]
     delay_days = None
     if with_finish:
-        milestone = max(with_finish, key=lambda r: r['activity']['planned_finish'])
-        delay_days = milestone['total_float']
+        milestones = [r for r in with_finish if r['activity'].get('task_type') == 'FinishMilestone']
+        pool = milestones or with_finish
+        milestone = max(pool, key=lambda r: r['activity']['planned_finish'])
+        tf = milestone['total_float']
+        delay_days = round(tf) if tf is not None else None
 
     return {
         'data_date': data_date,

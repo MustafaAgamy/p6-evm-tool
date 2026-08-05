@@ -28,6 +28,13 @@ def _pct(x):
     return '—' if x is None else f'{round(x * 100)}%'
 
 
+def _gap_val(v, fmt):
+    """Show a gap as 'Ahead X' when it's negative (Earned > Planned)."""
+    if v is None:
+        return '—'
+    return f'Ahead {fmt(-v)}' if v < 0 else fmt(v)
+
+
 def spi_status(spi):
     if spi is None:
         return 'n/a', '#6b7a8d'
@@ -164,11 +171,11 @@ def _gap_section(gap):
     for g in gap['groups'][:15]:
         rows.append(
             f'<tr><td>{_esc(g["code"])}</td><td class="num">{_egp(g["pv"])}</td>'
-            f'<td class="num">{_egp(g["ev"])}</td><td class="num">{_egp(g["gap"])}</td>'
-            f'<td class="num">{g["pct_of_gap"]:.0f}%</td></tr>')
+            f'<td class="num">{_egp(g["ev"])}</td><td class="num">{_gap_val(g["gap"], _egp)}</td>'
+            f'<td class="num">{abs(g["pct_of_gap"]):.0f}%</td></tr>')
     return (
         f'<h2 class="sec">PV vs EV Gap Analysis — by {_esc(gap.get("dimension", ""))}</h2>'
-        f'<p class="note">Total gap (PV − EV) = {_egp(gap.get("total_gap"))} EGP, showing where the slippage concentrates.</p>'
+        f'<p class="note">Total gap (PV − EV) = {_gap_val(gap.get("total_gap"), _egp)} EGP, showing where the slippage concentrates.</p>'
         '<table><thead><tr><th>Group</th><th class="num">PV</th><th class="num">EV</th>'
         '<th class="num">Gap</th><th class="num">% of Gap</th></tr></thead>'
         f'<tbody>{"".join(rows)}</tbody></table>')
@@ -242,8 +249,8 @@ def _engineering_section(engineering):
             return ''
         grows = ''.join(
             f'<tr><td>{_esc(g.get("trade"))}</td><td class="num">{g.get("planned", "")}</td>'
-            f'<td class="num">{g.get("approved", "")}</td><td class="num">{g.get("gap", "")}</td>'
-            f'<td class="num">{g.get("pct_of_gap", 0):.0f}%</td></tr>' for g in groups)
+            f'<td class="num">{g.get("approved", "")}</td><td class="num">{_gap_val(g.get("gap"), lambda n: f"{n:g}")}</td>'
+            f'<td class="num">{abs(g.get("pct_of_gap", 0)):.0f}%</td></tr>' for g in groups)
         return (
             f'<h2 class="sec">{_esc(title)}</h2>'
             '<table><thead><tr><th>Trade</th><th class="num">Planned</th>'
