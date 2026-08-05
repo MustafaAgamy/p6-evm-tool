@@ -18,52 +18,56 @@ def summarize_e1(rows, cutoff=None):
     submitted (date|None), planned (date|None), action_code (str).
     Returns { (trade, submittal_type): {req, planned, submitted_rows, approved_rows,
     not_approved_rows, under_review_rows, submitted_pct, approved_pct, planned_pct} }.
+
+    Counting is per DISTINCT drawing, not per submission row (Ibrahim's rule): a drawing
+    is unique by title/name (building + description). Once it is Approved (A/B) at any
+    revision, later resubmissions of the same drawing — methodology-change reissues — are
+    NOT counted again. So every count is a distinct-drawing count and % never exceeds 100%.
     """
-    groups = {}
+    groups = {}   # (trade, typ) -> { drawing_key -> {submitted, approved, rejected, under_review, planned} }
     for r in rows:
         trade = (r.get('trade') or '').strip()
         typ = (r.get('submittal_type') or '').strip()
         if not trade or not typ:
             continue
-        key = (trade, typ)
-        g = groups.setdefault(key, {
-            'drawings': set(), 'planned_draw': set(),
-            'submitted_rows': 0, 'approved_rows': 0, 'not_approved_rows': 0, 'under_review_rows': 0,
-        })
-        draw = (str(r.get('building') or '').strip(), str(r.get('description') or '').strip())
-        g['drawings'].add(draw)
+        dk = (str(r.get('building') or '').strip(), str(r.get('description') or '').strip())
+        d = groups.setdefault((trade, typ), {}).setdefault(
+            dk, {'submitted': False, 'approved': False, 'rejected': False,
+                 'under_review': False, 'planned': False})
 
         if _has(r.get('submitted')):
-            g['submitted_rows'] += 1
-
+            d['submitted'] = True
         act = classify_action_code(r.get('action_code'))
         if act == 'approved':
-            g['approved_rows'] += 1
+            d['approved'] = True
         elif act == 'not_approved':
-            g['not_approved_rows'] += 1
+            d['rejected'] = True
         elif act == 'under_review':
-            g['under_review_rows'] += 1
-
+            d['under_review'] = True
         planned = r.get('planned')
         if _has(planned) and (cutoff is None or planned <= cutoff):
-            g['planned_draw'].add(draw)
+            d['planned'] = True
 
     result = {}
-    for key, g in groups.items():
-        req = len(g['drawings']) or 0
+    for key, draws in groups.items():
+        req = len(draws) or 0
         pct = lambda n: round(100.0 * n / req, 1) if req else 0.0
-        # % Submitted nets out rejected revisions: (submitted rows - not approved) / req
-        net_submitted = g['submitted_rows'] - g['not_approved_rows']
+        approved = sum(1 for d in draws.values() if d['approved'])
+        submitted = sum(1 for d in draws.values() if d['submitted'])
+        # a drawing is "not approved" / "under review" only while it is NOT yet approved
+        rejected = sum(1 for d in draws.values() if d['rejected'] and not d['approved'])
+        under = sum(1 for d in draws.values() if d['under_review'] and not d['approved'] and not d['rejected'])
+        planned = sum(1 for d in draws.values() if d['planned'])
         result[key] = {
             'req': req,
-            'planned': len(g['planned_draw']),
-            'submitted_rows': g['submitted_rows'],
-            'approved_rows': g['approved_rows'],
-            'not_approved_rows': g['not_approved_rows'],
-            'under_review_rows': g['under_review_rows'],
-            'submitted_pct': pct(net_submitted),
-            'approved_pct': pct(g['approved_rows']),
-            'planned_pct': pct(len(g['planned_draw'])),
+            'planned': planned,
+            'submitted_rows': submitted,
+            'approved_rows': approved,
+            'not_approved_rows': rejected,
+            'under_review_rows': under,
+            'submitted_pct': pct(submitted - rejected),   # % Submitted = (Submitted − Rejected) ÷ Req
+            'approved_pct': pct(approved),                # % Approved  = Approved ÷ Req
+            'planned_pct': pct(planned),
         }
     return result
 

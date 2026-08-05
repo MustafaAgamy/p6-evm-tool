@@ -14,15 +14,24 @@ def test_counts_and_distinct_percentages():
         _row('Civil', 'Schematic', 'Silo', 'D1', submitted=datetime(2025, 4, 1), action='B'),
         _row('Civil', 'Schematic', 'Silo', 'D2', submitted=datetime(2025, 5, 1), action='A'),
     ]
-    out = summarize_e1(rows)
-    g = out[('Civil', 'Schematic')]
+    g = summarize_e1(rows)[('Civil', 'Schematic')]
     assert g['req'] == 2                 # two distinct drawings D1, D2
-    assert g['submitted_rows'] == 3      # three submission rows
-    assert g['approved_rows'] == 2       # A + B
-    assert g['not_approved_rows'] == 1   # the C
-    # percentages are on a distinct-drawing basis
-    assert g['submitted_pct'] == 100.0   # both drawings submitted
-    assert g['approved_pct'] == 100.0    # both drawings ultimately approved
+    assert g['submitted_rows'] == 2      # two distinct drawings submitted (not 3 rows)
+    assert g['approved_rows'] == 2       # both drawings ultimately approved
+    assert g['not_approved_rows'] == 0   # D1 is approved, so its earlier C doesn't count
+    assert g['submitted_pct'] == 100.0
+    assert g['approved_pct'] == 100.0
+
+
+def test_approved_drawing_resubmitted_after_client_change_counts_once():
+    # Client change / variation order: D1 approved at rev0 (A), then resubmitted (rev1) and
+    # approved again (B). It is ONE drawing, approved — must not count twice or exceed 100%.
+    rows = [
+        _row('Civil', 'Shop', 'Silo', 'D1', submitted=datetime(2025, 1, 1), action='A'),
+        _row('Civil', 'Shop', 'Silo', 'D1', submitted=datetime(2025, 6, 1), action='B'),  # after VO
+    ]
+    g = summarize_e1(rows)[('Civil', 'Shop')]
+    assert g['req'] == 1 and g['approved_rows'] == 1 and g['approved_pct'] == 100.0
 
 
 def test_pending_and_unsubmitted():
@@ -49,10 +58,10 @@ def test_net_submitted_formula():
     ]
     g = summarize_e1(rows)[('Civil', 'Shop')]
     assert g['req'] == 3
-    assert g['submitted_rows'] == 3
-    assert g['not_approved_rows'] == 2
-    assert g['approved_rows'] == 1
-    # % Submitted = (submitted 3 - not approved 2) / req 3 = 33.3
+    assert g['submitted_rows'] == 2      # D1, D2 submitted (distinct); D3 not
+    assert g['not_approved_rows'] == 1   # only D2 (D1 ended approved, so not rejected)
+    assert g['approved_rows'] == 1       # D1
+    # % Submitted = (submitted 2 - not approved 1) / req 3 = 33.3
     assert g['submitted_pct'] == 33.3
     # % Approved = approved 1 / req 3 = 33.3
     assert g['approved_pct'] == 33.3
