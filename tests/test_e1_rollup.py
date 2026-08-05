@@ -1,0 +1,63 @@
+"""E1 rollup: Design vs Engineering(Shop) split, category overrides, and the
+two gap sets. Numbers mirror Ibrahim's E1 screenshot so a regression is visible."""
+from p6_evm.e1_rollup import overall_split, category_actuals, engineering_gaps, is_shop
+
+
+def _rows():
+    # (trade, type, req, planned, submitted, approved, not_appr)
+    raw = [
+        ('Civil', 'Detailed Design', 26, 26, 12, 7, 5),
+        ('Civil', 'IFC', 7, 7, 8, 7, 1),
+        ('MEP', 'Schematic Design', 19, 19, 19, 19, 0),
+        ('MEP', 'Detailed Design', 106, 106, 0, 0, 0),
+        ('Arch', 'Detailed Design', 19, 19, 1, 0, 1),
+        ('Arch', 'Schematic Design', 20, 20, 30, 0, 30),
+        ('Civil', 'Schematic Design', 25, 25, 8, 5, 3),
+        ('Infra', 'Detailed Design', 7, 7, 4, 0, 4),
+        ('Infra', 'Schematic Design', 7, 7, 14, 0, 14),
+        ('Steel', 'Detailed Design', 1, 1, 3, 0, 3),
+        ('Civil', 'Shop Drawing', 45, 45, 56, 43, 13),
+    ]
+    return [{'trade': t, 'submittal_type': ty, 'req': rq, 'planned': pl,
+             'submitted_rows': su, 'approved_rows': ap, 'not_approved_rows': na,
+             'under_review_rows': 0} for (t, ty, rq, pl, su, ap, na) in raw]
+
+
+def test_is_shop():
+    assert is_shop('Shop Drawing') and is_shop('shop drawings')
+    assert not is_shop('Detailed Design') and not is_shop('IFC')
+
+
+def test_overall_split_design_vs_shop():
+    o = overall_split(_rows())
+    # Design = every non-Shop row: Req 237, Approved 38 -> 16.0%
+    assert o['design']['req'] == 237
+    assert o['design']['approved_rows'] == 38
+    assert o['design']['approved_pct'] == 16.0
+    # Engineering = Shop only: Req 45, Approved 43 -> 95.6%
+    assert o['engineering']['req'] == 45
+    assert o['engineering']['approved_pct'] == 95.6
+
+
+def test_category_actuals_mapping():
+    cats = ['Design Phase I', 'Engineering Phase I', 'Phase II Design', 'Construction']
+    a = category_actuals(_rows(), cats)
+    assert round(a['Design Phase I'] * 100, 1) == 16.0
+    assert round(a['Phase II Design'] * 100, 1) == 16.0
+    assert round(a['Engineering Phase I'] * 100, 1) == 95.6
+    assert 'Construction' not in a          # untouched
+
+
+def test_engineering_gaps_separate_design_and_shop():
+    g = engineering_gaps(_rows())
+    # Design gap by trade: planned - approved; sorted by gap desc, shares sum to 100
+    design = g['design']
+    assert design                                  # non-empty
+    top = design[0]
+    assert set(top) >= {'trade', 'planned', 'approved', 'gap', 'pct_of_gap'}
+    assert top['gap'] == top['planned'] - top['approved']
+    assert round(sum(x['pct_of_gap'] for x in design)) == 100
+    # Engineering (Shop) gap is separate: only Civil shop rows
+    eng = g['engineering']
+    assert [x['trade'] for x in eng] == ['Civil']
+    assert eng[0]['gap'] == 45 - 43

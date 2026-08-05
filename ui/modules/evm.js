@@ -45,6 +45,7 @@ let _weights = {};       // {category: weight fraction}
 let _actualCost = null;  // user override (EGP) or null → use P6
 let _gap = null;
 let _slice = 'Overall';  // current slicer selection (Overall or a category name)
+let _e1Extras = null;    // {overall, category_actuals, gaps} from an E1 Log upload
 
 function _wkey() { return `p6evm_w_${(state.currentResult || {}).project_name || 'x'}`; }
 function _ackey() { return `p6evm_ac_${(state.currentResult || {}).project_name || 'x'}`; }
@@ -81,6 +82,8 @@ export function renderEvm(result) {
   const body = document.getElementById('evm-body');
   if (!body) return;
   _slice = 'Overall';
+  _e1Extras = result.e1_extras || null;
+  _applyE1ToCategories(result);
   body.innerHTML = `
     <div class="evm-sec">Project Progress — Planned vs Actual
       <span class="evm-hdr-right" id="evm-slicer-chips"></span></div>
@@ -209,13 +212,21 @@ function renderCats(result) {
     <td class="num">—</td><td class="num">${totPW.toFixed(2)}%</td><td class="num">${totWA.toFixed(2)}%</td></tr></tbody></table></div>`;
 }
 
+function _applyE1ToCategories(result) {
+  // E1 Approved % drives the Design/Engineering categories' Actual % (Ibrahim's rule).
+  if (!_e1Extras || !_e1Extras.category_actuals || !result.categories) return;
+  for (const [name, actual] of Object.entries(_e1Extras.category_actuals)) {
+    if (result.categories[name]) result.categories[name].actual_pct = actual;
+  }
+}
+
 function renderEngineering(result) {
   const e1 = result.engineering_e1, p6 = result.engineering_p6 || [];
   const src = document.getElementById('evm-eng-src');
   const box = document.getElementById('evm-eng');
   if (e1 && e1.length) {
     src.innerHTML = '<span class="src-chip on">Source: E1 Log</span>';
-    box.innerHTML = engTable(e1, true);
+    box.innerHTML = engTable(e1, true) + engGaps(_e1Extras && _e1Extras.gaps);
   } else if (p6.length) {
     src.innerHTML = '<span class="src-chip p6">Source: P6 (Mode B)</span>';
     box.innerHTML = engTable(p6, false);
@@ -229,7 +240,7 @@ function engTable(rows, isE1) {
   const head = isE1
     ? ['Trade', 'Type', 'Req', 'Planned', 'Submitted', 'Approved', 'Not Appr', 'Sub %', 'Appr %']
     : ['Trade', 'Type', 'Req', 'Pl. Sub', 'Act. Sub', 'Pl. Appr', 'Act. Appr', 'Sub %', 'Appr %'];
-  const body = rows.map(r => isE1
+  let body = rows.map(r => isE1
     ? `<tr><td>${escapeHtml(r.trade)}</td><td>${escapeHtml(r.submittal_type)}</td>
        <td class="num">${r.req}</td><td class="num">${r.planned}</td><td class="num">${r.submitted_rows}</td>
        <td class="num">${r.approved_rows}</td><td class="num">${r.not_approved_rows}</td>
@@ -238,8 +249,32 @@ function engTable(rows, isE1) {
        <td class="num">${r.req}</td><td class="num">${r.planned_sub}</td><td class="num">${r.actual_sub}</td>
        <td class="num">${r.planned_appr}</td><td class="num">${r.actual_appr}</td>
        <td class="num">${r.actual_sub_pct}%</td><td class="num">${r.actual_appr_pct}%</td></tr>`).join('');
+  if (isE1 && _e1Extras && _e1Extras.overall) {
+    const o = _e1Extras.overall;
+    const ovRow = (label, x, cls) => x ? `<tr class="${cls}"><td>${label}</td><td></td>
+       <td class="num">${x.req}</td><td class="num">${x.planned}</td><td class="num">${x.submitted_rows}</td>
+       <td class="num">${x.approved_rows}</td><td class="num">${x.not_approved_rows}</td>
+       <td class="num">${x.submitted_pct}%</td><td class="num">${x.approved_pct}%</td></tr>` : '';
+    body += ovRow('Overall — Design Drawings', o.design, 'evm-ov-d')
+          + ovRow('Overall — Engineering (Shop)', o.engineering, 'evm-ov-e');
+  }
   return `<div class="tblwrap" style="overflow-x:auto"><table class="evm-table" style="min-width:640px">
     <thead><tr>${head.map(h => `<th class="num">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function engGaps(gaps) {
+  if (!gaps) return '';
+  const one = (title, groups) => (!groups || !groups.length) ? '' : `
+    <div class="evm-sec" style="margin-top:16px">${title}</div>
+    <div class="tblwrap" style="overflow-x:auto"><table class="evm-table" style="min-width:520px">
+      <thead><tr><th>Trade</th><th class="num">Planned</th><th class="num">Approved</th>
+        <th class="num">Gap</th><th class="num">% of Gap</th></tr></thead>
+      <tbody>${groups.map(g => `<tr><td>${escapeHtml(g.trade)}</td>
+        <td class="num">${g.planned}</td><td class="num">${g.approved}</td>
+        <td class="num">${g.gap}</td><td class="num">${Math.round(g.pct_of_gap)}%</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  return one('Engineering Gap — Design Drawings (Planned vs Approved)', gaps.design)
+       + one('Engineering Gap — Shop Drawings (Planned vs Approved)', gaps.engineering);
 }
 
 function renderGapDimOptions(result) {
@@ -310,12 +345,19 @@ async function uploadE1(result) {
     src.innerHTML = '<span class="src-chip p6">Reading E1 Log…</span>';
     const resp = await fetch(`http://localhost:${state.serverPort}/api/e1/upload`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, path }),
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, path,
+                             category_names: Object.keys(result.categories || {}) }),
     });
     const data = await resp.json();
     if (data.ok) {
       result.engineering_e1 = data.engineering_e1;
+      result.e1_extras = data.e1_extras || null;
+      _e1Extras = result.e1_extras;
+      _applyE1ToCategories(result);   // Design/Engineering category Actual % ← E1 Approved %
       renderEngineering(result);
+      renderCats(result);             // category table reflects E1
+      renderSlicer(result);           // top slicer + overall reflect E1
+      renderDashboard(result);
     } else {
       src.innerHTML = `<span class="src-chip p6">E1 read failed</span>`;
       alert('E1 Log read failed: ' + (data.error || 'unknown'));

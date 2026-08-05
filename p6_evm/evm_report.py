@@ -211,26 +211,46 @@ def _engineering_section(engineering):
                 f'<td class="num">{r.get("not_approved_rows", "")}</td><td class="num">{r.get("under_review_rows", "")}</td>'
                 f'<td class="num">{r.get("planned_pct", "")}%</td><td class="num">{r.get("submitted_pct", "")}%</td>'
                 f'<td class="num">{r.get("approved_pct", "")}%</td></tr>')
+        # Two overall rows: Design drawings (non-Shop) and Engineering (Shop)
+        ov = engineering.get('overall') or {}
+
+        def _ov(label, o, bg):
+            return (f'<tr style="font-weight:800;background:{bg}"><td>{label}</td><td></td>'
+                    f'<td class="num">{o.get("req", "")}</td><td class="num">{o.get("planned", "")}</td>'
+                    f'<td class="num">{o.get("submitted_rows", "")}</td><td class="num">{o.get("approved_rows", "")}</td>'
+                    f'<td class="num">{o.get("not_approved_rows", "")}</td><td class="num">{o.get("under_review_rows", "")}</td>'
+                    f'<td class="num">{o.get("planned_pct", "")}%</td><td class="num">{o.get("submitted_pct", "")}%</td>'
+                    f'<td class="num">{o.get("approved_pct", "")}%</td></tr>')
+        if ov:
+            rows.append(_ov('Overall — Design Drawings', ov.get('design', {}), '#e8eefb'))
+            rows.append(_ov('Overall — Engineering (Shop) Drawings', ov.get('engineering', {}), '#e6f4ea'))
         table = (
             '<div style="overflow-x:auto"><table style="min-width:720px"><thead><tr>'
             '<th>Trade</th><th>Submittal Type</th><th class="num">Req</th><th class="num">Planned</th>'
             '<th class="num">Submitted</th><th class="num">Approved</th><th class="num">Not Appr</th>'
             '<th class="num">Under Rev</th><th class="num">Planned %</th><th class="num">Submitted %</th>'
             f'<th class="num">Approved %</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
-        note = ('Source: E1 Log. % Submitted = (Submitted − Not Approved) ÷ Req; '
-                '% Approved = Approved ÷ Req.')
-    gap = engineering.get('gap') or []
-    gap_html = ''
-    if gap:
+        note = ('Source: E1 Log. Design = any non-Shop drawing; Engineering = Shop drawings. '
+                '% Submitted = (Submitted − Not Approved) ÷ Req; % Approved = Approved ÷ Req.')
+
+    # Engineering Gap — same logic as the PV-EV gap (Planned − Approved, share of total),
+    # split into Design and Engineering(Shop).
+    gaps = engineering.get('gaps') or {}
+
+    def _gap_table(title, groups):
+        if not groups:
+            return ''
         grows = ''.join(
-            f'<tr><td>{_esc(g.get("trade"))}</td><td class="num">{g.get("planned_appr", "")}</td>'
-            f'<td class="num">{g.get("actual_appr", "")}</td><td class="num">{g.get("gap", "")}</td>'
-            f'<td class="num">{g.get("pct_of_gap", 0):.0f}%</td></tr>' for g in gap)
-        gap_html = (
-            '<h2 class="sec">Engineering Gap Analysis — Planned vs Actual Approval by Trade</h2>'
-            '<table><thead><tr><th>Trade</th><th class="num">Planned Appr</th>'
-            '<th class="num">Actual Appr</th><th class="num">Gap</th><th class="num">% of Gap</th>'
+            f'<tr><td>{_esc(g.get("trade"))}</td><td class="num">{g.get("planned", "")}</td>'
+            f'<td class="num">{g.get("approved", "")}</td><td class="num">{g.get("gap", "")}</td>'
+            f'<td class="num">{g.get("pct_of_gap", 0):.0f}%</td></tr>' for g in groups)
+        return (
+            f'<h2 class="sec">{_esc(title)}</h2>'
+            '<table><thead><tr><th>Trade</th><th class="num">Planned</th>'
+            '<th class="num">Approved</th><th class="num">Gap</th><th class="num">% of Gap</th>'
             f'</tr></thead><tbody>{grows}</tbody></table>')
+    gap_html = (_gap_table('Engineering Gap — Design Drawings (Planned vs Approved by Trade)', gaps.get('design'))
+                + _gap_table('Engineering Gap — Shop Drawings (Planned vs Approved by Trade)', gaps.get('engineering')))
     return (f'<h2 class="sec">Engineering Progress — Drawings by Trade</h2>'
             f'<p class="note">{_esc(note)}</p>{table}{gap_html}')
 

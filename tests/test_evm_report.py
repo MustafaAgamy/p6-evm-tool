@@ -51,12 +51,16 @@ def test_engineering_section_and_order():
         {'trade': 'Civil', 'submittal_type': 'Shop Drawing', 'req': 45, 'planned': 45,
          'submitted_rows': 56, 'approved_rows': 43, 'not_approved_rows': 13,
          'under_review_rows': 0, 'planned_pct': 100.0, 'submitted_pct': 95.6, 'approved_pct': 95.6}],
-        'gap': [{'trade': 'Mechanical', 'planned_appr': 27, 'actual_appr': 20, 'gap': 7, 'pct_of_gap': 37}]}
+        'overall': {'design': {'req': 237, 'approved_pct': 16.0},
+                    'engineering': {'req': 45, 'approved_pct': 95.6}},
+        'gaps': {'design': [{'trade': 'Arch', 'planned': 39, 'approved': 0, 'gap': 39, 'pct_of_gap': 60}],
+                 'engineering': [{'trade': 'Civil', 'planned': 45, 'approved': 43, 'gap': 2, 'pct_of_gap': 100}]}}
     gap = {'dimension': 'Type of Works', 'total_gap': 1e6,
            'groups': [{'code': 'Piles Works', 'pv': 4e6, 'ev': 3e6, 'gap': 1e6, 'pct_of_gap': 100}]}
     html = render_evm_report(_result(), META, gap=gap, engineering=eng)
     assert 'Engineering Progress — Drawings by Trade' in html
-    assert 'Engineering Gap Analysis' in html
+    assert 'Overall — Design Drawings' in html and 'Overall — Engineering (Shop) Drawings' in html
+    assert 'Engineering Gap — Design Drawings' in html and 'Engineering Gap — Shop Drawings' in html
     assert 'Shop Drawing' in html and '95.6%' in html
     # order: engineering appears before the PV-EV gap section
     assert html.index('Engineering Progress') < html.index('PV vs EV Gap Analysis')

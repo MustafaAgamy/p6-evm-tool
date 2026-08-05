@@ -290,7 +290,11 @@ class Handler(BaseHTTPRequestHandler):
         result['gap'] = extras.get('gap')
         result['baseline_finish'] = extras.get('baseline_finish')
         result['expected_finish'] = extras.get('expected_finish')
-        result['engineering_e1'] = db.get_e1_summary(snapshot_id) if snapshot_id else None
+        e1_rows = db.get_e1_summary(snapshot_id) if snapshot_id else None
+        result['engineering_e1'] = e1_rows
+        if e1_rows:                          # re-apply E1 rollup so a re-opened project matches
+            from p6_evm.e1_rollup import e1_extras
+            result['e1_extras'] = e1_extras(e1_rows, list((result.get('categories') or {}).keys()))
         self._json(200, {'ok': True, 'result': result, 'snapshot_id': snapshot_id,
                          'cached_path': cached_path, 'original_path': original_path})
 
@@ -396,11 +400,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.e1_log import read_e1_rows, summarize_e1
+            from p6_evm.e1_rollup import e1_extras
             summ = summarize_e1(read_e1_rows(path))
             eng_rows = [{'trade': t, 'submittal_type': ty, **vals} for (t, ty), vals in sorted(summ.items())]
             if snapshot_id:
                 db.save_e1_summary(snapshot_id, eng_rows)
-            self._json(200, {'ok': True, 'engineering_e1': eng_rows})
+            extras = e1_extras(eng_rows, body.get('category_names') or [])
+            self._json(200, {'ok': True, 'engineering_e1': eng_rows, 'e1_extras': extras})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
@@ -434,7 +440,19 @@ class Handler(BaseHTTPRequestHandler):
                 meta_in['actual_cost'] = body.get('actual_cost')
             dim = body.get('dimension')
             gap = gap_by_code(result['records'], dim) if dim else None
-            html_content = render_evm_report(result, meta_in, gap=gap, engineering=body.get('engineering'))
+            engineering = body.get('engineering')
+            # E1 Log drives the report: override Design/Engineering category actuals and
+            # attach the overall rows + Design/Shop gaps (single source: e1_rollup).
+            if engineering and engineering.get('mode') == 'E1' and engineering.get('rows'):
+                from p6_evm.e1_rollup import e1_extras
+                cats = result.get('categories', {})
+                ex = e1_extras(engineering['rows'], list(cats.keys()))
+                engineering['overall'] = ex['overall']
+                engineering['gaps'] = ex['gaps']
+                for name, actual in ex['category_actuals'].items():
+                    if name in cats:
+                        cats[name]['actual_pct'] = actual
+            html_content = render_evm_report(result, meta_in, gap=gap, engineering=engineering)
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
                 html_path = tmp.name

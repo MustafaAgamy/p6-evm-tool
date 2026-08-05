@@ -471,6 +471,8 @@ body {
 .evm-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
 .evm-table td.num, .evm-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .evm-table .evm-tot td { font-weight: 800; background: var(--row-hover); }
+.evm-table .evm-ov-d td { font-weight: 800; color: var(--accent); background: rgba(59,130,246,.12); }
+.evm-table .evm-ov-e td { font-weight: 800; color: var(--success); background: rgba(74,222,128,.12); }
 .evm-sel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text);
   font-size: 12px; padding: 5px 10px; font-weight: 600; cursor: pointer; }
 .src-chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
