@@ -258,8 +258,10 @@ function engTable(rows, isE1) {
     body += ovRow('Overall — Design Drawings', o.design, 'evm-ov-d')
           + ovRow('Overall — Engineering (Shop)', o.engineering, 'evm-ov-e');
   }
+  // Trade + Type are text (left-aligned); the rest are numeric (right-aligned) to match the data cells
+  const thead = head.map((h, i) => `<th${i < 2 ? '' : ' class="num"'}>${h}</th>`).join('');
   return `<div class="tblwrap" style="overflow-x:auto"><table class="evm-table" style="min-width:640px">
-    <thead><tr>${head.map(h => `<th class="num">${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+    <thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function engGaps(gaps) {
