@@ -1,6 +1,7 @@
 import { state }                                                  from './state.js';
 import { setLoading, showError, clearError, renderResults, renderHistory } from './render.js';
 import { evmInputs }                                             from './evm.js';
+import { showReportPreview }                                     from './preview.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -109,62 +110,86 @@ export async function exportExcel() {
 export async function generateModulePdf() {
   if (!state.currentSnapshotId || !state.currentModule) { showError('Open a schedule and pick a module first.'); return; }
   const btn = new ButtonState(document.getElementById('pdf-btn-audit'), 'Generate Module PDF');
-  btn.loading('Generating…');
+  btn.loading('Preparing preview…');
+  const reqBody = { snapshot_id: state.currentSnapshotId, module: state.currentModule, meta: moduleMeta() };
   try {
-    const outputPath = await window.pywebview.api.choose_save_path(`${state.currentModule}_report.pdf`, 'pdf');
-    if (!outputPath) { btn.reset(); return; }
+    // Preview first — render the report HTML and show it fitted before writing any PDF.
     const data = await apiFetch('api/report/module', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, module: state.currentModule,
-                                output_path: outputPath, meta: moduleMeta() }),
+      body:    JSON.stringify({ ...reqBody, preview: true }),
     });
-    if (!data.ok) { showError(`PDF generation failed: ${data.error}`); btn.reset(); }
-    else          { btn.success('✓ PDF Saved'); }
+    btn.reset();
+    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    showReportPreview({
+      title: 'Audit report preview', subtitle: state.currentModule, html: data.html,
+      onSave: () => _savePdf('api/report/module', reqBody, `${state.currentModule}_report.pdf`, 'pdf'),
+    });
   } catch {
-    showError('PDF generation failed. Check the output path and try again.');
+    showError('Preview failed. Check the schedule and try again.');
     btn.reset();
   }
+}
+
+// Shared "Save as PDF" from a preview: pick a path, POST the same body with output_path.
+// Returns true on success (preview closes), false if the user cancelled or it failed.
+async function _savePdf(route, reqBody, defaultName, ext) {
+  const outputPath = await window.pywebview.api.choose_save_path(defaultName, ext);
+  if (!outputPath) return false;
+  const data = await apiFetch(route, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ ...reqBody, output_path: outputPath }),
+  });
+  if (!data.ok) { showError(`PDF generation failed: ${data.error}`); return false; }
+  return true;
+}
+
+function _evmReportBody() {
+  const r = state.currentResult || {};
+  const inputs = evmInputs();
+  // Engineering for the PDF: E1 rows if uploaded, else the P6 rows as-is — the
+  // report renders the four P6 columns (Planned/Actual SUB, Planned/Actual APP) itself.
+  let engineering = null;
+  if (r.engineering_e1 && r.engineering_e1.length) {
+    engineering = { mode: 'E1', rows: r.engineering_e1 };
+  } else if (r.engineering_p6 && r.engineering_p6.length) {
+    engineering = { mode: 'P6', rows: r.engineering_p6 };
+  }
+  const meta = {
+    project_name: r.project_name || 'Schedule', data_date: (r.data_date || '').slice(0, 10),
+    report_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    source_file: (state.currentXmlPath || '').split(/[\\/]/).pop(),
+    baseline_finish: r.baseline_finish, expected_finish: r.expected_finish,
+  };
+  return {
+    xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+    baseline_path: state.baselinePath || null,
+    meta, weights: inputs.weights, actual_cost: inputs.actualCost,
+    dimension: inputs.gap && inputs.gap.dimension, engineering,
+  };
 }
 
 export async function generatePdf() {
   if (!state.currentXmlPath && !state.currentCachedPath) return;
   const btn = new ButtonState(document.getElementById('pdf-btn'), 'Generate EVM PDF');
-  btn.loading('Generating…');
+  btn.loading('Preparing preview…');
+  const reqBody = _evmReportBody();
   try {
-    const outputPath = await window.pywebview.api.choose_save_path('EVM_report.pdf');
-    if (!outputPath) { btn.reset(); return; }
-
-    const r = state.currentResult || {};
-    const inputs = evmInputs();
-    // Engineering for the PDF: E1 rows if uploaded, else the P6 rows as-is — the
-    // report renders the four P6 columns (Planned/Actual SUB, Planned/Actual APP) itself.
-    let engineering = null;
-    if (r.engineering_e1 && r.engineering_e1.length) {
-      engineering = { mode: 'E1', rows: r.engineering_e1 };
-    } else if (r.engineering_p6 && r.engineering_p6.length) {
-      engineering = { mode: 'P6', rows: r.engineering_p6 };
-    }
-    const meta = {
-      project_name: r.project_name || 'Schedule', data_date: (r.data_date || '').slice(0, 10),
-      report_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      source_file: (state.currentXmlPath || '').split(/[\\/]/).pop(),
-      baseline_finish: r.baseline_finish, expected_finish: r.expected_finish,
-    };
+    // Preview first — render the report HTML and show it fitted before writing any PDF.
     const data = await apiFetch('api/report/evm', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        xml_path: state.currentXmlPath, cached_path: state.currentCachedPath, output_path: outputPath,
-        baseline_path: state.baselinePath || null,
-        meta, weights: inputs.weights, actual_cost: inputs.actualCost,
-        dimension: inputs.gap && inputs.gap.dimension, engineering,
-      }),
+      body:    JSON.stringify({ ...reqBody, preview: true }),
     });
-    if (!data.ok) { showError(`PDF generation failed: ${data.error}`); btn.reset(); }
-    else          { btn.success('✓ EVM PDF Saved'); }
+    btn.reset();
+    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    showReportPreview({
+      title: 'EVM report preview', subtitle: reqBody.meta.source_file, html: data.html,
+      onSave: () => _savePdf('api/report/evm', reqBody, 'EVM_report.pdf', 'pdf'),
+    });
   } catch {
-    showError('PDF generation failed. Check the output path and try again.');
+    showError('Preview failed. Check the schedule and try again.');
     btn.reset();
   }
 }

@@ -374,9 +374,10 @@ class Handler(BaseHTTPRequestHandler):
         """Standalone consultant PDF for ONE isolated module."""
         snapshot_id = body.get('snapshot_id')
         module      = body.get('module')
+        preview     = bool(body.get('preview'))   # return HTML for on-screen preview, don't write a PDF
         output_path = body.get('output_path', '')
         meta_in     = body.get('meta') or {}
-        if not output_path:
+        if not preview and not output_path:
             self._json(200, {'ok': False, 'error': 'No output path provided'})
             return
         mods = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
@@ -389,6 +390,9 @@ class Handler(BaseHTTPRequestHandler):
             from p6_audit.report import render_module_report
             import subprocess, tempfile
             html_content = render_module_report(m, meta_in)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
                 html_path = tmp.name
@@ -509,9 +513,10 @@ class Handler(BaseHTTPRequestHandler):
     # ── /api/report/evm ────────────────────────────────────────────────────
     def _handle_evm_report(self, body):
         """Render the consultant EVM report PDF with the user's weights/AC/engineering."""
+        preview = bool(body.get('preview'))   # return HTML for on-screen preview, don't write a PDF
         output_path = body.get('output_path', '')
         resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
-        if not output_path:
+        if not preview and not output_path:
             self._json(200, {'ok': False, 'error': 'No output path provided'})
             return
         if not resolved:
@@ -556,6 +561,9 @@ class Handler(BaseHTTPRequestHandler):
                     if name in cats:
                         cats[name]['actual_pct'] = actual
             html_content = render_evm_report(result, meta_in, gap=gap, engineering=engineering)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
                 html_path = tmp.name

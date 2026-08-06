@@ -236,4 +236,22 @@ def test_parse_returns_gap_and_finish_extras(test_server, xml_path):
     assert 'engineering_p6' in r
 
 
-# ── POST /api/report not tested — requires Chrome ─────────────────────────
+def test_evm_report_preview_returns_html_no_chrome(test_server, xml_path):
+    """The preview flag renders the report HTML and returns it WITHOUT invoking Chrome,
+    so the UI can show a fit-to-window preview before writing any PDF."""
+    _post_json(test_server, '/api/parse', {'path': str(xml_path)})   # ensure it's importable/cached
+    status, data = _post_json(test_server, '/api/report/evm', {
+        'xml_path': str(xml_path), 'preview': True,
+        'meta': {'project_name': 'Test', 'data_date': '2024-07-01'}})
+    assert status == 200
+    assert data.get('ok') is True
+    assert isinstance(data.get('html'), str) and len(data['html']) > 200
+    assert 'output_path' not in data     # nothing written
+
+
+def test_evm_report_without_output_path_or_preview_errors(test_server, xml_path):
+    _, data = _post_json(test_server, '/api/report/evm', {'xml_path': str(xml_path)})
+    assert data['ok'] is False           # neither preview nor a save path → clear error
+
+
+# ── POST /api/report (PDF write path) not tested — requires Chrome ─────────

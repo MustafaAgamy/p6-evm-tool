@@ -475,6 +475,23 @@ body {
 .evm-table .evm-ov-e td { font-weight: 800; color: var(--success); background: rgba(74,222,128,.12); }
 .evm-sel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text);
   font-size: 12px; padding: 5px 10px; font-weight: 600; cursor: pointer; }
+/* Report preview overlay (fit-to-width) */
+.rpv-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center; padding: 24px; }
+.rpv-shell { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+  width: min(1040px, 96vw); height: min(92vh, 100%); display: flex; flex-direction: column;
+  overflow: hidden; box-shadow: 0 12px 48px rgba(0,0,0,.45); }
+.rpv-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--bg); flex: 0 0 auto; }
+.rpv-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: var(--text); }
+.rpv-title .ti { font-size: 18px; color: var(--accent); }
+.rpv-sub { font-size: 11px; color: var(--muted); font-weight: 400; }
+.rpv-actions { display: flex; gap: 8px; }
+.rpv-scroll { flex: 1 1 auto; overflow: auto; background: #6b6b6b; padding: 16px; }
+.rpv-canvas { margin: 0 auto; }
+.rpv-page { background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.35); }
+.rpv-frame { border: 0; display: block; background: #fff; }
+
 .evm-file-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 340px; }
 .evm-file-chip .ff-name { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
