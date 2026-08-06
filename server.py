@@ -111,10 +111,10 @@ class Handler(BaseHTTPRequestHandler):
                 with open(overrides_path) as f:
                     overrides = json.load(f)
 
-            from p6_evm.classify import auto_categories, classify_branch_names
+            from p6_evm.classify import auto_categories, build_wbs_classifier
             data = parse_file(xml_path)
             config['categories'] = auto_categories(data)   # auto-detect categories per project
-            result = compute(data, config, overrides=overrides, classifier=classify_branch_names)
+            result = compute(data, config, overrides=overrides, classifier=build_wbs_classifier(data))
 
             # Strip the large records list — UI only needs rolled-up metrics
             safe_result = {k: v for k, v in result.items() if k != 'records'}
@@ -236,10 +236,10 @@ class Handler(BaseHTTPRequestHandler):
                 with open(overrides_path) as f:
                     overrides = json.load(f)
 
-            from p6_evm.classify import auto_categories, classify_branch_names
+            from p6_evm.classify import auto_categories, build_wbs_classifier
             data   = parse_file(resolved)
             config['categories'] = auto_categories(data)
-            result = compute(data, config, overrides=overrides, classifier=classify_branch_names)
+            result = compute(data, config, overrides=overrides, classifier=build_wbs_classifier(data))
 
             fm = find_finish_milestone(result)
             milestone_baseline_finish = None
@@ -303,7 +303,7 @@ class Handler(BaseHTTPRequestHandler):
                 sys.path.insert(0, resource_path('.'))
                 from p6_evm.parser import parse_file
                 from p6_evm.metrics import compute
-                from p6_evm.classify import auto_categories, classify_branch_names
+                from p6_evm.classify import auto_categories, build_wbs_classifier
                 with open(resource_path('config.json')) as f:
                     config = json.load(f)
                 data = parse_file(cached_path)
@@ -312,7 +312,7 @@ class Handler(BaseHTTPRequestHandler):
                                                  'planned_finish': a.get('planned_finish')}
                                        for a in bl.activities.values() if a.get('id')}
                 config['categories'] = auto_categories(data)
-                rr = compute(data, config, classifier=classify_branch_names)
+                rr = compute(data, config, classifier=build_wbs_classifier(data))
                 for k in ('pv', 'ev', 'spi', 'cpi', 'delay_days',
                           'overall_planned_pct', 'overall_actual_pct'):
                     result[k] = rr[k]
@@ -417,12 +417,12 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.parser import parse_file
             from p6_evm.metrics import compute
             from p6_evm.gap import gap_by_code
-            from p6_evm.classify import auto_categories, classify_branch_names
+            from p6_evm.classify import auto_categories, build_wbs_classifier
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             data = parse_file(resolved)
             config['categories'] = auto_categories(data)
-            result = compute(data, config, classifier=classify_branch_names)
+            result = compute(data, config, classifier=build_wbs_classifier(data))
             self._json(200, {'ok': True, 'gap': gap_by_code(result['records'], dim)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -476,7 +476,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
             from p6_evm.metrics import compute
-            from p6_evm.classify import auto_categories, classify_branch_names
+            from p6_evm.classify import auto_categories, build_wbs_classifier
             bl = parse_file(bl_path)
             bl_dates = {a['id']: {'planned_start': a.get('planned_start'),
                                   'planned_finish': a.get('planned_finish')}
@@ -486,7 +486,7 @@ class Handler(BaseHTTPRequestHandler):
             data = parse_file(resolved)
             data.baseline_by_id = bl_dates          # use the attached baseline
             config['categories'] = auto_categories(data)
-            result = compute(data, config, classifier=classify_branch_names)
+            result = compute(data, config, classifier=build_wbs_classifier(data))
             bl_cached = db.cache_xml(bl_path, db.hash_file(bl_path))
             if body.get('snapshot_id'):
                 db.save_baseline(body['snapshot_id'], bl_cached)   # remember per project
@@ -524,7 +524,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.gap import gap_by_code
             from p6_evm.evm_report import render_evm_report
             import subprocess, tempfile
-            from p6_evm.classify import auto_categories, classify_branch_names
+            from p6_evm.classify import auto_categories, build_wbs_classifier
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             weights = body.get('weights') or {}
@@ -536,7 +536,7 @@ class Handler(BaseHTTPRequestHandler):
                                                  'planned_finish': a.get('planned_finish')}
                                        for a in bl.activities.values() if a.get('id')}
             config['categories'] = auto_categories(data, saved_weights=weights)
-            result = compute(data, config, classifier=classify_branch_names)
+            result = compute(data, config, classifier=build_wbs_classifier(data))
             meta_in = body.get('meta') or {}
             if body.get('actual_cost') is not None:
                 meta_in['actual_cost'] = body.get('actual_cost')

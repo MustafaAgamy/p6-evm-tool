@@ -84,19 +84,49 @@ def default_weights(present):
     return {c: share for c in cats}
 
 
-def auto_categories(data, saved_weights=None):
-    """Category config for compute(): classify every activity's WBS by meaning, keep the
-    categories that occur, apply default weights (Construction 95% / rest share 5%) unless
-    the user has saved weight overrides for this project."""
+def build_wbs_classifier(data):
+    """Return a classifier(names)->category that puts each activity under its top-level WBS
+    PHASE (Construction, Mobilization, Engineering, Procurement, …) — so each cost-loaded WBS
+    is its own category (Ibrahim's rule). The phase is the root-most named WBS branch, unless
+    every activity shares one project-root node, in which case it is one level below it."""
     from p6_evm.metrics import wbs_ancestor_names
-    present = set()
+    tops = set()
     for a in data.activities.values():
-        present.add(classify_branch_names(wbs_ancestor_names(a['wbs_id'], data.wbs)))
-    weights = dict(default_weights(present))
-    if saved_weights:
-        weights.update({k: v for k, v in saved_weights.items() if k in present})
-    return [{'name': c, 'weight': weights.get(c, 0.0), 'wbs_match': None}
-            for c in CATEGORY_ORDER if c in present]
+        ch = [n for n in wbs_ancestor_names(a['wbs_id'], data.wbs) if n and n.strip()]
+        if ch:
+            tops.add(ch[-1])
+    single_root = len(tops) == 1     # a shared project-root node sits above the phases
+
+    def classify(names):
+        ch = [n for n in (names or []) if n and n.strip()]
+        if not ch:
+            return DEFAULT_CATEGORY
+        if single_root and len(ch) >= 2:
+            return ch[-2]
+        return ch[-1]
+    return classify
+
+
+def auto_categories(data, saved_weights=None):
+    """Category config for compute(): one category per top-level WBS phase, with a default
+    weight = its share of the total budget (cost-loaded WBS get weight by their cost; the
+    non-cost phases like Engineering/Procurement default to 0 and are weighted by the user).
+    Saved user weights override the defaults."""
+    from p6_evm.metrics import wbs_ancestor_names
+    classify = build_wbs_classifier(data)
+    bac = {}
+    for a in data.activities.values():
+        cat = classify(wbs_ancestor_names(a['wbs_id'], data.wbs))
+        bac[cat] = bac.get(cat, 0.0) + (data.bac_by_activity.get(a['object_id'], 0.0) or 0.0)
+    total = sum(bac.values())
+    cats = []
+    for cat, b in bac.items():
+        w = (b / total) if total else 0.0
+        if saved_weights and cat in saved_weights:
+            w = saved_weights[cat]
+        cats.append({'name': cat, 'weight': w, 'wbs_match': None})
+    cats.sort(key=lambda c: -c['weight'])   # heaviest first
+    return cats
 
 
 def classify_action_code(raw):
