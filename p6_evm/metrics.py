@@ -88,9 +88,15 @@ def compute(data, config, overrides=None, classifier=None):
     overrides = overrides or {}
 
     records = []
+    baseline_bac = getattr(data, 'baseline_bac_by_activity', None) or {}
     for activity in data.activities.values():
         object_id = activity['object_id']
-        bac = data.bac_by_activity.get(object_id, 0.0)
+        # BAC = the BASELINE budget when the schedule carries one (P6 anchors Planned Value
+        # and the WBS %-rollup to the baseline cost, not the current update's cost loading).
+        # Falls back to the current cost when there's no embedded baseline (e.g. a bare XER).
+        bac = baseline_bac.get(object_id)
+        if bac is None:
+            bac = data.bac_by_activity.get(object_id, 0.0)
         ac = data.ac_by_activity.get(object_id, 0.0)
         planned_pct = activity_planned_pct(activity, data.baseline_by_id, data_date, data.calendars)
         actual_pct = activity['percent_complete']

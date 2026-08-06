@@ -36,7 +36,8 @@ class ScheduleData:
         self.wbs = {}              # ObjectId -> {Name, ParentObjectId}
         self.activities = {}       # ObjectId -> activity dict
         self.baseline_by_id = {}   # activity Id (code) -> {PlannedStartDate, PlannedFinishDate}
-        self.bac_by_activity = {}  # ActivityObjectId -> planned cost (BAC)
+        self.bac_by_activity = {}  # ActivityObjectId -> planned cost (current update)
+        self.baseline_bac_by_activity = {}  # ActivityObjectId -> BASELINE budget (BAC) — P6's cost basis for PV/EV/%-rollup
         self.ac_by_activity = {}   # ActivityObjectId -> actual cost
         self.relationships = []    # list of {pred_id, succ_id, type, lag_days}
         self.activity_code_types = []  # available activity-code dimensions, e.g. ['Type of Works', ...]
@@ -170,15 +171,26 @@ def parse_file(path) -> ScheduleData:
             'parent_object_id': text(wbs_el, 'ParentObjectId'),
         }
 
+    baseline_bac_by_id = {}   # baseline activity Id (code) -> baseline BAC; mapped to object ids below
     if baseline_el is not None:
+        bl_oid_to_id = {}     # baseline ActivityObjectId -> activity Id, to link baseline costs to activities
         for act_el in baseline_el.findall(tag('Activity')):
             activity_id = text(act_el, 'Id')
             if not activity_id:
                 continue
+            bl_oid_to_id[text(act_el, 'ObjectId')] = activity_id
             data.baseline_by_id[activity_id] = {
                 'planned_start': parse_datetime(text(act_el, 'PlannedStartDate')),
                 'planned_finish': parse_datetime(text(act_el, 'PlannedFinishDate')),
             }
+        # Baseline budget (BAC) per activity — P6 anchors Planned Value and WBS %-rollup to
+        # the baseline cost, not the current update's cost loading. Sum the baseline project's
+        # resource assignments and key them back to the activity Id.
+        for ra_el in baseline_el.findall(tag('ResourceAssignment')):
+            bl_aid = bl_oid_to_id.get(text(ra_el, 'ActivityObjectId'))
+            if not bl_aid:
+                continue
+            baseline_bac_by_id[bl_aid] = baseline_bac_by_id.get(bl_aid, 0.0) + parse_float(text(ra_el, 'PlannedCost'))
 
     for act_el in project_el.findall(tag('Activity')):
         object_id = text(act_el, 'ObjectId')
@@ -235,6 +247,15 @@ def parse_file(path) -> ScheduleData:
         actual_cost = parse_float(text(ra_el, 'ActualCost'))
         data.bac_by_activity[activity_id] = data.bac_by_activity.get(activity_id, 0.0) + planned_cost
         data.ac_by_activity[activity_id] = data.ac_by_activity.get(activity_id, 0.0) + actual_cost
+
+    # Link baseline BAC (keyed by activity Id) to each current activity's ObjectId, so metrics
+    # can weight PV/EV/%-rollup by the baseline budget like P6 does. Only set when the baseline
+    # actually carries cost — otherwise metrics falls back to the current BAC (e.g. bare XER).
+    if baseline_bac_by_id:
+        for oid, act in data.activities.items():
+            bl_bac = baseline_bac_by_id.get(act['id'])
+            if bl_bac is not None:
+                data.baseline_bac_by_activity[oid] = bl_bac
 
     for rel_el in project_el.findall(tag('Relationship')):
         pred = text(rel_el, 'PredecessorActivityObjectId')
