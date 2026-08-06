@@ -34,8 +34,12 @@ def gap_by_code(records, dimension):
     total_pv = sum(b['pv'] for b in groups)
     total_ev = sum(b['ev'] for b in groups)
     total_gap = total_pv - total_ev
+    # Share of the gap = each group's gap as a fraction of the SUM OF ABSOLUTE gaps, so shares
+    # are always 0–100% and add up to 100%. Dividing by the *net* signed total let a single
+    # group exceed 100% whenever other groups were ahead of plan (negative gap) — illogical.
+    total_abs = sum(abs(b['gap']) for b in groups) or 1.0
     for b in groups:
-        b['pct_of_gap'] = (100.0 * b['gap'] / total_gap) if total_gap else 0.0
+        b['pct_of_gap'] = 100.0 * abs(b['gap']) / total_abs
 
     groups.sort(key=lambda b: b['gap'], reverse=True)
     return {

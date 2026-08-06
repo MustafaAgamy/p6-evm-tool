@@ -1,6 +1,6 @@
 /** Unit tests for pure helpers in ui/modules/evm.js — run: node tests/js/test_evm.js */
 import assert from 'node:assert/strict';
-import { egp, asPct, spiStatus, overallProgress, projectProgress, sourceType, sourceName } from '../../ui/modules/evm.js';
+import { egp, egpExact, asPct, spiStatus, overallProgress, projectProgress, sourceType, sourceName } from '../../ui/modules/evm.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -11,6 +11,8 @@ function test(name, fn) {
 console.log('\negp / asPct');
 test('egp millions', () => assert.equal(egp(412.6e6), '412.60M'));
 test('egp millions 2dp matches P6', () => assert.equal(egp(80.15e6), '80.15M'));
+test('egpExact full number for KPI tiles', () => assert.equal(egpExact(243805396.8), '243,805,397'));
+test('egpExact null', () => assert.equal(egpExact(null), '—'));
 test('egp billions', () => assert.equal(egp(1.2e9), '1.20B'));
 test('egp null', () => assert.equal(egp(null), '—'));
 test('asPct 0.94 → 94%', () => assert.equal(asPct(0.94), '94%'));

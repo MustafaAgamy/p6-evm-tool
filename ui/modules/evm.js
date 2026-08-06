@@ -10,6 +10,9 @@ export function egp(n) {
   return Math.round(n).toLocaleString();
 }
 export function asPct(x) { return x == null ? '—' : `${Math.round(x * 100)}%`; }
+// Exact money with thousands separators — for KPI tiles that must match P6 to the unit
+// (e.g. Planned Value 243,805,397), not the abbreviated 243.81M.
+export function egpExact(n) { return n == null ? '—' : Math.round(n).toLocaleString(); }
 export function spiStatus(spi) {
   if (spi == null) return { label: 'n/a', cls: 'color-neutral' };
   if (spi >= 1.0) return { label: 'Ahead / On Schedule', cls: 'color-green' };
@@ -152,7 +155,10 @@ function tile(label, value, note, cls, accent) {
 
 function renderSlicer(result) {
   const cats = result.categories || {};
-  const chips = ['Overall', ...Object.keys(cats)];
+  // Only categories that carry weight appear (same rule as the Category Weights table) —
+  // 0%-weight WBS (Milestones / Key Dates / summary) aren't part of the project progress.
+  const weighted = Object.keys(cats).filter(n => (_weights[n] != null ? _weights[n] : (cats[n].weight || 0)) > 0);
+  const chips = ['Overall', ...weighted];
   if (!chips.includes(_slice)) _slice = 'Overall';
   const chipBox = document.getElementById('evm-slicer-chips');
   if (chipBox) {
@@ -214,9 +220,9 @@ function renderDashboard(result) {
     ${tile('SPI · Schedule', asPct(spi), st.label, st.cls, st.cls === 'color-red' ? 'danger' : (st.cls === 'color-amber' ? 'warning' : 'success'))}
     ${tile('Overall Planned %', `${(prog.planned * 100).toFixed(2)}%`, 'weighted table')}
     ${tile('Overall Actual %', `${(prog.actual * 100).toFixed(2)}%`, 'weighted table', prog.actual >= prog.planned ? 'color-green' : 'color-amber')}
-    ${tile('Planned Value', egp(result.pv), 'EGP')}
-    ${tile('Earned Value', egp(result.ev), 'EGP')}
-    ${tile('Actual Cost', egp(ac), acNote, _actualCost != null ? 'color-blue' : '')}
+    ${tile('Planned Value', egpExact(result.pv), 'EGP')}
+    ${tile('Earned Value', egpExact(result.ev), 'EGP')}
+    ${tile('Actual Cost', egpExact(ac), acNote, _actualCost != null ? 'color-blue' : '')}
     ${tile('CPI · Cost', asPct(cpi), 'auto from Actual Cost')}
     ${tile('Baseline Finish', fmtDate(result.baseline_finish))}
     ${tile('Expected Finish', fmtDate(result.expected_finish))}
@@ -355,7 +361,7 @@ function renderGap() {
   const bars = _gap.groups.slice(0, 12).map(g =>
     `<div class="evm-barrow"><div class="evm-barlabel">${escapeHtml(g.code)}</div>
       <div class="evm-bartrack"><div class="evm-barfill" style="width:${(100 * Math.abs(g.gap) / mx).toFixed(1)}%;background:${g.gap < 0 ? '#5aa86f' : '#c0764a'}"></div></div>
-      <div class="evm-barval">${gapText(g.gap, egp)} · ${Math.round(Math.abs(g.pct_of_gap))}%</div></div>`).join('');
+      <div class="evm-barval">${gapText(g.gap, egp)} · ${g.pct_of_gap.toFixed(1)}%</div></div>`).join('');
   box.innerHTML = `<p class="evm-note">Total gap (PV − EV) = ${gapText(_gap.total_gap, egp)} EGP</p>${bars}`;
 }
 

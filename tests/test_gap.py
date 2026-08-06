@@ -23,6 +23,21 @@ def test_gap_groups_by_code_and_shares():
     assert out['groups'][0]['code'] == 'Piles Works'
 
 
+def test_gap_share_never_exceeds_100_with_mixed_signs():
+    # One code behind (positive gap), one ahead (negative gap). The share must stay 0..100
+    # and sum to 100 — not let the behind code exceed 100% of the net signed total.
+    records = [
+        _rec({'W': 'Behind'}, 100.0, 1.0, 0.4),   # PV 100, EV 40, gap +60
+        _rec({'W': 'Ahead'},  100.0, 0.5, 0.7),   # PV 50,  EV 70, gap -20
+    ]
+    out = gap_by_code(records, 'W')
+    g = {row['code']: row for row in out['groups']}
+    assert round(g['Behind']['pct_of_gap'], 1) == 75.0   # 60 / (60+20)
+    assert round(g['Ahead']['pct_of_gap'], 1) == 25.0    # 20 / (60+20)
+    assert all(0 <= r['pct_of_gap'] <= 100 for r in out['groups'])
+    assert round(sum(r['pct_of_gap'] for r in out['groups'])) == 100
+
+
 def test_uncoded_activities_excluded():
     records = [
         _rec({}, 10.0, 1.0, 0.5),                          # no code → excluded
