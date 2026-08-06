@@ -107,23 +107,44 @@ def build_wbs_classifier(data):
     return classify
 
 
+_DISCIPLINE_KW = ('engineer', 'procure', 'design', 'shop drawing', 'submittal')
+
+
+def _default_weights(bac):
+    """Default weight per category: cost-loaded phases share 95% by their cost; the non-cost
+    discipline phases (Engineering / Procurement / Design) share the remaining 5% equally;
+    other structural phases (Milestones, Key Dates, Summary) get 0. Degrades sensibly when
+    there are no cost phases (disciplines split 100%) or no disciplines (cost takes 100%)."""
+    total_bac = sum(bac.values())
+    cost = [c for c in bac if (bac[c] or 0) > 0]
+    disc = [c for c in bac if (bac[c] or 0) <= 0 and any(k in c.lower() for k in _DISCIPLINE_KW)]
+    cost_share = 0.95 if (cost and disc) else (1.0 if cost else 0.0)
+    disc_share = 0.05 if (cost and disc) else (1.0 if disc else 0.0)
+    w = {c: 0.0 for c in bac}
+    if cost and total_bac:
+        for c in cost:
+            w[c] = cost_share * (bac[c] / total_bac)
+    if disc:
+        each = disc_share / len(disc)
+        for c in disc:
+            w[c] = each
+    return w
+
+
 def auto_categories(data, saved_weights=None):
-    """Category config for compute(): one category per top-level WBS phase, with a default
-    weight = its share of the total budget (cost-loaded WBS get weight by their cost; the
-    non-cost phases like Engineering/Procurement default to 0 and are weighted by the user).
-    Saved user weights override the defaults."""
+    """Category config for compute(): one category per top-level WBS phase, with sensible
+    default weights (cost phases share 95% by cost; Engineering/Procurement/Design share 5%).
+    Saved user weights override the defaults; every weight is editable."""
     from p6_evm.metrics import wbs_ancestor_names
     classify = build_wbs_classifier(data)
     bac = {}
     for a in data.activities.values():
         cat = classify(wbs_ancestor_names(a['wbs_id'], data.wbs))
         bac[cat] = bac.get(cat, 0.0) + (data.bac_by_activity.get(a['object_id'], 0.0) or 0.0)
-    total = sum(bac.values())
+    weights = _default_weights(bac)
     cats = []
-    for cat, b in bac.items():
-        w = (b / total) if total else 0.0
-        if saved_weights and cat in saved_weights:
-            w = saved_weights[cat]
+    for cat in bac:
+        w = saved_weights[cat] if (saved_weights and cat in saved_weights) else weights.get(cat, 0.0)
         cats.append({'name': cat, 'weight': w, 'wbs_match': None})
     cats.sort(key=lambda c: -c['weight'])   # heaviest first
     return cats
