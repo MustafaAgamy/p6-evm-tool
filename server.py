@@ -296,6 +296,35 @@ class Handler(BaseHTTPRequestHandler):
         result['gap'] = extras.get('gap')
         result['baseline_finish'] = extras.get('baseline_finish')
         result['expected_finish'] = extras.get('expected_finish')
+        # Re-apply an attached baseline (re-parse update + baseline) so PV/SPI/Delay stay correct.
+        bl_path = extras.get('baseline_path')
+        if bl_path and os.path.isfile(bl_path) and cached_path and os.path.isfile(cached_path):
+            try:
+                sys.path.insert(0, resource_path('.'))
+                from p6_evm.parser import parse_file
+                from p6_evm.metrics import compute
+                from p6_evm.classify import auto_categories, classify_branch_names
+                with open(resource_path('config.json')) as f:
+                    config = json.load(f)
+                data = parse_file(cached_path)
+                bl = parse_file(bl_path)
+                data.baseline_by_id = {a['id']: {'planned_start': a.get('planned_start'),
+                                                 'planned_finish': a.get('planned_finish')}
+                                       for a in bl.activities.values() if a.get('id')}
+                config['categories'] = auto_categories(data)
+                rr = compute(data, config, classifier=classify_branch_names)
+                for k in ('pv', 'ev', 'spi', 'cpi', 'delay_days',
+                          'overall_planned_pct', 'overall_actual_pct'):
+                    result[k] = rr[k]
+                result['categories'] = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
+                                            'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
+                                            'activity_count': c['activity_count'], 'overridden': c['overridden']}
+                                        for n, c in rr['categories'].items()}
+                result['baseline_path'] = bl_path
+                result['baseline_name'] = os.path.basename(bl_path)
+            except Exception as bexc:
+                print(f'[evm] baseline re-apply skipped: {bexc}', file=sys.stderr)
+
         e1_rows = db.get_e1_summary(snapshot_id) if snapshot_id else None
         result['engineering_e1'] = e1_rows
         if e1_rows:                          # re-apply E1 rollup so a re-opened project matches
@@ -459,6 +488,8 @@ class Handler(BaseHTTPRequestHandler):
             config['categories'] = auto_categories(data)
             result = compute(data, config, classifier=classify_branch_names)
             bl_cached = db.cache_xml(bl_path, db.hash_file(bl_path))
+            if body.get('snapshot_id'):
+                db.save_baseline(body['snapshot_id'], bl_cached)   # remember per project
             matched = sum(1 for a in data.activities.values() if a.get('id') in bl_dates)
             cats = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
                         'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],

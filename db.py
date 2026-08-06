@@ -408,6 +408,17 @@ def get_evm_extras(snapshot_id):
     return _json.loads(row['extras_json']) if row and row['extras_json'] else None
 
 
+def save_baseline(snapshot_id, baseline_path):
+    """Remember the attached baseline for this snapshot (merged into evm_extras)."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT extras_json FROM evm_extras WHERE snapshot_id = ?',
+                           (snapshot_id,)).fetchone()
+        extras = _json.loads(row['extras_json']) if row and row['extras_json'] else {}
+        extras['baseline_path'] = baseline_path
+        conn.execute('INSERT OR REPLACE INTO evm_extras (snapshot_id, extras_json) VALUES (?, ?)',
+                     (snapshot_id, _json.dumps(extras, default=str)))
+
+
 def get_audit_modules_for_snapshot(snapshot_id):
     """Reconstruct {'modules': {...}, 'module_order': [...]} or None."""
     with get_conn() as conn:

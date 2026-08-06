@@ -87,6 +87,7 @@ export function renderEvm(result) {
   const body = document.getElementById('evm-body');
   if (!body) return;
   _slice = 'Overall';
+  state.baselinePath = null;                // cleared unless this project has a saved baseline
   _e1Extras = result.e1_extras || null;
   _applyE1ToCategories(result);
   body.innerHTML = `
@@ -117,6 +118,11 @@ export function renderEvm(result) {
   renderCats(result);
   renderEngineering(result);
   renderGapDimOptions(result);
+  if (result.baseline_name) {               // restore an attached baseline on re-open
+    state.baselinePath = result.baseline_path;
+    const bn = document.getElementById('evm-baseline-note');
+    if (bn) bn.innerHTML = `<span class="src-chip on">Baseline: ${escapeHtml(result.baseline_name)}</span>`;
+  }
   renderGap();
 
   document.getElementById('evm-edit-inputs').addEventListener('click', () => openInputsEditor(result));
@@ -376,7 +382,8 @@ async function attachBaseline(result) {
     note.innerHTML = '<span class="src-chip p6">Reading baseline…</span>';
     const resp = await fetch(`http://localhost:${state.serverPort}/api/baseline/upload`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, xml_path: state.currentXmlPath, cached_path: state.currentCachedPath }),
+      body: JSON.stringify({ path, xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+                             snapshot_id: state.currentSnapshotId }),
     });
     const data = await resp.json();
     if (!data.ok) { note.innerHTML = ''; alert('Baseline attach failed: ' + (data.error || 'unknown')); return; }
