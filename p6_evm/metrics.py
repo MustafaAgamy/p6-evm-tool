@@ -163,7 +163,9 @@ def compute(data, config, overrides=None, classifier=None):
 
     pv = total_bac * costed_planned_pct
     ev = total_bac * costed_actual_pct
-    spi = (costed_actual_pct / costed_planned_pct) if costed_planned_pct else None
+    # SPI is computed from the WBS Category weighted table (Ibrahim's rule):
+    # SPI = Overall Actual % ÷ Overall Planned %  — not EV/PV.
+    spi = (overall_actual_pct / overall_planned_pct) if overall_planned_pct else None
     cpi = (ev / total_ac) if total_ac else None
     variance = ev - pv
 

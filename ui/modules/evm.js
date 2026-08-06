@@ -171,7 +171,11 @@ function renderSlicer(result) {
 }
 
 function renderDashboard(result) {
-  const spi = result.spi, st = spiStatus(spi);
+  // SPI = Overall Actual % ÷ Overall Planned % from the (editable) WBS Category table,
+  // so it updates live when weights change or the engineering log is uploaded.
+  const prog = projectProgress(result.categories, _weights);
+  const spi = prog.planned ? prog.actual / prog.planned : null;
+  const st = spiStatus(spi);
   const ac = _effectiveAC(result);
   const cpi = (ac && result.ev != null) ? result.ev / ac : result.cpi;
   const acNote = _actualCost != null ? 'entered' : 'from P6';
