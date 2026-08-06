@@ -156,6 +156,7 @@ export async function generatePdf() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         xml_path: state.currentXmlPath, cached_path: state.currentCachedPath, output_path: outputPath,
+        baseline_path: state.baselinePath || null,
         meta, weights: inputs.weights, actual_cost: inputs.actualCost,
         dimension: inputs.gap && inputs.gap.dimension, engineering,
       }),

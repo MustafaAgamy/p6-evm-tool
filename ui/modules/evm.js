@@ -94,7 +94,10 @@ export function renderEvm(result) {
       <span class="evm-hdr-right" id="evm-slicer-chips"></span></div>
     <div id="evm-slicer"></div>
     <div class="evm-sec">Executive Dashboard
-      <button class="btn-mini" id="evm-edit-inputs">✎ Project Setup</button></div>
+      <span class="evm-hdr-right">
+        <span id="evm-baseline-note"></span>
+        <button class="btn-mini" id="evm-attach-baseline">⬆ Attach Baseline</button>
+        <button class="btn-mini" id="evm-edit-inputs">✎ Project Setup</button></span></div>
     <div id="evm-dash"></div>
     <div class="evm-sec">Planned Value vs Earned Value</div>
     <div id="evm-bar"></div>
@@ -117,6 +120,7 @@ export function renderEvm(result) {
   renderGap();
 
   document.getElementById('evm-edit-inputs').addEventListener('click', () => openInputsEditor(result));
+  document.getElementById('evm-attach-baseline').addEventListener('click', () => attachBaseline(result));
   document.getElementById('evm-upload-e1').addEventListener('click', () => uploadE1(result));
   document.getElementById('evm-gap-dim').addEventListener('change', (e) => changeGapDim(result, e.target.value));
 }
@@ -362,6 +366,35 @@ function openInputsEditor(result) {
     renderDashboard(result);
     renderCats(result);
   });
+}
+
+async function attachBaseline(result) {
+  const note = document.getElementById('evm-baseline-note');
+  try {
+    const path = await window.pywebview.api.choose_file();
+    if (!path) return;
+    note.innerHTML = '<span class="src-chip p6">Reading baseline…</span>';
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/baseline/upload`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, xml_path: state.currentXmlPath, cached_path: state.currentCachedPath }),
+    });
+    const data = await resp.json();
+    if (!data.ok) { note.innerHTML = ''; alert('Baseline attach failed: ' + (data.error || 'unknown')); return; }
+    // Merge the recomputed planned side (baseline drives PV / Planned % / SPI / Delay)
+    result.pv = data.pv; result.ev = data.ev; result.spi = data.spi; result.cpi = data.cpi;
+    result.delay_days = data.delay_days;
+    result.overall_planned_pct = data.overall_planned_pct;
+    result.overall_actual_pct = data.overall_actual_pct;
+    if (data.categories) result.categories = data.categories;
+    state.baselinePath = data.baseline_cached;     // used when generating the PDF
+    _loadInputs(result);
+    _applyE1ToCategories(result);                  // keep the engineering-log override
+    renderSlicer(result); renderDashboard(result); renderCats(result); renderBar(result);
+    note.innerHTML = `<span class="src-chip on">Baseline: ${escapeHtml(data.baseline_name)} · ${data.matched}/${data.total} matched</span>`;
+  } catch {
+    note.innerHTML = '';
+    alert('Baseline attach failed. Check the file and try again.');
+  }
 }
 
 async function uploadE1(result) {

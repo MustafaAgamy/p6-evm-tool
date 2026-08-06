@@ -50,6 +50,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_gap(body)
         elif self.path == '/api/e1/upload':
             self._handle_e1_upload(body)
+        elif self.path == '/api/baseline/upload':
+            self._handle_baseline_upload(body)
         elif self.path == '/api/report/evm':
             self._handle_evm_report(body)
         else:
@@ -428,6 +430,51 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/baseline/upload ───────────────────────────────────────────────
+    def _handle_baseline_upload(self, body):
+        """Attach a baseline schedule (XER/XML) so Planned Value uses the TRUE baseline
+        dates. A XER update doesn't embed its baseline, so its PV is wrong without this;
+        matching by Activity ID, we override the update's baseline and recompute."""
+        bl_path = body.get('path', '')
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not bl_path or not os.path.isfile(bl_path):
+            self._json(200, {'ok': False, 'error': f'Baseline file not found: {bl_path}'})
+            return
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Update schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.classify import auto_categories, classify_branch_names
+            bl = parse_file(bl_path)
+            bl_dates = {a['id']: {'planned_start': a.get('planned_start'),
+                                  'planned_finish': a.get('planned_finish')}
+                        for a in bl.activities.values() if a.get('id')}
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            data = parse_file(resolved)
+            data.baseline_by_id = bl_dates          # use the attached baseline
+            config['categories'] = auto_categories(data)
+            result = compute(data, config, classifier=classify_branch_names)
+            bl_cached = db.cache_xml(bl_path, db.hash_file(bl_path))
+            matched = sum(1 for a in data.activities.values() if a.get('id') in bl_dates)
+            cats = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
+                        'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
+                        'activity_count': c['activity_count'], 'overridden': c['overridden']}
+                    for n, c in result['categories'].items()}
+            self._json(200, {'ok': True, 'baseline_name': os.path.basename(bl_path),
+                             'baseline_cached': bl_cached, 'matched': matched,
+                             'total': len(data.activities),
+                             'pv': result['pv'], 'ev': result['ev'], 'spi': result['spi'],
+                             'cpi': result['cpi'], 'delay_days': result['delay_days'],
+                             'overall_planned_pct': result['overall_planned_pct'],
+                             'overall_actual_pct': result['overall_actual_pct'],
+                             'categories': cats})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/report/evm ────────────────────────────────────────────────────
     def _handle_evm_report(self, body):
         """Render the consultant EVM report PDF with the user's weights/AC/engineering."""
@@ -451,6 +498,12 @@ class Handler(BaseHTTPRequestHandler):
                 config = json.load(f)
             weights = body.get('weights') or {}
             data = parse_file(resolved)
+            bl_path = body.get('baseline_path')     # attached baseline (for correct PV)
+            if bl_path and os.path.isfile(bl_path):
+                bl = parse_file(bl_path)
+                data.baseline_by_id = {a['id']: {'planned_start': a.get('planned_start'),
+                                                 'planned_finish': a.get('planned_finish')}
+                                       for a in bl.activities.values() if a.get('id')}
             config['categories'] = auto_categories(data, saved_weights=weights)
             result = compute(data, config, classifier=classify_branch_names)
             meta_in = body.get('meta') or {}
