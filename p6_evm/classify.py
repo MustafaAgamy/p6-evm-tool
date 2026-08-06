@@ -107,17 +107,19 @@ def build_wbs_classifier(data):
     return classify
 
 
-_DISCIPLINE_KW = ('engineer', 'procure', 'design', 'shop drawing', 'submittal')
-
-
 def _default_weights(bac):
     """Default weight per category: cost-loaded phases share 95% by their cost; the non-cost
     discipline phases (Engineering / Procurement / Design) share the remaining 5% equally;
     other structural phases (Milestones, Key Dates, Summary) get 0. Degrades sensibly when
-    there are no cost phases (disciplines split 100%) or no disciplines (cost takes 100%)."""
+    there are no cost phases (disciplines split 100%) or no disciplines (cost takes 100%).
+
+    A zero-cost phase counts as a discipline by MEANING — via the same classify_wbs_name used
+    everywhere — so 'IFC Package' or 'Shop Drawings' is caught, not just phases spelled with
+    the exact word 'engineering'/'design'. Only these disciplines feed the overall project %."""
     total_bac = sum(bac.values())
     cost = [c for c in bac if (bac[c] or 0) > 0]
-    disc = [c for c in bac if (bac[c] or 0) <= 0 and any(k in c.lower() for k in _DISCIPLINE_KW)]
+    disc = [c for c in bac if (bac[c] or 0) <= 0
+            and classify_wbs_name(c) in ('Engineering', 'Design', 'Procurement')]
     cost_share = 0.95 if (cost and disc) else (1.0 if cost else 0.0)
     disc_share = 0.05 if (cost and disc) else (1.0 if disc else 0.0)
     w = {c: 0.0 for c in bac}

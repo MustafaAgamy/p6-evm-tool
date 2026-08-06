@@ -1,7 +1,7 @@
 """Construction-meaning classification shared by WBS + E1. Guards the auto-setup:
 different projects name things differently, so matching is by meaning not spelling."""
 from p6_evm.classify import (classify_wbs_name, classify_branch_names, default_weights,
-                             is_design_drawing, match_e1_field)
+                             _default_weights, is_design_drawing, match_e1_field)
 
 
 def test_wbs_category_by_meaning():
@@ -52,6 +52,60 @@ def test_default_weights_construction_95_rest_share_5():
 def test_default_weights_no_construction_splits_even():
     w = default_weights({'Engineering', 'Design'})
     assert round(w['Engineering'], 6) == 0.5 and round(w['Design'], 6) == 0.5
+
+
+# ── _default_weights(bac): the per-phase default that pre-fills the weight column ──
+# Cost-loaded phases share 95% by their cost; non-cost DISCIPLINE phases share 5%;
+# other zero-cost structural rows (Milestones/Key Dates/Summary) get 0.
+
+def test_bac_weights_one_cost_phase_disciplines_share_5():
+    w = _default_weights({'Construction': 10000.0, 'Engineering': 0.0, 'Design': 0.0})
+    assert round(w['Construction'], 6) == 0.95
+    assert round(w['Engineering'], 6) == round(0.05 / 2, 6)
+    assert round(w['Design'], 6) == round(0.05 / 2, 6)
+    assert round(sum(w.values()), 6) == 1.0
+
+
+def test_bac_weights_two_cost_phases_split_95_by_cost_ratio():
+    # Ibrahim's worked example: Construction 9,000 + Mobilization 1,000 = 10,000.
+    # The two cost phases split the 95% by cost ratio (90/10 → 85.5% / 9.5%);
+    # the three disciplines share the remaining 5%.
+    w = _default_weights({'Construction Works': 9000.0, 'Mobilization': 1000.0,
+                          'Engineering': 0.0, 'Design': 0.0, 'Procurement': 0.0})
+    assert round(w['Construction Works'], 6) == 0.855
+    assert round(w['Mobilization'], 6) == 0.095
+    assert round(w['Engineering'], 6) == round(0.05 / 3, 6)
+    assert round(sum(w.values()), 6) == 1.0
+
+
+def test_bac_weights_structural_zero_cost_phase_gets_nothing():
+    # A zero-cost "Milestones" row is NOT a discipline → 0%, it does not eat the 5%.
+    w = _default_weights({'Construction': 1000.0, 'Phase I Engineering': 0.0, 'Milestones': 0.0})
+    assert round(w['Construction'], 6) == 0.95
+    assert round(w['Phase I Engineering'], 6) == 0.05
+    assert w['Milestones'] == 0.0
+    assert round(sum(w.values()), 6) == 1.0
+
+
+def test_bac_weights_no_cost_phases_disciplines_split_100():
+    w = _default_weights({'Engineering': 0.0, 'Design': 0.0})
+    assert round(w['Engineering'], 6) == 0.5 and round(w['Design'], 6) == 0.5
+
+
+def test_bac_weights_no_disciplines_cost_takes_100():
+    w = _default_weights({'Construction': 9000.0, 'Mobilization': 1000.0})
+    assert round(w['Construction'], 6) == 0.9 and round(w['Mobilization'], 6) == 0.1
+    assert round(sum(w.values()), 6) == 1.0
+
+
+def test_bac_weights_discipline_detected_by_meaning_not_spelling():
+    # A zero-cost design phase named 'IFC Package' (no literal word 'design') must still
+    # get the 5% — disciplines are recognised by meaning, same as everywhere in the tool.
+    w = _default_weights({'Construction': 1000.0, 'IFC Package': 0.0, 'Milestones': 0.0})
+    assert round(w['Construction'], 6) == 0.95
+    assert round(w['IFC Package'], 6) == 0.05   # recognised as Design by meaning
+    assert w['Milestones'] == 0.0               # structural → still 0
+    assert round(sum(w.values()), 6) == 1.0
 
 
 def test_is_design_drawing():
