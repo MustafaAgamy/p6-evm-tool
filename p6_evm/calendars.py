@@ -4,6 +4,18 @@ from datetime import date, datetime, timedelta
 DOW_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 
+def hhmmss_to_min(s):
+    """'HH:MM:SS' (or 'HH:MM') -> minutes past midnight, or None."""
+    if not s:
+        return None
+    parts = s.split(':')
+    try:
+        h = int(parts[0]); m = int(parts[1]) if len(parts) > 1 else 0
+        return h * 60 + m
+    except (ValueError, IndexError):
+        return None
+
+
 @dataclass
 class Calendar:
     object_id: str
@@ -12,6 +24,9 @@ class Calendar:
     holidays: set = field(default_factory=set)
     added_work_days: set = field(default_factory=set)
     day_hours: float = 8.0
+    # Intraday work schedule (P6's actual work times), for exact working-time %:
+    work_intervals: dict = field(default_factory=dict)       # DOW name -> [(start_min, end_min), ...]
+    exception_intervals: dict = field(default_factory=dict)  # date -> [(start_min, end_min), ...]
 
     def is_working_day(self, d: date) -> bool:
         if d in self.added_work_days:
@@ -19,6 +34,40 @@ class Calendar:
         if d in self.holidays:
             return False
         return DOW_NAMES[d.weekday()] not in self.nonworking_days
+
+    def has_intraday(self) -> bool:
+        """True when the calendar carries real intraday work times (from an XML export),
+        so working_minutes() is meaningful. XER-built/minimal calendars return False and
+        callers fall back to whole-working-day counting."""
+        return bool(self.work_intervals or self.exception_intervals)
+
+    def _intervals_for(self, d: date):
+        if d in self.exception_intervals:
+            return self.exception_intervals[d]
+        if d in self.holidays:
+            return []
+        if DOW_NAMES[d.weekday()] in self.nonworking_days:
+            return []
+        return self.work_intervals.get(DOW_NAMES[d.weekday()], [])
+
+    def working_minutes(self, start: datetime, end: datetime) -> float:
+        """Working time between two datetimes, in minutes, using the calendar's intraday
+        work intervals + holidays/exceptions. This is how P6 measures Schedule % Complete
+        (part-way activities count in work HOURS, not whole days)."""
+        if start is None or end is None or end <= start:
+            return 0.0
+        total = 0.0
+        d = start.date()
+        last = end.date()
+        while d <= last:
+            base = datetime(d.year, d.month, d.day)
+            for sm, em in self._intervals_for(d):
+                lo = max(base + timedelta(minutes=sm), start)
+                hi = min(base + timedelta(minutes=em), end)
+                if hi > lo:
+                    total += (hi - lo).total_seconds() / 60.0
+            d += timedelta(days=1)
+        return total
 
 
 def signed_working_days(calendar: Calendar, start: datetime, end: datetime):

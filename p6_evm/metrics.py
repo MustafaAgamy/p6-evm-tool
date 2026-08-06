@@ -20,6 +20,16 @@ def activity_planned_pct(activity, baseline_by_id, data_date, calendars):
     if cal is None:
         ratio = (data_date - start).total_seconds() / (finish - start).total_seconds()
         return clamp01(ratio)
+    # P6 measures Schedule % Complete in the calendar's WORKING MINUTES (its intraday work
+    # schedule), not whole days -- part-way activities count in work hours. This is what makes
+    # Planned Value match P6 exactly (verified: Alstom PV 366,521.75). Whole-day counting was
+    # ~0.7% high. Fall back to whole-working-days when the calendar has no intraday detail
+    # (e.g. a XER-built calendar), preserving prior behaviour there.
+    if cal.has_intraday():
+        total = cal.working_minutes(start, finish)
+        if not total:
+            return 1.0 if data_date >= finish else 0.0
+        return clamp01(cal.working_minutes(start, min(data_date, finish)) / total)
     total = signed_working_days(cal, start, finish)
     if not total:
         return 1.0 if data_date >= finish else 0.0

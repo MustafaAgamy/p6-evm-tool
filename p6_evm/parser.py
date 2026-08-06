@@ -2,7 +2,7 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-from p6_evm.calendars import Calendar, signed_working_days
+from p6_evm.calendars import Calendar, signed_working_days, hhmmss_to_min
 
 DATETIME_FMT = '%Y-%m-%dT%H:%M:%S'
 
@@ -121,29 +121,45 @@ def parse_file(path) -> ScheduleData:
     # (e.g. "6 Days Per Week" used by ~all activities) → wrong working-time and a
     # blank Delay. Keyed by ObjectId; first definition wins so a baseline calendar
     # can never clobber a live one that shares an id.
+    def _work_intervals(el):
+        """(start_min, end_min) pairs from an element's <WorkTime> children."""
+        out = []
+        for wt in el.findall(tag('WorkTime')):
+            sm = hhmmss_to_min(text(wt, 'Start'))
+            em = hhmmss_to_min(text(wt, 'Finish'))
+            if sm is not None and em is not None and em > sm:
+                out.append((sm, em))
+        return out
+
     for cal_el in root.iter(tag('Calendar')):
         object_id = text(cal_el, 'ObjectId')
         if object_id in data.calendars:
             continue
         name = text(cal_el, 'Name')
         nonworking = set()
+        work_intervals = {}
         ww = cal_el.find(tag('StandardWorkWeek'))
         if ww is not None:
             for day_el in ww.findall(tag('StandardWorkHours')):
                 dow = text(day_el, 'DayOfWeek')
-                if day_el.find(tag('WorkTime') + '/' + tag('Start')) is None:
+                ivs = _work_intervals(day_el)
+                if ivs:
+                    work_intervals[dow] = ivs      # working day with its intraday hours
+                else:
                     nonworking.add(dow)
         holidays = set()
         added_work = set()
+        exception_intervals = {}
         exc = cal_el.find(tag('HolidayOrExceptions'))
         if exc is not None:
             for item in exc.findall(tag('HolidayOrException')):
                 d = parse_datetime(text(item, 'Date'))
                 if d is None:
                     continue
-                has_worktime = item.find(tag('WorkTime') + '/' + tag('Start')) is not None
-                if has_worktime:
+                ivs = _work_intervals(item)
+                if ivs:
                     added_work.add(d.date())
+                    exception_intervals[d.date()] = ivs
                 else:
                     holidays.add(d.date())
         hours_raw = text(cal_el, 'HoursPerDay')
@@ -151,6 +167,7 @@ def parse_file(path) -> ScheduleData:
             object_id=object_id, name=name, nonworking_days=nonworking,
             holidays=holidays, added_work_days=added_work,
             day_hours=parse_float(hours_raw, 8.0) or 8.0,
+            work_intervals=work_intervals, exception_intervals=exception_intervals,
         )
 
     project_el = root.find(tag('Project'))
