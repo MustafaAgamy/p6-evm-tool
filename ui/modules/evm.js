@@ -21,6 +21,17 @@ export function gapText(v, fmt = (x) => x) {
   if (v == null) return '—';
   return v < 0 ? `Ahead ${fmt(-v)}` : fmt(v);
 }
+// Source file type from a path: 'XML' | 'XER' | the bare extension | '—'.
+// Used to label the active import so XML and XER results are never confused.
+export function sourceType(path) {
+  const name = (path || '').split(/[\\/]/).pop() || '';
+  const ext = name.includes('.') ? name.split('.').pop().toUpperCase() : '';
+  return (ext === 'XER' || ext === 'XML') ? ext : (ext || '—');
+}
+export function sourceName(path) {
+  return (path || '').split(/[\\/]/).pop() || '';
+}
+
 export function overallProgress(categories, weights) {
   let sumW = 0, pw = 0, wa = 0;
   for (const [name, c] of Object.entries(categories || {})) {
@@ -96,6 +107,7 @@ export function renderEvm(result) {
     <div id="evm-slicer"></div>
     <div class="evm-sec">Executive Dashboard
       <span class="evm-hdr-right">
+        <span id="evm-active-file" class="evm-file-chip"></span>
         <span id="evm-baseline-note"></span>
         <button class="btn-mini" id="evm-attach-baseline">⬆ Attach Baseline</button>
         <button class="btn-mini" id="evm-edit-inputs">✎ Project Setup</button></span></div>
@@ -189,10 +201,19 @@ function renderDashboard(result) {
   const ac = _effectiveAC(result);
   const cpi = (ac && result.ev != null) ? result.ev / ac : result.cpi;
   const acNote = _actualCost != null ? 'entered' : 'from P6';
+  // Active source file — shown so XML and XER imports are never mistaken for one another.
+  const fileEl = document.getElementById('evm-active-file');
+  if (fileEl) {
+    const nm = sourceName(state.currentXmlPath), tp = sourceType(state.currentXmlPath);
+    fileEl.innerHTML = nm
+      ? `<span class="ff-name" title="${escapeHtml(nm)}">${escapeHtml(nm)}</span><span class="ff-type">${escapeHtml(tp)}</span>`
+      : '';
+  }
+  // Overall %: 2 decimals so the tile matches the Category Weights table's Overall row exactly.
   document.getElementById('evm-dash').innerHTML = `<div class="evm-tiles">
     ${tile('SPI · Schedule', asPct(spi), st.label, st.cls, st.cls === 'color-red' ? 'danger' : (st.cls === 'color-amber' ? 'warning' : 'success'))}
-    ${tile('Overall Planned %', `${(prog.planned * 100).toFixed(1)}%`, 'weighted table')}
-    ${tile('Overall Actual %', `${(prog.actual * 100).toFixed(1)}%`, 'weighted table', prog.actual >= prog.planned ? 'color-green' : 'color-amber')}
+    ${tile('Overall Planned %', `${(prog.planned * 100).toFixed(2)}%`, 'weighted table')}
+    ${tile('Overall Actual %', `${(prog.actual * 100).toFixed(2)}%`, 'weighted table', prog.actual >= prog.planned ? 'color-green' : 'color-amber')}
     ${tile('Planned Value', egp(result.pv), 'EGP')}
     ${tile('Earned Value', egp(result.ev), 'EGP')}
     ${tile('Actual Cost', egp(ac), acNote, _actualCost != null ? 'color-blue' : '')}
@@ -219,6 +240,9 @@ function renderCats(result) {
   let rows = '', totPW = 0, totWA = 0;
   for (const [name, c] of Object.entries(cats)) {
     const w = _weights[name] != null ? _weights[name] : (c.weight || 0);
+    // Skip 0%-weight WBS (Milestones / Key Dates / summary rows) — not part of the
+    // project's weighted progress, so they don't belong in the Category Weights table.
+    if (!(w > 0)) continue;
     const pw = w * (c.planned_pct || 0) * 100, wa = w * (c.actual_pct || 0) * 100;
     totPW += pw; totWA += wa;
     rows += `<tr><td>${escapeHtml(name)}</td><td class="num">${(w * 100).toFixed(1)}%</td>

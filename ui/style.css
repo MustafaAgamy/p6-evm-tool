@@ -475,6 +475,11 @@ body {
 .evm-table .evm-ov-e td { font-weight: 800; color: var(--success); background: rgba(74,222,128,.12); }
 .evm-sel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text);
   font-size: 12px; padding: 5px 10px; font-weight: 600; cursor: pointer; }
+.evm-file-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 340px; }
+.evm-file-chip .ff-name { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+.evm-file-chip .ff-type { font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 2px 8px;
+  border-radius: 20px; background: rgba(59,111,168,.16); color: var(--accent); }
 .src-chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
 .src-chip.p6 { background: rgba(251,191,36,.15); color: var(--warning); }
 .src-chip.on { background: rgba(74,222,128,.15); color: var(--success); }

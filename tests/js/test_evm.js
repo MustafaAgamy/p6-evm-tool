@@ -1,6 +1,6 @@
 /** Unit tests for pure helpers in ui/modules/evm.js — run: node tests/js/test_evm.js */
 import assert from 'node:assert/strict';
-import { egp, asPct, spiStatus, overallProgress, projectProgress } from '../../ui/modules/evm.js';
+import { egp, asPct, spiStatus, overallProgress, projectProgress, sourceType, sourceName } from '../../ui/modules/evm.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -52,6 +52,15 @@ test('does NOT renormalise when weights sum < 1', () => {
   assert.equal((o.planned * 100).toFixed(1), '40.0');   // 0.5*0.8, not 0.8
   assert.equal((o.actual * 100).toFixed(1), '30.0');
 });
+
+console.log('\nsourceType / sourceName (active-file label — XML vs XER)');
+test('xml path → XML', () => assert.equal(sourceType('C:\\Users\\x\\Alstom-UP-006-12-Oct.25.xml'), 'XML'));
+test('xer path → XER', () => assert.equal(sourceType('C:\\Users\\x\\Alstom-UP-006-12-Oct.25.xer'), 'XER'));
+test('forward-slash path', () => assert.equal(sourceType('/home/x/schedule.XER'), 'XER'));
+test('no extension → dash', () => assert.equal(sourceType('C:\\folder\\noext'), '—'));
+test('empty → dash', () => assert.equal(sourceType(''), '—'));
+test('name from win path', () => assert.equal(sourceName('C:\\a\\b\\Alstom.xml'), 'Alstom.xml'));
+test('name from posix path', () => assert.equal(sourceName('/a/b/Update.xer'), 'Update.xer'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
