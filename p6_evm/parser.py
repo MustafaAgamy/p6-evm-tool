@@ -114,8 +114,16 @@ def parse_file(path) -> ScheduleData:
                     codes[dim] = val
         return codes
 
-    for cal_el in root.findall(tag('Calendar')):
+    # Read EVERY <Calendar> in the tree, not just root-level ones: P6 nests
+    # project calendars (Type=Project) inside <Project> and baseline calendars
+    # inside <BaselineProject>. Missing them left activities' calendars unresolved
+    # (e.g. "6 Days Per Week" used by ~all activities) → wrong working-time and a
+    # blank Delay. Keyed by ObjectId; first definition wins so a baseline calendar
+    # can never clobber a live one that shares an id.
+    for cal_el in root.iter(tag('Calendar')):
         object_id = text(cal_el, 'ObjectId')
+        if object_id in data.calendars:
+            continue
         name = text(cal_el, 'Name')
         nonworking = set()
         ww = cal_el.find(tag('StandardWorkWeek'))

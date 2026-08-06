@@ -6,7 +6,7 @@ export function egp(n) {
   if (n == null) return '—';
   const a = Math.abs(n);
   if (a >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
-  if (a >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (a >= 1e6) return `${(n / 1e6).toFixed(2)}M`;   // 2 decimals so PV/EV match P6 (80.15M, not 80.2M)
   return Math.round(n).toLocaleString();
 }
 export function asPct(x) { return x == null ? '—' : `${Math.round(x * 100)}%`; }
@@ -245,9 +245,9 @@ function renderCats(result) {
     if (!(w > 0)) continue;
     const pw = w * (c.planned_pct || 0) * 100, wa = w * (c.actual_pct || 0) * 100;
     totPW += pw; totWA += wa;
-    rows += `<tr><td>${escapeHtml(name)}</td><td class="num">${(w * 100).toFixed(1)}%</td>
-      <td class="num">${((c.planned_pct || 0) * 100).toFixed(1)}%</td>
-      <td class="num">${((c.actual_pct || 0) * 100).toFixed(1)}%</td>
+    rows += `<tr><td>${escapeHtml(name)}</td><td class="num">${(w * 100).toFixed(2)}%</td>
+      <td class="num">${((c.planned_pct || 0) * 100).toFixed(2)}%</td>
+      <td class="num">${((c.actual_pct || 0) * 100).toFixed(2)}%</td>
       <td class="num">${pw.toFixed(2)}%</td><td class="num">${wa.toFixed(2)}%</td></tr>`;
   }
   document.getElementById('evm-cats').innerHTML = `<div class="tblwrap"><table class="evm-table">

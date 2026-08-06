@@ -9,7 +9,8 @@ function test(name, fn) {
 }
 
 console.log('\negp / asPct');
-test('egp millions', () => assert.equal(egp(412.6e6), '412.6M'));
+test('egp millions', () => assert.equal(egp(412.6e6), '412.60M'));
+test('egp millions 2dp matches P6', () => assert.equal(egp(80.15e6), '80.15M'));
 test('egp billions', () => assert.equal(egp(1.2e9), '1.20B'));
 test('egp null', () => assert.equal(egp(null), '—'));
 test('asPct 0.94 → 94%', () => assert.equal(asPct(0.94), '94%'));
