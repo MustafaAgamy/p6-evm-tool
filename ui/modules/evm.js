@@ -181,6 +181,8 @@ function renderDashboard(result) {
   const acNote = _actualCost != null ? 'entered' : 'from P6';
   document.getElementById('evm-dash').innerHTML = `<div class="evm-tiles">
     ${tile('SPI · Schedule', asPct(spi), st.label, st.cls, st.cls === 'color-red' ? 'danger' : (st.cls === 'color-amber' ? 'warning' : 'success'))}
+    ${tile('Overall Planned %', `${(prog.planned * 100).toFixed(1)}%`, 'weighted table')}
+    ${tile('Overall Actual %', `${(prog.actual * 100).toFixed(1)}%`, 'weighted table', prog.actual >= prog.planned ? 'color-green' : 'color-amber')}
     ${tile('Planned Value', egp(result.pv), 'EGP')}
     ${tile('Earned Value', egp(result.ev), 'EGP')}
     ${tile('Actual Cost', egp(ac), acNote, _actualCost != null ? 'color-blue' : '')}

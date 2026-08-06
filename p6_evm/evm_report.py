@@ -82,8 +82,13 @@ def _dashboard(result, meta):
     spi = result.get('spi')
     cpi = result.get('cpi')
     status, color = spi_status(spi)
+    cats = result.get('categories', {}) or {}
+    op = sum((c.get('weight') or 0) * (c.get('planned_pct') or 0) for c in cats.values())
+    oa = sum((c.get('weight') or 0) * (c.get('actual_pct') or 0) for c in cats.values())
     tiles = [
         _tile('SPI · Schedule', _pct(spi), status, accent=color),
+        _tile('Overall Planned %', f'{op * 100:.1f}%', 'weighted table'),
+        _tile('Overall Actual %', f'{oa * 100:.1f}%', 'weighted table'),
         _tile('Planned Value', _egp(result.get('pv')), 'EGP'),
         _tile('Earned Value', _egp(result.get('ev')), 'EGP'),
         _tile('Actual Cost', _egp(meta.get('actual_cost', result.get('ac'))),
