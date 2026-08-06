@@ -159,6 +159,7 @@ def parse_xer(path):
             'percent_complete': _pct_complete(t),
             'planned_duration': _num(t.get('target_drtn_hr_cnt'), 0.0),
             'total_float_days': tf_days,
+            'tf_from_hours': tf is not None,   # P6's stored float (authoritative for Delay)
             'free_float_days': ff_days,
             'is_critical': (tf_days is not None and tf_days <= 0),
             'constraint_type': t.get('cstr_type') or None,

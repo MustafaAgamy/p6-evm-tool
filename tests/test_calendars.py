@@ -77,3 +77,15 @@ def test_added_work_day_increases_count(std_cal):
     std_cal.added_work_days.add(date(2024, 7, 6))
     result = signed_working_days(std_cal, datetime(2024, 7, 5), datetime(2024, 7, 8))
     assert result == 2
+
+
+def test_float_working_days_boundary_hours():
+    # Delay/Total-Float count must exclude boundary days that carry no working time:
+    # a late date at end-of-day (17:00) and an early date at start-of-day (08:00).
+    from p6_evm.calendars import Calendar, float_working_days
+    cal = Calendar('C', 'cal')  # every day is a working day
+    # 08:00/17:00 boundaries -> both edge days excluded (matches P6's -10 vs the old -11)
+    assert float_working_days(cal, datetime(2024, 7, 8, 8, 0), datetime(2024, 7, 1, 17, 0)) == -6
+    # midnight dates -> the lower day still counts, the upper (start-of-day) does not
+    assert float_working_days(cal, datetime(2024, 7, 8, 0, 0), datetime(2024, 7, 1, 0, 0)) == -7
+    assert float_working_days(cal, None, datetime(2024, 7, 1)) is None

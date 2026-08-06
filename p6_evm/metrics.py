@@ -1,4 +1,4 @@
-from p6_evm.calendars import signed_working_days
+from p6_evm.calendars import signed_working_days, float_working_days
 
 
 def clamp01(x):
@@ -175,8 +175,18 @@ def compute(data, config, overrides=None, classifier=None):
         milestones = [r for r in with_finish if r['activity'].get('task_type') == 'FinishMilestone']
         pool = milestones or with_finish
         milestone = max(pool, key=lambda r: r['activity']['planned_finish'])
-        tf = milestone['total_float']
-        delay_days = round(tf) if tf is not None else None
+        a = milestone['activity']
+        if a.get('tf_from_hours'):
+            # P6's stored float (XER) — authoritative, use as-is.
+            tf = milestone['total_float']
+            delay_days = round(tf) if tf is not None else None
+        else:
+            # Reconstructed (XML): recompute boundary-correct so Delay matches P6 and the XER.
+            cal = data.calendars.get(a['calendar_id'])
+            es, ls = a.get('remaining_early_start'), a.get('remaining_late_start')
+            fw = float_working_days(cal, es, ls) if (cal and es and ls) else None
+            tf = milestone['total_float']
+            delay_days = fw if fw is not None else (round(tf) if tf is not None else None)
 
     return {
         'data_date': data_date,

@@ -201,11 +201,13 @@ def parse_file(path) -> ScheduleData:
         ff_hours = parse_float(ff_hours_raw, None) if ff_hours_raw else None
         if tf_hours is not None:
             act['total_float_days'] = tf_hours / day_hours
+            act['tf_from_hours'] = True
         else:
             act['total_float_days'] = (
                 signed_working_days(cal, act['remaining_early_start'], act['remaining_late_start'])
                 if (cal and act['remaining_early_start'] and act['remaining_late_start']) else None
             )
+            act['tf_from_hours'] = False   # reconstructed — Delay recomputed boundary-correct
         act['free_float_days'] = (ff_hours / day_hours) if ff_hours is not None else None
         act['is_critical'] = (act['total_float_days'] is not None and act['total_float_days'] <= 0)
         act['constraint_type'] = text(act_el, 'PrimaryConstraintType')

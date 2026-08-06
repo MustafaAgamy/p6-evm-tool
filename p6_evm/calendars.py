@@ -42,3 +42,33 @@ def signed_working_days(calendar: Calendar, start: datetime, end: datetime):
         if calendar.is_working_day(d.date()):
             n += 1
     return sign * n
+
+
+def float_working_days(calendar: Calendar, early: datetime, late: datetime):
+    """Total Float in whole working days, boundary-correct — for the DELAY figure only.
+
+    Unlike signed_working_days (whose convention cancels out in the ratio-based planned%),
+    the absolute Total Float must not count a boundary day that carries no working time
+    (a late date at end-of-day, an early date at start-of-day). Counting the whole working
+    days strictly BETWEEN the two dates matches P6 exactly (a milestone 10 days late = −10).
+    """
+    if calendar is None or early is None or late is None:
+        return None
+    sign = 1
+    a, b = early, late
+    if b < a:
+        a, b = b, a
+        sign = -1
+    # Count working days whose work lies inside [a, b]. A boundary day is excluded only when
+    # its working time is outside: the lower date if it starts in the afternoon (work already
+    # done), the upper date if it ends in the morning (work not yet begun). Midday split ~12:00.
+    ad, bd = a.date(), b.date()
+    n = 0
+    d = ad
+    while d <= bd:
+        if calendar.is_working_day(d):
+            skip = (d == ad and a.hour >= 12) or (d == bd and b.hour < 12)
+            if not skip:
+                n += 1
+        d += timedelta(days=1)
+    return sign * n
