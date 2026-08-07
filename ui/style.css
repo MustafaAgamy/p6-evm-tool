@@ -487,6 +487,53 @@ body {
 .findings-table .mono { font-family: ui-monospace, 'Consolas', monospace; white-space: nowrap; font-weight: 600; }
 .findings-table .mut { color: var(--muted); font-size: 11px; }
 
+/* ── Float management dashboard (V2 redesign) ──────────────────────────── */
+.mt-dot.color-green { background: var(--success); }
+.mt-dot.color-amber { background: var(--warning); }
+.mt-dot.color-red   { background: var(--danger); }
+.mod-sub { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--muted); }
+.fh-hero { margin-bottom: 12px; }
+.fh-gaugecard { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px 22px; display: flex; align-items: center; gap: 26px; flex-wrap: wrap; }
+.fh-drivers { flex: 1; display: flex; flex-direction: column; gap: 13px; min-width: 300px; }
+.fh-d { display: grid; grid-template-columns: 1fr 160px 90px; align-items: center; gap: 12px; }
+.fh-dl { font-size: 12.5px; color: var(--text); font-weight: 600; }
+.fh-dl span { display: block; font-size: 10px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+.fh-bar2 { height: 9px; background: var(--border); border-radius: 5px; overflow: hidden; }
+.fh-bar2 > i { display: block; height: 100%; border-radius: 5px; }
+.fh-dv { font-size: 14px; font-weight: 800; text-align: right; white-space: nowrap; color: var(--text); }
+.fh-dv small { font-size: 11px; font-weight: 700; color: var(--muted); }
+.scorelegend { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 14px; }
+.sl-title { font-size: 11px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .5px; }
+.sl-title span { font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.sl-formula { font-family: ui-monospace, 'Consolas', monospace; font-size: 12px; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 6px 10px; margin: 8px 0; display: inline-block; }
+.sl-row { font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+.sl-row b { color: var(--text); }
+.sl-t { color: var(--success); font-weight: 700; }
+.sl-colours { display: flex; gap: 20px; margin-top: 9px; font-size: 11px; color: var(--muted); }
+.sl-colours i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.sl-colours i.g { background: var(--success); } .sl-colours i.a { background: var(--warning); } .sl-colours i.r { background: var(--danger); }
+.fh-tiles { display: grid; gap: 10px; margin-bottom: 4px; }
+.fh-tiles.five { grid-template-columns: repeat(5, 1fr); }
+.fh-tiles.four { grid-template-columns: repeat(4, 1fr); }
+.fh-tiles .kpi { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.fh-tiles .kpi.hot { border-color: var(--warning); }
+.fh-tiles .kpi .k { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; line-height: 1.3; }
+.fh-tiles .kpi .v { font-size: 22px; font-weight: 800; margin-top: 3px; color: var(--text); }
+.fh-tiles .kpi .v.amber { color: var(--warning); }
+.fh-tiles .kpi .v .tw { font-size: 14px; line-height: 1.2; display: inline-block; }
+.fh-tiles .kpi .n { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.fh-tiles .kpi .n.wbs { color: var(--text); font-weight: 700; }
+.ftag { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .3px; padding: 1px 7px;
+  border-radius: 9px; text-transform: uppercase; margin-left: 4px; }
+.ftag.con { background: rgba(74,222,128,.16); color: var(--success); }
+.ftag.non { background: var(--border); color: var(--muted); }
+.fh-wbs td.num, .fh-wbs th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fh-concl { background: var(--card-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: 8px; padding: 14px 18px; font-size: 13px; line-height: 1.6; color: var(--text); }
+
 /* ── EVM v2 view ───────────────────────────────────────────────────────── */
 .evm-sec { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;
   letter-spacing: .8px; margin: 20px 0 10px; display: flex; align-items: center; justify-content: space-between; }

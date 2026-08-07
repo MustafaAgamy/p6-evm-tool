@@ -32,6 +32,19 @@ def _float():
             'threshold': 44, 'impact': 5.6, 'severity': 'High', 'status': 'Excessive Float',
             'reason': 'Severely excessive float (5.6× threshold)', 'recommendation': 'Review missing successor logic.',
         }],
+        'mgmt': {
+            'float_health': 0, 'fh_color': 'red',
+            'high': {'pct': 40.3, 'penalty': 60, 'count': 591, 'base': 1400, 'target': 5, 'max_pct': 20, 'max_penalty': 60},
+            'neg': {'pct': 0, 'penalty': 0, 'count': 0, 'target': 0, 'max_pct': 5, 'max_penalty': 40},
+            'stats': {'total': 1466, 'critical': 100, 'critical_pct': 6.8,
+                      'near_critical': 50, 'near_critical_pct': 3.4, 'near_band': 10},
+            'indicators': {'threshold': 44, 'constr_total': 1400, 'constr_over': 591, 'constr_over_pct': 40.3,
+                           'top_wbs': 'Civil > External', 'top_wbs_pct': 85.7,
+                           'highest_float': 247.0, 'highest_float_wbs': 'MEP > Level 12 > Zone C'},
+            'wbs': [{'wbs': 'Project > Civil > External', 'short': 'Civil > External', 'activities': 7,
+                     'avg_float': 64.3, 'max_float': 247.0, 'over_44': 6, 'pct': 85.7, 'is_construction': True}],
+            'conclusion': 'Float concentrates in the Civil construction work packages.',
+        },
     }
 
 
@@ -93,15 +106,20 @@ def test_dangling_report_has_sections_and_no_float_content():
     assert 'table-header-group' in html
 
 
-def test_float_report_has_wbs_summary_impact_and_status():
+def test_float_module_report_uses_management_dashboard():
+    # V2 redesign: render_module_report delegates float to the management dashboard.
     html = render_module_report(_float(), META)
     assert 'Float Analysis' in html
-    assert 'WBS Summary' in html
-    assert 'Summary Statistics' in html
-    assert '5.6' in html            # impact
-    assert '247' in html            # total float
-    assert 'Excessive Float' in html  # Status column value
-    assert 'Dangling' not in html    # isolation
+    # new management layout
+    assert 'Float Health' in html
+    assert 'Float Distribution by WBS' in html
+    assert 'Executive Conclusion' in html
+    assert '247' in html                    # highest float surfaced
+    # old technical layout is gone
+    assert 'WBS Summary' not in html
+    assert 'Detailed Findings' not in html
+    assert 'Excessive Float' not in html    # per-activity status column removed
+    assert 'Dangling' not in html           # isolation
 
 
 def test_oos_report_has_five_sections_in_order():
