@@ -78,27 +78,21 @@ def _pct(n, d):
 
 def _conclusion(wbs, high_pct, over, base, stats, threshold, neg_count):
     """Auto-written management summary — where float concentrates, not a stat dump."""
-    constr_hot = [r for r in wbs if r['is_construction'] and r['over_44'] > 0]
     parts = []
-    if over == 0 or not constr_hot:
+    if over == 0:
         parts.append(
             f"No construction activities exceed the {threshold}-working-day float threshold; "
-            f"float distribution across the construction scope looks tight.")
+            f"float across the construction scope looks tight.")
     else:
-        names = [r['short'].split('>')[-1].strip() for r in constr_hot[:2]]
-        names_txt = ' and '.join(names)
-        plural = 's' if len(names) > 1 else ''
         parts.append(
-            f"Activities with total float greater than {threshold} working days are concentrated mainly "
-            f"in the {names_txt} construction package{plural}, which carry the largest share of "
-            f"loosely-driven work and need a planning-logic review.")
+            f"Across the construction scope, {high_pct}% of activities ({over} of {base}) carry total float "
+            f"greater than {threshold} working days — the construction logic needs a planning review to "
+            f"tighten the driving relationships.")
+    non_hot = [r['wbs'] for r in wbs if (not r['is_construction']) and r['over_44'] > 0]
+    if non_hot:
         parts.append(
-            f"Across the construction scope, {high_pct}% of activities ({over} of {base}) exceed the "
-            f"{threshold}-working-day threshold.")
-    if any((not r['is_construction']) and r['over_44'] > 0 for r in wbs):
-        parts.append(
-            "Non-construction scope (Engineering, Procurement, Design, Long-Lead) also shows high float "
-            "but is excluded from these construction KPIs by design.")
+            f"{' and '.join(non_hot[:3])} also show high float but are excluded from the construction "
+            f"KPIs by design.")
     if neg_count:
         unit = 'activities' if neg_count != 1 else 'activity'
         parts.append(
@@ -135,25 +129,6 @@ def _has_progress(a):
     return (a.get('percent_complete') or 0) > 0
 
 
-def _main_wbs_key(paths):
-    """Group key = the MAIN (top-level) WBS phase — the same grain the EVM categories
-    use — so activities under one phase (e.g. 'Phase II Design') roll into one row.
-    Skips a shared project-root segment, matching build_wbs_classifier on the path strings."""
-    firsts = set()
-    for p in paths:
-        segs = [s.strip() for s in (p or '').split('>') if s.strip()]
-        if segs:
-            firsts.add(segs[0])
-    single_root = len(firsts) == 1
-
-    def key(p):
-        segs = [s.strip() for s in (p or '').split('>') if s.strip()]
-        if not segs:
-            return '(no WBS)'
-        return segs[1] if (single_root and len(segs) >= 2) else segs[0]
-    return key
-
-
 def float_management(graph, config):
     """Re-aggregate per-activity float into the management-dashboard numbers.
     Returns a dict attached to the float module result as `mgmt`."""
@@ -182,13 +157,14 @@ def float_management(graph, config):
               if activity_category(a.get('wbs_path')) == 'Construction']
     constr_over = [a for _, a in constr if a['total_float_days'] > threshold]
 
-    # per-WBS distribution — grouped by the MAIN (top-level) WBS phase, not the leaf path
-    main_key = _main_wbs_key([a.get('wbs_path') or '' for _, a in assessable])
-    by_wbs = defaultdict(list)
+    # Distribution grouped by the MAJOR discipline category (Construction / Engineering /
+    # Design / Procurement) — all activities under each discipline roll into one row, by meaning,
+    # wherever the discipline sits in the WBS depth.
+    by_cat = defaultdict(list)
     for _, a in assessable:
-        by_wbs[main_key(a.get('wbs_path') or '')].append(a['total_float_days'])
+        by_cat[activity_category(a.get('wbs_path'))].append(a['total_float_days'])
     wbs = []
-    for name, floats in by_wbs.items():
+    for name, floats in by_cat.items():
         n = len(floats)
         over = sum(1 for f in floats if f > threshold)
         wbs.append({
@@ -199,7 +175,7 @@ def float_management(graph, config):
             'max_float': round(max(floats), 1) if floats else 0.0,
             'over_44': over,
             'pct': _pct(over, n),
-            'is_construction': activity_category(name) == 'Construction',
+            'is_construction': name == 'Construction',
         })
     wbs.sort(key=lambda r: (-r['pct'], -r['over_44'], -r['activities']))
 
@@ -209,10 +185,10 @@ def float_management(graph, config):
 
     highest = max((a for _, a in assessable), key=lambda a: a['total_float_days'], default=None)
     highest_float = round(highest['total_float_days'], 1) if highest else 0.0
-    highest_wbs = main_key(highest.get('wbs_path') or '') if highest else ''
+    highest_wbs = activity_category(highest.get('wbs_path')) if highest else ''
 
-    # top WBS by concentration — prefer a construction package (the KPI focus)
-    top = next((r for r in wbs if r['is_construction']), wbs[0] if wbs else None)
+    # top discipline by float concentration (worst first)
+    top = wbs[0] if wbs else None
 
     stats = {
         'total': total, 'total_label': total_label, 'is_update': is_update,

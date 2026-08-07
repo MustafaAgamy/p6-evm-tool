@@ -105,31 +105,31 @@ def test_construction_only_over_threshold():
     assert m['indicators']['constr_over_pct'] == 50.0
 
 
-def test_wbs_distribution_groups_by_main_wbs():
+def test_wbs_distribution_groups_by_discipline_category():
     acts = {}
-    # two different leaf branches under ONE main phase 'MEP Works' → must roll into one row
+    # construction activities across different WBS branches → one 'Construction' row
     for i in range(3):
-        acts[f'a{i}'] = _act(f'a{i}', 88, wbs='Project > MEP Works > Level 12')
+        acts[f'a{i}'] = _act(f'a{i}', 88, wbs='Project > Phase I Construction Works > Foundations')
     for i in range(2):
-        acts[f'b{i}'] = _act(f'b{i}', 88, wbs='Project > MEP Works > Level 8')
+        acts[f'b{i}'] = _act(f'b{i}', 88, wbs='Project > MEP Works > Level 8')          # mep → Construction
     for i in range(4):
-        acts[f'c{i}'] = _act(f'c{i}', 88 if i == 0 else 10, wbs='Project > Concrete Works > Raft')
+        acts[f'e{i}'] = _act(f'e{i}', 88 if i == 0 else 10, wbs='Project > Phase I Engineering > Shop')
+    acts['d0'] = _act('d0', 88, wbs='Project > Phase II Design > IFC')
     m = float_management(_g(acts), CONFIG)
     names = {r['wbs']: r for r in m['wbs']}
-    assert set(names) == {'MEP Works', 'Concrete Works'}      # rolled up to the main WBS, leaves merged
-    assert names['MEP Works']['activities'] == 5              # 3 + 2 across two leaf branches
-    assert names['MEP Works']['pct'] == 100.0
-    assert m['wbs'][0]['wbs'] == 'MEP Works'                  # worst concentration first
-    assert m['wbs'][0]['pct'] >= m['wbs'][1]['pct']
-    assert all('is_construction' in r for r in m['wbs'])
+    assert set(names) <= {'Construction', 'Engineering', 'Design', 'Procurement'}
+    assert names['Construction']['activities'] == 5          # 3 + 2 merged into one discipline row
+    assert names['Construction']['is_construction'] is True
+    assert names['Engineering']['is_construction'] is False
+    assert m['wbs'][0]['pct'] >= m['wbs'][1]['pct']          # worst concentration first
 
 
-def test_highest_float_names_its_main_wbs():
+def test_highest_float_names_its_discipline():
     acts = {'a': _act('a', 60, wbs='Site > Concrete'),
             'b': _act('b', 210, wbs='Steel > Structural Steel')}
     m = float_management(_g(acts), CONFIG)
     assert m['indicators']['highest_float'] == 210.0
-    assert m['indicators']['highest_float_wbs'] == 'Steel'    # its main (top-level) WBS
+    assert m['indicators']['highest_float_wbs'] == 'Construction'   # discipline of the biggest float
 
 
 def test_completed_activities_excluded_from_float():
@@ -156,11 +156,12 @@ def test_baseline_shows_total_update_shows_remaining():
     assert mu['stats']['total_label'] == 'Remaining Total Activities'
 
 
-def test_conclusion_is_prose_naming_top_construction_package():
+def test_conclusion_is_prose_about_construction_scope():
     acts = {f's{i}': _act(f's{i}', 120, wbs='Steel > Structural Steel') for i in range(5)}
     m = float_management(_g(acts), CONFIG)
-    assert isinstance(m['conclusion'], str) and m['conclusion'].strip()
-    assert 'Structural Steel' in m['conclusion']
+    c = m['conclusion']
+    assert isinstance(c, str) and c.strip()
+    assert 'construction' in c.lower()
 
 
 def test_per_wbs_avg_and_max_float():
