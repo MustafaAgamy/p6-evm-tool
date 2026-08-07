@@ -53,6 +53,18 @@ class Calendar:
             return []
         return self.work_intervals.get(DOW_NAMES[d.weekday()], [])
 
+    def day_working_hours(self, d: date) -> float:
+        """Working hours on a single day: sum of intraday intervals when the calendar
+        carries them, else the flat day_hours on a working day (0 on non-working)."""
+        ivs = self._intervals_for(d)
+        if ivs:
+            return sum(em - sm for sm, em in ivs) / 60.0
+        return self.day_hours if self.is_working_day(d) else 0.0
+
+    def days_per_week(self) -> int:
+        """Standard working days per week (7 minus the non-working weekdays)."""
+        return 7 - len(self.nonworking_days)
+
     def working_minutes(self, start: datetime, end: datetime) -> float:
         """Working time between two datetimes, in minutes, using the calendar's intraday
         work intervals + holidays/exceptions. This is how P6 measures Schedule % Complete
