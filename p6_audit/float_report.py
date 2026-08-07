@@ -141,11 +141,39 @@ def _wbs_rows(mgmt):
     return ''.join(rows)
 
 
+def _notice(name, meta, msg):
+    """Clean 'no data' page — never show a zeroed dashboard as if it were a real result."""
+    return f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
+<style>
+  @page {{ margin: 18mm 14mm; }}
+  body {{ font-family:'Segoe UI',Arial,sans-serif; color:#1f2a37; font-size:12px; margin:0; }}
+  .head {{ border-bottom:3px solid #17457a; padding-bottom:12px; margin-bottom:18px; }}
+  .kicker {{ font-size:10px; letter-spacing:2px; color:#17457a; font-weight:700; text-transform:uppercase; }}
+  .title {{ font-size:24px; font-weight:800; color:#0f2440; margin:3px 0 1px; }}
+  .subtitle {{ font-size:12px; color:#5b6472; }}
+  .notice {{ border:1px solid #e6e0c8; border-left:4px solid #c9a227; background:#fffdf5; border-radius:8px;
+             padding:18px 20px; font-size:13px; color:#5b4a1a; line-height:1.6; margin-top:24px; }}
+</style></head>
+<body>
+  <div class="head"><div class="kicker">Schedule Audit · Management Report</div>
+    <div class="title">{_esc(name)}</div>
+    <div class="subtitle">Schedule Stability &amp; Float Distribution — Management Dashboard</div></div>
+  <div class="notice"><b>Float dashboard unavailable.</b><br>{_esc(msg)}</div>
+</body></html>'''
+
+
 def render_float_report(module_result, meta):
     m = module_result or {}
     mgmt = m.get('mgmt') or {}
     meta = meta or {}
     name = m.get('name', 'Float Analysis')
+    if not m.get('mgmt'):
+        return _notice(name, meta, 'This schedule was imported before the Float dashboard was added — '
+                                   're-import it to generate the management report.')
+    if not (mgmt.get('stats') or {}).get('total'):
+        return _notice(name, meta, 'No activities with assessable total float were found in this schedule, '
+                                   'so no float indicators can be shown.')
     thr = (mgmt.get('indicators', {}) or {}).get('threshold', 44)
     conclusion = mgmt.get('conclusion') or 'No conclusion available for this schedule.'
     return f'''<!DOCTYPE html>
