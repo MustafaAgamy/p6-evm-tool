@@ -32,6 +32,30 @@ def _sev_badge(sev):
     return f'<span class="sev" style="background:{_SEV.get(sev, "#6b7a8d")}">{_esc(sev)}</span>'
 
 
+def _sug_cell(text, kind):
+    """Suggested-fix cell — grey for No Change / N/A, blue for a recommended change,
+    red for Remove Relationship."""
+    if kind in ('same', 'na'):
+        return f'<span class="pill {kind}">{_esc(text)}</span>'
+    cls = 'remove' if kind == 'remove' else 'change'
+    return f'<span class="pill {cls}">{_esc(text)}</span>'
+
+
+def _crit_cell(c):
+    if c == 'Critical':
+        return '<span class="badge2 c">Critical</span>'
+    if c == 'Near-Critical':
+        return '<span class="badge2 n">Near-Critical</span>'
+    return '—'
+
+
+def _oos_tile(label, value, cls='', note=''):
+    note_html = f'<div class="n">{_esc(note)}</div>' if note else ''
+    c = f' {cls}' if cls else ''
+    return (f'<div class="kpi{c}"><div class="k">{_esc(label)}</div>'
+            f'<div class="v">{_esc(value)}</div>{note_html}</div>')
+
+
 def _kpi(label, value, note=''):
     note_html = f'<div class="n">{_esc(note)}</div>' if note else ''
     return f'<div class="kpi"><div class="k">{_esc(label)}</div><div class="v">{_esc(value)}</div>{note_html}</div>'
@@ -176,11 +200,153 @@ def _verdict(m):
     return f"{pct}% of activities carry total float above the threshold."
 
 
+# ── Out of Sequence — Consultant Review Report sections ────────────────────
+
+def _oos_dashboard(m):
+    k = m.get('kpis', {})
+    grade = m.get('grade', '')
+    score = m.get('score', 0)
+    color = _GRADE.get(grade, '#6b7a8d')
+    pct = m.get('pct', 0)
+    tiles = [
+        _oos_tile('Total Activities', f"{k.get('total_activities', 0):,}"),
+        _oos_tile('Out-of-Sequence Activities', k.get('oos_count', 0)),
+        _oos_tile('Out-of-Sequence %', f"{k.get('oos_pct', 0)}%", note='of all activities'),
+        _oos_tile('Critical OOS', k.get('critical_oos', 0), 'crit'),
+        _oos_tile('Critical OOS %', f"{k.get('critical_oos_pct', 0)}%", 'crit', 'of all activities'),
+        _oos_tile('Near-Critical OOS', k.get('near_critical_oos', 0), 'near'),
+        _oos_tile('Near-Critical OOS %', f"{k.get('near_critical_oos_pct', 0)}%", 'near', 'of all activities'),
+    ]
+    dash = f'''
+      <div class="dash">
+        <div class="grade-card">
+          <div class="score-num" style="color:{color}">{score}</div>
+          <div class="score-den">Module Score / 100</div>
+          <div class="grade-badge" style="background:{color}">{_esc(grade)}</div>
+          <div class="verdict">{pct}% of activities progressed out of logical sequence.</div>
+        </div>
+        <div class="kpis k4">{''.join(tiles)}</div>
+      </div>'''
+    legend = f'''
+      <div class="slegend">
+        <div class="t">How the Module Score is calculated</div>
+        <div class="d">Driven by the Out-of-Sequence % (fewer out-of-sequence activities &rarr; higher score),
+          mapped on the approved band curve (0%&rarr;100 &middot; 2%&rarr;90 &middot; 5%&rarr;75 &middot; 8%&rarr;50 &middot; 20%&rarr;0).
+          This schedule: <b>{pct}% &rarr; {_esc(grade)} &rarr; {score} / 100</b>.</div>
+        <div class="bands">
+          <span><span class="dot" style="background:#2e8b57"></span>Excellent &le; 2%</span>
+          <span><span class="dot" style="background:#c9a227"></span>Acceptable 2&ndash;5%</span>
+          <span><span class="dot" style="background:#e07b1a"></span>Needs Attention 5&ndash;8%</span>
+          <span><span class="dot" style="background:#c0392b"></span>Critical &gt; 8%</span>
+        </div>
+      </div>'''
+    stdref = '''
+      <div class="stdref"><b>Standard Reference:</b> Based on the <b>DCMA 14-Point Schedule Assessment</b>
+        framework for schedule logic quality &mdash; the same methodology as the sibling modules (Dangling Logic &rarr; Metric 3,
+        Float &rarr; Metric 5). Out-of-sequence is a recognised logic-quality check within this framework, complementing the
+        14 core metrics. <b>Detection basis:</b> Primavera P6 out-of-sequence progress &mdash; Retained Logic / Progress Override,
+        Schedule Log (F9); best-practice per GAO Schedule Assessment Guide, Best Practice 4 (Sequence all activities).</div>'''
+    return dash + legend + stdref
+
+
+def _oos_wbs(m):
+    ws = m.get('wbs_summary', [])
+    if not ws:
+        return ''
+    rows = ''.join(
+        f'<tr><td>{_esc(r.get("wbs", ""))}</td>'
+        f'<td class="num">{r.get("activities", "")}</td>'
+        f'<td class="num">{r.get("oos", "")}</td>'
+        f'<td class="num">{r.get("pct", "")}%</td>'
+        f'<td class="num">{r.get("critical_oos", 0)}</td>'
+        f'<td class="num">{r.get("near_critical_oos", 0)}</td></tr>'
+        for r in ws)
+    return f'''
+      <h2 class="sec">Distribution by WBS Category</h2>
+      <table><thead><tr><th>WBS Category</th><th class="num">Activities</th>
+        <th class="num">Out-of-Sequence</th><th class="num">%</th>
+        <th class="num">Critical OOS</th><th class="num">Near-Critical OOS</th></tr></thead>
+        <tbody>{rows}</tbody></table>'''
+
+
+def _oos_review_log(m):
+    findings = m.get('findings', [])
+    if not findings:
+        return ('<h2 class="sec">Out-of-Sequence Review Log</h2>'
+                '<p class="empty">No out-of-sequence activities &mdash; schedule progress is consistent '
+                'with the network logic.</p>')
+    cutoff = _esc(m.get('kpis', {}).get('data_date', ''))
+    head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>'
+            '<th>Current Pred. Rel.</th><th>Current Predecessor Activity</th>'
+            '<th>Current Succ. Rel.</th><th>Current Successor Activity</th><th>Cutoff Date</th>'
+            '<th>Suggested Predecessor</th><th>Suggested Successor</th>'
+            '<th>Root Cause</th><th>Planning Review Comment</th><th>Criticality</th>')
+    rows = ''.join(
+        f'<tr><td class="num">{i}</td><td class="mono">{_esc(f.get("activity_id"))}</td>'
+        f'<td>{_esc(f.get("activity_name"))}</td>'
+        f'<td title="{_esc(f.get("wbs_path"))}">{_esc(short_wbs(f.get("wbs_path")))}</td>'
+        f'<td>{_esc(f.get("current_pred_rel"))}</td>'
+        f'<td class="mut">{_esc(f.get("current_pred_activity"))}</td>'
+        f'<td>{_esc(f.get("current_succ_rel"))}</td>'
+        f'<td class="mut">{_esc(f.get("current_succ_activity"))}</td>'
+        f'<td class="mut">{cutoff}</td>'
+        f'<td>{_sug_cell(f.get("suggested_predecessor"), f.get("suggested_predecessor_kind"))}</td>'
+        f'<td>{_sug_cell(f.get("suggested_successor"), f.get("suggested_successor_kind"))}</td>'
+        f'<td class="mut">{_esc(f.get("root_cause"))}</td>'
+        f'<td class="mut">{_esc(f.get("planning_review_comment"))}</td>'
+        f'<td>{_crit_cell(f.get("criticality"))}</td></tr>'
+        for i, f in enumerate(findings, 1))
+    return f'''
+      <h2 class="sec">Out-of-Sequence Review Log</h2>
+      <table class="findings"><thead><tr>{head}</tr></thead>
+        <tbody>{rows}</tbody></table>'''
+
+
+def _oos_cpi(m):
+    k = m.get('kpis', {})
+    cpi = k.get('critical_path_impact', 'No')
+    cdi = k.get('completion_date_impact', 'No Impact')
+    cpi_color = '#c0392b' if cpi == 'Yes' else '#2e8b57'
+    cdi_color = {'Direct Impact': '#a93226', 'Potential Impact': '#e07b1a',
+                 'No Impact': '#2e8b57'}.get(cdi, '#6b7a8d')
+    return f'''
+      <h2 class="sec">Critical Path Impact Assessment</h2>
+      <div class="cpi-wrap">
+        <table><thead><tr><th>Indicator</th><th class="num">Result</th></tr></thead><tbody>
+          <tr><td>Total Out-of-Sequence Activities</td><td class="num">{k.get('oos_count', 0)}</td></tr>
+          <tr><td>Critical Out-of-Sequence Activities</td><td class="num">{k.get('critical_oos', 0)}</td></tr>
+          <tr><td>Near-Critical Out-of-Sequence Activities</td><td class="num">{k.get('near_critical_oos', 0)}</td></tr>
+        </tbody></table>
+        <div class="vcards">
+          <div class="vcard" style="background:{cpi_color}"><div class="l">Critical Path Impact</div><div class="v2">{_esc(cpi)}</div></div>
+          <div class="vcard" style="background:{cdi_color}"><div class="l">Completion Date Impact</div><div class="v2">{_esc(cdi)}</div></div>
+        </div>
+      </div>
+      <div class="dcma">Classification only &mdash; the module does not predict a number of delay days.</div>'''
+
+
+def _oos_conclusion(m):
+    c = m.get('kpis', {}).get('executive_conclusion', '')
+    if not c:
+        return ''
+    return f'<h2 class="sec">Executive Conclusion</h2><div class="concl">{_esc(c)}</div>'
+
+
+def _sections(m):
+    """Body sections for a module report — OOS uses its own five-section order."""
+    if m.get('module') == 'out_of_sequence':
+        return (f'<h2 class="sec">Executive Dashboard</h2>{_oos_dashboard(m)}'
+                f'{_oos_wbs(m)}{_oos_review_log(m)}{_oos_cpi(m)}{_oos_conclusion(m)}')
+    return (f'<h2 class="sec">Executive Dashboard</h2>{_dashboard(m, _verdict(m))}'
+            f'{_summary_stats(m)}{_wbs_summary(m)}{_findings_table(m)}')
+
+
 def render_module_report(module_result, meta):
     m = module_result
     name = m.get('name', 'Schedule Audit')
     subtitle = ('Open / Broken Logic Assessment' if m['module'] == 'dangling'
-                else 'Excessive Total Float Assessment')
+                else 'Excessive Total Float Assessment' if m['module'] == 'float'
+                else 'Consultant Review Report — Schedule Logic Inconsistency Assessment')
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
@@ -220,6 +386,35 @@ def render_module_report(module_result, meta):
   .sev {{ display: inline-block; padding: 1px 7px; border-radius: 4px; color: #fff; font-weight: 700; font-size: 9px; white-space: nowrap; }}
   .empty {{ color: #6b7480; font-style: italic; }}
   .foot {{ border-top: 1px solid #dbe1e8; margin-top: 20px; padding-top: 8px; font-size: 9px; color: #8a93a0; line-height: 1.5; }}
+  /* Out of Sequence module */
+  .kpis.k4 {{ grid-template-columns: repeat(4, 1fr); }}
+  .kpi.crit {{ border-color: #eec9c4; background: #fdf5f4; }}
+  .kpi.crit .v {{ color: #c0392b; }}
+  .kpi.near {{ border-color: #f0dcc0; background: #fdf8f1; }}
+  .kpi.near .v {{ color: #e07b1a; }}
+  .slegend {{ border: 1px solid #e2e7ee; background: #fafbfc; border-radius: 8px; padding: 9px 12px; margin-top: 10px; font-size: 9.5px; }}
+  .slegend .t {{ font-size: 9px; text-transform: uppercase; letter-spacing: .6px; color: #17457a; font-weight: 700; }}
+  .slegend .d {{ color: #5b6472; margin: 3px 0 6px; line-height: 1.4; }}
+  .slegend .bands span {{ margin-right: 14px; }}
+  .slegend .dot {{ display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: -1px; margin-right: 3px; }}
+  .stdref {{ font-size: 9.5px; color: #5b6472; font-style: italic; margin-top: 9px; padding: 7px 11px;
+             background: #f2f6fb; border-left: 3px solid #17457a; border-radius: 0 6px 6px 0; line-height: 1.45; }}
+  .stdref b {{ color: #17457a; font-style: normal; }}
+  .pill {{ display: inline-block; padding: 1px 6px; border-radius: 10px; font-weight: 700; font-size: 8.5px; }}
+  .pill.same {{ color: #6b7480; background: transparent; padding: 0; }}
+  .pill.na {{ color: #9aa3ad; background: transparent; padding: 0; font-style: italic; }}
+  .pill.change {{ color: #17457a; background: #e7effb; }}
+  .pill.remove {{ color: #c0392b; background: #fdeeec; }}
+  .badge2 {{ display: inline-block; padding: 1px 6px; border-radius: 4px; color: #fff; font-weight: 700; font-size: 8px; white-space: nowrap; }}
+  .badge2.c {{ background: #c0392b; }}
+  .badge2.n {{ background: #e07b1a; }}
+  .cpi-wrap {{ display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap; }}
+  .cpi-wrap table {{ max-width: 360px; }}
+  .vcards {{ display: flex; flex-direction: column; gap: 8px; justify-content: center; }}
+  .vcard {{ border-radius: 8px; padding: 9px 14px; color: #fff; min-width: 200px; }}
+  .vcard .l {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .5px; opacity: .9; font-weight: 700; }}
+  .vcard .v2 {{ font-size: 14px; font-weight: 800; margin-top: 1px; }}
+  .concl {{ border-left: 4px solid #17457a; background: #f4f8fd; border-radius: 0 8px 8px 0; padding: 11px 15px; font-size: 11px; line-height: 1.55; color: #25313f; }}
 </style></head>
 <body>
   <div class="head">
@@ -234,14 +429,7 @@ def render_module_report(module_result, meta):
     </div>
   </div>
 
-  <h2 class="sec">Executive Dashboard</h2>
-  {_dashboard(m, _verdict(m))}
-
-  {_summary_stats(m)}
-
-  {_wbs_summary(m)}
-
-  {_findings_table(m)}
+  {_sections(m)}
 
   <div class="foot">
     This report covers the <b>{_esc(name)}</b> module only, in isolation from other Schedule Audit

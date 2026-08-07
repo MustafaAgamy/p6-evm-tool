@@ -10,6 +10,22 @@ def excel_columns(module_result):
     module = module_result.get('module')
     findings = module_result.get('findings', [])
 
+    if module == 'out_of_sequence':
+        cutoff = module_result.get('kpis', {}).get('data_date', '')
+        headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path',
+                   'Current Pred. Rel.', 'Current Predecessor Activity',
+                   'Current Succ. Rel.', 'Current Successor Activity', 'Cutoff Date',
+                   'Suggested Predecessor', 'Suggested Successor',
+                   'Root Cause', 'Planning Review Comment', 'Criticality']
+        rows = [[
+            i, f.get('activity_id', ''), f.get('activity_name', ''), f.get('wbs_path', ''),
+            f.get('current_pred_rel', ''), f.get('current_pred_activity', ''),
+            f.get('current_succ_rel', ''), f.get('current_succ_activity', ''), cutoff,
+            f.get('suggested_predecessor', ''), f.get('suggested_successor', ''),
+            f.get('root_cause', ''), f.get('planning_review_comment', ''), f.get('criticality', ''),
+        ] for i, f in enumerate(findings, 1)]
+        return headers, rows
+
     if module == 'dangling':
         headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity',
                    'Logic Issue', 'Predecessor(s)', 'Successor(s)',

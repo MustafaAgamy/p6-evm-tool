@@ -1,6 +1,6 @@
 import { state }                                   from './state.js';
 import { fmtEGP, fmtDate, kpiColor, escapeHtml }  from './format.js';
-import { renderAudit, showChooser }                from './audit.js';
+import { renderAudit, renderOosPanel, showChooser } from './audit.js';
 import { renderEvm }                                from './evm.js';
 
 const KPI_TOOLTIPS = {
@@ -62,7 +62,8 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
 
   renderEvm(result);
   renderAudit(result.audit_modules);
-  showChooser();   // do NOT auto-open EVM — let the user pick EVM or Schedule Audit
+  renderOosPanel(result.audit_modules);   // Out of Sequence — its own top-level panel
+  showChooser();   // do NOT auto-open EVM — let the user pick a view
 
   document.getElementById('results-section').classList.remove('hidden');
 }

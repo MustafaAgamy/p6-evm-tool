@@ -3,7 +3,8 @@
  * Run: node tests/js/test_audit.js
  */
 import assert from 'node:assert/strict';
-import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass }
+import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
+         oosPillClass, oosCritLabel }
   from '../../ui/modules/audit.js';
 
 let passed = 0, failed = 0;
@@ -57,6 +58,16 @@ test('shortWbs empty',          () => assert.equal(shortWbs(''), ''));
 test('gradeClass excellent',    () => assert.equal(gradeClass('Excellent'), 'g-exc'));
 test('gradeClass critical',     () => assert.equal(gradeClass('Critical'), 'g-crit'));
 test('gradeClass needs',        () => assert.equal(gradeClass('Needs Attention'), 'g-need'));
+
+console.log('\nOut of Sequence review-log cells');
+test('pill change',        () => assert.equal(oosPillClass('change'), 'change'));
+test('pill remove',        () => assert.equal(oosPillClass('remove'), 'remove'));
+test('pill same → same',   () => assert.equal(oosPillClass('same'), 'same'));
+test('pill na → na',       () => assert.equal(oosPillClass('na'), 'na'));
+test('pill unknown → change', () => assert.equal(oosPillClass('???'), 'change'));
+test('crit label',         () => assert.equal(oosCritLabel('Critical'), 'Critical'));
+test('near label',         () => assert.equal(oosCritLabel('Near-Critical'), 'Near-Critical'));
+test('normal label dash',  () => assert.equal(oosCritLabel(''), '—'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

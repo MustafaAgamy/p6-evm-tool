@@ -7,6 +7,7 @@
     ],
     "audit": {
         "float_threshold_days": 44,
+        "near_critical_days": 10,
         "default_severity": "Medium",
         "category_severity": {
             "Construction": "High"
