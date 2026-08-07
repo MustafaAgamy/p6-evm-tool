@@ -7,6 +7,11 @@
     ],
     "audit": {
         "float_threshold_days": 44,
+        "near_critical_days": 10,
+        "float_health": {
+            "high_target_pct": 5, "high_max_pct": 20, "high_max_penalty": 60,
+            "neg_target_pct": 0, "neg_max_pct": 5, "neg_max_penalty": 40
+        },
         "default_severity": "Medium",
         "category_severity": {
             "Construction": "High"
