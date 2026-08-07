@@ -37,6 +37,12 @@ export function gaugeDashoffset(score, circumference) {
   return circumference * (1 - s / 100);
 }
 
+// Bar fill % for a driver/WBS value against its max (0–100, clamped).
+export function barPct(value, max) {
+  const m = max || 1;
+  return Math.max(0, Math.min(100, Math.round(100 * (value || 0) / m)));
+}
+
 export function uniqueValues(findings, key) {
   return [...new Set(findings.map(f => f[key]).filter(Boolean))].sort();
 }
@@ -97,6 +103,14 @@ export function renderAudit(auditModules) {
   }
   tabs.innerHTML = auditModules.module_order.map(key => {
     const m = auditModules.modules[key];
+    // Float shows its DCMA Float Health score + colour (no word-grade); others keep the grade dot.
+    if (key === 'float' && m.mgmt) {
+      const hasData = ((m.mgmt.stats || {}).total || 0) > 0;
+      const dot = hasData ? `class="mt-dot ${scoreColor(m.mgmt.float_health)}"` : 'class="mt-dot" style="background:var(--muted)"';
+      return `<button class="module-tab" data-module="float">
+        <span ${dot}></span>${escapeHtml(m.name)}
+        <span class="mt-score">${hasData ? m.mgmt.float_health : '—'}</span></button>`;
+    }
     return `<button class="module-tab" data-module="${escapeHtml(key)}">
       <span class="mt-dot ${gradeClass(m.grade)}"></span>${escapeHtml(m.name)}
       <span class="mt-score">${m.score}</span></button>`;
@@ -152,6 +166,7 @@ function wbsSummaryHtml(m) {
 }
 
 function renderModuleBody(m) {
+  if (m.module === 'float') return renderFloatModule(m);
   const C = 326.7;
   const verdict = m.module === 'dangling'
     ? `${m.pct}% of activities have broken start/finish logic.`
@@ -196,6 +211,114 @@ function renderModuleBody(m) {
       syncChips(); renderRows();
     }));
   renderRows();
+}
+
+// ── Float Analysis management dashboard (V2 redesign) ─────────────────────
+function fhFmt(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? String(+n.toFixed(2)) : escapeHtml(String(v ?? ''));
+}
+
+function fhTile(k, v, note = '', hot = false, amber = false, noteCls = '') {
+  const n = note ? `<div class="n${noteCls ? ' ' + noteCls : ''}">${escapeHtml(note)}</div>` : '';
+  return `<div class="kpi${hot ? ' hot' : ''}"><div class="k">${escapeHtml(k)}</div>` +
+         `<div class="v${amber ? ' amber' : ''}">${v}</div>${n}</div>`;
+}
+
+function fhDriver(label, sub, pct, maxPct, penalty, colorVar) {
+  return `<div class="fh-d">
+      <div class="fh-dl">${escapeHtml(label)}<span>${escapeHtml(sub)}</span></div>
+      <div class="fh-bar2"><i style="width:${barPct(pct, maxPct)}%;background:${colorVar}"></i></div>
+      <div class="fh-dv">${fhFmt(pct)}% <small>−${penalty}</small></div>
+    </div>`;
+}
+
+function renderFloatModule(m) {
+  const g = m.mgmt || {};
+  const total = (g.stats || {}).total || 0;
+  if (!m.mgmt || !total) {
+    const msg = !m.mgmt
+      ? 'This schedule was imported before the Float dashboard was added — re-import it to see the management report.'
+      : 'No activities with assessable total float were found in this schedule.';
+    document.getElementById('module-body').innerHTML =
+      `<div class="fh-concl" style="border-left-color:var(--warning);margin-top:8px"><b>Float dashboard unavailable.</b><br>${escapeHtml(msg)}</div>`;
+    return;
+  }
+  const stats = g.stats || {}, ind = g.indicators || {}, high = g.high || {}, neg = g.neg || {};
+  const C = 326.7;
+  const thr = ind.threshold ?? 44;
+  const score = g.float_health ?? 0;
+
+  const statsTiles = [
+    fhTile(stats.total_label || 'Total Activities', (stats.total || 0).toLocaleString(), 'task-dependent'),
+    fhTile('Critical Activities', String(stats.critical ?? 0), 'flagged Critical in P6'),
+    fhTile('Critical %', `${fhFmt(stats.critical_pct ?? 0)}%`),
+    fhTile('Near-Critical Activities', String(stats.near_critical ?? 0), `float 1–${stats.near_band ?? 10} working days`),
+    fhTile('Near-Critical %', `${fhFmt(stats.near_critical_pct ?? 0)}%`),
+  ].join('');
+
+  const indTiles = [
+    fhTile(`Construction · Float > ${thr} WD`, String(ind.constr_over ?? 0),
+           `of ${(ind.constr_total || 0).toLocaleString()} construction activities`, true, true),
+    fhTile(`% of Construction > ${thr} WD`, `${fhFmt(ind.constr_over_pct ?? 0)}%`,
+           `threshold = ${thr} working days`, true, true),
+    fhTile('Top WBS by Float Concentration', `<span class="tw">${escapeHtml(ind.top_wbs || '—')}</span>`,
+           `${fhFmt(ind.top_wbs_pct ?? 0)}% of its activities > ${thr} WD`),
+    fhTile('Highest Float (single activity)', `${fhFmt(ind.highest_float ?? 0)} WD`,
+           ind.highest_float_wbs || '', false, false, 'wbs'),
+  ].join('');
+
+  const wbsRows = (g.wbs || []).slice(0, 40).map(r => {
+    const tag = r.is_construction ? '<span class="ftag con">Constr.</span>' : '<span class="ftag non">Excl.</span>';
+    return `<tr>
+      <td title="${escapeHtml(r.wbs || '')}">${escapeHtml(shortWbs(r.wbs, 3))} ${tag}</td>
+      <td class="num">${r.activities ?? 0}</td>
+      <td class="num">${fhFmt(r.avg_float ?? 0)} WD</td>
+      <td class="num">${fhFmt(r.max_float ?? 0)} WD</td>
+      <td class="num">${r.over_44 ?? 0}</td>
+      <td class="num">${fhFmt(r.pct ?? 0)}%</td></tr>`;
+  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">No activities with assessable float.</td></tr>`;
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="fh-hero">
+      <div class="fh-gaugecard">
+        <div class="gauge">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="12"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                    stroke-dasharray="${C}" stroke-dashoffset="${gaugeDashoffset(score, C)}"
+                    transform="rotate(-90 60 60)" class="gauge-arc ${scoreColor(score)}"/>
+          </svg>
+          <div class="gauge-num"><b>${score}</b><span>Float Health</span></div>
+        </div>
+        <div class="fh-drivers">
+          ${fhDriver(`High Float > ${thr} WD — construction`,
+                     `DCMA target < ${fhFmt(high.target ?? 5)}% · penalty maxes at ${fhFmt(high.max_pct ?? 20)}%`,
+                     high.pct ?? 0, high.max_pct ?? 20, high.penalty ?? 0, 'var(--danger)')}
+          ${fhDriver('Negative Float — whole schedule',
+                     `DCMA target ${fhFmt(neg.target ?? 0)}% · penalty maxes at ${fhFmt(neg.max_pct ?? 5)}%`,
+                     neg.pct ?? 0, neg.max_pct ?? 5, neg.penalty ?? 0, 'var(--warning)')}
+        </div>
+      </div>
+    </div>
+    <div class="scorelegend">
+      <div class="sl-title">How the Float Health score is calculated <span>— anchored to the DCMA 14-Point float targets</span></div>
+      <div class="sl-formula">Float Health = 100 − High-Float penalty − Negative-Float penalty</div>
+      <div class="sl-row"><b>High Float</b> — construction activities with total float &gt; ${thr} WD · <span class="sl-t">DCMA target &lt; ${fhFmt(high.target ?? 5)}%</span> · penalty 0 at ≤ ${fhFmt(high.target ?? 5)}%, rising to −${high.max_penalty ?? 60} at ${fhFmt(high.max_pct ?? 20)}%.</div>
+      <div class="sl-row"><b>Negative Float</b> — activities with total float &lt; 0 (whole schedule) · <span class="sl-t">DCMA target ${fhFmt(neg.target ?? 0)}%</span> · penalty 0 at ${fhFmt(neg.target ?? 0)}%, rising to −${neg.max_penalty ?? 40} at ${fhFmt(neg.max_pct ?? 5)}%.</div>
+      <div class="sl-colours"><span><i class="g"></i>Green ≥ 85</span><span><i class="a"></i>Amber 60–84</span><span><i class="r"></i>Red &lt; 60</span></div>
+    </div>
+    <div class="mod-sec">Schedule Statistics <span class="mod-sub">— whole schedule</span></div>
+    <div class="fh-tiles five">${statsTiles}</div>
+    <div class="mod-sec">Float Indicators <span class="mod-sub">— Construction scope only (Engineering / Procurement / Design excluded)</span></div>
+    <div class="fh-tiles four">${indTiles}</div>
+    <div class="mod-sec">Float Distribution by WBS</div>
+    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table fh-wbs"><thead><tr>
+      <th>WBS Package</th><th class="num">Activities</th><th class="num">Average Float</th>
+      <th class="num">Maximum Float</th><th class="num">Activities &gt; ${thr} WD</th><th class="num">% &gt; ${thr} WD</th>
+    </tr></thead><tbody>${wbsRows}</tbody></table></div>
+    <div class="mod-sec">Executive Conclusion</div>
+    <div class="fh-concl">${escapeHtml(g.conclusion || 'No conclusion available for this schedule.')}</div>`;
 }
 
 function renderSevChips(findings) {
