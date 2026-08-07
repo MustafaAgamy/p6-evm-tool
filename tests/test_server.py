@@ -171,6 +171,24 @@ def test_parse_returns_modules_and_snapshot(test_server, xml_path):
     assert 'score' in am['modules']['float'] and 'grade' in am['modules']['float']
 
 
+def test_parse_returns_calendar_audit(test_server, xml_path):
+    _, data = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    assert data['ok'] is True
+    ca = data['result'].get('calendar_audit')
+    assert ca is not None
+    assert 'dashboard' in ca and 'usage' in ca and 'conflicts' in ca
+    assert ca['dashboard']['total_calendar_days'] >= 1
+
+
+def test_project_load_returns_calendar_audit(test_server, xml_path):
+    _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    _, _, body = _get(test_server, '/api/history')
+    project_id = json.loads(body)[0]['project_id']
+    _, data = _post_json(test_server, '/api/project/load', {'project_id': project_id})
+    assert data['ok'] is True
+    assert data['result'].get('calendar_audit') is not None
+
+
 def test_parse_returns_evm_extras(test_server, xml_path):
     _, data = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
     assert data['ok'] is True
