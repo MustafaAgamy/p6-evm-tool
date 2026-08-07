@@ -27,6 +27,9 @@ class Calendar:
     # Intraday work schedule (P6's actual work times), for exact working-time %:
     work_intervals: dict = field(default_factory=dict)       # DOW name -> [(start_min, end_min), ...]
     exception_intervals: dict = field(default_factory=dict)  # date -> [(start_min, end_min), ...]
+    # Calendar Audit metadata (additive — never affects EVM math):
+    type: str = ''            # 'Global' | 'Project' | 'Resource' (raw P6 Type), '' when absent
+    is_default: bool = False  # P6 IsDefault flag
 
     def is_working_day(self, d: date) -> bool:
         if d in self.added_work_days:
