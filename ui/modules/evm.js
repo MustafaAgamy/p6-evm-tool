@@ -484,11 +484,12 @@ async function attachBaseline(result) {
     });
     const data = await resp.json();
     if (!data.ok) { renderBaselineBanner(result); alert('Baseline attach failed: ' + (data.error || 'unknown')); return; }
-    _mergeEvmNumbers(result, data);                // baseline drives PV / Planned% / SPI / Delay
+    // Set baseline state BEFORE re-rendering so the dashboard's "approx" flag clears.
     state.baselinePath = data.baseline_cached;     // used when generating the PDF
     state.baselineName = data.baseline_name;
     state.baselineMatched = data.matched;
     state.baselineTotal = data.total;
+    _mergeEvmNumbers(result, data);                // baseline drives PV / Planned% / SPI / Delay
     renderBaselineBanner(result);
   } catch {
     renderBaselineBanner(result);
@@ -506,10 +507,11 @@ async function removeBaseline(result) {
     });
     const data = await resp.json();
     if (!data.ok) { renderBaselineBanner(result); alert('Remove failed: ' + (data.error || 'unknown')); return; }
-    _mergeEvmNumbers(result, data);                // back to the plain (approximate) numbers
+    // Clear baseline state BEFORE re-rendering so the dashboard's "approx" flag returns.
     state.baselinePath = null; state.baselineName = null;
     state.baselineMatched = null; state.baselineTotal = null;
     result.baseline_name = null; result.baseline_path = null;
+    _mergeEvmNumbers(result, data);                // back to the plain (approximate) numbers
     renderBaselineBanner(result);
   } catch {
     renderBaselineBanner(result);
