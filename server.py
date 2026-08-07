@@ -52,6 +52,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_e1_upload(body)
         elif self.path == '/api/baseline/upload':
             self._handle_baseline_upload(body)
+        elif self.path == '/api/baseline/clear':
+            self._handle_baseline_clear(body)
         elif self.path == '/api/report/evm':
             self._handle_evm_report(body)
         else:
@@ -309,7 +311,7 @@ class Handler(BaseHTTPRequestHandler):
                     config = json.load(f)
                 data = parse_file(cached_path)
                 bl = parse_file(bl_path)
-                apply_baseline(data, bl)            # baseline dates + budget
+                rep = apply_baseline(data, bl)      # baseline dates + budget
                 config['categories'] = auto_categories(data)
                 rr = compute(data, config, classifier=build_wbs_classifier(data))
                 for k in ('pv', 'ev', 'spi', 'cpi', 'delay_days',
@@ -321,6 +323,8 @@ class Handler(BaseHTTPRequestHandler):
                                         for n, c in rr['categories'].items()}
                 result['baseline_path'] = bl_path
                 result['baseline_name'] = os.path.basename(bl_path)
+                result['baseline_matched'] = rep['matched']
+                result['baseline_total'] = rep['total']
             except Exception as bexc:
                 print(f'[evm] baseline re-apply skipped: {bexc}', file=sys.stderr)
 
@@ -504,6 +508,38 @@ class Handler(BaseHTTPRequestHandler):
                              'overall_planned_pct': result['overall_planned_pct'],
                              'overall_actual_pct': result['overall_actual_pct'],
                              'categories': cats})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/baseline/clear ────────────────────────────────────────────────
+    def _handle_baseline_clear(self, body):
+        """Remove an attached baseline: forget it for this snapshot and recompute the plain
+        (no-baseline, approximate) EVM so the UI can revert the numbers."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import the file.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.classify import auto_categories, build_wbs_classifier
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            if body.get('snapshot_id'):
+                db.save_baseline(body['snapshot_id'], None)   # forget the attached baseline
+            data = parse_file(resolved)
+            config['categories'] = auto_categories(data)
+            result = compute(data, config, classifier=build_wbs_classifier(data))
+            cats = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
+                        'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
+                        'activity_count': c['activity_count'], 'overridden': c['overridden']}
+                    for n, c in result['categories'].items()}
+            self._json(200, {'ok': True,
+                             'pv': result['pv'], 'ev': result['ev'], 'spi': result['spi'],
+                             'cpi': result['cpi'], 'delay_days': result['delay_days'],
+                             'overall_planned_pct': result['overall_planned_pct'],
+                             'overall_actual_pct': result['overall_actual_pct'], 'categories': cats})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
