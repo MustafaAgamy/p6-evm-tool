@@ -85,6 +85,12 @@ test('attached without count → green, no count text', () => {
 test('XML (embedded baseline) → no banner', () => {
   assert.equal(baselineBannerState({ isXer: false, attachedName: null }), null);
 });
+test('attached but 0 matched → amber mismatch warning, not green', () => {
+  const s = baselineBannerState({ isXer: true, attachedName: 'WRONG.xer', matched: 0, total: 1240 });
+  assert.equal(s.cls, 'warn');
+  assert.ok(s.title.toLowerCase().includes('no activities matched'));
+  assert.deepEqual(s.actions, ['replace', 'remove']);
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

@@ -415,6 +415,14 @@ function openInputsEditor(result) {
 // format and whether a baseline is attached. Returns null for XML (baseline embedded).
 export function baselineBannerState({ isXer, attachedName, matched, total }) {
   if (attachedName) {
+    if (matched === 0) {                            // wrong file — nothing lines up by Activity Id
+      return {
+        cls: 'warn', icon: '⚠',
+        title: `Baseline “${attachedName}” — no activities matched.`,
+        msg: 'None of this update’s activities line up with that baseline by Activity Id — it’s likely the wrong file. Planned Value is not reliable.',
+        actions: ['replace', 'remove'],
+      };
+    }
     const cnt = (matched != null && total != null) ? ` · ${matched}/${total} matched` : '';
     return {
       cls: 'ok', icon: '✓',
@@ -484,6 +492,11 @@ async function attachBaseline(result) {
     });
     const data = await resp.json();
     if (!data.ok) { renderBaselineBanner(result); alert('Baseline attach failed: ' + (data.error || 'unknown')); return; }
+    if (data.matched === 0) {                        // wrong baseline file — don't apply broken numbers
+      renderBaselineBanner(result);                  // stays amber (no baseline applied)
+      alert('No activities matched between this update and that baseline.\nMake sure you picked the baseline for THIS project.');
+      return;
+    }
     // Set baseline state BEFORE re-rendering so the dashboard's "approx" flag clears.
     state.baselinePath = data.baseline_cached;     // used when generating the PDF
     state.baselineName = data.baseline_name;
