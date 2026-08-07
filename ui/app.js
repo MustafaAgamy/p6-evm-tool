@@ -1,7 +1,8 @@
 import { state }                              from './modules/state.js';
 import { initTheme, toggleTheme }            from './modules/theme.js';
-import { importFile, loadProject, loadHistory, generatePdf, deleteProject } from './modules/api.js';
+import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
+import { switchView, showChooser }             from './modules/audit.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,9 +23,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if (path) importFile(path);
   });
 
+  document.getElementById('xer-btn').addEventListener('click', async () => {
+    const path = await window.pywebview.api.choose_file();
+    if (path) importFile(path);
+  });
+
   document.getElementById('error-close').addEventListener('click', clearError);
   document.getElementById('load-another-btn').addEventListener('click', () => { loadAnother(); loadHistory(); });
   document.getElementById('pdf-btn').addEventListener('click', generatePdf);
+  document.getElementById('pdf-btn-audit').addEventListener('click', generateModulePdf);
+  document.getElementById('excel-btn').addEventListener('click', exportExcel);
+
+  // Analysis chooser (shown after upload) → reveal the chosen view
+  document.querySelectorAll('.chooser-card').forEach(card =>
+    card.addEventListener('click', () => switchView(card.dataset.view)));
+  document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
+
+  // View tabs (EVM ⇄ Schedule Audit)
+  document.getElementById('tab-evm').addEventListener('click', () => switchView('evm'));
+  document.getElementById('tab-audit').addEventListener('click', () => switchView('audit'));
+
+  // Sidebar shield → jump to the Audit view when a schedule is loaded
+  document.getElementById('sb-audit-btn').addEventListener('click', () => {
+    if (state.currentResult) {
+      switchView('audit');
+      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      document.querySelector('.import-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
 
   // Drag-and-drop
   const dropTarget = document.getElementById('drop-target');
@@ -41,8 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
     dropStrip.classList.remove('drag-over');
     const file = e.dataTransfer.files[0];
     if (!file) return;
-    if (!file.path || !file.path.toLowerCase().endsWith('.xml')) {
-      showError('Please drop a .xml file exported from Primavera P6.');
+    const ext = file.path ? file.path.toLowerCase().split('.').pop() : '';
+    if (!file.path || !['xml', 'xer'].includes(ext)) {
+      showError('Please drop a .xml or .xer file exported from Primavera P6.');
       return;
     }
     importFile(file.path);

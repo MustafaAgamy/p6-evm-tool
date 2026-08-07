@@ -105,3 +105,42 @@ def test_render_html_escapes_project_name():
     out = render_html(make_result(), meta)
     assert '<b>Injected</b>' not in out
     assert '&lt;b&gt;Injected&lt;/b&gt;' in out
+
+
+# ── Audit section (Plan 2) ──────────────────────────────────────────────────
+
+def _audit():
+    return {
+        'findings': [{
+            'finding_id': 'abc123', 'check_name': 'Open Ends', 'severity': 'High',
+            'activity_id': 'A2', 'activity_name': 'Roof', 'wbs_path': 'T > Struct',
+            'summary': 'Missing successor', 'recommendation': 'Link it', 'basis': 'succ=0',
+        }],
+        'scores': {'overall': {'score': 57, 'grade': 'Fair',
+                               'categories_evaluated': 2, 'categories_total': 2}},
+        'counts': {'total': 1, 'by_severity': {'High': 1}},
+        'total_review_areas': 5,
+    }
+
+
+def test_render_html_without_audit_has_no_health_section():
+    html = render_html(make_result(), make_meta())
+    assert 'Schedule Health' not in html
+
+
+def test_render_html_with_audit_includes_section_and_finding():
+    html = render_html(make_result(), make_meta(), audit=_audit())
+    assert 'Schedule Health' in html
+    assert '57' in html
+    assert 'Fair' in html
+    assert '2 of 5' in html
+    assert 'A2' in html            # activity id shown
+    assert 'Missing successor' in html
+
+
+def test_render_html_with_audit_escapes_findings():
+    a = _audit()
+    a['findings'][0]['activity_name'] = '<script>x</script>'
+    html = render_html(make_result(), make_meta(), audit=a)
+    assert '<script>x</script>' not in html
+    assert '&lt;script&gt;' in html

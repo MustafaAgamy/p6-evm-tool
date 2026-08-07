@@ -8,15 +8,31 @@ class Api:
         """Open native file picker; returns absolute path string or None."""
         result = webview.windows[0].create_file_dialog(
             webview.OPEN_DIALOG,
-            file_types=('P6 XML Files (*.xml)',)
+            file_types=('P6 Schedule Files (*.xml;*.xer)', 'P6 XML Files (*.xml)', 'P6 XER Files (*.xer)')
         )
         return result[0] if result else None
 
-    def choose_save_path(self, default_name='report.pdf'):
-        """Open native save dialog; returns absolute path string or None."""
+    def choose_excel(self):
+        """Open native picker for one or more Excel logs (E1 / Design / Shop drawing
+        logs); returns a list of paths (empty if cancelled)."""
+        result = webview.windows[0].create_file_dialog(
+            webview.OPEN_DIALOG, allow_multiple=True,
+            file_types=('Excel Files (*.xlsx;*.xlsm)', 'All Files (*.*)')
+        )
+        return list(result) if result else []
+
+    def choose_save_path(self, default_name='report.pdf', file_type='pdf'):
+        """Open native save dialog; returns absolute path string or None.
+
+        file_type ∈ {'pdf', 'xlsx'} chooses the dialog filter.
+        """
+        types = {
+            'pdf':  ('PDF Files (*.pdf)',),
+            'xlsx': ('Excel Files (*.xlsx)',),
+        }.get(file_type, ('All Files (*.*)',))
         result = webview.windows[0].create_file_dialog(
             webview.SAVE_DIALOG,
-            file_types=('PDF Files (*.pdf)',),
+            file_types=types,
             save_filename=default_name
         )
         return result[0] if result else None

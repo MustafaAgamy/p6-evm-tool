@@ -31,6 +31,15 @@ hiddenimports = [
     'http.server',
     'email.mime.text',
     'xml.etree.ElementTree',
+    # EVM v2: E1 Log Excel reader
+    'openpyxl',
+    'et_xmlfile',
+    # EVM v2 + audit engine packages (collected via import graph, listed for safety)
+    'p6_audit',
+    'p6_evm.e1_log',
+    'p6_evm.gap',
+    'p6_evm.evm_report',
+    'p6_evm.engineering_p6',
 ]
 
 a = Analysis(

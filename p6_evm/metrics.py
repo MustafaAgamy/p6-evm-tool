@@ -1,4 +1,4 @@
-from p6_evm.calendars import signed_working_days
+from p6_evm.calendars import signed_working_days, float_working_days
 
 
 def clamp01(x):
@@ -20,6 +20,16 @@ def activity_planned_pct(activity, baseline_by_id, data_date, calendars):
     if cal is None:
         ratio = (data_date - start).total_seconds() / (finish - start).total_seconds()
         return clamp01(ratio)
+    # P6 measures Schedule % Complete in the calendar's WORKING MINUTES (its intraday work
+    # schedule), not whole days -- part-way activities count in work hours. This is what makes
+    # Planned Value match P6 exactly (verified: Alstom PV 366,521.75). Whole-day counting was
+    # ~0.7% high. Fall back to whole-working-days when the calendar has no intraday detail
+    # (e.g. a XER-built calendar), preserving prior behaviour there.
+    if cal.has_intraday():
+        total = cal.working_minutes(start, finish)
+        if not total:
+            return 1.0 if data_date >= finish else 0.0
+        return clamp01(cal.working_minutes(start, min(data_date, finish)) / total)
     total = signed_working_days(cal, start, finish)
     if not total:
         return 1.0 if data_date >= finish else 0.0
@@ -28,10 +38,13 @@ def activity_planned_pct(activity, baseline_by_id, data_date, calendars):
 
 
 def activity_total_float(activity, calendars):
+    tf = activity.get('total_float_days')
+    if tf is not None:
+        return tf
     cal = calendars.get(activity['calendar_id'])
-    if activity['remaining_late_start'] and activity['remaining_early_start']:
+    if activity.get('remaining_late_start') and activity.get('remaining_early_start'):
         return signed_working_days(cal, activity['remaining_early_start'], activity['remaining_late_start'])
-    if activity['remaining_late_finish'] and activity['remaining_early_finish']:
+    if activity.get('remaining_late_finish') and activity.get('remaining_early_finish'):
         return signed_working_days(cal, activity['remaining_early_finish'], activity['remaining_late_finish'])
     return None
 
@@ -51,15 +64,21 @@ def wbs_ancestor_names(wbs_id, wbs_map):
     return names
 
 
-def classify_activity(activity, wbs_map, categories):
+def classify_activity(activity, wbs_map, categories, classifier=None):
     names = wbs_ancestor_names(activity['wbs_id'], wbs_map)
+    if classifier is not None:
+        # Auto mode: classify by WBS meaning (construction synonyms). Only keep the
+        # result if it's one of the configured category names.
+        cat = classifier(names)
+        valid = {c['name'] for c in categories}
+        return cat if cat in valid else None
     for cat in categories:
-        if any(cat['wbs_match'] in name for name in names):
+        if cat.get('wbs_match') and any(cat['wbs_match'] in name for name in names):
             return cat['name']
     return None
 
 
-def compute(data, config, overrides=None):
+def compute(data, config, overrides=None, classifier=None):
     """Compute per-activity records and rolled-up EVM metrics.
 
     Cost-based PV/EV/AC/SPI/CPI/Variance are scoped to whichever configured
@@ -79,14 +98,20 @@ def compute(data, config, overrides=None):
     overrides = overrides or {}
 
     records = []
+    baseline_bac = getattr(data, 'baseline_bac_by_activity', None) or {}
     for activity in data.activities.values():
         object_id = activity['object_id']
-        bac = data.bac_by_activity.get(object_id, 0.0)
+        # BAC = the BASELINE budget when the schedule carries one (P6 anchors Planned Value
+        # and the WBS %-rollup to the baseline cost, not the current update's cost loading).
+        # Falls back to the current cost when there's no embedded baseline (e.g. a bare XER).
+        bac = baseline_bac.get(object_id)
+        if bac is None:
+            bac = data.bac_by_activity.get(object_id, 0.0)
         ac = data.ac_by_activity.get(object_id, 0.0)
         planned_pct = activity_planned_pct(activity, data.baseline_by_id, data_date, data.calendars)
         actual_pct = activity['percent_complete']
         total_float = activity_total_float(activity, data.calendars)
-        category = classify_activity(activity, data.wbs, categories)
+        category = classify_activity(activity, data.wbs, categories, classifier)
         records.append({
             'activity': activity,
             'bac': bac,
@@ -154,15 +179,32 @@ def compute(data, config, overrides=None):
 
     pv = total_bac * costed_planned_pct
     ev = total_bac * costed_actual_pct
-    spi = (costed_actual_pct / costed_planned_pct) if costed_planned_pct else None
+    # SPI is computed from the WBS Category weighted table (Ibrahim's rule):
+    # SPI = Overall Actual % ÷ Overall Planned %  — not EV/PV.
+    spi = (overall_actual_pct / overall_planned_pct) if overall_planned_pct else None
     cpi = (ev / total_ac) if total_ac else None
     variance = ev - pv
 
+    # Delay = float of the project finish milestone, in whole working days.
+    # Prefer an actual Finish Milestone; fall back to the latest-finishing activity.
     with_finish = [r for r in records if r['activity']['planned_finish']]
     delay_days = None
     if with_finish:
-        milestone = max(with_finish, key=lambda r: r['activity']['planned_finish'])
-        delay_days = milestone['total_float']
+        milestones = [r for r in with_finish if r['activity'].get('task_type') == 'FinishMilestone']
+        pool = milestones or with_finish
+        milestone = max(pool, key=lambda r: r['activity']['planned_finish'])
+        a = milestone['activity']
+        if a.get('tf_from_hours'):
+            # P6's stored float (XER) — authoritative, use as-is.
+            tf = milestone['total_float']
+            delay_days = round(tf) if tf is not None else None
+        else:
+            # Reconstructed (XML): recompute boundary-correct so Delay matches P6 and the XER.
+            cal = data.calendars.get(a['calendar_id'])
+            es, ls = a.get('remaining_early_start'), a.get('remaining_late_start')
+            fw = float_working_days(cal, es, ls) if (cal and es and ls) else None
+            tf = milestone['total_float']
+            delay_days = fw if fw is not None else (round(tf) if tf is not None else None)
 
     return {
         'data_date': data_date,

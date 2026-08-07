@@ -156,4 +156,102 @@ def test_project_delete_with_string_id(test_server, xml_path):
     assert json.loads(body_after) == []
 
 
-# ── POST /api/report not tested — requires Chrome ─────────────────────────
+# ── Audit dashboard (Plan 2) ──────────────────────────────────────────────
+
+def test_parse_returns_modules_and_snapshot(test_server, xml_path):
+    _, data = _post_json(test_server, '/api/parse', {'path': str(xml_path), 'overrides_path': None})
+    assert data['ok'] is True
+    assert 'snapshot_id' in data and isinstance(data['snapshot_id'], int)
+    am = data['result']['audit_modules']
+    assert set(am['modules'].keys()) == {'dangling', 'float'}
+    assert am['module_order'] == ['dangling', 'float']
+    # minimal.xml has two unlinked activities -> dangling module finds them
+    assert am['modules']['dangling']['kpis']['total_dangling'] >= 1
+    # each module carries its own isolated score/grade
+    assert 'score' in am['modules']['float'] and 'grade' in am['modules']['float']
+
+
+def test_parse_returns_evm_extras(test_server, xml_path):
+    _, data = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    assert data['ok'] is True
+    r = data['result']
+    assert 'engineering_p6' in r and isinstance(r['engineering_p6'], list)
+    assert 'activity_code_types' in r and isinstance(r['activity_code_types'], list)
+
+
+def test_project_load_returns_modules(test_server, xml_path):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    _, _, body = _get(test_server, '/api/history')
+    project_id = json.loads(body)[0]['project_id']
+    _, data = _post_json(test_server, '/api/project/load', {'project_id': project_id})
+    assert data['ok'] is True
+    am = data['result']['audit_modules']
+    assert am is not None
+    assert 'dangling' in am['modules'] and 'float' in am['modules']
+    assert isinstance(data['snapshot_id'], int)
+
+
+def test_export_excel_per_module_writes_file(test_server, xml_path, tmp_path):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    sid = parsed['snapshot_id']
+    out = str(tmp_path / 'dangling.xlsx')
+    _, data = _post_json(test_server, '/api/export/excel',
+                         {'snapshot_id': sid, 'module': 'dangling', 'output_path': out})
+    assert data['ok'] is True
+    import os
+    assert os.path.exists(out)
+
+
+def test_export_excel_unknown_module_fails(test_server, xml_path, tmp_path):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    sid = parsed['snapshot_id']
+    _, data = _post_json(test_server, '/api/export/excel',
+                         {'snapshot_id': sid, 'module': 'nope', 'output_path': str(tmp_path / 'x.xlsx')})
+    assert data['ok'] is False
+
+
+def test_export_excel_missing_output_path(test_server):
+    _, data = _post_json(test_server, '/api/export/excel', {'snapshot_id': 1, 'module': 'float'})
+    assert data['ok'] is False
+
+
+def test_gap_route_reparses(test_server, xml_path):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    _, data = _post_json(test_server, '/api/gap', {
+        'xml_path': str(xml_path), 'cached_path': parsed.get('cached_path'), 'dimension': 'Type of Works'})
+    assert data['ok'] is True
+    assert 'gap' in data and 'groups' in data['gap']
+
+
+def test_e1_upload_missing_file(test_server):
+    _, data = _post_json(test_server, '/api/e1/upload', {'snapshot_id': 1, 'path': '/nope.xlsx'})
+    assert data['ok'] is False
+
+
+def test_parse_returns_gap_and_finish_extras(test_server, xml_path):
+    _, data = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    r = data['result']
+    assert 'gap' in r                    # present (may be None if no codes)
+    # engineering + code types already covered; ensure keys exist
+    assert 'engineering_p6' in r
+
+
+def test_evm_report_preview_returns_html_no_chrome(test_server, xml_path):
+    """The preview flag renders the report HTML and returns it WITHOUT invoking Chrome,
+    so the UI can show a fit-to-window preview before writing any PDF."""
+    _post_json(test_server, '/api/parse', {'path': str(xml_path)})   # ensure it's importable/cached
+    status, data = _post_json(test_server, '/api/report/evm', {
+        'xml_path': str(xml_path), 'preview': True,
+        'meta': {'project_name': 'Test', 'data_date': '2024-07-01'}})
+    assert status == 200
+    assert data.get('ok') is True
+    assert isinstance(data.get('html'), str) and len(data['html']) > 200
+    assert 'output_path' not in data     # nothing written
+
+
+def test_evm_report_without_output_path_or_preview_errors(test_server, xml_path):
+    _, data = _post_json(test_server, '/api/report/evm', {'xml_path': str(xml_path)})
+    assert data['ok'] is False           # neither preview nor a save path → clear error
+
+
+# ── POST /api/report (PDF write path) not tested — requires Chrome ─────────

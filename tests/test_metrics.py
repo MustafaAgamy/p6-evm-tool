@@ -324,3 +324,10 @@ def test_wbs_ancestor_matching(test_config):
     result = compute(data, test_config)
     cat = result['categories']['Construction']
     assert cat['activity_count'] == 2
+
+
+def test_spi_equals_weighted_overall(sample_schedule, test_config):
+    # SPI must be Overall Actual % ÷ Overall Planned % from the weighted category table.
+    r = compute(sample_schedule, test_config)
+    if r['overall_planned_pct']:
+        assert r['spi'] == pytest.approx(r['overall_actual_pct'] / r['overall_planned_pct'])

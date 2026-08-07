@@ -42,6 +42,18 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
             self._handle_project_delete(body)
+        elif self.path == '/api/export/excel':
+            self._handle_export_excel(body)
+        elif self.path == '/api/report/module':
+            self._handle_module_report(body)
+        elif self.path == '/api/gap':
+            self._handle_gap(body)
+        elif self.path == '/api/e1/upload':
+            self._handle_e1_upload(body)
+        elif self.path == '/api/baseline/upload':
+            self._handle_baseline_upload(body)
+        elif self.path == '/api/report/evm':
+            self._handle_evm_report(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -99,14 +111,58 @@ class Handler(BaseHTTPRequestHandler):
                 with open(overrides_path) as f:
                     overrides = json.load(f)
 
+            from p6_evm.classify import auto_categories, build_wbs_classifier
             data = parse_file(xml_path)
-            result = compute(data, config, overrides=overrides)
+            config['categories'] = auto_categories(data)   # auto-detect categories per project
+            result = compute(data, config, overrides=overrides, classifier=build_wbs_classifier(data))
 
             # Strip the large records list — UI only needs rolled-up metrics
             safe_result = {k: v for k, v in result.items() if k != 'records'}
             safe_result['activity_count'] = len(data.activities)
             safe_result['calendar_count'] = len(data.calendars)
             safe_result['project_name']   = data.project.get('name', '')
+
+            # ── Schedule audit — isolated modules (never break EVM import) ──
+            audit_modules_result = None
+            try:
+                from p6_audit import audit_modules as run_audit_modules
+                audit_modules_result = run_audit_modules(data, config)
+            except Exception as audit_exc:
+                audit_modules_result = None
+                print(f'[audit] skipped: {audit_exc}', file=sys.stderr)
+            safe_result['audit_modules'] = audit_modules_result
+
+            # ── EVM v2 extras: engineering (Mode B, from P6) + code dimensions ──
+            try:
+                from p6_evm.engineering_p6 import engineering_from_p6
+                eng_p6 = engineering_from_p6(data)
+                safe_result['engineering_p6'] = [
+                    {'trade': t, 'submittal_type': ty, **vals}
+                    for (t, ty), vals in sorted(eng_p6.items())
+                ]
+            except Exception as eng_exc:
+                safe_result['engineering_p6'] = []
+                print(f'[evm] engineering skipped: {eng_exc}', file=sys.stderr)
+            # Baseline vs expected finish (from the finish milestone) for the dashboard
+            try:
+                from p6_evm.report import find_finish_milestone
+                fm = find_finish_milestone(result)
+                if fm is not None:
+                    safe_result['expected_finish'] = fm['activity'].get('planned_finish')
+                    bl = data.baseline_by_id.get(fm['activity'].get('id'))
+                    safe_result['baseline_finish'] = bl['planned_finish'] if bl else None
+            except Exception:
+                pass
+
+            code_types = list(getattr(data, 'activity_code_types', []) or [])
+            safe_result['activity_code_types'] = code_types
+            # Default PV-EV gap on a sensible dimension (records still present on `result`)
+            try:
+                from p6_evm.gap import gap_by_code
+                default_dim = 'Type of Works' if 'Type of Works' in code_types else (code_types[0] if code_types else None)
+                safe_result['gap'] = gap_by_code(result['records'], default_dim) if default_dim else None
+            except Exception:
+                safe_result['gap'] = None
 
             # ── Persist to DB ──────────────────────────────────────────────
             file_hash      = db.hash_file(xml_path)
@@ -128,10 +184,19 @@ class Handler(BaseHTTPRequestHandler):
             )
             db.insert_metrics(sid, result)
             db.insert_category_metrics(sid, result.get('categories'))
+            if audit_modules_result is not None:
+                db.insert_audit_modules(sid, audit_modules_result)
+            db.save_evm_extras(sid, {
+                'engineering_p6': safe_result.get('engineering_p6', []),
+                'activity_code_types': safe_result.get('activity_code_types', []),
+                'gap': safe_result.get('gap'),
+                'baseline_finish': safe_result.get('baseline_finish'),
+                'expected_finish': safe_result.get('expected_finish'),
+            })
             # ──────────────────────────────────────────────────────────────
 
             self._json(200, {'ok': True, 'result': safe_result, 'cached_path': cached_path,
-                             'previous_import': prior_import})
+                             'previous_import': prior_import, 'snapshot_id': sid})
 
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -171,8 +236,10 @@ class Handler(BaseHTTPRequestHandler):
                 with open(overrides_path) as f:
                     overrides = json.load(f)
 
+            from p6_evm.classify import auto_categories, build_wbs_classifier
             data   = parse_file(resolved)
-            result = compute(data, config, overrides=overrides)
+            config['categories'] = auto_categories(data)
+            result = compute(data, config, overrides=overrides, classifier=build_wbs_classifier(data))
 
             fm = find_finish_milestone(result)
             milestone_baseline_finish = None
@@ -219,9 +286,51 @@ class Handler(BaseHTTPRequestHandler):
         if result is None:
             self._json(200, {'ok': False, 'error': 'Project not found'})
             return
+        snapshot_id   = result.pop('_snapshot_id', None)
         cached_path   = result.pop('_cached_path', None)
         original_path = result.pop('_original_path', None)
-        self._json(200, {'ok': True, 'result': result,
+        result['audit_modules'] = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
+        extras = (db.get_evm_extras(snapshot_id) or {}) if snapshot_id else {}
+        result['engineering_p6'] = extras.get('engineering_p6', [])
+        result['activity_code_types'] = extras.get('activity_code_types', [])
+        result['gap'] = extras.get('gap')
+        result['baseline_finish'] = extras.get('baseline_finish')
+        result['expected_finish'] = extras.get('expected_finish')
+        # Re-apply an attached baseline (re-parse update + baseline) so PV/SPI/Delay stay correct.
+        bl_path = extras.get('baseline_path')
+        if bl_path and os.path.isfile(bl_path) and cached_path and os.path.isfile(cached_path):
+            try:
+                sys.path.insert(0, resource_path('.'))
+                from p6_evm.parser import parse_file
+                from p6_evm.metrics import compute
+                from p6_evm.classify import auto_categories, build_wbs_classifier
+                with open(resource_path('config.json')) as f:
+                    config = json.load(f)
+                data = parse_file(cached_path)
+                bl = parse_file(bl_path)
+                data.baseline_by_id = {a['id']: {'planned_start': a.get('planned_start'),
+                                                 'planned_finish': a.get('planned_finish')}
+                                       for a in bl.activities.values() if a.get('id')}
+                config['categories'] = auto_categories(data)
+                rr = compute(data, config, classifier=build_wbs_classifier(data))
+                for k in ('pv', 'ev', 'spi', 'cpi', 'delay_days',
+                          'overall_planned_pct', 'overall_actual_pct'):
+                    result[k] = rr[k]
+                result['categories'] = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
+                                            'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
+                                            'activity_count': c['activity_count'], 'overridden': c['overridden']}
+                                        for n, c in rr['categories'].items()}
+                result['baseline_path'] = bl_path
+                result['baseline_name'] = os.path.basename(bl_path)
+            except Exception as bexc:
+                print(f'[evm] baseline re-apply skipped: {bexc}', file=sys.stderr)
+
+        e1_rows = db.get_e1_summary(snapshot_id) if snapshot_id else None
+        result['engineering_e1'] = e1_rows
+        if e1_rows:                          # re-apply E1 rollup so a re-opened project matches
+            from p6_evm.e1_rollup import e1_extras
+            result['e1_extras'] = e1_extras(e1_rows, list((result.get('categories') or {}).keys()))
+        self._json(200, {'ok': True, 'result': result, 'snapshot_id': snapshot_id,
                          'cached_path': cached_path, 'original_path': original_path})
 
     # ── /api/project/delete ────────────────────────────────────────────────
@@ -232,6 +341,239 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             db.delete_project(project_id)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/export/excel ──────────────────────────────────────────────────
+    def _handle_export_excel(self, body):
+        """Excel for ONE isolated module (never mixed). Read path = DB."""
+        snapshot_id = body.get('snapshot_id')
+        module      = body.get('module')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        mods = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
+        m = (mods or {}).get('modules', {}).get(module)
+        if not m:
+            self._json(200, {'ok': False, 'error': 'No audit found for this module.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.xlsx_writer import write_xlsx
+            from p6_audit.exporters import excel_columns
+            headers, rows = excel_columns(m)
+            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Audit')[:31], headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/report/module ─────────────────────────────────────────────────
+    def _handle_module_report(self, body):
+        """Standalone consultant PDF for ONE isolated module."""
+        snapshot_id = body.get('snapshot_id')
+        module      = body.get('module')
+        preview     = bool(body.get('preview'))   # return HTML for on-screen preview, don't write a PDF
+        output_path = body.get('output_path', '')
+        meta_in     = body.get('meta') or {}
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        mods = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
+        m = (mods or {}).get('modules', {}).get(module)
+        if not m:
+            self._json(200, {'ok': False, 'error': 'No audit found for this module.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.report import render_module_report
+            import subprocess, tempfile
+            html_content = render_module_report(m, meta_in)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            out_path = os.path.abspath(output_path)
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/gap ───────────────────────────────────────────────────────────
+    def _handle_gap(self, body):
+        """Re-group the PV-EV gap by a different activity code (re-parses XML)."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        dim = body.get('dimension')
+        if not resolved or not dim:
+            self._json(200, {'ok': False, 'error': 'schedule or dimension unavailable'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.gap import gap_by_code
+            from p6_evm.classify import auto_categories, build_wbs_classifier
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            data = parse_file(resolved)
+            config['categories'] = auto_categories(data)
+            result = compute(data, config, classifier=build_wbs_classifier(data))
+            self._json(200, {'ok': True, 'gap': gap_by_code(result['records'], dim)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/e1/upload ─────────────────────────────────────────────────────
+    def _handle_e1_upload(self, body):
+        """Read one or more E1 / Design / Shop-drawing log Excels → combined drawings
+        summary (Mode A); store per snapshot. A whole file whose NAME says Shop/Design
+        tags all its rows to that bucket; a combined log is split by drawing type."""
+        paths = body.get('paths') or ([body['path']] if body.get('path') else [])
+        paths = [p for p in paths if p and os.path.isfile(p)]
+        snapshot_id = body.get('snapshot_id')
+        if not paths:
+            self._json(200, {'ok': False, 'error': 'No Excel log file found.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.e1_log import read_e1_rows, summarize_e1
+            from p6_evm.e1_rollup import e1_extras
+            from p6_evm.classify import e1_file_bucket
+            eng_rows = []
+            for p in paths:
+                bucket = e1_file_bucket(os.path.basename(p))   # 'design' | 'engineering' | None
+                summ = summarize_e1(read_e1_rows(p))
+                for (t, ty), vals in sorted(summ.items()):
+                    row = {'trade': t, 'submittal_type': ty, **vals}
+                    if bucket:
+                        row['bucket'] = bucket
+                    eng_rows.append(row)
+            if snapshot_id:
+                db.save_e1_summary(snapshot_id, eng_rows)
+            extras = e1_extras(eng_rows, body.get('category_names') or [])
+            self._json(200, {'ok': True, 'engineering_e1': eng_rows, 'e1_extras': extras})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/baseline/upload ───────────────────────────────────────────────
+    def _handle_baseline_upload(self, body):
+        """Attach a baseline schedule (XER/XML) so Planned Value uses the TRUE baseline
+        dates. A XER update doesn't embed its baseline, so its PV is wrong without this;
+        matching by Activity ID, we override the update's baseline and recompute."""
+        bl_path = body.get('path', '')
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not bl_path or not os.path.isfile(bl_path):
+            self._json(200, {'ok': False, 'error': f'Baseline file not found: {bl_path}'})
+            return
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Update schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.classify import auto_categories, build_wbs_classifier
+            bl = parse_file(bl_path)
+            bl_dates = {a['id']: {'planned_start': a.get('planned_start'),
+                                  'planned_finish': a.get('planned_finish')}
+                        for a in bl.activities.values() if a.get('id')}
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            data = parse_file(resolved)
+            data.baseline_by_id = bl_dates          # use the attached baseline
+            config['categories'] = auto_categories(data)
+            result = compute(data, config, classifier=build_wbs_classifier(data))
+            bl_cached = db.cache_xml(bl_path, db.hash_file(bl_path))
+            if body.get('snapshot_id'):
+                db.save_baseline(body['snapshot_id'], bl_cached)   # remember per project
+            matched = sum(1 for a in data.activities.values() if a.get('id') in bl_dates)
+            cats = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
+                        'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
+                        'activity_count': c['activity_count'], 'overridden': c['overridden']}
+                    for n, c in result['categories'].items()}
+            self._json(200, {'ok': True, 'baseline_name': os.path.basename(bl_path),
+                             'baseline_cached': bl_cached, 'matched': matched,
+                             'total': len(data.activities),
+                             'pv': result['pv'], 'ev': result['ev'], 'spi': result['spi'],
+                             'cpi': result['cpi'], 'delay_days': result['delay_days'],
+                             'overall_planned_pct': result['overall_planned_pct'],
+                             'overall_actual_pct': result['overall_actual_pct'],
+                             'categories': cats})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/report/evm ────────────────────────────────────────────────────
+    def _handle_evm_report(self, body):
+        """Render the consultant EVM report PDF with the user's weights/AC/engineering."""
+        preview = bool(body.get('preview'))   # return HTML for on-screen preview, don't write a PDF
+        output_path = body.get('output_path', '')
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import the file.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.gap import gap_by_code
+            from p6_evm.evm_report import render_evm_report
+            import subprocess, tempfile
+            from p6_evm.classify import auto_categories, build_wbs_classifier
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            weights = body.get('weights') or {}
+            data = parse_file(resolved)
+            bl_path = body.get('baseline_path')     # attached baseline (for correct PV)
+            if bl_path and os.path.isfile(bl_path):
+                bl = parse_file(bl_path)
+                data.baseline_by_id = {a['id']: {'planned_start': a.get('planned_start'),
+                                                 'planned_finish': a.get('planned_finish')}
+                                       for a in bl.activities.values() if a.get('id')}
+            config['categories'] = auto_categories(data, saved_weights=weights)
+            result = compute(data, config, classifier=build_wbs_classifier(data))
+            meta_in = body.get('meta') or {}
+            if body.get('actual_cost') is not None:
+                meta_in['actual_cost'] = body.get('actual_cost')
+            dim = body.get('dimension')
+            gap = gap_by_code(result['records'], dim) if dim else None
+            engineering = body.get('engineering')
+            # E1 Log drives the report: override Design/Engineering category actuals and
+            # attach the overall rows + Design/Shop gaps (single source: e1_rollup).
+            if engineering and engineering.get('mode') == 'E1' and engineering.get('rows'):
+                from p6_evm.e1_rollup import e1_extras
+                cats = result.get('categories', {})
+                ex = e1_extras(engineering['rows'], list(cats.keys()))
+                engineering['overall'] = ex['overall']
+                engineering['by_trade'] = ex['by_trade']
+                engineering['gaps'] = ex['gaps']
+                for name, actual in ex['category_actuals'].items():
+                    if name in cats:
+                        cats[name]['actual_pct'] = actual
+            html_content = render_evm_report(result, meta_in, gap=gap, engineering=engineering)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

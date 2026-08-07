@@ -4,4 +4,7 @@ export const state = {
   currentResult:     null,
   currentXmlPath:    null,
   currentCachedPath: null,
+  currentSnapshotId: null,
+  currentModules:    null,   // {modules, module_order}
+  currentModule:     null,   // selected module key ('dangling' | 'float')
 };
