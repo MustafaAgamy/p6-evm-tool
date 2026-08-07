@@ -1,5 +1,5 @@
 """
-All SQLite database operations for P6 EVM Tool.
+All SQLite database operations for nPace.
 DB lives at %APPDATA%/P6EVMTool/p6evm.db — one per OS user.
 """
 

@@ -1,4 +1,4 @@
-# P6 EVM Tool — Project Brain
+# nPace — Project Brain
 
 ## What this is
 
@@ -22,7 +22,7 @@ required on the target machine.
 | **CLI** | `cli.py` | Terminal usage (no GUI needed) |
 | **Database** | `db.py` | SQLite schema, XML caching, all DB read/write operations |
 | **Utils** | `utils.py` | `resource_path()` for PyInstaller, `app_data_dir()` / `schedules_dir()` for per-user storage |
-| **Build** | `p6evm.spec` | PyInstaller spec → `dist/P6EVMTool.exe` |
+| **Build** | `p6evm.spec` | PyInstaller spec → `dist/nPace.exe` |
 
 ---
 
@@ -88,7 +88,7 @@ POST /api/report  →  resolve_xml_path() (original → cached fallback)
 ```powershell
 pip install pyinstaller
 pyinstaller p6evm.spec
-# → dist\P6EVMTool.exe
+# → dist\nPace.exe
 ```
 
 Data bundled: `ui/`, `p6_evm/`, `config.json`. `resource_path()` in `utils.py` resolves paths correctly in both dev and bundle.
@@ -156,7 +156,7 @@ JOIN metrics m ON m.snapshot_id = s.id
    git push origin master vX.Y.Z
    ```
 
-The GitHub Actions workflow (`.github/workflows/build-release.yml`) builds `dist/P6EVMTool.exe`
+The GitHub Actions workflow (`.github/workflows/build-release.yml`) builds `dist/nPace.exe`
 via PyInstaller and creates a GitHub Release. It extracts the `[vX.Y.Z]` section from
 `CHANGELOG.md` automatically as the release notes — **never use `generate_release_notes: true`
 or manual release note inputs**; the changelog is the single source of truth.

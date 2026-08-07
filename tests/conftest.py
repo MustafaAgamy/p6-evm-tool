@@ -1,4 +1,4 @@
-"""Shared fixtures for the P6 EVM Tool test suite."""
+"""Shared fixtures for the nPace test suite."""
 import os
 import sys
 import threading

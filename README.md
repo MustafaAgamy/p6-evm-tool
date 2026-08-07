@@ -1,4 +1,6 @@
-# P6 EVM Tool
+# nPace
+
+*Intelligent Project Controls.*
 
 Computes Delay, Planned/Earned Value, SPI, CPI, and category-level Planned% / Actual%
 from a Primavera P6 Professional XML export, and generates a one-page PDF weekly report.
@@ -16,7 +18,7 @@ Two ways to use it:
 
 ### Option A — Download the `.exe`
 
-Download `P6EVMTool.exe` from [Releases](../../releases) and double-click it.
+Download `nPace.exe` from [Releases](../../releases) and double-click it.
 No Python, no installation required. Chrome must be installed for PDF export.
 
 ### Option B — Run from source
@@ -31,7 +33,7 @@ python app.py
 ```powershell
 pip install pyinstaller
 pyinstaller p6evm.spec
-# Output: dist\P6EVMTool.exe
+# Output: dist\nPace.exe
 ```
 
 ### Using the app

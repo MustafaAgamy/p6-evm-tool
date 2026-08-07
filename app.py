@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     api = Api()
     webview.create_window(
-        'P6 EVM Tool',
+        'nPace',
         f'http://localhost:{port}/',
         js_api=api,
         width=1100,
