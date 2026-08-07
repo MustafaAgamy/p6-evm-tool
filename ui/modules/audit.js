@@ -250,7 +250,7 @@ function renderFloatModule(m) {
   const score = g.float_health ?? 0;
 
   const statsTiles = [
-    fhTile('Total Activities', (stats.total || 0).toLocaleString(), 'task-dependent'),
+    fhTile(stats.total_label || 'Total Activities', (stats.total || 0).toLocaleString(), 'task-dependent'),
     fhTile('Critical Activities', String(stats.critical ?? 0), 'flagged Critical in P6'),
     fhTile('Critical %', `${fhFmt(stats.critical_pct ?? 0)}%`),
     fhTile('Near-Critical Activities', String(stats.near_critical ?? 0), `float 1–${stats.near_band ?? 10} working days`),

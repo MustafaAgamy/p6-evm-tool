@@ -105,27 +105,55 @@ def test_construction_only_over_threshold():
     assert m['indicators']['constr_over_pct'] == 50.0
 
 
-def test_wbs_distribution_sorted_worst_first_and_tagged():
+def test_wbs_distribution_groups_by_main_wbs():
     acts = {}
+    # two different leaf branches under ONE main phase 'MEP Works' → must roll into one row
+    for i in range(3):
+        acts[f'a{i}'] = _act(f'a{i}', 88, wbs='Project > MEP Works > Level 12')
+    for i in range(2):
+        acts[f'b{i}'] = _act(f'b{i}', 88, wbs='Project > MEP Works > Level 8')
     for i in range(4):
-        acts[f'm{i}'] = _act(f'm{i}', 88, wbs='Bldg > MEP')                      # 4/4 over -> 100%
-    for i in range(4):
-        acts[f'c{i}'] = _act(f'c{i}', 88 if i == 0 else 10, wbs='Sub > Concrete')  # 1/4 over -> 25%
+        acts[f'c{i}'] = _act(f'c{i}', 88 if i == 0 else 10, wbs='Project > Concrete Works > Raft')
     m = float_management(_g(acts), CONFIG)
-    w = m['wbs']
-    assert w[0]['wbs'] == 'Bldg > MEP'
-    assert w[0]['pct'] == 100.0
-    assert w[0]['pct'] >= w[1]['pct']
-    assert all('is_construction' in r for r in w)
-    assert all(r['is_construction'] for r in w)  # MEP + Concrete both construction
+    names = {r['wbs']: r for r in m['wbs']}
+    assert set(names) == {'MEP Works', 'Concrete Works'}      # rolled up to the main WBS, leaves merged
+    assert names['MEP Works']['activities'] == 5              # 3 + 2 across two leaf branches
+    assert names['MEP Works']['pct'] == 100.0
+    assert m['wbs'][0]['wbs'] == 'MEP Works'                  # worst concentration first
+    assert m['wbs'][0]['pct'] >= m['wbs'][1]['pct']
+    assert all('is_construction' in r for r in m['wbs'])
 
 
-def test_highest_float_names_its_wbs():
+def test_highest_float_names_its_main_wbs():
     acts = {'a': _act('a', 60, wbs='Site > Concrete'),
             'b': _act('b', 210, wbs='Steel > Structural Steel')}
     m = float_management(_g(acts), CONFIG)
     assert m['indicators']['highest_float'] == 210.0
-    assert 'Structural Steel' in m['indicators']['highest_float_wbs']
+    assert m['indicators']['highest_float_wbs'] == 'Steel'    # its main (top-level) WBS
+
+
+def test_completed_activities_excluded_from_float():
+    acts = {
+        'done': _act('done', 88, status='Completed'),     # completed → out of the float population
+        'live': _act('live', 88, status='In Progress'),   # in progress → counted
+    }
+    m = float_management(_g(acts), CONFIG)
+    assert m['stats']['total'] == 1                        # only the live one
+    assert m['indicators']['constr_over'] == 1
+
+
+def test_baseline_shows_total_update_shows_remaining():
+    base = {f'x{i}': _act(f'x{i}', 60, status='Not Started') for i in range(3)}
+    mb = float_management(_g(base), CONFIG)
+    assert mb['stats']['is_update'] is False
+    assert mb['stats']['total_label'] == 'Total Activities'
+    assert mb['stats']['total'] == 3
+
+    upd = dict(base)
+    upd['p'] = _act('p', 60, status='In Progress')
+    mu = float_management(_g(upd), CONFIG)
+    assert mu['stats']['is_update'] is True
+    assert mu['stats']['total_label'] == 'Remaining Total Activities'
 
 
 def test_conclusion_is_prose_naming_top_construction_package():

@@ -78,6 +78,12 @@ def test_conclusion_text_present():
     assert 'concentrated mainly' in h
 
 
+def test_uses_conditional_total_label():
+    m = _m()
+    m['mgmt']['stats']['total_label'] = 'Remaining Total Activities'
+    assert 'Remaining Total Activities' in render_float_report(m, META)
+
+
 def test_missing_mgmt_shows_reimport_notice_not_zeros():
     # A project imported before this feature has no mgmt — never show a zeroed dashboard.
     h = render_float_report({'module': 'float', 'name': 'Float Analysis'}, META)
