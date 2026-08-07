@@ -105,31 +105,33 @@ def test_construction_only_over_threshold():
     assert m['indicators']['constr_over_pct'] == 50.0
 
 
-def test_wbs_distribution_groups_by_discipline_category():
+def test_wbs_distribution_groups_by_top_level_wbs_branch():
     acts = {}
-    # construction activities across different WBS branches → one 'Construction' row
+    # distinct top-level WBS branches under a shared 'Project' root → one row each, as named
     for i in range(3):
         acts[f'a{i}'] = _act(f'a{i}', 88, wbs='Project > Phase I Construction Works > Foundations')
     for i in range(2):
-        acts[f'b{i}'] = _act(f'b{i}', 88, wbs='Project > MEP Works > Level 8')          # mep → Construction
+        acts[f'b{i}'] = _act(f'b{i}', 88, wbs='Project > MEP Works > Level 8')
     for i in range(4):
         acts[f'e{i}'] = _act(f'e{i}', 88 if i == 0 else 10, wbs='Project > Phase I Engineering > Shop')
     acts['d0'] = _act('d0', 88, wbs='Project > Phase II Design > IFC')
     m = float_management(_g(acts), CONFIG)
     names = {r['wbs']: r for r in m['wbs']}
-    assert set(names) <= {'Construction', 'Engineering', 'Design', 'Procurement'}
-    assert names['Construction']['activities'] == 5          # 3 + 2 merged into one discipline row
-    assert names['Construction']['is_construction'] is True
-    assert names['Engineering']['is_construction'] is False
-    assert m['wbs'][0]['pct'] >= m['wbs'][1]['pct']          # worst concentration first
+    # branches kept separate, exactly as named in P6 — NOT merged into disciplines
+    assert set(names) == {'Phase I Construction Works', 'MEP Works', 'Phase I Engineering', 'Phase II Design'}
+    assert names['Phase I Construction Works']['activities'] == 3
+    assert names['MEP Works']['activities'] == 2
+    assert names['Phase I Construction Works']['is_construction'] is True   # classified only for the badge
+    assert names['Phase II Design']['is_construction'] is False
+    assert m['wbs'][0]['pct'] >= m['wbs'][1]['pct']                         # worst concentration first
 
 
-def test_highest_float_names_its_discipline():
-    acts = {'a': _act('a', 60, wbs='Site > Concrete'),
-            'b': _act('b', 210, wbs='Steel > Structural Steel')}
+def test_highest_float_names_its_top_level_branch():
+    acts = {'a': _act('a', 60, wbs='Project > Substructure > Concrete'),
+            'b': _act('b', 210, wbs='Project > Steel Structure > Erection')}
     m = float_management(_g(acts), CONFIG)
     assert m['indicators']['highest_float'] == 210.0
-    assert m['indicators']['highest_float_wbs'] == 'Construction'   # discipline of the biggest float
+    assert m['indicators']['highest_float_wbs'] == 'Steel Structure'   # its top-level WBS branch
 
 
 def test_completed_activities_excluded_from_float():

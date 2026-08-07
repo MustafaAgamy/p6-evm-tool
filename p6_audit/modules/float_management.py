@@ -129,6 +129,25 @@ def _has_progress(a):
     return (a.get('percent_complete') or 0) > 0
 
 
+def _top_wbs_key(paths):
+    """Group key = the top-level WBS BRANCH as named in P6 — the WBS node directly under the
+    project root. Skips a single shared project-root segment; falls back to the first segment
+    when the schedule has no single shared root."""
+    firsts = set()
+    for p in paths:
+        segs = [s.strip() for s in (p or '').split('>') if s.strip()]
+        if segs:
+            firsts.add(segs[0])
+    single_root = len(firsts) == 1
+
+    def key(p):
+        segs = [s.strip() for s in (p or '').split('>') if s.strip()]
+        if not segs:
+            return '(no WBS)'
+        return segs[1] if (single_root and len(segs) >= 2) else segs[0]
+    return key
+
+
 def float_management(graph, config):
     """Re-aggregate per-activity float into the management-dashboard numbers.
     Returns a dict attached to the float module result as `mgmt`."""
@@ -157,14 +176,14 @@ def float_management(graph, config):
               if activity_category(a.get('wbs_path')) == 'Construction']
     constr_over = [a for _, a in constr if a['total_float_days'] > threshold]
 
-    # Distribution grouped by the MAJOR discipline category (Construction / Engineering /
-    # Design / Procurement) — all activities under each discipline roll into one row, by meaning,
-    # wherever the discipline sits in the WBS depth.
-    by_cat = defaultdict(list)
+    # Distribution grouped by the top-level WBS BRANCH as named in P6 — one row per branch, every
+    # activity beneath it merged. Uses the schedule's own major WBS, not a re-classification.
+    top_key = _top_wbs_key([a.get('wbs_path') or '' for _, a in assessable])
+    by_wbs = defaultdict(list)
     for _, a in assessable:
-        by_cat[activity_category(a.get('wbs_path'))].append(a['total_float_days'])
+        by_wbs[top_key(a.get('wbs_path') or '')].append(a['total_float_days'])
     wbs = []
-    for name, floats in by_cat.items():
+    for name, floats in by_wbs.items():
         n = len(floats)
         over = sum(1 for f in floats if f > threshold)
         wbs.append({
@@ -175,7 +194,7 @@ def float_management(graph, config):
             'max_float': round(max(floats), 1) if floats else 0.0,
             'over_44': over,
             'pct': _pct(over, n),
-            'is_construction': name == 'Construction',
+            'is_construction': activity_category(name) == 'Construction',
         })
     wbs.sort(key=lambda r: (-r['pct'], -r['over_44'], -r['activities']))
 
@@ -185,7 +204,7 @@ def float_management(graph, config):
 
     highest = max((a for _, a in assessable), key=lambda a: a['total_float_days'], default=None)
     highest_float = round(highest['total_float_days'], 1) if highest else 0.0
-    highest_wbs = activity_category(highest.get('wbs_path')) if highest else ''
+    highest_wbs = top_key(highest.get('wbs_path') or '') if highest else ''
 
     # top discipline by float concentration (worst first)
     top = wbs[0] if wbs else None
