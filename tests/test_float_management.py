@@ -153,3 +153,22 @@ def test_run_float_attaches_mgmt_without_breaking_existing_contract():
     assert r['module'] == 'float'
     assert r['kpis']['above_threshold'] == 1
     assert 'score' in r and 'grade' in r and 'findings' in r
+
+
+# ── end-to-end: a real P6 file parsed through the engine yields a well-formed mgmt ──
+def test_end_to_end_real_xml_through_engine_produces_valid_mgmt():
+    import os
+    from p6_evm.parser import parse_file
+    from p6_audit.engine import audit_modules
+    data = parse_file(os.path.join(os.path.dirname(__file__), 'fixtures', 'minimal.xml'))
+    fm = audit_modules(data, CONFIG)['modules']['float']['mgmt']
+    # structure is present and internally consistent (no crash on real parsed data)
+    assert 0 <= fm['float_health'] <= 100
+    assert fm['fh_color'] in ('green', 'amber', 'red')
+    for key in ('stats', 'indicators', 'high', 'neg', 'wbs', 'conclusion'):
+        assert key in fm
+    assert isinstance(fm['wbs'], list)
+    assert isinstance(fm['conclusion'], str) and fm['conclusion'].strip()
+    # wbs distribution stays sorted worst-concentration-first
+    pcts = [r['pct'] for r in fm['wbs']]
+    assert pcts == sorted(pcts, reverse=True)

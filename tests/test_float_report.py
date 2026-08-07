@@ -78,6 +78,15 @@ def test_conclusion_text_present():
     assert 'concentrated mainly' in h
 
 
-def test_defensive_when_mgmt_missing():
+def test_missing_mgmt_shows_reimport_notice_not_zeros():
+    # A project imported before this feature has no mgmt — never show a zeroed dashboard.
     h = render_float_report({'module': 'float', 'name': 'Float Analysis'}, META)
-    assert isinstance(h, str) and 'Float Health' in h
+    assert isinstance(h, str) and 'Float Analysis' in h
+    assert 're-import' in h.lower()
+    assert 'Float Health' not in h        # no misleading gauge
+
+
+def test_empty_float_data_shows_no_data_notice():
+    h = render_float_report({'module': 'float', 'name': 'Float Analysis', 'mgmt': {'stats': {'total': 0}}}, META)
+    assert 'assessable total float' in h.lower()
+    assert 'Float Health' not in h

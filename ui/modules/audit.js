@@ -105,9 +105,11 @@ export function renderAudit(auditModules) {
     const m = auditModules.modules[key];
     // Float shows its DCMA Float Health score + colour (no word-grade); others keep the grade dot.
     if (key === 'float' && m.mgmt) {
+      const hasData = ((m.mgmt.stats || {}).total || 0) > 0;
+      const dot = hasData ? `class="mt-dot ${scoreColor(m.mgmt.float_health)}"` : 'class="mt-dot" style="background:var(--muted)"';
       return `<button class="module-tab" data-module="float">
-        <span class="mt-dot ${scoreColor(m.mgmt.float_health)}"></span>${escapeHtml(m.name)}
-        <span class="mt-score">${m.mgmt.float_health}</span></button>`;
+        <span ${dot}></span>${escapeHtml(m.name)}
+        <span class="mt-score">${hasData ? m.mgmt.float_health : '—'}</span></button>`;
     }
     return `<button class="module-tab" data-module="${escapeHtml(key)}">
       <span class="mt-dot ${gradeClass(m.grade)}"></span>${escapeHtml(m.name)}
@@ -233,6 +235,15 @@ function fhDriver(label, sub, pct, maxPct, penalty, colorVar) {
 
 function renderFloatModule(m) {
   const g = m.mgmt || {};
+  const total = (g.stats || {}).total || 0;
+  if (!m.mgmt || !total) {
+    const msg = !m.mgmt
+      ? 'This schedule was imported before the Float dashboard was added — re-import it to see the management report.'
+      : 'No activities with assessable total float were found in this schedule.';
+    document.getElementById('module-body').innerHTML =
+      `<div class="fh-concl" style="border-left-color:var(--warning);margin-top:8px"><b>Float dashboard unavailable.</b><br>${escapeHtml(msg)}</div>`;
+    return;
+  }
   const stats = g.stats || {}, ind = g.indicators || {}, high = g.high || {}, neg = g.neg || {};
   const C = 326.7;
   const thr = ind.threshold ?? 44;
