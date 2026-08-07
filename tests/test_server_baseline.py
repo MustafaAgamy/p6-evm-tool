@@ -52,3 +52,11 @@ def test_baseline_upload_reweights_pv_to_baseline_budget(test_server, tmp_path):
     assert round(attached['pv'], 2) == 250.0
     # EV = baseline-weighted actual: A230 100%*100 + A240 0%*150 = 100
     assert round(attached['ev'], 2) == 100.0
+
+    # Removing the baseline reverts to the plain (approximate) numbers: PV back to the update's 200
+    cleared = _post(test_server, 'api/baseline/clear', {
+        'xml_path': str(up), 'cached_path': parsed.get('cached_path'),
+        'snapshot_id': parsed.get('snapshot_id'),
+    })
+    assert cleared['ok'], cleared.get('error')
+    assert round(cleared['pv'], 2) == 200.0
