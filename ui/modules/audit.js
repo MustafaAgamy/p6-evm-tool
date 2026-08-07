@@ -55,8 +55,10 @@ export function switchView(view) {
   document.getElementById('analysis-views').classList.remove('hidden');
   document.getElementById('evm-panel').classList.toggle('hidden', view !== 'evm');
   document.getElementById('audit-panel').classList.toggle('hidden', view !== 'audit');
+  document.getElementById('calendar-panel').classList.toggle('hidden', view !== 'calendar');
   document.getElementById('tab-evm').classList.toggle('active', view === 'evm');
   document.getElementById('tab-audit').classList.toggle('active', view === 'audit');
+  document.getElementById('tab-calendar').classList.toggle('active', view === 'calendar');
   // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
   document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
   document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');

@@ -3,6 +3,7 @@ import { initTheme, toggleTheme }            from './modules/theme.js';
 import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
+import { openHelp, closeHelp }                 from './modules/help.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,18 +15,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
   document.getElementById('sb-home-btn').addEventListener('click', () => {
+    closeHelp();
     loadAnother();
     loadHistory();
   });
 
+  document.getElementById('sb-help-btn').addEventListener('click', openHelp);
+
   document.getElementById('browse-btn').addEventListener('click', async () => {
     const path = await window.pywebview.api.choose_file();
-    if (path) importFile(path);
+    if (path) { closeHelp(); importFile(path); }
   });
 
   document.getElementById('xer-btn').addEventListener('click', async () => {
     const path = await window.pywebview.api.choose_file();
-    if (path) importFile(path);
+    if (path) { closeHelp(); importFile(path); }
   });
 
   document.getElementById('error-close').addEventListener('click', clearError);
@@ -39,12 +43,14 @@ document.addEventListener('DOMContentLoaded', () => {
     card.addEventListener('click', () => switchView(card.dataset.view)));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
-  // View tabs (EVM ⇄ Schedule Audit)
+  // View tabs (EVM ⇄ Schedule Audit ⇄ Calendar Audit)
   document.getElementById('tab-evm').addEventListener('click', () => switchView('evm'));
   document.getElementById('tab-audit').addEventListener('click', () => switchView('audit'));
+  document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {
+    closeHelp();
     if (state.currentResult) {
       switchView('audit');
       document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -73,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showError('Please drop a .xml or .xer file exported from Primavera P6.');
       return;
     }
+    closeHelp();
     importFile(file.path);
   });
 
@@ -87,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const origText = openBtn.textContent;
       openBtn.disabled = true;
       openBtn.textContent = '…';
+      closeHelp();
       try {
         await loadProject(projectId, filePath, cachedPath);
         document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
