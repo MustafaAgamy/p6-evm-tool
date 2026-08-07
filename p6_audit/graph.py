@@ -1,6 +1,8 @@
 class ScheduleGraph:
     def __init__(self, data):
         self.activities = data.activities
+        self.calendars = getattr(data, 'calendars', {}) or {}  # for working-day lag in suggestions
+        self.data_date = (getattr(data, 'project', None) or {}).get('data_date')  # update cut-off
         self._succ = {oid: [] for oid in self.activities}
         self._pred = {oid: [] for oid in self.activities}
         for rel in data.relationships:

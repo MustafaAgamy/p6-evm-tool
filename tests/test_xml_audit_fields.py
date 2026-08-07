@@ -1,4 +1,5 @@
 import textwrap
+from datetime import datetime
 from p6_evm.parser import parse_file
 
 
@@ -12,9 +13,10 @@ def _xml(tmp_path):
         <WBS><ObjectId>10</ObjectId><Name>Structure</Name><ParentObjectId></ParentObjectId></WBS>
         <Activity>
           <ObjectId>1001</ObjectId><Id>A230</Id><Name>Roof Steel</Name>
-          <Type>Task Dependent</Type><Status>Not Started</Status>
+          <Type>Task Dependent</Type><Status>In Progress</Status>
           <WBSObjectId>10</WBSObjectId><CalendarObjectId></CalendarObjectId>
-          <PercentComplete>0</PercentComplete>
+          <PercentComplete>40</PercentComplete>
+          <ActualStartDate>2026-07-20T08:00:00</ActualStartDate>
         </Activity>
         <Activity>
           <ObjectId>1002</ObjectId><Id>A240</Id><Name>Roof Cladding</Name>
@@ -41,3 +43,11 @@ def test_xml_relationships_and_type(tmp_path):
     ]
     assert data.activities['1001']['task_type'] == 'Task'
     assert data.activities['1002']['wbs_path'] == 'Structure'
+
+
+def test_xml_actual_dates_parsed(tmp_path):
+    data = parse_file(_xml(tmp_path))
+    # 1001 has an ActualStartDate and no ActualFinishDate; 1002 has neither
+    assert data.activities['1001']['actual_start'] == datetime(2026, 7, 20, 8, 0, 0)
+    assert data.activities['1001']['actual_finish'] is None
+    assert data.activities['1002']['actual_start'] is None

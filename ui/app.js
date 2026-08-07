@@ -31,17 +31,20 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('error-close').addEventListener('click', clearError);
   document.getElementById('load-another-btn').addEventListener('click', () => { loadAnother(); loadHistory(); });
   document.getElementById('pdf-btn').addEventListener('click', generatePdf);
-  document.getElementById('pdf-btn-audit').addEventListener('click', generateModulePdf);
-  document.getElementById('excel-btn').addEventListener('click', exportExcel);
+  document.getElementById('pdf-btn-audit').addEventListener('click', () => generateModulePdf());
+  document.getElementById('excel-btn').addEventListener('click', () => exportExcel());
+  document.getElementById('oos-pdf-btn').addEventListener('click', () => generateModulePdf('oos-pdf-btn'));
+  document.getElementById('oos-excel-btn').addEventListener('click', () => exportExcel('oos-excel-btn'));
 
   // Analysis chooser (shown after upload) → reveal the chosen view
   document.querySelectorAll('.chooser-card').forEach(card =>
     card.addEventListener('click', () => switchView(card.dataset.view)));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
-  // View tabs (EVM ⇄ Schedule Audit)
+  // View tabs (EVM ⇄ Schedule Audit ⇄ Out of Sequence)
   document.getElementById('tab-evm').addEventListener('click', () => switchView('evm'));
   document.getElementById('tab-audit').addEventListener('click', () => switchView('audit'));
+  document.getElementById('tab-oos').addEventListener('click', () => switchView('oos'));
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {

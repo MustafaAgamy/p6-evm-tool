@@ -87,9 +87,10 @@ function moduleMeta() {
   };
 }
 
-export async function exportExcel() {
+export async function exportExcel(btnId = 'excel-btn') {
   if (!state.currentSnapshotId || !state.currentModule) { showError('Open a schedule and pick a module first.'); return; }
-  const btn = new ButtonState(document.getElementById('excel-btn'), 'Export Module to Excel');
+  const _el = document.getElementById(btnId);
+  const btn = new ButtonState(_el, _el ? _el.textContent : 'Export to Excel');
   btn.loading('Exporting…');
   try {
     const outputPath = await window.pywebview.api.choose_save_path(`${state.currentModule}_findings.xlsx`, 'xlsx');
@@ -107,9 +108,10 @@ export async function exportExcel() {
   }
 }
 
-export async function generateModulePdf() {
+export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   if (!state.currentSnapshotId || !state.currentModule) { showError('Open a schedule and pick a module first.'); return; }
-  const btn = new ButtonState(document.getElementById('pdf-btn-audit'), 'Generate Module PDF');
+  const _el = document.getElementById(btnId);
+  const btn = new ButtonState(_el, _el ? _el.textContent : 'Generate PDF');
   btn.loading('Preparing preview…');
   const reqBody = { snapshot_id: state.currentSnapshotId, module: state.currentModule, meta: moduleMeta() };
   try {
