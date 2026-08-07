@@ -178,6 +178,10 @@ def _verdict(m):
 
 def render_module_report(module_result, meta):
     m = module_result
+    # Float Analysis has its own management-dashboard layout (V2 redesign).
+    if m.get('module') == 'float':
+        from p6_audit.float_report import render_float_report
+        return render_float_report(m, meta)
     name = m.get('name', 'Schedule Audit')
     subtitle = ('Open / Broken Logic Assessment' if m['module'] == 'dangling'
                 else 'Excessive Total Float Assessment')
