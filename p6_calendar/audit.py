@@ -269,10 +269,16 @@ def calendar_audit(data, config=None, settings=None):
     manual = _normalise_manual(settings.get('manual_shutdowns', []))
 
     cals = data.calendars
-    start, finish = _project_window(data)
-    if not start or not finish or finish < start:
+    cstart, cfinish = _project_window(data)      # current schedule window (fallback)
+    bstart, bfinish = _baseline_window(data)     # baseline window — the report's window
+    start = bstart or cstart
+    fin_exact = bfinish or cfinish
+    if not start or not fin_exact or fin_exact < start:
         # Degrade gracefully: no usable dates.
-        start = finish = _to_date(data.project.get('data_date')) or date.today()
+        start = fin_exact = _to_date(data.project.get('data_date')) or date.today()
+    # Ibrahim's rule: the calendar runs from Baseline Start to Baseline Finish, shown in
+    # FULL months — so a baseline finishing 09 Feb still shows the whole of February.
+    finish = _month_last_day(fin_exact.year, fin_exact.month)
 
     # Usage counts
     usage_count = {}
@@ -321,14 +327,15 @@ def calendar_audit(data, config=None, settings=None):
                       + sum(s['days'] for s in prim_exc['shutdowns'])
                       + sum(s['days'] for s in prim_exc['special']))
     wd = prim_totals['working_days']
-    bstart, bfinish = _baseline_window(data)
 
     dashboard = {
-        'project_start': _iso(start),
-        'project_finish': _iso(finish),
+        'project_start': _iso(cstart or start),
+        'project_finish': _iso(cfinish or fin_exact),
         'data_date': _iso(_to_date(data.project.get('data_date'))),
         'baseline_start': _iso(bstart),
         'baseline_finish': _iso(bfinish),
+        'window_start': _iso(start),
+        'window_finish': _iso(finish),
         'total_calendar_days': total_calendar_days,
         'total_working_days': wd,
         'total_nonworking_days': prim_totals['nonworking_days'],

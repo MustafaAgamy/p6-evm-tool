@@ -429,6 +429,13 @@ def save_baseline(snapshot_id, baseline_path):
                      (snapshot_id, _json.dumps(extras, default=str)))
 
 
+def get_project_id_for_snapshot(snapshot_id):
+    with get_conn() as conn:
+        row = conn.execute('SELECT project_id FROM snapshots WHERE id = ?',
+                           (snapshot_id,)).fetchone()
+    return row['project_id'] if row else None
+
+
 def save_calendar_audit(snapshot_id, result):
     """Store the Calendar Audit result (JSON) for a snapshot."""
     with get_conn() as conn:

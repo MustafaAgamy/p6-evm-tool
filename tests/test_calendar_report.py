@@ -45,7 +45,7 @@ def _result(tmp_path):
 def test_report_has_sections_in_order(tmp_path):
     html = render_calendar_report(_result(tmp_path), META)
     order = ['Executive Dashboard', 'Calendar Timeline', 'Monthly Calendar Statistics',
-             'Monthly Calendar View', 'Calendar Exceptions', 'Working Hours Profile',
+             'Calendar Exceptions', 'Working Hours Profile',
              'Calendar Comparison', 'Calendar Usage', 'Calendar Conflicts', 'Executive Conclusion']
     pos = [html.find(s) for s in order]
     assert all(p != -1 for p in pos), pos
@@ -58,3 +58,20 @@ def test_report_is_html_and_has_content(tmp_path):
     assert 'Test' in html                       # project name
     assert 'Shutdowns' in html                  # exception group
     assert '90' in html                         # total calendar days
+    assert 'Monthly Calendar View' not in html  # merged into the Timeline (no duplicate)
+
+
+def test_report_weather_section_only_when_provided(tmp_path):
+    result = _result(tmp_path)
+    assert 'Weather Impact' not in render_calendar_report(result, META)   # none by default
+    weather = {
+        'expected_bad_days_total': 12, 'net_finish_delay': 5,
+        'weather_adjusted_finish': '2025-04-07', 'bad_days': [], 'monthly': [],
+        'milestones': [{'name': 'M1', 'planned': '2025-03-01', 'bad_days_before': 3,
+                        'already_allowed': 1, 'net_delay': 2, 'adjusted': '2025-03-05'}],
+        'recovery': [{'period': 'M1', 'days': 2, 'option_longer_days': 'longer',
+                      'option_extra_days': 'weekends', 'option_shift': 'shift'}],
+    }
+    html = render_calendar_report(result, META, weather=weather)
+    assert 'Weather Impact' in html and 'Milestone Impact' in html
+    assert 'Recovery Recommendations' in html
