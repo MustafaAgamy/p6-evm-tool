@@ -1,6 +1,6 @@
 /** Unit tests for pure helpers in ui/modules/evm.js — run: node tests/js/test_evm.js */
 import assert from 'node:assert/strict';
-import { egp, egpExact, asPct, spiStatus, overallProgress, projectProgress, sourceType, sourceName } from '../../ui/modules/evm.js';
+import { egp, egpExact, asPct, spiStatus, overallProgress, projectProgress, sourceType, sourceName, baselineBannerState } from '../../ui/modules/evm.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -64,6 +64,33 @@ test('no extension → dash', () => assert.equal(sourceType('C:\\folder\\noext')
 test('empty → dash', () => assert.equal(sourceType(''), '—'));
 test('name from win path', () => assert.equal(sourceName('C:\\a\\b\\Alstom.xml'), 'Alstom.xml'));
 test('name from posix path', () => assert.equal(sourceName('/a/b/Update.xer'), 'Update.xer'));
+
+console.log('\nbaselineBannerState (attach-baseline prompt)');
+test('XER without baseline → amber attach', () => {
+  const s = baselineBannerState({ isXer: true, attachedName: null });
+  assert.equal(s.cls, 'warn');
+  assert.deepEqual(s.actions, ['attach']);
+});
+test('attached → green with matched count', () => {
+  const s = baselineBannerState({ isXer: true, attachedName: 'BL.xer', matched: 1236, total: 1240 });
+  assert.equal(s.cls, 'ok');
+  assert.ok(s.title.includes('1236/1240 matched'));
+  assert.deepEqual(s.actions, ['replace', 'remove']);
+});
+test('attached without count → green, no count text', () => {
+  const s = baselineBannerState({ isXer: true, attachedName: 'BL.xer' });
+  assert.equal(s.cls, 'ok');
+  assert.ok(!s.title.includes('matched'));
+});
+test('XML (embedded baseline) → no banner', () => {
+  assert.equal(baselineBannerState({ isXer: false, attachedName: null }), null);
+});
+test('attached but 0 matched → amber mismatch warning, not green', () => {
+  const s = baselineBannerState({ isXer: true, attachedName: 'WRONG.xer', matched: 0, total: 1240 });
+  assert.equal(s.cls, 'warn');
+  assert.ok(s.title.toLowerCase().includes('no activities matched'));
+  assert.deepEqual(s.actions, ['replace', 'remove']);
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

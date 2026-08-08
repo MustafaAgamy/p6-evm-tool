@@ -584,6 +584,24 @@ body {
 .src-chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
 .src-chip.p6 { background: rgba(251,191,36,.15); color: var(--warning); }
 .src-chip.on { background: rgba(74,222,128,.15); color: var(--success); }
+
+/* Baseline banner — prompts to attach a baseline to a XER update, then confirms the match.
+   Amber = approximate (no baseline); green = attached (matches P6). Self-contained colours so
+   it reads the same in dark and light themes (a warning should stand out on either). */
+.evm-baseline-banner { display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+  border-radius: 10px; margin: 0 0 16px; font-size: 13px; line-height: 1.45; }
+.evm-baseline-banner:empty { display: none; }
+.evm-baseline-banner .bnr-ic { font-size: 18px; flex-shrink: 0; }
+.evm-baseline-banner .bnr-txt { flex: 1; }
+.evm-baseline-banner .bnr-actions { flex-shrink: 0; white-space: nowrap; }
+.evm-baseline-banner.warn { background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; }
+.evm-baseline-banner.ok   { background: #dcfce7; border: 1px solid #16a34a; color: #166534; }
+.evm-baseline-banner.busy { background: var(--card-bg); border: 1px solid var(--border); color: var(--muted); }
+.evm-bnr-btn { padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 700;
+  cursor: pointer; border: 1px solid currentColor; background: transparent; color: inherit; }
+.evm-bnr-btn.primary { background: #f59e0b; border-color: #f59e0b; color: #3b2606; }
+.evm-bnr-btn + .evm-bnr-btn { margin-left: 6px; }
+
 .evm-empty { color: var(--muted); font-size: 12px; font-style: italic; padding: 8px 0; }
 .evm-note { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
 

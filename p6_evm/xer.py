@@ -1,6 +1,7 @@
 from datetime import datetime
 from p6_evm.parser import ScheduleData, full_wbs_path
 from p6_evm.calendars import Calendar
+from p6_evm.clndr import parse_clndr_data
 
 TASK_TYPE = {'TT_Task': 'Task', 'TT_Mile': 'StartMilestone', 'TT_FinMile': 'FinishMilestone',
              'TT_LOE': 'LOE', 'TT_WBS': 'WBSSummary', 'TT_Rsrc': 'ResourceDependent'}
@@ -108,9 +109,22 @@ def parse_xer(path):
 
     for c in tables.get('CALENDAR', []):
         oid = c.get('clndr_id')
+        # Read the working week + holidays from clndr_data so working-time math (Planned%,
+        # Delay) matches the XML path. Falls back to a bare (whole-day) calendar on any parse
+        # miss, preserving the prior behaviour.
+        cd = {}
+        try:
+            cd = parse_clndr_data(c.get('clndr_data'))
+        except Exception:
+            cd = {}
         data.calendars[oid] = Calendar(
             object_id=oid, name=c.get('clndr_name'),
             day_hours=_num(c.get('day_hr_cnt'), 8.0) or 8.0,
+            nonworking_days=cd.get('nonworking_days') or set(),
+            holidays=cd.get('holidays') or set(),
+            added_work_days=cd.get('added_work_days') or set(),
+            work_intervals=cd.get('work_intervals') or {},
+            exception_intervals=cd.get('exception_intervals') or {},
         )
 
     # Only import WBS nodes belonging to this project
