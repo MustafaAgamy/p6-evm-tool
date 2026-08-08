@@ -87,6 +87,38 @@ def test_recovery_recommendations_present():
     assert rec.get('option_longer_days') and rec.get('option_extra_days')
 
 
+def test_weather_inputs_from_schedule(tmp_path):
+    import textwrap
+    from p6_evm.parser import parse_file
+    from p6_calendar.weather import weather_inputs
+    xml = textwrap.dedent('''\
+    <?xml version="1.0"?>
+    <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
+      <Calendar><ObjectId>C1</ObjectId><Name>6d</Name><IsDefault>true</IsDefault>
+        <StandardWorkWeek><StandardWorkHours><DayOfWeek>Friday</DayOfWeek></StandardWorkHours></StandardWorkWeek>
+      </Calendar>
+      <Project><ObjectId>1</ObjectId><Id>P</Id><Name>P</Name>
+        <DataDate>2025-02-01T00:00:00</DataDate><ScheduledFinishDate>2025-12-31T00:00:00</ScheduledFinishDate>
+        <WBS><ObjectId>10</ObjectId><Name>Construction Works</Name><ParentObjectId></ParentObjectId></WBS>
+        <WBS><ObjectId>20</ObjectId><Name>Engineering</Name><ParentObjectId></ParentObjectId></WBS>
+        <Activity><ObjectId>A1</ObjectId><Id>A1</Id><Name>Pour</Name><Status>Not Started</Status>
+          <CalendarObjectId>C1</CalendarObjectId><WBSObjectId>10</WBSObjectId><PercentComplete>0</PercentComplete>
+          <PlannedFinishDate>2025-06-01T00:00:00</PlannedFinishDate></Activity>
+        <Activity><ObjectId>A2</ObjectId><Id>A2</Id><Name>Design work</Name><Status>Not Started</Status>
+          <Type>Task Dependent</Type><CalendarObjectId>C1</CalendarObjectId><WBSObjectId>20</WBSObjectId><PercentComplete>0</PercentComplete></Activity>
+        <Activity><ObjectId>M1</ObjectId><Id>M1</Id><Name>Foundations complete</Name><Type>Finish Milestone</Type>
+          <Status>Not Started</Status><CalendarObjectId>C1</CalendarObjectId><WBSObjectId>10</WBSObjectId>
+          <PercentComplete>0</PercentComplete><PlannedFinishDate>2025-06-15T00:00:00</PlannedFinishDate></Activity>
+      </Project>
+    </APIBusinessObjects>
+    ''')
+    p = tmp_path / 's.xml'; p.write_text(xml, encoding='utf-8')
+    inp = weather_inputs(parse_file(str(p)))
+    assert 'C1' in inp['construction_cal_ids']       # construction activity uses C1
+    assert any(m['name'] == 'Foundations complete' for m in inp['milestones'])
+    assert inp['project_finish'] == date(2025, 12, 31)
+
+
 def test_no_location_no_construction_is_safe():
     # No construction calendars → no impact, empty lists, zero delay.
     r = _impact(construction_cal_ids=set())

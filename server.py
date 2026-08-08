@@ -58,6 +58,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_calendar_report(body)
         elif self.path == '/api/export/calendar_excel':
             self._handle_calendar_excel(body)
+        elif self.path == '/api/geocode':
+            self._handle_geocode(body)
+        elif self.path == '/api/weather':
+            self._handle_weather(body)
+        elif self.path == '/api/calendar/settings':
+            self._handle_calendar_settings(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -655,6 +661,93 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/geocode ───────────────────────────────────────────────────────
+    def _handle_geocode(self, body):
+        """Search a place name → coordinates, via OpenStreetMap Nominatim (server-side,
+        so it carries a proper User-Agent and dodges browser CORS). Free, no key."""
+        q = (body.get('q') or '').strip()
+        if not q:
+            self._json(200, {'ok': False, 'error': 'Type a place to search.'})
+            return
+        try:
+            import urllib.request, urllib.parse
+            url = 'https://nominatim.openstreetmap.org/search?' + urllib.parse.urlencode(
+                {'q': q, 'format': 'json', 'limit': 5})
+            req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                data = json.loads(r.read().decode())
+            results = [{'name': x.get('display_name'), 'lat': float(x['lat']), 'lon': float(x['lon'])}
+                       for x in data]
+            self._json(200, {'ok': True, 'results': results})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': f'Search failed (offline?): {exc}'})
+
+    # ── /api/weather ───────────────────────────────────────────────────────
+    def _handle_weather(self, body):
+        """Compute the Weather Impact for a location. Re-parses the schedule (needs
+        construction calendars + milestones), fetches historical/forecast weather,
+        and returns the estimate. Saves the location per project. Network failures
+        degrade to an empty (zero-impact) estimate rather than an error."""
+        lat, lon = body.get('lat'), body.get('lon')
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if lat is None or lon is None:
+            self._json(200, {'ok': False, 'error': 'No project location set.'})
+            return
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import the file.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_calendar.weather import weather_inputs, build_daily_weather, weather_impact
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            data = parse_file(resolved)
+            inp = weather_inputs(data)
+            if not inp['data_date'] or not inp['project_finish']:
+                self._json(200, {'ok': False, 'error': 'Schedule has no usable start/finish dates.'})
+                return
+            daily, horizon = build_daily_weather(lat, lon, inp['data_date'], inp['project_finish'])
+            wx = weather_impact(**inp, daily_weather=daily, forecast_horizon=horizon,
+                                thresholds=config.get('weather_thresholds'))
+            location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
+            sid = body.get('snapshot_id')
+            pid = db.get_project_id_for_snapshot(sid) if sid else None
+            if pid:
+                db.save_project_settings(pid, {'location': location})
+            self._json(200, {'ok': True, 'weather': wx, 'location': location,
+                             'offline': not daily})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/calendar/settings ─────────────────────────────────────────────
+    def _handle_calendar_settings(self, body):
+        """Persist per-project Calendar Audit settings (location / manual shutdowns /
+        shutdown reasons) and recompute the calendar audit so the changes show at once."""
+        sid = body.get('snapshot_id')
+        pid = db.get_project_id_for_snapshot(sid) if sid else None
+        if not pid:
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        patch = {k: body[k] for k in ('location', 'manual_shutdowns', 'shutdown_reasons')
+                 if body.get(k) is not None}
+        settings = db.save_project_settings(pid, patch)
+        ca = None
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if resolved:
+            try:
+                sys.path.insert(0, resource_path('.'))
+                from p6_evm.parser import parse_file
+                from p6_calendar import calendar_audit
+                with open(resource_path('config.json')) as f:
+                    config = json.load(f)
+                ca = calendar_audit(parse_file(resolved), config, settings)
+                if sid:
+                    db.save_calendar_audit(sid, ca)
+            except Exception as cexc:
+                print(f'[calendar] settings recompute skipped: {cexc}', file=sys.stderr)
+        self._json(200, {'ok': True, 'settings': settings, 'calendar_audit': ca})
 
     # ── /api/history ───────────────────────────────────────────────────────
     def _handle_history(self):

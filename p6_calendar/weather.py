@@ -165,6 +165,44 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     }
 
 
+def weather_inputs(data):
+    """Derive the schedule-side inputs weather_impact needs, from a parsed ScheduleData:
+    construction calendars (activities whose WBS phase means 'Construction'), milestone
+    activities, the data date and the project finish. Pure (no network)."""
+    from p6_evm.classify import build_wbs_classifier, classify_wbs_name
+    from p6_evm.metrics import wbs_ancestor_names
+    classify = build_wbs_classifier(data)
+
+    construction_cal_ids = set()
+    for a in data.activities.values():
+        phase = classify(wbs_ancestor_names(a.get('wbs_id'), data.wbs))
+        if classify_wbs_name(phase) == 'Construction':
+            cid = a.get('calendar_id')
+            if cid and cid in data.calendars:
+                construction_cal_ids.add(cid)
+
+    milestones = []
+    for a in data.activities.values():
+        if a.get('task_type') in ('FinishMilestone', 'StartMilestone'):
+            d = a.get('planned_finish') or a.get('planned_start')
+            if d:
+                milestones.append({'name': a.get('name') or a.get('id'),
+                                   'date': _to_date(d), 'cal_id': a.get('calendar_id')})
+    milestones.sort(key=lambda m: m['date'])
+
+    finishes = [_to_date(a['planned_finish']) for a in data.activities.values()
+                if a.get('planned_finish')]
+    project_finish = (_to_date(data.project.get('scheduled_finish'))
+                      or (max(finishes) if finishes else None))
+    return {
+        'calendars': data.calendars,
+        'construction_cal_ids': construction_cal_ids,
+        'milestones': milestones,
+        'data_date': _to_date(data.project.get('data_date')) if data.project.get('data_date') else None,
+        'project_finish': project_finish,
+    }
+
+
 # ── network (Open-Meteo, free / no key) — isolated, not unit-tested ───────────
 
 _ARCHIVE = 'https://archive-api.open-meteo.com/v1/archive'

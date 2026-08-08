@@ -122,6 +122,44 @@ def test_primary_and_assigned_calendars(tmp_path):
     assert 'C1' in r['by_calendar'] and 'C2' in r['by_calendar']
 
 
+def test_window_is_baseline_and_full_months(tmp_path):
+    """Calendar window = baseline start → baseline finish, shown in FULL months
+    (baseline finishing 09 Feb 2027 → window ends 28 Feb 2027)."""
+    import textwrap
+    content = textwrap.dedent('''\
+    <?xml version="1.0"?>
+    <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
+      <Calendar><ObjectId>C1</ObjectId><Name>5d</Name><IsDefault>true</IsDefault>
+        <StandardWorkWeek><StandardWorkHours><DayOfWeek>Friday</DayOfWeek></StandardWorkHours>
+        <StandardWorkHours><DayOfWeek>Saturday</DayOfWeek></StandardWorkHours></StandardWorkWeek></Calendar>
+      <Project><ObjectId>1</ObjectId><Id>P</Id><Name>P</Name><DataDate>2026-06-01T00:00:00</DataDate>
+        <PlannedStartDate>2025-12-20T00:00:00</PlannedStartDate>
+        <ScheduledFinishDate>2027-03-15T00:00:00</ScheduledFinishDate>
+        <WBS><ObjectId>10</ObjectId><Name>Construction</Name><ParentObjectId></ParentObjectId></WBS>
+        <Activity><ObjectId>A1</ObjectId><Id>A1</Id><Name>a</Name><Status>Not Started</Status>
+          <CalendarObjectId>C1</CalendarObjectId><WBSObjectId>10</WBSObjectId><PercentComplete>0</PercentComplete>
+          <PlannedStartDate>2025-12-20T00:00:00</PlannedStartDate>
+          <PlannedFinishDate>2027-03-15T00:00:00</PlannedFinishDate></Activity>
+      </Project>
+      <BaselineProject>
+        <Activity><Id>A1</Id><PlannedStartDate>2025-12-11T00:00:00</PlannedStartDate>
+          <PlannedFinishDate>2027-02-09T00:00:00</PlannedFinishDate></Activity>
+      </BaselineProject>
+    </APIBusinessObjects>
+    ''')
+    p = tmp_path / "s.xml"; p.write_text(content, encoding='utf-8')
+    r = calendar_audit(parse_file(str(p)), {}, {})
+    d = r['dashboard']
+    assert d['baseline_start'] == '2025-12-11'
+    assert d['baseline_finish'] == '2027-02-09'          # exact baseline finish shown
+    assert d['window_start'] == '2025-12-11'             # window starts at baseline start
+    assert d['window_finish'] == '2027-02-28'           # full final month (Feb 2027)
+    # months span Dec 2025 … Feb 2027, last month = Feb 2027
+    months = r['by_calendar'][r['primary_calendar_id']]['monthly_stats']
+    assert months[0]['label'].startswith('Dec 2025')
+    assert months[-1]['label'].startswith('Feb 2027')
+
+
 def test_conclusion_bullets(tmp_path):
     r = _run(tmp_path)
     concl = r['conclusion']
