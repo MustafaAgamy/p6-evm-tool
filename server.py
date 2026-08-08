@@ -203,9 +203,11 @@ class Handler(BaseHTTPRequestHandler):
                 settings = db.get_project_settings(pid)
                 cal_result = calendar_audit(data, config, settings)
                 safe_result['calendar_audit'] = cal_result
+                safe_result['calendar_settings'] = settings
                 db.save_calendar_audit(sid, cal_result)
             except Exception as cal_exc:
                 safe_result['calendar_audit'] = None
+                safe_result['calendar_settings'] = {}
                 print(f'[calendar] skipped: {cal_exc}', file=sys.stderr)
             db.save_evm_extras(sid, {
                 'engineering_p6': safe_result.get('engineering_p6', []),
@@ -312,6 +314,7 @@ class Handler(BaseHTTPRequestHandler):
         original_path = result.pop('_original_path', None)
         result['audit_modules'] = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
         result['calendar_audit'] = db.get_calendar_audit(snapshot_id) if snapshot_id else None
+        result['calendar_settings'] = db.get_project_settings(project_id) or {}
         extras = (db.get_evm_extras(snapshot_id) or {}) if snapshot_id else {}
         result['engineering_p6'] = extras.get('engineering_p6', [])
         result['activity_code_types'] = extras.get('activity_code_types', [])

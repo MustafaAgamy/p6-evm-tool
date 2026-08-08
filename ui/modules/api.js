@@ -192,6 +192,36 @@ export async function exportCalendarExcel() {
   }
 }
 
+// ── Calendar Audit — weather / location / settings ────────────────────────
+export async function geocodePlace(q) {
+  try {
+    return await apiFetch('api/geocode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q }),
+    });
+  } catch { return { ok: false, error: 'offline' }; }
+}
+
+export async function computeWeather(lat, lon, placeName) {
+  return apiFetch('api/weather', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      snapshot_id: state.currentSnapshotId, xml_path: state.currentXmlPath,
+      cached_path: state.currentCachedPath, lat, lon, place_name: placeName,
+    }),
+  });
+}
+
+export async function saveCalendarSettings(patch) {
+  return apiFetch('api/calendar/settings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      snapshot_id: state.currentSnapshotId, xml_path: state.currentXmlPath,
+      cached_path: state.currentCachedPath, ...patch,
+    }),
+  });
+}
+
 export async function generateCalendarPdf() {
   if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
   const btn = new ButtonState(document.getElementById('cal-pdf-btn'), 'Generate Calendar Audit PDF');

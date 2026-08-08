@@ -58,11 +58,16 @@ def bad_weather_days(daily_weather, thresholds=None):
 # ── impact ───────────────────────────────────────────────────────────────────
 
 def _to_date(x):
+    if x is None:
+        return None
     if isinstance(x, datetime):
         return x.date()
     if isinstance(x, date):
         return x
-    return datetime.fromisoformat(str(x)[:10]).date()
+    try:
+        return datetime.fromisoformat(str(x)[:10]).date()
+    except ValueError:
+        return None
 
 
 def _shift_working_days(cal, start, n):
