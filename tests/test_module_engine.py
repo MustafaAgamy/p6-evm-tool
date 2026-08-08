@@ -22,10 +22,10 @@ def _data():
 
 def test_returns_isolated_modules():
     out = audit_modules(_data(), CONFIG)
-    assert set(out['modules'].keys()) == {'dangling', 'float'}
-    assert out['module_order'] == ['dangling', 'float']
+    assert set(out['modules'].keys()) == {'dangling', 'float', 'out_of_sequence'}
+    assert out['module_order'] == ['dangling', 'float', 'out_of_sequence']
     # each module carries its own score/grade/findings/kpis — nothing shared
-    for key in ('dangling', 'float'):
+    for key in ('dangling', 'float', 'out_of_sequence'):
         m = out['modules'][key]
         assert 'score' in m and 'grade' in m and 'kpis' in m and 'findings' in m
     # float found the 90-day activity

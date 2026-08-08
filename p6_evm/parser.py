@@ -163,11 +163,14 @@ def parse_file(path) -> ScheduleData:
                 else:
                     holidays.add(d.date())
         hours_raw = text(cal_el, 'HoursPerDay')
+        cal_type = (text(cal_el, 'Type') or '').replace('Calendar', '').strip()  # 'Global'/'Project'/'Resource'
+        is_default = (text(cal_el, 'IsDefault') or '').strip().lower() in ('true', '1', 'yes')
         data.calendars[object_id] = Calendar(
             object_id=object_id, name=name, nonworking_days=nonworking,
             holidays=holidays, added_work_days=added_work,
             day_hours=parse_float(hours_raw, 8.0) or 8.0,
             work_intervals=work_intervals, exception_intervals=exception_intervals,
+            type=cal_type, is_default=is_default,
         )
 
     project_el = root.find(tag('Project'))
@@ -179,6 +182,13 @@ def parse_file(path) -> ScheduleData:
         'name': text(project_el, 'Name'),
         'data_date': parse_datetime(text(project_el, 'DataDate')),
         'baseline_object_id': text(project_el, 'CurrentBaselineProjectObjectId'),
+        # Calendar Audit: project window (additive). P6 exports vary — take the first present.
+        'planned_start': parse_datetime(
+            text(project_el, 'PlannedStartDate') or text(project_el, 'StartDate')
+            or text(project_el, 'AnticipatedStartDate')),
+        'scheduled_finish': parse_datetime(
+            text(project_el, 'ScheduledFinishDate') or text(project_el, 'FinishDate')
+            or text(project_el, 'AnticipatedFinishDate') or text(project_el, 'MustFinishByDate')),
     }
 
     for wbs_el in project_el.findall(tag('WBS')):
@@ -251,6 +261,10 @@ def parse_file(path) -> ScheduleData:
         act['constraint_date'] = parse_datetime(text(act_el, 'PrimaryConstraintDate'))
         act['activity_codes'] = _activity_codes(act_el)
         act['wbs_path'] = full_wbs_path(act['wbs_id'], data.wbs)
+        # Actual progress dates — needed by the Out-of-Sequence audit to compare
+        # execution against network logic. Additive; EVM keys above are untouched.
+        act['actual_start'] = parse_datetime(text(act_el, 'ActualStartDate'))
+        act['actual_finish'] = parse_datetime(text(act_el, 'ActualFinishDate'))
 
     # Dimensions actually assigned to this project's activities (for the gap dropdown)
     data.activity_code_types = sorted(

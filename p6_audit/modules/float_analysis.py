@@ -7,6 +7,7 @@ Score from Float % (activities above threshold / total activities) on the curve.
 from collections import defaultdict
 from p6_audit.findings import content_id
 from p6_audit.scoring import module_score, grade_for_pct
+from p6_audit.modules.float_management import float_management
 
 MODULE = 'float'
 NAME = 'Float Analysis'
@@ -100,4 +101,6 @@ def run_float(graph, config):
         'grade': grade_for_pct(float_pct),
         'findings': findings,
         'wbs_summary': wbs_summary,
+        # V2 management-dashboard layer (calculation engine above is unchanged)
+        'mgmt': float_management(graph, config),
     }

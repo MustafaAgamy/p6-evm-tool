@@ -163,12 +163,56 @@ def test_parse_returns_modules_and_snapshot(test_server, xml_path):
     assert data['ok'] is True
     assert 'snapshot_id' in data and isinstance(data['snapshot_id'], int)
     am = data['result']['audit_modules']
-    assert set(am['modules'].keys()) == {'dangling', 'float'}
-    assert am['module_order'] == ['dangling', 'float']
+    assert set(am['modules'].keys()) == {'dangling', 'float', 'out_of_sequence'}
+    assert am['module_order'] == ['dangling', 'float', 'out_of_sequence']
     # minimal.xml has two unlinked activities -> dangling module finds them
     assert am['modules']['dangling']['kpis']['total_dangling'] >= 1
     # each module carries its own isolated score/grade
     assert 'score' in am['modules']['float'] and 'grade' in am['modules']['float']
+
+
+def test_parse_returns_calendar_audit(test_server, xml_path):
+    _, data = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    assert data['ok'] is True
+    ca = data['result'].get('calendar_audit')
+    assert ca is not None
+    assert 'dashboard' in ca and 'usage' in ca and 'conflicts' in ca
+    assert ca['dashboard']['total_calendar_days'] >= 1
+
+
+def test_calendar_report_preview_returns_html(test_server, xml_path):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    sid = parsed['snapshot_id']
+    _, data = _post_json(test_server, '/api/report/calendar',
+                         {'snapshot_id': sid, 'preview': True, 'meta': {'project_name': 'X'}})
+    assert data['ok'] is True
+    assert '<!DOCTYPE html>' in data['html']
+    assert 'Executive Dashboard' in data['html']
+
+
+def test_calendar_excel_writes_file(test_server, xml_path, tmp_path):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    sid = parsed['snapshot_id']
+    out = str(tmp_path / 'calendar.xlsx')
+    _, data = _post_json(test_server, '/api/export/calendar_excel',
+                         {'snapshot_id': sid, 'output_path': out})
+    assert data['ok'] is True
+    import os
+    assert os.path.exists(out)
+
+
+def test_calendar_report_missing_output(test_server):
+    _, data = _post_json(test_server, '/api/report/calendar', {'snapshot_id': 1})
+    assert data['ok'] is False
+
+
+def test_project_load_returns_calendar_audit(test_server, xml_path):
+    _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    _, _, body = _get(test_server, '/api/history')
+    project_id = json.loads(body)[0]['project_id']
+    _, data = _post_json(test_server, '/api/project/load', {'project_id': project_id})
+    assert data['ok'] is True
+    assert data['result'].get('calendar_audit') is not None
 
 
 def test_parse_returns_evm_extras(test_server, xml_path):

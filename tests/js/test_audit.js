@@ -3,7 +3,8 @@
  * Run: node tests/js/test_audit.js
  */
 import assert from 'node:assert/strict';
-import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass }
+import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
+         oosPillClass, oosCritLabel, barPct }
   from '../../ui/modules/audit.js';
 
 let passed = 0, failed = 0;
@@ -47,6 +48,15 @@ test('score amber',     () => assert.equal(scoreColor(70), 'color-amber'));
 test('score red',       () => assert.equal(scoreColor(40), 'color-red'));
 test('gauge full at 0',  () => assert.equal(gaugeDashoffset(0, 100), 100));
 test('gauge empty at 100', () => assert.equal(gaugeDashoffset(100, 100), 0));
+
+console.log('\nFloat Health gauge (barPct + colour boundaries)');
+test('barPct caps at 100',    () => assert.equal(barPct(21.6, 20), 100));
+test('barPct proportional',   () => assert.equal(barPct(1.2, 5), 24));
+test('barPct zero',           () => assert.equal(barPct(0, 10), 0));
+test('barPct guards max=0',   () => assert.equal(barPct(5, 0), 100));
+test('fh colour 85 → green',  () => assert.equal(scoreColor(85), 'color-green'));
+test('fh colour 60 → amber',  () => assert.equal(scoreColor(60), 'color-amber'));
+test('fh colour 59 → red',    () => assert.equal(scoreColor(59), 'color-red'));
 test('unique checks sorted', () => assert.deepEqual(uniqueValues(F, 'check_name'),
      ['Circular Logic', 'Float Analysis', 'Open Ends']));
 
@@ -57,6 +67,16 @@ test('shortWbs empty',          () => assert.equal(shortWbs(''), ''));
 test('gradeClass excellent',    () => assert.equal(gradeClass('Excellent'), 'g-exc'));
 test('gradeClass critical',     () => assert.equal(gradeClass('Critical'), 'g-crit'));
 test('gradeClass needs',        () => assert.equal(gradeClass('Needs Attention'), 'g-need'));
+
+console.log('\nOut of Sequence review-log cells');
+test('pill change',        () => assert.equal(oosPillClass('change'), 'change'));
+test('pill remove',        () => assert.equal(oosPillClass('remove'), 'remove'));
+test('pill same → same',   () => assert.equal(oosPillClass('same'), 'same'));
+test('pill na → na',       () => assert.equal(oosPillClass('na'), 'na'));
+test('pill unknown → change', () => assert.equal(oosPillClass('???'), 'change'));
+test('crit label',         () => assert.equal(oosCritLabel('Critical'), 'Critical'));
+test('near label',         () => assert.equal(oosCritLabel('Near-Critical'), 'Near-Critical'));
+test('normal label dash',  () => assert.equal(oosCritLabel(''), '—'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

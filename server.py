@@ -56,6 +56,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_baseline_clear(body)
         elif self.path == '/api/report/evm':
             self._handle_evm_report(body)
+        elif self.path == '/api/report/calendar':
+            self._handle_calendar_report(body)
+        elif self.path == '/api/export/calendar_excel':
+            self._handle_calendar_excel(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -188,6 +192,17 @@ class Handler(BaseHTTPRequestHandler):
             db.insert_category_metrics(sid, result.get('categories'))
             if audit_modules_result is not None:
                 db.insert_audit_modules(sid, audit_modules_result)
+
+            # ── Calendar Audit — isolated, never breaks EVM import ──────────
+            try:
+                from p6_calendar import calendar_audit
+                settings = db.get_project_settings(pid)
+                cal_result = calendar_audit(data, config, settings)
+                safe_result['calendar_audit'] = cal_result
+                db.save_calendar_audit(sid, cal_result)
+            except Exception as cal_exc:
+                safe_result['calendar_audit'] = None
+                print(f'[calendar] skipped: {cal_exc}', file=sys.stderr)
             db.save_evm_extras(sid, {
                 'engineering_p6': safe_result.get('engineering_p6', []),
                 'activity_code_types': safe_result.get('activity_code_types', []),
@@ -292,6 +307,7 @@ class Handler(BaseHTTPRequestHandler):
         cached_path   = result.pop('_cached_path', None)
         original_path = result.pop('_original_path', None)
         result['audit_modules'] = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
+        result['calendar_audit'] = db.get_calendar_audit(snapshot_id) if snapshot_id else None
         extras = (db.get_evm_extras(snapshot_id) or {}) if snapshot_id else {}
         result['engineering_p6'] = extras.get('engineering_p6', [])
         result['activity_code_types'] = extras.get('activity_code_types', [])
@@ -605,6 +621,68 @@ class Handler(BaseHTTPRequestHandler):
                 f'file:///{html_path.replace(os.sep, "/")}',
             ], check=True, capture_output=True)
             os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/report/calendar ───────────────────────────────────────────────
+    def _handle_calendar_report(self, body):
+        """Calendar Audit PDF (or preview HTML). Reads the stored calendar_audit
+        from the DB — no re-parse needed."""
+        snapshot_id = body.get('snapshot_id')
+        preview     = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        meta_in     = body.get('meta') or {}
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        ca = db.get_calendar_audit(snapshot_id) if snapshot_id else None
+        if not ca:
+            self._json(200, {'ok': False, 'error': 'No calendar audit stored for this schedule.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_calendar.report import render_calendar_report
+            import subprocess, tempfile
+            html_content = render_calendar_report(ca, meta_in)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/export/calendar_excel ─────────────────────────────────────────
+    def _handle_calendar_excel(self, body):
+        """Export the primary calendar's Monthly Statistics table to .xlsx."""
+        snapshot_id = body.get('snapshot_id')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        ca = db.get_calendar_audit(snapshot_id) if snapshot_id else None
+        if not ca:
+            self._json(200, {'ok': False, 'error': 'No calendar audit stored for this schedule.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.xlsx_writer import write_xlsx
+            primary = ca.get('primary_calendar_id')
+            months = ((ca.get('by_calendar') or {}).get(primary, {}) or {}).get('monthly_stats', [])
+            headers = ['Month', 'Working Days', 'Holidays', 'Exceptions', 'Working Hours']
+            rows = [[m['label'], m['working_days'], m['holidays'], m['exceptions'], m['working_hours']]
+                    for m in months]
+            write_xlsx(os.path.abspath(output_path), 'Calendar Monthly Stats', headers, rows)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

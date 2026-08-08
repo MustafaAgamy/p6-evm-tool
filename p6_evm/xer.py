@@ -186,6 +186,9 @@ def parse_xer(path):
             'remaining_early_finish': _dt(t.get('reend_date')),
             'remaining_late_start': _dt(t.get('rem_late_start_date')),
             'remaining_late_finish': _dt(t.get('rem_late_end_date')),
+            # Actual progress dates — for the Out-of-Sequence audit (execution vs logic).
+            'actual_start': _dt(t.get('act_start_date')),
+            'actual_finish': _dt(t.get('act_end_date')),
         }
         # Populate baseline_by_id so EVM compute() can derive planned percentages
         task_code = t.get('task_code')

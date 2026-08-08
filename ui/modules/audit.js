@@ -37,6 +37,12 @@ export function gaugeDashoffset(score, circumference) {
   return circumference * (1 - s / 100);
 }
 
+// Bar fill % for a driver/WBS value against its max (0–100, clamped).
+export function barPct(value, max) {
+  const m = max || 1;
+  return Math.max(0, Math.min(100, Math.round(100 * (value || 0) / m)));
+}
+
 export function uniqueValues(findings, key) {
   return [...new Set(findings.map(f => f[key]).filter(Boolean))].sort();
 }
@@ -55,11 +61,17 @@ export function switchView(view) {
   document.getElementById('analysis-views').classList.remove('hidden');
   document.getElementById('evm-panel').classList.toggle('hidden', view !== 'evm');
   document.getElementById('audit-panel').classList.toggle('hidden', view !== 'audit');
+  document.getElementById('oos-panel').classList.toggle('hidden', view !== 'oos');
+  document.getElementById('calendar-panel').classList.toggle('hidden', view !== 'calendar');
   document.getElementById('tab-evm').classList.toggle('active', view === 'evm');
   document.getElementById('tab-audit').classList.toggle('active', view === 'audit');
+  document.getElementById('tab-oos').classList.toggle('active', view === 'oos');
+  document.getElementById('tab-calendar').classList.toggle('active', view === 'calendar');
   // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
   document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
   document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');
+  // Out of Sequence exports reuse the module export path with a fixed module id.
+  if (view === 'oos') state.currentModule = 'out_of_sequence';
 }
 
 // Show the "EVM vs Schedule Audit" choice; hide both analysis views until picked.
@@ -89,21 +101,31 @@ export function renderAudit(auditModules) {
   // Always rebuild a fresh #module-body so repeated renders never hit a
   // container that a prior "no audit" render replaced.
   body.innerHTML = '<div id="module-body"></div>';
-  if (!auditModules || !auditModules.module_order || !auditModules.module_order.length) {
+  // Out of Sequence is shown as its own top-level feature, not a Schedule Audit tab.
+  const order = ((auditModules && auditModules.module_order) || []).filter(k => k !== 'out_of_sequence');
+  if (!order.length) {
     tabs.innerHTML = '';
     document.getElementById('module-body').innerHTML =
       '<p style="color:var(--muted);font-size:13px">No audit available for this schedule.</p>';
     return;
   }
-  tabs.innerHTML = auditModules.module_order.map(key => {
+  tabs.innerHTML = order.map(key => {
     const m = auditModules.modules[key];
+    // Float shows its DCMA Float Health score + colour (no word-grade); others keep the grade dot.
+    if (key === 'float' && m.mgmt) {
+      const hasData = ((m.mgmt.stats || {}).total || 0) > 0;
+      const dot = hasData ? `class="mt-dot ${scoreColor(m.mgmt.float_health)}"` : 'class="mt-dot" style="background:var(--muted)"';
+      return `<button class="module-tab" data-module="float">
+        <span ${dot}></span>${escapeHtml(m.name)}
+        <span class="mt-score">${hasData ? m.mgmt.float_health : '—'}</span></button>`;
+    }
     return `<button class="module-tab" data-module="${escapeHtml(key)}">
       <span class="mt-dot ${gradeClass(m.grade)}"></span>${escapeHtml(m.name)}
       <span class="mt-score">${m.score}</span></button>`;
   }).join('');
   tabs.querySelectorAll('.module-tab').forEach(btn =>
     btn.addEventListener('click', () => selectModule(btn.dataset.module)));
-  selectModule(auditModules.module_order[0]);
+  selectModule(order[0]);
 }
 
 export function selectModule(key) {
@@ -151,7 +173,169 @@ function wbsSummaryHtml(m) {
       <tbody>${rows}</tbody></table></div>`;
 }
 
+// ── Out of Sequence — Consultant Review Report (dashboard view) ───────────
+
+export function oosPillClass(kind) {
+  if (kind === 'same' || kind === 'na') return kind;
+  return kind === 'remove' ? 'remove' : 'change';
+}
+
+function oosSug(text, kind) {
+  return `<span class="oos-pill ${oosPillClass(kind)}">${escapeHtml(text || '')}</span>`;
+}
+
+export function oosCritLabel(c) {
+  return c === 'Critical' ? 'Critical' : c === 'Near-Critical' ? 'Near-Critical' : '—';
+}
+
+function oosCrit(c) {
+  if (c === 'Critical') return '<span class="oos-badge crit">Critical</span>';
+  if (c === 'Near-Critical') return '<span class="oos-badge near">Near-Critical</span>';
+  return '<span style="color:var(--muted)">—</span>';
+}
+
+function oosKpiTiles(k) {
+  const tiles = [
+    ['Total Activities', (k.total_activities || 0).toLocaleString(), '', ''],
+    ['Out-of-Sequence Activities', k.oos_count || 0, '', ''],
+    ['Out-of-Sequence %', `${k.oos_pct ?? 0}%`, '', 'of all activities'],
+    ['Critical OOS', k.critical_oos || 0, 'crit', ''],
+    ['Critical OOS %', `${k.critical_oos_pct ?? 0}%`, 'crit', 'of all activities'],
+    ['Near-Critical OOS', k.near_critical_oos || 0, 'near', ''],
+    ['Near-Critical OOS %', `${k.near_critical_oos_pct ?? 0}%`, 'near', 'of all activities'],
+  ];
+  return tiles.map(([lab, val, cls, note]) =>
+    `<div class="kpi oos-tile ${cls}"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div>${note ? `<div class="n">${escapeHtml(note)}</div>` : ''}</div>`).join('');
+}
+
+export function renderOutOfSequence(m) {
+  const C = 326.7;
+  const k = m.kpis || {};
+  const dist = m.wbs_summary || [];
+  const findings = m.findings || [];
+  const cpi = k.critical_path_impact || 'No';
+  const cdi = k.completion_date_impact || 'No Impact';
+  const cpiCls = cpi === 'Yes' ? 'v-bad' : 'v-good';
+  const cdiCls = cdi === 'Direct Impact' ? 'v-bad' : (cdi === 'Potential Impact' ? 'v-warn' : 'v-good');
+
+  const cutoff = escapeHtml(k.data_date || '');
+
+  const distRows = dist.map(r => `
+    <tr><td>${escapeHtml(r.wbs)}</td>
+      <td class="num">${r.activities}</td><td class="num">${r.oos}</td>
+      <td class="num">${r.pct}%</td><td class="num">${r.critical_oos || 0}</td>
+      <td class="num">${r.near_critical_oos || 0}</td></tr>`).join('');
+
+  const logRows = findings.map((f, i) => `
+    <tr><td class="num">${i + 1}</td><td class="mono">${escapeHtml(f.activity_id)}</td>
+      <td>${escapeHtml(f.activity_name)}</td>
+      <td title="${escapeHtml(f.wbs_path)}">${escapeHtml(shortWbs(f.wbs_path))}</td>
+      <td>${escapeHtml(f.current_pred_rel)}</td>
+      <td class="mut">${escapeHtml(f.current_pred_activity)}</td>
+      <td>${escapeHtml(f.current_succ_rel)}</td>
+      <td class="mut">${escapeHtml(f.current_succ_activity)}</td>
+      <td class="mut">${cutoff}</td>
+      <td>${oosSug(f.suggested_predecessor, f.suggested_predecessor_kind)}</td>
+      <td>${oosSug(f.suggested_successor, f.suggested_successor_kind)}</td>
+      <td class="mut">${escapeHtml(f.root_cause)}</td>
+      <td class="mut">${escapeHtml(f.planning_review_comment)}</td>
+      <td>${oosCrit(f.criticality)}</td></tr>`).join('');
+
+  const logTable = findings.length ? `
+    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table oos-log"><thead><tr>
+      <th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>
+      <th>Current Pred. Rel.</th><th>Current Predecessor Activity</th>
+      <th>Current Succ. Rel.</th><th>Current Successor Activity</th><th>Cutoff Date</th>
+      <th>Suggested Predecessor</th><th>Suggested Successor</th>
+      <th>Root Cause</th><th>Planning Review Comment</th><th>Criticality</th>
+    </tr></thead><tbody>${logRows}</tbody></table></div>`
+    : `<p style="color:var(--muted);font-size:13px">No out-of-sequence activities — schedule progress is consistent with the network logic.</p>`;
+
+  const conclusion = k.executive_conclusion ? `
+    <div class="mod-sec">Executive Conclusion</div>
+    <div class="oos-concl">${escapeHtml(k.executive_conclusion)}</div>` : '';
+
+  document.getElementById('oos-body').innerHTML = `
+    <div class="mod-sec">Executive Dashboard</div>
+    <div class="audit-hero">
+      <div class="score-card">
+        <div class="gauge">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="12"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                    stroke-dasharray="${C}" stroke-dashoffset="${gaugeDashoffset(m.score, C)}"
+                    transform="rotate(-90 60 60)" class="gauge-arc ${scoreColor(m.score)}"/>
+          </svg>
+          <div class="gauge-num"><b>${m.score ?? '—'}</b><span>/ 100</span></div>
+        </div>
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Module Score</div>
+          <div class="coverage">${m.pct}% of activities progressed out of logical sequence.</div>
+        </div>
+      </div>
+      <div class="kpi-tiles oos-k4">${oosKpiTiles(k)}</div>
+    </div>
+
+    <div class="oos-legend">
+      <div class="t">How the Module Score is calculated</div>
+      <div class="d">Driven by the Out-of-Sequence % (fewer out-of-sequence activities → higher score),
+        mapped on the approved band curve (0%→100 · 2%→90 · 5%→75 · 8%→50 · 20%→0).
+        This schedule: <b>${m.pct}% → ${escapeHtml(m.grade || '')} → ${m.score} / 100</b>.</div>
+      <div class="bands">
+        <span><i class="dot" style="background:#2e8b57"></i>Excellent ≤ 2%</span>
+        <span><i class="dot" style="background:#c9a227"></i>Acceptable 2–5%</span>
+        <span><i class="dot" style="background:#e07b1a"></i>Needs Attention 5–8%</span>
+        <span><i class="dot" style="background:#c0392b"></i>Critical &gt; 8%</span>
+      </div>
+    </div>
+    <div class="oos-stdref"><b>Standard Reference:</b> Based on the <b>DCMA 14-Point Schedule Assessment</b>
+      framework for schedule logic quality — the same methodology as the sibling modules (Dangling Logic → Metric 3,
+      Float → Metric 5). Out-of-sequence is a recognised logic-quality check within this framework, complementing the
+      14 core metrics. <b>Detection basis:</b> Primavera P6 out-of-sequence progress — Retained Logic / Progress Override,
+      Schedule Log (F9); best-practice per GAO Schedule Assessment Guide, Best Practice 4.</div>
+
+    <div class="mod-sec">Distribution by WBS Category</div>
+    <div class="tblwrap"><table class="audit-table"><thead><tr>
+      <th>WBS Category</th><th class="num">Activities</th><th class="num">Out-of-Sequence</th>
+      <th class="num">%</th><th class="num">Critical OOS</th><th class="num">Near-Critical OOS</th></tr></thead>
+      <tbody>${distRows}</tbody></table></div>
+
+    <div class="mod-sec">Out-of-Sequence Review Log</div>
+    ${logTable}
+
+    <div class="mod-sec">Critical Path Impact Assessment</div>
+    <div class="oos-cpi">
+      <table class="audit-table oos-cpi-tbl"><thead><tr><th>Indicator</th><th class="num">Result</th></tr></thead>
+        <tbody>
+          <tr><td>Total Out-of-Sequence Activities</td><td class="num">${k.oos_count || 0}</td></tr>
+          <tr><td>Critical Out-of-Sequence Activities</td><td class="num">${k.critical_oos || 0}</td></tr>
+          <tr><td>Near-Critical Out-of-Sequence Activities</td><td class="num">${k.near_critical_oos || 0}</td></tr>
+        </tbody></table>
+      <div class="oos-vcards">
+        <div class="oos-vcard ${cpiCls}"><div class="l">Critical Path Impact</div><div class="v2">${escapeHtml(cpi)}</div></div>
+        <div class="oos-vcard ${cdiCls}"><div class="l">Completion Date Impact</div><div class="v2">${escapeHtml(cdi)}</div></div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">Classification only — the module does not predict a number of delay days.</div>
+
+    ${conclusion}`;
+}
+
+// Out of Sequence is a top-level feature (its own panel), not a Schedule Audit module tab.
+export function renderOosPanel(auditModules) {
+  const body = document.getElementById('oos-body');
+  if (!body) return;
+  const m = auditModules && auditModules.modules && auditModules.modules.out_of_sequence;
+  if (!m) {
+    body.innerHTML = '<p style="color:var(--muted);font-size:13px">No out-of-sequence analysis for this schedule.</p>';
+    return;
+  }
+  renderOutOfSequence(m);
+}
+
 function renderModuleBody(m) {
+  if (m.module === 'float') return renderFloatModule(m);
   const C = 326.7;
   const verdict = m.module === 'dangling'
     ? `${m.pct}% of activities have broken start/finish logic.`
@@ -196,6 +380,114 @@ function renderModuleBody(m) {
       syncChips(); renderRows();
     }));
   renderRows();
+}
+
+// ── Float Analysis management dashboard (V2 redesign) ─────────────────────
+function fhFmt(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? String(+n.toFixed(2)) : escapeHtml(String(v ?? ''));
+}
+
+function fhTile(k, v, note = '', hot = false, amber = false, noteCls = '') {
+  const n = note ? `<div class="n${noteCls ? ' ' + noteCls : ''}">${escapeHtml(note)}</div>` : '';
+  return `<div class="kpi${hot ? ' hot' : ''}"><div class="k">${escapeHtml(k)}</div>` +
+         `<div class="v${amber ? ' amber' : ''}">${v}</div>${n}</div>`;
+}
+
+function fhDriver(label, sub, pct, maxPct, penalty, colorVar) {
+  return `<div class="fh-d">
+      <div class="fh-dl">${escapeHtml(label)}<span>${escapeHtml(sub)}</span></div>
+      <div class="fh-bar2"><i style="width:${barPct(pct, maxPct)}%;background:${colorVar}"></i></div>
+      <div class="fh-dv">${fhFmt(pct)}% <small>−${penalty}</small></div>
+    </div>`;
+}
+
+function renderFloatModule(m) {
+  const g = m.mgmt || {};
+  const total = (g.stats || {}).total || 0;
+  if (!m.mgmt || !total) {
+    const msg = !m.mgmt
+      ? 'This schedule was imported before the Float dashboard was added — re-import it to see the management report.'
+      : 'No activities with assessable total float were found in this schedule.';
+    document.getElementById('module-body').innerHTML =
+      `<div class="fh-concl" style="border-left-color:var(--warning);margin-top:8px"><b>Float dashboard unavailable.</b><br>${escapeHtml(msg)}</div>`;
+    return;
+  }
+  const stats = g.stats || {}, ind = g.indicators || {}, high = g.high || {}, neg = g.neg || {};
+  const C = 326.7;
+  const thr = ind.threshold ?? 44;
+  const score = g.float_health ?? 0;
+
+  const statsTiles = [
+    fhTile(stats.total_label || 'Total Activities', (stats.total || 0).toLocaleString(), 'task-dependent'),
+    fhTile('Critical Activities', String(stats.critical ?? 0), 'flagged Critical in P6'),
+    fhTile('Critical %', `${fhFmt(stats.critical_pct ?? 0)}%`),
+    fhTile('Near-Critical Activities', String(stats.near_critical ?? 0), `float 1–${stats.near_band ?? 10} working days`),
+    fhTile('Near-Critical %', `${fhFmt(stats.near_critical_pct ?? 0)}%`),
+  ].join('');
+
+  const indTiles = [
+    fhTile(`Construction · Float > ${thr} WD`, String(ind.constr_over ?? 0),
+           `of ${(ind.constr_total || 0).toLocaleString()} construction activities`, true, true),
+    fhTile(`% of Construction > ${thr} WD`, `${fhFmt(ind.constr_over_pct ?? 0)}%`,
+           `threshold = ${thr} working days`, true, true),
+    fhTile('Top WBS by Float Concentration', `<span class="tw">${escapeHtml(ind.top_wbs || '—')}</span>`,
+           `${fhFmt(ind.top_wbs_pct ?? 0)}% of its activities > ${thr} WD`),
+    fhTile('Highest Float (single activity)', `${fhFmt(ind.highest_float ?? 0)} WD`,
+           ind.highest_float_wbs || '', false, false, 'wbs'),
+  ].join('');
+
+  const wbsRows = (g.wbs || []).slice(0, 40).map(r => {
+    const tag = r.is_construction ? '<span class="ftag con">Constr.</span>' : '<span class="ftag non">Excl.</span>';
+    return `<tr>
+      <td title="${escapeHtml(r.wbs || '')}">${escapeHtml(shortWbs(r.wbs, 3))} ${tag}</td>
+      <td class="num">${r.activities ?? 0}</td>
+      <td class="num">${fhFmt(r.avg_float ?? 0)} WD</td>
+      <td class="num">${fhFmt(r.max_float ?? 0)} WD</td>
+      <td class="num">${r.over_44 ?? 0}</td>
+      <td class="num">${fhFmt(r.pct ?? 0)}%</td></tr>`;
+  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">No activities with assessable float.</td></tr>`;
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="fh-hero">
+      <div class="fh-gaugecard">
+        <div class="gauge">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="12"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                    stroke-dasharray="${C}" stroke-dashoffset="${gaugeDashoffset(score, C)}"
+                    transform="rotate(-90 60 60)" class="gauge-arc ${scoreColor(score)}"/>
+          </svg>
+          <div class="gauge-num"><b>${score}</b><span>Float Health</span></div>
+        </div>
+        <div class="fh-drivers">
+          ${fhDriver(`High Float > ${thr} WD — construction`,
+                     `DCMA target < ${fhFmt(high.target ?? 5)}% · penalty maxes at ${fhFmt(high.max_pct ?? 20)}%`,
+                     high.pct ?? 0, high.max_pct ?? 20, high.penalty ?? 0, 'var(--danger)')}
+          ${fhDriver('Negative Float — whole schedule',
+                     `DCMA target ${fhFmt(neg.target ?? 0)}% · penalty maxes at ${fhFmt(neg.max_pct ?? 5)}%`,
+                     neg.pct ?? 0, neg.max_pct ?? 5, neg.penalty ?? 0, 'var(--warning)')}
+        </div>
+      </div>
+    </div>
+    <div class="scorelegend">
+      <div class="sl-title">How the Float Health score is calculated <span>— anchored to the DCMA 14-Point float targets</span></div>
+      <div class="sl-formula">Float Health = 100 − High-Float penalty − Negative-Float penalty</div>
+      <div class="sl-row"><b>High Float</b> — construction activities with total float &gt; ${thr} WD · <span class="sl-t">DCMA target &lt; ${fhFmt(high.target ?? 5)}%</span> · penalty 0 at ≤ ${fhFmt(high.target ?? 5)}%, rising to −${high.max_penalty ?? 60} at ${fhFmt(high.max_pct ?? 20)}%.</div>
+      <div class="sl-row"><b>Negative Float</b> — activities with total float &lt; 0 (whole schedule) · <span class="sl-t">DCMA target ${fhFmt(neg.target ?? 0)}%</span> · penalty 0 at ${fhFmt(neg.target ?? 0)}%, rising to −${neg.max_penalty ?? 40} at ${fhFmt(neg.max_pct ?? 5)}%.</div>
+      <div class="sl-colours"><span><i class="g"></i>Green ≥ 85</span><span><i class="a"></i>Amber 60–84</span><span><i class="r"></i>Red &lt; 60</span></div>
+    </div>
+    <div class="mod-sec">Schedule Statistics <span class="mod-sub">— whole schedule</span></div>
+    <div class="fh-tiles five">${statsTiles}</div>
+    <div class="mod-sec">Float Indicators <span class="mod-sub">— Construction scope only (Engineering / Procurement / Design excluded)</span></div>
+    <div class="fh-tiles four">${indTiles}</div>
+    <div class="mod-sec">Float Distribution by WBS</div>
+    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table fh-wbs"><thead><tr>
+      <th>WBS Package</th><th class="num">Activities</th><th class="num">Average Float</th>
+      <th class="num">Maximum Float</th><th class="num">Activities &gt; ${thr} WD</th><th class="num">% &gt; ${thr} WD</th>
+    </tr></thead><tbody>${wbsRows}</tbody></table></div>
+    <div class="mod-sec">Executive Conclusion</div>
+    <div class="fh-concl">${escapeHtml(g.conclusion || 'No conclusion available for this schedule.')}</div>`;
 }
 
 function renderSevChips(findings) {
