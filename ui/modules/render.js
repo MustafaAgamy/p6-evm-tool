@@ -2,6 +2,7 @@ import { state }                                   from './state.js';
 import { fmtEGP, fmtDate, kpiColor, escapeHtml }  from './format.js';
 import { renderAudit, renderOosPanel, showChooser } from './audit.js';
 import { renderEvm }                                from './evm.js';
+import { renderCalendar }                           from './calendar.js';
 
 const KPI_TOOLTIPS = {
   'Finish Delay':  'Days behind schedule — positive = late, negative = ahead',
@@ -63,7 +64,9 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
   renderEvm(result);
   renderAudit(result.audit_modules);
   renderOosPanel(result.audit_modules);   // Out of Sequence — its own top-level panel
+  renderCalendar(result.calendar_audit);  // Calendar Audit — its own top-level panel
   showChooser();   // do NOT auto-open EVM — let the user pick a view
+
 
   document.getElementById('results-section').classList.remove('hidden');
 }

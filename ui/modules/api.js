@@ -172,6 +172,49 @@ function _evmReportBody() {
   };
 }
 
+export async function exportCalendarExcel() {
+  if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('cal-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('calendar_audit.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/export/calendar_excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+export async function generateCalendarPdf() {
+  if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('cal-pdf-btn'), 'Generate Calendar Audit PDF');
+  btn.loading('Preparing preview…');
+  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta() };
+  try {
+    const data = await apiFetch('api/report/calendar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ...reqBody, preview: true }),
+    });
+    btn.reset();
+    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    showReportPreview({
+      title: 'Calendar Audit preview', subtitle: reqBody.meta.source_file, html: data.html,
+      onSave: () => _savePdf('api/report/calendar', reqBody, 'Calendar_Audit.pdf', 'pdf'),
+    });
+  } catch {
+    showError('Preview failed. Check the schedule and try again.');
+    btn.reset();
+  }
+}
+
 export async function generatePdf() {
   if (!state.currentXmlPath && !state.currentCachedPath) return;
   const btn = new ButtonState(document.getElementById('pdf-btn'), 'Generate EVM PDF');
