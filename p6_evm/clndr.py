@@ -19,15 +19,19 @@ from p6_evm.calendars import hhmmss_to_min
 _P6_DOW = {1: 'Sunday', 2: 'Monday', 3: 'Tuesday', 4: 'Wednesday',
            5: 'Thursday', 6: 'Friday', 7: 'Saturday'}
 _EPOCH = date(1899, 12, 30)                       # P6/Excel serial-date origin
-_SHIFT_RE = re.compile(r's\|(\d{1,2}:\d{2})\|f\|(\d{1,2}:\d{2})')
+# A work shift, in EITHER order P6 emits: s|start|f|finish  OR  f|finish|s|start.
+_SHIFT_RE = re.compile(r's\|(\d{1,2}:\d{2})\|f\|(\d{1,2}:\d{2})'
+                       r'|f\|(\d{1,2}:\d{2})\|s\|(\d{1,2}:\d{2})')
 _DAY_RE = re.compile(r'0\|\|([1-7])\(\)')          # a weekday header 0||N() (empty parens disambiguates from a shift 0||K(s|..))
 _EXC_RE = re.compile(r'd\|(\d+)')                  # an exception's date serial
 
 
 def _intervals(segment):
     out = []
-    for s, f in _SHIFT_RE.findall(segment):
-        sm, em = hhmmss_to_min(s), hhmmss_to_min(f)
+    for m in _SHIFT_RE.finditer(segment):
+        # groups 1/2 = s|start|f|finish ; groups 3/4 = f|finish|s|start
+        start, finish = (m.group(1), m.group(2)) if m.group(1) is not None else (m.group(4), m.group(3))
+        sm, em = hhmmss_to_min(start), hhmmss_to_min(finish)
         if sm is not None and em is not None and em > sm:
             out.append((sm, em))
     return out

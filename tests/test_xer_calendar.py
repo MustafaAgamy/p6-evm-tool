@@ -48,6 +48,30 @@ def test_holiday_and_added_work_exceptions():
     assert date(2026, 1, 10) not in c['holidays']
 
 
+# P6 also emits shifts FINISH-first: "f|finish|s|start" (seen in Saint-Gobain's real export).
+# The parser must read them the same as "s|start|f|finish", else every day looks non-working.
+FINISH_FIRST = (
+    "(0||CalendarData()((0||DaysOfWeek()"
+    "((0||1()((0||0(f|12:00|s|07:00)())(0||1(f|19:00|s|13:00)())))"   # Sunday: 07:00-12:00, 13:00-19:00
+    "(0||2()((0||0(f|12:00|s|07:00)())(0||1(f|19:00|s|13:00)())))"
+    "(0||3()((0||0(f|12:00|s|07:00)())(0||1(f|19:00|s|13:00)())))"
+    "(0||4()((0||0(f|12:00|s|07:00)())(0||1(f|19:00|s|13:00)())))"
+    "(0||5()((0||0(f|12:00|s|07:00)())(0||1(f|19:00|s|13:00)())))"
+    "(0||6()())"                                                      # Friday off (6 = Friday)
+    "(0||7()((0||0(f|12:00|s|07:00)())(0||1(f|19:00|s|13:00)())))))"  # Saturday worked
+    "(0||Exceptions()())))"
+)
+
+
+def test_finish_first_shift_order():
+    c = parse_clndr_data(FINISH_FIRST)
+    # start=07:00 (420), finish=12:00 (720) and start=13:00 (780), finish=19:00 (1140) — 11h day
+    assert c['work_intervals']['Sunday'] == [(420, 720), (780, 1140)]
+    assert c['work_intervals']['Saturday'] == [(420, 720), (780, 1140)]
+    # only Friday is non-working (a 6-day week), NOT all 7 days
+    assert c['nonworking_days'] == {'Friday'}
+
+
 def test_empty_blob_is_safe():
     c = parse_clndr_data('')
     assert c['work_intervals'] == {}
