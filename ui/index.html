@@ -163,6 +163,16 @@
               <div class="cc-title">Out of Sequence</div>
               <div class="cc-sub">Activities progressing ahead of their logic — consultant review report</div>
             </button>
+            <button class="chooser-card" data-view="calendar">
+              <div class="cc-icon calendar">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <div class="cc-title">Calendar Audit</div>
+              <div class="cc-sub">Project calendar timeline, holidays, shutdowns, working-hour changes</div>
+            </button>
           </div>
         </div>
 
@@ -171,6 +181,7 @@
           <button class="view-tab active" id="tab-evm" data-view="evm">EVM Results</button>
           <button class="view-tab" id="tab-audit" data-view="audit">Schedule Audit</button>
           <button class="view-tab" id="tab-oos" data-view="oos">Out of Sequence</button>
+          <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
           <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
 
@@ -198,6 +209,14 @@
           <div class="action-buttons">
             <button class="btn-secondary" id="oos-excel-btn">Export to Excel</button>
             <button class="btn-primary" id="oos-pdf-btn">Generate PDF</button>
+          </div>
+        </div>
+
+        <div class="view-panel hidden" id="calendar-panel">
+          <div id="calendar-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="cal-excel-btn">Export to Excel</button>
+            <button class="btn-primary" id="cal-pdf-btn">Generate Calendar Audit PDF</button>
           </div>
         </div>
         </div><!-- /analysis-views -->

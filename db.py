@@ -140,6 +140,16 @@ def init_db():
                 snapshot_id INTEGER PRIMARY KEY REFERENCES snapshots(id),
                 extras_json TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS calendar_audit (
+                snapshot_id INTEGER PRIMARY KEY REFERENCES snapshots(id),
+                data_json   TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS project_settings (
+                project_id    INTEGER PRIMARY KEY REFERENCES projects(id),
+                settings_json TEXT
+            );
         ''')
 
 
@@ -419,6 +429,40 @@ def save_baseline(snapshot_id, baseline_path):
                      (snapshot_id, _json.dumps(extras, default=str)))
 
 
+def save_calendar_audit(snapshot_id, result):
+    """Store the Calendar Audit result (JSON) for a snapshot."""
+    with get_conn() as conn:
+        conn.execute('INSERT OR REPLACE INTO calendar_audit (snapshot_id, data_json) VALUES (?, ?)',
+                     (snapshot_id, _json.dumps(result, default=str)))
+
+
+def get_calendar_audit(snapshot_id):
+    with get_conn() as conn:
+        row = conn.execute('SELECT data_json FROM calendar_audit WHERE snapshot_id = ?',
+                           (snapshot_id,)).fetchone()
+    return _json.loads(row['data_json']) if row and row['data_json'] else None
+
+
+def get_project_settings(project_id):
+    """Per-project Calendar Audit settings: {location, shutdown_reasons, manual_shutdowns}."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT settings_json FROM project_settings WHERE project_id = ?',
+                           (project_id,)).fetchone()
+    return _json.loads(row['settings_json']) if row and row['settings_json'] else {}
+
+
+def save_project_settings(project_id, patch):
+    """Merge `patch` into the project's stored settings (shallow merge by top-level key)."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT settings_json FROM project_settings WHERE project_id = ?',
+                           (project_id,)).fetchone()
+        settings = _json.loads(row['settings_json']) if row and row['settings_json'] else {}
+        settings.update(patch or {})
+        conn.execute('INSERT OR REPLACE INTO project_settings (project_id, settings_json) VALUES (?, ?)',
+                     (project_id, _json.dumps(settings, default=str)))
+    return settings
+
+
 def get_audit_modules_for_snapshot(snapshot_id):
     """Reconstruct {'modules': {...}, 'module_order': [...]} or None."""
     with get_conn() as conn:
@@ -489,6 +533,7 @@ def delete_project(project_id):
         if snap_ids:
             ph = ','.join('?' * len(snap_ids))
             conn.execute(f'DELETE FROM e1_summary       WHERE snapshot_id IN ({ph})', snap_ids)
+            conn.execute(f'DELETE FROM calendar_audit   WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM evm_extras       WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM audit_modules    WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM audit_findings   WHERE snapshot_id IN ({ph})', snap_ids)
@@ -496,6 +541,7 @@ def delete_project(project_id):
             conn.execute(f'DELETE FROM category_metrics WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM metrics          WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute('DELETE FROM snapshots WHERE project_id = ?', (project_id,))
+        conn.execute('DELETE FROM project_settings WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM projects WHERE id = ?', (project_id,))
 
 def get_prior_import_date(file_hash):

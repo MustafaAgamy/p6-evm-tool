@@ -1,6 +1,6 @@
 import { state }                              from './modules/state.js';
 import { initTheme, toggleTheme }            from './modules/theme.js';
-import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject } from './modules/api.js';
+import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, exportCalendarExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
 import { initTooltips }                        from './modules/tooltip.js';
@@ -35,16 +35,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('excel-btn').addEventListener('click', () => exportExcel());
   document.getElementById('oos-pdf-btn').addEventListener('click', () => generateModulePdf('oos-pdf-btn'));
   document.getElementById('oos-excel-btn').addEventListener('click', () => exportExcel('oos-excel-btn'));
+  document.getElementById('cal-pdf-btn').addEventListener('click', generateCalendarPdf);
+  document.getElementById('cal-excel-btn').addEventListener('click', exportCalendarExcel);
 
   // Analysis chooser (shown after upload) → reveal the chosen view
   document.querySelectorAll('.chooser-card').forEach(card =>
     card.addEventListener('click', () => switchView(card.dataset.view)));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
-  // View tabs (EVM ⇄ Schedule Audit ⇄ Out of Sequence)
+  // View tabs (EVM ⇄ Schedule Audit ⇄ Out of Sequence ⇄ Calendar Audit)
   document.getElementById('tab-evm').addEventListener('click', () => switchView('evm'));
   document.getElementById('tab-audit').addEventListener('click', () => switchView('audit'));
   document.getElementById('tab-oos').addEventListener('click', () => switchView('oos'));
+  document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {
