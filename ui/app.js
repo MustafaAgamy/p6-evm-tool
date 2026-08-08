@@ -3,6 +3,7 @@ import { initTheme, toggleTheme }            from './modules/theme.js';
 import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
+import { maybePromptBaseline }                 from './modules/evm.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -36,11 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Analysis chooser (shown after upload) → reveal the chosen view
   document.querySelectorAll('.chooser-card').forEach(card =>
-    card.addEventListener('click', () => switchView(card.dataset.view)));
+    card.addEventListener('click', () => {
+      switchView(card.dataset.view);
+      // XER + EVM → prompt to import the baseline first so results match the XML/P6 exactly
+      if (card.dataset.view === 'evm') maybePromptBaseline(state.currentResult);
+    }));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
   // View tabs (EVM ⇄ Schedule Audit)
-  document.getElementById('tab-evm').addEventListener('click', () => switchView('evm'));
+  document.getElementById('tab-evm').addEventListener('click', () => { switchView('evm'); maybePromptBaseline(state.currentResult); });
   document.getElementById('tab-audit').addEventListener('click', () => switchView('audit'));
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded

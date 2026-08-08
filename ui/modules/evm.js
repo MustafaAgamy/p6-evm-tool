@@ -65,6 +65,7 @@ let _actualCost = null;  // user override (EGP) or null → use P6
 let _gap = null;
 let _slice = 'Overall';  // current slicer selection (Overall or a category name)
 let _e1Extras = null;    // {overall, category_actuals, gaps} from an E1 Log upload
+let _blPromptDone = false;  // per-import: baseline prompt shown/answered (don't nag on tab toggles)
 
 function _wkey() { return `p6evm_w_${(state.currentResult || {}).project_name || 'x'}`; }
 function _ackey() { return `p6evm_ac_${(state.currentResult || {}).project_name || 'x'}`; }
@@ -105,6 +106,7 @@ export function renderEvm(result) {
   state.baselineName = null;
   state.baselineMatched = null;
   state.baselineTotal = null;
+  _blPromptDone = false;                     // re-arm the "import baseline first" prompt per import
   _e1Extras = result.e1_extras || null;
   _applyE1ToCategories(result);
   body.innerHTML = `
@@ -462,6 +464,36 @@ function renderBaselineBanner(result) {
     if (b.dataset.act === 'remove') removeBaseline(result);
     else attachBaseline(result);                 // attach or replace both pick a file
   }));
+}
+
+// When the EVM view is opened for a XER update with no baseline yet, prompt to import the
+// baseline FIRST — so the numbers match the XML/P6 exactly rather than showing approximate
+// figures. Skippable (nothing is blocked); shown once per import.
+export function maybePromptBaseline(result) {
+  if (!result) return;
+  const isXer = sourceType(state.currentXmlPath) === 'XER';
+  const hasBaseline = state.baselineName || result.baseline_name;
+  if (!isXer || hasBaseline || _blPromptDone) return;
+  if (document.getElementById('evm-bl-prompt')) return;
+  _blPromptDone = true;
+  const html = `<div class="modal-back" id="evm-bl-prompt">
+    <div class="modal">
+      <div class="modal-title">Import the baseline first</div>
+      <div class="modal-body">
+        <p style="font-size:13px;line-height:1.55;color:var(--text)">You imported a P6 <b>XER update</b>. A XER update doesn’t carry its baseline, so
+          <b>Planned Value, SPI and Delay would be approximate</b>.</p>
+        <p style="font-size:13px;line-height:1.55;color:var(--text);margin-top:10px">Import the <b>baseline</b> (the XER exported from the baseline project) now, so the
+          EVM results match the <b>XML export and P6 exactly</b>. You can still continue without it.</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-secondary" id="evm-bl-skip">Continue without</button>
+        <button class="btn-primary" id="evm-bl-import">📎 Import baseline XER</button>
+      </div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  const close = () => { const el = document.getElementById('evm-bl-prompt'); if (el) el.remove(); };
+  document.getElementById('evm-bl-skip').addEventListener('click', close);
+  document.getElementById('evm-bl-import').addEventListener('click', () => { close(); attachBaseline(result); });
 }
 
 function _bannerBusy(msg) {
