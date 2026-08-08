@@ -622,7 +622,9 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_calendar.report import render_calendar_report
             import subprocess, tempfile
-            html_content = render_calendar_report(ca, meta_in)
+            pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
+            weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
+            html_content = render_calendar_report(ca, meta_in, weather=weather)
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -718,7 +720,8 @@ class Handler(BaseHTTPRequestHandler):
             sid = body.get('snapshot_id')
             pid = db.get_project_id_for_snapshot(sid) if sid else None
             if pid:
-                db.save_project_settings(pid, {'location': location})
+                # Persist location + the latest weather so the PDF can include it.
+                db.save_project_settings(pid, {'location': location, 'last_weather': wx})
             self._json(200, {'ok': True, 'weather': wx, 'location': location,
                              'offline': not daily})
         except Exception as exc:
