@@ -3,6 +3,7 @@ import { initTheme, toggleTheme }            from './modules/theme.js';
 import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, exportCalendarExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
+import { renderAiReviewPanel }                 from './modules/aireview.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
@@ -45,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
       switchView(card.dataset.view);
       // XER + EVM → prompt to import the baseline first so results match the XML/P6 exactly
       if (card.dataset.view === 'evm') maybePromptBaseline(state.currentResult);
+      if (card.dataset.view === 'aireview') renderAiReviewPanel();
     }));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
@@ -53,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-audit').addEventListener('click', () => switchView('audit'));
   document.getElementById('tab-oos').addEventListener('click', () => switchView('oos'));
   document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
+  document.getElementById('tab-aireview').addEventListener('click', () => { switchView('aireview'); renderAiReviewPanel(); });
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {

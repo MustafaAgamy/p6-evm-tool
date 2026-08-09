@@ -173,6 +173,15 @@
               <div class="cc-title">Calendar Audit</div>
               <div class="cc-sub">Project calendar timeline, holidays, shutdowns, working-hour changes</div>
             </button>
+            <button class="chooser-card" data-view="aireview">
+              <div class="cc-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linejoin="round">
+                  <path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15l-1.9-4.6L5.5 9l4.6-1.4z"/>
+                </svg>
+              </div>
+              <div class="cc-title">✦ AI Review</div>
+              <div class="cc-sub">AI constructability &amp; scope check — illogical links, missing activities &amp; WBS, with a score</div>
+            </button>
           </div>
         </div>
 
@@ -182,6 +191,7 @@
           <button class="view-tab" id="tab-audit" data-view="audit">Schedule Audit</button>
           <button class="view-tab" id="tab-oos" data-view="oos">Out of Sequence</button>
           <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
+          <button class="view-tab" id="tab-aireview" data-view="aireview">✦ AI Review</button>
           <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
 
@@ -218,6 +228,10 @@
             <button class="btn-secondary" id="cal-excel-btn">Export to Excel</button>
             <button class="btn-primary" id="cal-pdf-btn">Generate Calendar Audit PDF</button>
           </div>
+        </div>
+
+        <div class="view-panel hidden" id="aireview-panel">
+          <div id="aireview-body"></div>
         </div>
         </div><!-- /analysis-views -->
       </section>

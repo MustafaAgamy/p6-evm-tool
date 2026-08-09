@@ -28,6 +28,8 @@ class Handler(BaseHTTPRequestHandler):
             self._serve(resource_path(self.path.lstrip('/')), mime)
         elif self.path == '/api/history':
             self._handle_history()
+        elif self.path == '/api/ai/settings':
+            self._handle_ai_settings_get()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -66,6 +68,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_weather(body)
         elif self.path == '/api/calendar/settings':
             self._handle_calendar_settings(body)
+        elif self.path == '/api/ai/settings':
+            self._handle_ai_settings_set(body)
+        elif self.path == '/api/ai-review':
+            self._handle_ai_review(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -297,6 +303,54 @@ class Handler(BaseHTTPRequestHandler):
             os.unlink(html_path)
             self._json(200, {'ok': True})
 
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/ai/settings + /api/ai-review ──────────────────────────────────
+    def _handle_ai_settings_get(self):
+        from p6_ai import settings as ai_settings
+        self._json(200, {'ok': True, 'has_key': ai_settings.has_api_key()})
+
+    def _handle_ai_settings_set(self, body):
+        from p6_ai import settings as ai_settings
+        ai_settings.set_api_key(body.get('api_key', ''))
+        self._json(200, {'ok': True, 'has_key': ai_settings.has_api_key()})
+
+    def _handle_ai_review(self, body):
+        """AI Constructability Review — opt-in; the only route that calls the cloud.
+
+        Re-parses the baseline (and an optional reference), runs the AI review, and
+        returns the report dict. The report carries no `records` key. Every failure
+        is reported as {ok:false, error, code} for the UI to surface plainly.
+        """
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_ai import settings as ai_settings
+            from p6_ai.review import run_review
+            from p6_ai.client import AiError
+
+            if not ai_settings.has_api_key():
+                self._json(200, {'ok': False, 'error': 'No Anthropic API key set.', 'code': 'no_key'})
+                return
+
+            data = parse_file(resolved)
+            reference_data = None
+            ref_path = body.get('reference_path')
+            if ref_path and os.path.isfile(ref_path):
+                reference_data = parse_file(ref_path)
+
+            try:
+                report = run_review(data, ai_settings.get_api_key(),
+                                    reference_data=reference_data, cfg=ai_settings.get_config())
+            except AiError as e:
+                self._json(200, {'ok': False, 'error': str(e), 'code': e.code})
+                return
+            self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
