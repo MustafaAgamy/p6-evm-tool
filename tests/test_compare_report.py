@@ -52,6 +52,7 @@ def test_report_shape_and_wiring():
     r = build_report_from_data(_baseline(), _update())
     assert r['project_name'] == 'Riyadh Metro'
     assert r['data_date'] == '09-Feb-2026'
+    assert r['matched_activities'] == 4   # A050, A100, A200, M900 line up by code
     # logic: only A100 (lag change)
     assert r['logic']['summary']['changed_activities'] == 1
     assert [row['activity_id'] for row in r['logic']['rows']] == ['A100']

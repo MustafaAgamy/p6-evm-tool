@@ -90,7 +90,7 @@ function _logicTable(rows) {
         <th class="sepU">Pred. ID</th><th>Pred. rel</th><th>Pred. name</th><th>Succ. ID</th><th>Succ. rel</th><th>Succ. name</th></tr>
     </thead>
     <tbody>${body}</tbody></table></div>
-    <div class="cmp-foot">Where an activity has more than one driving predecessor or successor, every driving link is listed. Red = changed vs baseline · green = added · struck = removed.</div>`;
+    <div class="cmp-foot">Driving links are derived from the schedule's remaining early dates and lags (P6 exports no driving flag). Where an activity has more than one driving predecessor or successor, every driving link is listed. Red = changed vs baseline · green = added · struck = removed.</div>`;
 }
 
 function _durationTable(rows) {
@@ -136,8 +136,12 @@ export function renderCompareReport(report) {
   const logic = report.logic || { rows: [], summary: {} };
   const durs = report.durations || { rows: [] };
   const cs = report.change_summary || { items: [] };
+  const mismatch = (report.matched_activities === 0)
+    ? `<div class="cmp-warn">No activities matched by ID between the two files — is this the right baseline for this update? Nothing changed can be detected until they line up.</div>`
+    : '';
   body.innerHTML = `
     ${_fileBar(report)}
+    ${mismatch}
     <div class="mod-sec">Executive dashboard</div>
     <div class="cmp-kpis">
       ${_kpi('Changed activities', dash.changed_activities ?? 0)}

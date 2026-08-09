@@ -54,6 +54,10 @@ def build_report_from_data(baseline, update, config=None):
         'data_date': _fmt((update.project or {}).get('data_date')),
         'baseline_finish': _fmt((baseline.project or {}).get('scheduled_finish')),
         'update_finish': _fmt((update.project or {}).get('scheduled_finish')),
+        # Guard against a wrong baseline pick: if almost nothing matches by Activity ID,
+        # an empty report means "these files don't line up", not "no changes".
+        'matched_activities': len(matched.matched_codes),
+        'update_activity_count': len(update.activities),
         'dashboard': {'changed_activities': len(changed_ids)},
         'change_summary': {'changed_activities': logic['summary']['changed_activities'], 'items': items},
         'logic': logic,

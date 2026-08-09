@@ -53,6 +53,7 @@ _UPDATE_XML = (
     '<RemainingEarlyFinishDate>2026-01-10T00:00:00</RemainingEarlyFinishDate></Activity>\n'
     '    <Activity><ObjectId>2</ObjectId><Id>A100</Id><Name>Excavate</Name>'
     '<Type>Task Dependent</Type><WBSObjectId>100</WBSObjectId><CalendarObjectId></CalendarObjectId>'
+    '<PlannedDuration>120</PlannedDuration><RemainingDuration>120</RemainingDuration>'
     '<RemainingEarlyStartDate>2026-01-20T00:00:00</RemainingEarlyStartDate></Activity>\n'
     '    <Relationship><PredecessorActivityObjectId>1</PredecessorActivityObjectId>'
     '<SuccessorActivityObjectId>2</SuccessorActivityObjectId><Type>Finish to Start</Type>'
@@ -82,6 +83,11 @@ def test_compare_detects_lag_change_across_xer_and_xml(test_server, tmp_path):
     # A050 -> A100 lag went FS+0 -> FS+10, detected on the driven activity A100
     assert [row['activity_id'] for row in r['logic']['rows']] == ['A100']
     assert r['logic']['summary']['by_kind'] == {'lag': 1}
+    # Duration path end-to-end across XER (remain_drtn_hr_cnt) + XML (RemainingDuration):
+    # A100 original 80h/8=10d in baseline, 120h/8=15d in update → extended.
+    dur = {row['activity_id']: row for row in r['durations']['rows']}
+    assert dur['A100']['status'] == 'extended'
+    assert dur['A100']['baseline_orig_days'] == 10.0 and dur['A100']['update_orig_days'] == 15.0
 
 
 # ── GET / ─────────────────────────────────────────────────────────────────

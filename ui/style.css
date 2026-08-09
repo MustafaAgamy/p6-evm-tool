@@ -834,3 +834,4 @@ body {
 .cmp-empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
 .cmp-foot { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
 .cmp-note { background: var(--card-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; padding: 11px 14px; font-size: 12px; color: var(--muted); line-height: 1.55; }
+.cmp-warn { background: rgba(251,191,36,.12); border: 1px solid var(--warning); border-radius: 8px; padding: 11px 14px; font-size: 13px; color: var(--warning); line-height: 1.5; }
