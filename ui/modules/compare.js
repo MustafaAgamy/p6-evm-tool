@@ -147,6 +147,10 @@ export function renderCompareReport(report) {
     : '';
   body.innerHTML = `
     ${_fileBar(report)}
+    <div class="cmp-exports">
+      <button class="btn-secondary" id="cmp-export-pdf">Export PDF</button>
+      <button class="btn-secondary" id="cmp-export-xlsx">Export Excel</button>
+    </div>
     ${mismatch}
     <div class="mod-sec">Executive dashboard</div>
     <div class="cmp-kpis">
@@ -169,7 +173,45 @@ export function renderCompareReport(report) {
     ${_correctedSection(report)}`;
   const chg = document.getElementById('cmp-change-baseline');
   if (chg) chg.addEventListener('click', chooseBaselineAndCompare);
+  const epdf = document.getElementById('cmp-export-pdf');
+  if (epdf) epdf.addEventListener('click', exportComparePdf);
+  const exls = document.getElementById('cmp-export-xlsx');
+  if (exls) exls.addEventListener('click', exportCompareExcel);
   _wireCorrected();
+}
+
+// ── Exports (PDF + Excel) ───────────────────────────────────────────────────
+
+export async function exportComparePdf() {
+  if (!state.compareReport) return;
+  const outputPath = await window.pywebview.api.choose_save_path('consultant_review.pdf', 'pdf');
+  if (!outputPath) return;
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report: state.compareReport, impact: state.compareImpact || null, output_path: outputPath }),
+    });
+    const data = await resp.json();
+    if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
+  } catch {
+    showError('Could not reach the local server to export the PDF.');
+  }
+}
+
+export async function exportCompareExcel() {
+  if (!state.compareReport) return;
+  const outputPath = await window.pywebview.api.choose_save_path('consultant_review.xlsx', 'xlsx');
+  if (!outputPath) return;
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/excel`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report: state.compareReport, output_path: outputPath }),
+    });
+    const data = await resp.json();
+    if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
+  } catch {
+    showError('Could not reach the local server to export the Excel.');
+  }
 }
 
 // ── Corrected but-for XML ───────────────────────────────────────────────────
@@ -233,6 +275,51 @@ function _impactTile(label, val, hot) {
          `<div class="v${hot ? ' cmp-hot' : ''}">${escapeHtml(s)}</div></div>`;
 }
 
+// Inline SVG of the three cumulative-% curves (baseline / before / after).
+function _scurveSvg(sc) {
+  const periods = sc.periods || [];
+  if (periods.length < 2) return '<p class="cmp-empty">Not enough dated activities to draw the S-curve.</p>';
+  const x0 = 45, x1 = 600, y0 = 180, y1 = 20, n = periods.length;
+  const xAt = i => x0 + (x1 - x0) * (i / (n - 1));
+  const yAt = p => y0 - (y0 - y1) * (Math.max(0, Math.min(100, p || 0)) / 100);
+  const poly = (arr, color, dash) => {
+    if (!arr || !arr.length) return '';
+    const pts = arr.map((p, i) => `${xAt(i).toFixed(1)},${yAt(p).toFixed(1)}`).join(' ');
+    return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linejoin="round"/>`;
+  };
+  const step = Math.max(1, Math.round(n / 6));
+  let xlabels = '';
+  for (let i = 0; i < n; i += step) {
+    xlabels += `<text x="${xAt(i).toFixed(1)}" y="198" text-anchor="middle" style="fill:var(--muted);font-size:10px">${escapeHtml(periods[i])}</text>`;
+  }
+  return `<svg viewBox="0 0 620 214" width="100%" role="img" aria-label="S-curve comparing baseline, before-changes and after-changes cumulative progress over time">
+    <line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${x0}" y1="${y1}" x2="${x0}" y2="${y0}" stroke="var(--border)" stroke-width="1"/>
+    <text x="${x0 - 6}" y="${y1 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">100%</text>
+    <text x="${x0 - 6}" y="${(y0 + y1) / 2 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">50%</text>
+    <text x="${x0 - 6}" y="${y0 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">0%</text>
+    ${poly(sc.baseline, '#888781', '4 3')}
+    ${poly(sc.after, '#e24b4a')}
+    ${poly(sc.before, '#2a78d6')}
+    ${xlabels}
+  </svg>`;
+}
+
+function _scurveSection(sc) {
+  if (!sc || !(sc.periods || []).length) return '';
+  return `
+    <div class="mod-sec">S-curve — baseline vs before vs after</div>
+    <div class="cmp-scurve-card">
+      <div class="cmp-scurve-legend">
+        <span><i style="background:#888781"></i>Baseline plan</span>
+        <span><i style="background:#2a78d6"></i>Before changes (but-for)</span>
+        <span><i style="background:#e24b4a"></i>After changes (reported)</span>
+      </div>
+      ${_scurveSvg(sc)}
+      <div class="cmp-scurve-note">Planned progress profile from each schedule's activity dates &amp; durations — the gap between before and after is the manufactured slip. The exact delay is in the numbers above.</div>
+    </div>`;
+}
+
 export function renderImpact(impact) {
   const el = document.getElementById('cmp-impact');
   if (!el) return;
@@ -254,6 +341,7 @@ export function renderImpact(impact) {
     ${mrows ? `<div class="tblwrap"><table class="audit-table cmp-table"><thead><tr>
       <th>Milestone</th><th>Name</th><th>Baseline finish</th><th>Before changes</th><th>After changes</th></tr></thead>
       <tbody>${mrows}</tbody></table></div>` : ''}
+    ${_scurveSection(impact.scurve)}
     <div class="mod-sec">Consultant recommendation</div>
     <div class="cmp-reco">${escapeHtml(impact.recommendation || '')}</div>`;
 }
@@ -278,6 +366,7 @@ export async function loadRescheduledAndCompare() {
       if (el) el.innerHTML = `<div class="cmp-warn">${escapeHtml(data.error || 'Could not compute the before/after impact.')}</div>`;
       return;
     }
+    state.compareImpact = data.impact;   // carried into the PDF export
     renderImpact(data.impact);
   } catch {
     if (el) el.innerHTML = '<div class="cmp-warn">Could not reach the local server. Try restarting the app.</div>';
@@ -355,6 +444,7 @@ export async function chooseBaselineAndCompare() {
     const data = await resp.json();
     if (!data.ok) { showError(data.error || 'Comparison failed.'); renderComparePanel(); return; }
     state.compareReport = data.report;
+    state.compareImpact = null;          // a fresh comparison clears any prior before/after
     state.compareBaselineName = path.split(/[\\/]/).pop();
     state.compareBaselinePath = path;   // full path — the corrected-XML writer needs it
     renderCompareReport(data.report);

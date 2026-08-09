@@ -13,6 +13,7 @@ Convention (matches the EVM tab): ``delay_days`` is **positive when behind**, so
 ``manufactured = delay_after - delay_before`` is positive when the edits added delay.
 """
 from p6_compare.model import MatchedSchedules
+from p6_compare.scurve import three_way_scurve
 
 
 def _fmt(d):
@@ -81,6 +82,7 @@ def before_after(baseline, update, corrected, delay_after, delay_before):
         'manufactured_days': manufactured,
         'forecast': forecast,
         'milestones': milestones,
+        'scurve': three_way_scurve(baseline, update, corrected),
         'recommendation': _recommendation(delay_before, delay_after, manufactured, forecast),
     }
 

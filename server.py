@@ -44,6 +44,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_corrected_xml(body)
         elif self.path == '/api/compare/before-after':
             self._handle_before_after(body)
+        elif self.path == '/api/compare/excel':
+            self._handle_compare_excel(body)
+        elif self.path == '/api/compare/report':
+            self._handle_compare_report(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -395,6 +399,57 @@ class Handler(BaseHTTPRequestHandler):
                 config = json.load(f)
             impact = before_after_from_paths(baseline_path, update_path, corrected_path, config)
             self._json(200, {'ok': True, 'impact': impact})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/compare/excel ────────────────────────────────────────────────
+    def _handle_compare_excel(self, body):
+        """Export the Consultant Review driving-logic change table to .xlsx.
+        Renders from the report dict the client already holds — no re-parse."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_compare.exporters import logic_excel
+            from p6_evm.xlsx_writer import write_xlsx
+            headers, rows = logic_excel(report)
+            write_xlsx(os.path.abspath(output_path), 'Driving Logic Changes', headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/compare/report ───────────────────────────────────────────────
+    def _handle_compare_report(self, body):
+        """Consultant Review PDF (or preview HTML). Renders from the report + optional
+        before/after impact the client holds — no re-parse. Chrome headless → PDF."""
+        report = body.get('report') or {}
+        impact = body.get('impact')
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_compare.exporters import render_html
+            html_content = render_html(report, impact)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
