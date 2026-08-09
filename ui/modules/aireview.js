@@ -110,8 +110,9 @@ function _score(s) {
       ${bar('① Sequence logic <em>(weight 45%)</em>', s.logic)}
       ${bar('② Completeness <em>(weight 45%)</em>', s.completeness)}
       ${bar('③ Structure &amp; advisory load <em>(weight 10%)</em>', s.structure)}
-      <div class="ai-how">Weighted <b>45% logic · 45% completeness · 10% structure</b>, each sub-score
-        = 100 − (its % × sensitivity). Bands: 85+ Ready to baseline · 70–84 Minor gaps · 50–69 Significant · under 50 Major.</div>
+      <div class="ai-how">Weighted <b>45% logic · 45% completeness · 10% structure</b>. Logic &amp; completeness =
+        100 − (their % × sensitivity); structure reflects missing WBS and how many fixes the AI had to suggest.
+        Bands: 85+ Ready to baseline · 70–84 Minor gaps · 50–69 Significant · under 50 Major.</div>
     </div></div>
     <div class="ai-legend"><div class="ai-gauge">
       <div class="seg" style="width:50%;background:#dc2626">0–49 Major</div>

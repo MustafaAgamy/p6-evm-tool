@@ -46,9 +46,16 @@ export function loadAnother() {
   state.currentSnapshotId  = null;
   state.currentModules     = null;
   state.currentModule      = null;
+  state.aiReport           = null;
+  state.aiReferencePath    = null;
+  state.aiReferenceName    = null;
 }
 
 export function renderResults(result, filePath, { previousImport = null } = {}) {
+  // A newly shown schedule must never inherit the previous one's AI review.
+  state.aiReport = null;
+  state.aiReferencePath = null;
+  state.aiReferenceName = null;
   const filename = filePath.split(/[\\/]/).pop();
   const dataDate = fmtDate(result.data_date);
   const actCount = result.activity_count ?? '?';
