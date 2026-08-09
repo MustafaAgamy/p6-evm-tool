@@ -309,12 +309,14 @@ class Handler(BaseHTTPRequestHandler):
         driving logic & lag changes, duration changes, change summary, milestones.
         The report carries no `records`; nothing is written to the schedule."""
         baseline_path = body.get('baseline_path', '')
-        update_path = body.get('update_path', '')
+        # The update is the currently-open schedule — resolve original → cached like the
+        # other routes, so a project reopened from history (original moved) still compares.
+        update_path = db.resolve_xml_path(body.get('update_path', ''), body.get('cached_path'))
         if not baseline_path or not os.path.isfile(baseline_path):
             self._json(200, {'ok': False, 'error': f'Baseline file not found: {baseline_path}'})
             return
-        if not update_path or not os.path.isfile(update_path):
-            self._json(200, {'ok': False, 'error': f'Update file not found: {update_path}'})
+        if not update_path:
+            self._json(200, {'ok': False, 'error': 'Update schedule not available. Re-import it first.'})
             return
         try:
             sys.path.insert(0, resource_path('.'))

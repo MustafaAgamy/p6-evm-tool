@@ -788,3 +788,49 @@ body {
 .cal-addform { display: flex; gap: 8px; align-items: center; margin: 8px 0 16px; flex-wrap: wrap; }
 .cal-addform.hidden { display: none; }
 .cal-addform input { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 6px 9px; font-size: 12px; }
+
+/* ── Consultant Review (Baseline vs Current Update) ─────────────────────── */
+.cmp-prompt { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px; max-width: 580px; }
+.cmp-prompt-t { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+.cmp-prompt-d { font-size: 13px; color: var(--muted); line-height: 1.55; margin-bottom: 14px; }
+.cmp-prompt-d b { color: var(--text); }
+.cmp-loading { color: var(--muted); font-size: 13px; padding: 20px 4px; }
+.cmp-files { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.cmp-file { display: inline-flex; align-items: baseline; gap: 6px; }
+.cmp-file .k { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
+.cmp-vs { color: var(--muted); font-weight: 700; }
+.cmp-files .btn-mini { margin-left: auto; }
+.cmp-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.cmp-kpis .kpi { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.cmp-kpis .kpi .k { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
+.cmp-kpis .kpi .v { font-size: 18px; font-weight: 800; margin-top: 3px; }
+.cmp-chgsum { border: 1px solid var(--border); background: var(--card-bg); border-radius: 10px; padding: 12px 14px; }
+.cmp-chgsum-t { font-size: 13px; margin-bottom: 9px; }
+.cmp-chgsum-t b { font-weight: 800; color: var(--accent); }
+.cmp-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+.cmp-pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; background: var(--border); color: var(--text); }
+.cmp-pills .cmp-pill { background: var(--bg); border: 1px solid var(--border); font-weight: 600; }
+.cmp-pills .cmp-pill b { font-weight: 800; margin-right: 3px; color: var(--text); }
+.cmp-pill.cmp-chg { color: var(--accent); background: rgba(59,130,246,.16); }
+.cmp-pill.cmp-add { color: var(--success); background: rgba(74,222,128,.14); }
+.cmp-pill.cmp-rem { color: var(--danger); background: rgba(248,113,113,.14); text-decoration: line-through; }
+.cmp-tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--border); color: var(--text); white-space: nowrap; }
+.cmp-log { min-width: 1360px; }
+.cmp-log td { vertical-align: top; }
+.cmp-gh-base { text-align: center; color: var(--muted); background: var(--row-hover); border-left: 1px solid var(--border); }
+.cmp-gh-upd { text-align: center; color: var(--accent); background: rgba(59,130,246,.12); border-left: 1px solid rgba(59,130,246,.4); }
+.cmp-log td.sepL, .cmp-log th.sepL { border-left: 1px solid var(--border); }
+.cmp-log td.sepU, .cmp-log th.sepU { border-left: 1px solid rgba(59,130,246,.4); }
+.cmp-dl { padding: 1px 0; }
+.cmp-dl + .cmp-dl { border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 5px; }
+.cmp-log td.mono, .cmp-table td.mono { font-family: ui-monospace,'Consolas',monospace; font-weight: 600; white-space: nowrap; }
+.cmp-log td.mut, .cmp-table td.mut { color: var(--muted); }
+.cmp-table td.num, .cmp-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cmp-over { color: var(--danger); font-weight: 700; }
+.cmp-stbadge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
+.cmp-st-ext { background: rgba(248,113,113,.16); color: var(--danger); }
+.cmp-st-burn { background: rgba(251,191,36,.16); color: var(--warning); }
+.cmp-st-ok { background: rgba(74,222,128,.15); color: var(--success); }
+.cmp-empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+.cmp-foot { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+.cmp-note { background: var(--card-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; padding: 11px 14px; font-size: 12px; color: var(--muted); line-height: 1.55; }
