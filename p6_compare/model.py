@@ -38,6 +38,7 @@ def _rels_by_pair(data):
         out[(pc, sc)] = {
             'type': rel.get('type', 'FS'),
             'lag_days': rel.get('lag_days', 0.0) or 0.0,
+            'lag_hours': rel.get('lag_hours', 0.0) or 0.0,
             'pred_name': pred.get('name', ''),
             'succ_name': succ.get('name', ''),
         }

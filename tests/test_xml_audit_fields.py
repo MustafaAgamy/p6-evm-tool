@@ -39,7 +39,7 @@ def _xml(tmp_path):
 def test_xml_relationships_and_type(tmp_path):
     data = parse_file(_xml(tmp_path))
     assert data.relationships == [
-        {'pred_id': '1001', 'succ_id': '1002', 'type': 'FS', 'lag_days': 0.0}
+        {'pred_id': '1001', 'succ_id': '1002', 'type': 'FS', 'lag_days': 0.0, 'lag_hours': 0.0}
     ]
     assert data.activities['1001']['task_type'] == 'Task'
     assert data.activities['1002']['wbs_path'] == 'Structure'

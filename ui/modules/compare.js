@@ -39,6 +39,12 @@ export function signedDays(n) {
   return '0 d';
 }
 
+// Suggested filename for the corrected but-for XML, from the update's file name.
+export function suggestedCorrectedName(updateName) {
+  const base = (updateName || 'update').replace(/\.[^.]+$/, '');
+  return `${base}_but-for.xml`;
+}
+
 // ── Rendering ─────────────────────────────────────────────────────────────
 
 function cellStack(list, key) {
@@ -159,9 +165,90 @@ export function renderCompareReport(report) {
     ${_durationTable(durs.rows)}
     <div class="mod-sec">Milestones — baseline vs update finish</div>
     ${_milestoneTable(report.milestones || [])}
-    <div class="cmp-note">Next slice: the delay before/after the changes, the three-way S-curve, and the corrected "but-for" XML you F9 in P6. Nothing is written to your schedule.</div>`;
+    <div class="mod-sec">Corrected but-for XML</div>
+    ${_correctedSection(report)}`;
   const chg = document.getElementById('cmp-change-baseline');
   if (chg) chg.addEventListener('click', chooseBaselineAndCompare);
+  _wireCorrected();
+}
+
+// ── Corrected but-for XML ───────────────────────────────────────────────────
+
+function _revertList(ops) {
+  if (!ops || !ops.length) {
+    return '<p class="cmp-empty">No revertable changes — nothing to correct.</p>';
+  }
+  const items = ops.map(op => `
+    <label class="cmp-rev-item">
+      <input type="checkbox" class="cmp-rev-cb" value="${escapeHtml(op.id)}" checked>
+      <span class="cmp-rev-txt"><b>${escapeHtml(op.label)}</b>
+        <span class="cmp-rev-detail">${escapeHtml(op.detail || '')}</span></span>
+    </label>`).join('');
+  return `
+    <div class="cmp-rev-controls">
+      <button class="btn-mini" id="cmp-rev-all">Select all</button>
+      <button class="btn-mini" id="cmp-rev-none">Select none</button>
+    </div>
+    <div class="cmp-rev-list">${items}</div>
+    <div class="cmp-rev-actions">
+      <button class="btn-primary" id="cmp-gen-xml">Generate corrected XML</button>
+      <span class="cmp-rev-hint mut">Open it in P6 → F9 → read the right delay. It's a but-for analysis file, not your official schedule.</span>
+    </div>
+    <div class="cmp-rev-result" id="cmp-rev-result"></div>`;
+}
+
+function _correctedSection(report) {
+  const updIsXml = /\.xml$/i.test(state.currentXmlPath || '');
+  if (!updIsXml) {
+    return `<div class="cmp-warn">To produce the corrected file, re-export the current update from P6 as an <b>XML</b> file and open it — the "but-for" file is written as P6 XML.</div>`;
+  }
+  return `
+    <div class="cmp-note">Tick the manipulations to strip. The tool reverts only those relationships, lags and durations to baseline and leaves your actuals untouched — then you F9 in P6 to read the genuine delay.</div>
+    ${_revertList(report.revert_ops)}`;
+}
+
+function _wireCorrected() {
+  const gen = document.getElementById('cmp-gen-xml');
+  if (gen) gen.addEventListener('click', generateCorrectedXml);
+  const setAll = v => document.querySelectorAll('.cmp-rev-cb').forEach(cb => { cb.checked = v; });
+  const all = document.getElementById('cmp-rev-all');
+  const none = document.getElementById('cmp-rev-none');
+  if (all) all.addEventListener('click', () => setAll(true));
+  if (none) none.addEventListener('click', () => setAll(false));
+}
+
+export async function generateCorrectedXml() {
+  const ids = Array.from(document.querySelectorAll('.cmp-rev-cb:checked')).map(cb => cb.value);
+  const resultEl = document.getElementById('cmp-rev-result');
+  if (!ids.length) {
+    if (resultEl) resultEl.innerHTML = '<span class="cmp-over">Tick at least one change to revert.</span>';
+    return;
+  }
+  const updName = (state.currentXmlPath || '').split(/[\\/]/).pop() || 'update.xml';
+  const outputPath = await window.pywebview.api.choose_save_path(suggestedCorrectedName(updName), 'xml');
+  if (!outputPath) return;
+  if (resultEl) resultEl.innerHTML = '<span class="mut">Writing corrected XML…</span>';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/corrected-xml`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        baseline_path: state.compareBaselinePath,
+        update_path: state.currentXmlPath,
+        cached_path: state.currentCachedPath,
+        selected_ids: ids,
+        output_path: outputPath,
+      }),
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      if (resultEl) resultEl.innerHTML = `<span class="cmp-over">${escapeHtml(data.error || 'Could not write the corrected XML.')}</span>`;
+      return;
+    }
+    const n = data.applied || 0;
+    if (resultEl) resultEl.innerHTML = `<span class="cmp-ok">Corrected XML saved — ${n} change${n === 1 ? '' : 's'} reverted to baseline: <b>${escapeHtml(outputPath)}</b>.<br>Open it in P6, press <b>F9</b>, and read the right delay.</span>`;
+  } catch {
+    if (resultEl) resultEl.innerHTML = '<span class="cmp-over">Could not reach the local server. Try restarting the app.</span>';
+  }
 }
 
 export function renderComparePanel() {
@@ -202,6 +289,7 @@ export async function chooseBaselineAndCompare() {
     if (!data.ok) { showError(data.error || 'Comparison failed.'); renderComparePanel(); return; }
     state.compareReport = data.report;
     state.compareBaselineName = path.split(/[\\/]/).pop();
+    state.compareBaselinePath = path;   // full path — the corrected-XML writer needs it
     renderCompareReport(data.report);
   } catch {
     showError('Could not reach the local server. Try restarting the app.');

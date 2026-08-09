@@ -85,4 +85,5 @@ def test_non_zero_lag_divided_by_day_hours(tmp_path):
     p = tmp_path / "lag.xer"; p.write_text(sample, encoding='cp1252')
     data = parse_xer(str(p))
     assert data.relationships[0]['lag_days'] == 1.6   # 16 hr / 10 hr per day
+    assert data.relationships[0]['lag_hours'] == 16.0  # raw hours preserved for the corrected-XML writer
     assert data.activities['1002']['total_float_days'] == 10.0   # 100 hr / 10 hr per day

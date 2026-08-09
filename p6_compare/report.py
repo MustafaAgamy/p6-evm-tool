@@ -8,6 +8,7 @@ Slice 2, once the corrected XML has been rescheduled in P6 and re-imported.
 from p6_audit.graph import ScheduleGraph
 from p6_compare.model import MatchedSchedules
 from p6_compare.diff import driving_link_map, diff_logic, diff_durations
+from p6_compare.revert import revert_operations
 from p6_evm.parser import parse_file
 
 _KIND_LABEL = {
@@ -63,6 +64,9 @@ def build_report_from_data(baseline, update, config=None):
         'logic': logic,
         'durations': durations,
         'milestones': milestones,
+        # Corrected but-for XML: the selectable revert plan (relationships/lags/durations
+        # back to baseline). The UI shows it as a tick-list; the writer applies the picks.
+        'revert_ops': revert_operations(matched, logic, durations),
     }
 
 

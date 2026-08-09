@@ -3,7 +3,7 @@
  * Run: node tests/js/test_compare.js
  */
 import assert from 'node:assert/strict';
-import { fmtLag, statusClass, summaryPills, signedDays } from '../../ui/modules/compare.js';
+import { fmtLag, statusClass, summaryPills, signedDays, suggestedCorrectedName } from '../../ui/modules/compare.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -35,6 +35,14 @@ console.log('\nsignedDays');
 test('positive', () => assert.equal(signedDays(3), '+3 d'));
 test('negative uses the minus glyph', () => assert.equal(signedDays(-2), '−2 d'));
 test('zero', () => assert.equal(signedDays(0), '0 d'));
+
+console.log('\nsuggestedCorrectedName');
+test('swaps the extension for _but-for.xml', () =>
+  assert.equal(suggestedCorrectedName('Metro_Update_Feb.xml'), 'Metro_Update_Feb_but-for.xml'));
+test('works from an .xer name', () =>
+  assert.equal(suggestedCorrectedName('sched.XER'), 'sched_but-for.xml'));
+test('falls back when empty', () =>
+  assert.equal(suggestedCorrectedName(''), 'update_but-for.xml'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

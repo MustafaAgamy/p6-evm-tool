@@ -40,6 +40,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_report(body)
         elif self.path == '/api/compare':
             self._handle_compare(body)
+        elif self.path == '/api/compare/corrected-xml':
+            self._handle_corrected_xml(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -327,6 +329,41 @@ class Handler(BaseHTTPRequestHandler):
             report['baseline_file'] = os.path.basename(baseline_path)
             report['update_file'] = os.path.basename(update_path)
             self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/compare/corrected-xml ────────────────────────────────────────
+    def _handle_corrected_xml(self, body):
+        """Consultant Review — write the corrected 'but-for' XML: revert the selected
+        relationship / lag / duration changes back to baseline, leaving every actual
+        untouched. P6 does the F9. The update must be a P6 XML export. Nothing is
+        written to the user's own schedule — a separate file is produced."""
+        baseline_path = body.get('baseline_path', '')
+        update_path = db.resolve_xml_path(body.get('update_path', ''), body.get('cached_path'))
+        output_path = body.get('output_path', '')
+        selected_ids = body.get('selected_ids')   # None → revert everything
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not baseline_path or not os.path.isfile(baseline_path):
+            self._json(200, {'ok': False, 'error': f'Baseline file not found: {baseline_path}'})
+            return
+        if not update_path or not os.path.isfile(update_path):
+            self._json(200, {'ok': False, 'error': 'Update schedule not available. Re-import it first.'})
+            return
+        if not update_path.lower().endswith('.xml'):
+            self._json(200, {'ok': False, 'error': 'The corrected file is written as P6 XML — re-export the current '
+                                                    'update from P6 as an XML file and open it, then try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_compare.revert import write_corrected_from_paths
+            note = ('Consultant Review — BUT-FOR analysis file. Relationships, lags and durations reverted '
+                    'to baseline to reveal the genuine delay after F9 in P6. NOT the official schedule.')
+            res = write_corrected_from_paths(
+                baseline_path, os.path.abspath(update_path), os.path.abspath(output_path),
+                selected_ids=selected_ids, note=note)
+            self._json(200, {'ok': True, 'applied': res['applied']})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

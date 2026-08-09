@@ -212,6 +212,7 @@ def parse_xer(path):
             'pred_id': pred, 'succ_id': succ,
             'type': PRED_TYPE.get(r.get('pred_type'), 'FS'),
             'lag_days': lag_hr / day_hours,
+            'lag_hours': lag_hr,
         })
 
     for ra in tables.get('TASKRSRC', []):
