@@ -248,8 +248,11 @@ function _correctedSection(report) {
     <div class="cmp-note">Tick the manipulations to strip. The tool reverts only those relationships, lags and durations to baseline and leaves your actuals untouched — then you F9 in P6 to read the genuine delay.</div>
     ${_revertList(report.revert_ops)}
     <div class="cmp-reschedule">
-      <div class="cmp-reschedule-t">Then: delay before vs after the changes</div>
-      <div class="cmp-reschedule-d">Open the corrected file in P6, press <b>F9</b>, re-export it as XML, and load it here — the tool shows the delay before/after, the corrected completion, and the consultant recommendation.</div>
+      <div class="cmp-reschedule-t">Now reschedule it in P6 — two ways to use the result</div>
+      <ol class="cmp-paths">
+        <li><b>Just want the number?</b> Open the corrected file in P6 and press <b>F9</b> — the delay P6 then shows is the genuine (but-for) delay. Nothing else needed.</li>
+        <li><b>Want the before/after report, S-curve &amp; PDF?</b> After F9, <b>re-export it as XML</b> and load it below. (The corrected file keeps the update's old dates until P6 recalculates them with F9 — that's why it's re-exported.)</li>
+      </ol>
       <button class="btn-mini" id="cmp-load-resched">Load rescheduled corrected file</button>
     </div>
     <div id="cmp-impact"></div>`;
@@ -330,7 +333,9 @@ export function renderImpact(impact) {
     <td class="mut">${escapeHtml(m.baseline_finish || '—')}</td>
     <td>${escapeHtml(m.before_finish || '—')}</td>
     <td>${escapeHtml(m.after_finish || '—')}</td></tr>`).join('');
+  const warn = impact.warning ? `<div class="cmp-warn">${escapeHtml(impact.warning)}</div>` : '';
   el.innerHTML = `
+    ${warn}
     <div class="mod-sec">Impact — delay before vs after the changes</div>
     <div class="cmp-kpis">
       ${_impactTile('Reported delay (after)', impact.delay_after)}

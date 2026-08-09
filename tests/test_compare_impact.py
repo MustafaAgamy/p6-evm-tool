@@ -8,7 +8,7 @@ EVM tab shows.
 import textwrap
 from datetime import datetime
 from p6_evm.parser import ScheduleData
-from p6_compare.impact import before_after, before_after_from_paths
+from p6_compare.impact import before_after, before_after_from_paths, check_corrected_file
 
 
 def _sched(finish, milestone_finish):
@@ -77,6 +77,43 @@ def _finish_xml(tmp_path, name, float_hours):
     p = tmp_path / name
     p.write_text(content, encoding='utf-8')
     return str(p)
+
+
+# ── check_corrected_file (guard the load-rescheduled step) ─────────────────
+
+def _sched_with_rel(finish, lag_hours):
+    d = ScheduleData()
+    d.project = {'scheduled_finish': finish, 'data_date': datetime(2026, 2, 9)}
+    d.activities = {
+        'p': {'id': 'A050', 'name': 'Clearance', 'planned_duration': 80},
+        's': {'id': 'A100', 'name': 'Excavate', 'planned_duration': 80},
+    }
+    d.relationships = [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS',
+                        'lag_days': lag_hours / 8.0, 'lag_hours': lag_hours}]
+    return d
+
+
+def test_check_ok_when_reverted_and_rescheduled():
+    baseline = _sched_with_rel(datetime(2027, 2, 9), 0)
+    update = _sched_with_rel(datetime(2027, 2, 22), 80)
+    corrected = _sched_with_rel(datetime(2027, 2, 15), 0)   # reverted lag + finish moved
+    assert check_corrected_file(baseline, update, corrected) is None
+
+
+def test_check_warns_when_file_is_the_update():
+    baseline = _sched_with_rel(datetime(2027, 2, 9), 0)
+    update = _sched_with_rel(datetime(2027, 2, 22), 80)
+    corrected = _sched_with_rel(datetime(2027, 2, 22), 80)  # nothing reverted (still == update)
+    w = check_corrected_file(baseline, update, corrected)
+    assert w and 'current update' in w
+
+
+def test_check_warns_when_not_rescheduled():
+    baseline = _sched_with_rel(datetime(2027, 2, 9), 0)
+    update = _sched_with_rel(datetime(2027, 2, 22), 80)
+    corrected = _sched_with_rel(datetime(2027, 2, 22), 0)   # reverted but finish unchanged from update
+    w = check_corrected_file(baseline, update, corrected)
+    assert w and 'F9' in w
 
 
 def test_before_after_from_paths_wires_compute(tmp_path):

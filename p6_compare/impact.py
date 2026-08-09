@@ -87,6 +87,57 @@ def before_after(baseline, update, corrected, delay_after, delay_before):
     }
 
 
+def _rel_sig(x):
+    return None if x is None else (x.get('type'), round(x.get('lag_hours', 0.0) or 0.0, 3))
+
+
+def check_corrected_file(baseline, update, corrected):
+    """Guard the load-rescheduled step: is this really the rescheduled but-for file?
+
+    Returns a plain-language warning, or None when it looks right. Two mix-ups it
+    catches: (1) the user loaded the current update (none of the flagged changes are
+    reverted); (2) the corrected file was loaded before F9 in P6 (baseline logic is
+    back, but the finish date never moved). Non-blocking — the UI still shows results.
+    """
+    m_bu = MatchedSchedules(baseline, update)
+    m_bc = MatchedSchedules(baseline, corrected)
+    corrected_rels = m_bc.update_rels
+    corrected_by_code = m_bc.update_by_code
+
+    changed = reverted = unreverted = 0
+    for key in set(m_bu.baseline_rels) | set(m_bu.update_rels):
+        b, u = m_bu.baseline_rels.get(key), m_bu.update_rels.get(key)
+        if _rel_sig(b) == _rel_sig(u):
+            continue
+        changed += 1
+        c = _rel_sig(corrected_rels.get(key))
+        if c == _rel_sig(b):
+            reverted += 1
+        elif c == _rel_sig(u):
+            unreverted += 1
+    for code in m_bu.matched_codes:
+        bp = m_bu.baseline_by_code[code].get('planned_duration') or 0.0
+        up = m_bu.update_by_code[code].get('planned_duration') or 0.0
+        if abs(bp - up) <= 1e-6:
+            continue
+        changed += 1
+        cp = (corrected_by_code.get(code, {}) or {}).get('planned_duration') or 0.0
+        if abs(cp - bp) <= 1e-6:
+            reverted += 1
+        elif abs(cp - up) <= 1e-6:
+            unreverted += 1
+
+    if changed and reverted == 0:
+        return ('This looks like the current update, not the corrected file — load the '
+                '"…_but-for.xml" you generated (after rescheduling it in P6).')
+    uf, cf = _project_finish(update), _project_finish(corrected)
+    if reverted and uf and cf and uf == cf:
+        return ('The corrected file has the baseline logic put back, but its finish date is '
+                'unchanged from the update — press F9 in P6 and re-export before loading it, '
+                'so the before/after uses the rescheduled dates.')
+    return None
+
+
 def _delay(data, config):
     """Finish-milestone delay via metrics.compute — identical to the EVM tab. None on failure."""
     from p6_evm.metrics import compute
@@ -103,5 +154,7 @@ def before_after_from_paths(baseline_path, update_path, corrected_path, config=N
     baseline = parse_file(baseline_path)
     update = parse_file(update_path)
     corrected = parse_file(corrected_path)
-    return before_after(baseline, update, corrected,
-                        _delay(update, config), _delay(corrected, config))
+    result = before_after(baseline, update, corrected,
+                          _delay(update, config), _delay(corrected, config))
+    result['warning'] = check_corrected_file(baseline, update, corrected)
+    return result

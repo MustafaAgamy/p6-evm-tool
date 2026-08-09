@@ -854,6 +854,9 @@ body {
 .cmp-reschedule { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); }
 .cmp-reschedule-t { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
 .cmp-reschedule-d { font-size: 12px; color: var(--muted); line-height: 1.55; margin-bottom: 10px; }
+.cmp-paths { margin: 6px 0 12px; padding-left: 20px; }
+.cmp-paths li { font-size: 12px; color: var(--muted); line-height: 1.55; margin-bottom: 7px; }
+.cmp-paths li b { color: var(--text); }
 .cmp-hot { color: var(--danger); }
 .cmp-forecast { font-size: 12px; color: var(--muted); margin: 10px 0; line-height: 1.6; }
 .cmp-forecast b { color: var(--text); font-weight: 600; }
