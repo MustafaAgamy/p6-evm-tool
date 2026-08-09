@@ -14,6 +14,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **XER working-calendars** are now read from the file (working week, holidays, hours — including P6's finish-first shift format), so a XER's Planned % and Finish Delay match the XML instead of counting every day as working.
 - **Automated match check** — a golden test confirms *XER + baseline == XML* to the penny on real exports, guarding against regressions.
 
+### Added — Consultant Review: Baseline vs Current Update (Slice 1)
+- **New Consultant Review analysis** — give it the approved **baseline** and the **current update**; it flags whether a delay is genuine or **manufactured by editing the logic, lags or durations** against the baseline. Its own tab, in the same style as the other modules.
+- **Driving logic & lag change table** — only the activities whose driving predecessor/successor relationship or lag changed vs the baseline, with each side's driving links (ID + relationship + name), multiple driving links per activity, and added / changed / removed highlighting, above a "total changes" summary.
+- **Duration & remaining table** — baseline original duration vs current, and remaining vs the baseline allowance ("extended / not burning down / on track").
+- Isolated `p6_compare` engine (matches by Activity ID, derives the driving links); **EVM calculation untouched**. *Coming next: the corrected "but-for" XML, delay before/after with a three-way S-curve, and PDF/Excel export.*
+
 ---
 
 ## [v1.1.0] - 2026-08-08
