@@ -248,11 +248,8 @@ function _correctedSection(report) {
     <div class="cmp-note">Tick the manipulations to strip. The tool reverts only those relationships, lags and durations to baseline and leaves your actuals untouched — then you F9 in P6 to read the genuine delay.</div>
     ${_revertList(report.revert_ops)}
     <div class="cmp-reschedule">
-      <div class="cmp-reschedule-t">Now reschedule it in P6 — two ways to use the result</div>
-      <ol class="cmp-paths">
-        <li><b>Just want the number?</b> Open the corrected file in P6 and press <b>F9</b> — the delay P6 then shows is the genuine (but-for) delay. Nothing else needed.</li>
-        <li><b>Want the before/after report, S-curve &amp; PDF?</b> After F9, <b>re-export it as XML</b> and load it below. (The corrected file keeps the update's old dates until P6 recalculates them with F9 — that's why it's re-exported.)</li>
-      </ol>
+      <div class="cmp-reschedule-t">Reschedule it in P6, then load it back</div>
+      <div class="cmp-reschedule-d">Open the corrected file in P6 and press <b>F9</b> — P6 recalculates the dates from the reverted baseline logic (the file keeps the update's old dates until it does). Then <b>re-export it as XML and load it below</b> — that's what brings the rescheduled delay into the report; the delay before/after, the S-curve and the PDF all need it. (You can also read the delay straight off P6 after F9 for a quick look — but only the loaded file puts it into the report.)</div>
       <button class="btn-mini" id="cmp-load-resched">Load rescheduled corrected file</button>
     </div>
     <div id="cmp-impact"></div>`;
