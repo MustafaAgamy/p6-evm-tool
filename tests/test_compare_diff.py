@@ -8,7 +8,8 @@ this shape.
 from datetime import datetime
 from p6_evm.parser import ScheduleData
 from p6_audit.graph import ScheduleGraph
-from p6_compare.diff import diff_logic, driving_link_map
+from p6_compare.model import MatchedSchedules
+from p6_compare.diff import diff_logic, driving_link_map, diff_durations
 
 
 def _L(type_, lag, name):
@@ -70,6 +71,30 @@ def test_unchanged_activity_excluded_and_summary_counts():
     assert [r['activity_id'] for r in res['rows']] == ['A100']   # A900 unchanged, excluded
     assert res['summary']['changed_activities'] == 1
     assert res['summary']['by_kind'] == {'lag': 1}
+
+
+def _dur_sched(entries):
+    # entries: {code: (planned_hours, remaining_hours)}  — no calendar → 8h/day
+    d = ScheduleData()
+    d.activities = {code: {'id': code, 'name': code, 'task_type': 'Task', 'calendar_id': None,
+                           'planned_duration': pl, 'remaining_duration': rem}
+                    for code, (pl, rem) in entries.items()}
+    return d
+
+
+def test_diff_durations_flags_extended_and_not_burning():
+    base = _dur_sched({'A1250': (96, 96), 'A1120': (80, 80), 'A1600': (160, 160)})
+    upd = _dur_sched({'A1250': (144, 120), 'A1120': (80, 64), 'A1600': (160, 176)})
+    res = diff_durations(MatchedSchedules(base, upd))
+    rows = {r['activity_id']: r for r in res['rows']}
+    assert set(rows) == {'A1250', 'A1600'}   # A1120 on-track (remaining < baseline) excluded
+    assert rows['A1250']['status'] == 'extended'
+    assert rows['A1250']['baseline_orig_days'] == 12.0
+    assert rows['A1250']['update_orig_days'] == 18.0
+    assert rows['A1250']['remaining_days'] == 15.0
+    assert rows['A1250']['remaining_minus_baseline_days'] == 3.0
+    assert rows['A1600']['status'] == 'not_burning'
+    assert res['counts'] == {'extended': 1, 'not_burning': 1}
 
 
 def test_driving_link_map_from_graph():

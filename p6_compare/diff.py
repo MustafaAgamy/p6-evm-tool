@@ -94,6 +94,49 @@ def _primary_kind(swap, p_add, s_add, p_rem, s_rem, changed):
     return 'lag', 'Lag ↑' if up else 'Lag ↓'
 
 
+def _day_hours(data, act):
+    cal = (getattr(data, 'calendars', {}) or {}).get(act.get('calendar_id'))
+    return getattr(cal, 'day_hours', 8.0) if cal else 8.0
+
+
+def diff_durations(matched, tol_days=0.05):
+    """Original duration baseline vs update, and remaining vs the baseline allowance.
+
+    Durations are stored in hours; converted to days on each side's calendar. Only
+    activities that were extended, or whose remaining exceeds the baseline original,
+    appear (on-track activities are omitted). Returns {'rows': [...], 'counts': {...}}.
+    """
+    rows = []
+    counts = {}
+    for code in matched.matched_codes:
+        base = matched.baseline_by_code[code]
+        upd = matched.update_by_code[code]
+        b_dh = _day_hours(matched.baseline, base)
+        u_dh = _day_hours(matched.update, upd)
+        base_orig = round((base.get('planned_duration') or 0.0) / b_dh, 1)
+        upd_orig = round((upd.get('planned_duration') or 0.0) / u_dh, 1)
+        remaining = round((upd.get('remaining_duration') or 0.0) / u_dh, 1)
+        if upd_orig - base_orig > tol_days:
+            status = 'extended'
+        elif remaining - base_orig > tol_days:
+            status = 'not_burning'
+        else:
+            continue
+        counts[status] = counts.get(status, 0) + 1
+        rows.append({
+            'activity_id': code,
+            'activity_name': upd.get('name', ''),
+            'baseline_orig_days': base_orig,
+            'update_orig_days': upd_orig,
+            'remaining_days': remaining,
+            'remaining_minus_baseline_days': round(remaining - base_orig, 1),
+            'over_baseline': (remaining - base_orig) > tol_days,
+            'status': status,
+        })
+    rows.sort(key=lambda r: -r['remaining_minus_baseline_days'])
+    return {'rows': rows, 'counts': counts}
+
+
 def diff_logic(base_map, upd_map):
     """Compare two driving-link maps. Returns {'rows': [...], 'summary': {...}} with
     only the activities whose driving relationship or lag changed."""
