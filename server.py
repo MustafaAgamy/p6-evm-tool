@@ -38,6 +38,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_parse(body)
         elif self.path == '/api/report':
             self._handle_report(body)
+        elif self.path == '/api/compare':
+            self._handle_compare(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -297,6 +299,32 @@ class Handler(BaseHTTPRequestHandler):
             os.unlink(html_path)
             self._json(200, {'ok': True})
 
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/compare ───────────────────────────────────────────────────────
+    def _handle_compare(self, body):
+        """Consultant Review — Baseline vs Current Update. Parses a baseline
+        (XER/XML) and an update (XML/XER) and returns the comparison report dict:
+        driving logic & lag changes, duration changes, change summary, milestones.
+        The report carries no `records`; nothing is written to the schedule."""
+        baseline_path = body.get('baseline_path', '')
+        update_path = body.get('update_path', '')
+        if not baseline_path or not os.path.isfile(baseline_path):
+            self._json(200, {'ok': False, 'error': f'Baseline file not found: {baseline_path}'})
+            return
+        if not update_path or not os.path.isfile(update_path):
+            self._json(200, {'ok': False, 'error': f'Update file not found: {update_path}'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_compare.report import build_report
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            report = build_report(baseline_path, update_path, config)
+            report['baseline_file'] = os.path.basename(baseline_path)
+            report['update_file'] = os.path.basename(update_path)
+            self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

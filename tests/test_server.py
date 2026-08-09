@@ -27,6 +27,63 @@ def _post_json(port, path, payload):
     return resp.status, json.loads(body)
 
 
+# ── POST /api/compare (Consultant Review — Baseline vs Update) ─────────────
+
+_BASELINE_XER = (
+    "ERMHDR\t19.12\n"
+    "%T\tPROJECT\n%F\tproj_id\tproj_short_name\tlast_recalc_date\n%R\t1\tP1\t2026-02-09 00:00\n"
+    "%T\tCALENDAR\n%F\tclndr_id\tclndr_name\tday_hr_cnt\n%R\t10\t8hr\t8\n"
+    "%T\tPROJWBS\n%F\twbs_id\twbs_name\tparent_wbs_id\tproj_node_flag\n%R\t100\tProj\t\tY\n"
+    "%T\tTASK\n%F\ttask_id\tproj_id\twbs_id\tclndr_id\ttask_type\ttask_code\ttask_name"
+    "\ttarget_drtn_hr_cnt\tremain_drtn_hr_cnt\trestart_date\treend_date\n"
+    "%R\t1\t1\t100\t10\tTT_Task\tA050\tClearance\t40\t40\t2026-01-05 00:00\t2026-01-10 00:00\n"
+    "%R\t2\t1\t100\t10\tTT_Task\tA100\tExcavate\t80\t80\t2026-01-10 00:00\t2026-01-18 00:00\n"
+    "%T\tTASKPRED\n%F\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\n%R\t2\t1\tPR_FS\t0\n"
+    "%E\n"
+)
+
+_UPDATE_XML = (
+    '<?xml version="1.0"?>\n'
+    '<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
+    '  <Project><ObjectId>1</ObjectId><Id>P1</Id><Name>Proj</Name>'
+    '<DataDate>2026-02-09T00:00:00</DataDate>\n'
+    '    <WBS><ObjectId>100</ObjectId><Name>Proj</Name><ParentObjectId></ParentObjectId></WBS>\n'
+    '    <Activity><ObjectId>1</ObjectId><Id>A050</Id><Name>Clearance</Name>'
+    '<Type>Task Dependent</Type><WBSObjectId>100</WBSObjectId><CalendarObjectId></CalendarObjectId>'
+    '<RemainingEarlyFinishDate>2026-01-10T00:00:00</RemainingEarlyFinishDate></Activity>\n'
+    '    <Activity><ObjectId>2</ObjectId><Id>A100</Id><Name>Excavate</Name>'
+    '<Type>Task Dependent</Type><WBSObjectId>100</WBSObjectId><CalendarObjectId></CalendarObjectId>'
+    '<RemainingEarlyStartDate>2026-01-20T00:00:00</RemainingEarlyStartDate></Activity>\n'
+    '    <Relationship><PredecessorActivityObjectId>1</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>2</SuccessorActivityObjectId><Type>Finish to Start</Type>'
+    '<Lag>80</Lag></Relationship>\n'
+    '  </Project>\n</APIBusinessObjects>\n'
+)
+
+
+def _write_pair(tmp_path):
+    b = tmp_path / "baseline.xer"; b.write_text(_BASELINE_XER, encoding='cp1252')
+    u = tmp_path / "update.xml"; u.write_text(_UPDATE_XML, encoding='utf-8')
+    return str(b), str(u)
+
+
+def test_compare_missing_files_returns_error(test_server):
+    _, data = _post_json(test_server, '/api/compare',
+                         {'baseline_path': 'nope.xer', 'update_path': 'nope.xml'})
+    assert data['ok'] is False and 'not found' in data['error'].lower()
+
+
+def test_compare_detects_lag_change_across_xer_and_xml(test_server, tmp_path):
+    b, u = _write_pair(tmp_path)
+    _, data = _post_json(test_server, '/api/compare', {'baseline_path': b, 'update_path': u})
+    assert data['ok'] is True
+    r = data['report']
+    assert r['baseline_file'] == 'baseline.xer' and r['update_file'] == 'update.xml'
+    # A050 -> A100 lag went FS+0 -> FS+10, detected on the driven activity A100
+    assert [row['activity_id'] for row in r['logic']['rows']] == ['A100']
+    assert r['logic']['summary']['by_kind'] == {'lag': 1}
+
+
 # ── GET / ─────────────────────────────────────────────────────────────────
 
 def test_index_returns_200(test_server):
