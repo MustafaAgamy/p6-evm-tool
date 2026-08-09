@@ -137,19 +137,30 @@ def diff_durations(matched, tol_days=0.05):
     return {'rows': rows, 'counts': counts}
 
 
+def _plain(side):
+    """Context list (no diff status) of an activity's driving links, sorted by code."""
+    return [{'code': c, 'name': v['name'], 'type': v['type'], 'lag_days': v['lag_days'], 'status': 'same'}
+            for c, v in sorted(side.items())]
+
+
 def diff_logic(base_map, upd_map):
-    """Compare two driving-link maps. Returns {'rows': [...], 'summary': {...}} with
-    only the activities whose driving relationship or lag changed."""
+    """Compare two driving-link maps.
+
+    Detection is on each activity's driving PREDECESSORS, so every driving link is
+    diffed exactly once and attributed to the driven (successor) activity — the
+    delay-relevant framing ("what is now driving me, and did it change"). Driving
+    successors are shown as context. Only activities whose driving predecessor
+    relationship or lag changed appear. Returns {'rows': [...], 'summary': {...}}.
+    """
     rows = []
     by_kind = {}
     for code in sorted(set(base_map) & set(upd_map)):
         b, u = base_map[code], upd_map[code]
         bp, up, p_add, p_rem, p_chg = _diff_side(b['preds'], u['preds'])
-        bs, us, s_add, s_rem, s_chg = _diff_side(b['succs'], u['succs'])
-        if not (p_add or p_rem or p_chg or s_add or s_rem or s_chg):
+        if not (p_add or p_rem or p_chg):
             continue
-        swap = bool((p_add and p_rem) or (s_add and s_rem))
-        primary, label = _primary_kind(swap, p_add, s_add, p_rem, s_rem, p_chg + s_chg)
+        swap = bool(p_add and p_rem)
+        primary, label = _primary_kind(swap, p_add, [], p_rem, [], p_chg)
         by_kind[primary] = by_kind.get(primary, 0) + 1
         rows.append({
             'activity_id': code,
@@ -157,6 +168,6 @@ def diff_logic(base_map, upd_map):
             'primary_kind': primary,
             'change_label': label,
             'baseline_preds': bp, 'update_preds': up,
-            'baseline_succs': bs, 'update_succs': us,
+            'baseline_succs': _plain(b['succs']), 'update_succs': _plain(u['succs']),
         })
     return {'rows': rows, 'summary': {'changed_activities': len(rows), 'by_kind': by_kind}}

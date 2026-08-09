@@ -49,13 +49,14 @@ def test_added_driving_predecessor():
 
 
 def test_removed_and_added_is_a_swap():
-    base = {'A710': {'name': 'Facade', 'preds': {}, 'succs': {'A800': _L('FS', 0.0, 'Testing')}}}
-    upd = {'A710': {'name': 'Facade', 'preds': {}, 'succs': {'A905': _L('FS', 0.0, 'Commissioning')}}}
+    # Driving predecessor swapped: A800 removed, A905 added → one row, "Removed + added".
+    base = {'A710': {'name': 'Facade', 'preds': {'A800': _L('FS', 0.0, 'Testing')}, 'succs': {}}}
+    upd = {'A710': {'name': 'Facade', 'preds': {'A905': _L('FS', 0.0, 'Commissioning')}, 'succs': {}}}
     row = _row_by_id(diff_logic(base, upd), 'A710')
     assert row['primary_kind'] == 'removed_added'
     assert row['change_label'] == 'Removed + added'
-    assert [s['code'] for s in row['baseline_succs'] if s['status'] == 'removed'] == ['A800']
-    assert [s['code'] for s in row['update_succs'] if s['status'] == 'added'] == ['A905']
+    assert [s['code'] for s in row['baseline_preds'] if s['status'] == 'removed'] == ['A800']
+    assert [s['code'] for s in row['update_preds'] if s['status'] == 'added'] == ['A905']
 
 
 def test_unchanged_activity_excluded_and_summary_counts():
