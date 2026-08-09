@@ -172,6 +172,7 @@ def parse_xer(path):
             'task_type': TASK_TYPE.get(t.get('task_type'), 'Task'),
             'percent_complete': _pct_complete(t),
             'planned_duration': _num(t.get('target_drtn_hr_cnt'), 0.0),
+            'remaining_duration': _num(t.get('remain_drtn_hr_cnt'), 0.0),
             'total_float_days': tf_days,
             'tf_from_hours': tf is not None,   # P6's stored float (authoritative for Delay)
             'free_float_days': ff_days,

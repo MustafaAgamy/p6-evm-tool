@@ -230,6 +230,7 @@ def parse_file(path) -> ScheduleData:
             'wbs_id': text(act_el, 'WBSObjectId'),
             'percent_complete': parse_float(text(act_el, 'PercentComplete')),
             'planned_duration': parse_float(text(act_el, 'PlannedDuration')),
+            'remaining_duration': parse_float(text(act_el, 'RemainingDuration')),
             'planned_start': parse_datetime(text(act_el, 'PlannedStartDate')),
             'planned_finish': parse_datetime(text(act_el, 'PlannedFinishDate')),
             'remaining_early_start': parse_datetime(text(act_el, 'RemainingEarlyStartDate')),

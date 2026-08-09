@@ -51,3 +51,31 @@ def test_xml_actual_dates_parsed(tmp_path):
     assert data.activities['1001']['actual_start'] == datetime(2026, 7, 20, 8, 0, 0)
     assert data.activities['1001']['actual_finish'] is None
     assert data.activities['1002']['actual_start'] is None
+
+
+def test_xml_remaining_and_planned_duration(tmp_path):
+    # Comparison feature needs original (planned) AND remaining duration, in hours,
+    # to flag stretched planned durations and activities that aren't burning down.
+    content = textwrap.dedent('''\
+    <?xml version="1.0"?>
+    <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
+      <Project>
+        <ObjectId>1</ObjectId><Id>T33</Id><Name>Tower 33</Name>
+        <DataDate>2026-07-24T00:00:00</DataDate>
+        <WBS><ObjectId>10</ObjectId><Name>Structure</Name><ParentObjectId></ParentObjectId></WBS>
+        <Activity>
+          <ObjectId>1001</ObjectId><Id>A230</Id><Name>Roof Steel</Name>
+          <Type>Task Dependent</Type><Status>In Progress</Status>
+          <WBSObjectId>10</WBSObjectId><CalendarObjectId></CalendarObjectId>
+          <PercentComplete>40</PercentComplete>
+          <PlannedDuration>80</PlannedDuration>
+          <RemainingDuration>48</RemainingDuration>
+        </Activity>
+      </Project>
+    </APIBusinessObjects>
+    ''')
+    p = tmp_path / "s.xml"; p.write_text(content, encoding='utf-8')
+    data = parse_file(str(p))
+    a = data.activities['1001']
+    assert a['planned_duration'] == 80.0
+    assert a['remaining_duration'] == 48.0
