@@ -42,6 +42,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_compare(body)
         elif self.path == '/api/compare/corrected-xml':
             self._handle_corrected_xml(body)
+        elif self.path == '/api/compare/before-after':
+            self._handle_before_after(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -364,6 +366,35 @@ class Handler(BaseHTTPRequestHandler):
                 baseline_path, os.path.abspath(update_path), os.path.abspath(output_path),
                 selected_ids=selected_ids, note=note)
             self._json(200, {'ok': True, 'applied': res['applied']})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/compare/before-after ─────────────────────────────────────────
+    def _handle_before_after(self, body):
+        """Consultant Review — the but-for impact. Given the baseline, the update, and
+        the **rescheduled corrected file** (F9-ed in P6, re-exported as XML), returns the
+        delay before/after, manufactured days, forecast completion, per-milestone
+        before/after, and the consultant recommendation. Delay = metrics.compute's
+        finish-milestone float, identical to the EVM tab. Nothing is written."""
+        baseline_path = body.get('baseline_path', '')
+        update_path = db.resolve_xml_path(body.get('update_path', ''), body.get('cached_path'))
+        corrected_path = body.get('corrected_path', '')
+        if not baseline_path or not os.path.isfile(baseline_path):
+            self._json(200, {'ok': False, 'error': f'Baseline file not found: {baseline_path}'})
+            return
+        if not corrected_path or not os.path.isfile(corrected_path):
+            self._json(200, {'ok': False, 'error': f'Rescheduled corrected file not found: {corrected_path}'})
+            return
+        if not update_path or not os.path.isfile(update_path):
+            self._json(200, {'ok': False, 'error': 'Update schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_compare.impact import before_after_from_paths
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            impact = before_after_from_paths(baseline_path, update_path, corrected_path, config)
+            self._json(200, {'ok': True, 'impact': impact})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

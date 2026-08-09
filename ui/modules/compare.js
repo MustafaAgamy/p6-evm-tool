@@ -204,7 +204,13 @@ function _correctedSection(report) {
   }
   return `
     <div class="cmp-note">Tick the manipulations to strip. The tool reverts only those relationships, lags and durations to baseline and leaves your actuals untouched — then you F9 in P6 to read the genuine delay.</div>
-    ${_revertList(report.revert_ops)}`;
+    ${_revertList(report.revert_ops)}
+    <div class="cmp-reschedule">
+      <div class="cmp-reschedule-t">Then: delay before vs after the changes</div>
+      <div class="cmp-reschedule-d">Open the corrected file in P6, press <b>F9</b>, re-export it as XML, and load it here — the tool shows the delay before/after, the corrected completion, and the consultant recommendation.</div>
+      <button class="btn-mini" id="cmp-load-resched">Load rescheduled corrected file</button>
+    </div>
+    <div id="cmp-impact"></div>`;
 }
 
 function _wireCorrected() {
@@ -215,6 +221,67 @@ function _wireCorrected() {
   const none = document.getElementById('cmp-rev-none');
   if (all) all.addEventListener('click', () => setAll(true));
   if (none) none.addEventListener('click', () => setAll(false));
+  const resched = document.getElementById('cmp-load-resched');
+  if (resched) resched.addEventListener('click', loadRescheduledAndCompare);
+}
+
+// ── Before/after impact (from the rescheduled corrected file) ───────────────
+
+function _impactTile(label, val, hot) {
+  const s = (val == null) ? '—' : `${val} d`;
+  return `<div class="kpi"><div class="k">${escapeHtml(label)}</div>` +
+         `<div class="v${hot ? ' cmp-hot' : ''}">${escapeHtml(s)}</div></div>`;
+}
+
+export function renderImpact(impact) {
+  const el = document.getElementById('cmp-impact');
+  if (!el) return;
+  const f = impact.forecast || {};
+  const mfd = impact.manufactured_days;
+  const mrows = (impact.milestones || []).map(m => `<tr>
+    <td class="mono">${escapeHtml(m.activity_id)}</td><td>${escapeHtml(m.name)}</td>
+    <td class="mut">${escapeHtml(m.baseline_finish || '—')}</td>
+    <td>${escapeHtml(m.before_finish || '—')}</td>
+    <td>${escapeHtml(m.after_finish || '—')}</td></tr>`).join('');
+  el.innerHTML = `
+    <div class="mod-sec">Impact — delay before vs after the changes</div>
+    <div class="cmp-kpis">
+      ${_impactTile('Reported delay (after)', impact.delay_after)}
+      ${_impactTile('But-for delay (before)', impact.delay_before)}
+      ${_impactTile('Manufactured', mfd, mfd != null && mfd > 0)}
+    </div>
+    <div class="cmp-forecast">Forecast completion — baseline <b>${escapeHtml(f.baseline || '—')}</b> · before changes <b>${escapeHtml(f.before || '—')}</b> · after changes <b>${escapeHtml(f.after || '—')}</b></div>
+    ${mrows ? `<div class="tblwrap"><table class="audit-table cmp-table"><thead><tr>
+      <th>Milestone</th><th>Name</th><th>Baseline finish</th><th>Before changes</th><th>After changes</th></tr></thead>
+      <tbody>${mrows}</tbody></table></div>` : ''}
+    <div class="mod-sec">Consultant recommendation</div>
+    <div class="cmp-reco">${escapeHtml(impact.recommendation || '')}</div>`;
+}
+
+export async function loadRescheduledAndCompare() {
+  const path = await window.pywebview.api.choose_file();
+  if (!path) return;
+  const el = document.getElementById('cmp-impact');
+  if (el) el.innerHTML = '<div class="cmp-loading">Computing the delay before vs after…</div>';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/before-after`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        baseline_path: state.compareBaselinePath,
+        update_path: state.currentXmlPath,
+        cached_path: state.currentCachedPath,
+        corrected_path: path,
+      }),
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      if (el) el.innerHTML = `<div class="cmp-warn">${escapeHtml(data.error || 'Could not compute the before/after impact.')}</div>`;
+      return;
+    }
+    renderImpact(data.impact);
+  } catch {
+    if (el) el.innerHTML = '<div class="cmp-warn">Could not reach the local server. Try restarting the app.</div>';
+  }
 }
 
 export async function generateCorrectedXml() {

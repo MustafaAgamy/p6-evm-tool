@@ -849,3 +849,12 @@ body {
 .cmp-rev-hint { font-size: 11px; max-width: 440px; line-height: 1.5; }
 .cmp-rev-result { margin-top: 12px; font-size: 12px; line-height: 1.55; }
 .cmp-ok { color: var(--success); font-weight: 600; }
+
+/* Before/after impact (from the rescheduled corrected file) */
+.cmp-reschedule { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); }
+.cmp-reschedule-t { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.cmp-reschedule-d { font-size: 12px; color: var(--muted); line-height: 1.55; margin-bottom: 10px; }
+.cmp-hot { color: var(--danger); }
+.cmp-forecast { font-size: 12px; color: var(--muted); margin: 10px 0; line-height: 1.6; }
+.cmp-forecast b { color: var(--text); font-weight: 600; }
+.cmp-reco { background: var(--card-bg); border: 1px solid var(--border); border-left: 4px solid var(--success); border-radius: 0 8px 8px 0; padding: 12px 15px; font-size: 13px; color: var(--text); line-height: 1.6; }
