@@ -54,51 +54,44 @@ def _rel_pairs_from_row(row):
 
 
 def revert_operations(matched, logic, durations):
-    """Build the selectable revert plan from the driving-logic and duration diffs.
-
-    Each driving change is resolved against the FULL relationship sets (not just the
-    driving subset) so a link that merely became driving is corrected in place, never
-    wrongly deleted. Returns a list of op dicts, each with a stable ``id``, a human
-    ``label``/``detail``, and the fields the writer needs.
+    """Build the revert plan from the ACTUAL relationships — restore EVERY changed
+    relationship/lag to the baseline as stored in the file (added links removed, removed
+    links restored, changed type/lag set back), so the corrected XML returns the full
+    baseline logic, not just the driving subset. Plus the duration reverts.
     """
     ops = []
-    seen = set()
 
-    for row in logic.get('rows', []):
-        for (pred, succ) in sorted(_rel_pairs_from_row(row)):
-            if (pred, succ) in seen:
-                continue
-            seen.add((pred, succ))
-            b = matched.baseline_rels.get((pred, succ))
-            u = matched.update_rels.get((pred, succ))
-            pn = (b or u or {}).get('pred_name', '') or pred
-            sn = ((b or u or {}).get('succ_name', '')
-                  or matched.update_by_code.get(succ, {}).get('name', '') or succ)
-            if b and u:
-                if _differs(b, u):
-                    ops.append({
-                        'id': f'rel:{pred}:{succ}', 'kind': 'set_rel',
-                        'activity_id': succ, 'pred_code': pred, 'succ_code': succ,
-                        'type': b['type'], 'lag_hours': b.get('lag_hours', 0.0) or 0.0,
-                        'label': f'{succ}: revert driving link from {pred}',
-                        'detail': (f"{_lag_label(u['type'], u['lag_days'])} → "
-                                   f"{_lag_label(b['type'], b['lag_days'])}  ({pn} → {sn})"),
-                    })
-            elif u and not b:
+    for (pred, succ) in sorted(set(matched.baseline_rels) | set(matched.update_rels)):
+        b = matched.baseline_rels.get((pred, succ))
+        u = matched.update_rels.get((pred, succ))
+        pn = (b or u or {}).get('pred_name', '') or pred
+        sn = ((b or u or {}).get('succ_name', '')
+              or matched.update_by_code.get(succ, {}).get('name', '') or succ)
+        if b and u:
+            if _differs(b, u):
                 ops.append({
-                    'id': f'rel:{pred}:{succ}', 'kind': 'remove_rel',
-                    'activity_id': succ, 'pred_code': pred, 'succ_code': succ,
-                    'label': f'{succ}: remove added link from {pred}',
-                    'detail': f"added {_lag_label(u['type'], u['lag_days'])} ({pn} → {sn}) — remove",
-                })
-            elif b and not u:
-                ops.append({
-                    'id': f'rel:{pred}:{succ}', 'kind': 'add_rel',
+                    'id': f'rel:{pred}:{succ}', 'kind': 'set_rel',
                     'activity_id': succ, 'pred_code': pred, 'succ_code': succ,
                     'type': b['type'], 'lag_hours': b.get('lag_hours', 0.0) or 0.0,
-                    'label': f'{succ}: restore removed link from {pred}',
-                    'detail': f"restore {_lag_label(b['type'], b['lag_days'])} ({pn} → {sn})",
+                    'label': f'{succ}: revert link from {pred}',
+                    'detail': (f"{_lag_label(u['type'], u['lag_days'])} → "
+                               f"{_lag_label(b['type'], b['lag_days'])}  ({pn} → {sn})"),
                 })
+        elif u and not b:
+            ops.append({
+                'id': f'rel:{pred}:{succ}', 'kind': 'remove_rel',
+                'activity_id': succ, 'pred_code': pred, 'succ_code': succ,
+                'label': f'{succ}: remove added link from {pred}',
+                'detail': f"added {_lag_label(u['type'], u['lag_days'])} ({pn} → {sn}) — remove",
+            })
+        elif b and not u:
+            ops.append({
+                'id': f'rel:{pred}:{succ}', 'kind': 'add_rel',
+                'activity_id': succ, 'pred_code': pred, 'succ_code': succ,
+                'type': b['type'], 'lag_hours': b.get('lag_hours', 0.0) or 0.0,
+                'label': f'{succ}: restore removed link from {pred}',
+                'detail': f"restore {_lag_label(b['type'], b['lag_days'])} ({pn} → {sn})",
+            })
 
     for r in durations.get('rows', []):
         code = r['activity_id']

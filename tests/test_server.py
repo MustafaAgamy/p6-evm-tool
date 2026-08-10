@@ -80,9 +80,9 @@ def test_compare_detects_lag_change_across_xer_and_xml(test_server, tmp_path):
     assert data['ok'] is True
     r = data['report']
     assert r['baseline_file'] == 'baseline.xer' and r['update_file'] == 'update.xml'
-    # A050 -> A100 lag went FS+0 -> FS+10, detected on the driven activity A100
-    assert [row['activity_id'] for row in r['logic']['rows']] == ['A100']
-    assert r['logic']['summary']['by_kind'] == {'lag': 1}
+    # A050 -> A100 lag went FS+0 -> FS+10 — shown on BOTH ends (all relationships per activity)
+    assert [row['activity_id'] for row in r['logic']['rows']] == ['A050', 'A100']
+    assert r['logic']['summary']['by_kind'] == {'lag': 2}
     # Duration path end-to-end across XER (remain_drtn_hr_cnt) + XML (RemainingDuration):
     # A100 original 80h/8=10d in baseline, 120h/8=15d in update → extended.
     dur = {row['activity_id']: row for row in r['durations']['rows']}

@@ -3,7 +3,7 @@
  * Run: node tests/js/test_compare.js
  */
 import assert from 'node:assert/strict';
-import { fmtLag, statusClass, summaryPills, signedDays, suggestedCorrectedName } from '../../ui/modules/compare.js';
+import { fmtLag, statusClass, summaryPills, signedDays, suggestedCorrectedName, durImpactLabel } from '../../ui/modules/compare.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -43,6 +43,11 @@ test('works from an .xer name', () =>
   assert.equal(suggestedCorrectedName('sched.XER'), 'sched_but-for.xml'));
 test('falls back when empty', () =>
   assert.equal(suggestedCorrectedName(''), 'update_but-for.xml'));
+
+console.log('\ndurImpactLabel');
+test('Direct', () => assert.equal(durImpactLabel('Direct'), 'Direct'));
+test('None → Float absorbs', () => assert.equal(durImpactLabel('None'), 'Float absorbs'));
+test('Unknown → dash', () => assert.equal(durImpactLabel('Unknown'), '—'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

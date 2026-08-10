@@ -9,7 +9,7 @@ from datetime import datetime
 from p6_evm.parser import ScheduleData
 from p6_audit.graph import ScheduleGraph
 from p6_compare.model import MatchedSchedules
-from p6_compare.diff import diff_logic, driving_link_map, diff_durations
+from p6_compare.diff import diff_logic, driving_link_map, diff_durations, diff_relationships, _dur_impact
 
 
 def _L(type_, lag, name):
@@ -69,6 +69,34 @@ def test_successor_change_is_highlighted_on_the_row():
     assert succ['status'] == 'changed'
 
 
+# ── diff_relationships (all relationships from the files, driving highlighted) ──
+
+def _rel_sched(rels):
+    d = ScheduleData()
+    d.activities = {'p': {'id': 'A050', 'name': 'Clearance'}, 's': {'id': 'A100', 'name': 'Excavate'}}
+    d.relationships = rels
+    return d
+
+
+def test_diff_relationships_shows_all_and_never_blank():
+    base = _rel_sched([{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0.0, 'lag_hours': 0.0}])
+    upd = _rel_sched([{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 10.0, 'lag_hours': 80.0}])
+    res = diff_relationships(MatchedSchedules(base, upd))
+    # the lag change shows on BOTH ends (each activity lists its own relationships)
+    assert {r['activity_id'] for r in res['rows']} == {'A050', 'A100'}
+    row = next(r for r in res['rows'] if r['activity_id'] == 'A100')
+    up = next(p for p in row['update_preds'] if p['code'] == 'A050')
+    assert up['status'] == 'changed' and up['lag_days'] == 10.0   # populated, never blank
+
+
+def test_diff_relationships_flags_driving():
+    base = _rel_sched([{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0.0, 'lag_hours': 0.0}])
+    upd = _rel_sched([{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 10.0, 'lag_hours': 80.0}])
+    res = diff_relationships(MatchedSchedules(base, upd), driving={('A050', 'A100')})
+    row = next(r for r in res['rows'] if r['activity_id'] == 'A100')
+    assert next(p for p in row['update_preds'] if p['code'] == 'A050')['driving'] is True
+
+
 def test_unchanged_activity_excluded_and_summary_counts():
     base = {
         'A100': {'name': 'Excavate', 'preds': {'A050': _L('FS', 0.0, 'C')}, 'succs': {}},
@@ -106,6 +134,15 @@ def test_diff_durations_flags_extended_and_not_burning():
     assert rows['A1250']['remaining_minus_baseline_days'] == 3.0
     assert rows['A1600']['status'] == 'not_burning'
     assert res['counts'] == {'extended': 1, 'not_burning': 1}
+    assert 'impact' in rows['A1250']   # each duration row now carries a finish-impact
+
+
+def test_dur_impact_by_float():
+    assert _dur_impact(-2) == 'Direct'      # critical — the extra time pushes the finish
+    assert _dur_impact(0) == 'Direct'
+    assert _dur_impact(5) == 'Potential'    # near-critical
+    assert _dur_impact(30) == 'None'        # float absorbs it
+    assert _dur_impact(None) == 'Unknown'
 
 
 def test_driving_link_map_from_graph():

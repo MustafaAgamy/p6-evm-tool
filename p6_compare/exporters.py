@@ -143,11 +143,16 @@ def _duration_table_html(report):
         f'<td class="num">{_e(r.get("update_orig_days"))} d</td>'
         f'<td class="num">{_e(r.get("remaining_days"))} d</td>'
         f'<td class="num">{_e(r.get("remaining_minus_baseline_days"))} d</td>'
-        f'<td>{_e(r.get("status"))}</td></tr>'
+        f'<td>{_e(r.get("status"))}</td>'
+        f'<td>{_e(_impact_word(r.get("impact")))}</td></tr>'
         for r in rows)
     return ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th>'
             '<th>Baseline orig.</th><th>Update orig.</th><th>Remaining</th><th>Rem − baseline</th>'
-            '<th>Status</th></tr></thead><tbody>' + body + '</tbody></table>')
+            '<th>Status</th><th>Impact on finish</th></tr></thead><tbody>' + body + '</tbody></table>')
+
+
+def _impact_word(impact):
+    return {'Direct': 'Direct', 'Potential': 'Potential', 'None': 'Float absorbs'}.get(impact, '—')
 
 
 def _impact_html(impact):

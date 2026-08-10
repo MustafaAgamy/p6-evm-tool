@@ -55,7 +55,8 @@ function cellStack(list, key) {
     const cls = statusClass(l.status);
     const inner = cls ? `<span class="cmp-pill ${cls}">${escapeHtml(String(val))}</span>`
                       : escapeHtml(String(val));
-    return `<div class="cmp-dl">${inner}</div>`;
+    const mark = (l.driving && key === 'id') ? '<span class="cmp-drv-dot" title="Driving link">▶</span>' : '';
+    return `<div class="cmp-dl${l.driving ? ' cmp-driving' : ''}">${mark}${inner}</div>`;
   }).join('');
 }
 
@@ -96,7 +97,7 @@ function _logicTable(rows) {
         <th class="sepU">Pred. ID</th><th>Pred. rel</th><th>Pred. name</th><th>Succ. ID</th><th>Succ. rel</th><th>Succ. name</th></tr>
     </thead>
     <tbody>${body}</tbody></table></div>
-    <div class="cmp-foot">Driving links are derived from the schedule's remaining early dates and lags (P6 exports no driving flag). Where an activity has more than one driving predecessor or successor, every driving link is listed. Red = changed vs baseline · green = added · struck = removed.</div>`;
+    <div class="cmp-foot">Every predecessor and successor relationship is read straight from the files. <b>▶ bold</b> = the driving link (date-derived; may be absent on completed activities). Red = changed vs baseline · green = added · struck = removed.</div>`;
 }
 
 function _durationTable(rows) {
@@ -109,10 +110,20 @@ function _durationTable(rows) {
     <td class="num">${r.status === 'extended' ? `<span class="cmp-pill cmp-chg">${r.update_orig_days} d</span>` : `${r.update_orig_days} d`}</td>
     <td class="num">${r.remaining_days} d</td>
     <td class="num ${r.over_baseline ? 'cmp-over' : ''}">${signedDays(r.remaining_minus_baseline_days)}</td>
-    <td>${_durStatus(r.status)}</td></tr>`).join('');
+    <td>${_durStatus(r.status)}</td>
+    <td>${_durImpact(r.impact)}</td></tr>`).join('');
   return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
-    <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Baseline orig.</th><th class="num">Update orig.</th><th class="num">Remaining</th><th class="num">Rem − baseline</th><th>Status</th></tr></thead>
+    <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Baseline orig.</th><th class="num">Update orig.</th><th class="num">Remaining</th><th class="num">Rem − baseline</th><th>Status</th><th>Impact on finish</th></tr></thead>
     <tbody>${body}</tbody></table></div>`;
+}
+
+// Impact of a duration change on the project finish, from the activity's P6 float.
+export function durImpactLabel(impact) {
+  return { Direct: 'Direct', Potential: 'Potential', None: 'Float absorbs', Unknown: '—' }[impact] || '—';
+}
+function _durImpact(impact) {
+  const cls = { Direct: 'cmp-imp-direct', Potential: 'cmp-imp-pot', None: 'cmp-imp-none' }[impact] || 'cmp-imp-none';
+  return `<span class="cmp-imp ${cls}">${escapeHtml(durImpactLabel(impact))}</span>`;
 }
 
 function _milestoneTable(rows) {

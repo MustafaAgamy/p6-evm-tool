@@ -53,16 +53,16 @@ def test_report_shape_and_wiring():
     assert r['project_name'] == 'Riyadh Metro'
     assert r['data_date'] == '09-Feb-2026'
     assert r['matched_activities'] == 4   # A050, A100, A200, M900 line up by code
-    # logic: only A100 (lag change)
-    assert r['logic']['summary']['changed_activities'] == 1
-    assert [row['activity_id'] for row in r['logic']['rows']] == ['A100']
+    # logic: the A050→A100 lag change now shows on BOTH ends (all relationships per activity)
+    assert r['logic']['summary']['changed_activities'] == 2
+    assert [row['activity_id'] for row in r['logic']['rows']] == ['A050', 'A100']
     # durations: A200 extended
     assert [row['activity_id'] for row in r['durations']['rows']] == ['A200']
     # dashboard counts distinct activities across logic + duration
-    assert r['dashboard']['changed_activities'] == 2
-    # change summary carries both a lag item and an extended item
+    assert r['dashboard']['changed_activities'] == 3
+    # change summary carries both lag items and an extended item
     labels = {it['kind']: it['count'] for it in r['change_summary']['items']}
-    assert labels.get('lag') == 1 and labels.get('extended') == 1
+    assert labels.get('lag') == 2 and labels.get('extended') == 1
     # milestones compare baseline vs update finish
     m = next(x for x in r['milestones'] if x['activity_id'] == 'M900')
     assert m['baseline_finish'] == '09-Feb-2027' and m['update_finish'] == '22-Feb-2027'

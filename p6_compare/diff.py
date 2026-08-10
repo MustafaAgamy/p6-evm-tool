@@ -99,8 +99,22 @@ def _day_hours(data, act):
     return getattr(cal, 'day_hours', 8.0) if cal else 8.0
 
 
+def _dur_impact(float_days):
+    """Whether a duration change reaches the project finish, judged by the activity's P6
+    float (reliable, unlike a re-derived critical path). Direct = critical, Potential =
+    near-critical (≤ 10 wd), None = float absorbs it."""
+    if float_days is None:
+        return 'Unknown'
+    if float_days <= 0:
+        return 'Direct'
+    if float_days <= 10:
+        return 'Potential'
+    return 'None'
+
+
 def diff_durations(matched, tol_days=0.05):
-    """Original duration baseline vs update, and remaining vs the baseline allowance.
+    """Original duration baseline vs update, and remaining vs the baseline allowance, with
+    each change's impact on the project finish (from the update activity's P6 float).
 
     Durations are stored in hours; converted to days on each side's calendar. Only
     activities that were extended, or whose remaining exceeds the baseline original,
@@ -132,6 +146,7 @@ def diff_durations(matched, tol_days=0.05):
             'remaining_minus_baseline_days': round(remaining - base_orig, 1),
             'over_baseline': (remaining - base_orig) > tol_days,
             'status': status,
+            'impact': _dur_impact(upd.get('total_float_days')),
         })
     rows.sort(key=lambda r: -r['remaining_minus_baseline_days'])
     return {'rows': rows, 'counts': counts}
@@ -170,6 +185,107 @@ def diff_logic(base_map, upd_map):
             'activity_name': u.get('name') or b.get('name') or '',
             'primary_kind': primary,
             'change_label': label,
+            'baseline_preds': bp, 'update_preds': up,
+            'baseline_succs': bs, 'update_succs': us,
+        })
+    return {'rows': rows, 'summary': {'changed_activities': len(rows), 'by_kind': by_kind}}
+
+
+# ── Actual-relationship diff (all relationships, driving highlighted) ────────
+# Reads the relationships/lags straight from the files (matched.baseline_rels /
+# update_rels) rather than re-deriving "driving" from dates — so every predecessor and
+# successor is always shown, never blank, even on a progressed update. "Driving" is
+# kept only as a HIGHLIGHT (best-effort, date-derived; absent for completed activities).
+
+def driving_pairs(graph):
+    """Set of (pred_code, succ_code) that are driving in this schedule — for highlighting
+    only, not the basis for the diff."""
+    dm = driving_link_map(graph)
+    pairs = set()
+    for code, v in dm.items():
+        for p in v['preds']:
+            pairs.add((p, code))
+        for s in v['succs']:
+            pairs.add((code, s))
+    return pairs
+
+
+def _rel_index(rels, key_is_succ):
+    """(pred_code, succ_code)->link  =>  code -> {other_code: link}, keyed by the successor
+    (preds side) or the predecessor (succs side)."""
+    out = {}
+    for (p, s), v in rels.items():
+        this, other = (s, p) if key_is_succ else (p, s)
+        out.setdefault(this, {})[other] = v
+    return out
+
+
+def _diff_rel_side(base_side, upd_side, name_key):
+    """Diff one side (preds or succs), each {other_code: link}. Returns
+    (baseline_list, update_list, changed). Entries: {code, name, type, lag_days, status,
+    driving}; changed update entries also carry change_kind ('type'|'lag')."""
+    base_codes, upd_codes = set(base_side), set(upd_side)
+    blist, ulist, changed = [], [], False
+    for code in sorted(base_codes):
+        b = base_side[code]
+        status = 'same' if code in upd_codes else 'removed'
+        if status == 'removed':
+            changed = True
+        blist.append({'code': code, 'name': b.get(name_key, ''), 'type': b.get('type', 'FS'),
+                      'lag_days': b.get('lag_days', 0.0), 'status': status, 'driving': False})
+    for code in sorted(upd_codes):
+        u = upd_side[code]
+        entry = {'code': code, 'name': u.get(name_key, ''), 'type': u.get('type', 'FS'),
+                 'lag_days': u.get('lag_days', 0.0), 'status': 'same', 'driving': False}
+        if code not in base_codes:
+            entry['status'] = 'added'
+            changed = True
+        else:
+            b = base_side[code]
+            if b.get('type') != u.get('type'):
+                entry['status'], entry['change_kind'], changed = 'changed', 'type', True
+            elif abs((b.get('lag_days') or 0.0) - (u.get('lag_days') or 0.0)) > 1e-9:
+                entry['status'], entry['change_kind'], changed = 'changed', 'lag', True
+        ulist.append(entry)
+    return blist, ulist, changed
+
+
+def _rel_primary(up, us, bp, bs):
+    added = any(l['status'] == 'added' for l in up + us)
+    removed = any(l['status'] == 'removed' for l in bp + bs)
+    if added and removed:
+        return 'removed_added', 'Removed + added'
+    if removed:
+        return 'removed_driver', 'Link removed'
+    if added:
+        return 'added_driver', 'Link added'
+    if any(l.get('change_kind') == 'type' for l in up + us):
+        return 'type', 'Type changed'
+    return 'lag', 'Lag changed'
+
+
+def diff_relationships(matched, driving=frozenset()):
+    """Compare ALL relationships (predecessors + successors) per activity from the files.
+    Always populated (never a blank update side), driving flagged for highlight. A row
+    appears if any predecessor or successor relationship/lag changed."""
+    b_preds, u_preds = _rel_index(matched.baseline_rels, True), _rel_index(matched.update_rels, True)
+    b_succs, u_succs = _rel_index(matched.baseline_rels, False), _rel_index(matched.update_rels, False)
+    rows, by_kind = [], {}
+    for code in matched.matched_codes:
+        bp, up, p_ch = _diff_rel_side(b_preds.get(code, {}), u_preds.get(code, {}), 'pred_name')
+        bs, us, s_ch = _diff_rel_side(b_succs.get(code, {}), u_succs.get(code, {}), 'succ_name')
+        if not (p_ch or s_ch):
+            continue
+        for entry in bp + up:
+            entry['driving'] = (entry['code'], code) in driving
+        for entry in bs + us:
+            entry['driving'] = (code, entry['code']) in driving
+        primary, label = _rel_primary(up, us, bp, bs)
+        by_kind[primary] = by_kind.get(primary, 0) + 1
+        rows.append({
+            'activity_id': code,
+            'activity_name': (matched.update_by_code.get(code) or {}).get('name', ''),
+            'primary_kind': primary, 'change_label': label,
             'baseline_preds': bp, 'update_preds': up,
             'baseline_succs': bs, 'update_succs': us,
         })

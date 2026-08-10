@@ -7,7 +7,7 @@ Slice 2, once the corrected XML has been rescheduled in P6 and re-imported.
 """
 from p6_audit.graph import ScheduleGraph
 from p6_compare.model import MatchedSchedules
-from p6_compare.diff import driving_link_map, diff_logic, diff_durations
+from p6_compare.diff import driving_pairs, diff_relationships, diff_durations
 from p6_compare.revert import revert_operations
 from p6_evm.parser import parse_file
 from p6_evm.classify import classify_branch_names
@@ -62,9 +62,13 @@ def _construction_codes(data):
 def build_report_from_data(baseline, update, config=None):
     config = config or {}
     matched = MatchedSchedules(baseline, update)
-    logic = diff_logic(driving_link_map(ScheduleGraph(baseline)),
-                       driving_link_map(ScheduleGraph(update)))
+    logic = diff_relationships(matched, driving_pairs(ScheduleGraph(update)))
     durations = diff_durations(matched)
+
+    # Corrected-XML revert plan restores the FULL baseline logic (all relationships/lags +
+    # all changed durations) — computed BEFORE the display filter below, so the corrected
+    # file returns every baseline relationship, not just the construction subset shown.
+    revert_ops = revert_operations(matched, logic, durations)
 
     # Keep only construction/execution activities (Ibrahim's rule) — the tables were
     # drowning in submittals, approvals, deliveries and milestones. Recompute the counts.
@@ -112,9 +116,9 @@ def build_report_from_data(baseline, update, config=None):
         'logic': logic,
         'durations': durations,
         'milestones': milestones,
-        # Corrected but-for XML: the selectable revert plan (relationships/lags/durations
-        # back to baseline). The UI shows it as a tick-list; the writer applies the picks.
-        'revert_ops': revert_operations(matched, logic, durations),
+        # Corrected but-for XML: the revert plan (ALL relationships/lags + changed durations
+        # back to baseline). Computed above from the unfiltered diff.
+        'revert_ops': revert_ops,
     }
 
 
