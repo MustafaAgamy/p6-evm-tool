@@ -59,6 +59,16 @@ def test_removed_and_added_is_a_swap():
     assert [s['code'] for s in row['update_preds'] if s['status'] == 'added'] == ['A905']
 
 
+def test_successor_change_is_highlighted_on_the_row():
+    # A100's driving successor A200's lag changed — its update_succs must show 'changed',
+    # not plain 'same' (the row appears because its predecessor A050 also changed).
+    base = {'A100': {'name': 'X', 'preds': {'A050': _L('FS', 0.0, 'P')}, 'succs': {'A200': _L('FS', 0.0, 'S')}}}
+    upd = {'A100': {'name': 'X', 'preds': {'A050': _L('FS', 10.0, 'P')}, 'succs': {'A200': _L('FS', 5.0, 'S')}}}
+    row = _row_by_id(diff_logic(base, upd), 'A100')
+    succ = next(s for s in row['update_succs'] if s['code'] == 'A200')
+    assert succ['status'] == 'changed'
+
+
 def test_unchanged_activity_excluded_and_summary_counts():
     base = {
         'A100': {'name': 'Excavate', 'preds': {'A050': _L('FS', 0.0, 'C')}, 'succs': {}},

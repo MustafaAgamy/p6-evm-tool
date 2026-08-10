@@ -135,9 +135,16 @@ function _fileBar(report) {
   </div>`;
 }
 
+// The report/impact currently ON SCREEN. Exports read these, not state.compareReport,
+// which a background re-import nulls while the panel still shows the old results.
+let _shownReport = null;
+let _shownImpact = null;
+
 export function renderCompareReport(report) {
   const body = document.getElementById('compare-body');
   if (!body) return;
+  _shownReport = report;
+  _shownImpact = null;   // a freshly-rendered report has no before/after loaded yet
   const dash = report.dashboard || {};
   const logic = report.logic || { rows: [], summary: {} };
   const durs = report.durations || { rows: [] };
@@ -167,8 +174,6 @@ export function renderCompareReport(report) {
     ${_logicTable(logic.rows)}
     <div class="mod-sec">Duration &amp; remaining changes vs baseline</div>
     ${_durationTable(durs.rows)}
-    <div class="mod-sec">Milestones — baseline vs update finish</div>
-    ${_milestoneTable(report.milestones || [])}
     <div class="mod-sec">Corrected but-for XML</div>
     ${_correctedSection(report)}`;
   const chg = document.getElementById('cmp-change-baseline');
@@ -182,36 +187,55 @@ export function renderCompareReport(report) {
 
 // ── Exports (PDF + Excel) ───────────────────────────────────────────────────
 
+function _shownReportOrWarn() {
+  const report = state.compareReport || _shownReport;
+  if (!report) { showError('Run the comparison first (pick a baseline), then export.'); return null; }
+  return report;
+}
+
+async function _withBtn(id, idle, fn) {
+  const btn = document.getElementById(id);
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try { await fn(); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = idle; } }
+}
+
 export async function exportComparePdf() {
-  if (!state.compareReport) return;
+  const report = _shownReportOrWarn();
+  if (!report) return;
   const outputPath = await window.pywebview.api.choose_save_path('consultant_review.pdf', 'pdf');
   if (!outputPath) return;
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: state.compareReport, impact: state.compareImpact || null, output_path: outputPath }),
-    });
-    const data = await resp.json();
-    if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
-  } catch {
-    showError('Could not reach the local server to export the PDF.');
-  }
+  await _withBtn('cmp-export-pdf', 'Export PDF', async () => {
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath }),
+      });
+      const data = await resp.json();
+      if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
+    } catch {
+      showError('Could not reach the local server to export the PDF.');
+    }
+  });
 }
 
 export async function exportCompareExcel() {
-  if (!state.compareReport) return;
+  const report = _shownReportOrWarn();
+  if (!report) return;
   const outputPath = await window.pywebview.api.choose_save_path('consultant_review.xlsx', 'xlsx');
   if (!outputPath) return;
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/excel`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: state.compareReport, output_path: outputPath }),
-    });
-    const data = await resp.json();
-    if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
-  } catch {
-    showError('Could not reach the local server to export the Excel.');
-  }
+  await _withBtn('cmp-export-xlsx', 'Export Excel', async () => {
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/excel`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report, output_path: outputPath }),
+      });
+      const data = await resp.json();
+      if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
+    } catch {
+      showError('Could not reach the local server to export the Excel.');
+    }
+  });
 }
 
 // ── Corrected but-for XML ───────────────────────────────────────────────────
@@ -250,6 +274,7 @@ function _correctedSection(report) {
     <div class="cmp-reschedule">
       <div class="cmp-reschedule-t">Reschedule it in P6, then load it back</div>
       <div class="cmp-reschedule-d">Open the corrected file in P6 and press <b>F9</b> — P6 recalculates the dates from the reverted baseline logic (the file keeps the update's old dates until it does). Then <b>re-export it as XML and load it below</b> — that's what brings the rescheduled delay into the report; the delay before/after, the S-curve and the PDF all need it. (You can also read the delay straight off P6 after F9 for a quick look — but only the loaded file puts it into the report.)</div>
+      <div class="cmp-manual">✎ Or apply it by hand in P6: using the <b>Driving logic &amp; lag changes</b> table above, set each flagged relationship's <b>type and lag</b> (and the durations) back to the baseline value shown, then F9 — that gives the same corrected delay directly, without importing the file.</div>
       <button class="btn-mini" id="cmp-load-resched">Load rescheduled corrected file</button>
     </div>
     <div id="cmp-impact"></div>`;
@@ -323,13 +348,9 @@ function _scurveSection(sc) {
 export function renderImpact(impact) {
   const el = document.getElementById('cmp-impact');
   if (!el) return;
+  _shownImpact = impact;   // carried into the PDF export even if state is invalidated
   const f = impact.forecast || {};
   const mfd = impact.manufactured_days;
-  const mrows = (impact.milestones || []).map(m => `<tr>
-    <td class="mono">${escapeHtml(m.activity_id)}</td><td>${escapeHtml(m.name)}</td>
-    <td class="mut">${escapeHtml(m.baseline_finish || '—')}</td>
-    <td>${escapeHtml(m.before_finish || '—')}</td>
-    <td>${escapeHtml(m.after_finish || '—')}</td></tr>`).join('');
   const warn = impact.warning ? `<div class="cmp-warn">${escapeHtml(impact.warning)}</div>` : '';
   el.innerHTML = `
     ${warn}
@@ -339,10 +360,7 @@ export function renderImpact(impact) {
       ${_impactTile('But-for delay (before)', impact.delay_before)}
       ${_impactTile('Manufactured', mfd, mfd != null && mfd > 0)}
     </div>
-    <div class="cmp-forecast">Forecast completion — baseline <b>${escapeHtml(f.baseline || '—')}</b> · before changes <b>${escapeHtml(f.before || '—')}</b> · after changes <b>${escapeHtml(f.after || '—')}</b></div>
-    ${mrows ? `<div class="tblwrap"><table class="audit-table cmp-table"><thead><tr>
-      <th>Milestone</th><th>Name</th><th>Baseline finish</th><th>Before changes</th><th>After changes</th></tr></thead>
-      <tbody>${mrows}</tbody></table></div>` : ''}
+    <div class="cmp-forecast">Overall completion — baseline <b>${escapeHtml(f.baseline || '—')}</b> · before changes <b>${escapeHtml(f.before || '—')}</b> · after changes <b>${escapeHtml(f.after || '—')}</b></div>
     ${_scurveSection(impact.scurve)}
     <div class="mod-sec">Consultant recommendation</div>
     <div class="cmp-reco">${escapeHtml(impact.recommendation || '')}</div>`;

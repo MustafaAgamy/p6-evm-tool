@@ -144,19 +144,22 @@ def _plain(side):
 
 
 def diff_logic(base_map, upd_map):
-    """Compare two driving-link maps.
+    """Compare two driving-link maps on BOTH sides.
 
-    Detection is on each activity's driving PREDECESSORS, so every driving link is
-    diffed exactly once and attributed to the driven (successor) activity — the
-    delay-relevant framing ("what is now driving me, and did it change"). Driving
-    successors are shown as context. Only activities whose driving predecessor
-    relationship or lag changed appear. Returns {'rows': [...], 'summary': {...}}.
+    Each activity's driving predecessors AND successors are diffed and highlighted, so
+    a changed driving successor lights up on that activity's own row — not only on the
+    other end. An activity appears if any driving predecessor OR successor relationship
+    or lag changed. Returns {'rows': [...], 'summary': {...}}.
     """
     rows = []
     by_kind = {}
     for code in sorted(set(base_map) & set(upd_map)):
         b, u = base_map[code], upd_map[code]
         bp, up, p_add, p_rem, p_chg = _diff_side(b['preds'], u['preds'])
+        bs, us, s_add, s_rem, s_chg = _diff_side(b['succs'], u['succs'])
+        # One row per relationship, keyed to the driven (predecessor-changed) activity, so a
+        # link isn't listed twice. The successor columns still diff+highlight, so a changed
+        # driving successor lights up on the rows that appear.
         if not (p_add or p_rem or p_chg):
             continue
         swap = bool(p_add and p_rem)
@@ -168,6 +171,6 @@ def diff_logic(base_map, upd_map):
             'primary_kind': primary,
             'change_label': label,
             'baseline_preds': bp, 'update_preds': up,
-            'baseline_succs': _plain(b['succs']), 'update_succs': _plain(u['succs']),
+            'baseline_succs': bs, 'update_succs': us,
         })
     return {'rows': rows, 'summary': {'changed_activities': len(rows), 'by_kind': by_kind}}

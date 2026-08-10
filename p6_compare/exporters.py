@@ -154,14 +154,6 @@ def _impact_html(impact):
     if not impact:
         return ''
     f = impact.get('forecast', {}) or {}
-    mrows = ''.join(
-        f'<tr><td class="mono">{_e(m.get("activity_id"))}</td><td>{_e(m.get("name"))}</td>'
-        f'<td>{_e(m.get("baseline_finish"))}</td><td>{_e(m.get("before_finish"))}</td>'
-        f'<td>{_e(m.get("after_finish"))}</td></tr>'
-        for m in impact.get('milestones', []))
-    milestones = ('<table class="data"><thead><tr><th>Milestone</th><th>Name</th><th>Baseline finish</th>'
-                  '<th>Before changes</th><th>After changes</th></tr></thead><tbody>' + mrows
-                  + '</tbody></table>') if mrows else ''
     scurve = _scurve_svg(impact.get('scurve', {}) or {})
     scurve_block = (f'<h2>S-curve — baseline vs before vs after</h2>'
                     f'<div class="legend"><span><i style="background:{_GREY}"></i>Baseline plan</span>'
@@ -175,8 +167,7 @@ def _impact_html(impact):
         {_tile('But-for delay (before)', _days(impact.get('delay_before')))}
         {_tile('Manufactured', _days(impact.get('manufactured_days')))}
       </div>
-      <p class="fc">Forecast completion — baseline <b>{_e(f.get('baseline'))}</b> · before changes <b>{_e(f.get('before'))}</b> · after changes <b>{_e(f.get('after'))}</b></p>
-      {milestones}
+      <p class="fc">Overall completion — baseline <b>{_e(f.get('baseline'))}</b> · before changes <b>{_e(f.get('before'))}</b> · after changes <b>{_e(f.get('after'))}</b></p>
       {scurve_block}
       <h2>Consultant recommendation</h2>
       <div class="reco">{_e(impact.get('recommendation'))}</div>'''

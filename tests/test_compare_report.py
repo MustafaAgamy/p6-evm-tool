@@ -66,3 +66,31 @@ def test_report_shape_and_wiring():
     # milestones compare baseline vs update finish
     m = next(x for x in r['milestones'] if x['activity_id'] == 'M900')
     assert m['baseline_finish'] == '09-Feb-2027' and m['update_finish'] == '22-Feb-2027'
+
+
+def test_baseline_finish_falls_back_to_latest_activity_finish():
+    # XER-style baseline: no project scheduled_finish → use the latest activity finish.
+    b, u = ScheduleData(), ScheduleData()
+    b.project = {'name': 'P', 'data_date': datetime(2026, 2, 9)}
+    u.project = {'name': 'P', 'data_date': datetime(2026, 2, 9)}
+    b.activities = {'1': {'id': 'A1', 'name': 'x', 'task_type': 'Task', 'calendar_id': None,
+                          'planned_finish': datetime(2027, 1, 5)}}
+    u.activities = {'1': {'id': 'A1', 'name': 'x', 'task_type': 'Task', 'calendar_id': None,
+                          'planned_finish': datetime(2027, 3, 9)}}
+    r = build_report_from_data(b, u)
+    assert r['baseline_finish'] == '05-Jan-2027'
+    assert r['update_finish'] == '09-Mar-2027'
+
+
+def test_construction_codes_keep_construction_drop_engineering_and_milestones():
+    from p6_compare.report import _construction_codes
+    d = ScheduleData()
+    d.wbs = {'w1': {'name': 'Construction Works', 'parent_object_id': None},
+             'w2': {'name': 'Shop Drawings', 'parent_object_id': None}}
+    d.activities = {
+        '1': {'id': 'C1', 'task_type': 'Task', 'wbs_id': 'w1'},            # construction → kept
+        '2': {'id': 'E1', 'task_type': 'Task', 'wbs_id': 'w2'},            # engineering (shop) → dropped
+        '3': {'id': 'M1', 'task_type': 'FinishMilestone', 'wbs_id': 'w1'},  # milestone → dropped
+        '4': {'id': 'X1', 'task_type': 'Task', 'wbs_id': None},            # unclassified → kept
+    }
+    assert _construction_codes(d) == {'C1', 'X1'}
