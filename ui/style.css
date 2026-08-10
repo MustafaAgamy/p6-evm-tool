@@ -916,3 +916,41 @@ body {
   .ai-score-hero { grid-template-columns: 1fr; }
   .ai-score-main { border-right: none; border-bottom: 1px solid var(--border); padding-right: 0; padding-bottom: 14px; }
 }
+
+/* ── AI Copilot — delay analysis (Slice A: Time Impact Analysis) ──────────── */
+.cp-methods { display: flex; flex-wrap: wrap; gap: 8px; }
+.cp-m { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 20px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.cp-m:hover:not([disabled]) { border-color: var(--accent); }
+.cp-m.on { background: rgba(99,102,241,.14); border-color: #6366f1; color: #6366f1; }
+.cp-m.soon { opacity: .55; cursor: not-allowed; }
+.cp-soon { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-left: 4px; }
+.cp-methodnote { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+
+.cp-form { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+.cp-fld { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
+.cp-fld.cp-fld-sm { flex: 0 0 150px; min-width: 130px; }
+.cp-fld > span { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.cp-input { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 7px 10px; font-size: 13px; font-family: inherit; }
+.cp-input:focus, .ct-select:focus { outline: none; border-color: var(--accent); }
+
+.cp-step { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cp-hint { font-size: 11.5px; color: var(--muted); }
+
+.cp-note { border: 1px solid var(--border); border-radius: 10px; padding: 13px 15px; margin-top: 12px; background: var(--card-bg); }
+.cp-note.ok { border-left: 4px solid var(--success); }
+.cp-note-h { font-weight: 700; color: var(--success); font-size: 13px; margin-bottom: 5px; }
+.cp-note-b { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.cp-note-b b { color: var(--text); }
+.cp-steps { margin: 10px 0 0; padding-left: 20px; font-size: 12.5px; color: var(--text); line-height: 1.8; }
+
+.cp-impact { border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 12px; text-align: center; background: var(--card-bg); }
+.cp-impact.late { border-color: rgba(248,113,113,.5); }
+.cp-impact.early { border-color: rgba(74,222,128,.5); }
+.cp-impact-num { font-size: 34px; font-weight: 800; color: var(--text); line-height: 1.1; }
+.cp-impact.late .cp-impact-num { color: var(--danger); }
+.cp-impact.early .cp-impact-num { color: var(--success); }
+.cp-impact-num span { font-size: 15px; font-weight: 600; color: var(--muted); }
+.cp-impact-sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.cp-impact-tag { display: inline-block; margin-top: 10px; font-size: 11px; font-weight: 700; color: var(--success); background: rgba(74,222,128,.12); border-radius: 20px; padding: 4px 12px; }
+.cp-impact-method { font-size: 12px; color: var(--muted); margin-top: 12px; line-height: 1.55; }
+.cp-impact-claim { font-size: 12px; color: var(--text); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); line-height: 1.6; }

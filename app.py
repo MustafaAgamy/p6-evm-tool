@@ -29,6 +29,7 @@ class Api:
         types = {
             'pdf':  ('PDF Files (*.pdf)',),
             'xlsx': ('Excel Files (*.xlsx)',),
+            'xml':  ('P6 XML Files (*.xml)',),
         }.get(file_type, ('All Files (*.*)',))
         result = webview.windows[0].create_file_dialog(
             webview.SAVE_DIALOG,

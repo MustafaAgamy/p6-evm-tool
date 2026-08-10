@@ -16,4 +16,5 @@ export const state = {
   aiReferenceName:   null,   // dormant
   constructReport:   null,   // Constructability Review report dict (rule + KB)
   constructForcedType: null, // user-overridden project sub-type, if any
+  copilot:           null,   // AI Copilot delay-analysis workspace {method, activityId, scenario, impact, …}
 };

@@ -182,6 +182,16 @@
               <div class="cc-title">Constructability Review</div>
               <div class="cc-sub">Rule + knowledge-base check — illogical logic, missing activities &amp; WBS, with a score · offline</div>
             </button>
+            <button class="chooser-card" data-view="copilot">
+              <div class="cc-icon" style="background:linear-gradient(135deg,#4f46e5,#7c3aed)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M9 4h6"/>
+                  <circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/>
+                </svg>
+              </div>
+              <div class="cc-title">AI Copilot</div>
+              <div class="cc-sub">Delay analysis (TIA) &amp; claims — pick a method, see the exact P6 impact · cloud, opt-in</div>
+            </button>
           </div>
         </div>
 
@@ -192,6 +202,7 @@
           <button class="view-tab" id="tab-oos" data-view="oos">Out of Sequence</button>
           <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
           <button class="view-tab" id="tab-construct" data-view="construct">🧠 Constructability</button>
+          <button class="view-tab" id="tab-copilot" data-view="copilot">🤖 AI Copilot</button>
           <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
 
@@ -232,6 +243,10 @@
 
         <div class="view-panel hidden" id="construct-panel">
           <div id="construct-body"></div>
+        </div>
+
+        <div class="view-panel hidden" id="copilot-panel">
+          <div id="copilot-body"></div>
         </div>
         </div><!-- /analysis-views -->
       </section>

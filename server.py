@@ -74,6 +74,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_review(body)
         elif self.path == '/api/constructability':
             self._handle_constructability(body)
+        elif self.path == '/api/claims/activities':
+            self._handle_claims_activities(body)
+        elif self.path == '/api/claims/scenario':
+            self._handle_claims_scenario(body)
+        elif self.path == '/api/claims/impact':
+            self._handle_claims_impact(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -374,6 +380,98 @@ class Handler(BaseHTTPRequestHandler):
             data = parse_file(resolved)
             report = run_review(data, forced_type=body.get('forced_type'))
             self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/claims/* — AI Copilot: TIA delay-analysis engine ──────────────
+    def _handle_claims_activities(self, body):
+        """Activity list (id, name, WBS) for the Copilot's delayed-activity picker."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            data = parse_file(resolved)
+            acts = sorted(
+                ({'id': a['id'], 'name': a.get('name') or '', 'wbs_path': a.get('wbs_path') or '',
+                  'is_milestone': a.get('task_type') in ('StartMilestone', 'FinishMilestone')}
+                 for a in data.activities.values() if a.get('id')),
+                key=lambda x: x['id'])
+            self._json(200, {'ok': True, 'activities': acts})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_claims_scenario(self, body):
+        """Build the TIA impacted programme: base update + a named delay fragnet driving the
+        chosen activity's start. Saved for the user to open in P6 and F9. No date is computed."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        activity_id = (body.get('activity_id') or '').strip()
+        output_path = body.get('output_path', '')
+        try:
+            delay_days = float(body.get('delay_days'))
+        except (TypeError, ValueError):
+            delay_days = 0.0
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        if not activity_id:
+            self._json(200, {'ok': False, 'error': 'Pick the delayed activity first.'})
+            return
+        if delay_days <= 0:
+            self._json(200, {'ok': False, 'error': 'Enter a delay of at least one working day.'})
+            return
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_claims.fragnet import insert_start_delay
+            data = parse_file(resolved)
+            act = next((a for a in data.activities.values() if a.get('id') == activity_id), None)
+            if act is None:
+                self._json(200, {'ok': False, 'error': f'Activity {activity_id} not found in the schedule.'})
+                return
+            cal = data.calendars.get(act.get('calendar_id'))
+            day_hours = cal.day_hours if cal else 8.0
+            with open(resolved, encoding='utf-8') as f:
+                xml_text = f.read()
+            out = insert_start_delay(xml_text, activity_id, delay_days,
+                                     label=(body.get('label') or None), day_hours=day_hours)
+            with open(os.path.abspath(output_path), 'w', encoding='utf-8') as f:
+                f.write(out['xml'])
+            self._json(200, {'ok': True, 'output_path': os.path.abspath(output_path),
+                             'delay_id': out['delay_id'], 'delay_name': out['delay_name'],
+                             'duration_hours': out['duration_hours'],
+                             'activity_name': act.get('name') or activity_id})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_claims_impact(self, body):
+        """Read the exact TIA impact: how far completion moved, base update vs the F9-rescheduled
+        file the user re-exported from P6. The day-count is P6's — nothing is computed here."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        rescheduled = body.get('rescheduled_path', '')
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Base schedule not found — re-import it and try again.'})
+            return
+        if not rescheduled or not os.path.isfile(rescheduled):
+            self._json(200, {'ok': False, 'error': 'Load the rescheduled P6 file you exported after F9.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_claims.tia import compute_impact
+            base_data = parse_file(resolved)
+            impacted_data = parse_file(rescheduled)
+            impact = compute_impact(base_data, impacted_data)
+            if impact.get('impact_days') is None:
+                self._json(200, {'ok': False, 'error': (
+                    'Could not read a completion date from the files — check the rescheduled export.')})
+                return
+            self._json(200, {'ok': True, 'impact': impact})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

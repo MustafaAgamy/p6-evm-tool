@@ -4,6 +4,7 @@ import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, e
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
+import { renderCopilotPanel }                 from './modules/copilot.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
@@ -47,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // XER + EVM → prompt to import the baseline first so results match the XML/P6 exactly
       if (card.dataset.view === 'evm') maybePromptBaseline(state.currentResult);
       if (card.dataset.view === 'construct') renderConstructPanel();
+      if (card.dataset.view === 'copilot') renderCopilotPanel();
     }));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
@@ -56,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-oos').addEventListener('click', () => switchView('oos'));
   document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
   document.getElementById('tab-construct').addEventListener('click', () => { switchView('construct'); renderConstructPanel(); });
+  document.getElementById('tab-copilot').addEventListener('click', () => { switchView('copilot'); renderCopilotPanel(); });
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {
