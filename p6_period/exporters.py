@@ -70,10 +70,12 @@ def report_excel(report):
     headers = ['Update vs Update', report.get('project_name', ''),
                f"{report.get('data_date_prev', '')} → {report.get('data_date_now', '')}",
                '', '', '', '', '']
-    rows = [
-        [f"Overall % Complete {s.get('actual_prev', '')}% → {s.get('actual_now', '')}%  ·  "
-         f"SPI {s.get('prev_spi', '')} → {s.get('curr_spi', '')}  ·  "
-         f"Delay {s.get('delay_prev', '')} → {s.get('delay_now', '')} wd"],
+    rows = []
+    if s.get('actual_now') is not None:
+        rows.append([f"Overall % Complete {s.get('actual_prev')}% → {s.get('actual_now')}%  ·  "
+                     f"SPI {_num(s.get('prev_spi'))} → {_num(s.get('curr_spi'))}  ·  "
+                     f"Delay {_num(s.get('delay_prev'))} → {_num(s.get('delay_now'))} wd"])
+    rows += [
         [''],
         ['Progress by activity — % complete this period'],
         _PROGRESS_HEADERS,
@@ -107,7 +109,7 @@ def _dashboard_html(report):
         f'<th class="num">Previous · to {pdd}</th><th class="num">Current · to {cdd}</th>'
         '<th class="num">Variance</th></tr></thead><tbody>'
         f'<tr><td>Overall % Complete</td><td class="num">{_num(s.get("actual_prev"), "%")}</td>'
-        f'<td class="num">{_num(s.get("actual_now"), "%")}</td><td class="num pos">{_svar(s.get("period_earned"), "%")}</td></tr>'
+        f'<td class="num">{_num(s.get("actual_now"), "%")}</td><td class="num">{_svar(s.get("period_earned"), "%")}</td></tr>'
         f'<tr><td>SPI</td><td class="num">{_num(s.get("prev_spi"))}</td>'
         f'<td class="num">{_num(s.get("curr_spi"))}</td><td class="num">{_svar(s.get("spi_variance"))}</td></tr>'
         f'<tr><td>Delay vs baseline</td><td class="num">{_num(s.get("delay_prev"), " wd")}</td>'
