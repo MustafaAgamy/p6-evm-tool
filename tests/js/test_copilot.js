@@ -3,7 +3,7 @@
  * Run: node tests/js/test_copilot.js
  */
 import assert from 'node:assert/strict';
-import { matchActivity } from '../../ui/modules/copilot_helpers.js';
+import { resolveActivity } from '../../ui/modules/copilot_helpers.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -14,37 +14,37 @@ function test(name, fn) {
 const ACTS = [
   { id: 'ACT001', name: 'Excavation' },
   { id: 'MEP-L2-001', name: 'MEP first-fix, Level 2' },
-  { id: 'ACT002', name: 'Blinding' },
+  { id: 'ACT002', name: 'Excavation' },   // same name, different id
 ];
 
-test('exact ID match returns the activity', () => {
-  assert.equal(matchActivity(ACTS, 'MEP-L2-001').name, 'MEP first-fix, Level 2');
+test('bare Activity ID resolves (case-insensitive, trimmed)', () => {
+  assert.equal(resolveActivity(ACTS, 'MEP-L2-001').name, 'MEP first-fix, Level 2');
+  assert.equal(resolveActivity(ACTS, 'act001').id, 'ACT001');
+  assert.equal(resolveActivity(ACTS, '  ACT002  ').id, 'ACT002');
 });
 
-test('match is case-insensitive', () => {
-  assert.equal(matchActivity(ACTS, 'act001').id, 'ACT001');
-  assert.equal(matchActivity(ACTS, 'Mep-L2-001').id, 'MEP-L2-001');
+test('an "ID — Name" pick from the list resolves to that exact activity', () => {
+  assert.equal(resolveActivity(ACTS, 'MEP-L2-001 — MEP first-fix, Level 2').id, 'MEP-L2-001');
+  // duplicate name is disambiguated by the ID in the combo
+  assert.equal(resolveActivity(ACTS, 'ACT002 — Excavation').id, 'ACT002');
 });
 
-test('surrounding whitespace is trimmed', () => {
-  assert.equal(matchActivity(ACTS, '  ACT002  ').id, 'ACT002');
+test('typing part of a name alone does NOT resolve (must pick from the list)', () => {
+  assert.equal(resolveActivity(ACTS, 'Excavation'), null);
+  assert.equal(resolveActivity(ACTS, 'MEP'), null);
 });
 
-test('partial ID does NOT match (exact only)', () => {
-  assert.equal(matchActivity(ACTS, 'ACT'), null);
-  assert.equal(matchActivity(ACTS, 'MEP-L2'), null);
+test('partial / unknown / empty / null inputs return null', () => {
+  assert.equal(resolveActivity(ACTS, 'ACT'), null);
+  assert.equal(resolveActivity(ACTS, 'NOPE'), null);
+  assert.equal(resolveActivity(ACTS, ''), null);
+  assert.equal(resolveActivity(ACTS, '   '), null);
+  assert.equal(resolveActivity(null, 'ACT001'), null);
 });
 
-test('empty / unknown / null inputs return null', () => {
-  assert.equal(matchActivity(ACTS, ''), null);
-  assert.equal(matchActivity(ACTS, '   '), null);
-  assert.equal(matchActivity(ACTS, 'NOPE'), null);
-  assert.equal(matchActivity(null, 'ACT001'), null);
-  assert.equal(matchActivity(undefined, 'ACT001'), null);
-});
-
-test('tolerates activities with a missing id', () => {
-  assert.equal(matchActivity([{ name: 'no id' }, { id: 'X', name: 'x' }], 'x').id, 'X');
+test('tolerates activities missing a name (combo still keyed on the ID)', () => {
+  const acts = [{ id: 'X1' }];
+  assert.equal(resolveActivity(acts, 'X1').id, 'X1');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -7,7 +7,7 @@
 import { state }                 from './state.js';
 import { showError, clearError } from './render.js';
 import { escapeHtml }            from './format.js';
-import { matchActivity }         from './copilot_helpers.js';
+import { resolveActivity }       from './copilot_helpers.js';
 
 // Method knowledge (mirrors p6_claims/methods.py). TIA is executable now; the rest are
 // shown as "known" — the copilot can explain them, execution lands in later slices.
@@ -24,7 +24,7 @@ const METHODS = [
 
 function _cp() {
   if (!state.copilot) state.copilot = { method: 'tia', activityId: '', activityName: '',
-    delayDays: '', label: '', scenario: null, impact: null, activities: null };
+    activityInput: '', delayDays: '', label: '', scenario: null, impact: null, activities: null };
   return state.copilot;
 }
 
@@ -93,10 +93,10 @@ function _renderWorkspace() {
 
     <div class="mod-sec">1 · The delay</div>
     <div class="cp-form">
-      <label class="cp-fld"><span>Delayed activity — type the Activity ID</span>
+      <label class="cp-fld"><span>Delayed activity — search by ID or name</span>
         <input id="cp-activity" class="cp-input" list="cp-activity-list" autocomplete="off"
-               value="${escapeHtml(cp.activityId || '')}"
-               placeholder="${cp.activities ? `Type an Activity ID… (${count} activities)` : 'Loading activities…'}">
+               value="${escapeHtml(cp.activityInput || '')}"
+               placeholder="${cp.activities ? `Type an Activity ID or name… (${count} activities)` : 'Loading activities…'}">
         <datalist id="cp-activity-list"></datalist>
         <span id="cp-activity-match" class="cp-match"></span></label>
       <label class="cp-fld cp-fld-sm"><span>Delay (working days)</span>
@@ -148,7 +148,7 @@ function _bindInputs() {
   const lab = document.getElementById('cp-label');
   if (lab) lab.addEventListener('input', e => { _cp().label = e.target.value; });
   const act = document.getElementById('cp-activity');
-  if (act) act.addEventListener('input', () => { _cp().activityId = act.value.trim(); _showActivityMatch(); });
+  if (act) act.addEventListener('input', () => { _cp().activityInput = act.value; _showActivityMatch(); });
 }
 
 async function _loadActivities() {
@@ -160,28 +160,30 @@ async function _loadActivities() {
   } catch { showError('Could not reach the local server. Try restarting the app.'); }
 }
 
-// Populate the type-ahead datalist with non-milestone activities: value = Activity ID
-// (so typing the ID filters natively), label = the activity name for context.
+// Populate the type-ahead datalist with non-milestone activities. Each option's value is
+// "ID — Name", so the browser filters as the planner types EITHER the Activity ID OR any
+// part of the name — search by whichever they remember.
 function _fillActivityList() {
   const list = document.getElementById('cp-activity-list');
   const cp = _cp();
   if (!list || !cp.activities) return;
   list.innerHTML = cp.activities.filter(a => !a.is_milestone).map(a =>
-    `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`).join('');
+    `<option value="${escapeHtml(a.id + ' — ' + a.name)}"></option>`).join('');
   _showActivityMatch();
 }
 
-// Confirm the typed ID under the box: the matched activity's name + WBS, or a gentle hint.
+// Confirm the picked activity under the box: its ID · name · WBS, or a gentle hint.
 function _showActivityMatch() {
   const cp = _cp();
   const el = document.getElementById('cp-activity-match');
   if (!el) return;
-  const a = matchActivity(cp.activities, cp.activityId);
+  const a = resolveActivity(cp.activities, cp.activityInput);
+  cp.activityId = a ? a.id : '';
   cp.activityName = a ? a.name : '';
   if (a) {
-    el.innerHTML = `<span class="cp-ok">✓ ${escapeHtml(a.name)}${a.wbs_path ? ' <span class="cp-wbs">— ' + escapeHtml(a.wbs_path) + '</span>' : ''}</span>`;
-  } else if ((cp.activityId || '').trim()) {
-    el.innerHTML = `<span class="cp-warn">No activity with ID “${escapeHtml(cp.activityId)}” — keep typing to see matches.</span>`;
+    el.innerHTML = `<span class="cp-ok">✓ ${escapeHtml(a.id)} — ${escapeHtml(a.name)}${a.wbs_path ? ' <span class="cp-wbs">· ' + escapeHtml(a.wbs_path) + '</span>' : ''}</span>`;
+  } else if ((cp.activityInput || '').trim()) {
+    el.innerHTML = `<span class="cp-warn">No exact match yet — type a full Activity ID, or pick a name from the list.</span>`;
   } else {
     el.innerHTML = '';
   }
@@ -191,7 +193,7 @@ function _showActivityMatch() {
 async function _generateScenario() {
   const cp = _cp();
   clearError();
-  if (!matchActivity(cp.activities, cp.activityId)) { showError('Type a valid Activity ID for the delayed activity.'); return; }
+  if (!resolveActivity(cp.activities, cp.activityInput)) { showError('Type a valid Activity ID, or pick an activity from the list.'); return; }
   const days = parseInt(cp.delayDays, 10);
   if (!days || days < 1) { showError('Enter a delay of at least one working day.'); return; }
   const safe = (cp.activityId || 'activity').replace(/[^A-Za-z0-9_-]+/g, '_');
