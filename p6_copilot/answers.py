@@ -103,10 +103,70 @@ def health_mgmt(ctx):
     return {'headline': f"Project health {as_of}is: {status}.", 'body': body, 'advice': advice, 'evidence': ev}
 
 
+def risks_mgmt(ctx):
+    delay = ctx['delay_days']
+    worst = ctx['worst_discipline']
+    risks = []
+    if worst:
+        risks.append(f"The **{worst['name']}** work slipping further — it's already the furthest behind.")
+    if ctx.get('oos_count'):
+        risks.append(f"**{ctx['oos_count']}** activities were started out of order — a rework and coordination risk.")
+    if ctx.get('float_grade') in ('Critical', 'Needs Attention'):
+        risks.append("There's very little spare time left in the plan to absorb new problems.")
+    if delay and delay > 0 and not risks:
+        risks.append("The finish date keeps slipping — recovery hasn't caught up yet.")
+    if not risks:
+        return {'headline': "No major risks stand out in this update.",
+                'body': ["The schedule looks balanced — keep an eye on the areas furthest along."],
+                'advice': [], 'evidence': []}
+    advice = [f"Deal with **{worst['name']}** first — it's behind almost all of these." if worst
+              else "Tackle the furthest-behind area first."]
+    ev = [{'module': 'Finish date', 'plain': 'Delay', 'value': f"{delay} working days"}] if delay else []
+    return {'headline': "The biggest risks right now:", 'body': risks, 'advice': advice, 'evidence': ev}
+
+
+def eot_likely_mgmt(ctx):
+    delay = ctx['delay_days']
+    if not delay or delay <= 0:
+        return {'headline': "No time-extension looks needed right now — the project isn't behind.",
+                'body': ["There's no finish-date slippage to claim against at the moment."], 'advice': [], 'evidence': []}
+    body = ["There are **indicators** that could support a time-extension (an EOT) — but this is **not a decision**; "
+            "the commercial team must confirm it.",
+            f"The project is genuinely behind (about {_weeks(delay)} weeks), and the delay is on the work that sets the finish date."]
+    if ctx.get('oos_count'):
+        body.append(f"Some of it is execution-side — {ctx['oos_count']} activities were started out of order — which usually "
+                    "weakens a contractor's claim, so it's worth confirming who owns each cause.")
+    return {'headline': "There are indicators supporting a possible time-extension — worth a commercial review.",
+            'body': body,
+            'advice': ["Ask the commercial team to review the claim position, and note the delay causes (e.g. late access) "
+                       "in the Claims tool so ownership is clear."],
+            'evidence': [{'module': 'Finish date', 'plain': 'Delay', 'value': f'{delay} working days'}]}
+
+
+def actions_mgmt(ctx):
+    delay = ctx['delay_days']
+    worst = ctx['worst_discipline']
+    if not delay or delay <= 0:
+        return {'headline': "Nothing urgent this week — the project is on track.",
+                'body': ["Keep protecting the pace on the areas furthest along."], 'advice': [], 'evidence': []}
+    acts = []
+    if worst:
+        acts.append(f"Push a recovery plan for **{worst['name']}** — the biggest cause of the delay.")
+    acts.append("Get the contractor's written recovery plan, with dates.")
+    if ctx.get('oos_count'):
+        acts.append(f"Review the **{ctx['oos_count']}** out-of-order activities before they cause rework.")
+    acts.append("Re-forecast the finish date after the recovery plan (the what-if gives an exact figure).")
+    acts.append("Ask the commercial team to review the claim position.")
+    return {'headline': "Top actions this week:", 'body': acts, 'advice': [], 'evidence': []}
+
+
 _ANSWERS = {
     ('management', 'why_delayed'): why_delayed_mgmt,
     ('management', 'which_wbs'):   which_wbs_mgmt,
     ('management', 'health'):      health_mgmt,
+    ('management', 'risks'):       risks_mgmt,
+    ('management', 'eot_likely'):  eot_likely_mgmt,
+    ('management', 'actions'):     actions_mgmt,
 }
 
 

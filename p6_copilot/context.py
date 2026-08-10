@@ -30,8 +30,12 @@ def _fmt_date(v):
     return str(v)
 
 
-def build_context(result):
-    """Normalize a compute()/DB result dict into the facts the answer engine speaks from."""
+def build_context(result, audit=None, prev_delay=None):
+    """Normalize a compute()/DB result dict into the facts the answer engine speaks from.
+
+    `audit` = the stored audit_modules dict (for risk facts). `prev_delay` = the previous
+    update's delay in working days (for the trend). Both optional.
+    """
     result = result or {}
     cats = result.get('categories') or {}
 
@@ -49,7 +53,7 @@ def build_context(result):
 
     delay = result.get('delay_days')
     spi = result.get('spi')
-    return {
+    ctx = {
         'project_name': result.get('project_name') or 'the project',
         'data_date': _fmt_date(result.get('data_date')),          # the update/cutoff date
         'baseline_finish': _fmt_date(result.get('baseline_finish')),
@@ -62,4 +66,18 @@ def build_context(result):
         'actual_pct': _pct(result.get('overall_actual_pct')),
         'disciplines': disciplines,
         'worst_discipline': worst,
+        'trend': None,
+        'oos_count': None,
+        'float_grade': None,
     }
+    # Trend vs the previous update — managers care about direction as much as the number.
+    if prev_delay is not None and delay is not None:
+        delta = delay - prev_delay
+        ctx['trend'] = {'prev_delay': prev_delay, 'delta': delta,
+                        'direction': 'worse' if delta > 0 else ('better' if delta < 0 else 'same')}
+    # Risk facts from the audit modules (defensive — any part may be absent).
+    if isinstance(audit, dict):
+        mods = audit.get('modules') or {}
+        ctx['oos_count'] = ((mods.get('out_of_sequence') or {}).get('kpis') or {}).get('oos_count')
+        ctx['float_grade'] = (mods.get('float') or {}).get('grade')
+    return ctx

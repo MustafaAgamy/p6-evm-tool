@@ -958,3 +958,30 @@ body {
 .cp-match .cp-ok { color: var(--success); font-weight: 600; }
 .cp-match .cp-warn { color: var(--warning); }
 .cp-match .cp-wbs { color: var(--muted); font-weight: 400; }
+
+/* ── AI Copilot V2 — Assistant (two modes, questions, Manager Report) ─────── */
+.cp-subnav { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+.cp-sub { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); font-size: 13px; font-weight: 600; padding: 8px 12px; cursor: pointer; }
+.cp-sub.on { color: var(--accent); border-bottom-color: var(--accent); }
+.cp-modes { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.cp-mode { background: none; border: none; font-size: 12px; font-weight: 600; padding: 4px 12px; color: var(--muted); cursor: pointer; }
+.cp-mode.on { background: rgba(99,102,241,.14); color: #6366f1; }
+.cp-reads { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); margin: 10px 0 14px; }
+.cp-modchip { padding: 2px 8px; border-radius: 999px; background: var(--card-bg); border: 1px solid var(--border); color: var(--text); }
+.cp-report-cta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 13px 15px; background: rgba(99,102,241,.10); border: 1px solid rgba(99,102,241,.30); border-radius: 10px; margin-bottom: 16px; }
+.cp-report-cta .h { font-size: 14px; font-weight: 600; color: #6366f1; }
+.cp-report-cta .d { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.cp-qs { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; }
+.cp-q { font-size: 12.5px; padding: 6px 12px; border-radius: 999px; background: var(--card-bg); border: 1px solid var(--border); color: var(--text); cursor: pointer; }
+.cp-q:hover { border-color: var(--accent); }
+.cp-q.on { background: rgba(99,102,241,.14); color: #6366f1; border-color: #6366f1; }
+.cp-ans { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 15px 17px; }
+.cp-ans-h { font-size: 16px; font-weight: 600; line-height: 1.5; margin-bottom: 8px; }
+.cp-ans p { font-size: 14px; line-height: 1.7; margin: 0 0 8px; }
+.cp-advice { margin-top: 12px; padding: 11px 14px; background: rgba(99,102,241,.10); border-radius: 9px; }
+.cp-advice-h { font-size: 12px; font-weight: 700; color: #6366f1; margin-bottom: 5px; }
+.cp-advice ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.7; }
+.cp-ev { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--muted); }
+.cp-src { padding: 2px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+.cp-plan-note { padding: 14px 16px; background: var(--bg); border: 1px dashed var(--border); border-radius: 10px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+.cp-plan-note b { color: var(--text); }

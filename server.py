@@ -80,6 +80,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_claims_scenario(body)
         elif self.path == '/api/claims/impact':
             self._handle_claims_impact(body)
+        elif self.path == '/api/copilot/ask':
+            self._handle_copilot_ask(body)
+        elif self.path == '/api/copilot/report':
+            self._handle_copilot_report(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -472,6 +476,76 @@ class Handler(BaseHTTPRequestHandler):
                     'Could not read a completion date from the files — check the rescheduled export.')})
                 return
             self._json(200, {'ok': True, 'impact': impact})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/copilot/* — AI Copilot V2: offline expert engine (reads the DB) ──
+    def _copilot_context(self, snapshot_id):
+        """Assemble the Copilot's project 'brain' from the DB for the loaded snapshot's
+        project: metrics + finish dates + audit findings + the previous update's delay
+        (for the trend). Reads only — never re-parses. Returns the context dict or None."""
+        if not snapshot_id:
+            return None
+        pid = db.get_project_id_for_snapshot(snapshot_id)
+        if not pid:
+            return None
+        result = db.get_project_result(pid)      # most recent snapshot (= the loaded one)
+        if not result:
+            return None
+        sid = result.get('_snapshot_id') or snapshot_id
+        extras = db.get_evm_extras(sid) or {}
+        result['baseline_finish'] = extras.get('baseline_finish')
+        result['expected_finish'] = extras.get('expected_finish')
+        audit = db.get_audit_modules_for_snapshot(sid)
+        snaps = [s for s in db.get_project_snapshots(pid) if s.get('delay_days') is not None]
+        prev_delay = snaps[-2]['delay_days'] if len(snaps) >= 2 else None
+        sys.path.insert(0, resource_path('.'))
+        from p6_copilot.context import build_context
+        return build_context(result, audit=audit, prev_delay=prev_delay)
+
+    def _handle_copilot_ask(self, body):
+        """Answer one repertoire question from the offline engine. Never touches the cloud."""
+        try:
+            ctx = self._copilot_context(body.get('snapshot_id'))
+            if ctx is None:
+                self._json(200, {'ok': False, 'error': 'Open a schedule first, then ask the Copilot.'})
+                return
+            from p6_copilot.answers import answer
+            a = answer(body.get('question_id', ''), ctx, body.get('mode', 'management'))
+            self._json(200, {'ok': True, 'answer': a})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_copilot_report(self, body):
+        """Build the plain-English Manager Report; return HTML for preview or write a PDF."""
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            ctx = self._copilot_context(body.get('snapshot_id'))
+            if ctx is None:
+                self._json(200, {'ok': False, 'error': 'Open a schedule first, then generate the report.'})
+                return
+            from p6_copilot.report import build_manager_report, render_manager_report_html
+            report = build_manager_report(ctx)
+            html_content = render_manager_report_html(report, body.get('meta') or {})
+            if preview:
+                self._json(200, {'ok': True, 'report': report, 'html': html_content})
+                return
+            import subprocess, tempfile
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
