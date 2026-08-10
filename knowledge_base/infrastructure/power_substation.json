@@ -1,0 +1,45 @@
+{
+  "category": "Infrastructure",
+  "type": "Power Substation & Transmission",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["substation", "transmission", "switchgear", "gis", "transformer", "busbar", "overhead line",
+                 "oht", "protection", "relay", "earthing", "energization", "energisation", "hv", "kv", "gantry"],
+  "wbs": [
+    {"name": "Civil Works", "keywords": ["civil", "foundation", "building", "trench", "cable trench"]},
+    {"name": "Steel Structures / Gantries", "keywords": ["gantry", "steel structure", "tower", "support"]},
+    {"name": "Primary Equipment", "keywords": ["transformer", "switchgear", "gis", "busbar", "breaker", "reactor"]},
+    {"name": "Protection & Control", "keywords": ["protection", "relay", "control", "scada", "secondary"]},
+    {"name": "Cabling & Earthing", "keywords": ["cabling", "cable", "earthing", "grounding", "bonding"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "sat", "pre-commission"]},
+    {"name": "Energization & Handover", "keywords": ["energ", "charging", "handover", "take over"]}
+  ],
+  "activities": [
+    {"name": "Transformer FAT", "keywords": ["fat", "factory acceptance", "transformer test"], "wbs": "Primary Equipment",
+     "typical_pred": "Transformer Manufacture", "typical_succ": "Delivery to Site", "duration_days": 5,
+     "why": "Power transformers are FAT-witnessed before shipping — a long-lead item that gates the works."},
+    {"name": "Earthing / Grounding System", "keywords": ["earthing", "grounding", "earth grid"], "wbs": "Cabling & Earthing",
+     "typical_pred": "Civil Works", "typical_succ": "Equipment Installation", "duration_days": 20,
+     "why": "The earthing grid must be installed and tested before energization for safety — often omitted."},
+    {"name": "Protection & Control Commissioning", "keywords": ["protection commission", "relay test", "secondary injection"], "wbs": "Protection & Control",
+     "typical_pred": "Equipment Installation", "typical_succ": "SAT", "duration_days": 20,
+     "why": "Protection relays must be tested and set before the substation can be energized safely."},
+    {"name": "Site Acceptance Test (SAT)", "keywords": ["sat", "site acceptance"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Protection & Control", "typical_succ": "Energization", "duration_days": 15,
+     "why": "A SAT proves the whole substation before energization."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["civil", "foundation"], "after_keywords": ["transformer", "switchgear", "gis", "install"],
+     "reason": "Primary equipment installs onto completed civil foundations.",
+     "impact": "Critical"},
+    {"before_keywords": ["sat", "site acceptance", "protection", "earthing"], "after_keywords": ["energ", "energization", "charging"],
+     "reason": "Energization must follow SAT, protection commissioning and a tested earthing system.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "commissioning", "sat"],
+     "reason": "Commissioning follows installation of the primary and secondary equipment.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Civil Complete", "Equipment Installed", "SAT Complete", "Energization", "Handover"],
+  "common_issues": ["Energization before SAT / protection commissioning", "Earthing system missing or untested",
+                    "No transformer FAT", "Commissioning tied Start-to-Start to installation"]
+}

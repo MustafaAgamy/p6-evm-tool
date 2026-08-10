@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Oil & Gas / Petrochemical",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["oil", "gas", "petrochemical", "refinery", "lng", "vessel", "column", "piperack", "piping",
+                 "hydrotest", "loop check", "pre-commissioning", "rfsu", "flare", "compressor", "static equipment"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "pile", "grade", "paving"]},
+    {"name": "Structural Steel & Piperack", "keywords": ["steel", "piperack", "structure", "platform"]},
+    {"name": "Static Equipment", "keywords": ["vessel", "column", "tank", "exchanger", "static equipment", "reactor"]},
+    {"name": "Rotating Equipment", "keywords": ["pump", "compressor", "rotating", "turbine"]},
+    {"name": "Piping", "keywords": ["piping", "spool", "pipe", "welding", "hydrotest"]},
+    {"name": "Electrical & Instrumentation", "keywords": ["electrical", "instrumentation", "e&i", "cable", "loop"]},
+    {"name": "Insulation & Painting", "keywords": ["insulation", "painting", "coating", "fireproofing"]},
+    {"name": "Pre-commissioning & Commissioning", "keywords": ["pre-commission", "commission", "flushing", "rfsu", "start-up"]}
+  ],
+  "activities": [
+    {"name": "Equipment FAT", "keywords": ["fat", "factory acceptance"], "wbs": "Static Equipment",
+     "typical_pred": "Equipment Fabrication", "typical_succ": "Delivery to Site", "duration_days": 5,
+     "why": "Long-lead static/rotating equipment is FAT-witnessed before shipping."},
+    {"name": "Piping Hydrotest", "keywords": ["hydrotest", "hydro test", "pressure test"], "wbs": "Piping",
+     "typical_pred": "Piping Erection", "typical_succ": "Insulation", "duration_days": 20,
+     "why": "Piping is hydrotested before insulation covers it — insulation before hydrotest is a classic sequencing error."},
+    {"name": "E&I Loop Checks", "keywords": ["loop check", "loop test", "instrument test"], "wbs": "Electrical & Instrumentation",
+     "typical_pred": "E&I Installation", "typical_succ": "Pre-commissioning", "duration_days": 20,
+     "why": "Instrument loops must be checked before pre-commissioning and commissioning."},
+    {"name": "Pre-commissioning (Flushing / Drying)", "keywords": ["pre-commission", "flushing", "drying", "purging"], "wbs": "Pre-commissioning & Commissioning",
+     "typical_pred": "Mechanical Completion", "typical_succ": "Commissioning", "duration_days": 30,
+     "why": "Systems are flushed, dried and purged after mechanical completion, before commissioning and RFSU."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["hydrotest", "hydro test", "pressure test"], "after_keywords": ["insulation", "painting", "coating"],
+     "reason": "Insulation/coating follows the piping hydrotest, never before it.",
+     "impact": "Critical"},
+    {"before_keywords": ["mechanical completion", "install", "erection"], "after_keywords": ["pre-commission", "commission"],
+     "reason": "Pre-commissioning and commissioning follow mechanical completion.",
+     "impact": "Critical"},
+    {"before_keywords": ["loop check", "loop test"], "after_keywords": ["commission", "commissioning", "rfsu"],
+     "reason": "Loop checks precede commissioning and ready-for-start-up.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Pre-commissioning Complete", "RFSU (Ready For Start-Up)", "Start-up / First Product"],
+  "common_issues": ["Insulation before piping hydrotest", "Missing E&I loop checks",
+                    "No pre-commissioning (flushing/drying)", "Commissioning before mechanical completion"]
+}

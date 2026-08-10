@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "Roads & Highways",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["road", "highway", "carriageway", "pavement", "asphalt", "subgrade", "subbase", "base course",
+                 "wearing course", "kerb", "culvert", "earthwork", "embankment", "road marking", "interchange"],
+  "wbs": [
+    {"name": "Site Clearance & Enabling", "keywords": ["clearance", "enabling", "site", "topsoil", "strip"]},
+    {"name": "Utility Diversions", "keywords": ["utility", "diversion", "relocation", "service"]},
+    {"name": "Earthworks", "keywords": ["earthwork", "cut", "fill", "embankment", "subgrade", "formation"]},
+    {"name": "Drainage & Culverts", "keywords": ["drainage", "culvert", "pipe", "manhole", "channel"]},
+    {"name": "Pavement", "keywords": ["subbase", "base course", "binder", "asphalt", "wearing course", "pavement"]},
+    {"name": "Road Furniture & Markings", "keywords": ["marking", "signage", "barrier", "kerb", "furniture", "lighting"]},
+    {"name": "Structures", "keywords": ["bridge", "underpass", "retaining", "structure"]},
+    {"name": "Testing & Handover", "keywords": ["test", "compaction", "handover", "open to traffic"]}
+  ],
+  "activities": [
+    {"name": "Utility Diversions", "keywords": ["utility diversion", "service relocation"], "wbs": "Utility Diversions",
+     "typical_pred": "Site Clearance", "typical_succ": "Earthworks", "duration_days": 30,
+     "why": "Existing services must be diverted before earthworks over their alignment — a frequent omission that stalls the works."},
+    {"name": "Drainage & Culverts", "keywords": ["drainage", "culvert"], "wbs": "Drainage & Culverts",
+     "typical_pred": "Earthworks to Formation", "typical_succ": "Subbase", "duration_days": 40,
+     "why": "Drainage is installed before pavement layers seal the surface; retrofitting it later is destructive."},
+    {"name": "Pavement — Base Course", "keywords": ["base course", "binder course"], "wbs": "Pavement",
+     "typical_pred": "Subbase", "typical_succ": "Wearing Course", "duration_days": 30,
+     "why": "Pavement is built in layers; base precedes the wearing/surface course."},
+    {"name": "Road Markings & Signage", "keywords": ["road marking", "signage", "line marking"], "wbs": "Road Furniture & Markings",
+     "typical_pred": "Wearing Course", "typical_succ": "Open to Traffic", "duration_days": 10,
+     "why": "Markings and signage follow the final wearing course and precede opening to traffic."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["earthwork", "formation", "subgrade"], "after_keywords": ["subbase", "base course", "pavement", "asphalt"],
+     "reason": "Pavement layers must follow completed earthworks/formation.",
+     "impact": "Critical"},
+    {"before_keywords": ["drainage", "culvert"], "after_keywords": ["subbase", "pavement", "asphalt", "wearing course"],
+     "reason": "Drainage should be installed before the pavement seals the surface.",
+     "impact": "Critical"},
+    {"before_keywords": ["base course", "binder"], "after_keywords": ["wearing course", "surface course"],
+     "reason": "The wearing/surface course follows the base course, not before it.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Earthworks Complete", "Drainage Complete", "Pavement Complete", "Open to Traffic"],
+  "common_issues": ["Pavement before drainage", "Missing utility diversions",
+                    "Wearing course before base course", "No compaction / pavement testing before opening"]
+}

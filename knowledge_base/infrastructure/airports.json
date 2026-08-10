@@ -1,0 +1,47 @@
+{
+  "category": "Infrastructure",
+  "type": "Airports",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["airport", "runway", "taxiway", "apron", "airfield", "agl", "ground lighting", "navaid",
+                 "ils", "terminal", "baggage handling", "bhs", "air traffic", "orat", "aircraft stand"],
+  "wbs": [
+    {"name": "Earthworks & Drainage", "keywords": ["earthwork", "drainage", "subgrade", "grading"]},
+    {"name": "Airfield Pavement", "keywords": ["runway", "taxiway", "apron", "pavement", "pcn"]},
+    {"name": "Airfield Ground Lighting (AGL)", "keywords": ["agl", "ground lighting", "approach lighting", "papi"]},
+    {"name": "Navigation Aids", "keywords": ["navaid", "ils", "vor", "dme", "flight check"]},
+    {"name": "Terminal Building", "keywords": ["terminal", "concourse", "gate", "check-in"]},
+    {"name": "Baggage Handling System", "keywords": ["baggage", "bhs", "carousel", "sortation"]},
+    {"name": "Systems & MEP", "keywords": ["mep", "systems", "fids", "security", "special systems"]},
+    {"name": "Testing, Commissioning & ORAT", "keywords": ["test", "commission", "orat", "trial", "readiness"]},
+    {"name": "Handover / Opening", "keywords": ["handover", "opening", "aerodrome licence"]}
+  ],
+  "activities": [
+    {"name": "Airfield Ground Lighting Installation", "keywords": ["agl install", "ground lighting", "approach lighting"], "wbs": "Airfield Ground Lighting (AGL)",
+     "typical_pred": "Airfield Pavement", "typical_succ": "Flight Check", "duration_days": 40,
+     "why": "AGL is installed into completed pavement and is required for night/low-visibility operations."},
+    {"name": "Navaids Installation & Flight Check", "keywords": ["navaid", "ils install", "flight check", "calibration"], "wbs": "Navigation Aids",
+     "typical_pred": "AGL Installation", "typical_succ": "ORAT", "duration_days": 30,
+     "why": "Navigation aids require installation and an airborne flight check/calibration before operations."},
+    {"name": "Baggage Handling System Installation & Test", "keywords": ["baggage handling", "bhs install", "bhs test"], "wbs": "Baggage Handling System",
+     "typical_pred": "Terminal Structure", "typical_succ": "Systems Integration", "duration_days": 60,
+     "why": "The BHS is a long-lead special system that gates terminal readiness."},
+    {"name": "Operational Readiness (ORAT) Trials", "keywords": ["orat", "operational readiness", "trial operation"], "wbs": "Testing, Commissioning & ORAT",
+     "typical_pred": "Systems Commissioning", "typical_succ": "Opening", "duration_days": 60,
+     "why": "ORAT trials prove people, process and systems together before an airport opens."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["pavement", "runway", "taxiway", "apron"], "after_keywords": ["agl", "ground lighting"],
+     "reason": "Airfield ground lighting installs into completed pavement.",
+     "impact": "Critical"},
+    {"before_keywords": ["navaid", "ils"], "after_keywords": ["flight check", "calibration"],
+     "reason": "A flight check follows navaid installation, not before.",
+     "impact": "Critical"},
+    {"before_keywords": ["commission", "systems", "orat"], "after_keywords": ["opening", "revenue", "handover"],
+     "reason": "Opening must follow systems commissioning and ORAT trials.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Runway Pavement Complete", "AGL Complete", "Flight Check Passed", "ORAT Complete", "Airport Opening"],
+  "common_issues": ["Missing AGL or navaids/flight check", "No ORAT before opening",
+                    "Baggage handling system absent from the programme", "Systems not integration-tested before opening"]
+}

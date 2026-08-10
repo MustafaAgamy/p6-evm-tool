@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Hotel / Hospitality",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["hotel", "hospitality", "resort", "guest room", "guestroom", "ff&e", "ffe", "back of house",
+                 "boh", "kitchen", "laundry", "ballroom", "operator", "pre-opening", "mock-up room"],
+  "wbs": [
+    {"name": "Enabling & Substructure", "keywords": ["enabling", "excavation", "foundation", "basement", "piling"]},
+    {"name": "Superstructure", "keywords": ["superstructure", "frame", "slab", "column", "structure"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "façade", "facade", "cladding", "roof", "weathertight"]},
+    {"name": "MEP Services", "keywords": ["mep", "hvac", "electrical", "plumbing", "riser"]},
+    {"name": "Guestroom Fit-out", "keywords": ["guest room", "guestroom", "room fit-out", "corridor"]},
+    {"name": "Public Areas & Back of House", "keywords": ["lobby", "ballroom", "restaurant", "boh", "kitchen", "laundry"]},
+    {"name": "FF&E", "keywords": ["ff&e", "ffe", "furniture", "fixtures", "loose furniture", "os&e"]},
+    {"name": "Testing, Commissioning & Pre-Opening", "keywords": ["test", "commission", "pre-opening", "soft opening", "handover"]}
+  ],
+  "activities": [
+    {"name": "Mock-up Room Approval", "keywords": ["mock-up room", "mockup room", "sample room"], "wbs": "Guestroom Fit-out",
+     "typical_pred": "Envelope Weathertight", "typical_succ": "Guestroom Fit-out Rollout", "duration_days": 20,
+     "why": "A mock-up room is signed off before rolling out repetitive guestroom fit-out to lock quality and cost."},
+    {"name": "Kitchen & Laundry Equipment", "keywords": ["kitchen equipment", "laundry equipment", "catering equipment"], "wbs": "Public Areas & Back of House",
+     "typical_pred": "BOH MEP", "typical_succ": "Commissioning", "duration_days": 20,
+     "why": "Long-lead FF&E/OS&E for kitchens and laundry needs its own procurement and install activities."},
+    {"name": "FF&E Installation", "keywords": ["ff&e install", "ffe install", "furniture install"], "wbs": "FF&E",
+     "typical_pred": "Room Finishes", "typical_succ": "Snagging", "duration_days": 25,
+     "why": "Furniture, fixtures and equipment install after finishes and gate the opening date."},
+    {"name": "Operator Pre-Opening / Soft Opening", "keywords": ["pre-opening", "soft opening", "operator mobilisation"], "wbs": "Testing, Commissioning & Pre-Opening",
+     "typical_pred": "Commissioning", "typical_succ": "Grand Opening", "duration_days": 30,
+     "why": "The operator's pre-opening/soft-opening period follows commissioning and precedes full opening."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["mock-up room", "mockup room", "sample room"], "after_keywords": ["guest room", "guestroom", "room fit-out"],
+     "reason": "Guestroom fit-out rollout should follow mock-up room approval.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["finishes", "fit-out"], "after_keywords": ["ff&e", "ffe", "furniture"],
+     "reason": "FF&E installs after finishes are complete, not before.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["commission", "commissioning"], "after_keywords": ["pre-opening", "soft opening", "grand opening"],
+     "reason": "Pre-opening and opening follow building commissioning.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Building Weathertight", "Mock-up Room Approved", "MEP Complete", "Pre-Opening", "Grand Opening"],
+  "common_issues": ["No mock-up room before guestroom rollout", "FF&E missing or un-sequenced",
+                    "Kitchen/laundry equipment not in the programme", "Opening not preceded by commissioning & pre-opening"]
+}

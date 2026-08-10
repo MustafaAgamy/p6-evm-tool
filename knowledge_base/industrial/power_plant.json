@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Power Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["power plant", "power station", "boiler", "hrsg", "turbine", "generator", "balance of plant",
+                 "bop", "steam blow", "first fire", "synchronization", "synchronisation", "cooling", "stack", "condenser"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "pile", "structure"]},
+    {"name": "Boiler / HRSG", "keywords": ["boiler", "hrsg", "heat recovery", "steam generator"]},
+    {"name": "Turbine & Generator", "keywords": ["turbine", "generator", "tg", "condenser"]},
+    {"name": "Balance of Plant", "keywords": ["bop", "cooling", "water treatment", "fuel", "stack", "auxiliaries"]},
+    {"name": "Piping", "keywords": ["piping", "steam", "pipe", "hydrotest"]},
+    {"name": "Electrical & Instrumentation", "keywords": ["electrical", "instrumentation", "e&i", "control", "dcs"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "steam blow", "chemical clean", "first fire", "sync"]},
+    {"name": "Reliability & PG Test", "keywords": ["reliability", "performance guarantee", "pg test", "cod"]}
+  ],
+  "activities": [
+    {"name": "Boiler Hydrotest", "keywords": ["boiler hydrotest", "hydrotest", "pressure test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Boiler Erection", "typical_succ": "Chemical Cleaning", "duration_days": 10,
+     "why": "The boiler pressure parts are hydrotested after erection, before chemical cleaning and steam blowing."},
+    {"name": "Chemical Cleaning & Steam Blowing", "keywords": ["chemical clean", "steam blow", "steam blowing"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Boiler Hydrotest", "typical_succ": "First Fire", "duration_days": 20,
+     "why": "Steam-path cleaning and steam blowing protect the turbine and must precede first fire/steam admission."},
+    {"name": "First Fire / Light-up", "keywords": ["first fire", "light-up", "light up", "boiler light"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Chemical Cleaning & Steam Blowing", "typical_succ": "First Synchronization", "duration_days": 15,
+     "why": "First fire follows cleaning/steam blowing and precedes synchronisation to the grid."},
+    {"name": "Performance Guarantee Test", "keywords": ["pg test", "performance guarantee", "acceptance test"], "wbs": "Reliability & PG Test",
+     "typical_pred": "Reliability Run", "typical_succ": "Commercial Operation (COD)", "duration_days": 15,
+     "why": "A PG test proves output/heat rate before commercial operation."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["chemical clean", "steam blow", "steam blowing"], "after_keywords": ["first fire", "sync", "steam admission"],
+     "reason": "First fire / steam admission must follow chemical cleaning and steam blowing to protect the turbine.",
+     "impact": "Critical"},
+    {"before_keywords": ["erection", "install", "mechanical completion"], "after_keywords": ["commission", "first fire", "test"],
+     "reason": "Commissioning and first fire follow erection/mechanical completion.",
+     "impact": "Critical"},
+    {"before_keywords": ["first fire", "sync", "commission"], "after_keywords": ["pg test", "reliability", "cod"],
+     "reason": "Reliability and PG testing follow first fire and synchronisation.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["First Fire", "First Synchronization", "Reliability Run", "PG Test", "Commercial Operation (COD)"],
+  "common_issues": ["First fire before steam blowing / chemical cleaning", "Missing chemical cleaning",
+                    "No PG / reliability test", "Commissioning before mechanical completion"]
+}

@@ -1,0 +1,45 @@
+{
+  "category": "Landscape",
+  "type": "Landscaping",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["landscape", "landscaping", "softscape", "hardscape", "planting", "irrigation", "turf",
+                 "soft landscape", "hard landscape", "tree", "shrub", "water feature", "pergola", "grading"],
+  "wbs": [
+    {"name": "Earthworks & Grading", "keywords": ["earthwork", "grading", "levelling", "topsoil", "fill"]},
+    {"name": "Hardscape", "keywords": ["hardscape", "paving", "wall", "kerb", "steps", "pergola", "feature"]},
+    {"name": "Irrigation", "keywords": ["irrigation", "sprinkler", "drip", "mainline", "controller"]},
+    {"name": "Softscape / Planting", "keywords": ["softscape", "planting", "tree", "shrub", "turf", "seeding", "soil"]},
+    {"name": "Water Features", "keywords": ["water feature", "fountain", "pond", "pool"]},
+    {"name": "Lighting & Electrical", "keywords": ["lighting", "electrical", "feature light"]},
+    {"name": "Establishment & Handover", "keywords": ["establishment", "maintenance", "handover", "defects"]}
+  ],
+  "activities": [
+    {"name": "Irrigation Installation", "keywords": ["irrigation install", "sprinkler install", "drip"], "wbs": "Irrigation",
+     "typical_pred": "Grading", "typical_succ": "Planting", "duration_days": 15,
+     "why": "Irrigation is installed before planting so new softscape can be watered from day one."},
+    {"name": "Soil Preparation & Improvement", "keywords": ["soil prep", "soil improvement", "topsoil"], "wbs": "Softscape / Planting",
+     "typical_pred": "Grading", "typical_succ": "Planting", "duration_days": 10,
+     "why": "Prepared/improved soil precedes planting — skipping it risks plant failure."},
+    {"name": "Planting (Trees / Shrubs / Turf)", "keywords": ["planting", "turf", "tree", "shrub"], "wbs": "Softscape / Planting",
+     "typical_pred": "Irrigation", "typical_succ": "Establishment Period", "duration_days": 20,
+     "why": "Planting follows irrigation and soil preparation."},
+    {"name": "Establishment / Maintenance Period", "keywords": ["establishment", "maintenance period", "plant establishment"], "wbs": "Establishment & Handover",
+     "typical_pred": "Planting", "typical_succ": "Handover", "duration_days": 90,
+     "why": "A plant establishment/maintenance period is standard before final handover — frequently omitted."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["grading", "earthwork", "level"], "after_keywords": ["hardscape", "paving", "planting"],
+     "reason": "Hardscape and planting follow completed grading.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["irrigation", "soil"], "after_keywords": ["planting", "turf", "softscape"],
+     "reason": "Planting should follow irrigation and soil preparation so it can establish.",
+     "impact": "Critical"},
+    {"before_keywords": ["planting", "softscape"], "after_keywords": ["establishment", "handover", "taking over"],
+     "reason": "A plant establishment period follows planting, before handover.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Grading Complete", "Hardscape Complete", "Planting Complete", "Establishment Complete / Handover"],
+  "common_issues": ["Planting before irrigation", "No establishment / maintenance period",
+                    "Softscape before hardscape", "Soil preparation omitted"]
+}

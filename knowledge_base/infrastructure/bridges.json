@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "Bridges",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["bridge", "viaduct", "pier", "abutment", "girder", "deck", "bearing", "expansion joint",
+                 "pile cap", "span", "cantilever", "launching", "post-tension", "parapet"],
+  "wbs": [
+    {"name": "Foundations & Piling", "keywords": ["pile", "pile cap", "foundation", "bore", "cofferdam"]},
+    {"name": "Substructure", "keywords": ["pier", "abutment", "column", "substructure", "wing wall"]},
+    {"name": "Bearings", "keywords": ["bearing", "pot bearing", "elastomeric"]},
+    {"name": "Superstructure", "keywords": ["girder", "beam", "deck", "span", "segment", "launching", "post-tension"]},
+    {"name": "Deck & Waterproofing", "keywords": ["deck slab", "waterproofing", "membrane", "expansion joint"]},
+    {"name": "Finishing", "keywords": ["parapet", "surfacing", "asphalt", "drainage", "railing"]},
+    {"name": "Testing & Load Test", "keywords": ["load test", "test", "monitoring"]},
+    {"name": "Handover", "keywords": ["handover", "open", "completion"]}
+  ],
+  "activities": [
+    {"name": "Pile Load Test", "keywords": ["pile load test", "static load test"], "wbs": "Foundations & Piling",
+     "typical_pred": "Test Pile", "typical_succ": "Working Piles", "duration_days": 15,
+     "why": "A pile load test validates the design capacity before the working piles proceed."},
+    {"name": "Bearing Installation", "keywords": ["bearing install", "set bearing"], "wbs": "Bearings",
+     "typical_pred": "Pier / Abutment Complete", "typical_succ": "Girder Erection", "duration_days": 10,
+     "why": "Bearings sit between substructure and superstructure and must be placed before girders."},
+    {"name": "Deck Waterproofing", "keywords": ["waterproofing", "deck membrane"], "wbs": "Deck & Waterproofing",
+     "typical_pred": "Deck Slab", "typical_succ": "Surfacing", "duration_days": 10,
+     "why": "Deck waterproofing must be applied before surfacing to protect the structure."},
+    {"name": "Static Load Test", "keywords": ["load test", "proof load"], "wbs": "Testing & Load Test",
+     "typical_pred": "Bridge Complete", "typical_succ": "Open to Traffic", "duration_days": 5,
+     "why": "A load test is commonly required before a bridge opens to traffic."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["pier", "abutment", "substructure", "bearing"], "after_keywords": ["girder", "superstructure", "deck", "span"],
+     "reason": "Superstructure (girders/deck) must follow completed substructure and bearings.",
+     "impact": "Critical"},
+    {"before_keywords": ["waterproof", "membrane"], "after_keywords": ["surfacing", "asphalt", "wearing"],
+     "reason": "Deck waterproofing precedes surfacing, or the deck is left unprotected.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["load test", "test"], "after_keywords": ["open", "traffic", "handover"],
+     "reason": "Load testing must complete before opening to traffic.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Foundations Complete", "Substructure Complete", "Deck Complete", "Load Test Passed", "Open to Traffic"],
+  "common_issues": ["Superstructure before substructure complete", "Bearings or expansion joints missing",
+                    "Surfacing before deck waterproofing", "No load test before opening"]
+}

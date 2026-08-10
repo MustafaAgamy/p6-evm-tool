@@ -1,0 +1,47 @@
+{
+  "category": "Infrastructure",
+  "type": "Metro / Tunnel",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["metro", "tunnel", "tbm", "bored tunnel", "natm", "segment", "lining", "cross passage",
+                 "shaft", "portal", "underground", "station box", "invert", "ventilation", "trial run"],
+  "wbs": [
+    {"name": "Shafts & Portals", "keywords": ["shaft", "portal", "launch", "reception"]},
+    {"name": "Tunnel Excavation", "keywords": ["tbm", "bore", "excavation", "natm", "drive"]},
+    {"name": "Tunnel Lining", "keywords": ["lining", "segment", "invert", "secondary lining"]},
+    {"name": "Cross Passages & Egress", "keywords": ["cross passage", "egress", "walkway", "sump"]},
+    {"name": "Track & Systems", "keywords": ["track", "third rail", "ocs", "signalling", "systems"]},
+    {"name": "MEP & Ventilation", "keywords": ["ventilation", "mep", "fan", "smoke", "power"]},
+    {"name": "Stations", "keywords": ["station", "platform", "concourse", "fit-out"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "trial run", "integration"]},
+    {"name": "Handover", "keywords": ["handover", "revenue service", "opening"]}
+  ],
+  "activities": [
+    {"name": "TBM Launch", "keywords": ["tbm launch", "boring start"], "wbs": "Tunnel Excavation",
+     "typical_pred": "Launch Shaft", "typical_succ": "Tunnel Drive", "duration_days": 30,
+     "why": "The TBM launches from a completed shaft; the launch is a distinct long-lead activity."},
+    {"name": "Cross Passages", "keywords": ["cross passage"], "wbs": "Cross Passages & Egress",
+     "typical_pred": "Tunnel Lining", "typical_succ": "Systems Installation", "duration_days": 40,
+     "why": "Cross passages provide emergency egress and are a code requirement — frequently missed in the logic."},
+    {"name": "Tunnel Ventilation & Smoke Control", "keywords": ["ventilation", "smoke control", "fan"], "wbs": "MEP & Ventilation",
+     "typical_pred": "Lining Complete", "typical_succ": "Integrated Testing", "duration_days": 30,
+     "why": "Ventilation and smoke control must be installed and proven before trial running."},
+    {"name": "Trial Running", "keywords": ["trial run", "trial running", "test running"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Systems Integration Test", "typical_succ": "Revenue Service", "duration_days": 45,
+     "why": "A trial-running period precedes revenue service on a metro."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["excavation", "bore", "tbm", "drive"], "after_keywords": ["lining", "segment", "secondary lining"],
+     "reason": "Lining follows excavation of the tunnel section.",
+     "impact": "Critical"},
+    {"before_keywords": ["lining", "segment"], "after_keywords": ["track", "systems", "signalling"],
+     "reason": "Track and systems install into a completed, lined tunnel.",
+     "impact": "Critical"},
+    {"before_keywords": ["integration test", "systems test", "commission"], "after_keywords": ["trial run", "revenue service", "opening"],
+     "reason": "Trial running and revenue service must follow systems integration testing.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["TBM Breakthrough", "Tunnel Lining Complete", "Systems Complete", "Trial Running", "Revenue Service"],
+  "common_issues": ["Track/systems before lining complete", "Cross passages missing",
+                    "No ventilation / smoke-control provision", "Revenue service not preceded by trial running"]
+}

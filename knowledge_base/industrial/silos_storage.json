@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Silos & Storage",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["silo", "storage", "bulk", "slipform", "grain", "cement silo", "clinker", "conveyor",
+                 "bucket elevator", "aeration", "hopper", "bin", "material handling", "loadout"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "raft", "pile"]},
+    {"name": "Silo Structure", "keywords": ["silo", "slipform", "jump form", "wall", "roof", "hopper", "cone"]},
+    {"name": "Conveying & Handling", "keywords": ["conveyor", "bucket elevator", "screw", "material handling", "loadout"]},
+    {"name": "Aeration / Ventilation", "keywords": ["aeration", "ventilation", "blower", "fluidisation"]},
+    {"name": "Electrical & Automation", "keywords": ["electrical", "automation", "plc", "level", "control"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "fill trial", "load test"]},
+    {"name": "Handover", "keywords": ["handover", "completion", "take over"]}
+  ],
+  "activities": [
+    {"name": "Slipform / Silo Structure", "keywords": ["slipform", "slip form", "silo wall"], "wbs": "Silo Structure",
+     "typical_pred": "Foundation", "typical_succ": "Conveying Equipment", "duration_days": 30,
+     "why": "The silo wall is slipformed on completed foundations before equipment installation."},
+    {"name": "Conveying & Handling Equipment", "keywords": ["conveyor install", "elevator install", "handling equipment"], "wbs": "Conveying & Handling",
+     "typical_pred": "Silo Structure", "typical_succ": "Commissioning", "duration_days": 25,
+     "why": "Bulk-handling equipment installs onto/into the completed silo structure."},
+    {"name": "Aeration / Ventilation System", "keywords": ["aeration", "ventilation", "fluidisation"], "wbs": "Aeration / Ventilation",
+     "typical_pred": "Silo Structure", "typical_succ": "Commissioning", "duration_days": 15,
+     "why": "Aeration/ventilation keeps stored material flowing and conditioned — often omitted."},
+    {"name": "Fill Trial / Commissioning", "keywords": ["fill trial", "commission", "load test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Equipment Installation", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A fill trial commissions the handling system and proves the silo before handover."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["foundation", "civil"], "after_keywords": ["slipform", "silo", "structure"],
+     "reason": "The silo structure is built on completed foundations.",
+     "impact": "Critical"},
+    {"before_keywords": ["silo", "structure", "slipform"], "after_keywords": ["conveyor", "elevator", "equipment", "install"],
+     "reason": "Handling equipment installs into the completed silo structure.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "fill trial", "load test"],
+     "reason": "Commissioning / fill trial follows equipment installation.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Foundations Complete", "Silo Structure Complete", "Equipment Complete", "Fill Trial", "Handover"],
+  "common_issues": ["Equipment before silo structure complete", "Missing aeration / ventilation",
+                    "No fill trial / commissioning", "Automation & level controls absent"]
+}

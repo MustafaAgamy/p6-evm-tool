@@ -1,0 +1,47 @@
+{
+  "category": "Buildings",
+  "type": "High-Rise Tower",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["tower", "high-rise", "high rise", "highrise", "typical floor", "jump form", "core wall",
+                 "climbing", "curtain wall", "riser", "sky lobby", "podium", "storey", "floor cycle"],
+  "wbs": [
+    {"name": "Enabling & Piling", "keywords": ["enabling", "piling", "diaphragm", "shoring", "excavation"]},
+    {"name": "Substructure / Basement", "keywords": ["basement", "raft", "substructure", "foundation"]},
+    {"name": "Core & Superstructure", "keywords": ["core", "jump form", "typical floor", "slab cycle", "superstructure", "climbing"]},
+    {"name": "Façade / Curtain Wall", "keywords": ["curtain wall", "façade", "facade", "cladding", "unitised", "glazing"]},
+    {"name": "MEP Risers & Distribution", "keywords": ["riser", "mep", "distribution", "vertical services"]},
+    {"name": "Vertical Transport", "keywords": ["lift", "elevator", "hoist", "escalator"]},
+    {"name": "Fit-out", "keywords": ["fit-out", "fit out", "finishes", "ceiling", "partition"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "integrated", "smoke test"]},
+    {"name": "Handover", "keywords": ["handover", "completion", "occupancy"]}
+  ],
+  "activities": [
+    {"name": "Façade Mock-up & Performance Test", "keywords": ["mock-up", "mockup", "performance test", "water test"], "wbs": "Façade / Curtain Wall",
+     "typical_pred": "Core Rising", "typical_succ": "Curtain Wall Installation", "duration_days": 25,
+     "why": "A unitised-façade mock-up with water/air performance testing is approved before installation on a tower."},
+    {"name": "Lift Installation & Commissioning", "keywords": ["lift install", "elevator install", "lift commission"], "wbs": "Vertical Transport",
+     "typical_pred": "Core Topped Out", "typical_succ": "Integrated Testing", "duration_days": 40,
+     "why": "High-speed lifts are long-lead and gate occupancy; they must be explicit in the logic."},
+    {"name": "MEP Riser Commissioning", "keywords": ["riser commission", "vertical services test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "MEP Risers Installation", "typical_succ": "Integrated Systems Test", "duration_days": 20,
+     "why": "Vertical service risers must be commissioned before whole-building integrated testing."},
+    {"name": "Smoke / Pressurisation Test", "keywords": ["smoke test", "pressurisation", "stair pressurisation"], "wbs": "Testing & Commissioning",
+     "typical_pred": "MEP Commissioning", "typical_succ": "Handover", "duration_days": 10,
+     "why": "Stair pressurisation / smoke-control testing is a life-safety prerequisite to occupancy in tall buildings."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["core", "superstructure", "topped out"], "after_keywords": ["curtain wall", "façade", "facade"],
+     "reason": "Façade installation follows the rising core/superstructure, typically a set number of floors behind.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "commissioning"],
+     "reason": "Commissioning must follow installation of the systems being commissioned.",
+     "impact": "Critical"},
+    {"before_keywords": ["commission", "integrated test", "smoke test"], "after_keywords": ["handover", "occupancy"],
+     "reason": "Integrated and life-safety testing must complete before occupancy.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Basement Complete", "Core Topped Out", "Structure Complete", "Façade Complete", "Handover"],
+  "common_issues": ["Façade not sequenced behind the core cycle", "Lifts missing from the programme",
+                    "No MEP riser / integrated commissioning", "Smoke-control testing not before occupancy"]
+}
