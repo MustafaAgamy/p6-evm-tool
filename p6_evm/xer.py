@@ -172,6 +172,7 @@ def parse_xer(path):
             'task_type': TASK_TYPE.get(t.get('task_type'), 'Task'),
             'percent_complete': _pct_complete(t),
             'planned_duration': _num(t.get('target_drtn_hr_cnt'), 0.0),
+            'remaining_duration': _num(t.get('remain_drtn_hr_cnt'), 0.0),
             'total_float_days': tf_days,
             'tf_from_hours': tf is not None,   # P6's stored float (authoritative for Delay)
             'free_float_days': ff_days,
@@ -211,6 +212,7 @@ def parse_xer(path):
             'pred_id': pred, 'succ_id': succ,
             'type': PRED_TYPE.get(r.get('pred_type'), 'FS'),
             'lag_days': lag_hr / day_hours,
+            'lag_hours': lag_hr,
         })
 
     for ra in tables.get('TASKRSRC', []):

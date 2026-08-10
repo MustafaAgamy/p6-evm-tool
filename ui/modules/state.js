@@ -16,4 +16,6 @@ export const state = {
   aiReferenceName:   null,   // dormant
   constructReport:   null,   // Constructability Review report dict (rule + KB)
   constructForcedType: null, // user-overridden project sub-type, if any
+  compareReport:     null,   // Consultant Review — last Baseline vs Update report dict
+  compareBaselineName: null, // filename of the baseline chosen for the comparison
 };
