@@ -37,6 +37,10 @@ def test_build_report_assembles_all_slice1_sections():
     assert r['progress']['rows'][0]['variance'] == 13.0
     # scurve present with aligned arrays
     assert len(r['scurve']['periods']) == len(r['scurve']['forecast']) > 0
+    # Slice 2 sections present
+    assert 'rows' in r['critical_movement'] and 'new_critical' in r['critical_movement']
+    assert set(r['buckets']['counts']) == {'finished', 'started', 'slipped', 'stalled', 're_sequenced'}
+    assert isinstance(r['conclusion'], str) and 'this period' in r['conclusion'].lower()
 
 
 def test_build_report_flags_no_match():

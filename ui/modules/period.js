@@ -187,6 +187,56 @@ function _periodScurveSvg(sc) {
   </svg>`;
 }
 
+function _driverTag(d) { return `<span class="cmp-tag">${escapeHtml(d)}</span>`; }
+
+function _critStatus(st) {
+  return st === 'new'
+    ? '<span class="cmp-pill bad">▶ new</span>'
+    : '<span class="cmp-pill bad">▶ stayed</span>';
+}
+
+function _criticalTable(cm) {
+  const rows = (cm && cm.rows) || [];
+  const newTxt = (cm && cm.new_critical)
+    ? `<div class="cmp-foot"><b>${cm.new_critical}</b> activit${cm.new_critical === 1 ? 'y' : 'ies'} entered the critical path this window.</div>` : '';
+  if (!rows.length) return `<p class="cmp-empty">No critical or near-critical activity moved this window.</p>${newTxt}`;
+  const body = rows.map(r => `<tr>
+    <td class="mono">${escapeHtml(r.activity_id)}</td>
+    <td>${escapeHtml(r.activity_name)}</td>
+    <td class="num mono mut">${escapeHtml(r.prev_finish)}</td>
+    <td class="num mono">${escapeHtml(r.curr_finish)}</td>
+    <td class="num">${r.slip_days > 0 ? `<span class="cmp-pill bad">+${r.slip_days} wd</span>` : '<span class="cmp-pill">—</span>'}</td>
+    <td class="num">${r.float_days == null ? '—' : r.float_days + ' d'}</td>
+    <td>${_driverTag(r.driver)}</td>
+    <td>${_critStatus(r.critical_status)}</td>
+  </tr>`).join('');
+  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
+    <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Finish (prev)</th>
+      <th class="num">Finish (now)</th><th class="num">Slip</th><th class="num">Float</th>
+      <th>Driver this period</th><th>Critical</th></tr></thead>
+    <tbody>${body}</tbody></table></div>
+    <div class="cmp-foot">Critical &amp; near-critical (float ≤ 10 wd) activities whose finish moved this window. Slip = working-day movement of the finish between the two updates. <b>▶ new</b> = entered the critical path this window.</div>${newTxt}`;
+}
+
+const _BUCKETS = [
+  ['finished', 'good', 'Completed this period'],
+  ['started', 'good', 'First progress recorded this period'],
+  ['slipped', 'bad', 'Finish date moved later vs last update'],
+  ['stalled', 'warn', 'Scheduled to progress, but 0% earned this period'],
+  ['re_sequenced', 'neu', 'Logic / lag changed vs last period'],
+];
+
+function _bucketsTable(buck) {
+  const counts = (buck && buck.counts) || {};
+  const body = _BUCKETS.map(([key, cls, detail]) =>
+    `<tr><td><span class="cmp-pill ${cls === 'neu' ? '' : cls}">${escapeHtml(key.replace('_', '-'))}</span></td>
+       <td class="num"><b>${counts[key] || 0}</b></td><td class="mut">${escapeHtml(detail)}</td></tr>`).join('');
+  return `<div class="tblwrap"><table class="audit-table cmp-table">
+    <thead><tr><th>What moved</th><th class="num">Count</th><th>Meaning</th></tr></thead>
+    <tbody>${body}</tbody></table></div>
+    <div class="cmp-foot">“Re-sequenced” reuses the sibling’s logic/lag engine, measured against <b>last period</b> — it catches quiet mid-stream re-planning.</div>`;
+}
+
 export function renderPeriodReport(report) {
   _shownReport = report;
   const rep = document.getElementById('per-report');
@@ -199,8 +249,6 @@ export function renderPeriodReport(report) {
     ${mismatch}
     <div class="mod-sec">Executive dashboard — progress this period</div>
     ${_dashboard(s)}
-    <div class="mod-sec">Progress by activity — % complete this period</div>
-    ${_progressTable(report.progress, s)}
     <div class="mod-sec">Period S-curve — actual vs last period’s forecast</div>
     <div class="cmp-scurve-card">
       <div class="cmp-scurve-legend">
@@ -209,7 +257,15 @@ export function renderPeriodReport(report) {
       </div>
       ${_periodScurveSvg(report.scurve)}
       <div class="cmp-scurve-note">The amber line is the previous update’s own forecast; the gap at this data date is the shortfall against your own commitment.</div>
-    </div>`;
+    </div>
+    <div class="mod-sec">Progress by activity — % complete this period</div>
+    ${_progressTable(report.progress, s)}
+    <div class="mod-sec">Critical-path movement in this window</div>
+    ${_criticalTable(report.critical_movement)}
+    <div class="mod-sec">What moved this period</div>
+    ${_bucketsTable(report.buckets)}
+    <div class="mod-sec">Executive conclusion</div>
+    <div class="cmp-reco">${escapeHtml(report.conclusion || '')}</div>`;
 }
 
 function _fileBar(report) {
