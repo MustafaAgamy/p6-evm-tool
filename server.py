@@ -84,6 +84,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_copilot_ask(body)
         elif self.path == '/api/copilot/report':
             self._handle_copilot_report(body)
+        elif self.path == '/api/copilot/scenario':
+            self._handle_copilot_scenario(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -546,6 +548,55 @@ class Handler(BaseHTTPRequestHandler):
             ], check=True, capture_output=True)
             os.unlink(html_path)
             self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_copilot_scenario(self, body):
+        """Build a what-if scenario programme (delay / shorten / 6-day week) for the planner
+        to F9 in P6. The exact impact is then read back via /api/claims/impact — P6's number,
+        never computed here."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        kind = body.get('kind')
+        activity_id = (body.get('activity_id') or '').strip()
+        output_path = body.get('output_path', '')
+        try:
+            days = float(body.get('days')) if body.get('days') is not None else None
+        except (TypeError, ValueError):
+            days = None
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided.'})
+            return
+        if kind in ('delay', 'shorten'):
+            if not activity_id:
+                self._json(200, {'ok': False, 'error': 'Pick the activity first.'})
+                return
+            if not days or days <= 0:
+                self._json(200, {'ok': False, 'error': 'Enter a number of working days (at least 1).'})
+                return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_claims.scenarios import build_scenario
+            data = parse_file(resolved)
+            day_hours = 8.0
+            if activity_id:
+                act = next((a for a in data.activities.values() if a.get('id') == activity_id), None)
+                if act is None:
+                    self._json(200, {'ok': False, 'error': f'Activity {activity_id} not found in the schedule.'})
+                    return
+                cal = data.calendars.get(act.get('calendar_id'))
+                day_hours = cal.day_hours if cal else 8.0
+            with open(resolved, encoding='utf-8') as f:
+                xml_text = f.read()
+            out = build_scenario(xml_text, kind, activity_id=activity_id or None, days=days,
+                                 day_hours=day_hours, label=(body.get('label') or None))
+            with open(os.path.abspath(output_path), 'w', encoding='utf-8') as f:
+                f.write(out['xml'])
+            self._json(200, {'ok': True, 'output_path': os.path.abspath(output_path),
+                             'label': out.get('label'), 'activity_name': out.get('activity_name')})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

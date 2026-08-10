@@ -40,3 +40,15 @@ def test_report_preview_returns_manager_html(test_server, xml_path):
 def test_copilot_needs_a_schedule(test_server):
     _, data = _post(test_server, '/api/copilot/ask', {'snapshot_id': None, 'question_id': 'health'})
     assert data['ok'] is False
+
+
+def test_scenario_shorten_builds_and_validates(test_server, xml_path, tmp_path):
+    _import(test_server, xml_path)
+    out = str(tmp_path / 'whatif.xml')
+    _, bad = _post(test_server, '/api/copilot/scenario',
+                   {'xml_path': str(xml_path), 'kind': 'shorten', 'activity_id': '', 'days': 5, 'output_path': out})
+    assert bad['ok'] is False                       # a shorten needs an activity
+    _, ok = _post(test_server, '/api/copilot/scenario',
+                  {'xml_path': str(xml_path), 'kind': 'shorten', 'activity_id': 'ACT002', 'days': 5, 'output_path': out})
+    assert ok['ok'], ok
+    assert ok['activity_name'] == 'Activity Two'
