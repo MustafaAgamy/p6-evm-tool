@@ -63,6 +63,30 @@ def _conclusion(summary, crit, buck):
     return ' '.join(parts)
 
 
+def _project_conclusion(summary, crit):
+    """Overall project status + outlook — distinct from the this-period conclusion."""
+    s = summary
+    head = f"Overall the project stands at {s['actual_now']:.0f}% complete, forecasting completion on {s['forecast_finish_now']}"
+    if s['delay_now'] is not None:
+        head += f" — {s['delay_now']} working days behind the baseline"
+    parts = [head + '.']
+
+    bits, worse = [], False
+    if s['spi_variance'] is not None and s['curr_spi'] is not None:
+        bits.append(f"SPI {s['prev_spi']} → {s['curr_spi']}")
+        worse = worse or s['spi_variance'] < 0
+    if s['delay_change'] is not None and s['delay_prev'] is not None:
+        bits.append(f"delay {s['delay_prev']} → {s['delay_now']} wd")
+        worse = worse or s['delay_change'] > 0
+    if bits:
+        parts.append(f"The trend is {'worsening' if worse else 'holding or improving'} "
+                     f"({', '.join(bits)} over the last period).")
+    if crit['rows']:
+        names = ', '.join(f"{r['activity_id']} ({r['activity_name']})" for r in crit['rows'][:2])
+        parts.append(f"The main risk sits on the critical path — {names} — which should be the focus of recovery.")
+    return ' '.join(parts)
+
+
 def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
     """Report dict for the two updates. `prev`/`curr` are ScheduleData; `*_metrics`
     are metrics.compute() results for each (reused for actual % and delay)."""
@@ -76,6 +100,7 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
     crit = critical_movement(matched, logic_changed)
     buck = buckets(matched, dd_now, logic_changed)
     conclusion = _conclusion(summary, crit, buck)
+    project_conclusion = _project_conclusion(summary, crit)
 
     return {
         'project_name': summary['project_name'],
@@ -84,27 +109,38 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
         # Guard against mismatched files: near-zero matches means "these don't line up".
         'matched_activities': len(matched.matched_codes),
         'update_activity_count': len(curr.activities),
+        # Activity-code dimensions present in the current update — feed the progress slicer.
+        'code_types': list(getattr(curr, 'activity_code_types', []) or []),
         'summary': summary,
         'progress': progress,
         'scurve': scurve,
         'critical_movement': crit,
         'buckets': buck,
         'conclusion': conclusion,
+        'project_conclusion': project_conclusion,
     }
 
 
 def build_report(prev_path, curr_path, config=None):
-    """Parse both updates, compute EVM metrics for each, then build the report."""
+    """Parse both updates, compute EVM metrics for each (the same way the app does —
+    auto-detected categories + WBS classifier, so the figures match the EVM tab), then
+    build the report."""
     import json
     from p6_evm.parser import parse_file
     from p6_evm.metrics import compute
+    from p6_evm.classify import auto_categories, build_wbs_classifier
     from utils import resource_path
-    cfg = config
-    if cfg is None:
+    base = config
+    if base is None:
         with open(resource_path('config.json')) as f:
-            cfg = json.load(f)
-    prev = parse_file(prev_path)
-    curr = parse_file(curr_path)
-    prev_m = compute(prev, cfg)
-    curr_m = compute(curr, cfg)
-    return build_report_from_data(prev, curr, prev_m, curr_m, cfg)
+            base = json.load(f)
+
+    def parse_and_compute(path):
+        data = parse_file(path)
+        cfg = dict(base)
+        cfg['categories'] = auto_categories(data)
+        return data, compute(data, cfg, classifier=build_wbs_classifier(data))
+
+    prev, prev_m = parse_and_compute(prev_path)
+    curr, curr_m = parse_and_compute(curr_path)
+    return build_report_from_data(prev, curr, prev_m, curr_m, base)

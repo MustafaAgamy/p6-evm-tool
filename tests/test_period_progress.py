@@ -64,8 +64,8 @@ def test_period_summary_option_b_achievement_and_shortfall():
     # one activity spanning Jun->Sep so ~ the window carries scheduled work
     prev = _sched([_act('A1', 'Work', 0.34, s=datetime(2026, 6, 1), f=datetime(2026, 9, 1))], dd=dd_prev)
     curr = _sched([_act('A1', 'Work', 0.41, s=datetime(2026, 6, 1), f=datetime(2026, 9, 1))], dd=dd_now)
-    pm = {'overall_actual_pct': 0.34, 'delay_days': 22}
-    cm = {'overall_actual_pct': 0.41, 'delay_days': 30}
+    pm = {'overall_actual_pct': 0.34, 'delay_days': 22, 'spi': 0.85}
+    cm = {'overall_actual_pct': 0.41, 'delay_days': 30, 'spi': 0.81}
     s = period_summary(prev, curr, pm, cm)
     assert s['actual_prev'] == 34.0 and s['actual_now'] == 41.0
     assert s['period_earned'] == 7.0
@@ -75,6 +75,8 @@ def test_period_summary_option_b_achievement_and_shortfall():
     # achievement = earned / forecast
     assert s['forecast_achievement'] == round(7.0 / s['period_forecast'], 2)
     assert s['delay_change'] == 8
+    # SPI trend (higher is better): 0.85 -> 0.81 worsened by 0.04
+    assert s['prev_spi'] == 0.85 and s['curr_spi'] == 0.81 and s['spi_variance'] == -0.04
 
 
 def test_period_summary_guards_zero_forecast():

@@ -65,6 +65,8 @@ def activity_progress(matched):
             'reversal': reversal,
             'started': started,
             'finished': finished,
+            # activity codes ({dimension: value}) carried so the UI slicer can filter
+            'codes': u.get('activity_codes') or {},
         })
     rows.sort(key=lambda r: -r['variance'])
     return {'rows': rows, 'counts': counts}
@@ -93,6 +95,12 @@ def period_summary(prev, curr, prev_metrics, curr_metrics):
     delay_now = (curr_metrics or {}).get('delay_days')
     delay_change = (delay_now - delay_prev) if (delay_prev is not None and delay_now is not None) else None
 
+    # SPI at each update's own cutoff (data) date — reused from metrics.compute so it
+    # matches the EVM tab. Variance = current − previous (SPI is higher-is-better).
+    prev_spi = (prev_metrics or {}).get('spi')
+    curr_spi = (curr_metrics or {}).get('spi')
+    spi_variance = round(curr_spi - prev_spi, 2) if (prev_spi is not None and curr_spi is not None) else None
+
     fin_prev = _project_finish(prev)
     fin_now = _project_finish(curr)
     finish_slip_days = (fin_now - fin_prev).days if (fin_prev and fin_now) else None
@@ -111,6 +119,9 @@ def period_summary(prev, curr, prev_metrics, curr_metrics):
         'delay_prev': delay_prev,
         'delay_now': delay_now,
         'delay_change': delay_change,
+        'prev_spi': round(prev_spi, 2) if prev_spi is not None else None,
+        'curr_spi': round(curr_spi, 2) if curr_spi is not None else None,
+        'spi_variance': spi_variance,
         'forecast_finish_prev': _fmt(fin_prev),
         'forecast_finish_now': _fmt(fin_now),
         'finish_slip_days': finish_slip_days,

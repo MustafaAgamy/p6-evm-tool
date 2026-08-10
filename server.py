@@ -555,10 +555,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_period.exporters import progress_excel
+            from p6_period.exporters import report_excel
             from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = progress_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Progress this period', headers, rows)
+            headers, rows = report_excel(report)
+            write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

@@ -69,6 +69,9 @@ def test_period_compare_end_to_end(test_server, tmp_path):
     assert s['period_forecast'] > 0                          # previous update scheduled work this window
     assert s['forecast_achievement'] is not None             # earned / forecast, finite
     assert 0 <= s['actual_now'] <= 100 and 0 <= s['forecast_at_now'] <= 100
+    # SPI trend flows end-to-end (both cutoffs have planned work), variance = curr − prev
+    assert s['prev_spi'] is not None and s['curr_spi'] is not None
+    assert s['spi_variance'] == round(s['curr_spi'] - s['prev_spi'], 2)
 
 
 def test_period_compare_missing_prev(test_server):

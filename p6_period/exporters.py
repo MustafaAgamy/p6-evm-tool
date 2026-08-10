@@ -32,33 +32,96 @@ def _signpct(v):
 _PROGRESS_HEADERS = ['Activity ID', 'Activity name', 'Previous %', 'Current %', 'Variance', 'Note']
 
 
-def progress_excel(report):
-    """(headers, rows) for the Progress-by-activity % variance table."""
-    rows = []
+_CRITICAL_HEADERS = ['Activity ID', 'Activity name', 'Finish (prev)', 'Finish (now)',
+                     'Slip', 'Float', 'Driver', 'Critical']
+
+
+def _progress_rows(report):
+    out = []
     for r in (report.get('progress', {}) or {}).get('rows', []):
         note = 'finished' if r.get('finished') else ('started' if r.get('started')
                else ('progress reversed' if r.get('reversal') else ''))
-        rows.append([r.get('activity_id', ''), r.get('activity_name', ''),
-                     r.get('prev_pct', 0), r.get('curr_pct', 0), r.get('variance', 0), note])
-    return _PROGRESS_HEADERS, rows
+        out.append([r.get('activity_id', ''), r.get('activity_name', ''),
+                    r.get('prev_pct', 0), r.get('curr_pct', 0), r.get('variance', 0), note])
+    return out
+
+
+def _critical_rows(report):
+    out = []
+    for r in (report.get('critical_movement', {}) or {}).get('rows', []):
+        slip = r.get('slip_days') or 0
+        out.append([r.get('activity_id', ''), r.get('activity_name', ''),
+                    r.get('prev_finish', ''), r.get('curr_finish', ''),
+                    (f'+{slip} wd' if slip > 0 else ''), r.get('float_days', ''),
+                    r.get('driver', ''), ('new' if r.get('critical_status') == 'new' else 'stayed')])
+    return out
+
+
+def progress_excel(report):
+    """(headers, rows) for the Progress-by-activity % variance table (single section)."""
+    return _PROGRESS_HEADERS, _progress_rows(report)
+
+
+def report_excel(report):
+    """(headers, rows) for a single sheet laid out like the PDF: a title row, then the
+    Progress-by-activity section and the Critical-path-movement section, each under its
+    own title + header row. Uses the same single-sheet writer (no p6_evm change)."""
+    s = report.get('summary', {}) or {}
+    headers = ['Update vs Update', report.get('project_name', ''),
+               f"{report.get('data_date_prev', '')} → {report.get('data_date_now', '')}",
+               '', '', '', '', '']
+    rows = [
+        [f"Overall % Complete {s.get('actual_prev', '')}% → {s.get('actual_now', '')}%  ·  "
+         f"SPI {s.get('prev_spi', '')} → {s.get('curr_spi', '')}  ·  "
+         f"Delay {s.get('delay_prev', '')} → {s.get('delay_now', '')} wd"],
+        [''],
+        ['Progress by activity — % complete this period'],
+        _PROGRESS_HEADERS,
+    ]
+    rows += _progress_rows(report)
+    rows += [[''], ['Critical-path movement in this window'], _CRITICAL_HEADERS]
+    rows += _critical_rows(report)
+    return headers, rows
 
 
 # ── PDF: HTML → Chrome ──────────────────────────────────────────────────────
 
+def _num(v, suffix=''):
+    return f'{v}{suffix}' if v is not None else '—'
+
+
+def _svar(v, suffix=''):
+    if v is None:
+        return '—'
+    return f'{"+" if v > 0 else ""}{v}{suffix}'
+
+
 def _dashboard_html(report):
     s = report.get('summary', {}) or {}
+    pdd, cdd = _e(report.get('data_date_prev')), _e(report.get('data_date_now'))
+    cutoff = (f'<p class="cutoff">Comparison window · <b>{pdd}</b> (previous cutoff) '
+              f'→ <b>{cdd}</b> (current cutoff)</p>')
+    # Three Previous → Current → Variance measures (% Complete, SPI, Delay) at each cutoff.
+    trend = (
+        '<table class="data"><thead><tr><th>Measure</th>'
+        f'<th class="num">Previous · to {pdd}</th><th class="num">Current · to {cdd}</th>'
+        '<th class="num">Variance</th></tr></thead><tbody>'
+        f'<tr><td>Overall % Complete</td><td class="num">{_num(s.get("actual_prev"), "%")}</td>'
+        f'<td class="num">{_num(s.get("actual_now"), "%")}</td><td class="num pos">{_svar(s.get("period_earned"), "%")}</td></tr>'
+        f'<tr><td>SPI</td><td class="num">{_num(s.get("prev_spi"))}</td>'
+        f'<td class="num">{_num(s.get("curr_spi"))}</td><td class="num">{_svar(s.get("spi_variance"))}</td></tr>'
+        f'<tr><td>Delay vs baseline</td><td class="num">{_num(s.get("delay_prev"), " wd")}</td>'
+        f'<td class="num">{_num(s.get("delay_now"), " wd")}</td><td class="num">{_svar(s.get("delay_change"), " wd")}</td></tr>'
+        '</tbody></table>')
     ach = s.get('forecast_achievement')
     ach_txt = f'{round(ach * 100)}%' if ach is not None else '—'
     slip = s.get('finish_slip_days')
     slip_txt = '—' if slip is None else (f'slipped {slip} d' if slip > 0 else (f'pulled in {-slip} d' if slip < 0 else 'no change'))
-    dch = s.get('delay_change')
-    dch_txt = '' if dch is None else (f'{"+"if dch>0 else ""}{dch} wd this period')
-    return ('<div class="tiles">'
-            + _tile('Overall complete', f"{s.get('actual_prev')}% → {s.get('actual_now')}%", f"{_signpct(s.get('period_earned'))} earned")
-            + _tile('Vs last forecast', f"{s.get('actual_now')}% / {s.get('forecast_at_now')}%", f"achievement {ach_txt}")
-            + _tile('Forecast finish', s.get('forecast_finish_now') or '—', slip_txt)
-            + _tile('Delay vs baseline', '—' if s.get('delay_now') is None else f"{s.get('delay_now')} wd", dch_txt)
-            + '</div>')
+    tiles = ('<div class="tiles">'
+             + _tile('Vs last forecast', f"{_num(s.get('actual_now'), '%')} / {_num(s.get('forecast_at_now'), '%')}", f'achievement {ach_txt}')
+             + _tile('Forecast finish', s.get('forecast_finish_now') or '—', slip_txt)
+             + '</div>')
+    return cutoff + trend + tiles
 
 
 def _progress_table_html(report):
@@ -163,6 +226,7 @@ def render_html(report, trend=None):
       .mono {{ font-family: Consolas, monospace; }} .num {{ text-align: right; }}
       .pos {{ color: #15803d; font-weight: 700; }} .neg {{ color: #b91c1c; font-weight: 700; }}
       .note {{ color: #64748b; font-style: italic; }}
+      .cutoff {{ color: #334155; font-size: 12px; margin: 2px 0 8px; }}
       .legend {{ font-size: 11px; color: #64748b; margin: 4px 0; }}
       .legend span {{ margin-right: 16px; }} .legend i {{ display: inline-block; width: 16px; height: 3px; vertical-align: middle; margin-right: 5px; }}
       .reco {{ border: 1px solid #e2e8f0; border-left: 4px solid #16a34a; border-radius: 0 8px 8px 0; padding: 10px 14px; line-height: 1.6; }}
@@ -178,6 +242,8 @@ def render_html(report, trend=None):
       <h2>What moved this period</h2>
       {_buckets_html(report)}
       {trend_block}
-      <h2>Executive conclusion</h2>
+      <h2>Executive conclusion — this period</h2>
       <div class="reco">{_e(report.get('conclusion'))}</div>
+      <h2>Project conclusion &amp; outlook</h2>
+      <div class="reco" style="border-left-color:#d97706">{_e(report.get('project_conclusion'))}</div>
     </body></html>'''

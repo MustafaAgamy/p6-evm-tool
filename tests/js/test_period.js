@@ -3,7 +3,7 @@
  * Run: node tests/js/test_period.js
  */
 import assert from 'node:assert/strict';
-import { signPct, shortDate, periodScurveSvg, milestoneTrendSvg } from '../../ui/modules/period.js';
+import { signPct, shortDate, periodScurveSvg, milestoneTrendSvg, dashboardHtml } from '../../ui/modules/period.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -54,6 +54,30 @@ test('two rising milestones draw two polylines', () => {
   assert.ok((svg.match(/<polyline/g) || []).length === 2);
   assert.ok(svg.includes('Handover') && svg.includes('Mech'));
 });
+
+console.log('\ndashboardHtml — SPI/Delay/%Complete strips + sign convention');
+{
+  const report = {
+    data_date_prev: '30-Jun-2026', data_date_now: '31-Jul-2026',
+    summary: {
+      actual_prev: 34, actual_now: 41, period_earned: 7, forecast_at_now: 43,
+      shortfall_pct: 2, forecast_achievement: 0.78, forecast_finish_now: '26-Mar-2027', finish_slip_days: 14,
+      prev_spi: 0.85, curr_spi: 0.81, spi_variance: -0.04,
+      delay_prev: 22, delay_now: 30, delay_change: 8,
+    },
+  };
+  const h = dashboardHtml(report);
+  test('shows both cutoff dates', () => { assert.ok(h.includes('30-Jun-2026') && h.includes('31-Jul-2026')); });
+  test('% Complete variance is good (green) when progress increased', () => {
+    assert.ok(h.includes('Previous % Complete') && h.match(/per-tvar good[^]*Progressed this period/));
+  });
+  test('SPI down → variance cell is bad (red)', () => {
+    assert.ok(h.includes('Previous SPI') && /SPI[^]*per-tvar bad[^]*SPI worsened/.test(h));
+  });
+  test('Delay up → variance cell is bad (red)', () => {
+    assert.ok(h.includes('Previous delay') && /Delay vs baseline[^]*per-tvar bad[^]*Delay grew/.test(h));
+  });
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

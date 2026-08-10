@@ -109,34 +109,75 @@ function _kpi(label, value, sub, cls) {
          (sub ? `<div class="per-kpi-sub ${cls || ''}">${sub}</div>` : '') + `</div>`;
 }
 
-function _dashboard(s) {
-  const earned = _signPct(s.period_earned);
+const _shortDD = d => (d || '').replace(/-\d{4}$/, '');           // 30-Jun-2026 → 30-Jun
+const _spiTxt = v => (v == null ? '—' : v.toFixed(2));
+const _wdTxt = v => (v == null ? '—' : `${v} wd`);
+
+// A Previous → Current → Variance strip. `good` colours the variance cell (green/red).
+function _trendStrip(pK, pWhen, pV, cK, cWhen, cV, varStr, good, badge) {
+  const cls = good ? 'good' : 'bad';
+  const cell = (k, when, v) => `<div class="per-tcell"><div class="per-tk">${escapeHtml(k)}` +
+    (when ? ` <span class="per-twhen">· ${escapeHtml(when)}</span>` : '') + `</div><div class="per-tv">${v}</div></div>`;
+  return `<div class="per-strip">
+    ${cell(pK, pWhen, pV)}${cell(cK, cWhen, cV)}
+    <div class="per-tcell per-tvar ${cls}"><div class="per-tk">Variance</div><div class="per-tv">${varStr}</div>` +
+    (badge ? `<span class="per-tbadge ${cls}">${escapeHtml(badge)}</span>` : '') + `</div>
+  </div>`;
+}
+
+function _dashboard(report) {
+  const s = report.summary || {};
+  const pw = `to ${_shortDD(report.data_date_prev)}`, cw = `to ${_shortDD(report.data_date_now)}`;
+  const cutoff = `<div class="per-cutoff">Comparison window · <b>${escapeHtml(report.data_date_prev || '—')}</b> <span class="mut">(previous cutoff)</span> → <b>${escapeHtml(report.data_date_now || '—')}</b> <span class="mut">(current cutoff)</span></div>`;
+
+  // % Complete (higher = better)
+  const pctGood = (s.period_earned || 0) >= 0;
+  const pct = _trendStrip('Previous % Complete', pw, `${s.actual_prev}%`, 'Current % Complete', cw, `${s.actual_now}%`,
+    `${pctGood ? '▲' : '▼'} ${_signPct(s.period_earned)}`, pctGood, pctGood ? 'Progressed this period' : 'Went backwards');
+
+  // SPI (higher = better)
+  let spi = '';
+  if (s.prev_spi != null || s.curr_spi != null) {
+    const v = s.spi_variance, good = v == null ? true : v >= 0;
+    const vs = v == null ? '—' : `${v > 0 ? '▲ +' : (v < 0 ? '▼ ' : '• ')}${v.toFixed(2)}`;
+    spi = `<div class="per-striplabel">Schedule Performance Index (SPI)</div>` +
+      _trendStrip('Previous SPI', pw, _spiTxt(s.prev_spi), 'Current SPI', cw, _spiTxt(s.curr_spi), vs, good,
+        v == null ? '' : (good ? 'SPI improved' : 'SPI worsened'));
+  }
+
+  // Delay (lower = better)
+  let delay = '';
+  if (s.delay_prev != null || s.delay_now != null) {
+    const v = s.delay_change, good = v == null ? true : v <= 0;
+    const vs = v == null ? '—' : `${v > 0 ? '▲ +' : (v < 0 ? '▼ ' : '• ')}${v} wd`;
+    delay = `<div class="per-striplabel">Delay vs baseline</div>` +
+      _trendStrip('Previous delay', pw, _wdTxt(s.delay_prev), 'Current delay', cw, _wdTxt(s.delay_now), vs, good,
+        v == null ? '' : (v > 0 ? 'Delay grew' : (v < 0 ? 'Delay reduced' : 'No change')));
+  }
+
+  // supporting tiles
   const ach = s.forecast_achievement == null ? '—' : `${Math.round(s.forecast_achievement * 100)}%`;
   const slip = s.finish_slip_days;
   const slipTxt = slip == null ? '—' : (slip > 0 ? `▼ slipped ${slip} d` : (slip < 0 ? `▲ pulled in ${-slip} d` : 'no change'));
-  const dch = s.delay_change;
-  const dchTxt = dch == null ? '' : (dch > 0 ? `▼ +${dch} wd this period` : (dch < 0 ? `▲ ${dch} wd this period` : 'no change'));
-  return `
-    <div class="cmp-kpis">
-      ${_kpi('Overall complete', `${s.actual_prev}% <span class="per-flow">→</span> ${s.actual_now}%`, `${earned} earned this period`, s.period_earned >= 0 ? 'up' : 'down')}
-      ${_kpi('Vs last period’s forecast', `${s.actual_now}% <span class="mut">/ ${s.forecast_at_now}%</span>`, `${s.shortfall_pct > 0 ? '▼ ' + s.shortfall_pct.toFixed(1) + '% short' : '▲ on/ahead'} · achievement ${ach}`, s.shortfall_pct > 0 ? 'down' : 'up')}
-      ${_kpi('Forecast finish', escapeHtml(s.forecast_finish_now || '—'), slipTxt, slip > 0 ? 'down' : 'up')}
-      ${_kpi('Delay vs baseline', s.delay_now == null ? '—' : `${s.delay_now} wd`, dchTxt, dch > 0 ? 'down' : 'up')}
-    </div>`;
+  const tiles = `<div class="cmp-kpis per-tiles2">
+    ${_kpi('Vs last period’s forecast', `${s.actual_now}% <span class="mut">/ ${s.forecast_at_now}%</span>`, `${s.shortfall_pct > 0 ? '▼ ' + s.shortfall_pct.toFixed(1) + '% short' : '▲ on/ahead'} · achievement ${ach}`, s.shortfall_pct > 0 ? 'down' : 'up')}
+    ${_kpi('Forecast finish', escapeHtml(s.forecast_finish_now || '—'), slipTxt, slip > 0 ? 'down' : 'up')}
+  </div>`;
+
+  return `${cutoff}
+    <div class="per-striplabel">Overall % Complete — Current vs Previous</div>${pct}
+    ${spi}${delay}${tiles}`;
 }
 
-function _progressTable(prog, s) {
-  const rows = (prog && prog.rows) || [];
-  if (!rows.length) return '<p class="cmp-empty">No activity changed its % complete between the two updates.</p>';
-  const ph = escapeHtml((s.data_date_prev || '').replace(/-\d{4}$/, ''));   // e.g. 30-Jun
-  const ch = escapeHtml((s.data_date_now || '').replace(/-\d{4}$/, ''));
-  const body = rows.map(r => {
+function _progressRows(rows) {
+  return rows.map(r => {
     const tag = r.finished ? '<span class="cmp-tag">finished</span>'
               : r.started ? '<span class="cmp-tag">started</span>' : '';
     const cls = r.reversal ? 'cmp-pill bad' : 'cmp-pill good';
     const arrow = r.reversal ? '▼' : '▲';
     const flag = r.reversal ? ' ⚠' : '';
-    return `<tr>
+    const codes = escapeHtml(JSON.stringify(r.codes || {}));   // per-row activity codes, for the slicer
+    return `<tr data-codes="${codes}">
       <td class="mono">${escapeHtml(r.activity_id)}</td>
       <td>${escapeHtml(r.activity_name)} ${tag}</td>
       <td class="num mut">${r.prev_pct}%</td>
@@ -144,13 +185,54 @@ function _progressTable(prog, s) {
       <td class="num"><span class="${cls}">${arrow} ${_signPct(r.variance)}${flag}</span></td>
     </tr>`;
   }).join('');
-  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
-    <thead><tr><th>Activity ID</th><th>Activity name</th>
-      <th class="num">Prev % <span style="font-weight:400">(${ph})</span></th>
-      <th class="num">Current % <span style="font-weight:400">(${ch})</span></th>
-      <th class="num">Variance</th></tr></thead>
-    <tbody>${body}</tbody></table></div>
-    <div class="cmp-foot">Every activity whose progress moved between the two updates, biggest gain first. Uses the % Complete that drives Earned Value. <span class="cmp-pill bad">▼</span> = progress declared backwards vs last update — worth checking.</div>`;
+}
+
+function _progressSection(report) {
+  const s = report.summary || {};
+  const rows = (report.progress && report.progress.rows) || [];
+  if (!rows.length) return '<p class="cmp-empty">No activity changed its % complete between the two updates.</p>';
+  const ph = escapeHtml(_shortDD(s.data_date_prev)), ch = escapeHtml(_shortDD(s.data_date_now));
+  const types = report.code_types || [];
+  const slicer = types.length ? `<div class="per-slicer">
+      <span class="per-slicer-lbl">Filter by activity code</span>
+      <select id="per-code-type"><option value="">— all activities —</option>${types.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select>
+      <span id="per-code-chips" class="per-chips"></span>
+    </div>` : '';
+  return `${slicer}
+    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table" id="per-prog-table">
+      <thead><tr><th>Activity ID</th><th>Activity name</th>
+        <th class="num">Prev % <span style="font-weight:400">(${ph})</span></th>
+        <th class="num">Current % <span style="font-weight:400">(${ch})</span></th>
+        <th class="num">Variance</th></tr></thead>
+      <tbody>${_progressRows(rows)}</tbody></table></div>
+    <div class="cmp-foot">Pick an activity code to see just those activities’ current vs previous % complete. Biggest gain first; <span class="cmp-pill bad">▼</span> = progress declared backwards vs last update.</div>`;
+}
+
+// Wire the activity-code slicer: pick a code type → value chips → filter the table rows.
+function _wireSlicer() {
+  const sel = document.getElementById('per-code-type');
+  const chipsEl = document.getElementById('per-code-chips');
+  const table = document.getElementById('per-prog-table');
+  if (!sel || !chipsEl || !table) return;
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  const codesOf = tr => { try { return JSON.parse(tr.getAttribute('data-codes') || '{}'); } catch { return {}; } };
+  const applyVal = (type, val) => rows.forEach(tr => {
+    const c = codesOf(tr);
+    tr.style.display = (!type || val === '__all__' || c[type] === val) ? '' : 'none';
+  });
+  const renderChips = type => {
+    if (!type) { chipsEl.innerHTML = ''; rows.forEach(tr => { tr.style.display = ''; }); return; }
+    const vals = Array.from(new Set(rows.map(tr => codesOf(tr)[type]).filter(Boolean))).sort();
+    chipsEl.innerHTML = [`<span class="per-chip on" data-v="__all__">All</span>`]
+      .concat(vals.map(v => `<span class="per-chip" data-v="${escapeHtml(v)}">${escapeHtml(v)}</span>`)).join('');
+    chipsEl.querySelectorAll('.per-chip').forEach(chip => chip.addEventListener('click', () => {
+      chipsEl.querySelectorAll('.per-chip').forEach(x => x.classList.remove('on'));
+      chip.classList.add('on');
+      applyVal(type, chip.getAttribute('data-v'));
+    }));
+    applyVal(type, '__all__');
+  };
+  sel.addEventListener('change', () => renderChips(sel.value));
 }
 
 function _periodScurveSvg(sc) {
@@ -253,7 +335,7 @@ export function renderPeriodReport(report) {
     </div>
     ${mismatch}
     <div class="mod-sec">Executive dashboard — progress this period</div>
-    ${_dashboard(s)}
+    ${_dashboard(report)}
     <div class="mod-sec">Period S-curve — actual vs last period’s forecast</div>
     <div class="cmp-scurve-card">
       <div class="cmp-scurve-legend">
@@ -264,19 +346,22 @@ export function renderPeriodReport(report) {
       <div class="cmp-scurve-note">The amber line is the previous update’s own forecast; the gap at this data date is the shortfall against your own commitment.</div>
     </div>
     <div class="mod-sec">Progress by activity — % complete this period</div>
-    ${_progressTable(report.progress, s)}
+    ${_progressSection(report)}
     <div class="mod-sec">Critical-path movement in this window</div>
     ${_criticalTable(report.critical_movement)}
     <div class="mod-sec">What moved this period</div>
     ${_bucketsTable(report.buckets)}
     <div class="mod-sec">Milestone finish trend — every update so far</div>
     <div id="per-trend" class="cmp-scurve-card"><div class="cmp-loading">Loading milestone trend…</div></div>
-    <div class="mod-sec">Executive conclusion</div>
-    <div class="cmp-reco">${escapeHtml(report.conclusion || '')}</div>`;
+    <div class="mod-sec">Executive conclusion — this period</div>
+    <div class="cmp-reco">${escapeHtml(report.conclusion || '')}</div>
+    <div class="mod-sec">Project conclusion &amp; outlook</div>
+    <div class="cmp-reco per-project-reco">${escapeHtml(report.project_conclusion || '')}</div>`;
   const epdf = document.getElementById('per-export-pdf');
   if (epdf) epdf.addEventListener('click', exportPeriodPdf);
   const exls = document.getElementById('per-export-xlsx');
   if (exls) exls.addEventListener('click', exportPeriodExcel);
+  _wireSlicer();
   _fetchTrend();
 }
 
@@ -398,4 +483,4 @@ function _fileBar(report) {
 
 // Pure helpers exposed for unit tests.
 export { _signPct as signPct, _shortDate as shortDate, _periodScurveSvg as periodScurveSvg,
-         _milestoneTrendSvg as milestoneTrendSvg };
+         _milestoneTrendSvg as milestoneTrendSvg, _dashboard as dashboardHtml };

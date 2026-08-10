@@ -41,6 +41,9 @@ def test_build_report_assembles_all_slice1_sections():
     assert 'rows' in r['critical_movement'] and 'new_critical' in r['critical_movement']
     assert set(r['buckets']['counts']) == {'finished', 'started', 'slipped', 'stalled', 're_sequenced'}
     assert isinstance(r['conclusion'], str) and 'this period' in r['conclusion'].lower()
+    # project conclusion (overall) + slicer code types present
+    assert isinstance(r['project_conclusion'], str) and 'overall' in r['project_conclusion'].lower()
+    assert 'code_types' in r and isinstance(r['code_types'], list)
 
 
 def test_build_report_flags_no_match():
