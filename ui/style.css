@@ -888,6 +888,9 @@ body {
 .ai-pill.ai-minor { color: var(--muted); background: var(--bg); }
 .ai-basis { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; color: #6366f1; background: rgba(99,102,241,.12); }
 .ai-newwbs { display: inline-block; padding: 0 6px; border-radius: 5px; font-size: 9.5px; font-weight: 800; color: #6366f1; background: rgba(99,102,241,.12); border: 1px dashed #6366f1; }
+.ct-select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 5px 9px; font-size: 12px; font-weight: 600; }
+.ct-draft { display: inline-block; margin-left: 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; background: rgba(217,119,6,.16); color: var(--warning); padding: 2px 7px; border-radius: 20px; vertical-align: 2px; }
+.ct-pickrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .ai-foot { font-size: 10.5px; color: var(--muted); padding: 8px 4px 0; }
 .ai-empty { color: var(--muted); font-size: 13px; padding: 6px 2px; }
 

@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["factory", "production", "manufacturing", "plant", "assembly line", "machinery",
+                 "process equipment", "cladding", "mep", "utilities", "production hall", "warehouse"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Foundations", "keywords": ["foundation", "raft", "footing", "pile cap"]},
+    {"name": "Structural Steel / Frame", "keywords": ["steel", "frame", "structure", "erection"]},
+    {"name": "Building Envelope", "keywords": ["cladding", "roofing", "envelope", "wall", "weathertight"]},
+    {"name": "MEP / Utilities", "keywords": ["mep", "mechanical", "electrical", "plumbing", "hvac", "utilities"]},
+    {"name": "Process Equipment", "keywords": ["equipment", "machinery", "process", "installation", "assembly line"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "performance", "trial", "start-up", "startup"]},
+    {"name": "Handover & Closeout", "keywords": ["handover", "closeout", "completion", "taking over"]}
+  ],
+  "activities": [
+    {"name": "Factory Acceptance Test (FAT) — Machinery", "keywords": ["fat", "factory acceptance"], "wbs": "Process Equipment",
+     "typical_pred": "Machinery Manufacture", "typical_succ": "Delivery to Site", "duration_days": 5,
+     "why": "Long-lead process machinery is FAT-witnessed before shipping to catch defects early."},
+    {"name": "Utilities Connection", "keywords": ["utilities connection", "power connection", "service connection"], "wbs": "MEP / Utilities",
+     "typical_pred": "MEP Installation", "typical_succ": "Equipment Commissioning", "duration_days": 10,
+     "why": "Process equipment cannot be commissioned until power, water and services are live."},
+    {"name": "Equipment Commissioning", "keywords": ["commission", "commissioning"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Machinery Installation", "typical_succ": "Performance Test", "duration_days": 15,
+     "why": "Installed machinery must be commissioned before performance testing and production."},
+    {"name": "Performance / Trial Run Test", "keywords": ["performance test", "trial run", "trial production"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Equipment Commissioning", "typical_succ": "Handover", "duration_days": 10,
+     "why": "A performance/trial run proves the plant meets output before taking over."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["install", "installation", "erection"], "after_keywords": ["commission", "commissioning"],
+     "reason": "Commissioning must follow equipment installation — you cannot commission machinery that is not yet installed.",
+     "impact": "Critical"},
+    {"before_keywords": ["cladding", "roofing", "envelope", "weathertight"], "after_keywords": ["mep", "fit-out", "fit out", "internal"],
+     "reason": "Internal MEP fit-out should follow a weathertight envelope to protect the works.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["commission", "commissioning"], "after_keywords": ["performance test", "trial run", "trial production"],
+     "reason": "Performance/trial runs must follow commissioning, not precede it.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Mechanical Completion", "Production Start", "Handover"],
+  "common_issues": ["Missing commissioning / performance-test phase", "MEP fit-out before weathertight envelope",
+                    "No FAT for long-lead machinery", "Equipment installation with no utilities connection"]
+}

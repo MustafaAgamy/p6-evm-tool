@@ -11,7 +11,9 @@ export const state = {
   baselineName:      null,   // filename of the attached baseline, for the banner
   baselineMatched:   null,   // activities matched between update and baseline (by Id)
   baselineTotal:     null,   // total update activities, for the matched/total count
-  aiReport:          null,   // AI Constructability Review report dict (once run)
-  aiReferencePath:   null,   // optional reference schedule path (Mode 2)
-  aiReferenceName:   null,   // reference filename for the banner
+  aiReport:          null,   // dormant — AI review (future Pro edition)
+  aiReferencePath:   null,   // dormant
+  aiReferenceName:   null,   // dormant
+  constructReport:   null,   // Constructability Review report dict (rule + KB)
+  constructForcedType: null, // user-overridden project sub-type, if any
 };
