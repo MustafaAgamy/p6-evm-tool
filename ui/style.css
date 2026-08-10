@@ -875,3 +875,15 @@ body {
 .cmp-scurve-legend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
 .cmp-scurve-note { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 .cmp-exports { display: flex; gap: 8px; justify-content: flex-end; margin: -6px 0 4px; }
+
+/* Update vs Update (period) */
+.mut { color: var(--muted); }
+.per-inputs { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; font-size: 12px; }
+.per-suggest { display: inline-flex; }
+.per-inputs .btn-mini { margin-left: 4px; }
+.per-flow { color: var(--muted); font-weight: 700; margin: 0 2px; }
+.per-kpi-sub { font-size: 11px; margin-top: 3px; color: var(--muted); }
+.per-kpi-sub.up { color: var(--success); }
+.per-kpi-sub.down { color: var(--danger); }
+.cmp-pill.good { background: rgba(74,222,128,.15); color: var(--success); }
+.cmp-pill.bad { background: rgba(248,113,113,.15); color: var(--danger); }

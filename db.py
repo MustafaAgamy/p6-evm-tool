@@ -644,6 +644,28 @@ def get_project_snapshots(project_id):
         ).fetchall()
     return [dict(r) for r in rows]
 
+def get_prev_snapshot(snapshot_id):
+    """The snapshot immediately before `snapshot_id` for the same project (by data
+    date, then import time) — used by Update vs Update to auto-suggest last period.
+    Returns {id, data_date, original_path, cached_path} or None."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            'SELECT project_id, data_date, imported_at FROM snapshots WHERE id = ?',
+            (snapshot_id,)
+        ).fetchone()
+        if not cur:
+            return None
+        row = conn.execute(
+            '''SELECT id, data_date, original_path, cached_path
+               FROM snapshots
+               WHERE project_id = ?
+                 AND (data_date < ? OR (data_date = ? AND imported_at < ?))
+               ORDER BY data_date DESC, imported_at DESC
+               LIMIT 1''',
+            (cur['project_id'], cur['data_date'], cur['data_date'], cur['imported_at'])
+        ).fetchone()
+        return dict(row) if row else None
+
 def resolve_xml_path(original_path, cached_path):
     """Return the best available XML path: original first, cached fallback."""
     if original_path and os.path.isfile(original_path):
