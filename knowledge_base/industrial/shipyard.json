@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Shipyard / Ship Building",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["shipyard", "dry dock", "slipway", "ship building", "hull", "block", "outfitting", "keel laying",
+                 "launch", "panel line", "erection", "sea trial", "vessel"],
+  "wbs": [
+    {"name": "Yard Civil & Dry Dock / Slipway", "keywords": ["dry dock", "slipway", "civil", "quay", "graving dock"]},
+    {"name": "Steel Fabrication (Blocks)", "keywords": ["panel line", "block fabrication", "steel", "sub-assembly"]},
+    {"name": "Block Assembly", "keywords": ["block assembly", "grand block", "pre-outfitting"]},
+    {"name": "Hull Erection", "keywords": ["hull erection", "keel laying", "erection", "docking"]},
+    {"name": "Outfitting", "keywords": ["outfitting", "piping", "machinery install", "accommodation"]},
+    {"name": "Painting & Coating", "keywords": ["painting", "coating", "blasting"]},
+    {"name": "Testing & Sea Trials", "keywords": ["test", "commission", "launch", "sea trial", "delivery"]}
+  ],
+  "activities": [
+    {"name": "Block Fabrication", "keywords": ["block fabrication", "panel line", "sub-assembly"], "wbs": "Steel Fabrication (Blocks)",
+     "typical_pred": "Design & Cutting", "typical_succ": "Hull Erection", "duration_days": 90,
+     "why": "Hull blocks are fabricated and pre-outfitted before erection on the dock/slipway."},
+    {"name": "Keel Laying & Hull Erection", "keywords": ["keel laying", "hull erection", "erection"], "wbs": "Hull Erection",
+     "typical_pred": "Block Assembly", "typical_succ": "Outfitting", "duration_days": 60,
+     "why": "Keel laying starts hull erection from completed blocks."},
+    {"name": "Launch / Float-out", "keywords": ["launch", "float-out", "undocking"], "wbs": "Testing & Sea Trials",
+     "typical_pred": "Hull Complete", "typical_succ": "Sea Trials", "duration_days": 5,
+     "why": "The vessel is launched/floated-out once the hull is watertight and sufficiently outfitted."},
+    {"name": "Sea Trials", "keywords": ["sea trial", "trial voyage"], "wbs": "Testing & Sea Trials",
+     "typical_pred": "Commissioning", "typical_succ": "Delivery", "duration_days": 15,
+     "why": "Sea trials prove propulsion and systems before delivery."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["block fabrication", "panel line", "sub-assembly"], "after_keywords": ["hull erection", "keel laying", "erection"],
+     "reason": "Hull erection follows block fabrication and assembly.",
+     "impact": "Critical"},
+    {"before_keywords": ["hull", "erection", "outfitting"], "after_keywords": ["launch", "float-out"],
+     "reason": "Launch/float-out follows a watertight, outfitted hull.",
+     "impact": "Critical"},
+    {"before_keywords": ["commission", "launch"], "after_keywords": ["sea trial", "delivery"],
+     "reason": "Sea trials and delivery follow commissioning and launch.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Keel Laying", "Launch / Float-out", "Sea Trials", "Delivery"],
+  "common_issues": ["Hull erection before blocks fabricated", "Outfitting not sequenced with erection",
+                    "No sea trials before delivery", "Launch before hull watertight"]
+}

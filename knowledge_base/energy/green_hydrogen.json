@@ -1,0 +1,45 @@
+{
+  "category": "Energy",
+  "type": "Green Hydrogen / Electrolyser",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["hydrogen", "green hydrogen", "electrolyser", "electrolyzer", "pem", "alkaline", "compression",
+                 "h2 storage", "renewable", "off-take", "h2", "stack", "deoxo"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "pad"]},
+    {"name": "Electrolyser Units", "keywords": ["electrolyser", "electrolyzer", "stack", "pem", "alkaline", "module"]},
+    {"name": "Balance of Plant", "keywords": ["water treatment", "cooling", "gas processing", "deoxo", "dryer", "bop"]},
+    {"name": "Compression & Storage", "keywords": ["compression", "compressor", "h2 storage", "storage"]},
+    {"name": "Power Supply / Substation", "keywords": ["power", "substation", "rectifier", "grid", "renewable"]},
+    {"name": "E&I & Safety Systems", "keywords": ["electrical", "instrumentation", "safety", "gas detection", "fire"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "first hydrogen", "purge", "capacity test"]}
+  ],
+  "activities": [
+    {"name": "Water Treatment System", "keywords": ["water treatment", "demineralised", "purified water"], "wbs": "Balance of Plant",
+     "typical_pred": "Utilities", "typical_succ": "Commissioning", "duration_days": 20,
+     "why": "Electrolysers need high-purity water; the treatment system gates commissioning and is often under-planned."},
+    {"name": "Electrolyser / Stack Installation", "keywords": ["electrolyser install", "stack install", "module install"], "wbs": "Electrolyser Units",
+     "typical_pred": "Civil & Foundations", "typical_succ": "Commissioning", "duration_days": 30,
+     "why": "Electrolyser modules/stacks install onto foundations before commissioning."},
+    {"name": "Hydrogen Safety Systems", "keywords": ["gas detection", "fire", "purge", "safety system"], "wbs": "E&I & Safety Systems",
+     "typical_pred": "E&I Installation", "typical_succ": "First Hydrogen", "duration_days": 15,
+     "why": "Hydrogen gas detection, purge and fire systems must be proven before any hydrogen is produced."},
+    {"name": "Commissioning & First Hydrogen", "keywords": ["commission", "first hydrogen", "purge", "start-up"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Mechanical Completion", "typical_succ": "Capacity Test", "duration_days": 25,
+     "why": "First hydrogen follows purge, safety-system proving and commissioning."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["gas detection", "safety", "purge"], "after_keywords": ["first hydrogen", "hydrogen production", "start-up"],
+     "reason": "Hydrogen production follows proven safety/gas-detection systems.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation", "water treatment"], "after_keywords": ["commission", "first hydrogen"],
+     "reason": "Commissioning follows installation and water-treatment readiness.",
+     "impact": "Critical"},
+    {"before_keywords": ["power", "substation", "rectifier"], "after_keywords": ["commission", "first hydrogen"],
+     "reason": "Commissioning depends on power supply being available.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Power Ready", "Commissioning", "First Hydrogen"],
+  "common_issues": ["Production before safety/gas-detection proven", "Missing high-purity water treatment",
+                    "Power supply / rectifier not ready", "No capacity / performance test"]
+}

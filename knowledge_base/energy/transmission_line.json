@@ -1,0 +1,44 @@
+{
+  "category": "Energy",
+  "type": "Transmission Line (Overhead)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["transmission line", "overhead line", "oht", "tower", "conductor", "stringing", "insulator",
+                 "sag", "tension", "earthwire", "opgw", "right of way", "wayleave", "pylon"],
+  "wbs": [
+    {"name": "Survey & Right of Way", "keywords": ["survey", "right of way", "wayleave", "profiling", "acquisition"]},
+    {"name": "Tower Foundations", "keywords": ["foundation", "pad", "pile", "chimney", "footing"]},
+    {"name": "Tower Erection", "keywords": ["tower erection", "erection", "pylon", "assembly"]},
+    {"name": "Stringing (Conductor)", "keywords": ["stringing", "conductor", "sag", "tension", "pulling"]},
+    {"name": "Earthwire / OPGW", "keywords": ["earthwire", "opgw", "shield wire", "optical ground"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "energ", "insulation test"]}
+  ],
+  "activities": [
+    {"name": "Right of Way / Wayleave", "keywords": ["right of way", "wayleave", "acquisition"], "wbs": "Survey & Right of Way",
+     "typical_pred": "Survey", "typical_succ": "Tower Foundations", "duration_days": 45,
+     "why": "Wayleaves/ROW along the route govern access and often dominate the start — commonly underestimated."},
+    {"name": "Tower Erection", "keywords": ["tower erection", "erection", "pylon"], "wbs": "Tower Erection",
+     "typical_pred": "Tower Foundations", "typical_succ": "Stringing", "duration_days": 60,
+     "why": "Towers erect on cured foundations; stringing needs a run of towers complete."},
+    {"name": "Conductor Stringing & Sagging", "keywords": ["stringing", "conductor", "sag", "tension"], "wbs": "Stringing (Conductor)",
+     "typical_pred": "Tower Erection", "typical_succ": "Commissioning", "duration_days": 40,
+     "why": "Conductors are strung and sagged to design tension across erected towers."},
+    {"name": "Earthwire / OPGW Installation", "keywords": ["earthwire", "opgw", "shield wire"], "wbs": "Earthwire / OPGW",
+     "typical_pred": "Tower Erection", "typical_succ": "Commissioning", "duration_days": 20,
+     "why": "Shield/earthwire (and OPGW fibre) protect the line and are frequently missed in the logic."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["foundation", "footing"], "after_keywords": ["tower erection", "erection", "pylon"],
+     "reason": "Tower erection follows cured foundations.",
+     "impact": "Critical"},
+    {"before_keywords": ["tower erection", "erection"], "after_keywords": ["stringing", "conductor"],
+     "reason": "Conductor stringing follows tower erection.",
+     "impact": "Critical"},
+    {"before_keywords": ["stringing", "conductor", "test"], "after_keywords": ["energ", "energization"],
+     "reason": "Energization follows stringing and pre-energization testing.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["ROW Complete", "Towers Erected", "Stringing Complete", "Energization"],
+  "common_issues": ["Stringing before enough towers erected", "ROW / wayleaves under-planned",
+                    "Earthwire / OPGW missing", "No pre-energization testing"]
+}

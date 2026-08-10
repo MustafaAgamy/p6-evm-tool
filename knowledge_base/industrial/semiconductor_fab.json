@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Semiconductor Fab",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["semiconductor", "fab", "wafer", "cleanroom", "clean room", "sub-fab", "ultra pure water",
+                 "upw", "specialty gas", "tool install", "hook-up", "iso class", "fan filter", "amc"],
+  "wbs": [
+    {"name": "Civil & Vibration Isolation", "keywords": ["civil", "foundation", "vibration", "waffle slab", "isolation"]},
+    {"name": "Cleanroom Construction", "keywords": ["cleanroom", "clean room", "raised floor", "fan filter", "ffu", "wall panel"]},
+    {"name": "Ultra-Clean HVAC", "keywords": ["hvac", "makeup air", "recirculation", "amc", "temperature humidity"]},
+    {"name": "Ultra-Pure Water & Specialty Gases", "keywords": ["upw", "ultra pure water", "specialty gas", "bulk gas", "chemical"]},
+    {"name": "Sub-fab Utilities", "keywords": ["sub-fab", "subfab", "utilities", "vacuum", "exhaust"]},
+    {"name": "Tool Install & Hook-up", "keywords": ["tool install", "hook-up", "hookup", "tool move-in", "process tool"]},
+    {"name": "Testing & Qualification", "keywords": ["qualification", "particle", "certification", "iso class", "commission"]}
+  ],
+  "activities": [
+    {"name": "Cleanroom Construction", "keywords": ["cleanroom", "clean room", "ffu", "raised floor"], "wbs": "Cleanroom Construction",
+     "typical_pred": "Building Weathertight", "typical_succ": "HVAC Commissioning", "duration_days": 60,
+     "why": "The classified cleanroom is built inside the shell before utilities, qualification and tools."},
+    {"name": "UPW & Specialty Gas Systems", "keywords": ["upw", "ultra pure water", "specialty gas", "bulk gas"], "wbs": "Ultra-Pure Water & Specialty Gases",
+     "typical_pred": "Sub-fab Utilities", "typical_succ": "Facility Qualification", "duration_days": 45,
+     "why": "Ultra-pure water and specialty/bulk gases are specialised systems that gate tool hook-up."},
+    {"name": "Facility Qualification (Particle / AMC)", "keywords": ["qualification", "particle count", "amc", "iso class"], "wbs": "Testing & Qualification",
+     "typical_pred": "HVAC & Utilities Commissioning", "typical_succ": "Tool Hook-up", "duration_days": 30,
+     "why": "The cleanroom must meet its ISO particle/AMC class before process tools move in."},
+    {"name": "Tool Install & Hook-up", "keywords": ["tool install", "hook-up", "tool move-in"], "wbs": "Tool Install & Hook-up",
+     "typical_pred": "Facility Qualification", "typical_succ": "First Wafer", "duration_days": 45,
+     "why": "Process tools are moved in and hooked up only after the facility is qualified."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["cleanroom", "clean room", "qualification", "particle"], "after_keywords": ["tool install", "hook-up", "tool move-in"],
+     "reason": "Tools install into a completed, qualified cleanroom.",
+     "impact": "Critical"},
+    {"before_keywords": ["hvac", "upw", "gas", "utilities"], "after_keywords": ["qualification", "commission"],
+     "reason": "Facility qualification follows HVAC and ultra-pure utility commissioning.",
+     "impact": "Critical"},
+    {"before_keywords": ["hook-up", "hookup", "tool install"], "after_keywords": ["first wafer", "production"],
+     "reason": "First wafer / production follows tool hook-up.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Cleanroom Complete", "Facility Qualified", "Tool Hook-up", "First Wafer"],
+  "common_issues": ["Tool install before cleanroom qualified", "Missing UPW / specialty-gas systems",
+                    "No particle / AMC qualification", "Sub-fab utilities under-planned"]
+}

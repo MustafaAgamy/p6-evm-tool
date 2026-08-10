@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Multi-Storey Car Park",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["car park", "parking structure", "multi-storey", "multistorey", "precast", "ramp", "deck",
+                 "parking", "deck waterproofing", "post-tension", "barrier", "parking guidance"],
+  "wbs": [
+    {"name": "Substructure", "keywords": ["substructure", "foundation", "piling"]},
+    {"name": "Superstructure", "keywords": ["superstructure", "precast", "post-tension", "frame", "deck slab"]},
+    {"name": "Deck Waterproofing", "keywords": ["deck waterproofing", "membrane", "coating", "surfacing"]},
+    {"name": "Ramps", "keywords": ["ramp", "helix"]},
+    {"name": "MEP (Lighting / Ventilation)", "keywords": ["mep", "lighting", "ventilation", "jet fan", "drainage"]},
+    {"name": "Barriers, Signage & Marking", "keywords": ["barrier", "signage", "line marking", "guidance"]},
+    {"name": "Parking Systems", "keywords": ["parking system", "access control", "payment", "anpr", "guidance"]},
+    {"name": "Testing & Handover", "keywords": ["test", "commission", "handover"]}
+  ],
+  "activities": [
+    {"name": "Deck Waterproofing / Coating", "keywords": ["deck waterproofing", "membrane", "deck coating"], "wbs": "Deck Waterproofing",
+     "typical_pred": "Deck Slab", "typical_succ": "Line Marking", "duration_days": 20,
+     "why": "Parking decks need waterproofing/coating before surfacing and marking — a frequent omission that causes leaks."},
+    {"name": "Ventilation / Jet Fans", "keywords": ["ventilation", "jet fan", "co detection"], "wbs": "MEP (Lighting / Ventilation)",
+     "typical_pred": "Structure", "typical_succ": "Commissioning", "duration_days": 20,
+     "why": "Enclosed car parks need mechanical ventilation and CO detection — a life-safety requirement."},
+    {"name": "Parking Access / Payment System", "keywords": ["access control", "payment", "anpr", "parking system"], "wbs": "Parking Systems",
+     "typical_pred": "MEP", "typical_succ": "Commissioning", "duration_days": 15,
+     "why": "Barrier/ticket/ANPR systems are core to operation and often under-planned."},
+    {"name": "Line Marking & Signage", "keywords": ["line marking", "signage", "bay marking"], "wbs": "Barriers, Signage & Marking",
+     "typical_pred": "Deck Coating", "typical_succ": "Handover", "duration_days": 10,
+     "why": "Bay markings and signage follow the deck coating and precede opening."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["deck waterproofing", "membrane", "coating"], "after_keywords": ["line marking", "surfacing"],
+     "reason": "Deck coating/waterproofing precedes surfacing and line marking.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission"],
+     "reason": "Commissioning follows MEP and parking-system installation.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["deck slab", "structure"], "after_keywords": ["deck waterproofing", "coating"],
+     "reason": "Deck waterproofing follows the completed deck slab.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Structure Complete", "Deck Complete", "Systems Complete", "Handover"],
+  "common_issues": ["Surfacing/marking before deck waterproofing", "Missing deck waterproofing",
+                    "Parking access/payment system under-planned", "Ventilation / CO detection missing"]
+}

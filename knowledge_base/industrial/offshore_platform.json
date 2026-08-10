@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Offshore Platform / FPSO",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["offshore", "platform", "fpso", "jacket", "topsides", "hook-up", "subsea", "riser", "mooring",
+                 "sail-away", "load-out", "hull", "module", "first oil"],
+  "wbs": [
+    {"name": "Fabrication (Jacket / Topsides / Hull)", "keywords": ["fabrication", "jacket", "topsides", "module", "hull", "yard"]},
+    {"name": "Onshore Pre-commissioning", "keywords": ["pre-commission", "onshore commissioning", "mechanical completion"]},
+    {"name": "Load-out & Transport", "keywords": ["load-out", "loadout", "transport", "sail-away", "tow"]},
+    {"name": "Installation", "keywords": ["installation", "jacket install", "topsides install", "lift", "mooring"]},
+    {"name": "Hook-up", "keywords": ["hook-up", "hookup", "tie-in", "offshore hook-up"]},
+    {"name": "Offshore Commissioning", "keywords": ["offshore commission", "commission", "start-up"]},
+    {"name": "First Oil / Gas", "keywords": ["first oil", "first gas", "production"]}
+  ],
+  "activities": [
+    {"name": "Topsides Fabrication", "keywords": ["topsides", "module fabrication", "topside"], "wbs": "Fabrication (Jacket / Topsides / Hull)",
+     "typical_pred": "Engineering & Procurement", "typical_succ": "Onshore Pre-commissioning", "duration_days": 180,
+     "why": "Topsides/modules are fabricated and pre-outfitted onshore before load-out."},
+    {"name": "Onshore Pre-commissioning", "keywords": ["pre-commission", "onshore commissioning"], "wbs": "Onshore Pre-commissioning",
+     "typical_pred": "Mechanical Completion", "typical_succ": "Load-out / Sail-away", "duration_days": 60,
+     "why": "As much commissioning as possible is done onshore before sail-away — offshore work is far costlier."},
+    {"name": "Offshore Installation", "keywords": ["installation", "jacket install", "topsides lift", "mooring"], "wbs": "Installation",
+     "typical_pred": "Sail-away", "typical_succ": "Hook-up", "duration_days": 30,
+     "why": "Jacket then topsides are installed offshore within weather windows."},
+    {"name": "Offshore Hook-up & Commissioning", "keywords": ["hook-up", "offshore commission", "tie-in"], "wbs": "Hook-up",
+     "typical_pred": "Installation", "typical_succ": "First Oil", "duration_days": 90,
+     "why": "Hook-up and offshore commissioning connect and prove systems before first oil — frequently underestimated."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["fabrication", "topsides", "module"], "after_keywords": ["load-out", "loadout", "sail-away"],
+     "reason": "Load-out and sail-away follow fabrication and onshore pre-commissioning.",
+     "impact": "Critical"},
+    {"before_keywords": ["jacket install", "installation", "lift"], "after_keywords": ["hook-up", "hookup", "offshore commission"],
+     "reason": "Hook-up and commissioning follow offshore installation.",
+     "impact": "Critical"},
+    {"before_keywords": ["hook-up", "commission"], "after_keywords": ["first oil", "first gas", "production"],
+     "reason": "First oil/gas follows hook-up and commissioning.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Fabrication Complete", "Sail-away", "Installation Complete", "Hook-up & Commissioning", "First Oil"],
+  "common_issues": ["Offshore hook-up scope underestimated", "No onshore pre-commissioning before sail-away",
+                    "Installation weather windows not planned", "Commissioning before mechanical completion"]
+}

@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Cold Storage / Refrigerated Facility",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["cold storage", "cold store", "refrigerated", "freezer", "chiller", "cold room", "insulated panel",
+                 "ammonia refrigeration", "blast freezer", "temperature controlled", "pull-down", "floor heating"],
+  "wbs": [
+    {"name": "Civil & Insulated Slab", "keywords": ["civil", "slab", "insulated slab", "floor heating", "foundation"]},
+    {"name": "Structure", "keywords": ["steel", "frame", "structure", "rack-clad"]},
+    {"name": "Insulated Envelope", "keywords": ["insulated panel", "envelope", "cladding", "cold room panel"]},
+    {"name": "Refrigeration System", "keywords": ["refrigeration", "ammonia", "chiller", "condenser", "evaporator", "compressor"]},
+    {"name": "Racking", "keywords": ["racking", "rack", "asrs"]},
+    {"name": "MEP & Controls", "keywords": ["mep", "electrical", "controls", "bms"]},
+    {"name": "Testing, Pull-down & Handover", "keywords": ["test", "commission", "pull-down", "pulldown", "handover"]}
+  ],
+  "activities": [
+    {"name": "Under-slab Floor Heating", "keywords": ["floor heating", "anti-frost", "under-slab heating"], "wbs": "Civil & Insulated Slab",
+     "typical_pred": "Sub-base", "typical_succ": "Slab", "duration_days": 10,
+     "why": "Freezer floors need anti-frost heating below the insulated slab to prevent ground heave — a common omission."},
+    {"name": "Insulated Panel Installation", "keywords": ["insulated panel", "cold room panel", "envelope"], "wbs": "Insulated Envelope",
+     "typical_pred": "Structure", "typical_succ": "Refrigeration Commissioning", "duration_days": 30,
+     "why": "Insulated envelope and cold-room panels enclose the space before refrigeration commissioning."},
+    {"name": "Refrigeration Commissioning", "keywords": ["refrigeration commission", "ammonia charge", "chiller commission"], "wbs": "Refrigeration System",
+     "typical_pred": "Refrigeration Installation", "typical_succ": "Pull-down", "duration_days": 20,
+     "why": "The refrigeration plant is commissioned before the controlled pull-down."},
+    {"name": "Temperature Pull-down", "keywords": ["pull-down", "pulldown", "gradual cooling"], "wbs": "Testing, Pull-down & Handover",
+     "typical_pred": "Refrigeration Commissioning", "typical_succ": "Handover", "duration_days": 15,
+     "why": "Rooms are pulled down to temperature gradually (protecting slab/structure) before handover."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["insulated panel", "envelope", "cold room"], "after_keywords": ["refrigeration commission", "pull-down"],
+     "reason": "Refrigeration commissioning and pull-down follow the completed insulated envelope.",
+     "impact": "Critical"},
+    {"before_keywords": ["floor heating", "anti-frost"], "after_keywords": ["pull-down", "pulldown"],
+     "reason": "Under-slab floor heating must be commissioned before pull-down to prevent frost heave.",
+     "impact": "Critical"},
+    {"before_keywords": ["refrigeration commission", "commission"], "after_keywords": ["pull-down", "handover"],
+     "reason": "Pull-down follows refrigeration commissioning.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Insulated Envelope Complete", "Refrigeration Complete", "Pull-down", "Handover"],
+  "common_issues": ["Pull-down before floor heating commissioned", "Missing under-slab anti-frost heating",
+                    "No gradual pull-down", "Refrigeration system under-planned"]
+}
