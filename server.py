@@ -443,11 +443,14 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
+            # DEVNULL (not PIPE) so a verbose/large Chrome render can't dead-lock on a full
+            # pipe buffer — that was the "Export PDF does nothing" hang on big schedules.
+            # A timeout turns any remaining hang into a clear error instead of silence.
             subprocess.run([
                 chrome, '--headless', '--disable-gpu', '--no-sandbox',
                 f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
                 f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:

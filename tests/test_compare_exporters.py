@@ -52,7 +52,7 @@ def test_render_html_without_impact_is_self_contained_landscape():
 
 def test_render_html_with_impact_adds_scurve_and_recommendation():
     h = render_html(_report(), _impact())
-    assert 'Impact — delay before vs after' in h
+    assert 'Impact — reported vs but-for delay' in h
     assert '<polyline' in h                    # three-way S-curve drawn
     assert 'Consultant recommendation' in h
     assert 'Overall completion' in h           # overall completion only (no per-milestone table)

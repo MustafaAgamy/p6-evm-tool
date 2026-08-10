@@ -344,15 +344,15 @@ function _scurveSvg(sc) {
 function _scurveSection(sc) {
   if (!sc || !(sc.periods || []).length) return '';
   return `
-    <div class="mod-sec">S-curve — baseline vs before vs after</div>
+    <div class="mod-sec">S-curve — baseline vs reported vs but-for</div>
     <div class="cmp-scurve-card">
       <div class="cmp-scurve-legend">
         <span><i style="background:#888781"></i>Baseline plan</span>
-        <span><i style="background:#2a78d6"></i>Before changes (but-for)</span>
-        <span><i style="background:#e24b4a"></i>After changes (reported)</span>
+        <span><i style="background:#e24b4a"></i>Reported (update)</span>
+        <span><i style="background:#2a78d6"></i>But-for (corrected)</span>
       </div>
       ${_scurveSvg(sc)}
-      <div class="cmp-scurve-note">Planned progress profile from each schedule's activity dates &amp; durations — the gap between before and after is the manufactured slip. The exact delay is in the numbers above.</div>
+      <div class="cmp-scurve-note">Planned progress profile from each schedule's activity dates &amp; durations — the gap between reported and but-for is the manufactured slip. The exact delay is in the numbers above.</div>
     </div>`;
 }
 
@@ -365,13 +365,13 @@ export function renderImpact(impact) {
   const warn = impact.warning ? `<div class="cmp-warn">${escapeHtml(impact.warning)}</div>` : '';
   el.innerHTML = `
     ${warn}
-    <div class="mod-sec">Impact — delay before vs after the changes</div>
+    <div class="mod-sec">Impact — reported vs but-for delay</div>
     <div class="cmp-kpis">
-      ${_impactTile('Reported delay (after)', impact.delay_after)}
-      ${_impactTile('But-for delay (before)', impact.delay_before)}
+      ${_impactTile('Reported delay (as submitted)', impact.delay_after)}
+      ${_impactTile('But-for delay (baseline logic)', impact.delay_before)}
       ${_impactTile('Manufactured', mfd, mfd != null && mfd > 0)}
     </div>
-    <div class="cmp-forecast">Overall completion — baseline <b>${escapeHtml(f.baseline || '—')}</b> · before changes <b>${escapeHtml(f.before || '—')}</b> · after changes <b>${escapeHtml(f.after || '—')}</b></div>
+    <div class="cmp-forecast">Overall completion — baseline <b>${escapeHtml(f.baseline || '—')}</b> · reported (update) <b>${escapeHtml(f.after || '—')}</b> · but-for (corrected) <b>${escapeHtml(f.before || '—')}</b></div>
     ${_scurveSection(impact.scurve)}
     <div class="mod-sec">Consultant recommendation</div>
     <div class="cmp-reco">${escapeHtml(impact.recommendation || '')}</div>`;
@@ -381,7 +381,7 @@ export async function loadRescheduledAndCompare() {
   const path = await window.pywebview.api.choose_file();
   if (!path) return;
   const el = document.getElementById('cmp-impact');
-  if (el) el.innerHTML = '<div class="cmp-loading">Computing the delay before vs after…</div>';
+  if (el) el.innerHTML = '<div class="cmp-loading">Computing the reported vs but-for delay…</div>';
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/before-after`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

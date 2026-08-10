@@ -160,19 +160,19 @@ def _impact_html(impact):
         return ''
     f = impact.get('forecast', {}) or {}
     scurve = _scurve_svg(impact.get('scurve', {}) or {})
-    scurve_block = (f'<h2>S-curve — baseline vs before vs after</h2>'
+    scurve_block = (f'<h2>S-curve — baseline vs reported vs but-for</h2>'
                     f'<div class="legend"><span><i style="background:{_GREY}"></i>Baseline plan</span>'
-                    f'<span><i style="background:{_BLUE}"></i>Before changes (but-for)</span>'
-                    f'<span><i style="background:{_RED}"></i>After changes (reported)</span></div>'
+                    f'<span><i style="background:{_RED}"></i>Reported (update)</span>'
+                    f'<span><i style="background:{_BLUE}"></i>But-for (corrected)</span></div>'
                     f'{scurve}') if scurve else ''
     return f'''
-      <h2>Impact — delay before vs after the changes</h2>
+      <h2>Impact — reported vs but-for delay</h2>
       <div class="tiles">
-        {_tile('Reported delay (after)', _days(impact.get('delay_after')))}
-        {_tile('But-for delay (before)', _days(impact.get('delay_before')))}
+        {_tile('Reported delay (as submitted)', _days(impact.get('delay_after')))}
+        {_tile('But-for delay (baseline logic)', _days(impact.get('delay_before')))}
         {_tile('Manufactured', _days(impact.get('manufactured_days')))}
       </div>
-      <p class="fc">Overall completion — baseline <b>{_e(f.get('baseline'))}</b> · before changes <b>{_e(f.get('before'))}</b> · after changes <b>{_e(f.get('after'))}</b></p>
+      <p class="fc">Overall completion — baseline <b>{_e(f.get('baseline'))}</b> · reported (update) <b>{_e(f.get('after'))}</b> · but-for (corrected) <b>{_e(f.get('before'))}</b></p>
       {scurve_block}
       <h2>Consultant recommendation</h2>
       <div class="reco">{_e(impact.get('recommendation'))}</div>'''
