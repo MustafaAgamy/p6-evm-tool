@@ -30,6 +30,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_history()
         elif self.path == '/api/ai/settings':
             self._handle_ai_settings_get()
+        elif self.path == '/api/kb':
+            self._handle_kb_list()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -84,6 +86,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_review(body)
         elif self.path == '/api/constructability':
             self._handle_constructability(body)
+        elif self.path == '/api/kb/starter-xml':
+            self._handle_kb_starter_xml(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -412,6 +416,51 @@ class Handler(BaseHTTPRequestHandler):
             data = parse_file(resolved)
             report = run_review(data, forced_type=body.get('forced_type'))
             self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/kb (Knowledge Base library — browse the standards) ─────────────
+    def _handle_kb_list(self):
+        """Return the whole Construction Knowledge Base grouped by category for
+        the browsable EPS view. Offline, no schedule needed — bundled defaults
+        plus the per-user overlay."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.kb import load_kb
+            entries = load_kb()
+            cats, order = {}, []
+            for e in entries:
+                c = e.get('category', 'Other')
+                if c not in cats:
+                    cats[c] = []
+                    order.append(c)
+                cats[c].append(e)
+            categories = [{'category': c, 'count': len(cats[c]), 'types': cats[c]} for c in order]
+            self._json(200, {'ok': True, 'categories': categories, 'total': len(entries)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/kb/starter-xml (export a standard as a P6 starter schedule) ────
+    def _handle_kb_starter_xml(self, body):
+        """Write a project-type standard as a P6 XML starter-schedule skeleton
+        (WBS + activities + logic + durations) the user imports into P6 and F9s.
+        Nothing is computed from a real schedule — it is the reference standard
+        rendered as P6 XML."""
+        forced_type = body.get('type', '')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.kb import load_kb
+            from p6_kb.starter import write_starter_xml
+            entry = next((e for e in load_kb() if e.get('type') == forced_type), None)
+            if not entry:
+                self._json(200, {'ok': False, 'error': f'Unknown project type: {forced_type}'})
+                return
+            res = write_starter_xml(entry, os.path.abspath(output_path))
+            self._json(200, {'ok': True, **res})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
