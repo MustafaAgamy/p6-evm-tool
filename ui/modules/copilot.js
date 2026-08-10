@@ -7,6 +7,7 @@
 import { state }                 from './state.js';
 import { showError, clearError } from './render.js';
 import { escapeHtml }            from './format.js';
+import { matchActivity }         from './copilot_helpers.js';
 
 // Method knowledge (mirrors p6_claims/methods.py). TIA is executable now; the rest are
 // shown as "known" — the copilot can explain them, execution lands in later slices.
@@ -74,6 +75,7 @@ function _renderWorkspace() {
   if (!body) return;
   const cp = _cp();
   const m = METHODS.find(x => x.key === cp.method) || METHODS[0];
+  const count = cp.activities ? cp.activities.filter(a => !a.is_milestone).length : 0;
   body.innerHTML = `
     <div class="ai-filebar">
       <div class="fb"><span class="k">Method</span><span class="v ai-type">${escapeHtml(m.name)}</span></div>
@@ -91,10 +93,12 @@ function _renderWorkspace() {
 
     <div class="mod-sec">1 · The delay</div>
     <div class="cp-form">
-      <label class="cp-fld"><span>Delayed activity</span>
-        <select id="cp-activity" class="ct-select">
-          <option value="">${cp.activities ? '— pick an activity —' : 'Loading activities…'}</option>
-        </select></label>
+      <label class="cp-fld"><span>Delayed activity — type the Activity ID</span>
+        <input id="cp-activity" class="cp-input" list="cp-activity-list" autocomplete="off"
+               value="${escapeHtml(cp.activityId || '')}"
+               placeholder="${cp.activities ? `Type an Activity ID… (${count} activities)` : 'Loading activities…'}">
+        <datalist id="cp-activity-list"></datalist>
+        <span id="cp-activity-match" class="cp-match"></span></label>
       <label class="cp-fld cp-fld-sm"><span>Delay (working days)</span>
         <input type="number" min="1" step="1" id="cp-delay" class="cp-input" value="${escapeHtml(String(cp.delayDays || ''))}" placeholder="e.g. 14"></label>
       <label class="cp-fld"><span>Delay event (optional)</span>
@@ -119,13 +123,13 @@ function _renderWorkspace() {
   body.querySelectorAll('.cp-m').forEach(b => b.addEventListener('click', () => {
     if (b.disabled) return;
     _cp().method = b.dataset.method; _renderWorkspace();
-    if (!_cp().activities) _loadActivities(); else _fillActivitySelect();
+    if (!_cp().activities) _loadActivities(); else _fillActivityList();
   }));
   const gen = document.getElementById('cp-gen');
   if (gen) gen.addEventListener('click', _generateScenario);
   const load = document.getElementById('cp-load');
   if (load) load.addEventListener('click', _loadRescheduled);
-  _fillActivitySelect();
+  _fillActivityList();
   _bindInputs();
 }
 
@@ -144,11 +148,7 @@ function _bindInputs() {
   const lab = document.getElementById('cp-label');
   if (lab) lab.addEventListener('input', e => { _cp().label = e.target.value; });
   const act = document.getElementById('cp-activity');
-  if (act) act.addEventListener('change', e => {
-    _cp().activityId = e.target.value;
-    const opt = e.target.selectedOptions[0];
-    _cp().activityName = opt ? opt.dataset.name || '' : '';
-  });
+  if (act) act.addEventListener('input', () => { _cp().activityId = act.value.trim(); _showActivityMatch(); });
 }
 
 async function _loadActivities() {
@@ -156,24 +156,42 @@ async function _loadActivities() {
     const data = await _post('api/claims/activities', _basePaths());
     if (!data.ok) { showError(data.error || 'Could not read the schedule activities.'); return; }
     _cp().activities = data.activities || [];
-    _fillActivitySelect();
+    _renderWorkspace();   // refresh the count + placeholder now the list is in
   } catch { showError('Could not reach the local server. Try restarting the app.'); }
 }
 
-function _fillActivitySelect() {
-  const sel = document.getElementById('cp-activity');
+// Populate the type-ahead datalist with non-milestone activities: value = Activity ID
+// (so typing the ID filters natively), label = the activity name for context.
+function _fillActivityList() {
+  const list = document.getElementById('cp-activity-list');
   const cp = _cp();
-  if (!sel || !cp.activities) return;
-  const opts = cp.activities.filter(a => !a.is_milestone).map(a =>
-    `<option value="${escapeHtml(a.id)}" data-name="${escapeHtml(a.name)}" ${a.id === cp.activityId ? 'selected' : ''}>${escapeHtml(a.id)} — ${escapeHtml(a.name)}</option>`).join('');
-  sel.innerHTML = `<option value="">— pick an activity —</option>${opts}`;
+  if (!list || !cp.activities) return;
+  list.innerHTML = cp.activities.filter(a => !a.is_milestone).map(a =>
+    `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`).join('');
+  _showActivityMatch();
+}
+
+// Confirm the typed ID under the box: the matched activity's name + WBS, or a gentle hint.
+function _showActivityMatch() {
+  const cp = _cp();
+  const el = document.getElementById('cp-activity-match');
+  if (!el) return;
+  const a = matchActivity(cp.activities, cp.activityId);
+  cp.activityName = a ? a.name : '';
+  if (a) {
+    el.innerHTML = `<span class="cp-ok">✓ ${escapeHtml(a.name)}${a.wbs_path ? ' <span class="cp-wbs">— ' + escapeHtml(a.wbs_path) + '</span>' : ''}</span>`;
+  } else if ((cp.activityId || '').trim()) {
+    el.innerHTML = `<span class="cp-warn">No activity with ID “${escapeHtml(cp.activityId)}” — keep typing to see matches.</span>`;
+  } else {
+    el.innerHTML = '';
+  }
 }
 
 // ── step 2: build the impacted XML ──────────────────────────────────────────
 async function _generateScenario() {
   const cp = _cp();
   clearError();
-  if (!cp.activityId) { showError('Pick the delayed activity first.'); return; }
+  if (!matchActivity(cp.activities, cp.activityId)) { showError('Type a valid Activity ID for the delayed activity.'); return; }
   const days = parseInt(cp.delayDays, 10);
   if (!days || days < 1) { showError('Enter a delay of at least one working day.'); return; }
   const safe = (cp.activityId || 'activity').replace(/[^A-Za-z0-9_-]+/g, '_');
