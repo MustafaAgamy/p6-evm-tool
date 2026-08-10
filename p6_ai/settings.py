@@ -9,7 +9,9 @@ import os
 
 from utils import app_data_dir
 
-DEFAULT_MODEL = 'claude-opus-5'
+# Cost-efficient high-quality default for construction reasoning; overridable via
+# ai_settings.json "model" (e.g. "claude-opus-5" for maximum quality).
+DEFAULT_MODEL = 'claude-sonnet-5'
 
 
 def _default_path():

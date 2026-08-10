@@ -216,6 +216,9 @@ function renderSetup(note) {
       <div class="ai-prompt-d">This is the one feature that uses a cloud AI. Paste your <b>Anthropic API key</b> —
         it's stored only on this machine and used only for the review you run.
         Get one at <span class="mono">console.anthropic.com</span>.</div>
+      <div class="ai-privacy">💡 <b>The app is free — you only pay for AI you run.</b> A review costs roughly
+        <b>5–15¢</b> on a cost-efficient high-quality model, and nothing is charged unless you press Run.
+        Tip: set a monthly spending cap on your Anthropic account so it can never surprise you.</div>
       ${note ? `<div class="ai-privacy" style="border-left-color:var(--warning)">${escapeHtml(note)}</div>` : ''}
       <div class="ai-key-row">
         <input type="password" id="ai-key-input" class="ai-key-input" placeholder="sk-ant-…" autocomplete="off">

@@ -21,6 +21,6 @@ def test_blank_key_reads_as_none(tmp_path):
 
 def test_config_defaults(tmp_path):
     cfg = settings.get_config(str(tmp_path / 'missing.json'))
-    assert cfg['model'] == 'claude-opus-5'
+    assert cfg['model'] == 'claude-sonnet-5'
     assert cfg['effort'] == 'medium'
     assert cfg['ai'] == {}

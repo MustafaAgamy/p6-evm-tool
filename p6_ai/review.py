@@ -32,7 +32,7 @@ def _ensure_unique_ids(missing, existing_ids):
 def run_review(data, api_key, *, reference_data=None, cfg=None, _call=None):
     """Return the report dict for ``data`` (a ScheduleData). ``_call`` is a test seam."""
     cfg = cfg or {}
-    model = cfg.get('model', 'claude-opus-5')
+    model = cfg.get('model', 'claude-sonnet-5')
     effort = cfg.get('effort', 'medium')
     ai_cfg = cfg.get('ai') or {}
 
