@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Cement Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["cement", "kiln", "clinker", "preheater", "raw mill", "cement mill", "rotary kiln",
+                 "cooler", "refractory", "silo", "crusher", "calciner", "packing plant"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "pile", "raft"]},
+    {"name": "Structural Steel", "keywords": ["steel", "structure", "preheater tower", "erection"]},
+    {"name": "Mechanical Equipment", "keywords": ["kiln", "mill", "crusher", "cooler", "fan", "mechanical", "cyclone"]},
+    {"name": "Refractory", "keywords": ["refractory", "lining", "brick", "castable"]},
+    {"name": "Electrical & Instrumentation", "keywords": ["electrical", "instrumentation", "e&i", "mcc", "control"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "no-load", "heat-up", "kiln firing"]},
+    {"name": "Performance & Handover", "keywords": ["performance", "guarantee", "handover", "pg test"]}
+  ],
+  "activities": [
+    {"name": "Refractory Lining", "keywords": ["refractory", "lining", "brick"], "wbs": "Refractory",
+     "typical_pred": "Kiln Erection", "typical_succ": "Kiln Heat-up", "duration_days": 30,
+     "why": "Kiln, preheater and cooler are refractory-lined after erection and before firing — a critical gate."},
+    {"name": "No-load / Cold Commissioning", "keywords": ["no-load", "no load", "cold commission"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Mechanical Completion", "typical_succ": "Kiln Heat-up", "duration_days": 20,
+     "why": "Rotating equipment is run on no-load to prove mechanical/electrical readiness before firing."},
+    {"name": "Kiln Heat-up / Firing", "keywords": ["heat-up", "heat up", "kiln firing", "first firing"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Refractory Lining", "typical_succ": "Performance Test", "duration_days": 10,
+     "why": "Controlled kiln heat-up follows refractory cure and no-load runs; firing before refractory is done ruins the lining."},
+    {"name": "Performance Guarantee Test", "keywords": ["performance", "pg test", "guarantee test"], "wbs": "Performance & Handover",
+     "typical_pred": "Kiln Firing", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A PG test proves clinker/cement output and quality before taking over."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["refractory", "lining"], "after_keywords": ["heat-up", "heat up", "firing", "kiln fir"],
+     "reason": "Kiln firing / heat-up must follow refractory lining and cure, not before.",
+     "impact": "Critical"},
+    {"before_keywords": ["no-load", "no load", "cold commission"], "after_keywords": ["heat-up", "firing", "load run"],
+     "reason": "No-load commissioning precedes heat-up and load running.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["erection", "install", "mechanical completion"], "after_keywords": ["commission", "no-load", "firing"],
+     "reason": "Commissioning follows mechanical completion of the equipment.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Kiln Heat-up", "First Clinker", "PG Test / Handover"],
+  "common_issues": ["Kiln firing before refractory cure", "No no-load / cold commissioning",
+                    "Missing refractory scope", "Commissioning before mechanical completion"]
+}

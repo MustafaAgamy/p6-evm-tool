@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Mining & Mineral Processing",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["mining", "mineral", "processing plant", "crusher", "sag mill", "ball mill", "flotation",
+                 "leach", "conveyor", "stacker", "reclaimer", "tailings", "concentrator", "ore", "beneficiation"],
+  "wbs": [
+    {"name": "Earthworks & Civil", "keywords": ["earthwork", "civil", "foundation", "pad", "bulk earthwork"]},
+    {"name": "Structural Steel", "keywords": ["steel", "structure", "erection", "platework"]},
+    {"name": "Crushing & Grinding", "keywords": ["crusher", "sag mill", "ball mill", "grinding", "mill"]},
+    {"name": "Processing", "keywords": ["flotation", "leach", "cip", "concentrator", "thickener", "process"]},
+    {"name": "Materials Handling", "keywords": ["conveyor", "stacker", "reclaimer", "materials handling", "stockpile"]},
+    {"name": "Electrical & Control", "keywords": ["electrical", "control", "e&i", "instrumentation", "mcc"]},
+    {"name": "Tailings & Water", "keywords": ["tailings", "tsf", "water", "pipeline", "dam"]},
+    {"name": "Testing, Commissioning & Ramp-up", "keywords": ["test", "commission", "dry", "wet", "ramp-up", "nameplate"]}
+  ],
+  "activities": [
+    {"name": "Mill Installation", "keywords": ["mill install", "sag mill", "ball mill"], "wbs": "Crushing & Grinding",
+     "typical_pred": "Structural Steel", "typical_succ": "Dry Commissioning", "duration_days": 40,
+     "why": "Grinding mills are heavy long-lead installs that gate the processing line."},
+    {"name": "Dry (No-load) Commissioning", "keywords": ["dry commission", "no-load", "no load"], "wbs": "Testing, Commissioning & Ramp-up",
+     "typical_pred": "Mechanical Completion", "typical_succ": "Wet Commissioning", "duration_days": 20,
+     "why": "Dry/no-load commissioning proves the equipment before introducing ore/slurry."},
+    {"name": "Wet Commissioning", "keywords": ["wet commission", "first ore", "slurry"], "wbs": "Testing, Commissioning & Ramp-up",
+     "typical_pred": "Dry Commissioning", "typical_succ": "Ramp-up", "duration_days": 30,
+     "why": "Wet commissioning introduces water/ore and proves the process before ramp-up."},
+    {"name": "Ramp-up to Nameplate", "keywords": ["ramp-up", "ramp up", "nameplate", "capacity"], "wbs": "Testing, Commissioning & Ramp-up",
+     "typical_pred": "Wet Commissioning", "typical_succ": "Handover", "duration_days": 60,
+     "why": "Ramp-up to nameplate capacity follows wet commissioning and precedes final acceptance."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["dry commission", "no-load", "no load"], "after_keywords": ["wet commission", "first ore", "slurry"],
+     "reason": "Wet commissioning follows dry/no-load commissioning.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation", "mechanical completion"], "after_keywords": ["commission", "dry commission"],
+     "reason": "Commissioning follows mechanical completion of the plant.",
+     "impact": "Critical"},
+    {"before_keywords": ["wet commission", "commission"], "after_keywords": ["ramp-up", "ramp up", "nameplate"],
+     "reason": "Ramp-up to nameplate follows wet commissioning.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Dry Commissioning", "Wet Commissioning / First Ore", "Ramp-up to Nameplate"],
+  "common_issues": ["Wet commissioning before dry commissioning", "Missing tailings / water infrastructure",
+                    "No ramp-up plan", "Commissioning before mechanical completion"]
+}

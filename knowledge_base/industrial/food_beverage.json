@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Food & Beverage Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["food", "beverage", "dairy", "brewery", "bottling", "processing line", "hygienic", "cip",
+                 "clean-in-place", "filler", "packaging line", "cold store", "pasteur", "haccp"],
+  "wbs": [
+    {"name": "Civil & Structure", "keywords": ["civil", "structure", "foundation", "frame"]},
+    {"name": "Hygienic Envelope & Finishes", "keywords": ["envelope", "hygienic", "cladding", "epoxy", "wall panel", "floor"]},
+    {"name": "Process Equipment & Lines", "keywords": ["process line", "filler", "mixer", "tank", "pasteur", "processing"]},
+    {"name": "Packaging Lines", "keywords": ["packaging", "bottling", "labeller", "palletiser", "conveyor"]},
+    {"name": "Utilities & CIP", "keywords": ["utilities", "cip", "clean-in-place", "steam", "chilled water", "compressed air"]},
+    {"name": "MEP", "keywords": ["mep", "electrical", "hvac", "refrigeration"]},
+    {"name": "Testing, Commissioning & Trial Production", "keywords": ["test", "commission", "trial", "trial production", "handover"]}
+  ],
+  "activities": [
+    {"name": "Hygienic Finishes", "keywords": ["hygienic", "epoxy floor", "wall panel", "hygienic finish"], "wbs": "Hygienic Envelope & Finishes",
+     "typical_pred": "Building Weathertight", "typical_succ": "Process Equipment Installation", "duration_days": 25,
+     "why": "Food areas need hygienic wall/floor finishes before process equipment installs."},
+    {"name": "CIP (Clean-in-Place) System", "keywords": ["cip", "clean-in-place", "clean in place"], "wbs": "Utilities & CIP",
+     "typical_pred": "Process Equipment Installation", "typical_succ": "Commissioning", "duration_days": 15,
+     "why": "A CIP system is essential for food hygiene and is frequently omitted from the logic."},
+    {"name": "Line Commissioning", "keywords": ["commission", "line commissioning"], "wbs": "Testing, Commissioning & Trial Production",
+     "typical_pred": "Utilities & CIP", "typical_succ": "Trial Production", "duration_days": 20,
+     "why": "Process and packaging lines are commissioned after utilities and CIP are ready."},
+    {"name": "Trial Production Run", "keywords": ["trial production", "trial run", "product run"], "wbs": "Testing, Commissioning & Trial Production",
+     "typical_pred": "Line Commissioning", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A trial production run proves the plant meets output and quality before taking over."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["hygienic", "epoxy", "wall panel", "finishes"], "after_keywords": ["process equipment", "process line", "equipment install"],
+     "reason": "Process equipment installs after hygienic finishes are in place.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["utilities", "cip", "install"], "after_keywords": ["commission", "commissioning"],
+     "reason": "Commissioning follows utilities/CIP and equipment installation.",
+     "impact": "Critical"},
+    {"before_keywords": ["commission", "commissioning"], "after_keywords": ["trial production", "trial run", "handover"],
+     "reason": "Trial production follows line commissioning.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Equipment Complete", "Commissioning", "Trial Production", "Handover"],
+  "common_issues": ["Process equipment before hygienic finishes", "Missing CIP system",
+                    "No trial production run", "Utilities not sequenced before commissioning"]
+}

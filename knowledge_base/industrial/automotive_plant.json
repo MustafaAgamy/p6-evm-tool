@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Automotive / Assembly Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["automotive", "assembly plant", "assembly line", "body shop", "paint shop", "stamping",
+                 "conveyor", "robot", "agv", "production line", "start of production", "sop", "jig", "fixture"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "slab", "pit"]},
+    {"name": "Structural Steel / Building", "keywords": ["steel", "building", "structure", "large span", "crane"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "cladding", "roof", "weathertight"]},
+    {"name": "Paint Shop", "keywords": ["paint shop", "paint", "e-coat", "booth", "oven"]},
+    {"name": "Body Shop & Assembly Line", "keywords": ["body shop", "assembly line", "robot", "conveyor", "line install"]},
+    {"name": "Utilities & MEP", "keywords": ["utilities", "mep", "compressed air", "power", "hvac"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "line commission", "pre-series"]},
+    {"name": "Start of Production (SOP)", "keywords": ["sop", "start of production", "ramp-up", "job 1"]}
+  ],
+  "activities": [
+    {"name": "Paint Shop Installation", "keywords": ["paint shop", "e-coat", "paint booth"], "wbs": "Paint Shop",
+     "typical_pred": "Building Weathertight", "typical_succ": "Line Commissioning", "duration_days": 60,
+     "why": "The paint shop is a specialised long-lead package with its own booths, ovens and ventilation."},
+    {"name": "Production Line & Robot Installation", "keywords": ["line install", "robot install", "conveyor install"], "wbs": "Body Shop & Assembly Line",
+     "typical_pred": "Building Weathertight", "typical_succ": "Line Commissioning", "duration_days": 50,
+     "why": "Conveyors, robots and jigs install into the completed building and gate production."},
+    {"name": "Line Commissioning", "keywords": ["line commission", "commissioning"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Line Installation", "typical_succ": "Pre-series / SOP", "duration_days": 30,
+     "why": "The line is commissioned after installation and before pre-series production."},
+    {"name": "Pre-series / Start of Production", "keywords": ["pre-series", "pre series", "sop", "job 1"], "wbs": "Start of Production (SOP)",
+     "typical_pred": "Line Commissioning", "typical_succ": "Ramp-up", "duration_days": 30,
+     "why": "Pre-series builds prove the line before SOP; SOP follows commissioning."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["envelope", "cladding", "weathertight"], "after_keywords": ["line install", "robot", "paint shop", "conveyor"],
+     "reason": "Line and paint-shop installation follow a weathertight building.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "line commission"],
+     "reason": "Line commissioning follows installation of the equipment.",
+     "impact": "Critical"},
+    {"before_keywords": ["commission", "pre-series", "pre series"], "after_keywords": ["sop", "start of production", "job 1"],
+     "reason": "Start of Production follows commissioning and pre-series builds.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Building Weathertight", "Line Installation Complete", "Line Commissioning", "Start of Production (SOP)"],
+  "common_issues": ["Line install before weathertight building", "Paint shop special systems missing",
+                    "No pre-series before SOP", "Commissioning skipped before production"]
+}

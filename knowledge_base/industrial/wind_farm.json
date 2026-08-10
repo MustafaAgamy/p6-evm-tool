@@ -1,0 +1,44 @@
+{
+  "category": "Industrial",
+  "type": "Wind Farm",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["wind", "wind farm", "turbine", "wtg", "nacelle", "blade", "hub", "tower section", "crane pad",
+                 "foundation", "array cable", "substation", "energization", "commissioning", "availability"],
+  "wbs": [
+    {"name": "Civil & Access Roads", "keywords": ["access road", "civil", "crane pad", "hardstand", "grading"]},
+    {"name": "Turbine Foundations", "keywords": ["foundation", "anchor cage", "pedestal", "concrete pour"]},
+    {"name": "Array Cabling", "keywords": ["array cable", "collector", "cabling", "trench"]},
+    {"name": "Substation & Grid", "keywords": ["substation", "grid", "collector substation", "interconnection", "switchgear"]},
+    {"name": "Turbine Delivery & Erection", "keywords": ["delivery", "erection", "tower section", "nacelle", "blade", "hub", "crane"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "energ", "availability", "handover"]}
+  ],
+  "activities": [
+    {"name": "Crane Pads & Access", "keywords": ["crane pad", "hardstand", "access road"], "wbs": "Civil & Access Roads",
+     "typical_pred": "Site Mobilisation", "typical_succ": "Turbine Erection", "duration_days": 40,
+     "why": "Heavy-lift crane pads and access roads must exist before turbine components can be erected — often underestimated."},
+    {"name": "Turbine Foundation", "keywords": ["foundation", "anchor cage", "concrete pour"], "wbs": "Turbine Foundations",
+     "typical_pred": "Excavation", "typical_succ": "Turbine Erection", "duration_days": 30,
+     "why": "Foundations must be poured and cured before turbine erection."},
+    {"name": "Turbine Erection (WTG)", "keywords": ["erection", "wtg", "tower section", "nacelle", "blade"], "wbs": "Turbine Delivery & Erection",
+     "typical_pred": "Foundation & Crane Pad", "typical_succ": "Commissioning", "duration_days": 30,
+     "why": "Tower, nacelle and blades erect onto a cured foundation with crane access in place."},
+    {"name": "Grid Energization & Commissioning", "keywords": ["energ", "commission", "grid connection"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Array Cabling & Substation", "typical_succ": "Availability Test", "duration_days": 20,
+     "why": "Turbines are commissioned after array cabling and the collector substation are energized."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["foundation", "crane pad", "hardstand", "access road"], "after_keywords": ["erection", "wtg", "turbine erect"],
+     "reason": "Turbine erection follows cured foundations and crane pads/access.",
+     "impact": "Critical"},
+    {"before_keywords": ["array cable", "substation", "grid connection"], "after_keywords": ["energ", "energization", "commission"],
+     "reason": "Energization and commissioning follow array cabling and the collector substation.",
+     "impact": "Critical"},
+    {"before_keywords": ["commission", "energ"], "after_keywords": ["availability", "handover", "cod"],
+     "reason": "The availability/reliability test follows commissioning.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Foundations Complete", "WTG Erection Complete", "Energization", "Availability Test / COD"],
+  "common_issues": ["Erection before foundation cure", "Missing crane pads / access roads",
+                    "No grid connection sequenced", "No commissioning / availability test"]
+}

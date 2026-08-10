@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Steel Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["steel plant", "steelworks", "blast furnace", "eaf", "electric arc", "caster", "rolling mill",
+                 "ladle", "converter", "hot strip", "billet", "refractory", "tundish", "hot commissioning"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "pile", "heavy foundation"]},
+    {"name": "Structural Steel", "keywords": ["steel structure", "building", "erection", "crane girder"]},
+    {"name": "Mechanical Equipment", "keywords": ["furnace", "eaf", "caster", "rolling mill", "ladle", "mechanical"]},
+    {"name": "Refractory", "keywords": ["refractory", "lining", "furnace lining"]},
+    {"name": "Utilities", "keywords": ["utilities", "gas", "water", "oxygen", "compressed air", "power supply"]},
+    {"name": "Electrical & Automation", "keywords": ["electrical", "automation", "level 2", "control", "drives"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "cold commission", "hot commission", "first heat"]}
+  ],
+  "activities": [
+    {"name": "Furnace Refractory Lining", "keywords": ["refractory", "furnace lining"], "wbs": "Refractory",
+     "typical_pred": "Furnace Erection", "typical_succ": "Hot Commissioning", "duration_days": 25,
+     "why": "Furnaces, ladles and casters are refractory-lined after erection and before hot commissioning."},
+    {"name": "Utilities Availability", "keywords": ["utilities", "gas available", "oxygen", "power supply"], "wbs": "Utilities",
+     "typical_pred": "Utilities Installation", "typical_succ": "Hot Commissioning", "duration_days": 15,
+     "why": "Gas, oxygen, water and power must be live before hot commissioning of the melt shop."},
+    {"name": "Cold Commissioning", "keywords": ["cold commission", "no-load", "dry run"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Mechanical Completion", "typical_succ": "Hot Commissioning", "duration_days": 20,
+     "why": "Cold commissioning proves mechanical/electrical/automation before introducing molten metal."},
+    {"name": "Hot Commissioning / First Heat", "keywords": ["hot commission", "first heat", "first cast"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Cold Commissioning", "typical_succ": "Ramp-up", "duration_days": 20,
+     "why": "First heat/cast follows cold commissioning, refractory readiness and live utilities."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["cold commission", "no-load", "dry run"], "after_keywords": ["hot commission", "first heat", "first cast"],
+     "reason": "Hot commissioning / first heat must follow cold commissioning.",
+     "impact": "Critical"},
+    {"before_keywords": ["utilities", "gas", "oxygen", "power supply"], "after_keywords": ["hot commission", "first heat"],
+     "reason": "Hot commissioning depends on live utilities being available first.",
+     "impact": "Critical"},
+    {"before_keywords": ["refractory", "lining"], "after_keywords": ["hot commission", "first heat"],
+     "reason": "Furnaces must be refractory-lined before molten operation.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Cold Commissioning", "First Heat / Cast", "Ramp-up"],
+  "common_issues": ["Hot commissioning before utilities available", "No cold commissioning",
+                    "Missing furnace refractory", "Automation (Level 2) not commissioned"]
+}

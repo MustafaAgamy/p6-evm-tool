@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Solar PV Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["solar", "pv", "photovoltaic", "module", "panel", "inverter", "mounting structure", "tracker",
+                 "string", "dc cable", "combiner", "grid connection", "performance ratio", "energization"],
+  "wbs": [
+    {"name": "Civil & Access", "keywords": ["civil", "access road", "grading", "fencing", "site"]},
+    {"name": "Mounting Structures & Piling", "keywords": ["mounting", "structure", "pile", "tracker", "ramming"]},
+    {"name": "PV Modules", "keywords": ["module", "panel", "pv", "mounting module"]},
+    {"name": "DC Cabling", "keywords": ["dc cable", "string", "combiner", "dc"]},
+    {"name": "Inverters & Transformers", "keywords": ["inverter", "transformer", "power station", "skid"]},
+    {"name": "Substation & Grid", "keywords": ["substation", "grid", "mv", "hv", "switchgear", "interconnection"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "string test", "iv", "energ", "performance ratio"]}
+  ],
+  "activities": [
+    {"name": "Pile Testing", "keywords": ["pile test", "pull-out test", "ramming test"], "wbs": "Mounting Structures & Piling",
+     "typical_pred": "Geotechnical Survey", "typical_succ": "Mounting Structures", "duration_days": 10,
+     "why": "Pile pull-out/load tests confirm the mounting design before mass piling."},
+    {"name": "String / IV Testing", "keywords": ["string test", "iv test", "iv curve"], "wbs": "Testing & Commissioning",
+     "typical_pred": "DC Cabling", "typical_succ": "Inverter Commissioning", "duration_days": 20,
+     "why": "String and IV-curve testing proves the DC arrays before inverter commissioning."},
+    {"name": "Grid Connection / Interconnection", "keywords": ["grid connection", "interconnection", "utility connection"], "wbs": "Substation & Grid",
+     "typical_pred": "Substation SAT", "typical_succ": "Energization", "duration_days": 20,
+     "why": "The grid interconnection and its agreement gate energization — commonly underestimated."},
+    {"name": "Performance Ratio (PR) Test", "keywords": ["performance ratio", "pr test", "capacity test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Energization", "typical_succ": "COD", "duration_days": 15,
+     "why": "A PR/capacity test proves output against guarantee before commercial operation."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["pile", "mounting", "structure"], "after_keywords": ["module", "panel", "mounting module"],
+     "reason": "Modules mount onto completed piling/mounting structures.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["substation", "sat", "grid connection", "interconnection"], "after_keywords": ["energ", "energization"],
+     "reason": "Energization follows substation acceptance and grid interconnection.",
+     "impact": "Critical"},
+    {"before_keywords": ["string test", "iv", "commission"], "after_keywords": ["energ", "performance ratio", "pr test", "cod"],
+     "reason": "Energization and PR testing follow string testing and inverter commissioning.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Grid Connection", "Energization", "PR Test / COD"],
+  "common_issues": ["Energization before substation SAT / grid connection", "Missing string / IV testing",
+                    "No PR / performance test", "Grid interconnection not sequenced"]
+}
