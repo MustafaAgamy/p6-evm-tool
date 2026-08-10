@@ -48,6 +48,25 @@ def test_project_name_from_root_wbs(tmp_path):
     assert data.project['id'] == 'TOWER33'       # short code stays in id
 
 
+def test_xer_remaining_duration(tmp_path):
+    # remain_drtn_hr_cnt → remaining_duration (hours); target_drtn_hr_cnt → planned_duration.
+    sample = (
+        "ERMHDR\t19.12\n"
+        "%T\tPROJECT\n%F\tproj_id\tproj_short_name\tlast_recalc_date\n%R\t1\tP1\t2026-07-24 00:00\n"
+        "%T\tCALENDAR\n%F\tclndr_id\tclndr_name\tday_hr_cnt\n%R\t10\t8hr\t8\n"
+        "%T\tPROJWBS\n%F\twbs_id\twbs_name\tparent_wbs_id\tproj_node_flag\n%R\t100\tProj\t\tY\n"
+        "%T\tTASK\n"
+        "%F\ttask_id\tproj_id\twbs_id\tclndr_id\ttask_type\ttask_code\ttask_name\ttarget_drtn_hr_cnt\tremain_drtn_hr_cnt\n"
+        "%R\t1001\t1\t100\t10\tTT_Task\tA1\tTask A\t80\t48\n"
+        "%E\n"
+    )
+    p = tmp_path / "s.xer"; p.write_text(sample, encoding='cp1252')
+    data = parse_xer(str(p))
+    a = data.activities['1001']
+    assert a['planned_duration'] == 80.0
+    assert a['remaining_duration'] == 48.0
+
+
 def test_non_zero_lag_divided_by_day_hours(tmp_path):
     # C2: 16 hr lag on a 10 hr/day calendar should produce lag_days = 1.6
     # Using 10 hr/day (not the 8 hr default) so a wrong fallback-to-8 would give 2.0 instead
@@ -66,4 +85,5 @@ def test_non_zero_lag_divided_by_day_hours(tmp_path):
     p = tmp_path / "lag.xer"; p.write_text(sample, encoding='cp1252')
     data = parse_xer(str(p))
     assert data.relationships[0]['lag_days'] == 1.6   # 16 hr / 10 hr per day
+    assert data.relationships[0]['lag_hours'] == 16.0  # raw hours preserved for the corrected-XML writer
     assert data.activities['1002']['total_float_days'] == 10.0   # 100 hr / 10 hr per day

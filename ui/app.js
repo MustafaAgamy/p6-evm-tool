@@ -4,6 +4,7 @@ import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, e
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
+import { renderComparePanel }                  from './modules/compare.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -45,14 +46,16 @@ document.addEventListener('DOMContentLoaded', () => {
       switchView(card.dataset.view);
       // XER + EVM → prompt to import the baseline first so results match the XML/P6 exactly
       if (card.dataset.view === 'evm') maybePromptBaseline(state.currentResult);
+      if (card.dataset.view === 'compare') renderComparePanel();
     }));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
-  // View tabs (EVM ⇄ Schedule Audit ⇄ Out of Sequence ⇄ Calendar Audit)
+  // View tabs (EVM ⇄ Schedule Audit ⇄ Out of Sequence ⇄ Calendar Audit ⇄ Consultant Review)
   document.getElementById('tab-evm').addEventListener('click', () => { switchView('evm'); maybePromptBaseline(state.currentResult); });
   document.getElementById('tab-audit').addEventListener('click', () => switchView('audit'));
   document.getElementById('tab-oos').addEventListener('click', () => switchView('oos'));
   document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
+  document.getElementById('tab-compare').addEventListener('click', () => { switchView('compare'); renderComparePanel(); });
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {

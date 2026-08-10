@@ -39,7 +39,7 @@ class ScheduleData:
         self.bac_by_activity = {}  # ActivityObjectId -> planned cost (current update)
         self.baseline_bac_by_activity = {}  # ActivityObjectId -> BASELINE budget (BAC) — P6's cost basis for PV/EV/%-rollup
         self.ac_by_activity = {}   # ActivityObjectId -> actual cost
-        self.relationships = []    # list of {pred_id, succ_id, type, lag_days}
+        self.relationships = []    # list of {pred_id, succ_id, type, lag_days, lag_hours}
         self.activity_code_types = []  # available activity-code dimensions, e.g. ['Type of Works', ...]
 
 
@@ -230,6 +230,7 @@ def parse_file(path) -> ScheduleData:
             'wbs_id': text(act_el, 'WBSObjectId'),
             'percent_complete': parse_float(text(act_el, 'PercentComplete')),
             'planned_duration': parse_float(text(act_el, 'PlannedDuration')),
+            'remaining_duration': parse_float(text(act_el, 'RemainingDuration')),
             'planned_start': parse_datetime(text(act_el, 'PlannedStartDate')),
             'planned_finish': parse_datetime(text(act_el, 'PlannedFinishDate')),
             'remaining_early_start': parse_datetime(text(act_el, 'RemainingEarlyStartDate')),
@@ -300,6 +301,7 @@ def parse_file(path) -> ScheduleData:
             'pred_id': pred, 'succ_id': succ,
             'type': XML_REL_TYPE.get(text(rel_el, 'Type'), 'FS'),
             'lag_days': (lag_hours or 0.0) / day_hours,
+            'lag_hours': lag_hours or 0.0,
         })
 
     return data

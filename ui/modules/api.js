@@ -24,6 +24,8 @@ export async function importFile(filePath, { showSpinner = true } = {}) {
     state.currentXmlPath     = filePath;
     state.currentCachedPath  = data.cached_path || null;
     state.currentSnapshotId  = data.snapshot_id || null;
+    state.compareReport      = null;   // a new schedule invalidates any prior comparison
+    state.compareBaselineName = null;
     renderResults(data.result, filePath, { previousImport: data.previous_import || null });
     await loadHistory();
   } catch {
@@ -62,6 +64,8 @@ export async function loadProject(projectId, filePath, cachedPath) {
     state.currentXmlPath     = filePath   || data.original_path || '';
     state.currentCachedPath  = cachedPath || data.cached_path   || null;
     state.currentSnapshotId  = data.snapshot_id || null;
+    state.compareReport      = null;   // a different project invalidates any prior comparison
+    state.compareBaselineName = null;
     renderResults(data.result, state.currentXmlPath || cachedPath || '');
   } catch {
     showError('Could not reach the local server. Try restarting the app.');

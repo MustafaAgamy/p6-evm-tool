@@ -38,6 +38,16 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_parse(body)
         elif self.path == '/api/report':
             self._handle_report(body)
+        elif self.path == '/api/compare':
+            self._handle_compare(body)
+        elif self.path == '/api/compare/corrected-xml':
+            self._handle_corrected_xml(body)
+        elif self.path == '/api/compare/before-after':
+            self._handle_before_after(body)
+        elif self.path == '/api/compare/excel':
+            self._handle_compare_excel(body)
+        elif self.path == '/api/compare/report':
+            self._handle_compare_report(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -297,6 +307,152 @@ class Handler(BaseHTTPRequestHandler):
             os.unlink(html_path)
             self._json(200, {'ok': True})
 
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/compare ───────────────────────────────────────────────────────
+    def _handle_compare(self, body):
+        """Consultant Review — Baseline vs Current Update. Parses a baseline
+        (XER/XML) and an update (XML/XER) and returns the comparison report dict:
+        driving logic & lag changes, duration changes, change summary, milestones.
+        The report carries no `records`; nothing is written to the schedule."""
+        baseline_path = body.get('baseline_path', '')
+        # The update is the currently-open schedule — resolve original → cached like the
+        # other routes, so a project reopened from history (original moved) still compares.
+        update_path = db.resolve_xml_path(body.get('update_path', ''), body.get('cached_path'))
+        if not baseline_path or not os.path.isfile(baseline_path):
+            self._json(200, {'ok': False, 'error': f'Baseline file not found: {baseline_path}'})
+            return
+        if not update_path:
+            self._json(200, {'ok': False, 'error': 'Update schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_compare.report import build_report
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            report = build_report(baseline_path, update_path, config)
+            report['baseline_file'] = os.path.basename(baseline_path)
+            report['update_file'] = os.path.basename(update_path)
+            self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/compare/corrected-xml ────────────────────────────────────────
+    def _handle_corrected_xml(self, body):
+        """Consultant Review — write the corrected 'but-for' XML: revert the selected
+        relationship / lag / duration changes back to baseline, leaving every actual
+        untouched. P6 does the F9. The update must be a P6 XML export. Nothing is
+        written to the user's own schedule — a separate file is produced."""
+        baseline_path = body.get('baseline_path', '')
+        update_path = db.resolve_xml_path(body.get('update_path', ''), body.get('cached_path'))
+        output_path = body.get('output_path', '')
+        selected_ids = body.get('selected_ids')   # None → revert everything
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not baseline_path or not os.path.isfile(baseline_path):
+            self._json(200, {'ok': False, 'error': f'Baseline file not found: {baseline_path}'})
+            return
+        if not update_path or not os.path.isfile(update_path):
+            self._json(200, {'ok': False, 'error': 'Update schedule not available. Re-import it first.'})
+            return
+        if not update_path.lower().endswith('.xml'):
+            self._json(200, {'ok': False, 'error': 'The corrected file is written as P6 XML — re-export the current '
+                                                    'update from P6 as an XML file and open it, then try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_compare.revert import write_corrected_from_paths
+            note = ('Consultant Review — BUT-FOR analysis file. Relationships, lags and durations reverted '
+                    'to baseline to reveal the genuine delay after F9 in P6. NOT the official schedule.')
+            res = write_corrected_from_paths(
+                baseline_path, os.path.abspath(update_path), os.path.abspath(output_path),
+                selected_ids=selected_ids, note=note)
+            self._json(200, {'ok': True, 'applied': res['applied']})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/compare/before-after ─────────────────────────────────────────
+    def _handle_before_after(self, body):
+        """Consultant Review — the but-for impact. Given the baseline, the update, and
+        the **rescheduled corrected file** (F9-ed in P6, re-exported as XML), returns the
+        delay before/after, manufactured days, forecast completion, per-milestone
+        before/after, and the consultant recommendation. Delay = metrics.compute's
+        finish-milestone float, identical to the EVM tab. Nothing is written."""
+        baseline_path = body.get('baseline_path', '')
+        update_path = db.resolve_xml_path(body.get('update_path', ''), body.get('cached_path'))
+        corrected_path = body.get('corrected_path', '')
+        if not baseline_path or not os.path.isfile(baseline_path):
+            self._json(200, {'ok': False, 'error': f'Baseline file not found: {baseline_path}'})
+            return
+        if not corrected_path or not os.path.isfile(corrected_path):
+            self._json(200, {'ok': False, 'error': f'Rescheduled corrected file not found: {corrected_path}'})
+            return
+        if not update_path or not os.path.isfile(update_path):
+            self._json(200, {'ok': False, 'error': 'Update schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_compare.impact import before_after_from_paths
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            impact = before_after_from_paths(baseline_path, update_path, corrected_path, config)
+            self._json(200, {'ok': True, 'impact': impact})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/compare/excel ────────────────────────────────────────────────
+    def _handle_compare_excel(self, body):
+        """Export the Consultant Review driving-logic change table to .xlsx.
+        Renders from the report dict the client already holds — no re-parse."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_compare.exporters import logic_excel
+            from p6_evm.xlsx_writer import write_xlsx
+            headers, rows = logic_excel(report)
+            write_xlsx(os.path.abspath(output_path), 'Driving Logic Changes', headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/compare/report ───────────────────────────────────────────────
+    def _handle_compare_report(self, body):
+        """Consultant Review PDF (or preview HTML). Renders from the report + optional
+        before/after impact the client holds — no re-parse. Chrome headless → PDF."""
+        report = body.get('report') or {}
+        impact = body.get('impact')
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_compare.exporters import render_html
+            html_content = render_html(report, impact)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            # DEVNULL (not PIPE) so a verbose/large Chrome render can't dead-lock on a full
+            # pipe buffer — that was the "Export PDF does nothing" hang on big schedules.
+            # A timeout turns any remaining hang into a clear error instead of silence.
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
