@@ -13,8 +13,9 @@ def _post_json(port, path, payload):
 
 
 def _update_xml(data_date, acts):
-    """acts: list of (oid, code, name, pct(0-1), finish_iso, dur_hr, start_iso)."""
-    body = ''
+    """A P6 update XML with a BaselineProject (like a real export), so metrics.compute
+    yields a real planned/actual %. acts: (oid, code, name, pct(0-1), finish, dur_hr, start)."""
+    body, baseline, ras = '', '', ''
     for oid, code, name, pct, finish, dur, start in acts:
         body += (f'<Activity><ObjectId>{oid}</ObjectId><Id>{code}</Id><Name>{name}</Name>'
                  f'<Type>Task Dependent</Type><WBSObjectId>100</WBSObjectId><CalendarObjectId></CalendarObjectId>'
@@ -22,10 +23,19 @@ def _update_xml(data_date, acts):
                  f'<PlannedDuration>{dur}</PlannedDuration><RemainingDuration>{dur}</RemainingDuration>'
                  f'<RemainingEarlyStartDate>{start}T00:00:00</RemainingEarlyStartDate>'
                  f'<RemainingEarlyFinishDate>{finish}T00:00:00</RemainingEarlyFinishDate></Activity>\n')
+        # baseline carries each activity's planned dates so planned_pct (and thus actual %) exists
+        baseline += (f'<Activity><ObjectId>{oid + 100}</ObjectId><Id>{code}</Id>'
+                     f'<PlannedStartDate>{start}T00:00:00</PlannedStartDate>'
+                     f'<PlannedFinishDate>{finish}T00:00:00</PlannedFinishDate></Activity>\n')
+        # cost-load the activity so its phase carries weight (a real schedule is cost-loaded;
+        # an uncosted lone WBS gets weight 0 → overall % 0, which would hide the actual-% path)
+        ras += (f'<ResourceAssignment><ActivityObjectId>{oid}</ActivityObjectId>'
+                f'<PlannedCost>{dur * 100}</PlannedCost></ResourceAssignment>\n')
     return ('<?xml version="1.0"?>\n<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
             f'  <Project><ObjectId>1</ObjectId><Id>P1</Id><Name>Proj</Name><DataDate>{data_date}T00:00:00</DataDate>\n'
             '    <WBS><ObjectId>100</ObjectId><Name>Proj</Name><ParentObjectId></ParentObjectId></WBS>\n'
-            f'{body}  </Project>\n</APIBusinessObjects>\n')
+            f'{body}{ras}  </Project>\n'
+            f'  <BaselineProject>\n{baseline}  </BaselineProject>\n</APIBusinessObjects>\n')
 
 
 def _pair(tmp_path):
@@ -52,6 +62,13 @@ def test_period_compare_end_to_end(test_server, tmp_path):
     assert r['progress']['rows'][0]['variance'] == 12.0
     for key in ('summary', 'scurve', 'critical_movement', 'buckets', 'conclusion'):
         assert key in r
+    # Option-B numbers are sane on real parse+compute (not just "it ran"):
+    s = r['summary']
+    assert s['actual_now'] > s['actual_prev'] > 0            # progress moved forward, 0-100 scale
+    assert s['period_earned'] == round(s['actual_now'] - s['actual_prev'], 1)
+    assert s['period_forecast'] > 0                          # previous update scheduled work this window
+    assert s['forecast_achievement'] is not None             # earned / forecast, finite
+    assert 0 <= s['actual_now'] <= 100 and 0 <= s['forecast_at_now'] <= 100
 
 
 def test_period_compare_missing_prev(test_server):
