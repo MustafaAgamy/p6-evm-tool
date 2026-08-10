@@ -6,6 +6,9 @@ from p6_copilot.answers import answer
 
 RESULT = {
     'project_name': 'Metro L3',
+    'data_date': '2025-03-03T00:00:00',
+    'baseline_finish': '2027-01-15T00:00:00',
+    'expected_finish': '2027-03-12T00:00:00',
     'delay_days': 40,
     'spi': 0.85,
     'overall_planned_pct': 0.34,
@@ -42,6 +45,14 @@ def test_why_delayed_management_is_plain_and_points_at_the_driver():
     assert '12%' in t and '34%' in t        # done vs should-be-done
     assert a['advice']                      # advice-first: at least one action
     assert any(e['value'] == '40 working days' for e in a['evidence'])
+
+
+def test_management_answer_is_anchored_to_the_update_date_and_finish_dates():
+    a = answer('why_delayed', build_context(RESULT), 'management')
+    t = _text(a)
+    assert '03-Mar-2025' in a['headline']        # anchored to the update/cutoff date
+    assert '15-Jan-2027' in t and '12-Mar-2027' in t   # planned finish -> forecast finish
+    assert any(e['value'] == '03-Mar-2025' for e in a['evidence'])
 
 
 def test_management_answers_carry_no_p6_jargon():

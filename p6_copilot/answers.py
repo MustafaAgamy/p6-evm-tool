@@ -32,14 +32,23 @@ def why_delayed_mgmt(ctx):
             'evidence': [{'module': 'Delay', 'plain': 'Finish date versus the plan', 'value': f'{delay} working days'}]}
 
     ev = [{'module': 'Delay', 'plain': 'The finish date has slipped by', 'value': f'{delay} working days'}]
-    headline = (f"{ctx['project_name']} is running about {delay} working days behind — "
+    as_of = f"As of the {ctx['data_date']} update, " if ctx.get('data_date') else ""
+    headline = (f"{as_of}{ctx['project_name']} is running about {delay} working days behind — "
                 f"roughly {_weeks(delay)} week(s) late to finish.")
-    body = [f"At today's pace, the project would finish about {delay} working days later than planned."]
+    if ctx.get('baseline_finish') and ctx.get('forecast_finish'):
+        body = [f"The planned finish of **{ctx['baseline_finish']}** has moved to about **{ctx['forecast_finish']}** — "
+                f"roughly {delay} working days later."]
+    else:
+        body = [f"At today's pace, the project would finish about {delay} working days later than planned."]
+    if ctx.get('data_date'):
+        ev.append({'module': 'Update date', 'plain': 'Measured from the latest update', 'value': ctx['data_date']})
     advice = []
     worst = ctx['worst_discipline']
     if worst:
         body.append(f"The main cause is the **{worst['name']}** work: only about **{worst['actual']}%** is done, "
                     f"when about **{worst['planned']}%** should be finished by now — the biggest gap on the project.")
+        body.append(f"That {delay}-working-day figure already assumes **{worst['name']}** finishes on its current forecast; "
+                    f"if **{worst['name']}** keeps slipping past that, the delay grows further.")
         ev.append({'module': 'Progress', 'plain': f"{worst['name']} done versus what should be done",
                    'value': f"{worst['actual']}% vs {worst['planned']}%"})
         advice.append(f"Put the recovery effort into **{worst['name']}** first — it's the single biggest reason the project is late.")
@@ -90,7 +99,8 @@ def health_mgmt(ctx):
     worst = ctx['worst_discipline']
     if worst and worst['gap'] > 0:
         advice.append(f"Watch **{worst['name']}** most closely — it's the furthest behind.")
-    return {'headline': f"Project health: {status}.", 'body': body, 'advice': advice, 'evidence': ev}
+    as_of = f"as of {ctx['data_date']}, " if ctx.get('data_date') else ""
+    return {'headline': f"Project health {as_of}is: {status}.", 'body': body, 'advice': advice, 'evidence': ev}
 
 
 _ANSWERS = {

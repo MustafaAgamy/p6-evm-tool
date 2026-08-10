@@ -2,8 +2,10 @@
 results for the open project, so the offline answer engine can reason across them.
 
 Reads the already-computed result dict (never re-derives a number). Progress figures
-arrive as 0-1 fractions and are surfaced here as whole percents (0-100) ready to speak.
+arrive as 0-1 fractions and are surfaced here as whole percents (0-100) ready to speak;
+dates are surfaced as plain "03-Mar-2025" strings so answers can anchor to the cutoff.
 """
+from datetime import datetime, date
 
 
 def _pct(frac):
@@ -12,6 +14,20 @@ def _pct(frac):
         return round(float(frac) * 100)
     except (TypeError, ValueError):
         return None
+
+
+def _fmt_date(v):
+    """datetime / ISO string -> '03-Mar-2025', or None."""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        try:
+            v = datetime.fromisoformat(v)
+        except ValueError:
+            return v
+    if isinstance(v, (datetime, date)):
+        return v.strftime('%d-%b-%Y')
+    return str(v)
 
 
 def build_context(result):
@@ -35,6 +51,9 @@ def build_context(result):
     spi = result.get('spi')
     return {
         'project_name': result.get('project_name') or 'the project',
+        'data_date': _fmt_date(result.get('data_date')),          # the update/cutoff date
+        'baseline_finish': _fmt_date(result.get('baseline_finish')),
+        'forecast_finish': _fmt_date(result.get('expected_finish')),
         'delay_days': delay,
         'behind': delay is not None and delay > 0,
         'ahead': delay is not None and delay < 0,
