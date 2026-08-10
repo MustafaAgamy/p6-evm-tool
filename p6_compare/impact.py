@@ -151,9 +151,9 @@ def before_after_from_paths(baseline_path, update_path, corrected_path, config=N
     """Route entry: parse the three files, compute both delays with metrics.compute,
     and assemble the before/after impact."""
     from p6_evm.parser import parse_file
-    baseline = parse_file(baseline_path)
-    update = parse_file(update_path)
-    corrected = parse_file(corrected_path)
+    baseline = parse_file(baseline_path, all_projects=True)
+    update = parse_file(update_path, all_projects=True)
+    corrected = parse_file(corrected_path, all_projects=True)
     result = before_after(baseline, update, corrected,
                           _delay(update, config), _delay(corrected, config))
     result['warning'] = check_corrected_file(baseline, update, corrected)

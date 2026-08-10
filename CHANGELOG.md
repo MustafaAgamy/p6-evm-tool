@@ -13,6 +13,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Impact shows the overall completion only** — the long per-milestone list was dropped from the screen and the PDF.
 - **Export PDF / Excel** no longer silently do nothing — they use the report currently on screen (a background re-import used to null the state) and surface any error.
 - **Corrected XML** step now also points out you can apply the reverts **by hand in P6** using the driving logic & lag table, then F9.
+- **Change table rebuilt on the actual relationships** — reads every predecessor and successor straight from the files (never a blank update side, even on a progressed schedule) with the **driving** link highlighted, instead of re-deriving "driving" from dates (which broke on completed activities). The corrected XML now restores **all** relationships and lags to baseline, not just the driving subset.
+- **Multi-project / program exports** — the comparison now reads **all projects** in a file, so a successor that lives in another project is no longer dropped (it showed up as predecessors present but successors blank). EVM/audit still read a single project, unchanged.
+- **Duration table** shows each change's **impact on finish** (Direct / Potential / Float-absorbs, from P6 float).
+- **PDF preview** — Export PDF now shows a fitted preview of the report before writing the file, like the other reports.
 
 ### Added — Baseline for XER updates (EVM now matches the XML exactly)
 - **Attach a baseline to a XER update** — a P6 `.xer` *update* export doesn't carry its baseline, so its Planned Value was only approximate. You can now attach the baseline (the `.xer` exported from the baseline project) after importing the update; the EVM report then matches the XML export and P6 **exactly** — Planned Value, SPI, CPI, Finish Delay and every category, verified to the penny on real projects (Alstom, Saint-Gobain).

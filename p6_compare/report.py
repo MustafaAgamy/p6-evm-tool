@@ -17,10 +17,10 @@ _EXCLUDE_CATEGORIES = ('Engineering', 'Design', 'Procurement')
 _MILESTONE_TYPES = ('StartMilestone', 'FinishMilestone')
 
 _KIND_LABEL = {
-    'lag': 'driving lag changed',
+    'lag': 'lag changed',
     'type': 'relationship type changed',
-    'added_driver': 'driving predecessor added',
-    'removed_driver': 'driving link removed',
+    'added_driver': 'link added',
+    'removed_driver': 'link removed',
     'removed_added': 'link removed + new added',
 }
 _DUR_LABEL = {'extended': 'duration extended', 'not_burning': 'not burning down'}
@@ -123,5 +123,7 @@ def build_report_from_data(baseline, update, config=None):
 
 
 def build_report(baseline_path, update_path, config=None):
-    """Parse a baseline (XER/XML) and update (XML/XER), then build the report."""
-    return build_report_from_data(parse_file(baseline_path), parse_file(update_path), config)
+    """Parse a baseline (XER/XML) and update (XML/XER), then build the report. Reads ALL
+    projects so cross-project relationships in a multi-project export aren't dropped."""
+    return build_report_from_data(parse_file(baseline_path, all_projects=True),
+                                  parse_file(update_path, all_projects=True), config)

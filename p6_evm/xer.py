@@ -88,7 +88,9 @@ def _pct_complete(t):
     return max(0.0, min(1.0, (tgt - rem) / tgt)) if tgt else 0.0
 
 
-def parse_xer(path):
+def parse_xer(path, all_projects=False):
+    """all_projects=True reads every project's tasks/WBS/relationships (the Consultant
+    Review comparison needs cross-project links); default reads only the first project."""
     tables = read_xer_tables(path)
     data = ScheduleData()
 
@@ -127,9 +129,9 @@ def parse_xer(path):
             exception_intervals=cd.get('exception_intervals') or {},
         )
 
-    # Only import WBS nodes belonging to this project
+    # Only import WBS nodes belonging to this project (all projects when all_projects)
     for w in tables.get('PROJWBS', []):
-        if proj_id and w.get('proj_id') not in (None, '', proj_id):
+        if not all_projects and proj_id and w.get('proj_id') not in (None, '', proj_id):
             continue
         data.wbs[w.get('wbs_id')] = {
             'name': w.get('wbs_name'),
@@ -150,8 +152,8 @@ def parse_xer(path):
     data.activity_code_types = sorted(actv_type_name.values())
 
     for t in tables.get('TASK', []):
-        # Skip activities from other projects in multi-project XER exports
-        if proj_id and t.get('proj_id') not in (None, '', proj_id):
+        # Skip activities from other projects in multi-project XER exports (unless all_projects)
+        if not all_projects and proj_id and t.get('proj_id') not in (None, '', proj_id):
             continue
         oid = t.get('task_id')
         cal = data.calendars.get(t.get('clndr_id'))

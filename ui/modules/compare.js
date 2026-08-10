@@ -7,6 +7,7 @@
 import { state }             from './state.js';
 import { showError, clearError } from './render.js';
 import { escapeHtml }        from './format.js';
+import { showReportPreview } from './preview.js';
 
 // ── Pure helpers (unit-tested in tests/js/test_compare.js) ────────────────
 
@@ -214,18 +215,35 @@ async function _withBtn(id, idle, fn) {
 export async function exportComparePdf() {
   const report = _shownReportOrWarn();
   if (!report) return;
-  const outputPath = await window.pywebview.api.choose_save_path('consultant_review.pdf', 'pdf');
-  if (!outputPath) return;
+  const impact = state.compareImpact || _shownImpact || null;
+  const url = `http://localhost:${state.serverPort}/api/compare/report`;
   await _withBtn('cmp-export-pdf', 'Export PDF', async () => {
     try {
-      const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
+      // Preview first — render the report HTML and show it fitted before writing any PDF.
+      const resp = await fetch(url, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath }),
+        body: JSON.stringify({ report, impact, preview: true }),
       });
       const data = await resp.json();
-      if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
+      if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+      showReportPreview({
+        title: 'Consultant Review preview',
+        subtitle: report.project_name || 'Baseline vs Current Update',
+        html: data.html,
+        onSave: async () => {
+          const outputPath = await window.pywebview.api.choose_save_path('consultant_review.pdf', 'pdf');
+          if (!outputPath) return false;
+          const r = await fetch(url, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ report, impact, output_path: outputPath }),
+          });
+          const d = await r.json();
+          if (!d.ok) { showError(`PDF generation failed: ${d.error || 'unknown error'}`); return false; }
+          return true;
+        },
+      });
     } catch {
-      showError('Could not reach the local server to export the PDF.');
+      showError('Could not reach the local server to preview the PDF.');
     }
   });
 }

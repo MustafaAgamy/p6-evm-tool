@@ -152,9 +152,10 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
 
     tree = ET.parse(update_xml_path)
     root = tree.getroot()
-    project = root.find(tag('Project'))
-    if project is None:
+    project_els = root.findall(tag('Project'))
+    if not project_els:
         raise ValueError('No <Project> element in the update XML — cannot build a corrected file.')
+    primary = project_els[0]   # restored (added-back) relationships are appended here
 
     def ctext(el, name):
         c = el.find(tag(name))
@@ -166,23 +167,27 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
             c = ET.SubElement(el, tag(name))
         c.text = value
 
+    # Span EVERY project so a multi-project export is edited across all of them.
     code_to_oid, code_to_actel = {}, {}
-    for a in project.findall(tag('Activity')):
-        code = ctext(a, 'Id')
-        if code:
-            code_to_oid[code] = ctext(a, 'ObjectId')
-            code_to_actel[code] = a
+    for pe in project_els:
+        for a in pe.findall(tag('Activity')):
+            code = ctext(a, 'Id')
+            if code:
+                code_to_oid[code] = ctext(a, 'ObjectId')
+                code_to_actel[code] = a
 
-    rel_by_oids, rel_template, max_rel_oid = {}, None, 0
-    for r in project.findall(tag('Relationship')):
-        rel_by_oids[(ctext(r, 'PredecessorActivityObjectId'),
-                     ctext(r, 'SuccessorActivityObjectId'))] = r
-        if rel_template is None:
-            rel_template = r
-        try:
-            max_rel_oid = max(max_rel_oid, int(ctext(r, 'ObjectId') or 0))
-        except (TypeError, ValueError):
-            pass
+    rel_by_oids, rel_parent, rel_template, max_rel_oid = {}, {}, None, 0
+    for pe in project_els:
+        for r in pe.findall(tag('Relationship')):
+            rel_by_oids[(ctext(r, 'PredecessorActivityObjectId'),
+                         ctext(r, 'SuccessorActivityObjectId'))] = r
+            rel_parent[r] = pe
+            if rel_template is None:
+                rel_template = r
+            try:
+                max_rel_oid = max(max_rel_oid, int(ctext(r, 'ObjectId') or 0))
+            except (TypeError, ValueError):
+                pass
 
     applied = 0
     for op in ops:
@@ -211,7 +216,7 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
         elif kind == 'remove_rel':
             el = rel_by_oids.get((p_oid, s_oid))
             if el is not None:
-                project.remove(el)
+                rel_parent[el].remove(el)
                 applied += 1
         elif kind == 'add_rel':
             new = copy.deepcopy(rel_template) if rel_template is not None else ET.Element(tag('Relationship'))
@@ -221,7 +226,7 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
             set_child(new, 'SuccessorActivityObjectId', s_oid)
             set_child(new, 'Type', _REL_TYPE_XML.get(op['type'], 'Finish to Start'))
             set_child(new, 'Lag', _fmt_hours(op['lag_hours']))
-            project.append(new)
+            primary.append(new)
             applied += 1
 
     if note:
@@ -240,7 +245,8 @@ def ops_from_paths(baseline_path, update_path):
     from p6_audit.graph import ScheduleGraph
     from p6_compare.model import MatchedSchedules
     from p6_compare.diff import driving_link_map, diff_logic, diff_durations
-    baseline, update = parse_file(baseline_path), parse_file(update_path)
+    baseline = parse_file(baseline_path, all_projects=True)
+    update = parse_file(update_path, all_projects=True)
     matched = MatchedSchedules(baseline, update)
     logic = diff_logic(driving_link_map(ScheduleGraph(baseline)),
                        driving_link_map(ScheduleGraph(update)))

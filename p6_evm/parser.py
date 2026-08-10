@@ -66,10 +66,17 @@ def _detect_namespace(path):
     return m.group(1) if m else ''
 
 
-def parse_file(path) -> ScheduleData:
+def parse_file(path, all_projects=False) -> ScheduleData:
+    """Parse a P6 XML/XER into ScheduleData.
+
+    all_projects=False (default, unchanged for EVM/audit) reads only the first project.
+    all_projects=True reads EVERY project in the file — needed by the Consultant Review
+    comparison so cross-project relationships (successors in another project of a
+    multi-project / program export) aren't dropped.
+    """
     if path.lower().endswith('.xer'):
         from p6_evm.xer import parse_xer
-        return parse_xer(path)
+        return parse_xer(path, all_projects=all_projects)
     # ---- existing XML parsing continues unchanged below ----
     ns_uri = _detect_namespace(path)
     ns = f'{{{ns_uri}}}' if ns_uri else ''
@@ -175,6 +182,14 @@ def parse_file(path) -> ScheduleData:
 
     project_el = root.find(tag('Project'))
     baseline_el = root.find(tag('BaselineProject'))
+    # all_projects: read activities/WBS/relationships/costs from EVERY <Project> so a
+    # multi-project export keeps its cross-project relationships. Project metadata still
+    # comes from the first project. Default reads only the first project (unchanged).
+    project_els = (root.findall(tag('Project')) if all_projects
+                   else ([project_el] if project_el is not None else []))
+
+    def _all(name):
+        return [el for pe in project_els for el in pe.findall(tag(name))]
 
     data.project = {
         'object_id': text(project_el, 'ObjectId'),
@@ -191,7 +206,7 @@ def parse_file(path) -> ScheduleData:
             or text(project_el, 'AnticipatedFinishDate') or text(project_el, 'MustFinishByDate')),
     }
 
-    for wbs_el in project_el.findall(tag('WBS')):
+    for wbs_el in _all('WBS'):
         object_id = text(wbs_el, 'ObjectId')
         data.wbs[object_id] = {
             'name': text(wbs_el, 'Name'),
@@ -219,7 +234,7 @@ def parse_file(path) -> ScheduleData:
                 continue
             baseline_bac_by_id[bl_aid] = baseline_bac_by_id.get(bl_aid, 0.0) + parse_float(text(ra_el, 'PlannedCost'))
 
-    for act_el in project_el.findall(tag('Activity')):
+    for act_el in _all('Activity'):
         object_id = text(act_el, 'ObjectId')
         data.activities[object_id] = {
             'object_id': object_id,
@@ -271,7 +286,7 @@ def parse_file(path) -> ScheduleData:
     data.activity_code_types = sorted(
         {dim for a in data.activities.values() for dim in a['activity_codes']})
 
-    for ra_el in project_el.findall(tag('ResourceAssignment')):
+    for ra_el in _all('ResourceAssignment'):
         activity_id = text(ra_el, 'ActivityObjectId')
         if not activity_id:
             continue
@@ -289,7 +304,7 @@ def parse_file(path) -> ScheduleData:
             if bl_bac is not None:
                 data.baseline_bac_by_activity[oid] = bl_bac
 
-    for rel_el in project_el.findall(tag('Relationship')):
+    for rel_el in _all('Relationship'):
         pred = text(rel_el, 'PredecessorActivityObjectId')
         succ = text(rel_el, 'SuccessorActivityObjectId')
         if not pred or not succ:
