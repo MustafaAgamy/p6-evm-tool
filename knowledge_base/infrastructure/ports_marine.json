@@ -1,0 +1,45 @@
+{
+  "category": "Infrastructure",
+  "type": "Ports & Marine",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["port", "harbour", "harbor", "marine", "quay", "wharf", "berth", "jetty", "breakwater",
+                 "dredging", "reclamation", "fender", "bollard", "marine pile", "container terminal", "mooring"],
+  "wbs": [
+    {"name": "Dredging & Reclamation", "keywords": ["dredging", "reclamation", "land fill", "revetment"]},
+    {"name": "Marine Piling", "keywords": ["marine pile", "piling", "driven pile", "bored pile"]},
+    {"name": "Quay Wall / Berth", "keywords": ["quay", "wharf", "berth", "caisson", "block wall"]},
+    {"name": "Deck & Pavement", "keywords": ["deck", "pavement", "yard", "slab"]},
+    {"name": "Fenders & Bollards", "keywords": ["fender", "bollard", "mooring", "quay furniture"]},
+    {"name": "Utilities & Equipment", "keywords": ["utilities", "crane rail", "services", "equipment"]},
+    {"name": "Testing & Handover", "keywords": ["test", "berthing trial", "handover", "commission"]}
+  ],
+  "activities": [
+    {"name": "Capital Dredging", "keywords": ["dredging", "capital dredge"], "wbs": "Dredging & Reclamation",
+     "typical_pred": "Mobilisation", "typical_succ": "Marine Piling", "duration_days": 60,
+     "why": "Dredging the berth pocket and approach precedes marine piling and quay construction."},
+    {"name": "Marine Piling", "keywords": ["marine pile", "piling"], "wbs": "Marine Piling",
+     "typical_pred": "Dredging", "typical_succ": "Quay Wall", "duration_days": 50,
+     "why": "Piling founds the quay structure and follows dredging/reclamation to the required level."},
+    {"name": "Fender & Bollard Installation", "keywords": ["fender install", "bollard install", "mooring install"], "wbs": "Fenders & Bollards",
+     "typical_pred": "Quay Deck", "typical_succ": "Berthing Trial", "duration_days": 15,
+     "why": "Fenders and bollards are required for a vessel to berth — commonly missed in the logic."},
+    {"name": "Berthing Trial", "keywords": ["berthing trial", "first berthing", "mooring trial"], "wbs": "Testing & Handover",
+     "typical_pred": "Fenders & Bollards", "typical_succ": "Handover", "duration_days": 5,
+     "why": "A berthing/mooring trial proves the berth before operational handover."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["dredging", "reclamation"], "after_keywords": ["marine pile", "piling", "quay"],
+     "reason": "Marine piling and quay construction follow dredging/reclamation.",
+     "impact": "Critical"},
+    {"before_keywords": ["marine pile", "piling"], "after_keywords": ["quay", "wharf", "deck", "caisson"],
+     "reason": "The quay wall/deck founds on completed marine piles.",
+     "impact": "Critical"},
+    {"before_keywords": ["fender", "bollard", "mooring"], "after_keywords": ["berthing trial", "first berthing"],
+     "reason": "A berthing trial follows fender/bollard installation.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Dredging Complete", "Quay Wall Complete", "Berth Complete", "First Berthing"],
+  "common_issues": ["Quay before marine piling complete", "Fenders/bollards missing",
+                    "Dredging not sequenced first", "No berthing trial before handover"]
+}

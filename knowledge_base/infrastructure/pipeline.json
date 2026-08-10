@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "Pipeline",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["pipeline", "cross-country", "stringing", "trenching", "pipe laying", "field joint",
+                 "coating", "hydrotest", "cathodic protection", "right of way", "row", "tie-in", "pigging"],
+  "wbs": [
+    {"name": "Route & Right of Way", "keywords": ["route", "right of way", "row", "survey", "acquisition", "clearing"]},
+    {"name": "Trenching", "keywords": ["trench", "excavation", "ditch"]},
+    {"name": "Stringing & Bending", "keywords": ["stringing", "bending", "line-up"]},
+    {"name": "Welding & NDT", "keywords": ["welding", "ndt", "radiography", "girth weld"]},
+    {"name": "Coating", "keywords": ["field joint coating", "coating", "wrapping"]},
+    {"name": "Lowering & Backfill", "keywords": ["lowering", "backfill", "padding"]},
+    {"name": "Crossings & Tie-ins", "keywords": ["crossing", "road crossing", "river crossing", "tie-in", "hdd"]},
+    {"name": "Testing & Commissioning", "keywords": ["hydrotest", "test", "pigging", "commission", "cathodic"]}
+  ],
+  "activities": [
+    {"name": "Right of Way / Clearing", "keywords": ["right of way", "row clearing", "acquisition"], "wbs": "Route & Right of Way",
+     "typical_pred": "Survey", "typical_succ": "Trenching", "duration_days": 30,
+     "why": "ROW acquisition and clearing precede trenching and often govern start — commonly underestimated."},
+    {"name": "Welding & NDT (Radiography)", "keywords": ["welding", "ndt", "radiography"], "wbs": "Welding & NDT",
+     "typical_pred": "Stringing", "typical_succ": "Field Joint Coating", "duration_days": 40,
+     "why": "Girth welds are NDT-inspected before the joint is coated and the line is lowered."},
+    {"name": "Hydrotest", "keywords": ["hydrotest", "hydro test", "pressure test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Tie-ins", "typical_succ": "Commissioning", "duration_days": 15,
+     "why": "The line is hydrotested (in sections) before commissioning and before final reinstatement."},
+    {"name": "Cathodic Protection", "keywords": ["cathodic protection", "cp system", "anode"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Backfill", "typical_succ": "Commissioning", "duration_days": 20,
+     "why": "Cathodic protection prevents corrosion and is a required system frequently missed in the logic."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["welding", "ndt", "radiography"], "after_keywords": ["field joint coating", "coating", "lowering"],
+     "reason": "Field-joint coating and lowering follow weld NDT.",
+     "impact": "Critical"},
+    {"before_keywords": ["hydrotest", "pressure test"], "after_keywords": ["backfill", "reinstatement", "commission"],
+     "reason": "Final backfill/reinstatement and commissioning follow the hydrotest.",
+     "impact": "Critical"},
+    {"before_keywords": ["trench", "trenching"], "after_keywords": ["lowering", "backfill"],
+     "reason": "Lowering-in and backfill follow trenching.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["ROW Complete", "Welding Complete", "Hydrotest Complete", "Commissioning"],
+  "common_issues": ["Backfill before hydrotest", "Missing cathodic protection",
+                    "No weld NDT", "ROW / crossings under-planned"]
+}

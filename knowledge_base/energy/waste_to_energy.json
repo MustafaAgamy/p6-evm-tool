@@ -1,0 +1,46 @@
+{
+  "category": "Energy",
+  "type": "Waste-to-Energy",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["waste to energy", "wte", "incineration", "incinerator", "moving grate", "flue gas treatment",
+                 "waste bunker", "tipping hall", "boiler", "bottom ash", "energy from waste", "efw"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "structure"]},
+    {"name": "Waste Bunker & Tipping Hall", "keywords": ["bunker", "tipping hall", "crane", "grab"]},
+    {"name": "Combustion (Grate)", "keywords": ["grate", "moving grate", "combustion", "furnace"]},
+    {"name": "Boiler", "keywords": ["boiler", "steam", "hydrotest"]},
+    {"name": "Flue Gas Treatment", "keywords": ["flue gas", "scrubber", "bag filter", "sncr", "fgt", "emissions"]},
+    {"name": "Turbine-Generator", "keywords": ["turbine", "generator", "condenser"]},
+    {"name": "Electrical & I&C", "keywords": ["electrical", "i&c", "control", "dcs"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "first fire", "first waste", "pg test"]}
+  ],
+  "activities": [
+    {"name": "Boiler Hydrotest", "keywords": ["boiler hydrotest", "hydrotest"], "wbs": "Boiler",
+     "typical_pred": "Boiler Erection", "typical_succ": "First Fire", "duration_days": 10,
+     "why": "The boiler pressure parts are hydrotested after erection, before firing."},
+    {"name": "Flue Gas Treatment Commissioning", "keywords": ["flue gas", "scrubber", "bag filter", "emissions"], "wbs": "Flue Gas Treatment",
+     "typical_pred": "FGT Installation", "typical_succ": "First Waste Firing", "duration_days": 20,
+     "why": "Emissions abatement must be commissioned before waste is fired — a legal prerequisite."},
+    {"name": "First Fire (Auxiliary Fuel)", "keywords": ["first fire", "light-up", "auxiliary fuel"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Boiler Hydrotest", "typical_succ": "First Waste Firing", "duration_days": 15,
+     "why": "First fire on auxiliary fuel dries out and proves the boiler before waste is introduced."},
+    {"name": "First Waste Firing / PG Test", "keywords": ["first waste", "waste firing", "pg test", "performance"], "wbs": "Testing & Commissioning",
+     "typical_pred": "FGT Commissioning", "typical_succ": "Commercial Operation", "duration_days": 30,
+     "why": "Waste firing and the performance/emissions test follow flue-gas-treatment commissioning."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["flue gas", "fgt", "scrubber", "bag filter"], "after_keywords": ["first waste", "waste firing"],
+     "reason": "Flue-gas treatment must be commissioned before waste is fired (emissions compliance).",
+     "impact": "Critical"},
+    {"before_keywords": ["boiler hydrotest", "hydrotest"], "after_keywords": ["first fire", "light-up"],
+     "reason": "First fire follows the boiler hydrotest.",
+     "impact": "Critical"},
+    {"before_keywords": ["first fire", "commission"], "after_keywords": ["pg test", "performance", "cod"],
+     "reason": "The performance/PG test follows first fire and waste firing.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Mechanical Completion", "First Fire", "First Waste Firing", "PG Test / COD"],
+  "common_issues": ["Waste firing before flue-gas-treatment commissioning", "No boiler hydrotest",
+                    "Missing performance / emissions test", "Commissioning before mechanical completion"]
+}

@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Data Center",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["data center", "data centre", "white space", "data hall", "ups", "crac", "crah", "chiller",
+                 "genset", "generator", "pdu", "raised floor", "commissioning level", "ist", "tier"],
+  "wbs": [
+    {"name": "Civil & Structure", "keywords": ["civil", "structure", "foundation", "frame"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "cladding", "roof", "weathertight"]},
+    {"name": "White Space / Data Halls", "keywords": ["white space", "data hall", "raised floor", "containment"]},
+    {"name": "Electrical / Power", "keywords": ["ups", "generator", "genset", "switchgear", "pdu", "power"]},
+    {"name": "Mechanical / Cooling", "keywords": ["crac", "crah", "chiller", "cooling", "crah", "hvac"]},
+    {"name": "Fire & Security", "keywords": ["fire suppression", "vesda", "gas suppression", "security"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "level", "l5", "ist", "load bank"]},
+    {"name": "Handover / Go-live", "keywords": ["handover", "go-live", "ready for service", "acceptance"]}
+  ],
+  "activities": [
+    {"name": "Generator Install & Load Bank Test", "keywords": ["generator", "genset", "load bank"], "wbs": "Electrical / Power",
+     "typical_pred": "Electrical Installation", "typical_succ": "Integrated Systems Test", "duration_days": 25,
+     "why": "Standby generators are load-bank tested to prove capacity before integrated testing."},
+    {"name": "Cooling Commissioning", "keywords": ["cooling commission", "chiller commission", "crac", "crah"], "wbs": "Mechanical / Cooling",
+     "typical_pred": "Mechanical Installation", "typical_succ": "Integrated Systems Test", "duration_days": 20,
+     "why": "Cooling must be commissioned to prove heat rejection before the IST."},
+    {"name": "Fire Suppression System", "keywords": ["fire suppression", "gas suppression", "vesda"], "wbs": "Fire & Security",
+     "typical_pred": "White Space Complete", "typical_succ": "Handover", "duration_days": 20,
+     "why": "Gas/clean-agent fire suppression protects the data halls and is a prerequisite to go-live."},
+    {"name": "Integrated Systems Test (IST / Level 5)", "keywords": ["ist", "integrated systems test", "level 5", "l5", "black building"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Component Commissioning (L1–L4)", "typical_succ": "Handover", "duration_days": 20,
+     "why": "The Level-5 / IST proves power, cooling and controls together under failure scenarios — the key data-center gate."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "commissioning", "ist"],
+     "reason": "Commissioning follows installation of the power and cooling systems.",
+     "impact": "Critical"},
+    {"before_keywords": ["component", "level 1", "level 2", "level 3", "level 4", "load bank"], "after_keywords": ["ist", "integrated systems test", "level 5", "l5"],
+     "reason": "Integrated Systems Test (L5) follows component-level commissioning (L1–L4).",
+     "impact": "Critical"},
+    {"before_keywords": ["ist", "integrated systems test", "commission"], "after_keywords": ["handover", "go-live", "ready for service"],
+     "reason": "Go-live follows the integrated systems test.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Building Weathertight", "Power & Cooling Complete", "Integrated Systems Test (L5)", "Handover / Go-live"],
+  "common_issues": ["No integrated systems test (L5 / IST)", "Missing generator load-bank test",
+                    "Commissioning levels skipped", "Fire suppression not before go-live"]
+}

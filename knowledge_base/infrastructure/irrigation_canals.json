@@ -1,0 +1,45 @@
+{
+  "category": "Infrastructure",
+  "type": "Irrigation & Canals",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["irrigation", "canal", "channel", "lining", "headworks", "regulator", "aqueduct", "siphon",
+                 "distributary", "pump station", "sluice", "drainage", "command area"],
+  "wbs": [
+    {"name": "Earthworks", "keywords": ["earthwork", "excavation", "embankment", "cut", "fill"]},
+    {"name": "Canal Lining", "keywords": ["lining", "concrete lining", "geomembrane", "shotcrete"]},
+    {"name": "Structures", "keywords": ["regulator", "aqueduct", "siphon", "drop", "cross drainage", "sluice"]},
+    {"name": "Headworks / Pump Stations", "keywords": ["headworks", "pump station", "intake", "barrage"]},
+    {"name": "Distribution Network", "keywords": ["distributary", "minor", "outlet", "field channel"]},
+    {"name": "Gates & Control", "keywords": ["gate", "sluice", "control", "automation"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "water testing", "trial run"]}
+  ],
+  "activities": [
+    {"name": "Canal Lining", "keywords": ["lining", "concrete lining"], "wbs": "Canal Lining",
+     "typical_pred": "Earthworks to Section", "typical_succ": "Water Testing", "duration_days": 40,
+     "why": "The canal prism is lined after earthworks to control seepage before water testing."},
+    {"name": "Cross-Drainage Structures", "keywords": ["aqueduct", "siphon", "cross drainage", "culvert"], "wbs": "Structures",
+     "typical_pred": "Earthworks", "typical_succ": "Water Testing", "duration_days": 60,
+     "why": "Aqueducts/siphons carry the canal over/under natural drainage — critical structures often under-planned."},
+    {"name": "Gates & Control Structures", "keywords": ["gate install", "regulator", "sluice"], "wbs": "Gates & Control",
+     "typical_pred": "Structures", "typical_succ": "Commissioning", "duration_days": 20,
+     "why": "Regulators and gates control flow and must be installed before water can be run."},
+    {"name": "Water Testing / Trial Run", "keywords": ["water testing", "trial run", "wet testing"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Lining & Structures", "typical_succ": "Handover", "duration_days": 20,
+     "why": "The canal is run with water to prove lining, structures and gates before handover."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["earthwork", "excavation", "prism"], "after_keywords": ["lining", "concrete lining"],
+     "reason": "Lining follows earthworks to the canal section.",
+     "impact": "Critical"},
+    {"before_keywords": ["lining", "structures", "gate"], "after_keywords": ["water testing", "trial run", "commission"],
+     "reason": "Water testing follows completed lining, structures and gates.",
+     "impact": "Critical"},
+    {"before_keywords": ["headworks", "intake"], "after_keywords": ["water testing", "trial run"],
+     "reason": "Water can only be run once the headworks/intake are complete.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Earthworks Complete", "Lining Complete", "Structures Complete", "Water Testing / Handover"],
+  "common_issues": ["Lining before earthworks to section", "Cross-drainage structures under-planned",
+                    "No water testing / trial run", "Gates & control structures missing"]
+}

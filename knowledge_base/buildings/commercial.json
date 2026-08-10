@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Commercial / Administrative",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["office", "commercial", "administrative", "admin building", "curtain wall", "core and shell",
+                 "core & shell", "fit-out", "fit out", "raised floor", "bms", "lift", "elevator", "tenant"],
+  "wbs": [
+    {"name": "Enabling & Substructure", "keywords": ["enabling", "excavation", "shoring", "foundation", "basement", "raft"]},
+    {"name": "Superstructure & Core", "keywords": ["superstructure", "core", "frame", "slab", "column"]},
+    {"name": "Curtain Wall / Façade", "keywords": ["curtain wall", "façade", "facade", "cladding", "glazing", "weathertight"]},
+    {"name": "MEP Services", "keywords": ["mep", "hvac", "electrical", "plumbing", "riser", "ductwork"]},
+    {"name": "Vertical Transport", "keywords": ["lift", "elevator", "escalator"]},
+    {"name": "Fit-out", "keywords": ["fit-out", "fit out", "raised floor", "ceiling", "partition", "finishes"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "bms", "integrated", "life safety"]},
+    {"name": "Handover", "keywords": ["handover", "completion", "occupancy", "taking over"]}
+  ],
+  "activities": [
+    {"name": "Façade Mock-up Approval", "keywords": ["mock-up", "mockup", "visual mock"], "wbs": "Curtain Wall / Façade",
+     "typical_pred": "Superstructure", "typical_succ": "Curtain Wall Installation", "duration_days": 20,
+     "why": "A façade mock-up is normally approved before full curtain-wall rollout to lock performance and appearance."},
+    {"name": "Lift Installation & Testing", "keywords": ["lift install", "elevator install", "lift test"], "wbs": "Vertical Transport",
+     "typical_pred": "Core Complete", "typical_succ": "Integrated Testing", "duration_days": 30,
+     "why": "Lifts are long-duration and gate occupancy; they are frequently omitted from the logic."},
+    {"name": "BMS Commissioning", "keywords": ["bms", "building management", "controls commission"], "wbs": "Testing & Commissioning",
+     "typical_pred": "MEP Installation", "typical_succ": "Integrated Systems Test", "duration_days": 15,
+     "why": "The Building Management System ties HVAC, electrical and life-safety together and must be commissioned before handover."},
+    {"name": "Integrated Systems / Life-Safety Test", "keywords": ["integrated test", "life safety", "cause and effect", "fire test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "BMS Commissioning", "typical_succ": "Handover", "duration_days": 10,
+     "why": "Cause-and-effect / life-safety testing is a legal prerequisite to occupancy."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["curtain wall", "façade", "facade", "weathertight"], "after_keywords": ["fit-out", "fit out", "finishes", "raised floor"],
+     "reason": "Fit-out should follow a weathertight façade so internal works are protected.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "commissioning"],
+     "reason": "MEP commissioning must follow installation of the systems being commissioned.",
+     "impact": "Critical"},
+    {"before_keywords": ["commission", "integrated test", "life safety"], "after_keywords": ["handover", "occupancy", "taking over"],
+     "reason": "Integrated and life-safety testing must complete before occupancy/handover.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Core Complete", "Building Weathertight", "MEP Complete", "Integrated Testing Complete", "Handover"],
+  "common_issues": ["Fit-out before weathertight façade", "Lifts missing from the programme",
+                    "No BMS / integrated systems commissioning", "Life-safety testing not before handover"]
+}

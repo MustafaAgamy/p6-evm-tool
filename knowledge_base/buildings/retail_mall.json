@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Retail / Shopping Mall",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["mall", "shopping", "retail", "tenant", "anchor", "food court", "atrium", "shopfront",
+                 "cat a", "cat b", "handover to tenant", "mep base build", "escalator"],
+  "wbs": [
+    {"name": "Enabling & Substructure", "keywords": ["enabling", "excavation", "foundation", "basement", "parking"]},
+    {"name": "Superstructure", "keywords": ["superstructure", "frame", "slab", "atrium", "structure"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "façade", "facade", "roof", "skylight", "weathertight"]},
+    {"name": "Base-Build MEP", "keywords": ["mep", "base build", "hvac", "electrical", "riser"]},
+    {"name": "Vertical Transport", "keywords": ["escalator", "lift", "travelator"]},
+    {"name": "Common Area Fit-out (Cat A)", "keywords": ["cat a", "common area", "mall finishes", "atrium finishes"]},
+    {"name": "Tenant Handover & Coordination", "keywords": ["tenant", "shopfront", "handover to tenant", "cat b"]},
+    {"name": "Testing, Commissioning & Opening", "keywords": ["test", "commission", "opening", "handover"]}
+  ],
+  "activities": [
+    {"name": "Tenant Units Handover (Cat A)", "keywords": ["tenant handover", "unit handover", "cat a"], "wbs": "Tenant Handover & Coordination",
+     "typical_pred": "Base-Build MEP", "typical_succ": "Tenant Fit-out (by others)", "duration_days": 20,
+     "why": "Base-build units are handed to tenants for their own fit-out — a milestone that gates mall opening."},
+    {"name": "Escalators & Lifts", "keywords": ["escalator", "lift install", "travelator"], "wbs": "Vertical Transport",
+     "typical_pred": "Superstructure", "typical_succ": "Commissioning", "duration_days": 30,
+     "why": "Escalators/lifts are long-lead and essential to a multi-level mall; frequently under-sequenced."},
+    {"name": "Life-Safety / Smoke Control Test", "keywords": ["life safety", "smoke control", "cause and effect"], "wbs": "Testing, Commissioning & Opening",
+     "typical_pred": "MEP Commissioning", "typical_succ": "Opening", "duration_days": 10,
+     "why": "Large atrium malls require smoke-control / life-safety testing before opening."},
+    {"name": "Mall Opening", "keywords": ["opening", "grand opening", "trading"], "wbs": "Testing, Commissioning & Opening",
+     "typical_pred": "Commissioning", "typical_succ": "Trading", "duration_days": 5,
+     "why": "Opening follows base-build commissioning and enough tenants fitted out."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["envelope", "weathertight", "roof"], "after_keywords": ["cat a", "common area", "finishes", "tenant handover"],
+     "reason": "Common-area finishes and tenant handover follow a weathertight envelope.",
+     "impact": "Critical"},
+    {"before_keywords": ["base build", "base-build", "mep"], "after_keywords": ["tenant handover", "cat b", "tenant fit-out"],
+     "reason": "Tenant fit-out (Cat B) follows base-build handover of the units.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["commission", "life safety", "smoke control"], "after_keywords": ["opening", "trading"],
+     "reason": "Opening follows base-build commissioning and life-safety testing.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Building Weathertight", "Tenant Units Handover", "Base-Build Commissioning", "Mall Opening"],
+  "common_issues": ["Tenant handover not sequenced (blocks opening)", "Escalators/lifts under-planned",
+                    "No smoke-control / life-safety test", "Opening not preceded by commissioning"]
+}

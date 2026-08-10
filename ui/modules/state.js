@@ -11,6 +11,11 @@ export const state = {
   baselineName:      null,   // filename of the attached baseline, for the banner
   baselineMatched:   null,   // activities matched between update and baseline (by Id)
   baselineTotal:     null,   // total update activities, for the matched/total count
+  aiReport:          null,   // dormant — AI review (future Pro edition)
+  aiReferencePath:   null,   // dormant
+  aiReferenceName:   null,   // dormant
+  constructReport:   null,   // Constructability Review report dict (rule + KB)
+  constructForcedType: null, // user-overridden project sub-type, if any
   compareReport:     null,   // Consultant Review — last Baseline vs Update report dict
   compareBaselineName: null, // filename of the baseline chosen for the comparison
 };

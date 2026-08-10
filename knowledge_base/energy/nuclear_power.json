@@ -1,0 +1,46 @@
+{
+  "category": "Energy",
+  "type": "Nuclear Power Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["nuclear", "reactor", "containment", "npp", "reactor pressure vessel", "rpv", "steam generator",
+                 "fuel loading", "cold hydro", "hot functional", "criticality", "nuclear island", "primary circuit"],
+  "wbs": [
+    {"name": "Civil — Nuclear Island", "keywords": ["nuclear island", "civil", "basemat", "foundation"]},
+    {"name": "Containment", "keywords": ["containment", "liner", "dome", "prestressing"]},
+    {"name": "Reactor & NSSS", "keywords": ["reactor", "rpv", "steam generator", "nsss", "primary circuit"]},
+    {"name": "Turbine Island", "keywords": ["turbine", "generator", "conventional island"]},
+    {"name": "Systems & Piping", "keywords": ["piping", "systems", "safety system", "cooling"]},
+    {"name": "Instrumentation & Control", "keywords": ["i&c", "instrumentation", "control", "reactor protection"]},
+    {"name": "Cold Hydro & Hot Functional", "keywords": ["cold hydro", "hot functional", "hft", "commissioning"]},
+    {"name": "Fuel Load & Startup", "keywords": ["fuel load", "fuel loading", "criticality", "startup"]}
+  ],
+  "activities": [
+    {"name": "Reactor Pressure Vessel Installation", "keywords": ["rpv", "reactor pressure vessel", "reactor install"], "wbs": "Reactor & NSSS",
+     "typical_pred": "Containment", "typical_succ": "Cold Hydro Test", "duration_days": 30,
+     "why": "The RPV and steam generators are heavy long-lead installs into the containment."},
+    {"name": "Cold Hydro Test", "keywords": ["cold hydro", "cold hydrostatic", "pressure test"], "wbs": "Cold Hydro & Hot Functional",
+     "typical_pred": "Primary Circuit Complete", "typical_succ": "Hot Functional Test", "duration_days": 20,
+     "why": "The primary circuit is cold hydro-tested for integrity before hot functional testing."},
+    {"name": "Hot Functional Test", "keywords": ["hot functional", "hft"], "wbs": "Cold Hydro & Hot Functional",
+     "typical_pred": "Cold Hydro Test", "typical_succ": "Fuel Loading", "duration_days": 30,
+     "why": "Hot functional testing proves systems at operating temperature/pressure before fuel is loaded."},
+    {"name": "Fuel Loading", "keywords": ["fuel load", "fuel loading"], "wbs": "Fuel Load & Startup",
+     "typical_pred": "Hot Functional Test", "typical_succ": "Initial Criticality", "duration_days": 15,
+     "why": "Fuel is loaded only after a successful hot functional test — a strict regulatory gate."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["cold hydro", "cold hydrostatic"], "after_keywords": ["hot functional", "hft"],
+     "reason": "Hot functional testing follows the cold hydro test.",
+     "impact": "Critical"},
+    {"before_keywords": ["hot functional", "hft"], "after_keywords": ["fuel load", "fuel loading"],
+     "reason": "Fuel loading follows a successful hot functional test.",
+     "impact": "Critical"},
+    {"before_keywords": ["fuel load", "fuel loading"], "after_keywords": ["criticality", "startup"],
+     "reason": "Initial criticality/startup follows fuel loading.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Reactor Installed", "Cold Hydro Test", "Hot Functional Test", "Fuel Load", "Initial Criticality"],
+  "common_issues": ["Fuel loading before hot functional test", "Missing cold hydro test",
+                    "No hot functional test", "Commissioning sequence not gated by tests"]
+}

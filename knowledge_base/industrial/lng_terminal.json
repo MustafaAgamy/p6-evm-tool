@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "LNG Terminal",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["lng", "liquefied natural gas", "regasification", "regas", "cryogenic", "storage tank",
+                 "boil-off", "send-out", "loading arm", "jetty", "cool-down", "cooldown", "vaporiser", "full containment"],
+  "wbs": [
+    {"name": "Civil & Marine", "keywords": ["civil", "marine", "jetty", "berth", "foundation", "dredging"]},
+    {"name": "Cryogenic Storage Tank", "keywords": ["storage tank", "full containment", "inner tank", "roof lift", "9% nickel"]},
+    {"name": "Process (Regas / Liquefaction)", "keywords": ["regas", "vaporiser", "liquefaction", "process", "boil-off"]},
+    {"name": "Cryogenic Piping", "keywords": ["cryogenic piping", "cryo pipe", "insulated piping"]},
+    {"name": "Jetty & Loading", "keywords": ["jetty", "loading arm", "unloading", "marine loading"]},
+    {"name": "Electrical & Instrumentation", "keywords": ["electrical", "instrumentation", "e&i", "control"]},
+    {"name": "Pre-commissioning & Cool-down", "keywords": ["pre-commission", "purge", "dry-out", "cool-down", "cooldown"]},
+    {"name": "Commissioning & Gas-in", "keywords": ["commission", "gas-in", "first gas", "rfsu"]}
+  ],
+  "activities": [
+    {"name": "Tank Hydrotest & Pneumatic Test", "keywords": ["tank hydrotest", "hydrotest", "pneumatic test"], "wbs": "Cryogenic Storage Tank",
+     "typical_pred": "Tank Mechanical Completion", "typical_succ": "Purge & Dry-out", "duration_days": 20,
+     "why": "The full-containment tank is hydro/pneumatically tested after construction, before drying and cool-down."},
+    {"name": "Purge & Dry-out", "keywords": ["purge", "dry-out", "nitrogen"], "wbs": "Pre-commissioning & Cool-down",
+     "typical_pred": "Tank Test", "typical_succ": "Cool-down", "duration_days": 25,
+     "why": "Systems are purged and dried with nitrogen before cool-down to avoid moisture/oxygen hazards."},
+    {"name": "Tank Cool-down", "keywords": ["cool-down", "cooldown", "gradual cooling"], "wbs": "Pre-commissioning & Cool-down",
+     "typical_pred": "Purge & Dry-out", "typical_succ": "Gas-in", "duration_days": 20,
+     "why": "The cryogenic tank is cooled down gradually to a controlled rate — a critical stage after dry-out."},
+    {"name": "Gas-in / First LNG", "keywords": ["gas-in", "first lng", "first gas"], "wbs": "Commissioning & Gas-in",
+     "typical_pred": "Cool-down", "typical_succ": "Commercial Operation", "duration_days": 15,
+     "why": "First LNG/gas-in follows a successful cool-down and system commissioning."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["purge", "dry-out", "dry out"], "after_keywords": ["cool-down", "cooldown"],
+     "reason": "Cool-down must follow purge/dry-out to remove moisture and oxygen first.",
+     "impact": "Critical"},
+    {"before_keywords": ["hydrotest", "tank test"], "after_keywords": ["cool-down", "purge", "gas-in"],
+     "reason": "Tank testing precedes drying, cool-down and gas-in.",
+     "impact": "Critical"},
+    {"before_keywords": ["cool-down", "cooldown", "commission"], "after_keywords": ["gas-in", "first gas", "first lng"],
+     "reason": "Gas-in follows cool-down and commissioning.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Tank Mechanical Completion", "Tank Test", "Cool-down", "First Gas / RFSU"],
+  "common_issues": ["Cool-down before purge/dry-out", "No tank hydro/pneumatic test",
+                    "Cryogenic testing missing", "Commissioning before mechanical completion"]
+}

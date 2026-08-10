@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Warehouse & Logistics",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["warehouse", "logistics", "distribution", "racking", "pallet", "mhe", "material handling",
+                 "conveyor", "asrs", "super flat", "superflat", "dock", "esfr", "sprinkler", "wms"],
+  "wbs": [
+    {"name": "Enabling & Earthworks", "keywords": ["enabling", "earthwork", "site", "piling"]},
+    {"name": "Foundations & Slab", "keywords": ["foundation", "slab", "super flat", "superflat", "floor"]},
+    {"name": "Steel Frame", "keywords": ["steel", "frame", "portal", "structure", "erection"]},
+    {"name": "Envelope / Cladding", "keywords": ["cladding", "roof", "envelope", "wall", "weathertight"]},
+    {"name": "Racking & MHE", "keywords": ["racking", "rack", "mhe", "conveyor", "asrs", "material handling"]},
+    {"name": "MEP & Fire Protection", "keywords": ["mep", "electrical", "esfr", "sprinkler", "fire protection"]},
+    {"name": "Testing & Handover", "keywords": ["test", "commission", "wms", "go-live", "handover"]}
+  ],
+  "activities": [
+    {"name": "Super-flat Floor Slab", "keywords": ["super flat", "superflat", "floor flatness", "ff/fl"], "wbs": "Foundations & Slab",
+     "typical_pred": "Sub-base", "typical_succ": "Racking Installation", "duration_days": 25,
+     "why": "High-bay racking needs a super-flat floor to tolerance; slab flatness must be verified before racking."},
+    {"name": "Racking Installation", "keywords": ["racking install", "rack install"], "wbs": "Racking & MHE",
+     "typical_pred": "Weathertight Envelope", "typical_succ": "MHE Installation", "duration_days": 30,
+     "why": "Racking installs inside a weathertight envelope onto a verified floor."},
+    {"name": "ESFR Sprinkler / Fire Protection", "keywords": ["esfr", "sprinkler", "fire protection"], "wbs": "MEP & Fire Protection",
+     "typical_pred": "Racking Installation", "typical_succ": "Occupancy", "duration_days": 20,
+     "why": "In-rack/ESFR fire protection is designed around the racking and is a prerequisite to occupancy."},
+    {"name": "MHE / WMS Commissioning", "keywords": ["mhe commission", "wms", "conveyor commission", "go-live"], "wbs": "Testing & Handover",
+     "typical_pred": "MHE Installation", "typical_succ": "Go-Live", "duration_days": 20,
+     "why": "Material-handling equipment and the warehouse management system are commissioned before go-live."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["cladding", "envelope", "weathertight", "roof"], "after_keywords": ["racking", "mhe", "fit-out", "finishes"],
+     "reason": "Racking and internal fit-out follow a weathertight envelope.",
+     "impact": "Critical"},
+    {"before_keywords": ["slab", "super flat", "superflat", "floor"], "after_keywords": ["racking", "rack install"],
+     "reason": "Racking installs onto the completed, tolerance-verified floor slab.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "go-live", "wms"],
+     "reason": "MHE/WMS commissioning follows installation and precedes go-live.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Slab Complete", "Building Weathertight", "Racking Complete", "Go-Live / Handover"],
+  "common_issues": ["Racking before weathertight envelope / verified slab", "Missing ESFR / fire protection",
+                    "No MHE / WMS commissioning", "Fire protection not designed around racking"]
+}

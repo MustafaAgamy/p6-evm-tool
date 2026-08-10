@@ -173,6 +173,15 @@
               <div class="cc-title">Calendar Audit</div>
               <div class="cc-sub">Project calendar timeline, holidays, shutdowns, working-hour changes</div>
             </button>
+            <button class="chooser-card" data-view="construct">
+              <div class="cc-icon" style="background:linear-gradient(135deg,#0d9488,#14b8a6)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/>
+                </svg>
+              </div>
+              <div class="cc-title">Constructability Review</div>
+              <div class="cc-sub">Rule + knowledge-base check — illogical logic, missing activities &amp; WBS, with a score · offline</div>
+            </button>
             <button class="chooser-card" data-view="compare">
               <div class="cc-icon" style="background:#8b5cf6">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -191,6 +200,7 @@
           <button class="view-tab" id="tab-audit" data-view="audit">Schedule Audit</button>
           <button class="view-tab" id="tab-oos" data-view="oos">Out of Sequence</button>
           <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
+          <button class="view-tab" id="tab-construct" data-view="construct">🧠 Constructability</button>
           <button class="view-tab" id="tab-compare" data-view="compare">Consultant Review</button>
           <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
@@ -228,6 +238,10 @@
             <button class="btn-secondary" id="cal-excel-btn">Export to Excel</button>
             <button class="btn-primary" id="cal-pdf-btn">Generate Calendar Audit PDF</button>
           </div>
+        </div>
+
+        <div class="view-panel hidden" id="construct-panel">
+          <div id="construct-body"></div>
         </div>
 
         <div class="view-panel hidden" id="compare-panel">

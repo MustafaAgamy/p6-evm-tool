@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Hospital / Healthcare",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["hospital", "healthcare", "clinic", "medical", "ward", "operating theatre", "operating room",
+                 "icu", "medical gas", "clean room", "cleanroom", "isolation", "accreditation", "hvac", "validation"],
+  "wbs": [
+    {"name": "Enabling & Substructure", "keywords": ["enabling", "excavation", "foundation", "basement", "piling"]},
+    {"name": "Superstructure", "keywords": ["superstructure", "frame", "slab", "column", "structure"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "façade", "facade", "cladding", "roof", "weathertight"]},
+    {"name": "Specialised MEP", "keywords": ["mep", "hvac", "medical gas", "electrical", "emergency power", "clean"]},
+    {"name": "Medical Equipment", "keywords": ["medical equipment", "imaging", "mri", "ct", "theatre equipment"]},
+    {"name": "Fit-out & Finishes", "keywords": ["fit-out", "fit out", "finishes", "ward", "partition", "hygienic"]},
+    {"name": "Testing, Commissioning & Validation", "keywords": ["test", "commission", "validation", "certification"]},
+    {"name": "Accreditation & Handover", "keywords": ["accreditation", "handover", "occupation", "licensing"]}
+  ],
+  "activities": [
+    {"name": "Medical Gas Installation & Certification", "keywords": ["medical gas", "oxygen", "vacuum", "gas certification"], "wbs": "Specialised MEP",
+     "typical_pred": "MEP First Fix", "typical_succ": "Validation", "duration_days": 25,
+     "why": "Medical gas systems require installation and independent certification before clinical use — a common omission."},
+    {"name": "HVAC Validation — Clean / Critical Areas", "keywords": ["validation", "clean room", "cleanroom", "hepa", "pressure test"], "wbs": "Testing, Commissioning & Validation",
+     "typical_pred": "HVAC Commissioning", "typical_succ": "Accreditation", "duration_days": 20,
+     "why": "Operating theatres, ICU and isolation rooms need validated airflow/pressure regimes before accreditation."},
+    {"name": "Medical Equipment Installation & Commissioning", "keywords": ["equipment install", "imaging install", "equipment commission"], "wbs": "Medical Equipment",
+     "typical_pred": "Room Finishes", "typical_succ": "Validation", "duration_days": 30,
+     "why": "Heavy imaging and theatre equipment install into finished, serviced rooms and must be commissioned."},
+    {"name": "Emergency Power / Standby Test", "keywords": ["emergency power", "generator test", "standby", "ups"], "wbs": "Testing, Commissioning & Validation",
+     "typical_pred": "Electrical Commissioning", "typical_succ": "Accreditation", "duration_days": 10,
+     "why": "Resilient/emergency power must be proven before a healthcare facility can open."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["install", "installation", "first fix", "mep"], "after_keywords": ["commission", "validation"],
+     "reason": "Commissioning and validation must follow installation of the systems concerned.",
+     "impact": "Critical"},
+    {"before_keywords": ["finishes", "hygienic", "fit-out"], "after_keywords": ["medical equipment", "equipment install"],
+     "reason": "Medical equipment installs into finished, hygienic, serviced rooms — not before.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["validation", "commission", "certification"], "after_keywords": ["accreditation", "handover", "occupation"],
+     "reason": "Accreditation/occupation must follow validation and certification of clinical systems.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Building Weathertight", "MEP Complete", "Validation Complete", "Accreditation", "Handover"],
+  "common_issues": ["Missing medical-gas certification", "No HVAC validation for clean/critical areas",
+                    "Medical equipment not sequenced after room finishes", "Accreditation before validation"]
+}

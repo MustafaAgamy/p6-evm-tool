@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Residential",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["residential", "apartment", "villa", "housing", "flat", "dwelling", "block",
+                 "unit", "compound", "façade", "facade", "finishes", "plaster", "joinery"],
+  "wbs": [
+    {"name": "Enabling & Site Works", "keywords": ["enabling", "site", "clearance", "excavation", "shoring"]},
+    {"name": "Substructure & Foundations", "keywords": ["foundation", "raft", "footing", "pile", "basement", "waterproof", "tanking"]},
+    {"name": "Superstructure / Frame", "keywords": ["superstructure", "frame", "column", "slab", "concrete", "block work", "masonry"]},
+    {"name": "Building Envelope / Façade", "keywords": ["envelope", "façade", "facade", "cladding", "roof", "window", "weathertight"]},
+    {"name": "MEP First Fix", "keywords": ["first fix", "mep", "conduit", "rough-in", "containment"]},
+    {"name": "Internal Finishes", "keywords": ["finishes", "plaster", "screed", "tiling", "paint", "joinery", "second fix"]},
+    {"name": "External Works", "keywords": ["external", "hardscape", "paving", "boundary", "landscape"]},
+    {"name": "Testing & Handover", "keywords": ["test", "commission", "snag", "handover", "completion"]}
+  ],
+  "activities": [
+    {"name": "Waterproofing / Tanking", "keywords": ["waterproof", "tanking", "membrane"], "wbs": "Substructure & Foundations",
+     "typical_pred": "Foundations Concrete", "typical_succ": "Backfill", "duration_days": 10,
+     "why": "Below-grade waterproofing must be applied and protected before backfill — a common omission that causes leaks later."},
+    {"name": "MEP First Fix", "keywords": ["first fix", "rough-in"], "wbs": "MEP First Fix",
+     "typical_pred": "Blockwork", "typical_succ": "Plastering", "duration_days": 20,
+     "why": "Services must be roughed-in before finishes cover the walls; skipping it forces destructive rework."},
+    {"name": "MEP Testing & Commissioning", "keywords": ["mep test", "commission", "testing"], "wbs": "Testing & Handover",
+     "typical_pred": "MEP Second Fix", "typical_succ": "Snagging", "duration_days": 15,
+     "why": "Electrical, plumbing and HVAC must be tested and commissioned before handover."},
+    {"name": "Snagging / De-snagging", "keywords": ["snag", "de-snag", "punch list"], "wbs": "Testing & Handover",
+     "typical_pred": "Internal Finishes", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A snagging/punch-list pass is standard before taking-over; its absence hides quality risk."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["envelope", "façade", "facade", "weathertight", "roof"], "after_keywords": ["finishes", "plaster", "paint", "second fix"],
+     "reason": "Internal finishes should follow a weathertight envelope, or water damage ruins the works.",
+     "impact": "Critical"},
+    {"before_keywords": ["first fix", "rough-in"], "after_keywords": ["plaster", "finishes", "second fix"],
+     "reason": "MEP first fix must precede finishes that cover the walls and ceilings.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["test", "commission"], "after_keywords": ["handover", "taking over", "occupation"],
+     "reason": "Testing and commissioning must complete before handover/occupation.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Foundations Complete", "Structure Topped Out", "Building Weathertight", "Practical Completion / Handover"],
+  "common_issues": ["Internal finishes before weathertight envelope", "No MEP testing & commissioning phase",
+                    "Missing snagging / de-snagging", "Waterproofing not sequenced before backfill"]
+}

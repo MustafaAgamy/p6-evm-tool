@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Educational (School / University)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["school", "university", "college", "campus", "classroom", "laboratory", "lecture", "educational",
+                 "library", "auditorium", "student", "faculty", "academic"],
+  "wbs": [
+    {"name": "Enabling & Substructure", "keywords": ["enabling", "excavation", "foundation", "substructure"]},
+    {"name": "Superstructure", "keywords": ["superstructure", "frame", "slab", "structure"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "façade", "facade", "roof", "weathertight"]},
+    {"name": "MEP Services", "keywords": ["mep", "hvac", "electrical", "plumbing", "ict", "data"]},
+    {"name": "Fit-out & Finishes", "keywords": ["fit-out", "finishes", "classroom", "laboratory", "joinery"]},
+    {"name": "Specialist Areas", "keywords": ["laboratory", "auditorium", "library", "sports hall", "lab"]},
+    {"name": "External & Landscape", "keywords": ["external", "landscape", "playground", "parking"]},
+    {"name": "Testing & Handover", "keywords": ["test", "commission", "snag", "handover", "occupation"]}
+  ],
+  "activities": [
+    {"name": "Laboratory / Specialist Fit-out", "keywords": ["laboratory", "lab fit-out", "specialist"], "wbs": "Specialist Areas",
+     "typical_pred": "MEP Installation", "typical_succ": "Commissioning", "duration_days": 25,
+     "why": "Labs and specialist rooms need serviced fit-out with fume/gas provisions before commissioning."},
+    {"name": "ICT / Data Network", "keywords": ["ict", "data network", "structured cabling", "av"], "wbs": "MEP Services",
+     "typical_pred": "First Fix", "typical_succ": "Commissioning", "duration_days": 20,
+     "why": "Structured data/AV networks are core to a modern campus and are often under-planned."},
+    {"name": "MEP Testing & Commissioning", "keywords": ["commission", "mep test", "testing"], "wbs": "Testing & Handover",
+     "typical_pred": "MEP Installation", "typical_succ": "Snagging", "duration_days": 15,
+     "why": "Services must be tested and commissioned before handover for occupation."},
+    {"name": "Snagging & Handover", "keywords": ["snag", "handover", "occupation"], "wbs": "Testing & Handover",
+     "typical_pred": "Finishes", "typical_succ": "Occupation", "duration_days": 15,
+     "why": "Schools open to a term date — a snagging pass and handover precede occupation."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["envelope", "weathertight", "façade", "facade"], "after_keywords": ["finishes", "fit-out"],
+     "reason": "Internal fit-out follows a weathertight envelope.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "test"],
+     "reason": "Commissioning follows MEP installation.",
+     "impact": "Critical"},
+    {"before_keywords": ["commission", "test"], "after_keywords": ["handover", "occupation"],
+     "reason": "Handover/occupation follows testing and commissioning.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "MEP Complete", "Commissioning", "Handover / Term Start"],
+  "common_issues": ["Fit-out before weathertight envelope", "No MEP commissioning",
+                    "Specialist labs / ICT under-planned", "Handover not aligned to term date"]
+}

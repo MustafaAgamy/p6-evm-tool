@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Pharmaceutical / GMP Facility",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["pharmaceutical", "pharma", "gmp", "clean room", "cleanroom", "iq", "oq", "pq", "validation",
+                 "wfi", "water for injection", "clean steam", "hvac", "qualification", "aseptic", "cgmp"],
+  "wbs": [
+    {"name": "Civil & Structure", "keywords": ["civil", "structure", "foundation", "frame"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "façade", "facade", "roof", "weathertight"]},
+    {"name": "Clean Room Construction", "keywords": ["clean room", "cleanroom", "modular wall", "epoxy floor", "classified"]},
+    {"name": "HVAC (Clean)", "keywords": ["hvac", "ahu", "hepa", "pressure cascade", "air handling"]},
+    {"name": "Clean Utilities", "keywords": ["wfi", "water for injection", "clean steam", "purified water", "pure gas"]},
+    {"name": "Process Equipment", "keywords": ["process equipment", "reactor", "filler", "lyophiliser", "autoclave"]},
+    {"name": "Qualification (IQ/OQ/PQ)", "keywords": ["iq", "oq", "pq", "qualification", "commissioning"]},
+    {"name": "Validation & Handover", "keywords": ["validation", "process validation", "handover", "gmp release"]}
+  ],
+  "activities": [
+    {"name": "Clean Room Construction", "keywords": ["clean room", "cleanroom", "classified area"], "wbs": "Clean Room Construction",
+     "typical_pred": "Building Weathertight", "typical_succ": "HVAC Commissioning", "duration_days": 40,
+     "why": "Classified clean rooms are built inside the weathertight shell before equipment and qualification."},
+    {"name": "HVAC Commissioning & Balancing", "keywords": ["hvac commission", "air balance", "pressure cascade"], "wbs": "HVAC (Clean)",
+     "typical_pred": "HVAC Installation", "typical_succ": "Qualification (IQ/OQ/PQ)", "duration_days": 25,
+     "why": "Airflow, filtration and pressure cascade must be commissioned to hold clean-room classification."},
+    {"name": "WFI / Clean Utilities System", "keywords": ["wfi", "water for injection", "clean steam", "purified water"], "wbs": "Clean Utilities",
+     "typical_pred": "Utilities Installation", "typical_succ": "Qualification (IQ/OQ/PQ)", "duration_days": 30,
+     "why": "Water-for-injection and clean-steam systems are specialised and gate qualification."},
+    {"name": "Qualification (IQ / OQ / PQ)", "keywords": ["iq", "oq", "pq", "qualification"], "wbs": "Qualification (IQ/OQ/PQ)",
+     "typical_pred": "HVAC & Utilities Commissioning", "typical_succ": "Process Validation", "duration_days": 45,
+     "why": "Installation, Operational and Performance Qualification are the GMP gate before process validation."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["clean room", "cleanroom", "classified"], "after_keywords": ["process equipment", "equipment install"],
+     "reason": "Process equipment installs into a completed, classified clean room.",
+     "impact": "Critical"},
+    {"before_keywords": ["hvac", "utilities", "commission"], "after_keywords": ["iq", "oq", "pq", "qualification"],
+     "reason": "Qualification follows HVAC and clean-utility commissioning.",
+     "impact": "Critical"},
+    {"before_keywords": ["iq", "oq", "pq", "qualification"], "after_keywords": ["validation", "process validation", "handover", "release"],
+     "reason": "Process validation and GMP release follow IQ/OQ/PQ qualification.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Building Weathertight", "Clean Room Complete", "Qualification (IQ/OQ/PQ)", "Process Validation", "GMP Release"],
+  "common_issues": ["Equipment before clean-room completion", "No IQ/OQ/PQ qualification",
+                    "Missing WFI / clean-utility systems", "Validation skipped before handover"]
+}

@@ -1,0 +1,45 @@
+{
+  "category": "Infrastructure",
+  "type": "Water & Wastewater Treatment",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["water treatment", "wastewater", "sewage", "stp", "wtp", "desalination", "reverse osmosis",
+                 "clarifier", "aeration", "basin", "pump station", "ica", "scada", "process", "membrane"],
+  "wbs": [
+    {"name": "Earthworks & Enabling", "keywords": ["earthwork", "excavation", "enabling", "dewatering"]},
+    {"name": "Civil Structures", "keywords": ["tank", "basin", "clarifier", "reservoir", "concrete structure"]},
+    {"name": "Below-ground Pipework", "keywords": ["pipework", "pipe", "interconnecting", "gravity main"]},
+    {"name": "Mechanical Equipment", "keywords": ["pump", "blower", "mechanical", "valve", "membrane", "screen"]},
+    {"name": "Electrical & ICA", "keywords": ["electrical", "ica", "instrumentation", "control", "scada", "mcc"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "watertight", "wet commission", "process proving"]},
+    {"name": "Handover", "keywords": ["handover", "completion", "reliability run"]}
+  ],
+  "activities": [
+    {"name": "Watertightness / Hydrostatic Test", "keywords": ["watertight", "hydrostatic", "leak test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Tank Structure", "typical_succ": "Mechanical Installation", "duration_days": 10,
+     "why": "Retaining structures are watertightness-tested before equipment and process commissioning."},
+    {"name": "ICA / SCADA Commissioning", "keywords": ["ica", "scada", "instrumentation commission", "control"], "wbs": "Electrical & ICA",
+     "typical_pred": "Electrical Installation", "typical_succ": "Wet Commissioning", "duration_days": 20,
+     "why": "Instrumentation, control and SCADA must be commissioned to run the process automatically."},
+    {"name": "Wet Commissioning / Process Proving", "keywords": ["wet commission", "process proving", "start-up"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Mechanical & ICA Commissioning", "typical_succ": "Reliability Run", "duration_days": 30,
+     "why": "The plant must be wet-commissioned on real flow to prove treatment before handover."},
+    {"name": "Reliability / Performance Run", "keywords": ["reliability run", "performance test", "acceptance run"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Wet Commissioning", "typical_succ": "Handover", "duration_days": 30,
+     "why": "A sustained reliability run proves the plant meets its treatment guarantees before taking over."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["tank", "basin", "structure", "watertight"], "after_keywords": ["mechanical", "pump", "install"],
+     "reason": "Mechanical equipment installs into completed, watertight civil structures.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "wet commission", "process proving"],
+     "reason": "Commissioning follows installation of the mechanical and electrical works.",
+     "impact": "Critical"},
+    {"before_keywords": ["wet commission", "process proving", "commission"], "after_keywords": ["handover", "taking over", "reliability"],
+     "reason": "Handover follows process/wet commissioning and the reliability run.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Structures Complete", "M&E Complete", "Wet Commissioning", "Reliability Run", "Handover"],
+  "common_issues": ["No watertightness test before commissioning", "Mechanical before civil structures complete",
+                    "Missing ICA / SCADA commissioning", "No wet commissioning / reliability run"]
+}

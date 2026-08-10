@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Desalination Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["desalination", "reverse osmosis", "sw ro", "swro", "membrane", "intake", "outfall",
+                 "brine", "permeate", "seawater", "pretreatment", "high pressure pump", "energy recovery"],
+  "wbs": [
+    {"name": "Intake & Outfall (Marine)", "keywords": ["intake", "outfall", "marine", "screen", "brine outfall"]},
+    {"name": "Civil Structures", "keywords": ["civil", "structure", "tank", "basin", "foundation"]},
+    {"name": "Pretreatment", "keywords": ["pretreatment", "filtration", "dmf", "ultrafiltration", "dosing"]},
+    {"name": "RO Membrane Trains", "keywords": ["ro", "membrane", "train", "pressure vessel", "rack"]},
+    {"name": "High-Pressure Pumps & Energy Recovery", "keywords": ["high pressure pump", "hp pump", "energy recovery", "erd"]},
+    {"name": "Post-treatment", "keywords": ["post-treatment", "remineral", "chlorination"]},
+    {"name": "Electrical & ICA", "keywords": ["electrical", "ica", "instrumentation", "scada", "control"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "flushing", "wet commission", "first water"]}
+  ],
+  "activities": [
+    {"name": "Intake & Outfall Marine Works", "keywords": ["intake", "outfall", "marine works"], "wbs": "Intake & Outfall (Marine)",
+     "typical_pred": "Mobilisation", "typical_succ": "Pretreatment", "duration_days": 90,
+     "why": "Seawater intake and brine outfall are long-lead marine works that gate the whole plant."},
+    {"name": "Membrane Loading", "keywords": ["membrane loading", "load membrane", "element loading"], "wbs": "RO Membrane Trains",
+     "typical_pred": "Train Flushing", "typical_succ": "Commissioning", "duration_days": 15,
+     "why": "RO membranes are loaded only after pipework flushing — loading into dirty trains destroys them."},
+    {"name": "ICA / SCADA Commissioning", "keywords": ["ica", "scada", "instrumentation commission"], "wbs": "Electrical & ICA",
+     "typical_pred": "Electrical Installation", "typical_succ": "Wet Commissioning", "duration_days": 20,
+     "why": "Instrumentation, control and SCADA must be commissioned to run the process safely."},
+    {"name": "Wet Commissioning / First Water", "keywords": ["wet commission", "first water", "start-up"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Membrane Loading & ICA", "typical_succ": "Performance Test", "duration_days": 30,
+     "why": "The plant is wet-commissioned on seawater to prove product water before performance testing."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["flushing", "flush"], "after_keywords": ["membrane loading", "load membrane"],
+     "reason": "Membranes are loaded only after the trains are flushed clean.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "wet commission"],
+     "reason": "Commissioning follows mechanical and electrical installation.",
+     "impact": "Critical"},
+    {"before_keywords": ["intake", "outfall"], "after_keywords": ["wet commission", "first water"],
+     "reason": "Wet commissioning depends on completed intake/outfall marine works.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Intake/Outfall Complete", "Mechanical Completion", "Wet Commissioning / First Water", "Performance Test"],
+  "common_issues": ["Membrane loading before flushing", "Missing intake/outfall marine works",
+                    "No wet commissioning", "ICA / SCADA not commissioned"]
+}
