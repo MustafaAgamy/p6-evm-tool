@@ -9,6 +9,7 @@ import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
 
 let _shownReport = null;   // the report currently on screen (exports read this)
+let _shownTrend = null;    // the milestone trend currently on screen (carried into the PDF)
 let _prev = null;          // {prev_path} or {prev_cached_path} chosen for the comparison
 
 function _currName() {
@@ -246,6 +247,10 @@ export function renderPeriodReport(report) {
     ? `<div class="cmp-warn">No activities matched by ID between the two files — is this the right previous update? Nothing can be compared until they line up.</div>` : '';
   rep.innerHTML = `
     ${_fileBar(report)}
+    <div class="cmp-exports">
+      <button class="btn-secondary" id="per-export-pdf">Export PDF</button>
+      <button class="btn-secondary" id="per-export-xlsx">Export Excel</button>
+    </div>
     ${mismatch}
     <div class="mod-sec">Executive dashboard — progress this period</div>
     ${_dashboard(s)}
@@ -268,7 +273,52 @@ export function renderPeriodReport(report) {
     <div id="per-trend" class="cmp-scurve-card"><div class="cmp-loading">Loading milestone trend…</div></div>
     <div class="mod-sec">Executive conclusion</div>
     <div class="cmp-reco">${escapeHtml(report.conclusion || '')}</div>`;
+  const epdf = document.getElementById('per-export-pdf');
+  if (epdf) epdf.addEventListener('click', exportPeriodPdf);
+  const exls = document.getElementById('per-export-xlsx');
+  if (exls) exls.addEventListener('click', exportPeriodExcel);
   _fetchTrend();
+}
+
+// ── Exports (PDF + Excel) ───────────────────────────────────────────────────
+
+async function _withBtn(id, idle, fn) {
+  const btn = document.getElementById(id);
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try { await fn(); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = idle; } }
+}
+
+export async function exportPeriodPdf() {
+  if (!_shownReport) { showError('Run the comparison first, then export.'); return; }
+  const outputPath = await window.pywebview.api.choose_save_path('update_vs_update.pdf', 'pdf');
+  if (!outputPath) return;
+  await _withBtn('per-export-pdf', 'Export PDF', async () => {
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath }),
+      });
+      const data = await resp.json();
+      if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
+    } catch { showError('Could not reach the local server to export the PDF.'); }
+  });
+}
+
+export async function exportPeriodExcel() {
+  if (!_shownReport) { showError('Run the comparison first, then export.'); return; }
+  const outputPath = await window.pywebview.api.choose_save_path('update_vs_update.xlsx', 'xlsx');
+  if (!outputPath) return;
+  await _withBtn('per-export-xlsx', 'Export Excel', async () => {
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/period/excel`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: _shownReport, output_path: outputPath }),
+      });
+      const data = await resp.json();
+      if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
+    } catch { showError('Could not reach the local server to export to Excel.'); }
+  });
 }
 
 const _TREND_PALETTE = ['#f87171', '#4ade80', '#3b82f6', '#fbbf24', '#a78bfa', '#f472b6', '#22d3ee', '#fb923c'];
@@ -330,6 +380,7 @@ async function _fetchTrend() {
       body: JSON.stringify({ snapshot_id: state.currentSnapshotId }),
     });
     const data = await resp.json();
+    _shownTrend = data.ok ? data.trend : null;
     el.innerHTML = data.ok ? _milestoneTrendSvg(data.trend)
                            : `<p class="cmp-empty">${escapeHtml(data.error || 'Trend unavailable.')}</p>`;
   } catch {
