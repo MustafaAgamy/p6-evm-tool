@@ -72,6 +72,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_settings_set(body)
         elif self.path == '/api/ai-review':
             self._handle_ai_review(body)
+        elif self.path == '/api/constructability':
+            self._handle_constructability(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -350,6 +352,27 @@ class Handler(BaseHTTPRequestHandler):
             except AiError as e:
                 self._json(200, {'ok': False, 'error': str(e), 'code': e.code})
                 return
+            self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/constructability (rule-based, offline, no AI) ──────────────────
+    def _handle_constructability(self, body):
+        """Rule-based Constructability Review against the local Knowledge Base.
+
+        Re-parses the schedule, runs the offline engine, returns the report dict
+        (no `records` key). `forced_type` lets the UI override the detected sub-type.
+        """
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_kb.review import run_review
+            data = parse_file(resolved)
+            report = run_review(data, forced_type=body.get('forced_type'))
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

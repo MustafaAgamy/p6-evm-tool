@@ -14,9 +14,10 @@ block_cipher = None
 
 # ── Data files bundled into the .exe ──────────────────────────────────────
 datas = [
-    ('ui',          'ui'),          # HTML / CSS / JS
-    ('p6_evm',      'p6_evm'),      # Python package
-    ('config.json', '.'),           # Config at root of bundle
+    ('ui',             'ui'),             # HTML / CSS / JS
+    ('p6_evm',         'p6_evm'),         # Python package
+    ('config.json',    '.'),              # Config at root of bundle
+    ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
 ]
 
 # ── Hidden imports pywebview / webview2 needs ──────────────────────────────
@@ -40,6 +41,13 @@ hiddenimports = [
     'p6_evm.gap',
     'p6_evm.evm_report',
     'p6_evm.engineering_p6',
+    # Constructability engine (rule-based + knowledge base)
+    'p6_kb',
+    'p6_kb.review',
+    'p6_kb.kb',
+    'p6_kb.detect',
+    'p6_kb.model',
+    'p6_kb.scoring',
 ]
 
 a = Analysis(

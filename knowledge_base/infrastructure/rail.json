@@ -1,0 +1,50 @@
+{
+  "category": "Infrastructure",
+  "type": "Rail",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["rail", "track", "ballast", "sleeper", "ocs", "catenary", "overhead line",
+                 "traction", "substation", "signalling", "signaling", "scada", "possession",
+                 "level crossing", "platform"],
+  "wbs": [
+    {"name": "Civil & Earthworks", "keywords": ["civil", "earthwork", "formation", "subgrade", "drainage"]},
+    {"name": "Track & Ballast", "keywords": ["track", "ballast", "sleeper", "rail laying", "tamping"]},
+    {"name": "OCS / Catenary", "keywords": ["ocs", "catenary", "overhead", "wiring", "mast"]},
+    {"name": "Traction Power", "keywords": ["traction", "substation", "transformer", "switchgear", "power supply"]},
+    {"name": "Signalling & SCADA", "keywords": ["signal", "scada", "interlock", "telecom"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "sat", "energ", "integration"]},
+    {"name": "Possessions / Interface", "keywords": ["possession", "isolation", "interface", "third party"]},
+    {"name": "Handover & Closeout", "keywords": ["handover", "closeout", "completion", "taking over"]}
+  ],
+  "activities": [
+    {"name": "Factory Acceptance Test (FAT)", "keywords": ["fat", "factory acceptance"], "wbs": "Traction Power",
+     "typical_pred": "Equipment Manufacture", "typical_succ": "Delivery to Site", "duration_days": 5,
+     "why": "Long-lead traction equipment is FAT-witnessed before shipping; skipping it hides delivery-slippage risk."},
+    {"name": "Site Acceptance Test (SAT)", "keywords": ["sat", "site acceptance", "acceptance test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Install Traction Equipment", "typical_succ": "Energization", "duration_days": 10,
+     "why": "A SAT between installation and energization proves protection, interlocks and SCADA before the line goes live."},
+    {"name": "Energization & Charging", "keywords": ["energ", "charging", "power on"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Site Acceptance Test (SAT)", "typical_succ": "Handover", "duration_days": 5,
+     "why": "Going live requires energization after a successful SAT and an isolation/energization permit."},
+    {"name": "Integrated System Testing", "keywords": ["integrated test", "integration test", "system test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Signalling Installation", "typical_succ": "SAT", "duration_days": 15,
+     "why": "Signalling, SCADA and traction must be proven together before acceptance."},
+    {"name": "Track Possession Windows", "keywords": ["possession", "isolation window"], "wbs": "Possessions / Interface",
+     "typical_pred": "Site Setup", "typical_succ": "OCS Wiring", "duration_days": 0,
+     "why": "OCS and lineside work depend on booked possessions; without them durations assume unrestricted access."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["install", "installation", "erection"], "after_keywords": ["commission", "commissioning"],
+     "reason": "Commissioning must follow installation completion — you cannot commission plant that is not yet installed.",
+     "impact": "Critical"},
+    {"before_keywords": ["sat", "site acceptance", "acceptance test", "test"], "after_keywords": ["energ", "energization", "charging"],
+     "reason": "Energization must follow a successful Site Acceptance Test, not civil or installation alone.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["test", "sat"],
+     "reason": "Testing must follow installation of the equipment being tested.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Power On", "Line Open", "Taking-Over Certificate"],
+  "common_issues": ["Missing Testing & Commissioning phase", "Energization tied to civil completion",
+                    "No possession/isolation activities", "Commissioning tied Start-to-Start to installation"]
+}
