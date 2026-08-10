@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "Utility Networks (Water / Power / Telecom)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it. For distribution/reticulation networks.",
+  "signatures": ["network", "distribution", "reticulation", "water network", "sewer", "power distribution",
+                 "telecom", "fiber", "fibre", "duct bank", "manhole", "house connection", "chamber", "cable network"],
+  "wbs": [
+    {"name": "Survey & Setting Out", "keywords": ["survey", "setting out", "detection", "utility mapping"]},
+    {"name": "Trenching & Ducts", "keywords": ["trench", "duct", "duct bank", "excavation"]},
+    {"name": "Pipe / Cable Laying", "keywords": ["pipe laying", "cable laying", "pulling", "jointing"]},
+    {"name": "Chambers & Manholes", "keywords": ["chamber", "manhole", "valve chamber", "pit"]},
+    {"name": "Connections & Fittings", "keywords": ["connection", "house connection", "fitting", "service connection"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "pressure test", "continuity", "commission"]},
+    {"name": "Backfill & Reinstatement", "keywords": ["backfill", "reinstatement", "resurfacing"]},
+    {"name": "Handover", "keywords": ["handover", "as-built", "energ"]}
+  ],
+  "activities": [
+    {"name": "Pressure / Continuity Testing", "keywords": ["pressure test", "continuity test", "leak test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Pipe / Cable Laying", "typical_succ": "Backfill", "duration_days": 10,
+     "why": "Mains are pressure/continuity tested before backfill seals the trench — retesting later is destructive."},
+    {"name": "House / Service Connections", "keywords": ["house connection", "service connection", "lateral"], "wbs": "Connections & Fittings",
+     "typical_pred": "Distribution Main", "typical_succ": "Commissioning", "duration_days": 25,
+     "why": "Individual service connections are a large, often under-planned part of a reticulation network."},
+    {"name": "Reinstatement", "keywords": ["reinstatement", "resurfacing", "road reinstatement"], "wbs": "Backfill & Reinstatement",
+     "typical_pred": "Testing", "typical_succ": "Handover", "duration_days": 20,
+     "why": "Reinstatement of roads/verges follows successful testing and backfill."},
+    {"name": "Network Commissioning", "keywords": ["commission", "energ", "charging"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Connections", "typical_succ": "Handover", "duration_days": 10,
+     "why": "The network is charged/energized and commissioned before handover to the operator."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["laying", "pipe laying", "cable laying"], "after_keywords": ["test", "pressure test", "continuity"],
+     "reason": "Testing follows laying and jointing.",
+     "impact": "Critical"},
+    {"before_keywords": ["test", "pressure test", "continuity"], "after_keywords": ["backfill", "reinstatement"],
+     "reason": "Backfill and reinstatement follow successful testing.",
+     "impact": "Critical"},
+    {"before_keywords": ["trench", "duct"], "after_keywords": ["laying", "pulling"],
+     "reason": "Laying/pulling follows trenching and duct installation.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Trenching Complete", "Laying Complete", "Testing Complete", "Reinstatement / Handover"],
+  "common_issues": ["Backfill / reinstatement before testing", "House connections under-planned",
+                    "No pressure / continuity test", "Network commissioning missing"]
+}

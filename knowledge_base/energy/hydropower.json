@@ -1,0 +1,45 @@
+{
+  "category": "Energy",
+  "type": "Hydropower Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["hydropower", "hydro", "powerhouse", "penstock", "turbine", "francis", "pelton", "kaplan",
+                 "tailrace", "headrace", "surge", "draft tube", "spiral case", "intake", "watering-up"],
+  "wbs": [
+    {"name": "Diversion & Coffer", "keywords": ["diversion", "cofferdam", "diversion tunnel"]},
+    {"name": "Intake & Waterway", "keywords": ["intake", "headrace", "tunnel", "surge", "waterway"]},
+    {"name": "Penstock", "keywords": ["penstock", "pressure shaft", "steel liner"]},
+    {"name": "Powerhouse Civil", "keywords": ["powerhouse", "machine hall", "civil"]},
+    {"name": "Turbine-Generator", "keywords": ["turbine", "generator", "spiral case", "draft tube", "runner"]},
+    {"name": "Balance of Plant", "keywords": ["bop", "transformer", "switchyard", "auxiliaries"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "dry commission", "watering-up", "sync"]}
+  ],
+  "activities": [
+    {"name": "Penstock Installation & Test", "keywords": ["penstock", "pressure shaft", "penstock test"], "wbs": "Penstock",
+     "typical_pred": "Waterway", "typical_succ": "Turbine Erection", "duration_days": 60,
+     "why": "The penstock/pressure shaft conveys water to the turbines and is pressure-tested before watering-up."},
+    {"name": "Turbine-Generator Erection", "keywords": ["turbine erection", "generator erection", "spiral case"], "wbs": "Turbine-Generator",
+     "typical_pred": "Powerhouse Civil", "typical_succ": "Dry Commissioning", "duration_days": 90,
+     "why": "The turbine-generator units erect into the completed powerhouse before commissioning."},
+    {"name": "Dry Commissioning", "keywords": ["dry commission", "no-load"], "wbs": "Testing & Commissioning",
+     "typical_pred": "T-G Erection", "typical_succ": "Watering-up", "duration_days": 20,
+     "why": "Units are dry-commissioned before water is admitted (watering-up)."},
+    {"name": "Watering-up & First Sync", "keywords": ["watering-up", "wet commission", "first sync"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Dry Commissioning", "typical_succ": "Commercial Operation", "duration_days": 20,
+     "why": "Watering-up and first synchronisation follow dry commissioning and completed waterway."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["dry commission", "no-load"], "after_keywords": ["watering-up", "wet commission", "first sync"],
+     "reason": "Watering-up and first sync follow dry commissioning.",
+     "impact": "Critical"},
+    {"before_keywords": ["waterway", "penstock", "intake"], "after_keywords": ["watering-up", "wet commission"],
+     "reason": "Watering-up depends on a completed and tested waterway/penstock.",
+     "impact": "Critical"},
+    {"before_keywords": ["powerhouse", "civil"], "after_keywords": ["turbine erection", "generator erection"],
+     "reason": "Turbine-generator erection follows powerhouse civil completion.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Waterway Complete", "T-G Erection Complete", "Watering-up", "First Sync / COD"],
+  "common_issues": ["Watering-up before dry commissioning", "Missing penstock testing",
+                    "No wet commissioning / first sync", "T-G erection before powerhouse civil complete"]
+}

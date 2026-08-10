@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Fit-out / Interiors",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it. Use for interior fit-out scope inside an existing shell/base-build.",
+  "signatures": ["fit-out", "fit out", "interior", "cat b", "partition", "ceiling", "raised floor", "joinery",
+                 "flooring", "loose furniture", "workplace", "office fit", "shopfit"],
+  "wbs": [
+    {"name": "Enabling / Strip-out", "keywords": ["strip-out", "strip out", "demolition", "enabling"]},
+    {"name": "Partitions & Ceilings", "keywords": ["partition", "ceiling", "drywall", "bulkhead"]},
+    {"name": "MEP Fit-out", "keywords": ["mep", "hvac", "electrical", "lighting", "sprinkler modification"]},
+    {"name": "Flooring & Finishes", "keywords": ["flooring", "raised floor", "carpet", "finishes", "paint"]},
+    {"name": "Joinery & Millwork", "keywords": ["joinery", "millwork", "reception", "kitchenette"]},
+    {"name": "AV / ICT", "keywords": ["av", "ict", "data", "cabling"]},
+    {"name": "FF&E / Loose Furniture", "keywords": ["ff&e", "ffe", "furniture", "loose furniture"]},
+    {"name": "Testing, Snagging & Handover", "keywords": ["test", "commission", "snag", "handover"]}
+  ],
+  "activities": [
+    {"name": "MEP Coordination & Modification", "keywords": ["mep modification", "hvac modification", "sprinkler modification"], "wbs": "MEP Fit-out",
+     "typical_pred": "Partitions", "typical_succ": "Ceilings Close", "duration_days": 20,
+     "why": "Base-build services are modified to the new layout before ceilings close them in."},
+    {"name": "Ceilings Close", "keywords": ["ceiling close", "ceiling install"], "wbs": "Partitions & Ceilings",
+     "typical_pred": "MEP Above-ceiling", "typical_succ": "Finishes", "duration_days": 15,
+     "why": "Ceilings close only after above-ceiling MEP is installed and inspected."},
+    {"name": "AV / ICT Installation", "keywords": ["av install", "ict", "data cabling"], "wbs": "AV / ICT",
+     "typical_pred": "Containment", "typical_succ": "Commissioning", "duration_days": 15,
+     "why": "AV/data are core to a workplace fit-out and gate occupation."},
+    {"name": "FF&E Installation", "keywords": ["ff&e", "furniture", "loose furniture"], "wbs": "FF&E / Loose Furniture",
+     "typical_pred": "Finishes", "typical_succ": "Handover", "duration_days": 10,
+     "why": "Furniture installs after finishes and precedes handover/occupation."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["mep", "above-ceiling", "above ceiling"], "after_keywords": ["ceiling close", "ceiling install"],
+     "reason": "Ceilings close only after above-ceiling MEP is complete and inspected.",
+     "impact": "Critical"},
+    {"before_keywords": ["finishes", "flooring"], "after_keywords": ["ff&e", "furniture"],
+     "reason": "FF&E installs after finishes and flooring.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["commission", "snag"], "after_keywords": ["handover", "occupation"],
+     "reason": "Handover follows commissioning and snagging.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Partitions Complete", "Ceilings Closed", "Finishes Complete", "Handover"],
+  "common_issues": ["Ceilings closed before above-ceiling MEP", "FF&E before finishes",
+                    "AV/ICT under-planned", "No snagging before handover"]
+}

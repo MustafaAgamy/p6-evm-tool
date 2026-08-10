@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Steel Structures",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it. Use for projects whose main scope is structural steel (fabrication + erection).",
+  "signatures": ["steel structure", "structural steel", "fabrication", "erection", "girder", "truss", "purlin",
+                 "portal frame", "bolting", "welding", "primary steel", "secondary steel", "shop drawing", "gantry"],
+  "wbs": [
+    {"name": "Design & Shop Drawings", "keywords": ["shop drawing", "detailing", "design", "approval", "connection design"]},
+    {"name": "Fabrication", "keywords": ["fabrication", "cutting", "welding", "assembly", "shop"]},
+    {"name": "Surface Treatment", "keywords": ["surface treatment", "galvanis", "galvaniz", "painting", "blasting", "primer", "coating"]},
+    {"name": "Delivery", "keywords": ["delivery", "transport", "logistics", "shipment"]},
+    {"name": "Erection", "keywords": ["erection", "erect", "lifting", "crane", "assembly on site"]},
+    {"name": "Bolting & Alignment", "keywords": ["bolting", "torque", "alignment", "plumbing", "survey"]},
+    {"name": "Decking & Cladding", "keywords": ["decking", "cladding", "sheeting", "roofing"]},
+    {"name": "Inspection & Handover", "keywords": ["inspection", "ndt", "handover", "sign-off"]}
+  ],
+  "activities": [
+    {"name": "Shop Drawing Approval", "keywords": ["shop drawing", "detailing approval"], "wbs": "Design & Shop Drawings",
+     "typical_pred": "Design", "typical_succ": "Fabrication", "duration_days": 20,
+     "why": "Shop/detailing drawings are approved before fabrication starts — omitting the gate causes rework."},
+    {"name": "Fabrication", "keywords": ["fabrication", "fabricate", "shop welding"], "wbs": "Fabrication",
+     "typical_pred": "Shop Drawing Approval", "typical_succ": "Surface Treatment", "duration_days": 40,
+     "why": "Steel is fabricated to approved drawings before delivery and erection."},
+    {"name": "Surface Treatment (Galvanising / Painting)", "keywords": ["galvanis", "galvaniz", "painting", "blasting", "primer"], "wbs": "Surface Treatment",
+     "typical_pred": "Fabrication", "typical_succ": "Delivery", "duration_days": 15,
+     "why": "Corrosion protection is applied after fabrication and before erection — frequently missed in the logic."},
+    {"name": "Bolt Torquing / Weld Inspection (NDT)", "keywords": ["torque", "ndt", "weld inspection", "bolt inspection"], "wbs": "Inspection & Handover",
+     "typical_pred": "Erection", "typical_succ": "Handover", "duration_days": 10,
+     "why": "Connections are torqued/inspected (and site welds NDT'd) before the structure is signed off."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["shop drawing", "detailing"], "after_keywords": ["fabrication", "fabricate"],
+     "reason": "Fabrication must follow approved shop drawings.",
+     "impact": "Critical"},
+    {"before_keywords": ["fabrication", "fabricate"], "after_keywords": ["erection", "erect", "lifting"],
+     "reason": "Erection follows fabrication and delivery, not before.",
+     "impact": "Critical"},
+    {"before_keywords": ["erection", "erect", "alignment", "bolting"], "after_keywords": ["decking", "cladding", "sheeting"],
+     "reason": "Decking/cladding follows a complete, aligned and bolted steel frame.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Shop Drawings Approved", "Fabrication Complete", "Erection Complete", "Handover"],
+  "common_issues": ["Erection before fabrication complete", "No shop-drawing approval gate",
+                    "Missing surface treatment / corrosion protection", "No bolt torquing / weld (NDT) inspection"]
+}

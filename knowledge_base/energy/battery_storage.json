@@ -1,0 +1,45 @@
+{
+  "category": "Energy",
+  "type": "Battery Energy Storage (BESS)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["battery", "bess", "energy storage", "battery container", "pcs", "power conversion", "inverter",
+                 "ems", "energy management", "grid connection", "thermal management", "lithium", "grid scale"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "plinth", "hardstand", "grading"]},
+    {"name": "Battery Containers", "keywords": ["battery container", "battery unit", "enclosure", "rack"]},
+    {"name": "Power Conversion (PCS)", "keywords": ["pcs", "power conversion", "inverter", "transformer skid"]},
+    {"name": "MV / HV & Grid", "keywords": ["substation", "grid", "mv", "hv", "switchgear", "interconnection"]},
+    {"name": "Controls & EMS", "keywords": ["ems", "energy management", "scada", "control"]},
+    {"name": "Fire & Safety", "keywords": ["fire", "suppression", "gas detection", "safety", "hvac"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "energ", "capacity test", "cod"]}
+  ],
+  "activities": [
+    {"name": "Battery Container Installation", "keywords": ["container install", "battery install"], "wbs": "Battery Containers",
+     "typical_pred": "Foundations", "typical_succ": "DC/AC Testing", "duration_days": 20,
+     "why": "Battery containers set onto completed foundations before electrical connection and testing."},
+    {"name": "Grid Connection / Interconnection", "keywords": ["grid connection", "interconnection", "substation sat"], "wbs": "MV / HV & Grid",
+     "typical_pred": "Substation Complete", "typical_succ": "Energization", "duration_days": 20,
+     "why": "The grid interconnection and agreement gate energization."},
+    {"name": "EMS Commissioning", "keywords": ["ems", "energy management", "controls commission"], "wbs": "Controls & EMS",
+     "typical_pred": "PCS Installation", "typical_succ": "Capacity Test", "duration_days": 15,
+     "why": "The Energy Management System dispatches the batteries and must be commissioned before service."},
+    {"name": "Capacity / Performance Test", "keywords": ["capacity test", "performance test", "round-trip"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Energization", "typical_succ": "COD", "duration_days": 15,
+     "why": "A capacity / round-trip-efficiency test proves the guarantee before commercial operation."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["substation", "grid connection", "interconnection"], "after_keywords": ["energ", "energization"],
+     "reason": "Energization follows substation completion and grid interconnection.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation"], "after_keywords": ["commission", "ems", "test"],
+     "reason": "Commissioning follows container and PCS installation.",
+     "impact": "Critical"},
+    {"before_keywords": ["energ", "commission"], "after_keywords": ["capacity test", "performance test", "cod"],
+     "reason": "The capacity test follows energization and commissioning.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Grid Connection", "Energization", "Capacity Test / COD"],
+  "common_issues": ["Energization before substation / grid connection", "Missing fire & safety systems",
+                    "No capacity / performance test", "EMS not commissioned"]
+}

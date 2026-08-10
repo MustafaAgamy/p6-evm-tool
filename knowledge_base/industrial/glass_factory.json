@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Glass Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["glass", "float glass", "furnace", "tin bath", "annealing", "lehr", "batch plant", "cullet",
+                 "coating line", "cutting line", "cold end", "hot end", "regenerator"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "raft"]},
+    {"name": "Structural Steel & Building", "keywords": ["steel", "building", "structure", "erection"]},
+    {"name": "Batch Plant", "keywords": ["batch plant", "batch house", "raw material", "cullet"]},
+    {"name": "Float Furnace", "keywords": ["furnace", "melter", "regenerator", "refractory"]},
+    {"name": "Tin Bath", "keywords": ["tin bath", "float bath"]},
+    {"name": "Annealing Lehr", "keywords": ["annealing", "lehr"]},
+    {"name": "Cold End (Cutting / Coating)", "keywords": ["cold end", "cutting line", "coating line", "stacker"]},
+    {"name": "Utilities, E&I & Heat-up", "keywords": ["utilities", "electrical", "instrumentation", "heat-up", "commission"]}
+  ],
+  "activities": [
+    {"name": "Furnace Refractory", "keywords": ["refractory", "furnace lining"], "wbs": "Float Furnace",
+     "typical_pred": "Furnace Steel", "typical_succ": "Furnace Heat-up", "duration_days": 60,
+     "why": "The melter/regenerator refractory is built after the furnace steel and before the long heat-up."},
+    {"name": "Furnace Heat-up", "keywords": ["heat-up", "heat up", "firing"], "wbs": "Utilities, E&I & Heat-up",
+     "typical_pred": "Furnace Refractory", "typical_succ": "First Glass", "duration_days": 30,
+     "why": "The furnace heat-up is a weeks-long, tightly-controlled ramp following refractory completion and dry-out."},
+    {"name": "Cold-End Line Installation", "keywords": ["cold end", "cutting line", "coating line"], "wbs": "Cold End (Cutting / Coating)",
+     "typical_pred": "Annealing Lehr", "typical_succ": "First Glass", "duration_days": 40,
+     "why": "The cutting/coating/stacking line must be ready to receive ribbon at first glass."},
+    {"name": "First Glass / First Draw", "keywords": ["first glass", "first draw", "start-up"], "wbs": "Utilities, E&I & Heat-up",
+     "typical_pred": "Furnace Heat-up", "typical_succ": "Ramp-up", "duration_days": 10,
+     "why": "First draw follows a successful heat-up with the tin bath and cold end ready."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["refractory", "furnace lining"], "after_keywords": ["heat-up", "heat up", "firing", "first glass"],
+     "reason": "Furnace heat-up follows refractory completion and cure, never before.",
+     "impact": "Critical"},
+    {"before_keywords": ["mechanical completion", "install", "erection"], "after_keywords": ["heat-up", "commission"],
+     "reason": "Heat-up and commissioning follow mechanical completion.",
+     "impact": "Critical"},
+    {"before_keywords": ["heat-up", "heat up"], "after_keywords": ["first glass", "first draw", "ramp"],
+     "reason": "First draw follows the furnace heat-up.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Furnace Heat-up", "First Glass", "Ramp-up to Nameplate"],
+  "common_issues": ["Heat-up before refractory cure", "Cold-end line not ready for first glass",
+                    "Missing furnace refractory scope", "Commissioning before mechanical completion"]
+}

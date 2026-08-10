@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Fertilizer / Ammonia Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["fertilizer", "fertiliser", "ammonia", "urea", "nitric acid", "reformer", "synthesis",
+                 "granulation", "prilling", "syngas", "catalyst", "converter"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "pile"]},
+    {"name": "Structural Steel & Piperack", "keywords": ["steel", "piperack", "structure"]},
+    {"name": "Ammonia / Syngas Unit", "keywords": ["reformer", "synthesis", "converter", "ammonia", "syngas"]},
+    {"name": "Urea / Product Unit", "keywords": ["urea", "granulation", "prilling", "product"]},
+    {"name": "Utilities & Offsites", "keywords": ["utilities", "offsite", "boiler", "cooling", "steam"]},
+    {"name": "Piping", "keywords": ["piping", "hydrotest", "spool"]},
+    {"name": "Electrical & Instrumentation", "keywords": ["electrical", "instrumentation", "e&i", "loop"]},
+    {"name": "Pre-commissioning & Commissioning", "keywords": ["pre-commission", "commission", "catalyst", "rfsu", "start-up"]}
+  ],
+  "activities": [
+    {"name": "Piping Hydrotest", "keywords": ["hydrotest", "pressure test"], "wbs": "Piping",
+     "typical_pred": "Piping Erection", "typical_succ": "Insulation", "duration_days": 20,
+     "why": "Piping is hydrotested before insulation — insulation before hydrotest is a classic sequencing error."},
+    {"name": "Catalyst Loading", "keywords": ["catalyst loading", "catalyst"], "wbs": "Pre-commissioning & Commissioning",
+     "typical_pred": "Mechanical Completion", "typical_succ": "Commissioning", "duration_days": 15,
+     "why": "Reformer/converter catalyst is loaded after mechanical completion, just before commissioning."},
+    {"name": "E&I Loop Checks", "keywords": ["loop check", "loop test"], "wbs": "Electrical & Instrumentation",
+     "typical_pred": "E&I Installation", "typical_succ": "Pre-commissioning", "duration_days": 20,
+     "why": "Instrument loops are checked before commissioning."},
+    {"name": "Pre-commissioning (Flushing / Drying)", "keywords": ["pre-commission", "flushing", "drying"], "wbs": "Pre-commissioning & Commissioning",
+     "typical_pred": "Mechanical Completion", "typical_succ": "Commissioning", "duration_days": 30,
+     "why": "Systems are flushed and dried after mechanical completion, before commissioning and RFSU."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["hydrotest", "pressure test"], "after_keywords": ["insulation", "painting"],
+     "reason": "Insulation follows the piping hydrotest.",
+     "impact": "Critical"},
+    {"before_keywords": ["mechanical completion", "install"], "after_keywords": ["catalyst", "commission", "pre-commission"],
+     "reason": "Catalyst loading and commissioning follow mechanical completion.",
+     "impact": "Critical"},
+    {"before_keywords": ["loop check", "pre-commission"], "after_keywords": ["commission", "rfsu", "start-up"],
+     "reason": "Commissioning follows loop checks and pre-commissioning.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Pre-commissioning Complete", "RFSU", "First Product"],
+  "common_issues": ["Insulation before hydrotest", "Catalyst before mechanical completion",
+                    "No pre-commissioning (flushing/drying)", "Missing E&I loop checks"]
+}

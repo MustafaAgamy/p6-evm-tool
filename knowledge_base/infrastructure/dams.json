@@ -1,0 +1,45 @@
+{
+  "category": "Infrastructure",
+  "type": "Dams",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["dam", "embankment", "rcc", "roller compacted", "spillway", "diversion", "cofferdam",
+                 "grouting", "abutment", "reservoir", "impounding", "outlet works", "intake"],
+  "wbs": [
+    {"name": "River Diversion", "keywords": ["diversion", "cofferdam", "diversion tunnel", "channel"]},
+    {"name": "Foundation & Grouting", "keywords": ["foundation", "grouting", "grout curtain", "excavation", "abutment"]},
+    {"name": "Dam Body", "keywords": ["embankment", "rcc", "concrete dam", "fill", "core", "roller compacted"]},
+    {"name": "Spillway", "keywords": ["spillway", "chute", "gate", "stilling basin"]},
+    {"name": "Outlet & Intake Works", "keywords": ["outlet", "intake", "conduit", "valve", "penstock"]},
+    {"name": "Instrumentation", "keywords": ["instrumentation", "piezometer", "monitoring"]},
+    {"name": "Testing & Impounding", "keywords": ["test", "commission", "impounding", "first filling"]}
+  ],
+  "activities": [
+    {"name": "River Diversion / Cofferdam", "keywords": ["diversion", "cofferdam"], "wbs": "River Diversion",
+     "typical_pred": "Mobilisation", "typical_succ": "Foundation Excavation", "duration_days": 60,
+     "why": "The river must be diverted (tunnel/channel + cofferdams) before the dam foundation can be built dry."},
+    {"name": "Foundation Grouting (Grout Curtain)", "keywords": ["grouting", "grout curtain"], "wbs": "Foundation & Grouting",
+     "typical_pred": "Foundation Excavation", "typical_succ": "Dam Body", "duration_days": 40,
+     "why": "A grout curtain seals the foundation against seepage before the dam body rises — often under-planned."},
+    {"name": "Outlet / Intake Works", "keywords": ["outlet works", "intake", "conduit"], "wbs": "Outlet & Intake Works",
+     "typical_pred": "Foundation", "typical_succ": "Impounding", "duration_days": 90,
+     "why": "Outlet and intake works must be complete and tested before the reservoir can be filled safely."},
+    {"name": "First Filling / Impounding", "keywords": ["impounding", "first filling", "reservoir filling"], "wbs": "Testing & Impounding",
+     "typical_pred": "Dam Body & Outlet Complete", "typical_succ": "Commissioning", "duration_days": 60,
+     "why": "Controlled first filling with instrumentation monitoring is the final, safety-critical stage."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["diversion", "cofferdam"], "after_keywords": ["foundation", "excavation", "dam body"],
+     "reason": "Foundation and dam body follow river diversion.",
+     "impact": "Critical"},
+    {"before_keywords": ["outlet", "intake", "spillway"], "after_keywords": ["impounding", "first filling", "reservoir"],
+     "reason": "Impounding follows completed outlet/intake works and spillway.",
+     "impact": "Critical"},
+    {"before_keywords": ["foundation", "grouting"], "after_keywords": ["dam body", "embankment", "rcc"],
+     "reason": "The dam body rises on a grouted, prepared foundation.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["River Diverted", "Foundation Complete", "Dam Body Complete", "First Filling", "Commissioning"],
+  "common_issues": ["Dam body before river diversion / foundation", "Grout curtain missing or under-planned",
+                    "Impounding before outlet works complete", "Instrumentation / monitoring absent"]
+}

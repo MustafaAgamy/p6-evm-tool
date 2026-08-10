@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Sports Stadium / Arena",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["stadium", "arena", "grandstand", "pitch", "seating bowl", "terrace", "roof structure",
+                 "long span", "hospitality", "concourse", "floodlight", "turf", "spectator"],
+  "wbs": [
+    {"name": "Enabling & Substructure", "keywords": ["enabling", "excavation", "foundation", "piling"]},
+    {"name": "Seating Bowl / Terracing", "keywords": ["bowl", "terrace", "raker", "precast", "seating"]},
+    {"name": "Long-Span Roof Structure", "keywords": ["roof structure", "long span", "cable", "truss", "membrane"]},
+    {"name": "Building Envelope & Concourses", "keywords": ["envelope", "façade", "facade", "concourse", "cladding"]},
+    {"name": "MEP & Special Systems", "keywords": ["mep", "floodlight", "scoreboard", "pa", "av", "hvac"]},
+    {"name": "Pitch / Playing Surface", "keywords": ["pitch", "turf", "playing surface", "drainage", "irrigation"]},
+    {"name": "Fit-out & Hospitality", "keywords": ["fit-out", "hospitality", "corporate", "seating install"]},
+    {"name": "Testing, Commissioning & Test Event", "keywords": ["test", "commission", "test event", "handover"]}
+  ],
+  "activities": [
+    {"name": "Long-Span Roof Erection", "keywords": ["roof structure", "long span", "cable roof", "roof erection"], "wbs": "Long-Span Roof Structure",
+     "typical_pred": "Seating Bowl", "typical_succ": "Envelope", "duration_days": 60,
+     "why": "The signature long-span roof is a critical, weather-sensitive erection that gates the envelope."},
+    {"name": "Pitch / Playing Surface", "keywords": ["pitch", "turf", "playing surface"], "wbs": "Pitch / Playing Surface",
+     "typical_pred": "Bowl Complete", "typical_succ": "Test Event", "duration_days": 40,
+     "why": "The pitch (drainage, growth medium, turf/hybrid) needs an establishment period before events."},
+    {"name": "Floodlighting & AV / Scoreboard", "keywords": ["floodlight", "scoreboard", "av", "pa system"], "wbs": "MEP & Special Systems",
+     "typical_pred": "Roof / Structure", "typical_succ": "Commissioning", "duration_days": 25,
+     "why": "Broadcast lighting and AV are special systems essential to a venue and often under-planned."},
+    {"name": "Test Event", "keywords": ["test event", "trial event", "dry run"], "wbs": "Testing, Commissioning & Test Event",
+     "typical_pred": "Commissioning", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A test event proves crowd flow, systems and operations before the opening event."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["bowl", "seating", "terrace"], "after_keywords": ["roof structure", "long span", "roof erection"],
+     "reason": "The long-span roof is erected over a completed seating bowl.",
+     "impact": "Critical"},
+    {"before_keywords": ["roof", "structure", "envelope"], "after_keywords": ["pitch", "turf", "playing surface"],
+     "reason": "The pitch is laid once the bowl/roof are enclosed enough to protect and establish it.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["commission", "test event"], "after_keywords": ["handover", "opening event"],
+     "reason": "The opening event follows commissioning and a test event.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Seating Bowl Complete", "Roof Complete", "Pitch Established", "Test Event", "Opening"],
+  "common_issues": ["Roof not sequenced over completed bowl", "Pitch establishment period missing",
+                    "Special systems (floodlight/AV) under-planned", "No test event before opening"]
+}
