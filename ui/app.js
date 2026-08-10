@@ -7,11 +7,13 @@ import { renderConstructPanel }               from './modules/construct.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
 import { initTooltips }                        from './modules/tooltip.js';
+import { initPowerBI }                         from './modules/powerbi.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
   initTheme();
   initTooltips();
+  initPowerBI();
   loadHistory();
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);

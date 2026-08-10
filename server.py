@@ -30,6 +30,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_history()
         elif self.path == '/api/ai/settings':
             self._handle_ai_settings_get()
+        elif self.path == '/api/powerbi/status':
+            self._handle_powerbi_status()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -84,6 +86,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_review(body)
         elif self.path == '/api/constructability':
             self._handle_constructability(body)
+        elif self.path == '/api/powerbi/open':
+            self._handle_powerbi_open(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -236,6 +240,13 @@ class Handler(BaseHTTPRequestHandler):
                 'baseline_finish': safe_result.get('baseline_finish'),
                 'expected_finish': safe_result.get('expected_finish'),
             })
+
+            # ── Power BI live dataset — best-effort refresh, never breaks import ──
+            try:
+                import p6_powerbi
+                p6_powerbi.write_dataset()
+            except Exception as pbi_exc:
+                print(f'[powerbi] dataset refresh skipped: {pbi_exc}', file=sys.stderr)
             # ──────────────────────────────────────────────────────────────
 
             self._json(200, {'ok': True, 'result': safe_result, 'cached_path': cached_path,
@@ -412,6 +423,40 @@ class Handler(BaseHTTPRequestHandler):
             data = parse_file(resolved)
             report = run_review(data, forced_type=body.get('forced_type'))
             self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/powerbi/status + /api/powerbi/open ────────────────────────────
+    def _handle_powerbi_status(self):
+        """Whether the live dataset + dashboard have been built yet (read-only)."""
+        try:
+            from p6_powerbi import paths
+            from p6_powerbi.pbip import NAME
+            workbook = paths.dataset_workbook()
+            pbip = os.path.join(paths.dashboard_dir(), f'{NAME}.pbip')
+            self._json(200, {'ok': True,
+                             'dataset': workbook, 'pbip': pbip,
+                             'dataset_exists': os.path.exists(workbook),
+                             'pbip_exists': os.path.exists(pbip)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_powerbi_open(self, body):
+        """Refresh the live dataset, (re)generate the PBIP dashboard, and open it."""
+        try:
+            import p6_powerbi
+            result = p6_powerbi.build_all()
+            pbip = result['pbip']
+            opened = False
+            if os.name == 'nt':
+                try:
+                    os.startfile(pbip)  # noqa: S606 — open the .pbip in Power BI Desktop
+                    opened = True
+                except Exception as open_exc:
+                    print(f'[powerbi] could not open pbip: {open_exc}', file=sys.stderr)
+            self._json(200, {'ok': True, 'pbip': pbip, 'dataset': result['dataset'],
+                             'folder': os.path.dirname(pbip), 'opened': opened,
+                             'errors': result['errors']})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

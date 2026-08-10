@@ -48,6 +48,14 @@ hiddenimports = [
     'p6_kb.detect',
     'p6_kb.model',
     'p6_kb.scoring',
+    # Power BI live dashboards (dataset writer + PBIP generator)
+    'p6_powerbi',
+    'p6_powerbi.dataset',
+    'p6_powerbi.pbip',
+    'p6_powerbi.report_pages',
+    'p6_powerbi.schema',
+    'p6_powerbi.validate',
+    'p6_powerbi.paths',
 ]
 
 a = Analysis(
