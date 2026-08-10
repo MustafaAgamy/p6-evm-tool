@@ -50,6 +50,14 @@
         <span class="tb-sub" id="topbar-sub">Home · Import</span>
       </div>
       <div class="tb-right">
+        <button class="tb-btn" id="powerbi-btn" title="Open your live Power BI dashboard">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="3" y="12" width="4" height="8" rx="1"/>
+            <rect x="10" y="7" width="4" height="13" rx="1"/>
+            <rect x="17" y="3" width="4" height="17" rx="1"/>
+          </svg>
+          Power BI
+        </button>
         <button class="theme-toggle" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
           <!-- Moon: shown in dark mode -->
           <svg class="theme-icon icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -71,6 +79,27 @@
         <div class="tb-avatar"></div>
       </div>
     </header>
+
+    <!-- Power BI first-run setup (connect-once) -->
+    <div class="modal-back" id="pbi-modal" style="display:none">
+      <div class="modal">
+        <div class="modal-title">Open your live Power BI dashboard</div>
+        <div class="modal-body">
+          <p class="pbi-lead">Your dashboards open in Power BI Desktop and stay connected to this tool's data — every time you import a schedule, the numbers refresh. The first time on this PC, turn on two Power BI settings so the file opens:</p>
+          <ol class="pbi-steps">
+            <li>In Power BI Desktop: <b>File → Options and settings → Options → Preview features</b>.</li>
+            <li>Tick <b>Power BI Project (.pbip) save option</b>.</li>
+            <li>Tick <b>Store reports using enhanced metadata format (PBIR)</b>.</li>
+            <li>Click <b>OK</b> and restart Power BI Desktop.</li>
+          </ol>
+          <p class="pbi-note">When Power BI asks for permission to the data file, allow it — it's reading your own exported data on this PC. Each week, hit <b>Refresh</b> in Power BI to pull the latest numbers. Power BI Desktop (free from Microsoft) must be installed.</p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-secondary" id="pbi-modal-close">Close</button>
+          <button class="tb-btn" id="pbi-modal-open">Open dashboard</button>
+        </div>
+      </div>
+    </div>
 
     <main class="content" id="drop-target">
 

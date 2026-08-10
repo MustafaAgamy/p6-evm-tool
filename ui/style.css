@@ -93,6 +93,20 @@ body {
 :root.light .icon-moon { display: none; }
 :root.light .icon-sun  { display: block; }    /* shown in light mode */
 .tb-avatar { width: 28px; height: 28px; background: var(--accent); border-radius: 50%; flex-shrink: 0; }
+.tb-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; background: var(--accent); color: #fff;
+  border: none; border-radius: 8px; font-weight: 600; font-size: 12px;
+  cursor: pointer; transition: opacity 0.15s; line-height: 1;
+}
+.tb-btn:hover     { opacity: 0.9; }
+.tb-btn:disabled  { opacity: 0.55; cursor: default; }
+
+/* Power BI connect-once modal */
+.pbi-lead  { font-size: 13px; color: var(--text); line-height: 1.5; margin: 4px 0 10px; }
+.pbi-steps { margin: 0 0 10px; padding-left: 20px; font-size: 13px; color: var(--text); line-height: 1.6; }
+.pbi-steps li { margin: 4px 0; }
+.pbi-note  { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 8px 0 2px; }
 
 /* ── Content area ────────────────────────────────────────────────────────── */
 .content {
