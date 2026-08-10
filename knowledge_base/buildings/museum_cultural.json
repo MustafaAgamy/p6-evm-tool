@@ -1,0 +1,45 @@
+{
+  "category": "Buildings",
+  "type": "Museum / Cultural",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["museum", "gallery", "cultural", "exhibition", "artifact", "climate control", "gallery lighting",
+                 "display case", "archive", "conservation", "auditorium", "curator"],
+  "wbs": [
+    {"name": "Substructure & Superstructure", "keywords": ["substructure", "superstructure", "foundation", "frame"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "façade", "facade", "roof", "weathertight"]},
+    {"name": "Climate Control (Precision HVAC)", "keywords": ["climate control", "hvac", "humidity", "temperature", "conservation"]},
+    {"name": "Gallery Fit-out", "keywords": ["gallery", "fit-out", "finishes", "wall system"]},
+    {"name": "AV & Lighting", "keywords": ["av", "gallery lighting", "lighting control", "interactive"]},
+    {"name": "Display & Exhibition", "keywords": ["display case", "exhibition", "showcase", "artifact install"]},
+    {"name": "Testing & Handover", "keywords": ["test", "commission", "validation", "handover", "opening"]}
+  ],
+  "activities": [
+    {"name": "Climate-Control Commissioning & Validation", "keywords": ["climate control", "humidity", "conservation grade", "validation"], "wbs": "Climate Control (Precision HVAC)",
+     "typical_pred": "HVAC Installation", "typical_succ": "Artifact Installation", "duration_days": 30,
+     "why": "Galleries need tight, validated temperature/humidity for artifacts before anything is installed."},
+    {"name": "Gallery Lighting", "keywords": ["gallery lighting", "lighting control", "conservation lighting"], "wbs": "AV & Lighting",
+     "typical_pred": "Gallery Fit-out", "typical_succ": "Exhibition Install", "duration_days": 20,
+     "why": "Conservation-grade, controllable gallery lighting is specialist and often under-planned."},
+    {"name": "Exhibition / Artifact Installation", "keywords": ["exhibition install", "artifact install", "showcase"], "wbs": "Display & Exhibition",
+     "typical_pred": "Climate Validation", "typical_succ": "Opening", "duration_days": 30,
+     "why": "Artifacts and exhibitions install only after finishes and a validated climate."},
+    {"name": "Opening", "keywords": ["opening", "handover"], "wbs": "Testing & Handover",
+     "typical_pred": "Exhibition Install", "typical_succ": "Public Opening", "duration_days": 10,
+     "why": "Opening follows exhibition installation and commissioning."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["envelope", "weathertight", "climate control", "validation"], "after_keywords": ["artifact", "exhibition", "display"],
+     "reason": "Artifacts/exhibition install after a weathertight, climate-validated space.",
+     "impact": "Critical"},
+    {"before_keywords": ["fit-out", "finishes"], "after_keywords": ["exhibition", "display case"],
+     "reason": "Exhibition install follows gallery finishes.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["commission", "validation"], "after_keywords": ["opening", "handover"],
+     "reason": "Opening follows commissioning and climate validation.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Building Weathertight", "Climate Validated", "Exhibition Install", "Opening"],
+  "common_issues": ["No climate-control validation for artifacts", "Exhibition before finishes complete",
+                    "Gallery/conservation lighting under-planned", "Opening before commissioning"]
+}

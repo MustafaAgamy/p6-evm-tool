@@ -1,0 +1,45 @@
+{
+  "category": "Industrial",
+  "type": "Aluminium Smelter",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["aluminium", "aluminum", "smelter", "potline", "pot", "reduction cell", "casthouse", "anode",
+                 "alumina", "rectifier", "busbar", "pot lining", "reduction"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "potroom floor"]},
+    {"name": "Potline Structure", "keywords": ["potline", "potroom", "structure", "superstructure"]},
+    {"name": "Reduction Cells (Pots)", "keywords": ["pot", "reduction cell", "pot shell", "pot lining", "cathode"]},
+    {"name": "Rectifier & Busbar", "keywords": ["rectifier", "busbar", "power supply", "dc"]},
+    {"name": "Casthouse", "keywords": ["casthouse", "casting", "furnace", "ingot"]},
+    {"name": "Gas Treatment Centre", "keywords": ["gas treatment", "gtc", "scrubber", "fume", "emissions"]},
+    {"name": "Utilities & Commissioning", "keywords": ["utilities", "commission", "pot preheat", "start-up", "first metal"]}
+  ],
+  "activities": [
+    {"name": "Pot Lining", "keywords": ["pot lining", "cathode lining", "lining"], "wbs": "Reduction Cells (Pots)",
+     "typical_pred": "Pot Shell Erection", "typical_succ": "Pot Preheat", "duration_days": 40,
+     "why": "Reduction cells are cathode-lined after shell erection and before preheat/start-up."},
+    {"name": "Rectifier & Busbar Energization", "keywords": ["rectifier", "busbar", "dc power"], "wbs": "Rectifier & Busbar",
+     "typical_pred": "Rectifier Installation", "typical_succ": "Pot Start-up", "duration_days": 20,
+     "why": "DC power via rectifiers/busbar must be live before pots can be started."},
+    {"name": "Gas Treatment Commissioning", "keywords": ["gas treatment", "gtc", "scrubber"], "wbs": "Gas Treatment Centre",
+     "typical_pred": "GTC Installation", "typical_succ": "Pot Start-up", "duration_days": 20,
+     "why": "Fume/gas treatment must be commissioned before pots start (emissions compliance)."},
+    {"name": "Pot Preheat & Start-up", "keywords": ["pot preheat", "start-up", "first metal"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Pot Lining", "typical_succ": "Ramp-up", "duration_days": 30,
+     "why": "Pots are preheated and started sequentially after lining, power and gas treatment are ready."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["pot lining", "lining"], "after_keywords": ["pot preheat", "start-up", "first metal"],
+     "reason": "Pot preheat/start-up follows cathode lining.",
+     "impact": "Critical"},
+    {"before_keywords": ["gas treatment", "gtc", "scrubber"], "after_keywords": ["pot start", "start-up", "first metal"],
+     "reason": "Pots start only after gas treatment is commissioned (emissions).",
+     "impact": "Critical"},
+    {"before_keywords": ["rectifier", "busbar", "dc power"], "after_keywords": ["pot start", "start-up"],
+     "reason": "Pot start-up depends on live DC power.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Pot Preheat", "First Metal", "Ramp-up"],
+  "common_issues": ["Pot start before gas treatment commissioned", "Missing pot (cathode) lining",
+                    "Rectifier / DC power not ready", "Casthouse not sequenced with first metal"]
+}

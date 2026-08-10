@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Mosque / Religious Building",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["mosque", "masjid", "religious", "prayer hall", "minaret", "dome", "mihrab", "ablution",
+                 "church", "temple", "worship", "musalla", "calligraphy"],
+  "wbs": [
+    {"name": "Substructure", "keywords": ["substructure", "foundation", "basement", "excavation"]},
+    {"name": "Superstructure", "keywords": ["superstructure", "frame", "column", "prayer hall"]},
+    {"name": "Dome & Minaret", "keywords": ["dome", "minaret", "shell", "spire"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "façade", "facade", "roof", "weathertight"]},
+    {"name": "MEP Services", "keywords": ["mep", "hvac", "electrical", "sound", "av", "cooling"]},
+    {"name": "Specialist Finishes", "keywords": ["marble", "mosaic", "calligraphy", "carpet", "chandelier", "finishes"]},
+    {"name": "Ablution & External", "keywords": ["ablution", "wudu", "courtyard", "external", "landscape"]},
+    {"name": "Testing & Handover", "keywords": ["test", "commission", "snag", "handover"]}
+  ],
+  "activities": [
+    {"name": "Dome & Minaret Construction", "keywords": ["dome", "minaret"], "wbs": "Dome & Minaret",
+     "typical_pred": "Superstructure", "typical_succ": "Envelope", "duration_days": 60,
+     "why": "The dome and minaret are signature, specialist structures on the completed superstructure."},
+    {"name": "Specialist Finishes (Marble / Calligraphy)", "keywords": ["marble", "mosaic", "calligraphy"], "wbs": "Specialist Finishes",
+     "typical_pred": "MEP First Fix", "typical_succ": "Snagging", "duration_days": 40,
+     "why": "High-quality marble, mosaic and calligraphy are long-lead, skilled finishes often under-planned."},
+    {"name": "Sound / AV System", "keywords": ["sound system", "av", "pa"], "wbs": "MEP Services",
+     "typical_pred": "First Fix", "typical_succ": "Commissioning", "duration_days": 15,
+     "why": "The prayer-call and sound system is core to the building and must be commissioned."},
+    {"name": "Ablution Facilities", "keywords": ["ablution", "wudu"], "wbs": "Ablution & External",
+     "typical_pred": "MEP", "typical_succ": "Handover", "duration_days": 20,
+     "why": "Ablution (wudu) facilities are essential and sometimes missed in the base scope."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["envelope", "weathertight", "dome"], "after_keywords": ["finishes", "marble", "calligraphy"],
+     "reason": "Specialist finishes follow a weathertight envelope and completed dome.",
+     "impact": "Critical"},
+    {"before_keywords": ["first fix", "mep"], "after_keywords": ["finishes", "marble"],
+     "reason": "MEP first fix precedes finishes that cover the works.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["commission", "snag"], "after_keywords": ["handover", "opening"],
+     "reason": "Handover follows commissioning and snagging.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Structure Complete", "Dome & Minaret Complete", "Finishes Complete", "Handover"],
+  "common_issues": ["Finishes before weathertight envelope", "Specialist marble/calligraphy under-planned",
+                    "Missing ablution / sound systems", "Dome/minaret not sequenced"]
+}

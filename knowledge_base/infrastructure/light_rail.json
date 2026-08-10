@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "Light Rail / Tram",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["tram", "light rail", "lrt", "embedded track", "tram stop", "ocs", "catenary", "low floor",
+                 "depot", "trackwork", "streetcar", "on-street"],
+  "wbs": [
+    {"name": "Utility Diversions", "keywords": ["utility", "diversion", "relocation", "service"]},
+    {"name": "Civil & Roadworks", "keywords": ["civil", "roadworks", "corridor", "highway", "reinstatement"]},
+    {"name": "Trackwork (Embedded)", "keywords": ["track", "embedded track", "rail", "slab track"]},
+    {"name": "OCS / Catenary", "keywords": ["ocs", "catenary", "overhead", "wiring", "pole"]},
+    {"name": "Traction Power", "keywords": ["traction", "substation", "power supply"]},
+    {"name": "Signalling & Comms", "keywords": ["signalling", "signaling", "comms", "scada"]},
+    {"name": "Stops & Depot", "keywords": ["tram stop", "platform", "depot", "stabling"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "trial run", "integration", "revenue"]}
+  ],
+  "activities": [
+    {"name": "Utility Diversions", "keywords": ["utility diversion", "service relocation"], "wbs": "Utility Diversions",
+     "typical_pred": "Site Setup", "typical_succ": "Trackwork", "duration_days": 60,
+     "why": "On-street tram routes require extensive utility diversions before track can be laid — a frequent programme driver."},
+    {"name": "Embedded Trackwork", "keywords": ["embedded track", "trackwork", "rail laying"], "wbs": "Trackwork (Embedded)",
+     "typical_pred": "Utility Diversions", "typical_succ": "OCS", "duration_days": 60,
+     "why": "Embedded track is laid after utilities are diverted and the corridor is prepared."},
+    {"name": "Depot & Stabling", "keywords": ["depot", "stabling", "maintenance facility"], "wbs": "Stops & Depot",
+     "typical_pred": "Civil", "typical_succ": "Trial Running", "duration_days": 90,
+     "why": "The depot houses and maintains the fleet and must be ready before trial running — often overlooked in the logic."},
+    {"name": "Trial Running", "keywords": ["trial run", "trial running", "test running"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Systems Integration", "typical_succ": "Revenue Service", "duration_days": 45,
+     "why": "A trial-running period precedes revenue service."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["utility diversion", "diversion"], "after_keywords": ["track", "embedded track", "trackwork"],
+     "reason": "Trackwork follows utility diversions on an on-street corridor.",
+     "impact": "Critical"},
+    {"before_keywords": ["track", "trackwork"], "after_keywords": ["ocs", "catenary", "systems"],
+     "reason": "OCS and systems install onto completed track.",
+     "impact": "Critical"},
+    {"before_keywords": ["integration", "systems test", "commission"], "after_keywords": ["trial run", "revenue service"],
+     "reason": "Trial running and revenue service follow systems integration testing.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Utilities Diverted", "Track Complete", "Systems Complete", "Trial Running", "Revenue Service"],
+  "common_issues": ["Track before utility diversions", "Depot / stabling not sequenced",
+                    "No trial running before revenue service", "Systems not integration-tested"]
+}

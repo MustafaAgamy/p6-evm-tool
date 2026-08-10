@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Pulp & Paper Mill",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["pulp", "paper", "mill", "digester", "paper machine", "recovery boiler", "wet end", "dry end",
+                 "headbox", "reel", "chemical recovery", "woodyard", "bleaching", "tissue"],
+  "wbs": [
+    {"name": "Civil & Foundations", "keywords": ["civil", "foundation", "structure"]},
+    {"name": "Woodyard & Handling", "keywords": ["woodyard", "chipper", "conveyor", "wood handling"]},
+    {"name": "Fiber Line", "keywords": ["digester", "bleaching", "washing", "fiber line", "pulp"]},
+    {"name": "Chemical Recovery", "keywords": ["recovery boiler", "chemical recovery", "evaporator", "causticizing"]},
+    {"name": "Paper Machine", "keywords": ["paper machine", "headbox", "press", "dryer", "reel", "wet end", "dry end"]},
+    {"name": "Utilities", "keywords": ["utilities", "steam", "power", "water"]},
+    {"name": "Electrical & Automation", "keywords": ["electrical", "automation", "dcs", "qcs"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "first paper", "start-up", "ramp"]}
+  ],
+  "activities": [
+    {"name": "Paper Machine Erection", "keywords": ["paper machine", "pm erection", "machine erection"], "wbs": "Paper Machine",
+     "typical_pred": "Building & Foundation", "typical_succ": "Commissioning", "duration_days": 90,
+     "why": "The paper machine is a long, precision erection that governs the critical path."},
+    {"name": "Recovery Boiler Hydrotest & Firing", "keywords": ["recovery boiler", "boiler hydrotest", "boiler firing"], "wbs": "Chemical Recovery",
+     "typical_pred": "Boiler Erection", "typical_succ": "Commissioning", "duration_days": 20,
+     "why": "The recovery boiler is hydrotested and fired before chemical recovery commissioning."},
+    {"name": "Wet Commissioning / First Paper", "keywords": ["first paper", "first reel", "wet commission"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Mechanical Completion", "typical_succ": "Ramp-up", "duration_days": 30,
+     "why": "First paper follows commissioning of the fiber line, recovery and paper machine."},
+    {"name": "Ramp-up to Nameplate", "keywords": ["ramp-up", "ramp up", "nameplate"], "wbs": "Testing & Commissioning",
+     "typical_pred": "First Paper", "typical_succ": "Handover", "duration_days": 45,
+     "why": "Ramp-up to design speed/quality follows first paper."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["erection", "install", "mechanical completion"], "after_keywords": ["commission", "first paper"],
+     "reason": "Commissioning follows mechanical completion of the machine and recovery.",
+     "impact": "Critical"},
+    {"before_keywords": ["hydrotest", "boiler hydrotest"], "after_keywords": ["firing", "boiler firing"],
+     "reason": "Recovery boiler firing follows its hydrotest.",
+     "impact": "Critical"},
+    {"before_keywords": ["commission", "first paper"], "after_keywords": ["ramp-up", "ramp up", "nameplate"],
+     "reason": "Ramp-up follows first paper.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Mechanical Completion", "Recovery Boiler Firing", "First Paper", "Ramp-up"],
+  "common_issues": ["No recovery boiler hydrotest before firing", "Commissioning before mechanical completion",
+                    "Chemical recovery under-planned", "No ramp-up plan"]
+}
