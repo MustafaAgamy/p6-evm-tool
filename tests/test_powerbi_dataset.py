@@ -70,6 +70,16 @@ def test_write_dataset_multiple_snapshots_for_trend(temp_db, tmp_path):
     assert isinstance(ws.cell(row=2, column=dd_col).value, (date, _dt))
 
 
+def test_parse_date_malformed_returns_none():
+    # A bad date must never become a raw string in a dateTime column (breaks Power BI refresh).
+    from p6_powerbi.dataset import _parse_date
+    assert _parse_date('not-a-date') is None
+    assert _parse_date('') is None
+    assert _parse_date(None) is None
+    from datetime import date
+    assert _parse_date('2026-07-31') in (date(2026, 7, 31),) or _parse_date('2026-07-31').year == 2026
+
+
 def test_write_dataset_empty_db_headers_only(temp_db, tmp_path):
     out = tmp_path / 'p6evm.xlsx'
     result = write_dataset(workbook_path=str(out))

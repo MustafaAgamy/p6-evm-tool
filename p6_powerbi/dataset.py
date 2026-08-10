@@ -42,7 +42,7 @@ def _parse_date(value):
         try:
             return datetime.strptime(str(value)[:10], '%Y-%m-%d').date()
         except ValueError:
-            return str(value)
+            return None  # never emit a raw string into a dateTime column (breaks refresh)
 
 
 def _build_tables(conn):
@@ -104,11 +104,8 @@ def _build_tables(conn):
 
 def _add_named_table(ws, name, n_cols, n_data_rows):
     """Register the sheet's data as a named Excel Table so Power Query can bind
-    to it by name. Excel tables need at least one body row, so pad an empty one
-    when the DB has no rows yet."""
-    if n_data_rows < 1:
-        ws.append([None] * n_cols)
-        n_data_rows = 1
+    to it by name. A header-only table (0 data rows, empty DB) is valid — no
+    padding, so Power BI never sees a phantom blank row."""
     ref = f'A1:{get_column_letter(n_cols)}{n_data_rows + 1}'
     table = Table(displayName=name, ref=ref)
     table.tableStyleInfo = TableStyleInfo(name='TableStyleLight1', showRowStripes=False)
@@ -142,5 +139,16 @@ def write_dataset(workbook_path=None, conn=None):
 
     path = workbook_path or paths.dataset_workbook()
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    wb.save(path)
+    # Write to a temp file then atomically replace, so a concurrent Power BI
+    # refresh never reads a half-written workbook. If the target is locked
+    # (Power BI has it open), keep the last good copy rather than crashing.
+    tmp = path + '.tmp'
+    wb.save(tmp)
+    try:
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
     return {'workbook': path, 'tables': counts}
