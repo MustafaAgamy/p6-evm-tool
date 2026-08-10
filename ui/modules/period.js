@@ -264,8 +264,77 @@ export function renderPeriodReport(report) {
     ${_criticalTable(report.critical_movement)}
     <div class="mod-sec">What moved this period</div>
     ${_bucketsTable(report.buckets)}
+    <div class="mod-sec">Milestone finish trend — every update so far</div>
+    <div id="per-trend" class="cmp-scurve-card"><div class="cmp-loading">Loading milestone trend…</div></div>
     <div class="mod-sec">Executive conclusion</div>
     <div class="cmp-reco">${escapeHtml(report.conclusion || '')}</div>`;
+  _fetchTrend();
+}
+
+const _TREND_PALETTE = ['#f87171', '#4ade80', '#3b82f6', '#fbbf24', '#a78bfa', '#f472b6', '#22d3ee', '#fb923c'];
+
+function _fmtMon(ts) {
+  const d = new Date(ts);
+  return d.toLocaleString('en', { month: 'short' }) + '-' + String(d.getFullYear()).slice(2);
+}
+
+function _milestoneTrendSvg(trend) {
+  const periods = (trend && trend.periods) || [];
+  const series = (trend && trend.series) || [];
+  const allTs = [];
+  series.forEach(s => (s.finishes || []).forEach(f => { if (f) allTs.push(new Date(f).getTime()); }));
+  if (periods.length < 2 || allTs.length < 2) {
+    return '<p class="cmp-empty">Not enough stored updates yet to plot a milestone trend — it fills in as you import each period.</p>';
+  }
+  let tmin = Math.min(...allTs), tmax = Math.max(...allTs);
+  if (tmin === tmax) { const pad = 86400000 * 30; tmin -= pad; tmax += pad; }
+  const x0 = 60, x1 = 600, y0 = 200, y1 = 24, n = periods.length;
+  const xAt = i => x0 + (x1 - x0) * (n <= 1 ? 0 : i / (n - 1));
+  const yAt = ts => y0 - (y0 - y1) * ((ts - tmin) / (tmax - tmin));
+  let lines = '', dots = '';
+  series.forEach((s, si) => {
+    const color = _TREND_PALETTE[si % _TREND_PALETTE.length];
+    const pts = [];
+    (s.finishes || []).forEach((f, i) => { if (f) pts.push(`${xAt(i).toFixed(1)},${yAt(new Date(f).getTime()).toFixed(1)}`); });
+    if (pts.length > 1) lines += `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>`;
+    const idxs = (s.finishes || []).map((f, i) => (f ? i : -1)).filter(i => i >= 0);
+    if (idxs.length) { const li = idxs[idxs.length - 1]; dots += `<circle cx="${xAt(li).toFixed(1)}" cy="${yAt(new Date(s.finishes[li]).getTime()).toFixed(1)}" r="3.5" fill="${color}"/>`; }
+  });
+  let yticks = '';
+  for (let k = 0; k <= 3; k++) {
+    const ts = tmin + (tmax - tmin) * k / 3, y = yAt(ts);
+    yticks += `<line x1="${x0}" y1="${y.toFixed(1)}" x2="${x1}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-dasharray="2 4" opacity="0.5"/>` +
+              `<text x="${x0 - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font-size:9.5px">${_fmtMon(ts)}</text>`;
+  }
+  const step = Math.max(1, Math.round(n / 6));
+  let xlabels = '';
+  for (let i = 0; i < n; i += step) {
+    xlabels += `<text x="${xAt(i).toFixed(1)}" y="${y0 + 16}" text-anchor="middle" style="fill:var(--muted);font-size:9.5px">${escapeHtml((periods[i] || '').slice(5))}</text>`;
+  }
+  const svg = `<svg viewBox="0 0 620 232" width="100%" role="img" aria-label="Milestone finish trend across updates">
+    ${yticks}
+    <line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="var(--border)"/>
+    <line x1="${x0}" y1="${y1}" x2="${x0}" y2="${y0}" stroke="var(--border)"/>
+    ${lines}${dots}${xlabels}
+  </svg>`;
+  const legend = series.map((s, si) => `<span><i style="background:${_TREND_PALETTE[si % _TREND_PALETTE.length]}"></i>${escapeHtml(s.name)}</span>`).join('');
+  return `<div class="cmp-scurve-legend">${legend}</div>${svg}<div class="cmp-scurve-note">Each line is a milestone’s forecast finish across your imported updates. <b>Rising = slipping later</b>, flat = holding. Fills in as you import more periods.</div>`;
+}
+
+async function _fetchTrend() {
+  const el = document.getElementById('per-trend');
+  if (!el) return;
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/period/trend`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId }),
+    });
+    const data = await resp.json();
+    el.innerHTML = data.ok ? _milestoneTrendSvg(data.trend)
+                           : `<p class="cmp-empty">${escapeHtml(data.error || 'Trend unavailable.')}</p>`;
+  } catch {
+    el.innerHTML = '<p class="cmp-empty">Could not load the milestone trend.</p>';
+  }
 }
 
 function _fileBar(report) {
@@ -277,4 +346,5 @@ function _fileBar(report) {
 }
 
 // Pure helpers exposed for unit tests.
-export { _signPct as signPct, _shortDate as shortDate, _periodScurveSvg as periodScurveSvg };
+export { _signPct as signPct, _shortDate as shortDate, _periodScurveSvg as periodScurveSvg,
+         _milestoneTrendSvg as milestoneTrendSvg };

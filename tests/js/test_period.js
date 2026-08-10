@@ -3,7 +3,7 @@
  * Run: node tests/js/test_period.js
  */
 import assert from 'node:assert/strict';
-import { signPct, shortDate, periodScurveSvg } from '../../ui/modules/period.js';
+import { signPct, shortDate, periodScurveSvg, milestoneTrendSvg } from '../../ui/modules/period.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -35,6 +35,24 @@ test('draws both an actual and a forecast polyline', () => {
   assert.ok(svg.includes('<svg'));
   assert.ok((svg.match(/<polyline/g) || []).length === 2);   // actual + forecast
   assert.ok(svg.includes('#f59e0b') && svg.includes('#3b82f6'));
+});
+
+console.log('\nmilestoneTrendSvg');
+test('too few updates → fills-in message', () => {
+  assert.ok(milestoneTrendSvg({ periods: ['2026-06-30'], series: [] }).includes('fills in'));
+});
+test('two rising milestones draw two polylines', () => {
+  const trend = {
+    periods: ['2026-06-30', '2026-07-31'],
+    series: [
+      { code: 'M900', name: 'Handover', task_type: 'FinishMilestone', finishes: ['2027-02-09', '2027-03-26'] },
+      { code: 'M100', name: 'Mech', task_type: 'FinishMilestone', finishes: ['2026-12-20', '2026-12-20'] },
+    ],
+  };
+  const svg = milestoneTrendSvg(trend);
+  assert.ok(svg.includes('<svg'));
+  assert.ok((svg.match(/<polyline/g) || []).length === 2);
+  assert.ok(svg.includes('Handover') && svg.includes('Mech'));
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

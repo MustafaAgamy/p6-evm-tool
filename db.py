@@ -150,6 +150,18 @@ def init_db():
                 project_id    INTEGER PRIMARY KEY REFERENCES projects(id),
                 settings_json TEXT
             );
+
+            -- Milestone finishes per snapshot, extracted once for the Update-vs-Update
+            -- milestone trend (slip chart). A single '__none__' row marks a snapshot as
+            -- scanned when it has no milestones, so it is never re-parsed.
+            CREATE TABLE IF NOT EXISTS snapshot_milestones (
+                snapshot_id INTEGER NOT NULL REFERENCES snapshots(id),
+                activity_id TEXT NOT NULL,
+                name        TEXT,
+                task_type   TEXT,
+                finish_date TEXT,
+                PRIMARY KEY (snapshot_id, activity_id)
+            );
         ''')
 
 
@@ -665,6 +677,46 @@ def get_prev_snapshot(snapshot_id):
             (cur['project_id'], cur['data_date'], cur['data_date'], cur['imported_at'])
         ).fetchone()
         return dict(row) if row else None
+
+def snapshot_project_id(snapshot_id):
+    """project_id owning a snapshot (or None)."""
+    with get_conn() as conn:
+        r = conn.execute('SELECT project_id FROM snapshots WHERE id = ?', (snapshot_id,)).fetchone()
+        return r['project_id'] if r else None
+
+def get_project_snapshot_files(project_id):
+    """[{id, data_date, original_path, cached_path}] for a project, oldest first —
+    used by the milestone trend to walk every stored update."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            '''SELECT id, data_date, original_path, cached_path
+               FROM snapshots WHERE project_id = ?
+               ORDER BY data_date ASC, imported_at ASC''',
+            (project_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+def cache_snapshot_milestones(snapshot_id, milestones):
+    """Store extracted milestone finishes for a snapshot (idempotent). `milestones` is a
+    list of {activity_id, name, task_type, finish_date}. An empty list writes a single
+    '__none__' sentinel so the snapshot is marked scanned and never re-parsed."""
+    rows = milestones or [{'activity_id': '__none__', 'name': None, 'task_type': None, 'finish_date': None}]
+    with get_conn() as conn:
+        conn.execute('DELETE FROM snapshot_milestones WHERE snapshot_id = ?', (snapshot_id,))
+        conn.executemany(
+            '''INSERT OR REPLACE INTO snapshot_milestones
+               (snapshot_id, activity_id, name, task_type, finish_date) VALUES (?,?,?,?,?)''',
+            [(snapshot_id, m['activity_id'], m.get('name'), m.get('task_type'), m.get('finish_date'))
+             for m in rows])
+
+def get_snapshot_milestones(snapshot_id):
+    """(scanned, rows). scanned=True once extraction has been cached (even if the
+    snapshot had no milestones); rows excludes the '__none__' sentinel."""
+    with get_conn() as conn:
+        raw = [dict(r) for r in conn.execute(
+            '''SELECT activity_id, name, task_type, finish_date
+               FROM snapshot_milestones WHERE snapshot_id = ?''', (snapshot_id,)).fetchall()]
+    return (len(raw) > 0), [r for r in raw if r['activity_id'] != '__none__']
 
 def resolve_xml_path(original_path, cached_path):
     """Return the best available XML path: original first, cached fallback."""
