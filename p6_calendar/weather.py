@@ -17,11 +17,14 @@ import urllib.request
 import urllib.error
 from datetime import date, datetime, timedelta
 
-# Sensible construction defaults — tunable later via config.
+# Ibrahim's stop-work rule (tunable per project in the app): a day is a lost
+# construction day when it is dusty OR rainy OR hot (>= 42 C). Wind is OFF by
+# default (set a number to enable it).
 DEFAULT_THRESHOLDS = {
-    'rain_mm': 10.0,      # heavy rain stops pours / earthworks
-    'temp_max_c': 45.0,   # extreme heat → midday stoppage
-    'wind_kmh': 40.0,     # high wind → no crane lifts / work at height
+    'rain_mm': 5.0,       # a rainy day that stops outdoor work (light drizzle < 5mm ignored)
+    'temp_max_c': 42.0,   # heat that stops work
+    'wind_kmh': None,     # None = wind not counted; set a km/h to enable crane/height stops
+    'dust': True,         # count dust / sandstorm days
 }
 _DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 _MON = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -31,27 +34,39 @@ _MON = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
 # ── classification ───────────────────────────────────────────────────────────
 
 def classify_day(rec, thresholds=None):
-    """(is_bad, label) for one daily record: rain_mm / temp_max_c / wind_kmh / dust."""
+    """(is_bad, label, detail) for one daily record (rain_mm / temp_max_c / wind_kmh / dust).
+    `detail` states WHY, with the measured value vs the limit — e.g.
+    '🌡 45.5 °C ≥ 42 °C' — so every flagged day is verifiable. Wind is only
+    tested when its threshold is a number (None = off)."""
     t = thresholds or DEFAULT_THRESHOLDS
-    labels = []
-    if float(rec.get('rain_mm') or 0) >= t.get('rain_mm', DEFAULT_THRESHOLDS['rain_mm']):
-        labels.append('Heavy rain')
-    if rec.get('dust'):
-        labels.append('Dust storm')
-    if float(rec.get('temp_max_c') or 0) >= t.get('temp_max_c', DEFAULT_THRESHOLDS['temp_max_c']):
-        labels.append('Extreme heat')
-    if float(rec.get('wind_kmh') or 0) >= t.get('wind_kmh', DEFAULT_THRESHOLDS['wind_kmh']):
-        labels.append('High wind')
-    return (bool(labels), ' / '.join(labels))
+    labels, details = [], []
+    rain = float(rec.get('rain_mm') or 0)
+    rain_thr = t.get('rain_mm', DEFAULT_THRESHOLDS['rain_mm'])
+    if rain_thr is not None and rain >= rain_thr:
+        labels.append('Rain'); details.append(f'🌧 {rain:g} mm ≥ {rain_thr:g} mm')
+    if t.get('dust', True) and rec.get('dust'):
+        pm = rec.get('pm10'); vis = rec.get('visibility_km')
+        extra = (f' · PM10 {pm:g}' if pm else '') + (f' · visibility {vis:g} km' if vis else '')
+        labels.append('Dust storm'); details.append(f'🌫 Dust storm{extra}')
+    temp = float(rec.get('temp_max_c') or 0)
+    temp_thr = t.get('temp_max_c', DEFAULT_THRESHOLDS['temp_max_c'])
+    if temp_thr is not None and temp >= temp_thr:
+        labels.append('Heat'); details.append(f'🌡 {temp:g} °C ≥ {temp_thr:g} °C')
+    wind = float(rec.get('wind_kmh') or 0)
+    wind_thr = t.get('wind_kmh')
+    if wind_thr is not None and wind >= wind_thr:
+        labels.append('High wind'); details.append(f'💨 {wind:g} km/h ≥ {wind_thr:g} km/h')
+    return (bool(labels), ' / '.join(labels), ' · '.join(details))
 
 
 def bad_weather_days(daily_weather, thresholds=None):
-    """{date: label} for every day that classifies as bad weather."""
+    """{date: detail} for every day that classifies as bad weather, where `detail`
+    is the measured reason (value vs limit) so each day is verifiable."""
     out = {}
     for d, rec in (daily_weather or {}).items():
-        is_bad, label = classify_day(rec, thresholds)
+        is_bad, label, detail = classify_day(rec, thresholds)
         if is_bad:
-            out[d] = label
+            out[d] = detail or label
     return out
 
 
@@ -166,6 +181,9 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         'net_finish_delay': net_finish,
         'weather_adjusted_finish': adjusted_finish.isoformat(),
         'recovery': recovery,
+        'thresholds': thresholds,          # the stop-work limits applied
+        'from_date': (min(remaining).isoformat() if remaining else data_date.isoformat()),
+        'source': 'Open-Meteo (forecast + ERA5 historical + air-quality)',
         'is_estimate': True,
     }
 
@@ -186,9 +204,11 @@ def weather_inputs(data):
             if cid and cid in data.calendars:
                 construction_cal_ids.add(cid)
 
+    # Only FINISH / completion milestones — a completion date is what weather pushes
+    # (Ibrahim's rule: impact on all finish/completion milestones only).
     milestones = []
     for a in data.activities.values():
-        if a.get('task_type') in ('FinishMilestone', 'StartMilestone'):
+        if a.get('task_type') == 'FinishMilestone':
             d = a.get('planned_finish') or a.get('planned_start')
             if d:
                 milestones.append({'name': a.get('name') or a.get('id'),
@@ -288,7 +308,44 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None):
             fd = _shift_year(hd, +1)
             if fut_start <= fd <= project_finish and fd not in daily:
                 daily[fd] = rec
+
+    # Dust / sandstorm days for the near-term window (air-quality forecast), merged in.
+    for d, aq in fetch_air_quality(lat, lon).items():
+        if d in daily and aq.get('dust'):
+            daily[d].update(aq)
     return daily, horizon
+
+
+_AIR_QUALITY = 'https://air-quality-api.open-meteo.com/v1/air-quality'
+DUST_PM10_THRESHOLD = 150.0   # µg/m³ daily-max → treat as a dust/sandstorm day
+
+
+def fetch_air_quality(lat, lon):
+    """Near-term dust from Open-Meteo air-quality (free). {date: {dust, pm10}}; {} on failure.
+    A day counts as dust when its peak PM10 reaches DUST_PM10_THRESHOLD."""
+    try:
+        url = (f'{_AIR_QUALITY}?latitude={lat}&longitude={lon}'
+               f'&hourly=pm10,dust&timezone=auto&forecast_days=5')
+        payload = _get_json(url)
+        hourly = (payload or {}).get('hourly') or {}
+        times = hourly.get('time') or []
+        pm10 = hourly.get('pm10') or []
+        dust = hourly.get('dust') or []
+        by_day = {}
+        for i, t in enumerate(times):
+            d = datetime.fromisoformat(t).date()
+            p = pm10[i] if i < len(pm10) and pm10[i] is not None else 0.0
+            du = dust[i] if i < len(dust) and dust[i] is not None else 0.0
+            cur = by_day.setdefault(d, {'pm10': 0.0, 'dust_conc': 0.0})
+            cur['pm10'] = max(cur['pm10'], p)
+            cur['dust_conc'] = max(cur['dust_conc'], du)
+        out = {}
+        for d, v in by_day.items():
+            if v['pm10'] >= DUST_PM10_THRESHOLD or v['dust_conc'] >= DUST_PM10_THRESHOLD:
+                out[d] = {'dust': True, 'pm10': round(v['pm10'])}
+        return out
+    except (urllib.error.URLError, ValueError, KeyError, TimeoutError):
+        return {}
 
 
 def _shift_year(d, delta):

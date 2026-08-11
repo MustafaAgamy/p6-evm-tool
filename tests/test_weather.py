@@ -14,13 +14,22 @@ def _cal():
 
 
 def test_classify_day_conditions():
+    # rain ≥ 5, heat ≥ 42, dust on, wind OFF by default
     assert classify_day({'rain_mm': 12}, DEFAULT_THRESHOLDS)[0] is True
     assert 'rain' in classify_day({'rain_mm': 12}, DEFAULT_THRESHOLDS)[1].lower()
-    assert classify_day({'temp_max_c': 47}, DEFAULT_THRESHOLDS)[0] is True
-    assert 'heat' in classify_day({'temp_max_c': 47}, DEFAULT_THRESHOLDS)[1].lower()
-    assert classify_day({'wind_kmh': 55}, DEFAULT_THRESHOLDS)[0] is True
+    assert classify_day({'temp_max_c': 43}, DEFAULT_THRESHOLDS)[0] is True     # ≥ 42
+    assert classify_day({'temp_max_c': 41}, DEFAULT_THRESHOLDS)[0] is False    # under 42
     assert classify_day({'dust': True}, DEFAULT_THRESHOLDS)[0] is True
-    assert classify_day({'rain_mm': 1, 'temp_max_c': 30, 'wind_kmh': 10}, DEFAULT_THRESHOLDS)[0] is False
+    assert classify_day({'wind_kmh': 55}, DEFAULT_THRESHOLDS)[0] is False      # wind off by default
+    assert classify_day({'wind_kmh': 55}, {'wind_kmh': 40})[0] is True         # explicit wind limit
+    assert classify_day({'rain_mm': 2, 'temp_max_c': 39}, DEFAULT_THRESHOLDS)[0] is False  # drizzle ignored
+
+
+def test_classify_day_detail_has_measured_value():
+    _, _, detail = classify_day({'temp_max_c': 45.5}, DEFAULT_THRESHOLDS)
+    assert '45.5' in detail and '42' in detail          # shows measured value vs limit
+    _, _, rdetail = classify_day({'rain_mm': 22}, DEFAULT_THRESHOLDS)
+    assert '22' in rdetail and 'mm' in rdetail
 
 
 def test_bad_weather_days_map():
