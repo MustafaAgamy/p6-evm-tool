@@ -17,6 +17,7 @@ PLANNING = [
     ('critical_driver', 'What is driving the finish date?'),
     ('recovery',        'Best recovery options'),
     ('risks',           'Top schedule risks'),
+    ('eot_likely',      'Is there an EOT / claim case?'),
 ]
 
 

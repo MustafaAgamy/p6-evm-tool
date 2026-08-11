@@ -126,21 +126,33 @@ def risks_mgmt(ctx):
 
 
 def eot_likely_mgmt(ctx):
-    delay = ctx['delay_days']
-    if not delay or delay <= 0:
-        return {'headline': "No time-extension looks needed right now — the project isn't behind.",
-                'body': ["There's no finish-date slippage to claim against at the moment."], 'advice': [], 'evidence': []}
-    body = ["There are **indicators** that could support a time-extension (an EOT) — but this is **not a decision**; "
-            "the commercial team must confirm it.",
-            f"The project is genuinely behind (about {_weeks(delay)} weeks), and the delay is on the work that sets the finish date."]
-    if ctx.get('oos_count'):
-        body.append(f"Some of it is execution-side — {ctx['oos_count']} activities were started out of order — which usually "
-                    "weakens a contractor's claim, so it's worth confirming who owns each cause.")
-    return {'headline': "There are indicators supporting a possible time-extension — worth a commercial review.",
-            'body': body,
-            'advice': ["Ask the commercial team to review the claim position, and note the delay causes (e.g. late access) "
-                       "in the Claims tool so ownership is clear."],
-            'evidence': [{'module': 'Finish date', 'plain': 'Delay', 'value': f'{delay} working days'}]}
+    from p6_copilot.claims import eot_assessment
+    a = eot_assessment(ctx)
+    if not a.get('has_delay'):
+        return {'headline': a['verdict'], 'body': list(a['indicators']), 'advice': [], 'evidence': []}
+    # Manager-concise: the verdict, the top couple of indicators, the honest caveat, plain advice.
+    body = a['indicators'][:2] + [a['caveat']]
+    advice = ["Ask the commercial team to review the claim position, and note who caused each delay "
+              "(e.g. late access) so ownership is clear."]
+    return {'headline': a['verdict'], 'body': body, 'advice': advice,
+            'evidence': [{'module': 'Finish date', 'plain': 'Delay to completion', 'value': f"{ctx['delay_days']} working days"}]}
+
+
+def eot_likely_planning(ctx):
+    """Planning-mode: the full, systematic claims read — indicators, ownership, concurrency,
+    and the entitlement/method framing a planner needs to prepare the claim."""
+    from p6_copilot.claims import eot_assessment
+    a = eot_assessment(ctx)
+    if not a.get('has_delay'):
+        return {'headline': a['verdict'], 'body': list(a['indicators']), 'advice': [], 'evidence': []}
+    body = list(a['indicators'])
+    if a.get('ownership'):
+        body.append(a['ownership'])
+    if a.get('caveat'):
+        body.append(a['caveat'])
+    body.append("Structure it Cause -> Effect -> Entitlement -> Substantiation; the entitlement clause is typically FIDIC 8.5.")
+    return {'headline': a['verdict'], 'body': body, 'advice': a.get('advice', []),
+            'evidence': [{'module': 'Finish date', 'plain': 'Delay to completion', 'value': f"{ctx['delay_days']} working days"}]}
 
 
 def actions_mgmt(ctx):
@@ -166,7 +178,10 @@ _ANSWERS = {
     ('management', 'health'):      health_mgmt,
     ('management', 'risks'):       risks_mgmt,
     ('management', 'eot_likely'):  eot_likely_mgmt,
+    ('management', 'can_claim'):   eot_likely_mgmt,
     ('management', 'actions'):     actions_mgmt,
+    ('planning',   'eot_likely'):  eot_likely_planning,
+    ('planning',   'can_claim'):   eot_likely_planning,
 }
 
 

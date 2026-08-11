@@ -4,6 +4,7 @@ jargon-free, advice-first, and cite evidence — understandable to a manager wit
 from p6_copilot.context import build_context
 from p6_copilot.answers import answer
 from p6_copilot.report import build_manager_report, render_manager_report_html
+from p6_copilot.claims import eot_assessment
 
 RESULT = {
     'project_name': 'Metro L3',
@@ -107,3 +108,34 @@ def test_manager_report_html_renders_and_is_jargon_free():
     low = h.lower()
     for term in ('spi', 'critical path', ' float', 'fragnet'):
         assert term not in low, f'report leaked jargon: {term}'
+
+
+# ── Claims intelligence (V2 Slice 3) ──────────────────────────────────────
+
+def test_eot_assessment_is_careful_and_never_asserts_entitlement():
+    a = eot_assessment(build_context(RESULT, audit={'modules': {'out_of_sequence': {'kpis': {'oos_count': 3}}}}))
+    assert a['has_delay'] is True
+    blob = ' '.join([a['verdict'], *a['indicators'], a['ownership'] or '', a['caveat'] or '', *a['advice']]).lower()
+    assert 'potential' in blob and 'could support' in blob          # indicators, not a verdict
+    for banned in ('you are entitled', 'entitled to', 'you can claim', 'will win'):
+        assert banned not in blob
+    assert 'concurren' in blob and 'contract' in blob               # concurrency + ownership/contract weighed
+
+
+def test_eot_no_delay_means_nothing_to_claim_yet():
+    a = eot_assessment(build_context({**RESULT, 'delay_days': -3}))
+    assert a['has_delay'] is False
+    assert 'no delay' in a['verdict'].lower()
+
+
+def test_eot_management_answer_is_concise_and_careful():
+    a = answer('eot_likely', build_context(RESULT), 'management')
+    assert 'entitled' not in _text(a).lower()
+    assert a['advice'] and len(a['body']) <= 4                      # tight for a manager
+
+
+def test_eot_planning_answer_is_full_and_technical():
+    ctx = build_context(RESULT, audit={'modules': {'out_of_sequence': {'kpis': {'oos_count': 2}}}})
+    t = _text(answer('eot_likely', ctx, 'planning'))
+    assert 'FIDIC' in t and 'Entitlement' in t                      # planner framing (method + clause)
+    assert 'entitled' not in t.lower()
