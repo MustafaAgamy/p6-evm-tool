@@ -952,6 +952,7 @@ body {
 .cmp-dl + .cmp-dl { border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 5px; }
 .cmp-driving { font-weight: 700; }
 .cmp-drv-dot { color: var(--accent); font-size: 9px; margin-right: 3px; vertical-align: 1px; }
+.cmp-dl-name { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; }
 .cmp-imp { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 .cmp-imp-direct { background: rgba(248,113,113,.16); color: var(--danger); }
 .cmp-imp-pot { background: rgba(251,191,36,.16); color: var(--warning); }

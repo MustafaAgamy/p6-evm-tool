@@ -99,36 +99,41 @@ def _tile(label, value):
     return f'<div class="tile"><div class="tl">{_e(label)}</div><div class="tv">{_e(value)}</div></div>'
 
 
+def _links_cell(links):
+    """Compact PDF cell: one link per line — 'ID  rel' in bold, name underneath."""
+    if not links:
+        return '—'
+    parts = []
+    for l in links:
+        t = l.get('type', 'FS')
+        lag = round(l.get('lag_days', 0) or 0)
+        rel = t if not lag else f"{t}{'+' if lag > 0 else ''}{lag}"
+        parts.append(f"<b>{_e(l.get('code', ''))}&nbsp;{_e(rel)}</b>"
+                     f"<br><span style='color:#555'>{_e(l.get('name', ''))}</span>")
+    return '<br>'.join(parts)
+
+
 def _logic_table_html(report):
     rows = (report.get('logic', {}) or {}).get('rows', [])
     if not rows:
-        return '<p class="note">No driving relationship or lag changes vs the baseline.</p>'
+        return '<p class="note">No relationship or lag changes vs the baseline.</p>'
     body = []
     for r in rows:
         body.append(
             '<tr>'
             f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
             f'<td>{_e(r.get("change_label"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("baseline_preds"), "id"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("baseline_preds"), "rel"))}</td>'
-            f'<td>{_e(_links_str(r.get("baseline_preds"), "name"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("baseline_succs"), "id"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("baseline_succs"), "rel"))}</td>'
-            f'<td>{_e(_links_str(r.get("baseline_succs"), "name"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("update_preds"), "id"))}</td>'
-            f'<td class="mono chg">{_e(_links_str(r.get("update_preds"), "rel"))}</td>'
-            f'<td>{_e(_links_str(r.get("update_preds"), "name"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("update_succs"), "id"))}</td>'
-            f'<td class="mono chg">{_e(_links_str(r.get("update_succs"), "rel"))}</td>'
-            f'<td>{_e(_links_str(r.get("update_succs"), "name"))}</td>'
+            f'<td class="mono">{_links_cell(r.get("baseline_preds"))}</td>'
+            f'<td class="mono">{_links_cell(r.get("baseline_succs"))}</td>'
+            f'<td class="mono">{_links_cell(r.get("update_preds"))}</td>'
+            f'<td class="mono">{_links_cell(r.get("update_succs"))}</td>'
             '</tr>')
     return (
         '<table class="data"><thead><tr>'
         '<th rowspan="2">Activity ID</th><th rowspan="2">Activity name</th><th rowspan="2">Change</th>'
-        '<th colspan="6" class="grp">Baseline — driving links</th>'
-        '<th colspan="6" class="grpu">Update — driving links</th></tr>'
-        '<tr><th>Pred ID</th><th>Pred rel</th><th>Pred name</th><th>Succ ID</th><th>Succ rel</th><th>Succ name</th>'
-        '<th>Pred ID</th><th>Pred rel</th><th>Pred name</th><th>Succ ID</th><th>Succ rel</th><th>Succ name</th></tr>'
+        '<th colspan="2" class="grp">Baseline — links</th>'
+        '<th colspan="2" class="grpu">Update — links</th></tr>'
+        '<tr><th>Predecessor</th><th>Successor</th><th>Predecessor</th><th>Successor</th></tr>'
         '</thead><tbody>' + ''.join(body) + '</tbody></table>')
 
 

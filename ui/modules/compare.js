@@ -75,30 +75,43 @@ function _durStatus(status) {
   return `<span class="cmp-stbadge ${cls}">${label}</span>`;
 }
 
+// One compact cell per link: "ID  rel" on top, name underneath — so predecessor AND
+// successor both fit on screen instead of the successor columns falling off the edge.
+function linkCell(list) {
+  if (!list || !list.length) return '<span class="mut">—</span>';
+  return list.map(l => {
+    const rel = fmtLag(l.type, l.lag_days);
+    const idrel = `${l.code || ''}${rel ? '  ' + rel : ''}`;
+    const cls = statusClass(l.status);
+    const head = cls ? `<span class="cmp-pill ${cls}">${escapeHtml(idrel)}</span>` : escapeHtml(idrel);
+    const mark = l.driving ? '<span class="cmp-drv-dot" title="Driving link">▶</span>' : '';
+    const name = l.name ? `<span class="cmp-dl-name">${escapeHtml(l.name)}</span>` : '';
+    return `<div class="cmp-dl${l.driving ? ' cmp-driving' : ''}">${mark}${head}${name}</div>`;
+  }).join('');
+}
+
 function _logicTable(rows) {
   if (!rows || !rows.length) {
-    return '<p class="cmp-empty">No driving relationship or lag changes vs the baseline.</p>';
+    return '<p class="cmp-empty">No relationship or lag changes vs the baseline.</p>';
   }
   const body = rows.map(r => `
     <tr>
       <td class="mono">${escapeHtml(r.activity_id)}</td>
       <td>${escapeHtml(r.activity_name)}</td>
       <td><span class="cmp-tag">${escapeHtml(r.change_label)}</span></td>
-      <td class="sepL">${cellStack(r.baseline_preds, 'id')}</td><td>${cellStack(r.baseline_preds, 'rel')}</td><td>${cellStack(r.baseline_preds, 'name')}</td>
-      <td>${cellStack(r.baseline_succs, 'id')}</td><td>${cellStack(r.baseline_succs, 'rel')}</td><td>${cellStack(r.baseline_succs, 'name')}</td>
-      <td class="sepU">${cellStack(r.update_preds, 'id')}</td><td>${cellStack(r.update_preds, 'rel')}</td><td>${cellStack(r.update_preds, 'name')}</td>
-      <td>${cellStack(r.update_succs, 'id')}</td><td>${cellStack(r.update_succs, 'rel')}</td><td>${cellStack(r.update_succs, 'name')}</td>
+      <td class="sepL">${linkCell(r.baseline_preds)}</td><td>${linkCell(r.baseline_succs)}</td>
+      <td class="sepU">${linkCell(r.update_preds)}</td><td>${linkCell(r.update_succs)}</td>
     </tr>`).join('');
   return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-log">
     <thead>
       <tr><th rowspan="2">Activity ID</th><th rowspan="2">Activity name</th><th rowspan="2">Change</th>
-        <th colspan="6" class="cmp-gh-base">Baseline — driving links</th>
-        <th colspan="6" class="cmp-gh-upd">Update — driving links</th></tr>
-      <tr><th class="sepL">Pred. ID</th><th>Pred. rel</th><th>Pred. name</th><th>Succ. ID</th><th>Succ. rel</th><th>Succ. name</th>
-        <th class="sepU">Pred. ID</th><th>Pred. rel</th><th>Pred. name</th><th>Succ. ID</th><th>Succ. rel</th><th>Succ. name</th></tr>
+        <th colspan="2" class="cmp-gh-base">Baseline — links</th>
+        <th colspan="2" class="cmp-gh-upd">Update — links</th></tr>
+      <tr><th class="sepL">Predecessor</th><th>Successor</th>
+        <th class="sepU">Predecessor</th><th>Successor</th></tr>
     </thead>
     <tbody>${body}</tbody></table></div>
-    <div class="cmp-foot">Every predecessor and successor relationship is read straight from the files. <b>▶ bold</b> = the driving link (date-derived; may be absent on completed activities). Red = changed vs baseline · green = added · struck = removed.</div>`;
+    <div class="cmp-foot">Each cell is a link — <b>Activity ID + relationship</b> on top, activity name below — read straight from the files. <b>▶ bold</b> = the driving link (may be absent on completed activities). Red = changed vs baseline · green = added · struck = removed.</div>`;
 }
 
 function _durationTable(rows) {
