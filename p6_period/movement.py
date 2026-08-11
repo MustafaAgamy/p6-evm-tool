@@ -6,10 +6,17 @@ activities whose finish moved this period (or that newly entered the critical pa
 with the driver classified. `buckets` counts what moved: finished / started / slipped
 / stalled / re-sequenced.
 """
+from datetime import datetime
 from p6_evm.calendars import signed_working_days
 
 NEAR_CRITICAL_WD = 10          # float <= 10 working days = near-critical (repo convention)
 _MILESTONES = ('StartMilestone', 'FinishMilestone')
+
+
+def _deep_wbs(act):
+    """Deepest WBS name for an activity (last segment of the root-first wbs_path)."""
+    p = act.get('wbs_path') or ''
+    return p.split(' > ')[-1].strip() if p else '(no WBS)'
 
 
 def _finish(act):
@@ -51,18 +58,21 @@ def finish_slip(matched):
     return out
 
 
-def critical_movement(matched, logic_changed_codes=frozenset()):
+def critical_movement(matched, logic_changed_codes=frozenset(), include=None):
     """{'rows': [...], 'new_critical': n} — near-critical activities (float <= 10 wd)
     whose finish slipped this period, or that newly entered the critical path.
 
-    Row: activity_id, activity_name, prev_finish, curr_finish, slip_days, float_days,
+    Row: activity_id, activity_name, wbs, prev_finish, curr_finish, slip_days, float_days,
     driver ('logic changed' | 'duration extended' | 'progress shortfall' | 'held'),
-    critical_status ('new' | 'stayed'). Sorted by slip descending."""
+    critical_status ('new' | 'stayed'), codes. `include` (set of codes) filters to
+    construction/execution activities. Sorted by slip descending."""
     slips = finish_slip(matched)
     ucals = getattr(matched.update, 'calendars', {}) or {}
     bcals = getattr(matched.baseline, 'calendars', {}) or {}
     rows, new_critical = [], 0
     for code in matched.matched_codes:
+        if include is not None and code not in include:
+            continue
         b, u = matched.baseline_by_code[code], matched.update_by_code[code]
         cf, pf = u.get('total_float_days'), b.get('total_float_days')
         near_now = cf is not None and cf <= NEAR_CRITICAL_WD
@@ -93,10 +103,66 @@ def critical_movement(matched, logic_changed_codes=frozenset()):
             'float_days': round(cf, 1) if cf is not None else None,
             'driver': driver,
             'critical_status': 'new' if newly else 'stayed',
-            'codes': u.get('activity_codes') or {},   # for the activity-code columns in exports
+            'wbs': _deep_wbs(u),
+            'codes': u.get('activity_codes') or {},   # for the activity-code columns/slicer in exports
         })
     rows.sort(key=lambda r: -(r['slip_days'] or 0))
     return {'rows': rows, 'new_critical': new_critical}
+
+
+def _critical_wbs_chain(data, include=None):
+    """Ordered list of distinct WBS the critical path (float <= 0) runs through,
+    construction/execution only, ordered by forecast start (consecutive dups collapsed)."""
+    acts = []
+    for a in getattr(data, 'activities', {}).values():
+        code = a.get('id')
+        if not code or a.get('task_type') in _MILESTONES:
+            continue
+        if include is not None and code not in include:
+            continue
+        tf = a.get('total_float_days')
+        if tf is None or tf > 0:
+            continue
+        acts.append(a)
+    acts.sort(key=lambda a: a.get('remaining_early_start') or a.get('planned_start') or datetime.max)
+    chain = []
+    for a in acts:
+        w = _deep_wbs(a)
+        if not chain or chain[-1] != w:
+            chain.append(w)
+    return chain
+
+
+def critical_path_by_wbs(matched, include=None):
+    """Previous vs current critical path, summarised to WBS level (not activities).
+    {'previous': [wbs...], 'current': [wbs...]}."""
+    return {'previous': _critical_wbs_chain(matched.baseline, include),
+            'current': _critical_wbs_chain(matched.update, include)}
+
+
+def period_plan_counts(matched, dd_prev, dd_now, include=None):
+    """How many activities the PREVIOUS update was due to finish / start in this window
+    (construction only if `include` given). Feeds the 'what moved' planned-vs-actual chart.
+    {'planned_finish': n, 'planned_start': n}."""
+    pf = ps = 0
+    if not (dd_prev and dd_now):
+        return {'planned_finish': 0, 'planned_start': 0}
+    for code in matched.matched_codes:
+        if include is not None and code not in include:
+            continue
+        b = matched.baseline_by_code[code]
+        if b.get('task_type') in _MILESTONES:
+            continue
+        pct = b.get('percent_complete') or 0.0
+        if pct < 1.0:
+            bf = b.get('remaining_early_finish') or b.get('planned_finish')
+            if bf and dd_prev < bf <= dd_now:
+                pf += 1
+        if pct == 0.0:
+            bs = b.get('remaining_early_start') or b.get('planned_start')
+            if bs and dd_prev < bs <= dd_now:
+                ps += 1
+    return {'planned_finish': pf, 'planned_start': ps}
 
 
 def _iso(d):
@@ -132,14 +198,16 @@ def milestone_drift(matched):
     return {'rows': rows, 'overall': overall}
 
 
-def buckets(matched, dd_now=None, logic_changed_codes=frozenset()):
+def buckets(matched, dd_now=None, logic_changed_codes=frozenset(), include=None):
     """{'counts': {...}, 'lists': {...}} — what moved this period, bucketed into
-    finished / started / slipped / stalled / re_sequenced. Milestones excluded from the
-    progress buckets. `re_sequenced` = activities whose logic/lag changed vs last period."""
+    finished / started / slipped / stalled / re_sequenced. Milestones excluded; `include`
+    (set of codes) filters to construction/execution. `re_sequenced` = logic/lag changed."""
     slips = finish_slip(matched)
     counts = {'finished': 0, 'started': 0, 'slipped': 0, 'stalled': 0, 're_sequenced': 0}
     lists = {k: [] for k in counts}
     for code in matched.matched_codes:
+        if include is not None and code not in include:
+            continue
         b, u = matched.baseline_by_code[code], matched.update_by_code[code]
         if u.get('task_type') in _MILESTONES or b.get('task_type') in _MILESTONES:
             continue

@@ -53,7 +53,7 @@ def test_verdict_flags_off_track_when_recovery_infeasible():
 def test_progress_excel_headers_and_rows():
     headers, rows = progress_excel(_report())
     assert headers[0] == 'Activity ID' and 'Variance' in headers
-    assert rows[0] == ['A1', 'Dredging', 82.0, 100.0, 18.0, 'finished']
+    assert rows[0] == ['A1', 'Dredging', '82.0%', '100.0%', '▲ +18.0%', 'finished']
     assert rows[1][5] == 'progress reversed'
 
 
@@ -66,7 +66,7 @@ def test_report_excel_mirrors_every_section():
                     'Milestones — baseline vs previous vs current forecast', 'Project conclusion & outlook']:
         assert section in flat, section
     assert _PROGRESS in rows and _CRITICAL in rows and _WATCH in rows
-    assert ['A1', 'Dredging', 82.0, 100.0, 18.0, 'finished'] in rows
+    assert ['A1', 'Dredging', '82.0%', '100.0%', '▲ +18.0%', 'finished'] in rows
     assert any(r and r[0] == 'CV1' for r in rows)        # critical-movement data row
     assert any(r and r[0] == 'ME2' for r in rows)        # watch-list data row
     assert any('Handover' in str(r) for r in rows)       # milestone row
@@ -107,10 +107,10 @@ def test_render_html_two_page_management_report():
     assert '09-Feb-2027' in html                         # recovery baseline finish
     assert 'Near-critical' in html                       # watch list content
     assert '85%' in html and '81%' in html               # SPI as whole %
-    assert 'Forecast — last update' in html              # progress-bar legend
+    assert 'of the whole project' in html                # progress-bar 3-point explanation
     assert 'Activities completed' in html and 'Activities in progress' in html  # new counts
     assert 'Overall the project stands' in html          # project conclusion in the management box
-    assert html.count('class="page"') == 2               # two pages
+    assert html.count('data-sec=') >= 10                 # section-tagged blocks (for the print picker)
 
 
 def test_render_html_milestone_table_and_drift_chart():

@@ -75,6 +75,42 @@ def activity_progress(matched, include=None):
     return {'rows': rows, 'counts': counts}
 
 
+def progress_by_code(matched, curr, period_earned, include=None):
+    """Where this period's progress came from, grouped by each P6 activity code
+    (duration-weighted, indicative — scaled to the overall period earned %).
+    {code_type: [{'value', 'contribution', 'activity_count'}]} sorted biggest first."""
+    types = list(getattr(curr, 'activity_code_types', []) or [])
+    if not types or not period_earned:
+        return {}
+    out = {}
+    for t in types:
+        by_val, total_w = {}, 0.0
+        for code in matched.matched_codes:
+            if include is not None and code not in include:
+                continue
+            b, u = matched.baseline_by_code[code], matched.update_by_code[code]
+            if u.get('task_type') in _MILESTONES:
+                continue
+            var = (u.get('percent_complete') or 0.0) - (b.get('percent_complete') or 0.0)  # 0-1
+            if var <= 0:
+                continue
+            val = (u.get('activity_codes') or {}).get(t)
+            if not val:
+                continue
+            w = ((u.get('planned_duration') or 0.0) or 1.0) * var
+            total_w += w
+            slot = by_val.setdefault(val, [0.0, 0])
+            slot[0] += w
+            slot[1] += 1
+        if total_w <= 0:
+            continue
+        rows = [{'value': v, 'contribution': round(period_earned * wc / total_w, 1), 'activity_count': n}
+                for v, (wc, n) in by_val.items()]
+        rows.sort(key=lambda r: -r['contribution'])
+        out[t] = rows
+    return out
+
+
 def period_summary(prev, curr, prev_metrics, curr_metrics):
     """Option-B headline numbers for the dashboard. `*_metrics` are metrics.compute()
     results (reused so the figures match the EVM tab)."""

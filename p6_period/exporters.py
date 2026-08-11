@@ -156,34 +156,104 @@ def _facts_html(report):
 
 
 def _progress_bar_html(report):
-    """A plain progress bar — fill to where you are, a marker for where the last update
-    said you'd be — plus the forecast-vs-actual bars for the period. Replaces the S-curve."""
+    """Three points on the whole-project bar: where you started the period, where the
+    last update planned you'd be, and where you actually are. Exact one-decimal %s that
+    match the Execution Dashboard."""
     s = report.get('summary', {}) or {}
-    an, fn = s.get('actual_now'), s.get('forecast_at_now')
+    ap, an, fn = s.get('actual_prev'), s.get('actual_now'), s.get('forecast_at_now')
     pe, pf = s.get('period_earned'), s.get('period_forecast')
     if an is None:
         return ''
+    pdd, cdd = _e(report.get('data_date_prev')), _e(report.get('data_date_now'))
     fill = max(0.0, min(100.0, an))
-    marker = ''
+    start_m = '' if ap is None else (
+        f'<div class="pmark" style="left:{max(0.0, min(100.0, ap)):.1f}%;background:#94a3b8"></div>'
+        f'<span class="tag-above" style="left:{max(0.0, min(100.0, ap)):.1f}%;color:#64748b">▾ start {ap:.1f}%</span>')
+    plan_m = '' if fn is None else (
+        f'<div class="pmark" style="left:{max(0.0, min(100.0, fn)):.1f}%"></div>'
+        f'<span class="tag-above" style="left:{max(0.0, min(100.0, fn)):.1f}%">▾ planned {fn:.1f}%</span>')
     behind = ''
     if fn is not None:
-        m = max(0.0, min(100.0, fn))
-        marker = f'<div class="pmark" style="left:{m:.0f}%"><span class="lab">forecast {fn:.0f}% (last update) ▾</span></div>'
         gap = round(fn - an, 1)
-        behind = f' · last update forecast <b>{fn:.0f}%</b> by now — <b>{"on/ahead" if gap <= 0 else f"{abs(gap):.0f}% behind"}</b>'
-    mx = max(abs(pe or 0), abs(pf or 0), 1)
-    fbar = (f'<div class="tb"><span class="lbl">Forecast — last update</span><div class="track">'
-            f'<div class="fillp" style="width:{min(100, abs(pf or 0) / mx * 100):.0f}%">{_svar(pf, "%")}</div></div></div>')
-    abar = (f'<div class="tb"><span class="lbl">Actual — this update</span><div class="track">'
-            f'<div class="filla" style="width:{min(100, abs(pe or 0) / mx * 100):.0f}%">{_svar(pe, "%")}</div></div></div>')
-    return (f'<div class="chart"><div class="pbwrap"><div class="pbtop"><span>0%</span><span>Finish = 100%</span></div>'
-            f'<div class="pbar"><div class="pfill" style="width:{fill:.0f}%">{fill:.0f}%</div>{marker}</div>'
-            f'<div class="pbbot">You are at <b>{an:.0f}%</b>{behind}</div></div>'
-            f'<div class="twobar">{fbar}{abar}</div>'
-            f'<div class="chartlegend">'
-            f'<div><span class="lg-sw" style="background:#f0b357"></span><b>Forecast — last update</b>: what your <b>previous</b> update said it would complete this window (its own plan for the period, <b>not</b> the baseline).</div>'
-            f'<div><span class="lg-sw" style="background:#2a78d6"></span><b>Actual — this update</b>: what you actually completed, from the <b>current</b> update.</div>'
-            f'</div></div>')
+        behind = f' — <b>{"on/ahead of" if gap <= 0 else f"{abs(gap):.1f}% behind"}</b> your plan'
+    ach = s.get('forecast_achievement')
+    ach_txt = f'{round(ach * 100)}%' if ach is not None else '—'
+    plan_txt = (f'Your last update planned <b>{fn:.1f}%</b> by now ({_svar(pf, "%")}). ' if fn is not None else '')
+    return (f'<div class="prog"><div class="cap"><span>0% — project start</span><span>100% — finish</span></div>'
+            f'<div class="pbar">{start_m}'
+            f'<div class="pfill" style="width:{fill:.1f}%">{an:.1f}%</div>'
+            f'<span class="tag-below" style="left:{fill:.1f}%">▴ now {an:.1f}%</span>'
+            f'{plan_m}</div>'
+            f'<div class="psent">On <b>{pdd}</b> you were at <b>{ap:.1f}%</b>. {plan_txt}You reached <b>{an:.1f}%</b> on <b>{cdd}</b> ({_svar(pe, "%")}). '
+            f'All three are % of the whole project{behind}; you did {_svar(pe, "%")} of {_svar(pf, "%")} = <b>{ach_txt}</b>.</div></div>')
+
+
+def _critical_compare_html(report):
+    """Previous vs current critical path, summarised to WBS boxes; dropped-off vs newly-critical highlighted."""
+    cp = report.get('critical_path_wbs', {}) or {}
+    prev, curr = cp.get('previous') or [], cp.get('current') or []
+    if not prev and not curr:
+        return '<p class="note">No critical path could be derived (no zero-float construction activities).</p>'
+    ps, cs = set(prev), set(curr)
+
+    def chain(items, other, cls_new, cls_gone):
+        out = []
+        for i, w in enumerate(items):
+            cls = cls_gone if w not in other else ('' if w in ps and w in cs else cls_new)
+            out.append(f'<span class="wbs {cls}">{_e(w)}</span>')
+            if i < len(items) - 1:
+                out.append('<span class="arr">→</span>')
+        return ' '.join(out) or '<span class="note">—</span>'
+    return (f'<div class="cprow"><span class="cplbl">Previous</span>{chain(prev, cs, "", "gone")}</div>'
+            f'<div class="cprow"><span class="cplbl">Current</span>{chain(curr, ps, "newc", "")}</div>'
+            f'<div class="cplegend"><i style="background:#eef4fb;border:1px solid #c9ddf3"></i>on both'
+            f'<i style="background:#fdecec;border:1px solid #f2b8b8"></i>dropped off'
+            f'<i style="background:#eafaf0;border:1px solid #a7e0bd"></i>newly critical</div>'
+            f'<p class="note">Each box is a WBS the critical path runs through, in order — the summarised conclusion; the detailed activities are in the table below.</p>')
+
+
+def _whatmoved_html(report):
+    """Planned vs actual chart for what moved; counts shown as text so they're always readable."""
+    counts = (report.get('buckets', {}) or {}).get('counts', {})
+    pc = report.get('plan_counts', {}) or {}
+    fin, sta = counts.get('finished', 0), counts.get('started', 0)
+    pfin, psta = pc.get('planned_finish', 0), pc.get('planned_start', 0)
+    slip, stal, res = counts.get('slipped', 0), counts.get('stalled', 0), counts.get('re_sequenced', 0)
+    mx = max(pfin, psta, fin, sta, slip, stal, res, 1)
+    w = lambda n: max(2, round(100.0 * n / mx))
+
+    def row(lbl, planned, actual, cls, txt):
+        pbar = f'<div class="wmp" style="width:{w(planned)}%"></div>' if planned else ''
+        return (f'<div class="wmrow"><span class="wml">{lbl}</span>'
+                f'<div class="wmtrack">{pbar}<div class="wma {cls}" style="width:{w(actual)}%"></div></div>'
+                f'<span class="wmnum">{txt}</span></div>')
+    rows = (row('Finished', pfin, fin, 'g', f'<b>{fin}</b> done / {pfin} due')
+            + row('Started', psta, sta, 'g', f'<b>{sta}</b> done / {psta} due')
+            + row('Slipped', 0, slip, 'b', f'<b>{slip}</b> activities')
+            + row('Stalled', 0, stal, 'w', f'<b>{stal}</b> activities')
+            + row('Re-sequenced', 0, res, 'n', f'<b>{res}</b> activities'))
+    defs = ('<div class="defs"><div class="defs-h">What these mean</div>'
+            '<div class="def"><b>Grey bar</b> = planned (due to finish/start this period), <b>coloured</b> = actual; the count on the right is always shown.</div>'
+            '<div class="def"><b>Slipped</b> — the activity\'s finish moved <b>later</b> than the previous update showed.</div>'
+            '<div class="def"><b>Stalled</b> — it was scheduled to be progressing but earned <b>0%</b> this period.</div>'
+            '<div class="def"><b>Re-sequenced</b> — its logic / lag was <b>changed</b> vs last period.</div></div>')
+    return f'<div>{rows}</div>{defs}'
+
+
+def _bycode_html(report):
+    """Where the period's progress came from, grouped by the first available activity code."""
+    bc = report.get('progress_by_code', {}) or {}
+    if not bc:
+        return '<p class="note">No activity codes in this schedule to break progress down by.</p>'
+    code_type = next(iter(bc))
+    rows = bc[code_type][:8]
+    mx = max((r['contribution'] for r in rows), default=1) or 1
+    body = ''.join(
+        f'<div class="bar2"><span class="l">{_e(r["value"])}</span>'
+        f'<div class="t"><div class="f" style="width:{max(3, round(100.0 * r["contribution"] / mx))}%">{_svar(r["contribution"], "%")}</div></div></div>'
+        for r in rows)
+    return (f'<p class="note">Grouped by activity code <b>{_e(code_type)}</b> — where this period\'s progress came from (duration-weighted, indicative).</p>'
+            + body)
 
 
 def _defs_html():
@@ -223,15 +293,16 @@ def _critical_table_html(report):
         return '<p class="note">No critical or near-critical activity moved this window.</p>'
     body = ''.join(
         '<tr>'
-        f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
+        f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td><td>{_e(r.get("wbs"))}</td>'
         f'<td class="num mono">{_e(r.get("prev_finish"))}</td><td class="num mono">{_e(r.get("curr_finish"))}</td>'
         f'<td class="num">{("+" + str(r.get("slip_days")) + " wd") if (r.get("slip_days") or 0) > 0 else "—"}</td>'
         f'<td class="num">{_e(r.get("float_days"))}</td><td>{_e(r.get("driver"))}</td>'
         f'<td>{"new" if r.get("critical_status") == "new" else "stayed"}</td>'
         '</tr>' for r in rows)
-    return ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th>'
+    return ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th><th>WBS</th>'
             '<th class="num">Finish (prev)</th><th class="num">Finish (now)</th><th class="num">Slip</th><th class="num">Float</th>'
-            '<th>Driver</th><th>Critical</th></tr></thead><tbody>' + body + '</tbody></table>')
+            '<th>Driver</th><th>Critical</th></tr></thead><tbody>' + body + '</tbody></table>'
+            '<p class="note">Construction / execution activities only. On screen you can filter this by any activity code.</p>')
 
 
 def _watch_table_html(report):
@@ -243,9 +314,16 @@ def _watch_table_html(report):
         f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
         f'<td class="num">{_e(r.get("float_days"))} wd</td><td class="num mono">{_e(r.get("due_to_start"))}</td>'
         f'<td>{_e(r.get("reason"))}</td></tr>' for r in rows)
-    return ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th>'
-            '<th class="num">Float</th><th class="num">Due to start</th><th>Why watch it</th></tr></thead><tbody>'
-            + body + '</tbody></table>')
+    intro = ('<p class="note" style="margin-top:0">The near-critical construction activities <b>most likely to drive the next reporting window</b> '
+             '— not yet finished, with little spare time — tightest float first. Watch these to protect the finish date.</p>')
+    table = ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th>'
+             '<th class="num">Float</th><th class="num">Due to start</th><th>Why watch it</th></tr></thead><tbody>'
+             + body + '</tbody></table>')
+    defs = ('<div class="defs"><div class="defs-h">Columns</div>'
+            '<div class="def"><b>Float</b> — spare working days before this activity would delay the project finish (0 = on the critical path; ≤ 10 wd = near-critical).</div>'
+            '<div class="def"><b>Due to start</b> — the activity\'s forecast start date, from the current update.</div>'
+            '<div class="def"><b>Why watch it</b> — why it\'s near-critical: on the critical path, a successor to something slipping, or newly near-critical.</div></div>')
+    return intro + table + defs
 
 
 def _buckets_html(report):
@@ -326,13 +404,74 @@ def _milestone_drift_svg(report):
     return legend + f'<svg viewBox="0 0 940 {h}" width="100%" style="max-height:{h}px">{"".join(parts)}</svg>'
 
 
-def render_html(report, trend=None):
+_SECTION_LABELS = [
+    ('verdict', 'Status verdict'), ('progress', 'Progress chart'),
+    ('dashboard', 'Execution Dashboard'), ('recommendation', 'Management recommendation'),
+    ('critical_compare', 'Critical-path comparison'), ('critical', 'Critical-path movement table'),
+    ('progress_table', 'Progress by activity'), ('watch', 'Next-period watch list'),
+    ('whatmoved', 'What moved this period'), ('bycode', 'Progress by activity code'),
+    ('milestones', 'Milestones (table + chart)'), ('conclusions', 'Conclusions'),
+]
+
+
+def render_html(report, trend=None, sections=None):
+    """`sections` = list of section keys to include (None = all). Every section is tagged
+    <section data-sec="KEY"> so the on-screen preview can toggle it and the PDF re-flows."""
     level, head, detail = _verdict(report)
-    progress_bar = _progress_bar_html(report)
-    mtable = _milestone_table_html(report)
-    mdrift = _milestone_drift_svg(report)
+    header = (f'<div class="rh"><div><h1>Update vs Update — Period Report</h1>'
+              f'<div class="meta">{_e(report.get("project_name"))} · period comparison (Windows Analysis)</div></div>'
+              f'<div class="win">Reporting window<br><b>{_e(report.get("data_date_prev"))} → {_e(report.get("data_date_now"))}</b>'
+              f'<br>previous cutoff → current cutoff</div></div>')
+    banner = (f'<div class="banner {level}"><span class="dot {level}"></span>'
+              f'<div><div class="b1">{_e(head)}</div><div class="b2">{_e(detail)}</div></div></div>')
+    dashboard = _exec_dashboard_html(report) + _recovery_html(report) + _facts_html(report) + _defs_html()
+    milestones = (f'<div class="keep">{_milestone_table_html(report)}'
+                  f'<div class="chart" style="margin-top:8px">{_milestone_drift_svg(report)}</div></div>')
+    secs = [
+        ('verdict', '', banner, False),
+        ('progress', "Progress — where you are vs where you said you'd be", _progress_bar_html(report), False),
+        ('dashboard', 'Execution Dashboard — Previous → Current, at each cutoff', dashboard, False),
+        ('recommendation', 'What management needs to know', f'<div class="reco warn">{_e(report.get("project_conclusion"))}</div>', False),
+        ('critical_compare', 'Critical-path comparison — by WBS', _critical_compare_html(report), True),
+        ('critical', 'Critical-path movement in this window', _critical_table_html(report), False),
+        ('progress_table', 'Progress by activity — % complete this period', _progress_table_html(report), False),
+        ('watch', 'Next-period watch list', _watch_table_html(report), False),
+        ('whatmoved', 'What moved this period — planned vs actual', _whatmoved_html(report), False),
+        ('bycode', "Where this period's progress came from — by activity code", _bycode_html(report), False),
+        ('milestones', 'Milestones — project completion & all finish milestones', milestones, False),
+        ('conclusions', 'Executive conclusion — this period', f'<div class="reco">{_e(report.get("conclusion"))}</div>', False),
+    ]
+    keys = set(sections) if sections else None
+    body = [header]
+    for key, title, html, planner in secs:
+        if keys is not None and key not in keys:
+            continue
+        t = f'<h2>{_e(title)}</h2>' if title else ''
+        body.append(f'<section data-sec="{key}"{" class=pagebreak" if planner else ""}>{t}{html}</section>')
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: A4 landscape; margin: 11mm; }}
+      section.pagebreak {{ page-break-before: always; }}
+      .prog {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 28px 16px 12px; }}
+      .cap {{ display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; margin-bottom: 12px; }}
+      .tag-above {{ position: absolute; top: -22px; transform: translateX(-50%); white-space: nowrap; font-size: 10px; font-weight: 700; color: #d97706; }}
+      .tag-below {{ position: absolute; top: 36px; transform: translateX(-50%); white-space: nowrap; font-size: 10px; font-weight: 700; color: #2a78d6; }}
+      .psent {{ margin-top: 34px; font-size: 11.5px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; line-height: 1.5; }}
+      .wmrow {{ display: flex; align-items: center; gap: 10px; margin: 6px 0; }} .wml {{ width: 96px; font-size: 11.5px; font-weight: 600; }}
+      .wmtrack {{ flex: 1; position: relative; height: 18px; }}
+      .wmp {{ position: absolute; left: 0; top: 0; height: 100%; background: #e5ebf2; border: 1px solid #d7dfe8; border-radius: 5px; }}
+      .wma {{ position: absolute; left: 0; top: 2px; height: 14px; border-radius: 4px; }}
+      .wma.g {{ background: #16a34a; }} .wma.b {{ background: #dc2626; }} .wma.w {{ background: #d97706; }} .wma.n {{ background: #94a3b8; }}
+      .wmnum {{ width: 118px; font-size: 11px; color: #334155; }} .wmnum b {{ font-size: 12px; }}
+      .cprow {{ display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 6px 0; }}
+      .cplbl {{ width: 62px; font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .3px; }}
+      .wbs {{ background: #eef4fb; border: 1px solid #c9ddf3; border-radius: 8px; padding: 6px 12px; font-size: 11.5px; font-weight: 700; color: #1e3a8a; }}
+      .wbs.gone {{ background: #fdecec; border-color: #f2b8b8; color: #b91c1c; text-decoration: line-through; }}
+      .wbs.newc {{ background: #eafaf0; border-color: #a7e0bd; color: #166534; }}
+      .arr {{ color: #94a3b8; font-weight: 800; }}
+      .cplegend {{ font-size: 10.5px; color: #64748b; margin-top: 7px; }} .cplegend i {{ display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin: 0 5px 0 12px; }}
+      .bar2 {{ display: flex; align-items: center; gap: 10px; margin: 5px 0; }} .bar2 .l {{ width: 160px; font-size: 11.5px; }}
+      .bar2 .t {{ flex: 1; background: #eef2f7; border-radius: 6px; height: 18px; overflow: hidden; border: 1px solid #e2e8f0; }}
+      .bar2 .f {{ height: 100%; background: #2a78d6; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; }}
       * {{ box-sizing: border-box; }}
       body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 12px; margin: 0; }}
       .page {{ page-break-after: always; }} .page:last-child {{ page-break-after: auto; }}
@@ -396,49 +535,7 @@ def render_html(report, trend=None):
       .defs {{ margin-top: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }}
       .defs-h {{ font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #64748b; font-weight: 700; margin-bottom: 5px; }}
       .def {{ font-size: 11px; color: #334155; line-height: 1.5; margin: 2px 0; }} .def b {{ color: #1e293b; }}
-    </style></head><body>
-
-      <div class="page">
-        <div class="rh">
-          <div><h1>Update vs Update — Period Report</h1>
-            <div class="meta">{_e(report.get('project_name'))} · period comparison (Windows Analysis)</div></div>
-          <div class="win">Reporting window<br><b>{_e(report.get('data_date_prev'))} → {_e(report.get('data_date_now'))}</b><br>previous cutoff → current cutoff</div>
-        </div>
-        <div class="banner {level}"><span class="dot {level}"></span>
-          <div><div class="b1">{_e(head)}</div><div class="b2">{_e(detail)}</div></div></div>
-
-        <h2>Progress — where you are vs where you said you'd be</h2>
-        {progress_bar}
-
-        <h2>Execution Dashboard — Previous → Current, at each cutoff</h2>
-        {_exec_dashboard_html(report)}
-        {_recovery_html(report)}
-        {_facts_html(report)}
-        {_defs_html()}
-
-        <h3>What management needs to know</h3>
-        <div class="reco warn">{_e(report.get('project_conclusion'))}</div>
-      </div>
-
-      <div class="page">
-        <h2>Progress by activity — % complete this period</h2>
-        {_progress_table_html(report)}
-        <h2>Critical-path movement in this window</h2>
-        {_critical_table_html(report)}
-        <h2>Next-period watch list</h2>
-        {_watch_table_html(report)}
-        <div class="keep">
-          <h2>Milestones — project completion &amp; all finish milestones</h2>
-          {mtable}
-          <div class="chart" style="margin-top:8px">{mdrift}</div>
-        </div>
-        <div class="split">
-          <div><h3>What moved this period</h3>{_buckets_html(report)}</div>
-          <div><h3>Executive conclusion — this period</h3><div class="reco">{_e(report.get('conclusion'))}</div></div>
-        </div>
-      </div>
-
-    </body></html>'''
+    </style></head><body>{"".join(body)}</body></html>'''
 
 
 # ── Excel: mirrors the PDF, one sheet ───────────────────────────────────────
@@ -456,13 +553,25 @@ def _code_cells(row, code_types):
     return [codes.get(t, '') for t in code_types]
 
 
+def _xl_sign(v, suffix=''):
+    """Signed cell with an arrow, so the Excel keeps the up/down indication (▲ +12%)."""
+    if v is None:
+        return ''
+    if v > 0:
+        return f'▲ +{v}{suffix}'
+    if v < 0:
+        return f'▼ {v}{suffix}'
+    return f'{v}{suffix}'
+
+
 def _progress_rows(report, code_types=()):
     out = []
     for r in (report.get('progress', {}) or {}).get('rows', []):
         note = 'finished' if r.get('finished') else ('started' if r.get('started')
                else ('progress reversed' if r.get('reversal') else ''))
         out.append([r.get('activity_id', ''), r.get('activity_name', ''),
-                    r.get('prev_pct', 0), r.get('curr_pct', 0), r.get('variance', 0), note]
+                    f"{r.get('prev_pct', 0)}%", f"{r.get('curr_pct', 0)}%",
+                    _xl_sign(r.get('variance', 0), '%'), note]
                    + _code_cells(r, code_types))
     return out
 
@@ -473,7 +582,7 @@ def _critical_rows(report, code_types=()):
         slip = r.get('slip_days') or 0
         out.append([r.get('activity_id', ''), r.get('activity_name', ''),
                     r.get('prev_finish', ''), r.get('curr_finish', ''),
-                    (f'+{slip} wd' if slip > 0 else ''), r.get('float_days', ''),
+                    _xl_sign(slip, ' wd') if slip else '', r.get('float_days', ''),
                     r.get('driver', ''), ('new' if r.get('critical_status') == 'new' else 'stayed')]
                    + _code_cells(r, code_types))
     return out

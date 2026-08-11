@@ -570,6 +570,7 @@ class Handler(BaseHTTPRequestHandler):
         milestone trend) the client holds — no re-parse. Chrome headless → PDF."""
         report = body.get('report') or {}
         trend = body.get('trend')
+        sections = body.get('sections')            # None = all; else list of section keys to include
         preview = bool(body.get('preview'))
         output_path = body.get('output_path', '')
         if not preview and not output_path:
@@ -579,7 +580,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_period.exporters import render_html
             import subprocess, tempfile
-            html_content = render_html(report, trend)
+            html_content = render_html(report, trend, sections)
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

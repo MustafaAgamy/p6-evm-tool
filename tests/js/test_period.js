@@ -24,21 +24,22 @@ console.log('\nprogressBarHtml (replaces the S-curve)');
 test('empty message when no actuals', () => {
   assert.ok(progressBarHtml({ summary: {} }).includes('No progress'));
 });
-test('fill to actual, forecast marker, and the two period bars', () => {
-  const h = progressBarHtml({ summary: { actual_now: 41, forecast_at_now: 43, period_earned: 7, period_forecast: 9 } });
-  assert.ok(h.includes('per-pfill') && h.includes('width:41%'));           // fill to actual
-  assert.ok(h.includes('per-pmark') && h.includes('forecast 43% (last update)'));  // marker
-  assert.ok(h.includes('Forecast — last update') && h.includes('Actual — this update'));  // legend + bars
+test('3 points: start, actual fill, planned marker', () => {
+  const h = progressBarHtml({ data_date_prev: '07-Aug', data_date_now: '22-Aug',
+    summary: { actual_prev: 22.9, actual_now: 34.9, forecast_at_now: 44, period_earned: 12, period_forecast: 21, forecast_achievement: 0.57 } });
+  assert.ok(h.includes('per-pfill') && h.includes('width:34.9%'));         // fill to exact actual
+  assert.ok(h.includes('34.9%') && h.includes('planned 44.0%') && h.includes('start 22.9%'));  // 3 points, one decimal
+  assert.ok(h.includes('of the whole project'));                          // explanation
 });
 
 console.log('\nmilestoneSection (table + drift chart)');
-test('empty message when no milestones', () => {
-  assert.ok(milestoneSection({ milestones: { rows: [] } }).includes('No key milestones'));
+test('empty message when no overall milestone', () => {
+  assert.ok(milestoneSection({ milestones: { rows: [] } }).includes('No project-completion milestone'));
 });
 test('renders the table dates and a drift svg', () => {
-  const rep = { milestones: { rows: [
-    { name: 'Handover', baseline_finish: '09-Feb-2027', prev_forecast: '20-Feb-2027', curr_forecast: '01-Mar-2027',
-      slip_period_days: 9, slip_baseline_days: 20, baseline_iso: '2027-02-09', prev_iso: '2027-02-20', curr_iso: '2027-03-01' },
+  const ov = { name: 'Handover', baseline_finish: '09-Feb-2027', prev_forecast: '20-Feb-2027', curr_forecast: '01-Mar-2027',
+      slip_period_days: 9, slip_baseline_days: 20, baseline_iso: '2027-02-09', prev_iso: '2027-02-20', curr_iso: '2027-03-01' };
+  const rep = { milestones: { overall: ov, rows: [ov,
     { name: 'Mech', baseline_finish: '20-Dec-2026', prev_forecast: '20-Dec-2026', curr_forecast: '20-Dec-2026',
       slip_period_days: 0, slip_baseline_days: 0, baseline_iso: '2026-12-20', prev_iso: '2026-12-20', curr_iso: '2026-12-20' },
   ] } };

@@ -188,26 +188,77 @@ function _defsHtml() {
 // plus the forecast-vs-actual bars for the period.
 function _progressBarHtml(report) {
   const s = report.summary || {};
-  const an = s.actual_now, fn = s.forecast_at_now, pe = s.period_earned, pf = s.period_forecast;
+  const ap = s.actual_prev, an = s.actual_now, fn = s.forecast_at_now, pe = s.period_earned, pf = s.period_forecast;
   if (an == null) return '<p class="cmp-empty">No progress figures for this period.</p>';
-  const fill = Math.max(0, Math.min(100, an));
-  let marker = '', behind = '';
-  if (fn != null) {
-    const m = Math.max(0, Math.min(100, fn)), gap = Math.round((fn - an) * 10) / 10;
-    marker = `<div class="per-pmark" style="left:${m}%"><span class="per-plab">forecast ${Math.round(fn)}% (last update) ▾</span></div>`;
-    behind = ` · last update forecast <b>${Math.round(fn)}%</b> by now — <b>${gap <= 0 ? 'on/ahead' : Math.round(Math.abs(gap)) + '% behind'}</b>`;
-  }
-  const mx = Math.max(Math.abs(pe || 0), Math.abs(pf || 0), 1);
-  const bar = (lbl, val, cls) => `<div class="per-tb"><span class="per-tb-l">${lbl}</span><div class="per-tb-track"><div class="per-tb-${cls}" style="width:${Math.min(100, Math.abs(val || 0) / mx * 100)}%">${_signPct(val)}</div></div></div>`;
-  return `<div class="cmp-scurve-card">
-    <div class="per-pbtop"><span>0%</span><span>Finish = 100%</span></div>
-    <div class="per-pbar"><div class="per-pfill" style="width:${fill}%">${Math.round(fill)}%</div>${marker}</div>
-    <div class="per-pbbot">You are at <b>${Math.round(an)}%</b>${behind}</div>
-    <div class="per-twobar">${bar('Forecast — last update', pf, 'p')}${bar('Actual — this update', pe, 'a')}</div>
-    <div class="per-chartlegend">
-      <div><span class="per-lgsw" style="background:#f0b357"></span><b>Forecast — last update</b>: what your <b>previous</b> update said it would complete this window (its own plan for the period, <b>not</b> the baseline).</div>
-      <div><span class="per-lgsw" style="background:#3b82f6"></span><b>Actual — this update</b>: what you actually completed, from the <b>current</b> update.</div>
-    </div></div>`;
+  const d1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  const clamp = v => Math.max(0, Math.min(100, v));
+  const fill = clamp(an);
+  const startM = ap == null ? '' :
+    `<div class="per-pmark" style="left:${clamp(ap)}%;background:#94a3b8"></div><span class="per-tag-above" style="left:${clamp(ap)}%;color:#64748b">▾ start ${d1(ap)}%</span>`;
+  const planM = fn == null ? '' :
+    `<div class="per-pmark" style="left:${clamp(fn)}%"></div><span class="per-tag-above" style="left:${clamp(fn)}%">▾ planned ${d1(fn)}%</span>`;
+  const ach = s.forecast_achievement == null ? '—' : Math.round(s.forecast_achievement * 100) + '%';
+  const behind = fn == null ? '' : ` — <b>${(fn - an) <= 0 ? 'on/ahead of' : d1(Math.abs(fn - an)) + '% behind'}</b> your plan`;
+  const planTxt = fn == null ? '' : `Your last update planned <b>${d1(fn)}%</b> by now (${_signPct(pf)}). `;
+  return `<div class="cmp-scurve-card per-prog">
+    <div class="per-pbtop"><span>0% — start</span><span>100% — finish</span></div>
+    <div class="per-pbar">${startM}<div class="per-pfill" style="width:${fill}%">${d1(an)}%</div>
+      <span class="per-tag-below" style="left:${fill}%">▴ now ${d1(an)}%</span>${planM}</div>
+    <div class="per-psent">On <b>${escapeHtml(report.data_date_prev || '—')}</b> you were at <b>${ap != null ? d1(ap) : '—'}%</b>. ${planTxt}You reached <b>${d1(an)}%</b> on <b>${escapeHtml(report.data_date_now || '—')}</b> (${_signPct(pe)}). All three are % of the whole project${behind}; you did ${_signPct(pe)} of ${_signPct(pf)} = <b>${ach}</b>.</div>
+  </div>`;
+}
+
+// Critical-path comparison — previous vs current, summarised to WBS boxes.
+function _criticalCompareHtml(report) {
+  const cp = report.critical_path_wbs || {};
+  const prev = cp.previous || [], curr = cp.current || [];
+  if (!prev.length && !curr.length) return '<p class="cmp-empty">No critical path could be derived (no zero-float construction activities).</p>';
+  const ps = new Set(prev), cs = new Set(curr);
+  const chain = (items, other, isCurr) => items.map((w, i) => {
+    const cls = !other.has(w) ? (isCurr ? 'newc' : 'gone') : '';
+    return `<span class="per-wbs ${cls}">${escapeHtml(w)}</span>${i < items.length - 1 ? '<span class="per-arr">→</span>' : ''}`;
+  }).join(' ') || '<span class="mut">—</span>';
+  return `<div class="per-cprow"><span class="per-cplbl">Previous</span>${chain(prev, cs, false)}</div>
+    <div class="per-cprow"><span class="per-cplbl">Current</span>${chain(curr, ps, true)}</div>
+    <div class="cmp-foot"><span class="per-wbs" style="padding:1px 7px">on both</span> <span class="per-wbs gone" style="padding:1px 7px">dropped off</span> <span class="per-wbs newc" style="padding:1px 7px">newly critical</span> — each box is a WBS the critical path runs through, in order.</div>`;
+}
+
+// What moved — planned vs actual, counts always shown as text.
+function _whatMovedHtml(report) {
+  const c = (report.buckets || {}).counts || {}, pc = report.plan_counts || {};
+  const fin = c.finished || 0, sta = c.started || 0, slip = c.slipped || 0, stal = c.stalled || 0, res = c.re_sequenced || 0;
+  const pfin = pc.planned_finish || 0, psta = pc.planned_start || 0;
+  const mx = Math.max(pfin, psta, fin, sta, slip, stal, res, 1);
+  const w = n => Math.max(2, Math.round(100 * n / mx));
+  const row = (lbl, planned, actual, cls, txt) =>
+    `<div class="per-wmrow"><span class="per-wml">${lbl}</span><div class="per-wmtrack">${planned ? `<div class="per-wmp" style="width:${w(planned)}%"></div>` : ''}<div class="per-wma ${cls}" style="width:${w(actual)}%"></div></div><span class="per-wmnum">${txt}</span></div>`;
+  return `${row('Finished', pfin, fin, 'g', `<b>${fin}</b> done / ${pfin} due`)}
+    ${row('Started', psta, sta, 'g', `<b>${sta}</b> done / ${psta} due`)}
+    ${row('Slipped', 0, slip, 'b', `<b>${slip}</b> activities`)}
+    ${row('Stalled', 0, stal, 'w', `<b>${stal}</b> activities`)}
+    ${row('Re-sequenced', 0, res, 'n', `<b>${res}</b> activities`)}
+    <div class="cmp-foot"><b>Grey</b> = planned (due to finish/start), <b>coloured</b> = actual; count on the right is always shown. Slipped/stalled/re-sequenced have no plan.</div>`;
+}
+
+// Where progress came from — by activity code (slicer over the precomputed code types).
+function _byCodeHtml(report) {
+  const bc = report.progress_by_code || {};
+  const types = Object.keys(bc);
+  if (!types.length) return '<p class="cmp-empty">No activity codes in this schedule to break progress down by.</p>';
+  const sel = `<div class="per-slicer"><span class="per-slicer-lbl">Activity code</span><select id="per-bycode-type">${types.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select></div>`;
+  return sel + `<div id="per-bycode-bars">${_byCodeBars(bc[types[0]])}</div>`;
+}
+function _byCodeBars(rows) {
+  rows = (rows || []).slice(0, 10);
+  if (!rows.length) return '<p class="cmp-empty">No positive progress to attribute.</p>';
+  const mx = Math.max(...rows.map(r => r.contribution), 1);
+  return rows.map(r => `<div class="per-bar2"><span class="per-bar2-l">${escapeHtml(r.value)}</span><div class="per-bar2-t"><div class="per-bar2-f" style="width:${Math.max(3, Math.round(100 * r.contribution / mx))}%">${_signPct(r.contribution)}</div></div></div>`).join('');
+}
+function _wireByCode(report) {
+  const sel = document.getElementById('per-bycode-type');
+  const box = document.getElementById('per-bycode-bars');
+  if (!sel || !box) return;
+  sel.addEventListener('change', () => { box.innerHTML = _byCodeBars((report.progress_by_code || {})[sel.value]); });
 }
 
 // Milestone section: a table (baseline / prev / current / slippage) then a drift chart.
@@ -314,11 +365,15 @@ function _watchTable(report) {
   const body = rows.map(r => `<tr><td class="mono">${escapeHtml(r.activity_id)}</td>
     <td>${escapeHtml(r.activity_name)}</td><td class="num">${r.float_days} wd</td>
     <td class="num mono">${escapeHtml(r.due_to_start)}</td><td>${escapeHtml(r.reason)}</td></tr>`).join('');
-  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
+  return `<div class="cmp-foot" style="margin:0 0 6px">The near-critical construction activities <b>most likely to drive the next reporting window</b> — not yet finished, with little spare time — tightest float first. Watch these to protect the finish date.</div>
+    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
     <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Float</th>
       <th class="num">Due to start</th><th>Why watch it</th></tr></thead>
     <tbody>${body}</tbody></table></div>
-    <div class="cmp-foot">Near-critical work (float ≤ 10 wd) not yet finished — the activities most likely to drive the next window.</div>`;
+    <div class="per-defs"><div class="per-defs-h">Columns</div>
+      <div class="per-def"><b>Float</b> — spare working days before this activity would delay the project finish (0 = on the critical path; ≤ 10 wd = near-critical).</div>
+      <div class="per-def"><b>Due to start</b> — the activity's forecast start date, from the current update.</div>
+      <div class="per-def"><b>Why watch it</b> — why it's near-critical: on the critical path, a successor to something slipping, or newly near-critical.</div></div>`;
 }
 
 function _progressRows(rows) {
@@ -430,14 +485,16 @@ function _critStatus(st) {
     : '<span class="cmp-pill bad">▶ stayed</span>';
 }
 
-function _criticalTable(cm) {
+function _criticalTable(cm, codeTypesArg) {
   const rows = (cm && cm.rows) || [];
   const newTxt = (cm && cm.new_critical)
     ? `<div class="cmp-foot"><b>${cm.new_critical}</b> activit${cm.new_critical === 1 ? 'y' : 'ies'} entered the critical path this window.</div>` : '';
   if (!rows.length) return `<p class="cmp-empty">No critical or near-critical activity moved this window.</p>${newTxt}`;
-  const body = rows.map(r => `<tr>
+  const codeTypes = codeTypesArg || [];
+  const body = rows.map(r => `<tr data-codes="${escapeHtml(JSON.stringify(r.codes || {}))}">
     <td class="mono">${escapeHtml(r.activity_id)}</td>
     <td>${escapeHtml(r.activity_name)}</td>
+    <td>${escapeHtml(r.wbs || '')}</td>
     <td class="num mono mut">${escapeHtml(r.prev_finish)}</td>
     <td class="num mono">${escapeHtml(r.curr_finish)}</td>
     <td class="num">${r.slip_days > 0 ? `<span class="cmp-pill bad">+${r.slip_days} wd</span>` : '<span class="cmp-pill">—</span>'}</td>
@@ -445,12 +502,35 @@ function _criticalTable(cm) {
     <td>${_driverTag(r.driver)}</td>
     <td>${_critStatus(r.critical_status)}</td>
   </tr>`).join('');
-  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
-    <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Finish (prev)</th>
+  const slicer = codeTypes.length ? `<div class="per-slicer">
+      <span class="per-slicer-lbl">Filter by activity code</span>
+      <select id="per-crit-type"><option value="">— all activities —</option>${codeTypes.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select>
+      <span id="per-crit-chips" class="per-chips"></span></div>` : '';
+  return `${slicer}<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table" id="per-crit-table">
+    <thead><tr><th>Activity ID</th><th>Activity name</th><th>WBS</th><th class="num">Finish (prev)</th>
       <th class="num">Finish (now)</th><th class="num">Slip</th><th class="num">Float</th>
       <th>Driver this period</th><th>Critical</th></tr></thead>
     <tbody>${body}</tbody></table></div>
-    <div class="cmp-foot">Critical &amp; near-critical (float ≤ 10 wd) activities whose finish moved this window. Slip = working-day movement of the finish between the two updates. <b>▶ new</b> = entered the critical path this window.</div>${newTxt}`;
+    <div class="cmp-foot">Construction / execution activities only. Slip = working-day movement of the finish between the two updates. <b>▶ new</b> = entered the critical path this window.</div>${newTxt}`;
+}
+
+// Generic activity-code slicer wiring for a table with data-codes rows.
+function _wireCodeSlicer(selId, chipsId, tableId) {
+  const sel = document.getElementById(selId), chipsEl = document.getElementById(chipsId), table = document.getElementById(tableId);
+  if (!sel || !chipsEl || !table) return;
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  const codesOf = tr => { try { return JSON.parse(tr.getAttribute('data-codes') || '{}'); } catch { return {}; } };
+  const applyVal = (type, val) => rows.forEach(tr => { const c = codesOf(tr); tr.style.display = (!type || val === '__all__' || c[type] === val) ? '' : 'none'; });
+  const renderChips = type => {
+    if (!type) { chipsEl.innerHTML = ''; rows.forEach(tr => { tr.style.display = ''; }); return; }
+    const vals = Array.from(new Set(rows.map(tr => codesOf(tr)[type]).filter(Boolean))).sort();
+    chipsEl.innerHTML = [`<span class="per-chip on" data-v="__all__">All</span>`].concat(vals.map(v => `<span class="per-chip" data-v="${escapeHtml(v)}">${escapeHtml(v)}</span>`)).join('');
+    chipsEl.querySelectorAll('.per-chip').forEach(chip => chip.addEventListener('click', () => {
+      chipsEl.querySelectorAll('.per-chip').forEach(x => x.classList.remove('on')); chip.classList.add('on'); applyVal(type, chip.getAttribute('data-v'));
+    }));
+    applyVal(type, '__all__');
+  };
+  sel.addEventListener('change', () => renderChips(sel.value));
 }
 
 const _BUCKETS = [
@@ -491,16 +571,20 @@ export function renderPeriodReport(report) {
     ${_progressBarHtml(report)}
     <div class="mod-sec">Execution Dashboard — progress this period</div>
     ${_dashboard(report)}
+    <div class="mod-sec">Critical-path comparison — by WBS</div>
+    ${_criticalCompareHtml(report)}
     <div class="mod-sec">Progress by activity — % complete this period</div>
     ${_progressSection(report)}
     <div class="mod-sec">Critical-path movement in this window</div>
-    ${_criticalTable(report.critical_movement)}
+    ${_criticalTable(report.critical_movement, report.code_types)}
     <div class="mod-sec">Next-period watch list</div>
     ${_watchTable(report)}
-    <div class="mod-sec">Milestones — baseline vs previous vs current forecast</div>
+    <div class="mod-sec">What moved this period — planned vs actual</div>
+    ${_whatMovedHtml(report)}
+    <div class="mod-sec">Where this period’s progress came from — by activity code</div>
+    ${_byCodeHtml(report)}
+    <div class="mod-sec">Milestones — project completion &amp; all finish milestones</div>
     ${_milestoneSection(report)}
-    <div class="mod-sec">What moved this period</div>
-    ${_bucketsTable(report.buckets)}
     <div class="mod-sec">Executive conclusion — this period</div>
     <div class="cmp-reco">${escapeHtml(report.conclusion || '')}</div>
     <div class="mod-sec">Project conclusion &amp; outlook</div>
@@ -510,6 +594,8 @@ export function renderPeriodReport(report) {
   const exls = document.getElementById('per-export-xlsx');
   if (exls) exls.addEventListener('click', exportPeriodExcel);
   _wireSlicer();
+  _wireCodeSlicer('per-crit-type', 'per-crit-chips', 'per-crit-table');
+  _wireByCode(report);
 }
 
 // ── Exports (PDF + Excel) ───────────────────────────────────────────────────
@@ -538,24 +624,57 @@ export async function exportPeriodPdf() {
   });
 }
 
+const PER_SECTIONS = [
+  ['verdict', 'Status verdict'], ['progress', 'Progress chart'], ['dashboard', 'Execution Dashboard'],
+  ['recommendation', 'Management recommendation'], ['critical_compare', 'Critical-path comparison'],
+  ['critical', 'Critical-path movement table'], ['progress_table', 'Progress by activity'],
+  ['watch', 'Next-period watch list'], ['whatmoved', 'What moved this period'],
+  ['bycode', 'Progress by activity code'], ['milestones', 'Milestones (table + chart)'], ['conclusions', 'Conclusions'],
+];
+
 function _showPdfPreview(reportHtml) {
   const existing = document.getElementById('per-preview-overlay');
   if (existing) existing.remove();
   const ov = document.createElement('div');
   ov.id = 'per-preview-overlay';
   ov.className = 'per-preview-overlay';
+  const picks = PER_SECTIONS.map(([k, l]) =>
+    `<label class="per-pick"><input type="checkbox" class="per-sec-cb" value="${k}" checked> ${escapeHtml(l)}</label>`).join('');
   ov.innerHTML = `<div class="per-preview-box">
-      <div class="per-preview-bar"><span class="per-preview-title">Report preview — this is exactly what the PDF will contain</span>
+      <div class="per-preview-bar"><span class="per-preview-title">Report preview — choose what to include, then print or save</span>
         <span class="per-preview-actions">
           <button class="btn-secondary" id="per-preview-close">Close</button>
+          <button class="btn-secondary" id="per-preview-print">🖨 Print…</button>
           <button class="btn-primary" id="per-preview-save">Save as PDF</button></span></div>
-      <iframe class="per-preview-frame" id="per-preview-frame" title="Report preview"></iframe>
+      <div class="per-preview-body">
+        <div class="per-preview-pick"><div class="per-pick-h">Include sections</div>${picks}
+          <div class="per-pick-controls"><button class="btn-mini" id="per-pick-all">All</button><button class="btn-mini" id="per-pick-none">None</button></div></div>
+        <iframe class="per-preview-frame" id="per-preview-frame" title="Report preview"></iframe>
+      </div>
     </div>`;
   document.body.appendChild(ov);
-  document.getElementById('per-preview-frame').srcdoc = reportHtml;
+  const frame = document.getElementById('per-preview-frame');
+  frame.srcdoc = reportHtml;
   const close = () => ov.remove();
   ov.addEventListener('click', e => { if (e.target === ov) close(); });
   document.getElementById('per-preview-close').addEventListener('click', close);
+
+  const cbs = () => Array.from(ov.querySelectorAll('.per-sec-cb'));
+  const selected = () => cbs().filter(c => c.checked).map(c => c.value);
+  const applyToFrame = () => {
+    const doc = frame.contentDocument;
+    if (!doc) return;
+    const on = new Set(selected());
+    doc.querySelectorAll('[data-sec]').forEach(el => { el.style.display = on.has(el.getAttribute('data-sec')) ? '' : 'none'; });
+  };
+  cbs().forEach(c => c.addEventListener('change', applyToFrame));
+  document.getElementById('per-pick-all').addEventListener('click', () => { cbs().forEach(c => { c.checked = true; }); applyToFrame(); });
+  document.getElementById('per-pick-none').addEventListener('click', () => { cbs().forEach(c => { c.checked = false; }); applyToFrame(); });
+
+  document.getElementById('per-preview-print').addEventListener('click', () => {
+    applyToFrame();
+    try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { showError('Could not open the print dialog.'); }
+  });
   document.getElementById('per-preview-save').addEventListener('click', async () => {
     const outputPath = await window.pywebview.api.choose_save_path('update_vs_update.pdf', 'pdf');
     if (!outputPath) return;
@@ -564,7 +683,7 @@ function _showPdfPreview(reportHtml) {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath }),
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath, sections: selected() }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
