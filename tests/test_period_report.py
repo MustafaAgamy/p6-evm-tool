@@ -46,6 +46,31 @@ def test_build_report_assembles_all_slice1_sections():
     assert 'code_types' in r and isinstance(r['code_types'], list)
 
 
+def test_build_report_orders_by_data_date_regardless_of_load_order():
+    s, f = datetime(2025, 1, 1), datetime(2025, 12, 1)
+    early = _sched([_act('A1', 'Dredging', 0.34, s, f)], datetime(2025, 8, 7))
+    late = _sched([_act('A1', 'Dredging', 0.41, s, f)], datetime(2025, 8, 22))
+    em = {'overall_actual_pct': 0.34, 'delay_days': 22}
+    lm = {'overall_actual_pct': 0.41, 'delay_days': 30}
+    # Load the LATER update as "prev" and the EARLIER as "curr" — the tool must flip them.
+    r = build_report_from_data(late, early, lm, em)
+    assert r['data_date_prev'] == '07-Aug-2025' and r['data_date_now'] == '22-Aug-2025'
+    assert r['summary']['actual_prev'] == 34.0 and r['summary']['actual_now'] == 41.0
+    assert r['summary']['period_earned'] == 7.0        # +7, not −7
+
+
+def test_build_report_has_outlook_sections():
+    s, f = datetime(2026, 1, 1), datetime(2026, 12, 1)
+    prev = _sched([_act('A1', 'Dredging', 0.34, s, f)], datetime(2026, 6, 30))
+    curr = _sched([_act('A1', 'Dredging', 0.41, s, f)], datetime(2026, 7, 31))
+    r = build_report_from_data(prev, curr, {'overall_actual_pct': 0.34, 'delay_days': 22},
+                               {'overall_actual_pct': 0.41, 'delay_days': 30})
+    assert 'schedule_adherence' in r and 'recovery' in r and 'watch_list' in r
+    assert r['recovery']['work_remaining'] == 59.0
+    # verdict present (single source of truth for the banner); delay grew + SPI n/a here
+    assert r['verdict']['level'] in ('good', 'warn', 'bad') and r['verdict']['headline']
+
+
 def test_build_report_flags_no_match():
     prev = _sched([_act('X1', 'a', 0.1, datetime(2026, 1, 1), datetime(2026, 6, 1))],
                   datetime(2026, 6, 30))

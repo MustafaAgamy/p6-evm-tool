@@ -155,18 +155,80 @@ function _dashboard(report) {
         v == null ? '' : (v > 0 ? 'Delay grew' : (v < 0 ? 'Delay reduced' : 'No change')));
   }
 
-  // supporting tiles
-  const ach = s.forecast_achievement == null ? '—' : `${Math.round(s.forecast_achievement * 100)}%`;
+  // Forecast finish (both cutoffs; earlier finish = better)
   const slip = s.finish_slip_days;
-  const slipTxt = slip == null ? '—' : (slip > 0 ? `▼ slipped ${slip} d` : (slip < 0 ? `▲ pulled in ${-slip} d` : 'no change'));
-  const tiles = `<div class="cmp-kpis per-tiles2">
-    ${_kpi('Vs last period’s forecast', `${s.actual_now}% <span class="mut">/ ${s.forecast_at_now}%</span>`, `${s.shortfall_pct > 0 ? '▼ ' + s.shortfall_pct.toFixed(1) + '% short' : '▲ on/ahead'} · achievement ${ach}`, s.shortfall_pct > 0 ? 'down' : 'up')}
-    ${_kpi('Forecast finish', escapeHtml(s.forecast_finish_now || '—'), slipTxt, slip > 0 ? 'down' : 'up')}
-  </div>`;
+  const fgood = (slip || 0) <= 0;
+  const fvar = slip == null ? '—' : (slip > 0 ? `▼ slipped ${slip} d` : (slip < 0 ? `▲ pulled in ${-slip} d` : '• no change'));
+  const finish = `<div class="per-striplabel">Forecast finish</div>` +
+    _trendStrip('Previous forecast', pw, escapeHtml(s.forecast_finish_prev || '—'),
+      'Current forecast', cw, escapeHtml(s.forecast_finish_now || '—'), fvar, fgood,
+      slip == null ? '' : (fgood ? 'Held or pulled in' : 'Finish slipped'));
 
   return `${cutoff}
     <div class="per-striplabel">Overall % Complete — Current vs Previous</div>${pct}
-    ${spi}${delay}${tiles}`;
+    ${spi}${delay}${finish}
+    ${_recoveryHtml(report)}
+    ${_factsHtml(report)}`;
+}
+
+// Recovery outlook (planning-manager projection — indicative, not a P6 CPM result).
+function _recoveryHtml(report) {
+  const r = report.recovery;
+  if (!r) return '';
+  let left = `Work remaining <b>${r.work_remaining == null ? '—' : r.work_remaining + '%'}</b> · this period earned <b>${r.current_rate == null ? '—' : r.current_rate + '%'}</b>.`;
+  if (r.required_rate != null) {
+    const ra = r.required_achievement;
+    left += `<br>To still hit the <b>baseline finish (${escapeHtml(r.baseline_finish || '—')})</b> you'd need about <b>${r.required_rate}%/period</b>${ra != null ? ` (≈${Math.round(ra * 100)}% achievement)` : ''}.`;
+  } else if (r.note) {
+    left += `<br>${escapeHtml(r.note)}`;
+  }
+  const feas = r.feasible;
+  const verdict = feas === false ? 'Recovery to baseline unlikely at the current rate'
+    : (feas === true ? 'Recovery to baseline achievable' : 'Indicative projection');
+  const vcls = feas === false ? 'bad' : (feas === true ? 'good' : 'warn');
+  return `<div class="per-striplabel">Recovery outlook</div>
+    <div class="per-recov"><div class="per-rl">${left}
+        <div class="cmp-foot" style="margin-top:5px">Indicative planning projection — not a P6 reschedule.</div></div>
+      <div class="per-rr"><div class="per-rr-h">At the current rate</div>
+        <div class="per-rr-big">Projected finish ≈ ${escapeHtml(r.projected_finish || '—')}</div>
+        <div class="per-rr-v ${vcls}">${escapeHtml(verdict)}</div></div></div>`;
+}
+
+// Key facts row (achievement, schedule adherence, started, new critical).
+function _factsHtml(report) {
+  const s = report.summary || {}, adh = report.schedule_adherence || {},
+        cm = report.critical_movement || {}, counts = (report.buckets || {}).counts || {};
+  const ach = s.forecast_achievement == null ? '—' : `${Math.round(s.forecast_achievement * 100)}%`;
+  const adhP = adh.pct == null ? '—' : `${Math.round(adh.pct)}%`;
+  const fact = (l, v, sub) => `<div class="kpi"><div class="k">${escapeHtml(l)}</div><div class="v">${v}</div>${sub ? `<div class="per-kpi-sub mut">${escapeHtml(sub)}</div>` : ''}</div>`;
+  return `<div class="cmp-kpis per-facts">
+    ${fact('Forecast achievement', ach, 'earned vs forecast')}
+    ${fact('Schedule adherence', adhP, `${adh.hit || 0} of ${adh.planned || 0} due finishes`)}
+    ${fact('Started this period', counts.started || 0, 'first progress')}
+    ${fact('New critical items', cm.new_critical || 0, 'entered critical path')}
+  </div>`;
+}
+
+// Status verdict banner (reads the engine-computed verdict).
+function _verdictBanner(report) {
+  const v = report.verdict;
+  if (!v) return '';
+  return `<div class="per-banner ${v.level}"><span class="per-dot ${v.level}"></span>
+    <div><div class="per-b1">${escapeHtml(v.headline)}</div><div class="per-b2">${escapeHtml(v.detail || '')}</div></div></div>`;
+}
+
+// Next-period watch list table.
+function _watchTable(report) {
+  const rows = (report.watch_list || {}).rows || [];
+  if (!rows.length) return '<p class="cmp-empty">No near-critical work is queued for the next window.</p>';
+  const body = rows.map(r => `<tr><td class="mono">${escapeHtml(r.activity_id)}</td>
+    <td>${escapeHtml(r.activity_name)}</td><td class="num">${r.float_days} wd</td>
+    <td class="num mono">${escapeHtml(r.due_to_start)}</td><td>${escapeHtml(r.reason)}</td></tr>`).join('');
+  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
+    <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Float</th>
+      <th class="num">Due to start</th><th>Why watch it</th></tr></thead>
+    <tbody>${body}</tbody></table></div>
+    <div class="cmp-foot">Near-critical work (float ≤ 10 wd) not yet finished — the activities most likely to drive the next window.</div>`;
 }
 
 function _progressRows(rows) {
@@ -334,7 +396,8 @@ export function renderPeriodReport(report) {
       <button class="btn-secondary" id="per-export-xlsx">Export Excel</button>
     </div>
     ${mismatch}
-    <div class="mod-sec">Executive dashboard — progress this period</div>
+    ${_verdictBanner(report)}
+    <div class="mod-sec">Execution Dashboard — progress this period</div>
     ${_dashboard(report)}
     <div class="mod-sec">Period S-curve — actual vs last period’s forecast</div>
     <div class="cmp-scurve-card">
@@ -349,6 +412,8 @@ export function renderPeriodReport(report) {
     ${_progressSection(report)}
     <div class="mod-sec">Critical-path movement in this window</div>
     ${_criticalTable(report.critical_movement)}
+    <div class="mod-sec">Next-period watch list</div>
+    ${_watchTable(report)}
     <div class="mod-sec">What moved this period</div>
     ${_bucketsTable(report.buckets)}
     <div class="mod-sec">Milestone finish trend — every update so far</div>
@@ -374,11 +439,46 @@ async function _withBtn(id, idle, fn) {
   finally { if (btn) { btn.disabled = false; btn.textContent = idle; } }
 }
 
+// Export PDF now PREVIEWS the report first (renders the exact HTML the PDF uses), then
+// offers Save. Addresses "no preview during export".
 export async function exportPeriodPdf() {
   if (!_shownReport) { showError('Run the comparison first, then export.'); return; }
-  const outputPath = await window.pywebview.api.choose_save_path('update_vs_update.pdf', 'pdf');
-  if (!outputPath) return;
   await _withBtn('per-export-pdf', 'Export PDF', async () => {
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true }),
+      });
+      const data = await resp.json();
+      if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
+      _showPdfPreview(data.html);
+    } catch { showError('Could not reach the local server for the preview.'); }
+  });
+}
+
+function _showPdfPreview(reportHtml) {
+  const existing = document.getElementById('per-preview-overlay');
+  if (existing) existing.remove();
+  const ov = document.createElement('div');
+  ov.id = 'per-preview-overlay';
+  ov.className = 'per-preview-overlay';
+  ov.innerHTML = `<div class="per-preview-box">
+      <div class="per-preview-bar"><span class="per-preview-title">Report preview — this is exactly what the PDF will contain</span>
+        <span class="per-preview-actions">
+          <button class="btn-secondary" id="per-preview-close">Close</button>
+          <button class="btn-primary" id="per-preview-save">Save as PDF</button></span></div>
+      <iframe class="per-preview-frame" id="per-preview-frame" title="Report preview"></iframe>
+    </div>`;
+  document.body.appendChild(ov);
+  document.getElementById('per-preview-frame').srcdoc = reportHtml;
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  document.getElementById('per-preview-close').addEventListener('click', close);
+  document.getElementById('per-preview-save').addEventListener('click', async () => {
+    const outputPath = await window.pywebview.api.choose_save_path('update_vs_update.pdf', 'pdf');
+    if (!outputPath) return;
+    const btn = document.getElementById('per-preview-save');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -386,7 +486,9 @@ export async function exportPeriodPdf() {
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
+      else close();
     } catch { showError('Could not reach the local server to export the PDF.'); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = 'Save as PDF'; } }
   });
 }
 
@@ -398,7 +500,7 @@ export async function exportPeriodExcel() {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/excel`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, output_path: outputPath }),
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);

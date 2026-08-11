@@ -9,6 +9,7 @@ from p6_compare.model import MatchedSchedules
 from p6_period.progress import activity_progress, period_summary
 from p6_period.scurve import period_scurve
 from p6_period.movement import critical_movement, buckets
+from p6_period.outlook import schedule_adherence, recovery_outlook, watch_list
 
 
 def _logic_changed_codes(matched, curr):
@@ -63,7 +64,7 @@ def _conclusion(summary, crit, buck):
     return ' '.join(parts)
 
 
-def _project_conclusion(summary, crit):
+def _project_conclusion(summary, crit, recovery=None):
     """Overall project status + outlook — distinct from the this-period conclusion."""
     s = summary
     head = f"Overall the project stands at {s['actual_now']:.0f}% complete, forecasting completion on {s['forecast_finish_now']}"
@@ -84,23 +85,74 @@ def _project_conclusion(summary, crit):
     if crit['rows']:
         names = ', '.join(f"{r['activity_id']} ({r['activity_name']})" for r in crit['rows'][:2])
         parts.append(f"The main risk sits on the critical path — {names} — which should be the focus of recovery.")
+    if recovery and recovery.get('required_rate') is not None and recovery.get('current_rate') is not None:
+        if recovery.get('feasible') is False:
+            parts.append(f"At the current rate ({recovery['current_rate']:.1f}%/period) recovery to the "
+                         f"baseline is unlikely — it would need about {recovery['required_rate']:.1f}%/period.")
+        elif recovery.get('feasible') is True:
+            parts.append(f"Recovery to the baseline is still achievable at roughly "
+                         f"{recovery['required_rate']:.1f}%/period.")
     return ' '.join(parts)
+
+
+def _order_by_data_date(prev, curr, prev_metrics, curr_metrics):
+    """Always treat the EARLIER data date as 'previous' and the later as 'current',
+    whatever order the user loaded them in. If a date is missing, keep the given order."""
+    dd_p = (getattr(prev, 'project', {}) or {}).get('data_date')
+    dd_c = (getattr(curr, 'project', {}) or {}).get('data_date')
+    if dd_p and dd_c and dd_p > dd_c:
+        return curr, prev, curr_metrics, prev_metrics
+    return prev, curr, prev_metrics, curr_metrics
+
+
+def _verdict(summary, recovery):
+    """Management traffic-light read of the period: {level, headline, detail}. Single
+    source of truth — the screen banner and the PDF both read this."""
+    s, rec = summary or {}, recovery or {}
+    spv, dch, slip, earned = s.get('spi_variance'), s.get('delay_change'), s.get('finish_slip_days'), s.get('period_earned')
+    worse = (spv is not None and spv < 0) or (dch is not None and dch > 0) or (slip is not None and slip > 0)
+    better = (spv is not None and spv > 0) or (dch is not None and dch < 0) or (slip is not None and slip < 0)
+    if rec.get('feasible') is False and (dch or 0) > 0:
+        level, head = 'bad', 'Off track — recovery to the baseline is unlikely at the current rate'
+    elif worse and not better:
+        level, head = 'warn', 'Slipping — the project lost ground this period'
+    elif better and not worse:
+        level, head = 'good', 'On track — the project gained ground this period'
+    else:
+        level, head = 'warn', 'Mixed — little net movement this period'
+    bits = []
+    if earned is not None:
+        ach = s.get('forecast_achievement')
+        bits.append(f'earned {_sign_pct(earned)}' + (f' ({round(ach * 100)}% of plan)' if ach is not None else ''))
+    if spv is not None:
+        bits.append(f'SPI {"+" if spv > 0 else ""}{spv}')
+    if slip:
+        bits.append(f'finish {"slipped" if slip > 0 else "pulled in"} {abs(slip)} d')
+    return {'level': level, 'headline': head, 'detail': ('; '.join(bits) + '.' if bits else '')}
 
 
 def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
     """Report dict for the two updates. `prev`/`curr` are ScheduleData; `*_metrics`
-    are metrics.compute() results for each (reused for actual % and delay)."""
+    are metrics.compute() results for each (reused for actual % and delay).
+
+    The two updates are ordered by data date first — the earlier is 'previous', the
+    later 'current' — so the report reads the right way round regardless of load order."""
+    prev, curr, prev_metrics, curr_metrics = _order_by_data_date(prev, curr, prev_metrics, curr_metrics)
     matched = MatchedSchedules(prev, curr)
     summary = period_summary(prev, curr, prev_metrics, curr_metrics)
     progress = activity_progress(matched)
     scurve = period_scurve(prev, curr, summary['actual_prev'], summary['actual_now'])
 
+    dd_prev = (getattr(prev, 'project', {}) or {}).get('data_date')
     dd_now = (getattr(curr, 'project', {}) or {}).get('data_date')
     logic_changed = _logic_changed_codes(matched, curr)
     crit = critical_movement(matched, logic_changed)
     buck = buckets(matched, dd_now, logic_changed)
+    adherence = schedule_adherence(matched, dd_prev, dd_now)
+    recovery = recovery_outlook(prev, curr, summary)
+    watch = watch_list(curr)
     conclusion = _conclusion(summary, crit, buck)
-    project_conclusion = _project_conclusion(summary, crit)
+    project_conclusion = _project_conclusion(summary, crit, recovery)
 
     return {
         'project_name': summary['project_name'],
@@ -116,6 +168,10 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
         'scurve': scurve,
         'critical_movement': crit,
         'buckets': buck,
+        'schedule_adherence': adherence,
+        'recovery': recovery,
+        'watch_list': watch,
+        'verdict': _verdict(summary, recovery),
         'conclusion': conclusion,
         'project_conclusion': project_conclusion,
     }

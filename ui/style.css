@@ -911,3 +911,28 @@ body {
 .per-chip { background: var(--bg); border: 1px solid var(--border); color: #cbd5e1; border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
 .per-chip.on { background: rgba(59,130,246,.18); border-color: var(--accent); color: #bfdbfe; font-weight: 600; }
 .per-project-reco { border-left-color: var(--warning); }
+/* status verdict banner */
+.per-banner { display: flex; align-items: center; gap: 12px; border-radius: 10px; padding: 12px 16px; margin: 4px 0 14px; border: 1px solid var(--border); }
+.per-banner.good { background: rgba(74,222,128,.08); border-color: rgba(74,222,128,.35); }
+.per-banner.warn { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.35); }
+.per-banner.bad { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.35); }
+.per-dot { width: 13px; height: 13px; border-radius: 50%; flex: none; }
+.per-dot.good { background: var(--success); } .per-dot.warn { background: var(--warning); } .per-dot.bad { background: var(--danger); }
+.per-b1 { font-size: 15px; font-weight: 800; } .per-b2 { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+/* recovery outlook */
+.per-recov { display: grid; grid-template-columns: 1.5fr 1fr; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.per-rl { padding: 13px 16px; background: var(--card-bg); line-height: 1.6; font-size: 12.5px; }
+.per-rr { padding: 13px 16px; border-left: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; }
+.per-rr-h { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); font-weight: 700; }
+.per-rr-big { font-size: 15px; font-weight: 800; margin: 3px 0; }
+.per-rr-v { font-size: 12.5px; font-weight: 700; }
+.per-rr-v.bad { color: var(--danger); } .per-rr-v.good { color: var(--success); } .per-rr-v.warn { color: var(--warning); }
+.per-facts { grid-template-columns: repeat(4, 1fr); margin-top: 12px; }
+.per-facts .v { font-size: 17px; }
+/* PDF preview modal */
+.per-preview-overlay { position: fixed; inset: 0; background: rgba(2,6,23,.66); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.per-preview-box { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; width: min(1100px, 96vw); height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+.per-preview-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.per-preview-title { font-size: 13px; color: var(--muted); }
+.per-preview-actions { display: flex; gap: 8px; }
+.per-preview-frame { flex: 1; width: 100%; border: 0; background: #fff; }

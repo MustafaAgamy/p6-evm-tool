@@ -61,10 +61,15 @@ console.log('\ndashboardHtml — SPI/Delay/%Complete strips + sign convention');
     data_date_prev: '30-Jun-2026', data_date_now: '31-Jul-2026',
     summary: {
       actual_prev: 34, actual_now: 41, period_earned: 7, forecast_at_now: 43,
-      shortfall_pct: 2, forecast_achievement: 0.78, forecast_finish_now: '26-Mar-2027', finish_slip_days: 14,
+      shortfall_pct: 2, forecast_achievement: 0.78,
+      forecast_finish_prev: '12-Mar-2027', forecast_finish_now: '26-Mar-2027', finish_slip_days: 14,
       prev_spi: 0.85, curr_spi: 0.81, spi_variance: -0.04,
       delay_prev: 22, delay_now: 30, delay_change: 8,
     },
+    schedule_adherence: { planned: 18, hit: 13, pct: 72.2 },
+    recovery: { work_remaining: 59, current_rate: 7, projected_finish: '10-Apr-2027',
+                baseline_finish: '09-Feb-2027', required_rate: 9.8, required_achievement: 1.4, feasible: false },
+    critical_movement: { new_critical: 1 }, buckets: { counts: { started: 5 } },
   };
   const h = dashboardHtml(report);
   test('shows both cutoff dates', () => { assert.ok(h.includes('30-Jun-2026') && h.includes('31-Jul-2026')); });
@@ -76,6 +81,16 @@ console.log('\ndashboardHtml — SPI/Delay/%Complete strips + sign convention');
   });
   test('Delay up → variance cell is bad (red)', () => {
     assert.ok(h.includes('Previous delay') && /Delay vs baseline[^]*per-tvar bad[^]*Delay grew/.test(h));
+  });
+  test('Forecast finish strip shows both forecasts', () => {
+    assert.ok(/Forecast finish[^]*12-Mar-2027[^]*26-Mar-2027/.test(h) && h.includes('Finish slipped'));
+  });
+  test('Recovery outlook renders with baseline + infeasible verdict', () => {
+    assert.ok(h.includes('Recovery outlook') && h.includes('09-Feb-2027') &&
+              h.includes('Projected finish ≈ 10-Apr-2027') && /per-rr-v bad/.test(h));
+  });
+  test('Facts row shows schedule adherence', () => {
+    assert.ok(h.includes('Schedule adherence') && h.includes('72%') && h.includes('13 of 18 due finishes'));
   });
 }
 

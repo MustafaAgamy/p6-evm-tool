@@ -549,6 +549,7 @@ class Handler(BaseHTTPRequestHandler):
         """Export the Update-vs-Update progress table to .xlsx from the report the
         client holds — no re-parse."""
         report = body.get('report') or {}
+        trend = body.get('trend')
         output_path = body.get('output_path', '')
         if not output_path:
             self._json(200, {'ok': False, 'error': 'No output path provided'})
@@ -557,7 +558,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_period.exporters import report_excel
             from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = report_excel(report)
+            headers, rows = report_excel(report, trend)
             write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows)
             self._json(200, {'ok': True})
         except Exception as exc:

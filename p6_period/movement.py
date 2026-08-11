@@ -93,6 +93,7 @@ def critical_movement(matched, logic_changed_codes=frozenset()):
             'float_days': round(cf, 1) if cf is not None else None,
             'driver': driver,
             'critical_status': 'new' if newly else 'stayed',
+            'codes': u.get('activity_codes') or {},   # for the activity-code columns in exports
         })
     rows.sort(key=lambda r: -(r['slip_days'] or 0))
     return {'rows': rows, 'new_critical': new_critical}
