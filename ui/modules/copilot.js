@@ -175,6 +175,20 @@ function _renderWorkspace() {
   const cp = _cp();
   const sc = SCENARIOS.find(s => s.kind === cp.scenarioKind) || SCENARIOS[0];
   const count = cp.activities ? cp.activities.filter(a => !a.is_milestone).length : 0;
+  // The exact-via-Primavera (F9) path is a planner tool — hidden in Management mode, so a
+  // manager only ever sees the instant estimate (steps 1–3); it appears only in Planning mode.
+  const plannerBlock = cp.mode === 'planning' ? `
+    <div class="cp-planner">
+      <button class="cp-disclose" id="cp-planner-toggle">${cp.plannerOpen ? '▾' : '▸'} Planner: get the exact figure via Primavera (F9)</button>
+      ${cp.plannerOpen ? `
+      <div class="cp-planner-body">
+        <div class="cp-hint" style="margin-bottom:8px">For a precise, claim-grade number: build the scenario file, open it in P6, press F9, re-export and load it back. (Planner tool — the estimate above needs none of this.)</div>
+        <div class="cp-step"><button class="btn-secondary" id="cp-gen">Generate scenario file…</button></div>
+        <div id="cp-scenario">${cp.scenario ? _scenarioHtml(cp.scenario) : ''}</div>
+        <div class="cp-step"><button class="btn-secondary" id="cp-load" ${cp.scenario ? '' : 'disabled'}>Load rescheduled file (after F9)…</button></div>
+        <div id="cp-impact">${cp.impact ? _impactHtml(cp.impact) : ''}</div>
+      </div>` : ''}
+    </div>` : '';
   view.innerHTML = `
     <div class="ai-banner"><span class="spark">🤖</span>
       <span class="txt"><b>What-if — an instant estimate from this update's analysis. No Primavera needed.</b>
@@ -200,18 +214,7 @@ function _renderWorkspace() {
     <div class="cp-step"><button class="btn-primary" id="cp-est">Estimate impact</button>
       <span class="cp-hint">Instant — worked out from this update, no Primavera steps.</span></div>
     <div id="cp-estimate">${cp.estimate ? _estimateHtml(cp.estimate) : ''}</div>
-
-    <div class="cp-planner">
-      <button class="cp-disclose" id="cp-planner-toggle">${cp.plannerOpen ? '▾' : '▸'} Planner: get the exact figure via Primavera (F9)</button>
-      ${cp.plannerOpen ? `
-      <div class="cp-planner-body">
-        <div class="cp-hint" style="margin-bottom:8px">For a precise, claim-grade number: build the scenario file, open it in P6, press F9, re-export and load it back. (Planner tool — the estimate above needs none of this.)</div>
-        <div class="cp-step"><button class="btn-secondary" id="cp-gen">Generate scenario file…</button></div>
-        <div id="cp-scenario">${cp.scenario ? _scenarioHtml(cp.scenario) : ''}</div>
-        <div class="cp-step"><button class="btn-secondary" id="cp-load" ${cp.scenario ? '' : 'disabled'}>Load rescheduled file (after F9)…</button></div>
-        <div id="cp-impact">${cp.impact ? _impactHtml(cp.impact) : ''}</div>
-      </div>` : ''}
-    </div>`;
+    ${plannerBlock}`;
 
   view.querySelectorAll('.cp-m').forEach(b => b.addEventListener('click', () => {
     const c = _cp();
