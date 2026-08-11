@@ -993,3 +993,18 @@ body {
 .cp-disclose { background: none; border: none; color: var(--muted); font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 4px 0; }
 .cp-disclose:hover { color: var(--text); }
 .cp-planner-body { margin-top: 8px; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+
+/* Typed question box + conversation memory (V2 Slice 6) */
+.cp-askbox { display: flex; gap: 8px; margin: 0 0 12px; }
+.cp-askbox .cp-input { flex: 1; }
+.cp-askbox .btn-secondary { flex: 0 0 auto; }
+.cp-thread { margin: 4px 0 12px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+.cp-thread-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.cp-thread-clear { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; text-decoration: underline; text-transform: none; letter-spacing: 0; }
+.cp-thread-clear:hover { color: var(--text); }
+.cp-thread-item { display: flex; gap: 8px; font-size: 12px; line-height: 1.5; padding: 4px 0; border-top: 1px solid var(--border); }
+.cp-thread-item:first-of-type { border-top: none; }
+.cp-thread-item .tq { flex: 0 0 40%; color: var(--muted); }
+.cp-thread-item .ta { flex: 1; color: var(--text); }
+.cp-interpreted { font-size: 12px; color: var(--muted); margin-bottom: 8px; padding: 6px 10px; background: var(--bg); border-radius: 7px; }
+.cp-interpreted b { color: var(--text); }

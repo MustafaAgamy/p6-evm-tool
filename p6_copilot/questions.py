@@ -18,9 +18,22 @@ PLANNING = [
     ('recovery',        'Best recovery options'),
     ('risks',           'Top schedule risks'),
     ('eot_likely',      'Is there an EOT / claim case?'),
+    ('delay_method',    'Which delay-analysis method fits?'),
+    ('project_needs',   'What does this project type need?'),
 ]
 
 
 def questions(mode='management'):
     src = MANAGEMENT if mode == 'management' else PLANNING
     return [{'id': qid, 'text': text} for qid, text in src]
+
+
+def label_for(qid, mode='management'):
+    """Plain label for a question id — the same wording shown on the button. Falls back to
+    the other mode's label, then to the id itself, so a typed-question match always has a name."""
+    primary = MANAGEMENT if mode == 'management' else PLANNING
+    other = PLANNING if mode == 'management' else MANAGEMENT
+    for qid_, text in list(primary) + list(other):
+        if qid_ == qid:
+            return text
+    return qid

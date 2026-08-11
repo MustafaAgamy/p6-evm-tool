@@ -501,22 +501,46 @@ class Handler(BaseHTTPRequestHandler):
         result['baseline_finish'] = extras.get('baseline_finish')
         result['expected_finish'] = extras.get('expected_finish')
         audit = db.get_audit_modules_for_snapshot(sid)
-        snaps = [s for s in db.get_project_snapshots(pid) if s.get('delay_days') is not None]
-        prev_delay = snaps[-2]['delay_days'] if len(snaps) >= 2 else None
+        all_snaps = db.get_project_snapshots(pid)
+        delayed = [s for s in all_snaps if s.get('delay_days') is not None]
+        prev_delay = delayed[-2]['delay_days'] if len(delayed) >= 2 else None
         sys.path.insert(0, resource_path('.'))
         from p6_copilot.context import build_context
-        return build_context(result, audit=audit, prev_delay=prev_delay)
+        ctx = build_context(result, audit=audit, prev_delay=prev_delay)
+        # Planned/actual history for the Manager Report S-curve (DB-only — never re-parses).
+        ctx['history'] = [{'date': s.get('data_date'),
+                           'planned': s.get('overall_planned_pct'),
+                           'actual': s.get('overall_actual_pct')}
+                          for s in all_snaps if s.get('data_date')]
+        return ctx
 
     def _handle_copilot_ask(self, body):
-        """Answer one repertoire question from the offline engine. Never touches the cloud."""
+        """Answer one question from the offline engine. Accepts a repertoire ``question_id``
+        (button) or a freely-typed ``question_text``, which is resolved to the nearest
+        repertoire question by keyword intent-matching. Never touches the cloud."""
         try:
             ctx = self._copilot_context(body.get('snapshot_id'))
             if ctx is None:
                 self._json(200, {'ok': False, 'error': 'Open a schedule first, then ask the Copilot.'})
                 return
             from p6_copilot.answers import answer
-            a = answer(body.get('question_id', ''), ctx, body.get('mode', 'management'))
-            self._json(200, {'ok': True, 'answer': a})
+            from p6_copilot.questions import label_for
+            mode = body.get('mode', 'management')
+            qid = (body.get('question_id') or '').strip()
+            text = (body.get('question_text') or '').strip()
+            interpreted = None
+            if not qid and text:
+                from p6_copilot.intent import match_intent
+                qid, matched = match_intent(text, mode)
+                if not matched or not qid:
+                    a = answer('__unknown__', ctx, mode)   # graceful offline deferral
+                    self._json(200, {'ok': True, 'answer': a, 'matched': False,
+                                     'question_id': None, 'question_label': text})
+                    return
+                interpreted = label_for(qid, mode)
+            a = answer(qid, ctx, mode)
+            self._json(200, {'ok': True, 'answer': a, 'matched': True, 'question_id': qid,
+                             'question_label': interpreted or label_for(qid, mode), 'interpreted': interpreted})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
@@ -532,6 +556,20 @@ class Handler(BaseHTTPRequestHandler):
             if ctx is None:
                 self._json(200, {'ok': False, 'error': 'Open a schedule first, then generate the report.'})
                 return
+            # The report route may re-parse (the sanctioned exception) to name the critical
+            # activities and compute a concrete recovery — the DB-only context can't. Best-effort:
+            # the report still renders if the XML is unavailable.
+            try:
+                resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+                # Drivers + recovery explain and fix a *delay* — only compute them when behind.
+                if resolved and (ctx.get('delay_days') or 0) > 0:
+                    from p6_evm.parser import parse_file
+                    from p6_copilot.briefing import critical_drivers, recovery_estimate
+                    data = parse_file(resolved)
+                    ctx['drivers'] = critical_drivers(data)
+                    ctx['recovery'] = recovery_estimate(data)
+            except Exception:
+                pass
             from p6_copilot.report import build_manager_report, render_manager_report_html
             report = build_manager_report(ctx)
             html_content = render_manager_report_html(report, body.get('meta') or {})
@@ -621,6 +659,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not days or days <= 0:
                 self._json(200, {'ok': False, 'error': 'Enter a number of working days (at least 1).'})
+                return
+        elif kind in ('add_crew', 'overtime', 'remove_relationship'):
+            if not activity_id:
+                self._json(200, {'ok': False, 'error': 'Pick the activity first.'})
                 return
         try:
             sys.path.insert(0, resource_path('.'))

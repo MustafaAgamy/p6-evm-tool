@@ -140,19 +140,164 @@ def eot_likely_mgmt(ctx):
 
 def eot_likely_planning(ctx):
     """Planning-mode: the full, systematic claims read — indicators, ownership, concurrency,
-    and the entitlement/method framing a planner needs to prepare the claim."""
+    and the method + entitlement framing a planner needs, cited from the knowledge base."""
     from p6_copilot.claims import eot_assessment
+    from p6_copilot.knowledge import recommend_method, contract_line
     a = eot_assessment(ctx)
     if not a.get('has_delay'):
         return {'headline': a['verdict'], 'body': list(a['indicators']), 'advice': [], 'evidence': []}
+    rec = recommend_method(ctx)
+    m = rec['method']
     body = list(a['indicators'])
     if a.get('ownership'):
         body.append(a['ownership'])
     if a.get('caveat'):
         body.append(a['caveat'])
-    body.append("Structure it Cause -> Effect -> Entitlement -> Substantiation; the entitlement clause is typically FIDIC 8.5.")
+    body.append(f"Method — prove it with a **{m['name']}** ({m['aace']}): {m['plain']}")
+    body.append(f"Contract — structure it Cause -> Effect -> Entitlement -> Substantiation; {contract_line()}")
     return {'headline': a['verdict'], 'body': body, 'advice': a.get('advice', []),
-            'evidence': [{'module': 'Finish date', 'plain': 'Delay to completion', 'value': f"{ctx['delay_days']} working days"}]}
+            'evidence': [{'module': 'Finish date', 'plain': 'Delay to completion', 'value': f"{ctx['delay_days']} working days"},
+                         {'module': 'Knowledge base', 'plain': 'Method / clause', 'value': f"{m['name']} · FIDIC 8.5 / 8.4"}]}
+
+
+# ── Planning Engineer (technical depth; project-control terms are fine here) ──
+
+def why_delayed_planning(ctx):
+    delay = ctx['delay_days']
+    if delay is None:
+        return _need_data('a finish milestone')
+    if delay <= 0:
+        tail = f" — about {abs(delay)} wd of positive total float on the driving path." if delay < 0 else "."
+        return {'headline': f"No slip to completion — the finish milestone is holding{tail}",
+                'body': ["The critical path is not pushing completion past its baseline in this update."],
+                'advice': ["Keep the driving path protected and watch near-critical chains (total float <= 10 wd) for encroachment."],
+                'evidence': [{'module': 'Delay', 'plain': 'Finish vs plan', 'value': f'{delay} working days'}]}
+    worst = ctx['worst_discipline']
+    ev = [{'module': 'Delay', 'plain': 'Finish milestone slip', 'value': f'{delay} working days'}]
+    dates = (f" — baseline {ctx['baseline_finish']} -> forecast {ctx['forecast_finish']}"
+             if ctx.get('baseline_finish') and ctx.get('forecast_finish') else "")
+    body = [f"Completion is about **{delay} working days** behind{dates}."]
+    if worst:
+        body.append(f"The largest schedule variance sits in **{worst['name']}**: {worst['actual']}% complete against "
+                    f"{worst['planned']}% planned (a {worst['gap']}-point gap) — the most likely home of the driving chain.")
+        ev.append({'module': 'Progress', 'plain': f"{worst['name']} earned vs planned", 'value': f"{worst['actual']}% vs {worst['planned']}%"})
+    if ctx['pace_pct'] is not None:
+        body.append(f"Overall **SPI ≈ {ctx['pace_pct'] / 100:.2f}** ({ctx['pace_pct']}% of the planned progress rate).")
+        ev.append({'module': 'EVM', 'plain': 'SPI', 'value': f"{ctx['pace_pct']}% of plan"})
+    if ctx.get('oos_count'):
+        body.append(f"{ctx['oos_count']} activities are progressing **out of sequence** — the logic driving the current "
+                    "critical path may not reflect the as-built order; re-validate the driving path after a clean F9.")
+    advice = []
+    if worst:
+        advice.append(f"Interrogate the **{worst['name']}** driving chain first — it carries the finish variance.")
+    advice.append("Confirm the critical path with a clean reschedule (the DCMA critical-path test) before committing to a recovery plan.")
+    driver = f"**{worst['name']}**" if worst else "the works in progress"
+    return {'headline': f"Completion is ~{delay} working days behind, driven by {driver}.",
+            'body': body, 'advice': advice, 'evidence': ev}
+
+
+def critical_driver_planning(ctx):
+    delay = ctx['delay_days']
+    worst = ctx['worst_discipline']
+    body = []
+    if worst:
+        body.append(f"**{worst['name']}** carries the largest variance ({worst['actual']}% vs {worst['planned']}% "
+                    f"planned, {worst['gap']} pts) and is the most likely home of the driving chain.")
+    else:
+        body.append("No single discipline dominates the variance — the driving path is spread across the works in progress.")
+    if ctx.get('float_grade'):
+        slack = ('little slack remains to absorb further slippage' if ctx['float_grade'] in ('Critical', 'Needs Attention')
+                 else 'there is still some slack in the network')
+        body.append(f"Float health is graded **{ctx['float_grade']}** — {slack}.")
+    if ctx.get('oos_count'):
+        body.append(f"{ctx['oos_count']} out-of-sequence activities mean a reschedule may re-route the critical path — validate it after F9.")
+    advice = ["Trace the longest path to the completion milestone in P6 and confirm total float <= 0 along it (the DCMA critical-path test).",
+              "For the exact forward impact of a change on that path, use the what-if (build -> F9 -> read), not an estimate."]
+    ev = [{'module': 'Delay', 'plain': 'Finish slip', 'value': f'{delay} working days'}] if delay else []
+    if worst:
+        ev.append({'module': 'Progress', 'plain': f"{worst['name']} variance", 'value': f"{worst['gap']} pts"})
+    return {'headline': "What's driving the finish date:", 'body': body, 'advice': advice, 'evidence': ev}
+
+
+def recovery_planning(ctx):
+    delay = ctx['delay_days']
+    worst = ctx['worst_discipline']
+    if not delay or delay <= 0:
+        return {'headline': "No recovery needed — completion is not behind.",
+                'body': ["Hold the driving path and keep near-critical chains (total float <= 10 wd) protected."],
+                'advice': [], 'evidence': []}
+    crash = ("**Crash the critical path** — add resources/crews to the driving activities"
+             + (f", starting with **{worst['name']}**" if worst else "")
+             + ", to shorten remaining durations. Test each with the what-if (shorten / add-crew) before committing.")
+    opts = [
+        crash,
+        "**Re-sequence / fast-track** — overlap driving activities where it's safe (e.g. convert a driving FS to SS "
+        "with a lag, or run works in parallel). Relaxing a driving relationship is a what-if lever here.",
+        "**Extend working time** — a 6-day week or targeted overtime on the critical work only; weigh the gain against "
+        "productivity fall-off and cost.",
+    ]
+    advice = ["Model each option in the what-if, then build the winning scenario and F9 it in P6 for the exact recovered "
+              "date — don't commit the plan on the estimate alone.",
+              "Track the recovery as a separate target so any slippage against it is visible next update."]
+    return {'headline': "Best recovery options, strongest first:", 'body': opts, 'advice': advice,
+            'evidence': [{'module': 'Delay', 'plain': 'Slip to recover', 'value': f'{delay} working days'}]}
+
+
+def risks_planning(ctx):
+    worst = ctx['worst_discipline']
+    risks = []
+    if worst:
+        risks.append(f"**{worst['name']}** slipping further — it holds the largest variance ({worst['gap']} pts) and, most likely, the driving path.")
+    if ctx.get('float_grade') in ('Critical', 'Needs Attention'):
+        risks.append(f"Float health **{ctx['float_grade']}** — minimal total float left; a small slip on any near-critical chain will hit completion.")
+    if ctx.get('oos_count'):
+        risks.append(f"{ctx['oos_count']} out-of-sequence activities — broken predecessor logic can mask the true critical path until re-logicked.")
+    if ctx['pace_pct'] is not None and ctx['pace_pct'] < 100:
+        risks.append(f"**SPI ≈ {ctx['pace_pct'] / 100:.2f}** — the current progress rate won't recover the finish without intervention.")
+    if not risks:
+        return {'headline': "No material schedule risks flagged in this update.",
+                'body': ["Logic, float and sequence look sound — keep monitoring the driving path."], 'advice': [], 'evidence': []}
+    advice = ["Run the DCMA 14-point check to confirm no logic gaps, hard constraints or negative float are masking risk.",
+              (f"Prioritise the **{worst['name']}** driving chain in the recovery plan." if worst else "Prioritise the driving chain in the recovery plan.")]
+    ev = [{'module': 'Float', 'plain': 'Float health', 'value': ctx['float_grade']}] if ctx.get('float_grade') else []
+    return {'headline': "Top schedule risks:", 'body': risks, 'advice': advice, 'evidence': ev}
+
+
+def delay_method_planning(ctx):
+    from p6_copilot.knowledge import recommend_method, contract_line, STANDARDS
+    rec = recommend_method(ctx)
+    m = rec['method']
+    body = [f"Recommended: **{m['name']}** ({m['aace']}) — {rec['why']}",
+            m['plain'],
+            f"Contract framing: {contract_line()}",
+            f"Standard: {STANDARDS['scl']['name']} — {STANDARDS['scl']['plain']}"]
+    advice = ["Build the delay fragnet in the What-if / Delay-analysis workspace, F9 in P6, and read the exact "
+              "completion movement — that P6 number is the claim-grade figure, never an estimate.",
+              "Record cause and ownership per delay event, and test for concurrency before asserting entitlement."]
+    ev = [{'module': 'Knowledge base', 'plain': 'Method', 'value': m['name']},
+          {'module': 'Knowledge base', 'plain': 'Clause', 'value': 'FIDIC 8.5 (2017) / 8.4 (1999)'}]
+    return {'headline': "Which delay-analysis method fits here:", 'body': body, 'advice': advice, 'evidence': ev}
+
+
+def project_needs_planning(ctx):
+    from p6_copilot.knowledge import detect_project_type
+    t = detect_project_type(ctx)
+    if not t:
+        return {'headline': "Not enough signal to name the project type yet.",
+                'body': ["I matched the project and discipline names against the Construction Knowledge Base but "
+                         "couldn't identify a sub-type confidently. Open **Constructability** to review against a chosen type."],
+                'advice': ["Run the Constructability review and pick the closest type for the full missing-activity and logic check."],
+                'evidence': []}
+    label = t['type'] + (f" ({t['category']})" if t.get('category') else "")
+    conf = "looks like" if t['confident'] else "may be"
+    body = [f"From the project and discipline names, this {conf} a **{label}** project (Construction Knowledge Base)."]
+    if t['needs']:
+        body.append("Activities this type usually needs — confirm they're present and logic-linked: " + ", ".join(t['needs']) + ".")
+    if t['issues']:
+        body.append("Common pitfalls for this type: " + "; ".join(t['issues']) + ".")
+    return {'headline': f"What a {label} programme usually needs:", 'body': body,
+            'advice': ["Run the **Constructability** review against this type for the full missing-activity, logic and WBS check."],
+            'evidence': [{'module': 'Constructability KB', 'plain': 'Detected type', 'value': label}]}
 
 
 def actions_mgmt(ctx):
@@ -173,15 +318,21 @@ def actions_mgmt(ctx):
 
 
 _ANSWERS = {
-    ('management', 'why_delayed'): why_delayed_mgmt,
-    ('management', 'which_wbs'):   which_wbs_mgmt,
-    ('management', 'health'):      health_mgmt,
-    ('management', 'risks'):       risks_mgmt,
-    ('management', 'eot_likely'):  eot_likely_mgmt,
-    ('management', 'can_claim'):   eot_likely_mgmt,
-    ('management', 'actions'):     actions_mgmt,
-    ('planning',   'eot_likely'):  eot_likely_planning,
-    ('planning',   'can_claim'):   eot_likely_planning,
+    ('management', 'why_delayed'):     why_delayed_mgmt,
+    ('management', 'which_wbs'):       which_wbs_mgmt,
+    ('management', 'health'):          health_mgmt,
+    ('management', 'risks'):           risks_mgmt,
+    ('management', 'eot_likely'):      eot_likely_mgmt,
+    ('management', 'can_claim'):       eot_likely_mgmt,
+    ('management', 'actions'):         actions_mgmt,
+    ('planning',   'why_delayed'):     why_delayed_planning,
+    ('planning',   'critical_driver'): critical_driver_planning,
+    ('planning',   'recovery'):        recovery_planning,
+    ('planning',   'risks'):           risks_planning,
+    ('planning',   'eot_likely'):      eot_likely_planning,
+    ('planning',   'can_claim'):       eot_likely_planning,
+    ('planning',   'delay_method'):    delay_method_planning,
+    ('planning',   'project_needs'):   project_needs_planning,
 }
 
 

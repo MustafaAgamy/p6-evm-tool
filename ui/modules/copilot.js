@@ -20,16 +20,39 @@ const MGMT_Q = [
   { id: 'actions',     text: 'Top actions this week' },
 ];
 
-// What-if scenarios (Slice 2). Each builds a modified P6 file; the exact impact comes from F9.
-const SCENARIOS = [
-  { kind: 'delay',   name: 'Delay an activity',           activity: true,  daysLabel: 'Delay by (working days)' },
-  { kind: 'shorten', name: 'Shorten / crash an activity', activity: true,  daysLabel: 'Shorten by (working days)' },
-  { kind: 'six_day', name: 'Work 6 days a week',          activity: false },
+// Planning Engineer questions — technical depth (critical path, methods, FIDIC clauses).
+const PLAN_Q = [
+  { id: 'why_delayed',     text: 'Why is it behind schedule?' },
+  { id: 'critical_driver', text: 'What is driving the finish date?' },
+  { id: 'recovery',        text: 'Best recovery options' },
+  { id: 'risks',           text: 'Top schedule risks' },
+  { id: 'eot_likely',      text: 'Is there an EOT / claim case?' },
+  { id: 'delay_method',    text: 'Which delay-analysis method fits?' },
+  { id: 'project_needs',   text: 'What does this project type need?' },
 ];
+
+// What-if scenarios. `days` levers also build a P6 file for the exact F9 figure; the crew /
+// overtime / remove-constraint levers are instant estimates only (no file-gen path).
+const SCENARIOS = [
+  { kind: 'delay',    name: 'Delay an activity',           activity: true,  days: true,  file: true,  daysLabel: 'Delay by (working days)' },
+  { kind: 'shorten',  name: 'Shorten / crash an activity', activity: true,  days: true,  file: true,  daysLabel: 'Shorten by (working days)' },
+  { kind: 'add_crew', name: 'Add a second crew',           activity: true,  days: false, file: false },
+  { kind: 'overtime', name: 'Add overtime',                activity: true,  days: false, file: false },
+  { kind: 'remove_relationship', name: 'Remove a constraint', activity: true, days: false, file: false },
+  { kind: 'six_day',  name: 'Work 6 days a week',          activity: false, days: false, file: true },
+];
+
+// Short note under a lever that takes no day count, explaining the estimate's basis.
+function _leverNote(kind) {
+  if (kind === 'add_crew') return 'Estimates a second crew taking about 40% off this activity’s remaining work (a planning rule of thumb) — the finish moves only if it’s on the critical path.';
+  if (kind === 'overtime') return 'Estimates overtime taking about 15% off this activity’s remaining work — the finish moves only if it’s on the critical path.';
+  if (kind === 'remove_relationship') return 'Estimates relaxing the driving constraint holding this activity; the exact pull-in comes from P6’s F9.';
+  return '';
+}
 
 function _cp() {
   if (!state.copilot) state.copilot = { subview: 'assistant', mode: 'management', answer: null,
-    activeQ: null, scenarioKind: 'delay', activityId: '', activityName: '', activityInput: '',
+    activeQ: null, typed: '', thread: [], scenarioKind: 'delay', activityId: '', activityName: '', activityInput: '',
     delayDays: '', estimate: null, plannerOpen: false, scenario: null, impact: null, activities: null };
   return state.copilot;
 }
@@ -84,6 +107,7 @@ function _renderAssistant() {
   const cp = _cp();
   const r = state.currentResult || {};
   const mgmt = cp.mode !== 'planning';
+  const QS = mgmt ? MGMT_Q : PLAN_Q;
   view.innerHTML = `
     <div class="ai-filebar">
       <div class="fb"><span class="k">Project</span><span class="v ai-type">${escapeHtml(r.project_name || '—')}</span></div>
@@ -94,25 +118,96 @@ function _renderAssistant() {
     </div>
     <div class="ai-banner"><span class="spark">🤖</span><span class="txt"><b>AI Copilot — offline expert engine.</b>
       It reads every module's results for this project and answers in plain language, with the evidence. No internet, no cost. Advisory.</span></div>
-    <div class="cp-reads"><span>Reading:</span> ${['EVM', 'Delay', 'Out of Sequence', 'Float'].map(m => `<span class="cp-modchip">${m}</span>`).join('')}<span class="cp-modchip" style="opacity:.55">Calendar · Constructability — next</span></div>
+    <div class="cp-reads"><span>Reading:</span> ${['EVM', 'Delay', 'Out of Sequence', 'Float', 'Constructability'].map(m => `<span class="cp-modchip">${m}</span>`).join('')}<span class="cp-modchip" style="opacity:.55">Calendar · Cost — next</span></div>
 
     <div class="cp-report-cta">
       <div><div class="h">📄 Manager Report</div><div class="d">A plain-English one-pager on this update — status, why, risks, what to do. Export to PDF.</div></div>
       <button class="btn-primary" id="cp-report-btn">Generate Manager Report</button>
     </div>
 
-    ${mgmt ? `
-      <div class="mod-sec">Ask about this project</div>
-      <div class="cp-qs">${MGMT_Q.map(q => `<button class="cp-q ${cp.activeQ === q.id ? 'on' : ''}" data-q="${q.id}">${escapeHtml(q.text)}</button>`).join('')}</div>
-      <div id="cp-answer">${cp.answer ? '' : '<p class="ai-empty">Pick a question — the Copilot answers from this project’s own numbers.</p>'}</div>`
-    : `
-      <div class="cp-plan-note"><b>Planning Engineer view</b> — the technical answers (critical path, logic, crashing, per-activity what-if)
-        arrive in the next slice. <b>Management mode is live now</b> — switch back to try it, or use <b>What-if scenarios</b> above.</div>`}`;
+    <div class="mod-sec">${mgmt ? 'Ask about this project' : 'Planning questions — technical answers'}</div>
+    <div class="cp-qs">${QS.map(q => `<button class="cp-q ${cp.activeQ === q.id ? 'on' : ''}" data-q="${q.id}">${escapeHtml(q.text)}</button>`).join('')}</div>
+    ${_askBoxHtml(mgmt)}
+    <div id="cp-thread"></div>
+    <div id="cp-answer">${cp.answer ? '' : `<p class="ai-empty">Pick a question${mgmt ? '' : ' — or type your own'} and the Copilot answers from this project’s own numbers${mgmt ? '.' : ', citing the method and clause behind each point.'}</p>`}</div>`;
 
-  view.querySelectorAll('.cp-mode').forEach(b => b.addEventListener('click', () => { _cp().mode = b.dataset.mode; _renderAssistant(); }));
+  view.querySelectorAll('.cp-mode').forEach(b => b.addEventListener('click', () => {
+    const c = _cp();
+    if (c.mode !== b.dataset.mode) { c.mode = b.dataset.mode; c.answer = null; c.activeQ = null; }
+    _renderAssistant();
+  }));
   const rb = document.getElementById('cp-report-btn'); if (rb) rb.addEventListener('click', _managerReport);
   view.querySelectorAll('.cp-q').forEach(b => b.addEventListener('click', () => _ask(b.dataset.q)));
-  if (mgmt && cp.answer) _renderAnswer(cp.answer);
+  _bindAskBox();
+  _renderThread();
+  if (cp.answer) _renderAnswer(cp.answer);
+}
+
+// ── typed questions + conversation memory (Slice 6) ─────────────────────────
+function _askBoxHtml(mgmt) {
+  const cp = _cp();
+  const ph = mgmt ? 'Type your own question — e.g. “can we claim an extension?”'
+                  : 'Type your own — e.g. “which method for the delay claim?”';
+  return `<div class="cp-askbox">
+    <input id="cp-ask-input" class="cp-input" autocomplete="off" placeholder="${escapeHtml(ph)}" value="${escapeHtml(cp.typed || '')}">
+    <button class="btn-secondary" id="cp-ask-btn">Ask</button></div>`;
+}
+
+function _bindAskBox() {
+  const inp = document.getElementById('cp-ask-input');
+  const btn = document.getElementById('cp-ask-btn');
+  if (inp) {
+    inp.addEventListener('input', e => { _cp().typed = e.target.value; });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); _askTyped(); } });
+  }
+  if (btn) btn.addEventListener('click', _askTyped);
+}
+
+function _qLabel(qid) {
+  const list = _cp().mode === 'planning' ? PLAN_Q : MGMT_Q;
+  const q = list.find(x => x.id === qid);
+  return q ? q.text : qid;
+}
+
+function _pushThread(label, a) {
+  const cp = _cp();
+  if (!cp.thread) cp.thread = [];
+  cp.thread.push({ label, headline: (a && a.headline) || '' });
+  if (cp.thread.length > 8) cp.thread = cp.thread.slice(-8);
+}
+
+// The running memory of what's been asked this session (all but the answer shown in full below).
+function _renderThread() {
+  const el = document.getElementById('cp-thread');
+  if (!el) return;
+  const cp = _cp();
+  const full = cp.thread || [];
+  const items = cp.answer ? full.slice(0, -1) : full;   // the last entry is the answer shown in full below
+  if (!items.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="cp-thread">
+    <div class="cp-thread-h">🧠 This session <button class="cp-thread-clear" id="cp-thread-clear">clear</button></div>
+    ${items.map(x => `<div class="cp-thread-item"><span class="tq">${escapeHtml(x.label)}</span><span class="ta">${_mdBold(x.headline)}</span></div>`).join('')}</div>`;
+  const c = document.getElementById('cp-thread-clear');
+  if (c) c.addEventListener('click', () => { _cp().thread = []; _renderThread(); });
+}
+
+async function _askTyped() {
+  const cp = _cp();
+  const text = (cp.typed || '').trim();
+  if (!text) return;
+  cp.activeQ = null;
+  document.querySelectorAll('.cp-q').forEach(b => b.classList.remove('on'));
+  const area = document.getElementById('cp-answer');
+  if (area) area.innerHTML = '<div class="cmp-loading">Thinking…</div>';
+  clearError();
+  try {
+    const data = await _post('api/copilot/ask', { snapshot_id: state.currentSnapshotId, question_text: text, mode: cp.mode });
+    if (!data.ok) { showError(data.error || 'Could not answer that.'); if (area) area.innerHTML = ''; return; }
+    cp.answer = data.answer;
+    _pushThread(data.question_label || text, data.answer);
+    _renderAnswer(data.answer, data.matched === false ? null : (data.interpreted || null));
+    _renderThread();
+  } catch { showError('Could not reach the local server. Try restarting the app.'); }
 }
 
 async function _ask(qid) {
@@ -126,19 +221,23 @@ async function _ask(qid) {
     const data = await _post('api/copilot/ask', { snapshot_id: state.currentSnapshotId, question_id: qid, mode: cp.mode });
     if (!data.ok) { showError(data.error || 'Could not answer that.'); if (area) area.innerHTML = ''; return; }
     cp.answer = data.answer;
+    _pushThread(_qLabel(qid), data.answer);
     _renderAnswer(data.answer);
+    _renderThread();
   } catch { showError('Could not reach the local server. Try restarting the app.'); }
 }
 
-function _renderAnswer(a) {
+function _renderAnswer(a, interpreted) {
   const area = document.getElementById('cp-answer');
   if (!area) return;
+  const interp = interpreted
+    ? `<div class="cp-interpreted">Interpreted your question as: <b>${escapeHtml(interpreted)}</b></div>` : '';
   const body = (a.body || []).map(p => `<p>${_mdBold(p)}</p>`).join('');
   const advice = (a.advice && a.advice.length)
     ? `<div class="cp-advice"><div class="cp-advice-h">💡 What to do</div><ul>${a.advice.map(x => `<li>${_mdBold(x)}</li>`).join('')}</ul></div>` : '';
   const ev = (a.evidence && a.evidence.length)
     ? `<div class="cp-ev"><span>Based on:</span> ${a.evidence.map(e => `<span class="cp-src">${escapeHtml(e.module)} · ${escapeHtml(e.value)}</span>`).join('')}</div>` : '';
-  area.innerHTML = `<div class="cp-ans"><div class="cp-ans-h">${_mdBold(a.headline)}</div>${body}${advice}${ev}</div>`;
+  area.innerHTML = `<div class="cp-ans">${interp}<div class="cp-ans-h">${_mdBold(a.headline)}</div>${body}${advice}${ev}</div>`;
 }
 
 // Manager Report → preview the HTML, then save as PDF (reuses the shared report preview).
@@ -147,7 +246,7 @@ async function _managerReport() {
   const btn = document.getElementById('cp-report-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
   try {
-    const data = await _post('api/copilot/report', { snapshot_id: state.currentSnapshotId, preview: true });
+    const data = await _post('api/copilot/report', { snapshot_id: state.currentSnapshotId, preview: true, ..._basePaths() });
     if (!data.ok) { showError(data.error || 'Could not build the report.'); return; }
     showReportPreview({
       title: 'Manager Report', subtitle: (state.currentResult || {}).project_name || '',
@@ -163,7 +262,7 @@ async function _managerReport() {
 async function _saveReportPdf() {
   const outputPath = await window.pywebview.api.choose_save_path('Manager_Report.pdf', 'pdf');
   if (!outputPath) return false;
-  const data = await _post('api/copilot/report', { snapshot_id: state.currentSnapshotId, output_path: outputPath });
+  const data = await _post('api/copilot/report', { snapshot_id: state.currentSnapshotId, output_path: outputPath, ..._basePaths() });
   if (!data.ok) { showError(`PDF generation failed: ${data.error}`); return false; }
   return true;
 }
@@ -176,8 +275,9 @@ function _renderWorkspace() {
   const sc = SCENARIOS.find(s => s.kind === cp.scenarioKind) || SCENARIOS[0];
   const count = cp.activities ? cp.activities.filter(a => !a.is_milestone).length : 0;
   // The exact-via-Primavera (F9) path is a planner tool — hidden in Management mode, so a
-  // manager only ever sees the instant estimate (steps 1–3); it appears only in Planning mode.
-  const plannerBlock = cp.mode === 'planning' ? `
+  // manager only ever sees the instant estimate (steps 1–3); it appears only in Planning mode,
+  // and only for levers that can build a scenario file (delay / shorten / 6-day).
+  const plannerBlock = (cp.mode === 'planning' && sc.file) ? `
     <div class="cp-planner">
       <button class="cp-disclose" id="cp-planner-toggle">${cp.plannerOpen ? '▾' : '▸'} Planner: get the exact figure via Primavera (F9)</button>
       ${cp.plannerOpen ? `
@@ -188,7 +288,9 @@ function _renderWorkspace() {
         <div class="cp-step"><button class="btn-secondary" id="cp-load" ${cp.scenario ? '' : 'disabled'}>Load rescheduled file (after F9)…</button></div>
         <div id="cp-impact">${cp.impact ? _impactHtml(cp.impact) : ''}</div>
       </div>` : ''}
-    </div>` : '';
+    </div>` : (cp.mode === 'planning'
+      ? `<div class="cp-hint" style="margin-top:10px">This lever is an instant estimate only — there's no F9 file to build for it. For a claim-grade figure, model it as a delay / shorten scenario, or make the change in P6 and press F9.</div>`
+      : '');
   view.innerHTML = `
     <div class="ai-banner"><span class="spark">🤖</span>
       <span class="txt"><b>What-if — an instant estimate from this update's analysis. No Primavera needed.</b>
@@ -206,9 +308,10 @@ function _renderWorkspace() {
                placeholder="${cp.activities ? `Type an Activity ID or name… (${count} activities)` : 'Loading activities…'}">
         <datalist id="cp-activity-list"></datalist>
         <span id="cp-activity-match" class="cp-match"></span></label>
-      <label class="cp-fld cp-fld-sm"><span>${escapeHtml(sc.daysLabel)}</span>
-        <input type="number" min="1" step="1" id="cp-delay" class="cp-input" value="${escapeHtml(String(cp.delayDays || ''))}" placeholder="e.g. 14"></label>
-    </div>`
+      ${sc.days ? `<label class="cp-fld cp-fld-sm"><span>${escapeHtml(sc.daysLabel)}</span>
+        <input type="number" min="1" step="1" id="cp-delay" class="cp-input" value="${escapeHtml(String(cp.delayDays || ''))}" placeholder="e.g. 14"></label>` : ''}
+    </div>
+    ${sc.days ? '' : `<div class="cp-hint" style="margin-top:6px">${escapeHtml(_leverNote(sc.kind))}</div>`}`
     : `<div class="cp-plan-note">Makes <b>Saturday a working day</b> across the schedule — no other input needed.</div>`}
 
     <div class="cp-step"><button class="btn-primary" id="cp-est">Estimate impact</button>
@@ -237,9 +340,11 @@ async function _estimateWhatif() {
   let activity_id = null, days = null;
   if (sc.activity) {
     if (!resolveActivity(cp.activities, cp.activityInput)) { showError('Type a valid Activity ID, or pick an activity from the list.'); return; }
-    days = parseInt(cp.delayDays, 10);
-    if (!days || days < 1) { showError('Enter a number of working days (at least 1).'); return; }
     activity_id = cp.activityId;
+    if (sc.days) {
+      days = parseInt(cp.delayDays, 10);
+      if (!days || days < 1) { showError('Enter a number of working days (at least 1).'); return; }
+    }
   }
   const btn = document.getElementById('cp-est');
   if (btn) { btn.disabled = true; btn.textContent = 'Estimating…'; }
@@ -256,6 +361,15 @@ async function _estimateWhatif() {
 }
 
 function _estimateHtml(r) {
+  if (r.qualitative || r.impact_days === null || r.impact_days === undefined) {
+    return `<div class="cp-impact none">
+      <div class="cp-impact-num">?<span>needs F9 for the exact figure</span></div>
+      <div class="cp-est-head">${escapeHtml(r.headline)}</div>
+      <div class="cp-est-basis">${escapeHtml(r.basis)}</div>
+      <div class="cp-est-advice">💡 ${escapeHtml(r.advice)}</div>
+      <div class="cp-impact-tag est">Estimate — direction only; the exact number comes from a P6 recalculation.</div>
+    </div>`;
+  }
   const d = r.impact_days;
   const cls = d > 0 ? 'late' : (d < 0 ? 'early' : 'none');
   const sign = d > 0 ? '+' : '';
@@ -317,9 +431,11 @@ async function _generateScenario() {
   let activity_id = null, days = null;
   if (sc.activity) {
     if (!resolveActivity(cp.activities, cp.activityInput)) { showError('Type a valid Activity ID, or pick an activity from the list.'); return; }
-    days = parseInt(cp.delayDays, 10);
-    if (!days || days < 1) { showError('Enter a number of working days (at least 1).'); return; }
     activity_id = cp.activityId;
+    if (sc.days) {
+      days = parseInt(cp.delayDays, 10);
+      if (!days || days < 1) { showError('Enter a number of working days (at least 1).'); return; }
+    }
   }
   const safe = (sc.activity ? (activity_id || 'activity') : 'six-day-week').replace(/[^A-Za-z0-9_-]+/g, '_');
   const outPath = await window.pywebview.api.choose_save_path(`${safe}_whatif.xml`, 'xml');

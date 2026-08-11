@@ -17,6 +17,53 @@ def _find(data, activity_id):
     return None
 
 
+def _find_with_oid(data, activity_id):
+    """Like _find, but also returns the per-file ObjectId so predecessor links (keyed by
+    ObjectId) can be looked up for the 'remove a constraint' estimate."""
+    for oid, a in data.activities.items():
+        if a.get('id') == activity_id:
+            return oid, a
+    return None, None
+
+
+# Planning rules of thumb for the instant estimate — deliberately conservative, and clearly
+# labelled estimates (the exact figure is always the planner's F9). Adjustable in one place.
+_CREW_FACTOR = 0.40      # a second crew ~ 40% off the activity's remaining duration
+_OVERTIME_FACTOR = 0.15  # overtime ~ 15% off, before productivity fall-off
+
+
+def _speedup_estimate(data, activity_id, factor, verb, cost_note):
+    """Shared engine for 'add a crew' / 'overtime': compress an activity's remaining duration
+    by a factor; it only pulls the finish in when the activity is on the critical path."""
+    act = _find(data, activity_id)
+    if act is None:
+        raise KeyError(f'Activity {activity_id!r} not found in the schedule.')
+    name = act.get('name') or activity_id
+    fl = act.get('total_float_days')
+    critical = fl is not None and fl <= 0
+    rem = _remaining_days(act, data)
+    gain = _r(rem * factor)
+    if critical and gain > 0:
+        return {'impact_days': -gain, 'direction': 'earlier',
+                'headline': f"{verb} on '{name}' could bring the finish in by roughly {gain} working days.",
+                'basis': (f"it's on the critical path; {verb.lower()} could take about {int(factor * 100)}% off its "
+                          f"remaining {rem} working days ({gain} wd), and time saved on the critical path shortens the project."),
+                'advice': f"{cost_note} Re-check afterwards — the driving path can move once '{name}' speeds up.",
+                'estimate': True}
+    if not critical:
+        spare = _r(fl) if (fl is not None and fl > 0) else 0
+        return {'impact_days': 0, 'direction': 'none',
+                'headline': f"{verb} on '{name}' wouldn't move the finish date.",
+                'basis': f"'{name}' isn't on the critical path — it already has about {spare} working days of spare time, so speeding it up only adds slack.",
+                'advice': "To pull the finish in, apply this to an activity that's on the critical path instead.",
+                'estimate': True}
+    return {'impact_days': 0, 'direction': 'none',
+            'headline': f"{verb} on '{name}' wouldn't change the finish.",
+            'basis': f"there's little remaining duration on '{name}' left to compress.",
+            'advice': "Pick a critical-path activity with meaningful remaining work.",
+            'estimate': True}
+
+
 def _r(x):
     return int(round(x)) if x is not None else 0
 
@@ -75,6 +122,43 @@ def estimate(data, kind, activity_id=None, days=None):
                 'headline': f"Speeding up '{name}' wouldn't move the finish date.",
                 'basis': f"'{name}' isn't on the critical path — it already has about {spare} working days of spare time.",
                 'advice': "To pull the finish in, speed up an activity that's on the critical path instead.",
+                'estimate': True}
+
+    if kind == 'add_crew':
+        return _speedup_estimate(data, activity_id, _CREW_FACTOR, 'Adding a second crew',
+                                 "Worth it if the extra crew's cost beats the days saved.")
+
+    if kind == 'overtime':
+        return _speedup_estimate(data, activity_id, _OVERTIME_FACTOR, 'Overtime',
+                                 "Weigh the time saved against overtime cost and fatigue.")
+
+    if kind == 'remove_relationship':
+        oid, act = _find_with_oid(data, activity_id)
+        if act is None:
+            raise KeyError(f'Activity {activity_id!r} not found in the schedule.')
+        name = act.get('name') or activity_id
+        fl = act.get('total_float_days')
+        critical = fl is not None and fl <= 0
+        preds = [r for r in data.relationships if r.get('succ_id') == oid]
+        if not critical:
+            spare = _r(fl) if (fl is not None and fl > 0) else 0
+            return {'impact_days': 0, 'direction': 'none',
+                    'headline': f"Relaxing a constraint on '{name}' wouldn't move the finish date.",
+                    'basis': f"'{name}' isn't on the critical path (about {spare} working days of spare time), so its predecessors aren't holding completion.",
+                    'advice': "To pull the finish in, relax a driving relationship on a critical-path activity instead.",
+                    'estimate': True}
+        if not preds:
+            return {'impact_days': 0, 'direction': 'none',
+                    'headline': f"'{name}' has no predecessor links to remove.",
+                    'basis': "nothing is constraining its start in the logic, so there's no relationship to relax.",
+                    'advice': "Pick a critical activity that's waiting on a predecessor.",
+                    'estimate': True}
+        return {'impact_days': None, 'qualitative': True, 'direction': 'earlier?',
+                'headline': f"Removing the driving constraint on '{name}' could bring the finish in — the exact amount needs P6's F9.",
+                'basis': (f"'{name}' is on the critical path with {len(preds)} predecessor link(s); freeing its driving "
+                          "predecessor could let it (and the finish) start earlier, but by how much depends on the "
+                          "next-longest path — only a reschedule can tell."),
+                'advice': "Build it as a scenario, remove the link in P6 and press F9 for the exact pull-in. Only relax logic that isn't a genuine physical constraint.",
                 'estimate': True}
 
     if kind == 'six_day':
