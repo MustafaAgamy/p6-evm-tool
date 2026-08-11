@@ -86,6 +86,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_copilot_report(body)
         elif self.path == '/api/copilot/scenario':
             self._handle_copilot_scenario(body)
+        elif self.path == '/api/copilot/whatif':
+            self._handle_copilot_whatif(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -597,6 +599,35 @@ class Handler(BaseHTTPRequestHandler):
                 f.write(out['xml'])
             self._json(200, {'ok': True, 'output_path': os.path.abspath(output_path),
                              'label': out.get('label'), 'activity_name': out.get('activity_name')})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_copilot_whatif(self, body):
+        """Instant, offline what-if ESTIMATE from the parsed update (float + critical path) —
+        for the manager, no Primavera round-trip. The exact figure stays the planner's F9 path."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        kind = body.get('kind')
+        activity_id = (body.get('activity_id') or '').strip() or None
+        try:
+            days = float(body.get('days')) if body.get('days') is not None else None
+        except (TypeError, ValueError):
+            days = None
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        if kind in ('delay', 'shorten'):
+            if not activity_id:
+                self._json(200, {'ok': False, 'error': 'Pick the activity first.'})
+                return
+            if not days or days <= 0:
+                self._json(200, {'ok': False, 'error': 'Enter a number of working days (at least 1).'})
+                return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_copilot.whatif import estimate
+            data = parse_file(resolved)
+            self._json(200, {'ok': True, 'result': estimate(data, kind, activity_id=activity_id, days=days)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

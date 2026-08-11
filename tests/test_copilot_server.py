@@ -42,6 +42,22 @@ def test_copilot_needs_a_schedule(test_server):
     assert data['ok'] is False
 
 
+def test_whatif_gives_an_instant_estimate_with_advice(test_server, xml_path):
+    _import(test_server, xml_path)
+    _, data = _post(test_server, '/api/copilot/whatif',
+                    {'xml_path': str(xml_path), 'kind': 'delay', 'activity_id': 'ACT002', 'days': 5})
+    assert data['ok'], data
+    r = data['result']
+    assert 'impact_days' in r and r['estimate'] is True and r['advice']
+
+
+def test_whatif_shorten_needs_an_activity(test_server, xml_path):
+    _import(test_server, xml_path)
+    _, data = _post(test_server, '/api/copilot/whatif',
+                    {'xml_path': str(xml_path), 'kind': 'shorten', 'activity_id': '', 'days': 5})
+    assert data['ok'] is False
+
+
 def test_scenario_shorten_builds_and_validates(test_server, xml_path, tmp_path):
     _import(test_server, xml_path)
     out = str(tmp_path / 'whatif.xml')

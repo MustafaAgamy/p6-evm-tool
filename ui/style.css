@@ -985,3 +985,11 @@ body {
 .cp-src { padding: 2px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); color: var(--text); }
 .cp-plan-note { padding: 14px 16px; background: var(--bg); border: 1px dashed var(--border); border-radius: 10px; font-size: 13px; color: var(--muted); line-height: 1.6; }
 .cp-plan-note b { color: var(--text); }
+.cp-est-head { font-size: 15px; font-weight: 600; margin-top: 8px; line-height: 1.4; }
+.cp-est-basis { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.55; }
+.cp-est-advice { font-size: 13.5px; margin-top: 10px; padding: 10px 12px; background: rgba(59,130,246,.10); border-radius: 8px; line-height: 1.55; }
+.cp-impact-tag.est { background: rgba(217,119,6,.14); color: var(--warning); }
+.cp-planner { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 10px; }
+.cp-disclose { background: none; border: none; color: var(--muted); font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 4px 0; }
+.cp-disclose:hover { color: var(--text); }
+.cp-planner-body { margin-top: 8px; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }

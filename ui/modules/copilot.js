@@ -30,7 +30,7 @@ const SCENARIOS = [
 function _cp() {
   if (!state.copilot) state.copilot = { subview: 'assistant', mode: 'management', answer: null,
     activeQ: null, scenarioKind: 'delay', activityId: '', activityName: '', activityInput: '',
-    delayDays: '', label: '', scenario: null, impact: null, activities: null };
+    delayDays: '', estimate: null, plannerOpen: false, scenario: null, impact: null, activities: null };
   return state.copilot;
 }
 
@@ -177,12 +177,11 @@ function _renderWorkspace() {
   const count = cp.activities ? cp.activities.filter(a => !a.is_milestone).length : 0;
   view.innerHTML = `
     <div class="ai-banner"><span class="spark">🤖</span>
-      <span class="txt"><b>What-if scenario — the impact is P6's own number (from F9), never invented.</b>
-      Build the change, press F9 in P6, load it back. Your live schedule is never touched.</span></div>
+      <span class="txt"><b>What-if — an instant estimate from this update's analysis. No Primavera needed.</b>
+      It nets your change against each activity's spare time and the critical path, and gives advice.</span></div>
 
     <div class="mod-sec">1 · Choose a what-if</div>
     <div class="cp-methods">${SCENARIOS.map(s => `<button class="cp-m ${s.kind === cp.scenarioKind ? 'on' : ''}" data-kind="${s.kind}">${escapeHtml(s.name)}</button>`).join('')}</div>
-    <div class="cp-methodnote">Measured by Time Impact Analysis (P6 F9). Impacted-as-planned · Windows · but-for — known, coming next.</div>
 
     <div class="mod-sec">2 · The change</div>
     ${sc.activity ? `
@@ -196,30 +195,75 @@ function _renderWorkspace() {
       <label class="cp-fld cp-fld-sm"><span>${escapeHtml(sc.daysLabel)}</span>
         <input type="number" min="1" step="1" id="cp-delay" class="cp-input" value="${escapeHtml(String(cp.delayDays || ''))}" placeholder="e.g. 14"></label>
     </div>`
-    : `<div class="cp-plan-note">Makes <b>Saturday a working day</b> across the schedule's calendars — then P6 tells you how much earlier the project would finish.</div>`}
+    : `<div class="cp-plan-note">Makes <b>Saturday a working day</b> across the schedule — no other input needed.</div>`}
 
-    <div class="mod-sec">3 · Build the scenario &amp; F9 in P6</div>
-    <div class="cp-step">
-      <button class="btn-primary" id="cp-gen">Generate scenario file…</button>
-      <span class="cp-hint">Saves a modified P6 file for you to open and F9 — your live schedule stays untouched.</span>
-    </div>
-    <div id="cp-scenario">${cp.scenario ? _scenarioHtml(cp.scenario) : ''}</div>
+    <div class="cp-step"><button class="btn-primary" id="cp-est">Estimate impact</button>
+      <span class="cp-hint">Instant — worked out from this update, no Primavera steps.</span></div>
+    <div id="cp-estimate">${cp.estimate ? _estimateHtml(cp.estimate) : ''}</div>
 
-    <div class="mod-sec">4 · Read the exact impact</div>
-    <div class="cp-step">
-      <button class="btn-secondary" id="cp-load" ${cp.scenario ? '' : 'disabled'}>Load rescheduled file (after F9)…</button>
-      <span class="cp-hint">P6 gives the number — how far the completion moved.</span>
-    </div>
-    <div id="cp-impact">${cp.impact ? _impactHtml(cp.impact) : ''}</div>`;
+    <div class="cp-planner">
+      <button class="cp-disclose" id="cp-planner-toggle">${cp.plannerOpen ? '▾' : '▸'} Planner: get the exact figure via Primavera (F9)</button>
+      ${cp.plannerOpen ? `
+      <div class="cp-planner-body">
+        <div class="cp-hint" style="margin-bottom:8px">For a precise, claim-grade number: build the scenario file, open it in P6, press F9, re-export and load it back. (Planner tool — the estimate above needs none of this.)</div>
+        <div class="cp-step"><button class="btn-secondary" id="cp-gen">Generate scenario file…</button></div>
+        <div id="cp-scenario">${cp.scenario ? _scenarioHtml(cp.scenario) : ''}</div>
+        <div class="cp-step"><button class="btn-secondary" id="cp-load" ${cp.scenario ? '' : 'disabled'}>Load rescheduled file (after F9)…</button></div>
+        <div id="cp-impact">${cp.impact ? _impactHtml(cp.impact) : ''}</div>
+      </div>` : ''}
+    </div>`;
 
   view.querySelectorAll('.cp-m').forEach(b => b.addEventListener('click', () => {
-    _cp().scenarioKind = b.dataset.kind; _cp().scenario = null; _cp().impact = null; _renderWorkspace();
+    const c = _cp();
+    c.scenarioKind = b.dataset.kind; c.estimate = null; c.scenario = null; c.impact = null;
+    _renderWorkspace();
     if (!_cp().activities) _loadActivities(); else _fillActivityList();
   }));
+  const est = document.getElementById('cp-est'); if (est) est.addEventListener('click', _estimateWhatif);
+  const tog = document.getElementById('cp-planner-toggle'); if (tog) tog.addEventListener('click', () => { _cp().plannerOpen = !_cp().plannerOpen; _renderWorkspace(); });
   const gen = document.getElementById('cp-gen'); if (gen) gen.addEventListener('click', _generateScenario);
   const load = document.getElementById('cp-load'); if (load) load.addEventListener('click', _loadRescheduled);
   _fillActivityList();
   _bindInputs();
+}
+
+async function _estimateWhatif() {
+  const cp = _cp();
+  clearError();
+  const sc = SCENARIOS.find(s => s.kind === cp.scenarioKind) || SCENARIOS[0];
+  let activity_id = null, days = null;
+  if (sc.activity) {
+    if (!resolveActivity(cp.activities, cp.activityInput)) { showError('Type a valid Activity ID, or pick an activity from the list.'); return; }
+    days = parseInt(cp.delayDays, 10);
+    if (!days || days < 1) { showError('Enter a number of working days (at least 1).'); return; }
+    activity_id = cp.activityId;
+  }
+  const btn = document.getElementById('cp-est');
+  if (btn) { btn.disabled = true; btn.textContent = 'Estimating…'; }
+  try {
+    const data = await _post('api/copilot/whatif', { ..._basePaths(), kind: cp.scenarioKind, activity_id, days });
+    if (!data.ok) { showError(data.error || 'Could not estimate the impact.'); return; }
+    cp.estimate = data.result;
+    _renderWorkspace();
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Estimate impact'; }
+  }
+}
+
+function _estimateHtml(r) {
+  const d = r.impact_days;
+  const cls = d > 0 ? 'late' : (d < 0 ? 'early' : 'none');
+  const sign = d > 0 ? '+' : '';
+  const dir = d > 0 ? 'later' : (d < 0 ? 'earlier' : 'no change');
+  return `<div class="cp-impact ${cls}">
+    <div class="cp-impact-num">${sign}${escapeHtml(String(d))} <span>working days ${escapeHtml(dir)}</span></div>
+    <div class="cp-est-head">${escapeHtml(r.headline)}</div>
+    <div class="cp-est-basis">${escapeHtml(r.basis)}</div>
+    <div class="cp-est-advice">💡 ${escapeHtml(r.advice)}</div>
+    <div class="cp-impact-tag est">Estimate — from this update's analysis, not a Primavera recalculation.</div>
+  </div>`;
 }
 
 function _bindInputs() {
