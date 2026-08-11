@@ -284,11 +284,14 @@ function _recoveryHtml(report) {
 // Key facts row (achievement, schedule adherence, started, new critical).
 function _factsHtml(report) {
   const s = report.summary || {}, adh = report.schedule_adherence || {},
-        cm = report.critical_movement || {}, counts = (report.buckets || {}).counts || {};
+        cm = report.critical_movement || {}, counts = (report.buckets || {}).counts || {},
+        pc = (report.progress || {}).counts || {};
   const ach = s.forecast_achievement == null ? '—' : `${Math.round(s.forecast_achievement * 100)}%`;
   const adhP = adh.pct == null ? '—' : `${Math.round(adh.pct)}%`;
   const fact = (l, v, sub) => `<div class="kpi"><div class="k">${escapeHtml(l)}</div><div class="v">${v}</div>${sub ? `<div class="per-kpi-sub mut">${escapeHtml(sub)}</div>` : ''}</div>`;
   return `<div class="cmp-kpis per-facts">
+    ${fact('Activities completed', pc.finished || 0, 'reached 100% this period')}
+    ${fact('Activities in progress', pc.increased || 0, 'positive % variance')}
     ${fact('Forecast achievement', ach, 'earned vs forecast')}
     ${fact('Schedule adherence', adhP, `${adh.hit || 0} of ${adh.planned || 0} due finishes`)}
     ${fact('Started this period', counts.started || 0, 'first progress')}

@@ -137,6 +137,7 @@ def _facts_html(report):
     adh = report.get('schedule_adherence', {}) or {}
     cm = report.get('critical_movement', {}) or {}
     counts = (report.get('buckets', {}) or {}).get('counts', {})
+    pc = (report.get('progress', {}) or {}).get('counts', {})   # construction-only progress counts
     ach = s.get('forecast_achievement')
     adh_pct = adh.get('pct')
 
@@ -144,6 +145,8 @@ def _facts_html(report):
         return (f'<div class="fact"><div class="fl">{_e(label)}</div><div class="fv">{_e(value)}</div>'
                 + (f'<div class="fs">{_e(sub)}</div>' if sub else '') + '</div>')
     return ('<div class="facts">'
+            + fact('Activities completed', pc.get('finished', 0), 'reached 100% this period')
+            + fact('Activities in progress', pc.get('increased', 0), 'positive % variance this period')
             + fact('Forecast achievement', f'{round(ach * 100)}%' if ach is not None else '—', 'earned vs forecast')
             + fact('Schedule adherence', f'{adh_pct:.0f}%' if adh_pct is not None else '—',
                    f"{adh.get('hit', 0)} of {adh.get('planned', 0)} due finishes hit")
@@ -361,7 +364,7 @@ def render_html(report, trend=None):
       .rr-h {{ font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: #26517d; font-weight: 700; }}
       .rr-big {{ font-size: 14px; font-weight: 800; margin: 3px 0; }}
       .rr-v {{ font-size: 12px; font-weight: 700; }} .rr-v.bad {{ color: #dc2626; }} .rr-v.good {{ color: #16a34a; }} .rr-v.warn {{ color: #d97706; }}
-      .facts {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-top: 12px; }}
+      .facts {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 12px; }}
       .fact {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 11px; }}
       .fact .fl {{ font-size: 9.5px; color: #64748b; text-transform: uppercase; letter-spacing: .3px; }} .fact .fv {{ font-size: 15px; font-weight: 800; margin-top: 1px; }} .fact .fs {{ font-size: 10px; color: #94a3b8; }}
       .split {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }}

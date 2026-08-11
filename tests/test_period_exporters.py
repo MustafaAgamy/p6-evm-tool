@@ -108,6 +108,7 @@ def test_render_html_two_page_management_report():
     assert 'Near-critical' in html                       # watch list content
     assert '85%' in html and '81%' in html               # SPI as whole %
     assert 'Forecast — last update' in html              # progress-bar legend
+    assert 'Activities completed' in html and 'Activities in progress' in html  # new counts
     assert 'Overall the project stands' in html          # project conclusion in the management box
     assert html.count('class="page"') == 2               # two pages
 

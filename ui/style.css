@@ -927,7 +927,7 @@ body {
 .per-rr-big { font-size: 15px; font-weight: 800; margin: 3px 0; }
 .per-rr-v { font-size: 12.5px; font-weight: 700; }
 .per-rr-v.bad { color: var(--danger); } .per-rr-v.good { color: var(--success); } .per-rr-v.warn { color: var(--warning); }
-.per-facts { grid-template-columns: repeat(4, 1fr); margin-top: 12px; }
+.per-facts { grid-template-columns: repeat(3, 1fr); margin-top: 12px; }
 .per-facts .v { font-size: 17px; }
 /* PDF preview modal */
 .per-preview-overlay { position: fixed; inset: 0; background: rgba(2,6,23,.66); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
