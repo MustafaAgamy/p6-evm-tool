@@ -36,16 +36,20 @@ import { escapeHtml } from './format.js';
 import { state } from './state.js';
 import { geocodePlace, computeWeather, saveCalendarSettings } from './api.js';
 
+const DEFAULT_THRESHOLDS = { rain_mm: 5, temp_max_c: 42, wind_kmh: null, dust: true };
+
 let _ca = null;
 let _sel = null;
 let _weather = null;      // last computed weather impact
 let _pendingLoc = null;   // location chosen in the picker, not yet applied
+let _thresholds = null;   // stop-work limits (rain/heat/wind/dust)
 const _openMonths = new Set();
 
 export function renderCalendar(ca) {
   _ca = ca || null;
   _weather = null;
   _pendingLoc = null;
+  _thresholds = { ...DEFAULT_THRESHOLDS };
   _openMonths.clear();
   const body = document.getElementById('calendar-body');
   if (!body) return;
@@ -54,8 +58,10 @@ export function renderCalendar(ca) {
     return;
   }
   _sel = _ca.primary_calendar_id;
-  const loc = (state.currentResult && state.currentResult.calendar_settings || {}).location;
-  if (loc) _pendingLoc = loc;
+  const settings = (state.currentResult && state.currentResult.calendar_settings) || {};
+  if (settings.location) _pendingLoc = settings.location;
+  if (settings.weather_thresholds) _thresholds = { ...DEFAULT_THRESHOLDS, ...settings.weather_thresholds };
+  if (settings.last_weather) _weather = settings.last_weather;   // show the last saved estimate on re-open
   _render();
 }
 
@@ -308,11 +314,42 @@ function _conflictsSection(conflicts) {
 }
 
 // Section 9 — Weather Impact (estimate).
+function _thr() { return _thresholds || DEFAULT_THRESHOLDS; }
+
+function _weatherControls() {
+  const t = _thr();
+  const connected = _weather
+    ? `<span class="dot-ok"></span> <b>Weather source: ${escapeHtml((_weather.source || 'Open-Meteo').split(' (')[0])}</b>
+       <span class="cal-muted">— live forecast + historical + air-quality (dust)</span>
+       <span class="cal-pill ok" style="margin-left:auto">connected ✓</span>`
+    : '<span class="cal-muted">Weather source: Open-Meteo (free) — will connect when you calculate.</span>';
+  const from = _weather && _weather.from_date ? ` · upcoming from cutoff <b>${fmtCalDate(_weather.from_date)}</b>` : '';
+  const num = (id, lab, val) =>
+    `<div class="thr-f"><label>${lab}</label><input type="number" id="${id}" value="${val == null ? '' : val}" placeholder="${val == null ? 'off' : ''}"></div>`;
+  return `<div class="cal-src">${connected}</div>
+    <div class="cal-muted" style="font-size:12px;margin:6px 0 10px">Location: <b>${escapeHtml((_pendingLoc && _pendingLoc.name) || '')}</b>${from} · <span class="loc-change" onclick="window.scrollTo(0,0)">change ↑</span></div>
+    <div class="cal-grp" style="margin-top:0"><span class="cal-pill warn">Stop-work limits</span>
+      <span class="cal-grp-meta">a day is lost when ANY apply — edit to match your site</span></div>
+    <div class="cal-thr">
+      ${num('thr-rain', '🌧 Rain ≥ (mm)', t.rain_mm)}
+      ${num('thr-heat', '🌡 Heat ≥ (°C)', t.temp_max_c)}
+      ${num('thr-wind', '💨 Wind ≥ (km/h)', t.wind_kmh)}
+      <div class="thr-f"><label>🌫 Dust</label><span class="thr-sw"><input type="checkbox" id="thr-dust" ${t.dust ? 'checked' : ''}> count sandstorm days</span></div>
+      <button class="cal-btn pri" id="thr-apply">Apply &amp; recalculate</button>
+      <span id="thr-status" class="cal-muted" style="font-size:12px"></span>
+    </div>`;
+}
+
 function _weatherSection() {
   const head = _sec(9, 'Weather Impact', '<span class="cal-pill warn">Estimate · not a P6 figure</span>');
-  if (!_weather) {
+  if (!_pendingLoc) {
     return head + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
-      Set the <b>Project Location</b> at the top and click <b>Use this location</b> to calculate the expected bad-weather days, milestone slip and recovery options.</p></div>`;
+      Set the <b>Project Location</b> at the top and click <b>Use this location</b> to calculate the expected bad-weather days, milestone impact and recovery options.</p></div>`;
+  }
+  const controls = `<div class="cal-card" style="margin-bottom:12px">${_weatherControls()}</div>`;
+  if (!_weather) {
+    return head + controls + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
+      Adjust the stop-work limits above if needed, then click <b>Apply &amp; recalculate</b> (or <b>Use this location</b> at the top).</p></div>`;
   }
   const w = _weather;
   const kpis = `<div class="cal-kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
@@ -332,10 +369,10 @@ function _weatherSection() {
       <td>${escapeHtml(d.condition)}</td>
       <td><span class="cal-pill mini ${d.confidence === 'forecast' ? 'def' : 'warn'}">${d.confidence === 'forecast' ? 'Forecast' : 'Expected'}</span></td>
       <td>${escapeHtml(d.effect)}</td></tr>`).join('');
-  const dayTable = `<div class="cal-grp"><span class="cal-pill special">Expected Bad-Weather Days</span>
-      <span class="cal-grp-meta">next ~14 days = live forecast · beyond = expected from historical climate</span></div>
-    <div class="cal-card p0" style="max-height:280px;overflow-y:auto"><table class="cal-table"><thead><tr>
-      <th>Date</th><th>Day</th><th>Expected condition</th><th>Confidence</th><th>Effect</th></tr></thead>
+  const dayTable = `<div class="cal-grp"><span class="cal-pill special">Upcoming Bad-Weather Days</span>
+      <span class="cal-grp-meta">each day shows the measured value &amp; why it counts · next ~16 days = live forecast · beyond = expected from historical climate</span></div>
+    <div class="cal-card p0" style="max-height:300px;overflow-y:auto"><table class="cal-table"><thead><tr>
+      <th>Date</th><th>Day</th><th>Why it's a lost day (measured)</th><th>Confidence</th><th>Effect</th></tr></thead>
       <tbody>${dayRows || '<tr><td colspan="5" class="cal-empty">No bad-weather days expected.</td></tr>'}</tbody></table></div>`;
   const msRows = (w.milestones || []).map(m =>
     `<tr><td>${escapeHtml(m.name)}</td><td>${fmtCalDate(m.planned)}</td>
@@ -355,8 +392,22 @@ function _weatherSection() {
     <div class="cal-card p0"><table class="cal-table"><thead><tr>
       <th>Period / milestone</th><th class="num">Days</th><th>Longer days</th><th>Extra working days</th><th>Add shift</th></tr></thead>
       <tbody>${recRows || '<tr><td colspan="5" class="cal-empty">No recovery needed — no net weather delay.</td></tr>'}</tbody></table></div>`;
-  const note = '<div class="cal-note">Applies to construction activities only (auto-detected). Estimated from the location\'s historical climate — a forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
-  return head + kpis + bar + dayTable + msTable + recTable + note;
+  const note = '<div class="cal-note">Applies to construction activities only (auto-detected), and only to Finish/completion milestones. Estimated from the location\'s historical climate + live forecast — a forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
+  return head + controls + kpis + bar + dayTable + msTable + recTable + note;
+}
+
+// Read the stop-work-limit inputs → thresholds object (blank = off).
+function _readThresholds() {
+  const n = id => {
+    const v = document.getElementById(id);
+    if (!v || v.value === '') return null;
+    const f = parseFloat(v.value);
+    return isNaN(f) ? null : f;
+  };
+  return {
+    rain_mm: n('thr-rain'), temp_max_c: n('thr-heat'), wind_kmh: n('thr-wind'),
+    dust: !!(document.getElementById('thr-dust') && document.getElementById('thr-dust').checked),
+  };
 }
 
 function _conclusionSection(bullets) {
@@ -382,6 +433,7 @@ function _wire() {
     }));
 
   _wireLocation();
+  _wireWeather();
   _wireShutdowns();
 }
 
@@ -411,22 +463,37 @@ function _wireLocation() {
   };
   if (searchBtn) searchBtn.addEventListener('click', doSearch);
   if (q) q.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-  if (useBtn) useBtn.addEventListener('click', async () => {
-    if (!_pendingLoc) return;
-    useBtn.disabled = true; statusEl.textContent = 'Calculating weather…';
-    try {
-      const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name);
-      if (resp.ok) {
-        _weather = resp.weather; _pendingLoc = resp.location || _pendingLoc;
-        if (resp.offline) statusEl.textContent = 'No weather data (offline) — location saved.';
-        _render();
-      } else {
-        statusEl.textContent = resp.error || 'Weather failed.'; useBtn.disabled = false;
-      }
-    } catch {
-      statusEl.textContent = 'Weather failed (offline?).'; useBtn.disabled = false;
-    }
+  if (useBtn) useBtn.addEventListener('click', () => _runWeather(useBtn, statusEl));
+}
+
+// Wire the Weather-Impact "Apply & recalculate" (edited stop-work limits).
+function _wireWeather() {
+  const applyBtn = document.getElementById('thr-apply');
+  if (applyBtn) applyBtn.addEventListener('click', () => {
+    _thresholds = _readThresholds();
+    _runWeather(applyBtn, document.getElementById('thr-status'));
   });
+}
+
+async function _runWeather(btn, statusEl) {
+  if (!_pendingLoc) return;
+  if (btn) btn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Calculating weather…';
+  try {
+    const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name, _thresholds);
+    if (resp.ok) {
+      _weather = resp.weather;
+      _pendingLoc = resp.location || _pendingLoc;
+      if (resp.weather && resp.weather.thresholds) _thresholds = resp.weather.thresholds;
+      if (resp.offline && statusEl) statusEl.textContent = 'No weather data (offline) — location saved.';
+      _render();
+    } else if (statusEl) {
+      statusEl.textContent = resp.error || 'Weather failed.'; if (btn) btn.disabled = false;
+    }
+  } catch {
+    if (statusEl) statusEl.textContent = 'Weather failed (offline?).';
+    if (btn) btn.disabled = false;
+  }
 }
 
 function _wireShutdowns() {

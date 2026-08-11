@@ -1002,3 +1002,15 @@ body {
 .cmp-scurve-legend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
 .cmp-scurve-note { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 .cmp-exports { display: flex; gap: 8px; justify-content: flex-end; margin: -6px 0 4px; }
+
+/* ── Weather Impact — source + stop-work limits ─────────────────────────────── */
+.cal-src { display:flex; align-items:center; gap:8px; font-size:12.5px; margin-bottom:4px; }
+.dot-ok { width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block; box-shadow:0 0 0 3px rgba(22,163,74,.2); }
+.cal-pill.ok { background:rgba(22,163,74,.15); color:var(--success); }
+.loc-change { color:var(--accent); cursor:pointer; font-weight:600; }
+.cal-thr { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+.cal-thr .thr-f { display:flex; flex-direction:column; gap:4px; }
+.cal-thr label { font-size:10.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+.cal-thr input[type=number] { width:88px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 9px; font-size:13px; }
+.thr-sw { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; }
+.thr-sw input { width:16px; height:16px; }

@@ -179,11 +179,34 @@ def _weather_section(weather):
         f'<tr><td>{_esc(r["period"])}</td><td class="num">{r["days"]} d</td>'
         f'<td>{_esc(r["option_longer_days"])}</td><td>{_esc(r["option_extra_days"])}</td>'
         f'<td>{_esc(r["option_shift"])}</td></tr>' for r in w.get('recovery', []))
+    # Source + the stop-work limits that were applied.
+    t = w.get('thresholds') or {}
+    lim = []
+    if t.get('rain_mm') is not None:
+        lim.append(f'rain ≥ {t["rain_mm"]:g} mm')
+    if t.get('temp_max_c') is not None:
+        lim.append(f'heat ≥ {t["temp_max_c"]:g} °C')
+    lim.append('dust on' if t.get('dust', True) else 'dust off')
+    lim.append(f'wind ≥ {t["wind_kmh"]:g} km/h' if t.get('wind_kmh') is not None else 'wind off')
+    srcline = (f'<p style="font-size:9.5px;color:#5b6472;margin:0 0 8px">Source: '
+               f'{_esc(w.get("source", "Open-Meteo"))} &nbsp;·&nbsp; Stop-work limits: {_esc(" · ".join(lim))}</p>')
+    # Upcoming bad-weather days, each with the measured reason.
+    days = ''.join(
+        f'<tr><td>{_fmt(d["date"])}</td><td>{_esc(d.get("day_name",""))}</td>'
+        f'<td>{_esc(d.get("condition",""))}</td>'
+        f'<td>{"Forecast" if d.get("confidence") == "forecast" else "Expected"}</td>'
+        f'<td>{_esc(d.get("effect",""))}</td></tr>' for d in w.get('bad_days', []))
+    days_table = (
+        '<div class="grp"><span class="pill" style="background:#2563eb">Upcoming Bad-Weather Days</span></div>'
+        '<table><thead><tr><th>Date</th><th>Day</th><th>Why it’s a lost day (measured)</th>'
+        f'<th>Confidence</th><th>Effect</th></tr></thead><tbody>{days or _empty(5)}</tbody></table>')
     return (
         '<h2 class="sec">9 · Weather Impact '
         '<span style="font-weight:400;font-size:9.5px;color:#e07b1a;text-transform:none;letter-spacing:0">'
         '— estimate, not a P6 figure</span></h2>'
+        f'{srcline}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">{kpis}</div>'
+        f'{days_table}'
         '<div class="grp"><span class="pill" style="background:#e07b1a">Milestone Impact</span></div>'
         '<table><thead><tr><th>Milestone</th><th>Planned date</th><th class="num">Bad-weather days before</th>'
         '<th class="num">Already in calendar</th><th class="num">Net weather delay</th>'
