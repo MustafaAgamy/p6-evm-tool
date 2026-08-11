@@ -88,6 +88,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_constructability(body)
         elif self.path == '/api/kb/starter-xml':
             self._handle_kb_starter_xml(body)
+        elif self.path == '/api/constructability/report':
+            self._handle_constructability_report(body)
+        elif self.path == '/api/constructability/excel':
+            self._handle_constructability_excel(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -461,6 +465,54 @@ class Handler(BaseHTTPRequestHandler):
                 return
             res = write_starter_xml(entry, os.path.abspath(output_path))
             self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/constructability/excel ────────────────────────────────────────
+    def _handle_constructability_excel(self, body):
+        """Export the Constructability findings to .xlsx from the report dict the
+        client holds — no re-parse."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.exporters import findings_excel
+            from p6_evm.xlsx_writer import write_xlsx
+            headers, rows = findings_excel(report)
+            write_xlsx(os.path.abspath(output_path), 'Constructability Findings', headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/constructability/report ───────────────────────────────────────
+    def _handle_constructability_report(self, body):
+        """Constructability Review PDF from the report dict the client holds — no
+        re-parse. Chrome headless → PDF (same pipeline as the consultant report)."""
+        import subprocess
+        import tempfile
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.exporters import render_html
+            html_content = render_html(report)
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

@@ -1,0 +1,54 @@
+{
+  "category": "Industrial",
+  "type": "Local Fabrication & Equipment Installation",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "local fabrication", "site fabrication", "fabrication yard", "fabrication workshop",
+    "fabrication shop", "shop fabrication", "spool fabrication", "fit-up", "fit up",
+    "structural steel fabrication", "equipment erection", "equipment installation",
+    "equipment setting", "mechanical installation", "mechanical completion",
+    "package unit", "skid", "modular assembly", "hook-up", "hookup",
+    "precommissioning", "pre-commissioning", "grouting", "alignment", "rigging",
+    "heavy lift", "ndt", "spool", "static equipment", "rotating equipment"
+  ],
+  "wbs": [
+    {"name": "Site Establishment & Fabrication Yard", "keywords": ["yard", "laydown", "workshop", "fabrication shop", "site establishment", "facilities", "welding station"]},
+    {"name": "Material Receipt & Inspection", "keywords": ["material receipt", "mto", "inspection", "goods receipt", "material control", "incoming inspection", "certification"]},
+    {"name": "Local Fabrication (Steel & Spools)", "keywords": ["fabrication", "cutting", "fit-up", "welding", "spool", "structural steel", "ndt", "blasting", "painting", "galvanizing"]},
+    {"name": "Foundations & Civil for Equipment", "keywords": ["foundation", "plinth", "grout", "anchor bolt", "civil", "pedestal", "base plate"]},
+    {"name": "Equipment Erection & Installation", "keywords": ["erection", "installation", "setting", "rigging", "lifting", "alignment", "grouting", "static equipment", "rotating equipment"]},
+    {"name": "Piping Installation", "keywords": ["piping", "spool installation", "pipe rack", "bolt-up", "hydrotest", "flushing"]},
+    {"name": "Electrical & Instrumentation Hook-up", "keywords": ["cable", "cable tray", "termination", "instrument", "hook-up", "loop check", "earthing", "e&i"]},
+    {"name": "Pre-Commissioning & Commissioning", "keywords": ["precommissioning", "commissioning", "mechanical completion", "punch", "testing", "handover"]}
+  ],
+  "activities": [
+    {"name": "Fabrication Yard / Workshop Setup", "keywords": ["workshop", "fabrication yard", "setup"], "wbs": "Site Establishment & Fabrication Yard", "typical_pred": "Site Mobilization", "typical_succ": "Structural Steel Fabrication", "duration_days": 20, "why": "Local fabrication needs a laydown/workshop with power, cranes and welding stations before any steel or spool work can start."},
+    {"name": "Material Receipt, Inspection & MTO Reconciliation", "keywords": ["material receipt", "inspection", "mto"], "wbs": "Material Receipt & Inspection", "typical_pred": "Procurement / Delivery", "typical_succ": "Structural Steel Fabrication", "duration_days": 15, "why": "Fabrication cannot outrun certified material; incoming inspection and MTO reconciliation are frequently omitted and cause rework."},
+    {"name": "Structural Steel Fabrication (Cut / Fit-up / Weld / NDT)", "keywords": ["steel fabrication", "fit-up", "weld", "ndt"], "wbs": "Local Fabrication (Steel & Spools)", "typical_pred": "Material Receipt & Inspection", "typical_succ": "Blasting & Painting", "duration_days": 45, "why": "The core local-fabrication activity; welding and NDT drive quality sign-off before coating and erection."},
+    {"name": "Pipe Spool Fabrication", "keywords": ["spool", "pipe fabrication"], "wbs": "Local Fabrication (Steel & Spools)", "typical_pred": "Material Receipt & Inspection", "typical_succ": "Piping Installation", "duration_days": 40, "why": "Spools are locally fabricated and NDT'd before field installation; a common long-lead within the fab scope."},
+    {"name": "Blasting, Painting & Galvanizing", "keywords": ["blasting", "painting", "galvanizing", "coating"], "wbs": "Local Fabrication (Steel & Spools)", "typical_pred": "Structural Steel Fabrication", "typical_succ": "Equipment / Steel Erection", "duration_days": 15, "why": "Surface protection follows fabrication and NDT and must precede erection to avoid coating damage and work at height."},
+    {"name": "Equipment Foundations & Grouting", "keywords": ["foundation", "grout", "anchor bolt"], "wbs": "Foundations & Civil for Equipment", "typical_pred": "Civil Works", "typical_succ": "Equipment Erection", "duration_days": 25, "why": "Foundations, anchor bolts and grout must reach strength before equipment can be set and aligned."},
+    {"name": "Equipment Erection, Setting & Alignment", "keywords": ["erection", "setting", "alignment", "rigging"], "wbs": "Equipment Erection & Installation", "typical_pred": "Equipment Foundations & Grouting", "typical_succ": "Piping & Hook-up", "duration_days": 40, "why": "Static/rotating equipment is rigged, set on foundations and precision-aligned/grouted; alignment governs downstream piping and hook-up."},
+    {"name": "Piping Installation, Bolt-up & Hydrotest", "keywords": ["piping", "bolt-up", "hydrotest", "flushing"], "wbs": "Piping Installation", "typical_pred": "Equipment Erection", "typical_succ": "Pre-Commissioning", "duration_days": 35, "why": "Field spools connect to installed equipment; hydrotest and flushing precede mechanical completion."},
+    {"name": "E&I Cabling, Termination & Loop Check", "keywords": ["cable", "termination", "loop", "instrument"], "wbs": "Electrical & Instrumentation Hook-up", "typical_pred": "Equipment Erection", "typical_succ": "Pre-Commissioning", "duration_days": 30, "why": "Power and instrument hook-up follows equipment setting; loop checks precede commissioning."},
+    {"name": "Mechanical Completion & Pre-Commissioning", "keywords": ["mechanical completion", "precommissioning", "punch"], "wbs": "Pre-Commissioning & Commissioning", "typical_pred": "Piping & Hook-up", "typical_succ": "Commissioning / Handover", "duration_days": 20, "why": "MC walkdown, punch-listing and pre-commissioning confirm the installation is ready before commissioning and handover."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["material receipt", "inspection", "material control"], "after_keywords": ["fabrication", "fit-up", "weld"], "reason": "Fabrication can only start on certified, inspected material — starting welding before material receipt is unrealistic.", "impact": "Critical"},
+    {"before_keywords": ["fabrication", "weld", "ndt"], "after_keywords": ["blasting", "painting", "coating"], "reason": "Coating follows completed fabrication and NDT sign-off.", "impact": "Near-critical"},
+    {"before_keywords": ["blasting", "painting", "coating"], "after_keywords": ["erection", "installation"], "reason": "Coated/protected steel and equipment are erected after surface protection to avoid damage and rework at height.", "impact": "Near-critical"},
+    {"before_keywords": ["foundation", "grout", "anchor bolt"], "after_keywords": ["erection", "setting", "installation"], "reason": "Equipment is set only after foundations, anchor bolts and grout reach strength.", "impact": "Critical"},
+    {"before_keywords": ["erection", "setting", "alignment"], "after_keywords": ["piping", "bolt-up", "hook-up"], "reason": "Piping and E&I hook-up connect to equipment only after it is set and aligned.", "impact": "Critical"},
+    {"before_keywords": ["hydrotest", "loop", "mechanical completion"], "after_keywords": ["commissioning", "handover"], "reason": "Commissioning follows hydrotest, loop checks and mechanical completion.", "impact": "Critical"}
+  ],
+  "milestones": ["Fabrication Yard Ready", "Steel / Spool Fabrication Complete", "Equipment Erected & Aligned", "Mechanical Completion", "Commissioning / Handover"],
+  "common_issues": [
+    "Fabrication started before material receipt / inspection is modelled",
+    "No blasting/painting (coating) activity between fabrication and erection",
+    "Equipment erection before foundation grout reaches strength",
+    "Piping / E&I hook-up not tied to equipment alignment",
+    "Missing mechanical completion / pre-commissioning before commissioning",
+    "No local fabrication yard / workshop setup activity"
+  ]
+}
