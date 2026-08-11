@@ -38,7 +38,7 @@ def _links_str(links, key):
 # ── Excel: the driving logic & lag change table ─────────────────────────────
 
 _LOGIC_HEADERS = [
-    'Activity ID', 'Activity name', 'Change',
+    '#', 'Activity ID', 'Activity name', 'Change',
     'Baseline pred ID', 'Baseline pred rel', 'Baseline pred name',
     'Baseline succ ID', 'Baseline succ rel', 'Baseline succ name',
     'Update pred ID', 'Update pred rel', 'Update pred name',
@@ -47,11 +47,12 @@ _LOGIC_HEADERS = [
 
 
 def logic_excel(report):
-    """(headers, rows) for the driving logic change table; multi-driving links joined."""
+    """(headers, rows) for the driving logic change table; multi-driving links joined.
+    Rows carry a leading 1-based serial number matching the on-screen table."""
     rows = []
-    for r in (report.get('logic', {}) or {}).get('rows', []):
+    for i, r in enumerate((report.get('logic', {}) or {}).get('rows', []), start=1):
         rows.append([
-            r.get('activity_id', ''), r.get('activity_name', ''), r.get('change_label', ''),
+            i, r.get('activity_id', ''), r.get('activity_name', ''), r.get('change_label', ''),
             _links_str(r.get('baseline_preds'), 'id'), _links_str(r.get('baseline_preds'), 'rel'), _links_str(r.get('baseline_preds'), 'name'),
             _links_str(r.get('baseline_succs'), 'id'), _links_str(r.get('baseline_succs'), 'rel'), _links_str(r.get('baseline_succs'), 'name'),
             _links_str(r.get('update_preds'), 'id'), _links_str(r.get('update_preds'), 'rel'), _links_str(r.get('update_preds'), 'name'),
@@ -95,8 +96,9 @@ def _scurve_svg(sc):
     </svg>'''
 
 
-def _tile(label, value):
-    return f'<div class="tile"><div class="tl">{_e(label)}</div><div class="tv">{_e(value)}</div></div>'
+def _tile(label, value, sub=None):
+    s = f'<div class="tsub">{_e(sub)}</div>' if sub else ''
+    return f'<div class="tile"><div class="tl">{_e(label)}</div><div class="tv">{_e(value)}</div>{s}</div>'
 
 
 def _logic_table_html(report):
@@ -104,9 +106,10 @@ def _logic_table_html(report):
     if not rows:
         return '<p class="note">No driving relationship or lag changes vs the baseline.</p>'
     body = []
-    for r in rows:
+    for i, r in enumerate(rows, start=1):
         body.append(
             '<tr>'
+            f'<td class="num">{i}</td>'
             f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
             f'<td>{_e(r.get("change_label"))}</td>'
             f'<td class="mono">{_e(_links_str(r.get("baseline_preds"), "id"))}</td>'
@@ -124,7 +127,7 @@ def _logic_table_html(report):
             '</tr>')
     return (
         '<table class="data"><thead><tr>'
-        '<th rowspan="2">Activity ID</th><th rowspan="2">Activity name</th><th rowspan="2">Change</th>'
+        '<th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity name</th><th rowspan="2">Change</th>'
         '<th colspan="6" class="grp">Baseline — driving links</th>'
         '<th colspan="6" class="grpu">Update — driving links</th></tr>'
         '<tr><th>Pred ID</th><th>Pred rel</th><th>Pred name</th><th>Succ ID</th><th>Succ rel</th><th>Succ name</th>'
@@ -183,6 +186,7 @@ def render_html(report, impact=None):
     pills = ''.join(f'<span class="pill">{it.get("count")} {_e(it.get("label"))}</span>'
                     for it in cs.get('items', [])) or '<span class="note">No changes vs the baseline.</span>'
     dash = _impact_dashboard(report, impact)
+    dboard = report.get('dashboard') or {}
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: A4 landscape; margin: 12mm; }}
       * {{ box-sizing: border-box; }}
@@ -194,6 +198,8 @@ def render_html(report, impact=None):
       .tile {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 14px; min-width: 150px; }}
       .tl {{ font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #64748b; font-weight: 700; }}
       .tv {{ font-size: 20px; font-weight: 800; margin-top: 2px; }}
+      .tsub {{ font-size: 10.5px; color: #475569; font-weight: 600; margin-top: 4px; }}
+      .recon {{ font-size: 11.5px; color: #334155; margin: 2px 0 6px; }} .recon b {{ color: #1e293b; }}
       .pill {{ display: inline-block; background: #eef2ff; color: #1e3a8a; border-radius: 12px; padding: 2px 10px; font-size: 11px; margin: 0 6px 6px 0; }}
       table.data {{ width: 100%; border-collapse: collapse; font-size: 10.5px; margin: 6px 0; }}
       table.data th {{ background: #26517d; color: #fff; text-align: left; padding: 5px 6px; font-weight: 600; }}
@@ -212,6 +218,7 @@ def render_html(report, impact=None):
       <div class="sub">{_e(report.get('project_name'))} · data date {_e(report.get('data_date'))} · baseline {_e(report.get('baseline_file'))} vs {_e(report.get('update_file'))}</div>
       {dash}
       <h2>Driving logic &amp; lag changes vs baseline</h2>
+      <p class="recon">Activities with driving-logic / lag changes: <b>{dboard.get('logic_changed', 0)}</b> — of the {dboard.get('changed_activities', 0)} total changed (the other {dboard.get('duration_only', 0)} changed in duration only).</p>
       <div>{pills}</div>
       {_logic_table_html(report)}
       <h2>Duration &amp; remaining changes vs baseline</h2>
@@ -234,7 +241,8 @@ def _impact_dashboard(report, impact):
                 + _tile('Manufactured', _days(impact.get('manufactured_days')))
                 + _tile('Baseline finish', bf) + _tile('Update finish', uf) + '</div>')
     dash = report.get('dashboard', {}) or {}
+    sub = f"{dash.get('logic_changed', 0)} logic/lag · {dash.get('duration_only', 0)} duration"
     return ('<div class="tiles">'
-            + _tile('Changed activities', dash.get('changed_activities', 0))
+            + _tile('Changed activities', dash.get('changed_activities', 0), sub)
             + _tile('Baseline finish', bf) + _tile('Update finish', uf)
             + _tile('Data date', report.get('data_date') or '—') + '</div>')

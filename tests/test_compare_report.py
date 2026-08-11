@@ -60,6 +60,12 @@ def test_report_shape_and_wiring():
     assert [row['activity_id'] for row in r['durations']['rows']] == ['A200']
     # dashboard counts distinct activities across logic + duration
     assert r['dashboard']['changed_activities'] == 3
+    # …and breaks that total down so the tile and the table heading reconcile:
+    # logic_changed (activities with a driving-logic/lag change) + duration_only
+    # (changed in duration but NOT logic) == changed_activities, exactly.
+    assert r['dashboard']['logic_changed'] == 2
+    assert r['dashboard']['duration_only'] == 1
+    assert r['dashboard']['logic_changed'] + r['dashboard']['duration_only'] == r['dashboard']['changed_activities']
     # change summary carries both lag items and an extended item
     labels = {it['kind']: it['count'] for it in r['change_summary']['items']}
     assert labels.get('lag') == 2 and labels.get('extended') == 1

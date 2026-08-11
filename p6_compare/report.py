@@ -89,7 +89,14 @@ def build_report_from_data(baseline, update, config=None):
     items += [{'kind': k, 'label': _DUR_LABEL.get(k, k), 'count': n}
               for k, n in durations['counts'].items()]
 
-    changed_ids = {r['activity_id'] for r in logic['rows']} | {r['activity_id'] for r in durations['rows']}
+    # Reconcile the two "changed activities" numbers the user sees: the dashboard total
+    # is the union of logic- and duration-changed activities; the table heading is the
+    # logic subset. Split the total into logic_changed + duration_only (disjoint) so
+    # logic_changed + duration_only == changed_activities exactly — no apparent conflict.
+    logic_ids = {r['activity_id'] for r in logic['rows']}
+    duration_ids = {r['activity_id'] for r in durations['rows']}
+    changed_ids = logic_ids | duration_ids
+    duration_only_ids = duration_ids - logic_ids
 
     milestones = []
     for code in matched.milestone_codes:
@@ -111,7 +118,9 @@ def build_report_from_data(baseline, update, config=None):
         # an empty report means "these files don't line up", not "no changes".
         'matched_activities': len(matched.matched_codes),
         'update_activity_count': len(update.activities),
-        'dashboard': {'changed_activities': len(changed_ids)},
+        'dashboard': {'changed_activities': len(changed_ids),
+                      'logic_changed': len(logic_ids),
+                      'duration_only': len(duration_only_ids)},
         'change_summary': {'changed_activities': logic['summary']['changed_activities'], 'items': items},
         'logic': logic,
         'durations': durations,

@@ -3,7 +3,7 @@
  * Run: node tests/js/test_compare.js
  */
 import assert from 'node:assert/strict';
-import { fmtLag, statusClass, summaryPills, signedDays, suggestedCorrectedName, durImpactLabel } from '../../ui/modules/compare.js';
+import { fmtLag, statusClass, summaryPills, signedDays, suggestedCorrectedName, durImpactLabel, changedBreakdown } from '../../ui/modules/compare.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -48,6 +48,20 @@ console.log('\ndurImpactLabel');
 test('Direct', () => assert.equal(durImpactLabel('Direct'), 'Direct'));
 test('None → Float absorbs', () => assert.equal(durImpactLabel('None'), 'Float absorbs'));
 test('Unknown → dash', () => assert.equal(durImpactLabel('Unknown'), '—'));
+
+console.log('\nchangedBreakdown');
+test('reads total, logic and duration-only from the dashboard', () => {
+  const b = changedBreakdown({ changed_activities: 2403, logic_changed: 1981, duration_only: 422 });
+  assert.deepEqual(b, { total: 2403, logic: 1981, duration: 422 });
+});
+test('logic + duration reconcile to the total', () => {
+  const b = changedBreakdown({ changed_activities: 2403, logic_changed: 1981, duration_only: 422 });
+  assert.equal(b.logic + b.duration, b.total);
+});
+test('defaults every field to 0 when missing', () =>
+  assert.deepEqual(changedBreakdown({}), { total: 0, logic: 0, duration: 0 }));
+test('tolerates a null dashboard', () =>
+  assert.deepEqual(changedBreakdown(null), { total: 0, logic: 0, duration: 0 }));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

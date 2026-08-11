@@ -931,6 +931,12 @@ body {
 .cmp-kpis .kpi { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
 .cmp-kpis .kpi .k { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
 .cmp-kpis .kpi .v { font-size: 18px; font-weight: 800; margin-top: 3px; }
+.cmp-kpi-changed .cmp-kpi-brk { display: flex; gap: 16px; margin-top: 8px; }
+.cmp-kpi-brk span { display: flex; flex-direction: column; font-size: 10px; color: var(--muted); font-weight: 600; }
+.cmp-kpi-brk b { font-size: 15px; color: var(--text); font-weight: 800; line-height: 1; margin-bottom: 2px; }
+.cmp-recon { font-size: 12px; color: var(--muted); background: var(--card-bg); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 8px 12px; line-height: 1.5; }
+.cmp-recon b { color: var(--text); font-weight: 800; }
+.cmp-chgsum-sub { color: var(--muted); font-weight: 500; }
 .cmp-chgsum { border: 1px solid var(--border); background: var(--card-bg); border-radius: 10px; padding: 12px 14px; }
 .cmp-chgsum-t { font-size: 13px; margin-bottom: 9px; }
 .cmp-chgsum-t b { font-weight: 800; color: var(--accent); }
@@ -942,8 +948,23 @@ body {
 .cmp-pill.cmp-add { color: var(--success); background: rgba(74,222,128,.14); }
 .cmp-pill.cmp-rem { color: var(--danger); background: rgba(248,113,113,.14); text-decoration: line-through; }
 .cmp-tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--border); color: var(--text); white-space: nowrap; }
-.cmp-log { min-width: 1360px; }
+/* Fit the whole logic table to the window: fixed layout + % column widths, no fixed
+   min-width, small font, tight rows, wrapping names — so every one of the 15 columns
+   (+ the serial) shows on screen with no sideways scroll. */
+.cmp-logwrap { overflow-x: auto; }
+.cmp-log { width: 100%; table-layout: fixed; }
+.cmp-log th, .cmp-log td { padding: 3px 5px; line-height: 1.2; font-size: 10.5px; word-break: break-word; overflow-wrap: anywhere; }
+.cmp-log thead th { font-size: 10px; vertical-align: bottom; }
+.cmp-log col.c-sn { width: 3.4%; } .cmp-log col.c-aid { width: 8%; } .cmp-log col.c-anm { width: 9.5%; } .cmp-log col.c-chg { width: 7.3%; }
+.cmp-log col.c-id { width: 8.1%; } .cmp-log col.c-rel { width: 3.3%; } .cmp-log col.c-nm { width: 6.6%; }
+.cmp-log .cmp-tag { white-space: normal; }
+.cmp-log .cmp-pill { padding: 1px 4px; }
+.cmp-log td.cmp-rel .cmp-pill { white-space: nowrap; padding: 1px 3px; }
 .cmp-log td { vertical-align: top; }
+.cmp-log td.cmp-sn { text-align: center; color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; word-break: normal; overflow-wrap: normal; }
+.cmp-log td.cmp-rel { text-align: center; }
+.cmp-log td.cmp-nm { color: var(--muted); }
+.cmp-log td.mono { font-family: ui-monospace,'Consolas',monospace; font-weight: 600; white-space: normal; overflow-wrap: anywhere; }
 .cmp-gh-base { text-align: center; color: var(--muted); background: var(--row-hover); border-left: 1px solid var(--border); }
 .cmp-gh-upd { text-align: center; color: var(--accent); background: rgba(59,130,246,.12); border-left: 1px solid rgba(59,130,246,.4); }
 .cmp-log td.sepL, .cmp-log th.sepL { border-left: 1px solid var(--border); }
@@ -956,7 +977,7 @@ body {
 .cmp-imp-direct { background: rgba(248,113,113,.16); color: var(--danger); }
 .cmp-imp-pot { background: rgba(251,191,36,.16); color: var(--warning); }
 .cmp-imp-none { background: var(--border); color: var(--muted); }
-.cmp-log td.mono, .cmp-table td.mono { font-family: ui-monospace,'Consolas',monospace; font-weight: 600; white-space: nowrap; }
+.cmp-table td.mono { font-family: ui-monospace,'Consolas',monospace; font-weight: 600; white-space: nowrap; }
 .cmp-log td.mut, .cmp-table td.mut { color: var(--muted); }
 .cmp-table td.num, .cmp-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cmp-over { color: var(--danger); font-weight: 700; }

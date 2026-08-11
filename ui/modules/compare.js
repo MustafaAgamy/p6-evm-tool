@@ -65,6 +65,33 @@ function _kpi(label, val) {
          `<div class="v">${escapeHtml(String(val))}</div></div>`;
 }
 
+// Dashboard reconciliation: the "changed activities" total splits into the driving-logic
+// subset and the duration-only remainder, which sum back to the total exactly. Pure and
+// unit-tested so the dashboard tile and the table heading can never drift apart.
+export function changedBreakdown(dash) {
+  const d = dash || {};
+  return {
+    total: d.changed_activities ?? 0,
+    logic: d.logic_changed ?? 0,
+    duration: d.duration_only ?? 0,
+  };
+}
+
+function _changedKpi(dash) {
+  const b = changedBreakdown(dash);
+  return `<div class="kpi cmp-kpi-changed"><div class="k">Changed activities</div>` +
+         `<div class="v">${escapeHtml(String(b.total))}</div>` +
+         `<div class="cmp-kpi-brk"><span><b>${escapeHtml(String(b.logic))}</b>logic / lag</span>` +
+         `<span><b>${escapeHtml(String(b.duration))}</b>duration</span></div></div>`;
+}
+
+function _reconHtml(dash) {
+  const b = changedBreakdown(dash);
+  return `<b>${escapeHtml(String(b.total))}</b> activities changed vs baseline = ` +
+         `<b>${escapeHtml(String(b.logic))}</b> with driving-logic / lag changes + ` +
+         `<b>${escapeHtml(String(b.duration))}</b> with duration changes only.`;
+}
+
 function _durStatus(status) {
   const map = {
     extended: ['cmp-st-ext', 'Duration extended'],
@@ -78,23 +105,33 @@ function _logicTable(rows) {
   if (!rows || !rows.length) {
     return '<p class="cmp-empty">No driving relationship or lag changes vs the baseline.</p>';
   }
-  const body = rows.map(r => `
+  const body = rows.map((r, i) => `
     <tr>
+      <td class="cmp-sn">${i + 1}</td>
       <td class="mono">${escapeHtml(r.activity_id)}</td>
       <td>${escapeHtml(r.activity_name)}</td>
       <td><span class="cmp-tag">${escapeHtml(r.change_label)}</span></td>
-      <td class="sepL">${cellStack(r.baseline_preds, 'id')}</td><td>${cellStack(r.baseline_preds, 'rel')}</td><td>${cellStack(r.baseline_preds, 'name')}</td>
-      <td>${cellStack(r.baseline_succs, 'id')}</td><td>${cellStack(r.baseline_succs, 'rel')}</td><td>${cellStack(r.baseline_succs, 'name')}</td>
-      <td class="sepU">${cellStack(r.update_preds, 'id')}</td><td>${cellStack(r.update_preds, 'rel')}</td><td>${cellStack(r.update_preds, 'name')}</td>
-      <td>${cellStack(r.update_succs, 'id')}</td><td>${cellStack(r.update_succs, 'rel')}</td><td>${cellStack(r.update_succs, 'name')}</td>
+      <td class="sepL mono">${cellStack(r.baseline_preds, 'id')}</td><td class="cmp-rel">${cellStack(r.baseline_preds, 'rel')}</td><td class="cmp-nm">${cellStack(r.baseline_preds, 'name')}</td>
+      <td class="mono">${cellStack(r.baseline_succs, 'id')}</td><td class="cmp-rel">${cellStack(r.baseline_succs, 'rel')}</td><td class="cmp-nm">${cellStack(r.baseline_succs, 'name')}</td>
+      <td class="sepU mono">${cellStack(r.update_preds, 'id')}</td><td class="cmp-rel">${cellStack(r.update_preds, 'rel')}</td><td class="cmp-nm">${cellStack(r.update_preds, 'name')}</td>
+      <td class="mono">${cellStack(r.update_succs, 'id')}</td><td class="cmp-rel">${cellStack(r.update_succs, 'rel')}</td><td class="cmp-nm">${cellStack(r.update_succs, 'name')}</td>
     </tr>`).join('');
-  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-log">
+  return `<div class="tblwrap cmp-logwrap"><table class="audit-table cmp-log">
+    <colgroup>
+      <col class="c-sn"><col class="c-aid"><col class="c-anm"><col class="c-chg">
+      <col class="c-id"><col class="c-rel"><col class="c-nm">
+      <col class="c-id"><col class="c-rel"><col class="c-nm">
+      <col class="c-id"><col class="c-rel"><col class="c-nm">
+      <col class="c-id"><col class="c-rel"><col class="c-nm">
+    </colgroup>
     <thead>
-      <tr><th rowspan="2">Activity ID</th><th rowspan="2">Activity name</th><th rowspan="2">Change</th>
+      <tr><th rowspan="3">#</th><th rowspan="3">Activity ID</th><th rowspan="3">Activity name</th><th rowspan="3">Change</th>
         <th colspan="6" class="cmp-gh-base">Baseline — driving links</th>
         <th colspan="6" class="cmp-gh-upd">Update — driving links</th></tr>
-      <tr><th class="sepL">Pred. ID</th><th>Pred. rel</th><th>Pred. name</th><th>Succ. ID</th><th>Succ. rel</th><th>Succ. name</th>
-        <th class="sepU">Pred. ID</th><th>Pred. rel</th><th>Pred. name</th><th>Succ. ID</th><th>Succ. rel</th><th>Succ. name</th></tr>
+      <tr><th colspan="3" class="sepL cmp-gh-base">Predecessor</th><th colspan="3" class="cmp-gh-base">Successor</th>
+        <th colspan="3" class="sepU cmp-gh-upd">Predecessor</th><th colspan="3" class="cmp-gh-upd">Successor</th></tr>
+      <tr><th class="sepL">Pred. ID</th><th>Rel</th><th>Pred. name</th><th>Succ. ID</th><th>Rel</th><th>Succ. name</th>
+        <th class="sepU">Pred. ID</th><th>Rel</th><th>Pred. name</th><th>Succ. ID</th><th>Rel</th><th>Succ. name</th></tr>
     </thead>
     <tbody>${body}</tbody></table></div>
     <div class="cmp-foot">Every predecessor and successor relationship is read straight from the files. <b>▶ bold</b> = the driving link (date-derived; may be absent on completed activities). Red = changed vs baseline · green = added · struck = removed.</div>`;
@@ -172,14 +209,15 @@ export function renderCompareReport(report) {
     ${mismatch}
     <div class="mod-sec">Executive dashboard</div>
     <div class="cmp-kpis">
-      ${_kpi('Changed activities', dash.changed_activities ?? 0)}
+      ${_changedKpi(dash)}
       ${_kpi('Baseline finish', report.baseline_finish || '—')}
       ${_kpi('Update finish', report.update_finish || '—')}
       ${_kpi('Data date', report.data_date || '—')}
     </div>
+    <div class="cmp-recon">${_reconHtml(dash)}</div>
     <div class="mod-sec">Driving logic &amp; lag changes vs baseline</div>
     <div class="cmp-chgsum">
-      <div class="cmp-chgsum-t">Total changed activities: <b>${logic.summary.changed_activities ?? 0}</b></div>
+      <div class="cmp-chgsum-t">Activities with driving-logic / lag changes: <b>${dash.logic_changed ?? logic.summary.changed_activities ?? 0}</b><span class="cmp-chgsum-sub"> — of the ${dash.changed_activities ?? 0} total changed (the other ${dash.duration_only ?? 0} changed in duration only)</span></div>
       <div class="cmp-pills">${summaryPills(cs.items)}</div>
     </div>
     ${_logicTable(logic.rows)}
