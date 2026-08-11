@@ -84,9 +84,11 @@ def build_report_from_data(baseline, update, config=None):
         _dur_counts[r['status']] = _dur_counts.get(r['status'], 0) + 1
     durations['counts'] = _dur_counts
 
-    items = [{'kind': k, 'label': _KIND_LABEL.get(k, k), 'count': n}
+    # Tag each summary item with its group so the dashboard "how the logic changed"
+    # chart can pick out the logic kinds without re-listing them.
+    items = [{'kind': k, 'label': _KIND_LABEL.get(k, k), 'count': n, 'group': 'logic'}
              for k, n in logic['summary']['by_kind'].items()]
-    items += [{'kind': k, 'label': _DUR_LABEL.get(k, k), 'count': n}
+    items += [{'kind': k, 'label': _DUR_LABEL.get(k, k), 'count': n, 'group': 'duration'}
               for k, n in durations['counts'].items()]
 
     # Reconcile the two "changed activities" numbers the user sees: the dashboard total
@@ -97,6 +99,12 @@ def build_report_from_data(baseline, update, config=None):
     duration_ids = {r['activity_id'] for r in durations['rows']}
     changed_ids = logic_ids | duration_ids
     duration_only_ids = duration_ids - logic_ids
+
+    # Finish slip for the dashboard chart: signed days the completion date moved
+    # (positive = the update finishes later than the baseline). Raw dates kept so
+    # baseline_finish / update_finish below format the same value.
+    bf_date, uf_date = _project_finish(baseline), _project_finish(update)
+    finish_slip_days = (uf_date - bf_date).days if (bf_date and uf_date) else None
 
     milestones = []
     for code in matched.milestone_codes:
@@ -112,15 +120,16 @@ def build_report_from_data(baseline, update, config=None):
     return {
         'project_name': (update.project or {}).get('name') or '',
         'data_date': _fmt((update.project or {}).get('data_date')),
-        'baseline_finish': _fmt(_project_finish(baseline)),
-        'update_finish': _fmt(_project_finish(update)),
+        'baseline_finish': _fmt(bf_date),
+        'update_finish': _fmt(uf_date),
         # Guard against a wrong baseline pick: if almost nothing matches by Activity ID,
         # an empty report means "these files don't line up", not "no changes".
         'matched_activities': len(matched.matched_codes),
         'update_activity_count': len(update.activities),
         'dashboard': {'changed_activities': len(changed_ids),
                       'logic_changed': len(logic_ids),
-                      'duration_only': len(duration_only_ids)},
+                      'duration_only': len(duration_only_ids),
+                      'finish_slip_days': finish_slip_days},
         'change_summary': {'changed_activities': logic['summary']['changed_activities'], 'items': items},
         'logic': logic,
         'durations': durations,

@@ -77,6 +77,122 @@ export function changedBreakdown(dash) {
   };
 }
 
+// ── Executive-dashboard charts — pure data helpers (unit-tested) ────────────
+
+// Ranked bars for "how the logic was changed": the logic-group change-summary items,
+// biggest first, each with a width % relative to the largest. Duration items dropped.
+export function changeTypeBars(items) {
+  const logic = (items || []).filter(it => it && it.group === 'logic' && (it.count || 0) > 0);
+  logic.sort((a, b) => (b.count || 0) - (a.count || 0));
+  const max = logic.length ? (logic[0].count || 1) : 1;
+  return logic.map(it => ({
+    label: it.label || it.kind || '',
+    count: it.count || 0,
+    pct: Math.round((it.count || 0) / max * 100),
+  }));
+}
+
+// Finish-slip headline: signed days → magnitude + direction word. Positive = later.
+export function slipInfo(days) {
+  if (days == null) return { value: null, word: 'no finish date', dir: 'none' };
+  if (days > 0) return { value: days, word: days === 1 ? 'day later' : 'days later', dir: 'late' };
+  if (days < 0) return { value: -days, word: days === -1 ? 'day earlier' : 'days earlier', dir: 'early' };
+  return { value: 0, word: 'on the baseline finish', dir: 'ontime' };
+}
+
+// Two-segment donut fractions (logic vs duration-only), guarding a zero total.
+export function donutSegments(logic, duration) {
+  const l = Math.max(0, logic || 0), d = Math.max(0, duration || 0), t = l + d;
+  return t ? { logicFrac: l / t, durationFrac: d / t } : { logicFrac: 0, durationFrac: 0 };
+}
+
+// ── Chart rendering (DOM) ───────────────────────────────────────────────────
+
+const _DONUT_C = 326.726;   // circumference of the r=52 donut ring
+
+function _chartBars(report) {
+  const bars = changeTypeBars((report.change_summary || {}).items);
+  if (!bars.length) return '<p class="cmp-empty">No driving-logic or lag changes to chart.</p>';
+  return `<div class="cmp-bars">${bars.map(b => `
+    <div class="cmp-bar-row">
+      <div class="cmp-bar-label" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</div>
+      <div class="cmp-bar-track"><div class="cmp-bar-fill" style="width:${b.pct}%"></div></div>
+      <div class="cmp-bar-val">${escapeHtml(String(b.count))}</div>
+    </div>`).join('')}</div>`;
+}
+
+function _chartSlip(report) {
+  const s = slipInfo((report.dashboard || {}).finish_slip_days);
+  const cls = { late: 'cmp-slip-late', early: 'cmp-slip-early', ontime: 'cmp-slip-flat', none: 'cmp-slip-flat' }[s.dir];
+  const num = s.value == null ? '—' : `${s.dir === 'late' ? '+' : s.dir === 'early' ? '−' : ''}${s.value}`;
+  const dd = report.data_date || '—', bf = report.baseline_finish || '—', uf = report.update_finish || '—';
+  const slipLine = (s.dir === 'late' || s.dir === 'early')
+    ? `<line x1="150" y1="30" x2="268" y2="30" stroke="${s.dir === 'late' ? 'var(--danger)' : 'var(--success,#16a34a)'}" stroke-width="6" stroke-linecap="round"/>`
+    : '';
+  return `
+    <div class="cmp-slip-head"><span class="cmp-slip-num ${cls}">${escapeHtml(num)}</span>
+      <span class="cmp-slip-cap">${escapeHtml(s.word)}<br>than the baseline finish</span></div>
+    <svg viewBox="0 0 300 64" width="100%" role="img" aria-label="Baseline finish versus update finish, ${escapeHtml(s.word)}">
+      <line x1="14" y1="30" x2="286" y2="30" stroke="var(--border)" stroke-width="2" stroke-linecap="round"/>
+      ${slipLine}
+      <circle cx="36" cy="30" r="4.5" fill="var(--muted)"/>
+      <text x="36" y="48" text-anchor="middle" style="font-size:8.5px;fill:var(--muted)">Data date</text>
+      <text x="36" y="59" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:var(--text)">${escapeHtml(dd)}</text>
+      <circle cx="150" cy="30" r="5.5" fill="var(--card-bg)" stroke="var(--accent)" stroke-width="3"/>
+      <text x="150" y="15" text-anchor="middle" style="font-size:8.5px;fill:var(--muted)">Baseline</text>
+      <text x="150" y="48" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:var(--text)">${escapeHtml(bf)}</text>
+      <circle cx="268" cy="30" r="5.5" fill="var(--danger)"/>
+      <text x="268" y="15" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:var(--danger)">Update</text>
+      <text x="268" y="48" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:var(--text)">${escapeHtml(uf)}</text>
+    </svg>`;
+}
+
+function _chartDonut(report) {
+  const b = changedBreakdown(report.dashboard);
+  const seg = donutSegments(b.logic, b.duration);
+  const gap = (seg.logicFrac > 0 && seg.durationFrac > 0) ? 2 : 0;
+  const la = Math.max(0, seg.logicFrac * _DONUT_C - gap), da = Math.max(0, seg.durationFrac * _DONUT_C - gap);
+  const pct = f => Math.round(f * 100);
+  return `
+    <div class="cmp-donut-wrap">
+      <svg viewBox="0 0 130 130" width="108" height="108" role="img" aria-label="${escapeHtml(String(b.total))} changed: ${escapeHtml(String(b.logic))} logic or lag, ${escapeHtml(String(b.duration))} duration only">
+        <circle cx="65" cy="65" r="52" fill="none" stroke="var(--border)" stroke-width="20"/>
+        <circle cx="65" cy="65" r="52" fill="none" stroke="var(--accent)" stroke-width="20"
+                stroke-dasharray="${la.toFixed(1)} ${(_DONUT_C - la).toFixed(1)}" transform="rotate(-90 65 65)"/>
+        <circle cx="65" cy="65" r="52" fill="none" stroke="#eb6834" stroke-width="20"
+                stroke-dasharray="${da.toFixed(1)} ${(_DONUT_C - da).toFixed(1)}" stroke-dashoffset="${(-seg.logicFrac * _DONUT_C).toFixed(1)}" transform="rotate(-90 65 65)"/>
+        <text x="65" y="61" text-anchor="middle" style="font-size:20px;font-weight:800;fill:var(--text)">${escapeHtml(String(b.total))}</text>
+        <text x="65" y="78" text-anchor="middle" style="font-size:9px;fill:var(--muted)">changed</text>
+      </svg>
+      <div class="cmp-donut-legend">
+        <div><i style="background:var(--accent)"></i><b>${escapeHtml(String(b.logic))}</b> logic / lag <span class="mut">(${pct(seg.logicFrac)}%)</span></div>
+        <div><i style="background:#eb6834"></i><b>${escapeHtml(String(b.duration))}</b> duration only <span class="mut">(${pct(seg.durationFrac)}%)</span></div>
+      </div>
+    </div>`;
+}
+
+function _chartsSection(report) {
+  const total = changedBreakdown(report.dashboard).total;
+  return `
+    <div class="cmp-charts">
+      <div class="cmp-chart">
+        <div class="cmp-chart-t">How the logic was changed</div>
+        <div class="cmp-chart-s">Every driving-logic / lag change, by type — the fingerprint of what changed.</div>
+        ${_chartBars(report)}
+      </div>
+      <div class="cmp-chart">
+        <div class="cmp-chart-t">Finish slip vs baseline</div>
+        <div class="cmp-chart-s">How far the completion date moved.</div>
+        ${_chartSlip(report)}
+      </div>
+      <div class="cmp-chart">
+        <div class="cmp-chart-t">Changed activities</div>
+        <div class="cmp-chart-s">The ${escapeHtml(String(total))} split by what changed.</div>
+        ${_chartDonut(report)}
+      </div>
+    </div>`;
+}
+
 function _changedKpi(dash) {
   const b = changedBreakdown(dash);
   return `<div class="kpi cmp-kpi-changed"><div class="k">Changed activities</div>` +
@@ -215,6 +331,7 @@ export function renderCompareReport(report) {
       ${_kpi('Data date', report.data_date || '—')}
     </div>
     <div class="cmp-recon">${_reconHtml(dash)}</div>
+    ${_chartsSection(report)}
     <div class="mod-sec">Driving logic &amp; lag changes vs baseline</div>
     <div class="cmp-chgsum">
       <div class="cmp-chgsum-t">Activities with driving-logic / lag changes: <b>${dash.logic_changed ?? logic.summary.changed_activities ?? 0}</b><span class="cmp-chgsum-sub"> — of the ${dash.changed_activities ?? 0} total changed (the other ${dash.duration_only ?? 0} changed in duration only)</span></div>

@@ -181,6 +181,78 @@ def _impact_html(impact):
       <div class="reco">{_e(impact.get('recommendation'))}</div>'''
 
 
+def _charts_html(report):
+    """Executive-dashboard charts for the PDF: change-type bars, finish-slip timeline,
+    changed-activity donut. Static HTML/SVG (light theme) mirroring the on-screen charts."""
+    dash = report.get('dashboard', {}) or {}
+    total = dash.get('changed_activities', 0) or 0
+    logic_n = dash.get('logic_changed', 0) or 0
+    dur_n = dash.get('duration_only', 0) or 0
+
+    # 1) change-type bars — logic-group items, biggest first
+    items = [it for it in (report.get('change_summary', {}) or {}).get('items', [])
+             if it.get('group') == 'logic' and (it.get('count') or 0) > 0]
+    items.sort(key=lambda it: -(it.get('count') or 0))
+    if items:
+        mx = items[0].get('count') or 1
+        bars = ''.join(
+            f'<div class="cbar"><div class="cbl">{_e(it.get("label"))}</div>'
+            f'<div class="cbt"><div class="cbf" style="width:{round((it.get("count") or 0) / mx * 100)}%"></div></div>'
+            f'<div class="cbv">{_e(it.get("count"))}</div></div>' for it in items)
+    else:
+        bars = '<p class="note">No driving-logic or lag changes.</p>'
+
+    # 2) finish slip
+    slip = dash.get('finish_slip_days')
+    if slip is None:
+        snum, sword, scol, sline = '—', 'no finish date', '#64748b', ''
+    elif slip > 0:
+        snum, sword, scol = f'+{slip}', ('day later' if slip == 1 else 'days later'), _RED
+        sline = f'<line x1="150" y1="30" x2="268" y2="30" stroke="{_RED}" stroke-width="6" stroke-linecap="round"/>'
+    elif slip < 0:
+        snum, sword, scol = f'−{-slip}', ('day earlier' if slip == -1 else 'days earlier'), '#16a34a'
+        sline = f'<line x1="150" y1="30" x2="268" y2="30" stroke="#16a34a" stroke-width="6" stroke-linecap="round"/>'
+    else:
+        snum, sword, scol, sline = '0', 'on the baseline finish', '#64748b', ''
+    dd, bf, uf = _e(report.get('data_date') or '—'), _e(report.get('baseline_finish') or '—'), _e(report.get('update_finish') or '—')
+    slip_svg = (f'<div class="slh"><span class="sln" style="color:{scol}">{snum}</span>'
+                f'<span class="slc">{sword}<br>than the baseline finish</span></div>'
+                '<svg viewBox="0 0 300 64" width="100%">'
+                '<line x1="14" y1="30" x2="286" y2="30" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>'
+                f'{sline}'
+                '<circle cx="36" cy="30" r="4.5" fill="#94a3b8"/>'
+                '<text x="36" y="48" text-anchor="middle" font-size="8.5" fill="#64748b">Data date</text>'
+                f'<text x="36" y="59" text-anchor="middle" font-size="8.5" font-weight="700" fill="#1e293b">{dd}</text>'
+                f'<circle cx="150" cy="30" r="5.5" fill="#fff" stroke="{_BLUE}" stroke-width="3"/>'
+                '<text x="150" y="15" text-anchor="middle" font-size="8.5" fill="#64748b">Baseline</text>'
+                f'<text x="150" y="48" text-anchor="middle" font-size="8.5" font-weight="700" fill="#1e293b">{bf}</text>'
+                f'<circle cx="268" cy="30" r="5.5" fill="{_RED}"/>'
+                f'<text x="268" y="15" text-anchor="middle" font-size="8.5" font-weight="700" fill="{_RED}">Update</text>'
+                f'<text x="268" y="48" text-anchor="middle" font-size="8.5" font-weight="700" fill="#1e293b">{uf}</text>'
+                '</svg>')
+
+    # 3) changed-activity donut
+    C = 326.726
+    t = logic_n + dur_n
+    lf, df = (logic_n / t, dur_n / t) if t else (0.0, 0.0)
+    gap = 2 if (lf > 0 and df > 0) else 0
+    la, da = max(0.0, lf * C - gap), max(0.0, df * C - gap)
+    donut = (f'<div class="dnw"><svg viewBox="0 0 130 130" width="104" height="104">'
+             '<circle cx="65" cy="65" r="52" fill="none" stroke="#e2e8f0" stroke-width="20"/>'
+             f'<circle cx="65" cy="65" r="52" fill="none" stroke="{_BLUE}" stroke-width="20" stroke-dasharray="{la:.1f} {C - la:.1f}" transform="rotate(-90 65 65)"/>'
+             f'<circle cx="65" cy="65" r="52" fill="none" stroke="#eb6834" stroke-width="20" stroke-dasharray="{da:.1f} {C - da:.1f}" stroke-dashoffset="{-lf * C:.1f}" transform="rotate(-90 65 65)"/>'
+             f'<text x="65" y="61" text-anchor="middle" font-size="20" font-weight="800" fill="#1e293b">{total}</text>'
+             '<text x="65" y="78" text-anchor="middle" font-size="9" fill="#64748b">changed</text></svg>'
+             f'<div class="dnl"><div><i style="background:{_BLUE}"></i><b>{logic_n}</b> logic / lag <span>({round(lf * 100)}%)</span></div>'
+             f'<div><i style="background:#eb6834"></i><b>{dur_n}</b> duration only <span>({round(df * 100)}%)</span></div></div></div>')
+
+    return (f'<div class="charts">'
+            f'<div class="chart"><div class="ct">How the logic was changed</div><div class="cs">Every driving-logic / lag change, by type.</div>{bars}</div>'
+            f'<div class="chart"><div class="ct">Finish slip vs baseline</div><div class="cs">How far the completion date moved.</div>{slip_svg}</div>'
+            f'<div class="chart"><div class="ct">Changed activities</div><div class="cs">The {total} split by what changed.</div>{donut}</div>'
+            f'</div>')
+
+
 def render_html(report, impact=None):
     cs = report.get('change_summary', {}) or {}
     pills = ''.join(f'<span class="pill">{it.get("count")} {_e(it.get("label"))}</span>'
@@ -213,10 +285,28 @@ def render_html(report, impact=None):
       .legend {{ font-size: 11px; color: #64748b; margin: 4px 0; }}
       .legend span {{ margin-right: 16px; }} .legend i {{ display: inline-block; width: 16px; height: 3px; vertical-align: middle; margin-right: 5px; }}
       .reco {{ border: 1px solid #e2e8f0; border-left: 4px solid #16a34a; border-radius: 0 8px 8px 0; padding: 10px 14px; line-height: 1.6; }}
+      .charts {{ display: grid; grid-template-columns: 1.5fr 1.15fr 1fr; gap: 10px; margin: 10px 0; }}
+      .chart {{ border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }}
+      .ct {{ font-size: 12px; font-weight: 800; }}
+      .cs {{ font-size: 10px; color: #64748b; margin: 2px 0 9px; }}
+      .cbar {{ display: grid; grid-template-columns: 120px 1fr 30px; align-items: center; gap: 7px; margin-bottom: 6px; }}
+      .cbl {{ font-size: 9.5px; color: #475569; text-align: right; line-height: 1.15; }}
+      .cbt {{ height: 12px; background: #eef1f5; border-radius: 6px; overflow: hidden; }}
+      .cbf {{ height: 100%; background: #2a78d6; border-radius: 6px; }}
+      .cbv {{ font-size: 10px; font-weight: 800; text-align: right; }}
+      .slh {{ display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }}
+      .sln {{ font-size: 24px; font-weight: 800; line-height: 1; }}
+      .slc {{ font-size: 10px; color: #64748b; font-weight: 600; }}
+      .dnw {{ display: flex; align-items: center; gap: 10px; }}
+      .dnl {{ font-size: 10.5px; }}
+      .dnl div {{ display: flex; align-items: center; gap: 6px; margin: 4px 0; }}
+      .dnl i {{ width: 10px; height: 10px; border-radius: 2px; }}
+      .dnl span {{ color: #64748b; }}
     </style></head><body>
       <h1>Consultant Review — Baseline vs Current Update</h1>
       <div class="sub">{_e(report.get('project_name'))} · data date {_e(report.get('data_date'))} · baseline {_e(report.get('baseline_file'))} vs {_e(report.get('update_file'))}</div>
       {dash}
+      {_charts_html(report)}
       <h2>Driving logic &amp; lag changes vs baseline</h2>
       <p class="recon">Activities with driving-logic / lag changes: <b>{dboard.get('logic_changed', 0)}</b> — of the {dboard.get('changed_activities', 0)} total changed (the other {dboard.get('duration_only', 0)} changed in duration only).</p>
       <div>{pills}</div>

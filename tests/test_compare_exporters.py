@@ -56,6 +56,23 @@ def test_render_html_dashboard_reconciles_changed_counts():
     assert '1 duration' in h
 
 
+def test_render_html_includes_dashboard_charts():
+    r = _report()
+    r['dashboard']['finish_slip_days'] = 13
+    r['change_summary']['items'] = [
+        {'kind': 'lag', 'label': 'driving lag changed', 'count': 2, 'group': 'logic'},
+        {'kind': 'extended', 'label': 'duration extended', 'count': 1, 'group': 'duration'},
+    ]
+    h = render_html(r)
+    assert 'How the logic was changed' in h        # change-type bar chart
+    assert 'driving lag changed' in h              # the logic bar label
+    assert 'cbf' in h                              # a bar fill was drawn
+    assert 'Finish slip vs baseline' in h          # slip timeline card
+    assert '+13' in h                              # slip headline (13 days later)
+    assert 'Changed activities' in h               # donut card
+    assert '<svg' in h                             # slip + donut are SVG
+
+
 def test_render_html_without_impact_is_self_contained_landscape():
     h = render_html(_report())
     assert h.startswith('<!doctype html>')

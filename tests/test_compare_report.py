@@ -66,9 +66,15 @@ def test_report_shape_and_wiring():
     assert r['dashboard']['logic_changed'] == 2
     assert r['dashboard']['duration_only'] == 1
     assert r['dashboard']['logic_changed'] + r['dashboard']['duration_only'] == r['dashboard']['changed_activities']
-    # change summary carries both lag items and an extended item
+    # finish slip feeds the dashboard chart: update finish 22-Feb-2027 is 13 days later
+    # than the baseline finish 09-Feb-2027 (positive = slipped later).
+    assert r['dashboard']['finish_slip_days'] == 13
+    # change summary carries both lag items and an extended item…
     labels = {it['kind']: it['count'] for it in r['change_summary']['items']}
     assert labels.get('lag') == 2 and labels.get('extended') == 1
+    # …each tagged logic vs duration so the "how the logic changed" chart can pick the logic ones
+    groups = {it['kind']: it['group'] for it in r['change_summary']['items']}
+    assert groups.get('lag') == 'logic' and groups.get('extended') == 'duration'
     # milestones compare baseline vs update finish
     m = next(x for x in r['milestones'] if x['activity_id'] == 'M900')
     assert m['baseline_finish'] == '09-Feb-2027' and m['update_finish'] == '22-Feb-2027'
