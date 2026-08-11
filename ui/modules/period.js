@@ -110,7 +110,7 @@ function _kpi(label, value, sub, cls) {
 }
 
 const _shortDD = d => (d || '').replace(/-\d{4}$/, '');           // 30-Jun-2026 → 30-Jun
-const _spiTxt = v => (v == null ? '—' : v.toFixed(2));
+const _spiTxt = v => (v == null ? '—' : Math.round(v * 100) + '%');   // SPI as a whole percentage
 const _wdTxt = v => (v == null ? '—' : `${v} wd`);
 
 // A Previous → Current → Variance strip. `good` colours the variance cell (green/red).
@@ -139,7 +139,7 @@ function _dashboard(report) {
   let spi = '';
   if (s.prev_spi != null || s.curr_spi != null) {
     const v = s.spi_variance, good = v == null ? true : v >= 0;
-    const vs = v == null ? '—' : `${v > 0 ? '▲ +' : (v < 0 ? '▼ ' : '• ')}${v.toFixed(2)}`;
+    const vs = v == null ? '—' : `${v > 0 ? '▲ +' : (v < 0 ? '▼ ' : '• ')}${Math.round(v * 100)}%`;
     spi = `<div class="per-striplabel">Schedule Performance Index (SPI)</div>` +
       _trendStrip('Previous SPI', pw, _spiTxt(s.prev_spi), 'Current SPI', cw, _spiTxt(s.curr_spi), vs, good,
         v == null ? '' : (good ? 'SPI improved' : 'SPI worsened'));
@@ -168,7 +168,91 @@ function _dashboard(report) {
     <div class="per-striplabel">Overall % Complete — Current vs Previous</div>${pct}
     ${spi}${delay}${finish}
     ${_recoveryHtml(report)}
-    ${_factsHtml(report)}`;
+    ${_factsHtml(report)}
+    ${_defsHtml()}`;
+}
+
+// Plain-English definitions so a non-planner can read the report unaided.
+function _defsHtml() {
+  const defs = [
+    ['Forecast achievement', 'how much of what you forecast last period you actually delivered (100% = hit your plan; 78% = about three-quarters).'],
+    ['Schedule adherence', 'of the activities that were due to finish this period, how many actually finished (72% = 13 of 18).'],
+    ['Started this period', 'activities that got underway this period (recorded their first progress).'],
+    ['New critical activities', 'activities that became critical this period — any delay to them now pushes the project finish date.'],
+  ];
+  return `<div class="per-defs"><div class="per-defs-h">What these numbers mean</div>` +
+    defs.map(([a, b]) => `<div class="per-def"><b>${escapeHtml(a)}</b> — ${escapeHtml(b)}</div>`).join('') + `</div>`;
+}
+
+// Progress bar (replaces the S-curve): fill to actual, marker at last-update forecast,
+// plus the forecast-vs-actual bars for the period.
+function _progressBarHtml(report) {
+  const s = report.summary || {};
+  const an = s.actual_now, fn = s.forecast_at_now, pe = s.period_earned, pf = s.period_forecast;
+  if (an == null) return '<p class="cmp-empty">No progress figures for this period.</p>';
+  const fill = Math.max(0, Math.min(100, an));
+  let marker = '', behind = '';
+  if (fn != null) {
+    const m = Math.max(0, Math.min(100, fn)), gap = Math.round((fn - an) * 10) / 10;
+    marker = `<div class="per-pmark" style="left:${m}%"><span class="per-plab">forecast ${Math.round(fn)}% (last update) ▾</span></div>`;
+    behind = ` · last update forecast <b>${Math.round(fn)}%</b> by now — <b>${gap <= 0 ? 'on/ahead' : Math.round(Math.abs(gap)) + '% behind'}</b>`;
+  }
+  const mx = Math.max(Math.abs(pe || 0), Math.abs(pf || 0), 1);
+  const bar = (lbl, val, cls) => `<div class="per-tb"><span class="per-tb-l">${lbl}</span><div class="per-tb-track"><div class="per-tb-${cls}" style="width:${Math.min(100, Math.abs(val || 0) / mx * 100)}%">${_signPct(val)}</div></div></div>`;
+  return `<div class="cmp-scurve-card">
+    <div class="per-pbtop"><span>0%</span><span>Finish = 100%</span></div>
+    <div class="per-pbar"><div class="per-pfill" style="width:${fill}%">${Math.round(fill)}%</div>${marker}</div>
+    <div class="per-pbbot">You are at <b>${Math.round(an)}%</b>${behind}</div>
+    <div class="per-twobar">${bar('Forecast — last update', pf, 'p')}${bar('Actual — this update', pe, 'a')}</div>
+    <div class="per-chartlegend">
+      <div><span class="per-lgsw" style="background:#f0b357"></span><b>Forecast — last update</b>: what your <b>previous</b> update said it would complete this window (its own plan for the period, <b>not</b> the baseline).</div>
+      <div><span class="per-lgsw" style="background:#3b82f6"></span><b>Actual — this update</b>: what you actually completed, from the <b>current</b> update.</div>
+    </div></div>`;
+}
+
+// Milestone section: a table (baseline / prev / current / slippage) then a drift chart.
+function _milestoneSection(report) {
+  const rows = (report.milestones || {}).rows || [];
+  if (!rows.length) return '<p class="cmp-empty">No key milestones matched between the two updates.</p>';
+  const slip = (sp, sb) => sp == null ? '—'
+    : (sp > 0 ? `<span class="per-slip-bad">▼ +${sp} d${sb != null ? ` (→ +${sb} d vs baseline)` : ''}</span>`
+      : (sp < 0 ? `<span class="per-slip-good">▲ ${Math.abs(sp)} d earlier</span>` : `<span class="per-slip-good">• on track</span>`));
+  const body = rows.map(r => `<tr><td>${escapeHtml(r.name)}</td>
+    <td class="num mono">${escapeHtml(r.baseline_finish)}</td><td class="num mono">${escapeHtml(r.prev_forecast)}</td>
+    <td class="num mono">${escapeHtml(r.curr_forecast)}</td><td>${slip(r.slip_period_days, r.slip_baseline_days)}</td></tr>`).join('');
+  const table = `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
+    <thead><tr><th>Key milestone</th><th class="num">Baseline</th><th class="num">Previous forecast</th>
+      <th class="num">Current forecast</th><th>Slippage this period</th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
+  return table + `<div class="cmp-scurve-card" style="margin-top:10px">${_milestoneDriftSvg(rows)}</div>`;
+}
+
+function _milestoneDriftSvg(rows) {
+  const od = iso => Date.parse(iso);
+  const all = [];
+  rows.forEach(r => ['baseline_iso', 'prev_iso', 'curr_iso'].forEach(k => { if (r[k]) all.push(od(r[k])); }));
+  if (all.length < 2) return '<span class="mut">Not enough milestone dates to draw the drift chart.</span>';
+  let tmin = Math.min(...all), tmax = Math.max(...all);
+  if (tmin === tmax) { tmin -= 8.64e7 * 15; tmax += 8.64e7 * 15; }
+  const x0 = 150, x1 = 590, rowh = 30, top = 14, n = rows.length, h = top + n * rowh + 26;
+  const xAt = t => x0 + (x1 - x0) * ((t - tmin) / (tmax - tmin));
+  let parts = '';
+  for (let k = 0; k < 5; k++) {
+    const t = tmin + (tmax - tmin) * k / 4, x = xAt(t), d = new Date(t);
+    const lab = d.toLocaleString('en', { month: 'short' }) + '-' + String(d.getFullYear()).slice(2);
+    parts += `<line x1="${x.toFixed(0)}" y1="${top}" x2="${x.toFixed(0)}" y2="${top + n * rowh}" stroke="var(--border)"/><text x="${x.toFixed(0)}" y="${top + n * rowh + 15}" text-anchor="middle" font-size="9.5" fill="var(--muted)">${lab}</text>`;
+  }
+  rows.forEach((r, i) => {
+    const y = top + i * rowh + 15;
+    parts += `<text x="${x0 - 10}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--text)">${escapeHtml(r.name)}</text>`;
+    const xs = ['baseline_iso', 'prev_iso', 'curr_iso'].filter(k => r[k]).map(k => xAt(od(r[k])));
+    if (xs.length >= 2) parts += `<line x1="${Math.min(...xs).toFixed(0)}" y1="${y}" x2="${Math.max(...xs).toFixed(0)}" y2="${y}" stroke="var(--border)"/>`;
+    if (r.baseline_iso) parts += `<circle cx="${xAt(od(r.baseline_iso)).toFixed(0)}" cy="${y}" r="5" fill="var(--card-bg)" stroke="#94a3b8" stroke-width="2"/>`;
+    if (r.prev_iso) parts += `<circle cx="${xAt(od(r.prev_iso)).toFixed(0)}" cy="${y}" r="4.5" fill="#d97706"/>`;
+    if (r.curr_iso) parts += `<circle cx="${xAt(od(r.curr_iso)).toFixed(0)}" cy="${y}" r="5" fill="#ef4444"/>`;
+  });
+  return `<div class="cmp-scurve-legend"><span><i style="background:var(--card-bg);border:2px solid #94a3b8;border-radius:50%;width:10px;height:10px"></i>Baseline</span><span><i style="background:#d97706;border-radius:50%;width:11px;height:11px"></i>Previous forecast</span><span><i style="background:#ef4444;border-radius:50%;width:11px;height:11px"></i>Current forecast</span></div>
+    <svg viewBox="0 0 620 ${h}" width="100%" role="img" aria-label="Milestone drift chart">${parts}</svg>`;
 }
 
 // Recovery outlook (planning-manager projection — indicative, not a P6 CPM result).
@@ -397,27 +481,20 @@ export function renderPeriodReport(report) {
     </div>
     ${mismatch}
     ${_verdictBanner(report)}
+    <div class="mod-sec">Progress — where you are vs where you said you’d be</div>
+    ${_progressBarHtml(report)}
     <div class="mod-sec">Execution Dashboard — progress this period</div>
     ${_dashboard(report)}
-    <div class="mod-sec">Period S-curve — actual vs last period’s forecast</div>
-    <div class="cmp-scurve-card">
-      <div class="cmp-scurve-legend">
-        <span><i style="background:#3b82f6"></i>Actual to date</span>
-        <span><i style="background:#f59e0b"></i>Where last period said you’d be</span>
-      </div>
-      ${_periodScurveSvg(report.scurve)}
-      <div class="cmp-scurve-note">The amber line is the previous update’s own forecast; the gap at this data date is the shortfall against your own commitment.</div>
-    </div>
     <div class="mod-sec">Progress by activity — % complete this period</div>
     ${_progressSection(report)}
     <div class="mod-sec">Critical-path movement in this window</div>
     ${_criticalTable(report.critical_movement)}
     <div class="mod-sec">Next-period watch list</div>
     ${_watchTable(report)}
+    <div class="mod-sec">Milestones — baseline vs previous vs current forecast</div>
+    ${_milestoneSection(report)}
     <div class="mod-sec">What moved this period</div>
     ${_bucketsTable(report.buckets)}
-    <div class="mod-sec">Milestone finish trend — every update so far</div>
-    <div id="per-trend" class="cmp-scurve-card"><div class="cmp-loading">Loading milestone trend…</div></div>
     <div class="mod-sec">Executive conclusion — this period</div>
     <div class="cmp-reco">${escapeHtml(report.conclusion || '')}</div>
     <div class="mod-sec">Project conclusion &amp; outlook</div>
@@ -427,7 +504,6 @@ export function renderPeriodReport(report) {
   const exls = document.getElementById('per-export-xlsx');
   if (exls) exls.addEventListener('click', exportPeriodExcel);
   _wireSlicer();
-  _fetchTrend();
 }
 
 // ── Exports (PDF + Excel) ───────────────────────────────────────────────────
@@ -584,5 +660,5 @@ function _fileBar(report) {
 }
 
 // Pure helpers exposed for unit tests.
-export { _signPct as signPct, _shortDate as shortDate, _periodScurveSvg as periodScurveSvg,
-         _milestoneTrendSvg as milestoneTrendSvg, _dashboard as dashboardHtml };
+export { _signPct as signPct, _shortDate as shortDate, _progressBarHtml as progressBarHtml,
+         _milestoneSection as milestoneSection, _dashboard as dashboardHtml };

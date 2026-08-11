@@ -99,6 +99,33 @@ def critical_movement(matched, logic_changed_codes=frozenset()):
     return {'rows': rows, 'new_critical': new_critical}
 
 
+def _iso(d):
+    return d.strftime('%Y-%m-%d') if d else None
+
+
+def milestone_drift(matched):
+    """Per key milestone: baseline finish, previous forecast, current forecast, and how
+    many working days it slipped this period (prev→curr) and vs baseline. Worst vs
+    baseline first. ISO dates carried for the drift chart. {'rows': [...]}."""
+    ucals = getattr(matched.update, 'calendars', {}) or {}
+    bl = getattr(matched.update, 'baseline_by_id', {}) or {}
+    rows = []
+    for code in matched.milestone_codes:
+        b, u = matched.baseline_by_code[code], matched.update_by_code[code]
+        base_fin = (bl.get(code) or {}).get('planned_finish')
+        prev_fc, curr_fc = _finish(b), _finish(u)
+        cal = ucals.get(u.get('calendar_id'))
+        rows.append({
+            'activity_id': code, 'name': u.get('name', ''),
+            'baseline_finish': _fmt(base_fin), 'prev_forecast': _fmt(prev_fc), 'curr_forecast': _fmt(curr_fc),
+            'slip_period_days': _wd(cal, prev_fc, curr_fc),
+            'slip_baseline_days': _wd(cal, base_fin, curr_fc),
+            'baseline_iso': _iso(base_fin), 'prev_iso': _iso(prev_fc), 'curr_iso': _iso(curr_fc),
+        })
+    rows.sort(key=lambda r: -((r['slip_baseline_days'] or 0)))
+    return {'rows': rows}
+
+
 def buckets(matched, dd_now=None, logic_changed_codes=frozenset()):
     """{'counts': {...}, 'lists': {...}} — what moved this period, bucketed into
     finished / started / slipped / stalled / re_sequenced. Milestones excluded from the

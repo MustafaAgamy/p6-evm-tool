@@ -3,7 +3,7 @@
  * Run: node tests/js/test_period.js
  */
 import assert from 'node:assert/strict';
-import { signPct, shortDate, periodScurveSvg, milestoneTrendSvg, dashboardHtml } from '../../ui/modules/period.js';
+import { signPct, shortDate, progressBarHtml, milestoneSection, dashboardHtml } from '../../ui/modules/period.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -20,39 +20,32 @@ console.log('\nshortDate');
 test('trims a DB timestamp to the date', () => assert.equal(shortDate('2026-06-30 00:00:00'), '2026-06-30'));
 test('empty → em dash', () => assert.equal(shortDate(''), '—'));
 
-console.log('\nperiodScurveSvg');
-test('too few periods → friendly empty message', () => {
-  assert.ok(periodScurveSvg({ periods: ['Jan 26'] }).includes('Not enough'));
+console.log('\nprogressBarHtml (replaces the S-curve)');
+test('empty message when no actuals', () => {
+  assert.ok(progressBarHtml({ summary: {} }).includes('No progress'));
 });
-test('draws both an actual and a forecast polyline', () => {
-  const sc = {
-    periods: ['Jun 26', 'Jul 26', 'Aug 26', 'Sep 26'],
-    forecast: [34, 43, 60, 100],
-    actual: [34, 41, null, null],
-    dd_prev_idx: 0, dd_now_idx: 1, forecast_now: 43, actual_now: 41,
-  };
-  const svg = periodScurveSvg(sc);
-  assert.ok(svg.includes('<svg'));
-  assert.ok((svg.match(/<polyline/g) || []).length === 2);   // actual + forecast
-  assert.ok(svg.includes('#f59e0b') && svg.includes('#3b82f6'));
+test('fill to actual, forecast marker, and the two period bars', () => {
+  const h = progressBarHtml({ summary: { actual_now: 41, forecast_at_now: 43, period_earned: 7, period_forecast: 9 } });
+  assert.ok(h.includes('per-pfill') && h.includes('width:41%'));           // fill to actual
+  assert.ok(h.includes('per-pmark') && h.includes('forecast 43% (last update)'));  // marker
+  assert.ok(h.includes('Forecast — last update') && h.includes('Actual — this update'));  // legend + bars
 });
 
-console.log('\nmilestoneTrendSvg');
-test('too few updates → fills-in message', () => {
-  assert.ok(milestoneTrendSvg({ periods: ['2026-06-30'], series: [] }).includes('fills in'));
+console.log('\nmilestoneSection (table + drift chart)');
+test('empty message when no milestones', () => {
+  assert.ok(milestoneSection({ milestones: { rows: [] } }).includes('No key milestones'));
 });
-test('two rising milestones draw two polylines', () => {
-  const trend = {
-    periods: ['2026-06-30', '2026-07-31'],
-    series: [
-      { code: 'M900', name: 'Handover', task_type: 'FinishMilestone', finishes: ['2027-02-09', '2027-03-26'] },
-      { code: 'M100', name: 'Mech', task_type: 'FinishMilestone', finishes: ['2026-12-20', '2026-12-20'] },
-    ],
-  };
-  const svg = milestoneTrendSvg(trend);
-  assert.ok(svg.includes('<svg'));
-  assert.ok((svg.match(/<polyline/g) || []).length === 2);
-  assert.ok(svg.includes('Handover') && svg.includes('Mech'));
+test('renders the table dates and a drift svg', () => {
+  const rep = { milestones: { rows: [
+    { name: 'Handover', baseline_finish: '09-Feb-2027', prev_forecast: '20-Feb-2027', curr_forecast: '01-Mar-2027',
+      slip_period_days: 9, slip_baseline_days: 20, baseline_iso: '2027-02-09', prev_iso: '2027-02-20', curr_iso: '2027-03-01' },
+    { name: 'Mech', baseline_finish: '20-Dec-2026', prev_forecast: '20-Dec-2026', curr_forecast: '20-Dec-2026',
+      slip_period_days: 0, slip_baseline_days: 0, baseline_iso: '2026-12-20', prev_iso: '2026-12-20', curr_iso: '2026-12-20' },
+  ] } };
+  const h = milestoneSection(rep);
+  assert.ok(h.includes('Handover') && h.includes('09-Feb-2027') && h.includes('20-Feb-2027'));  // table dates
+  assert.ok(h.includes('<svg') && h.includes('Previous forecast') && h.includes('Current forecast'));  // drift chart
+  assert.ok(/per-slip-bad[^]*\+9 d/.test(h));                              // slippage cell
 });
 
 console.log('\ndashboardHtml — SPI/Delay/%Complete strips + sign convention');
@@ -78,6 +71,12 @@ console.log('\ndashboardHtml — SPI/Delay/%Complete strips + sign convention');
   });
   test('SPI down → variance cell is bad (red)', () => {
     assert.ok(h.includes('Previous SPI') && /SPI[^]*per-tvar bad[^]*SPI worsened/.test(h));
+  });
+  test('SPI shown as whole percent (85% / 81%, no decimals)', () => {
+    assert.ok(h.includes('85%') && h.includes('81%') && !h.includes('0.85'));
+  });
+  test('definitions block explains the metrics in plain English', () => {
+    assert.ok(h.includes('What these numbers mean') && h.includes('Forecast achievement'));
   });
   test('Delay up → variance cell is bad (red)', () => {
     assert.ok(h.includes('Previous delay') && /Delay vs baseline[^]*per-tvar bad[^]*Delay grew/.test(h));

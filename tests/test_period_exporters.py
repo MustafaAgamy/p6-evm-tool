@@ -1,5 +1,5 @@
 """p6_period.exporters — Excel mirror + the two-page management PDF layout."""
-from p6_period.exporters import (progress_excel, report_excel, render_html, _trend_svg, _verdict,
+from p6_period.exporters import (progress_excel, report_excel, render_html, _verdict,
                                  _PROGRESS_HEADERS as _PROGRESS, _CRITICAL_HEADERS as _CRITICAL,
                                  _WATCH_HEADERS as _WATCH)
 
@@ -32,6 +32,11 @@ def _report():
              'slip_days': 10, 'float_days': 0, 'driver': 'progress shortfall', 'critical_status': 'stayed'}],
             'new_critical': 1},
         'buckets': {'counts': {'finished': 1, 'started': 0, 'slipped': 3, 'stalled': 2, 're_sequenced': 1}},
+        'milestones': {'rows': [
+            {'activity_id': 'M9', 'name': 'Handover', 'baseline_finish': '09-Feb-2027',
+             'prev_forecast': '20-Feb-2027', 'curr_forecast': '01-Mar-2027',
+             'slip_period_days': 9, 'slip_baseline_days': 20,
+             'baseline_iso': '2027-02-09', 'prev_iso': '2027-02-20', 'curr_iso': '2027-03-01'}]},
         'conclusion': 'This period the project earned +7% against +9% forecast.',
     }
 
@@ -49,19 +54,19 @@ def test_progress_excel_headers_and_rows():
 
 
 def test_report_excel_mirrors_every_section():
-    headers, rows = report_excel(_report(), trend={'periods': ['Jun', 'Jul'],
-                                 'series': [{'name': 'Handover', 'finishes': ['2027-02-09', '2027-03-26']}]})
+    headers, rows = report_excel(_report())
     assert headers[0].startswith('Update vs Update') and 'Grain Terminal' in headers
     flat = [str(c) for row in rows for c in row]
     for section in ['Execution Dashboard', 'Recovery outlook', 'Progress by activity — % complete this period',
                     'Critical-path movement in this window', 'Next-period watch list', 'What moved this period',
-                    'Milestone finish trend', 'Project conclusion & outlook']:
+                    'Milestones — baseline vs previous vs current forecast', 'Project conclusion & outlook']:
         assert section in flat, section
     assert _PROGRESS in rows and _CRITICAL in rows and _WATCH in rows
     assert ['A1', 'Dredging', 82.0, 100.0, 18.0, 'finished'] in rows
     assert any(r and r[0] == 'CV1' for r in rows)        # critical-movement data row
     assert any(r and r[0] == 'ME2' for r in rows)        # watch-list data row
-    assert any('Handover' in str(r) for r in rows)       # trend series row
+    assert any('Handover' in str(r) for r in rows)       # milestone row
+    assert '85%' in flat                                  # SPI shown as whole %
 
 
 def test_report_excel_appends_activity_code_columns():
@@ -88,26 +93,29 @@ def test_render_html_two_page_management_report():
     html = render_html(_report(), trend=None)
     for heading in ['Update vs Update — Period Report', 'Execution Dashboard', 'Recovery outlook',
                     'Progress by activity', 'Critical-path movement', 'Next-period watch list',
-                    'What moved this period', 'Executive conclusion — this period']:
+                    'What moved this period', 'Executive conclusion — this period',
+                    'Progress — where you are', 'Milestones — baseline vs previous vs current forecast',
+                    'What these numbers mean']:
         assert heading in html, heading
     assert 'Grain Terminal' in html
     assert 'Off track' in html                           # status banner verdict
     assert '12-Mar-2027' in html and '26-Mar-2027' in html   # both forecast finishes
     assert '09-Feb-2027' in html                         # recovery baseline finish
     assert 'Near-critical' in html                       # watch list content
-    assert '0.85' in html and '0.81' in html             # SPI both cutoffs
+    assert '85%' in html and '81%' in html               # SPI as whole %
+    assert 'Forecast — last update' in html              # progress-bar legend
     assert 'Overall the project stands' in html          # project conclusion in the management box
     assert html.count('class="page"') == 2               # two pages
 
 
-def test_render_html_includes_trend_when_present():
-    trend = {'periods': ['2026-06-30', '2026-07-31'],
-             'series': [{'code': 'M900', 'name': 'Handover', 'task_type': 'FinishMilestone',
-                         'finishes': ['2027-02-09', '2027-03-26']}]}
-    html = render_html(_report(), trend=trend)
-    assert 'Milestone finish trend' in html and '<svg' in html and 'Handover' in html
-    assert 'Milestone finish trend' not in render_html(_report(), trend={'periods': [], 'series': []})
+def test_render_html_milestone_table_and_drift_chart():
+    html = render_html(_report(), trend=None)
+    # the milestone TABLE shows baseline/prev/current dates for each milestone
+    assert 'Handover' in html and '09-Feb-2027' in html and '20-Feb-2027' in html
+    # the drift chart is an SVG (dots per milestone), not the old trend line
+    assert '<svg' in html and 'Previous forecast' in html and 'Current forecast' in html
 
 
-def test_trend_svg_empty_when_insufficient():
-    assert _trend_svg({'periods': ['2026-06-30'], 'series': []}) == ''
+def test_milestone_drift_svg_empty_when_no_milestones():
+    from p6_period.exporters import _milestone_drift_svg
+    assert _milestone_drift_svg({'milestones': {'rows': []}}) == ''

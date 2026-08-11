@@ -8,7 +8,7 @@ in critical-path movement, what-moved buckets, the conclusion and the milestone 
 from p6_compare.model import MatchedSchedules
 from p6_period.progress import activity_progress, period_summary
 from p6_period.scurve import period_scurve
-from p6_period.movement import critical_movement, buckets
+from p6_period.movement import critical_movement, buckets, milestone_drift
 from p6_period.outlook import schedule_adherence, recovery_outlook, watch_list
 
 
@@ -151,6 +151,7 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
     adherence = schedule_adherence(matched, dd_prev, dd_now)
     recovery = recovery_outlook(prev, curr, summary)
     watch = watch_list(curr)
+    milestones = milestone_drift(matched)
     conclusion = _conclusion(summary, crit, buck)
     project_conclusion = _project_conclusion(summary, crit, recovery)
 
@@ -171,6 +172,7 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
         'schedule_adherence': adherence,
         'recovery': recovery,
         'watch_list': watch,
+        'milestones': milestones,
         'verdict': _verdict(summary, recovery),
         'conclusion': conclusion,
         'project_conclusion': project_conclusion,

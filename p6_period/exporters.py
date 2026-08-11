@@ -36,6 +36,17 @@ def _signpct(v):
     return f'+{v:.1f}%' if v > 0 else f'{v:.1f}%'
 
 
+def _spi_disp(v):
+    """SPI as a whole percentage (0.81 → '81%')."""
+    return f'{round(v * 100)}%' if v is not None else '—'
+
+
+def _spi_var_disp(v):
+    if v is None:
+        return '—'
+    return f'{"+" if v > 0 else ""}{round(v * 100)}%'
+
+
 def _pctcell(v):
     return f'{v}%' if v is not None else ''
 
@@ -66,7 +77,7 @@ def _verdict(report):
         ach = s.get('forecast_achievement')
         bits.append(f'earned {_signpct(earned)}' + (f' ({round(ach * 100)}% of plan)' if ach is not None else ''))
     if spv is not None:
-        bits.append(f'SPI {_svar(spv)}')
+        bits.append(f'SPI {_spi_var_disp(spv)}')
     if slip:
         bits.append(f'finish {"slipped" if slip > 0 else "pulled in"} {abs(slip)} d')
     return level, head, ('; '.join(bits) + '.' if bits else '')
@@ -87,8 +98,8 @@ def _exec_dashboard_html(report):
     pe, sv, dv, slip = s.get('period_earned'), s.get('spi_variance'), s.get('delay_change'), s.get('finish_slip_days')
     c1 = _card('Overall % Complete', _num(s.get('actual_prev'), '%'), _num(s.get('actual_now'), '%'),
                f'{"▲ " if (pe or 0) >= 0 else "▼ "}{_svar(pe, "%")}', (pe or 0) >= 0)
-    c2 = _card('SPI', _num(s.get('prev_spi')), _num(s.get('curr_spi')),
-               (f'{"▲ " if (sv or 0) >= 0 else "▼ "}{_svar(sv)}' if sv is not None else '—'), (sv or 0) >= 0)
+    c2 = _card('SPI', _spi_disp(s.get('prev_spi')), _spi_disp(s.get('curr_spi')),
+               (f'{"▲ " if (sv or 0) >= 0 else "▼ "}{_spi_var_disp(sv)}' if sv is not None else '—'), (sv or 0) >= 0)
     c3 = _card('Delay vs baseline', _num(s.get('delay_prev'), ' wd'), _num(s.get('delay_now'), ' wd'),
                (f'{"▲ " if (dv or 0) > 0 else "▼ "}{_svar(dv, " wd")}' if dv is not None else '—'), (dv or 0) <= 0)
     finish_foot = '—' if slip is None else (f'▼ slipped {slip} d' if slip > 0 else (f'▲ pulled in {-slip} d' if slip < 0 else 'no change'))
@@ -141,29 +152,46 @@ def _facts_html(report):
             + '</div>')
 
 
-def _scurve_svg(sc):
-    periods = (sc or {}).get('periods') or []
-    if len(periods) < 2:
+def _progress_bar_html(report):
+    """A plain progress bar — fill to where you are, a marker for where the last update
+    said you'd be — plus the forecast-vs-actual bars for the period. Replaces the S-curve."""
+    s = report.get('summary', {}) or {}
+    an, fn = s.get('actual_now'), s.get('forecast_at_now')
+    pe, pf = s.get('period_earned'), s.get('period_forecast')
+    if an is None:
         return ''
-    fc, ac = sc.get('forecast') or [], sc.get('actual') or []
-    x0, x1, y0, y1, n = 45, 900, 235, 20, len(periods)
-    xat = lambda i: x0 + (x1 - x0) * (i / (n - 1) if n > 1 else 0)
-    yat = lambda p: y0 - (y0 - y1) * (max(0.0, min(100.0, p or 0)) / 100.0)
+    fill = max(0.0, min(100.0, an))
+    marker = ''
+    behind = ''
+    if fn is not None:
+        m = max(0.0, min(100.0, fn))
+        marker = f'<div class="pmark" style="left:{m:.0f}%"><span class="lab">forecast {fn:.0f}% (last update) ▾</span></div>'
+        gap = round(fn - an, 1)
+        behind = f' · last update forecast <b>{fn:.0f}%</b> by now — <b>{"on/ahead" if gap <= 0 else f"{abs(gap):.0f}% behind"}</b>'
+    mx = max(abs(pe or 0), abs(pf or 0), 1)
+    fbar = (f'<div class="tb"><span class="lbl">Forecast — last update</span><div class="track">'
+            f'<div class="fillp" style="width:{min(100, abs(pf or 0) / mx * 100):.0f}%">{_svar(pf, "%")}</div></div></div>')
+    abar = (f'<div class="tb"><span class="lbl">Actual — this update</span><div class="track">'
+            f'<div class="filla" style="width:{min(100, abs(pe or 0) / mx * 100):.0f}%">{_svar(pe, "%")}</div></div></div>')
+    return (f'<div class="chart"><div class="pbwrap"><div class="pbtop"><span>0%</span><span>Finish = 100%</span></div>'
+            f'<div class="pbar"><div class="pfill" style="width:{fill:.0f}%">{fill:.0f}%</div>{marker}</div>'
+            f'<div class="pbbot">You are at <b>{an:.0f}%</b>{behind}</div></div>'
+            f'<div class="twobar">{fbar}{abar}</div>'
+            f'<div class="chartlegend">'
+            f'<div><span class="lg-sw" style="background:#f0b357"></span><b>Forecast — last update</b>: what your <b>previous</b> update said it would complete this window (its own plan for the period, <b>not</b> the baseline).</div>'
+            f'<div><span class="lg-sw" style="background:#2a78d6"></span><b>Actual — this update</b>: what you actually completed, from the <b>current</b> update.</div>'
+            f'</div></div>')
 
-    def poly(arr, color, dash=None):
-        pts = [f'{xat(i):.1f},{yat(p):.1f}' for i, p in enumerate(arr) if p is not None]
-        if len(pts) < 2:
-            return ''
-        d = f' stroke-dasharray="{dash}"' if dash else ''
-        return f'<polyline points="{" ".join(pts)}" fill="none" stroke="{color}" stroke-width="2.5"{d}/>'
-    grid = ''.join(f'<line x1="{x0}" y1="{yat(p):.0f}" x2="{x1}" y2="{yat(p):.0f}" stroke="#eee"/>'
-                   f'<text x="{x0 - 6}" y="{yat(p) + 3:.0f}" text-anchor="end" font-size="10" fill="#666">{p}%</text>'
-                   for p in (0, 50, 100))
-    return (f'<svg viewBox="0 0 940 250" width="100%">{grid}'
-            f'{poly(fc, _AMBER, "5 4")}{poly(ac, _BLUE)}'
-            f'<line x1="{x0}" y1="{y0}" x2="{x1}" y2="{y0}" stroke="#ccc"/></svg>'
-            f'<div class="legend"><span><i style="background:{_BLUE}"></i>Actual to date</span>'
-            f'<span><i style="background:{_AMBER}"></i>Where last period said you\'d be</span></div>')
+
+def _defs_html():
+    defs = [
+        ('Forecast achievement', 'how much of what you forecast last period you actually delivered (100% = hit your plan; 78% = about three-quarters).'),
+        ('Schedule adherence', 'of the activities that were due to finish this period, how many actually finished (72% = 13 of 18).'),
+        ('Started this period', 'activities that got underway this period (recorded their first progress).'),
+        ('New critical activities', 'activities that became critical this period — any delay to them now pushes the project finish date.'),
+    ]
+    return ('<div class="defs"><div class="defs-h">What these numbers mean</div>'
+            + ''.join(f'<div class="def"><b>{_e(a)}</b> — {_e(b)}</div>' for a, b in defs) + '</div>')
 
 
 # ── Page 2 — planner tables ─────────────────────────────────────────────────
@@ -225,48 +253,78 @@ def _buckets_html(report):
         f'<span class="pill">{counts.get(k, 0)} {lbl}</span>' for k, lbl in order) + '</div>'
 
 
-def _trend_svg(trend):
-    periods = (trend or {}).get('periods') or []
-    series = (trend or {}).get('series') or []
-    ts_of = lambda d: datetime.strptime(d, '%Y-%m-%d').toordinal()
-    all_ts = [ts_of(f) for s in series for f in (s.get('finishes') or []) if f]
-    if len(periods) < 2 or len(all_ts) < 2:
+def _milestone_table_html(report):
+    rows = (report.get('milestones', {}) or {}).get('rows', [])
+    if not rows:
+        return '<p class="note">No key milestones matched between the two updates.</p>'
+
+    def slipcell(sp, sb):
+        if sp is None:
+            return '—'
+        if sp > 0:
+            tail = f' (→ +{sb} d vs baseline)' if sb is not None else ''
+            return f'<span class="neg">▼ +{sp} d{tail}</span>'
+        if sp < 0:
+            return f'<span class="pos">▲ {abs(sp)} d earlier</span>'
+        return '<span class="pos">• on track</span>'
+    body = ''.join(
+        f'<tr><td>{_e(r.get("name"))}</td><td class="num mono">{_e(r.get("baseline_finish"))}</td>'
+        f'<td class="num mono">{_e(r.get("prev_forecast"))}</td><td class="num mono">{_e(r.get("curr_forecast"))}</td>'
+        f'<td>{slipcell(r.get("slip_period_days"), r.get("slip_baseline_days"))}</td></tr>' for r in rows)
+    return ('<table class="data"><thead><tr><th>Key milestone</th><th class="num">Baseline</th>'
+            '<th class="num">Previous forecast</th><th class="num">Current forecast</th>'
+            '<th>Slippage this period</th></tr></thead><tbody>' + body + '</tbody></table>')
+
+
+def _milestone_drift_svg(report):
+    """One row per milestone on a date line — Baseline (hollow), Previous forecast (amber),
+    Current forecast (red) dots, so each milestone's slide is visible."""
+    rows = (report.get('milestones', {}) or {}).get('rows', [])
+    ords = []
+    for r in rows:
+        for k in ('baseline_iso', 'prev_iso', 'curr_iso'):
+            if r.get(k):
+                ords.append(datetime.strptime(r[k], '%Y-%m-%d').toordinal())
+    if not rows or len(ords) < 2:
         return ''
-    tmin, tmax = min(all_ts), max(all_ts)
+    tmin, tmax = min(ords), max(ords)
     if tmin == tmax:
-        tmin, tmax = tmin - 30, tmax + 30
-    x0, x1, y0, y1, n = 60, 900, 240, 24, len(periods)
-    xat = lambda i: x0 + (x1 - x0) * (i / (n - 1) if n > 1 else 0)
-    yat = lambda t: y0 - (y0 - y1) * ((t - tmin) / (tmax - tmin))
-    lines = []
-    for si, s in enumerate(series):
-        color = _PALETTE[si % len(_PALETTE)]
-        pts = [f'{xat(i):.1f},{yat(ts_of(f)):.1f}' for i, f in enumerate(s.get('finishes') or []) if f]
-        if len(pts) > 1:
-            lines.append(f'<polyline points="{" ".join(pts)}" fill="none" stroke="{color}" stroke-width="2"/>')
-    yticks = ''
-    for k in range(4):
-        t = tmin + (tmax - tmin) * k / 3
-        y = yat(t)
-        yticks += (f'<line x1="{x0}" y1="{y:.1f}" x2="{x1}" y2="{y:.1f}" stroke="#eee"/>'
-                   f'<text x="{x0 - 6}" y="{y + 3:.1f}" text-anchor="end" font-size="10" fill="#666">'
-                   f'{datetime.fromordinal(int(t)).strftime("%b-%y")}</text>')
-    legend = ''.join(f'<span><i style="background:{_PALETTE[si % len(_PALETTE)]}"></i>{_e(s.get("name"))}</span>'
-                     for si, s in enumerate(series))
-    return (f'<div class="legend">{legend}</div>'
-            f'<svg viewBox="0 0 940 265" width="100%">{yticks}'
-            f'<line x1="{x0}" y1="{y0}" x2="{x1}" y2="{y0}" stroke="#ccc"/>'
-            f'<line x1="{x0}" y1="{y1}" x2="{x0}" y2="{y0}" stroke="#ccc"/>'
-            f'{"".join(lines)}</svg>')
+        tmin, tmax = tmin - 15, tmax + 15
+    x0, x1, rowh, top = 190, 900, 32, 16
+    n = len(rows)
+    h = top + n * rowh + 26
+    xat = lambda t: x0 + (x1 - x0) * ((t - tmin) / (tmax - tmin))
+    od = lambda iso: datetime.strptime(iso, '%Y-%m-%d').toordinal()
+    parts = []
+    for k in range(5):
+        t = tmin + (tmax - tmin) * k / 4
+        x = xat(t)
+        parts.append(f'<line x1="{x:.0f}" y1="{top}" x2="{x:.0f}" y2="{top + n * rowh:.0f}" stroke="#f1f5f9"/>'
+                     f'<text x="{x:.0f}" y="{top + n * rowh + 16:.0f}" text-anchor="middle" font-size="9.5" fill="#94a3b8">'
+                     f'{datetime.fromordinal(int(t)).strftime("%b-%y")}</text>')
+    for i, r in enumerate(rows):
+        y = top + i * rowh + 15
+        parts.append(f'<text x="{x0 - 10}" y="{y + 4:.0f}" text-anchor="end" font-size="11" fill="#1e293b">{_e(r.get("name"))}</text>')
+        xs = [xat(od(r[k])) for k in ('baseline_iso', 'prev_iso', 'curr_iso') if r.get(k)]
+        if len(xs) >= 2:
+            parts.append(f'<line x1="{min(xs):.0f}" y1="{y}" x2="{max(xs):.0f}" y2="{y}" stroke="#cbd5e1"/>')
+        if r.get('baseline_iso'):
+            parts.append(f'<circle cx="{xat(od(r["baseline_iso"])):.0f}" cy="{y}" r="5" fill="#fff" stroke="#94a3b8" stroke-width="2"/>')
+        if r.get('prev_iso'):
+            parts.append(f'<circle cx="{xat(od(r["prev_iso"])):.0f}" cy="{y}" r="4.5" fill="#d97706"/>')
+        if r.get('curr_iso'):
+            parts.append(f'<circle cx="{xat(od(r["curr_iso"])):.0f}" cy="{y}" r="5" fill="#dc2626"/>')
+    legend = ('<div class="legend"><span><i style="background:#fff;border:2px solid #94a3b8;border-radius:50%;width:10px;height:10px"></i>Baseline</span>'
+              '<span><i style="background:#d97706;border-radius:50%;width:11px;height:11px"></i>Previous forecast</span>'
+              '<span><i style="background:#dc2626;border-radius:50%;width:11px;height:11px"></i>Current forecast</span></div>')
+    return legend + f'<svg viewBox="0 0 940 {h}" width="100%">{"".join(parts)}</svg>'
 
 
 def render_html(report, trend=None):
     level, head, detail = _verdict(report)
-    scurve = _scurve_svg(report.get('scurve'))
-    scurve_block = (f'<h3>Period S-curve</h3><div class="chart">{scurve}</div>') if scurve else ''
-    trend_svg = _trend_svg(trend)
-    trend_block = (f'<h3>Milestone finish trend — every update so far</h3>{trend_svg}'
-                   f'<p class="note">Rising line = that milestone\'s finish keeps slipping later.</p>') if trend_svg else ''
+    progress_bar = _progress_bar_html(report)
+    mtable = _milestone_table_html(report)
+    mdrift = _milestone_drift_svg(report)
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: A4 landscape; margin: 11mm; }}
       * {{ box-sizing: border-box; }}
@@ -315,6 +373,22 @@ def render_html(report, trend=None):
       .legend {{ font-size: 11px; color: #64748b; margin: 4px 0; }} .legend span {{ margin-right: 16px; }} .legend i {{ display: inline-block; width: 16px; height: 3px; vertical-align: middle; margin-right: 5px; }}
       .reco {{ border: 1px solid #e2e8f0; border-left: 4px solid #26517d; border-radius: 0 8px 8px 0; padding: 10px 14px; line-height: 1.6; }}
       .reco.warn {{ border-left-color: #d97706; }}
+      .pbwrap {{ margin: 4px 0; }} .pbtop {{ display: flex; justify-content: space-between; font-size: 10.5px; color: #94a3b8; margin-bottom: 15px; }}
+      .pbar {{ position: relative; height: 30px; background: #eef2f7; border-radius: 8px; border: 1px solid #e2e8f0; }}
+      .pfill {{ position: absolute; left: 0; top: 0; bottom: 0; background: #2a78d6; border-radius: 7px 0 0 7px; display: flex; align-items: center; justify-content: flex-end; padding-right: 9px; color: #fff; font-weight: 800; font-size: 12px; }}
+      .pmark {{ position: absolute; top: -5px; bottom: -5px; width: 3px; background: #d97706; }}
+      .pmark .lab {{ position: absolute; top: -16px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 10px; color: #d97706; font-weight: 700; }}
+      .pbbot {{ text-align: center; font-size: 11.5px; color: #475569; margin-top: 5px; }}
+      .twobar {{ margin-top: 12px; }} .tb {{ display: flex; align-items: center; gap: 10px; margin: 5px 0; }}
+      .tb .lbl {{ width: 170px; font-size: 11.5px; color: #64748b; }}
+      .tb .track {{ flex: 1; background: #eef2f7; border-radius: 6px; height: 19px; overflow: hidden; border: 1px solid #e2e8f0; }}
+      .tb .fillp {{ height: 100%; background: #f0b357; display: flex; align-items: center; padding-left: 8px; color: #7c4a03; font-weight: 700; font-size: 11px; }}
+      .tb .filla {{ height: 100%; background: #2a78d6; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; }}
+      .chartlegend {{ margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #334155; line-height: 1.6; }}
+      .chartlegend > div {{ margin: 2px 0; }} .lg-sw {{ display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 7px; }}
+      .defs {{ margin-top: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }}
+      .defs-h {{ font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #64748b; font-weight: 700; margin-bottom: 5px; }}
+      .def {{ font-size: 11px; color: #334155; line-height: 1.5; margin: 2px 0; }} .def b {{ color: #1e293b; }}
     </style></head><body>
 
       <div class="page">
@@ -326,16 +400,17 @@ def render_html(report, trend=None):
         <div class="banner {level}"><span class="dot {level}"></span>
           <div><div class="b1">{_e(head)}</div><div class="b2">{_e(detail)}</div></div></div>
 
+        <h2>Progress — where you are vs where you said you'd be</h2>
+        {progress_bar}
+
         <h2>Execution Dashboard — Previous → Current, at each cutoff</h2>
         {_exec_dashboard_html(report)}
         {_recovery_html(report)}
         {_facts_html(report)}
+        {_defs_html()}
 
-        <div class="split">
-          <div>{scurve_block}</div>
-          <div><h3>What management needs to know</h3>
-            <div class="reco warn">{_e(report.get('project_conclusion'))}</div></div>
-        </div>
+        <h3>What management needs to know</h3>
+        <div class="reco warn">{_e(report.get('project_conclusion'))}</div>
       </div>
 
       <div class="page">
@@ -345,12 +420,13 @@ def render_html(report, trend=None):
         {_critical_table_html(report)}
         <h2>Next-period watch list</h2>
         {_watch_table_html(report)}
+        <h2>Milestones — baseline vs previous vs current forecast</h2>
+        {mtable}
+        <div class="chart" style="margin-top:8px">{mdrift}</div>
         <div class="split">
           <div><h3>What moved this period</h3>{_buckets_html(report)}</div>
-          <div>{trend_block}</div>
+          <div><h3>Executive conclusion — this period</h3><div class="reco">{_e(report.get('conclusion'))}</div></div>
         </div>
-        <h2>Executive conclusion — this period</h2>
-        <div class="reco">{_e(report.get('conclusion'))}</div>
       </div>
 
     </body></html>'''
@@ -426,7 +502,7 @@ def report_excel(report, trend=None):
 
     rows += [['Execution Dashboard', 'Previous', 'Current', 'Variance'],
              ['Overall % Complete', _pctcell(s.get('actual_prev')), _pctcell(s.get('actual_now')), _svar(s.get('period_earned'), '%')],
-             ['SPI', _num(s.get('prev_spi')) if s.get('prev_spi') is not None else '', _num(s.get('curr_spi')) if s.get('curr_spi') is not None else '', _svar(s.get('spi_variance'))],
+             ['SPI', _spi_disp(s.get('prev_spi')) if s.get('prev_spi') is not None else '', _spi_disp(s.get('curr_spi')) if s.get('curr_spi') is not None else '', _spi_var_disp(s.get('spi_variance'))],
              ['Delay vs baseline', _num(s.get('delay_prev'), ' wd') if s.get('delay_prev') is not None else '', _num(s.get('delay_now'), ' wd') if s.get('delay_now') is not None else '', _svar(s.get('delay_change'), ' wd')],
              ['Forecast finish', s.get('forecast_finish_prev') or '', s.get('forecast_finish_now') or '',
               (f"slipped {s.get('finish_slip_days')} d" if (s.get('finish_slip_days') or 0) > 0 else '')],
@@ -455,12 +531,14 @@ def report_excel(report, trend=None):
                    ('stalled', 'Stalled'), ('re_sequenced', 'Re-sequenced')]:
         rows.append([lbl, counts.get(k, 0)])
 
-    periods = (trend or {}).get('periods') or []
-    series = (trend or {}).get('series') or []
-    if periods and series:
-        rows += [[''], ['Milestone finish trend'], ['Milestone'] + list(periods)]
-        for ser in series:
-            rows.append([ser.get('name', '')] + [(f or '') for f in (ser.get('finishes') or [])])
+    mrows = (report.get('milestones', {}) or {}).get('rows', [])
+    if mrows:
+        rows += [[''], ['Milestones — baseline vs previous vs current forecast'],
+                 ['Key milestone', 'Baseline', 'Previous forecast', 'Current forecast',
+                  'Slip this period (wd)', 'Slip vs baseline (wd)']]
+        for m in mrows:
+            rows.append([m.get('name', ''), m.get('baseline_finish', ''), m.get('prev_forecast', ''),
+                         m.get('curr_forecast', ''), m.get('slip_period_days', ''), m.get('slip_baseline_days', '')])
 
     rows += [[''], ['Executive conclusion — this period'], [report.get('conclusion', '')]]
     rows += [[''], ['Project conclusion & outlook'], [report.get('project_conclusion', '')]]

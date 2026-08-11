@@ -936,3 +936,23 @@ body {
 .per-preview-title { font-size: 13px; color: var(--muted); }
 .per-preview-actions { display: flex; gap: 8px; }
 .per-preview-frame { flex: 1; width: 100%; border: 0; background: #fff; }
+/* definitions block */
+.per-defs { margin-top: 12px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; }
+.per-defs-h { font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+.per-def { font-size: 12px; color: #cbd5e1; line-height: 1.55; margin: 3px 0; } .per-def b { color: var(--text); }
+/* progress bar chart */
+.per-pbtop { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 17px; }
+.per-pbar { position: relative; height: 32px; background: rgba(148,163,184,.15); border-radius: 8px; border: 1px solid var(--border); }
+.per-pfill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg,#2a78d6,#3b82f6); border-radius: 7px 0 0 7px; display: flex; align-items: center; justify-content: flex-end; padding-right: 9px; color: #fff; font-weight: 800; font-size: 12px; }
+.per-pmark { position: absolute; top: -5px; bottom: -5px; width: 3px; background: var(--warning); }
+.per-plab { position: absolute; top: -17px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 10.5px; color: var(--warning); font-weight: 700; }
+.per-pbbot { text-align: center; font-size: 12px; color: #cbd5e1; margin-top: 6px; }
+.per-twobar { margin-top: 13px; }
+.per-tb { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.per-tb-l { width: 170px; font-size: 12px; color: var(--muted); }
+.per-tb-track { flex: 1; background: rgba(148,163,184,.15); border-radius: 6px; height: 20px; overflow: hidden; border: 1px solid var(--border); }
+.per-tb-p { height: 100%; background: #f0b357; display: flex; align-items: center; padding-left: 8px; color: #6b3d00; font-weight: 700; font-size: 11.5px; }
+.per-tb-a { height: 100%; background: #2a78d6; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11.5px; }
+.per-chartlegend { margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--border); font-size: 11.5px; color: #cbd5e1; line-height: 1.6; }
+.per-chartlegend > div { margin: 2px 0; } .per-lgsw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 7px; }
+.per-slip-bad { color: var(--danger); font-weight: 700; } .per-slip-good { color: var(--success); font-weight: 700; }
