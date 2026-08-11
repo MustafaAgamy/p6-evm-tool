@@ -182,7 +182,7 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         'weather_adjusted_finish': adjusted_finish.isoformat(),
         'recovery': recovery,
         'thresholds': thresholds,          # the stop-work limits applied
-        'from_date': (min(remaining).isoformat() if remaining else data_date.isoformat()),
+        'from_date': data_date.isoformat(),  # the update's cutoff — window is (cutoff, finish]
         'source': 'Open-Meteo (forecast + ERA5 historical + air-quality)',
         'is_estimate': True,
     }

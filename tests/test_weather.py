@@ -115,6 +115,9 @@ def test_weather_inputs_from_schedule(tmp_path):
           <PlannedFinishDate>2025-06-01T00:00:00</PlannedFinishDate></Activity>
         <Activity><ObjectId>A2</ObjectId><Id>A2</Id><Name>Design work</Name><Status>Not Started</Status>
           <Type>Task Dependent</Type><CalendarObjectId>C1</CalendarObjectId><WBSObjectId>20</WBSObjectId><PercentComplete>0</PercentComplete></Activity>
+        <Activity><ObjectId>S1</ObjectId><Id>S1</Id><Name>Site handover start</Name><Type>Start Milestone</Type>
+          <Status>Not Started</Status><CalendarObjectId>C1</CalendarObjectId><WBSObjectId>10</WBSObjectId>
+          <PercentComplete>0</PercentComplete><PlannedStartDate>2025-02-05T00:00:00</PlannedStartDate></Activity>
         <Activity><ObjectId>M1</ObjectId><Id>M1</Id><Name>Foundations complete</Name><Type>Finish Milestone</Type>
           <Status>Not Started</Status><CalendarObjectId>C1</CalendarObjectId><WBSObjectId>10</WBSObjectId>
           <PercentComplete>0</PercentComplete><PlannedFinishDate>2025-06-15T00:00:00</PlannedFinishDate></Activity>
@@ -124,7 +127,9 @@ def test_weather_inputs_from_schedule(tmp_path):
     p = tmp_path / 's.xml'; p.write_text(xml, encoding='utf-8')
     inp = weather_inputs(parse_file(str(p)))
     assert 'C1' in inp['construction_cal_ids']       # construction activity uses C1
-    assert any(m['name'] == 'Foundations complete' for m in inp['milestones'])
+    names = [m['name'] for m in inp['milestones']]
+    assert 'Foundations complete' in names           # finish milestone included
+    assert 'Site handover start' not in names        # START milestone EXCLUDED (finish-only rule)
     assert inp['project_finish'] == date(2025, 12, 31)
 
 
