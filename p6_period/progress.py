@@ -31,15 +31,18 @@ def _project_finish(data):
     return max(fins) if fins else None
 
 
-def activity_progress(matched):
+def activity_progress(matched, include=None):
     """{'rows': [...], 'counts': {...}} — activities whose % complete changed.
 
     Row: {activity_id, activity_name, prev_pct, curr_pct, variance, reversal,
     started, finished}. Sorted by variance descending (reversals sink to the end).
-    Pure milestones are excluded (their % is not meaningful progress)."""
+    Pure milestones are excluded. If `include` is a set of activity codes (the
+    construction/execution activities), engineering/procurement progress is filtered out."""
     rows = []
     counts = {'increased': 0, 'reversed': 0, 'started': 0, 'finished': 0}
     for code in matched.matched_codes:
+        if include is not None and code not in include:
+            continue
         b = matched.baseline_by_code[code]
         u = matched.update_by_code[code]
         if u.get('task_type') in _MILESTONES or b.get('task_type') in _MILESTONES:

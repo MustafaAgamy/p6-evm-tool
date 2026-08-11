@@ -36,7 +36,11 @@ def _report():
             {'activity_id': 'M9', 'name': 'Handover', 'baseline_finish': '09-Feb-2027',
              'prev_forecast': '20-Feb-2027', 'curr_forecast': '01-Mar-2027',
              'slip_period_days': 9, 'slip_baseline_days': 20,
-             'baseline_iso': '2027-02-09', 'prev_iso': '2027-02-20', 'curr_iso': '2027-03-01'}]},
+             'baseline_iso': '2027-02-09', 'prev_iso': '2027-02-20', 'curr_iso': '2027-03-01'}],
+            'overall': {'activity_id': 'M9', 'name': 'Handover', 'baseline_finish': '09-Feb-2027',
+             'prev_forecast': '20-Feb-2027', 'curr_forecast': '01-Mar-2027',
+             'slip_period_days': 9, 'slip_baseline_days': 20,
+             'baseline_iso': '2027-02-09', 'prev_iso': '2027-02-20', 'curr_iso': '2027-03-01'}},
         'conclusion': 'This period the project earned +7% against +9% forecast.',
     }
 
@@ -94,7 +98,7 @@ def test_render_html_two_page_management_report():
     for heading in ['Update vs Update — Period Report', 'Execution Dashboard', 'Recovery outlook',
                     'Progress by activity', 'Critical-path movement', 'Next-period watch list',
                     'What moved this period', 'Executive conclusion — this period',
-                    'Progress — where you are', 'Milestones — baseline vs previous vs current forecast',
+                    'Progress — where you are', 'Milestones — project completion',
                     'What these numbers mean']:
         assert heading in html, heading
     assert 'Grain Terminal' in html

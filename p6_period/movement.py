@@ -104,14 +104,18 @@ def _iso(d):
 
 
 def milestone_drift(matched):
-    """Per key milestone: baseline finish, previous forecast, current forecast, and how
-    many working days it slipped this period (prev→curr) and vs baseline. Worst vs
-    baseline first. ISO dates carried for the drift chart. {'rows': [...]}."""
+    """FINISH milestones: baseline finish, previous forecast, current forecast, and how
+    many working days each slipped this period (prev→curr) and vs baseline. ISO dates
+    carried for the drift chart. `overall` = the project-completion milestone (latest
+    current forecast) — the report table shows only this one, the chart shows them all.
+    {'rows': [all finish milestones], 'overall': row|None}."""
     ucals = getattr(matched.update, 'calendars', {}) or {}
     bl = getattr(matched.update, 'baseline_by_id', {}) or {}
     rows = []
     for code in matched.milestone_codes:
         b, u = matched.baseline_by_code[code], matched.update_by_code[code]
+        if u.get('task_type') != 'FinishMilestone':          # finish milestones only
+            continue
         base_fin = (bl.get(code) or {}).get('planned_finish')
         prev_fc, curr_fc = _finish(b), _finish(u)
         cal = ucals.get(u.get('calendar_id'))
@@ -123,7 +127,9 @@ def milestone_drift(matched):
             'baseline_iso': _iso(base_fin), 'prev_iso': _iso(prev_fc), 'curr_iso': _iso(curr_fc),
         })
     rows.sort(key=lambda r: -((r['slip_baseline_days'] or 0)))
-    return {'rows': rows}
+    dated = [r for r in rows if r.get('curr_iso')]
+    overall = max(dated, key=lambda r: r['curr_iso']) if dated else (rows[0] if rows else None)
+    return {'rows': rows, 'overall': overall}
 
 
 def buckets(matched, dd_now=None, logic_changed_codes=frozenset()):

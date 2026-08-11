@@ -140,7 +140,14 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
     prev, curr, prev_metrics, curr_metrics = _order_by_data_date(prev, curr, prev_metrics, curr_metrics)
     matched = MatchedSchedules(prev, curr)
     summary = period_summary(prev, curr, prev_metrics, curr_metrics)
-    progress = activity_progress(matched)
+    # Progress table = construction/execution activities only (Ibrahim's rule — no
+    # engineering/procurement). Fall back to all if detection finds nothing.
+    try:
+        from p6_compare.report import _construction_codes
+        cons = _construction_codes(curr) or None
+    except Exception:
+        cons = None
+    progress = activity_progress(matched, include=cons)
     scurve = period_scurve(prev, curr, summary['actual_prev'], summary['actual_now'])
 
     dd_prev = (getattr(prev, 'project', {}) or {}).get('data_date')

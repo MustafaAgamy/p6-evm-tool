@@ -1,7 +1,7 @@
-"""p6_period.movement — finish slip, critical-path movement and what-moved buckets."""
+"""p6_period.movement — finish slip, critical-path movement, buckets, milestone drift."""
 from datetime import datetime
 from p6_evm.parser import ScheduleData
-from p6_period.movement import finish_slip, critical_movement, buckets
+from p6_period.movement import finish_slip, critical_movement, buckets, milestone_drift
 from p6_compare.model import MatchedSchedules
 
 
@@ -61,3 +61,27 @@ def test_buckets_counts_finished_started_slipped_and_resequenced():
     assert c['slipped'] == 1                              # L1 finish moved later
     assert c['re_sequenced'] == 1                         # L1 logic changed vs last period
     assert {r['activity_id'] for r in out['lists']['finished']} == {'F1'}
+
+
+def _sched_bl(acts, baseline):
+    d = _sched(acts)
+    d.baseline_by_id = baseline
+    return d
+
+
+def test_milestone_drift_finish_only_and_overall_is_latest():
+    prev = _sched_bl([
+        _act('S1', 'Start', ts='StartMilestone', finish=datetime(2026, 1, 1)),
+        _act('M1', 'Section handover', ts='FinishMilestone', finish=datetime(2026, 11, 1)),
+        _act('M9', 'Project completion', ts='FinishMilestone', finish=datetime(2027, 2, 9)),
+    ], {})
+    curr = _sched_bl([
+        _act('S1', 'Start', ts='StartMilestone', finish=datetime(2026, 1, 1)),
+        _act('M1', 'Section handover', ts='FinishMilestone', finish=datetime(2026, 11, 8)),
+        _act('M9', 'Project completion', ts='FinishMilestone', finish=datetime(2027, 3, 1)),
+    ], {'M1': {'planned_finish': datetime(2026, 11, 1)}, 'M9': {'planned_finish': datetime(2027, 2, 9)}})
+    md = milestone_drift(MatchedSchedules(prev, curr))
+    ids = {r['activity_id'] for r in md['rows']}
+    assert ids == {'M1', 'M9'}                       # finish milestones only (start excluded)
+    assert md['overall']['activity_id'] == 'M9'      # latest current forecast = project completion
+    assert md['overall']['slip_baseline_days'] is not None

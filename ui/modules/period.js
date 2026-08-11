@@ -212,18 +212,21 @@ function _progressBarHtml(report) {
 
 // Milestone section: a table (baseline / prev / current / slippage) then a drift chart.
 function _milestoneSection(report) {
-  const rows = (report.milestones || {}).rows || [];
-  if (!rows.length) return '<p class="cmp-empty">No key milestones matched between the two updates.</p>';
+  const ms = report.milestones || {};
+  const rows = ms.rows || [];
+  const overall = ms.overall;                 // project completion — the only row in the table
+  if (!rows.length || !overall) return '<p class="cmp-empty">No project-completion milestone found in the update.</p>';
   const slip = (sp, sb) => sp == null ? '—'
     : (sp > 0 ? `<span class="per-slip-bad">▼ +${sp} d${sb != null ? ` (→ +${sb} d vs baseline)` : ''}</span>`
       : (sp < 0 ? `<span class="per-slip-good">▲ ${Math.abs(sp)} d earlier</span>` : `<span class="per-slip-good">• on track</span>`));
-  const body = rows.map(r => `<tr><td>${escapeHtml(r.name)}</td>
-    <td class="num mono">${escapeHtml(r.baseline_finish)}</td><td class="num mono">${escapeHtml(r.prev_forecast)}</td>
-    <td class="num mono">${escapeHtml(r.curr_forecast)}</td><td>${slip(r.slip_period_days, r.slip_baseline_days)}</td></tr>`).join('');
+  const r = overall;
   const table = `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
-    <thead><tr><th>Key milestone</th><th class="num">Baseline</th><th class="num">Previous forecast</th>
+    <thead><tr><th>Project completion milestone</th><th class="num">Baseline</th><th class="num">Previous forecast</th>
       <th class="num">Current forecast</th><th>Slippage this period</th></tr></thead>
-    <tbody>${body}</tbody></table></div>`;
+    <tbody><tr><td>${escapeHtml(r.name)}</td>
+      <td class="num mono">${escapeHtml(r.baseline_finish)}</td><td class="num mono">${escapeHtml(r.prev_forecast)}</td>
+      <td class="num mono">${escapeHtml(r.curr_forecast)}</td><td>${slip(r.slip_period_days, r.slip_baseline_days)}</td></tr></tbody></table></div>`;
+  // chart shows ALL finish milestones
   return table + `<div class="cmp-scurve-card" style="margin-top:10px">${_milestoneDriftSvg(rows)}</div>`;
 }
 

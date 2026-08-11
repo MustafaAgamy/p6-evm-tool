@@ -87,3 +87,13 @@ def test_period_summary_guards_zero_forecast():
                        {'overall_actual_pct': 1.0, 'delay_days': None})
     assert s['forecast_achievement'] is None            # no scheduled work -> no divide by zero
     assert s['delay_change'] is None
+
+
+def test_activity_progress_include_filters_to_construction():
+    prev = _sched([_act('C1', 'Concrete', 0.20), _act('E1', 'Design dwg', 0.20)])
+    curr = _sched([_act('C1', 'Concrete', 0.40), _act('E1', 'Design dwg', 0.55)])
+    m = MatchedSchedules(prev, curr)
+    both = {r['activity_id'] for r in activity_progress(m)['rows']}
+    assert both == {'C1', 'E1'}                              # no filter → both
+    cons_only = {r['activity_id'] for r in activity_progress(m, include={'C1'})['rows']}
+    assert cons_only == {'C1'}                               # engineering (E1) filtered out
