@@ -69,6 +69,9 @@ def test_report_shape_and_wiring():
     # finish slip feeds the dashboard chart: update finish 22-Feb-2027 is 13 days later
     # than the baseline finish 09-Feb-2027 (positive = slipped later).
     assert r['dashboard']['finish_slip_days'] == 13
+    # date-based delay (#04): the honest delay is the finish variance vs baseline in working
+    # days (no calendar in this fixture → falls back to the 13 calendar days).
+    assert r['dashboard']['delay_working_days'] == 13
     # change summary carries both lag items and an extended item…
     labels = {it['kind']: it['count'] for it in r['change_summary']['items']}
     assert labels.get('lag') == 2 and labels.get('extended') == 1
@@ -100,9 +103,11 @@ def test_construction_codes_keep_construction_drop_engineering_and_milestones():
     d.wbs = {'w1': {'name': 'Construction Works', 'parent_object_id': None},
              'w2': {'name': 'Shop Drawings', 'parent_object_id': None}}
     d.activities = {
-        '1': {'id': 'C1', 'task_type': 'Task', 'wbs_id': 'w1'},            # construction → kept
+        '1': {'id': 'C1', 'task_type': 'Task', 'wbs_id': 'w1'},            # construction task → kept
         '2': {'id': 'E1', 'task_type': 'Task', 'wbs_id': 'w2'},            # engineering (shop) → dropped
         '3': {'id': 'M1', 'task_type': 'FinishMilestone', 'wbs_id': 'w1'},  # milestone → dropped
-        '4': {'id': 'X1', 'task_type': 'Task', 'wbs_id': None},            # unclassified → kept
+        '4': {'id': 'X1', 'task_type': 'Task', 'wbs_id': None},            # unclassified task → kept
+        '5': {'id': 'L1', 'task_type': 'LOE', 'wbs_id': 'w1'},             # level of effort → dropped
+        '6': {'id': 'R1', 'task_type': 'ResourceDependent', 'wbs_id': 'w1'},  # resource-dependent → dropped
     }
-    assert _construction_codes(d) == {'C1', 'X1'}
+    assert _construction_codes(d) == {'C1', 'X1'}   # Task Dependent construction only

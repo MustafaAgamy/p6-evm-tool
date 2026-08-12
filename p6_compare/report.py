@@ -14,7 +14,6 @@ from p6_evm.classify import classify_branch_names
 from p6_evm.metrics import wbs_ancestor_names
 
 _EXCLUDE_CATEGORIES = ('Engineering', 'Design', 'Procurement')
-_MILESTONE_TYPES = ('StartMilestone', 'FinishMilestone')
 
 _KIND_LABEL = {
     'lag': 'driving lag changed',
@@ -41,16 +40,36 @@ def _project_finish(data):
     return max(fins) if fins else None
 
 
+def _finish_delay_working_days(update, bf_date, uf_date):
+    """Working days the completion date slipped vs the baseline (positive = later) — the
+    'Finish − Baseline Finish' variance a planner reads in P6, and the honest delay when
+    the export carries no reliable total float. Uses the calendar of the latest-finishing
+    update activity (the finish driver); falls back to calendar days if no calendar."""
+    if not (bf_date and uf_date):
+        return None
+    driver = max((a for a in update.activities.values() if a.get('planned_finish')),
+                 key=lambda a: a['planned_finish'], default=None)
+    cal = (getattr(update, 'calendars', {}) or {}).get(driver.get('calendar_id')) if driver else None
+    if cal is None:
+        return (uf_date - bf_date).days
+    try:
+        from p6_evm.calendars import signed_working_days
+        return round(signed_working_days(cal, bf_date, uf_date))
+    except Exception:
+        return (uf_date - bf_date).days
+
+
 def _construction_codes(data):
-    """Codes to KEEP for the change tables: construction/execution work only. Drops
-    engineering / design / procurement WBS phases and milestone activities — the
-    submittals, approvals, deliveries and milestones Ibrahim asked to remove. Uses an
-    exclude-list (not an allow-list) so genuine construction under an oddly-named branch
-    is still kept rather than silently dropped."""
+    """Codes to KEEP for the change tables: construction/execution work only. Keeps only
+    **Task Dependent** activities (Ibrahim's rule) — this drops milestones, LOE, WBS
+    summaries and resource-dependent rows in one stroke — and further drops engineering /
+    design / procurement WBS phases (the submittals, approvals and deliveries). Uses a
+    WBS exclude-list (not an allow-list) so genuine construction under an oddly-named
+    branch is still kept rather than silently dropped."""
     out = set()
     for a in data.activities.values():
         code = a.get('id')
-        if not code or a.get('task_type') in _MILESTONE_TYPES:
+        if not code or a.get('task_type') != 'Task':   # Task Dependent only
             continue
         cat = classify_branch_names(wbs_ancestor_names(a.get('wbs_id'), data.wbs))
         if cat in _EXCLUDE_CATEGORIES:
@@ -105,6 +124,7 @@ def build_report_from_data(baseline, update, config=None):
     # baseline_finish / update_finish below format the same value.
     bf_date, uf_date = _project_finish(baseline), _project_finish(update)
     finish_slip_days = (uf_date - bf_date).days if (bf_date and uf_date) else None
+    delay_working_days = _finish_delay_working_days(update, bf_date, uf_date)
 
     milestones = []
     for code in matched.milestone_codes:
@@ -129,7 +149,8 @@ def build_report_from_data(baseline, update, config=None):
         'dashboard': {'changed_activities': len(changed_ids),
                       'logic_changed': len(logic_ids),
                       'duration_only': len(duration_only_ids),
-                      'finish_slip_days': finish_slip_days},
+                      'finish_slip_days': finish_slip_days,
+                      'delay_working_days': delay_working_days},
         'change_summary': {'changed_activities': logic['summary']['changed_activities'], 'items': items},
         'logic': logic,
         'durations': durations,

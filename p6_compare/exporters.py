@@ -139,10 +139,14 @@ def _duration_table_html(report):
     rows = (report.get('durations', {}) or {}).get('rows', [])
     if not rows:
         return '<p class="note">No duration or remaining changes vs the baseline.</p>'
+    def base_cell(r):
+        if r.get('baseline_orig_days') == 0:
+            return '<span class="mut">0 d</span> <span class="newscope">new scope</span>'
+        return f'{_e(r.get("baseline_orig_days"))} d'
     body = ''.join(
         '<tr>'
         f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
-        f'<td class="num">{_e(r.get("baseline_orig_days"))} d</td>'
+        f'<td class="num">{base_cell(r)}</td>'
         f'<td class="num">{_e(r.get("update_orig_days"))} d</td>'
         f'<td class="num">{_e(r.get("remaining_days"))} d</td>'
         f'<td class="num">{_e(r.get("remaining_minus_baseline_days"))} d</td>'
@@ -151,7 +155,19 @@ def _duration_table_html(report):
         for r in rows)
     return ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th>'
             '<th>Baseline orig.</th><th>Update orig.</th><th>Remaining</th><th>Rem − baseline</th>'
-            '<th>Status</th><th>Impact on finish</th></tr></thead><tbody>' + body + '</tbody></table>')
+            '<th>Status</th><th>Impact on finish</th></tr></thead><tbody>' + body + '</tbody></table>'
+            + _duration_legend_html())
+
+
+def _duration_legend_html():
+    return ('<div class="legend2">'
+            '<div><b>Columns —</b> <b>Baseline orig.</b> original duration in the baseline · '
+            '<b>Update orig.</b> original duration now · <b>Remaining</b> left at the data date · '
+            '<b>Rem − baseline</b> remaining minus the baseline original (positive = more work left than the '
+            'baseline allowed). <span class="newscope">new scope</span> = no baseline duration.</div>'
+            '<div><b>Impact on finish —</b> <b>Direct</b> on the critical path, pushes the finish · '
+            '<b>Potential</b> near-critical (≤ 10 wd float) · <b>Float absorbs</b> enough float to swallow it · '
+            '<b>—</b> the export carries no float for that activity, so it can\'t be judged.</div></div>')
 
 
 def _impact_word(impact):
@@ -202,21 +218,21 @@ def _charts_html(report):
     else:
         bars = '<p class="note">No driving-logic or lag changes.</p>'
 
-    # 2) finish slip
-    slip = dash.get('finish_slip_days')
+    # 2) delay — finish-date variance vs baseline, in working days (the honest delay)
+    slip = dash.get('delay_working_days')
     if slip is None:
         snum, sword, scol, sline = '—', 'no finish date', '#64748b', ''
     elif slip > 0:
-        snum, sword, scol = f'+{slip}', ('day later' if slip == 1 else 'days later'), _RED
+        snum, sword, scol = f'+{slip}', 'working days behind the baseline finish', _RED
         sline = f'<line x1="150" y1="30" x2="268" y2="30" stroke="{_RED}" stroke-width="6" stroke-linecap="round"/>'
     elif slip < 0:
-        snum, sword, scol = f'−{-slip}', ('day earlier' if slip == -1 else 'days earlier'), '#16a34a'
+        snum, sword, scol = f'−{-slip}', 'working days ahead of the baseline finish', '#16a34a'
         sline = f'<line x1="150" y1="30" x2="268" y2="30" stroke="#16a34a" stroke-width="6" stroke-linecap="round"/>'
     else:
         snum, sword, scol, sline = '0', 'on the baseline finish', '#64748b', ''
     dd, bf, uf = _e(report.get('data_date') or '—'), _e(report.get('baseline_finish') or '—'), _e(report.get('update_finish') or '—')
     slip_svg = (f'<div class="slh"><span class="sln" style="color:{scol}">{snum}</span>'
-                f'<span class="slc">{sword}<br>than the baseline finish</span></div>'
+                f'<span class="slc">{sword}</span></div>'
                 '<svg viewBox="0 0 300 64" width="100%">'
                 '<line x1="14" y1="30" x2="286" y2="30" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>'
                 f'{sline}'
@@ -248,7 +264,7 @@ def _charts_html(report):
 
     return (f'<div class="charts">'
             f'<div class="chart"><div class="ct">How the logic was changed</div><div class="cs">Every driving-logic / lag change, by type.</div>{bars}</div>'
-            f'<div class="chart"><div class="ct">Finish slip vs baseline</div><div class="cs">How far the completion date moved.</div>{slip_svg}</div>'
+            f'<div class="chart"><div class="ct">Delay vs baseline</div><div class="cs">Finish date vs baseline, in working days — the honest delay.</div>{slip_svg}</div>'
             f'<div class="chart"><div class="ct">Changed activities</div><div class="cs">The {total} split by what changed.</div>{donut}</div>'
             f'</div>')
 
@@ -302,6 +318,11 @@ def render_html(report, impact=None):
       .dnl div {{ display: flex; align-items: center; gap: 6px; margin: 4px 0; }}
       .dnl i {{ width: 10px; height: 10px; border-radius: 2px; }}
       .dnl span {{ color: #64748b; }}
+      table.data tr {{ page-break-inside: avoid; }}
+      table.data thead {{ display: table-header-group; }}
+      .newscope {{ display: inline-block; font-size: 8px; font-weight: 700; padding: 0 4px; border-radius: 8px; background: #fdeccb; color: #8a5a00; }}
+      .legend2 {{ font-size: 9.5px; color: #64748b; line-height: 1.5; margin: 5px 0 2px; }}
+      .legend2 b {{ color: #1e293b; }}
     </style></head><body>
       <h1>Consultant Review — Baseline vs Current Update</h1>
       <div class="sub">{_e(report.get('project_name'))} · data date {_e(report.get('data_date'))} · baseline {_e(report.get('baseline_file'))} vs {_e(report.get('update_file'))}</div>

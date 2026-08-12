@@ -1001,6 +1001,12 @@ body {
 .cmp-imp-direct { background: rgba(248,113,113,.16); color: var(--danger); }
 .cmp-imp-pot { background: rgba(251,191,36,.16); color: var(--warning); }
 .cmp-imp-none { background: var(--border); color: var(--muted); }
+.cmp-newscope { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 10px; background: rgba(234,161,0,.18); color: #8a5a00; white-space: nowrap; }
+:root.light .cmp-newscope { color: #8a5a00; }
+.cmp-legend { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.65; }
+.cmp-legend-l { margin: 3px 0; }
+.cmp-legend-l b { color: var(--text); font-weight: 700; }
+.cmp-legend .cmp-imp { margin: 0 2px; padding: 1px 6px; font-size: 10px; }
 .cmp-table td.mono { font-family: ui-monospace,'Consolas',monospace; font-weight: 600; white-space: nowrap; }
 .cmp-log td.mut, .cmp-table td.mut { color: var(--muted); }
 .cmp-table td.num, .cmp-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }

@@ -122,17 +122,21 @@ function _chartBars(report) {
 }
 
 function _chartSlip(report) {
-  const s = slipInfo((report.dashboard || {}).finish_slip_days);
+  // The honest delay = finish-date variance vs baseline in WORKING days (no F9 needed).
+  const s = slipInfo((report.dashboard || {}).delay_working_days);
   const cls = { late: 'cmp-slip-late', early: 'cmp-slip-early', ontime: 'cmp-slip-flat', none: 'cmp-slip-flat' }[s.dir];
   const num = s.value == null ? '—' : `${s.dir === 'late' ? '+' : s.dir === 'early' ? '−' : ''}${s.value}`;
+  const cap = { late: 'working days behind<br>the baseline finish',
+                early: 'working days ahead of<br>the baseline finish',
+                ontime: 'on the baseline finish', none: 'no finish date' }[s.dir];
   const dd = report.data_date || '—', bf = report.baseline_finish || '—', uf = report.update_finish || '—';
   const slipLine = (s.dir === 'late' || s.dir === 'early')
     ? `<line x1="150" y1="30" x2="268" y2="30" stroke="${s.dir === 'late' ? 'var(--danger)' : 'var(--success,#16a34a)'}" stroke-width="6" stroke-linecap="round"/>`
     : '';
   return `
     <div class="cmp-slip-head"><span class="cmp-slip-num ${cls}">${escapeHtml(num)}</span>
-      <span class="cmp-slip-cap">${escapeHtml(s.word)}<br>than the baseline finish</span></div>
-    <svg viewBox="0 0 300 64" width="100%" role="img" aria-label="Baseline finish versus update finish, ${escapeHtml(s.word)}">
+      <span class="cmp-slip-cap">${cap}</span></div>
+    <svg viewBox="0 0 300 64" width="100%" role="img" aria-label="Delay: baseline finish versus update finish, ${escapeHtml(s.word)}">
       <line x1="14" y1="30" x2="286" y2="30" stroke="var(--border)" stroke-width="2" stroke-linecap="round"/>
       ${slipLine}
       <circle cx="36" cy="30" r="4.5" fill="var(--muted)"/>
@@ -181,8 +185,8 @@ function _chartsSection(report) {
         ${_chartBars(report)}
       </div>
       <div class="cmp-chart">
-        <div class="cmp-chart-t">Finish slip vs baseline</div>
-        <div class="cmp-chart-s">How far the completion date moved.</div>
+        <div class="cmp-chart-t">Delay vs baseline</div>
+        <div class="cmp-chart-s">Finish date vs baseline, in working days — the honest delay, straight away (no F9).</div>
         ${_chartSlip(report)}
       </div>
       <div class="cmp-chart">
@@ -257,17 +261,40 @@ function _durationTable(rows) {
   if (!rows || !rows.length) {
     return '<p class="cmp-empty">No duration or remaining changes vs the baseline.</p>';
   }
-  const body = rows.map(r => `<tr>
+  const body = rows.map(r => {
+    const baseCell = (r.baseline_orig_days === 0)
+      ? `<span class="mut">0 d</span> <span class="cmp-newscope" title="No duration in the baseline — new/undetailed scope">new scope</span>`
+      : `${r.baseline_orig_days} d`;
+    return `<tr>
     <td class="mono">${escapeHtml(r.activity_id)}</td><td>${escapeHtml(r.activity_name)}</td>
-    <td class="num mut">${r.baseline_orig_days} d</td>
+    <td class="num mut">${baseCell}</td>
     <td class="num">${r.status === 'extended' ? `<span class="cmp-pill cmp-chg">${r.update_orig_days} d</span>` : `${r.update_orig_days} d`}</td>
     <td class="num">${r.remaining_days} d</td>
     <td class="num ${r.over_baseline ? 'cmp-over' : ''}">${signedDays(r.remaining_minus_baseline_days)}</td>
     <td>${_durStatus(r.status)}</td>
-    <td>${_durImpact(r.impact)}</td></tr>`).join('');
+    <td>${_durImpact(r.impact)}</td></tr>`;
+  }).join('');
   return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
     <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Baseline orig.</th><th class="num">Update orig.</th><th class="num">Remaining</th><th class="num">Rem − baseline</th><th>Status</th><th>Impact on finish</th></tr></thead>
-    <tbody>${body}</tbody></table></div>`;
+    <tbody>${body}</tbody></table></div>
+    ${_durationLegend()}`;
+}
+
+// Plain-language key for the duration table's columns and the impact-on-finish values.
+function _durationLegend() {
+  return `<div class="cmp-legend">
+    <div class="cmp-legend-l"><b>Columns —</b>
+      <b>Baseline orig.</b> original duration in the baseline ·
+      <b>Update orig.</b> original duration now ·
+      <b>Remaining</b> duration still left at the data date ·
+      <b>Rem − baseline</b> remaining minus the baseline original (positive = more work left than the baseline ever allowed).
+      <span class="cmp-newscope">new scope</span> = the activity had no duration in the baseline.</div>
+    <div class="cmp-legend-l"><b>Impact on finish —</b>
+      <span class="cmp-imp cmp-imp-direct">Direct</span> on the critical path, pushes the finish ·
+      <span class="cmp-imp cmp-imp-pot">Potential</span> near-critical (≤ 10 working-days float) ·
+      <span class="cmp-imp cmp-imp-none">Float absorbs</span> enough float to swallow it ·
+      <span class="cmp-imp">—</span> the P6 export carries no float value for this activity, so it can't be judged.</div>
+  </div>`;
 }
 
 // Impact of a duration change on the project finish, from the activity's P6 float.
