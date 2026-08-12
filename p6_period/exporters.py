@@ -275,19 +275,27 @@ def _whatmoved_html(report):
 
 
 def _bycode_html(report):
-    """Where the period's progress came from, grouped by the first available activity code."""
+    """Planned vs actual progress by the first activity code — planned bars sum to the
+    period plan, actual bars to what was earned; a shortfall shows the fronts that fell behind."""
     bc = report.get('progress_by_code', {}) or {}
     if not bc:
         return '<p class="note">No activity codes in this schedule to break progress down by.</p>'
     code_type = next(iter(bc))
-    rows = bc[code_type][:8]
-    mx = max((r['contribution'] for r in rows), default=1) or 1
-    body = ''.join(
-        f'<div class="bar2"><span class="l">{_e(r["value"])}</span>'
-        f'<div class="t"><div class="f" style="width:{max(3, round(100.0 * r["contribution"] / mx))}%">{_svar(r["contribution"], "%")}</div></div></div>'
-        for r in rows)
-    return (f'<p class="note">Grouped by activity code <b>{_e(code_type)}</b> — where this period\'s progress came from (duration-weighted, indicative).</p>'
-            + body)
+    rows = bc[code_type][:10]
+    mx = max((max(r['planned'], r['actual']) for r in rows), default=1) or 1
+    w = lambda v: max(2, round(100.0 * v / mx))
+
+    def row(r):
+        gap = round(r['actual'] - r['planned'], 1)
+        tag = (f'<span class="pos">on/above plan</span>' if gap >= -0.05
+               else f'<span class="neg">{gap:.1f}% vs plan</span>')
+        return (f'<div class="bar2r"><div class="bar2r-h"><b>{_e(r["value"])}</b> {tag}</div>'
+                f'<div class="bar2r-t"><div class="bar2r-pl" style="width:{w(r["planned"])}%"></div>'
+                f'<div class="bar2r-ac" style="width:{w(r["actual"])}%"></div></div>'
+                f'<div class="bar2r-n">planned {_svar(r["planned"], "%")} · actual {_svar(r["actual"], "%")}</div></div>')
+    return (f'<p class="note">Grouped by activity code <b>{_e(code_type)}</b>. '
+            f'<b>Grey</b> = planned this period (last update), <b>blue</b> = actual — weighted by each activity\'s cost/duration share of the project.</p>'
+            + ''.join(row(r) for r in rows))
 
 
 def _defs_html():
@@ -311,13 +319,13 @@ def _progress_table_html(report):
     body = ''.join(
         '<tr>'
         f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
+        f'<td>{_e(r.get("status"))}{" ⚠ reversed" if r.get("reversal") else ""}</td>'
         f'<td class="num">{_e(r.get("prev_pct"))}%</td><td class="num">{_e(r.get("curr_pct"))}%</td>'
         f'<td class="num {"neg" if r.get("reversal") else "pos"}">{_signpct(r.get("variance"))}</td>'
-        f'<td>{_e(r.get("status"))}{" ⚠ reversed" if r.get("reversal") else ""}</td>'
         '</tr>' for r in shown)
     more = f'<p class="note">Showing the {len(shown)} biggest movers of {len(rows)} — full list on screen and in Excel.</p>' if len(rows) > len(shown) else ''
-    return ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th>'
-            '<th class="num">Prev %</th><th class="num">Current %</th><th class="num">Variance</th><th>Status</th></tr></thead><tbody>'
+    return ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th><th>Status</th>'
+            '<th class="num">Prev %</th><th class="num">Current %</th><th class="num">Variance</th></tr></thead><tbody>'
             + body + '</tbody></table>' + more)
 
 
@@ -507,6 +515,10 @@ def render_html(report, trend=None, sections=None):
       .bar2 {{ display: flex; align-items: center; gap: 10px; margin: 5px 0; }} .bar2 .l {{ width: 160px; font-size: 11.5px; }}
       .bar2 .t {{ flex: 1; background: #eef2f7; border-radius: 6px; height: 18px; overflow: hidden; border: 1px solid #e2e8f0; }}
       .bar2 .f {{ height: 100%; background: #2a78d6; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; }}
+      .bar2r {{ margin: 8px 0; }} .bar2r-h {{ font-size: 12px; margin-bottom: 3px; }} .bar2r-n {{ font-size: 10.5px; color: #64748b; margin-top: 2px; }}
+      .bar2r-t {{ position: relative; height: 16px; background: #eef2f7; border: 1px solid #e2e8f0; border-radius: 5px; }}
+      .bar2r-pl {{ position: absolute; left: 0; top: 0; height: 100%; background: #e5ebf2; border: 1px solid #cbd5e1; border-radius: 5px; }}
+      .bar2r-ac {{ position: absolute; left: 0; top: 2px; height: 10px; background: #2a78d6; border-radius: 4px; }}
       * {{ box-sizing: border-box; }}
       body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 12px; margin: 0; }}
       .page {{ page-break-after: always; }} .page:last-child {{ page-break-after: auto; }}
@@ -575,7 +587,7 @@ def render_html(report, trend=None, sections=None):
 
 # ── Excel: mirrors the PDF, one sheet ───────────────────────────────────────
 
-_PROGRESS_HEADERS = ['Activity ID', 'Activity name', 'Previous %', 'Current %', 'Variance', 'Status']
+_PROGRESS_HEADERS = ['Activity ID', 'Activity name', 'Status', 'Previous %', 'Current %', 'Variance']
 _CRITICAL_HEADERS = ['Activity ID', 'Activity name', 'Finish (prev)', 'Finish (now)',
                      'Slip', 'Float', 'Driver', 'Critical']
 _WATCH_HEADERS = ['Activity ID', 'Activity name', 'Float (wd)', 'Due to start', 'Why watch it']
@@ -603,9 +615,9 @@ def _progress_rows(report, code_types=()):
     out = []
     for r in (report.get('progress', {}) or {}).get('rows', []):
         status = r.get('status', '') + (' (reversed)' if r.get('reversal') else '')
-        out.append([r.get('activity_id', ''), r.get('activity_name', ''),
+        out.append([r.get('activity_id', ''), r.get('activity_name', ''), status,
                     f"{r.get('prev_pct', 0)}%", f"{r.get('curr_pct', 0)}%",
-                    _xl_sign(r.get('variance', 0), '%'), status]
+                    _xl_sign(r.get('variance', 0), '%')]
                    + _code_cells(r, code_types))
     return out
 

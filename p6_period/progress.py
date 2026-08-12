@@ -77,39 +77,60 @@ def activity_progress(matched, include=None):
     return {'rows': rows, 'counts': counts}
 
 
-def progress_by_code(matched, curr, period_earned, include=None):
-    """Where this period's progress came from, grouped by each P6 activity code
-    (duration-weighted, indicative — scaled to the overall period earned %).
-    {code_type: [{'value', 'contribution', 'activity_count'}]} sorted biggest first."""
+def _weight(data, act):
+    """Activity's share of the project — its cost (baseline BAC, else current BAC), so it
+    matches Earned Value; falls back to planned duration when the schedule isn't cost-loaded."""
+    oid = act.get('object_id')
+    bl = getattr(data, 'baseline_bac_by_activity', None) or {}
+    bac = getattr(data, 'bac_by_activity', None) or {}
+    w = bl.get(oid) or bac.get(oid) or 0.0
+    return w if w and w > 0 else ((act.get('planned_duration') or 0.0) or 1.0)
+
+
+def _planned_frac(prev_act, dd_prev, dd_now):
+    """Fraction of the activity's (previous-update forecast) span that lies in this window —
+    how much of it the previous update planned to do between the two cutoffs (0–1)."""
+    s = prev_act.get('remaining_early_start') or prev_act.get('planned_start')
+    f = prev_act.get('remaining_early_finish') or prev_act.get('planned_finish')
+    if not (s and f and dd_prev and dd_now) or f <= s:
+        return 0.0
+    lo, hi = max(s, dd_prev), min(f, dd_now)
+    return (hi - lo).total_seconds() / (f - s).total_seconds() if hi > lo else 0.0
+
+
+def progress_by_code(matched, curr, prev, dd_prev, dd_now, period_earned, period_forecast, include=None):
+    """Planned vs actual progress this period, grouped by each P6 activity code. Each
+    activity is weighted by its share of the project (BAC, else duration). Planned bars
+    sum to the period plan (+X%), actual bars to the period earned (+Y%).
+    {code_type: [{'value', 'planned', 'actual'}]} sorted biggest first."""
     types = list(getattr(curr, 'activity_code_types', []) or [])
-    if not types or not period_earned:
+    if not types:
         return {}
     out = {}
     for t in types:
-        by_val, total_w = {}, 0.0
+        pv, av, tot_p, tot_a = {}, {}, 0.0, 0.0
         for code in matched.matched_codes:
             if include is not None and code not in include:
                 continue
             b, u = matched.baseline_by_code[code], matched.update_by_code[code]
             if u.get('task_type') in _MILESTONES:
                 continue
-            var = (u.get('percent_complete') or 0.0) - (b.get('percent_complete') or 0.0)  # 0-1
-            if var <= 0:
-                continue
             val = (u.get('activity_codes') or {}).get(t)
             if not val:
                 continue
-            w = ((u.get('planned_duration') or 0.0) or 1.0) * var
-            total_w += w
-            slot = by_val.setdefault(val, [0.0, 0])
-            slot[0] += w
-            slot[1] += 1
-        if total_w <= 0:
-            continue
-        rows = [{'value': v, 'contribution': round(period_earned * wc / total_w, 1), 'activity_count': n}
-                for v, (wc, n) in by_val.items()]
-        rows.sort(key=lambda r: -r['contribution'])
-        out[t] = rows
+            a_contrib = _weight(curr, u) * max(0.0, (u.get('percent_complete') or 0.0) - (b.get('percent_complete') or 0.0))
+            p_contrib = _weight(prev, b) * _planned_frac(b, dd_prev, dd_now)
+            av[val] = av.get(val, 0.0) + a_contrib
+            pv[val] = pv.get(val, 0.0) + p_contrib
+            tot_a += a_contrib
+            tot_p += p_contrib
+        rows = []
+        for v in set(pv) | set(av):
+            planned = round((period_forecast or 0.0) * pv.get(v, 0.0) / tot_p, 1) if tot_p > 0 else 0.0
+            actual = round((period_earned or 0.0) * av.get(v, 0.0) / tot_a, 1) if tot_a > 0 else 0.0
+            rows.append({'value': v, 'planned': planned, 'actual': actual})
+        rows.sort(key=lambda r: -(r['planned'] + r['actual']))
+        out[t] = rows[:12]
     return out
 
 

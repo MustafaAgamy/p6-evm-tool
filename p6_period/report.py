@@ -158,7 +158,8 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
     buck = buckets(matched, dd_now, logic_changed, include=cons)
     cp = driving_path(matched, include=cons)
     plan_counts = period_plan_counts(matched, dd_prev, dd_now, include=cons)
-    by_code = progress_by_code(matched, curr, summary['period_earned'], include=cons)
+    by_code = progress_by_code(matched, curr, prev, dd_prev, dd_now,
+                               summary['period_earned'], summary['period_forecast'], include=cons)
     adherence = schedule_adherence(matched, dd_prev, dd_now)
     recovery = recovery_outlook(prev, curr, summary)
     watch = watch_list(curr)

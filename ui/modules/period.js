@@ -274,13 +274,21 @@ function _byCodeHtml(report) {
   const types = Object.keys(bc);
   if (!types.length) return '<p class="cmp-empty">No activity codes in this schedule to break progress down by.</p>';
   const sel = `<div class="per-slicer"><span class="per-slicer-lbl">Activity code</span><select id="per-bycode-type">${types.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select></div>`;
-  return sel + `<div id="per-bycode-bars">${_byCodeBars(bc[types[0]])}</div>`;
+  const note = `<div class="cmp-foot" style="margin:2px 0 6px"><b>Grey</b> = planned this period (last update), <b>blue</b> = actual — weighted by each activity's cost/duration share. Planned sums to your period plan, actual to what you earned.</div>`;
+  return sel + note + `<div id="per-bycode-bars">${_byCodeBars(bc[types[0]])}</div>`;
 }
 function _byCodeBars(rows) {
-  rows = (rows || []).slice(0, 10);
-  if (!rows.length) return '<p class="cmp-empty">No positive progress to attribute.</p>';
-  const mx = Math.max(...rows.map(r => r.contribution), 1);
-  return rows.map(r => `<div class="per-bar2"><span class="per-bar2-l">${escapeHtml(r.value)}</span><div class="per-bar2-t"><div class="per-bar2-f" style="width:${Math.max(3, Math.round(100 * r.contribution / mx))}%">${_signPct(r.contribution)}</div></div></div>`).join('');
+  rows = (rows || []).slice(0, 12);
+  if (!rows.length) return '<p class="cmp-empty">No progress to attribute for this code.</p>';
+  const mx = Math.max(...rows.map(r => Math.max(r.planned || 0, r.actual || 0)), 1);
+  const w = v => Math.max(2, Math.round(100 * (v || 0) / mx));
+  return rows.map(r => {
+    const gap = Math.round(((r.actual || 0) - (r.planned || 0)) * 10) / 10;
+    const tag = gap >= -0.05 ? '<span class="per-slip-good">on/above plan</span>' : `<span class="per-slip-bad">${gap.toFixed(1)}% vs plan</span>`;
+    return `<div class="per-bar2r"><div class="per-bar2r-h"><b>${escapeHtml(r.value)}</b> ${tag}</div>
+      <div class="per-bar2r-t"><div class="per-bar2r-pl" style="width:${w(r.planned)}%"></div><div class="per-bar2r-ac" style="width:${w(r.actual)}%"></div></div>
+      <div class="per-bar2r-n">planned ${_signPct(r.planned)} · actual ${_signPct(r.actual)}</div></div>`;
+  }).join('');
 }
 function _wireByCode(report) {
   const sel = document.getElementById('per-bycode-type');
@@ -415,10 +423,10 @@ function _progressRows(rows) {
     return `<tr data-codes="${codes}">
       <td class="mono">${escapeHtml(r.activity_id)}</td>
       <td>${escapeHtml(r.activity_name)}</td>
+      <td>${status}</td>
       <td class="num mut">${r.prev_pct}%</td>
       <td class="num">${r.curr_pct}%</td>
       <td class="num"><span class="${cls}">${arrow} ${_signPct(r.variance)}${flag}</span></td>
-      <td>${status}</td>
     </tr>`;
   }).join('');
 }
@@ -436,10 +444,10 @@ function _progressSection(report) {
     </div>` : '';
   return `${slicer}
     <div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table" id="per-prog-table">
-      <thead><tr><th>Activity ID</th><th>Activity name</th>
+      <thead><tr><th>Activity ID</th><th>Activity name</th><th>Status</th>
         <th class="num">Prev % <span style="font-weight:400">(${ph})</span></th>
         <th class="num">Current % <span style="font-weight:400">(${ch})</span></th>
-        <th class="num">Variance</th><th>Status</th></tr></thead>
+        <th class="num">Variance</th></tr></thead>
       <tbody>${_progressRows(rows)}</tbody></table></div>
     <div class="cmp-foot">Pick an activity code to see just those activities’ current vs previous % complete. Biggest gain first; <span class="cmp-pill bad">▼</span> = progress declared backwards vs last update.</div>`;
 }

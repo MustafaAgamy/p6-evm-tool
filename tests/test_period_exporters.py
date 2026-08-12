@@ -53,8 +53,8 @@ def test_verdict_flags_off_track_when_recovery_infeasible():
 def test_progress_excel_headers_and_rows():
     headers, rows = progress_excel(_report())
     assert headers[0] == 'Activity ID' and 'Variance' in headers
-    assert rows[0] == ['A1', 'Dredging', '82.0%', '100.0%', '▲ +18.0%', 'Completed']
-    assert rows[1][5] == 'In Progress (reversed)'
+    assert rows[0] == ['A1', 'Dredging', 'Completed', '82.0%', '100.0%', '▲ +18.0%']
+    assert rows[1][2] == 'In Progress (reversed)'
 
 
 def test_report_excel_mirrors_every_section():
@@ -66,7 +66,7 @@ def test_report_excel_mirrors_every_section():
                     'Milestones — baseline vs previous vs current forecast', 'Project conclusion & outlook']:
         assert section in flat, section
     assert _PROGRESS in rows and _CRITICAL in rows and _WATCH in rows
-    assert ['A1', 'Dredging', '82.0%', '100.0%', '▲ +18.0%', 'Completed'] in rows
+    assert ['A1', 'Dredging', 'Completed', '82.0%', '100.0%', '▲ +18.0%'] in rows
     assert any(r and r[0] == 'CV1' for r in rows)        # critical-movement data row
     assert any(r and r[0] == 'ME2' for r in rows)        # watch-list data row
     assert any('Handover' in str(r) for r in rows)       # milestone row
