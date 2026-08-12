@@ -332,11 +332,107 @@ def _oos_conclusion(m):
     return f'<h2 class="sec">Executive Conclusion</h2><div class="concl">{_esc(c)}</div>'
 
 
+# ── Lag & Lead — Consultant Review Report sections ─────────────────────────
+
+def _lag_dashboard(m):
+    k = m.get('kpis', {})
+    verdict = k.get('verdict', 'Pass')
+    vcolor = '#2e8b57' if verdict == 'Pass' else '#e07b1a'
+    lead_cls = 'crit' if k.get('leads_count') else ''
+    crit_cls = 'crit' if k.get('critical_count') else ''
+    tiles = [
+        _oos_tile('Links with a Lag', f"{k.get('lagged_count', 0):,}",
+                  note=f"of {k.get('total_relationships', 0):,} relationships"),
+        _oos_tile('Lag %', f"{k.get('lagged_pct', 0)}%", note='DCMA line: &le; 5%'),
+        _oos_tile('Leads (negative lag)', k.get('leads_count', 0), lead_cls, 'DCMA line: zero'),
+        _oos_tile('Long Lags', k.get('long_count', 0),
+                  note=f"&gt; {k.get('long_threshold_days', 14)} working days"),
+        _oos_tile('On Critical Path', k.get('critical_count', 0), crit_cls, 'moves the finish'),
+    ]
+    dash = f'''
+      <div class="dash">
+        <div class="grade-card">
+          <div class="score-den" style="margin-bottom:8px">DCMA Lag &amp; Lead Check</div>
+          <div class="grade-badge" style="background:{vcolor};font-size:14px;padding:7px 16px">{_esc(verdict)}</div>
+          <div class="verdict">{_esc(k.get('verdict_reason', ''))}</div>
+        </div>
+        <div class="kpis k4">{''.join(tiles)}</div>
+      </div>'''
+    stdref = '''
+      <div class="stdref"><b>Standard Reference:</b> the <b>DCMA 14-Point Schedule Assessment</b> &mdash;
+        <b>Metric 3 (Lags)</b>: relationships with a lag should be &le; 5% of the total;
+        <b>Metric 4 (Leads)</b>: negative lags should be zero, as a lead lets a successor start before its
+        predecessor finishes and distorts the critical path. Long lags follow P6's <i>Check Schedule</i>
+        long-lag flag. Advisory only &mdash; schedule logic is never edited.</div>'''
+    return dash + stdref
+
+
+def _lag_distribution(m):
+    k = m.get('kpis', {})
+    by_type = k.get('by_type', [])
+    ws = m.get('wbs_summary', [])
+    if not by_type and not ws:
+        return ''
+    trows = ''.join(
+        f'<tr><td>{_esc(t.get("type"))}</td><td class="num">{t.get("count", 0)}</td>'
+        f'<td class="num">{t.get("pct", 0)}%</td></tr>' for t in by_type)
+    wrows = ''.join(
+        f'<tr><td>{_esc(short_wbs(r.get("wbs", ""), 4))}</td><td class="num">{r.get("lagged", 0)}</td>'
+        f'<td class="num">{r.get("pct", 0)}%</td></tr>' for r in ws[:12])
+    return f'''
+      <h2 class="sec">Where the Lags Sit</h2>
+      <div class="cpi-wrap">
+        <table class="summary"><thead><tr><th>Relationship Type</th><th class="num">Lags</th>
+          <th class="num">%</th></tr></thead><tbody>{trows}</tbody></table>
+        <table class="summary"><thead><tr><th>WBS Area</th><th class="num">Lags</th>
+          <th class="num">%</th></tr></thead><tbody>{wrows}</tbody></table>
+      </div>'''
+
+
+def _lag_flags_cell(f):
+    chips = []
+    if f.get('is_lead'):
+        chips.append('<span class="badge2 c">Lead</span>')
+    if f.get('is_long'):
+        chips.append('<span class="pill change">Long</span>')
+    if f.get('criticality') == 'Critical':
+        chips.append('<span class="badge2 c">Crit</span>')
+    elif f.get('criticality') == 'Near-Critical':
+        chips.append('<span class="badge2 n">Near</span>')
+    return ' '.join(chips)
+
+
+def _lag_register(m):
+    findings = m.get('findings', [])
+    if not findings:
+        return ('<h2 class="sec">Lag &amp; Lead Register</h2>'
+                '<p class="empty">No lags or leads &mdash; every relationship drives directly.</p>')
+    head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th>'
+            '<th>Pred. Relationship</th><th>Pred. Name</th>'
+            '<th>Succ. Relationship</th><th>Succ. Name</th>'
+            '<th>Justification</th>')
+    rows = ''.join(
+        f'<tr><td class="num">{i}</td><td class="mono">{_esc(f.get("activity_id"))}</td>'
+        f'<td>{_esc(f.get("activity_name"))}</td>'
+        f'<td class="mono">{_esc(f.get("pred_rel"))} {_lag_flags_cell(f)}</td>'
+        f'<td class="mut">{_esc(f.get("pred_name"))}</td>'
+        f'<td class="mono">{_esc(f.get("succ_rel")) or "&mdash;"}</td>'
+        f'<td class="mut">{_esc(f.get("succ_name")) or "&mdash;"}</td>'
+        f'<td>{_esc(f.get("justification"))}</td></tr>'
+        for i, f in enumerate(findings, 1))
+    return f'''
+      <h2 class="sec">Lag &amp; Lead Register — all project lags (worst first)</h2>
+      <table class="findings"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>'''
+
+
 def _sections(m):
-    """Body sections for a module report — OOS uses its own five-section order."""
+    """Body sections for a module report — OOS and Lag & Lead use their own section order."""
     if m.get('module') == 'out_of_sequence':
         return (f'<h2 class="sec">Executive Dashboard</h2>{_oos_dashboard(m)}'
                 f'{_oos_wbs(m)}{_oos_review_log(m)}{_oos_cpi(m)}{_oos_conclusion(m)}')
+    if m.get('module') == 'lag_lead':
+        return (f'<h2 class="sec">Executive Dashboard</h2>{_lag_dashboard(m)}'
+                f'{_lag_distribution(m)}{_lag_register(m)}{_oos_conclusion(m)}')
     return (f'<h2 class="sec">Executive Dashboard</h2>{_dashboard(m, _verdict(m))}'
             f'{_summary_stats(m)}{_wbs_summary(m)}{_findings_table(m)}')
 
@@ -350,6 +446,7 @@ def render_module_report(module_result, meta):
     name = m.get('name', 'Schedule Audit')
     subtitle = ('Open / Broken Logic Assessment' if m['module'] == 'dangling'
                 else 'Excessive Total Float Assessment' if m['module'] == 'float'
+                else 'Relationship Lag & Lead Assessment' if m['module'] == 'lag_lead'
                 else 'Consultant Review Report — Schedule Logic Inconsistency Assessment')
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>

@@ -123,6 +123,14 @@ export function renderAudit(auditModules) {
         <span ${dot}></span>${escapeHtml(m.name)}
         <span class="mt-score">${hasData ? m.mgmt.float_health : '—'}</span></button>`;
     }
+    // Lag & Lead leads with a pass / needs-attention verdict (no module score), so its tab
+    // shows a verdict-coloured dot and the DCMA lag % rather than a /100 score.
+    if (key === 'lag_lead') {
+      const pass = ((m.kpis || {}).verdict || 'Pass') === 'Pass';
+      return `<button class="module-tab" data-module="lag_lead">
+        <span class="mt-dot ${pass ? 'g-exc' : 'g-need'}"></span>${escapeHtml(m.name)}
+        <span class="mt-score">${(m.kpis || {}).lagged_pct ?? 0}%</span></button>`;
+    }
     return `<button class="module-tab" data-module="${escapeHtml(key)}">
       <span class="mt-dot ${gradeClass(m.grade)}"></span>${escapeHtml(m.name)}
       <span class="mt-score">${m.score}</span></button>`;
@@ -340,6 +348,7 @@ export function renderOosPanel(auditModules) {
 
 function renderModuleBody(m) {
   if (m.module === 'float') return renderFloatModule(m);
+  if (m.module === 'lag_lead') return renderLagModule(m);
   const C = 326.7;
   const verdict = m.module === 'dangling'
     ? `${m.pct}% of activities have broken start/finish logic.`
@@ -550,4 +559,156 @@ function renderRows() {
       <td>${escapeHtml(f.status)}</td>${sev}
       <td class="mut">${escapeHtml(f.recommendation)}</td></tr>`;
   }).join('');
+}
+
+// ── Lag & Lead Audit — DCMA lag/lead report (dashboard view) ──────────────
+
+let _lagFilter = { query: '', flaggedOnly: false };
+
+function lagTiles(k) {
+  const overLine = (k.lagged_pct ?? 0) > (k.dcma_lag_line ?? 5);
+  const tiles = [
+    ['Links with a Lag', (k.lagged_count || 0).toLocaleString(), '',
+      `of ${(k.total_relationships || 0).toLocaleString()} relationships`],
+    ['Lag %', `${k.lagged_pct ?? 0}%`, overLine ? 'color-amber' : '',
+      `DCMA line: ≤ ${k.dcma_lag_line ?? 5}%`],
+    ['Leads (negative lag)', String(k.leads_count || 0), (k.leads_count > 0) ? 'color-red' : '',
+      'DCMA line: zero'],
+    ['Long Lags', String(k.long_count || 0), '',
+      `> ${k.long_threshold_days ?? 14} working days`],
+    ['On Critical Path', String(k.critical_count || 0), (k.critical_count > 0) ? 'color-blue' : '',
+      'these move the finish'],
+  ];
+  return tiles.map(([lab, val, cls, note]) =>
+    `<div class="kpi"><div class="k">${escapeHtml(lab)}</div>` +
+    `<div class="v ${cls}">${escapeHtml(val)}</div>` +
+    `<div class="n">${escapeHtml(note)}</div></div>`).join('');
+}
+
+function lagBar(pct) {
+  const w = Math.max(0, Math.min(100, Math.round(pct || 0)));
+  return `<div class="lag-dbar"><i style="width:${w}%"></i></div>`;
+}
+
+function lagRelHtml(rel, isLead, isLong) {
+  const cls = isLead ? 'rel-lead' : (isLong ? 'rel-long' : '');
+  return `<span class="mono ${cls}">${escapeHtml(rel || '—')}</span>`;
+}
+
+function lagFlagChips(f) {
+  let c = '';
+  if (f.is_lead) c += '<span class="lag-chip lead">Lead</span>';
+  if (f.is_long) c += '<span class="lag-chip long">Long</span>';
+  if (f.criticality === 'Critical') c += '<span class="lag-chip crit">Crit</span>';
+  else if (f.criticality === 'Near-Critical') c += '<span class="lag-chip near">Near</span>';
+  return c;   // empty when clean — chips sit inline in the relationship cell
+}
+
+// Save one justification to the server (per project). Raw fetch keeps audit.js free of an
+// api.js import cycle; a failed save is silent — the typed text stays in the in-memory copy.
+async function saveLagJustification(relKey, text) {
+  if (!state.currentSnapshotId) return;
+  try {
+    await fetch(`http://localhost:${state.serverPort}/api/lag/justification`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, rel_key: relKey, text }),
+    });
+  } catch { /* offline / server down — keep the local edit, retry on next blur */ }
+}
+
+function lagRowsFiltered(m) {
+  const q = (_lagFilter.query || '').trim().toLowerCase();
+  return (m.findings || []).filter(f => {
+    if (_lagFilter.flaggedOnly && !(f.is_lead || f.is_long)) return false;
+    if (q) {
+      const hay = `${f.activity_id || ''} ${f.activity_name || ''} ${f.pred_name || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderLagRows(m) {
+  const tbody = document.getElementById('lag-tbody');
+  if (!tbody) return;
+  const rows = lagRowsFiltered(m);
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">No lags match.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((f, i) => `
+    <tr>
+      <td class="num">${i + 1}</td>
+      <td class="mono">${escapeHtml(f.activity_id)}</td>
+      <td>${escapeHtml(f.activity_name)}</td>
+      <td class="lag-relcell">${lagRelHtml(f.pred_rel, f.is_lead, f.is_long)} ${lagFlagChips(f)}</td>
+      <td class="mut">${escapeHtml(f.pred_name)}</td>
+      <td><span class="mono">${escapeHtml(f.succ_rel || '—')}</span></td>
+      <td class="mut">${escapeHtml(f.succ_name || '—')}</td>
+      <td><textarea class="lag-just" data-relkey="${escapeHtml(f.rel_key)}" rows="1" placeholder="Add reason…">${escapeHtml(f.justification || '')}</textarea></td>
+    </tr>`).join('');
+
+  tbody.querySelectorAll('.lag-just').forEach(ta => {
+    const relKey = ta.dataset.relkey;
+    const sync = () => { const f = (m.findings || []).find(x => x.rel_key === relKey); if (f) f.justification = ta.value; };
+    ta.addEventListener('input', sync);
+    ta.addEventListener('change', () => { sync(); saveLagJustification(relKey, ta.value); });
+  });
+}
+
+function renderLagModule(m) {
+  const k = m.kpis || {};
+  const pass = (k.verdict || 'Pass') === 'Pass';
+  const byType = k.by_type || [];
+  const ws = m.wbs_summary || [];
+  const typeMax = Math.max(1, ...byType.map(t => t.count || 0));
+  const wbsMax = Math.max(1, ...ws.map(r => r.lagged || 0));
+  _lagFilter = { query: '', flaggedOnly: false };
+
+  const typeRows = byType.map(t =>
+    `<div class="lag-drow"><span class="lag-dk">${escapeHtml(t.type)}</span>` +
+    `${lagBar(100 * (t.count || 0) / typeMax)}<span class="lag-dv">${t.count} · ${t.pct}%</span></div>`).join('')
+    || '<div style="color:var(--muted);font-size:12px">No lags to distribute.</div>';
+  const wbsRows = ws.slice(0, 10).map(r =>
+    `<div class="lag-drow"><span class="lag-dk" title="${escapeHtml(r.wbs)}">${escapeHtml(r.wbs)}</span>` +
+    `${lagBar(100 * (r.lagged || 0) / wbsMax)}<span class="lag-dv">${r.lagged} · ${r.pct}%</span></div>`).join('')
+    || '<div style="color:var(--muted);font-size:12px">No lags to distribute.</div>';
+
+  const conclusion = k.executive_conclusion ? `
+    <div class="mod-sec">What it means</div>
+    <div class="oos-concl">${escapeHtml(k.executive_conclusion)}</div>` : '';
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="lag-verdict ${pass ? 'ok' : 'warn'}">
+      <div class="lv-badge">${escapeHtml(k.verdict || 'Pass')}</div>
+      <div class="lv-reason">${escapeHtml(k.verdict_reason || '')}</div>
+    </div>
+    <div class="kpi-tiles">${lagTiles(k)}</div>
+
+    <div class="mod-sec">Where the lags sit</div>
+    <div class="lag-dist">
+      <div class="lag-panel"><div class="lag-ph">By relationship type</div>${typeRows}</div>
+      <div class="lag-panel"><div class="lag-ph">By WBS area</div>${wbsRows}</div>
+    </div>
+
+    <div class="mod-sec">Lag &amp; Lead Register <span class="mod-sub">— all project lags, worst first</span></div>
+    <div class="filters">
+      <input class="searchbox" id="lag-search" placeholder="🔍  Search activity ID, name or predecessor…">
+      <label class="lag-toggle"><input type="checkbox" id="lag-flagged"> Flagged only (leads &amp; long lags)</label>
+    </div>
+    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table lag-table"><thead><tr>
+      <th>#</th><th>Activity ID</th><th>Activity Name</th>
+      <th>Pred. Relationship</th><th>Pred. Name</th>
+      <th>Succ. Relationship</th><th>Succ. Name</th>
+      <th class="lag-jcol">Justification</th>
+    </tr></thead><tbody id="lag-tbody"></tbody></table></div>
+    ${conclusion}`;
+
+  document.getElementById('lag-search').addEventListener('input', e => {
+    _lagFilter.query = e.target.value; renderLagRows(m);
+  });
+  document.getElementById('lag-flagged').addEventListener('change', e => {
+    _lagFilter.flaggedOnly = e.target.checked; renderLagRows(m);
+  });
+  renderLagRows(m);
 }

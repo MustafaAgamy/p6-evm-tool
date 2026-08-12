@@ -78,6 +78,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_weather(body)
         elif self.path == '/api/calendar/settings':
             self._handle_calendar_settings(body)
+        elif self.path == '/api/lag/justification':
+            self._handle_lag_justification(body)
         elif self.path == '/api/ai/settings':
             self._handle_ai_settings_set(body)
         elif self.path == '/api/ai-review':
@@ -202,6 +204,16 @@ class Handler(BaseHTTPRequestHandler):
             p6_id = data.project.get('id', '') or ''
             name  = data.project.get('name', '') or os.path.basename(xml_path)
             pid   = db.upsert_project(p6_id, name)
+
+            # Merge the planner's saved lag/lead justifications (held per project) into the
+            # register before it is persisted and returned, so re-imports keep the reasons.
+            if audit_modules_result is not None:
+                try:
+                    from p6_audit.modules.lag_lead import apply_justifications
+                    lag_mod = (audit_modules_result.get('modules') or {}).get('lag_lead')
+                    apply_justifications(lag_mod, db.get_project_settings(pid).get('lag_justifications'))
+                except Exception as lag_exc:
+                    print(f'[lag] justification merge skipped: {lag_exc}', file=sys.stderr)
 
             sid = db.insert_snapshot(
                 project_id     = pid,
@@ -550,6 +562,14 @@ class Handler(BaseHTTPRequestHandler):
         result['audit_modules'] = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
         result['calendar_audit'] = db.get_calendar_audit(snapshot_id) if snapshot_id else None
         result['calendar_settings'] = db.get_project_settings(project_id) or {}
+        # Re-apply the planner's saved lag/lead justifications over the reloaded register
+        # (settings are the live source of truth; the snapshot copy may pre-date an edit).
+        try:
+            from p6_audit.modules.lag_lead import apply_justifications
+            lag_mod = ((result.get('audit_modules') or {}).get('modules') or {}).get('lag_lead')
+            apply_justifications(lag_mod, result['calendar_settings'].get('lag_justifications'))
+        except Exception:
+            pass
         extras = (db.get_evm_extras(snapshot_id) or {}) if snapshot_id else {}
         result['engineering_p6'] = extras.get('engineering_p6', [])
         result['activity_code_types'] = extras.get('activity_code_types', [])
@@ -1018,6 +1038,28 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as cexc:
                 print(f'[calendar] settings recompute skipped: {cexc}', file=sys.stderr)
         self._json(200, {'ok': True, 'settings': settings, 'calendar_audit': ca})
+
+    # ── /api/lag/justification ──────────────────────────────────────────────
+    def _handle_lag_justification(self, body):
+        """Save one Lag & Lead justification (keyed by rel_key) for the project. Held in
+        project settings so it survives re-imports and reopening. Returns the merged map."""
+        sid = body.get('snapshot_id')
+        pid = db.get_project_id_for_snapshot(sid) if sid else None
+        if not pid:
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        key = (body.get('rel_key') or '').strip()
+        if not key:
+            self._json(200, {'ok': False, 'error': 'rel_key required'})
+            return
+        text = (body.get('text') or '').strip()
+        current = dict(db.get_project_settings(pid).get('lag_justifications') or {})
+        if text:
+            current[key] = text
+        else:
+            current.pop(key, None)      # blanking a reason clears it
+        db.save_project_settings(pid, {'lag_justifications': current})
+        self._json(200, {'ok': True, 'lag_justifications': current})
 
     # ── /api/history ───────────────────────────────────────────────────────
     def _handle_history(self):

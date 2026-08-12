@@ -1002,3 +1002,36 @@ body {
 .cmp-scurve-legend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
 .cmp-scurve-note { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 .cmp-exports { display: flex; gap: 8px; justify-content: flex-end; margin: -6px 0 4px; }
+
+/* ── Lag & Lead Audit ─────────────────────────────────────────────────────── */
+.lag-verdict { display: flex; gap: 13px; align-items: flex-start; border-radius: 10px; padding: 13px 16px; margin-bottom: 18px; }
+.lag-verdict.ok   { background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.30); }
+.lag-verdict.warn { background: rgba(251,191,36,0.09); border: 1px solid rgba(251,191,36,0.32); }
+.lv-badge { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 14px; border-radius: 20px; color: #0b1220; white-space: nowrap; flex-shrink: 0; }
+.lag-verdict.ok .lv-badge   { background: var(--success); }
+.lag-verdict.warn .lv-badge { background: var(--warning); }
+.lv-reason { font-size: 13px; color: var(--text); line-height: 1.5; padding-top: 4px; }
+.lag-dist { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.lag-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.lag-ph { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+.lag-drow { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.lag-drow:last-child { margin-bottom: 0; }
+.lag-dk { width: 62px; font-size: 12px; color: var(--text); flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lag-dbar { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.lag-dbar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.lag-dv { width: 78px; text-align: right; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.lag-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+.lag-chip { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; padding: 2px 7px; border-radius: 20px; margin-right: 3px; }
+.lag-chip.lead { background: rgba(248,113,113,0.16); color: var(--danger); }
+.lag-chip.long { background: rgba(251,191,36,0.16); color: var(--warning); }
+.lag-chip.crit { background: rgba(59,130,246,0.20); color: #93c5fd; }
+.lag-chip.near { background: rgba(59,130,246,0.12); color: #93c5fd; }
+.lag-table .rel-long { color: var(--warning); font-weight: 700; }
+.lag-table .rel-lead { color: var(--danger); font-weight: 700; }
+.lag-relcell { min-width: 120px; white-space: normal; }
+.lag-relcell .lag-chip { vertical-align: middle; }
+.lag-jcol { min-width: 190px; }
+.lag-just { width: 100%; min-width: 170px; background: rgba(255,255,255,0.03); border: 1px dashed var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12px; color: var(--text); font-family: inherit; line-height: 1.4; resize: vertical; min-height: 32px; }
+.lag-just::placeholder { color: var(--muted); font-style: italic; }
+.lag-just:focus { border-style: solid; border-color: var(--accent); outline: none; }
+:root.light .lag-just { background: rgba(0,0,0,0.02); }
