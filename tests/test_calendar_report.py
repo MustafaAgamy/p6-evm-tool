@@ -66,7 +66,8 @@ def test_report_weather_section_only_when_provided(tmp_path):
     assert 'Weather Impact' not in render_calendar_report(result, META)   # none by default
     weather = {
         'expected_bad_days_total': 12, 'net_finish_delay': 5,
-        'weather_adjusted_finish': '2025-04-07', 'monthly': [],
+        'weather_adjusted_finish': '2025-04-07',
+        'monthly': [{'label': 'Mar 2025', 'count': 3}, {'label': 'Apr 2025', 'count': 1}],
         'source': 'Open-Meteo (forecast + ERA5 historical + air-quality)',
         'thresholds': {'rain_mm': 5, 'temp_max_c': 42, 'wind_kmh': None, 'dust': True},
         'bad_days': [{'date': '2025-03-03', 'day_name': 'Mon',
@@ -93,6 +94,8 @@ def test_report_weather_section_only_when_provided(tmp_path):
     assert 'How this estimate is built' in html and 'What counts as a bad-weather day' in html
     assert 'Driving the Lost Days' in html            # cause breakdown table
     assert 'Weather Conclusion' in html and 'cost about 5 working days' in html
+    # the monthly histogram ("When the risk falls") must be in the PDF, not just on screen
+    assert 'When the Risk Falls' in html and 'wxb-bar' in html
     # #07 affected activities column + #12 milestone legend
     assert 'Affected planned activities' in html and 'Cable pulling' in html
     assert 'How to read this table' in html and 'Net = Before' in html

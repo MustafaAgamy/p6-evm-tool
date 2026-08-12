@@ -189,6 +189,23 @@ def _conflicts(conflicts):
             f'<ul style="margin:0;padding-left:18px">{lines}</ul>')
 
 
+def _wx_monthly_bars(monthly):
+    """Section 9 histogram — expected bad-weather days per month (the mockup's
+    'When the risk falls'). Print-friendly CSS bars; peak month highlighted red."""
+    monthly = monthly or []
+    if not monthly:
+        return ''
+    mx = max((m.get('count', 0) for m in monthly), default=0) or 1
+    bars = ''.join(
+        f'<div class="wxb"><div class="wxb-v">{m.get("count") or ""}</div>'
+        f'<div class="wxb-bar{" pk" if m.get("count", 0) == mx and mx > 0 else ""}" '
+        f'style="height:{max(3, round(m.get("count", 0) / mx * 62))}px"></div>'
+        f'<div class="wxb-l">{_esc(m.get("label", ""))}</div></div>' for m in monthly)
+    return ('<div class="grp"><span class="pill" style="background:#d97706">When the Risk Falls'
+            ' — bad-weather days by month</span></div>'
+            f'<div class="wxbars">{bars}</div>')
+
+
 def _weather_section(weather):
     """Section 9 — Weather Impact (only when a location/weather estimate exists)."""
     if not weather:
@@ -200,6 +217,7 @@ def _weather_section(weather):
         _tile('Net weather delay to finish', f"+{w.get('net_finish_delay', 0)} wd"),
         _tile('Weather-adjusted finish', _fmt(w.get('weather_adjusted_finish'))),
     ])
+    monthly_bars = _wx_monthly_bars(w.get('monthly'))
     # Stop-work limits applied → readable line, reused in the "how it works" note.
     t = w.get('thresholds') or {}
     lim = []
@@ -264,6 +282,7 @@ def _weather_section(weather):
         '— estimate, not a P6 figure</span></h2>'
         f'{method}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">{kpis}</div>'
+        f'{monthly_bars}'
         f'{cause_table}'
         f'{days_table}'
         '<div class="grp"><span class="pill" style="background:#e07b1a">Impact on Milestone Completion</span></div>'
@@ -380,6 +399,12 @@ def render_calendar_report(result, meta, weather=None, sections=None):
   .ok {{ color: #2e8b57; font-size: 11px; }}
   .wxm {{ border: 1px solid #e8ecf1; background: #f4f8fd; border-radius: 6px; padding: 9px 12px;
           font-size: 9.8px; line-height: 1.55; color: #3f4a57; margin-bottom: 10px; }}
+  .wxbars {{ display: flex; align-items: flex-end; gap: 8px; height: 92px; border-bottom: 1.5px solid #dbe1e8; padding: 0 4px; margin: 2px 0 8px; }}
+  .wxb {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }}
+  .wxb-v {{ font-size: 9px; font-weight: 800; color: #b45309; margin-bottom: 2px; }}
+  .wxb-bar {{ width: 62%; max-width: 30px; background: linear-gradient(180deg, #f59e0b, rgba(245,158,11,.45)); border-radius: 3px 3px 0 0; }}
+  .wxb-bar.pk {{ background: linear-gradient(180deg, #dc2626, rgba(220,38,38,.5)); }}
+  .wxb-l {{ font-size: 8px; color: #8a93a0; margin-top: 3px; }}
   .concl {{ border-left: 4px solid #17457a; background: #f4f8fd; border-radius: 0 8px 8px 0; padding: 10px 15px; }}
   .concl ul {{ margin: 0; padding-left: 18px; }}
   .concl li {{ font-size: 11px; line-height: 1.5; margin-bottom: 5px; }}

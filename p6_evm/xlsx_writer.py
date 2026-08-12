@@ -335,6 +335,8 @@ def write_calendar_xlsx(path, ca, weather=None):
                 return d.get('effect', '')
             return ', '.join(names) + (f' (+{extra} more)' if extra > 0 else '')
         wx_blocks = [
+            {'title': 'Bad-Weather Days by Month', 'headers': ['Month', 'Bad-weather days'],
+             'rows': [[m.get('label', ''), m.get('count', 0)] for m in w.get('monthly', [])]},
             {'title': 'Upcoming Bad-Weather Days', 'headers':
                 ['Date', 'Day', 'Why it is a lost day (measured)', 'Confidence', 'Affected planned activities'],
              'rows': [[d['date'], d.get('day_name', ''), d.get('condition', ''),
