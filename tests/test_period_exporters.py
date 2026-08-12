@@ -24,9 +24,9 @@ def _report():
                    'actual': [8, 40, None], 'dd_prev_idx': 1, 'dd_now_idx': 2},
         'progress': {'rows': [
             {'activity_id': 'A1', 'activity_name': 'Dredging', 'prev_pct': 82.0, 'curr_pct': 100.0,
-             'variance': 18.0, 'finished': True, 'started': False, 'reversal': False},
+             'variance': 18.0, 'finished': True, 'started': False, 'reversal': False, 'status': 'Completed'},
             {'activity_id': 'A2', 'activity_name': 'Apron', 'prev_pct': 40.0, 'curr_pct': 35.0,
-             'variance': -5.0, 'finished': False, 'started': False, 'reversal': True}]},
+             'variance': -5.0, 'finished': False, 'started': False, 'reversal': True, 'status': 'In Progress'}]},
         'critical_movement': {'rows': [
             {'activity_id': 'CV1', 'activity_name': 'Quay', 'prev_finish': '18-Aug', 'curr_finish': '01-Sep',
              'slip_days': 10, 'float_days': 0, 'driver': 'progress shortfall', 'critical_status': 'stayed'}],
@@ -53,8 +53,8 @@ def test_verdict_flags_off_track_when_recovery_infeasible():
 def test_progress_excel_headers_and_rows():
     headers, rows = progress_excel(_report())
     assert headers[0] == 'Activity ID' and 'Variance' in headers
-    assert rows[0] == ['A1', 'Dredging', '82.0%', '100.0%', '▲ +18.0%', 'finished']
-    assert rows[1][5] == 'progress reversed'
+    assert rows[0] == ['A1', 'Dredging', '82.0%', '100.0%', '▲ +18.0%', 'Completed']
+    assert rows[1][5] == 'In Progress (reversed)'
 
 
 def test_report_excel_mirrors_every_section():
@@ -66,7 +66,7 @@ def test_report_excel_mirrors_every_section():
                     'Milestones — baseline vs previous vs current forecast', 'Project conclusion & outlook']:
         assert section in flat, section
     assert _PROGRESS in rows and _CRITICAL in rows and _WATCH in rows
-    assert ['A1', 'Dredging', '82.0%', '100.0%', '▲ +18.0%', 'finished'] in rows
+    assert ['A1', 'Dredging', '82.0%', '100.0%', '▲ +18.0%', 'Completed'] in rows
     assert any(r and r[0] == 'CV1' for r in rows)        # critical-movement data row
     assert any(r and r[0] == 'ME2' for r in rows)        # watch-list data row
     assert any('Handover' in str(r) for r in rows)       # milestone row

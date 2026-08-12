@@ -68,6 +68,8 @@ def activity_progress(matched, include=None):
             'reversal': reversal,
             'started': started,
             'finished': finished,
+            # activity status for its own column (In Progress / Completed) — from % complete
+            'status': 'Completed' if curr_pct >= 100.0 else 'In Progress',
             # activity codes ({dimension: value}) carried so the UI slicer can filter
             'codes': u.get('activity_codes') or {},
         })

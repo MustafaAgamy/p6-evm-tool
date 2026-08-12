@@ -9,7 +9,7 @@ from p6_compare.model import MatchedSchedules
 from p6_period.progress import activity_progress, period_summary, progress_by_code
 from p6_period.scurve import period_scurve
 from p6_period.movement import (critical_movement, buckets, milestone_drift,
-                                critical_path_by_wbs, period_plan_counts)
+                                driving_path, period_plan_counts)
 from p6_period.outlook import schedule_adherence, recovery_outlook, watch_list
 
 
@@ -156,7 +156,7 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
     logic_changed = _logic_changed_codes(matched, curr)
     crit = critical_movement(matched, logic_changed, include=cons)
     buck = buckets(matched, dd_now, logic_changed, include=cons)
-    cp_wbs = critical_path_by_wbs(matched, include=cons)
+    cp = driving_path(matched, include=cons)
     plan_counts = period_plan_counts(matched, dd_prev, dd_now, include=cons)
     by_code = progress_by_code(matched, curr, summary['period_earned'], include=cons)
     adherence = schedule_adherence(matched, dd_prev, dd_now)
@@ -179,7 +179,7 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
         'progress': progress,
         'scurve': scurve,
         'critical_movement': crit,
-        'critical_path_wbs': cp_wbs,
+        'critical_path': cp,
         'plan_counts': plan_counts,
         'progress_by_code': by_code,
         'buckets': buck,

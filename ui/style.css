@@ -924,10 +924,11 @@ body {
 /* critical-path comparison */
 .per-cprow { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 6px 0; }
 .per-cplbl { width: 66px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
-.per-wbs { background: rgba(59,130,246,.14); border: 1px solid rgba(59,130,246,.45); border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: var(--text); }
-.per-wbs.gone { background: rgba(248,113,113,.16); border-color: rgba(248,113,113,.5); color: var(--danger); text-decoration: line-through; }
-.per-wbs.newc { background: rgba(74,222,128,.16); border-color: rgba(74,222,128,.5); color: var(--success); }
-.per-arr { color: var(--muted); font-weight: 800; }
+.per-wbs { border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700; }
+.per-wbs.same { background: rgba(59,130,246,.14); border: 1px solid rgba(59,130,246,.45); color: var(--text); }
+.per-wbs.new { background: rgba(248,113,113,.18); border: 1px solid rgba(248,113,113,.55); color: var(--danger); }
+.per-wbs.gone { background: rgba(148,163,184,.12); border: 1px dashed var(--border); color: var(--muted); text-decoration: line-through; }
+.per-arr { color: var(--muted); font-weight: 800; } .per-arr.newarr { color: var(--danger); }
 /* what moved planned-vs-actual */
 .per-wmrow { display: flex; align-items: center; gap: 10px; margin: 7px 0; } .per-wml { width: 104px; font-size: 12.5px; }
 .per-wmtrack { flex: 1; position: relative; height: 20px; min-width: 120px; }

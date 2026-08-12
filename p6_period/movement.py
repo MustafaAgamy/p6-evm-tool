@@ -135,9 +135,96 @@ def _critical_wbs_chain(data, include=None):
 
 def critical_path_by_wbs(matched, include=None):
     """Previous vs current critical path, summarised to WBS level (not activities).
-    {'previous': [wbs...], 'current': [wbs...]}."""
+    {'previous': [wbs...], 'current': [wbs...]}. (Legacy zero-float view; the report now
+    uses driving_path below.)"""
     return {'previous': _critical_wbs_chain(matched.baseline, include),
             'current': _critical_wbs_chain(matched.update, include)}
+
+
+def _driving_chain(data, include=None, max_len=500):
+    """The driving/longest chain to the project-finish milestone, walked back via driving
+    predecessors — the real critical path (one route). Returns ordered activities
+    (start→finish), each {id, name, wbs_path, codes}. Construction/execution only if
+    `include` given; milestones dropped from the boxes. Best-effort — [] on any error."""
+    try:
+        from p6_audit.graph import ScheduleGraph
+        from p6_compare.driving import driving_predecessors
+    except Exception:
+        return []
+    acts = getattr(data, 'activities', {}) or {}
+    if not acts:
+        return []
+
+    def fin(a):
+        return a.get('remaining_early_finish') or a.get('planned_finish')
+
+    # Finish milestone = latest-finishing FinishMilestone, else latest-finishing activity.
+    end, endf = None, None
+    for oid, a in acts.items():
+        if a.get('task_type') == 'FinishMilestone':
+            f = fin(a)
+            if f and (endf is None or f > endf):
+                end, endf = oid, f
+    if end is None:
+        for oid, a in acts.items():
+            f = fin(a)
+            if f and (endf is None or f > endf):
+                end, endf = oid, f
+    if end is None:
+        return []
+    try:
+        graph = ScheduleGraph(data)
+    except Exception:
+        return []
+    chain, cur, seen = [], end, set()
+    for _ in range(max_len):
+        if not cur or cur in seen:
+            break
+        seen.add(cur)
+        a = acts.get(cur)
+        if a:
+            chain.append(a)
+        try:
+            cands = [dp.get('pred_oid') for dp in driving_predecessors(graph, cur)]
+        except Exception:
+            cands = []
+        if not cands:
+            # No strictly-driving link (tolerance/constraint) — fall back to ALL predecessors
+            # and take the controlling (latest-finishing) one, so the longest path continues.
+            try:
+                cands = [lk.get('other') for lk in graph.preds_of(cur)]
+            except Exception:
+                cands = []
+        if not cands:
+            break
+        best, bestf = None, None                        # the controlling (latest-finishing) predecessor
+        for poid in cands:
+            p = acts.get(poid)
+            if not p:
+                continue
+            f = fin(p)
+            if bestf is None or (f and f > bestf):
+                best, bestf = poid, f
+        cur = best
+    chain.reverse()
+    out = []
+    for a in chain:
+        code = a.get('id')
+        if not code or a.get('task_type') in _MILESTONES:
+            continue
+        if include is not None and code not in include:
+            continue
+        out.append({'id': code, 'name': a.get('name', ''),
+                    'wbs_path': a.get('wbs_path') or '', 'codes': a.get('activity_codes') or {}})
+    return out
+
+
+def driving_path(matched, include=None):
+    """Previous vs current driving path (ordered construction activities) so the UI can
+    group/filter by WBS level or activity code and colour the divergence.
+    {'previous': [...], 'current': [...]}."""
+    return {'previous': _driving_chain(matched.baseline, include),
+            'current': _driving_chain(matched.update, include)}
 
 
 def period_plan_counts(matched, dd_prev, dd_now, include=None):

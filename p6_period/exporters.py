@@ -188,28 +188,62 @@ def _progress_bar_html(report):
             f'All three are % of the whole project{behind}; you did {_svar(pe, "%")} of {_svar(pf, "%")} = <b>{ach_txt}</b>.</div></div>')
 
 
-def _critical_compare_html(report):
-    """Previous vs current critical path, summarised to WBS boxes; dropped-off vs newly-critical highlighted."""
-    cp = report.get('critical_path_wbs', {}) or {}
-    prev, curr = cp.get('previous') or [], cp.get('current') or []
-    if not prev and not curr:
-        return '<p class="note">No critical path could be derived (no zero-float construction activities).</p>'
-    ps, cs = set(prev), set(curr)
+def _cp_key(act, mode):
+    """Grouping key for a driving-path activity: a WBS segment or an activity-code value."""
+    if mode.startswith('code:'):
+        return (act.get('codes') or {}).get(mode[5:]) or '(no code)'
+    segs = [s for s in (act.get('wbs_path') or '').split(' > ') if s]
+    if not segs:
+        return '(no WBS)'
+    if mode.startswith('wbs'):
+        i = int(mode[3:])
+        return segs[i] if i < len(segs) else segs[-1]
+    return segs[-2] if len(segs) >= 2 else segs[-1]      # 'leaf-parent' default
 
-    def chain(items, other, cls_new, cls_gone):
+
+def _cp_chain(acts, mode):
+    out = []
+    for a in acts:
+        k = _cp_key(a, mode)
+        if not out or out[-1] != k:
+            out.append(k)
+    return out
+
+
+def _critical_compare_html(report):
+    """The driving path to the finish milestone, grouped to WBS boxes; the CURRENT path is
+    red from where it diverges from the previous one (Ibrahim's "new critical path")."""
+    cp = report.get('critical_path', {}) or {}
+    prevA, currA = cp.get('previous') or [], cp.get('current') or []
+    if not prevA and not currA:
+        return '<p class="note">No driving path to the finish milestone could be derived.</p>'
+    prev, curr = _cp_chain(prevA, 'leaf-parent'), _cp_chain(currA, 'leaf-parent')
+    cset = set(curr)
+    div = 0
+    while div < len(prev) and div < len(curr) and prev[div] == curr[div]:
+        div += 1
+
+    def prow(items):
         out = []
         for i, w in enumerate(items):
-            cls = cls_gone if w not in other else ('' if w in ps and w in cs else cls_new)
-            out.append(f'<span class="wbs {cls}">{_e(w)}</span>')
+            out.append(f'<span class="wbs {"same" if w in cset else "gone"}">{_e(w)}</span>')
             if i < len(items) - 1:
                 out.append('<span class="arr">→</span>')
         return ' '.join(out) or '<span class="note">—</span>'
-    return (f'<div class="cprow"><span class="cplbl">Previous</span>{chain(prev, cs, "", "gone")}</div>'
-            f'<div class="cprow"><span class="cplbl">Current</span>{chain(curr, ps, "newc", "")}</div>'
-            f'<div class="cplegend"><i style="background:#eef4fb;border:1px solid #c9ddf3"></i>on both'
-            f'<i style="background:#fdecec;border:1px solid #f2b8b8"></i>dropped off'
-            f'<i style="background:#eafaf0;border:1px solid #a7e0bd"></i>newly critical</div>'
-            f'<p class="note">Each box is a WBS the critical path runs through, in order — the summarised conclusion; the detailed activities are in the table below.</p>')
+
+    def crow(items):
+        out = []
+        for i, w in enumerate(items):
+            out.append(f'<span class="wbs {"new" if i >= div else "same"}">{_e(w)}</span>')
+            if i < len(items) - 1:
+                out.append(f'<span class="arr{" newarr" if i >= div else ""}">→</span>')
+        return ' '.join(out) or '<span class="note">—</span>'
+    return (f'<div class="cprow"><span class="cplbl">Previous</span>{prow(prev)}</div>'
+            f'<div class="cprow"><span class="cplbl">Current</span>{crow(curr)}</div>'
+            f'<div class="cplegend"><i style="background:#eef4fb;border:1px solid #c9ddf3"></i>same as last period'
+            f'<i style="background:#fdecec;border:1px solid #f2b8b8"></i>new critical path (from divergence)'
+            f'<i style="background:#f4f4f5;border:1px dashed #cbd5e1"></i>dropped off</div>'
+            f'<p class="note">The <b>driving path</b> to the finish milestone (walked back through the driving links), grouped by WBS. On screen you can regroup by any WBS level or activity code. Red = the new route from where it diverges from last period.</p>')
 
 
 def _whatmoved_html(report):
@@ -279,11 +313,11 @@ def _progress_table_html(report):
         f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
         f'<td class="num">{_e(r.get("prev_pct"))}%</td><td class="num">{_e(r.get("curr_pct"))}%</td>'
         f'<td class="num {"neg" if r.get("reversal") else "pos"}">{_signpct(r.get("variance"))}</td>'
-        f'<td>{"finished" if r.get("finished") else ("started" if r.get("started") else ("reversed" if r.get("reversal") else ""))}</td>'
+        f'<td>{_e(r.get("status"))}{" ⚠ reversed" if r.get("reversal") else ""}</td>'
         '</tr>' for r in shown)
     more = f'<p class="note">Showing the {len(shown)} biggest movers of {len(rows)} — full list on screen and in Excel.</p>' if len(rows) > len(shown) else ''
     return ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th>'
-            '<th class="num">Prev %</th><th class="num">Current %</th><th class="num">Variance</th><th>Note</th></tr></thead><tbody>'
+            '<th class="num">Prev %</th><th class="num">Current %</th><th class="num">Variance</th><th>Status</th></tr></thead><tbody>'
             + body + '</tbody></table>' + more)
 
 
@@ -464,10 +498,11 @@ def render_html(report, trend=None, sections=None):
       .wmnum {{ width: 118px; font-size: 11px; color: #334155; }} .wmnum b {{ font-size: 12px; }}
       .cprow {{ display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 6px 0; }}
       .cplbl {{ width: 62px; font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .3px; }}
-      .wbs {{ background: #eef4fb; border: 1px solid #c9ddf3; border-radius: 8px; padding: 6px 12px; font-size: 11.5px; font-weight: 700; color: #1e3a8a; }}
-      .wbs.gone {{ background: #fdecec; border-color: #f2b8b8; color: #b91c1c; text-decoration: line-through; }}
-      .wbs.newc {{ background: #eafaf0; border-color: #a7e0bd; color: #166534; }}
-      .arr {{ color: #94a3b8; font-weight: 800; }}
+      .wbs {{ border-radius: 8px; padding: 6px 12px; font-size: 11.5px; font-weight: 700; }}
+      .wbs.same {{ background: #eef4fb; border: 1px solid #c9ddf3; color: #1e3a8a; }}
+      .wbs.new {{ background: #fdecec; border: 1px solid #f2b8b8; color: #b91c1c; }}
+      .wbs.gone {{ background: #f4f4f5; border: 1px dashed #cbd5e1; color: #94a3b8; text-decoration: line-through; }}
+      .arr {{ color: #94a3b8; font-weight: 800; }} .arr.newarr {{ color: #dc2626; }}
       .cplegend {{ font-size: 10.5px; color: #64748b; margin-top: 7px; }} .cplegend i {{ display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin: 0 5px 0 12px; }}
       .bar2 {{ display: flex; align-items: center; gap: 10px; margin: 5px 0; }} .bar2 .l {{ width: 160px; font-size: 11.5px; }}
       .bar2 .t {{ flex: 1; background: #eef2f7; border-radius: 6px; height: 18px; overflow: hidden; border: 1px solid #e2e8f0; }}
@@ -540,7 +575,7 @@ def render_html(report, trend=None, sections=None):
 
 # ── Excel: mirrors the PDF, one sheet ───────────────────────────────────────
 
-_PROGRESS_HEADERS = ['Activity ID', 'Activity name', 'Previous %', 'Current %', 'Variance', 'Note']
+_PROGRESS_HEADERS = ['Activity ID', 'Activity name', 'Previous %', 'Current %', 'Variance', 'Status']
 _CRITICAL_HEADERS = ['Activity ID', 'Activity name', 'Finish (prev)', 'Finish (now)',
                      'Slip', 'Float', 'Driver', 'Critical']
 _WATCH_HEADERS = ['Activity ID', 'Activity name', 'Float (wd)', 'Due to start', 'Why watch it']
@@ -567,11 +602,10 @@ def _xl_sign(v, suffix=''):
 def _progress_rows(report, code_types=()):
     out = []
     for r in (report.get('progress', {}) or {}).get('rows', []):
-        note = 'finished' if r.get('finished') else ('started' if r.get('started')
-               else ('progress reversed' if r.get('reversal') else ''))
+        status = r.get('status', '') + (' (reversed)' if r.get('reversal') else '')
         out.append([r.get('activity_id', ''), r.get('activity_name', ''),
                     f"{r.get('prev_pct', 0)}%", f"{r.get('curr_pct', 0)}%",
-                    _xl_sign(r.get('variance', 0), '%'), note]
+                    _xl_sign(r.get('variance', 0), '%'), status]
                    + _code_cells(r, code_types))
     return out
 

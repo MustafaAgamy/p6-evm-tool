@@ -85,3 +85,38 @@ def test_milestone_drift_finish_only_and_overall_is_latest():
     assert ids == {'M1', 'M9'}                       # finish milestones only (start excluded)
     assert md['overall']['activity_id'] == 'M9'      # latest current forecast = project completion
     assert md['overall']['slip_baseline_days'] is not None
+
+
+def _chain_sched():
+    """A → B → C → Finish milestone, all FS lag 0, dates consecutive so links are driving."""
+    from datetime import datetime as _dt
+    def a(oid, code, name, s, f, wbs, ts='Task'):
+        return {'object_id': oid, 'id': code, 'name': name, 'task_type': ts,
+                'planned_start': _dt(*s), 'planned_finish': _dt(*f),
+                'remaining_early_start': _dt(*s), 'remaining_early_finish': _dt(*f),
+                'total_float_days': 0.0, 'planned_duration': 80.0, 'calendar_id': None,
+                'wbs_path': wbs, 'activity_codes': {}}
+    d = ScheduleData()
+    d.calendars = {}
+    d.project = {}
+    d.activities = {
+        '1': a('1', 'A', 'Excavate', (2026, 1, 1), (2026, 1, 10), 'P > Basement > Earthworks'),
+        '2': a('2', 'B', 'Raft pour', (2026, 1, 10), (2026, 1, 20), 'P > Basement > Concrete'),
+        '3': a('3', 'C', 'Ground slab', (2026, 1, 20), (2026, 1, 30), 'P > Ground Floor > Concrete'),
+        '9': a('9', 'M9', 'Finish', (2026, 1, 30), (2026, 1, 30), 'P > Milestones', 'FinishMilestone'),
+    }
+    d.relationships = [
+        {'pred_id': '1', 'succ_id': '2', 'type': 'FS', 'lag_days': 0.0},
+        {'pred_id': '2', 'succ_id': '3', 'type': 'FS', 'lag_days': 0.0},
+        {'pred_id': '3', 'succ_id': '9', 'type': 'FS', 'lag_days': 0.0},
+    ]
+    return d
+
+
+def test_driving_path_walks_to_finish_milestone():
+    from p6_period.movement import driving_path
+    m = MatchedSchedules(_chain_sched(), _chain_sched())
+    cp = driving_path(m)
+    ids = [x['id'] for x in cp['current']]
+    assert ids == ['A', 'B', 'C']                        # start→finish, milestone dropped
+    assert cp['current'][0]['wbs_path'].endswith('Earthworks')

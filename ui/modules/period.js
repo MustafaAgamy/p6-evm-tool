@@ -208,19 +208,47 @@ function _progressBarHtml(report) {
   </div>`;
 }
 
-// Critical-path comparison — previous vs current, summarised to WBS boxes.
+// Critical-path comparison — the driving path to the finish, grouped by WBS level or
+// activity code (dropdown), with the CURRENT path red from where it diverges.
+function _cpKey(a, mode) {
+  if (mode.indexOf('code:') === 0) return ((a.codes || {})[mode.slice(5)]) || '(no code)';
+  const segs = (a.wbs_path || '').split(' > ').map(s => s.trim()).filter(Boolean);
+  if (!segs.length) return '(no WBS)';
+  if (mode.indexOf('wbs') === 0) { const i = parseInt(mode.slice(3), 10); return segs[i] || segs[segs.length - 1]; }
+  return segs.length >= 2 ? segs[segs.length - 2] : segs[segs.length - 1];   // leaf-parent
+}
+function _cpChain(acts, mode) {
+  const out = [];
+  for (const a of acts) { const k = _cpKey(a, mode); if (!out.length || out[out.length - 1] !== k) out.push(k); }
+  return out;
+}
+function _cpRender(prevA, currA, mode) {
+  const prev = _cpChain(prevA, mode), curr = _cpChain(currA, mode);
+  const cset = new Set(curr);
+  let div = 0; while (div < prev.length && div < curr.length && prev[div] === curr[div]) div++;
+  const prow = prev.map((w, i) => `<span class="per-wbs ${cset.has(w) ? 'same' : 'gone'}">${escapeHtml(w)}</span>${i < prev.length - 1 ? '<span class="per-arr">→</span>' : ''}`).join(' ') || '<span class="mut">—</span>';
+  const crow = curr.map((w, i) => `<span class="per-wbs ${i >= div ? 'new' : 'same'}">${escapeHtml(w)}</span>${i < curr.length - 1 ? `<span class="per-arr${i >= div ? ' newarr' : ''}">→</span>` : ''}`).join(' ') || '<span class="mut">—</span>';
+  return `<div class="per-cprow"><span class="per-cplbl">Previous</span>${prow}</div>
+    <div class="per-cprow"><span class="per-cplbl">Current</span>${crow}</div>
+    <div class="cmp-foot"><span class="per-wbs same" style="padding:1px 7px">same</span> <span class="per-wbs new" style="padding:1px 7px">new critical path (from divergence)</span> <span class="per-wbs gone" style="padding:1px 7px">dropped off</span></div>`;
+}
 function _criticalCompareHtml(report) {
-  const cp = report.critical_path_wbs || {};
-  const prev = cp.previous || [], curr = cp.current || [];
-  if (!prev.length && !curr.length) return '<p class="cmp-empty">No critical path could be derived (no zero-float construction activities).</p>';
-  const ps = new Set(prev), cs = new Set(curr);
-  const chain = (items, other, isCurr) => items.map((w, i) => {
-    const cls = !other.has(w) ? (isCurr ? 'newc' : 'gone') : '';
-    return `<span class="per-wbs ${cls}">${escapeHtml(w)}</span>${i < items.length - 1 ? '<span class="per-arr">→</span>' : ''}`;
-  }).join(' ') || '<span class="mut">—</span>';
-  return `<div class="per-cprow"><span class="per-cplbl">Previous</span>${chain(prev, cs, false)}</div>
-    <div class="per-cprow"><span class="per-cplbl">Current</span>${chain(curr, ps, true)}</div>
-    <div class="cmp-foot"><span class="per-wbs" style="padding:1px 7px">on both</span> <span class="per-wbs gone" style="padding:1px 7px">dropped off</span> <span class="per-wbs newc" style="padding:1px 7px">newly critical</span> — each box is a WBS the critical path runs through, in order.</div>`;
+  const cp = report.critical_path || {};
+  const prevA = cp.previous || [], currA = cp.current || [];
+  if (!prevA.length && !currA.length) return '<p class="cmp-empty">No driving path to the finish milestone could be derived.</p>';
+  const maxDepth = Math.max(1, ...prevA.concat(currA).map(a => (a.wbs_path || '').split(' > ').filter(Boolean).length));
+  let opts = `<option value="leaf-parent">WBS — floor / zone (default)</option>`;
+  for (let i = 1; i < maxDepth; i++) opts += `<option value="wbs${i}">WBS level ${i + 1}</option>`;
+  (report.code_types || []).forEach(t => { opts += `<option value="code:${escapeHtml(t)}">Activity code: ${escapeHtml(t)}</option>`; });
+  return `<div class="per-slicer"><span class="per-slicer-lbl">Group / filter the critical path by</span><select id="per-cp-mode">${opts}</select></div>
+    <div id="per-cp-chains">${_cpRender(prevA, currA, 'leaf-parent')}</div>
+    <div class="cmp-foot">The <b>driving path</b> to the finish milestone (walked back through the driving links). Red = the new route from where it diverges from last period.</div>`;
+}
+function _wireCriticalCompare(report) {
+  const sel = document.getElementById('per-cp-mode'), box = document.getElementById('per-cp-chains');
+  if (!sel || !box) return;
+  const cp = report.critical_path || {};
+  sel.addEventListener('change', () => { box.innerHTML = _cpRender(cp.previous || [], cp.current || [], sel.value); });
 }
 
 // What moved — planned vs actual, counts always shown as text.
@@ -378,18 +406,19 @@ function _watchTable(report) {
 
 function _progressRows(rows) {
   return rows.map(r => {
-    const tag = r.finished ? '<span class="cmp-tag">finished</span>'
-              : r.started ? '<span class="cmp-tag">started</span>' : '';
     const cls = r.reversal ? 'cmp-pill bad' : 'cmp-pill good';
     const arrow = r.reversal ? '▼' : '▲';
     const flag = r.reversal ? ' ⚠' : '';
+    const stCls = r.status === 'Completed' ? 'cmp-pill good' : 'cmp-pill';
+    const status = `<span class="${stCls}">${escapeHtml(r.status || '')}</span>${r.reversal ? ' <span class="cmp-pill bad">reversed</span>' : ''}`;
     const codes = escapeHtml(JSON.stringify(r.codes || {}));   // per-row activity codes, for the slicer
     return `<tr data-codes="${codes}">
       <td class="mono">${escapeHtml(r.activity_id)}</td>
-      <td>${escapeHtml(r.activity_name)} ${tag}</td>
+      <td>${escapeHtml(r.activity_name)}</td>
       <td class="num mut">${r.prev_pct}%</td>
       <td class="num">${r.curr_pct}%</td>
       <td class="num"><span class="${cls}">${arrow} ${_signPct(r.variance)}${flag}</span></td>
+      <td>${status}</td>
     </tr>`;
   }).join('');
 }
@@ -410,7 +439,7 @@ function _progressSection(report) {
       <thead><tr><th>Activity ID</th><th>Activity name</th>
         <th class="num">Prev % <span style="font-weight:400">(${ph})</span></th>
         <th class="num">Current % <span style="font-weight:400">(${ch})</span></th>
-        <th class="num">Variance</th></tr></thead>
+        <th class="num">Variance</th><th>Status</th></tr></thead>
       <tbody>${_progressRows(rows)}</tbody></table></div>
     <div class="cmp-foot">Pick an activity code to see just those activities’ current vs previous % complete. Biggest gain first; <span class="cmp-pill bad">▼</span> = progress declared backwards vs last update.</div>`;
 }
@@ -596,6 +625,7 @@ export function renderPeriodReport(report) {
   _wireSlicer();
   _wireCodeSlicer('per-crit-type', 'per-crit-chips', 'per-crit-table');
   _wireByCode(report);
+  _wireCriticalCompare(report);
 }
 
 // ── Exports (PDF + Excel) ───────────────────────────────────────────────────
