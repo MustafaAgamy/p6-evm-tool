@@ -180,6 +180,50 @@ def test_monthly_stats_present(tmp_path):
     assert all('working_days' in m and 'working_hours' in m for m in prim['monthly_stats'])
 
 
+def test_comparison_has_nonworking_not_activities(tmp_path):
+    """#09 — Comparison drops the Activities column and counts non-working days that are
+    still ahead (from the data date to finish), not the elapsed past."""
+    r = _run(tmp_path)                                # data date 01 Feb; window Jan 1 – Mar 31
+    comp = r['comparison']
+    assert comp and 'nonworking_days' in comp[0]
+    assert 'activities' not in comp[0] and 'exceptions' not in comp[0]
+    c1 = next(c for c in comp if c['name'] == '5 Days/Week')
+    assert c1['nonworking_days'] > 0
+    # from the data date only → fewer than the whole-project non-working total (which still
+    # includes January's weekends + the 01 Jan holiday).
+    assert c1['nonworking_days'] < r['dashboard']['total_nonworking_days']
+
+
+def test_exception_name_in_timeline_cell(tmp_path):
+    """#05 — a stored holiday/shutdown reason shows as the day's name in the timeline cell."""
+    data = parse_file(_xml(tmp_path))
+    r0 = calendar_audit(data, {}, {})
+    shut = r0['exceptions']['shutdowns'][0]          # the Feb 10–16 run (in the visible window)
+    r = calendar_audit(data, {}, {'shutdown_reasons': {shut['key']: 'Plant Turnaround'}})
+    prim = r['by_calendar'][r['primary_calendar_id']]
+    feb = next(m for m in prim['monthly_stats'] if m['label'].startswith('Feb 2025'))
+    named = [c for c in feb['days'] if c.get('name') == 'Plant Turnaround']
+    assert len(named) == 7                            # all 7 shutdown days carry the name
+
+
+def test_reduced_hours_under_5min_ignored():
+    """#03 — a reduced-hours day within 5 minutes of the standard day is not reported."""
+    from datetime import date
+    from p6_evm.calendars import Calendar
+    from p6_calendar.audit import _classify_exceptions
+    cal = Calendar(object_id='C', name='c', nonworking_days={'Friday', 'Saturday'}, day_hours=8.0)
+    cal.work_intervals = {d: [(480, 960)] for d in            # 08:00–16:00 = 480 min
+                          ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday']}
+    # 03 Mar 2025 is a Monday. 08:00–15:58 = 478 min → 2 min short → ignored.
+    cal.exception_intervals = {date(2025, 3, 3): [(480, 958)]}
+    exc = _classify_exceptions(cal, date(2025, 3, 1), date(2025, 3, 31), {}, [])
+    assert exc['special'] == []
+    # 08:00–13:00 = 300 min → 3 hours short → a genuine reduced day, kept.
+    cal.exception_intervals = {date(2025, 3, 3): [(480, 780)]}
+    exc = _classify_exceptions(cal, date(2025, 3, 1), date(2025, 3, 31), {}, [])
+    assert len(exc['special']) == 1 and exc['special'][0]['hours_per_day'] == 5.0
+
+
 def test_timeline_starts_at_data_date(tmp_path):
     """Ibrahim's rule: the month strip starts at the data date; the headline totals
     still cover the whole window (project start → finish)."""

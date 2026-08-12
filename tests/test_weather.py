@@ -165,3 +165,23 @@ def test_conclusion_string_reflects_numbers():
 def test_conclusion_no_impact_is_graceful():
     r = _impact(construction_cal_ids=set(), daily_weather={})
     assert 'no weather delay' in r['conclusion'].lower()
+
+
+def test_bad_days_name_affected_activities():
+    """#07 — each working bad-weather day names the construction activities it hits."""
+    cal = _cal()
+    daily = {date(2025, 6, 3): {'rain_mm': 15},   # Tue — working
+             date(2025, 6, 10): {'dust': True}}   # Tue — working, nothing scheduled
+    acts = [
+        {'name': 'Excavation', 'start': date(2025, 6, 1), 'finish': date(2025, 6, 5)},
+        {'name': 'Backfill',   'start': date(2025, 6, 2), 'finish': date(2025, 6, 4)},
+        {'name': 'Paving',     'start': date(2025, 6, 20), 'finish': date(2025, 6, 30)},
+    ]
+    r = weather_impact(
+        calendars={'C': cal}, construction_cal_ids={'C'}, construction_activities=acts,
+        milestones=[], data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather=daily, forecast_horizon=date(2025, 6, 8), thresholds=DEFAULT_THRESHOLDS)
+    by_date = {d['date']: d for d in r['bad_days']}
+    assert set(by_date['2025-06-03']['activities']) == {'Excavation', 'Backfill'}
+    assert by_date['2025-06-03']['activities_count'] == 2
+    assert by_date['2025-06-10']['activities'] == []   # nothing active that date

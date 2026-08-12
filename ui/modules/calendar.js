@@ -22,7 +22,7 @@ export function monthGridCells(month) {
   const cells = [];
   const pad = ((month.first_weekday % 7) + 7) % 7;
   for (let i = 0; i < pad; i++) cells.push({ blank: true });
-  for (const day of (month.days || [])) cells.push({ d: day.d, status: day.status });
+  for (const day of (month.days || [])) cells.push({ d: day.d, status: day.status, name: day.name });
   return cells;
 }
 
@@ -46,6 +46,7 @@ let _thresholds = null;   // stop-work limits (rain/heat/wind/dust)
 let _map = null;          // Leaflet map instance (location picker)
 let _marker = null;       // the draggable location pin
 let _leafletPromise = null;
+let _mapRO = null;        // ResizeObserver that re-measures the map when the tab is shown
 const _openMonths = new Set();
 
 export function renderCalendar(ca) {
@@ -71,6 +72,7 @@ export function renderCalendar(ca) {
 function _render() {
   const body = document.getElementById('calendar-body');
   body.innerHTML =
+    _sectionPicker() +
     _locationCard() +
     _dashboard(_ca.dashboard) +
     _timelineSection() +
@@ -94,6 +96,22 @@ function _tile(lab, val, sub = '', cls = '') {
   return `<div class="cal-kpi ${cls}"><div class="cal-k">${lab}</div>
     <div class="cal-v">${escapeHtml(String(val))}</div>
     ${sub ? `<div class="cal-k2">${sub}</div>` : ''}</div>`;
+}
+
+// ── Section picker (#06) — choose which sections the PDF prints ─────────────
+const _CAL_SECTIONS = [
+  ['dashboard', '1 Executive Dashboard'], ['timeline', '2 Calendar Timeline'],
+  ['stats', '3 Monthly Statistics'], ['exceptions', '4 Calendar Exceptions'],
+  ['hours', '5 Working Hours Profile'], ['comparison', '6 Calendar Comparison'],
+  ['usage', '7 Calendar Usage'], ['conflicts', '8 Calendar Conflicts'],
+  ['weather', '9 Weather Impact'], ['conclusion', '10 Executive Conclusion'],
+];
+
+function _sectionPicker() {
+  const boxes = _CAL_SECTIONS.map(([k, lab]) =>
+    `<label class="cal-secpick"><input type="checkbox" class="cal-sec-cb" value="${k}" checked> ${lab}</label>`).join('');
+  return `<details class="cal-print-card"><summary>🖨 Choose sections to print — then click “Generate Calendar Audit PDF”</summary>
+    <div class="cal-secpick-grid">${boxes}</div></details>`;
 }
 
 // ── Location picker (top — drives the Weather-Adjusted Finish + Section 9) ──
@@ -215,7 +233,7 @@ function _monthDetailHtml() {
     const head = dows.map(d => `<div class="cal-mh">${d}</div>`).join('');
     const cells = monthGridCells(m).map(c => c.blank
       ? '<div class="cal-mcell blank"></div>'
-      : `<div class="cal-mcell ${statusClass(c.status)}">${c.d}</div>`).join('');
+      : `<div class="cal-mcell ${statusClass(c.status)}"><span class="cal-dn">${c.d}</span>${c.name ? `<div class="cal-cn">${escapeHtml(c.name)}</div>` : ''}</div>`).join('');
     return `<div class="cal-month-open"><div class="cal-month-open-t">${escapeHtml(m.label)} —
       ${m.working_days} working · ${m.holidays} holiday${m.holidays === 1 ? '' : 's'} · ${m.working_hours} hrs</div>
       <div class="cal-month-grid">${head}${cells}</div></div>`;
@@ -248,7 +266,7 @@ function _exceptionsSection() {
   const sDays = exc.shutdowns.reduce((a, s) => a + s.days, 0);
   const holRows = exc.holidays.map(h =>
     `<tr><td>${escapeHtml(h.description)}</td><td class="num">${h.days}</td>
-     <td>${escapeHtml(h.reason || '—')}</td></tr>`).join('');
+     <td><input class="cal-reason" data-key="${escapeHtml(h.key || '')}" value="${escapeHtml(h.reason || '')}" placeholder="name this holiday…"></td></tr>`).join('');
   const spRows = exc.special.map(s =>
     `<tr><td>${escapeHtml(s.description)}</td><td class="num">${s.days}</td>
      <td>${escapeHtml(s.hours || '')}</td><td>${escapeHtml(s.description)}</td></tr>`).join('');
@@ -278,19 +296,23 @@ function _hoursSection() {
     `<div class="cal-hprof"><div class="t">${escapeHtml(p.name)}</div>
      <div class="h">${escapeHtml(p.hours)}</div>
      <div class="sub">${escapeHtml(String(p.hours_per_day))} hrs · ${escapeHtml(p.sub || '')}</div></div>`).join('');
-  return _sec(5, 'Working Hours Profile') + `<div class="cal-hours-grid">${cards}</div>`;
+  return _sec(5, 'Working Hours Profile') +
+    `<div class="cal-note" style="font-style:normal">Your <b>standard working day</b>, used all year — different from the <i>Reduced / Special Working Hours</i> in section 4 (specific dates whose hours differ from this standard; differences under 5 minutes are ignored).</div>
+     <div class="cal-hours-grid">${cards}</div>`;
 }
 
 function _comparisonSection(cmp) {
+  const dd = (_ca.dashboard && _ca.dashboard.data_date) ? fmtCalDate(_ca.dashboard.data_date) : '';
   const rows = (cmp || []).map(c =>
     `<tr><td>${escapeHtml(c.name)}${c.is_default ? ' <span class="cal-pill mini def">Default</span>' : ''}</td>
      <td class="num">${c.hours_per_day}</td><td class="num">${c.days_per_week}</td>
-     <td class="num">${c.activities}</td><td class="num">${c.exceptions}</td></tr>`).join('');
+     <td class="num">${c.nonworking_days != null ? c.nonworking_days : 0}</td></tr>`).join('');
   return _sec(6, 'Calendar Comparison') +
     `<div class="cal-card p0"><table class="cal-table"><thead><tr>
       <th>Calendar</th><th class="num">Hours/Day</th><th class="num">Days/Week</th>
-      <th class="num">Activities</th><th class="num">Exceptions</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
+      <th class="num">Non-Working Days</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+     <div class="cal-note" style="font-style:normal"><b>Non-Working Days</b> — weekends, holidays and shutdowns still ahead${dd ? `, from the data date (${dd}) to finish` : ''}. Already-elapsed days are excluded.</div>`;
 }
 
 function _usageSection(usage) {
@@ -303,7 +325,8 @@ function _usageSection(usage) {
   return _sec(7, 'Calendar Usage') +
     `<div class="cal-card p0"><table class="cal-table"><thead><tr>
       <th>Calendar</th><th class="num">Activities</th><th>% of Activities</th><th>Role</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
+      <tbody>${rows}</tbody></table></div>
+     <div class="cal-note" style="font-style:normal"><b>Roles:</b> <b>Default</b> — the project's default calendar; new activities are created on it automatically. <b>Non-default</b> — a calendar deliberately assigned to specific activities instead of the default. <b>Unused</b> — defined in the file but no activity uses it.</div>`;
 }
 
 // Section 8 — concise summary (no repeated detail).
@@ -360,6 +383,19 @@ function _weatherControls() {
     <div class="cal-note" style="margin-top:8px">Each flagged day below shows the measured value against your limit. Applied to <b>construction</b> activities only; a day already off (weekend / holiday / shutdown) is never double-counted — kept separate from the exact P6 Delay.</div>`;
 }
 
+// The construction activities a bad-weather day hits (#07).
+function _actsCell(d) {
+  const names = d.activities || [];
+  const extra = (d.activities_count != null ? d.activities_count : names.length) - names.length;
+  if (names.length) {
+    return escapeHtml(names.join(', ')) + (extra > 0 ? ` <span class="cal-muted">(+${extra} more)</span>` : '');
+  }
+  if ((d.effect || '').startsWith('Non-working')) {
+    return '<span class="cal-muted">No construction activity scheduled</span>';
+  }
+  return `<span class="cal-muted">${escapeHtml(d.effect || '')}</span>`;
+}
+
 function _weatherSection() {
   const head = _sec(9, 'Weather Impact', '<span class="cal-pill warn">Estimate · not a P6 figure</span>');
   if (!_pendingLoc) {
@@ -388,22 +424,23 @@ function _weatherSection() {
     `<tr><td>${fmtCalDate(d.date)}</td><td>${escapeHtml(d.day_name)}</td>
       <td>${escapeHtml(d.condition)}</td>
       <td><span class="cal-pill mini ${d.confidence === 'forecast' ? 'def' : 'warn'}">${d.confidence === 'forecast' ? 'Forecast' : 'Expected'}</span></td>
-      <td>${escapeHtml(d.effect)}</td></tr>`).join('');
+      <td>${_actsCell(d)}</td></tr>`).join('');
   const dayTable = `<div class="cal-grp"><span class="cal-pill special">Upcoming Bad-Weather Days</span>
-      <span class="cal-grp-meta">each day shows the measured value &amp; why it counts · next ~16 days = live forecast · beyond = expected from historical climate</span></div>
+      <span class="cal-grp-meta">each day shows the measured value, why it counts &amp; the activities it hits · next ~16 days = live forecast · beyond = expected from historical climate</span></div>
     <div class="cal-card p0" style="max-height:300px;overflow-y:auto"><table class="cal-table"><thead><tr>
-      <th>Date</th><th>Day</th><th>Why it's a lost day (measured)</th><th>Confidence</th><th>Effect</th></tr></thead>
+      <th>Date</th><th>Day</th><th>Why it's a lost day (measured)</th><th>Confidence</th><th>Affected planned activities</th></tr></thead>
       <tbody>${dayRows || '<tr><td colspan="5" class="cal-empty">No bad-weather days expected.</td></tr>'}</tbody></table></div>`;
   const msRows = (w.milestones || []).map(m =>
     `<tr><td>${escapeHtml(m.name)}</td><td>${fmtCalDate(m.planned)}</td>
       <td class="num">${m.bad_days_before}</td><td class="num">${m.already_allowed}</td>
       <td class="num"><span class="cal-pill mini ${m.net_delay > 0 ? 'shutdown' : 'def'}">+${m.net_delay} d</span></td>
       <td>${fmtCalDate(m.adjusted)}</td></tr>`).join('');
-  const msTable = `<div class="cal-grp"><span class="cal-pill shutdown">Milestone Impact</span></div>
+  const msTable = `<div class="cal-grp"><span class="cal-pill shutdown">Impact on Milestone Completion</span></div>
     <div class="cal-card p0"><table class="cal-table"><thead><tr>
-      <th>Milestone</th><th>Planned date</th><th class="num">Bad-weather days before</th>
-      <th class="num">Already in calendar</th><th class="num">Net weather delay</th><th>Weather-adjusted date</th></tr></thead>
-      <tbody>${msRows || '<tr><td colspan="6" class="cal-empty">No milestones found.</td></tr>'}</tbody></table></div>`;
+      <th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>
+      <th class="num">Already in calendar</th><th class="num">Net weather delay</th><th>Weather-adjusted completion</th></tr></thead>
+      <tbody>${msRows || '<tr><td colspan="6" class="cal-empty">No milestones found.</td></tr>'}</tbody></table></div>
+     <div class="cal-note" style="font-style:normal"><b>How to read this table:</b> <b>Bad-weather days before it</b> — expected bad-weather days between the data date and the milestone's planned finish. <b>Already in calendar</b> — of those, the ones landing on a day already off (weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days weather adds. <i>Example — 6 bad-weather days before finish; 4 already fell on off-days, so only 2 hit working days → +2 working days.</i></div>`;
   const recRows = (w.recovery || []).map(r =>
     `<tr><td>${escapeHtml(r.period)}</td><td class="num"><span class="cal-pill mini shutdown">${r.days} d</span></td>
       <td>${escapeHtml(r.option_longer_days)}</td><td>${escapeHtml(r.option_extra_days)}</td><td>${escapeHtml(r.option_shift)}</td></tr>`).join('');
@@ -556,6 +593,7 @@ async function _setFromMap(latlng) {
 function _panMapTo(lat, lon) {
   if (!_map || !window.L) return;
   const L = window.L, ll = [+lat, +lon];
+  try { _map.invalidateSize(); } catch { /* not visible */ }
   _map.setView(ll, 12);
   if (!_marker) {
     _marker = L.marker(ll, { draggable: true, icon: _pinIcon(L) }).addTo(_map);
@@ -574,6 +612,7 @@ async function _initMap() {
     if (el && !L) el.innerHTML = '<div class="cal-map-empty">Map needs an internet connection.</div>';
     return;
   }
+  if (_mapRO) { try { _mapRO.disconnect(); } catch { /* gone */ } _mapRO = null; }
   if (_map) { try { _map.remove(); } catch { /* stale node */ } _map = null; _marker = null; }
   const hasLoc = _pendingLoc && _pendingLoc.lat != null;
   const center = hasLoc ? [+_pendingLoc.lat, +_pendingLoc.lon] : [24.5, 46.6]; // default: Arabian Peninsula
@@ -594,7 +633,18 @@ async function _initMap() {
     }
     _setFromMap(e.latlng);
   });
-  setTimeout(() => { try { _map.invalidateSize(); } catch { /* not visible yet */ } }, 60);
+  // Leaflet mis-sizes when it inits inside a tab that isn't visible/sized yet (the pin
+  // then lands at the edge). Re-measure when the container resizes (tab shown) and on a
+  // couple of timed passes, recentring so the pin stays put. (#01)
+  const recentre = () => {
+    try { _map.invalidateSize(); _map.panTo(_marker ? _marker.getLatLng() : center); } catch { /* hidden */ }
+  };
+  if (window.ResizeObserver) {
+    _mapRO = new ResizeObserver(() => { try { _map.invalidateSize(); } catch { /* hidden */ } });
+    _mapRO.observe(el);
+  }
+  setTimeout(recentre, 80);
+  setTimeout(recentre, 400);
 }
 
 // Wire the Weather-Impact "Apply & recalculate" (edited stop-work limits).

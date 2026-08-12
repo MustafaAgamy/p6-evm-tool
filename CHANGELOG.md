@@ -18,6 +18,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Weather source explained in the app** — the Weather Impact section now spells out how the estimate is built (the three Open-Meteo feeds, forecast vs expected) and exactly **what counts as a bad-weather day**.
 - **What's driving the lost days** — a breakdown of the flagged days by cause (heat / dust / rain / wind), plus an **auto weather conclusion** paragraph that reads the numbers, names the main driver and points at the recommended action.
 
+### Added — Calendar report, round 2 (from testing build #103)
+- **Map centres on the site reliably** — fixed the interactive map mis-sizing (pin landing at the edge) when the Calendar tab opens; it now re-measures when shown and recentres on the pin.
+- **Name your holidays & shutdowns, shown inside the day cell** — the exception Description is editable per project; the name you type now appears **inside that day's box** in the timeline (on screen and in Excel), same colour.
+- **Excel exports the whole report** — a coloured timeline **for every assigned calendar** (names inside the cells) plus Monthly Statistics, Holidays & Exceptions, Shutdowns, Comparison, Usage and the Weather tables — each on its own sheet.
+- **Bad-weather days name the activities they hit** — the Upcoming Bad-Weather Days table now lists the construction activities planned on each lost day (or says none is scheduled).
+- **Print only the sections you want** — a section picker on the Calendar Audit lets you choose which of the 10 sections go into the PDF.
+- **Reduced-hours noise removed** — a "reduced hours" period within 5 minutes of the standard working day (P6 minute-rounding) is no longer reported; the Working-Hours Profile now explains how it differs from reduced hours.
+- **Calendar Comparison reworked** — the Activities column is gone (counts live in Usage) and the last column now counts the **non-working days still ahead** (from the data date to finish), with the period stated.
+- **Clearer tables** — plain-language legends for the Calendar Usage roles (Default / Non-default / Unused) and the Milestone Impact columns (Net = Before − Already in calendar).
+
 ### Fixed — Consultant Review (from real-project testing)
 - **Baseline finish** now shows when the baseline is a XER — it falls back to the latest activity finish (the XER reader stores no project finish, so it was blank).
 - **Driving successor changes** are now highlighted in the change table; previously only the predecessor side was checked.

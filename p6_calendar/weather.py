@@ -99,7 +99,7 @@ def _shift_working_days(cal, start, n):
 
 def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
                    project_finish, daily_weather, forecast_horizon,
-                   thresholds=None, config=None):
+                   thresholds=None, config=None, construction_activities=None):
     thresholds = thresholds or DEFAULT_THRESHOLDS
     data_date = _to_date(data_date)
     project_finish = _to_date(project_finish)
@@ -154,16 +154,22 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
          'off': thresholds.get('wind_kmh') is None},
     ]
 
-    # Daily expected list (forecast ≤ horizon, else historical-expected)
+    # Daily expected list (forecast ≤ horizon, else historical-expected). Each working
+    # bad-day also names the construction activities planned across that date (#07).
+    con_act = construction_activities or []
     day_hours = primary_cal.day_hours if primary_cal else 8.0
     bad_list = []
     for d in sorted(remaining):
         working = bool(primary_cal and primary_cal.is_working_day(d))
+        active = [a['name'] for a in con_act
+                  if a.get('start') and a['start'] <= d <= (a.get('finish') or a['start'])] if working else []
         bad_list.append({
             'date': d.isoformat(), 'day_name': _DAY_NAMES[d.weekday()],
             'condition': remaining[d],
             'confidence': 'forecast' if d <= forecast_horizon else 'expected',
             'effect': 'Non-working (construction)' if working else 'Falls on a non-working day',
+            'activities': active[:8],
+            'activities_count': len(active),
         })
 
     # Monthly counts (raw expected bad days per month)
@@ -259,12 +265,22 @@ def weather_inputs(data):
     classify = build_wbs_classifier(data)
 
     construction_cal_ids = set()
+    construction_activities = []
     for a in data.activities.values():
         phase = classify(wbs_ancestor_names(a.get('wbs_id'), data.wbs))
-        if classify_wbs_name(phase) == 'Construction':
-            cid = a.get('calendar_id')
-            if cid and cid in data.calendars:
-                construction_cal_ids.add(cid)
+        if classify_wbs_name(phase) != 'Construction':
+            continue
+        cid = a.get('calendar_id')
+        if cid and cid in data.calendars:
+            construction_cal_ids.add(cid)
+        # Real construction work (not milestones) — for the per-day "activities hit" column.
+        if a.get('task_type') in ('StartMilestone', 'FinishMilestone'):
+            continue
+        s = _to_date(a.get('planned_start'))
+        if s:
+            construction_activities.append({
+                'name': a.get('name') or a.get('id'),
+                'start': s, 'finish': _to_date(a.get('planned_finish')) or s})
 
     # Only FINISH / completion milestones — a completion date is what weather pushes
     # (Ibrahim's rule: impact on all finish/completion milestones only).
@@ -284,6 +300,7 @@ def weather_inputs(data):
     return {
         'calendars': data.calendars,
         'construction_cal_ids': construction_cal_ids,
+        'construction_activities': construction_activities,
         'milestones': milestones,
         'data_date': _to_date(data.project.get('data_date')) if data.project.get('data_date') else None,
         'project_finish': project_finish,

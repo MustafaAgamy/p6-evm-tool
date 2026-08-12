@@ -58,11 +58,11 @@ _CAL_STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xf/>
 <xf fontId="1" applyFont="1"/>
 <xf fontId="2" fillId="7" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-<xf fontId="0" fillId="2" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-<xf fontId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-<xf fontId="0" fillId="4" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-<xf fontId="0" fillId="5" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-<xf fontId="0" fillId="6" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+<xf fontId="0" fillId="2" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="0" fillId="4" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="0" fillId="5" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="0" fillId="6" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
 <xf fontId="1" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
 <xf fontId="3" applyFont="1"/>
 </cellXfs>
@@ -119,8 +119,9 @@ def _sheet(headers, rows):
     return ''.join(out)
 
 
-def _cells_sheet(cells, col_widths=None):
+def _cells_sheet(cells, col_widths=None, row_heights=None):
     """A free-placed sheet from {(row, col): (value, style)} — for the grid."""
+    row_heights = row_heights or {}
     cols_xml = ''
     if col_widths:
         cols_xml = ('<cols>' + ''.join(
@@ -133,7 +134,9 @@ def _cells_sheet(cells, col_widths=None):
            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
            cols_xml, '<sheetData>']
     for r in sorted(by_row):
-        out.append(f'<row r="{r}">')
+        h = row_heights.get(r)
+        attr = f' ht="{h}" customHeight="1"' if h else ''
+        out.append(f'<row r="{r}"{attr}>')
         for c in sorted(by_row[r]):
             v, s = by_row[r][c]
             out.append(_cell(c, r, v, style=s))
@@ -193,15 +196,35 @@ def write_xlsx(path, sheet_name, headers, rows):
     _write_book(path, [(sheet_name, _sheet(headers, rows))], _STYLES)
 
 
-def write_calendar_xlsx(path, months, cal_name, subtitle=''):
-    """Write the Calendar Audit workbook: a coloured month-by-month timeline grid
-    (sheet 1, matching the PDF) + the Monthly Statistics table (sheet 2)."""
+_BAD_SHEET_CHARS = set('[]:*?/\\')
+
+
+def _safe_sheet_name(name):
+    """Excel sheet names: ≤ 31 chars, none of []:*?/\\ (illegal chars → '-')."""
+    s = str(name or '')
+    for ch in _BAD_SHEET_CHARS:
+        s = s.replace(ch, '-')
+    return (s.strip() or 'Calendar')[:28]
+
+
+def _uniq(name, used):
+    base, out, i = name, name, 2
+    while out.lower() in used:
+        out = f'{base[:25]} {i}'
+        i += 1
+    used.add(out.lower())
+    return out
+
+
+def _timeline_sheet_xml(months, cal_name, subtitle):
+    """One calendar's coloured month grid — with the holiday/shutdown name inside the
+    day cell (#05) — followed by its Monthly Statistics table."""
     cells = {(1, 0): (f'Calendar Timeline — {cal_name}', 9)}
     if subtitle:
         cells[(2, 0)] = (subtitle, 0)
     for i, (lab, st) in enumerate(_LEGEND):
         cells[(4, i)] = (lab, st)
-
+    row_heights = {}
     r = 6
     for m in months:
         cells[(r, 0)] = (f'{m.get("label", "")} — {m.get("working_days", 0)} working days', 1)
@@ -212,15 +235,120 @@ def write_calendar_xlsx(path, months, cal_name, subtitle=''):
         pad = ((m.get('first_weekday', 0) % 7) + 7) % 7
         idx = pad
         for day in m.get('days', []):
-            cells[(r + idx // 7, idx % 7)] = (day['d'], _STATUS_STYLE.get(day['status'], 3))
+            rr, cc = r + idx // 7, idx % 7
+            nm = day.get('name')
+            cells[(rr, cc)] = ((f'{day["d"]}\n{nm}' if nm else day['d']),
+                               _STATUS_STYLE.get(day['status'], 3))
+            if nm:
+                row_heights[rr] = 30
             idx += 1
-        weeks = max(1, (idx + 6) // 7)
-        r += weeks + 1        # blank row between months
+        r += max(1, (idx + 6) // 7) + 1     # weeks used + a blank row
 
-    timeline_xml = _cells_sheet(cells, col_widths={c: 9 for c in range(7)})
+    r += 1
+    cells[(r, 0)] = ('Monthly Statistics', 9)
+    r += 1
+    for c, h in enumerate(['Month', 'Working Days', 'Holidays', 'Exceptions', 'Working Hours']):
+        cells[(r, c)] = (h, 2)
+    r += 1
+    for m in months:
+        for c, v in enumerate([m['label'], m['working_days'], m['holidays'],
+                               m['exceptions'], m['working_hours']]):
+            cells[(r, c)] = (v, 0)
+        r += 1
+    return _cells_sheet(cells, col_widths={0: 15, 1: 15, 2: 15, 3: 15, 4: 15, 5: 15, 6: 15},
+                        row_heights=row_heights)
 
-    headers = ['Month', 'Working Days', 'Holidays', 'Exceptions', 'Working Hours']
-    rows = [[m['label'], m['working_days'], m['holidays'], m['exceptions'], m['working_hours']]
-            for m in months]
-    _write_book(path, [('Timeline', timeline_xml), ('Monthly Stats', _sheet(headers, rows))],
-                _CAL_STYLES)
+
+def _stacked_sheet(blocks, col_widths=None):
+    """Several titled tables stacked on one sheet: [{title, headers, rows, note?}]."""
+    cells = {}
+    r = 1
+    for blk in blocks:
+        cells[(r, 0)] = (blk['title'], 9)
+        r += 1
+        if blk.get('note'):
+            cells[(r, 0)] = (blk['note'], 0)
+            r += 1
+        for c, h in enumerate(blk['headers']):
+            cells[(r, c)] = (h, 2)
+        r += 1
+        for row in blk['rows']:
+            for c, v in enumerate(row):
+                cells[(r, c)] = (v, 0)
+            r += 1
+        r += 1      # gap between tables
+    return _cells_sheet(cells, col_widths=col_widths)
+
+
+def write_calendar_xlsx(path, ca, weather=None):
+    """Write the full Calendar Audit workbook (#04/#05/#08): one coloured timeline sheet
+    per assigned calendar (names inside the day cells) + Exceptions, Comparison, Usage and
+    (when present) Weather sheets — every table in the report."""
+    by_cal = ca.get('by_calendar') or {}
+    primary = ca.get('primary_calendar_id')
+    assigned = ca.get('assigned_calendars') or []
+    proj = ca.get('project', {}) or {}
+    hidden = proj.get('hidden_months') or 0
+    subtitle = (f'Timeline from data date {proj.get("timeline_start") or "start"} to finish'
+                + (f' · {hidden} earlier month(s) hidden' if hidden else ''))
+
+    sheets, used = [], set()
+    for c in assigned:
+        months = (by_cal.get(c['object_id'], {}) or {}).get('monthly_stats', [])
+        name = _uniq(_safe_sheet_name(c['name']), used)
+        sheets.append((name, _timeline_sheet_xml(months, c['name'], subtitle)))
+    if not sheets:      # no assigned calendars — still emit an (empty) timeline sheet
+        sheets.append(('Timeline', _timeline_sheet_xml([], 'Calendar', subtitle)))
+
+    exc = (by_cal.get(primary, {}) or {}).get('exceptions', {}) or {}
+    exc_blocks = [
+        {'title': 'Holidays & Vacations', 'headers': ['Date', 'Days', 'Description'],
+         'rows': [[h['description'], h['days'], h.get('reason') or ''] for h in exc.get('holidays', [])]},
+        {'title': 'Reduced / Special Working Hours', 'headers': ['Date', 'Days', 'Hours', 'Description'],
+         'note': 'Differences under 5 minutes from the standard day are ignored.',
+         'rows': [[s['description'], s['days'], s.get('hours') or '', s.get('reason') or '']
+                  for s in exc.get('special', [])]},
+        {'title': 'Shutdowns', 'headers': ['Date', 'Days', 'Reason'],
+         'rows': [[s['description'], s['days'],
+                   ('[added] ' if s.get('source') == 'manual' else '') + (s.get('reason') or '')]
+                  for s in exc.get('shutdowns', [])]},
+    ]
+    sheets.append(('Exceptions', _stacked_sheet(exc_blocks, col_widths={0: 26, 3: 22})))
+
+    comp = ca.get('comparison', [])
+    sheets.append(('Comparison', _sheet(
+        ['Calendar', 'Hours/Day', 'Days/Week', 'Non-Working Days'],
+        [[c['name'], c['hours_per_day'], c['days_per_week'], c.get('nonworking_days', 0)] for c in comp])))
+
+    usage = ca.get('usage', [])
+    sheets.append(('Usage', _sheet(
+        ['Calendar', 'Activities', '% of Activities', 'Role'],
+        [[u['name'], u['activities'], ('—' if u['role'] == 'Unused' else f"{u['pct']}%"), u['role']]
+         for u in usage])))
+
+    if weather:
+        w = weather
+        def _acts(d):
+            names = d.get('activities') or []
+            extra = (d.get('activities_count', len(names)) - len(names))
+            if not names:
+                return d.get('effect', '')
+            return ', '.join(names) + (f' (+{extra} more)' if extra > 0 else '')
+        wx_blocks = [
+            {'title': 'Upcoming Bad-Weather Days', 'headers':
+                ['Date', 'Day', 'Why it is a lost day (measured)', 'Confidence', 'Affected planned activities'],
+             'rows': [[d['date'], d.get('day_name', ''), d.get('condition', ''),
+                       ('Forecast' if d.get('confidence') == 'forecast' else 'Expected'), _acts(d)]
+                      for d in w.get('bad_days', [])]},
+            {'title': 'Impact on Milestone Completion', 'headers':
+                ['Milestone', 'Planned', 'Bad days before', 'Already in calendar', 'Net delay', 'Weather-adjusted'],
+             'rows': [[m['name'], m['planned'], m['bad_days_before'], m['already_allowed'],
+                       f"+{m['net_delay']} d", m['adjusted']] for m in w.get('milestones', [])]},
+            {'title': 'Recovery Recommendations', 'headers':
+                ['Period / milestone', 'Days', 'Longer days', 'Extra working days', 'Add shift'],
+             'rows': [[r['period'], r['days'], r['option_longer_days'],
+                       r['option_extra_days'], r['option_shift']] for r in w.get('recovery', [])]},
+        ]
+        sheets.append(('Weather', _stacked_sheet(wx_blocks, col_widths={0: 22, 2: 40, 4: 30})))
+
+    _write_book(path, sheets, _CAL_STYLES)

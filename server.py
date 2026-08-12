@@ -888,7 +888,8 @@ class Handler(BaseHTTPRequestHandler):
             import subprocess, tempfile
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
-            html_content = render_calendar_report(ca, meta_in, weather=weather)
+            html_content = render_calendar_report(ca, meta_in, weather=weather,
+                                                  sections=body.get('sections'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -908,8 +909,9 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/export/calendar_excel ─────────────────────────────────────────
     def _handle_calendar_excel(self, body):
-        """Export the Calendar Audit to .xlsx: a coloured month-by-month timeline
-        grid (matching the PDF) + the Monthly Statistics table."""
+        """Export the full Calendar Audit to .xlsx (#04/#05/#08): one coloured timeline
+        sheet per assigned calendar (names inside the day cells) + Exceptions, Comparison,
+        Usage and — when a location was set — the Weather tables."""
         snapshot_id = body.get('snapshot_id')
         output_path = body.get('output_path', '')
         if not output_path:
@@ -922,20 +924,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.xlsx_writer import write_calendar_xlsx
-            primary = ca.get('primary_calendar_id')
-            months = ((ca.get('by_calendar') or {}).get(primary, {}) or {}).get('monthly_stats', [])
-            cal_name = next((c['name'] for c in ca.get('assigned_calendars', [])
-                             if c['object_id'] == primary), 'Primary calendar')
-            proj = ca.get('project', {}) or {}
-            hidden = proj.get('hidden_months') or 0
-            ts = proj.get('timeline_start')
-            if ts and hidden:
-                subtitle = f'Timeline from data date {ts} to finish · {hidden} earlier month(s) hidden'
-            elif ts:
-                subtitle = f'Timeline from {ts} to finish'
-            else:
-                subtitle = 'Project calendar timeline'
-            write_calendar_xlsx(os.path.abspath(output_path), months, cal_name, subtitle)
+            pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
+            weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
+            write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

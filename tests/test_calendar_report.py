@@ -80,8 +80,10 @@ def test_report_weather_section_only_when_provided(tmp_path):
                      {'label': 'Rain', 'count': 1}, {'label': 'Wind', 'count': 0, 'off': True}],
         'conclusion': 'Bad weather is estimated to cost about 5 working days to project finish.',
     }
+    weather['bad_days'][0]['activities'] = ['Cable pulling']
+    weather['bad_days'][0]['activities_count'] = 1
     html = render_calendar_report(result, META, weather=weather)
-    assert 'Weather Impact' in html and 'Milestone Impact' in html
+    assert 'Weather Impact' in html and 'Impact on Milestone Completion' in html
     assert 'Recovery Recommendations' in html
     # new results carried into the PDF: upcoming days with measured reason, source + limits
     assert 'Upcoming Bad-Weather Days' in html
@@ -91,3 +93,54 @@ def test_report_weather_section_only_when_provided(tmp_path):
     assert 'How this estimate is built' in html and 'What counts as a bad-weather day' in html
     assert 'Driving the Lost Days' in html            # cause breakdown table
     assert 'Weather Conclusion' in html and 'cost about 5 working days' in html
+    # #07 affected activities column + #12 milestone legend
+    assert 'Affected planned activities' in html and 'Cable pulling' in html
+    assert 'How to read this table' in html and 'Net = Before' in html
+
+
+def test_report_comparison_usage_and_section_picker(tmp_path):
+    result = _result(tmp_path)
+    html = render_calendar_report(result, META)
+    # #09 comparison: Non-Working Days column, no Activities column header in comparison
+    assert 'Non-Working Days' in html
+    # #10 usage role legend
+    assert 'Roles.' in html and 'Non-default' in html and 'Unused' in html
+    # #06 section-picker: only the requested sections render
+    only_dash = render_calendar_report(result, META, sections=['dashboard'])
+    assert 'Executive Dashboard' in only_dash
+    assert 'Calendar Timeline' not in only_dash and 'Calendar Usage' not in only_dash
+
+
+def test_report_shows_named_holiday_in_cell(tmp_path):
+    """#05 — a stored shutdown/holiday name is printed inside the timeline day cell."""
+    from p6_calendar import calendar_audit
+    data = parse_file(_xml_for_name(tmp_path))
+    r0 = calendar_audit(data, {}, {})
+    key = r0['exceptions']['shutdowns'][0]['key']
+    result = calendar_audit(data, {}, {'shutdown_reasons': {key: 'Plant Turnaround'}})
+    html = render_calendar_report(result, META)
+    assert 'Plant Turnaround' in html and 'class="cn"' in html
+
+
+def _xml_for_name(tmp_path):
+    import textwrap
+    days = ''.join(f'<HolidayOrException><Date>2025-02-{d:02d}T00:00:00</Date></HolidayOrException>'
+                   for d in range(10, 17))
+    content = textwrap.dedent(f'''\
+    <?xml version="1.0"?>
+    <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
+      <Calendar><ObjectId>C1</ObjectId><Name>5d</Name><IsDefault>true</IsDefault>
+        <StandardWorkWeek><StandardWorkHours><DayOfWeek>Friday</DayOfWeek></StandardWorkHours>
+        <StandardWorkHours><DayOfWeek>Saturday</DayOfWeek></StandardWorkHours></StandardWorkWeek>
+        <HolidayOrExceptions>{days}</HolidayOrExceptions></Calendar>
+      <Project><ObjectId>1</ObjectId><Id>P1</Id><Name>Test</Name>
+        <DataDate>2025-02-01T00:00:00</DataDate><PlannedStartDate>2025-01-01T00:00:00</PlannedStartDate>
+        <ScheduledFinishDate>2025-03-31T17:00:00</ScheduledFinishDate>
+        <WBS><ObjectId>10</ObjectId><Name>Construction</Name><ParentObjectId></ParentObjectId></WBS>
+        <Activity><ObjectId>A1</ObjectId><Id>A1</Id><Name>a</Name><Status>Not Started</Status>
+          <CalendarObjectId>C1</CalendarObjectId><WBSObjectId>10</WBSObjectId><PercentComplete>0</PercentComplete></Activity>
+      </Project>
+    </APIBusinessObjects>
+    ''')
+    p = tmp_path / "s2.xml"; p.write_text(content, encoding='utf-8')
+    return str(p)
