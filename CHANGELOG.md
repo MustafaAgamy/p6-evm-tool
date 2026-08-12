@@ -19,7 +19,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **What's driving the lost days** — a breakdown of the flagged days by cause (heat / dust / rain / wind), plus an **auto weather conclusion** paragraph that reads the numbers, names the main driver and points at the recommended action.
 
 ### Added — Calendar report, round 2 (from testing build #103)
-- **Map centres on the site reliably** — fixed the interactive map mis-sizing (pin landing at the edge) when the Calendar tab opens; it now re-measures when shown and recentres on the pin.
+- **Map centres reliably, and taps drop the pin** — fixed the map mis-sizing (pin at the edge) when the Calendar tab opens, **and** fixed clicking a point doing nothing: a real trackpad/touch tap moves a few pixels, which Leaflet treated as a pan, so no pin dropped. The pin now drops on any tap (mouse or touch) and the coordinates update immediately; a real pan still just pans.
 - **Name your holidays & shutdowns, shown inside the day cell** — the exception Description is editable per project; the name you type now appears **inside that day's box** in the timeline (on screen and in Excel), same colour.
 - **Excel exports the whole report** — a coloured timeline **for every assigned calendar** (names inside the cells) plus Monthly Statistics, Holidays & Exceptions, Shutdowns, Comparison, Usage and the Weather tables — each on its own sheet.
 - **Bad-weather days name the activities they hit** — the Upcoming Bad-Weather Days table now lists the construction activities planned on each lost day (or says none is scheduled).

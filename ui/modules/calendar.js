@@ -592,15 +592,24 @@ async function _setFromMap(latlng) {
 
 function _panMapTo(lat, lon) {
   if (!_map || !window.L) return;
-  const L = window.L, ll = [+lat, +lon];
+  const ll = [+lat, +lon];
   try { _map.invalidateSize(); } catch { /* not visible */ }
   _map.setView(ll, 12);
+  _placePin(ll, false);      // search already set the name — don't reverse-geocode over it
+}
+
+// Drop or move the location pin. `updateLoc` reverse-geocodes the point into _pendingLoc
+// (a map tap); pass false when the caller already set the location (a search result).
+function _placePin(latlng, updateLoc = true) {
+  const L = window.L;
+  if (!_map || !L) return;
   if (!_marker) {
-    _marker = L.marker(ll, { draggable: true, icon: _pinIcon(L) }).addTo(_map);
+    _marker = L.marker(latlng, { draggable: true, icon: _pinIcon(L) }).addTo(_map);
     _marker.on('dragend', () => _setFromMap(_marker.getLatLng()));
   } else {
-    _marker.setLatLng(ll);
+    _marker.setLatLng(latlng);
   }
+  if (updateLoc) _setFromMap(_marker.getLatLng());
 }
 
 async function _initMap() {
@@ -624,15 +633,31 @@ async function _initMap() {
     _marker = L.marker(center, { draggable: true, icon: _pinIcon(L) }).addTo(_map);
     _marker.on('dragend', () => _setFromMap(_marker.getLatLng()));
   }
-  _map.on('click', e => {
-    if (!_marker) {
-      _marker = L.marker(e.latlng, { draggable: true, icon: _pinIcon(L) }).addTo(_map);
-      _marker.on('dragend', () => _setFromMap(_marker.getLatLng()));
-    } else {
-      _marker.setLatLng(e.latlng);
-    }
-    _setFromMap(e.latlng);
-  });
+  // Drop the pin on a tap. Leaflet's own 'click' is swallowed when the press→release moves
+  // even a few px — a real trackpad / touch tap is never pixel-perfect — so "clicking a
+  // point did nothing". Watch the container's own press→release and drop the pin whenever
+  // the movement is small; a genuine pan moves much further. Covers mouse + touch. (#01)
+  const cont = _map.getContainer();
+  let downXY = null;
+  const onDown = ev => {
+    if (ev.target.closest('.leaflet-control')) { downXY = null; return; }
+    const p = ev.touches ? ev.touches[0] : ev;
+    downXY = { x: p.clientX, y: p.clientY };
+  };
+  const onUp = ev => {
+    if (!downXY) return;
+    const p = ev.changedTouches ? ev.changedTouches[0] : ev;
+    const moved = Math.hypot(p.clientX - downXY.x, p.clientY - downXY.y);
+    downXY = null;
+    if (moved > 12) return;                                              // a pan, not a tap
+    if (ev.target.closest('.leaflet-control') || ev.target.closest('.leaflet-marker-icon')) return;
+    const r = cont.getBoundingClientRect();
+    _placePin(_map.containerPointToLatLng(L.point(p.clientX - r.left, p.clientY - r.top)));
+  };
+  cont.addEventListener('mousedown', onDown);
+  cont.addEventListener('mouseup', onUp);
+  cont.addEventListener('touchstart', onDown, { passive: true });
+  cont.addEventListener('touchend', onUp);
   // Leaflet mis-sizes when it inits inside a tab that isn't visible/sized yet (the pin
   // then lands at the edge). Re-measure when the container resizes (tab shown) and on a
   // couple of timed passes, recentring so the pin stays put. (#01)
