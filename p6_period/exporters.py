@@ -201,49 +201,164 @@ def _cp_key(act, mode):
     return segs[-2] if len(segs) >= 2 else segs[-1]      # 'leaf-parent' default
 
 
-def _cp_chain(acts, mode):
-    out = []
+def _cp_segments(acts, mode):
+    """Consecutive driving-path activities grouped into dated segments by WBS level or
+    activity code. Each: {'key', 'start' (ISO|None), 'finish' (ISO|None)}."""
+    segs = []
     for a in acts:
         k = _cp_key(a, mode)
-        if not out or out[-1] != k:
-            out.append(k)
-    return out
+        st, fn = a.get('start'), a.get('finish')
+        if segs and segs[-1]['key'] == k:
+            s = segs[-1]
+            if st and (s['start'] is None or st < s['start']):
+                s['start'] = st
+            if fn and (s['finish'] is None or fn > s['finish']):
+                s['finish'] = fn
+        else:
+            segs.append({'key': k, 'start': st, 'finish': fn})
+    return segs
 
 
-def _critical_compare_html(report):
-    """The driving path to the finish milestone, grouped to WBS boxes; the CURRENT path is
-    red from where it diverges from the previous one (Ibrahim's "new critical path")."""
+def _cp_conclusion(prev, curr, div, summary):
+    """Plain-English headline above the timeline — where the route changed and how the
+    finish moved. Finish dates + slip come from the summary (the P6 numbers), not re-derived."""
+    fp, fn, slip = summary.get('forecast_finish_prev'), summary.get('forecast_finish_now'), summary.get('finish_slip_days')
+    route = lambda segs, a: ' → '.join(s['key'] for s in segs[a:]) or '—'
+    diverged = div < len(curr) or div < len(prev)
+    if diverged:
+        at = curr[div - 1]['key'] if div > 0 else 'the start'
+        head = (f'The finish-driving route changed at <b>{_e(at)}</b>: last update it ran '
+                f'<b>{_e(route(prev, div))}</b>, this update it runs <b>{_e(route(curr, div))}</b>')
+    else:
+        head = 'The finish-driving route is <b>unchanged</b> this period'
+    if slip:
+        tail = (f' — pushing the forecast finish {_e(fp)} → <b>{_e(fn)}</b> (+{slip} working days).' if slip > 0
+                else f' — pulling the forecast finish in to <b>{_e(fn)}</b> ({slip} working days).')
+    elif fn:
+        tail = f' — the forecast finish holds at <b>{_e(fn)}</b>.'
+    else:
+        tail = '.'
+    return head + tail
+
+
+def _cp_timeline_data(report, mode='leaf-parent'):
+    """Structured timeline: WAS/NOW segments (dated), the divergence index, the finish
+    labels + total slip, and the plain-English conclusion. None if there's no driving path."""
     cp = report.get('critical_path', {}) or {}
     prevA, currA = cp.get('previous') or [], cp.get('current') or []
     if not prevA and not currA:
-        return '<p class="note">No driving path to the finish milestone could be derived.</p>'
-    prev, curr = _cp_chain(prevA, 'leaf-parent'), _cp_chain(currA, 'leaf-parent')
-    cset = set(curr)
+        return None
+    prev, curr = _cp_segments(prevA, mode), _cp_segments(currA, mode)
     div = 0
-    while div < len(prev) and div < len(curr) and prev[div] == curr[div]:
+    while div < len(prev) and div < len(curr) and prev[div]['key'] == curr[div]['key']:
         div += 1
+    s = report.get('summary', {}) or {}
+    return {'prev': prev, 'curr': curr, 'divergence': div,
+            'finish_prev': s.get('forecast_finish_prev'), 'finish_now': s.get('forecast_finish_now'),
+            'slip_days': s.get('finish_slip_days'), 'conclusion': _cp_conclusion(prev, curr, div, s)}
 
-    def prow(items):
-        out = []
-        for i, w in enumerate(items):
-            out.append(f'<span class="wbs {"same" if w in cset else "gone"}">{_e(w)}</span>')
-            if i < len(items) - 1:
-                out.append('<span class="arr">→</span>')
-        return ' '.join(out) or '<span class="note">—</span>'
 
-    def crow(items):
-        out = []
-        for i, w in enumerate(items):
-            out.append(f'<span class="wbs {"new" if i >= div else "same"}">{_e(w)}</span>')
-            if i < len(items) - 1:
-                out.append(f'<span class="arr{" newarr" if i >= div else ""}">→</span>')
-        return ' '.join(out) or '<span class="note">—</span>'
-    return (f'<div class="cprow"><span class="cplbl">Previous</span>{prow(prev)}</div>'
-            f'<div class="cprow"><span class="cplbl">Current</span>{crow(curr)}</div>'
-            f'<div class="cplegend"><i style="background:#eef4fb;border:1px solid #c9ddf3"></i>same as last period'
-            f'<i style="background:#fdecec;border:1px solid #f2b8b8"></i>new critical path (from divergence)'
-            f'<i style="background:#f4f4f5;border:1px dashed #cbd5e1"></i>dropped off</div>'
-            f'<p class="note">The <b>driving path</b> to the finish milestone (walked back through the driving links), grouped by WBS. On screen you can regroup by any WBS level or activity code. Red = the new route from where it diverges from last period.</p>')
+_CP_FILL = {'same': '#93c5fd', 'new': '#f87171', 'gone': '#e2e8f0'}
+_CP_INK = {'same': '#1e3a8a', 'new': '#ffffff', 'gone': '#64748b'}
+
+
+def _critical_timeline_svg(report, mode='leaf-parent'):
+    """The finish-driving route on a real date axis: WAS row (last update) over NOW row
+    (this update); shared prefix blue, the new route red from the divergence, the dropped
+    tail grey; finish diamonds + the TOTAL slip bracket (no per-segment day splits)."""
+    data = _cp_timeline_data(report, mode)
+    if not data:
+        return '<p class="note">No driving path to the finish milestone could be derived.</p>'
+    prev, curr, div = data['prev'], data['curr'], data['divergence']
+
+    def _ord(iso):
+        try:
+            return datetime.strptime(iso, '%Y-%m-%d').toordinal()
+        except Exception:
+            return None
+    UNIT = 20                                        # fallback width (days) for an undated segment
+
+    def _layout(segs):
+        pos, cur = [], None
+        for s in segs:
+            a, b = _ord(s['start']), _ord(s['finish'])
+            start = a if a is not None else (cur if cur is not None else 0)
+            if cur is not None and start < cur:
+                start = cur                          # keep the row monotonic (no backward/overlap on odd dates)
+            end = b if (b is not None and b > start) else start + UNIT
+            pos.append((start, end)); cur = end
+        return pos
+    pprev, pcurr = _layout(prev), _layout(curr)
+    xs = [v for pr in (pprev + pcurr) for v in pr]
+    if not xs:
+        return '<p class="note">The driving path has no dates to place on a timeline.</p>'
+    tmin, tmax = min(xs), max(xs)
+    if tmax <= tmin:
+        tmax = tmin + UNIT
+    x0, x1 = 160, 830                                # right margin leaves room for the finish diamond + label
+    xat = lambda t: x0 + (x1 - x0) * (t - tmin) / (tmax - tmin)
+    p = []
+    for k in range(5):                               # month gridlines + labels
+        t = tmin + (tmax - tmin) * k / 4
+        x = xat(t)
+        p.append(f'<line x1="{x:.0f}" y1="40" x2="{x:.0f}" y2="222" stroke="#f1f5f9"/>'
+                 f'<text x="{x:.0f}" y="238" text-anchor="middle" font-size="9" fill="#94a3b8">'
+                 f'{datetime.fromordinal(int(t)).strftime("%b-%y")}</text>')
+
+    def _draw(segs, pos, y, is_curr):
+        for i, (s, (a, b)) in enumerate(zip(segs, pos)):
+            role = 'same' if i < div else ('new' if is_curr else 'gone')
+            x, w = xat(a), max(6.0, xat(b) - xat(a))
+            p.append(f'<rect x="{x:.0f}" y="{y}" width="{w:.0f}" height="24" rx="4" fill="{_CP_FILL[role]}"/>')
+            cap = int(w / 6.5)                        # ~chars that fit in the bar
+            if w >= 34 and cap >= 3:
+                lab = s['key'] if len(s['key']) <= cap else s['key'][:cap - 1] + '…'
+                p.append(f'<text x="{x + w / 2:.0f}" y="{y + 16:.0f}" text-anchor="middle" '
+                         f'font-size="10" fill="{_CP_INK[role]}">{_e(lab)}</text>')
+    _draw(prev, pprev, 60, False)
+    _draw(curr, pcurr, 120, True)
+    p.append(f'<text x="14" y="74" font-size="11" font-weight="700" fill="#64748b">WAS · {_e(report.get("data_date_prev"))}</text>')
+    p.append(f'<text x="14" y="134" font-size="11" font-weight="700" fill="#1e293b">NOW · {_e(report.get("data_date_now"))}</text>')
+    if pprev:                                         # WAS finish diamond
+        fx = xat(pprev[-1][1])
+        p.append(f'<path d="M{fx:.0f},72 l7,-7 l7,7 l-7,7 z" fill="#94a3b8"/>'
+                 f'<text x="{fx + 18:.0f}" y="58" font-size="9.5" fill="#64748b">finish {_e(data["finish_prev"])}</text>')
+    if pcurr:                                         # NOW finish diamond
+        gx = xat(pcurr[-1][1])
+        p.append(f'<path d="M{gx:.0f},132 l7,-7 l7,7 l-7,7 z" fill="#dc2626"/>'
+                 f'<text x="{gx + 18:.0f}" y="118" font-size="9.5" fill="#b91c1c" font-weight="700">finish {_e(data["finish_now"])}</text>')
+    slip = data.get('slip_days')
+    if pprev and pcurr and slip:                      # total-slip bracket between the two finishes
+        lo, hi = sorted((xat(pprev[-1][1]), xat(pcurr[-1][1])))
+        p.append(f'<line x1="{lo:.0f}" y1="196" x2="{hi:.0f}" y2="196" stroke="#dc2626" stroke-width="1.5"/>'
+                 f'<line x1="{lo:.0f}" y1="192" x2="{lo:.0f}" y2="200" stroke="#dc2626"/>'
+                 f'<line x1="{hi:.0f}" y1="192" x2="{hi:.0f}" y2="200" stroke="#dc2626"/>'
+                 f'<text x="{(lo + hi) / 2:.0f}" y="212" text-anchor="middle" font-size="10.5" '
+                 f'fill="#b91c1c" font-weight="700">{"+" if slip > 0 else ""}{slip} wd</text>')
+    if div < len(curr) or div < len(prev):            # divergence marker
+        src = pcurr[div][0] if div < len(pcurr) else (pprev[div][0] if div < len(pprev) else None)
+        if src is not None:
+            dx = xat(src)
+            p.append(f'<line x1="{dx:.0f}" y1="52" x2="{dx:.0f}" y2="168" stroke="#dc2626" stroke-width="1" stroke-dasharray="3 3"/>'
+                     f'<text x="{dx:.0f}" y="182" text-anchor="middle" font-size="9.5" fill="#b91c1c" font-weight="700">rerouted here</text>')
+    return f'<svg viewBox="0 0 960 250" width="100%" role="img" aria-label="Critical path timeline">{"".join(p)}</svg>'
+
+
+def _critical_compare_html(report):
+    """Critical-path comparison as a timeline (Option A): the finish-driving route drawn on
+    a date axis, WAS over NOW, the new route red from the divergence, with the total slip."""
+    data = _cp_timeline_data(report, 'leaf-parent')
+    if not data:
+        return '<p class="note">No driving path to the finish milestone could be derived.</p>'
+    legend = ('<div class="cplegend"><i style="background:#93c5fd"></i>shared route (on both)'
+              '<i style="background:#f87171"></i>new critical route (from the reroute)'
+              '<i style="background:#e2e8f0"></i>old route (dropped off)</div>')
+    return (f'<div class="cpconcl">{data["conclusion"]}</div>'
+            f'{_critical_timeline_svg(report, "leaf-parent")}{legend}'
+            f'<p class="note">The <b>finish-driving route</b> — the chain that sets your completion date — on a real date axis: '
+            f'<b>WAS</b> = last update, <b>NOW</b> = this update. On screen you can regroup by any WBS level or activity code. '
+            f'The bracket at the right is the <b>total finish movement</b>; per-segment day-splits are deliberately not shown '
+            f'(attributing a slip to single activities needs a full P6 time-impact analysis, which this report does not do).</p>')
 
 
 def _whatmoved_html(report):
@@ -456,9 +571,26 @@ _SECTION_LABELS = [
 ]
 
 
-def render_html(report, trend=None, sections=None):
-    """`sections` = list of section keys to include (None = all). Every section is tagged
-    <section data-sec="KEY"> so the on-screen preview can toggle it and the PDF re-flows."""
+def _apply_code_filter(report, cf):
+    """Return the report with the activity-level tables filtered to one activity-code value
+    (so an exported PDF respects the on-screen slicer). Aggregates are left whole."""
+    if not cf or not cf.get('type') or not cf.get('value'):
+        return report
+    t, v = cf['type'], cf['value']
+    out = dict(report)
+    out['code_filter'] = cf
+    for key in ('progress', 'critical_movement', 'watch_list'):
+        sec = report.get(key) or {}
+        rows = [r for r in (sec.get('rows') or []) if (r.get('codes') or {}).get(t) == v]
+        out[key] = dict(sec, rows=rows)
+    return out
+
+
+def render_html(report, trend=None, sections=None, code_filter=None):
+    """`sections` = list of section keys to include (None = all); `code_filter` =
+    {'type','value'} to limit the activity tables to one activity code. Every section is
+    tagged <section data-sec="KEY"> so the preview can toggle it and the PDF re-flows."""
+    report = _apply_code_filter(report, code_filter)
     level, head, detail = _verdict(report)
     header = (f'<div class="rh"><div><h1>Update vs Update — Period Report</h1>'
               f'<div class="meta">{_e(report.get("project_name"))} · period comparison (Windows Analysis)</div></div>'
@@ -474,7 +606,7 @@ def render_html(report, trend=None, sections=None):
         ('progress', "Progress — where you are vs where you said you'd be", _progress_bar_html(report), False),
         ('dashboard', 'Execution Dashboard — Previous → Current, at each cutoff', dashboard, False),
         ('recommendation', 'What management needs to know', f'<div class="reco warn">{_e(report.get("project_conclusion"))}</div>', False),
-        ('critical_compare', 'Critical-path comparison — by WBS', _critical_compare_html(report), True),
+        ('critical_compare', 'Critical-path comparison — the finish-driving route on a timeline', _critical_compare_html(report), True),
         ('critical', 'Critical-path movement in this window', _critical_table_html(report), False),
         ('progress_table', 'Progress by activity — % complete this period', _progress_table_html(report), False),
         ('watch', 'Next-period watch list', _watch_table_html(report), False),
@@ -484,7 +616,11 @@ def render_html(report, trend=None, sections=None):
         ('conclusions', 'Executive conclusion — this period', f'<div class="reco">{_e(report.get("conclusion"))}</div>', False),
     ]
     keys = set(sections) if sections else None
+    cf = report.get('code_filter')
     body = [header]
+    if cf:
+        body.append(f'<div class="cutoff" style="background:#eef4fb;border-color:#c9ddf3;color:#1e3a8a">'
+                    f'<b>Filtered:</b> {_e(cf.get("type"))} = <b>{_e(cf.get("value"))}</b> — the activity tables below show only this activity code.</div>')
     for key, title, html, planner in secs:
         if keys is not None and key not in keys:
             continue
@@ -512,6 +648,7 @@ def render_html(report, trend=None, sections=None):
       .wbs.gone {{ background: #f4f4f5; border: 1px dashed #cbd5e1; color: #94a3b8; text-decoration: line-through; }}
       .arr {{ color: #94a3b8; font-weight: 800; }} .arr.newarr {{ color: #dc2626; }}
       .cplegend {{ font-size: 10.5px; color: #64748b; margin-top: 7px; }} .cplegend i {{ display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin: 0 5px 0 12px; }}
+      .cpconcl {{ background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #26517d; border-radius: 0 8px 8px 0; padding: 9px 13px; font-size: 12.5px; line-height: 1.5; margin-bottom: 10px; }}
       .bar2 {{ display: flex; align-items: center; gap: 10px; margin: 5px 0; }} .bar2 .l {{ width: 160px; font-size: 11.5px; }}
       .bar2 .t {{ flex: 1; background: #eef2f7; border-radius: 6px; height: 18px; overflow: hidden; border: 1px solid #e2e8f0; }}
       .bar2 .f {{ height: 100%; background: #2a78d6; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; }}

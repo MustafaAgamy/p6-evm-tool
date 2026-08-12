@@ -120,3 +120,11 @@ def test_driving_path_walks_to_finish_milestone():
     ids = [x['id'] for x in cp['current']]
     assert ids == ['A', 'B', 'C']                        # start→finish, milestone dropped
     assert cp['current'][0]['wbs_path'].endswith('Earthworks')
+
+
+def test_driving_path_carries_iso_dates_for_the_timeline():
+    from p6_period.movement import driving_path
+    cp = driving_path(MatchedSchedules(_chain_sched(), _chain_sched()))
+    first, last = cp['current'][0], cp['current'][-1]
+    assert first['start'] == '2026-01-01' and first['finish'] == '2026-01-10'   # ISO, for the date axis
+    assert last['finish'] == '2026-01-30'

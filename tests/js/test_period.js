@@ -3,7 +3,8 @@
  * Run: node tests/js/test_period.js
  */
 import assert from 'node:assert/strict';
-import { signPct, shortDate, progressBarHtml, milestoneSection, dashboardHtml } from '../../ui/modules/period.js';
+import { signPct, shortDate, progressBarHtml, milestoneSection, dashboardHtml,
+         criticalTimelineData, criticalTimelineSvg } from '../../ui/modules/period.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -91,6 +92,43 @@ console.log('\ndashboardHtml — SPI/Delay/%Complete strips + sign convention');
   });
   test('Facts row shows schedule adherence', () => {
     assert.ok(h.includes('Schedule adherence') && h.includes('72%') && h.includes('13 of 18 due finishes'));
+  });
+}
+
+console.log('\ncriticalTimelineData / Svg (Option A — the finish-driving route on a timeline)');
+{
+  const A = (id, name, wbs, s, f) => ({ id, name, wbs_path: wbs, codes: { Discipline: 'Civil' }, start: s, finish: f });
+  const prev = [A('A', 'Excavate', 'Plant > Foundations > Excavation', '2026-08-01', '2026-09-30'),
+                A('B', 'Steel', 'Plant > Steel > Erection', '2026-10-01', '2026-12-15'),
+                A('C', 'Cladding', 'Plant > Cladding > Panels', '2026-12-16', '2027-02-01'),
+                A('D', 'Roof', 'Plant > Roof > Sheeting', '2027-02-02', '2027-03-12')];
+  const curr = [A('A', 'Excavate', 'Plant > Foundations > Excavation', '2026-08-01', '2026-09-30'),
+                A('B', 'Steel', 'Plant > Steel > Erection', '2026-10-01', '2026-12-15'),
+                A('E', 'Furnace', 'Plant > Furnace > Melter', '2026-12-16', '2027-02-20'),
+                A('F', 'Commissioning', 'Plant > Commissioning > Cold end', '2027-02-21', '2027-03-26')];
+  const summary = { forecast_finish_prev: '12-Mar-2027', forecast_finish_now: '26-Mar-2027', finish_slip_days: 14 };
+  const d = criticalTimelineData(prev, curr, summary, 'leaf-parent');
+  test('groups to WBS leaf-parent segments', () => {
+    assert.deepEqual(d.prev.map(s => s.key), ['Foundations', 'Steel', 'Cladding', 'Roof']);
+    assert.deepEqual(d.curr.map(s => s.key), ['Foundations', 'Steel', 'Furnace', 'Commissioning']);
+  });
+  test('divergence after the shared prefix (Foundations, Steel)', () => assert.equal(d.divergence, 2));
+  test('conclusion names the reroute, the new route and the P6 finish', () => {
+    assert.ok(d.conclusion.includes('Steel') && d.conclusion.includes('Furnace') && d.conclusion.includes('26-Mar-2027'));
+  });
+  const report = { critical_path: { previous: prev, current: curr }, summary,
+                   data_date_prev: '07-Aug-2026', data_date_now: '22-Aug-2026' };
+  const svg = criticalTimelineSvg(report, 'leaf-parent');
+  test('svg draws both rows, the red new route and the total slip', () => {
+    assert.ok(svg.startsWith('<svg') && svg.includes('Critical path timeline'));
+    assert.ok(svg.includes('WAS · 07-Aug-2026') && svg.includes('NOW · 22-Aug-2026'));
+    assert.ok(svg.includes('rerouted here') && svg.includes('#f87171') && svg.includes('+14 wd'));
+    assert.ok(svg.includes('finish 12-Mar-2027') && svg.includes('finish 26-Mar-2027'));
+  });
+  test('identical routes → unchanged, no divergence', () => {
+    const d2 = criticalTimelineData(prev, prev, summary, 'leaf-parent');
+    assert.equal(d2.divergence, d2.curr.length);
+    assert.ok(d2.conclusion.includes('unchanged'));
   });
 }
 

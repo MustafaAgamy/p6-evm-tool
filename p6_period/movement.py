@@ -215,7 +215,10 @@ def _driving_chain(data, include=None, max_len=500):
         if include is not None and code not in include:
             continue
         out.append({'id': code, 'name': a.get('name', ''),
-                    'wbs_path': a.get('wbs_path') or '', 'codes': a.get('activity_codes') or {}})
+                    'wbs_path': a.get('wbs_path') or '', 'codes': a.get('activity_codes') or {},
+                    # dates so the UI/PDF can draw the driving path on a real time axis
+                    'start': _iso(a.get('remaining_early_start') or a.get('planned_start')),
+                    'finish': _iso(a.get('remaining_early_finish') or a.get('planned_finish'))})
     return out
 
 

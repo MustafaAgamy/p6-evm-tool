@@ -72,6 +72,15 @@ def test_period_compare_end_to_end(test_server, tmp_path):
     # SPI trend flows end-to-end (both cutoffs have planned work), variance = curr − prev
     assert s['prev_spi'] is not None and s['curr_spi'] is not None
     assert s['spi_variance'] == round(s['curr_spi'] - s['prev_spi'], 2)
+    # Critical-path timeline (Option A): the driving path from a REAL parse carries the ISO
+    # dates the timeline places on its axis — and they survive the JSON round-trip (strings,
+    # not datetimes). Then the real report renders the timeline without error.
+    cp = r['critical_path']
+    assert cp['current'] and all(isinstance(a.get('start'), (str, type(None))) for a in cp['current'])
+    assert any(a.get('finish') for a in cp['current'])       # at least one dated activity on the path
+    from p6_period.exporters import render_html
+    html = render_html(r)
+    assert 'Critical path timeline' in html                  # timeline renders from a REAL parsed report
 
 
 def test_period_compare_missing_prev(test_server):

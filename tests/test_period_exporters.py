@@ -42,6 +42,20 @@ def _report():
              'slip_period_days': 9, 'slip_baseline_days': 20,
              'baseline_iso': '2027-02-09', 'prev_iso': '2027-02-20', 'curr_iso': '2027-03-01'}},
         'conclusion': 'This period the project earned +7% against +9% forecast.',
+        'critical_path': {
+            'previous': [
+                {'id': 'A', 'name': 'Excavate', 'wbs_path': 'Plant > Foundations > Excavation', 'codes': {'Discipline': 'Civil'}, 'start': '2026-08-01', 'finish': '2026-09-30'},
+                {'id': 'B', 'name': 'Steel erection', 'wbs_path': 'Plant > Steel > Erection', 'codes': {'Discipline': 'Structural'}, 'start': '2026-10-01', 'finish': '2026-12-15'},
+                {'id': 'C', 'name': 'Cladding', 'wbs_path': 'Plant > Cladding > Panels', 'codes': {'Discipline': 'Arch'}, 'start': '2026-12-16', 'finish': '2027-02-01'},
+                {'id': 'D', 'name': 'Roofing', 'wbs_path': 'Plant > Roof > Sheeting', 'codes': {'Discipline': 'Arch'}, 'start': '2027-02-02', 'finish': '2027-03-12'},
+            ],
+            'current': [
+                {'id': 'A', 'name': 'Excavate', 'wbs_path': 'Plant > Foundations > Excavation', 'codes': {'Discipline': 'Civil'}, 'start': '2026-08-01', 'finish': '2026-09-30'},
+                {'id': 'B', 'name': 'Steel erection', 'wbs_path': 'Plant > Steel > Erection', 'codes': {'Discipline': 'Structural'}, 'start': '2026-10-01', 'finish': '2026-12-15'},
+                {'id': 'E', 'name': 'Furnace', 'wbs_path': 'Plant > Furnace > Melter', 'codes': {'Discipline': 'Mech'}, 'start': '2026-12-16', 'finish': '2027-02-20'},
+                {'id': 'F', 'name': 'Commissioning', 'wbs_path': 'Plant > Commissioning > Cold end', 'codes': {'Discipline': 'Mech'}, 'start': '2027-02-21', 'finish': '2027-03-26'},
+            ],
+        },
     }
 
 
@@ -124,3 +138,79 @@ def test_render_html_milestone_table_and_drift_chart():
 def test_milestone_drift_svg_empty_when_no_milestones():
     from p6_period.exporters import _milestone_drift_svg
     assert _milestone_drift_svg({'milestones': {'rows': []}}) == ''
+
+
+# ── #02 — Critical-path comparison as a timeline (Option A) ──────────────────
+
+def test_critical_timeline_data_shared_prefix_divergence_and_conclusion():
+    from p6_period.exporters import _cp_timeline_data
+    d = _cp_timeline_data(_report(), 'leaf-parent')
+    assert [s['key'] for s in d['prev']] == ['Foundations', 'Steel', 'Cladding', 'Roof']
+    assert [s['key'] for s in d['curr']] == ['Foundations', 'Steel', 'Furnace', 'Commissioning']
+    assert d['divergence'] == 2                        # shared through Steel, then the route splits
+    assert d['slip_days'] == 14
+    assert d['prev'][0]['start'] == '2026-08-01' and d['curr'][-1]['finish'] == '2027-03-26'
+    # the plain conclusion names where it rerouted, the new route, and the P6 finish
+    assert 'Steel' in d['conclusion'] and 'Furnace' in d['conclusion'] and '26-Mar-2027' in d['conclusion']
+
+
+def test_critical_timeline_svg_draws_both_rows_new_route_and_total_slip():
+    from p6_period.exporters import _critical_timeline_svg
+    svg = _critical_timeline_svg(_report(), 'leaf-parent')
+    assert svg.startswith('<svg') and 'Critical path timeline' in svg
+    assert 'WAS · 30-Jun-2026' in svg and 'NOW · 31-Jul-2026' in svg
+    assert 'rerouted here' in svg                      # the divergence marker
+    assert '#f87171' in svg                            # the new route is drawn in red
+    assert '+14 wd' in svg                             # the TOTAL slip bracket (not per-segment)
+    assert 'finish 12-Mar-2027' in svg and 'finish 26-Mar-2027' in svg
+
+
+def test_critical_timeline_unchanged_when_routes_identical():
+    from p6_period.exporters import _cp_timeline_data
+    rep = _report()
+    rep['critical_path'] = {'previous': rep['critical_path']['previous'],
+                            'current': rep['critical_path']['previous']}   # same route both updates
+    d = _cp_timeline_data(rep, 'leaf-parent')
+    assert d['divergence'] == len(d['curr'])           # no divergence
+    assert 'unchanged' in d['conclusion']
+
+
+def test_render_html_uses_timeline_not_wbs_boxes():
+    html = render_html(_report(), trend=None)
+    assert 'Critical path timeline' in html            # the SVG timeline replaces the WBS boxes
+    assert 'The finish-driving route changed at' in html   # plain-English conclusion above it
+    assert 'the finish-driving route on a timeline' in html.lower()   # section heading
+
+
+# ── #01 — the exported PDF must respect the on-screen activity-code filter ────
+
+def _coded_report():
+    """A report whose activity tables carry two different Discipline codes, so a code
+    filter can be shown to keep one and drop the other."""
+    rep = _report()
+    rep['code_types'] = ['Discipline']
+    rep['progress'] = {'rows': [
+        {'activity_id': 'CIV1', 'activity_name': 'Dredging', 'prev_pct': 82.0, 'curr_pct': 100.0,
+         'variance': 18.0, 'status': 'Completed', 'reversal': False, 'codes': {'Discipline': 'Civil'}},
+        {'activity_id': 'MEC1', 'activity_name': 'Ductwork', 'prev_pct': 10.0, 'curr_pct': 25.0,
+         'variance': 15.0, 'status': 'In Progress', 'reversal': False, 'codes': {'Discipline': 'Mechanical'}}]}
+    rep['critical_movement'] = {'rows': [
+        {'activity_id': 'CIV1', 'activity_name': 'Dredging', 'wbs': 'Berth', 'prev_finish': 'x', 'curr_finish': 'y',
+         'slip_days': 3, 'float_days': 0, 'driver': 'd', 'critical_status': 'stayed', 'codes': {'Discipline': 'Civil'}},
+        {'activity_id': 'MEC1', 'activity_name': 'Ductwork', 'wbs': 'Plant', 'prev_finish': 'x', 'curr_finish': 'y',
+         'slip_days': 2, 'float_days': 1, 'driver': 'd', 'critical_status': 'stayed', 'codes': {'Discipline': 'Mechanical'}}],
+        'new_critical': 0}
+    rep['watch_list'] = {'rows': [
+        {'activity_id': 'CIV1', 'activity_name': 'Dredging', 'float_days': 0, 'due_to_start': 'z', 'reason': 'r', 'codes': {'Discipline': 'Civil'}},
+        {'activity_id': 'MEC1', 'activity_name': 'Ductwork', 'float_days': 1, 'due_to_start': 'z', 'reason': 'r', 'codes': {'Discipline': 'Mechanical'}}]}
+    return rep
+
+
+def test_render_html_code_filter_limits_activity_tables_to_selected_code():
+    rep = _coded_report()
+    full = render_html(rep, trend=None)
+    assert 'CIV1' in full and 'MEC1' in full            # unfiltered shows both disciplines
+    filtered = render_html(rep, trend=None, code_filter={'type': 'Discipline', 'value': 'Civil'})
+    assert 'CIV1' in filtered                           # the Civil activity is kept
+    assert 'MEC1' not in filtered                       # the Mechanical activity is filtered out of every table
+    assert 'Filtered:' in filtered and 'Discipline' in filtered and 'Civil' in filtered
