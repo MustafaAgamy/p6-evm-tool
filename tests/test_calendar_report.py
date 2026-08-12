@@ -76,6 +76,9 @@ def test_report_weather_section_only_when_provided(tmp_path):
                         'already_allowed': 1, 'net_delay': 2, 'adjusted': '2025-03-05'}],
         'recovery': [{'period': 'M1', 'days': 2, 'option_longer_days': 'longer',
                       'option_extra_days': 'weekends', 'option_shift': 'shift'}],
+        'by_cause': [{'label': 'Heat', 'count': 8}, {'label': 'Dust', 'count': 3},
+                     {'label': 'Rain', 'count': 1}, {'label': 'Wind', 'count': 0, 'off': True}],
+        'conclusion': 'Bad weather is estimated to cost about 5 working days to project finish.',
     }
     html = render_calendar_report(result, META, weather=weather)
     assert 'Weather Impact' in html and 'Milestone Impact' in html
@@ -84,3 +87,7 @@ def test_report_weather_section_only_when_provided(tmp_path):
     assert 'Upcoming Bad-Weather Days' in html
     assert '45.5' in html and '42' in html            # measured reason value
     assert 'Open-Meteo' in html and 'heat ≥ 42' in html  # source + applied limit
+    # the clarification Ibrahim asked for, plus the new report parts
+    assert 'How this estimate is built' in html and 'What counts as a bad-weather day' in html
+    assert 'Driving the Lost Days' in html            # cause breakdown table
+    assert 'Weather Conclusion' in html and 'cost about 5 working days' in html

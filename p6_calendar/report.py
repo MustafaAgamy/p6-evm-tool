@@ -68,7 +68,7 @@ def _monthly_stats(months):
             f'<th class="num">Working Hours</th></tr></thead><tbody>{rows}</tbody></table>')
 
 
-def _month_grids(months):
+def _month_grids(months, hidden_months=0, tl_from=None):
     blocks = []
     for m in months:
         head = ''.join(f'<div class="mh">{d}</div>' for d in _DOW)
@@ -86,9 +86,14 @@ def _month_grids(months):
                                      ('Holiday', '#ef4444'), ('Shutdown', '#f59e0b'),
                                      ('Special hours', '#3b82f6')])
               + '</div>')
+    if hidden_months:
+        sub = (f'— from the data date ({_fmt(tl_from)}) to finish · '
+               f'{hidden_months} earlier month{"s" if hidden_months != 1 else ""} hidden')
+    else:
+        sub = '— shown in full months'
     return ('<h2 class="sec">2 · Calendar Timeline '
             '<span style="font-weight:400;font-size:9.5px;color:#8a93a0;text-transform:none;letter-spacing:0">'
-            '— baseline window, shown in full months</span></h2>'
+            f'{_esc(sub)}</span></h2>'
             + legend + f'<div class="mgrids">{"".join(blocks)}</div>')
 
 
@@ -165,11 +170,46 @@ def _weather_section(weather):
     if not weather:
         return ''
     w = weather
+    total = w.get('expected_bad_days_total', 0) or 0
     kpis = ''.join([
-        _tile('Bad-weather days (remaining)', w.get('expected_bad_days_total', 0)),
+        _tile('Bad-weather days (remaining)', total),
         _tile('Net weather delay to finish', f"+{w.get('net_finish_delay', 0)} wd"),
         _tile('Weather-adjusted finish', _fmt(w.get('weather_adjusted_finish'))),
     ])
+    # Stop-work limits applied → readable line, reused in the "how it works" note.
+    t = w.get('thresholds') or {}
+    lim = []
+    if t.get('rain_mm') is not None:
+        lim.append(f'rain ≥ {t["rain_mm"]:g} mm')
+    if t.get('temp_max_c') is not None:
+        lim.append(f'heat ≥ {t["temp_max_c"]:g} °C')
+    lim.append(f'wind ≥ {t["wind_kmh"]:g} km/h' if t.get('wind_kmh') is not None else 'wind off')
+    lim.append('dust on' if t.get('dust', True) else 'dust off')
+    # The clarification Ibrahim asked for — how the source works, and what "bad weather" means.
+    method = (
+        '<div class="wxm">'
+        '<b>How this estimate is built.</b> Weather is pulled for the project location from '
+        '<b>Open-Meteo</b> (free, open, no key): a live ~16-day <b>forecast</b>, then the same '
+        'calendar dates from the most recent year&rsquo;s <b>actual recorded weather</b> for the rest '
+        'of the run (shown as <i>Expected</i>), plus an air-quality feed for <b>dust</b>.<br>'
+        '<b>What counts as a bad-weather day:</b> a construction day is counted lost when <b>any</b> '
+        f'of your stop-work limits is met — {_esc(" · ".join(lim))}. Each flagged day below shows the '
+        'measured value against your limit. Applied to <b>construction</b> activities only; a day '
+        'already off (weekend / holiday / shutdown) is never double-counted.</div>')
+    # What's driving the lost days (cause breakdown).
+    cause_rows = ''
+    for c in w.get('by_cause', []):
+        if c.get('off'):
+            cnt, share = 'off', '—'
+        else:
+            cnt = c.get('count', 0)
+            share = f'{round(cnt / total * 100)}%' if total else '—'
+        cause_rows += (f'<tr><td>{_esc(c["label"])}</td><td class="num">{cnt}</td>'
+                       f'<td class="num">{share}</td></tr>')
+    cause_table = (
+        '<div class="grp"><span class="pill" style="background:#b45309">What&rsquo;s Driving the Lost Days</span></div>'
+        '<table><thead><tr><th>Cause</th><th class="num">Days</th><th class="num">Share of flagged days</th>'
+        f'</tr></thead><tbody>{cause_rows or _empty(3)}</tbody></table>')
     ms = ''.join(
         f'<tr><td>{_esc(m["name"])}</td><td>{_fmt(m["planned"])}</td>'
         f'<td class="num">{m["bad_days_before"]}</td><td class="num">{m["already_allowed"]}</td>'
@@ -179,18 +219,6 @@ def _weather_section(weather):
         f'<tr><td>{_esc(r["period"])}</td><td class="num">{r["days"]} d</td>'
         f'<td>{_esc(r["option_longer_days"])}</td><td>{_esc(r["option_extra_days"])}</td>'
         f'<td>{_esc(r["option_shift"])}</td></tr>' for r in w.get('recovery', []))
-    # Source + the stop-work limits that were applied.
-    t = w.get('thresholds') or {}
-    lim = []
-    if t.get('rain_mm') is not None:
-        lim.append(f'rain ≥ {t["rain_mm"]:g} mm')
-    if t.get('temp_max_c') is not None:
-        lim.append(f'heat ≥ {t["temp_max_c"]:g} °C')
-    lim.append('dust on' if t.get('dust', True) else 'dust off')
-    lim.append(f'wind ≥ {t["wind_kmh"]:g} km/h' if t.get('wind_kmh') is not None else 'wind off')
-    srcline = (f'<p style="font-size:9.5px;color:#5b6472;margin:0 0 8px">Source: '
-               f'{_esc(w.get("source", "Open-Meteo"))} &nbsp;·&nbsp; Stop-work limits: {_esc(" · ".join(lim))}</p>')
-    # Upcoming bad-weather days, each with the measured reason.
     days = ''.join(
         f'<tr><td>{_fmt(d["date"])}</td><td>{_esc(d.get("day_name",""))}</td>'
         f'<td>{_esc(d.get("condition",""))}</td>'
@@ -200,12 +228,19 @@ def _weather_section(weather):
         '<div class="grp"><span class="pill" style="background:#2563eb">Upcoming Bad-Weather Days</span></div>'
         '<table><thead><tr><th>Date</th><th>Day</th><th>Why it’s a lost day (measured)</th>'
         f'<th>Confidence</th><th>Effect</th></tr></thead><tbody>{days or _empty(5)}</tbody></table>')
+    conclusion = ''
+    if w.get('conclusion'):
+        conclusion = (
+            '<div class="grp"><span class="pill" style="background:#e07b1a">Weather Conclusion</span></div>'
+            '<div class="concl" style="border-left-color:#e07b1a;background:#fff7ed">'
+            f'<p style="margin:0;font-size:10.5px;line-height:1.5">{_esc(w["conclusion"])}</p></div>')
     return (
         '<h2 class="sec">9 · Weather Impact '
         '<span style="font-weight:400;font-size:9.5px;color:#e07b1a;text-transform:none;letter-spacing:0">'
         '— estimate, not a P6 figure</span></h2>'
-        f'{srcline}'
+        f'{method}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">{kpis}</div>'
+        f'{cause_table}'
         f'{days_table}'
         '<div class="grp"><span class="pill" style="background:#e07b1a">Milestone Impact</span></div>'
         '<table><thead><tr><th>Milestone</th><th>Planned date</th><th class="num">Bad-weather days before</th>'
@@ -214,9 +249,7 @@ def _weather_section(weather):
         '<div class="grp"><span class="pill" style="background:#2e8b57">Recovery Recommendations</span></div>'
         '<table><thead><tr><th>Period / milestone</th><th class="num">Days</th><th>Longer days</th>'
         f'<th>Extra working days</th><th>Add shift</th></tr></thead><tbody>{rec or _empty(5)}</tbody></table>'
-        '<p style="font-size:9.5px;color:#8a93a0;font-style:italic;margin-top:6px">'
-        'Applies to construction activities only, estimated from the location’s historical climate — '
-        'a forward-looking risk kept separate from the exact P6 Delay.</p>')
+        f'{conclusion}')
 
 
 def _conclusion(bullets, weather=None):
@@ -229,6 +262,7 @@ def _conclusion(bullets, weather=None):
 
 def render_calendar_report(result, meta, weather=None):
     d = result.get('dashboard', {})
+    proj = result.get('project', {}) or {}
     primary = result.get('primary_calendar_id')
     bc = (result.get('by_calendar') or {}).get(primary, {})
     months = bc.get('monthly_stats', [])
@@ -293,6 +327,8 @@ def render_calendar_report(result, meta, weather=None):
   .conf .ct {{ font-weight: 700; font-size: 11px; }}
   .conf .cd {{ font-size: 10px; color: #5b6472; margin-top: 2px; }}
   .ok {{ color: #2e8b57; font-size: 11px; }}
+  .wxm {{ border: 1px solid #e8ecf1; background: #f4f8fd; border-radius: 6px; padding: 9px 12px;
+          font-size: 9.8px; line-height: 1.55; color: #3f4a57; margin-bottom: 10px; }}
   .concl {{ border-left: 4px solid #17457a; background: #f4f8fd; border-radius: 0 8px 8px 0; padding: 10px 15px; }}
   .concl ul {{ margin: 0; padding-left: 18px; }}
   .concl li {{ font-size: 11px; line-height: 1.5; margin-bottom: 5px; }}
@@ -312,7 +348,7 @@ def render_calendar_report(result, meta, weather=None):
     </div>
   </div>
   {_dashboard(d, weather)}
-  {_month_grids(months)}
+  {_month_grids(months, proj.get('hidden_months', 0), proj.get('timeline_start'))}
   {_monthly_stats(months)}
   {_exceptions(exc)}
   {_hours(profiles)}

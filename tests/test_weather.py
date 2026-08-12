@@ -138,3 +138,30 @@ def test_no_location_no_construction_is_safe():
     r = _impact(construction_cal_ids=set())
     assert r['net_finish_delay'] == 0
     assert r['milestones'][0]['net_delay'] == 0
+
+
+def test_by_cause_breakdown():
+    r = _impact()
+    causes = {c['label']: c['count'] for c in r['by_cause']}
+    # remaining bad days (1 Jun < d ≤ 30 Jun): 3 Jun rain, 7 Jun rain, 10 Jun dust, 25 Jun rain
+    assert causes['Rain'] == 3
+    assert causes['Dust'] == 1
+    assert causes['Heat'] == 0
+    wind = next(c for c in r['by_cause'] if c['label'] == 'Wind')
+    assert wind['count'] == 0 and wind['off'] is True     # wind off by default
+    # counts cover every flagged day (matches the KPI total)
+    assert sum(causes.values()) == r['expected_bad_days_total']
+
+
+def test_conclusion_string_reflects_numbers():
+    r = _impact()
+    c = r['conclusion']
+    assert isinstance(c, str) and c
+    assert '3 working days' in c            # net finish delay = 3
+    assert 'rain' in c.lower()              # dominant cause named
+    assert 'P6 Delay' in c                  # honesty line kept
+
+
+def test_conclusion_no_impact_is_graceful():
+    r = _impact(construction_cal_ids=set(), daily_weather={})
+    assert 'no weather delay' in r['conclusion'].lower()

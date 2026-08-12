@@ -34,7 +34,7 @@ export function conflictSeverityClass(sev) {
 
 import { escapeHtml } from './format.js';
 import { state } from './state.js';
-import { geocodePlace, computeWeather, saveCalendarSettings } from './api.js';
+import { geocodePlace, reverseGeocode, computeWeather, saveCalendarSettings } from './api.js';
 
 const DEFAULT_THRESHOLDS = { rain_mm: 5, temp_max_c: 42, wind_kmh: null, dust: true };
 
@@ -43,6 +43,9 @@ let _sel = null;
 let _weather = null;      // last computed weather impact
 let _pendingLoc = null;   // location chosen in the picker, not yet applied
 let _thresholds = null;   // stop-work limits (rain/heat/wind/dust)
+let _map = null;          // Leaflet map instance (location picker)
+let _marker = null;       // the draggable location pin
+let _leafletPromise = null;
 const _openMonths = new Set();
 
 export function renderCalendar(ca) {
@@ -94,33 +97,34 @@ function _tile(lab, val, sub = '', cls = '') {
 }
 
 // ── Location picker (top — drives the Weather-Adjusted Finish + Section 9) ──
-function _locationCard() {
+function _locationReadoutHtml() {
   const loc = _pendingLoc;
-  const mapSrc = loc
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${loc.lon - 0.15},${loc.lat - 0.1},${loc.lon + 0.15},${loc.lat + 0.1}&layer=mapnik&marker=${loc.lat},${loc.lon}`
-    : '';
-  const readout = loc
+  return loc
     ? `<div class="cal-loc-read">📌 <b>${escapeHtml(loc.name || 'Selected location')}</b><br>
         <span class="cal-muted">Coordinates: ${(+loc.lat).toFixed(4)}° , ${(+loc.lon).toFixed(4)}°</span></div>`
-    : '<div class="cal-loc-read cal-muted">No location set yet — search for the project site.</div>';
-  const map = loc
-    ? `<iframe class="cal-map" src="${escapeHtml(mapSrc)}" title="Project location" loading="lazy"></iframe>`
-    : '<div class="cal-map cal-map-empty">Search a place to preview it on the map</div>';
+    : '<div class="cal-loc-read cal-muted">No location set yet — search, or click the map to drop a pin.</div>';
+}
+
+function _locationCard() {
+  const loc = _pendingLoc;
   return `
     <div class="cal-loc-card">
       <div class="cal-loc-left">
         <div class="cal-loc-title">📍 Project Location <span class="cal-pill mini warn">required for weather</span></div>
-        <div class="cal-muted" style="font-size:12px;margin-bottom:8px">Set this first — the Weather-Adjusted Finish and the Weather Impact section are calculated from it. Saved with the project.</div>
+        <div class="cal-muted" style="font-size:12px;margin-bottom:8px">Set this first — the Weather-Adjusted Finish and the Weather Impact section are calculated from it. <b>Search a place, or click the map to drop a pin on the exact site</b> (drag it to fine-tune). Saved with the project.</div>
         <div class="cal-loc-search">
           <input id="cal-loc-q" placeholder="Search a place or address… (e.g. Jubail, Saudi Arabia)" value="">
           <button class="cal-btn pri" id="cal-loc-search-btn">Search</button>
         </div>
         <div id="cal-loc-results" class="cal-loc-results"></div>
-        ${readout}
+        <div id="cal-loc-readout">${_locationReadoutHtml()}</div>
         <button class="cal-btn pri" id="cal-loc-use" style="margin-top:10px" ${loc ? '' : 'disabled'}>✓ Use this location &amp; calculate weather</button>
         <span id="cal-loc-status" class="cal-muted" style="font-size:12px;margin-left:8px"></span>
       </div>
-      <div class="cal-loc-right">${map}</div>
+      <div class="cal-loc-right">
+        <div id="cal-map" class="cal-map"></div>
+        <div class="cal-map-hint cal-muted">🖱️ Click the map to place the pin · drag to fine-tune</div>
+      </div>
     </div>`;
 }
 
@@ -185,10 +189,19 @@ function _timelineSection() {
     <span><i class="dot cs-holiday"></i>Holiday</span>
     <span><i class="dot cs-shutdown"></i>Shutdown</span>
     <span><i class="dot cs-special"></i>Special hours</span></div>`;
+  const proj = _ca.project || {};
+  const hidden = proj.hidden_months || 0;
+  const dd = _ca.dashboard && _ca.dashboard.data_date;
+  const noteTxt = hidden
+    ? `from the data date · full months · click a month to open its calendar`
+    : `full months · click a month to open its calendar`;
+  const hiddenChip = hidden
+    ? `<div class="cal-hidden-note">◀ <b>${hidden} earlier month${hidden === 1 ? '' : 's'}</b> hidden — everything before the data date${dd ? ` (${fmtCalDate(dd)})` : ''}</div>`
+    : '';
   return _sec(2, 'Calendar Timeline',
-      `<span class="cal-sec-note">baseline window, full months · click a month to open its calendar</span>
+      `<span class="cal-sec-note">${noteTxt}</span>
        <span class="cal-showing">Showing: ${_calPicker()}</span>`) +
-    legend + `<div class="cal-timeline">${strips || '<span class="cal-muted">No months.</span>'}</div>` +
+    legend + hiddenChip + `<div class="cal-timeline">${strips || '<span class="cal-muted">No months.</span>'}</div>` +
     `<div id="cal-month-detail">${detail}</div>`;
 }
 
@@ -320,16 +333,22 @@ function _weatherControls() {
   const t = _thr();
   const connected = _weather
     ? `<span class="dot-ok"></span> <b>Weather source: ${escapeHtml((_weather.source || 'Open-Meteo').split(' (')[0])}</b>
-       <span class="cal-muted">— live forecast + historical + air-quality (dust)</span>
+       <span class="cal-muted">— free &amp; open · no key · no bill</span>
        <span class="cal-pill ok" style="margin-left:auto">connected ✓</span>`
-    : '<span class="cal-muted">Weather source: Open-Meteo (free) — will connect when you calculate.</span>';
+    : '<span class="cal-muted"><b>Weather source: Open-Meteo</b> (free, open, no key) — will connect when you calculate.</span>';
   const from = _weather && _weather.from_date ? ` · upcoming from cutoff <b>${fmtCalDate(_weather.from_date)}</b>` : '';
   const num = (id, lab, val) =>
     `<div class="thr-f"><label>${lab}</label><input type="number" id="${id}" value="${val == null ? '' : val}" placeholder="${val == null ? 'off' : ''}"></div>`;
   return `<div class="cal-src">${connected}</div>
     <div class="cal-muted" style="font-size:12px;margin:6px 0 10px">Location: <b>${escapeHtml((_pendingLoc && _pendingLoc.name) || '')}</b>${from} · <span class="loc-change" onclick="window.scrollTo(0,0)">change ↑</span></div>
-    <div class="cal-grp" style="margin-top:0"><span class="cal-pill warn">Stop-work limits</span>
-      <span class="cal-grp-meta">a day is lost when ANY apply — edit to match your site</span></div>
+    <div class="cal-wx-method">
+      <div class="cal-wx-mh">📡 How the estimate is built — three free Open-Meteo feeds</div>
+      <div class="cal-wx-feed"><span class="ic">🛰️</span><div><b>Live forecast</b> — the real daily forecast (rain, heat, wind) for the next ~16 days from the update's cutoff.<span class="cal-pill mini def">Forecast</span></div></div>
+      <div class="cal-wx-feed"><span class="ic">📚</span><div><b>Historical climate</b> — beyond 16 days, the same calendar dates from the most recent year's actual recorded weather.<span class="cal-pill mini warn">Expected</span></div></div>
+      <div class="cal-wx-feed"><span class="ic">🌫️</span><div><b>Air-quality</b> — near-term PM10 / dust concentration, to flag sandstorm days.</div></div>
+    </div>
+    <div class="cal-grp" style="margin-top:0"><span class="cal-pill warn">What counts as a bad-weather day</span>
+      <span class="cal-grp-meta">a construction day is counted lost when ANY limit is met — edit to match your site</span></div>
     <div class="cal-thr">
       ${num('thr-rain', '🌧 Rain ≥ (mm)', t.rain_mm)}
       ${num('thr-heat', '🌡 Heat ≥ (°C)', t.temp_max_c)}
@@ -337,7 +356,8 @@ function _weatherControls() {
       <div class="thr-f"><label>🌫 Dust</label><span class="thr-sw"><input type="checkbox" id="thr-dust" ${t.dust ? 'checked' : ''}> count sandstorm days</span></div>
       <button class="cal-btn pri" id="thr-apply">Apply &amp; recalculate</button>
       <span id="thr-status" class="cal-muted" style="font-size:12px"></span>
-    </div>`;
+    </div>
+    <div class="cal-note" style="margin-top:8px">Each flagged day below shows the measured value against your limit. Applied to <b>construction</b> activities only; a day already off (weekend / holiday / shutdown) is never double-counted — kept separate from the exact P6 Delay.</div>`;
 }
 
 function _weatherSection() {
@@ -392,8 +412,29 @@ function _weatherSection() {
     <div class="cal-card p0"><table class="cal-table"><thead><tr>
       <th>Period / milestone</th><th class="num">Days</th><th>Longer days</th><th>Extra working days</th><th>Add shift</th></tr></thead>
       <tbody>${recRows || '<tr><td colspan="5" class="cal-empty">No recovery needed — no net weather delay.</td></tr>'}</tbody></table></div>`;
-  const note = '<div class="cal-note">Applies to construction activities only (auto-detected), and only to Finish/completion milestones. Estimated from the location\'s historical climate + live forecast — a forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
-  return head + controls + kpis + bar + dayTable + msTable + recTable + note;
+  const totalBad = w.expected_bad_days_total || 0;
+  const causeColor = { Heat: '#ef4444', Dust: 'var(--warning)', Rain: '#3b82f6', Wind: 'var(--muted)' };
+  const causeRows = (w.by_cause || []).map(c => {
+    const off = !!c.off;
+    const cnt = off ? 0 : (c.count || 0);
+    const pct = (!off && totalBad) ? Math.round(cnt / totalBad * 100) : 0;
+    const val = off ? 'off' : `${cnt} ${cnt === 1 ? 'day' : 'days'}${totalBad ? ` · ${pct}%` : ''}`;
+    return `<div class="cal-cause"><div class="cal-cause-l">${escapeHtml(c.label)}</div>
+      <div class="cal-cause-track"><div class="cal-cause-fill" style="width:${off ? 0 : pct}%;background:${causeColor[c.label] || 'var(--accent)'}"></div></div>
+      <div class="cal-cause-n">${val}</div></div>`;
+  }).join('');
+  const causeCard = (w.by_cause || []).length
+    ? `<div class="cal-grp"><span class="cal-pill shutdown">What's driving the lost days</span>
+        <span class="cal-grp-meta">which condition to plan around</span></div>
+       <div class="cal-card">${causeRows}</div>`
+    : '';
+  const conclHtml = w.conclusion
+    ? `<div class="cal-grp"><span class="cal-pill warn">Weather conclusion</span>
+        <span class="cal-grp-meta">auto-generated from the numbers above</span></div>
+       <div class="cal-concl" style="border-left:4px solid var(--warning)"><p style="margin:0;font-size:13px;line-height:1.6">${escapeHtml(w.conclusion)}</p></div>`
+    : '';
+  const note = '<div class="cal-note">Applies to construction activities only (auto-detected), and only to Finish/completion milestones. A forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
+  return head + controls + kpis + bar + causeCard + dayTable + msTable + recTable + conclHtml + note;
 }
 
 // Read the stop-work-limit inputs → thresholds object (blank = off).
@@ -457,13 +498,103 @@ function _wireLocation() {
     results.querySelectorAll('.cal-loc-hit').forEach(el =>
       el.addEventListener('click', () => {
         const r = resp.results[+el.dataset.i];
-        _pendingLoc = { lat: r.lat, lon: r.lon, name: r.name };
-        _render();
+        // Update the pin in place (no full re-render) so the map stays put while fine-tuning.
+        _pendingLoc = { lat: +r.lat, lon: +r.lon, name: r.name };
+        _updateLocReadout();
+        _panMapTo(+r.lat, +r.lon);
+        results.innerHTML = '';
       }));
   };
   if (searchBtn) searchBtn.addEventListener('click', doSearch);
   if (q) q.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
   if (useBtn) useBtn.addEventListener('click', () => _runWeather(useBtn, statusEl));
+  _initMap();
+}
+
+// Refresh just the coordinates read-out + enable the Use button (no full re-render).
+function _updateLocReadout() {
+  const el = document.getElementById('cal-loc-readout');
+  if (el) el.innerHTML = _locationReadoutHtml();
+  const use = document.getElementById('cal-loc-use');
+  if (use && _pendingLoc) use.disabled = false;
+}
+
+// Load the vendored Leaflet (local file — ships in the .exe) exactly once.
+function _ensureLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  if (_leafletPromise) return _leafletPromise;
+  _leafletPromise = new Promise(resolve => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet'; link.href = '/ui/vendor/leaflet/leaflet.css';
+    document.head.appendChild(link);
+    const s = document.createElement('script');
+    s.src = '/ui/vendor/leaflet/leaflet.js';
+    s.onload = () => resolve(window.L || null);
+    s.onerror = () => resolve(null);
+    document.head.appendChild(s);
+  });
+  return _leafletPromise;
+}
+
+function _pinIcon(L) {
+  return L.divIcon({ className: 'cal-pin', html: '📍', iconSize: [26, 26], iconAnchor: [13, 24] });
+}
+
+// Drop or move the pin, set the pending location, then reverse-geocode a friendly name.
+async function _setFromMap(latlng) {
+  const lat = +latlng.lat.toFixed(6), lon = +latlng.lng.toFixed(6);
+  const fallback = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  _pendingLoc = { lat, lon, name: fallback };
+  _updateLocReadout();
+  const resp = await reverseGeocode(lat, lon);
+  if (resp && resp.ok && resp.name) {
+    _pendingLoc = { lat, lon, name: resp.name };
+    _updateLocReadout();
+  }
+}
+
+function _panMapTo(lat, lon) {
+  if (!_map || !window.L) return;
+  const L = window.L, ll = [+lat, +lon];
+  _map.setView(ll, 12);
+  if (!_marker) {
+    _marker = L.marker(ll, { draggable: true, icon: _pinIcon(L) }).addTo(_map);
+    _marker.on('dragend', () => _setFromMap(_marker.getLatLng()));
+  } else {
+    _marker.setLatLng(ll);
+  }
+}
+
+async function _initMap() {
+  const el = document.getElementById('cal-map');
+  if (!el) return;
+  const L = await _ensureLeaflet();
+  // The body may have re-rendered while Leaflet loaded — bail if this node is gone.
+  if (!L || !document.body.contains(el)) {
+    if (el && !L) el.innerHTML = '<div class="cal-map-empty">Map needs an internet connection.</div>';
+    return;
+  }
+  if (_map) { try { _map.remove(); } catch { /* stale node */ } _map = null; _marker = null; }
+  const hasLoc = _pendingLoc && _pendingLoc.lat != null;
+  const center = hasLoc ? [+_pendingLoc.lat, +_pendingLoc.lon] : [24.5, 46.6]; // default: Arabian Peninsula
+  _map = L.map(el, { attributionControl: true }).setView(center, hasLoc ? 11 : 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap contributors',
+  }).addTo(_map);
+  if (hasLoc) {
+    _marker = L.marker(center, { draggable: true, icon: _pinIcon(L) }).addTo(_map);
+    _marker.on('dragend', () => _setFromMap(_marker.getLatLng()));
+  }
+  _map.on('click', e => {
+    if (!_marker) {
+      _marker = L.marker(e.latlng, { draggable: true, icon: _pinIcon(L) }).addTo(_map);
+      _marker.on('dragend', () => _setFromMap(_marker.getLatLng()));
+    } else {
+      _marker.setLatLng(e.latlng);
+    }
+    _setFromMap(e.latlng);
+  });
+  setTimeout(() => { try { _map.invalidateSize(); } catch { /* not visible yet */ } }, 60);
 }
 
 // Wire the Weather-Impact "Apply & recalculate" (edited stop-work limits).

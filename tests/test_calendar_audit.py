@@ -152,11 +152,13 @@ def test_window_is_baseline_and_full_months(tmp_path):
     d = r['dashboard']
     assert d['baseline_start'] == '2025-12-11'
     assert d['baseline_finish'] == '2027-02-09'          # exact baseline finish shown
-    assert d['window_start'] == '2025-12-11'             # window starts at baseline start
+    assert d['window_start'] == '2025-12-11'             # totals window starts at baseline start
     assert d['window_finish'] == '2027-02-28'           # full final month (Feb 2027)
-    # months span Dec 2025 … Feb 2027, last month = Feb 2027
+    # The month strip, however, starts at the DATA DATE (Jun 2026) — the past is hidden.
+    assert r['project']['timeline_start'] == '2026-06-01'
+    assert r['project']['hidden_months'] == 6            # Dec 2025 … May 2026 hidden
     months = r['by_calendar'][r['primary_calendar_id']]['monthly_stats']
-    assert months[0]['label'].startswith('Dec 2025')
+    assert months[0]['label'].startswith('Jun 2026')     # timeline begins at the data date
     assert months[-1]['label'].startswith('Feb 2027')
 
 
@@ -172,6 +174,18 @@ def test_monthly_stats_present(tmp_path):
     r = _run(tmp_path)
     prim = r['by_calendar'][r['primary_calendar_id']]
     labels = [m['label'] for m in prim['monthly_stats']]
-    assert labels[0].startswith('Jan 2025')
+    # Data date is 01 Feb 2025 → the strip starts at Feb, hiding Jan (project start).
+    assert labels[0].startswith('Feb 2025')
     assert labels[-1].startswith('Mar 2025')
     assert all('working_days' in m and 'working_hours' in m for m in prim['monthly_stats'])
+
+
+def test_timeline_starts_at_data_date(tmp_path):
+    """Ibrahim's rule: the month strip starts at the data date; the headline totals
+    still cover the whole window (project start → finish)."""
+    r = _run(tmp_path)
+    assert r['project']['timeline_start'] == '2025-02-01'   # data date, not project start
+    assert r['project']['hidden_months'] == 1               # Jan 2025 hidden
+    # totals unchanged — whole project window (Jan 1 … Mar 31 = 90 days)
+    assert r['dashboard']['total_calendar_days'] == 90
+    assert r['dashboard']['window_start'] == '2025-01-01'

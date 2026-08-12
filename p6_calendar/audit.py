@@ -280,6 +280,17 @@ def calendar_audit(data, config=None, settings=None):
     # FULL months — so a baseline finishing 09 Feb still shows the whole of February.
     finish = _month_last_day(fin_exact.year, fin_exact.month)
 
+    # Ibrahim's rule (Aug 2026): the month-by-month timeline (and its per-month stats and
+    # pop-open calendars) starts at the DATA DATE — the past is actualised, the audit looks
+    # forward. The headline tiles and the exception lists still cover the whole window; only
+    # the month strip trims. If the data date is outside the window, nothing is hidden.
+    dd = _to_date(data.project.get('data_date'))
+    display_start = start
+    hidden_months = 0
+    if dd and start < dd <= finish:
+        display_start = dd
+        hidden_months = sum(1 for _ in _month_iter(start, dd)) - 1
+
     # Usage counts
     usage_count = {}
     for a in data.activities.values():
@@ -304,7 +315,7 @@ def calendar_audit(data, config=None, settings=None):
         exc = _classify_exceptions(cal, start, finish, reasons,
                                    manual if is_primary else [])
         shut_dates = _shutdown_dates(exc)
-        months = _months_for_calendar(cal, start, finish, shut_dates)
+        months = _months_for_calendar(cal, display_start, finish, shut_dates)
         wd, nwd, hours = _calendar_totals(cal, start, finish)
         by_calendar[cid] = {
             'object_id': cid, 'name': cal.name,
@@ -351,7 +362,8 @@ def calendar_audit(data, config=None, settings=None):
     return {
         'dashboard': dashboard,
         'project': {'start': _iso(start), 'finish': _iso(finish),
-                    'baseline_start': _iso(bstart), 'baseline_finish': _iso(bfinish)},
+                    'baseline_start': _iso(bstart), 'baseline_finish': _iso(bfinish),
+                    'timeline_start': _iso(display_start), 'hidden_months': hidden_months},
         'primary_calendar_id': primary_id,
         'assigned_calendars': _assigned_list(cals, usage_count, assigned_ids, start, finish),
         'by_calendar': by_calendar,

@@ -138,6 +138,22 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     _, net_finish = counts(primary_cal if con_ids else None, project_finish)
     adjusted_finish = _shift_working_days(primary_cal, project_finish, net_finish)
 
+    # Breakdown of the flagged days by cause (a day can hit more than one limit,
+    # so the counts can sum to more than the day total).
+    cause_count = {'Rain': 0, 'Heat': 0, 'Dust storm': 0, 'High wind': 0}
+    for d in remaining:
+        _, label, _ = classify_day(daily_weather.get(d, {}), thresholds)
+        for part in label.split(' / '):
+            if part in cause_count:
+                cause_count[part] += 1
+    by_cause = [
+        {'label': 'Heat', 'count': cause_count['Heat']},
+        {'label': 'Dust', 'count': cause_count['Dust storm']},
+        {'label': 'Rain', 'count': cause_count['Rain']},
+        {'label': 'Wind', 'count': cause_count['High wind'],
+         'off': thresholds.get('wind_kmh') is None},
+    ]
+
     # Daily expected list (forecast ≤ horizon, else historical-expected)
     day_hours = primary_cal.day_hours if primary_cal else 8.0
     bad_list = []
@@ -173,19 +189,65 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
             'option_shift': 'Add a second shift over the affected weeks',
         })
 
+    conclusion = _weather_conclusion(
+        total=len(remaining), net=net_finish, adjusted=adjusted_finish,
+        by_cause=by_cause, monthly=monthly, milestones=ms)
+
     return {
         'bad_days': bad_list,
         'monthly': monthly,
+        'by_cause': by_cause,
         'milestones': ms,
         'expected_bad_days_total': len(remaining),
         'net_finish_delay': net_finish,
         'weather_adjusted_finish': adjusted_finish.isoformat(),
         'recovery': recovery,
+        'conclusion': conclusion,
         'thresholds': thresholds,          # the stop-work limits applied
         'from_date': data_date.isoformat(),  # the update's cutoff — window is (cutoff, finish]
         'source': 'Open-Meteo (forecast + ERA5 historical + air-quality)',
         'is_estimate': True,
     }
+
+
+def _fmt_long(d):
+    d = _to_date(d)
+    return f'{d.day:02d} {_MON[d.month]} {d.year}' if d else '—'
+
+
+def _weather_conclusion(*, total, net, adjusted, by_cause, monthly, milestones):
+    """A short management paragraph, generated from the numbers — mirrors what the
+    UI and PDF show. Degrades gracefully when there is no impact / no location."""
+    if total == 0:
+        return ('No material bad-weather days are expected on the remaining construction '
+                'path to finish, so no weather delay is estimated. This is a forward-looking '
+                'estimate, kept separate from the exact P6 Delay.')
+    if net > 0:
+        finish_txt = (f'Bad weather is estimated to cost about {net} working '
+                      f'day{"s" if net != 1 else ""} to project finish, moving the '
+                      f'weather-adjusted finish to {_fmt_long(adjusted)}.')
+    else:
+        finish_txt = ('The flagged bad-weather days fall on days already off (weekend / '
+                      'holiday / shutdown), so no net delay to the project finish is estimated.')
+    ranked = sorted([c for c in by_cause if c.get('count')], key=lambda c: -c['count'])
+    dom_txt = ''
+    if ranked:
+        pct = round(ranked[0]['count'] / total * 100)
+        dom_txt = f' The risk is driven mainly by {ranked[0]["label"].lower()} ({pct}% of the flagged days).'
+    peak_txt = ''
+    if monthly:
+        mx = max(m['count'] for m in monthly)
+        peaks = [m['label'] for m in monthly if m['count'] == mx and mx > 0]
+        if peaks:
+            peak_txt = f' Exposure concentrates around {", ".join(peaks[:2])}.'
+    slipped = [m for m in milestones if m['net_delay'] > 0]
+    ms_txt = ''
+    if slipped:
+        worst = max(slipped, key=lambda m: m['net_delay'])
+        ms_txt = (f' {len(slipped)} milestone{"s" if len(slipped) != 1 else ""} '
+                  f'exposed, the largest being “{worst["name"]}” (+{worst["net_delay"]} d).')
+    return (finish_txt + dom_txt + peak_txt + ms_txt +
+            ' This is a forward-looking estimate, kept separate from the exact P6 Delay.')
 
 
 def weather_inputs(data):

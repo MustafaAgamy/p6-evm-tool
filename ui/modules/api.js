@@ -206,6 +206,16 @@ export async function geocodePlace(q) {
   } catch { return { ok: false, error: 'offline' }; }
 }
 
+// Reverse-geocode a dropped/dragged pin → a friendly place name.
+export async function reverseGeocode(lat, lon) {
+  try {
+    return await apiFetch('api/geocode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lon }),
+    });
+  } catch { return { ok: false, error: 'offline' }; }
+}
+
 export async function computeWeather(lat, lon, placeName, thresholds) {
   return apiFetch('api/weather', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
