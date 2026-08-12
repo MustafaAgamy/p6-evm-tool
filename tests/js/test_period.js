@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { signPct, shortDate, progressBarHtml, milestoneSection, dashboardHtml,
-         criticalTimelineData, criticalTimelineSvg } from '../../ui/modules/period.js';
+         criticalTimelineData, criticalCompareBody } from '../../ui/modules/period.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -95,7 +95,7 @@ console.log('\ndashboardHtml — SPI/Delay/%Complete strips + sign convention');
   });
 }
 
-console.log('\ncriticalTimelineData / Svg (Option A — the finish-driving route on a timeline)');
+console.log('\ncriticalTimelineData / CompareBody (connected chain — 1 row unchanged, 2 aligned rows on a reroute)');
 {
   const A = (id, name, wbs, s, f) => ({ id, name, wbs_path: wbs, codes: { Discipline: 'Civil' }, start: s, finish: f });
   const prev = [A('A', 'Excavate', 'Plant > Foundations > Excavation', '2026-08-01', '2026-09-30'),
@@ -112,23 +112,27 @@ console.log('\ncriticalTimelineData / Svg (Option A — the finish-driving route
     assert.deepEqual(d.prev.map(s => s.key), ['Foundations', 'Steel', 'Cladding', 'Roof']);
     assert.deepEqual(d.curr.map(s => s.key), ['Foundations', 'Steel', 'Furnace', 'Commissioning']);
   });
-  test('divergence after the shared prefix (Foundations, Steel)', () => assert.equal(d.divergence, 2));
+  test('divergence after the shared prefix + changed flag', () => { assert.equal(d.divergence, 2); assert.equal(d.changed, true); });
   test('conclusion names the reroute, the new route and the P6 finish', () => {
-    assert.ok(d.conclusion.includes('Steel') && d.conclusion.includes('Furnace') && d.conclusion.includes('26-Mar-2027'));
+    assert.ok(d.conclusion.includes('rerouted at Steel') && d.conclusion.includes('Furnace') && d.conclusion.includes('26-Mar-2027'));
   });
   const report = { critical_path: { previous: prev, current: curr }, summary,
                    data_date_prev: '07-Aug-2026', data_date_now: '22-Aug-2026' };
-  const svg = criticalTimelineSvg(report, 'leaf-parent');
-  test('svg draws both rows, the red new route and the total slip', () => {
-    assert.ok(svg.startsWith('<svg') && svg.includes('Critical path timeline'));
-    assert.ok(svg.includes('WAS · 07-Aug-2026') && svg.includes('NOW · 22-Aug-2026'));
-    assert.ok(svg.includes('rerouted here') && svg.includes('#f87171') && svg.includes('+14 wd'));
-    assert.ok(svg.includes('finish 12-Mar-2027') && svg.includes('finish 26-Mar-2027'));
+  const html = criticalCompareBody(report, 'leaf-parent');
+  test('changed → two connected rows, new route red, both flags + slip note', () => {
+    assert.ok(html.includes('cpchain'));                                   // connected chain, not an SVG
+    assert.ok(html.includes('Was — last update') && html.includes('Now — this update'));
+    assert.ok(html.includes('cpblk gone') && html.includes('cpblk new'));  // old greyed, new red
+    assert.ok(html.includes('12-Mar-2027') && html.includes('26-Mar-2027'));
+    assert.ok(html.includes('moved +14 working days'));
   });
-  test('identical routes → unchanged, no divergence', () => {
+  test('unchanged → one blue chain, no second row', () => {
     const d2 = criticalTimelineData(prev, prev, summary, 'leaf-parent');
-    assert.equal(d2.divergence, d2.curr.length);
-    assert.ok(d2.conclusion.includes('unchanged'));
+    assert.equal(d2.divergence, d2.curr.length); assert.equal(d2.changed, false);
+    assert.ok(d2.conclusion.includes('Same critical path as last period'));
+    const h2 = criticalCompareBody({ critical_path: { previous: prev, current: prev }, summary }, 'leaf-parent');
+    assert.ok(h2.includes("This period's critical path") && !h2.includes('Was — last update'));
+    assert.ok(!h2.includes('cpblk gone') && !h2.includes('cpblk new'));
   });
 }
 

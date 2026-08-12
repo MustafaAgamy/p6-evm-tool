@@ -921,14 +921,23 @@ body {
 .per-tag-below { position: absolute; top: 36px; transform: translateX(-50%); white-space: nowrap; font-size: 10.5px; font-weight: 700; color: var(--accent); }
 .per-psent { margin-top: 34px; font-size: 12.5px; color: var(--text); font-weight: 500; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; line-height: 1.55; }
 .per-psent b { color: var(--text); }
-/* critical-path comparison */
-.per-cprow { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 6px 0; }
-.per-cplbl { width: 66px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
-.per-wbs { border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700; }
-.per-wbs.same { background: rgba(59,130,246,.14); border: 1px solid rgba(59,130,246,.45); color: var(--text); }
-.per-wbs.new { background: rgba(248,113,113,.18); border: 1px solid rgba(248,113,113,.55); color: var(--danger); }
-.per-wbs.gone { background: rgba(148,163,184,.12); border: 1px dashed var(--border); color: var(--muted); text-decoration: line-through; }
-.per-arr { color: var(--muted); font-weight: 800; } .per-arr.newarr { color: var(--danger); }
+/* critical-path comparison — connected chain (one row unchanged; two aligned rows on a reroute) */
+.cpconcl { border-radius: 8px; padding: 10px 14px; font-size: 12.5px; line-height: 1.5; margin: 2px 0 12px; display: flex; gap: 9px; align-items: flex-start; }
+.cpconcl.good { background: rgba(22,163,74,.12); border: 1px solid rgba(22,163,74,.35); color: var(--text); }
+.cpconcl.warn { background: rgba(217,119,6,.12); border: 1px solid rgba(217,119,6,.40); color: var(--text); }
+.cpconcl .cpic { font-size: 15px; line-height: 1.2; }
+.cprowlbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin: 2px 0 5px; }
+.cpchain { display: flex; align-items: stretch; margin-bottom: 4px; overflow-x: auto; padding-bottom: 2px; }
+.cpblk { flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 46px; border-radius: 7px; font-weight: 700; font-size: 12px; padding: 0 5px; text-align: center; overflow: hidden; }
+.cpblk small { font-weight: 600; font-size: 9.5px; opacity: .85; margin-top: 1px; }
+.cpblk.shared { background: #bcd6f5; color: #1e3a8a; } .cpblk.new { background: #f4a3a3; color: #7f1d1d; } .cpblk.gone { background: #e9edf2; color: #6b7686; text-decoration: line-through; }
+.cparw { flex: none; display: flex; align-items: center; color: var(--muted); font-weight: 900; font-size: 15px; padding: 0 5px; } .cparw.new { color: var(--danger); }
+.cpflag { flex: none; display: flex; flex-direction: column; justify-content: center; padding-left: 10px; white-space: nowrap; }
+.cpflag b { font-size: 12.5px; } .cpflag .cpfl { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+.cpflag.now b { color: var(--danger); } .cpflag.was b { color: var(--muted); }
+.cpdia { width: 11px; height: 11px; transform: rotate(45deg); border-radius: 2px; margin-bottom: 3px; } .cpdia.now { background: var(--danger); } .cpdia.was { background: var(--muted); }
+.cpslip { font-size: 11.5px; color: var(--danger); font-weight: 700; margin-top: 3px; }
+.cpsw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin: 0 5px 0 12px; }
 /* what moved planned-vs-actual */
 .per-wmrow { display: flex; align-items: center; gap: 10px; margin: 7px 0; } .per-wml { width: 104px; font-size: 12.5px; }
 .per-wmtrack { flex: 1; position: relative; height: 20px; min-width: 120px; }

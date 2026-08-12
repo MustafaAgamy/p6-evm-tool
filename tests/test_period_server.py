@@ -80,7 +80,7 @@ def test_period_compare_end_to_end(test_server, tmp_path):
     assert any(a.get('finish') for a in cp['current'])       # at least one dated activity on the path
     from p6_period.exporters import render_html
     html = render_html(r)
-    assert 'Critical path timeline' in html                  # timeline renders from a REAL parsed report
+    assert 'cpchain' in html                                 # the critical-path chain renders from a REAL parsed report
 
 
 def test_period_compare_missing_prev(test_server):

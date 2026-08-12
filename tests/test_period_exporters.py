@@ -142,44 +142,50 @@ def test_milestone_drift_svg_empty_when_no_milestones():
 
 # ── #02 — Critical-path comparison as a timeline (Option A) ──────────────────
 
-def test_critical_timeline_data_shared_prefix_divergence_and_conclusion():
+def test_critical_route_data_shared_prefix_divergence_and_conclusion():
     from p6_period.exporters import _cp_timeline_data
     d = _cp_timeline_data(_report(), 'leaf-parent')
     assert [s['key'] for s in d['prev']] == ['Foundations', 'Steel', 'Cladding', 'Roof']
     assert [s['key'] for s in d['curr']] == ['Foundations', 'Steel', 'Furnace', 'Commissioning']
-    assert d['divergence'] == 2                        # shared through Steel, then the route splits
+    assert d['divergence'] == 2 and d['changed'] is True   # shared through Steel, then the route splits
     assert d['slip_days'] == 14
     assert d['prev'][0]['start'] == '2026-08-01' and d['curr'][-1]['finish'] == '2027-03-26'
     # the plain conclusion names where it rerouted, the new route, and the P6 finish
-    assert 'Steel' in d['conclusion'] and 'Furnace' in d['conclusion'] and '26-Mar-2027' in d['conclusion']
+    assert 'rerouted at Steel' in d['conclusion'] and 'Furnace' in d['conclusion'] and '26-Mar-2027' in d['conclusion']
 
 
-def test_critical_timeline_svg_draws_both_rows_new_route_and_total_slip():
-    from p6_period.exporters import _critical_timeline_svg
-    svg = _critical_timeline_svg(_report(), 'leaf-parent')
-    assert svg.startswith('<svg') and 'Critical path timeline' in svg
-    assert 'WAS · 30-Jun-2026' in svg and 'NOW · 31-Jul-2026' in svg
-    assert 'rerouted here' in svg                      # the divergence marker
-    assert '#f87171' in svg                            # the new route is drawn in red
-    assert '+14 wd' in svg                             # the TOTAL slip bracket (not per-segment)
-    assert 'finish 12-Mar-2027' in svg and 'finish 26-Mar-2027' in svg
+def test_critical_compare_two_rows_new_route_and_slip_when_changed():
+    from p6_period.exporters import _critical_compare_html
+    html = _critical_compare_html(_report())
+    assert 'cpchain' in html                            # connected-chain layout (not boxes, not an SVG)
+    assert 'Was — last update' in html and 'Now — this update' in html   # both rows on a reroute
+    assert 'cpblk gone' in html                         # the dropped old route (greyed)
+    assert 'cpblk new' in html                          # the new route (red)
+    assert 'rerouted at Steel' in html
+    assert 'Furnace' in html and 'Commissioning' in html
+    assert '12-Mar-2027' in html and '26-Mar-2027' in html   # both finish flags
+    assert 'moved +14 working days' in html             # the slip note (total, not per-segment)
 
 
-def test_critical_timeline_unchanged_when_routes_identical():
-    from p6_period.exporters import _cp_timeline_data
+def test_critical_compare_one_row_when_route_unchanged():
+    from p6_period.exporters import _critical_compare_html, _cp_timeline_data
     rep = _report()
     rep['critical_path'] = {'previous': rep['critical_path']['previous'],
                             'current': rep['critical_path']['previous']}   # same route both updates
     d = _cp_timeline_data(rep, 'leaf-parent')
-    assert d['divergence'] == len(d['curr'])           # no divergence
-    assert 'unchanged' in d['conclusion']
+    assert d['divergence'] == len(d['curr']) and d['changed'] is False     # no divergence
+    assert 'Same critical path as last period' in d['conclusion']
+    html = _critical_compare_html(rep)
+    assert "This period's critical path" in html         # single-row heading
+    assert 'Was — last update' not in html               # no second row when unchanged
+    assert 'cpblk gone' not in html and 'cpblk new' not in html   # one blue chain, no red/grey
 
 
-def test_render_html_uses_timeline_not_wbs_boxes():
+def test_render_html_uses_connected_chain_not_boxes():
     html = render_html(_report(), trend=None)
-    assert 'Critical path timeline' in html            # the SVG timeline replaces the WBS boxes
-    assert 'The finish-driving route changed at' in html   # plain-English conclusion above it
-    assert 'the finish-driving route on a timeline' in html.lower()   # section heading
+    assert 'cpchain' in html and 'cpblk shared' in html  # the connected-chain critical path
+    assert 'rerouted at Steel' in html                   # plain conclusion in the section
+    assert 'the finish-driving route' in html.lower()    # section heading
 
 
 # ── #01 — the exported PDF must respect the on-screen activity-code filter ────

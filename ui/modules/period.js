@@ -218,8 +218,9 @@ function _cpKey(a, mode) {
   return segs.length >= 2 ? segs[segs.length - 2] : segs[segs.length - 1];   // leaf-parent
 }
 // Group consecutive driving-path activities into dated segments (WBS level or code).
-const _CP_FILL = { same: '#93c5fd', new: '#f87171', gone: '#e2e8f0' };
-const _CP_INK  = { same: '#1e3a8a', new: '#ffffff', gone: '#64748b' };
+// Critical-path comparison as a connected chain of blocks (simpler than the date-axis
+// timeline): ONE row when the route is unchanged, two aligned rows (old greyed, new red)
+// only when it reroutes. The blocks sit end-to-end; each shows the months it spans.
 function _cpSegments(acts, mode) {
   const segs = [];
   for (const a of acts) {
@@ -233,96 +234,87 @@ function _cpSegments(acts, mode) {
   return segs;
 }
 function _cpConclusion(prev, curr, div, summary) {
-  const fp = summary.forecast_finish_prev, fn = summary.forecast_finish_now, slip = summary.finish_slip_days;
+  const fn = summary.forecast_finish_now, slip = summary.finish_slip_days;
   const route = (segs, a) => segs.slice(a).map(s => s.key).join(' → ') || '—';
-  const diverged = div < curr.length || div < prev.length;
-  let head = diverged
-    ? `The finish-driving route changed at <b>${escapeHtml(div > 0 ? curr[div - 1].key : 'the start')}</b>: last update it ran <b>${escapeHtml(route(prev, div))}</b>, this update it runs <b>${escapeHtml(route(curr, div))}</b>`
-    : 'The finish-driving route is <b>unchanged</b> this period';
-  let tail;
-  if (slip) tail = slip > 0
-    ? ` — pushing the forecast finish ${escapeHtml(fp || '—')} → <b>${escapeHtml(fn || '—')}</b> (+${slip} working days).`
-    : ` — pulling the forecast finish in to <b>${escapeHtml(fn || '—')}</b> (${slip} working days).`;
-  else if (fn) tail = ` — the forecast finish holds at <b>${escapeHtml(fn)}</b>.`;
-  else tail = '.';
-  return head + tail;
+  if (div < curr.length || div < prev.length) {                 // the route rerouted
+    const at = div > 0 ? curr[div - 1].key : 'the start';
+    let h = `Your critical path <b>rerouted at ${escapeHtml(at)}</b> — it used to finish through <b>${escapeHtml(route(prev, div))}</b>; now it runs <b>${escapeHtml(route(curr, div))}</b>`;
+    if (slip > 0) h += `, slipping the finish <b>+${slip} days to ${escapeHtml(fn || '—')}</b>.`;
+    else if (slip < 0) h += `, pulling the finish in <b>${Math.abs(slip)} days to ${escapeHtml(fn || '—')}</b>.`;
+    else if (fn) h += `, with the finish holding at <b>${escapeHtml(fn)}</b>.`;
+    else h += '.';
+    return h;
+  }
+  let h = `<b>Same critical path as last period.</b> It runs <b>${escapeHtml(route(curr, 0))}</b> and drives your finish on <b>${escapeHtml(fn || '—')}</b>`;
+  if (slip > 0) h += ` (slipped ${slip} day${slip !== 1 ? 's' : ''} this period).`;
+  else if (slip < 0) h += ` (pulled in ${Math.abs(slip)} day${Math.abs(slip) !== 1 ? 's' : ''} this period).`;
+  else h += '.';
+  return h;
 }
 function _cpTimelineData(prevA, currA, summary, mode) {
   if (!prevA.length && !currA.length) return null;
   const prev = _cpSegments(prevA, mode), curr = _cpSegments(currA, mode);
   let div = 0; while (div < prev.length && div < curr.length && prev[div].key === curr[div].key) div++;
-  return { prev, curr, divergence: div, finishPrev: summary.forecast_finish_prev,
-           finishNow: summary.forecast_finish_now, slip: summary.finish_slip_days,
-           conclusion: _cpConclusion(prev, curr, div, summary) };
+  return { prev, curr, divergence: div, changed: div < prev.length || div < curr.length,
+           finishPrev: summary.forecast_finish_prev, finishNow: summary.forecast_finish_now,
+           slip: summary.finish_slip_days, conclusion: _cpConclusion(prev, curr, div, summary) };
 }
-// The finish-driving route on a real date axis (Option A): WAS row over NOW row; shared
-// prefix blue, new route red from the divergence, dropped tail grey; finish diamonds +
-// the TOTAL slip bracket (no per-segment day splits). Theme-aware chrome (dark/light).
-function _cpTimelineSvg(report, mode) {
-  const cp = report.critical_path || {}, summary = report.summary || {};
-  const data = _cpTimelineData(cp.previous || [], cp.current || [], summary, mode);
-  if (!data) return '<p class="cmp-empty">No driving path to the finish milestone could be derived.</p>';
-  const { prev, curr, divergence: div } = data;
-  const UNIT = 20 * 8.64e7;                       // 20 days (ms) — fallback width for an undated segment
-  const ord = iso => { const t = Date.parse(iso); return Number.isNaN(t) ? null : t; };
-  const layout = segs => {
-    const pos = []; let cur = null;
-    for (const s of segs) {
-      const a = ord(s.start), b = ord(s.finish);
-      let start = a != null ? a : (cur != null ? cur : 0);
-      if (cur != null && start < cur) start = cur;   // keep the row monotonic (no backward/overlap on odd dates)
-      const end = (b != null && b > start) ? b : start + UNIT;
-      pos.push([start, end]); cur = end;
-    }
-    return pos;
-  };
-  const pprev = layout(prev), pcurr = layout(curr);
-  const xsAll = pprev.concat(pcurr).flat();
-  if (!xsAll.length) return '<p class="cmp-empty">The driving path has no dates to place on a timeline.</p>';
-  let tmin = Math.min(...xsAll), tmax = Math.max(...xsAll);
-  if (tmax <= tmin) tmax = tmin + UNIT;
-  const x0 = 160, x1 = 830, xat = t => x0 + (x1 - x0) * (t - tmin) / (tmax - tmin);   // room for finish label
-  let p = '';
-  for (let k = 0; k < 5; k++) {
-    const t = tmin + (tmax - tmin) * k / 4, x = xat(t), d = new Date(t);
-    const lab = d.toLocaleString('en', { month: 'short' }) + '-' + String(d.getFullYear()).slice(2);
-    p += `<line x1="${x.toFixed(0)}" y1="40" x2="${x.toFixed(0)}" y2="222" stroke="var(--border)"/><text x="${x.toFixed(0)}" y="238" text-anchor="middle" font-size="9" fill="var(--muted)">${lab}</text>`;
-  }
-  const draw = (segs, pos, y, isCurr) => segs.forEach((s, i) => {
-    const [a, b] = pos[i], role = i < div ? 'same' : (isCurr ? 'new' : 'gone');
-    const x = xat(a), w = Math.max(6, xat(b) - xat(a));
-    p += `<rect x="${x.toFixed(0)}" y="${y}" width="${w.toFixed(0)}" height="24" rx="4" fill="${_CP_FILL[role]}"/>`;
-    const cap = Math.floor(w / 6.5);
-    if (w >= 34 && cap >= 3) {
-      const lab = s.key.length <= cap ? s.key : s.key.slice(0, cap - 1) + '…';
-      p += `<text x="${(x + w / 2).toFixed(0)}" y="${(y + 16).toFixed(0)}" text-anchor="middle" font-size="10" fill="${_CP_INK[role]}">${escapeHtml(lab)}</text>`;
-    }
+function _spanLabel(aIso, bIso) {
+  const p = iso => { const t = Date.parse(iso); return Number.isNaN(t) ? null : new Date(t); };
+  let a = p(aIso), b = p(bIso);
+  if (!a && !b) return '';
+  a = a || b; b = b || a;
+  const mon = d => d.toLocaleString('en', { month: 'short' }), yy = d => String(d.getFullYear()).slice(2);
+  if (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()) return `${mon(a)} ${a.getFullYear()}`;
+  if (a.getFullYear() === b.getFullYear()) return `${mon(a)} – ${mon(b)} ${b.getFullYear()}`;
+  return `${mon(a)} ${yy(a)} – ${mon(b)} ${yy(b)}`;
+}
+function _cpWidths(prev, curr, div) {
+  const days = s => { const d = (Date.parse(s.finish) - Date.parse(s.start)) / 8.64e7; return (Number.isFinite(d) && d > 0) ? d : 30; };
+  const pd = div <= curr.length ? div : curr.length;
+  const prefix = curr.slice(0, pd).map(days), currTail = curr.slice(pd).map(days);
+  const prevTail = (div <= prev.length ? prev.slice(div) : []).map(days);
+  const sum = arr => arr.reduce((x, y) => x + y, 0);
+  const widest = Math.max(sum(prefix) + sum(currTail), sum(prefix) + sum(prevTail), 1);
+  const scale = 620 / widest, px = w => Math.max(58, Math.round(w * scale));
+  const pre = prefix.map(px);
+  return [pre.concat(prevTail.map(px)), pre.concat(currTail.map(px))];
+}
+function _cpChainHtml(segs, widths, div, tailRole, flagRole, finishDate) {
+  let out = '';
+  segs.forEach((s, i) => {
+    const role = i < div ? 'shared' : tailRole;
+    const lab = _spanLabel(s.start, s.finish), sub = lab ? `<small>${escapeHtml(lab)}</small>` : '';
+    const w = i < widths.length ? widths[i] : 80;
+    out += `<div class="cpblk ${role}" style="width:${w}px">${escapeHtml(s.key)}${sub}</div>`;
+    if (i < segs.length - 1) out += `<div class="cparw${tailRole === 'new' && i >= div - 1 ? ' new' : ''}">→</div>`;
   });
-  draw(prev, pprev, 60, false);
-  draw(curr, pcurr, 120, true);
-  p += `<text x="14" y="74" font-size="11" font-weight="700" fill="var(--muted)">WAS · ${escapeHtml(report.data_date_prev || '—')}</text>`;
-  p += `<text x="14" y="134" font-size="11" font-weight="700" fill="var(--text)">NOW · ${escapeHtml(report.data_date_now || '—')}</text>`;
-  if (pprev.length) {
-    const fx = xat(pprev[pprev.length - 1][1]);
-    p += `<path d="M${fx.toFixed(0)},72 l7,-7 l7,7 l-7,7 z" fill="#94a3b8"/><text x="${(fx + 18).toFixed(0)}" y="58" font-size="9.5" fill="var(--muted)">finish ${escapeHtml(data.finishPrev || '—')}</text>`;
-  }
-  if (pcurr.length) {
-    const gx = xat(pcurr[pcurr.length - 1][1]);
-    p += `<path d="M${gx.toFixed(0)},132 l7,-7 l7,7 l-7,7 z" fill="#dc2626"/><text x="${(gx + 18).toFixed(0)}" y="118" font-size="9.5" fill="#b91c1c" font-weight="700">finish ${escapeHtml(data.finishNow || '—')}</text>`;
+  out += `<div class="cparw${tailRole === 'new' && div < segs.length ? ' new' : ''}">→</div>`;
+  out += `<div class="cpflag ${flagRole}"><span class="cpdia ${flagRole}"></span><b>${escapeHtml(finishDate || '—')}</b><span class="cpfl">finish</span></div>`;
+  return `<div class="cpchain">${out}</div>`;
+}
+// Everything that depends on the grouping (conclusion + rows) lives here, so the regroup
+// dropdown just re-renders this into #per-cp-chains.
+function _cpCompareBody(report, mode) {
+  const cp = report.critical_path || {};
+  const data = _cpTimelineData(cp.previous || [], cp.current || [], report.summary || {}, mode);
+  if (!data) return '<p class="cmp-empty">No driving path to the finish milestone could be derived.</p>';
+  const { prev, curr, divergence: div, changed } = data;
+  const [wprev, wcurr] = _cpWidths(prev, curr, div);
+  const concl = `<div class="cpconcl ${changed ? 'warn' : 'good'}"><span class="cpic">${changed ? '⚠' : '✓'}</span><div>${data.conclusion}</div></div>`;
+  if (!changed) {
+    return concl + `<div class="cprowlbl">This period's critical path</div>`
+      + _cpChainHtml(curr, wcurr, curr.length, 'new', 'now', data.finishNow)
+      + `<div class="cmp-foot">One row — the route is the same as last period. The blocks sit end-to-end as a chain, each labelled with the months it spans.</div>`;
   }
   const slip = data.slip;
-  if (pprev.length && pcurr.length && slip) {
-    const [lo, hi] = [xat(pprev[pprev.length - 1][1]), xat(pcurr[pcurr.length - 1][1])].sort((m, n) => m - n);
-    p += `<line x1="${lo.toFixed(0)}" y1="196" x2="${hi.toFixed(0)}" y2="196" stroke="#dc2626" stroke-width="1.5"/><line x1="${lo.toFixed(0)}" y1="192" x2="${lo.toFixed(0)}" y2="200" stroke="#dc2626"/><line x1="${hi.toFixed(0)}" y1="192" x2="${hi.toFixed(0)}" y2="200" stroke="#dc2626"/><text x="${((lo + hi) / 2).toFixed(0)}" y="212" text-anchor="middle" font-size="10.5" fill="#b91c1c" font-weight="700">${slip > 0 ? '+' : ''}${slip} wd</text>`;
-  }
-  if (div < curr.length || div < prev.length) {
-    const src = div < pcurr.length ? pcurr[div][0] : (div < pprev.length ? pprev[div][0] : null);
-    if (src != null) {
-      const dx = xat(src);
-      p += `<line x1="${dx.toFixed(0)}" y1="52" x2="${dx.toFixed(0)}" y2="168" stroke="#dc2626" stroke-width="1" stroke-dasharray="3 3"/><text x="${dx.toFixed(0)}" y="182" text-anchor="middle" font-size="9.5" fill="#b91c1c" font-weight="700">rerouted here</text>`;
-    }
-  }
-  return `<svg viewBox="0 0 960 250" width="100%" role="img" aria-label="Critical path timeline">${p}</svg>`;
+  const slipnote = slip ? `<div class="cpslip">↳ the finish moved ${slip > 0 ? '+' : ''}${slip} working days (the Now chain runs ${slip > 0 ? 'longer' : 'shorter'} than the old one).</div>` : '';
+  const legend = `<div class="cmp-foot"><span class="cpsw" style="background:#bcd6f5"></span>shared route (unchanged) <span class="cpsw" style="background:#f4a3a3"></span>new route (from the reroute) <span class="cpsw" style="background:#e9edf2"></span>old route (dropped off)</div>`;
+  return concl
+    + `<div class="cprowlbl">Was — last update</div>` + _cpChainHtml(prev, wprev, div, 'gone', 'was', data.finishPrev)
+    + `<div class="cprowlbl" style="margin-top:9px">Now — this update</div>` + _cpChainHtml(curr, wcurr, div, 'new', 'now', data.finishNow)
+    + slipnote + legend
+    + `<div class="cmp-foot">Two rows because the route changed — they line up at the reroute point; the old route is greyed, the new route red, and the finish flags sit further apart the bigger the slip.</div>`;
 }
 function _criticalCompareHtml(report) {
   const cp = report.critical_path || {};
@@ -332,20 +324,13 @@ function _criticalCompareHtml(report) {
   let opts = `<option value="leaf-parent">WBS — floor / zone (default)</option>`;
   for (let i = 1; i < maxDepth; i++) opts += `<option value="wbs${i}">WBS level ${i + 1}</option>`;
   (report.code_types || []).forEach(t => { opts += `<option value="code:${escapeHtml(t)}">Activity code: ${escapeHtml(t)}</option>`; });
-  const data = _cpTimelineData(prevA, currA, report.summary || {}, 'leaf-parent');
-  const sw = c => `<span style="display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin:0 5px 0 12px;background:${c}"></span>`;
-  const concl = `<div style="background:var(--card-bg);border:1px solid var(--border);border-left:4px solid #2a78d6;border-radius:0 8px 8px 0;padding:9px 13px;font-size:12.5px;line-height:1.5;margin:2px 0 10px;color:var(--text)">${data.conclusion}</div>`;
-  const legend = `<div class="cmp-foot">${sw('#93c5fd')}shared route (on both)${sw('#f87171')}new critical route (from the reroute)${sw('#e2e8f0')}old route (dropped off)</div>`;
-  return `${concl}
-    <div class="per-slicer"><span class="per-slicer-lbl">Group / filter the critical path by</span><select id="per-cp-mode">${opts}</select></div>
-    <div id="per-cp-chains">${_cpTimelineSvg(report, 'leaf-parent')}</div>
-    ${legend}
-    <div class="cmp-foot">The <b>finish-driving route</b> (the chain that sets your completion date) on a date axis — <b>WAS</b> = last update, <b>NOW</b> = this update. The bracket is the <b>total finish movement</b>; per-segment day-splits aren't shown (that needs a full P6 time-impact analysis).</div>`;
+  return `<div class="per-slicer"><span class="per-slicer-lbl">Group / filter the critical path by</span><select id="per-cp-mode">${opts}</select></div>
+    <div id="per-cp-chains">${_cpCompareBody(report, 'leaf-parent')}</div>`;
 }
 function _wireCriticalCompare(report) {
   const sel = document.getElementById('per-cp-mode'), box = document.getElementById('per-cp-chains');
   if (!sel || !box) return;
-  sel.addEventListener('change', () => { box.innerHTML = _cpTimelineSvg(report, sel.value); });
+  sel.addEventListener('change', () => { box.innerHTML = _cpCompareBody(report, sel.value); });
 }
 
 // What moved — planned vs actual, counts always shown as text.
@@ -705,7 +690,7 @@ export function renderPeriodReport(report) {
     ${_progressBarHtml(report)}
     <div class="mod-sec">Execution Dashboard — progress this period</div>
     ${_dashboard(report)}
-    <div class="mod-sec">Critical-path comparison — the finish-driving route on a timeline</div>
+    <div class="mod-sec">Critical-path comparison — the finish-driving route</div>
     ${_criticalCompareHtml(report)}
     <div class="mod-sec">Progress by activity — % complete this period</div>
     ${_progressSection(report)}
@@ -952,4 +937,4 @@ function _fileBar(report) {
 // Pure helpers exposed for unit tests.
 export { _signPct as signPct, _shortDate as shortDate, _progressBarHtml as progressBarHtml,
          _milestoneSection as milestoneSection, _dashboard as dashboardHtml,
-         _cpTimelineData as criticalTimelineData, _cpTimelineSvg as criticalTimelineSvg };
+         _cpTimelineData as criticalTimelineData, _cpCompareBody as criticalCompareBody };
