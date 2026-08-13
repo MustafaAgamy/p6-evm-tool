@@ -46,9 +46,12 @@ def _wbs_tree(data):
         parent = node.get('parent_object_id')
         (children.setdefault(parent, []).append(oid)
          if parent and parent in wbs else roots.append(oid))
-    out = []
+    out, seen = [], set()
 
     def walk(oid, level):
+        if oid in seen:            # guard against a malformed WBS parent cycle
+            return
+        seen.add(oid)
         out.append({'name': wbs[oid].get('name') or '—', 'level': level})
         for child in children.get(oid, []):
             walk(child, level + 1)
@@ -175,8 +178,11 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None):
     sections.append(Section('13', 'Cost loading', 'costbars', 'auto',
                             payload=cost_by_wbs(acts, data.bac_by_activity, data.wbs)))
 
-    sections.append(Section('14', 'Cash flow', 'cashflow', 'auto',
-                            payload=cash_flow(acts, data.bac_by_activity)))
+    sections.append(Section(
+        '14', 'Cash flow', 'cashflow', 'auto',
+        payload=cash_flow(acts, data.bac_by_activity),
+        note='Illustrative cost-loaded S-curve — each activity’s budget spread evenly across '
+             'its planned dates and accumulated; the plan’s shape, not a P6-exact cost curve.'))
 
     return NarrativeDoc(meta, sections)
 
