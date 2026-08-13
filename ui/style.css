@@ -1025,6 +1025,10 @@ body {
 .lag-dbar { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
 .lag-dbar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
 .lag-dv { width: 78px; text-align: right; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.lag-wrow { margin-bottom: 11px; }
+.lag-wrow:last-child { margin-bottom: 0; }
+.lag-wname { font-size: 12px; color: var(--text); margin-bottom: 4px; line-height: 1.3; }
+.lag-wline { display: flex; align-items: center; gap: 10px; }
 .lag-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
 .lag-chip { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; padding: 2px 7px; border-radius: 20px; margin-right: 3px; }
 .lag-chip.lead { background: rgba(248,113,113,0.16); color: var(--danger); }

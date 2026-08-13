@@ -344,16 +344,26 @@ def _lag_summary(m):
             f'&nbsp;·&nbsp; listed worst first</div>')
 
 
-def _lag_bars(rows, label_key, count_key):
+def _lag_bars(rows, label_key, count_key, stacked=False):
+    """Horizontal bars. stacked=True puts the (long) label on its own line above a full-width
+    bar — used for the WBS-area chart so names are never trimmed (a PDF has no hover tooltip)."""
     if not rows:
         return '<div class="lmut">No lags to distribute.</div>'
     mx = max([1] + [r.get(count_key, 0) for r in rows])
     out = []
     for r in rows:
         c = r.get(count_key, 0)
-        out.append(f'<div class="lbar"><span class="lbl">{_esc(str(r.get(label_key, "")))}</span>'
-                   f'<span class="trk"><i style="width:{round(100 * c / mx)}%"></i></span>'
-                   f'<span class="lval">{c} &middot; {r.get("pct", 0)}%</span></div>')
+        w = round(100 * c / mx)
+        label = _esc(str(r.get(label_key, "")))
+        val = f'{c} &middot; {r.get("pct", 0)}%'
+        if stacked:
+            out.append(f'<div class="lbarS"><div class="lblS">{label}</div>'
+                       f'<div class="lineS"><span class="trk"><i style="width:{w}%"></i></span>'
+                       f'<span class="lval">{val}</span></div></div>')
+        else:
+            out.append(f'<div class="lbar"><span class="lbl">{label}</span>'
+                       f'<span class="trk"><i style="width:{w}%"></i></span>'
+                       f'<span class="lval">{val}</span></div>')
     return ''.join(out)
 
 
@@ -393,7 +403,7 @@ def _lag_charts(m):
             f'<div class="lcard"><div class="lch">Lags by relationship type</div>'
             f'{_lag_bars(by_type, "type", "count")}</div>'
             f'<div class="lcard"><div class="lch">Lags by WBS area</div>'
-            f'{_lag_bars(ws, "wbs", "lagged")}</div>'
+            f'{_lag_bars(ws, "wbs", "lagged", stacked=True)}</div>'
             f'<div class="lcard"><div class="lch">Lag makeup</div>{_lag_donut(m)}</div>'
             f'</div>')
 
@@ -537,6 +547,12 @@ def render_module_report(module_result, meta):
   .lbar .trk {{ flex: 1; height: 8px; background: #eef1f5; border-radius: 4px; overflow: hidden; }}
   .lbar .trk i {{ display: block; height: 100%; background: #26517d; border-radius: 4px; }}
   .lbar .lval {{ width: 56px; text-align: right; font-size: 9.5px; color: #6b7480; white-space: nowrap; }}
+  .lbarS {{ margin-bottom: 9px; }}
+  .lblS {{ font-size: 10px; color: #25313f; margin-bottom: 3px; line-height: 1.3; }}
+  .lineS {{ display: flex; align-items: center; gap: 8px; }}
+  .lineS .trk {{ flex: 1; height: 8px; background: #eef1f5; border-radius: 4px; overflow: hidden; }}
+  .lineS .trk i {{ display: block; height: 100%; background: #26517d; border-radius: 4px; }}
+  .lineS .lval {{ width: 56px; text-align: right; font-size: 9.5px; color: #6b7480; white-space: nowrap; }}
   .lmut {{ color: #8a93a0; font-size: 10px; }}
   .ldonut {{ display: flex; align-items: center; gap: 12px; }}
   .lleg {{ font-size: 10px; color: #25313f; flex: 1; }}

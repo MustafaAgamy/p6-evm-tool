@@ -688,8 +688,8 @@ export function renderLagPanel(auditModules) {
     `${lagBar(100 * (t.count || 0) / typeMax)}<span class="lag-dv">${t.count} · ${t.pct}%</span></div>`).join('')
     || '<div style="color:var(--muted);font-size:12px">No lags to distribute.</div>';
   const wbsRows = ws.slice(0, 10).map(r =>
-    `<div class="lag-drow"><span class="lag-dk" title="${escapeHtml(r.wbs)}">${escapeHtml(r.wbs)}</span>` +
-    `${lagBar(100 * (r.lagged || 0) / wbsMax)}<span class="lag-dv">${r.lagged} · ${r.pct}%</span></div>`).join('')
+    `<div class="lag-wrow"><div class="lag-wname">${escapeHtml(r.wbs)}</div>` +
+    `<div class="lag-wline">${lagBar(100 * (r.lagged || 0) / wbsMax)}<span class="lag-dv">${r.lagged} · ${r.pct}%</span></div></div>`).join('')
     || '<div style="color:var(--muted);font-size:12px">No lags to distribute.</div>';
 
   const total = k.lagged_count || 0;
