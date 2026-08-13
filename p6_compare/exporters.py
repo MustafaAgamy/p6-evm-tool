@@ -83,7 +83,7 @@ def _scurve_svg(sc):
         d = f' stroke-dasharray="{dash}"' if dash else ''
         return f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2"{d}/>'
 
-    step = max(1, round(n / 10))
+    step = max(1, round(n / 14))    # finer axis — ~14 date labels
     xlab = ''.join(
         f'<text x="{xat(i):.1f}" y="{y0 + 18}" text-anchor="middle" font-size="11" fill="#666">{_e(periods[i])}</text>'
         for i in range(0, n, step))
@@ -344,8 +344,9 @@ def render_html(report, impact=None):
       .butfor {{ margin-top: 8px; padding: 6px 9px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 10px; line-height: 1.35; background: #f8fafc; }}
       .butfor b {{ color: #1e293b; }}
       .bfn {{ color: #64748b; margin-top: 2px; }}
-      table.data tr {{ page-break-inside: avoid; }}
+      table.data tr, table.data td {{ page-break-inside: avoid; break-inside: avoid; }}
       table.data thead {{ display: table-header-group; }}
+      table.data td {{ font-size: 9px; line-height: 1.2; padding: 3px 5px; }}   /* compact rows so they fit a page and never split */
       .newscope {{ display: inline-block; font-size: 8px; font-weight: 700; padding: 0 4px; border-radius: 8px; background: #fdeccb; color: #8a5a00; }}
       .legend2 {{ font-size: 9.5px; color: #64748b; line-height: 1.5; margin: 5px 0 2px; }}
       .legend2 b {{ color: #1e293b; }}

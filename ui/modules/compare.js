@@ -366,6 +366,7 @@ export function renderCompareReport(report) {
   body.innerHTML = `
     ${_fileBar(report)}
     <div class="cmp-exports">
+      <button class="btn-secondary" id="cmp-preview-pdf">Preview PDF</button>
       <button class="btn-secondary" id="cmp-export-pdf">Export PDF</button>
       <button class="btn-secondary" id="cmp-export-xlsx">Export Excel</button>
     </div>
@@ -391,6 +392,8 @@ export function renderCompareReport(report) {
     ${_correctedSection(report)}`;
   const chg = document.getElementById('cmp-change-baseline');
   if (chg) chg.addEventListener('click', chooseBaselineAndCompare);
+  const eprev = document.getElementById('cmp-preview-pdf');
+  if (eprev) eprev.addEventListener('click', previewComparePdf);
   const epdf = document.getElementById('cmp-export-pdf');
   if (epdf) epdf.addEventListener('click', exportComparePdf);
   const exls = document.getElementById('cmp-export-xlsx');
@@ -411,6 +414,50 @@ async function _withBtn(id, idle, fn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try { await fn(); }
   finally { if (btn) { btn.disabled = false; btn.textContent = idle; } }
+}
+
+// Print preview: render the exact PDF HTML (server preview=true) in a modal, so the report
+// can be reviewed before saving — works both before and after the corrected file is loaded
+// (the impact section shows once it is). A "Save as PDF" button exports from the preview.
+export async function previewComparePdf() {
+  const report = _shownReportOrWarn();
+  if (!report) return;
+  const btn = document.getElementById('cmp-preview-pdf');
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, preview: true }),
+    });
+    const data = await resp.json();
+    if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
+    _showPreviewModal(data.html);
+  } catch {
+    showError('Could not reach the local server to build the preview.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Preview PDF'; }
+  }
+}
+
+function _showPreviewModal(html) {
+  const old = document.getElementById('cmp-preview-modal');
+  if (old) old.remove();
+  const modal = document.createElement('div');
+  modal.id = 'cmp-preview-modal';
+  modal.className = 'cmp-modal';
+  modal.innerHTML = `
+    <div class="cmp-modal-bar">
+      <span class="cmp-modal-t">Print preview — Consultant Review</span>
+      <div class="cmp-modal-actions">
+        <button class="btn-primary" id="cmp-modal-save">Save as PDF</button>
+        <button class="btn-mini" id="cmp-modal-close">Close</button>
+      </div>
+    </div>
+    <iframe class="cmp-modal-frame" id="cmp-modal-frame" title="Consultant Review PDF preview"></iframe>`;
+  document.body.appendChild(modal);
+  document.getElementById('cmp-modal-frame').srcdoc = html;
+  document.getElementById('cmp-modal-close').addEventListener('click', () => modal.remove());
+  document.getElementById('cmp-modal-save').addEventListener('click', () => { modal.remove(); exportComparePdf(); });
 }
 
 export async function exportComparePdf() {
@@ -525,10 +572,10 @@ function _scurveSvg(sc) {
     const pts = arr.map((p, i) => `${xAt(i).toFixed(1)},${yAt(p).toFixed(1)}`).join(' ');
     return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linejoin="round"/>`;
   };
-  const step = Math.max(1, Math.round(n / 6));
+  const step = Math.max(1, Math.round(n / 12));   // finer axis — ~12 date labels
   let xlabels = '';
   for (let i = 0; i < n; i += step) {
-    xlabels += `<text x="${xAt(i).toFixed(1)}" y="198" text-anchor="middle" style="fill:var(--muted);font-size:10px">${escapeHtml(periods[i])}</text>`;
+    xlabels += `<text x="${xAt(i).toFixed(1)}" y="198" text-anchor="middle" style="fill:var(--muted);font-size:9px">${escapeHtml(periods[i])}</text>`;
   }
   return `<svg viewBox="0 0 620 214" width="100%" role="img" aria-label="S-curve comparing baseline, before-changes and after-changes cumulative progress over time">
     <line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="var(--border)" stroke-width="1"/>

@@ -9,7 +9,7 @@ from p6_compare.scurve import cumulative_pct, three_way_scurve
 def _sched(spans):
     d = ScheduleData()
     d.activities = {
-        str(i): {'id': f'A{i}', 'planned_start': s, 'planned_finish': f, 'planned_duration': w}
+        str(i): {'id': f'A{i}', 'task_type': 'Task', 'planned_start': s, 'planned_finish': f, 'planned_duration': w}
         for i, (s, f, w) in enumerate(spans)
     }
     return d
@@ -43,6 +43,15 @@ def test_three_way_shapes_and_before_leads_after():
     assert n > 0 and n == len(r['baseline']) == len(r['before']) == len(r['after'])
     assert r['baseline'][-1] == 100.0 and r['before'][-1] == 100.0 and r['after'][-1] == 100.0
     assert max(bef - aft for bef, aft in zip(r['before'], r['after'])) > 0   # before leads after
+
+
+def test_scurve_excludes_non_task_activities():
+    # A trailing milestone/LOE finishing later must NOT tail the curve past the task finish.
+    d = _sched([(datetime(2026, 1, 1), datetime(2026, 2, 1), 100)])
+    d.activities['m'] = {'id': 'M1', 'task_type': 'FinishMilestone',
+                         'planned_start': datetime(2026, 1, 1), 'planned_finish': datetime(2026, 4, 1),
+                         'planned_duration': 50}
+    assert cumulative_pct(d, [datetime(2026, 2, 1)]) == [100.0]   # 100% at the task finish; milestone ignored
 
 
 def test_three_way_empty_schedules():

@@ -20,9 +20,13 @@ def _span(act):
 
 
 def _weighted_spans(data):
-    """(start, finish, weight) for every activity with a positive-length planned span."""
+    """(start, finish, weight) for every TASK-dependent activity with a positive-length planned
+    span. Task-dependent only (Ibrahim's rule, consistent with the change tables) so trailing
+    milestones / LOE don't tail the curve past the construction finish."""
     out = []
     for act in getattr(data, 'activities', {}).values():
+        if act.get('task_type') != 'Task':
+            continue
         s, f = _span(act)
         if s and f and f > s:
             out.append((s, f, (act.get('planned_duration') or 0.0) or 1.0))
