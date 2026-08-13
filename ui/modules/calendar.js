@@ -110,7 +110,8 @@ const _CAL_SECTIONS = [
 function _sectionPicker() {
   const boxes = _CAL_SECTIONS.map(([k, lab]) =>
     `<label class="cal-secpick"><input type="checkbox" class="cal-sec-cb" value="${k}" checked> ${lab}</label>`).join('');
-  return `<details class="cal-print-card"><summary>🖨 Choose sections to print — then click “Generate Calendar Audit PDF”</summary>
+  return `<details class="cal-print-card" open><summary>🖨 Print / PDF — tick the sections to include, then click <b>“Generate Calendar Audit PDF”</b> (top-right)</summary>
+    <div class="cal-secpick-toolbar"><button type="button" class="cal-btn sec mini" id="cal-sec-all">All</button><button type="button" class="cal-btn sec mini" id="cal-sec-none">None</button></div>
     <div class="cal-secpick-grid">${boxes}</div></details>`;
 }
 
@@ -507,6 +508,13 @@ function _wire() {
       if (_openMonths.has(i)) _openMonths.delete(i); else _openMonths.add(i);
       _render();
     }));
+
+  const secAll = document.getElementById('cal-sec-all');
+  const secNone = document.getElementById('cal-sec-none');
+  if (secAll) secAll.addEventListener('click', () =>
+    document.querySelectorAll('.cal-sec-cb').forEach(c => { c.checked = true; }));
+  if (secNone) secNone.addEventListener('click', () =>
+    document.querySelectorAll('.cal-sec-cb').forEach(c => { c.checked = false; }));
 
   _wireLocation();
   _wireWeather();

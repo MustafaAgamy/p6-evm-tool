@@ -177,7 +177,7 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
             'condition': remaining[d],
             'confidence': 'forecast' if d <= forecast_horizon else 'expected',
             'effect': 'Non-working (construction)' if working else 'Falls on a non-working day',
-            'activities': wbs_brief[:8],
+            'activities': wbs_brief,          # every affected WBS (de-duplicated), not capped
             'activities_count': len(wbs_brief),
         })
 

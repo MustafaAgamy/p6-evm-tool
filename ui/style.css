@@ -779,8 +779,9 @@ body {
 :root:not(.light) .wsw-n { background:#334155; }
 
 /* Section picker (#06) — choose which sections the PDF prints */
-.cal-print-card { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:0 14px; margin-bottom:14px; }
-.cal-print-card summary { cursor:pointer; padding:11px 2px; font-size:12.5px; font-weight:600; color:var(--text); list-style:none; }
+.cal-print-card { background:var(--card-bg); border:1px solid var(--accent); box-shadow:0 0 0 1px rgba(59,130,246,.1); border-radius:10px; padding:0 14px 4px; margin-bottom:16px; }
+.cal-print-card summary { cursor:pointer; padding:11px 2px; font-size:13px; font-weight:700; color:var(--text); list-style:none; }
+.cal-secpick-toolbar { display:flex; gap:6px; margin:2px 0 8px; }
 .cal-print-card summary::-webkit-details-marker { display:none; }
 .cal-print-card[open] summary { border-bottom:1px solid var(--border); }
 .cal-secpick-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:7px; padding:12px 0; }
