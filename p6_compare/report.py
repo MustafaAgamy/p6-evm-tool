@@ -136,7 +136,9 @@ def build_report_from_data(baseline, update, config=None):
     except Exception:
         bfr_date = None
     butfor_delay_wd = _finish_delay_working_days(update, bf_date, bfr_date) if bfr_date else None
-    manufactured_wd = ((delay_working_days - butfor_delay_wd)
+    # Reverting manipulations can't legitimately add delay; clamp at 0 so estimate noise never
+    # shows a confusing "negative manufactured".
+    manufactured_wd = (max(0, delay_working_days - butfor_delay_wd)
                        if (delay_working_days is not None and butfor_delay_wd is not None) else None)
 
     milestones = []
