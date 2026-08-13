@@ -1053,7 +1053,8 @@ class Handler(BaseHTTPRequestHandler):
             import subprocess, tempfile
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
-            html_content = render_calendar_report(ca, meta_in, weather=weather)
+            html_content = render_calendar_report(ca, meta_in, weather=weather,
+                                                  sections=body.get('sections'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -1073,7 +1074,9 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/export/calendar_excel ─────────────────────────────────────────
     def _handle_calendar_excel(self, body):
-        """Export the primary calendar's Monthly Statistics table to .xlsx."""
+        """Export the full Calendar Audit to .xlsx (#04/#05/#08): one coloured timeline
+        sheet per assigned calendar (names inside the day cells) + Exceptions, Comparison,
+        Usage and — when a location was set — the Weather tables."""
         snapshot_id = body.get('snapshot_id')
         output_path = body.get('output_path', '')
         if not output_path:
@@ -1085,27 +1088,35 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_evm.xlsx_writer import write_xlsx
-            primary = ca.get('primary_calendar_id')
-            months = ((ca.get('by_calendar') or {}).get(primary, {}) or {}).get('monthly_stats', [])
-            headers = ['Month', 'Working Days', 'Holidays', 'Exceptions', 'Working Hours']
-            rows = [[m['label'], m['working_days'], m['holidays'], m['exceptions'], m['working_hours']]
-                    for m in months]
-            write_xlsx(os.path.abspath(output_path), 'Calendar Monthly Stats', headers, rows)
+            from p6_evm.xlsx_writer import write_calendar_xlsx
+            pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
+            weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
+            write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/geocode ───────────────────────────────────────────────────────
     def _handle_geocode(self, body):
-        """Search a place name → coordinates, via OpenStreetMap Nominatim (server-side,
-        so it carries a proper User-Agent and dodges browser CORS). Free, no key."""
-        q = (body.get('q') or '').strip()
-        if not q:
-            self._json(200, {'ok': False, 'error': 'Type a place to search.'})
-            return
+        """Place name → coordinates (search), OR lat/lon → place name (reverse), via
+        OpenStreetMap Nominatim (server-side: proper User-Agent, dodges browser CORS).
+        Free, no key. Reverse is used when the user drops/drags a pin on the map."""
+        import urllib.request, urllib.parse
+        lat, lon = body.get('lat'), body.get('lon')
         try:
-            import urllib.request, urllib.parse
+            if lat is not None and lon is not None:
+                url = 'https://nominatim.openstreetmap.org/reverse?' + urllib.parse.urlencode(
+                    {'lat': lat, 'lon': lon, 'format': 'json', 'zoom': 13})
+                req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    data = json.loads(r.read().decode())
+                name = data.get('display_name') or f'{float(lat):.4f}, {float(lon):.4f}'
+                self._json(200, {'ok': True, 'name': name})
+                return
+            q = (body.get('q') or '').strip()
+            if not q:
+                self._json(200, {'ok': False, 'error': 'Type a place to search.'})
+                return
             url = 'https://nominatim.openstreetmap.org/search?' + urllib.parse.urlencode(
                 {'q': q, 'format': 'json', 'limit': 5})
             req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
@@ -1115,7 +1126,7 @@ class Handler(BaseHTTPRequestHandler):
                        for x in data]
             self._json(200, {'ok': True, 'results': results})
         except Exception as exc:
-            self._json(200, {'ok': False, 'error': f'Search failed (offline?): {exc}'})
+            self._json(200, {'ok': False, 'error': f'Geocode failed (offline?): {exc}'})
 
     # ── /api/weather ───────────────────────────────────────────────────────
     def _handle_weather(self, body):
@@ -1137,6 +1148,13 @@ class Handler(BaseHTTPRequestHandler):
             from p6_calendar.weather import weather_inputs, build_daily_weather, weather_impact
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
+            sid = body.get('snapshot_id')
+            pid = db.get_project_id_for_snapshot(sid) if sid else None
+            saved = db.get_project_settings(pid) if pid else {}
+            # Stop-work limits: this request's edits win, else the project's saved limits,
+            # else the app defaults (rain>=5 / heat>=42 / dust on / wind off).
+            thresholds = (body.get('thresholds') or saved.get('weather_thresholds')
+                          or config.get('weather_thresholds'))
             data = parse_file(resolved)
             inp = weather_inputs(data)
             if not inp['data_date'] or not inp['project_finish']:
@@ -1144,13 +1162,14 @@ class Handler(BaseHTTPRequestHandler):
                 return
             daily, horizon = build_daily_weather(lat, lon, inp['data_date'], inp['project_finish'])
             wx = weather_impact(**inp, daily_weather=daily, forecast_horizon=horizon,
-                                thresholds=config.get('weather_thresholds'))
+                                thresholds=thresholds)
             location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
-            sid = body.get('snapshot_id')
-            pid = db.get_project_id_for_snapshot(sid) if sid else None
             if pid:
-                # Persist location + the latest weather so the PDF can include it.
-                db.save_project_settings(pid, {'location': location, 'last_weather': wx})
+                # Persist location, the edited limits, and the latest weather (so the PDF can include it).
+                patch = {'location': location, 'last_weather': wx}
+                if body.get('thresholds'):
+                    patch['weather_thresholds'] = body['thresholds']
+                db.save_project_settings(pid, patch)
             self._json(200, {'ok': True, 'weather': wx, 'location': location,
                              'offline': not daily})
         except Exception as exc:

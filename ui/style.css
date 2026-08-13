@@ -712,8 +712,13 @@ body {
 .cal-acc-body { padding:14px; border-top:1px solid var(--border); background:var(--bg); }
 .cal-month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; max-width:520px; }
 .cal-mh { font-size:10.5px; font-weight:700; color:var(--muted); text-align:center; padding:4px 0; }
-.cal-mcell { aspect-ratio:1.15; border-radius:7px; background:var(--card-bg); border:1px solid var(--border);
-  padding:5px 6px; font-size:11px; }
+.cal-mcell { min-height:38px; border-radius:7px; background:var(--card-bg); border:1px solid var(--border);
+  padding:5px 6px; font-size:11px; overflow:hidden; }
+.cal-mcell .cal-dn { font-weight:700; }
+.cal-mcell .cal-cn { font-size:8.5px; line-height:1.15; font-weight:600; margin-top:2px; }
+.cal-mcell.cs-holiday .cal-cn { color:#b91c1c; }
+.cal-mcell.cs-shutdown .cal-cn { color:#b45309; }
+.cal-mcell.cs-special .cal-cn { color:#1e40af; }
 .cal-mcell.blank { background:transparent; border:none; }
 .cal-mcell.cs-weekend { background:var(--border); color:var(--muted); }
 .cal-mcell.cs-holiday { background:rgba(239,68,68,.16); border-color:#ef4444; }
@@ -741,6 +746,48 @@ body {
 .cal-concl li { margin-bottom:7px; font-size:13px; line-height:1.5; }
 .cal-note { font-size:11.5px; color:var(--muted); margin-top:10px; font-style:italic; }
 
+/* Weather "how it works" explainer + cause breakdown + hidden-months note */
+.cal-wx-method { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:13px 14px; margin:4px 0 12px; }
+.cal-wx-mh { font-size:11px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:var(--muted); margin-bottom:9px; }
+.cal-wx-feed { display:flex; gap:10px; align-items:flex-start; padding:7px 0; border-bottom:1px dashed var(--border); font-size:12.5px; line-height:1.45; }
+.cal-wx-feed:last-child { border-bottom:none; }
+.cal-wx-feed .ic { font-size:16px; flex-shrink:0; line-height:1.3; }
+.cal-wx-feed .cal-pill { margin-left:6px; }
+.cal-cause { display:flex; align-items:center; gap:12px; margin:9px 0; }
+.cal-cause-l { width:70px; font-size:13px; font-weight:700; }
+.cal-cause-track { flex:1; height:14px; background:var(--bg); border:1px solid var(--border); border-radius:20px; overflow:hidden; }
+.cal-cause-fill { height:100%; border-radius:20px; transition:width .3s; }
+.cal-cause-n { width:96px; text-align:right; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+.cal-hidden-note { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); background:var(--bg); border:1px dashed var(--border); border-radius:8px; padding:7px 12px; margin-bottom:10px; }
+.cal-hidden-note b { color:var(--accent); }
+
+/* Calendar Timeline as a working/non-working days-per-month histogram */
+.cal-whist { display:flex; align-items:flex-end; gap:10px; height:150px; border-bottom:2px solid var(--border); padding:0 4px; margin:2px 0 0; overflow-x:auto; }
+.cal-whc { flex:1; min-width:34px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; cursor:pointer; }
+.cal-whc:hover .cal-whw { filter:brightness(1.06); }
+.cal-whc.open .cal-whl { color:var(--accent); font-weight:700; }
+.cal-wht { font-size:10px; font-weight:800; color:var(--text); margin-bottom:3px; }
+.cal-whcol { width:60%; max-width:40px; }
+.cal-whn { background:#cbd5e1; }
+.cal-whw { background:#22c55e; border-radius:4px 4px 0 0; }
+:root:not(.light) .cal-whn { background:#334155; }
+.cal-whl { font-size:9px; color:var(--muted); margin-top:5px; text-align:center; white-space:nowrap; }
+.cal-whleg { display:flex; gap:16px; font-size:11px; color:var(--muted); margin:8px 0; }
+.cal-whleg span { display:flex; align-items:center; gap:6px; }
+.wsw { width:11px; height:11px; border-radius:3px; display:inline-block; }
+.wsw-w { background:#22c55e; } .wsw-n { background:#cbd5e1; }
+:root:not(.light) .wsw-n { background:#334155; }
+
+/* Section picker (#06) — choose which sections the PDF prints */
+.cal-print-card { background:var(--card-bg); border:1px solid var(--accent); box-shadow:0 0 0 1px rgba(59,130,246,.1); border-radius:10px; padding:0 14px 4px; margin-bottom:16px; }
+.cal-print-card summary { cursor:pointer; padding:11px 2px; font-size:13px; font-weight:700; color:var(--text); list-style:none; }
+.cal-secpick-toolbar { display:flex; gap:6px; margin:2px 0 8px; }
+.cal-print-card summary::-webkit-details-marker { display:none; }
+.cal-print-card[open] summary { border-bottom:1px solid var(--border); }
+.cal-secpick-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:7px; padding:12px 0; }
+.cal-secpick { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); }
+.cal-secpick input { width:14px; height:14px; }
+
 .cc-icon.calendar { background:rgba(59,130,246,.14); color:#3b82f6; }
 
 /* ── Calendar Audit — weather + location + refinements ──────────────────────── */
@@ -762,8 +809,11 @@ body {
 .cal-loc-hit { font-size: 12px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; margin-bottom: 4px; cursor: pointer; background: var(--bg); }
 .cal-loc-hit:hover { border-color: var(--accent); }
 .cal-loc-read { font-size: 12.5px; line-height: 1.6; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; }
-.cal-map { width: 100%; height: 220px; border: 1px solid var(--border); border-radius: 10px; }
-.cal-map-empty { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; background: var(--bg); }
+.cal-map { width: 100%; height: 240px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.cal-map-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); font-size: 12px; background: var(--bg); }
+.cal-map-hint { font-size: 11px; margin-top: 6px; }
+.cal-pin { background: transparent !important; border: none !important; font-size: 22px; line-height: 1; text-align: center; }
+.leaflet-container { font: inherit; background: var(--bg); }
 
 .cal-tag-exact { font-size: 8.5px; font-weight: 800; background: rgba(22,163,74,.15); color: var(--success); padding: 1px 5px; border-radius: 4px; }
 .cal-tag-est { font-size: 8.5px; font-weight: 800; background: rgba(217,119,6,.18); color: var(--warning); padding: 1px 5px; border-radius: 4px; }
@@ -1003,6 +1053,17 @@ body {
 .cmp-scurve-note { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 .cmp-exports { display: flex; gap: 8px; justify-content: flex-end; margin: -6px 0 4px; }
 
+/* ── Weather Impact — source + stop-work limits ─────────────────────────────── */
+.cal-src { display:flex; align-items:center; gap:8px; font-size:12.5px; margin-bottom:4px; }
+.dot-ok { width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block; box-shadow:0 0 0 3px rgba(22,163,74,.2); }
+.cal-pill.ok { background:rgba(22,163,74,.15); color:var(--success); }
+.loc-change { color:var(--accent); cursor:pointer; font-weight:600; }
+.cal-thr { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+.cal-thr .thr-f { display:flex; flex-direction:column; gap:4px; }
+.cal-thr label { font-size:10.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+.cal-thr input[type=number] { width:88px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 9px; font-size:13px; }
+.thr-sw { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; }
+.thr-sw input { width:16px; height:16px; }
 /* ── Lag Report (standalone top-level report) ─────────────────────────────── */
 .lag-rpt-head { margin-bottom: 16px; }
 .lag-rpt-title { font-size: 20px; font-weight: 800; letter-spacing: 0.2px; color: var(--text); }

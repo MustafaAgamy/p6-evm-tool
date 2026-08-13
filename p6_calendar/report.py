@@ -68,7 +68,30 @@ def _monthly_stats(months):
             f'<th class="num">Working Hours</th></tr></thead><tbody>{rows}</tbody></table>')
 
 
-def _month_grids(months):
+def _working_hist(months):
+    """§2 as a working vs non-working days-per-month histogram (Ibrahim's restructure —
+    replaces the crude colour strip; the exact numbers are the §3 table)."""
+    if not months:
+        return ''
+    mx = max((m['working_days'] + m.get('nonworking_days', 0) for m in months), default=0) or 1
+    cols = ''
+    for m in months:
+        wd = m['working_days']
+        nw = m.get('nonworking_days', 0)
+        tot = wd + nw
+        totpx = round(tot / mx * 92)
+        nwpx = round(nw / tot * totpx) if tot else 0
+        wpx = max(0, totpx - nwpx)
+        cols += (f'<div class="whc"><div class="wht">{tot}</div>'
+                 f'<div class="whcol"><div class="whn" style="height:{nwpx}px"></div>'
+                 f'<div class="whw" style="height:{wpx}px"></div></div>'
+                 f'<div class="whl">{_esc(m["label"])}</div></div>')
+    legend = ('<div class="whleg"><span><i style="background:#22c55e"></i>Working days</span>'
+              '<span><i style="background:#cbd5e1"></i>Non-working (weekends + holidays + shutdowns)</span></div>')
+    return legend + f'<div class="whist">{cols}</div>'
+
+
+def _month_grids(months, hidden_months=0, tl_from=None):
     blocks = []
     for m in months:
         head = ''.join(f'<div class="mh">{d}</div>' for d in _DOW)
@@ -77,7 +100,9 @@ def _month_grids(months):
         for day in m.get('days', []):
             col = _STATUS_COLOR.get(day['status'], '#22c55e')
             faded = 'style="background:%s22;border-color:%s"' % (col, col) if day['status'] != 'work' else ''
-            cells += f'<div class="mc" {faded}>{day["d"]}</div>'
+            nm = day.get('name')
+            nm_html = f'<div class="cn">{_esc(nm)}</div>' if nm else ''
+            cells += f'<div class="mc" {faded}><span class="dn">{day["d"]}</span>{nm_html}</div>'
         blocks.append(f'<div class="mgrid-wrap"><div class="mgrid-t">{_esc(m["label"])}</div>'
                       f'<div class="mgrid">{head}{cells}</div></div>')
     legend = ('<div class="legend">'
@@ -86,21 +111,30 @@ def _month_grids(months):
                                      ('Holiday', '#ef4444'), ('Shutdown', '#f59e0b'),
                                      ('Special hours', '#3b82f6')])
               + '</div>')
+    if hidden_months:
+        sub = (f'— working vs non-working days per month, from the data date ({_fmt(tl_from)}) · '
+               f'{hidden_months} earlier month{"s" if hidden_months != 1 else ""} hidden')
+    else:
+        sub = '— working vs non-working days per month'
     return ('<h2 class="sec">2 · Calendar Timeline '
             '<span style="font-weight:400;font-size:9.5px;color:#8a93a0;text-transform:none;letter-spacing:0">'
-            '— baseline window, shown in full months</span></h2>'
+            f'{_esc(sub)}</span></h2>'
+            + _working_hist(months)
+            + '<div class="sub2">Each month’s calendar — holiday / shutdown names shown in the day cells</div>'
             + legend + f'<div class="mgrids">{"".join(blocks)}</div>')
 
 
 def _exceptions(exc):
     def tbl(title, color, rows_html, headers):
+        if not rows_html:                 # hide a group with no results (Ibrahim: PDF drops empties)
+            return ''
         cells = []
         for label, is_num in headers:
             cls = ' class="num"' if is_num else ''
             cells.append(f'<th{cls}>{_esc(label)}</th>')
         h = ''.join(cells)
         return (f'<div class="grp"><span class="pill" style="background:{color}">{_esc(title)}</span></div>'
-                f'<table><thead><tr>{h}</tr></thead><tbody>{rows_html or _empty(len(headers))}</tbody></table>')
+                f'<table><thead><tr>{h}</tr></thead><tbody>{rows_html}</tbody></table>')
     hol = ''.join(f'<tr><td>{_esc(x["description"])}</td><td class="num">{x["days"]}</td>'
                   f'<td>{_esc(x.get("reason") or "—")}</td></tr>' for x in exc.get('holidays', []))
     sp = ''.join(f'<tr><td>{_esc(x["description"])}</td><td class="num">{x["days"]}</td>'
@@ -108,17 +142,31 @@ def _exceptions(exc):
     sh = ''.join(f'<tr><td>{_esc(x["description"])}</td><td class="num">{x["days"]}</td>'
                  f'<td>{("[added] " if x.get("source") == "manual" else "") + (x.get("reason") or "—")}</td></tr>'
                  for x in exc.get('shutdowns', []))
-    return ('<h2 class="sec">4 · Calendar Exceptions</h2>'
-            + tbl('Holidays & Vacations', '#c0392b', hol,
+    groups = (tbl('Holidays & Vacations', '#c0392b', hol,
                   [('Date', 0), ('Days', 1), ('Description', 0)])
-            + tbl('Reduced / Special Working Hours', '#2563eb', sp,
-                  [('Date', 0), ('Days', 1), ('Hours', 0)])
-            + tbl('Shutdowns', '#e07b1a', sh,
-                  [('Date', 0), ('Days', 1), ('Reason', 0)]))
+              + tbl('Reduced / Special Working Hours', '#2563eb', sp,
+                    [('Date', 0), ('Days', 1), ('Hours', 0)])
+              + tbl('Shutdowns', '#e07b1a', sh,
+                    [('Date', 0), ('Days', 1), ('Reason', 0)]))
+    if not groups:                        # no exceptions ahead → drop the whole section
+        return ''
+    return '<h2 class="sec">4 · Calendar Exceptions</h2>' + groups
 
 
 def _empty(cols):
     return f'<tr><td colspan="{cols}" class="empty">None.</td></tr>'
+
+
+def _acts_cell(d):
+    """The construction activities a bad-weather day hits (#07)."""
+    names = d.get('activities') or []
+    extra = d.get('activities_count', len(names)) - len(names)
+    if names:
+        return (_esc(', '.join(names))
+                + (f' <span style="color:#8a93a0">(+{extra} more)</span>' if extra > 0 else ''))
+    if str(d.get('effect', '')).startswith('Non-working'):
+        return '<span style="color:#8a93a0">No construction activity scheduled</span>'
+    return f'<span style="color:#8a93a0">{_esc(d.get("effect", ""))}</span>'
 
 
 def _hours(profiles):
@@ -126,18 +174,24 @@ def _hours(profiles):
                     f'<div class="h">{_esc(p["hours"])}</div>'
                     f'<div class="s">{_esc(p["hours_per_day"])} hrs · {_esc(p.get("sub", ""))}</div></div>'
                     for p in profiles)
-    return f'<h2 class="sec">5 · Working Hours Profile</h2><div class="hours">{cards}</div>'
+    return ('<h2 class="sec">5 · Working Hours Profile</h2>'
+            '<p class="lg">Your <b>standard working day</b>, used all year — different from the '
+            '<i>Reduced / Special Working Hours</i> in section 4, which are specific dates whose hours '
+            'differ from this standard (differences under 5 minutes are ignored).</p>'
+            f'<div class="hours">{cards}</div>')
 
 
-def _comparison(cmp):
+def _comparison(cmp, period_note=''):
     rows = ''.join(
         f'<tr><td>{_esc(c["name"])}{" (default)" if c.get("is_default") else ""}</td>'
         f'<td class="num">{c["hours_per_day"]}</td><td class="num">{c["days_per_week"]}</td>'
-        f'<td class="num">{c["activities"]}</td><td class="num">{c["exceptions"]}</td></tr>' for c in cmp)
+        f'<td class="num">{c.get("nonworking_days", 0)}</td></tr>' for c in cmp)
+    note = (f'<p class="lg"><b>Non-Working Days</b> — weekends, holidays and shutdowns still '
+            f'ahead, {_esc(period_note)}. Already-elapsed days are excluded.</p>') if period_note else ''
     return ('<h2 class="sec">6 · Calendar Comparison</h2>'
             '<table><thead><tr><th>Calendar</th><th class="num">Hours/Day</th>'
-            '<th class="num">Days/Week</th><th class="num">Activities</th>'
-            f'<th class="num">Exceptions</th></tr></thead><tbody>{rows}</tbody></table>')
+            '<th class="num">Days/Week</th><th class="num">Non-Working Days</th>'
+            f'</tr></thead><tbody>{rows}</tbody></table>{note}')
 
 
 def _usage(usage):
@@ -147,7 +201,11 @@ def _usage(usage):
         f'<td>{_esc(u["role"])}</td></tr>' for u in usage)
     return ('<h2 class="sec">7 · Calendar Usage</h2>'
             '<table><thead><tr><th>Calendar</th><th class="num">Activities</th>'
-            f'<th class="num">% of Activities</th><th>Role</th></tr></thead><tbody>{rows}</tbody></table>')
+            f'<th class="num">% of Activities</th><th>Role</th></tr></thead><tbody>{rows}</tbody></table>'
+            '<p class="lg"><b>Roles.</b> <b>Default</b> — the project’s default calendar; new '
+            'activities are created on it automatically. <b>Non-default</b> — a calendar deliberately '
+            'assigned to specific activities instead of the default. <b>Unused</b> — defined in the '
+            'file but no activity uses it.</p>')
 
 
 def _conflicts(conflicts):
@@ -160,16 +218,71 @@ def _conflicts(conflicts):
             f'<ul style="margin:0;padding-left:18px">{lines}</ul>')
 
 
+def _wx_monthly_bars(monthly):
+    """Section 9 histogram — expected bad-weather days per month (the mockup's
+    'When the risk falls'). Print-friendly CSS bars; peak month highlighted red."""
+    monthly = monthly or []
+    if not monthly:
+        return ''
+    mx = max((m.get('count', 0) for m in monthly), default=0) or 1
+    bars = ''.join(
+        f'<div class="wxb"><div class="wxb-v">{m.get("count") or ""}</div>'
+        f'<div class="wxb-bar{" pk" if m.get("count", 0) == mx and mx > 0 else ""}" '
+        f'style="height:{max(3, round(m.get("count", 0) / mx * 62))}px"></div>'
+        f'<div class="wxb-l">{_esc(m.get("label", ""))}</div></div>' for m in monthly)
+    return ('<div class="grp"><span class="pill" style="background:#d97706">When the Risk Falls'
+            ' — bad-weather days by month</span></div>'
+            f'<div class="wxbars">{bars}</div>')
+
+
 def _weather_section(weather):
     """Section 9 — Weather Impact (only when a location/weather estimate exists)."""
     if not weather:
         return ''
     w = weather
+    total = w.get('expected_bad_days_total', 0) or 0
     kpis = ''.join([
-        _tile('Bad-weather days (remaining)', w.get('expected_bad_days_total', 0)),
+        _tile('Bad-weather days (remaining)', total),
         _tile('Net weather delay to finish', f"+{w.get('net_finish_delay', 0)} wd"),
         _tile('Weather-adjusted finish', _fmt(w.get('weather_adjusted_finish'))),
     ])
+    monthly_bars = _wx_monthly_bars(w.get('monthly'))
+    # Stop-work limits applied → readable line, reused in the "how it works" note.
+    t = w.get('thresholds') or {}
+    lim = []
+    if t.get('rain_mm') is not None:
+        lim.append(f'rain ≥ {t["rain_mm"]:g} mm')
+    if t.get('temp_max_c') is not None:
+        lim.append(f'heat ≥ {t["temp_max_c"]:g} °C')
+    lim.append(f'wind ≥ {t["wind_kmh"]:g} km/h' if t.get('wind_kmh') is not None else 'wind off')
+    lim.append('dust on' if t.get('dust', True) else 'dust off')
+    # The clarification Ibrahim asked for — how the source works, and what "bad weather" means.
+    method = (
+        '<div class="wxm">'
+        '<b>How this estimate is built.</b> Weather is pulled for the project location from '
+        '<b>Open-Meteo</b> (free, open, no key): a live ~16-day <b>forecast</b>, then the same '
+        'calendar dates from the most recent year&rsquo;s <b>actual recorded weather</b> for the rest '
+        'of the run (shown as <i>Expected</i>), plus an air-quality feed for <b>dust</b>.<br>'
+        '<b>What counts as a bad-weather day:</b> a construction day is counted lost when <b>any</b> '
+        f'of your stop-work limits is met — {_esc(" · ".join(lim))}. Each flagged day below shows the '
+        'measured value against your limit. Applied to <b>construction</b> activities only; a day '
+        'already off (weekend / holiday / shutdown) is never double-counted.</div>')
+    # What's driving the lost days (cause breakdown).
+    cause_rows = ''
+    for c in w.get('by_cause', []):
+        if c.get('off'):
+            cnt, share = 'off', '—'
+        else:
+            cnt = c.get('count', 0)
+            share = f'{round(cnt / total * 100)}%' if total else '—'
+        cause_rows += (f'<tr><td>{_esc(c["label"])}</td><td class="num">{cnt}</td>'
+                       f'<td class="num">{share}</td></tr>')
+    cause_table = (
+        '<div class="grp"><span class="pill" style="background:#b45309">What&rsquo;s Causing the Lost Days — by Weather Type</span></div>'
+        '<p class="lg">Of all the bad-weather days, which condition causes them — so you know what to '
+        'plan around (heat-driven → shift the working day earlier; rain-driven → drainage / protection).</p>'
+        '<table><thead><tr><th>Cause</th><th class="num">Days</th><th class="num">Share of flagged days</th>'
+        f'</tr></thead><tbody>{cause_rows or _empty(3)}</tbody></table>')
     ms = ''.join(
         f'<tr><td>{_esc(m["name"])}</td><td>{_fmt(m["planned"])}</td>'
         f'<td class="num">{m["bad_days_before"]}</td><td class="num">{m["already_allowed"]}</td>'
@@ -179,21 +292,46 @@ def _weather_section(weather):
         f'<tr><td>{_esc(r["period"])}</td><td class="num">{r["days"]} d</td>'
         f'<td>{_esc(r["option_longer_days"])}</td><td>{_esc(r["option_extra_days"])}</td>'
         f'<td>{_esc(r["option_shift"])}</td></tr>' for r in w.get('recovery', []))
+    days = ''.join(
+        f'<tr><td>{_fmt(d["date"])}</td><td>{_esc(d.get("day_name",""))}</td>'
+        f'<td>{_esc(d.get("condition",""))}</td>'
+        f'<td>{"Forecast" if d.get("confidence") == "forecast" else "Expected"}</td>'
+        f'<td>{_acts_cell(d)}</td></tr>' for d in w.get('bad_days', []))
+    # Empty sub-tables are dropped from the PDF (Ibrahim: don't print a section with no results).
+    days_table = (
+        '<div class="grp"><span class="pill" style="background:#2563eb">Upcoming Bad-Weather Days</span></div>'
+        '<table><thead><tr><th>Date</th><th>Day</th><th>Why it’s a lost day (measured)</th>'
+        f'<th>Confidence</th><th>Affected work (by WBS)</th></tr></thead><tbody>{days}</tbody></table>') if days else ''
+    ms_table = (
+        '<div class="grp"><span class="pill" style="background:#e07b1a">Impact on Milestone Completion</span></div>'
+        '<table><thead><tr><th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>'
+        '<th class="num">Already in calendar</th><th class="num">Net weather delay</th>'
+        f'<th>Weather-adjusted completion</th></tr></thead><tbody>{ms}</tbody></table>'
+        '<p class="lg"><b>How to read this table.</b> <b>Bad-weather days before it</b> — expected '
+        'bad-weather days between the data date and the milestone’s planned finish. '
+        '<b>Already in calendar</b> — of those, the ones landing on a day already off '
+        '(weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the '
+        'rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days '
+        'weather adds, which push the <b>Weather-adjusted completion</b> out. '
+        '<i>Example — 6 bad-weather days fall before finish; 4 land on Fridays/holidays already off, '
+        'so only 2 hit working days → +2 working days.</i></p>') if ms else ''
+    rec_table = (
+        '<div class="grp"><span class="pill" style="background:#2e8b57">Recovery Recommendations</span></div>'
+        '<table><thead><tr><th>Period / milestone</th><th class="num">Days</th><th>Longer days</th>'
+        f'<th>Extra working days</th><th>Add shift</th></tr></thead><tbody>{rec}</tbody></table>') if rec else ''
+    conclusion = ''
+    if w.get('conclusion'):
+        conclusion = (
+            '<div class="grp"><span class="pill" style="background:#e07b1a">Weather Conclusion</span></div>'
+            '<div class="concl" style="border-left-color:#e07b1a;background:#fff7ed">'
+            f'<p style="margin:0;font-size:10.5px;line-height:1.5">{_esc(w["conclusion"])}</p></div>')
     return (
         '<h2 class="sec">9 · Weather Impact '
         '<span style="font-weight:400;font-size:9.5px;color:#e07b1a;text-transform:none;letter-spacing:0">'
         '— estimate, not a P6 figure</span></h2>'
+        f'{method}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">{kpis}</div>'
-        '<div class="grp"><span class="pill" style="background:#e07b1a">Milestone Impact</span></div>'
-        '<table><thead><tr><th>Milestone</th><th>Planned date</th><th class="num">Bad-weather days before</th>'
-        '<th class="num">Already in calendar</th><th class="num">Net weather delay</th>'
-        f'<th>Weather-adjusted date</th></tr></thead><tbody>{ms or _empty(6)}</tbody></table>'
-        '<div class="grp"><span class="pill" style="background:#2e8b57">Recovery Recommendations</span></div>'
-        '<table><thead><tr><th>Period / milestone</th><th class="num">Days</th><th>Longer days</th>'
-        f'<th>Extra working days</th><th>Add shift</th></tr></thead><tbody>{rec or _empty(5)}</tbody></table>'
-        '<p style="font-size:9.5px;color:#8a93a0;font-style:italic;margin-top:6px">'
-        'Applies to construction activities only, estimated from the location’s historical climate — '
-        'a forward-looking risk kept separate from the exact P6 Delay.</p>')
+        f'{monthly_bars}{cause_table}{days_table}{ms_table}{rec_table}{conclusion}')
 
 
 def _conclusion(bullets, weather=None):
@@ -204,8 +342,9 @@ def _conclusion(bullets, weather=None):
             f'<div class="concl"><ul>{items}{wx}</ul></div>')
 
 
-def render_calendar_report(result, meta, weather=None):
+def render_calendar_report(result, meta, weather=None, sections=None):
     d = result.get('dashboard', {})
+    proj = result.get('project', {}) or {}
     primary = result.get('primary_calendar_id')
     bc = (result.get('by_calendar') or {}).get(primary, {})
     months = bc.get('monthly_stats', [])
@@ -213,6 +352,21 @@ def render_calendar_report(result, meta, weather=None):
     profiles = bc.get('hours_profiles', [])
     cal_name = next((c['name'] for c in result.get('assigned_calendars', [])
                      if c['object_id'] == primary), '')
+    # #06 — the section-picker: `sections` is the list of keys to print (None = all).
+    inc = (lambda k: True) if not sections else (lambda k: k in sections)
+    period_note = f"from the data date ({_fmt(d.get('data_date'))}) to finish"
+    body = ''.join([
+        _dashboard(d, weather) if inc('dashboard') else '',
+        _month_grids(months, proj.get('hidden_months', 0), proj.get('timeline_start')) if inc('timeline') else '',
+        _monthly_stats(months) if inc('stats') else '',
+        _exceptions(exc) if inc('exceptions') else '',
+        _hours(profiles) if inc('hours') else '',
+        _comparison(result.get('comparison', []), period_note) if inc('comparison') else '',
+        _usage(result.get('usage', [])) if inc('usage') else '',
+        _conflicts(result.get('conflicts', [])) if inc('conflicts') else '',
+        _weather_section(weather) if inc('weather') else '',
+        _conclusion(result.get('conclusion', []), weather) if inc('conclusion') else '',
+    ])
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Calendar Audit — {_esc(meta.get('project_name', ''))}</title>
 <style>
@@ -259,17 +413,39 @@ def render_calendar_report(result, meta, weather=None):
   .hp .h {{ font-size: 17px; font-weight: 800; color: #17457a; margin-top: 2px; }}
   .hp .s {{ font-size: 9px; color: #8a93a0; margin-top: 3px; }}
   .mgrids {{ display: flex; flex-wrap: wrap; gap: 12px; }}
+  .whleg {{ display: flex; gap: 14px; margin: 4px 0 8px; font-size: 9px; color: #5b6472; }}
+  .whleg span {{ display: inline-flex; align-items: center; gap: 4px; }}
+  .whleg i {{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }}
+  .whist {{ display: flex; align-items: flex-end; gap: 8px; height: 118px; border-bottom: 1.5px solid #dbe1e8; padding: 0 2px; margin-bottom: 10px; }}
+  .whc {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }}
+  .wht {{ font-size: 8px; font-weight: 800; color: #0f2440; margin-bottom: 2px; }}
+  .whcol {{ width: 62%; max-width: 34px; }}
+  .whn {{ background: #cbd5e1; }}
+  .whw {{ background: #22c55e; border-radius: 3px 3px 0 0; }}
+  .whl {{ font-size: 7.5px; color: #8a93a0; margin-top: 3px; }}
   .mgrid-wrap {{ width: 230px; }}
   .mgrid-t {{ font-size: 10px; font-weight: 700; margin-bottom: 4px; }}
   .mgrid {{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }}
   .mh {{ font-size: 8px; font-weight: 700; color: #8a93a0; text-align: center; }}
-  .mc {{ aspect-ratio: 1.2; border: 1px solid #e8ecf1; border-radius: 4px; font-size: 8.5px; padding: 2px 3px; }}
+  .mc {{ min-height: 22px; border: 1px solid #e8ecf1; border-radius: 4px; font-size: 8.5px; padding: 2px 3px; overflow: hidden; }}
   .mc.blank {{ border: none; }}
+  .mc .dn {{ font-weight: 700; }}
+  .mc .cn {{ font-size: 6.3px; line-height: 1.12; color: #b45309; font-weight: 600; margin-top: 1px; }}
+  .lg {{ font-size: 9px; color: #5b6472; line-height: 1.5; margin: 4px 0 8px; background: #f7f9fb; border-left: 3px solid #cfe0f5; padding: 6px 9px; border-radius: 0 5px 5px 0; }}
+  .lg b {{ color: #2a3644; }}
   .conf {{ border: 1px solid #e8ecf1; border-left: 3px solid #e07b1a; border-radius: 0 6px 6px 0;
            padding: 8px 11px; margin-bottom: 6px; }}
   .conf .ct {{ font-weight: 700; font-size: 11px; }}
   .conf .cd {{ font-size: 10px; color: #5b6472; margin-top: 2px; }}
   .ok {{ color: #2e8b57; font-size: 11px; }}
+  .wxm {{ border: 1px solid #e8ecf1; background: #f4f8fd; border-radius: 6px; padding: 9px 12px;
+          font-size: 9.8px; line-height: 1.55; color: #3f4a57; margin-bottom: 10px; }}
+  .wxbars {{ display: flex; align-items: flex-end; gap: 8px; height: 92px; border-bottom: 1.5px solid #dbe1e8; padding: 0 4px; margin: 2px 0 8px; }}
+  .wxb {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }}
+  .wxb-v {{ font-size: 9px; font-weight: 800; color: #b45309; margin-bottom: 2px; }}
+  .wxb-bar {{ width: 62%; max-width: 30px; background: linear-gradient(180deg, #f59e0b, rgba(245,158,11,.45)); border-radius: 3px 3px 0 0; }}
+  .wxb-bar.pk {{ background: linear-gradient(180deg, #dc2626, rgba(220,38,38,.5)); }}
+  .wxb-l {{ font-size: 8px; color: #8a93a0; margin-top: 3px; }}
   .concl {{ border-left: 4px solid #17457a; background: #f4f8fd; border-radius: 0 8px 8px 0; padding: 10px 15px; }}
   .concl ul {{ margin: 0; padding-left: 18px; }}
   .concl li {{ font-size: 11px; line-height: 1.5; margin-bottom: 5px; }}
@@ -288,16 +464,7 @@ def render_calendar_report(result, meta, weather=None):
       <div><span>Calendar:</span> {_esc(cal_name)}</div>
     </div>
   </div>
-  {_dashboard(d, weather)}
-  {_month_grids(months)}
-  {_monthly_stats(months)}
-  {_exceptions(exc)}
-  {_hours(profiles)}
-  {_comparison(result.get('comparison', []))}
-  {_usage(result.get('usage', []))}
-  {_conflicts(result.get('conflicts', []))}
-  {_weather_section(weather)}
-  {_conclusion(result.get('conclusion', []), weather)}
+  {body}
   <div class="foot">
     Calendar Audit for <b>{_esc(meta.get('project_name', ''))}</b> · calendar "{_esc(cal_name)}".
     Working days, holidays, exceptions and working hours are read directly from the P6 calendar.
