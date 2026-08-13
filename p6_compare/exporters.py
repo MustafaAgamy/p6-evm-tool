@@ -139,14 +139,10 @@ def _duration_table_html(report):
     rows = (report.get('durations', {}) or {}).get('rows', [])
     if not rows:
         return '<p class="note">No duration or remaining changes vs the baseline.</p>'
-    def base_cell(r):
-        if r.get('baseline_orig_days') == 0:
-            return '<span class="mut">0 d</span> <span class="newscope">new scope</span>'
-        return f'{_e(r.get("baseline_orig_days"))} d'
     body = ''.join(
         '<tr>'
         f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
-        f'<td class="num">{base_cell(r)}</td>'
+        f'<td class="num">{_e(r.get("baseline_orig_days"))} d</td>'
         f'<td class="num">{_e(r.get("update_orig_days"))} d</td>'
         f'<td class="num">{_e(r.get("remaining_days"))} d</td>'
         f'<td class="num">{_e(r.get("remaining_minus_baseline_days"))} d</td>'
@@ -164,7 +160,7 @@ def _duration_legend_html():
             '<div><b>Columns —</b> <b>Baseline orig.</b> original duration in the baseline · '
             '<b>Update orig.</b> original duration now · <b>Remaining</b> left at the data date · '
             '<b>Rem − baseline</b> remaining minus the baseline original (positive = more work left than the '
-            'baseline allowed). <span class="newscope">new scope</span> = no baseline duration.</div>'
+            'baseline allowed).</div>'
             '<div><b>Impact on finish —</b> <b>Direct</b> on the critical path, pushes the finish · '
             '<b>Potential</b> near-critical (≤ 10 wd float) · <b>Float absorbs</b> enough float to swallow it · '
             '<b>—</b> the export carries no float for that activity, so it can\'t be judged.</div></div>')

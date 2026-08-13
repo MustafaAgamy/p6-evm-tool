@@ -262,12 +262,9 @@ function _durationTable(rows) {
     return '<p class="cmp-empty">No duration or remaining changes vs the baseline.</p>';
   }
   const body = rows.map(r => {
-    const baseCell = (r.baseline_orig_days === 0)
-      ? `<span class="mut">0 d</span> <span class="cmp-newscope" title="No duration in the baseline — new/undetailed scope">new scope</span>`
-      : `${r.baseline_orig_days} d`;
     return `<tr>
     <td class="mono">${escapeHtml(r.activity_id)}</td><td>${escapeHtml(r.activity_name)}</td>
-    <td class="num mut">${baseCell}</td>
+    <td class="num mut">${r.baseline_orig_days} d</td>
     <td class="num">${r.status === 'extended' ? `<span class="cmp-pill cmp-chg">${r.update_orig_days} d</span>` : `${r.update_orig_days} d`}</td>
     <td class="num">${r.remaining_days} d</td>
     <td class="num ${r.over_baseline ? 'cmp-over' : ''}">${signedDays(r.remaining_minus_baseline_days)}</td>
@@ -287,8 +284,7 @@ function _durationLegend() {
       <b>Baseline orig.</b> original duration in the baseline ·
       <b>Update orig.</b> original duration now ·
       <b>Remaining</b> duration still left at the data date ·
-      <b>Rem − baseline</b> remaining minus the baseline original (positive = more work left than the baseline ever allowed).
-      <span class="cmp-newscope">new scope</span> = the activity had no duration in the baseline.</div>
+      <b>Rem − baseline</b> remaining minus the baseline original (positive = more work left than the baseline ever allowed).</div>
     <div class="cmp-legend-l"><b>Impact on finish —</b>
       <span class="cmp-imp cmp-imp-direct">Direct</span> on the critical path, pushes the finish ·
       <span class="cmp-imp cmp-imp-pot">Potential</span> near-critical (≤ 10 working-days float) ·

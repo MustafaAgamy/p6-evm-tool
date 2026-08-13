@@ -71,7 +71,6 @@ def test_render_html_includes_dashboard_charts():
     assert '+13' in h                              # delay headline (13 working days behind)
     assert 'working days behind' in h              # #04 date-based delay wording
     assert 'Changed activities' in h               # donut card
-    assert 'new scope' in h                        # duration legend / baseline=0 label
     assert 'no float' in h                         # impact-on-finish legend explains the blanks
     assert '<svg' in h                             # delay + donut are SVG
 
