@@ -97,7 +97,7 @@ def test_report_weather_section_only_when_provided(tmp_path):
     # the monthly histogram ("When the risk falls") must be in the PDF, not just on screen
     assert 'When the Risk Falls' in html and 'wxb-bar' in html
     # #07 affected activities column + #12 milestone legend
-    assert 'Affected planned activities' in html and 'Cable pulling' in html
+    assert 'Affected work (by WBS)' in html and 'Cable pulling' in html
     assert 'How to read this table' in html and 'Net = Before' in html
 
 

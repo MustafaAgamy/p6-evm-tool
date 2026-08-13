@@ -296,7 +296,7 @@ def _weather_section(weather):
     days_table = (
         '<div class="grp"><span class="pill" style="background:#2563eb">Upcoming Bad-Weather Days</span></div>'
         '<table><thead><tr><th>Date</th><th>Day</th><th>Why it’s a lost day (measured)</th>'
-        f'<th>Confidence</th><th>Affected planned activities</th></tr></thead><tbody>{days or _empty(5)}</tbody></table>')
+        f'<th>Confidence</th><th>Affected work (by WBS)</th></tr></thead><tbody>{days or _empty(5)}</tbody></table>')
     conclusion = ''
     if w.get('conclusion'):
         conclusion = (

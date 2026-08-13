@@ -339,7 +339,7 @@ def write_calendar_xlsx(path, ca, weather=None):
             {'title': 'Bad-Weather Days by Month', 'headers': ['Month', 'Bad-weather days'],
              'rows': [[m.get('label', ''), m.get('count', 0)] for m in w.get('monthly', [])]},
             {'title': 'Upcoming Bad-Weather Days', 'headers':
-                ['Date', 'Day', 'Why it is a lost day (measured)', 'Confidence', 'Affected planned activities'],
+                ['Date', 'Day', 'Why it is a lost day (measured)', 'Confidence', 'Affected work (by WBS)'],
              'rows': [[d['date'], d.get('day_name', ''), d.get('condition', ''),
                        ('Forecast' if d.get('confidence') == 'forecast' else 'Expected'), _acts(d)]
                       for d in w.get('bad_days', [])]},

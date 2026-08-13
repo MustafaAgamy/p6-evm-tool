@@ -161,15 +161,24 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     bad_list = []
     for d in sorted(remaining):
         working = bool(primary_cal and primary_cal.is_working_day(d))
-        active = [a['name'] for a in con_act
-                  if a.get('start') and a['start'] <= d <= (a.get('finish') or a['start'])] if working else []
+        # Brief by WBS / work package, de-duplicated (Ibrahim's rule): all the pile
+        # activities under "Pile Works" show as "Pile Works" once, not one row each.
+        wbs_brief = []
+        if working:
+            seen = set()
+            for a in con_act:
+                if a.get('start') and a['start'] <= d <= (a.get('finish') or a['start']):
+                    label = (a.get('wbs') or a.get('name') or '').strip()
+                    if label and label not in seen:
+                        seen.add(label)
+                        wbs_brief.append(label)
         bad_list.append({
             'date': d.isoformat(), 'day_name': _DAY_NAMES[d.weekday()],
             'condition': remaining[d],
             'confidence': 'forecast' if d <= forecast_horizon else 'expected',
             'effect': 'Non-working (construction)' if working else 'Falls on a non-working day',
-            'activities': active[:8],
-            'activities_count': len(active),
+            'activities': wbs_brief[:8],
+            'activities_count': len(wbs_brief),
         })
 
     # Monthly counts (raw expected bad days per month)
@@ -280,7 +289,8 @@ def weather_inputs(data):
         if s:
             construction_activities.append({
                 'name': a.get('name') or a.get('id'),
-                'start': s, 'finish': _to_date(a.get('planned_finish')) or s})
+                'start': s, 'finish': _to_date(a.get('planned_finish')) or s,
+                'wbs': (data.wbs.get(a.get('wbs_id'), {}) or {}).get('name', '')})
 
     # Only FINISH / completion milestones — a completion date is what weather pushes
     # (Ibrahim's rule: impact on all finish/completion milestones only).

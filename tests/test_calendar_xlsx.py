@@ -95,7 +95,7 @@ def test_weather_sheet_names_affected_activities(tmp_path):
     p = tmp_path / 'cal.xlsx'
     write_calendar_xlsx(str(p), _ca(), weather=_weather())
     txt = _sheets_text(p)
-    assert 'Affected planned activities' in txt and 'Excavation' in txt
+    assert 'Affected work (by WBS)' in txt and 'Excavation' in txt
 
 
 def test_comparison_sheet_has_nonworking_days(tmp_path):

@@ -167,21 +167,36 @@ def test_conclusion_no_impact_is_graceful():
     assert 'no weather delay' in r['conclusion'].lower()
 
 
-def test_bad_days_name_affected_activities():
-    """#07 — each working bad-weather day names the construction activities it hits."""
+def test_bad_days_brief_by_wbs_deduplicated():
+    """#07 — each working bad-weather day briefs the affected work BY WBS, de-duplicated:
+    the pile activities under 'Pile Works' show as 'Pile Works' once, not one row each."""
     cal = _cal()
     daily = {date(2025, 6, 3): {'rain_mm': 15},   # Tue — working
              date(2025, 6, 10): {'dust': True}}   # Tue — working, nothing scheduled
     acts = [
-        {'name': 'Excavation', 'start': date(2025, 6, 1), 'finish': date(2025, 6, 5)},
-        {'name': 'Backfill',   'start': date(2025, 6, 2), 'finish': date(2025, 6, 4)},
-        {'name': 'Paving',     'start': date(2025, 6, 20), 'finish': date(2025, 6, 30)},
+        {'name': 'Drilling',     'start': date(2025, 6, 1), 'finish': date(2025, 6, 5), 'wbs': 'Pile Works'},
+        {'name': 'RFT for pile', 'start': date(2025, 6, 2), 'finish': date(2025, 6, 4), 'wbs': 'Pile Works'},
+        {'name': 'Excavation',   'start': date(2025, 6, 1), 'finish': date(2025, 6, 5), 'wbs': 'Earthworks'},
+        {'name': 'Paving',       'start': date(2025, 6, 20), 'finish': date(2025, 6, 30), 'wbs': 'Roadworks'},
     ]
     r = weather_impact(
         calendars={'C': cal}, construction_cal_ids={'C'}, construction_activities=acts,
         milestones=[], data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
         daily_weather=daily, forecast_horizon=date(2025, 6, 8), thresholds=DEFAULT_THRESHOLDS)
     by_date = {d['date']: d for d in r['bad_days']}
-    assert set(by_date['2025-06-03']['activities']) == {'Excavation', 'Backfill'}
-    assert by_date['2025-06-03']['activities_count'] == 2
-    assert by_date['2025-06-10']['activities'] == []   # nothing active that date
+    # 3 Jun: Drilling + RFT (Pile Works) + Excavation (Earthworks) active → deduped by WBS
+    assert by_date['2025-06-03']['activities'] == ['Pile Works', 'Earthworks']
+    assert by_date['2025-06-03']['activities_count'] == 2   # Pile Works counted once
+    assert by_date['2025-06-10']['activities'] == []        # nothing active that date
+
+
+def test_bad_days_brief_falls_back_to_name_without_wbs():
+    """If an activity has no WBS name, its own name is used (still de-duplicated)."""
+    cal = _cal()
+    daily = {date(2025, 6, 3): {'rain_mm': 15}}
+    acts = [{'name': 'Pour', 'start': date(2025, 6, 1), 'finish': date(2025, 6, 5), 'wbs': ''}]
+    r = weather_impact(
+        calendars={'C': cal}, construction_cal_ids={'C'}, construction_activities=acts,
+        milestones=[], data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather=daily, forecast_horizon=date(2025, 6, 8), thresholds=DEFAULT_THRESHOLDS)
+    assert next(d for d in r['bad_days'] if d['date'] == '2025-06-03')['activities'] == ['Pour']

@@ -424,9 +424,9 @@ function _weatherSection() {
       <td><span class="cal-pill mini ${d.confidence === 'forecast' ? 'def' : 'warn'}">${d.confidence === 'forecast' ? 'Forecast' : 'Expected'}</span></td>
       <td>${_actsCell(d)}</td></tr>`).join('');
   const dayTable = `<div class="cal-grp"><span class="cal-pill special">Upcoming Bad-Weather Days</span>
-      <span class="cal-grp-meta">each day shows the measured value, why it counts &amp; the activities it hits · next ~16 days = live forecast · beyond = expected from historical climate</span></div>
+      <span class="cal-grp-meta">each day shows the measured value, why it counts &amp; the work (by WBS) it hits · next ~16 days = live forecast · beyond = expected from historical climate</span></div>
     <div class="cal-card p0" style="max-height:300px;overflow-y:auto"><table class="cal-table"><thead><tr>
-      <th>Date</th><th>Day</th><th>Why it's a lost day (measured)</th><th>Confidence</th><th>Affected planned activities</th></tr></thead>
+      <th>Date</th><th>Day</th><th>Why it's a lost day (measured)</th><th>Confidence</th><th>Affected work (by WBS)</th></tr></thead>
       <tbody>${dayRows || '<tr><td colspan="5" class="cal-empty">No bad-weather days expected.</td></tr>'}</tbody></table></div>`;
   const msRows = (w.milestones || []).map(m =>
     `<tr><td>${escapeHtml(m.name)}</td><td>${fmtCalDate(m.planned)}</td>
