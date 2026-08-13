@@ -268,9 +268,26 @@ def _charts_html(report):
              f'<div class="dnl"><div><i style="background:{_BLUE}"></i><b>{logic_n}</b> logic / lag <span>({round(lf * 100)}%)</span></div>'
              f'<div><i style="background:#eb6834"></i><b>{dur_n}</b> duration only <span>({round(df * 100)}%)</span></div></div></div>')
 
+    # but-for (instant, no-F9 estimate): how much of the delay the edits manufactured
+    bf_wd, mfd = dash.get('butfor_delay_working_days'), dash.get('manufactured_working_days')
+    if bf_wd is not None and mfd is not None:
+        if mfd > 0:
+            verdict = (f"{mfd} of the {slip or 0} working days were manufactured — reverting the flagged "
+                       f"changes pulls the finish in to {_e(dash.get('butfor_finish') or '—')}.")
+        elif mfd == 0:
+            verdict = (f"Reverting the flagged changes doesn't move the finish — the {slip or 0}-working-day "
+                       f"delay is genuine, not manufactured.")
+        else:
+            verdict = "Reverting the flagged changes does not reduce the delay."
+        hot = ' style="background:#fdeaea;border-color:#f3c1c1"' if mfd and mfd > 0 else ''
+        butfor_pdf = (f'<div class="butfor"{hot}><b>But-for delay: {bf_wd} wd · {mfd} manufactured</b>'
+                      f'<div class="bfn">{verdict} Instant estimate — tool-scheduled, no F9.</div></div>')
+    else:
+        butfor_pdf = ''
+
     return (f'<div class="charts">'
             f'<div class="chart"><div class="ct">How the logic was changed</div><div class="cs">Every driving-logic / lag change, by type.</div>{bars}</div>'
-            f'<div class="chart"><div class="ct">Delay vs baseline</div><div class="cs">Finish date vs baseline, in working days — the honest delay.</div>{slip_svg}</div>'
+            f'<div class="chart"><div class="ct">Delay vs baseline</div><div class="cs">Finish date vs baseline, in working days — the honest delay.</div>{slip_svg}{butfor_pdf}</div>'
             f'<div class="chart"><div class="ct">Changed activities</div><div class="cs">The {total} split by what changed.</div>{donut}</div>'
             f'</div>')
 
@@ -324,6 +341,9 @@ def render_html(report, impact=None):
       .dnl div {{ display: flex; align-items: center; gap: 6px; margin: 4px 0; }}
       .dnl i {{ width: 10px; height: 10px; border-radius: 2px; }}
       .dnl span {{ color: #64748b; }}
+      .butfor {{ margin-top: 8px; padding: 6px 9px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 10px; line-height: 1.35; background: #f8fafc; }}
+      .butfor b {{ color: #1e293b; }}
+      .bfn {{ color: #64748b; margin-top: 2px; }}
       table.data tr {{ page-break-inside: avoid; }}
       table.data thead {{ display: table-header-group; }}
       .newscope {{ display: inline-block; font-size: 8px; font-weight: 700; padding: 0 4px; border-radius: 8px; background: #fdeccb; color: #8a5a00; }}

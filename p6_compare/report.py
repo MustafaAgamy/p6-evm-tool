@@ -126,6 +126,19 @@ def build_report_from_data(baseline, update, config=None):
     finish_slip_days = (uf_date - bf_date).days if (bf_date and uf_date) else None
     delay_working_days = _finish_delay_working_days(update, bf_date, uf_date)
 
+    # Instant but-for delay (NO F9): forward-pass the update with the revert plan applied in
+    # memory (baseline logic/durations restored), then measure its finish vs baseline. The tool
+    # schedules it — an ESTIMATE, validated to reproduce P6's F9 finish on a progressed schedule
+    # to the day. 'manufactured' = how many of the reported delay days the edits added.
+    from p6_compare.schedule import but_for_finish as _but_for_finish
+    try:
+        bfr_date = _but_for_finish(update, revert_ops)
+    except Exception:
+        bfr_date = None
+    butfor_delay_wd = _finish_delay_working_days(update, bf_date, bfr_date) if bfr_date else None
+    manufactured_wd = ((delay_working_days - butfor_delay_wd)
+                       if (delay_working_days is not None and butfor_delay_wd is not None) else None)
+
     milestones = []
     for code in matched.milestone_codes:
         b = matched.baseline_by_code[code]
@@ -150,7 +163,10 @@ def build_report_from_data(baseline, update, config=None):
                       'logic_changed': len(logic_ids),
                       'duration_only': len(duration_only_ids),
                       'finish_slip_days': finish_slip_days,
-                      'delay_working_days': delay_working_days},
+                      'delay_working_days': delay_working_days,
+                      'butfor_finish': _fmt(bfr_date),
+                      'butfor_delay_working_days': butfor_delay_wd,
+                      'manufactured_working_days': manufactured_wd},
         'change_summary': {'changed_activities': logic['summary']['changed_activities'], 'items': items},
         'logic': logic,
         'durations': durations,

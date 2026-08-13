@@ -121,6 +121,29 @@ function _chartBars(report) {
     </div>`).join('')}</div>`;
 }
 
+// But-for summary from the instant no-F9 estimate: how many of the reported delay's working
+// days the flagged edits manufactured (reported − but-for). Pure, unit-tested.
+export function butForSummary(dash) {
+  const d = dash || {};
+  const rep = d.delay_working_days, bf = d.butfor_delay_working_days, mfd = d.manufactured_working_days;
+  if (bf == null || mfd == null) return null;
+  let verdict;
+  if (mfd > 0) verdict = `${mfd} of the ${rep} working days were manufactured — reverting the flagged changes pulls the finish in to ${d.butfor_finish || '—'}.`;
+  else if (mfd === 0) verdict = `Reverting the flagged changes doesn't move the finish — the ${rep}-working-day delay is genuine, not manufactured.`;
+  else verdict = 'Reverting the flagged changes does not reduce the delay.';
+  return { reported: rep, butfor: bf, manufactured: mfd, verdict };
+}
+
+function _butForNote(report) {
+  const s = butForSummary(report.dashboard);
+  if (!s) return '';
+  const cls = s.manufactured > 0 ? 'cmp-mfd-hot' : 'cmp-mfd-ok';
+  return `<div class="cmp-butfor ${cls}">
+      <b>But-for delay: ${escapeHtml(String(s.butfor))} wd</b> &nbsp;·&nbsp; <b>${escapeHtml(String(s.manufactured))} manufactured</b>
+      <div class="mut">${escapeHtml(s.verdict)} <b>Instant estimate</b> — the tool schedules it, no F9; F9 the corrected file below to lock P6's exact date.</div>
+    </div>`;
+}
+
 function _chartSlip(report) {
   // The honest delay = finish-date variance vs baseline in WORKING days (no F9 needed).
   const s = slipInfo((report.dashboard || {}).delay_working_days);
@@ -188,6 +211,7 @@ function _chartsSection(report) {
         <div class="cmp-chart-t">Delay vs baseline</div>
         <div class="cmp-chart-s">Finish date vs baseline, in working days — the honest delay, straight away (no F9).</div>
         ${_chartSlip(report)}
+        ${_butForNote(report)}
       </div>
       <div class="cmp-chart">
         <div class="cmp-chart-t">Changed activities</div>

@@ -954,6 +954,11 @@ body {
 .cmp-slip-num.cmp-slip-early { color: var(--success); }
 .cmp-slip-num.cmp-slip-flat { color: var(--muted); }
 .cmp-slip-cap { font-size: 10.5px; color: var(--muted); font-weight: 600; line-height: 1.35; }
+.cmp-butfor { margin-top: 11px; padding: 8px 10px; border-radius: 8px; font-size: 11px; line-height: 1.4; border: 1px solid var(--border); }
+.cmp-butfor.cmp-mfd-hot { background: rgba(248,113,113,.10); border-color: rgba(248,113,113,.35); }
+.cmp-butfor.cmp-mfd-ok { background: var(--bg); }
+.cmp-butfor b { color: var(--text); font-weight: 800; }
+.cmp-butfor .mut { color: var(--muted); font-weight: 500; margin-top: 3px; }
 .cmp-donut-wrap { display: flex; align-items: center; gap: 12px; }
 .cmp-donut-legend { font-size: 11px; color: var(--text); }
 .cmp-donut-legend div { display: flex; align-items: center; gap: 7px; margin: 5px 0; }

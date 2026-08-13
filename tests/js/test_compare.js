@@ -3,7 +3,7 @@
  * Run: node tests/js/test_compare.js
  */
 import assert from 'node:assert/strict';
-import { fmtLag, statusClass, summaryPills, signedDays, suggestedCorrectedName, durImpactLabel, changedBreakdown, changeTypeBars, slipInfo, donutSegments } from '../../ui/modules/compare.js';
+import { fmtLag, statusClass, summaryPills, signedDays, suggestedCorrectedName, durImpactLabel, changedBreakdown, changeTypeBars, slipInfo, donutSegments, butForSummary } from '../../ui/modules/compare.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -96,6 +96,20 @@ test('fractions reconcile to 1', () => {
 });
 test('zero total → zero fractions', () => assert.deepEqual(donutSegments(0, 0), { logicFrac: 0, durationFrac: 0 }));
 test('tolerates negatives', () => assert.deepEqual(donutSegments(-5, 0), { logicFrac: 0, durationFrac: 0 }));
+
+console.log('\nbutForSummary');
+test('manufactured > 0 reports the manufactured days', () => {
+  const s = butForSummary({ delay_working_days: 60, butfor_delay_working_days: 40, manufactured_working_days: 20, butfor_finish: '10-Nov-2026' });
+  assert.equal(s.manufactured, 20); assert.equal(s.butfor, 40);
+  assert.ok(s.verdict.includes('manufactured') && s.verdict.includes('10-Nov-2026'));
+});
+test('manufactured == 0 → genuine delay verdict', () => {
+  const s = butForSummary({ delay_working_days: 57, butfor_delay_working_days: 57, manufactured_working_days: 0 });
+  assert.equal(s.manufactured, 0);
+  assert.ok(s.verdict.includes('genuine'));
+});
+test('null when no but-for estimate', () => assert.equal(butForSummary({ delay_working_days: 5 }), null));
+test('tolerates a null dashboard', () => assert.equal(butForSummary(null), null));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
