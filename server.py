@@ -84,6 +84,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_review(body)
         elif self.path == '/api/constructability':
             self._handle_constructability(body)
+        elif self.path == '/api/narrative':
+            self._handle_narrative(body)
+        elif self.path == '/api/narrative/docx':
+            self._handle_narrative_docx(body)
+        elif self.path == '/api/narrative/pdf':
+            self._handle_narrative_pdf(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
