@@ -26,6 +26,28 @@ def excel_columns(module_result):
         ] for i, f in enumerate(findings, 1)]
         return headers, rows
 
+    if module == 'lag_lead':
+        def _flags(f):
+            fl = []
+            if f.get('is_lead'):
+                fl.append('Lead')
+            if f.get('is_long'):
+                fl.append('Long')
+            if f.get('criticality') == 'Critical':
+                fl.append('Critical')
+            elif f.get('criticality') == 'Near-Critical':
+                fl.append('Near-Critical')
+            return ', '.join(fl)
+        headers = ['#', 'Activity ID', 'Activity Name', 'Pred. Relationship', 'Pred. Name',
+                   'Succ. Relationship', 'Succ. Name', 'Lag (wd)', 'Flags', 'Justification']
+        rows = [[
+            i, f.get('activity_id', ''), f.get('activity_name', ''),
+            f.get('pred_rel', ''), f.get('pred_name', ''),
+            f.get('succ_rel', ''), f.get('succ_name', ''),
+            f.get('lag_days', ''), _flags(f), f.get('justification', ''),
+        ] for i, f in enumerate(findings, 1)]
+        return headers, rows
+
     if module == 'dangling':
         headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity',
                    'Logic Issue', 'Predecessor(s)', 'Successor(s)',
