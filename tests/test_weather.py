@@ -190,6 +190,32 @@ def test_bad_days_brief_by_wbs_deduplicated():
     assert by_date['2025-06-10']['activities'] == []        # nothing active that date
 
 
+def test_wbs_brief_uses_nearest_named_wbs(tmp_path):
+    """When the activity's direct WBS node is unnamed (common in P6), the brief uses the
+    nearest NAMED ancestor — the 'Pile Works' level — not the activity name."""
+    import textwrap
+    from p6_evm.parser import parse_file
+    from p6_calendar.weather import weather_inputs
+    xml = textwrap.dedent('''\
+    <?xml version="1.0"?>
+    <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
+      <Calendar><ObjectId>C1</ObjectId><Name>c</Name><IsDefault>true</IsDefault></Calendar>
+      <Project><ObjectId>1</ObjectId><Id>P</Id><Name>P</Name>
+        <DataDate>2025-01-01T00:00:00</DataDate><ScheduledFinishDate>2025-12-31T00:00:00</ScheduledFinishDate>
+        <WBS><ObjectId>10</ObjectId><Name>Construction</Name><ParentObjectId></ParentObjectId></WBS>
+        <WBS><ObjectId>20</ObjectId><Name>Pile Works</Name><ParentObjectId>10</ParentObjectId></WBS>
+        <WBS><ObjectId>30</ObjectId><Name></Name><ParentObjectId>20</ParentObjectId></WBS>
+        <Activity><ObjectId>A1</ObjectId><Id>A1</Id><Name>Drilling</Name><Status>Not Started</Status>
+          <CalendarObjectId>C1</CalendarObjectId><WBSObjectId>30</WBSObjectId><PercentComplete>0</PercentComplete>
+          <PlannedStartDate>2025-06-01T00:00:00</PlannedStartDate><PlannedFinishDate>2025-06-10T00:00:00</PlannedFinishDate></Activity>
+      </Project>
+    </APIBusinessObjects>
+    ''')
+    p = tmp_path / 's.xml'; p.write_text(xml, encoding='utf-8')
+    acts = weather_inputs(parse_file(str(p)))['construction_activities']
+    assert acts and acts[0]['wbs'] == 'Pile Works'   # nearest named WBS, not the unnamed leaf or 'Drilling'
+
+
 def test_bad_days_brief_falls_back_to_name_without_wbs():
     """If an activity has no WBS name, its own name is used (still de-duplicated)."""
     cal = _cal()

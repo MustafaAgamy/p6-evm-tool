@@ -276,21 +276,24 @@ def weather_inputs(data):
     construction_cal_ids = set()
     construction_activities = []
     for a in data.activities.values():
-        phase = classify(wbs_ancestor_names(a.get('wbs_id'), data.wbs))
-        if classify_wbs_name(phase) != 'Construction':
+        anc = wbs_ancestor_names(a.get('wbs_id'), data.wbs)   # nearest named WBS first, up to root
+        if classify_wbs_name(classify(anc)) != 'Construction':
             continue
         cid = a.get('calendar_id')
         if cid and cid in data.calendars:
             construction_cal_ids.add(cid)
-        # Real construction work (not milestones) — for the per-day "activities hit" column.
+        # Real construction work (not milestones) — for the per-day "affected work" brief.
         if a.get('task_type') in ('StartMilestone', 'FinishMilestone'):
             continue
         s = _to_date(a.get('planned_start'))
         if s:
+            # Brief by the NEAREST NAMED WBS / work package (P6 often leaves the activity's
+            # direct WBS node unnamed, so anc[0] is the meaningful "Pile Works" level, not the
+            # activity). Falls back to the activity name only when there is no named WBS at all.
             construction_activities.append({
                 'name': a.get('name') or a.get('id'),
                 'start': s, 'finish': _to_date(a.get('planned_finish')) or s,
-                'wbs': (data.wbs.get(a.get('wbs_id'), {}) or {}).get('name', '')})
+                'wbs': anc[0] if anc else ''})
 
     # Only FINISH / completion milestones — a completion date is what weather pushes
     # (Ibrahim's rule: impact on all finish/completion milestones only).

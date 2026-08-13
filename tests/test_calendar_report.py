@@ -57,7 +57,7 @@ def test_report_is_html_and_has_content(tmp_path):
     assert html.startswith('<!DOCTYPE html>')
     assert 'Test' in html                       # project name
     assert 'Shutdowns' in html                  # exception group
-    assert '90' in html                         # total calendar days
+    assert '59' in html                         # total calendar days (forward from the data date)
     assert 'Monthly Calendar View' not in html  # merged into the Timeline (no duplicate)
 
 
@@ -99,6 +99,14 @@ def test_report_weather_section_only_when_provided(tmp_path):
     # #07 affected activities column + #12 milestone legend
     assert 'Affected work (by WBS)' in html and 'Cable pulling' in html
     assert 'How to read this table' in html and 'Net = Before' in html
+
+
+def test_report_hides_empty_exception_groups(tmp_path):
+    """Ibrahim: the PDF drops a section/group with no results — the fixture's Jan holiday is
+    before the data date, so the Holidays group is empty and hidden; the Feb shutdown shows."""
+    html = render_calendar_report(_result(tmp_path), META)
+    assert 'Shutdowns' in html                     # the Feb shutdown is ahead → shown
+    assert 'Holidays & Vacations' not in html      # the Jan holiday is before the data date → group hidden
 
 
 def test_report_timeline_is_working_histogram(tmp_path):

@@ -317,10 +317,11 @@ def calendar_audit(data, config=None, settings=None):
     # FULL months — so a baseline finishing 09 Feb still shows the whole of February.
     finish = _month_last_day(fin_exact.year, fin_exact.month)
 
-    # Ibrahim's rule (Aug 2026): the month-by-month timeline (and its per-month stats and
-    # pop-open calendars) starts at the DATA DATE — the past is actualised, the audit looks
-    # forward. The headline tiles and the exception lists still cover the whole window; only
-    # the month strip trims. If the data date is outside the window, nothing is hidden.
+    # Ibrahim's rule: the whole Calendar Audit is forward-looking — everything runs from the
+    # DATA DATE to finish (the past is actualised). The timeline, the per-month stats, the
+    # Calendar-Statistics tiles AND the exception lists (holidays / reduced-hours / shutdowns)
+    # all start at the data date; nothing before it is shown. If the data date is outside the
+    # window, nothing is hidden.
     dd = _to_date(data.project.get('data_date'))
     display_start = start
     hidden_months = 0
@@ -349,12 +350,12 @@ def calendar_audit(data, config=None, settings=None):
     for cid in assigned_ids:
         cal = cals[cid]
         is_primary = (cid == primary_id)
-        exc = _classify_exceptions(cal, start, finish, reasons,
+        exc = _classify_exceptions(cal, display_start, finish, reasons,
                                    manual if is_primary else [])
         shut_dates = _shutdown_dates(exc)
         months = _months_for_calendar(cal, display_start, finish, shut_dates,
                                       _exception_date_names(exc))
-        wd, nwd, hours = _calendar_totals(cal, start, finish)
+        wd, nwd, hours = _calendar_totals(cal, display_start, finish)
         by_calendar[cid] = {
             'object_id': cid, 'name': cal.name,
             'monthly_stats': months,
@@ -369,8 +370,8 @@ def calendar_audit(data, config=None, settings=None):
     prim_totals = by_calendar.get(primary_id, {}).get(
         'totals', {'working_days': 0, 'nonworking_days': 0, 'working_hours': 0.0})
 
-    total_calendar_days = (finish - start).days + 1
-    n_months = sum(1 for _ in _month_iter(start, finish)) or 1
+    total_calendar_days = (finish - display_start).days + 1
+    n_months = sum(1 for _ in _month_iter(display_start, finish)) or 1
     total_holidays = sum(h['days'] for h in prim_exc['holidays'])
     total_exc_days = (total_holidays
                       + sum(s['days'] for s in prim_exc['shutdowns'])
@@ -383,7 +384,7 @@ def calendar_audit(data, config=None, settings=None):
         'data_date': _iso(_to_date(data.project.get('data_date'))),
         'baseline_start': _iso(bstart),
         'baseline_finish': _iso(bfinish),
-        'window_start': _iso(start),
+        'window_start': _iso(display_start),
         'window_finish': _iso(finish),
         'total_calendar_days': total_calendar_days,
         'total_working_days': wd,

@@ -126,13 +126,15 @@ def _month_grids(months, hidden_months=0, tl_from=None):
 
 def _exceptions(exc):
     def tbl(title, color, rows_html, headers):
+        if not rows_html:                 # hide a group with no results (Ibrahim: PDF drops empties)
+            return ''
         cells = []
         for label, is_num in headers:
             cls = ' class="num"' if is_num else ''
             cells.append(f'<th{cls}>{_esc(label)}</th>')
         h = ''.join(cells)
         return (f'<div class="grp"><span class="pill" style="background:{color}">{_esc(title)}</span></div>'
-                f'<table><thead><tr>{h}</tr></thead><tbody>{rows_html or _empty(len(headers))}</tbody></table>')
+                f'<table><thead><tr>{h}</tr></thead><tbody>{rows_html}</tbody></table>')
     hol = ''.join(f'<tr><td>{_esc(x["description"])}</td><td class="num">{x["days"]}</td>'
                   f'<td>{_esc(x.get("reason") or "—")}</td></tr>' for x in exc.get('holidays', []))
     sp = ''.join(f'<tr><td>{_esc(x["description"])}</td><td class="num">{x["days"]}</td>'
@@ -140,13 +142,15 @@ def _exceptions(exc):
     sh = ''.join(f'<tr><td>{_esc(x["description"])}</td><td class="num">{x["days"]}</td>'
                  f'<td>{("[added] " if x.get("source") == "manual" else "") + (x.get("reason") or "—")}</td></tr>'
                  for x in exc.get('shutdowns', []))
-    return ('<h2 class="sec">4 · Calendar Exceptions</h2>'
-            + tbl('Holidays & Vacations', '#c0392b', hol,
+    groups = (tbl('Holidays & Vacations', '#c0392b', hol,
                   [('Date', 0), ('Days', 1), ('Description', 0)])
-            + tbl('Reduced / Special Working Hours', '#2563eb', sp,
-                  [('Date', 0), ('Days', 1), ('Hours', 0)])
-            + tbl('Shutdowns', '#e07b1a', sh,
-                  [('Date', 0), ('Days', 1), ('Reason', 0)]))
+              + tbl('Reduced / Special Working Hours', '#2563eb', sp,
+                    [('Date', 0), ('Days', 1), ('Hours', 0)])
+              + tbl('Shutdowns', '#e07b1a', sh,
+                    [('Date', 0), ('Days', 1), ('Reason', 0)]))
+    if not groups:                        # no exceptions ahead → drop the whole section
+        return ''
+    return '<h2 class="sec">4 · Calendar Exceptions</h2>' + groups
 
 
 def _empty(cols):
@@ -293,10 +297,28 @@ def _weather_section(weather):
         f'<td>{_esc(d.get("condition",""))}</td>'
         f'<td>{"Forecast" if d.get("confidence") == "forecast" else "Expected"}</td>'
         f'<td>{_acts_cell(d)}</td></tr>' for d in w.get('bad_days', []))
+    # Empty sub-tables are dropped from the PDF (Ibrahim: don't print a section with no results).
     days_table = (
         '<div class="grp"><span class="pill" style="background:#2563eb">Upcoming Bad-Weather Days</span></div>'
         '<table><thead><tr><th>Date</th><th>Day</th><th>Why it’s a lost day (measured)</th>'
-        f'<th>Confidence</th><th>Affected work (by WBS)</th></tr></thead><tbody>{days or _empty(5)}</tbody></table>')
+        f'<th>Confidence</th><th>Affected work (by WBS)</th></tr></thead><tbody>{days}</tbody></table>') if days else ''
+    ms_table = (
+        '<div class="grp"><span class="pill" style="background:#e07b1a">Impact on Milestone Completion</span></div>'
+        '<table><thead><tr><th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>'
+        '<th class="num">Already in calendar</th><th class="num">Net weather delay</th>'
+        f'<th>Weather-adjusted completion</th></tr></thead><tbody>{ms}</tbody></table>'
+        '<p class="lg"><b>How to read this table.</b> <b>Bad-weather days before it</b> — expected '
+        'bad-weather days between the data date and the milestone’s planned finish. '
+        '<b>Already in calendar</b> — of those, the ones landing on a day already off '
+        '(weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the '
+        'rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days '
+        'weather adds, which push the <b>Weather-adjusted completion</b> out. '
+        '<i>Example — 6 bad-weather days fall before finish; 4 land on Fridays/holidays already off, '
+        'so only 2 hit working days → +2 working days.</i></p>') if ms else ''
+    rec_table = (
+        '<div class="grp"><span class="pill" style="background:#2e8b57">Recovery Recommendations</span></div>'
+        '<table><thead><tr><th>Period / milestone</th><th class="num">Days</th><th>Longer days</th>'
+        f'<th>Extra working days</th><th>Add shift</th></tr></thead><tbody>{rec}</tbody></table>') if rec else ''
     conclusion = ''
     if w.get('conclusion'):
         conclusion = (
@@ -309,25 +331,7 @@ def _weather_section(weather):
         '— estimate, not a P6 figure</span></h2>'
         f'{method}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">{kpis}</div>'
-        f'{monthly_bars}'
-        f'{cause_table}'
-        f'{days_table}'
-        '<div class="grp"><span class="pill" style="background:#e07b1a">Impact on Milestone Completion</span></div>'
-        '<table><thead><tr><th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>'
-        '<th class="num">Already in calendar</th><th class="num">Net weather delay</th>'
-        f'<th>Weather-adjusted completion</th></tr></thead><tbody>{ms or _empty(6)}</tbody></table>'
-        '<p class="lg"><b>How to read this table.</b> <b>Bad-weather days before it</b> — expected '
-        'bad-weather days between the data date and the milestone’s planned finish. '
-        '<b>Already in calendar</b> — of those, the ones landing on a day already off '
-        '(weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the '
-        'rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days '
-        'weather adds, which push the <b>Weather-adjusted completion</b> out. '
-        '<i>Example — 6 bad-weather days fall before finish; 4 land on Fridays/holidays already off, '
-        'so only 2 hit working days → +2 working days.</i></p>'
-        '<div class="grp"><span class="pill" style="background:#2e8b57">Recovery Recommendations</span></div>'
-        '<table><thead><tr><th>Period / milestone</th><th class="num">Days</th><th>Longer days</th>'
-        f'<th>Extra working days</th><th>Add shift</th></tr></thead><tbody>{rec or _empty(5)}</tbody></table>'
-        f'{conclusion}')
+        f'{monthly_bars}{cause_table}{days_table}{ms_table}{rec_table}{conclusion}')
 
 
 def _conclusion(bullets, weather=None):
