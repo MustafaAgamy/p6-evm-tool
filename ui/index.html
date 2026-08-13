@@ -191,6 +191,15 @@
               <div class="cc-title">Consultant Review</div>
               <div class="cc-sub">Baseline vs current update — driving logic, lag &amp; duration changes and the right delay</div>
             </button>
+            <button class="chooser-card" data-view="period">
+              <div class="cc-icon" style="background:#14b8a6">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/>
+                </svg>
+              </div>
+              <div class="cc-title">Update vs Update</div>
+              <div class="cc-sub">This period vs last — progress movement, critical-path slip, milestone trend</div>
+            </button>
           </div>
         </div>
 
@@ -202,6 +211,7 @@
           <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
           <button class="view-tab" id="tab-construct" data-view="construct">🧠 Constructability</button>
           <button class="view-tab" id="tab-compare" data-view="compare">Consultant Review</button>
+          <button class="view-tab" id="tab-period" data-view="period">Update vs Update</button>
           <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
 
@@ -246,6 +256,10 @@
 
         <div class="view-panel hidden" id="compare-panel">
           <div id="compare-body"></div>
+        </div>
+
+        <div class="view-panel hidden" id="period-panel">
+          <div id="period-body"></div>
         </div>
         </div><!-- /analysis-views -->
       </section>

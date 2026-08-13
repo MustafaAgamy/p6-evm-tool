@@ -6,6 +6,7 @@ import { switchView, showChooser }             from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
+import { renderPeriodPanel }                   from './modules/period.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -49,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (card.dataset.view === 'evm') maybePromptBaseline(state.currentResult);
       if (card.dataset.view === 'construct') renderConstructPanel();
       if (card.dataset.view === 'compare') renderComparePanel();
+      if (card.dataset.view === 'period') renderPeriodPanel();
     }));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
@@ -59,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
   document.getElementById('tab-construct').addEventListener('click', () => { switchView('construct'); renderConstructPanel(); });
   document.getElementById('tab-compare').addEventListener('click', () => { switchView('compare'); renderComparePanel(); });
+  document.getElementById('tab-period').addEventListener('click', () => { switchView('period'); renderPeriodPanel(); });
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {

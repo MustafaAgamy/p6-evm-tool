@@ -50,6 +50,16 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_compare_excel(body)
         elif self.path == '/api/compare/report':
             self._handle_compare_report(body)
+        elif self.path == '/api/period/compare':
+            self._handle_period_compare(body)
+        elif self.path == '/api/period/previous':
+            self._handle_period_previous(body)
+        elif self.path == '/api/period/trend':
+            self._handle_period_trend(body)
+        elif self.path == '/api/period/excel':
+            self._handle_period_excel(body)
+        elif self.path == '/api/period/report':
+            self._handle_period_report(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -523,6 +533,139 @@ class Handler(BaseHTTPRequestHandler):
             # DEVNULL (not PIPE) so a verbose/large Chrome render can't dead-lock on a full
             # pipe buffer — that was the "Export PDF does nothing" hang on big schedules.
             # A timeout turns any remaining hang into a clear error instead of silence.
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/period/compare ───────────────────────────────────────────────
+    def _handle_period_compare(self, body):
+        """Update vs Update — Windows Analysis. Compares the previous update
+        (prev_path / prev_cached_path) against the current open schedule (update_path /
+        cached_path). Returns the period report: progress vs last period's forecast,
+        activity % variance, critical-path movement, buckets, period S-curve. EVM
+        numbers reused from metrics.compute so they match the EVM tab. No records."""
+        prev_path = db.resolve_xml_path(body.get('prev_path', ''), body.get('prev_cached_path'))
+        curr_path = db.resolve_xml_path(body.get('update_path', ''), body.get('cached_path'))
+        if not prev_path or not os.path.isfile(prev_path):
+            self._json(200, {'ok': False, 'error': 'Previous update not found. Pick the previous period file.'})
+            return
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Current update not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.classify import auto_categories, build_wbs_classifier
+            from p6_period.report import build_report_from_data
+            with open(resource_path('config.json')) as f:
+                base_config = json.load(f)
+
+            def parse_and_compute(path):
+                data = parse_file(path)
+                cfg = dict(base_config)
+                cfg['categories'] = auto_categories(data)
+                metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
+                return data, metrics
+
+            prev_data, prev_m = parse_and_compute(prev_path)
+            curr_data, curr_m = parse_and_compute(curr_path)
+            report = build_report_from_data(prev_data, curr_data, prev_m, curr_m, base_config)
+            report['prev_file'] = os.path.basename(prev_path)
+            report['update_file'] = os.path.basename(curr_path)
+            self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/period/previous ──────────────────────────────────────────────
+    def _handle_period_previous(self, body):
+        """Suggest the previous period: the snapshot before the current one for this
+        project, so the user can compare against last period in one click."""
+        sid = body.get('snapshot_id')
+        if not sid:
+            self._json(200, {'ok': True, 'previous': None})
+            return
+        try:
+            prev = db.get_prev_snapshot(sid)
+            if not prev:
+                self._json(200, {'ok': True, 'previous': None})
+                return
+            fname = os.path.basename(prev.get('original_path') or prev.get('cached_path') or '')
+            self._json(200, {'ok': True, 'previous': {
+                'snapshot_id': prev['id'],
+                'data_date': prev.get('data_date'),
+                'cached_path': prev.get('cached_path'),
+                'filename': fname,
+            }})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/period/trend ─────────────────────────────────────────────────
+    def _handle_period_trend(self, body):
+        """Milestone finish trend across every stored update of this project (slip
+        chart). Reads snapshots from the DB, extracting milestone finishes once."""
+        sid = body.get('snapshot_id')
+        if not sid:
+            self._json(200, {'ok': True, 'trend': {'periods': [], 'series': []}})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_period.trend import milestone_trend
+            self._json(200, {'ok': True, 'trend': milestone_trend(sid)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/period/excel ─────────────────────────────────────────────────
+    def _handle_period_excel(self, body):
+        """Export the Update-vs-Update progress table to .xlsx from the report the
+        client holds — no re-parse."""
+        report = body.get('report') or {}
+        trend = body.get('trend')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_period.exporters import report_excel
+            from p6_evm.xlsx_writer import write_xlsx
+            headers, rows = report_excel(report, trend)
+            write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/period/report ────────────────────────────────────────────────
+    def _handle_period_report(self, body):
+        """Update-vs-Update PDF (or preview HTML). Renders from the report (+ optional
+        milestone trend) the client holds — no re-parse. Chrome headless → PDF."""
+        report = body.get('report') or {}
+        trend = body.get('trend')
+        sections = body.get('sections')            # None = all; else list of section keys to include
+        code_filter = body.get('code_filter')      # {type, value} to limit the activity tables
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_period.exporters import render_html
+            import subprocess, tempfile
+            html_content = render_html(report, trend, sections, code_filter)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
             subprocess.run([
                 chrome, '--headless', '--disable-gpu', '--no-sandbox',
                 f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
