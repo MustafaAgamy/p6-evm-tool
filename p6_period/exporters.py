@@ -327,18 +327,13 @@ def _cp_chain_html(segs, widths, div, tail_role, flag_role, finish_date):
     return '<div class="cpchain">' + ''.join(out) + '</div>'
 
 
-def _critical_compare_html(report):
-    """Critical-path comparison as a connected chain of blocks. One row when the route is
-    unchanged; two aligned rows (old greyed, new red) only when it reroutes."""
-    data = _cp_timeline_data(report, 'leaf-parent')
-    if not data:
-        return '<p class="note">No driving path to the finish milestone could be derived.</p>'
-    prev, curr, div, changed = data['prev'], data['curr'], data['divergence'], data['changed']
+def _cp_chain_body(data):
+    """Connected-chain body (the conclusion is added by the caller): one row when unchanged,
+    two aligned rows (old greyed, new red) on a reroute."""
+    prev, curr, div = data['prev'], data['curr'], data['divergence']
     wprev, wcurr = _cp_widths(prev, curr, div)
-    concl = (f'<div class="cpconcl {"warn" if changed else "good"}">'
-             f'<span class="cpic">{"⚠" if changed else "✓"}</span><div>{data["conclusion"]}</div></div>')
-    if not changed:
-        return (concl + '<div class="cprowlbl">This period\'s critical path</div>'
+    if not data['changed']:
+        return ('<div class="cprowlbl">This period\'s critical path</div>'
                 + _cp_chain_html(curr, wcurr, len(curr), 'new', 'now', data['finish_now'])
                 + '<p class="note">One row — the route is the same as last period. The blocks sit end-to-end as a '
                   'chain, each labelled with the months it spans.</p>')
@@ -348,14 +343,144 @@ def _critical_compare_html(report):
     legend = ('<div class="cplegend"><i style="background:#bcd6f5"></i>shared route (unchanged)'
               '<i style="background:#f4a3a3"></i>new route (from the reroute)'
               '<i style="background:#e9edf2"></i>old route (dropped off)</div>')
-    return (concl
-            + '<div class="cprowlbl">Was — last update</div>'
+    return ('<div class="cprowlbl">Was — last update</div>'
             + _cp_chain_html(prev, wprev, div, 'gone', 'was', data['finish_prev'])
             + '<div class="cprowlbl" style="margin-top:9px">Now — this update</div>'
             + _cp_chain_html(curr, wcurr, div, 'new', 'now', data['finish_now'])
             + slipnote + legend
             + '<p class="note">Two rows because the route changed. They line up at the reroute point; the old route '
               'is greyed, the new route red, and the finish flags sit further apart the bigger the slip.</p>')
+
+
+_CP_TL_FILL = {'same': '#93c5fd', 'new': '#f87171', 'gone': '#e2e8f0'}
+_CP_TL_INK = {'same': '#1e3a8a', 'new': '#ffffff', 'gone': '#64748b'}
+
+
+def _cp_timeline_body(data, report):
+    """Date-axis Gantt style: WAS row (last update) over NOW row (this update) on a real
+    calendar; shared prefix blue, new route red from the divergence, dropped tail grey;
+    finish diamonds + the TOTAL slip bracket (no per-segment day splits)."""
+    prev, curr, div = data['prev'], data['curr'], data['divergence']
+
+    def _ord(iso):
+        try:
+            return datetime.strptime(iso, '%Y-%m-%d').toordinal()
+        except Exception:
+            return None
+    UNIT = 20                                        # fallback width (days) for an undated segment
+
+    def _layout(segs):
+        pos, cur = [], None
+        for s in segs:
+            a, b = _ord(s.get('start')), _ord(s.get('finish'))
+            start = a if a is not None else (cur if cur is not None else 0)
+            if cur is not None and start < cur:
+                start = cur                          # keep the row monotonic on odd dates
+            end = b if (b is not None and b > start) else start + UNIT
+            pos.append((start, end)); cur = end
+        return pos
+    pprev, pcurr = _layout(prev), _layout(curr)
+    xs = [v for pr in (pprev + pcurr) for v in pr]
+    if not xs:
+        return '<p class="note">The driving path has no dates to place on a timeline.</p>'
+    tmin, tmax = min(xs), max(xs)
+    if tmax <= tmin:
+        tmax = tmin + UNIT
+    x0, x1 = 160, 830
+    xat = lambda t: x0 + (x1 - x0) * (t - tmin) / (tmax - tmin)
+    p = []
+    for k in range(5):                               # month gridlines + labels
+        t = tmin + (tmax - tmin) * k / 4
+        x = xat(t)
+        p.append(f'<line x1="{x:.0f}" y1="40" x2="{x:.0f}" y2="222" stroke="#f1f5f9"/>'
+                 f'<text x="{x:.0f}" y="238" text-anchor="middle" font-size="9" fill="#94a3b8">'
+                 f'{datetime.fromordinal(int(t)).strftime("%b-%y")}</text>')
+
+    def _draw(segs, pos, y, is_curr):
+        for i, (s, (a, b)) in enumerate(zip(segs, pos)):
+            role = 'same' if i < div else ('new' if is_curr else 'gone')
+            x, w = xat(a), max(6.0, xat(b) - xat(a))
+            p.append(f'<rect x="{x:.0f}" y="{y}" width="{w:.0f}" height="24" rx="4" fill="{_CP_TL_FILL[role]}"/>')
+            cap = int(w / 6.5)
+            if w >= 34 and cap >= 3:
+                lab = s['key'] if len(s['key']) <= cap else s['key'][:cap - 1] + '…'
+                p.append(f'<text x="{x + w / 2:.0f}" y="{y + 16:.0f}" text-anchor="middle" '
+                         f'font-size="10" fill="{_CP_TL_INK[role]}">{_e(lab)}</text>')
+    _draw(prev, pprev, 60, False)
+    _draw(curr, pcurr, 120, True)
+    p.append(f'<text x="14" y="74" font-size="11" font-weight="700" fill="#64748b">WAS · {_e(report.get("data_date_prev"))}</text>')
+    p.append(f'<text x="14" y="134" font-size="11" font-weight="700" fill="#1e293b">NOW · {_e(report.get("data_date_now"))}</text>')
+    if pprev:
+        fx = xat(pprev[-1][1])
+        p.append(f'<path d="M{fx:.0f},72 l7,-7 l7,7 l-7,7 z" fill="#94a3b8"/>'
+                 f'<text x="{fx + 18:.0f}" y="58" font-size="9.5" fill="#64748b">finish {_e(data["finish_prev"])}</text>')
+    if pcurr:
+        gx = xat(pcurr[-1][1])
+        p.append(f'<path d="M{gx:.0f},132 l7,-7 l7,7 l-7,7 z" fill="#dc2626"/>'
+                 f'<text x="{gx + 18:.0f}" y="118" font-size="9.5" fill="#b91c1c" font-weight="700">finish {_e(data["finish_now"])}</text>')
+    slip = data.get('slip_days')
+    if pprev and pcurr and slip:
+        lo, hi = sorted((xat(pprev[-1][1]), xat(pcurr[-1][1])))
+        p.append(f'<line x1="{lo:.0f}" y1="196" x2="{hi:.0f}" y2="196" stroke="#dc2626" stroke-width="1.5"/>'
+                 f'<line x1="{lo:.0f}" y1="192" x2="{lo:.0f}" y2="200" stroke="#dc2626"/>'
+                 f'<line x1="{hi:.0f}" y1="192" x2="{hi:.0f}" y2="200" stroke="#dc2626"/>'
+                 f'<text x="{(lo + hi) / 2:.0f}" y="212" text-anchor="middle" font-size="10.5" '
+                 f'fill="#b91c1c" font-weight="700">{"+" if slip > 0 else ""}{slip} wd</text>')
+    if div < len(curr) or div < len(prev):
+        src = pcurr[div][0] if div < len(pcurr) else (pprev[div][0] if div < len(pprev) else None)
+        if src is not None:
+            dx = xat(src)
+            p.append(f'<line x1="{dx:.0f}" y1="52" x2="{dx:.0f}" y2="168" stroke="#dc2626" stroke-width="1" stroke-dasharray="3 3"/>'
+                     f'<text x="{dx:.0f}" y="182" text-anchor="middle" font-size="9.5" fill="#b91c1c" font-weight="700">rerouted here</text>')
+    legend = ('<div class="cplegend"><i style="background:#93c5fd"></i>shared route (on both)'
+              '<i style="background:#f87171"></i>new critical route (from the reroute)'
+              '<i style="background:#e2e8f0"></i>old route (dropped off)</div>')
+    return (f'<svg viewBox="0 0 960 250" width="100%" role="img" aria-label="Critical path timeline">{"".join(p)}</svg>'
+            f'{legend}<p class="note">The finish-driving route on a real date axis — <b>WAS</b> (last update) over '
+            f'<b>NOW</b> (this update). The bracket at the right is the <b>total finish movement</b>.</p>')
+
+
+def _cp_table_body(data):
+    """Compact Was/Now comparison as a table — the most print-dense style; the new part of
+    the route (from the divergence) is shown in red."""
+    prev, curr, div = data['prev'], data['curr'], data['divergence']
+    plain = lambda segs: ' → '.join(_e(s['key']) for s in segs) or '—'
+
+    def _redtail(segs):
+        parts = [(f'<span class="cpt-red">{_e(s["key"])}</span>' if i >= div else _e(s['key'])) for i, s in enumerate(segs)]
+        return ' → '.join(parts) or '—'
+    slip = data.get('slip_days')
+    fintail = ''
+    if slip and slip > 0:
+        fintail = f' <span class="cpt-red">(+{slip} wd)</span>'
+    elif slip and slip < 0:
+        fintail = f' <span class="cpt-red">({slip} wd)</span>'
+    if data['changed']:
+        at = _e(curr[div - 1]['key']) if div > 0 else 'the start'
+        rerouted = f'<span class="cpt-red">{at}</span> <span class="cpt-mut">(was: {plain(prev[div:])})</span>'
+    else:
+        rerouted = '— <span class="cpt-mut">(unchanged this period)</span>'
+    return ('<table class="cptable"><tr><th></th><th>Was — last update</th><th>Now — this update</th></tr>'
+            f'<tr><td class="cpt-k">Driving route</td><td>{plain(prev)}</td><td>{_redtail(curr)}</td></tr>'
+            f'<tr><td class="cpt-k">Forecast finish</td><td>{_e(data["finish_prev"])}</td>'
+            f'<td class="cpt-fin">{_e(data["finish_now"])}{fintail}</td></tr>'
+            f'<tr><td class="cpt-k">Rerouted at</td><td>—</td><td>{rerouted}</td></tr></table>'
+            '<p class="note">The finish-driving route as text — the most compact style; the new part of the route is in red.</p>')
+
+
+def _critical_compare_html(report, style='chain', mode='leaf-parent'):
+    """Critical-path comparison in the chosen presentation `style` (chain | timeline | table),
+    grouped by `mode`. All three styles share the same data, so every figure is identical —
+    only the drawing changes. `style`/`mode` come from the on-screen picker and the PDF export."""
+    data = _cp_timeline_data(report, mode)
+    if not data:
+        return '<p class="note">No driving path to the finish milestone could be derived.</p>'
+    concl = (f'<div class="cpconcl {"warn" if data["changed"] else "good"}">'
+             f'<span class="cpic">{"⚠" if data["changed"] else "✓"}</span><div>{data["conclusion"]}</div></div>')
+    body = (_cp_timeline_body(data, report) if style == 'timeline'
+            else _cp_table_body(data) if style == 'table'
+            else _cp_chain_body(data))
+    return concl + body
 
 
 def _whatmoved_html(report):
@@ -583,10 +708,13 @@ def _apply_code_filter(report, cf):
     return out
 
 
-def render_html(report, trend=None, sections=None, code_filter=None):
+def render_html(report, trend=None, sections=None, code_filter=None,
+                critical_style='chain', critical_mode='leaf-parent'):
     """`sections` = list of section keys to include (None = all); `code_filter` =
-    {'type','value'} to limit the activity tables to one activity code. Every section is
-    tagged <section data-sec="KEY"> so the preview can toggle it and the PDF re-flows."""
+    {'type','value'} to limit the activity tables to one activity code; `critical_style`
+    (chain | timeline | table) + `critical_mode` = the critical-path presentation the user
+    picked (carried from the screen so the PDF matches). Every section is tagged
+    <section data-sec="KEY"> so the preview can toggle it and the PDF re-flows."""
     report = _apply_code_filter(report, code_filter)
     level, head, detail = _verdict(report)
     header = (f'<div class="rh"><div><h1>Update vs Update — Period Report</h1>'
@@ -603,7 +731,7 @@ def render_html(report, trend=None, sections=None, code_filter=None):
         ('progress', "Progress — where you are vs where you said you'd be", _progress_bar_html(report), False),
         ('dashboard', 'Execution Dashboard — Previous → Current, at each cutoff', dashboard, False),
         ('recommendation', 'What management needs to know', f'<div class="reco warn">{_e(report.get("project_conclusion"))}</div>', False),
-        ('critical_compare', 'Critical-path comparison — the finish-driving route', _critical_compare_html(report), True),
+        ('critical_compare', 'Critical-path comparison — the finish-driving route', _critical_compare_html(report, critical_style, critical_mode), True),
         ('critical', 'Critical-path movement in this window', _critical_table_html(report), False),
         ('progress_table', 'Progress by activity — % complete this period', _progress_table_html(report), False),
         ('watch', 'Next-period watch list', _watch_table_html(report), False),
@@ -659,6 +787,12 @@ def render_html(report, trend=None, sections=None, code_filter=None):
       .cpflag.now b {{ color: #b91c1c; }} .cpflag.was b {{ color: #64748b; }}
       .cpdia {{ width: 10px; height: 10px; transform: rotate(45deg); border-radius: 2px; margin-bottom: 3px; }} .cpdia.now {{ background: #dc2626; }} .cpdia.was {{ background: #94a3b8; }}
       .cpslip {{ font-size: 11px; color: #b91c1c; font-weight: 700; margin-top: 3px; }}
+      .cptable {{ width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 2px; }}
+      .cptable th, .cptable td {{ border: 1px solid #e2e8f0; padding: 6px 10px; text-align: left; vertical-align: top; }}
+      .cptable th {{ background: #f4f7fb; color: #26517d; font-size: 11px; }}
+      .cptable td.cpt-k {{ font-weight: 700; color: #64748b; width: 130px; white-space: nowrap; }}
+      .cptable .cpt-red {{ color: #b91c1c; font-weight: 700; }} .cptable .cpt-mut {{ color: #94a3b8; }}
+      .cptable td.cpt-fin {{ font-weight: 700; }}
       .bar2 {{ display: flex; align-items: center; gap: 10px; margin: 5px 0; }} .bar2 .l {{ width: 160px; font-size: 11.5px; }}
       .bar2 .t {{ flex: 1; background: #eef2f7; border-radius: 6px; height: 18px; overflow: hidden; border: 1px solid #e2e8f0; }}
       .bar2 .f {{ height: 100%; background: #2a78d6; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; }}

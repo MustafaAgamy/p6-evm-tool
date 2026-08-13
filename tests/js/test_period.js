@@ -134,6 +134,22 @@ console.log('\ncriticalTimelineData / CompareBody (connected chain — 1 row unc
     assert.ok(h2.includes("This period's critical path") && !h2.includes('Was — last update'));
     assert.ok(!h2.includes('cpblk gone') && !h2.includes('cpblk new'));
   });
+  test('timeline style → SVG Gantt: WAS/NOW rows, red new route, slip bracket', () => {
+    const h = criticalCompareBody(report, 'leaf-parent', 'timeline');
+    assert.ok(h.includes('<svg') && h.includes('Critical path timeline') && !h.includes('cpchain'));
+    assert.ok(h.includes('WAS · 07-Aug-2026') && h.includes('NOW · 22-Aug-2026'));   // data dates label rows
+    assert.ok(h.includes('rerouted here') && h.includes('#f87171'));                 // divergence + new route red
+    assert.ok(h.includes('finish 12-Mar-2027') && h.includes('finish 26-Mar-2027'));
+    assert.ok(h.includes('+14 wd') && h.includes('rerouted at Steel'));              // slip bracket + shared conclusion
+  });
+  test('table style → compact Was/Now table, new tail red', () => {
+    const h = criticalCompareBody(report, 'leaf-parent', 'table');
+    assert.ok(h.includes('cptable') && !h.includes('<svg') && !h.includes('cpchain'));
+    assert.ok(h.includes('Driving route') && h.includes('Forecast finish') && h.includes('Rerouted at'));
+    assert.ok(h.includes('Foundations → Steel → Cladding → Roof'));                  // was route, plain
+    assert.ok(h.includes('cpt-red') && h.includes('(+14 wd)') && h.includes('26-Mar-2027'));
+    assert.ok(h.includes('rerouted at Steel'));                                      // shared conclusion
+  });
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
