@@ -92,13 +92,34 @@ def test_report_weather_section_only_when_provided(tmp_path):
     assert 'Open-Meteo' in html and 'heat ≥ 42' in html  # source + applied limit
     # the clarification Ibrahim asked for, plus the new report parts
     assert 'How this estimate is built' in html and 'What counts as a bad-weather day' in html
-    assert 'Driving the Lost Days' in html            # cause breakdown table
+    assert 'Causing the Lost Days' in html            # cause breakdown table (relabelled #03)
     assert 'Weather Conclusion' in html and 'cost about 5 working days' in html
     # the monthly histogram ("When the risk falls") must be in the PDF, not just on screen
     assert 'When the Risk Falls' in html and 'wxb-bar' in html
     # #07 affected activities column + #12 milestone legend
     assert 'Affected planned activities' in html and 'Cable pulling' in html
     assert 'How to read this table' in html and 'Net = Before' in html
+
+
+def test_report_timeline_is_working_histogram(tmp_path):
+    """#01 — §2 Calendar Timeline is the working/non-working days-per-month histogram."""
+    html = render_calendar_report(_result(tmp_path), META)
+    assert 'class="whist"' in html                 # the histogram is rendered
+    assert 'Working days' in html and 'Non-working' in html   # its legend
+    assert '2 · Calendar Timeline' in html and 'working vs non-working days per month' in html
+
+
+def test_report_weather_cause_relabelled(tmp_path):
+    """#03 — the cause breakdown is relabelled and explained."""
+    weather = {
+        'expected_bad_days_total': 3, 'net_finish_delay': 1, 'weather_adjusted_finish': '2025-04-01',
+        'thresholds': {'rain_mm': 5, 'temp_max_c': 42, 'wind_kmh': None, 'dust': True},
+        'by_cause': [{'label': 'Heat', 'count': 3}, {'label': 'Wind', 'count': 0, 'off': True}],
+        'bad_days': [], 'milestones': [], 'recovery': [], 'monthly': [], 'conclusion': 'x',
+    }
+    html = render_calendar_report(_result(tmp_path), META, weather=weather)
+    assert 'Causing the Lost Days' in html and 'by Weather Type' in html
+    assert 'which condition causes them' in html
 
 
 def test_report_comparison_usage_and_section_picker(tmp_path):

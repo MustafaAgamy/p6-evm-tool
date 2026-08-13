@@ -185,42 +185,40 @@ function _selMonths() {
   return (bc && bc.monthly_stats) || [];
 }
 
-// Section 2 — timeline strips; clicking a month expands its full calendar grid inline
-// (this replaces the old separate "Monthly Calendar View", which duplicated the timeline).
+// Section 2 — the timeline is a working vs non-working days-per-month histogram
+// (Ibrahim's restructure — replaces the crude colour strip; §3 has the numbers).
+// Clicking a month's bar opens its full calendar grid (holiday names in the cells).
 function _timelineSection() {
-  const dows = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const strips = _selMonths().map((m, i) => {
-    const cells = (m.days || []).map(day => `<i class="${statusClass(day.status)}"></i>`).join('');
-    const flag = m.flag
-      ? `<div class="cal-tl-flag ${m.flag.startsWith('Shutdown') ? 'f-sh' : 'f-sp'}">${escapeHtml(m.flag)}</div>`
-      : '';
+  const months = _selMonths();
+  const mx = Math.max(1, ...months.map(m => (m.working_days || 0) + (m.nonworking_days || 0)));
+  const bars = months.map((m, i) => {
+    const wd = m.working_days || 0, nw = m.nonworking_days || 0, tot = wd + nw;
+    const totPx = Math.round(tot / mx * 100), nwPx = tot ? Math.round(nw / tot * totPx) : 0, wPx = Math.max(0, totPx - nwPx);
     const open = _openMonths.has(i);
-    return `<div class="cal-tl-month ${open ? 'open' : ''}" data-month="${i}">
-      <h4>${escapeHtml(m.label)}<span>${m.working_days}d</span></h4>
-      <div class="cal-daygrid">${cells}</div>${flag}
-      <div class="cal-tl-expand">${open ? '▾ hide' : '▸ open'}</div></div>`;
+    return `<div class="cal-whc ${open ? 'open' : ''}" data-month="${i}" title="${escapeHtml(m.label)}: ${wd} working · ${nw} non-working — click to open its calendar">
+      <div class="cal-wht">${tot}</div>
+      <div class="cal-whcol"><div class="cal-whn" style="height:${nwPx}px"></div><div class="cal-whw" style="height:${wPx}px"></div></div>
+      <div class="cal-whl">${escapeHtml(m.label)}${open ? ' ▾' : ''}</div></div>`;
   }).join('');
+  const hleg = `<div class="cal-whleg"><span><i class="wsw wsw-w"></i>Working days</span><span><i class="wsw wsw-n"></i>Non-working (weekends + holidays + shutdowns)</span></div>`;
   const detail = _monthDetailHtml();
-  const legend = `<div class="cal-legend">
+  const dayLegend = _openMonths.size ? `<div class="cal-legend" style="margin-top:10px">
     <span><i class="dot cs-work"></i>Working</span>
     <span><i class="dot cs-weekend"></i>Weekend</span>
     <span><i class="dot cs-holiday"></i>Holiday</span>
     <span><i class="dot cs-shutdown"></i>Shutdown</span>
-    <span><i class="dot cs-special"></i>Special hours</span></div>`;
+    <span><i class="dot cs-special"></i>Special hours</span></div>` : '';
   const proj = _ca.project || {};
   const hidden = proj.hidden_months || 0;
   const dd = _ca.dashboard && _ca.dashboard.data_date;
-  const noteTxt = hidden
-    ? `from the data date · full months · click a month to open its calendar`
-    : `full months · click a month to open its calendar`;
   const hiddenChip = hidden
     ? `<div class="cal-hidden-note">◀ <b>${hidden} earlier month${hidden === 1 ? '' : 's'}</b> hidden — everything before the data date${dd ? ` (${fmtCalDate(dd)})` : ''}</div>`
     : '';
   return _sec(2, 'Calendar Timeline',
-      `<span class="cal-sec-note">${noteTxt}</span>
+      `<span class="cal-sec-note">working vs non-working days per month · click a month to open its calendar</span>
        <span class="cal-showing">Showing: ${_calPicker()}</span>`) +
-    legend + hiddenChip + `<div class="cal-timeline">${strips || '<span class="cal-muted">No months.</span>'}</div>` +
-    `<div id="cal-month-detail">${detail}</div>`;
+    hiddenChip + hleg + `<div class="cal-whist">${bars || '<span class="cal-muted">No months.</span>'}</div>` +
+    dayLegend + `<div id="cal-month-detail">${detail}</div>`;
 }
 
 function _monthDetailHtml() {
@@ -461,8 +459,8 @@ function _weatherSection() {
       <div class="cal-cause-n">${val}</div></div>`;
   }).join('');
   const causeCard = (w.by_cause || []).length
-    ? `<div class="cal-grp"><span class="cal-pill shutdown">What's driving the lost days</span>
-        <span class="cal-grp-meta">which condition to plan around</span></div>
+    ? `<div class="cal-grp"><span class="cal-pill shutdown">What's causing the lost days — by weather type</span>
+        <span class="cal-grp-meta">which condition to plan around (heat → shift hours earlier; rain → drainage)</span></div>
        <div class="cal-card">${causeRows}</div>`
     : '';
   const conclHtml = w.conclusion
@@ -503,9 +501,9 @@ function _wire() {
   const picker = document.getElementById('cal-picker');
   if (picker) picker.addEventListener('change', e => { _sel = e.target.value; _openMonths.clear(); _render(); });
 
-  document.querySelectorAll('#calendar-body .cal-tl-month').forEach(card =>
-    card.addEventListener('click', () => {
-      const i = +card.dataset.month;
+  document.querySelectorAll('#calendar-body .cal-whc').forEach(bar =>
+    bar.addEventListener('click', () => {
+      const i = +bar.dataset.month;
       if (_openMonths.has(i)) _openMonths.delete(i); else _openMonths.add(i);
       _render();
     }));

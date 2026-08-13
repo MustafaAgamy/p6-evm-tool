@@ -68,6 +68,29 @@ def _monthly_stats(months):
             f'<th class="num">Working Hours</th></tr></thead><tbody>{rows}</tbody></table>')
 
 
+def _working_hist(months):
+    """§2 as a working vs non-working days-per-month histogram (Ibrahim's restructure —
+    replaces the crude colour strip; the exact numbers are the §3 table)."""
+    if not months:
+        return ''
+    mx = max((m['working_days'] + m.get('nonworking_days', 0) for m in months), default=0) or 1
+    cols = ''
+    for m in months:
+        wd = m['working_days']
+        nw = m.get('nonworking_days', 0)
+        tot = wd + nw
+        totpx = round(tot / mx * 92)
+        nwpx = round(nw / tot * totpx) if tot else 0
+        wpx = max(0, totpx - nwpx)
+        cols += (f'<div class="whc"><div class="wht">{tot}</div>'
+                 f'<div class="whcol"><div class="whn" style="height:{nwpx}px"></div>'
+                 f'<div class="whw" style="height:{wpx}px"></div></div>'
+                 f'<div class="whl">{_esc(m["label"])}</div></div>')
+    legend = ('<div class="whleg"><span><i style="background:#22c55e"></i>Working days</span>'
+              '<span><i style="background:#cbd5e1"></i>Non-working (weekends + holidays + shutdowns)</span></div>')
+    return legend + f'<div class="whist">{cols}</div>'
+
+
 def _month_grids(months, hidden_months=0, tl_from=None):
     blocks = []
     for m in months:
@@ -89,13 +112,15 @@ def _month_grids(months, hidden_months=0, tl_from=None):
                                      ('Special hours', '#3b82f6')])
               + '</div>')
     if hidden_months:
-        sub = (f'— from the data date ({_fmt(tl_from)}) to finish · '
+        sub = (f'— working vs non-working days per month, from the data date ({_fmt(tl_from)}) · '
                f'{hidden_months} earlier month{"s" if hidden_months != 1 else ""} hidden')
     else:
-        sub = '— shown in full months'
+        sub = '— working vs non-working days per month'
     return ('<h2 class="sec">2 · Calendar Timeline '
             '<span style="font-weight:400;font-size:9.5px;color:#8a93a0;text-transform:none;letter-spacing:0">'
             f'{_esc(sub)}</span></h2>'
+            + _working_hist(months)
+            + '<div class="sub2">Each month’s calendar — holiday / shutdown names shown in the day cells</div>'
             + legend + f'<div class="mgrids">{"".join(blocks)}</div>')
 
 
@@ -249,7 +274,9 @@ def _weather_section(weather):
         cause_rows += (f'<tr><td>{_esc(c["label"])}</td><td class="num">{cnt}</td>'
                        f'<td class="num">{share}</td></tr>')
     cause_table = (
-        '<div class="grp"><span class="pill" style="background:#b45309">What&rsquo;s Driving the Lost Days</span></div>'
+        '<div class="grp"><span class="pill" style="background:#b45309">What&rsquo;s Causing the Lost Days — by Weather Type</span></div>'
+        '<p class="lg">Of all the bad-weather days, which condition causes them — so you know what to '
+        'plan around (heat-driven → shift the working day earlier; rain-driven → drainage / protection).</p>'
         '<table><thead><tr><th>Cause</th><th class="num">Days</th><th class="num">Share of flagged days</th>'
         f'</tr></thead><tbody>{cause_rows or _empty(3)}</tbody></table>')
     ms = ''.join(
@@ -382,6 +409,16 @@ def render_calendar_report(result, meta, weather=None, sections=None):
   .hp .h {{ font-size: 17px; font-weight: 800; color: #17457a; margin-top: 2px; }}
   .hp .s {{ font-size: 9px; color: #8a93a0; margin-top: 3px; }}
   .mgrids {{ display: flex; flex-wrap: wrap; gap: 12px; }}
+  .whleg {{ display: flex; gap: 14px; margin: 4px 0 8px; font-size: 9px; color: #5b6472; }}
+  .whleg span {{ display: inline-flex; align-items: center; gap: 4px; }}
+  .whleg i {{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }}
+  .whist {{ display: flex; align-items: flex-end; gap: 8px; height: 118px; border-bottom: 1.5px solid #dbe1e8; padding: 0 2px; margin-bottom: 10px; }}
+  .whc {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }}
+  .wht {{ font-size: 8px; font-weight: 800; color: #0f2440; margin-bottom: 2px; }}
+  .whcol {{ width: 62%; max-width: 34px; }}
+  .whn {{ background: #cbd5e1; }}
+  .whw {{ background: #22c55e; border-radius: 3px 3px 0 0; }}
+  .whl {{ font-size: 7.5px; color: #8a93a0; margin-top: 3px; }}
   .mgrid-wrap {{ width: 230px; }}
   .mgrid-t {{ font-size: 10px; font-weight: 700; margin-bottom: 4px; }}
   .mgrid {{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }}

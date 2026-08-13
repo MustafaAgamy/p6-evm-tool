@@ -102,7 +102,10 @@ def test_comparison_sheet_has_nonworking_days(tmp_path):
     p = tmp_path / 'cal.xlsx'
     write_calendar_xlsx(str(p), _ca())
     txt = _sheets_text(p)
-    assert 'Non-Working Days' in txt          # #09 column present
+    assert 'Non-Working Days' in txt          # #09 Comparison column + #02 monthly-stats column
+    # each calendar's monthly-stats table carries the Non-Working Days column too (#02)
+    with zipfile.ZipFile(p) as z:
+        assert 'Non-Working Days' in z.read('xl/worksheets/sheet1.xml').decode()
 
 
 def test_workbook_from_real_audit_end_to_end(tmp_path):

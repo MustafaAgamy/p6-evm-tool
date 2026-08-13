@@ -761,6 +761,23 @@ body {
 .cal-hidden-note { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); background:var(--bg); border:1px dashed var(--border); border-radius:8px; padding:7px 12px; margin-bottom:10px; }
 .cal-hidden-note b { color:var(--accent); }
 
+/* Calendar Timeline as a working/non-working days-per-month histogram */
+.cal-whist { display:flex; align-items:flex-end; gap:10px; height:150px; border-bottom:2px solid var(--border); padding:0 4px; margin:2px 0 0; overflow-x:auto; }
+.cal-whc { flex:1; min-width:34px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; cursor:pointer; }
+.cal-whc:hover .cal-whw { filter:brightness(1.06); }
+.cal-whc.open .cal-whl { color:var(--accent); font-weight:700; }
+.cal-wht { font-size:10px; font-weight:800; color:var(--text); margin-bottom:3px; }
+.cal-whcol { width:60%; max-width:40px; }
+.cal-whn { background:#cbd5e1; }
+.cal-whw { background:#22c55e; border-radius:4px 4px 0 0; }
+:root:not(.light) .cal-whn { background:#334155; }
+.cal-whl { font-size:9px; color:var(--muted); margin-top:5px; text-align:center; white-space:nowrap; }
+.cal-whleg { display:flex; gap:16px; font-size:11px; color:var(--muted); margin:8px 0; }
+.cal-whleg span { display:flex; align-items:center; gap:6px; }
+.wsw { width:11px; height:11px; border-radius:3px; display:inline-block; }
+.wsw-w { background:#22c55e; } .wsw-n { background:#cbd5e1; }
+:root:not(.light) .wsw-n { background:#334155; }
+
 /* Section picker (#06) — choose which sections the PDF prints */
 .cal-print-card { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:0 14px; margin-bottom:14px; }
 .cal-print-card summary { cursor:pointer; padding:11px 2px; font-size:12.5px; font-weight:600; color:var(--text); list-style:none; }

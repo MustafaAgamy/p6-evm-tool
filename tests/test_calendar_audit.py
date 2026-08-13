@@ -178,6 +178,10 @@ def test_monthly_stats_present(tmp_path):
     assert labels[0].startswith('Feb 2025')
     assert labels[-1].startswith('Mar 2025')
     assert all('working_days' in m and 'working_hours' in m for m in prim['monthly_stats'])
+    # working + non-working = the days shown that month (drives the §2 histogram)
+    for m in prim['monthly_stats']:
+        assert m['working_days'] + m['nonworking_days'] == len(m['days'])
+        assert m['nonworking_days'] >= 0
 
 
 def test_comparison_has_nonworking_not_activities(tmp_path):

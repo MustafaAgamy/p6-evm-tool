@@ -255,8 +255,8 @@ def _months_for_calendar(cal, start, finish, shutdown_dates, date_names=None):
         months.append({
             'label': f'{_MONTH_ABBR[m]} {y}', 'year': y, 'month': m,
             'first_weekday': m_first.weekday(),  # Mon=0
-            'working_days': wd, 'holidays': hol, 'exceptions': exc,
-            'working_hours': round(hours, 1), 'flag': flag, 'days': days,
+            'working_days': wd, 'nonworking_days': len(days) - wd, 'holidays': hol,
+            'exceptions': exc, 'working_hours': round(hours, 1), 'flag': flag, 'days': days,
         })
     return months
 
