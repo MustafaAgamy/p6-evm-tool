@@ -191,6 +191,15 @@
               <div class="cc-title">Consultant Review</div>
               <div class="cc-sub">Baseline vs current update — driving logic, lag &amp; duration changes and the right delay</div>
             </button>
+            <button class="chooser-card" data-view="lag">
+              <div class="cc-icon" style="background:#0ea5e9">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h11l5 5v11a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M8 12h8M8 16h8M8 8h4"/>
+                </svg>
+              </div>
+              <div class="cc-title">Lag Report</div>
+              <div class="cc-sub">Every relationship lag &amp; lead, with a justification column — charts, register, PDF &amp; Excel</div>
+            </button>
           </div>
         </div>
 
@@ -202,6 +211,7 @@
           <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
           <button class="view-tab" id="tab-construct" data-view="construct">🧠 Constructability</button>
           <button class="view-tab" id="tab-compare" data-view="compare">Consultant Review</button>
+          <button class="view-tab" id="tab-lag" data-view="lag">Lag Report</button>
           <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
 
@@ -246,6 +256,14 @@
 
         <div class="view-panel hidden" id="compare-panel">
           <div id="compare-body"></div>
+        </div>
+
+        <div class="view-panel hidden" id="lag-panel">
+          <div id="lag-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="lag-excel-btn">Export to Excel</button>
+            <button class="btn-primary" id="lag-pdf-btn">Generate Lag Report PDF</button>
+          </div>
         </div>
         </div><!-- /analysis-views -->
       </section>

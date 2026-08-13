@@ -179,6 +179,13 @@ def run_lag_lead(graph, config):
     positives = sum(1 for f in findings if f['lag_days'] > 0)
     crit_c = sum(1 for f in findings if f['criticality'] == 'Critical')
     near_c = sum(1 for f in findings if f['criticality'] == 'Near-Critical')
+    # Mutually-exclusive makeup for the report charts: every lag is a lead (any negative),
+    # a long positive (> threshold), or a normal positive (1..threshold). Need-a-reason = the
+    # highlighted ones = leads + long positives. (long_count above counts long by magnitude,
+    # so it also includes long leads; the chart segments must not double-count them.)
+    long_positive = sum(1 for f in findings if f['lag_days'] > long_days)
+    normal_positive = positives - long_positive
+    need_justification = leads + long_positive
 
     by_type = []
     for t in ('FS', 'SS', 'FF', 'SF'):
@@ -211,6 +218,9 @@ def run_lag_lead(graph, config):
             'leads_count':          leads,
             'positive_count':       positives,
             'long_count':           longs,
+            'long_positive_count':  long_positive,
+            'normal_count':         normal_positive,
+            'need_justification_count': need_justification,
             'long_threshold_days':  long_days,
             'critical_count':       crit_c,
             'near_critical_count':  near_c,

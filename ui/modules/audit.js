@@ -65,17 +65,21 @@ export function switchView(view) {
   document.getElementById('calendar-panel').classList.toggle('hidden', view !== 'calendar');
   document.getElementById('construct-panel').classList.toggle('hidden', view !== 'construct');
   document.getElementById('compare-panel').classList.toggle('hidden', view !== 'compare');
+  document.getElementById('lag-panel').classList.toggle('hidden', view !== 'lag');
   document.getElementById('tab-evm').classList.toggle('active', view === 'evm');
   document.getElementById('tab-audit').classList.toggle('active', view === 'audit');
   document.getElementById('tab-oos').classList.toggle('active', view === 'oos');
   document.getElementById('tab-calendar').classList.toggle('active', view === 'calendar');
   document.getElementById('tab-construct').classList.toggle('active', view === 'construct');
   document.getElementById('tab-compare').classList.toggle('active', view === 'compare');
+  document.getElementById('tab-lag').classList.toggle('active', view === 'lag');
   // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
   document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
   document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');
-  // Out of Sequence exports reuse the module export path with a fixed module id.
+  // Out of Sequence and Lag Report are top-level views but reuse the module export path
+  // (PDF/Excel) with a fixed module id.
   if (view === 'oos') state.currentModule = 'out_of_sequence';
+  if (view === 'lag') state.currentModule = 'lag_lead';
 }
 
 // Show the "EVM vs Schedule Audit" choice; hide both analysis views until picked.
@@ -105,8 +109,9 @@ export function renderAudit(auditModules) {
   // Always rebuild a fresh #module-body so repeated renders never hit a
   // container that a prior "no audit" render replaced.
   body.innerHTML = '<div id="module-body"></div>';
-  // Out of Sequence is shown as its own top-level feature, not a Schedule Audit tab.
-  const order = ((auditModules && auditModules.module_order) || []).filter(k => k !== 'out_of_sequence');
+  // Out of Sequence and Lag Report are shown as their own top-level features, not Schedule Audit tabs.
+  const order = ((auditModules && auditModules.module_order) || [])
+    .filter(k => k !== 'out_of_sequence' && k !== 'lag_lead');
   if (!order.length) {
     tabs.innerHTML = '';
     document.getElementById('module-body').innerHTML =
@@ -122,14 +127,6 @@ export function renderAudit(auditModules) {
       return `<button class="module-tab" data-module="float">
         <span ${dot}></span>${escapeHtml(m.name)}
         <span class="mt-score">${hasData ? m.mgmt.float_health : '—'}</span></button>`;
-    }
-    // Lag & Lead leads with a pass / needs-attention verdict (no module score), so its tab
-    // shows a verdict-coloured dot and the DCMA lag % rather than a /100 score.
-    if (key === 'lag_lead') {
-      const pass = ((m.kpis || {}).verdict || 'Pass') === 'Pass';
-      return `<button class="module-tab" data-module="lag_lead">
-        <span class="mt-dot ${pass ? 'g-exc' : 'g-need'}"></span>${escapeHtml(m.name)}
-        <span class="mt-score">${(m.kpis || {}).lagged_pct ?? 0}%</span></button>`;
     }
     return `<button class="module-tab" data-module="${escapeHtml(key)}">
       <span class="mt-dot ${gradeClass(m.grade)}"></span>${escapeHtml(m.name)}
@@ -348,7 +345,6 @@ export function renderOosPanel(auditModules) {
 
 function renderModuleBody(m) {
   if (m.module === 'float') return renderFloatModule(m);
-  if (m.module === 'lag_lead') return renderLagModule(m);
   const C = 326.7;
   const verdict = m.module === 'dangling'
     ? `${m.pct}% of activities have broken start/finish logic.`
@@ -561,29 +557,9 @@ function renderRows() {
   }).join('');
 }
 
-// ── Lag & Lead Audit — DCMA lag/lead report (dashboard view) ──────────────
+// ── Lag Report — standalone report (charts + register + editable justification) ──
 
 let _lagFilter = { query: '', flaggedOnly: false };
-
-function lagTiles(k) {
-  const overLine = (k.lagged_pct ?? 0) > (k.dcma_lag_line ?? 5);
-  const tiles = [
-    ['Links with a Lag', (k.lagged_count || 0).toLocaleString(), '',
-      `of ${(k.total_relationships || 0).toLocaleString()} relationships`],
-    ['Lag %', `${k.lagged_pct ?? 0}%`, overLine ? 'color-amber' : '',
-      `DCMA line: ≤ ${k.dcma_lag_line ?? 5}%`],
-    ['Leads (negative lag)', String(k.leads_count || 0), (k.leads_count > 0) ? 'color-red' : '',
-      'DCMA line: zero'],
-    ['Long Lags', String(k.long_count || 0), '',
-      `> ${k.long_threshold_days ?? 14} working days`],
-    ['On Critical Path', String(k.critical_count || 0), (k.critical_count > 0) ? 'color-blue' : '',
-      'these move the finish'],
-  ];
-  return tiles.map(([lab, val, cls, note]) =>
-    `<div class="kpi"><div class="k">${escapeHtml(lab)}</div>` +
-    `<div class="v ${cls}">${escapeHtml(val)}</div>` +
-    `<div class="n">${escapeHtml(note)}</div></div>`).join('');
-}
 
 function lagBar(pct) {
   const w = Math.max(0, Math.min(100, Math.round(pct || 0)));
@@ -633,7 +609,10 @@ function renderLagRows(m) {
   if (!tbody) return;
   const rows = lagRowsFiltered(m);
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">No lags match.</td></tr>`;
+    const empty = !(m.findings || []).length
+      ? 'No lags or leads in this schedule — every relationship drives directly.'
+      : 'No lags match your search.';
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">${empty}</td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map((f, i) => `
@@ -656,13 +635,52 @@ function renderLagRows(m) {
   });
 }
 
-function renderLagModule(m) {
+// Lag makeup donut: normal (grey) · long positive (amber) · leads (red). Centre = to-justify count.
+function lagDonut(k) {
+  const normal = k.normal_count || 0, longp = k.long_positive_count || 0, leads = k.leads_count || 0;
+  const total = normal + longp + leads;
+  const need = k.need_justification_count ?? (longp + leads);
+  const thr = k.long_threshold_days || 14;
+  const C = 251.33;
+  let off = 0;
+  const seg = (val, color) => {
+    if (!val || !total) return '';
+    const len = C * val / total;
+    const s = `<circle cx="50" cy="50" r="40" fill="none" stroke="${color}" stroke-width="15" ` +
+      `stroke-dasharray="${len.toFixed(1)} ${C}" stroke-dashoffset="${(-off).toFixed(1)}"/>`;
+    off += len; return s;
+  };
+  return `<div class="lag-donut">
+    <svg width="90" height="90" viewBox="0 0 100 100" aria-hidden="true">
+      <g transform="rotate(-90 50 50)">${seg(normal, '#475569')}${seg(longp, '#fbbf24')}${seg(leads, '#f87171')}</g>
+      <text x="50" y="48" text-anchor="middle" font-size="18" font-weight="800" fill="currentColor">${need}</text>
+      <text x="50" y="62" text-anchor="middle" font-size="8" fill="#94a3b8">to justify</text>
+    </svg>
+    <div class="lag-leg">
+      <div><span class="ld-dot" style="background:#475569"></span>Normal &le;${thr} wd <b>${normal}</b></div>
+      <div><span class="ld-dot" style="background:#fbbf24"></span>Long &gt;${thr} wd <b>${longp}</b></div>
+      <div><span class="ld-dot" style="background:#f87171"></span>Leads <b>${leads}</b></div>
+      <div><span class="ld-dot" style="background:#3b82f6"></span>On critical path <b>${k.critical_count || 0}</b></div>
+    </div>
+  </div>`;
+}
+
+// Lag Report — a standalone top-level report (register of all project lags + charts), not a
+// Schedule Audit tab. Renders into #lag-body. No verdict/score — that's the separate scoring feature.
+export function renderLagPanel(auditModules) {
+  const body = document.getElementById('lag-body');
+  if (!body) return;
+  const m = auditModules && auditModules.modules && auditModules.modules.lag_lead;
+  if (!m) {
+    body.innerHTML = '<p style="color:var(--muted);font-size:13px">No lag report for this schedule.</p>';
+    return;
+  }
   const k = m.kpis || {};
-  const pass = (k.verdict || 'Pass') === 'Pass';
   const byType = k.by_type || [];
   const ws = m.wbs_summary || [];
   const typeMax = Math.max(1, ...byType.map(t => t.count || 0));
   const wbsMax = Math.max(1, ...ws.map(r => r.lagged || 0));
+  const thr = k.long_threshold_days || 14;
   _lagFilter = { query: '', flaggedOnly: false };
 
   const typeRows = byType.map(t =>
@@ -674,24 +692,24 @@ function renderLagModule(m) {
     `${lagBar(100 * (r.lagged || 0) / wbsMax)}<span class="lag-dv">${r.lagged} · ${r.pct}%</span></div>`).join('')
     || '<div style="color:var(--muted);font-size:12px">No lags to distribute.</div>';
 
-  const conclusion = k.executive_conclusion ? `
-    <div class="mod-sec">What it means</div>
-    <div class="oos-concl">${escapeHtml(k.executive_conclusion)}</div>` : '';
+  const total = k.lagged_count || 0;
+  const need = k.need_justification_count ?? ((k.leads_count || 0) + (k.long_positive_count || 0));
 
-  document.getElementById('module-body').innerHTML = `
-    <div class="lag-verdict ${pass ? 'ok' : 'warn'}">
-      <div class="lv-badge">${escapeHtml(k.verdict || 'Pass')}</div>
-      <div class="lv-reason">${escapeHtml(k.verdict_reason || '')}</div>
-    </div>
-    <div class="kpi-tiles">${lagTiles(k)}</div>
-
-    <div class="mod-sec">Where the lags sit</div>
-    <div class="lag-dist">
-      <div class="lag-panel"><div class="lag-ph">By relationship type</div>${typeRows}</div>
-      <div class="lag-panel"><div class="lag-ph">By WBS area</div>${wbsRows}</div>
+  body.innerHTML = `
+    <div class="lag-rpt-head">
+      <div class="lag-rpt-title">Lag report</div>
+      <div class="lag-rpt-meta"><b>${total.toLocaleString()}</b> lags across the schedule · ` +
+        `<b>${need}</b> need a justification (lag over ${thr} working days, or a lead) · listed worst first</div>
     </div>
 
-    <div class="mod-sec">Lag &amp; Lead Register <span class="mod-sub">— all project lags, worst first</span></div>
+    <div class="lag-charts">
+      <div class="lag-panel"><div class="lag-ph">Lags by relationship type</div>${typeRows}</div>
+      <div class="lag-panel"><div class="lag-ph">Lags by WBS area</div>${wbsRows}</div>
+      <div class="lag-panel"><div class="lag-ph">Lag makeup</div>${lagDonut(k)}</div>
+    </div>
+
+    <div class="lag-hint">Every relationship carrying a lag or a lead is listed. The <b class="lag-hl">highlighted</b> ones &mdash; lag over ${thr} working days, or a lead &mdash; are the ones to explain: <b>type a reason in the Justification column</b>. It saves with the project and prints into the PDF and Excel.</div>
+
     <div class="filters">
       <input class="searchbox" id="lag-search" placeholder="🔍  Search activity ID, name or predecessor…">
       <label class="lag-toggle"><input type="checkbox" id="lag-flagged"> Flagged only (leads &amp; long lags)</label>
@@ -701,8 +719,7 @@ function renderLagModule(m) {
       <th>Pred. Relationship</th><th>Pred. Name</th>
       <th>Succ. Relationship</th><th>Succ. Name</th>
       <th class="lag-jcol">Justification</th>
-    </tr></thead><tbody id="lag-tbody"></tbody></table></div>
-    ${conclusion}`;
+    </tr></thead><tbody id="lag-tbody"></tbody></table></div>`;
 
   document.getElementById('lag-search').addEventListener('input', e => {
     _lagFilter.query = e.target.value; renderLagRows(m);

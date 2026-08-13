@@ -233,14 +233,32 @@ def test_excel_columns_lag_lead():
 
 
 def test_render_module_report_lag_lead_smoke():
+    # Report-first layout: a "Lag Report" header, the summary line, the charts and the register.
+    # No verdict / DCMA scoring in the report itself — that's the separate scoring feature.
     from p6_audit.report import render_module_report
     g = _g({'p': _act('p'), 's': _act('s', is_critical=True, total_float_days=-1.0)},
            [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': -20}])
     mod = run_lag_lead(g, CONFIG)
     html = render_module_report(mod, {'project_name': 'Demo'})
-    assert 'Lag &amp; Lead Register' in html
-    assert 'Needs attention' in html
-    assert 'DCMA' in html
+    assert 'Lag Report' in html                    # report title / kicker
+    assert 'Lag &amp; Lead Register' in html        # the register section
+    assert 'need a justification' in html           # report summary line
+    assert 'Lag charts' in html                     # the charts section
+    assert 'Needs attention' not in html            # verdict lives in the scoring feature, not here
+
+
+def test_makeup_counts_are_mutually_exclusive():
+    # leads (any negative) + long positives (> threshold) + normal positives (1..threshold) = all lags.
+    g = _g({'p': _act('p'), 'lead': _act('lead'), 'long': _act('long'), 'norm': _act('norm')},
+           [{'pred_id': 'p', 'succ_id': 'lead', 'type': 'FS', 'lag_days': -20},   # lead (also long by magnitude)
+            {'pred_id': 'p', 'succ_id': 'long', 'type': 'FS', 'lag_days': 18},    # long positive
+            {'pred_id': 'p', 'succ_id': 'norm', 'type': 'FS', 'lag_days': 6}])    # normal positive
+    k = run_lag_lead(g, CONFIG)['kpis']
+    assert k['leads_count'] == 1
+    assert k['long_positive_count'] == 1
+    assert k['normal_count'] == 1
+    assert k['need_justification_count'] == 2       # lead + long positive (normal needs no reason)
+    assert k['leads_count'] + k['long_positive_count'] + k['normal_count'] == k['lagged_count']
 
 
 # ── End-to-end via the parser + audit_modules ───────────────────────────────
