@@ -421,6 +421,92 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/narrative ────────────────────────────────────────────────────
+    def _handle_narrative(self, body):
+        """Baseline Narrative — assemble the Basis-of-Schedule document from the
+        parsed baseline. Re-parses, pulls the Calendar feature's report and the full
+        activity-code catalog, and returns the document model + rendered HTML. A thin
+        assembler over the existing engines — recomputes no number. No `records`."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_narrative.builder import build_narrative
+            from p6_narrative.html import render_narrative_html
+            from p6_narrative.codes import read_code_catalog
+            data = parse_file(resolved)
+
+            # Calendars & holidays reuse the Calendar feature. Prefer the report already
+            # cached for this snapshot (identical to the Calendar Audit tab, including the
+            # holiday/shutdown names the user set); fall back to computing it if absent.
+            calendar_report = None
+            snapshot_id = body.get('snapshot_id')
+            try:
+                if snapshot_id:
+                    calendar_report = db.get_calendar_audit(snapshot_id)
+                if calendar_report is None:
+                    from p6_calendar import calendar_audit
+                    calendar_report = calendar_audit(data)
+            except Exception as cal_exc:
+                print(f'[narrative] calendar section skipped: {cal_exc}', file=sys.stderr)
+
+            code_catalog = read_code_catalog(resolved)
+            doc = build_narrative(data, calendar_report=calendar_report, code_catalog=code_catalog)
+            doc_dict = doc.to_dict()
+            self._json(200, {'ok': True, 'doc': doc_dict,
+                             'html': render_narrative_html(doc_dict), 'counts': doc.counts()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/docx ───────────────────────────────────────────────
+    def _handle_narrative_docx(self, body):
+        """Write the (possibly user-edited) narrative to an editable Word file. The
+        client holds the document and applies in-app prose edits, so no re-parse."""
+        doc_dict = body.get('doc')
+        output_path = body.get('output_path', '')
+        if not doc_dict or not output_path:
+            self._json(200, {'ok': False, 'error': 'Missing document or output path'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_narrative.builder import apply_edits
+            from p6_narrative.docx_writer import write_docx
+            write_docx(apply_edits(doc_dict, body.get('edits')), os.path.abspath(output_path))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/pdf ────────────────────────────────────────────────
+    def _handle_narrative_pdf(self, body):
+        """Render the (edited) narrative to PDF via Chrome headless — same pipeline
+        as the other reports, so the PDF reflects the user's on-screen edits."""
+        doc_dict = body.get('doc')
+        output_path = body.get('output_path', '')
+        if not doc_dict or not output_path:
+            self._json(200, {'ok': False, 'error': 'Missing document or output path'})
+            return
+        try:
+            import subprocess, tempfile
+            sys.path.insert(0, resource_path('.'))
+            from p6_narrative.builder import apply_edits
+            from p6_narrative.html import page_html
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(page_html(apply_edits(doc_dict, body.get('edits'))))
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/compare/corrected-xml ────────────────────────────────────────
     def _handle_corrected_xml(self, body):
         """Consultant Review — write the corrected 'but-for' XML: revert the selected

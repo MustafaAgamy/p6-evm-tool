@@ -24,12 +24,13 @@ class Api:
     def choose_save_path(self, default_name='report.pdf', file_type='pdf'):
         """Open native save dialog; returns absolute path string or None.
 
-        file_type ∈ {'pdf', 'xlsx', 'xml'} chooses the dialog filter.
+        file_type ∈ {'pdf', 'xlsx', 'xml', 'docx'} chooses the dialog filter.
         """
         types = {
             'pdf':  ('PDF Files (*.pdf)',),
             'xlsx': ('Excel Files (*.xlsx)',),
             'xml':  ('P6 XML Files (*.xml)',),
+            'docx': ('Word Files (*.docx)',),
         }.get(file_type, ('All Files (*.*)',))
         result = webview.windows[0].create_file_dialog(
             webview.SAVE_DIALOG,

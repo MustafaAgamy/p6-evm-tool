@@ -191,6 +191,15 @@
               <div class="cc-title">Consultant Review</div>
               <div class="cc-sub">Baseline vs current update — driving logic, lag &amp; duration changes and the right delay</div>
             </button>
+            <button class="chooser-card" data-view="narrative">
+              <div class="cc-icon" style="background:linear-gradient(135deg,#265f7e,#3487ae)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6a2 2 0 0 0-2 2z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/>
+                </svg>
+              </div>
+              <div class="cc-title">Baseline Narrative</div>
+              <div class="cc-sub">Auto-writes the Basis-of-Schedule document from your baseline — brief, WBS, codes, calendars, sequence charts, cash flow · Word &amp; PDF</div>
+            </button>
           </div>
         </div>
 
@@ -202,6 +211,7 @@
           <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
           <button class="view-tab" id="tab-construct" data-view="construct">🧠 Constructability</button>
           <button class="view-tab" id="tab-compare" data-view="compare">Consultant Review</button>
+          <button class="view-tab" id="tab-narrative" data-view="narrative">📄 Baseline Narrative</button>
           <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
 
@@ -246,6 +256,14 @@
 
         <div class="view-panel hidden" id="compare-panel">
           <div id="compare-body"></div>
+        </div>
+
+        <div class="view-panel hidden" id="narrative-panel">
+          <div id="narrative-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="narrative-word-btn">Export Word</button>
+            <button class="btn-primary" id="narrative-pdf-btn">Export PDF</button>
+          </div>
         </div>
         </div><!-- /analysis-views -->
       </section>

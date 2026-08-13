@@ -18,4 +18,5 @@ export const state = {
   constructForcedType: null, // user-overridden project sub-type, if any
   compareReport:     null,   // Consultant Review — last Baseline vs Update report dict
   compareBaselineName: null, // filename of the baseline chosen for the comparison
+  narrativeDoc:      null,   // Baseline Narrative — generated document model (for edits + export)
 };

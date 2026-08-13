@@ -9,6 +9,7 @@
 
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
 
@@ -48,12 +49,33 @@ hiddenimports = [
     'p6_kb.detect',
     'p6_kb.model',
     'p6_kb.scoring',
+    # Baseline Narrative generator (assembler over the existing engines)
+    'p6_narrative',
+    'p6_narrative.builder',
+    'p6_narrative.html',
+    'p6_narrative.docx_writer',
+    'p6_narrative.sequence',
+    'p6_narrative.costflow',
+    'p6_narrative.codes',
+    'p6_narrative.model',
+    'p6_narrative.util',
 ]
+
+# ── Third-party packages that need their data/binaries bundled ──────────────
+# python-docx ships a default template (.docx) as package data, and pulls in lxml
+# (compiled). collect_all grabs each package's modules, data files and binaries so
+# the Word export works in the frozen .exe — same idea as openpyxl above.
+binaries = []
+for _pkg in ('docx', 'lxml'):
+    _d, _b, _h = collect_all(_pkg)
+    datas += _d
+    binaries += _b
+    hiddenimports += _h
 
 a = Analysis(
     ['app.py'],
     pathex=[],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
