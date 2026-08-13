@@ -75,6 +75,18 @@ def test_render_html_includes_dashboard_charts():
     assert '<svg' in h                             # delay + donut are SVG
 
 
+def test_render_html_caps_tables_for_manager_report():
+    from p6_compare.exporters import _PDF_ROW_CAP
+    r = _report()
+    n = _PDF_ROW_CAP + 20
+    r['logic']['rows'] = [dict(r['logic']['rows'][0], activity_id=f'A{i}') for i in range(n)]
+    r['durations']['rows'] = [dict(r['durations']['rows'][0], activity_id=f'D{i}') for i in range(n)]
+    h = render_html(r)
+    assert f'first {_PDF_ROW_CAP} of {n} logic' in h        # logic table capped, points to Excel
+    assert f'{_PDF_ROW_CAP} largest of {n} duration' in h   # duration table capped
+    assert 'Excel export' in h
+
+
 def test_render_html_without_impact_is_self_contained_landscape():
     h = render_html(_report())
     assert h.startswith('<!doctype html>')

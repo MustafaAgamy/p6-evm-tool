@@ -12,6 +12,10 @@ _GREY = '#888781'
 _BLUE = '#2a78d6'
 _RED = '#e24b4a'
 
+# Manager-report PDF: cap each table so the PDF stays a readable few pages (was ~470 on a
+# real project); the complete row-by-row detail goes to the Excel export.
+_PDF_ROW_CAP = 50
+
 
 def _e(v):
     return html.escape(str(v if v is not None else ''))
@@ -101,12 +105,13 @@ def _tile(label, value, sub=None):
     return f'<div class="tile"><div class="tl">{_e(label)}</div><div class="tv">{_e(value)}</div>{s}</div>'
 
 
-def _logic_table_html(report):
+def _logic_table_html(report, cap=_PDF_ROW_CAP):
     rows = (report.get('logic', {}) or {}).get('rows', [])
     if not rows:
         return '<p class="note">No driving relationship or lag changes vs the baseline.</p>'
+    shown, total = rows[:cap], len(rows)
     body = []
-    for i, r in enumerate(rows, start=1):
+    for i, r in enumerate(shown, start=1):
         body.append(
             '<tr>'
             f'<td class="num">{i}</td>'
@@ -132,13 +137,16 @@ def _logic_table_html(report):
         '<th colspan="6" class="grpu">Update — driving links</th></tr>'
         '<tr><th>Pred ID</th><th>Pred rel</th><th>Pred name</th><th>Succ ID</th><th>Succ rel</th><th>Succ name</th>'
         '<th>Pred ID</th><th>Pred rel</th><th>Pred name</th><th>Succ ID</th><th>Succ rel</th><th>Succ name</th></tr>'
-        '</thead><tbody>' + ''.join(body) + '</tbody></table>')
+        '</thead><tbody>' + ''.join(body) + '</tbody></table>'
+        + (f'<p class="note">Showing the first {cap} of {total} logic / lag changes — the '
+           f'complete list is in the Excel export.</p>' if total > cap else ''))
 
 
-def _duration_table_html(report):
+def _duration_table_html(report, cap=_PDF_ROW_CAP):
     rows = (report.get('durations', {}) or {}).get('rows', [])
     if not rows:
         return '<p class="note">No duration or remaining changes vs the baseline.</p>'
+    total = len(rows)
     body = ''.join(
         '<tr>'
         f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
@@ -148,11 +156,13 @@ def _duration_table_html(report):
         f'<td class="num">{_e(r.get("remaining_minus_baseline_days"))} d</td>'
         f'<td>{_e(r.get("status"))}</td>'
         f'<td>{_e(_impact_word(r.get("impact")))}</td></tr>'
-        for r in rows)
+        for r in rows[:cap])
+    more = (f'<p class="note">Showing the {cap} largest of {total} duration / remaining changes — '
+            f'the full list is in the Excel export.</p>' if total > cap else '')
     return ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th>'
             '<th>Baseline orig.</th><th>Update orig.</th><th>Remaining</th><th>Rem − baseline</th>'
             '<th>Status</th><th>Impact on finish</th></tr></thead><tbody>' + body + '</tbody></table>'
-            + _duration_legend_html())
+            + _duration_legend_html() + more)
 
 
 def _duration_legend_html():
