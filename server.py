@@ -649,6 +649,8 @@ class Handler(BaseHTTPRequestHandler):
         trend = body.get('trend')
         sections = body.get('sections')            # None = all; else list of section keys to include
         code_filter = body.get('code_filter')      # {type, value} to limit the activity tables
+        critical_style = body.get('critical_style') or 'chain'   # chain | timeline | table (picked on screen)
+        critical_mode = body.get('critical_mode') or 'leaf-parent'
         preview = bool(body.get('preview'))
         output_path = body.get('output_path', '')
         if not preview and not output_path:
@@ -658,7 +660,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_period.exporters import render_html
             import subprocess, tempfile
-            html_content = render_html(report, trend, sections, code_filter)
+            html_content = render_html(report, trend, sections, code_filter, critical_style, critical_mode)
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

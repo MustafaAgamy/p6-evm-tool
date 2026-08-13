@@ -1065,6 +1065,13 @@ body {
 .cpdia { width: 11px; height: 11px; transform: rotate(45deg); border-radius: 2px; margin-bottom: 3px; } .cpdia.now { background: var(--danger); } .cpdia.was { background: var(--muted); }
 .cpslip { font-size: 11.5px; color: var(--danger); font-weight: 700; margin-top: 3px; }
 .cpsw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin: 0 5px 0 12px; }
+/* critical-path compact-table style */
+.cptable { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 2px; }
+.cptable th, .cptable td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+.cptable th { background: var(--card-bg); color: var(--accent, #3b82f6); font-size: 11px; }
+.cptable td.cpt-k { font-weight: 700; color: var(--muted); width: 130px; white-space: nowrap; }
+.cptable .cpt-red { color: var(--danger); font-weight: 700; } .cptable .cpt-mut { color: var(--muted); }
+.cptable td.cpt-fin { font-weight: 700; }
 /* what moved planned-vs-actual */
 .per-wmrow { display: flex; align-items: center; gap: 10px; margin: 7px 0; } .per-wml { width: 104px; font-size: 12.5px; }
 .per-wmtrack { flex: 1; position: relative; height: 20px; min-width: 120px; }

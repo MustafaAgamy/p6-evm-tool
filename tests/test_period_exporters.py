@@ -183,9 +183,53 @@ def test_critical_compare_one_row_when_route_unchanged():
 
 def test_render_html_uses_connected_chain_not_boxes():
     html = render_html(_report(), trend=None)
-    assert 'cpchain' in html and 'cpblk shared' in html  # the connected-chain critical path
+    assert 'cpchain' in html and 'cpblk shared' in html  # the connected-chain critical path (default style)
     assert 'rerouted at Steel' in html                   # plain conclusion in the section
     assert 'the finish-driving route' in html.lower()    # section heading
+
+
+def test_critical_compare_timeline_style_draws_svg_gantt():
+    from p6_period.exporters import _critical_compare_html
+    html = _critical_compare_html(_report(), style='timeline')
+    assert '<svg' in html and 'Critical path timeline' in html    # date-axis Gantt, not the block chain
+    assert 'cpchain' not in html and 'cptable' not in html
+    assert 'WAS · 30-Jun-2026' in html and 'NOW · 31-Jul-2026' in html   # the two data dates label the rows
+    assert 'rerouted here' in html and '#f87171' in html          # divergence marker + new route drawn red
+    assert 'finish 12-Mar-2027' in html and 'finish 26-Mar-2027' in html
+    assert '+14 wd' in html                                        # the total-slip bracket
+    assert 'rerouted at Steel' in html                            # the shared plain conclusion is still there
+
+
+def test_critical_compare_table_style_lists_routes_with_red_new_tail():
+    from p6_period.exporters import _critical_compare_html
+    html = _critical_compare_html(_report(), style='table')
+    assert 'cptable' in html and '<svg' not in html and 'cpchain' not in html
+    assert 'Driving route' in html and 'Forecast finish' in html and 'Rerouted at' in html
+    assert 'Foundations → Steel → Cladding → Roof' in html         # the Was route in full (plain)
+    assert 'cpt-red' in html and '(+14 wd)' in html                # new tail + slip shown in red
+    assert '12-Mar-2027' in html and '26-Mar-2027' in html
+    assert 'rerouted at Steel' in html                            # the shared plain conclusion
+
+
+def test_critical_compare_table_unchanged_says_so():
+    from p6_period.exporters import _critical_compare_html
+    rep = _report()
+    rep['critical_path'] = {'previous': rep['critical_path']['previous'],
+                            'current': rep['critical_path']['previous']}
+    rep['summary'] = dict(rep['summary'], finish_slip_days=0,               # same route AND no slip
+                          forecast_finish_now=rep['summary']['forecast_finish_prev'])
+    html = _critical_compare_html(rep, style='table')
+    assert 'cptable' in html and 'unchanged this period' in html   # the Rerouted-at row reads unchanged
+    assert 'cpt-red' not in html                                   # nothing red when the route held and no slip
+
+
+def test_render_html_critical_style_carries_into_pdf():
+    # check for the rendered markup (class="cpchain"), not the CSS block which always defines .cpchain
+    assert 'class="cpchain"' in render_html(_report(), trend=None)               # default = chain
+    tl = render_html(_report(), trend=None, critical_style='timeline')
+    assert 'Critical path timeline' in tl and 'class="cpchain"' not in tl        # timeline replaces the chain in the PDF
+    tb = render_html(_report(), trend=None, critical_style='table')
+    assert 'class="cptable"' in tb and 'class="cpchain"' not in tb               # table replaces the chain in the PDF
 
 
 # ── #01 — the exported PDF must respect the on-screen activity-code filter ────
