@@ -29,6 +29,32 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Calendar Comparison reworked** — the Activities column is gone (counts live in Usage) and the last column now counts the **non-working days still ahead** (from the data date to finish), with the period stated.
 - **Clearer tables** — plain-language legends for the Calendar Usage roles (Default / Non-default / Unused) and the Milestone Impact columns (Net = Before − Already in calendar).
 
+## [v1.2.1] - 2026-08-13
+### Added — Update vs Update: choose how the critical path is presented
+- **Critical-path style picker** — the critical-path comparison can now be shown three ways, and you choose which: **Connected chain** (blocks end-to-end; one row when the route is unchanged — the default), **Date-axis timeline** (the finish-driving route on a real calendar, WAS over NOW, so you watch the finish slide), and **Compact table** (Was vs Now as text rows — the most print-dense). All three are drawn from the **same** data (route, dates, divergence, slip), so every figure is identical — only the drawing changes.
+- **The choice carries into the PDF.** Pick a style on the on-screen card or in the Export-PDF preview; the exported report uses exactly that style (and the grouping you set), and your choice is remembered for next time.
+
+## [v1.2.0] - 2026-08-13
+### Added — Update vs Update (Windows Analysis)
+- **New "Update vs Update" analysis** — the sibling of Consultant Review, but the reference is **last period**, not the baseline. Give it the current update and the previous one (auto-suggested from your import history, or pick a file); it shows *what moved this period*. Its own tab, in the same module style.
+- **Progress measured against last period's forecast** — the dashboard leads with what you actually earned this period vs what the **previous update itself forecast** for it (e.g. *41% where you said 43%*), labelled **"forecast achievement"** (not SPI — that's reserved for the plan), plus the forecast-finish slip and the cumulative-delay change.
+- **Progress by activity — % complete this period** — every activity whose % moved between the two updates (Activity ID · name · previous % · current % · signed variance), biggest gain first; any activity whose % went **backwards** is flagged as a data-integrity check.
+- **Critical-path movement in this window** — the critical / near-critical (float ≤ 10 wd) activities whose finish slipped or that **newly entered the critical path**, with the driver (progress shortfall / logic changed / duration extended).
+- **What moved this period** — finished / started / slipped / stalled / re-sequenced counts; "re-sequenced" reuses the logic/lag engine measured against last period.
+- **Period S-curve** — actual to date vs the previous update's own forecast line; the gap at the data date is this period's shortfall.
+- **Milestone finish trend (slip chart)** — each key milestone's forecast finish plotted across **every** update you've imported (rising = slipping), backfilled from stored schedules so it's populated from day one.
+- **SPI, Delay & % Complete comparison strips** — the dashboard leads with three **Previous → Current → Variance** strips, each labelled with its **cutoff (data) date**: Overall % Complete, **SPI** (Earned ÷ Planned) and **Delay vs baseline**. SPI and Delay are the same figures the EVM tab shows at each cutoff. Sign rule: the arrow follows the number, the colour follows good/bad (SPI ▲ = better, Delay ▲ = worse).
+- **Cutoff dates** stated at the top of the dashboard (previous vs current data date).
+- **Activity-code slicer** on the Progress-by-activity table — pick a code type (Discipline / Area / Phase — whatever your schedule carries) and a value to see just those activities' current vs previous % complete.
+- **Two conclusions** — an *Executive conclusion* for the period and a new *Project conclusion & outlook* for where the whole project stands.
+- **Executive conclusion + PDF + Excel.** The Excel mirrors the PDF (one sheet: Progress-by-activity then Critical-path-movement sections under a project/cutoff header). Isolated `p6_period` engine; **EVM calculation untouched** and every figure (actual %, SPI, delay, finish) reuses what the EVM tab already computes.
+- **Management-grade report (planning-manager enhancement).** The PDF/preview is now a two-audience report: **Page 1 — Execution Dashboard** for management (a status verdict banner, a four-card scorecard — % Complete, SPI, Delay and **Forecast finish, each Previous → Current** — a **Recovery outlook** projecting the landing date and the rate needed to hold the baseline, key facts incl. **schedule adherence**, the S-curve and a recommendation), and **Page 2 — planner detail** (progress, critical-path movement, a **next-period watch list** of near-critical work, what-moved, milestone trend, project conclusion). The recovery/adherence/watch figures are indicative planning projections, clearly flagged (not a P6 reschedule).
+- **Export previews first.** Export PDF now opens a **preview** of the exact report before you choose where to save.
+- **Right way round.** The two updates are ordered by **data date** — earlier = Previous, later = Current — regardless of load order.
+- **Activity-code columns in Excel.** Every activity table in the Excel export (progress, critical-path, watch list) appends one column per activity code (Discipline / Area / Phase / …) so you can filter or pivot by any code; the on-screen progress table keeps its code slicer. PDF numeric columns now align under their headers.
+- **Critical-path comparison, rebuilt for clarity (from testing).** The finish-driving route now reads as one **connected chain** of blocks — each labelled with the months it spans — led by a plain-English conclusion. When the route is **unchanged** you see a **single row**; only when it **reroutes** do two aligned rows appear (shared start in blue, the **new route in red**, the dropped route in grey), with the **total finish slip** called out. Replaces the earlier WBS "boxes" and an interim date-axis timeline (both read as too abstract / left floating gaps on real data). It reads your schedule's own WBS so it works for any construction type, and you can still regroup by any WBS level or activity code. Screen **and** PDF. Per-segment day-splits are deliberately not shown — attributing a slip to single activities needs a full P6 time-impact analysis, which this report does not do.
+- **Exported PDF respects the activity-code filter (fix, from testing).** When you pick an activity code and export the report, every activity table now shows **only that code** — previously the PDF showed all activities regardless of the on-screen filter.
+
 ### Fixed — Consultant Review (from real-project testing)
 - **Baseline finish** now shows when the baseline is a XER — it falls back to the latest activity finish (the XER reader stores no project finish, so it was blank).
 - **Driving successor changes** are now highlighted in the change table; previously only the predecessor side was checked.
@@ -74,6 +100,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Guarded the round-trip** — the "load rescheduled file" step now checks what you loaded and warns if it's the current update (nothing reverted) or a corrected file you haven't F9'd yet (finish unchanged). The screen also spells out the two ways to use the corrected file: **read the delay straight from P6** after F9 (no re-export), or re-export and load it back for the full before/after report.
 
 ---
+
+### Added — Weather Impact (Calendar Audit)
+- **Weather Impact layer** — set the **project location on an interactive map** and the tool estimates **bad-weather days**, the **milestone slip** they cause, a **weather-adjusted finish** and recovery options. Construction-only, from the free Open-Meteo service; clearly an **estimate**, kept separate from the exact P6 Delay, and offline-safe once fetched. Added to the Calendar Audit's **PDF + Excel** export.
 
 ## [v1.1.0] - 2026-08-08
 ### Added — EVM Results V2 (consultant report)
