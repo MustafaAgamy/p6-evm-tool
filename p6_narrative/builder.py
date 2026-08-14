@@ -62,6 +62,26 @@ def _wbs_tree(data):
     return out
 
 
+def _wbs_tree_nested(data):
+    """Nested WBS tree ([{name, children:[...]}]) for the org-chart renderer."""
+    wbs = data.wbs
+    children, roots = {}, []
+    for oid, node in wbs.items():
+        parent = node.get('parent_object_id')
+        (children.setdefault(parent, []).append(oid)
+         if parent and parent in wbs else roots.append(oid))
+    seen = set()
+
+    def build(oid):
+        if oid in seen:                 # guard against a malformed WBS parent cycle
+            return None
+        seen.add(oid)
+        kids = [build(c) for c in children.get(oid, [])]
+        return {'name': wbs[oid].get('name') or '—', 'children': [k for k in kids if k]}
+
+    return [t for t in (build(r) for r in roots) if t]
+
+
 def _dedup(rows):
     seen, out = set(), []
     for r in rows:
@@ -163,7 +183,9 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None):
                                 note='From the Calendar feature — matches Calendar Audit.'))
 
     sections.append(Section('6', 'Work breakdown structure', 'wbs', 'auto',
-                            payload={'nodes': _wbs_tree(data)}))
+                            payload={'nodes': _wbs_tree(data), 'tree': _wbs_tree_nested(data)},
+                            note='Phase → Main WBS → each branch’s sub-WBS, as an org-chart. '
+                                 'Word carries the same WBS as an editable outline.'))
 
     sections.append(Section('7', 'Activity codes', 'codes', 'auto',
                             payload=_codes_payload(data, code_catalog)))

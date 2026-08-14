@@ -59,11 +59,23 @@ def _calendars(p):
 
 
 def _wbs(p):
-    rows = ''.join(
-        f'<div class="bn-wr" style="padding-left:{14 + n.get("level",0)*22}px">'
-        f'{"› " if n.get("level") else ""}{_esc(n["name"])}</div>'
-        for n in p.get('nodes', []))
-    return f'<div class="bn-wbs">{rows}</div>'
+    from p6_narrative.wbs_chart import org_chart_svg
+    tree = p.get('tree') or []
+    if not tree:
+        return '<p class="bn-empty">No WBS in the file.</p>'
+    root = tree[0]
+    overview = {'name': root.get('name'),
+                'children': [{'name': c.get('name')} for c in (root.get('children') or [])]}
+    out = (f'<div class="bn-wbsblock"><div class="bn-wbstitle">{_esc(root.get("name"))} — Main WBS</div>'
+           f'{org_chart_svg(overview)}</div>')
+    for c in root.get('children') or []:            # each main branch → its own sub-WBS chart
+        if c.get('children'):
+            out += (f'<div class="bn-wbsblock"><div class="bn-wbstitle">{_esc(c.get("name"))} — sub-WBS</div>'
+                    f'{org_chart_svg(c)}</div>')
+    for extra in tree[1:]:                            # rare: extra roots
+        out += (f'<div class="bn-wbsblock"><div class="bn-wbstitle">{_esc(extra.get("name"))}</div>'
+                f'{org_chart_svg(extra)}</div>')
+    return out
 
 
 def _codes(p):
@@ -234,4 +246,7 @@ _CSS = """
 .bn-disc p{margin:0 0 8px}
 .bn-pkgs{display:flex;flex-wrap:wrap;gap:6px}
 .bn-pkgchip{font-family:system-ui,sans-serif;font-size:11.5px;background:#f4f6f9;border:1px solid #ebeef1;border-radius:14px;padding:3px 10px;color:#565c64}
+.bn-wbsblock{border:1px solid #dadee4;border-radius:10px;margin:10px 0;overflow:hidden}
+.bn-wbstitle{background:#265f7e;color:#fff;font-family:system-ui,sans-serif;font-weight:600;font-size:13px;padding:8px 14px}
+.bn-wbsblock .bn-tw{margin:0;padding:12px}
 """
