@@ -126,13 +126,20 @@ def _calendars_payload(calendar_report):
     return {'calendars': calendars, 'holidays': holidays}
 
 
-def build_narrative(data, calendar_report=None, code_catalog=None, meta=None):
+def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, setup=None):
     project = data.project or {}
     name = project.get('name') or 'the project'
     meta = dict(meta or {})
     meta.setdefault('project_name', name)
     meta.setdefault('project_id', project.get('id'))
     meta.setdefault('data_date', _fmt_date(project.get('data_date')))
+    # Project setup (parties + logos + layout) — the details P6 doesn't hold. Logos ride
+    # in the meta (they become the Word page header); the layout image fills §2.
+    setup = setup or {}
+    logos = {k: setup.get(k + '_logo') for k in ('owner', 'consultant', 'contractor')
+             if setup.get(k + '_logo')}
+    if logos:
+        meta['logos'] = logos
 
     acts = list(data.activities.values())
     total_bac = round(sum(data.bac_by_activity.values()), 2) if data.bac_by_activity else 0.0
@@ -148,7 +155,15 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None):
                             payload={'paragraphs': [intro]}, editable=True,
                             note='Drafted from the schedule — edit freely.'))
 
-    brief = [('Project name', name)]
+    sections.append(Section('2', 'Project layout', 'image', 'fill',
+                            payload={'image': setup.get('layout')},
+                            note='Your project layout image, from setup.'))
+
+    brief = []
+    for key, lbl in (('owner', 'Owner'), ('consultant', 'Consultant'), ('contractor', 'Contractor')):
+        if setup.get(key):
+            brief.append((lbl, setup[key]))
+    brief.append(('Project name', name))
     if project.get('id'):
         brief.append(('Project ID', project['id']))
     brief += [('Data date', _fmt_date(project.get('data_date'))),

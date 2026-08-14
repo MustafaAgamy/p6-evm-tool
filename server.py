@@ -454,7 +454,8 @@ class Handler(BaseHTTPRequestHandler):
                 print(f'[narrative] calendar section skipped: {cal_exc}', file=sys.stderr)
 
             code_catalog = read_code_catalog(resolved)
-            doc = build_narrative(data, calendar_report=calendar_report, code_catalog=code_catalog)
+            doc = build_narrative(data, calendar_report=calendar_report, code_catalog=code_catalog,
+                                  setup=body.get('setup'))
             doc_dict = doc.to_dict()
             self._json(200, {'ok': True, 'doc': doc_dict,
                              'html': render_narrative_html(doc_dict), 'counts': doc.counts()})

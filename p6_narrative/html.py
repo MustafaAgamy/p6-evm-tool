@@ -89,23 +89,51 @@ def _codes(p):
     return f'<div class="bn-codes">{cards or "<p class=bn-empty>No activity codes in the file.</p>"}</div>'
 
 
-def _sequence(p):
+def _seq_flow(ch):
+    pkgs = ''
+    for i, pk in enumerate(ch.get('packages', [])):
+        steps = ''.join(f'<div class="bn-step">{_esc(s["name"])}</div>' for s in pk.get('steps', []))
+        arrow = '' if i == 0 else '<div class="bn-arrow">→</div>'
+        pkgs += (f'{arrow}<div class="bn-pkg"><div class="bn-pkgt">{_esc(pk["name"])}</div>'
+                 f'<div class="bn-steps">{steps}</div></div>')
+    return f'<div class="bn-flowscroll"><div class="bn-flow">{pkgs}</div></div>'
+
+
+def _seq_timeline(ch):
+    packages = ch.get('packages', [])
+    segs = ''
+    for i, pk in enumerate(packages):
+        radius = ''
+        if i == 0:
+            radius += 'border-top-left-radius:7px;border-bottom-left-radius:7px;'
+        if i == len(packages) - 1:
+            radius += 'border-top-right-radius:7px;border-bottom-right-radius:7px;'
+        steps = ' · '.join(_esc(s['name']) for s in pk.get('steps', [])[:4])
+        segs += (f'<div class="bn-tlseg" style="{radius}"><div class="bn-tlname">{_esc(pk["name"])}</div>'
+                 f'<div class="bn-tlsteps">{steps}</div></div>')
+    return f'<div class="bn-flowscroll"><div class="bn-timeline">{segs}</div></div>'
+
+
+def _sequence(p, style=None):
+    """Render the per-discipline sequence charts. ``style`` None → emit both Flow and
+    Timeline (the on-screen chooser toggles them); 'flow'/'timeline' → only that one
+    (used by the export, from meta.sequence_style)."""
     out = ''.join(f'<p>{_esc(t)}</p>' for t in p.get('paragraphs', []))
     for ch in p.get('charts', []):
-        pkgs = ''
-        for i, pk in enumerate(ch.get('packages', [])):
-            steps = ''.join(f'<div class="bn-step">{_esc(s["name"])}</div>' for s in pk.get('steps', []))
-            arrow = '' if i == 0 else '<div class="bn-arrow">→</div>'
-            pkgs += (f'{arrow}<div class="bn-pkg"><div class="bn-pkgt">{_esc(pk["name"])}</div>'
-                     f'<div class="bn-steps">{steps}</div></div>')
         cont = ''
         if ch.get('chart_count', 1) > 1:
             cont = (f'<div class="bn-cont">{ch.get("steps_shown")} of {ch.get("steps_total")} steps · '
                     f'continues on chart {min(ch["chart_index"]+1, ch["chart_count"])} of {ch["chart_count"]}</div>')
-        out += (f'<div class="bn-chart"><div class="bn-charth">'
-                f'<span class="bn-disc">{_esc(ch["discipline"])}</span>'
-                f'<span class="bn-cn">chart {ch.get("chart_index",1)} of {ch.get("chart_count",1)}</span></div>'
-                f'<div class="bn-flowscroll"><div class="bn-flow">{pkgs}</div></div>{cont}</div>')
+        head = (f'<div class="bn-charth"><span class="bn-disc">{_esc(ch["discipline"])}</span>'
+                f'<span class="bn-cn">chart {ch.get("chart_index",1)} of {ch.get("chart_count",1)}</span></div>')
+        if style == 'timeline':
+            views = _seq_timeline(ch)
+        elif style == 'flow':
+            views = _seq_flow(ch)
+        else:
+            views = (f'<div class="bn-view-flow">{_seq_flow(ch)}</div>'
+                     f'<div class="bn-view-timeline" style="display:none">{_seq_timeline(ch)}</div>')
+        out += f'<div class="bn-chart">{head}{views}{cont}</div>'
     return out
 
 
@@ -152,14 +180,40 @@ def _scope(p):
     return out
 
 
+def _image(p):
+    img = p.get('image')
+    if img:
+        return (f'<div class="bn-tw"><img src="{_esc(img)}" alt="Project layout" '
+                f'style="max-width:100%;border:1px solid #dadee4;border-radius:8px"/></div>')
+    return '<p class="bn-empty">No layout image added in project setup.</p>'
+
+
+def _logo_header(meta):
+    logos = (meta or {}).get('logos') or {}
+    if not logos:
+        return ''
+    cells = ''
+    for k in ('owner', 'consultant', 'contractor'):
+        src = logos.get(k)
+        cells += ('<td style="text-align:center;width:33%;padding:2px 6px">'
+                  + (f'<img src="{_esc(src)}" style="max-height:46px;max-width:150px"/>' if src else '')
+                  + '</td>')
+    return f'<table class="bn-loghdr"><tr>{cells}</tr></table>'
+
+
 _RENDER = {'prose': _prose, 'keyvals': _keyvals, 'table': _table, 'wbs': _wbs,
            'codes': _codes, 'sequence': _sequence, 'costbars': _costbars,
-           'cashflow': _cashflow, 'calendars': _calendars, 'scope': _scope}
+           'cashflow': _cashflow, 'calendars': _calendars, 'scope': _scope, 'image': _image}
 
 
-def _section(s):
-    body = _calendars(s['payload']) if s['kind'] == 'table' and s['payload'].get('view') == 'calendars' \
-        else _RENDER.get(s['kind'], lambda p: '')(s['payload'])
+def _section(s, seq_style=None):
+    kind, p = s['kind'], s['payload']
+    if kind == 'table' and p.get('view') == 'calendars':
+        body = _calendars(p)
+    elif kind == 'sequence':
+        body = _sequence(p, seq_style)
+    else:
+        body = _RENDER.get(kind, lambda p: '')(p)
     note = f'<div class="bn-note">{_esc(s["note"])}</div>' if s.get('note') else ''
     edit = ' data-editable="1"' if s.get('editable') else ''
     return (f'<section class="bn-sec" data-num="{_esc(s["number"])}"{edit}>'
@@ -168,20 +222,28 @@ def _section(s):
             f'{note}<div class="bn-body">{body}</div></section>')
 
 
-def render_narrative_html(doc):
+def render_narrative_html(doc, seq_style=None):
     meta = doc.get('meta', {})
-    sections = ''.join(_section(s) for s in doc.get('sections', []))
+    sections = ''.join(_section(s, seq_style) for s in doc.get('sections', []))
+    header = _logo_header(meta)
+    parties = ''
+    for k, lbl in (('owner', 'Owner'), ('consultant', 'Consultant'), ('contractor', 'Contractor')):
+        if meta.get(k):
+            parties += f'{lbl}: {_esc(meta[k])} · '
     cover = (f'<div class="bn-cover"><div class="bn-kt">Detailed Baseline Narrative</div>'
              f'<h1>{_esc(meta.get("project_name","Project"))}</h1>'
-             f'<div class="bn-gen">generated by nPace · data date {_esc(meta.get("data_date","—"))}</div></div>')
-    return f'<style>{_CSS}</style><div class="bn-doc">{cover}{sections}</div>'
+             + (f'<div class="bn-gen">{parties.rstrip(" ··")}</div>' if parties else '')
+             + f'<div class="bn-gen">generated by nPace · data date {_esc(meta.get("data_date","—"))}</div></div>')
+    return f'<style>{_CSS}</style><div class="bn-doc">{header}{cover}{sections}</div>'
 
 
 def page_html(doc):
-    """Full standalone HTML page (for Chrome → PDF)."""
+    """Full standalone HTML page (for Chrome → PDF). Renders the sequence in the one
+    style the user chose (meta.sequence_style), so the PDF matches the screen."""
+    seq_style = (doc.get('meta') or {}).get('sequence_style') or 'flow'
     return ('<!doctype html><html><head><meta charset="utf-8">'
             '<style>body{margin:0;background:#fff}</style></head><body>'
-            + render_narrative_html(doc) + '</body></html>')
+            + render_narrative_html(doc, seq_style=seq_style) + '</body></html>')
 
 
 _CSS = """
@@ -249,4 +311,11 @@ _CSS = """
 .bn-wbsblock{border:1px solid #dadee4;border-radius:10px;margin:10px 0;overflow:hidden}
 .bn-wbstitle{background:#265f7e;color:#fff;font-family:system-ui,sans-serif;font-weight:600;font-size:13px;padding:8px 14px}
 .bn-wbsblock .bn-tw{margin:0;padding:12px}
+.bn-timeline{display:flex;min-width:min-content;gap:2px}
+.bn-tlseg{background:#3487ae;color:#fff;padding:9px 14px;min-width:118px;flex:0 0 auto}
+.bn-tlseg:nth-child(even){background:#4a97bb}
+.bn-tlname{font-family:system-ui,sans-serif;font-size:12px;font-weight:700}
+.bn-tlsteps{font-family:system-ui,sans-serif;font-size:10.5px;opacity:.85;margin-top:2px}
+.bn-loghdr{width:100%;border-collapse:collapse;border-bottom:1.5px solid #dadee4;margin-bottom:14px;table-layout:fixed}
+.bn-loghdr td{vertical-align:middle;padding-bottom:8px}
 """
