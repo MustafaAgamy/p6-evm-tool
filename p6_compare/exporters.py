@@ -87,7 +87,21 @@ def _scurve_svg(sc):
     xlab = ''.join(
         f'<text x="{xat(i):.1f}" y="{y0 + 18}" text-anchor="middle" font-size="11" fill="#666">{_e(periods[i])}</text>'
         for i in range(0, n, step))
-    return f'''<svg viewBox="0 0 940 285" width="100%">
+    m = sc.get('markers') or {}
+    bx = xat(m['baseline_idx']) if m.get('baseline_idx') is not None else None
+    ux = xat(m['update_idx']) if m.get('update_idx') is not None else None
+    marks = ''
+    if bx is not None and ux is not None and ux > bx:
+        marks += f'<rect x="{bx:.1f}" y="{y1}" width="{ux - bx:.1f}" height="{y0 - y1}" fill="rgba(226,75,74,.09)"/>'
+        marks += f'<text x="{(bx + ux) / 2:.1f}" y="{y1 + 13}" text-anchor="middle" font-size="10" font-weight="700" fill="{_RED}">&#9668; slip &#9658;</text>'
+    if bx is not None:
+        marks += (f'<line x1="{bx:.1f}" y1="{y1}" x2="{bx:.1f}" y2="{y0}" stroke="{_GREY}" stroke-width="1" stroke-dasharray="4 3"/>'
+                  f'<text x="{bx:.1f}" y="{y1 - 4}" text-anchor="middle" font-size="10" font-weight="700" fill="{_GREY}">Baseline {_e(m.get("baseline_label"))}</text>')
+    if ux is not None:
+        marks += (f'<line x1="{ux:.1f}" y1="{y1}" x2="{ux:.1f}" y2="{y0}" stroke="{_RED}" stroke-width="1" stroke-dasharray="4 3"/>'
+                  f'<text x="{ux:.1f}" y="{y1 - 4}" text-anchor="middle" font-size="10" font-weight="700" fill="{_RED}">Update {_e(m.get("update_label"))}</text>')
+    return f'''<svg viewBox="0 0 940 292" width="100%">
+      {marks}
       <line x1="{x0}" y1="{y0}" x2="{x1}" y2="{y0}" stroke="#ccc"/>
       <line x1="{x0}" y1="{y1}" x2="{x0}" y2="{y0}" stroke="#ccc"/>
       <text x="{x0 - 6}" y="{y1 + 4}" text-anchor="end" font-size="11" fill="#666">100%</text>

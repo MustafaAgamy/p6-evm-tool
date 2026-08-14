@@ -577,7 +577,21 @@ function _scurveSvg(sc) {
   for (let i = 0; i < n; i += step) {
     xlabels += `<text x="${xAt(i).toFixed(1)}" y="198" text-anchor="middle" style="fill:var(--muted);font-size:9px">${escapeHtml(periods[i])}</text>`;
   }
-  return `<svg viewBox="0 0 620 214" width="100%" role="img" aria-label="S-curve comparing baseline, before-changes and after-changes cumulative progress over time">
+  // Finish markers: where the baseline plan lands vs where the update lands — the gap is the slip.
+  const m = sc.markers || {};
+  const bx = m.baseline_idx != null ? xAt(m.baseline_idx) : null;
+  const ux = m.update_idx != null ? xAt(m.update_idx) : null;
+  let marks = '';
+  if (bx != null && ux != null && ux > bx) {
+    marks += `<rect x="${bx.toFixed(1)}" y="${y1}" width="${(ux - bx).toFixed(1)}" height="${y0 - y1}" fill="rgba(226,75,74,.09)"/>`;
+    marks += `<text x="${((bx + ux) / 2).toFixed(1)}" y="${y1 + 12}" text-anchor="middle" style="fill:#e24b4a;font-size:8.5px;font-weight:700">◄ slip ►</text>`;
+  }
+  if (bx != null) marks += `<line x1="${bx.toFixed(1)}" y1="${y1}" x2="${bx.toFixed(1)}" y2="${y0}" stroke="#888781" stroke-width="1" stroke-dasharray="3 2"/>` +
+    `<text x="${bx.toFixed(1)}" y="${y1 - 4}" text-anchor="middle" style="fill:#888781;font-size:8.5px;font-weight:700">Baseline ${escapeHtml(m.baseline_label || '')}</text>`;
+  if (ux != null) marks += `<line x1="${ux.toFixed(1)}" y1="${y1}" x2="${ux.toFixed(1)}" y2="${y0}" stroke="#e24b4a" stroke-width="1" stroke-dasharray="3 2"/>` +
+    `<text x="${ux.toFixed(1)}" y="${y1 - 4}" text-anchor="middle" style="fill:#e24b4a;font-size:8.5px;font-weight:700">Update ${escapeHtml(m.update_label || '')}</text>`;
+  return `<svg viewBox="0 0 620 220" width="100%" role="img" aria-label="S-curve: baseline plan vs update, with the finish of each marked and the slip between them shaded">
+    ${marks}
     <line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="var(--border)" stroke-width="1"/>
     <line x1="${x0}" y1="${y1}" x2="${x0}" y2="${y0}" stroke="var(--border)" stroke-width="1"/>
     <text x="${x0 - 6}" y="${y1 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">100%</text>
@@ -601,7 +615,7 @@ function _scurveSection(sc) {
         <span><i style="background:#2a78d6"></i>But-for (corrected)</span>
       </div>
       ${_scurveSvg(sc)}
-      <div class="cmp-scurve-note">Planned progress profile from each schedule's activity dates &amp; durations — the gap between reported and but-for is the manufactured slip. The exact delay is in the numbers above.</div>
+      <div class="cmp-scurve-note">Each curve reaches 100% at that schedule's finish — the dashed lines mark the <b>baseline finish</b> and the <b>update finish</b>, and the shaded band between them is the <b>slip</b>. The but-for curve shows where the finish would sit with the flagged changes reverted; the exact delay is in the numbers above.</div>
     </div>`;
 }
 
