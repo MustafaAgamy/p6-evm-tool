@@ -127,9 +127,22 @@ def _cashflow(p):
             f'<text x="36" y="{h-16}" text-anchor="end" class="bn-axl">0</text></svg></div>')
 
 
+def _scope(p):
+    out = f'<p>{_esc(p.get("intro", ""))}</p>' if p.get('intro') else ''
+    for b in p.get('blocks', []):
+        chips = ''.join(f'<span class="bn-pkgchip">{_esc(x)}</span>'
+                        for x in (b.get('packages') or [])[:12])
+        cost = f' · {b["cost"]:,.0f}' if b.get('cost') else ''
+        out += (f'<div class="bn-disc"><div class="bn-disch">{_esc(b.get("discipline"))}'
+                f'<span class="bn-discm">{b.get("activity_count", 0)} activities{_esc(cost)}</span></div>'
+                f'<p>{_esc(b.get("paragraph", ""))}</p>'
+                f'<div class="bn-pkgs">{chips}</div></div>')
+    return out
+
+
 _RENDER = {'prose': _prose, 'keyvals': _keyvals, 'table': _table, 'wbs': _wbs,
            'codes': _codes, 'sequence': _sequence, 'costbars': _costbars,
-           'cashflow': _cashflow, 'calendars': _calendars}
+           'cashflow': _cashflow, 'calendars': _calendars, 'scope': _scope}
 
 
 def _section(s):
@@ -215,4 +228,10 @@ _CSS = """
 .bn-area{fill:#e7f0f5}.bn-line{fill:none;stroke:#3487ae;stroke-width:2.5}
 .bn-dot{fill:#3487ae}.bn-axl{fill:#8a9099;font-size:11px}
 [data-editable] .bn-body{outline:1px dashed transparent}
+.bn-disc{border:1px solid #dadee4;border-left:4px solid #3487ae;border-radius:8px;padding:11px 14px;margin:9px 0}
+.bn-disch{font-family:system-ui,sans-serif;font-size:14px;font-weight:700;display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:5px}
+.bn-discm{font-family:'Cascadia Code',Consolas,monospace;font-size:11px;color:#8a9099;font-weight:400}
+.bn-disc p{margin:0 0 8px}
+.bn-pkgs{display:flex;flex-wrap:wrap;gap:6px}
+.bn-pkgchip{font-family:system-ui,sans-serif;font-size:11.5px;background:#f4f6f9;border:1px solid #ebeef1;border-radius:14px;padding:3px 10px;color:#565c64}
 """

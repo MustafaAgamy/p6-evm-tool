@@ -54,6 +54,14 @@ def _render(doc, section):
     elif kind == 'table':
         rows = p.get('rows', []) or [['—'] * max(len(p.get('columns', [])), 1)]
         _add_table(doc, p.get('columns', []) or ['—'], rows)
+    elif kind == 'scope':
+        if p.get('intro'):
+            doc.add_paragraph(p['intro'])
+        for b in p.get('blocks', []):
+            doc.add_heading(b.get('discipline', ''), level=2)
+            doc.add_paragraph(b.get('paragraph', ''))
+            if b.get('packages'):
+                doc.add_paragraph('Work-packages: ' + ', '.join(b['packages']))
     elif kind == 'wbs':
         for n in p.get('nodes', []):
             prefix = ('    ' * n.get('level', 0)) + ('› ' if n.get('level') else '')

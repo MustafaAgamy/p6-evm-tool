@@ -9,6 +9,7 @@ from datetime import date
 
 from p6_narrative.costflow import cash_flow, cost_by_wbs
 from p6_narrative.model import NarrativeDoc, Section
+from p6_narrative.scope import scope_blocks
 from p6_narrative.sequence import build_sequences
 from p6_narrative.util import as_date
 
@@ -146,14 +147,14 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None):
                             payload={'columns': ['Milestone', 'Date'], 'rows': ms},
                             note=None if ms else 'No milestone activities found in the file.'))
 
-    branches = [w.get('name') for oid, w in data.wbs.items()
-                if not (w.get('parent_object_id') in data.wbs)]
+    scope = scope_blocks(acts, data.wbs, code_types=data.activity_code_types,
+                         bac_by_activity=data.bac_by_activity)
     sections.append(Section(
-        '4', 'Scope of work', 'prose', 'drafted',
-        payload={'paragraphs': [f"The scope of {name} is organised under the following "
-                                f"work-breakdown branches; each is described below."],
-                 'bullets': [b for b in branches if b]},
-        editable=True, note='Scaffolded from your WBS — write the descriptions.'))
+        '4', 'Scope of work', 'scope', 'auto',
+        payload={'intro': f"The scope of {name} is delivered across the following "
+                          f"disciplines, read from the programme:",
+                 'blocks': scope},
+        note='Discussed per discipline from your file — one written block per discipline.'))
 
     calp = _calendars_payload(calendar_report)
     if calp is not None:
