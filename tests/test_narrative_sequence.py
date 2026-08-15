@@ -71,11 +71,13 @@ def test_caps_at_max_steps_and_continues_without_dropping():
     assert charts[0]['steps_total'] == 18
 
 
-def test_falls_back_to_wbs_when_no_discipline_code():
+def test_falls_back_to_major_wbs_branch_when_no_discipline_code():
     acts = [_act('1', 'A', 'w_pile', None, datetime(2026, 1, 1))]
     charts = build_sequences(acts, WBS, code_types=[])
     assert len(charts) == 1
-    assert charts[0]['discipline'] == 'Silo 1'  # top-level WBS name
+    # single root 'Silo 1' → groups by its major branch (adaptive), so a one-root
+    # project isn't collapsed into a single giant discipline
+    assert charts[0]['discipline'] == 'Pile'
 
 
 def test_skips_milestones_and_summary_rows():

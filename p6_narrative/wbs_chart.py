@@ -39,6 +39,88 @@ def _collect(node, out):
         _collect(k, out)
 
 
+_TREEMAP_PALETTE = ['#3487ae', '#c98a2b', '#7a5aa6', '#4b9d6e', '#a35d5d', '#5a8fb0',
+                    '#b0894a', '#6a6fae']
+
+
+def annotated_org_chart_svg(root_name, branches, total_activities=None):
+    """Overview org-chart where each branch box carries its activity count and cost
+    share, with the heaviest branch shaded solid — from ``branches`` (branch_stats)."""
+    if not branches:
+        return ''
+    n = len(branches)
+    BW, BH, GAP = 152, 60, 12
+    width = max(n * (BW + GAP) - GAP, 260) + 12
+    height = 176
+    max_pct = max((b.get('pct') or 0) for b in branches) or 1
+
+    def cx(i):
+        return 6 + i * (BW + GAP) + BW / 2
+
+    root_cx = width / 2
+    conns = [f'<path d="M{root_cx:.0f} 58 V80"/>']
+    if n > 1:
+        conns.append(f'<path d="M{cx(0):.0f} 80 H{cx(n-1):.0f}"/>')
+    for i in range(n):
+        conns.append(f'<path d="M{cx(i):.0f} 80 V96"/>')
+
+    boxes = ''
+    for i, b in enumerate(branches):
+        left = 6 + i * (BW + GAP)
+        pct = b.get('pct') or 0
+        strong = pct >= max_pct and max_pct > 0
+        fill = ACCENT if strong else 'var(--asoft, #e7f0f5)'
+        tcol = '#ffffff' if strong else '#1a1d21'
+        sub = '#ffffffcc' if strong else '#8a9099'
+        barbg = '#ffffff44' if strong else '#e3e8ee'
+        barfg = '#ffffff' if strong else ACCENT
+        barw = max(120 * pct / 100.0, 1)
+        boxes += (
+            f'<g><rect x="{left}" y="96" width="{BW}" height="{BH}" rx="7" fill="{fill}" '
+            f'stroke="{ACCENT}" stroke-width="1.2"/>'
+            f'<text x="{left + BW/2:.0f}" y="118" text-anchor="middle" fill="{tcol}" '
+            f'font-size="11.5" font-weight="600"><title>{_esc(b.get("name"))}</title>{_esc(_clip(b.get("name"), 18))}</text>'
+            f'<text x="{left + BW/2:.0f}" y="133" text-anchor="middle" fill="{sub}" font-size="9.5">'
+            f'{b.get("count", 0)} acts · {pct:g}%</text>'
+            f'<rect x="{left + 16}" y="142" width="120" height="5" rx="2" fill="{barbg}"/>'
+            f'<rect x="{left + 16}" y="142" width="{barw:.0f}" height="5" rx="2" fill="{barfg}"/></g>')
+
+    root = (f'<rect x="{root_cx - 62:.0f}" y="16" width="124" height="42" rx="8" fill="{ACCENT}"/>'
+            f'<text x="{root_cx:.0f}" y="35" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">'
+            f'{_esc(_clip(root_name, 20))}</text>'
+            + (f'<text x="{root_cx:.0f}" y="50" text-anchor="middle" fill="#ffffffcc" font-size="9">'
+               f'~{total_activities} activities</text>' if total_activities else ''))
+    inner = min(int(width), 800)
+    return (f'<div class="bn-tw"><svg viewBox="0 0 {int(width)} {height}" style="width:100%;'
+            f'min-width:{inner}px;height:auto;font-family:system-ui,sans-serif">'
+            f'<g stroke="{ACCENT}" stroke-width="1.3" fill="none" opacity="0.8">{"".join(conns)}</g>'
+            f'{root}{boxes}</svg></div>')
+
+
+def treemap_svg(rows):
+    """A slice-and-dice treemap: each branch a full-height strip whose width = cost
+    share. Generic — any number of branches, always readable."""
+    rows = [r for r in (rows or []) if (r.get('pct') or 0) > 0]
+    if not rows:
+        return ''
+    W, H = 600, 180
+    x, segs = 0.0, ''
+    for i, r in enumerate(rows):
+        w = max(W * (r['pct'] / 100.0), 20)
+        col = _TREEMAP_PALETTE[i % len(_TREEMAP_PALETTE)]
+        label = ''
+        if w >= 64:
+            label = (f'<text x="{x + 10:.0f}" y="26" fill="#fff" font-size="12" font-weight="700">'
+                     f'{_esc(_clip(r.get("name"), int(w / 8)))}</text>'
+                     f'<text x="{x + 10:.0f}" y="44" fill="#ffffffdd" font-size="11">{r["pct"]:g}%</text>')
+        elif w >= 30:
+            label = f'<text x="{x + w/2:.0f}" y="{H/2:.0f}" text-anchor="middle" fill="#fff" font-size="10" transform="rotate(-90 {x + w/2:.0f} {H/2:.0f})">{r["pct"]:g}%</text>'
+        segs += f'<rect x="{x:.1f}" y="0" width="{w - 1.5:.1f}" height="{H}" fill="{col}"/>{label}'
+        x += w
+    return (f'<div class="bn-tw"><svg viewBox="0 0 {W} {H}" style="width:100%;min-width:440px;'
+            f'height:auto;font-family:system-ui,sans-serif">{segs}</svg></div>')
+
+
 def _copy(n):
     return {'name': n.get('name'), 'children': [_copy(c) for c in (n.get('children') or [])]}
 

@@ -14,7 +14,7 @@ come from the imported file.
 from collections import OrderedDict
 from datetime import datetime
 
-from p6_narrative.util import top_wbs_name
+from p6_narrative.util import top_wbs_name, wbs_grouping
 
 # task types that are not real construction steps
 _NON_STEP_TYPES = {'StartMilestone', 'FinishMilestone', 'LOE', 'WBSSummary'}
@@ -40,22 +40,32 @@ def _start_key(dt):
     return (dt is None, dt or datetime.max)
 
 
-def build_sequences(activities, wbs, code_types=None, discipline_dim=None, max_steps=15):
+def build_sequences(activities, wbs, code_types=None, discipline_dim=None, max_steps=15,
+                    max_charts_per_discipline=4):
     """Return a list of sequence charts (JSON-serialisable dicts).
 
     Each chart: ``{discipline, chart_index, chart_count, packages, steps_shown,
-    steps_total}`` where ``packages`` is ``[{name, steps:[{name, id}]}]``.
+    steps_total}`` (plus ``omitted`` on the last kept chart when a discipline has more
+    charts than ``max_charts_per_discipline``).
+
+    Generic + robust across projects: disciplines come from the Type-of-Works code when
+    present, else from the **major WBS branch** (adaptive — the children of a single
+    root), so a project built under one top node isn't collapsed into one giant
+    discipline of dozens of charts. Long disciplines are capped, never silently — the
+    excess is reported via ``omitted``.
     """
     if discipline_dim is None:
         discipline_dim = pick_discipline_dim(code_types)
     steps = [a for a in activities if a.get('task_type') not in _NON_STEP_TYPES]
+    group_of, _ = wbs_grouping(wbs)
 
     def discipline_of(act):
         if discipline_dim:
             val = (act.get('activity_codes') or {}).get(discipline_dim)
             if val:
                 return val
-        return top_wbs_name(act.get('wbs_id'), wbs) or 'General'
+        gid = group_of.get(act.get('wbs_id'))
+        return (wbs.get(gid) or {}).get('name') or top_wbs_name(act.get('wbs_id'), wbs) or 'General'
 
     def package_of(act):
         node = wbs.get(act.get('wbs_id')) or {}
@@ -85,15 +95,19 @@ def build_sequences(activities, wbs, code_types=None, discipline_dim=None, max_s
         steps_total = sum(len(p['steps']) for p in pkg_list)
         packed = _pack(pkg_list, max_steps)
         count = len(packed)
-        for i, cpkgs in enumerate(packed, 1):
-            charts.append({
+        kept = packed if not max_charts_per_discipline else packed[:max_charts_per_discipline]
+        for i, cpkgs in enumerate(kept, 1):
+            chart = {
                 'discipline': discipline,
                 'chart_index': i,
                 'chart_count': count,
                 'packages': [{'name': p['name'], 'steps': p['steps']} for p in cpkgs],
                 'steps_shown': sum(len(p['steps']) for p in cpkgs),
                 'steps_total': steps_total,
-            })
+            }
+            if i == len(kept) and count > len(kept):
+                chart['omitted'] = count - len(kept)
+            charts.append(chart)
     return charts
 
 

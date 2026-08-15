@@ -7,7 +7,7 @@ Recomputes nothing; generic across any construction project.
 """
 from datetime import date
 
-from p6_narrative.costflow import cash_flow, cost_by_wbs
+from p6_narrative.costflow import branch_stats, cash_flow, cost_by_wbs
 from p6_narrative.model import NarrativeDoc, Section
 from p6_narrative.scope import scope_blocks
 from p6_narrative.sequence import build_sequences
@@ -184,12 +184,21 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, se
 
     scope = scope_blocks(acts, data.wbs, code_types=data.activity_code_types,
                          bac_by_activity=data.bac_by_activity)
+    n_ms = sum(1 for a in acts if a.get('task_type') in _MILESTONE_TYPES)
+    stats = [
+        {'v': _fmt_money(total_bac) if total_bac else '—', 'l': 'Budget'},
+        {'v': str(len(acts)), 'l': 'Activities'},
+        {'v': str(len(scope)), 'l': 'Disciplines'},
+        {'v': str(len(data.wbs)), 'l': 'WBS nodes'},
+        {'v': str(n_ms), 'l': 'Milestones'},
+        {'v': str(len(data.relationships)), 'l': 'Logic links'},
+    ]
     sections.append(Section(
         '4', 'Scope of work', 'scope', 'auto',
         payload={'intro': f"The scope of {name} is delivered across the following "
                           f"disciplines, read from the programme:",
-                 'blocks': scope},
-        note='Discussed per discipline from your file — one written block per discipline.'))
+                 'blocks': scope, 'stats': stats},
+        note='A scope-at-a-glance dashboard, then a written block per discipline — from your file.'))
 
     calp = _calendars_payload(calendar_report)
     if calp is not None:
@@ -198,9 +207,12 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, se
                                 note='From the Calendar feature — matches Calendar Audit.'))
 
     sections.append(Section('6', 'Work breakdown structure', 'wbs', 'auto',
-                            payload={'nodes': _wbs_tree(data), 'tree': _wbs_tree_nested(data)},
-                            note='Phase → Main WBS → each branch’s sub-WBS, as an org-chart. '
-                                 'Word carries the same WBS as an editable outline.'))
+                            payload={'nodes': _wbs_tree(data), 'tree': _wbs_tree_nested(data),
+                                     'branches': branch_stats(acts, data.bac_by_activity, data.wbs),
+                                     'cost_rows': cost_by_wbs(acts, data.bac_by_activity, data.wbs)['rows'],
+                                     'total_activities': len(acts)},
+                            note='Annotated org-chart (count · cost share · weight) + a cost treemap, '
+                                 'then each branch’s sub-WBS. Word carries the same WBS as an editable outline.'))
 
     sections.append(Section('7', 'Activity codes', 'codes', 'auto',
                             payload=_codes_payload(data, code_catalog)))

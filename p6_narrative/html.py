@@ -59,22 +59,27 @@ def _calendars(p):
 
 
 def _wbs(p):
-    from p6_narrative.wbs_chart import org_chart_svg
+    from p6_narrative.wbs_chart import annotated_org_chart_svg, org_chart_svg, treemap_svg
     tree = p.get('tree') or []
     if not tree:
         return '<p class="bn-empty">No WBS in the file.</p>'
     root = tree[0]
-    overview = {'name': root.get('name'),
-                'children': [{'name': c.get('name')} for c in (root.get('children') or [])]}
-    out = (f'<div class="bn-wbsblock"><div class="bn-wbstitle">{_esc(root.get("name"))} — Main WBS</div>'
-           f'{org_chart_svg(overview)}</div>')
-    for c in root.get('children') or []:            # each main branch → its own sub-WBS chart
+    root_name = root.get('name') if len(tree) == 1 else 'Project'
+    out = ''
+    branches = p.get('branches') or []
+    if branches:
+        out += ('<div class="bn-wbsblock"><div class="bn-wbstitle">① Annotated org-chart — '
+                'activities · cost share · weight-shaded</div>'
+                f'{annotated_org_chart_svg(root_name, branches, p.get("total_activities"))}</div>')
+    cost_rows = p.get('cost_rows') or []
+    if cost_rows:
+        out += ('<div class="bn-wbsblock"><div class="bn-wbstitle">② WBS treemap — box size = cost share</div>'
+                f'{treemap_svg(cost_rows)}</div>')
+    branch_nodes = (root.get('children') or []) if len(tree) == 1 else tree
+    for c in branch_nodes:                            # each main branch → its own sub-WBS chart
         if c.get('children'):
             out += (f'<div class="bn-wbsblock"><div class="bn-wbstitle">{_esc(c.get("name"))} — sub-WBS</div>'
                     f'{org_chart_svg(c)}</div>')
-    for extra in tree[1:]:                            # rare: extra roots
-        out += (f'<div class="bn-wbsblock"><div class="bn-wbstitle">{_esc(extra.get("name"))}</div>'
-                f'{org_chart_svg(extra)}</div>')
     return out
 
 
@@ -121,9 +126,12 @@ def _sequence(p, style=None):
     out = ''.join(f'<p>{_esc(t)}</p>' for t in p.get('paragraphs', []))
     for ch in p.get('charts', []):
         cont = ''
-        if ch.get('chart_count', 1) > 1:
+        if ch.get('omitted'):
+            cont = (f'<div class="bn-cont">+{ch["omitted"]} more chart(s) of {_esc(ch["discipline"])} '
+                    f'omitted for length (of {ch.get("chart_count")} total).</div>')
+        elif ch.get('chart_count', 1) > 1 and ch.get('chart_index', 1) < ch.get('chart_count', 1):
             cont = (f'<div class="bn-cont">{ch.get("steps_shown")} of {ch.get("steps_total")} steps · '
-                    f'continues on chart {min(ch["chart_index"]+1, ch["chart_count"])} of {ch["chart_count"]}</div>')
+                    f'continues on chart {ch["chart_index"]+1} of {ch["chart_count"]}</div>')
         head = (f'<div class="bn-charth"><span class="bn-disc">{_esc(ch["discipline"])}</span>'
                 f'<span class="bn-cn">chart {ch.get("chart_index",1)} of {ch.get("chart_count",1)}</span></div>')
         if style == 'timeline':
@@ -168,7 +176,14 @@ def _cashflow(p):
 
 
 def _scope(p):
-    out = f'<p>{_esc(p.get("intro", ""))}</p>' if p.get('intro') else ''
+    out = ''
+    stats = p.get('stats') or []
+    if stats:
+        cards = ''.join(f'<div class="bn-statc"><div class="bn-statv">{_esc(s.get("v"))}</div>'
+                        f'<div class="bn-statl">{_esc(s.get("l"))}</div></div>' for s in stats)
+        out += f'<div class="bn-statwrap"><div class="bn-stath">Project scope at a glance</div><div class="bn-stats">{cards}</div></div>'
+    if p.get('intro'):
+        out += f'<p>{_esc(p.get("intro"))}</p>'
     for b in p.get('blocks', []):
         chips = ''.join(f'<span class="bn-pkgchip">{_esc(x)}</span>'
                         for x in (b.get('packages') or [])[:12])
@@ -318,4 +333,10 @@ _CSS = """
 .bn-tlsteps{font-family:system-ui,sans-serif;font-size:10.5px;opacity:.85;margin-top:2px}
 .bn-loghdr{width:100%;border-collapse:collapse;border-bottom:1.5px solid #dadee4;margin-bottom:14px;table-layout:fixed}
 .bn-loghdr td{vertical-align:middle;padding-bottom:8px}
+.bn-statwrap{border:1px solid #dadee4;border-radius:10px;overflow:hidden;margin:6px 0 12px}
+.bn-stath{background:#e7f0f5;color:#265f7e;font-family:system-ui,sans-serif;font-weight:600;font-size:11.5px;padding:6px 13px}
+.bn-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px;padding:12px}
+.bn-statc{background:#f4f6f9;border-radius:8px;padding:9px 11px}
+.bn-statv{font-family:system-ui,sans-serif;font-size:20px;font-weight:600;color:#265f7e}
+.bn-statl{font-family:system-ui,sans-serif;font-size:11px;color:#565c64}
 """
