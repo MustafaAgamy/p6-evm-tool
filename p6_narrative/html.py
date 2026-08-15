@@ -12,6 +12,13 @@ def _esc(x):
     return _h.escape('' if x is None else str(x))
 
 
+def _money(v):
+    try:
+        return f'{float(v):,.0f}'
+    except (TypeError, ValueError):
+        return _esc(v)
+
+
 def _chip(prov):
     label = {'auto': 'Auto · from your file', 'calendar': 'From the Calendar feature',
              'drafted': 'Drafted · editable', 'fill': 'You fill'}.get(prov, prov)
@@ -216,9 +223,71 @@ def _logo_header(meta):
     return f'<table class="bn-loghdr"><tr>{cells}</tr></table>'
 
 
+def _timeline(p):
+    items = p.get('items') or []
+    if not items:
+        return '<p class="bn-empty">No key dates in the file.</p>'
+    n = len(items)
+    W, H, y = max(130 * n, 400), 150, 75
+    x0, x1 = 30, W - 30
+    step = (x1 - x0) / max(n - 1, 1)
+    body = f'<line x1="{x0}" y1="{y}" x2="{x1}" y2="{y}" stroke="#3487ae" stroke-width="2"/>'
+    for i, it in enumerate(items):
+        x = x0 + i * step
+        up = (i % 2 == 0)
+        col = '#3487ae' if it.get('milestone') else '#c98a2b'
+        lab = (it.get('label') or '')[:18]
+        body += (f'<circle cx="{x:.0f}" cy="{y}" r="5.5" fill="{col}"/>'
+                 f'<text x="{x:.0f}" y="{y - 14 if up else y + 26}" text-anchor="middle" font-size="9.5" fill="#1a1d21">{_esc(lab)}</text>'
+                 f'<text x="{x:.0f}" y="{y - 28 if up else y + 40}" text-anchor="middle" font-size="9" fill="#8a9099">{_esc(it.get("date"))}</text>')
+    return (f'<div class="bn-tw"><svg viewBox="0 0 {int(W)} {H}" style="width:100%;'
+            f'min-width:{min(int(W), 740)}px;height:auto;font-family:system-ui,sans-serif">{body}</svg></div>')
+
+
+def _value(p):
+    import math
+    rows = p.get('rows') or []
+    if not rows:
+        return '<p class="bn-empty">No cost loading in the file.</p>'
+    palette = ['#3487ae', '#c98a2b', '#7a5aa6', '#4b9d6e', '#a35d5d', '#5a8fb0']
+    circ = 2 * math.pi * 42
+    off, segs = 0.0, ''
+    for i, r in enumerate(rows):
+        seg = circ * (r.get('pct') or 0) / 100.0
+        segs += (f'<circle cx="90" cy="90" r="42" fill="none" stroke="{palette[i % len(palette)]}" '
+                 f'stroke-width="24" stroke-dasharray="{seg:.1f} {circ - seg:.1f}" stroke-dashoffset="{-off:.1f}"/>')
+        off += seg
+    donut = (f'<svg viewBox="0 0 180 180" style="width:168px;height:auto"><g transform="rotate(-90 90 90)">{segs}</g>'
+             f'<text x="90" y="86" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1d21">{_money(p.get("total"))}</text>'
+             f'<text x="90" y="102" text-anchor="middle" font-size="9" fill="#8a9099">total</text></svg>')
+    trows = ''.join(f'<tr><td>{_esc(r["name"])}</td><td class="bn-num">{_money(r["cost"])}</td>'
+                    f'<td class="bn-num">{r["pct"]}%</td></tr>' for r in rows)
+    tbl = (f'<div class="bn-tw"><table class="bn-t"><tr><th>Branch</th><th>Cost</th><th>%</th></tr>{trows}</table></div>')
+    return f'<div class="bn-value">{tbl}<div style="display:grid;place-items:center">{donut}</div></div>'
+
+
+def _idanatomy(p):
+    segs = p.get('segments') or []
+    if not segs:
+        return '<p class="bn-empty">No decodable activity IDs in the file.</p>'
+    palette = ['#265f7e', '#3487ae', '#5aa0c4', '#89bdd9', '#a9d0e3']
+    n = len(segs)
+    cells = ''
+    for i, s in enumerate(segs):
+        col = palette[min(i, len(palette) - 1)]
+        rad = 'border-radius:6px 0 0 6px;' if i == 0 else ('border-radius:0 6px 6px 0;' if i == n - 1 else '')
+        tcol = '#fff' if i < 3 else '#12303d'
+        cells += (f'<div style="background:{col};color:{tcol};padding:8px 12px;text-align:center;{rad}">'
+                  f'<div style="font-family:Consolas,monospace;font-size:14px;font-weight:700">{_esc(s.get("value"))}</div>'
+                  f'<div style="font-size:9px;opacity:.9">{_esc(s.get("label"))}</div></div>')
+    return (f'<div class="bn-tw"><div style="display:flex;min-width:min-content">{cells}</div></div>'
+            f'<div class="bn-cap-inline">Example decoded: <code>{_esc(p.get("id"))}</code></div>')
+
+
 _RENDER = {'prose': _prose, 'keyvals': _keyvals, 'table': _table, 'wbs': _wbs,
            'codes': _codes, 'sequence': _sequence, 'costbars': _costbars,
-           'cashflow': _cashflow, 'calendars': _calendars, 'scope': _scope, 'image': _image}
+           'cashflow': _cashflow, 'calendars': _calendars, 'scope': _scope, 'image': _image,
+           'timeline': _timeline, 'value': _value, 'idanatomy': _idanatomy}
 
 
 def _section(s, seq_style=None):
@@ -339,4 +408,8 @@ _CSS = """
 .bn-statc{background:#f4f6f9;border-radius:8px;padding:9px 11px}
 .bn-statv{font-family:system-ui,sans-serif;font-size:20px;font-weight:600;color:#265f7e}
 .bn-statl{font-family:system-ui,sans-serif;font-size:11px;color:#565c64}
+.bn-value{display:grid;grid-template-columns:1fr 190px;gap:14px;align-items:center}
+@media(max-width:600px){.bn-value{grid-template-columns:1fr}}
+.bn-cap-inline{font-family:system-ui,sans-serif;font-size:11.5px;color:#8a9099;margin:7px 0 0}
+.bn-cap-inline code{font-family:Consolas,monospace;color:#1c4a63;background:#e7f0f5;padding:1px 6px;border-radius:4px}
 """

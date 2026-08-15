@@ -108,6 +108,18 @@ def _render(doc, section):
         _add_table(doc, ['Date', 'Cumulative cost', '% complete'],
                    [[pt['date'], _money(pt['cumulative']), f"{pt['pct']}%"]
                     for pt in p.get('points', [])])
+    elif kind == 'timeline':
+        _add_table(doc, ['Date', 'Key date / milestone'],
+                   [[it.get('date'), it.get('label')] for it in p.get('items', [])])
+    elif kind == 'value':
+        _add_table(doc, ['Branch', 'Cost', 'Share %'],
+                   [[r['name'], _money(r['cost']), f"{r['pct']}%"] for r in p.get('rows', [])])
+        if p.get('total') is not None:
+            doc.add_paragraph(f"Total: {_money(p['total'])}")
+    elif kind == 'idanatomy':
+        doc.add_paragraph(f"Example activity ID: {p.get('id', '')}")
+        _add_table(doc, ['Part', 'Value'],
+                   [[s.get('label'), s.get('value')] for s in p.get('segments', [])])
 
 
 def _add_logo_header(document, logos):

@@ -5,13 +5,14 @@ Thin assembler: pulls each section's content from the engines the tool already h
 cost loading / cash flow) and lays them into the Basis-of-Schedule skeleton.
 Recomputes nothing; generic across any construction project.
 """
+import re
 from datetime import date
 
 from p6_narrative.costflow import branch_stats, cash_flow, cost_by_wbs
 from p6_narrative.model import NarrativeDoc, Section
 from p6_narrative.scope import scope_blocks
 from p6_narrative.sequence import build_sequences
-from p6_narrative.util import as_date
+from p6_narrative.util import as_date, wbs_grouping
 
 _MONTHS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -126,6 +127,53 @@ def _calendars_payload(calendar_report):
     return {'calendars': calendars, 'holidays': holidays}
 
 
+def _key_dates(data, limit=14):
+    """Dated items for the key-dates timeline: milestones + constraint-dated activities."""
+    items = []
+    for a in data.activities.values():
+        is_ms = a.get('task_type') in _MILESTONE_TYPES
+        if not (is_ms or a.get('constraint_date')):
+            continue
+        d = as_date(a.get('planned_finish') or a.get('planned_start') or a.get('constraint_date'))
+        if d:
+            items.append({'date': d.isoformat(), 'label': a.get('name') or '—', 'milestone': is_ms})
+    items.sort(key=lambda x: x['date'])
+    return items[:limit]
+
+
+def _id_anatomy(data):
+    """Decode a representative activity ID into its delimited parts — generic across
+    any coding convention (splits on . - _ and labels by position)."""
+    best = None
+    for a in data.activities.values():
+        aid = (a.get('id') or '').strip()
+        parts = [p for p in re.split(r'[.\-_]', aid) if p]
+        if len(parts) >= 2 and (best is None or len(parts) > len(best[1])):
+            best = (aid, parts)
+    if not best:
+        return None
+    aid, parts = best
+    role = ['Module', 'Work type', 'Area', 'Detail', 'Sub']
+    n = len(parts)
+    segs = [{'value': part,
+             'label': ('Serial' if i == n - 1 else role[i] if i < len(role) else f'Part {i + 1}')}
+            for i, part in enumerate(parts)]
+    return {'id': aid, 'segments': segs}
+
+
+def _design_proc_sequence(data, acts):
+    """Sequence charts for the design / engineering / procurement branches (generic)."""
+    group_of, _ = wbs_grouping(data.wbs)
+    kw = ('design', 'engineer', 'procure', 'submittal', 'approval', 'shop drawing')
+
+    def is_dp(a):
+        name = ((data.wbs.get(group_of.get(a.get('wbs_id'))) or {}).get('name') or '').lower()
+        return any(k in name for k in kw)
+
+    dp = [a for a in acts if is_dp(a)]
+    return build_sequences(dp, data.wbs, code_types=data.activity_code_types) if dp else []
+
+
 def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, setup=None):
     project = data.project or {}
     name = project.get('name') or 'the project'
@@ -182,6 +230,18 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, se
                             payload={'columns': ['Milestone', 'Date'], 'rows': ms},
                             note=None if ms else 'No milestone activities found in the file.'))
 
+    kd = _key_dates(data)
+    if kd:
+        sections.append(Section('3.2', 'Key dates & milestones timeline', 'timeline', 'auto',
+                                payload={'items': kd},
+                                note='Milestones and constraint-dated activities on a timeline.'))
+
+    value = cost_by_wbs(acts, data.bac_by_activity, data.wbs)
+    if value.get('rows'):
+        sections.append(Section('3.3', 'Contract value', 'value', 'auto',
+                                payload={'total': value['total'], 'rows': value['rows']},
+                                note='Budget split by major WBS branch, from cost loading.'))
+
     scope = scope_blocks(acts, data.wbs, code_types=data.activity_code_types,
                          bac_by_activity=data.bac_by_activity)
     n_ms = sum(1 for a in acts if a.get('task_type') in _MILESTONE_TYPES)
@@ -217,6 +277,19 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, se
     sections.append(Section('7', 'Activity codes', 'codes', 'auto',
                             payload=_codes_payload(data, code_catalog)))
 
+    anatomy = _id_anatomy(data)
+    if anatomy:
+        sections.append(Section('8', 'Activity IDs', 'idanatomy', 'auto', payload=anatomy,
+                                note='An activity ID decoded into its parts — the values are from the '
+                                     'file; the part labels are a positional guide, edit if needed.'))
+
+    dp_charts = _design_proc_sequence(data, acts)
+    if dp_charts:
+        sections.append(Section('9', 'Design & procurement sequence', 'sequence', 'drafted',
+                                payload={'paragraphs': ['The design and procurement cycle, per package.'],
+                                         'charts': dp_charts},
+                                editable=True, note='Design / procurement logic from the file.'))
+
     charts = build_sequences(acts, data.wbs, code_types=data.activity_code_types)
     sections.append(Section(
         '10', 'Sequence of work', 'sequence', 'drafted',
@@ -224,6 +297,16 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, se
                                 "WBS work-package and ordered by the programme logic."],
                  'charts': charts},
         editable=True, note='Charts from the P6 logic — write the methodology around them.'))
+
+    sections.append(Section('11', 'Major quantities', 'prose', 'fill',
+                            payload={'paragraphs': ['Major quantities (piles, concrete volumes, etc.) come '
+                                     'from the P6 resource quantities. Resource-quantity import is the '
+                                     'immediate follow-on; add them here meanwhile.']},
+                            editable=True, note='From P6 resource quantities (QTY) — follow-on.'))
+    sections.append(Section('12', 'Productivity & resources', 'prose', 'fill',
+                            payload={'paragraphs': ['Production rates and the crew / equipment allocation '
+                                     'come from the P6 resources (MNP) — the immediate follow-on.']},
+                            editable=True, note='From P6 resources (MNP) — follow-on.'))
 
     sections.append(Section('13', 'Cost loading', 'costbars', 'auto',
                             payload=cost_by_wbs(acts, data.bac_by_activity, data.wbs)))
