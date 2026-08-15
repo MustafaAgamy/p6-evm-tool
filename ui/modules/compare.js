@@ -564,7 +564,7 @@ function _impactTile(label, val, hot) {
 function _scurveSvg(sc) {
   const periods = sc.periods || [];
   if (periods.length < 2) return '<p class="cmp-empty">Not enough dated activities to draw the S-curve.</p>';
-  const x0 = 45, x1 = 600, y0 = 180, y1 = 20, n = periods.length;
+  const x0 = 50, x1 = 604, y0 = 250, y1 = 40, n = periods.length;   // taller plot, more headroom
   const xAt = i => x0 + (x1 - x0) * (i / (n - 1));
   const yAt = p => y0 - (y0 - y1) * (Math.max(0, Math.min(100, p || 0)) / 100);
   const poly = (arr, color, dash) => {
@@ -572,31 +572,37 @@ function _scurveSvg(sc) {
     const pts = arr.map((p, i) => `${xAt(i).toFixed(1)},${yAt(p).toFixed(1)}`).join(' ');
     return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linejoin="round"/>`;
   };
-  const step = Math.max(1, Math.round(n / 12));   // finer axis — ~12 date labels
+  // Y gridlines + labels at 0/25/50/75/100 (more readable spacing)
+  let ygrid = '';
+  for (const p of [0, 25, 50, 75, 100]) {
+    const y = yAt(p);
+    ygrid += `<line x1="${x0}" y1="${y.toFixed(1)}" x2="${x1}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="${p === 0 ? 1 : 0.5}"${p === 0 ? '' : ' stroke-dasharray="2 4"'}/>`;
+    ygrid += `<text x="${x0 - 7}" y="${(y + 3).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font-size:9px">${p}%</text>`;
+  }
+  const step = Math.max(1, Math.round(n / 8));   // ~8 well-spaced date labels
   let xlabels = '';
   for (let i = 0; i < n; i += step) {
-    xlabels += `<text x="${xAt(i).toFixed(1)}" y="198" text-anchor="middle" style="fill:var(--muted);font-size:9px">${escapeHtml(periods[i])}</text>`;
+    xlabels += `<text x="${xAt(i).toFixed(1)}" y="${y0 + 17}" text-anchor="middle" style="fill:var(--muted);font-size:9px">${escapeHtml(periods[i])}</text>`;
   }
-  // Finish markers: where the baseline plan lands vs where the update lands — the gap is the slip.
+  // Finish markers — baseline & update finishes, staggered on two rows and edge-aware so the
+  // labels never overlap even when the two finishes sit close together.
   const m = sc.markers || {};
   const bx = m.baseline_idx != null ? xAt(m.baseline_idx) : null;
   const ux = m.update_idx != null ? xAt(m.update_idx) : null;
+  const anch = x => (x > x1 - 78 ? 'end' : (x < x0 + 78 ? 'start' : 'middle'));
   let marks = '';
   if (bx != null && ux != null && ux > bx) {
     marks += `<rect x="${bx.toFixed(1)}" y="${y1}" width="${(ux - bx).toFixed(1)}" height="${y0 - y1}" fill="rgba(226,75,74,.09)"/>`;
-    marks += `<text x="${((bx + ux) / 2).toFixed(1)}" y="${y1 + 12}" text-anchor="middle" style="fill:#e24b4a;font-size:8.5px;font-weight:700">◄ slip ►</text>`;
+    marks += `<text x="${((bx + ux) / 2).toFixed(1)}" y="${(y1 + 13).toFixed(1)}" text-anchor="middle" style="fill:#e24b4a;font-size:9px;font-weight:700">◄ slip ►</text>`;
   }
   if (bx != null) marks += `<line x1="${bx.toFixed(1)}" y1="${y1}" x2="${bx.toFixed(1)}" y2="${y0}" stroke="#888781" stroke-width="1" stroke-dasharray="3 2"/>` +
-    `<text x="${bx.toFixed(1)}" y="${y1 - 4}" text-anchor="middle" style="fill:#888781;font-size:8.5px;font-weight:700">Baseline ${escapeHtml(m.baseline_label || '')}</text>`;
+    `<text x="${bx.toFixed(1)}" y="${(y1 - 16).toFixed(1)}" text-anchor="${anch(bx)}" style="fill:#888781;font-size:9px;font-weight:700">Baseline ${escapeHtml(m.baseline_label || '')}</text>`;
   if (ux != null) marks += `<line x1="${ux.toFixed(1)}" y1="${y1}" x2="${ux.toFixed(1)}" y2="${y0}" stroke="#e24b4a" stroke-width="1" stroke-dasharray="3 2"/>` +
-    `<text x="${ux.toFixed(1)}" y="${y1 - 4}" text-anchor="middle" style="fill:#e24b4a;font-size:8.5px;font-weight:700">Update ${escapeHtml(m.update_label || '')}</text>`;
-  return `<svg viewBox="0 0 620 220" width="100%" role="img" aria-label="S-curve: baseline plan vs update, with the finish of each marked and the slip between them shaded">
+    `<text x="${ux.toFixed(1)}" y="${(y1 - 5).toFixed(1)}" text-anchor="${anch(ux)}" style="fill:#e24b4a;font-size:9px;font-weight:700">Update ${escapeHtml(m.update_label || '')}</text>`;
+  return `<svg viewBox="0 0 620 278" width="100%" role="img" aria-label="S-curve: baseline plan vs update, with the finish of each marked and the slip between them shaded">
+    ${ygrid}
     ${marks}
-    <line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="var(--border)" stroke-width="1"/>
     <line x1="${x0}" y1="${y1}" x2="${x0}" y2="${y0}" stroke="var(--border)" stroke-width="1"/>
-    <text x="${x0 - 6}" y="${y1 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">100%</text>
-    <text x="${x0 - 6}" y="${(y0 + y1) / 2 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">50%</text>
-    <text x="${x0 - 6}" y="${y0 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">0%</text>
     ${poly(sc.baseline, '#888781', '4 3')}
     ${poly(sc.after, '#e24b4a')}
     ${poly(sc.before, '#2a78d6')}

@@ -71,7 +71,7 @@ def _scurve_svg(sc):
     periods = sc.get('periods') or []
     if len(periods) < 2:
         return ''
-    x0, x1, y0, y1 = 45, 900, 250, 20
+    x0, x1, y0, y1 = 48, 902, 320, 46      # taller plot, headroom for the finish labels
     n = len(periods)
     xat = lambda i: x0 + (x1 - x0) * (i / (n - 1))
     yat = lambda p: y0 - (y0 - y1) * (max(0.0, min(100.0, p or 0)) / 100.0)
@@ -83,30 +83,35 @@ def _scurve_svg(sc):
         d = f' stroke-dasharray="{dash}"' if dash else ''
         return f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2"{d}/>'
 
-    step = max(1, round(n / 14))    # finer axis — ~14 date labels
+    ygrid = ''
+    for p in (0, 25, 50, 75, 100):
+        y = yat(p)
+        dash = '' if p == 0 else ' stroke-dasharray="2 4"'
+        sw = 1 if p == 0 else 0.5
+        ygrid += (f'<line x1="{x0}" y1="{y:.1f}" x2="{x1}" y2="{y:.1f}" stroke="#ddd" stroke-width="{sw}"{dash}/>'
+                  f'<text x="{x0 - 7}" y="{y + 3:.1f}" text-anchor="end" font-size="11" fill="#666">{p}%</text>')
+    step = max(1, round(n / 9))     # ~9 well-spaced date labels
     xlab = ''.join(
         f'<text x="{xat(i):.1f}" y="{y0 + 18}" text-anchor="middle" font-size="11" fill="#666">{_e(periods[i])}</text>'
         for i in range(0, n, step))
     m = sc.get('markers') or {}
     bx = xat(m['baseline_idx']) if m.get('baseline_idx') is not None else None
     ux = xat(m['update_idx']) if m.get('update_idx') is not None else None
+    anch = lambda x: 'end' if x > x1 - 130 else ('start' if x < x0 + 130 else 'middle')
     marks = ''
     if bx is not None and ux is not None and ux > bx:
         marks += f'<rect x="{bx:.1f}" y="{y1}" width="{ux - bx:.1f}" height="{y0 - y1}" fill="rgba(226,75,74,.09)"/>'
-        marks += f'<text x="{(bx + ux) / 2:.1f}" y="{y1 + 13}" text-anchor="middle" font-size="10" font-weight="700" fill="{_RED}">&#9668; slip &#9658;</text>'
+        marks += f'<text x="{(bx + ux) / 2:.1f}" y="{y1 + 15}" text-anchor="middle" font-size="11" font-weight="700" fill="{_RED}">&#9668; slip &#9658;</text>'
     if bx is not None:
         marks += (f'<line x1="{bx:.1f}" y1="{y1}" x2="{bx:.1f}" y2="{y0}" stroke="{_GREY}" stroke-width="1" stroke-dasharray="4 3"/>'
-                  f'<text x="{bx:.1f}" y="{y1 - 4}" text-anchor="middle" font-size="10" font-weight="700" fill="{_GREY}">Baseline {_e(m.get("baseline_label"))}</text>')
+                  f'<text x="{bx:.1f}" y="{y1 - 18}" text-anchor="{anch(bx)}" font-size="11" font-weight="700" fill="{_GREY}">Baseline {_e(m.get("baseline_label"))}</text>')
     if ux is not None:
         marks += (f'<line x1="{ux:.1f}" y1="{y1}" x2="{ux:.1f}" y2="{y0}" stroke="{_RED}" stroke-width="1" stroke-dasharray="4 3"/>'
-                  f'<text x="{ux:.1f}" y="{y1 - 4}" text-anchor="middle" font-size="10" font-weight="700" fill="{_RED}">Update {_e(m.get("update_label"))}</text>')
-    return f'''<svg viewBox="0 0 940 292" width="100%">
+                  f'<text x="{ux:.1f}" y="{y1 - 5}" text-anchor="{anch(ux)}" font-size="11" font-weight="700" fill="{_RED}">Update {_e(m.get("update_label"))}</text>')
+    return f'''<svg viewBox="0 0 940 352" width="100%">
+      {ygrid}
       {marks}
-      <line x1="{x0}" y1="{y0}" x2="{x1}" y2="{y0}" stroke="#ccc"/>
       <line x1="{x0}" y1="{y1}" x2="{x0}" y2="{y0}" stroke="#ccc"/>
-      <text x="{x0 - 6}" y="{y1 + 4}" text-anchor="end" font-size="11" fill="#666">100%</text>
-      <text x="{x0 - 6}" y="{(y0 + y1) / 2:.0f}" text-anchor="end" font-size="11" fill="#666">50%</text>
-      <text x="{x0 - 6}" y="{y0}" text-anchor="end" font-size="11" fill="#666">0%</text>
       {poly(sc.get('baseline'), _GREY, '5 3')}
       {poly(sc.get('after'), _RED)}
       {poly(sc.get('before'), _BLUE)}
