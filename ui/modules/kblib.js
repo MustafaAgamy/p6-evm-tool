@@ -12,6 +12,7 @@ import { renderConstructPanel }     from './construct.js';
 
 const CAT_ICON = {
   Buildings: '🏢', Infrastructure: '🛣️', Industrial: '🏭', Energy: '⚡', Landscape: '🌳',
+  'Learned from your projects': '◆',
 };
 
 // ── navigation (KB is its own "page") ───────────────────────────────────────
@@ -79,7 +80,8 @@ function renderTree(filter = '') {
     const leaves = types.map(t => `
       <div class="kb-leaf ${t.type === state.kbSelectedType ? 'sel' : ''}" data-type="${escapeHtml(t.type)}">
         <span class="dot"></span><span class="nm">${escapeHtml(t.type)}</span>
-        ${t.status === 'draft' ? '<span class="kb-db">draft</span>' : ''}
+        ${t.status === 'learned' ? `<span class="kb-db learned">${t.imports || ''} imports</span>`
+          : t.status === 'draft' ? '<span class="kb-db">draft</span>' : ''}
       </div>`).join('');
     return `<div class="kb-node">
       <div class="kb-cat ${open ? 'open' : ''}" data-cat="${escapeHtml(c.category)}">
@@ -114,8 +116,11 @@ function renderDetail(entry) {
   if (!box) return;
   if (!entry) { box.innerHTML = '<p class="kb-empty">Pick a project type from the list.</p>'; return; }
 
-  const draft = entry.status === 'draft'
-    ? '<span class="kb-draft" title="Starter knowledge — confirm before relying on it">◆ draft standard</span>' : '';
+  const learned = entry.status === 'learned' || entry.source === 'learned';
+  const draft = learned
+    ? `<span class="kb-learned" title="Learned from your own imports — private, this PC">◆ Learned · ${entry.imports || 0} imports</span>`
+    : (entry.status === 'draft'
+      ? '<span class="kb-draft" title="Starter knowledge — confirm before relying on it">◆ draft standard</span>' : '');
 
   const wbs = (entry.wbs || []).map(w =>
     `<div class="kb-wbsitem"><span class="ic">▸</span>${escapeHtml(w.name)}</div>`).join('')
@@ -150,12 +155,12 @@ function renderDetail(entry) {
   box.innerHTML = `
     <div class="kb-crumb">${escapeHtml(entry.category)} &nbsp;›&nbsp; <b>${escapeHtml(entry.type)}</b></div>
     <div class="kb-dhead"><h2>${escapeHtml(entry.type)}</h2>${draft}</div>
-    <div class="kb-callout">This is the <b>baseline standard</b> for a ${escapeHtml(entry.type)}. When you import a schedule,
-      nPace auto-detects the type and checks your logic, activities and WBS against what's below — and you can export this
-      standard as a P6 starter schedule to build your own baseline from.</div>
+    <div class="kb-callout">${learned
+      ? `Learned from <b>${entry.imports || 0} of your own imported ${escapeHtml(entry.type)} schedules</b> — the recurring activities, typical durations and WBS your projects actually use. Private &amp; local, never sent anywhere. Compare it to the curated standard, and export it as a P6 starter or a file.`
+      : `This is the <b>baseline standard</b> for a ${escapeHtml(entry.type)}. When you import a schedule, nPace auto-detects the type and checks your logic, activities and WBS against what's below — and you can export this standard as a P6 starter schedule to build your own baseline from.`}</div>
 
-    <div class="kb-sec"><h3>Detected by <span class="n">${(entry.signatures || []).length} keywords</span></h3>
-      <div class="kb-chips">${chips((entry.signatures || []).slice(0, 18), 'k')}</div></div>
+    ${learned ? '' : `<div class="kb-sec"><h3>Detected by <span class="n">${(entry.signatures || []).length} keywords</span></h3>
+      <div class="kb-chips">${chips((entry.signatures || []).slice(0, 18), 'k')}</div></div>`}
 
     <div class="kb-sec"><h3>Standard WBS <span class="n">${(entry.wbs || []).length} branches</span></h3>
       <div class="kb-wbslist">${wbs}</div></div>
@@ -165,15 +170,16 @@ function renderDetail(entry) {
         <thead><tr><th>Activity</th><th>WBS</th><th>Typical sequence</th><th>Dur (d)</th><th>Why it matters</th></tr></thead>
         <tbody>${acts}</tbody></table></div></div>
 
-    <div class="kb-sec"><h3>Construction logic rules <span class="n">${(entry.logic_rules || []).length}</span></h3>${rules}</div>
+    ${learned ? '' : `<div class="kb-sec"><h3>Construction logic rules <span class="n">${(entry.logic_rules || []).length}</span></h3>${rules}</div>
 
     <div class="kb-sec"><h3>Milestones</h3><div class="kb-chips">${chips(entry.milestones)}</div></div>
 
-    <div class="kb-sec"><h3>Common issues it catches</h3><ul class="kb-issues">${issues}</ul></div>
+    <div class="kb-sec"><h3>Common issues it catches</h3><ul class="kb-issues">${issues}</ul></div>`}
 
     <div class="kb-actions">
       ${reviewBtn}
       <button class="btn-secondary kb-act" data-act="export" data-type="${escapeHtml(entry.type)}">📤 Export as P6 starter baseline</button>
+      ${learned ? `<button class="btn-secondary kb-act" data-act="download" data-type="${escapeHtml(entry.type)}">⬇ Download learned standard</button>` : ''}
     </div>
     <div class="kb-actnote" id="kb-actnote"></div>`;
 }
@@ -216,6 +222,30 @@ async function exportStarter(type, btn) {
   }
 }
 
+async function downloadLearned(type, btn) {
+  const safe = type.replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+  let path = null;
+  try {
+    path = await window.pywebview.api.choose_save_path(`${safe}_learned_standard.json`, 'json');
+  } catch { showError('Could not open the save dialog.'); return; }
+  if (!path) return;
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/learned-file`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, output_path: path }),
+    });
+    const data = await resp.json();
+    if (!data.ok) { showError(data.error || 'Download failed.'); return; }
+    note(`✓ Learned standard saved — ${data.activities} recurring activities across ${data.wbs} WBS branches.`, true);
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
 function note(msg, ok = false) {
   const n = document.getElementById('kb-actnote');
   if (n) { n.textContent = msg; n.className = 'kb-actnote' + (ok ? ' ok' : ' info'); }
@@ -248,5 +278,6 @@ export function initKbLibrary() {
     if (act === 'review') reviewAgainst(btn.dataset.type);
     else if (act === 'review-hint') note('Import a schedule first (Home → Import), then come back and click Review.');
     else if (act === 'export') exportStarter(btn.dataset.type, btn);
+    else if (act === 'download') downloadLearned(btn.dataset.type, btn);
   });
 }

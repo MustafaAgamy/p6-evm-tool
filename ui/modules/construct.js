@@ -216,6 +216,37 @@ function _dashboard(report) {
   </div>`;
 }
 
+function _learnedPanel(l) {
+  if (!l || !l.activities || !l.activities.length) return '';
+  const rows = l.activities.map(a => `<tr>
+    <td>${escapeHtml(a.name)}</td>
+    <td class="lp-seen">${a.seen}/${a.imports}<span class="lp-bar"><i style="width:${Math.round(100 * a.seen / a.imports)}%"></i></span></td>
+    <td class="lp-dur">${a.avg_duration != null ? a.avg_duration + ' d' : '—'}</td>
+    <td>${a.in_schedule ? '<span class="lp-yes">✓ Yes</span>'
+      : '<span class="lp-no">✗ Missing</span> <span class="lp-add">consider adding</span>'}</td></tr>`).join('');
+  const wbs = (l.wbs || []).map(w => `<span class="lp-chip">${escapeHtml(w.name)} · ${w.seen}/${w.imports}</span>`).join('');
+  const t = escapeHtml(l.type);
+  return `<div class="mod-sec">Learned from your projects</div>
+    <div class="lpanel">
+      <div class="lp-h"><h4>Commonly seen in your ${t} projects</h4>
+        <span class="lp-badge">◆ Learned · ${l.imports} of your imports</span></div>
+      <div class="lp-intro">On top of the curated standard, these activities recur across the
+        <b>${l.imports} ${t} schedules you've imported</b> on this PC.
+        ${l.missing_count ? `<b>${l.missing_count}</b> ${l.missing_count === 1 ? 'is' : 'are'} not in this schedule — consider adding.`
+          : 'All are present in this schedule.'} This sharpens with every project you import.</div>
+      <div class="tblwrap" style="overflow-x:auto"><table class="audit-table lp-table">
+        <thead><tr><th>Commonly-seen activity (learned)</th><th>Seen in</th><th>Avg duration</th><th>In this schedule?</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      ${wbs ? `<div class="lp-wbs"><span class="lp-lbl">WBS branches your ${t} projects usually have</span>
+        <div class="lp-chips">${wbs}</div></div>` : ''}
+      <div class="lp-actions">
+        <button class="btn-secondary lp-act" data-lact="starter" data-type="${t}">📥 Export as P6 starter baseline</button>
+        <button class="btn-secondary lp-act" data-lact="file" data-type="${t}">⬇ Download learned standard</button>
+        <span class="lp-note">Advisory · kept separate from the curated findings · reflects only projects imported on this PC.</span>
+      </div>
+    </div>`;
+}
+
 function _typeSelect(report) {
   const cur = report.detected ? report.detected.type : '';
   const opts = (report.available_types || []).map(t =>
@@ -253,6 +284,7 @@ function renderReport(report) {
     ${_missingTable(report.missing)}
     <div class="mod-sec">WBS review &amp; missing WBS</div>
     ${_wbsReview(report.wbs_review, report.missing_wbs)}
+    ${_learnedPanel(report.learned)}
     <div class="mod-sec">Executive conclusion</div>
     <div class="ai-concl"><div class="lead">Constructability — rule + knowledge base</div>${escapeHtml(report.conclusion || '')}</div>`;
 
@@ -262,6 +294,34 @@ function renderReport(report) {
   if (pdf) pdf.addEventListener('click', () => exportReport('pdf', pdf));
   const xls = document.getElementById('cx-xls');
   if (xls) xls.addEventListener('click', () => exportReport('excel', xls));
+  document.querySelectorAll('.lp-act').forEach(b =>
+    b.addEventListener('click', () => exportLearned(b.dataset.lact, b.dataset.type, b)));
+}
+
+async function exportLearned(kind, type, btn) {
+  const slug = (type || 'learned').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+  const isStarter = kind === 'starter';
+  const ext = isStarter ? 'xml' : 'json';
+  const name = isStarter ? `${slug}_learned_starter.xml` : `${slug}_learned_standard.json`;
+  let path = null;
+  try { path = await window.pywebview.api.choose_save_path(name, ext); }
+  catch { showError('Could not open the save dialog.'); return; }
+  if (!path) return;
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const url = isStarter ? '/api/kb/starter-xml' : '/api/kb/learned-file';
+    const resp = await fetch(`http://localhost:${state.serverPort}${url}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, output_path: path }),
+    });
+    const data = await resp.json();
+    if (!data.ok) showError(data.error || 'Export failed.');
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
 }
 
 async function exportReport(kind, btn) {

@@ -6,6 +6,7 @@ No AI, fully offline. Everything advisory.
 """
 from p6_kb.detect import detect_subtype, score_entries
 from p6_kb.kb import load_kb
+from p6_kb.learn import learned_panel, load_profile
 from p6_kb.model import schedule_view
 from p6_kb.scoring import compute_score
 
@@ -287,6 +288,16 @@ def run_review(data, entries=None, cfg=None, forced_type=None):
     extras = _dashboard_extras(view, entry, illogical, missing, missing_wbs,
                                score, scored, bool(forced_type))
 
+    # Learned from the user's own imports of this type (local, private) — advisory,
+    # separate from the curated findings. None until enough imports accumulate.
+    learned = None
+    try:
+        profile = load_profile(entry['type'])
+        if profile:
+            learned = learned_panel(profile, view)
+    except Exception:
+        learned = None
+
     if illogical or missing or missing_wbs:
         gaps = (f"{len(illogical)} illogical link(s), {len(missing)} missing activities and "
                 f"{len(missing_wbs)} missing WBS branch(es) found. ")
@@ -323,5 +334,6 @@ def run_review(data, entries=None, cfg=None, forced_type=None):
         'missing': missing,
         'missing_wbs': missing_wbs,
         'wbs_review': wbs_review,
+        'learned': learned,
         'conclusion': conclusion,
     }

@@ -24,6 +24,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Export to PDF and Excel** — the whole review (dashboard + illogical / missing / WBS tables) as a print-ready PDF, and every finding flattened into one filterable Excel sheet.
 - **Knowledge Base +2 industrial standards** — *Local Fabrication & Equipment Installation* (new: fab yard → material receipt → steel/spool fabrication → coating → equipment erection & alignment → piping/E&I hook-up → pre-commissioning), and *Steel Structures* strengthened with the erection works (base-plate grouting, primary/secondary erection, decking). KB now **89 types**.
 
+### Added — Learns from your own projects (private, offline)
+- **The tool now quietly learns from every schedule you import** — per project type it accumulates which activities and WBS branches recur across *your own* imports, and their typical durations. Fully **local and private**: nothing leaves your PC, deduped by file so re-imports never inflate it, and always marked **"learned"** and kept separate from the curated standards.
+- **"Learned from your projects" panel** in the Constructability review — the activities that commonly recur in your schedules of that type, each with how often (e.g. 6 of 7 imports), average duration, and whether it's in the current schedule (missing ones flagged *"consider adding"*), plus the WBS branches your projects usually have.
+- **Learned types in the Knowledge Base library** — a *"Learned from your projects"* group at the top of the EPS tree; open a learned type to read what the tool learned and **export** it as a P6 starter baseline or **download** it as a standard file.
+- Three clearly-badged knowledge sources — **Curated** (built-in), **Learned** (your imports, this PC), and **Shared** (anonymised, pooled across users — a future version).
+
 ### Fixed — Consultant Review (from real-project testing)
 - **Baseline finish** now shows when the baseline is a XER — it falls back to the latest activity finish (the XER reader stores no project finish, so it was blank).
 - **Driving successor changes** are now highlighted in the change table; previously only the predecessor side was checked.
