@@ -3,7 +3,7 @@
  * Run: node tests/js/test_compare.js
  */
 import assert from 'node:assert/strict';
-import { fmtLag, statusClass, summaryPills, signedDays, suggestedCorrectedName, durImpactLabel } from '../../ui/modules/compare.js';
+import { fmtLag, statusClass, summaryPills, signedDays, suggestedCorrectedName, durImpactLabel, changedBreakdown, changeTypeBars, slipInfo, donutSegments, butForSummary } from '../../ui/modules/compare.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -48,6 +48,68 @@ console.log('\ndurImpactLabel');
 test('Direct', () => assert.equal(durImpactLabel('Direct'), 'Direct'));
 test('None → Float absorbs', () => assert.equal(durImpactLabel('None'), 'Float absorbs'));
 test('Unknown → dash', () => assert.equal(durImpactLabel('Unknown'), '—'));
+
+console.log('\nchangedBreakdown');
+test('reads total, logic and duration-only from the dashboard', () => {
+  const b = changedBreakdown({ changed_activities: 2403, logic_changed: 1981, duration_only: 422 });
+  assert.deepEqual(b, { total: 2403, logic: 1981, duration: 422 });
+});
+test('logic + duration reconcile to the total', () => {
+  const b = changedBreakdown({ changed_activities: 2403, logic_changed: 1981, duration_only: 422 });
+  assert.equal(b.logic + b.duration, b.total);
+});
+test('defaults every field to 0 when missing', () =>
+  assert.deepEqual(changedBreakdown({}), { total: 0, logic: 0, duration: 0 }));
+test('tolerates a null dashboard', () =>
+  assert.deepEqual(changedBreakdown(null), { total: 0, logic: 0, duration: 0 }));
+
+console.log('\nchangeTypeBars');
+test('keeps only logic items, sorted desc, pct vs the largest', () => {
+  const bars = changeTypeBars([
+    { kind: 'lag', label: 'driving lag changed', count: 15, group: 'logic' },
+    { kind: 'added_driver', label: 'driving predecessor added', count: 762, group: 'logic' },
+    { kind: 'extended', label: 'duration extended', count: 400, group: 'duration' },
+  ]);
+  assert.equal(bars.length, 2);                 // duration item dropped
+  assert.equal(bars[0].count, 762);             // biggest first
+  assert.equal(bars[0].pct, 100);
+  assert.equal(bars[1].pct, 2);                 // 15/762 → 2%
+});
+test('drops zero-count logic items', () =>
+  assert.deepEqual(changeTypeBars([{ kind: 'lag', label: 'x', count: 0, group: 'logic' }]), []));
+test('empty when no logic items', () =>
+  assert.deepEqual(changeTypeBars([{ kind: 'extended', count: 5, group: 'duration' }]), []));
+test('tolerates null', () => assert.deepEqual(changeTypeBars(null), []));
+
+console.log('\nslipInfo');
+test('positive = later', () => assert.deepEqual(slipInfo(66), { value: 66, word: 'days later', dir: 'late' }));
+test('one day later is singular', () => assert.equal(slipInfo(1).word, 'day later'));
+test('negative = earlier', () => assert.deepEqual(slipInfo(-5), { value: 5, word: 'days earlier', dir: 'early' }));
+test('zero = on time', () => assert.equal(slipInfo(0).dir, 'ontime'));
+test('null tolerated', () => assert.equal(slipInfo(null).value, null));
+
+console.log('\ndonutSegments');
+test('fractions reconcile to 1', () => {
+  const d = donutSegments(1981, 422);
+  assert.ok(Math.abs(d.logicFrac + d.durationFrac - 1) < 1e-9);
+  assert.ok(d.logicFrac > d.durationFrac);
+});
+test('zero total → zero fractions', () => assert.deepEqual(donutSegments(0, 0), { logicFrac: 0, durationFrac: 0 }));
+test('tolerates negatives', () => assert.deepEqual(donutSegments(-5, 0), { logicFrac: 0, durationFrac: 0 }));
+
+console.log('\nbutForSummary');
+test('manufactured > 0 reports the manufactured days', () => {
+  const s = butForSummary({ delay_working_days: 60, butfor_delay_working_days: 40, manufactured_working_days: 20, butfor_finish: '10-Nov-2026' });
+  assert.equal(s.manufactured, 20); assert.equal(s.butfor, 40);
+  assert.ok(s.verdict.includes('manufactured') && s.verdict.includes('10-Nov-2026'));
+});
+test('manufactured == 0 → genuine delay verdict', () => {
+  const s = butForSummary({ delay_working_days: 57, butfor_delay_working_days: 57, manufactured_working_days: 0 });
+  assert.equal(s.manufactured, 0);
+  assert.ok(s.verdict.includes('genuine'));
+});
+test('null when no but-for estimate', () => assert.equal(butForSummary({ delay_working_days: 5 }), null));
+test('tolerates a null dashboard', () => assert.equal(butForSummary(null), null));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -8,7 +8,7 @@ def _report():
         'project_name': 'Riyadh Metro', 'data_date': '09-Feb-2026',
         'baseline_file': 'baseline.xer', 'update_file': 'update.xml',
         'baseline_finish': '09-Feb-2027', 'update_finish': '22-Feb-2027',
-        'dashboard': {'changed_activities': 3},
+        'dashboard': {'changed_activities': 3, 'logic_changed': 2, 'duration_only': 1},
         'change_summary': {'items': [{'kind': 'lag', 'label': 'driving lag changed', 'count': 2}]},
         'logic': {'rows': [{
             'activity_id': 'A1120', 'activity_name': 'Excavate zone B', 'change_label': 'Lag ↑',
@@ -36,9 +36,55 @@ def _impact():
 
 def test_logic_excel_headers_and_flattened_links():
     headers, rows = logic_excel(_report())
-    assert len(headers) == 15 and headers[0] == 'Activity ID'
-    assert rows[0][0] == 'A1120' and rows[0][2] == 'Lag ↑'
-    assert 'FS+10' in rows[0][10]   # update pred rel column carries the +10 lag
+    # Leading serial "#" column, then the 15 relationship columns (16 total).
+    assert len(headers) == 16 and headers[0] == '#' and headers[1] == 'Activity ID'
+    assert rows[0][0] == 1 and rows[0][1] == 'A1120' and rows[0][3] == 'Lag ↑'
+    assert 'FS+10' in rows[0][11]   # update pred rel column carries the +10 lag
+
+
+def test_logic_excel_serials_number_every_row():
+    report = _report()
+    report['logic']['rows'] = report['logic']['rows'] * 3   # three identical rows
+    _, rows = logic_excel(report)
+    assert [r[0] for r in rows] == [1, 2, 3]
+
+
+def test_render_html_dashboard_reconciles_changed_counts():
+    h = render_html(_report())
+    assert '>#<' in h                 # serial column header in the logic table
+    assert '2 logic/lag' in h         # dashboard breakdown of the 3 changed activities
+    assert '1 duration' in h
+
+
+def test_render_html_includes_dashboard_charts():
+    r = _report()
+    r['dashboard']['delay_working_days'] = 13
+    r['change_summary']['items'] = [
+        {'kind': 'lag', 'label': 'driving lag changed', 'count': 2, 'group': 'logic'},
+        {'kind': 'extended', 'label': 'duration extended', 'count': 1, 'group': 'duration'},
+    ]
+    h = render_html(r)
+    assert 'How the logic was changed' in h        # change-type bar chart
+    assert 'driving lag changed' in h              # the logic bar label
+    assert 'cbf' in h                              # a bar fill was drawn
+    assert 'Delay vs baseline' in h                # delay (date-based) card
+    assert '+13' in h                              # delay headline (13 working days behind)
+    assert 'working days behind' in h              # #04 date-based delay wording
+    assert 'Changed activities' in h               # donut card
+    assert 'no float' in h                         # impact-on-finish legend explains the blanks
+    assert '<svg' in h                             # delay + donut are SVG
+
+
+def test_render_html_caps_tables_for_manager_report():
+    from p6_compare.exporters import _PDF_ROW_CAP
+    r = _report()
+    n = _PDF_ROW_CAP + 20
+    r['logic']['rows'] = [dict(r['logic']['rows'][0], activity_id=f'A{i}') for i in range(n)]
+    r['durations']['rows'] = [dict(r['durations']['rows'][0], activity_id=f'D{i}') for i in range(n)]
+    h = render_html(r)
+    assert f'first {_PDF_ROW_CAP} of {n} logic' in h        # logic table capped, points to Excel
+    assert f'{_PDF_ROW_CAP} largest of {n} duration' in h   # duration table capped
+    assert 'Excel export' in h
 
 
 def test_render_html_without_impact_is_self_contained_landscape():

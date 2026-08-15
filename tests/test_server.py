@@ -90,6 +90,24 @@ def test_compare_detects_lag_change_across_xer_and_xml(test_server, tmp_path):
     assert dur['A100']['baseline_orig_days'] == 10.0 and dur['A100']['update_orig_days'] == 15.0
 
 
+def test_compare_report_pdf_route_runs_without_reschedule(test_server, tmp_path, monkeypatch):
+    """Regression: _handle_compare_report used tempfile/subprocess without importing them,
+    so the Consultant Review PDF always failed with a NameError — regardless of any
+    reschedule. Mock Chrome so the full route (tempfile → subprocess) runs end to end."""
+    import server
+    ran = {}
+    monkeypatch.setattr(server, '_find_chrome', lambda: 'chrome-stub')
+    monkeypatch.setattr(server.subprocess, 'run', lambda *a, **k: ran.update(ok=True))
+    out = str(tmp_path / 'consultant_review.pdf')
+    report = {'baseline_file': 'b.xer', 'update_file': 'u.xml',
+              'dashboard': {'changed_activities': 0, 'logic_changed': 0, 'duration_only': 0,
+                            'finish_slip_days': None},
+              'change_summary': {'items': []}, 'logic': {'rows': []}, 'durations': {'rows': []}}
+    _, data = _post_json(test_server, '/api/compare/report',
+                         {'report': report, 'impact': None, 'output_path': out})
+    assert data['ok'] is True and ran.get('ok')     # route completed — no NameError, no reschedule needed
+
+
 # ── GET / ─────────────────────────────────────────────────────────────────
 
 def test_index_returns_200(test_server):

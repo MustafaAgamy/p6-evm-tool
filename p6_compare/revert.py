@@ -166,62 +166,75 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
             c = ET.SubElement(el, tag(name))
         c.text = value
 
-    code_to_oid, code_to_actel = {}, {}
+    # Index by activity CODE, tolerating DUPLICATE codes. Some P6 XML exports carry every
+    # activity twice (two ObjectIds per code); keying a relationship by the *last* code→OID
+    # would edit/remove only one copy and leave the other behind — a stray "added" link that
+    # survives closes a cycle P6 then reports as a loop. So every op is applied to ALL copies.
+    oid_to_code, code_to_oids, code_to_actels = {}, {}, {}
     for a in project.findall(tag('Activity')):
-        code = ctext(a, 'Id')
-        if code:
-            code_to_oid[code] = ctext(a, 'ObjectId')
-            code_to_actel[code] = a
+        code, oid = ctext(a, 'Id'), ctext(a, 'ObjectId')
+        if code and oid:
+            oid_to_code[oid] = code
+            code_to_oids.setdefault(code, []).append(oid)
+            code_to_actels.setdefault(code, []).append(a)
 
-    rel_by_oids, rel_template, max_rel_oid = {}, None, 0
+    # (pred_code, succ_code) -> [every relationship element for that pair], + a template.
+    rels_by_codes, rel_template, max_rel_oid = {}, None, 0
     for r in project.findall(tag('Relationship')):
-        rel_by_oids[(ctext(r, 'PredecessorActivityObjectId'),
-                     ctext(r, 'SuccessorActivityObjectId'))] = r
         if rel_template is None:
             rel_template = r
         try:
             max_rel_oid = max(max_rel_oid, int(ctext(r, 'ObjectId') or 0))
         except (TypeError, ValueError):
             pass
+        pc = oid_to_code.get(ctext(r, 'PredecessorActivityObjectId'))
+        sc = oid_to_code.get(ctext(r, 'SuccessorActivityObjectId'))
+        if pc and sc:
+            rels_by_codes.setdefault((pc, sc), []).append(r)
 
     applied = 0
     for op in ops:
         kind = op.get('kind')
         if kind == 'set_duration':
-            el = code_to_actel.get(op['activity_id'])
-            if el is None:
+            els = code_to_actels.get(op['activity_id'])
+            if not els:
                 continue
-            set_child(el, 'PlannedDuration', _fmt_hours(op['planned_hours']))
-            set_child(el, 'RemainingDuration', _fmt_hours(op['remaining_hours']))
+            for el in els:   # every copy of the activity
+                set_child(el, 'PlannedDuration', _fmt_hours(op['planned_hours']))
+                set_child(el, 'RemainingDuration', _fmt_hours(op['remaining_hours']))
             applied += 1
             continue
 
-        p_oid = code_to_oid.get(op['pred_code'])
-        s_oid = code_to_oid.get(op['succ_code'])
-        if not p_oid or not s_oid:
-            continue
-
+        pair = (op['pred_code'], op['succ_code'])
         if kind == 'set_rel':
-            el = rel_by_oids.get((p_oid, s_oid))
-            if el is None:
-                continue
-            set_child(el, 'Type', _REL_TYPE_XML.get(op['type'], 'Finish to Start'))
-            set_child(el, 'Lag', _fmt_hours(op['lag_hours']))
-            applied += 1
+            els = rels_by_codes.get(pair, [])
+            for el in els:   # revert type/lag on every copy of the link
+                set_child(el, 'Type', _REL_TYPE_XML.get(op['type'], 'Finish to Start'))
+                set_child(el, 'Lag', _fmt_hours(op['lag_hours']))
+            if els:
+                applied += 1
         elif kind == 'remove_rel':
-            el = rel_by_oids.get((p_oid, s_oid))
-            if el is not None:
+            els = rels_by_codes.get(pair, [])
+            for el in els:   # remove EVERY copy so none is left to loop
                 project.remove(el)
+            if els:
+                rels_by_codes[pair] = []
                 applied += 1
         elif kind == 'add_rel':
+            if rels_by_codes.get(pair):
+                continue     # a copy already exists — don't duplicate the restored link
+            p_oids, s_oids = code_to_oids.get(op['pred_code']), code_to_oids.get(op['succ_code'])
+            if not p_oids or not s_oids:
+                continue
             new = copy.deepcopy(rel_template) if rel_template is not None else ET.Element(tag('Relationship'))
             max_rel_oid += 1
             set_child(new, 'ObjectId', str(max_rel_oid))
-            set_child(new, 'PredecessorActivityObjectId', p_oid)
-            set_child(new, 'SuccessorActivityObjectId', s_oid)
+            set_child(new, 'PredecessorActivityObjectId', p_oids[0])
+            set_child(new, 'SuccessorActivityObjectId', s_oids[0])
             set_child(new, 'Type', _REL_TYPE_XML.get(op['type'], 'Finish to Start'))
             set_child(new, 'Lag', _fmt_hours(op['lag_hours']))
             project.append(new)
+            rels_by_codes.setdefault(pair, []).append(new)
             applied += 1
 
     if note:

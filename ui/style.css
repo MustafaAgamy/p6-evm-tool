@@ -981,6 +981,41 @@ body {
 .cmp-kpis .kpi { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
 .cmp-kpis .kpi .k { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
 .cmp-kpis .kpi .v { font-size: 18px; font-weight: 800; margin-top: 3px; }
+.cmp-kpi-changed .cmp-kpi-brk { display: flex; gap: 16px; margin-top: 8px; }
+.cmp-kpi-brk span { display: flex; flex-direction: column; font-size: 10px; color: var(--muted); font-weight: 600; }
+.cmp-kpi-brk b { font-size: 15px; color: var(--text); font-weight: 800; line-height: 1; margin-bottom: 2px; }
+.cmp-recon { font-size: 12px; color: var(--muted); background: var(--card-bg); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 8px 12px; line-height: 1.5; }
+.cmp-recon b { color: var(--text); font-weight: 800; }
+.cmp-chgsum-sub { color: var(--muted); font-weight: 500; }
+/* Executive-dashboard charts: change-type bars · finish-slip timeline · changed donut */
+.cmp-charts { display: grid; grid-template-columns: 1.5fr 1.15fr 1fr; gap: 12px; margin: 2px 0; }
+.cmp-chart { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; min-width: 0; }
+.cmp-chart-t { font-size: 12px; font-weight: 800; color: var(--text); }
+.cmp-chart-s { font-size: 10.5px; color: var(--muted); margin: 2px 0 12px; line-height: 1.4; }
+.cmp-bars { display: flex; flex-direction: column; gap: 8px; }
+.cmp-bar-row { display: grid; grid-template-columns: minmax(84px,140px) 1fr 34px; align-items: center; gap: 8px; }
+.cmp-bar-label { font-size: 10.5px; color: var(--muted); text-align: right; line-height: 1.2; }
+.cmp-bar-track { height: 14px; background: var(--border); border-radius: 7px; overflow: hidden; }
+.cmp-bar-fill { height: 100%; background: var(--accent); border-radius: 7px; min-width: 2px; }
+.cmp-bar-val { font-size: 11px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; text-align: right; }
+.cmp-slip-head { display: flex; align-items: baseline; gap: 9px; margin-bottom: 10px; }
+.cmp-slip-num { font-size: 26px; font-weight: 800; line-height: 1; }
+.cmp-slip-num.cmp-slip-late { color: var(--danger); }
+.cmp-slip-num.cmp-slip-early { color: var(--success); }
+.cmp-slip-num.cmp-slip-flat { color: var(--muted); }
+.cmp-slip-cap { font-size: 10.5px; color: var(--muted); font-weight: 600; line-height: 1.35; }
+.cmp-butfor { margin-top: 11px; padding: 8px 10px; border-radius: 8px; font-size: 11px; line-height: 1.4; border: 1px solid var(--border); }
+.cmp-butfor.cmp-mfd-hot { background: rgba(248,113,113,.10); border-color: rgba(248,113,113,.35); }
+.cmp-butfor.cmp-mfd-ok { background: var(--bg); }
+.cmp-butfor b { color: var(--text); font-weight: 800; }
+.cmp-butfor .mut { color: var(--muted); font-weight: 500; margin-top: 3px; }
+.cmp-donut-wrap { display: flex; align-items: center; gap: 12px; }
+.cmp-donut-legend { font-size: 11px; color: var(--text); }
+.cmp-donut-legend div { display: flex; align-items: center; gap: 7px; margin: 5px 0; }
+.cmp-donut-legend i { width: 11px; height: 11px; border-radius: 3px; flex: 0 0 auto; }
+.cmp-donut-legend b { font-weight: 800; }
+.cmp-donut-legend .mut { color: var(--muted); }
+@media (max-width: 1100px) { .cmp-charts { grid-template-columns: 1fr; } }
 .cmp-chgsum { border: 1px solid var(--border); background: var(--card-bg); border-radius: 10px; padding: 12px 14px; }
 .cmp-chgsum-t { font-size: 13px; margin-bottom: 9px; }
 .cmp-chgsum-t b { font-weight: 800; color: var(--accent); }
@@ -992,8 +1027,23 @@ body {
 .cmp-pill.cmp-add { color: var(--success); background: rgba(74,222,128,.14); }
 .cmp-pill.cmp-rem { color: var(--danger); background: rgba(248,113,113,.14); text-decoration: line-through; }
 .cmp-tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--border); color: var(--text); white-space: nowrap; }
-.cmp-log { min-width: 1360px; }
+/* Fit the whole logic table to the window: fixed layout + % column widths, no fixed
+   min-width, small font, tight rows, wrapping names — so every one of the 15 columns
+   (+ the serial) shows on screen with no sideways scroll. */
+.cmp-logwrap { overflow-x: auto; }
+.cmp-log { width: 100%; table-layout: fixed; }
+.cmp-log th, .cmp-log td { padding: 3px 5px; line-height: 1.2; font-size: 10.5px; word-break: break-word; overflow-wrap: anywhere; }
+.cmp-log thead th { font-size: 10px; vertical-align: bottom; }
+.cmp-log col.c-sn { width: 3.4%; } .cmp-log col.c-aid { width: 8%; } .cmp-log col.c-anm { width: 9.5%; } .cmp-log col.c-chg { width: 7.3%; }
+.cmp-log col.c-id { width: 8.1%; } .cmp-log col.c-rel { width: 3.3%; } .cmp-log col.c-nm { width: 6.6%; }
+.cmp-log .cmp-tag { white-space: normal; }
+.cmp-log .cmp-pill { padding: 1px 4px; }
+.cmp-log td.cmp-rel .cmp-pill { white-space: nowrap; padding: 1px 3px; }
 .cmp-log td { vertical-align: top; }
+.cmp-log td.cmp-sn { text-align: center; color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; word-break: normal; overflow-wrap: normal; }
+.cmp-log td.cmp-rel { text-align: center; }
+.cmp-log td.cmp-nm { color: var(--muted); }
+.cmp-log td.mono { font-family: ui-monospace,'Consolas',monospace; font-weight: 600; white-space: normal; overflow-wrap: anywhere; }
 .cmp-gh-base { text-align: center; color: var(--muted); background: var(--row-hover); border-left: 1px solid var(--border); }
 .cmp-gh-upd { text-align: center; color: var(--accent); background: rgba(59,130,246,.12); border-left: 1px solid rgba(59,130,246,.4); }
 .cmp-log td.sepL, .cmp-log th.sepL { border-left: 1px solid var(--border); }
@@ -1006,7 +1056,13 @@ body {
 .cmp-imp-direct { background: rgba(248,113,113,.16); color: var(--danger); }
 .cmp-imp-pot { background: rgba(251,191,36,.16); color: var(--warning); }
 .cmp-imp-none { background: var(--border); color: var(--muted); }
-.cmp-log td.mono, .cmp-table td.mono { font-family: ui-monospace,'Consolas',monospace; font-weight: 600; white-space: nowrap; }
+.cmp-newscope { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 10px; background: rgba(234,161,0,.18); color: #8a5a00; white-space: nowrap; }
+:root.light .cmp-newscope { color: #8a5a00; }
+.cmp-legend { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.65; }
+.cmp-legend-l { margin: 3px 0; }
+.cmp-legend-l b { color: var(--text); font-weight: 700; }
+.cmp-legend .cmp-imp { margin: 0 2px; padding: 1px 6px; font-size: 10px; }
+.cmp-table td.mono { font-family: ui-monospace,'Consolas',monospace; font-weight: 600; white-space: nowrap; }
 .cmp-log td.mut, .cmp-table td.mut { color: var(--muted); }
 .cmp-table td.num, .cmp-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cmp-over { color: var(--danger); font-weight: 700; }
@@ -1052,6 +1108,12 @@ body {
 .cmp-scurve-legend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
 .cmp-scurve-note { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 .cmp-exports { display: flex; gap: 8px; justify-content: flex-end; margin: -6px 0 4px; }
+/* Print-preview modal (Preview PDF) — full-screen rendered report before saving */
+.cmp-modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 9999; display: flex; flex-direction: column; }
+.cmp-modal-bar { display: flex; align-items: center; justify-content: space-between; padding: 9px 16px; background: var(--card-bg); border-bottom: 1px solid var(--border); }
+.cmp-modal-t { font-weight: 800; font-size: 13px; color: var(--text); }
+.cmp-modal-actions { display: flex; gap: 10px; align-items: center; }
+.cmp-modal-frame { flex: 1; width: 100%; border: 0; background: #fff; }
 
 /* ── Weather Impact — source + stop-work limits ─────────────────────────────── */
 .cal-src { display:flex; align-items:center; gap:8px; font-size:12.5px; margin-bottom:4px; }
