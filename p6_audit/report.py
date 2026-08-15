@@ -332,11 +332,125 @@ def _oos_conclusion(m):
     return f'<h2 class="sec">Executive Conclusion</h2><div class="concl">{_esc(c)}</div>'
 
 
+# ── Lag & Lead — Consultant Review Report sections ─────────────────────────
+
+def _lag_summary(m):
+    k = m.get('kpis', {})
+    total = k.get('lagged_count', 0)
+    need = k.get('need_justification_count', 0)
+    thr = k.get('long_threshold_days', 14)
+    return (f'<div class="lagsum"><b>{total:,}</b> lags across the schedule &nbsp;·&nbsp; '
+            f'<b>{need:,}</b> need a justification (lag over {thr} working days, or a lead) '
+            f'&nbsp;·&nbsp; listed worst first</div>')
+
+
+def _lag_bars(rows, label_key, count_key, stacked=False):
+    """Horizontal bars. stacked=True puts the (long) label on its own line above a full-width
+    bar — used for the WBS-area chart so names are never trimmed (a PDF has no hover tooltip)."""
+    if not rows:
+        return '<div class="lmut">No lags to distribute.</div>'
+    mx = max([1] + [r.get(count_key, 0) for r in rows])
+    out = []
+    for r in rows:
+        c = r.get(count_key, 0)
+        w = round(100 * c / mx)
+        label = _esc(str(r.get(label_key, "")))
+        val = f'{c} &middot; {r.get("pct", 0)}%'
+        if stacked:
+            out.append(f'<div class="lbarS"><div class="lblS">{label}</div>'
+                       f'<div class="lineS"><span class="trk"><i style="width:{w}%"></i></span>'
+                       f'<span class="lval">{val}</span></div></div>')
+        else:
+            out.append(f'<div class="lbar"><span class="lbl">{label}</span>'
+                       f'<span class="trk"><i style="width:{w}%"></i></span>'
+                       f'<span class="lval">{val}</span></div>')
+    return ''.join(out)
+
+
+def _lag_donut(m):
+    k = m.get('kpis', {})
+    normal, longp, leads = k.get('normal_count', 0), k.get('long_positive_count', 0), k.get('leads_count', 0)
+    total = normal + longp + leads
+    need = k.get('need_justification_count', longp + leads)
+    thr = k.get('long_threshold_days', 14)
+    C, off, segs = 251.33, 0.0, []
+    for val, color in ((normal, '#8a93a0'), (longp, '#e0a11a'), (leads, '#d0433b')):
+        if val and total:
+            ln = C * val / total
+            segs.append(f'<circle cx="50" cy="50" r="40" fill="none" stroke="{color}" stroke-width="15" '
+                        f'stroke-dasharray="{ln:.1f} {C:.1f}" stroke-dashoffset="{-off:.1f}"/>')
+            off += ln
+    return (f'<div class="ldonut"><svg width="86" height="86" viewBox="0 0 100 100">'
+            f'<g transform="rotate(-90 50 50)">{"".join(segs)}</g>'
+            f'<text x="50" y="48" text-anchor="middle" font-size="18" font-weight="800" fill="#0f2440">{need}</text>'
+            f'<text x="50" y="62" text-anchor="middle" font-size="8" fill="#8a93a0">to justify</text></svg>'
+            f'<div class="lleg">'
+            f'<div><span class="d" style="background:#8a93a0"></span>Normal &le;{thr} wd <b>{normal}</b></div>'
+            f'<div><span class="d" style="background:#e0a11a"></span>Long &gt;{thr} wd <b>{longp}</b></div>'
+            f'<div><span class="d" style="background:#d0433b"></span>Leads <b>{leads}</b></div>'
+            f'<div><span class="d" style="background:#26517d"></span>On critical path <b>{k.get("critical_count", 0)}</b></div>'
+            f'</div></div>')
+
+
+def _lag_charts(m):
+    k = m.get('kpis', {})
+    by_type = k.get('by_type', [])
+    ws = [{'wbs': short_wbs(r.get('wbs', ''), 3), 'pct': r.get('pct', 0), 'lagged': r.get('lagged', 0)}
+          for r in m.get('wbs_summary', [])[:10]]
+    if not by_type and not ws:
+        return ''
+    return (f'<h2 class="sec">Lag charts</h2><div class="lcharts">'
+            f'<div class="lcard"><div class="lch">Lags by relationship type</div>'
+            f'{_lag_bars(by_type, "type", "count")}</div>'
+            f'<div class="lcard"><div class="lch">Lags by WBS area</div>'
+            f'{_lag_bars(ws, "wbs", "lagged", stacked=True)}</div>'
+            f'<div class="lcard"><div class="lch">Lag makeup</div>{_lag_donut(m)}</div>'
+            f'</div>')
+
+
+def _lag_flags_cell(f):
+    chips = []
+    if f.get('is_lead'):
+        chips.append('<span class="badge2 c">Lead</span>')
+    if f.get('is_long'):
+        chips.append('<span class="pill change">Long</span>')
+    if f.get('criticality') == 'Critical':
+        chips.append('<span class="badge2 c">Crit</span>')
+    elif f.get('criticality') == 'Near-Critical':
+        chips.append('<span class="badge2 n">Near</span>')
+    return ' '.join(chips)
+
+
+def _lag_register(m):
+    findings = m.get('findings', [])
+    if not findings:
+        return ('<h2 class="sec">Lag &amp; Lead Register</h2>'
+                '<p class="empty">No lags or leads &mdash; every relationship drives directly.</p>')
+    head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th>'
+            '<th>Pred. Relationship</th><th>Pred. Name</th>'
+            '<th>Succ. Relationship</th><th>Succ. Name</th>'
+            '<th>Justification</th>')
+    rows = ''.join(
+        f'<tr><td class="num">{i}</td><td class="mono">{_esc(f.get("activity_id"))}</td>'
+        f'<td>{_esc(f.get("activity_name"))}</td>'
+        f'<td class="mono">{_esc(f.get("pred_rel"))} {_lag_flags_cell(f)}</td>'
+        f'<td class="mut">{_esc(f.get("pred_name"))}</td>'
+        f'<td class="mono">{_esc(f.get("succ_rel")) or "&mdash;"}</td>'
+        f'<td class="mut">{_esc(f.get("succ_name")) or "&mdash;"}</td>'
+        f'<td>{_esc(f.get("justification"))}</td></tr>'
+        for i, f in enumerate(findings, 1))
+    return f'''
+      <h2 class="sec">Lag &amp; Lead Register — all project lags (worst first)</h2>
+      <table class="findings"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>'''
+
+
 def _sections(m):
-    """Body sections for a module report — OOS uses its own five-section order."""
+    """Body sections for a module report — OOS and Lag & Lead use their own section order."""
     if m.get('module') == 'out_of_sequence':
         return (f'<h2 class="sec">Executive Dashboard</h2>{_oos_dashboard(m)}'
                 f'{_oos_wbs(m)}{_oos_review_log(m)}{_oos_cpi(m)}{_oos_conclusion(m)}')
+    if m.get('module') == 'lag_lead':
+        return f'{_lag_summary(m)}{_lag_charts(m)}{_lag_register(m)}'
     return (f'<h2 class="sec">Executive Dashboard</h2>{_dashboard(m, _verdict(m))}'
             f'{_summary_stats(m)}{_wbs_summary(m)}{_findings_table(m)}')
 
@@ -350,7 +464,11 @@ def render_module_report(module_result, meta):
     name = m.get('name', 'Schedule Audit')
     subtitle = ('Open / Broken Logic Assessment' if m['module'] == 'dangling'
                 else 'Excessive Total Float Assessment' if m['module'] == 'float'
+                else 'Every relationship lag & lead, with a planner justification' if m['module'] == 'lag_lead'
                 else 'Consultant Review Report — Schedule Logic Inconsistency Assessment')
+    is_lag = m['module'] == 'lag_lead'
+    kicker = 'Lag Report' if is_lag else 'Schedule Audit · Module Report'
+    title_txt = 'Lag Report' if is_lag else name
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
@@ -419,11 +537,33 @@ def render_module_report(module_result, meta):
   .vcard .l {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .5px; opacity: .9; font-weight: 700; }}
   .vcard .v2 {{ font-size: 14px; font-weight: 800; margin-top: 1px; }}
   .concl {{ border-left: 4px solid #17457a; background: #f4f8fd; border-radius: 0 8px 8px 0; padding: 11px 15px; font-size: 11px; line-height: 1.55; color: #25313f; }}
+  .lagsum {{ font-size: 12px; color: #5b6472; margin: 2px 0 6px; }}
+  .lagsum b {{ color: #0f2440; }}
+  .lcharts {{ display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }}
+  .lcard {{ flex: 1; min-width: 200px; border: 1px solid #e8ecf1; border-radius: 8px; padding: 11px 13px; }}
+  .lch {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: #8a93a0; font-weight: 700; margin-bottom: 10px; }}
+  .lbar {{ display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }}
+  .lbar .lbl {{ width: 76px; font-size: 10px; color: #25313f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+  .lbar .trk {{ flex: 1; height: 8px; background: #eef1f5; border-radius: 4px; overflow: hidden; }}
+  .lbar .trk i {{ display: block; height: 100%; background: #26517d; border-radius: 4px; }}
+  .lbar .lval {{ width: 56px; text-align: right; font-size: 9.5px; color: #6b7480; white-space: nowrap; }}
+  .lbarS {{ margin-bottom: 9px; }}
+  .lblS {{ font-size: 10px; color: #25313f; margin-bottom: 3px; line-height: 1.3; }}
+  .lineS {{ display: flex; align-items: center; gap: 8px; }}
+  .lineS .trk {{ flex: 1; height: 8px; background: #eef1f5; border-radius: 4px; overflow: hidden; }}
+  .lineS .trk i {{ display: block; height: 100%; background: #26517d; border-radius: 4px; }}
+  .lineS .lval {{ width: 56px; text-align: right; font-size: 9.5px; color: #6b7480; white-space: nowrap; }}
+  .lmut {{ color: #8a93a0; font-size: 10px; }}
+  .ldonut {{ display: flex; align-items: center; gap: 12px; }}
+  .lleg {{ font-size: 10px; color: #25313f; flex: 1; }}
+  .lleg > div {{ display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }}
+  .lleg .d {{ width: 8px; height: 8px; border-radius: 2px; display: inline-block; }}
+  .lleg b {{ margin-left: auto; font-weight: 700; }}
 </style></head>
 <body>
   <div class="head">
-    <div class="kicker">Schedule Audit · Module Report</div>
-    <div class="title">{_esc(name)}</div>
+    <div class="kicker">{_esc(kicker)}</div>
+    <div class="title">{_esc(title_txt)}</div>
     <div class="subtitle">{_esc(subtitle)}</div>
     <div class="meta">
       <div><span>Project:</span> {_esc(meta.get('project_name', ''))}</div>
@@ -436,9 +576,6 @@ def render_module_report(module_result, meta):
   {_sections(m)}
 
   <div class="foot">
-    This report covers the <b>{_esc(name)}</b> module only, in isolation from other Schedule Audit
-    checks and from cost / earned-value / progress. Module score is derived from the module KPI
-    percentage on the approved band curve. Findings are engineering guidance and require planner
-    verification.{_scope_note(m)} &nbsp;·&nbsp; {_esc(meta.get('project_name', ''))} · {_esc(name)}
+    {'This Lag Report lists every relationship lag and lead in the schedule, worst first, with the planner&rsquo;s own justification for the ones over the long-lag threshold or using a lead. Advisory only &mdash; schedule logic is never edited.' if is_lag else f'This report covers the <b>{_esc(name)}</b> module only, in isolation from other Schedule Audit checks and from cost / earned-value / progress. Module score is derived from the module KPI percentage on the approved band curve. Findings are engineering guidance and require planner verification.' + _scope_note(m)} &nbsp;·&nbsp; {_esc(meta.get('project_name', ''))} · {_esc(title_txt)}
   </div>
 </body></html>'''

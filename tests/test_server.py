@@ -244,12 +244,43 @@ def test_parse_returns_modules_and_snapshot(test_server, xml_path):
     assert data['ok'] is True
     assert 'snapshot_id' in data and isinstance(data['snapshot_id'], int)
     am = data['result']['audit_modules']
-    assert set(am['modules'].keys()) == {'dangling', 'float', 'out_of_sequence'}
-    assert am['module_order'] == ['dangling', 'float', 'out_of_sequence']
+    assert set(am['modules'].keys()) == {'dangling', 'float', 'out_of_sequence', 'lag_lead'}
+    assert am['module_order'] == ['dangling', 'float', 'out_of_sequence', 'lag_lead']
     # minimal.xml has two unlinked activities -> dangling module finds them
     assert am['modules']['dangling']['kpis']['total_dangling'] >= 1
     # each module carries its own isolated score/grade
     assert 'score' in am['modules']['float'] and 'grade' in am['modules']['float']
+
+
+def test_lag_justification_round_trip(test_server, tmp_path):
+    """Save a Lag & Lead justification, then re-import the same file and confirm it is
+    merged back from project settings — the persistence path a re-open depends on."""
+    p = tmp_path / 'lag.xml'
+    p.write_text(_UPDATE_XML, encoding='utf-8')   # carries A050 --FS Lag 80h (=10wd)--> A100
+
+    _, d1 = _post_json(test_server, '/api/parse', {'path': str(p), 'overrides_path': None})
+    sid = d1['snapshot_id']
+    lag = d1['result']['audit_modules']['modules']['lag_lead']
+    assert lag['kpis']['lagged_count'] == 1
+    f0 = lag['findings'][0]
+    assert f0['justification'] == ''
+    rel_key = f0['rel_key']
+    assert rel_key == 'A050|A100|FS'
+
+    _, d2 = _post_json(test_server, '/api/lag/justification',
+                       {'snapshot_id': sid, 'rel_key': rel_key, 'text': 'Cure + strike per MS-07'})
+    assert d2['ok'] is True
+    assert d2['lag_justifications'][rel_key] == 'Cure + strike per MS-07'
+
+    # Re-import the same file → the saved reason is merged into the fresh register.
+    _, d3 = _post_json(test_server, '/api/parse', {'path': str(p), 'overrides_path': None})
+    lag3 = d3['result']['audit_modules']['modules']['lag_lead']
+    assert lag3['findings'][0]['justification'] == 'Cure + strike per MS-07'
+
+    # Blanking the text clears the stored reason.
+    _, d4 = _post_json(test_server, '/api/lag/justification',
+                       {'snapshot_id': sid, 'rel_key': rel_key, 'text': '   '})
+    assert rel_key not in d4['lag_justifications']
 
 
 def test_parse_returns_calendar_audit(test_server, xml_path):
