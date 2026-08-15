@@ -24,9 +24,10 @@ def test_render_html_has_dashboard_and_tables(tmp_path):
     rep = _report_with_findings(tmp_path)
     html = render_html(rep)
     assert html.startswith('<!doctype html>')
-    for needle in ('Execution Readiness', 'Constructability Score', 'Priority fixes',
+    for needle in ('Execution Readiness', 'Constructability Score', 'Issues by WBS phase',
                    'Illogical relationships', 'Missing activities', rep['verdict']['title']):
         assert needle in html, f"missing {needle!r} in PDF html"
+    assert 'Priority fixes' not in html  # removed per Ibrahim's request
     # the band legend and score both present
     assert str(rep['score']['overall']) in html
 

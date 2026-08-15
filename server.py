@@ -543,13 +543,17 @@ class Handler(BaseHTTPRequestHandler):
         import tempfile
         report = body.get('report') or {}
         output_path = body.get('output_path', '')
-        if not output_path:
+        preview = bool(body.get('preview'))   # return HTML for on-screen print preview, no PDF
+        if not preview and not output_path:
             self._json(200, {'ok': False, 'error': 'No output path provided'})
             return
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_kb.exporters import render_html
             html_content = render_html(report)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
                 html_path = tmp.name

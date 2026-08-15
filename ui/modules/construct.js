@@ -6,6 +6,7 @@ import { state }                                    from './state.js';
 import { showError, clearError }                    from './render.js';
 import { escapeHtml }                               from './format.js';
 import { bandHex, kindClass, markerLeft, impactPill } from './aireview_helpers.js';
+import { showReportPreview }                        from './preview.js';
 
 // ── shared cell/table renderers (same data shape as the report) ────────────
 
@@ -33,7 +34,10 @@ function _illogicalTable(rows) {
   if (!rows || !rows.length) {
     return '<p class="ai-empty">No illogical relationships flagged — the sequence logic matches the Knowledge Base rules.</p>';
   }
-  const body = rows.map(r => `<tr>
+  const rank = { 'Critical': 0, 'Near-critical': 1 };   // major illogical relationships first
+  const sorted = [...rows].sort((a, b) => (rank[a.impact] ?? 2) - (rank[b.impact] ?? 2));
+  const body = sorted.map((r, i) => `<tr>
+    <td class="ai-sn">${i + 1}</td>
     <td class="mono">${escapeHtml(r.activity_id)}</td>
     <td>${escapeHtml(r.activity_name)}</td>
     <td class="mut" title="${escapeHtml(r.wbs_path || '')}">${escapeHtml(r.wbs_path || '')}</td>
@@ -44,9 +48,9 @@ function _illogicalTable(rows) {
     <td>${_idStack(r.suggested_succs)}</td><td>${_nameStack(r.suggested_succs)}</td>
     <td>${impactPill(r.impact)}</td>
     <td><span class="ai-basis">${escapeHtml(r.source || '')}</span></td></tr>`).join('');
-  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table ai-table">
+  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table ai-table ai-fit">
     <thead>
-      <tr><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th><th rowspan="2">WBS Path</th>
+      <tr><th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th><th rowspan="2">WBS Path</th>
         <th colspan="4" class="ai-gh-cur sepL">Current driving links</th>
         <th rowspan="2" class="sepL">Why it's illogical</th>
         <th colspan="4" class="ai-gh-sug sepL">Suggested links</th>
@@ -54,7 +58,8 @@ function _illogicalTable(rows) {
       <tr><th class="sepL">Pred. ID</th><th>Pred. Name</th><th>Succ. ID</th><th>Succ. Name</th>
         <th class="sepL">Pred. ID</th><th>Pred. Name</th><th>Succ. ID</th><th>Succ. Name</th></tr>
     </thead><tbody>${body}</tbody></table></div>
-    <div class="ai-foot">Activities can have several predecessors / successors — all listed.
+    <div class="ai-foot">Most critical first. Activities can have several predecessors / successors — all listed;
+      scroll sideways for the suggested-links columns.
       <span class="ai-tag-add" style="margin:0">ADD</span> add a link ·
       <span class="ai-tag-rem" style="margin:0">REMOVE</span> a redundant link to delete (struck through).</div>`;
 }
@@ -212,7 +217,6 @@ function _dashboard(report) {
       <div class="xd-panel"><h4>Where the gaps are — issues by WBS phase</h4>${_issuesByWbs(report.issues_by_wbs)}</div>
       <div class="xd-panel"><h4>Severity of illogical links</h4>${_severity(report.severity || {})}</div>
     </div>
-    <div class="xd-panel xd-fixes"><h4>Priority fixes — tackle these first</h4>${_priorityFixes(report.priority_fixes)}</div>
   </div>`;
 }
 
@@ -275,7 +279,7 @@ function renderReport(report) {
 
     <div class="xd-exportbar">
       <button class="btn-secondary" id="cx-xls">📊 Export Excel</button>
-      <button class="btn-primary" id="cx-pdf">📄 Export PDF</button>
+      <button class="btn-primary" id="cx-pdf">📄 Print Preview</button>
     </div>
     ${_dashboard(report)}
     <div class="mod-sec">Illogical relationships &amp; better logic</div>
@@ -291,7 +295,7 @@ function renderReport(report) {
   const sel = document.getElementById('ct-type');
   if (sel) sel.addEventListener('change', () => fetchAndRender(sel.value || null));
   const pdf = document.getElementById('cx-pdf');
-  if (pdf) pdf.addEventListener('click', () => exportReport('pdf', pdf));
+  if (pdf) pdf.addEventListener('click', () => previewReport(pdf));
   const xls = document.getElementById('cx-xls');
   if (xls) xls.addEventListener('click', () => exportReport('excel', xls));
   document.querySelectorAll('.lp-act').forEach(b =>
@@ -322,6 +326,44 @@ async function exportLearned(kind, type, btn) {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
+}
+
+async function previewReport(btn) {
+  const rep = state.constructReport;
+  if (!rep || !rep.detected) return;
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing preview…'; }
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability/report`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report: rep, preview: true }),
+    });
+    const data = await resp.json();
+    if (!data.ok || !data.html) { showError(data.error || 'Preview failed.'); return; }
+    showReportPreview({
+      title: 'Constructability Review — print preview',
+      subtitle: rep.project_type || '',
+      html: data.html,
+      onSave: () => saveReportPdf(rep),
+    });
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
+async function saveReportPdf(rep) {
+  const slug = (rep.detected.type || 'constructability').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+  const path = await window.pywebview.api.choose_save_path(`${slug}_constructability.pdf`, 'pdf');
+  if (!path) return false;
+  const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability/report`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ report: rep, output_path: path }),
+  });
+  const data = await resp.json();
+  if (!data.ok) { showError(data.error || 'PDF generation failed.'); return false; }
+  return true;
 }
 
 async function exportReport(kind, btn) {

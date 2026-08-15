@@ -1176,3 +1176,10 @@ table.lp-table tr:last-child td { border-bottom: none; }
 .lp-note { font-size: 10.5px; color: var(--muted); font-style: italic; }
 .kb-db.learned { background: rgba(138,99,210,.2); color: #a884e6; }
 .kb-learned { font-size: 10.5px; background: rgba(138,99,210,.15); color: #a884e6; border: 1px solid rgba(138,99,210,.3); padding: 3px 9px; border-radius: 20px; font-weight: 600; }
+
+/* Illogical table — compact fit so every agreed column shows, with a serial # */
+table.ai-fit { font-size: 10px; }
+table.ai-fit th, table.ai-fit td { padding: 3px 5px; }
+table.ai-fit .ai-why { min-width: 140px; max-width: 220px; white-space: normal; }
+table.ai-fit .mut { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-sn { text-align: center; color: var(--muted); font-weight: 700; }

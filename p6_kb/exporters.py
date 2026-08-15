@@ -113,17 +113,21 @@ def _illogical_table(report):
     rows = report.get('illogical', []) or []
     if not rows:
         return '<p class="note">No illogical relationships flagged.</p>'
+    rank = {'Critical': 0, 'Near-critical': 1}
+    rows = sorted(rows, key=lambda r: rank.get(r.get('impact'), 2))   # major first
     body = ''.join(
-        f'<tr><td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
+        f'<tr><td class="sn">{i + 1}</td><td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
         f'<td class="mut">{_e(r.get("wbs_path"))}</td>'
         f'<td class="mono">{_e(_links(r.get("current_preds")))}</td>'
         f'<td class="mono">{_e(_links(r.get("current_succs")))}</td>'
         f'<td>{_e(r.get("why"))}</td>'
         f'<td class="mono chg">{_e(_links(r.get("suggested_preds")))}</td>'
-        f'<td>{_e(r.get("impact"))}</td></tr>' for r in rows)
-    return ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity</th><th>WBS path</th>'
+        f'<td class="mono chg">{_e(_links(r.get("suggested_succs")))}</td>'
+        f'<td>{_e(r.get("impact"))}</td></tr>' for i, r in enumerate(rows))
+    return ('<table class="data"><thead><tr><th>#</th><th>Activity ID</th><th>Activity</th><th>WBS path</th>'
             '<th>Current preds</th><th>Current succs</th><th>Why it\'s illogical</th>'
-            '<th>Suggested fix</th><th>Impact</th></tr></thead><tbody>' + body + '</tbody></table>')
+            '<th>Suggested preds</th><th>Suggested succs</th><th>Impact</th></tr></thead><tbody>'
+            + body + '</tbody></table>')
 
 
 def _missing_table(report):
@@ -203,6 +207,7 @@ def render_html(report):
       table.data th {{ background: #26517d; color: #fff; text-align: left; padding: 4px 6px; font-weight: 600; }}
       table.data td {{ border-bottom: 1px solid #e2e8f0; padding: 3px 6px; vertical-align: top; }}
       .mono {{ font-family: Consolas, monospace; }} .mut {{ color: #64748b; }} .chg {{ color: #b91c1c; }}
+      .sn {{ text-align: center; color: #64748b; font-weight: 700; width: 16px; }}
       .prio td {{ padding: 5px 6px; }} .prio .rk {{ width: 20px; font-weight: 800; color: #dc2626; }} .prio .pd {{ color: #64748b; font-size: 9px; }} .prio .sev {{ white-space: nowrap; font-weight: 700; }}
       .wbsrev {{ font-size: 10.5px; }} .wbsr {{ padding: 2px 0; }} .wbsr.miss {{ color: #b45309; }}
       .note {{ color: #64748b; font-style: italic; }}
@@ -219,10 +224,8 @@ def render_html(report):
       {_band_legend(s.get('overall', 0))}
       {proj_html}
       {_tiles(report)}
-      <div class="two">
-        <div><h2>Issues by WBS phase</h2>{_issues_by_wbs(report)}</div>
-        <div><h2>Priority fixes</h2>{_priority(report)}</div>
-      </div>
+      <h2>Issues by WBS phase</h2>
+      {_issues_by_wbs(report)}
       <h2>Illogical relationships &amp; better logic</h2>
       {_illogical_table(report)}
       <h2>Missing activities</h2>
