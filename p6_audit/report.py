@@ -461,13 +461,13 @@ def render_module_report(module_result, meta):
     if m.get('module') == 'float':
         from p6_audit.float_report import render_float_report
         return render_float_report(m, meta)
-    name = m.get('name', 'Schedule Audit')
+    name = m.get('name', 'Schedule Health Review')
     subtitle = ('Open / Broken Logic Assessment' if m['module'] == 'dangling'
                 else 'Excessive Total Float Assessment' if m['module'] == 'float'
                 else 'Every relationship lag & lead, with a planner justification' if m['module'] == 'lag_lead'
                 else 'Consultant Review Report — Schedule Logic Inconsistency Assessment')
     is_lag = m['module'] == 'lag_lead'
-    kicker = 'Lag Report' if is_lag else 'Schedule Audit · Module Report'
+    kicker = 'Lag Report' if is_lag else 'Schedule Health Review · Module Report'
     title_txt = 'Lag Report' if is_lag else name
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>

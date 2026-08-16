@@ -156,7 +156,7 @@ def _notice(name, meta, msg):
              padding:18px 20px; font-size:13px; color:#5b4a1a; line-height:1.6; margin-top:24px; }}
 </style></head>
 <body>
-  <div class="head"><div class="kicker">Schedule Audit · Management Report</div>
+  <div class="head"><div class="kicker">Schedule Health Review · Management Report</div>
     <div class="title">{_esc(name)}</div>
     <div class="subtitle">Schedule Stability &amp; Float Distribution — Management Dashboard</div></div>
   <div class="notice"><b>Float dashboard unavailable.</b><br>{_esc(msg)}</div>
@@ -242,7 +242,7 @@ def render_float_report(module_result, meta):
 </style></head>
 <body>
   <div class="head">
-    <div class="kicker">Schedule Audit · Management Report</div>
+    <div class="kicker">Schedule Health Review · Management Report</div>
     <div class="title">{_esc(name)}</div>
     <div class="subtitle">Schedule Stability &amp; Float Distribution — Management Dashboard</div>
     <div class="meta">

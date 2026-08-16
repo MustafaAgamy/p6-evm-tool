@@ -792,7 +792,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_xlsx
             from p6_audit.exporters import excel_columns
             headers, rows = excel_columns(m)
-            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Audit')[:31], headers, rows)
+            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31], headers, rows)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
