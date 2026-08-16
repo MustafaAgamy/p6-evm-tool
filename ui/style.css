@@ -1209,3 +1209,4 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .cx-eps-note { font-size: 11px; width: 100%; }
 .cx-eps-note.ok { color: var(--success); }
 .cx-eps-note.warn { color: var(--warning); }
+.ai-enh { color: #a884e6 !important; font-weight: 700; }

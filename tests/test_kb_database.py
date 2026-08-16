@@ -80,3 +80,39 @@ def test_list_database_covers_all_types():
         assert out['contributed_total'] == 0
         cats = {c['category'] for c in out['categories']}
         assert 'Industrial' in cats and 'Buildings' in cats
+
+
+def test_review_blends_learned_knowledge_into_the_standard():
+    """A recurring activity learned from added schedules — but absent from the
+    schedule under review — is flagged missing (basis 'your projects')."""
+    import types
+    from p6_kb import learn
+    entry = {'type': 'MDF / Wood Panel Factory', 'category': 'Industrial'}
+
+    def fake(names):
+        d = types.SimpleNamespace()
+        d.activities = {f'A{i}': {'name': n, 'id': f'A{i}', 'planned_duration': 80,
+                                  'wbs_path': '', 'task_type': 'Task'} for i, n in enumerate(names)}
+        d.wbs = {'W0': {'name': 'Press Line'}}
+        d.relationships = []
+        d.project = {'id': ''}
+        return d
+
+    with tempfile.TemporaryDirectory() as base:
+        # two added schedules that both contain a custom recurring activity
+        for h in ('p1', 'p2'):
+            learn._fold(fake(['Hot Press Installation', 'Custom Special Handover Test']), entry, h, base)
+        fd, xml = tempfile.mkstemp(suffix='.xml')
+        os.close(fd)
+        write_example_xml(MDF, xml, gappy=False)   # clean starter — lacks the custom activity
+        try:
+            rep = run_review(parse_file(xml), learn_base=base)
+            assert rep['knowledge_enhanced'] is True
+            miss_names = [m['name'] for m in rep['missing']]
+            assert any('Custom Special Handover Test' in n for n in miss_names)
+            assert any(m.get('basis') == 'your projects' for m in rep['missing'])
+            # with no learned data the same schedule is gap-free — enhancement did work
+            base_rep = run_review(parse_file(xml), learn_base=tempfile.mkdtemp())
+            assert base_rep['dashboard']['missing_count'] < rep['dashboard']['missing_count']
+        finally:
+            os.remove(xml)

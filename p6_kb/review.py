@@ -6,7 +6,8 @@ No AI, fully offline. Everything advisory.
 """
 from p6_kb.detect import detect_subtype, score_entries
 from p6_kb.kb import load_kb
-from p6_kb.learn import learned_panel, load_profile
+from p6_kb.learn import (has_learning, learned_panel, load_profile,
+                         recurring_activities, recurring_wbs)
 from p6_kb.model import schedule_view
 from p6_kb.scoring import compute_score
 
@@ -116,7 +117,7 @@ def _missing_activities(view, entry):
         if _find(view, kact.get('keywords', [])):
             continue  # present in the schedule
         kb_wbs = next((w for w in entry.get('wbs', []) if w['name'] == kact.get('wbs')), None)
-        new_wbs = not (kb_wbs and _wbs_present(view, kb_wbs))
+        new_wbs = bool(kact.get('wbs')) and not (kb_wbs and _wbs_present(view, kb_wbs))
         missing.append({
             'suggested_id': new_id(),
             'name': kact.get('name', ''),
@@ -125,7 +126,7 @@ def _missing_activities(view, entry):
             'preds': [_resolve(view, kact.get('typical_pred'))] if kact.get('typical_pred') else [],
             'succs': [_resolve(view, kact.get('typical_succ'))] if kact.get('typical_succ') else [],
             'why': kact.get('why', ''),
-            'basis': f"{entry['type']} standard",
+            'basis': kact.get('basis') or f"{entry['type']} standard",
         })
     return missing
 
@@ -248,7 +249,40 @@ def _dashboard_extras(view, entry, illogical, missing, missing_wbs, score, score
     }
 
 
-def run_review(data, entries=None, cfg=None, forced_type=None):
+def _blend(entry, profile):
+    """Enhance the standard with what the tool has learned from schedules the user
+    added for this type (Ibrahim's model: the standard is the base; each added
+    schedule enhances it). Learned recurring activities / WBS not already covered
+    by the curated standard are appended and marked 'your projects', so the review
+    checks against the standard PLUS the user's real practice. Curated-only until
+    enough schedules have been added for this type."""
+    if not profile or not has_learning(profile):
+        return entry
+    import copy
+    e = copy.deepcopy(entry)
+    have = {(a.get('name') or '').strip().lower() for a in e.get('activities', [])}
+    for a in recurring_activities(profile):
+        key = (a.get('name') or '').strip().lower()
+        if not key or key in have:
+            continue
+        have.add(key)
+        e.setdefault('activities', []).append({
+            'name': a['name'], 'keywords': [a['name']], 'wbs': '',
+            'typical_pred': '', 'typical_succ': '',
+            'duration_days': a.get('avg_duration') or 10,
+            'why': f"Recurs in {a['seen']} of your {a['imports']} {entry.get('type', '')} schedules.",
+            'basis': 'your projects',
+        })
+    have_wbs = {(w.get('name') or '').strip().lower() for w in e.get('wbs', [])}
+    for w in recurring_wbs(profile):
+        key = (w.get('name') or '').strip().lower()
+        if key and key not in have_wbs:
+            have_wbs.add(key)
+            e.setdefault('wbs', []).append({'name': w['name'], 'keywords': [w['name']]})
+    return e
+
+
+def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
     cfg = cfg or {}
     ai_cfg = cfg.get('score') or {}
     view = schedule_view(data)
@@ -272,9 +306,20 @@ def run_review(data, entries=None, cfg=None, forced_type=None):
                           "Knowledge Base. Pick the sub-type to review against.",
         }
 
+    # Blend: the review checks against the standard PLUS what the tool has learned
+    # from schedules added for this type (the standard is the base; added schedules
+    # enhance it). Illogical/logic stays curated; missing/WBS use the enhanced set.
+    profile = None
+    try:
+        profile = load_profile(entry['type'], base=learn_base)
+    except Exception:
+        profile = None
+    effective = _blend(entry, profile)
+
     illogical = _illogical_findings(view, entry)
-    missing = _missing_activities(view, entry)
-    wbs_review, missing_wbs = _wbs_review(view, entry)
+    missing = _missing_activities(view, effective)
+    wbs_review, missing_wbs = _wbs_review(view, effective)
+    learned_missing = sum(1 for m in missing if m.get('basis') == 'your projects')
 
     total_rel = view['relationship_count']
     total_act = view['activity_count']
@@ -288,11 +333,9 @@ def run_review(data, entries=None, cfg=None, forced_type=None):
     extras = _dashboard_extras(view, entry, illogical, missing, missing_wbs,
                                score, scored, bool(forced_type))
 
-    # Learned from the user's own imports of this type (local, private) — advisory,
-    # separate from the curated findings. None until enough imports accumulate.
+    # Learned-from-your-projects panel (recurrence detail); None until enough added.
     learned = None
     try:
-        profile = load_profile(entry['type'])
         if profile:
             learned = learned_panel(profile, view)
     except Exception:
@@ -303,8 +346,11 @@ def run_review(data, entries=None, cfg=None, forced_type=None):
                 f"{len(missing_wbs)} missing WBS branch(es) found. ")
     else:
         gaps = "No constructability gaps found against the knowledge base. "
+    enhanced = (f"Checked against the standard **plus {learned.get('imports', 0)} of your own "
+                f"{entry['type']} schedules** ({learned_missing} of the missing activities come from your "
+                f"practice). " if learned else "")
     conclusion = (f"Scored {score['overall']}/100 — {score['band_label']} against the "
-                  f"{entry['category']} › {entry['type']} standard. " + gaps +
+                  f"{entry['category']} › {entry['type']} standard. " + enhanced + gaps +
                   "Produced offline from the Construction Knowledge Base — advisory, review before acting.")
 
     return {
@@ -322,7 +368,9 @@ def run_review(data, entries=None, cfg=None, forced_type=None):
             'coverage': extras['coverage'],
             'critical_count': extras['severity']['critical'],
             'near_critical_count': extras['severity']['near_critical'],
+            'learned_missing': learned_missing,
         },
+        'knowledge_enhanced': bool(learned),
         'score': score,
         'verdict': extras['verdict'],
         'severity': extras['severity'],

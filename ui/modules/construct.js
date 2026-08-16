@@ -295,6 +295,8 @@ function renderReport(report) {
       <div class="fb"><span class="k">Detected project sub-type</span>
         <span class="v ai-type">${escapeHtml(report.project_type)}</span> ${draft}</div>
       <div class="fb"><span class="k">Engine</span><span class="v">Rule + Knowledge Base · offline</span></div>
+      ${report.knowledge_enhanced ? `<div class="fb"><span class="k">Knowledge</span>
+        <span class="v ai-enh" title="Checking against the standard plus what the tool learned from schedules you added for this type">✦ Standard + your ${(report.learned && report.learned.imports) || 0} schedule(s)</span></div>` : ''}
       <div class="fb"><span class="k">Change sub-type</span>${_typeSelect(report)}</div>
     </div>
     <div class="ai-banner"><span class="spark">🧠</span>
