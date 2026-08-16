@@ -24,7 +24,7 @@ async function fetchAndRender() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
-        snapshot_id: state.currentSnapshotId || null, setup: getSetup(),
+        snapshot_id: state.currentSnapshotId || null, setup: setupForSend(),
       }),
     });
     const data = await resp.json();
@@ -225,8 +225,26 @@ function setupFormHtml() {
           <label class="bn-file">${s.layout ? '✓ layout image' : '＋ layout image'}<input type="file" accept="image/*" data-logo="layout"></label>
         </div>
       </div>
+      <div style="margin-top:11px;font-size:12.5px;color:var(--text-secondary,#565c64)">
+        <label style="cursor:pointer"><input type="checkbox" id="bn-inc-logos" ${s.include_logos === false ? '' : 'checked'} style="vertical-align:-1px;margin-right:6px">Include the logos as the Word page header</label>
+        <span style="color:var(--text-muted,#8a9099);margin-left:6px">— logos are optional; untick to generate without them.</span>
+      </div>
       <button id="bn-setup-gen">Generate narrative</button>
     </div>`;
+}
+
+// Setup to send when generating: honours the "include logos" toggle so the user can
+// deliberately generate a clean report without the logo header even if logos exist.
+function setupForSend() {
+  const s = { ...getSetup() };
+  const inc = document.getElementById('bn-inc-logos');
+  const include = inc ? inc.checked : (s.include_logos !== false);
+  if (!include) {
+    delete s.owner_logo;
+    delete s.consultant_logo;
+    delete s.contractor_logo;
+  }
+  return s;
 }
 
 function wireSetupForm(root) {
@@ -241,6 +259,8 @@ function wireSetupForm(root) {
       const lab = inp.closest('.bn-file');
       if (lab) lab.childNodes[0].nodeValue = '✓ ' + (inp.dataset.logo === 'layout' ? 'layout image' : 'logo');
     }));
+  const inc = root.querySelector('#bn-inc-logos');
+  if (inc) inc.addEventListener('change', () => { s.include_logos = inc.checked; saveSetup(); });
   const gen = root.querySelector('#bn-setup-gen');
   if (gen) gen.addEventListener('click', () => fetchAndRender());
 }
