@@ -45,7 +45,7 @@ def _money(v):
         return str(v)
 
 
-def _render(doc, section):
+def _render(doc, section, chrome=None):
     kind, p = section['kind'], section['payload']
     if kind == 'prose':
         for para in p.get('paragraphs', []):
@@ -106,9 +106,19 @@ def _render(doc, section):
         _add_table(doc, ['WBS branch', 'Cost', 'Share %'],
                    [[r['name'], _money(r['cost']), f"{r['pct']}%"] for r in p.get('rows', [])])
     elif kind == 'cashflow':
-        _add_table(doc, ['Date', 'Cumulative cost', '% complete'],
-                   [[pt['date'], _money(pt['cumulative']), f"{pt['pct']}%"]
-                    for pt in p.get('points', [])])
+        points = p.get('points', [])
+        png = None
+        if points and chrome:
+            from p6_narrative import chart_png
+            png = chart_png.render_svg_png(chart_png.cashflow_svg(points), 760, 320, chrome=chrome)
+        if png:
+            try:
+                doc.add_picture(io.BytesIO(png), width=Inches(6.2))
+            except Exception:
+                png = None
+        if not png:
+            _add_table(doc, ['Date', 'Cumulative cost', '% complete'],
+                       [[pt['date'], _money(pt['cumulative']), f"{pt['pct']}%"] for pt in points])
     elif kind == 'timeline':
         _add_table(doc, ['Date', 'Key date / milestone'],
                    [[it.get('date'), it.get('label')] for it in p.get('items', [])])
@@ -142,7 +152,7 @@ def _add_logo_header(document, logos):
                 pass
 
 
-def write_docx(doc_dict, path):
+def write_docx(doc_dict, path, chrome=None):
     meta = doc_dict.get('meta', {})
     document = Document()
     if meta.get('logos'):
@@ -159,7 +169,7 @@ def write_docx(doc_dict, path):
             for run in note.runs:
                 run.italic = True
                 run.font.size = Pt(8)
-        _render(document, section)
+        _render(document, section, chrome=chrome)
 
     document.save(path)
     return path

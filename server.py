@@ -475,7 +475,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_narrative.builder import apply_edits
             from p6_narrative.docx_writer import write_docx
-            write_docx(apply_edits(doc_dict, body.get('edits')), os.path.abspath(output_path))
+            write_docx(apply_edits(doc_dict, body.get('edits')), os.path.abspath(output_path),
+                       chrome=_find_chrome())
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

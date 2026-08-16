@@ -390,6 +390,8 @@ _CSS = """
 .bn-discm{font-family:'Cascadia Code',Consolas,monospace;font-size:11px;color:#8a9099;font-weight:400}
 .bn-disc p{margin:0 0 8px}
 .bn-pkgs{display:flex;flex-wrap:wrap;gap:6px}
+.bn-scopeul{margin:6px 0 2px;padding-left:22px}
+.bn-scopeul li{font-size:13.5px;margin:3px 0}
 .bn-pkgchip{font-family:system-ui,sans-serif;font-size:11.5px;background:#f4f6f9;border:1px solid #ebeef1;border-radius:14px;padding:3px 10px;color:#565c64}
 .bn-scopeul{margin:6px 0 2px;padding-left:22px}
 .bn-scopeul li{font-family:system-ui,sans-serif;font-size:13px;margin:3px 0;color:#1a1d21}
