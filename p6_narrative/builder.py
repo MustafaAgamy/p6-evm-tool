@@ -214,9 +214,15 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, se
     brief.append(('Project name', name))
     if project.get('id'):
         brief.append(('Project ID', project['id']))
+    # Baseline start/finish — many XER exports leave the project dates blank, so fall
+    # back to the activity range (generic for any file).
+    a_starts = [as_date(a.get('planned_start')) for a in acts if a.get('planned_start')]
+    a_fins = [as_date(a.get('planned_finish')) for a in acts if a.get('planned_finish')]
+    proj_start = as_date(project.get('planned_start')) or (min(a_starts) if a_starts else None)
+    proj_finish = as_date(project.get('scheduled_finish')) or (max(a_fins) if a_fins else None)
     brief += [('Data date', _fmt_date(project.get('data_date'))),
-              ('Planned start', _fmt_date(project.get('planned_start'))),
-              ('Planned finish', _fmt_date(project.get('scheduled_finish')))]
+              ('Baseline start', _fmt_date(proj_start)),
+              ('Baseline finish', _fmt_date(proj_finish))]
     if total_bac:
         brief.append(('Budget (from cost loading)', _fmt_money(total_bac)))
     sections.append(Section(

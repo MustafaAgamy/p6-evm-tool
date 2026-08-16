@@ -192,13 +192,12 @@ def _scope(p):
     if p.get('intro'):
         out += f'<p>{_esc(p.get("intro"))}</p>'
     for b in p.get('blocks', []):
-        chips = ''.join(f'<span class="bn-pkgchip">{_esc(x)}</span>'
-                        for x in (b.get('packages') or [])[:12])
+        bullets = ''.join(f'<li><b>{_esc(x)}</b></li>' for x in (b.get('packages') or []))
         cost = f' · {b["cost"]:,.0f}' if b.get('cost') else ''
         out += (f'<div class="bn-disc"><div class="bn-disch">{_esc(b.get("discipline"))}'
                 f'<span class="bn-discm">{b.get("activity_count", 0)} activities{_esc(cost)}</span></div>'
                 f'<p>{_esc(b.get("paragraph", ""))}</p>'
-                f'<div class="bn-pkgs">{chips}</div></div>')
+                + (f'<ul class="bn-scopeul">{bullets}</ul>' if bullets else '') + '</div>')
     return out
 
 
@@ -392,6 +391,9 @@ _CSS = """
 .bn-disc p{margin:0 0 8px}
 .bn-pkgs{display:flex;flex-wrap:wrap;gap:6px}
 .bn-pkgchip{font-family:system-ui,sans-serif;font-size:11.5px;background:#f4f6f9;border:1px solid #ebeef1;border-radius:14px;padding:3px 10px;color:#565c64}
+.bn-scopeul{margin:6px 0 2px;padding-left:22px}
+.bn-scopeul li{font-family:system-ui,sans-serif;font-size:13px;margin:3px 0;color:#1a1d21}
+.bn-scopeul li b{font-weight:600}
 .bn-wbsblock{border:1px solid #dadee4;border-radius:10px;margin:10px 0;overflow:hidden}
 .bn-wbstitle{background:#265f7e;color:#fff;font-family:system-ui,sans-serif;font-weight:600;font-size:13px;padding:8px 14px}
 .bn-wbsblock .bn-tw{margin:0;padding:12px}

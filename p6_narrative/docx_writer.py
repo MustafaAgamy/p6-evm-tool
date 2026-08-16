@@ -80,8 +80,9 @@ def _render(doc, section):
         for b in p.get('blocks', []):
             doc.add_heading(b.get('discipline', ''), level=2)
             doc.add_paragraph(b.get('paragraph', ''))
-            if b.get('packages'):
-                doc.add_paragraph('Work-packages: ' + ', '.join(b['packages']))
+            for pkg in b.get('packages', []):
+                run = doc.add_paragraph(style='List Bullet').add_run(pkg)
+                run.bold = True
     elif kind == 'wbs':
         for n in p.get('nodes', []):
             prefix = ('    ' * n.get('level', 0)) + ('› ' if n.get('level') else '')
