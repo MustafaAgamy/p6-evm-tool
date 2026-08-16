@@ -5,6 +5,7 @@ import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
 import { showKbLibrary, exitKbLibrary, initKbLibrary } from './modules/kblib.js';
+import { showDatabase, exitDatabase, initDatabase } from './modules/database.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
 import { initTooltips }                        from './modules/tooltip.js';
@@ -14,18 +15,22 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initTooltips();
   initKbLibrary();
+  initDatabase();
   loadHistory();
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
   document.getElementById('sb-home-btn').addEventListener('click', () => {
     exitKbLibrary();
+    exitDatabase();
     loadAnother();
     loadHistory();
   });
 
   // Knowledge Base — its own sidebar page (browse the project-type standards)
-  document.getElementById('sb-kb-btn').addEventListener('click', showKbLibrary);
+  document.getElementById('sb-kb-btn').addEventListener('click', () => { exitDatabase(); showKbLibrary(); });
+  // Construction Database — downloadable schedules by type
+  document.getElementById('sb-db-btn').addEventListener('click', () => { exitKbLibrary(); showDatabase(); });
 
   document.getElementById('browse-btn').addEventListener('click', async () => {
     const path = await window.pywebview.api.choose_file();
@@ -69,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {
     exitKbLibrary();
+    exitDatabase();
     if (state.currentResult) {
       document.getElementById('results-section').classList.remove('hidden');
       switchView('audit');
@@ -99,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     exitKbLibrary();
+    exitDatabase();
     importFile(file.path);
   });
 

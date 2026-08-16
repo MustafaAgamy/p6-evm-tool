@@ -21,4 +21,7 @@ export const state = {
   kbLibrary:         null,   // Knowledge Base library — {categories:[…], total} cached from /api/kb
   kbSelectedType:    null,   // type name selected in the KB EPS tree
   kbSelectedCat:     null,   // category currently expanded in the KB tree
+  dbLibrary:         null,   // Construction Database — {categories:[…]} cached from /api/database
+  dbSelectedType:    null,   // type name selected in the Database EPS tree
+  dbSelectedCat:     null,   // category currently expanded in the Database tree
 };

@@ -278,6 +278,7 @@ function renderReport(report) {
       Advisory: review before acting; it never changes your schedule. Kept separate from the exact rule-based audits.</span></div>
 
     <div class="xd-exportbar">
+      <button class="btn-secondary" id="cx-adddb">➕ Add to Database</button>
       <button class="btn-secondary" id="cx-xls">📊 Export Excel</button>
       <button class="btn-primary" id="cx-pdf">📄 Print Preview</button>
     </div>
@@ -298,6 +299,8 @@ function renderReport(report) {
   if (pdf) pdf.addEventListener('click', () => previewReport(pdf));
   const xls = document.getElementById('cx-xls');
   if (xls) xls.addEventListener('click', () => exportReport('excel', xls));
+  const adb = document.getElementById('cx-adddb');
+  if (adb) adb.addEventListener('click', () => addToDatabase(adb));
   document.querySelectorAll('.lp-act').forEach(b =>
     b.addEventListener('click', () => exportLearned(b.dataset.lact, b.dataset.type, b)));
 }
@@ -364,6 +367,33 @@ async function saveReportPdf(rep) {
   const data = await resp.json();
   if (!data.ok) { showError(data.error || 'PDF generation failed.'); return false; }
   return true;
+}
+
+async function addToDatabase(btn) {
+  const rep = state.constructReport;
+  if (!rep || !rep.detected || (!state.currentXmlPath && !state.currentCachedPath)) return;
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+  let added = false;
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/database/add`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+        forced_type: state.constructForcedType || rep.detected.type || null,
+      }),
+    });
+    const data = await resp.json();
+    if (!data.ok) showError(data.error || 'Could not add to the Construction Database.');
+    else { added = true; state.dbLibrary = null; }   // force the DB view to reload
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  } finally {
+    if (btn) {
+      if (added) { btn.textContent = '✓ Added to Database'; btn.disabled = true; }
+      else { btn.textContent = orig; btn.disabled = false; }
+    }
+  }
 }
 
 async function exportReport(kind, btn) {

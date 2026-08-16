@@ -1183,3 +1183,13 @@ table.ai-fit th, table.ai-fit td { padding: 3px 5px; }
 table.ai-fit .ai-why { min-width: 140px; max-width: 220px; white-space: normal; }
 table.ai-fit .mut { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-sn { text-align: center; color: var(--muted); font-weight: 700; }
+
+/* ── Construction Database — file rows (reuses the KB-library layout) ─────── */
+.db-file { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; margin-bottom: 8px; }
+.db-file:last-child { margin-bottom: 0; }
+.db-file .fic { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 8px; background: var(--card-bg); border: 1px solid var(--border); display: grid; place-items: center; font-size: 16px; }
+.db-file .fmeta { min-width: 0; flex: 1; }
+.db-file .fn { font-size: 12.5px; font-weight: 650; color: var(--text); }
+.db-file .fm { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+.db-file .btn-secondary { margin-left: auto; white-space: nowrap; padding: 6px 12px; font-size: 11.5px; }
+.db-empty { font-size: 11.5px; color: var(--muted); padding: 6px 2px; line-height: 1.5; }
