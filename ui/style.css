@@ -1193,3 +1193,19 @@ table.ai-fit .mut { max-width: 120px; overflow: hidden; text-overflow: ellipsis;
 .db-file .fm { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
 .db-file .btn-secondary { margin-left: auto; white-space: nowrap; padding: 6px 12px; font-size: 11.5px; }
 .db-empty { font-size: 11.5px; color: var(--muted); padding: 6px 2px; line-height: 1.5; }
+
+/* ── Illogical table: merged link cells so it fits (no trimming) ──────────── */
+table.ai-illog { table-layout: fixed; width: 100%; }
+table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word; white-space: normal; vertical-align: top; }
+.ai-lk { margin-bottom: 5px; font-size: 11px; line-height: 1.3; }
+.ai-lk:last-child { margin-bottom: 0; }
+.ai-lk b { font-size: 11px; }
+.ai-lknm { color: var(--muted); font-size: 10px; line-height: 1.25; margin-top: 1px; }
+
+/* ── Add to Database — EPS picker inline on the review ────────────────────── */
+.cx-eps { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 0 2px; padding: 10px 12px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 9px; font-size: 12px; }
+.cx-eps label { color: var(--muted); font-weight: 600; }
+.cx-eps select { flex: 1; min-width: 180px; padding: 6px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 12px; }
+.cx-eps-note { font-size: 11px; width: 100%; }
+.cx-eps-note.ok { color: var(--success); }
+.cx-eps-note.warn { color: var(--warning); }

@@ -134,6 +134,22 @@ def learn_from_schedule(data, file_hash=None, base=None, entries=None):
         return None
 
 
+def fold_under(data, entry, base=None):
+    """Fold a schedule into the learned profile under a KNOWN type (the one the
+    user chose when adding it to the Construction Database) — so adding a schedule
+    grows the tool's knowledge for that exact type. Deduped by P6 project id, so
+    it composes safely with import-time learning."""
+    try:
+        proj = ''
+        try:
+            proj = (getattr(data, 'project', None) or {}).get('id') or ''
+        except Exception:
+            proj = ''
+        return _fold(data, entry, proj or None, base)
+    except Exception:
+        return None
+
+
 # ── deriving usable knowledge from a profile ────────────────────────────────
 
 def _threshold(imports):

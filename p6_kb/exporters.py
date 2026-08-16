@@ -124,7 +124,11 @@ def _illogical_table(report):
         f'<td class="mono chg">{_e(_links(r.get("suggested_preds")))}</td>'
         f'<td class="mono chg">{_e(_links(r.get("suggested_succs")))}</td>'
         f'<td>{_e(r.get("impact"))}</td></tr>' for i, r in enumerate(rows))
-    return ('<table class="data"><thead><tr><th>#</th><th>Activity ID</th><th>Activity</th><th>WBS path</th>'
+    return ('<table class="data illog"><colgroup>'
+            '<col style="width:3%"><col style="width:9%"><col style="width:15%"><col style="width:13%">'
+            '<col style="width:11%"><col style="width:11%"><col style="width:15%">'
+            '<col style="width:11%"><col style="width:11%"><col style="width:6%"></colgroup>'
+            '<thead><tr><th>#</th><th>Activity ID</th><th>Activity</th><th>WBS path</th>'
             '<th>Current preds</th><th>Current succs</th><th>Why it\'s illogical</th>'
             '<th>Suggested preds</th><th>Suggested succs</th><th>Impact</th></tr></thead><tbody>'
             + body + '</tbody></table>')
@@ -205,7 +209,8 @@ def render_html(report):
       .wbsrow .bar i {{ display: block; height: 100%; background: linear-gradient(90deg,#dc2626,#f59e0b); }} .wbsrow .c {{ width: 22px; text-align: right; font-weight: 700; }}
       table.data {{ width: 100%; border-collapse: collapse; font-size: 9.5px; margin: 5px 0; }}
       table.data th {{ background: #26517d; color: #fff; text-align: left; padding: 4px 6px; font-weight: 600; }}
-      table.data td {{ border-bottom: 1px solid #e2e8f0; padding: 3px 6px; vertical-align: top; }}
+      table.data td {{ border-bottom: 1px solid #e2e8f0; padding: 3px 6px; vertical-align: top; word-break: break-word; }}
+      table.illog {{ table-layout: fixed; }}
       .mono {{ font-family: Consolas, monospace; }} .mut {{ color: #64748b; }} .chg {{ color: #b91c1c; }}
       .sn {{ text-align: center; color: #64748b; font-weight: 700; width: 16px; }}
       .prio td {{ padding: 5px 6px; }} .prio .rk {{ width: 20px; font-weight: 800; color: #dc2626; }} .prio .pd {{ color: #64748b; font-size: 9px; }} .prio .sev {{ white-space: nowrap; font-weight: 700; }}

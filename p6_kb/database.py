@@ -92,6 +92,13 @@ def add_import(src_path, data, base=None, entries=None, forced_type=None, when=N
     else:
         rec['files'].append(record)
     _save_index(idx, base)
+    # Adding a schedule also grows the tool's learned knowledge for this exact type
+    # (deduped by project id — safe alongside import-time learning).
+    try:
+        from p6_kb.learn import fold_under
+        fold_under(data, entry, base=base)
+    except Exception:
+        pass
     return {'type': entry['type'], 'category': entry.get('category', ''), **record}
 
 
