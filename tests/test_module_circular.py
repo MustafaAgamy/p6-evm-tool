@@ -74,6 +74,7 @@ def test_cycle_finding_shape_and_closure():
     assert all('id' in c and 'name' in c for c in f['chain'])
     assert f['recommendation'] == 'Break one link in this loop so P6 can calculate a valid schedule'
     assert f['finding_id']  # deterministic id present
+    assert f['severity'] == 'Critical'  # a loop stops F9 — nothing milder applies
 
 
 def test_defect_pct_and_score_for_all_in_loop():

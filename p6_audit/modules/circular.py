@@ -93,6 +93,7 @@ def run_circular(graph, config):
             'loop_index':     i,
             'chain':          chain,
             'activity_count': len(cyc),
+            'severity':       'Critical',   # a loop stops F9 outright — nothing milder applies
             'recommendation': 'Break one link in this loop so P6 can calculate a valid schedule',
         })
 
