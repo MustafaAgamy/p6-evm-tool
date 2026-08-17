@@ -103,7 +103,21 @@ export function gradeClass(grade) {
            'Needs Attention': 'g-need', 'Critical': 'g-crit' }[grade] || 'g-need';
 }
 
-// Render the isolated-modules audit view: a module selector + one module's report.
+// Rail order for the Schedule Health Review checks. The diagnostic checks come
+// first (the user reviews the individual schedule issues), and Summary sits at
+// the very END as the executive roll-up / conclusion. Out of Sequence and Lag
+// Report are separate top-level features, not tabs here.
+const SHR_RAIL_ORDER = ['dangling', 'open_ends', 'leads', 'negative_float',
+  'relationship_types', 'whole_day', 'hard_constraints', 'high_duration',
+  'cpli', 'float', 'circular'];
+const SUMMARY_KEY = '__summary__';
+
+// The tab score shows the module's own score; CPLI can be "not computed" (null).
+export function tabScore(m) {
+  return (m.score === null || m.score === undefined) ? '—' : m.score;
+}
+
+// Render the Schedule Health Review: a Summary dashboard + one tab per check.
 export function renderAudit(auditModules) {
   state.currentModules = auditModules || null;
   const body = document.getElementById('audit-body');
@@ -111,15 +125,25 @@ export function renderAudit(auditModules) {
   // Always rebuild a fresh #module-body so repeated renders never hit a
   // container that a prior "no audit" render replaced.
   body.innerHTML = '<div id="module-body"></div>';
-  // Out of Sequence and Lag Report are shown as their own top-level features, not Schedule Audit tabs.
-  const order = ((auditModules && auditModules.module_order) || [])
+  const present = ((auditModules && auditModules.module_order) || [])
     .filter(k => k !== 'out_of_sequence' && k !== 'lag_lead');
-  if (!order.length) {
+  if (!present.length) {
     tabs.innerHTML = '';
     document.getElementById('module-body').innerHTML =
-      '<p style="color:var(--muted);font-size:13px">No audit available for this schedule.</p>';
+      '<p style="color:var(--muted);font-size:13px">No Schedule Health Review available for this schedule.</p>';
     return;
   }
+  // Locked order first, then anything unexpected appended so nothing is dropped.
+  const order = SHR_RAIL_ORDER.filter(k => present.includes(k))
+    .concat(present.filter(k => !SHR_RAIL_ORDER.includes(k)));
+
+  const health = (auditModules && auditModules.health) || null;
+  // Summary is the executive roll-up — placed LAST, after the diagnostic checks.
+  const summaryTab = health
+    ? `<button class="module-tab mt-summary" data-module="${SUMMARY_KEY}">
+         <span class="mt-dot ${scoreColor(health.score ?? 0)}"></span>Summary
+         <span class="mt-score">${health.score ?? '—'}</span></button>`
+    : '';
   tabs.innerHTML = order.map(key => {
     const m = auditModules.modules[key];
     // Float shows its DCMA Float Health score + colour (no word-grade); others keep the grade dot.
@@ -132,40 +156,140 @@ export function renderAudit(auditModules) {
     }
     return `<button class="module-tab" data-module="${escapeHtml(key)}">
       <span class="mt-dot ${gradeClass(m.grade)}"></span>${escapeHtml(m.name)}
-      <span class="mt-score">${m.score}</span></button>`;
-  }).join('');
+      <span class="mt-score">${tabScore(m)}</span></button>`;
+  }).join('') + summaryTab;
   tabs.querySelectorAll('.module-tab').forEach(btn =>
     btn.addEventListener('click', () => selectModule(btn.dataset.module)));
+  // Land on the first diagnostic check; the user reaches Summary at the end.
   selectModule(order[0]);
 }
 
 export function selectModule(key) {
   const am = state.currentModules;
-  if (!am || !am.modules[key]) return;
-  state.currentModule = key;
+  if (!am) return;
   document.querySelectorAll('.module-tab').forEach(b =>
     b.classList.toggle('active', b.dataset.module === key));
   _filters = { severity: '', check: '', wbs: '', query: '', area: '' };
+  if (key === SUMMARY_KEY) {
+    state.currentModule = SUMMARY_KEY;
+    return renderSummary(am.health || null, am);
+  }
+  if (!am.modules[key]) return;
+  state.currentModule = key;
   renderModuleBody(am.modules[key]);
 }
 
-function kpiTiles(m) {
-  const k = m.kpis || {};
-  const tiles = m.module === 'dangling'
-    ? [['Total Activities', (k.total_activities || 0).toLocaleString()],
-       ['Total Dangling', k.total_dangling || 0],
-       ['Dangling %', `${k.dangling_pct ?? 0}%`],
-       ['Dangling Start', k.start_dangling || 0],
-       ['Dangling Finish', k.finish_dangling || 0],
-       ['Dangling Start + Dangling Finish', k.both_dangling || 0]]
-    : [['Total Activities', (k.total_activities || 0).toLocaleString()],
-       ['Above Threshold', k.above_threshold || 0],
-       ['Float %', `${k.float_pct ?? 0}%`],
-       ['Max Float', `${k.max_float ?? 0} d`],
-       ['Average Float', `${k.avg_float ?? 0} d`],
-       ['Threshold', `${k.threshold ?? 44} d`]];
-  return tiles.map(([lab, val]) =>
-    `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(val)}</div></div>`).join('');
+// ── Small formatting + table-cell helpers (shared by every check view) ────
+const num = v => (Number(v) || 0).toLocaleString();
+const pctv = v => `${v ?? 0}%`;
+const dnum = v => (v === null || v === undefined) ? '—' : `${v} d`;
+const isoDate = v => v ? String(v).slice(0, 10) : '—';
+const td = v => `<td>${escapeHtml(v ?? '')}</td>`;
+const tdNum = v => `<td class="num">${escapeHtml(String(v ?? ''))}</td>`;
+const tdMono = v => `<td class="mono">${escapeHtml(v ?? '')}</td>`;
+const tdMut = v => `<td class="mut">${escapeHtml(v ?? '')}</td>`;
+const tdWbs = p => `<td title="${escapeHtml(p ?? '')}">${escapeHtml(shortWbs(p))}</td>`;
+const tdSev = s => `<td><span class="sevtag ${severityClass(s)}">${escapeHtml(s ?? '')}</span></td>`;
+
+// Pass / Review / Critical → colour + dot class (the roll-up's status semantics).
+export function statusColor(status) {
+  return { Pass: 'var(--success)', Review: 'var(--warning)', Critical: 'var(--danger)' }[status] || 'var(--muted)';
+}
+export function statusDot(status) {
+  return { Pass: 'd-g', Review: 'd-a', Critical: 'd-c' }[status] || 'd-n';
+}
+export function verdictClass(verdict) {
+  if (verdict === 'Ready to submit') return 'v-good';
+  if (verdict === 'Conditional pass') return 'v-warn';
+  return 'v-bad';   // Not ready / Blocked / Not computed
+}
+
+// The reusable gauge (120px ring + centred score). `score` may be null.
+function gaugeHtml(score, label = '/ 100') {
+  const C = 326.7;
+  const shown = (score === null || score === undefined) ? '—' : score;
+  return `<div class="gauge">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="12"/>
+        <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                stroke-dasharray="${C}" stroke-dashoffset="${gaugeDashoffset(score || 0, C)}"
+                transform="rotate(-90 60 60)" class="gauge-arc ${scoreColor(score || 0)}"/>
+      </svg>
+      <div class="gauge-num"><b>${shown}</b><span>${escapeHtml(label)}</span></div>
+    </div>`;
+}
+
+// ── Per-check specs: KPI tiles + findings-table columns/rows ───────────────
+// Every standard check renders through one path; the spec is the only thing
+// that differs. Keeps all nine views structurally identical (one look).
+const MODULE_SPECS = {
+  dangling: {
+    verdict: m => `${m.pct}% of activities have broken start/finish logic (an open end on one side).`,
+    tiles: k => [['Total Activities', num(k.total_activities)], ['Total Dangling', k.total_dangling || 0],
+      ['Dangling %', pctv(k.dangling_pct)], ['Dangling Start', k.start_dangling || 0],
+      ['Dangling Finish', k.finish_dangling || 0], ['Start + Finish', k.both_dangling || 0]],
+    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix', 'Suggested Logic Fix 2'],
+    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdSev(f.severity),
+      td(f.logic_issue), tdMut(f.predecessors), tdMut(f.successors), td(f.suggested_fix), tdMut(f.suggested_fix_2)],
+  },
+  open_ends: {
+    verdict: m => `${m.pct}% of activities are open on at least one side — no predecessor and/or no successor.`,
+    tiles: k => [['Total Activities', num(k.total_activities)], ['Open Ends', k.open_ends || 0],
+      ['Open-End %', pctv(k.open_end_pct)], ['No Predecessor', k.no_predecessor || 0], ['No Successor', k.no_successor || 0]],
+    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Issue', 'Recommendation'],
+    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdSev(f.severity), td(f.issue), tdMut(f.recommendation)],
+  },
+  relationship_types: {
+    verdict: m => `${m.kpis.fs_pct}% of relationships are Finish-to-Start; ${m.kpis.non_fs} are not (DCMA target ≥ 90% FS).`,
+    tiles: k => [['Total Relationships', num(k.total_relationships)], ['FS %', pctv(k.fs_pct)],
+      ['SS %', pctv(k.ss_pct)], ['FF %', pctv(k.ff_pct)], ['SF %', pctv(k.sf_pct)], ['Non-FS', k.non_fs || 0]],
+    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Type', 'Predecessor', 'Severity', 'Recommendation'],
+    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdMono(f.rel_type), tdMut(f.predecessor_name), tdSev(f.severity), tdMut(f.recommendation)],
+  },
+  hard_constraints: {
+    verdict: m => `${m.pct}% of activities carry a hard constraint that overrides the network logic.`,
+    tiles: k => [['Total Activities', num(k.total_activities)], ['Hard Constraints', k.hard_count || 0], ['Hard-Constraint %', pctv(k.hard_pct)]],
+    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Constraint Type', 'Constraint Date', 'Severity', 'Recommendation'],
+    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), td(f.constraint_type), tdMut(isoDate(f.constraint_date)), tdSev(f.severity), tdMut(f.recommendation)],
+  },
+  high_duration: {
+    verdict: m => `${m.pct}% of activities run longer than ${m.kpis.threshold} working days.`,
+    tiles: k => [['Total Activities', num(k.total_activities)], ['Over Threshold', k.over_threshold || 0],
+      ['High-Duration %', pctv(k.high_pct)], ['Threshold', dnum(k.threshold)], ['Longest', dnum(k.max_duration)]],
+    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Duration', 'Severity', 'Recommendation'],
+    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdNum(dnum(f.duration_days)), tdSev(f.severity), tdMut(f.recommendation)],
+  },
+  leads: {
+    verdict: m => `${m.pct}% of relationships are leads (negative lag) — DCMA target 0%.`,
+    tiles: k => [['Total Relationships', num(k.total_relationships)], ['Leads', k.leads || 0], ['Lead %', pctv(k.lead_pct)], ['Target', `${k.target}%`]],
+    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Type', 'Lag', 'Predecessor', 'Severity', 'Recommendation'],
+    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdMono(f.rel_type), tdNum(dnum(f.lag_days)), tdMut(f.predecessor_name), tdSev(f.severity), tdMut(f.recommendation)],
+  },
+  negative_float: {
+    verdict: m => `${m.pct}% of activities carry negative total float — a baseline must not start with any.`,
+    tiles: k => [['Total Activities', num(k.total_activities)], ['Negative Float', k.negative_count || 0], ['Negative-Float %', pctv(k.neg_pct)]],
+    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float', 'Severity', 'Recommendation'],
+    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdNum(dnum(f.total_float_days)), tdSev(f.severity), tdMut(f.recommendation)],
+  },
+  whole_day: {
+    verdict: m => `${m.pct}% of activities have a decimal duration that should round to a whole day.`,
+    tiles: k => [['Total Activities', num(k.total_activities)], ['Decimal Durations', k.decimal_count || 0], ['Decimal %', pctv(k.decimal_pct)]],
+    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Original', 'Rounds To', 'Calendar', 'Severity', 'Recommendation'],
+    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdNum(dnum(f.original_days)), tdNum(dnum(f.rounds_to)), tdMut(f.calendar), tdSev(f.severity), tdMut(f.recommendation)],
+  },
+};
+
+// Fallback for any unexpected module — never render a blank page.
+const GENERIC_SPEC = {
+  verdict: m => `${m.pct}% of items flagged.`,
+  tiles: k => Object.entries(k).slice(0, 6).map(([lab, v]) => [lab.replace(/_/g, ' '), typeof v === 'number' ? v : String(v)]),
+  columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Recommendation'],
+  row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdSev(f.severity), tdMut(f.recommendation)],
+};
+
+function tilesHtml(m, spec) {
+  return spec.tiles(m.kpis || {}).map(([lab, val]) =>
+    `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('');
 }
 
 function wbsSummaryHtml(m) {
@@ -347,30 +471,27 @@ export function renderOosPanel(auditModules) {
 
 function renderModuleBody(m) {
   if (m.module === 'float') return renderFloatModule(m);
-  const C = 326.7;
-  const verdict = m.module === 'dangling'
-    ? `${m.pct}% of activities have broken start/finish logic.`
-    : `${m.pct}% of activities carry total float above the threshold.`;
+  if (m.module === 'circular') return renderCircularModule(m);
+  if (m.module === 'cpli') return renderCpliModule(m);
+  return renderStandardModule(m);
+}
+
+// Standard check view: gauge hero + KPI tiles + filterable findings table,
+// driven entirely by the module's spec so every check reads the same way.
+function renderStandardModule(m) {
+  const spec = MODULE_SPECS[m.module] || GENERIC_SPEC;
   const body = document.getElementById('module-body');
   body.innerHTML = `
     <div class="audit-hero">
       <div class="score-card">
-        <div class="gauge">
-          <svg width="120" height="120" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="12"/>
-            <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
-                    stroke-dasharray="${C}" stroke-dashoffset="${gaugeDashoffset(m.score, C)}"
-                    transform="rotate(-90 60 60)" class="gauge-arc ${scoreColor(m.score)}"/>
-          </svg>
-          <div class="gauge-num"><b>${m.score ?? '—'}</b><span>/ 100</span></div>
-        </div>
+        ${gaugeHtml(m.score)}
         <div class="score-meta">
           <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
-          <div class="coverage">${escapeHtml(m.name)} — Module Score</div>
-          <div class="coverage">${escapeHtml(verdict)}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(spec.verdict(m))}</div>
         </div>
       </div>
-      <div class="kpi-tiles">${kpiTiles(m)}</div>
+      <div class="kpi-tiles">${tilesHtml(m, spec)}</div>
     </div>
     ${wbsSummaryHtml(m)}
     <div class="mod-sec">Detailed Findings</div>
@@ -391,6 +512,229 @@ function renderModuleBody(m) {
       syncChips(); renderRows();
     }));
   renderRows();
+}
+
+// Circular Logic — the F9 gate. Loops block P6's calculation, so this reads as a
+// gate banner (clear / blocking) with each loop's closing chain, not a table.
+function renderCircularModule(m) {
+  const k = m.kpis || {};
+  const clear = (k.loops || 0) === 0;
+  const banner = clear
+    ? `<div class="shr-banner ok"><b>F9 clear — no circular logic.</b> P6 can calculate this schedule.</div>`
+    : `<div class="shr-banner bad"><b>Blocking — a circular loop stops P6 from calculating (F9).</b> Break one link in each loop below, then re-run.</div>`;
+  const tiles = [['Total Activities', num(k.total_activities)], ['Loops', k.loops || 0],
+    ['Activities in Loops', k.activities_in_loops || 0], ['Longest Loop', k.longest_loop || 0], ['Circular %', pctv(k.circular_pct)]];
+  const loopsHtml = (m.findings || []).map(f => {
+    const chain = (f.chain || []).map((n, i) =>
+      `${i ? '<span class="shr-arrow">→</span>' : ''}<span class="shr-node" title="${escapeHtml(n.name)}">${escapeHtml(n.id)}</span>`).join('');
+    return `<div class="shr-loop">
+      <div class="shr-loop-h">Loop ${f.loop_index} <span>· ${f.activity_count} activities</span></div>
+      <div class="shr-chain">${chain}</div>
+      <div class="shr-loop-rec">${escapeHtml(f.recommendation || '')}</div></div>`;
+  }).join('');
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — F9 Gate</div>
+          <div class="coverage">${clear ? 'No loops — the network calculates.' : `${k.loops} loop${k.loops === 1 ? '' : 's'} block F9.`}</div>
+        </div>
+      </div>
+      <div class="kpi-tiles">${tiles.map(([lab, val]) => `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
+    </div>
+    ${banner}
+    ${clear ? '' : `<div class="mod-sec">Loops to break</div><div class="shr-loops">${loopsHtml}</div>`}`;
+}
+
+// Critical Path / CPLI — DCMA Point 13. Gauge = CPLI %, a baseline-rule badge,
+// and the driving path shown as a compact timeline + table. May be "not computed".
+function renderCpliModule(m) {
+  const k = m.kpis || {};
+  const computable = k.computable !== false && k.cpli != null;
+  // Show CPLI as the module score (CPLI %, one decimal, clamped 0–100) so the
+  // tile and the gauge always agree — never a rounded 97 next to a 96.9 gauge.
+  const cpliPct = computable ? m.score : null;
+  const ruleBadge = k.baseline_rule_met
+    ? `<span class="shr-rule ok">Baseline rule met — total float ≥ 0</span>`
+    : `<span class="shr-rule bad">Negative float — re-plan (baseline must be ≥ 0)</span>`;
+  const tiles = [
+    ['CPLI', computable ? `${cpliPct}%` : '—'],
+    ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
+    ['Completion Total Float', dnum(k.project_total_float_days)],
+    ['DCMA Target', `${Math.round((k.target || 0.95) * 100)}%`],
+    ['Finish Milestone', k.finish_milestone_id || '—'],
+  ];
+  const verdict = computable
+    ? `CPLI ${cpliPct}% — how realistically the finish can still be met (DCMA target ${Math.round((k.target || 0.95) * 100)}%).`
+    : 'CPLI not computable — the schedule has no dated finish milestone, or no float on it.';
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score, computable ? '/ 100' : 'n/a')}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(computable ? (m.grade || '') : 'Not computed')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(verdict)}</div>
+          ${computable ? `<div style="margin-top:8px">${ruleBadge}</div>` : ''}
+        </div>
+      </div>
+      <div class="kpi-tiles">${tiles.map(([lab, val]) => `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
+    </div>
+    <div class="shr-legend">
+      <b>How it's measured.</b> CPLI = (CPL + TF) ÷ CPL — DCMA 14-Point, Point 13. CPL is the critical-path length in working days from the data date to the completion milestone; TF is that milestone's total float. Ibrahim's baseline rule: total float must be ≥ 0 (CPLI ≥ 100%); negative float is a re-plan signal.
+    </div>
+    <div class="mod-sec">Driving path <span class="mod-sub">— the activities P6 flags critical, in sequence</span></div>
+    ${cpliTimeline(m.findings || [])}
+    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table"><thead><tr>
+      <th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th><th>Start</th><th>Finish</th><th class="num">Total Float</th>
+    </tr></thead><tbody>${(m.findings || []).map((f, i) =>
+    `<tr>${tdNum(i + 1)}${tdMono(f.activity_id)}${td(f.activity_name)}${tdWbs(f.wbs_path)}${tdMut(isoDate(f.start))}${tdMut(isoDate(f.finish))}${tdNum(dnum(f.total_float_days))}</tr>`).join('')
+    || `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:18px">No critical activities flagged.</td></tr>`}</tbody></table></div>`;
+}
+
+// Compact driving-path timeline: one track per critical activity, bar spanning
+// start→finish across the overall date range. Red when the activity is negative-float.
+function cpliTimeline(findings) {
+  const dated = findings.filter(f => f.start && f.finish);
+  if (!dated.length) return '';
+  const t = d => new Date(d + 'T00:00:00').getTime();
+  const lo = Math.min(...dated.map(f => t(f.start)));
+  const hi = Math.max(...dated.map(f => t(f.finish)));
+  const span = Math.max(1, hi - lo);
+  const rows = dated.slice(0, 40).map(f => {
+    const x = 100 * (t(f.start) - lo) / span;
+    const w = Math.max(1.5, 100 * (t(f.finish) - t(f.start)) / span);
+    const neg = (f.total_float_days ?? 0) < 0;
+    return `<div class="shr-tl-row">
+      <div class="shr-tl-lab" title="${escapeHtml(f.activity_name)}">${escapeHtml(f.activity_id)}</div>
+      <div class="shr-tl-track"><i style="left:${x}%;width:${Math.min(w, 100 - x)}%;background:${neg ? 'var(--danger)' : 'var(--accent)'}"></i></div>
+    </div>`;
+  }).join('');
+  const more = dated.length > 40 ? `<div class="shr-empty">+ ${dated.length - 40} more critical activities in the table below.</div>` : '';
+  return `<div class="shr-timeline">${rows}${more}</div>`;
+}
+
+// The Summary dashboard — the weighted Schedule Health roll-up, rendered from the
+// `health` payload (score, verdict, checks-status, composition, problem areas, fixes).
+function renderSummary(health, am) {
+  const body = document.getElementById('module-body');
+  if (!health) {
+    body.innerHTML = '<p style="color:var(--muted);font-size:13px">No Summary available for this schedule.</p>';
+    return;
+  }
+  const score = health.score, grade = health.grade || '', verdict = health.verdict || '', statement = health.statement || '';
+  const counts = health.counts || {};
+  const subs = health.sub_features || [];
+  const gate = health.gate || {};
+  const gateClear = !gate.blocking;
+  const total = health.total_count || subs.length || 1;
+  const p = counts.Pass || 0, r = counts.Review || 0, c = counts.Critical || 0, n = counts['Not computed'] || 0;
+  const a1 = 100 * p / total, a2 = a1 + 100 * r / total, a3 = a2 + 100 * c / total;
+  const donutGrad = `conic-gradient(var(--success) 0 ${a1}%, var(--warning) ${a1}% ${a2}%, var(--danger) ${a2}% ${a3}%, var(--muted) ${a3}% 100%)`;
+  const cpliK = (am && am.modules && am.modules.cpli && am.modules.cpli.kpis) || {};
+  const compFloat = cpliK.project_total_float_days;
+
+  const tone = s => (s == null ? '' : s >= 85 ? 'shr-green' : s >= 60 ? 'shr-amber' : 'shr-red');
+
+  const compRows = subs.map(s => {
+    const barW = s.score == null ? 0 : Math.max(0, Math.min(100, s.score));
+    const etag = (s.modules || []).some(k => k === 'dangling' || k === 'float') ? '<span class="shr-etag">existing</span>' : '';
+    const prov = s.provisional ? '<span class="shr-prov">provisional</span>' : '';
+    return `<div class="shr-crow">
+      <div class="shr-nm"><span class="dot ${statusDot(s.status)}"></span>${escapeHtml(s.name)} ${etag}${prov}</div>
+      <div class="shr-bar"><i style="width:${barW}%;background:${statusColor(s.status)}"></i></div>
+      <div class="shr-sc">${s.score == null ? '—' : s.score + '%'}</div>
+      <div class="shr-wt">${s.weight}</div>
+      <div class="shr-pt">${s.points == null ? '—' : s.points}</div>
+    </div>`;
+  }).join('');
+  const gateRow = `<div class="shr-crow">
+      <div class="shr-nm"><span class="dot ${gateClear ? 'd-g' : 'd-c'}"></span>Circular logic <span class="shr-gate ${gateClear ? 'ok' : 'bad'}">gate · ${gateClear ? 'clear' : 'blocking'}</span></div>
+      <div class="shr-bar"><i style="width:${gateClear ? 100 : 0}%;background:${gateClear ? 'var(--success)' : 'var(--danger)'}"></i></div>
+      <div class="shr-sc">—</div><div class="shr-wt">—</div><div class="shr-pt">—</div>
+    </div>`;
+
+  const areas = (health.problem_areas || {}).areas || [];
+  const paMax = Math.max(1, ...areas.map(a => a.pct || 0));
+  const paRows = areas.slice(0, 6).map((a, i) => `
+    <div class="shr-wb"><div class="l" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
+      <div class="shr-wbt"><i style="width:${Math.round(100 * (a.pct || 0) / paMax)}%;background:${i === 0 ? 'var(--danger)' : i < 3 ? 'var(--warning)' : 'var(--accent)'}"></i></div>
+      <div class="c">${a.pct}%</div></div>`).join('') || '<div class="shr-empty">No findings to place — the logic is clean.</div>';
+
+  const fixRows = (health.fix_first || []).map((f, i) => `
+    <div class="shr-fix"><div class="rk">${i + 1}</div>
+      <div><b>${escapeHtml(f.name)} ${f.score}%</b> <span class="sub">(wt ${f.weight})</span>
+        <div class="sub">${escapeHtml(f.recommendation || '')}</div></div>
+      <span class="shr-lift">+~${f.lift}</span></div>`).join('') || '<div class="shr-empty">Every check is at target — nothing to fix first.</div>';
+
+  body.innerHTML = `
+    <div class="shr-dash">
+      <div class="shr-top">
+        <div class="card shr-gaugecard">
+          ${gaugeHtml(score, `/ 100 · ${grade}`)}
+          <div class="shr-gmeta">
+            <div class="shr-verdict ${verdictClass(verdict)}">${escapeHtml(verdict)}</div>
+            <div class="shr-gl">Overall <b>Schedule Health</b> — the weighted roll-up of every sub-feature.<br>${escapeHtml(statement)}</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="shr-ct">Checks status <span class="r">${total} sub-features</span></div>
+          <div class="shr-donutwrap">
+            <div class="shr-donut" style="background:${donutGrad}"><div class="dh"><b>${p}</b><span>of ${total} pass</span></div></div>
+            <div class="shr-dleg">
+              <div class="dl"><span class="sw" style="background:var(--success)"></span>Pass <b>${p}</b></div>
+              <div class="dl"><span class="sw" style="background:var(--warning)"></span>Review <b>${r}</b></div>
+              <div class="dl"><span class="sw" style="background:var(--danger)"></span>Critical <b>${c}</b></div>
+              ${n ? `<div class="dl"><span class="sw" style="background:var(--muted)"></span>Not computed <b>${n}</b></div>` : ''}
+              <div class="dl"><span class="sw" style="background:${gateClear ? 'var(--success)' : 'var(--danger)'}"></span>Circular gate <b>${gateClear ? 'clear' : 'blocking'}</b></div>
+            </div>
+          </div>
+          <div class="shr-bands">
+            <div class="lab">How status is decided — each check's score vs its target</div>
+            <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass ≥ 95</div></div>
+            <div class="note">Per-check targets adjust where DCMA differs — e.g. FS ≥ 90%, CPLI ≥ 95%.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="shr-ct">Headline</div>
+          <div class="shr-statcol">
+            <div class="stat"><div class="sv ${tone(score)}">${score ?? '—'}<span>/100</span></div><div class="sk">Baseline health score</div></div>
+            <div class="stat"><div class="sv ${c ? 'shr-red' : 'shr-green'}">${c}</div><div class="sk">Critical sub-features</div></div>
+            <div class="stat"><div class="sv ${compFloat == null ? '' : compFloat < 0 ? 'shr-red' : 'shr-green'}">${compFloat == null ? '—' : compFloat + ' d'}</div><div class="sk">Completion total float (rule ≥ 0)</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shr-comp">
+        <div class="shr-ct">Sub-feature scores × your weights <span class="r">worst first</span></div>
+        <div class="shr-chead"><span>Sub-feature</span><span>Score</span><span>Score</span><span>Wt</span><span>Pts</span></div>
+        ${compRows}
+        ${gateRow}
+        <div class="shr-comptot"><div class="tl">Overall Schedule Health</div><div class="tw">${health.weight_covered ?? 100}</div><div class="tv ${tone(score)}">${score ?? '—'}</div></div>
+      </div>
+
+      <div class="shr-grid2">
+        <div class="card">
+          <div class="shr-ct">Where the problems are <span class="r">defect share by discipline</span></div>
+          ${paRows}
+        </div>
+        <div class="card">
+          <div class="shr-ct">Fix these first <span class="r">biggest lift</span></div>
+          ${fixRows}
+        </div>
+      </div>
+
+      <div class="card shr-concl">
+        <div class="shr-ct">Conclusion</div>
+        <p>${escapeHtml(statement)}</p>
+      </div>
+    </div>`;
 }
 
 // ── Float Analysis management dashboard (V2 redesign) ─────────────────────
@@ -521,42 +865,16 @@ function renderRows() {
   const key = state.currentModule;
   const tbody = document.getElementById('audit-tbody');
   const thead = document.getElementById('find-head');
-  if (!am || !key || !tbody) return;
+  if (!am || !key || !tbody || !am.modules[key]) return;
   const m = am.modules[key];
+  const spec = MODULE_SPECS[m.module] || GENERIC_SPEC;
   const rows = filterFindings(m.findings, { severity: _filters.severity, query: _filters.query });
-
-  const cols = m.module === 'dangling'
-    ? ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix', 'Suggested Logic Fix 2']
-    : ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float', 'Threshold', 'Impact', 'Status', 'Severity', 'Recommendation'];
-  thead.innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>`;
-
+  thead.innerHTML = `<tr>${spec.columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:20px">No findings match.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${spec.columns.length}" style="text-align:center;color:var(--muted);padding:20px">No findings match.</td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map((f, i) => {
-    const wbs = `<td title="${escapeHtml(f.wbs_path)}">${escapeHtml(shortWbs(f.wbs_path))}</td>`;
-    const sev = `<td><span class="sevtag ${severityClass(f.severity)}">${escapeHtml(f.severity)}</span></td>`;
-    if (m.module === 'dangling') {
-      return `<tr><td class="num">${i + 1}</td>
-        <td class="mono">${escapeHtml(f.activity_id)}</td>
-        <td>${escapeHtml(f.activity_name)}</td>${wbs}${sev}
-        <td>${escapeHtml(f.logic_issue)}</td>
-        <td class="mut">${escapeHtml(f.predecessors)}</td>
-        <td class="mut">${escapeHtml(f.successors)}</td>
-        <td>${escapeHtml(f.suggested_fix)}</td>
-        <td class="mut">${escapeHtml(f.suggested_fix_2)}</td></tr>`;
-    }
-    const impact = f.impact != null ? `${f.impact}×` : '—';
-    return `<tr><td class="num">${i + 1}</td>
-      <td class="mono">${escapeHtml(f.activity_id)}</td>
-      <td>${escapeHtml(f.activity_name)}</td>${wbs}
-      <td class="num">${escapeHtml(f.total_float_days)} d</td>
-      <td class="num">${escapeHtml(f.threshold)} d</td>
-      <td class="num">${impact}</td>
-      <td>${escapeHtml(f.status)}</td>${sev}
-      <td class="mut">${escapeHtml(f.recommendation)}</td></tr>`;
-  }).join('');
+  tbody.innerHTML = rows.map((f, i) => `<tr>${spec.row(f, i).join('')}</tr>`).join('');
 }
 
 // ── Lag Report — standalone report (charts + register + editable justification) ──
