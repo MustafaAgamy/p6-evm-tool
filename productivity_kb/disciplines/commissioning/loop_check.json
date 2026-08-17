@@ -1,0 +1,19 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "commissioning.ic.loop_check",
+  "discipline": "Testing & Commissioning",
+  "work_type": "Loop checks",
+  "method": "per loop, per team",
+  "name": "Instrument loop checks",
+  "status": "draft",
+  "match": {"keywords": ["loop check", "loop test", "i/o check", "loop checks"], "codes": []},
+  "unit": "loops",
+  "driver": "typical",
+  "rate": {"value": 2, "likely": 2, "unit": "loops/day", "source": "built_in_kb",
+           "basis": "Loop check, per 2-person team", "confidence": "medium"},
+  "crew": {"hours_per_day": 8, "n_crews": 3,
+           "composition": [{"trade": "Commissioning tech", "count": 1},
+                           {"trade": "Instrument tech", "count": 1}]},
+  "plant": [],
+  "material": []
+}

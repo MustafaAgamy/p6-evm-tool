@@ -1,0 +1,22 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.earthworks.bulk_excavation",
+  "discipline": "Civil/Structural",
+  "work_type": "Earthworks",
+  "method": "machine, medium soil",
+  "name": "Bulk excavation",
+  "status": "draft",
+  "match": {"keywords": ["bulk excavation", "excavation", "earthworks", "cut to level"], "codes": []},
+  "unit": "m3",
+  "driver": "resource_driven",
+  "rate": {"value": 800, "unit": "m3/day", "source": "built_in_kb",
+           "basis": "30-t excavator x2, medium soil", "confidence": "medium",
+           "valid_for": "medium soil, free haul <1 km"},
+  "crew": {"hours_per_day": 8, "n_crews": 1,
+           "composition": [{"trade": "Foreman", "count": 1}, {"trade": "Banksman", "count": 2},
+                           {"trade": "Laborer", "count": 5}]},
+  "plant": [{"name": "Excavator 30t", "count": 2, "governing": true,
+             "output": {"low": 300, "likely": 400, "high": 500}, "output_unit": "m3"},
+            {"name": "Dump truck", "count": 3, "basis": "duration", "utilization": 0.8}],
+  "material": []
+}

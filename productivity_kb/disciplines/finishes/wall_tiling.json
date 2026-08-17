@@ -1,0 +1,19 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.tiling.wall",
+  "discipline": "Interior Finishing",
+  "work_type": "Tiling",
+  "method": "wall, 30x60",
+  "name": "Wall tiling — 30x60",
+  "status": "draft",
+  "match": {"keywords": ["wall tiling", "wall tiles", "ceramic wall"], "codes": []},
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {"value": 12, "likely": 12, "unit": "m2/day", "source": "built_in_kb",
+           "basis": "Wall tiling 30x60, prepared surface", "confidence": "high",
+           "valid_for": "wall tiling, cut-heavy areas slower"},
+  "crew": {"hours_per_day": 8, "n_crews": 1,
+           "composition": [{"trade": "Tiler", "count": 2}, {"trade": "Helper", "count": 1}]},
+  "plant": [],
+  "material": [{"name": "Wall tiles", "unit": "m2", "qty_per_unit": 1.0, "waste_pct": 10}]
+}

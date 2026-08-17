@@ -1,0 +1,18 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "industrial.equipment.compressor.supply",
+  "discipline": "Equipment",
+  "work_type": "Equipment supply",
+  "method": "fabricate + deliver",
+  "name": "Main compressor — supply",
+  "status": "draft",
+  "match": {"keywords": ["compressor supply", "compressor delivery", "equipment supply"], "codes": []},
+  "unit": "unit",
+  "driver": "lead_time",
+  "rate": {"source": "benchmark", "basis": "Fabricate + deliver (vendor)", "confidence": "high"},
+  "lead_time": {"approval_days": 20, "procure_days": 60, "fabricate_days": 180,
+                "deliver_days": 30, "customs_days": 5, "offload_days": 5},
+  "crew": {},
+  "plant": [],
+  "material": [{"name": "Compressor package", "unit": "unit", "qty_per_unit": 1.0, "waste_pct": 0}]
+}

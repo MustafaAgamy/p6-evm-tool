@@ -1,0 +1,24 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.plaster.internal_wall",
+  "discipline": "Interior Finishing",
+  "work_type": "Internal wall plaster",
+  "method": "2 coats, hand-applied",
+  "name": "Internal wall plaster",
+  "status": "draft",
+  "match": {"keywords": ["plaster", "internal plaster", "wall plaster", "rendering"], "codes": []},
+  "unit": "m2",
+  "driver": "production_rate",
+  "rates": [
+    {"context": {"project_type": "Residential/Villa"}, "value": 25, "likely": 25, "unit": "m2/day",
+     "source": "built_in_kb", "basis": "Villa internal wall plaster – 2 coats, hand", "confidence": "high"},
+    {"context": {"project_type": "Industrial"}, "value": 18, "likely": 18, "unit": "m2/day",
+     "source": "built_in_kb", "basis": "Industrial building plaster – block wall", "confidence": "medium"},
+    {"context": {"project_type": "GLOBAL"}, "value": 20, "likely": 20, "unit": "m2/day",
+     "source": "built_in_kb", "basis": "General internal wall plaster", "confidence": "medium"}
+  ],
+  "crew": {"hours_per_day": 8, "n_crews": 1,
+           "composition": [{"trade": "Plasterer", "count": 2}, {"trade": "Helper", "count": 1}]},
+  "plant": [],
+  "material": [{"name": "Cement plaster mix", "unit": "m2", "qty_per_unit": 1.0, "waste_pct": 8}]
+}
