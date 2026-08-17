@@ -483,7 +483,14 @@ def save_project_settings(project_id, patch):
 
 
 def get_audit_modules_for_snapshot(snapshot_id):
-    """Reconstruct {'modules': {...}, 'module_order': [...]} or None."""
+    """Reconstruct {'modules': {...}, 'module_order': [...], 'health': {...}} or None.
+
+    The roll-up is re-derived from the stored module scores rather than stored
+    itself: it is pure arithmetic over numbers we already keep, and re-deriving it
+    means a re-opened project reflects the current weights instead of the ones in
+    force on the day it was imported. No XML is touched.
+    """
+    from p6_audit.health import schedule_health
     with get_conn() as conn:
         rows = conn.execute(
             'SELECT * FROM audit_modules WHERE snapshot_id = ? ORDER BY seq ASC',
@@ -505,7 +512,8 @@ def get_audit_modules_for_snapshot(snapshot_id):
             'wbs_summary': _json.loads(r['wbs_summary_json'] or '[]'),
             'findings':    _json.loads(r['findings_json'] or '[]'),
         }
-    return {'modules': modules, 'module_order': order}
+    return {'modules': modules, 'module_order': order,
+            'health': schedule_health(modules)}
 
 
 # ── Queries ────────────────────────────────────────────────────────────────

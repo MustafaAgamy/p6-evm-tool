@@ -128,6 +128,7 @@ def run_cpli(graph, config):
     # chronological — the timeline reads left to right; id breaks ties
     findings.sort(key=lambda f: (f['start'] or '', f['finish'] or '', str(f['activity_id'])))
 
+    baseline_rule_met = bool(tf is not None and tf >= 0)
     return {
         'module': MODULE,
         'name': NAME,
@@ -139,10 +140,13 @@ def run_cpli(graph, config):
             'project_total_float_days':  tf,
             'target':                    TARGET,
             'finish_milestone_id':       finish_milestone.get('id') if finish_milestone else None,
+            # also a KPI so Ibrahim's baseline rule survives the DB round-trip —
+            # only the KPIs are stored per module
+            'baseline_rule_met':         baseline_rule_met,
         },
         'pct':   pct,
         'score': score,
         'grade': grade,
         'findings': findings,
-        'baseline_rule_met': bool(tf is not None and tf >= 0),
+        'baseline_rule_met': baseline_rule_met,
     }

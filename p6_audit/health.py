@@ -110,7 +110,7 @@ def _discipline(wbs_path):
 def _sub_features(modules):
     """One row per locked sub-feature, worst score first."""
     rows = []
-    for spec in SUB_FEATURES:
+    for rank, spec in enumerate(SUB_FEATURES):
         parts = [(k, modules[k]) for k in spec['parts'] if k in modules]
         usable = [(k, m) for k, m in parts if _computable(m)]
         score = min((m['score'] for _, m in usable), default=None)
@@ -120,6 +120,9 @@ def _sub_features(modules):
         rows.append({
             'key':        spec['key'],
             'name':       spec['name'],
+            # position in the locked list — the rail reads in this order, the
+            # composition table re-sorts worst-first
+            'rank':       rank,
             'weight':     spec['weight'],
             'score':      score,
             'grade':      uniform_grade(score) if score is not None else None,
@@ -231,7 +234,11 @@ def schedule_health(modules):
     score = round(sum(r['points'] for r in scored), 1) if scored else None
 
     gate_module = modules.get(GATE_MODULE) or {}
-    blocking = bool(gate_module.get('blocking'))
+    loops = gate_module.get('kpis', {}).get('loops', 0) or 0
+    # `loops` is the durable signal: only the KPIs survive the round-trip through
+    # the DB, so a re-opened project must gate on the same loop count it did on
+    # import rather than on the module's transient top-level flag.
+    blocking = bool(gate_module.get('blocking') or loops > 0)
     if blocking:
         for r in rows:
             if r['key'] in PROVISIONAL_ON_LOOP:
@@ -254,7 +261,7 @@ def schedule_health(modules):
             'module':   GATE_MODULE,
             'name':     gate_module.get('name', 'Circular Logic'),
             'blocking': blocking,
-            'loops':    gate_module.get('kpis', {}).get('loops', 0),
+            'loops':    loops,
             'score':    gate_module.get('score'),
         },
         'sub_features':    rows,
