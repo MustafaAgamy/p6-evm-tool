@@ -7,6 +7,7 @@ from p6_audit.checks.dangling import check_dangling
 from p6_audit.checks.circular import check_circular
 from p6_audit.checks.float_snapshot import check_float
 from p6_audit.scoring import score_categories, overall_score
+from p6_audit.health import schedule_health
 from p6_audit.modules.dangling import run_dangling
 from p6_audit.modules.float_analysis import run_float
 from p6_audit.modules.out_of_sequence import run_out_of_sequence
@@ -79,10 +80,11 @@ def audit(data, config):
 
 
 def audit_modules(data, config):
-    """V2 entry point — isolated per-module results (Dangling, Float).
+    """V2 entry point — isolated per-module results plus the Schedule Health roll-up.
 
-    Returns {'modules': {name: module_result}, 'module_order': [...]}.
-    No combined findings table and no overall score (deferred by design).
+    Returns {'modules': {name: module_result}, 'module_order': [...], 'health': {...}}.
+    Every module still scores itself in isolation and can be read on its own exactly
+    as before; `health` only combines them (Decision 006).
     """
     _enrich(data, config)
     graph = ScheduleGraph(data)
@@ -92,4 +94,5 @@ def audit_modules(data, config):
         result = runner(graph, config)
         modules[result['module']] = result
         order.append(result['module'])
-    return {'modules': modules, 'module_order': order}
+    return {'modules': modules, 'module_order': order,
+            'health': schedule_health(modules)}

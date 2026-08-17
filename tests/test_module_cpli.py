@@ -111,12 +111,16 @@ def test_findings_are_the_driving_path():
     r = run_cpli(g, CONFIG)
 
     ids = [f['activity_id'] for f in r['findings']]
-    assert ids == ['a', 'z']                     # only critical, sorted by id
+    assert ids == ['a', 'z']                     # only critical, in date order
     f0 = r['findings'][0]
     assert f0['note'] == 'On the driving/critical path'
     assert f0['activity_name'] == 'Act a'
     assert f0['wbs_path'] == 'P > W'
     assert f0['total_float_days'] == -1.0
+    # the driving-path timeline is drawn straight off these
+    assert f0['finish'] == '2026-02-01'
+    assert r['findings'][1]['finish'] == '2026-03-01'
+    assert f0['start'] is None                   # this fixture dates finishes only
 
 
 # ── module identity + required extra key ───────────────────────────────────

@@ -42,6 +42,15 @@ def _finish_date(act):
     return act.get('remaining_early_finish') or act.get('planned_finish')
 
 
+def _start_date(act):
+    """The activity's forecast start: remaining early start, else planned start."""
+    return act.get('remaining_early_start') or act.get('planned_start')
+
+
+def _iso(dt):
+    return dt.strftime('%Y-%m-%d') if dt is not None else None
+
+
 def compute_cpli(cpl, tf):
     """Pure ratio (CPL + TF) / CPL.
 
@@ -102,7 +111,8 @@ def run_cpli(graph, config):
     grade = uniform_grade(score)
     pct = round(100.0 - score, 1)
 
-    # Findings = the DRIVING PATH: one row per critical activity.
+    # Findings = the DRIVING PATH: one row per critical activity, carrying its dates
+    # so the driving-path timeline can be drawn straight from them.
     findings = []
     for oid in graph.critical_ids():
         act = acts.get(oid, {})
@@ -110,10 +120,13 @@ def run_cpli(graph, config):
             'activity_id':      act.get('id', oid),
             'activity_name':    act.get('name', ''),
             'wbs_path':         graph.wbs_path(oid),
+            'start':            _iso(_start_date(act)),
+            'finish':           _iso(_finish_date(act)),
             'total_float_days': act.get('total_float_days'),
             'note':             'On the driving/critical path',
         })
-    findings.sort(key=lambda f: str(f['activity_id']))
+    # chronological — the timeline reads left to right; id breaks ties
+    findings.sort(key=lambda f: (f['start'] or '', f['finish'] or '', str(f['activity_id'])))
 
     return {
         'module': MODULE,
