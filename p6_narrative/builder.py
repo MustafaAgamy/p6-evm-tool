@@ -203,9 +203,9 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, se
                             payload={'paragraphs': [intro]}, editable=True,
                             note='Drafted from the schedule — edit freely.'))
 
-    sections.append(Section('2', 'Project layout', 'image', 'fill',
-                            payload={'image': setup.get('layout')},
-                            note='Your project layout image, from setup.'))
+    if setup.get('layout'):
+        sections.append(Section('2', 'Project layout', 'image', 'auto',
+                                payload={'image': setup.get('layout')}))
 
     brief = []
     for key, lbl in (('owner', 'Owner'), ('consultant', 'Consultant'), ('contractor', 'Contractor')):
@@ -304,24 +304,29 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, se
                  'charts': charts},
         editable=True, note='Charts from the P6 logic — write the methodology around them.'))
 
-    sections.append(Section('11', 'Major quantities', 'prose', 'fill',
-                            payload={'paragraphs': ['Major quantities (piles, concrete volumes, etc.) come '
-                                     'from the P6 resource quantities. Resource-quantity import is the '
-                                     'immediate follow-on; add them here meanwhile.']},
-                            editable=True, note='From P6 resource quantities (QTY) — follow-on.'))
-    sections.append(Section('12', 'Productivity & resources', 'prose', 'fill',
-                            payload={'paragraphs': ['Production rates and the crew / equipment allocation '
-                                     'come from the P6 resources (MNP) — the immediate follow-on.']},
-                            editable=True, note='From P6 resources (MNP) — follow-on.'))
+    sections.append(Section('11', 'Major quantities', 'prose', 'auto',
+                            payload={'paragraphs': ['Quantity information is not available in the '
+                                                    'imported schedule.']}))
+    sections.append(Section('12', 'Productivity & resources', 'prose', 'auto',
+                            payload={'paragraphs': ['Productivity and resource information is not '
+                                                    'available in the imported schedule.']}))
 
-    sections.append(Section('13', 'Cost loading', 'costbars', 'auto',
-                            payload=cost_by_wbs(acts, data.bac_by_activity, data.wbs)))
+    cost = cost_by_wbs(acts, data.bac_by_activity, data.wbs)
+    if cost.get('rows'):
+        sections.append(Section('13', 'Cost loading', 'costbars', 'auto', payload=cost))
+    else:
+        sections.append(Section('13', 'Cost loading', 'prose', 'auto',
+                                payload={'paragraphs': ['Cost information is not available in the '
+                                                        'imported schedule.']}))
 
-    sections.append(Section(
-        '14', 'Cash flow', 'cashflow', 'auto',
-        payload=cash_flow(acts, data.bac_by_activity),
-        note='Illustrative cost-loaded S-curve — each activity’s budget spread evenly across '
-             'its planned dates and accumulated; the plan’s shape, not a P6-exact cost curve.'))
+    cf = cash_flow(acts, data.bac_by_activity)
+    if cf.get('points'):
+        sections.append(Section('14', 'Cash flow', 'cashflow', 'auto', payload=cf))
+    else:
+        sections.append(Section('14', 'Cash flow', 'prose', 'auto',
+                                payload={'paragraphs': ['Time-phased cost information is not available in '
+                                                        'the imported schedule; therefore a reliable '
+                                                        'cash-flow analysis cannot be generated.']}))
 
     return NarrativeDoc(meta, sections)
 
