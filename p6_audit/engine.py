@@ -18,6 +18,8 @@ from p6_audit.modules.high_duration import run_high_duration
 from p6_audit.modules.leads import run_leads
 from p6_audit.modules.negative_float import run_negative_float
 from p6_audit.modules.whole_day import run_whole_day
+from p6_audit.modules.circular import run_circular
+from p6_audit.modules.cpli import run_cpli
 
 CHECKS = [check_open_ends, check_dangling, check_circular, check_float]
 
@@ -36,6 +38,8 @@ MODULE_RUNNERS = [
     run_leads,
     run_negative_float,
     run_whole_day,
+    run_circular,
+    run_cpli,
 ]
 
 
