@@ -10,6 +10,7 @@ from p6_kb.learn import (has_learning, learned_panel, load_profile,
                          recurring_activities, recurring_wbs)
 from p6_kb.model import schedule_view
 from p6_kb.scoring import compute_score
+from p6_kb.tagging import detect_systems
 
 
 def _matches(name, keywords):
@@ -341,6 +342,14 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
     except Exception:
         learned = None
 
+    # Which MEP systems are present (multi-signal tagger) — additive, read-only:
+    # informs the MEP-first review; does not change v1 scores/findings yet.
+    systems = None
+    try:
+        systems = detect_systems(view)
+    except Exception:
+        systems = None
+
     if illogical or missing or missing_wbs:
         gaps = (f"{len(illogical)} illogical link(s), {len(missing)} missing activities and "
                 f"{len(missing_wbs)} missing WBS branch(es) found. ")
@@ -383,5 +392,6 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
         'missing_wbs': missing_wbs,
         'wbs_review': wbs_review,
         'learned': learned,
+        'systems': systems,
         'conclusion': conclusion,
     }
