@@ -1,0 +1,207 @@
+{
+ "system": "pipe_spool_fabrication",
+ "discipline": "FABRICATION_SHOP",
+ "name": "Pipe Spool Fabrication — Shop",
+ "aliases": [
+  "spool shop",
+  "pipe fabrication",
+  "prefab spools",
+  "ISO fabrication",
+  "off-site fabrication",
+  "workshop welding",
+  "spool prefab"
+ ],
+ "zones": [
+  "fabrication shop",
+  "on-site fab yard",
+  "paint/coating shop",
+  "spool laydown/storage"
+ ],
+ "sequence": [
+  {
+   "stage": "iso_release_and_material",
+   "activities": [
+    "issue-for-construction isometrics",
+    "material take-off",
+    "material receipt of pipe/fittings/flanges",
+    "heat-number traceability and MTC control"
+   ]
+  },
+  {
+   "stage": "cutting_beveling",
+   "activities": [
+    "cut to length",
+    "bevel/weld prep",
+    "marking and spool splitting"
+   ]
+  },
+  {
+   "stage": "fit_up",
+   "activities": [
+    "fit-up of roll/position welds",
+    "fit-up inspection"
+   ]
+  },
+  {
+   "stage": "welding",
+   "activities": [
+    "shop welding under WPS/PQR",
+    "welder qualification control",
+    "weld mapping"
+   ]
+  },
+  {
+   "stage": "NDT",
+   "activities": [
+    "VT + RT/UT/PT/MT per spec",
+    "weld repair cycle"
+   ]
+  },
+  {
+   "stage": "PWHT",
+   "activities": [
+    "post-weld heat treatment where required",
+    "hardness"
+   ]
+  },
+  {
+   "stage": "dimensional_check",
+   "activities": [
+    "dimensional control of spool against isometric"
+   ]
+  },
+  {
+   "stage": "surface_prep_coating",
+   "activities": [
+    "blasting",
+    "painting/coating or galvanizing",
+    "DFT check"
+   ]
+  },
+  {
+   "stage": "numbering_preservation",
+   "activities": [
+    "spool tagging/numbering",
+    "end caps",
+    "preservation"
+   ]
+  },
+  {
+   "stage": "shop_release",
+   "activities": [
+    "QC release of spool",
+    "load-out and logistics to site"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "issue isometric for construction",
+   "after": "cut and fabricate the spool",
+   "reason": "no fabrication can begin without an issued-for-construction isometric",
+   "strength": "strong"
+  },
+  {
+   "before": "receive traceable material with MTCs",
+   "after": "fit-up and weld",
+   "reason": "welding uncertified/untraceable material breaks material control",
+   "strength": "strong"
+  },
+  {
+   "before": "fit-up inspection",
+   "after": "welding",
+   "reason": "root gap, alignment and prep are verified before the joint is welded",
+   "strength": "strong"
+  },
+  {
+   "before": "welding",
+   "after": "NDT of that weld",
+   "reason": "the weld must exist before inspection",
+   "strength": "strong"
+  },
+  {
+   "before": "accept weld NDT",
+   "after": "PWHT and coating",
+   "reason": "you do not heat-treat or paint over a weld that may still be repaired and re-inspected",
+   "strength": "strong"
+  },
+  {
+   "before": "complete fabrication and QC",
+   "after": "shop release and delivery",
+   "reason": "only an accepted, dimensionally-checked spool is released to site",
+   "strength": "strong"
+  },
+  {
+   "before": "PWHT",
+   "after": "final coating",
+   "reason": "coating applied after heat treatment so it is not burned off",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "process_piping",
+   "requirement": "released spools feed field erection; a spool cannot be erected before it is fabricated and QC-released",
+   "type": "supplier",
+   "phase": "shop_release",
+   "strength": "strong"
+  },
+  {
+   "with": "utility_piping",
+   "requirement": "released spools feed utility erection",
+   "type": "supplier",
+   "phase": "shop_release",
+   "strength": "strong"
+  },
+  {
+   "with": "local_fabrication",
+   "requirement": "shared shop capacity and QC regime; field-fit spools complement shop spools",
+   "type": "coordination",
+   "phase": "fit_up",
+   "strength": "moderate"
+  },
+  {
+   "with": "process_equipment",
+   "requirement": "spools connecting to equipment nozzles must match as-set positions; nozzle-match spools may be held for field fit",
+   "type": "alignment",
+   "phase": "iso_release_and_material",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "WPS/PQR and welder qualification records",
+  "Shop NDT (VT + RT/UT/PT/MT) per spec with weld map and traceability",
+  "PWHT charts and hardness where required",
+  "PMI for alloys",
+  "Fit-up and dimensional inspection against isometric",
+  "Coating DFT/adhesion",
+  "Material traceability (heat numbers, MTCs)"
+ ],
+ "commissioning_dependencies": [
+  "Deliverable is a QC-released spool — the gate is 'release for delivery', not field commissioning",
+  "Shop welds must be accepted so the later field hydrotest (covering shop + field welds) is valid"
+ ],
+ "typical_exceptions": [
+  "Field-fit / closure spools deliberately left long and trimmed at site to as-built dimensions",
+  "Small-bore assemblies fabricated at site rather than in the shop",
+  "Tie-in / nozzle-match spools fabricated after the connecting equipment is set"
+ ],
+ "work_packages": [
+  {
+   "wp": "Spool fabrication (cut/fit/weld)",
+   "discipline": "fabrication"
+  },
+  {
+   "wp": "Spool NDT & PWHT",
+   "discipline": "QC",
+   "interface": true
+  },
+  {
+   "wp": "Spool coating & release",
+   "discipline": "fabrication"
+  }
+ ],
+ "evidence": "Spools were cut and welded only from isometrics issued-for-construction with traceable material, and every shop weld was NDT-accepted (and PWHT'd where required) before the spool was coated and released for delivery to site.",
+ "status": "curated",
+ "source": "system_pattern"
+}

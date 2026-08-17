@@ -1,0 +1,278 @@
+{
+ "system": "structural_steel",
+ "discipline": "STRUCTURAL / STEELWORK (EQUIPMENT SUPPORT, PIPE-RACK & ACCESS STEEL)",
+ "name": "Structural Steel & Pipe-Rack Steelwork",
+ "aliases": [
+  "steel erection",
+  "structural steelwork",
+  "steel fabrication",
+  "pipe rack steel",
+  "pipe-rack steel",
+  "platforms",
+  "catwalks",
+  "walkways",
+  "grating",
+  "handrails",
+  "guardrails",
+  "stairs & ladders",
+  "secondary steel",
+  "purlins & girts",
+  "trusses & girders",
+  "decking",
+  "pre-engineered building",
+  "PEB",
+  "modular steel / PAU"
+ ],
+ "sequence": [
+  {
+   "stage": "design_detailing",
+   "activities": [
+    "connection design & shop-drawing approval",
+    "3D model coordination with MEP/piping supports",
+    "material take-off & procurement"
+   ],
+   "note": "Detailing must resolve where pipe/tray/equipment supports land before fab."
+  },
+  {
+   "stage": "fabrication",
+   "activities": [
+    "cut / drill / weld shop sections",
+    "shop weld inspection (NDT)",
+    "surface prep & shop primer/coating",
+    "match-marking for erection"
+   ],
+   "note": "Weld zones for field connections left bare for later field welding."
+  },
+  {
+   "stage": "delivery_preassembly",
+   "activities": [
+    "transport to site laydown / marshalling yard",
+    "ground pre-assembly of trusses / modules / PAUs",
+    "rigging study & lift plan"
+   ],
+   "note": "Modular/PAU approach front-loads ground assembly to cut crane time at height."
+  },
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "confirm foundation concrete reached design strength",
+    "anchor bolts / base-plate levels surveyed to tolerance",
+    "grout pockets & shims prepared"
+   ],
+   "note": "Erection cannot start until anchors are surveyed and released."
+  },
+  {
+   "stage": "erection",
+   "activities": [
+    "crane-lift & set primary columns / beams",
+    "install temporary bracing / guying",
+    "plumb & level primary frame"
+   ]
+  },
+  {
+   "stage": "bolting_welding",
+   "activities": [
+    "final bolting (turn-of-nut / TC bolts)",
+    "field welding of connections",
+    "torque / tension verification"
+   ]
+  },
+  {
+   "stage": "alignment_survey",
+   "activities": [
+    "final dimensional survey — plumbness, elevation, alignment",
+    "tolerance sign-off",
+    "remove temporary bracing only after permanent bracing installed"
+   ]
+  },
+  {
+   "stage": "secondary_steel",
+   "activities": [
+    "purlins, girts, bracing",
+    "floor / roof decking",
+    "grating & chequer plate",
+    "stair treads, ladders, handrails / guardrails / toe-boards"
+   ],
+   "note": "Walking surface (grating/decking) goes in before edge-protection handrails."
+  },
+  {
+   "stage": "surface_touchup",
+   "activities": [
+    "field-weld coating touch-up",
+    "repair transit/erection coating damage",
+    "final paint coat where specified"
+   ]
+  },
+  {
+   "stage": "inspection_handover",
+   "activities": [
+    "bolt / weld / dimensional inspection",
+    "punchlist clearance",
+    "release frame for cladding, equipment loading & MEP support fixing"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "foundation concrete cured & anchor bolts surveyed (civil_interface)",
+   "after": "primary steel erection",
+   "reason": "Columns cannot be set until the foundation reaches strength and anchor-bolt positions are surveyed and released.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "primary frame set & plumbed",
+   "after": "final bolting / field welding",
+   "reason": "Connections are completed only once members are positioned and temporarily braced.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "primary frame bolted & aligned",
+   "after": "secondary steel (purlins, bracing, decking, grating)",
+   "reason": "Secondary members hang off a stable, plumbed primary frame.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "floor decking / grating installed",
+   "after": "handrails, stairs & edge protection",
+   "reason": "Access platforms need the walking surface before edge protection is fixed.",
+   "strength": "moderate",
+   "rel": "FS"
+  },
+  {
+   "before": "structural frame erected & surveyed",
+   "after": "cladding / roofing",
+   "reason": "The building envelope fixes to a completed, tolerance-checked frame.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "pipe-rack steel erected & aligned",
+   "after": "pipe-rack piping & cable-tray installation",
+   "reason": "Racks are the support structure for the pipes and trays they carry.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "field welding complete & inspected",
+   "after": "field coating touch-up / final paint",
+   "reason": "Weld zones must stay bare and be NDT-inspected before being coated over.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "structural platform steel handed over",
+   "after": "equipment set on elevated steel",
+   "reason": "Elevated equipment needs its supporting structure signed off before loading.",
+   "strength": "moderate",
+   "rel": "FS"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "requirement": "Anchor bolts set to survey tolerance and foundations at design strength before erection.",
+   "type": "physical",
+   "phase": "erection",
+   "strength": "strong"
+  },
+  {
+   "with": "piping",
+   "requirement": "Pipe-rack steel erected and aligned before rack piping and pipe supports.",
+   "type": "enabler",
+   "phase": "installation",
+   "strength": "strong"
+  },
+  {
+   "with": "containment_cabling",
+   "requirement": "Tray-support / rack steel in place before cable-tray installation.",
+   "type": "enabler",
+   "phase": "installation",
+   "strength": "strong"
+  },
+  {
+   "with": "insulation_coating",
+   "requirement": "Field welds inspected before final/protective coating; PFP applied after connections complete.",
+   "type": "sequence",
+   "phase": "finishing",
+   "strength": "moderate"
+  },
+  {
+   "with": "process_equipment",
+   "requirement": "Supporting steel platforms complete before elevated equipment setting.",
+   "type": "enabler",
+   "phase": "setting",
+   "strength": "moderate"
+  },
+  {
+   "with": "earthing",
+   "requirement": "Steel structures bonded to the earth grid before energising mounted electrical equipment.",
+   "type": "physical",
+   "phase": "pre-commissioning",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Bolt torque / tension verification (turn-of-nut or TC-bolt) on completed connections",
+  "Field-weld NDT (visual, MT/UT/RT per weld class)",
+  "Dimensional survey — plumbness, elevation and alignment within tolerance",
+  "Coating DFT (dry-film thickness) and adhesion on field-applied coats",
+  "Grout compressive strength under base plates",
+  "Passive fire-protection (PFP) thickness check where applied"
+ ],
+ "commissioning_dependencies": [
+  "Structure is not commissioned itself, but dimensional & bolt/weld sign-off gates release of the frame for cladding, equipment loading and MEP support fixing",
+  "Permanent bracing installed before any temporary bracing is removed (load-path completeness)",
+  "Steel earthing/bonding complete before energising mounted electrical equipment"
+ ],
+ "typical_exceptions": [
+  "Pre-engineered metal buildings (PEB) and fully modular PAUs compress fabrication & erection into large single lifts",
+  "Stainless / architecturally-exposed steel is a different trade/finish and out of scope"
+ ],
+ "zones": [
+  "equipment support structures",
+  "pipe racks",
+  "access platforms & walkways",
+  "process building frames",
+  "elevated tank / vessel supports",
+  "conveyor gallery & transfer-tower steel"
+ ],
+ "work_packages": [
+  {
+   "wp": "Shop detailing & fabrication",
+   "discipline": "structural",
+   "interface": false
+  },
+  {
+   "wp": "Foundation / anchor-bolt interface & release survey",
+   "discipline": "civil",
+   "interface": true,
+   "note": "Shared gate with civil_interface."
+  },
+  {
+   "wp": "Primary frame erection",
+   "discipline": "structural",
+   "interface": false
+  },
+  {
+   "wp": "Bolting & field welding",
+   "discipline": "structural",
+   "interface": false
+  },
+  {
+   "wp": "Secondary steel / grating / handrails",
+   "discipline": "structural",
+   "interface": false
+  },
+  {
+   "wp": "Field coating touch-up",
+   "discipline": "insulation_coating",
+   "interface": true
+  }
+ ],
+ "evidence": "Cladding, secondary steel or equipment loading is scheduled before the primary frame it depends on is erected, bolted and survey-released — an unstable/unsupported sequence.",
+ "status": "curated",
+ "source": "system_pattern"
+}

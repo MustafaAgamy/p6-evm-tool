@@ -1,0 +1,197 @@
+{
+ "system": "local_fabrication",
+ "discipline": "FABRICATION_SITE",
+ "name": "Local / Site Fabrication",
+ "aliases": [
+  "field fabrication",
+  "site fab yard",
+  "on-site prefab",
+  "small-bore fabrication",
+  "field-fit spools",
+  "closure spools",
+  "tie-in spools",
+  "misc steel/piping fab"
+ ],
+ "zones": [
+  "site fabrication yard",
+  "in-situ work fronts",
+  "tie-in / battery-limit points"
+ ],
+ "sequence": [
+  {
+   "stage": "as_built_survey",
+   "activities": [
+    "field-measure the actual gap: as-set nozzle position or tie-in point for field-fit/closure spools"
+   ]
+  },
+  {
+   "stage": "material_prep",
+   "activities": [
+    "cut/bevel from stock",
+    "jig set-up"
+   ]
+  },
+  {
+   "stage": "fit_up",
+   "activities": [
+    "fit-up in the fab yard or in-situ",
+    "fit-up inspection"
+   ]
+  },
+  {
+   "stage": "welding",
+   "activities": [
+    "field/yard welding under WPS"
+   ]
+  },
+  {
+   "stage": "NDT",
+   "activities": [
+    "RT/UT/PT/MT per spec",
+    "repair cycle"
+   ]
+  },
+  {
+   "stage": "PWHT",
+   "activities": [
+    "post-weld heat treatment where required"
+   ],
+   "note": "Only for materials/thicknesses that require it."
+  },
+  {
+   "stage": "coating",
+   "activities": [
+    "coating / touch-up"
+   ]
+  },
+  {
+   "stage": "install_erect",
+   "activities": [
+    "set closure spool into the gap",
+    "final bolt-up"
+   ]
+  },
+  {
+   "stage": "include_in_test_pack",
+   "activities": [
+    "tested with the connecting system's hydrotest package"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "set and align the connecting equipment / erect adjacent spools",
+   "after": "field-measure the closure spool",
+   "reason": "the closure spool is measured against the real, as-built gap, not the drawing",
+   "strength": "strong"
+  },
+  {
+   "before": "field-measure the gap",
+   "after": "cut and weld the closure spool",
+   "reason": "fabricating before measuring risks a spool that does not fit the as-built condition",
+   "strength": "strong"
+  },
+  {
+   "before": "weld the field-fit spool",
+   "after": "NDT that spool",
+   "reason": "the weld must exist before inspection",
+   "strength": "strong"
+  },
+  {
+   "before": "accept NDT of the closure spool",
+   "after": "include it in the hydrotest package",
+   "reason": "an unaccepted weld would fail the connecting system's pressure test",
+   "strength": "strong"
+  },
+  {
+   "before": "install the closure/tie-in spool",
+   "after": "hydrotest the parent line",
+   "reason": "the line must be physically complete before it can be pressure-tested",
+   "strength": "strong"
+  },
+  {
+   "before": "fabricate supports/platforms",
+   "after": "install the pipe or access they serve",
+   "reason": "supports and access steel are ready before the item they carry",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "process_equipment",
+   "requirement": "closure/tie-in spools bridge to as-set equipment nozzles — measured only after the equipment is set and aligned",
+   "type": "alignment",
+   "phase": "as_built_survey",
+   "strength": "strong"
+  },
+  {
+   "with": "rotating_equipment",
+   "requirement": "strain-free tie-in spools measured after final alignment to protect nozzle loads",
+   "type": "alignment",
+   "phase": "as_built_survey",
+   "strength": "strong"
+  },
+  {
+   "with": "process_piping",
+   "requirement": "closure spools complete the erected line so it can be tested",
+   "type": "enabler",
+   "phase": "install_erect",
+   "strength": "strong"
+  },
+  {
+   "with": "utility_piping",
+   "requirement": "closure spools complete utility lines for testing",
+   "type": "enabler",
+   "phase": "install_erect",
+   "strength": "moderate"
+  },
+  {
+   "with": "pipe_spool_fabrication",
+   "requirement": "overflow/complement to shop fabrication under the same QC regime",
+   "type": "coordination",
+   "phase": "fit_up",
+   "strength": "moderate"
+  },
+  {
+   "with": "structural_steel",
+   "requirement": "site-fabricated platforms, ladders and minor supports",
+   "type": "supplier",
+   "phase": "material_prep",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Same weld/NDT/PWHT/PMI regime as shop spools",
+  "Field-fit spool included in the connecting system's hydrotest package",
+  "Dimensional verification against the field measurement",
+  "Coating touch-up DFT"
+ ],
+ "commissioning_dependencies": [
+  "Closure and tie-in spools installed and tested before the parent system can be pre-commissioned",
+  "Field-fit spools gate the completion of the line they close"
+ ],
+ "typical_exceptions": [
+  "Emergency/rework spools fabricated to correct clashes or failed fit-ups",
+  "Small-bore branch/vent/drain assemblies routinely site-fabricated",
+  "Temporary spools/spades for flushing, removed at reinstatement"
+ ],
+ "work_packages": [
+  {
+   "wp": "Field survey & measurement",
+   "discipline": "piping_QC",
+   "interface": true
+  },
+  {
+   "wp": "Closure/tie-in spool fabrication",
+   "discipline": "fabrication"
+  },
+  {
+   "wp": "Closure spool install & test",
+   "discipline": "piping",
+   "interface": true
+  }
+ ],
+ "evidence": "Field-fit closure and tie-in spools were measured only after the connecting equipment was set and aligned, then fabricated, NDT-accepted and installed to complete the line before it was hydrotested.",
+ "status": "curated",
+ "source": "system_pattern"
+}

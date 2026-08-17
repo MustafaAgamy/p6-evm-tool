@@ -1,0 +1,285 @@
+{
+ "system": "rotating_equipment",
+ "discipline": "MECH",
+ "name": "Rotating Equipment — Pumps, Compressors, Blowers, Fans & Drivers",
+ "aliases": [
+  "pumps",
+  "compressors",
+  "blowers",
+  "fans",
+  "rotating machinery",
+  "pump and motor sets",
+  "driver-driven trains",
+  "centrifugal/reciprocating machines"
+ ],
+ "zones": [
+  "pump houses",
+  "compressor houses",
+  "process areas",
+  "utility rooms",
+  "cooling stations",
+  "plant rooms"
+ ],
+ "work_packages": [
+  {
+   "wp": "Foundation, inertia block & anchor acceptance",
+   "discipline": "civil",
+   "interface": true,
+   "note": "Higher mass/inertia foundations for reciprocating/large machines; anchor template survey critical"
+  },
+  {
+   "wp": "Baseplate setting, levelling & epoxy grouting",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "Precision grouting for vibration-sensitive machines"
+  },
+  {
+   "wp": "Driver/driven setting and rough alignment",
+   "discipline": "mechanical",
+   "interface": false,
+   "note": "Set pump/compressor and motor; coarse coupling alignment"
+  },
+  {
+   "wp": "Piping connection with strain check",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "Suction/discharge spools connected with dial-indicator pipe-strain verification"
+  },
+  {
+   "wp": "Precision (final) alignment",
+   "discipline": "mechanical",
+   "interface": false,
+   "note": "Laser/dial coupling alignment after piping and at operating condition; hot alignment where thermal growth applies"
+  },
+  {
+   "wp": "Lube/seal/auxiliary systems",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "Lube oil, seal flush/gas, cooling water, seal support systems flushed and functional"
+  },
+  {
+   "wp": "E&I termination and protection",
+   "discipline": "electrical",
+   "interface": true,
+   "note": "Motor power, VFD, vibration/temperature protection, control"
+  }
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "Accept inertia block/foundation at spec strength",
+    "Anchor template and level survey",
+    "Confirm any pockets, drains, curbs"
+   ],
+   "note": "Reciprocating and large centrifugal machines demand mass foundations and tight anchor tolerance"
+  },
+  {
+   "stage": "delivery_setting",
+   "activities": [
+    "Offload; inspect preservation, seals and shaft for transit damage",
+    "Set baseplate/skid on levelling screws over anchors",
+    "Mount driven machine and driver where shipped loose"
+   ],
+   "note": "Shaft turned by hand to confirm free rotation before setting"
+  },
+  {
+   "stage": "alignment_grouting",
+   "activities": [
+    "Level baseplate to precision tolerance",
+    "Epoxy grout baseplate; cure",
+    "Final anchor torque after cure",
+    "Rough coupling alignment (before piping) — set for expected pipe/thermal movement"
+   ],
+   "note": "Coupling left disconnected until precision alignment; rough alignment gives a datum"
+  },
+  {
+   "stage": "piping_connection",
+   "activities": [
+    "Fabricate and connect suction/discharge/process spools to nozzles",
+    "Independently support piping — spring hangers set",
+    "Dial-indicator pipe-strain check: watch coupling move as flanges are bolted"
+   ],
+   "note": "If the coupling moves beyond tolerance when a flange is torqued, the spool is re-worked — the machine is never pulled to the pipe"
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "Terminate motor power and any VFD",
+    "Land vibration, bearing-temperature, seal and process protection instruments",
+    "Earth/bond motor and baseplate",
+    "Terminate lube/seal skid controls"
+   ],
+   "note": "Protection and trips wired before any spin"
+  },
+  {
+   "stage": "inspection",
+   "activities": [
+    "Coupling final (cold) alignment within tolerance",
+    "Bearing clearances, lube levels verified",
+    "Rotation-direction (bump/uncoupled solo motor run) confirmed",
+    "Mechanical completion walkdown"
+   ],
+   "note": "Solo motor bump test confirms rotation with coupling disconnected — reverse rotation can destroy a pump/seal"
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "Lube-oil and seal-system flush to cleanliness spec",
+    "Connected-piping hydrotest and flush",
+    "Loop-check protection instruments and trips",
+    "Solo motor run (uncoupled) — vibration, current, temperature"
+   ],
+   "note": "System flushing to particle-count spec protects bearings and seals"
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "Recouple after solo run; recheck alignment",
+    "No-load / minimum-flow run of the train",
+    "Set relief/recycle, verify seal flush and cooling"
+   ],
+   "note": "Hot alignment re-check on machines with significant thermal growth"
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "Load run at process conditions",
+    "Performance test vs curve; vibration signature baseline",
+    "Trip and interlock live test",
+    "Handover / acceptance run"
+   ],
+   "note": ""
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "Baseplate grouted and anchors torqued",
+   "after": "Precision coupling alignment",
+   "reason": "Alignment done on an ungrouted, unbolted baseplate will not hold once the base is finally fixed",
+   "strength": "strong"
+  },
+  {
+   "before": "Suction/discharge piping connected and strain-checked",
+   "after": "Final (cold) coupling alignment",
+   "reason": "Pipe strain moves the machine casing; final alignment must reflect the as-connected state",
+   "strength": "strong"
+  },
+  {
+   "before": "Lube-oil / seal system flushed to cleanliness spec",
+   "after": "Any rotation of the machine under lubrication",
+   "reason": "Running on unflushed oil drives contaminant into bearings and seals and wrecks the machine",
+   "strength": "strong"
+  },
+  {
+   "before": "Solo (uncoupled) motor rotation-direction check",
+   "after": "Coupling the driver to the driven machine",
+   "reason": "A reverse-rotating pump or compressor coupled up can be destroyed on first start; direction is proven with the coupling open",
+   "strength": "strong"
+  },
+  {
+   "before": "Protection and trip instrument loop-checks (vibration, temperature, low-flow)",
+   "after": "First running of the machine",
+   "reason": "The machine must be protected before it turns; trips are the last line against a mechanical failure",
+   "strength": "strong"
+  },
+  {
+   "before": "Motor earthing/bonding",
+   "after": "Motor energisation",
+   "reason": "The motor and baseplate must be earthed before power is applied",
+   "strength": "strong"
+  },
+  {
+   "before": "No-load / minimum-flow run",
+   "after": "Full-load performance run",
+   "reason": "No-load confirms rotation, vibration and seals before the machine is loaded against process",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "requirement": "Setting REQUIRES an inertia block/foundation at strength with anchors surveyed to template",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "strength": "strong"
+  },
+  {
+   "with": "piping",
+   "requirement": "Final alignment REQUIRES suction/discharge/process spools connected and independently supported, with a pipe-strain check at the coupling",
+   "type": "coordination",
+   "phase": "piping_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "Solo run and commissioning REQUIRE motor power (and VFD) terminated, tested and available",
+   "type": "enabler",
+   "phase": "testing",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "requirement": "First run REQUIRES vibration/temperature/low-flow protection instruments looped and trips proven",
+   "type": "enabler",
+   "phase": "testing",
+   "strength": "strong"
+  },
+  {
+   "with": "bms",
+   "requirement": "Auto operation REQUIRES control/monitoring signals mapped and the start/stop/trip logic proven in the control system",
+   "type": "coordination",
+   "phase": "commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "earthing",
+   "requirement": "Energisation REQUIRES motor and baseplate bonded to the earthing grid",
+   "type": "enabler",
+   "phase": "ei_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "chilled_water",
+   "requirement": "Seal/bearing cooling REQUIRES cooling-water/utility supply available and flushed",
+   "type": "enabler",
+   "phase": "pre_commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "utilities",
+   "requirement": "Seal-gas / instrument-air / lube auxiliaries REQUIRE their utility headers live and clean",
+   "type": "enabler",
+   "phase": "pre_commissioning",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Baseplate level and epoxy-grout cure records",
+  "Cold coupling alignment within OEM tolerance (offset/angularity)",
+  "Soft-foot check on all feet",
+  "Lube-oil / seal-flush cleanliness (particle count) certificate",
+  "Solo uncoupled motor run — rotation direction, current, vibration, bearing temperature",
+  "Connected-piping hydrotest and pipe-strain (dial-indicator) record",
+  "Protection loop-check and trip test (vibration, bearing temp, low/no flow)",
+  "No-load then full-load run with vibration signature and performance-vs-curve verification"
+ ],
+ "commissioning_dependencies": [
+  "Grout cured, anchors torqued, precision alignment complete in as-connected state",
+  "Lube/seal/cooling auxiliary systems flushed and functional",
+  "Motor power and VFD available and tested",
+  "Protection and trip loops proven",
+  "Rotation direction confirmed solo before coupling",
+  "Connected process piping tested, flushed and cleared",
+  "Seal flush/gas, cooling water and instrument air utilities live"
+ ],
+ "typical_exceptions": [
+  "Close-coupled pumps (pump and motor on one shaft) need no field coupling alignment",
+  "Vertical in-line pumps mount on the pipe and skip baseplate grouting",
+  "Small packaged pump sets arrive pre-aligned on a skid — field work is anchoring and piping only",
+  "Grease-lubricated small machines skip the oil-flush step"
+ ],
+ "evidence": "The pump was coupled and started before a solo rotation-direction check and before the lube system was flushed to cleanliness spec, with final alignment done before suction/discharge piping was connected.",
+ "status": "curated",
+ "source": "system_pattern"
+}

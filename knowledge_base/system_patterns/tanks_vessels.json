@@ -1,0 +1,280 @@
+{
+ "system": "tanks_vessels",
+ "discipline": "MECH",
+ "name": "Tanks, Pressure Vessels, Silos, Heat Exchangers & Boilers",
+ "aliases": [
+  "storage tanks",
+  "pressure vessels",
+  "silos",
+  "bins",
+  "heat exchangers",
+  "boilers",
+  "columns",
+  "drums",
+  "static equipment",
+  "field-erected tanks"
+ ],
+ "zones": [
+  "tank farms",
+  "process areas",
+  "boiler houses",
+  "utility plants",
+  "storage yards",
+  "bunded areas"
+ ],
+ "work_packages": [
+  {
+   "wp": "Ringwall/pad/saddle foundation & bund acceptance",
+   "discipline": "civil",
+   "interface": true,
+   "note": "Tank ringwall/pad settlement survey; vessel saddle/skirt embeds; bund and drainage for storage"
+  },
+  {
+   "wp": "Field erection or setting",
+   "discipline": "mechanical",
+   "interface": false,
+   "note": "Shop-fabricated vessels set whole; large tanks field-erected shell-course by course (or jacked)"
+  },
+  {
+   "wp": "Welding & NDE",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "Shell/seam welding, welder qualification, RT/UT/PT/MT per code"
+  },
+  {
+   "wp": "Internals, trays, nozzles & attachments",
+   "discipline": "mechanical",
+   "interface": false,
+   "note": "Trays, demisters, distributors, heating coils, agitator mounts"
+  },
+  {
+   "wp": "Insulation, fireproofing & coating",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "After successful pressure/leak test; interface with painting/insulation"
+  },
+  {
+   "wp": "Piping, relief & E&I tie-in",
+   "discipline": "multi",
+   "interface": true,
+   "note": "Process/relief piping, level/pressure/temperature instruments, cathodic protection"
+  }
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "Accept ringwall/pad/saddle foundation and settlement datum",
+    "Confirm embeds, anchor bolts, skirt bolt circle",
+    "Bund, liner and drainage complete for storage tanks",
+    "Set and grout saddle/skirt soleplates"
+   ],
+   "note": "Tanks need a settlement-monitoring datum before filling; saddles allow for thermal movement (one fixed, one sliding)"
+  },
+  {
+   "stage": "delivery_setting",
+   "activities": [
+    "Set shop-built vessel on saddles/skirt, or begin field erection",
+    "Field-erect tank: bottom plate, shell courses, roof (conventional or jack-up)",
+    "Fit and weld nozzles, manways, attachments"
+   ],
+   "note": "Orientation of nozzles/manways verified against GA before final welding"
+  },
+  {
+   "stage": "alignment_grouting",
+   "activities": [
+    "Verticality/plumb and roundness check",
+    "Grout skirt/saddle base after level set",
+    "Final anchor torque"
+   ],
+   "note": "Verticality tolerance matters for columns and agitated vessels"
+  },
+  {
+   "stage": "piping_connection",
+   "activities": [
+    "Install internals (trays, coils, distributors, demisters)",
+    "Connect process, relief and drain piping to nozzles",
+    "Fit relief valve(s) / PSV with test certificate",
+    "Support piping independently to avoid nozzle load"
+   ],
+   "note": "Internals installed and inspected (box-up) before final closure; PSV is the safety gate for pressurised equipment"
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "Land level, pressure, temperature and interlock instruments",
+    "Bond to earth; install/energise cathodic protection where specified",
+    "Terminate any heating (steam/electric) and agitator drive"
+   ],
+   "note": ""
+  },
+  {
+   "stage": "inspection",
+   "activities": [
+    "Final NDE review and weld-map sign-off",
+    "Internal cleanliness / box-up inspection",
+    "Mechanical completion and dossier (U-stamp / code records)"
+   ],
+   "note": "Code dossier (e.g. vessel data report) is a commissioning gate"
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "Hydrostatic test of tank (with settlement survey during fill) or vessel",
+    "Pneumatic/leak test where hydro not permitted",
+    "PSV pop-test and set-pressure certificate",
+    "Vacuum/roof-vent test for tanks as applicable"
+   ],
+   "note": "Tank hydrotest doubles as a settlement/foundation proof; PSV must be certified before pressurising in service"
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "Drain, dry and clean after hydrotest",
+    "Apply insulation/fireproofing/coating (post-test)",
+    "Purge/inert vessels for hydrocarbon or oxygen-sensitive service",
+    "Calibrate level/pressure instruments in situ"
+   ],
+   "note": "Insulation only after a successful pressure test — you cannot inspect a leaking weld through insulation"
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "Fill/charge with process fluid",
+    "Bring to operating pressure/temperature",
+    "Prove relief, level and interlock functions live"
+   ],
+   "note": ""
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "Shell/nozzle welding complete",
+   "after": "NDE (RT/UT/PT) acceptance",
+   "reason": "Welds must be examined and accepted before the vessel is pressure-tested or closed",
+   "strength": "strong"
+  },
+  {
+   "before": "NDE acceptance",
+   "after": "Hydrostatic / pressure test",
+   "reason": "Pressure testing an unexamined weld risks a rupture; NDE is the prerequisite",
+   "strength": "strong"
+  },
+  {
+   "before": "Successful pressure/leak test",
+   "after": "Insulation / fireproofing / final coating",
+   "reason": "Insulating before a successful test hides weld leaks and forces removal to re-inspect",
+   "strength": "strong"
+  },
+  {
+   "before": "Internals installation and box-up inspection",
+   "after": "Final closure of the vessel",
+   "reason": "Trays, coils and distributors must be installed and inspected before the vessel is closed and tested",
+   "strength": "strong"
+  },
+  {
+   "before": "PSV pop-test and certification",
+   "after": "Bringing the vessel to operating pressure in service",
+   "reason": "A pressurised vessel without a certified relief device is an over-pressure hazard",
+   "strength": "strong"
+  },
+  {
+   "before": "Ringwall/pad foundation and settlement datum accepted",
+   "after": "Tank shell erection / hydrotest fill",
+   "reason": "Uneven or unsettled foundation distorts the shell and can fail the tank during fill",
+   "strength": "strong"
+  },
+  {
+   "before": "Hydrotest complete, drained and dried",
+   "after": "Purge/inerting and process charge",
+   "reason": "Residual test water must be removed and the vessel dried/inerted before hydrocarbon or reactive service",
+   "strength": "moderate"
+  },
+  {
+   "before": "Saddle/skirt grouted with sliding support free",
+   "after": "Bringing vessel to operating temperature",
+   "reason": "Thermal growth must be free at the sliding saddle or the vessel and nozzles overstress",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "requirement": "Erection/setting REQUIRES ringwall/pad/saddle foundation accepted with a settlement datum and correct embeds/bolt circle",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "strength": "strong"
+  },
+  {
+   "with": "piping",
+   "requirement": "Service pressurising REQUIRES relief and process piping connected, and the PSV installed and certified",
+   "type": "enabler",
+   "phase": "piping_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "insulation_coating",
+   "requirement": "Insulation/coating REQUIRES a passed pressure/leak test first",
+   "type": "sequence",
+   "phase": "pre_commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "requirement": "Commissioning REQUIRES level/pressure/temperature instruments installed, calibrated and looped",
+   "type": "enabler",
+   "phase": "ei_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "earthing",
+   "requirement": "Storage of flammables REQUIRES earthing/bonding (and cathodic protection where specified) complete",
+   "type": "enabler",
+   "phase": "ei_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "utilities",
+   "requirement": "Hydrotest REQUIRES a test-water source and a permitted disposal/discharge route",
+   "type": "coordination",
+   "phase": "testing",
+   "strength": "moderate"
+  },
+  {
+   "with": "fire_fighting",
+   "requirement": "Tank-farm handover REQUIRES foam/deluge and bund fire protection ready for flammable storage",
+   "type": "coordination",
+   "phase": "commissioning",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Welder qualification and weld-map records",
+  "NDE (RT/UT/PT/MT) acceptance per code coverage",
+  "Hydrostatic test of tank/vessel to test pressure with hold",
+  "Tank foundation settlement survey during and after hydro-fill",
+  "Pneumatic/leak test where hydro is not permitted, with safety exclusion",
+  "PSV pop-test / set-pressure certificate",
+  "Vacuum/roof-vent function test for storage tanks",
+  "Post-test drain, dry and internal cleanliness verification"
+ ],
+ "commissioning_dependencies": [
+  "NDE and pressure test passed and dossier complete",
+  "PSV and relief devices installed and certified",
+  "Internals installed and box-up inspection signed",
+  "Insulation/fireproofing/coating applied after test",
+  "Level/pressure/temperature instruments calibrated and looped",
+  "Earthing/bonding and cathodic protection complete",
+  "Vessel drained, dried and purged/inerted for its service",
+  "Foundation settlement within limits after hydrotest"
+ ],
+ "typical_exceptions": [
+  "Atmospheric storage tanks are water-tested, not pressure-tested, and use vacuum/pressure vents rather than a PSV",
+  "Small shop-fabricated vessels arrive fully tested and stamped — field work is setting, piping and instrument tie-in only",
+  "Silos/bins for dry bulk are structurally/leak checked, not hydrotested",
+  "Plate heat exchangers are gasket/torque and pressure checked, not welded/NDE'd in the field"
+ ],
+ "evidence": "The vessel was insulated and coated before its hydrostatic test passed, and was brought toward operating pressure before the relief valve was pop-tested and certified.",
+ "status": "curated",
+ "source": "system_pattern"
+}

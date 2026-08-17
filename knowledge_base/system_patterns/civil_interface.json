@@ -1,0 +1,285 @@
+{
+ "system": "civil_interface",
+ "discipline": "CIVIL (MEP / INDUSTRIAL ENABLER ONLY)",
+ "name": "Civil Interfaces for Equipment & Services",
+ "aliases": [
+  "equipment foundations",
+  "plinths",
+  "housekeeping pads",
+  "inertia bases",
+  "pedestals",
+  "embeds / embedded plates",
+  "anchor bolts / holding-down bolts",
+  "sleeves & openings",
+  "builders-work openings",
+  "cable trenches",
+  "duct banks",
+  "manholes & pull-pits",
+  "plant / equipment / electrical rooms",
+  "pits, sumps & bunds",
+  "pipe-rack & sleeper footings",
+  "grouting"
+ ],
+ "sequence": [
+  {
+   "stage": "setting_out",
+   "activities": [
+    "survey grid lines & benchmarks",
+    "coordinate equipment / anchor positions from vendor GA & loading drawings"
+   ],
+   "note": "Positions come from approved vendor loading/anchor drawings."
+  },
+  {
+   "stage": "excavation_prep",
+   "activities": [
+    "excavate",
+    "blinding & sub-base for foundations, trenches, pits"
+   ]
+  },
+  {
+   "stage": "embed_placement",
+   "activities": [
+    "set anchor bolts / templates, embedded plates, cast-in conduits, sleeves, earthing tape, HD-bolt boxes to survey before pour"
+   ],
+   "note": "Cast-in items go in before concrete — they cannot be added afterwards."
+  },
+  {
+   "stage": "rebar_formwork",
+   "activities": [
+    "reinforcement",
+    "formwork",
+    "cast-in items check"
+   ]
+  },
+  {
+   "stage": "concrete_pour",
+   "activities": [
+    "foundations, plinths, housekeeping pads, pedestals, pits, trenches, equipment-room slabs"
+   ]
+  },
+  {
+   "stage": "cure_strip",
+   "activities": [
+    "cure to design strength",
+    "strip formwork",
+    "grout-pocket / shim prep"
+   ]
+  },
+  {
+   "stage": "survey_release",
+   "activities": [
+    "as-built survey of anchor bolts, levels & pockets vs vendor tolerance",
+    "release for equipment setting / steel erection"
+   ]
+  },
+  {
+   "stage": "openings_sleeves",
+   "activities": [
+    "form / core wall & slab penetrations",
+    "sleeves for pipe, cable & duct crossings"
+   ]
+  },
+  {
+   "stage": "trenches_ductbanks",
+   "activities": [
+    "cable trenches, duct banks, manholes, pull-pits for underground services"
+   ]
+  },
+  {
+   "stage": "plant_rooms",
+   "activities": [
+    "equipment / electrical-room shell, floor levels, bunds, sumps, blockouts ready for MEP fit-out"
+   ]
+  },
+  {
+   "stage": "reinstatement",
+   "activities": [
+    "backfill, trench covers",
+    "non-shrink grout under base plates after equipment is set & aligned"
+   ],
+   "note": "Grouting follows equipment setting, not before."
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "setting-out & approved vendor loading/anchor drawings",
+   "after": "embed / anchor-bolt placement",
+   "reason": "Cast-in items cannot be fixed without approved positions and loads.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "embeds / anchor bolts / sleeves set & surveyed",
+   "after": "concrete pour",
+   "reason": "Cast-in items must be in place before concrete — they cannot be added later.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "foundation poured & cured to design strength",
+   "after": "equipment delivery / setting",
+   "reason": "Equipment is set on a foundation that has reached strength.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "anchor bolts surveyed within tolerance",
+   "after": "equipment alignment & grouting",
+   "reason": "Misplaced anchor bolts stop the equipment set and force rework.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "wall / slab openings & sleeves formed",
+   "after": "pipe / cable / duct routing through them",
+   "reason": "Penetrations must exist before services can cross the structure.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "cable trenches / duct banks & manholes complete",
+   "after": "underground cable pulling",
+   "reason": "Cables pull through a completed trench / duct route.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "plant / equipment-room shell & floor complete",
+   "after": "MEP equipment installation in the room",
+   "reason": "The room must be weathertight and level before fit-out.",
+   "strength": "moderate",
+   "rel": "FS"
+  },
+  {
+   "before": "equipment set & aligned",
+   "after": "grouting under base plate (reinstatement)",
+   "reason": "Grout is placed after the equipment is set and aligned, not before.",
+   "strength": "strong",
+   "rel": "FS"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "process_equipment",
+   "requirement": "Foundation cured to strength and anchor bolts surveyed before equipment setting / alignment.",
+   "type": "physical",
+   "phase": "setting",
+   "strength": "strong"
+  },
+  {
+   "with": "rotating_equipment",
+   "requirement": "Foundation strength & grouting complete before imposing dynamic / rotating loads.",
+   "type": "physical",
+   "phase": "setting",
+   "strength": "strong"
+  },
+  {
+   "with": "structural_steel",
+   "requirement": "Anchor bolts & base-plate levels set and surveyed before steel erection.",
+   "type": "physical",
+   "phase": "erection",
+   "strength": "strong"
+  },
+  {
+   "with": "containment_cabling",
+   "requirement": "Cable trenches, duct banks, sleeves & openings ready before cable pulling / tray routing.",
+   "type": "enabler",
+   "phase": "installation",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "Duct banks & pull-pits complete before power/MV cable pulling.",
+   "type": "enabler",
+   "phase": "installation",
+   "strength": "strong"
+  },
+  {
+   "with": "piping",
+   "requirement": "Pipe-rack footings, sleeper foundations & sleeves ready before rack piping.",
+   "type": "enabler",
+   "phase": "installation",
+   "strength": "moderate"
+  },
+  {
+   "with": "hvac",
+   "requirement": "Builders-work openings, sleeves & plant-room slabs ready before MEP rough-in.",
+   "type": "enabler",
+   "phase": "rough_in",
+   "strength": "moderate"
+  },
+  {
+   "with": "earthing",
+   "requirement": "Earth pits and cast-in earth tape / electrodes placed before pour & backfill.",
+   "type": "physical",
+   "phase": "civil_interface",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Concrete compressive strength (cube / cylinder) to design before loading",
+  "As-built survey of anchor bolts, embed plates & levels vs vendor tolerance",
+  "Non-shrink grout compressive strength under base plates",
+  "Duct-bank / pull-pit mandrel & rodding test before cable pulling",
+  "Trench / pit water-tightness and bund integrity where required"
+ ],
+ "commissioning_dependencies": [
+  "Not commissioned, but the gating enabler — no equipment set, no cable pulled, no MEP rough-in until foundation strength, anchor survey, openings and trenches are signed off",
+  "Grout cured before running rotating / dynamic equipment",
+  "Earthing embeds & pits placed before backfill (cannot be added retrospectively)"
+ ],
+ "typical_exceptions": [
+  "Skid / packaged units may sit on a simple pad with minimal foundation, compressing civil scope",
+  "Pure building / architectural civil (finishes, superstructure) is out of scope — only equipment- and service-enabling civil"
+ ],
+ "zones": [
+  "equipment foundations & plinths",
+  "pipe-rack & sleeper footings",
+  "cable trenches & duct banks",
+  "wall / slab penetrations",
+  "plant & electrical rooms",
+  "pits, sumps & bunds"
+ ],
+ "work_packages": [
+  {
+   "wp": "Setting-out from vendor drawings",
+   "discipline": "civil",
+   "interface": true
+  },
+  {
+   "wp": "Embed / anchor-bolt placement",
+   "discipline": "civil",
+   "interface": true,
+   "note": "Positions driven by mechanical/electrical vendor data."
+  },
+  {
+   "wp": "Concrete pour & cure",
+   "discipline": "civil",
+   "interface": false
+  },
+  {
+   "wp": "Openings / sleeves forming",
+   "discipline": "civil",
+   "interface": true
+  },
+  {
+   "wp": "Trenches / duct banks",
+   "discipline": "civil",
+   "interface": true
+  },
+  {
+   "wp": "Plant-room shell",
+   "discipline": "civil",
+   "interface": false
+  },
+  {
+   "wp": "Grouting reinstatement",
+   "discipline": "civil",
+   "interface": true,
+   "note": "After equipment setting & alignment."
+  }
+ ],
+ "evidence": "Equipment setting, cable pulling or MEP rough-in is scheduled before its civil interface — foundation strength, surveyed anchor bolts, or wall/slab openings — is complete, forcing rework or blocking the trade.",
+ "status": "curated",
+ "source": "system_pattern"
+}

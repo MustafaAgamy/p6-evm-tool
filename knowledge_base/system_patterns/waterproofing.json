@@ -1,0 +1,194 @@
+{
+ "system": "waterproofing",
+ "discipline": "FINISHES",
+ "name": "Waterproofing / Tanking (Wet Areas, Roofs, Below-Grade, Balconies)",
+ "aliases": [
+  "tanking",
+  "damp-proofing",
+  "DPM",
+  "liquid-applied membrane",
+  "cementitious waterproofing",
+  "polyurethane membrane",
+  "bituminous membrane",
+  "torch-on",
+  "self-adhesive membrane",
+  "wet-area waterproofing",
+  "bathroom tanking",
+  "balcony/terrace waterproofing",
+  "planter waterproofing",
+  "water bar",
+  "puddle flange",
+  "flood test"
+ ],
+ "zones": [
+  "bathrooms / WCs / showers",
+  "kitchens / laundries / pantries",
+  "balconies / terraces / roofs",
+  "planters / water features",
+  "basement / below-grade walls & slabs",
+  "plant rooms / wet risers / tank rooms",
+  "podium / landscape decks"
+ ],
+ "sequence": [
+  {
+   "stage": "S1 - Substrate preparation",
+   "activities": [
+    "screed/render to falls toward drains",
+    "cove/fillet at wall-floor junctions",
+    "surface cleaned, sound, cured and dry to spec"
+   ],
+   "note": "Waterproofing is only as good as the substrate falls and the wall-floor cove; standing-water areas fail first."
+  },
+  {
+   "stage": "S2 - Penetration & drainage first fix (ENABLER)",
+   "activities": [
+    "floor gullies, puddle flanges, drain bodies set to level",
+    "pipe penetrations sleeved and sealed",
+    "upstands and thresholds formed"
+   ],
+   "note": "Every penetration through the tanking must be installed BEFORE the membrane so the membrane can be dressed and sealed to it."
+  },
+  {
+   "stage": "S3 - Membrane application",
+   "activities": [
+    "prime substrate",
+    "reinforcing tape/fabric to junctions, corners, drains",
+    "apply liquid/sheet membrane to floor and wall upstand height",
+    "dress into gullies and around penetrations"
+   ],
+   "note": "Wall upstand height must exceed the wet zone (shower/splash) and meet code; skimping the upstand is the classic leak path."
+  },
+  {
+   "stage": "S4 - Cure & flood test (HOLD-POINT)",
+   "activities": [
+    "full cure per manufacturer",
+    "flood/water test (typically 24-48h) with witness sign-off",
+    "repair and re-test if failed"
+   ],
+   "note": "No following trade may cover the membrane until the flood test passes and is signed; this is the single most important hold-point in wet-area finishing."
+  },
+  {
+   "stage": "S5 - Protection & handover to tiling",
+   "activities": [
+    "protection board / screed topping",
+    "controlled handover to tiling with membrane protected"
+   ],
+   "note": "The membrane is fragile; it must be protected from foot traffic, dropped tools and follow-on screed/tiling."
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "substrate screed to falls + coving cured",
+   "after": "membrane application",
+   "reason": "membrane laid on flat/ponding or green substrate ponds water and debonds",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "drainage & penetration first fix (gullies, flanges, sleeves)",
+   "after": "membrane application",
+   "reason": "the membrane must be terminated and sealed into every drain and penetration; adding penetrations after tanking punctures it",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "membrane cured + flood test passed",
+   "after": "tiling / screed topping",
+   "reason": "tiling over untested or uncured tanking hides defects and forces demolition of finished tiles to fix a leak",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "membrane application",
+   "after": "protection layer",
+   "reason": "unprotected membrane is punctured by follow-on trades before it is covered",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "waterproofing complete & protected",
+   "after": "all following wet-area trades",
+   "reason": "the tanking envelope must be continuous and undamaged before it disappears under finishes",
+   "strength": "strong",
+   "rel": "FS"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "MEP - plumbing/drainage first fix",
+   "requirement": "floor gullies, puddle flanges, drain bodies and pipe penetrations set to level and sealed BEFORE membrane, so the membrane is dressed and bonded to them (critical architecture-MEP handshake)",
+   "phase": "first fix",
+   "strength": "strong",
+   "type": "hold-point"
+  },
+  {
+   "with": "Floor tiling / stone",
+   "requirement": "membrane fully cured and flood-tested (signed) and protected before tiling starts; tile bed adhesive compatible with membrane",
+   "phase": "finish",
+   "strength": "strong",
+   "type": "hold-point"
+  },
+  {
+   "with": "Architectural finishing (screed/render)",
+   "requirement": "substrate laid to falls, coved and cured before membrane; wet-area walls use cementitious (not gypsum) background",
+   "phase": "pre-finish",
+   "strength": "strong",
+   "type": "predecessor-enabler"
+  },
+  {
+   "with": "Following trades (all)",
+   "requirement": "membrane protected from puncture and traffic; any later penetration re-detailed and re-tested, never simply drilled through",
+   "phase": "finish",
+   "strength": "strong",
+   "type": "protection-constraint"
+  },
+  {
+   "with": "MEP - second fix",
+   "requirement": "no fixing screws/anchors penetrate the tanking envelope in wet zones without approved sealed detail",
+   "phase": "second fix",
+   "strength": "moderate",
+   "type": "protection-constraint"
+  }
+ ],
+ "commissioning_dependencies": [
+  "flood/water test witnessed and signed before cover-up",
+  "drainage falls verified to gully",
+  "integrity re-test after any later penetration"
+ ],
+ "testing_requirements": [
+  "flood / ponding test 24-48h with drop check",
+  "wet-film / dry-film thickness of liquid membrane",
+  "adhesion / pull-off test",
+  "holiday (spark) test on below-grade/roof membranes",
+  "seam/overlap peel test on sheet systems"
+ ],
+ "typical_exceptions": [
+  "below-grade tanking is a structural-waterproofing package coordinated with civil, not a fit-out trade",
+  "pre-formed shower trays/pods reduce site-applied tanking to junctions only",
+  "integral crystalline/admixture waterproofing in the concrete replaces some applied membrane but junctions still need detailing",
+  "roof/terrace membranes tie into facade and drainage, widening the interface set"
+ ],
+ "work_packages": [
+  {
+   "wp": "Wet-area tanking",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "gated by plumbing first fix; flood test hold-point"
+  },
+  {
+   "wp": "Balcony/terrace/roof waterproofing",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "ties to drainage + facade"
+  },
+  {
+   "wp": "Below-grade tanking",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "structural interface with civil"
+  }
+ ],
+ "evidence": "Waterproofing isolated as its own interface-critical pattern because it sits between plumbing first fix and tiling with a mandatory flood-test hold-point - the highest-consequence, most-litigated wet-area sequence in building finishing. Penetrations-before-membrane and protect-from-following-trades are universal rules. Generalized, non-project-specific.",
+ "status": "curated",
+ "source": "system_pattern"
+}

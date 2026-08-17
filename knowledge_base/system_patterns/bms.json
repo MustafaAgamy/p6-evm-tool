@@ -1,0 +1,250 @@
+{
+ "system": "bms",
+ "discipline": "ELV",
+ "name": "BMS / Control System — power-up and I/O-check before sequence and integration testing",
+ "aliases": [
+  "bms",
+  "building management system",
+  "bas",
+  "dcs",
+  "plc",
+  "scada",
+  "control system",
+  "ddc controllers",
+  "automation",
+  "control panels",
+  "cause-and-effect",
+  "control narrative"
+ ],
+ "zones": [
+  "control room",
+  "server/rack room",
+  "plant rooms",
+  "field control panels"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "control/server/rack room ready",
+    "panel plinths",
+    "room environmental control"
+   ]
+  },
+  {
+   "stage": "panel_installation",
+   "activities": [
+    "install DDC/controller panels, PLC cabinets and marshalling",
+    "mount and anchor"
+   ]
+  },
+  {
+   "stage": "network_infrastructure",
+   "activities": [
+    "control-network cabling (BACnet/Modbus/Ethernet)",
+    "field bus and backbone"
+   ],
+   "note": "Interfaces data_telecom/containment."
+  },
+  {
+   "stage": "field_wiring_termination",
+   "activities": [
+    "terminate field I/O from sensors, valves, dampers and actuators into controllers"
+   ],
+   "note": "Interfaces instrumentation and HVAC/mechanical field devices."
+  },
+  {
+   "stage": "power_up",
+   "activities": [
+    "energize panels",
+    "controllers online",
+    "establish network communication"
+   ]
+  },
+  {
+   "stage": "io_check",
+   "activities": [
+    "point-to-point verification of every DI/DO/AI/AO",
+    "shared loop checks with instrumentation"
+   ]
+  },
+  {
+   "stage": "software_download",
+   "activities": [
+    "controller programming/database download",
+    "graphics build",
+    "third-party integrations via gateways (chillers, gensets, meters, fire, lifts)"
+   ]
+  },
+  {
+   "stage": "functional_testing",
+   "activities": [
+    "control sequences per narrative: PID loops, staging, interlocks",
+    "alarms, trends and schedules"
+   ]
+  },
+  {
+   "stage": "integration_testing",
+   "activities": [
+    "cross-system cause-and-effect: fire shutdown, smoke control, generator, metering, lifts"
+   ]
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "live plant control and tuning",
+    "seasonal/optimisation",
+    "operator training",
+    "alarm rationalisation"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "control/server room ready",
+   "after": "panel installation",
+   "reason": "panels need the finished, environmentally controlled room and plinths",
+   "strength": "strong"
+  },
+  {
+   "before": "panels installed",
+   "after": "network and field-wiring termination",
+   "reason": "terminations land inside the mounted panels",
+   "strength": "strong"
+  },
+  {
+   "before": "panels powered and networked",
+   "after": "point-to-point I/O check",
+   "reason": "I/O can only be read once controllers are live and communicating",
+   "strength": "strong"
+  },
+  {
+   "before": "field devices/instruments installed and wired",
+   "after": "I/O check",
+   "reason": "each point verifies a real field device back to the controller",
+   "strength": "strong"
+  },
+  {
+   "before": "I/O check complete",
+   "after": "software/sequence functional testing",
+   "reason": "sequences are meaningless until each point is proven true",
+   "strength": "strong"
+  },
+  {
+   "before": "mechanical/electrical plant installed and motor-ready",
+   "after": "control-sequence commissioning",
+   "reason": "BMS sequences must drive real, runnable plant",
+   "strength": "strong"
+  },
+  {
+   "before": "subsystems individually live",
+   "after": "cross-system integration testing",
+   "reason": "cause-and-effect needs each interfacing system commissioned first",
+   "strength": "strong"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "instrumentation",
+   "requirement": "field I/O and loop checks provide the points the BMS reads and commands",
+   "type": "requires",
+   "phase": "io_check",
+   "strength": "strong"
+  },
+  {
+   "with": "hvac",
+   "requirement": "sequence testing requires the mechanical plant installed and motor-ready to control",
+   "type": "requires",
+   "phase": "functional_testing",
+   "strength": "strong"
+  },
+  {
+   "with": "chilled_water",
+   "requirement": "plant staging/sequencing requires the chilled-water system installed and fillable",
+   "type": "requires",
+   "phase": "functional_testing",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "panel/controller power (UPS) available; metering integration",
+   "type": "requires",
+   "phase": "power_up",
+   "strength": "strong"
+  },
+  {
+   "with": "fire_alarm",
+   "requirement": "fire shutdown/smoke-control interface (hardwired plus gateway) must be live for integration test",
+   "type": "requires",
+   "phase": "integration_testing",
+   "strength": "strong"
+  },
+  {
+   "with": "data_telecom",
+   "requirement": "control-network cabling and backbone in place",
+   "type": "requires",
+   "phase": "network_infrastructure",
+   "strength": "moderate"
+  },
+  {
+   "with": "conveying",
+   "requirement": "lift/genset/chiller third-party gateway integration",
+   "type": "coordinate",
+   "phase": "integration_testing",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Point-to-point I/O verification",
+  "Network/comms integrity test",
+  "Control-sequence functional performance test per control narrative",
+  "PID loop tuning",
+  "Alarm, trend and schedule verification",
+  "Integration/cause-and-effect test with third-party systems",
+  "Graphics and database verification"
+ ],
+ "commissioning_dependencies": [
+  "Panels powered (from power/UPS)",
+  "Field devices installed, calibrated and loop-checked (instrumentation)",
+  "Mechanical/electrical plant installed and ready to run",
+  "Control network live and integrated",
+  "Approved control narrative / points list / cause-and-effect matrix",
+  "Third-party systems ready for integration",
+  "Software and graphics downloaded and backed up"
+ ],
+ "typical_exceptions": [
+  "Packaged plant with its own controls integrated by gateway only",
+  "Pre-configured/virtualized controllers reduce on-site software scope"
+ ],
+ "work_packages": [
+  {
+   "wp": "Control panels",
+   "discipline": "controls",
+   "interface": false
+  },
+  {
+   "wp": "Network cabling",
+   "discipline": "controls",
+   "interface": true
+  },
+  {
+   "wp": "Field wiring/termination",
+   "discipline": "controls",
+   "interface": true,
+   "note": "with instrumentation/mechanical"
+  },
+  {
+   "wp": "Software and graphics",
+   "discipline": "controls",
+   "interface": false
+  },
+  {
+   "wp": "Integration and commissioning",
+   "discipline": "controls",
+   "interface": true
+  }
+ ],
+ "evidence": "Control-sequence functional testing was scheduled before the field I/O point-to-point checks and before the mechanical plant it controls was installed, and cross-system integration was booked before the fire-alarm interface was live.",
+ "status": "curated",
+ "source": "system_pattern"
+}

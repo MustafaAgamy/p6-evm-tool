@@ -1,0 +1,328 @@
+{
+ "system": "process_piping",
+ "discipline": "MECHANICAL_PIPING",
+ "name": "Process Piping — Fabrication to Reinstatement",
+ "aliases": [
+  "process lines",
+  "process pipework",
+  "in-battery-limit piping",
+  "ISBL piping",
+  "hydrocarbon/chemical lines",
+  "in-line piping",
+  "process pipe spools"
+ ],
+ "zones": [
+  "ISBL / process units",
+  "equipment skids and packages",
+  "pipe racks",
+  "underground / buried process lines",
+  "battery-limit tie-in points"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "equipment and support foundations",
+    "sleeper/pipe-support foundations and embeds",
+    "anchor bolts and grouting",
+    "underground trenches and thrust blocks for buried lines"
+   ],
+   "note": "Civil enters only as the enabler that supports the pipe."
+  },
+  {
+   "stage": "isometric_release_and_fabrication",
+   "activities": [
+    "issue-for-construction isometrics",
+    "shop spool fabrication: cut, bevel, fit-up, shop weld",
+    "shop NDT",
+    "PWHT where required",
+    "shop coating/painting"
+   ],
+   "note": "Most weld volume is prefabricated; see pipe_spool_fabrication."
+  },
+  {
+   "stage": "delivery_and_receipt",
+   "activities": [
+    "spool delivery to site",
+    "material receiving inspection",
+    "spool laydown and preservation"
+   ]
+  },
+  {
+   "stage": "support_installation",
+   "activities": [
+    "install permanent shoes, guides, anchors, rigid/spring hangers on steel and foundations"
+   ],
+   "note": "Supports must exist before the spool can land."
+  },
+  {
+   "stage": "erection_setting",
+   "activities": [
+    "rig and set spools onto supports",
+    "temporary supports",
+    "rough alignment to equipment nozzles"
+   ]
+  },
+  {
+   "stage": "field_welding_fitup",
+   "activities": [
+    "field joint fit-up",
+    "root/fill/cap field welds (golden/closure joints)",
+    "flange make-up and bolt torqueing"
+   ]
+  },
+  {
+   "stage": "NDT_weld_inspection",
+   "activities": [
+    "RT/UT/PT/MT of field welds",
+    "PWHT of field welds where required",
+    "PMI for alloys",
+    "hardness survey"
+   ]
+  },
+  {
+   "stage": "pressure_testing_hydrotest",
+   "activities": [
+    "assemble test packages",
+    "hydrostatic (or pneumatic) test",
+    "hold, chart and relieve"
+   ]
+  },
+  {
+   "stage": "flushing_cleaning",
+   "activities": [
+    "flushing",
+    "air blowing",
+    "chemical cleaning / pickling / passivation per service"
+   ],
+   "note": "Removes fabrication and test debris that would damage equipment and valves."
+  },
+  {
+   "stage": "reinstatement",
+   "activities": [
+    "reinstate spools/spades removed for cleaning",
+    "install in-line items: control valves, orifice plates, PSVs, strainers, instruments",
+    "final bolt-up"
+   ]
+  },
+  {
+   "stage": "insulation_painting",
+   "activities": [
+    "heat tracing",
+    "insulation",
+    "final coat touch-up"
+   ]
+  },
+  {
+   "stage": "mechanical_completion_punch",
+   "activities": [
+    "line walk",
+    "punch listing",
+    "subsystem mechanical completion"
+   ]
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "service/tightness leak test",
+    "N2 purge / inerting",
+    "dry-out"
+   ]
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "introduce process fluid",
+    "commission the line with its system"
+   ],
+   "note": "Exact order of alignment/piping/E&I steps varies by equipment and service."
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "install pipe supports",
+   "after": "erect pipe spools",
+   "reason": "the spool has nowhere to land until its permanent supports and hangers exist",
+   "strength": "strong"
+  },
+  {
+   "before": "fabricate spool",
+   "after": "deliver and erect that spool",
+   "reason": "erection of a specific spool cannot precede its fabrication and QC release",
+   "strength": "strong"
+  },
+  {
+   "before": "complete field weld",
+   "after": "NDT that weld",
+   "reason": "a weld must physically exist before it can be radiographed or ultrasonically tested",
+   "strength": "strong"
+  },
+  {
+   "before": "accept weld NDT (and PWHT)",
+   "after": "hydrotest the line",
+   "reason": "a rejected or un-heat-treated weld fails the pressure test; testing an unaccepted joint wastes the test",
+   "strength": "strong"
+  },
+  {
+   "before": "set and align connected equipment",
+   "after": "fabricate/erect final tie-in spool to its nozzle",
+   "reason": "the closure spool is fitted to the as-set nozzle position, not the drawing position",
+   "strength": "strong"
+  },
+  {
+   "before": "hydrotest and flush the line",
+   "after": "reinstate in-line items (control valves, orifices, PSVs, instruments)",
+   "reason": "these items are removed or spooled-out for the pressure test and cleaning to protect them from debris and over-pressure",
+   "strength": "strong"
+  },
+  {
+   "before": "flush and clean the line",
+   "after": "commission the line with process fluid",
+   "reason": "residual debris damages rotating equipment, control valves and instruments once fluid flows",
+   "strength": "strong"
+  },
+  {
+   "before": "mechanical completion / reinstatement",
+   "after": "pre-commissioning",
+   "reason": "pre-commissioning cannot start on a line that is not complete, clean, tested and reinstated",
+   "strength": "strong"
+  },
+  {
+   "before": "hydrotest",
+   "after": "flushing/chemical cleaning",
+   "reason": "test water is generally introduced and removed before final cleaning/reinstatement, though some services flush first — order varies by spec",
+   "strength": "moderate"
+  },
+  {
+   "before": "PMI / hardness verification of alloy",
+   "after": "hydrotest",
+   "reason": "material identity and hardness are confirmed before pressurising alloy/CRA systems",
+   "strength": "moderate"
+  },
+  {
+   "before": "reinstatement and bolt-up",
+   "after": "insulation and heat tracing",
+   "reason": "insulation over joints that will still be broken for reinstatement has to be removed and redone",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "structural_steel",
+   "requirement": "support/rack steel erected, surveyed and bolted-up before piping is supported on it",
+   "type": "enabler",
+   "phase": "erection",
+   "strength": "strong"
+  },
+  {
+   "with": "civil_interface",
+   "requirement": "equipment and support foundations, embeds, anchor bolts and buried-line trenches/thrust blocks ready before support install and buried-line laying",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "strength": "strong"
+  },
+  {
+   "with": "process_equipment",
+   "requirement": "equipment set, aligned and grouted before final tie-in spools; nozzle-load / spring-hanger checks before coupling to sensitive equipment",
+   "type": "alignment",
+   "phase": "reinstatement",
+   "strength": "strong"
+  },
+  {
+   "with": "rotating_equipment",
+   "requirement": "pump/compressor/turbine set and aligned; piping strain-free with nozzle-load check before final bolt-up to protect alignment",
+   "type": "alignment",
+   "phase": "reinstatement",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "requirement": "in-line instruments (orifices, control valves, thermowells, PSVs) reinstated after cleaning and before the line is live",
+   "type": "connection",
+   "phase": "reinstatement",
+   "strength": "moderate"
+  },
+  {
+   "with": "insulation_coating",
+   "requirement": "painting after weld NDT; insulation after hydrotest and reinstatement",
+   "type": "sequence",
+   "phase": "insulation_painting",
+   "strength": "moderate"
+  },
+  {
+   "with": "utilities",
+   "requirement": "test-water supply and disposal, N2 for purging/inerting, plant air for blowing available for testing and pre-commissioning",
+   "type": "commissioning_support",
+   "phase": "pre_commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "electric heat tracing installed after piping and before insulation",
+   "type": "connection",
+   "phase": "insulation_painting",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Shop and field weld NDT per spec (VT + RT/UT/PT/MT) accepted to code (e.g. ASME B31.3)",
+  "PWHT and post-heat-treatment hardness survey where material/thickness requires",
+  "PMI (positive material identification) for alloy and CRA materials",
+  "Hydrostatic test per test package (typically 1.5x design), with hold time and pressure chart; pneumatic only where permitted",
+  "Flushing / air blowing / chemical cleaning / pickling-passivation per service class",
+  "Flange management: joint register with bolt torque/tension records",
+  "Service/tightness (pneumatic) leak test at commissioning",
+  "Reinstatement verification: in-line items fitted, orifice orientation, PSV set-pressure certificates"
+ ],
+ "commissioning_dependencies": [
+  "Subsystem mechanical completion / line-walk punch cleared",
+  "All in-line items reinstated with spades/spectacle blinds in the correct position",
+  "Flushing and cleaning certificate closed — system clean and dry",
+  "Connected equipment mechanically complete and commissioning-ready",
+  "Utilities available (N2, instrument air, flushing/cooling medium)",
+  "Relief protection in place and PSVs certified before pressurising with process fluid",
+  "Associated control/ESD loops live for the system"
+ ],
+ "typical_exceptions": [
+  "Large-bore buried process lines hydrotested before backfill so civil sequencing overrides",
+  "Pneumatic testing substituted where water is prohibited (dry service, tall columns, offshore weight limits)",
+  "Stainless/alloy lines skip PWHT but add pickling/passivation",
+  "Golden/tie-in joints left open until adjacent systems ready and tested by alternative means"
+ ],
+ "work_packages": [
+  {
+   "wp": "Shop spool fabrication",
+   "discipline": "fabrication"
+  },
+  {
+   "wp": "Pipe support installation",
+   "discipline": "piping"
+  },
+  {
+   "wp": "Spool erection",
+   "discipline": "piping"
+  },
+  {
+   "wp": "Field welding & NDT",
+   "discipline": "piping_QC",
+   "interface": true,
+   "note": "welding and inspection are separate responsibilities on the same joint"
+  },
+  {
+   "wp": "Test package / hydrotest",
+   "discipline": "piping"
+  },
+  {
+   "wp": "Flushing & cleaning",
+   "discipline": "commissioning",
+   "interface": true
+  },
+  {
+   "wp": "Reinstatement & bolt-up",
+   "discipline": "piping"
+  }
+ ],
+ "evidence": "A process line was hydrotested and cleaned before its in-line control valves, orifices and relief valves were reinstated, and before the connected equipment reached mechanical completion — pre-commissioning cannot start on a line that is not complete, clean, tested and reinstated.",
+ "status": "curated",
+ "source": "system_pattern"
+}

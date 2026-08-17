@@ -1,0 +1,409 @@
+{
+ "system": "chilled_water",
+ "discipline": "MECH",
+ "name": "Chilled Water Plant & Distribution (Chillers / Cooling Towers / CHW Pumps / Loop) Installation, Flushing, Treatment & Balancing",
+ "aliases": [
+  "CHW",
+  "chilled water plant",
+  "central plant",
+  "chillers",
+  "chiller plant",
+  "cooling towers",
+  "condenser water",
+  "CW loop",
+  "primary/secondary pumps",
+  "CHW pumps",
+  "chilled water loop",
+  "hydronic system",
+  "cooling coils supply",
+  "plant room piping",
+  "CHW headers",
+  "water-cooled chiller",
+  "air-cooled chiller",
+  "buffer tank",
+  "pot feeder"
+ ],
+ "zones": [
+  "central plant room / chiller hall",
+  "cooling tower deck / roof",
+  "pump skid area",
+  "vertical CHW pipe riser",
+  "pipe rack / interstitial distribution",
+  "plant-room floor headers and manifolds"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "chiller and pump housekeeping plinths / inertia bases poured and cured",
+    "cooling tower structural deck / basin and dunnage steel ready",
+    "plant-room floor drainage, bund and trench formed",
+    "wall/slab sleeves and riser openings for CHW mains set",
+    "crane/rigging access and knock-out panel for chiller delivery confirmed"
+   ],
+   "note": "Civil scope is the enabler: inertia bases, tower dunnage, drainage bunds, sleeves and a lift path — all before any equipment lands."
+  },
+  {
+   "stage": "delivery_setting",
+   "activities": [
+    "chillers rigged in and set on plinth / isolators",
+    "cooling towers assembled and set on deck",
+    "CHW / condenser pumps set on inertia bases",
+    "buffer tank set"
+   ],
+   "note": "Chillers are the heaviest, earliest heavy lift and fix the plant-room layout; pumps and towers follow. Delivery route must be preserved until units are in."
+  },
+  {
+   "stage": "alignment_grouting",
+   "activities": [
+    "pump/motor coupling alignment (laser)",
+    "baseplate grouting",
+    "chiller and tower levelling and anchoring",
+    "vibration isolator setting and check"
+   ],
+   "note": "Rotating equipment (pumps) needs coupling alignment and grouting before piping is connected, so piping strain does not distort alignment."
+  },
+  {
+   "stage": "piping_erection",
+   "activities": [
+    "primary/secondary CHW headers and mains erected",
+    "condenser-water piping to towers erected",
+    "riser and branch distribution to AHU/FCU coils installed",
+    "valves, strainers, balancing valves, pot feeder / dosing pot fitted",
+    "flexible connectors at pumps/chillers fitted last to avoid strain"
+   ],
+   "note": "Pipe is erected from plant outward; flexible connectors and final make-up to rotating equipment are fitted after alignment to avoid transmitting pipe strain."
+  },
+  {
+   "stage": "pressure_testing",
+   "activities": [
+    "hydrostatic pressure test of CHW and condenser piping by section, witnessed",
+    "hold and inspect for weeps at joints/welds/flanges"
+   ],
+   "note": "Pressure test each section BEFORE insulation and before concealment above ceilings."
+  },
+  {
+   "stage": "flushing_cleaning",
+   "activities": [
+    "chemical / mechanical flush of the loop to remove debris, mill scale, flux",
+    "temporary flushing bypasses / spool pieces across coils and chillers",
+    "strainer clean-out and re-check",
+    "flush to acceptable cleanliness before treatment"
+   ],
+   "note": "Flushing REQUIRES pressure test passed and full loop connected; coils and chillers are usually bypassed with spools to protect them during flushing."
+  },
+  {
+   "stage": "water_treatment",
+   "activities": [
+    "dose corrosion inhibitor / biocide / glycol to spec",
+    "condenser side: side-stream filtration and biocide dosing for towers",
+    "verify water chemistry (conductivity, pH, inhibitor level)"
+   ],
+   "note": "Treatment follows flushing — dosing dirty water wastes chemicals and fouls the loop; system is chemically stabilised before continuous running."
+  },
+  {
+   "stage": "insulation",
+   "activities": [
+    "CHW pipe thermal insulation with vapour barrier applied",
+    "valve/flange boxes and fittings insulated",
+    "condenser piping insulated where specified"
+   ],
+   "note": "Insulation follows a passed pressure test; vapour barrier integrity is critical on cold CHW pipe to prevent condensation."
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "chiller, pump-motor and tower-fan power feeds terminated",
+    "VFDs / soft-starters connected and meggered",
+    "control wiring to valves, sensors, flow switches, DP transmitters landed",
+    "BMS I/O to plant terminated"
+   ],
+   "note": "Requires containment + cabling complete and power available; plant cannot run without energised feeders and live controls."
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "pump solo run, rotation and vibration check",
+    "chiller manufacturer pre-start / oil, refrigerant charge, interlock checks",
+    "tower fan rotation and basin fill",
+    "flow-switch, DP and safety interlock verification",
+    "BMS point-to-point verification of the plant"
+   ],
+   "note": "Manufacturer's commissioning engineer attends chiller start; safety interlocks (flow, freeze, high-pressure) proven before first cooling."
+  },
+  {
+   "stage": "water_balancing",
+   "activities": [
+    "proportional balancing of the hydronic loop: set balancing valves to achieve design flow at each coil/branch",
+    "set primary/secondary pump speeds / VFD references",
+    "record flows, pump head, DP across the system"
+   ],
+   "note": "Water balancing REQUIRES flushing/treatment complete, pumps running and the full loop (all coils connected) — a partial loop cannot be balanced; coordinated with air-side TAB."
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "chiller performance / capacity test at design conditions",
+    "sequencing and staging test (lead/lag, load-based staging)",
+    "integrated test with BMS: setpoint, reset schedules, plant enable/disable",
+    "cooling tower approach and condenser-water performance test",
+    "full-load and part-load performance verification"
+   ],
+   "note": "Final commissioning integrates chillers, towers, pumps and BMS under load; depends on a live BMS, energised plant and a balanced, treated loop, plus a heat load (real or artificial) to prove capacity."
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "Chiller/pump inertia bases and plinths poured and cured",
+   "after": "Chillers and pumps set",
+   "reason": "Heavy rotating equipment must land on a cured foundation/inertia base sized for its weight and dynamic loads.",
+   "strength": "strong"
+  },
+  {
+   "before": "Pump-motor coupling aligned and baseplate grouted",
+   "after": "Pump suction/discharge piping connected",
+   "reason": "Piping is made up after alignment so pipe weight and thermal strain do not pull the pump out of alignment.",
+   "strength": "strong"
+  },
+  {
+   "before": "CHW piping erected and valved",
+   "after": "Hydrostatic pressure test",
+   "reason": "A section must be physically complete and closed before it can be filled and pressure-tested.",
+   "strength": "strong"
+  },
+  {
+   "before": "Hydrostatic pressure test passed",
+   "after": "Loop flushing and cleaning",
+   "reason": "Flushing a loop that has not been proven leak-tight risks spraying and re-work; test integrity first.",
+   "strength": "strong"
+  },
+  {
+   "before": "Loop flushed to acceptable cleanliness",
+   "after": "Chemical water treatment / dosing",
+   "reason": "Dosing inhibitor into a dirty loop wastes chemicals and lets debris continue to foul; clean before dosing.",
+   "strength": "strong"
+  },
+  {
+   "before": "Hydrostatic pressure test passed",
+   "after": "Pipe thermal insulation and vapour barrier",
+   "reason": "Insulation conceals joints; testing after insulating means stripping insulation to reach a leak.",
+   "strength": "strong"
+  },
+  {
+   "before": "Flushing bypass spools across chiller/coils fitted",
+   "after": "Loop flushing",
+   "reason": "Chillers and coils are isolated with spool pieces so flushing debris does not lodge in their tubes.",
+   "strength": "moderate"
+  },
+  {
+   "before": "Pump power and controls terminated and meggered",
+   "after": "Pump solo run",
+   "reason": "A motor cannot be energised for rotation/vibration check until its feeder and protection are connected and insulation-tested.",
+   "strength": "strong"
+  },
+  {
+   "before": "Flushing and water treatment complete; pumps running; full loop connected",
+   "after": "Hydronic water balancing",
+   "reason": "Design flows can only be set on a clean, treated, fully-connected loop with pumps running; a partial or dirty loop gives invalid balance.",
+   "strength": "strong"
+  },
+  {
+   "before": "Chiller safety interlocks (flow/freeze/HP) proven",
+   "after": "First chiller start / capacity test",
+   "reason": "Running a chiller without proven flow and safety interlocks risks freeze/mechanical damage; interlocks come first.",
+   "strength": "strong"
+  },
+  {
+   "before": "Water balancing complete",
+   "after": "Chiller performance and plant sequencing commissioning",
+   "reason": "Capacity and staging tests assume design flow through evaporators/coils, so balancing must finish first.",
+   "strength": "strong"
+  },
+  {
+   "before": "BMS point-to-point verified on the plant",
+   "after": "Integrated plant sequencing / staging test",
+   "reason": "Lead/lag staging and reset schedules are executed by the BMS, which must have verified control of every plant point first.",
+   "strength": "strong"
+  },
+  {
+   "before": "Cooling tower basin filled and treated",
+   "after": "Condenser-water pump run and chiller start (water-cooled)",
+   "reason": "A water-cooled chiller needs condenser water circulating from a filled, treated tower before it can reject heat.",
+   "strength": "strong"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "requirement": "Chiller/pump inertia bases and plinths, cooling-tower dunnage/deck, plant-room drainage bunds, riser openings and rigging access must be complete before equipment delivery and setting.",
+   "strength": "strong"
+  },
+  {
+   "with": "rotating_equipment",
+   "type": "coordination",
+   "phase": "alignment_grouting",
+   "requirement": "CHW/condenser pumps follow rotating-equipment practice: coupling alignment and grouting before piped connection, flexible connectors to decouple pipe strain.",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "type": "requires",
+   "phase": "ei_connection",
+   "requirement": "Chillers, pump motors and tower fans require permanent (or commissioning) power feeders energised and VFDs/starters connected before any run.",
+   "strength": "strong"
+  },
+  {
+   "with": "containment_cabling",
+   "type": "requires",
+   "phase": "ei_connection",
+   "requirement": "Power and control cabling to the plant requires containment installed and cables pulled and terminated first.",
+   "strength": "strong"
+  },
+  {
+   "with": "bms",
+   "type": "requires",
+   "phase": "water_balancing",
+   "requirement": "Plant control points (valves, DP, flow, temperature, VFD refs) must be BMS-verified point-to-point so the BMS can stage plant and drive balancing and sequencing tests.",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "type": "requires",
+   "phase": "pre_commissioning",
+   "requirement": "Flow switches, DP transmitters, temperature sensors and safety interlocks must be installed and calibrated before chiller start and balancing.",
+   "strength": "strong"
+  },
+  {
+   "with": "hvac",
+   "type": "provides",
+   "phase": "commissioning",
+   "requirement": "Chilled water supplies AHU/FCU cooling coils; air-side temperature commissioning and TAB depend on CHW being flushed, treated, balanced and available.",
+   "strength": "strong"
+  },
+  {
+   "with": "utilities",
+   "type": "requires",
+   "phase": "flushing_cleaning",
+   "requirement": "Make-up water supply and drainage capacity are required to fill, flush and dispose of flushing water for the loop and cooling towers.",
+   "strength": "strong"
+  },
+  {
+   "with": "insulation_coating",
+   "type": "provides",
+   "phase": "insulation",
+   "requirement": "CHW pipe insulation with vapour barrier is applied only after the hydrostatic test passes.",
+   "strength": "strong"
+  },
+  {
+   "with": "piping",
+   "type": "coordination",
+   "phase": "piping_erection",
+   "requirement": "Distribution mains and risers share pipe-rack and riser space; CHW routing must be coordinated with other piping and supports.",
+   "strength": "moderate"
+  },
+  {
+   "with": "electrical_power",
+   "type": "requires",
+   "phase": "commissioning",
+   "requirement": "A heat load (real building load or artificial load bank / temporary heater) plus stable permanent power is needed to prove chiller capacity at design conditions.",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Hydrostatic pressure test of CHW and condenser-water piping by section, witnessed, before insulation/concealment",
+  "System flushing and cleanliness verification (before treatment)",
+  "Water chemistry / treatment verification (inhibitor level, pH, conductivity, glycol %)",
+  "Pump-motor insulation resistance (megger) test before energisation",
+  "Pump coupling alignment record and vibration check on solo run",
+  "Chiller manufacturer pre-start checks (refrigerant charge, oil, interlocks) and start-up report",
+  "Safety interlock verification: flow switch, freeze stat, high-pressure cut-out",
+  "BMS point-to-point (I/O) verification for all plant control points",
+  "Hydronic water balancing report: measured vs design flow at each coil/branch, pump head, DP",
+  "Chiller capacity / performance test at design and part-load conditions",
+  "Plant sequencing / staging (lead-lag) functional test with BMS",
+  "Cooling tower approach and condenser-water performance test (water-cooled)"
+ ],
+ "commissioning_dependencies": [
+  "Permanent (or commissioning) power energised to chillers, pumps and tower fans",
+  "Loop pressure-tested, flushed, cleaned and chemically treated",
+  "Full loop connected (all coils/AHUs) so flow can be balanced",
+  "BMS live with verified plant control points for staging and reset",
+  "Instrumentation and safety interlocks installed and calibrated",
+  "Cooling tower filled and treated (water-cooled plant) with condenser water circulating",
+  "Make-up water and drainage available for fill/flush",
+  "A heat load (real or artificial) available to prove chiller capacity",
+  "Water balancing complete before chiller performance and sequencing tests",
+  "Coordinated with air-side TAB so water and air balancing align"
+ ],
+ "work_packages": [
+  {
+   "wp": "Chiller/tower/pump setting",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "interfaces with civil for bases and rigging"
+  },
+  {
+   "wp": "Pump alignment and grouting",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "interfaces with rotating_equipment"
+  },
+  {
+   "wp": "CHW / condenser piping erection",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Pressure testing",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Flushing and water treatment",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "interfaces with utilities for water/drainage"
+  },
+  {
+   "wp": "CHW pipe insulation",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Plant power and control termination",
+   "discipline": "electrical",
+   "interface": true,
+   "note": "interfaces with electrical_power, containment_cabling, bms, instrumentation"
+  },
+  {
+   "wp": "Chiller/plant pre-commissioning and start-up",
+   "discipline": "commissioning",
+   "interface": true,
+   "note": "manufacturer attendance"
+  },
+  {
+   "wp": "Hydronic water balancing",
+   "discipline": "commissioning",
+   "interface": true,
+   "note": "coordinated with air-side TAB"
+  },
+  {
+   "wp": "Integrated plant commissioning",
+   "discipline": "commissioning",
+   "interface": true,
+   "note": "interfaces with bms, electrical_power, hvac"
+  }
+ ],
+ "typical_exceptions": [
+  "Air-cooled chillers omit cooling towers and condenser-water piping entirely, dropping the tower and CW stages.",
+  "Packaged/skid-mounted plant arrives with pumps, pipework and controls pre-assembled, collapsing several field stages into set-and-connect.",
+  "Small systems may use a single primary-only pumping arrangement with no secondary loop or buffer tank.",
+  "Glycol systems add a freeze-protection dosing step and change the water-treatment acceptance.",
+  "District-cooling-fed buildings have no on-site chillers — the interface becomes an energy-transfer station (heat exchanger) and the chiller start stages do not apply."
+ ],
+ "evidence": "Hydronic water balancing, chiller capacity testing or plant sequencing is scheduled before the loop is flushed, treated and fully connected with the BMS live — so measured flows and capacities cannot be valid; or pipe insulation/concealment precedes the witnessed hydrostatic test, or the pump is piped up before coupling alignment and grouting.",
+ "status": "curated",
+ "source": "system_pattern"
+}
