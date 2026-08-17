@@ -98,6 +98,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_review(body)
         elif self.path == '/api/constructability':
             self._handle_constructability(body)
+        elif self.path == '/api/prodkb/templates':
+            self._handle_prodkb_templates(body)
+        elif self.path == '/api/prodkb/calc':
+            self._handle_prodkb_calc(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -436,6 +440,61 @@ class Handler(BaseHTTPRequestHandler):
             data = parse_file(resolved)
             report = run_review(data, forced_type=body.get('forced_type'))
             self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/prodkb (Duration & Resources) ────────────────────────────────
+    def _prodkb(self):
+        sys.path.insert(0, resource_path('.'))
+        from p6_prodkb import kb, compute
+        from p6_prodkb import match as prodmatch
+        return kb, compute, prodmatch
+
+    def _handle_prodkb_templates(self, body):
+        """List the activity templates in the draft Productivity KB (for the picker)."""
+        try:
+            kb, _c, _m = self._prodkb()
+            out = [{'template_id': t['template_id'], 'name': t.get('name'),
+                    'discipline': t.get('discipline'), 'work_type': t.get('work_type'),
+                    'method': t.get('method'), 'unit': t.get('unit'),
+                    'driver': t.get('driver'), 'status': t.get('status', 'draft')}
+                   for t in kb.load_templates()]
+            self._json(200, {'ok': True, 'templates': out})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodkb_calc(self, body):
+        """Duration + typed resources for a list of activities (offline, draft KB).
+
+        Each activity may name a template_id directly, or just a name to be matched.
+        Context (project_type / method) selects the rate so villa/industrial never mix.
+        """
+        try:
+            kb, compute, prodmatch = self._prodkb()
+            tmpls = kb.load_templates()
+            by = kb.by_id(tmpls)
+            ptype = body.get('project_type')
+            rows = []
+            for a in body.get('activities', []):
+                qty = a.get('quantity')
+                ch = a.get('calendar_hours')
+                tid = a.get('template_id')
+                if tid and tid in by:
+                    ctx = {}
+                    if ptype:
+                        ctx['project_type'] = ptype
+                    if a.get('method'):
+                        ctx['method'] = a['method']
+                    res = compute(by[tid], qty, context=ctx or None, calendar_hours=ch)
+                    rows.append({'input': a, 'match': None, 'result': res})
+                else:
+                    r = prodmatch.resolve(
+                        {'name': a.get('name'), 'wbs_path': a.get('wbs_path'),
+                         'method': a.get('method')},
+                        qty, project_type=ptype, templates=tmpls, calendar_hours=ch)
+                    rows.append({'input': a, 'match': r['match'], 'result': r['result']})
+            self._json(200, {'ok': True, 'rows': rows,
+                             'draft_notice': 'Draft starter rates — calibrate before relying on them.'})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
