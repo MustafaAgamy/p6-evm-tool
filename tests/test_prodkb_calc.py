@@ -79,3 +79,14 @@ def test_needs_qty_when_missing():
     assert r["needs_qty"] is True
     assert r["duration_days"] is None
     assert r["rate"]["value"] == 12            # rate + crew still shown; planner only types a number
+
+
+def test_rate_traceability_conditions_and_draft():
+    r = compute(_templates()["civil.concrete.rc_column.conventional"], 220)
+    rate = r["rate"]
+    assert rate["source"] == "built_in_kb"
+    assert rate["basis"]
+    assert rate["conditions"]                  # applicability is part of the auditable output
+    assert rate["confidence"] in ("high", "medium", "moderate", "low")
+    assert rate["draft"] is True               # starter rate, never a validated benchmark
+    assert r["status"] == "draft"

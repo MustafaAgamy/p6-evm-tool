@@ -36,7 +36,12 @@ def _factor_product(template_factors, overrides):
 
 
 def _normalize_rate(r, template):
-    """The traceability block shown in the UI: value/unit/source/basis/confidence/valid_for."""
+    """Traceability block shown in the UI: value/unit/source/basis/conditions/confidence.
+
+    ``conditions`` (applicability) is part of the auditable output — it states when the
+    rate is valid, so it is clear why it applies to one context and not another.
+    ``draft`` marks it as a starter rate, never a validated industry benchmark.
+    """
     r = dict(r or {})
     if r.get("value") is None:
         r["value"] = r.get("likely")
@@ -44,6 +49,9 @@ def _normalize_rate(r, template):
     r.setdefault("source", "built_in_kb")
     r.setdefault("confidence", "medium")
     r.setdefault("basis", template.get("name"))
+    r["conditions"] = (r.get("conditions") or r.get("valid_for")
+                       or "Normal access / standard crew / applicable calendar")
+    r["draft"] = (template.get("status", "draft") == "draft")
     return r
 
 
@@ -106,6 +114,7 @@ def compute(template, quantity=None, *, context=None, calendar_hours=None, n_cre
         "material": [],
         "needs_qty": False,
         "notes": [],
+        "status": template.get("status", "draft"),
     }
 
     if driver == "lead_time":
