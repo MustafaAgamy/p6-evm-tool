@@ -32,6 +32,27 @@ def grade_for_pct(pct):
     return 'Critical'
 
 
+# ── Schedule Health Review scoring: score = 100 − defect%, uniform legend ──────
+def linear_score(defect_pct):
+    """Schedule Health Review model: score = 100 - defect%, shown as a percent. Clamped to [0,100], one decimal."""
+    if defect_pct is None:
+        return 100.0
+    return round(max(0.0, min(100.0, 100.0 - defect_pct)), 1)
+
+
+_UNIFORM_BANDS = [(98.0, 'Excellent'), (95.0, 'Good'), (90.0, 'Acceptable')]
+
+
+def uniform_grade(score):
+    """Uniform Schedule Health legend: >=98 Excellent, >=95 Good, >=90 Acceptable, else Critical."""
+    if score is None:
+        return 'Excellent'
+    for cutoff, label in _UNIFORM_BANDS:
+        if score >= cutoff:
+            return label
+    return 'Critical'
+
+
 # ── Legacy penalty scoring (superseded by module scoring above; retained so
 #    the original engine path and its tests keep working during the V2 build) ──
 CATEGORY_OF_CHECK = {

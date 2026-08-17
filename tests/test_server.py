@@ -244,8 +244,14 @@ def test_parse_returns_modules_and_snapshot(test_server, xml_path):
     assert data['ok'] is True
     assert 'snapshot_id' in data and isinstance(data['snapshot_id'], int)
     am = data['result']['audit_modules']
-    assert set(am['modules'].keys()) == {'dangling', 'float', 'out_of_sequence', 'lag_lead'}
-    assert am['module_order'] == ['dangling', 'float', 'out_of_sequence', 'lag_lead']
+    assert set(am['modules'].keys()) == {
+        'dangling', 'float', 'out_of_sequence', 'lag_lead',
+        'open_ends', 'relationship_types', 'hard_constraints', 'high_duration',
+        'leads', 'negative_float', 'whole_day'}
+    assert am['module_order'] == [
+        'dangling', 'float', 'out_of_sequence', 'lag_lead',
+        'open_ends', 'relationship_types', 'hard_constraints', 'high_duration',
+        'leads', 'negative_float', 'whole_day']
     # minimal.xml has two unlinked activities -> dangling module finds them
     assert am['modules']['dangling']['kpis']['total_dangling'] >= 1
     # each module carries its own isolated score/grade
