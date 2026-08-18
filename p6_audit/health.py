@@ -165,17 +165,18 @@ def _verdict(score, blocking):
                 'and re-run — until then the date and float checks are provisional.')
     if score is None:
         return ('Not computed', 'No sub-feature could be scored on this file.')
-    if score >= 95:
-        return ('Ready to submit',
-                'Overall Schedule Health is at the standard — no sub-feature needs work '
-                'before submission.')
+    # Ibrahim's rule: a baseline is acceptable to submit at 80% or better.
     if score >= 90:
-        return ('Conditional pass',
-                'Overall Schedule Health is acceptable, but the checks below the standard '
-                'should be cleared before submission.')
+        return ('Ready to submit',
+                'Overall Schedule Health is well above the 80% submission standard — no '
+                'sub-feature needs work before submission.')
+    if score >= 80:
+        return ('Acceptable to submit',
+                'Overall Schedule Health meets the 80% submission standard; clear the checks '
+                'below their targets when you can.')
     return ('Not ready to submit',
-            'Overall Schedule Health is below the standard — clear the critical checks '
-            'and re-run for a score of 90 or better.')
+            'Overall Schedule Health is below the 80% submission standard — clear the critical '
+            'checks and re-run for a score of 80 or better.')
 
 
 def _problem_areas(modules, rows):
@@ -256,7 +257,7 @@ def schedule_health(modules):
         'statement':  statement,
         # a loop caps the grade: nothing submits while P6 cannot calculate the file
         'blocking':   blocking,
-        'ready':      bool(score is not None and score >= 90 and not blocking),
+        'ready':      bool(score is not None and score >= 80 and not blocking),
         'gate': {
             'module':   GATE_MODULE,
             'name':     gate_module.get('name', 'Circular Logic'),

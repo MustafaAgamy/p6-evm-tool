@@ -64,8 +64,8 @@ def test_overall_equals_the_hand_calculation():
     assert _row(h, 'float')['points'] == 6.8        # 45 x 15 / 100, one decimal
     assert _row(h, 'dangling')['points'] == 10.8
     assert h['score'] == pytest.approx(87.6, abs=0.05)
-    assert h['verdict'] == 'Not ready to submit'
-    assert h['ready'] is False
+    assert h['verdict'] == 'Acceptable to submit'   # 87.6 ≥ the 80% submission standard
+    assert h['ready'] is True
 
 
 def test_sub_features_are_ordered_worst_first():

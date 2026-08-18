@@ -200,7 +200,7 @@ export function statusDot(status) {
 }
 export function verdictClass(verdict) {
   if (verdict === 'Ready to submit') return 'v-good';
-  if (verdict === 'Conditional pass') return 'v-warn';
+  if (verdict === 'Acceptable to submit') return 'v-warn';   // 80–90: meets the standard
   return 'v-bad';   // Not ready / Blocked / Not computed
 }
 
