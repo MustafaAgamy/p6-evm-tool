@@ -193,7 +193,7 @@ SPECS = {
         'tiles': lambda k: _cpli_tiles(k),
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
                     ('WBS Path', 'wbs_path', 'wbs'), ('Start', 'start', 'date'), ('Finish', 'finish', 'date'),
-                    ('Total Float', 'total_float_days', 'days')],
+                    ('Duration', 'duration_days', 'days'), ('Total Float', 'total_float_days', 'days')],
     },
     'circular': {
         'verdict': lambda m: ('No circular logic — the network calculates (F9).'

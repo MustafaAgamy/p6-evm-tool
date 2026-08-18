@@ -562,34 +562,60 @@ function renderCpliModule(m) {
       <b>How it's measured.</b> CPLI = (CPL + TF) ÷ CPL — DCMA 14-Point, Point 13. CPL is the critical-path length in working days from the data date to the completion milestone; TF is that milestone's total float. Ibrahim's baseline rule: total float must be ≥ 0 (CPLI ≥ 100%); negative float is a re-plan signal.
     </div>
     <div class="mod-sec">Driving path <span class="mod-sub">— the activities P6 flags critical, in sequence</span></div>
-    ${cpliTimeline(m.findings || [])}
-    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table"><thead><tr>
-      <th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th><th>Start</th><th>Finish</th><th class="num">Total Float</th>
-    </tr></thead><tbody>${(m.findings || []).map((f, i) =>
-    `<tr>${tdNum(i + 1)}${tdMono(f.activity_id)}${td(f.activity_name)}${tdWbs(f.wbs_path)}${tdMut(isoDate(f.start))}${tdMut(isoDate(f.finish))}${tdNum(dnum(f.total_float_days))}</tr>`).join('')
-    || `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:18px">No critical activities flagged.</td></tr>`}</tbody></table></div>`;
+    ${cpliGantt(m.findings || [])}`;
 }
 
-// Compact driving-path timeline: one track per critical activity, bar spanning
-// start→finish across the overall date range. Red when the activity is negative-float.
-function cpliTimeline(findings) {
-  const dated = findings.filter(f => f.start && f.finish);
-  if (!dated.length) return '';
+// Driving-path Gantt: one row per critical activity — Activity ID · Name · Start ·
+// Finish · Duration and a time-based bar on a shared month axis. Red = critical
+// (the driving path); blue = near-critical (carries float). Every activity is
+// reachable — the body scrolls, nothing is hidden behind a "+N more" (works at
+// 1,500+). Replaces the old timeline AND the separate table (one view now).
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function cpliGantt(findings) {
+  const dated = (findings || []).filter(f => f.start && f.finish);
+  if (!dated.length) {
+    return '<p style="color:var(--muted);font-size:13px">No dated critical activities to plot.</p>';
+  }
   const t = d => new Date(d + 'T00:00:00').getTime();
   const lo = Math.min(...dated.map(f => t(f.start)));
   const hi = Math.max(...dated.map(f => t(f.finish)));
   const span = Math.max(1, hi - lo);
-  const rows = dated.slice(0, 40).map(f => {
+  const totalMonths = Math.max(1, Math.round((hi - lo) / (86400000 * 30)));
+  const step = Math.max(1, Math.ceil(totalMonths / 10));   // ~10 labels max
+
+  const ticks = [];
+  const first = new Date(lo);
+  for (let mk = new Date(first.getFullYear(), first.getMonth(), 1); mk.getTime() <= hi; mk.setMonth(mk.getMonth() + step)) {
+    const pos = 100 * (mk.getTime() - lo) / span;
+    if (pos >= -1 && pos <= 101) {
+      ticks.push(`<span class="cg-m" style="left:${Math.max(0, Math.min(100, pos))}%">${MONTHS[mk.getMonth()]} ${String(mk.getFullYear()).slice(2)}</span>`);
+    }
+  }
+
+  const rows = dated.map(f => {
     const x = 100 * (t(f.start) - lo) / span;
-    const w = Math.max(1.5, 100 * (t(f.finish) - t(f.start)) / span);
-    const neg = (f.total_float_days ?? 0) < 0;
-    return `<div class="shr-tl-row">
-      <div class="shr-tl-lab" title="${escapeHtml(f.activity_name)}">${escapeHtml(f.activity_id)}</div>
-      <div class="shr-tl-track"><i style="left:${x}%;width:${Math.min(w, 100 - x)}%;background:${neg ? 'var(--danger)' : 'var(--accent)'}"></i></div>
+    const w = Math.max(0.6, 100 * (t(f.finish) - t(f.start)) / span);
+    const crit = (f.total_float_days ?? 0) <= 0;    // red = critical; blue = near-critical (has float)
+    const dur = f.duration_days == null ? '—' : `${f.duration_days} wd`;
+    return `<div class="cg-row">
+      <div class="cg-c cg-id">${escapeHtml(f.activity_id)}</div>
+      <div class="cg-c cg-nm" title="${escapeHtml(f.activity_name)}">${escapeHtml(f.activity_name)}</div>
+      <div class="cg-c cg-dt">${escapeHtml(isoDate(f.start))}</div>
+      <div class="cg-c cg-dt">${escapeHtml(isoDate(f.finish))}</div>
+      <div class="cg-c cg-du">${escapeHtml(dur)}</div>
+      <div class="cg-track"><i class="${crit ? 'crit' : ''}" style="left:${x}%;width:${Math.min(w, 100 - x)}%"></i></div>
     </div>`;
   }).join('');
-  const more = dated.length > 40 ? `<div class="shr-empty">+ ${dated.length - 40} more critical activities in the table below.</div>` : '';
-  return `<div class="shr-timeline">${rows}${more}</div>`;
+
+  return `
+    <div class="cg-tools">
+      <span class="cg-cnt">${dated.length.toLocaleString()} critical activities · all shown (scroll)</span>
+      <span class="cg-leg"><i class="sw r"></i>Critical <i class="sw b"></i>Near-critical</span>
+    </div>
+    <div class="cg-axis"><div class="cg-c">ID</div><div class="cg-c">Activity</div><div class="cg-c">Start</div>
+      <div class="cg-c">Finish</div><div class="cg-c cg-du">Dur</div>
+      <div class="cg-axtrack">${ticks.join('')}</div></div>
+    <div class="cg-body">${rows}</div>`;
 }
 
 // The Summary dashboard — the weighted Schedule Health roll-up, rendered from the

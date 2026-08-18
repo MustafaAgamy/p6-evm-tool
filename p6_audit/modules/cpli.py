@@ -116,12 +116,23 @@ def run_cpli(graph, config):
     findings = []
     for oid in graph.critical_ids():
         act = acts.get(oid, {})
+        sd, fd = _start_date(act), _finish_date(act)
+        # Duration in working days on the activity's own calendar (calendar-day
+        # fallback), so the Gantt can show a Duration column straight from the data.
+        acal = graph.calendars.get(act.get('calendar_id'))
+        if acal and sd and fd:
+            duration = signed_working_days(acal, sd, fd)
+        elif sd and fd:
+            duration = (fd - sd).days
+        else:
+            duration = None
         findings.append({
             'activity_id':      act.get('id', oid),
             'activity_name':    act.get('name', ''),
             'wbs_path':         graph.wbs_path(oid),
-            'start':            _iso(_start_date(act)),
-            'finish':           _iso(_finish_date(act)),
+            'start':            _iso(sd),
+            'finish':           _iso(fd),
+            'duration_days':    duration,
             'total_float_days': act.get('total_float_days'),
             'note':             'On the driving/critical path',
         })

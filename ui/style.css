@@ -1390,6 +1390,27 @@ body {
 .score-legend .sl-r.sl-bench { margin-top:6px; padding-top:6px; border-top:1px solid var(--border); color:var(--muted); }
 .sev-legend .sl2 { display:flex; flex-direction:column; gap:5px; margin-top:2px; }
 .sev-legend .sl2-row { display:grid; grid-template-columns:74px 1fr; gap:10px; align-items:baseline; font-size:11.5px; color:var(--muted); }
+/* CPLI driving-path Gantt (ID · Name · Start · Finish · Duration + time-based bars) */
+.cg-tools { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:8px 0 6px; font-size:11px; color:var(--muted); }
+.cg-cnt { font-variant-numeric:tabular-nums; }
+.cg-leg { margin-left:auto; display:flex; align-items:center; gap:4px; }
+.cg-leg .sw { width:11px; height:11px; border-radius:3px; display:inline-block; margin-left:8px; }
+.cg-leg .sw.r { background:var(--danger); } .cg-leg .sw.b { background:var(--accent); }
+.cg-axis, .cg-row { display:grid; grid-template-columns:60px minmax(90px,1.4fr) 78px 78px 46px minmax(120px,2.2fr); align-items:center; }
+.cg-axis { height:26px; border-bottom:1px solid var(--border); padding-right:10px; }
+.cg-axis .cg-c { font-size:9px; text-transform:uppercase; letter-spacing:.3px; color:var(--muted); font-weight:700; }
+.cg-axtrack { position:relative; height:26px; }
+.cg-axtrack .cg-m { position:absolute; top:8px; font-size:9px; color:var(--muted); transform:translateX(-50%); white-space:nowrap; }
+.cg-body { max-height:360px; overflow-y:auto; overflow-x:hidden; }
+.cg-row { height:26px; border-bottom:1px solid var(--border); }
+.cg-row:hover { background:var(--card-bg); }
+.cg-c { padding:0 6px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cg-id { font-family:ui-monospace,monospace; color:var(--muted); font-size:10.5px; }
+.cg-dt { color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; }
+.cg-du { color:var(--muted); text-align:right; font-size:10.5px; font-variant-numeric:tabular-nums; }
+.cg-track { position:relative; height:26px; }
+.cg-track i { position:absolute; top:50%; transform:translateY(-50%); height:11px; border-radius:3px; background:var(--accent); min-width:3px; }
+.cg-track i.crit { background:var(--danger); }
 .shr-timeline { margin:10px 0 14px; display:flex; flex-direction:column; gap:3px; }
 .shr-tl-row { display:grid; grid-template-columns:90px 1fr; align-items:center; gap:10px; }
 .shr-tl-lab { font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
