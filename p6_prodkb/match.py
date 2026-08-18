@@ -84,8 +84,21 @@ def resolve(activity, quantity=None, project_type=None, templates=None,
     from p6_prodkb.kb import load_templates
     templates = templates if templates is not None else load_templates()
     m = match(activity, templates)
-    if not m["template"]:
-        return {"activity": activity, "match": m, "result": None}
+    # Two DISTINCT statuses, never conflated:
+    #   knowledge_not_available -> the KB has no pattern for this activity/type/method
+    #   needs_input             -> a template matched, but a required input (quantity) is missing
+    if not m["template"] or m["band"] == "needs_planner":
+        return {"activity": activity, "match": m, "result": None,
+                "status": "knowledge_not_available",
+                "status_label": "Knowledge Not Available",
+                "status_detail": {
+                    "reason": "No applicable productivity model/rate exists in the current KB "
+                              "for this activity / work type / method.",
+                    "project_type": project_type,
+                    "work_type": activity.get("work_type"),
+                    "method": activity.get("method"),
+                    "missing": "productivity_pattern",
+                    "action": "Add or calibrate the required productivity pattern in the KB."}}
     ctx = {}
     if project_type:
         ctx["project_type"] = project_type
@@ -95,4 +108,12 @@ def resolve(activity, quantity=None, project_type=None, templates=None,
                   calendar_hours=calendar_hours)
     res["match_confidence"] = m["confidence"]
     res["match_band"] = m["band"]
-    return {"activity": activity, "match": m, "result": res}
+    if res.get("needs_qty"):
+        status, label = "needs_input", "Needs Planner Input"
+        detail = {"reason": "Quantity (and unit) are required to calculate the duration.",
+                  "missing": "quantity",
+                  "action": "Enter the BOQ quantity and unit for this activity."}
+    else:
+        status, label, detail = "ok", "Calculated", None
+    return {"activity": activity, "match": m, "result": res,
+            "status": status, "status_label": label, "status_detail": detail}

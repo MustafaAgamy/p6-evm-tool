@@ -38,3 +38,21 @@ def test_resolve_end_to_end_villa_context():
     assert out["result"]["duration_days"] == 12     # villa rate via context
     assert out["result"]["rate"]["value"] == 25
     assert out["result"]["rate"]["conditions"]      # applicability shown
+    assert out["status"] == "ok"
+
+
+def test_status_knowledge_not_available():
+    out = m.resolve({"name": "Specialized Process Equipment Installation"}, 5,
+                    project_type="Oil & Gas", templates=_t())
+    assert out["status"] == "knowledge_not_available"
+    assert out["result"] is None                    # never invents a rate for a KB gap
+    assert out["status_detail"]["missing"] == "productivity_pattern"
+    assert out["status_detail"]["project_type"] == "Oil & Gas"
+
+
+def test_status_needs_input_when_quantity_missing():
+    out = m.resolve({"name": "RC Columns to Level 3"}, None,
+                    project_type="Industrial", templates=_t())
+    assert out["status"] == "needs_input"           # matched a pattern, but qty missing
+    assert out["result"]["needs_qty"] is True
+    assert out["status_detail"]["missing"] == "quantity"
