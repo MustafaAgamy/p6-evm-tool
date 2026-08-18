@@ -219,78 +219,23 @@ function gaugeHtml(score, label = '/ 100') {
     </div>`;
 }
 
-// ── Per-check specs: KPI tiles + findings-table columns/rows ───────────────
-// Every standard check renders through one path; the spec is the only thing
-// that differs. Keeps all nine views structurally identical (one look).
-const MODULE_SPECS = {
-  dangling: {
-    verdict: m => `${m.pct}% of activities have broken start/finish logic (an open end on one side).`,
-    tiles: k => [['Total Activities', num(k.total_activities)], ['Total Dangling', k.total_dangling || 0],
-      ['Dangling %', pctv(k.dangling_pct)], ['Dangling Start', k.start_dangling || 0],
-      ['Dangling Finish', k.finish_dangling || 0], ['Start + Finish', k.both_dangling || 0]],
-    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix', 'Suggested Logic Fix 2'],
-    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdSev(f.severity),
-      td(f.logic_issue), tdMut(f.predecessors), tdMut(f.successors), td(f.suggested_fix), tdMut(f.suggested_fix_2)],
-  },
-  open_ends: {
-    verdict: m => `${m.pct}% of activities are open on at least one side — no predecessor and/or no successor.`,
-    tiles: k => [['Total Activities', num(k.total_activities)], ['Open Ends', k.open_ends || 0],
-      ['Open-End %', pctv(k.open_end_pct)], ['No Predecessor', k.no_predecessor || 0], ['No Successor', k.no_successor || 0]],
-    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Issue', 'Recommendation'],
-    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdSev(f.severity), td(f.issue), tdMut(f.recommendation)],
-  },
-  relationship_types: {
-    verdict: m => `${m.kpis.fs_pct}% of relationships are Finish-to-Start; ${m.kpis.non_fs} are not (DCMA target ≥ 90% FS).`,
-    tiles: k => [['Total Relationships', num(k.total_relationships)], ['FS %', pctv(k.fs_pct)],
-      ['SS %', pctv(k.ss_pct)], ['FF %', pctv(k.ff_pct)], ['SF %', pctv(k.sf_pct)], ['Non-FS', k.non_fs || 0]],
-    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Type', 'Predecessor', 'Severity', 'Recommendation'],
-    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdMono(f.rel_type), tdMut(f.predecessor_name), tdSev(f.severity), tdMut(f.recommendation)],
-  },
-  hard_constraints: {
-    verdict: m => `${m.pct}% of activities carry a hard constraint that overrides the network logic.`,
-    tiles: k => [['Total Activities', num(k.total_activities)], ['Hard Constraints', k.hard_count || 0], ['Hard-Constraint %', pctv(k.hard_pct)]],
-    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Constraint Type', 'Constraint Date', 'Severity', 'Recommendation'],
-    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), td(f.constraint_type), tdMut(isoDate(f.constraint_date)), tdSev(f.severity), tdMut(f.recommendation)],
-  },
-  high_duration: {
-    verdict: m => `${m.pct}% of activities run longer than ${m.kpis.threshold} working days.`,
-    tiles: k => [['Total Activities', num(k.total_activities)], ['Over Threshold', k.over_threshold || 0],
-      ['High-Duration %', pctv(k.high_pct)], ['Threshold', dnum(k.threshold)], ['Longest', dnum(k.max_duration)]],
-    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Duration', 'Severity', 'Recommendation'],
-    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdNum(dnum(f.duration_days)), tdSev(f.severity), tdMut(f.recommendation)],
-  },
-  leads: {
-    verdict: m => `${m.pct}% of relationships are leads (negative lag) — DCMA target 0%.`,
-    tiles: k => [['Total Relationships', num(k.total_relationships)], ['Leads', k.leads || 0], ['Lead %', pctv(k.lead_pct)], ['Target', `${k.target}%`]],
-    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Type', 'Lag', 'Predecessor', 'Severity', 'Recommendation'],
-    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdMono(f.rel_type), tdNum(dnum(f.lag_days)), tdMut(f.predecessor_name), tdSev(f.severity), tdMut(f.recommendation)],
-  },
-  negative_float: {
-    verdict: m => `${m.pct}% of activities carry negative total float — a baseline must not start with any.`,
-    tiles: k => [['Total Activities', num(k.total_activities)], ['Negative Float', k.negative_count || 0], ['Negative-Float %', pctv(k.neg_pct)]],
-    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float', 'Severity', 'Recommendation'],
-    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdNum(dnum(f.total_float_days)), tdSev(f.severity), tdMut(f.recommendation)],
-  },
-  whole_day: {
-    verdict: m => `${m.pct}% of activities have a decimal duration that should round to a whole day.`,
-    tiles: k => [['Total Activities', num(k.total_activities)], ['Decimal Durations', k.decimal_count || 0], ['Decimal %', pctv(k.decimal_pct)]],
-    columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Original', 'Rounds To', 'Calendar', 'Severity', 'Recommendation'],
-    row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdNum(dnum(f.original_days)), tdNum(dnum(f.rounds_to)), tdMut(f.calendar), tdSev(f.severity), tdMut(f.recommendation)],
-  },
-};
-
-// Fallback for any unexpected module — never render a blank page.
-const GENERIC_SPEC = {
-  verdict: m => `${m.pct}% of items flagged.`,
-  tiles: k => Object.entries(k).slice(0, 6).map(([lab, v]) => [lab.replace(/_/g, ' '), typeof v === 'number' ? v : String(v)]),
-  columns: ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Recommendation'],
-  row: (f, i) => [tdNum(i + 1), tdMono(f.activity_id), td(f.activity_name), tdWbs(f.wbs_path), tdSev(f.severity), tdMut(f.recommendation)],
-};
-
-function tilesHtml(m, spec) {
-  return spec.tiles(m.kpis || {}).map(([lab, val]) =>
-    `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('');
+// Render one normalized presentation cell — mirrors report.py _pcell so the
+// screen, the PDF and Excel draw identical cells from the one source.
+function cellHtml(cell) {
+  if (cell.badge) return `<td><span class="sevtag ${cell.badge}">${escapeHtml(cell.text)}</span></td>`;
+  const cls = cell.cls ? ` class="${cell.cls}"` : '';
+  const title = cell.title ? ` title="${escapeHtml(cell.title)}"` : '';
+  return `<td${cls}${title}>${escapeHtml(cell.text)}</td>`;
 }
+
+function presentationTiles(p) {
+  return (p.tiles || []).map(t =>
+    `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div><div class="v">${escapeHtml(t.value)}</div></div>`).join('');
+}
+
+// Per-check KPI tiles + table columns now live in ONE place — p6_audit/presentation.py
+// (build_presentation) — and arrive on each module as `m.presentation`, so the screen,
+// the PDF and Excel render identical tiles/columns/cells (see cellHtml/presentationTiles).
 
 function wbsSummaryHtml(m) {
   const ws = m.wbs_summary || [];
@@ -479,7 +424,7 @@ function renderModuleBody(m) {
 // Standard check view: gauge hero + KPI tiles + filterable findings table,
 // driven entirely by the module's spec so every check reads the same way.
 function renderStandardModule(m) {
-  const spec = MODULE_SPECS[m.module] || GENERIC_SPEC;
+  const p = m.presentation || {};
   const body = document.getElementById('module-body');
   body.innerHTML = `
     <div class="audit-hero">
@@ -488,10 +433,10 @@ function renderStandardModule(m) {
         <div class="score-meta">
           <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
           <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
-          <div class="coverage">${escapeHtml(spec.verdict(m))}</div>
+          <div class="coverage">${escapeHtml(p.verdict || '')}</div>
         </div>
       </div>
-      <div class="kpi-tiles">${tilesHtml(m, spec)}</div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
     </div>
     ${wbsSummaryHtml(m)}
     <div class="mod-sec">Detailed Findings</div>
@@ -867,14 +812,26 @@ function renderRows() {
   const thead = document.getElementById('find-head');
   if (!am || !key || !tbody || !am.modules[key]) return;
   const m = am.modules[key];
-  const spec = MODULE_SPECS[m.module] || GENERIC_SPEC;
-  const rows = filterFindings(m.findings, { severity: _filters.severity, query: _filters.query });
-  thead.innerHTML = `<tr>${spec.columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="${spec.columns.length}" style="text-align:center;color:var(--muted);padding:20px">No findings match.</td></tr>`;
+  const p = m.presentation || {};
+  const cols = p.columns || [];
+  const prows = p.rows || [];
+  thead.innerHTML = `<tr><th>#</th>${cols.map(c =>
+    c.align === 'num' ? `<th class="num">${escapeHtml(c.label)}</th>` : `<th>${escapeHtml(c.label)}</th>`).join('')}</tr>`;
+  // Filter by the raw finding; render the PARALLEL presentation row (same index),
+  // so the on-screen table shows the exact cells the PDF and Excel do.
+  const sev = _filters.severity, q = (_filters.query || '').trim().toLowerCase();
+  const visible = [];
+  (m.findings || []).forEach((f, idx) => {
+    if (sev && f.severity !== sev) return;
+    if (q && !`${f.activity_id || ''} ${f.activity_name || ''}`.toLowerCase().includes(q)) return;
+    if (prows[idx]) visible.push(prows[idx]);
+  });
+  if (!visible.length) {
+    tbody.innerHTML = `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:var(--muted);padding:20px">No findings match.</td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map((f, i) => `<tr>${spec.row(f, i).join('')}</tr>`).join('');
+  tbody.innerHTML = visible.map((row, i) =>
+    `<tr><td class="num">${i + 1}</td>${row.map(cellHtml).join('')}</tr>`).join('');
 }
 
 // ── Lag Report — standalone report (charts + register + editable justification) ──
