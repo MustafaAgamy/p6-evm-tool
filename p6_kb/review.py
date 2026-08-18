@@ -9,6 +9,7 @@ from p6_kb.kb import load_kb
 from p6_kb.learn import (has_learning, learned_panel, load_profile,
                          recurring_activities, recurring_wbs)
 from p6_kb.model import schedule_view
+from p6_kb.resolve import resolve as resolve_archetype
 from p6_kb.scoring import compute_score
 from p6_kb.tagging import detect_systems
 
@@ -350,6 +351,15 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
     except Exception:
         systems = None
 
+    # Phase 2 (read-only): resolve the project archetype from the systems present
+    # and expose the relevant System Patterns + expected-but-absent systems. Does
+    # not change v1 findings/score; the Phase 3 rule engine will consume it.
+    archetype = None
+    try:
+        archetype = resolve_archetype(view)
+    except Exception:
+        archetype = None
+
     if illogical or missing or missing_wbs:
         gaps = (f"{len(illogical)} illogical link(s), {len(missing)} missing activities and "
                 f"{len(missing_wbs)} missing WBS branch(es) found. ")
@@ -393,5 +403,6 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
         'wbs_review': wbs_review,
         'learned': learned,
         'systems': systems,
+        'archetype': archetype,
         'conclusion': conclusion,
     }
