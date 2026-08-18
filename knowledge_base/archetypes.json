@@ -907,6 +907,1285 @@
    ],
    "finishing_sequence_note": "Two finishing regimes: retail/podium shell-and-core (often left as landlord shell) and the residential tower typical-floor finishing wave above. Vertical services must stay continuous through the transfer/podium level; residential units run the standard first-fix→waterproofing→tiling→second-fix→fixtures chain while podium and cores demand coordinated life-safety and MEP segregation.",
    "notes": "Combines high-rise residential vertical MEP with a retail/podium interface. Review focus is the residential-to-commercial services segregation, transfer-level MEP continuity, and phased zoned handover (retail vs residential). Heaviest commissioning of the residential set due to shared life-safety and metering separation."
+  },
+  {
+   "archetype": "roads_highways",
+   "name": "Roads & Highways",
+   "category": "transport_infrastructure",
+   "primary_systems": [
+    "lighting",
+    "electrical_power",
+    "containment_cabling",
+    "earthing"
+   ],
+   "secondary_systems": [
+    "data_telecom",
+    "elv_security",
+    "instrumentation",
+    "utility_piping",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "earthworks & subgrade preparation",
+    "pavement (asphalt/concrete) layers",
+    "drainage, culverts & interceptors",
+    "retaining structures & embankments",
+    "road-furniture / barrier / gantry foundations",
+    "duct banks & pull-pits for ITS and lighting cabling"
+   ],
+   "commissioning_focus": [
+    "street-lighting energisation & photometric checks",
+    "ITS / traffic-signal integration & SCADA comms",
+    "CCTV / tolling live tests",
+    "earthing & bonding continuity",
+    "power feeder switch-on"
+   ],
+   "applicability": "At-grade or elevated road and motorway corridors where earthworks and pavement dominate and MEP is limited to lighting, power and ITS/traffic systems.",
+   "notes": "Civil-led; systems review weights lighting/ITS power and cabling containment. Tunnelled sections should be reviewed under the tunnels archetype."
+  },
+  {
+   "archetype": "bridges",
+   "name": "Bridges & Viaducts",
+   "category": "transport_infrastructure",
+   "primary_systems": [
+    "structural_steel",
+    "lighting",
+    "earthing",
+    "instrumentation"
+   ],
+   "secondary_systems": [
+    "electrical_power",
+    "containment_cabling",
+    "data_telecom",
+    "utility_piping",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "deep foundations / piling & pier construction",
+    "deck superstructure & post-tensioning",
+    "bearings & expansion joints",
+    "deck drainage & waterproofing",
+    "approach embankments & transition slabs"
+   ],
+   "commissioning_focus": [
+    "structural-health-monitoring (SHM) sensor commissioning",
+    "lightning protection & earthing continuity",
+    "aviation / navigation & feature lighting energisation",
+    "expansion-joint & bearing acceptance",
+    "movement / load monitoring baseline"
+   ],
+   "applicability": "Spanning structures (road, rail or pedestrian) where the superstructure governs and MEP is limited to lighting, structural monitoring and lightning protection.",
+   "notes": "Structure is the enabler; bearings and expansion joints are structural but commissioning-critical. Systems focus is monitoring, feature/navigation lighting and lightning protection."
+  },
+  {
+   "archetype": "tunnels",
+   "name": "Tunnels (road / rail / utility)",
+   "category": "transport_infrastructure",
+   "primary_systems": [
+    "hvac",
+    "fire_fighting",
+    "fire_alarm",
+    "lighting",
+    "electrical_power",
+    "instrumentation"
+   ],
+   "secondary_systems": [
+    "bms",
+    "data_telecom",
+    "elv_security",
+    "containment_cabling",
+    "earthing",
+    "utility_piping",
+    "rotating_equipment",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "TBM-bored / mined or cut-and-cover lining",
+    "portals & cross-passages",
+    "invert & tunnel drainage",
+    "cable/services niches & tunnel walkways",
+    "sump & pumping chambers"
+   ],
+   "commissioning_focus": [
+    "ventilation (jet-fan / longitudinal) & smoke-control mode tests",
+    "fire-detection-to-deluge cause-and-effect",
+    "tunnel SCADA / management-system integration",
+    "emergency lighting & egress",
+    "radio / comms coverage & drainage-pump run-in"
+   ],
+   "applicability": "Bored or cut-and-cover tunnels where life-safety ventilation, fire suppression and SCADA/tunnel-management systems dominate the fit-out over the civil lining.",
+   "notes": "Among the most MEP-intensive linear types; ventilation and fire cause-and-effect are the dominant review risk. Utility tunnels carry a lighter systems scope (lighting, power, drainage) than road/rail."
+  },
+  {
+   "archetype": "airport_terminal",
+   "name": "Airport Passenger Terminal",
+   "category": "aviation",
+   "primary_systems": [
+    "hvac",
+    "chilled_water",
+    "conveying",
+    "fire_fighting",
+    "fire_alarm",
+    "electrical_power",
+    "elv_security"
+   ],
+   "secondary_systems": [
+    "bms",
+    "data_telecom",
+    "lighting",
+    "plumbing",
+    "sanitary_fixtures",
+    "architectural_finishing",
+    "floor_tiling_stone",
+    "joinery_fitout",
+    "containment_cabling",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "piled foundations & ground slab",
+    "long-span roof structure",
+    "apron interface & passenger-boarding-bridge foundations",
+    "baggage-hall pits, trenches & tunnels",
+    "landside forecourt & road interface"
+   ],
+   "commissioning_focus": [
+    "baggage-handling-system (BHS) integration & throughput tests",
+    "security / screening & access-control integration",
+    "smoke-control & fire cause-and-effect",
+    "FIDS / PA / comms integration",
+    "large-volume HVAC & chilled-water balancing"
+   ],
+   "applicability": "Passenger terminal buildings where baggage handling, security/ELV and large-volume HVAC/fire systems are the review focus over the enclosing long-span structure.",
+   "notes": "Baggage handling (conveying) and security/ELV are the signature systems distinguishing this from a generic commercial building. Airside pavements are a separate archetype."
+  },
+  {
+   "archetype": "airport_airside",
+   "name": "Airport Airside (runway / taxiway / apron)",
+   "category": "aviation",
+   "primary_systems": [
+    "lighting",
+    "electrical_power",
+    "containment_cabling",
+    "instrumentation"
+   ],
+   "secondary_systems": [
+    "earthing",
+    "data_telecom",
+    "utility_piping",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "subgrade & pavement (PQC / asphalt) for runway, taxiway & apron",
+    "primary/secondary cable trenches & pits",
+    "airfield drainage & interceptors",
+    "AGL base cans & duct routes",
+    "aircraft-fuel hydrant pit network"
+   ],
+   "commissioning_focus": [
+    "airfield-ground-lighting (AGL) circuit, photometric & flight checks",
+    "constant-current-regulator energisation",
+    "navaid / met-system integration",
+    "fuel-hydrant pressure & flushing",
+    "earthing & bonding continuity"
+   ],
+   "applicability": "Runway, taxiway and apron works where pavement dominates and MEP is limited to airfield ground lighting, primary power distribution and navaids.",
+   "notes": "Civil-led pavement type; the specialised electrical scope is AGL (constant-current series circuits) and navaids rather than conventional building power."
+  },
+  {
+   "archetype": "seaport_container_terminal",
+   "name": "Container Terminal",
+   "category": "marine_ports",
+   "primary_systems": [
+    "electrical_power",
+    "mechanical_equipment",
+    "lighting",
+    "containment_cabling"
+   ],
+   "secondary_systems": [
+    "conveying",
+    "data_telecom",
+    "elv_security",
+    "instrumentation",
+    "earthing",
+    "fire_fighting",
+    "utilities",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "quay wall & berth",
+    "dredging & land reclamation",
+    "heavy-duty yard pavement",
+    "crane rail beams & foundations",
+    "reefer racks & duct banks",
+    "yard drainage"
+   ],
+   "commissioning_focus": [
+    "STS / RTG / RMG crane power & rail energisation",
+    "reefer power-distribution tests",
+    "high-mast & yard lighting",
+    "terminal-operating-system (TOS) & comms integration",
+    "earthing & cathodic protection"
+   ],
+   "applicability": "Container port terminals where quay-crane power, reefer distribution and yard electrical/lighting dominate over the marine civil works.",
+   "notes": "Handling equipment (cranes) is treated as mechanical_equipment fed by high-power electrical; the review focus is power distribution, reefer racks and yard lighting, not the quay structure."
+  },
+  {
+   "archetype": "seaport_bulk_terminal",
+   "name": "Bulk (Dry / Liquid) Terminal",
+   "category": "marine_ports",
+   "primary_systems": [
+    "conveying",
+    "mechanical_equipment",
+    "electrical_power",
+    "instrumentation"
+   ],
+   "secondary_systems": [
+    "rotating_equipment",
+    "tanks_vessels",
+    "process_piping",
+    "containment_cabling",
+    "lighting",
+    "earthing",
+    "fire_fighting",
+    "bms",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "quay / jetty & berth",
+    "conveyor trestle foundations & transfer tunnels",
+    "stockyard pavement & drainage",
+    "transfer-tower, silo & tank foundations",
+    "dust / spillage containment bunding"
+   ],
+   "commissioning_focus": [
+    "conveyor & stacker / reclaimer / ship-loader run-in & interlocks",
+    "dust suppression / extraction",
+    "SCADA & weightometer calibration",
+    "fire & dust-explosion protection",
+    "pump & loading-arm tests (liquid bulk)"
+   ],
+   "applicability": "Dry- or liquid-bulk marine terminals where material-handling conveyors/loaders (or tank-farm piping) and their power/SCADA are the systems focus.",
+   "notes": "Dry bulk weights conveying/material-handling and dust-explosion protection; liquid bulk shifts toward tanks_vessels, process_piping and pumps. One archetype covering both bulk modes."
+  },
+  {
+   "archetype": "marine_jetty_quay",
+   "name": "Jetty / Quay / Berth Structure",
+   "category": "marine_ports",
+   "primary_systems": [
+    "structural_steel",
+    "lighting",
+    "electrical_power",
+    "instrumentation"
+   ],
+   "secondary_systems": [
+    "fire_fighting",
+    "containment_cabling",
+    "earthing",
+    "utility_piping",
+    "mechanical_equipment",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "marine piling & pile caps",
+    "deck slab & mooring / breasting dolphins",
+    "fender & bollard installation",
+    "dredging & scour protection",
+    "approach trestle"
+   ],
+   "commissioning_focus": [
+    "berthing / mooring monitoring & aids",
+    "cathodic-protection energisation",
+    "navigation & deck lighting",
+    "fire / foam system tests (fuel berths)",
+    "utility / bunkering line flushing"
+   ],
+   "applicability": "Piled or gravity marine berthing structures (jetty, quay, dolphin) where the marine structure governs and MEP is limited to berth services, lighting and mooring aids.",
+   "notes": "Marine structure is the enabler; systems are berth services. Fuel/product berths add fire-foam and process/utility piping that a general cargo berth does not."
+  },
+  {
+   "archetype": "metro_station",
+   "name": "Metro / Rail Station",
+   "category": "transport_infrastructure",
+   "primary_systems": [
+    "hvac",
+    "conveying",
+    "fire_fighting",
+    "fire_alarm",
+    "electrical_power",
+    "elv_security"
+   ],
+   "secondary_systems": [
+    "chilled_water",
+    "bms",
+    "instrumentation",
+    "data_telecom",
+    "lighting",
+    "earthing",
+    "plumbing",
+    "architectural_finishing",
+    "floor_tiling_stone",
+    "containment_cabling",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "station box (cut-and-cover / mined) & diaphragm walls",
+    "platform & concourse slabs",
+    "entrances & ventilation shafts",
+    "track interface & drainage sumps",
+    "waterproofing / tanking"
+   ],
+   "commissioning_focus": [
+    "tunnel / station ventilation & smoke-control (TVS/ECS) modes",
+    "escalator / lift & platform-screen-door integration",
+    "fire cause-and-effect",
+    "AFC / PA / PIS & SCADA integration",
+    "stray-current / earthing & emergency lighting"
+   ],
+   "applicability": "Individual metro or rail station boxes where station ventilation, vertical transportation, fire and station systems dominate the fit-out over the civil box.",
+   "notes": "Station-level companion to the existing rail_metro (line/system-wide) archetype; vertical transportation (conveying) and ventilation/smoke-control are the signature systems."
+  },
+  {
+   "archetype": "railway_track_systems",
+   "name": "Railway Track & Systems",
+   "category": "transport_infrastructure",
+   "primary_systems": [
+    "electrical_power",
+    "instrumentation",
+    "containment_cabling",
+    "earthing"
+   ],
+   "secondary_systems": [
+    "data_telecom",
+    "lighting",
+    "structural_steel",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "formation / trackbed & drainage",
+    "ballasted or slab trackform",
+    "OCS / OHLE mast foundations",
+    "cable troughing routes & signal bases",
+    "level crossings & lineside structures"
+   ],
+   "commissioning_focus": [
+    "overhead-line (OCS/OHLE) energisation & pantograph tests",
+    "signalling & train-control integration/testing",
+    "traction return & stray-current bonding",
+    "telecoms / GSM-R coverage",
+    "track geometry & dynamic testing"
+   ],
+   "applicability": "Linear railway corridors where trackform, traction power (OHLE), signalling and telecoms are the systems focus rather than a discrete building.",
+   "notes": "Linear systems type; signalling (instrumentation) and traction power (electrical_power) are the dominant review risk. Structure/trackbed is the enabler."
+  },
+  {
+   "archetype": "pumping_station",
+   "name": "Pumping Station (water / wastewater / stormwater)",
+   "category": "water_infrastructure",
+   "primary_systems": [
+    "rotating_equipment",
+    "process_piping",
+    "electrical_power",
+    "instrumentation"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "tanks_vessels",
+    "bms",
+    "hvac",
+    "containment_cabling",
+    "earthing",
+    "conveying",
+    "fire_fighting",
+    "lighting",
+    "insulation_coating",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "wet-well / dry-well & pump-sump structure",
+    "foundations & pump plinths",
+    "valve chambers & pipework trenches",
+    "screening / inlet works",
+    "superstructure / MCC building"
+   ],
+   "commissioning_focus": [
+    "pump run-in, performance & duty/standby changeover",
+    "valve / actuator & surge-protection tests",
+    "SCADA / telemetry integration",
+    "motor / VSD & MCC energisation",
+    "ventilation / odour-control balancing"
+   ],
+   "applicability": "Water, wastewater or stormwater pumping stations where pumps, process piping and electrical/SCADA control are the review focus.",
+   "notes": "Compact but MEP-dense; rotating equipment (pumps) with process piping and instrumentation is the core. Surge protection and duty/standby control are the classic commissioning risks."
+  },
+  {
+   "archetype": "dam_hydraulic",
+   "name": "Dam & Hydraulic Structure",
+   "category": "water_infrastructure",
+   "primary_systems": [
+    "mechanical_equipment",
+    "instrumentation",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "rotating_equipment",
+    "local_fabrication",
+    "containment_cabling",
+    "earthing",
+    "conveying",
+    "lighting",
+    "utility_piping",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "dam body (embankment / RCC / concrete) & foundation grouting",
+    "spillway & stilling basin",
+    "intake / outlet works & galleries",
+    "gate embedments & guides",
+    "instrumentation / inspection galleries"
+   ],
+   "commissioning_focus": [
+    "hydromechanical gate / valve & hoist operation",
+    "dam-safety instrumentation (piezometers / seepage) & SCADA",
+    "gate control & power energisation",
+    "reservoir first-filling & monitoring",
+    "spillway / outlet functional tests"
+   ],
+   "applicability": "Dams, weirs and major hydraulic structures where the mass-civil structure governs and systems are limited to hydromechanical gates, monitoring and their controls.",
+   "notes": "Mass-civil enabler; the reviewable systems are hydromechanical (gates/valves/hoists), dam-safety instrumentation and their power/controls. First-filling is a distinctive commissioning milestone."
+  },
+  {
+   "archetype": "utilities_network",
+   "name": "Utilities Distribution Network",
+   "category": "utility_infrastructure",
+   "primary_systems": [
+    "utility_piping",
+    "electrical_power",
+    "containment_cabling",
+    "data_telecom"
+   ],
+   "secondary_systems": [
+    "lighting",
+    "earthing",
+    "instrumentation",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "trenching & backfill / reinstatement",
+    "duct banks & draw-pits",
+    "valve / meter & inspection chambers",
+    "thrust blocks & crossings (road / rail / river)",
+    "substation / kiosk foundations"
+   ],
+   "commissioning_focus": [
+    "pipeline pressure testing & disinfection / flushing",
+    "cable HV/LV testing & energisation",
+    "network SCADA / telemetry & metering",
+    "earthing & bonding",
+    "live tie-ins & switchover"
+   ],
+   "applicability": "Networked or linear distribution of water, power, gas or telecom across a site or municipality where buried piping and cabling in trenches/ducts dominate.",
+   "notes": "Linear/networked type composed of buried utility piping and cabling; civil is trenching/ducts/chambers. Live tie-ins and switchover are the high-risk commissioning steps."
+  },
+  {
+   "archetype": "mall_retail",
+   "name": "Shopping Mall / Retail Center",
+   "category": "buildings",
+   "primary_systems": [
+    "hvac",
+    "fire_fighting",
+    "fire_alarm",
+    "conveying",
+    "elv_security",
+    "architectural_finishing"
+   ],
+   "secondary_systems": [
+    "chilled_water",
+    "plumbing",
+    "electrical_power",
+    "lighting",
+    "bms",
+    "data_telecom",
+    "floor_tiling_stone",
+    "sanitary_fixtures"
+   ],
+   "civil_interfaces": [
+    "structural_steel",
+    "civil_interface",
+    "waterproofing"
+   ],
+   "commissioning_focus": [
+    "integrated smoke-control / voice-evacuation life-safety cause-and-effect",
+    "vertical transport (escalators, travelators, lifts) load and safety",
+    "central plant to AHU/FCU air balancing across the mall",
+    "tenant fit-out interface handover and base-build sign-off"
+   ],
+   "applicability": "Applies to enclosed or semi-enclosed retail centers with large public assembly areas, atria, food courts and multiple leasable tenant units.",
+   "notes": "Life-safety integration (smoke evacuation + fire + PA + lift homing) and vertical transport dominate the schedule; base-build vs tenant fit-out boundary is the recurring interface risk."
+  },
+  {
+   "archetype": "hotel_hospitality",
+   "name": "Hotel / Hospitality Building",
+   "category": "buildings",
+   "primary_systems": [
+    "hvac",
+    "plumbing",
+    "fire_fighting",
+    "fire_alarm",
+    "elv_security",
+    "architectural_finishing"
+   ],
+   "secondary_systems": [
+    "chilled_water",
+    "electrical_power",
+    "lighting",
+    "bms",
+    "data_telecom",
+    "sanitary_fixtures",
+    "floor_tiling_stone",
+    "joinery_fitout",
+    "conveying"
+   ],
+   "civil_interfaces": [
+    "structural_steel",
+    "waterproofing",
+    "civil_interface"
+   ],
+   "commissioning_focus": [
+    "guest-room mock-up and typical-floor sign-off driving repetitive fit-out",
+    "domestic hot-water, drainage and water-quality flushing",
+    "BMS + life-safety + guest-room controls integration",
+    "back-of-house (kitchens, laundry, pools) plant start-up"
+   ],
+   "applicability": "Applies to hotels, resorts and serviced-apartment towers with many repetitive guest rooms plus intensive wet areas and back-of-house.",
+   "notes": "Highly repetitive MEP per key with heavy finishing/joinery; wet-area waterproofing and DHW are the classic snag sources; guest-room mock-up gates the repetition."
+  },
+  {
+   "archetype": "school_education",
+   "name": "School / Education Facility",
+   "category": "buildings",
+   "primary_systems": [
+    "hvac",
+    "fire_alarm",
+    "fire_fighting",
+    "electrical_power",
+    "lighting",
+    "elv_security"
+   ],
+   "secondary_systems": [
+    "plumbing",
+    "data_telecom",
+    "bms",
+    "architectural_finishing",
+    "sanitary_fixtures",
+    "floor_tiling_stone"
+   ],
+   "civil_interfaces": [
+    "structural_steel",
+    "civil_interface",
+    "waterproofing"
+   ],
+   "commissioning_focus": [
+    "life-safety (alarm, evacuation, lockdown) before occupancy",
+    "classroom IT/AV and data cabling",
+    "ventilation and lighting compliance for teaching spaces",
+    "term-date driven occupancy handover"
+   ],
+   "applicability": "Applies to primary/secondary schools and standalone teaching buildings with classrooms, halls, labs and sports/canteen areas.",
+   "notes": "Moderate MEP intensity; the binding constraint is a fixed academic-year occupancy date, so life-safety and IT/AV sign-off pace handover."
+  },
+  {
+   "archetype": "university_campus",
+   "name": "University / Higher-Education Campus",
+   "category": "buildings",
+   "primary_systems": [
+    "hvac",
+    "electrical_power",
+    "fire_fighting",
+    "fire_alarm",
+    "data_telecom",
+    "utilities"
+   ],
+   "secondary_systems": [
+    "chilled_water",
+    "plumbing",
+    "bms",
+    "elv_security",
+    "lighting",
+    "process_piping",
+    "architectural_finishing"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel",
+    "waterproofing"
+   ],
+   "commissioning_focus": [
+    "central plant and campus-wide utility distribution (power, chilled water, data)",
+    "laboratory services (fume extract, lab gases, specialist HVAC)",
+    "phased building-by-building occupancy",
+    "IT/telecom backbone across campus"
+   ],
+   "applicability": "Applies to multi-building higher-education campuses combining teaching blocks, laboratories, libraries and residences fed from shared central utilities.",
+   "notes": "Distinguished from a single school by campus-scale shared utilities and lab services; commissioning is phased and depends on the central plant being live first."
+  },
+  {
+   "archetype": "mosque_religious",
+   "name": "Mosque / Religious Building",
+   "category": "buildings",
+   "primary_systems": [
+    "hvac",
+    "electrical_power",
+    "lighting",
+    "fire_alarm",
+    "elv_security",
+    "architectural_finishing"
+   ],
+   "secondary_systems": [
+    "plumbing",
+    "sanitary_fixtures",
+    "fire_fighting",
+    "data_telecom",
+    "floor_tiling_stone",
+    "joinery_fitout"
+   ],
+   "civil_interfaces": [
+    "structural_steel",
+    "waterproofing",
+    "civil_interface"
+   ],
+   "commissioning_focus": [
+    "public-address / acoustic system tuning for prayer hall",
+    "ablution plumbing and drainage",
+    "large-volume prayer-hall HVAC comfort",
+    "high-grade finishing, cladding and dome/minaret works"
+   ],
+   "applicability": "Applies to mosques, churches and other worship buildings with a large single-volume assembly hall, ceremonial finishing and ablution facilities.",
+   "notes": "Sound/PA and ablution water are the functional cores; finishing quality (stone, joinery, domes) is disproportionately schedule-critical relative to plant complexity."
+  },
+  {
+   "archetype": "sports_stadium_arena",
+   "name": "Sports Stadium / Arena",
+   "category": "buildings",
+   "primary_systems": [
+    "hvac",
+    "fire_fighting",
+    "fire_alarm",
+    "elv_security",
+    "electrical_power",
+    "data_telecom"
+   ],
+   "secondary_systems": [
+    "lighting",
+    "plumbing",
+    "bms",
+    "conveying",
+    "architectural_finishing",
+    "sanitary_fixtures"
+   ],
+   "civil_interfaces": [
+    "structural_steel",
+    "civil_interface",
+    "waterproofing"
+   ],
+   "commissioning_focus": [
+    "mass-egress crowd life-safety (voice evacuation, CCTV, access)",
+    "broadcast, AV, scoreboard and IT infrastructure",
+    "sports/broadcast lighting levels and switching",
+    "spectator-bowl comfort ventilation and concourse services"
+   ],
+   "applicability": "Applies to stadiums, arenas and large spectator venues with a long-span roof, tiered seating bowl and high-density crowd flows.",
+   "notes": "Crowd safety and broadcast/AV drive the venue; long-span structural steel roof is the dominant civil interface gating the MEP that hangs from it."
+  },
+  {
+   "archetype": "warehouse_logistics",
+   "name": "Warehouse / Logistics / Distribution Center",
+   "category": "buildings",
+   "primary_systems": [
+    "fire_fighting",
+    "fire_alarm",
+    "electrical_power",
+    "lighting",
+    "conveying"
+   ],
+   "secondary_systems": [
+    "hvac",
+    "elv_security",
+    "data_telecom",
+    "bms",
+    "containment_cabling",
+    "plumbing"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "ESFR / in-rack sprinkler system and fire pumps",
+    "racking, conveyor and material-handling / ASRS integration",
+    "warehouse management system and dock equipment",
+    "high-bay lighting and power distribution"
+   ],
+   "applicability": "Applies to distribution centers, high-bay warehouses and fulfillment buildings dominated by storage racking and material handling rather than occupancy comfort.",
+   "notes": "Fire suppression (ESFR) and MHE/conveyor integration are the schedule drivers; super-flat floor slab and dock levelers are the critical civil interfaces for racking and trucks."
+  },
+  {
+   "archetype": "parking_structure",
+   "name": "Multi-Storey / Parking Structure",
+   "category": "buildings",
+   "primary_systems": [
+    "fire_fighting",
+    "fire_alarm",
+    "hvac",
+    "lighting",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "elv_security",
+    "plumbing",
+    "containment_cabling",
+    "bms",
+    "conveying"
+   ],
+   "civil_interfaces": [
+    "structural_steel",
+    "waterproofing",
+    "civil_interface"
+   ],
+   "commissioning_focus": [
+    "CO/jet-fan or ducted car-park ventilation cause-and-effect",
+    "fire detection, suppression and smoke control",
+    "access control / ANPR and payment systems",
+    "deck waterproofing and drainage integrity"
+   ],
+   "applicability": "Applies to standalone or podium multi-storey car parks and structured parking where ventilation, drainage and vehicle access are the functional systems.",
+   "notes": "Sparse MEP but ventilation life-safety and deck waterproofing dominate; post-tensioned/precast decks are the main civil interface and set MEP fixing sequence."
+  },
+  {
+   "archetype": "cold_storage",
+   "name": "Cold Storage / Refrigerated Warehouse",
+   "category": "industrial",
+   "primary_systems": [
+    "hvac",
+    "insulation_coating",
+    "fire_fighting",
+    "electrical_power",
+    "bms"
+   ],
+   "secondary_systems": [
+    "mechanical_equipment",
+    "rotating_equipment",
+    "fire_alarm",
+    "conveying",
+    "plumbing",
+    "elv_security"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "refrigeration plant pull-down and temperature mapping",
+    "insulated-panel envelope and vapor-barrier integrity",
+    "ammonia/CO2 refrigerant safety and leak detection",
+    "dry-pipe/ESFR fire protection compatible with freezer temperatures"
+   ],
+   "applicability": "Applies to refrigerated and frozen storage facilities where the insulated envelope and refrigeration plant define the building rather than comfort HVAC.",
+   "notes": "Refrigeration (as HVAC), insulated envelope and refrigerant safety are the cores; heated/vapor-sealed slab is a critical civil interface to prevent frost heave."
+  },
+  {
+   "archetype": "cement_plant",
+   "name": "Cement Plant",
+   "category": "industrial",
+   "primary_systems": [
+    "process_equipment",
+    "conveying",
+    "mechanical_equipment",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "rotating_equipment",
+    "tanks_vessels",
+    "instrumentation",
+    "bms",
+    "utility_piping",
+    "insulation_coating",
+    "structural_steel"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "kiln refractory installation and controlled dry-out / heat-up",
+    "crusher, raw/cement mill and conveyor no-load then loaded runs",
+    "process control sequence (weigh feeders, separators, dust collection)",
+    "material flow start-up quarry-to-dispatch"
+   ],
+   "applicability": "Applies to clinker and cement production plants centred on kiln, mills, crushers, silos and bulk material conveying.",
+   "notes": "Heavy rotating/process equipment on massive foundations; kiln refractory dry-out and staged mill/conveyor loading are the classic commissioning gates."
+  },
+  {
+   "archetype": "steel_plant",
+   "name": "Steel Plant / Steelworks",
+   "category": "industrial",
+   "primary_systems": [
+    "process_equipment",
+    "rotating_equipment",
+    "mechanical_equipment",
+    "conveying",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "process_piping",
+    "instrumentation",
+    "insulation_coating",
+    "tanks_vessels",
+    "commissioning",
+    "structural_steel"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "furnace / caster / rolling-mill hot commissioning",
+    "overhead crane and roll-line mechanical alignment",
+    "process media systems (fuel gas, oxygen, cooling water)",
+    "staged cold then hot start-up of the production line"
+   ],
+   "applicability": "Applies to steelmaking and rolling facilities with furnaces, casters, rolling mills, heavy cranes and gas/water media systems.",
+   "notes": "Very heavy foundations, crane rails and media piping; hot commissioning of furnace/caster with media systems live is the dominant integration risk."
+  },
+  {
+   "archetype": "mining_processing",
+   "name": "Mineral / Mining Processing Plant",
+   "category": "industrial",
+   "primary_systems": [
+    "process_equipment",
+    "conveying",
+    "rotating_equipment",
+    "mechanical_equipment",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "tanks_vessels",
+    "instrumentation",
+    "bms",
+    "insulation_coating",
+    "commissioning",
+    "structural_steel"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "crushing and grinding (mill) circuit no-load then ore-load runs",
+    "slurry pumping, thickeners and process-water systems",
+    "separation / flotation / leach process sequence",
+    "wet commissioning through to first product / concentrate"
+   ],
+   "applicability": "Applies to ore processing and beneficiation plants (crush, grind, separate) handling slurry, tailings and bulk material conveying.",
+   "notes": "Crushing/grinding circuit and slurry pumping dominate; heavy foundations, chutework and tailings interfaces are the key civil enablers."
+  },
+  {
+   "archetype": "pharmaceutical_plant",
+   "name": "Pharmaceutical / Life-Sciences Plant",
+   "category": "industrial",
+   "primary_systems": [
+    "hvac",
+    "process_piping",
+    "utilities",
+    "commissioning",
+    "process_equipment"
+   ],
+   "secondary_systems": [
+    "skids_packaged",
+    "bms",
+    "instrumentation",
+    "electrical_power",
+    "insulation_coating",
+    "tanks_vessels",
+    "architectural_finishing"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel",
+    "waterproofing"
+   ],
+   "commissioning_focus": [
+    "cleanroom HVAC qualification and classification (particle, pressure cascade)",
+    "clean utilities (WFI, purified water, clean steam, compressed gases)",
+    "commissioning-qualification-validation (IQ/OQ/PQ) documentation",
+    "process skid integration and clean-in-place"
+   ],
+   "applicability": "Applies to GMP pharmaceutical, biotech and life-sciences facilities where cleanroom classification and validation govern acceptance.",
+   "notes": "Cleanroom HVAC, high-purity utilities and formal CQV/validation are the review focus; cleanroom finishes and pressure cascades make finishing a functional (not cosmetic) system."
+  },
+  {
+   "archetype": "food_beverage_plant",
+   "name": "Food & Beverage Processing Plant",
+   "category": "industrial",
+   "primary_systems": [
+    "process_piping",
+    "process_equipment",
+    "utility_piping",
+    "hvac",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "skids_packaged",
+    "tanks_vessels",
+    "rotating_equipment",
+    "electrical_power",
+    "instrumentation",
+    "bms",
+    "insulation_coating",
+    "plumbing"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel",
+    "waterproofing"
+   ],
+   "commissioning_focus": [
+    "clean-in-place (CIP) and sanitation systems",
+    "hygienic (sanitary) process piping passivation and slope",
+    "process line integration with utilities (steam, refrigeration, CO2)",
+    "hygiene-zone HVAC and HACCP / food-safety sign-off"
+   ],
+   "applicability": "Applies to food, dairy and beverage plants with hygienic process lines, CIP and controlled hygiene zones.",
+   "notes": "Hygienic/sanitary piping, CIP and hygiene-zone HVAC are the cores; hygienic floors, drainage falls and washdown define the critical civil interface."
+  },
+  {
+   "archetype": "pulp_paper",
+   "name": "Pulp & Paper Mill",
+   "category": "industrial",
+   "primary_systems": [
+    "process_equipment",
+    "rotating_equipment",
+    "process_piping",
+    "mechanical_equipment",
+    "conveying"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "tanks_vessels",
+    "instrumentation",
+    "insulation_coating",
+    "electrical_power",
+    "commissioning",
+    "structural_steel"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "paper machine drive and roll-train alignment",
+    "steam and condensate systems",
+    "pulp, chemical and white/black-liquor process lines",
+    "wet-end start-up and first reel"
+   ],
+   "applicability": "Applies to pulp mills and paper machines with digesters, large rotating machine lines, steam and chemical recovery systems.",
+   "notes": "Massive rotating machine line on precision foundations plus steam and chemical piping; drive alignment and steam systems gate the wet-end start-up."
+  },
+  {
+   "archetype": "glass_plant",
+   "name": "Glass Manufacturing Plant",
+   "category": "industrial",
+   "primary_systems": [
+    "process_equipment",
+    "insulation_coating",
+    "conveying",
+    "mechanical_equipment",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "process_piping",
+    "utility_piping",
+    "rotating_equipment",
+    "instrumentation",
+    "tanks_vessels",
+    "commissioning",
+    "structural_steel"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "furnace refractory build and controlled heat-up",
+    "float bath (tin) and lehr annealing systems",
+    "fuel gas / oxygen combustion systems",
+    "batch house and forming/conveyor line start-up"
+   ],
+   "applicability": "Applies to float and container glass plants centred on a melting furnace, forming line, annealing lehr and batch handling.",
+   "notes": "Refractory (insulation_coating) and furnace heat-up dominate; combustion (gas/oxygen) and forming line commissioning follow the furnace being brought to temperature."
+  },
+  {
+   "archetype": "desalination_plant",
+   "name": "Desalination Plant",
+   "category": "water",
+   "primary_systems": [
+    "process_piping",
+    "rotating_equipment",
+    "process_equipment",
+    "utility_piping",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "tanks_vessels",
+    "skids_packaged",
+    "instrumentation",
+    "bms",
+    "electrical_power",
+    "insulation_coating",
+    "mechanical_equipment"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "seawater intake and pretreatment start-up",
+    "high-pressure pumping and RO membrane loading",
+    "chemical dosing and post-treatment / remineralization",
+    "product-water quality verification to spec"
+   ],
+   "applicability": "Applies to seawater/brackish RO (or thermal) desalination plants producing potable/process water via membrane or thermal trains.",
+   "notes": "High-pressure pumps and RO trains with extensive process piping are the cores; marine intake/outfall and basin structures are the defining civil interfaces."
+  },
+  {
+   "archetype": "substation_switchyard",
+   "name": "Electrical Substation / Switchyard",
+   "category": "energy",
+   "primary_systems": [
+    "electrical_power",
+    "earthing",
+    "containment_cabling",
+    "instrumentation",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "fire_fighting",
+    "fire_alarm",
+    "structural_steel",
+    "lighting",
+    "bms",
+    "elv_security",
+    "hvac"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "protection relay, SCADA and control-system point-to-point",
+    "HV switchgear/transformer testing and staged energization",
+    "earthing / grounding grid verification and step-touch",
+    "transformer oil, cooling and Buchholz/protection functional checks"
+   ],
+   "applicability": "Applies to HV/MV substations and switchyards (AIS/GIS) with transformers, switchgear, protection and a control building.",
+   "notes": "Power apparatus, earthing grid and protection/SCADA are the focus; equipment foundations, cable trenches and oil-containment bunds are the civil enablers to energization."
+  },
+  {
+   "archetype": "solar_pv_plant",
+   "name": "Solar PV Plant",
+   "category": "energy",
+   "primary_systems": [
+    "electrical_power",
+    "earthing",
+    "containment_cabling",
+    "structural_steel",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "instrumentation",
+    "elv_security",
+    "data_telecom",
+    "mechanical_equipment",
+    "fire_alarm"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "string / IV-curve and insulation testing",
+    "inverter, transformer and grid interconnection energization",
+    "SCADA, monitoring and tracker control",
+    "earthing / grounding and lightning protection verification"
+   ],
+   "applicability": "Applies to utility-scale ground-mount (or large rooftop) photovoltaic plants with modules, trackers/racking, inverters and grid tie-in.",
+   "notes": "DC/AC electrical, earthing and racking steel dominate; pile foundations, grading and access roads are the civil enablers, with grid interconnection gating final commissioning."
+  },
+  {
+   "archetype": "wind_farm",
+   "name": "Wind Farm",
+   "category": "energy",
+   "primary_systems": [
+    "electrical_power",
+    "mechanical_equipment",
+    "rotating_equipment",
+    "earthing",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "containment_cabling",
+    "instrumentation",
+    "structural_steel",
+    "data_telecom"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "turbine erection, bolt-torque and mechanical completion",
+    "collection network, transformer and grid interconnection",
+    "SCADA and turbine control / curtailment",
+    "first rotation, grid-code compliance and power-curve verification"
+   ],
+   "applicability": "Applies to onshore wind farms with multiple turbines, inter-array collection cabling and a grid connection substation.",
+   "notes": "Turbine erection (heavy lift), nacelle/generator and collection electrical are the cores; massive turbine foundations, crane hardstands and access roads are the defining civil interfaces."
+  },
+  {
+   "archetype": "district_cooling_plant",
+   "name": "District Cooling Plant",
+   "category": "energy",
+   "primary_systems": [
+    "chilled_water",
+    "rotating_equipment",
+    "utility_piping",
+    "mechanical_equipment",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "tanks_vessels",
+    "electrical_power",
+    "instrumentation",
+    "bms",
+    "insulation_coating",
+    "pipe_racks",
+    "structural_steel"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "chiller and primary/secondary pumping start-up",
+    "thermal energy storage (TES) charge/discharge",
+    "distribution network hydraulic and pressure testing",
+    "BMS control, staging and energy-transfer-station interface"
+   ],
+   "applicability": "Applies to central district cooling plants generating and distributing chilled water to multiple buildings via a piped network.",
+   "notes": "Chillers, large pumps and the buried distribution network are the cores; pump-station structures and network trenches/pipe racks are the civil interfaces, with TES a distinguishing feature."
+  },
+  {
+   "archetype": "lng_terminal",
+   "name": "LNG Terminal / Liquefaction-Regasification",
+   "category": "energy",
+   "primary_systems": [
+    "process_piping",
+    "tanks_vessels",
+    "rotating_equipment",
+    "process_equipment",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "pipe_racks",
+    "pipe_spool_fabrication",
+    "instrumentation",
+    "insulation_coating",
+    "fire_fighting",
+    "fire_alarm",
+    "electrical_power"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "cryogenic piping cool-down and system inerting/purging",
+    "LNG storage tank commissioning (drying, purge, cool-down)",
+    "leak/pressure testing and cryogenic insulation integrity",
+    "fire & gas detection and safety-shutdown (ESD) functional testing"
+   ],
+   "applicability": "Applies to LNG import/export terminals with cryogenic storage tanks, cryogenic piping, pumps/compressors and marine jetty interface.",
+   "notes": "Cryogenic piping, LNG tanks and cryogenic insulation are the cores with fire & gas safety heavily weighted; tank foundations and marine/jetty works are the defining civil interfaces."
+  },
+  {
+   "archetype": "tank_farm",
+   "name": "Tank Farm / Bulk Liquid Storage",
+   "category": "energy",
+   "primary_systems": [
+    "tanks_vessels",
+    "process_piping",
+    "utility_piping",
+    "fire_fighting",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "rotating_equipment",
+    "pipe_racks",
+    "instrumentation",
+    "fire_alarm",
+    "electrical_power",
+    "earthing",
+    "insulation_coating"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "tank hydrotest, settlement survey and calibration/strapping",
+    "foam / deluge fire-protection functional testing",
+    "transfer pumps, manifolds and interconnecting piping",
+    "tank gauging, overfill protection and instrumentation"
+   ],
+   "applicability": "Applies to bulk liquid storage terminals (fuel, chemical, water) with multiple storage tanks, transfer piping and containment bunds.",
+   "notes": "Storage tanks, transfer piping and foam/deluge fire protection are the cores; tank ring-beam foundations and bund/containment are the critical civil interfaces, earthing important for flammable service."
+  },
+  {
+   "archetype": "waste_to_energy",
+   "name": "Waste-to-Energy / Incineration Plant",
+   "category": "energy",
+   "primary_systems": [
+    "process_equipment",
+    "rotating_equipment",
+    "conveying",
+    "mechanical_equipment",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "process_piping",
+    "utility_piping",
+    "tanks_vessels",
+    "instrumentation",
+    "electrical_power",
+    "insulation_coating",
+    "structural_steel",
+    "fire_fighting"
+   ],
+   "civil_interfaces": [
+    "civil_interface",
+    "structural_steel"
+   ],
+   "commissioning_focus": [
+    "boiler hydrotest and steam-blow / chemical clean",
+    "turbine-generator run-up and synchronization",
+    "flue-gas treatment / emissions abatement system",
+    "waste feed (bunker, cranes, grate) and first-fire start-up"
+   ],
+   "applicability": "Applies to municipal/industrial waste incineration and energy-recovery plants with combustion grate, boiler, steam turbine and flue-gas treatment.",
+   "notes": "Combustion/boiler and turbine islands with waste and ash handling are the cores; waste bunker and heavy foundations are the civil interfaces, and flue-gas treatment commissioning is emissions-critical."
   }
  ]
 }
