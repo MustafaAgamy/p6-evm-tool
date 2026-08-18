@@ -100,3 +100,33 @@ def test_unknown_module_uses_generic_fallback():
 def test_short_wbs_keeps_last_levels():
     assert short_wbs('A > B > C > D > E') == 'C > D > E'
     assert short_wbs('') == ''
+
+
+def test_scoring_descriptor_is_transparent():
+    s = build_presentation(_open_ends())['scoring']   # 3 of 100 = 3% -> 97
+    assert s['formula'] == 'Score = 100 − defect%'
+    assert '3 of 100' in s['derivation']
+    assert 'Score = 100 − 3% = 97' in s['derivation']
+    assert 'Excellent' in s['bands'] and 'Critical' in s['bands']
+    assert 'Metric 3' in s['benchmark']
+
+
+def test_scoring_relationship_types_shows_fs_derivation():
+    m = {'module': 'relationship_types', 'pct': 10.7, 'score': 89.3,
+         'kpis': {'total_relationships': 2631, 'non_fs': 282, 'fs_pct': 89.3,
+                  'ss_pct': 5.1, 'ff_pct': 0, 'sf_pct': 0}, 'findings': []}
+    s = build_presentation(m)['scoring']
+    assert '282 of 2,631' in s['derivation']
+    assert 'not Finish-to-Start' in s['derivation']
+    assert 'Score = 100 − 10.7% = 89.3' in s['derivation']
+    assert 'FS ≥ 90%' in s['benchmark']         # DCMA benchmark, separate from the score
+
+
+def test_cpli_scoring_has_its_own_formula():
+    m = {'module': 'cpli', 'score': 99.0, 'pct': 1.0,
+         'kpis': {'cpli': 0.99, 'computable': True, 'critical_path_length_days': 366,
+                  'project_total_float_days': 4, 'target': 0.95, 'finish_milestone_id': 'A1130'},
+         'findings': []}
+    s = build_presentation(m)['scoring']
+    assert 'CPLI' in s['formula'] and '(CPL + TF)' in s['formula']
+    assert 'Metric 13' in s['benchmark']

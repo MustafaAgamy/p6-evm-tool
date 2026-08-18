@@ -250,6 +250,67 @@ def _cpli_tiles_from_module(m):
     return _cpli_tiles(k)
 
 
+# ── Scoring transparency: how each check's 0-100 score is derived ──────────
+# Unified Schedule Health model: Score = 100 − defect%, one uniform legend.
+# CPLI is the exception (its own DCMA formula); Circular is a gate (not weighted).
+_UNIFORM_BANDS_TEXT = '≥ 98 Excellent · ≥ 95 Good · ≥ 90 Acceptable · < 90 Critical'
+
+# DCMA 14-Point reference per check — the industry benchmark, shown SEPARATELY
+# from the tool's 0-100 score (they are not the same thing).
+_DCMA_REF = {
+    'dangling':           'DCMA Metric 3 — Missing Logic · benchmark: 0 open ends',
+    'open_ends':          'DCMA Metric 3 — Missing Logic · benchmark: 0 open ends',
+    'relationship_types': 'DCMA Metric 4 — Relationship Types · benchmark: FS ≥ 90%',
+    'leads':              'DCMA Metric 2 — Leads (negative lag) · benchmark: 0',
+    'negative_float':     'DCMA Metric 7 — Negative Float · benchmark: 0',
+    'hard_constraints':   'DCMA Metric 5 — Hard Constraints · benchmark: 0',
+    'high_duration':      'DCMA Metric 8 — High Duration · benchmark: 0',
+    'cpli':               'DCMA Metric 13 — Critical Path Length Index · benchmark: CPLI ≥ 95%',
+    'whole_day':          'Tool check — calendar-consistent whole-day durations',
+    'circular':           'F9 gate — a circular loop stops P6 calculating; not weighted',
+}
+
+# defect% derivation per linear check: (count_kpi, total_kpi, noun-phrase).
+_DEFECT_NOUN = {
+    'dangling':           ('total_dangling', 'total_activities', 'activities have an open end on one side'),
+    'open_ends':          ('open_ends', 'total_activities', 'activities are open on a side'),
+    'relationship_types': ('non_fs', 'total_relationships', 'relationships are not Finish-to-Start'),
+    'leads':              ('leads', 'total_relationships', 'relationships are leads (negative lag)'),
+    'negative_float':     ('negative_count', 'total_activities', 'activities carry negative float'),
+    'hard_constraints':   ('hard_count', 'total_activities', 'activities carry a hard constraint'),
+    'high_duration':      ('over_threshold', 'total_activities', 'activities exceed the duration threshold'),
+    'whole_day':          ('decimal_count', 'total_activities', 'activities have a decimal duration'),
+}
+
+
+def _scoring(m):
+    """A truthful 'how this score is calculated' descriptor — shown on screen AND
+    in the PDF so the 0-100 score is never a black box."""
+    mod = m.get('module')
+    k = m.get('kpis') or {}
+    ref = _DCMA_REF.get(mod, '')
+
+    if mod == 'cpli':
+        return {'formula': 'Score = CPLI × 100, where CPLI = (CPL + TF) ÷ CPL',
+                'derivation': _cpli_verdict(m), 'bands': _UNIFORM_BANDS_TEXT, 'benchmark': ref}
+    if mod == 'circular':
+        loops = k.get('loops', 0) or 0
+        return {'formula': 'Gate — a circular loop caps the review; not weighted into the score',
+                'derivation': ('No loops — the network calculates.' if not loops
+                               else f"{loops} loop(s) block P6's calculation (F9)."),
+                'bands': '', 'benchmark': ref}
+    d = _DEFECT_NOUN.get(mod)
+    if not d:
+        return None
+    count_k, total_k, noun = d
+    count, total = k.get(count_k, 0), k.get(total_k, 0)
+    defect, score = m.get('pct'), m.get('score')
+    derivation = (f"{_num(count)} of {_num(total)} {noun} = {_plain(defect)}%  →  "
+                  f"Score = 100 − {_plain(defect)}% = {_plain(score)}")
+    return {'formula': 'Score = 100 − defect%', 'derivation': derivation,
+            'bands': _UNIFORM_BANDS_TEXT, 'benchmark': ref}
+
+
 def build_presentation(module_result):
     """The normalized presentation for one module — tiles, columns, rows, verdict."""
     m = module_result or {}
@@ -268,4 +329,5 @@ def build_presentation(module_result):
     rows = [[_cell_for(kind, f.get(field)) for lab, field, kind in spec['columns']]
             for f in findings]
 
-    return {'tiles': tiles, 'columns': columns, 'rows': rows, 'verdict': spec['verdict'](m)}
+    return {'tiles': tiles, 'columns': columns, 'rows': rows,
+            'verdict': spec['verdict'](m), 'scoring': _scoring(m)}

@@ -233,6 +233,21 @@ function presentationTiles(p) {
     `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div><div class="v">${escapeHtml(t.value)}</div></div>`).join('');
 }
 
+// "How this score is calculated" — the transparent scoring legend every check
+// shows (formula + this schedule's derivation + bands + the DCMA benchmark, which
+// is deliberately kept separate from the 0-100 score).
+function scoringLegendHtml(s) {
+  if (!s) return '';
+  const parts = [
+    `<div class="sl-t">How this score is calculated</div>`,
+    `<div class="sl-r"><b>Formula:</b> ${escapeHtml(s.formula)}</div>`,
+    `<div class="sl-r"><b>This schedule:</b> ${escapeHtml(s.derivation)}</div>`,
+  ];
+  if (s.bands) parts.push(`<div class="sl-r"><b>Score bands:</b> ${escapeHtml(s.bands)}</div>`);
+  if (s.benchmark) parts.push(`<div class="sl-r sl-bench"><b>Benchmark:</b> ${escapeHtml(s.benchmark)}</div>`);
+  return `<div class="shr-legend score-legend">${parts.join('')}</div>`;
+}
+
 // Per-check KPI tiles + table columns now live in ONE place — p6_audit/presentation.py
 // (build_presentation) — and arrive on each module as `m.presentation`, so the screen,
 // the PDF and Excel render identical tiles/columns/cells (see cellHtml/presentationTiles).
@@ -438,6 +453,7 @@ function renderStandardModule(m) {
       </div>
       <div class="kpi-tiles">${presentationTiles(p)}</div>
     </div>
+    ${scoringLegendHtml(p.scoring)}
     ${wbsSummaryHtml(m)}
     <div class="mod-sec">Detailed Findings</div>
     <div class="filters">

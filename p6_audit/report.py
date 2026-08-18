@@ -498,6 +498,22 @@ def _presentation_table(m):
       <table class="findings"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'''
 
 
+def _scoring_legend(m):
+    """How this score is calculated — the same transparent legend as the screen
+    (formula + this schedule's derivation + bands + the DCMA benchmark, kept
+    separate from the 0-100 score)."""
+    p = m.get('presentation') or build_presentation(m)
+    s = p.get('scoring')
+    if not s:
+        return ''
+    bands = f'<div><b>Score bands:</b> {_esc(s["bands"])}</div>' if s.get('bands') else ''
+    bench = (f'<div style="margin-top:5px"><b>Benchmark:</b> {_esc(s["benchmark"])}</div>'
+             if s.get('benchmark') else '')
+    return (f'<div class="slegend"><div class="t">How this score is calculated</div>'
+            f'<div class="d"><b>Formula:</b> {_esc(s["formula"])}<br>'
+            f'<b>This schedule:</b> {_esc(s["derivation"])}</div>{bands}{bench}</div>')
+
+
 def _sections(m):
     """Body sections for a module report. OOS and Lag & Lead keep their bespoke
     section order; every other check renders from the single-source presentation,
@@ -508,7 +524,7 @@ def _sections(m):
     if m.get('module') == 'lag_lead':
         return f'{_lag_summary(m)}{_lag_charts(m)}{_lag_register(m)}'
     return (f'<h2 class="sec">Executive Dashboard</h2>{_presentation_dashboard(m)}'
-            f'{_wbs_summary(m)}{_presentation_table(m)}')
+            f'{_scoring_legend(m)}{_wbs_summary(m)}{_presentation_table(m)}')
 
 
 def render_module_report(module_result, meta):

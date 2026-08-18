@@ -8,7 +8,7 @@ Primavera dangling definition, absorbing the old Open Ends check:
 One merged row per activity. Score from Dangling % on the agreed curve.
 """
 from p6_audit.findings import content_id, bump_severity
-from p6_audit.scoring import module_score, grade_for_pct
+from p6_audit.scoring import linear_score, uniform_grade
 
 MODULE = 'dangling'
 NAME = 'Dangling Activities'
@@ -113,8 +113,10 @@ def run_dangling(graph, config):
             'dangling_pct':     pct,
         },
         'pct':   pct,
-        'score': module_score(pct),
-        'grade': grade_for_pct(pct),
+        # Unified Schedule Health model: Score = 100 − defect%, uniform legend
+        # (was a band curve; aligned with every other sub-feature on 2026-08-18).
+        'score': linear_score(pct),
+        'grade': uniform_grade(linear_score(pct)),
         'findings': findings,
         'wbs_summary': [],
     }
