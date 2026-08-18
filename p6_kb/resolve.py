@@ -54,6 +54,33 @@ def _distinctiveness(archetypes):
     return {s: math.log((n + 1) / (c + 1)) + 0.1 for s, c in df.items()}, n
 
 
+_SIG_STOP = {'works', 'work', 'system', 'systems', 'foundation', 'foundations', 'installation',
+             'structure', 'structures', 'construction', 'building', 'buildings', 'general',
+             'interface', 'interfaces', 'network', 'services', 'concrete', 'slab', 'slabs',
+             'drainage', 'preparation', 'layers', 'layer', 'yard', 'pits', 'pit', 'ducts',
+             'duct', 'bank', 'banks', 'and', 'the', 'for', 'with', 'area', 'areas', 'civil'}
+_SIG_RX = __import__('re').compile(r'[a-z]{4,}')
+
+
+def _archetype_signatures(archetypes):
+    """Distinctive vocabulary per archetype — the civil/type words that identify a
+    project even when it has almost no MEP (asphalt/pavement→roads, pier/viaduct→
+    bridge, apron/runway→airside, mall/retail→mall). Drawn from the archetype name +
+    civil_interfaces + commissioning_focus, IDF-weighted so generic words don't sway."""
+    toks = {}
+    df = Counter()
+    for aid, arc in archetypes.items():
+        blob = ' '.join([arc.get('name', ''), arc.get('applicability', '')]
+                        + arc.get('civil_interfaces', []) + arc.get('commissioning_focus', [])).lower()
+        t = {w for w in _SIG_RX.findall(blob) if w not in _SIG_STOP}
+        toks[aid] = t
+        for w in t:
+            df[w] += 1
+    n = max(len(archetypes), 1)
+    idf = {w: math.log((n + 1) / (c + 1)) for w, c in df.items()}
+    return toks, idf
+
+
 def _schedule_text(view):
     rows = view.get('activities_oid') or view.get('activities') or []
     return '\n'.join((a.get('name') or '').lower() for a in rows)
@@ -97,25 +124,27 @@ def resolve(view, patterns=None, archetypes=None):
     for sid, h in _tagger_present(view, patterns).items():   # union the tagger's simpler keywords
         present[sid] = max(present.get(sid, 0), h)
     present_set = set(present)
-    if not present_set:
-        return None
-    # only confidently-present systems drive archetype selection (cuts alias noise)
-    confident = {s for s, h in present.items() if h >= _MIN_HITS}
-    if not confident:
-        confident = present_set
+    # NOTE: no early return on an empty system set — civil-led types (roads, bridges)
+    # carry almost no MEP and are identified purely by their signature vocabulary below.
+    confident = {s for s, h in present.items() if h >= _MIN_HITS} or present_set
 
     weight, _n = _distinctiveness(archetypes)
+    sig_toks, sig_idf = _archetype_signatures(archetypes)
+    sched_tokens = set(_SIG_RX.findall(_schedule_text(view)))
+    _SIG_WEIGHT = 1.5   # lets distinctive civil/type vocabulary identify low-MEP types
 
     def _strength(s):
         return math.log(1 + present.get(s, 0))   # how MUCH of the system is present
 
     best = None
-    for arc in archetypes.values():
+    for aid, arc in archetypes.items():
         prim = set(arc.get('primary_systems', []))
         sec = set(arc.get('secondary_systems', []))
-        # distinctiveness × presence-strength of the archetype's focus systems present
+        # distinctiveness × presence-strength of the archetype's focus systems present…
         score = sum(weight.get(s, 0.6) * _strength(s) for s in (prim & confident)) \
             + 0.25 * sum(weight.get(s, 0.6) * _strength(s) for s in (sec & confident))
+        # …plus distinctive type/civil vocabulary (identifies roads/bridges/malls etc.)
+        score += _SIG_WEIGHT * sum(sig_idf.get(w, 0) for w in (sig_toks.get(aid, set()) & sched_tokens))
         if best is None or score > best['score']:
             best = {'arc': arc, 'score': round(score, 2), 'prim': prim, 'sec': sec}
     if not best or best['score'] == 0:

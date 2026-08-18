@@ -70,6 +70,18 @@ def test_resolves_residential_finishing():
     assert 'architectural_finishing' in present or 'floor_tiling_stone' in present
 
 
+def test_civil_led_types_resolve_by_signature_vocabulary():
+    # roads/bridges have almost no distinctive MEP; their identity is civil vocabulary
+    roads = resolve(_view(['Asphalt Paving Wearing Course', 'Subgrade & Subbase Preparation',
+                           'Street Lighting Erection', 'Road Marking & Signage', 'Culvert & Drainage']),
+                    PATTERNS, ARCHETYPES)
+    assert roads and roads['archetype'] == 'roads_highways'
+    bridge = resolve(_view(['Pier Foundation Piling', 'Deck Post-Tensioning', 'Bridge Bearings',
+                            'Expansion Joint Installation', 'Viaduct Segment Erection']),
+                     PATTERNS, ARCHETYPES)
+    assert bridge and bridge['archetype'] == 'bridges'
+
+
 def test_fallback_when_nothing_matches():
     assert resolve(_view(['General Administration', 'Weekly Progress Meeting']), PATTERNS, ARCHETYPES) in (None,) or True
     assert resolve(_view([]), PATTERNS, ARCHETYPES) is None
