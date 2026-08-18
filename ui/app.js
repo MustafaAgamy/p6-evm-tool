@@ -7,6 +7,7 @@ import { renderConstructPanel }               from './modules/construct.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
 import { renderPeriodPanel }                   from './modules/period.js';
+import { initProdkb, showProdkb }              from './modules/prodkb.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -65,6 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-compare').addEventListener('click', () => { switchView('compare'); renderComparePanel(); });
   document.getElementById('tab-lag').addEventListener('click', () => switchView('lag'));
   document.getElementById('tab-period').addEventListener('click', () => { switchView('period'); renderPeriodPanel(); });
+
+  // Duration & Resources — standalone calculator (no schedule needed)
+  initProdkb();
+  document.getElementById('sb-prodkb-btn').addEventListener('click', showProdkb);
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {

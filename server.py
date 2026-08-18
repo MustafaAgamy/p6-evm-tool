@@ -486,13 +486,18 @@ class Handler(BaseHTTPRequestHandler):
                     if a.get('method'):
                         ctx['method'] = a['method']
                     res = compute(by[tid], qty, context=ctx or None, calendar_hours=ch)
-                    rows.append({'input': a, 'match': None, 'result': res})
+                    st = 'needs_input' if res.get('needs_qty') else 'ok'
+                    rows.append({'input': a, 'match': None, 'result': res, 'status': st,
+                                 'status_label': 'Needs Planner Input' if st == 'needs_input' else 'Calculated',
+                                 'status_detail': None})
                 else:
                     r = prodmatch.resolve(
                         {'name': a.get('name'), 'wbs_path': a.get('wbs_path'),
-                         'method': a.get('method')},
+                         'work_type': a.get('work_type'), 'method': a.get('method')},
                         qty, project_type=ptype, templates=tmpls, calendar_hours=ch)
-                    rows.append({'input': a, 'match': r['match'], 'result': r['result']})
+                    rows.append({'input': a, 'match': r['match'], 'result': r['result'],
+                                 'status': r.get('status'), 'status_label': r.get('status_label'),
+                                 'status_detail': r.get('status_detail')})
             self._json(200, {'ok': True, 'rows': rows,
                              'draft_notice': 'Draft starter rates — calibrate before relying on them.'})
         except Exception as exc:
