@@ -100,6 +100,8 @@ def test_dangling_report_has_sections_and_no_float_content():
     # single-source: the PDF now uses the screen's tile labels (was the drifted
     # 'Dangling Start + Dangling Finish'; the screen shows 'Start + Finish').
     assert 'Start + Finish' in html
+    # severity chip must sit INSIDE its own <td> (a bare <span> broke the columns)
+    assert '<td><span class="sev"' in html
     assert 'Task-Dependent' in html                    # scope note
     # isolation: no float wording
     assert 'Float Analysis' not in html

@@ -447,9 +447,11 @@ def _lag_register(m):
 
 
 def _pcell(cell):
-    """One normalized presentation cell -> a <td> (or a severity chip)."""
+    """One normalized presentation cell -> a <td>. A severity chip is wrapped in
+    its OWN <td> so the table columns stay aligned — returning a bare <span> made
+    Chrome hoist every badge out of the table into a block above it."""
     if cell.get('badge'):
-        return _sev_badge(cell.get('text'))
+        return f'<td>{_sev_badge(cell.get("text"))}</td>'
     cls = cell.get('cls', '')
     cls_attr = f' class="{cls}"' if cls else ''
     title_attr = f' title="{_esc(cell.get("title"))}"' if cell.get('title') else ''
