@@ -8,6 +8,7 @@ from p6_audit.checks.circular import check_circular
 from p6_audit.checks.float_snapshot import check_float
 from p6_audit.scoring import score_categories, overall_score
 from p6_audit.health import schedule_health
+from p6_audit.presentation import build_presentation
 from p6_audit.modules.dangling import run_dangling
 from p6_audit.modules.float_analysis import run_float
 from p6_audit.modules.out_of_sequence import run_out_of_sequence
@@ -92,6 +93,9 @@ def audit_modules(data, config):
     order = []
     for runner in MODULE_RUNNERS:
         result = runner(graph, config)
+        # The normalized presentation the screen, PDF and Excel all render from —
+        # derived from this result, so it is identical on import and on DB read.
+        result['presentation'] = build_presentation(result)
         modules[result['module']] = result
         order.append(result['module'])
     return {'modules': modules, 'module_order': order,

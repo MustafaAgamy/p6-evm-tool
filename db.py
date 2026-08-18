@@ -512,6 +512,11 @@ def get_audit_modules_for_snapshot(snapshot_id):
             'wbs_summary': _json.loads(r['wbs_summary_json'] or '[]'),
             'findings':    _json.loads(r['findings_json'] or '[]'),
         }
+    # Attach the normalized presentation (the same single source the UI/PDF/Excel
+    # render from) so a re-opened project renders identically to a fresh import.
+    from p6_audit.presentation import build_presentation
+    for m in modules.values():
+        m['presentation'] = build_presentation(m)
     return {'modules': modules, 'module_order': order,
             'health': schedule_health(modules)}
 
