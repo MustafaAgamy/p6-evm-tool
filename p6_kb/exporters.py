@@ -160,25 +160,13 @@ def _wbs_review(report):
     return f'<div class="wbsrev">{items}</div>'
 
 
-def render_html(report):
-    s = report.get('score') or {}
-    v = report.get('verdict') or {}
-    hex_ = _hex(s.get('band'))
-    proj = report.get('projected')
-    conf = report.get('confidence') or {}
-    proj_html = (f'<div class="proj">What-if: correcting the flagged logic would raise the score to '
-                 f'~<b>{proj.get("overall")}</b> ({_e(proj.get("band_label"))}) — {_e(proj.get("basis"))}.</div>'
-                 if proj else '')
-    conf_html = ('Type chosen manually' if conf.get('forced')
-                 else f"Detection confidence: {_e(conf.get('level'))} "
-                      f"({conf.get('hits')}/{conf.get('signatures')} keywords)")
-    return f'''<!doctype html><html><head><meta charset="utf-8"><style>
-      @page {{ size: A4 landscape; margin: 11mm; }}
-      * {{ box-sizing: border-box; }}
-      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 11.5px; margin: 0; }}
-      h1 {{ font-size: 19px; margin: 0 0 2px; }}
-      h2 {{ font-size: 13px; margin: 15px 0 7px; border-bottom: 2px solid #1e2d40; padding-bottom: 3px; }}
-      .sub {{ color: #64748b; font-size: 11px; margin-bottom: 10px; }}
+def component_css(hex_):
+    """The Constructability-specific CSS (verdict, scorecard, legend, tiles, tables…),
+    parameterised by the score-band colour. Shared verbatim by the legacy one-shot
+    ``render_html`` below AND by the Global Print-Preview framework spec
+    (``p6_report/features/constructability.py``) so the two never drift — the page
+    frame (``@page``, body font, section headings) is owned by whoever wraps it."""
+    return f'''
       .verdict {{ display: flex; gap: 12px; align-items: center; border: 1px solid {hex_}55; background: {hex_}12; border-radius: 9px; padding: 10px 14px; margin-bottom: 12px; }}
       .verdict .vt {{ font-size: 15px; font-weight: 800; color: {hex_}; }}
       .verdict .vd {{ font-size: 11px; color: #475569; margin-top: 2px; }}
@@ -216,7 +204,28 @@ def render_html(report):
       .prio td {{ padding: 5px 6px; }} .prio .rk {{ width: 20px; font-weight: 800; color: #dc2626; }} .prio .pd {{ color: #64748b; font-size: 9px; }} .prio .sev {{ white-space: nowrap; font-weight: 700; }}
       .wbsrev {{ font-size: 10.5px; }} .wbsr {{ padding: 2px 0; }} .wbsr.miss {{ color: #b45309; }}
       .note {{ color: #64748b; font-style: italic; }}
-      .foot {{ margin-top: 14px; font-size: 9.5px; color: #94a3b8; font-style: italic; border-top: 1px solid #e2e8f0; padding-top: 6px; }}
+      .foot {{ margin-top: 14px; font-size: 9.5px; color: #94a3b8; font-style: italic; border-top: 1px solid #e2e8f0; padding-top: 6px; }}'''
+
+
+def render_html(report):
+    s = report.get('score') or {}
+    v = report.get('verdict') or {}
+    hex_ = _hex(s.get('band'))
+    proj = report.get('projected')
+    conf = report.get('confidence') or {}
+    proj_html = (f'<div class="proj">What-if: correcting the flagged logic would raise the score to '
+                 f'~<b>{proj.get("overall")}</b> ({_e(proj.get("band_label"))}) — {_e(proj.get("basis"))}.</div>'
+                 if proj else '')
+    conf_html = ('Type chosen manually' if conf.get('forced')
+                 else f"Detection confidence: {_e(conf.get('level'))} "
+                      f"({conf.get('hits')}/{conf.get('signatures')} keywords)")
+    return f'''<!doctype html><html><head><meta charset="utf-8"><style>
+      @page {{ size: A4 landscape; margin: 11mm; }}
+      * {{ box-sizing: border-box; }}
+      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 11.5px; margin: 0; }}
+      h1 {{ font-size: 19px; margin: 0 0 2px; }}
+      h2 {{ font-size: 13px; margin: 15px 0 7px; border-bottom: 2px solid #1e2d40; padding-bottom: 3px; }}
+      .sub {{ color: #64748b; font-size: 11px; margin-bottom: 10px; }}{component_css(hex_)}
     </style></head><body>
       <h1>Constructability Review — Execution Readiness</h1>
       <div class="sub">{_e(report.get('project_type'))} · {conf_html} · Rule + Knowledge Base · offline</div>

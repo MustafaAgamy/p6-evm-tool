@@ -102,6 +102,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_constructability_report(body)
         elif self.path == '/api/constructability/excel':
             self._handle_constructability_excel(body)
+        elif self.path == '/api/report/manifest':
+            self._handle_report_manifest(body)
+        elif self.path == '/api/report/render':
+            self._handle_report_render(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -617,6 +621,74 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── Global Print-Preview framework: manifest + unified render/PDF ──────
+    def _handle_report_manifest(self, body):
+        """Return the Report-Contents component list for a feature + its report dict.
+
+        The client holds the report already (no re-parse); this just tells the selector
+        which sections exist, their type, default state and whether they have data."""
+        feature = body.get('feature', '')
+        report = body.get('report') or {}
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_report import get_spec, manifest
+            spec = get_spec(feature, report)
+            if spec is None:
+                self._json(200, {'ok': False, 'error': f'Unknown report feature: {feature}'})
+                return
+            self._json(200, {'ok': True, 'feature': feature, 'title': spec.title,
+                             'subtitle': spec.subtitle, 'components': manifest(spec, report)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_report_render(self, body):
+        """The ONE assembler behind Preview == PDF == Print.
+
+        Given a feature, its report dict and the user's selection (ids + order), build
+        exactly one HTML document. With no ``output_path`` → return that HTML for the
+        on-screen preview. With ``output_path`` → Chrome headless prints the SAME HTML
+        to PDF. The preview and the PDF are therefore the identical document."""
+        feature = body.get('feature', '')
+        report = body.get('report') or {}
+        selected_ids = body.get('selected_ids')          # None → the spec defaults
+        order = body.get('order')
+        output_path = body.get('output_path', '')
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_report import build_document, get_spec
+            spec = get_spec(feature, report)
+            if spec is None:
+                self._json(200, {'ok': False, 'error': f'Unknown report feature: {feature}'})
+                return
+            html_content = build_document(spec, report, selected_ids, order)
+            if not output_path:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            self._html_to_pdf(html_content, output_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _html_to_pdf(self, html_content, output_path):
+        """Shared HTML→PDF via Chrome headless (same pipeline as every report)."""
+        import subprocess
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+            tmp.write(html_content)
+            html_path = tmp.name
+        try:
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+        finally:
+            try:
+                os.unlink(html_path)
+            except OSError:
+                pass
 
     # ── /api/constructability/report ───────────────────────────────────────
     def _handle_constructability_report(self, body):

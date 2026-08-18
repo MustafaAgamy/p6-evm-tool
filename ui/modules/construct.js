@@ -6,7 +6,7 @@ import { state }                                    from './state.js';
 import { showError, clearError }                    from './render.js';
 import { escapeHtml }                               from './format.js';
 import { bandHex, kindClass, markerLeft, impactPill } from './aireview_helpers.js';
-import { showReportPreview }                        from './preview.js';
+import { showReportContentsPreview }                from './preview.js';
 
 // ── shared cell/table renderers (same data shape as the report) ────────────
 
@@ -370,42 +370,22 @@ async function exportLearned(kind, type, btn) {
   }
 }
 
-async function previewReport(btn) {
+function previewReport(btn) {
   const rep = state.constructReport;
   if (!rep || !rep.detected) return;
-  const orig = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Preparing preview…'; }
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability/report`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: rep, preview: true }),
-    });
-    const data = await resp.json();
-    if (!data.ok || !data.html) { showError(data.error || 'Preview failed.'); return; }
-    showReportPreview({
-      title: 'Constructability Review — print preview',
-      subtitle: rep.project_type || '',
-      html: data.html,
-      onSave: () => saveReportPdf(rep),
-    });
-  } catch {
-    showError('Could not reach the local server. Try restarting the app.');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = orig; }
-  }
-}
-
-async function saveReportPdf(rep) {
   const slug = (rep.detected.type || 'constructability').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
-  const path = await window.pywebview.api.choose_save_path(`${slug}_constructability.pdf`, 'pdf');
-  if (!path) return false;
-  const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability/report`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ report: rep, output_path: path }),
+  // The Global Print-Preview framework drives the whole overlay: it loads the Report
+  // Contents list, lets the user pick/reorder sections, live-previews the exact
+  // document, and saves the PDF / prints the identical document (Preview == PDF == Print).
+  showReportContentsPreview({
+    feature: 'constructability',
+    report: rep,
+    title: 'Constructability Review — report',
+    subtitle: rep.project_type || '',
+    serverPort: state.serverPort,
+    choosePath: () => window.pywebview.api.choose_save_path(`${slug}_constructability.pdf`, 'pdf'),
+    onError: (msg) => showError(msg),
   });
-  const data = await resp.json();
-  if (!data.ok) { showError(data.error || 'PDF generation failed.'); return false; }
-  return true;
 }
 
 async function addToDatabase(type, btn) {

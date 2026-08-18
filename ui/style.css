@@ -576,6 +576,34 @@ body {
 .rpv-page { background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.35); }
 .rpv-frame { border: 0; display: block; background: #fff; }
 
+/* Global Print-Preview: two-column shell (Report Contents selector + live preview) */
+.rpv-shell.rpv-wide { width: min(1260px, 97vw); }
+.rpv-body { flex: 1 1 auto; display: flex; min-height: 0; }
+.rpv-side { flex: 0 0 288px; display: flex; flex-direction: column; min-height: 0;
+  border-right: 1px solid var(--border); background: var(--card-bg); }
+.rpv-side-head { display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px 6px; font-weight: 700; font-size: 12.5px; color: var(--text); }
+.rpv-side-tools { display: flex; gap: 10px; }
+.rpv-link { background: none; border: 0; color: var(--accent); font-size: 11px; cursor: pointer; padding: 0; }
+.rpv-link:hover { text-decoration: underline; }
+.rpv-hint { padding: 0 14px 8px; font-size: 10.5px; color: var(--muted); }
+.rpv-list { list-style: none; margin: 0; padding: 4px 8px 12px; overflow: auto; flex: 1 1 auto; }
+.rpv-item { display: flex; align-items: flex-start; gap: 7px; padding: 7px 8px; border-radius: 7px;
+  border: 1px solid transparent; cursor: default; }
+.rpv-item + .rpv-item { margin-top: 2px; }
+.rpv-item:hover { background: var(--bg); border-color: var(--border); }
+.rpv-item.off { opacity: .5; }
+.rpv-item.drag { opacity: .4; }
+.rpv-grip { color: var(--muted); cursor: grab; font-size: 12px; line-height: 1.4; user-select: none; letter-spacing: -2px; }
+.rpv-cb { margin-top: 2px; accent-color: var(--accent); cursor: pointer; }
+.rpv-ico { color: var(--accent); font-size: 13px; line-height: 1.3; }
+.rpv-item-txt { display: flex; flex-direction: column; min-width: 0; }
+.rpv-item-title { font-size: 12px; font-weight: 600; color: var(--text); }
+.rpv-item-desc { font-size: 10px; color: var(--muted); line-height: 1.3; }
+.rpv-empty { margin-left: auto; font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .4px; color: #b45309; background: #fef3c7; border-radius: 4px; padding: 1px 5px; align-self: center; }
+.rpv-body .rpv-scroll { flex: 1 1 auto; }
+
 .evm-file-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 340px; }
 .evm-file-chip .ff-name { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
