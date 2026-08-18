@@ -8,6 +8,7 @@ from p6_kb.detect import detect_subtype, score_entries
 from p6_kb.kb import load_kb
 from p6_kb.learn import (has_learning, learned_panel, load_profile,
                          recurring_activities, recurring_wbs)
+from p6_kb.findings import generate_findings
 from p6_kb.model import schedule_view
 from p6_kb.resolve import resolve as resolve_archetype
 from p6_kb.scoring import compute_score
@@ -355,8 +356,10 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
     # and expose the relevant System Patterns + expected-but-absent systems. Does
     # not change v1 findings/score; the Phase 3 rule engine will consume it.
     archetype = None
+    v2_findings = []
     try:
         archetype = resolve_archetype(view)
+        v2_findings = generate_findings(view, archetype)   # evidence-graded, read-only (not scored yet)
     except Exception:
         archetype = None
 
@@ -404,5 +407,6 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
         'learned': learned,
         'systems': systems,
         'archetype': archetype,
+        'v2_findings': v2_findings,
         'conclusion': conclusion,
     }

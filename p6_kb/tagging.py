@@ -103,10 +103,17 @@ def _norm(s):
 
 
 def _phase_of(text):
+    """The most-ADVANCED construction phase whose keywords appear (highest
+    PHASE_RANK wins, deterministically), with a guard so 'pre-/cold commissioning'
+    is not swallowed by the 'commission' substring into COMMISSIONING."""
+    best = None
     for phase, kws in _PHASE_KW:
         if any(k in text for k in kws):
-            return phase
-    return None
+            if best is None or PHASE_RANK[phase] > PHASE_RANK[best]:
+                best = phase
+    if best == 'COMMISSIONING' and any(p in text for p in ('pre-comm', 'pre comm', 'precomm', 'cold comm')):
+        best = 'PRE_COMMISSIONING'
+    return best
 
 
 def _discipline_from_codes(codes):
@@ -185,7 +192,7 @@ def tag_activity(activity):
     else:
         discipline, system, confidence, source = 'UNKNOWN', None, 'none', 'none'
 
-    phase = _phase_of(ntext + _norm(activity.get('wbs_path')))
+    phase = _phase_of(ntext)   # name only — WBS summary branches (e.g. "Handing Over") pollute phase
     ambiguous = confidence in ('low', 'none') or bool(name_civil and system and sys_disc in _MEP_DISC)
     signals = [s for s, ok in (('code', code_disc), ('name', sys_name)) if ok]
     return {
