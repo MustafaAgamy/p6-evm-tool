@@ -6,6 +6,8 @@ Detailed-findings tables use <thead>, so headers repeat on every printed page.
 """
 import html as _html
 
+from p6_audit.presentation import build_presentation
+
 _SEV = {'Critical': '#c0392b', 'High': '#e07b1a', 'Medium': '#c9a227', 'Low': '#6b7a8d'}
 _GRADE = {'Excellent': '#2e8b57', 'Acceptable': '#c9a227',
           'Needs Attention': '#e07b1a', 'Critical': '#c0392b'}
@@ -444,15 +446,67 @@ def _lag_register(m):
       <table class="findings"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>'''
 
 
+def _pcell(cell):
+    """One normalized presentation cell -> a <td> (or a severity chip)."""
+    if cell.get('badge'):
+        return _sev_badge(cell.get('text'))
+    cls = cell.get('cls', '')
+    cls_attr = f' class="{cls}"' if cls else ''
+    title_attr = f' title="{_esc(cell.get("title"))}"' if cell.get('title') else ''
+    return f'<td{cls_attr}{title_attr}>{_esc(cell.get("text"))}</td>'
+
+
+def _presentation_dashboard(m):
+    """Gauge + KPI tiles from the single-source presentation — same values as the screen."""
+    p = m.get('presentation') or build_presentation(m)
+    grade = m.get('grade', '')
+    score = m.get('score', 0)
+    color = _GRADE.get(grade, '#6b7a8d')
+    score_txt = '—' if score is None else score
+    tiles = ''.join(_kpi(t['label'], t['value']) for t in p.get('tiles', []))
+    return f'''
+      <div class="dash">
+        <div class="grade-card">
+          <div class="score-num" style="color:{color}">{score_txt}</div>
+          <div class="score-den">Module Score / 100</div>
+          <div class="grade-badge" style="background:{color}">{_esc(grade)}</div>
+          <div class="verdict">{_esc(p.get('verdict', ''))}</div>
+        </div>
+        <div class="kpis">{tiles}</div>
+      </div>
+      <div class="dcma">{_DCMA.get(m['module'], '')}</div>'''
+
+
+def _presentation_table(m):
+    """Findings table from the single-source presentation columns + rows — identical
+    to the on-screen table (same columns, order, cells and totals)."""
+    p = m.get('presentation') or build_presentation(m)
+    cols = p.get('columns', [])
+    rows = p.get('rows', [])
+    if not rows:
+        return '<h2 class="sec">Detailed Findings</h2><p class="empty">No findings — this module passed all checks.</p>'
+    head = '<th>#</th>' + ''.join(
+        (f'<th class="num">{_esc(c["label"])}</th>' if c.get('align') == 'num' else f'<th>{_esc(c["label"])}</th>')
+        for c in cols)
+    body = ''.join(
+        f'<tr><td class="num">{i}</td>{"".join(_pcell(c) for c in row)}</tr>'
+        for i, row in enumerate(rows, 1))
+    return f'''
+      <h2 class="sec">Detailed Findings</h2>
+      <table class="findings"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'''
+
+
 def _sections(m):
-    """Body sections for a module report — OOS and Lag & Lead use their own section order."""
+    """Body sections for a module report. OOS and Lag & Lead keep their bespoke
+    section order; every other check renders from the single-source presentation,
+    so the PDF matches the screen exactly."""
     if m.get('module') == 'out_of_sequence':
         return (f'<h2 class="sec">Executive Dashboard</h2>{_oos_dashboard(m)}'
                 f'{_oos_wbs(m)}{_oos_review_log(m)}{_oos_cpi(m)}{_oos_conclusion(m)}')
     if m.get('module') == 'lag_lead':
         return f'{_lag_summary(m)}{_lag_charts(m)}{_lag_register(m)}'
-    return (f'<h2 class="sec">Executive Dashboard</h2>{_dashboard(m, _verdict(m))}'
-            f'{_summary_stats(m)}{_wbs_summary(m)}{_findings_table(m)}')
+    return (f'<h2 class="sec">Executive Dashboard</h2>{_presentation_dashboard(m)}'
+            f'{_wbs_summary(m)}{_presentation_table(m)}')
 
 
 def render_module_report(module_result, meta):
