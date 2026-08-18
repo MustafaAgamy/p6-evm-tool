@@ -1396,11 +1396,16 @@ body {
 .cg-leg { margin-left:auto; display:flex; align-items:center; gap:4px; }
 .cg-leg .sw { width:11px; height:11px; border-radius:3px; display:inline-block; margin-left:8px; }
 .cg-leg .sw.r { background:var(--danger); } .cg-leg .sw.b { background:var(--accent); }
+.cg-leg .sw.dd { background:var(--warning); width:3px; border-radius:0; } .cg-leg .sw.fn { background:var(--success); width:3px; border-radius:0; }
+.cg-search { background:var(--card-bg); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:6px 10px; font-size:12px; width:210px; max-width:44vw; outline:none; }
+.cg-search:focus { border-color:var(--accent); }
 .cg-axis, .cg-row { display:grid; grid-template-columns:60px minmax(90px,1.4fr) 78px 78px 46px minmax(120px,2.2fr); align-items:center; }
 .cg-axis { height:26px; border-bottom:1px solid var(--border); padding-right:10px; }
 .cg-axis .cg-c { font-size:9px; text-transform:uppercase; letter-spacing:.3px; color:var(--muted); font-weight:700; }
 .cg-axtrack { position:relative; height:26px; }
 .cg-axtrack .cg-m { position:absolute; top:8px; font-size:9px; color:var(--muted); transform:translateX(-50%); white-space:nowrap; }
+.cg-axtrack .cg-mk { position:absolute; top:0; bottom:0; width:2px; }
+.cg-axtrack .cg-mk.dd { background:var(--warning); } .cg-axtrack .cg-mk.fn { background:var(--success); }
 .cg-body { max-height:360px; overflow-y:auto; overflow-x:hidden; }
 .cg-row { height:26px; border-bottom:1px solid var(--border); }
 .cg-row:hover { background:var(--card-bg); }
@@ -1408,9 +1413,10 @@ body {
 .cg-id { font-family:ui-monospace,monospace; color:var(--muted); font-size:10.5px; }
 .cg-dt { color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; }
 .cg-du { color:var(--muted); text-align:right; font-size:10.5px; font-variant-numeric:tabular-nums; }
-.cg-track { position:relative; height:26px; }
+.cg-track { position:relative; height:26px; background:repeating-linear-gradient(90deg, transparent 0, transparent calc(var(--m,8%) - 1px), var(--border) calc(var(--m,8%) - 1px), var(--border) var(--m,8%)); }
 .cg-track i { position:absolute; top:50%; transform:translateY(-50%); height:11px; border-radius:3px; background:var(--accent); min-width:3px; }
 .cg-track i.crit { background:var(--danger); }
+.cg-track .cg-ms { position:absolute; top:50%; left:0; transform:translate(-50%,-50%) rotate(45deg); width:9px; height:9px; background:var(--success); }
 /* Milestone Check (gate B) — entry gate + evidence cards */
 .ms-gate { max-width:720px; margin:6px 0; }
 .ms-gate-h { font-size:16px; font-weight:800; }

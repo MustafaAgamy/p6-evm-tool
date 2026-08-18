@@ -151,6 +151,8 @@ def run_cpli(graph, config):
             'project_total_float_days':  tf,
             'target':                    TARGET,
             'finish_milestone_id':       finish_milestone.get('id') if finish_milestone else None,
+            'data_date':                 _iso(data_date),      # for the Gantt's data-date marker
+            'finish_date':               _iso(finish_date),    # completion marker
             # also a KPI so Ibrahim's baseline rule survives the DB round-trip —
             # only the KPIs are stored per module
             'baseline_rule_met':         baseline_rule_met,

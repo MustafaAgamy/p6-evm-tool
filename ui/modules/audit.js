@@ -570,7 +570,7 @@ function renderCpliModule(m) {
       <b>How it's measured.</b> CPLI = (CPL + TF) ÷ CPL — DCMA 14-Point, Point 13. CPL is the critical-path length in working days from the data date to the completion milestone; TF is that milestone's total float. Ibrahim's baseline rule: total float must be ≥ 0 (CPLI ≥ 100%); negative float is a re-plan signal.
     </div>
     <div class="mod-sec">Driving path <span class="mod-sub">— the activities P6 flags critical, in sequence</span></div>
-    ${cpliGantt(m.findings || [])}`;
+    ${cpliGantt(m.findings || [], m.kpis || {})}`;
 }
 
 // Driving-path Gantt: one row per critical activity — Activity ID · Name · Start ·
@@ -579,7 +579,7 @@ function renderCpliModule(m) {
 // reachable — the body scrolls, nothing is hidden behind a "+N more" (works at
 // 1,500+). Replaces the old timeline AND the separate table (one view now).
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-function cpliGantt(findings) {
+function cpliGantt(findings, kpis) {
   const dated = (findings || []).filter(f => f.start && f.finish);
   if (!dated.length) {
     return '<p style="color:var(--muted);font-size:13px">No dated critical activities to plot.</p>';
@@ -588,42 +588,74 @@ function cpliGantt(findings) {
   const lo = Math.min(...dated.map(f => t(f.start)));
   const hi = Math.max(...dated.map(f => t(f.finish)));
   const span = Math.max(1, hi - lo);
-  const totalMonths = Math.max(1, Math.round((hi - lo) / (86400000 * 30)));
-  const step = Math.max(1, Math.ceil(totalMonths / 10));   // ~10 labels max
+  const posOf = ms => Math.max(0, Math.min(100, 100 * (ms - lo) / span));
+  const totalMonths = Math.max(1, Math.round((hi - lo) / (86400000 * 30.44)));
+  const monthPct = 100 / totalMonths;                      // gridline + label spacing
+  const step = Math.max(1, Math.ceil(totalMonths / 11));   // ~11 labels max
 
   const ticks = [];
   const first = new Date(lo);
   for (let mk = new Date(first.getFullYear(), first.getMonth(), 1); mk.getTime() <= hi; mk.setMonth(mk.getMonth() + step)) {
-    const pos = 100 * (mk.getTime() - lo) / span;
-    if (pos >= -1 && pos <= 101) {
-      ticks.push(`<span class="cg-m" style="left:${Math.max(0, Math.min(100, pos))}%">${MONTHS[mk.getMonth()]} ${String(mk.getFullYear()).slice(2)}</span>`);
+    const p = 100 * (mk.getTime() - lo) / span;
+    if (p >= -1 && p <= 101) {
+      ticks.push(`<span class="cg-m" style="left:${Math.max(0, Math.min(100, p))}%">${MONTHS[mk.getMonth()]} ${String(mk.getFullYear()).slice(2)}</span>`);
     }
   }
+  // Data-date (amber) + finish (green) markers, as agreed.
+  const ddIso = (kpis || {}).data_date;
+  const ddPos = ddIso ? posOf(t(ddIso)) : 0;
+  const markers = `<span class="cg-mk dd" style="left:${ddPos}%" title="Data date"></span>` +
+                  `<span class="cg-mk fn" style="left:100%" title="Completion"></span>`;
 
   const rows = dated.map(f => {
-    const x = 100 * (t(f.start) - lo) / span;
-    const w = Math.max(0.6, 100 * (t(f.finish) - t(f.start)) / span);
+    const x = posOf(t(f.start));
+    const w = Math.max(0.5, 100 * (t(f.finish) - t(f.start)) / span);
     const crit = (f.total_float_days ?? 0) <= 0;    // red = critical; blue = near-critical (has float)
+    const isMs = f.duration_days === 0 || f.start === f.finish;
     const dur = f.duration_days == null ? '—' : `${f.duration_days} wd`;
-    return `<div class="cg-row">
+    const bar = isMs
+      ? `<span class="cg-ms" style="left:${x}%"></span>`
+      : `<i class="${crit ? 'crit' : ''}" style="left:${x}%;width:${Math.min(w, 100 - x)}%"></i>`;
+    return `<div class="cg-row" data-q="${escapeHtml((f.activity_id + ' ' + (f.activity_name || '')).toLowerCase())}">
       <div class="cg-c cg-id">${escapeHtml(f.activity_id)}</div>
       <div class="cg-c cg-nm" title="${escapeHtml(f.activity_name)}">${escapeHtml(f.activity_name)}</div>
       <div class="cg-c cg-dt">${escapeHtml(isoDate(f.start))}</div>
       <div class="cg-c cg-dt">${escapeHtml(isoDate(f.finish))}</div>
       <div class="cg-c cg-du">${escapeHtml(dur)}</div>
-      <div class="cg-track"><i class="${crit ? 'crit' : ''}" style="left:${x}%;width:${Math.min(w, 100 - x)}%"></i></div>
+      <div class="cg-track">${bar}</div>
     </div>`;
   }).join('');
 
+  // Search wiring runs after this HTML is placed into #module-body.
+  setTimeout(() => {
+    const s = document.getElementById('cg-search');
+    if (!s) return;
+    s.addEventListener('input', e => {
+      const q = e.target.value.trim().toLowerCase();
+      let shown = 0;
+      document.querySelectorAll('#cg-body .cg-row').forEach(r => {
+        const hit = !q || (r.dataset.q || '').includes(q);
+        r.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      const cnt = document.getElementById('cg-cnt');
+      if (cnt) cnt.textContent = q ? `${shown.toLocaleString()} of ${dated.length.toLocaleString()} shown`
+                                   : `${dated.length.toLocaleString()} critical activities · all shown (scroll)`;
+    });
+  }, 0);
+
   return `
     <div class="cg-tools">
-      <span class="cg-cnt">${dated.length.toLocaleString()} critical activities · all shown (scroll)</span>
-      <span class="cg-leg"><i class="sw r"></i>Critical <i class="sw b"></i>Near-critical</span>
+      <input class="cg-search" id="cg-search" placeholder="🔍  Search activity ID or name…">
+      <span class="cg-cnt" id="cg-cnt">${dated.length.toLocaleString()} critical activities · all shown (scroll)</span>
+      <span class="cg-leg"><i class="sw r"></i>Critical <i class="sw b"></i>Near-critical <i class="sw dd"></i>Data date <i class="sw fn"></i>Finish</span>
     </div>
-    <div class="cg-axis"><div class="cg-c">ID</div><div class="cg-c">Activity</div><div class="cg-c">Start</div>
-      <div class="cg-c">Finish</div><div class="cg-c cg-du">Dur</div>
-      <div class="cg-axtrack">${ticks.join('')}</div></div>
-    <div class="cg-body">${rows}</div>`;
+    <div class="cg-wrap" style="--m:${monthPct}%">
+      <div class="cg-axis"><div class="cg-c">ID</div><div class="cg-c">Activity</div><div class="cg-c">Start</div>
+        <div class="cg-c">Finish</div><div class="cg-c cg-du">Dur</div>
+        <div class="cg-axtrack">${ticks.join('')}${markers}</div></div>
+      <div class="cg-body" id="cg-body">${rows}</div>
+    </div>`;
 }
 
 // ── Milestone Check (gate B) — contract milestones vs the baseline ─────────
