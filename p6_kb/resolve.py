@@ -60,25 +60,84 @@ _SIG_STOP = {'works', 'work', 'system', 'systems', 'foundation', 'foundations', 
              'drainage', 'preparation', 'layers', 'layer', 'yard', 'pits', 'pit', 'ducts',
              'duct', 'bank', 'banks', 'and', 'the', 'for', 'with', 'area', 'areas', 'civil'}
 _SIG_RX = __import__('re').compile(r'[a-z]{4,}')
+# A signature word must NAME a type, not describe construction in general. Words
+# claimed by more than this share of the KB ('fire', 'water', 'testing', 'handover',
+# 'core', 'structural') are dropped outright — without the cut, a schedule scores on
+# vocabulary every project shares and the longest wordlist wins, not the right type.
+_SIG_DF_MAX_FRAC = 0.12
+_SIG_DF_MIN_KEEP = 2
+
+# How the two signals are blended, and where the evidence saturates. Calibrated
+# against the resolver validation battery (tests/test_kb_resolve_validation.py) —
+# 28 schedules across the whole project range, not tuned to any one of them.
+_W_VOCAB = 0.75
+_W_SYSTEMS = 0.25
+_SYS_SATURATION = 3.0
+
+# Confidence thresholds. Both score terms are bounded, so the blended score lives in
+# [0, 1] and these are honest bands rather than arbitrary cut-offs.
+_CONF_HIGH = 0.30
+_CONF_MED = 0.15
+_MARGIN_CLEAR = 0.15    # …and it must beat the runner-up by this much to be 'high'
+_MARGIN_AMBIG = 0.05    # below this the two types are effectively tied
 
 
-def _archetype_signatures(archetypes):
-    """Distinctive vocabulary per archetype — the civil/type words that identify a
-    project even when it has almost no MEP (asphalt/pavement→roads, pier/viaduct→
-    bridge, apron/runway→airside, mall/retail→mall). Drawn from the archetype name +
-    civil_interfaces + commissioning_focus, IDF-weighted so generic words don't sway."""
-    toks = {}
+def _stem(w):
+    """Minimal, deterministic singular/plural folding so the KB's wording and the
+    planner's wording meet: 'Escalator Installation' must match an archetype that
+    says 'escalators', 'Retail Unit' must match 'units'. No stemming library, no
+    language model — just the plural rules, applied identically to both sides."""
+    if len(w) > 4:
+        if w.endswith('ies'):
+            return w[:-3] + 'y'
+        if w.endswith(('ses', 'xes', 'zes', 'ches', 'shes')):
+            return w[:-2]
+        if w.endswith('s') and not w.endswith(('ss', 'us', 'is')):
+            return w[:-1]
+    return w
+
+
+def _system_vocabulary(patterns):
+    """Words that name a SYSTEM (from the System Patterns' own names and aliases) —
+    'sprinkler', 'chiller', 'escalator', 'busbar'. These are excluded from archetype
+    signature vocabulary on purpose: systems are already scored by the system term,
+    and a word every building's MEP shares cannot tell one project type from another.
+    Keeps the two signals independent instead of double-counting the same evidence."""
+    out = set()
+    for pat in (patterns or {}).values():
+        blob = ' '.join([pat.get('name', ''), pat.get('system', '')] + list(pat.get('aliases', []))).lower()
+        out |= {_stem(w) for w in _SIG_RX.findall(blob)}
+    return out
+
+
+def _archetype_signatures(archetypes, patterns=None):
+    """Distinctive vocabulary per archetype — the type words that identify a project
+    even when it has almost no MEP (asphalt/pavement→roads, pier/viaduct→bridge,
+    apron/runway→airside, tenant/shopfront→mall). Drawn from the archetype name +
+    applicability + civil_interfaces + commissioning_focus, IDF-weighted, with the
+    shared construction vocabulary cut out (see _SIG_DF_MAX_FRAC).
+
+    Returns (tokens per archetype, idf per token, vector norm per archetype). The
+    norm is what stops a verbosely-written archetype out-scoring a precise one.
+    """
+    sysvocab = _system_vocabulary(patterns)
+    raw = {}
     df = Counter()
     for aid, arc in archetypes.items():
         blob = ' '.join([arc.get('name', ''), arc.get('applicability', '')]
                         + arc.get('civil_interfaces', []) + arc.get('commissioning_focus', [])).lower()
-        t = {w for w in _SIG_RX.findall(blob) if w not in _SIG_STOP}
-        toks[aid] = t
+        t = {_stem(w) for w in _SIG_RX.findall(blob) if w not in _SIG_STOP}
+        t -= sysvocab
+        raw[aid] = t
         for w in t:
             df[w] += 1
+
     n = max(len(archetypes), 1)
-    idf = {w: math.log((n + 1) / (c + 1)) for w, c in df.items()}
-    return toks, idf
+    cap = max(_SIG_DF_MIN_KEEP, int(n * _SIG_DF_MAX_FRAC))
+    idf = {w: math.log((n + 1) / (c + 1)) for w, c in df.items() if c <= cap}
+    toks = {aid: {w for w in t if w in idf} for aid, t in raw.items()}
+    norms = {aid: math.sqrt(sum(idf[w] ** 2 for w in t)) for aid, t in toks.items()}
+    return toks, idf, norms
 
 
 def _schedule_text(view):
@@ -129,26 +188,69 @@ def resolve(view, patterns=None, archetypes=None):
     confident = {s for s, h in present.items() if h >= _MIN_HITS} or present_set
 
     weight, _n = _distinctiveness(archetypes)
-    sig_toks, sig_idf = _archetype_signatures(archetypes)
-    sched_tokens = set(_SIG_RX.findall(_schedule_text(view)))
-    _SIG_WEIGHT = 1.5   # lets distinctive civil/type vocabulary identify low-MEP types
+    sig_toks, sig_idf, sig_norm = _archetype_signatures(archetypes, patterns)
+    sched_tokens = {_stem(w) for w in _SIG_RX.findall(_schedule_text(view))}
+    sched_sig = {w: sig_idf[w] for w in sched_tokens if w in sig_idf}
+    sched_sig_norm = math.sqrt(sum(v ** 2 for v in sched_sig.values()))
 
     def _strength(s):
         return math.log(1 + present.get(s, 0))   # how MUCH of the system is present
 
-    best = None
+    def _system_fit(prim, sec):
+        """How much distinctive system evidence the archetype's focus systems have in
+        this schedule, saturated into [0, 1). Deliberately NOT a cosine: a schedule
+        where only two systems were detected would otherwise hand a near-perfect score
+        to whichever archetype happens to list just those two (an airport terminal
+        showing only steel + HVAC scored as a jetty). Absolute evidence, capped."""
+        ev = (sum(weight.get(s, 0.6) * _strength(s) for s in (prim & confident))
+              + 0.25 * sum(weight.get(s, 0.6) * _strength(s) for s in (sec & confident)))
+        return ev / (ev + _SYS_SATURATION)
+
+    def _vocab_fit(aid):
+        """Same cosine over distinctive TYPE vocabulary — what identifies civil-led,
+        low-MEP projects (roads, bridges, airside) that carry almost no systems."""
+        if not sig_norm.get(aid) or not sched_sig_norm:
+            return 0.0, set()
+        hits = sig_toks.get(aid, set()) & sched_tokens
+        if not hits:
+            return 0.0, hits
+        dot = sum(sig_idf[w] ** 2 for w in hits)
+        # Corroboration: one incidental word is not an identification. A single rare
+        # token ('connection' in a chiller schedule) could otherwise carry a whole
+        # archetype on the strength of a small vocabulary; two or more agreeing terms
+        # are evidence. Damping, not a hard gate — a lone strong term still counts.
+        corroboration = len(hits) / (len(hits) + 1.0)
+        return corroboration * dot / (sig_norm[aid] * sched_sig_norm), hits
+
+    # Both terms are bounded in [0, 1], so the blend is bounded and the confidence
+    # thresholds below mean something. Vocabulary carries most of the weight: system
+    # detection says WHAT is in the project (many types share the same systems), the
+    # distinctive vocabulary says WHICH TYPE it is — a kiln, a bogie drop and a
+    # baggage carousel each name their project, a chilled-water pump does not.
+    ranked = []
     for aid, arc in archetypes.items():
         prim = set(arc.get('primary_systems', []))
         sec = set(arc.get('secondary_systems', []))
-        # distinctiveness × presence-strength of the archetype's focus systems present…
-        score = sum(weight.get(s, 0.6) * _strength(s) for s in (prim & confident)) \
-            + 0.25 * sum(weight.get(s, 0.6) * _strength(s) for s in (sec & confident))
-        # …plus distinctive type/civil vocabulary (identifies roads/bridges/malls etc.)
-        score += _SIG_WEIGHT * sum(sig_idf.get(w, 0) for w in (sig_toks.get(aid, set()) & sched_tokens))
-        if best is None or score > best['score']:
-            best = {'arc': arc, 'score': round(score, 2), 'prim': prim, 'sec': sec}
-    if not best or best['score'] == 0:
+        sysfit = _system_fit(prim, sec)
+        vocfit, hits = _vocab_fit(aid)
+        ranked.append({'arc': arc, 'score': _W_SYSTEMS * sysfit + _W_VOCAB * vocfit, 'prim': prim,
+                       'sec': sec, 'system_fit': sysfit, 'vocabulary_fit': vocfit,
+                       'terms': sorted(hits, key=lambda w: -sig_idf.get(w, 0))[:8]})
+    ranked.sort(key=lambda r: -r['score'])
+    best = ranked[0] if ranked else None
+    if not best or best['score'] <= 0:
         return None
+
+    # An archetype that only just beats the runner-up is a guess, not an answer —
+    # say so rather than presenting a coin-flip as a confident classification.
+    runner = ranked[1]['score'] if len(ranked) > 1 else 0.0
+    margin = (best['score'] - runner) / best['score'] if best['score'] else 0.0
+    if best['score'] >= _CONF_HIGH and margin >= _MARGIN_CLEAR:
+        confidence = 'high'
+    elif best['score'] >= _CONF_MED and margin >= _MARGIN_AMBIG:
+        confidence = 'medium'
+    else:
+        confidence = 'low'
 
     arc, prim, sec = best['arc'], best['prim'], best['sec']
     relevant = prim | sec
@@ -161,8 +263,17 @@ def resolve(view, patterns=None, archetypes=None):
         'archetype': arc.get('archetype'),
         'archetype_name': arc.get('name'),
         'category': arc.get('category'),
-        'confidence': 'high' if best['score'] >= 4 else ('medium' if best['score'] >= 2 else 'low'),
-        'match_score': best['score'],
+        'confidence': confidence,
+        'match_score': round(best['score'], 3),
+        'match_basis': {'system_fit': round(best['system_fit'], 3),
+                        'vocabulary_fit': round(best['vocabulary_fit'], 3),
+                        'margin': round(margin, 3)},
+        'signature_terms': best['terms'],       # the type words that identified it
+        'alternatives': [{'archetype': r['arc'].get('archetype'),
+                          'archetype_name': r['arc'].get('name'),
+                          'match_score': round(r['score'], 3)}
+                         for r in ranked[1:3] if r['score'] > 0],
+        'ambiguous': margin < _MARGIN_AMBIG,
         'primary_systems': arc.get('primary_systems', []),
         'commissioning_focus': arc.get('commissioning_focus', []),
         'present_systems': sorted(present_set, key=lambda s: -present[s]),
