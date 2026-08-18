@@ -1411,6 +1411,32 @@ body {
 .cg-track { position:relative; height:26px; }
 .cg-track i { position:absolute; top:50%; transform:translateY(-50%); height:11px; border-radius:3px; background:var(--accent); min-width:3px; }
 .cg-track i.crit { background:var(--danger); }
+/* Milestone Check (gate B) — entry gate + evidence cards */
+.ms-gate { max-width:720px; margin:6px 0; }
+.ms-gate-h { font-size:16px; font-weight:800; }
+.ms-gate-sub { font-size:12.5px; color:var(--muted); line-height:1.55; margin:6px 0 12px; }
+.ms-row { display:grid; grid-template-columns:1fr 160px 34px; gap:8px; margin-bottom:8px; align-items:center; }
+.ms-row input { background:var(--card-bg); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:8px 10px; font-size:13px; }
+.ms-del { background:transparent; border:1px solid var(--border); border-radius:8px; color:var(--muted); cursor:pointer; height:34px; }
+.ms-gate-actions { display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; }
+.ms-gate-hint { font-size:11px; color:var(--muted); margin-top:10px; }
+.ms-cards { display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
+.ms-card { border:1px solid var(--border); border-radius:10px; background:var(--card-bg); overflow:hidden; }
+.ms-ct { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); }
+.ms-cn { font-size:13px; font-weight:700; }
+.ms-st { font-size:10px; font-weight:800; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+.ms-st.st-mask { background:rgba(248,113,113,.16); color:var(--danger); }
+.ms-st.st-late { background:rgba(251,191,36,.16); color:var(--warning); }
+.ms-st.st-ok { background:rgba(74,222,128,.16); color:var(--success); }
+.ms-st.st-un { background:rgba(148,163,184,.16); color:var(--muted); }
+.ms-facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1px; background:var(--border); }
+.ms-fact { background:var(--card-bg); padding:8px 12px; }
+.ms-fact .k { font-size:9px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:700; }
+.ms-fact .v { font-size:12.5px; font-weight:700; margin-top:2px; }
+.ms-narr { padding:4px 12px 10px; }
+.ms-nl { display:grid; grid-template-columns:96px 1fr; gap:10px; padding:7px 0; border-bottom:1px solid var(--border); font-size:11.5px; line-height:1.5; }
+.ms-nl:last-child { border-bottom:none; }
+.ms-nl .mk { font-size:9.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:700; padding-top:2px; }
 .shr-timeline { margin:10px 0 14px; display:flex; flex-direction:column; gap:3px; }
 .shr-tl-row { display:grid; grid-template-columns:90px 1fr; align-items:center; gap:10px; }
 .shr-tl-lab { font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

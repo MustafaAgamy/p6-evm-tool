@@ -22,7 +22,7 @@ from p6_audit.scoring import uniform_grade
 # Locked structure and weights (sum 100). `parts` are module keys; a sub-feature
 # with more than one part scores the lower of them.
 SUB_FEATURES = [
-    {'key': 'milestones_constraints', 'name': 'Milestones & Constraints', 'weight': 15,
+    {'key': 'milestones_constraints', 'name': 'Milestone Check', 'weight': 15,
      'parts': ['hard_constraints']},
     {'key': 'cpli',                   'name': 'Critical Path / CPLI',     'weight': 15,
      'parts': ['cpli']},

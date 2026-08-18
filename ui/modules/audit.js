@@ -137,6 +137,13 @@ export function renderAudit(auditModules) {
   const order = SHR_RAIL_ORDER.filter(k => present.includes(k))
     .concat(present.filter(k => !SHR_RAIL_ORDER.includes(k)));
 
+  // Gate B — nothing in the review shows until the contract milestones are entered.
+  const mcGate = auditModules.modules.hard_constraints;
+  if (mcGate && mcGate.needs_input) {
+    tabs.innerHTML = '';
+    return renderMilestoneGate(auditModules);
+  }
+
   const health = (auditModules && auditModules.health) || null;
   // Summary is the executive roll-up — placed LAST, after the diagnostic checks.
   const summaryTab = health
@@ -445,6 +452,7 @@ function renderModuleBody(m) {
   if (m.module === 'float') return renderFloatModule(m);
   if (m.module === 'circular') return renderCircularModule(m);
   if (m.module === 'cpli') return renderCpliModule(m);
+  if (m.module === 'hard_constraints') return renderMilestoneCheck(m);
   return renderStandardModule(m);
 }
 
@@ -616,6 +624,148 @@ function cpliGantt(findings) {
       <div class="cg-c">Finish</div><div class="cg-c cg-du">Dur</div>
       <div class="cg-axtrack">${ticks.join('')}</div></div>
     <div class="cg-body">${rows}</div>`;
+}
+
+// ── Milestone Check (gate B) — contract milestones vs the baseline ─────────
+function msDatalist(baseline) {
+  return `<datalist id="ms-baseline">${(baseline || []).map(b =>
+    `<option value="${escapeHtml(b.name)}">${escapeHtml(b.activity_id)}${b.finish ? ' · ' + escapeHtml(b.finish) : ''}</option>`).join('')}</datalist>`;
+}
+function msRowHtml(name = '', date = '') {
+  return `<div class="ms-row">
+    <input class="ms-name" list="ms-baseline" placeholder="Contract milestone (e.g. Mechanical Completion)" value="${escapeHtml(name)}">
+    <input class="ms-date" type="date" value="${escapeHtml(date)}">
+    <button class="ms-del" title="Remove">✕</button>
+  </div>`;
+}
+
+// The gate screen shown before ANY check results (gate B). Pre-filled from the saved
+// contract milestones when re-opening a project.
+function renderMilestoneGate(am) {
+  const mc = am.modules.hard_constraints || {};
+  const baseline = mc.baseline_milestones || [];
+  const saved = mc.contract_milestones || [];
+  const body = document.getElementById('audit-body');
+  body.innerHTML = `
+    <div class="ms-gate">
+      <div class="ms-gate-h">Step 1 · Enter your contract milestones</div>
+      <div class="ms-gate-sub">The Schedule Health Review runs after you enter the project completion milestone (and any other contractual milestones). Each is matched to a real activity in this baseline — <b>${baseline.length}</b> milestone activit${baseline.length === 1 ? 'y' : 'ies'} found in the file (start typing to pick one).</div>
+      ${msDatalist(baseline)}
+      <div id="ms-rows"></div>
+      <div class="ms-gate-actions">
+        <button class="btn-secondary" id="ms-add">+ Add milestone</button>
+        <button class="btn-primary" id="ms-run">Run Schedule Health Review ▸</button>
+      </div>
+      <div class="ms-gate-hint" id="ms-hint">Nothing is assessed until a milestone is matched — the tool never invents one.</div>
+    </div>`;
+  const rows = document.getElementById('ms-rows');
+  const add = (n = '', d = '') => rows.insertAdjacentHTML('beforeend', msRowHtml(n, d));
+  if (saved.length) saved.forEach(s => add(s.name, s.date)); else add();
+  rows.addEventListener('click', e => {
+    if (!e.target.classList.contains('ms-del')) return;
+    const r = e.target.closest('.ms-row');
+    if (rows.children.length > 1) r.remove();
+    else { r.querySelector('.ms-name').value = ''; r.querySelector('.ms-date').value = ''; }
+  });
+  document.getElementById('ms-add').addEventListener('click', () => add());
+  document.getElementById('ms-run').addEventListener('click', () => submitMilestones(am));
+}
+
+function collectMilestones() {
+  return [...document.querySelectorAll('#ms-rows .ms-row')].map(r => ({
+    name: r.querySelector('.ms-name').value.trim(),
+    date: r.querySelector('.ms-date').value.trim(),
+  })).filter(m => m.name && m.date);
+}
+
+async function submitMilestones(am) {
+  const milestones = collectMilestones();
+  const hint = document.getElementById('ms-hint');
+  if (!milestones.length) { hint.textContent = 'Enter at least one milestone name and its contract date.'; return; }
+  const runBtn = document.getElementById('ms-run');
+  runBtn.disabled = true; runBtn.textContent = 'Evaluating…';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/milestones/save`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, milestones }),
+    }).then(r => r.json());
+    if (resp.ok && resp.milestone_module) {
+      am.modules.hard_constraints = resp.milestone_module;   // now carries the evals; needs_input=false
+      renderAudit(am);                                        // un-gated
+      selectModule('hard_constraints');                      // land on the Milestone Check
+    } else {
+      hint.textContent = resp.error || 'Could not evaluate the milestones — please retry.';
+      runBtn.disabled = false; runBtn.textContent = 'Run Schedule Health Review ▸';
+    }
+  } catch (e) {
+    hint.textContent = 'Server error — please retry.';
+    runBtn.disabled = false; runBtn.textContent = 'Run Schedule Health Review ▸';
+  }
+}
+
+function msStatusClass(s) {
+  return { 'Masked': 'st-mask', 'Late': 'st-late', 'On track': 'st-ok', 'Unmatched': 'st-un' }[s] || 'st-un';
+}
+function msCard(e) {
+  const variance = e.variance_days == null ? '—'
+    : (e.variance_days > 0 ? `+${e.variance_days} wd late` : `${Math.abs(e.variance_days)} wd on/early`);
+  const facts = [
+    ['Contract date', e.contract_date || '—'],
+    ['Matched activity', e.matched_activity_id || '— none —'],
+    ['Scheduled finish', e.scheduled_finish || '—'],
+    ['Variance', variance],
+    ['Total float', dnum(e.total_float_days)],
+    ['On driving path', e.on_driving_path == null ? '—' : (e.on_driving_path ? 'Yes' : 'No')],
+    ['Hard constraint', e.constraint_type ? `${e.constraint_type}${e.constraint_date ? ' · ' + e.constraint_date : ''}` : 'None'],
+  ].map(([k, v]) => `<div class="ms-fact"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`).join('');
+  const nl = (k, v) => `<div class="ms-nl"><div class="mk">${escapeHtml(k)}</div><div class="mv">${escapeHtml(v || '')}</div></div>`;
+  return `<div class="ms-card">
+    <div class="ms-ct"><div class="ms-cn">${escapeHtml(e.contract_name)}</div><div class="ms-st ${msStatusClass(e.status)}">${escapeHtml(e.status)}</div></div>
+    <div class="ms-facts">${facts}</div>
+    <div class="ms-narr">${nl('Finding', e.finding)}${nl('Evidence', e.evidence)}${nl('Root cause', e.root_cause)}${nl('Impact', e.impact)}${nl('Recommendation', e.recommendation)}</div>
+  </div>`;
+}
+
+// Hard-constraint findings (the merge) — rendered directly from the module findings.
+function hardConstraintsTable(m) {
+  const findings = m.findings || [];
+  if (!findings.length) return '<p style="color:var(--muted);font-size:13px">No hard constraints in this baseline.</p>';
+  const rows = findings.map((f, i) =>
+    `<tr>${tdNum(i + 1)}${tdMono(f.activity_id)}${td(f.activity_name)}${tdWbs(f.wbs_path)}${td(f.constraint_type)}${tdMut(isoDate(f.constraint_date))}${tdSev(f.severity)}${tdMut(f.recommendation)}</tr>`).join('');
+  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table"><thead><tr>
+    <th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th><th>Constraint Type</th><th>Constraint Date</th><th>Severity</th><th>Recommendation</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// The Milestone Check detail view: contract-milestone verdict cards (evidence-first)
+// then the hard-constraint findings underneath.
+function renderMilestoneCheck(m) {
+  const p = m.presentation || {};
+  const evals = m.milestones || [];
+  const counts = m.milestone_counts || {};
+  const cards = evals.map(msCard).join('')
+    || '<p style="color:var(--muted);font-size:13px">No contract milestones entered yet — use “Edit contract milestones”.</p>';
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${counts.Masked || 0} masked · ${counts.Late || 0} late · ${counts['On track'] || 0} on track · ${counts.Unmatched || 0} unmatched</div>
+          <div style="margin-top:8px"><button class="btn-secondary" id="ms-edit">Edit contract milestones</button></div>
+        </div>
+      </div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
+    </div>
+    <div class="mod-sec">Contract milestones <span class="mod-sub">— entered by you, matched to the baseline</span></div>
+    <div class="ms-cards">${cards}</div>
+    ${scoringLegendHtml(p.scoring)}
+    <div class="mod-sec">Hard constraints <span class="mod-sub">— pinned dates that override the network logic</span></div>
+    ${(m.findings && m.findings.length) ? severityLegendHtml(p.severity) : ''}
+    ${hardConstraintsTable(m)}`;
+  const eb = document.getElementById('ms-edit');
+  if (eb) eb.addEventListener('click', () => renderMilestoneGate(state.currentModules));
 }
 
 // The Summary dashboard — the weighted Schedule Health roll-up, rendered from the

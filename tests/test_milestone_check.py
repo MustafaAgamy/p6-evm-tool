@@ -70,3 +70,21 @@ def test_match_prefers_milestone_and_is_case_insensitive():
 
 def test_norm_strips_punctuation_and_case():
     assert _norm('  Mechanical-Completion (Contract) ') == 'mechanical completion contract'
+
+
+def test_build_milestone_module_merges_and_gates():
+    from p6_audit.milestone_check import build_milestone_module, NAME
+    g = _g({'m': _act('m', 'Mechanical Completion', planned_finish=datetime(2027, 6, 15), total_float_days=5)})
+    hard = {'module': 'hard_constraints', 'name': 'Hard Constraints', 'score': 100,
+            'grade': 'Excellent', 'pct': 0, 'kpis': {}, 'findings': []}
+    # no contract milestones -> gate B
+    empty = build_milestone_module(hard, g, [])
+    assert empty['name'] == NAME == 'Milestone Check'
+    assert empty['needs_input'] is True
+    assert any(b['name'] == 'Mechanical Completion' for b in empty['baseline_milestones'])
+    # with a milestone -> evaluated, not gated, hard-constraint score preserved
+    filled = build_milestone_module(hard, g, [{'name': 'Mechanical Completion', 'date': '2027-06-30'}])
+    assert filled['needs_input'] is False
+    assert filled['score'] == 100
+    assert len(filled['milestones']) == 1
+    assert filled['milestone_counts']['On track'] == 1

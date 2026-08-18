@@ -163,3 +163,44 @@ def evaluate_milestones(graph, contract_milestones):
     for cm in contract_milestones or []:
         out.append(_evaluate_one(graph, cm.get('name'), _parse_date(cm.get('date'))))
     return out
+
+
+def baseline_milestones(graph):
+    """The baseline's milestone activities (id · name · finish), offered to the user to
+    match a contract milestone against — so the entry screen shows what's really in the
+    XER/XML file. Chronological."""
+    out = []
+    for oid, a in graph.activities.items():
+        if 'Milestone' in (a.get('task_type') or ''):
+            out.append({'activity_id': a.get('id', oid), 'name': a.get('name', ''),
+                        'task_type': a.get('task_type'), 'finish': _iso(_finish(a))})
+    out.sort(key=lambda x: (x['finish'] or '9999', x['name'] or ''))
+    return out
+
+
+def _status_counts(evals):
+    c = {'On track': 0, 'Late': 0, 'Masked': 0, 'Unmatched': 0}
+    for e in evals:
+        c[e['status']] = c.get(e['status'], 0) + 1
+    return c
+
+
+def build_milestone_module(hard_module, graph, contract_milestones):
+    """Merge the contract-milestone evaluation into the (renamed) Hard Constraints
+    module → the **Milestone Check** sub-feature. The hard-constraint score and findings
+    stay; the contract-milestone evaluations, the baseline milestone list (for matching)
+    and `needs_input` (gate B) are added on top."""
+    m = dict(hard_module or {})
+    m['module'] = m.get('module', 'hard_constraints')
+    m['name'] = NAME
+    cms = contract_milestones or []
+    evals = evaluate_milestones(graph, cms)
+    m['milestones'] = evals
+    m['milestone_counts'] = _status_counts(evals)
+    m['baseline_milestones'] = baseline_milestones(graph)
+    m['needs_input'] = not bool(cms)
+    return m
+
+
+MODULE = 'hard_constraints'   # unchanged internal key (DB continuity); display name below
+NAME = 'Milestone Check'

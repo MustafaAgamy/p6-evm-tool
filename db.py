@@ -490,6 +490,29 @@ def save_project_settings(project_id, patch):
     return settings
 
 
+def get_contract_milestones(project_id):
+    """The contract milestones the user entered for this project: [{'name','date'}].
+    Held per project so they persist across re-imports (Milestone Check, gate B)."""
+    return get_project_settings(project_id).get('contract_milestones') or []
+
+
+def save_contract_milestones(project_id, milestones):
+    """Persist the user's contract milestones for this project."""
+    save_project_settings(project_id, {'contract_milestones': milestones or []})
+    return milestones or []
+
+
+def get_snapshot_xml_path(snapshot_id):
+    """Best available XML path for a snapshot (original, cached fallback) — for the
+    routes that must re-parse (Milestone Check re-evaluation)."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT original_path, cached_path FROM snapshots WHERE id = ?',
+                           (snapshot_id,)).fetchone()
+    if not row:
+        return None
+    return resolve_xml_path(row['original_path'], row['cached_path'])
+
+
 def get_audit_modules_for_snapshot(snapshot_id):
     """Reconstruct {'modules': {...}, 'module_order': [...], 'health': {...}} or None.
 
@@ -528,6 +551,20 @@ def get_audit_modules_for_snapshot(snapshot_id):
     from p6_audit.presentation import build_presentation
     for m in modules.values():
         m['presentation'] = build_presentation(m)
+    # Milestone Check (gate B) on re-open: rename + pre-fill the saved contract
+    # milestones and mark it needs_input, so the user re-confirms (and the tool
+    # re-evaluates against this baseline) before the review shows.
+    hard = modules.get('hard_constraints')
+    if hard is not None:
+        try:
+            from p6_audit.milestone_check import NAME as _MC_NAME
+            pid = get_project_id_for_snapshot(snapshot_id)
+            hard['name'] = _MC_NAME
+            hard['contract_milestones'] = get_contract_milestones(pid) if pid else []
+            hard['milestones'] = []
+            hard['needs_input'] = True
+        except Exception:
+            pass
     return {'modules': modules, 'module_order': order,
             'health': schedule_health(modules)}
 
