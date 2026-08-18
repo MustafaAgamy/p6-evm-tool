@@ -69,20 +69,24 @@ def build_spec(report):
         ReportComponent('readiness_legend', 'Readiness Band', 'chart', render=_legend,
                         has_data=lambda r: bool(r.get('score')),
                         description='Where the score sits on the readiness scale'),
+        # projection defaults ON only when the engine produced one — matching the
+        # legacy report, which omitted the What-If line entirely when absent rather
+        # than showing an empty section.
         ReportComponent('projection', 'What-If Projection', 'text', render=_projection,
+                        default=bool(report.get('projected')),
                         has_data=lambda r: bool(r.get('projected')),
                         description='Score achievable if the flagged logic is corrected'),
         ReportComponent('tiles', 'Key Metrics', 'summary', render=X._tiles,
                         has_data=lambda r: bool(r.get('dashboard')),
                         description='Illogical links, missing activities, coverage, critical path'),
+        # These three render their OWN graceful "none flagged" note when empty, so
+        # they carry no has_data gate — the friendly wording shows instead of the
+        # framework's generic placeholder (matches the approved legacy report).
         ReportComponent('issues_by_wbs', 'Issues by WBS Phase', 'chart', render=X._issues_by_wbs,
-                        has_data=lambda r: bool(r.get('issues_by_wbs')),
                         description='Where the problems concentrate across the schedule'),
         ReportComponent('illogical', 'Illogical Relationships', 'table', render=X._illogical_table,
-                        has_data=lambda r: bool(r.get('illogical')),
                         description='Flagged links with the better logic suggested'),
         ReportComponent('missing', 'Missing Activities', 'table', render=X._missing_table,
-                        has_data=lambda r: bool(r.get('missing')),
                         description='Activities normally expected against the standard'),
         ReportComponent('wbs_review', 'WBS Review', 'table', render=X._wbs_review,
                         has_data=lambda r: bool(r.get('wbs_review')),

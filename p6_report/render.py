@@ -90,6 +90,11 @@ def build_document(spec: ReportSpec, report: dict,
     sub = f'<div class="rf-sub">{_e(spec.subtitle)}</div>' if spec.subtitle else ''
     foot = f'<div class="rf-foot">{_e(spec.footer)}</div>' if spec.footer else ''
 
+    # Sections are numbered in-flow (1., 2., …) so they read as a numbered report in
+    # every engine. The @bottom-right page counter below is standards-compliant paged
+    # media, but Chromium (the current HTML→PDF pipeline) does not render margin-box
+    # content, so it is dormant there and lights up only if the pipeline moves to a
+    # paged-media renderer. Section numbering is the numbering the reader actually sees.
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: {size}; margin: 11mm; }}
       @page {{ @bottom-right {{ content: "Page " counter(page) " of " counter(pages); }} }}

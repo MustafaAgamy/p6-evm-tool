@@ -69,12 +69,41 @@ def test_user_can_reorder_tables_before_the_dashboard():
     assert doc.index('Illogical Relationships') < doc.index('Constructability Score')
 
 
-def test_selected_empty_section_shows_no_findings_note():
-    spec = get_spec('constructability', dict(REPORT, illogical=[]))
-    doc = build_document(spec, dict(REPORT, illogical=[]),
-                         selected_ids=['illogical'])
+def test_empty_table_shows_its_own_friendly_note_not_generic_placeholder():
+    # the illogical table renders its own graceful message when empty — the approved
+    # legacy wording, not the framework's generic "No data available"
+    empty = dict(REPORT, illogical=[])
+    spec = get_spec('constructability', empty)
+    doc = build_document(spec, empty, selected_ids=['illogical'])
     assert 'Illogical Relationships' in doc
-    assert 'No data' in doc
+    assert 'No illogical relationships flagged' in doc
+
+
+def test_section_that_renders_nothing_falls_back_to_no_data():
+    # wbs_review renders '' when empty, so the framework placeholder is what shows
+    empty = dict(REPORT, wbs_review=[])
+    spec = get_spec('constructability', empty)
+    doc = build_document(spec, empty, selected_ids=['wbs_review'])
+    assert 'WBS Review' in doc and 'No data' in doc
+
+
+def test_projection_defaults_off_when_the_engine_produced_none():
+    # a report with no what-if projection must NOT show an empty projection section
+    # in the default view (matches the legacy report's conditional inclusion)
+    no_proj = {k: v for k, v in REPORT.items() if k != 'projected'}
+    spec = get_spec('constructability', no_proj)
+    doc = build_document(spec, no_proj, selected_ids=None)   # default selection
+    assert 'What-If Projection' not in doc
+    # but it is still offered in the selector, just unticked
+    m = manifest(spec, no_proj)
+    proj = next(c for c in m if c['id'] == 'projection')
+    assert proj['default'] is False and proj['has_data'] is False
+
+
+def test_projection_defaults_on_when_present():
+    spec = get_spec('constructability', REPORT)
+    doc = build_document(spec, REPORT, selected_ids=None)
+    assert 'What-If Projection' in doc
 
 
 def test_manifest_matches_ten_sections_with_types():
