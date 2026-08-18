@@ -130,3 +130,19 @@ def test_cpli_scoring_has_its_own_formula():
     s = build_presentation(m)['scoring']
     assert 'CPLI' in s['formula'] and '(CPL + TF)' in s['formula']
     assert 'Metric 13' in s['benchmark']
+
+
+def test_severity_legend_reflects_rule_engine():
+    sev = build_presentation(_open_ends())['severity']
+    levels = {l['level']: l['criteria'] for l in sev['levels']}
+    assert {'Critical', 'High', 'Medium'} <= set(levels)
+    assert 'critical path' in sev['basis']
+
+
+def test_relationship_types_severity_has_four_impact_levels():
+    m = {'module': 'relationship_types', 'pct': 10.7, 'score': 89.3,
+         'kpis': {'total_relationships': 2631, 'non_fs': 282, 'fs_pct': 89.3}, 'findings': []}
+    sev = build_presentation(m)['severity']
+    assert [l['level'] for l in sev['levels']] == ['Critical', 'High', 'Medium', 'Low']
+    assert any('Start-to-Finish' in l['criteria'] for l in sev['levels'])
+    assert any('off the critical path' in l['criteria'] for l in sev['levels'])

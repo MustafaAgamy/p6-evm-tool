@@ -1388,6 +1388,8 @@ body {
 .score-legend .sl-t { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--text); margin-bottom:5px; }
 .score-legend .sl-r { margin-top:3px; }
 .score-legend .sl-r.sl-bench { margin-top:6px; padding-top:6px; border-top:1px solid var(--border); color:var(--muted); }
+.sev-legend .sl2 { display:flex; flex-direction:column; gap:5px; margin-top:2px; }
+.sev-legend .sl2-row { display:grid; grid-template-columns:74px 1fr; gap:10px; align-items:baseline; font-size:11.5px; color:var(--muted); }
 .shr-timeline { margin:10px 0 14px; display:flex; flex-direction:column; gap:3px; }
 .shr-tl-row { display:grid; grid-template-columns:90px 1fr; align-items:center; gap:10px; }
 .shr-tl-lab { font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

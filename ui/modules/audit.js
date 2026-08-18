@@ -248,6 +248,18 @@ function scoringLegendHtml(s) {
   return `<div class="shr-legend score-legend">${parts.join('')}</div>`;
 }
 
+// "What the severity levels mean" — the criteria straight from the rule engine, so
+// the user knows why a finding is Critical/High/Medium/Low (not just its colour).
+function severityLegendHtml(sev) {
+  if (!sev || !(sev.levels || []).length) return '';
+  const rows = sev.levels.map(l =>
+    `<div class="sl2-row"><span class="sevtag ${severityClass(l.level)}">${escapeHtml(l.level)}</span>` +
+    `<span>${escapeHtml(l.criteria)}</span></div>`).join('');
+  const basis = sev.basis ? `<div class="sl-r sl-bench">${escapeHtml(sev.basis)}</div>` : '';
+  return `<div class="shr-legend sev-legend"><div class="sl-t">What the severity levels mean</div>` +
+    `<div class="sl2">${rows}</div>${basis}</div>`;
+}
+
 // Per-check KPI tiles + table columns now live in ONE place — p6_audit/presentation.py
 // (build_presentation) — and arrive on each module as `m.presentation`, so the screen,
 // the PDF and Excel render identical tiles/columns/cells (see cellHtml/presentationTiles).
@@ -456,6 +468,7 @@ function renderStandardModule(m) {
     ${scoringLegendHtml(p.scoring)}
     ${wbsSummaryHtml(m)}
     <div class="mod-sec">Detailed Findings</div>
+    ${(m.findings && m.findings.length) ? severityLegendHtml(p.severity) : ''}
     <div class="filters">
       ${renderSevChips(m.findings)}
       <input class="searchbox" id="f-search" placeholder="🔍  Search activity ID or name…">

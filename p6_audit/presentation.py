@@ -311,6 +311,53 @@ def _scoring(m):
             'bands': _UNIFORM_BANDS_TEXT, 'benchmark': ref}
 
 
+# ── Severity criteria: what makes a finding Critical/High/Medium/Low ───────
+# These mirror the ACTUAL rule engine (each module's severity assignment), so the
+# legend is the truth, not a colour key. Most checks raise a finding one level when
+# it sits on the critical path.
+_SEVERITY = {
+    'dangling': ('An issue on the critical path is raised one level.', [
+        ('Critical', 'Open on both sides, on a critical-path activity'),
+        ('High', 'Open on both sides (off path), or open on one side on the critical path'),
+        ('Medium', 'Open on one side (start or finish), off the critical path')]),
+    'open_ends': ('An issue on the critical path is raised one level.', [
+        ('Critical', 'No successor / both sides open, on a critical-path activity'),
+        ('High', 'No successor or both open (off path), or no predecessor on the critical path'),
+        ('Medium', 'No predecessor, off the critical path')]),
+    'relationship_types': ('Impact-based — a non-FS link touching the critical path is raised.', [
+        ('Critical', 'Start-to-Finish relationship on the critical path'),
+        ('High', 'Start-to-Finish relationship off the critical path (almost always a modelling error)'),
+        ('Medium', 'SS / FF relationship touching the critical path'),
+        ('Low', 'SS / FF relationship off the critical path')]),
+    'hard_constraints': ('A constraint on the critical path is the most serious.', [
+        ('Critical', 'Hard constraint on a critical-path activity'),
+        ('High', 'Mandatory Start/Finish constraint (off the critical path)'),
+        ('Medium', 'Other hard constraint (off the critical path)')]),
+    'high_duration': ('An over-long activity on the critical path is raised.', [
+        ('High', 'Over the duration threshold, on a critical-path activity'),
+        ('Medium', 'Over the duration threshold, off the critical path')]),
+    'leads': ('A lead into the critical path is the most serious.', [
+        ('Critical', 'Lead (negative lag) into a critical-path activity'),
+        ('High', 'Lead (negative lag) off the critical path')]),
+    'negative_float': ('Any negative float on a baseline is Critical.', [
+        ('Critical', 'Any activity carrying negative total float')]),
+    'whole_day': ('A decimal duration on the critical path is raised.', [
+        ('High', 'Decimal duration on a critical-path activity'),
+        ('Medium', 'Decimal duration off the critical path')]),
+    'circular': ('A loop stops P6 calculating — nothing milder applies.', [
+        ('Critical', 'Any circular loop (blocks F9)')]),
+}
+
+
+def _severity(m):
+    """What makes a finding Critical/High/Medium/Low for this check — the real rules."""
+    entry = _SEVERITY.get(m.get('module'))
+    if not entry:
+        return None
+    basis, levels = entry
+    return {'basis': basis, 'levels': [{'level': lv, 'criteria': cr} for lv, cr in levels]}
+
+
 def build_presentation(module_result):
     """The normalized presentation for one module — tiles, columns, rows, verdict."""
     m = module_result or {}
@@ -330,4 +377,4 @@ def build_presentation(module_result):
             for f in findings]
 
     return {'tiles': tiles, 'columns': columns, 'rows': rows,
-            'verdict': spec['verdict'](m), 'scoring': _scoring(m)}
+            'verdict': spec['verdict'](m), 'scoring': _scoring(m), 'severity': _severity(m)}

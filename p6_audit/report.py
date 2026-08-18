@@ -514,6 +514,22 @@ def _scoring_legend(m):
             f'<b>This schedule:</b> {_esc(s["derivation"])}</div>{bands}{bench}</div>')
 
 
+def _severity_legend(m):
+    """What makes a finding Critical/High/Medium/Low — the same criteria as the
+    screen, straight from the rule engine. Skipped when the check has no findings."""
+    if not m.get('findings'):
+        return ''
+    p = m.get('presentation') or build_presentation(m)
+    sev = p.get('severity')
+    if not sev or not sev.get('levels'):
+        return ''
+    rows = ''.join(f'<tr><td style="white-space:nowrap">{_sev_badge(l["level"])}</td>'
+                   f'<td>{_esc(l["criteria"])}</td></tr>' for l in sev['levels'])
+    basis = f'<div class="d" style="margin-top:5px">{_esc(sev["basis"])}</div>' if sev.get('basis') else ''
+    return (f'<div class="slegend"><div class="t">What the severity levels mean</div>'
+            f'<table style="max-width:540px;margin-top:4px"><tbody>{rows}</tbody></table>{basis}</div>')
+
+
 def _sections(m):
     """Body sections for a module report. OOS and Lag & Lead keep their bespoke
     section order; every other check renders from the single-source presentation,
@@ -524,7 +540,7 @@ def _sections(m):
     if m.get('module') == 'lag_lead':
         return f'{_lag_summary(m)}{_lag_charts(m)}{_lag_register(m)}'
     return (f'<h2 class="sec">Executive Dashboard</h2>{_presentation_dashboard(m)}'
-            f'{_scoring_legend(m)}{_wbs_summary(m)}{_presentation_table(m)}')
+            f'{_scoring_legend(m)}{_wbs_summary(m)}{_severity_legend(m)}{_presentation_table(m)}')
 
 
 def render_module_report(module_result, meta):

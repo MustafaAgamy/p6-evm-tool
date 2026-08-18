@@ -65,12 +65,24 @@ def test_mix_ss_and_sf_gives_two_findings():
     assert sf['wbs_path'] == 'P > W'          # successor's WBS
     assert 'almost never correct' in sf['recommendation']
 
-    # SS is a normal defect — Medium
+    # SS off the critical path — Low (impact-based; Medium only on the critical path)
     ss = by_type['SS']
-    assert ss['severity'] == 'Medium'
+    assert ss['severity'] == 'Low'
+    assert ss['on_critical'] is False
     assert ss['activity_id'] == 'c'          # successor
     assert ss['predecessor_id'] == 'b'
     assert 'Re-type to FS' in ss['recommendation']
+
+
+def test_severity_is_impact_based_on_the_critical_path():
+    # same SS/SF defects, but the endpoints are now critical → severity is raised
+    g = _g({'a': _act('a'), 'b': _act('b', is_critical=True),
+            'c': _act('c', is_critical=True), 'd': _act('d', is_critical=True)},
+           [_rel('a', 'b', 'FS'), _rel('b', 'c', 'SS'), _rel('c', 'd', 'SF')])
+    by_type = {f['rel_type']: f for f in run_relationship_types(g, CONFIG)['findings']}
+    assert by_type['SS']['severity'] == 'Medium'    # SS on the critical path
+    assert by_type['SF']['severity'] == 'Critical'  # SF on the critical path
+    assert by_type['SS']['on_critical'] is True
 
 
 def test_module_identity():

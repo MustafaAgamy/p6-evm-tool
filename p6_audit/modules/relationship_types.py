@@ -34,6 +34,16 @@ def run_relationship_types(graph, config):
                 continue
             other = edge['other']
             succ = graph.activities.get(other, {})
+            # Impact-based severity: a relationship touching the critical path is
+            # raised. Start-to-Finish is almost always a modelling error (High, or
+            # Critical on the path); SS/FF are Medium on the path, Low off it — so a
+            # non-FS link on a non-critical activity is not treated like one that
+            # drives the finish date.
+            on_critical = bool(pred.get('is_critical') or succ.get('is_critical'))
+            if rel_type == 'SF':
+                severity = 'Critical' if on_critical else 'High'
+            else:
+                severity = 'Medium' if on_critical else 'Low'
             findings.append({
                 'finding_id':       content_id('RELTYPE', succ.get('id'), rel_type),
                 'activity_id':      succ.get('id'),
@@ -42,7 +52,8 @@ def run_relationship_types(graph, config):
                 'predecessor_name': pred.get('name', ''),
                 'rel_type':         rel_type,
                 'wbs_path':         graph.wbs_path(other),
-                'severity':         'High' if rel_type == 'SF' else 'Medium',
+                'severity':         severity,
+                'on_critical':      on_critical,
                 'recommendation':   _SF_REC if rel_type == 'SF' else _OTHER_REC,
             })
 
