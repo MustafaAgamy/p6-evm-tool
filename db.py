@@ -126,6 +126,7 @@ def init_db():
                 kpis_json         TEXT,
                 wbs_summary_json  TEXT,
                 findings_json     TEXT,
+                mgmt_json         TEXT,
                 PRIMARY KEY (snapshot_id, module)
             );
             CREATE INDEX IF NOT EXISTS idx_audit_modules_snapshot
@@ -163,6 +164,12 @@ def init_db():
                 PRIMARY KEY (snapshot_id, activity_id)
             );
         ''')
+        # Migrations for databases that predate a column (SQLite ADD COLUMN is cheap
+        # and safe). Float's management-dashboard block (`mgmt`) was never persisted,
+        # so its PDF/tab could not rebuild on a re-open.
+        _audit_cols = {r['name'] for r in conn.execute('PRAGMA table_info(audit_modules)')}
+        if 'mgmt_json' not in _audit_cols:
+            conn.execute('ALTER TABLE audit_modules ADD COLUMN mgmt_json TEXT')
 
 
 # ── File helpers ───────────────────────────────────────────────────────────
@@ -391,6 +398,7 @@ def insert_audit_modules(snapshot_id, modules_result):
             _json.dumps(m.get('kpis', {})),
             _json.dumps(m.get('wbs_summary', [])),
             _json.dumps(m.get('findings', [])),
+            _json.dumps(m['mgmt']) if m.get('mgmt') is not None else None,
         ))
     if not rows:
         return
@@ -398,8 +406,8 @@ def insert_audit_modules(snapshot_id, modules_result):
         conn.executemany(
             '''INSERT OR REPLACE INTO audit_modules
                (snapshot_id, module, seq, name, score, grade, pct,
-                kpis_json, wbs_summary_json, findings_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                kpis_json, wbs_summary_json, findings_json, mgmt_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
             rows
         )
 
@@ -502,7 +510,7 @@ def get_audit_modules_for_snapshot(snapshot_id):
     order = []
     for r in rows:
         order.append(r['module'])
-        modules[r['module']] = {
+        mod = {
             'module':      r['module'],
             'name':        r['name'],
             'score':       r['score'],
@@ -512,6 +520,9 @@ def get_audit_modules_for_snapshot(snapshot_id):
             'wbs_summary': _json.loads(r['wbs_summary_json'] or '[]'),
             'findings':    _json.loads(r['findings_json'] or '[]'),
         }
+        if r['mgmt_json']:
+            mod['mgmt'] = _json.loads(r['mgmt_json'])
+        modules[r['module']] = mod
     # Attach the normalized presentation (the same single source the UI/PDF/Excel
     # render from) so a re-opened project renders identically to a fresh import.
     from p6_audit.presentation import build_presentation
