@@ -833,7 +833,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_audit.report import render_module_report
             import subprocess, tempfile
-            html_content = render_module_report(m, meta_in)
+            html_content = render_module_report(m, meta_in, sections=body.get('sections'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

@@ -71,7 +71,11 @@ def test_mix_ss_and_sf_gives_two_findings():
     assert ss['on_critical'] is False
     assert ss['activity_id'] == 'c'          # successor
     assert ss['predecessor_id'] == 'b'
-    assert 'Re-type to FS' in ss['recommendation']
+    # recommendation names the exact relationship + current -> recommended type
+    assert 'change SS → FS' in ss['recommendation']
+    assert 'Act b → Act c' in ss['recommendation']
+    # combined Predecessor cell: name · type · lag
+    assert ss['predecessor_display'] == 'Act b · SS'
 
 
 def test_severity_is_impact_based_on_the_critical_path():

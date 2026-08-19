@@ -575,6 +575,31 @@ body {
 .rpv-canvas { margin: 0 auto; }
 .rpv-page { background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.35); }
 .rpv-frame { border: 0; display: block; background: #fff; }
+.rpv-main { flex: 1 1 auto; display: flex; overflow: hidden; }
+.rpv-sidebar { flex: 0 0 214px; border-right: 1px solid var(--border); background: var(--bg); padding: 12px; overflow-y: auto; }
+.rpv-sh { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+.rpv-tools { font-size: 11px; margin-bottom: 8px; }
+.rpv-tools a { color: var(--accent); cursor: pointer; }
+.rpv-tools i { color: var(--muted); margin: 0 6px; font-style: normal; }
+.rpv-sec { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 12px; color: var(--text); cursor: pointer; border-radius: 6px; }
+.rpv-sec:hover { background: var(--card-bg); }
+.rpv-sec input { width: 14px; height: 14px; accent-color: var(--accent); flex: none; }
+.rpv-sec span { flex: 1; }
+.rpv-sec.empty { color: var(--muted); cursor: default; }
+.rpv-skip { font-size: 9px; font-style: normal; color: var(--warning); background: rgba(251,191,36,.14); border-radius: 4px; padding: 1px 6px; }
+.rpv-note { font-size: 10px; color: var(--muted); line-height: 1.5; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.rpv-note b { color: var(--text); }
+/* Print safety net — the Print button prints the report iframe directly (its own print
+   styles apply); this keeps an accidental Ctrl+P on the app from printing the whole UI. */
+@media print {
+  body > *:not(.rpv-overlay) { display: none !important; }
+  .rpv-overlay { position: static; padding: 0; background: #fff; }
+  .rpv-shell { width: 100%; height: auto; border: 0; box-shadow: none; }
+  .rpv-bar, .rpv-sidebar { display: none !important; }
+  .rpv-main, .rpv-scroll { overflow: visible; background: #fff; padding: 0; display: block; }
+  .rpv-page { transform: none !important; box-shadow: none; width: auto !important; }
+  .rpv-frame { width: 100% !important; height: auto !important; }
+}
 
 .evm-file-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 340px; }
 .evm-file-chip .ff-name { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap;

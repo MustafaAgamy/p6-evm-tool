@@ -142,8 +142,9 @@ SPECS = {
                             ('SS %', _pct(k.get('ss_pct'))), ('FF %', _pct(k.get('ff_pct'))), ('SF %', _pct(k.get('sf_pct'))),
                             ('Non-FS', k.get('non_fs', 0))],
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
-                    ('WBS Path', 'wbs_path', 'wbs'), ('Type', 'rel_type', 'mono'), ('Predecessor', 'predecessor_name', 'mut'),
-                    ('Severity', 'severity', 'sev'), ('Recommendation', 'recommendation', 'mut')],
+                    ('WBS Path', 'wbs_path', 'wbs'), ('Predecessor', 'predecessor_display', 'mut'),
+                    ('Successor', 'successor_display', 'mut'), ('Severity', 'severity', 'sev'),
+                    ('Recommendation', 'recommendation', 'mut')],
     },
     'hard_constraints': {
         'verdict': lambda m: _v_pct(m, 'of activities carry a hard constraint that overrides the network logic.'),
@@ -358,6 +359,22 @@ def _severity(m):
     return {'basis': basis, 'levels': [{'level': lv, 'criteria': cr} for lv, cr in levels]}
 
 
+def report_sections(m):
+    """The report components the user can tick to include (Preview = PDF = Print),
+    in order, each with an `empty` flag so sections with no data are skipped/greyed
+    — the same registry the PDF renders from. A global framework: every check exposes
+    the same component set."""
+    m = m or {}
+    has_findings = bool(m.get('findings'))
+    return [
+        {'key': 'executive',       'label': 'Executive score & KPIs', 'empty': False},
+        {'key': 'scoring',         'label': 'Scoring & DCMA legend',   'empty': not _scoring(m)},
+        {'key': 'severity',        'label': 'Severity legend',        'empty': not (_severity(m) and has_findings)},
+        {'key': 'findings',        'label': 'Detailed findings',      'empty': not has_findings},
+        {'key': 'recommendations', 'label': 'Recommendations',        'empty': not has_findings},
+    ]
+
+
 def build_presentation(module_result):
     """The normalized presentation for one module — tiles, columns, rows, verdict."""
     m = module_result or {}
@@ -377,4 +394,5 @@ def build_presentation(module_result):
             for f in findings]
 
     return {'tiles': tiles, 'columns': columns, 'rows': rows,
-            'verdict': spec['verdict'](m), 'scoring': _scoring(m), 'severity': _severity(m)}
+            'verdict': spec['verdict'](m), 'scoring': _scoring(m), 'severity': _severity(m),
+            'sections': report_sections(m)}

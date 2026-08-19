@@ -117,19 +117,38 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   const _el = document.getElementById(btnId);
   const btn = new ButtonState(_el, _el ? _el.textContent : 'Generate PDF');
   btn.loading('Preparing preview…');
-  const reqBody = { snapshot_id: state.currentSnapshotId, module: state.currentModule, meta: moduleMeta() };
-  try {
-    // Preview first — render the report HTML and show it fitted before writing any PDF.
+  const module = state.currentModule;
+  const reqBody = { snapshot_id: state.currentSnapshotId, module, meta: moduleMeta() };
+
+  // Report-content selector — the sections this check exposes + the remembered choice.
+  // Only the presentation-rendered checks support section selection (OOS/Lag/Float keep
+  // their bespoke reports, so no misleading sidebar there).
+  const mod = (state.currentModules && state.currentModules.modules && state.currentModules.modules[module]) || {};
+  const useSelector = !['out_of_sequence', 'lag_lead', 'float'].includes(module)
+    && mod.presentation && Array.isArray(mod.presentation.sections);
+  const sections = useSelector ? mod.presentation.sections : null;
+  const storageKey = `p6_report_sections_${module}`;
+  let selected = sections ? sections.filter(s => !s.empty).map(s => s.key) : null;
+  if (sections) { try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default */ } }
+
+  const fetchPreview = async (keys) => {
     const data = await apiFetch('api/report/module', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || undefined }),
     });
+    return (data.ok && data.html) ? data.html : null;
+  };
+
+  try {
+    const html = await fetchPreview(selected);
     btn.reset();
-    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
-      title: 'Audit report preview', subtitle: state.currentModule, html: data.html,
-      onSave: () => _savePdf('api/report/module', reqBody, `${state.currentModule}_report.pdf`, 'pdf'),
+      title: 'Report — Schedule Health Review', subtitle: mod.name || module, html,
+      sections, selected, storageKey,
+      onRerender: (keys) => fetchPreview(keys),
+      onSave: (keys) => _savePdf('api/report/module', { ...reqBody, sections: keys }, `${module}_report.pdf`, 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');

@@ -15,8 +15,24 @@ from p6_audit.scoring import linear_score, uniform_grade
 MODULE = 'relationship_types'
 NAME = 'Relationship Types'
 
-_SF_REC = 'Start-to-Finish is almost never correct - re-check this relationship'
-_OTHER_REC = 'Re-type to FS if the finish drives the successor'
+def _lag_txt(lag):
+    if not lag:
+        return ''
+    return f' +{lag}d' if lag > 0 else f' {lag}d'
+
+
+def _rel_display(name, rel_type, lag):
+    """A Predecessor/Successor cell: activity name · relationship type · lag."""
+    return f"{name or '?'} · {rel_type}{_lag_txt(lag)}"
+
+
+def _recommendation(pred_name, succ_name, rel_type):
+    """Name the exact relationship to change — Activity -> Related Activity, current
+    type -> recommended type — so the planner never has to guess which link is meant."""
+    base = f"Predecessor link {pred_name or '?'} → {succ_name or '?'}: change {rel_type} → FS"
+    if rel_type == 'SF':
+        return base + ' (Start-to-Finish is almost never correct — re-check)'
+    return base + ' if the finish drives the successor'
 
 
 def run_relationship_types(graph, config):
@@ -34,27 +50,39 @@ def run_relationship_types(graph, config):
                 continue
             other = edge['other']
             succ = graph.activities.get(other, {})
+            lag = edge.get('lag_days', 0) or 0
             # Impact-based severity: a relationship touching the critical path is
             # raised. Start-to-Finish is almost always a modelling error (High, or
-            # Critical on the path); SS/FF are Medium on the path, Low off it — so a
-            # non-FS link on a non-critical activity is not treated like one that
-            # drives the finish date.
+            # Critical on the path); SS/FF are Medium on the path, Low off it.
             on_critical = bool(pred.get('is_critical') or succ.get('is_critical'))
             if rel_type == 'SF':
                 severity = 'Critical' if on_critical else 'High'
             else:
                 severity = 'Medium' if on_critical else 'Low'
+            # The successor's own outgoing link, for context in the Successor column.
+            succ_edges = graph.succs_of(other)
+            if succ_edges:
+                nxt = graph.activities.get(succ_edges[0]['other'], {})
+                successor_display = _rel_display(nxt.get('name'), succ_edges[0].get('type', 'FS'),
+                                                 succ_edges[0].get('lag_days', 0) or 0)
+            else:
+                successor_display = '—'
+            pred_name, succ_name = pred.get('name', ''), succ.get('name', '')
             findings.append({
-                'finding_id':       content_id('RELTYPE', succ.get('id'), rel_type),
-                'activity_id':      succ.get('id'),
-                'activity_name':    succ.get('name', ''),
-                'predecessor_id':   pred.get('id'),
-                'predecessor_name': pred.get('name', ''),
-                'rel_type':         rel_type,
-                'wbs_path':         graph.wbs_path(other),
-                'severity':         severity,
-                'on_critical':      on_critical,
-                'recommendation':   _SF_REC if rel_type == 'SF' else _OTHER_REC,
+                'finding_id':          content_id('RELTYPE', succ.get('id'), rel_type),
+                'activity_id':         succ.get('id'),
+                'activity_name':       succ_name,
+                'predecessor_id':      pred.get('id'),
+                'predecessor_name':    pred_name,
+                'rel_type':            rel_type,
+                'lag_days':            lag,
+                # Combined cells the redesigned table shows: name · type · lag
+                'predecessor_display': _rel_display(pred_name, rel_type, lag),
+                'successor_display':   successor_display,
+                'wbs_path':            graph.wbs_path(other),
+                'severity':            severity,
+                'on_critical':         on_critical,
+                'recommendation':      _recommendation(pred_name, succ_name, rel_type),
             })
 
     total = sum(counts.values())

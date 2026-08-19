@@ -530,20 +530,52 @@ def _severity_legend(m):
             f'<table style="max-width:540px;margin-top:4px"><tbody>{rows}</tbody></table>{basis}</div>')
 
 
-def _sections(m):
-    """Body sections for a module report. OOS and Lag & Lead keep their bespoke
-    section order; every other check renders from the single-source presentation,
-    so the PDF matches the screen exactly."""
+def _recommendations_section(m):
+    """A de-duplicated list of the check's recommendations — the actions to take.
+    Skipped when the check has no findings (no empty section printed)."""
+    seen, items = set(), []
+    for f in m.get('findings') or []:
+        rec = f.get('recommendation') or f.get('suggested_fix')
+        if rec and rec not in seen:
+            seen.add(rec)
+            items.append(rec)
+    if not items:
+        return ''
+    lis = ''.join(f'<li>{_esc(r)}</li>' for r in items)
+    return f'<h2 class="sec">Recommendations</h2><ul class="recs">{lis}</ul>'
+
+
+def _sections(m, sections=None):
+    """Body sections for a module report — respecting the user's report-content
+    selection (Preview = PDF = Print) and skipping sections with no data. OOS and
+    Lag & Lead keep their bespoke order; every other check renders from the single
+    source, so the PDF matches the screen exactly."""
     if m.get('module') == 'out_of_sequence':
         return (f'<h2 class="sec">Executive Dashboard</h2>{_oos_dashboard(m)}'
                 f'{_oos_wbs(m)}{_oos_review_log(m)}{_oos_cpi(m)}{_oos_conclusion(m)}')
     if m.get('module') == 'lag_lead':
         return f'{_lag_summary(m)}{_lag_charts(m)}{_lag_register(m)}'
-    return (f'<h2 class="sec">Executive Dashboard</h2>{_presentation_dashboard(m)}'
-            f'{_scoring_legend(m)}{_wbs_summary(m)}{_severity_legend(m)}{_presentation_table(m)}')
+    want = set(sections) if sections else None
+
+    def on(key):
+        return want is None or key in want
+
+    parts = []
+    if on('executive'):
+        parts.append(f'<h2 class="sec">Executive Dashboard</h2>{_presentation_dashboard(m)}')
+    if on('scoring'):
+        parts.append(_scoring_legend(m))
+    if on('severity'):
+        parts.append(_severity_legend(m))
+    if on('findings'):
+        parts.append(_wbs_summary(m))
+        parts.append(_presentation_table(m))
+    if on('recommendations'):
+        parts.append(_recommendations_section(m))
+    return ''.join(parts)
 
 
-def render_module_report(module_result, meta):
+def render_module_report(module_result, meta, sections=None):
     m = module_result
     # Float Analysis has its own management-dashboard layout (V2 redesign).
     if m.get('module') == 'float':
@@ -595,6 +627,8 @@ def render_module_report(module_result, meta):
   .mut {{ color: #6b7480; font-size: 9.5px; }}
   .sev {{ display: inline-block; padding: 1px 7px; border-radius: 4px; color: #fff; font-weight: 700; font-size: 9px; white-space: nowrap; }}
   .empty {{ color: #6b7480; font-style: italic; }}
+  ul.recs {{ margin: 4px 0 0; padding-left: 18px; }}
+  ul.recs li {{ margin: 3px 0; font-size: 11px; }}
   .foot {{ border-top: 1px solid #dbe1e8; margin-top: 20px; padding-top: 8px; font-size: 9px; color: #8a93a0; line-height: 1.5; }}
   /* Out of Sequence module */
   .kpis.k4 {{ grid-template-columns: repeat(4, 1fr); }}
@@ -661,7 +695,7 @@ def render_module_report(module_result, meta):
     </div>
   </div>
 
-  {_sections(m)}
+  {_sections(m, sections)}
 
   <div class="foot">
     {'This Lag Report lists every relationship lag and lead in the schedule, worst first, with the planner&rsquo;s own justification for the ones over the long-lag threshold or using a lead. Advisory only &mdash; schedule logic is never edited.' if is_lag else f'This report covers the <b>{_esc(name)}</b> module only, in isolation from other Schedule Audit checks and from cost / earned-value / progress. Module score is derived from the module KPI percentage on the approved band curve. Findings are engineering guidance and require planner verification.' + _scope_note(m)} &nbsp;·&nbsp; {_esc(meta.get('project_name', ''))} · {_esc(title_txt)}
