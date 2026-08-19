@@ -4,6 +4,14 @@
 
 const PT_SUGGEST = ['Residential/Villa', 'Industrial', 'Oil & Gas', 'Commercial', 'Infrastructure'];
 
+let ROWS = [];
+function renderRows() {
+  const tb = document.getElementById('pk-rows');
+  if (tb) tb.innerHTML = ROWS.map(rowHtml).join('');
+}
+function msg(t) { const el = document.getElementById('pk-msg'); if (el) el.textContent = t || ''; }
+function pw() { return (window.pywebview && window.pywebview.api) || null; }
+
 function api(path, body) {
   return fetch(`http://localhost:${window.__SERVER_PORT__}/${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -124,8 +132,11 @@ export function initProdkb() {
       <datalist id="pk-ptypes"></datalist><datalist id="pk-works"></datalist>
       <div class="pk-actions">
         <button class="pk-btn" id="pk-calc">Calculate</button>
-        <button class="pk-btn ghost" id="pk-clear">Clear table</button>
-        <span style="font-size:11px;color:var(--text-secondary,#667080)">Excel batch upload &amp; template, and rate export — next increment.</span>
+        <button class="pk-btn ghost" id="pk-template">⬇ KB Template</button>
+        <button class="pk-btn ghost" id="pk-upload">⬆ Upload Excel</button>
+        <button class="pk-btn ghost" id="pk-export">Export Rates</button>
+        <button class="pk-btn ghost" id="pk-clear">Clear</button>
+        <span id="pk-msg" style="font-size:11px;color:var(--text-secondary,#667080)"></span>
       </div>
     </div>
     <div class="pk-scroll"><table class="pk-table">
@@ -134,8 +145,11 @@ export function initProdkb() {
     </table></div>`;
 
   document.getElementById('pk-back').addEventListener('click', hideProdkb);
-  document.getElementById('pk-clear').addEventListener('click', () => { document.getElementById('pk-rows').innerHTML = ''; });
+  document.getElementById('pk-clear').addEventListener('click', () => { ROWS = []; renderRows(); msg(''); });
   document.getElementById('pk-calc').addEventListener('click', calc);
+  document.getElementById('pk-template').addEventListener('click', downloadTemplate);
+  document.getElementById('pk-upload').addEventListener('click', uploadExcel);
+  document.getElementById('pk-export').addEventListener('click', exportRates);
 
   PT_SUGGEST.forEach(p => document.getElementById('pk-ptypes').insertAdjacentHTML('beforeend', `<option value="${esc(p)}">`));
   api('api/prodkb/templates', {}).then(d => {
@@ -165,14 +179,46 @@ function calc() {
     .then(d => {
       const row = (d && d.ok && d.rows && d.rows[0]) || { input, result: null, status: 'knowledge_not_available' };
       row.input = Object.assign({}, input, row.input);
-      document.getElementById('pk-rows').insertAdjacentHTML('afterbegin', rowHtml(row));
+      ROWS.unshift(row); renderRows();
     })
     .catch(() => {
-      document.getElementById('pk-rows').insertAdjacentHTML('afterbegin',
-        rowHtml({ input, result: null, status: 'knowledge_not_available',
-          status_detail: { reason: 'Calculation service unavailable.', missing: '', action: 'Restart the app.' } }));
+      ROWS.unshift({ input, result: null, status: 'knowledge_not_available',
+        status_detail: { reason: 'Calculation service unavailable.', missing: '', action: 'Restart the app.' } });
+      renderRows();
     })
     .finally(() => { btn.disabled = false; btn.textContent = 'Calculate'; });
+}
+
+async function downloadTemplate() {
+  if (!pw()) { msg('File dialogs work in the desktop app.'); return; }
+  const out = await pw().choose_save_path('productivity_template.xlsx', 'xlsx');
+  if (!out) return;
+  msg('Generating template from the current KB…');
+  const d = await api('api/prodkb/template-xlsx', { output_path: out });
+  msg(d && d.ok ? 'Template saved: ' + d.path : 'Template failed: ' + ((d && d.error) || ''));
+}
+
+async function uploadExcel() {
+  if (!pw()) { msg('File dialogs work in the desktop app.'); return; }
+  const paths = await pw().choose_excel();
+  const path = paths && paths[0];
+  if (!path) return;
+  msg('Reading Excel and analysing…');
+  const d = await api('api/prodkb/excel', { path });
+  if (!d || !d.ok) { msg('Upload failed: ' + ((d && d.error) || '')); return; }
+  ROWS = (d.rows || []);
+  renderRows();
+  msg(`${d.count} activities analysed.`);
+}
+
+async function exportRates() {
+  if (!ROWS.length) { msg('Nothing to export yet — calculate or upload activities first.'); return; }
+  if (!pw()) { msg('File dialogs work in the desktop app.'); return; }
+  const out = await pw().choose_save_path('productivity_rates.xlsx', 'xlsx');
+  if (!out) return;
+  msg('Exporting Productivity Mapping Sheet…');
+  const d = await api('api/prodkb/export', { output_path: out, rows: ROWS });
+  msg(d && d.ok ? `Saved ${d.count} rows: ${d.path}` : 'Export failed: ' + ((d && d.error) || ''));
 }
 
 export function showProdkb() {

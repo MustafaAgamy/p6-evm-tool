@@ -102,6 +102,14 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_prodkb_templates(body)
         elif self.path == '/api/prodkb/calc':
             self._handle_prodkb_calc(body)
+        elif self.path == '/api/prodkb/classifications':
+            self._handle_prodkb_classifications(body)
+        elif self.path == '/api/prodkb/template-xlsx':
+            self._handle_prodkb_template_xlsx(body)
+        elif self.path == '/api/prodkb/excel':
+            self._handle_prodkb_excel(body)
+        elif self.path == '/api/prodkb/export':
+            self._handle_prodkb_export(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -500,6 +508,66 @@ class Handler(BaseHTTPRequestHandler):
                                  'status_detail': r.get('status_detail')})
             self._json(200, {'ok': True, 'rows': rows,
                              'draft_notice': 'Draft starter rates — calibrate before relying on them.'})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodkb_classifications(self, body):
+        """Project Types / Work Types / Methods / Units the current KB can classify (live)."""
+        try:
+            kb, _c, _m = self._prodkb()
+            from p6_prodkb import excelio
+            self._json(200, {'ok': True, 'classifications': excelio.classifications(kb.load_templates())})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodkb_template_xlsx(self, body):
+        """Generate the KB-driven input template — auto-reflects the current KB."""
+        out = body.get('output_path', '')
+        if not out:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            kb, _c, _m = self._prodkb()
+            from p6_prodkb import excelio
+            excelio.write_template(out, kb.load_templates())
+            self._json(200, {'ok': True, 'path': out})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodkb_excel(self, body):
+        """Parse a filled template and calculate every row, honouring each row's project type."""
+        path = body.get('path', '')
+        if not path or not os.path.isfile(path):
+            self._json(200, {'ok': False, 'error': 'Excel file not found. Choose it again.'})
+            return
+        try:
+            kb, _compute, prodmatch = self._prodkb()
+            from p6_prodkb import excelio
+            tmpls = kb.load_templates()
+            rows = []
+            for a in excelio.read_activities(path):
+                r = prodmatch.resolve(
+                    {'name': a.get('name'), 'work_type': a.get('work_type'), 'method': a.get('method')},
+                    a.get('quantity'), project_type=a.get('project_type'),
+                    templates=tmpls, calendar_hours=a.get('calendar_hours'))
+                rows.append({'input': a, 'match': r['match'], 'result': r['result'],
+                             'status': r.get('status'), 'status_label': r.get('status_label'),
+                             'status_detail': r.get('status_detail')})
+            self._json(200, {'ok': True, 'rows': rows, 'count': len(rows),
+                             'draft_notice': 'Draft starter rates — calibrate before relying on them.'})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodkb_export(self, body):
+        """Write the Productivity Mapping Sheet from already-computed rows (drafts keep their status)."""
+        out = body.get('output_path', '')
+        if not out:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            from p6_prodkb import excelio
+            excelio.write_mapping_sheet(out, body.get('rows', []))
+            self._json(200, {'ok': True, 'path': out, 'count': len(body.get('rows', []))})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

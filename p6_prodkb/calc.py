@@ -186,4 +186,6 @@ def compute(template, quantity=None, *, context=None, calendar_hours=None, n_cre
                 "name": m.get("name"), "unit": m.get("unit"),
                 "quantity": round(float(quantity) * qpu * (1 + waste), 2),
             })
+    out["crew"] = [{"trade": c.get("trade"), "count": int(c.get("count", 0)) * ncrew}
+                   for c in (crew.get("composition") or [])]
     return out
