@@ -21,6 +21,15 @@ _LATE = {'TESTING', 'PRE_COMMISSIONING', 'COMMISSIONING', 'INTEGRATED_TESTING', 
 _INSTALL = {'ERECTION_INSTALL', 'MECHANICAL_COMPLETION', 'ROUGH_IN'}
 _STRENGTH = {'strong': 3, 'moderate': 2, 'weak': 1, 'insufficient': 0}
 _MEP_DISC = {'MECH', 'ELEC', 'ELV', 'PIPING', 'INSTR', 'PLUMB', 'FIRE', 'PROCESS', 'UTIL'}
+# KB pattern disciplines are free text ('MECHANICAL / BULK MATERIAL HANDLING',
+# 'MECHANICAL_PIPING', …), so an exact-set test misses most systems. Match on roots.
+_MEP_ROOTS = ('MECH', 'ELEC', 'ELV', 'PIP', 'INSTR', 'PLUMB', 'FIRE', 'PROCESS', 'UTIL',
+              'HVAC', 'MATERIAL HANDLING', 'BULK', 'CONVEY')
+
+
+def _is_mep_disc(d):
+    d = (d or '').upper()
+    return any(root in d for root in _MEP_ROOTS)
 # interface requirements that gate testing/commissioning (the high-value checks)
 _PREREQ_HINT = ('commission', 'test', 'energi', 'power', 'control', 'mechanical completion',
                 'prerequisite', 'before', 'available', 'live', 'complete')
@@ -28,18 +37,44 @@ _PREREQ_HINT = ('commission', 'test', 'energi', 'power', 'control', 'mechanical 
 # ── coarse, FP-safe phase groups (from the tagger's ranked PHASES) ───────────
 # Deliberately coarse: an inversion between two GROUPS is unambiguous construction
 # nonsense on any project; a swap between two adjacent phases within a group can be
-# legitimate scheduling detail, so we never flag on raw phase rank. INSULATION is
-# left OUT of every group on purpose — its true position is system-dependent
-# (after hydrotest for piping, around MC elsewhere), so R6 handles piping insulation
-# specifically and the generic inversion rule never touches it.
+# legitimate scheduling detail, so we never flag on raw phase rank. INSULATION sits in
+# the commission group (2): insulating/lagging/painting comes after erection & MC, so
+# INSULATION driving an install/earlier activity is a real inversion (R4 catches it);
+# the ONE ambiguous pair — insulation vs the pipe's own hydrotest, both group 2 — is
+# owned by R6, which knows a line is tested before it is covered.
 _GROUP_PRE = {'DESIGN', 'PROCUREMENT', 'FABRICATION', 'DELIVERY'}
 _GROUP_INSTALL = {'CIVIL_INTERFACE', 'ROUGH_IN', 'ERECTION_INSTALL', 'MECHANICAL_COMPLETION'}
-_GROUP_COMMISSION = {'POWER_AVAILABLE', 'PRE_COMMISSIONING', 'TESTING', 'COMMISSIONING'}
+_GROUP_COMMISSION = {'INSULATION', 'POWER_AVAILABLE', 'PRE_COMMISSIONING', 'TESTING', 'COMMISSIONING'}
 _GROUP_INTEGRATION = {'INTEGRATED_TESTING', 'PERFORMANCE', 'STARTUP', 'HANDOVER'}
 _PHASE_GROUP = {}
 for _gi, _grp in enumerate((_GROUP_PRE, _GROUP_INSTALL, _GROUP_COMMISSION, _GROUP_INTEGRATION)):
     for _ph in _grp:
         _PHASE_GROUP[_ph] = _gi
+
+# R7 targets genuine plant integration only — HANDOVER is NOT a test. A construction
+# handover / snagging / close-out legitimately has no commissioning behind it, so it
+# must never trip R7 even though it shares the integration group for inversion checks.
+_R7_INTEGRATION = {'INTEGRATED_TESTING', 'PERFORMANCE', 'STARTUP'}
+# COMMISSIONING is the unambiguous LAST phase of the commission group; it driving any
+# earlier commission-group phase (power-on / pre-comm / testing) is a real same-group
+# inversion the coarse groups miss.
+_PRE_COMMISSION = {'INSULATION', 'POWER_AVAILABLE', 'PRE_COMMISSIONING', 'TESTING'}
+# Off-site / vendor testing legitimately precedes delivery & site install — it is NOT a
+# site-testing-before-install defect. Exclude such activities as inversion drivers.
+_OFFSITE_KW = ('factory acceptance', 'factory test', 'works test', 'shop test', ' fat ',
+               '(fat', 'fat)', 'f.a.t', 'ex-works', 'ex works', 'witness test', 'type test',
+               'routine test', 'vendor test', 'string test at works')
+# Names that describe physical installation / procurement — if such a name tags to a
+# late phase (a downstream noun like 'flushing bypass' or 'test station' hijacked the
+# phase), it is a mis-phased install, not a real late-phase driver.
+_INSTALL_VERB = ('install', 'erect', 'fabricat', 'deliver', 'procure', 'supply', 'mount ',
+                 'lay ', 'laying', 'setting of', 'set of')
+# Foundation / support signals in an activity NAME — used to clear R5 even when the
+# tagger demotes an '<equipment> foundation' activity to system=None.
+_SUPPORT_KW = ('foundation', 'plinth', 'pedestal', 'anchor bolt', 'grout', 'base plate',
+               'baseplate', 'sole plate', 'soleplate', 'pile', 'pier', 'support steel',
+               'steel support', 'support frame', 'support structure', 'inertia', 'raft',
+               'concrete pour', 'pad ', 'pads')
 
 # The tagger collapses all piping patterns into one system id 'piping'; the KB stores
 # them as separate patterns. Normalise BOTH ways so a rule reads the right pattern and
@@ -55,7 +90,12 @@ _R3_SKIP_REQUIRED = {'electrical_power', 'civil_interface'}
 
 _TESTING_KW = ('hydrotest', 'hydro test', 'pressure test', 'leak test', 'pneumatic test', 'strength test')
 _INSULATION_KW = ('insulation', 'lagging', 'painting', 'coating', 'wrapping')
-_REINSTATE_KW = ('reinstat', 'in-line', 'in line', 'box-up', 'box up', 'final bolt', 'reassembl')
+# NB: 'final bolt'/'bolt-up' removed — bolt-up is a REQUIRED pre-test make-up of the
+# joint, not a post-test reinstatement; keeping it here false-flagged bolt-up→hydrotest.
+_REINSTATE_KW = ('reinstat', 'in-line item', 'in line item', 'box-up', 'box up', 'reassembl',
+                 'valve reinstall', 'de-blind', 'de blind', 'remove blind')
+# piping-like systems whose lines are pressure-tested before being covered (R6)
+_PIPING_LIKE = {'piping', 'chilled_water', 'plumbing', 'utilities', 'fire_fighting'}
 
 
 def _ensure_tagged(view):
@@ -94,6 +134,60 @@ def _group_of(a):
 
 def _nm(a):
     return (a.get('name') or '').lower()
+
+
+def _is_offsite(a):
+    """Factory / works / shop / FAT testing — vendor testing that legitimately precedes
+    delivery and site installation, so it must not read as 'site testing before install'."""
+    return any(k in _nm(a) for k in _OFFSITE_KW)
+
+
+def _mis_phased_install(a):
+    """An install/procurement-named activity that tagged to a late phase because a
+    downstream noun in its name (e.g. 'Install CHW Flushing Bypass') hijacked the phase.
+    Its real phase is installation, so it is not a genuine later-phase inversion driver."""
+    return (_group_of(a) or 0) >= 2 and any(k in _nm(a) for k in _INSTALL_VERB)
+
+
+def _bad_inversion_driver(a):
+    """Predecessors that must never be treated as the 'later work' in an inversion."""
+    return _is_offsite(a) or _mis_phased_install(a)
+
+
+def _any_ancestor(pred_map, by_oid, oid, ok, limit=6000):
+    """True if any transitive predecessor of `oid` satisfies predicate ok(activity).
+    Bounded BFS — safe on very large schedules."""
+    seen, stack = set(), list(pred_map.get(oid, ()))
+    while stack and len(seen) < limit:
+        p = stack.pop()
+        if p in seen:
+            continue
+        seen.add(p)
+        a = by_oid.get(p, {})
+        if ok(a):
+            return True
+        stack.extend(pred_map.get(p, ()))
+    return False
+
+
+def _has_support(pred_map, by_oid, oid):
+    """Does the equipment install at `oid` have its OWN foundation/steel support behind
+    it? Activity-level so it survives the tagger demoting an '<equipment> foundation' /
+    'grouting' activity to system=None. Clears on:
+      • a DIRECT predecessor that is civil / steel / a CIVIL_INTERFACE-phase activity —
+        the foundation right before the setting; OR
+      • a foundation/support-NAMED or structural-steel activity anywhere upstream.
+    An unrelated civil activity several hops away (e.g. a cable trench reached through
+    the cabling chain) does NOT clear it — that is not the machine's foundation."""
+    for p in pred_map.get(oid, ()):                    # direct predecessors
+        a = by_oid.get(p, {})
+        if (_sys_of(a) in ('civil_interface', 'structural_steel')
+                or _phase_of(a) == 'CIVIL_INTERFACE'
+                or any(k in _nm(a) for k in _SUPPORT_KW)):
+            return True
+    return _any_ancestor(pred_map, by_oid, oid,       # or clearly-support-named steel/foundation upstream
+                         lambda x: _sys_of(x) == 'structural_steel'
+                         or any(k in _nm(x) for k in _SUPPORT_KW))
 
 
 def _system_precedence(view, by_oid):
@@ -191,6 +285,24 @@ def generate_findings(view, resolution, patterns=None):
         s = (a.get('identity') or {}).get('system')
         if s:
             sys_acts.setdefault(s, []).append(a)
+    # what is ACTUALLY in the schedule (tagged), independent of which systems the
+    # archetype lists as relevant — R1's power gate must key off this, else a project
+    # whose archetype doesn't list electrical_power (e.g. a silo) goes N/A even though
+    # MV switchgear is plainly in the schedule.
+    sys_present = set(sys_acts)
+
+    # predecessor adjacency, built once — used by the transitive checks in R1/R5/R6/R7
+    pred_map = {}
+    for r in view.get('relationships_oid', []):
+        pred_map.setdefault(r['succ_oid'], set()).add(r['pred_oid'])
+
+    def _powered(a):
+        """The activity's power enabler — a permanent-power/energization predecessor,
+        transitively. Accept an ancestor tagged electrical_power OR one at the
+        POWER_AVAILABLE phase (energization often tags to its own system, e.g. a 'Fire
+        pump energization' tags fire_fighting, or 'HVAC energization' tags hvac)."""
+        return _any_ancestor(pred_map, by_oid, a['object_id'],
+                             lambda x: _sys_of(x) == 'electrical_power' or _phase_of(x) == 'POWER_AVAILABLE')
 
     findings = []
     for pinfo in resolution.get('relevant_patterns', []):
@@ -207,10 +319,9 @@ def generate_findings(view, resolution, patterns=None):
         # Power/energization is the ONE universal commissioning prerequisite (nothing
         # commissions before it is energised). Deliberately narrow: only electrical
         # power, and only when power IS in the project (absent ⇒ N/A, never a defect).
-        if late and pinfo['discipline'] in _MEP_DISC and sysid != 'electrical_power' and 'electrical_power' in present:
-            linked_power = any(
-                (by_oid.get(p, {}).get('identity') or {}).get('system') == 'electrical_power'
-                for a in late for p in _preds(view, a['object_id']))
+        # Transitive: power two hops upstream (energize → loop-check → commission) counts.
+        if late and _is_mep_disc(pinfo['discipline']) and sysid != 'electrical_power' and 'electrical_power' in sys_present:
+            linked_power = any(_powered(a) for a in late)
             if not linked_power:
                 findings.append({
                     'kind': 'missing_interface', 'system': sysid, 'discipline': pinfo['discipline'],
@@ -229,7 +340,9 @@ def generate_findings(view, resolution, patterns=None):
         # ── Rule 2: within-system out-of-sequence — a late-phase activity DRIVES an
         #    install-phase activity of the same system (testing before installation) ──
         install_oids = {a['object_id'] for a in acts if (a.get('identity') or {}).get('phase') in _INSTALL}
-        late_oids = {a['object_id'] for a in late}
+        # exclude off-site / mis-phased-install drivers: a Factory Acceptance Test or a
+        # 'Install … Test Station' legitimately precedes site installation.
+        late_oids = {a['object_id'] for a in late if not _bad_inversion_driver(a)}
         for r in view.get('relationships_oid', []):
             if r['pred_oid'] in late_oids and r['succ_oid'] in install_oids:
                 pa, sa = by_oid.get(r['pred_oid'], {}), by_oid.get(r['succ_oid'], {})
@@ -247,11 +360,7 @@ def generate_findings(view, resolution, patterns=None):
                 })
 
     # ── shared structure for the generalized rules R3–R7 ──────────────────────
-    sys_present = set(sys_acts)
     preceded_by = _system_precedence(view, by_oid)
-    pred_map = {}
-    for r in view.get('relationships_oid', []):
-        pred_map.setdefault(r['succ_oid'], set()).add(r['pred_oid'])
 
     def _disc(sysid):
         return patterns.get(_to_pattern(sysid), {}).get('discipline', '')
@@ -260,12 +369,13 @@ def generate_findings(view, resolution, patterns=None):
         return patterns.get(_to_pattern(sysid), {})
 
     # ── Rule 3: cross-system enabler INVERSION. The KB records that system S requires
-    #    enabler W (strong). If an explicit link has an S activity DRIVING a W activity
-    #    at a strictly-earlier construction stage, the enabler has been pushed behind
-    #    the very work that needs it. Inversion-based on purpose: an *absent* cross-
-    #    system link is normal on real schedules (the enabler is often implicit or
-    #    wired via a third system), so only wrong-DIRECTION logic is flagged — never a
-    #    missing one. Mutual couplings and power (R1) / civil (R5) are excluded. ──
+    #    enabler W (strong). If an explicit link has the COMMISSIONING of S driving a W
+    #    activity at install-or-earlier, the enabler has been pushed behind the very work
+    #    that needs it. Narrowed to a COMMISSIONING driver on purpose: a standalone TEST
+    #    of S (e.g. an API-650 tank hydrotest before its piping tie-in, or fitting tank
+    #    instruments after the test) legitimately precedes the enabler's install and must
+    #    NOT fire. Inversion-based (an absent cross-system link is normal); mutual
+    #    couplings and power (R1) / civil (R5) excluded. ──
     edges = _strong_enabler_edges(patterns)
     edge_pairs = {(s, w) for s, w, _i, _p in edges}
     live_edges = [(s, w, i, p) for (s, w, i, p) in edges
@@ -278,9 +388,11 @@ def generate_findings(view, resolution, patterns=None):
         s, w = _sys_of(pa), _sys_of(sa)               # S drives W  (dependent drives enabler)
         if (s, w) not in edge_by_pair or (s, w) in seen_r3:
             continue
-        gp, gw = _group_of(pa), _group_of(sa)
-        if gp is None or gw is None or gp <= gw:
-            continue                                   # only a strictly-later dependent → earlier enabler
+        if _phase_of(pa) != 'COMMISSIONING' or _bad_inversion_driver(pa):
+            continue                                   # only a commissioning driver, never a bare test
+        gw = _group_of(sa)
+        if gw is None or gw > 1:
+            continue                                   # enabler must be at install-or-earlier
         seen_r3.add((s, w))
         iface, _pid = edge_by_pair[(s, w)]
         req_name = _pat(w).get('name', w)
@@ -301,18 +413,29 @@ def generate_findings(view, resolution, patterns=None):
             'activities': [_label(pa), _label(sa)],
         })
 
-    # ── Rule 4: within-system phase-GROUP inversion (generalises R2 to every system
-    #    and every group jump). A later-group activity driving an earlier-group one of
-    #    the SAME system is physically impossible. Coarse groups ⇒ no false positives
-    #    from adjacent-phase scheduling detail. ──
+    # ── Rule 4: within-system phase inversion (generalises R2). Fires on a later-GROUP
+    #    activity driving an earlier-group one of the SAME system, PLUS the one safe
+    #    within-group case: COMMISSIONING (the unambiguous last phase of the commission
+    #    group) driving an earlier commission phase (power-on / pre-comm / testing).
+    #    Guards: a Factory Acceptance Test or a mis-phased install is not a real driver;
+    #    and post-flush REINSTATEMENT of in-line items is the correct order (per R6), not
+    #    an inversion. ──
     for r in view.get('relationships_oid', []):
         pa, sa = by_oid.get(r['pred_oid'], {}), by_oid.get(r['succ_oid'], {})
         ps, ss = _sys_of(pa), _sys_of(sa)
         if not ps or ps != ss:
             continue
         gp, gs = _group_of(pa), _group_of(sa)
-        if gp is None or gs is None or gp <= gs:
+        if gp is None or gs is None:
             continue
+        group_inversion = gp > gs
+        commission_inversion = (_phase_of(pa) == 'COMMISSIONING' and _phase_of(sa) in _PRE_COMMISSION)
+        if not (group_inversion or commission_inversion):
+            continue
+        if _bad_inversion_driver(pa):
+            continue                                   # FAT / mis-phased install — not a real driver
+        if _phase_of(pa) == 'PRE_COMMISSIONING' and any(k in _nm(sa) for k in _REINSTATE_KW):
+            continue                                   # flush → reinstate in-line items is correct (R6)
         findings.append({
             'kind': 'out_of_sequence', 'system': ps, 'discipline': _disc(ps),
             'title': f"{_pat(ps).get('name', ps)}: later work drives earlier work",
@@ -327,24 +450,25 @@ def generate_findings(view, resolution, patterns=None):
             'activities': [_label(pa), _label(sa)],
         })
 
-    # ── Rule 5: equipment set with NO foundation/support interface (MEP↔civil). An
-    #    equipment system with installation work but nothing from civil (foundation/
-    #    grouting) OR structural steel driving it — set on nothing. Steel-mounted
-    #    equipment is legitimate, so EITHER a civil OR a steel predecessor clears it.
-    #    Graded moderate: the support may be implicit. Absent equipment ⇒ N/A. ──
+    # ── Rule 5: equipment set with NO foundation/support interface (MEP↔civil).
+    #    Evaluated PER install activity (not system-wide): each setting activity must
+    #    have its OWN foundation/steel support behind it — a foundation for one pump does
+    #    not carry a second pump beside it. The support check is activity-level and name-
+    #    aware, so it survives the tagger demoting an '<equipment> foundation' / grouting
+    #    activity to system=None. Either a foundation OR supporting steel clears it
+    #    (steel-mounted equipment is legitimate). Graded moderate. Absent equipment ⇒ N/A. ──
     for e in (_EQUIP_SYS & sys_present):
-        installs = [a for a in sys_acts.get(e, [])
-                    if _phase_of(a) in ('CIVIL_INTERFACE', 'ERECTION_INSTALL', 'MECHANICAL_COMPLETION')]
-        if not installs:
-            continue                                   # N/A — no setting work for this equipment
-        anc = preceded_by.get(e, set())
-        if 'civil_interface' in anc or 'structural_steel' in anc:
-            continue                                   # a foundation or steel support precedes it — silent
+        unsupported = [a for a in sys_acts.get(e, [])
+                       if _phase_of(a) in ('ERECTION_INSTALL', 'MECHANICAL_COMPLETION')
+                       and not _has_support(pred_map, by_oid, a['object_id'])]
+        if not unsupported:
+            continue                                   # every setting activity has support (or none exists) — silent
         findings.append({
             'kind': 'missing_interface', 'system': e, 'discipline': _disc(e),
             'title': f"{_pat(e).get('name', e)} set with no foundation or supporting-steel interface",
-            'existing': f"{len(installs)} {e} setting/installation activities, with no civil "
-                        f"foundation and no structural-steel activity driving them.",
+            'existing': f"{len(unsupported)} {e} setting/installation activit"
+                        f"{'y has' if len(unsupported) == 1 else 'ies have'} no foundation, "
+                        f"grouting or supporting-steel predecessor.",
             'expected': "Equipment is set on a cured foundation (surveyed, grouted) or on erected "
                         "supporting steel before installation.",
             'reason': "Equipment cannot be set, levelled and grouted before its foundation or "
@@ -356,39 +480,46 @@ def generate_findings(view, resolution, patterns=None):
                       "that carries it.",
             'recommendation': "Add the equipment-foundation (or supporting-steel) predecessor to the "
                               "setting activities, or confirm the support interface.",
-            'activities': [_label(a) for a in installs[:4]],
+            'activities': [_label(a) for a in unsupported[:6]],
         })
 
-    # ── Rule 6: piping insulation / in-line reinstatement scheduled BEFORE the
-    #    hydrotest (piping test-ordering). The global phase rank puts INSULATION before
-    #    TESTING, so the generic inversion rule can't see this — but a line must be
-    #    pressure-tested BEFORE it is insulated, painted or its in-line valves boxed up.
-    #    No hydrotest in the piping scope ⇒ N/A. ──
-    pipe = sys_acts.get('piping', [])
-    hydro_oids = {a['object_id'] for a in pipe
-                  if any(k in _nm(a) for k in _TESTING_KW) or _phase_of(a) == 'TESTING'}
-    if hydro_oids:
+    # ── Rule 6: a pipe insulated / covered BEFORE it was pressure-tested. INSULATION
+    #    and the pipe's own hydrotest both land in the commission group, so R4 can't tell
+    #    them apart — R6 knows a line is tested before it is covered. Transitive: the
+    #    cover need not directly precede the test (insulation → MC → hydrotest still hides
+    #    the joints). Runs on every piping-like system (process piping, chilled water,
+    #    plumbing, utilities, fire water). No hydrotest in that system ⇒ N/A. ──
+    for psys in (_PIPING_LIKE & sys_present):
+        pipe = sys_acts.get(psys, [])
+        hydro = [a for a in pipe
+                 if any(k in _nm(a) for k in _TESTING_KW)
+                 or (_phase_of(a) == 'TESTING' and 'factory' not in _nm(a))]
         cover_oids = {a['object_id'] for a in pipe
                       if _phase_of(a) == 'INSULATION' or any(k in _nm(a) for k in _INSULATION_KW)
                       or any(k in _nm(a) for k in _REINSTATE_KW)}
-        for r in view.get('relationships_oid', []):
-            if r['pred_oid'] in cover_oids and r['succ_oid'] in hydro_oids:
-                pa, sa = by_oid.get(r['pred_oid'], {}), by_oid.get(r['succ_oid'], {})
+        if not hydro or not cover_oids:
+            continue                                   # N/A — no test, or nothing that covers the line
+        for h in hydro:
+            if _any_ancestor(pred_map, by_oid, h['object_id'], lambda x: x.get('object_id') in cover_oids):
+                # find the specific covering ancestor for the evidence line
+                cover = next((by_oid[c] for c in cover_oids
+                              if _any_ancestor(pred_map, by_oid, h['object_id'],
+                                               lambda x, cc=c: x.get('object_id') == cc)), {})
                 findings.append({
-                    'kind': 'out_of_sequence', 'system': 'piping', 'discipline': _disc('piping'),
-                    'title': "Piping insulated / boxed up before it was pressure-tested",
-                    'existing': f"'{pa.get('name', '')}' drives '{sa.get('name', '')}' — cover/reinstatement "
-                                f"before the hydrotest.",
+                    'kind': 'out_of_sequence', 'system': psys, 'discipline': _disc(psys),
+                    'title': "Pipe insulated / boxed up before it was pressure-tested",
+                    'existing': f"'{cover.get('name', '')}' precedes the hydrotest "
+                                f"'{h.get('name', '')}' — the line is covered before it is tested.",
                     'expected': "Hydrotest → flush/clean → reinstate in-line items → insulate/paint.",
                     'reason': "A pipe joint must be pressure-tested before it is covered; insulating or "
                               "boxing up first hides the joints the test must reach.",
-                    'evidence': _pat('piping').get('evidence', ''),
+                    'evidence': _pat(psys).get('evidence', ''),
                     'strength': 'strong',
                     'impact': "Insulation/reinstatement would have to be stripped to test — rework, or an "
                               "untested line.",
                     'recommendation': "Sequence the hydrotest before insulation, painting and in-line "
                                       "reinstatement.",
-                    'activities': [_label(pa), _label(sa)],
+                    'activities': [_label(cover), _label(h)],
                 })
 
     # ── Rule 7: integrated / performance / start-up test with NO commissioning behind
@@ -399,10 +530,12 @@ def generate_findings(view, resolution, patterns=None):
     # NB: iterate ALL activities, not sys_acts — integrated/performance/start-up work
     # is usually plant-wide and tags to no single system (system=None), so it never
     # enters sys_acts. Scanning sys_acts here would make R7 silently un-fireable.
+    # Target genuine plant-integration tests ONLY — HANDOVER is excluded: a construction
+    # handover / snagging / close-out legitimately has no commissioning behind it.
     all_acts = view.get('activities_oid', [])
     commission_exists = any(_group_of(a) == 2 for a in all_acts)
     for a in all_acts:
-        if _group_of(a) == 3:
+        if _phase_of(a) in _R7_INTEGRATION:
             if _has_ancestor_group(view, by_oid, pred_map, a['object_id'], 2):
                 continue                               # a commissioning activity precedes it — silent
             findings.append({
@@ -440,5 +573,5 @@ def generate_findings(view, resolution, patterns=None):
 
     # stable, MEP-first, strong-first ordering
     findings.sort(key=lambda f: (-_STRENGTH.get(f['strength'], 1),
-                                 f['discipline'] not in _MEP_DISC, f['system']))
+                                 not _is_mep_disc(f['discipline']), f['system']))
     return findings
