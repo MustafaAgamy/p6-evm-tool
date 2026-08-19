@@ -362,10 +362,38 @@ def _severity(m):
 def report_sections(m):
     """The report components the user can tick to include (Preview = PDF = Print),
     in order, each with an `empty` flag so sections with no data are skipped/greyed
-    — the same registry the PDF renders from. A global framework: every check exposes
-    the same component set."""
+    — the same registry the PDF renders from. A GLOBAL framework: every check (and
+    every future feature) exposes its component set here and inherits the picker
+    automatically. OOS / Lag / Float carry their own bespoke section lists."""
     m = m or {}
+    mod = m.get('module')
     has_findings = bool(m.get('findings'))
+    k = m.get('kpis') or {}
+
+    if mod == 'out_of_sequence':
+        return [
+            {'key': 'executive',  'label': 'Executive dashboard',       'empty': False},
+            {'key': 'wbs',        'label': 'Distribution by WBS',        'empty': not m.get('wbs_summary')},
+            {'key': 'findings',   'label': 'Out-of-sequence review log', 'empty': not has_findings},
+            {'key': 'cpi',        'label': 'Critical path impact',       'empty': False},
+            {'key': 'conclusion', 'label': 'Executive conclusion',       'empty': not k.get('executive_conclusion')},
+        ]
+    if mod == 'lag_lead':
+        return [
+            {'key': 'summary',  'label': 'Summary',              'empty': False},
+            {'key': 'charts',   'label': 'Lag charts',           'empty': not (k.get('by_type') or m.get('wbs_summary'))},
+            {'key': 'findings', 'label': 'Lag & lead register',  'empty': not has_findings},
+        ]
+    if mod == 'float':
+        mgmt = m.get('mgmt') or {}
+        has_mgmt = bool((mgmt.get('stats') or {}).get('total'))
+        return [
+            {'key': 'executive',  'label': 'Executive dashboard',        'empty': not has_mgmt},
+            {'key': 'statistics', 'label': 'Schedule statistics',        'empty': not has_mgmt},
+            {'key': 'indicators', 'label': 'Float indicators',           'empty': not has_mgmt},
+            {'key': 'wbs',        'label': 'Float distribution by WBS',   'empty': not mgmt.get('wbs')},
+            {'key': 'conclusion', 'label': 'Executive conclusion',       'empty': not mgmt.get('conclusion')},
+        ]
     return [
         {'key': 'executive',       'label': 'Executive score & KPIs', 'empty': False},
         {'key': 'scoring',         'label': 'Scoring & DCMA legend',   'empty': not _scoring(m)},

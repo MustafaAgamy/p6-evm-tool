@@ -163,7 +163,7 @@ def _notice(name, meta, msg):
 </body></html>'''
 
 
-def render_float_report(module_result, meta):
+def render_float_report(module_result, meta, sections=None):
     m = module_result or {}
     mgmt = m.get('mgmt') or {}
     meta = meta or {}
@@ -176,6 +176,33 @@ def render_float_report(module_result, meta):
                                    'so no float indicators can be shown.')
     thr = (mgmt.get('indicators', {}) or {}).get('threshold', 44)
     conclusion = mgmt.get('conclusion') or 'No conclusion available for this schedule.'
+
+    # Report-content picker: include only the selected sections (Preview = PDF = Print).
+    want = set(sections) if sections else None
+
+    def on(key):
+        return want is None or key in want
+
+    exec_html = f'<h2 class="sec">Executive Dashboard</h2>{_gauge(mgmt)}{_legend(mgmt)}' if on('executive') else ''
+    stats_html = (f'<div class="subhd">Schedule Statistics <span>— whole schedule</span></div>'
+                  f'<div class="tiles g5">{_stats_tiles(mgmt)}</div>') if on('statistics') else ''
+    ind_html = (f'<div class="subhd">Float Indicators <span>— Construction scope only '
+                f'(Engineering / Procurement / Design excluded)</span></div>'
+                f'<div class="tiles g4">{_indicator_tiles(mgmt)}</div>'
+                f'<div class="hovernote">Average Float and Maximum Float are always shown '
+                f'<b>per&nbsp;WBS</b> below — never as a single project-wide figure.</div>') if on('indicators') else ''
+    wbs_html = (f'<h2 class="sec">Float Distribution by WBS</h2>'
+                f'<table><thead><tr><th>WBS Package</th><th class="num">Activities</th>'
+                f'<th class="num">Average Float</th><th class="num">Maximum Float</th>'
+                f'<th class="num">Activities &gt; {_esc(thr)} WD</th>'
+                f'<th class="num" style="min-width:120px">% &gt; {_esc(thr)} WD</th></tr></thead>'
+                f'<tbody>{_wbs_rows(mgmt)}</tbody></table>'
+                f'<div class="hovernote">Sorted by % over threshold (highest first) · shows the last 2–3 WBS levels · '
+                f'full WBS path on hover (on screen) · <span class="tag con">Constr.</span> counts toward the '
+                f'Construction KPIs, <span class="tag non">Excl.</span> is shown for context only.</div>') if on('wbs') else ''
+    concl_html = (f'<h2 class="sec">Executive Conclusion</h2>'
+                  f'<div class="concl">{_esc(conclusion)}</div>') if on('conclusion') else ''
+    body = exec_html + stats_html + ind_html + wbs_html + concl_html
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
@@ -253,29 +280,7 @@ def render_float_report(module_result, meta):
     </div>
   </div>
 
-  <h2 class="sec">Executive Dashboard</h2>
-  {_gauge(mgmt)}
-  {_legend(mgmt)}
-
-  <div class="subhd">Schedule Statistics <span>— whole schedule</span></div>
-  <div class="tiles g5">{_stats_tiles(mgmt)}</div>
-
-  <div class="subhd">Float Indicators <span>— Construction scope only (Engineering / Procurement / Design excluded)</span></div>
-  <div class="tiles g4">{_indicator_tiles(mgmt)}</div>
-  <div class="hovernote">Average Float and Maximum Float are always shown <b>per&nbsp;WBS</b> below — never as a single project-wide figure.</div>
-
-  <h2 class="sec">Float Distribution by WBS</h2>
-  <table>
-    <thead><tr><th>WBS Package</th><th class="num">Activities</th><th class="num">Average Float</th>
-      <th class="num">Maximum Float</th><th class="num">Activities &gt; {_esc(thr)} WD</th>
-      <th class="num" style="min-width:120px">% &gt; {_esc(thr)} WD</th></tr></thead>
-    <tbody>{_wbs_rows(mgmt)}</tbody>
-  </table>
-  <div class="hovernote">Sorted by % over threshold (highest first) · shows the last 2–3 WBS levels · full WBS path on hover (on screen) ·
-    <span class="tag con">Constr.</span> counts toward the Construction KPIs, <span class="tag non">Excl.</span> is shown for context only.</div>
-
-  <h2 class="sec">Executive Conclusion</h2>
-  <div class="concl">{_esc(conclusion)}</div>
+  {body}
 
   <div class="foot">
     The <b>Float Health score</b> is anchored to the DCMA 14-Point float targets (High Float &lt; 5%, Negative Float = 0)

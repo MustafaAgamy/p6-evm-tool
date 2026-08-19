@@ -550,15 +550,34 @@ def _sections(m, sections=None):
     selection (Preview = PDF = Print) and skipping sections with no data. OOS and
     Lag & Lead keep their bespoke order; every other check renders from the single
     source, so the PDF matches the screen exactly."""
-    if m.get('module') == 'out_of_sequence':
-        return (f'<h2 class="sec">Executive Dashboard</h2>{_oos_dashboard(m)}'
-                f'{_oos_wbs(m)}{_oos_review_log(m)}{_oos_cpi(m)}{_oos_conclusion(m)}')
-    if m.get('module') == 'lag_lead':
-        return f'{_lag_summary(m)}{_lag_charts(m)}{_lag_register(m)}'
     want = set(sections) if sections else None
 
     def on(key):
         return want is None or key in want
+
+    mod = m.get('module')
+    if mod == 'out_of_sequence':
+        parts = []
+        if on('executive'):
+            parts.append(f'<h2 class="sec">Executive Dashboard</h2>{_oos_dashboard(m)}')
+        if on('wbs'):
+            parts.append(_oos_wbs(m))
+        if on('findings'):
+            parts.append(_oos_review_log(m))
+        if on('cpi'):
+            parts.append(_oos_cpi(m))
+        if on('conclusion'):
+            parts.append(_oos_conclusion(m))
+        return ''.join(parts)
+    if mod == 'lag_lead':
+        parts = []
+        if on('summary'):
+            parts.append(_lag_summary(m))
+        if on('charts'):
+            parts.append(_lag_charts(m))
+        if on('findings'):
+            parts.append(_lag_register(m))
+        return ''.join(parts)
 
     parts = []
     if on('executive'):
@@ -580,7 +599,7 @@ def render_module_report(module_result, meta, sections=None):
     # Float Analysis has its own management-dashboard layout (V2 redesign).
     if m.get('module') == 'float':
         from p6_audit.float_report import render_float_report
-        return render_float_report(m, meta)
+        return render_float_report(m, meta, sections)
     name = m.get('name', 'Schedule Health Review')
     subtitle = ('Open / Broken Logic Assessment' if m['module'] == 'dangling'
                 else 'Excessive Total Float Assessment' if m['module'] == 'float'

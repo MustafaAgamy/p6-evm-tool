@@ -121,11 +121,10 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   const reqBody = { snapshot_id: state.currentSnapshotId, module, meta: moduleMeta() };
 
   // Report-content selector — the sections this check exposes + the remembered choice.
-  // Only the presentation-rendered checks support section selection (OOS/Lag/Float keep
-  // their bespoke reports, so no misleading sidebar there).
+  // Fully generic: ANY module that carries a presentation.sections list gets the picker,
+  // so every current and future feature inherits it automatically.
   const mod = (state.currentModules && state.currentModules.modules && state.currentModules.modules[module]) || {};
-  const useSelector = !['out_of_sequence', 'lag_lead', 'float'].includes(module)
-    && mod.presentation && Array.isArray(mod.presentation.sections);
+  const useSelector = mod.presentation && Array.isArray(mod.presentation.sections);
   const sections = useSelector ? mod.presentation.sections : null;
   const storageKey = `p6_report_sections_${module}`;
   let selected = sections ? sections.filter(s => !s.empty).map(s => s.key) : null;
