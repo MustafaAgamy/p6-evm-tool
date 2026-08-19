@@ -23,6 +23,9 @@ datas = [
                                           # only imports it deferred inside handlers.
     ('config.json',    '.'),              # Config at root of bundle
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
+    ('p6_prodkb',      'p6_prodkb'),      # Productivity engine (Duration & Resources) — ship every
+                                          # submodule; server.py imports it deferred inside handlers.
+    ('productivity_kb', 'productivity_kb'), # Productivity Knowledge Base (draft rate templates)
 ]
 
 # ── Hidden imports pywebview / webview2 needs ──────────────────────────────
@@ -56,6 +59,12 @@ hiddenimports = [
     'p6_kb.detect',
     'p6_kb.model',
     'p6_kb.scoring',
+    # Productivity engine (Duration & Resources) — server.py imports these deferred.
+    'p6_prodkb',
+    'p6_prodkb.calc',
+    'p6_prodkb.kb',
+    'p6_prodkb.match',
+    'p6_prodkb.excelio',
 ]
 
 a = Analysis(
