@@ -50,6 +50,75 @@ def _conclusion(report):
     return f'<div class="foot">{X._e(c)}</div>' if c else ''
 
 
+_STRENGTH_HEX = {'strong': '#dc2626', 'moderate': '#d97706', 'weak': '#64748b', 'insufficient': '#94a3b8'}
+
+
+def _archetype_summary(report):
+    """The MEP-first archetype resolution: what kind of project the engine sees, how
+    confident it is, the systems present, and the systems it expected but did not find."""
+    a = report.get('archetype') or {}
+    if not a:
+        return ''
+    present = ', '.join(a.get('present_systems', []) or []) or '—'
+    absent = ', '.join(a.get('expected_but_absent', []) or []) or 'none'
+    terms = ', '.join(a.get('signature_terms', []) or [])
+    amb = ' <b>(ambiguous — planner review)</b>' if a.get('ambiguous') else ''
+    return (f'<div class="arcbox">'
+            f'<div class="arcrow"><span class="ak">Resolved project type</span>'
+            f'<span class="av"><b>{X._e(a.get("archetype_name") or a.get("archetype"))}</b> '
+            f'· confidence {X._e(a.get("confidence"))}{amb}</span></div>'
+            f'<div class="arcrow"><span class="ak">Identified by</span><span class="av">{X._e(terms)}</span></div>'
+            f'<div class="arcrow"><span class="ak">Systems present</span><span class="av">{X._e(present)}</span></div>'
+            f'<div class="arcrow"><span class="ak">Expected but absent</span><span class="av">{X._e(absent)}</span></div>'
+            f'</div>')
+
+
+def _evidence_findings(report):
+    """The R1–R7 evidence-graded rule-engine findings, each as a full auditable chain:
+    existing → expected → reason → evidence → strength → impact → recommendation."""
+    fs = report.get('v2_findings') or []
+    if not fs:
+        return ''
+    body = ''
+    for i, f in enumerate(fs, 1):
+        hex_ = _STRENGTH_HEX.get(f.get('strength'), '#64748b')
+        acts = ', '.join(str(x) for x in (f.get('activities') or [])) or '—'
+        body += (
+            f'<tr>'
+            f'<td class="sn">{i}</td>'
+            f'<td><span class="schip" style="background:{hex_}1a;color:{hex_};border-color:{hex_}55">'
+            f'{X._e(f.get("strength"))}</span></td>'
+            f'<td class="mono">{X._e(f.get("system"))}</td>'
+            f'<td><b>{X._e(f.get("title"))}</b>'
+            f'<div class="mut">{X._e(f.get("existing"))}</div></td>'
+            f'<td>{X._e(f.get("expected"))}<div class="mut">{X._e(f.get("reason"))}</div></td>'
+            f'<td class="mut">{X._e(f.get("evidence"))}</td>'
+            f'<td>{X._e(f.get("impact"))}</td>'
+            f'<td class="chg">{X._e(f.get("recommendation"))}</td>'
+            f'<td class="mono">{X._e(acts)}</td>'
+            f'</tr>')
+    return ('<table class="data"><colgroup>'
+            '<col style="width:3%"><col style="width:7%"><col style="width:9%"><col style="width:19%">'
+            '<col style="width:17%"><col style="width:15%"><col style="width:12%"><col style="width:12%">'
+            '<col style="width:6%"></colgroup>'
+            '<thead><tr><th>#</th><th>Strength</th><th>System</th><th>Finding</th>'
+            '<th>Expected &amp; why</th><th>Evidence</th><th>Impact</th>'
+            '<th>Recommendation</th><th>Activities</th></tr></thead><tbody>'
+            + body + '</tbody></table>')
+
+
+# Extra CSS for the two new components (archetype box + strength chip), appended to
+# the shared Constructability CSS so the framework document styles them.
+_EXTRA_CSS = '''
+      .arcbox { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; margin: 4px 0 6px; }
+      .arcrow { display: flex; gap: 10px; font-size: 11px; padding: 2px 0; }
+      .arcrow .ak { width: 150px; color: #64748b; flex: 0 0 auto; }
+      .arcrow .av { color: #1e293b; }
+      .schip { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase;
+               letter-spacing: .3px; padding: 1px 7px; border-radius: 20px; border: 1px solid; }
+'''
+
+
 def build_spec(report):
     s = report.get('score') or {}
     hex_ = X._hex(s.get('band'))
@@ -91,6 +160,14 @@ def build_spec(report):
         ReportComponent('wbs_review', 'WBS Review', 'table', render=X._wbs_review,
                         has_data=lambda r: bool(r.get('wbs_review')),
                         description='Standard WBS branches present or missing'),
+        # MEP-first rule engine (Phase 3) — resolution + evidence-graded findings, each
+        # a first-class selectable component per the Global Reporting standard.
+        ReportComponent('archetype_summary', 'Project-Type Resolution', 'summary',
+                        render=_archetype_summary, has_data=lambda r: bool(r.get('archetype')),
+                        description='MEP-first archetype the engine resolved, and the systems present/absent'),
+        ReportComponent('evidence_findings', 'Evidence-Graded Findings (R1–R7)', 'findings',
+                        render=_evidence_findings, has_data=lambda r: bool(r.get('v2_findings')),
+                        description='Deterministic rule-engine findings with the full evidence chain'),
         ReportComponent('conclusion', 'Conclusion', 'text', render=_conclusion,
                         has_data=lambda r: bool(r.get('conclusion')),
                         description='Closing summary line'),
@@ -100,7 +177,7 @@ def build_spec(report):
         feature=FEATURE,
         title='Constructability Review — Execution Readiness',
         meta_line=meta,
-        css=X.component_css(hex_),
+        css=X.component_css(hex_) + _EXTRA_CSS,
         orientation='landscape',
         components=components,
     )

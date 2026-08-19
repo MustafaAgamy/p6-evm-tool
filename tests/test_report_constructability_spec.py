@@ -106,12 +106,41 @@ def test_projection_defaults_on_when_present():
     assert 'What-If Projection' in doc
 
 
-def test_manifest_matches_ten_sections_with_types():
+def test_manifest_lists_all_sections_with_types():
     spec = get_spec('constructability', REPORT)
     m = manifest(spec, REPORT)
-    assert len(m) == 10
+    assert len(m) == 12
     types = {c['id']: c['type'] for c in m}
     assert types['illogical'] == 'table' and types['readiness_legend'] == 'chart'
     assert types['verdict'] == 'summary' and types['conclusion'] == 'text'
+    assert types['evidence_findings'] == 'findings' and types['archetype_summary'] == 'summary'
     # projection present because this report has one
     assert next(c for c in m if c['id'] == 'projection')['has_data'] is True
+
+
+def test_evidence_findings_component_renders_the_rule_engine_output():
+    report = dict(REPORT, archetype={
+        'archetype': 'process_oil_gas', 'archetype_name': 'Process / Oil & Gas Facility',
+        'confidence': 'high', 'signature_terms': ['spool', 'hydrotest'],
+        'present_systems': ['piping', 'electrical_power'], 'expected_but_absent': [], 'ambiguous': False,
+    }, v2_findings=[{
+        'kind': 'out_of_sequence', 'system': 'piping', 'discipline': 'PIPING',
+        'title': 'Piping insulated before it was pressure-tested', 'existing': 'insulation drives hydrotest',
+        'expected': 'Hydrotest first', 'reason': 'joints must be reachable', 'evidence': 'KB',
+        'strength': 'strong', 'impact': 'rework', 'recommendation': 'test before insulate',
+        'activities': ['A001', 'A002'],
+    }])
+    spec = get_spec('constructability', report)
+    doc = build_document(spec, report, selected_ids=['archetype_summary', 'evidence_findings'])
+    assert 'Project-Type Resolution' in doc and 'Process / Oil' in doc   # '&' is HTML-escaped
+    assert 'Evidence-Graded Findings' in doc
+    assert 'Piping insulated before it was pressure-tested' in doc
+    assert 'strong' in doc and 'test before insulate' in doc
+
+
+def test_evidence_findings_empty_shows_no_data():
+    report = {k: v for k, v in REPORT.items()}
+    report['v2_findings'] = []
+    spec = get_spec('constructability', report)
+    doc = build_document(spec, report, selected_ids=['evidence_findings'])
+    assert 'Evidence-Graded Findings' in doc and 'No findings' in doc
