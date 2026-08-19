@@ -179,3 +179,120 @@ def test_FN_R1_conveyor_commissioned_with_power_unlinked():
     rels = [(1, 2)]   # switchgear present but NOT linked to the conveyor
     assert fire(acts, rels, kind='missing_interface', system='conveying'), \
         'R1 must fire for a conveyor commissioned with permanent power unlinked'
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Round-2 confirmation sweep (96 fresh schedules against the hardened engine).
+#  The round-1 fixes had over-reached; these pin the second wave of root causes.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── FALSE POSITIVES — must stay SILENT ──
+
+def test_FP2_R6_reinstate_then_service_leak_test():
+    # strength hydrotest passes FIRST; a LATER service leak test after reinstatement is
+    # not the gating test — R6 must not read the reinstatement as a cover-before-test.
+    acts = ['Process pipe spool erection', 'Process piping hydrotest', 'Process piping flushing',
+            'Reinstate in-line items on process piping', 'Process piping service leak test']
+    rels = [(0, 1), (1, 2), (2, 3), (3, 4)]
+    assert not fire(acts, rels, kind='out_of_sequence', system='piping')
+
+
+def test_FP2_R6_cross_line_transitive():
+    # Line A tested then insulated; crew moves to Line B — B's hydrotest must not be
+    # flagged as covered by A's insulation.
+    acts = ['Cooling water pipe erection line A', 'Cooling water pipe hydrotest line A',
+            'Cooling water pipe insulation line A', 'Cooling water pipe erection line B',
+            'Cooling water pipe hydrotest line B']
+    rels = [(0, 1), (1, 2), (2, 3), (3, 4)]
+    assert not fire(acts, rels, kind='out_of_sequence', system='utilities')
+
+
+def test_FP2_R6_sectional_hydrotest_direct_cross_zone():
+    # Zone A tested then insulated; the insulation directly drives Zone B's hydrotest.
+    # Different zones ⇒ crew sequencing, not a covered-before-tested defect.
+    acts = ['CHW piping hydrotest Zone A', 'CHW piping insulation Zone A', 'CHW piping hydrotest Zone B']
+    rels = [(0, 1), (1, 2)]
+    assert not fire(acts, rels, kind='out_of_sequence', system='chilled_water')
+
+
+def test_FP2_R1_hydrotest_needs_no_power():
+    # A fire-water ring-main strength hydrotest needs no electrical power, even though
+    # electrical_power is in the project.
+    acts = ['Fire fighting ring main pipe erection', 'Fire fighting ring main hydrotest',
+            'MV switchgear installation and energization']
+    rels = [(0, 1)]
+    assert not fire(acts, rels, kind='missing_interface', system='fire_fighting')
+
+
+def test_FP2_R1_flush_and_pressure_test_no_power():
+    acts = ['Chiller installation', 'CHW distribution pipework erection', 'CHW system flushing',
+            'CHW pipework hydrostatic pressure test', 'Transformer energization']
+    rels = [(0, 1), (1, 2), (2, 3)]
+    assert not fire(acts, rels, kind='missing_interface', system='chilled_water')
+
+
+def test_FP2_R1_earthing_megger_no_power():
+    acts = ['Traction Power Substation Installation', 'Earth Mat Installation', 'Earthing System Megger Test']
+    rels = [(1, 2)]
+    assert not fire(acts, rels, kind='missing_interface', system='earthing')
+
+
+def test_FP2_R5_base_slab_named_foundation():
+    for name in ('Reinforced concrete base slab for Boiler No.1', 'Ground bearing slab for condensate transfer pump',
+                 'Substructure concrete for K-101 compressor', 'Quay Crane Rail Beam Concrete Casting'):
+        acts = [name, 'Equipment installation and setting']
+        assert not fire(acts, [(0, 1)], kind='missing_interface'), f'{name!r} is a foundation'
+
+
+def test_FP2_R7_finishing_functional_test():
+    acts = ['Install automatic sliding doors at main entrance', 'Functional test of automatic sliding doors']
+    rels = [(0, 1)]
+    assert not fire(acts, rels, kind='sequence_gap')
+
+
+# ── FALSE NEGATIVES — must FIRE ──
+
+def test_FN2_R4_pressure_test_of_erected_piping():
+    # 'Pressure test of erected process piping' is a test, not an install — the mid-name
+    # 'erected' must not silence the real test-before-install inversion.
+    acts = ['Pressure test of erected process piping', 'Process pipe spool erection']
+    rels = [(0, 1)]
+    assert fire(acts, rels, kind='out_of_sequence', system='piping')
+
+
+def test_FN2_R4_onsite_witness_test_before_install():
+    acts = ['Witness test of process pipe spool line 10', 'Process pipe spool erection line 10']
+    rels = [(0, 1)]
+    assert fire(acts, rels, kind='out_of_sequence', system='piping')
+
+
+def test_FN2_R1_per_activity_one_unpowered():
+    # AHU-1 is powered; AHU-2 is not — R1 must fire for AHU-2 (per-activity, not any).
+    acts = ['Substation energization', 'AHU-1 installation', 'AHU-1 commissioning',
+            'AHU-2 installation', 'AHU-2 commissioning']
+    rels = [(0, 1), (1, 2), (3, 4)]
+    assert fire(acts, rels, kind='missing_interface', system='hvac')
+
+
+def test_FN2_R1_unrelated_energization_does_not_count():
+    # a chiller commissioned with only a fire-pump energization upstream is unpowered.
+    acts = ['Common site enabling milestone', 'Fire pump energization', 'Chiller installation',
+            'Chiller commissioning', 'Transformer delivery to site']
+    rels = [(0, 1), (0, 2), (1, 3), (2, 3)]
+    assert fire(acts, rels, kind='missing_interface', system='chilled_water')
+
+
+def test_FN2_R7_performance_test_zero_commissioning():
+    # a plant performance test with only install + insulation behind it (no commissioning)
+    # must fire — pipe insulation is not commissioning.
+    acts = ['Chiller installation', 'CHW pipework insulation', 'Plant performance test']
+    rels = [(0, 1), (1, 2)]
+    assert fire(acts, rels, kind='sequence_gap')
+
+
+def test_FN2_R5_finishing_grout_does_not_clear():
+    # a booster pump whose only predecessor is 'floor tile grouting' is unfounded — the
+    # finishing 'grout' must not clear R5.
+    acts = ['Floor tile grouting to lobby', 'Booster pump installation']
+    rels = [(0, 1)]
+    assert fire(acts, rels, kind='missing_interface', system='rotating_equipment')

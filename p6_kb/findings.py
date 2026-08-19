@@ -18,6 +18,11 @@ from p6_kb.patterns import load_system_patterns
 from p6_kb.tagging import tag_view
 
 _LATE = {'TESTING', 'PRE_COMMISSIONING', 'COMMISSIONING', 'INTEGRATED_TESTING', 'PERFORMANCE', 'STARTUP'}
+# Power-gated late phases (R1): only FUNCTIONAL commissioning/running needs permanent
+# power. A hydrotest / pressure test / flush / megger / watertightness test is hydraulic
+# or passive pre-commissioning and needs NO power, so TESTING and PRE_COMMISSIONING are
+# deliberately excluded — including them made R1 fire on every hydrostatic test.
+_R1_POWER_LATE = {'COMMISSIONING', 'INTEGRATED_TESTING', 'PERFORMANCE', 'STARTUP'}
 _INSTALL = {'ERECTION_INSTALL', 'MECHANICAL_COMPLETION', 'ROUGH_IN'}
 _STRENGTH = {'strong': 3, 'moderate': 2, 'weak': 1, 'insufficient': 0}
 _MEP_DISC = {'MECH', 'ELEC', 'ELV', 'PIPING', 'INSTR', 'PLUMB', 'FIRE', 'PROCESS', 'UTIL'}
@@ -59,22 +64,40 @@ _R7_INTEGRATION = {'INTEGRATED_TESTING', 'PERFORMANCE', 'STARTUP'}
 # earlier commission-group phase (power-on / pre-comm / testing) is a real same-group
 # inversion the coarse groups miss.
 _PRE_COMMISSION = {'INSULATION', 'POWER_AVAILABLE', 'PRE_COMMISSIONING', 'TESTING'}
-# Off-site / vendor testing legitimately precedes delivery & site install — it is NOT a
-# site-testing-before-install defect. Exclude such activities as inversion drivers.
+# FACTORY / works / shop testing legitimately precedes delivery & site install — it is
+# NOT a site-testing-before-install defect. Kept narrow: only OFF-SITE markers. A bare
+# 'witness test' is often on-site (witnessed by the client) and must stay a real driver.
 _OFFSITE_KW = ('factory acceptance', 'factory test', 'works test', 'shop test', ' fat ',
-               '(fat', 'fat)', 'f.a.t', 'ex-works', 'ex works', 'witness test', 'type test',
-               'routine test', 'vendor test', 'string test at works')
-# Names that describe physical installation / procurement — if such a name tags to a
-# late phase (a downstream noun like 'flushing bypass' or 'test station' hijacked the
-# phase), it is a mis-phased install, not a real late-phase driver.
-_INSTALL_VERB = ('install', 'erect', 'fabricat', 'deliver', 'procure', 'supply', 'mount ',
-                 'lay ', 'laying', 'setting of', 'set of')
-# Foundation / support signals in an activity NAME — used to clear R5 even when the
-# tagger demotes an '<equipment> foundation' activity to system=None.
-_SUPPORT_KW = ('foundation', 'plinth', 'pedestal', 'anchor bolt', 'grout', 'base plate',
-               'baseplate', 'sole plate', 'soleplate', 'pile', 'pier', 'support steel',
-               'steel support', 'support frame', 'support structure', 'inertia', 'raft',
-               'concrete pour', 'pad ', 'pads')
+               '(fat', 'fat)', 'f.a.t', 'ex-works', 'ex works', 'at works', 'at the works',
+               'at factory', 'at vendor', "vendor's works", 'string test at works')
+# Leading install/procurement verbs — if a name STARTS with one but tagged to a late
+# phase (a downstream noun like 'Flushing Bypass' hijacked the phase), it is a mis-phased
+# install. Matched at the START only: 'Pressure test of ERECTED piping' is a test, not an
+# install, so an install word mid-name must not silence it.
+_INSTALL_VERB = ('install', 'erect', 'fabricat', 'deliver', 'procure', 'supply', 'mount',
+                 'lay ', 'laying', 'set ', 'setting')
+# Strength / pressure tests only (R6): the STRENGTH test is what must precede a cover. A
+# later 'service leak test' / 'flow test' / 'tightness test' happens AFTER reinstatement
+# and is not what R6 protects, so those are deliberately absent.
+_R6_STRENGTH_KW = ('hydrotest', 'hydro test', 'pressure test', 'strength test', 'pneumatic test')
+# Foundation-SPECIFIC name tokens (R5). Curated to exclude ambiguous words — bare 'grout'
+# ('tile grouting') and 'pad' ('crane hardstand pad') are NOT here; steel support is
+# handled by the structural_steel system tag instead.
+_FOUNDATION_KW = ('foundation', 'plinth', 'pedestal', 'anchor bolt', 'baseplate', 'base plate',
+                  'sole plate', 'soleplate', 'pile', 'pier', 'raft', 'inertia', 'concrete pour',
+                  'concrete cast', 'concrete works', 'concrete for', 'concrete base', 'substructure',
+                  'sub-structure', 'base slab', 'bearing slab', 'ground bearing', 'reinforced concrete',
+                  'rc base', 'r.c base', 'footing', 'mat foundation', 'skid base', 'pump base',
+                  'equipment base', 'isolation base', 'rail beam', 'housekeeping')
+_CIVIL_STRUCT_DISC = {'CIVIL', 'STRUCT', 'STRUCTURAL'}
+# Finishing / FF&E functional tests are not plant integration — a door/turnstile/AV
+# 'functional test' tags INTEGRATED_TESTING but must not trip R7.
+_R7_EXCLUDE_KW = ('door', 'window', 'sanitary', 'joinery', 'furniture', 'ff&e', 'ff & e',
+                  'signage', 'turnstile', 'barrier', 'gate ', 'shutter', 'partition', 'ceiling',
+                  'flooring', 'fixture', 'louvre', 'blind', 'curtain wall', 'balustrade')
+_ZONE_RX = __import__('re').compile(
+    r'\b(?:line|loop|riser|zone|unit|train|area|sector|phase|section|bay|grid|block|no\.?|#)\s*'
+    r'([a-z0-9]{1,4})\b')
 
 # The tagger collapses all piping patterns into one system id 'piping'; the KB stores
 # them as separate patterns. Normalise BOTH ways so a rule reads the right pattern and
@@ -136,6 +159,24 @@ def _nm(a):
     return (a.get('name') or '').lower()
 
 
+def _disc_of(a):
+    return ((a.get('identity') or {}).get('discipline') or '').upper()
+
+
+def _zone(a):
+    """A physical line / zone / loop / unit token from the activity name, or None. Two
+    activities with DIFFERENT explicit tokens are different physical lines — a dependency
+    between them is crew/area sequencing, not a technical constraint, so a phase inversion
+    across it is not a defect."""
+    m = _ZONE_RX.search(_nm(a))
+    return m.group(1) if m else None
+
+
+def _diff_zone(a, b):
+    za, zb = _zone(a), _zone(b)
+    return za is not None and zb is not None and za != zb
+
+
 def _is_offsite(a):
     """Factory / works / shop / FAT testing — vendor testing that legitimately precedes
     delivery and site installation, so it must not read as 'site testing before install'."""
@@ -145,8 +186,12 @@ def _is_offsite(a):
 def _mis_phased_install(a):
     """An install/procurement-named activity that tagged to a late phase because a
     downstream noun in its name (e.g. 'Install CHW Flushing Bypass') hijacked the phase.
-    Its real phase is installation, so it is not a genuine later-phase inversion driver."""
-    return (_group_of(a) or 0) >= 2 and any(k in _nm(a) for k in _INSTALL_VERB)
+    Matched at the START of the name only: 'Pressure test of erected piping' is a genuine
+    test whose mid-name 'erected' must NOT silence it."""
+    if (_group_of(a) or 0) < 2:
+        return False
+    n = _nm(a).lstrip()
+    return any(n.startswith(v) for v in _INSTALL_VERB)
 
 
 def _bad_inversion_driver(a):
@@ -183,11 +228,11 @@ def _has_support(pred_map, by_oid, oid):
         a = by_oid.get(p, {})
         if (_sys_of(a) in ('civil_interface', 'structural_steel')
                 or _phase_of(a) == 'CIVIL_INTERFACE'
-                or any(k in _nm(a) for k in _SUPPORT_KW)):
+                or any(k in _nm(a) for k in _FOUNDATION_KW)):
             return True
-    return _any_ancestor(pred_map, by_oid, oid,       # or clearly-support-named steel/foundation upstream
+    return _any_ancestor(pred_map, by_oid, oid,       # or clearly-foundation-named / steel activity upstream
                          lambda x: _sys_of(x) == 'structural_steel'
-                         or any(k in _nm(x) for k in _SUPPORT_KW))
+                         or any(k in _nm(x) for k in _FOUNDATION_KW))
 
 
 def _system_precedence(view, by_oid):
@@ -298,43 +343,54 @@ def generate_findings(view, resolution, patterns=None):
 
     def _powered(a):
         """The activity's power enabler — a permanent-power/energization predecessor,
-        transitively. Accept an ancestor tagged electrical_power OR one at the
-        POWER_AVAILABLE phase (energization often tags to its own system, e.g. a 'Fire
-        pump energization' tags fire_fighting, or 'HVAC energization' tags hvac)."""
+        transitively. Accept an ancestor tagged electrical_power, OR a POWER_AVAILABLE
+        activity of the SAME system (a system's own energization often tags to that
+        system — 'Fire pump energization' tags fire_fighting). A POWER_AVAILABLE activity
+        of a DIFFERENT system (an unrelated 'AHU energization' upstream) does NOT count —
+        that would wrongly clear a genuinely-unpowered system."""
+        s = _sys_of(a)
         return _any_ancestor(pred_map, by_oid, a['object_id'],
-                             lambda x: _sys_of(x) == 'electrical_power' or _phase_of(x) == 'POWER_AVAILABLE')
+                             lambda x: _sys_of(x) == 'electrical_power'
+                             or (_phase_of(x) == 'POWER_AVAILABLE' and _sys_of(x) == s))
 
     findings = []
-    for pinfo in resolution.get('relevant_patterns', []):
-        if not pinfo['present']:
-            continue
-        sysid = pinfo['system']
-        pat = patterns.get(sysid, {})
-        acts = sys_acts.get(sysid, [])
+    # Iterate what is ACTUALLY tagged in the schedule, not the archetype's relevant-
+    # patterns list — otherwise R1/R2 skip a system (e.g. a chiller) whenever the
+    # resolved archetype happens not to list it.
+    for sysid, acts in sys_acts.items():
+        pat = patterns.get(_to_pattern(sysid), {})
+        disc = pat.get('discipline', '')
         if not acts:
             continue
         late = [a for a in acts if (a.get('identity') or {}).get('phase') in _LATE]
 
-        # ── Rule 1: MEP testing/commissioning not tied to permanent power ──
-        # Power/energization is the ONE universal commissioning prerequisite (nothing
-        # commissions before it is energised). Deliberately narrow: only electrical
-        # power, and only when power IS in the project (absent ⇒ N/A, never a defect).
-        # Transitive: power two hops upstream (energize → loop-check → commission) counts.
-        if late and _is_mep_disc(pinfo['discipline']) and sysid != 'electrical_power' and 'electrical_power' in sys_present:
-            linked_power = any(_powered(a) for a in late)
-            if not linked_power:
+        # ── Rule 1: functional commissioning not tied to permanent power ──
+        # Power/energization is the ONE universal commissioning prerequisite (nothing runs
+        # before it is energised). Deliberately narrow: only FUNCTIONAL commissioning /
+        # running (not hydraulic tests, which need no power), only electrical power, only
+        # when power IS in the project (absent ⇒ N/A). Evaluated PER activity — one powered
+        # AHU does not vouch for an unpowered AHU beside it. Transitive; a same-system or
+        # electrical energization anywhere upstream counts.
+        commissioning = [a for a in acts if _phase_of(a) in _R1_POWER_LATE]
+        if commissioning and _is_mep_disc(disc) and sysid != 'electrical_power' \
+                and 'electrical_power' in sys_present:
+            unpowered = [a for a in commissioning if not _powered(a)]
+            if unpowered:
                 findings.append({
-                    'kind': 'missing_interface', 'system': sysid, 'discipline': pinfo['discipline'],
-                    'title': f"{pat.get('name', sysid)} testing/commissioning not tied to permanent power",
-                    'existing': f"{len(late)} {sysid} testing/commissioning activities; none has an electrical / energization predecessor.",
-                    'actual': f"No Finish-to-Start link from electrical power into the {sysid} testing/commissioning.",
-                    'expected': "Permanent power / energization precedes equipment testing and commissioning.",
-                    'reason': "Equipment cannot be functionally tested or commissioned before power is available.",
+                    'kind': 'missing_interface', 'system': sysid, 'discipline': disc,
+                    'title': f"{pat.get('name', sysid)} commissioning not tied to permanent power",
+                    'existing': f"{len(unpowered)} {sysid} commissioning / performance / start-up "
+                                f"activit{'y has' if len(unpowered) == 1 else 'ies have'} no electrical "
+                                f"energization predecessor.",
+                    'actual': f"No path from electrical power into the {sysid} commissioning.",
+                    'expected': "Permanent power / energization precedes equipment commissioning and running.",
+                    'reason': "Equipment cannot be functionally commissioned or run before power is available.",
                     'evidence': pat.get('evidence', '') or "Commissioning requires the system to be energised first.",
                     'strength': 'strong',
                     'impact': f"{sysid} may be commissioned before power is available — an unbuildable sequence.",
-                    'recommendation': "Add an electrical energization / permanent-power predecessor to the testing & commissioning, or confirm power is provided another way.",
-                    'activities': [_label(a) for a in late[:6]],
+                    'recommendation': "Add an electrical energization / permanent-power predecessor to the "
+                                      "commissioning, or confirm power is provided another way.",
+                    'activities': [_label(a) for a in unpowered[:6]],
                 })
 
         # ── Rule 2: within-system out-of-sequence — a late-phase activity DRIVES an
@@ -346,8 +402,12 @@ def generate_findings(view, resolution, patterns=None):
         for r in view.get('relationships_oid', []):
             if r['pred_oid'] in late_oids and r['succ_oid'] in install_oids:
                 pa, sa = by_oid.get(r['pred_oid'], {}), by_oid.get(r['succ_oid'], {})
+                if _phase_of(pa) == 'PRE_COMMISSIONING' and any(k in _nm(sa) for k in _REINSTATE_KW):
+                    continue                           # flush → reinstate in-line items is correct (R6)
+                if _diff_zone(pa, sa):
+                    continue                           # different physical lines — crew handover, not an inversion
                 findings.append({
-                    'kind': 'out_of_sequence', 'system': sysid, 'discipline': pinfo['discipline'],
+                    'kind': 'out_of_sequence', 'system': sysid, 'discipline': disc,
                     'title': f"{pat.get('name', sysid)} testing precedes installation",
                     'existing': f"'{pa.get('name','')}' (testing/commissioning) drives '{sa.get('name','')}' (installation).",
                     'expected': "Installation/mechanical completion precedes testing and commissioning.",
@@ -388,8 +448,8 @@ def generate_findings(view, resolution, patterns=None):
         s, w = _sys_of(pa), _sys_of(sa)               # S drives W  (dependent drives enabler)
         if (s, w) not in edge_by_pair or (s, w) in seen_r3:
             continue
-        if _phase_of(pa) != 'COMMISSIONING' or _bad_inversion_driver(pa):
-            continue                                   # only a commissioning driver, never a bare test
+        if _phase_of(pa) not in ('COMMISSIONING', 'STARTUP') or _bad_inversion_driver(pa):
+            continue                                   # only a commissioning/start-up driver, never a bare test
         gw = _group_of(sa)
         if gw is None or gw > 1:
             continue                                   # enabler must be at install-or-earlier
@@ -436,6 +496,8 @@ def generate_findings(view, resolution, patterns=None):
             continue                                   # FAT / mis-phased install — not a real driver
         if _phase_of(pa) == 'PRE_COMMISSIONING' and any(k in _nm(sa) for k in _REINSTATE_KW):
             continue                                   # flush → reinstate in-line items is correct (R6)
+        if _diff_zone(pa, sa):
+            continue                                   # different physical lines — a crew handover, not an inversion
         findings.append({
             'kind': 'out_of_sequence', 'system': ps, 'discipline': _disc(ps),
             'title': f"{_pat(ps).get('name', ps)}: later work drives earlier work",
@@ -483,32 +545,35 @@ def generate_findings(view, resolution, patterns=None):
             'activities': [_label(a) for a in unsupported[:6]],
         })
 
-    # ── Rule 6: a pipe insulated / covered BEFORE it was pressure-tested. INSULATION
-    #    and the pipe's own hydrotest both land in the commission group, so R4 can't tell
-    #    them apart — R6 knows a line is tested before it is covered. Transitive: the
-    #    cover need not directly precede the test (insulation → MC → hydrotest still hides
-    #    the joints). Runs on every piping-like system (process piping, chilled water,
-    #    plumbing, utilities, fire water). No hydrotest in that system ⇒ N/A. ──
+    # ── Rule 6: a pipe insulated / covered BEFORE its STRENGTH test. INSULATION and the
+    #    pipe's hydrotest both land in the commission group, so R4 can't tell them apart —
+    #    R6 knows a line is strength-tested before it is covered. Deliberately tight to
+    #    avoid the cross-line traps a transitive/broad rule fell into:
+    #      • the test must be a STRENGTH/pressure test by name — a later 'service leak
+    #        test' / 'flow test' after reinstatement is legitimate and never the gate;
+    #      • the cover must DIRECTLY drive the test — a transitive path from line A's
+    #        insulation to line B's test is crew sequencing, not a covered-before-tested
+    #        defect;
+    #      • and the two must not name DIFFERENT physical lines/zones.
+    #    Runs on every piping-like system (process piping, chilled water, plumbing,
+    #    utilities, fire water). No strength test / no cover ⇒ N/A. ──
     for psys in (_PIPING_LIKE & sys_present):
         pipe = sys_acts.get(psys, [])
-        hydro = [a for a in pipe
-                 if any(k in _nm(a) for k in _TESTING_KW)
-                 or (_phase_of(a) == 'TESTING' and 'factory' not in _nm(a))]
+        hydro_oids = {a['object_id'] for a in pipe if any(k in _nm(a) for k in _R6_STRENGTH_KW)}
         cover_oids = {a['object_id'] for a in pipe
                       if _phase_of(a) == 'INSULATION' or any(k in _nm(a) for k in _INSULATION_KW)
                       or any(k in _nm(a) for k in _REINSTATE_KW)}
-        if not hydro or not cover_oids:
-            continue                                   # N/A — no test, or nothing that covers the line
-        for h in hydro:
-            if _any_ancestor(pred_map, by_oid, h['object_id'], lambda x: x.get('object_id') in cover_oids):
-                # find the specific covering ancestor for the evidence line
-                cover = next((by_oid[c] for c in cover_oids
-                              if _any_ancestor(pred_map, by_oid, h['object_id'],
-                                               lambda x, cc=c: x.get('object_id') == cc)), {})
+        if not hydro_oids or not cover_oids:
+            continue                                   # N/A — no strength test, or nothing that covers the line
+        for r in view.get('relationships_oid', []):
+            if r['pred_oid'] in cover_oids and r['succ_oid'] in hydro_oids:
+                cover, h = by_oid.get(r['pred_oid'], {}), by_oid.get(r['succ_oid'], {})
+                if _diff_zone(cover, h):
+                    continue                           # different lines/zones — sectional test/insulate, correct
                 findings.append({
                     'kind': 'out_of_sequence', 'system': psys, 'discipline': _disc(psys),
                     'title': "Pipe insulated / boxed up before it was pressure-tested",
-                    'existing': f"'{cover.get('name', '')}' precedes the hydrotest "
+                    'existing': f"'{cover.get('name', '')}' directly precedes the strength test "
                                 f"'{h.get('name', '')}' — the line is covered before it is tested.",
                     'expected': "Hydrotest → flush/clean → reinstate in-line items → insulate/paint.",
                     'reason': "A pipe joint must be pressure-tested before it is covered; insulating or "
@@ -533,11 +598,14 @@ def generate_findings(view, resolution, patterns=None):
     # Target genuine plant-integration tests ONLY — HANDOVER is excluded: a construction
     # handover / snagging / close-out legitimately has no commissioning behind it.
     all_acts = view.get('activities_oid', [])
-    commission_exists = any(_group_of(a) == 2 for a in all_acts)
+    # 'Commissioned' means an ACTUAL testing/commissioning phase — not merely group 2,
+    # which now also holds INSULATION (pipe lagging must not count as commissioning).
+    _proved = {'TESTING', 'PRE_COMMISSIONING', 'COMMISSIONING'}
+    commission_exists = any(_phase_of(a) in _proved for a in all_acts)
     for a in all_acts:
-        if _phase_of(a) in _R7_INTEGRATION:
-            if _has_ancestor_group(view, by_oid, pred_map, a['object_id'], 2):
-                continue                               # a commissioning activity precedes it — silent
+        if _phase_of(a) in _R7_INTEGRATION and not any(k in _nm(a) for k in _R7_EXCLUDE_KW):
+            if _any_ancestor(pred_map, by_oid, a['object_id'], lambda x: _phase_of(x) in _proved):
+                continue                               # an individual-system test/commissioning precedes it — silent
             findings.append({
                 'kind': 'sequence_gap', 'system': _sys_of(a), 'discipline': _disc(_sys_of(a)),
                 'title': "Integrated / performance test not preceded by commissioning",
