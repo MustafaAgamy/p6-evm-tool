@@ -62,6 +62,14 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_period_excel(body)
         elif self.path == '/api/period/report':
             self._handle_period_report(body)
+        elif self.path == '/api/update/analyze':
+            self._handle_update_analyze(body)
+        elif self.path == '/api/update/bycode':
+            self._handle_update_bycode(body)
+        elif self.path == '/api/update/excel':
+            self._handle_update_excel(body)
+        elif self.path == '/api/update/report':
+            self._handle_update_report(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -339,6 +347,107 @@ class Handler(BaseHTTPRequestHandler):
             os.unlink(html_path)
             self._json(200, {'ok': True})
 
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/update/* — Update Analysis (single file vs its baseline) ───────
+    def _handle_update_analyze(self, body):
+        """Update Analysis — a single-file read of the current schedule against the baseline
+        embedded in it. Returns Time Status, Planned-vs-Actual by code and the Critical Path
+        Analyzer. EVM figures reused from metrics.compute so they match the EVM tab. No records."""
+        curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.classify import auto_categories, build_wbs_classifier
+            from p6_update.analysis import build_report_from_data
+            with open(resource_path('config.json')) as f:
+                base_config = json.load(f)
+            data = parse_file(curr_path)
+            cfg = dict(base_config)
+            cfg['categories'] = auto_categories(data)
+            metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
+            summary_level = int(body.get('summary_level', 0) or 0)
+            report = build_report_from_data(data, metrics, summary_level=summary_level)
+            report['file'] = os.path.basename(curr_path)
+            if not report.get('has_baseline'):
+                self._json(200, {'ok': False, 'code': 'no_baseline', 'report': report,
+                                 'error': 'This update has no baseline inside it. Attach a baseline, then run Update Analysis.'})
+                return
+            self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_bycode(self, body):
+        """Planned-vs-Actual for a chosen combination of activity-code dimensions (the
+        multi-code stacking option). Re-reads the file and returns the combined buckets."""
+        curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        types = body.get('types') or []
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_update.analysis import by_code_combined
+            data = parse_file(curr_path)
+            rows = by_code_combined(data, types)
+            self._json(200, {'ok': True, 'rows': rows, 'types': types})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_excel(self, body):
+        """Export the Update-Analysis report to .xlsx from the report the client holds."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_update.exporters import report_excel
+            from p6_evm.xlsx_writer import write_xlsx
+            headers, rows = report_excel(report)
+            write_xlsx(os.path.abspath(output_path), 'Update Analysis', headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_report(self, body):
+        """Update-Analysis PDF (or preview HTML) — rendered from the report the client holds,
+        in the house consultant style. `sections` limits which of the three appear."""
+        report = body.get('report') or {}
+        sections = body.get('sections')
+        code_filter = body.get('code_filter')
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_update.exporters import render_html
+            import subprocess, tempfile
+            html_content = render_html(report, sections, code_filter)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            out_path = os.path.abspath(output_path)
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
