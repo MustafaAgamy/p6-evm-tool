@@ -90,6 +90,12 @@ _FOUNDATION_KW = ('foundation', 'plinth', 'pedestal', 'anchor bolt', 'baseplate'
                   'rc base', 'r.c base', 'footing', 'mat foundation', 'skid base', 'pump base',
                   'equipment base', 'isolation base', 'rail beam', 'housekeeping')
 _CIVIL_STRUCT_DISC = {'CIVIL', 'STRUCT', 'STRUCTURAL'}
+# Civil elements that tag civil_interface but are NOT a machine's foundation — a cable
+# trench, duct bank, manhole or sleeve carries services, not equipment. They must not
+# clear R5 on their own; a name that ALSO reads as a real foundation still clears (checked
+# first). Kept to items that genuinely tag civil_interface — 'excavation' is deliberately
+# absent ('pump foundation excavation' is real foundation work).
+_NON_FOUNDATION_CIVIL = ('trench', 'duct bank', 'manhole', 'sleeve', 'drainage', 'cable')
 # Finishing / FF&E functional tests are not plant integration — a door/turnstile/AV
 # 'functional test' tags INTEGRATED_TESTING but must not trip R7.
 _R7_EXCLUDE_KW = ('door', 'window', 'sanitary', 'joinery', 'furniture', 'ff&e', 'ff & e',
@@ -226,9 +232,12 @@ def _has_support(pred_map, by_oid, oid):
     the cabling chain) does NOT clear it — that is not the machine's foundation."""
     for p in pred_map.get(oid, ()):                    # direct predecessors
         a = by_oid.get(p, {})
-        if (_sys_of(a) in ('civil_interface', 'structural_steel')
-                or _phase_of(a) == 'CIVIL_INTERFACE'
-                or any(k in _nm(a) for k in _FOUNDATION_KW)):
+        nm = _nm(a)
+        if any(k in nm for k in _FOUNDATION_KW):        # a real foundation right before the setting
+            return True
+        if any(k in nm for k in _NON_FOUNDATION_CIVIL):  # a trench/duct/cable is not the machine's base
+            continue
+        if _sys_of(a) in ('civil_interface', 'structural_steel') or _phase_of(a) == 'CIVIL_INTERFACE':
             return True
     return _any_ancestor(pred_map, by_oid, oid,       # or clearly-foundation-named / steel activity upstream
                          lambda x: _sys_of(x) == 'structural_steel'
