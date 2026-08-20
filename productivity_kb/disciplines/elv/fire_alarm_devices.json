@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elv.fa.devices",
+  "discipline": "ELV / Telecom",
+  "work_type": "Fire alarm",
+  "method": "devices",
+  "name": "Fire alarm devices",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "fire alarm",
+      "smoke detector",
+      "fa device",
+      "call point"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 25,
+    "likely": 25,
+    "unit": "devices/day",
+    "source": "built_in_kb",
+    "basis": "FA devices install + wire per gang",
+    "confidence": "medium",
+    "valid_for": "wiring pulled"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "ELV technician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

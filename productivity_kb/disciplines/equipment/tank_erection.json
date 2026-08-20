@@ -1,0 +1,51 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.equipment.tank_erection",
+  "discipline": "Equipment",
+  "work_type": "Tank erection",
+  "method": "field-erected shell",
+  "name": "Storage tank erection",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "tank erection",
+      "field tank",
+      "storage tank",
+      "shell plate"
+    ],
+    "codes": []
+  },
+  "unit": "ton",
+  "driver": "production_rate",
+  "rate": {
+    "value": 4,
+    "likely": 4,
+    "unit": "ton/day",
+    "source": "built_in_kb",
+    "basis": "Field-erected tank shell/roof (jack-up/conventional)",
+    "confidence": "low",
+    "valid_for": "per crew"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Fitter",
+        "count": 3
+      },
+      {
+        "trade": "Welder",
+        "count": 3
+      },
+      {
+        "trade": "Helper",
+        "count": 3
+      }
+    ]
+  }
+}

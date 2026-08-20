@@ -1,0 +1,42 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.hvac.duct_insulation",
+  "discipline": "HVAC",
+  "work_type": "Insulation",
+  "method": "duct thermal",
+  "name": "Duct thermal insulation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "duct insulation",
+      "duct lagging",
+      "thermal duct"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 50,
+    "likely": 50,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Duct thermal insulation per gang",
+    "confidence": "medium",
+    "valid_for": "duct tested"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Insulator",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

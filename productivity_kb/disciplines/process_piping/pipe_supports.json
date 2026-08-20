@@ -1,0 +1,48 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.piping.supports",
+  "discipline": "Process & Mechanical Piping",
+  "work_type": "Pipe supports",
+  "method": "fabricate & install",
+  "name": "Pipe supports",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "pipe support",
+      "supports",
+      "shoes",
+      "hangers",
+      "guides"
+    ],
+    "codes": []
+  },
+  "unit": "ton",
+  "driver": "production_rate",
+  "rate": {
+    "value": 2,
+    "likely": 2,
+    "unit": "ton/day",
+    "source": "built_in_kb",
+    "basis": "Pipe supports fab + install per gang",
+    "confidence": "medium",
+    "valid_for": "incl. minor welding"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Fitter",
+        "count": 2
+      },
+      {
+        "trade": "Welder",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

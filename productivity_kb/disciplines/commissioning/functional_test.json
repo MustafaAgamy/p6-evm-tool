@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "commissioning.functional_test",
+  "discipline": "Testing & Commissioning",
+  "work_type": "Functional testing",
+  "method": "SAT",
+  "name": "Functional / SAT test",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "functional test",
+      "sat",
+      "point to point",
+      "loop functional"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "typical",
+  "rate": {
+    "value": 2,
+    "likely": 2,
+    "unit": "days/system",
+    "source": "built_in_kb",
+    "basis": "Functional/SAT per system",
+    "confidence": "medium",
+    "valid_for": "pre-com complete"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Commissioning engineer",
+        "count": 1
+      },
+      {
+        "trade": "Technician",
+        "count": 2
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elv.data.structured_cabling",
+  "discipline": "ELV / Telecom",
+  "work_type": "Structured cabling",
+  "method": "install",
+  "name": "Structured cabling (data)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "structured cabling",
+      "data cabling",
+      "network cabling",
+      "cat6",
+      "rj45 drop"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 20,
+    "likely": 20,
+    "unit": "drops/day",
+    "source": "built_in_kb",
+    "basis": "Data outlet drops (pull/terminate/test) per gang",
+    "confidence": "medium",
+    "valid_for": "containment ready"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "ELV technician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

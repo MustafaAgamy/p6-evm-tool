@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "commissioning.performance_run",
+  "discipline": "Testing & Commissioning",
+  "work_type": "Performance / reliability run",
+  "method": "contractually fixed",
+  "name": "Performance / reliability run",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "performance run",
+      "reliability run",
+      "performance test",
+      "guarantee test"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "typical",
+  "rate": {
+    "value": null,
+    "likely": null,
+    "unit": "days",
+    "source": "built_in_kb",
+    "basis": "Contractually fixed run (e.g. 72 h / 7 / 30 day); a trip restarts it",
+    "confidence": "medium",
+    "valid_for": "contract-defined duration"
+  },
+  "crew": {
+    "hours_per_day": 24,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Operator",
+        "count": 3
+      },
+      {
+        "trade": "Engineer",
+        "count": 1
+      }
+    ]
+  }
+}

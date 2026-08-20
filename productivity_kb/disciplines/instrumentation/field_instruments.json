@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "ic.instruments.field",
+  "discipline": "Instrumentation & Controls",
+  "work_type": "Field instruments",
+  "method": "install",
+  "name": "Field instruments installation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "field instrument",
+      "instrument install",
+      "transmitter",
+      "gauge install"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 6,
+    "likely": 6,
+    "unit": "instruments/day",
+    "source": "built_in_kb",
+    "basis": "Field instrument mount + hook-up per gang",
+    "confidence": "medium",
+    "valid_for": "process/impulse ready"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Instrument technician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

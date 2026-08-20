@@ -1,0 +1,44 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.lighting.smallpower",
+  "discipline": "Electrical",
+  "work_type": "Lighting & small power",
+  "method": "install",
+  "name": "Lighting & small power",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "lighting",
+      "luminaire",
+      "small power",
+      "light fitting",
+      "socket"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 25,
+    "likely": 25,
+    "unit": "points/day",
+    "source": "built_in_kb",
+    "basis": "Luminaires & accessories install per gang",
+    "confidence": "medium",
+    "valid_for": "wiring pulled"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Electrician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

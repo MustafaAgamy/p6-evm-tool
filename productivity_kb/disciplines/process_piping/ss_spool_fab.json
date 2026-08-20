@@ -1,0 +1,50 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.piping.ss.spool_fab",
+  "discipline": "Process & Mechanical Piping",
+  "work_type": "Piping fabrication",
+  "method": "shop spool, stainless/alloy",
+  "name": "SS/alloy spool fabrication",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "stainless spool",
+      "alloy pipe fabrication",
+      "ss spool fab"
+    ],
+    "codes": []
+  },
+  "unit": "dia-inch",
+  "driver": "production_rate",
+  "rate": {
+    "value": 70,
+    "likely": 70,
+    "unit": "dia-inch/day",
+    "source": "built_in_kb",
+    "basis": "SS/alloy spool fab (slower, purge welds)",
+    "confidence": "low",
+    "valid_for": "alloy, purge/GTAW"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "Fab foreman",
+        "count": 1
+      },
+      {
+        "trade": "Fitter",
+        "count": 2
+      },
+      {
+        "trade": "TIG welder",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.cable.terminations",
+  "discipline": "Electrical",
+  "work_type": "Terminations",
+  "method": "LV/MV",
+  "name": "Cable terminations & glanding",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "termination",
+      "glanding",
+      "cable termination",
+      "lug",
+      "gland"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 20,
+    "likely": 20,
+    "unit": "terminations/day",
+    "source": "built_in_kb",
+    "basis": "LV/MV terminations & glanding per gang",
+    "confidence": "medium",
+    "valid_for": "cable pulled/tested"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Electrician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

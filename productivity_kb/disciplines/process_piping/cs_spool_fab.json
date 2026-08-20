@@ -1,0 +1,52 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.piping.cs.spool_fab",
+  "discipline": "Process & Mechanical Piping",
+  "work_type": "Piping fabrication",
+  "method": "shop spool, carbon steel",
+  "name": "CS spool fabrication",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "spool fabrication",
+      "pipe fabrication",
+      "spool fab",
+      "shop fabrication",
+      "prefab pipe"
+    ],
+    "codes": []
+  },
+  "unit": "dia-inch",
+  "driver": "production_rate",
+  "rate": {
+    "value": 120,
+    "likely": 120,
+    "unit": "dia-inch/day",
+    "source": "built_in_kb",
+    "basis": "CS shop spool fab (cut/fit/weld) per gang",
+    "confidence": "medium",
+    "valid_for": "shop conditions"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "Fab foreman",
+        "count": 1
+      },
+      {
+        "trade": "Fitter",
+        "count": 2
+      },
+      {
+        "trade": "Welder",
+        "count": 2
+      },
+      {
+        "trade": "Grinder/helper",
+        "count": 2
+      }
+    ]
+  }
+}

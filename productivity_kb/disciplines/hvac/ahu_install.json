@@ -1,0 +1,42 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.hvac.ahu_install",
+  "discipline": "HVAC",
+  "work_type": "HVAC equipment",
+  "method": "install & connect",
+  "name": "AHU installation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "ahu",
+      "air handling unit",
+      "ahu install"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 0.5,
+    "likely": 0.5,
+    "unit": "units/day",
+    "source": "built_in_kb",
+    "basis": "AHU set + duct/pipe/elec connections",
+    "confidence": "low",
+    "valid_for": "plant room ready"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "HVAC technician",
+        "count": 3
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

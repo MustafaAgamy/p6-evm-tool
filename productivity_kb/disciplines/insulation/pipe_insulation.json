@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.insulation.pipe",
+  "discipline": "Insulation & Coatings",
+  "work_type": "Insulation",
+  "method": "hot / cold pipe",
+  "name": "Pipe insulation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "pipe insulation",
+      "insulation",
+      "cladding pipe",
+      "lagging"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 30,
+    "likely": 30,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "Pipe insulation + metal cladding per gang",
+    "confidence": "medium",
+    "valid_for": "pipe accessible, tested"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Insulator",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

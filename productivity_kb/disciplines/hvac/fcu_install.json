@@ -1,0 +1,42 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.hvac.fcu_install",
+  "discipline": "HVAC",
+  "work_type": "HVAC equipment",
+  "method": "install & connect",
+  "name": "FCU installation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "fcu",
+      "fan coil unit",
+      "fcu install"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 6,
+    "likely": 6,
+    "unit": "units/day",
+    "source": "built_in_kb",
+    "basis": "FCU install + pipe/duct/drain connect",
+    "confidence": "medium",
+    "valid_for": "ceiling access"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "HVAC technician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

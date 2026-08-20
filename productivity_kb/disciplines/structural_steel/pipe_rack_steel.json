@@ -1,0 +1,63 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "steel.pipe_rack.erection",
+  "discipline": "Civil/Structural",
+  "work_type": "Structural steel",
+  "method": "pipe rack erection",
+  "name": "Pipe rack steel erection",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "pipe rack",
+      "piperack",
+      "rack steel",
+      "rack erection"
+    ],
+    "codes": []
+  },
+  "unit": "ton",
+  "driver": "production_rate",
+  "rate": {
+    "value": 10,
+    "likely": 10,
+    "unit": "ton/day",
+    "source": "built_in_kb",
+    "basis": "Pipe rack steel erection (modular/stick)",
+    "confidence": "medium",
+    "valid_for": "per crew, crane access"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "Rigger foreman",
+        "count": 1
+      },
+      {
+        "trade": "Rigger",
+        "count": 3
+      },
+      {
+        "trade": "Bolter",
+        "count": 2
+      },
+      {
+        "trade": "Welder",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Mobile crane",
+      "count": 1,
+      "basis": "duration",
+      "utilization": 0.8
+    }
+  ]
+}

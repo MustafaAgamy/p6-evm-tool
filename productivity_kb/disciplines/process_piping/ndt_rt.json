@@ -1,0 +1,53 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.piping.ndt_rt",
+  "discipline": "Process & Mechanical Piping",
+  "work_type": "NDT",
+  "method": "radiography",
+  "name": "NDT / radiography",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "ndt",
+      "radiography",
+      "rt",
+      "x-ray weld",
+      "weld inspection"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 60,
+    "likely": 60,
+    "unit": "shots/day",
+    "source": "built_in_kb",
+    "basis": "RT crew per isotope/shift window",
+    "confidence": "low",
+    "valid_for": "per RT crew"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "RT technician",
+        "count": 2
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "RT crew/isotope",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 40,
+        "likely": 60,
+        "high": 90
+      },
+      "output_unit": "shots"
+    }
+  ]
+}

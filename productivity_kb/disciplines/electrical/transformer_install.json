@@ -1,0 +1,59 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.transformer.install",
+  "discipline": "Electrical",
+  "work_type": "Transformers",
+  "method": "crane set",
+  "name": "Transformer installation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "transformer install",
+      "transformer",
+      "trafo set"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 0.5,
+    "likely": 0.5,
+    "unit": "units/2 days",
+    "source": "built_in_kb",
+    "basis": "Transformer set + connect (crane-governed)",
+    "confidence": "medium",
+    "valid_for": "crane-governed"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Electrician",
+        "count": 2
+      },
+      {
+        "trade": "Rigger",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Crane",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 0.3,
+        "likely": 0.5,
+        "high": 1.0
+      },
+      "output_unit": "units"
+    }
+  ]
+}

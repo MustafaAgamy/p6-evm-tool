@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "ic.tubing.install",
+  "discipline": "Instrumentation & Controls",
+  "work_type": "Tubing",
+  "method": "impulse/pneumatic",
+  "name": "Instrument tubing",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "instrument tubing",
+      "impulse tube",
+      "tubing",
+      "ss tubing"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 30,
+    "likely": 30,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "SS instrument tubing run + fit per gang",
+    "confidence": "medium",
+    "valid_for": "tray/route ready"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Instrument technician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

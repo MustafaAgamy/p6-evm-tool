@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "commissioning.elec.energisation",
+  "discipline": "Testing & Commissioning",
+  "work_type": "Energisation",
+  "method": "permit-driven",
+  "name": "Energisation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "energisation",
+      "energization",
+      "power on",
+      "charge system"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "typical",
+  "rate": {
+    "value": 1,
+    "likely": 1,
+    "unit": "days/system",
+    "source": "built_in_kb",
+    "basis": "Energise a distribution section (permit-driven)",
+    "confidence": "low",
+    "valid_for": "permits, safety case"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Commissioning engineer",
+        "count": 1
+      },
+      {
+        "trade": "Electrician",
+        "count": 2
+      }
+    ]
+  }
+}

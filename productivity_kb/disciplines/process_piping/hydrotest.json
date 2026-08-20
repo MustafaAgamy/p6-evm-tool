@@ -1,0 +1,47 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.piping.hydrotest",
+  "discipline": "Process & Mechanical Piping",
+  "work_type": "Testing",
+  "method": "system hydrotest",
+  "name": "Piping hydrotest",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "hydrotest",
+      "hydro test",
+      "pressure test",
+      "leak test"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "typical",
+  "rate": {
+    "value": 1.5,
+    "likely": 1.5,
+    "unit": "days/system",
+    "source": "built_in_kb",
+    "basis": "Fill/pressurise/hold/depressurise per test pack",
+    "confidence": "medium",
+    "valid_for": "per test package"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Test engineer",
+        "count": 1
+      },
+      {
+        "trade": "Fitter",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

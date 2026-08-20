@@ -1,0 +1,37 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.equipment.exchanger_supply",
+  "discipline": "Equipment",
+  "work_type": "Equipment supply",
+  "method": "fabricate + deliver",
+  "name": "Heat exchanger — supply",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "exchanger supply",
+      "heat exchanger",
+      "shell and tube"
+    ],
+    "codes": []
+  },
+  "unit": "unit",
+  "driver": "lead_time",
+  "rate": {
+    "value": null,
+    "likely": null,
+    "unit": "days",
+    "source": "built_in_kb",
+    "basis": "Vendor fabricate + deliver",
+    "confidence": "medium",
+    "valid_for": "vendor-specific"
+  },
+  "crew": {},
+  "lead_time": {
+    "approval_days": 25,
+    "procure_days": 40,
+    "fabricate_days": 120,
+    "deliver_days": 25,
+    "customs_days": 5,
+    "offload_days": 5
+  }
+}

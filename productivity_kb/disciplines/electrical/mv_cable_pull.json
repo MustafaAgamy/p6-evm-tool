@@ -1,0 +1,42 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.cable.pull_mv",
+  "discipline": "Electrical",
+  "work_type": "Cable pulling",
+  "method": "MV",
+  "name": "MV cable pulling",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "mv cable",
+      "medium voltage cable",
+      "hv cable pull"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 200,
+    "likely": 200,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "MV cable pull (heavier, careful bends)",
+    "confidence": "low",
+    "valid_for": "containment ready"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "Electrician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 5
+      }
+    ]
+  }
+}

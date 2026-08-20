@@ -1,0 +1,44 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.equipment.rotating_install",
+  "discipline": "Equipment",
+  "work_type": "Equipment installation",
+  "method": "align & grout (rotating)",
+  "name": "Rotating equipment installation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "pump install",
+      "compressor install",
+      "rotating equipment",
+      "align pump",
+      "grout baseplate"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 0.5,
+    "likely": 0.5,
+    "unit": "units/day",
+    "source": "built_in_kb",
+    "basis": "Set/align/grout rotating equipment (precision)",
+    "confidence": "low",
+    "valid_for": "laser alignment"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Millwright",
+        "count": 3
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

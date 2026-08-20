@@ -1,0 +1,47 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.hvac.chw_pipe",
+  "discipline": "HVAC",
+  "work_type": "HVAC piping",
+  "method": "chilled water",
+  "name": "Chilled-water piping",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "chilled water pipe",
+      "chw pipe",
+      "condenser water",
+      "hvac piping"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 35,
+    "likely": 35,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "CHW steel pipe install + weld/groove per gang",
+    "confidence": "medium",
+    "valid_for": "by size band"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Pipe fitter",
+        "count": 2
+      },
+      {
+        "trade": "Welder",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

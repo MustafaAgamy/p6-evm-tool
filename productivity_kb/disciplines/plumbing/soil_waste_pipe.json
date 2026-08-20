@@ -1,0 +1,44 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.phe.soil_waste",
+  "discipline": "Plumbing & Drainage",
+  "work_type": "Plumbing",
+  "method": "soil / waste / vent",
+  "name": "Soil & waste piping",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "soil pipe",
+      "waste pipe",
+      "drainage pipe",
+      "upvc drainage",
+      "vent pipe"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 40,
+    "likely": 40,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "Soil/waste/vent (uPVC/HDPE) per gang",
+    "confidence": "medium",
+    "valid_for": "first fix"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Plumber",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

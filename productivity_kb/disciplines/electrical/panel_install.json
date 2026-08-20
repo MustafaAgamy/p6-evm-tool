@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.panel.install",
+  "discipline": "Electrical",
+  "work_type": "Panels",
+  "method": "install & connect",
+  "name": "DB / panel installation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "db install",
+      "panel install",
+      "distribution board",
+      "mcc panel"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 2,
+    "likely": 2,
+    "unit": "panels/day",
+    "source": "built_in_kb",
+    "basis": "DB/panel set + connect per gang",
+    "confidence": "medium",
+    "valid_for": "room ready"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Electrician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.phe.domestic_water",
+  "discipline": "Plumbing & Drainage",
+  "work_type": "Plumbing",
+  "method": "domestic water",
+  "name": "Domestic water piping",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "domestic water",
+      "water supply pipe",
+      "ppr pipe",
+      "copper pipe plumbing"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 45,
+    "likely": 45,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "Domestic water pipe (PPR/copper) per gang",
+    "confidence": "medium",
+    "valid_for": "first fix"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Plumber",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

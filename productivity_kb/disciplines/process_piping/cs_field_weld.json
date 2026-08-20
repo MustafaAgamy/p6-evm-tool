@@ -1,0 +1,47 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.piping.cs.field_weld",
+  "discipline": "Process & Mechanical Piping",
+  "work_type": "Welding",
+  "method": "field butt weld, carbon steel",
+  "name": "CS field butt weld",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "field weld",
+      "butt weld",
+      "pipe weld",
+      "welding cs"
+    ],
+    "codes": []
+  },
+  "unit": "dia-inch",
+  "driver": "production_rate",
+  "rate": {
+    "value": 55,
+    "likely": 55,
+    "unit": "dia-inch/day",
+    "source": "built_in_kb",
+    "basis": "CS field butt weld (SMAW/FCAW) per welder-gang",
+    "confidence": "medium",
+    "valid_for": "downhand/position mix"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "Welder",
+        "count": 1
+      },
+      {
+        "trade": "Fitter",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

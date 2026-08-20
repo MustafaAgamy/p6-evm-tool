@@ -1,0 +1,42 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "commissioning.cold",
+  "discipline": "Testing & Commissioning",
+  "work_type": "Cold commissioning",
+  "method": "no-load",
+  "name": "Cold commissioning",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "cold commissioning",
+      "no load test",
+      "pre-commissioning"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "typical",
+  "rate": {
+    "value": 3,
+    "likely": 3,
+    "unit": "days/system",
+    "source": "built_in_kb",
+    "basis": "Cold commissioning per system/subsystem",
+    "confidence": "low",
+    "valid_for": "mechanical completion"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Commissioning engineer",
+        "count": 1
+      },
+      {
+        "trade": "Technician",
+        "count": 3
+      }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.piping.flange_bolt_up",
+  "discipline": "Process & Mechanical Piping",
+  "work_type": "Bolt-up",
+  "method": "controlled torque",
+  "name": "Flange bolt-up",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "flange bolt up",
+      "bolting",
+      "flange make up",
+      "torque bolting"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 40,
+    "likely": 40,
+    "unit": "joints/day",
+    "source": "built_in_kb",
+    "basis": "Controlled-torque flange bolt-up per gang",
+    "confidence": "medium",
+    "valid_for": "gaskets/bolts available"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Fitter",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

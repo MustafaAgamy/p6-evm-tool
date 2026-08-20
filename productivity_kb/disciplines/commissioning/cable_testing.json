@@ -1,0 +1,39 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "commissioning.elec.cable_test",
+  "discipline": "Testing & Commissioning",
+  "work_type": "Electrical testing",
+  "method": "IR / continuity",
+  "name": "Cable testing (IR/continuity)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "cable test",
+      "insulation resistance",
+      "ir test",
+      "continuity test"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 30,
+    "likely": 30,
+    "unit": "cables/day",
+    "source": "built_in_kb",
+    "basis": "IR/continuity test per gang",
+    "confidence": "medium",
+    "valid_for": "terminations complete"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Commissioning tech",
+        "count": 2
+      }
+    ]
+  }
+}

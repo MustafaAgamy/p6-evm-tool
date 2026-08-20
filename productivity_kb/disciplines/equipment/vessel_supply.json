@@ -1,0 +1,46 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.equipment.vessel_supply",
+  "discipline": "Equipment",
+  "work_type": "Equipment supply",
+  "method": "fabricate + deliver",
+  "name": "Pressure vessel — supply",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "vessel supply",
+      "pressure vessel",
+      "column supply",
+      "reactor supply"
+    ],
+    "codes": []
+  },
+  "unit": "unit",
+  "driver": "lead_time",
+  "rate": {
+    "value": null,
+    "likely": null,
+    "unit": "days",
+    "source": "built_in_kb",
+    "basis": "Vendor fabricate + deliver (long-lead)",
+    "confidence": "low",
+    "valid_for": "vendor-specific"
+  },
+  "crew": {},
+  "material": [
+    {
+      "name": "Vessel",
+      "unit": "unit",
+      "qty_per_unit": 1.0,
+      "waste_pct": 0
+    }
+  ],
+  "lead_time": {
+    "approval_days": 30,
+    "procure_days": 45,
+    "fabricate_days": 150,
+    "deliver_days": 30,
+    "customs_days": 5,
+    "offload_days": 5
+  }
+}

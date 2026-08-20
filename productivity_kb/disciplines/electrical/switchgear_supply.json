@@ -1,0 +1,37 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.switchgear.supply",
+  "discipline": "Electrical",
+  "work_type": "Equipment supply",
+  "method": "fabricate + deliver",
+  "name": "Switchgear — supply",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "switchgear supply",
+      "panel supply",
+      "mcc supply"
+    ],
+    "codes": []
+  },
+  "unit": "unit",
+  "driver": "lead_time",
+  "rate": {
+    "value": null,
+    "likely": null,
+    "unit": "days",
+    "source": "built_in_kb",
+    "basis": "Vendor build switchgear + FAT + deliver (long-lead)",
+    "confidence": "low",
+    "valid_for": "vendor + FAT"
+  },
+  "crew": {},
+  "lead_time": {
+    "approval_days": 30,
+    "procure_days": 30,
+    "fabricate_days": 150,
+    "deliver_days": 30,
+    "customs_days": 7,
+    "offload_days": 3
+  }
+}

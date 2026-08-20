@@ -1,0 +1,60 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.switchgear.install",
+  "discipline": "Electrical",
+  "work_type": "Switchgear",
+  "method": "install & connect",
+  "name": "MV/LV switchgear installation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "switchgear install",
+      "mv switchgear",
+      "lv switchgear",
+      "rmu"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 1,
+    "likely": 1,
+    "unit": "panels/day",
+    "source": "built_in_kb",
+    "basis": "Switchgear line-up set + connect (crane/skate)",
+    "confidence": "low",
+    "valid_for": "crane/skate governed"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Electrician",
+        "count": 3
+      },
+      {
+        "trade": "Rigger",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Crane / skates",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 0.7,
+        "likely": 1.0,
+        "high": 2.0
+      },
+      "output_unit": "panels"
+    }
+  ]
+}

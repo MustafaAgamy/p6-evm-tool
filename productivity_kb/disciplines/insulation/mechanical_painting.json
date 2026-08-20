@@ -1,0 +1,47 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.coatings.painting",
+  "discipline": "Insulation & Coatings",
+  "work_type": "Protective coatings",
+  "method": "blast + paint",
+  "name": "Mechanical painting / coating",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "mechanical painting",
+      "protective coating",
+      "blast and paint",
+      "epoxy coating"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 60,
+    "likely": 60,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Surface prep + coating system per coat",
+    "confidence": "medium",
+    "valid_for": "per coat; blast prepared"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Painter",
+        "count": 2
+      },
+      {
+        "trade": "Blaster",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

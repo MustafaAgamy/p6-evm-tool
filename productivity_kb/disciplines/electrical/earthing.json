@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.earthing.install",
+  "discipline": "Electrical",
+  "work_type": "Earthing & LP",
+  "method": "earthing/lightning",
+  "name": "Earthing & lightning protection",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "earthing",
+      "grounding",
+      "lightning protection",
+      "earth pit"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 60,
+    "likely": 60,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "Earthing conductor/tape + pits per gang",
+    "confidence": "medium",
+    "valid_for": "trench/route ready"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Electrician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

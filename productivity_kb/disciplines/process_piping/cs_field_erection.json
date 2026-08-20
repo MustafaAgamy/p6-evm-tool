@@ -1,0 +1,60 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.piping.cs.field_erection",
+  "discipline": "Process & Mechanical Piping",
+  "work_type": "Piping installation",
+  "method": "field erection, carbon steel",
+  "name": "CS pipe field erection",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "pipe erection",
+      "field piping",
+      "pipe installation",
+      "cs pipe erection",
+      "install pipe"
+    ],
+    "codes": []
+  },
+  "unit": "dia-inch",
+  "driver": "production_rate",
+  "rate": {
+    "value": 45,
+    "likely": 45,
+    "unit": "dia-inch/day",
+    "source": "built_in_kb",
+    "basis": "CS field erection incl. field welds, per gang",
+    "confidence": "medium",
+    "valid_for": "rack/route accessible"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "Pipe foreman",
+        "count": 1
+      },
+      {
+        "trade": "Pipe fitter",
+        "count": 2
+      },
+      {
+        "trade": "Welder",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Welding machine",
+      "count": 2,
+      "basis": "duration",
+      "utilization": 0.8
+    }
+  ]
+}

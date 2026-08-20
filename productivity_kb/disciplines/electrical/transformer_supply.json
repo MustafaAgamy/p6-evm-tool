@@ -1,0 +1,36 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.transformer.supply",
+  "discipline": "Electrical",
+  "work_type": "Equipment supply",
+  "method": "fabricate + deliver",
+  "name": "Transformer — supply",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "transformer supply",
+      "trafo supply"
+    ],
+    "codes": []
+  },
+  "unit": "unit",
+  "driver": "lead_time",
+  "rate": {
+    "value": null,
+    "likely": null,
+    "unit": "days",
+    "source": "built_in_kb",
+    "basis": "Vendor build transformer + deliver (long-lead)",
+    "confidence": "medium",
+    "valid_for": "vendor-specific"
+  },
+  "crew": {},
+  "lead_time": {
+    "approval_days": 30,
+    "procure_days": 30,
+    "fabricate_days": 180,
+    "deliver_days": 35,
+    "customs_days": 7,
+    "offload_days": 3
+  }
+}

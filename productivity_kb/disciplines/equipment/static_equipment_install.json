@@ -1,0 +1,65 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.equipment.static_install",
+  "discipline": "Equipment",
+  "work_type": "Equipment installation",
+  "method": "crane set (static)",
+  "name": "Static equipment installation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "vessel install",
+      "exchanger install",
+      "column install",
+      "static equipment",
+      "set equipment"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 1,
+    "likely": 1,
+    "unit": "units/2 days",
+    "source": "built_in_kb",
+    "basis": "Set + align + grout static equipment (crane-governed)",
+    "confidence": "medium",
+    "valid_for": "crane-governed lift"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Millwright foreman",
+        "count": 1
+      },
+      {
+        "trade": "Millwright",
+        "count": 3
+      },
+      {
+        "trade": "Rigger",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Crawler crane",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 0.3,
+        "likely": 0.5,
+        "high": 1.0
+      },
+      "output_unit": "units"
+    }
+  ]
+}

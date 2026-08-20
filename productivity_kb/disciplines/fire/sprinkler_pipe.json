@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.fire.sprinkler_pipe",
+  "discipline": "Fire Protection",
+  "work_type": "Fire protection",
+  "method": "sprinkler pipe",
+  "name": "Sprinkler piping",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "sprinkler pipe",
+      "fire pipe",
+      "fire fighting pipe",
+      "grooved pipe"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 35,
+    "likely": 35,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "Sprinkler pipe (grooved) install per gang",
+    "confidence": "medium",
+    "valid_for": "route accessible"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Fitter",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

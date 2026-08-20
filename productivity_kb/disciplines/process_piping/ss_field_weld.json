@@ -1,0 +1,47 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.piping.ss.field_weld",
+  "discipline": "Process & Mechanical Piping",
+  "work_type": "Welding",
+  "method": "field butt weld, stainless/alloy",
+  "name": "SS/alloy field butt weld",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "stainless weld",
+      "alloy weld",
+      "tig weld",
+      "ss field weld"
+    ],
+    "codes": []
+  },
+  "unit": "dia-inch",
+  "driver": "production_rate",
+  "rate": {
+    "value": 28,
+    "likely": 28,
+    "unit": "dia-inch/day",
+    "source": "built_in_kb",
+    "basis": "SS/alloy GTAW field weld (purge)",
+    "confidence": "low",
+    "valid_for": "GTAW, purge, PWHT excl."
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "TIG welder",
+        "count": 1
+      },
+      {
+        "trade": "Fitter",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

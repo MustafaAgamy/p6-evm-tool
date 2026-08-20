@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "commissioning.integrated_system_test",
+  "discipline": "Testing & Commissioning",
+  "work_type": "Integrated system test",
+  "method": "IST",
+  "name": "Integrated system test",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "integrated system test",
+      "ist",
+      "integrated test",
+      "system integration"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "typical",
+  "rate": {
+    "value": 7,
+    "likely": 7,
+    "unit": "days/system",
+    "source": "built_in_kb",
+    "basis": "IST across integrated systems",
+    "confidence": "low",
+    "valid_for": "all subsystems commissioned"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Commissioning manager",
+        "count": 1
+      },
+      {
+        "trade": "Engineer",
+        "count": 3
+      }
+    ]
+  }
+}

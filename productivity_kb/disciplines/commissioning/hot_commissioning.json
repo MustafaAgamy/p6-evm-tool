@@ -1,0 +1,47 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "commissioning.hot",
+  "discipline": "Testing & Commissioning",
+  "work_type": "Hot commissioning",
+  "method": "on-load / start-up",
+  "name": "Hot commissioning / start-up",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "hot commissioning",
+      "start up",
+      "startup",
+      "on load"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "typical",
+  "rate": {
+    "value": 5,
+    "likely": 5,
+    "unit": "days/system",
+    "source": "built_in_kb",
+    "basis": "Hot commissioning / start-up per system",
+    "confidence": "low",
+    "valid_for": "feedstock/utilities available"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Commissioning engineer",
+        "count": 2
+      },
+      {
+        "trade": "Operator",
+        "count": 3
+      },
+      {
+        "trade": "Technician",
+        "count": 3
+      }
+    ]
+  }
+}

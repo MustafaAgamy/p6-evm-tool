@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "ic.io.termination",
+  "discipline": "Instrumentation & Controls",
+  "work_type": "I/O termination",
+  "method": "marshalling",
+  "name": "I/O & marshalling termination",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "io termination",
+      "marshalling",
+      "loop wiring",
+      "junction box termination"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 30,
+    "likely": 30,
+    "unit": "points/day",
+    "source": "built_in_kb",
+    "basis": "I/O termination at JB/marshalling per gang",
+    "confidence": "medium",
+    "valid_for": "cables identified"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Instrument technician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

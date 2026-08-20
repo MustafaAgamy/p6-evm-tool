@@ -1,0 +1,42 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.fire.sprinkler_heads",
+  "discipline": "Fire Protection",
+  "work_type": "Fire protection",
+  "method": "heads",
+  "name": "Sprinkler heads",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "sprinkler head",
+      "fire head",
+      "pendant head"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 40,
+    "likely": 40,
+    "unit": "heads/day",
+    "source": "built_in_kb",
+    "basis": "Sprinkler head install after ceiling",
+    "confidence": "medium",
+    "valid_for": "ceiling grid set"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Fitter",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

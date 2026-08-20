@@ -1,0 +1,38 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.equipment.skid_supply",
+  "discipline": "Equipment",
+  "work_type": "Equipment supply",
+  "method": "packaged skid",
+  "name": "Packaged skid — supply",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "skid supply",
+      "packaged unit",
+      "package skid",
+      "modular skid"
+    ],
+    "codes": []
+  },
+  "unit": "unit",
+  "driver": "lead_time",
+  "rate": {
+    "value": null,
+    "likely": null,
+    "unit": "days",
+    "source": "built_in_kb",
+    "basis": "Vendor build packaged skid + deliver",
+    "confidence": "medium",
+    "valid_for": "vendor-specific"
+  },
+  "crew": {},
+  "lead_time": {
+    "approval_days": 30,
+    "procure_days": 30,
+    "fabricate_days": 180,
+    "deliver_days": 30,
+    "customs_days": 7,
+    "offload_days": 5
+  }
+}

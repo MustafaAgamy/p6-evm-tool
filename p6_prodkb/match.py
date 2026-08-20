@@ -85,9 +85,10 @@ def resolve(activity, quantity=None, project_type=None, templates=None,
     templates = templates if templates is not None else load_templates()
     m = match(activity, templates)
     # Two DISTINCT statuses, never conflated:
-    #   knowledge_not_available -> the KB has no pattern for this activity/type/method
-    #   needs_input             -> a template matched, but a required input (quantity) is missing
-    if not m["template"] or m["band"] == "needs_planner":
+    #   knowledge_not_available -> the KB has no CONFIDENT pattern for this activity/type/method
+    #   needs_input             -> a template matched confidently, but a required input (qty) is missing
+    # A weak/low-confidence match is treated as a KB gap, not a rate — never infer or invent.
+    if not m["template"] or m["band"] in ("needs_planner", "low"):
         return {"activity": activity, "match": m, "result": None,
                 "status": "knowledge_not_available",
                 "status_label": "Knowledge Not Available",
@@ -97,6 +98,8 @@ def resolve(activity, quantity=None, project_type=None, templates=None,
                     "project_type": project_type,
                     "work_type": activity.get("work_type"),
                     "method": activity.get("method"),
+                    "closest_template": (m["template"] or {}).get("template_id") if m["template"] else None,
+                    "match_confidence": m.get("confidence"),
                     "missing": "productivity_pattern",
                     "action": "Add or calibrate the required productivity pattern in the KB."}}
     ctx = {}
