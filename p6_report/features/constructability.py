@@ -51,6 +51,40 @@ def _conclusion(report):
 
 
 _STRENGTH_HEX = {'strong': '#dc2626', 'moderate': '#d97706', 'weak': '#64748b', 'insufficient': '#94a3b8'}
+_BAND_HEX = {'green': '#16a34a', 'amber': '#d97706', 'orange': '#ea580c', 'red': '#dc2626'}
+
+
+def _evidence_score(report):
+    """The MEP-first evidence-weighted score — a second, distinct score beside the KB
+    Constructability score, computed only from the R1–R7 findings."""
+    s = report.get('v2_score') or {}
+    if not s:
+        return ''
+    hexb = _BAND_HEX.get(s.get('band'), '#64748b')
+    bys = s.get('by_strength', {})
+    chips = ' '.join(
+        f'<span class="schip" style="background:{_STRENGTH_HEX.get(k, "#64748b")}1a;'
+        f'color:{_STRENGTH_HEX.get(k, "#64748b")};border-color:{_STRENGTH_HEX.get(k, "#64748b")}55">'
+        f'{n} {X._e(k)}</span>'
+        for k, n in bys.items())
+    ded = ''
+    for d in s.get('deductions', [])[:8]:
+        ded += (f'<tr><td class="mono">−{d.get("points")}</td>'
+                f'<td class="mono">{X._e(d.get("system"))}</td>'
+                f'<td>{X._e(d.get("strength"))} · {X._e(d.get("discipline_class"))}</td>'
+                f'<td>{X._e(d.get("title"))}</td></tr>')
+    ded_tbl = (('<table class="data" style="margin-top:6px"><thead><tr><th>Points</th>'
+                '<th>System</th><th>Weight basis</th><th>Finding</th></tr></thead><tbody>'
+                + ded + '</tbody></table>') if ded else '')
+    return (f'<div class="escore">'
+            f'<div class="esbadge" style="border-color:{hexb};color:{hexb}">'
+            f'<div class="esnum">{s.get("overall")}</div><div class="esden">/ 100</div></div>'
+            f'<div class="esbody">'
+            f'<div class="esband" style="color:{hexb}">{X._e(s.get("band_label"))}</div>'
+            f'<div class="esmeta">{s.get("finding_count")} evidence-graded finding(s) · '
+            f'−{s.get("total_deducted")} points · {X._e(s.get("basis"))}</div>'
+            f'<div class="eschips">{chips}</div>'
+            f'</div></div>{ded_tbl}')
 
 
 def _archetype_summary(report):
@@ -116,6 +150,14 @@ _EXTRA_CSS = '''
       .arcrow .av { color: #1e293b; }
       .schip { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase;
                letter-spacing: .3px; padding: 1px 7px; border-radius: 20px; border: 1px solid; }
+      .escore { display: flex; align-items: center; gap: 14px; }
+      .esbadge { display: flex; flex-direction: column; align-items: center; justify-content: center;
+                 width: 78px; height: 78px; border: 3px solid; border-radius: 12px; flex: 0 0 auto; }
+      .esnum { font-size: 30px; font-weight: 800; line-height: 1; }
+      .esden { font-size: 10px; opacity: .7; }
+      .esband { font-size: 15px; font-weight: 700; }
+      .esmeta { font-size: 11px; color: #64748b; margin: 2px 0 5px; }
+      .eschips .schip { margin-right: 4px; }
 '''
 
 
@@ -165,6 +207,9 @@ def build_spec(report):
         ReportComponent('archetype_summary', 'Project-Type Resolution', 'summary',
                         render=_archetype_summary, has_data=lambda r: bool(r.get('archetype')),
                         description='MEP-first archetype the engine resolved, and the systems present/absent'),
+        ReportComponent('evidence_score', 'MEP-First Execution-Logic Score', 'summary',
+                        render=_evidence_score, has_data=lambda r: bool(r.get('v2_score')),
+                        description='Second score, strength × MEP-priority weighted, from the R1–R7 findings'),
         ReportComponent('evidence_findings', 'Evidence-Graded Findings (R1–R7)', 'findings',
                         render=_evidence_findings, has_data=lambda r: bool(r.get('v2_findings')),
                         description='Deterministic rule-engine findings with the full evidence chain'),

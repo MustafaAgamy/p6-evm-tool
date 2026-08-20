@@ -109,13 +109,36 @@ def test_projection_defaults_on_when_present():
 def test_manifest_lists_all_sections_with_types():
     spec = get_spec('constructability', REPORT)
     m = manifest(spec, REPORT)
-    assert len(m) == 12
+    assert len(m) == 13
     types = {c['id']: c['type'] for c in m}
     assert types['illogical'] == 'table' and types['readiness_legend'] == 'chart'
     assert types['verdict'] == 'summary' and types['conclusion'] == 'text'
     assert types['evidence_findings'] == 'findings' and types['archetype_summary'] == 'summary'
+    assert types['evidence_score'] == 'summary'
     # projection present because this report has one
     assert next(c for c in m if c['id'] == 'projection')['has_data'] is True
+
+
+def test_evidence_score_component_renders_second_score():
+    report = dict(REPORT, v2_score={
+        'overall': 72, 'band': 'amber', 'band_label': 'Minor sequence risks',
+        'total_deducted': 28.0, 'finding_count': 4, 'by_strength': {'strong': 2, 'moderate': 2},
+        'basis': 'MEP-first · strength × discipline weight',
+        'deductions': [{'title': 'Chiller comm not tied to power', 'system': 'chilled_water',
+                        'discipline_class': 'mep', 'strength': 'strong', 'points': 10.0}],
+    })
+    spec = get_spec('constructability', report)
+    doc = build_document(spec, report, selected_ids=['evidence_score'])
+    assert 'MEP-First Execution-Logic Score' in doc
+    assert '72' in doc and 'Minor sequence risks' in doc
+    assert 'Chiller comm not tied to power' in doc
+
+
+def test_evidence_score_absent_shows_no_data():
+    report = {k: v for k, v in REPORT.items() if k != 'v2_score'}
+    spec = get_spec('constructability', report)
+    doc = build_document(spec, report, selected_ids=['evidence_score'])
+    assert 'MEP-First Execution-Logic Score' in doc and 'No data' in doc
 
 
 def test_evidence_findings_component_renders_the_rule_engine_output():

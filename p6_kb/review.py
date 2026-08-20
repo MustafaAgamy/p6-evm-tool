@@ -11,7 +11,7 @@ from p6_kb.learn import (has_learning, learned_panel, load_profile,
 from p6_kb.findings import generate_findings
 from p6_kb.model import schedule_view
 from p6_kb.resolve import resolve as resolve_archetype
-from p6_kb.scoring import compute_score
+from p6_kb.scoring import compute_score, evidence_score
 from p6_kb.tagging import detect_systems
 
 
@@ -357,9 +357,15 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
     # not change v1 findings/score; the Phase 3 rule engine will consume it.
     archetype = None
     v2_findings = []
+    v2_score = None
     try:
         archetype = resolve_archetype(view)
-        v2_findings = generate_findings(view, archetype)   # evidence-graded, read-only (not scored yet)
+        v2_findings = generate_findings(view, archetype)   # evidence-graded, read-only
+        # MEP-first evidence-weighted score — a SECOND score beside the KB score,
+        # computed only from the R1–R7 findings. Shown whenever the archetype resolved
+        # (so a genuinely clean schedule shows 100 / execution-logic-sound); None only
+        # when the engine could not analyse the project at all.
+        v2_score = evidence_score(v2_findings) if archetype else None
     except Exception:
         archetype = None
 
@@ -408,5 +414,6 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
         'systems': systems,
         'archetype': archetype,
         'v2_findings': v2_findings,
+        'v2_score': v2_score,
         'conclusion': conclusion,
     }
