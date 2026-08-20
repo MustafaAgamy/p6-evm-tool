@@ -83,12 +83,17 @@ def test_update_report_preview_and_excel(test_server, tmp_path):
     assert out.exists() and out.stat().st_size > 0
 
 
-def test_update_bycode_combined(test_server, tmp_path):
+def test_update_counts(test_server, tmp_path):
     path = _sample(tmp_path)
-    _, data = _post_json(test_server, '/api/update/bycode',
-                         {'xml_path': path, 'types': ['Discipline']})
+    _, data = _post_json(test_server, '/api/update/counts', {'xml_path': path})
     assert data['ok'] is True
-    assert any(row['value'] == 'Civil' for row in data['rows'])
+    c = data['counts']
+    assert c['total'] >= 1
+    assert c['actual_completed'] + c['actual_in_progress'] + c['actual_not_started'] == c['total']
+    # filter narrows to the Discipline=Civil subset
+    _, f = _post_json(test_server, '/api/update/counts',
+                      {'xml_path': path, 'code_filter': {'type': 'Discipline', 'value': 'Civil'}})
+    assert f['ok'] is True and f['counts']['total'] >= 1
 
 
 def test_update_analyze_missing_file(test_server):

@@ -64,8 +64,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_period_report(body)
         elif self.path == '/api/update/analyze':
             self._handle_update_analyze(body)
-        elif self.path == '/api/update/bycode':
-            self._handle_update_bycode(body)
+        elif self.path == '/api/update/counts':
+            self._handle_update_counts(body)
         elif self.path == '/api/update/excel':
             self._handle_update_excel(body)
         elif self.path == '/api/update/report':
@@ -382,21 +382,23 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
-    def _handle_update_bycode(self, body):
-        """Planned-vs-Actual for a chosen combination of activity-code dimensions (the
-        multi-code stacking option). Re-reads the file and returns the combined buckets."""
+    def _handle_update_counts(self, body):
+        """Section 4 — activity counts (Completed / In Progress / Not Started, Planned vs
+        Actual) for construction/execution activities, optionally filtered to one activity-code
+        value. Re-reads the file so the filter is exact."""
         curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
-        types = body.get('types') or []
+        code_filter = body.get('code_filter')
         if not curr_path or not os.path.isfile(curr_path):
             self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
             return
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
-            from p6_update.analysis import by_code_combined
+            from p6_update.analysis import activity_counts
             data = parse_file(curr_path)
-            rows = by_code_combined(data, types)
-            self._json(200, {'ok': True, 'rows': rows, 'types': types})
+            counts = activity_counts(data, code_filter=code_filter)
+            self._json(200, {'ok': True, 'counts': counts,
+                             'code_types': list(getattr(data, 'activity_code_types', []) or [])})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

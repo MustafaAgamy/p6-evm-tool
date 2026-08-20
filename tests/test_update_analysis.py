@@ -12,7 +12,7 @@ from p6_evm.parser import parse_file
 from p6_evm.metrics import compute
 from p6_evm.classify import auto_categories, build_wbs_classifier
 from p6_update.analysis import (
-    time_status, by_code, by_code_combined, critical_path, build_report_from_data,
+    time_status, by_code, activity_counts, critical_path, build_report_from_data,
 )
 from utils import resource_path
 
@@ -153,17 +153,25 @@ def test_by_code_planned_vs_actual():
     assert bc['Discipline'][0]['value'] == 'Mechanical'
 
 
-def test_by_code_combined_stacks_two_codes():
+def test_activity_counts_planned_vs_actual():
+    # Data date 2025-07-02. A1 baseline done (Jan–Jun) and 100% actual → both completed.
+    # A2 baseline mid-flight (Mar–Sep) and 40% actual → both in progress.
+    # A3 baseline future (Aug–Dec) and 0% actual → both not started.
     xml = _xml('2025-07-02', [
-        (10, 'X1', 'A', 0.2, '2025-01-01', '2025-12-31', 80, 100, {'Discipline': 'Mechanical', 'Area': 'Silo 1'}),
-        (11, 'X2', 'B', 0.9, '2025-01-01', '2025-12-31', 80, 100, {'Discipline': 'Mechanical', 'Area': 'Silo 2'}),
+        (10, 'A1', 'Done', 1.0, '2025-01-01', '2025-06-30', 80, 100, {'Discipline': 'Civil'}),
+        (11, 'A2', 'Mid', 0.4, '2025-03-01', '2025-09-30', 80, 100, {'Discipline': 'Civil'}),
+        (12, 'A3', 'Future', 0.0, '2025-08-01', '2025-12-31', 80, 100, {'Discipline': 'Mechanical'}),
     ])
     data, metrics = _parse_and_compute(xml)
-    rows = {r['value']: r for r in by_code_combined(data, ['Discipline', 'Area'])}
-    assert 'Mechanical · Silo 1' in rows
-    assert 'Mechanical · Silo 2' in rows
-    assert rows['Mechanical · Silo 1']['actual'] == 20.0
-    assert rows['Mechanical · Silo 2']['actual'] == 90.0
+    c = activity_counts(data)
+    assert c['total'] == 3
+    assert c['actual_completed'] == 1 and c['actual_in_progress'] == 1 and c['actual_not_started'] == 1
+    assert c['planned_completed'] == 1 and c['planned_in_progress'] == 1 and c['planned_not_started'] == 1
+    # actual buckets reconcile to the total
+    assert c['actual_completed'] + c['actual_in_progress'] + c['actual_not_started'] == c['total']
+    # filter by activity code narrows the set
+    civ = activity_counts(data, code_filter={'type': 'Discipline', 'value': 'Civil'})
+    assert civ['total'] == 2
 
 
 # ── Section 3 ────────────────────────────────────────────────────────────────
@@ -192,6 +200,31 @@ def test_critical_path_rolls_up_to_wbs_boxes():
     soil = next(b for b in boxes if b['name'] == 'Soil Replacement')
     assert soil['pct'] == 50.0
     assert soil['crumb'] == 'Silo 1'
+    # New box fields: planned %, source, and the milestone big-box path start
+    assert 'planned' in soil and 'source' in soil
+    assert soil['source'] == 'wbs'           # these activities are cost-loaded → WBS rollup
+    assert cp['milestone'].get('path_start')  # earliest baseline start on the path
+
+
+def test_critical_path_no_cost_shows_the_activity():
+    # Same shape but with NO ResourceAssignments → the work front carries no cost, so the box
+    # must show the specific driving activity by name, not a WBS rollup.
+    wbs = [(100, 'Proj', ''), (200, 'Silo 1', 100), (301, 'Soil Replacement', 200)]
+    acts = [
+        (20, 'S1', 'Soil layer 1 in Silo 1', 0.5, '2025-03-02', '2025-06-01', 320, 301, {}),
+        (21, 'S2', 'Soil layer 2 in Silo 1', 0.0, '2025-03-02', '2025-06-01', 320, 301, {}),
+    ]
+    rels = [(20, 999)]
+    ms = [(999, 'MS', 'Project completion', '2025-06-01', 200)]
+    # Build XML but strip the ResourceAssignments so nothing is cost-loaded.
+    xml = _xml('2025-04-01', acts, rels, wbs, ms)
+    import re
+    xml = re.sub(r'<ResourceAssignment>.*?</ResourceAssignment>', '', xml, flags=re.S)
+    data, metrics = _parse_and_compute(xml)
+    boxes = critical_path(data)['charts'][0]['boxes']
+    soil = next(b for b in boxes if 'Soil' in b['name'])
+    assert soil['source'] == 'activity'          # no cost → the activity itself
+    assert soil['name'] == 'Soil layer 1 in Silo 1'   # exact activity name, not the WBS name
 
 
 def test_build_report_flags_missing_baseline():
@@ -225,11 +258,13 @@ def test_render_html_and_excel_smoke():
     report['file'] = 'test.xml'
     html = render_html(report)
     assert '<h1>Update Analysis</h1>' in html
-    assert 'Time Status' in html and 'Planned vs Actual' in html and 'Critical Path Analyzer' in html
+    assert 'Time Status' in html and 'Planned vs Actual' in html and 'Driving Path Analyzer' in html
+    assert 'by activity count' in html   # Section 4 present
     # section filter drops the others
     only = render_html(report, sections=['time'])
-    assert 'Time Status' in only and 'Critical Path Analyzer' not in only
+    assert 'Time Status' in only and 'Driving Path Analyzer' not in only
     headers, rows = report_excel(report)
     assert headers[0] == 'Section'
     assert any(r[0] == 'Time Status' for r in rows)
-    assert any(r[0].startswith('Critical Path') for r in rows)
+    assert any(r[0].startswith('Driving Path') for r in rows)
+    assert any(r[0] == 'Activity count' for r in rows)

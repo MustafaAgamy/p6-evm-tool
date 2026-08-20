@@ -111,6 +111,12 @@ def time_status(data, metrics):
     actual_pct = round(a_sum / tot_w * 100, 1) if tot_w else None
     planned_pct = round(p_sum / p_w * 100, 1) if p_w else None
 
+    # The money behind the percentages — Planned Value, Earned Value and their variance,
+    # straight from metrics.compute (ties to the EVM tab).
+    pv = metrics.get('pv') if metrics else None
+    ev = metrics.get('ev') if metrics else None
+    cost_variance = (ev - pv) if (pv is not None and ev is not None) else None
+
     behind_clock = None
     if actual_pct is not None and elapsed_pct is not None:
         behind_clock = round(elapsed_pct - actual_pct, 1)   # +ve = behind the clock
@@ -131,6 +137,9 @@ def time_status(data, metrics):
         'behind_clock': behind_clock,
         'behind_plan': behind_plan,
         'cost_loaded': cost_loaded,
+        'pv': pv,
+        'ev': ev,
+        'cost_variance': cost_variance,
     }
 
 
@@ -174,16 +183,58 @@ def by_code(data):
     return {t: _bucket(data, [t]) for t in (getattr(data, 'activity_code_types', None) or [])}
 
 
-def by_code_combined(data, types):
-    """Rows for one combination of code dimensions (the multi-code stacking option) — e.g.
-    Discipline × Area gives 'Mechanical · Silo 1'. Bars only; never a cross-tab matrix."""
-    types = [t for t in (types or []) if t]
-    if not types:
-        return []
-    return _bucket(data, types)
+# ── Section 4 · Planned vs Actual by activity count ──────────────────────────
+
+def activity_counts(data, construction_only=True, code_filter=None):
+    """Count activities by status — Completed / In Progress / Not Started — on the Planned
+    side (from the baseline dates at the data date) and the Actual side (from % complete),
+    over construction/execution activities only. Optionally filtered to one activity-code
+    value. The three actual buckets sum to `total`; the three planned buckets sum to
+    `planned_total` (activities that carry a baseline)."""
+    cons = None
+    if construction_only:
+        try:
+            from p6_compare.report import _construction_codes
+            cons = _construction_codes(data) or None
+        except Exception:
+            cons = None
+    data_date = (getattr(data, 'project', None) or {}).get('data_date')
+    ft = (code_filter or {}).get('type')
+    fv = (code_filter or {}).get('value')
+
+    c = {'planned_completed': 0, 'planned_in_progress': 0, 'planned_not_started': 0,
+         'actual_completed': 0, 'actual_in_progress': 0, 'actual_not_started': 0,
+         'total': 0, 'planned_total': 0}
+    for a in data.activities.values():
+        if a.get('task_type') in _MILESTONES:
+            continue
+        if cons is not None and a.get('id') not in cons:
+            continue
+        if ft and fv and (a.get('activity_codes') or {}).get(ft) != fv:
+            continue
+        c['total'] += 1
+        pc = a.get('percent_complete') or 0.0
+        if pc >= 1.0 or a.get('actual_finish'):
+            c['actual_completed'] += 1
+        elif pc > 0.0 or a.get('actual_start'):
+            c['actual_in_progress'] += 1
+        else:
+            c['actual_not_started'] += 1
+        bl = _baseline_of(data, a)
+        bs, bf = bl.get('planned_start'), bl.get('planned_finish')
+        if bf and data_date and bf <= data_date:
+            c['planned_completed'] += 1
+            c['planned_total'] += 1
+        elif bs and data_date and bs <= data_date:
+            c['planned_in_progress'] += 1
+            c['planned_total'] += 1
+        elif bs:
+            c['planned_not_started'] += 1
+            c['planned_total'] += 1
+    return c
 
 
-# ── Section 3 · Critical Path Analyzer ───────────────────────────────────────
+# ── Section 3 · Driving Path Analyzer ────────────────────────────────────────
 
 def _governing_milestone(data):
     """The completion milestone with the latest forecast finish — the one that decides when
@@ -293,47 +344,81 @@ def critical_path(data, summary_level=0, construction_only=True):
         for anc in _wbs_ancestor_ids(a.get('wbs_id'), wmap):
             subtree.setdefault(anc, []).append(a)
 
-    # Order the driving activities into work-front boxes. Each WBS work front appears once
-    # (a driving path can re-enter a work front; showing the same box twice is just noise),
-    # in the order it first appears along the path.
+    # Order the driving activities into work-front boxes. Each WBS work front appears once,
+    # in path order. Keep the driving activity that put each WBS on the path (the no-cost
+    # fallback below shows that activity by name) and the path activities (for the path start).
+    data_date = (getattr(data, 'project', None) or {}).get('data_date')
     box_order = []
     seen_wids = set()
+    box_driver = {}
+    path_acts = []
     for oid in chain:
         act = graph.activities.get(oid)
         if not act:
             continue
         if cons is not None and act.get('id') not in cons:
             continue   # non-construction link — traversed for connectivity, not shown
+        path_acts.append(act)
         wid = _box_wbs_id(act, wmap, summary_level)
         if not wid or wid in seen_wids:
             continue
         seen_wids.add(wid)
         box_order.append(wid)
+        box_driver[wid] = act
+
+    bl_bac = getattr(data, 'baseline_bac_by_activity', None) or {}
+    cur_bac = getattr(data, 'bac_by_activity', None) or {}
+
+    def _has_cost(acts):
+        return any((bl_bac.get(a.get('object_id')) or cur_bac.get(a.get('object_id')) or 0) > 0 for a in acts)
 
     boxes = []
     for wid in box_order:
         acts = subtree.get(wid, [])
-        w = wa = 0.0
-        bls, exps = [], []
-        for a in acts:
-            ww = _weight(data, a)
-            w += ww
-            wa += ww * (a.get('percent_complete') or 0.0)
-            bf = _baseline_of(data, a).get('planned_finish')
-            ff = _forecast_finish(a)
-            if bf:
-                bls.append(bf)
-            if ff:
-                exps.append(ff)
-        pct = round(wa / w * 100, 1) if w else 0.0
-        bl_fin = max(bls) if bls else None
-        exp_fin = max(exps) if exps else None
+        if _has_cost(acts):
+            # Cost-loaded work front → WBS rollup (budget-weighted), collapsed like in P6.
+            w = wa = pw = pp = 0.0
+            bls, exps = [], []
+            for a in acts:
+                ww = _weight(data, a)
+                w += ww
+                wa += ww * (a.get('percent_complete') or 0.0)
+                pl = activity_planned_pct(a, data.baseline_by_id, data_date, data.calendars)
+                if pl is not None:
+                    pw += ww
+                    pp += ww * pl
+                bf = _baseline_of(data, a).get('planned_finish')
+                ff = _forecast_finish(a)
+                if bf:
+                    bls.append(bf)
+                if ff:
+                    exps.append(ff)
+            pct = round(wa / w * 100, 1) if w else 0.0
+            planned = round(pp / pw * 100, 1) if pw else 0.0
+            bl_fin = max(bls) if bls else None
+            exp_fin = max(exps) if exps else None
+            name = _wbs_name(wid, wmap)
+            source = 'wbs'
+        else:
+            # No cost anywhere in this work front → show the specific driving ACTIVITY by its
+            # exact name, with its own numbers. A budget-weighted WBS % would be meaningless and
+            # can blend unrelated activities (e.g. Silo 7 done + Silo 10 not started → a false 50%).
+            a = box_driver[wid]
+            pct = round((a.get('percent_complete') or 0.0) * 100, 1)
+            pl = activity_planned_pct(a, data.baseline_by_id, data_date, data.calendars)
+            planned = round((pl or 0.0) * 100, 1)
+            bl_fin = _baseline_of(data, a).get('planned_finish')
+            exp_fin = _forecast_finish(a)
+            name = a.get('name') or a.get('id') or _wbs_name(wid, wmap)
+            source = 'activity'
         slip = _days_between(ref_cal, bl_fin, exp_fin)
         boxes.append({
             'wbs_id': wid,
             'crumb': _crumb(wid, wmap),
-            'name': _wbs_name(wid, wmap),
+            'name': name,
+            'source': source,               # 'wbs' rollup, or a single 'activity' (no cost)
             'pct': pct,
+            'planned': planned,
             'bl_finish': _iso(bl_fin),
             'exp_finish': _iso(exp_fin),
             'slip_days': slip,
@@ -341,12 +426,20 @@ def critical_path(data, summary_level=0, construction_only=True):
             'complete': pct >= 100.0,
         })
 
+    # Milestone "big box" — the path start is the earliest baseline start among the path's
+    # construction activities (fallback: earliest forecast/actual start).
+    starts = [s for s in (_baseline_of(data, a).get('planned_start') for a in path_acts) if s]
+    if not starts:
+        starts = [s for s in ((a.get('remaining_early_start') or a.get('actual_start')) for a in path_acts) if s]
+    ms_start = min(starts) if starts else None
+
     ms_bl = _baseline_of(data, milestone).get('planned_finish')
     ms_exp = _forecast_finish(milestone)
     ms_slip = _days_between(ref_cal, ms_bl, ms_exp)
     ms = {
         'name': milestone.get('name') or milestone.get('id') or 'Project completion',
         'id': milestone.get('id'),
+        'path_start': _iso(ms_start),
         'baseline_finish': _iso(ms_bl),
         'expected_finish': _iso(ms_exp),
         'slip_days': ms_slip,
@@ -402,6 +495,7 @@ def build_report_from_data(data, metrics, summary_level=0):
         'time_status': ts,
         'by_code': by_code(data),
         'critical_path': cp,
+        'counts': activity_counts(data),
         'conclusion': _report_conclusion(ts, cp),
     }
 
