@@ -27,6 +27,24 @@ def _finish(act):
     return act.get('remaining_early_finish') or act.get('planned_finish')
 
 
+# Names that read as the project completion — when none matches by name it is the
+# latest-finishing activity in the baseline (that IS the completion in P6).
+_COMPLETION_HINTS = ('completion', 'complete', 'finish', 'handover', 'hand over',
+                     'substantial', 'practical', 'taking over', 'end of project')
+
+
+def _latest_finish(graph):
+    """The activity with the latest finish date — the project completion in P6."""
+    best = None
+    for oid, a in graph.activities.items():
+        fd = _finish(a)
+        if fd is None:
+            continue
+        if best is None or fd > best[2]:
+            best = (oid, a, fd)
+    return (best[0], best[1]) if best else None
+
+
 def _parse_date(v):
     if isinstance(v, datetime):
         return v
@@ -67,6 +85,9 @@ def _match(graph, name):
             n = _norm(a.get('name'))
             if n and (target in n or n in target):
                 return (oid, a)
+    # Project completion: fall back to the latest-finishing activity (the P6 finish).
+    if any(h in target for h in _COMPLETION_HINTS):
+        return _latest_finish(graph)
     return None
 
 
@@ -185,20 +206,85 @@ def _status_counts(evals):
     return c
 
 
+def _mcell(text, cls=''):
+    c = {'text': '' if text is None else str(text)}
+    if cls:
+        c['cls'] = cls
+    return c
+
+
+def _milestone_presentation(evals, counts, score, matched, bad):
+    """A milestone presentation (tiles + contract-milestone table + scoring) — the
+    Milestone Check renders from THIS, not from the hard-constraint spec, so no
+    hard-constraint list or % appears."""
+    tiles = [{'label': 'Contract Milestones', 'value': str(len(evals))},
+             {'label': 'Matched', 'value': str(matched)},
+             {'label': 'Masked', 'value': str(counts.get('Masked', 0))},
+             {'label': 'Late', 'value': str(counts.get('Late', 0))},
+             {'label': 'On track', 'value': str(counts.get('On track', 0))},
+             {'label': 'Unmatched', 'value': str(counts.get('Unmatched', 0))}]
+    columns = [{'label': 'Contract Milestone', 'align': ''}, {'label': 'Contract Date', 'align': ''},
+               {'label': 'Matched Activity', 'align': ''}, {'label': 'Scheduled Finish', 'align': ''},
+               {'label': 'Variance', 'align': 'num'}, {'label': 'Total Float', 'align': 'num'},
+               {'label': 'Status', 'align': ''}, {'label': 'Recommendation', 'align': ''}]
+    rows = []
+    for e in evals:
+        var = e.get('variance_days')
+        var_txt = '—' if var is None else (f'+{var} wd' if var > 0 else f'{abs(var)} wd')
+        tf = e.get('total_float_days')
+        rows.append([
+            _mcell(e.get('contract_name')), _mcell(e.get('contract_date'), 'mut'),
+            _mcell(e.get('matched_activity_id') or '—', 'mono'), _mcell(e.get('scheduled_finish') or '—', 'mut'),
+            _mcell(var_txt, 'num'), _mcell('—' if tf is None else f'{tf} d', 'num'),
+            _mcell(e.get('status'), 'mut'), _mcell(e.get('recommendation'), 'mut')])
+    verdict = (f"{counts.get('Masked', 0)} masked · {counts.get('Late', 0)} late · "
+               f"{counts.get('On track', 0)} on track · {counts.get('Unmatched', 0)} unmatched.")
+    scoring = None
+    if score is not None and matched:
+        defect = round(100.0 * len(bad) / matched, 1)
+        scoring = {
+            'formula': 'Score = 100 − share of matched contract milestones that are Late or Masked',
+            'derivation': f'{len(bad)} of {matched} matched milestones are late or masked = {defect}% → Score = {score}',
+            'bands': '≥ 98 Excellent · ≥ 95 Good · ≥ 90 Acceptable · < 90 Critical',
+            'benchmark': 'Contract milestones vs the baseline completion dates',
+        }
+    return {'tiles': tiles, 'columns': columns, 'rows': rows, 'verdict': verdict,
+            'scoring': scoring, 'severity': None}
+
+
 def build_milestone_module(hard_module, graph, contract_milestones):
-    """Merge the contract-milestone evaluation into the (renamed) Hard Constraints
-    module → the **Milestone Check** sub-feature. The hard-constraint score and findings
-    stay; the contract-milestone evaluations, the baseline milestone list (for matching)
-    and `needs_input` (gate B) are added on top."""
+    """The renamed **Milestone Check** sub-feature — purely the contract-milestone
+    evaluation. The hard-constraint list and its % are removed (each milestone card
+    still shows its own hard constraint, for masking). Scored on the milestones:
+    100 − the share of MATCHED contract milestones that are Late or Masked."""
+    from p6_audit.scoring import linear_score, uniform_grade
     m = dict(hard_module or {})
     m['module'] = m.get('module', 'hard_constraints')
     m['name'] = NAME
     cms = contract_milestones or []
     evals = evaluate_milestones(graph, cms)
+    counts = _status_counts(evals)
+    matched_list = [e for e in evals if e['status'] != 'Unmatched']
+    bad = [e for e in matched_list if e['status'] in ('Late', 'Masked')]
+    matched = len(matched_list)
+    if not cms:
+        score = grade = pct = None
+    elif matched:
+        pct = round(100.0 * len(bad) / matched, 1)
+        score, grade = linear_score(pct), uniform_grade(linear_score(pct))
+    else:
+        pct, score, grade = 0.0, None, None      # entered, but nothing matched → uncomputable
+    m['score'], m['grade'], m['pct'] = score, grade, pct
     m['milestones'] = evals
-    m['milestone_counts'] = _status_counts(evals)
+    m['milestone_counts'] = counts
     m['baseline_milestones'] = baseline_milestones(graph)
     m['needs_input'] = not bool(cms)
+    m['kpis'] = {'contract_milestones': len(evals), 'matched': matched, 'masked': counts['Masked'],
+                 'late': counts['Late'], 'on_track': counts['On track'], 'unmatched': counts['Unmatched'],
+                 'computable': bool(matched)}
+    m['wbs_summary'] = []
+    m['findings'] = evals                         # parallel to the presentation rows (for the PDF table)
+    m['presentation'] = _milestone_presentation(evals, counts, score, matched, bad)
     return m
 
 

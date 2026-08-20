@@ -71,7 +71,9 @@ _DEFAULT_ACTION = {
 
 # Pass / Review thresholds per sub-feature. Default is the uniform legend; a check
 # whose DCMA target differs overrides it (FS >= 90% for relationship types).
-_DEFAULT_THRESHOLDS = (95.0, 90.0)
+# Pass >= 90, Review >= 80, Critical < 80 — aligned to Ibrahim's 80% submission
+# standard, so a check below 80 is flagged for review.
+_DEFAULT_THRESHOLDS = (90.0, 80.0)
 _THRESHOLDS = {'relationship_types': (90.0, 85.0)}
 
 
@@ -107,16 +109,27 @@ def _discipline(wbs_path):
     return parts[1] if len(parts) >= 2 else parts[0]
 
 
+def _module_score(m):
+    """The score to roll into the Summary. Float uses its DCMA-anchored Float Health
+    (the number shown on the Float tab), never the raw defect score — so the Summary
+    and the Float sub-feature can never disagree (0 here vs 100 there)."""
+    if m.get('module') == 'float':
+        fh = (m.get('mgmt') or {}).get('float_health')
+        if fh is not None:
+            return fh
+    return m.get('score')
+
+
 def _sub_features(modules):
     """One row per locked sub-feature, worst score first."""
     rows = []
     for rank, spec in enumerate(SUB_FEATURES):
         parts = [(k, modules[k]) for k in spec['parts'] if k in modules]
         usable = [(k, m) for k, m in parts if _computable(m)]
-        score = min((m['score'] for _, m in usable), default=None)
+        score = min((_module_score(m) for _, m in usable), default=None)
         driver = None
         if usable:
-            driver = min(usable, key=lambda km: km[1]['score'])[0]
+            driver = min(usable, key=lambda km: _module_score(km[1]))[0]
         rows.append({
             'key':        spec['key'],
             'name':       spec['name'],

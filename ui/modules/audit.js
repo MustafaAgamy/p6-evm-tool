@@ -849,10 +849,7 @@ function renderMilestoneCheck(m) {
     </div>
     <div class="mod-sec">Contract milestones <span class="mod-sub">— entered by you, matched to the baseline</span></div>
     <div class="ms-cards">${cards}</div>
-    ${scoringLegendHtml(p.scoring)}
-    <div class="mod-sec">Hard constraints <span class="mod-sub">— pinned dates that override the network logic</span></div>
-    ${(m.findings && m.findings.length) ? severityLegendHtml(p.severity) : ''}
-    ${hardConstraintsTable(m)}`;
+    ${scoringLegendHtml(p.scoring)}`;
   const eb = document.getElementById('ms-edit');
   if (eb) eb.addEventListener('click', () => renderMilestoneGate(state.currentModules));
 }
@@ -883,8 +880,12 @@ function renderSummary(health, am) {
     const barW = s.score == null ? 0 : Math.max(0, Math.min(100, s.score));
     const etag = (s.modules || []).some(k => k === 'dangling' || k === 'float') ? '<span class="shr-etag">existing</span>' : '';
     const prov = s.provisional ? '<span class="shr-prov">provisional</span>' : '';
-    return `<div class="shr-crow">
-      <div class="shr-nm"><span class="dot ${statusDot(s.status)}"></span>${escapeHtml(s.name)} ${etag}${prov}</div>
+    // Highlight the sub-features the user must review (below the 80% standard).
+    const needsReview = s.status === 'Review' || s.status === 'Critical';
+    const reviewTag = needsReview
+      ? `<span class="shr-review ${s.status === 'Critical' ? 'crit' : ''}">${s.status === 'Critical' ? 'needs review' : 'review'}</span>` : '';
+    return `<div class="shr-crow${needsReview ? ' needs-review' : ''}">
+      <div class="shr-nm"><span class="dot ${statusDot(s.status)}"></span>${escapeHtml(s.name)} ${etag}${prov}${reviewTag}</div>
       <div class="shr-bar"><i style="width:${barW}%;background:${statusColor(s.status)}"></i></div>
       <div class="shr-sc">${s.score == null ? '—' : s.score + '%'}</div>
       <div class="shr-wt">${s.weight}</div>
@@ -934,9 +935,9 @@ function renderSummary(health, am) {
             </div>
           </div>
           <div class="shr-bands">
-            <div class="lab">How status is decided — each check's score vs its target</div>
-            <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass ≥ 95</div></div>
-            <div class="note">Per-check targets adjust where DCMA differs — e.g. FS ≥ 90%, CPLI ≥ 95%.</div>
+            <div class="lab">How status is decided — each check's score vs the 80% submission standard</div>
+            <div class="bands"><div class="bd bd-c">Critical &lt; 80</div><div class="bd bd-r">Review 80–90</div><div class="bd bd-p">Pass ≥ 90</div></div>
+            <div class="note">A check below 80 needs review (the 80% submission standard). Per-check targets adjust where DCMA differs — e.g. FS ≥ 90%.</div>
           </div>
         </div>
 

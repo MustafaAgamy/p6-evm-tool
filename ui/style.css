@@ -1489,6 +1489,10 @@ body {
 .wd-row.open .wd-chev { transform:rotate(90deg); }
 .wd-det { display:none; padding:2px 11px 10px; border-top:1px solid var(--border); }
 .wd-row.open .wd-det { display:block; }
+/* Summary — highlight sub-features that need review (below the 80% standard) */
+.shr-crow.needs-review { background:rgba(251,191,36,.06); }
+.shr-review { font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; padding:1px 6px; border-radius:5px; background:rgba(251,191,36,.16); color:var(--warning); margin-left:4px; }
+.shr-review.crit { background:rgba(248,113,113,.16); color:var(--danger); }
 .shr-timeline { margin:10px 0 14px; display:flex; flex-direction:column; gap:3px; }
 .shr-tl-row { display:grid; grid-template-columns:90px 1fr; align-items:center; gap:10px; }
 .shr-tl-lab { font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
