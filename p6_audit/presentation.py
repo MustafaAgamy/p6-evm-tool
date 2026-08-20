@@ -187,7 +187,8 @@ SPECS = {
                             ('Decimal %', _pct(k.get('decimal_pct')))],
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
                     ('WBS Path', 'wbs_path', 'wbs'), ('Original', 'original_days', 'days'), ('Rounds To', 'rounds_to', 'days'),
-                    ('Calendar', 'calendar', 'mut'), ('Severity', 'severity', 'sev'), ('Recommendation', 'recommendation', 'mut')],
+                    ('Calendar', 'calendar', 'mut'), ('Hrs/day', 'day_hours', 'mut'), ('Cause', 'cause_label', 'text'),
+                    ('Severity', 'severity', 'sev'), ('Recommendation', 'recommendation', 'mut')],
     },
     'cpli': {
         'verdict': lambda m: _cpli_verdict(m),

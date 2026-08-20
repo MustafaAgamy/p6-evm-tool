@@ -453,7 +453,60 @@ function renderModuleBody(m) {
   if (m.module === 'circular') return renderCircularModule(m);
   if (m.module === 'cpli') return renderCpliModule(m);
   if (m.module === 'hard_constraints') return renderMilestoneCheck(m);
+  if (m.module === 'whole_day') return renderWholeDay(m);
   return renderStandardModule(m);
+}
+
+// Whole-day Durations — evidence view. Each flagged activity shows the calendar and
+// hours/day it sits on and WHY the duration is a decimal (calendar-driven, a part-hours
+// entry, or not determinable), expanding to Finding / Evidence / Root cause / Impact /
+// Recommendation — so the user sees where the decimal comes from, not just a score.
+function wdCauseClass(c) {
+  return { cal: 'wd-cal', entry: 'wd-entry', nd: 'wd-nd' }[c] || 'wd-nd';
+}
+function renderWholeDay(m) {
+  const p = m.presentation || {};
+  const rows = (m.findings || []).map(f => {
+    const nl = (k, v) => `<div class="ms-nl"><div class="mk">${escapeHtml(k)}</div><div class="mv">${escapeHtml(v || '')}</div></div>`;
+    return `<div class="wd-row">
+      <div class="wd-top">
+        <div class="wd-id mono">${escapeHtml(f.activity_id)}</div>
+        <div class="wd-nm" title="${escapeHtml(f.activity_name)}">${escapeHtml(f.activity_name)}</div>
+        <div class="wd-dur"><b>${escapeHtml(String(f.original_days))} d</b> → ${escapeHtml(String(f.rounds_to))} d</div>
+        <div class="wd-cal" title="${escapeHtml(f.calendar)}">${escapeHtml(f.calendar)}${f.day_hours ? ' · ' + escapeHtml(String(f.day_hours)) + 'h' : ''}</div>
+        <div class="wd-cause ${wdCauseClass(f.cause)}">${escapeHtml(f.cause_label)}</div>
+        <div class="wd-chev">›</div>
+      </div>
+      <div class="wd-det">
+        ${nl('Finding', `Duration is ${f.original_days} working days — not a whole day.`)}
+        ${nl('Evidence', f.evidence)}${nl('Root cause', f.root_cause)}${nl('Impact', f.impact)}
+        <div class="ms-nl"><div class="mk">Recommendation</div><div class="mv rec">${escapeHtml(f.recommendation || '')}</div></div>
+      </div>
+    </div>`;
+  }).join('') || '<p style="color:var(--muted);font-size:13px">No decimal durations — every activity is a whole number of days.</p>';
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(p.verdict || '')}</div>
+        </div>
+      </div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
+    </div>
+    ${scoringLegendHtml(p.scoring)}
+    <div class="wd-legend2">
+      <span><i class="dot wd-cal"></i>Calendar hrs/day — likely contributing</span>
+      <span><i class="dot wd-entry"></i>Part-hours entry — not the calendar</span>
+      <span><i class="dot wd-nd"></i>Cause not determinable</span>
+    </div>
+    <div class="mod-sec">Decimal durations <span class="mod-sub">— where each comes from, and why (click a row)</span></div>
+    <div class="wd-rows">${rows}</div>`;
+  document.querySelectorAll('#module-body .wd-top').forEach(t =>
+    t.addEventListener('click', () => t.parentNode.classList.toggle('open')));
 }
 
 // Standard check view: gauge hero + KPI tiles + filterable findings table,
@@ -542,12 +595,16 @@ function renderCpliModule(m) {
   const ruleBadge = k.baseline_rule_met
     ? `<span class="shr-rule ok">Baseline rule met — total float ≥ 0</span>`
     : `<span class="shr-rule bad">Negative float — re-plan (baseline must be ≥ 0)</span>`;
+  const fmTile = k.finish_date
+    ? `${k.finish_milestone_id || '—'} · ${isoDate(k.finish_date)}`
+    : (k.finish_milestone_id || '—');
   const tiles = [
     ['CPLI', computable ? `${cpliPct}%` : '—'],
     ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
     ['Completion Total Float', dnum(k.project_total_float_days)],
-    ['DCMA Target', `${Math.round((k.target || 0.95) * 100)}%`],
-    ['Finish Milestone', k.finish_milestone_id || '—'],
+    ['Critical Activities', k.critical_count == null ? '—' : Number(k.critical_count).toLocaleString()],
+    ['Critical %', k.critical_pct == null ? '—' : `${k.critical_pct}%`],
+    ['Finish Milestone', fmTile],
   ];
   const verdict = computable
     ? `CPLI ${cpliPct}% — how realistically the finish can still be met (DCMA target ${Math.round((k.target || 0.95) * 100)}%).`
@@ -611,7 +668,7 @@ function cpliGantt(findings, kpis) {
     const x = posOf(t(f.start));
     const w = Math.max(0.5, 100 * (t(f.finish) - t(f.start)) / span);
     const crit = (f.total_float_days ?? 0) <= 0;    // red = critical; blue = near-critical (has float)
-    const isMs = f.duration_days === 0 || f.start === f.finish;
+    const isMs = f.is_milestone === true;   // only genuine P6 milestones get a diamond, never a short Task
     const dur = f.duration_days == null ? '—' : `${f.duration_days} wd`;
     const bar = isMs
       ? `<span class="cg-ms" style="left:${x}%"></span>`

@@ -36,8 +36,13 @@ def test_decimal_duration_flagged():
     assert f['original_days'] == 9.41
     assert f['rounds_to'] == 9
     assert f['calendar'] == '5-Day Workweek'
+    assert f['day_hours'] == 8.5
+    assert f['planned_hours'] == 80.0
+    assert f['cause'] == 'cal'                       # calendar hrs/day drives the decimal
+    assert f['cause_label'] == 'Calendar hrs/day'
+    assert '8.5 h/day' in f['evidence']
+    assert 'Reassign to the 8 h/day' in f['recommendation']
     assert f['severity'] == 'Medium'
-    assert f['recommendation'] == 'Round to the nearest whole day (no calendar change)'
     assert f['finding_id']
 
 
@@ -80,7 +85,9 @@ def test_defaults_to_eight_hours_when_no_calendar():
     f = run_whole_day(g, CONFIG)['findings'][0]
     assert f['original_days'] == 1.25
     assert f['rounds_to'] == 1
-    assert f['calendar'] is None
+    assert f['calendar'] == '(unresolved)'          # no calendar to blame
+    assert f['cause'] == 'nd'
+    assert 'not determinable' in f['root_cause'].lower()
 
 
 def test_no_planned_duration_not_flagged():

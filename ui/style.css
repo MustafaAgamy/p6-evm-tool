@@ -1468,6 +1468,27 @@ body {
 .ms-nl { display:grid; grid-template-columns:96px 1fr; gap:10px; padding:7px 0; border-bottom:1px solid var(--border); font-size:11.5px; line-height:1.5; }
 .ms-nl:last-child { border-bottom:none; }
 .ms-nl .mk { font-size:9.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:700; padding-top:2px; }
+.ms-nl .mv { color:var(--text); } .ms-nl .mv.rec { color:#a7e0bd; }
+/* Whole-day Durations — evidence view */
+.wd-legend2 { display:flex; flex-wrap:wrap; gap:12px; font-size:10.5px; color:var(--muted); margin:8px 0 10px; }
+.wd-legend2 .dot { width:9px; height:9px; border-radius:3px; display:inline-block; margin-right:5px; vertical-align:-1px; }
+.dot.wd-cal { background:var(--warning); } .dot.wd-entry { background:var(--accent); } .dot.wd-nd { background:var(--muted); }
+.wd-rows { display:flex; flex-direction:column; gap:7px; }
+.wd-row { border:1px solid var(--border); border-radius:10px; background:var(--card-bg); overflow:hidden; }
+.wd-top { display:grid; grid-template-columns:64px minmax(90px,1.3fr) 108px minmax(96px,1fr) 120px 22px; gap:8px; align-items:center; padding:9px 11px; cursor:pointer; }
+.wd-top:hover { background:var(--bg); }
+.wd-id { font-size:11px; color:var(--muted); }
+.wd-nm { font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wd-dur { font-size:11.5px; font-variant-numeric:tabular-nums; white-space:nowrap; } .wd-dur b { color:var(--warning); }
+.wd-cal { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wd-cause { font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; text-align:center; white-space:nowrap; }
+.wd-cause.wd-cal { background:rgba(251,191,36,.16); color:var(--warning); }
+.wd-cause.wd-entry { background:rgba(59,130,246,.16); color:#7db1ff; }
+.wd-cause.wd-nd { background:rgba(148,163,184,.16); color:var(--muted); }
+.wd-chev { color:var(--muted); text-align:center; transition:transform .15s; }
+.wd-row.open .wd-chev { transform:rotate(90deg); }
+.wd-det { display:none; padding:2px 11px 10px; border-top:1px solid var(--border); }
+.wd-row.open .wd-det { display:block; }
 .shr-timeline { margin:10px 0 14px; display:flex; flex-direction:column; gap:3px; }
 .shr-tl-row { display:grid; grid-template-columns:90px 1fr; align-items:center; gap:10px; }
 .shr-tl-lab { font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

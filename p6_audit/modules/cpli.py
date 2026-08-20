@@ -134,10 +134,17 @@ def run_cpli(graph, config):
             'finish':           _iso(fd),
             'duration_days':    duration,
             'total_float_days': act.get('total_float_days'),
+            # a real P6 milestone, not a Task-Dependent activity — so the Gantt only
+            # draws a diamond for genuine milestones (never for a short task).
+            'is_milestone':     'Milestone' in (act.get('task_type') or ''),
             'note':             'On the driving/critical path',
         })
     # chronological — the timeline reads left to right; id breaks ties
     findings.sort(key=lambda f: (f['start'] or '', f['finish'] or '', str(f['activity_id'])))
+
+    critical_count = len(findings)
+    total_real = sum(1 for oid in acts if graph.is_real_activity(oid))
+    critical_pct = round(100.0 * critical_count / total_real, 1) if total_real else 0.0
 
     baseline_rule_met = bool(tf is not None and tf >= 0)
     return {
@@ -150,6 +157,9 @@ def run_cpli(graph, config):
             'computable':                computable,
             'project_total_float_days':  tf,
             'target':                    TARGET,
+            'critical_count':            critical_count,
+            'critical_pct':              critical_pct,
+            'total_activities':          total_real,
             'finish_milestone_id':       finish_milestone.get('id') if finish_milestone else None,
             'data_date':                 _iso(data_date),      # for the Gantt's data-date marker
             'finish_date':               _iso(finish_date),    # completion marker
