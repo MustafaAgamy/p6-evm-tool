@@ -1,0 +1,51 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.waterproofing.membrane",
+  "discipline": "Civil/Structural",
+  "work_type": "Waterproofing",
+  "method": "membrane",
+  "name": "Waterproofing",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "waterproofing",
+      "membrane",
+      "tanking",
+      "bituminous membrane"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 80,
+    "likely": 80,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Bituminous/liquid membrane + protection",
+    "confidence": "medium",
+    "valid_for": "surface prepared & dry"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Applicator",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  },
+  "material": [
+    {
+      "name": "Membrane",
+      "unit": "m2",
+      "qty_per_unit": 1.1,
+      "waste_pct": 10
+    }
+  ]
+}

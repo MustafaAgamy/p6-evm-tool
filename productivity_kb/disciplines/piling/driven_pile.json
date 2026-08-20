@@ -1,0 +1,59 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.piling.driven_pile",
+  "discipline": "Civil/Structural",
+  "work_type": "Piling",
+  "method": "driven precast/steel",
+  "name": "Driven pile",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "driven pile",
+      "precast pile",
+      "pile driving"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 120,
+    "likely": 120,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "Driven precast/steel pile, one rig",
+    "confidence": "medium",
+    "valid_for": "per rig"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Rig operator",
+        "count": 1
+      },
+      {
+        "trade": "Banksman",
+        "count": 1
+      },
+      {
+        "trade": "Laborer",
+        "count": 3
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Driving rig",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 80,
+        "likely": 120,
+        "high": 160
+      },
+      "output_unit": "m"
+    }
+  ]
+}

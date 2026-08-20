@@ -1,0 +1,68 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.concrete.slipform_core",
+  "discipline": "Civil/Structural",
+  "work_type": "Special methods",
+  "method": "slipform, continuous",
+  "name": "Slipform core wall",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "slipform",
+      "slip form",
+      "sliding formwork core"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 4,
+    "likely": 4,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "Slipform core, continuous 3-shift climb",
+    "confidence": "low",
+    "valid_for": "continuous pour, 3-shift"
+  },
+  "crew": {
+    "hours_per_day": 24,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 3
+      },
+      {
+        "trade": "Carpenter",
+        "count": 6
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 9
+      },
+      {
+        "trade": "Concreter",
+        "count": 9
+      },
+      {
+        "trade": "Jack operator",
+        "count": 3
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Slipform rig + jacks",
+      "count": 1,
+      "basis": "duration",
+      "utilization": 1.0
+    },
+    {
+      "name": "Tower crane",
+      "count": 1,
+      "basis": "duration",
+      "utilization": 0.6
+    }
+  ]
+}

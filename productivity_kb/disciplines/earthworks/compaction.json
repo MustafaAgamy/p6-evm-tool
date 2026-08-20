@@ -1,0 +1,55 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.earthworks.compaction",
+  "discipline": "Civil/Structural",
+  "work_type": "Earthworks",
+  "method": "roller",
+  "name": "Compaction / proof roll",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "compaction",
+      "compact",
+      "proof roll"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 2500,
+    "likely": 2500,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Vibratory roller, formation level",
+    "confidence": "medium",
+    "valid_for": "per layer"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Roller operator",
+        "count": 1
+      },
+      {
+        "trade": "Laborer",
+        "count": 1
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Vibratory roller",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 1800,
+        "likely": 2500,
+        "high": 3200
+      },
+      "output_unit": "m2"
+    }
+  ]
+}

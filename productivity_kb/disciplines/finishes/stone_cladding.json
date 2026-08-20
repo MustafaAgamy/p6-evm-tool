@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.stone.cladding",
+  "discipline": "Interior Finishing",
+  "work_type": "Marble / stone",
+  "method": "wall cladding",
+  "name": "Stone / marble cladding",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "stone cladding",
+      "marble cladding",
+      "wall stone",
+      "cladding stone"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 8,
+    "likely": 8,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Mechanically-fixed stone cladding",
+    "confidence": "low",
+    "valid_for": "anchors/substructure ready"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Mason",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

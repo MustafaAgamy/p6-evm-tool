@@ -1,0 +1,52 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "steel.erection.secondary",
+  "discipline": "Civil/Structural",
+  "work_type": "Structural steel",
+  "method": "crane/manual",
+  "name": "Secondary steel (purlins, girts, misc.)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "secondary steel",
+      "purlins",
+      "girts",
+      "miscellaneous steel",
+      "handrails"
+    ],
+    "codes": []
+  },
+  "unit": "ton",
+  "driver": "production_rate",
+  "rate": {
+    "value": 6,
+    "likely": 6,
+    "unit": "ton/day",
+    "source": "built_in_kb",
+    "basis": "Secondary/misc steel, lighter members",
+    "confidence": "low",
+    "valid_for": "many small pieces"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Fitter",
+        "count": 3
+      },
+      {
+        "trade": "Welder",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

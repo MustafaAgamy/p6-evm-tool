@@ -1,0 +1,63 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.concrete.mass_concrete",
+  "discipline": "Civil/Structural",
+  "work_type": "Special methods",
+  "method": "mass pour, pump",
+  "name": "Mass concrete pour",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "mass concrete",
+      "large pour",
+      "raft mass pour"
+    ],
+    "codes": []
+  },
+  "unit": "m3",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 600,
+    "likely": 600,
+    "unit": "m3/day",
+    "source": "built_in_kb",
+    "basis": "Mass pour, multiple pumps, temperature-controlled",
+    "confidence": "medium",
+    "valid_for": "continuous supply, cooling"
+  },
+  "crew": {
+    "hours_per_day": 12,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 2
+      },
+      {
+        "trade": "Concreter",
+        "count": 8
+      },
+      {
+        "trade": "Pump crew",
+        "count": 4
+      },
+      {
+        "trade": "Lab technician",
+        "count": 1
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Concrete pump",
+      "count": 3,
+      "governing": true,
+      "output": {
+        "low": 400,
+        "likely": 600,
+        "high": 900
+      },
+      "output_unit": "m3"
+    }
+  ]
+}

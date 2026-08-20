@@ -1,0 +1,53 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.concrete.retaining_wall",
+  "discipline": "Civil/Structural",
+  "work_type": "RC walls",
+  "method": "conventional formwork",
+  "name": "Retaining wall",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "retaining wall",
+      "basement wall"
+    ],
+    "codes": []
+  },
+  "unit": "m3",
+  "driver": "production_rate",
+  "rate": {
+    "value": 18,
+    "likely": 18,
+    "unit": "m3/day",
+    "source": "built_in_kb",
+    "basis": "RC retaining wall + waterproofing interface",
+    "confidence": "medium",
+    "valid_for": "one-side/double-side forms"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Carpenter",
+        "count": 3
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 3
+      },
+      {
+        "trade": "Mason",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 3
+      }
+    ]
+  }
+}

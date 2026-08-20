@@ -1,0 +1,69 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.concrete.rc_slab.conventional",
+  "discipline": "Civil/Structural",
+  "work_type": "RC slabs",
+  "method": "conventional solid",
+  "name": "Solid RC slab — conventional",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "solid slab",
+      "rc slab",
+      "conventional slab",
+      "suspended slab"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 120,
+    "likely": 120,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Conventional solid slab, timber/table forms",
+    "confidence": "medium",
+    "valid_for": "typical floor"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Carpenter",
+        "count": 3
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 3
+      },
+      {
+        "trade": "Mason",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 3
+      }
+    ]
+  },
+  "material": [
+    {
+      "name": "Concrete",
+      "unit": "m3",
+      "qty_per_unit": 0.2,
+      "waste_pct": 3
+    },
+    {
+      "name": "Rebar",
+      "unit": "ton",
+      "qty_per_unit": 0.018,
+      "waste_pct": 2
+    }
+  ]
+}

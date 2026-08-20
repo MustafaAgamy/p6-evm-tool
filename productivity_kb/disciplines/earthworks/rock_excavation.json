@@ -1,0 +1,59 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.earthworks.rock_excavation",
+  "discipline": "Civil/Structural",
+  "work_type": "Earthworks",
+  "method": "breaker",
+  "name": "Rock excavation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "rock excavation",
+      "rock breaking",
+      "hard rock"
+    ],
+    "codes": []
+  },
+  "unit": "m3",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 120,
+    "likely": 120,
+    "unit": "m3/day",
+    "source": "built_in_kb",
+    "basis": "Hydraulic breaker, medium-hard rock",
+    "confidence": "low",
+    "valid_for": "fractured/medium rock"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Operator",
+        "count": 1
+      },
+      {
+        "trade": "Banksman",
+        "count": 1
+      },
+      {
+        "trade": "Laborer",
+        "count": 2
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Excavator + breaker",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 80,
+        "likely": 120,
+        "high": 180
+      },
+      "output_unit": "m3"
+    }
+  ]
+}

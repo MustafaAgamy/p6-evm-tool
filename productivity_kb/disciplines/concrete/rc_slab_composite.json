@@ -1,0 +1,51 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.concrete.rc_slab.composite_deck",
+  "discipline": "Civil/Structural",
+  "work_type": "RC slabs",
+  "method": "composite metal deck",
+  "name": "Composite / metal-deck slab",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "composite slab",
+      "metal deck slab",
+      "profiled deck",
+      "deck slab"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 220,
+    "likely": 220,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Composite slab on profiled steel deck",
+    "confidence": "medium",
+    "valid_for": "deck fixed to steel frame"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Steel fixer",
+        "count": 2
+      },
+      {
+        "trade": "Concreter",
+        "count": 3
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

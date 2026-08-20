@@ -1,0 +1,44 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.joinery.fitted",
+  "discipline": "Interior Finishing",
+  "work_type": "Joinery",
+  "method": "fitted",
+  "name": "Fitted joinery / millwork",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "joinery",
+      "millwork",
+      "wardrobes",
+      "fitted furniture",
+      "cabinetry"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 6,
+    "likely": 6,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Fitted joinery/millwork install (shop-made)",
+    "confidence": "low",
+    "valid_for": "units delivered to site"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Joiner",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

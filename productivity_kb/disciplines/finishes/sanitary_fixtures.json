@@ -1,0 +1,44 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.phe.sanitary",
+  "discipline": "Interior Finishing",
+  "work_type": "Sanitary fixtures",
+  "method": "install",
+  "name": "Sanitary fixtures (install)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "sanitary ware",
+      "sanitary fixtures",
+      "wc",
+      "wash basin",
+      "fixtures install"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 8,
+    "likely": 8,
+    "unit": "fixtures/day",
+    "source": "built_in_kb",
+    "basis": "Sanitary fixtures + connections",
+    "confidence": "medium",
+    "valid_for": "first-fix complete"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Plumber",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

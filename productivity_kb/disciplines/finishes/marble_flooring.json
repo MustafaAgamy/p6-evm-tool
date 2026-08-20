@@ -1,0 +1,51 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.stone.marble_floor",
+  "discipline": "Interior Finishing",
+  "work_type": "Marble / stone",
+  "method": "floor",
+  "name": "Marble / granite flooring",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "marble",
+      "granite floor",
+      "stone flooring",
+      "marble flooring"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 12,
+    "likely": 12,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Marble/granite floor, honed joints",
+    "confidence": "medium",
+    "valid_for": "slabs pre-cut, prepared bed"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Marble mason",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  },
+  "material": [
+    {
+      "name": "Marble/granite",
+      "unit": "m2",
+      "qty_per_unit": 1.0,
+      "waste_pct": 12
+    }
+  ]
+}

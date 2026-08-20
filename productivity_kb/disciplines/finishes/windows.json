@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.joinery.windows",
+  "discipline": "Interior Finishing",
+  "work_type": "Windows",
+  "method": "install",
+  "name": "Windows / aluminium (install)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "window install",
+      "windows",
+      "aluminium window",
+      "glazing"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 20,
+    "likely": 20,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Aluminium window install + glazing + seal",
+    "confidence": "medium",
+    "valid_for": "openings prepared"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Glazier",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

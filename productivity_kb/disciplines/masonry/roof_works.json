@@ -1,0 +1,48 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.roof.works",
+  "discipline": "Civil/Structural",
+  "work_type": "Roof works",
+  "method": "insulation + screed + tiles",
+  "name": "Roof works (villa)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "roof works",
+      "roofing",
+      "roof insulation",
+      "roof screed",
+      "roof tiles"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 40,
+    "likely": 40,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Villa roof: insulation, screed to falls, protection",
+    "confidence": "medium",
+    "valid_for": "incl. thermal + screed"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Skilled",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

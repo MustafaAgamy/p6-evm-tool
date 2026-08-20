@@ -1,0 +1,83 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.piling.bored_pile",
+  "discipline": "Civil/Structural",
+  "work_type": "Piling",
+  "method": "rotary bored",
+  "name": "Bored pile (rotary)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "bored pile",
+      "cast in situ pile",
+      "rotary pile"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 60,
+    "likely": 60,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "600-900 mm bored pile, one rig, medium soil",
+    "confidence": "medium",
+    "valid_for": "per rig, medium ground"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Rig operator",
+        "count": 1
+      },
+      {
+        "trade": "Banksman",
+        "count": 1
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 2
+      },
+      {
+        "trade": "Laborer",
+        "count": 3
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Piling rig",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 40,
+        "likely": 60,
+        "high": 90
+      },
+      "output_unit": "m"
+    },
+    {
+      "name": "Service crane",
+      "count": 1,
+      "basis": "duration",
+      "utilization": 0.7
+    }
+  ],
+  "material": [
+    {
+      "name": "Concrete",
+      "unit": "m3",
+      "qty_per_unit": 0.5,
+      "waste_pct": 8
+    },
+    {
+      "name": "Rebar cage",
+      "unit": "ton",
+      "qty_per_unit": 0.05,
+      "waste_pct": 3
+    }
+  ]
+}

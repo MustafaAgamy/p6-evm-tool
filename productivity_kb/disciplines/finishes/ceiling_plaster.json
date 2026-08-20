@@ -1,0 +1,42 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.plaster.ceiling",
+  "discipline": "Interior Finishing",
+  "work_type": "Plaster",
+  "method": "soffit / ceiling",
+  "name": "Ceiling / soffit plaster",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "ceiling plaster",
+      "soffit plaster",
+      "overhead plaster"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 18,
+    "likely": 18,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Overhead plaster, slower than walls",
+    "confidence": "medium",
+    "valid_for": "scaffold/access needed"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Skilled finisher",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

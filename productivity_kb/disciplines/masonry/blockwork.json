@@ -1,0 +1,85 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.masonry.blockwork",
+  "discipline": "Civil/Structural",
+  "work_type": "Blockwork",
+  "method": "hollow block",
+  "name": "Blockwork walls",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "blockwork",
+      "block work",
+      "masonry",
+      "concrete block wall"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rates": [
+    {
+      "value": 18,
+      "likely": 18,
+      "unit": "m2/day",
+      "source": "built_in_kb",
+      "basis": "Villa/residential blockwork, single-storey access",
+      "confidence": "medium",
+      "valid_for": "ground/low level, small crew",
+      "context": {
+        "project_type": "Residential/Villa"
+      }
+    },
+    {
+      "value": 14,
+      "likely": 14,
+      "unit": "m2/day",
+      "source": "built_in_kb",
+      "basis": "Commercial blockwork, mixed access",
+      "confidence": "medium",
+      "valid_for": "mixed heights, hoisting",
+      "context": {
+        "project_type": "Commercial"
+      }
+    },
+    {
+      "value": 16,
+      "likely": 16,
+      "unit": "m2/day",
+      "source": "built_in_kb",
+      "basis": "General blockwork",
+      "confidence": "medium",
+      "context": {
+        "project_type": "GLOBAL"
+      }
+    }
+  ],
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Mason",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  },
+  "material": [
+    {
+      "name": "Blocks",
+      "unit": "m2",
+      "qty_per_unit": 1.0,
+      "waste_pct": 5
+    },
+    {
+      "name": "Mortar",
+      "unit": "m3",
+      "qty_per_unit": 0.02,
+      "waste_pct": 8
+    }
+  ]
+}

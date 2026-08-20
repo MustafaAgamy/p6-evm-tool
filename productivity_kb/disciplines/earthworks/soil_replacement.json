@@ -1,0 +1,59 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.earthworks.soil_replacement",
+  "discipline": "Civil/Structural",
+  "work_type": "Earthworks",
+  "method": "cut & replace",
+  "name": "Soil replacement",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "soil replacement",
+      "replace soil",
+      "improved subgrade"
+    ],
+    "codes": []
+  },
+  "unit": "m3",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 350,
+    "likely": 350,
+    "unit": "m3/day",
+    "source": "built_in_kb",
+    "basis": "Excavate unsuitable + replace with engineered fill",
+    "confidence": "medium",
+    "valid_for": "incl. haul & compaction"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Operator",
+        "count": 2
+      },
+      {
+        "trade": "Laborer",
+        "count": 3
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Excavator",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 250,
+        "likely": 350,
+        "high": 450
+      },
+      "output_unit": "m3"
+    }
+  ]
+}

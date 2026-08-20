@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.ceiling.suspended",
+  "discipline": "Interior Finishing",
+  "work_type": "Suspended ceilings",
+  "method": "grid / tiles",
+  "name": "Suspended ceiling",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "suspended ceiling",
+      "false ceiling",
+      "grid ceiling",
+      "acoustic ceiling"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 45,
+    "likely": 45,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Grid + mineral/metal tiles",
+    "confidence": "medium",
+    "valid_for": "MEP above completed"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Ceiling fixer",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

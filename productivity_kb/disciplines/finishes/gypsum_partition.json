@@ -1,0 +1,51 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.drywall.partition",
+  "discipline": "Interior Finishing",
+  "work_type": "Gypsum board",
+  "method": "partition",
+  "name": "Gypsum board partition",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "gypsum partition",
+      "drywall",
+      "gypsum board wall",
+      "plasterboard partition"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 30,
+    "likely": 30,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Metal-stud gypsum partition, both sides + insulation",
+    "confidence": "medium",
+    "valid_for": "incl. framing + boarding"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Drywall fixer",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  },
+  "material": [
+    {
+      "name": "Gypsum board + studs",
+      "unit": "m2",
+      "qty_per_unit": 2.1,
+      "waste_pct": 8
+    }
+  ]
+}

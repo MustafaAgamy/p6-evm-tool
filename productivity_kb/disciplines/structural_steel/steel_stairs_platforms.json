@@ -1,0 +1,52 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "steel.erection.stairs_platforms",
+  "discipline": "Civil/Structural",
+  "work_type": "Structural steel",
+  "method": "crane erection",
+  "name": "Steel stairs & platforms",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "steel stairs",
+      "platforms",
+      "catwalk",
+      "walkway",
+      "gratings"
+    ],
+    "codes": []
+  },
+  "unit": "ton",
+  "driver": "production_rate",
+  "rate": {
+    "value": 5,
+    "likely": 5,
+    "unit": "ton/day",
+    "source": "built_in_kb",
+    "basis": "Steel stairs, platforms, gratings, handrails",
+    "confidence": "medium",
+    "valid_for": "access & fit-up heavy"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Fitter",
+        "count": 3
+      },
+      {
+        "trade": "Welder",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  }
+}

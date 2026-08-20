@@ -1,0 +1,51 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.cable.pull_lv",
+  "discipline": "Electrical",
+  "work_type": "Cable pulling",
+  "method": "LV",
+  "name": "LV cable pulling",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "lv cable",
+      "cable pulling",
+      "power cable",
+      "cable laying"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 400,
+    "likely": 400,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "LV cable pull on completed containment, per gang",
+    "confidence": "medium",
+    "valid_for": "containment ready"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "Electrician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 4
+      }
+    ]
+  },
+  "material": [
+    {
+      "name": "LV cable",
+      "unit": "m",
+      "qty_per_unit": 1.02,
+      "waste_pct": 2
+    }
+  ]
+}

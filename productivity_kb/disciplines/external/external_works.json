@@ -1,0 +1,48 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.external.works",
+  "discipline": "Civil/Structural",
+  "work_type": "External works",
+  "method": "hardscape + services",
+  "name": "External works (villa)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "external works",
+      "hardscape",
+      "boundary wall",
+      "interlock",
+      "landscaping civil"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 50,
+    "likely": 50,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Interlock, kerbs, boundary, external finishes",
+    "confidence": "low",
+    "valid_for": "varies widely by scope"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Skilled",
+        "count": 3
+      },
+      {
+        "trade": "Helper",
+        "count": 3
+      }
+    ]
+  }
+}

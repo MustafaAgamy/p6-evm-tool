@@ -1,0 +1,64 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "mech.hvac.duct.rect_gi",
+  "discipline": "HVAC",
+  "work_type": "HVAC ducting",
+  "method": "rectangular GI",
+  "name": "Ductwork installation — rectangular GI",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "duct",
+      "ductwork",
+      "gi duct",
+      "rectangular duct",
+      "hvac duct"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 18,
+    "likely": 18,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Rectangular GI duct fabricate & install",
+    "confidence": "medium",
+    "valid_for": "normal height, per gang"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Duct foreman",
+        "count": 1
+      },
+      {
+        "trade": "HVAC fitter",
+        "count": 3
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Scissor lift",
+      "count": 1,
+      "basis": "duration",
+      "utilization": 0.6
+    }
+  ],
+  "material": [
+    {
+      "name": "GI duct + fittings",
+      "unit": "m2",
+      "qty_per_unit": 1.0,
+      "waste_pct": 8
+    }
+  ]
+}

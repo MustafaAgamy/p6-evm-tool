@@ -1,0 +1,53 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.concrete.shear_wall",
+  "discipline": "Civil/Structural",
+  "work_type": "RC walls",
+  "method": "conventional formwork",
+  "name": "Shear wall",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "shear wall",
+      "core wall panel"
+    ],
+    "codes": []
+  },
+  "unit": "m3",
+  "driver": "production_rate",
+  "rate": {
+    "value": 15,
+    "likely": 15,
+    "unit": "m3/day",
+    "source": "built_in_kb",
+    "basis": "RC shear wall, panel formwork",
+    "confidence": "medium",
+    "valid_for": "heavy reinforcement"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Carpenter",
+        "count": 3
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 3
+      },
+      {
+        "trade": "Mason",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 3
+      }
+    ]
+  }
+}

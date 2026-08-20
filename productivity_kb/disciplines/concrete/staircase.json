@@ -1,0 +1,54 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.concrete.staircase",
+  "discipline": "Civil/Structural",
+  "work_type": "RC stairs",
+  "method": "conventional formwork",
+  "name": "RC staircase",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "staircase",
+      "stair",
+      "rc stair flight"
+    ],
+    "codes": []
+  },
+  "unit": "m3",
+  "driver": "production_rate",
+  "rate": {
+    "value": 6,
+    "likely": 6,
+    "unit": "m3/day",
+    "source": "built_in_kb",
+    "basis": "RC stair flight, conventional formwork",
+    "confidence": "low",
+    "valid_for": "complex formwork"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Carpenter",
+        "count": 3
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 3
+      },
+      {
+        "trade": "Mason",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 3
+      }
+    ]
+  }
+}

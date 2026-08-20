@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.joinery.kitchen",
+  "discipline": "Interior Finishing",
+  "work_type": "Kitchens",
+  "method": "install",
+  "name": "Kitchen (install)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "kitchen",
+      "kitchen install",
+      "kitchen cabinets",
+      "worktop"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 0.5,
+    "likely": 0.5,
+    "unit": "kitchens/day",
+    "source": "built_in_kb",
+    "basis": "Fitted kitchen install (cabinets + worktop + appliances)",
+    "confidence": "low",
+    "valid_for": "2 fitters/day per kitchen"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Joiner",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

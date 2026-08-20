@@ -1,0 +1,47 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.earthworks.subgrade_prep",
+  "discipline": "Civil/Structural",
+  "work_type": "Earthworks",
+  "method": "trim & level",
+  "name": "Formation / subgrade preparation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "subgrade",
+      "formation",
+      "trim to level",
+      "blinding prep"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 600,
+    "likely": 600,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Fine grade + trim to level",
+    "confidence": "medium",
+    "valid_for": "post bulk earthworks"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Grader operator",
+        "count": 1
+      },
+      {
+        "trade": "Surveyor",
+        "count": 1
+      },
+      {
+        "trade": "Laborer",
+        "count": 3
+      }
+    ]
+  }
+}

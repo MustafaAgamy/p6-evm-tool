@@ -1,0 +1,44 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.joinery.doors",
+  "discipline": "Interior Finishing",
+  "work_type": "Doors",
+  "method": "install",
+  "name": "Doors (install)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "door install",
+      "doors",
+      "door leaf",
+      "door set",
+      "ironmongery"
+    ],
+    "codes": []
+  },
+  "unit": "no",
+  "driver": "production_rate",
+  "rate": {
+    "value": 6,
+    "likely": 6,
+    "unit": "doors/day",
+    "source": "built_in_kb",
+    "basis": "Timber door set + frame + ironmongery",
+    "confidence": "medium",
+    "valid_for": "frames prepared"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Carpenter",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

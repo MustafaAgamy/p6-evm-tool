@@ -1,0 +1,38 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.earthworks.dewatering",
+  "discipline": "Civil/Structural",
+  "work_type": "Earthworks",
+  "method": "wellpoint / sump",
+  "name": "Dewatering (duration of need)",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "dewatering",
+      "wellpoint",
+      "sump pump"
+    ],
+    "codes": []
+  },
+  "unit": "LS",
+  "driver": "typical",
+  "rate": {
+    "value": null,
+    "likely": null,
+    "unit": "days",
+    "source": "built_in_kb",
+    "basis": "Runs for the duration of the excavation it protects",
+    "confidence": "low",
+    "valid_for": "site-specific; set to the works it supports"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Pump attendant",
+        "count": 1
+      }
+    ]
+  }
+}

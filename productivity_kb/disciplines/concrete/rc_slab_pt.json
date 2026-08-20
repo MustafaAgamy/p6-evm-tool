@@ -1,0 +1,62 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.concrete.rc_slab.post_tensioned",
+  "discipline": "Civil/Structural",
+  "work_type": "RC slabs",
+  "method": "post-tensioned",
+  "name": "Post-tensioned slab",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "post tensioned slab",
+      "pt slab",
+      "post-tensioned"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 180,
+    "likely": 180,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "PT flat slab, table forms + stressing",
+    "confidence": "medium",
+    "valid_for": "stressing crew on critical path"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Carpenter",
+        "count": 3
+      },
+      {
+        "trade": "PT technician",
+        "count": 2
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 3
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Stressing jack set",
+      "count": 1,
+      "basis": "duration",
+      "utilization": 0.4
+    }
+  ]
+}

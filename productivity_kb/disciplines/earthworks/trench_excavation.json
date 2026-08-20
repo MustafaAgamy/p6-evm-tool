@@ -1,0 +1,59 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.earthworks.trench_excavation",
+  "discipline": "Civil/Structural",
+  "work_type": "Earthworks",
+  "method": "machine trench",
+  "name": "Trench excavation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "trench excavation",
+      "trench",
+      "excavate trench"
+    ],
+    "codes": []
+  },
+  "unit": "m3",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 300,
+    "likely": 300,
+    "unit": "m3/day",
+    "source": "built_in_kb",
+    "basis": "Trench, wheeled excavator, medium soil",
+    "confidence": "medium",
+    "valid_for": "medium soil, shored where needed"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Banksman",
+        "count": 1
+      },
+      {
+        "trade": "Laborer",
+        "count": 3
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Wheeled excavator",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 200,
+        "likely": 300,
+        "high": 400
+      },
+      "output_unit": "m3"
+    }
+  ]
+}

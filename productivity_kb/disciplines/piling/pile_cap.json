@@ -1,0 +1,67 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.piling.pile_cap",
+  "discipline": "Civil/Structural",
+  "work_type": "Foundations",
+  "method": "RC",
+  "name": "Pile cap",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "pile cap",
+      "pilecap"
+    ],
+    "codes": []
+  },
+  "unit": "m3",
+  "driver": "production_rate",
+  "rate": {
+    "value": 20,
+    "likely": 20,
+    "unit": "m3/day",
+    "source": "built_in_kb",
+    "basis": "RC pile cap, conventional formwork",
+    "confidence": "medium",
+    "valid_for": "incl. rebar & pour"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Carpenter",
+        "count": 3
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 3
+      },
+      {
+        "trade": "Mason",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 3
+      }
+    ]
+  },
+  "material": [
+    {
+      "name": "Concrete",
+      "unit": "m3",
+      "qty_per_unit": 1.0,
+      "waste_pct": 3
+    },
+    {
+      "name": "Rebar",
+      "unit": "ton",
+      "qty_per_unit": 0.12,
+      "waste_pct": 2
+    }
+  ]
+}

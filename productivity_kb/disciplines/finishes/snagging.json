@@ -1,0 +1,40 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.snagging.rectification",
+  "discipline": "Interior Finishing",
+  "work_type": "Snagging / rectification",
+  "method": "punch list",
+  "name": "Snagging / rectification",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "snagging",
+      "punch list",
+      "rectification",
+      "defects",
+      "make good"
+    ],
+    "codes": []
+  },
+  "unit": "LS",
+  "driver": "typical",
+  "rate": {
+    "value": null,
+    "likely": null,
+    "unit": "days",
+    "source": "built_in_kb",
+    "basis": "Snag & rectify — experience-based, scales with unit count",
+    "confidence": "low",
+    "valid_for": "per handover area; not quantity-driven"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Multi-skilled",
+        "count": 2
+      }
+    ]
+  }
+}

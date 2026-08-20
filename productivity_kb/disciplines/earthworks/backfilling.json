@@ -1,0 +1,73 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.earthworks.backfilling",
+  "discipline": "Civil/Structural",
+  "work_type": "Earthworks",
+  "method": "compacted layers",
+  "name": "Backfilling",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "backfill",
+      "backfilling",
+      "fill"
+    ],
+    "codes": []
+  },
+  "unit": "m3",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 400,
+    "likely": 400,
+    "unit": "m3/day",
+    "source": "built_in_kb",
+    "basis": "Imported fill, 300 mm layers, roller-compacted",
+    "confidence": "medium",
+    "valid_for": "approved fill, layered"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Roller operator",
+        "count": 1
+      },
+      {
+        "trade": "Laborer",
+        "count": 3
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Loader",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 300,
+        "likely": 400,
+        "high": 550
+      },
+      "output_unit": "m3"
+    },
+    {
+      "name": "Vibratory roller",
+      "count": 1,
+      "basis": "duration",
+      "utilization": 0.9
+    }
+  ],
+  "material": [
+    {
+      "name": "Imported fill",
+      "unit": "m3",
+      "qty_per_unit": 1.0,
+      "waste_pct": 5
+    }
+  ]
+}

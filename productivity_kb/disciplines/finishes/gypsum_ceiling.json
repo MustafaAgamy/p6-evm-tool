@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "finishes.ceiling.gypsum",
+  "discipline": "Interior Finishing",
+  "work_type": "Suspended ceilings",
+  "method": "gypsum board",
+  "name": "Gypsum board ceiling",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "gypsum ceiling",
+      "plasterboard ceiling",
+      "gypsum board ceiling",
+      "bulkhead"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 25,
+    "likely": 25,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Suspended gypsum ceiling incl. jointing",
+    "confidence": "medium",
+    "valid_for": "incl. framing, boarding, taping"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Drywall fixer",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

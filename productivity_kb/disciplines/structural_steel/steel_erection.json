@@ -1,0 +1,71 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "steel.erection.frame",
+  "discipline": "Civil/Structural",
+  "work_type": "Structural steel",
+  "method": "crane erection",
+  "name": "Structural steel erection",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "steel erection",
+      "erect steel",
+      "structural steel",
+      "steel frame"
+    ],
+    "codes": []
+  },
+  "unit": "ton",
+  "driver": "production_rate",
+  "rate": {
+    "value": 12,
+    "likely": 12,
+    "unit": "ton/day",
+    "source": "built_in_kb",
+    "basis": "Steel frame erection, mobile/crawler crane",
+    "confidence": "medium",
+    "valid_for": "per crew, ground access"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "Rigger foreman",
+        "count": 1
+      },
+      {
+        "trade": "Rigger",
+        "count": 3
+      },
+      {
+        "trade": "Bolter",
+        "count": 2
+      },
+      {
+        "trade": "Welder",
+        "count": 1
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Crawler crane",
+      "count": 1,
+      "basis": "duration",
+      "utilization": 0.8
+    }
+  ],
+  "material": [
+    {
+      "name": "Bolts / consumables",
+      "unit": "ton",
+      "qty_per_unit": 0.03,
+      "waste_pct": 5
+    }
+  ]
+}

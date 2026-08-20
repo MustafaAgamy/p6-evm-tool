@@ -1,0 +1,43 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "elec.containment.cable_tray",
+  "discipline": "Electrical",
+  "work_type": "Cable containment",
+  "method": "tray / ladder",
+  "name": "Cable tray / ladder",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "cable tray",
+      "cable ladder",
+      "containment",
+      "tray install"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 60,
+    "likely": 60,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "Cable tray/ladder install + supports",
+    "confidence": "medium",
+    "valid_for": "route accessible"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Electrician",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.concrete.jumpform_core",
+  "discipline": "Civil/Structural",
+  "work_type": "Special methods",
+  "method": "jumpform, per lift",
+  "name": "Jumpform core wall",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "jumpform",
+      "jump form",
+      "climbing formwork core",
+      "self climbing"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "production_rate",
+  "rate": {
+    "value": 3,
+    "likely": 3,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "Jumpform core, per-lift cycle",
+    "confidence": "medium",
+    "valid_for": "~3-4 day cycle per lift"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Carpenter",
+        "count": 4
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 4
+      },
+      {
+        "trade": "Concreter",
+        "count": 3
+      },
+      {
+        "trade": "Helper",
+        "count": 2
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Climbing formwork system",
+      "count": 1,
+      "basis": "duration",
+      "utilization": 1.0
+    },
+    {
+      "name": "Tower crane",
+      "count": 1,
+      "basis": "duration",
+      "utilization": 0.5
+    }
+  ]
+}

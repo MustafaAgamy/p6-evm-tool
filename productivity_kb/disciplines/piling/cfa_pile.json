@@ -1,0 +1,59 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.piling.cfa_pile",
+  "discipline": "Civil/Structural",
+  "work_type": "Piling",
+  "method": "CFA",
+  "name": "CFA pile",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "cfa pile",
+      "continuous flight auger",
+      "auger pile"
+    ],
+    "codes": []
+  },
+  "unit": "m",
+  "driver": "resource_driven",
+  "rate": {
+    "value": 150,
+    "likely": 150,
+    "unit": "m/day",
+    "source": "built_in_kb",
+    "basis": "CFA pile, one rig, medium soil",
+    "confidence": "medium",
+    "valid_for": "per rig, no obstructions"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Rig operator",
+        "count": 1
+      },
+      {
+        "trade": "Banksman",
+        "count": 1
+      },
+      {
+        "trade": "Laborer",
+        "count": 3
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "CFA rig",
+      "count": 1,
+      "governing": true,
+      "output": {
+        "low": 100,
+        "likely": 150,
+        "high": 220
+      },
+      "output_unit": "m"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.foundations.raft",
+  "discipline": "Civil/Structural",
+  "work_type": "Foundations",
+  "method": "RC raft, pump placement",
+  "name": "Raft foundation",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "raft",
+      "raft foundation",
+      "mat foundation"
+    ],
+    "codes": []
+  },
+  "unit": "m3",
+  "driver": "production_rate",
+  "rate": {
+    "value": 250,
+    "likely": 250,
+    "unit": "m3/day",
+    "source": "built_in_kb",
+    "basis": "RC raft, pump placement, large pour",
+    "confidence": "medium",
+    "valid_for": "pump + continuous supply"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 2,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 3
+      },
+      {
+        "trade": "Carpenter",
+        "count": 2
+      },
+      {
+        "trade": "Pump/pour crew",
+        "count": 4
+      }
+    ]
+  },
+  "plant": [
+    {
+      "name": "Concrete pump",
+      "count": 2,
+      "basis": "duration",
+      "utilization": 0.8
+    }
+  ],
+  "material": [
+    {
+      "name": "Concrete",
+      "unit": "m3",
+      "qty_per_unit": 1.0,
+      "waste_pct": 3
+    },
+    {
+      "name": "Rebar",
+      "unit": "ton",
+      "qty_per_unit": 0.12,
+      "waste_pct": 2
+    }
+  ]
+}

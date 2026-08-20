@@ -1,0 +1,54 @@
+{
+  "schema": "productivity_kb.activity/1.0",
+  "template_id": "civil.concrete.rc_slab.waffle",
+  "discipline": "Civil/Structural",
+  "work_type": "RC slabs",
+  "method": "waffle / coffered",
+  "name": "Waffle slab",
+  "status": "draft",
+  "match": {
+    "keywords": [
+      "waffle slab",
+      "coffered slab",
+      "two way ribbed"
+    ],
+    "codes": []
+  },
+  "unit": "m2",
+  "driver": "production_rate",
+  "rate": {
+    "value": 80,
+    "likely": 80,
+    "unit": "m2/day",
+    "source": "built_in_kb",
+    "basis": "Waffle slab, moulded pods",
+    "confidence": "low",
+    "valid_for": "pod set-out slows placing"
+  },
+  "crew": {
+    "hours_per_day": 8,
+    "n_crews": 1,
+    "composition": [
+      {
+        "trade": "Foreman",
+        "count": 1
+      },
+      {
+        "trade": "Carpenter",
+        "count": 3
+      },
+      {
+        "trade": "Steelfixer",
+        "count": 3
+      },
+      {
+        "trade": "Mason",
+        "count": 2
+      },
+      {
+        "trade": "Helper",
+        "count": 3
+      }
+    ]
+  }
+}
