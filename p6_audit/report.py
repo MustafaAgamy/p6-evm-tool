@@ -545,6 +545,44 @@ def _recommendations_section(m):
     return f'<h2 class="sec">Recommendations</h2><ul class="recs">{lis}</ul>'
 
 
+def _cpli_driving_chart(m):
+    """A print-friendly driving-path bar chart for the CPLI PDF — one bar per critical
+    activity across the schedule range (the printed form of the on-screen Gantt).
+    Red = critical, blue = near-critical, green diamond = a genuine P6 milestone."""
+    import datetime as _dt
+    def _t(s):
+        try:
+            return _dt.datetime.strptime(str(s)[:10], '%Y-%m-%d')
+        except (ValueError, TypeError):
+            return None
+    dated = [(f, _t(f.get('start')), _t(f.get('finish'))) for f in (m.get('findings') or [])]
+    dated = [(f, s, e) for f, s, e in dated if s and e]
+    if not dated:
+        return ''
+    lo = min(s for _, s, _ in dated)
+    hi = max(e for _, _, e in dated)
+    span = max(1, (hi - lo).days)
+    rows = []
+    for f, s, e in dated[:60]:
+        x = 100.0 * (s - lo).days / span
+        w = max(0.6, 100.0 * (e - s).days / span)
+        if f.get('is_milestone'):
+            bar = f'<span style="position:absolute;left:{x:.1f}%;top:3px;width:8px;height:8px;background:#2e8b57;transform:rotate(45deg)"></span>'
+        else:
+            color = '#c0392b' if (f.get('total_float_days') or 0) <= 0 else '#17457a'
+            bar = f'<span style="position:absolute;left:{x:.1f}%;width:{min(w, 100 - x):.1f}%;top:4px;height:7px;background:{color};border-radius:2px"></span>'
+        rows.append(
+            f'<tr><td class="mono">{_esc(f.get("activity_id"))}</td>'
+            f'<td>{_esc(f.get("activity_name"))}</td>'
+            f'<td class="num">{_esc(f.get("start"))}</td><td class="num">{_esc(f.get("finish"))}</td>'
+            f'<td style="position:relative;height:15px;min-width:220px">{bar}</td></tr>')
+    more = (f'<div class="dcma">Showing 60 of {len(dated)} critical activities; the full list is in the table below.</div>'
+            if len(dated) > 60 else '')
+    return ('<h2 class="sec">Driving Path</h2>'
+            '<table><thead><tr><th>Activity ID</th><th>Activity Name</th><th class="num">Start</th>'
+            f'<th class="num">Finish</th><th>Timeline</th></tr></thead><tbody>{"".join(rows)}</tbody></table>{more}')
+
+
 def _sections(m, sections=None):
     """Body sections for a module report — respecting the user's report-content
     selection (Preview = PDF = Print) and skipping sections with no data. OOS and
@@ -588,6 +626,8 @@ def _sections(m, sections=None):
         parts.append(_severity_legend(m))
     if on('findings'):
         parts.append(_wbs_summary(m))
+        if mod == 'cpli':
+            parts.append(_cpli_driving_chart(m))     # the driving-path chart, in the PDF
         parts.append(_presentation_table(m))
     if on('recommendations'):
         parts.append(_recommendations_section(m))
