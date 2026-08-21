@@ -9,7 +9,7 @@ from pathlib import Path
 from p6_evm.parser import ScheduleData, parse_file
 from p6_evm.calendars import Calendar
 from p6_narrative.intel import (
-    build_context, discipline_of, package_of, disciplines, packages,
+    build_context, discipline_of, package_of, disciplines, packages, discipline_label,
 )
 
 from tests.test_intel_context import _synthetic, _act
@@ -61,6 +61,22 @@ def test_partitions_are_deterministic_and_stable():
     assert dict(packages(ctx)) == dict(packages(build_context(d)))
     # discipline partition for the coded synthetic
     assert dict(disciplines(ctx)) == {'Civil': ['a1', 'a2'], 'Mechanical': ['a3']}
+
+
+def test_discipline_label_agrees_with_discipline_of_when_there_is_only_one_dimension():
+    # discipline_label (contract item D — coverage-selected) and the legacy discipline_of
+    # necessarily agree when there is only one candidate dimension to measure against
+    ctx = build_context(_synthetic(with_codes=True))
+    assert discipline_label(ctx, ctx.steps['a1']) == ('Civil', 'code')
+    assert discipline_label(ctx, ctx.steps['a3']) == ('Mechanical', 'code')
+
+
+def test_discipline_label_falls_back_to_wbs_basis_when_no_code_dimension_exists():
+    ctx = build_context(_synthetic(with_codes=False))
+    label, basis = discipline_label(ctx, ctx.steps['a1'])
+    assert basis == 'wbs' and label == 'Civil'
+    label, basis = discipline_label(ctx, ctx.steps['a3'])
+    assert basis == 'wbs' and label == 'Mechanical'
 
 
 def test_general_fallback_when_wbs_missing_and_no_code():

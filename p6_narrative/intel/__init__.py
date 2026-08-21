@@ -8,14 +8,18 @@ Public API:
   * ``build_context(data)``          -> IntelContext   (one-pass index)
   * ``build_profile(context)``       -> dict           (JSON-serialisable fingerprint)
   * ``discipline_of`` / ``package_of`` / ``disciplines`` / ``packages``  (grouping)
+  * ``discipline_label``              (measured-coverage discipline pick, Slice 2)
+  * ``detect_repeats(context)``       -> dict           (Slice 2 — repeated work fronts)
 """
 from p6_narrative.intel.context import IntelContext, build_context
 from p6_narrative.intel.profile import build_profile
 from p6_narrative.intel.grouping import (
-    discipline_of, package_of, disciplines, packages,
+    discipline_of, package_of, disciplines, packages, discipline_label,
 )
+from p6_narrative.intel.dedup import detect_repeats
 
 __all__ = [
     'IntelContext', 'build_context', 'build_profile',
-    'discipline_of', 'package_of', 'disciplines', 'packages',
+    'discipline_of', 'package_of', 'disciplines', 'packages', 'discipline_label',
+    'detect_repeats',
 ]

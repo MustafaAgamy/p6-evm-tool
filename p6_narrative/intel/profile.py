@@ -9,8 +9,18 @@ the profile also carries ``params`` adaptively scaled by ``size_class``.
 
 Pure and deterministic. No project-specific strings; every label is derived from the
 file. Counts reconcile exactly with the raw parse.
+
+``params['min_instances']`` is capped by the repetition actually MEASURED in the file
+(``intel.structure.repetition_stats``), never taken from ``size_class`` alone. Two real
+baselines of 896 and 2502 activities both land in ``'medium'``, yet one repeats 14 deep
+and the other 6 — size class describes how BIG a schedule is, not how much it repeats,
+so it cannot set the evidence bar on its own. The cap only ever LOWERS the size-class
+default down to what the file can actually supply; it never raises it, and a file with
+no measured repetition (``deepest_repeat`` 0 or 1 — a single occurrence is not a
+repeat) leaves the size-class default untouched.
 """
 from p6_narrative.intel.grouping import discipline_of, package_of
+from p6_narrative.intel.structure import repetition_stats
 
 _REL_TYPES = ('FS', 'SS', 'FF', 'SF')
 
@@ -22,6 +32,9 @@ _PARAMS = {
     'medium': {'min_instances': 3, 'sim_threshold': 0.55, 'max_chart_items': 15, 'max_charts': 8},
     'large':  {'min_instances': 5, 'sim_threshold': 0.50, 'max_chart_items': 20, 'max_charts': 10},
 }
+# Below this many instances there is nothing to call "repeated" — one occurrence is
+# not a repeat, so it carries no information about how demanding the bar should be.
+_MIN_MEASURED_REPEAT = 2
 
 
 def _size_class(n_activities):
@@ -30,6 +43,16 @@ def _size_class(n_activities):
     if n_activities < 5000:
         return 'medium'
     return 'large'
+
+
+def _capped_params(size_class, repetition):
+    """Size-class defaults with ``min_instances`` capped by measured repetition."""
+    params = dict(_PARAMS[size_class])
+    deepest = repetition.get('deepest_repeat') or 0
+    if deepest >= _MIN_MEASURED_REPEAT:
+        params['min_instances'] = max(_MIN_MEASURED_REPEAT,
+                                      min(params['min_instances'], deepest))
+    return params
 
 
 def build_profile(context) -> dict:
@@ -74,6 +97,7 @@ def build_profile(context) -> dict:
     has_resources = bool(data.bac_by_activity or data.ac_by_activity)
 
     size_class = _size_class(n_activities)
+    repetition = repetition_stats(context)
 
     # Distinct disciplines / packages present (from the single grouping source of truth)
     n_disciplines = len({discipline_of(context, a) for a in context.steps.values()})
@@ -96,5 +120,6 @@ def build_profile(context) -> dict:
         'has_cost': has_cost,
         'has_resources': has_resources,
         'size_class': size_class,
-        'params': dict(_PARAMS[size_class]),
+        'params': _capped_params(size_class, repetition),
+        'repetition': repetition,
     }
