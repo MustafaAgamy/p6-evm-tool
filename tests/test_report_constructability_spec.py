@@ -152,6 +152,9 @@ def test_evidence_findings_component_renders_the_rule_engine_output():
         'expected': 'Hydrotest first', 'reason': 'joints must be reachable', 'evidence': 'KB',
         'strength': 'strong', 'impact': 'rework', 'recommendation': 'test before insulate',
         'activities': ['A001', 'A002'],
+        'p6': [{'id': 'A001', 'name': 'Pipe Insulation', 'system': 'piping', 'phase': 'INSULATION',
+                'preds': [{'id': 'A000', 'name': 'Spool Erection', 'type': 'FS', 'lag': ''}],
+                'succs': [{'id': 'A002', 'name': 'Hydrotest', 'type': 'SS', 'lag': '+2d'}]}],
     }])
     spec = get_spec('constructability', report)
     doc = build_document(spec, report, selected_ids=['archetype_summary', 'evidence_findings'])
@@ -159,6 +162,10 @@ def test_evidence_findings_component_renders_the_rule_engine_output():
     assert 'Evidence-Graded Findings' in doc
     assert 'Piping insulated before it was pressure-tested' in doc
     assert 'strong' in doc and 'test before insulate' in doc
+    # finding-level P6 traceability drills down to the actual schedule logic
+    assert 'A000' in doc and 'Spool Erection' in doc      # the current predecessor
+    assert 'SS' in doc and '+2d' in doc                   # relationship type + lag
+    assert 'Current predecessor' in doc and 'Current successor' in doc
 
 
 def test_evidence_findings_empty_shows_no_data():

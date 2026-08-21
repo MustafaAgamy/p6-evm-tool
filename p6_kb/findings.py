@@ -141,6 +141,44 @@ def _label(a):
     return a.get('id') or a.get('name') or a.get('object_id')
 
 
+def _fmt_lag(days):
+    """A P6 lag, in days, as a compact signed token: 0 → '', +5 → '+5d', -3 → '-3d'."""
+    try:
+        d = float(days)
+    except (TypeError, ValueError):
+        return ''
+    if abs(d) < 1e-9:
+        return ''
+    s = int(d) if abs(d - int(d)) < 1e-9 else round(d, 1)
+    return f'+{s}d' if d > 0 else f'{s}d'
+
+
+def _rel_list(by_oid, rels, oid):
+    """[{id, name, type, lag}] for the predecessors/successors of `oid` — the ACTUAL
+    schedule logic (relationship type FS/SS/FF/SF + lag) straight from the uploaded XER.
+    The finding is about this logic, not just the activity name."""
+    out = []
+    for other_oid, rtype, lag in rels.get(oid, []):
+        o = by_oid.get(other_oid, {})
+        out.append({'id': o.get('id') or other_oid, 'name': o.get('name', ''),
+                    'type': rtype, 'lag': _fmt_lag(lag)})
+    return out
+
+
+def _p6_context(by_oid, pred_rels, succ_rels, oid):
+    """Finding-level P6 traceability for one activity: its id/name and its CURRENT
+    predecessors and successors (each with relationship type + lag), evidenced from the
+    uploaded schedule. This is what lets a planner drill from a finding to the exact
+    activities and links behind it."""
+    a = by_oid.get(oid, {})
+    return {
+        'id': a.get('id') or oid, 'name': a.get('name', ''),
+        'system': _sys_of(a), 'phase': _phase_of(a),
+        'preds': _rel_list(by_oid, pred_rels, oid),
+        'succs': _rel_list(by_oid, succ_rels, oid),
+    }
+
+
 def _to_sys(pid):
     return _PATTERN_TO_SYS.get(pid, pid)
 
@@ -347,8 +385,14 @@ def generate_findings(view, resolution, patterns=None):
 
     # predecessor adjacency, built once — used by the transitive checks in R1/R5/R6/R7
     pred_map = {}
+    # rich P6 relationship maps (type + lag) for finding-level traceability
+    pred_rels, succ_rels = {}, {}
     for r in view.get('relationships_oid', []):
         pred_map.setdefault(r['succ_oid'], set()).add(r['pred_oid'])
+        pred_rels.setdefault(r['succ_oid'], []).append(
+            (r['pred_oid'], r.get('type') or 'FS', r.get('lag_days') or 0.0))
+        succ_rels.setdefault(r['pred_oid'], []).append(
+            (r['succ_oid'], r.get('type') or 'FS', r.get('lag_days') or 0.0))
 
     def _powered(a):
         """The activity's power enabler — a permanent-power/energization predecessor,
@@ -400,6 +444,7 @@ def generate_findings(view, resolution, patterns=None):
                     'recommendation': "Add an electrical energization / permanent-power predecessor to the "
                                       "commissioning, or confirm power is provided another way.",
                     'activities': [_label(a) for a in unpowered[:6]],
+                    'activity_oids': [a['object_id'] for a in unpowered[:6]],
                 })
 
         # ── Rule 2: within-system out-of-sequence — a late-phase activity DRIVES an
@@ -426,6 +471,7 @@ def generate_findings(view, resolution, patterns=None):
                     'impact': "The sequence is not physically buildable and will not survive F9.",
                     'recommendation': "Reverse the dependency: install → test → pre-commission → commission.",
                     'activities': [_label(pa), _label(sa)],
+                    'activity_oids': [r['pred_oid'], r['succ_oid']],
                 })
 
     # ── shared structure for the generalized rules R3–R7 ──────────────────────
@@ -480,6 +526,7 @@ def generate_findings(view, resolution, patterns=None):
             'impact': f"{s} is sequenced ahead of the {w} it depends on — an unbuildable interface.",
             'recommendation': f"Reverse the dependency so {w} enables {s}.",
             'activities': [_label(pa), _label(sa)],
+            'activity_oids': [r['pred_oid'], r['succ_oid']],
         })
 
     # ── Rule 4: within-system phase inversion (generalises R2). Fires on a later-GROUP
@@ -519,6 +566,7 @@ def generate_findings(view, resolution, patterns=None):
             'impact': "The sequence is not physically buildable and will not survive F9.",
             'recommendation': "Reverse the dependency so the earlier phase drives the later one.",
             'activities': [_label(pa), _label(sa)],
+            'activity_oids': [r['pred_oid'], r['succ_oid']],
         })
 
     # ── Rule 5: equipment set with NO foundation/support interface (MEP↔civil).
@@ -552,6 +600,7 @@ def generate_findings(view, resolution, patterns=None):
             'recommendation': "Add the equipment-foundation (or supporting-steel) predecessor to the "
                               "setting activities, or confirm the support interface.",
             'activities': [_label(a) for a in unsupported[:6]],
+            'activity_oids': [a['object_id'] for a in unsupported[:6]],
         })
 
     # ── Rule 6: a pipe insulated / covered BEFORE its STRENGTH test. INSULATION and the
@@ -594,6 +643,7 @@ def generate_findings(view, resolution, patterns=None):
                     'recommendation': "Sequence the hydrotest before insulation, painting and in-line "
                                       "reinstatement.",
                     'activities': [_label(cover), _label(h)],
+                    'activity_oids': [r['pred_oid'], r['succ_oid']],
                 })
 
     # ── Rule 7: integrated / performance / start-up test with NO commissioning behind
@@ -632,6 +682,7 @@ def generate_findings(view, resolution, patterns=None):
                 'recommendation': "Tie the integrated/performance test to the commissioning of the "
                                   "systems it exercises.",
                 'activities': [_label(a)],
+                'activity_oids': [a['object_id']],
             })
 
     # ── dedup: rules deliberately overlap (R2⊂R4, R1 vs R3); collapse findings that
@@ -647,6 +698,14 @@ def generate_findings(view, resolution, patterns=None):
         seen_key[key] = len(deduped)
         deduped.append(f)
     findings = deduped
+
+    # finding-level P6 traceability — attach the ACTUAL schedule logic (each involved
+    # activity's id/name + its current predecessors & successors, with relationship type
+    # and lag) to every surviving finding, so a planner can drill from the finding to the
+    # exact links behind it. Evidenced entirely from the uploaded XER.
+    for f in findings:
+        f['p6'] = [_p6_context(by_oid, pred_rels, succ_rels, oid)
+                   for oid in f.get('activity_oids', [])]
 
     # stable, MEP-first, strong-first ordering
     findings.sort(key=lambda f: (-_STRENGTH.get(f['strength'], 1),

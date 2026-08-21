@@ -107,38 +107,75 @@ def _archetype_summary(report):
             f'</div>')
 
 
+def _rel_cell(rels):
+    """Render a list of predecessor/successor links as compact lines: each is the linked
+    activity's ID + name + relationship type (FS/SS/FF/SF) and lag — the actual schedule
+    logic behind the finding."""
+    if not rels:
+        return '<span class="mut">— none —</span>'
+    out = []
+    for r in rels:
+        lag = f' <b>{X._e(r.get("lag"))}</b>' if r.get('lag') else ''
+        out.append(f'<span class="mono">{X._e(r.get("id"))}</span> {X._e(r.get("name"))} '
+                   f'<span class="rtype">{X._e(r.get("type"))}</span>{lag}')
+    return '<br>'.join(out)
+
+
+def _p6_logic_table(p6):
+    """The finding's schedule logic: for each involved activity, its ID, name, and its
+    CURRENT predecessors and successors (type + lag). This is the drill-down detail."""
+    if not p6:
+        return ''
+    rows = ''
+    for c in p6:
+        rows += (f'<tr>'
+                 f'<td class="mono">{X._e(c.get("id"))}</td>'
+                 f'<td>{X._e(c.get("name"))}<div class="mut">{X._e(c.get("phase"))}'
+                 f'{" · " + X._e(c.get("system")) if c.get("system") else ""}</div></td>'
+                 f'<td>{_rel_cell(c.get("preds"))}</td>'
+                 f'<td>{_rel_cell(c.get("succs"))}</td>'
+                 f'</tr>')
+    return ('<table class="p6log"><colgroup><col style="width:11%"><col style="width:29%">'
+            '<col style="width:30%"><col style="width:30%"></colgroup>'
+            '<thead><tr><th>Activity ID</th><th>Activity</th>'
+            '<th>Current predecessor · type · lag</th>'
+            '<th>Current successor · type · lag</th></tr></thead><tbody>'
+            + rows + '</tbody></table>')
+
+
 def _evidence_findings(report):
-    """The R1–R7 evidence-graded rule-engine findings, each as a full auditable chain:
-    existing → expected → reason → evidence → strength → impact → recommendation."""
+    """The R1–R7 evidence-graded findings. Each is a readable summary line (severity ·
+    system · finding · impact · recommendation) with an expandable drill-down carrying
+    the full evidence chain and the P6 schedule logic (activity IDs, predecessors,
+    successors, relationship types and lags) behind it."""
     fs = report.get('v2_findings') or []
     if not fs:
         return ''
-    body = ''
+    cards = ''
     for i, f in enumerate(fs, 1):
         hex_ = _STRENGTH_HEX.get(f.get('strength'), '#64748b')
-        acts = ', '.join(str(x) for x in (f.get('activities') or [])) or '—'
-        body += (
-            f'<tr>'
-            f'<td class="sn">{i}</td>'
-            f'<td><span class="schip" style="background:{hex_}1a;color:{hex_};border-color:{hex_}55">'
-            f'{X._e(f.get("strength"))}</span></td>'
-            f'<td class="mono">{X._e(f.get("system"))}</td>'
-            f'<td><b>{X._e(f.get("title"))}</b>'
-            f'<div class="mut">{X._e(f.get("existing"))}</div></td>'
-            f'<td>{X._e(f.get("expected"))}<div class="mut">{X._e(f.get("reason"))}</div></td>'
-            f'<td class="mut">{X._e(f.get("evidence"))}</td>'
-            f'<td>{X._e(f.get("impact"))}</td>'
-            f'<td class="chg">{X._e(f.get("recommendation"))}</td>'
-            f'<td class="mono">{X._e(acts)}</td>'
-            f'</tr>')
-    return ('<table class="data"><colgroup>'
-            '<col style="width:3%"><col style="width:7%"><col style="width:9%"><col style="width:19%">'
-            '<col style="width:17%"><col style="width:15%"><col style="width:12%"><col style="width:12%">'
-            '<col style="width:6%"></colgroup>'
-            '<thead><tr><th>#</th><th>Strength</th><th>System</th><th>Finding</th>'
-            '<th>Expected &amp; why</th><th>Evidence</th><th>Impact</th>'
-            '<th>Recommendation</th><th>Activities</th></tr></thead><tbody>'
-            + body + '</tbody></table>')
+        cards += (
+            f'<div class="efind">'
+            f'<div class="efhead">'
+            f'<span class="efn">{i}</span>'
+            f'<span class="schip" style="background:{hex_}1a;color:{hex_};border-color:{hex_}55">'
+            f'{X._e(f.get("strength"))}</span>'
+            f'<span class="efsys mono">{X._e(f.get("system"))}</span>'
+            f'<span class="eftitle">{X._e(f.get("title"))}</span></div>'
+            f'<div class="efline"><span class="efk">Impact</span>'
+            f'<span class="efv">{X._e(f.get("impact"))}</span></div>'
+            f'<div class="efline"><span class="efk">Recommendation</span>'
+            f'<span class="efv chg">{X._e(f.get("recommendation"))}</span></div>'
+            f'<details open class="efdetail"><summary>Schedule logic &amp; evidence</summary>'
+            f'<div class="efline"><span class="efk">Existing</span>'
+            f'<span class="efv">{X._e(f.get("existing"))}</span></div>'
+            f'<div class="efline"><span class="efk">Expected / why</span>'
+            f'<span class="efv">{X._e(f.get("expected"))} — {X._e(f.get("reason"))}</span></div>'
+            f'<div class="efline"><span class="efk">Evidence</span>'
+            f'<span class="efv mut">{X._e(f.get("evidence"))}</span></div>'
+            f'{_p6_logic_table(f.get("p6"))}'
+            f'</details></div>')
+    return f'<div class="efinds">{cards}</div>'
 
 
 # Extra CSS for the two new components (archetype box + strength chip), appended to
@@ -158,6 +195,26 @@ _EXTRA_CSS = '''
       .esband { font-size: 15px; font-weight: 700; }
       .esmeta { font-size: 11px; color: #64748b; margin: 2px 0 5px; }
       .eschips .schip { margin-right: 4px; }
+      .efinds { display: flex; flex-direction: column; gap: 8px; }
+      .efind { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 11px; break-inside: avoid; }
+      .efhead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+      .efn { font-weight: 700; color: #94a3b8; font-size: 11px; }
+      .efsys { font-size: 10px; color: #475569; }
+      .eftitle { font-weight: 700; font-size: 12.5px; color: #0f172a; }
+      .efline { display: flex; gap: 8px; font-size: 11px; padding: 2px 0; }
+      .efline .efk { width: 118px; flex: 0 0 auto; color: #64748b; text-transform: uppercase;
+                     letter-spacing: .3px; font-size: 9.5px; padding-top: 1px; }
+      .efline .efv { color: #1e293b; }
+      .efdetail { margin-top: 4px; }
+      .efdetail > summary { font-size: 10px; color: #64748b; cursor: pointer; padding: 3px 0;
+                            list-style: none; font-weight: 600; }
+      .efdetail > summary::-webkit-details-marker { display: none; }
+      table.p6log { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 10.5px; }
+      table.p6log th { text-align: left; background: #f1f5f9; color: #475569; font-weight: 600;
+                       padding: 3px 6px; border: 1px solid #e2e8f0; }
+      table.p6log td { padding: 3px 6px; border: 1px solid #e2e8f0; vertical-align: top; }
+      .rtype { display: inline-block; font-size: 9px; font-weight: 700; color: #0369a1;
+               background: #e0f2fe; border-radius: 3px; padding: 0 4px; }
 '''
 
 
