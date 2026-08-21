@@ -18,6 +18,8 @@ const ROLE_LABEL = { current: 'Current update', previous: 'Previous update', bas
 let _mode = 'update_baseline';
 let _picked = { previous: null, baseline: null };   // chosen file paths
 let _shownReport = null;
+let _milestone = null;   // selected finish-milestone code (null = governing)
+let _level = 0;          // driving-path rollup: 0 work front · 1 area · 2 phase
 
 function _currName() {
   const p = state.currentXmlPath || state.currentCachedPath || '';
@@ -93,10 +95,12 @@ function _syncRun() {
   if (btn) btn.disabled = !ready;
 }
 
-async function _run() {
+async function _run(keepMilestone) {
   const rep = document.getElementById('cpa-report');
   rep.innerHTML = `<div class="cpa-note">Reading the schedules and comparing critical paths…</div>`;
-  const payload = { mode: _mode, current_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '' };
+  if (!keepMilestone) { _milestone = null; _level = 0; }
+  const payload = { mode: _mode, current_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '',
+                    milestone_code: _milestone, summary_level: _level };
   for (const role of _neededRoles()) payload[`${role}_path`] = _picked[role];
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/analyze`, {
@@ -114,7 +118,84 @@ async function _run() {
 function _renderReport(report) {
   document.getElementById('cpa-report').innerHTML = `
     <div class="cpa-sech">Critical &amp; near-critical census</div>
-    <div class="cpa-card">${_censusHtml(report)}</div>`;
+    <div class="cpa-card">${_censusHtml(report)}</div>
+
+    <div class="cpa-sech">Driving path — schedule by schedule</div>
+    <div class="cpa-card">${_lanesHtml(report)}</div>`;
+  _wireLaneControls(report);
+}
+
+// ── Driving-path lanes (the §3 chart per schedule, new path highlighted) ─────
+
+function _fdate(s) { return s || '—'; }
+function _sv(v) { return v == null ? '—' : `${v > 0 ? '+' : ''}${v}`; }
+
+function _milestoneSelect(report) {
+  const list = report.milestones_list || [];
+  if (!list.length) return '';
+  const sel = report.selected_milestone;
+  const opts = list.map(m => {
+    const gov = m.is_governing ? ' (governing)' : '';
+    const on = (sel == null && m.is_governing) || sel === m.id;
+    return `<option value="${escapeHtml(m.id)}"${on ? ' selected' : ''}>◆ ${escapeHtml(m.name)}${gov}</option>`;
+  }).join('');
+  return `<span>Milestone</span><select id="cpa-ms" class="cpa-sel">${opts}</select>`;
+}
+
+function _lanesHtml(report) {
+  const lanes = report.lanes || [];
+  const slicer = `<div class="cpa-slicer">${_milestoneSelect(report)}
+    <span style="margin-left:auto">Summarise at</span>
+    <select id="cpa-level" class="cpa-sel">
+      <option value="0"${_level === 0 ? ' selected' : ''}>Work front</option>
+      <option value="1"${_level === 1 ? ' selected' : ''}>Area / zone</option>
+      <option value="2"${_level === 2 ? ' selected' : ''}>Phase</option>
+    </select></div>`;
+  if (!lanes.some(l => (l.boxes || []).length)) {
+    return slicer + `<div class="cpa-note">No governing completion milestone with a driving path was found in these schedules.</div>`;
+  }
+  const laneCls = { baseline: 'bl', previous: 'prev', current: 'curr' };
+  const html = lanes.map(lane => {
+    const ms = lane.milestone || {};
+    const chain = [`<div class="cpa-msbox"><div class="cpa-msflag">◆ Milestone</div>
+      <div class="cpa-mst">${escapeHtml(ms.name || '')}</div>
+      <div class="cpa-msr"><span>${lane.role === 'baseline' ? 'BL Finish' : 'Exp Finish'}</span><b>${_fdate(lane.role === 'baseline' ? ms.baseline_finish : ms.expected_finish)}</b></div>
+      <div class="cpa-msr"><span>Delay</span><b class="${(ms.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${_sv(ms.slip_days)} d</b></div></div>`];
+    (lane.boxes || []).forEach(b => {
+      chain.push(`<div class="cpa-arw">▸</div>`);
+      const st = b.state || 'stayed';
+      const flag = st === 'new' ? `<div class="cpa-newflag">NEW ON PATH</div>`
+                 : st === 'left' ? `<div class="cpa-dropflag">LEFT PATH</div>` : '';
+      const last = st === 'left'
+        ? `<div class="cpa-full"><div class="cpa-k">Float now</div><div class="cpa-v" style="color:var(--success)">${b.driver_tf == null ? '—' : _sv(b.driver_tf) + ' wd'}</div></div>`
+        : `<div class="cpa-full"><div class="cpa-k">Slip</div><div class="cpa-v ${(b.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${_sv(b.slip_days)} d</div></div>`;
+      chain.push(`<div class="cpa-box cpa-${st}">${flag}
+        <div class="cpa-bt">${escapeHtml(b.name || '')}</div>
+        <div class="cpa-bcrumb">${escapeHtml(b.crumb || '')}</div>
+        <div class="cpa-b4">
+          <div><div class="cpa-k">Actual</div><div class="cpa-v">${Math.round(b.pct || 0)}%</div></div>
+          <div><div class="cpa-k">Exp Finish</div><div class="cpa-v">${_fdate(b.exp_finish)}</div></div>
+          ${last}
+        </div></div>`);
+    });
+    return `<div class="cpa-lane">
+      <div class="cpa-lanehdr"><span class="cpa-lanetag ${laneCls[lane.role]}">${escapeHtml(lane.label)}</span>
+        <span class="cpa-lanesub">${escapeHtml(lane.sub || '')}</span></div>
+      <div class="cpa-chain">${chain.join('')}</div></div>`;
+  }).join('');
+  const legend = `<div class="cpa-leg">
+    <span class="cpa-sw" style="background:rgba(220,38,38,.12);border:2px solid var(--danger)"></span>New on critical path (the reroute)
+    <span class="cpa-sw" style="background:rgba(148,163,184,.20);border:1px dashed var(--muted)"></span>Left the path (float recovered)
+    <span class="cpa-sw" style="background:var(--card-bg);border:1px solid var(--border)"></span>Stayed on path
+    <span class="cpa-sw" style="background:var(--card-bg);border:1px solid var(--success)"></span>Complete</div>`;
+  return slicer + html + legend;
+}
+
+function _wireLaneControls(report) {
+  const ms = document.getElementById('cpa-ms');
+  if (ms) ms.addEventListener('change', () => { _milestone = ms.value; _run(true); });
+  const lvl = document.getElementById('cpa-level');
+  if (lvl) lvl.addEventListener('change', () => { _level = parseInt(lvl.value, 10) || 0; _run(true); });
 }
 
 function _fmtCpli(v) { return v == null ? 'n/a' : v.toFixed(2); }
@@ -197,7 +278,40 @@ function _injectStyle() {
     .cpa-chip.up { background: rgba(220,38,38,.12); color: var(--danger); }
     .cpa-chip.down { background: rgba(22,163,74,.12); color: var(--success); }
     .cpa-chip.flat { background: var(--border); color: var(--muted); }
-    .cpa-leg { color: var(--muted); font-size: 11.5px; margin-top: 10px; line-height: 1.4; }
+    .cpa-leg { color: var(--muted); font-size: 11.5px; margin-top: 10px; line-height: 1.6; }
+    .cpa-sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin: 0 5px 0 14px; }
+    .cpa-leg .cpa-sw:first-child { margin-left: 0; }
+    /* slicer */
+    .cpa-slicer { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 12.5px; color: var(--muted); }
+    .cpa-sel { padding: 5px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); color: var(--text); font-size: 12.5px; }
+    /* lanes */
+    .cpa-lane { margin-bottom: 16px; }
+    .cpa-lanehdr { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+    .cpa-lanetag { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 6px; }
+    .cpa-lanetag.bl { background: rgba(148,163,184,.20); color: var(--muted); }
+    .cpa-lanetag.prev { background: rgba(217,119,6,.15); color: var(--warning); }
+    .cpa-lanetag.curr { background: rgba(59,130,246,.15); color: var(--accent); }
+    .cpa-lanesub { color: var(--muted); font-size: 11.5px; }
+    .cpa-chain { display: flex; align-items: stretch; flex-wrap: wrap; gap: 5px; }
+    .cpa-arw { display: flex; align-items: center; color: var(--muted); font-weight: 800; font-size: 17px; }
+    .cpa-msbox { flex: none; width: 178px; border: 2px solid var(--accent); border-radius: 12px; padding: 11px 12px; background: rgba(59,130,246,.08); }
+    .cpa-msflag { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--accent); opacity: .85; margin-bottom: 6px; }
+    .cpa-mst { font-size: 12.5px; font-weight: 800; color: var(--accent); line-height: 1.2; margin-bottom: 6px; }
+    .cpa-msr { display: flex; justify-content: space-between; font-size: 11.5px; margin: 2px 0; color: var(--text); }
+    .cpa-msr span { color: var(--muted); }
+    .cpa-box { flex: none; width: 176px; border: 1px solid var(--border); border-radius: 11px; padding: 9px 11px; background: var(--card-bg); position: relative; }
+    .cpa-box.cpa-done { border-color: var(--success); }
+    .cpa-box.cpa-new { border: 2px solid var(--danger); background: rgba(220,38,38,.07); box-shadow: 0 0 0 3px rgba(220,38,38,.10); }
+    .cpa-box.cpa-left { border-style: dashed; opacity: .6; background: rgba(148,163,184,.10); }
+    .cpa-newflag { position: absolute; top: -9px; left: 9px; background: var(--danger); color: #fff; font-size: 9px; font-weight: 800; letter-spacing: .4px; padding: 2px 7px; border-radius: 5px; }
+    .cpa-dropflag { position: absolute; top: -9px; left: 9px; background: var(--muted); color: #fff; font-size: 9px; font-weight: 800; letter-spacing: .4px; padding: 2px 7px; border-radius: 5px; }
+    .cpa-bt { font-size: 12px; font-weight: 700; line-height: 1.2; color: var(--text); }
+    .cpa-bcrumb { font-size: 9.5px; color: var(--muted); margin: 3px 0 8px; }
+    .cpa-b4 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
+    .cpa-k { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+    .cpa-v { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); margin-top: 1px; }
+    .cpa-full { grid-column: 1 / -1; border-top: 1px dashed var(--border); padding-top: 4px; }
+    .cpa-bad { color: var(--danger); }
   `;
   document.head.appendChild(s);
 }

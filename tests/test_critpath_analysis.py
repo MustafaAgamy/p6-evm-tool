@@ -69,3 +69,21 @@ def test_census_near_threshold_is_strict_under_10():
                   gov_tf=0.0, acts_tf=[10.0, 9.99])
     c = schedule_census(d)
     assert c['near'] == 1                  # only 9.99
+
+
+# ── build_report: lanes + milestone list ─────────────────────────────────────
+
+def test_build_report_has_lanes_and_census_per_role():
+    from p6_critpath.analysis import build_report
+    a = _schedule(datetime(2026, 6, 30), datetime(2027, 1, 5), datetime(2026, 12, 10),
+                  gov_tf=-5.0, acts_tf=[5.0, 0.0])
+    b = _schedule(datetime(2026, 7, 19), datetime(2027, 1, 23), datetime(2026, 12, 10),
+                  gov_tf=-10.0, acts_tf=[0.0, -3.0])
+    rep = build_report({'previous': a, 'current': b}, 'two_updates')
+    assert set(rep['roles']) == {'previous', 'current'}
+    assert 'previous' in rep['census'] and 'current' in rep['census']
+    # a lane per role, and the current lane carries box 'state' flags
+    lane_roles = {ln['role'] for ln in rep['lanes']}
+    assert lane_roles == {'previous', 'current'}
+    cur = next(ln for ln in rep['lanes'] if ln['role'] == 'current')
+    assert all('state' in bx for bx in cur['boxes'])

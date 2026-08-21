@@ -452,7 +452,9 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.parser import parse_file
             from p6_critpath.analysis import build_report
             schedules = {role: parse_file(p) for role, p in paths.items()}
-            report = build_report(schedules, mode)
+            report = build_report(schedules, mode,
+                                  milestone_code=body.get('milestone_code'),
+                                  summary_level=int(body.get('summary_level', 0) or 0))
             report['files'] = {role: os.path.basename(p) for role, p in paths.items()}
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:

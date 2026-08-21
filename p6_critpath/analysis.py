@@ -141,10 +141,58 @@ def schedule_census(data, near_threshold=NEAR_THRESHOLD):
     }
 
 
-def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD):
-    """Assemble the full comparison report from {role: ScheduleData} where role is
-    'baseline' | 'previous' | 'current'. Slice 1: census per schedule + file labels.
-    Later slices add lanes, milestones, float migration, dashboard, recommendation."""
+ROLE_LABEL = {'baseline': 'Baseline', 'previous': 'Previous update', 'current': 'Current update'}
+
+
+def _lane_sub(role, ms):
+    """Short caption under a lane's tag: finish date + slip."""
+    if not ms:
+        return ''
+    fin = ms.get('expected_finish') if role != 'baseline' else (ms.get('baseline_finish') or ms.get('expected_finish'))
+    slip = ms.get('slip_days')
+    bits = []
+    if fin:
+        bits.append(f"finishes {fin}")
+    if role != 'baseline' and slip is not None:
+        bits.append(f"{'+' if slip > 0 else ''}{slip} d vs baseline")
+    return ' · '.join(bits)
+
+
+def _build_lanes(schedules, roles, milestone_code, summary_level):
+    """One driving-path lane per schedule. The CURRENT lane highlights the NEW critical
+    path: boxes that entered vs the comparison base are 'new', boxes that left are appended
+    as 'left' ghosts. Baseline/previous lanes are reference (no highlight)."""
+    from p6_critpath.paths import path_boxes, path_diff, _box_key
+    paths = {r: path_boxes(schedules[r], milestone_code, summary_level) for r in roles}
+    base_role = 'previous' if 'previous' in roles else ('baseline' if 'baseline' in roles else None)
+
+    lanes = []
+    for role in roles:
+        p = paths[role]
+        boxes = [dict(b) for b in p['boxes']]
+        if role == 'current' and base_role:
+            diff = path_diff(paths[base_role]['boxes'], p['boxes'])
+            entered = {_box_key(b) for b in diff['entered']}
+            for b in boxes:
+                b['state'] = 'new' if _box_key(b) in entered else ('done' if b.get('complete') else 'stayed')
+            for gb in diff['left']:                       # dropped work fronts, shown ghosted
+                g = dict(gb)
+                g['state'] = 'left'
+                boxes.append(g)
+        else:
+            for b in boxes:
+                b['state'] = 'done' if b.get('complete') else 'stayed'
+        lanes.append({'role': role, 'label': ROLE_LABEL[role], 'sub': _lane_sub(role, p['milestone']),
+                      'milestone': p['milestone'], 'boxes': boxes})
+    return lanes
+
+
+def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=None, summary_level=0):
+    """Assemble the comparison report from {role: ScheduleData} where role is
+    'baseline' | 'previous' | 'current'. Census + driving-path lanes (with the new critical
+    path highlighted) + the milestone list for the selector. Later slices add the every-
+    milestone table, float migration, dashboard and recommendation."""
+    from p6_critpath.paths import milestone_list
     roles = [r for r in ('baseline', 'previous', 'current') if r in schedules]
     census = {r: schedule_census(schedules[r], near_threshold) for r in roles}
     return {
@@ -152,4 +200,8 @@ def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD):
         'roles': roles,
         'census': census,
         'data_dates': {r: census[r]['data_date'] for r in roles},
+        'milestones_list': milestone_list(schedules),
+        'selected_milestone': milestone_code,
+        'summary_level': summary_level,
+        'lanes': _build_lanes(schedules, roles, milestone_code, summary_level),
     }
