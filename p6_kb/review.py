@@ -12,6 +12,8 @@ from p6_kb.findings import generate_findings
 from p6_kb.model import schedule_view
 from p6_kb.resolve import resolve as resolve_archetype
 from p6_kb.scoring import compute_score, evidence_score
+from p6_kb.pattern_learning import (annotate_findings, load_store as load_pattern_store,
+                                    project_count as pattern_project_count)
 from p6_kb.tagging import detect_systems
 
 
@@ -358,6 +360,7 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
     archetype = None
     v2_findings = []
     v2_score = None
+    v2_kb = None
     try:
         archetype = resolve_archetype(view)
         v2_findings = generate_findings(view, archetype)   # evidence-graded, read-only
@@ -366,6 +369,15 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
         # (so a genuinely clean schedule shows 100 / execution-logic-sound); None only
         # when the engine could not analyse the project at all.
         v2_score = evidence_score(v2_findings) if archetype else None
+        # Cross-project intelligence — annotate each finding with how well its expected
+        # sequence is corroborated across the curated KB + the user's imported projects.
+        # SUPPORTING context only: it never changes whether a finding fired.
+        try:
+            store = load_pattern_store(learn_base)
+            annotate_findings(v2_findings, store=store)
+            v2_kb = {'projects_learned': pattern_project_count(store)}
+        except Exception:
+            v2_kb = None
     except Exception:
         archetype = None
 
@@ -415,5 +427,6 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
         'archetype': archetype,
         'v2_findings': v2_findings,
         'v2_score': v2_score,
+        'v2_kb': v2_kb,
         'conclusion': conclusion,
     }

@@ -187,8 +187,21 @@ def _evidence_findings(report):
             f'<span class="efv mut">{X._e(f.get("evidence"))}</span></div>'
             f'<div class="efline"><span class="efk">Recommendation</span>'
             f'<span class="efv chg">{X._e(f.get("recommendation"))}</span></div>'
+            f'{_support_line(f.get("support"))}'
             f'</div>')
     return f'<div class="efinds">{cards}</div>'
+
+
+def _support_line(support):
+    """Cross-project corroboration for the finding's expected sequence — supporting
+    context only (the finding itself is evidenced by the current XER)."""
+    if not support:
+        return ''
+    n = support.get('learned_projects', 0)
+    dot = '#16a34a' if n else '#94a3b8'
+    return (f'<div class="efsupport"><span class="esdot" style="background:{dot}"></span>'
+            f'{X._e(support.get("label"))} '
+            f'<span class="mut">· supporting knowledge, not the basis of the finding</span></div>')
 
 
 # Extra CSS for the two new components (archetype box + strength chip), appended to
@@ -237,6 +250,8 @@ _EXTRA_CSS = '''
       .eslgd { display: inline-flex; align-items: center; gap: 5px; color: #64748b; opacity: .6; }
       .eslgd.on { opacity: 1; font-weight: 700; color: #1e293b; }
       .esdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+      .efsupport { display: flex; align-items: center; gap: 6px; margin-top: 5px; padding-top: 5px;
+                   border-top: 1px dashed #e2e8f0; font-size: 10px; color: #475569; }
 '''
 
 

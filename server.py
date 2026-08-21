@@ -231,6 +231,20 @@ class Handler(BaseHTTPRequestHandler):
 
             p6_id = data.project.get('id', '') or ''
             name  = data.project.get('name', '') or os.path.basename(xml_path)
+
+            # ── Cross-project constructability intelligence — learn this schedule's
+            # GENERALIZED sequencing patterns (concept only: system/phase transitions,
+            # no activity names/WBS/ids), deduped by P6 project id. Supporting knowledge
+            # for the Constructability Review; never the basis of a finding on its own. ──
+            try:
+                from p6_kb.model import schedule_view
+                from p6_kb.tagging import tag_view
+                from p6_kb.pattern_learning import learn_from_view
+                _pv = schedule_view(data)
+                tag_view(_pv)
+                learn_from_view(_pv, p6_id, name)
+            except Exception as pl_exc:
+                print(f'[pattern-learn] skipped: {pl_exc}', file=sys.stderr)
             pid   = db.upsert_project(p6_id, name)
 
             sid = db.insert_snapshot(
