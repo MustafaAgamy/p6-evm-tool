@@ -191,6 +191,12 @@ const num = v => (Number(v) || 0).toLocaleString();
 const pctv = v => `${v ?? 0}%`;
 const dnum = v => (v === null || v === undefined) ? '—' : `${v} d`;
 const isoDate = v => v ? String(v).slice(0, 10) : '—';
+const MON3 = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtDate = v => {                       // ISO or already-nice → 9-Feb-2027
+  if (!v) return '—';
+  const p = String(v).slice(0, 10).split('-');
+  return (p.length === 3 && +p[1]) ? `${+p[2]}-${MON3[+p[1]]}-${p[0]}` : String(v);
+};
 const td = v => `<td>${escapeHtml(v ?? '')}</td>`;
 const tdNum = v => `<td class="num">${escapeHtml(String(v ?? ''))}</td>`;
 const tdMono = v => `<td class="mono">${escapeHtml(v ?? '')}</td>`;
@@ -595,7 +601,7 @@ function renderCpliModule(m) {
   const ruleBadge = k.baseline_rule_met
     ? `<span class="shr-rule ok">Baseline rule met — total float ≥ 0</span>`
     : `<span class="shr-rule bad">Negative float — re-plan (baseline must be ≥ 0)</span>`;
-  const fmTile = k.finish_date ? isoDate(k.finish_date) : (k.finish_milestone_id || '—');
+  const fmTile = k.finish_date ? fmtDate(k.finish_date) : (k.finish_milestone_id || '—');
   const tiles = [
     ['CPLI', computable ? `${cpliPct}%` : '—'],
     ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
@@ -798,7 +804,7 @@ function msCard(e) {
     : (e.variance_days > 0 ? `+${e.variance_days} wd late` : `${Math.abs(e.variance_days)} wd on/early`);
   const facts = [
     ['Contract date', e.contract_date || '—'],
-    ['Matched activity', e.matched_activity_id || '— none —'],
+    ['Matched activity', e.matched_activity_id ? `${e.matched_activity_id} · ${e.matched_activity_name || ''}` : '— none —'],
     ['Scheduled finish', e.scheduled_finish || '—'],
     ['Variance', variance],
     ['Total float', dnum(e.total_float_days)],

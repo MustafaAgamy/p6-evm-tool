@@ -66,6 +66,16 @@ def _iso(dt):
     return dt.strftime('%Y-%m-%d') if isinstance(dt, datetime) else None
 
 
+_MON = ('', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+
+
+def _fmt(dt):
+    """Display a date as 9-Feb-2027 (P6 style), not ISO."""
+    if not isinstance(dt, datetime):
+        return None
+    return f'{dt.day}-{_MON[dt.month]}-{dt.year}'
+
+
 def _match(graph, name):
     """Best schedule activity for a contract-milestone name. Milestones are preferred,
     then any activity. Exact normalized name wins, then containment. None when there is
@@ -110,7 +120,7 @@ def _evaluate_one(graph, name, contract_date):
     matched = _match(graph, name)
     base = {
         'contract_name': name,
-        'contract_date': _iso(contract_date),
+        'contract_date': _fmt(contract_date),
         'matched_activity_id': None, 'matched_activity_name': None,
         'scheduled_finish': None, 'variance_days': None, 'total_float_days': None,
         'on_driving_path': None, 'constraint_type': None, 'constraint_date': None,
@@ -141,8 +151,8 @@ def _evaluate_one(graph, name, contract_date):
 
     base.update({
         'matched_activity_id': act.get('id', oid), 'matched_activity_name': act.get('name', ''),
-        'scheduled_finish': _iso(sched_finish), 'variance_days': variance, 'total_float_days': tf,
-        'on_driving_path': on_path, 'constraint_type': ctype, 'constraint_date': _iso(cdate),
+        'scheduled_finish': _fmt(sched_finish), 'variance_days': variance, 'total_float_days': tf,
+        'on_driving_path': on_path, 'constraint_type': ctype, 'constraint_date': _fmt(cdate),
     })
 
     late = variance is not None and variance > 0
@@ -163,7 +173,7 @@ def _evaluate_one(graph, name, contract_date):
         base.update({
             'status': 'Late',
             'finding': f'Scheduled {v_txt} after the contract date.',
-            'evidence': f'Scheduled finish {_iso(sched_finish)} vs contract {_iso(contract_date)}; '
+            'evidence': f'Scheduled finish {_fmt(sched_finish)} vs contract {_fmt(contract_date)}; '
                         f'total float {tf} d; {"on" if on_path else "off"} the driving path.',
             'root_cause': 'A genuine logic-driven slip — the date is not being masked by a constraint.',
             'impact': f'The milestone is {v_txt} late against the contract.',
@@ -174,7 +184,7 @@ def _evaluate_one(graph, name, contract_date):
         base.update({
             'status': 'On track',
             'finding': 'Scheduled on or before the contract date.',
-            'evidence': f'Scheduled finish {_iso(sched_finish)} vs contract {_iso(contract_date)}; total float {tf} d.',
+            'evidence': f'Scheduled finish {_fmt(sched_finish)} vs contract {_fmt(contract_date)}; total float {tf} d.',
             'root_cause': 'The milestone meets its contractual date through the network logic.',
             'impact': 'No contractual exposure on this milestone.',
             'recommendation': 'No action needed; keep the driving path protected.',
@@ -228,9 +238,10 @@ def _milestone_presentation(evals, counts, score, matched, bad):
         if counts.get(lbl, 0):                       # only show statuses that actually occur
             tiles.append({'label': lbl, 'value': str(counts[lbl])})
     columns = [{'label': 'Contract Milestone', 'align': ''}, {'label': 'Contract Date', 'align': ''},
-               {'label': 'Matched Activity', 'align': ''}, {'label': 'Scheduled Finish', 'align': ''},
-               {'label': 'Variance', 'align': 'num'}, {'label': 'Total Float', 'align': 'num'},
-               {'label': 'Status', 'align': ''}, {'label': 'Recommendation', 'align': ''}]
+               {'label': 'Matched Activity ID', 'align': ''}, {'label': 'Matched Activity Name', 'align': ''},
+               {'label': 'Scheduled Finish', 'align': ''}, {'label': 'Variance', 'align': 'num'},
+               {'label': 'Total Float', 'align': 'num'}, {'label': 'Status', 'align': ''},
+               {'label': 'Recommendation', 'align': ''}]
     rows = []
     for e in evals:
         var = e.get('variance_days')
@@ -238,7 +249,8 @@ def _milestone_presentation(evals, counts, score, matched, bad):
         tf = e.get('total_float_days')
         rows.append([
             _mcell(e.get('contract_name')), _mcell(e.get('contract_date'), 'mut'),
-            _mcell(e.get('matched_activity_id') or '—', 'mono'), _mcell(e.get('scheduled_finish') or '—', 'mut'),
+            _mcell(e.get('matched_activity_id') or '—', 'mono'), _mcell(e.get('matched_activity_name') or '—'),
+            _mcell(e.get('scheduled_finish') or '—', 'mut'),
             _mcell(var_txt, 'num'), _mcell('—' if tf is None else f'{tf} d', 'num'),
             _mcell(e.get('status'), 'mut'), _mcell(e.get('recommendation'), 'mut')])
     _vp = [f"{counts[s]} {s.lower()}" for s in ('Masked', 'Late', 'On track', 'Unmatched') if counts.get(s)]
