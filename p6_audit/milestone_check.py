@@ -92,13 +92,18 @@ def _match(graph, name):
 
 
 def _variance_days(graph, act, contract_date, sched_finish):
-    """Working days from the contract date to the scheduled finish (+ = late)."""
+    """Working days from the contract date to the scheduled finish (+ = late).
+
+    Compare DATES only: a P6 finish carries a time-of-day, so a 9-Feb 17:00 finish
+    against a 9-Feb contract date must read as 0 variance, not +1."""
     if not (contract_date and sched_finish):
         return None
+    cd = contract_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    sf = sched_finish.replace(hour=0, minute=0, second=0, microsecond=0)
     cal = graph.calendars.get(act.get('calendar_id')) if getattr(graph, 'calendars', None) else None
     if cal:
-        return signed_working_days(cal, contract_date, sched_finish)
-    return (sched_finish - contract_date).days
+        return signed_working_days(cal, cd, sf)
+    return (sf - cd).days
 
 
 def _evaluate_one(graph, name, contract_date):
@@ -218,11 +223,10 @@ def _milestone_presentation(evals, counts, score, matched, bad):
     Milestone Check renders from THIS, not from the hard-constraint spec, so no
     hard-constraint list or % appears."""
     tiles = [{'label': 'Contract Milestones', 'value': str(len(evals))},
-             {'label': 'Matched', 'value': str(matched)},
-             {'label': 'Masked', 'value': str(counts.get('Masked', 0))},
-             {'label': 'Late', 'value': str(counts.get('Late', 0))},
-             {'label': 'On track', 'value': str(counts.get('On track', 0))},
-             {'label': 'Unmatched', 'value': str(counts.get('Unmatched', 0))}]
+             {'label': 'Matched', 'value': str(matched)}]
+    for lbl in ('Masked', 'Late', 'On track', 'Unmatched'):
+        if counts.get(lbl, 0):                       # only show statuses that actually occur
+            tiles.append({'label': lbl, 'value': str(counts[lbl])})
     columns = [{'label': 'Contract Milestone', 'align': ''}, {'label': 'Contract Date', 'align': ''},
                {'label': 'Matched Activity', 'align': ''}, {'label': 'Scheduled Finish', 'align': ''},
                {'label': 'Variance', 'align': 'num'}, {'label': 'Total Float', 'align': 'num'},
@@ -237,8 +241,8 @@ def _milestone_presentation(evals, counts, score, matched, bad):
             _mcell(e.get('matched_activity_id') or '—', 'mono'), _mcell(e.get('scheduled_finish') or '—', 'mut'),
             _mcell(var_txt, 'num'), _mcell('—' if tf is None else f'{tf} d', 'num'),
             _mcell(e.get('status'), 'mut'), _mcell(e.get('recommendation'), 'mut')])
-    verdict = (f"{counts.get('Masked', 0)} masked · {counts.get('Late', 0)} late · "
-               f"{counts.get('On track', 0)} on track · {counts.get('Unmatched', 0)} unmatched.")
+    _vp = [f"{counts[s]} {s.lower()}" for s in ('Masked', 'Late', 'On track', 'Unmatched') if counts.get(s)]
+    verdict = ' · '.join(_vp) if _vp else 'No contract milestones matched.'
     scoring = None
     if score is not None and matched:
         defect = round(100.0 * len(bad) / matched, 1)

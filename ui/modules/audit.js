@@ -595,9 +595,7 @@ function renderCpliModule(m) {
   const ruleBadge = k.baseline_rule_met
     ? `<span class="shr-rule ok">Baseline rule met — total float ≥ 0</span>`
     : `<span class="shr-rule bad">Negative float — re-plan (baseline must be ≥ 0)</span>`;
-  const fmTile = k.finish_date
-    ? `${k.finish_milestone_id || '—'} · ${isoDate(k.finish_date)}`
-    : (k.finish_milestone_id || '—');
+  const fmTile = k.finish_date ? isoDate(k.finish_date) : (k.finish_milestone_id || '—');
   const tiles = [
     ['CPLI', computable ? `${cpliPct}%` : '—'],
     ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
@@ -805,7 +803,6 @@ function msCard(e) {
     ['Variance', variance],
     ['Total float', dnum(e.total_float_days)],
     ['On driving path', e.on_driving_path == null ? '—' : (e.on_driving_path ? 'Yes' : 'No')],
-    ['Hard constraint', e.constraint_type ? `${e.constraint_type}${e.constraint_date ? ' · ' + e.constraint_date : ''}` : 'None'],
   ].map(([k, v]) => `<div class="ms-fact"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`).join('');
   const nl = (k, v) => `<div class="ms-nl"><div class="mk">${escapeHtml(k)}</div><div class="mv">${escapeHtml(v || '')}</div></div>`;
   return `<div class="ms-card">
@@ -841,7 +838,7 @@ function renderMilestoneCheck(m) {
         <div class="score-meta">
           <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
           <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
-          <div class="coverage">${counts.Masked || 0} masked · ${counts.Late || 0} late · ${counts['On track'] || 0} on track · ${counts.Unmatched || 0} unmatched</div>
+          <div class="coverage">${['Masked', 'Late', 'On track', 'Unmatched'].filter(s => counts[s]).map(s => `${counts[s]} ${s.toLowerCase()}`).join(' · ') || 'No milestones matched'}</div>
           <div style="margin-top:8px"><button class="btn-secondary" id="ms-edit">Edit contract milestones</button></div>
         </div>
       </div>
@@ -936,7 +933,7 @@ function renderSummary(health, am) {
           </div>
           <div class="shr-bands">
             <div class="lab">How status is decided — each check's score vs the 80% submission standard</div>
-            <div class="bands"><div class="bd bd-c">Critical &lt; 80</div><div class="bd bd-r">Review 80–90</div><div class="bd bd-p">Pass ≥ 90</div></div>
+            <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–98</div><div class="bd bd-p">Pass ≥ 98</div></div>
             <div class="note">A check below 80 needs review (the 80% submission standard). Per-check targets adjust where DCMA differs — e.g. FS ≥ 90%.</div>
           </div>
         </div>
