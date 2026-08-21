@@ -115,8 +115,22 @@ async function _run(keepMilestone) {
 
 // ── Render report ────────────────────────────────────────────────────────────
 
+const CP_SECTIONS = [
+  ['verdict', 'Verdict banner'],
+  ['dashboard', 'Execution dashboard'],
+  ['driving_path', 'Driving path — schedule by schedule'],
+  ['census', 'Critical & near-critical census'],
+  ['milestones', 'Every milestone · finish comparison'],
+  ['float_migration', 'Float migration'],
+  ['recommendation', 'Effect & recommendation'],
+];
+
 function _renderReport(report) {
   document.getElementById('cpa-report').innerHTML = `
+    <div class="cpa-exports">
+      <button class="btn-secondary" id="cpa-export-pdf">Export PDF</button>
+      <button class="btn-secondary" id="cpa-export-xlsx">Export Excel</button>
+    </div>
     ${_conclusionBanner(report)}
 
     <div class="cpa-sech">Execution dashboard</div>
@@ -137,6 +151,100 @@ function _renderReport(report) {
     <div class="cpa-sech">Effect on completion &amp; recommendation</div>
     <div class="cpa-card">${_recoHtml(report)}</div>`;
   _wireLaneControls(report);
+  document.getElementById('cpa-export-pdf').addEventListener('click', _openPreview);
+  document.getElementById('cpa-export-xlsx').addEventListener('click', _exportExcel);
+}
+
+// ── Export: PDF preview (Report Contents picker) + Excel ─────────────────────
+
+async function _openPreview() {
+  if (!_shownReport) return;
+  let html = '';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/report`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report: _shownReport, preview: true }),
+    });
+    const data = await resp.json();
+    if (!data.ok) { showError(data.error || 'Could not build the preview.'); return; }
+    html = data.html;
+  } catch { showError('Could not reach the local server for the preview.'); return; }
+
+  const ex = document.getElementById('cpa-preview-overlay'); if (ex) ex.remove();
+  const ov = document.createElement('div');
+  ov.id = 'cpa-preview-overlay';
+  ov.className = 'per-preview-overlay';
+  const picks = CP_SECTIONS.map(([k, l]) =>
+    `<label class="per-pick"><input type="checkbox" class="cpa-sec-cb" value="${k}" checked> ${escapeHtml(l)}</label>`).join('');
+  ov.innerHTML = `<div class="per-preview-box">
+      <div class="per-preview-bar"><span class="per-preview-title">Report preview — choose what to include, then print or save</span>
+        <span class="per-preview-actions">
+          <button class="btn-secondary" id="cpa-preview-close">Close</button>
+          <button class="btn-secondary" id="cpa-preview-print">🖨 Print…</button>
+          <button class="btn-primary" id="cpa-preview-save">Save as PDF</button></span></div>
+      <div class="per-preview-body">
+        <div class="per-preview-pick"><div class="per-pick-h">Include sections</div>${picks}
+          <div class="per-pick-controls"><button class="btn-mini" id="cpa-pick-all">All</button><button class="btn-mini" id="cpa-pick-none">None</button></div>
+        </div>
+        <iframe class="per-preview-frame" id="cpa-preview-frame" title="Report preview"></iframe>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  const frame = document.getElementById('cpa-preview-frame');
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  document.getElementById('cpa-preview-close').addEventListener('click', close);
+
+  const cbs = () => Array.from(ov.querySelectorAll('.cpa-sec-cb'));
+  const selected = () => cbs().filter(c => c.checked).map(c => c.value);
+  const applyToFrame = () => {
+    const doc = frame.contentDocument;
+    if (!doc) return;
+    const on = new Set(selected());
+    doc.querySelectorAll('[data-sec]').forEach(el => { el.style.display = on.has(el.getAttribute('data-sec')) ? '' : 'none'; });
+  };
+  frame.onload = applyToFrame;
+  frame.srcdoc = html;
+  cbs().forEach(c => c.addEventListener('change', applyToFrame));
+  document.getElementById('cpa-pick-all').addEventListener('click', () => { cbs().forEach(c => { c.checked = true; }); applyToFrame(); });
+  document.getElementById('cpa-pick-none').addEventListener('click', () => { cbs().forEach(c => { c.checked = false; }); applyToFrame(); });
+  document.getElementById('cpa-preview-print').addEventListener('click', () => {
+    applyToFrame();
+    try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { showError('Could not open the print dialog.'); }
+  });
+  document.getElementById('cpa-preview-save').addEventListener('click', async () => {
+    const outputPath = await window.pywebview.api.choose_save_path('critical_path_analyzer.pdf', 'pdf');
+    if (!outputPath) return;
+    const btn = document.getElementById('cpa-preview-save');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/report`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected() }),
+      });
+      const data = await resp.json();
+      if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
+      else close();
+    } catch { showError('Could not reach the local server to export the PDF.'); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = 'Save as PDF'; } }
+  });
+}
+
+async function _exportExcel() {
+  if (!_shownReport) return;
+  const outputPath = await window.pywebview.api.choose_save_path('critical_path_analyzer.xlsx', 'xlsx');
+  if (!outputPath) return;
+  const btn = document.getElementById('cpa-export-xlsx');
+  if (btn) { btn.disabled = true; btn.textContent = 'Exporting…'; }
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/excel`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report: _shownReport, output_path: outputPath }),
+    });
+    const data = await resp.json();
+    if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
+  } catch { showError('Could not reach the local server to export Excel.'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Export Excel'; } }
 }
 
 // ── Execution dashboard (charts + Critical Path Health) ──────────────────────
@@ -455,6 +563,7 @@ function _injectStyle() {
   s.id = 'cpa-style';
   s.textContent = `
     .cpa-empty { color: var(--muted); padding: 40px; text-align: center; }
+    .cpa-exports { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 10px; }
     .cpa-note { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 6px 0 14px; }
     .cpa-modes { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
     .cpa-mode { flex: 1; min-width: 200px; text-align: left; background: var(--card-bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 11px 13px; cursor: pointer; color: var(--text); }

@@ -72,3 +72,21 @@ def test_critpath_missing_previous(test_server, tmp_path):
                          {'mode': 'two_updates', 'current_path': curr})
     assert data['ok'] is False
     assert 'previous' in data['error'].lower()
+
+
+def test_critpath_report_preview_and_excel(test_server, tmp_path):
+    prev, curr = _pair(tmp_path)
+    _, ana = _post_json(test_server, '/api/critpath/analyze',
+                        {'mode': 'two_updates', 'current_path': curr, 'previous_path': prev})
+    assert ana['ok'] is True
+    report = ana['report']
+    # PDF preview returns HTML with the section markers
+    _, prev_resp = _post_json(test_server, '/api/critpath/report', {'report': report, 'preview': True})
+    assert prev_resp['ok'] is True
+    assert 'data-sec="dashboard"' in prev_resp['html']
+    assert 'data-sec="driving_path"' in prev_resp['html']
+    # Excel export writes a real workbook
+    out = tmp_path / 'cpa.xlsx'
+    _, xl = _post_json(test_server, '/api/critpath/excel', {'report': report, 'output_path': str(out)})
+    assert xl['ok'] is True
+    assert out.exists() and out.stat().st_size > 0

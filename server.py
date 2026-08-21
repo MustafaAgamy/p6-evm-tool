@@ -64,6 +64,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_period_report(body)
         elif self.path == '/api/critpath/analyze':
             self._handle_critpath_analyze(body)
+        elif self.path == '/api/critpath/report':
+            self._handle_critpath_report(body)
+        elif self.path == '/api/critpath/excel':
+            self._handle_critpath_excel(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -457,6 +461,54 @@ class Handler(BaseHTTPRequestHandler):
                                   summary_level=int(body.get('summary_level', 0) or 0))
             report['files'] = {role: os.path.basename(p) for role, p in paths.items()}
             self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_critpath_report(self, body):
+        """Critical Path Analyzer PDF (or preview HTML). Renders from the report the client
+        holds — no re-parse. `sections` = section keys to include (None = all). Chrome
+        headless → PDF."""
+        report = body.get('report') or {}
+        sections = body.get('sections')
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_critpath.exporters import render_html
+            import subprocess, tempfile
+            html_content = render_html(report, sections)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_critpath_excel(self, body):
+        """Critical Path Analyzer Excel export — from the report the client holds."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_critpath.exporters import to_excel
+            to_excel(report, output_path)
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
