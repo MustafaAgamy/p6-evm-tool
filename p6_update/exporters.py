@@ -115,7 +115,7 @@ def _bars_for(rows):
             f'<div class="bc-row"><div class="bc-name">{_e(r.get("value"))}</div>'
             f'<div class="bc-track"><div class="bc-pl" style="width:{max(0, min(100, r.get("planned", 0)))}%"></div></div>'
             f'<div class="bc-track"><div class="bc-ac" style="width:{max(0, min(100, r.get("actual", 0)))}%"></div></div>'
-            f'<div class="bc-num">planned {r.get("planned", 0):.0f}% · actual {r.get("actual", 0):.0f}% · '
+            f'<div class="bc-num">planned {r.get("planned", 0):.1f}% · actual {r.get("actual", 0):.1f}% · '
             f'<b class="{cls}">{_svar(var)}</b></div></div>')
     leg = (f'<div class="bc-leg"><span><i style="background:{_PLAN}"></i>Planned %</span>'
            f'<span><i style="background:{_ACT}"></i>Actual %</span></div>')
@@ -149,8 +149,8 @@ def _box_html(b):
     return (f'<div class="box {cls}"><div class="bt">{_e(b.get("name"))}{tag}</div>'
             f'<div class="bc">{_e(b.get("crumb"))}</div>'
             f'<div class="b4">'
-            f'<div><div class="k">Planned</div><div class="v">{b.get("planned", 0):.0f}%</div></div>'
-            f'<div><div class="k">Actual</div><div class="v">{b.get("pct", 0):.0f}%</div></div>'
+            f'<div><div class="k">Planned</div><div class="v">{b.get("planned", 0):.1f}%</div></div>'
+            f'<div><div class="k">Actual</div><div class="v">{b.get("pct", 0):.1f}%</div></div>'
             f'<div><div class="k">Baseline Finish</div><div class="v mono">{_fdate(b.get("bl_finish"))}</div></div>'
             f'<div><div class="k">Expected Finish</div><div class="v mono">{_fdate(b.get("exp_finish"))}</div></div>'
             f'<div class="full"><div class="k">Delay</div>'
@@ -167,19 +167,46 @@ def _driving_html(report):
         out.append(f'<div class="dphead">{_e(cp["headline"])}</div>')
     for chart in cp['charts']:
         ms = chart.get('milestone', {}) or {}
-        msbox = (f'<div class="msbox"><div class="msflag">◆ Milestone</div>'
-                 f'<div class="mst">{_e(ms.get("name"))}</div>'
-                 f'<div class="r"><span>Path start</span><b class="mono">{_fdate(ms.get("path_start"))}</b></div>'
-                 f'<div class="r"><span>Baseline Finish</span><b class="mono">{_fdate(ms.get("baseline_finish"))}</b></div>'
-                 f'<div class="r"><span>Expected Finish</span><b class="mono">{_fdate(ms.get("expected_finish"))}</b></div>'
-                 f'<div class="r"><span>Delay</span><b class="neg">{_svar(ms.get("slip_days"))} d</b></div></div>')
-        boxes = chart.get('boxes', [])
-        parts = [msbox]
-        for b in boxes:
+        sm = chart.get('start_milestone') or {}
+        parts = []
+        if sm.get('name'):
+            parts.append(f'<div class="msbox start"><div class="msflag">▶ Start Milestone</div>'
+                         f'<div class="mst">{_e(sm.get("name"))}</div>'
+                         f'<div class="r"><span>Date</span><b class="mono">{_fdate(sm.get("date"))}</b></div></div>')
             parts.append('<div class="arw">▸</div>')
+        boxes = chart.get('boxes', [])
+        for b in boxes:
             parts.append(_box_html(b))
+            parts.append('<div class="arw">▸</div>')
+        parts.append(f'<div class="msbox"><div class="msflag">◆ Completion Milestone</div>'
+                     f'<div class="mst">{_e(ms.get("name"))}</div>'
+                     f'<div class="r"><span>Baseline Finish</span><b class="mono">{_fdate(ms.get("baseline_finish"))}</b></div>'
+                     f'<div class="r"><span>Expected Finish</span><b class="mono">{_fdate(ms.get("expected_finish"))}</b></div>'
+                     f'<div class="r"><span>Delay</span><b class="neg">{_svar(ms.get("slip_days"))} d</b></div></div>')
         out.append(f'<div class="chain">{"".join(parts)}</div>')
     return ''.join(out)
+
+
+# ── Section 5 · Scope weight & recommendation ───────────────────────────────
+
+def _scope_html(report, code_type=None):
+    scope = report.get('scope', {}) or {}
+    if not scope:
+        return '<p class="note">No cost-loaded activity codes to weigh in this update.</p>'
+    ct = code_type if code_type in scope else (report.get('scope_default') if report.get('scope_default') in scope else next(iter(scope)))
+    s = scope[ct]
+    rows = s.get('rows', [])
+    mx = max((r['weight_pct'] for r in rows), default=1) or 1
+    bars = []
+    for i, r in enumerate(rows[:12]):
+        cls = ' top' if i == 0 else ''
+        bars.append(f'<div class="wrow{cls}"><div class="wname">{_e(r["value"])}</div>'
+                    f'<div class="wtrack"><div class="wfill" style="width:{r["weight_pct"] / mx * 100:.1f}%"></div></div>'
+                    f'<div class="wpct">{r["weight_pct"]:.1f}%</div></div>')
+    recs = ''.join(f'<p><span class="star">★</span> {_e(t)}</p>' for t in s.get('recommendation', []))
+    rec = f'<div class="rec"><h4>◆ Recommendation — by weight</h4>{recs}</div>' if recs else ''
+    return (f'<div class="scope-h">Weighting by <b>{_e(ct)}</b> · share of the cost-loaded scope</div>'
+            + ''.join(bars) + rec)
 
 
 # ── Section 4 · Planned vs Actual by activity count ─────────────────────────
@@ -211,9 +238,10 @@ def _counts_html(report):
 
 # ── Assembly ────────────────────────────────────────────────────────────────
 
-def render_html(report, sections=None, code_filter=None):
+def render_html(report, sections=None, code_filter=None, scope_code=None):
     """`sections` = list of keys to include (None = all): conclusion · time · bycode ·
-    driving · counts. `code_filter` = {'types': [...]} picks which code charts Section 2 shows."""
+    driving · counts · scope. `code_filter` = {'types': [...]} picks Section 2's charts;
+    `scope_code` picks Section 5's activity-code dimension."""
     header = (f'<div class="rh"><div><h1>Update Analysis</h1>'
               f'<div class="meta">{_e(report.get("project_name"))} · single-update read against its baseline</div></div>'
               f'<div class="win">Data date<br><b>{_fdate(report.get("data_date"))}</b>'
@@ -224,6 +252,7 @@ def render_html(report, sections=None, code_filter=None):
         ('bycode', '2 · Planned vs Actual — by activity code', _bycode_html(report, code_filter)),
         ('driving', '3 · Driving Path Analyzer', _driving_html(report)),
         ('counts', '4 · Planned vs Actual — by activity count', _counts_html(report)),
+        ('scope', '5 · Scope Weight & Recommendation', _scope_html(report, scope_code)),
     ]
     keys = set(sections) if sections else None
     body = [header]
@@ -267,6 +296,8 @@ def render_html(report, sections=None, code_filter=None):
       .chain {{ display: flex; align-items: stretch; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }}
       .arw {{ display: flex; align-items: center; color: #94a3b8; font-weight: 900; font-size: 15px; }}
       .msbox {{ flex: none; width: 188px; border: 2px solid {_BLUE}; border-radius: 10px; padding: 10px 11px; background: #eef4fb; }}
+      .msbox.start {{ border-color: #3c7a49; background: #eafaf0; }}
+      .msbox.start .msflag, .msbox.start .mst {{ color: #166534; }}
       .msbox .msflag {{ font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: {_BLUE}; opacity: .8; margin-bottom: 6px; }}
       .msbox .mst {{ font-size: 12px; font-weight: 800; color: {_BLUE}; line-height: 1.2; margin-bottom: 6px; }}
       .msbox .r {{ display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }} .msbox .r span {{ color: #64748b; }}
@@ -285,6 +316,16 @@ def render_html(report, sections=None, code_filter=None):
       .cn-track {{ position: relative; height: 18px; background: #eef2f7; border-radius: 4px; margin: 3px 0; overflow: hidden; }}
       .cn-track span {{ position: absolute; left: 8px; top: 1px; font-size: 11px; font-weight: 700; color: #1e293b; }}
       .cn-pl {{ height: 100%; background: {_PLAN}; opacity: .85; }} .cn-ac {{ height: 100%; background: {_ACT}; opacity: .85; }}
+      /* Scope */
+      .scope-h {{ font-size: 12.5px; color: #64748b; margin-bottom: 12px; }}
+      .wrow {{ display: flex; align-items: center; gap: 12px; margin-bottom: 7px; }}
+      .wname {{ flex: none; width: 220px; font-size: 12px; }}
+      .wtrack {{ flex: 1; height: 17px; background: #eef2f7; border-radius: 4px; overflow: hidden; }}
+      .wfill {{ height: 100%; background: #bcd6f5; }} .wrow.top .wfill {{ background: {_ACT}; }}
+      .wpct {{ flex: none; width: 50px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }}
+      .rec {{ margin-top: 14px; background: #eef4fb; border: 1px solid #c9ddf3; border-radius: 10px; padding: 12px 15px; }}
+      .rec h4 {{ margin: 0 0 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: {_BLUE}; }}
+      .rec p {{ margin: 5px 0; font-size: 13px; }} .rec .star {{ color: {_BLUE}; font-weight: 800; margin-right: 6px; }}
     </style></head><body>{"".join(body)}</body></html>'''
 
 
@@ -327,4 +368,14 @@ def report_excel(report):
                               ('In Progress', 'planned_in_progress', 'actual_in_progress'),
                               ('Not Started', 'planned_not_started', 'actual_not_started')]:
             rows.append(['Activity count', '', label, c.get(pk, 0), c.get(ak, 0), '', '', ''])
+
+    scope = report.get('scope', {}) or {}
+    dflt = report.get('scope_default')
+    s = scope.get(dflt) if dflt in scope else (next(iter(scope.values())) if scope else None)
+    if s:
+        for r in s.get('rows', []):
+            rows.append([f'Scope weight · {s.get("code_type")}', '', r.get('value', ''),
+                         '', '', f'{r.get("weight_pct", 0)}%', '', _num(r.get('bac'))])
+        for t in s.get('recommendation', []):
+            rows.append(['Scope recommendation', '', t, '', '', '', '', ''])
     return _HEADERS, rows

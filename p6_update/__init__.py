@@ -6,10 +6,11 @@ path, rolled up to WBS work fronts). All figures come from what the tool already
 computes on parse — no new scheduling.
 """
 from p6_update.analysis import (
-    time_status, by_code, activity_counts, critical_path, build_report_from_data,
+    time_status, by_code, activity_counts, scope_weights, scope_all,
+    critical_path, build_report_from_data,
 )
 
 __all__ = [
-    'time_status', 'by_code', 'activity_counts', 'critical_path',
-    'build_report_from_data',
+    'time_status', 'by_code', 'activity_counts', 'scope_weights', 'scope_all',
+    'critical_path', 'build_report_from_data',
 ]

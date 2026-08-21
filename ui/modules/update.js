@@ -81,6 +81,8 @@ function _injectStyle() {
     .ua-chain { display: flex; align-items: stretch; flex-wrap: wrap; gap: 5px; }
     .ua-arw { display: flex; align-items: center; color: var(--muted); font-weight: 800; font-size: 17px; }
     .ua-msbox { flex: none; width: 200px; border: 2px solid var(--accent); border-radius: 12px; padding: 12px 13px; background: rgba(42,120,214,.08); }
+    .ua-msbox.start { border-color: var(--success); background: rgba(22,163,74,.08); }
+    .ua-msbox.start .ua-msflag, .ua-msbox.start .ua-mst { color: var(--success); }
     .ua-msflag { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--accent); opacity: .85; margin-bottom: 7px; }
     .ua-mst { font-size: 13px; font-weight: 800; color: var(--accent); line-height: 1.25; margin-bottom: 7px; }
     .ua-msr { display: flex; justify-content: space-between; font-size: 12px; margin: 3px 0; color: var(--text); }
@@ -103,6 +105,18 @@ function _injectStyle() {
     .ua-cntrack > i { display: block; height: 100%; }
     .ua-cntrack > span { position: absolute; left: 8px; top: 1px; font-size: 11.5px; font-weight: 700; color: var(--text); }
     .ua-empty { color: var(--muted); padding: 40px; text-align: center; }
+    /* Scope */
+    .ua-scope-h { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+    .ua-wrow { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .ua-wname { flex: none; width: 220px; font-size: 12.5px; color: var(--text); }
+    .ua-wtrack { flex: 1; height: 19px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    .ua-wfill { height: 100%; background: rgba(42,120,214,.4); }
+    .ua-wrow.top .ua-wfill { background: var(--accent); }
+    .ua-wpct { flex: none; width: 52px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+    .ua-rec { margin-top: 16px; background: rgba(42,120,214,.08); border: 1px solid var(--border); border-radius: 11px; padding: 14px 16px; }
+    .ua-rec h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--accent); }
+    .ua-rec p { margin: 6px 0; font-size: 13.5px; color: var(--text); }
+    .ua-rec .ua-star { color: var(--accent); font-weight: 800; margin-right: 6px; }
   `;
   document.head.appendChild(s);
 }
@@ -168,13 +182,53 @@ function _render(report) {
     <div class="ua-card">${_drivingHtml(report)}</div>
 
     <div class="ua-sec">4 · Planned vs Actual — by activity count</div>
-    <div class="ua-card">${_countControls(report)}<div id="ua-cn-body">${_countsHtml(report.counts)}</div></div>`;
+    <div class="ua-card">${_countControls(report)}<div id="ua-cn-body">${_countsHtml(report.counts)}</div></div>
+
+    <div class="ua-sec">5 · Scope Weight &amp; Recommendation</div>
+    <div class="ua-card">${_scopeControls(report)}<div id="ua-scope-body">${_scopeHtml(report)}</div></div>`;
 
   document.getElementById('ua-export-pdf').addEventListener('click', _exportPdf);
   document.getElementById('ua-export-xlsx').addEventListener('click', _exportExcel);
   _wireByCode(report);
   _wireSummaryLevel();
   _wireCounts(report);
+  _wireScope(report);
+}
+
+// Section 5 — scope weight + recommendation (client-side; recomputes on code change)
+let _scopeCode = '';
+function _scopeControls(report) {
+  const scope = report.scope || {};
+  const types = Object.keys(scope);
+  if (!types.length) return '';
+  if (!_scopeCode || !scope[_scopeCode]) _scopeCode = (scope[report.scope_default] ? report.scope_default : types[0]);
+  const chips = types.map(t => `<button class="ua-code-btn ${_scopeCode === t ? 'on' : ''}" data-scope="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('');
+  return `<div class="ua-slicer"><span style="color:var(--muted)">Weight by</span>${chips}
+    <span style="margin-left:auto;color:var(--muted);font-size:12px">share of the cost-loaded scope · recommendation updates with the code</span></div>`;
+}
+function _scopeHtml(report) {
+  const scope = report.scope || {};
+  const s = scope[_scopeCode];
+  if (!s) return `<div class="ua-note">No cost-loaded activity codes to weigh.</div>`;
+  const rows = s.rows || [];
+  const mx = Math.max(...rows.map(r => r.weight_pct), 1) || 1;
+  const bars = rows.slice(0, 12).map((r, i) => `<div class="ua-wrow ${i === 0 ? 'top' : ''}">
+    <div class="ua-wname">${escapeHtml(r.value)}</div>
+    <div class="ua-wtrack"><div class="ua-wfill" style="width:${r.weight_pct / mx * 100}%"></div></div>
+    <div class="ua-wpct">${r.weight_pct.toFixed(1)}%</div></div>`).join('');
+  const recs = (s.recommendation || []).map(t => `<p><span class="ua-star">★</span>${escapeHtml(t)}</p>`).join('');
+  const rec = recs ? `<div class="ua-rec"><h4>◆ Recommendation — by weight</h4>${recs}</div>` : '';
+  return `<div class="ua-scope-h">Weighting by <b>${escapeHtml(_scopeCode)}</b> · share of the cost-loaded scope</div>${bars}${rec}`;
+}
+function _wireScope(report) {
+  const box = document.getElementById('ua-scope-body');
+  document.querySelectorAll('.ua-code-btn[data-scope]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _scopeCode = btn.dataset.scope;
+      document.querySelectorAll('.ua-code-btn[data-scope]').forEach(b => b.classList.toggle('on', b.dataset.scope === _scopeCode));
+      box.innerHTML = _scopeHtml(report);
+    });
+  });
 }
 
 // Section 1
@@ -232,7 +286,7 @@ function _oneChart(title, rows) {
     return `<div class="ua-bc-row"><div class="ua-bc-name">${escapeHtml(r.value)}</div>
       <div class="ua-bc-track"><div class="ua-bc-fill" style="width:${Math.max(0, Math.min(100, r.planned))}%;background:${C.plan}"></div></div>
       <div class="ua-bc-track"><div class="ua-bc-fill" style="width:${Math.max(0, Math.min(100, r.actual))}%;background:${C.actual}"></div></div>
-      <div class="ua-bc-num">planned ${Math.round(r.planned)}% · actual ${Math.round(r.actual)}% · <b style="color:${col}">${sv}</b></div></div>`;
+      <div class="ua-bc-num">planned ${r.planned.toFixed(1)}% · actual ${r.actual.toFixed(1)}% · <b style="color:${col}">${sv}</b></div></div>`;
   }).join('');
   const leg = `<div class="ua-leg"><span class="ua-sw" style="background:${C.plan}"></span>Planned %<span class="ua-sw" style="background:${C.actual}"></span>Actual %</div>`;
   return `<div class="ua-chart2"><h4>${escapeHtml(title)}</h4>${bars}${leg}</div>`;
@@ -268,25 +322,31 @@ function _drivingHtml(report) {
   if (cp.headline) parts.push(`<div class="ua-dphead">${escapeHtml(cp.headline)}</div>`);
   cp.charts.forEach(chart => {
     const ms = chart.milestone || {};
-    const chain = [`<div class="ua-msbox"><div class="ua-msflag">◆ Milestone</div><div class="ua-mst">${escapeHtml(ms.name || '')}</div>
-      <div class="ua-msr"><span>Path start</span><b class="ua-mono">${escapeHtml(_fdate(ms.path_start))}</b></div>
-      <div class="ua-msr"><span>Baseline Finish</span><b class="ua-mono">${escapeHtml(_fdate(ms.baseline_finish))}</b></div>
-      <div class="ua-msr"><span>Expected Finish</span><b class="ua-mono">${escapeHtml(_fdate(ms.expected_finish))}</b></div>
-      <div class="ua-msr"><span>Delay</span><b class="ua-bad">${_sv(ms.slip_days)} d</b></div></div>`];
-    (chart.boxes || []).forEach(b => {
+    const sm = chart.start_milestone || null;
+    const chain = [];
+    if (sm && sm.name) {
+      chain.push(`<div class="ua-msbox start"><div class="ua-msflag">▶ Start Milestone</div><div class="ua-mst">${escapeHtml(sm.name)}</div>
+        <div class="ua-msr"><span>Date</span><b class="ua-mono">${escapeHtml(_fdate(sm.date))}</b></div></div>`);
       chain.push(`<div class="ua-arw">▸</div>`);
+    }
+    (chart.boxes || []).forEach(b => {
       const tag = b.source === 'activity' ? ` <span class="ua-btag">activity — no cost in WBS</span>` : '';
       chain.push(`<div class="ua-box ${b.complete ? 'done' : ''}">
         <div class="ua-bt">${escapeHtml(b.name || '')}${tag}</div>
         <div class="ua-bcrumb">${escapeHtml(b.crumb || '')}</div>
         <div class="ua-b4">
-          <div><div class="ua-k">Planned</div><div class="ua-v">${Math.round(b.planned || 0)}%</div></div>
-          <div><div class="ua-k">Actual</div><div class="ua-v">${Math.round(b.pct || 0)}%</div></div>
+          <div><div class="ua-k">Planned</div><div class="ua-v">${(b.planned || 0).toFixed(1)}%</div></div>
+          <div><div class="ua-k">Actual</div><div class="ua-v">${(b.pct || 0).toFixed(1)}%</div></div>
           <div><div class="ua-k">Baseline Finish</div><div class="ua-v ua-mono">${escapeHtml(_fdate(b.bl_finish))}</div></div>
           <div><div class="ua-k">Expected Finish</div><div class="ua-v ua-mono">${escapeHtml(_fdate(b.exp_finish))}</div></div>
           <div class="ua-full"><div class="ua-k">Delay</div><div class="ua-v ${(b.slip_days || 0) > 0 ? 'ua-bad' : ''}">${_sv(b.slip_days)} d</div></div>
         </div></div>`);
+      chain.push(`<div class="ua-arw">▸</div>`);
     });
+    chain.push(`<div class="ua-msbox"><div class="ua-msflag">◆ Completion Milestone</div><div class="ua-mst">${escapeHtml(ms.name || '')}</div>
+      <div class="ua-msr"><span>Baseline Finish</span><b class="ua-mono">${escapeHtml(_fdate(ms.baseline_finish))}</b></div>
+      <div class="ua-msr"><span>Expected Finish</span><b class="ua-mono">${escapeHtml(_fdate(ms.expected_finish))}</b></div>
+      <div class="ua-msr"><span>Delay</span><b class="ua-bad">${_sv(ms.slip_days)} d</b></div></div>`);
     parts.push(`<div class="ua-chain">${chain.join('')}</div>`);
   });
   return parts.join('');
@@ -353,7 +413,7 @@ function _wireCounts(report) {
 
 const UA_SECTIONS = [
   ['conclusion', 'Executive read'], ['time', 'Time Status'], ['bycode', 'Planned vs Actual by code'],
-  ['driving', 'Driving Path Analyzer'], ['counts', 'Planned vs Actual by count'],
+  ['driving', 'Driving Path Analyzer'], ['counts', 'Planned vs Actual by count'], ['scope', 'Scope Weight & Recommendation'],
 ];
 
 function _codeFilter() { return _pickedTypes.length ? { types: _pickedTypes.slice() } : null; }
@@ -363,7 +423,7 @@ async function _exportPdf() {
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/update/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: _shownReport, preview: true, code_filter: _codeFilter() }),
+      body: JSON.stringify({ report: _shownReport, preview: true, code_filter: _codeFilter(), scope_code: _scopeCode }),
     });
     const data = await resp.json();
     if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
@@ -407,7 +467,7 @@ function _showPdfPreview(reportHtml) {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/update/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), code_filter: _codeFilter() }),
+        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), code_filter: _codeFilter(), scope_code: _scopeCode }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`); else close();

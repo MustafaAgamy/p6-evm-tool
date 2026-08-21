@@ -425,6 +425,7 @@ class Handler(BaseHTTPRequestHandler):
         report = body.get('report') or {}
         sections = body.get('sections')
         code_filter = body.get('code_filter')
+        scope_code = body.get('scope_code')
         preview = bool(body.get('preview'))
         output_path = body.get('output_path', '')
         if not preview and not output_path:
@@ -434,7 +435,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_update.exporters import render_html
             import subprocess, tempfile
-            html_content = render_html(report, sections, code_filter)
+            html_content = render_html(report, sections, code_filter, scope_code)
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

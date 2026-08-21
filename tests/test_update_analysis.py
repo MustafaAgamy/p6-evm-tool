@@ -207,23 +207,26 @@ def test_critical_path_rolls_up_to_wbs_boxes():
 
 
 def test_critical_path_no_cost_shows_the_activity():
-    # Same shape but with NO ResourceAssignments → the work front carries no cost, so the box
-    # must show the specific driving activity by name, not a WBS rollup.
-    wbs = [(100, 'Proj', ''), (200, 'Silo 1', 100), (301, 'Soil Replacement', 200)]
+    # The file IS cost-loaded (a Columns activity carries cost), but the Soil Replacement work
+    # front on the path has NO cost → its box must show the specific driving activity by name,
+    # not a budget-weighted WBS rollup.
+    wbs = [(100, 'Proj', ''), (200, 'Silo 1', 100), (301, 'Soil Replacement', 200), (302, 'Columns', 200)]
     acts = [
         (20, 'S1', 'Soil layer 1 in Silo 1', 0.5, '2025-03-02', '2025-06-01', 320, 301, {}),
         (21, 'S2', 'Soil layer 2 in Silo 1', 0.0, '2025-03-02', '2025-06-01', 320, 301, {}),
+        (30, 'C1', 'Columns in Silo 1', 0.0, '2025-03-02', '2025-06-01', 320, 302, {}),
     ]
     rels = [(20, 999)]
     ms = [(999, 'MS', 'Project completion', '2025-06-01', 200)]
-    # Build XML but strip the ResourceAssignments so nothing is cost-loaded.
+    # Keep the Columns cost (C1 = oid 30) but strip the two Soil ResourceAssignments (20, 21).
     xml = _xml('2025-04-01', acts, rels, wbs, ms)
     import re
-    xml = re.sub(r'<ResourceAssignment>.*?</ResourceAssignment>', '', xml, flags=re.S)
+    for oid in (20, 21):
+        xml = re.sub(rf'<ResourceAssignment><ActivityObjectId>{oid}</ActivityObjectId>.*?</ResourceAssignment>', '', xml, flags=re.S)
     data, metrics = _parse_and_compute(xml)
     boxes = critical_path(data)['charts'][0]['boxes']
     soil = next(b for b in boxes if 'Soil' in b['name'])
-    assert soil['source'] == 'activity'          # no cost → the activity itself
+    assert soil['source'] == 'activity'          # file costed, work front not → the activity itself
     assert soil['name'] == 'Soil layer 1 in Silo 1'   # exact activity name, not the WBS name
 
 
@@ -268,3 +271,16 @@ def test_render_html_and_excel_smoke():
     assert any(r[0] == 'Time Status' for r in rows)
     assert any(r[0].startswith('Driving Path') for r in rows)
     assert any(r[0] == 'Activity count' for r in rows)
+
+
+def test_scope_weights_and_recommendation():
+    xml = _xml('2025-07-02', [
+        (10, 'M1', 'Mech 1', 0.3, '2025-01-01', '2025-12-31', 80, 100, {'Discipline': 'Mechanical'}),
+        (11, 'C1', 'Civil 1', 0.5, '2025-01-01', '2025-12-31', 800, 100, {'Discipline': 'Civil'}),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    from p6_update.analysis import scope_weights
+    s = scope_weights(data, 'Discipline')
+    assert s['rows'][0]['value'] == 'Civil'
+    assert s['rows'][0]['weight_pct'] > 80
+    assert 'Civil' in s['recommendation'][0]

@@ -23,6 +23,29 @@ def _weight(data, act):
     return w if w and w > 0 else ((act.get('planned_duration') or 0.0) or 1.0)
 
 
+def _cost_weight(data, act):
+    """Activity's cost (baseline budget, else current cost); 0 when it carries no cost."""
+    oid = act.get('object_id')
+    bl = getattr(data, 'baseline_bac_by_activity', None) or {}
+    bac = getattr(data, 'bac_by_activity', None) or {}
+    return bl.get(oid) or bac.get(oid) or 0.0
+
+
+def _file_has_cost(data):
+    bl = getattr(data, 'baseline_bac_by_activity', None) or {}
+    bac = getattr(data, 'bac_by_activity', None) or {}
+    return any(v and v > 0 for v in bl.values()) or any(v and v > 0 for v in bac.values())
+
+
+def _pct_weight(data, act, costed):
+    """Weight for the Planned%/Actual% figures: baseline budget only over fully cost-loaded
+    activities (Ibrahim's rule — no cost, no contribution). Falls back to duration only when
+    the whole schedule carries no cost at all (a bare XER), so the feature still runs."""
+    if costed:
+        return _cost_weight(data, act)   # 0 for an uncosted activity → excluded from the %
+    return (act.get('planned_duration') or 0.0) or 1.0
+
+
 def _forecast_finish(act):
     """P6's own forecast finish for the activity — actual if complete, else remaining early,
     else the planned finish. Read from the file; never computed here."""
@@ -146,9 +169,12 @@ def time_status(data, metrics):
 # ── Section 2 · Planned vs Actual by activity code ───────────────────────────
 
 def _bucket(data, types):
-    """Cumulative (vs baseline) planned vs actual %, budget-weighted, bucketed by the given
-    activity-code dimension(s). An activity counts only when it carries every chosen code."""
+    """Cumulative (vs baseline) planned vs actual %, bucketed by the given activity-code
+    dimension(s). Percentages are cost-based — weighted by baseline budget over fully
+    cost-loaded activities only (Ibrahim's rule); an uncosted activity does not contribute.
+    Falls back to duration only when the whole schedule carries no cost."""
     data_date = (getattr(data, 'project', None) or {}).get('data_date')
+    costed = _file_has_cost(data)
     agg = {}
     for act in data.activities.values():
         if act.get('task_type') in _MILESTONES:
@@ -160,8 +186,10 @@ def _bucket(data, types):
         planned = activity_planned_pct(act, data.baseline_by_id, data_date, data.calendars)
         if planned is None:
             continue   # no baseline for this activity → can't place it planned vs actual
+        w = _pct_weight(data, act, costed)
+        if w <= 0:
+            continue   # cost-loaded only — an uncosted activity carries no weight
         actual = act.get('percent_complete') or 0.0
-        w = _weight(data, act)
         key = ' · '.join(vals)
         e = agg.setdefault(key, [0.0, 0.0, 0.0, 0])
         e[0] += w
@@ -234,6 +262,75 @@ def activity_counts(data, construction_only=True, code_filter=None):
     return c
 
 
+# ── Section 5 · Scope weight & recommendation ────────────────────────────────
+
+def _default_scope_code(types):
+    tiers = [r'type of civil', r'type of work', r'disciplin', r'\btrade\b', r'main wbs']
+    import re
+    for pat in tiers:
+        for t in types:
+            if re.search(pat, t, re.I):
+                return t
+    return types[0] if types else None
+
+
+def _recommendation(rows, code_type):
+    """Advice text driven by the largest cost weight — recomputed for whatever code is chosen."""
+    if not rows:
+        return []
+    top = rows[0]
+    out = [f"It is recommended to work on {top['value']} as it represents the largest weight "
+           f"({top['weight_pct']:.1f}%) in the {code_type} scope."]
+    if len(rows) >= 3:
+        share = round(sum(r['weight_pct'] for r in rows[:3]), 1)
+        out.append(f"Together with {rows[1]['value']} ({rows[1]['weight_pct']:.1f}%) and "
+                   f"{rows[2]['value']} ({rows[2]['weight_pct']:.1f}%), these three carry {share}% of the scope.")
+    return out
+
+
+def scope_weights(data, code_type, construction_only=True):
+    """Each activity-code value's share of the cost-loaded scope (baseline budget), heaviest
+    first, plus a recommendation naming the largest. Construction/execution activities only."""
+    cons = None
+    if construction_only:
+        try:
+            from p6_compare.report import _construction_codes
+            cons = _construction_codes(data) or None
+        except Exception:
+            cons = None
+    agg = {}
+    total = 0.0
+    for a in data.activities.values():
+        if a.get('task_type') in _MILESTONES:
+            continue
+        if cons is not None and a.get('id') not in cons:
+            continue
+        val = (a.get('activity_codes') or {}).get(code_type)
+        if not val:
+            continue
+        w = _cost_weight(data, a)
+        if w <= 0:
+            continue
+        agg[val] = agg.get(val, 0.0) + w
+        total += w
+    rows = [{'value': v, 'bac': round(w), 'weight_pct': round(w / total * 100, 1)}
+            for v, w in agg.items()] if total > 0 else []
+    rows.sort(key=lambda r: -r['weight_pct'])
+    return {'code_type': code_type, 'total': round(total), 'rows': rows,
+            'recommendation': _recommendation(rows, code_type)}
+
+
+def scope_all(data):
+    """Scope weights for every activity-code dimension that carries cost — so the UI can switch
+    code and see the recommendation rewrite itself instantly. {code_type: scope_weights(...)}."""
+    out = {}
+    for t in (getattr(data, 'activity_code_types', None) or []):
+        s = scope_weights(data, t)
+        if s['rows']:
+            out[t] = s
+    return out
+
+
 # ── Section 3 · Driving Path Analyzer ────────────────────────────────────────
 
 def _governing_milestone(data):
@@ -249,17 +346,22 @@ def _governing_milestone(data):
 
 
 def _trace_driving_chain(graph, start_oid, limit=500):
-    """Walk backwards from the milestone along the driving predecessor at each step (the one
-    whose controlling finish is latest — the true driver), returning the chain earliest→last."""
+    """Walk backwards from the milestone along the binding predecessor at each step, returning
+    the chain earliest→last. Prefer the driving predecessors; but the driving detector misses
+    some SS/FF-with-lag links, so when it returns nothing we fall back to the activity's actual
+    predecessors and follow the one whose controlling finish is latest — otherwise the path
+    dead-ends early (it was stopping at Silo 10 instead of reaching Silo 9 and the start
+    milestone that releases it)."""
     from p6_compare.driving import driving_predecessors
     chain = [start_oid]
     seen = {start_oid}
     cur = start_oid
     while len(chain) < limit:
-        preds = driving_predecessors(graph, cur)
+        cands = [pl['pred_oid'] for pl in driving_predecessors(graph, cur)]
+        if not cands:
+            cands = [link['other'] for link in graph.preds_of(cur)]
         best, best_f = None, None
-        for pl in preds:
-            poid = pl['pred_oid']
+        for poid in cands:
             if poid in seen:
                 continue
             p = graph.activities.get(poid)
@@ -366,27 +468,29 @@ def critical_path(data, summary_level=0, construction_only=True):
         box_order.append(wid)
         box_driver[wid] = act
 
-    bl_bac = getattr(data, 'baseline_bac_by_activity', None) or {}
-    cur_bac = getattr(data, 'bac_by_activity', None) or {}
+    costed_file = _file_has_cost(data)
 
     def _has_cost(acts):
-        return any((bl_bac.get(a.get('object_id')) or cur_bac.get(a.get('object_id')) or 0) > 0 for a in acts)
+        return any(_cost_weight(data, a) > 0 for a in acts)
 
     boxes = []
     for wid in box_order:
         acts = subtree.get(wid, [])
-        if _has_cost(acts):
-            # Cost-loaded work front → WBS rollup (budget-weighted), collapsed like in P6.
+        if not (costed_file and not _has_cost(acts)):
+            # WBS rollup. Percentages are cost-weighted over the cost-loaded activities only
+            # (a bare XER with no cost anywhere falls back to duration). The finish dates come
+            # from ALL the WBS's activities — the work front's own baseline / forecast finish.
             w = wa = pw = pp = 0.0
             bls, exps = [], []
             for a in acts:
-                ww = _weight(data, a)
-                w += ww
-                wa += ww * (a.get('percent_complete') or 0.0)
-                pl = activity_planned_pct(a, data.baseline_by_id, data_date, data.calendars)
-                if pl is not None:
-                    pw += ww
-                    pp += ww * pl
+                ww = _pct_weight(data, a, costed_file)
+                if ww > 0:
+                    w += ww
+                    wa += ww * (a.get('percent_complete') or 0.0)
+                    pl = activity_planned_pct(a, data.baseline_by_id, data_date, data.calendars)
+                    if pl is not None:
+                        pw += ww
+                        pp += ww * pl
                 bf = _baseline_of(data, a).get('planned_finish')
                 ff = _forecast_finish(a)
                 if bf:
@@ -426,12 +530,29 @@ def critical_path(data, summary_level=0, construction_only=True):
             'complete': pct >= 100.0,
         })
 
-    # Milestone "big box" — the path start is the earliest baseline start among the path's
-    # construction activities (fallback: earliest forecast/actual start).
+    # Start-milestone "big box" — the start milestone that RELEASES the first work front (the
+    # last Start Milestone on the chain before the first construction activity), e.g. "Finalize
+    # Contract Addendum" before Silo 9 piles — not necessarily the earliest project milestone.
+    start_ms = None
+    for oid in chain:
+        a = graph.activities.get(oid)
+        if not a:
+            continue
+        if cons is not None and a.get('id') in cons:
+            break   # reached the first work front
+        if a.get('task_type') == 'StartMilestone':
+            start_ms = a
+    start_ms_date = None
+    start_milestone = None
+    if start_ms is not None:
+        start_ms_date = _forecast_finish(start_ms) or _baseline_of(data, start_ms).get('planned_finish')
+        start_milestone = {'name': start_ms.get('name') or start_ms.get('id'), 'date': _iso(start_ms_date)}
+
+    # Path start (kept for the headline): the start milestone's date, else the earliest start.
     starts = [s for s in (_baseline_of(data, a).get('planned_start') for a in path_acts) if s]
     if not starts:
         starts = [s for s in ((a.get('remaining_early_start') or a.get('actual_start')) for a in path_acts) if s]
-    ms_start = min(starts) if starts else None
+    ms_start = start_ms_date or (min(starts) if starts else None)
 
     ms_bl = _baseline_of(data, milestone).get('planned_finish')
     ms_exp = _forecast_finish(milestone)
@@ -446,7 +567,7 @@ def critical_path(data, summary_level=0, construction_only=True):
     }
 
     headline = _cp_headline(ms, boxes)
-    chart = {'title': ms['name'], 'boxes': boxes, 'milestone': ms}
+    chart = {'title': ms['name'], 'boxes': boxes, 'milestone': ms, 'start_milestone': start_milestone}
     return {
         'milestone': ms,
         'charts': [chart] if boxes else [],
@@ -496,6 +617,8 @@ def build_report_from_data(data, metrics, summary_level=0):
         'by_code': by_code(data),
         'critical_path': cp,
         'counts': activity_counts(data),
+        'scope': scope_all(data),
+        'scope_default': _default_scope_code(list(getattr(data, 'activity_code_types', None) or [])),
         'conclusion': _report_conclusion(ts, cp),
     }
 
