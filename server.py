@@ -62,6 +62,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_period_excel(body)
         elif self.path == '/api/period/report':
             self._handle_period_report(body)
+        elif self.path == '/api/critpath/analyze':
+            self._handle_critpath_analyze(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -414,6 +416,44 @@ class Handler(BaseHTTPRequestHandler):
             report = build_report(baseline_path, update_path, config)
             report['baseline_file'] = os.path.basename(baseline_path)
             report['update_file'] = os.path.basename(update_path)
+            self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/critpath/* — Critical Path Analyzer (2–3 schedules) ────────────
+    def _handle_critpath_analyze(self, body):
+        """Critical Path Analyzer. Loads the schedules for the chosen mode and returns the
+        comparison report (census, and — later slices — lanes, milestones, float migration,
+        dashboard, recommendation). The current open schedule is always 'current'; the
+        picked files fill 'previous' and/or 'baseline'. Nothing is written; no records.
+
+        Modes:  two_updates → current + previous ; update_baseline → current + baseline ;
+                two_plus_baseline → current + previous + baseline."""
+        mode = body.get('mode', 'update_baseline')
+        current_path = db.resolve_xml_path(body.get('current_path', ''), body.get('cached_path'))
+        if not current_path or not os.path.isfile(current_path):
+            self._json(200, {'ok': False, 'error': 'Current schedule not available. Re-import it first.'})
+            return
+        needs = {'two_updates': ('previous',), 'update_baseline': ('baseline',),
+                 'two_plus_baseline': ('previous', 'baseline')}.get(mode)
+        if needs is None:
+            self._json(200, {'ok': False, 'error': f'Unknown comparison mode: {mode}'})
+            return
+        paths = {'current': current_path}
+        for role in needs:
+            p = body.get(f'{role}_path', '')
+            if not p or not os.path.isfile(p):
+                label = 'previous update' if role == 'previous' else 'baseline'
+                self._json(200, {'ok': False, 'error': f'Pick the {label} file to compare against.'})
+                return
+            paths[role] = p
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_critpath.analysis import build_report
+            schedules = {role: parse_file(p) for role, p in paths.items()}
+            report = build_report(schedules, mode)
+            report['files'] = {role: os.path.basename(p) for role, p in paths.items()}
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
