@@ -33,6 +33,22 @@ NAME = 'Critical Path / CPLI'
 
 TARGET = 0.95  # DCMA acceptance threshold for CPLI
 
+# Critical-path DENSITY — an INDICATOR only, shown next to CPLI. It never changes the
+# CPLI score; it flags a schedule where too many activities are critical (fragile).
+# Fewer critical activities = healthier. (upper %bound, score, grade)
+_DENSITY_BANDS = [(20.0, 100, 'Excellent'), (25.0, 95, 'Good'), (30.0, 90, 'Acceptable'),
+                  (35.0, 85, 'Watch'), (40.0, 80, 'Watch')]
+
+
+def _critical_density(pct):
+    """Informational density indicator (NOT the CPLI score). (score, grade)."""
+    if pct is None:
+        return (None, None)
+    for thr, sc, gr in _DENSITY_BANDS:
+        if pct <= thr:
+            return (sc, gr)
+    return (75, 'High density')
+
 # Spans, not finish candidates — they run to the project end by construction.
 _SUMMARY_TYPES = {'LOE', 'WBSSummary'}
 
@@ -145,6 +161,7 @@ def run_cpli(graph, config):
     critical_count = len(findings)
     total_real = sum(1 for oid in acts if graph.is_real_activity(oid))
     critical_pct = round(100.0 * critical_count / total_real, 1) if total_real else 0.0
+    density_score, density_grade = _critical_density(critical_pct)
 
     baseline_rule_met = bool(tf is not None and tf >= 0)
     return {
@@ -159,6 +176,8 @@ def run_cpli(graph, config):
             'target':                    TARGET,
             'critical_count':            critical_count,
             'critical_pct':              critical_pct,
+            'critical_density_score':    density_score,
+            'critical_density_grade':    density_grade,
             'total_activities':          total_real,
             'finish_milestone_id':       finish_milestone.get('id') if finish_milestone else None,
             'data_date':                 _iso(data_date),      # for the Gantt's data-date marker

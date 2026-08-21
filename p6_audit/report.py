@@ -583,6 +583,19 @@ def _cpli_driving_chart(m):
             f'<th class="num">Finish</th><th>Timeline</th></tr></thead><tbody>{"".join(rows)}</tbody></table>{more}')
 
 
+def _cpli_density_note(m):
+    """The critical-path density indicator for the CPLI PDF — informational, never the score."""
+    k = m.get('kpis') or {}
+    sc = k.get('critical_density_score')
+    if sc is None:
+        return ''
+    return (f'<div class="slegend"><div class="t">Critical-path density — indicator only, not the CPLI score</div>'
+            f'<div class="d">{_esc(k.get("critical_pct"))}% of activities are critical &rarr; '
+            f'<b>{_esc(sc)} &middot; {_esc(k.get("critical_density_grade"))}</b>. '
+            f'Band: &le;20%&rarr;100 &middot; &le;25%&rarr;95 &middot; &le;30%&rarr;90 &middot; &le;35%&rarr;85 '
+            f'&middot; &le;40%&rarr;80 &middot; &gt;40%&rarr;75. This does not change the CPLI score.</div></div>')
+
+
 def _sections(m, sections=None):
     """Body sections for a module report — respecting the user's report-content
     selection (Preview = PDF = Print) and skipping sections with no data. OOS and
@@ -620,6 +633,8 @@ def _sections(m, sections=None):
     parts = []
     if on('executive'):
         parts.append(f'<h2 class="sec">Executive Dashboard</h2>{_presentation_dashboard(m)}')
+        if mod == 'cpli':
+            parts.append(_cpli_density_note(m))
     if on('scoring'):
         parts.append(_scoring_legend(m))
     if on('severity'):

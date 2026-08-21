@@ -630,6 +630,10 @@ function renderCpliModule(m) {
     <div class="shr-legend">
       <b>How it's measured.</b> CPLI = (CPL + TF) ÷ CPL — DCMA 14-Point, Point 13. CPL is the critical-path length in working days from the data date to the completion milestone; TF is that milestone's total float. Ibrahim's baseline rule: total float must be ≥ 0 (CPLI ≥ 100%); negative float is a re-plan signal.
     </div>
+    <div class="shr-legend">
+      <b>Critical-path density — indicator only, not the CPLI score.</b> ${k.critical_pct ?? '—'}% of activities are critical → <b>${k.critical_density_score ?? '—'} · ${escapeHtml(k.critical_density_grade || '—')}</b>. A schedule with many critical activities is fragile — small slips ripple.
+      <div style="margin-top:5px">Band: ≤ 20% → 100 · ≤ 25% → 95 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 80 · &gt; 40% → 75. This never changes the CPLI score above.</div>
+    </div>
     <div class="mod-sec">Driving path <span class="mod-sub">— the activities P6 flags critical, in sequence</span></div>
     ${cpliGantt(m.findings || [], m.kpis || {})}`;
 }
