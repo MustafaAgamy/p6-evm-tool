@@ -12,36 +12,50 @@ def _post_json(port, path, payload):
 
 
 def _schedule_xml(data_date, ms_finish, acts):
-    """A P6 XML with a finish milestone and task activities carrying TotalFloatHours.
-    acts: (oid, code, name, finish, total_float_hours)."""
+    """A P6 XML with a finish milestone, task activities each in their OWN WBS work front,
+    and Relationships chaining them into a driving path to the milestone — so the driving-
+    path trace (the centre of the feature) is exercised from a REAL parse, not a hand-built
+    ScheduleData. acts: (oid, code, name, finish, total_float_hours, start)."""
+    wbs = ('    <WBS><ObjectId>100</ObjectId><Name>Project</Name><ParentObjectId></ParentObjectId></WBS>\n')
     body = (f'<Activity><ObjectId>900</ObjectId><Id>M999</Id><Name>Project Completion</Name>'
             f'<Type>Finish Milestone</Type><WBSObjectId>100</WBSObjectId><CalendarObjectId></CalendarObjectId>'
+            f'<RemainingEarlyStartDate>{ms_finish}T00:00:00</RemainingEarlyStartDate>'
             f'<RemainingEarlyFinishDate>{ms_finish}T00:00:00</RemainingEarlyFinishDate>'
             f'<TotalFloatHours>-80</TotalFloatHours></Activity>\n')
-    for oid, code, name, finish, tf in acts:
-        body += (f'<Activity><ObjectId>{oid}</ObjectId><Id>{code}</Id><Name>{name}</Name>'
-                 f'<Type>Task Dependent</Type><WBSObjectId>100</WBSObjectId><CalendarObjectId></CalendarObjectId>'
+    rels, prev = '', None
+    for oid, code, name, finish, tf, start in acts:
+        wid = 200 + oid
+        wbs += f'    <WBS><ObjectId>{wid}</ObjectId><Name>{name}</Name><ParentObjectId>100</ParentObjectId></WBS>\n'
+        body += (f'<Activity><ObjectId>{oid}</ObjectId><Id>{code}</Id><Name>{name} work</Name>'
+                 f'<Type>Task Dependent</Type><WBSObjectId>{wid}</WBSObjectId><CalendarObjectId></CalendarObjectId>'
+                 f'<RemainingEarlyStartDate>{start}T00:00:00</RemainingEarlyStartDate>'
                  f'<RemainingEarlyFinishDate>{finish}T00:00:00</RemainingEarlyFinishDate>'
                  f'<TotalFloatHours>{tf}</TotalFloatHours></Activity>\n')
+        if prev is not None:
+            rels += (f'<Relationship><PredecessorActivityObjectId>{prev}</PredecessorActivityObjectId>'
+                     f'<SuccessorActivityObjectId>{oid}</SuccessorActivityObjectId><Type>Finish to Start</Type><Lag>0</Lag></Relationship>\n')
+        prev = oid
+    rels += (f'<Relationship><PredecessorActivityObjectId>{prev}</PredecessorActivityObjectId>'
+             f'<SuccessorActivityObjectId>900</SuccessorActivityObjectId><Type>Finish to Start</Type><Lag>0</Lag></Relationship>\n')
     return ('<?xml version="1.0"?>\n<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
             f'  <Project><ObjectId>1</ObjectId><Id>P1</Id><Name>Proj</Name><DataDate>{data_date}T00:00:00</DataDate>\n'
-            '    <WBS><ObjectId>100</ObjectId><Name>Proj</Name><ParentObjectId></ParentObjectId></WBS>\n'
-            f'{body}  </Project>\n</APIBusinessObjects>\n')
+            f'{wbs}{body}{rels}  </Project>\n</APIBusinessObjects>\n')
 
 
 def _pair(tmp_path):
-    # 8h/day → TotalFloatHours 80 = 10 wd, 40 = 5 wd, 0 = 0 wd, -24 = -3 wd
+    # 8h/day → TotalFloatHours 120 = 15 wd (safe), 40 = 5 wd (near), 0 = crit, -24 = -3 wd (crit).
+    # prev path runs through Roof; curr path reroutes through MEP → Roof leaves, MEP enters.
     prev = tmp_path / 'prev.xml'
     prev.write_text(_schedule_xml('2026-06-30', '2027-01-05', [
-        (1, 'A050', 'Foundations', '2026-08-18', 120),   # safe (15 wd)
-        (2, 'A100', 'Roof', '2026-09-05', 40),            # near (5 wd)
-        (3, 'A200', 'MEP', '2026-11-01', 0)]),            # critical
+        (1, 'A050', 'Foundations', '2026-08-18', 120, '2026-06-01'),   # safe (15 wd)
+        (2, 'A100', 'Roof', '2026-09-05', 40, '2026-08-18'),           # near (5 wd)
+        (4, 'A400', 'Fit-out', '2026-11-01', 0, '2026-09-05')]),       # critical
         encoding='utf-8')
     curr = tmp_path / 'curr.xml'
     curr.write_text(_schedule_xml('2026-07-19', '2027-01-23', [
-        (1, 'A050', 'Foundations', '2026-08-18', 120),   # safe
-        (2, 'A100', 'Roof', '2026-09-05', 0),             # now critical
-        (3, 'A200', 'MEP', '2026-11-20', -24)]),          # critical (-3 wd)
+        (1, 'A050', 'Foundations', '2026-08-18', 120, '2026-07-19'),   # safe
+        (3, 'A300', 'MEP', '2026-11-20', 0, '2026-08-18'),             # critical — the reroute
+        (4, 'A400', 'Fit-out', '2026-12-20', -24, '2026-11-20')]),     # critical (-3 wd)
         encoding='utf-8')
     return str(prev), str(curr)
 
@@ -64,6 +78,13 @@ def test_critpath_two_updates(test_server, tmp_path):
     # CPLI present and < 1 (finish milestone TF -80h = -10 wd, behind)
     assert r['census']['current']['cpli'] is not None
     assert r['census']['current']['cpli'] < 1.0
+    # Driving-path lanes populated from a REAL parse (not synthetic ScheduleData), and the
+    # reroute is detected: MEP entered the current path, Roof left it.
+    cur_lane = next(l for l in r['lanes'] if l['role'] == 'current')
+    assert cur_lane['boxes'], 'current lane should have work-front boxes from the parsed chain'
+    states = {b['name']: b['state'] for b in cur_lane['boxes']}
+    assert states.get('MEP') == 'new'
+    assert states.get('Roof') == 'left'
 
 
 def test_critpath_missing_previous(test_server, tmp_path):
