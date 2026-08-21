@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Duration & Resources — standalone calculator (no schedule needed)
   initProdkb();
   document.getElementById('sb-prodkb-btn').addEventListener('click', showProdkb);
+  document.getElementById('home-prodkb-btn').addEventListener('click', showProdkb);
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {
