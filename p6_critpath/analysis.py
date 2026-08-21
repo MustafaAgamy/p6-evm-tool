@@ -193,8 +193,16 @@ def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=
     path highlighted) + the milestone list for the selector. Later slices add the every-
     milestone table, float migration, dashboard and recommendation."""
     from p6_critpath.paths import milestone_list
+    from p6_critpath.tables import milestones_table, float_migration
     roles = [r for r in ('baseline', 'previous', 'current') if r in schedules]
     census = {r: schedule_census(schedules[r], near_threshold) for r in roles}
+
+    # Float migration is the period movement: previous → current when both are loaded,
+    # else baseline → current.
+    base_role = 'previous' if 'previous' in schedules else ('baseline' if 'baseline' in schedules else None)
+    migration = (float_migration(schedules[base_role], schedules['current'], near_threshold)
+                 if base_role and 'current' in schedules else None)
+
     return {
         'mode': mode,
         'roles': roles,
@@ -204,4 +212,7 @@ def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=
         'selected_milestone': milestone_code,
         'summary_level': summary_level,
         'lanes': _build_lanes(schedules, roles, milestone_code, summary_level),
+        'milestones': milestones_table(schedules, near_threshold),
+        'float_migration': migration,
+        'float_migration_base': base_role,
     }

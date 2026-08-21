@@ -121,8 +121,73 @@ function _renderReport(report) {
     <div class="cpa-card">${_censusHtml(report)}</div>
 
     <div class="cpa-sech">Driving path — schedule by schedule</div>
-    <div class="cpa-card">${_lanesHtml(report)}</div>`;
+    <div class="cpa-card">${_lanesHtml(report)}</div>
+
+    <div class="cpa-sech">Every milestone · finish comparison &amp; path health</div>
+    <div class="cpa-card">${_milestonesHtml(report)}</div>
+
+    <div class="cpa-sech">Float migration</div>
+    <div class="cpa-card">${_migrationHtml(report)}</div>`;
   _wireLaneControls(report);
+}
+
+// ── Every-milestone table ────────────────────────────────────────────────────
+
+function _mschip(v) {
+  if (v == null) return '<span class="cpa-dim">—</span>';
+  const cls = v > 0 ? 'slip' : v < 0 ? 'gain' : 'hold';
+  return `<span class="cpa-mchip ${cls}">${v > 0 ? '+' : ''}${v} d</span>`;
+}
+function _cplichip(v) {
+  if (v == null) return '<span class="cpa-dim">n/a</span>';
+  const cls = v >= 1.0 ? 'cok' : v >= 0.95 ? 'cwarn' : 'cbad';
+  return `<span class="cpa-mchip ${cls}">${v.toFixed(2)}</span>`;
+}
+
+function _milestonesHtml(report) {
+  const rows = report.milestones || [];
+  const roles = report.roles || [];
+  if (!rows.length) return `<div class="cpa-note">No finish milestones found in these schedules.</div>`;
+  const has = r => roles.includes(r);
+  const col = (r, lbl) => has(r) ? `<th class="num">${lbl}</th>` : '';
+  const body = rows.map(m => `<tr class="${m.is_governing ? 'cpa-gov' : ''}">
+      <td>${m.is_governing ? '<span class="cpa-godot"></span>' : ''}${escapeHtml(m.name)}</td>
+      ${has('baseline') ? `<td class="num">${_fdate((m.finishes || {}).baseline)}</td>` : ''}
+      ${has('previous') ? `<td class="num">${_fdate((m.finishes || {}).previous)}</td>` : ''}
+      ${has('current') ? `<td class="num">${_fdate((m.finishes || {}).current)}</td>` : ''}
+      <td class="num">${_mschip(m.var_vs_baseline_d)}</td>
+      ${has('previous') ? `<td class="num">${_mschip(m.var_this_period_d)}</td>` : ''}
+      <td class="num">${_cplichip(m.cpli)}</td>
+      <td class="num">${m.crit_fronts == null ? '—' : `${m.crit_fronts} / ${m.near_fronts}`}</td>
+    </tr>`).join('');
+  return `<table class="cpa-table">
+    <thead><tr><th>Milestone</th>
+      ${col('baseline', 'Baseline')}${col('previous', 'Previous')}${col('current', 'Current')}
+      <th class="num">vs Baseline</th>${has('previous') ? '<th class="num">This period</th>' : ''}
+      <th class="num">CPLI</th><th class="num">Crit / Near fronts</th></tr></thead>
+    <tbody>${body}</tbody></table>
+    <div class="cpa-leg"><span class="cpa-godot"></span> governing milestone · green ahead / red behind · CPLI &lt; 0.95 = the path can't absorb more delay · Crit/Near fronts = work fronts on that milestone's driving path.</div>`;
+}
+
+// ── Float migration ──────────────────────────────────────────────────────────
+
+function _migrationHtml(report) {
+  const m = report.float_migration;
+  if (!m) return `<div class="cpa-note">Load a previous update or a baseline to see how float moved.</div>`;
+  const c = m.counts || {};
+  const base = report.float_migration_base === 'baseline' ? 'baseline' : 'last period';
+  const bands = [
+    ['Near → CRITICAL', c.near_to_crit, 'bad', 'worsened'],
+    ['Safe → near', c.safe_to_near, 'warn', 'eroding'],
+    ['Critical → recovered', c.crit_to_recovered, 'good', 'improved'],
+    ['Held critical', c.held_crit, 'flat', 'unchanged'],
+  ];
+  const toward = (c.near_to_crit || 0) + (c.safe_to_near || 0);
+  const cells = bands.map(([lbl, n, cls, tag]) => `<div class="cpa-band">
+      <div class="cpa-bandl">${lbl}</div><div class="cpa-bandv ${cls}">${n || 0}</div>
+      <div class="cpa-bandt ${cls}">${tag}</div></div>`).join('');
+  return `<div class="cpa-bands">${cells}</div>
+    <div class="cpa-leg">${toward} activities lost float toward the critical path vs ${base} — early warning of the coming slip. Matched by activity ID.</div>`;
 }
 
 // ── Driving-path lanes (the §3 chart per schedule, new path highlighted) ─────
@@ -312,6 +377,26 @@ function _injectStyle() {
     .cpa-v { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); margin-top: 1px; }
     .cpa-full { grid-column: 1 / -1; border-top: 1px dashed var(--border); padding-top: 4px; }
     .cpa-bad { color: var(--danger); }
+    /* milestone table chips */
+    .cpa-mchip { display: inline-block; border-radius: 6px; padding: 2px 8px; font-size: 11.5px; font-weight: 700; }
+    .cpa-mchip.slip { background: rgba(220,38,38,.12); color: var(--danger); }
+    .cpa-mchip.gain { background: rgba(22,163,74,.14); color: var(--success); }
+    .cpa-mchip.hold { background: var(--border); color: var(--muted); }
+    .cpa-mchip.cok { background: rgba(22,163,74,.14); color: var(--success); }
+    .cpa-mchip.cwarn { background: rgba(217,119,6,.15); color: var(--warning); }
+    .cpa-mchip.cbad { background: rgba(220,38,38,.12); color: var(--danger); }
+    .cpa-gov td { font-weight: 800; }
+    .cpa-godot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; }
+    /* float bands */
+    .cpa-bands { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .cpa-band { border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; }
+    .cpa-bandl { font-size: 11px; color: var(--muted); font-weight: 700; }
+    .cpa-bandv { font-size: 20px; font-weight: 800; margin-top: 3px; }
+    .cpa-bandt { font-size: 11px; font-weight: 700; margin-top: 3px; }
+    .cpa-bandv.bad, .cpa-bandt.bad { color: var(--danger); }
+    .cpa-bandv.warn, .cpa-bandt.warn { color: var(--warning); }
+    .cpa-bandv.good, .cpa-bandt.good { color: var(--success); }
+    .cpa-bandv.flat, .cpa-bandt.flat { color: var(--muted); }
   `;
   document.head.appendChild(s);
 }
