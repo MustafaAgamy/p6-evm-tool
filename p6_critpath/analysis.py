@@ -203,7 +203,7 @@ def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=
     migration = (float_migration(schedules[base_role], schedules['current'], near_threshold)
                  if base_role and 'current' in schedules else None)
 
-    return {
+    report = {
         'mode': mode,
         'roles': roles,
         'census': census,
@@ -216,3 +216,10 @@ def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=
         'float_migration': migration,
         'float_migration_base': base_role,
     }
+    from p6_critpath.dashboard import build_dashboard, build_narrative
+    report['dashboard'] = build_dashboard(report)
+    narrative = build_narrative(report)
+    report['effect'] = narrative['effect']
+    report['recommendation'] = narrative['recommendation']
+    report['conclusion'] = narrative['conclusion']
+    return report

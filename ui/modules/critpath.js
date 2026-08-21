@@ -117,18 +117,155 @@ async function _run(keepMilestone) {
 
 function _renderReport(report) {
   document.getElementById('cpa-report').innerHTML = `
-    <div class="cpa-sech">Critical &amp; near-critical census</div>
-    <div class="cpa-card">${_censusHtml(report)}</div>
+    ${_conclusionBanner(report)}
+
+    <div class="cpa-sech">Execution dashboard</div>
+    <div class="cpa-card">${_dashboardHtml(report)}</div>
 
     <div class="cpa-sech">Driving path — schedule by schedule</div>
     <div class="cpa-card">${_lanesHtml(report)}</div>
+
+    <div class="cpa-sech">Critical &amp; near-critical census</div>
+    <div class="cpa-card">${_censusHtml(report)}</div>
 
     <div class="cpa-sech">Every milestone · finish comparison &amp; path health</div>
     <div class="cpa-card">${_milestonesHtml(report)}</div>
 
     <div class="cpa-sech">Float migration</div>
-    <div class="cpa-card">${_migrationHtml(report)}</div>`;
+    <div class="cpa-card">${_migrationHtml(report)}</div>
+
+    <div class="cpa-sech">Effect on completion &amp; recommendation</div>
+    <div class="cpa-card">${_recoHtml(report)}</div>`;
   _wireLaneControls(report);
+}
+
+// ── Execution dashboard (charts + Critical Path Health) ──────────────────────
+
+function _conclusionBanner(report) {
+  const d = report.dashboard || {};
+  const st = d.status || 'warn';
+  return `<div class="cpa-verdict cpa-vd-${st}">
+    <span class="cpa-vdtag">${escapeHtml(d.status_label || '')}</span>
+    <span class="cpa-vdtext">${escapeHtml(report.conclusion || d.verdict || '')}</span></div>`;
+}
+
+function _kpiDelta(k) {
+  if (k.delta == null || k.delta === 0) return k.delta === 0 ? '<span class="cpa-dim">no change</span>' : '';
+  const bad = k.higher_is_bad ? k.delta > 0 : k.delta < 0;
+  const arw = k.delta > 0 ? '▲' : '▼';
+  return `<span class="cpa-kd ${bad ? 'bad' : 'good'}">${arw} ${k.delta > 0 ? '+' : ''}${k.delta}</span>`;
+}
+
+function _dashboardHtml(report) {
+  const d = report.dashboard || {};
+  const kpis = (d.kpis || []).map(k => `<div class="cpa-kpi">
+      <div class="cpa-kk">${escapeHtml(k.label)}</div>
+      <div class="cpa-kv">${k.value == null ? 'n/a' : (k.key === 'cpli' ? Number(k.value).toFixed(2) : k.value)}${k.key === 'length' ? ' <span class="cpa-ku">wd</span>' : ''}</div>
+      <div class="cpa-kr">${_kpiDelta(k)}</div></div>`).join('');
+  const factors = (d.factors || []).map(f => `<li>${escapeHtml(f)}</li>`).join('');
+  return `<div class="cpa-dash">
+      <div class="cpa-health cpa-hb-${d.status || 'warn'}">
+        <div class="cpa-hgauge">${_gauge(d.cpli, d.status)}</div>
+        <div class="cpa-hbody">
+          <div class="cpa-htitle">Critical Path Health</div>
+          <div class="cpa-hverdict">${escapeHtml(d.verdict || '')}</div>
+          <ul class="cpa-hfactors">${factors}</ul>
+        </div>
+      </div>
+      <div class="cpa-kpis">${kpis}</div>
+    </div>
+    <div class="cpa-charts">
+      <div class="cpa-chart"><div class="cpa-cht">Critical &amp; near-critical by schedule</div>${_barsCritNear(d.charts)}</div>
+      <div class="cpa-chart"><div class="cpa-cht">CPLI trend</div>${_lineCpli(d.charts)}</div>
+      <div class="cpa-chart"><div class="cpa-cht">Milestone slip vs baseline (wd)</div>${_barsMsVar(d.charts)}</div>
+    </div>`;
+}
+
+function _gauge(cpli, status) {
+  const lo = 0.7, hi = 1.2, r = 58, cx = 75, cy = 72;
+  const col = status === 'bad' ? 'var(--danger)' : status === 'warn' ? 'var(--warning)' : 'var(--success)';
+  const frac = cpli == null ? 0 : Math.max(0, Math.min(1, (Math.max(lo, Math.min(hi, cpli)) - lo) / (hi - lo)));
+  const ang = Math.PI * (1 - frac);
+  const x = (cx + r * Math.cos(ang)).toFixed(1), y = (cy - r * Math.sin(ang)).toFixed(1);
+  return `<svg width="150" height="84" viewBox="0 0 150 84" role="img" aria-label="CPLI gauge">
+    <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="var(--border)" stroke-width="11" stroke-linecap="round"/>
+    <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${x} ${y}" fill="none" stroke="${col}" stroke-width="11" stroke-linecap="round"/>
+    <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="23" font-weight="800" fill="var(--text)">${cpli == null ? 'n/a' : cpli.toFixed(2)}</text>
+    <text x="${cx}" y="${cy + 7}" text-anchor="middle" font-size="9.5" fill="var(--muted)">CPLI</text>
+  </svg>`;
+}
+
+function _chartColor(role) {
+  return role === 'baseline' ? '#94a3b8' : role === 'previous' ? 'var(--warning)' : 'var(--accent)';
+}
+
+function _barsCritNear(charts) {
+  const s = (charts || {}).crit_near || {};
+  const roles = s.roles || [];
+  if (!roles.length) return '<div class="cpa-nochart">—</div>';
+  const vals = roles.flatMap((_, i) => [s.critical[i] || 0, s.near[i] || 0]);
+  const max = Math.max(1, ...vals);
+  const W = 230, H = 130, base = 104, top = 12, gw = W / roles.length, bw = 18;
+  let out = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
+  out += `<line x1="6" y1="${base}" x2="${W - 6}" y2="${base}" stroke="var(--border)"/>`;
+  roles.forEach((role, i) => {
+    const cx = i * gw + gw / 2;
+    const hc = (base - top) * (s.critical[i] || 0) / max, hn = (base - top) * (s.near[i] || 0) / max;
+    out += `<rect x="${cx - bw - 2}" y="${base - hc}" width="${bw}" height="${hc}" rx="2" fill="var(--danger)"/>`;
+    out += `<rect x="${cx + 2}" y="${base - hn}" width="${bw}" height="${hn}" rx="2" fill="var(--warning)"/>`;
+    out += `<text x="${cx}" y="${base + 13}" text-anchor="middle" font-size="9" fill="var(--muted)">${escapeHtml(ROLE_LABEL[role].split(' ')[0])}</text>`;
+    out += `<text x="${cx - bw / 2 - 2}" y="${base - hc - 3}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--danger)">${s.critical[i] || 0}</text>`;
+    out += `<text x="${cx + bw / 2 + 2}" y="${base - hn - 3}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--warning)">${s.near[i] || 0}</text>`;
+  });
+  out += `</svg><div class="cpa-clegend"><span class="cpa-dot" style="background:var(--danger)"></span>Critical <span class="cpa-dot" style="background:var(--warning)"></span>Near</div>`;
+  return out;
+}
+
+function _lineCpli(charts) {
+  const s = (charts || {}).cpli_trend || {};
+  const roles = s.roles || [], vals = s.values || [];
+  if (!roles.length) return '<div class="cpa-nochart">—</div>';
+  const lo = 0.7, hi = 1.15, W = 230, H = 130, base = 104, top = 14, l = 8, r = W - 8;
+  const y = v => base - (base - top) * (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo);
+  const x = i => roles.length === 1 ? (l + r) / 2 : l + (r - l) * i / (roles.length - 1);
+  let out = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
+  // 0.95 and 1.0 reference lines
+  [[0.95, 'var(--danger)'], [1.0, 'var(--muted)']].forEach(([v, c]) => {
+    out += `<line x1="${l}" y1="${y(v).toFixed(1)}" x2="${r}" y2="${y(v).toFixed(1)}" stroke="${c}" stroke-dasharray="3 3" opacity=".5"/>`;
+    out += `<text x="${r}" y="${(y(v) - 2).toFixed(1)}" text-anchor="end" font-size="8" fill="${c}">${v.toFixed(2)}</text>`;
+  });
+  const pts = vals.map((v, i) => v == null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`).filter(Boolean);
+  if (pts.length > 1) out += `<polyline points="${pts.join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
+  vals.forEach((v, i) => {
+    if (v == null) return;
+    out += `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4" fill="var(--accent)"/>`;
+    out += `<text x="${x(i).toFixed(1)}" y="${(y(v) - 8).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--text)">${v.toFixed(2)}</text>`;
+    out += `<text x="${x(i).toFixed(1)}" y="${base + 13}" text-anchor="middle" font-size="9" fill="var(--muted)">${escapeHtml(ROLE_LABEL[roles[i]].split(' ')[0])}</text>`;
+  });
+  out += `</svg>`;
+  return out;
+}
+
+function _barsMsVar(charts) {
+  const items = (charts || {}).ms_variance || [];
+  if (!items.length) return '<div class="cpa-nochart">No milestone variance to show</div>';
+  const max = Math.max(1, ...items.map(i => Math.abs(i.var)));
+  return `<div class="cpa-hbars">` + items.map(it => {
+    const w = Math.round(Math.abs(it.var) / max * 100);
+    const cls = it.var > 0 ? 'bad' : 'good';
+    return `<div class="cpa-hbrow"><div class="cpa-hblbl" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</div>
+      <div class="cpa-hbtrack"><i class="cpa-hbfill ${cls}" style="width:${w}%"></i></div>
+      <div class="cpa-hbval ${cls}">${it.var > 0 ? '+' : ''}${it.var}</div></div>`;
+  }).join('') + `</div>`;
+}
+
+// ── Effect + recommendation ──────────────────────────────────────────────────
+
+function _recoHtml(report) {
+  const rec = (report.recommendation || []).map(r => `<li>${escapeHtml(r)}</li>`).join('');
+  return `<div class="cpa-effect">${escapeHtml(report.effect || '')}</div>
+    <div class="cpa-recoh">Recommendation</div>
+    <ol class="cpa-reco">${rec}</ol>`;
 }
 
 // ── Every-milestone table ────────────────────────────────────────────────────
@@ -397,6 +534,57 @@ function _injectStyle() {
     .cpa-bandv.warn, .cpa-bandt.warn { color: var(--warning); }
     .cpa-bandv.good, .cpa-bandt.good { color: var(--success); }
     .cpa-bandv.flat, .cpa-bandt.flat { color: var(--muted); }
+    /* verdict banner */
+    .cpa-verdict { display: flex; align-items: center; gap: 12px; border-radius: 10px; padding: 12px 16px; margin-bottom: 4px; border: 1px solid var(--border); }
+    .cpa-verdict.cpa-vd-bad { background: rgba(220,38,38,.08); border-color: rgba(220,38,38,.35); }
+    .cpa-verdict.cpa-vd-warn { background: rgba(217,119,6,.08); border-color: rgba(217,119,6,.35); }
+    .cpa-verdict.cpa-vd-good { background: rgba(22,163,74,.08); border-color: rgba(22,163,74,.35); }
+    .cpa-vdtag { flex: none; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 3px 10px; border-radius: 6px; color: #fff; }
+    .cpa-vd-bad .cpa-vdtag { background: var(--danger); }
+    .cpa-vd-warn .cpa-vdtag { background: var(--warning); }
+    .cpa-vd-good .cpa-vdtag { background: var(--success); }
+    .cpa-vdtext { font-size: 13.5px; font-weight: 600; color: var(--text); }
+    /* dashboard layout */
+    .cpa-dash { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+    .cpa-health { flex: 1; min-width: 300px; display: flex; gap: 14px; align-items: center; border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+    .cpa-health.cpa-hb-bad { border-left: 4px solid var(--danger); }
+    .cpa-health.cpa-hb-warn { border-left: 4px solid var(--warning); }
+    .cpa-health.cpa-hb-good { border-left: 4px solid var(--success); }
+    .cpa-hgauge { flex: none; }
+    .cpa-htitle { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+    .cpa-hverdict { font-size: 13px; font-weight: 700; color: var(--text); margin: 4px 0 6px; line-height: 1.35; }
+    .cpa-hfactors { margin: 0; padding-left: 16px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+    .cpa-kpis { flex: 1; min-width: 300px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .cpa-kpi { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .cpa-kk { font-size: 10.5px; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); font-weight: 700; }
+    .cpa-kv { font-size: 22px; font-weight: 800; margin-top: 3px; color: var(--text); }
+    .cpa-ku { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .cpa-kr { font-size: 12px; margin-top: 3px; }
+    .cpa-kd { font-weight: 700; }
+    .cpa-kd.bad { color: var(--danger); }
+    .cpa-kd.good { color: var(--success); }
+    /* charts */
+    .cpa-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+    .cpa-chart { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .cpa-cht { font-size: 11.5px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .cpa-nochart { color: var(--muted); font-size: 12px; padding: 30px 0; text-align: center; }
+    .cpa-clegend { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+    .cpa-dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: 0; margin: 0 4px 0 8px; }
+    .cpa-clegend .cpa-dot:first-child { margin-left: 0; }
+    .cpa-hbars { display: flex; flex-direction: column; gap: 6px; }
+    .cpa-hbrow { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+    .cpa-hblbl { flex: none; width: 78px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+    .cpa-hbtrack { flex: 1; height: 12px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+    .cpa-hbfill { display: block; height: 100%; border-radius: 3px; }
+    .cpa-hbfill.bad { background: var(--danger); }
+    .cpa-hbfill.good { background: var(--success); }
+    .cpa-hbval { flex: none; width: 34px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .cpa-hbval.bad { color: var(--danger); }
+    .cpa-hbval.good { color: var(--success); }
+    /* effect + recommendation */
+    .cpa-effect { font-size: 13px; line-height: 1.6; color: var(--text); background: var(--bg); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 11px 14px; }
+    .cpa-recoh { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--accent); margin: 14px 0 6px; }
+    .cpa-reco { margin: 0; padding-left: 20px; font-size: 12.7px; line-height: 1.7; color: var(--text); }
   `;
   document.head.appendChild(s);
 }
