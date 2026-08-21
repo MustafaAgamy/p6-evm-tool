@@ -443,6 +443,8 @@ def generate_findings(view, resolution, patterns=None):
                     'impact': f"{sysid} may be commissioned before power is available — an unbuildable sequence.",
                     'recommendation': "Add an electrical energization / permanent-power predecessor to the "
                                       "commissioning, or confirm power is provided another way.",
+                    'recommended_sequence': "Electrical energization / permanent power (FS) → "
+                                            f"{sysid} commissioning",
                     'activities': [_label(a) for a in unpowered[:6]],
                     'activity_oids': [a['object_id'] for a in unpowered[:6]],
                 })
@@ -470,6 +472,8 @@ def generate_findings(view, resolution, patterns=None):
                     'strength': 'strong',
                     'impact': "The sequence is not physically buildable and will not survive F9.",
                     'recommendation': "Reverse the dependency: install → test → pre-commission → commission.",
+                    'recommended_sequence': f"'{sa.get('name','')}' (install, FS) → "
+                                            f"'{pa.get('name','')}' (test/commission)",
                     'activities': [_label(pa), _label(sa)],
                     'activity_oids': [r['pred_oid'], r['succ_oid']],
                 })
@@ -525,6 +529,8 @@ def generate_findings(view, resolution, patterns=None):
             'strength': 'strong',
             'impact': f"{s} is sequenced ahead of the {w} it depends on — an unbuildable interface.",
             'recommendation': f"Reverse the dependency so {w} enables {s}.",
+            'recommended_sequence': f"'{sa.get('name','')}' ({w}, FS) → "
+                                    f"'{pa.get('name','')}' ({s})",
             'activities': [_label(pa), _label(sa)],
             'activity_oids': [r['pred_oid'], r['succ_oid']],
         })
@@ -565,6 +571,8 @@ def generate_findings(view, resolution, patterns=None):
             'strength': 'strong',
             'impact': "The sequence is not physically buildable and will not survive F9.",
             'recommendation': "Reverse the dependency so the earlier phase drives the later one.",
+            'recommended_sequence': f"'{sa.get('name','')}' ({_phase_of(sa)}, FS) → "
+                                    f"'{pa.get('name','')}' ({_phase_of(pa)})",
             'activities': [_label(pa), _label(sa)],
             'activity_oids': [r['pred_oid'], r['succ_oid']],
         })
@@ -599,6 +607,7 @@ def generate_findings(view, resolution, patterns=None):
                       "that carries it.",
             'recommendation': "Add the equipment-foundation (or supporting-steel) predecessor to the "
                               "setting activities, or confirm the support interface.",
+            'recommended_sequence': f"Equipment foundation / supporting steel (FS) → {e} setting",
             'activities': [_label(a) for a in unsupported[:6]],
             'activity_oids': [a['object_id'] for a in unsupported[:6]],
         })
@@ -642,6 +651,8 @@ def generate_findings(view, resolution, patterns=None):
                               "untested line.",
                     'recommendation': "Sequence the hydrotest before insulation, painting and in-line "
                                       "reinstatement.",
+                    'recommended_sequence': f"'{h.get('name','')}' (hydrotest, FS) → flush/clean → "
+                                            f"reinstate in-line items → '{cover.get('name','')}'",
                     'activities': [_label(cover), _label(h)],
                     'activity_oids': [r['pred_oid'], r['succ_oid']],
                 })
@@ -681,6 +692,8 @@ def generate_findings(view, resolution, patterns=None):
                           "unsafe, unbuildable sequence.",
                 'recommendation': "Tie the integrated/performance test to the commissioning of the "
                                   "systems it exercises.",
+                'recommended_sequence': "Individual system commissioning (FS) → "
+                                        f"'{a.get('name','')}' (integrated / performance test)",
                 'activities': [_label(a)],
                 'activity_oids': [a['object_id']],
             })

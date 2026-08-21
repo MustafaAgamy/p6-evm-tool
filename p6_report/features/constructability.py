@@ -76,6 +76,15 @@ def _evidence_score(report):
     ded_tbl = (('<table class="data" style="margin-top:6px"><thead><tr><th>Points</th>'
                 '<th>System</th><th>Weight basis</th><th>Finding</th></tr></thead><tbody>'
                 + ded + '</tbody></table>') if ded else '')
+    legend_bands = [('green', '85–100', 'Execution logic sound'),
+                    ('amber', '70–84', 'Minor sequence risks'),
+                    ('orange', '50–69', 'Significant sequence risks'),
+                    ('red', '0–49', 'Serious sequence risks')]
+    legend = ''.join(
+        f'<span class="eslgd{" on" if b == s.get("band") else ""}">'
+        f'<span class="esdot" style="background:{_BAND_HEX[b]}"></span>'
+        f'{X._e(rng)} <span class="mut">{X._e(lbl)}</span></span>'
+        for b, rng, lbl in legend_bands)
     return (f'<div class="escore">'
             f'<div class="esbadge" style="border-color:{hexb};color:{hexb}">'
             f'<div class="esnum">{s.get("overall")}</div><div class="esden">/ 100</div></div>'
@@ -84,7 +93,8 @@ def _evidence_score(report):
             f'<div class="esmeta">{s.get("finding_count")} evidence-graded finding(s) · '
             f'−{s.get("total_deducted")} points · {X._e(s.get("basis"))}</div>'
             f'<div class="eschips">{chips}</div>'
-            f'</div></div>{ded_tbl}')
+            f'</div></div>'
+            f'<div class="eslegend">{legend}</div>{ded_tbl}')
 
 
 def _archetype_summary(report):
@@ -154,6 +164,9 @@ def _evidence_findings(report):
     cards = ''
     for i, f in enumerate(fs, 1):
         hex_ = _STRENGTH_HEX.get(f.get('strength'), '#64748b')
+        rec_seq = f.get('recommended_sequence')
+        seq = (f'<div class="efseq"><span class="efseqk">✓ Recommended sequence</span>'
+               f'<span class="efseqv">{X._e(rec_seq)}</span></div>') if rec_seq else ''
         cards += (
             f'<div class="efind">'
             f'<div class="efhead">'
@@ -162,19 +175,19 @@ def _evidence_findings(report):
             f'{X._e(f.get("strength"))}</span>'
             f'<span class="efsys mono">{X._e(f.get("system"))}</span>'
             f'<span class="eftitle">{X._e(f.get("title"))}</span></div>'
+            f'{seq}'
+            f'{_p6_logic_table(f.get("p6"))}'
             f'<div class="efline"><span class="efk">Impact</span>'
             f'<span class="efv">{X._e(f.get("impact"))}</span></div>'
-            f'<div class="efline"><span class="efk">Recommendation</span>'
-            f'<span class="efv chg">{X._e(f.get("recommendation"))}</span></div>'
-            f'<details open class="efdetail"><summary>Schedule logic &amp; evidence</summary>'
-            f'<div class="efline"><span class="efk">Existing</span>'
+            f'<div class="efline"><span class="efk">Existing logic</span>'
             f'<span class="efv">{X._e(f.get("existing"))}</span></div>'
             f'<div class="efline"><span class="efk">Expected / why</span>'
             f'<span class="efv">{X._e(f.get("expected"))} — {X._e(f.get("reason"))}</span></div>'
             f'<div class="efline"><span class="efk">Evidence</span>'
             f'<span class="efv mut">{X._e(f.get("evidence"))}</span></div>'
-            f'{_p6_logic_table(f.get("p6"))}'
-            f'</details></div>')
+            f'<div class="efline"><span class="efk">Recommendation</span>'
+            f'<span class="efv chg">{X._e(f.get("recommendation"))}</span></div>'
+            f'</div>')
     return f'<div class="efinds">{cards}</div>'
 
 
@@ -215,6 +228,15 @@ _EXTRA_CSS = '''
       table.p6log td { padding: 3px 6px; border: 1px solid #e2e8f0; vertical-align: top; }
       .rtype { display: inline-block; font-size: 9px; font-weight: 700; color: #0369a1;
                background: #e0f2fe; border-radius: 3px; padding: 0 4px; }
+      .efseq { display: flex; gap: 8px; align-items: baseline; margin: 5px 0; padding: 5px 9px;
+               background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; }
+      .efseq .efseqk { color: #15803d; font-weight: 700; font-size: 10px; flex: 0 0 auto;
+                       text-transform: uppercase; letter-spacing: .3px; }
+      .efseq .efseqv { color: #14532d; font-size: 11.5px; }
+      .eslegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 10px; }
+      .eslgd { display: inline-flex; align-items: center; gap: 5px; color: #64748b; opacity: .6; }
+      .eslgd.on { opacity: 1; font-weight: 700; color: #1e293b; }
+      .esdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 '''
 
 
