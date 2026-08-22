@@ -53,12 +53,17 @@ def test_days_and_num_columns_right_align():
 def test_cpli_tiles_use_module_score_and_dates():
     m = {'module': 'cpli', 'name': 'Critical Path / CPLI', 'score': 99.0, 'grade': 'Excellent', 'pct': 1.0,
          'kpis': {'cpli': 0.99, 'computable': True, 'critical_path_length_days': 366, 'cpl_basis': 'working',
-                  'project_total_float_days': 4, 'target': 0.95, 'finish_milestone_id': 'A1130'},
+                  'project_total_float_days': 4, 'target': 0.95, 'finish_milestone_id': 'A1130',
+                  'critical_count': 4, 'critical_pct': 66.7, 'finish_date': '2028-06-12'},
          'findings': [{'activity_id': 'A1000', 'activity_name': 'Mob', 'wbs_path': 'P > Civil',
                        'start': '2026-02-09', 'finish': '2026-02-27', 'total_float_days': 0}]}
     p = build_presentation(m)
+    labels = [t['label'] for t in p['tiles']]
     assert p['tiles'][0] == {'label': 'CPLI', 'value': '99%'}         # from module score, not raw 0.99
-    assert p['tiles'][3] == {'label': 'DCMA Target', 'value': '95%'}
+    assert 'DCMA Target' not in labels                                # removed from the PDF tiles too
+    assert {'label': 'Critical Activities', 'value': '4'} in p['tiles']
+    assert {'label': 'Critical %', 'value': '66.7%'} in p['tiles']
+    assert {'label': 'Finish Milestone', 'value': '12-Jun-2028'} in p['tiles']   # date, not the id
     start_idx = [c['label'] for c in p['columns']].index('Start')
     assert p['rows'][0][start_idx] == {'text': '2026-02-09', 'cls': 'mut'}
     assert 'CPLI 99%' in p['verdict']

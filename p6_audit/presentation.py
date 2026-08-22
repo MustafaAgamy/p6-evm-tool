@@ -61,6 +61,19 @@ def _iso(v):
     return str(v)[:10] if v else '—'
 
 
+_MON = ('', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+
+
+def _fmt_date(v):
+    """ISO 'YYYY-MM-DD' -> '9-Feb-2027' (P6 style), matching the screen."""
+    if not v:
+        return '—'
+    p = str(v)[:10].split('-')
+    if len(p) == 3 and p[1].isdigit() and p[2].isdigit():
+        return f"{int(p[2])}-{_MON[int(p[1])]}-{p[0]}"
+    return str(v)
+
+
 def short_wbs(path, n=3):
     if not path:
         return ''
@@ -231,8 +244,9 @@ def _cpli_tiles(k):
         ('CPLI', f"{_plain(k.get('score', k.get('cpli')))}%" if computable else '—'),
         ('Critical Path Length', cpl_txt),
         ('Completion Total Float', _days(k.get('project_total_float_days'))),
-        ('DCMA Target', f"{round((k.get('target') or 0.95) * 100)}%"),
-        ('Finish Milestone', k.get('finish_milestone_id') or '—'),
+        ('Critical Activities', _num(k.get('critical_count')) if k.get('critical_count') is not None else '—'),
+        ('Critical %', _pct(k.get('critical_pct')) if k.get('critical_pct') is not None else '—'),
+        ('Finish Milestone', _fmt_date(k.get('finish_date')) if k.get('finish_date') else (k.get('finish_milestone_id') or '—')),
     ]
 
 
