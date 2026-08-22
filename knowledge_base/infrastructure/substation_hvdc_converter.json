@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "HVDC Converter Station",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["hvdc", "converter", "converter station", "valve hall", "thyristor", "igbt", "vsc", "lcc",
+                 "converter transformer", "smoothing reactor", "harmonic filter", "dc yard", "dc line", "pole"],
+  "wbs": [
+    {"name": "Civil & Valve Hall Building", "keywords": ["civil", "foundation", "valve hall", "building", "converter building"]},
+    {"name": "Earthing & Electrode", "keywords": ["earthing", "earth grid", "electrode", "grounding"]},
+    {"name": "Converter Transformers", "keywords": ["converter transformer", "transformer", "bushing"]},
+    {"name": "Valve Hall & Converters", "keywords": ["valve hall", "valve", "thyristor", "igbt", "converter", "cooling"]},
+    {"name": "DC Yard (Reactor / Filters)", "keywords": ["dc yard", "smoothing reactor", "harmonic filter", "dc"]},
+    {"name": "Control & Protection", "keywords": ["control", "protection", "relay", "scada", "c&p"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "sat", "station test", "pre-commission"]},
+    {"name": "Energization & Trial Operation", "keywords": ["energ", "charging", "trial operation", "handover"]}
+  ],
+  "activities": [
+    {"name": "Valve Hall Building Ready", "keywords": ["valve hall", "converter building", "building complete", "clean"], "wbs": "Civil & Valve Hall Building",
+     "typical_pred": "Building Structure", "typical_succ": "Valve Installation", "duration_days": 40,
+     "why": "The valves are installed in a clean, controlled valve hall; the building and its HVAC must be ready first."},
+    {"name": "Converter Transformer Installation & FAT", "keywords": ["converter transformer", "transformer fat", "transformer install"], "wbs": "Converter Transformers",
+     "typical_pred": "Transformer Manufacture", "typical_succ": "Station Testing", "duration_days": 45,
+     "why": "Converter transformers are bespoke very-long-lead units, FAT-witnessed and central to the schedule."},
+    {"name": "Valve Cooling System", "keywords": ["valve cooling", "cooling", "deionised water", "cooling plant"], "wbs": "Valve Hall & Converters",
+     "typical_pred": "Valve Installation", "typical_succ": "Station Testing", "duration_days": 30,
+     "why": "HVDC valves need a closed-loop de-ionised cooling system that is a distinctive, often under-planned scope."},
+    {"name": "Station Test / Trial Operation", "keywords": ["station test", "trial operation", "sat", "commissioning"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Control & Protection Commissioning", "typical_succ": "Energization", "duration_days": 30,
+     "why": "Full-station and trial-operation tests prove the converter before commercial energization."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["valve hall", "converter building", "building", "hvac"], "after_keywords": ["valve install", "valve", "converter install"],
+     "reason": "Valves are installed inside a completed, climate-controlled valve hall.",
+     "impact": "Critical"},
+    {"before_keywords": ["valve cooling", "cooling"], "after_keywords": ["valve commission", "station test", "energ"],
+     "reason": "Valve commissioning and station tests follow the valve-cooling system being live.",
+     "impact": "Critical"},
+    {"before_keywords": ["station test", "trial operation", "protection", "earthing"], "after_keywords": ["energ", "energization", "commercial"],
+     "reason": "Commercial energization must follow station testing, protection commissioning and tested earthing.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Valve Hall Ready", "Converter Transformers Installed", "Station Test Complete", "Energization", "Trial Operation"],
+  "common_issues": ["Valve install before hall/HVAC ready", "Valve cooling system under-planned",
+                    "Converter transformer lead time not reflected", "Energization before station test / protection"]
+}

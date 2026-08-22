@@ -6,6 +6,7 @@ No AI, fully offline. Everything advisory.
 """
 from p6_kb.detect import detect_subtype, score_entries
 from p6_kb.kb import load_kb
+from p6_kb.learn import learned_panel, load_profile
 from p6_kb.model import schedule_view
 from p6_kb.scoring import compute_score
 
@@ -140,6 +141,113 @@ def _wbs_review(view, entry):
     return review, missing
 
 
+# ── Execution-readiness dashboard extras (smart, still offline) ─────────────
+
+_VERDICTS = {
+    'green':  ('ready', 'Ready to execute',
+               'The programme matches the {t} standard — sound to baseline.'),
+    'amber':  ('minor', 'Nearly ready — minor tidy-ups',
+               'Close to the {t} standard; a few small gaps to close before baseline.'),
+    'orange': ('significant', 'Not yet ready — significant constructability gaps',
+               'Several logic/scope gaps against the {t} standard; fix before execution.'),
+    'red':    ('major', 'Not ready — major logic/scope rework needed',
+               'The programme diverges widely from the {t} standard; rework the logic and scope.'),
+}
+
+
+def _branch_of(entry, text):
+    """Best-effort: which standard WBS branch a finding belongs to."""
+    t = (text or '').lower()
+    for w in entry.get('wbs', []):
+        if w['name'].lower() in t or any(k.lower() in t for k in w.get('keywords', [])):
+            return w['name']
+    return 'Other'
+
+
+def _priority_fixes(illogical, missing):
+    """Rank the findings: critical logic first, then new-branch scope gaps,
+    then near-critical logic, then the remaining scope gaps. Top few only."""
+    ranked = ([('logic', f) for f in illogical if f.get('impact') == 'Critical']
+              + [('scope', m) for m in missing if m.get('new_wbs')]
+              + [('logic', f) for f in illogical if f.get('impact') != 'Critical']
+              + [('scope', m) for m in missing if not m.get('new_wbs')])
+    out = []
+    for kind, item in ranked[:6]:
+        if kind == 'logic':
+            sp = (item.get('suggested_preds') or [{}])[0]
+            verb = {'add': 'add FS link from', 'change': 'change link to FS from'}.get(sp.get('kind'), 'from')
+            link = f" — {verb} {sp.get('id', '')} {sp.get('name', '')}".rstrip() if sp.get('id') else ''
+            out.append({'severity': item.get('impact', 'Near-critical'),
+                        'title': item.get('activity_name', ''),
+                        'detail': (item.get('why', '') + link).strip()})
+        else:
+            out.append({'severity': 'Scope gap',
+                        'title': f"Add: {item.get('name', '')}",
+                        'detail': item.get('why', '')})
+    return out
+
+
+def _dashboard_extras(view, entry, illogical, missing, missing_wbs, score, scored, forced):
+    total_rel = view['relationship_count']
+    total_act = view['activity_count']
+    crit = sum(1 for f in illogical if f.get('impact') == 'Critical')
+    near = len(illogical) - crit
+
+    by_wbs = {}
+    for f in illogical:
+        b = _branch_of(entry, f"{f.get('wbs_path', '')} {f.get('activity_name', '')}")
+        by_wbs[b] = by_wbs.get(b, 0) + 1
+    for m in missing:
+        b = m.get('wbs') or 'Other'
+        by_wbs[b] = by_wbs.get(b, 0) + 1
+    issues_by_wbs = sorted(({'name': k, 'count': v} for k, v in by_wbs.items()),
+                           key=lambda x: x['count'], reverse=True)[:6]
+
+    std_acts = max(len(entry.get('activities', [])), 1)
+    coverage = max(0, min(100, int(round(100.0 * (std_acts - len(missing)) / std_acts))))
+
+    detected_hits = next((h for e, h in scored if e is entry), 0)
+    runner = max((h for e, h in scored if e is not entry), default=0)
+    if forced:
+        level = 'Manual'
+    elif detected_hits >= 5 and detected_hits >= runner + 2:
+        level = 'High'
+    elif detected_hits >= 3:
+        level = 'Medium'
+    else:
+        level = 'Low'
+    confidence = {'hits': detected_hits, 'signatures': len(entry.get('signatures', [])),
+                  'runner_up_hits': runner, 'level': level, 'forced': bool(forced)}
+
+    projected = None
+    if illogical:
+        proj = compute_score(illogical_pct=0.0,
+                             missing_pct=100.0 * len(missing) / max(total_act, 1),
+                             missing_wbs=len(missing_wbs),
+                             suggestion_count=len(missing) + len(missing_wbs),
+                             activity_count=total_act)
+        if proj['overall'] > score['overall']:
+            projected = {'overall': proj['overall'], 'band_label': proj['band_label'],
+                         'band': proj['band'],
+                         'basis': f"{len(illogical)} logic link(s) corrected"}
+
+    vkind, vtitle, vtext = _VERDICTS.get(score.get('band'), _VERDICTS['orange'])
+    verdict = {'kind': vkind, 'title': vtitle, 'text': vtext.format(t=entry['type']),
+               'detail': (f"{len(illogical)} illogical link(s), {len(missing)} missing "
+                          f"activities and {len(missing_wbs)} missing WBS · critical path "
+                          f"{'affected' if crit else 'clear'}.")}
+
+    return {
+        'verdict': verdict,
+        'severity': {'critical': crit, 'near_critical': near},
+        'issues_by_wbs': issues_by_wbs,
+        'coverage': coverage,
+        'confidence': confidence,
+        'projected': projected,
+        'priority_fixes': _priority_fixes(illogical, missing),
+    }
+
+
 def run_review(data, entries=None, cfg=None, forced_type=None):
     cfg = cfg or {}
     ai_cfg = cfg.get('score') or {}
@@ -177,6 +285,18 @@ def run_review(data, entries=None, cfg=None, forced_type=None):
                           missing_wbs=len(missing_wbs), suggestion_count=suggestion_count,
                           activity_count=total_act, cfg=ai_cfg)
     critical = any(f.get('impact') == 'Critical' for f in illogical)
+    extras = _dashboard_extras(view, entry, illogical, missing, missing_wbs,
+                               score, scored, bool(forced_type))
+
+    # Learned from the user's own imports of this type (local, private) — advisory,
+    # separate from the curated findings. None until enough imports accumulate.
+    learned = None
+    try:
+        profile = load_profile(entry['type'])
+        if profile:
+            learned = learned_panel(profile, view)
+    except Exception:
+        learned = None
 
     if illogical or missing or missing_wbs:
         gaps = (f"{len(illogical)} illogical link(s), {len(missing)} missing activities and "
@@ -199,11 +319,21 @@ def run_review(data, entries=None, cfg=None, forced_type=None):
             'missing_count': len(missing), 'missing_pct': round(missing_pct, 1),
             'total_activities': total_act,
             'missing_wbs': len(missing_wbs), 'critical_affected': critical,
+            'coverage': extras['coverage'],
+            'critical_count': extras['severity']['critical'],
+            'near_critical_count': extras['severity']['near_critical'],
         },
         'score': score,
+        'verdict': extras['verdict'],
+        'severity': extras['severity'],
+        'issues_by_wbs': extras['issues_by_wbs'],
+        'confidence': extras['confidence'],
+        'projected': extras['projected'],
+        'priority_fixes': extras['priority_fixes'],
         'illogical': illogical,
         'missing': missing,
         'missing_wbs': missing_wbs,
         'wbs_review': wbs_review,
+        'learned': learned,
         'conclusion': conclusion,
     }

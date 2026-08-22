@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Sugar Factory / Mill",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["sugar", "sugar mill", "cane", "beet", "milling", "diffuser", "clarification", "evaporator",
+                 "crystallization", "vacuum pan", "centrifugal", "boiler house", "cogeneration", "molasses"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Structural & Building", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Cane Handling & Milling", "keywords": ["cane", "handling", "milling", "mill", "diffuser", "shredder"]},
+    {"name": "Boiler House & Power (Cogeneration)", "keywords": ["boiler", "boiler house", "cogeneration", "turbine", "power"]},
+    {"name": "Juice Processing (Clarification / Evaporation)", "keywords": ["juice", "clarification", "clarifier", "evaporator", "evaporation"]},
+    {"name": "Crystallization & Centrifugals", "keywords": ["crystallization", "vacuum pan", "pan", "centrifugal", "massecuite"]},
+    {"name": "Sugar Drying & Packing", "keywords": ["drying", "dryer", "packing", "silo", "bagging"]},
+    {"name": "Utilities & Commissioning", "keywords": ["utilities", "etp", "effluent", "commission", "test"]}
+  ],
+  "activities": [
+    {"name": "Boiler House & Cogeneration", "keywords": ["boiler", "boiler house", "cogeneration", "turbine"], "wbs": "Boiler House & Power (Cogeneration)",
+     "typical_pred": "Building Structure", "typical_succ": "Process Commissioning", "duration_days": 60,
+     "why": "The mill runs on its own steam/power from bagasse; the boiler house and cogeneration set are long-lead and drive the season start."},
+    {"name": "Evaporator & Vacuum Pan Erection", "keywords": ["evaporator", "vacuum pan", "pan"], "wbs": "Crystallization & Centrifugals",
+     "typical_pred": "Juice Clarification Erection", "typical_succ": "Process Commissioning", "duration_days": 40,
+     "why": "Evaporation and crystallization vessels are heavy long-lead equipment central to sugar recovery."},
+    {"name": "Effluent Treatment Plant (ETP)", "keywords": ["effluent", "etp", "wastewater"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Building Structure", "typical_succ": "Process Commissioning", "duration_days": 35,
+     "why": "Mill wastewater must be treated before discharge — a permit condition often left out of the plan."},
+    {"name": "Trial Crushing / Season Start", "keywords": ["trial crushing", "season start", "first crush", "trial run"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Process Commissioning", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A trial crush proves the whole cane-to-sugar chain before the crushing season begins."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["boiler", "boiler house", "cogeneration"], "after_keywords": ["process commission", "commission", "trial crushing"],
+     "reason": "Process commissioning follows the boiler house/cogeneration being live — the mill has no external steam.",
+     "impact": "Critical"},
+    {"before_keywords": ["milling", "mill", "diffuser"], "after_keywords": ["juice", "clarification", "evaporation"],
+     "reason": "Juice processing follows cane milling/extraction in the process line.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["effluent", "etp"], "after_keywords": ["trial crushing", "season start", "production"],
+     "reason": "Production/trial crushing cannot start before the effluent treatment plant is live.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Structure Complete", "Boiler House Live", "Process Commissioned", "Trial Crush / Handover"],
+  "common_issues": ["Process commissioning before boiler house live", "Missing ETP scope",
+                    "Cogeneration under-planned as long-lead", "No trial-crush / season-start phase"]
+}

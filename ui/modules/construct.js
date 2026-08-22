@@ -6,6 +6,7 @@ import { state }                                    from './state.js';
 import { showError, clearError }                    from './render.js';
 import { escapeHtml }                               from './format.js';
 import { bandHex, kindClass, markerLeft, impactPill } from './aireview_helpers.js';
+import { showReportPreview }                        from './preview.js';
 
 // ── shared cell/table renderers (same data shape as the report) ────────────
 
@@ -33,7 +34,10 @@ function _illogicalTable(rows) {
   if (!rows || !rows.length) {
     return '<p class="ai-empty">No illogical relationships flagged — the sequence logic matches the Knowledge Base rules.</p>';
   }
-  const body = rows.map(r => `<tr>
+  const rank = { 'Critical': 0, 'Near-critical': 1 };   // major illogical relationships first
+  const sorted = [...rows].sort((a, b) => (rank[a.impact] ?? 2) - (rank[b.impact] ?? 2));
+  const body = sorted.map((r, i) => `<tr>
+    <td class="ai-sn">${i + 1}</td>
     <td class="mono">${escapeHtml(r.activity_id)}</td>
     <td>${escapeHtml(r.activity_name)}</td>
     <td class="mut" title="${escapeHtml(r.wbs_path || '')}">${escapeHtml(r.wbs_path || '')}</td>
@@ -44,9 +48,9 @@ function _illogicalTable(rows) {
     <td>${_idStack(r.suggested_succs)}</td><td>${_nameStack(r.suggested_succs)}</td>
     <td>${impactPill(r.impact)}</td>
     <td><span class="ai-basis">${escapeHtml(r.source || '')}</span></td></tr>`).join('');
-  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table ai-table">
+  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table ai-table ai-fit">
     <thead>
-      <tr><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th><th rowspan="2">WBS Path</th>
+      <tr><th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th><th rowspan="2">WBS Path</th>
         <th colspan="4" class="ai-gh-cur sepL">Current driving links</th>
         <th rowspan="2" class="sepL">Why it's illogical</th>
         <th colspan="4" class="ai-gh-sug sepL">Suggested links</th>
@@ -54,7 +58,8 @@ function _illogicalTable(rows) {
       <tr><th class="sepL">Pred. ID</th><th>Pred. Name</th><th>Succ. ID</th><th>Succ. Name</th>
         <th class="sepL">Pred. ID</th><th>Pred. Name</th><th>Succ. ID</th><th>Succ. Name</th></tr>
     </thead><tbody>${body}</tbody></table></div>
-    <div class="ai-foot">Activities can have several predecessors / successors — all listed.
+    <div class="ai-foot">Most critical first. Activities can have several predecessors / successors — all listed;
+      scroll sideways for the suggested-links columns.
       <span class="ai-tag-add" style="margin:0">ADD</span> add a link ·
       <span class="ai-tag-rem" style="margin:0">REMOVE</span> a redundant link to delete (struck through).</div>`;
 }
@@ -95,26 +100,155 @@ function _wbsReview(rows, missingWbs) {
   return `<div class="ai-wbs">${items || missing}</div>`;
 }
 
-function _score(s) {
+// ── Execution-Readiness Dashboard ──────────────────────────────────────────
+
+function _gauge(score, hex) {
+  const p = markerLeft(score), a = Math.PI * (1 - p / 100);
+  const x = (100 + 82 * Math.cos(a)).toFixed(1), y = (106 - 82 * Math.sin(a)).toFixed(1);
+  return `<svg viewBox="0 0 200 118" class="xd-gsvg">
+    <path d="M18 106 A82 82 0 0 1 182 106" fill="none" stroke="var(--border)" stroke-width="15" stroke-linecap="round"/>
+    <path d="M18 106 A82 82 0 0 1 ${x} ${y}" fill="none" stroke="${hex}" stroke-width="15" stroke-linecap="round"/>
+    <text x="100" y="88" text-anchor="middle" class="xd-gnum" style="fill:${hex}">${score}</text>
+    <text x="100" y="105" text-anchor="middle" class="xd-gsuf">/ 100</text></svg>`;
+}
+
+function _legend(score) {
+  const bands = [
+    { w: 50, c: '#dc2626', t: 'Major gaps', r: '0–49' },
+    { w: 20, c: '#ea580c', t: 'Significant', r: '50–69' },
+    { w: 15, c: '#d97706', t: 'Minor gaps', r: '70–84' },
+    { w: 15, c: '#16a34a', t: 'Ready', r: '85–100' },
+  ];
+  const segs = bands.map(b => `<div class="xd-lseg" style="width:${b.w}%;background:${b.c}"><b>${b.t}</b><span>${b.r}</span></div>`).join('');
+  return `<div class="xd-legend"><div class="xd-lttl">How to read the score — Constructability bands</div>
+    <div class="xd-lwrap">
+      <div class="xd-lmark" style="left:${markerLeft(score)}%"><div class="bub">Your score · ${score}</div><div class="arw"></div></div>
+      <div class="xd-lbar">${segs}</div>
+    </div>
+    <div class="xd-lfoot">Score = <b>45% sequence logic + 45% scope completeness + 10% structure</b>.
+      Ready = sound to baseline · Minor = small tidy-ups · Significant = fix before execution · Major = rework the logic/scope.</div></div>`;
+}
+
+function _dims(s, hex) {
+  const bar = (label, val) => `<div class="xd-dim"><div class="dh"><span>${label}</span><b>${val}/100</b></div>
+    <div class="xd-track"><i style="width:${markerLeft(val)}%;background:${hex}"></i></div></div>`;
+  return `<div class="xd-dims"><h4>Readiness by dimension</h4>
+    ${bar('① Sequence logic <em>(45%)</em>', s.logic)}
+    ${bar('② Scope completeness <em>(45%)</em>', s.completeness)}
+    ${bar('③ Structure &amp; load <em>(10%)</em>', s.structure)}</div>`;
+}
+
+function _kpi(cls, big, pct, lbl, sub) {
+  return `<div class="xd-kpi ${cls}"><div class="big">${big}${pct ? ` <span class="pct">${pct}</span>` : ''}</div>
+    <div class="lbl">${lbl}</div><div class="sub">${sub}</div></div>`;
+}
+
+function _kpis(d) {
+  return `<div class="xd-kpis">
+    ${_kpi(d.illogical_count ? 'crit' : 'ok', d.illogical_count ?? 0, `${d.illogical_pct ?? 0}%`, 'Illogical links', `of ${d.total_relationships ?? 0} links`)}
+    ${_kpi(d.missing_count ? 'warn' : 'ok', d.missing_count ?? 0, `${d.missing_pct ?? 0}%`, 'Missing activities', 'vs standard scope')}
+    ${_kpi(d.missing_wbs ? 'warn' : 'ok', d.missing_wbs ?? 0, '', 'Missing WBS', 'standard branches')}
+    ${_kpi(d.critical_affected ? 'crit' : 'ok', d.critical_affected ? 'Yes' : 'No', '', 'Critical path', `${d.critical_count ?? 0} on the CP`)}
+    ${_kpi((d.coverage ?? 0) >= 85 ? 'ok' : 'warn', `${d.coverage ?? 0}%`, '', 'Scope coverage', 'standard activities present')}</div>`;
+}
+
+function _issuesByWbs(list) {
+  if (!list || !list.length) return '<p class="ai-empty">No phase concentrations — few or no gaps.</p>';
+  const max = Math.max(...list.map(x => x.count), 1);
+  return list.map(x => `<div class="xd-wbsrow"><span class="nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span>
+    <span class="bar"><i style="width:${Math.round(100 * x.count / max)}%"></i></span><span class="n">${x.count}</span></div>`).join('');
+}
+
+function _severity(sev) {
+  const c = sev.critical || 0, n = sev.near_critical || 0, tot = c + n;
+  if (!tot) return '<p class="ai-empty">No illogical links flagged.</p>';
+  const cp = Math.round(100 * c / tot);
+  return `<div class="xd-sevbar"><i style="width:${cp}%;background:#dc2626"></i><i style="width:${100 - cp}%;background:#d97706"></i></div>
+    <div class="xd-sevleg"><span><span class="dot" style="background:#dc2626"></span>Critical <b>${c}</b></span>
+      <span><span class="dot" style="background:#d97706"></span>Near-critical <b>${n}</b></span></div>
+    <div class="xd-sevnote">Critical = on / near the critical path (float ≤ 10 working days)</div>`;
+}
+
+function _priorityFixes(list) {
+  if (!list || !list.length) return '<p class="ai-empty">Nothing critical to fix first — the schedule matches the standard.</p>';
+  return list.map((p, i) => {
+    const cls = /crit/i.test(p.severity) ? 'c' : (/scope/i.test(p.severity) ? 's' : 'n');
+    return `<div class="xd-fix"><div class="rank ${cls}">${i + 1}</div>
+      <div class="fx"><div class="ft">${escapeHtml(p.title)}</div><div class="fd">${escapeHtml(p.detail)}</div></div>
+      <span class="xd-fw ${cls}">${escapeHtml(p.severity)}</span></div>`;
+  }).join('');
+}
+
+function _confidenceChip(c) {
+  if (!c) return '';
+  if (c.forced) return `<span class="xd-conf manual" title="You chose this type — detection bypassed">Type: manual override</span>`;
+  const cls = { High: 'high', Medium: 'med', Low: 'low' }[c.level] || 'med';
+  return `<span class="xd-conf ${cls}" title="${c.hits} of ${c.signatures} keywords matched · runner-up ${c.runner_up_hits}">Detection confidence: ${c.level}</span>`;
+}
+
+function _projectedRow(p) {
+  if (!p) return '';
+  return `<div class="xd-proj">💡 <b>What-if:</b> correct the flagged logic and this schedule would score
+    <b>~${p.overall}</b> (${escapeHtml(p.band_label)}) — ${escapeHtml(p.basis)}.</div>`;
+}
+
+function _dashboard(report) {
+  const s = report.score;
   if (!s) return '';
   const hex = bandHex(s.band);
-  const bar = (label, val) => `<div>
-    <div class="ai-part-h"><span>${label}</span><b>${val} / 100</b></div>
-    <div class="ai-bar"><i style="width:${markerLeft(val)}%;background:${hex}"></i></div></div>`;
-  return `<div class="ai-score-hero">
-    <div class="ai-score-main">
-      <div class="ai-score-num" style="color:${hex}">${s.overall}<span>/100</span></div>
-      <div class="ai-score-band" style="background:${hex}22;color:${hex}">${escapeHtml(s.band_label)}</div>
-      <div class="ai-score-label">Constructability Score</div>
+  const v = report.verdict || {};
+  const flag = { ready: '✅', minor: '🟡', significant: '⚠️', major: '⛔' }[v.kind] || '⚠️';
+  return `<div class="xd">
+    <div class="xd-verdict ${v.kind || ''}">
+      <span class="flag">${flag}</span>
+      <div class="vmain"><div class="vt">${escapeHtml(v.title || '')}</div><div class="vd">${escapeHtml(v.detail || v.text || '')}</div></div>
+      <div class="vtype"><b>${escapeHtml(report.project_type || '')}</b>${_confidenceChip(report.confidence)}</div>
     </div>
-    <div class="ai-score-parts">
-      ${bar('① Sequence logic <em>(weight 45%)</em>', s.logic)}
-      ${bar('② Completeness <em>(weight 45%)</em>', s.completeness)}
-      ${bar('③ Structure &amp; load <em>(weight 10%)</em>', s.structure)}
-      <div class="ai-how">Weighted <b>45% logic · 45% completeness · 10% structure</b>. Logic &amp; completeness
-        = 100 − (their % × sensitivity); structure reflects missing WBS + how many fixes were suggested.
-        Bands: 85+ Ready · 70–84 Minor gaps · 50–69 Significant · under 50 Major.</div>
-    </div></div>`;
+    <div class="xd-hero">
+      <div class="xd-gauge">${_gauge(s.overall, hex)}
+        <div class="xd-gband" style="background:${hex}22;color:${hex}">${escapeHtml(s.band_label)}</div>
+        <div class="xd-glbl">Constructability Score</div></div>
+      ${_dims(s, hex)}
+    </div>
+    ${_legend(s.overall)}
+    ${_projectedRow(report.projected)}
+    ${_kpis(report.dashboard || {})}
+    <div class="xd-cols">
+      <div class="xd-panel"><h4>Where the gaps are — issues by WBS phase</h4>${_issuesByWbs(report.issues_by_wbs)}</div>
+      <div class="xd-panel"><h4>Severity of illogical links</h4>${_severity(report.severity || {})}</div>
+    </div>
+  </div>`;
+}
+
+function _learnedPanel(l) {
+  if (!l || !l.activities || !l.activities.length) return '';
+  const rows = l.activities.map(a => `<tr>
+    <td>${escapeHtml(a.name)}</td>
+    <td class="lp-seen">${a.seen}/${a.imports}<span class="lp-bar"><i style="width:${Math.round(100 * a.seen / a.imports)}%"></i></span></td>
+    <td class="lp-dur">${a.avg_duration != null ? a.avg_duration + ' d' : '—'}</td>
+    <td>${a.in_schedule ? '<span class="lp-yes">✓ Yes</span>'
+      : '<span class="lp-no">✗ Missing</span> <span class="lp-add">consider adding</span>'}</td></tr>`).join('');
+  const wbs = (l.wbs || []).map(w => `<span class="lp-chip">${escapeHtml(w.name)} · ${w.seen}/${w.imports}</span>`).join('');
+  const t = escapeHtml(l.type);
+  return `<div class="mod-sec">Learned from your projects</div>
+    <div class="lpanel">
+      <div class="lp-h"><h4>Commonly seen in your ${t} projects</h4>
+        <span class="lp-badge">◆ Learned · ${l.imports} of your imports</span></div>
+      <div class="lp-intro">On top of the curated standard, these activities recur across the
+        <b>${l.imports} ${t} schedules you've imported</b> on this PC.
+        ${l.missing_count ? `<b>${l.missing_count}</b> ${l.missing_count === 1 ? 'is' : 'are'} not in this schedule — consider adding.`
+          : 'All are present in this schedule.'} This sharpens with every project you import.</div>
+      <div class="tblwrap" style="overflow-x:auto"><table class="audit-table lp-table">
+        <thead><tr><th>Commonly-seen activity (learned)</th><th>Seen in</th><th>Avg duration</th><th>In this schedule?</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      ${wbs ? `<div class="lp-wbs"><span class="lp-lbl">WBS branches your ${t} projects usually have</span>
+        <div class="lp-chips">${wbs}</div></div>` : ''}
+      <div class="lp-actions">
+        <button class="btn-secondary lp-act" data-lact="starter" data-type="${t}">📥 Export as P6 starter baseline</button>
+        <button class="btn-secondary lp-act" data-lact="file" data-type="${t}">⬇ Download learned standard</button>
+        <span class="lp-note">Advisory · kept separate from the curated findings · reflects only projects imported on this PC.</span>
+      </div>
+    </div>`;
 }
 
 function _typeSelect(report) {
@@ -130,7 +264,6 @@ function renderReport(report) {
   const body = document.getElementById('construct-body');
   if (!body) return;
   if (!report.detected) { renderPick(report); return; }
-  const d = report.dashboard || {};
   const draft = (report.detected.status === 'draft')
     ? '<span class="ct-draft" title="Starter knowledge — confirm before relying on it">draft KB</span>' : '';
   body.innerHTML = `
@@ -144,28 +277,119 @@ function renderReport(report) {
       <span class="txt"><b>Findings from the local Knowledge Base + rule checks — offline, no AI, no cost.</b>
       Advisory: review before acting; it never changes your schedule. Kept separate from the exact rule-based audits.</span></div>
 
-    <div class="ai-headline">
-      <div class="hl"><div class="big">${d.illogical_count ?? 0} <span class="pct">${d.illogical_pct ?? 0}%</span></div>
-        <div class="lbl">Illogical relationships</div><div class="sub">of ${d.total_relationships ?? 0} relationships</div></div>
-      <div class="hl"><div class="big">${d.missing_count ?? 0} <span class="pct">${d.missing_pct ?? 0}%</span></div>
-        <div class="lbl">Missing activities</div><div class="sub">of ${d.total_activities ?? 0} · vs standard</div></div>
-      <div class="hl"><div class="big">${d.missing_wbs ?? 0}</div>
-        <div class="lbl">Missing WBS branches</div><div class="sub">${d.critical_affected ? 'critical path affected' : 'vs standard WBS'}</div></div>
+    <div class="xd-exportbar">
+      <button class="btn-secondary" id="cx-xls">📊 Export Excel</button>
+      <button class="btn-primary" id="cx-pdf">📄 Print Preview</button>
     </div>
-
-    <div class="mod-sec">Constructability Score</div>
-    ${_score(report.score)}
+    ${_dashboard(report)}
     <div class="mod-sec">Illogical relationships &amp; better logic</div>
     ${_illogicalTable(report.illogical)}
     <div class="mod-sec">Missing activities</div>
     ${_missingTable(report.missing)}
     <div class="mod-sec">WBS review &amp; missing WBS</div>
     ${_wbsReview(report.wbs_review, report.missing_wbs)}
+    ${_learnedPanel(report.learned)}
     <div class="mod-sec">Executive conclusion</div>
     <div class="ai-concl"><div class="lead">Constructability — rule + knowledge base</div>${escapeHtml(report.conclusion || '')}</div>`;
 
   const sel = document.getElementById('ct-type');
   if (sel) sel.addEventListener('change', () => fetchAndRender(sel.value || null));
+  const pdf = document.getElementById('cx-pdf');
+  if (pdf) pdf.addEventListener('click', () => previewReport(pdf));
+  const xls = document.getElementById('cx-xls');
+  if (xls) xls.addEventListener('click', () => exportReport('excel', xls));
+  document.querySelectorAll('.lp-act').forEach(b =>
+    b.addEventListener('click', () => exportLearned(b.dataset.lact, b.dataset.type, b)));
+}
+
+async function exportLearned(kind, type, btn) {
+  const slug = (type || 'learned').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+  const isStarter = kind === 'starter';
+  const ext = isStarter ? 'xml' : 'json';
+  const name = isStarter ? `${slug}_learned_starter.xml` : `${slug}_learned_standard.json`;
+  let path = null;
+  try { path = await window.pywebview.api.choose_save_path(name, ext); }
+  catch { showError('Could not open the save dialog.'); return; }
+  if (!path) return;
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const url = isStarter ? '/api/kb/starter-xml' : '/api/kb/learned-file';
+    const resp = await fetch(`http://localhost:${state.serverPort}${url}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, output_path: path }),
+    });
+    const data = await resp.json();
+    if (!data.ok) showError(data.error || 'Export failed.');
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
+async function previewReport(btn) {
+  const rep = state.constructReport;
+  if (!rep || !rep.detected) return;
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing preview…'; }
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability/report`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report: rep, preview: true }),
+    });
+    const data = await resp.json();
+    if (!data.ok || !data.html) { showError(data.error || 'Preview failed.'); return; }
+    showReportPreview({
+      title: 'Constructability Review — print preview',
+      subtitle: rep.project_type || '',
+      html: data.html,
+      onSave: () => saveReportPdf(rep),
+    });
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
+async function saveReportPdf(rep) {
+  const slug = (rep.detected.type || 'constructability').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+  const path = await window.pywebview.api.choose_save_path(`${slug}_constructability.pdf`, 'pdf');
+  if (!path) return false;
+  const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability/report`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ report: rep, output_path: path }),
+  });
+  const data = await resp.json();
+  if (!data.ok) { showError(data.error || 'PDF generation failed.'); return false; }
+  return true;
+}
+
+async function exportReport(kind, btn) {
+  const rep = state.constructReport;
+  if (!rep || !rep.detected) return;
+  const slug = (rep.detected.type || 'constructability').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+  const ext = kind === 'pdf' ? 'pdf' : 'xlsx';
+  let path = null;
+  try { path = await window.pywebview.api.choose_save_path(`${slug}_constructability.${ext}`, ext); }
+  catch { showError('Could not open the save dialog.'); return; }
+  if (!path) return;
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const url = kind === 'pdf' ? '/api/constructability/report' : '/api/constructability/excel';
+    const resp = await fetch(`http://localhost:${state.serverPort}${url}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report: rep, output_path: path }),
+    });
+    const data = await resp.json();
+    if (!data.ok) showError(data.error || 'Export failed.');
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
 }
 
 function renderPick(report) {

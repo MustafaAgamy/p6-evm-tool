@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Prison / Correctional Facility",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["prison", "correctional", "detention", "custodial", "prison cell", "cell block", "cell blocks", "perimeter", "secure",
+                 "guard tower", "sally port", "control room", "security electronics", "pacs", "cctv"],
+  "wbs": [
+    {"name": "Enabling & Substructure", "keywords": ["enabling", "excavation", "foundation", "piling", "substructure"]},
+    {"name": "Perimeter Security & Fencing", "keywords": ["perimeter", "fence", "wall", "guard tower", "secure line"]},
+    {"name": "Superstructure & Cell Blocks", "keywords": ["superstructure", "frame", "cell block", "precast cell", "structure"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "facade", "roof", "weathertight", "security glazing"]},
+    {"name": "MEP & Services", "keywords": ["mep", "hvac", "electrical", "plumbing", "standby power"]},
+    {"name": "Security Electronics (PACS / CCTV)", "keywords": ["security electronics", "pacs", "access control", "cctv", "intercom", "control room"]},
+    {"name": "Fit-out & Finishes", "keywords": ["fit-out", "finishes", "anti-ligature", "secure fittings", "partition"]},
+    {"name": "Testing, Commissioning & Handover", "keywords": ["test", "commission", "integration", "handover", "occupation"]}
+  ],
+  "activities": [
+    {"name": "Perimeter Secure Line Completion", "keywords": ["perimeter", "secure line", "fence", "wall"], "wbs": "Perimeter Security & Fencing",
+     "typical_pred": "Site Enabling", "typical_succ": "Superstructure", "duration_days": 40,
+     "why": "The secure perimeter is an early, defining scope; operational readiness and staged security depend on it."},
+    {"name": "Security Electronics Integration (PACS/CCTV)", "keywords": ["security electronics", "pacs", "cctv", "access control", "integration"], "wbs": "Security Electronics (PACS / CCTV)",
+     "typical_pred": "MEP First Fix", "typical_succ": "Integrated Security Test", "duration_days": 45,
+     "why": "Access control, CCTV, intercom and detection are integrated to the control room — a long, specialist scope often under-planned."},
+    {"name": "Standby / Emergency Power Test", "keywords": ["standby power", "emergency power", "generator test"], "wbs": "MEP & Services",
+     "typical_pred": "Electrical Commissioning", "typical_succ": "Integrated Security Test", "duration_days": 10,
+     "why": "A custodial facility must keep security systems live on standby power — proven before occupation."},
+    {"name": "Integrated Security / Lockdown Test", "keywords": ["integrated security", "lockdown test", "security acceptance"], "wbs": "Testing, Commissioning & Handover",
+     "typical_pred": "Security Electronics Integration (PACS/CCTV)", "typical_succ": "Handover", "duration_days": 20,
+     "why": "A whole-facility security and lockdown test proves the system before the prison can be occupied."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["mep", "first fix", "install"], "after_keywords": ["security electronics", "pacs", "cctv", "integration"],
+     "reason": "Security electronics are integrated after MEP first fix provides the containment and power.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["security electronics", "pacs", "cctv", "standby power"], "after_keywords": ["integrated security", "lockdown", "security acceptance"],
+     "reason": "The integrated security/lockdown test follows installation of the security electronics and standby power.",
+     "impact": "Critical"},
+    {"before_keywords": ["integrated security", "lockdown", "commission"], "after_keywords": ["handover", "occupation"],
+     "reason": "Occupation must follow the integrated security acceptance test.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Secure Perimeter Complete", "Building Weathertight", "Security Integrated", "Lockdown Test", "Handover"],
+  "common_issues": ["Perimeter secure line planned late", "Security electronics integration under-planned",
+                    "Standby power for security not tested", "Occupation before integrated security test"]
+}

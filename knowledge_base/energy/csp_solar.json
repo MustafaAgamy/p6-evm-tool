@@ -1,0 +1,46 @@
+{
+  "category": "Energy",
+  "type": "Concentrated Solar Power (CSP)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["csp", "concentrated solar", "solar thermal", "parabolic trough", "solar tower", "heliostat",
+                 "receiver", "htf", "heat transfer fluid", "molten salt", "thermal storage", "power block", "steam turbine"],
+  "wbs": [
+    {"name": "Site & Solar Field Civil", "keywords": ["site", "civil", "grading", "solar field", "foundation", "pylon"]},
+    {"name": "Solar Field (Collectors / Heliostats)", "keywords": ["collector", "parabolic trough", "heliostat", "mirror", "tracker", "assembly"]},
+    {"name": "Receiver / HTF System", "keywords": ["receiver", "htf", "heat transfer fluid", "molten salt", "piping", "header"]},
+    {"name": "Thermal Energy Storage", "keywords": ["thermal storage", "molten salt tank", "hot tank", "cold tank"]},
+    {"name": "Power Block (Turbine / Generator)", "keywords": ["power block", "steam turbine", "generator", "condenser", "steam generator"]},
+    {"name": "Grid Connection", "keywords": ["grid", "substation", "transmission", "interconnection"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "first steam", "performance"]},
+    {"name": "Trial Operation & Handover", "keywords": ["trial operation", "handover", "commercial operation", "cod"]}
+  ],
+  "activities": [
+    {"name": "Solar Field Assembly (Collectors / Heliostats)", "keywords": ["collector", "heliostat", "mirror", "tracker", "field assembly"], "wbs": "Solar Field (Collectors / Heliostats)",
+     "typical_pred": "Solar Field Civil", "typical_succ": "HTF Charging", "duration_days": 120,
+     "why": "The vast collector/heliostat field is the pacing scope; large-scale repetitive assembly governs the programme."},
+    {"name": "HTF / Molten-Salt Charging & Heat Trace", "keywords": ["htf", "molten salt", "heat trace", "charging", "fluid fill"], "wbs": "Receiver / HTF System",
+     "typical_pred": "HTF Piping Complete", "typical_succ": "First Steam", "duration_days": 30,
+     "why": "The heat-transfer fluid must be charged and kept above freezing by heat tracing — a CSP-specific, safety-critical step."},
+    {"name": "Thermal Storage Tanks (Molten Salt)", "keywords": ["thermal storage", "molten salt tank", "hot tank", "cold tank"], "wbs": "Thermal Energy Storage",
+     "typical_pred": "Tank Foundations", "typical_succ": "First Steam", "duration_days": 60,
+     "why": "Molten-salt storage tanks let the plant generate after sunset; their construction is long-lead and often under-planned."},
+    {"name": "First Steam / Performance Test", "keywords": ["first steam", "performance test", "trial"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Power Block Commissioning", "typical_succ": "Trial Operation", "duration_days": 30,
+     "why": "First steam to the turbine and a performance test prove output before commercial operation."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["solar field civil", "foundation", "pylon"], "after_keywords": ["collector", "heliostat", "field assembly"],
+     "reason": "Collector/heliostat assembly follows the solar-field civil and foundations.",
+     "impact": "Critical"},
+    {"before_keywords": ["htf piping", "receiver", "heat trace"], "after_keywords": ["htf charging", "molten salt", "first steam"],
+     "reason": "HTF/molten-salt charging follows piping completion and heat-tracing being live.",
+     "impact": "Critical"},
+    {"before_keywords": ["power block", "commission", "first steam"], "after_keywords": ["trial operation", "commercial operation", "cod"],
+     "reason": "Commercial operation follows power-block commissioning and first-steam performance testing.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Solar Field Civil Complete", "Field Assembled", "Storage Tanks Complete", "First Steam", "Commercial Operation"],
+  "common_issues": ["Field assembly rate not reflected in the programme", "HTF heat-tracing / freeze protection overlooked",
+                    "Molten-salt storage under-planned as long-lead", "Commercial operation before performance test"]
+}
