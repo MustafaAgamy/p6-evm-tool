@@ -206,12 +206,23 @@ export async function geocodePlace(q) {
   } catch { return { ok: false, error: 'offline' }; }
 }
 
-export async function computeWeather(lat, lon, placeName) {
+// Reverse-geocode a dropped/dragged pin → a friendly place name.
+export async function reverseGeocode(lat, lon) {
+  try {
+    return await apiFetch('api/geocode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lon }),
+    });
+  } catch { return { ok: false, error: 'offline' }; }
+}
+
+export async function computeWeather(lat, lon, placeName, thresholds) {
   return apiFetch('api/weather', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       snapshot_id: state.currentSnapshotId, xml_path: state.currentXmlPath,
       cached_path: state.currentCachedPath, lat, lon, place_name: placeName,
+      thresholds: thresholds || null,
     }),
   });
 }
@@ -226,11 +237,20 @@ export async function saveCalendarSettings(patch) {
   });
 }
 
+// Which Calendar Audit sections to print — from the section-picker checkboxes.
+// Returns null (all sections) unless the user has unticked at least one.
+function _calendarSections() {
+  const cbs = [...document.querySelectorAll('.cal-sec-cb')];
+  if (!cbs.length) return null;
+  const on = cbs.filter(c => c.checked).map(c => c.value);
+  return on.length === cbs.length ? null : on;
+}
+
 export async function generateCalendarPdf() {
   if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
   const btn = new ButtonState(document.getElementById('cal-pdf-btn'), 'Generate Calendar Audit PDF');
   btn.loading('Preparing preview…');
-  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta() };
+  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), sections: _calendarSections() };
   try {
     const data = await apiFetch('api/report/calendar', {
       method:  'POST',

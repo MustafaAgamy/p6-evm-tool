@@ -9,6 +9,7 @@
 
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
@@ -16,6 +17,10 @@ block_cipher = None
 datas = [
     ('ui',             'ui'),             # HTML / CSS / JS
     ('p6_evm',         'p6_evm'),         # Python package
+    ('p6_audit',       'p6_audit'),       # Schedule-audit engine (Dangling/Float/OOS/Lag) — bundle
+                                          # the whole package like p6_evm, so every submodule
+                                          # (e.g. modules/lag_lead.py) ships even though server.py
+                                          # only imports it deferred inside handlers.
     ('config.json',    '.'),              # Config at root of bundle
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
 ]
@@ -37,6 +42,9 @@ hiddenimports = [
     'et_xmlfile',
     # EVM v2 + audit engine packages (collected via import graph, listed for safety)
     'p6_audit',
+    # server.py imports p6_audit only via deferred (in-function) imports, which PyInstaller's
+    # graph can miss — force every submodule (engine, report, exporters, modules/lag_lead, …).
+    *collect_submodules('p6_audit'),
     'p6_evm.e1_log',
     'p6_evm.gap',
     'p6_evm.evm_report',
