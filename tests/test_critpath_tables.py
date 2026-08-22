@@ -56,11 +56,18 @@ def test_milestones_table_rows_and_variance():
 
 def test_this_period_zero_for_same_date_different_time():
     # Previous and current forecast the SAME calendar day but at different times of day.
-    # The variance must be exactly 0 (not the ±1 signed_working_days artifact).
+    # The variance must be exactly 0 (not the ±1 signed_working_days artifact). A REAL
+    # calendar is attached so signed_working_days (where the ±1 lived) is exercised — with
+    # calendar_id=None the code would take the calendar-day fallback and never hit the bug.
+    from p6_evm.calendars import Calendar
+    cal = Calendar(object_id='C1', name='Std', nonworking_days={'Saturday', 'Sunday'})
     prev = _mk(datetime(2026, 6, 30), [('A', 0.0)],
                [('M1', 'Completion', datetime(2025, 12, 31, 8, 0), datetime(2026, 12, 10), -5.0)])
     curr = _mk(datetime(2026, 7, 19), [('A', 0.0)],
                [('M1', 'Completion', datetime(2025, 12, 31, 17, 0), datetime(2026, 12, 10), -5.0)])
+    for d in (prev, curr):
+        d.calendars = {'C1': cal}
+        d.activities['M1']['calendar_id'] = 'C1'
     rows = milestones_table({'previous': prev, 'current': curr})
     m1 = next(r for r in rows if r['id'] == 'M1')
-    assert m1['var_this_period_d'] == 0
+    assert m1['var_this_period_d'] == 0        # 31-Dec-2025 is a Wednesday (a working day)
