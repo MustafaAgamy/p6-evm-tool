@@ -118,12 +118,19 @@ async function _run(keepMilestone) {
 const CP_SECTIONS = [
   ['verdict', 'Verdict banner'],
   ['dashboard', 'Execution dashboard'],
-  ['driving_path', 'Driving path — schedule by schedule'],
+  ['driving_path', 'Critical Path Analyzer — milestone paths'],
   ['census', 'Critical & near-critical census'],
   ['milestones', 'Every milestone · finish comparison'],
   ['float_migration', 'Float migration'],
   ['recommendation', 'Effect & recommendation'],
 ];
+
+function _windowStrip(report) {
+  const dd = report.reporting_window || report.data_dates || {};
+  const roles = report.roles || [];
+  const pills = roles.map(r => `<span class="cpa-wpill">${escapeHtml(ROLE_LABEL[r])} data date <b>${_fdate(dd[r])}</b></span>`).join('');
+  return `<div class="cpa-window">${pills}</div>`;
+}
 
 function _renderReport(report) {
   document.getElementById('cpa-report').innerHTML = `
@@ -131,18 +138,19 @@ function _renderReport(report) {
       <button class="btn-secondary" id="cpa-export-pdf">Export PDF</button>
       <button class="btn-secondary" id="cpa-export-xlsx">Export Excel</button>
     </div>
+    ${_windowStrip(report)}
     ${_conclusionBanner(report)}
 
     <div class="cpa-sech">Execution dashboard</div>
     <div class="cpa-card">${_dashboardHtml(report)}</div>
 
-    <div class="cpa-sech">Driving path — schedule by schedule</div>
-    <div class="cpa-card">${_lanesHtml(report)}</div>
+    <div class="cpa-sech">Critical Path Analyzer <span class="cpa-sechsub">— the finish-driving path for every milestone that affects completion</span></div>
+    <div class="cpa-card">${_cpaHtml(report)}</div>
 
     <div class="cpa-sech">Critical &amp; near-critical census</div>
     <div class="cpa-card">${_censusHtml(report)}</div>
 
-    <div class="cpa-sech">Every milestone · finish comparison &amp; path health</div>
+    <div class="cpa-sech">Every milestone · finish comparison</div>
     <div class="cpa-card">${_milestonesHtml(report)}</div>
 
     <div class="cpa-sech">Float migration</div>

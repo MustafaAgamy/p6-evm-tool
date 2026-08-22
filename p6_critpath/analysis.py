@@ -92,23 +92,55 @@ def cpli(path_length_wd, total_float_wd):
     return round((path_length_wd + total_float_wd) / path_length_wd, 2)
 
 
-def _census_activities(data):
-    """The activities that count toward the critical / near-critical census: real
-    schedulable work (not milestones) that carries a total-float value."""
-    return [a for a in data.activities.values()
-            if a.get('task_type') not in _MILESTONES and a.get('total_float_days') is not None]
+def _critical_from_paths(data):
+    """When a schedule carries no per-activity float (a common baseline export), its critical
+    activities are the ones on its critical (longest) path — the union of the driving chains
+    to every finish milestone. Returns a set of activity ObjectIds."""
+    from p6_critpath.paths import _governing_finish_ms, trace_driving_chain
+    from p6_audit.graph import ScheduleGraph
+    fin_ms = [(k, a) for k, a in data.activities.items()
+              if a.get('task_type') == 'FinishMilestone' and _forecast_finish(a)]
+    if not fin_ms:
+        g = _governing_finish_ms(data)
+        if g:
+            gk = next((k for k, v in data.activities.items() if v is g), None)
+            fin_ms = [(gk, g)] if gk else []
+    graph = ScheduleGraph(data)
+    oids = set()
+    for start, _ in fin_ms:
+        for oid in trace_driving_chain(graph, start):
+            a = data.activities.get(oid)
+            if a and a.get('task_type') not in _MILESTONES:
+                oids.add(oid)
+    return oids
 
 
 def schedule_census(data, near_threshold=NEAR_THRESHOLD):
-    """One schedule's critical-path headline: how many activities are critical and
-    near-critical (count + % of all counted activities), the remaining critical-path
-    length (working days, data date → governing finish), the governing finish
-    milestone's total float, and the CPLI."""
-    acts = _census_activities(data)
-    total = len(acts)
-    critical = sum(1 for a in acts if a['total_float_days'] <= 0)
-    near = sum(1 for a in acts if 0 < a['total_float_days'] < near_threshold)
-    pct = lambda n: round(n / total * 100, 1) if total else 0.0
+    """One schedule's critical-path headline: how many activities are critical and near-
+    critical (count + % of the counted activities), the remaining critical-path length
+    (working days, data date → governing forecast finish), the governing finish milestone's
+    total float, and the CPLI.
+
+    When the export carries per-activity float, critical = TF ≤ 0 and near = 0 < TF < 10 wd.
+    When it carries NO float (e.g. an unscheduled baseline), critical is derived from the
+    critical/longest path so it is still counted, and near-critical is reported as unknown
+    (n/a) because it can't be judged without float."""
+    non_ms = [a for a in data.activities.values() if a.get('task_type') not in _MILESTONES]
+    floated = [a for a in non_ms if a.get('total_float_days') is not None]
+
+    if floated:
+        total = len(floated)
+        critical = sum(1 for a in floated if a['total_float_days'] <= 0)
+        near = sum(1 for a in floated if 0 < a['total_float_days'] < near_threshold)
+        source = 'float'
+    else:
+        total = len(non_ms)
+        crit_oids = _critical_from_paths(data)
+        critical = sum(1 for k, a in data.activities.items()
+                       if k in crit_oids and a.get('task_type') not in _MILESTONES)
+        near = None
+        source = 'path'
+    pct = lambda n: (round(n / total * 100, 1) if (total and n is not None) else (None if n is None else 0.0))
 
     data_date = (getattr(data, 'project', None) or {}).get('data_date')
     ms = _governing_milestone(data)
@@ -131,6 +163,7 @@ def schedule_census(data, near_threshold=NEAR_THRESHOLD):
         'total_activities': total,
         'critical': critical, 'critical_pct': pct(critical),
         'near': near, 'near_pct': pct(near),
+        'critical_source': source,          # 'float' (TF≤0) or 'path' (derived, no float in file)
         'path_length_wd': length,
         'total_float_wd': total_float,
         'cpli': cpli(length, total_float),
@@ -158,10 +191,10 @@ def _lane_sub(role, ms):
     return ' · '.join(bits)
 
 
-def _build_lanes(schedules, roles, milestone_code, summary_level):
-    """One driving-path lane per schedule. The CURRENT lane highlights the NEW critical
-    path: boxes that entered vs the comparison base are 'new', boxes that left are appended
-    as 'left' ghosts. Baseline/previous lanes are reference (no highlight)."""
+def _lanes_for_milestone(schedules, roles, milestone_code, summary_level):
+    """One driving-path lane per schedule for ONE finish milestone. The CURRENT lane
+    highlights the NEW critical path: boxes that entered vs the comparison base are 'new',
+    boxes that left are appended as 'left' ghosts. Baseline/previous lanes are reference."""
     from p6_critpath.paths import path_boxes, path_diff, _box_key
     paths = {r: path_boxes(schedules[r], milestone_code, summary_level) for r in roles}
     base_role = 'previous' if 'previous' in roles else ('baseline' if 'baseline' in roles else None)
@@ -187,6 +220,28 @@ def _build_lanes(schedules, roles, milestone_code, summary_level):
     return lanes
 
 
+def _build_milestone_paths(schedules, roles, summary_level):
+    """The Critical Path Analyzer view: one path block per finish milestone that affects
+    completion (governing first), each with its lanes across schedules and the reroute
+    highlight. Milestones with no driving path in any schedule are skipped."""
+    from p6_critpath.paths import milestone_list
+    out = []
+    for ms in milestone_list(schedules):
+        lanes = _lanes_for_milestone(schedules, roles, ms['id'], summary_level)
+        if not any(ln.get('boxes') for ln in lanes):
+            continue                                     # no path anywhere → doesn't drive anything
+        cur = next((ln for ln in lanes if ln['role'] == 'current'), lanes[-1])
+        cur_ms = cur.get('milestone') or {}
+        out.append({
+            'id': ms['id'], 'name': ms['name'], 'is_governing': ms['is_governing'],
+            'baseline_finish': cur_ms.get('baseline_finish'),
+            'current_finish': cur_ms.get('expected_finish'),
+            'slip_days': cur_ms.get('slip_days'),
+            'lanes': lanes,
+        })
+    return out
+
+
 def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=None, summary_level=0):
     """Assemble the comparison report from {role: ScheduleData} where role is
     'baseline' | 'previous' | 'current'. Census + driving-path lanes (with the new critical
@@ -203,15 +258,22 @@ def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=
     migration = (float_migration(schedules[base_role], schedules['current'], near_threshold)
                  if base_role and 'current' in schedules else None)
 
+    # Every finish milestone's driving path (the Critical Path Analyzer view). The governing
+    # milestone's lanes are also exposed as `lanes` so the dashboard/narrative can read the
+    # reroute off the path that decides the project finish.
+    milestone_paths = _build_milestone_paths(schedules, roles, summary_level)
+    gov_block = next((m for m in milestone_paths if m['is_governing']), milestone_paths[0] if milestone_paths else None)
+
     report = {
         'mode': mode,
         'roles': roles,
         'census': census,
         'data_dates': {r: census[r]['data_date'] for r in roles},
+        'reporting_window': {r: census[r]['data_date'] for r in roles},
         'milestones_list': milestone_list(schedules),
-        'selected_milestone': milestone_code,
         'summary_level': summary_level,
-        'lanes': _build_lanes(schedules, roles, milestone_code, summary_level),
+        'milestone_paths': milestone_paths,
+        'lanes': gov_block['lanes'] if gov_block else [],
         'milestones': milestones_table(schedules, near_threshold),
         'float_migration': migration,
         'float_migration_base': base_role,

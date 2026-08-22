@@ -13,6 +13,13 @@ from p6_critpath.analysis import (
 )
 
 
+def _d0(d):
+    """Normalise a datetime to midnight (day precision) so finish-date variances compare
+    calendar days, not sub-day times."""
+    from datetime import datetime
+    return d.replace(hour=0, minute=0, second=0, microsecond=0) if isinstance(d, datetime) else d
+
+
 def _band(tf, near=NEAR_THRESHOLD):
     if tf is None:
         return None
@@ -93,7 +100,9 @@ def milestones_table(schedules, near=NEAR_THRESHOLD):
             data_date = (getattr(curr, 'project', None) or {}).get('data_date')
             cal = _ref_calendar(curr, ca)
             ff = _forecast_finish(ca)
-            var_bl = _wd_between(cal, _baseline_finish(curr, ca), ff)
+            # Finish-date variances compare two calendar dates, so normalise to day precision
+            # first — otherwise two finishes on the same day but different times can read ±1.
+            var_bl = _wd_between(cal, _d0(_baseline_finish(curr, ca)), _d0(ff))
             length = _wd_between(cal, data_date, ff)
             if length is not None and length < 0:
                 length = 0
@@ -101,7 +110,7 @@ def milestones_table(schedules, near=NEAR_THRESHOLD):
             if prev:
                 pa = _finish_ms(prev, code)
                 if pa:
-                    var_pd = _wd_between(cal, _forecast_finish(pa), ff)
+                    var_pd = _wd_between(cal, _d0(_forecast_finish(pa)), _d0(ff))
             pb = path_boxes(curr, code)
             crit_f = sum(1 for b in pb['boxes'] if b.get('driver_tf') is not None and b['driver_tf'] <= 0)
             near_f = sum(1 for b in pb['boxes'] if b.get('driver_tf') is not None and 0 < b['driver_tf'] < near)
