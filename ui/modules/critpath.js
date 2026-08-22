@@ -19,6 +19,7 @@ const _MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oc
 
 let _mode = 'update_baseline';
 let _picked = { previous: null, baseline: null };   // chosen file paths
+let _currentOverride = null;   // optional file that replaces the open schedule as the current update
 let _shownReport = null;
 
 function _currName() {
@@ -64,8 +65,13 @@ function _renderModes() {
 
 function _renderInputs() {
   const box = document.getElementById('cpa-inputs');
+  const curName = _currentOverride ? _currentOverride.split(/[\\/]/).pop() : _currName();
+  const curAffordance = _currentOverride
+    ? `<button class="btn-mini cpa-cur-reset">Reset to open schedule</button>`
+    : `<span class="cpa-tag">open schedule</span>`;
   const slots = [`<div class="cpa-slot filled"><div class="cpa-slbl">${ROLE_LABEL.current}</div>
-      <div class="cpa-sval"><b>${escapeHtml(_currName())}</b><span class="cpa-tag">open schedule</span></div></div>`];
+      <div class="cpa-sval"><b>${escapeHtml(curName)}</b>${curAffordance}
+        <button class="btn-mini cpa-cur-change">Change…</button></div></div>`];
   for (const role of _neededRoles()) {
     const name = _picked[role] ? _picked[role].split(/[\\/]/).pop() : null;
     slots.push(`<div class="cpa-slot${name ? ' filled' : ''}" data-role="${role}">
@@ -77,7 +83,20 @@ function _renderInputs() {
   box.innerHTML = slots.join('');
   box.querySelectorAll('.cpa-pick').forEach(b =>
     b.addEventListener('click', () => _pick(b.dataset.role)));
+  const changeBtn = box.querySelector('.cpa-cur-change');
+  if (changeBtn) changeBtn.addEventListener('click', _pickCurrent);
+  const resetBtn = box.querySelector('.cpa-cur-reset');
+  if (resetBtn) resetBtn.addEventListener('click', () => { _currentOverride = null; _renderInputs(); });
   _syncRun();
+}
+
+async function _pickCurrent() {
+  try {
+    const path = await window.pywebview.api.choose_file();
+    if (!path) return;
+    _currentOverride = path;
+    _renderInputs();
+  } catch { showError('Could not open the file picker.'); }
 }
 
 async function _pick(role) {
@@ -98,7 +117,9 @@ function _syncRun() {
 async function _run() {
   const rep = document.getElementById('cpa-report');
   rep.innerHTML = `<div class="cpa-note">Reading the schedules and comparing critical paths…</div>`;
-  const payload = { mode: _mode, current_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '' };
+  const payload = { mode: _mode, current_path: _currentOverride || state.currentXmlPath || '' };
+  // Only pass the cached copy of the open schedule when we're using it (no override).
+  if (!_currentOverride) payload.cached_path = state.currentCachedPath || '';
   for (const role of _neededRoles()) payload[`${role}_path`] = _picked[role];
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/analyze`, {
@@ -168,11 +189,14 @@ function _renderReport(report) {
 
 async function _openPreview() {
   if (!_shownReport) return;
+  // Milestone paths available for inclusion; the governing one is checked by default.
+  const msPaths = _shownReport.milestone_paths || [];
+  const defaultMsIds = msPaths.filter(p => p.is_governing).map(p => p.id);
   let html = '';
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: _shownReport, preview: true }),
+      body: JSON.stringify({ report: _shownReport, preview: true, milestone_ids: defaultMsIds }),
     });
     const data = await resp.json();
     if (!data.ok) { showError(data.error || 'Could not build the preview.'); return; }
@@ -183,8 +207,13 @@ async function _openPreview() {
   const ov = document.createElement('div');
   ov.id = 'cpa-preview-overlay';
   ov.className = 'per-preview-overlay';
-  const picks = CP_SECTIONS.map(([k, l]) =>
-    `<label class="per-pick"><input type="checkbox" class="cpa-sec-cb" value="${k}" checked> ${escapeHtml(l)}</label>`).join('');
+  const msPicks = msPaths.map((p, i) =>
+    `<label class="per-pick cpa-ms-pick"><input type="checkbox" class="cpa-ms-cb" value="${i}"${p.is_governing ? ' checked' : ''}> ${escapeHtml(p.name || '')}${p.is_governing ? ' <span class="cpa-ms-gov">◆ governing</span>' : ''}</label>`).join('');
+  const picks = CP_SECTIONS.map(([k, l]) => {
+    const cb = `<label class="per-pick"><input type="checkbox" class="cpa-sec-cb" value="${k}" checked> ${escapeHtml(l)}</label>`;
+    // Nest the per-milestone chooser directly under the driving-path section.
+    return (k === 'driving_path' && msPicks) ? cb + `<div class="cpa-ms-picks">${msPicks}</div>` : cb;
+  }).join('');
   ov.innerHTML = `<div class="per-preview-box">
       <div class="per-preview-bar"><span class="per-preview-title">Report preview — choose what to include, then print or save</span>
         <span class="per-preview-actions">
@@ -206,6 +235,9 @@ async function _openPreview() {
 
   const cbs = () => Array.from(ov.querySelectorAll('.cpa-sec-cb'));
   const selected = () => cbs().filter(c => c.checked).map(c => c.value);
+  // Checkbox value is the index into msPaths, so the original id type is preserved.
+  const selectedMs = () => Array.from(ov.querySelectorAll('.cpa-ms-cb'))
+    .filter(c => c.checked).map(c => msPaths[+c.value].id);
   const applyToFrame = () => {
     const doc = frame.contentDocument;
     if (!doc) return;
@@ -229,7 +261,7 @@ async function _openPreview() {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected() }),
+        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), milestone_ids: selectedMs() }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
@@ -299,7 +331,7 @@ function _dashboardHtml(report) {
     <div class="cpa-charts">
       <div class="cpa-chart"><div class="cpa-cht">Critical &amp; near-critical by schedule</div>${_barsCritNear(d.charts)}</div>
       <div class="cpa-chart"><div class="cpa-cht">CPLI trend</div>${_lineCpli(d.charts)}</div>
-      <div class="cpa-chart"><div class="cpa-cht">Milestone slip vs baseline (wd)</div>${_barsMsVar(d.charts)}</div>
+      <div class="cpa-chart cpa-chart-msvar"><div class="cpa-cht">Milestone slip vs baseline (wd)</div>${_barsMsVar(d.charts)}</div>
     </div>`;
 }
 
@@ -454,16 +486,19 @@ function _boxHtml(b, st) {
   const flag = st === 'new' ? `<div class="cpa-newflag">NEW ON PATH</div>`
              : st === 'left' ? `<div class="cpa-dropflag">LEFT PATH</div>` : '';
   const cls = st === 'new' ? 'cpa-new' : st === 'left' ? 'cpa-left' : st === 'done' ? 'cpa-done' : '';
-  const last = st === 'left'
-    ? `<div class="cpa-full"><div class="cpa-k">Float now</div><div class="cpa-v" style="color:var(--success)">${b.driver_tf == null ? '—' : _sign(b.driver_tf) + ' wd'}</div></div>`
-    : `<div class="cpa-full"><div class="cpa-k">Slip</div><div class="cpa-v ${(b.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${b.slip_days == null ? '—' : _sign(b.slip_days) + ' d'}</div></div>`;
+  const planned = b.planned == null ? '—' : Math.round(b.planned) + '%';
+  const actual  = b.pct == null ? '—' : Math.round(b.pct) + '%';
+  const slip = b.slip_days == null ? '—' : _sign(b.slip_days) + ' d';
+  const tf   = b.driver_tf == null ? '—' : _sign(b.driver_tf) + ' wd';
   return `<div class="cpa-box ${cls}">${flag}
       <div class="cpa-bt">${escapeHtml(b.name || '')}</div>
       <div class="cpa-bcrumb">${escapeHtml(b.crumb || '')}</div>
       <div class="cpa-b4">
-        <div><div class="cpa-k">Actual</div><div class="cpa-v">${Math.round(b.pct || 0)}%</div></div>
-        <div><div class="cpa-k">Exp finish</div><div class="cpa-v">${_fdate(b.exp_finish)}</div></div>
-        ${last}
+        <div><div class="cpa-k">Planned</div><div class="cpa-v">${planned}</div></div>
+        <div><div class="cpa-k">Actual</div><div class="cpa-v">${actual}</div></div>
+        <div><div class="cpa-k">BL finish</div><div class="cpa-v">${_fdate(b.bl_finish)}</div></div>
+        <div><div class="cpa-k">Expected</div><div class="cpa-v">${_fdate(b.exp_finish)}</div></div>
+        <div class="cpa-full"><div class="cpa-k">Slip / Total float</div><div class="cpa-v ${(b.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${slip} / ${tf}</div></div>
       </div></div>`;
 }
 
@@ -483,12 +518,15 @@ function _laneHtml(lane) {
       <div class="cpa-msr"><span>${role === 'baseline' ? 'BL finish' : 'Exp finish'}</span><b>${_fdate(finishVal)}</b></div>
       <div class="cpa-msr"><span>Slip</span><b class="${(ms.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${ms.slip_days == null ? '—' : _sign(ms.slip_days) + ' d'}</b></div>
     </div>`];
-  (lane.boxes || []).forEach(b => {
+  const boxes = lane.boxes || [];
+  boxes.forEach((b, i) => {
     const st = b.state || 'stayed';
-    // A box that left the path is shown detached, with no leading ▸ connector.
-    if (st !== 'left') parts.push(`<div class="cpa-arw">▸</div>`);
+    const prevLeft = i > 0 && (boxes[i - 1].state || 'stayed') === 'left';
+    // On-path boxes carry a big ▸ on both sides. A box that left the path sits inline
+    // with no arrow before it, but keeps the big ▸ after it, connecting to the next box.
+    if (st !== 'left' && !prevLeft) parts.push(`<div class="cpa-arw">▸</div>`);
     parts.push(_boxHtml(b, st));
-    if (st === 'left') parts.push(`<span class="cpa-offlbl">← off path</span>`);
+    if (st === 'left' && i < boxes.length - 1) parts.push(`<div class="cpa-arw">▸</div>`);
   });
   return `<div class="cpa-lane">
       <div class="cpa-lanehdr"><span class="cpa-lanetag ${_LANE_CLS[role] || ''}">${escapeHtml(lane.label || '')}</span>
@@ -620,53 +658,61 @@ function _censusHtml(report) {
   const roles = report.roles || [];
   const has = r => roles.includes(r);
   const col = r => has(r) ? `<th class="num">${SHORT_LABEL[r]}<span class="cpa-dd">${_fdate((c[r] || {}).data_date)}</span></th>` : '';
-  const cur = c.current || {}, prev = c.previous || {}, bl = c.baseline || {};
   const cell = (r, get) => has(r) ? `<td class="num">${get(c[r] || {})}</td>` : '';
   const src = r => (c[r] || {}).critical_source;                 // 'float' | 'path'
   const mark = o => o.critical_source === 'path' ? '<sup class="cpa-fn" title="on the longest path to completion (no float in this schedule)">†</sup>' : '';
   const cnt = (n, p, m) => o => (o[n] == null ? '—' : `${o[n]} · <b>${o[p]}%</b>${m ? mark(o) : ''}`);
   const wd = k => o => (o[k] == null ? '—' : `${o[k]} wd`);
-  const ta = o => (o.total_activities == null ? '—' : `<b>${o.total_activities}</b>`);
-  const taDelta = (a, b) => (a == null || b == null) ? '' : `<span class="cpa-dim">${a - b > 0 ? '+' : ''}${a - b}</span>`;
 
-  // [label, value-getter, current-key, higherIsBad, unit, sourceSensitive]
-  // sourceSensitive rows (critical/near) suppress the Δ when the two columns were derived by
-  // different methods (a float-less baseline's path-count vs a floated update's TF-count).
+  // Every census variance is RED (Ibrahim's rule).
+  const RED = txt => txt == null ? '<span class="cpa-dim">—</span>' : `<span class="cpa-chip up">${txt}</span>`;
+  const rnd = (v, d) => Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+  // Cumulative: sum a % column across the given roles (skip null / absent); null if none.
+  const sumOver = (key, rs) => {
+    const vals = rs.filter(has).map(r => (c[r] || {})[key]).filter(v => v != null);
+    return vals.length ? rnd(vals.reduce((a, b) => a + b, 0), 1) : null;
+  };
+  const diff = (key, aR, bR, d) => { const a = (c[aR] || {})[key], b = (c[bR] || {})[key]; return (a == null || b == null) ? null : rnd(a - b, d); };
+
+  // [label, value-getter, key, unit, cumulative?]  cumulative rows = Critical & Near-critical.
   const rows = [
-    ['Critical activities <span class="cpa-dim">(TF ≤ 0)</span>', cnt('critical', 'critical_pct', true), 'critical_pct', true, ' pts', true],
-    ['Near-critical <span class="cpa-dim">(0 &lt; TF &lt; 10 wd)</span>', cnt('near', 'near_pct'), 'near_pct', true, ' pts', true],
-    ['Critical path length <span class="cpa-dim">(remaining, to expected finish)</span>', wd('path_length_wd'), 'path_length_wd', true, ' wd', false],
-    ['Total float · finish <span class="cpa-dim">(wd)</span>', wd('total_float_wd'), 'total_float_wd', false, ' wd', false],
-    ['CPLI', o => _fmtCpli(o.cpli), 'cpli', false, '', false],
+    ['Critical activities <span class="cpa-dim">(TF ≤ 0)</span>', cnt('critical', 'critical_pct', true), 'critical_pct', ' pts', true],
+    ['Near-critical <span class="cpa-dim">(0 &lt; TF &lt; 10 wd)</span>', cnt('near', 'near_pct'), 'near_pct', ' pts', true],
+    ['Critical path length <span class="cpa-dim">(remaining, to expected finish)</span>', wd('path_length_wd'), 'path_length_wd', ' wd', false],
+    ['Total float · finish <span class="cpa-dim">(wd)</span>', wd('total_float_wd'), 'total_float_wd', ' wd', false],
+    ['CPLI', o => _fmtCpli(o.cpli), 'cpli', '', false],
   ];
-  const dchip = (aRole, bRole, key, unit, hib, sensitive) =>
-    (sensitive && src(aRole) !== src(bRole)) ? '<span class="cpa-dim">—</span>'
-      : _dchip((c[aRole] || {})[key], (c[bRole] || {})[key], unit, hib);
 
-  const totalRow = `<tr>
-      <td><b>Total activities</b> <span class="cpa-dim">(counted)</span></td>
-      ${cell('baseline', ta)}${cell('previous', ta)}${cell('current', ta)}
-      ${has('previous') ? `<td class="num">${taDelta(cur.total_activities, prev.total_activities)}</td>` : ''}
-      ${has('baseline') ? `<td class="num">${taDelta(cur.total_activities, bl.total_activities)}</td>` : ''}
-    </tr>`;
+  // period column = the two updates; vs-baseline column = all loaded schedules.
+  const dcell = (key, unit, cumulative, cumRoles, aR, bR) => {
+    if (cumulative) {
+      const s = sumOver(key, cumRoles.filter(has));
+      return `<td class="num">${RED(s == null ? null : '▲ +' + s + unit)}</td>`;
+    }
+    const dec = key === 'cpli' ? 2 : 0;
+    const dd = diff(key, aR, bR, dec);
+    if (dd == null) return `<td class="num">${RED(null)}</td>`;
+    const arw = dd > 0 ? '▲ ' : dd < 0 ? '▼ ' : '■ ';
+    return `<td class="num">${RED(arw + (dd > 0 ? '+' : '') + dd + unit)}</td>`;
+  };
 
-  const body = rows.map(([label, get, key, higherIsBad, unit, sensitive]) => `<tr>
+  const body = rows.map(([label, get, key, unit, cumulative]) => `<tr>
       <td>${label}</td>
       ${cell('baseline', get)}${cell('previous', get)}${cell('current', get)}
-      ${has('previous') ? `<td class="num">${dchip('current', 'previous', key, unit, higherIsBad, sensitive)}</td>` : ''}
-      ${has('baseline') ? `<td class="num">${dchip('current', 'baseline', key, unit, higherIsBad, sensitive)}</td>` : ''}
+      ${has('previous') ? dcell(key, unit, cumulative, ['previous', 'current'], 'current', 'previous') : ''}
+      ${has('baseline') ? dcell(key, unit, cumulative, ['baseline', 'previous', 'current'], 'current', 'baseline') : ''}
     </tr>`).join('');
 
   const anyPath = roles.some(r => src(r) === 'path');
-  const footnote = anyPath ? `<div class="cpa-leg"><b>†</b> This schedule carries no activity float in its export, so its critical count is the activities on the <b>longest path to completion</b> (not TF ≤ 0). It uses a different basis than a floated update, so critical/near variances against it are shown as “—”.</div>` : '';
+  const footnote = anyPath ? `<div class="cpa-leg"><b>†</b> This schedule carries no activity float in its export, so its critical count is the activities on the <b>longest path to completion</b> (not TF ≤ 0) — a different basis than a floated update.</div>` : '';
 
   return `<div class="cpa-defbox"><b>Critical path length</b> = the <b>remaining working days from the schedule's data date to the milestone's expected (forecast) finish</b> — the runway still to go, counted on the milestone's calendar. It is based on the <b>expected finish, not the baseline</b>, and does not count the days already elapsed before the data date. (A baseline has no progress, so its data date is the project start → its length is the full planned path.)</div>
     <table class="cpa-table">
     <thead><tr><th>Measure</th>${col('baseline')}${col('previous')}${col('current')}
       ${has('previous') ? '<th class="num">Δ this period</th>' : ''}
       ${has('baseline') ? '<th class="num">Δ vs baseline</th>' : ''}</tr></thead>
-    <tbody>${totalRow}${body}</tbody></table>
-    <div class="cpa-leg">% = share of all counted activities. CPLI = (remaining path length + total float) ÷ remaining path length; below 0.95 = at risk. Baseline length is the full path (no progress yet).</div>
+    <tbody>${body}</tbody></table>
+    <div class="cpa-leg">Critical &amp; near-critical variances are <b>cumulative</b> — the % columns summed (this period = Previous + Current; vs baseline = Baseline + Previous + Current) — because near-critical eroding means those activities crossed into critical (a worsening, shown as an increase). Other rows show the plain difference. CPLI = (remaining path length + total float) ÷ remaining path length; below 0.95 = at risk.</div>
     ${footnote}`;
 }
 
@@ -738,14 +784,14 @@ function _injectStyle() {
     .cpa-lanetag.curr { background: rgba(59,130,246,.15); color: var(--accent); }
     .cpa-lanesub { color: var(--muted); font-size: 11.5px; }
     .cpa-chain { display: flex; align-items: stretch; flex-wrap: wrap; gap: 5px; }
-    .cpa-arw { display: flex; align-items: center; color: var(--muted); font-weight: 800; font-size: 17px; }
+    .cpa-arw { display: flex; align-items: center; color: var(--accent); font-weight: 900; font-size: 32px; line-height: 1; padding: 0 2px; }
     .cpa-offlbl { align-self: center; color: var(--muted); font-size: 10px; font-style: italic; margin-left: 6px; }
     .cpa-msbox { flex: none; width: 178px; border: 2px solid var(--accent); border-radius: 12px; padding: 11px 12px; background: rgba(59,130,246,.08); }
     .cpa-msflag { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--accent); opacity: .85; margin-bottom: 6px; }
     .cpa-mst { font-size: 12.5px; font-weight: 800; color: var(--accent); line-height: 1.2; margin-bottom: 6px; }
     .cpa-msr { display: flex; justify-content: space-between; font-size: 11.5px; margin: 2px 0; color: var(--text); }
     .cpa-msr span { color: var(--muted); }
-    .cpa-box { flex: none; width: 176px; border: 1px solid var(--border); border-radius: 11px; padding: 9px 11px; background: var(--card-bg); position: relative; }
+    .cpa-box { flex: none; width: 200px; border: 1px solid var(--border); border-radius: 11px; padding: 9px 11px; background: var(--card-bg); position: relative; }
     .cpa-box.cpa-done { border-color: var(--success); }
     .cpa-box.cpa-new { border: 2px solid var(--danger); background: rgba(220,38,38,.07); box-shadow: 0 0 0 3px rgba(220,38,38,.10); }
     .cpa-box.cpa-left { border-style: dashed; opacity: .65; background: rgba(148,163,184,.10); margin-left: 14px; }
@@ -818,7 +864,8 @@ function _injectStyle() {
     .cpa-clegend .cpa-dot:first-child { margin-left: 0; }
     .cpa-hbars { display: flex; flex-direction: column; gap: 6px; }
     .cpa-hbrow { display: flex; align-items: center; gap: 8px; font-size: 11px; }
-    .cpa-hblbl { flex: none; width: 78px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+    .cpa-hblbl { flex: none; width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+    .cpa-chart-msvar { overflow-x: auto; }
     .cpa-hbtrack { flex: 1; height: 12px; background: var(--bg); border-radius: 3px; overflow: hidden; }
     .cpa-hbfill { display: block; height: 100%; border-radius: 3px; }
     .cpa-hbfill.bad { background: var(--danger); }

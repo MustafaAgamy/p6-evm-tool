@@ -147,6 +147,31 @@ def _chain_schedule(data_date, chain, ms_finish, ms_bl):
     return d
 
 
+def test_current_lane_orders_left_boxes_before_new():
+    from p6_critpath.analysis import build_report
+    # prev path Foundations→Roof ; current reroutes Foundations→MEP. Roof leaves, MEP enters.
+    a = _chain_schedule(datetime(2026, 6, 30), [('Foundations', 0.0), ('Roof', 0.0)],
+                        datetime(2027, 1, 5), datetime(2026, 12, 10))
+    b = _chain_schedule(datetime(2026, 7, 19), [('Foundations', 0.0), ('MEP', 0.0)],
+                        datetime(2027, 1, 23), datetime(2026, 12, 10))
+    rep = build_report({'previous': a, 'current': b}, 'two_updates')
+    gov = next(m for m in rep['milestone_paths'] if m['is_governing'])
+    cur = next(ln for ln in gov['lanes'] if ln['role'] == 'current')
+    states = [bx['state'] for bx in cur['boxes']]
+    # the LEFT box(es) must sit before the first NEW box (the reroute point), not dangle at the end
+    assert 'new' in states and 'left' in states
+    assert states.index('left') < states.index('new')
+
+
+def test_path_boxes_carry_planned_pct():
+    from p6_critpath.paths import path_boxes
+    d = _chain_schedule(datetime(2026, 6, 1), [('Foundations', 0.0), ('Structure', 0.0)],
+                        datetime(2026, 12, 10), datetime(2026, 12, 10))
+    r = path_boxes(d)
+    assert r['boxes'], 'expected work-front boxes'
+    assert all('planned' in bx for bx in r['boxes'])   # planned % computed per box
+
+
 def test_build_report_has_milestone_paths_and_census_per_role():
     from p6_critpath.analysis import build_report
     a = _chain_schedule(datetime(2026, 6, 30), [('Foundations', 0.0), ('Roof', 0.0)],

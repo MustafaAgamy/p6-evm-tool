@@ -470,6 +470,7 @@ class Handler(BaseHTTPRequestHandler):
         headless → PDF."""
         report = body.get('report') or {}
         sections = body.get('sections')
+        milestone_ids = body.get('milestone_ids')   # limit the driving-path section to these milestones
         preview = bool(body.get('preview'))
         output_path = body.get('output_path', '')
         if not preview and not output_path:
@@ -479,7 +480,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_critpath.exporters import render_html
             import subprocess, tempfile
-            html_content = render_html(report, sections)
+            html_content = render_html(report, sections, milestone_ids)
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

@@ -231,25 +231,31 @@ def _lane(lane):
         cls = {'new': 'bnew', 'left': 'bleft', 'done': 'bdone'}.get(st, '')
         flag = ('<div class="bflag bfnew">NEW ON PATH</div>' if st == 'new'
                 else '<div class="bflag bfleft">LEFT PATH</div>' if st == 'left' else '')
-        if st == 'left':
-            tf = '—' if b.get('driver_tf') is None else _sd(b.get('driver_tf'), ' wd')
-            last = f'<span class="bk">Float now</span><span class="bv" style="color:#16a34a">{tf}</span>'
-        else:
-            last = f'<span class="bk">Slip</span><span class="bv">{_sd(b.get("slip_days"))}</span>'
-        # A 'left' ghost sits off the live chain — no connecting arrow into it.
+        planned = '—' if b.get('planned') is None else f"{round(b['planned'])}%"
+        actual = '—' if b.get('pct') is None else f"{round(b['pct'])}%"
+        tf = '—' if b.get('driver_tf') is None else _sd(b.get('driver_tf'), ' wd')
+        # A box that LEFT the path stays inline with NO arrow before it; the arrow AFTER it is
+        # the leading arrow of the following box, so the chain flows on to the new path.
         arrow = '' if st == 'left' else '<div class="arw">▸</div>'
         boxes.append(
             f'{arrow}<div class="box {cls}">{flag}<div class="bt">{_e(b.get("name"))}</div>'
             f'<div class="bcrumb">{_e(b.get("crumb"))}</div>'
-            f'<div class="brow"><span class="bk">Actual</span><span class="bv">{round(b.get("pct") or 0)}%</span></div>'
-            f'<div class="brow"><span class="bk">Exp Finish</span><span class="bv">{_e(b.get("exp_finish"))}</span></div>'
-            f'<div class="brow last">{last}</div></div>')
+            f'<div class="bgrid">'
+            f'<div><div class="bk">Planned</div><div class="bv">{planned}</div></div>'
+            f'<div><div class="bk">Actual</div><div class="bv">{actual}</div></div>'
+            f'<div><div class="bk">BL finish</div><div class="bv">{_e(b.get("bl_finish"))}</div></div>'
+            f'<div><div class="bk">Expected</div><div class="bv">{_e(b.get("exp_finish"))}</div></div>'
+            f'<div class="bfull"><div class="bk">Slip / Total float</div><div class="bv">{_sd(b.get("slip_days"))} / {tf}</div></div>'
+            f'</div></div>')
     return (f'<div class="lane"><div class="lanehdr"><span class="lanetag lt-{role}">{_e(_ROLE_LABEL.get(role))}</span>'
             f'<span class="lanesub">{_e(lane.get("sub"))}</span></div><div class="chain">{"".join(boxes)}</div></div>')
 
 
-def _lanes(report):
+def _lanes(report, milestone_ids=None):
     blocks = report.get('milestone_paths', [])
+    if milestone_ids:                       # limit the PDF to the chosen milestone paths
+        wanted = set(milestone_ids)
+        blocks = [b for b in blocks if b.get('id') in wanted]
     if not any(any(ln.get('boxes') for ln in b.get('lanes', [])) for b in blocks):
         return '<div class="note">No governing critical path was found in these schedules.</div>'
     legend = ('<div class="cplegend"><i style="background:#fdecec;border:2px solid #dc2626"></i>New on critical path '
@@ -283,34 +289,37 @@ def _census(report):
     def cnt(o, n, p, m=False):
         return '—' if o.get(n) is None else f"{o[n]} · <b>{o[p]}%</b>{mark(o) if m else ''}"
 
-    def dvar(a, b, unit, bad_up):
+    def _red(txt):
+        # Every census variance is RED (Ibrahim's rule).
+        return f'<td class="num" style="color:#dc2626;font-weight:700">{txt}</td>' if txt is not None else '<td class="num">—</td>'
+
+    def _sum_over(key, rs):
+        vals = [c.get(r, {}).get(key) for r in rs if has(r)]
+        vals = [v for v in vals if v is not None]
+        return round(sum(vals), 1) if vals else None
+
+    def dcell(key, unit, cumulative, cum_roles, a_role, b_role):
+        if cumulative:                                     # cumulative sum of the % columns
+            s = _sum_over(key, cum_roles)
+            return _red(None if s is None else f'+{s}{unit}')
+        a, b = c.get(a_role, {}).get(key), c.get(b_role, {}).get(key)   # plain difference
         if a is None or b is None:
             return '<td class="num">—</td>'
-        dd = round(a - b, 2)
-        col = '#dc2626' if (dd > 0) == bad_up and dd != 0 else ('#16a34a' if dd != 0 else '#94a3b8')
-        return f'<td class="num" style="color:{col};font-weight:700">{"+" if dd > 0 else ""}{dd}{unit}</td>'
-
-    def dcell(a_role, b_role, key, unit, bad_up, show_var, sensitive):
-        if not show_var:
-            return '<td class="num"></td>'
-        if sensitive and src(a_role) != src(b_role):        # cross-method (float vs path) → not comparable
-            return '<td class="num">—</td>'
-        return dvar(c.get(a_role, {}).get(key), c.get(b_role, {}).get(key), unit, bad_up)
+        dd = round(a - b, 2 if key == 'cpli' else 0)
+        return _red(f'{"+" if dd > 0 else ""}{dd}{unit}')
 
     def colh(role, label):
         dd = c.get(role, {}).get('data_date')
         sub = f'<div class="thdd">{_e(dd)}</div>' if dd else ''
         return f'<th class="num">{label}{sub}</th>'
 
-    # (label, getter, delta-key, delta-unit, bad_up, show_variance, source_sensitive)
+    # (label, getter, delta-key, delta-unit, cumulative)  cumulative rows = Critical & Near.
     rows = [
-        ('Total activities', lambda o: '—' if o.get('total_activities') is None else o['total_activities'],
-         'total_activities', '', True, False, False),
-        ('Critical activities (TF ≤ 0)', lambda o: cnt(o, 'critical', 'critical_pct', True), 'critical_pct', ' pts', True, True, True),
-        ('Near-critical (0 &lt; TF &lt; 10 wd)', lambda o: cnt(o, 'near', 'near_pct'), 'near_pct', ' pts', True, True, True),
-        ('Critical path length (remaining, wd)', lambda o: '—' if o.get('path_length_wd') is None else f"{o['path_length_wd']} wd", 'path_length_wd', ' wd', True, True, False),
-        ('Total float · finish (wd)', lambda o: '—' if o.get('total_float_wd') is None else f"{o['total_float_wd']} wd", 'total_float_wd', ' wd', False, True, False),
-        ('CPLI', lambda o: _cpli(o.get('cpli')), 'cpli', '', False, True, False),
+        ('Critical activities (TF ≤ 0)', lambda o: cnt(o, 'critical', 'critical_pct', True), 'critical_pct', ' pts', True),
+        ('Near-critical (0 &lt; TF &lt; 10 wd)', lambda o: cnt(o, 'near', 'near_pct'), 'near_pct', ' pts', True),
+        ('Critical path length (remaining, wd)', lambda o: '—' if o.get('path_length_wd') is None else f"{o['path_length_wd']} wd", 'path_length_wd', ' wd', False),
+        ('Total float · finish (wd)', lambda o: '—' if o.get('total_float_wd') is None else f"{o['total_float_wd']} wd", 'total_float_wd', ' wd', False),
+        ('CPLI', lambda o: _cpli(o.get('cpli')), 'cpli', '', False),
     ]
     head = ('<tr><th>Measure</th>'
             + (colh('baseline', 'Baseline') if has('baseline') else '')
@@ -319,17 +328,20 @@ def _census(report):
             + ('<th class="num">Δ period</th>' if has('previous') else '')
             + ('<th class="num">Δ baseline</th>' if has('baseline') else '') + '</tr>')
     body = ''
-    for label, get, key, unit, bad_up, show_var, sensitive in rows:
+    for label, get, key, unit, cumulative in rows:
         body += ('<tr><td>' + label + '</td>'
                  + cell('baseline', get(bl)) + cell('previous', get(prev)) + cell('current', get(cur))
-                 + (dcell('current', 'previous', key, unit, bad_up, show_var, sensitive) if has('previous') else '')
-                 + (dcell('current', 'baseline', key, unit, bad_up, show_var, sensitive) if has('baseline') else '') + '</tr>')
+                 + (dcell(key, unit, cumulative, ['previous', 'current'], 'current', 'previous') if has('previous') else '')
+                 + (dcell(key, unit, cumulative, ['baseline', 'previous', 'current'], 'current', 'baseline') if has('baseline') else '') + '</tr>')
+    note = ('<div class="note">Critical &amp; near-critical variances are <b>cumulative</b> — the % columns summed '
+            '(this period = Previous + Current; vs baseline = Baseline + Previous + Current) — because near-critical '
+            'eroding means those activities crossed into critical.</div>')
     foot = ''
     if any(src(r) == 'path' for r in roles):
         foot = ('<div class="note"><b>†</b> This schedule has no activity float in its export, so its critical '
-                'count is the activities on the <b>longest path to completion</b> (not TF ≤ 0); variances against '
-                'it use a different basis and are shown as “—”.</div>')
-    return f'<table class="t"><thead>{head}</thead><tbody>{body}</tbody></table>{foot}'
+                'count is the activities on the <b>longest path to completion</b> (not TF ≤ 0) — a different basis '
+                'than a floated update.</div>')
+    return f'<table class="t"><thead>{head}</thead><tbody>{body}</tbody></table>{note}{foot}'
 
 
 def _milestones(report):
@@ -394,11 +406,11 @@ def _recommendation(report):
             f'<div class="recoh">Recommendation</div><ol class="reco">{rec}</ol>')
 
 
-def render_html(report, sections=None):
+def render_html(report, sections=None, milestone_ids=None):
     secs = [
         ('verdict', '', _banner(report), False),
         ('dashboard', 'Execution dashboard', _dashboard(report), False),
-        ('driving_path', 'Critical Path Analyzer', _lanes(report), True),
+        ('driving_path', 'Critical Path Analyzer', _lanes(report, milestone_ids), True),
         ('census', 'Critical & near-critical census', _census(report), False),
         ('milestones', 'Every milestone · finish comparison & path health', _milestones(report), False),
         ('float_migration', 'Float migration', _migration(report), False),
@@ -458,12 +470,15 @@ def render_html(report, sections=None):
       .lt-baseline {{ background: #eef2f7; color: #475569; }} .lt-previous {{ background: #fff6e9; color: #b45309; }} .lt-current {{ background: #eff6ff; color: #1d4ed8; }}
       .lanesub {{ color: #64748b; font-size: 10.5px; }}
       .chain {{ display: flex; align-items: stretch; flex-wrap: wrap; gap: 5px; }}
-      .arw {{ display: flex; align-items: center; color: #94a3b8; font-weight: 800; font-size: 15px; }}
+      .arw {{ display: flex; align-items: center; color: #1d4ed8; font-weight: 900; font-size: 26px; padding: 0 1px; }}
       .msbox {{ flex: none; width: 150px; border: 2px solid #1d4ed8; border-radius: 10px; padding: 8px 10px; background: #eff6ff; }}
       .msflag {{ font-size: 9px; text-transform: uppercase; color: #1d4ed8; margin-bottom: 4px; }}
       .mst {{ font-size: 11.5px; font-weight: 800; color: #1d4ed8; margin-bottom: 5px; }}
       .msr {{ display: flex; justify-content: space-between; font-size: 10.5px; margin: 2px 0; }} .msr span {{ color: #94a3b8; }}
-      .box {{ flex: none; width: 150px; border: 1px solid #e2e8f0; border-radius: 9px; padding: 7px 9px; position: relative; }}
+      .box {{ flex: none; width: 176px; border: 1px solid #e2e8f0; border-radius: 9px; padding: 7px 9px; position: relative; }}
+      .bgrid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; margin-top: 2px; }}
+      .bgrid .bk {{ font-size: 8px; text-transform: uppercase; }} .bgrid .bv {{ font-size: 10.5px; }}
+      .bfull {{ grid-column: 1 / -1; border-top: 1px dashed #e2e8f0; padding-top: 3px; margin-top: 1px; }}
       .box.bdone {{ border-color: #16a34a; }}
       .box.bnew {{ border: 2px solid #dc2626; background: #fdf4f4; }}
       .box.bleft {{ border: 1px dashed #cbd5e1; background: #f6f7f9; }}

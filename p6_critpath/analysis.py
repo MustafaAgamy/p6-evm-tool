@@ -212,10 +212,16 @@ def _lanes_for_milestone(schedules, roles, milestone_code, summary_level):
             entered = {_box_key(b) for b in diff['entered']}
             for b in boxes:
                 b['state'] = 'new' if _box_key(b) in entered else ('done' if b.get('complete') else 'stayed')
-            for gb in diff['left']:                       # dropped work fronts, shown ghosted
+            left_boxes = []
+            for gb in diff['left']:                       # work fronts that left the path
                 g = dict(gb)
                 g['state'] = 'left'
-                boxes.append(g)
+                left_boxes.append(g)
+            # Insert the LEFT boxes inline at the reroute point — right before the first NEW box —
+            # so the chain reads shared/stayed → [LEFT] → arrow → NEW (Ibrahim's sketch), instead
+            # of dangling the left boxes at the very end.
+            insert_at = next((i for i, b in enumerate(boxes) if b['state'] == 'new'), len(boxes))
+            boxes = boxes[:insert_at] + left_boxes + boxes[insert_at:]
         else:
             for b in boxes:
                 b['state'] = 'done' if b.get('complete') else 'stayed'

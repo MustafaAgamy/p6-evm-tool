@@ -133,6 +133,27 @@ def _baseline_finish_of(data, act):
     return bl.get('planned_finish') if bl else None
 
 
+def _planned_pct(data, act, data_date, ref_cal):
+    """The activity's PLANNED progress by the data date — the baseline schedule %: the share of
+    its baseline duration (in working days) that should be done by the data date. 0 before its
+    baseline start, 100 after its baseline finish. None when it has no baseline dates."""
+    bl = (getattr(data, 'baseline_by_id', None) or {}).get(act.get('id'))
+    if not bl or not data_date:
+        return None
+    bs, bf = bl.get('planned_start'), bl.get('planned_finish')
+    if not (bs and bf):
+        return None
+    if data_date <= bs:
+        return 0.0
+    if data_date >= bf:
+        return 1.0
+    total = _wd_between(ref_cal, bs, bf)
+    done = _wd_between(ref_cal, bs, data_date)
+    if not total or total <= 0:
+        return 1.0
+    return max(0.0, min(1.0, done / total))
+
+
 def _construction_ids(data):
     try:
         from p6_compare.report import _construction_codes
@@ -153,6 +174,7 @@ def path_boxes(data, milestone_code=None, summary_level=0, construction_only=Tru
     chain = trace_driving_chain(graph, next(k for k, v in data.activities.items() if v is milestone))
     wmap = getattr(data, 'wbs', None) or {}
     ref_cal = _ref_calendar(data, milestone)
+    data_date = (getattr(data, 'project', None) or {}).get('data_date')
     cons = _construction_ids(data) if construction_only else None
 
     # subtree index: wbs ancestor -> its activities
@@ -180,11 +202,16 @@ def path_boxes(data, milestone_code=None, summary_level=0, construction_only=Tru
     for wid in box_order:
         acts = subtree.get(wid, [])
         w = wa = 0.0
+        pw = pp = 0.0                    # planned-% weight + weighted planned (over activities with a baseline)
         bls, exps, tfs = [], [], []
         for a in acts:
             cw = _cost_weight(data, a) or (a.get('planned_duration') or 1.0)
             w += cw
             wa += cw * (a.get('percent_complete') or 0.0)
+            pl = _planned_pct(data, a, data_date, ref_cal)
+            if pl is not None:
+                pw += cw
+                pp += cw * pl
             bf = _baseline_finish_of(data, a)
             ff = _forecast_finish(a)
             if bf:
@@ -194,6 +221,7 @@ def path_boxes(data, milestone_code=None, summary_level=0, construction_only=Tru
             if a.get('total_float_days') is not None:
                 tfs.append(a['total_float_days'])
         pct = round(wa / w * 100, 1) if w else 0.0
+        planned = round(pp / pw * 100, 1) if pw else None
         bl_fin = max(bls) if bls else None
         exp_fin = max(exps) if exps else None
         driver = box_driver[wid]
@@ -202,6 +230,7 @@ def path_boxes(data, milestone_code=None, summary_level=0, construction_only=Tru
             'name': _wbs_name(wid, wmap) or driver.get('name') or driver.get('id'),
             'crumb': _crumb(wid, wmap),
             'pct': pct,
+            'planned': planned,
             'complete': pct >= 100.0,
             'bl_finish': _iso(bl_fin),
             'exp_finish': _iso(exp_fin),
