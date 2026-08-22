@@ -31,6 +31,13 @@
           <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
         </svg>
       </button>
+      <button class="sb-item" id="sb-db-btn" title="Construction Database — downloadable schedules">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3"/>
+          <path d="M3 5v14a9 3 0 0 0 18 0V5"/>
+          <path d="M3 12a9 3 0 0 0 18 0"/>
+        </svg>
+      </button>
       <button class="sb-item disabled" title="Reports (coming soon)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="20" x2="18" y2="10"/>
@@ -335,6 +342,24 @@
             <div id="kb-tree"></div>
           </aside>
           <main class="kb-detailwrap"><div id="kb-detail"></div></main>
+        </div>
+      </section>
+
+      <!-- Construction Database — downloadable schedules by type; its own page -->
+      <section class="kb-section hidden" id="kb-database-section">
+        <div class="kb-head">
+          <div class="section-label">Construction Database · Schedules</div>
+          <div class="kb-subtitle">Download a P6 baseline for any project type — clean, or with typical gaps to see the review
+            flag them — and add your own imported schedules to grow the tool's knowledge.
+            <span class="kb-eps-badge">Local &amp; private · <span id="db-total">…</span></span></div>
+        </div>
+        <div class="kb-grid">
+          <aside class="kb-eps">
+            <input class="kb-search" id="db-search" placeholder="🔍  Filter project types…" aria-label="Filter project types">
+            <p class="kb-hint">Each type holds <b>generated examples</b> plus any <b>schedules you've added</b>. Nothing leaves your PC.</p>
+            <div id="db-tree"></div>
+          </aside>
+          <main class="kb-detailwrap"><div id="db-detail"></div></main>
         </div>
       </section>
 

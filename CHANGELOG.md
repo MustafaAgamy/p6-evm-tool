@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ---
 
 ## [Unreleased]
+### Added — Construction Database (downloadable schedules + contribute-to-learn)
+- **New "Construction Database" sidebar section** — a local library of P6 schedules grouped by project type (EPS tree). For every type you can **download a ready-made baseline**: a **clean** reference (scores ~100) or one carrying **typical gaps** (a few illogical links + missing activities) so you can import it, open the Constructability review and watch it flag them. Generated as P6 XML — import & F9.
+- **Add your own schedules** — a **➕ Add to Database** button on the Constructability review files your imported schedule under its detected type; it joins that type's library *and* feeds the "Learned from your projects" engine, so the tool's knowledge grows from your real projects. **Local & private** — nothing leaves the PC. A shared cross-company database remains a future edition.
+- Isolated `p6_kb/database.py` + `p6_kb/examples.py`; `GET /api/database`, `POST /api/database/{add,example,download}`; EVM/audit untouched.
+
 ### Added — Construction Knowledge Base greatly expanded (now covers most project types)
 - The Constructability Knowledge Base now ships **88 project sub-types** across Buildings, Infrastructure, Industrial, Energy and Landscape — every one **selectable in the sub-type picker** and reviewable **offline at no cost**. All are **starter drafts** for a planning engineer to curate.
 - **New factory types:** MDF / wood panel, reinforcement (rebar), precast concrete, ready-mix batching plant, asphalt / hot-mix, ceramic & tile, brick & block, gypsum board, pipe (steel & HDPE), cable & wire, textile, plastics / injection-moulding, paint & coatings, sugar, tyre & rubber, battery / gigafactory, furniture — joining the existing glass, cement, steel, aluminium, automotive, food & beverage, pharmaceutical, pulp & paper, fertilizer and semiconductor plants.

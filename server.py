@@ -34,6 +34,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_settings_get()
         elif self.path == '/api/kb':
             self._handle_kb_list()
+        elif self.path == '/api/database':
+            self._handle_database_list()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -114,6 +116,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_starter_xml(body)
         elif self.path == '/api/kb/learned-file':
             self._handle_kb_learned_file(body)
+        elif self.path == '/api/database/add':
+            self._handle_database_add(body)
+        elif self.path == '/api/database/example':
+            self._handle_database_example(body)
+        elif self.path == '/api/database/download':
+            self._handle_database_download(body)
         elif self.path == '/api/constructability/report':
             self._handle_constructability_report(body)
         elif self.path == '/api/constructability/excel':
@@ -668,6 +676,81 @@ class Handler(BaseHTTPRequestHandler):
                 json.dump(entry, f, ensure_ascii=False, indent=2)
             self._json(200, {'ok': True, 'type': forced_type,
                              'activities': len(entry['activities']), 'wbs': len(entry['wbs'])})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/database (Construction Database — schedules by project type) ───
+    def _handle_database_list(self):
+        """Every KB type with its contributed files; generated examples are always
+        available per type. Offline, no schedule needed."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.database import list_database
+            self._json(200, {'ok': True, **list_database()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_database_add(self, body):
+        """Contribute the currently-imported schedule to the Construction Database:
+        copy it into the per-user library under its detected type and index it. The
+        import already fed the learning engine; this keeps the file too."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_kb.database import add_import
+            data = parse_file(resolved)
+            rec = add_import(resolved, data, forced_type=body.get('forced_type'))
+            if rec is None:
+                self._json(200, {'ok': False, 'error': 'Could not identify the project type of this schedule — pick a type in the review and try again.'})
+                return
+            self._json(200, {'ok': True, **rec})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_database_example(self, body):
+        """Generate a downloadable example baseline for a type — a clean reference
+        or a 'with typical gaps' one — as P6 XML written to output_path."""
+        forced_type = body.get('type', '')
+        output_path = body.get('output_path', '')
+        gappy = bool(body.get('gappy'))
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.kb import load_kb
+            from p6_kb.examples import write_example_xml
+            entry = next((e for e in load_kb() if e.get('type') == forced_type), None)
+            if not entry:
+                self._json(200, {'ok': False, 'error': f'Unknown project type: {forced_type}'})
+                return
+            res = write_example_xml(entry, os.path.abspath(output_path), gappy=gappy)
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_database_download(self, body):
+        """Copy a contributed file out of the Construction Database to output_path."""
+        forced_type = body.get('type', '')
+        filename = body.get('filename', '')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import shutil
+            from p6_kb.database import contributed_path
+            src = contributed_path(forced_type, filename)
+            if not src:
+                self._json(200, {'ok': False, 'error': 'File not found in the database.'})
+                return
+            shutil.copy2(src, os.path.abspath(output_path))
+            self._json(200, {'ok': True, 'filename': os.path.basename(output_path)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

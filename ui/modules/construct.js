@@ -30,6 +30,21 @@ function _nameStack(list) {
   }).join('');
 }
 
+// One combined cell per link — ID over name — so the table needs far fewer
+// columns and fits the window (and the landscape PDF) instead of being trimmed.
+function _linkCell(list) {
+  if (!list || !list.length) return '<span class="mut">—</span>';
+  return list.map(l => {
+    const cls = kindClass(l.kind);
+    const id = escapeHtml(l.id || '');
+    const nm = escapeHtml(l.name || '');
+    const rel = l.rel ? ` <span class="ai-rel">${escapeHtml(l.rel)}</span>` : '';
+    const tag = l.kind === 'remove' ? ' <span class="ai-tag-rem">REM</span>'
+              : l.kind === 'add' ? ' <span class="ai-tag-add">ADD</span>' : '';
+    return `<div class="ai-lk ${cls}"><b class="mono">${cls === 'ai-rem' ? `<s>${id}</s>` : id}</b>${rel}${tag}${nm ? `<div class="ai-lknm">${nm}</div>` : ''}</div>`;
+  }).join('');
+}
+
 function _illogicalTable(rows) {
   if (!rows || !rows.length) {
     return '<p class="ai-empty">No illogical relationships flagged — the sequence logic matches the Knowledge Base rules.</p>';
@@ -41,27 +56,27 @@ function _illogicalTable(rows) {
     <td class="mono">${escapeHtml(r.activity_id)}</td>
     <td>${escapeHtml(r.activity_name)}</td>
     <td class="mut" title="${escapeHtml(r.wbs_path || '')}">${escapeHtml(r.wbs_path || '')}</td>
-    <td class="sepL">${_idStack(r.current_preds)}</td><td>${_nameStack(r.current_preds)}</td>
-    <td>${_idStack(r.current_succs)}</td><td>${_nameStack(r.current_succs)}</td>
+    <td class="sepL">${_linkCell(r.current_preds)}</td>
+    <td>${_linkCell(r.current_succs)}</td>
     <td class="ai-why sepL">${escapeHtml(r.why || '')}</td>
-    <td class="sepL">${_idStack(r.suggested_preds)}</td><td>${_nameStack(r.suggested_preds)}</td>
-    <td>${_idStack(r.suggested_succs)}</td><td>${_nameStack(r.suggested_succs)}</td>
-    <td>${impactPill(r.impact)}</td>
-    <td><span class="ai-basis">${escapeHtml(r.source || '')}</span></td></tr>`).join('');
-  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table ai-table ai-fit">
+    <td class="sepL">${_linkCell(r.suggested_preds)}</td>
+    <td>${_linkCell(r.suggested_succs)}</td>
+    <td>${impactPill(r.impact)}</td></tr>`).join('');
+  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table ai-table ai-illog">
+    <colgroup><col style="width:3%"><col style="width:9%"><col style="width:15%"><col style="width:13%">
+      <col style="width:11%"><col style="width:11%"><col style="width:15%"><col style="width:11%"><col style="width:11%"><col style="width:6%"></colgroup>
     <thead>
       <tr><th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th><th rowspan="2">WBS Path</th>
-        <th colspan="4" class="ai-gh-cur sepL">Current driving links</th>
+        <th colspan="2" class="ai-gh-cur sepL">Current driving links</th>
         <th rowspan="2" class="sepL">Why it's illogical</th>
-        <th colspan="4" class="ai-gh-sug sepL">Suggested links</th>
-        <th rowspan="2">Impact</th><th rowspan="2">Source</th></tr>
-      <tr><th class="sepL">Pred. ID</th><th>Pred. Name</th><th>Succ. ID</th><th>Succ. Name</th>
-        <th class="sepL">Pred. ID</th><th>Pred. Name</th><th>Succ. ID</th><th>Succ. Name</th></tr>
+        <th colspan="2" class="ai-gh-sug sepL">Suggested links</th>
+        <th rowspan="2">Impact</th></tr>
+      <tr><th class="sepL">Predecessor</th><th>Successor</th>
+        <th class="sepL">Predecessor</th><th>Successor</th></tr>
     </thead><tbody>${body}</tbody></table></div>
-    <div class="ai-foot">Most critical first. Activities can have several predecessors / successors — all listed;
-      scroll sideways for the suggested-links columns.
+    <div class="ai-foot">Most critical first. Each cell shows the link's <b>ID</b> over its name; an activity can have several — all listed.
       <span class="ai-tag-add" style="margin:0">ADD</span> add a link ·
-      <span class="ai-tag-rem" style="margin:0">REMOVE</span> a redundant link to delete (struck through).</div>`;
+      <span class="ai-tag-rem" style="margin:0">REM</span> a redundant link to remove (struck through).</div>`;
 }
 
 function _missingTable(rows) {
@@ -258,6 +273,15 @@ function _typeSelect(report) {
   return `<select id="ct-type" class="ct-select"><option value="">— auto-detect —</option>${opts}</select>`;
 }
 
+// Type dropdown with a caller-chosen id, pre-selected to the detected type (used
+// by the "Add to Database" EPS picker so the user confirms/changes the filing).
+function _typeSelectFor(report, id) {
+  const cur = state.constructForcedType || (report.detected ? report.detected.type : '');
+  const opts = (report.available_types || []).map(t =>
+    `<option value="${escapeHtml(t.type)}" ${t.type === cur ? 'selected' : ''}>${escapeHtml(t.category)} › ${escapeHtml(t.type)}</option>`).join('');
+  return `<select id="${id}" class="ct-select">${opts}</select>`;
+}
+
 // ── report + prompt rendering ──────────────────────────────────────────────
 
 function renderReport(report) {
@@ -271,6 +295,8 @@ function renderReport(report) {
       <div class="fb"><span class="k">Detected project sub-type</span>
         <span class="v ai-type">${escapeHtml(report.project_type)}</span> ${draft}</div>
       <div class="fb"><span class="k">Engine</span><span class="v">Rule + Knowledge Base · offline</span></div>
+      ${report.knowledge_enhanced ? `<div class="fb"><span class="k">Knowledge</span>
+        <span class="v ai-enh" title="Checking against the standard plus what the tool learned from schedules you added for this type">✦ Standard + your ${(report.learned && report.learned.imports) || 0} schedule(s)</span></div>` : ''}
       <div class="fb"><span class="k">Change sub-type</span>${_typeSelect(report)}</div>
     </div>
     <div class="ai-banner"><span class="spark">🧠</span>
@@ -278,8 +304,15 @@ function renderReport(report) {
       Advisory: review before acting; it never changes your schedule. Kept separate from the exact rule-based audits.</span></div>
 
     <div class="xd-exportbar">
+      <button class="btn-secondary" id="cx-adddb">➕ Add to Database</button>
       <button class="btn-secondary" id="cx-xls">📊 Export Excel</button>
       <button class="btn-primary" id="cx-pdf">📄 Print Preview</button>
+    </div>
+    <div class="cx-eps hidden" id="cx-eps-row">
+      <label for="cx-eps-select">Add this schedule to the Database under (EPS):</label>
+      ${_typeSelectFor(report, 'cx-eps-select')}
+      <button class="btn-primary" id="cx-eps-save">Save to Database</button>
+      <span id="cx-eps-note" class="cx-eps-note"></span>
     </div>
     ${_dashboard(report)}
     <div class="mod-sec">Illogical relationships &amp; better logic</div>
@@ -298,6 +331,15 @@ function renderReport(report) {
   if (pdf) pdf.addEventListener('click', () => previewReport(pdf));
   const xls = document.getElementById('cx-xls');
   if (xls) xls.addEventListener('click', () => exportReport('excel', xls));
+  const adb = document.getElementById('cx-adddb');
+  if (adb) adb.addEventListener('click', () => {
+    document.getElementById('cx-eps-row')?.classList.toggle('hidden');
+  });
+  const save = document.getElementById('cx-eps-save');
+  if (save) save.addEventListener('click', () => {
+    const s = document.getElementById('cx-eps-select');
+    addToDatabase((s && s.value) || null, save);
+  });
   document.querySelectorAll('.lp-act').forEach(b =>
     b.addEventListener('click', () => exportLearned(b.dataset.lact, b.dataset.type, b)));
 }
@@ -364,6 +406,39 @@ async function saveReportPdf(rep) {
   const data = await resp.json();
   if (!data.ok) { showError(data.error || 'PDF generation failed.'); return false; }
   return true;
+}
+
+async function addToDatabase(type, btn) {
+  const rep = state.constructReport;
+  const note = document.getElementById('cx-eps-note');
+  if (!rep || (!state.currentXmlPath && !state.currentCachedPath)) return;
+  if (!type) { if (note) { note.textContent = 'Pick a project type first.'; note.className = 'cx-eps-note warn'; } return; }
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (note) { note.textContent = ''; note.className = 'cx-eps-note'; }
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/database/add`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        xml_path: state.currentXmlPath, cached_path: state.currentCachedPath, forced_type: type,
+      }),
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      showError(data.error || 'Could not add to the Construction Database.');
+      if (note) { note.textContent = data.error || 'Failed.'; note.className = 'cx-eps-note warn'; }
+    } else {
+      state.dbLibrary = null;   // force the Database + learned views to reload
+      if (note) {
+        note.textContent = `✓ Added to ${data.type} — ${data.activities} activities. It now also teaches the tool this project type.`;
+        note.className = 'cx-eps-note ok';
+      }
+    }
+  } catch {
+    showError('Could not reach the local server. Try restarting the app.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
 }
 
 async function exportReport(kind, btn) {
