@@ -96,6 +96,19 @@ def test_update_counts(test_server, tmp_path):
     assert f['ok'] is True and f['counts']['total'] >= 1
 
 
+def test_update_scope(test_server, tmp_path):
+    path = _sample(tmp_path)
+    _, data = _post_json(test_server, '/api/update/scope', {'xml_path': path, 'types': ['Discipline']})
+    assert data['ok'] is True, data
+    scope = data['scope']
+    assert scope['code_type'] == 'Discipline'
+    rows = scope['rows']
+    assert rows, data
+    assert all('weight_pct' in r for r in rows)
+    # the fixture's costed Civil activities are the whole cost-loaded scope
+    assert any(r['value'] == 'Civil' for r in rows)
+
+
 def test_update_analyze_missing_file(test_server):
     _, data = _post_json(test_server, '/api/update/analyze', {'xml_path': 'nope.xml'})
     assert data['ok'] is False and 'not' in data['error'].lower()

@@ -13,6 +13,14 @@ def _iso(d):
     return d.strftime('%Y-%m-%d') if d else None
 
 
+def _from_iso(s):
+    from datetime import datetime
+    try:
+        return datetime.strptime(str(s)[:10], '%Y-%m-%d') if s else None
+    except Exception:
+        return None
+
+
 def _weight(data, act):
     """Activity's share — baseline budget (BAC) when the file carries one, else the current
     cost, else planned duration. Matches how the rest of the tool weights progress."""
@@ -82,22 +90,28 @@ def _days_between(cal, d1, d2):
 
 # ── Section 1 · Time Status ──────────────────────────────────────────────────
 
-def time_status(data, metrics):
+def time_status(data, metrics, span_start=None, span_finish=None):
     """How much of the baseline's calendar has been used up, and the cost-earned vs
     cost-planned progress against it.
 
     - elapsed: calendar days (working AND non-working) from the baseline start to the
       data date, over the whole baseline duration to the baseline FINISH. When the data
       date passes the baseline finish it reads 100% + `exceeded_days` rather than >100%.
+      The span defaults to the driving path — from the start milestone that releases it to
+      the governing completion milestone (so procurement/mobilisation before the works don't
+      count) — falling back to the earliest/latest baseline dates when no path is supplied.
     - actual %: Earned Value ÷ Budget across all cost-loaded activities (Ibrahim's rule).
     - planned %: PV ÷ Budget the same way (time-based planned %).
     """
     data_date = (getattr(data, 'project', None) or {}).get('data_date')
     bl = getattr(data, 'baseline_by_id', None) or {}
-    starts = [b['planned_start'] for b in bl.values() if b.get('planned_start')]
-    finishes = [b['planned_finish'] for b in bl.values() if b.get('planned_finish')]
-    bl_start = min(starts) if starts else None
-    bl_finish = max(finishes) if finishes else None
+    if span_start and span_finish:
+        bl_start, bl_finish = span_start, span_finish
+    else:
+        starts = [b['planned_start'] for b in bl.values() if b.get('planned_start')]
+        finishes = [b['planned_finish'] for b in bl.values() if b.get('planned_finish')]
+        bl_start = min(starts) if starts else None
+        bl_finish = max(finishes) if finishes else None
 
     elapsed_pct = exceeded_days = total_days = elapsed_days = None
     if bl_start and bl_finish and data_date and bl_finish > bl_start:
@@ -131,8 +145,9 @@ def time_status(data, metrics):
             p_sum += w * p
             p_w += w
 
-    actual_pct = round(a_sum / tot_w * 100, 1) if tot_w else None
-    planned_pct = round(p_sum / p_w * 100, 1) if p_w else None
+    # Two decimals on the cost-earned/planned % so Section 1 reads like P6 (e.g. 40.43% / 61.42%).
+    actual_pct = round(a_sum / tot_w * 100, 2) if tot_w else None
+    planned_pct = round(p_sum / p_w * 100, 2) if p_w else None
 
     # The money behind the percentages — Planned Value, Earned Value and their variance,
     # straight from metrics.compute (ties to the EVM tab).
@@ -142,10 +157,10 @@ def time_status(data, metrics):
 
     behind_clock = None
     if actual_pct is not None and elapsed_pct is not None:
-        behind_clock = round(elapsed_pct - actual_pct, 1)   # +ve = behind the clock
+        behind_clock = round(elapsed_pct - actual_pct, 2)   # +ve = behind the clock
     behind_plan = None
     if actual_pct is not None and planned_pct is not None:
-        behind_plan = round(planned_pct - actual_pct, 1)    # +ve = behind plan
+        behind_plan = round(planned_pct - actual_pct, 2)    # +ve = behind plan
 
     return {
         'elapsed_pct': elapsed_pct,
@@ -275,22 +290,39 @@ def _default_scope_code(types):
 
 
 def _recommendation(rows, code_type):
-    """Advice text driven by the largest cost weight — recomputed for whatever code is chosen."""
+    """Smarter advice: prioritise the scope with the largest cost weight that is ALSO behind
+    plan (biggest, most-slipped part of the scope). Falls back to the largest weight when
+    nothing is behind. Recomputed for whatever code(s) are chosen."""
     if not rows:
         return []
+    def gap(r):
+        return round((r.get('planned') or 0.0) - (r.get('actual') or 0.0), 1)
+    behind = [r for r in rows if gap(r) > 0.5]
+    if behind:
+        pick = max(behind, key=lambda r: r['weight_pct'])
+        g = gap(pick)
+        out = [f"Prioritise {pick['value']} — it is the largest weight ({pick['weight_pct']:.1f}%) that is behind "
+               f"plan ({pick['actual']:.1f}% actual vs {pick['planned']:.1f}% planned, {g:.1f} points behind) in "
+               f"the {code_type} scope. Focusing here moves the biggest, most-slipped part of the scope."]
+        others = [r for r in behind if r is not pick]
+        if others:
+            r2 = max(others, key=lambda r: r['weight_pct'] * gap(r))
+            out.append(f"Also watch {r2['value']} — {r2['weight_pct']:.1f}% of the scope and "
+                       f"{gap(r2):.1f} points behind plan.")
+        return out
     top = rows[0]
-    out = [f"It is recommended to work on {top['value']} as it represents the largest weight "
-           f"({top['weight_pct']:.1f}%) in the {code_type} scope."]
-    if len(rows) >= 3:
-        share = round(sum(r['weight_pct'] for r in rows[:3]), 1)
-        out.append(f"Together with {rows[1]['value']} ({rows[1]['weight_pct']:.1f}%) and "
-                   f"{rows[2]['value']} ({rows[2]['weight_pct']:.1f}%), these three carry {share}% of the scope.")
-    return out
+    return [f"It is recommended to work on {top['value']} as it represents the largest weight "
+            f"({top['weight_pct']:.1f}%) in the {code_type} scope — and it is on or ahead of plan."]
 
 
 def scope_weights(data, code_type, construction_only=True):
     """Each activity-code value's share of the cost-loaded scope (baseline budget), heaviest
-    first, plus a recommendation naming the largest. Construction/execution activities only."""
+    first, plus a recommendation naming the largest. Construction/execution activities only.
+    `code_type` may be a single dimension or a LIST of dimensions — with several, activities are
+    weighted by the COMBINATION (an activity counts only when it carries every chosen code)."""
+    types = [t for t in (code_type if isinstance(code_type, (list, tuple)) else [code_type]) if t]
+    label = ' · '.join(types)
+    data_date = (getattr(data, 'project', None) or {}).get('data_date')
     cons = None
     if construction_only:
         try:
@@ -298,26 +330,38 @@ def scope_weights(data, code_type, construction_only=True):
             cons = _construction_codes(data) or None
         except Exception:
             cons = None
-    agg = {}
+    agg = {}   # key -> [cost, planned_num, planned_den, actual_num]
     total = 0.0
     for a in data.activities.values():
         if a.get('task_type') in _MILESTONES:
             continue
         if cons is not None and a.get('id') not in cons:
             continue
-        val = (a.get('activity_codes') or {}).get(code_type)
-        if not val:
+        codes = a.get('activity_codes') or {}
+        vals = [codes.get(t) for t in types]
+        if any(v is None for v in vals):
             continue
         w = _cost_weight(data, a)
         if w <= 0:
             continue
-        agg[val] = agg.get(val, 0.0) + w
+        key = ' · '.join(vals)
+        e = agg.setdefault(key, [0.0, 0.0, 0.0, 0.0])
+        e[0] += w
+        pl = activity_planned_pct(a, data.baseline_by_id, data_date, data.calendars)
+        if pl is not None:
+            e[1] += w * pl
+            e[2] += w
+        e[3] += w * (a.get('percent_complete') or 0.0)
         total += w
-    rows = [{'value': v, 'bac': round(w), 'weight_pct': round(w / total * 100, 1)}
-            for v, w in agg.items()] if total > 0 else []
+    rows = []
+    if total > 0:
+        for v, (cost, pn, pd, an) in agg.items():
+            rows.append({'value': v, 'bac': round(cost), 'weight_pct': round(cost / total * 100, 1),
+                         'planned': round(pn / pd * 100, 1) if pd else 0.0,
+                         'actual': round(an / cost * 100, 1) if cost else 0.0})
     rows.sort(key=lambda r: -r['weight_pct'])
-    return {'code_type': code_type, 'total': round(total), 'rows': rows,
-            'recommendation': _recommendation(rows, code_type)}
+    return {'code_type': label, 'total': round(total), 'rows': rows,
+            'recommendation': _recommendation(rows, label)}
 
 
 def scope_all(data):
@@ -605,8 +649,16 @@ def build_report_from_data(data, metrics, summary_level=0):
     'attach a baseline' state rather than wrong numbers."""
     has_baseline = bool(getattr(data, 'baseline_by_id', None))
     proj = getattr(data, 'project', None) or {}
-    ts = time_status(data, metrics)
     cp = critical_path(data, summary_level=summary_level)
+    # Time Status runs over the DRIVING PATH's span — from the start milestone that releases it
+    # to the governing completion milestone — so procurement/mobilisation before the works don't
+    # inflate "time elapsed". Falls back to the earliest/latest baseline dates when there's no path.
+    span_start = span_finish = None
+    if cp.get('charts'):
+        sm = cp['charts'][0].get('start_milestone') or {}
+        span_start = _from_iso(sm.get('date'))
+    span_finish = _from_iso((cp.get('milestone') or {}).get('baseline_finish'))
+    ts = time_status(data, metrics, span_start, span_finish)
     return {
         'project_name': proj.get('name') or proj.get('id') or 'Project',
         'data_date': _iso(proj.get('data_date')),

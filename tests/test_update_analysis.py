@@ -36,10 +36,11 @@ def _parse_and_compute(xml):
         os.unlink(path)
 
 
-def _xml(data_date, acts, rels=None, wbs=None, milestones=None):
+def _xml(data_date, acts, rels=None, wbs=None, milestones=None, start_milestones=None):
     """acts: (oid, code, name, pct0to1, start, finish, dur_hr, wbs_oid, codes_dict).
     baseline planned dates == the given start/finish. rels: (pred_oid, succ_oid).
-    wbs: list of (oid, name, parent). milestones: (oid, code, name, finish, wbs_oid)."""
+    wbs: list of (oid, name, parent). milestones: (oid, code, name, finish, wbs_oid).
+    start_milestones: (oid, code, name, date, wbs_oid) — a Start Milestone that releases work."""
     wbs = wbs or [(100, 'Proj', '')]
     body = baseline = ras = wbs_xml = codes_defs = ''
     # activity-code type + value catalogue
@@ -89,6 +90,16 @@ def _xml(data_date, acts, rels=None, wbs=None, milestones=None):
         baseline += (f'<Activity><ObjectId>{oid + 1000}</ObjectId><Id>{code}</Id>'
                      f'<PlannedFinishDate>{finish}T00:00:00</PlannedFinishDate></Activity>\n')
 
+    for oid, code, name, date, wbs_oid in (start_milestones or []):
+        body += (f'<Activity><ObjectId>{oid}</ObjectId><Id>{code}</Id><Name>{name}</Name>'
+                 f'<Type>Start Milestone</Type><WBSObjectId>{wbs_oid}</WBSObjectId><CalendarObjectId></CalendarObjectId>'
+                 f'<PercentComplete>0</PercentComplete><PlannedDuration>0</PlannedDuration><RemainingDuration>0</RemainingDuration>'
+                 f'<RemainingEarlyStartDate>{date}T00:00:00</RemainingEarlyStartDate>'
+                 f'<RemainingEarlyFinishDate>{date}T00:00:00</RemainingEarlyFinishDate></Activity>\n')
+        baseline += (f'<Activity><ObjectId>{oid + 1000}</ObjectId><Id>{code}</Id>'
+                     f'<PlannedStartDate>{date}T00:00:00</PlannedStartDate>'
+                     f'<PlannedFinishDate>{date}T00:00:00</PlannedFinishDate></Activity>\n')
+
     rel_xml = ''.join(
         f'<Relationship><PredecessorActivityObjectId>{p}</PredecessorActivityObjectId>'
         f'<SuccessorActivityObjectId>{s}</SuccessorActivityObjectId><Type>Finish to Start</Type><Lag>0</Lag></Relationship>\n'
@@ -129,6 +140,31 @@ def test_time_status_exceeds_baseline():
     assert ts['exceeded_days'] == (2026 - 2025) * 0 + 60  # 01 Jan→01 Mar 2026 = 60 days
     # 31 Dec 2025 → 01 Mar 2026 = 60 days
     assert ts['exceeded_days'] == 60
+
+
+def test_time_status_explicit_span():
+    # Baseline spans 01 Jan → 31 Dec 2025, data date 02 Jul. The no-span call clocks the whole
+    # baseline (≈50% elapsed). Passing an explicit narrower span (01 Apr → 31 Dec) must re-measure
+    # "time elapsed" over THAT window only — (02 Jul − 01 Apr)=92 d over (31 Dec − 01 Apr)=274 d ≈ 33.6%.
+    from datetime import datetime
+    xml = _xml('2025-07-02', [
+        (10, 'A1', 'Act 1', 1.0, '2025-01-01', '2025-06-30', 80, 100, {}),
+        (11, 'A2', 'Act 2', 0.0, '2025-07-01', '2025-12-31', 80, 100, {}),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    full = time_status(data, metrics)
+    assert 48 <= full['elapsed_pct'] <= 52, full['elapsed_pct']   # whole-baseline clock ≈ 50%
+
+    span = time_status(data, metrics,
+                       span_start=datetime(2025, 4, 1), span_finish=datetime(2025, 12, 31))
+    # hand-computed 92/274 → 33.6%; must differ from the whole-baseline reading
+    assert abs(span['elapsed_pct'] - 33.6) < 0.2, span['elapsed_pct']
+    assert span['elapsed_pct'] != full['elapsed_pct']
+    # the span dates are echoed back, proving the given window (not the baseline extremes) was used
+    assert span['baseline_start'] == '2025-04-01'
+    assert span['baseline_finish'] == '2025-12-31'
+    # earned side is cost/EV-based and unaffected by the clock window
+    assert span['actual_pct'] == full['actual_pct'] == 50.0
 
 
 # ── Section 2 ────────────────────────────────────────────────────────────────
@@ -245,6 +281,39 @@ def test_build_report_flags_missing_baseline():
     assert 'time_status' in report and 'critical_path' in report
 
 
+def test_build_report_time_status_uses_driving_path_span():
+    # Driving path: Start Milestone (01 Mar) → Pile a (Mar–Jun) → Completion milestone (BL 01 Jun).
+    # An off-path Mobilisation activity carries an EARLIER baseline start (01 Jan) so the whole-
+    # baseline clock would read from Jan. build_report must instead clock the DRIVING-PATH span —
+    # from the start milestone (01 Mar) to the milestone baseline finish (01 Jun) — not Jan→Jun.
+    wbs = [(100, 'Proj', ''), (200, 'Silo 1', 100), (300, 'Pile Works', 200)]
+    acts = [
+        # off-path early works — earlier baseline start, must NOT anchor the clock
+        (5, 'MOB', 'Mobilisation', 1.0, '2025-01-01', '2025-03-01', 320, 300, {}),
+        # the single driving construction work front
+        (10, 'P1', 'Pile a', 0.4, '2025-03-01', '2025-06-01', 320, 300, {}),
+    ]
+    rels = [(700, 10), (10, 999)]                       # Start MS → Pile a → Completion MS
+    ms = [(999, 'MS', 'Project completion', '2025-06-01', 200)]
+    sms = [(700, 'NTP', 'Notice to Proceed', '2025-03-01', 200)]
+    data, metrics = _parse_and_compute(_xml('2025-04-01', acts, rels, wbs, ms, sms))
+    report = build_report_from_data(data, metrics)
+
+    # the driving-path chart carries the releasing start milestone
+    chart = report['critical_path']['charts'][0]
+    assert chart['start_milestone'] and chart['start_milestone']['date'] == '2025-03-01'
+
+    ts = report['time_status']
+    assert isinstance(ts.get('elapsed_pct'), (int, float))
+    # span echoed back = start-milestone date → milestone baseline finish (NOT the Jan mobilisation)
+    assert ts['baseline_start'] == '2025-03-01'
+    assert ts['baseline_finish'] == '2025-06-01'
+    # (01 Apr − 01 Mar)=31 d over (01 Jun − 01 Mar)=92 d → 33.7% — the driving-path clock,
+    # far from the whole-baseline reading of ~59% that Jan→Jun would give
+    assert abs(ts['elapsed_pct'] - 33.7) < 0.4, ts['elapsed_pct']
+    assert ts['elapsed_pct'] < 45
+
+
 # ── Exporters ────────────────────────────────────────────────────────────────
 
 def test_render_html_and_excel_smoke():
@@ -256,13 +325,19 @@ def test_render_html_and_excel_smoke():
     ]
     rels = [(20, 999)]
     ms = [(999, 'MS', 'Project completion', '2025-06-01', 200)]
+    import re
     data, metrics = _parse_and_compute(_xml('2025-04-01', acts, rels, wbs, ms))
     report = build_report_from_data(data, metrics)
     report['file'] = 'test.xml'
+    # cost-loaded fixture → Section 5 scope is populated with a default code
+    assert isinstance(report.get('scope'), dict) and report['scope']
+    assert isinstance(report.get('scope_default'), str) and report['scope_default']
     html = render_html(report)
     assert '<h1>Update Analysis</h1>' in html
     assert 'Time Status' in html and 'Planned vs Actual' in html and 'Driving Path Analyzer' in html
     assert 'by activity count' in html   # Section 4 present
+    # dates render in the house '09-Feb.2027' format (two-digit day · 3-letter month · year)
+    assert re.search(r'\d\d-[A-Z][a-z][a-z]\.\d{4}', html), html[:400]
     # section filter drops the others
     only = render_html(report, sections=['time'])
     assert 'Time Status' in only and 'Driving Path Analyzer' not in only
@@ -274,13 +349,47 @@ def test_render_html_and_excel_smoke():
 
 
 def test_scope_weights_and_recommendation():
-    xml = _xml('2025-07-02', [
-        (10, 'M1', 'Mech 1', 0.3, '2025-01-01', '2025-12-31', 80, 100, {'Discipline': 'Mechanical'}),
-        (11, 'C1', 'Civil 1', 0.5, '2025-01-01', '2025-12-31', 800, 100, {'Discipline': 'Civil'}),
-    ])
-    data, metrics = _parse_and_compute(xml)
     from p6_update.analysis import scope_weights
+    # Civil is the heavy scope (dur 800 → BAC 80000) AND behind plan (20% actual by mid-year);
+    # Mechanical is light (dur 80 → BAC 8000) and ahead (70% actual).
+    xml = _xml('2025-07-02', [
+        (10, 'M1', 'Mech 1', 0.7, '2025-01-01', '2025-12-31', 80, 100, {'Discipline': 'Mechanical'}),
+        (11, 'C1', 'Civil 1', 0.2, '2025-01-01', '2025-12-31', 800, 100, {'Discipline': 'Civil'}),
+    ])
+    data, _ = _parse_and_compute(xml)
     s = scope_weights(data, 'Discipline')
-    assert s['rows'][0]['value'] == 'Civil'
-    assert s['rows'][0]['weight_pct'] > 80
+    rows = s['rows']
+
+    # (ii) heaviest first — rows sorted by weight descending
+    assert [r['weight_pct'] for r in rows] == sorted((r['weight_pct'] for r in rows), reverse=True)
+    assert rows[0]['value'] == 'Civil'
+    assert rows[0]['weight_pct'] > 80
+
+    # (i) every row carries budget-weighted planned + actual %
+    civ = next(r for r in rows if r['value'] == 'Civil')
+    mech = next(r for r in rows if r['value'] == 'Mechanical')
+    for r in (civ, mech):
+        assert 'planned' in r and 'actual' in r
+        assert isinstance(r['planned'], (int, float)) and isinstance(r['actual'], (int, float))
+    assert civ['actual'] == 20.0 and mech['actual'] == 70.0
+    assert civ['planned'] > civ['actual']       # heavy scope is behind plan
+    assert mech['planned'] < mech['actual']      # light scope is ahead
+
+    # (iv) recommendation prioritises the largest-weight scope that is ALSO behind plan
+    assert s['recommendation'][0].startswith('Prioritise')
     assert 'Civil' in s['recommendation'][0]
+
+    # (iii) a LIST of two code dimensions buckets by the combination — value keys joined by ' · '
+    xml2 = _xml('2025-07-02', [
+        (10, 'M1', 'Mech 1', 0.7, '2025-01-01', '2025-12-31', 80, 100,
+         {'Discipline': 'Mechanical', 'Area': 'Zone A'}),
+        (11, 'C1', 'Civil 1', 0.2, '2025-01-01', '2025-12-31', 800, 100,
+         {'Discipline': 'Civil', 'Area': 'Zone A'}),
+    ])
+    data2, _ = _parse_and_compute(xml2)
+    combo = scope_weights(data2, ['Discipline', 'Area'])
+    assert combo['code_type'] == 'Discipline · Area'
+    assert combo['rows'], combo
+    assert all(' · ' in r['value'] for r in combo['rows'])
+    vals = {r['value'] for r in combo['rows']}
+    assert 'Civil · Zone A' in vals and 'Mechanical · Zone A' in vals

@@ -11,6 +11,7 @@ import { escapeHtml } from './format.js';
 
 let _shownReport = null;
 let _summaryLevel = 0;
+let _scopePicked = [];          // Section 5 — cost-loaded activity codes to weigh (multi-select)
 let _pickedTypes = [];          // Section 2 — the activity-code dimensions to chart (one chart each)
 let _countFilter = { type: '', value: '' };   // Section 4 — activity-code filter
 
@@ -26,10 +27,11 @@ function _fdate(iso) {
   if (!iso) return '—';
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
   if (!m) return String(iso);
-  return `${parseInt(m[3], 10)} ${MON[parseInt(m[2], 10) - 1]} ${m[1]}`;
+  return `${m[3]}-${MON[parseInt(m[2], 10) - 1]}.${m[1]}`;
 }
 function _num(n) { return (typeof n === 'number') ? n.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '—'; }
 function _pct(v) { return (typeof v === 'number') ? `${Math.round(v)}%` : '—'; }
+const _pct2 = v => (typeof v === 'number') ? v.toFixed(2) + '%' : '—';
 function _sv(v) { return v == null ? '—' : (v > 0 ? `+${v}` : `${v}`); }
 
 function _defaultCodeType(types) {
@@ -64,6 +66,8 @@ function _injectStyle() {
     .ua-slicer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
     .ua-code-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 20px; padding: 5px 13px; font-size: 12.5px; cursor: pointer; }
     .ua-code-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .ua-scope-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 20px; padding: 5px 13px; font-size: 12.5px; cursor: pointer; }
+    .ua-scope-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
     .ua-sel { padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text); }
     /* By code */
     .ua-chart2 { border: 1px solid var(--border); border-radius: 11px; padding: 14px 16px; margin-bottom: 14px; }
@@ -113,6 +117,12 @@ function _injectStyle() {
     .ua-wfill { height: 100%; background: rgba(42,120,214,.4); }
     .ua-wrow.top .ua-wfill { background: var(--accent); }
     .ua-wpct { flex: none; width: 52px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+    .ua-wcost { flex: none; width: 120px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+    .ua-whead { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); }
+    .ua-wpa { flex: none; width: 150px; }
+    .ua-wpa-t { height: 5px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; margin: 2px 0; }
+    .ua-wpa-t > i { display: block; height: 100%; }
+    .ua-wpanum { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 1px; }
     .ua-rec { margin-top: 16px; background: rgba(42,120,214,.08); border: 1px solid var(--border); border-radius: 11px; padding: 14px 16px; }
     .ua-rec h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--accent); }
     .ua-rec p { margin: 6px 0; font-size: 13.5px; color: var(--text); }
@@ -154,6 +164,7 @@ async function _runAnalyze() {
     }
     _shownReport = data.report;
     if (!_pickedTypes.length) _pickedTypes = [_defaultCodeType(data.report.code_types || [])].filter(Boolean);
+    if (!_scopePicked.length) _scopePicked = [data.report.scope_default].filter(Boolean);
     _render(data.report);
   } catch {
     if (body) body.innerHTML = `<div class="ua-empty">Could not reach the local server. Try re-importing the schedule.</div>`;
@@ -195,40 +206,79 @@ function _render(report) {
   _wireScope(report);
 }
 
-// Section 5 — scope weight + recommendation (client-side; recomputes on code change)
-let _scopeCode = '';
+// Section 5 — scope weight + recommendation (multi-select; one code renders instantly, several are combined server-side)
 function _scopeControls(report) {
   const scope = report.scope || {};
   const types = Object.keys(scope);
   if (!types.length) return '';
-  if (!_scopeCode || !scope[_scopeCode]) _scopeCode = (scope[report.scope_default] ? report.scope_default : types[0]);
-  const chips = types.map(t => `<button class="ua-code-btn ${_scopeCode === t ? 'on' : ''}" data-scope="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('');
+  _scopePicked = _scopePicked.filter(t => scope[t]);
+  if (!_scopePicked.length) _scopePicked = [scope[report.scope_default] ? report.scope_default : types[0]];
+  const chips = types.map(t => `<button class="ua-scope-btn ${_scopePicked.includes(t) ? 'on' : ''}" data-scope="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('');
   return `<div class="ua-slicer"><span style="color:var(--muted)">Weight by</span>${chips}
-    <span style="margin-left:auto;color:var(--muted);font-size:12px">share of the cost-loaded scope · recommendation updates with the code</span></div>`;
+    <span style="margin-left:auto;color:var(--muted);font-size:12px">pick one or more · recommendation updates with the codes</span></div>`;
 }
-function _scopeHtml(report) {
-  const scope = report.scope || {};
-  const s = scope[_scopeCode];
+function _scopeRender(s) {
   if (!s) return `<div class="ua-note">No cost-loaded activity codes to weigh.</div>`;
   const rows = s.rows || [];
   const mx = Math.max(...rows.map(r => r.weight_pct), 1) || 1;
-  const bars = rows.slice(0, 12).map((r, i) => `<div class="ua-wrow ${i === 0 ? 'top' : ''}">
+  const head = `<div class="ua-whead">
+    <span style="flex:none;width:220px">Scope</span>
+    <span style="flex:1">Weight</span>
+    <span style="flex:none;width:52px;text-align:right">%</span>
+    <span style="flex:none;width:120px;text-align:right">Budget</span>
+    <span style="flex:none;width:150px">Planned vs Actual</span></div>`;
+  const bars = rows.slice(0, 12).map((r, i) => {
+    const g = +((r.planned || 0) - (r.actual || 0)).toFixed(1);
+    const behindHtml = g > 0 ? ` · <span class="ua-bad">−${g}</span>` : '';
+    return `<div class="ua-wrow ${i === 0 ? 'top' : ''}">
     <div class="ua-wname">${escapeHtml(r.value)}</div>
     <div class="ua-wtrack"><div class="ua-wfill" style="width:${r.weight_pct / mx * 100}%"></div></div>
-    <div class="ua-wpct">${r.weight_pct.toFixed(1)}%</div></div>`).join('');
+    <div class="ua-wpct">${r.weight_pct.toFixed(1)}%</div>
+    <div class="ua-wcost">${_num(r.bac)}</div>
+    <div class="ua-wpa">
+      <div class="ua-wpa-t"><i style="width:${Math.max(0, Math.min(100, r.planned || 0))}%;background:${C.plan}"></i></div>
+      <div class="ua-wpa-t"><i style="width:${Math.max(0, Math.min(100, r.actual || 0))}%;background:${C.actual}"></i></div>
+      <div class="ua-wpanum">P ${(r.planned || 0).toFixed(1)}% · A ${(r.actual || 0).toFixed(1)}%${behindHtml}</div>
+    </div></div>`;
+  }).join('');
+  const leg = `<div class="ua-leg"><span class="ua-sw" style="background:rgba(42,120,214,.4)"></span>Weight<span class="ua-sw" style="background:${C.plan}"></span>Planned<span class="ua-sw" style="background:${C.actual}"></span>Actual</div>`;
   const recs = (s.recommendation || []).map(t => `<p><span class="ua-star">★</span>${escapeHtml(t)}</p>`).join('');
   const rec = recs ? `<div class="ua-rec"><h4>◆ Recommendation — by weight</h4>${recs}</div>` : '';
-  return `<div class="ua-scope-h">Weighting by <b>${escapeHtml(_scopeCode)}</b> · share of the cost-loaded scope</div>${bars}${rec}`;
+  return `<div class="ua-scope-h">Weighting by <b>${escapeHtml(s.code_type || '')}</b> · share of the cost-loaded scope</div>${head}${bars}${leg}${rec}`;
+}
+function _scopeHtml(report) {
+  const scope = report.scope || {};
+  if (_scopePicked.length === 1) return _scopeRender(scope[_scopePicked[0]]);
+  if (!_scopePicked.length) return `<div class="ua-note">No cost-loaded activity codes to weigh.</div>`;
+  return `<div class="ua-note">Weighting…</div>`;
 }
 function _wireScope(report) {
   const box = document.getElementById('ua-scope-body');
-  document.querySelectorAll('.ua-code-btn[data-scope]').forEach(btn => {
+  if (!box) return;
+  const scope = report.scope || {};
+  const paint = () => document.querySelectorAll('.ua-scope-btn[data-scope]').forEach(b => b.classList.toggle('on', _scopePicked.includes(b.dataset.scope)));
+  const refresh = async () => {
+    if (_scopePicked.length <= 1) { box.innerHTML = _scopeRender(scope[_scopePicked[0]]); return; }
+    box.innerHTML = `<div class="ua-note">Weighting…</div>`;
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/update/scope`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', types: _scopePicked }),
+      });
+      const data = await resp.json();
+      if (data.ok) box.innerHTML = _scopeRender(data.scope);
+      else box.innerHTML = `<div class="ua-note">Could not combine those codes.</div>`;
+    } catch { box.innerHTML = `<div class="ua-note">Could not reach the server.</div>`; }
+  };
+  document.querySelectorAll('.ua-scope-btn[data-scope]').forEach(btn => {
     btn.addEventListener('click', () => {
-      _scopeCode = btn.dataset.scope;
-      document.querySelectorAll('.ua-code-btn[data-scope]').forEach(b => b.classList.toggle('on', b.dataset.scope === _scopeCode));
-      box.innerHTML = _scopeHtml(report);
+      const t = btn.dataset.scope, i = _scopePicked.indexOf(t);
+      if (i >= 0) { if (_scopePicked.length > 1) _scopePicked.splice(i, 1); } else _scopePicked.push(t);
+      paint();
+      refresh();
     });
   });
+  if (_scopePicked.length > 1) refresh();
 }
 
 // Section 1
@@ -239,7 +289,7 @@ function _donut(elapsed, planned, actual) {
     <circle cx="75" cy="75" r="58" fill="none" stroke="${C.blue}" stroke-width="18" stroke-dasharray="${arc(58, elapsed)}" transform="rotate(-90 75 75)"/>
     <circle cx="75" cy="75" r="40" fill="none" stroke="var(--border)" stroke-width="10"/>
     <circle cx="75" cy="75" r="40" fill="none" stroke="${C.good}" stroke-width="10" stroke-dasharray="${arc(40, actual)}" transform="rotate(-90 75 75)"/>
-    <text x="75" y="70" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text)">${actual != null ? Math.round(actual) + '%' : '—'}</text>
+    <text x="75" y="70" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text)">${_pct2(actual)}</text>
     <text x="75" y="88" text-anchor="middle" font-size="10" fill="var(--muted)">earned</text>
   </svg>`;
 }
@@ -247,21 +297,21 @@ function _donut(elapsed, planned, actual) {
 function _timeStatusHtml(report) {
   const ts = report.time_status || {};
   const ep = ts.elapsed_pct, pp = ts.planned_pct, ap = ts.actual_pct;
-  let elapsed = ep != null ? `${Math.round(ep)}%` : '—';
+  let elapsed = ep != null ? `${ep.toFixed(1)}%` : '—';
   if (ts.exceeded_days) elapsed = `100% — baseline exceeded by ${ts.exceeded_days} days`;
   let verd = '';
   if (ts.behind_plan != null && pp != null && ap != null) {
     const v = ts.behind_plan, cls = v > 0 ? 'ua-bad' : 'ua-good';
-    verd += `<div class="ua-vrow"><span class="ua-vtag ${cls}">Behind plan · ${Math.abs(v)}</span><span>You planned to have earned <b>${_pct(pp)}</b> by the data date; you’ve earned <b>${_pct(ap)}</b> — ${Math.abs(Math.round(v))} points ${v > 0 ? 'short of' : 'ahead of'} the plan.</span></div>`;
+    verd += `<div class="ua-vrow"><span class="ua-vtag ${cls}">Behind plan · ${Math.abs(v)}</span><span>You planned to have earned <b>${_pct2(pp)}</b> by the data date; you’ve earned <b>${_pct2(ap)}</b> — ${Math.abs(v)} points ${v > 0 ? 'short of' : 'ahead of'} the plan.</span></div>`;
   }
   if (ts.behind_clock != null && ep != null && ap != null) {
     const v = ts.behind_clock, cls = v > 0 ? 'ua-bad' : 'ua-good';
-    verd += `<div class="ua-vrow"><span class="ua-vtag ${cls}">Behind clock · ${Math.abs(v)}</span><span><b>${_pct(ep)}</b> of the baseline calendar is used up, but only <b>${_pct(ap)}</b> of the work is done — ${Math.abs(Math.round(v))} points ${v > 0 ? 'less' : 'more'} work than time spent.</span></div>`;
+    verd += `<div class="ua-vrow"><span class="ua-vtag ${cls}">Behind clock · ${Math.abs(v)}</span><span><b>${ep.toFixed(1)}%</b> of the baseline calendar is used up, but only <b>${_pct2(ap)}</b> of the work is done — ${Math.abs(v)} points ${v > 0 ? 'less' : 'more'} work than time spent.</span></div>`;
   }
   const cv = ts.cost_variance;
   return `<div class="ua-ts"><div>${_donut(ep, pp, ap)}</div>
     <div style="flex:1;min-width:300px">
-      <div class="ua-ts-sentence"><b>${escapeHtml(elapsed)}</b> of the baseline time has elapsed, but only <b>${_pct(ap)}</b> of the work is earned (planned to be at <b>${_pct(pp)}</b> by now).</div>
+      <div class="ua-ts-sentence"><b>${escapeHtml(elapsed)}</b> of the baseline time has elapsed, but only <b>${_pct2(ap)}</b> of the work is earned (planned to be at <b>${_pct2(pp)}</b> by now).</div>
       <div class="ua-verd">${verd}</div>
     </div></div>
     <div class="ua-cost">
@@ -423,7 +473,7 @@ async function _exportPdf() {
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/update/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: _shownReport, preview: true, code_filter: _codeFilter(), scope_code: _scopeCode }),
+      body: JSON.stringify({ report: _shownReport, preview: true, code_filter: _codeFilter(), scope_code: _scopePicked[0] || '' }),
     });
     const data = await resp.json();
     if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
@@ -467,7 +517,7 @@ function _showPdfPreview(reportHtml) {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/update/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), code_filter: _codeFilter(), scope_code: _scopeCode }),
+        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), code_filter: _codeFilter(), scope_code: _scopePicked[0] || '' }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`); else close();

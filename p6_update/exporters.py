@@ -20,12 +20,12 @@ def _e(v):
 
 
 def _fdate(iso):
-    """ISO date → '9 Feb 2027'."""
+    """ISO date → '09-Feb.2027'."""
     if not iso:
         return '—'
     try:
         d = datetime.strptime(str(iso)[:10], '%Y-%m-%d')
-        return f'{d.day} {_MONTHS[d.month - 1]} {d.year}'
+        return f'{d.day:02d}-{_MONTHS[d.month - 1]}.{d.year}'
     except Exception:
         return str(iso)
 
@@ -43,6 +43,10 @@ def _pct(v):
     return f'{v:.0f}%' if isinstance(v, (int, float)) else '—'
 
 
+def _pct2(v):
+    return f'{v:.2f}%' if isinstance(v, (int, float)) else '—'
+
+
 def _svar(v):
     if v is None:
         return '—'
@@ -56,7 +60,7 @@ def _donut(elapsed, planned, actual):
         c = 2 * 3.14159265 * r
         on = c * max(0.0, min(100.0, pct or 0)) / 100.0
         return f'{on:.1f} {c - on:.1f}'
-    lab = f'{actual:.0f}%' if actual is not None else '—'
+    lab = f'{actual:.2f}%' if actual is not None else '—'
     return f'''<svg width="140" height="140" viewBox="0 0 150 150">
       <circle cx="75" cy="75" r="58" fill="none" stroke="#eef2f7" stroke-width="18"/>
       <circle cx="75" cy="75" r="58" fill="none" stroke="{_ACT}" stroke-width="18" stroke-dasharray="{arc(58, elapsed)}" transform="rotate(-90 75 75)"/>
@@ -72,25 +76,25 @@ def _timestatus_html(report):
     ep, pp, ap = ts.get('elapsed_pct'), ts.get('planned_pct'), ts.get('actual_pct')
     elapsed_txt = '—'
     if ep is not None:
-        elapsed_txt = f'{ep:.0f}%'
+        elapsed_txt = f'{ep:.1f}%'
         if ts.get('exceeded_days'):
             elapsed_txt = f'100% — baseline exceeded by {ts["exceeded_days"]} days'
     sentence = (f'<b>{elapsed_txt}</b> of the baseline time has elapsed, but only '
-                f'<b>{_pct(ap)}</b> of the work is earned (planned to be at <b>{_pct(pp)}</b> by now).')
+                f'<b>{_pct2(ap)}</b> of the work is earned (planned to be at <b>{_pct2(pp)}</b> by now).')
     verdicts = ''
     if ts.get('behind_plan') is not None and pp is not None and ap is not None:
         v = ts['behind_plan']
         tag = 'bad' if v > 0 else 'good'
         verb = 'short of' if v > 0 else 'ahead of'
         verdicts += (f'<div class="vrow"><span class="vtag {tag}">Behind plan · {abs(v)}</span>'
-                     f'<span>You planned to have earned <b>{_pct(pp)}</b> by the data date; you’ve earned '
-                     f'<b>{_pct(ap)}</b> — {abs(v):.0f} points {verb} the plan.</span></div>')
+                     f'<span>You planned to have earned <b>{_pct2(pp)}</b> by the data date; you’ve earned '
+                     f'<b>{_pct2(ap)}</b> — {abs(v):.2f} points {verb} the plan.</span></div>')
     if ts.get('behind_clock') is not None and ep is not None and ap is not None:
         v = ts['behind_clock']
         tag = 'bad' if v > 0 else 'good'
         verdicts += (f'<div class="vrow"><span class="vtag {tag}">Behind clock · {abs(v)}</span>'
-                     f'<span><b>{_pct(ep)}</b> of the baseline calendar is used up, but only <b>{_pct(ap)}</b> '
-                     f'of the work is done — {abs(v):.0f} points {"less" if v > 0 else "more"} work than time spent.</span></div>')
+                     f'<span><b>{ep:.1f}%</b> of the baseline time is used up, but only <b>{_pct2(ap)}</b> '
+                     f'of the work is done — {abs(v):.2f} points {"less" if v > 0 else "more"} work than time spent.</span></div>')
     cost = (f'<div class="cost">'
             f'<div class="costcard"><div class="cl">Planned Value (PV)</div><div class="cv">{_num(ts.get("pv"))}</div></div>'
             f'<div class="costcard"><div class="cl">Earned Value (EV)</div><div class="cv">{_num(ts.get("ev"))}</div></div>'
@@ -198,11 +202,17 @@ def _scope_html(report, code_type=None):
     rows = s.get('rows', [])
     mx = max((r['weight_pct'] for r in rows), default=1) or 1
     bars = []
-    for i, r in enumerate(rows[:12]):
+    for i, r in enumerate(rows[:15]):
         cls = ' top' if i == 0 else ''
+        pv = max(0, min(100, r.get('planned', 0)))
+        av = max(0, min(100, r.get('actual', 0)))
         bars.append(f'<div class="wrow{cls}"><div class="wname">{_e(r["value"])}</div>'
                     f'<div class="wtrack"><div class="wfill" style="width:{r["weight_pct"] / mx * 100:.1f}%"></div></div>'
-                    f'<div class="wpct">{r["weight_pct"]:.1f}%</div></div>')
+                    f'<div class="wpct">{r["weight_pct"]:.1f}%</div>'
+                    f'<div class="wcost">{_num(r.get("bac"))}</div>'
+                    f'<div class="wpa"><div class="wpa-t"><div class="wpa-pl" style="width:{pv:.1f}%"></div></div>'
+                    f'<div class="wpa-t"><div class="wpa-ac" style="width:{av:.1f}%"></div></div></div>'
+                    f'<div class="wpanum">P {r.get("planned", 0):.1f}% · A {r.get("actual", 0):.1f}%</div></div>')
     recs = ''.join(f'<p><span class="star">★</span> {_e(t)}</p>' for t in s.get('recommendation', []))
     rec = f'<div class="rec"><h4>◆ Recommendation — by weight</h4>{recs}</div>' if recs else ''
     return (f'<div class="scope-h">Weighting by <b>{_e(ct)}</b> · share of the cost-loaded scope</div>'
@@ -323,6 +333,11 @@ def render_html(report, sections=None, code_filter=None, scope_code=None):
       .wtrack {{ flex: 1; height: 17px; background: #eef2f7; border-radius: 4px; overflow: hidden; }}
       .wfill {{ height: 100%; background: #bcd6f5; }} .wrow.top .wfill {{ background: {_ACT}; }}
       .wpct {{ flex: none; width: 50px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }}
+      .wcost {{ flex: none; width: 110px; text-align: right; font-variant-numeric: tabular-nums; color: #64748b; font-size: 11px; }}
+      .wpa {{ flex: none; width: 130px; }}
+      .wpa-t {{ height: 5px; background: #eef2f7; border-radius: 3px; overflow: hidden; margin: 2px 0; }}
+      .wpa-pl {{ height: 100%; background: {_PLAN}; }} .wpa-ac {{ height: 100%; background: {_ACT}; }}
+      .wpanum {{ font-size: 10px; color: #64748b; font-variant-numeric: tabular-nums; margin-top: 1px; }}
       .rec {{ margin-top: 14px; background: #eef4fb; border: 1px solid #c9ddf3; border-radius: 10px; padding: 12px 15px; }}
       .rec h4 {{ margin: 0 0 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: {_BLUE}; }}
       .rec p {{ margin: 5px 0; font-size: 13px; }} .rec .star {{ color: {_BLUE}; font-weight: 800; margin-right: 6px; }}

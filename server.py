@@ -66,6 +66,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_analyze(body)
         elif self.path == '/api/update/counts':
             self._handle_update_counts(body)
+        elif self.path == '/api/update/scope':
+            self._handle_update_scope(body)
         elif self.path == '/api/update/excel':
             self._handle_update_excel(body)
         elif self.path == '/api/update/report':
@@ -399,6 +401,23 @@ class Handler(BaseHTTPRequestHandler):
             counts = activity_counts(data, code_filter=code_filter)
             self._json(200, {'ok': True, 'counts': counts,
                              'code_types': list(getattr(data, 'activity_code_types', []) or [])})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_scope(self, body):
+        """Section 5 — scope weight for a chosen combination of activity-code dimensions.
+        Re-reads the file so the combination is exact; returns weights + recommendation."""
+        curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        types = body.get('types') or []
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_update.analysis import scope_weights
+            data = parse_file(curr_path)
+            self._json(200, {'ok': True, 'scope': scope_weights(data, types)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
