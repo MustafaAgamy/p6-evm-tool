@@ -562,27 +562,48 @@ def _cpli_driving_chart(m):
     lo = min(s for _, s, _ in dated)
     hi = max(e for _, _, e in dated)
     span = max(1, (hi - lo).days)
+    fm_id = (m.get('kpis') or {}).get('finish_milestone_id')
+
     rows = []
     for f, s, e in dated:                        # ALL critical activities — same as the on-screen Gantt
         x = 100.0 * (s - lo).days / span
         w = max(0.6, 100.0 * (e - s).days / span)
-        if f.get('is_milestone'):
-            bar = f'<span style="position:absolute;left:{x:.1f}%;top:3px;width:8px;height:8px;background:#2e8b57;transform:rotate(45deg)"></span>'
+        # a genuine P6 milestone OR the completion milestone CPLI identified -> diamond
+        is_ms = bool(f.get('is_milestone')) or (fm_id is not None and f.get('activity_id') == fm_id)
+        if is_ms:
+            bar = f'<span style="position:absolute;left:{x:.1f}%;top:2px;width:9px;height:9px;background:#2e8b57;transform:translateX(-50%) rotate(45deg)"></span>'
         else:
             color = '#c0392b' if (f.get('total_float_days') or 0) <= 0 else '#17457a'
             bar = f'<span style="position:absolute;left:{x:.1f}%;width:{min(w, 100 - x):.1f}%;top:4px;height:7px;background:{color};border-radius:2px"></span>'
         dur = f.get('duration_days')
         rows.append(
             f'<tr><td class="mono">{_esc(f.get("activity_id"))}</td>'
-            f'<td>{_esc(f.get("activity_name"))}</td>'
+            f'<td>{_esc(f.get("activity_name"))}{" &#9670;" if is_ms else ""}</td>'
             f'<td class="num">{_esc(f.get("start"))}</td><td class="num">{_esc(f.get("finish"))}</td>'
             f'<td class="num">{"—" if dur is None else str(dur) + " wd"}</td>'
             f'<td style="position:relative;height:15px;min-width:200px">{bar}</td></tr>')
+
+    # Month axis in the Timeline header — repeats on every printed page (dates like the screen).
+    ticks = []
+    total_months = max(1, (hi.year - lo.year) * 12 + (hi.month - lo.month))
+    step = max(1, total_months // 10 + 1)
+    d = _dt.datetime(lo.year, lo.month, 1)
+    while d <= hi:
+        pos = 100.0 * (d - lo).days / span
+        if -2 <= pos <= 102:
+            ticks.append(f'<span style="position:absolute;left:{max(0.0, min(100.0, pos)):.1f}%;top:4px;'
+                         f'font-size:7.5px;color:#eaf1fb;font-weight:400;transform:translateX(-50%);white-space:nowrap">'
+                         f'{d.strftime("%b %y")}</span>')
+        mo = d.month - 1 + step
+        d = _dt.datetime(d.year + mo // 12, mo % 12 + 1, 1)
+    axis = ''.join(ticks)
+
     return ('<h2 class="sec">Driving Path</h2>'
             f'<div class="dcma">{len(dated)} critical activities, in sequence — every one shown '
             '(red = critical, blue = near-critical, green diamond = milestone).</div>'
             '<table><thead><tr><th>Activity ID</th><th>Activity Name</th><th class="num">Start</th>'
-            f'<th class="num">Finish</th><th class="num">Dur</th><th>Timeline</th></tr></thead>'
+            f'<th class="num">Finish</th><th class="num">Dur</th>'
+            f'<th style="position:relative;min-width:200px;height:18px">{axis}</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
@@ -653,13 +674,25 @@ def _sections(m, sections=None):
     return ''.join(parts)
 
 
-def render_summary_report(health, meta, sections=None):
-    """Standalone PDF for the Schedule Health Review Summary — the weighted roll-up
-    (overall score + verdict, sub-feature composition, problem areas, fix-first)."""
+def _pnum(v):
+    """Mirror the screen's JS number formatting: 78.0 -> '78', 6.8 -> '6.8', None -> '—'."""
+    if v is None:
+        return '—'
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v)
+
+
+def render_summary_report(health, meta, sections=None, modules=None):
+    """Standalone PDF for the Schedule Health Review Summary — the weighted roll-up.
+    Mirrors the on-screen dashboard exactly: overall score + verdict, checks-status
+    (counts + circular gate + status bands), headline stats (incl. completion total
+    float), sub-feature composition, problem areas, fix-first and conclusion."""
     h = health or {}
     meta = meta or {}
+    modules = modules or {}
     score = h.get('score')
-    score_txt = '—' if score is None else score
+    score_txt = _pnum(score)
     grade = h.get('grade', '') or ''
     color = _GRADE.get(grade, '#17457a')
     verdict = h.get('verdict', '') or ''
@@ -667,32 +700,62 @@ def render_summary_report(health, meta, sections=None):
     counts = h.get('counts', {}) or {}
     subs = h.get('sub_features', []) or []
     gate = h.get('gate', {}) or {}
+    gate_clear = not gate.get('blocking')
     weight_covered = h.get('weight_covered', 100)
+    total = h.get('total_count') or len(subs) or 1
+    p_n, r_n, c_n, nc_n = (counts.get('Pass', 0), counts.get('Review', 0),
+                           counts.get('Critical', 0), counts.get('Not computed', 0))
+    comp_float = ((modules.get('cpli') or {}).get('kpis') or {}).get('project_total_float_days')
+
+    def _tone(s):
+        return '#8a93a0' if s is None else ('#2e8b57' if s >= 85 else '#e07b1a' if s >= 60 else '#c0392b')
 
     _stc = {'Pass': '#2e8b57', 'Review': '#e07b1a', 'Critical': '#c0392b'}
     comp = ''
     for s in subs:
-        sc = '—' if s.get('score') is None else f"{s['score']}%"
-        pts = '—' if s.get('points') is None else s['points']
+        sc = '—' if s.get('score') is None else f"{_pnum(s['score'])}%"
+        pts = _pnum(s.get('points'))
         st = s.get('status', '')
+        needs = st in ('Review', 'Critical')
         prov = ' <span style="color:#c0392b;font-size:8px">(provisional)</span>' if s.get('provisional') else ''
-        comp += (f'<tr><td>{_esc(s.get("name"))}{prov}</td><td class="num">{sc}</td>'
-                 f'<td class="num">{s.get("weight")}</td><td class="num">{pts}</td>'
+        rowbg = ' style="background:#fdf6ee"' if needs else ''
+        comp += (f'<tr{rowbg}><td>{_esc(s.get("name"))}{prov}</td><td class="num">{sc}</td>'
+                 f'<td class="num">{_pnum(s.get("weight"))}</td><td class="num">{pts}</td>'
                  f'<td><span class="sev" style="background:{_stc.get(st, "#6b7a8d")}">{_esc(st)}</span></td></tr>')
-    gate_clear = not gate.get('blocking')
     comp += (f'<tr><td>Circular logic <i>(gate)</i></td><td class="num">—</td><td class="num">—</td>'
              f'<td class="num">—</td><td><span class="sev" style="background:{"#2e8b57" if gate_clear else "#c0392b"}">'
-             f'{"clear" if gate_clear else "blocking"}</span></td></tr>')
+             f'gate · {"clear" if gate_clear else "blocking"}</span></td></tr>')
+    comp += (f'<tr style="background:#eef3f9;font-weight:700"><td>Overall Schedule Health</td>'
+             f'<td class="num">{score_txt}%</td><td class="num">{_pnum(weight_covered)}</td>'
+             f'<td class="num">—</td><td></td></tr>')
 
-    status_line = ' · '.join(f'{counts.get(k, 0)} {k}' for k in ('Pass', 'Review', 'Critical', 'Not computed') if counts.get(k))
+    # Checks-status chips + circular gate
+    chips = (f'<span class="chip" style="background:#2e8b57">Pass {p_n}</span>'
+             f'<span class="chip" style="background:#e07b1a">Review {r_n}</span>'
+             f'<span class="chip" style="background:#c0392b">Critical {c_n}</span>'
+             + (f'<span class="chip" style="background:#8a93a0">Not computed {nc_n}</span>' if nc_n else '')
+             + f'<span class="chip" style="background:{"#2e8b57" if gate_clear else "#c0392b"}">'
+               f'Circular gate {"clear" if gate_clear else "blocking"}</span>')
+
+    # Headline stat cards
+    cf_txt = '—' if comp_float is None else f'{_pnum(comp_float)} d'
+    cf_col = '#8a93a0' if comp_float is None else ('#c0392b' if comp_float < 0 else '#2e8b57')
+    headline = (
+        f'<div class="stat"><div class="sv" style="color:{_tone(score)}">{score_txt}'
+        f'<span>/100</span></div><div class="sk">Baseline health score</div></div>'
+        f'<div class="stat"><div class="sv" style="color:{"#c0392b" if c_n else "#2e8b57"}">{c_n}</div>'
+        f'<div class="sk">Critical sub-features</div></div>'
+        f'<div class="stat"><div class="sv" style="color:{cf_col}">{cf_txt}</div>'
+        f'<div class="sk">Completion total float (rule &ge; 0)</div></div>')
+
     areas = (h.get('problem_areas', {}) or {}).get('areas', [])
     area_rows = ''.join(f'<tr><td>{_esc(a.get("name"))}</td><td class="num">{a.get("findings")}</td>'
-                        f'<td class="num">{a.get("pct")}%</td></tr>' for a in areas) \
+                        f'<td class="num">{_pnum(a.get("pct"))}%</td></tr>' for a in areas) \
         or '<tr><td colspan="3" class="empty">No findings to place — the logic is clean.</td></tr>'
     fixes = h.get('fix_first', [])
-    fix_rows = ''.join(f'<tr><td class="num">{i + 1}</td><td>{_esc(f.get("name"))} ({f.get("score")}%)</td>'
-                       f'<td class="num">{f.get("weight")}</td><td>{_esc(f.get("recommendation"))}</td>'
-                       f'<td class="num">+~{f.get("lift")}</td></tr>' for i, f in enumerate(fixes)) \
+    fix_rows = ''.join(f'<tr><td class="num">{i + 1}</td><td>{_esc(f.get("name"))} ({_pnum(f.get("score"))}%)</td>'
+                       f'<td class="num">{_pnum(f.get("weight"))}</td><td>{_esc(f.get("recommendation"))}</td>'
+                       f'<td class="num">+~{_pnum(f.get("lift"))}</td></tr>' for i, f in enumerate(fixes)) \
         or '<tr><td colspan="5" class="empty">Every check is at target — nothing to fix first.</td></tr>'
 
     return f'''<!DOCTYPE html>
@@ -707,11 +770,24 @@ def render_summary_report(health, meta, sections=None):
   .meta {{ display:flex; flex-wrap:wrap; gap:3px 26px; margin-top:10px; font-size:11px; }}
   .meta span {{ color:#8a93a0; }}
   h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#17457a; border-bottom:1px solid #dbe1e8; padding-bottom:4px; margin:22px 0 10px; }}
-  .scorecard {{ display:flex; gap:20px; align-items:center; border:1px solid #e2e7ee; border-radius:8px; padding:16px 18px; background:#fafbfc; }}
+  .top3 {{ display:flex; gap:12px; align-items:stretch; }}
+  .card3 {{ border:1px solid #e2e7ee; border-radius:8px; padding:13px 15px; background:#fafbfc; }}
+  .card3.gauge {{ flex:1.5; display:flex; gap:18px; align-items:center; }}
+  .card3.mid {{ flex:1.1; }} .card3.head3 {{ flex:1; }}
+  .ct {{ font-size:9.5px; text-transform:uppercase; letter-spacing:.6px; color:#17457a; font-weight:700; margin-bottom:9px; }}
   .score-num {{ font-size:46px; font-weight:800; line-height:1; }}
   .score-den {{ font-size:11px; color:#8a93a0; }}
   .verdict-badge {{ display:inline-block; padding:4px 14px; border-radius:20px; font-size:12px; font-weight:700; color:#fff; }}
-  .statement {{ font-size:11.5px; color:#31414f; line-height:1.6; margin-top:8px; }}
+  .statement {{ font-size:11px; color:#31414f; line-height:1.55; margin-top:8px; }}
+  .chip {{ display:inline-block; padding:3px 9px; border-radius:12px; font-size:9px; font-weight:700; color:#fff; margin:0 4px 5px 0; }}
+  .bands {{ display:flex; gap:4px; margin-top:6px; }}
+  .bd {{ flex:1; text-align:center; font-size:8.5px; font-weight:700; padding:3px 2px; border-radius:4px; color:#fff; }}
+  .bd-c {{ background:#c0392b; }} .bd-r {{ background:#e07b1a; }} .bd-p {{ background:#2e8b57; }}
+  .bnote {{ font-size:8.5px; color:#8a93a0; margin-top:6px; line-height:1.45; }}
+  .stat {{ display:flex; align-items:baseline; gap:9px; padding:6px 0; border-bottom:1px solid #eef1f5; }}
+  .stat:last-child {{ border-bottom:0; }}
+  .stat .sv {{ font-size:22px; font-weight:800; }} .stat .sv span {{ font-size:11px; color:#8a93a0; font-weight:600; }}
+  .stat .sk {{ font-size:9.5px; color:#8a93a0; }}
   table {{ width:100%; border-collapse:collapse; font-size:10.5px; margin-top:4px; }}
   thead {{ display:table-header-group; }}
   th {{ background:#26517d; color:#fff; text-align:left; padding:7px 9px; font-weight:600; font-size:9.5px; }}
@@ -720,6 +796,7 @@ def render_summary_report(health, meta, sections=None):
   .num {{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }}
   .sev {{ display:inline-block; padding:1px 8px; border-radius:4px; color:#fff; font-weight:700; font-size:9px; }}
   .empty {{ color:#6b7480; font-style:italic; text-align:center; padding:12px; }}
+  .grid2 {{ display:flex; gap:16px; align-items:flex-start; }} .grid2 > div {{ flex:1; }}
   .concl {{ border-left:4px solid #17457a; background:#f4f8fd; border-radius:0 8px 8px 0; padding:13px 16px; font-size:11.5px; line-height:1.6; color:#25313f; margin-top:6px; }}
   .dcma {{ font-size:10px; color:#5b6472; font-style:italic; margin-top:6px; }}
   .foot {{ border-top:1px solid #dbe1e8; margin-top:20px; padding-top:8px; font-size:9px; color:#8a93a0; }}
@@ -737,30 +814,46 @@ def render_summary_report(health, meta, sections=None):
     </div>
   </div>
 
-  <div class="scorecard">
-    <div style="text-align:center">
-      <div class="score-num" style="color:{color}">{score_txt}</div>
-      <div class="score-den">/ 100 · {_esc(grade)}</div>
+  <div class="top3">
+    <div class="card3 gauge">
+      <div style="text-align:center">
+        <div class="score-num" style="color:{color}">{score_txt}</div>
+        <div class="score-den">/ 100 · {_esc(grade)}</div>
+      </div>
+      <div>
+        <div class="verdict-badge" style="background:{color}">{_esc(verdict)}</div>
+        <div class="statement">Overall <b>Schedule Health</b> — the weighted roll-up of every sub-feature.<br>{_esc(statement)}</div>
+      </div>
     </div>
-    <div>
-      <div class="verdict-badge" style="background:{color}">{_esc(verdict)}</div>
-      <div class="statement">{_esc(statement)}</div>
-      <div class="statement" style="color:#8a93a0">Checks status: {_esc(status_line)}</div>
+    <div class="card3 mid">
+      <div class="ct">Checks status &nbsp;·&nbsp; {total} sub-features</div>
+      <div>{chips}</div>
+      <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–98</div><div class="bd bd-p">Pass &ge; 98</div></div>
+      <div class="bnote">How status is decided — each check's score vs the 80% submission standard. A check below 80 needs review. Per-check targets adjust where DCMA differs — e.g. FS &ge; 90%.</div>
+    </div>
+    <div class="card3 head3">
+      <div class="ct">Headline</div>
+      {headline}
     </div>
   </div>
 
-  <h2 class="sec">Sub-feature scores &times; weights (worst first)</h2>
+  <h2 class="sec">Sub-feature scores &times; your weights (worst first)</h2>
   <table><thead><tr><th>Sub-feature</th><th class="num">Score</th><th class="num">Weight</th><th class="num">Points</th><th>Status</th></tr></thead>
     <tbody>{comp}</tbody></table>
-  <div class="dcma">Overall Schedule Health = &Sigma; (score &times; weight) over the {weight_covered} weight covered = <b>{score_txt}</b>.</div>
+  <div class="dcma">Overall Schedule Health = &Sigma; (score &times; weight) over the {_pnum(weight_covered)} weight covered = <b>{score_txt}</b>. Amber rows are the sub-features to review before submission.</div>
 
-  <h2 class="sec">Where the problems are (defect share by discipline)</h2>
-  <table><thead><tr><th>Discipline</th><th class="num">Findings</th><th class="num">% of total</th></tr></thead>
-    <tbody>{area_rows}</tbody></table>
-
-  <h2 class="sec">Fix these first (biggest lift)</h2>
-  <table><thead><tr><th class="num">#</th><th>Sub-feature</th><th class="num">Weight</th><th>Recommendation</th><th class="num">Lift</th></tr></thead>
-    <tbody>{fix_rows}</tbody></table>
+  <div class="grid2">
+    <div>
+      <h2 class="sec">Where the problems are</h2>
+      <table><thead><tr><th>Discipline</th><th class="num">Findings</th><th class="num">% of total</th></tr></thead>
+        <tbody>{area_rows}</tbody></table>
+    </div>
+    <div>
+      <h2 class="sec">Fix these first</h2>
+      <table><thead><tr><th class="num">#</th><th>Sub-feature</th><th class="num">Wt</th><th>Recommendation</th><th class="num">Lift</th></tr></thead>
+        <tbody>{fix_rows}</tbody></table>
+    </div>
+  </div>
 
   <h2 class="sec">Conclusion</h2>
   <div class="concl">{_esc(statement)}</div>
