@@ -78,6 +78,51 @@ def classify(ctx, maps, reps, acts):
     return [d for _, d in ident], step
 
 
+def _order_phases(distinct, labels, ctx, members, pos):
+    """Order the phases by the schedule's RELATIONSHIP logic, not by date/position: phase A
+    precedes phase B when, net, more activities in A drive activities in B. A topological sort
+    over that phase-precedence graph; median position only breaks ties and places any leftover
+    (cyclic) phases. This is the execution sequence, never a start-date sort."""
+    inside = set(members)
+    pair = defaultdict(int)
+    for o in members:
+        a = labels.get(o)
+        if a is None:
+            continue
+        for s in ctx.forward.get(o, []):
+            if s in inside:
+                b = labels.get(s)
+                if b is not None and b != a:
+                    pair[(a, b)] += 1
+    net = defaultdict(int)
+    for (a, b), w in pair.items():
+        net[(a, b)] += w
+        net[(b, a)] -= w
+    adj = defaultdict(set)
+    indeg = {p: 0 for p in distinct}
+    for (a, b), w in net.items():
+        if w > 0 and a in indeg and b in indeg and b not in adj[a]:
+            adj[a].add(b)
+            indeg[b] += 1
+    med = {p: statistics.median([pos[o] for o in members if labels.get(o) == p] or [0])
+           for p in distinct}
+    ready = sorted([p for p in distinct if indeg[p] == 0], key=lambda p: med[p])
+    out, seen = [], set()
+    while ready:
+        p = ready.pop(0)
+        if p in seen:
+            continue
+        seen.add(p)
+        out.append(p)
+        for q in sorted(adj[p], key=lambda q: med[q]):
+            indeg[q] -= 1
+            if indeg[q] <= 0 and q not in seen:
+                ready.append(q)
+        ready.sort(key=lambda p: med[p])
+    out += [p for p in sorted(distinct, key=lambda p: med[p]) if p not in seen]
+    return out
+
+
 def order_steps(ctx, oids):
     inside = set(oids)
     indeg = {o: sum(1 for p in ctx.back.get(o, []) if p in inside) for o in oids}
@@ -218,9 +263,7 @@ def phase_flow(ctx, members, step_of, max_nodes=10):
         return []
     _, name, labels, distinct = best
     pos = {o: i for i, o in enumerate(order)}
-    med = {p: statistics.median([pos[o] for o in members if labels.get(o) == p] or [0])
-           for p in distinct}
-    distinct = sorted(distinct, key=lambda p: med[p])
+    distinct = _order_phases(distinct, labels, ctx, members, pos)
     quals = defaultdict(list)
     for o in order:
         p, q = labels.get(o), step_of(o)

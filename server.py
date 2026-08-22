@@ -440,7 +440,7 @@ class Handler(BaseHTTPRequestHandler):
 
             # v5 Narrative Report — driven by the Schedule-Intelligence front detector.
             # A read-only study of the baseline; recomputes no EVM number.
-            doc = build_report(data, setup=body.get('setup'))
+            doc = build_report(data, path=resolved, setup=body.get('setup'))
             doc_dict = doc.to_dict()
             self._json(200, {'ok': True, 'doc': doc_dict,
                              'html': render_narrative_html(doc_dict), 'counts': doc.counts()})

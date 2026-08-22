@@ -29,7 +29,7 @@ from p6_narrative.intel.context import build_context
 from p6_narrative.intel.fronts import detect_fronts, world_of
 from p6_narrative.model import NarrativeDoc, Section
 
-_MAX_WBS_DEPTH = 3
+_MAX_WBS_DEPTH = 8          # real P6 WBS reaches ~10 levels; show the true depth, cap breadth only
 _MAX_WBS_KIDS = 12
 
 # General EPC phase order (not project-specific): design/engineering → procurement →
@@ -172,25 +172,28 @@ def _milestones(ctx):
                    note=None if rows else 'No finish milestones are defined in the file.')
 
 
-def _wbs(ctx, r):
-    names = {w['world'] for w in r['worlds']}
+def _wbs(ctx, number='3'):
+    """One org-chart per MAJOR WBS branch (as the reference does), full P6 depth, exact
+    parent->child. Layout adapts per branch: small = centered tree, large/deep = compact
+    columns. Data-driven from children_of_wbs — never inferred from names."""
     worlds = []
-    for wid in ctx.branch_ids:
-        if _wname(ctx, wid) not in names:
-            continue
+    for wid in ctx.branch_ids:                       # every top-level branch, not only detected worlds
         n, maxb = _wbs_size(ctx, wid)
         worlds.append({'name': _wname(ctx, wid),
                        'layout': 'tree' if (n <= 16 and maxb <= 5) else 'columns',
                        'root': _wbs_tree(ctx, wid)})
-    return Section('3', 'Work Breakdown Structure', 'wbs_tree', 'auto',
+    return Section(number, 'Work Breakdown Structure', 'wbs_tree', 'auto',
                    payload={'worlds': worlds},
-                   note='Actual P6 breakdown per scope; layout adapts (small = centered tree, '
-                        'large = compact columns). Structure only — sequence is in Section 4.')
+                   note='Actual P6 breakdown, one chart per major branch; layout adapts (small = '
+                        'centered tree, large/deep = compact columns). Structure only — the '
+                        'execution order is in the Sequence of Work section.')
 
 
-def _sequence(ctx, r):
-    worlds = []
+def _seq_worlds(ctx, r, keep):
+    out = []
     for w in _ordered_worlds(ctx, r['worlds']):
+        if not keep(w['world']):
+            continue
         fronts = []
         for f in sorted(w['fronts'], key=lambda f: -len(f['activities'])):
             fronts.append({
@@ -199,8 +202,22 @@ def _sequence(ctx, r):
                 'instances': [_leaf(i) for i in f['instances']],
                 'activities': f['activities'],
             })
-        worlds.append({'world': w['world'], 'fronts': fronts})
-    return Section('4', 'Sequence of Work', 'seq', 'auto',
+        out.append({'world': w['world'], 'fronts': fronts})
+    return out
+
+
+def _general_sequence(ctx, r, number):
+    # design / engineering / procurement — the front-loading cycle worlds (phase rank <= 2)
+    worlds = _seq_worlds(ctx, r, lambda n: _phase_rank(n) <= 2)
+    return Section(number, 'General Sequence of Work — Design & Procurement', 'seq', 'auto',
+                   payload={'worlds': worlds}, editable=True,
+                   note='The design-and-procurement cycle that front-loads construction.')
+
+
+def _sequence(ctx, r, number):
+    # construction and everything downstream (phase rank >= 3)
+    worlds = _seq_worlds(ctx, r, lambda n: _phase_rank(n) >= 3)
+    return Section(number, 'Sequence of Work', 'seq', 'auto',
                    payload={'worlds': worlds}, editable=True,
                    note='How each scope is executed, at the major work-package level. '
                         'Edit packages, order and grouping; P6 activities stay in the drill-down.')
@@ -228,8 +245,13 @@ def _interfaces(ctx, r):
                    note='Macro execution flow and the key cross-scope / cross-front dependencies.')
 
 
-def build_report(data, meta=None, setup=None, **_ignored):
-    """Assemble the v5 Narrative Report as a :class:`NarrativeDoc`."""
+def build_report(data, path=None, meta=None, setup=None, **_ignored):
+    """Assemble the full Narrative Report as a :class:`NarrativeDoc`, reconciled against the
+    Golden Reference (see NARRATIVE_RECONCILIATION.md). It reuses the intact content producers
+    (`build_narrative`: layout, brief, value, scope, calendars, codes, IDs, quantities, cost,
+    cash flow) for breadth, and replaces the WBS + sequence with the Schedule-Intelligence
+    engine (per-branch WBS org-charts + logic-ordered work-package sequences) plus an executive
+    overview and an interfaces map."""
     ctx = build_context(data)
     r = detect_fronts(ctx)
     project = data.project or {}
@@ -242,6 +264,53 @@ def build_report(data, meta=None, setup=None, **_ignored):
              if setup.get(k + '_logo')}
     if logos:
         meta['logos'] = logos
-    sections = [_overview(ctx, r), _milestones(ctx), _wbs(ctx, r),
-                _sequence(ctx, r), _interfaces(ctx, r)]
-    return NarrativeDoc(meta, sections)
+
+    # Reuse the existing producers for the content-breadth sections (Golden-Reference parity).
+    old_by_title = {}
+    try:
+        from p6_narrative.builder import build_narrative
+        cal = None
+        try:
+            from p6_calendar.audit import calendar_audit
+            cal = calendar_audit(data)
+        except Exception:
+            pass
+        cat = None
+        if path:
+            try:
+                from p6_narrative.codes import read_code_catalog
+                cat = read_code_catalog(path)
+            except Exception:
+                pass
+        base = build_narrative(data, calendar_report=cal, code_catalog=cat, meta=meta, setup=setup)
+        old_by_title = {s.title.strip().lower(): s for s in base.sections}
+    except Exception:
+        old_by_title = {}
+
+    def old(title):
+        return old_by_title.get(title.strip().lower())
+
+    ordered = [
+        _overview(ctx, r),                              # Introduction / executive overview
+        old('project layout'),                          # Project Layout (image)
+        old('project brief'),                           # Project Brief
+        _milestones(ctx),                               # Major Milestones (finish)
+        old('key dates & milestones timeline'),         # Major Dates / key dates
+        old('contract value'),                          # Project Value
+        old('scope of work'),                           # Scope of Work
+        old('project calendars & holidays'),            # Calendars & Holidays
+        _wbs(ctx),                                       # WBS — per-branch org-charts
+        old('activity codes'),                          # Activity Codes
+        old('activity ids'),                            # Activity IDs
+        _general_sequence(ctx, r, 'g'),                 # General Sequence (Design & Procurement)
+        _sequence(ctx, r, 's'),                         # Sequence of Work
+        _interfaces(ctx, r),                            # Interfaces & Dependencies
+        old('major quantities'),                        # Quantities
+        old('productivity & resources'),                # Resources
+        old('cost loading'),                            # Cost Loading
+        old('cash flow'),                               # Cash Flow
+    ]
+    ordered = [s for s in ordered if s is not None]
+    for i, s in enumerate(ordered, 1):
+        s.number = str(i)
+    return NarrativeDoc(meta, ordered)

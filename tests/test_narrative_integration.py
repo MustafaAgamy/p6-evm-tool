@@ -26,6 +26,11 @@ def test_handler_chain_parse_build_render():
         assert title in frag
 
 
-def test_report_sections_are_the_locked_five():
+def test_report_sections_are_the_full_reconciled_set():
     doc = build_report(parse_file(FIX))
-    assert [s.number for s in doc.sections] == ['1', '2', '3', '4', '5']
+    kinds = [s.kind for s in doc.sections]
+    # reconciled to the Golden Reference: intelligence + content-breadth sections
+    for k in ('overview', 'wbs_tree', 'seq', 'interfaces'):
+        assert k in kinds
+    # contiguously numbered 1..N
+    assert [s.number for s in doc.sections] == [str(i) for i in range(1, len(doc.sections) + 1)]

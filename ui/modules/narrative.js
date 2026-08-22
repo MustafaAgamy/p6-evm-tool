@@ -54,15 +54,59 @@ function editText(el) {
   el.spellcheck = false;
 }
 
+// The fuller report renumbers its sections 1..N, so we can no longer key off fixed
+// section numbers. We drive editability from the document MODEL (kind + number) and
+// locate each section's DOM node by its data-section number, which the renderer emits
+// 1:1 with the model. Two `seq` sections (General Sequence + Sequence of Work) and one
+// `wbs_tree` are handled the same way, each scoped to its own section subtree.
+function sectionEl(host, number) {
+  return host.querySelector(`section.sec[data-section="${cssAttr(number)}"]`);
+}
+
 function makeEditable(host) {
-  // 1) Overview prose
-  host.querySelectorAll('[data-section="1"] [data-field^="paragraphs"]').forEach(editText);
-  // 2) Sequence of Work — rename front title, edit/reorder/add/remove packages
-  host.querySelectorAll('.front').forEach(wireFront);
-  // 3) WBS — rename any node (not the world root)
-  host.querySelectorAll('.wt-box:not(.wt-root), .it-box').forEach(el => {
-    if (!el.classList.contains('wt-more') && !el.classList.contains('it-more')) editText(el);
-  });
+  const sections = (state.narrativeDoc && state.narrativeDoc.sections) || [];
+  if (sections.length) {
+    sections.forEach(s => { const el = sectionEl(host, s.number); if (el) wireSection(el, s); });
+  } else {
+    // Defensive fallback (doc missing): infer from the DOM only.
+    host.querySelectorAll('section.sec').forEach(el => wireSection(el, null));
+  }
+}
+
+// Wire one section's DOM for editing, according to its kind.
+function wireSection(el, s) {
+  const kind = s ? s.kind : inferKind(el);
+  if (kind === 'seq') { el.querySelectorAll('.front').forEach(front => wireFront(front)); return; }
+  if (kind === 'wbs_tree' || kind === 'wbs') {
+    el.querySelectorAll('.wt-box:not(.wt-root):not(.wt-more), .it-box:not(.it-more)').forEach(editText);
+    return;
+  }
+  // Prose-bearing sections: overview is always editable; scope is editable per the spec
+  // (its builder flag is missing); honest-note `prose` sections stay read-only.
+  const proseEditable = s ? (!!s.editable || kind === 'scope' || kind === 'overview') : true;
+  if (proseEditable) {
+    el.querySelectorAll('[data-field]').forEach(editText);   // renderer-hooked prose (overview)
+    proseParas(el).forEach(editText);                        // scope intro + discipline prose
+  }
+}
+
+// Body prose paragraphs eligible for inline editing: real <p> content that is not a
+// renderer lead-in, not already a data-field hook, and not inside tabular/stat chrome.
+function proseParas(el) {
+  return [...el.querySelectorAll('p')].filter(p =>
+    !p.hasAttribute('data-field') &&
+    !p.classList.contains('lead') &&
+    !p.closest('table, thead, tbody, .bn-statwrap, .stats, details, .ms-table') &&
+    (p.textContent || '').trim() !== '');
+}
+
+// Best-effort kind inference when the model is unavailable (fallback path only).
+function inferKind(el) {
+  if (el.querySelector('.front')) return 'seq';
+  if (el.querySelector('.wt-box, .it-box')) return 'wbs_tree';
+  if (el.querySelector('.bn-disc')) return 'scope';
+  if (el.querySelector('[data-field]')) return 'overview';
+  return '';
 }
 
 function wireFront(front) {
@@ -75,35 +119,62 @@ function wireFront(front) {
   add.type = 'button';
   add.textContent = '+ step';
   add.title = 'Add a work-package step';
+  add.contentEditable = 'false';
   add.addEventListener('click', () => {
     const box = document.createElement('span');
     box.className = 'fl-box';
     box.textContent = 'New step';
-    flow.insertBefore(box, add);
+    flow.insertBefore(box, add);          // new box always sits before the add control
     wirePackage(box, flow);
+    refreshArrows(flow);                  // re-thread arrows so the new box gets one before it
     selectText(box);
   });
   flow.appendChild(add);
+  refreshArrows(flow);                    // normalise the renderer-baked arrows to the dynamic rule
+}
+
+// DYNAMIC ARROWS (issue #6b). The renderer bakes ▶ separators as standalone `.fl-arr`
+// spans between boxes; after any add / remove / reorder those baked spans go stale
+// (missing before a new box, orphaned after a removed one, scrambled after a drag).
+// refreshArrows() rebuilds them from the CURRENT box order every time: it deletes ALL
+// existing `.fl-arr` separators, then inserts exactly one immediately BEFORE each box
+// except the first. That guarantees exactly one arrow between each adjacent pair, none
+// before the first box, and none after the last (arrows are only ever placed before a
+// box, and the `.bn-add` control — not a box — stays at the tail). 0 or 1 box ⇒ no arrows.
+function refreshArrows(flow) {
+  if (!flow) return;
+  flow.querySelectorAll('.fl-arr').forEach(a => a.remove());
+  const boxes = [...flow.querySelectorAll('.fl-box')];
+  boxes.forEach((box, idx) => {
+    if (idx === 0) return;
+    const arr = document.createElement('span');
+    arr.className = 'fl-arr';
+    arr.setAttribute('aria-hidden', 'true');
+    arr.contentEditable = 'false';
+    arr.textContent = '▶';
+    flow.insertBefore(arr, box);
+  });
 }
 
 function wirePackage(box, flow) {
   editText(box);
   box.setAttribute('draggable', 'true');
-  box.addEventListener('dragstart', e => { box.classList.add('bn-drag'); e.dataTransfer.setData('text/plain', ''); });
-  box.addEventListener('dragend', () => box.classList.remove('bn-drag'));
+  box.addEventListener('dragstart', e => { box.classList.add('bn-drag'); if (e.dataTransfer) e.dataTransfer.setData('text/plain', ''); });
+  box.addEventListener('dragend', () => { box.classList.remove('bn-drag'); refreshArrows(flow); });
   box.addEventListener('dragover', e => {
     e.preventDefault();
     const dragging = flow.querySelector('.bn-drag');
     if (!dragging || dragging === box) return;
     const r = box.getBoundingClientRect();
     flow.insertBefore(dragging, (e.clientX - r.left) < r.width / 2 ? box : box.nextSibling);
+    refreshArrows(flow);                 // keep the flow correctly threaded during the drag
   });
   const del = document.createElement('span');
   del.className = 'bn-del';
   del.textContent = '×';
   del.title = 'Remove this step';
   del.contentEditable = 'false';
-  del.addEventListener('click', () => box.remove());
+  del.addEventListener('click', () => { box.remove(); refreshArrows(flow); });
   box.appendChild(del);
 }
 
@@ -116,67 +187,143 @@ function selectText(el) {
   s.addRange(r);
 }
 
-// Serialise the (edited) DOM back into the document model, matching model order to DOM
-// order 1:1 (the renderer is deterministic, so the fronts/nodes line up).
+// Serialise the (edited) DOM back into the document model. We walk the model in order
+// and, for each section, locate its DOM node by data-section number (the renderer emits
+// them 1:1) and fold that section's edits into ITS OWN payload. This is number-order
+// independent, so it survives the fuller report's 1..N renumbering and correctly handles
+// the two `seq` sections and the single `wbs_tree`, each scoped to its own subtree.
 function boxText(box) {
   const c = box.cloneNode(true);
   c.querySelectorAll('.bn-del').forEach(d => d.remove());
   return c.innerText.trim();
 }
 
+// Write a value into a dotted payload path (e.g. "paragraphs.0", "blocks.2.paragraph"),
+// creating arrays/objects as needed but preferring existing containers.
+function setByPath(obj, path, value) {
+  const parts = String(path).split('.');
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const k = parts[i];
+    if (cur[k] == null) cur[k] = /^\d+$/.test(parts[i + 1]) ? [] : {};
+    cur = cur[k];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
+// Honour any renderer-emitted data-field hooks in a section, writing each element's text
+// back to its payload path. Returns true if at least one hook was found (overview, and
+// any future hook-carrying prose). Precise + renderer-driven, so it needs no assumptions.
+function applyFieldHooks(el, payload) {
+  let any = false;
+  el.querySelectorAll('[data-field]').forEach(node => {
+    const path = node.getAttribute('data-field');
+    if (!path) return;
+    setByPath(payload, path, node.innerText.trim());
+    any = true;
+  });
+  return any;
+}
+
 function serializeDoc() {
   const doc = state.narrativeDoc;
   const host = document.getElementById('narrative-doc');
-  if (!doc || !host) return doc;
-  const sec = num => doc.sections.find(s => s.number === num);
-
-  const ov = sec('1');
-  if (ov) {
-    const paras = [...host.querySelectorAll('[data-section="1"] [data-field^="paragraphs"]')]
-      .map(p => p.innerText.trim()).filter(Boolean);
-    if (paras.length) ov.payload.paragraphs = paras;
-  }
-
-  const sq = sec('4');
-  if (sq && sq.payload.worlds) {
-    const cards = [...host.querySelectorAll('.front')];
-    let i = 0;
-    for (const w of sq.payload.worlds) {
-      for (const f of w.fronts) {
-        const card = cards[i++];
-        if (!card) continue;
-        const t = card.querySelector('.fr-title');
-        if (t) f.title = t.innerText.trim();
-        f.sequence = [...card.querySelectorAll('.fl-box')].map(boxText).filter(Boolean);
-      }
+  if (!doc || !host || !Array.isArray(doc.sections)) return doc;
+  for (const s of doc.sections) {
+    const el = sectionEl(host, s.number);
+    if (!el) continue;
+    switch (s.kind) {
+      case 'overview':
+      case 'prose':    serializeProse(el, s); break;
+      case 'scope':    serializeScope(el, s); break;
+      case 'seq':      serializeSeq(el, s);   break;
+      case 'wbs_tree':
+      case 'wbs':      serializeWbs(el, s);   break;
+      default: break;
     }
   }
-
-  const wb = sec('3');
-  if (wb && wb.payload.worlds) {
-    const nodes = [...host.querySelectorAll('.wt-box:not(.wt-root):not(.wt-more), .it-box:not(.it-more)')];
-    let i = 0;
-    const walk = n => {
-      if (n.more) return;
-      const el = nodes[i++];
-      if (el) n.name = el.innerText.trim() || n.name;
-      (n.children || []).forEach(walk);
-    };
-    // the world roots are rendered but not editable; recurse their children in order
-    for (const world of wb.payload.worlds) (world.root.children || []).forEach(walk);
-  }
   return doc;
+}
+
+// Overview + editable prose. Prefer precise data-field hooks; otherwise fold the editable
+// body paragraphs into payload.paragraphs (the shape the prose/overview renderers use).
+function serializeProse(el, s) {
+  if (s.kind === 'prose' && !s.editable) return;   // honest-note prose is never edited
+  const p = s.payload || (s.payload = {});
+  if (applyFieldHooks(el, p)) return;
+  const paras = proseParas(el).map(x => x.innerText.trim()).filter(Boolean);
+  if (paras.length) p.paragraphs = paras;
+}
+
+// Scope of Work: {intro, blocks:[{paragraph,...}]}. Prefer hooks; else map positionally
+// from the recovered DOM — the first non-discipline body paragraph is the intro, and each
+// `.bn-disc` block's paragraph feeds the matching blocks[i].paragraph. Guarded so an
+// unexpected structure never corrupts the payload.
+function serializeScope(el, s) {
+  const p = s.payload || (s.payload = {});
+  if (applyFieldHooks(el, p)) return;
+  const bodyParas = proseParas(el);
+  if (typeof p.intro === 'string') {
+    const introEl = bodyParas.find(x => !x.closest('.bn-disc'));
+    if (introEl) p.intro = introEl.innerText.trim();
+  }
+  if (Array.isArray(p.blocks)) {
+    const discParas = [...el.querySelectorAll('.bn-disc')].map(d => d.querySelector('p'));
+    p.blocks.forEach((b, i) => {
+      const dp = discParas[i];
+      if (dp && b && typeof b === 'object') b.paragraph = dp.innerText.trim();
+    });
+  }
+}
+
+// Sequence of Work: zip this section's DOM `.front` cards to its own payload.worlds/fronts
+// in DOM order (front title + the flow's `.fl-box` steps). Scoped to `el` so each of the
+// two seq sections serialises into its own payload.
+function serializeSeq(el, s) {
+  const p = s.payload;
+  if (!p || !Array.isArray(p.worlds)) return;
+  const cards = [...el.querySelectorAll('.front')];
+  let i = 0;
+  for (const w of p.worlds) {
+    for (const f of (w.fronts || [])) {
+      const card = cards[i++];
+      if (!card) continue;
+      const t = card.querySelector('.fr-title');
+      if (t) f.title = t.innerText.trim();
+      f.sequence = [...card.querySelectorAll('.fl-box')].map(boxText).filter(Boolean);
+    }
+  }
+}
+
+// WBS: rename nodes in pre-order, matching the renderer's document order. World roots are
+// rendered but not editable, so we recurse only their children — exactly as they appear.
+function serializeWbs(el, s) {
+  const p = s.payload;
+  if (!p || !Array.isArray(p.worlds)) return;
+  const nodes = [...el.querySelectorAll('.wt-box:not(.wt-root):not(.wt-more), .it-box:not(.it-more)')];
+  let i = 0;
+  const walk = n => {
+    if (!n || n.more) return;
+    const node = nodes[i++];
+    if (node) n.name = node.innerText.trim() || n.name;
+    (n.children || []).forEach(walk);
+  };
+  for (const world of p.worlds) ((world.root || {}).children || []).forEach(walk);
 }
 
 // ── Report Contents (the tool-wide selection framework) ─────────────────────────
 function mountContents(host) {
   const panel = document.getElementById('narrative-contents');
   if (!panel) return;
+  const titleByNum = {};
+  ((state.narrativeDoc && state.narrativeDoc.sections) || []).forEach(s => { titleByNum[s.number] = s.title; });
   const sections = [...host.querySelectorAll('section.sec')];
   const components = sections.map(el => {
     const num = el.getAttribute('data-section');
     const h2 = el.querySelector('h2');
-    const label = h2 ? h2.textContent.replace(/^\s*\d+\s*/, '').trim() : ('Section ' + num);
+    const label = titleByNum[num]
+      || (h2 ? h2.textContent.replace(/^\s*\d+[.\s]*/, '').trim() : '')
+      || ('Section ' + num);
     return { id: num, label, render: () => el, defaultOn: true, hasData: true };
   });
   registry = createReportRegistry({
@@ -195,14 +342,20 @@ function applySelection(host) {
   const selected = registry.getSelectedIds();
   const sel = new Set(selected);
   const page = host.querySelector('.page') || host;
+  // Reorder ANCHOR: the footer is the last child of `.page`, so append-to-page would drop
+  // sections after it. Insert before the footer instead so it always stays at the bottom.
+  const foot = page.querySelector(':scope > .foot');
   host.querySelectorAll('section.sec').forEach(el => {
     el.style.display = sel.has(el.getAttribute('data-section')) ? '' : 'none';
   });
   selected.forEach((num, idx) => {
-    const el = host.querySelector(`section.sec[data-section="${cssAttr(num)}"]`);
+    const el = sectionEl(host, num);
     if (!el) return;
-    if (page) page.appendChild(el);                 // reorder to the selected order
-    const chip = el.querySelector('h2 .num');
+    if (foot && foot.parentNode === page) page.insertBefore(el, foot);   // keep footer last
+    else page.appendChild(el);                                           // reorder to the selected order
+    // Renumber the on-screen heading chip. Cover both the v5 header (`h2 .num`) and the
+    // recovered header markup (a `.bn-n` chip beside the h2) so numbering stays 1..k.
+    const chip = el.querySelector('h2 .num, .bn-n');
     if (chip) chip.textContent = String(idx + 1);
   });
 }
