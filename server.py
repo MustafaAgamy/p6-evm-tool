@@ -104,6 +104,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_calendar_settings(body)
         elif self.path == '/api/lag/justification':
             self._handle_lag_justification(body)
+        elif self.path == '/api/milestones/save':
+            self._handle_milestones_save(body)
         elif self.path == '/api/ai/settings':
             self._handle_ai_settings_set(body)
         elif self.path == '/api/ai-review':
@@ -254,6 +256,20 @@ class Handler(BaseHTTPRequestHandler):
                     apply_justifications(lag_mod, db.get_project_settings(pid).get('lag_justifications'))
                 except Exception as lag_exc:
                     print(f'[lag] justification merge skipped: {lag_exc}', file=sys.stderr)
+
+                # Milestone Check (gate B): merge the contract-milestone evaluation into
+                # the (renamed) Hard Constraints module, plus the baseline's milestone list
+                # so the entry screen can offer real activities to match against.
+                try:
+                    from p6_audit.milestone_check import build_milestone_module
+                    from p6_audit.graph import ScheduleGraph
+                    mods = audit_modules_result.get('modules') or {}
+                    if 'hard_constraints' in mods:
+                        mods['hard_constraints'] = build_milestone_module(
+                            mods['hard_constraints'], ScheduleGraph(data),
+                            db.get_contract_milestones(pid))
+                except Exception as mc_exc:
+                    print(f'[milestone] attach skipped: {mc_exc}', file=sys.stderr)
 
             sid = db.insert_snapshot(
                 project_id     = pid,
@@ -1076,7 +1092,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_xlsx
             from p6_audit.exporters import excel_columns
             headers, rows = excel_columns(m)
-            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Audit')[:31], headers, rows)
+            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31], headers, rows)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1093,15 +1109,21 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': False, 'error': 'No output path provided'})
             return
         mods = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
-        m = (mods or {}).get('modules', {}).get(module)
-        if not m:
+        is_summary = (module == '__summary__')
+        m = None if is_summary else (mods or {}).get('modules', {}).get(module)
+        if is_summary and not (mods or {}).get('health'):
+            self._json(200, {'ok': False, 'error': 'No Summary available for this schedule.'})
+            return
+        if not is_summary and not m:
             self._json(200, {'ok': False, 'error': 'No audit found for this module.'})
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_audit.report import render_module_report
+            from p6_audit.report import render_module_report, render_summary_report
             import subprocess, tempfile
-            html_content = render_module_report(m, meta_in)
+            html_content = (render_summary_report(mods['health'], meta_in, sections=body.get('sections'),
+                                                   modules=(mods or {}).get('modules'))
+                            if is_summary else render_module_report(m, meta_in, sections=body.get('sections')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -1510,6 +1532,39 @@ class Handler(BaseHTTPRequestHandler):
             current.pop(key, None)      # blanking a reason clears it
         db.save_project_settings(pid, {'lag_justifications': current})
         self._json(200, {'ok': True, 'lag_justifications': current})
+
+    # ── /api/milestones/save ─────────────────────────────────────────────────
+    def _handle_milestones_save(self, body):
+        """Save the project's contract milestones (gate B) and re-evaluate them against
+        the baseline, returning the refreshed Milestone Check module so the review can
+        un-gate and show the verdicts at once."""
+        sid = body.get('snapshot_id')
+        pid = db.get_project_id_for_snapshot(sid) if sid else None
+        if not pid:
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        milestones = body.get('milestones') or []
+        db.save_contract_milestones(pid, milestones)
+        module = None
+        resolved = db.get_snapshot_xml_path(sid)
+        if resolved:
+            try:
+                sys.path.insert(0, resource_path('.'))
+                from p6_evm.parser import parse_file
+                from p6_evm.classify import auto_categories
+                from p6_audit import audit_modules as run_audit_modules
+                from p6_audit.graph import ScheduleGraph
+                from p6_audit.milestone_check import build_milestone_module
+                with open(resource_path('config.json')) as f:
+                    config = json.load(f)
+                data = parse_file(resolved)
+                config['categories'] = auto_categories(data)
+                am = run_audit_modules(data, config)
+                hard = (am.get('modules') or {}).get('hard_constraints')
+                module = build_milestone_module(hard, ScheduleGraph(data), milestones)
+            except Exception as mexc:
+                print(f'[milestone] save recompute skipped: {mexc}', file=sys.stderr)
+        self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module})
 
     # ── /api/history ───────────────────────────────────────────────────────
     def _handle_history(self):

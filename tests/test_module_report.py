@@ -94,11 +94,14 @@ def test_dangling_report_has_sections_and_no_float_content():
     assert 'Excellent' in html and '94' in html
     assert 'A240' in html and 'Dangling Start' in html
     assert 'Add an FS predecessor.' in html      # suggested fix rendered
-    assert 'Summary Statistics' in html          # Output 2
     assert '<th>Suggested Logic Fix</th>' in html
     assert '<th>Suggested Logic Fix 2</th>' in html  # alternative-types column
     assert '<th>Recommendation</th>' not in html  # Recommendation column removed from Dangling
-    assert 'Dangling Start + Dangling Finish' in html  # relabelled KPI tile
+    # single-source: the PDF now uses the screen's tile labels (was the drifted
+    # 'Dangling Start + Dangling Finish'; the screen shows 'Start + Finish').
+    assert 'Start + Finish' in html
+    # severity chip must sit INSIDE its own <td> (a bare <span> broke the columns)
+    assert '<td><span class="sev"' in html
     assert 'Task-Dependent' in html                    # scope note
     # isolation: no float wording
     assert 'Float Analysis' not in html
