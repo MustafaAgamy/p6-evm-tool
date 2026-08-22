@@ -65,17 +65,25 @@ export function switchView(view) {
   document.getElementById('calendar-panel').classList.toggle('hidden', view !== 'calendar');
   document.getElementById('construct-panel').classList.toggle('hidden', view !== 'construct');
   document.getElementById('compare-panel').classList.toggle('hidden', view !== 'compare');
+  document.getElementById('lag-panel').classList.toggle('hidden', view !== 'lag');
+  document.getElementById('period-panel').classList.toggle('hidden', view !== 'period');
+  document.getElementById('update-panel').classList.toggle('hidden', view !== 'update');
   document.getElementById('tab-evm').classList.toggle('active', view === 'evm');
   document.getElementById('tab-audit').classList.toggle('active', view === 'audit');
   document.getElementById('tab-oos').classList.toggle('active', view === 'oos');
   document.getElementById('tab-calendar').classList.toggle('active', view === 'calendar');
   document.getElementById('tab-construct').classList.toggle('active', view === 'construct');
   document.getElementById('tab-compare').classList.toggle('active', view === 'compare');
+  document.getElementById('tab-lag').classList.toggle('active', view === 'lag');
+  document.getElementById('tab-period').classList.toggle('active', view === 'period');
+  document.getElementById('tab-update').classList.toggle('active', view === 'update');
   // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
   document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
   document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');
-  // Out of Sequence exports reuse the module export path with a fixed module id.
+  // Out of Sequence and Lag Report are top-level views but reuse the module export path
+  // (PDF/Excel) with a fixed module id.
   if (view === 'oos') state.currentModule = 'out_of_sequence';
+  if (view === 'lag') state.currentModule = 'lag_lead';
 }
 
 // Show the "EVM vs Schedule Audit" choice; hide both analysis views until picked.
@@ -105,8 +113,9 @@ export function renderAudit(auditModules) {
   // Always rebuild a fresh #module-body so repeated renders never hit a
   // container that a prior "no audit" render replaced.
   body.innerHTML = '<div id="module-body"></div>';
-  // Out of Sequence is shown as its own top-level feature, not a Schedule Audit tab.
-  const order = ((auditModules && auditModules.module_order) || []).filter(k => k !== 'out_of_sequence');
+  // Out of Sequence and Lag Report are shown as their own top-level features, not Schedule Audit tabs.
+  const order = ((auditModules && auditModules.module_order) || [])
+    .filter(k => k !== 'out_of_sequence' && k !== 'lag_lead');
   if (!order.length) {
     tabs.innerHTML = '';
     document.getElementById('module-body').innerHTML =
@@ -550,4 +559,177 @@ function renderRows() {
       <td>${escapeHtml(f.status)}</td>${sev}
       <td class="mut">${escapeHtml(f.recommendation)}</td></tr>`;
   }).join('');
+}
+
+// ── Lag Report — standalone report (charts + register + editable justification) ──
+
+let _lagFilter = { query: '', flaggedOnly: false };
+
+function lagBar(pct) {
+  const w = Math.max(0, Math.min(100, Math.round(pct || 0)));
+  return `<div class="lag-dbar"><i style="width:${w}%"></i></div>`;
+}
+
+function lagRelHtml(rel, isLead, isLong) {
+  const cls = isLead ? 'rel-lead' : (isLong ? 'rel-long' : '');
+  return `<span class="mono ${cls}">${escapeHtml(rel || '—')}</span>`;
+}
+
+function lagFlagChips(f) {
+  let c = '';
+  if (f.is_lead) c += '<span class="lag-chip lead">Lead</span>';
+  if (f.is_long) c += '<span class="lag-chip long">Long</span>';
+  if (f.criticality === 'Critical') c += '<span class="lag-chip crit">Crit</span>';
+  else if (f.criticality === 'Near-Critical') c += '<span class="lag-chip near">Near</span>';
+  return c;   // empty when clean — chips sit inline in the relationship cell
+}
+
+// Save one justification to the server (per project). Raw fetch keeps audit.js free of an
+// api.js import cycle; a failed save is silent — the typed text stays in the in-memory copy.
+async function saveLagJustification(relKey, text) {
+  if (!state.currentSnapshotId) return;
+  try {
+    await fetch(`http://localhost:${state.serverPort}/api/lag/justification`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, rel_key: relKey, text }),
+    });
+  } catch { /* offline / server down — keep the local edit, retry on next blur */ }
+}
+
+function lagRowsFiltered(m) {
+  const q = (_lagFilter.query || '').trim().toLowerCase();
+  return (m.findings || []).filter(f => {
+    if (_lagFilter.flaggedOnly && !(f.is_lead || f.is_long)) return false;
+    if (q) {
+      const hay = `${f.activity_id || ''} ${f.activity_name || ''} ${f.pred_name || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderLagRows(m) {
+  const tbody = document.getElementById('lag-tbody');
+  if (!tbody) return;
+  const rows = lagRowsFiltered(m);
+  if (!rows.length) {
+    const empty = !(m.findings || []).length
+      ? 'No lags or leads in this schedule — every relationship drives directly.'
+      : 'No lags match your search.';
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">${empty}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((f, i) => `
+    <tr>
+      <td class="num">${i + 1}</td>
+      <td class="mono">${escapeHtml(f.activity_id)}</td>
+      <td>${escapeHtml(f.activity_name)}</td>
+      <td class="lag-relcell">${lagRelHtml(f.pred_rel, f.is_lead, f.is_long)} ${lagFlagChips(f)}</td>
+      <td class="mut">${escapeHtml(f.pred_name)}</td>
+      <td><span class="mono">${escapeHtml(f.succ_rel || '—')}</span></td>
+      <td class="mut">${escapeHtml(f.succ_name || '—')}</td>
+      <td><textarea class="lag-just" data-relkey="${escapeHtml(f.rel_key)}" rows="1" placeholder="Add reason…">${escapeHtml(f.justification || '')}</textarea></td>
+    </tr>`).join('');
+
+  tbody.querySelectorAll('.lag-just').forEach(ta => {
+    const relKey = ta.dataset.relkey;
+    const sync = () => { const f = (m.findings || []).find(x => x.rel_key === relKey); if (f) f.justification = ta.value; };
+    ta.addEventListener('input', sync);
+    ta.addEventListener('change', () => { sync(); saveLagJustification(relKey, ta.value); });
+  });
+}
+
+// Lag makeup donut: normal (grey) · long positive (amber) · leads (red). Centre = to-justify count.
+function lagDonut(k) {
+  const normal = k.normal_count || 0, longp = k.long_positive_count || 0, leads = k.leads_count || 0;
+  const total = normal + longp + leads;
+  const need = k.need_justification_count ?? (longp + leads);
+  const thr = k.long_threshold_days || 14;
+  const C = 251.33;
+  let off = 0;
+  const seg = (val, color) => {
+    if (!val || !total) return '';
+    const len = C * val / total;
+    const s = `<circle cx="50" cy="50" r="40" fill="none" stroke="${color}" stroke-width="15" ` +
+      `stroke-dasharray="${len.toFixed(1)} ${C}" stroke-dashoffset="${(-off).toFixed(1)}"/>`;
+    off += len; return s;
+  };
+  return `<div class="lag-donut">
+    <svg width="90" height="90" viewBox="0 0 100 100" aria-hidden="true">
+      <g transform="rotate(-90 50 50)">${seg(normal, '#475569')}${seg(longp, '#fbbf24')}${seg(leads, '#f87171')}</g>
+      <text x="50" y="48" text-anchor="middle" font-size="18" font-weight="800" fill="currentColor">${need}</text>
+      <text x="50" y="62" text-anchor="middle" font-size="8" fill="#94a3b8">to justify</text>
+    </svg>
+    <div class="lag-leg">
+      <div><span class="ld-dot" style="background:#475569"></span>Normal &le;${thr} wd <b>${normal}</b></div>
+      <div><span class="ld-dot" style="background:#fbbf24"></span>Long &gt;${thr} wd <b>${longp}</b></div>
+      <div><span class="ld-dot" style="background:#f87171"></span>Leads <b>${leads}</b></div>
+      <div><span class="ld-dot" style="background:#3b82f6"></span>On critical path <b>${k.critical_count || 0}</b></div>
+    </div>
+  </div>`;
+}
+
+// Lag Report — a standalone top-level report (register of all project lags + charts), not a
+// Schedule Audit tab. Renders into #lag-body. No verdict/score — that's the separate scoring feature.
+export function renderLagPanel(auditModules) {
+  const body = document.getElementById('lag-body');
+  if (!body) return;
+  const m = auditModules && auditModules.modules && auditModules.modules.lag_lead;
+  if (!m) {
+    body.innerHTML = '<p style="color:var(--muted);font-size:13px">No lag report for this schedule.</p>';
+    return;
+  }
+  const k = m.kpis || {};
+  const byType = k.by_type || [];
+  const ws = m.wbs_summary || [];
+  const typeMax = Math.max(1, ...byType.map(t => t.count || 0));
+  const wbsMax = Math.max(1, ...ws.map(r => r.lagged || 0));
+  const thr = k.long_threshold_days || 14;
+  _lagFilter = { query: '', flaggedOnly: false };
+
+  const typeRows = byType.map(t =>
+    `<div class="lag-drow"><span class="lag-dk">${escapeHtml(t.type)}</span>` +
+    `${lagBar(100 * (t.count || 0) / typeMax)}<span class="lag-dv">${t.count} · ${t.pct}%</span></div>`).join('')
+    || '<div style="color:var(--muted);font-size:12px">No lags to distribute.</div>';
+  const wbsRows = ws.slice(0, 10).map(r =>
+    `<div class="lag-wrow"><div class="lag-wname">${escapeHtml(r.wbs)}</div>` +
+    `<div class="lag-wline">${lagBar(100 * (r.lagged || 0) / wbsMax)}<span class="lag-dv">${r.lagged} · ${r.pct}%</span></div></div>`).join('')
+    || '<div style="color:var(--muted);font-size:12px">No lags to distribute.</div>';
+
+  const total = k.lagged_count || 0;
+  const need = k.need_justification_count ?? ((k.leads_count || 0) + (k.long_positive_count || 0));
+
+  body.innerHTML = `
+    <div class="lag-rpt-head">
+      <div class="lag-rpt-title">Lag report</div>
+      <div class="lag-rpt-meta"><b>${total.toLocaleString()}</b> lags across the schedule · ` +
+        `<b>${need}</b> need a justification (lag over ${thr} working days, or a lead) · listed worst first</div>
+    </div>
+
+    <div class="lag-charts">
+      <div class="lag-panel"><div class="lag-ph">Lags by relationship type</div>${typeRows}</div>
+      <div class="lag-panel"><div class="lag-ph">Lags by WBS area</div>${wbsRows}</div>
+      <div class="lag-panel"><div class="lag-ph">Lag makeup</div>${lagDonut(k)}</div>
+    </div>
+
+    <div class="lag-hint">Every relationship carrying a lag or a lead is listed. The <b class="lag-hl">highlighted</b> ones &mdash; lag over ${thr} working days, or a lead &mdash; are the ones to explain: <b>type a reason in the Justification column</b>. It saves with the project and prints into the PDF and Excel.</div>
+
+    <div class="filters">
+      <input class="searchbox" id="lag-search" placeholder="🔍  Search activity ID, name or predecessor…">
+      <label class="lag-toggle"><input type="checkbox" id="lag-flagged"> Flagged only (leads &amp; long lags)</label>
+    </div>
+    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table lag-table"><thead><tr>
+      <th>#</th><th>Activity ID</th><th>Activity Name</th>
+      <th>Pred. Relationship</th><th>Pred. Name</th>
+      <th>Succ. Relationship</th><th>Succ. Name</th>
+      <th class="lag-jcol">Justification</th>
+    </tr></thead><tbody id="lag-tbody"></tbody></table></div>`;
+
+  document.getElementById('lag-search').addEventListener('input', e => {
+    _lagFilter.query = e.target.value; renderLagRows(m);
+  });
+  document.getElementById('lag-flagged').addEventListener('change', e => {
+    _lagFilter.flaggedOnly = e.target.checked; renderLagRows(m);
+  });
+  renderLagRows(m);
 }

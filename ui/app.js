@@ -7,6 +7,8 @@ import { renderConstructPanel }               from './modules/construct.js';
 import { showKbLibrary, exitKbLibrary, initKbLibrary } from './modules/kblib.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
+import { renderPeriodPanel }                   from './modules/period.js';
+import { renderUpdatePanel }                   from './modules/update.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -44,6 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('excel-btn').addEventListener('click', () => exportExcel());
   document.getElementById('oos-pdf-btn').addEventListener('click', () => generateModulePdf('oos-pdf-btn'));
   document.getElementById('oos-excel-btn').addEventListener('click', () => exportExcel('oos-excel-btn'));
+  document.getElementById('lag-pdf-btn').addEventListener('click', () => generateModulePdf('lag-pdf-btn'));
+  document.getElementById('lag-excel-btn').addEventListener('click', () => exportExcel('lag-excel-btn'));
   document.getElementById('cal-pdf-btn').addEventListener('click', generateCalendarPdf);
   document.getElementById('cal-excel-btn').addEventListener('click', exportCalendarExcel);
 
@@ -55,6 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (card.dataset.view === 'evm') maybePromptBaseline(state.currentResult);
       if (card.dataset.view === 'construct') renderConstructPanel();
       if (card.dataset.view === 'compare') renderComparePanel();
+      if (card.dataset.view === 'period') renderPeriodPanel();
+      if (card.dataset.view === 'update') renderUpdatePanel();
     }));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
@@ -65,6 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
   document.getElementById('tab-construct').addEventListener('click', () => { switchView('construct'); renderConstructPanel(); });
   document.getElementById('tab-compare').addEventListener('click', () => { switchView('compare'); renderComparePanel(); });
+  document.getElementById('tab-lag').addEventListener('click', () => switchView('lag'));
+  document.getElementById('tab-period').addEventListener('click', () => { switchView('period'); renderPeriodPanel(); });
+  document.getElementById('tab-update').addEventListener('click', () => { switchView('update'); renderUpdatePanel(); });
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {

@@ -90,6 +90,24 @@ def test_compare_detects_lag_change_across_xer_and_xml(test_server, tmp_path):
     assert dur['A100']['baseline_orig_days'] == 10.0 and dur['A100']['update_orig_days'] == 15.0
 
 
+def test_compare_report_pdf_route_runs_without_reschedule(test_server, tmp_path, monkeypatch):
+    """Regression: _handle_compare_report used tempfile/subprocess without importing them,
+    so the Consultant Review PDF always failed with a NameError — regardless of any
+    reschedule. Mock Chrome so the full route (tempfile → subprocess) runs end to end."""
+    import server
+    ran = {}
+    monkeypatch.setattr(server, '_find_chrome', lambda: 'chrome-stub')
+    monkeypatch.setattr(server.subprocess, 'run', lambda *a, **k: ran.update(ok=True))
+    out = str(tmp_path / 'consultant_review.pdf')
+    report = {'baseline_file': 'b.xer', 'update_file': 'u.xml',
+              'dashboard': {'changed_activities': 0, 'logic_changed': 0, 'duration_only': 0,
+                            'finish_slip_days': None},
+              'change_summary': {'items': []}, 'logic': {'rows': []}, 'durations': {'rows': []}}
+    _, data = _post_json(test_server, '/api/compare/report',
+                         {'report': report, 'impact': None, 'output_path': out})
+    assert data['ok'] is True and ran.get('ok')     # route completed — no NameError, no reschedule needed
+
+
 # ── GET / ─────────────────────────────────────────────────────────────────
 
 def test_index_returns_200(test_server):
@@ -226,12 +244,43 @@ def test_parse_returns_modules_and_snapshot(test_server, xml_path):
     assert data['ok'] is True
     assert 'snapshot_id' in data and isinstance(data['snapshot_id'], int)
     am = data['result']['audit_modules']
-    assert set(am['modules'].keys()) == {'dangling', 'float', 'out_of_sequence'}
-    assert am['module_order'] == ['dangling', 'float', 'out_of_sequence']
+    assert set(am['modules'].keys()) == {'dangling', 'float', 'out_of_sequence', 'lag_lead'}
+    assert am['module_order'] == ['dangling', 'float', 'out_of_sequence', 'lag_lead']
     # minimal.xml has two unlinked activities -> dangling module finds them
     assert am['modules']['dangling']['kpis']['total_dangling'] >= 1
     # each module carries its own isolated score/grade
     assert 'score' in am['modules']['float'] and 'grade' in am['modules']['float']
+
+
+def test_lag_justification_round_trip(test_server, tmp_path):
+    """Save a Lag & Lead justification, then re-import the same file and confirm it is
+    merged back from project settings — the persistence path a re-open depends on."""
+    p = tmp_path / 'lag.xml'
+    p.write_text(_UPDATE_XML, encoding='utf-8')   # carries A050 --FS Lag 80h (=10wd)--> A100
+
+    _, d1 = _post_json(test_server, '/api/parse', {'path': str(p), 'overrides_path': None})
+    sid = d1['snapshot_id']
+    lag = d1['result']['audit_modules']['modules']['lag_lead']
+    assert lag['kpis']['lagged_count'] == 1
+    f0 = lag['findings'][0]
+    assert f0['justification'] == ''
+    rel_key = f0['rel_key']
+    assert rel_key == 'A050|A100|FS'
+
+    _, d2 = _post_json(test_server, '/api/lag/justification',
+                       {'snapshot_id': sid, 'rel_key': rel_key, 'text': 'Cure + strike per MS-07'})
+    assert d2['ok'] is True
+    assert d2['lag_justifications'][rel_key] == 'Cure + strike per MS-07'
+
+    # Re-import the same file → the saved reason is merged into the fresh register.
+    _, d3 = _post_json(test_server, '/api/parse', {'path': str(p), 'overrides_path': None})
+    lag3 = d3['result']['audit_modules']['modules']['lag_lead']
+    assert lag3['findings'][0]['justification'] == 'Cure + strike per MS-07'
+
+    # Blanking the text clears the stored reason.
+    _, d4 = _post_json(test_server, '/api/lag/justification',
+                       {'snapshot_id': sid, 'rel_key': rel_key, 'text': '   '})
+    assert rel_key not in d4['lag_justifications']
 
 
 def test_parse_returns_calendar_audit(test_server, xml_path):

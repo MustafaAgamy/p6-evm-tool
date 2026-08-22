@@ -10,13 +10,14 @@ from p6_audit.scoring import score_categories, overall_score
 from p6_audit.modules.dangling import run_dangling
 from p6_audit.modules.float_analysis import run_float
 from p6_audit.modules.out_of_sequence import run_out_of_sequence
+from p6_audit.modules.lag_lead import run_lag_lead
 
 CHECKS = [check_open_ends, check_dangling, check_circular, check_float]
 
 # V2: isolated modules, ordered. Each is fully self-contained (own KPIs, score,
 # grade, findings). Overall Schedule Health Score is deferred until all modules
 # exist and is then computed from module scores × weights, never from findings.
-MODULE_RUNNERS = [run_dangling, run_float, run_out_of_sequence]
+MODULE_RUNNERS = [run_dangling, run_float, run_out_of_sequence, run_lag_lead]
 
 
 def _enrich(data, config):

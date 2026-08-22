@@ -14,7 +14,6 @@ from p6_evm.classify import classify_branch_names
 from p6_evm.metrics import wbs_ancestor_names
 
 _EXCLUDE_CATEGORIES = ('Engineering', 'Design', 'Procurement')
-_MILESTONE_TYPES = ('StartMilestone', 'FinishMilestone')
 
 _KIND_LABEL = {
     'lag': 'driving lag changed',
@@ -41,16 +40,36 @@ def _project_finish(data):
     return max(fins) if fins else None
 
 
+def _finish_delay_working_days(update, bf_date, uf_date):
+    """Working days the completion date slipped vs the baseline (positive = later) — the
+    'Finish − Baseline Finish' variance a planner reads in P6, and the honest delay when
+    the export carries no reliable total float. Uses the calendar of the latest-finishing
+    update activity (the finish driver); falls back to calendar days if no calendar."""
+    if not (bf_date and uf_date):
+        return None
+    driver = max((a for a in update.activities.values() if a.get('planned_finish')),
+                 key=lambda a: a['planned_finish'], default=None)
+    cal = (getattr(update, 'calendars', {}) or {}).get(driver.get('calendar_id')) if driver else None
+    if cal is None:
+        return (uf_date - bf_date).days
+    try:
+        from p6_evm.calendars import signed_working_days
+        return round(signed_working_days(cal, bf_date, uf_date))
+    except Exception:
+        return (uf_date - bf_date).days
+
+
 def _construction_codes(data):
-    """Codes to KEEP for the change tables: construction/execution work only. Drops
-    engineering / design / procurement WBS phases and milestone activities — the
-    submittals, approvals, deliveries and milestones Ibrahim asked to remove. Uses an
-    exclude-list (not an allow-list) so genuine construction under an oddly-named branch
-    is still kept rather than silently dropped."""
+    """Codes to KEEP for the change tables: construction/execution work only. Keeps only
+    **Task Dependent** activities (Ibrahim's rule) — this drops milestones, LOE, WBS
+    summaries and resource-dependent rows in one stroke — and further drops engineering /
+    design / procurement WBS phases (the submittals, approvals and deliveries). Uses a
+    WBS exclude-list (not an allow-list) so genuine construction under an oddly-named
+    branch is still kept rather than silently dropped."""
     out = set()
     for a in data.activities.values():
         code = a.get('id')
-        if not code or a.get('task_type') in _MILESTONE_TYPES:
+        if not code or a.get('task_type') != 'Task':   # Task Dependent only
             continue
         cat = classify_branch_names(wbs_ancestor_names(a.get('wbs_id'), data.wbs))
         if cat in _EXCLUDE_CATEGORIES:
@@ -84,12 +103,43 @@ def build_report_from_data(baseline, update, config=None):
         _dur_counts[r['status']] = _dur_counts.get(r['status'], 0) + 1
     durations['counts'] = _dur_counts
 
-    items = [{'kind': k, 'label': _KIND_LABEL.get(k, k), 'count': n}
+    # Tag each summary item with its group so the dashboard "how the logic changed"
+    # chart can pick out the logic kinds without re-listing them.
+    items = [{'kind': k, 'label': _KIND_LABEL.get(k, k), 'count': n, 'group': 'logic'}
              for k, n in logic['summary']['by_kind'].items()]
-    items += [{'kind': k, 'label': _DUR_LABEL.get(k, k), 'count': n}
+    items += [{'kind': k, 'label': _DUR_LABEL.get(k, k), 'count': n, 'group': 'duration'}
               for k, n in durations['counts'].items()]
 
-    changed_ids = {r['activity_id'] for r in logic['rows']} | {r['activity_id'] for r in durations['rows']}
+    # Reconcile the two "changed activities" numbers the user sees: the dashboard total
+    # is the union of logic- and duration-changed activities; the table heading is the
+    # logic subset. Split the total into logic_changed + duration_only (disjoint) so
+    # logic_changed + duration_only == changed_activities exactly — no apparent conflict.
+    logic_ids = {r['activity_id'] for r in logic['rows']}
+    duration_ids = {r['activity_id'] for r in durations['rows']}
+    changed_ids = logic_ids | duration_ids
+    duration_only_ids = duration_ids - logic_ids
+
+    # Finish slip for the dashboard chart: signed days the completion date moved
+    # (positive = the update finishes later than the baseline). Raw dates kept so
+    # baseline_finish / update_finish below format the same value.
+    bf_date, uf_date = _project_finish(baseline), _project_finish(update)
+    finish_slip_days = (uf_date - bf_date).days if (bf_date and uf_date) else None
+    delay_working_days = _finish_delay_working_days(update, bf_date, uf_date)
+
+    # Instant but-for delay (NO F9): forward-pass the update with the revert plan applied in
+    # memory (baseline logic/durations restored), then measure its finish vs baseline. The tool
+    # schedules it — an ESTIMATE, validated to reproduce P6's F9 finish on a progressed schedule
+    # to the day. 'manufactured' = how many of the reported delay days the edits added.
+    from p6_compare.schedule import but_for_finish as _but_for_finish
+    try:
+        bfr_date = _but_for_finish(update, revert_ops)
+    except Exception:
+        bfr_date = None
+    butfor_delay_wd = _finish_delay_working_days(update, bf_date, bfr_date) if bfr_date else None
+    # Reverting manipulations can't legitimately add delay; clamp at 0 so estimate noise never
+    # shows a confusing "negative manufactured".
+    manufactured_wd = (max(0, delay_working_days - butfor_delay_wd)
+                       if (delay_working_days is not None and butfor_delay_wd is not None) else None)
 
     milestones = []
     for code in matched.milestone_codes:
@@ -105,13 +155,20 @@ def build_report_from_data(baseline, update, config=None):
     return {
         'project_name': (update.project or {}).get('name') or '',
         'data_date': _fmt((update.project or {}).get('data_date')),
-        'baseline_finish': _fmt(_project_finish(baseline)),
-        'update_finish': _fmt(_project_finish(update)),
+        'baseline_finish': _fmt(bf_date),
+        'update_finish': _fmt(uf_date),
         # Guard against a wrong baseline pick: if almost nothing matches by Activity ID,
         # an empty report means "these files don't line up", not "no changes".
         'matched_activities': len(matched.matched_codes),
         'update_activity_count': len(update.activities),
-        'dashboard': {'changed_activities': len(changed_ids)},
+        'dashboard': {'changed_activities': len(changed_ids),
+                      'logic_changed': len(logic_ids),
+                      'duration_only': len(duration_only_ids),
+                      'finish_slip_days': finish_slip_days,
+                      'delay_working_days': delay_working_days,
+                      'butfor_finish': _fmt(bfr_date),
+                      'butfor_delay_working_days': butfor_delay_wd,
+                      'manufactured_working_days': manufactured_wd},
         'change_summary': {'changed_activities': logic['summary']['changed_activities'], 'items': items},
         'logic': logic,
         'durations': durations,

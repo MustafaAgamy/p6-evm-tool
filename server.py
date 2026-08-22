@@ -1,7 +1,9 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os
+import subprocess
 import sys
+import tempfile
 from datetime import datetime, date
 from utils import resource_path, exe_dir, app_data_dir
 import db
@@ -52,6 +54,26 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_compare_excel(body)
         elif self.path == '/api/compare/report':
             self._handle_compare_report(body)
+        elif self.path == '/api/period/compare':
+            self._handle_period_compare(body)
+        elif self.path == '/api/period/previous':
+            self._handle_period_previous(body)
+        elif self.path == '/api/period/trend':
+            self._handle_period_trend(body)
+        elif self.path == '/api/period/excel':
+            self._handle_period_excel(body)
+        elif self.path == '/api/period/report':
+            self._handle_period_report(body)
+        elif self.path == '/api/update/analyze':
+            self._handle_update_analyze(body)
+        elif self.path == '/api/update/counts':
+            self._handle_update_counts(body)
+        elif self.path == '/api/update/scope':
+            self._handle_update_scope(body)
+        elif self.path == '/api/update/excel':
+            self._handle_update_excel(body)
+        elif self.path == '/api/update/report':
+            self._handle_update_report(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -80,6 +102,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_weather(body)
         elif self.path == '/api/calendar/settings':
             self._handle_calendar_settings(body)
+        elif self.path == '/api/lag/justification':
+            self._handle_lag_justification(body)
         elif self.path == '/api/ai/settings':
             self._handle_ai_settings_set(body)
         elif self.path == '/api/ai-review':
@@ -221,6 +245,16 @@ class Handler(BaseHTTPRequestHandler):
             name  = data.project.get('name', '') or os.path.basename(xml_path)
             pid   = db.upsert_project(p6_id, name)
 
+            # Merge the planner's saved lag/lead justifications (held per project) into the
+            # register before it is persisted and returned, so re-imports keep the reasons.
+            if audit_modules_result is not None:
+                try:
+                    from p6_audit.modules.lag_lead import apply_justifications
+                    lag_mod = (audit_modules_result.get('modules') or {}).get('lag_lead')
+                    apply_justifications(lag_mod, db.get_project_settings(pid).get('lag_justifications'))
+                except Exception as lag_exc:
+                    print(f'[lag] justification merge skipped: {lag_exc}', file=sys.stderr)
+
             sid = db.insert_snapshot(
                 project_id     = pid,
                 data_date      = result.get('data_date'),
@@ -333,6 +367,127 @@ class Handler(BaseHTTPRequestHandler):
             os.unlink(html_path)
             self._json(200, {'ok': True})
 
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/update/* — Update Analysis (single file vs its baseline) ───────
+    def _handle_update_analyze(self, body):
+        """Update Analysis — a single-file read of the current schedule against the baseline
+        embedded in it. Returns Time Status, Planned-vs-Actual by code and the Critical Path
+        Analyzer. EVM figures reused from metrics.compute so they match the EVM tab. No records."""
+        curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.classify import auto_categories, build_wbs_classifier
+            from p6_update.analysis import build_report_from_data
+            with open(resource_path('config.json')) as f:
+                base_config = json.load(f)
+            data = parse_file(curr_path)
+            cfg = dict(base_config)
+            cfg['categories'] = auto_categories(data)
+            metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
+            summary_level = int(body.get('summary_level', 0) or 0)
+            report = build_report_from_data(data, metrics, summary_level=summary_level)
+            report['file'] = os.path.basename(curr_path)
+            if not report.get('has_baseline'):
+                self._json(200, {'ok': False, 'code': 'no_baseline', 'report': report,
+                                 'error': 'This update has no baseline inside it. Attach a baseline, then run Update Analysis.'})
+                return
+            self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_counts(self, body):
+        """Section 4 — activity counts (Completed / In Progress / Not Started, Planned vs
+        Actual) for construction/execution activities, optionally filtered to one activity-code
+        value. Re-reads the file so the filter is exact."""
+        curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        code_filter = body.get('code_filter')
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_update.analysis import activity_counts
+            data = parse_file(curr_path)
+            counts = activity_counts(data, code_filter=code_filter)
+            self._json(200, {'ok': True, 'counts': counts,
+                             'code_types': list(getattr(data, 'activity_code_types', []) or [])})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_scope(self, body):
+        """Section 5 — scope weight for a chosen combination of activity-code dimensions.
+        Re-reads the file so the combination is exact; returns weights + recommendation."""
+        curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        types = body.get('types') or []
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_update.analysis import scope_weights
+            data = parse_file(curr_path)
+            self._json(200, {'ok': True, 'scope': scope_weights(data, types)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_excel(self, body):
+        """Export the Update-Analysis report to .xlsx from the report the client holds."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_update.exporters import report_excel
+            from p6_evm.xlsx_writer import write_xlsx
+            headers, rows = report_excel(report)
+            write_xlsx(os.path.abspath(output_path), 'Update Analysis', headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_report(self, body):
+        """Update-Analysis PDF (or preview HTML) — rendered from the report the client holds,
+        in the house consultant style. `sections` limits which of the three appear."""
+        report = body.get('report') or {}
+        sections = body.get('sections')
+        code_filter = body.get('code_filter')
+        scope_code = body.get('scope_code')
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_update.exporters import render_html
+            import subprocess, tempfile
+            html_content = render_html(report, sections, code_filter, scope_code)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            out_path = os.path.abspath(output_path)
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
@@ -686,6 +841,141 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/period/compare ───────────────────────────────────────────────
+    def _handle_period_compare(self, body):
+        """Update vs Update — Windows Analysis. Compares the previous update
+        (prev_path / prev_cached_path) against the current open schedule (update_path /
+        cached_path). Returns the period report: progress vs last period's forecast,
+        activity % variance, critical-path movement, buckets, period S-curve. EVM
+        numbers reused from metrics.compute so they match the EVM tab. No records."""
+        prev_path = db.resolve_xml_path(body.get('prev_path', ''), body.get('prev_cached_path'))
+        curr_path = db.resolve_xml_path(body.get('update_path', ''), body.get('cached_path'))
+        if not prev_path or not os.path.isfile(prev_path):
+            self._json(200, {'ok': False, 'error': 'Previous update not found. Pick the previous period file.'})
+            return
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Current update not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.classify import auto_categories, build_wbs_classifier
+            from p6_period.report import build_report_from_data
+            with open(resource_path('config.json')) as f:
+                base_config = json.load(f)
+
+            def parse_and_compute(path):
+                data = parse_file(path)
+                cfg = dict(base_config)
+                cfg['categories'] = auto_categories(data)
+                metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
+                return data, metrics
+
+            prev_data, prev_m = parse_and_compute(prev_path)
+            curr_data, curr_m = parse_and_compute(curr_path)
+            report = build_report_from_data(prev_data, curr_data, prev_m, curr_m, base_config)
+            report['prev_file'] = os.path.basename(prev_path)
+            report['update_file'] = os.path.basename(curr_path)
+            self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/period/previous ──────────────────────────────────────────────
+    def _handle_period_previous(self, body):
+        """Suggest the previous period: the snapshot before the current one for this
+        project, so the user can compare against last period in one click."""
+        sid = body.get('snapshot_id')
+        if not sid:
+            self._json(200, {'ok': True, 'previous': None})
+            return
+        try:
+            prev = db.get_prev_snapshot(sid)
+            if not prev:
+                self._json(200, {'ok': True, 'previous': None})
+                return
+            fname = os.path.basename(prev.get('original_path') or prev.get('cached_path') or '')
+            self._json(200, {'ok': True, 'previous': {
+                'snapshot_id': prev['id'],
+                'data_date': prev.get('data_date'),
+                'cached_path': prev.get('cached_path'),
+                'filename': fname,
+            }})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/period/trend ─────────────────────────────────────────────────
+    def _handle_period_trend(self, body):
+        """Milestone finish trend across every stored update of this project (slip
+        chart). Reads snapshots from the DB, extracting milestone finishes once."""
+        sid = body.get('snapshot_id')
+        if not sid:
+            self._json(200, {'ok': True, 'trend': {'periods': [], 'series': []}})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_period.trend import milestone_trend
+            self._json(200, {'ok': True, 'trend': milestone_trend(sid)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/period/excel ─────────────────────────────────────────────────
+    def _handle_period_excel(self, body):
+        """Export the Update-vs-Update progress table to .xlsx from the report the
+        client holds — no re-parse."""
+        report = body.get('report') or {}
+        trend = body.get('trend')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_period.exporters import report_excel
+            from p6_evm.xlsx_writer import write_xlsx
+            headers, rows = report_excel(report, trend)
+            write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/period/report ────────────────────────────────────────────────
+    def _handle_period_report(self, body):
+        """Update-vs-Update PDF (or preview HTML). Renders from the report (+ optional
+        milestone trend) the client holds — no re-parse. Chrome headless → PDF."""
+        report = body.get('report') or {}
+        trend = body.get('trend')
+        sections = body.get('sections')            # None = all; else list of section keys to include
+        code_filter = body.get('code_filter')      # {type, value} to limit the activity tables
+        critical_style = body.get('critical_style') or 'chain'   # chain | timeline | table (picked on screen)
+        critical_mode = body.get('critical_mode') or 'leaf-parent'
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_period.exporters import render_html
+            import subprocess, tempfile
+            html_content = render_html(report, trend, sections, code_filter, critical_style, critical_mode)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/project/load ─────────────────────────────────────────────────
     def _handle_project_load(self, body):
         """Return stored metrics for a project without re-parsing the XML."""
@@ -703,6 +993,14 @@ class Handler(BaseHTTPRequestHandler):
         result['audit_modules'] = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
         result['calendar_audit'] = db.get_calendar_audit(snapshot_id) if snapshot_id else None
         result['calendar_settings'] = db.get_project_settings(project_id) or {}
+        # Re-apply the planner's saved lag/lead justifications over the reloaded register
+        # (settings are the live source of truth; the snapshot copy may pre-date an edit).
+        try:
+            from p6_audit.modules.lag_lead import apply_justifications
+            lag_mod = ((result.get('audit_modules') or {}).get('modules') or {}).get('lag_lead')
+            apply_justifications(lag_mod, result['calendar_settings'].get('lag_justifications'))
+        except Exception:
+            pass
         extras = (db.get_evm_extras(snapshot_id) or {}) if snapshot_id else {}
         result['engineering_p6'] = extras.get('engineering_p6', [])
         result['activity_code_types'] = extras.get('activity_code_types', [])
@@ -1041,7 +1339,8 @@ class Handler(BaseHTTPRequestHandler):
             import subprocess, tempfile
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
-            html_content = render_calendar_report(ca, meta_in, weather=weather)
+            html_content = render_calendar_report(ca, meta_in, weather=weather,
+                                                  sections=body.get('sections'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -1061,7 +1360,9 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/export/calendar_excel ─────────────────────────────────────────
     def _handle_calendar_excel(self, body):
-        """Export the primary calendar's Monthly Statistics table to .xlsx."""
+        """Export the full Calendar Audit to .xlsx (#04/#05/#08): one coloured timeline
+        sheet per assigned calendar (names inside the day cells) + Exceptions, Comparison,
+        Usage and — when a location was set — the Weather tables."""
         snapshot_id = body.get('snapshot_id')
         output_path = body.get('output_path', '')
         if not output_path:
@@ -1073,27 +1374,35 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_evm.xlsx_writer import write_xlsx
-            primary = ca.get('primary_calendar_id')
-            months = ((ca.get('by_calendar') or {}).get(primary, {}) or {}).get('monthly_stats', [])
-            headers = ['Month', 'Working Days', 'Holidays', 'Exceptions', 'Working Hours']
-            rows = [[m['label'], m['working_days'], m['holidays'], m['exceptions'], m['working_hours']]
-                    for m in months]
-            write_xlsx(os.path.abspath(output_path), 'Calendar Monthly Stats', headers, rows)
+            from p6_evm.xlsx_writer import write_calendar_xlsx
+            pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
+            weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
+            write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/geocode ───────────────────────────────────────────────────────
     def _handle_geocode(self, body):
-        """Search a place name → coordinates, via OpenStreetMap Nominatim (server-side,
-        so it carries a proper User-Agent and dodges browser CORS). Free, no key."""
-        q = (body.get('q') or '').strip()
-        if not q:
-            self._json(200, {'ok': False, 'error': 'Type a place to search.'})
-            return
+        """Place name → coordinates (search), OR lat/lon → place name (reverse), via
+        OpenStreetMap Nominatim (server-side: proper User-Agent, dodges browser CORS).
+        Free, no key. Reverse is used when the user drops/drags a pin on the map."""
+        import urllib.request, urllib.parse
+        lat, lon = body.get('lat'), body.get('lon')
         try:
-            import urllib.request, urllib.parse
+            if lat is not None and lon is not None:
+                url = 'https://nominatim.openstreetmap.org/reverse?' + urllib.parse.urlencode(
+                    {'lat': lat, 'lon': lon, 'format': 'json', 'zoom': 13})
+                req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    data = json.loads(r.read().decode())
+                name = data.get('display_name') or f'{float(lat):.4f}, {float(lon):.4f}'
+                self._json(200, {'ok': True, 'name': name})
+                return
+            q = (body.get('q') or '').strip()
+            if not q:
+                self._json(200, {'ok': False, 'error': 'Type a place to search.'})
+                return
             url = 'https://nominatim.openstreetmap.org/search?' + urllib.parse.urlencode(
                 {'q': q, 'format': 'json', 'limit': 5})
             req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
@@ -1103,7 +1412,7 @@ class Handler(BaseHTTPRequestHandler):
                        for x in data]
             self._json(200, {'ok': True, 'results': results})
         except Exception as exc:
-            self._json(200, {'ok': False, 'error': f'Search failed (offline?): {exc}'})
+            self._json(200, {'ok': False, 'error': f'Geocode failed (offline?): {exc}'})
 
     # ── /api/weather ───────────────────────────────────────────────────────
     def _handle_weather(self, body):
@@ -1125,6 +1434,13 @@ class Handler(BaseHTTPRequestHandler):
             from p6_calendar.weather import weather_inputs, build_daily_weather, weather_impact
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
+            sid = body.get('snapshot_id')
+            pid = db.get_project_id_for_snapshot(sid) if sid else None
+            saved = db.get_project_settings(pid) if pid else {}
+            # Stop-work limits: this request's edits win, else the project's saved limits,
+            # else the app defaults (rain>=5 / heat>=42 / dust on / wind off).
+            thresholds = (body.get('thresholds') or saved.get('weather_thresholds')
+                          or config.get('weather_thresholds'))
             data = parse_file(resolved)
             inp = weather_inputs(data)
             if not inp['data_date'] or not inp['project_finish']:
@@ -1132,13 +1448,14 @@ class Handler(BaseHTTPRequestHandler):
                 return
             daily, horizon = build_daily_weather(lat, lon, inp['data_date'], inp['project_finish'])
             wx = weather_impact(**inp, daily_weather=daily, forecast_horizon=horizon,
-                                thresholds=config.get('weather_thresholds'))
+                                thresholds=thresholds)
             location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
-            sid = body.get('snapshot_id')
-            pid = db.get_project_id_for_snapshot(sid) if sid else None
             if pid:
-                # Persist location + the latest weather so the PDF can include it.
-                db.save_project_settings(pid, {'location': location, 'last_weather': wx})
+                # Persist location, the edited limits, and the latest weather (so the PDF can include it).
+                patch = {'location': location, 'last_weather': wx}
+                if body.get('thresholds'):
+                    patch['weather_thresholds'] = body['thresholds']
+                db.save_project_settings(pid, patch)
             self._json(200, {'ok': True, 'weather': wx, 'location': location,
                              'offline': not daily})
         except Exception as exc:
@@ -1171,6 +1488,28 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as cexc:
                 print(f'[calendar] settings recompute skipped: {cexc}', file=sys.stderr)
         self._json(200, {'ok': True, 'settings': settings, 'calendar_audit': ca})
+
+    # ── /api/lag/justification ──────────────────────────────────────────────
+    def _handle_lag_justification(self, body):
+        """Save one Lag & Lead justification (keyed by rel_key) for the project. Held in
+        project settings so it survives re-imports and reopening. Returns the merged map."""
+        sid = body.get('snapshot_id')
+        pid = db.get_project_id_for_snapshot(sid) if sid else None
+        if not pid:
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        key = (body.get('rel_key') or '').strip()
+        if not key:
+            self._json(200, {'ok': False, 'error': 'rel_key required'})
+            return
+        text = (body.get('text') or '').strip()
+        current = dict(db.get_project_settings(pid).get('lag_justifications') or {})
+        if text:
+            current[key] = text
+        else:
+            current.pop(key, None)      # blanking a reason clears it
+        db.save_project_settings(pid, {'lag_justifications': current})
+        self._json(200, {'ok': True, 'lag_justifications': current})
 
     # ── /api/history ───────────────────────────────────────────────────────
     def _handle_history(self):

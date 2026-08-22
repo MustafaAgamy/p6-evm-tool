@@ -56,20 +56,21 @@ def test_before_after_handles_missing_delay():
 
 # ── end-to-end wiring: three files → parse → compute → assemble ─────────────
 
-def _finish_xml(tmp_path, name, float_hours):
+def _finish_xml(tmp_path, name, finish):
+    """A one-milestone schedule whose project finish is `finish` (YYYY-MM-DD) — so the
+    date-based delay (finish variance vs baseline) can be exercised."""
     content = textwrap.dedent(f'''\
     <?xml version="1.0"?>
     <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
       <Project>
         <ObjectId>1</ObjectId><Id>P1</Id><Name>Proj</Name>
-        <DataDate>2026-02-09T00:00:00</DataDate>
+        <DataDate>2026-06-30T00:00:00</DataDate>
         <Activity>
           <ObjectId>1</ObjectId><Id>M900</Id><Name>Handover</Name>
           <Type>Finish Milestone</Type><Status>Not Started</Status>
           <CalendarObjectId></CalendarObjectId><PercentComplete>0</PercentComplete>
-          <PlannedStartDate>2027-02-22T08:00:00</PlannedStartDate>
-          <PlannedFinishDate>2027-02-22T08:00:00</PlannedFinishDate>
-          <TotalFloatHours>{float_hours}</TotalFloatHours>
+          <PlannedStartDate>{finish}T08:00:00</PlannedStartDate>
+          <PlannedFinishDate>{finish}T08:00:00</PlannedFinishDate>
         </Activity>
       </Project>
     </APIBusinessObjects>
@@ -116,14 +117,15 @@ def test_check_warns_when_not_rescheduled():
     assert w and 'F9' in w
 
 
-def test_before_after_from_paths_wires_compute(tmp_path):
-    # Different float on update vs corrected → different delays → the subtraction is exercised.
-    baseline = _finish_xml(tmp_path, 'b.xml', '0')
-    update = _finish_xml(tmp_path, 'u.xml', '-144')     # after changes
-    corrected = _finish_xml(tmp_path, 'c.xml', '-32')   # before changes (but-for)
+def test_before_after_from_paths_date_based_delay(tmp_path):
+    # Delay is the finish-date variance vs baseline (no calendar → calendar days). Reported =
+    # update finish − baseline; but-for = corrected finish − baseline; manufactured = the gap.
+    baseline = _finish_xml(tmp_path, 'b.xml', '2026-10-19')
+    update = _finish_xml(tmp_path, 'u.xml', '2026-12-24')     # after changes (66 days behind)
+    corrected = _finish_xml(tmp_path, 'c.xml', '2026-11-10')  # before changes / but-for (22 behind)
     r = before_after_from_paths(baseline, update, corrected)
-    assert r['delay_after'] is not None and r['delay_before'] is not None
-    assert r['delay_after'] != r['delay_before']                       # both != 0, milestone detected
-    assert r['manufactured_days'] == r['delay_after'] - r['delay_before']
-    assert abs(r['manufactured_days']) == 14                           # 18 vs 4 working days (−144 vs −32 h / 8)
-    assert r['forecast']['after'] == '22-Feb-2027'
+    assert r['delay_after'] == 66      # reported delay, finish variance vs baseline
+    assert r['delay_before'] == 22     # but-for delay (baseline logic rescheduled)
+    assert r['manufactured_days'] == 44                                # 66 − 22, added by the edits
+    assert r['forecast']['after'] == '24-Dec-2026'
+    assert r['forecast']['before'] == '10-Nov-2026'

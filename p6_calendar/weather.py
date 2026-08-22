@@ -17,11 +17,14 @@ import urllib.request
 import urllib.error
 from datetime import date, datetime, timedelta
 
-# Sensible construction defaults — tunable later via config.
+# Ibrahim's stop-work rule (tunable per project in the app): a day is a lost
+# construction day when it is dusty OR rainy OR hot (>= 42 C). Wind is OFF by
+# default (set a number to enable it).
 DEFAULT_THRESHOLDS = {
-    'rain_mm': 10.0,      # heavy rain stops pours / earthworks
-    'temp_max_c': 45.0,   # extreme heat → midday stoppage
-    'wind_kmh': 40.0,     # high wind → no crane lifts / work at height
+    'rain_mm': 5.0,       # a rainy day that stops outdoor work (light drizzle < 5mm ignored)
+    'temp_max_c': 42.0,   # heat that stops work
+    'wind_kmh': None,     # None = wind not counted; set a km/h to enable crane/height stops
+    'dust': True,         # count dust / sandstorm days
 }
 _DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 _MON = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -31,27 +34,39 @@ _MON = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
 # ── classification ───────────────────────────────────────────────────────────
 
 def classify_day(rec, thresholds=None):
-    """(is_bad, label) for one daily record: rain_mm / temp_max_c / wind_kmh / dust."""
+    """(is_bad, label, detail) for one daily record (rain_mm / temp_max_c / wind_kmh / dust).
+    `detail` states WHY, with the measured value vs the limit — e.g.
+    '🌡 45.5 °C ≥ 42 °C' — so every flagged day is verifiable. Wind is only
+    tested when its threshold is a number (None = off)."""
     t = thresholds or DEFAULT_THRESHOLDS
-    labels = []
-    if float(rec.get('rain_mm') or 0) >= t.get('rain_mm', DEFAULT_THRESHOLDS['rain_mm']):
-        labels.append('Heavy rain')
-    if rec.get('dust'):
-        labels.append('Dust storm')
-    if float(rec.get('temp_max_c') or 0) >= t.get('temp_max_c', DEFAULT_THRESHOLDS['temp_max_c']):
-        labels.append('Extreme heat')
-    if float(rec.get('wind_kmh') or 0) >= t.get('wind_kmh', DEFAULT_THRESHOLDS['wind_kmh']):
-        labels.append('High wind')
-    return (bool(labels), ' / '.join(labels))
+    labels, details = [], []
+    rain = float(rec.get('rain_mm') or 0)
+    rain_thr = t.get('rain_mm', DEFAULT_THRESHOLDS['rain_mm'])
+    if rain_thr is not None and rain >= rain_thr:
+        labels.append('Rain'); details.append(f'🌧 {rain:g} mm ≥ {rain_thr:g} mm')
+    if t.get('dust', True) and rec.get('dust'):
+        pm = rec.get('pm10'); vis = rec.get('visibility_km')
+        extra = (f' · PM10 {pm:g}' if pm else '') + (f' · visibility {vis:g} km' if vis else '')
+        labels.append('Dust storm'); details.append(f'🌫 Dust storm{extra}')
+    temp = float(rec.get('temp_max_c') or 0)
+    temp_thr = t.get('temp_max_c', DEFAULT_THRESHOLDS['temp_max_c'])
+    if temp_thr is not None and temp >= temp_thr:
+        labels.append('Heat'); details.append(f'🌡 {temp:g} °C ≥ {temp_thr:g} °C')
+    wind = float(rec.get('wind_kmh') or 0)
+    wind_thr = t.get('wind_kmh')
+    if wind_thr is not None and wind >= wind_thr:
+        labels.append('High wind'); details.append(f'💨 {wind:g} km/h ≥ {wind_thr:g} km/h')
+    return (bool(labels), ' / '.join(labels), ' · '.join(details))
 
 
 def bad_weather_days(daily_weather, thresholds=None):
-    """{date: label} for every day that classifies as bad weather."""
+    """{date: detail} for every day that classifies as bad weather, where `detail`
+    is the measured reason (value vs limit) so each day is verifiable."""
     out = {}
     for d, rec in (daily_weather or {}).items():
-        is_bad, label = classify_day(rec, thresholds)
+        is_bad, label, detail = classify_day(rec, thresholds)
         if is_bad:
-            out[d] = label
+            out[d] = detail or label
     return out
 
 
@@ -84,7 +99,7 @@ def _shift_working_days(cal, start, n):
 
 def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
                    project_finish, daily_weather, forecast_horizon,
-                   thresholds=None, config=None):
+                   thresholds=None, config=None, construction_activities=None):
     thresholds = thresholds or DEFAULT_THRESHOLDS
     data_date = _to_date(data_date)
     project_finish = _to_date(project_finish)
@@ -123,16 +138,47 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     _, net_finish = counts(primary_cal if con_ids else None, project_finish)
     adjusted_finish = _shift_working_days(primary_cal, project_finish, net_finish)
 
-    # Daily expected list (forecast ≤ horizon, else historical-expected)
+    # Breakdown of the flagged days by cause (a day can hit more than one limit,
+    # so the counts can sum to more than the day total).
+    cause_count = {'Rain': 0, 'Heat': 0, 'Dust storm': 0, 'High wind': 0}
+    for d in remaining:
+        _, label, _ = classify_day(daily_weather.get(d, {}), thresholds)
+        for part in label.split(' / '):
+            if part in cause_count:
+                cause_count[part] += 1
+    by_cause = [
+        {'label': 'Heat', 'count': cause_count['Heat']},
+        {'label': 'Dust', 'count': cause_count['Dust storm']},
+        {'label': 'Rain', 'count': cause_count['Rain']},
+        {'label': 'Wind', 'count': cause_count['High wind'],
+         'off': thresholds.get('wind_kmh') is None},
+    ]
+
+    # Daily expected list (forecast ≤ horizon, else historical-expected). Each working
+    # bad-day also names the construction activities planned across that date (#07).
+    con_act = construction_activities or []
     day_hours = primary_cal.day_hours if primary_cal else 8.0
     bad_list = []
     for d in sorted(remaining):
         working = bool(primary_cal and primary_cal.is_working_day(d))
+        # Brief by WBS / work package, de-duplicated (Ibrahim's rule): all the pile
+        # activities under "Pile Works" show as "Pile Works" once, not one row each.
+        wbs_brief = []
+        if working:
+            seen = set()
+            for a in con_act:
+                if a.get('start') and a['start'] <= d <= (a.get('finish') or a['start']):
+                    label = (a.get('wbs') or a.get('name') or '').strip()
+                    if label and label not in seen:
+                        seen.add(label)
+                        wbs_brief.append(label)
         bad_list.append({
             'date': d.isoformat(), 'day_name': _DAY_NAMES[d.weekday()],
             'condition': remaining[d],
             'confidence': 'forecast' if d <= forecast_horizon else 'expected',
             'effect': 'Non-working (construction)' if working else 'Falls on a non-working day',
+            'activities': wbs_brief,          # every affected WBS (de-duplicated), not capped
+            'activities_count': len(wbs_brief),
         })
 
     # Monthly counts (raw expected bad days per month)
@@ -158,16 +204,65 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
             'option_shift': 'Add a second shift over the affected weeks',
         })
 
+    conclusion = _weather_conclusion(
+        total=len(remaining), net=net_finish, adjusted=adjusted_finish,
+        by_cause=by_cause, monthly=monthly, milestones=ms)
+
     return {
         'bad_days': bad_list,
         'monthly': monthly,
+        'by_cause': by_cause,
         'milestones': ms,
         'expected_bad_days_total': len(remaining),
         'net_finish_delay': net_finish,
         'weather_adjusted_finish': adjusted_finish.isoformat(),
         'recovery': recovery,
+        'conclusion': conclusion,
+        'thresholds': thresholds,          # the stop-work limits applied
+        'from_date': data_date.isoformat(),  # the update's cutoff — window is (cutoff, finish]
+        'source': 'Open-Meteo (forecast + ERA5 historical + air-quality)',
         'is_estimate': True,
     }
+
+
+def _fmt_long(d):
+    d = _to_date(d)
+    return f'{d.day:02d} {_MON[d.month]} {d.year}' if d else '—'
+
+
+def _weather_conclusion(*, total, net, adjusted, by_cause, monthly, milestones):
+    """A short management paragraph, generated from the numbers — mirrors what the
+    UI and PDF show. Degrades gracefully when there is no impact / no location."""
+    if total == 0:
+        return ('No material bad-weather days are expected on the remaining construction '
+                'path to finish, so no weather delay is estimated. This is a forward-looking '
+                'estimate, kept separate from the exact P6 Delay.')
+    if net > 0:
+        finish_txt = (f'Bad weather is estimated to cost about {net} working '
+                      f'day{"s" if net != 1 else ""} to project finish, moving the '
+                      f'weather-adjusted finish to {_fmt_long(adjusted)}.')
+    else:
+        finish_txt = ('The flagged bad-weather days fall on days already off (weekend / '
+                      'holiday / shutdown), so no net delay to the project finish is estimated.')
+    ranked = sorted([c for c in by_cause if c.get('count')], key=lambda c: -c['count'])
+    dom_txt = ''
+    if ranked:
+        pct = round(ranked[0]['count'] / total * 100)
+        dom_txt = f' The risk is driven mainly by {ranked[0]["label"].lower()} ({pct}% of the flagged days).'
+    peak_txt = ''
+    if monthly:
+        mx = max(m['count'] for m in monthly)
+        peaks = [m['label'] for m in monthly if m['count'] == mx and mx > 0]
+        if peaks:
+            peak_txt = f' Exposure concentrates around {", ".join(peaks[:2])}.'
+    slipped = [m for m in milestones if m['net_delay'] > 0]
+    ms_txt = ''
+    if slipped:
+        worst = max(slipped, key=lambda m: m['net_delay'])
+        ms_txt = (f' {len(slipped)} milestone{"s" if len(slipped) != 1 else ""} '
+                  f'exposed, the largest being “{worst["name"]}” (+{worst["net_delay"]} d).')
+    return (finish_txt + dom_txt + peak_txt + ms_txt +
+            ' This is a forward-looking estimate, kept separate from the exact P6 Delay.')
 
 
 def weather_inputs(data):
@@ -179,16 +274,32 @@ def weather_inputs(data):
     classify = build_wbs_classifier(data)
 
     construction_cal_ids = set()
+    construction_activities = []
     for a in data.activities.values():
-        phase = classify(wbs_ancestor_names(a.get('wbs_id'), data.wbs))
-        if classify_wbs_name(phase) == 'Construction':
-            cid = a.get('calendar_id')
-            if cid and cid in data.calendars:
-                construction_cal_ids.add(cid)
+        anc = wbs_ancestor_names(a.get('wbs_id'), data.wbs)   # nearest named WBS first, up to root
+        if classify_wbs_name(classify(anc)) != 'Construction':
+            continue
+        cid = a.get('calendar_id')
+        if cid and cid in data.calendars:
+            construction_cal_ids.add(cid)
+        # Real construction work (not milestones) — for the per-day "affected work" brief.
+        if a.get('task_type') in ('StartMilestone', 'FinishMilestone'):
+            continue
+        s = _to_date(a.get('planned_start'))
+        if s:
+            # Brief by the NEAREST NAMED WBS / work package (P6 often leaves the activity's
+            # direct WBS node unnamed, so anc[0] is the meaningful "Pile Works" level, not the
+            # activity). Falls back to the activity name only when there is no named WBS at all.
+            construction_activities.append({
+                'name': a.get('name') or a.get('id'),
+                'start': s, 'finish': _to_date(a.get('planned_finish')) or s,
+                'wbs': anc[0] if anc else ''})
 
+    # Only FINISH / completion milestones — a completion date is what weather pushes
+    # (Ibrahim's rule: impact on all finish/completion milestones only).
     milestones = []
     for a in data.activities.values():
-        if a.get('task_type') in ('FinishMilestone', 'StartMilestone'):
+        if a.get('task_type') == 'FinishMilestone':
             d = a.get('planned_finish') or a.get('planned_start')
             if d:
                 milestones.append({'name': a.get('name') or a.get('id'),
@@ -202,6 +313,7 @@ def weather_inputs(data):
     return {
         'calendars': data.calendars,
         'construction_cal_ids': construction_cal_ids,
+        'construction_activities': construction_activities,
         'milestones': milestones,
         'data_date': _to_date(data.project.get('data_date')) if data.project.get('data_date') else None,
         'project_finish': project_finish,
@@ -288,7 +400,44 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None):
             fd = _shift_year(hd, +1)
             if fut_start <= fd <= project_finish and fd not in daily:
                 daily[fd] = rec
+
+    # Dust / sandstorm days for the near-term window (air-quality forecast), merged in.
+    for d, aq in fetch_air_quality(lat, lon).items():
+        if d in daily and aq.get('dust'):
+            daily[d].update(aq)
     return daily, horizon
+
+
+_AIR_QUALITY = 'https://air-quality-api.open-meteo.com/v1/air-quality'
+DUST_PM10_THRESHOLD = 150.0   # µg/m³ daily-max → treat as a dust/sandstorm day
+
+
+def fetch_air_quality(lat, lon):
+    """Near-term dust from Open-Meteo air-quality (free). {date: {dust, pm10}}; {} on failure.
+    A day counts as dust when its peak PM10 reaches DUST_PM10_THRESHOLD."""
+    try:
+        url = (f'{_AIR_QUALITY}?latitude={lat}&longitude={lon}'
+               f'&hourly=pm10,dust&timezone=auto&forecast_days=5')
+        payload = _get_json(url)
+        hourly = (payload or {}).get('hourly') or {}
+        times = hourly.get('time') or []
+        pm10 = hourly.get('pm10') or []
+        dust = hourly.get('dust') or []
+        by_day = {}
+        for i, t in enumerate(times):
+            d = datetime.fromisoformat(t).date()
+            p = pm10[i] if i < len(pm10) and pm10[i] is not None else 0.0
+            du = dust[i] if i < len(dust) and dust[i] is not None else 0.0
+            cur = by_day.setdefault(d, {'pm10': 0.0, 'dust_conc': 0.0})
+            cur['pm10'] = max(cur['pm10'], p)
+            cur['dust_conc'] = max(cur['dust_conc'], du)
+        out = {}
+        for d, v in by_day.items():
+            if v['pm10'] >= DUST_PM10_THRESHOLD or v['dust_conc'] >= DUST_PM10_THRESHOLD:
+                out[d] = {'dust': True, 'pm10': round(v['pm10'])}
+        return out
+    except (urllib.error.URLError, ValueError, KeyError, TimeoutError):
+        return {}
 
 
 def _shift_year(d, delta):
