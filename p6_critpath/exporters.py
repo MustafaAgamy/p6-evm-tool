@@ -7,6 +7,7 @@ literal hex (the PDF renders on white), mirroring the other module exporters.
 """
 
 _ROLE_LABEL = {'baseline': 'Baseline', 'previous': 'Previous update', 'current': 'Current update'}
+_ROLE_SHORT = {'baseline': 'Baseline', 'previous': 'Previous', 'current': 'Current'}
 _STATUS_HEX = {'good': ('#16a34a', '#eafaf0'), 'warn': ('#d97706', '#fff6e9'), 'bad': ('#dc2626', '#fdecec')}
 
 
@@ -32,8 +33,15 @@ def _header(report):
     for role in ('baseline', 'previous', 'current'):
         if role in files:
             parts.append(f"{_ROLE_LABEL[role]}: <b>{_e(files[role])}</b>")
+    # Data-date window strip — one pill per loaded schedule.
+    dd = report.get('data_dates', {})
+    strip = []
+    for role in ('baseline', 'previous', 'current'):
+        if dd.get(role):
+            strip.append(f'<span class="ddpill">{_ROLE_SHORT[role]} data date <b>{_e(dd[role])}</b></span>')
+    pills = f'<div class="ddstrip">{"".join(strip)}</div>' if strip else ''
     return (f'<div class="rh"><div><h1>Critical Path Analyzer</h1>'
-            f'<div class="meta">{" &nbsp;·&nbsp; ".join(parts)}</div></div></div>')
+            f'<div class="meta">{" &nbsp;·&nbsp; ".join(parts)}</div>{pills}</div></div>')
 
 
 def _banner(report):
@@ -43,6 +51,122 @@ def _banner(report):
     return (f'<div class="banner" style="background:{bg};border-color:{hexc}">'
             f'<span class="btag" style="background:{hexc}">{_e(d.get("status_label"))}</span>'
             f'<span class="btext">{_e(report.get("conclusion") or d.get("verdict"))}</span></div>')
+
+
+# ── Dashboard charts (inline SVG / pure-HTML, print-friendly literal hex) ─────
+
+def _chart_crit_near(cn):
+    """Grouped bars: critical (red) + near-critical (amber) per schedule. A null near
+    value (a float-less baseline) is labelled 'n/a' rather than drawn as a measured 0."""
+    roles = cn.get('roles', [])
+    crit = cn.get('critical', [])
+    near = cn.get('near', [])
+    if not roles:
+        return '<div class="note">No census data to plot.</div>'
+    vals = [v for v in (list(crit) + list(near)) if v is not None]
+    mx = max(vals) if vals else 0
+    if mx <= 0:
+        mx = 1
+    W, H = 300, 170
+    pad_l, pad_r, pad_t, pad_b = 8, 8, 22, 34
+    plot_h = H - pad_t - pad_b
+    plot_w = W - pad_l - pad_r
+    n = len(roles)
+    group_w = plot_w / n
+    bw = min(26.0, group_w / 3)
+    gap = 4.0
+    y0 = pad_t + plot_h
+    parts = [f'<line x1="{pad_l}" y1="{y0}" x2="{W - pad_r}" y2="{y0}" stroke="#cbd5e1" stroke-width="1"/>']
+    for i, role in enumerate(roles):
+        gx = pad_l + i * group_w + group_w / 2
+        pairs = [(crit[i] if i < len(crit) else None, '#dc2626'),
+                 (near[i] if i < len(near) else None, '#d97706')]
+        bx0 = gx - (bw * 2 + gap) / 2
+        for j, (val, col) in enumerate(pairs):
+            x = bx0 + j * (bw + gap)
+            if val is None:
+                parts.append(f'<text x="{x + bw / 2:.1f}" y="{y0 - 4:.1f}" font-size="8" '
+                             f'fill="#94a3b8" text-anchor="middle">n/a</text>')
+                continue
+            bh = (val / mx) * plot_h
+            y = y0 - bh
+            parts.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bw:.1f}" height="{bh:.1f}" '
+                         f'fill="{col}" rx="2"/>')
+            parts.append(f'<text x="{x + bw / 2:.1f}" y="{y - 3:.1f}" font-size="9" '
+                         f'font-weight="700" fill="#334155" text-anchor="middle">{val}</text>')
+        parts.append(f'<text x="{gx:.1f}" y="{H - pad_b + 14:.1f}" font-size="9" '
+                     f'fill="#64748b" text-anchor="middle">{_e(_ROLE_SHORT.get(role, role))}</text>')
+    return (f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto" '
+            f'xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>')
+
+
+def _chart_cpli(ct):
+    """CPLI trend polyline across schedules, with dashed 0.95 / 1.00 reference lines.
+    Null points are skipped; the ends are inset so the first/last labels aren't clipped."""
+    roles = ct.get('roles', [])
+    values = ct.get('values', [])
+    if not roles:
+        return '<div class="note">No CPLI trend to plot.</div>'
+    pts = [(i, v) for i, v in enumerate(values) if v is not None]
+    W, H = 300, 170
+    inset = 30.0
+    pad_t, pad_b = 18, 30
+    plot_h = H - pad_t - pad_b
+    n = len(roles)
+
+    def xpos(i):
+        if n <= 1:
+            return W / 2
+        return inset + (W - 2 * inset) * i / (n - 1)
+
+    allv = [v for _, v in pts] + [0.95, 1.0]
+    lo, hi = min(allv), max(allv)
+    if hi - lo < 0.1:
+        lo -= 0.05
+        hi += 0.05
+    span = hi - lo
+
+    def ypos(v):
+        return pad_t + plot_h * (1 - (v - lo) / span)
+
+    parts = []
+    for ref, lbl in ((1.0, '1.00'), (0.95, '0.95')):
+        y = ypos(ref)
+        parts.append(f'<line x1="{inset}" y1="{y:.1f}" x2="{W - inset}" y2="{y:.1f}" '
+                     f'stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 3"/>')
+        parts.append(f'<text x="2" y="{y + 3:.1f}" font-size="8" fill="#94a3b8">{lbl}</text>')
+    if len(pts) >= 2:
+        poly = ' '.join(f'{xpos(i):.1f},{ypos(v):.1f}' for i, v in pts)
+        parts.append(f'<polyline points="{poly}" fill="none" stroke="#1d4ed8" stroke-width="2"/>')
+    for i, v in pts:
+        x, y = xpos(i), ypos(v)
+        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#1d4ed8"/>')
+        parts.append(f'<text x="{x:.1f}" y="{y - 6:.1f}" font-size="9" font-weight="700" '
+                     f'fill="#1d4ed8" text-anchor="middle">{v:.2f}</text>')
+    for i, role in enumerate(roles):
+        parts.append(f'<text x="{xpos(i):.1f}" y="{H - pad_b + 16:.1f}" font-size="9" '
+                     f'fill="#64748b" text-anchor="middle">{_e(_ROLE_SHORT.get(role, role))}</text>')
+    return (f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto" '
+            f'xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>')
+
+
+def _chart_ms_variance(msv):
+    """Horizontal bars of milestone slip vs baseline (+behind = red, -ahead = green),
+    pure HTML so it never clips. Long names ellipsize with a title tooltip."""
+    if not msv:
+        return '<div class="note">No milestone variance to plot.</div>'
+    mx = max((abs(m.get('var') or 0) for m in msv), default=0) or 1
+    rows = []
+    for m in msv:
+        v = m.get('var') or 0
+        w = abs(v) / mx * 100
+        col = '#dc2626' if v > 0 else ('#16a34a' if v < 0 else '#94a3b8')
+        name = _e(m.get('name'))
+        rows.append(
+            f'<div class="mvrow"><div class="mvname" title="{name}">{name}</div>'
+            f'<div class="mvbar"><span style="width:{w:.0f}%;background:{col}"></span>'
+            f'<b style="color:{col}">{"+" if v > 0 else ""}{v} d</b></div></div>')
+    return f'<div class="mvchart">{"".join(rows)}</div>'
 
 
 def _dashboard(report):
@@ -57,13 +181,38 @@ def _dashboard(report):
             val = k['value']
         unit = ' wd' if k['key'] == 'length' else ''
         delta = '' if k.get('delta') is None else _sd(k['delta'], '')
+        # Previous value + variance, so the dashboard reads current vs previous (fix #3).
+        pv = k.get('prev')
+        if pv is None:
+            prev_txt = ''
+        else:
+            pv = f"{pv:.2f}" if k['key'] == 'cpli' else pv
+            prev_txt = f'Previous {pv}{unit}' + (f' · {delta}' if delta else '')
         kpi_cells.append(f'<div class="kpi"><div class="kk">{_e(k["label"])}</div>'
-                         f'<div class="kv">{val}{unit}</div><div class="kd">{delta}</div></div>')
+                         f'<div class="kv">{val}{unit} <span class="kcur">current</span></div>'
+                         f'<div class="kd">{prev_txt}</div></div>')
     factors = ''.join(f'<li>{_e(f)}</li>' for f in d.get('factors', []))
-    return (f'<div class="dash"><div class="health"><div class="hgauge">{_cpli(d.get("cpli"))}<span>CPLI</span></div>'
+    dash = (f'<div class="dash"><div class="health"><div class="hgauge">{_cpli(d.get("cpli"))}<span>CPLI</span></div>'
             f'<div><div class="htitle">Critical Path Health</div>'
             f'<div class="hverdict">{_e(d.get("verdict"))}</div><ul class="hfactors">{factors}</ul></div></div>'
             f'<div class="kpis">{"".join(kpi_cells)}</div></div>')
+
+    # Charts — everything on screen must reach the PDF (fix #1).
+    charts = d.get('charts', {})
+    charts_html = ''
+    if charts:
+        cn = _chart_crit_near(charts.get('crit_near', {}) or {})
+        ct = _chart_cpli(charts.get('cpli_trend', {}) or {})
+        mv = _chart_ms_variance(charts.get('ms_variance', []) or [])
+        charts_html = (
+            '<div class="charts">'
+            f'<div class="chartcard"><div class="chartt">Critical &amp; near by schedule</div>{cn}'
+            '<div class="chartlegend"><i style="background:#dc2626"></i>Critical '
+            '<i style="background:#d97706"></i>Near-critical</div></div>'
+            f'<div class="chartcard"><div class="chartt">CPLI trend</div>{ct}</div>'
+            f'<div class="chartcard"><div class="chartt">Milestone slip vs baseline</div>{mv}</div>'
+            '</div>')
+    return dash + charts_html
 
 
 def _lane(lane):
@@ -83,8 +232,10 @@ def _lane(lane):
             last = f'<span class="bk">Float now</span><span class="bv" style="color:#16a34a">{tf}</span>'
         else:
             last = f'<span class="bk">Slip</span><span class="bv">{_sd(b.get("slip_days"))}</span>'
+        # A 'left' ghost sits off the live chain — no connecting arrow into it.
+        arrow = '' if st == 'left' else '<div class="arw">▸</div>'
         boxes.append(
-            f'<div class="arw">▸</div><div class="box {cls}">{flag}<div class="bt">{_e(b.get("name"))}</div>'
+            f'{arrow}<div class="box {cls}">{flag}<div class="bt">{_e(b.get("name"))}</div>'
             f'<div class="bcrumb">{_e(b.get("crumb"))}</div>'
             f'<div class="brow"><span class="bk">Actual</span><span class="bv">{round(b.get("pct") or 0)}%</span></div>'
             f'<div class="brow"><span class="bk">Exp Finish</span><span class="bv">{_e(b.get("exp_finish"))}</span></div>'
@@ -94,14 +245,23 @@ def _lane(lane):
 
 
 def _lanes(report):
-    lanes = report.get('lanes', [])
-    if not any(l.get('boxes') for l in lanes):
+    blocks = report.get('milestone_paths', [])
+    if not any(any(ln.get('boxes') for ln in b.get('lanes', [])) for b in blocks):
         return '<div class="note">No governing critical path was found in these schedules.</div>'
     legend = ('<div class="cplegend"><i style="background:#fdecec;border:2px solid #dc2626"></i>New on critical path '
               '<i style="background:#f4f4f5;border:1px dashed #94a3b8"></i>Left the path '
               '<i style="background:#fff;border:1px solid #e2e8f0"></i>Stayed '
               '<i style="background:#fff;border:1px solid #16a34a"></i>Complete</div>')
-    return ''.join(_lane(l) for l in lanes) + legend
+    out = []
+    for b in sorted(blocks, key=lambda x: 0 if x.get('is_governing') else 1):
+        flag = '◆ ' if b.get('is_governing') else ''
+        hdr = (f'<div class="mphdr"><span class="mpname">{flag}{_e(b.get("name"))}</span>'
+               f'<span class="mpfin">Baseline {_e(b.get("baseline_finish")) or "—"} '
+               f'· Current {_e(b.get("current_finish")) or "—"} '
+               f'· Slip {_sd(b.get("slip_days"))}</span></div>')
+        lanes_html = ''.join(_lane(l) for l in b.get('lanes', []))
+        out.append(f'<div class="mpblock">{hdr}{lanes_html}</div>')
+    return ''.join(out) + legend
 
 
 def _census(report):
@@ -123,30 +283,40 @@ def _census(report):
         col = '#dc2626' if (dd > 0) == bad_up and dd != 0 else ('#16a34a' if dd != 0 else '#94a3b8')
         return f'<td class="num" style="color:{col};font-weight:700">{"+" if dd > 0 else ""}{dd}{unit}</td>'
 
+    def colh(role, label):
+        dd = c.get(role, {}).get('data_date')
+        sub = f'<div class="thdd">{_e(dd)}</div>' if dd else ''
+        return f'<th class="num">{label}{sub}</th>'
+
+    # (label, getter, delta-key, delta-unit, bad_up, show_variance)
     rows = [
-        ('Critical activities (TF ≤ 0)', lambda o: cnt(o, 'critical', 'critical_pct'), 'critical_pct', ' pts', True),
-        ('Near-critical (0 &lt; TF &lt; 10 wd)', lambda o: cnt(o, 'near', 'near_pct'), 'near_pct', ' pts', True),
-        ('Critical path length (remaining, wd)', lambda o: '—' if o.get('path_length_wd') is None else f"{o['path_length_wd']} wd", 'path_length_wd', ' wd', True),
-        ('Total float · finish (wd)', lambda o: '—' if o.get('total_float_wd') is None else f"{o['total_float_wd']} wd", 'total_float_wd', ' wd', False),
-        ('CPLI · project finish', lambda o: _cpli(o.get('cpli')), 'cpli', '', False),
+        ('Total activities', lambda o: '—' if o.get('total_activities') is None else o['total_activities'],
+         'total_activities', '', True, False),
+        ('Critical activities (TF ≤ 0)', lambda o: cnt(o, 'critical', 'critical_pct'), 'critical_pct', ' pts', True, True),
+        ('Near-critical (0 &lt; TF &lt; 10 wd)', lambda o: cnt(o, 'near', 'near_pct'), 'near_pct', ' pts', True, True),
+        ('Critical path length (remaining, wd)', lambda o: '—' if o.get('path_length_wd') is None else f"{o['path_length_wd']} wd", 'path_length_wd', ' wd', True, True),
+        ('Total float · finish (wd)', lambda o: '—' if o.get('total_float_wd') is None else f"{o['total_float_wd']} wd", 'total_float_wd', ' wd', False, True),
+        ('CPLI', lambda o: _cpli(o.get('cpli')), 'cpli', '', False, True),
     ]
-    head = ('<tr><th>Measure</th>' + ('<th class="num">Baseline</th>' if has('baseline') else '')
-            + ('<th class="num">Previous</th>' if has('previous') else '')
-            + ('<th class="num">Current</th>' if has('current') else '')
+    head = ('<tr><th>Measure</th>'
+            + (colh('baseline', 'Baseline') if has('baseline') else '')
+            + (colh('previous', 'Previous') if has('previous') else '')
+            + (colh('current', 'Current') if has('current') else '')
             + ('<th class="num">Δ period</th>' if has('previous') else '')
             + ('<th class="num">Δ baseline</th>' if has('baseline') else '') + '</tr>')
     body = ''
-    for label, get, key, unit, bad_up in rows:
+    for label, get, key, unit, bad_up, show_var in rows:
         body += ('<tr><td>' + label + '</td>'
                  + cell('baseline', get(bl)) + cell('previous', get(prev)) + cell('current', get(cur))
-                 + (dvar(cur.get(key), prev.get(key), unit, bad_up) if has('previous') else '')
-                 + (dvar(cur.get(key), bl.get(key), unit, bad_up) if has('baseline') else '') + '</tr>')
+                 + ((dvar(cur.get(key), prev.get(key), unit, bad_up) if show_var else '<td class="num"></td>') if has('previous') else '')
+                 + ((dvar(cur.get(key), bl.get(key), unit, bad_up) if show_var else '<td class="num"></td>') if has('baseline') else '') + '</tr>')
     return f'<table class="t"><thead>{head}</thead><tbody>{body}</tbody></table>'
 
 
 def _milestones(report):
     rows = report.get('milestones', [])
     roles = report.get('roles', [])
+    c = report.get('census', {})
     has = lambda r: r in roles
     if not rows:
         return '<div class="note">No finish milestones found.</div>'
@@ -157,21 +327,19 @@ def _milestones(report):
         col = '#dc2626' if v > 0 else '#16a34a' if v < 0 else '#94a3b8'
         return f'<span style="color:{col};font-weight:700">{"+" if v > 0 else ""}{v} d</span>'
 
-    def cplic(v):
-        if v is None:
-            return 'n/a'
-        col = '#16a34a' if v >= 1.0 else '#d97706' if v >= 0.95 else '#dc2626'
-        return f'<span style="color:{col};font-weight:700">{v:.2f}</span>'
+    def colh(role, label):
+        dd = c.get(role, {}).get('data_date')
+        sub = f'<div class="thdd">{_e(dd)}</div>' if dd else ''
+        return f'<th class="num">{label}{sub}</th>'
 
-    head = ('<tr><th>Milestone</th>' + ('<th class="num">Baseline</th>' if has('baseline') else '')
-            + ('<th class="num">Previous</th>' if has('previous') else '')
-            + ('<th class="num">Current</th>' if has('current') else '')
-            + '<th class="num">vs Baseline</th>' + ('<th class="num">This period</th>' if has('previous') else '')
-            + '<th class="num">CPLI</th><th class="num">Crit/Near fronts</th></tr>')
+    head = ('<tr><th>Milestone</th>'
+            + (colh('baseline', 'Baseline') if has('baseline') else '')
+            + (colh('previous', 'Previous') if has('previous') else '')
+            + (colh('current', 'Current') if has('current') else '')
+            + '<th class="num">vs Baseline</th>' + ('<th class="num">This period</th>' if has('previous') else '') + '</tr>')
     body = ''
     for m in rows:
         f = m.get('finishes', {})
-        fronts = '—' if m.get('crit_fronts') is None else f"{m['crit_fronts']} / {m['near_fronts']}"
         body += ('<tr' + (' class="gov"' if m.get('is_governing') else '') + '><td>'
                  + ('◆ ' if m.get('is_governing') else '') + _e(m.get('name')) + '</td>'
                  + (f'<td class="num">{_e(f.get("baseline"))}</td>' if has('baseline') else '')
@@ -179,8 +347,7 @@ def _milestones(report):
                  + (f'<td class="num">{_e(f.get("current"))}</td>' if has('current') else '')
                  + f'<td class="num">{slip(m.get("var_vs_baseline_d"))}</td>'
                  + (f'<td class="num">{slip(m.get("var_this_period_d"))}</td>' if has('previous') else '')
-                 + f'<td class="num">{cplic(m.get("cpli"))}</td>'
-                 + f'<td class="num">{fronts}</td></tr>')
+                 + '</tr>')
     return f'<table class="t"><thead>{head}</thead><tbody>{body}</tbody></table>'
 
 
@@ -212,7 +379,7 @@ def render_html(report, sections=None):
     secs = [
         ('verdict', '', _banner(report), False),
         ('dashboard', 'Execution dashboard', _dashboard(report), False),
-        ('driving_path', 'Driving path — schedule by schedule', _lanes(report), True),
+        ('driving_path', 'Critical Path Analyzer', _lanes(report), True),
         ('census', 'Critical & near-critical census', _census(report), False),
         ('milestones', 'Every milestone · finish comparison & path health', _milestones(report), False),
         ('float_migration', 'Float migration', _migration(report), False),
@@ -233,6 +400,9 @@ def render_html(report, sections=None):
       section.pagebreak {{ page-break-before: always; }}
       .rh {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }}
       .meta {{ color: #64748b; font-size: 11px; margin-top: 3px; }}
+      .ddstrip {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }}
+      .ddpill {{ background: #f1f5f9; color: #475569; font-size: 10px; border-radius: 5px; padding: 2px 8px; }}
+      .ddpill b {{ color: #1e293b; }}
       .banner {{ display: flex; align-items: center; gap: 11px; border: 1px solid; border-radius: 9px; padding: 10px 14px; margin-top: 10px; }}
       .btag {{ color: #fff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 5px; }}
       .btext {{ font-size: 13px; font-weight: 600; }}
@@ -247,7 +417,23 @@ def render_html(report, sections=None):
       .kpi {{ border: 1px solid #e2e8f0; border-radius: 9px; padding: 8px 11px; }}
       .kk {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .3px; color: #94a3b8; font-weight: 700; }}
       .kv {{ font-size: 19px; font-weight: 800; margin-top: 2px; }}
+      .kv .kcur {{ font-size: 9px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: .3px; }}
       .kd {{ font-size: 11px; font-weight: 700; color: #64748b; margin-top: 2px; }}
+      .charts {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }}
+      .chartcard {{ border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; page-break-inside: avoid; }}
+      .chartt {{ font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: #64748b; margin-bottom: 6px; }}
+      .chartlegend {{ font-size: 9.5px; color: #64748b; margin-top: 4px; }}
+      .chartlegend i {{ display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: middle; margin: 0 3px 0 8px; }}
+      .mvchart {{ display: flex; flex-direction: column; gap: 6px; }}
+      .mvrow {{ font-size: 10px; }}
+      .mvname {{ color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }}
+      .mvbar {{ display: flex; align-items: center; gap: 5px; }}
+      .mvbar span {{ display: inline-block; height: 10px; border-radius: 3px; min-width: 1px; }}
+      .mvbar b {{ font-size: 9.5px; white-space: nowrap; }}
+      .mpblock {{ page-break-inside: avoid; margin-bottom: 14px; }}
+      .mphdr {{ display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 8px; }}
+      .mpname {{ font-size: 12px; font-weight: 800; color: #1e293b; }}
+      .mpfin {{ font-size: 10px; color: #64748b; }}
       .lane {{ margin-bottom: 12px; }} .lanehdr {{ display: flex; gap: 9px; align-items: center; margin-bottom: 6px; }}
       .lanetag {{ font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 6px; }}
       .lt-baseline {{ background: #eef2f7; color: #475569; }} .lt-previous {{ background: #fff6e9; color: #b45309; }} .lt-current {{ background: #eff6ff; color: #1d4ed8; }}
@@ -273,6 +459,7 @@ def render_html(report, sections=None):
       table.t {{ width: 100%; border-collapse: collapse; font-size: 11px; }}
       table.t th, table.t td {{ padding: 6px 9px; text-align: left; border-bottom: 1px solid #e2e8f0; }}
       table.t th {{ font-size: 10px; text-transform: uppercase; letter-spacing: .3px; color: #94a3b8; }}
+      table.t th .thdd {{ text-transform: none; font-weight: 600; font-size: 9px; color: #64748b; margin-top: 2px; }}
       table.t td.num, table.t th.num {{ text-align: right; }}
       table.t tr.gov td {{ font-weight: 800; }}
       .bands {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }}
@@ -312,6 +499,7 @@ def to_excel(report, path):
                 row.append(f"{o.get(key)} ({o.get(pct)}%)" if o.get(key) is not None else None)
         ws.append(row)
 
+    crow('Total activities', 'total_activities')
     crow('Critical activities', 'critical', 'critical_pct')
     crow('Near-critical', 'near', 'near_pct')
     crow('Critical path length (wd)', 'path_length_wd')

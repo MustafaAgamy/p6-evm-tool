@@ -12,6 +12,14 @@ from p6_compare.driving import driving_predecessors
 from p6_critpath.analysis import _forecast_finish, _ref_calendar, _wd_between, _iso, _MILESTONES
 
 
+def _slip(cal, bl, exp):
+    """Working-day slip between two FINISH dates, day-normalised so two dates that display
+    the same (differing only by sub-day time) give exactly 0 — matching the milestones table
+    (avoids the +1/-1 artifact from signed_working_days on equal calendar dates)."""
+    d0 = lambda d: d.replace(hour=0, minute=0, second=0, microsecond=0) if isinstance(d, datetime) else d
+    return _wd_between(cal, d0(bl), d0(exp))
+
+
 def _governing_finish_ms(data):
     fin = [a for a in data.activities.values()
            if a.get('task_type') == 'FinishMilestone' and _forecast_finish(a)]
@@ -21,11 +29,13 @@ def _governing_finish_ms(data):
 
 def _find_milestone(data, milestone_code):
     if not milestone_code:
-        return _governing_finish_ms(data)
+        return _governing_finish_ms(data)          # governing path by default
     for a in data.activities.values():
         if a.get('id') == milestone_code and a.get('task_type') == 'FinishMilestone':
             return a
-    return _governing_finish_ms(data)
+    return None    # a specific milestone was asked for and this schedule doesn't have it —
+                   # return no path rather than silently tracing a DIFFERENT (governing) one,
+                   # which would mislabel one schedule's lane against another milestone.
 
 
 def milestone_list(schedules):
@@ -195,7 +205,7 @@ def path_boxes(data, milestone_code=None, summary_level=0, construction_only=Tru
             'complete': pct >= 100.0,
             'bl_finish': _iso(bl_fin),
             'exp_finish': _iso(exp_fin),
-            'slip_days': _wd_between(ref_cal, bl_fin, exp_fin),
+            'slip_days': _slip(ref_cal, bl_fin, exp_fin),
             'driver_tf': driver.get('total_float_days'),
         })
 
@@ -207,7 +217,7 @@ def path_boxes(data, milestone_code=None, summary_level=0, construction_only=Tru
             'name': milestone.get('name') or milestone.get('id') or 'Completion',
             'baseline_finish': _iso(ms_bl),
             'expected_finish': _iso(ms_exp),
-            'slip_days': _wd_between(ref_cal, ms_bl, ms_exp),
+            'slip_days': _slip(ref_cal, ms_bl, ms_exp),
         },
         'boxes': boxes,
     }

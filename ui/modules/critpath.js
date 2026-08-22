@@ -1,9 +1,9 @@
 // Critical Path Analyzer — compare the critical path across 2–3 schedules.
 //
 // The currently-open schedule is always the CURRENT update. The user picks the
-// previous update and/or the baseline, per the chosen mode. Slice 1: mode picker,
-// file slots, and the critical & near-critical census (count + % per schedule +
-// variance). Later slices add the dashboard, driving-path lanes, tables and exports.
+// previous update and/or the baseline, per the chosen mode. Renders the execution
+// dashboard, the per-milestone Critical Path Analyzer, the census, the every-
+// milestone comparison, float migration and the effect/recommendation.
 import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
@@ -14,12 +14,12 @@ const MODES = [
   ['two_plus_baseline', 'Two updates + Baseline','Both updates and the baseline, side by side',       ['previous', 'baseline']],
 ];
 const ROLE_LABEL = { current: 'Current update', previous: 'Previous update', baseline: 'Baseline' };
+const SHORT_LABEL = { current: 'Current', previous: 'Previous', baseline: 'Baseline' };
+const _MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 let _mode = 'update_baseline';
 let _picked = { previous: null, baseline: null };   // chosen file paths
 let _shownReport = null;
-let _milestone = null;   // selected finish-milestone code (null = governing)
-let _level = 0;          // driving-path rollup: 0 work front · 1 area · 2 phase
 
 function _currName() {
   const p = state.currentXmlPath || state.currentCachedPath || '';
@@ -95,12 +95,10 @@ function _syncRun() {
   if (btn) btn.disabled = !ready;
 }
 
-async function _run(keepMilestone) {
+async function _run() {
   const rep = document.getElementById('cpa-report');
   rep.innerHTML = `<div class="cpa-note">Reading the schedules and comparing critical paths…</div>`;
-  if (!keepMilestone) { _milestone = null; _level = 0; }
-  const payload = { mode: _mode, current_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '',
-                    milestone_code: _milestone, summary_level: _level };
+  const payload = { mode: _mode, current_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '' };
   for (const role of _neededRoles()) payload[`${role}_path`] = _picked[role];
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/analyze`, {
@@ -126,9 +124,13 @@ const CP_SECTIONS = [
 ];
 
 function _windowStrip(report) {
-  const dd = report.reporting_window || report.data_dates || {};
+  const c = report.census || {};
   const roles = report.roles || [];
-  const pills = roles.map(r => `<span class="cpa-wpill">${escapeHtml(ROLE_LABEL[r])} data date <b>${_fdate(dd[r])}</b></span>`).join('');
+  const pills = roles.map(r => {
+    const dd = (c[r] || {}).data_date;
+    return `<span class="cpa-wpill">${escapeHtml(ROLE_LABEL[r] || r)} data date <b>${_fdate(dd)}</b></span>`;
+  }).join('');
+  if (!pills) return '';
   return `<div class="cpa-window">${pills}</div>`;
 }
 
@@ -158,7 +160,6 @@ function _renderReport(report) {
 
     <div class="cpa-sech">Effect on completion &amp; recommendation</div>
     <div class="cpa-card">${_recoHtml(report)}</div>`;
-  _wireLaneControls(report);
   document.getElementById('cpa-export-pdf').addEventListener('click', _openPreview);
   document.getElementById('cpa-export-xlsx').addEventListener('click', _exportExcel);
 }
@@ -255,7 +256,7 @@ async function _exportExcel() {
   finally { if (btn) { btn.disabled = false; btn.textContent = 'Export Excel'; } }
 }
 
-// ── Execution dashboard (charts + Critical Path Health) ──────────────────────
+// ── Execution dashboard (health + comparison KPIs + charts) ──────────────────
 
 function _conclusionBanner(report) {
   const d = report.dashboard || {};
@@ -265,19 +266,23 @@ function _conclusionBanner(report) {
     <span class="cpa-vdtext">${escapeHtml(report.conclusion || d.verdict || '')}</span></div>`;
 }
 
-function _kpiDelta(k) {
-  if (k.delta == null || k.delta === 0) return k.delta === 0 ? '<span class="cpa-dim">no change</span>' : '';
-  const bad = k.higher_is_bad ? k.delta > 0 : k.delta < 0;
-  const arw = k.delta > 0 ? '▲' : '▼';
-  return `<span class="cpa-kd ${bad ? 'bad' : 'good'}">${arw} ${k.delta > 0 ? '+' : ''}${k.delta}</span>`;
+// How CPLI is figured, derived from the current census (no server field).
+function _cpliFormula(report) {
+  const cur = (report.census || {}).current || {};
+  const pl = cur.path_length_wd, tf = cur.total_float_wd, cpli = cur.cpli;
+  if (pl == null || tf == null || cpli == null || !pl) return '';
+  const inner = tf < 0
+    ? `${pl} remaining wd − ${Math.abs(tf)} wd behind`
+    : `${pl} remaining wd + ${tf} wd float`;
+  const pct = Math.round(Math.max(0, 1 - cpli) * 100);
+  const tail = cpli < 1
+    ? ` → the remaining path needs ~${pct}% compression to still hit the target.`
+    : ` → the path still carries float.`;
+  return `<div class="cpa-hformula">How CPLI is figured: <b>(${inner}) ÷ ${pl} = ${cpli.toFixed(2)}</b>${tail}</div>`;
 }
 
 function _dashboardHtml(report) {
   const d = report.dashboard || {};
-  const kpis = (d.kpis || []).map(k => `<div class="cpa-kpi">
-      <div class="cpa-kk">${escapeHtml(k.label)}</div>
-      <div class="cpa-kv">${k.value == null ? 'n/a' : (k.key === 'cpli' ? Number(k.value).toFixed(2) : k.value)}${k.key === 'length' ? ' <span class="cpa-ku">wd</span>' : ''}</div>
-      <div class="cpa-kr">${_kpiDelta(k)}</div></div>`).join('');
   const factors = (d.factors || []).map(f => `<li>${escapeHtml(f)}</li>`).join('');
   return `<div class="cpa-dash">
       <div class="cpa-health cpa-hb-${d.status || 'warn'}">
@@ -286,15 +291,74 @@ function _dashboardHtml(report) {
           <div class="cpa-htitle">Critical Path Health</div>
           <div class="cpa-hverdict">${escapeHtml(d.verdict || '')}</div>
           <ul class="cpa-hfactors">${factors}</ul>
+          ${_cpliFormula(report)}
         </div>
       </div>
-      <div class="cpa-kpis">${kpis}</div>
+      <div class="cpa-kpis">${_cmpKpis(report)}</div>
     </div>
     <div class="cpa-charts">
       <div class="cpa-chart"><div class="cpa-cht">Critical &amp; near-critical by schedule</div>${_barsCritNear(d.charts)}</div>
       <div class="cpa-chart"><div class="cpa-cht">CPLI trend</div>${_lineCpli(d.charts)}</div>
       <div class="cpa-chart"><div class="cpa-cht">Milestone slip vs baseline (wd)</div>${_barsMsVar(d.charts)}</div>
     </div>`;
+}
+
+// Four comparison tiles built from the census (current vs previous/baseline).
+function _cmpKpis(report) {
+  const c = report.census || {};
+  const roles = report.roles || [];
+  const cur = c.current || {};
+  const prevRole = roles.includes('previous') ? 'previous' : (roles.includes('baseline') ? 'baseline' : null);
+  const prev = prevRole ? (c[prevRole] || {}) : {};
+  const prevName = prevRole === 'baseline' ? 'Baseline' : 'Previous';
+
+  const tiles = [];
+
+  // CPLI — rising is good.
+  tiles.push(_kpiTile('CPLI',
+    `<span class="cpa-kv"${cur.cpli != null && cur.cpli < 0.95 ? ' style="color:var(--danger)"' : ''}>${cur.cpli == null ? '—' : cur.cpli.toFixed(2)}</span>`,
+    'current',
+    prevRole ? `${prevName} ${prev.cpli == null ? '—' : prev.cpli.toFixed(2)} · ${_kd(cur.cpli, prev.cpli, '', false, 2)}` : ''));
+
+  // Critical path length (remaining wd) — rising is bad.
+  tiles.push(_kpiTile('Critical path length (remaining)',
+    `<span class="cpa-kv">${cur.path_length_wd == null ? '—' : cur.path_length_wd}<span class="cpa-ku"> wd</span></span>`,
+    'current',
+    prevRole ? `${prevName} ${prev.path_length_wd == null ? '—' : prev.path_length_wd + ' wd'} · ${_kd(cur.path_length_wd, prev.path_length_wd, ' wd', true, 0)}` : ''));
+
+  // % Critical activities — rising is bad.
+  tiles.push(_kpiTile('% Critical activities',
+    `<span class="cpa-kv">${cur.critical_pct == null ? '—' : cur.critical_pct + '%'}</span>`,
+    `current${cur.critical == null ? '' : ' · ' + cur.critical}`,
+    prevRole ? `${prevName} ${prev.critical_pct == null ? '—' : prev.critical_pct + '%'}${prev.critical == null ? '' : ' (' + prev.critical + ')'} · ${_kd(cur.critical_pct, prev.critical_pct, ' pts', true, 1)}` : ''));
+
+  // Near-critical (count) — rising is bad; may be null (float-less baseline).
+  tiles.push(_kpiTile('Near-critical (&lt; 10 wd)',
+    `<span class="cpa-kv">${cur.near == null ? '—' : cur.near}</span>`,
+    'current',
+    prevRole ? `${prevName} ${prev.near == null ? '—' : prev.near} · ${_kd(cur.near, prev.near, '', true, 0)}` : ''));
+
+  return tiles.join('');
+}
+
+function _kpiTile(kk, curHtml, curlbl, prevHtml) {
+  return `<div class="cpa-kpi">
+      <div class="cpa-kk">${kk}</div>
+      <div class="cpa-kcur">${curHtml}<span class="cpa-kcurlbl">${curlbl}</span></div>
+      ${prevHtml ? `<div class="cpa-kprev">${prevHtml}</div>` : ''}
+    </div>`;
+}
+
+// Signed delta chip current→previous, coloured by whether a rise is bad.
+function _kd(cur, prev, unit, higherIsBad, decimals) {
+  if (cur == null || prev == null) return '<span class="cpa-dim">—</span>';
+  const f = Math.pow(10, decimals);
+  const d = Math.round((cur - prev) * f) / f;
+  if (d === 0) return '<span class="cpa-dim">no change</span>';
+  const bad = higherIsBad ? d > 0 : d < 0;
+  const arw = d > 0 ? '▲' : '▼';
+  const val = decimals > 0 ? d.toFixed(decimals) : String(d);
+  return `<span class="cpa-kd ${bad ? 'bad' : 'good'}">${arw} ${d > 0 ? '+' : ''}${val}${unit}</span>`;
 }
 
 function _gauge(cpli, status) {
@@ -307,31 +371,37 @@ function _gauge(cpli, status) {
     <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="var(--border)" stroke-width="11" stroke-linecap="round"/>
     <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${x} ${y}" fill="none" stroke="${col}" stroke-width="11" stroke-linecap="round"/>
     <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="23" font-weight="800" fill="var(--text)">${cpli == null ? 'n/a' : cpli.toFixed(2)}</text>
-    <text x="${cx}" y="${cy + 7}" text-anchor="middle" font-size="9.5" fill="var(--muted)">CPLI</text>
+    <text x="${cx}" y="${cy + 7}" text-anchor="middle" font-size="9.5" fill="var(--muted)">CPLI · current</text>
   </svg>`;
-}
-
-function _chartColor(role) {
-  return role === 'baseline' ? '#94a3b8' : role === 'previous' ? 'var(--warning)' : 'var(--accent)';
 }
 
 function _barsCritNear(charts) {
   const s = (charts || {}).crit_near || {};
   const roles = s.roles || [];
+  const crit = s.critical || [];
+  const near = s.near || [];
   if (!roles.length) return '<div class="cpa-nochart">—</div>';
-  const vals = roles.flatMap((_, i) => [s.critical[i] || 0, s.near[i] || 0]);
-  const max = Math.max(1, ...vals);
-  const W = 230, H = 130, base = 104, top = 12, gw = W / roles.length, bw = 18;
+  const nums = [];
+  roles.forEach((_, i) => { nums.push(crit[i] || 0); if (near[i] != null) nums.push(near[i]); });
+  const max = Math.max(1, ...nums);
+  const W = 250, H = 140, base = 110, top = 16, gw = W / roles.length, bw = 18;
   let out = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
   out += `<line x1="6" y1="${base}" x2="${W - 6}" y2="${base}" stroke="var(--border)"/>`;
   roles.forEach((role, i) => {
     const cx = i * gw + gw / 2;
-    const hc = (base - top) * (s.critical[i] || 0) / max, hn = (base - top) * (s.near[i] || 0) / max;
-    out += `<rect x="${cx - bw - 2}" y="${base - hc}" width="${bw}" height="${hc}" rx="2" fill="var(--danger)"/>`;
-    out += `<rect x="${cx + 2}" y="${base - hn}" width="${bw}" height="${hn}" rx="2" fill="var(--warning)"/>`;
-    out += `<text x="${cx}" y="${base + 13}" text-anchor="middle" font-size="9" fill="var(--muted)">${escapeHtml(ROLE_LABEL[role].split(' ')[0])}</text>`;
-    out += `<text x="${cx - bw / 2 - 2}" y="${base - hc - 3}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--danger)">${s.critical[i] || 0}</text>`;
-    out += `<text x="${cx + bw / 2 + 2}" y="${base - hn - 3}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--warning)">${s.near[i] || 0}</text>`;
+    const cv = crit[i] || 0;
+    const nv = near[i];
+    const hc = (base - top) * cv / max;
+    out += `<rect x="${(cx - bw - 2).toFixed(1)}" y="${(base - hc).toFixed(1)}" width="${bw}" height="${hc.toFixed(1)}" rx="2" fill="var(--danger)"/>`;
+    out += `<text x="${(cx - bw / 2 - 2).toFixed(1)}" y="${(base - hc - 3).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--danger)">${cv}</text>`;
+    if (nv == null) {
+      out += `<text x="${(cx + bw / 2 + 2).toFixed(1)}" y="${base - 3}" text-anchor="middle" font-size="8.5" fill="var(--muted)">n/a</text>`;
+    } else {
+      const hn = (base - top) * nv / max;
+      out += `<rect x="${(cx + 2).toFixed(1)}" y="${(base - hn).toFixed(1)}" width="${bw}" height="${hn.toFixed(1)}" rx="2" fill="var(--warning)"/>`;
+      out += `<text x="${(cx + bw / 2 + 2).toFixed(1)}" y="${(base - hn - 3).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--warning)">${nv}</text>`;
+    }
+    out += `<text x="${cx.toFixed(1)}" y="${base + 14}" text-anchor="middle" font-size="9" fill="var(--muted)">${escapeHtml((ROLE_LABEL[role] || role).split(' ')[0])}</text>`;
   });
   out += `</svg><div class="cpa-clegend"><span class="cpa-dot" style="background:var(--danger)"></span>Critical <span class="cpa-dot" style="background:var(--warning)"></span>Near</div>`;
   return out;
@@ -341,14 +411,15 @@ function _lineCpli(charts) {
   const s = (charts || {}).cpli_trend || {};
   const roles = s.roles || [], vals = s.values || [];
   if (!roles.length) return '<div class="cpa-nochart">—</div>';
-  const lo = 0.7, hi = 1.15, W = 230, H = 130, base = 104, top = 14, l = 8, r = W - 8;
+  // Inset the plot so the first/last x-axis labels aren't clipped at the viewBox edge.
+  const lo = 0.7, hi = 1.15, W = 250, H = 140, base = 110, top = 18, l = 40, r = W - 40;
   const y = v => base - (base - top) * (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo);
   const x = i => roles.length === 1 ? (l + r) / 2 : l + (r - l) * i / (roles.length - 1);
   let out = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
   // 0.95 and 1.0 reference lines
   [[0.95, 'var(--danger)'], [1.0, 'var(--muted)']].forEach(([v, c]) => {
-    out += `<line x1="${l}" y1="${y(v).toFixed(1)}" x2="${r}" y2="${y(v).toFixed(1)}" stroke="${c}" stroke-dasharray="3 3" opacity=".5"/>`;
-    out += `<text x="${r}" y="${(y(v) - 2).toFixed(1)}" text-anchor="end" font-size="8" fill="${c}">${v.toFixed(2)}</text>`;
+    out += `<line x1="${l - 8}" y1="${y(v).toFixed(1)}" x2="${r + 8}" y2="${y(v).toFixed(1)}" stroke="${c}" stroke-dasharray="3 3" opacity=".5"/>`;
+    out += `<text x="${(r + 10).toFixed(1)}" y="${(y(v) + 3).toFixed(1)}" font-size="8" fill="${c}">${v.toFixed(2)}</text>`;
   });
   const pts = vals.map((v, i) => v == null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`).filter(Boolean);
   if (pts.length > 1) out += `<polyline points="${pts.join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
@@ -356,7 +427,7 @@ function _lineCpli(charts) {
     if (v == null) return;
     out += `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4" fill="var(--accent)"/>`;
     out += `<text x="${x(i).toFixed(1)}" y="${(y(v) - 8).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--text)">${v.toFixed(2)}</text>`;
-    out += `<text x="${x(i).toFixed(1)}" y="${base + 13}" text-anchor="middle" font-size="9" fill="var(--muted)">${escapeHtml(ROLE_LABEL[roles[i]].split(' ')[0])}</text>`;
+    out += `<text x="${x(i).toFixed(1)}" y="${base + 16}" text-anchor="middle" font-size="9" fill="var(--muted)">${escapeHtml((ROLE_LABEL[roles[i]] || roles[i]).split(' ')[0])}</text>`;
   });
   out += `</svg>`;
   return out;
@@ -375,6 +446,83 @@ function _barsMsVar(charts) {
   }).join('') + `</div>`;
 }
 
+// ── Critical Path Analyzer — per-milestone driving-path blocks ────────────────
+
+const _LANE_CLS = { baseline: 'bl', previous: 'prev', current: 'curr' };
+
+function _boxHtml(b, st) {
+  const flag = st === 'new' ? `<div class="cpa-newflag">NEW ON PATH</div>`
+             : st === 'left' ? `<div class="cpa-dropflag">LEFT PATH</div>` : '';
+  const cls = st === 'new' ? 'cpa-new' : st === 'left' ? 'cpa-left' : st === 'done' ? 'cpa-done' : '';
+  const last = st === 'left'
+    ? `<div class="cpa-full"><div class="cpa-k">Float now</div><div class="cpa-v" style="color:var(--success)">${b.driver_tf == null ? '—' : _sign(b.driver_tf) + ' wd'}</div></div>`
+    : `<div class="cpa-full"><div class="cpa-k">Slip</div><div class="cpa-v ${(b.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${b.slip_days == null ? '—' : _sign(b.slip_days) + ' d'}</div></div>`;
+  return `<div class="cpa-box ${cls}">${flag}
+      <div class="cpa-bt">${escapeHtml(b.name || '')}</div>
+      <div class="cpa-bcrumb">${escapeHtml(b.crumb || '')}</div>
+      <div class="cpa-b4">
+        <div><div class="cpa-k">Actual</div><div class="cpa-v">${Math.round(b.pct || 0)}%</div></div>
+        <div><div class="cpa-k">Exp finish</div><div class="cpa-v">${_fdate(b.exp_finish)}</div></div>
+        ${last}
+      </div></div>`;
+}
+
+function _laneHtml(lane) {
+  const ms = lane.milestone || {};
+  const role = lane.role;
+  const finishVal = role === 'baseline' ? ms.baseline_finish : ms.expected_finish;
+  const parts = [`<div class="cpa-msbox">
+      <div class="cpa-msflag">◆ Milestone</div>
+      <div class="cpa-mst">${escapeHtml(ms.name || '')}</div>
+      <div class="cpa-msr"><span>${role === 'baseline' ? 'BL finish' : 'Exp finish'}</span><b>${_fdate(finishVal)}</b></div>
+      <div class="cpa-msr"><span>Slip</span><b class="${(ms.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${ms.slip_days == null ? '—' : _sign(ms.slip_days) + ' d'}</b></div>
+    </div>`];
+  (lane.boxes || []).forEach(b => {
+    const st = b.state || 'stayed';
+    // A box that left the path is shown detached, with no leading ▸ connector.
+    if (st !== 'left') parts.push(`<div class="cpa-arw">▸</div>`);
+    parts.push(_boxHtml(b, st));
+    if (st === 'left') parts.push(`<span class="cpa-offlbl">← off path</span>`);
+  });
+  return `<div class="cpa-lane">
+      <div class="cpa-lanehdr"><span class="cpa-lanetag ${_LANE_CLS[role] || ''}">${escapeHtml(lane.label || '')}</span>
+        <span class="cpa-lanesub">${escapeHtml(lane.sub || '')}</span></div>
+      <div class="cpa-chain">${parts.join('')}</div></div>`;
+}
+
+function _blockMeta(block) {
+  const meta = [];
+  if (block.baseline_finish) meta.push(`Baseline ${_fdate(block.baseline_finish)}`);
+  if (block.current_finish) meta.push(`Current ${_fdate(block.current_finish)}`);
+  if (block.slip_days != null) meta.push(`${_sign(block.slip_days)} d`);
+  return `<span class="cpa-msbmeta">${escapeHtml(meta.join(' · '))}</span>`;
+}
+
+function _cpaHtml(report) {
+  const blocks = report.milestone_paths || [];
+  if (!blocks.length) return `<div class="cpa-note">No finish milestone with a driving path was found in these schedules.</div>`;
+  const html = blocks.map(block => {
+    const lanes = (block.lanes || []).map(_laneHtml).join('');
+    const meta = _blockMeta(block);
+    if (block.is_governing) {
+      return `<div class="cpa-msblock cpa-governing">
+          <div class="cpa-msbh"><span class="cpa-msbname">◆ ${escapeHtml(block.name || '')}</span>
+            <span class="cpa-msbtag">GOVERNING</span>${meta}</div>
+          ${lanes}</div>`;
+    }
+    // Non-governing blocks are collapsed so they don't build a wall.
+    return `<details class="cpa-msblock cpa-msdetails">
+        <summary class="cpa-msbh"><span class="cpa-msbname">${escapeHtml(block.name || '')}</span>${meta}
+          <span class="cpa-msmore">view path ▸</span></summary>
+        <div class="cpa-msinner">${lanes}</div></details>`;
+  }).join('');
+  const legend = `<div class="cpa-leg">One block per finish milestone that affects completion (governing first), each showing its driving path per schedule with the new critical path highlighted. Non-governing blocks open on click to stay readable.
+      <span class="cpa-sw" style="background:rgba(220,38,38,.08);border:2px solid var(--danger)"></span>New on path
+      <span class="cpa-sw" style="background:rgba(148,163,184,.12);border:1px dashed var(--muted)"></span>Left the path (no leading arrow)
+      <span class="cpa-sw" style="background:var(--card-bg);border:1px solid var(--success)"></span>Complete</div>`;
+  return html + legend;
+}
+
 // ── Effect + recommendation ──────────────────────────────────────────────────
 
 function _recoHtml(report) {
@@ -391,35 +539,28 @@ function _mschip(v) {
   const cls = v > 0 ? 'slip' : v < 0 ? 'gain' : 'hold';
   return `<span class="cpa-mchip ${cls}">${v > 0 ? '+' : ''}${v} d</span>`;
 }
-function _cplichip(v) {
-  if (v == null) return '<span class="cpa-dim">n/a</span>';
-  const cls = v >= 1.0 ? 'cok' : v >= 0.95 ? 'cwarn' : 'cbad';
-  return `<span class="cpa-mchip ${cls}">${v.toFixed(2)}</span>`;
-}
 
 function _milestonesHtml(report) {
   const rows = report.milestones || [];
   const roles = report.roles || [];
+  const c = report.census || {};
   if (!rows.length) return `<div class="cpa-note">No finish milestones found in these schedules.</div>`;
   const has = r => roles.includes(r);
-  const col = (r, lbl) => has(r) ? `<th class="num">${lbl}</th>` : '';
+  const ddline = r => `<span class="cpa-dd">${_fdate((c[r] || {}).data_date)}</span>`;
+  const col = r => has(r) ? `<th class="num">${SHORT_LABEL[r]}${ddline(r)}</th>` : '';
+  const cell = (m, r) => has(r) ? `<td class="num">${_fdate((m.finishes || {})[r])}</td>` : '';
   const body = rows.map(m => `<tr class="${m.is_governing ? 'cpa-gov' : ''}">
       <td>${m.is_governing ? '<span class="cpa-godot"></span>' : ''}${escapeHtml(m.name)}</td>
-      ${has('baseline') ? `<td class="num">${_fdate((m.finishes || {}).baseline)}</td>` : ''}
-      ${has('previous') ? `<td class="num">${_fdate((m.finishes || {}).previous)}</td>` : ''}
-      ${has('current') ? `<td class="num">${_fdate((m.finishes || {}).current)}</td>` : ''}
+      ${cell(m, 'baseline')}${cell(m, 'previous')}${cell(m, 'current')}
       <td class="num">${_mschip(m.var_vs_baseline_d)}</td>
       ${has('previous') ? `<td class="num">${_mschip(m.var_this_period_d)}</td>` : ''}
-      <td class="num">${_cplichip(m.cpli)}</td>
-      <td class="num">${m.crit_fronts == null ? '—' : `${m.crit_fronts} / ${m.near_fronts}`}</td>
     </tr>`).join('');
   return `<table class="cpa-table">
     <thead><tr><th>Milestone</th>
-      ${col('baseline', 'Baseline')}${col('previous', 'Previous')}${col('current', 'Current')}
-      <th class="num">vs Baseline</th>${has('previous') ? '<th class="num">This period</th>' : ''}
-      <th class="num">CPLI</th><th class="num">Crit / Near fronts</th></tr></thead>
+      ${col('baseline')}${col('previous')}${col('current')}
+      <th class="num">vs Baseline</th>${has('previous') ? '<th class="num">This period</th>' : ''}</tr></thead>
     <tbody>${body}</tbody></table>
-    <div class="cpa-leg"><span class="cpa-godot"></span> governing milestone · green ahead / red behind · CPLI &lt; 0.95 = the path can't absorb more delay · Crit/Near fronts = work fronts on that milestone's driving path.</div>`;
+    <div class="cpa-leg"><span class="cpa-godot"></span> governing milestone · green ahead / red behind baseline · <b>This period</b> = working days between the previous and current forecast finishes (same date → 0). Data date of each schedule shown under its column.</div>`;
 }
 
 // ── Float migration ──────────────────────────────────────────────────────────
@@ -443,79 +584,16 @@ function _migrationHtml(report) {
     <div class="cpa-leg">${toward} activities lost float toward the critical path vs ${base} — early warning of the coming slip. Matched by activity ID.</div>`;
 }
 
-// ── Driving-path lanes (the §3 chart per schedule, new path highlighted) ─────
+// ── Small formatters ─────────────────────────────────────────────────────────
 
-function _fdate(s) { return s || '—'; }
-function _sv(v) { return v == null ? '—' : `${v > 0 ? '+' : ''}${v}`; }
-
-function _milestoneSelect(report) {
-  const list = report.milestones_list || [];
-  if (!list.length) return '';
-  const sel = report.selected_milestone;
-  const opts = list.map(m => {
-    const gov = m.is_governing ? ' (governing)' : '';
-    const on = (sel == null && m.is_governing) || sel === m.id;
-    return `<option value="${escapeHtml(m.id)}"${on ? ' selected' : ''}>◆ ${escapeHtml(m.name)}${gov}</option>`;
-  }).join('');
-  return `<span>Milestone</span><select id="cpa-ms" class="cpa-sel">${opts}</select>`;
+// ISO (YYYY-MM-DD) → "31-Dec-2025"; already-formatted or empty passes through.
+function _fdate(s) {
+  if (!s) return '—';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) return `${+m[3]}-${_MON[+m[2] - 1]}-${m[1]}`;
+  return s;
 }
-
-function _lanesHtml(report) {
-  const lanes = report.lanes || [];
-  const slicer = `<div class="cpa-slicer">${_milestoneSelect(report)}
-    <span style="margin-left:auto">Summarise at</span>
-    <select id="cpa-level" class="cpa-sel">
-      <option value="0"${_level === 0 ? ' selected' : ''}>Work front</option>
-      <option value="1"${_level === 1 ? ' selected' : ''}>Area / zone</option>
-      <option value="2"${_level === 2 ? ' selected' : ''}>Phase</option>
-    </select></div>`;
-  if (!lanes.some(l => (l.boxes || []).length)) {
-    return slicer + `<div class="cpa-note">No governing completion milestone with a driving path was found in these schedules.</div>`;
-  }
-  const laneCls = { baseline: 'bl', previous: 'prev', current: 'curr' };
-  const html = lanes.map(lane => {
-    const ms = lane.milestone || {};
-    const chain = [`<div class="cpa-msbox"><div class="cpa-msflag">◆ Milestone</div>
-      <div class="cpa-mst">${escapeHtml(ms.name || '')}</div>
-      <div class="cpa-msr"><span>${lane.role === 'baseline' ? 'BL Finish' : 'Exp Finish'}</span><b>${_fdate(lane.role === 'baseline' ? ms.baseline_finish : ms.expected_finish)}</b></div>
-      <div class="cpa-msr"><span>Delay</span><b class="${(ms.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${_sv(ms.slip_days)} d</b></div></div>`];
-    (lane.boxes || []).forEach(b => {
-      chain.push(`<div class="cpa-arw">▸</div>`);
-      const st = b.state || 'stayed';
-      const flag = st === 'new' ? `<div class="cpa-newflag">NEW ON PATH</div>`
-                 : st === 'left' ? `<div class="cpa-dropflag">LEFT PATH</div>` : '';
-      const last = st === 'left'
-        ? `<div class="cpa-full"><div class="cpa-k">Float now</div><div class="cpa-v" style="color:var(--success)">${b.driver_tf == null ? '—' : _sv(b.driver_tf) + ' wd'}</div></div>`
-        : `<div class="cpa-full"><div class="cpa-k">Slip</div><div class="cpa-v ${(b.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${_sv(b.slip_days)} d</div></div>`;
-      chain.push(`<div class="cpa-box cpa-${st}">${flag}
-        <div class="cpa-bt">${escapeHtml(b.name || '')}</div>
-        <div class="cpa-bcrumb">${escapeHtml(b.crumb || '')}</div>
-        <div class="cpa-b4">
-          <div><div class="cpa-k">Actual</div><div class="cpa-v">${Math.round(b.pct || 0)}%</div></div>
-          <div><div class="cpa-k">Exp Finish</div><div class="cpa-v">${_fdate(b.exp_finish)}</div></div>
-          ${last}
-        </div></div>`);
-    });
-    return `<div class="cpa-lane">
-      <div class="cpa-lanehdr"><span class="cpa-lanetag ${laneCls[lane.role]}">${escapeHtml(lane.label)}</span>
-        <span class="cpa-lanesub">${escapeHtml(lane.sub || '')}</span></div>
-      <div class="cpa-chain">${chain.join('')}</div></div>`;
-  }).join('');
-  const legend = `<div class="cpa-leg">
-    <span class="cpa-sw" style="background:rgba(220,38,38,.12);border:2px solid var(--danger)"></span>New on critical path (the reroute)
-    <span class="cpa-sw" style="background:rgba(148,163,184,.20);border:1px dashed var(--muted)"></span>Left the path (float recovered)
-    <span class="cpa-sw" style="background:var(--card-bg);border:1px solid var(--border)"></span>Stayed on path
-    <span class="cpa-sw" style="background:var(--card-bg);border:1px solid var(--success)"></span>Complete</div>`;
-  return slicer + html + legend;
-}
-
-function _wireLaneControls(report) {
-  const ms = document.getElementById('cpa-ms');
-  if (ms) ms.addEventListener('change', () => { _milestone = ms.value; _run(true); });
-  const lvl = document.getElementById('cpa-level');
-  if (lvl) lvl.addEventListener('change', () => { _level = parseInt(lvl.value, 10) || 0; _run(true); });
-}
-
+function _sign(v) { return v == null ? '—' : `${v > 0 ? '+' : ''}${v}`; }
 function _fmtCpli(v) { return v == null ? 'n/a' : v.toFixed(2); }
 
 // Difference chip a→b, coloured by whether a rise is bad for this measure.
@@ -529,24 +607,35 @@ function _dchip(a, b, unit, higherIsBad) {
   return `<span class="cpa-chip ${cls}">${arw} ${d > 0 ? '+' : ''}${d}${unit}</span>`;
 }
 
+// ── Critical & near-critical census ──────────────────────────────────────────
+
 function _censusHtml(report) {
   const c = report.census || {};
   const roles = report.roles || [];
   const has = r => roles.includes(r);
-  const col = r => has(r) ? `<th class="num">${escapeHtml(ROLE_LABEL[r])}</th>` : '';
+  const col = r => has(r) ? `<th class="num">${SHORT_LABEL[r]}<span class="cpa-dd">${_fdate((c[r] || {}).data_date)}</span></th>` : '';
   const cur = c.current || {}, prev = c.previous || {}, bl = c.baseline || {};
   const cell = (r, get) => has(r) ? `<td class="num">${get(c[r] || {})}</td>` : '';
   const cnt = (n, p) => o => (o[n] == null ? '—' : `${o[n]} · <b>${o[p]}%</b>`);
   const wd = k => o => (o[k] == null ? '—' : `${o[k]} wd`);
+  const ta = o => (o.total_activities == null ? '—' : `<b>${o.total_activities}</b>`);
+  const taDelta = (a, b) => (a == null || b == null) ? '' : `<span class="cpa-dim">${a - b > 0 ? '+' : ''}${a - b}</span>`;
 
   // [label, value-getter, current-key, higherIsBad, unit]
   const rows = [
     ['Critical activities <span class="cpa-dim">(TF ≤ 0)</span>', cnt('critical', 'critical_pct'), 'critical_pct', true, ' pts'],
     ['Near-critical <span class="cpa-dim">(0 &lt; TF &lt; 10 wd)</span>', cnt('near', 'near_pct'), 'near_pct', true, ' pts'],
-    ['Critical path length <span class="cpa-dim">(remaining, wd)</span>', wd('path_length_wd'), 'path_length_wd', true, ' wd'],
+    ['Critical path length <span class="cpa-dim">(remaining, to expected finish)</span>', wd('path_length_wd'), 'path_length_wd', true, ' wd'],
     ['Total float · finish <span class="cpa-dim">(wd)</span>', wd('total_float_wd'), 'total_float_wd', false, ' wd'],
-    ['CPLI · project finish', o => _fmtCpli(o.cpli), 'cpli', false, ''],
+    ['CPLI', o => _fmtCpli(o.cpli), 'cpli', false, ''],
   ];
+
+  const totalRow = `<tr>
+      <td><b>Total activities</b> <span class="cpa-dim">(counted)</span></td>
+      ${cell('baseline', ta)}${cell('previous', ta)}${cell('current', ta)}
+      ${has('previous') ? `<td class="num">${taDelta(cur.total_activities, prev.total_activities)}</td>` : ''}
+      ${has('baseline') ? `<td class="num">${taDelta(cur.total_activities, bl.total_activities)}</td>` : ''}
+    </tr>`;
 
   const body = rows.map(([label, get, key, higherIsBad, unit]) => `<tr>
       <td>${label}</td>
@@ -555,11 +644,12 @@ function _censusHtml(report) {
       ${has('baseline') ? `<td class="num">${_dchip(cur[key], bl[key], unit, higherIsBad)}</td>` : ''}
     </tr>`).join('');
 
-  return `<table class="cpa-table">
+  return `<div class="cpa-defbox"><b>Critical path length</b> = the <b>remaining working days from the schedule's data date to the milestone's expected (forecast) finish</b> — the runway still to go, counted on the milestone's calendar. It is based on the <b>expected finish, not the baseline</b>, and does not count the days already elapsed before the data date. (A baseline has no progress, so its data date is the project start → its length is the full planned path.)</div>
+    <table class="cpa-table">
     <thead><tr><th>Measure</th>${col('baseline')}${col('previous')}${col('current')}
       ${has('previous') ? '<th class="num">Δ this period</th>' : ''}
       ${has('baseline') ? '<th class="num">Δ vs baseline</th>' : ''}</tr></thead>
-    <tbody>${body}</tbody></table>
+    <tbody>${totalRow}${body}</tbody></table>
     <div class="cpa-leg">% = share of all counted activities. CPLI = (remaining path length + total float) ÷ remaining path length; below 0.95 = at risk. Baseline length is the full path (no progress yet).</div>`;
 }
 
@@ -588,11 +678,20 @@ function _injectStyle() {
     .cpa-dim { color: var(--muted); }
     .cpa-actions { margin: 4px 0 16px; }
     .cpa-sech { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--accent); font-weight: 800; margin: 20px 2px 10px; }
+    .cpa-sechsub { text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 600; }
     .cpa-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+    /* header window strip */
+    .cpa-window { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 14px; font-size: 12px; }
+    .cpa-wpill { background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.25); border-radius: 8px; padding: 5px 11px; color: var(--accent); }
+    .cpa-wpill b { color: var(--text); }
+    /* definition box */
+    .cpa-defbox { background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; font-size: 12.3px; line-height: 1.55; margin-bottom: 12px; color: var(--text); }
+    .cpa-defbox b { color: var(--accent); }
     .cpa-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
     .cpa-table th, .cpa-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
     .cpa-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); font-weight: 700; }
     .cpa-table td.num, .cpa-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .cpa-dd { display: block; text-transform: none; letter-spacing: 0; color: var(--accent); font-weight: 600; font-size: 10px; margin-top: 2px; }
     .cpa-chip { display: inline-block; border-radius: 6px; padding: 2px 7px; font-size: 11.5px; font-weight: 700; }
     .cpa-chip.up { background: rgba(220,38,38,.12); color: var(--danger); }
     .cpa-chip.down { background: rgba(22,163,74,.12); color: var(--success); }
@@ -600,19 +699,29 @@ function _injectStyle() {
     .cpa-leg { color: var(--muted); font-size: 11.5px; margin-top: 10px; line-height: 1.6; }
     .cpa-sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin: 0 5px 0 14px; }
     .cpa-leg .cpa-sw:first-child { margin-left: 0; }
-    /* slicer */
-    .cpa-slicer { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 12.5px; color: var(--muted); }
-    .cpa-sel { padding: 5px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); color: var(--text); font-size: 12.5px; }
+    /* Critical Path Analyzer — per-milestone blocks */
+    .cpa-msblock { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+    .cpa-msblock.cpa-governing { border-left: 4px solid var(--accent); }
+    .cpa-msbh { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .cpa-msbname { font-size: 13.5px; font-weight: 800; color: var(--text); }
+    .cpa-msbtag { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 5px; background: rgba(59,130,246,.15); color: var(--accent); }
+    .cpa-msbmeta { color: var(--muted); font-size: 11.5px; margin-left: auto; }
+    .cpa-msdetails > summary { cursor: pointer; list-style: none; margin-bottom: 0; }
+    .cpa-msdetails > summary::-webkit-details-marker { display: none; }
+    .cpa-msmore { color: var(--accent); font-weight: 700; font-size: 11.5px; }
+    .cpa-msdetails[open] .cpa-msmore { display: none; }
+    .cpa-msinner { margin-top: 10px; }
     /* lanes */
-    .cpa-lane { margin-bottom: 16px; }
-    .cpa-lanehdr { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
-    .cpa-lanetag { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 6px; }
+    .cpa-lane { margin-bottom: 10px; }
+    .cpa-lanehdr { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+    .cpa-lanetag { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 2px 8px; border-radius: 6px; }
     .cpa-lanetag.bl { background: rgba(148,163,184,.20); color: var(--muted); }
     .cpa-lanetag.prev { background: rgba(217,119,6,.15); color: var(--warning); }
     .cpa-lanetag.curr { background: rgba(59,130,246,.15); color: var(--accent); }
     .cpa-lanesub { color: var(--muted); font-size: 11.5px; }
     .cpa-chain { display: flex; align-items: stretch; flex-wrap: wrap; gap: 5px; }
     .cpa-arw { display: flex; align-items: center; color: var(--muted); font-weight: 800; font-size: 17px; }
+    .cpa-offlbl { align-self: center; color: var(--muted); font-size: 10px; font-style: italic; margin-left: 6px; }
     .cpa-msbox { flex: none; width: 178px; border: 2px solid var(--accent); border-radius: 12px; padding: 11px 12px; background: rgba(59,130,246,.08); }
     .cpa-msflag { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--accent); opacity: .85; margin-bottom: 6px; }
     .cpa-mst { font-size: 12.5px; font-weight: 800; color: var(--accent); line-height: 1.2; margin-bottom: 6px; }
@@ -621,7 +730,7 @@ function _injectStyle() {
     .cpa-box { flex: none; width: 176px; border: 1px solid var(--border); border-radius: 11px; padding: 9px 11px; background: var(--card-bg); position: relative; }
     .cpa-box.cpa-done { border-color: var(--success); }
     .cpa-box.cpa-new { border: 2px solid var(--danger); background: rgba(220,38,38,.07); box-shadow: 0 0 0 3px rgba(220,38,38,.10); }
-    .cpa-box.cpa-left { border-style: dashed; opacity: .6; background: rgba(148,163,184,.10); }
+    .cpa-box.cpa-left { border-style: dashed; opacity: .65; background: rgba(148,163,184,.10); margin-left: 14px; }
     .cpa-newflag { position: absolute; top: -9px; left: 9px; background: var(--danger); color: #fff; font-size: 9px; font-weight: 800; letter-spacing: .4px; padding: 2px 7px; border-radius: 5px; }
     .cpa-dropflag { position: absolute; top: -9px; left: 9px; background: var(--muted); color: #fff; font-size: 9px; font-weight: 800; letter-spacing: .4px; padding: 2px 7px; border-radius: 5px; }
     .cpa-bt { font-size: 12px; font-weight: 700; line-height: 1.2; color: var(--text); }
@@ -636,9 +745,6 @@ function _injectStyle() {
     .cpa-mchip.slip { background: rgba(220,38,38,.12); color: var(--danger); }
     .cpa-mchip.gain { background: rgba(22,163,74,.14); color: var(--success); }
     .cpa-mchip.hold { background: var(--border); color: var(--muted); }
-    .cpa-mchip.cok { background: rgba(22,163,74,.14); color: var(--success); }
-    .cpa-mchip.cwarn { background: rgba(217,119,6,.15); color: var(--warning); }
-    .cpa-mchip.cbad { background: rgba(220,38,38,.12); color: var(--danger); }
     .cpa-gov td { font-weight: 800; }
     .cpa-godot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; }
     /* float bands */
@@ -670,19 +776,23 @@ function _injectStyle() {
     .cpa-hgauge { flex: none; }
     .cpa-htitle { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
     .cpa-hverdict { font-size: 13px; font-weight: 700; color: var(--text); margin: 4px 0 6px; line-height: 1.35; }
-    .cpa-hfactors { margin: 0; padding-left: 16px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+    .cpa-hfactors { margin: 0 0 8px; padding-left: 16px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+    .cpa-hformula { font-size: 11.5px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 6px 10px; color: var(--text); }
+    .cpa-hformula b { color: var(--danger); }
     .cpa-kpis { flex: 1; min-width: 300px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .cpa-kpi { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
     .cpa-kk { font-size: 10.5px; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); font-weight: 700; }
-    .cpa-kv { font-size: 22px; font-weight: 800; margin-top: 3px; color: var(--text); }
+    .cpa-kcur { display: flex; align-items: baseline; gap: 6px; margin-top: 3px; }
+    .cpa-kv { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1; }
     .cpa-ku { font-size: 12px; font-weight: 600; color: var(--muted); }
-    .cpa-kr { font-size: 12px; margin-top: 3px; }
-    .cpa-kd { font-weight: 700; }
+    .cpa-kcurlbl { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .3px; }
+    .cpa-kprev { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+    .cpa-kd { font-weight: 800; }
     .cpa-kd.bad { color: var(--danger); }
     .cpa-kd.good { color: var(--success); }
     /* charts */
     .cpa-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
-    .cpa-chart { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .cpa-chart { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; overflow: hidden; }
     .cpa-cht { font-size: 11.5px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
     .cpa-nochart { color: var(--muted); font-size: 12px; padding: 30px 0; text-align: center; }
     .cpa-clegend { font-size: 10.5px; color: var(--muted); margin-top: 4px; }

@@ -54,14 +54,14 @@ def build_dashboard(report):
         return None if (a is None or b is None) else round(a - b, 2)
 
     kpis = [
-        {'key': 'cpli', 'label': 'CPLI · project finish', 'value': cpli, 'delta': dlt('cpli'),
+        {'key': 'cpli', 'label': 'CPLI', 'value': cpli, 'prev': base.get('cpli'), 'delta': dlt('cpli'),
          'band': _cpli_band(cpli), 'higher_is_bad': False},
         {'key': 'length', 'label': 'Critical path length (wd)', 'value': cur.get('path_length_wd'),
-         'delta': dlt('path_length_wd'), 'higher_is_bad': True},
+         'prev': base.get('path_length_wd'), 'delta': dlt('path_length_wd'), 'higher_is_bad': True},
         {'key': 'critical', 'label': 'Critical activities', 'value': cur.get('critical'),
-         'delta': dlt('critical'), 'higher_is_bad': True},
+         'prev': base.get('critical'), 'delta': dlt('critical'), 'higher_is_bad': True},
         {'key': 'near', 'label': 'Near-critical', 'value': cur.get('near'),
-         'delta': dlt('near'), 'higher_is_bad': True},
+         'prev': base.get('near'), 'delta': dlt('near'), 'higher_is_bad': True},
     ]
 
     charts = {
