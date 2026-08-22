@@ -21,6 +21,15 @@ def _from_iso(s):
         return None
 
 
+_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+
+def _fmt_date(s):
+    """ISO (or datetime) → '09-Feb.2027' — the house date format used in the written read."""
+    d = _from_iso(s)
+    return f'{d.day:02d}-{_MON[d.month - 1]}.{d.year}' if d else (str(s) if s else '—')
+
+
 def _weight(data, act):
     """Activity's share — baseline budget (BAC) when the file carries one, else the current
     cost, else planned duration. Matches how the rest of the tool weights progress."""
@@ -630,10 +639,10 @@ def _cp_headline(ms, boxes):
         tail = ''
         if ms.get('slip_days') is not None:
             if ms['slip_days'] > 0:
-                tail = f", {ms['slip_days']} working days later than the baseline {ms.get('baseline_finish') or ''}".rstrip()
+                tail = f", {ms['slip_days']} working days later than the baseline {_fmt_date(ms.get('baseline_finish'))}"
             elif ms['slip_days'] < 0:
                 tail = f", {abs(ms['slip_days'])} working days earlier than baseline"
-        parts.append(f"The critical path finishes at {ms['name']} on {ms['expected_finish']}{tail}.")
+        parts.append(f"The critical path finishes at {ms['name']} on {_fmt_date(ms['expected_finish'])}{tail}.")
     if driver and driver.get('name'):
         parts.append(f"It is driven by {driver['name']}.")
     n = len(boxes)
