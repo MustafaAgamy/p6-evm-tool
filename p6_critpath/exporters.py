@@ -218,6 +218,10 @@ def _dashboard(report):
 def _lane(lane):
     role = lane.get('role')
     ms = lane.get('milestone') or {}
+    if not ms.get('name') and not lane.get('boxes'):
+        # This milestone doesn't exist in this schedule — show a placeholder, not an empty box.
+        return (f'<div class="lane"><div class="lanehdr"><span class="lanetag lt-{role}">{_e(_ROLE_LABEL.get(role))}</span>'
+                f'<span class="lanesub">this milestone is not in this schedule</span></div></div>')
     fin = ms.get('baseline_finish') if role == 'baseline' else ms.get('expected_finish')
     boxes = [f'<div class="msbox"><div class="msflag">◆ Milestone</div><div class="mst">{_e(ms.get("name"))}</div>'
              f'<div class="msr"><span>{"BL Finish" if role == "baseline" else "Exp Finish"}</span><b>{_e(fin)}</b></div>'
@@ -273,8 +277,11 @@ def _census(report):
     def cell(r, txt):
         return f'<td class="num">{txt}</td>' if has(r) else ''
 
-    def cnt(o, n, p):
-        return '—' if o.get(n) is None else f"{o[n]} · <b>{o[p]}%</b>"
+    src = lambda r: (c.get(r, {}) or {}).get('critical_source')
+    mark = lambda o: '<sup>†</sup>' if o.get('critical_source') == 'path' else ''
+
+    def cnt(o, n, p, m=False):
+        return '—' if o.get(n) is None else f"{o[n]} · <b>{o[p]}%</b>{mark(o) if m else ''}"
 
     def dvar(a, b, unit, bad_up):
         if a is None or b is None:
@@ -283,20 +290,27 @@ def _census(report):
         col = '#dc2626' if (dd > 0) == bad_up and dd != 0 else ('#16a34a' if dd != 0 else '#94a3b8')
         return f'<td class="num" style="color:{col};font-weight:700">{"+" if dd > 0 else ""}{dd}{unit}</td>'
 
+    def dcell(a_role, b_role, key, unit, bad_up, show_var, sensitive):
+        if not show_var:
+            return '<td class="num"></td>'
+        if sensitive and src(a_role) != src(b_role):        # cross-method (float vs path) → not comparable
+            return '<td class="num">—</td>'
+        return dvar(c.get(a_role, {}).get(key), c.get(b_role, {}).get(key), unit, bad_up)
+
     def colh(role, label):
         dd = c.get(role, {}).get('data_date')
         sub = f'<div class="thdd">{_e(dd)}</div>' if dd else ''
         return f'<th class="num">{label}{sub}</th>'
 
-    # (label, getter, delta-key, delta-unit, bad_up, show_variance)
+    # (label, getter, delta-key, delta-unit, bad_up, show_variance, source_sensitive)
     rows = [
         ('Total activities', lambda o: '—' if o.get('total_activities') is None else o['total_activities'],
-         'total_activities', '', True, False),
-        ('Critical activities (TF ≤ 0)', lambda o: cnt(o, 'critical', 'critical_pct'), 'critical_pct', ' pts', True, True),
-        ('Near-critical (0 &lt; TF &lt; 10 wd)', lambda o: cnt(o, 'near', 'near_pct'), 'near_pct', ' pts', True, True),
-        ('Critical path length (remaining, wd)', lambda o: '—' if o.get('path_length_wd') is None else f"{o['path_length_wd']} wd", 'path_length_wd', ' wd', True, True),
-        ('Total float · finish (wd)', lambda o: '—' if o.get('total_float_wd') is None else f"{o['total_float_wd']} wd", 'total_float_wd', ' wd', False, True),
-        ('CPLI', lambda o: _cpli(o.get('cpli')), 'cpli', '', False, True),
+         'total_activities', '', True, False, False),
+        ('Critical activities (TF ≤ 0)', lambda o: cnt(o, 'critical', 'critical_pct', True), 'critical_pct', ' pts', True, True, True),
+        ('Near-critical (0 &lt; TF &lt; 10 wd)', lambda o: cnt(o, 'near', 'near_pct'), 'near_pct', ' pts', True, True, True),
+        ('Critical path length (remaining, wd)', lambda o: '—' if o.get('path_length_wd') is None else f"{o['path_length_wd']} wd", 'path_length_wd', ' wd', True, True, False),
+        ('Total float · finish (wd)', lambda o: '—' if o.get('total_float_wd') is None else f"{o['total_float_wd']} wd", 'total_float_wd', ' wd', False, True, False),
+        ('CPLI', lambda o: _cpli(o.get('cpli')), 'cpli', '', False, True, False),
     ]
     head = ('<tr><th>Measure</th>'
             + (colh('baseline', 'Baseline') if has('baseline') else '')
@@ -305,12 +319,17 @@ def _census(report):
             + ('<th class="num">Δ period</th>' if has('previous') else '')
             + ('<th class="num">Δ baseline</th>' if has('baseline') else '') + '</tr>')
     body = ''
-    for label, get, key, unit, bad_up, show_var in rows:
+    for label, get, key, unit, bad_up, show_var, sensitive in rows:
         body += ('<tr><td>' + label + '</td>'
                  + cell('baseline', get(bl)) + cell('previous', get(prev)) + cell('current', get(cur))
-                 + ((dvar(cur.get(key), prev.get(key), unit, bad_up) if show_var else '<td class="num"></td>') if has('previous') else '')
-                 + ((dvar(cur.get(key), bl.get(key), unit, bad_up) if show_var else '<td class="num"></td>') if has('baseline') else '') + '</tr>')
-    return f'<table class="t"><thead>{head}</thead><tbody>{body}</tbody></table>'
+                 + (dcell('current', 'previous', key, unit, bad_up, show_var, sensitive) if has('previous') else '')
+                 + (dcell('current', 'baseline', key, unit, bad_up, show_var, sensitive) if has('baseline') else '') + '</tr>')
+    foot = ''
+    if any(src(r) == 'path' for r in roles):
+        foot = ('<div class="note"><b>†</b> This schedule has no activity float in its export, so its critical '
+                'count is the activities on the <b>longest path to completion</b> (not TF ≤ 0); variances against '
+                'it use a different basis and are shown as “—”.</div>')
+    return f'<table class="t"><thead>{head}</thead><tbody>{body}</tbody></table>{foot}'
 
 
 def _milestones(report):

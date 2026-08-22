@@ -470,6 +470,12 @@ function _boxHtml(b, st) {
 function _laneHtml(lane) {
   const ms = lane.milestone || {};
   const role = lane.role;
+  if (!ms.name && !(lane.boxes || []).length) {
+    // This milestone doesn't exist in this schedule — placeholder, not an empty box.
+    return `<div class="cpa-lane">
+      <div class="cpa-lanehdr"><span class="cpa-lanetag ${_LANE_CLS[role] || ''}">${escapeHtml(lane.label || '')}</span>
+        <span class="cpa-lanesub">this milestone is not in this schedule</span></div></div>`;
+  }
   const finishVal = role === 'baseline' ? ms.baseline_finish : ms.expected_finish;
   const parts = [`<div class="cpa-msbox">
       <div class="cpa-msflag">◆ Milestone</div>
@@ -616,19 +622,26 @@ function _censusHtml(report) {
   const col = r => has(r) ? `<th class="num">${SHORT_LABEL[r]}<span class="cpa-dd">${_fdate((c[r] || {}).data_date)}</span></th>` : '';
   const cur = c.current || {}, prev = c.previous || {}, bl = c.baseline || {};
   const cell = (r, get) => has(r) ? `<td class="num">${get(c[r] || {})}</td>` : '';
-  const cnt = (n, p) => o => (o[n] == null ? '—' : `${o[n]} · <b>${o[p]}%</b>`);
+  const src = r => (c[r] || {}).critical_source;                 // 'float' | 'path'
+  const mark = o => o.critical_source === 'path' ? '<sup class="cpa-fn" title="on the longest path to completion (no float in this schedule)">†</sup>' : '';
+  const cnt = (n, p, m) => o => (o[n] == null ? '—' : `${o[n]} · <b>${o[p]}%</b>${m ? mark(o) : ''}`);
   const wd = k => o => (o[k] == null ? '—' : `${o[k]} wd`);
   const ta = o => (o.total_activities == null ? '—' : `<b>${o.total_activities}</b>`);
   const taDelta = (a, b) => (a == null || b == null) ? '' : `<span class="cpa-dim">${a - b > 0 ? '+' : ''}${a - b}</span>`;
 
-  // [label, value-getter, current-key, higherIsBad, unit]
+  // [label, value-getter, current-key, higherIsBad, unit, sourceSensitive]
+  // sourceSensitive rows (critical/near) suppress the Δ when the two columns were derived by
+  // different methods (a float-less baseline's path-count vs a floated update's TF-count).
   const rows = [
-    ['Critical activities <span class="cpa-dim">(TF ≤ 0)</span>', cnt('critical', 'critical_pct'), 'critical_pct', true, ' pts'],
-    ['Near-critical <span class="cpa-dim">(0 &lt; TF &lt; 10 wd)</span>', cnt('near', 'near_pct'), 'near_pct', true, ' pts'],
-    ['Critical path length <span class="cpa-dim">(remaining, to expected finish)</span>', wd('path_length_wd'), 'path_length_wd', true, ' wd'],
-    ['Total float · finish <span class="cpa-dim">(wd)</span>', wd('total_float_wd'), 'total_float_wd', false, ' wd'],
-    ['CPLI', o => _fmtCpli(o.cpli), 'cpli', false, ''],
+    ['Critical activities <span class="cpa-dim">(TF ≤ 0)</span>', cnt('critical', 'critical_pct', true), 'critical_pct', true, ' pts', true],
+    ['Near-critical <span class="cpa-dim">(0 &lt; TF &lt; 10 wd)</span>', cnt('near', 'near_pct'), 'near_pct', true, ' pts', true],
+    ['Critical path length <span class="cpa-dim">(remaining, to expected finish)</span>', wd('path_length_wd'), 'path_length_wd', true, ' wd', false],
+    ['Total float · finish <span class="cpa-dim">(wd)</span>', wd('total_float_wd'), 'total_float_wd', false, ' wd', false],
+    ['CPLI', o => _fmtCpli(o.cpli), 'cpli', false, '', false],
   ];
+  const dchip = (aRole, bRole, key, unit, hib, sensitive) =>
+    (sensitive && src(aRole) !== src(bRole)) ? '<span class="cpa-dim">—</span>'
+      : _dchip((c[aRole] || {})[key], (c[bRole] || {})[key], unit, hib);
 
   const totalRow = `<tr>
       <td><b>Total activities</b> <span class="cpa-dim">(counted)</span></td>
@@ -637,12 +650,15 @@ function _censusHtml(report) {
       ${has('baseline') ? `<td class="num">${taDelta(cur.total_activities, bl.total_activities)}</td>` : ''}
     </tr>`;
 
-  const body = rows.map(([label, get, key, higherIsBad, unit]) => `<tr>
+  const body = rows.map(([label, get, key, higherIsBad, unit, sensitive]) => `<tr>
       <td>${label}</td>
       ${cell('baseline', get)}${cell('previous', get)}${cell('current', get)}
-      ${has('previous') ? `<td class="num">${_dchip(cur[key], prev[key], unit, higherIsBad)}</td>` : ''}
-      ${has('baseline') ? `<td class="num">${_dchip(cur[key], bl[key], unit, higherIsBad)}</td>` : ''}
+      ${has('previous') ? `<td class="num">${dchip('current', 'previous', key, unit, higherIsBad, sensitive)}</td>` : ''}
+      ${has('baseline') ? `<td class="num">${dchip('current', 'baseline', key, unit, higherIsBad, sensitive)}</td>` : ''}
     </tr>`).join('');
+
+  const anyPath = roles.some(r => src(r) === 'path');
+  const footnote = anyPath ? `<div class="cpa-leg"><b>†</b> This schedule carries no activity float in its export, so its critical count is the activities on the <b>longest path to completion</b> (not TF ≤ 0). It uses a different basis than a floated update, so critical/near variances against it are shown as “—”.</div>` : '';
 
   return `<div class="cpa-defbox"><b>Critical path length</b> = the <b>remaining working days from the schedule's data date to the milestone's expected (forecast) finish</b> — the runway still to go, counted on the milestone's calendar. It is based on the <b>expected finish, not the baseline</b>, and does not count the days already elapsed before the data date. (A baseline has no progress, so its data date is the project start → its length is the full planned path.)</div>
     <table class="cpa-table">
@@ -650,7 +666,8 @@ function _censusHtml(report) {
       ${has('previous') ? '<th class="num">Δ this period</th>' : ''}
       ${has('baseline') ? '<th class="num">Δ vs baseline</th>' : ''}</tr></thead>
     <tbody>${totalRow}${body}</tbody></table>
-    <div class="cpa-leg">% = share of all counted activities. CPLI = (remaining path length + total float) ÷ remaining path length; below 0.95 = at risk. Baseline length is the full path (no progress yet).</div>`;
+    <div class="cpa-leg">% = share of all counted activities. CPLI = (remaining path length + total float) ÷ remaining path length; below 0.95 = at risk. Baseline length is the full path (no progress yet).</div>
+    ${footnote}`;
 }
 
 // ── Style ────────────────────────────────────────────────────────────────────
@@ -692,6 +709,7 @@ function _injectStyle() {
     .cpa-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); font-weight: 700; }
     .cpa-table td.num, .cpa-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
     .cpa-dd { display: block; text-transform: none; letter-spacing: 0; color: var(--accent); font-weight: 600; font-size: 10px; margin-top: 2px; }
+    .cpa-fn { color: var(--warning); font-weight: 800; cursor: help; }
     .cpa-chip { display: inline-block; border-radius: 6px; padding: 2px 7px; font-size: 11.5px; font-weight: 700; }
     .cpa-chip.up { background: rgba(220,38,38,.12); color: var(--danger); }
     .cpa-chip.down { background: rgba(22,163,74,.12); color: var(--success); }

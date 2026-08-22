@@ -78,6 +78,38 @@ def test_census_floatless_schedule_counts_critical_from_path():
     assert c['near'] is None                         # can't judge near without float
 
 
+def test_census_floatless_counts_only_governing_path():
+    # Float-less schedule with TWO independent finish milestones: a governing one (latest
+    # finish, 3-activity chain) and an earlier Zone milestone (2-activity chain). The critical
+    # count must be the GOVERNING path only (3), NOT the union of both chains (5) — a floated
+    # schedule would give the Zone chain positive float, so it is not critical.
+    d = ScheduleData()
+    d.project = {'name': 'T', 'data_date': datetime(2026, 1, 1)}
+    d.wbs = {}; d.activities = {}; d.relationships = []; d.baseline_by_id = {}
+
+    def add_chain(prefix, acts, ms_code, ms_name, ms_finish):
+        prev = None
+        for i in range(acts):
+            oid = f'{prefix}{i}'
+            d.activities[oid] = {'id': oid, 'name': oid, 'task_type': 'Task', 'calendar_id': None,
+                                 'wbs_id': None, 'total_float_days': None,
+                                 'remaining_early_finish': ms_finish, 'planned_finish': ms_finish, 'object_id': oid}
+            if prev is not None:
+                d.relationships.append({'pred_id': prev, 'succ_id': oid, 'type': 'FS', 'lag_days': 0.0})
+            prev = oid
+        d.activities[ms_code] = {'id': ms_code, 'name': ms_name, 'task_type': 'FinishMilestone',
+                                 'calendar_id': None, 'total_float_days': None,
+                                 'remaining_early_finish': ms_finish, 'planned_finish': ms_finish}
+        d.relationships.append({'pred_id': prev, 'succ_id': ms_code, 'type': 'FS', 'lag_days': 0.0})
+
+    add_chain('G', 3, 'MSG', 'Project Completion', datetime(2027, 6, 1))   # governing (latest)
+    add_chain('Z', 2, 'MSZ', 'Zone A Completion', datetime(2026, 9, 1))    # earlier, independent
+    c = schedule_census(d)
+    assert c['critical_source'] == 'path'
+    assert c['total_activities'] == 5                     # all 5 task activities counted
+    assert c['critical'] == 3                             # ONLY the governing chain, not 5
+
+
 def test_census_near_threshold_is_strict_under_10():
     # tf exactly 10 is NOT near-critical (strictly < 10)
     d = _schedule(datetime(2026, 7, 19), datetime(2027, 1, 23), datetime(2026, 12, 10),

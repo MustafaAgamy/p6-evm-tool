@@ -94,24 +94,28 @@ def cpli(path_length_wd, total_float_wd):
 
 def _critical_from_paths(data):
     """When a schedule carries no per-activity float (a common baseline export), its critical
-    activities are the ones on its critical (longest) path — the union of the driving chains
-    to every finish milestone. Returns a set of activity ObjectIds."""
+    activities are the ones on its critical (longest) path — the driving chain to the GOVERNING
+    finish milestone (the one that sets project completion), which is exactly what the path
+    length and CPLI are measured against. Returns a set of activity ObjectIds.
+
+    NB: we trace ONLY the governing milestone, not every finish milestone. Unioning all finish
+    milestones would count activities on lower-float zone/phase paths as critical — in a floated
+    schedule those carry positive float (TF > 0) and are NOT critical, so unioning inflates the
+    count toward 100%."""
     from p6_critpath.paths import _governing_finish_ms, trace_driving_chain
     from p6_audit.graph import ScheduleGraph
-    fin_ms = [(k, a) for k, a in data.activities.items()
-              if a.get('task_type') == 'FinishMilestone' and _forecast_finish(a)]
-    if not fin_ms:
-        g = _governing_finish_ms(data)
-        if g:
-            gk = next((k for k, v in data.activities.items() if v is g), None)
-            fin_ms = [(gk, g)] if gk else []
+    gov = _governing_finish_ms(data)
+    if not gov:
+        return set()
+    start = next((k for k, v in data.activities.items() if v is gov), None)
+    if not start:
+        return set()
     graph = ScheduleGraph(data)
     oids = set()
-    for start, _ in fin_ms:
-        for oid in trace_driving_chain(graph, start):
-            a = data.activities.get(oid)
-            if a and a.get('task_type') not in _MILESTONES:
-                oids.add(oid)
+    for oid in trace_driving_chain(graph, start):
+        a = data.activities.get(oid)
+        if a and a.get('task_type') not in _MILESTONES:
+            oids.add(oid)
     return oids
 
 
@@ -269,7 +273,6 @@ def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=
         'roles': roles,
         'census': census,
         'data_dates': {r: census[r]['data_date'] for r in roles},
-        'reporting_window': {r: census[r]['data_date'] for r in roles},
         'milestones_list': milestone_list(schedules),
         'summary_level': summary_level,
         'milestone_paths': milestone_paths,

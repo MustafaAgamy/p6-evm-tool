@@ -52,3 +52,15 @@ def test_milestones_table_rows_and_variance():
     # Zone A pulled EARLIER this period → negative period variance (gain)
     m2 = next(r for r in rows if r['id'] == 'M2')
     assert m2['var_this_period_d'] < 0
+
+
+def test_this_period_zero_for_same_date_different_time():
+    # Previous and current forecast the SAME calendar day but at different times of day.
+    # The variance must be exactly 0 (not the ±1 signed_working_days artifact).
+    prev = _mk(datetime(2026, 6, 30), [('A', 0.0)],
+               [('M1', 'Completion', datetime(2025, 12, 31, 8, 0), datetime(2026, 12, 10), -5.0)])
+    curr = _mk(datetime(2026, 7, 19), [('A', 0.0)],
+               [('M1', 'Completion', datetime(2025, 12, 31, 17, 0), datetime(2026, 12, 10), -5.0)])
+    rows = milestones_table({'previous': prev, 'current': curr})
+    m1 = next(r for r in rows if r['id'] == 'M1')
+    assert m1['var_this_period_d'] == 0
