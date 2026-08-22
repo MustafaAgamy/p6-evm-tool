@@ -563,7 +563,7 @@ def _cpli_driving_chart(m):
     hi = max(e for _, _, e in dated)
     span = max(1, (hi - lo).days)
     rows = []
-    for f, s, e in dated[:60]:
+    for f, s, e in dated:                        # ALL critical activities — same as the on-screen Gantt
         x = 100.0 * (s - lo).days / span
         w = max(0.6, 100.0 * (e - s).days / span)
         if f.get('is_milestone'):
@@ -571,16 +571,19 @@ def _cpli_driving_chart(m):
         else:
             color = '#c0392b' if (f.get('total_float_days') or 0) <= 0 else '#17457a'
             bar = f'<span style="position:absolute;left:{x:.1f}%;width:{min(w, 100 - x):.1f}%;top:4px;height:7px;background:{color};border-radius:2px"></span>'
+        dur = f.get('duration_days')
         rows.append(
             f'<tr><td class="mono">{_esc(f.get("activity_id"))}</td>'
             f'<td>{_esc(f.get("activity_name"))}</td>'
             f'<td class="num">{_esc(f.get("start"))}</td><td class="num">{_esc(f.get("finish"))}</td>'
-            f'<td style="position:relative;height:15px;min-width:220px">{bar}</td></tr>')
-    more = (f'<div class="dcma">Showing 60 of {len(dated)} critical activities; the full list is in the table below.</div>'
-            if len(dated) > 60 else '')
+            f'<td class="num">{"—" if dur is None else str(dur) + " wd"}</td>'
+            f'<td style="position:relative;height:15px;min-width:200px">{bar}</td></tr>')
     return ('<h2 class="sec">Driving Path</h2>'
+            f'<div class="dcma">{len(dated)} critical activities, in sequence — every one shown '
+            '(red = critical, blue = near-critical, green diamond = milestone).</div>'
             '<table><thead><tr><th>Activity ID</th><th>Activity Name</th><th class="num">Start</th>'
-            f'<th class="num">Finish</th><th>Timeline</th></tr></thead><tbody>{"".join(rows)}</tbody></table>{more}')
+            f'<th class="num">Finish</th><th class="num">Dur</th><th>Timeline</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')
 
 
 def _cpli_density_note(m):
@@ -642,11 +645,128 @@ def _sections(m, sections=None):
     if on('findings'):
         parts.append(_wbs_summary(m))
         if mod == 'cpli':
-            parts.append(_cpli_driving_chart(m))     # the driving-path chart, in the PDF
-        parts.append(_presentation_table(m))
+            parts.append(_cpli_driving_chart(m))     # the bar chart IS the driving path (all activities) — no separate table
+        else:
+            parts.append(_presentation_table(m))
     if on('recommendations'):
         parts.append(_recommendations_section(m))
     return ''.join(parts)
+
+
+def render_summary_report(health, meta, sections=None):
+    """Standalone PDF for the Schedule Health Review Summary — the weighted roll-up
+    (overall score + verdict, sub-feature composition, problem areas, fix-first)."""
+    h = health or {}
+    meta = meta or {}
+    score = h.get('score')
+    score_txt = '—' if score is None else score
+    grade = h.get('grade', '') or ''
+    color = _GRADE.get(grade, '#17457a')
+    verdict = h.get('verdict', '') or ''
+    statement = h.get('statement', '') or ''
+    counts = h.get('counts', {}) or {}
+    subs = h.get('sub_features', []) or []
+    gate = h.get('gate', {}) or {}
+    weight_covered = h.get('weight_covered', 100)
+
+    _stc = {'Pass': '#2e8b57', 'Review': '#e07b1a', 'Critical': '#c0392b'}
+    comp = ''
+    for s in subs:
+        sc = '—' if s.get('score') is None else f"{s['score']}%"
+        pts = '—' if s.get('points') is None else s['points']
+        st = s.get('status', '')
+        prov = ' <span style="color:#c0392b;font-size:8px">(provisional)</span>' if s.get('provisional') else ''
+        comp += (f'<tr><td>{_esc(s.get("name"))}{prov}</td><td class="num">{sc}</td>'
+                 f'<td class="num">{s.get("weight")}</td><td class="num">{pts}</td>'
+                 f'<td><span class="sev" style="background:{_stc.get(st, "#6b7a8d")}">{_esc(st)}</span></td></tr>')
+    gate_clear = not gate.get('blocking')
+    comp += (f'<tr><td>Circular logic <i>(gate)</i></td><td class="num">—</td><td class="num">—</td>'
+             f'<td class="num">—</td><td><span class="sev" style="background:{"#2e8b57" if gate_clear else "#c0392b"}">'
+             f'{"clear" if gate_clear else "blocking"}</span></td></tr>')
+
+    status_line = ' · '.join(f'{counts.get(k, 0)} {k}' for k in ('Pass', 'Review', 'Critical', 'Not computed') if counts.get(k))
+    areas = (h.get('problem_areas', {}) or {}).get('areas', [])
+    area_rows = ''.join(f'<tr><td>{_esc(a.get("name"))}</td><td class="num">{a.get("findings")}</td>'
+                        f'<td class="num">{a.get("pct")}%</td></tr>' for a in areas) \
+        or '<tr><td colspan="3" class="empty">No findings to place — the logic is clean.</td></tr>'
+    fixes = h.get('fix_first', [])
+    fix_rows = ''.join(f'<tr><td class="num">{i + 1}</td><td>{_esc(f.get("name"))} ({f.get("score")}%)</td>'
+                       f'<td class="num">{f.get("weight")}</td><td>{_esc(f.get("recommendation"))}</td>'
+                       f'<td class="num">+~{f.get("lift")}</td></tr>' for i, f in enumerate(fixes)) \
+        or '<tr><td colspan="5" class="empty">Every check is at target — nothing to fix first.</td></tr>'
+
+    return f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Schedule Health Review — Summary — {_esc(meta.get('project_name', ''))}</title>
+<style>
+  @page {{ margin: 20mm 14mm; }}
+  body {{ font-family:'Segoe UI',Arial,sans-serif; color:#1f2a37; font-size:11px; margin:0; }}
+  .head {{ border-bottom:3px solid #17457a; padding-bottom:12px; margin-bottom:18px; }}
+  .kicker {{ font-size:10px; letter-spacing:2px; color:#17457a; font-weight:700; text-transform:uppercase; }}
+  .title {{ font-size:24px; font-weight:800; color:#0f2440; margin:3px 0 1px; }}
+  .subtitle {{ font-size:12px; color:#5b6472; }}
+  .meta {{ display:flex; flex-wrap:wrap; gap:3px 26px; margin-top:10px; font-size:11px; }}
+  .meta span {{ color:#8a93a0; }}
+  h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#17457a; border-bottom:1px solid #dbe1e8; padding-bottom:4px; margin:22px 0 10px; }}
+  .scorecard {{ display:flex; gap:20px; align-items:center; border:1px solid #e2e7ee; border-radius:8px; padding:16px 18px; background:#fafbfc; }}
+  .score-num {{ font-size:46px; font-weight:800; line-height:1; }}
+  .score-den {{ font-size:11px; color:#8a93a0; }}
+  .verdict-badge {{ display:inline-block; padding:4px 14px; border-radius:20px; font-size:12px; font-weight:700; color:#fff; }}
+  .statement {{ font-size:11.5px; color:#31414f; line-height:1.6; margin-top:8px; }}
+  table {{ width:100%; border-collapse:collapse; font-size:10.5px; margin-top:4px; }}
+  thead {{ display:table-header-group; }}
+  th {{ background:#26517d; color:#fff; text-align:left; padding:7px 9px; font-weight:600; font-size:9.5px; }}
+  td {{ padding:6px 9px; border-bottom:1px solid #eef1f5; vertical-align:top; }}
+  tbody tr:nth-child(even) {{ background:#f7f9fb; }}
+  .num {{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }}
+  .sev {{ display:inline-block; padding:1px 8px; border-radius:4px; color:#fff; font-weight:700; font-size:9px; }}
+  .empty {{ color:#6b7480; font-style:italic; text-align:center; padding:12px; }}
+  .concl {{ border-left:4px solid #17457a; background:#f4f8fd; border-radius:0 8px 8px 0; padding:13px 16px; font-size:11.5px; line-height:1.6; color:#25313f; margin-top:6px; }}
+  .dcma {{ font-size:10px; color:#5b6472; font-style:italic; margin-top:6px; }}
+  .foot {{ border-top:1px solid #dbe1e8; margin-top:20px; padding-top:8px; font-size:9px; color:#8a93a0; }}
+</style></head>
+<body>
+  <div class="head">
+    <div class="kicker">Schedule Health Review · Summary</div>
+    <div class="title">Overall Schedule Health</div>
+    <div class="subtitle">The weighted roll-up of every sub-feature</div>
+    <div class="meta">
+      <div><span>Project:</span> {_esc(meta.get('project_name', ''))}</div>
+      <div><span>Data Date:</span> {_esc(meta.get('data_date', ''))}</div>
+      <div><span>Report Date:</span> {_esc(meta.get('report_date', ''))}</div>
+      <div><span>Schedule File:</span> {_esc(meta.get('source_file', ''))}</div>
+    </div>
+  </div>
+
+  <div class="scorecard">
+    <div style="text-align:center">
+      <div class="score-num" style="color:{color}">{score_txt}</div>
+      <div class="score-den">/ 100 · {_esc(grade)}</div>
+    </div>
+    <div>
+      <div class="verdict-badge" style="background:{color}">{_esc(verdict)}</div>
+      <div class="statement">{_esc(statement)}</div>
+      <div class="statement" style="color:#8a93a0">Checks status: {_esc(status_line)}</div>
+    </div>
+  </div>
+
+  <h2 class="sec">Sub-feature scores &times; weights (worst first)</h2>
+  <table><thead><tr><th>Sub-feature</th><th class="num">Score</th><th class="num">Weight</th><th class="num">Points</th><th>Status</th></tr></thead>
+    <tbody>{comp}</tbody></table>
+  <div class="dcma">Overall Schedule Health = &Sigma; (score &times; weight) over the {weight_covered} weight covered = <b>{score_txt}</b>.</div>
+
+  <h2 class="sec">Where the problems are (defect share by discipline)</h2>
+  <table><thead><tr><th>Discipline</th><th class="num">Findings</th><th class="num">% of total</th></tr></thead>
+    <tbody>{area_rows}</tbody></table>
+
+  <h2 class="sec">Fix these first (biggest lift)</h2>
+  <table><thead><tr><th class="num">#</th><th>Sub-feature</th><th class="num">Weight</th><th>Recommendation</th><th class="num">Lift</th></tr></thead>
+    <tbody>{fix_rows}</tbody></table>
+
+  <h2 class="sec">Conclusion</h2>
+  <div class="concl">{_esc(statement)}</div>
+
+  <div class="foot">Schedule Health Review &middot; Summary &nbsp;&middot;&nbsp; {_esc(meta.get('project_name', ''))}</div>
+</body></html>'''
 
 
 def render_module_report(module_result, meta, sections=None):

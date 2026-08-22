@@ -825,15 +825,20 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': False, 'error': 'No output path provided'})
             return
         mods = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
-        m = (mods or {}).get('modules', {}).get(module)
-        if not m:
+        is_summary = (module == '__summary__')
+        m = None if is_summary else (mods or {}).get('modules', {}).get(module)
+        if is_summary and not (mods or {}).get('health'):
+            self._json(200, {'ok': False, 'error': 'No Summary available for this schedule.'})
+            return
+        if not is_summary and not m:
             self._json(200, {'ok': False, 'error': 'No audit found for this module.'})
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_audit.report import render_module_report
+            from p6_audit.report import render_module_report, render_summary_report
             import subprocess, tempfile
-            html_content = render_module_report(m, meta_in, sections=body.get('sections'))
+            html_content = (render_summary_report(mods['health'], meta_in, sections=body.get('sections'))
+                            if is_summary else render_module_report(m, meta_in, sections=body.get('sections')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
