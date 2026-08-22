@@ -593,20 +593,49 @@ def has_matrix_structure(ctx):
     return False
 
 
+def _unify_general(ctx, result):
+    """Adapt the general :func:`detect_repeats` output to the same ``worlds`` shape the
+    instance-primary path emits, so the Narrative Report renders identically for ANY project
+    type (villas, roads, bridges, industrial …), not only matrix-WBS EPC schedules."""
+    world_total = Counter(world_of(ctx, o) for o in ctx.steps)
+    by_world = defaultdict(list)
+    for g in result.get('groups', []):
+        oids = [o for fr in g.get('fronts', []) for o in fr.get('activity_ids', [])]
+        wn = Counter(world_of(ctx, o) for o in oids).most_common(1)[0][0] if oids else '(project)'
+        by_world[wn].append((g, oids))
+    worlds = []
+    for wn, groups in sorted(by_world.items(), key=lambda kv: -world_total.get(kv[0], 0)):
+        fronts = []
+        for g, oids in sorted(groups, key=lambda t: -len(t[1])):
+            fronts.append({
+                'title': g.get('label') or 'front',
+                'n_instances': g.get('front_count') or g.get('instance_count') or len(g.get('fronts', [])),
+                'instances': [fr.get('unit_label') for fr in g.get('fronts', [])],
+                'wbs_parents': sorted({wname(ctx, ctx.data.activities[o].get('wbs_id')) for o in oids}),
+                'activities': [{'name': ctx.data.activities[o].get('name') or '',
+                                'id': ctx.data.activities[o].get('id') or o,
+                                'wbs': wname(ctx, ctx.data.activities[o].get('wbs_id'))} for o in oids],
+                'phase_flow': [(s['step'], []) for s in g.get('typical_sequence', [])],
+                'merged': False, 'identity': 'work front',
+            })
+        worlds.append({'world': wn, 'ident_dims': [], 'step_dims': [],
+                       'grouped': sum(len(f['activities']) for f in fronts),
+                       'total': world_total.get(wn, 0), 'fronts': fronts})
+    return worlds
+
+
 def detect_fronts(context, params=None):
-    """Front detection for the Narrative layer.
+    """Front detection for the Narrative layer, uniform across every project type.
 
     Matrix-WBS EPC schedules (see :func:`has_matrix_structure`) use instance-primary
     consolidation — ``Trade × Building`` fronts, phase collapse, work-package sequences,
-    procurement stream cycles, and the Level-3 interaction map. Everything else uses the
-    general :func:`p6_narrative.intel.dedup.detect_repeats`, which the permanent fixtures
-    gate. The mode is reported so callers can render the right structure and stay honest
-    about which path produced the result.
+    procurement stream cycles. Every other schedule (villas, roads, bridges, plain
+    industrial …) uses the general :func:`p6_narrative.intel.dedup.detect_repeats`, which the
+    permanent fixtures gate. Both paths return the SAME ``worlds`` shape plus the Level-3
+    interaction map, so the Narrative Report renders identically regardless of project type;
+    ``mode`` is reported for honesty about which path produced the result.
     """
-    if has_matrix_structure(context):
-        return {
-            'mode': 'instance-primary',
-            'worlds': analyze_context(context),
-            'interactions': project_interactions(context),
-        }
-    return {'mode': 'general', 'result': detect_repeats(context, params)}
+    mode = 'instance-primary' if has_matrix_structure(context) else 'general'
+    worlds = (analyze_context(context) if mode == 'instance-primary'
+              else _unify_general(context, detect_repeats(context, params)))
+    return {'mode': mode, 'worlds': worlds, 'interactions': project_interactions(context)}

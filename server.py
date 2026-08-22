@@ -434,28 +434,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
-            from p6_narrative.builder import build_narrative
+            from p6_narrative.report import build_report
             from p6_narrative.html import render_narrative_html
-            from p6_narrative.codes import read_code_catalog
             data = parse_file(resolved)
 
-            # Calendars & holidays reuse the Calendar feature. Prefer the report already
-            # cached for this snapshot (identical to the Calendar Audit tab, including the
-            # holiday/shutdown names the user set); fall back to computing it if absent.
-            calendar_report = None
-            snapshot_id = body.get('snapshot_id')
-            try:
-                if snapshot_id:
-                    calendar_report = db.get_calendar_audit(snapshot_id)
-                if calendar_report is None:
-                    from p6_calendar import calendar_audit
-                    calendar_report = calendar_audit(data)
-            except Exception as cal_exc:
-                print(f'[narrative] calendar section skipped: {cal_exc}', file=sys.stderr)
-
-            code_catalog = read_code_catalog(resolved)
-            doc = build_narrative(data, calendar_report=calendar_report, code_catalog=code_catalog,
-                                  setup=body.get('setup'))
+            # v5 Narrative Report — driven by the Schedule-Intelligence front detector.
+            # A read-only study of the baseline; recomputes no EVM number.
+            doc = build_report(data, setup=body.get('setup'))
             doc_dict = doc.to_dict()
             self._json(200, {'ok': True, 'doc': doc_dict,
                              'html': render_narrative_html(doc_dict), 'counts': doc.counts()})
