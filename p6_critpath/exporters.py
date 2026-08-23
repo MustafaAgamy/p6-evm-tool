@@ -308,8 +308,10 @@ def _census(report):
         a, b = c.get(a_role, {}).get(key), c.get(b_role, {}).get(key)   # plain difference
         if a is None or b is None:
             return '<td class="num">—</td>'
-        dd = round(a - b, 2 if key == 'cpli' else 0)
-        return _red(f'{"+" if dd > 0 else ""}{dd}{unit}')
+        dec = 2 if key == 'cpli' else 1 if key.endswith('_pct') else 0   # % deltas keep one decimal
+        dd = round(a - b, dec)
+        shown = f'{dd:.{dec}f}' if dec else f'{dd}'
+        return _red(f'{"+" if dd > 0 else ""}{shown}{unit}')
 
     def colh(role, label):
         dd = c.get(role, {}).get('data_date')

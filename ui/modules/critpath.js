@@ -691,11 +691,12 @@ function _censusHtml(report) {
       const s = sumOver(key, cumRoles.filter(has));
       return `<td class="num">${RED(s == null ? null : '▲ +' + s + unit)}</td>`;
     }
-    const dec = key === 'cpli' ? 2 : 0;
+    const dec = key === 'cpli' ? 2 : key.endsWith('_pct') ? 1 : 0;   // % deltas keep one decimal
     const dd = diff(key, aR, bR, dec);
     if (dd == null) return `<td class="num">${RED(null)}</td>`;
     const arw = dd > 0 ? '▲ ' : dd < 0 ? '▼ ' : '■ ';
-    return `<td class="num">${RED(arw + (dd > 0 ? '+' : '') + dd + unit)}</td>`;
+    const shown = dec ? dd.toFixed(dec) : dd;
+    return `<td class="num">${RED(arw + (dd > 0 ? '+' : '') + shown + unit)}</td>`;
   };
 
   const body = rows.map(([label, get, key, unit, cumulative]) => `<tr>
