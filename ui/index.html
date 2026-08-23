@@ -222,6 +222,15 @@
               <div class="cc-title">Update vs Update</div>
               <div class="cc-sub">This period vs last — progress movement, critical-path slip, milestone trend</div>
             </button>
+            <button class="chooser-card" data-view="critpath">
+              <div class="cc-icon" style="background:#dc2626">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 20V4"/><path d="M4 8h6l4 6h6"/><circle cx="20" cy="14" r="1.6" fill="currentColor"/>
+                </svg>
+              </div>
+              <div class="cc-title">Critical Path Analyzer</div>
+              <div class="cc-sub">Compare the critical path across updates &amp; baseline — reroute, CPLI, near-critical</div>
+            </button>
             <button class="chooser-card" data-view="update">
               <div class="cc-icon" style="background:#6366f1">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -244,6 +253,7 @@
           <button class="view-tab" id="tab-compare" data-view="compare">Consultant Review</button>
           <button class="view-tab" id="tab-lag" data-view="lag">Lag Report</button>
           <button class="view-tab" id="tab-period" data-view="period">Update vs Update</button>
+          <button class="view-tab" id="tab-critpath" data-view="critpath">Critical Path Analyzer</button>
           <button class="view-tab" id="tab-update" data-view="update">Update Analysis</button>
           <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
@@ -301,6 +311,10 @@
 
         <div class="view-panel hidden" id="period-panel">
           <div id="period-body"></div>
+        </div>
+
+        <div class="view-panel hidden" id="critpath-panel">
+          <div id="critpath-body"></div>
         </div>
         <div class="view-panel hidden" id="update-panel">
           <div id="update-body"></div>

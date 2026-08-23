@@ -9,6 +9,7 @@ import { showDatabase, exitDatabase, initDatabase } from './modules/database.js'
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
 import { renderPeriodPanel }                   from './modules/period.js';
+import { renderCritPathPanel }                 from './modules/critpath.js';
 import { renderUpdatePanel }                   from './modules/update.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
@@ -65,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (card.dataset.view === 'construct') renderConstructPanel();
       if (card.dataset.view === 'compare') renderComparePanel();
       if (card.dataset.view === 'period') renderPeriodPanel();
+      if (card.dataset.view === 'critpath') renderCritPathPanel();
       if (card.dataset.view === 'update') renderUpdatePanel();
     }));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
@@ -78,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-compare').addEventListener('click', () => { switchView('compare'); renderComparePanel(); });
   document.getElementById('tab-lag').addEventListener('click', () => switchView('lag'));
   document.getElementById('tab-period').addEventListener('click', () => { switchView('period'); renderPeriodPanel(); });
+  document.getElementById('tab-critpath').addEventListener('click', () => { switchView('critpath'); renderCritPathPanel(); });
   document.getElementById('tab-update').addEventListener('click', () => { switchView('update'); renderUpdatePanel(); });
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
