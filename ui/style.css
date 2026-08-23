@@ -579,6 +579,8 @@ body {
 .rpv-title .ti { font-size: 18px; color: var(--accent); }
 .rpv-sub { font-size: 11px; color: var(--muted); font-weight: 400; }
 .rpv-actions { display: flex; gap: 8px; }
+.rpv-body { flex: 1 1 auto; display: flex; min-height: 0; }
+.rpv-pick { flex: none; }                                  /* the in-preview Report-Contents picker (reuses .per-preview-pick) */
 .rpv-scroll { flex: 1 1 auto; overflow: auto; background: #6b6b6b; padding: 16px; }
 .rpv-canvas { margin: 0 auto; }
 .rpv-page { background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.35); }

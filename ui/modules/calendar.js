@@ -126,7 +126,6 @@ export function renderCalendar(ca) {
 function _render() {
   const body = document.getElementById('calendar-body');
   body.innerHTML =
-    _sectionPicker() +
     _locationCard() +
     _dashboard(_ca.dashboard) +
     _timelineSection() +
@@ -152,22 +151,16 @@ function _tile(lab, val, sub = '', cls = '') {
     ${sub ? `<div class="cal-k2">${sub}</div>` : ''}</div>`;
 }
 
-// ── Section picker (#06) — choose which sections the PDF prints ─────────────
-const _CAL_SECTIONS = [
+// ── Report Contents (#06) — the sections the Calendar Audit PDF can print. Shown as the
+// in-preview "Include sections" picker (shared showReportPreview), matching every other
+// module's report picker. ──
+export const CAL_SECTIONS = [
   ['dashboard', '1 Executive Dashboard'], ['timeline', '2 Calendar Timeline'],
   ['stats', '3 Monthly Statistics'], ['exceptions', '4 Calendar Exceptions'],
   ['hours', '5 Working Hours Profile'], ['comparison', '6 Calendar Comparison'],
   ['usage', '7 Calendar Usage'], ['conflicts', '8 Calendar Conflicts'],
   ['weather', '9 Weather Impact'], ['conclusion', '10 Executive Conclusion'],
 ];
-
-function _sectionPicker() {
-  const boxes = _CAL_SECTIONS.map(([k, lab]) =>
-    `<label class="cal-secpick"><input type="checkbox" class="cal-sec-cb" value="${k}" checked> ${lab}</label>`).join('');
-  return `<details class="cal-print-card" open><summary>🖨 Print / PDF — tick the sections to include, then click <b>“Generate Calendar Audit PDF”</b> (top-right)</summary>
-    <div class="cal-secpick-toolbar"><button type="button" class="cal-btn sec mini" id="cal-sec-all">All</button><button type="button" class="cal-btn sec mini" id="cal-sec-none">None</button></div>
-    <div class="cal-secpick-grid">${boxes}</div></details>`;
-}
 
 // ── Location picker (top — drives the Weather-Adjusted Finish + Section 9) ──
 function _locationReadoutHtml() {
@@ -624,13 +617,6 @@ function _wire() {
       if (_openMonths.has(i)) _openMonths.delete(i); else _openMonths.add(i);
       _render();
     }));
-
-  const secAll = document.getElementById('cal-sec-all');
-  const secNone = document.getElementById('cal-sec-none');
-  if (secAll) secAll.addEventListener('click', () =>
-    document.querySelectorAll('.cal-sec-cb').forEach(c => { c.checked = true; }));
-  if (secNone) secNone.addEventListener('click', () =>
-    document.querySelectorAll('.cal-sec-cb').forEach(c => { c.checked = false; }));
 
   _wireLocation();
   _wireSiteTypes();

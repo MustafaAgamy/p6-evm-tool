@@ -401,19 +401,25 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
     cal_name = next((c['name'] for c in result.get('assigned_calendars', [])
                      if c['object_id'] == primary), '')
     # #06 — the section-picker: `sections` is the list of keys to print (None = all).
+    # Each section is wrapped in a data-sec container so the in-preview Report-Contents
+    # picker (shared showReportPreview) can show/hide it live; the same `sections` list
+    # is honoured server-side so a saved PDF contains exactly the ticked sections.
     inc = (lambda k: True) if not sections else (lambda k: k in sections)
     period_note = f"from the data date ({_fmt(d.get('data_date'))}) to finish"
+
+    def _wrap(key, html):
+        return f'<div data-sec="{key}">{html}</div>' if html else ''
     body = ''.join([
-        _dashboard(d, weather) if inc('dashboard') else '',
-        _month_grids(months, proj.get('hidden_months', 0), proj.get('timeline_start')) if inc('timeline') else '',
-        _monthly_stats(months) if inc('stats') else '',
-        _exceptions(exc) if inc('exceptions') else '',
-        _hours(profiles) if inc('hours') else '',
-        _comparison(result.get('comparison', []), period_note) if inc('comparison') else '',
-        _usage(result.get('usage', [])) if inc('usage') else '',
-        _conflicts(result.get('conflicts', [])) if inc('conflicts') else '',
-        _weather_section(weather) if inc('weather') else '',
-        _conclusion(result.get('conclusion', []), weather) if inc('conclusion') else '',
+        _wrap('dashboard', _dashboard(d, weather)) if inc('dashboard') else '',
+        _wrap('timeline', _month_grids(months, proj.get('hidden_months', 0), proj.get('timeline_start'))) if inc('timeline') else '',
+        _wrap('stats', _monthly_stats(months)) if inc('stats') else '',
+        _wrap('exceptions', _exceptions(exc)) if inc('exceptions') else '',
+        _wrap('hours', _hours(profiles)) if inc('hours') else '',
+        _wrap('comparison', _comparison(result.get('comparison', []), period_note)) if inc('comparison') else '',
+        _wrap('usage', _usage(result.get('usage', []))) if inc('usage') else '',
+        _wrap('conflicts', _conflicts(result.get('conflicts', []))) if inc('conflicts') else '',
+        _wrap('weather', _weather_section(weather)) if inc('weather') else '',
+        _wrap('conclusion', _conclusion(result.get('conclusion', []), weather)) if inc('conclusion') else '',
     ])
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Calendar Audit — {_esc(meta.get('project_name', ''))}</title>
