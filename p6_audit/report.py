@@ -737,24 +737,36 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
     def _tone(s):
         return '#8a93a0' if s is None else ('#2e8b57' if s >= 85 else '#e07b1a' if s >= 60 else '#c0392b')
 
-    _stc = {'Pass': '#2e8b57', 'Review': '#e07b1a', 'Critical': '#c0392b'}
-    comp = ''
+    def _scol(st):
+        return {'Pass': '#2e8b57', 'Review': '#e07b1a', 'Critical': '#c0392b'}.get(st, '#8a93a0')
+
+    # Sub-feature composition as BARS — the same layout the screen shows (not a table).
+    comp = ('<div class="chead"><span>Sub-feature</span><span>Score</span>'
+            '<span>Score</span><span>Wt</span><span>Pts</span></div>')
     for s in subs:
-        sc = '—' if s.get('score') is None else f"{_pnum(s['score'])}%"
-        pts = _pnum(s.get('points'))
         st = s.get('status', '')
+        sc_val = s.get('score')
+        barw = 0.0 if sc_val is None else max(0.0, min(100.0, sc_val))
+        col = _scol(st)
+        sc = '—' if sc_val is None else f"{_pnum(sc_val)}%"
         needs = st in ('Review', 'Critical')
+        revtag = (f'<span class="revtag" style="background:{"#fdecea" if st == "Critical" else "#fdf3e6"};'
+                  f'color:{col}">{"needs review" if st == "Critical" else "review"}</span>') if needs else ''
         prov = ' <span style="color:#c0392b;font-size:8px">(provisional)</span>' if s.get('provisional') else ''
-        rowbg = ' style="background:#fdf6ee"' if needs else ''
-        comp += (f'<tr{rowbg}><td>{_esc(s.get("name"))}{prov}</td><td class="num">{sc}</td>'
-                 f'<td class="num">{_pnum(s.get("weight"))}</td><td class="num">{pts}</td>'
-                 f'<td><span class="sev" style="background:{_stc.get(st, "#6b7a8d")}">{_esc(st)}</span></td></tr>')
-    comp += (f'<tr><td>Circular logic <i>(gate)</i></td><td class="num">—</td><td class="num">—</td>'
-             f'<td class="num">—</td><td><span class="sev" style="background:{"#2e8b57" if gate_clear else "#c0392b"}">'
-             f'gate · {"clear" if gate_clear else "blocking"}</span></td></tr>')
-    comp += (f'<tr style="background:#eef3f9;font-weight:700"><td>Overall Schedule Health</td>'
-             f'<td class="num">{score_txt}%</td><td class="num">{_pnum(weight_covered)}</td>'
-             f'<td class="num">—</td><td></td></tr>')
+        comp += (f'<div class="crow{" crow-review" if needs else ""}">'
+                 f'<div class="nm"><span class="dot" style="background:{col}"></span>{_esc(s.get("name"))}{prov} {revtag}</div>'
+                 f'<div class="bar"><i style="width:{barw:.0f}%;background:{col}"></i></div>'
+                 f'<div class="sc">{sc}</div><div class="wt">{_pnum(s.get("weight"))}</div>'
+                 f'<div class="pt">{_pnum(s.get("points"))}</div></div>')
+    gcol = '#2e8b57' if gate_clear else '#c0392b'
+    comp += (f'<div class="crow"><div class="nm"><span class="dot" style="background:{gcol}"></span>'
+             f'Circular logic <span class="revtag" style="background:#eef3f9;color:{gcol}">'
+             f'gate · {"clear" if gate_clear else "blocking"}</span></div>'
+             f'<div class="bar"><i style="width:{100 if gate_clear else 0}%;background:{gcol}"></i></div>'
+             f'<div class="sc">—</div><div class="wt">—</div><div class="pt">—</div></div>')
+    comp_total = (f'<div class="ctot"><div class="tl">Overall Schedule Health</div><div></div><div></div>'
+                  f'<div class="tw">{_pnum(weight_covered)}</div>'
+                  f'<div class="tv" style="color:{_tone(score)}">{score_txt}</div></div>')
 
     # Headline stat cards
     cf_txt = '—' if comp_float is None else f'{_pnum(comp_float)} d'
@@ -767,15 +779,25 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
         f'<div class="stat"><div class="sv" style="color:{cf_col}">{cf_txt}</div>'
         f'<div class="sk">Completion total float (rule &ge; 0)</div></div>')
 
+    # Where the problems are — horizontal bars (defect share), like the screen.
     areas = (h.get('problem_areas', {}) or {}).get('areas', [])
-    area_rows = ''.join(f'<tr><td>{_esc(a.get("name"))}</td><td class="num">{a.get("findings")}</td>'
-                        f'<td class="num">{_pnum(a.get("pct"))}%</td></tr>' for a in areas) \
-        or '<tr><td colspan="3" class="empty">No findings to place — the logic is clean.</td></tr>'
+    pa_max = max([1.0] + [(a.get('pct') or 0) for a in areas])
+    problem_bars = ''.join(
+        f'<div class="wb"><div class="l" title="{_esc(a.get("name"))}">{_esc(a.get("name"))}</div>'
+        f'<div class="wbt"><i style="width:{round(100.0 * (a.get("pct") or 0) / pa_max)}%;'
+        f'background:{"#c0392b" if i == 0 else ("#e07b1a" if i < 3 else "#17457a")}"></i></div>'
+        f'<div class="c">{_pnum(a.get("pct"))}%</div></div>' for i, a in enumerate(areas)) \
+        or '<div class="empty2">No findings to place — the logic is clean.</div>'
+
+    # Fix these first — ranked list with a lift badge, like the screen.
     fixes = h.get('fix_first', [])
-    fix_rows = ''.join(f'<tr><td class="num">{i + 1}</td><td>{_esc(f.get("name"))} ({_pnum(f.get("score"))}%)</td>'
-                       f'<td class="num">{_pnum(f.get("weight"))}</td><td>{_esc(f.get("recommendation"))}</td>'
-                       f'<td class="num">+~{_pnum(f.get("lift"))}</td></tr>' for i, f in enumerate(fixes)) \
-        or '<tr><td colspan="5" class="empty">Every check is at target — nothing to fix first.</td></tr>'
+    fix_list = ''.join(
+        f'<div class="fix"><div class="rk">{i + 1}</div>'
+        f'<div class="fx"><b>{_esc(f.get("name"))} {_pnum(f.get("score"))}%</b> '
+        f'<span class="sub">(wt {_pnum(f.get("weight"))})</span>'
+        f'<div class="sub">{_esc(f.get("recommendation"))}</div></div>'
+        f'<span class="lift">+~{_pnum(f.get("lift"))}</span></div>' for i, f in enumerate(fixes)) \
+        or '<div class="empty2">Every check is at target — nothing to fix first.</div>'
 
     # ── Report-content selector (Preview = PDF = Print): render only ticked parts ──
     sel = set(sections) if sections else None
@@ -812,24 +834,20 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
     if on('composition'):
         composition_html = (
             '<h2 class="sec">Sub-feature scores &times; your weights (worst first)</h2>'
-            '<table><thead><tr><th>Sub-feature</th><th class="num">Score</th><th class="num">Weight</th>'
-            '<th class="num">Points</th><th>Status</th></tr></thead>'
-            f'<tbody>{comp}</tbody></table>'
+            f'<div class="comp">{comp}{comp_total}</div>'
             f'<div class="dcma">Overall Schedule Health = &Sigma; (score &times; weight) over the '
             f'{_pnum(weight_covered)} weight covered = <b>{score_txt}</b>. '
             'Amber rows are the sub-features to review before submission.</div>')
 
     grid_cells = []
     if on('problems'):
-        grid_cells.append(
-            '<div><h2 class="sec">Where the problems are</h2>'
-            '<table><thead><tr><th>Discipline</th><th class="num">Findings</th>'
-            f'<th class="num">% of total</th></tr></thead><tbody>{area_rows}</tbody></table></div>')
+        grid_cells.append('<div><h2 class="sec">Where the problems are '
+                          '<span class="rlab">defect share by discipline</span></h2>'
+                          f'{problem_bars}</div>')
     if on('fixes'):
-        grid_cells.append(
-            '<div><h2 class="sec">Fix these first</h2>'
-            '<table><thead><tr><th class="num">#</th><th>Sub-feature</th><th class="num">Wt</th>'
-            f'<th>Recommendation</th><th class="num">Lift</th></tr></thead><tbody>{fix_rows}</tbody></table></div>')
+        grid_cells.append('<div><h2 class="sec">Fix these first '
+                          '<span class="rlab">biggest lift</span></h2>'
+                          f'{fix_list}</div>')
     grid_html = f'<div class="grid2">{"".join(grid_cells)}</div>' if grid_cells else ''
 
     conclusion_html = (f'<h2 class="sec">Conclusion</h2><div class="concl">{_esc(statement)}</div>'
@@ -872,6 +890,29 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
   .num {{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }}
   .sev {{ display:inline-block; padding:1px 8px; border-radius:4px; color:#fff; font-weight:700; font-size:9px; }}
   .empty {{ color:#6b7480; font-style:italic; text-align:center; padding:12px; }}
+  .empty2 {{ color:#6b7480; font-style:italic; font-size:10px; padding:8px 0; }}
+  .rlab {{ font-size:9px; font-weight:600; color:#8a93a0; text-transform:none; letter-spacing:0; }}
+  /* Sub-feature composition — bars (mirrors the on-screen layout) */
+  .chead, .crow, .ctot {{ display:grid; grid-template-columns:1.7fr 2fr 52px 32px 40px; align-items:center; gap:12px; }}
+  .chead {{ font-size:8.5px; color:#8a93a0; text-transform:uppercase; letter-spacing:.4px; font-weight:700; padding-bottom:6px; border-bottom:1px solid #dbe1e8; }}
+  .chead span:nth-child(n+2) {{ text-align:right; }}
+  .crow {{ padding:6px 0; border-bottom:1px solid #eef1f5; }}
+  .crow-review {{ background:#fdf6ee; }}
+  .nm {{ font-size:10.5px; font-weight:600; display:flex; align-items:center; gap:7px; }}
+  .dot {{ width:8px; height:8px; border-radius:50%; flex-shrink:0; display:inline-block; }}
+  .revtag {{ font-size:8px; font-weight:700; padding:1px 6px; border-radius:8px; white-space:nowrap; }}
+  .bar {{ height:8px; background:#eef1f5; border-radius:5px; overflow:hidden; }} .bar > i {{ display:block; height:100%; border-radius:5px; }}
+  .sc {{ text-align:right; font-size:11px; font-weight:800; }} .wt {{ text-align:right; font-size:9.5px; color:#8a93a0; }} .pt {{ text-align:right; font-size:10px; font-weight:700; color:#17457a; }}
+  .ctot {{ padding-top:9px; margin-top:2px; border-top:2px solid #dbe1e8; }}
+  .ctot .tl {{ font-size:11px; font-weight:800; }} .ctot .tw {{ text-align:right; font-weight:700; font-size:10px; }} .ctot .tv {{ text-align:right; font-size:14px; font-weight:800; }}
+  /* Where the problems are — bars */
+  .wb {{ display:grid; grid-template-columns:120px 1fr 40px; align-items:center; gap:10px; margin:7px 0; }}
+  .wb .l {{ font-size:10px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }} .wb .c {{ text-align:right; font-size:10px; color:#5b6472; font-weight:700; }}
+  .wbt {{ height:12px; background:#eef1f5; border-radius:4px; overflow:hidden; }} .wbt > i {{ display:block; height:100%; border-radius:4px; }}
+  /* Fix these first — ranked list */
+  .fix {{ display:flex; gap:10px; padding:7px 0; border-bottom:1px solid #eef1f5; font-size:10.5px; align-items:flex-start; }}
+  .fix .rk {{ width:19px; height:19px; flex:none; border-radius:50%; background:#f4f8fd; border:1px solid #dbe1e8; display:flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:700; color:#5b6472; }}
+  .fix .sub {{ color:#5b6472; font-size:9.5px; }} .fix .lift {{ margin-left:auto; font-size:9px; font-weight:700; color:#2e8b57; background:#eef7f0; border-radius:5px; padding:2px 8px; white-space:nowrap; align-self:center; }}
   .grid2 {{ display:flex; gap:16px; align-items:flex-start; }} .grid2 > div {{ flex:1; }}
   .concl {{ border-left:4px solid #17457a; background:#f4f8fd; border-radius:0 8px 8px 0; padding:13px 16px; font-size:11.5px; line-height:1.6; color:#25313f; margin-top:6px; }}
   .dcma {{ font-size:10px; color:#5b6472; font-style:italic; margin-top:6px; }}
