@@ -133,8 +133,26 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   // Fully generic: ANY module that carries a presentation.sections list gets the picker,
   // so every current and future feature inherits it automatically.
   const mod = (state.currentModules && state.currentModules.modules && state.currentModules.modules[module]) || {};
-  const useSelector = mod.presentation && Array.isArray(mod.presentation.sections);
-  const sections = useSelector ? mod.presentation.sections : null;
+  let sections;
+  if (module === '__summary__') {
+    // The Summary is the roll-up, not a module, so it carries no presentation —
+    // give it its own component registry so it inherits the picker like every check.
+    const sh = (state.currentModules && state.currentModules.health) || {};
+    const noAreas = !(((sh.problem_areas || {}).areas) || []).length;
+    const noFixes = !((sh.fix_first) || []).length;
+    sections = [
+      { key: 'overview',    label: 'Overall score & verdict',       empty: false },
+      { key: 'checks',      label: 'Checks status (donut)',         empty: false },
+      { key: 'headline',    label: 'Headline stats',                empty: false },
+      { key: 'composition', label: 'Sub-feature scores × weights',  empty: false },
+      { key: 'problems',    label: 'Where the problems are',        empty: noAreas },
+      { key: 'fixes',       label: 'Fix these first',               empty: noFixes },
+      { key: 'conclusion',  label: 'Conclusion',                    empty: false },
+    ];
+  } else {
+    const useSelector = mod.presentation && Array.isArray(mod.presentation.sections);
+    sections = useSelector ? mod.presentation.sections : null;
+  }
   const storageKey = `p6_report_sections_${module}`;
   let selected = sections ? sections.filter(s => !s.empty).map(s => s.key) : null;
   if (sections) { try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default */ } }

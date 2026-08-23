@@ -777,6 +777,64 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
                        f'<td class="num">+~{_pnum(f.get("lift"))}</td></tr>' for i, f in enumerate(fixes)) \
         or '<tr><td colspan="5" class="empty">Every check is at target — nothing to fix first.</td></tr>'
 
+    # ── Report-content selector (Preview = PDF = Print): render only ticked parts ──
+    sel = set(sections) if sections else None
+    def on(key):
+        return sel is None or key in sel
+
+    top_cards = []
+    if on('overview'):
+        top_cards.append(f'''<div class="card3 gauge">
+      <div style="text-align:center">
+        <div class="score-num" style="color:{color}">{score_txt}</div>
+        <div class="score-den">/ 100 · {_esc(grade)}</div>
+      </div>
+      <div>
+        <div class="verdict-badge" style="background:{color}">{_esc(verdict)}</div>
+        <div class="statement">Overall <b>Schedule Health</b> — the weighted roll-up of every sub-feature.<br>{_esc(statement)}</div>
+      </div>
+    </div>''')
+    if on('checks'):
+        top_cards.append(f'''<div class="card3 mid">
+      <div class="ct">Checks status &nbsp;·&nbsp; {total} sub-features</div>
+      <div style="display:flex;gap:14px;align-items:center">{donut}<div style="flex:1">{donut_legend}</div></div>
+      <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass &ge; 95</div></div>
+      <div class="bnote">How status is decided — each check's score against the per-check bands. A check below 95 needs review; below 90 is critical. Per-check targets adjust where DCMA differs — e.g. FS &ge; 90%. The overall baseline is submit-ready at &ge; 80%.</div>
+    </div>''')
+    if on('headline'):
+        top_cards.append(f'''<div class="card3 head3">
+      <div class="ct">Headline</div>
+      {headline}
+    </div>''')
+    top_html = f'<div class="top3">{"".join(top_cards)}</div>' if top_cards else ''
+
+    composition_html = ''
+    if on('composition'):
+        composition_html = (
+            '<h2 class="sec">Sub-feature scores &times; your weights (worst first)</h2>'
+            '<table><thead><tr><th>Sub-feature</th><th class="num">Score</th><th class="num">Weight</th>'
+            '<th class="num">Points</th><th>Status</th></tr></thead>'
+            f'<tbody>{comp}</tbody></table>'
+            f'<div class="dcma">Overall Schedule Health = &Sigma; (score &times; weight) over the '
+            f'{_pnum(weight_covered)} weight covered = <b>{score_txt}</b>. '
+            'Amber rows are the sub-features to review before submission.</div>')
+
+    grid_cells = []
+    if on('problems'):
+        grid_cells.append(
+            '<div><h2 class="sec">Where the problems are</h2>'
+            '<table><thead><tr><th>Discipline</th><th class="num">Findings</th>'
+            f'<th class="num">% of total</th></tr></thead><tbody>{area_rows}</tbody></table></div>')
+    if on('fixes'):
+        grid_cells.append(
+            '<div><h2 class="sec">Fix these first</h2>'
+            '<table><thead><tr><th class="num">#</th><th>Sub-feature</th><th class="num">Wt</th>'
+            f'<th>Recommendation</th><th class="num">Lift</th></tr></thead><tbody>{fix_rows}</tbody></table></div>')
+    grid_html = f'<div class="grid2">{"".join(grid_cells)}</div>' if grid_cells else ''
+
+    conclusion_html = (f'<h2 class="sec">Conclusion</h2><div class="concl">{_esc(statement)}</div>'
+                       if on('conclusion') else '')
+
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Schedule Health Review — Summary — {_esc(meta.get('project_name', ''))}</title>
 <style>
@@ -790,7 +848,7 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
   .meta span {{ color:#8a93a0; }}
   h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#17457a; border-bottom:1px solid #dbe1e8; padding-bottom:4px; margin:22px 0 10px; }}
   .top3 {{ display:flex; gap:12px; align-items:stretch; }}
-  .card3 {{ border:1px solid #e2e7ee; border-radius:8px; padding:13px 15px; background:#fafbfc; }}
+  .card3 {{ border:1px solid #e2e7ee; border-radius:8px; padding:13px 15px; background:#fafbfc; flex:1; }}
   .card3.gauge {{ flex:1.5; display:flex; gap:18px; align-items:center; }}
   .card3.mid {{ flex:1.1; }} .card3.head3 {{ flex:1; }}
   .ct {{ font-size:9.5px; text-transform:uppercase; letter-spacing:.6px; color:#17457a; font-weight:700; margin-bottom:9px; }}
@@ -798,7 +856,6 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
   .score-den {{ font-size:11px; color:#8a93a0; }}
   .verdict-badge {{ display:inline-block; padding:4px 14px; border-radius:20px; font-size:12px; font-weight:700; color:#fff; }}
   .statement {{ font-size:11px; color:#31414f; line-height:1.55; margin-top:8px; }}
-  .chip {{ display:inline-block; padding:3px 9px; border-radius:12px; font-size:9px; font-weight:700; color:#fff; margin:0 4px 5px 0; }}
   .bands {{ display:flex; gap:4px; margin-top:6px; }}
   .bd {{ flex:1; text-align:center; font-size:8.5px; font-weight:700; padding:3px 2px; border-radius:4px; color:#fff; }}
   .bd-c {{ background:#c0392b; }} .bd-r {{ background:#e07b1a; }} .bd-p {{ background:#2e8b57; }}
@@ -832,51 +889,10 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
       <div><span>Schedule File:</span> {_esc(meta.get('source_file', ''))}</div>
     </div>
   </div>
-
-  <div class="top3">
-    <div class="card3 gauge">
-      <div style="text-align:center">
-        <div class="score-num" style="color:{color}">{score_txt}</div>
-        <div class="score-den">/ 100 · {_esc(grade)}</div>
-      </div>
-      <div>
-        <div class="verdict-badge" style="background:{color}">{_esc(verdict)}</div>
-        <div class="statement">Overall <b>Schedule Health</b> — the weighted roll-up of every sub-feature.<br>{_esc(statement)}</div>
-      </div>
-    </div>
-    <div class="card3 mid">
-      <div class="ct">Checks status &nbsp;·&nbsp; {total} sub-features</div>
-      <div style="display:flex;gap:14px;align-items:center">{donut}<div style="flex:1">{donut_legend}</div></div>
-      <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass &ge; 95</div></div>
-      <div class="bnote">How status is decided — each check's score against the per-check bands. A check below 95 needs review; below 90 is critical. Per-check targets adjust where DCMA differs — e.g. FS &ge; 90%. The overall baseline is submit-ready at &ge; 80%.</div>
-    </div>
-    <div class="card3 head3">
-      <div class="ct">Headline</div>
-      {headline}
-    </div>
-  </div>
-
-  <h2 class="sec">Sub-feature scores &times; your weights (worst first)</h2>
-  <table><thead><tr><th>Sub-feature</th><th class="num">Score</th><th class="num">Weight</th><th class="num">Points</th><th>Status</th></tr></thead>
-    <tbody>{comp}</tbody></table>
-  <div class="dcma">Overall Schedule Health = &Sigma; (score &times; weight) over the {_pnum(weight_covered)} weight covered = <b>{score_txt}</b>. Amber rows are the sub-features to review before submission.</div>
-
-  <div class="grid2">
-    <div>
-      <h2 class="sec">Where the problems are</h2>
-      <table><thead><tr><th>Discipline</th><th class="num">Findings</th><th class="num">% of total</th></tr></thead>
-        <tbody>{area_rows}</tbody></table>
-    </div>
-    <div>
-      <h2 class="sec">Fix these first</h2>
-      <table><thead><tr><th class="num">#</th><th>Sub-feature</th><th class="num">Wt</th><th>Recommendation</th><th class="num">Lift</th></tr></thead>
-        <tbody>{fix_rows}</tbody></table>
-    </div>
-  </div>
-
-  <h2 class="sec">Conclusion</h2>
-  <div class="concl">{_esc(statement)}</div>
-
+  {top_html}
+  {composition_html}
+  {grid_html}
+  {conclusion_html}
   <div class="foot">Schedule Health Review &middot; Summary &nbsp;&middot;&nbsp; {_esc(meta.get('project_name', ''))}</div>
 </body></html>'''
 
