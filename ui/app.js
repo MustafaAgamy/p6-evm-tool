@@ -10,6 +10,7 @@ import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
 import { renderPeriodPanel }                   from './modules/period.js';
 import { renderUpdatePanel }                   from './modules/update.js';
+import { renderDashboardPanel }                from './modules/dashboard.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -66,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (card.dataset.view === 'compare') renderComparePanel();
       if (card.dataset.view === 'period') renderPeriodPanel();
       if (card.dataset.view === 'update') renderUpdatePanel();
+      if (card.dataset.view === 'dashboard') renderDashboardPanel();
     }));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
@@ -79,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-lag').addEventListener('click', () => switchView('lag'));
   document.getElementById('tab-period').addEventListener('click', () => { switchView('period'); renderPeriodPanel(); });
   document.getElementById('tab-update').addEventListener('click', () => { switchView('update'); renderUpdatePanel(); });
+  document.getElementById('tab-dashboard').addEventListener('click', () => { switchView('dashboard'); renderDashboardPanel(); });
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {

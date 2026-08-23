@@ -482,6 +482,27 @@ def save_project_settings(project_id, patch):
     return settings
 
 
+# ── Professional Dashboard — per-project layout + two-file summaries ─────────
+# Stored inside project_settings (shallow-merged blob) — no schema change needed.
+
+def get_dashboard_layout(project_id):
+    """The saved Professional Dashboard composition for a project:
+    {components:[{id, title?, size?}], custom:{id:comp}, header:{...}} or None."""
+    return get_project_settings(project_id).get('dashboard_layout')
+
+
+def save_dashboard_layout(project_id, layout):
+    """Persist the dashboard composition (selection + order + custom + titles + header)."""
+    save_project_settings(project_id, {'dashboard_layout': layout})
+
+
+def save_dashboard_summary(project_id, key, summary):
+    """Persist a two-file feature's small dashboard summary so the dashboard can show
+    it without re-supplying the second file. key ∈ {'dashboard_consultant',
+    'dashboard_period'}."""
+    save_project_settings(project_id, {key: summary})
+
+
 def get_audit_modules_for_snapshot(snapshot_id):
     """Reconstruct {'modules': {...}, 'module_order': [...]} or None."""
     with get_conn() as conn:
