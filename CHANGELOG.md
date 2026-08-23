@@ -5,7 +5,26 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
-## [Unreleased]
+## [v1.3.0] - 2026-08-23
+### Added — Critical Path Analyzer (new module)
+- **New "Critical Path Analyzer" sidebar section** — compares the critical path across **2–3 schedules** (two updates · update-vs-baseline · both + baseline; you can swap any of the three, including the current update). It answers *how the critical path moved and what it does to completion*.
+- **Execution dashboard** — a Critical Path Health verdict with a **CPLI** gauge (and the formula spelled out), KPI tiles (CPLI · path length · % critical · near-critical, each Current vs Previous with the variance), and three charts (critical/near by schedule · CPLI trend · milestone slip vs baseline).
+- **Driving path, schedule by schedule** — the governing (and every) finish milestone's driving path drawn as **WBS work-front boxes** (Planned % · Actual % · baseline finish · expected finish · slip / total float, titled by the work-front WBS with its full ancestry `@Phase C @Silos Civil Works`), with the **new critical path highlighted** — NEW ON PATH (the reroute) · LEFT PATH · stayed · complete.
+- **Critical & near-critical census** (count + % per schedule, with the plain-difference variance to one decimal), **every-milestone finish comparison**, **float migration**, and an auto **recommendation**.
+- **PDF + Excel** export with the Report Contents selector and a milestone-path picker. New `p6_critpath/`; **EVM untouched**. Critical = TF ≤ 0; near-critical = 0 < TF < 10 wd; critical path length = remaining working days (data date → expected finish); CPLI = (remaining length + total float) ÷ remaining length.
+
+### Added — Update Analysis (one update vs its baseline)
+- **New "Update Analysis" sidebar section** — a single-file read of one update against the baseline embedded in it: a **Time Status** donut, **Planned vs Actual by activity code**, the governing milestone's **driving path** as WBS work-front boxes, **activity counts** (planned vs actual) and **scope weight**. House-style landscape PDF + Excel with the Report Contents selector. New `p6_update/`; EVM untouched.
+
+### Added — Lag Report
+- **New standalone Lag Report** — a register of every relationship lag/lead in the schedule, with a justification column and PDF/Excel export.
+
+### Changed — Consultant Review refinements
+- The Consultant Review (baseline-vs-update forensic delay) gained table refinements, dashboard charts, a manager-oriented PDF, **date-based and instant (no-F9) but-for delay**, and an S-curve.
+
+### Changed — Executive-read dates
+- Report dates now render in the executive-friendly **`09-Feb.2027`** format.
+
 ### Added — Construction Database (downloadable schedules + contribute-to-learn)
 - **New "Construction Database" sidebar section** — a local library of P6 schedules grouped by project type (EPS tree). For every type you can **download a ready-made baseline**: a **clean** reference (scores ~100) or one carrying **typical gaps** (a few illogical links + missing activities) so you can import it, open the Constructability review and watch it flag them. Generated as P6 XML — import & F9.
 - **Add your own schedules** — a **➕ Add to Database** button on the Constructability review files your imported schedule under its detected type; it joins that type's library *and* feeds the "Learned from your projects" engine, so the tool's knowledge grows from your real projects. **Local & private** — nothing leaves the PC. A shared cross-company database remains a future edition.
