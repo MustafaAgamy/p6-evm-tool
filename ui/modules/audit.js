@@ -1067,11 +1067,7 @@ function renderFloatModule(m) {
           ${fhDriver(`High Float > ${thr} WD — construction`,
                      'the score driver — 100 − this %',
                      high.pct ?? 0, 25, high.penalty ?? 0, 'var(--danger)')}
-          <div class="fh-d">
-            <div class="fh-dl">Negative Float — whole schedule<span>context — scored by the “Leads &amp; Negative Float” sub-feature</span></div>
-            <div class="fh-bar2"><i style="width:${barPct(neg.pct ?? 0, 10)}%;background:var(--warning)"></i></div>
-            <div class="fh-dv"><span class="fh-ctx">context · ${fhFmt(neg.pct ?? 0)}%</span></div>
-          </div>
+          <div class="fh-note">Score = 100 − the construction High-Float defect above.</div>
         </div>
       </div>
     </div>
@@ -1080,7 +1076,6 @@ function renderFloatModule(m) {
       <div class="sl-formula">Float Health = 100 − construction excess-float defect%</div>
       <div class="sl-row"><b>Defect%</b> = construction activities with total float &gt; ${thr} WD ÷ all construction activities. Each 1% of defect costs 1 point — here ${fhFmt(high.pct ?? 0)}% → <b>${score}</b>.</div>
       <div class="sl-row sl-ref"><b>DCMA reference — not the score.</b> DCMA Metric 5 benchmark: at least ${fhFmt(high.dcma_within_pct ?? 95)}% of activities within the float threshold (high float &lt; ${fhFmt(high.dcma_max_pct ?? 5)}%). Shown for reference; it does not set the score.</div>
-      <div class="sl-row"><b>Negative Float</b> — context only; scored by the “Leads &amp; Negative Float” sub-feature, not subtracted here.</div>
       <div class="sl-colours"><span><i class="g"></i>Green ≥ 85</span><span><i class="a"></i>Amber 60–84</span><span><i class="r"></i>Red &lt; 60</span></div>
     </div>
     <div class="mod-sec">Schedule Statistics <span class="mod-sub">— whole schedule</span></div>

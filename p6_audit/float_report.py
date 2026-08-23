@@ -48,10 +48,8 @@ def _gauge(mgmt):
     score = mgmt.get('float_health', 0)
     color = mgmt.get('fh_color', 'red')
     high = mgmt.get('high', {}) or {}
-    neg = mgmt.get('neg', {}) or {}
     thr = (mgmt.get('indicators', {}) or {}).get('threshold', 44)
     hw = _bar_width(high.get('pct', 0), 25)
-    nw = _bar_width(neg.get('pct', 0), 10)
     return f'''
       <div class="fh">
         <div class="fh-score">
@@ -65,13 +63,7 @@ def _gauge(mgmt):
             <div class="fh-bar2"><i style="width:{hw}%;background:{_RED}"></i></div>
             <div class="fh-dv">{_esc(_num(high.get("pct", 0)))}% <small>−{_esc(high.get("penalty", 0))}</small></div>
           </div>
-          <div class="fh-d">
-            <div class="fh-dl">Negative Float — whole schedule
-              <span>context — scored by the “Leads &amp; Negative Float” sub-feature</span></div>
-            <div class="fh-bar2"><i style="width:{nw}%;background:{_AMBER}"></i></div>
-            <div class="fh-dv"><span class="fh-ctx">context · {_esc(_num(neg.get("pct", 0)))}%</span></div>
-          </div>
-          <div class="fh-note">Score = 100 − the High-Float defect above. Negative float is context (its own check), not subtracted.</div>
+          <div class="fh-note">Score = 100 − the construction High-Float defect above.</div>
         </div>
       </div>'''
 
@@ -89,7 +81,6 @@ def _legend(mgmt):
           <div class="sl-row"><b>Defect%</b> = construction activities with total float &gt; {_esc(thr)} WD ÷ all construction activities.
             Each 1% of defect costs 1 point — here {_esc(_num(high.get("pct", 0)))}% &rarr; <b>{_esc(mgmt.get("float_health", 0))}</b>.</div>
           <div class="sl-row sl-ref"><b>DCMA reference — not the score.</b> DCMA Metric 5 benchmark: at least {within}% of activities within the float threshold (high float &lt; {dmax}%). Shown for reference; it does not set the score.</div>
-          <div class="sl-row"><b>Negative Float</b> — context only; scored by the “Leads &amp; Negative Float” sub-feature, not subtracted here.</div>
         </div>
         <div class="sl-colours"><span><i class="dot g"></i>Green ≥ 85</span><span><i class="dot a"></i>Amber 60–84</span><span><i class="dot r"></i>Red &lt; 60</span></div>
       </div>'''
@@ -240,7 +231,6 @@ def render_float_report(module_result, meta, sections=None):
   .fh-bar2 > i {{ display:block; height:100%; border-radius:4px; }}
   .fh-dv {{ font-size:12.5px; font-weight:800; color:#0f2440; text-align:right; white-space:nowrap; }}
   .fh-dv small {{ font-size:9px; font-weight:700; color:#8a93a0; }}
-  .fh-ctx {{ font-size:9px; font-weight:700; color:#8a93a0; background:#eef3f9; padding:2px 8px; border-radius:10px; white-space:nowrap; }}
   .fh-note {{ font-size:8.5px; color:#a2abb6; line-height:1.5; margin-top:3px; }}
   .scorelegend {{ border:1px solid #e6ebf0; border-radius:8px; background:#fff; padding:11px 14px; margin-bottom:14px; }}
   .sl-title {{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:#17457a; }}

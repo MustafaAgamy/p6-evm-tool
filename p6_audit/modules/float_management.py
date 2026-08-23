@@ -84,8 +84,9 @@ def _pct(n, d):
     return round(100.0 * n / d, 1) if d else 0.0
 
 
-def _conclusion(wbs, high_pct, over, base, stats, threshold, neg_count):
-    """Auto-written management summary — where float concentrates, not a stat dump."""
+def _conclusion(wbs, high_pct, over, base, stats, threshold):
+    """Auto-written management summary — where float concentrates, not a stat dump.
+    Negative float is out of scope here (its own 'Leads & Negative Float' sub-feature)."""
     parts = []
     if over == 0:
         parts.append(
@@ -101,14 +102,9 @@ def _conclusion(wbs, high_pct, over, base, stats, threshold, neg_count):
         parts.append(
             f"{' and '.join(non_hot[:3])} also show high float but are excluded from the construction "
             f"KPIs by design.")
-    if neg_count:
-        unit = 'activities' if neg_count != 1 else 'activity'
-        parts.append(
-            f"{neg_count} {unit} carry negative float and are behind their need dates — resolve these first.")
-    else:
-        parts.append(
-            f"The critical path is well-defined ({stats['critical_pct']}% critical, "
-            f"{stats['near_critical_pct']}% near-critical).")
+    parts.append(
+        f"Critical path: {stats['critical_pct']}% of activities are critical, "
+        f"{stats['near_critical_pct']}% near-critical.")
     return ' '.join(parts)
 
 
@@ -239,5 +235,5 @@ def float_management(graph, config):
         'stats': stats,
         'indicators': indicators,
         'wbs': wbs,
-        'conclusion': _conclusion(wbs, high_pct, len(constr_over), len(constr), stats, threshold, len(negative)),
+        'conclusion': _conclusion(wbs, high_pct, len(constr_over), len(constr), stats, threshold),
     }
