@@ -4,6 +4,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+import report_theme
 from p6_kb.kb import load_kb
 from p6_kb.starter import write_starter_xml
 from p6_evm.parser import parse_file
@@ -52,3 +53,19 @@ def test_render_html_clean_when_no_findings(tmp_path):
     assert 'Ready' in html
     headers, rows = findings_excel(rep)
     assert rows == []
+
+
+def test_render_html_theme_dark(tmp_path):
+    rep = _report_with_findings(tmp_path)
+    html = render_html(rep, theme='dark')
+    assert 'data-rpt-theme="dark"' in html
+    assert report_theme.THEMES['dark']['rpt-accent'] == '#5b9bff'
+    assert '#5b9bff' in html
+
+
+def test_render_html_theme_default_is_light_full_doc(tmp_path):
+    rep = _report_with_findings(tmp_path)
+    html = render_html(rep)
+    assert html.startswith('<!doctype html>')
+    assert html.rstrip().endswith('</html>')
+    assert 'data-rpt-theme="light"' in html

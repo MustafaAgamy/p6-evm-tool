@@ -7,11 +7,13 @@
 import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
+import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 
 let _shownReport = null;   // the report currently on screen (exports read this)
 let _shownTrend = null;    // the milestone trend currently on screen (carried into the PDF)
 let _prev = null;          // {prev_path} or {prev_cached_path} chosen for the comparison
 let _cpStyle = 'chain';    // critical-path presentation: 'chain' | 'timeline' | 'table' (remembered)
+let _perTheme = getSavedMode();   // report-appearance mode for this panel's PDF preview
 let _cpMode = 'leaf-parent';   // critical-path grouping — reset to default on each fresh render
 try { const s = localStorage.getItem('per_cp_style'); if (s) _cpStyle = s; } catch { /* no storage */ }
 
@@ -197,7 +199,7 @@ function _progressBarHtml(report) {
   const clamp = v => Math.max(0, Math.min(100, v));
   const fill = clamp(an);
   const startM = ap == null ? '' :
-    `<div class="per-pmark" style="left:${clamp(ap)}%;background:#94a3b8"></div><span class="per-tag-above" style="left:${clamp(ap)}%;color:#64748b">▾ start ${d1(ap)}%</span>`;
+    `<div class="per-pmark" style="left:${clamp(ap)}%;background:var(--muted)"></div><span class="per-tag-above" style="left:${clamp(ap)}%;color:var(--muted)">▾ start ${d1(ap)}%</span>`;
   const planM = fn == null ? '' :
     `<div class="per-pmark" style="left:${clamp(fn)}%"></div><span class="per-tag-above" style="left:${clamp(fn)}%">▾ planned ${d1(fn)}%</span>`;
   const ach = s.forecast_achievement == null ? '—' : Math.round(s.forecast_achievement * 100) + '%';
@@ -307,7 +309,7 @@ function _cpChainBody(data) {
   }
   const slip = data.slip;
   const slipnote = slip ? `<div class="cpslip">↳ the finish moved ${slip > 0 ? '+' : ''}${slip} working days (the Now chain runs ${slip > 0 ? 'longer' : 'shorter'} than the old one).</div>` : '';
-  const legend = `<div class="cmp-foot"><span class="cpsw" style="background:#bcd6f5"></span>shared route (unchanged) <span class="cpsw" style="background:#f4a3a3"></span>new route (from the reroute) <span class="cpsw" style="background:#e9edf2"></span>old route (dropped off)</div>`;
+  const legend = `<div class="cmp-foot"><span class="cpsw" style="background:var(--chart-1)"></span>shared route (unchanged) <span class="cpsw" style="background:var(--danger)"></span>new route (from the reroute) <span class="cpsw" style="background:var(--border)"></span>old route (dropped off)</div>`;
   return `<div class="cprowlbl">Was — last update</div>` + _cpChainHtml(prev, wprev, div, 'gone', 'was', data.finishPrev)
     + `<div class="cprowlbl" style="margin-top:9px">Now — this update</div>` + _cpChainHtml(curr, wcurr, div, 'new', 'now', data.finishNow)
     + slipnote + legend
@@ -324,9 +326,9 @@ function _cpTimelineSvg(data, report) {
   if (!xs.length) return '<div class="cmp-foot">The driving path has no dates to place on a timeline.</div>';
   let tmin = Math.min(...xs), tmax = Math.max(...xs); if (tmax <= tmin) tmax = tmin + UNIT;
   const x0 = 160, x1 = 830, xat = t => x0 + (x1 - x0) * (t - tmin) / (tmax - tmin);
-  const FILL = { same: '#93c5fd', new: '#f87171', gone: '#e2e8f0' }, INK = { same: '#1e3a8a', new: '#ffffff', gone: '#64748b' };
+  const FILL = { same: 'var(--chart-1)', new: 'var(--danger)', gone: 'var(--border)' }, INK = { same: 'var(--text)', new: '#ffffff', gone: 'var(--muted)' };
   let p = '';
-  for (let k = 0; k < 5; k++) { const t = tmin + (tmax - tmin) * k / 4, x = xat(t), d = new Date(t * 8.64e7); const lab = d.toLocaleString('en', { month: 'short' }) + '-' + String(d.getFullYear()).slice(2); p += `<line x1="${x.toFixed(0)}" y1="40" x2="${x.toFixed(0)}" y2="222" stroke="#f1f5f9"/><text x="${x.toFixed(0)}" y="238" text-anchor="middle" font-size="9" fill="#94a3b8">${lab}</text>`; }
+  for (let k = 0; k < 5; k++) { const t = tmin + (tmax - tmin) * k / 4, x = xat(t), d = new Date(t * 8.64e7); const lab = d.toLocaleString('en', { month: 'short' }) + '-' + String(d.getFullYear()).slice(2); p += `<line x1="${x.toFixed(0)}" y1="40" x2="${x.toFixed(0)}" y2="222" stroke="var(--chart-grid)"/><text x="${x.toFixed(0)}" y="238" text-anchor="middle" font-size="9" fill="var(--chart-axis)">${lab}</text>`; }
   const draw = (segs, pos, y, isCurr) => segs.forEach((s, i) => {
     const role = i < div ? 'same' : (isCurr ? 'new' : 'gone');
     const x = xat(pos[i][0]), w = Math.max(6, xat(pos[i][1]) - xat(pos[i][0]));
@@ -335,14 +337,14 @@ function _cpTimelineSvg(data, report) {
     if (w >= 34 && cap >= 3) { const lab = s.key.length <= cap ? s.key : s.key.slice(0, cap - 1) + '…'; p += `<text x="${(x + w / 2).toFixed(0)}" y="${y + 16}" text-anchor="middle" font-size="10" fill="${INK[role]}">${escapeHtml(lab)}</text>`; }
   });
   draw(prev, pprev, 60, false); draw(curr, pcurr, 120, true);
-  p += `<text x="14" y="74" font-size="11" font-weight="700" fill="#64748b">WAS · ${escapeHtml(report.data_date_prev || '')}</text>`;
-  p += `<text x="14" y="134" font-size="11" font-weight="700" fill="#1e293b">NOW · ${escapeHtml(report.data_date_now || '')}</text>`;
-  if (pprev.length) { const fx = xat(pprev[pprev.length - 1][1]); p += `<path d="M${fx.toFixed(0)},72 l7,-7 l7,7 l-7,7 z" fill="#94a3b8"/><text x="${(fx + 18).toFixed(0)}" y="58" font-size="9.5" fill="#64748b">finish ${escapeHtml(data.finishPrev || '')}</text>`; }
-  if (pcurr.length) { const gx = xat(pcurr[pcurr.length - 1][1]); p += `<path d="M${gx.toFixed(0)},132 l7,-7 l7,7 l-7,7 z" fill="#dc2626"/><text x="${(gx + 18).toFixed(0)}" y="118" font-size="9.5" fill="#b91c1c" font-weight="700">finish ${escapeHtml(data.finishNow || '')}</text>`; }
+  p += `<text x="14" y="74" font-size="11" font-weight="700" fill="var(--muted)">WAS · ${escapeHtml(report.data_date_prev || '')}</text>`;
+  p += `<text x="14" y="134" font-size="11" font-weight="700" fill="var(--text)">NOW · ${escapeHtml(report.data_date_now || '')}</text>`;
+  if (pprev.length) { const fx = xat(pprev[pprev.length - 1][1]); p += `<path d="M${fx.toFixed(0)},72 l7,-7 l7,7 l-7,7 z" fill="var(--muted)"/><text x="${(fx + 18).toFixed(0)}" y="58" font-size="9.5" fill="var(--muted)">finish ${escapeHtml(data.finishPrev || '')}</text>`; }
+  if (pcurr.length) { const gx = xat(pcurr[pcurr.length - 1][1]); p += `<path d="M${gx.toFixed(0)},132 l7,-7 l7,7 l-7,7 z" fill="var(--danger)"/><text x="${(gx + 18).toFixed(0)}" y="118" font-size="9.5" fill="var(--danger)" font-weight="700">finish ${escapeHtml(data.finishNow || '')}</text>`; }
   const slip = data.slip;
-  if (pprev.length && pcurr.length && slip) { const a = xat(pprev[pprev.length - 1][1]), b = xat(pcurr[pcurr.length - 1][1]), lo = Math.min(a, b), hi = Math.max(a, b); p += `<line x1="${lo.toFixed(0)}" y1="196" x2="${hi.toFixed(0)}" y2="196" stroke="#dc2626" stroke-width="1.5"/><line x1="${lo.toFixed(0)}" y1="192" x2="${lo.toFixed(0)}" y2="200" stroke="#dc2626"/><line x1="${hi.toFixed(0)}" y1="192" x2="${hi.toFixed(0)}" y2="200" stroke="#dc2626"/><text x="${((lo + hi) / 2).toFixed(0)}" y="212" text-anchor="middle" font-size="10.5" fill="#b91c1c" font-weight="700">${slip > 0 ? '+' : ''}${slip} wd</text>`; }
-  if (div < curr.length || div < prev.length) { const src = div < pcurr.length ? pcurr[div][0] : (div < pprev.length ? pprev[div][0] : null); if (src != null) { const dx = xat(src); p += `<line x1="${dx.toFixed(0)}" y1="52" x2="${dx.toFixed(0)}" y2="168" stroke="#dc2626" stroke-width="1" stroke-dasharray="3 3"/><text x="${dx.toFixed(0)}" y="182" text-anchor="middle" font-size="9.5" fill="#b91c1c" font-weight="700">rerouted here</text>`; } }
-  const legend = `<div class="cmp-foot"><span class="cpsw" style="background:#93c5fd"></span>shared route (on both) <span class="cpsw" style="background:#f87171"></span>new critical route (from the reroute) <span class="cpsw" style="background:#e2e8f0"></span>old route (dropped off)</div>`;
+  if (pprev.length && pcurr.length && slip) { const a = xat(pprev[pprev.length - 1][1]), b = xat(pcurr[pcurr.length - 1][1]), lo = Math.min(a, b), hi = Math.max(a, b); p += `<line x1="${lo.toFixed(0)}" y1="196" x2="${hi.toFixed(0)}" y2="196" stroke="var(--danger)" stroke-width="1.5"/><line x1="${lo.toFixed(0)}" y1="192" x2="${lo.toFixed(0)}" y2="200" stroke="var(--danger)"/><line x1="${hi.toFixed(0)}" y1="192" x2="${hi.toFixed(0)}" y2="200" stroke="var(--danger)"/><text x="${((lo + hi) / 2).toFixed(0)}" y="212" text-anchor="middle" font-size="10.5" fill="var(--danger)" font-weight="700">${slip > 0 ? '+' : ''}${slip} wd</text>`; }
+  if (div < curr.length || div < prev.length) { const src = div < pcurr.length ? pcurr[div][0] : (div < pprev.length ? pprev[div][0] : null); if (src != null) { const dx = xat(src); p += `<line x1="${dx.toFixed(0)}" y1="52" x2="${dx.toFixed(0)}" y2="168" stroke="var(--danger)" stroke-width="1" stroke-dasharray="3 3"/><text x="${dx.toFixed(0)}" y="182" text-anchor="middle" font-size="9.5" fill="var(--danger)" font-weight="700">rerouted here</text>`; } }
+  const legend = `<div class="cmp-foot"><span class="cpsw" style="background:var(--chart-1)"></span>shared route (on both) <span class="cpsw" style="background:var(--danger)"></span>new critical route (from the reroute) <span class="cpsw" style="background:var(--border)"></span>old route (dropped off)</div>`;
   return `<svg viewBox="0 0 960 250" width="100%" role="img" aria-label="Critical path timeline">${p}</svg>${legend}<div class="cmp-foot">The finish-driving route on a real date axis — <b>WAS</b> (last update) over <b>NOW</b> (this update). The bracket at the right is the total finish movement.</div>`;
 }
 // --- Style 3: compact Was/Now table ---
@@ -482,11 +484,11 @@ function _milestoneDriftSvg(rows) {
     parts += `<text x="${x0 - 10}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--text)">${escapeHtml(r.name)}</text>`;
     const xs = ['baseline_iso', 'prev_iso', 'curr_iso'].filter(k => r[k]).map(k => xAt(od(r[k])));
     if (xs.length >= 2) parts += `<line x1="${Math.min(...xs).toFixed(0)}" y1="${y}" x2="${Math.max(...xs).toFixed(0)}" y2="${y}" stroke="var(--border)"/>`;
-    if (r.baseline_iso) parts += `<circle cx="${xAt(od(r.baseline_iso)).toFixed(0)}" cy="${y}" r="5" fill="var(--card-bg)" stroke="#94a3b8" stroke-width="2"/>`;
-    if (r.prev_iso) parts += `<circle cx="${xAt(od(r.prev_iso)).toFixed(0)}" cy="${y}" r="4.5" fill="#d97706"/>`;
-    if (r.curr_iso) parts += `<circle cx="${xAt(od(r.curr_iso)).toFixed(0)}" cy="${y}" r="5" fill="#ef4444"/>`;
+    if (r.baseline_iso) parts += `<circle cx="${xAt(od(r.baseline_iso)).toFixed(0)}" cy="${y}" r="5" fill="var(--card-bg)" stroke="var(--muted)" stroke-width="2"/>`;
+    if (r.prev_iso) parts += `<circle cx="${xAt(od(r.prev_iso)).toFixed(0)}" cy="${y}" r="4.5" fill="var(--warning)"/>`;
+    if (r.curr_iso) parts += `<circle cx="${xAt(od(r.curr_iso)).toFixed(0)}" cy="${y}" r="5" fill="var(--danger)"/>`;
   });
-  return `<div class="cmp-scurve-legend"><span><i style="background:var(--card-bg);border:2px solid #94a3b8;border-radius:50%;width:10px;height:10px"></i>Baseline</span><span><i style="background:#d97706;border-radius:50%;width:11px;height:11px"></i>Previous forecast</span><span><i style="background:#ef4444;border-radius:50%;width:11px;height:11px"></i>Current forecast</span></div>
+  return `<div class="cmp-scurve-legend"><span><i style="background:var(--card-bg);border:2px solid var(--muted);border-radius:50%;width:10px;height:10px"></i>Baseline</span><span><i style="background:var(--warning);border-radius:50%;width:11px;height:11px"></i>Previous forecast</span><span><i style="background:var(--danger);border-radius:50%;width:11px;height:11px"></i>Current forecast</span></div>
     <svg viewBox="0 0 620 ${h}" width="100%" role="img" aria-label="Milestone drift chart">${parts}</svg>`;
 }
 
@@ -638,8 +640,8 @@ function _periodScurveSvg(sc) {
   };
   const pIdx = sc.dd_prev_idx ?? 0, nIdx = sc.dd_now_idx ?? (n - 1);
   const band = `<rect x="${xAt(pIdx).toFixed(1)}" y="${y1}" width="${Math.max(0, xAt(nIdx) - xAt(pIdx)).toFixed(1)}" height="${y0 - y1}" fill="rgba(59,130,246,0.08)"/>`;
-  const markers = `<circle cx="${xAt(nIdx).toFixed(1)}" cy="${yAt(sc.forecast_now).toFixed(1)}" r="3.5" fill="#f59e0b"/>` +
-                  `<circle cx="${xAt(nIdx).toFixed(1)}" cy="${yAt(sc.actual_now).toFixed(1)}" r="3.5" fill="#3b82f6"/>`;
+  const markers = `<circle cx="${xAt(nIdx).toFixed(1)}" cy="${yAt(sc.forecast_now).toFixed(1)}" r="3.5" fill="var(--chart-3)"/>` +
+                  `<circle cx="${xAt(nIdx).toFixed(1)}" cy="${yAt(sc.actual_now).toFixed(1)}" r="3.5" fill="var(--chart-1)"/>`;
   const step = Math.max(1, Math.round(n / 6));
   let xlabels = '';
   for (let i = 0; i < n; i += step) {
@@ -652,8 +654,8 @@ function _periodScurveSvg(sc) {
     <text x="${x0 - 6}" y="${y1 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">100%</text>
     <text x="${x0 - 6}" y="${(y0 + y1) / 2 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">50%</text>
     <text x="${x0 - 6}" y="${y0 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">0%</text>
-    ${line(sc.forecast, '#f59e0b', '5 3')}
-    ${line(sc.actual, '#3b82f6')}
+    ${line(sc.forecast, 'var(--chart-3)', '5 3')}
+    ${line(sc.actual, 'var(--chart-1)')}
     ${markers}
     ${xlabels}
   </svg>`;
@@ -796,9 +798,10 @@ export async function exportPeriodPdf() {
   if (!_shownReport) { showError('Run the comparison first, then export.'); return; }
   await _withBtn('per-export-pdf', 'Export PDF', async () => {
     try {
+      _perTheme = getSavedMode();
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, critical_style: _cpStyle, critical_mode: _cpMode }),
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, critical_style: _cpStyle, critical_mode: _cpMode, theme: _perTheme }),
       });
       const data = await resp.json();
       if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
@@ -839,7 +842,7 @@ function _showPdfPreview(reportHtml) {
       <div class="per-preview-body">
         <div class="per-preview-pick"><div class="per-pick-h">Include sections</div>${picks}
           <div class="per-pick-controls"><button class="btn-mini" id="per-pick-all">All</button><button class="btn-mini" id="per-pick-none">None</button></div>
-          ${fltUi}${cpStyleUi}</div>
+          ${fltUi}${cpStyleUi}<div id="per-appearance-pick" style="margin-top:14px"></div></div>
         <iframe class="per-preview-frame" id="per-preview-frame" title="Report preview"></iframe>
       </div>
     </div>`;
@@ -862,12 +865,13 @@ function _showPdfPreview(reportHtml) {
     const on = new Set(selected());
     doc.querySelectorAll('[data-sec]').forEach(el => { el.style.display = on.has(el.getAttribute('data-sec')) ? '' : 'none'; });
   };
-  // Re-render server-side when the activity-code filter changes (so preview == PDF).
+  // Re-render server-side when the activity-code filter, critical-path style, or report
+  // appearance changes (so preview == PDF).
   const refresh = async () => {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, code_filter: codeFilter(), critical_style: cpStyle(), critical_mode: _cpMode }),
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, code_filter: codeFilter(), critical_style: cpStyle(), critical_mode: _cpMode, theme: _perTheme }),
       });
       const data = await resp.json();
       if (data.ok) { frame.onload = applyToFrame; frame.srcdoc = data.html; }
@@ -875,6 +879,21 @@ function _showPdfPreview(reportHtml) {
   };
   frame.onload = applyToFrame;
   frame.srcdoc = reportHtml;
+  frame.style.background = backdropColor(_perTheme);
+
+  const appearanceBox = document.getElementById('per-appearance-pick');
+  if (appearanceBox) {
+    const picker = buildAppearancePicker({
+      current: _perTheme,
+      compact: false,
+      onChange: (mode) => {
+        _perTheme = mode;
+        frame.style.background = backdropColor(_perTheme);
+        refresh();
+      },
+    });
+    appearanceBox.appendChild(picker);
+  }
 
   cbs().forEach(c => c.addEventListener('change', applyToFrame));
   document.getElementById('per-pick-all').addEventListener('click', () => { cbs().forEach(c => { c.checked = true; }); applyToFrame(); });
@@ -902,7 +921,7 @@ function _showPdfPreview(reportHtml) {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath, sections: selected(), code_filter: codeFilter(), critical_style: cpStyle(), critical_mode: _cpMode }),
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath, sections: selected(), code_filter: codeFilter(), critical_style: cpStyle(), critical_mode: _cpMode, theme: _perTheme }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
@@ -928,7 +947,7 @@ export async function exportPeriodExcel() {
   });
 }
 
-const _TREND_PALETTE = ['#f87171', '#4ade80', '#3b82f6', '#fbbf24', '#a78bfa', '#f472b6', '#22d3ee', '#fb923c'];
+const _TREND_PALETTE = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)'];
 
 function _fmtMon(ts) {
   const d = new Date(ts);

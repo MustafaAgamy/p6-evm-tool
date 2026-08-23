@@ -1,5 +1,7 @@
 import html
 
+import report_theme
+
 
 def find_finish_milestone(result):
     records = [r for r in result['records'] if r['activity']['planned_finish']]
@@ -20,9 +22,9 @@ def bar_svg(pairs, width=560, bar_h=28, gap=14, max_value=None, value_fmt=None):
         bar_len = max(2, (value / max_value) * chart_w)
         rows.append(f'''
           <text x="{label_w - 8}" y="{y + bar_h * 0.65}" text-anchor="end"
-                font-size="13" fill="#333">{html.escape(label)}</text>
+                font-size="13" fill="{report_theme.var('rpt-chart-axis')}">{html.escape(label)}</text>
           <rect x="{label_w}" y="{y}" width="{bar_len:.1f}" height="{bar_h}" fill="{color}" rx="3"/>
-          <text x="{label_w + bar_len + 8}" y="{y + bar_h * 0.65}" font-size="13" fill="#222">
+          <text x="{label_w + bar_len + 8}" y="{y + bar_h * 0.65}" font-size="13" fill="{report_theme.var('rpt-chart-axis')}">
                 {html.escape(value_fmt(value))}</text>
         ''')
         y += bar_h + gap
@@ -49,10 +51,10 @@ def render_audit_section(audit):
             <td>{html.escape(f.get('severity', ''))}</td>
             <td>{html.escape(f.get('check_name', ''))}</td>
             <td>{html.escape(f.get('activity_id', ''))}<br>
-                <span style="color:#666;font-size:11px">{html.escape(f.get('activity_name', ''))}</span></td>
-            <td style="font-size:11px;color:#555">{html.escape(f.get('wbs_path', ''))}</td>
+                <span style="color:var(--rpt-muted);font-size:11px">{html.escape(f.get('activity_name', ''))}</span></td>
+            <td style="font-size:11px;color:var(--rpt-ink-soft)">{html.escape(f.get('wbs_path', ''))}</td>
             <td>{html.escape(f.get('summary', ''))}<br>
-                <span style="color:#666;font-size:11px">{html.escape(f.get('recommendation', ''))}</span></td>
+                <span style="color:var(--rpt-muted);font-size:11px">{html.escape(f.get('recommendation', ''))}</span></td>
           </tr>''')
     findings_table = (
         '<table class="data"><tr><th>Severity</th><th>Check</th>'
@@ -75,7 +77,7 @@ def render_audit_section(audit):
     '''
 
 
-def render_html(result, meta, audit=None):
+def render_html(result, meta, audit=None, theme='light'):
     fm = find_finish_milestone(result)
     delay = result['delay_days']
 
@@ -98,20 +100,20 @@ def render_html(result, meta, audit=None):
             <td>{source}</td>
           </tr>
         ''')
-        cat_bar_pairs.append((f"{name} (Planned)", c['planned_pct'] * 100, '#3b6fa8'))
-        cat_bar_pairs.append((f"{name} (Actual)", c['actual_pct'] * 100, '#8bb648'))
+        cat_bar_pairs.append((f"{name} (Planned)", c['planned_pct'] * 100, report_theme.var('rpt-series-1')))
+        cat_bar_pairs.append((f"{name} (Actual)", c['actual_pct'] * 100, report_theme.var('rpt-series-2')))
 
     overall_bar = bar_svg([
-        ('Overall Planned%', result['overall_planned_pct'] * 100, '#3b6fa8'),
-        ('Overall Actual%', result['overall_actual_pct'] * 100, '#8bb648'),
+        ('Overall Planned%', result['overall_planned_pct'] * 100, report_theme.var('rpt-series-1')),
+        ('Overall Actual%', result['overall_actual_pct'] * 100, report_theme.var('rpt-series-2')),
     ], max_value=100, value_fmt=lambda v: f'{v:.2f}%')
 
     category_bar = bar_svg(cat_bar_pairs, max_value=100, value_fmt=lambda v: f'{v:.2f}%')
 
     pv_ev_bar = bar_svg([
-        ('Planned Value (PV)', pv, '#3b6fa8'),
-        ('Earned Value (EV)', ev, '#8bb648'),
-        ('Actual Cost (AC)', ac, '#c0764a'),
+        ('Planned Value (PV)', pv, report_theme.var('rpt-series-1')),
+        ('Earned Value (EV)', ev, report_theme.var('rpt-series-2')),
+        ('Actual Cost (AC)', ac, report_theme.var('rpt-series-3')),
     ], value_fmt=lambda v: f'{v:,.0f}')
 
     delay_row = ''
@@ -147,22 +149,23 @@ def render_html(result, meta, audit=None):
     <meta charset="utf-8">
     <title>{html.escape(meta.get('project_name', 'Weekly Report'))}</title>
     <style>
-      body {{ font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; margin: 40px; }}
+      body {{ font-family: Georgia, 'Times New Roman', serif; color: var(--rpt-ink); margin: 40px; }}
       h1 {{ font-size: 22px; margin-bottom: 4px; }}
-      h2 {{ font-size: 16px; border-bottom: 2px solid #333; padding-bottom: 4px; margin-top: 36px; }}
+      h2 {{ font-size: 16px; border-bottom: 2px solid var(--rpt-chart-axis); padding-bottom: 4px; margin-top: 36px; }}
       .meta-table td {{ padding: 3px 8px; font-size: 13px; }}
       .meta-table td.label {{ font-weight: bold; width: 160px; }}
       table.data {{ border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 13px; }}
-      table.data th, table.data td {{ border: 1px solid #999; padding: 6px 8px; }}
-      table.data th {{ background: #dde6f0; text-align: left; }}
+      table.data th, table.data td {{ border: 1px solid var(--rpt-hair-strong); padding: 6px 8px; }}
+      table.data th {{ background: var(--rpt-th-bg); color: var(--rpt-th-ink); text-align: left; }}
       td.num, th.num {{ text-align: right; }}
       .kpi-row {{ display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap; }}
-      .kpi {{ border: 1px solid #999; border-radius: 6px; padding: 10px 16px; min-width: 140px; }}
-      .kpi .label {{ font-size: 11px; color: #555; text-transform: uppercase; }}
+      .kpi {{ border: 1px solid var(--rpt-hair-strong); border-radius: 6px; padding: 10px 16px; min-width: 140px; }}
+      .kpi .label {{ font-size: 11px; color: var(--rpt-ink-soft); text-transform: uppercase; }}
       .kpi .value {{ font-size: 18px; font-weight: bold; margin-top: 4px; }}
-      .note {{ font-size: 12px; color: #555; font-style: italic; margin-top: 24px; }}
-      .footer {{ margin-top: 40px; font-size: 11px; color: #777; border-top: 1px solid #ccc; padding-top: 8px; }}
+      .note {{ font-size: 12px; color: var(--rpt-ink-soft); font-style: italic; margin-top: 24px; }}
+      .footer {{ margin-top: 40px; font-size: 11px; color: var(--rpt-muted); border-top: 1px solid var(--rpt-hair); padding-top: 8px; }}
     </style>
+    {report_theme.theme_style_tag(theme)}
     </head>
     <body>
       <h1>{html.escape(meta.get('project_name', 'Weekly Report'))}</h1>

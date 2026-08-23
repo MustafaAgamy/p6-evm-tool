@@ -8,14 +8,16 @@
 import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
+import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 
 let _shownReport = null;
 let _summaryLevel = 0;
 let _scopePicked = [];          // Section 5 — cost-loaded activity codes to weigh (multi-select)
 let _pickedTypes = [];          // Section 2 — the activity-code dimensions to chart (one chart each)
 let _countFilter = { type: '', value: '' };   // Section 4 — activity-code filter
+let _uaTheme = getSavedMode();  // report-appearance mode for this panel's PDF preview
 
-const C = { plan: '#e0912f', actual: '#2a78d6', good: '#16a34a', bad: '#dc2626', blue: '#2a78d6' };
+const C = { plan: 'var(--chart-3)', actual: 'var(--chart-1)', good: 'var(--success)', bad: 'var(--danger)', blue: 'var(--chart-1)' };
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function _fileName() {
@@ -94,7 +96,7 @@ function _injectStyle() {
     .ua-box { flex: none; width: 196px; border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; background: var(--card-bg); }
     .ua-box.done { border-color: var(--success); }
     .ua-bt { font-size: 12.5px; font-weight: 700; line-height: 1.25; color: var(--text); }
-    .ua-btag { font-size: 9px; color: #b45309; font-weight: 600; }
+    .ua-btag { font-size: 9px; color: var(--warning); font-weight: 600; }
     .ua-bcrumb { font-size: 10px; color: var(--muted); margin: 3px 0 9px; }
     .ua-b4 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 9px; }
     .ua-k { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
@@ -471,9 +473,10 @@ function _codeFilter() { return _pickedTypes.length ? { types: _pickedTypes.slic
 async function _exportPdf() {
   if (!_shownReport) { showError('Analyze the update first, then export.'); return; }
   try {
+    _uaTheme = getSavedMode();
     const resp = await fetch(`http://localhost:${state.serverPort}/api/update/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: _shownReport, preview: true, code_filter: _codeFilter(), scope_code: _scopePicked[0] || '' }),
+      body: JSON.stringify({ report: _shownReport, preview: true, code_filter: _codeFilter(), scope_code: _scopePicked[0] || '', theme: _uaTheme }),
     });
     const data = await resp.json();
     if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
@@ -494,7 +497,8 @@ function _showPdfPreview(reportHtml) {
           <button class="btn-primary" id="ua-preview-save">Save as PDF</button></span></div>
       <div class="per-preview-body">
         <div class="per-preview-pick"><div class="per-pick-h">Include sections</div>${picks}
-          <div class="per-pick-controls"><button class="btn-mini" id="ua-pick-all">All</button><button class="btn-mini" id="ua-pick-none">None</button></div></div>
+          <div class="per-pick-controls"><button class="btn-mini" id="ua-pick-all">All</button><button class="btn-mini" id="ua-pick-none">None</button></div>
+          <div id="ua-appearance-pick" style="margin-top:14px"></div></div>
         <iframe class="per-preview-frame" id="ua-preview-frame" title="Report preview"></iframe>
       </div></div>`;
   document.body.appendChild(ov);
@@ -506,6 +510,33 @@ function _showPdfPreview(reportHtml) {
   const selected = () => cbs().filter(c => c.checked).map(c => c.value);
   const apply = () => { const doc = frame.contentDocument; if (!doc) return; const on = new Set(selected()); doc.querySelectorAll('[data-sec]').forEach(el => { el.style.display = on.has(el.getAttribute('data-sec')) ? '' : 'none'; }); };
   frame.onload = apply; frame.srcdoc = reportHtml;
+  frame.style.background = backdropColor(_uaTheme);
+
+  // Re-render server-side when the report appearance changes, so preview == PDF.
+  const refreshAppearance = async () => {
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/update/report`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: _shownReport, preview: true, code_filter: _codeFilter(), scope_code: _scopePicked[0] || '', theme: _uaTheme }),
+      });
+      const data = await resp.json();
+      if (data.ok) { frame.onload = apply; frame.srcdoc = data.html; }
+    } catch { showError('Could not refresh the preview.'); }
+  };
+  const appearanceBox = document.getElementById('ua-appearance-pick');
+  if (appearanceBox) {
+    const picker = buildAppearancePicker({
+      current: _uaTheme,
+      compact: false,
+      onChange: (mode) => {
+        _uaTheme = mode;
+        frame.style.background = backdropColor(_uaTheme);
+        refreshAppearance();
+      },
+    });
+    appearanceBox.appendChild(picker);
+  }
+
   cbs().forEach(c => c.addEventListener('change', apply));
   document.getElementById('ua-pick-all').addEventListener('click', () => { cbs().forEach(c => { c.checked = true; }); apply(); });
   document.getElementById('ua-pick-none').addEventListener('click', () => { cbs().forEach(c => { c.checked = false; }); apply(); });
@@ -517,7 +548,7 @@ function _showPdfPreview(reportHtml) {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/update/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), code_filter: _codeFilter(), scope_code: _scopePicked[0] || '' }),
+        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), code_filter: _codeFilter(), scope_code: _scopePicked[0] || '', theme: _uaTheme }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`); else close();

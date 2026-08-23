@@ -7,6 +7,7 @@ import tempfile
 from datetime import datetime, date
 from utils import resource_path, exe_dir, app_data_dir
 import db
+import report_theme
 
 
 class _Encoder(json.JSONEncoder):
@@ -364,7 +365,7 @@ class Handler(BaseHTTPRequestHandler):
                 'milestone_baseline_finish': milestone_baseline_finish,
             }
 
-            html_content = render_html(result, meta)
+            html_content = render_html(result, meta, theme=report_theme.normalize(body.get('theme')))
 
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -486,7 +487,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_update.exporters import render_html
             import subprocess, tempfile
-            html_content = render_html(report, sections, code_filter, scope_code)
+            html_content = render_html(report, sections, code_filter, scope_code,
+                                       theme=report_theme.normalize(body.get('theme')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -883,7 +885,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_kb.exporters import render_html
-            html_content = render_html(report)
+            html_content = render_html(report, theme=report_theme.normalize(body.get('theme')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -998,7 +1000,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_compare.exporters import render_html
-            html_content = render_html(report, impact)
+            html_content = render_html(report, impact, theme=report_theme.normalize(body.get('theme')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -1136,7 +1138,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_period.exporters import render_html
             import subprocess, tempfile
-            html_content = render_html(report, trend, sections, code_filter, critical_style, critical_mode)
+            html_content = render_html(report, trend, sections, code_filter, critical_style, critical_mode,
+                                       theme=report_theme.normalize(body.get('theme')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -1279,7 +1282,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_audit.report import render_module_report
             import subprocess, tempfile
-            html_content = render_module_report(m, meta_in)
+            html_content = render_module_report(m, meta_in, theme=report_theme.normalize(body.get('theme')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -1478,7 +1481,8 @@ class Handler(BaseHTTPRequestHandler):
                 for name, actual in ex['category_actuals'].items():
                     if name in cats:
                         cats[name]['actual_pct'] = actual
-            html_content = render_evm_report(result, meta_in, gap=gap, engineering=engineering)
+            html_content = render_evm_report(result, meta_in, gap=gap, engineering=engineering,
+                                             theme=report_theme.normalize(body.get('theme')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -1518,7 +1522,8 @@ class Handler(BaseHTTPRequestHandler):
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
             html_content = render_calendar_report(ca, meta_in, weather=weather,
-                                                  sections=body.get('sections'))
+                                                  sections=body.get('sections'),
+                                                  theme=report_theme.normalize(body.get('theme')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
