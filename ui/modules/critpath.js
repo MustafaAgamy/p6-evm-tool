@@ -519,14 +519,15 @@ function _laneHtml(lane) {
       <div class="cpa-msr"><span>Slip</span><b class="${(ms.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${ms.slip_days == null ? '—' : _sign(ms.slip_days) + ' d'}</b></div>
     </div>`];
   const boxes = lane.boxes || [];
+  const firstNew = boxes.findIndex(b => (b.state || 'stayed') === 'new');
   boxes.forEach((b, i) => {
     const st = b.state || 'stayed';
-    const prevLeft = i > 0 && (boxes[i - 1].state || 'stayed') === 'left';
-    // On-path boxes carry a big ▸ on both sides. A box that left the path sits inline
-    // with no arrow before it, but keeps the big ▸ after it, connecting to the next box.
-    if (st !== 'left' && !prevLeft) parts.push(`<div class="cpa-arw">▸</div>`);
+    // A big ▸ is drawn BEFORE a box only when it continues the live chain: a stayed/done box, or a
+    // NEW box that is not the first one. Never before a LEFT box, and never before the START of the
+    // new critical path (Ibrahim: "remove the arrow before the new critical path").
+    const arrowBefore = st !== 'left' && !(st === 'new' && i === firstNew);
+    if (arrowBefore) parts.push(`<div class="cpa-arw">▸</div>`);
     parts.push(_boxHtml(b, st));
-    if (st === 'left' && i < boxes.length - 1) parts.push(`<div class="cpa-arw">▸</div>`);
   });
   return `<div class="cpa-lane">
       <div class="cpa-lanehdr"><span class="cpa-lanetag ${_LANE_CLS[role] || ''}">${escapeHtml(lane.label || '')}</span>

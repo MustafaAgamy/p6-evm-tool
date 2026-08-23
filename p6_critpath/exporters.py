@@ -226,7 +226,9 @@ def _lane(lane):
     boxes = [f'<div class="msbox"><div class="msflag">◆ Milestone</div><div class="mst">{_e(ms.get("name"))}</div>'
              f'<div class="msr"><span>{"BL Finish" if role == "baseline" else "Exp Finish"}</span><b>{_e(fin)}</b></div>'
              f'<div class="msr"><span>Delay</span><b>{_sd(ms.get("slip_days"))}</b></div></div>']
-    for b in lane.get('boxes', []):
+    lane_boxes = lane.get('boxes', [])
+    first_new = next((i for i, x in enumerate(lane_boxes) if x.get('state') == 'new'), -1)
+    for i, b in enumerate(lane_boxes):
         st = b.get('state', 'stayed')
         cls = {'new': 'bnew', 'left': 'bleft', 'done': 'bdone'}.get(st, '')
         flag = ('<div class="bflag bfnew">NEW ON PATH</div>' if st == 'new'
@@ -234,9 +236,10 @@ def _lane(lane):
         planned = '—' if b.get('planned') is None else f"{round(b['planned'])}%"
         actual = '—' if b.get('pct') is None else f"{round(b['pct'])}%"
         tf = '—' if b.get('driver_tf') is None else _sd(b.get('driver_tf'), ' wd')
-        # A box that LEFT the path stays inline with NO arrow before it; the arrow AFTER it is
-        # the leading arrow of the following box, so the chain flows on to the new path.
-        arrow = '' if st == 'left' else '<div class="arw">▸</div>'
+        # A big ▸ leads a box only when it continues the live chain: a stayed/done box, or a NEW box
+        # that is not the first. Never before a LEFT box, and never before the START of the new
+        # critical path (Ibrahim: "remove the arrow before the new critical path").
+        arrow = '' if (st == 'left' or (st == 'new' and i == first_new)) else '<div class="arw">▸</div>'
         boxes.append(
             f'{arrow}<div class="box {cls}">{flag}<div class="bt">{_e(b.get("name"))}</div>'
             f'<div class="bcrumb">{_e(b.get("crumb"))}</div>'
