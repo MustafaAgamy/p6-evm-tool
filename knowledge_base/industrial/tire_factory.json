@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Tyre & Rubber Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["tyre", "tire", "rubber", "banbury", "mixing", "compound", "calender", "extrusion", "bead",
+                 "tyre building", "green tyre", "curing press", "vulcanization", "vulcanisation", "mill room"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Mixing (Banbury / Mill Room)", "keywords": ["banbury", "mixing", "mill room", "compound", "internal mixer"]},
+    {"name": "Component Prep (Extrusion / Calendering)", "keywords": ["extrusion", "extruder", "calender", "calendering", "tread", "fabric"]},
+    {"name": "Tyre Building", "keywords": ["tyre building", "tire building", "building machine", "green tyre", "bead"]},
+    {"name": "Curing (Presses)", "keywords": ["curing", "curing press", "vulcanization", "vulcanisation", "press"]},
+    {"name": "Inspection & Finishing", "keywords": ["inspection", "finishing", "uniformity", "x-ray", "trimming"]},
+    {"name": "Utilities & Commissioning", "keywords": ["utilities", "steam", "boiler", "chiller", "commission", "test"]}
+  ],
+  "activities": [
+    {"name": "Steam / Hot-Water Plant for Curing", "keywords": ["steam", "boiler", "hot water", "curing utility"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Building Weathertight", "typical_succ": "Curing Press Commissioning", "duration_days": 35,
+     "why": "Curing presses vulcanize tyres with steam/hot water at pressure; the utility plant must be live before they can run."},
+    {"name": "Banbury Mixer & Dust Control", "keywords": ["banbury", "internal mixer", "dust control", "mill room"], "wbs": "Mixing (Banbury / Mill Room)",
+     "typical_pred": "Machine Foundations", "typical_succ": "Mixing Commissioning", "duration_days": 40,
+     "why": "The Banbury mixer is the heavy long-lead heart of compounding, with carbon-black dust control that is often forgotten."},
+    {"name": "Chiller / Cooling Plant", "keywords": ["chiller", "cooling", "cooling tower"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Building Weathertight", "typical_succ": "Mixing Commissioning", "duration_days": 25,
+     "why": "Mixing and calendering generate heat that must be removed; the chiller plant is a shared utility often under-planned."},
+    {"name": "Trial Tyre / Cure Test", "keywords": ["trial tyre", "first tyre", "cure test", "trial production"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Curing Press Commissioning", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A trial tyre proves compound, build and cure before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["steam", "boiler", "hot water", "utility"], "after_keywords": ["curing press", "curing commission", "vulcaniz", "commission"],
+     "reason": "Curing-press commissioning follows the steam/hot-water utility being live.",
+     "impact": "Critical"},
+    {"before_keywords": ["mixing", "banbury", "compound"], "after_keywords": ["extrusion", "calender", "tyre building"],
+     "reason": "Compounding (mixing) precedes component prep and tyre building in the process line.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["tyre building", "green tyre", "building machine"], "after_keywords": ["curing", "curing press", "vulcaniz"],
+     "reason": "Green tyres are cured/vulcanized after building, never before.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Steam Plant Live", "Presses Commissioned", "Trial Tyre / Handover"],
+  "common_issues": ["Curing commissioning before steam plant live", "Missing carbon-black dust control on mixing",
+                    "Chiller/cooling under-planned", "No trial-tyre / cure-test phase"]
+}

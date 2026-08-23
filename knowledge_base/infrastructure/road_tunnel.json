@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "Road / Highway Tunnel",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["road tunnel", "highway tunnel", "tunnel", "tbm", "bored tunnel", "cut and cover", "cut-and-cover",
+                 "portal", "segmental lining", "jet fan", "ventilation", "fire life safety", "cross passage", "invert"],
+  "wbs": [
+    {"name": "Portals & Approaches", "keywords": ["portal", "approach", "cutting", "retaining"]},
+    {"name": "Excavation & Support (TBM / Cut-and-Cover)", "keywords": ["tbm", "bored", "excavation", "cut and cover", "cut-and-cover", "roadheader"]},
+    {"name": "Primary & Secondary Lining", "keywords": ["segmental lining", "lining", "shotcrete", "invert", "concrete lining"]},
+    {"name": "Road Pavement & Drainage", "keywords": ["pavement", "carriageway", "road slab", "drainage"]},
+    {"name": "Tunnel Ventilation (Jet Fans)", "keywords": ["ventilation", "jet fan", "fan", "smoke extract"]},
+    {"name": "Fire Life Safety & Systems", "keywords": ["fire life safety", "deluge", "hydrant", "cross passage", "escape"]},
+    {"name": "M&E, SCADA & Lighting", "keywords": ["m&e", "scada", "lighting", "traffic system", "cctv", "control"]},
+    {"name": "Testing, Commissioning & Opening", "keywords": ["test", "commission", "integrated", "opening", "handover"]}
+  ],
+  "activities": [
+    {"name": "Breakthrough / Excavation Complete", "keywords": ["breakthrough", "hole through", "excavation complete"], "wbs": "Excavation & Support (TBM / Cut-and-Cover)",
+     "typical_pred": "Tunnel Excavation", "typical_succ": "Secondary Lining", "duration_days": 5,
+     "why": "Breakthrough is the pivotal tunnelling milestone that unlocks lining, road and systems fit-out."},
+    {"name": "Tunnel Ventilation System (Jet Fans)", "keywords": ["ventilation", "jet fan", "fan installation"], "wbs": "Tunnel Ventilation (Jet Fans)",
+     "typical_pred": "Secondary Lining", "typical_succ": "Integrated Systems Test", "duration_days": 40,
+     "why": "Jet-fan ventilation controls vehicle emissions and smoke in a fire — safety-critical and gates opening."},
+    {"name": "Fire Life Safety & Cross Passages", "keywords": ["fire life safety", "cross passage", "deluge", "escape"], "wbs": "Fire Life Safety & Systems",
+     "typical_pred": "Secondary Lining", "typical_succ": "Integrated Systems Test", "duration_days": 45,
+     "why": "Fire mains, deluge, escape cross-passages and detection are mandatory life-safety scope, often under-planned."},
+    {"name": "Integrated Systems / Fire-Life-Safety Test", "keywords": ["integrated systems test", "fire test", "commissioning"], "wbs": "Testing, Commissioning & Opening",
+     "typical_pred": "M&E, SCADA & Lighting", "typical_succ": "Opening", "duration_days": 25,
+     "why": "A whole-tunnel integrated test (ventilation, fire, SCADA, traffic) is required before the tunnel opens to traffic."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["excavation", "tbm", "breakthrough", "lining"], "after_keywords": ["pavement", "ventilation", "m&e", "systems", "fire life safety"],
+     "reason": "Road, ventilation and systems fit-out follow tunnel excavation and lining.",
+     "impact": "Critical"},
+    {"before_keywords": ["ventilation", "jet fan", "fire life safety", "scada"], "after_keywords": ["integrated systems test", "fire test", "commissioning"],
+     "reason": "Integrated testing follows installation of ventilation, fire-life-safety and SCADA systems.",
+     "impact": "Critical"},
+    {"before_keywords": ["integrated systems test", "fire test", "commission"], "after_keywords": ["opening", "traffic", "handover"],
+     "reason": "Opening to traffic must follow the integrated fire-life-safety test.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Breakthrough", "Lining Complete", "Ventilation Installed", "Integrated Test", "Opening"],
+  "common_issues": ["Systems fit-out before lining complete", "Fire-life-safety / cross-passage scope under-planned",
+                    "Jet-fan ventilation not sequenced before opening", "Opening before integrated systems test"]
+}

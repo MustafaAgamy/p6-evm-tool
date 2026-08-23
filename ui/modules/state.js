@@ -18,4 +18,10 @@ export const state = {
   constructForcedType: null, // user-overridden project sub-type, if any
   compareReport:     null,   // Consultant Review — last Baseline vs Update report dict
   compareBaselineName: null, // filename of the baseline chosen for the comparison
+  kbLibrary:         null,   // Knowledge Base library — {categories:[…], total} cached from /api/kb
+  kbSelectedType:    null,   // type name selected in the KB EPS tree
+  kbSelectedCat:     null,   // category currently expanded in the KB tree
+  dbLibrary:         null,   // Construction Database — {categories:[…]} cached from /api/database
+  dbSelectedType:    null,   // type name selected in the Database EPS tree
+  dbSelectedCat:     null,   // category currently expanded in the Database tree
 };

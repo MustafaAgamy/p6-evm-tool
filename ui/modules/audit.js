@@ -68,6 +68,7 @@ export function switchView(view) {
   document.getElementById('lag-panel').classList.toggle('hidden', view !== 'lag');
   document.getElementById('period-panel').classList.toggle('hidden', view !== 'period');
   document.getElementById('critpath-panel').classList.toggle('hidden', view !== 'critpath');
+  document.getElementById('update-panel').classList.toggle('hidden', view !== 'update');
   document.getElementById('tab-evm').classList.toggle('active', view === 'evm');
   document.getElementById('tab-audit').classList.toggle('active', view === 'audit');
   document.getElementById('tab-oos').classList.toggle('active', view === 'oos');
@@ -77,6 +78,7 @@ export function switchView(view) {
   document.getElementById('tab-lag').classList.toggle('active', view === 'lag');
   document.getElementById('tab-period').classList.toggle('active', view === 'period');
   document.getElementById('tab-critpath').classList.toggle('active', view === 'critpath');
+  document.getElementById('tab-update').classList.toggle('active', view === 'update');
   // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
   document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
   document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');

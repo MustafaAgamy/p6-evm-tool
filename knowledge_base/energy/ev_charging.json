@@ -1,0 +1,46 @@
+{
+  "category": "Energy",
+  "type": "EV Charging Infrastructure",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["ev charging", "ev charger", "charging station", "charge point", "dc fast", "rapid charger",
+                 "ccs", "grid connection", "transformer", "distribution board", "ocpp", "canopy", "charging hub"],
+  "wbs": [
+    {"name": "Site Civil & Groundworks", "keywords": ["civil", "groundworks", "foundation", "trench", "pad", "kerb"]},
+    {"name": "Grid Connection & Transformer", "keywords": ["grid connection", "transformer", "incoming supply", "hv", "metering"]},
+    {"name": "LV Distribution & Cabling", "keywords": ["lv distribution", "distribution board", "cabling", "cable", "switchgear"]},
+    {"name": "Charger Installation", "keywords": ["charger", "charge point", "dc fast", "rapid", "dispenser"]},
+    {"name": "Canopy / Civils Fit-out", "keywords": ["canopy", "shelter", "signage", "bay", "line marking"]},
+    {"name": "Network & Back-Office (OCPP)", "keywords": ["ocpp", "back office", "network", "connectivity", "payment"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "energization", "load test"]},
+    {"name": "Activation & Handover", "keywords": ["activation", "go live", "handover", "open"]}
+  ],
+  "activities": [
+    {"name": "Grid Connection & Transformer Energization", "keywords": ["grid connection", "transformer", "incoming supply", "energization"], "wbs": "Grid Connection & Transformer",
+     "typical_pred": "Site Civil", "typical_succ": "Charger Commissioning", "duration_days": 45,
+     "why": "The utility grid connection and transformer are the long-lead, permit-gated critical path for a charging hub."},
+    {"name": "Charger Installation & Setup", "keywords": ["charger install", "charge point", "dc fast", "rapid"], "wbs": "Charger Installation",
+     "typical_pred": "LV Distribution & Cabling", "typical_succ": "Charger Commissioning", "duration_days": 15,
+     "why": "Chargers land on completed pads with power and comms ready; installation is quick but sequence-dependent."},
+    {"name": "Back-Office / OCPP Integration", "keywords": ["ocpp", "back office", "network", "payment"], "wbs": "Network & Back-Office (OCPP)",
+     "typical_pred": "Charger Installation & Setup", "typical_succ": "Activation", "duration_days": 10,
+     "why": "Chargers must be integrated to the back-office/payment network before they can be activated for public use."},
+    {"name": "Load Test / Activation", "keywords": ["load test", "activation", "go live", "commissioning"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Back-Office / OCPP Integration", "typical_succ": "Handover", "duration_days": 8,
+     "why": "A load/functional test and activation prove charging and billing before opening to the public."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["grid connection", "transformer", "incoming supply"], "after_keywords": ["charger commission", "energization", "activation"],
+     "reason": "Chargers cannot be commissioned or energized before the grid connection and transformer are live.",
+     "impact": "Critical"},
+    {"before_keywords": ["lv distribution", "cabling", "distribution board"], "after_keywords": ["charger install", "charge point"],
+     "reason": "Chargers are installed after LV distribution and cabling provide their supply.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["charger install", "ocpp", "back office"], "after_keywords": ["activation", "go live", "handover"],
+     "reason": "Activation follows charger installation and back-office/payment integration.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Site Civil Complete", "Grid Connection Live", "Chargers Installed", "Load Test", "Activation"],
+  "common_issues": ["Grid-connection lead time not on the critical path", "Chargers before LV distribution ready",
+                    "Back-office / OCPP integration overlooked", "Public opening before load test / activation"]
+}

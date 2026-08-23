@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Gypsum Board Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["gypsum", "plasterboard", "gypsum board", "drywall", "calcining", "calciner", "stucco", "kettle",
+                 "forming station", "setting belt", "board dryer", "knife", "bundling"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Raw Gypsum & Calcining", "keywords": ["gypsum", "calcining", "calciner", "kettle", "stucco", "mill"]},
+    {"name": "Board Forming Line", "keywords": ["forming station", "forming", "slurry", "paper", "setting belt"]},
+    {"name": "Board Dryer", "keywords": ["board dryer", "dryer", "kiln", "drying"]},
+    {"name": "Cutting & Bundling", "keywords": ["knife", "cutting", "take-off", "bundling", "packaging"]},
+    {"name": "Utilities & Thermal", "keywords": ["utilities", "gas", "thermal", "steam", "electrical"]},
+    {"name": "Testing & Commissioning", "keywords": ["commission", "trial board", "setting test", "test"]}
+  ],
+  "activities": [
+    {"name": "Board Dryer Installation", "keywords": ["board dryer", "dryer", "multi-deck"], "wbs": "Board Dryer",
+     "typical_pred": "Forming Line Installation", "typical_succ": "Dryer Commissioning", "duration_days": 45,
+     "why": "The multi-deck board dryer is the longest machine on the line and its heat-up governs first-board timing."},
+    {"name": "Calciner / Stucco System", "keywords": ["calciner", "kettle", "stucco", "calcining"], "wbs": "Raw Gypsum & Calcining",
+     "typical_pred": "Building Weathertight", "typical_succ": "Forming Commissioning", "duration_days": 30,
+     "why": "Raw gypsum is calcined to stucco upstream of forming; the calciner is a long-lead thermal unit."},
+    {"name": "Gas / Thermal Supply", "keywords": ["gas supply", "thermal", "burner"], "wbs": "Utilities & Thermal",
+     "typical_pred": "Board Dryer Installation", "typical_succ": "Dryer Commissioning", "duration_days": 20,
+     "why": "The dryer and calciner cannot be commissioned before their gas/thermal supply is connected and tested."},
+    {"name": "Trial Board / Setting Test", "keywords": ["trial board", "first board", "setting test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Dryer Commissioning", "typical_succ": "Handover", "duration_days": 12,
+     "why": "A trial run proves slurry set time, board bond and dryer curve before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["forming station", "forming", "slurry"], "after_keywords": ["dryer", "board dryer", "drying"],
+     "reason": "Wet board is dried after the forming/setting line, not before.",
+     "impact": "Critical"},
+    {"before_keywords": ["gas supply", "thermal", "burner"], "after_keywords": ["dryer commission", "calciner commission", "commission"],
+     "reason": "Dryer and calciner commissioning follows their gas/thermal supply being live.",
+     "impact": "Critical"},
+    {"before_keywords": ["calciner", "stucco", "calcining"], "after_keywords": ["forming", "board", "production"],
+     "reason": "Calcining to stucco precedes board forming in the process line.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Board Dryer Installed", "Gas Supply Live", "Trial Board / Handover"],
+  "common_issues": ["Dryer commissioned before gas supply live", "Missing calciner / stucco scope",
+                    "Board dryer under-planned as long-lead", "No trial-board / setting-test phase"]
+}

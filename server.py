@@ -32,6 +32,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_history()
         elif self.path == '/api/ai/settings':
             self._handle_ai_settings_get()
+        elif self.path == '/api/kb':
+            self._handle_kb_list()
+        elif self.path == '/api/database':
+            self._handle_database_list()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -68,6 +72,16 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_critpath_report(body)
         elif self.path == '/api/critpath/excel':
             self._handle_critpath_excel(body)
+        elif self.path == '/api/update/analyze':
+            self._handle_update_analyze(body)
+        elif self.path == '/api/update/counts':
+            self._handle_update_counts(body)
+        elif self.path == '/api/update/scope':
+            self._handle_update_scope(body)
+        elif self.path == '/api/update/excel':
+            self._handle_update_excel(body)
+        elif self.path == '/api/update/report':
+            self._handle_update_report(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -104,6 +118,20 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_review(body)
         elif self.path == '/api/constructability':
             self._handle_constructability(body)
+        elif self.path == '/api/kb/starter-xml':
+            self._handle_kb_starter_xml(body)
+        elif self.path == '/api/kb/learned-file':
+            self._handle_kb_learned_file(body)
+        elif self.path == '/api/database/add':
+            self._handle_database_add(body)
+        elif self.path == '/api/database/example':
+            self._handle_database_example(body)
+        elif self.path == '/api/database/download':
+            self._handle_database_download(body)
+        elif self.path == '/api/constructability/report':
+            self._handle_constructability_report(body)
+        elif self.path == '/api/constructability/excel':
+            self._handle_constructability_excel(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -218,6 +246,14 @@ class Handler(BaseHTTPRequestHandler):
             file_hash      = db.hash_file(xml_path)
             prior_import   = db.get_prior_import_date(file_hash)
             cached_path    = db.cache_xml(xml_path, file_hash)
+
+            # ── Local learning — quietly grow the private per-type Knowledge
+            # Base from this import (offline, deduped by hash, never breaks import) ──
+            try:
+                from p6_kb.learn import learn_from_schedule
+                learn_from_schedule(data, file_hash=file_hash)
+            except Exception as learn_exc:
+                print(f'[learn] skipped: {learn_exc}', file=sys.stderr)
 
             p6_id = data.project.get('id', '') or ''
             name  = data.project.get('name', '') or os.path.basename(xml_path)
@@ -345,6 +381,127 @@ class Handler(BaseHTTPRequestHandler):
             os.unlink(html_path)
             self._json(200, {'ok': True})
 
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/update/* — Update Analysis (single file vs its baseline) ───────
+    def _handle_update_analyze(self, body):
+        """Update Analysis — a single-file read of the current schedule against the baseline
+        embedded in it. Returns Time Status, Planned-vs-Actual by code and the Critical Path
+        Analyzer. EVM figures reused from metrics.compute so they match the EVM tab. No records."""
+        curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_evm.metrics import compute
+            from p6_evm.classify import auto_categories, build_wbs_classifier
+            from p6_update.analysis import build_report_from_data
+            with open(resource_path('config.json')) as f:
+                base_config = json.load(f)
+            data = parse_file(curr_path)
+            cfg = dict(base_config)
+            cfg['categories'] = auto_categories(data)
+            metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
+            summary_level = int(body.get('summary_level', 0) or 0)
+            report = build_report_from_data(data, metrics, summary_level=summary_level)
+            report['file'] = os.path.basename(curr_path)
+            if not report.get('has_baseline'):
+                self._json(200, {'ok': False, 'code': 'no_baseline', 'report': report,
+                                 'error': 'This update has no baseline inside it. Attach a baseline, then run Update Analysis.'})
+                return
+            self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_counts(self, body):
+        """Section 4 — activity counts (Completed / In Progress / Not Started, Planned vs
+        Actual) for construction/execution activities, optionally filtered to one activity-code
+        value. Re-reads the file so the filter is exact."""
+        curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        code_filter = body.get('code_filter')
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_update.analysis import activity_counts
+            data = parse_file(curr_path)
+            counts = activity_counts(data, code_filter=code_filter)
+            self._json(200, {'ok': True, 'counts': counts,
+                             'code_types': list(getattr(data, 'activity_code_types', []) or [])})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_scope(self, body):
+        """Section 5 — scope weight for a chosen combination of activity-code dimensions.
+        Re-reads the file so the combination is exact; returns weights + recommendation."""
+        curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        types = body.get('types') or []
+        if not curr_path or not os.path.isfile(curr_path):
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_update.analysis import scope_weights
+            data = parse_file(curr_path)
+            self._json(200, {'ok': True, 'scope': scope_weights(data, types)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_excel(self, body):
+        """Export the Update-Analysis report to .xlsx from the report the client holds."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_update.exporters import report_excel
+            from p6_evm.xlsx_writer import write_xlsx
+            headers, rows = report_excel(report)
+            write_xlsx(os.path.abspath(output_path), 'Update Analysis', headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_report(self, body):
+        """Update-Analysis PDF (or preview HTML) — rendered from the report the client holds,
+        in the house consultant style. `sections` limits which of the three appear."""
+        report = body.get('report') or {}
+        sections = body.get('sections')
+        code_filter = body.get('code_filter')
+        scope_code = body.get('scope_code')
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_update.exporters import render_html
+            import subprocess, tempfile
+            html_content = render_html(report, sections, code_filter, scope_code)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            out_path = os.path.abspath(output_path)
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
@@ -531,6 +688,216 @@ class Handler(BaseHTTPRequestHandler):
             data = parse_file(resolved)
             report = run_review(data, forced_type=body.get('forced_type'))
             self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/kb (Knowledge Base library — browse the standards) ─────────────
+    def _handle_kb_list(self):
+        """Return the whole Construction Knowledge Base grouped by category for
+        the browsable EPS view. Offline, no schedule needed — bundled defaults
+        plus the per-user overlay."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.kb import load_kb
+            from p6_kb.learn import load_all_profiles, learned_entry, has_learning
+            entries = load_kb()
+            cats, order = {}, []
+            for e in entries:
+                c = e.get('category', 'Other')
+                if c not in cats:
+                    cats[c] = []
+                    order.append(c)
+                cats[c].append(e)
+            categories = [{'category': c, 'count': len(cats[c]), 'types': cats[c]} for c in order]
+            total = len(entries)
+            # "Learned from your projects" — private, local; only types with enough
+            # imports to be meaningful. Shown first so the user's own data leads.
+            learned = [learned_entry(p) for p in load_all_profiles() if has_learning(p)]
+            if learned:
+                categories.insert(0, {'category': 'Learned from your projects',
+                                      'count': len(learned), 'types': learned, 'learned': True})
+                total += len(learned)
+            self._json(200, {'ok': True, 'categories': categories, 'total': total})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/kb/starter-xml (export a standard as a P6 starter schedule) ────
+    def _handle_kb_starter_xml(self, body):
+        """Write a project-type standard as a P6 XML starter-schedule skeleton
+        (WBS + activities + logic + durations) the user imports into P6 and F9s.
+        Nothing is computed from a real schedule — it is the reference standard
+        rendered as P6 XML."""
+        forced_type = body.get('type', '')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.kb import load_kb
+            from p6_kb.starter import write_starter_xml
+            entry = next((e for e in load_kb() if e.get('type') == forced_type), None)
+            if not entry:   # fall back to a learned-from-your-projects standard
+                from p6_kb.learn import load_profile, learned_entry, has_learning
+                prof = load_profile(forced_type)
+                if prof and has_learning(prof):
+                    entry = learned_entry(prof)
+            if not entry:
+                self._json(200, {'ok': False, 'error': f'Unknown project type: {forced_type}'})
+                return
+            res = write_starter_xml(entry, os.path.abspath(output_path))
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/kb/learned-file (download a learned standard as a JSON file) ────
+    def _handle_kb_learned_file(self, body):
+        """Write a learned standard (recurring activities, durations and WBS the
+        tool learned from the user's own imports of this type) to a JSON file."""
+        forced_type = body.get('type', '')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.learn import load_profile, learned_entry, has_learning
+            prof = load_profile(forced_type)
+            if not prof or not has_learning(prof):
+                self._json(200, {'ok': False, 'error': f'No learned data yet for: {forced_type}'})
+                return
+            entry = learned_entry(prof)
+            with open(os.path.abspath(output_path), 'w', encoding='utf-8') as f:
+                json.dump(entry, f, ensure_ascii=False, indent=2)
+            self._json(200, {'ok': True, 'type': forced_type,
+                             'activities': len(entry['activities']), 'wbs': len(entry['wbs'])})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/database (Construction Database — schedules by project type) ───
+    def _handle_database_list(self):
+        """Every KB type with its contributed files; generated examples are always
+        available per type. Offline, no schedule needed."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.database import list_database
+            self._json(200, {'ok': True, **list_database()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_database_add(self, body):
+        """Contribute the currently-imported schedule to the Construction Database:
+        copy it into the per-user library under its detected type and index it. The
+        import already fed the learning engine; this keeps the file too."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_kb.database import add_import
+            data = parse_file(resolved)
+            rec = add_import(resolved, data, forced_type=body.get('forced_type'))
+            if rec is None:
+                self._json(200, {'ok': False, 'error': 'Could not identify the project type of this schedule — pick a type in the review and try again.'})
+                return
+            self._json(200, {'ok': True, **rec})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_database_example(self, body):
+        """Generate a downloadable example baseline for a type — a clean reference
+        or a 'with typical gaps' one — as P6 XML written to output_path."""
+        forced_type = body.get('type', '')
+        output_path = body.get('output_path', '')
+        gappy = bool(body.get('gappy'))
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.kb import load_kb
+            from p6_kb.examples import write_example_xml
+            entry = next((e for e in load_kb() if e.get('type') == forced_type), None)
+            if not entry:
+                self._json(200, {'ok': False, 'error': f'Unknown project type: {forced_type}'})
+                return
+            res = write_example_xml(entry, os.path.abspath(output_path), gappy=gappy)
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_database_download(self, body):
+        """Copy a contributed file out of the Construction Database to output_path."""
+        forced_type = body.get('type', '')
+        filename = body.get('filename', '')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import shutil
+            from p6_kb.database import contributed_path
+            src = contributed_path(forced_type, filename)
+            if not src:
+                self._json(200, {'ok': False, 'error': 'File not found in the database.'})
+                return
+            shutil.copy2(src, os.path.abspath(output_path))
+            self._json(200, {'ok': True, 'filename': os.path.basename(output_path)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/constructability/excel ────────────────────────────────────────
+    def _handle_constructability_excel(self, body):
+        """Export the Constructability findings to .xlsx from the report dict the
+        client holds — no re-parse."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.exporters import findings_excel
+            from p6_evm.xlsx_writer import write_xlsx
+            headers, rows = findings_excel(report)
+            write_xlsx(os.path.abspath(output_path), 'Constructability Findings', headers, rows)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/constructability/report ───────────────────────────────────────
+    def _handle_constructability_report(self, body):
+        """Constructability Review PDF from the report dict the client holds — no
+        re-parse. Chrome headless → PDF (same pipeline as the consultant report)."""
+        import subprocess
+        import tempfile
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        preview = bool(body.get('preview'))   # return HTML for on-screen print preview, no PDF
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.exporters import render_html
+            html_content = render_html(report)
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

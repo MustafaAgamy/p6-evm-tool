@@ -4,24 +4,36 @@ import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, e
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
+import { showKbLibrary, exitKbLibrary, initKbLibrary } from './modules/kblib.js';
+import { showDatabase, exitDatabase, initDatabase } from './modules/database.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
 import { renderPeriodPanel }                   from './modules/period.js';
 import { renderCritPathPanel }                 from './modules/critpath.js';
+import { renderUpdatePanel }                   from './modules/update.js';
 import { initTooltips }                        from './modules/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
   initTheme();
   initTooltips();
+  initKbLibrary();
+  initDatabase();
   loadHistory();
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
   document.getElementById('sb-home-btn').addEventListener('click', () => {
+    exitKbLibrary();
+    exitDatabase();
     loadAnother();
     loadHistory();
   });
+
+  // Knowledge Base — its own sidebar page (browse the project-type standards)
+  document.getElementById('sb-kb-btn').addEventListener('click', () => { exitDatabase(); showKbLibrary(); });
+  // Construction Database — downloadable schedules by type
+  document.getElementById('sb-db-btn').addEventListener('click', () => { exitKbLibrary(); showDatabase(); });
 
   document.getElementById('browse-btn').addEventListener('click', async () => {
     const path = await window.pywebview.api.choose_file();
@@ -55,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (card.dataset.view === 'compare') renderComparePanel();
       if (card.dataset.view === 'period') renderPeriodPanel();
       if (card.dataset.view === 'critpath') renderCritPathPanel();
+      if (card.dataset.view === 'update') renderUpdatePanel();
     }));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
@@ -68,10 +81,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-lag').addEventListener('click', () => switchView('lag'));
   document.getElementById('tab-period').addEventListener('click', () => { switchView('period'); renderPeriodPanel(); });
   document.getElementById('tab-critpath').addEventListener('click', () => { switchView('critpath'); renderCritPathPanel(); });
+  document.getElementById('tab-update').addEventListener('click', () => { switchView('update'); renderUpdatePanel(); });
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {
+    exitKbLibrary();
+    exitDatabase();
     if (state.currentResult) {
+      document.getElementById('results-section').classList.remove('hidden');
       switchView('audit');
       document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
@@ -99,6 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
       showError('Please drop a .xml or .xer file exported from Primavera P6.');
       return;
     }
+    exitKbLibrary();
+    exitDatabase();
     importFile(file.path);
   });
 

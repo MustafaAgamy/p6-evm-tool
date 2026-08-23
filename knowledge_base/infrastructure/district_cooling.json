@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "District Cooling Plant & Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["district cooling", "chilled water", "chiller", "cooling plant", "thermal storage", "tes tank",
+                 "energy transfer station", "distribution network", "condenser water", "cooling tower", "primary pump"],
+  "wbs": [
+    {"name": "Plant Building & Civil", "keywords": ["civil", "foundation", "plant building", "structure", "pump house"]},
+    {"name": "Chillers & Condenser Water", "keywords": ["chiller", "condenser water", "cooling tower", "heat rejection"]},
+    {"name": "Thermal Energy Storage (TES)", "keywords": ["thermal storage", "tes tank", "stratified", "storage tank"]},
+    {"name": "Pumping & Primary Plant", "keywords": ["primary pump", "pump", "header", "chilled water plant"]},
+    {"name": "Distribution Network (Pipework)", "keywords": ["distribution network", "pipeline", "chilled water pipe", "pre-insulated", "trench"]},
+    {"name": "Energy Transfer Stations (ETS)", "keywords": ["ets", "energy transfer station", "heat exchanger", "consumer"]},
+    {"name": "Electrical, BMS & Controls", "keywords": ["electrical", "bms", "controls", "scada", "power"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "flushing", "performance"]}
+  ],
+  "activities": [
+    {"name": "Chiller Installation & Alignment", "keywords": ["chiller", "chiller install"], "wbs": "Chillers & Condenser Water",
+     "typical_pred": "Plant Building Structure", "typical_succ": "Plant Commissioning", "duration_days": 40,
+     "why": "The chillers are the long-lead core plant, installed into the building and central to the schedule."},
+    {"name": "Thermal Energy Storage Tank", "keywords": ["thermal storage", "tes tank", "storage tank"], "wbs": "Thermal Energy Storage (TES)",
+     "typical_pred": "Tank Foundation", "typical_succ": "Plant Commissioning", "duration_days": 45,
+     "why": "The stratified TES tank shifts peak load; its construction and integration are a distinctive, often under-planned scope."},
+    {"name": "Distribution Network Flushing & Testing", "keywords": ["flushing", "pressure test", "network test", "chilled water pipe"], "wbs": "Distribution Network (Pipework)",
+     "typical_pred": "Network Pipe Installation", "typical_succ": "Plant Commissioning", "duration_days": 30,
+     "why": "The buried chilled-water network must be pressure-tested and flushed before the plant can serve consumers."},
+    {"name": "Performance Test / First Cooling", "keywords": ["performance test", "first cooling", "trial"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Plant Commissioning", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A performance test proves plant capacity and network delivery before consumers are connected."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["plant building", "structure", "foundation"], "after_keywords": ["chiller install", "pump", "equipment install"],
+     "reason": "Chillers and pumps install into the completed plant building.",
+     "impact": "Critical"},
+    {"before_keywords": ["network pipe", "distribution", "flushing", "pressure test"], "after_keywords": ["plant commission", "first cooling", "consumer"],
+     "reason": "The plant serves consumers only after the distribution network is installed, pressure-tested and flushed.",
+     "impact": "Critical"},
+    {"before_keywords": ["install", "installation", "chiller"], "after_keywords": ["commission", "performance test"],
+     "reason": "Commissioning and performance testing follow plant installation.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Plant Building Complete", "Chillers Installed", "Network Tested", "Performance Test", "Handover"],
+  "common_issues": ["Plant install before building ready", "TES tank scope under-planned",
+                    "Network not flushed/tested before plant commissioning", "No performance-test phase"]
+}
