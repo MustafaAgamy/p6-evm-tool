@@ -50,11 +50,32 @@ def test_path_boxes_returns_chain():
     r = path_boxes(d)
     assert r['milestone']['name'] == 'Completion'
     names = [b['name'] for b in r['boxes']]
-    # box title = the driving ACTIVITY name (leaf), with its full WBS chain in the crumb
-    assert 'Foundations work' in names and 'MEP work' in names
+    # box title = the work-front WBS name (whose rollup the box data is), not the activity
+    assert 'Foundations' in names and 'MEP' in names
     assert len(r['boxes']) == 3
-    # the crumb carries the full WBS path, '@'-prefixed
-    assert all(b['crumb'].startswith('@') for b in r['boxes'])
+
+
+def test_box_crumb_is_parent_wbs_chain():
+    from p6_critpath.paths import path_boxes
+    d = ScheduleData()
+    d.project = {'name': 'Proj', 'data_date': datetime(2025, 8, 22)}
+    d.wbs = {'ROOT': {'name': 'Proj', 'parent_object_id': None},
+             'SCW': {'name': 'Silos Civil Works', 'parent_object_id': 'ROOT'},
+             'PC': {'name': 'Phase C', 'parent_object_id': 'SCW'},
+             'S9': {'name': 'Silo 9', 'parent_object_id': 'PC'}}
+    d.activities = {
+        'A': {'id': 'A1', 'name': 'Piles', 'task_type': 'Task', 'calendar_id': None, 'wbs_id': 'S9',
+              'percent_complete': 0.4, 'total_float_days': 0.0, 'object_id': 'A',
+              'remaining_early_finish': datetime(2025, 10, 1), 'planned_finish': datetime(2025, 10, 1)},
+        'MS': {'id': 'M0', 'name': 'Completion', 'task_type': 'FinishMilestone', 'calendar_id': None,
+               'wbs_id': 'ROOT', 'total_float_days': -5,
+               'remaining_early_finish': datetime(2025, 10, 1), 'planned_finish': datetime(2025, 10, 1)}}
+    d.relationships = [{'pred_id': 'A', 'succ_id': 'MS', 'type': 'FS', 'lag_days': 0.0}]
+    d.baseline_by_id = {'A1': {'planned_start': datetime(2025, 1, 1), 'planned_finish': datetime(2025, 10, 1)},
+                        'M0': {'planned_start': datetime(2025, 8, 22), 'planned_finish': datetime(2025, 9, 1)}}
+    box = path_boxes(d)['boxes'][0]
+    assert box['name'] == 'Silo 9'                          # the work-front WBS, not the activity
+    assert box['crumb'] == '@Phase C @Silos Civil Works'    # parents, immediate-first, root dropped
 
 
 def test_path_diff_detects_reroute():
@@ -63,9 +84,9 @@ def test_path_diff_detects_reroute():
     diff = path_diff(prev['boxes'], curr['boxes'])
     entered = [b['name'] for b in diff['entered']]
     left = [b['name'] for b in diff['left']]
-    assert 'MEP work' in entered
-    assert 'Roof work' in left
-    assert any(b['name'] == 'Foundations work' for b in diff['stayed'])
+    assert 'MEP' in entered
+    assert 'Roof' in left
+    assert any(b['name'] == 'Foundations' for b in diff['stayed'])
 
 
 def test_milestone_list_across_schedules():

@@ -316,10 +316,10 @@ def _census(report):
         sub = f'<div class="thdd">{_e(dd)}</div>' if dd else ''
         return f'<th class="num">{label}{sub}</th>'
 
-    # (label, getter, delta-key, delta-unit, cumulative)  cumulative rows = Critical & Near.
+    # (label, getter, delta-key, delta-unit, cumulative)  All rows = PLAIN difference now.
     rows = [
-        ('Critical activities (TF ≤ 0)', lambda o: cnt(o, 'critical', 'critical_pct', True), 'critical_pct', ' pts', True),
-        ('Near-critical (0 &lt; TF &lt; 10 wd)', lambda o: cnt(o, 'near', 'near_pct'), 'near_pct', ' pts', True),
+        ('Critical activities (TF ≤ 0)', lambda o: cnt(o, 'critical', 'critical_pct', True), 'critical_pct', ' pts', False),
+        ('Near-critical (0 &lt; TF &lt; 10 wd)', lambda o: cnt(o, 'near', 'near_pct'), 'near_pct', ' pts', False),
         ('Critical path length (remaining, wd)', lambda o: '—' if o.get('path_length_wd') is None else f"{o['path_length_wd']} wd", 'path_length_wd', ' wd', False),
         ('Total float · finish (wd)', lambda o: '—' if o.get('total_float_wd') is None else f"{o['total_float_wd']} wd", 'total_float_wd', ' wd', False),
         ('CPLI', lambda o: _cpli(o.get('cpli')), 'cpli', '', False),
@@ -336,9 +336,8 @@ def _census(report):
                  + cell('baseline', get(bl)) + cell('previous', get(prev)) + cell('current', get(cur))
                  + (dcell(key, unit, cumulative, ['previous', 'current'], 'current', 'previous') if has('previous') else '')
                  + (dcell(key, unit, cumulative, ['baseline', 'previous', 'current'], 'current', 'baseline') if has('baseline') else '') + '</tr>')
-    note = ('<div class="note">Critical &amp; near-critical variances are <b>cumulative</b> — the % columns summed '
-            '(this period = Previous + Current; vs baseline = Baseline + Previous + Current) — because near-critical '
-            'eroding means those activities crossed into critical.</div>')
+    note = ('<div class="note">Every variance is the <b>plain difference</b> — current minus the compared '
+            'schedule (e.g. baseline 28% → current 62% = +34 pts). All shown red.</div>')
     foot = ''
     if any(src(r) == 'path' for r in roles):
         foot = ('<div class="note"><b>†</b> This schedule has no activity float in its export, so its critical '

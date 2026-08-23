@@ -114,12 +114,13 @@ def _crumb(wbs_id, wmap):
     return ' · '.join(list(reversed(names))[1:])   # drop project root
 
 
-def _full_crumb(wbs_id, wmap):
-    """The FULL WBS path of a work front, immediate-first, each level prefixed with '@' —
-    e.g. '@Silo 9 @Phase C @Silos Civil Works'. The project root (top-most WBS) is dropped,
-    since it just repeats the report title. So a box reads: <driving activity> @<its WBS> @…up."""
-    ids = _wbs_ancestor_ids(wbs_id, wmap)          # [self, parent, …, root]
-    if len(ids) > 1:
+def _crumb_above(wbs_id, wmap):
+    """The WBS levels ABOVE this work front (its parents), immediate-first, each prefixed with '@'
+    — e.g. '@Phase C @Silos Civil Works'. The work front's own WBS is the box TITLE, so it is not
+    repeated here; the project root (top-most WBS) is dropped since it just repeats the report title.
+    So a box reads:  <WBS title>  ·  @<parent> @<grandparent> …"""
+    ids = _wbs_ancestor_ids(wbs_id, wmap)[1:]      # parent … root  (drop self — it is the title)
+    if ids:
         ids = ids[:-1]                             # drop the project root
     names = [n for n in (_wbs_name(i, wmap) for i in ids) if n]
     return ' '.join('@' + n for n in names)
@@ -238,10 +239,11 @@ def path_boxes(data, milestone_code=None, summary_level=0, construction_only=Tru
         driver = box_driver[wid]
         boxes.append({
             'wbs_id': wid,
-            # Title = the driving activity (the specific work), then the full WBS chain in the crumb
-            # → "Piles @Level +2.25" · "@Silo 9 @Phase C @Silos Civil Works" (Ibrahim's criteria).
-            'name': driver.get('name') or driver.get('id') or _wbs_name(wid, wmap),
-            'crumb': _full_crumb(wid, wmap),
+            # Title = the WORK-FRONT WBS (whose rollup the box's Planned/Actual/dates are — NOT a
+            # single activity), then its parent WBS levels in the crumb → "Silo 9" · "@Phase C
+            # @Silos Civil Works" (Ibrahim: the box data is the WBS's data, so the WBS leads).
+            'name': _wbs_name(wid, wmap) or driver.get('name') or driver.get('id'),
+            'crumb': _crumb_above(wid, wmap),
             'pct': pct,
             'planned': planned,
             'complete': pct >= 100.0,
