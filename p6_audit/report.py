@@ -688,11 +688,11 @@ def _pnum(v):
     return str(v)
 
 
-def render_summary_report(health, meta, sections=None, modules=None):
+def render_summary_report(health, meta, sections=None, modules=None, completion_float=None):
     """Standalone PDF for the Schedule Health Review Summary — the weighted roll-up.
     Mirrors the on-screen dashboard exactly: overall score + verdict, checks-status
-    (counts + circular gate + status bands), headline stats (incl. completion total
-    float), sub-feature composition, problem areas, fix-first and conclusion."""
+    (donut + counts + circular gate + status bands), headline stats (incl. completion
+    total float), sub-feature composition, problem areas, fix-first and conclusion."""
     h = health or {}
     meta = meta or {}
     modules = modules or {}
@@ -710,7 +710,29 @@ def render_summary_report(health, meta, sections=None, modules=None):
     total = h.get('total_count') or len(subs) or 1
     p_n, r_n, c_n, nc_n = (counts.get('Pass', 0), counts.get('Review', 0),
                            counts.get('Critical', 0), counts.get('Not computed', 0))
-    comp_float = ((modules.get('cpli') or {}).get('kpis') or {}).get('project_total_float_days')
+    comp_float = (completion_float if completion_float is not None
+                  else ((modules.get('cpli') or {}).get('kpis') or {}).get('project_total_float_days'))
+
+    # Checks-status donut (conic-gradient) — the same chart the screen shows.
+    _t = max(1, total)
+    a1 = 100.0 * p_n / _t
+    a2 = a1 + 100.0 * r_n / _t
+    a3 = a2 + 100.0 * c_n / _t
+    donut = (f'<div style="width:74px;height:74px;border-radius:50%;flex-shrink:0;'
+             f'background:conic-gradient(#2e8b57 0 {a1:.1f}%,#e07b1a {a1:.1f}% {a2:.1f}%,'
+             f'#c0392b {a2:.1f}% {a3:.1f}%,#8a93a0 {a3:.1f}% 100%)">'
+             f'<div style="width:46px;height:46px;margin:14px;background:#fff;border-radius:50%;'
+             f'display:flex;flex-direction:column;align-items:center;justify-content:center">'
+             f'<b style="font-size:17px;color:#1f2a37;line-height:1">{p_n}</b>'
+             f'<span style="font-size:7px;color:#8a93a0">of {total} pass</span></div></div>')
+    _leg = [('#2e8b57', 'Pass', p_n), ('#e07b1a', 'Review', r_n), ('#c0392b', 'Critical', c_n)]
+    if nc_n:
+        _leg.append(('#8a93a0', 'Not computed', nc_n))
+    _leg.append(('#2e8b57' if gate_clear else '#c0392b', 'Circular gate', 'clear' if gate_clear else 'blocking'))
+    donut_legend = ''.join(
+        f'<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:9.5px">'
+        f'<span style="width:9px;height:9px;border-radius:2px;background:{col};display:inline-block"></span>'
+        f'{lab} <b style="margin-left:auto">{val}</b></div>' for col, lab, val in _leg)
 
     def _tone(s):
         return '#8a93a0' if s is None else ('#2e8b57' if s >= 85 else '#e07b1a' if s >= 60 else '#c0392b')
@@ -733,14 +755,6 @@ def render_summary_report(health, meta, sections=None, modules=None):
     comp += (f'<tr style="background:#eef3f9;font-weight:700"><td>Overall Schedule Health</td>'
              f'<td class="num">{score_txt}%</td><td class="num">{_pnum(weight_covered)}</td>'
              f'<td class="num">—</td><td></td></tr>')
-
-    # Checks-status chips + circular gate
-    chips = (f'<span class="chip" style="background:#2e8b57">Pass {p_n}</span>'
-             f'<span class="chip" style="background:#e07b1a">Review {r_n}</span>'
-             f'<span class="chip" style="background:#c0392b">Critical {c_n}</span>'
-             + (f'<span class="chip" style="background:#8a93a0">Not computed {nc_n}</span>' if nc_n else '')
-             + f'<span class="chip" style="background:{"#2e8b57" if gate_clear else "#c0392b"}">'
-               f'Circular gate {"clear" if gate_clear else "blocking"}</span>')
 
     # Headline stat cards
     cf_txt = '—' if comp_float is None else f'{_pnum(comp_float)} d'
@@ -832,7 +846,7 @@ def render_summary_report(health, meta, sections=None, modules=None):
     </div>
     <div class="card3 mid">
       <div class="ct">Checks status &nbsp;·&nbsp; {total} sub-features</div>
-      <div>{chips}</div>
+      <div style="display:flex;gap:14px;align-items:center">{donut}<div style="flex:1">{donut_legend}</div></div>
       <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass &ge; 95</div></div>
       <div class="bnote">How status is decided — each check's score against the per-check bands. A check below 95 needs review; below 90 is critical. Per-check targets adjust where DCMA differs — e.g. FS &ge; 90%. The overall baseline is submit-ready at &ge; 80%.</div>
     </div>

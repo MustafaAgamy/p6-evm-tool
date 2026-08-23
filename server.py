@@ -827,7 +827,13 @@ class Handler(BaseHTTPRequestHandler):
         mods = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
         is_summary = (module == '__summary__')
         m = None if is_summary else (mods or {}).get('modules', {}).get(module)
-        if is_summary and not (mods or {}).get('health'):
+        # For the Summary, prefer the health the client is CURRENTLY showing so the PDF
+        # matches the screen exactly (incl. the Milestone Check the user just entered);
+        # fall back to the DB roll-up for a re-opened project.
+        summary_health = body.get('health') if is_summary else None
+        if is_summary and not summary_health:
+            summary_health = (mods or {}).get('health')
+        if is_summary and not summary_health:
             self._json(200, {'ok': False, 'error': 'No Summary available for this schedule.'})
             return
         if not is_summary and not m:
@@ -837,8 +843,9 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_audit.report import render_module_report, render_summary_report
             import subprocess, tempfile
-            html_content = (render_summary_report(mods['health'], meta_in, sections=body.get('sections'),
-                                                   modules=(mods or {}).get('modules'))
+            html_content = (render_summary_report(summary_health, meta_in, sections=body.get('sections'),
+                                                   modules=(mods or {}).get('modules'),
+                                                   completion_float=body.get('completion_float'))
                             if is_summary else render_module_report(m, meta_in, sections=body.get('sections')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
@@ -1262,6 +1269,7 @@ class Handler(BaseHTTPRequestHandler):
         milestones = body.get('milestones') or []
         db.save_contract_milestones(pid, milestones)
         module = None
+        health = None
         resolved = db.get_snapshot_xml_path(sid)
         if resolved:
             try:
@@ -1271,6 +1279,7 @@ class Handler(BaseHTTPRequestHandler):
                 from p6_audit import audit_modules as run_audit_modules
                 from p6_audit.graph import ScheduleGraph
                 from p6_audit.milestone_check import build_milestone_module
+                from p6_audit.health import schedule_health
                 with open(resource_path('config.json')) as f:
                     config = json.load(f)
                 data = parse_file(resolved)
@@ -1278,9 +1287,13 @@ class Handler(BaseHTTPRequestHandler):
                 am = run_audit_modules(data, config)
                 hard = (am.get('modules') or {}).get('hard_constraints')
                 module = build_milestone_module(hard, ScheduleGraph(data), milestones)
+                # recompute the roll-up with the milestone applied, so the screen (and any
+                # Summary PDF built from it) reflect the just-entered contract milestones
+                am['modules']['hard_constraints'] = module
+                health = schedule_health(am['modules'])
             except Exception as mexc:
                 print(f'[milestone] save recompute skipped: {mexc}', file=sys.stderr)
-        self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module})
+        self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
 
     # ── /api/history ───────────────────────────────────────────────────────
     def _handle_history(self):

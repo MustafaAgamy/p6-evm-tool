@@ -120,6 +120,15 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   const module = state.currentModule;
   const reqBody = { snapshot_id: state.currentSnapshotId, module, meta: moduleMeta() };
 
+  // Summary PDF: send the health the screen is CURRENTLY showing so the PDF matches
+  // exactly (incl. a Milestone Check the user just entered), plus the completion float
+  // (from the CPLI module) for the headline stat.
+  if (module === '__summary__' && state.currentModules) {
+    reqBody.health = state.currentModules.health || null;
+    const ck = ((state.currentModules.modules || {}).cpli || {}).kpis || {};
+    reqBody.completion_float = ck.project_total_float_days;
+  }
+
   // Report-content selector — the sections this check exposes + the remembered choice.
   // Fully generic: ANY module that carries a presentation.sections list gets the picker,
   // so every current and future feature inherits it automatically.

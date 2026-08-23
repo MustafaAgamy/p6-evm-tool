@@ -604,7 +604,7 @@ function renderCpliModule(m) {
   const tiles = [
     ['Critical %', k.critical_pct == null ? '—' : `${k.critical_pct}%`],
     ['Critical Activities', k.critical_count == null ? '—' : Number(k.critical_count).toLocaleString()],
-    ['CPLI (context)', ratioComputable ? `${ratioPct}%` : '—'],
+    ['CPLI', ratioComputable ? `${ratioPct}%` : '—'],
     ['Completion Total Float', dnum(k.project_total_float_days)],
     ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
     ['Finish Milestone', fmTile],
@@ -629,9 +629,10 @@ function renderCpliModule(m) {
     <div class="shr-legend">
       <b>How it's scored.</b> The score is the <b>critical-path density</b> — the share of task-dependent activities on the critical path. A schedule with many critical activities is fragile (small slips ripple), so fewer critical = a higher score.
       <div style="margin-top:5px">Band: ≤ 25% → 100 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 75 · &gt; 40% → 60.</div>
+      <div style="margin-top:5px">Grade of the score: 100 = Excellent · 90 = Acceptable · below 90 (85 / 75 / 60) = Critical.</div>
     </div>
     <div class="shr-legend">
-      <b>Context — CPLI ratio &amp; baseline rule (not the score).</b> CPLI = (CPL + TF) ÷ CPL = <b>${ratioComputable ? `${ratioPct}%` : '—'}</b> — DCMA 14-Point, Point 13 (target ≥ 95%). Completion total float = <b>${dnum(k.project_total_float_days)}</b>. Ibrahim's baseline rule: total float must be ≥ 0; negative float is a re-plan signal.
+      <b>Context — CPLI ratio &amp; baseline rule (not the score).</b> CPLI = (CPL + TF) ÷ CPL = <b>${ratioComputable ? `${ratioPct}%` : '—'}</b> — DCMA 14-Point, Point 13 (target ≥ 95%). Completion total float = <b>${dnum(k.project_total_float_days)}</b>.
     </div>
     <div class="mod-sec">Driving path <span class="mod-sub">— the activities P6 flags critical, in sequence</span></div>
     ${cpliGantt(m.findings || [], m.kpis || {})}`;
@@ -787,6 +788,7 @@ async function submitMilestones(am) {
     }).then(r => r.json());
     if (resp.ok && resp.milestone_module) {
       am.modules.hard_constraints = resp.milestone_module;   // now carries the evals; needs_input=false
+      if (resp.health) am.health = resp.health;              // keep the roll-up (donut/counts) in sync
       renderAudit(am);                                        // un-gated
       selectModule('hard_constraints');                      // land on the Milestone Check
     } else {

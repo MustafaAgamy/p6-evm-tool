@@ -245,7 +245,7 @@ def _cpli_tiles(k):
     return [
         ('Critical %', _pct(k.get('critical_pct')) if k.get('critical_pct') is not None else '—'),
         ('Critical Activities', _num(k.get('critical_count')) if k.get('critical_count') is not None else '—'),
-        ('CPLI (context)', f"{_plain(k.get('cpli_pct'))}%" if cpli_ratio is not None else '—'),
+        ('CPLI', f"{_plain(k.get('cpli_pct'))}%" if cpli_ratio is not None else '—'),
         ('Completion Total Float', _days(k.get('project_total_float_days'))),
         ('Critical Path Length', cpl_txt),
         ('Finish Milestone', _fmt_date(k.get('finish_date')) if k.get('finish_date') else (k.get('finish_milestone_id') or '—')),
@@ -315,7 +315,8 @@ def _scoring(m):
     if mod == 'cpli':
         return {'formula': 'Score = critical-path density — the share of activities on the critical path',
                 'derivation': _cpli_verdict(m),
-                'bands': '≤ 25% → 100 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 75 · > 40% → 60',
+                'bands': ('≤ 25% → 100 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 75 · > 40% → 60'
+                          '  ·  grade: 100 Excellent · 90 Acceptable · below 90 Critical'),
                 'benchmark': ref}
     if mod == 'circular':
         loops = k.get('loops', 0) or 0
