@@ -208,46 +208,75 @@ def _shift_working_days(cal, start, n):
     return d
 
 
+_ALL_WEEK = {'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'}
+
+
+def _is_degenerate(cal):
+    """A calendar whose standard week has NO working day (e.g. a 24-hour continuous
+    calendar parsed as all-days-off) — is_working_day is always False, so it must never
+    be the reference calendar or every bad-weather day looks 'non-working'."""
+    nwd = set(getattr(cal, 'nonworking_days', set()) or set())
+    return nwd >= _ALL_WEEK
+
+
+def _pick_primary(calendars, con_ids, counts):
+    """The single reference construction calendar: the DOMINANT valid one (most
+    construction activities), preferring non-degenerate calendars, chosen deterministically
+    (never by set-iteration order — that arbitrariness caused the day-list/finish/milestone
+    contradiction on multi-calendar schedules)."""
+    valid = [c for c in con_ids if c in calendars]
+    if not valid:
+        return None
+    counts = counts or {}
+
+    def key(cid):
+        cal = calendars[cid]
+        return (1 if _is_degenerate(cal) else 0,          # non-degenerate first
+                -counts.get(cid, 0),                       # then most construction activities
+                0 if getattr(cal, 'is_default', False) else 1,
+                str(cid))                                  # stable final tie-break
+    return sorted(valid, key=key)[0]
+
+
 def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
                    project_finish, daily_weather, forecast_horizon,
                    thresholds=None, config=None, construction_activities=None,
-                   site_type=None):
+                   site_type=None, construction_cal_counts=None):
     thresholds = thresholds or DEFAULT_THRESHOLDS
     data_date = _to_date(data_date)
     project_finish = _to_date(project_finish)
     forecast_horizon = _to_date(forecast_horizon) if forecast_horizon else data_date
     con_ids = [c for c in construction_cal_ids if c in calendars]
-    primary_con = con_ids[0] if con_ids else None
+    # ONE reference construction calendar drives the day-list, the finish AND every
+    # milestone, so the three never disagree. Pick the DOMINANT valid calendar (most
+    # construction activities), skipping any degenerate all-days-off / 24h-continuous
+    # calendar — using that as the reference made every bad day look "non-working" and
+    # hid the real slip (the bug Ibrahim hit on the grain terminal).
+    primary_con = _pick_primary(calendars, con_ids, construction_cal_counts)
     primary_cal = calendars.get(primary_con) if primary_con else None
 
     bad = bad_weather_days(daily_weather, thresholds)
     remaining = {d: lbl for d, lbl in bad.items() if data_date < d <= project_finish}
+    # Lost construction days = bad days landing on a WORKING day of the reference calendar.
+    # Days already off (weekend / holiday / shutdown) carry no impact, so they never move a
+    # milestone or trigger a recovery option (Ibrahim's rule).
+    lost = {d for d in remaining if primary_cal and primary_cal.is_working_day(d)}
 
-    def counts(cal, upto):
-        total = net = 0
-        for d in remaining:
-            if d <= upto:
-                total += 1
-                if cal and cal.is_working_day(d):
-                    net += 1
-        return total, net
-
-    # Milestones (weather affects construction; a non-construction milestone still
-    # inherits delay from the construction path via the primary construction calendar).
+    # Milestones — same reference calendar as the finish, so a milestone can never show a
+    # slip the headline finish doesn't (and vice-versa).
     ms = []
     for m in milestones:
         mdate = _to_date(m['date'])
-        cal = calendars.get(m.get('cal_id')) if m.get('cal_id') in construction_cal_ids else None
-        eff = cal or (primary_cal if con_ids else None)
-        total, net = counts(eff, mdate)
+        before = sum(1 for d in remaining if d <= mdate)
+        net = sum(1 for d in lost if d <= mdate)
         ms.append({
             'name': m['name'], 'planned': mdate.isoformat(),
-            'bad_days_before': total, 'already_allowed': total - net,
+            'bad_days_before': before, 'already_allowed': before - net,
             'net_delay': net,
-            'adjusted': _shift_working_days(eff, mdate, net).isoformat(),
+            'adjusted': _shift_working_days(primary_cal, mdate, net).isoformat(),
         })
 
-    _, net_finish = counts(primary_cal if con_ids else None, project_finish)
+    net_finish = len(lost)   # every lost day is within (data_date, project_finish]
     adjusted_finish = _shift_working_days(primary_cal, project_finish, net_finish)
 
     # Breakdown of the flagged days by cause (a day can hit more than one limit,
@@ -272,7 +301,7 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     day_hours = primary_cal.day_hours if primary_cal else 8.0
     bad_list = []
     for d in sorted(remaining):
-        working = bool(primary_cal and primary_cal.is_working_day(d))
+        working = d in lost
         # Brief by WBS / work package, de-duplicated (Ibrahim's rule): all the pile
         # activities under "Pile Works" show as "Pile Works" once, not one row each.
         wbs_brief = []
@@ -390,6 +419,7 @@ def weather_inputs(data):
     classify = build_wbs_classifier(data)
 
     construction_cal_ids = set()
+    construction_cal_counts = {}          # {cal_id: # real construction activities on it}
     construction_activities = []
     for a in data.activities.values():
         anc = wbs_ancestor_names(a.get('wbs_id'), data.wbs)   # nearest named WBS first, up to root
@@ -401,6 +431,10 @@ def weather_inputs(data):
         # Real construction work (not milestones) — for the per-day "affected work" brief.
         if a.get('task_type') in ('StartMilestone', 'FinishMilestone'):
             continue
+        # The reference calendar is the one MOST construction activities are assigned to
+        # (Ibrahim's rule), so count real activities per calendar.
+        if cid and cid in data.calendars:
+            construction_cal_counts[cid] = construction_cal_counts.get(cid, 0) + 1
         s = _to_date(a.get('planned_start'))
         if s:
             # Brief by the NEAREST NAMED WBS / work package (P6 often leaves the activity's
@@ -429,6 +463,7 @@ def weather_inputs(data):
     return {
         'calendars': data.calendars,
         'construction_cal_ids': construction_cal_ids,
+        'construction_cal_counts': construction_cal_counts,
         'construction_activities': construction_activities,
         'milestones': milestones,
         'data_date': _to_date(data.project.get('data_date')) if data.project.get('data_date') else None,

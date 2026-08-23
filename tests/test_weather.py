@@ -229,6 +229,73 @@ def test_bad_days_brief_falls_back_to_name_without_wbs():
     assert next(d for d in r['bad_days'] if d['date'] == '2025-06-03')['activities'] == ['Pour']
 
 
+# ── Multi-calendar consistency (the grain-terminal discrepancy fix) ──────────
+
+def _multi_cal():
+    """A dominant 5-day construction calendar + a degenerate 24h/all-off calendar,
+    mirroring the grain terminal (Roots Silos 6591 vs the 24-Hrs 6592)."""
+    main = Calendar(object_id='MAIN', name='Main 6d',
+                    nonworking_days={'Friday', 'Saturday'}, day_hours=8.0)
+    cont = Calendar(object_id='CONT', name='24h',
+                    nonworking_days={'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+                                     'Friday', 'Saturday', 'Sunday'}, day_hours=24.0)
+    return main, cont
+
+
+def test_reference_calendar_is_the_one_with_most_activities():
+    """Ibrahim's rule: the calendar that decides working vs non-working is the one MOST
+    construction activities are assigned to — chosen deterministically, never set-order."""
+    main, cont = _multi_cal()
+    daily = {date(2025, 6, 3): {'rain_mm': 15}}      # Tue — working on MAIN, 'off' on CONT
+    r = weather_impact(
+        calendars={'MAIN': main, 'CONT': cont},
+        construction_cal_ids={'MAIN', 'CONT'},
+        construction_cal_counts={'MAIN': 1438, 'CONT': 17},   # MAIN dominates (like 6591)
+        milestones=[{'name': 'Completion', 'date': date(2025, 6, 20), 'cal_id': 'CONT'}],
+        data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather=daily, forecast_horizon=date(2025, 6, 8),
+        thresholds=DEFAULT_THRESHOLDS)
+    bd = next(d for d in r['bad_days'] if d['date'] == '2025-06-03')
+    assert bd['effect'].startswith('Non-working')            # a working (lost) day, not "falls on non-working"
+    assert r['net_finish_delay'] == 1                        # counted on the dominant calendar
+    # day-list, finish AND milestone all agree (even though the milestone's own cal is CONT)
+    assert r['milestones'][0]['net_delay'] == 1
+    assert r['weather_adjusted_finish'] > '2025-06-30'
+
+
+def test_degenerate_24h_calendar_never_becomes_the_reference():
+    """Even if the degenerate all-days-off (24h) calendar has MORE activities, it must not
+    be the reference — it would mark every bad day non-working and hide the real slip."""
+    main, cont = _multi_cal()
+    daily = {date(2025, 6, 3): {'rain_mm': 15}}      # Tue
+    r = weather_impact(
+        calendars={'MAIN': main, 'CONT': cont},
+        construction_cal_ids={'MAIN', 'CONT'},
+        construction_cal_counts={'MAIN': 5, 'CONT': 100},     # CONT has more, but is degenerate
+        milestones=[], data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather=daily, forecast_horizon=date(2025, 6, 8), thresholds=DEFAULT_THRESHOLDS)
+    assert r['net_finish_delay'] == 1                        # still counts on MAIN, not the 24h calendar
+    assert next(d for d in r['bad_days'] if d['date'] == '2025-06-03')['effect'].startswith('Non-working')
+
+
+def test_finish_equals_completion_milestone_no_contradiction():
+    """The headline weather-adjusted finish must equal the completion milestone's adjusted
+    date when they share the project-finish date — no dashboard-vs-table contradiction."""
+    main, cont = _multi_cal()
+    daily = {date(2025, 6, 3): {'rain_mm': 15}, date(2025, 6, 10): {'rain_mm': 15}}  # both Tue, working
+    finish = date(2025, 6, 30)
+    r = weather_impact(
+        calendars={'MAIN': main, 'CONT': cont},
+        construction_cal_ids={'MAIN', 'CONT'},
+        construction_cal_counts={'MAIN': 100, 'CONT': 3},
+        milestones=[{'name': 'Project Completion', 'date': finish, 'cal_id': 'MAIN'}],
+        data_date=date(2025, 6, 1), project_finish=finish,
+        daily_weather=daily, forecast_horizon=date(2025, 6, 8), thresholds=DEFAULT_THRESHOLDS)
+    completion = next(m for m in r['milestones'] if m['name'] == 'Project Completion')
+    assert r['weather_adjusted_finish'] == completion['adjusted']   # dashboard == table
+    assert r['net_finish_delay'] == completion['net_delay'] == 2
+
+
 # ── Site-type presets (the East Port Said fix) ───────────────────────────────
 
 def test_desert_preset_equals_current_default():
