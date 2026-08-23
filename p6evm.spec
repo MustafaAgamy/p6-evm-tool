@@ -10,6 +10,8 @@
 import sys
 from pathlib import Path
 
+from PyInstaller.utils.hooks import collect_submodules
+
 block_cipher = None
 
 # ── Data files bundled into the .exe ──────────────────────────────────────
@@ -49,6 +51,17 @@ hiddenimports = [
     'p6_kb.model',
     'p6_kb.scoring',
 ]
+
+# Collect EVERY submodule of the in-tree packages so nothing loaded via a deferred /
+# in-function import (server.py loads p6_report and several p6_kb modules lazily) is
+# dropped from the .exe — this bit us before (an empty catalog / missing feature that
+# only showed on the built exe, never in dev or tests). p6_report registers the
+# Global Print-Preview features on import, so its submodules must ship.
+for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare'):
+    try:
+        hiddenimports += collect_submodules(_pkg)
+    except Exception:
+        pass
 
 a = Analysis(
     ['app.py'],
