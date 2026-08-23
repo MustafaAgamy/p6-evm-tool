@@ -10,6 +10,7 @@ This is also the worked example other modules copy: register a spec builder that
 returns the feature's title, CSS and an ordered list of components.
 """
 from p6_kb import exporters as X
+from p6_kb.scoring import STRENGTH_DISPLAY
 from p6_report.registry import ReportComponent, ReportSpec, register
 
 FEATURE = 'constructability'
@@ -52,75 +53,93 @@ def _conclusion(report):
 
 _STRENGTH_HEX = {'strong': '#dc2626', 'moderate': '#d97706', 'weak': '#64748b', 'insufficient': '#94a3b8'}
 _BAND_HEX = {'green': '#16a34a', 'amber': '#d97706', 'orange': '#ea580c', 'red': '#dc2626'}
+_CONF_HEX = {'high': '#16a34a', 'medium': '#d97706', 'low': '#64748b'}
+
+_CONF_LEGEND = [('High', 'strong and consistent evidence from the schedule'),
+                ('Medium', 'sufficient evidence, but some ambiguity remains'),
+                ('Low', 'limited or conflicting evidence')]
+_SCORE_LEGEND = [('green', '80–100', 'Low Risk'), ('amber', '60–79', 'Moderate Risk'),
+                 ('orange', '40–59', 'Significant Risk'), ('red', '0–39', 'High Risk')]
+_SEV_LEGEND = [('strong', 'Strong', 'significant execution / constructability risk'),
+               ('moderate', 'Moderate', 'meaningful sequencing concern'),
+               ('weak', 'Low', 'minor or lower-impact concern')]
 
 
-def _evidence_score(report):
-    """The MEP-first evidence-weighted score — a second, distinct score beside the KB
-    Constructability score, computed only from the R1–R7 findings."""
-    s = report.get('v2_score') or {}
-    if not s:
-        return ''
-    hexb = _BAND_HEX.get(s.get('band'), '#64748b')
-    bys = s.get('by_strength', {})
-    chips = ' '.join(
-        f'<span class="schip" style="background:{_STRENGTH_HEX.get(k, "#64748b")}1a;'
-        f'color:{_STRENGTH_HEX.get(k, "#64748b")};border-color:{_STRENGTH_HEX.get(k, "#64748b")}55">'
-        f'{n} {X._e(k)}</span>'
-        for k, n in bys.items())
-    ded = ''
-    for d in s.get('deductions', [])[:8]:
-        ded += (f'<tr><td class="mono">−{d.get("points")}</td>'
-                f'<td class="mono">{X._e(d.get("system"))}</td>'
-                f'<td>{X._e(d.get("strength"))} · {X._e(d.get("discipline_class"))}</td>'
-                f'<td>{X._e(d.get("title"))}</td></tr>')
-    ded_tbl = (('<table class="data" style="margin-top:6px"><thead><tr><th>Points</th>'
-                '<th>System</th><th>Weight basis</th><th>Finding</th></tr></thead><tbody>'
-                + ded + '</tbody></table>') if ded else '')
-    legend_bands = [('green', '85–100', 'Execution logic sound'),
-                    ('amber', '70–84', 'Minor sequence risks'),
-                    ('orange', '50–69', 'Significant sequence risks'),
-                    ('red', '0–49', 'Serious sequence risks')]
-    legend = ''.join(
-        f'<span class="eslgd{" on" if b == s.get("band") else ""}">'
-        f'<span class="esdot" style="background:{_BAND_HEX[b]}"></span>'
-        f'{X._e(rng)} <span class="mut">{X._e(lbl)}</span></span>'
-        for b, rng, lbl in legend_bands)
-    return (f'<div class="escore">'
-            f'<div class="esbadge" style="border-color:{hexb};color:{hexb}">'
-            f'<div class="esnum">{s.get("overall")}</div><div class="esden">/ 100</div></div>'
-            f'<div class="esbody">'
-            f'<div class="esband" style="color:{hexb}">{X._e(s.get("band_label"))}</div>'
-            f'<div class="esmeta">{s.get("finding_count")} evidence-graded finding(s) · '
-            f'−{s.get("total_deducted")} points · {X._e(s.get("basis"))}</div>'
-            f'<div class="eschips">{chips}</div>'
-            f'</div></div>'
-            f'<div class="eslegend">{legend}</div>{ded_tbl}')
+def _sev_chip(strength):
+    hex_ = _STRENGTH_HEX.get(strength, '#64748b')
+    return (f'<span class="schip" style="background:{hex_}1a;color:{hex_};border-color:{hex_}55">'
+            f'{X._e(STRENGTH_DISPLAY.get(strength, strength))}</span>')
 
 
-def _archetype_summary(report):
-    """The MEP-first archetype resolution: what kind of project the engine sees, how
-    confident it is, the systems present, and the systems it expected but did not find."""
+def _risk_summary_line(score, findings):
+    """One plain sentence a junior planner can read at a glance."""
+    n = len(findings)
+    if not n:
+        return "No constructability sequencing risks were detected against the current logic."
+    strong = sum(1 for f in findings if f.get('strength') == 'strong')
+    systems = []
+    for f in findings:
+        s = f.get('system')
+        if s and s not in systems:
+            systems.append(s)
+    where = ', '.join(systems[:4]) + ('…' if len(systems) > 4 else '')
+    lead = (f"{strong} strong " if strong else "") + f"of {n} finding(s)"
+    band = (score or {}).get('band_label', '')
+    tail = (" — resolve the strong findings before baseline." if strong
+            else " — review before baseline.")
+    return f"{band}: {lead} across {where}{tail}"
+
+
+def _project_risk_summary(report):
+    """Section 1 — a compact risk summary: project type, confidence (+legend), the
+    constructability risk score (+legend + how-calculated), total findings, and a one-
+    line overall risk statement. Everything a reader needs to orient in a few seconds."""
     a = report.get('archetype') or {}
-    if not a:
+    s = report.get('v2_score') or {}
+    fs = report.get('v2_findings') or []
+    if not a and not s:
         return ''
-    present = ', '.join(a.get('present_systems', []) or []) or '—'
-    absent = ', '.join(a.get('expected_but_absent', []) or []) or 'none'
-    terms = ', '.join(a.get('signature_terms', []) or [])
-    amb = ' <b>(ambiguous — planner review)</b>' if a.get('ambiguous') else ''
-    return (f'<div class="arcbox">'
-            f'<div class="arcrow"><span class="ak">Resolved project type</span>'
-            f'<span class="av"><b>{X._e(a.get("archetype_name") or a.get("archetype"))}</b> '
-            f'· confidence {X._e(a.get("confidence"))}{amb}</span></div>'
-            f'<div class="arcrow"><span class="ak">Identified by</span><span class="av">{X._e(terms)}</span></div>'
-            f'<div class="arcrow"><span class="ak">Systems present</span><span class="av">{X._e(present)}</span></div>'
-            f'<div class="arcrow"><span class="ak">Expected but absent</span><span class="av">{X._e(absent)}</span></div>'
-            f'</div>')
+    conf = (a.get('confidence') or 'low').lower()
+    hexc = _CONF_HEX.get(conf, '#64748b')
+    hexb = _BAND_HEX.get(s.get('band'), '#64748b')
+    conf_leg = ' '.join(f'<span class="lgi"><b>{lbl}</b> — {X._e(desc)}</span>'
+                        for lbl, desc in _CONF_LEGEND)
+    score_leg = ''.join(
+        f'<span class="lgi{" on" if b == s.get("band") else ""}">'
+        f'<span class="esdot" style="background:{_BAND_HEX[b]}"></span>{rng} {X._e(lbl)}</span>'
+        for b, rng, lbl in _SCORE_LEGEND)
+    method = (
+        '<details class="howcalc"><summary>How is this score calculated?</summary>'
+        '<div class="howbody">Constructability Score = max(0, 100 − Σ finding deductions). '
+        'Each <b>logical finding</b> is penalised once — the number of activities it '
+        'references never multiplies the penalty. '
+        'Deduction = severity weight × discipline multiplier: '
+        'severity Strong −10 / Moderate −5 / Low −2; '
+        'discipline MEP ×1.0 / Structural ×0.7 / Civil ×0.5 / Other ×0.8.</div></details>')
+    return (
+        f'<div class="prs">'
+        f'<div class="prsrow"><span class="prsk">Project Type</span>'
+        f'<span class="prsv"><b>{X._e(a.get("archetype_name") or a.get("archetype") or "—")}</b></span>'
+        f'<span class="prsk">Confidence</span>'
+        f'<span class="schip" style="background:{hexc}1a;color:{hexc};border-color:{hexc}55">'
+        f'{X._e(conf.capitalize())}</span></div>'
+        f'<div class="lgrow"><span class="lgt">Confidence</span>{conf_leg}</div>'
+        f'<div class="scorehero">'
+        f'<span class="shnum" style="color:{hexb}">{X._e(s.get("overall", "—"))}</span>'
+        f'<span class="shden">/ 100</span>'
+        f'<span class="shband" style="color:{hexb}">{X._e(s.get("band_label", ""))}</span>'
+        f'<span class="shlabel">Constructability Risk Score</span></div>'
+        f'<div class="lgrow"><span class="lgt">Score</span>{score_leg}</div>'
+        f'{method}'
+        f'<div class="prsrow"><span class="prsk">Total findings</span>'
+        f'<span class="prsv"><b>{len(fs)}</b></span></div>'
+        f'<div class="prssum">{X._e(_risk_summary_line(s, fs))}</div>'
+        f'</div>')
 
 
 def _rel_cell(rels):
-    """Render a list of predecessor/successor links as compact lines: each is the linked
-    activity's ID + name + relationship type (FS/SS/FF/SF) and lag — the actual schedule
-    logic behind the finding."""
+    """Predecessor/successor links as compact lines: linked activity ID + name +
+    relationship type (FS/SS/FF/SF) and lag — the actual schedule logic."""
     if not rels:
         return '<span class="mut">— none —</span>'
     out = []
@@ -132,8 +151,8 @@ def _rel_cell(rels):
 
 
 def _p6_logic_table(p6):
-    """The finding's schedule logic: for each involved activity, its ID, name, and its
-    CURRENT predecessors and successors (type + lag). This is the drill-down detail."""
+    """Drill-down: each involved activity's ID/name and its CURRENT predecessors and
+    successors (type + lag)."""
     if not p6:
         return ''
     rows = ''
@@ -153,105 +172,117 @@ def _p6_logic_table(p6):
             + rows + '</tbody></table>')
 
 
-def _evidence_findings(report):
-    """The R1–R7 evidence-graded findings. Each is a readable summary line (severity ·
-    system · finding · impact · recommendation) with an expandable drill-down carrying
-    the full evidence chain and the P6 schedule logic (activity IDs, predecessors,
-    successors, relationship types and lags) behind it."""
+def _compact_logic(primary):
+    """A compact current-logic chain for the primary activity: pred → activity → succ
+    (IDs only), e.g. 'A001 → A002 → A003'. Full detail lives in the drill-down."""
+    if not primary:
+        return '—'
+    pid = primary.get('id', '')
+    preds = primary.get('preds') or []
+    succs = primary.get('succs') or []
+    left = f"{X._e(preds[0].get('id'))} → " if preds else ''
+    right = f" → {X._e(succs[0].get('id'))}" if succs else ''
+    more_p = f' <span class="mut">(+{len(preds) - 1})</span>' if len(preds) > 1 else ''
+    more_s = f' <span class="mut">(+{len(succs) - 1})</span>' if len(succs) > 1 else ''
+    return f'<span class="mono">{left}<b>{X._e(pid)}</b>{right}</span>{more_p}{more_s}'
+
+
+def _constructability_findings(report):
+    """Section 2 — ONE consolidated findings table. Each row is self-explanatory:
+    # · Severity · Activity ID · Activity Name · Current P6 Logic · Finding/Why/Evidence
+    · Recommendation · Score Impact. Full P6 traceability is an expandable drill-down per
+    finding so the main table stays clean. Findings come solely from the current XER."""
     fs = report.get('v2_findings') or []
     if not fs:
         return ''
-    cards = ''
+    sev_leg = ' '.join(f'<span class="lgi">{_sev_chip(k)} {X._e(desc)}</span>'
+                       for k, _lbl, desc in _SEV_LEGEND)
+    rows = ''
     for i, f in enumerate(fs, 1):
-        hex_ = _STRENGTH_HEX.get(f.get('strength'), '#64748b')
-        rec_seq = f.get('recommended_sequence')
-        seq = (f'<div class="efseq"><span class="efseqk">✓ Recommended sequence</span>'
-               f'<span class="efseqv">{X._e(rec_seq)}</span></div>') if rec_seq else ''
-        cards += (
-            f'<div class="efind">'
-            f'<div class="efhead">'
-            f'<span class="efn">{i}</span>'
-            f'<span class="schip" style="background:{hex_}1a;color:{hex_};border-color:{hex_}55">'
-            f'{X._e(f.get("strength"))}</span>'
-            f'<span class="efsys mono">{X._e(f.get("system"))}</span>'
-            f'<span class="eftitle">{X._e(f.get("title"))}</span></div>'
-            f'{seq}'
-            f'{_p6_logic_table(f.get("p6"))}'
-            f'<div class="efline"><span class="efk">Impact</span>'
-            f'<span class="efv">{X._e(f.get("impact"))}</span></div>'
-            f'<div class="efline"><span class="efk">Existing logic</span>'
-            f'<span class="efv">{X._e(f.get("existing"))}</span></div>'
-            f'<div class="efline"><span class="efk">Expected / why</span>'
-            f'<span class="efv">{X._e(f.get("expected"))} — {X._e(f.get("reason"))}</span></div>'
-            f'<div class="efline"><span class="efk">Evidence</span>'
-            f'<span class="efv mut">{X._e(f.get("evidence"))}</span></div>'
-            f'<div class="efline"><span class="efk">Recommendation</span>'
-            f'<span class="efv chg">{X._e(f.get("recommendation"))}</span></div>'
-            f'{_support_line(f.get("support"))}'
-            f'</div>')
-    return f'<div class="efinds">{cards}</div>'
+        p6 = f.get('p6') or []
+        primary = p6[0] if p6 else {}
+        more = f' <span class="mut">(+{len(p6) - 1} more)</span>' if len(p6) > 1 else ''
+        support = f.get('support') or {}
+        supln = (f' <span class="supln">Supporting knowledge: {X._e(support.get("label"))}.</span>'
+                 if support else '')
+        fwe = (f'<b>{X._e(f.get("title"))}</b> {X._e(f.get("reason"))} '
+               f'<span class="mut">{X._e(f.get("evidence"))}</span>{supln}')
+        rec = f.get('recommended_sequence') or f.get('recommendation') or ''
+        impact = f.get('score_impact')
+        impact_txt = f'−{impact}' if impact is not None else '—'
+        rows += (
+            f'<tr class="cfrow">'
+            f'<td class="sn">{i}</td>'
+            f'<td>{_sev_chip(f.get("strength"))}</td>'
+            f'<td class="mono">{X._e(primary.get("id", "—"))}</td>'
+            f'<td>{X._e(primary.get("name", ""))}{more}</td>'
+            f'<td class="cflogic">{_compact_logic(primary)}</td>'
+            f'<td class="cfwe">{fwe}</td>'
+            f'<td class="chg">{X._e(rec)}</td>'
+            f'<td class="mono cfimpact">{impact_txt}</td>'
+            f'</tr>'
+            f'<tr class="cfdetailrow"><td></td><td colspan="7">'
+            f'<details class="cfdetail"><summary>P6 traceability — activities &amp; links</summary>'
+            f'<div class="recnote">Recommended sequence: <b>{X._e(rec)}</b></div>'
+            f'{_p6_logic_table(p6)}</details></td></tr>')
+    return (
+        '<table class="data cfind"><colgroup>'
+        '<col style="width:3%"><col style="width:8%"><col style="width:8%"><col style="width:15%">'
+        '<col style="width:13%"><col style="width:32%"><col style="width:15%"><col style="width:6%">'
+        '</colgroup><thead><tr><th>#</th><th>Severity</th><th>Activity ID</th><th>Activity Name</th>'
+        '<th>Current P6 Logic</th><th>Finding / Why / Evidence</th><th>Recommendation</th>'
+        '<th>Score Impact</th></tr></thead><tbody>' + rows + '</tbody></table>'
+        f'<div class="lgrow"><span class="lgt">Severity</span>{sev_leg}</div>'
+        '<div class="cfnote">Every finding is raised solely from the current XER\'s own '
+        'schedule logic; supporting knowledge is corroboration only. Open a row for full '
+        'P6 predecessors, successors, relationship types and lags.</div>')
 
 
-def _support_line(support):
-    """Cross-project corroboration for the finding's expected sequence — supporting
-    context only (the finding itself is evidenced by the current XER)."""
-    if not support:
-        return ''
-    n = support.get('learned_projects', 0)
-    dot = '#16a34a' if n else '#94a3b8'
-    return (f'<div class="efsupport"><span class="esdot" style="background:{dot}"></span>'
-            f'{X._e(support.get("label"))} '
-            f'<span class="mut">· supporting knowledge, not the basis of the finding</span></div>')
-
-
-# Extra CSS for the two new components (archetype box + strength chip), appended to
-# the shared Constructability CSS so the framework document styles them.
+# Extra CSS for the two final Constructability sections, appended to the shared CSS.
 _EXTRA_CSS = '''
-      .arcbox { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; margin: 4px 0 6px; }
-      .arcrow { display: flex; gap: 10px; font-size: 11px; padding: 2px 0; }
-      .arcrow .ak { width: 150px; color: #64748b; flex: 0 0 auto; }
-      .arcrow .av { color: #1e293b; }
       .schip { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase;
-               letter-spacing: .3px; padding: 1px 7px; border-radius: 20px; border: 1px solid; }
-      .escore { display: flex; align-items: center; gap: 14px; }
-      .esbadge { display: flex; flex-direction: column; align-items: center; justify-content: center;
-                 width: 78px; height: 78px; border: 3px solid; border-radius: 12px; flex: 0 0 auto; }
-      .esnum { font-size: 30px; font-weight: 800; line-height: 1; }
-      .esden { font-size: 10px; opacity: .7; }
-      .esband { font-size: 15px; font-weight: 700; }
-      .esmeta { font-size: 11px; color: #64748b; margin: 2px 0 5px; }
-      .eschips .schip { margin-right: 4px; }
-      .efinds { display: flex; flex-direction: column; gap: 8px; }
-      .efind { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 11px; break-inside: avoid; }
-      .efhead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-      .efn { font-weight: 700; color: #94a3b8; font-size: 11px; }
-      .efsys { font-size: 10px; color: #475569; }
-      .eftitle { font-weight: 700; font-size: 12.5px; color: #0f172a; }
-      .efline { display: flex; gap: 8px; font-size: 11px; padding: 2px 0; }
-      .efline .efk { width: 118px; flex: 0 0 auto; color: #64748b; text-transform: uppercase;
-                     letter-spacing: .3px; font-size: 9.5px; padding-top: 1px; }
-      .efline .efv { color: #1e293b; }
-      .efdetail { margin-top: 4px; }
-      .efdetail > summary { font-size: 10px; color: #64748b; cursor: pointer; padding: 3px 0;
-                            list-style: none; font-weight: 600; }
-      .efdetail > summary::-webkit-details-marker { display: none; }
-      table.p6log { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 10.5px; }
-      table.p6log th { text-align: left; background: #f1f5f9; color: #475569; font-weight: 600;
+               letter-spacing: .3px; padding: 1px 7px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
+      .esdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+      .prs { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 13px; }
+      .prsrow { display: flex; align-items: baseline; gap: 10px; padding: 3px 0; font-size: 12px; }
+      .prsrow .prsk { color: #64748b; text-transform: uppercase; letter-spacing: .3px; font-size: 10px; }
+      .prsrow .prsv { color: #0f172a; }
+      .scorehero { display: flex; align-items: baseline; gap: 8px; margin: 8px 0 2px; }
+      .scorehero .shnum { font-size: 40px; font-weight: 800; line-height: 1; }
+      .scorehero .shden { font-size: 13px; color: #94a3b8; }
+      .scorehero .shband { font-size: 16px; font-weight: 700; margin-left: 6px; }
+      .scorehero .shlabel { font-size: 10px; color: #64748b; text-transform: uppercase;
+                            letter-spacing: .3px; margin-left: auto; }
+      .lgrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 3px 0;
+               font-size: 10px; color: #475569; }
+      .lgrow .lgt { color: #94a3b8; text-transform: uppercase; letter-spacing: .3px; font-weight: 700;
+                    font-size: 9px; }
+      .lgi { display: inline-flex; align-items: center; gap: 4px; opacity: .8; }
+      .lgi.on { opacity: 1; font-weight: 700; color: #1e293b; }
+      .howcalc { margin: 4px 0; }
+      .howcalc > summary { font-size: 10.5px; color: #0369a1; cursor: pointer; font-weight: 600; }
+      .howcalc .howbody { font-size: 10.5px; color: #475569; padding: 5px 0 2px; line-height: 1.5; }
+      .prssum { margin-top: 6px; padding-top: 6px; border-top: 1px solid #f1f5f9; font-size: 12px;
+                color: #1e293b; font-weight: 600; }
+      table.cfind { table-layout: fixed; }
+      table.cfind td { vertical-align: top; }
+      table.cfind td.cfwe { font-size: 10.5px; line-height: 1.5; }
+      table.cfind td.cflogic { font-size: 10px; }
+      table.cfind td.cfimpact { text-align: right; font-weight: 700; color: #dc2626; }
+      .cfwe .supln { color: #15803d; }
+      .cfdetailrow td { background: #f8fafc; border-top: none; padding: 0 8px 8px; }
+      .cfdetail > summary { font-size: 10px; color: #64748b; cursor: pointer; padding: 5px 0;
+                            font-weight: 600; list-style: none; }
+      .cfdetail > summary::-webkit-details-marker { display: none; }
+      .cfdetail .recnote { font-size: 10.5px; color: #14532d; background: #f0fdf4;
+                           border: 1px solid #bbf7d0; border-radius: 5px; padding: 4px 8px; margin: 3px 0; }
+      table.p6log { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 10px; }
+      table.p6log th { text-align: left; background: #eef2f7; color: #475569; font-weight: 600;
                        padding: 3px 6px; border: 1px solid #e2e8f0; }
       table.p6log td { padding: 3px 6px; border: 1px solid #e2e8f0; vertical-align: top; }
       .rtype { display: inline-block; font-size: 9px; font-weight: 700; color: #0369a1;
                background: #e0f2fe; border-radius: 3px; padding: 0 4px; }
-      .efseq { display: flex; gap: 8px; align-items: baseline; margin: 5px 0; padding: 5px 9px;
-               background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; }
-      .efseq .efseqk { color: #15803d; font-weight: 700; font-size: 10px; flex: 0 0 auto;
-                       text-transform: uppercase; letter-spacing: .3px; }
-      .efseq .efseqv { color: #14532d; font-size: 11.5px; }
-      .eslegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 10px; }
-      .eslgd { display: inline-flex; align-items: center; gap: 5px; color: #64748b; opacity: .6; }
-      .eslgd.on { opacity: 1; font-weight: 700; color: #1e293b; }
-      .esdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-      .efsupport { display: flex; align-items: center; gap: 6px; margin-top: 5px; padding-top: 5px;
-                   border-top: 1px dashed #e2e8f0; font-size: 10px; color: #475569; }
+      .cfnote { font-size: 9.5px; color: #94a3b8; margin-top: 6px; font-style: italic; }
 '''
 
 
@@ -298,15 +329,15 @@ def build_spec(report):
                         description='Standard WBS branches present or missing'),
         # MEP-first rule engine (Phase 3) — resolution + evidence-graded findings, each
         # a first-class selectable component per the Global Reporting standard.
-        ReportComponent('archetype_summary', 'Project-Type Resolution', 'summary',
-                        render=_archetype_summary, has_data=lambda r: bool(r.get('archetype')),
-                        description='MEP-first archetype the engine resolved, and the systems present/absent'),
-        ReportComponent('evidence_score', 'MEP-First Execution-Logic Score', 'summary',
-                        render=_evidence_score, has_data=lambda r: bool(r.get('v2_score')),
-                        description='Second score, strength × MEP-priority weighted, from the R1–R7 findings'),
-        ReportComponent('evidence_findings', 'Evidence-Graded Findings (R1–R7)', 'findings',
-                        render=_evidence_findings, has_data=lambda r: bool(r.get('v2_findings')),
-                        description='Deterministic rule-engine findings with the full evidence chain'),
+        # ── The final V1 Constructability Review output: two self-explanatory sections ──
+        ReportComponent('project_risk_summary', 'Project Risk Summary', 'summary',
+                        render=_project_risk_summary,
+                        has_data=lambda r: bool(r.get('archetype') or r.get('v2_score')),
+                        description='Project type, confidence, constructability risk score with legends'),
+        ReportComponent('constructability_findings', 'Constructability Findings', 'findings',
+                        render=_constructability_findings,
+                        has_data=lambda r: bool(r.get('v2_findings')),
+                        description='One consolidated evidence-graded findings table with P6 drill-down'),
         ReportComponent('conclusion', 'Conclusion', 'text', render=_conclusion,
                         has_data=lambda r: bool(r.get('conclusion')),
                         description='Closing summary line'),

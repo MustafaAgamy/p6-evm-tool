@@ -109,68 +109,68 @@ def test_projection_defaults_on_when_present():
 def test_manifest_lists_all_sections_with_types():
     spec = get_spec('constructability', REPORT)
     m = manifest(spec, REPORT)
-    assert len(m) == 13
+    assert len(m) == 12
     types = {c['id']: c['type'] for c in m}
     assert types['illogical'] == 'table' and types['readiness_legend'] == 'chart'
     assert types['verdict'] == 'summary' and types['conclusion'] == 'text'
-    assert types['evidence_findings'] == 'findings' and types['archetype_summary'] == 'summary'
-    assert types['evidence_score'] == 'summary'
+    assert types['constructability_findings'] == 'findings'
+    assert types['project_risk_summary'] == 'summary'
     # projection present because this report has one
     assert next(c for c in m if c['id'] == 'projection')['has_data'] is True
 
 
-def test_evidence_score_component_renders_second_score():
-    report = dict(REPORT, v2_score={
-        'overall': 72, 'band': 'amber', 'band_label': 'Minor sequence risks',
-        'total_deducted': 28.0, 'finding_count': 4, 'by_strength': {'strong': 2, 'moderate': 2},
-        'basis': 'MEP-first · strength × discipline weight',
-        'deductions': [{'title': 'Chiller comm not tied to power', 'system': 'chilled_water',
-                        'discipline_class': 'mep', 'strength': 'strong', 'points': 10.0}],
-    })
-    spec = get_spec('constructability', report)
-    doc = build_document(spec, report, selected_ids=['evidence_score'])
-    assert 'MEP-First Execution-Logic Score' in doc
-    assert '72' in doc and 'Minor sequence risks' in doc
-    assert 'Chiller comm not tied to power' in doc
-
-
-def test_evidence_score_absent_shows_no_data():
-    report = {k: v for k, v in REPORT.items() if k != 'v2_score'}
-    spec = get_spec('constructability', report)
-    doc = build_document(spec, report, selected_ids=['evidence_score'])
-    assert 'MEP-First Execution-Logic Score' in doc and 'No data' in doc
-
-
-def test_evidence_findings_component_renders_the_rule_engine_output():
-    report = dict(REPORT, archetype={
-        'archetype': 'process_oil_gas', 'archetype_name': 'Process / Oil & Gas Facility',
-        'confidence': 'high', 'signature_terms': ['spool', 'hydrotest'],
-        'present_systems': ['piping', 'electrical_power'], 'expected_but_absent': [], 'ambiguous': False,
-    }, v2_findings=[{
+_V2 = dict(
+    archetype={'archetype': 'process_oil_gas', 'archetype_name': 'Process / Oil & Gas Facility',
+               'confidence': 'medium'},
+    v2_score={'overall': 62, 'band': 'amber', 'band_label': 'Moderate Risk',
+              'total_deducted': 25.0, 'finding_count': 1},
+    v2_findings=[{
         'kind': 'out_of_sequence', 'system': 'piping', 'discipline': 'PIPING',
         'title': 'Piping insulated before it was pressure-tested', 'existing': 'insulation drives hydrotest',
-        'expected': 'Hydrotest first', 'reason': 'joints must be reachable', 'evidence': 'KB',
-        'strength': 'strong', 'impact': 'rework', 'recommendation': 'test before insulate',
-        'activities': ['A001', 'A002'],
-        'p6': [{'id': 'A001', 'name': 'Pipe Insulation', 'system': 'piping', 'phase': 'INSULATION',
-                'preds': [{'id': 'A000', 'name': 'Spool Erection', 'type': 'FS', 'lag': ''}],
-                'succs': [{'id': 'A002', 'name': 'Hydrotest', 'type': 'SS', 'lag': '+2d'}]}],
+        'expected': 'Hydrotest first', 'reason': 'joints must be reachable before covering.',
+        'evidence': 'A line was covered before its pressure test.', 'strength': 'strong',
+        'impact': 'rework', 'recommendation': 'test before insulate',
+        'recommended_sequence': 'Hydrotest -> Flush -> Reinstate -> Insulation', 'score_impact': 10.0,
+        'support': {'curated': True, 'learned_projects': 4,
+                    'label': 'KB standard, corroborated by 4 of your imported projects'},
+        'p6': [{'id': 'A002', 'name': 'Pipe Insulation', 'system': 'piping', 'phase': 'INSULATION',
+                'preds': [{'id': 'A001', 'name': 'Spool Erection', 'type': 'FS', 'lag': ''}],
+                'succs': [{'id': 'A003', 'name': 'Hydrotest', 'type': 'SS', 'lag': '+2d'}]}],
     }])
+
+
+def test_project_risk_summary_section():
+    report = dict(REPORT, **_V2)
     spec = get_spec('constructability', report)
-    doc = build_document(spec, report, selected_ids=['archetype_summary', 'evidence_findings'])
-    assert 'Project-Type Resolution' in doc and 'Process / Oil' in doc   # '&' is HTML-escaped
-    assert 'Evidence-Graded Findings' in doc
+    doc = build_document(spec, report, selected_ids=['project_risk_summary'])
+    assert 'Project Risk Summary' in doc and 'Process / Oil' in doc
+    assert 'Constructability Risk Score' in doc and '62' in doc and 'Moderate Risk' in doc
+    assert 'Medium' in doc                                 # confidence + legend
+    assert 'Low Risk' in doc and 'High Risk' in doc        # score legend bands
+    assert 'How is this score calculated' in doc           # methodology legend
+    assert 'Total findings' in doc
+
+
+def test_constructability_findings_consolidated_table():
+    report = dict(REPORT, **_V2)
+    spec = get_spec('constructability', report)
+    doc = build_document(spec, report, selected_ids=['constructability_findings'])
+    for col in ('Severity', 'Activity ID', 'Activity Name', 'Current P6 Logic',
+                'Finding / Why / Evidence', 'Recommendation', 'Score Impact'):
+        assert col in doc, f'missing column: {col}'
     assert 'Piping insulated before it was pressure-tested' in doc
-    assert 'strong' in doc and 'test before insulate' in doc
-    # finding-level P6 traceability drills down to the actual schedule logic
-    assert 'A000' in doc and 'Spool Erection' in doc      # the current predecessor
-    assert 'SS' in doc and '+2d' in doc                   # relationship type + lag
-    assert 'Current predecessor' in doc and 'Current successor' in doc
+    assert 'Strong' in doc                                  # severity display + legend
+    assert 'Reinstate' in doc and 'Insulation' in doc       # recommended sequence ('>' is HTML-escaped)
+    assert '10' in doc                                      # score impact (one finding, one penalty)
+    assert 'corroborated by 4' in doc                       # supporting knowledge in the row
+    # expandable P6 drill-down carries the real schedule logic
+    assert 'A001' in doc and 'Spool Erection' in doc and 'SS' in doc and '+2d' in doc
+    assert 'P6 traceability' in doc
 
 
-def test_evidence_findings_empty_shows_no_data():
+def test_findings_absent_shows_no_data():
     report = {k: v for k, v in REPORT.items()}
     report['v2_findings'] = []
     spec = get_spec('constructability', report)
-    doc = build_document(spec, report, selected_ids=['evidence_findings'])
-    assert 'Evidence-Graded Findings' in doc and 'No findings' in doc
+    doc = build_document(spec, report, selected_ids=['constructability_findings'])
+    assert 'Constructability Findings' in doc and 'No findings' in doc

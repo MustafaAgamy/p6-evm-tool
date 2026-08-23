@@ -82,12 +82,17 @@ EVIDENCE_CFG = {
     'discipline_weight': {'mep': 1.0, 'structural': 0.7, 'civil': 0.5, 'other': 0.8},
 }
 
+# Risk bands (Ibrahim's V1 spec). The score is a 0–100 where HIGHER = lower risk;
+# the legend in the report makes that explicit.
 EVIDENCE_BANDS = [
-    (85, 'Execution logic sound', 'green'),
-    (70, 'Minor sequence risks', 'amber'),
-    (50, 'Significant sequence risks', 'orange'),
-    (0, 'Serious sequence risks', 'red'),
+    (80, 'Low Risk', 'green'),
+    (60, 'Moderate Risk', 'amber'),
+    (40, 'Significant Risk', 'orange'),
+    (0, 'High Risk', 'red'),
 ]
+
+# Display names for evidence strength (internal 'weak'/'insufficient' both read as 'Low').
+STRENGTH_DISPLAY = {'strong': 'Strong', 'moderate': 'Moderate', 'weak': 'Low', 'insufficient': 'Low'}
 
 _MEP_ROOTS = ('MECH', 'ELEC', 'ELV', 'PIP', 'INSTR', 'PLUMB', 'FIRE', 'PROCESS', 'UTIL',
               'HVAC', 'MATERIAL HANDLING', 'BULK', 'CONVEY', 'COMMISSION')
@@ -135,6 +140,11 @@ def evidence_score(findings, cfg=None):
         pts = base.get(strength, base['moderate']) * dw.get(cls, dw['other'])
         total += pts
         by_strength[strength] = by_strength.get(strength, 0) + 1
+        # stamp the per-finding deduction on the finding itself (one finding = one
+        # penalty, regardless of how many activities it references) — the report's
+        # 'Score Impact' column reads this.
+        if isinstance(f, dict):
+            f['score_impact'] = round(pts, 1)
         deductions.append({
             'title': f.get('title', ''), 'system': f.get('system'),
             'discipline_class': cls, 'strength': strength, 'points': round(pts, 1),
