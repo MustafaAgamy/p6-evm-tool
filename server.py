@@ -104,6 +104,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_knowledge_export(body)
         elif self.path == '/api/kb/knowledge/import':
             self._handle_kb_knowledge_import(body)
+        elif self.path == '/api/kb/knowledge/import-xer':
+            self._handle_kb_import_xer(body)
+        elif self.path == '/api/kb/raw/download':
+            self._handle_kb_raw_download(body)
         elif self.path == '/api/constructability/report':
             self._handle_constructability_report(body)
         elif self.path == '/api/constructability/excel':
@@ -245,10 +249,13 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 from p6_kb.model import schedule_view
                 from p6_kb.tagging import tag_view
-                from p6_kb.pattern_learning import learn_from_view
+                from p6_kb.pattern_learning import learn_from_view, store_raw
+                from p6_kb.resolve import resolve as _resolve_arc
                 _pv = schedule_view(data)
                 tag_view(_pv)
-                learn_from_view(_pv, p6_id, name)
+                _arc = (_resolve_arc(_pv) or {}).get('archetype', '')
+                learn_from_view(_pv, p6_id, project_type=_arc, label=name, file_hash=file_hash)
+                store_raw(xml_path, p6_id, name, file_hash)   # keep the raw XER (level 1)
             except Exception as pl_exc:
                 print(f'[pattern-learn] skipped: {pl_exc}', file=sys.stderr)
             pid   = db.upsert_project(p6_id, name)
@@ -625,12 +632,62 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── Constructability Knowledge Base — export / import / provenance ──────
     def _handle_kb_knowledge_get(self):
-        """The cross-project learned knowledge: how many projects, and which projects
-        support each generalized pattern (provenance + support strength)."""
+        """The learned knowledge: how many projects, patterns by level, which projects
+        support each generalized pattern (provenance), and the retained raw project files."""
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_kb.pattern_learning import provenance
-            self._json(200, {'ok': True, **provenance()})
+            from p6_kb.pattern_learning import provenance, list_raw
+            self._json(200, {'ok': True, **provenance(), 'raw_projects': list_raw()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_import_xer(self, body):
+        """Import a real project XER/XML straight into the Knowledge Base: parse → tag →
+        learn generalized patterns (deduped by project id, supporting-only) and keep the
+        raw file. This is how the KB continuously grows from large real projects."""
+        input_path = body.get('input_path', '')
+        if not input_path:
+            self._json(200, {'ok': False, 'error': 'No input path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_kb.model import schedule_view
+            from p6_kb.tagging import tag_view
+            from p6_kb.resolve import resolve as _resolve_arc
+            from p6_kb.pattern_learning import learn_from_view, store_raw, provenance
+            import db
+            data = parse_file(os.path.abspath(input_path))
+            fh = db.hash_file(os.path.abspath(input_path))
+            pid = (data.project or {}).get('id', '') or fh
+            name = (data.project or {}).get('name', '') or os.path.basename(input_path)
+            view = schedule_view(data)
+            tag_view(view)
+            arc = (_resolve_arc(view) or {}).get('archetype', '')
+            learn_from_view(view, pid, project_type=arc, label=name, file_hash=fh)
+            store_raw(os.path.abspath(input_path), pid, name, fh)
+            self._json(200, {'ok': True, 'project': name,
+                             'activities': view.get('activity_count', 0), **provenance()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_raw_download(self, body):
+        """Copy a retained raw project file out to output_path (level-1 backup)."""
+        filename = body.get('filename', '')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import shutil
+            from p6_kb.pattern_learning import raw_file_path
+            src = raw_file_path(filename)
+            if not src:
+                self._json(200, {'ok': False, 'error': 'Raw project file not found.'})
+                return
+            shutil.copy2(src, os.path.abspath(output_path))
+            self._json(200, {'ok': True, 'filename': os.path.basename(output_path)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

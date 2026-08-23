@@ -309,7 +309,8 @@ function renderReport(report) {
       <button class="btn-primary" id="cx-pdf">📄 Print Preview</button>
     </div>
     <div class="cx-kb" id="cx-kb">
-      <span class="cx-kb-info" id="cx-kb-info">Cross-project knowledge base…</span>
+      <span class="cx-kb-info" id="cx-kb-info">Planning Knowledge Engine…</span>
+      <button class="btn-secondary" id="cx-kb-addxer">➕ Import Project XER → KB</button>
       <button class="btn-secondary" id="cx-kb-export">⬇ Export Knowledge</button>
       <button class="btn-secondary" id="cx-kb-import">⬆ Import Knowledge</button>
       <span class="cx-kb-note">Supporting knowledge only · generalized &amp; project-agnostic · never changes a finding</span>
@@ -352,7 +353,15 @@ function renderReport(report) {
   if (kbx) kbx.addEventListener('click', () => kbExport(kbx));
   const kbi = document.getElementById('cx-kb-import');
   if (kbi) kbi.addEventListener('click', () => kbImport(kbi));
+  const kba = document.getElementById('cx-kb-addxer');
+  if (kba) kba.addEventListener('click', () => kbImportXer(kba));
   kbKnowledgeRefresh();
+}
+
+function _kbInfoText(d) {
+  return `Planning Knowledge Engine: ${d.projects_learned} project(s) learned · `
+    + `${d.pattern_count} generalized pattern(s)`
+    + (d.raw_projects && d.raw_projects.length ? ` · ${d.raw_projects.length} raw XER(s) kept` : '');
 }
 
 async function kbKnowledgeRefresh() {
@@ -361,11 +370,27 @@ async function kbKnowledgeRefresh() {
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge`);
     const d = await resp.json();
-    if (d.ok) {
-      info.textContent = `Cross-project knowledge: ${d.projects_learned} project(s) learned · `
-        + `${d.pattern_count} generalized pattern(s)`;
-    }
+    if (d.ok) info.textContent = _kbInfoText(d);
   } catch { /* leave default text */ }
+}
+
+async function kbImportXer(btn) {
+  let path = null;
+  try { path = await window.pywebview.api.choose_file(); }
+  catch { showError('Could not open the file dialog.'); return; }
+  if (!path) return;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Learning…';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge/import-xer`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input_path: path }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showError(d.error || 'Could not learn from that XER.'); return; }
+    const info = document.getElementById('cx-kb-info');
+    if (info) info.textContent = _kbInfoText(d) + ` — learned from "${d.project}" (${d.activities} activities)`;
+  } catch { showError('Could not reach the local server.'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
 }
 
 async function kbExport(btn) {
