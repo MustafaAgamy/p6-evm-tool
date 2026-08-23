@@ -20,15 +20,19 @@ _BUILTINS = (
 
 
 def load_builtins():
-    import importlib
+    # STATIC imports (not importlib by computed name) so PyInstaller's import graph
+    # collects every provider into the .exe — a dynamic import would ship an empty
+    # catalog. Registering explicitly (not only via each module's @register_provider
+    # decorator) also keeps discovery repeatable after clear_providers(): decorators
+    # run once per process, but register_provider is idempotent.
     from p6_dashboard.registry import register_provider
-    for name in _BUILTINS:
-        try:
-            mod = importlib.import_module(f'p6_dashboard.providers.{name}')
-            # Register explicitly (not only via the module's @register_provider decorator)
-            # so discovery is repeatable after clear_providers(): decorators run once per
-            # process, but register_provider is idempotent.
-            if hasattr(mod, 'provide'):
-                register_provider(mod.provide)
-        except Exception as exc:  # pragma: no cover - defensive
-            print(f'[dashboard] builtin provider {name} skipped: {exc}', file=sys.stderr)
+    from p6_dashboard.providers import (
+        overview, evm, audit, calendar, constructability, update, twofile,
+    )
+    for mod in (overview, evm, audit, calendar, constructability, update, twofile):
+        prov = getattr(mod, 'provide', None)
+        if prov is not None:
+            try:
+                register_provider(prov)
+            except Exception as exc:  # pragma: no cover - defensive
+                print(f'[dashboard] provider {mod.__name__} skipped: {exc}', file=sys.stderr)
