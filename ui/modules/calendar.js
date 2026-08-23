@@ -449,7 +449,7 @@ function _weatherSection() {
       <th>Period / milestone</th><th class="num">Days</th><th>Longer days</th><th>Extra working days</th><th>Add shift</th></tr></thead>
       <tbody>${recRows || '<tr><td colspan="5" class="cal-empty">No recovery needed — no net weather delay.</td></tr>'}</tbody></table></div>`;
   const totalBad = w.expected_bad_days_total || 0;
-  const causeColor = { Heat: '#ef4444', Dust: 'var(--warning)', Rain: '#3b82f6', Wind: 'var(--muted)' };
+  const causeColor = { Heat: 'var(--danger)', Dust: 'var(--warning)', Rain: 'var(--chart-1)', Wind: 'var(--muted)' };
   const causeRows = (w.by_cause || []).map(c => {
     const off = !!c.off;
     const cnt = off ? 0 : (c.count || 0);

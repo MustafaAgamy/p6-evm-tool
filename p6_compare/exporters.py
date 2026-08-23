@@ -8,9 +8,18 @@ Nothing here computes a number — it only lays out what the engine already prod
 """
 import html
 
-_GREY = '#888781'
-_BLUE = '#2a78d6'
-_RED = '#e24b4a'
+import report_theme
+
+# Module colour constants, now theme tokens (resolved at render time via the injected
+# `--rpt-*` custom properties — see report_theme.py). Verified usage before mapping:
+#   _GREY -> baseline reference line/label in the S-curve + delay timeline (chart axis tone)
+#   _BLUE -> "before/but-for" S-curve line, baseline marker, donut logic segment, bar fill
+#            (all chart-series usage, not a UI accent element -> series-1, not accent)
+#   _RED  -> "reported/update" S-curve line + slip marker + "behind baseline" delay colour +
+#            the changed-value highlight -> genuinely a "bad/slip" status colour -> rpt-bad
+_GREY = report_theme.var('rpt-chart-axis')
+_BLUE = report_theme.var('rpt-series-1')
+_RED = report_theme.var('rpt-bad')
 
 # Manager-report PDF: cap each table so the PDF stays a readable few pages (was ~470 on a
 # real project); the complete row-by-row detail goes to the Excel export.
@@ -88,11 +97,11 @@ def _scurve_svg(sc):
         y = yat(p)
         dash = '' if p == 0 else ' stroke-dasharray="2 4"'
         sw = 1 if p == 0 else 0.5
-        ygrid += (f'<line x1="{x0}" y1="{y:.1f}" x2="{x1}" y2="{y:.1f}" stroke="#ddd" stroke-width="{sw}"{dash}/>'
-                  f'<text x="{x0 - 7}" y="{y + 3:.1f}" text-anchor="end" font-size="11" fill="#666">{p}%</text>')
+        ygrid += (f'<line x1="{x0}" y1="{y:.1f}" x2="{x1}" y2="{y:.1f}" stroke="var(--rpt-chart-grid)" stroke-width="{sw}"{dash}/>'
+                  f'<text x="{x0 - 7}" y="{y + 3:.1f}" text-anchor="end" font-size="11" fill="var(--rpt-chart-axis)">{p}%</text>')
     step = max(1, round(n / 9))     # ~9 well-spaced date labels
     xlab = ''.join(
-        f'<text x="{xat(i):.1f}" y="{y0 + 18}" text-anchor="middle" font-size="11" fill="#666">{_e(periods[i])}</text>'
+        f'<text x="{xat(i):.1f}" y="{y0 + 18}" text-anchor="middle" font-size="11" fill="var(--rpt-chart-axis)">{_e(periods[i])}</text>'
         for i in range(0, n, step))
     m = sc.get('markers') or {}
     bx = xat(m['baseline_idx']) if m.get('baseline_idx') is not None else None
@@ -100,7 +109,7 @@ def _scurve_svg(sc):
     anch = lambda x: 'end' if x > x1 - 130 else ('start' if x < x0 + 130 else 'middle')
     marks = ''
     if bx is not None and ux is not None and ux > bx:
-        marks += f'<rect x="{bx:.1f}" y="{y1}" width="{ux - bx:.1f}" height="{y0 - y1}" fill="rgba(226,75,74,.09)"/>'
+        marks += f'<rect x="{bx:.1f}" y="{y1}" width="{ux - bx:.1f}" height="{y0 - y1}" fill="var(--rpt-bad-bg)"/>'
         marks += f'<text x="{(bx + ux) / 2:.1f}" y="{y1 + 15}" text-anchor="middle" font-size="11" font-weight="700" fill="{_RED}">&#9668; slip &#9658;</text>'
     if bx is not None:
         marks += (f'<line x1="{bx:.1f}" y1="{y1}" x2="{bx:.1f}" y2="{y0}" stroke="{_GREY}" stroke-width="1" stroke-dasharray="4 3"/>'
@@ -111,7 +120,7 @@ def _scurve_svg(sc):
     return f'''<svg viewBox="0 0 940 352" width="100%">
       {ygrid}
       {marks}
-      <line x1="{x0}" y1="{y1}" x2="{x0}" y2="{y0}" stroke="#ccc"/>
+      <line x1="{x0}" y1="{y1}" x2="{x0}" y2="{y0}" stroke="var(--rpt-chart-axis)"/>
       {poly(sc.get('baseline'), _GREY, '5 3')}
       {poly(sc.get('after'), _RED)}
       {poly(sc.get('before'), _BLUE)}
@@ -246,30 +255,30 @@ def _charts_html(report):
     # 2) delay — finish-date variance vs baseline, in working days (the honest delay)
     slip = dash.get('delay_working_days')
     if slip is None:
-        snum, sword, scol, sline = '—', 'no finish date', '#64748b', ''
+        snum, sword, scol, sline = '—', 'no finish date', 'var(--rpt-muted)', ''
     elif slip > 0:
         snum, sword, scol = f'+{slip}', 'working days behind the baseline finish', _RED
         sline = f'<line x1="150" y1="30" x2="268" y2="30" stroke="{_RED}" stroke-width="6" stroke-linecap="round"/>'
     elif slip < 0:
-        snum, sword, scol = f'−{-slip}', 'working days ahead of the baseline finish', '#16a34a'
-        sline = f'<line x1="150" y1="30" x2="268" y2="30" stroke="#16a34a" stroke-width="6" stroke-linecap="round"/>'
+        snum, sword, scol = f'−{-slip}', 'working days ahead of the baseline finish', 'var(--rpt-good)'
+        sline = '<line x1="150" y1="30" x2="268" y2="30" stroke="var(--rpt-good)" stroke-width="6" stroke-linecap="round"/>'
     else:
-        snum, sword, scol, sline = '0', 'on the baseline finish', '#64748b', ''
+        snum, sword, scol, sline = '0', 'on the baseline finish', 'var(--rpt-muted)', ''
     dd, bf, uf = _e(report.get('data_date') or '—'), _e(report.get('baseline_finish') or '—'), _e(report.get('update_finish') or '—')
     slip_svg = (f'<div class="slh"><span class="sln" style="color:{scol}">{snum}</span>'
                 f'<span class="slc">{sword}</span></div>'
                 '<svg viewBox="0 0 300 64" width="100%">'
-                '<line x1="14" y1="30" x2="286" y2="30" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>'
+                '<line x1="14" y1="30" x2="286" y2="30" stroke="var(--rpt-chart-grid)" stroke-width="2" stroke-linecap="round"/>'
                 f'{sline}'
-                '<circle cx="36" cy="30" r="4.5" fill="#94a3b8"/>'
-                '<text x="36" y="48" text-anchor="middle" font-size="8.5" fill="#64748b">Data date</text>'
-                f'<text x="36" y="59" text-anchor="middle" font-size="8.5" font-weight="700" fill="#1e293b">{dd}</text>'
-                f'<circle cx="150" cy="30" r="5.5" fill="#fff" stroke="{_BLUE}" stroke-width="3"/>'
-                '<text x="150" y="15" text-anchor="middle" font-size="8.5" fill="#64748b">Baseline</text>'
-                f'<text x="150" y="48" text-anchor="middle" font-size="8.5" font-weight="700" fill="#1e293b">{bf}</text>'
+                '<circle cx="36" cy="30" r="4.5" fill="var(--rpt-muted)"/>'
+                '<text x="36" y="48" text-anchor="middle" font-size="8.5" fill="var(--rpt-muted)">Data date</text>'
+                f'<text x="36" y="59" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--rpt-ink)">{dd}</text>'
+                f'<circle cx="150" cy="30" r="5.5" fill="var(--rpt-bg)" stroke="{_BLUE}" stroke-width="3"/>'
+                '<text x="150" y="15" text-anchor="middle" font-size="8.5" fill="var(--rpt-muted)">Baseline</text>'
+                f'<text x="150" y="48" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--rpt-ink)">{bf}</text>'
                 f'<circle cx="268" cy="30" r="5.5" fill="{_RED}"/>'
                 f'<text x="268" y="15" text-anchor="middle" font-size="8.5" font-weight="700" fill="{_RED}">Update</text>'
-                f'<text x="268" y="48" text-anchor="middle" font-size="8.5" font-weight="700" fill="#1e293b">{uf}</text>'
+                f'<text x="268" y="48" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--rpt-ink)">{uf}</text>'
                 '</svg>')
 
     # 3) changed-activity donut
@@ -279,13 +288,13 @@ def _charts_html(report):
     gap = 2 if (lf > 0 and df > 0) else 0
     la, da = max(0.0, lf * C - gap), max(0.0, df * C - gap)
     donut = (f'<div class="dnw"><svg viewBox="0 0 130 130" width="104" height="104">'
-             '<circle cx="65" cy="65" r="52" fill="none" stroke="#e2e8f0" stroke-width="20"/>'
+             '<circle cx="65" cy="65" r="52" fill="none" stroke="var(--rpt-chart-grid)" stroke-width="20"/>'
              f'<circle cx="65" cy="65" r="52" fill="none" stroke="{_BLUE}" stroke-width="20" stroke-dasharray="{la:.1f} {C - la:.1f}" transform="rotate(-90 65 65)"/>'
-             f'<circle cx="65" cy="65" r="52" fill="none" stroke="#eb6834" stroke-width="20" stroke-dasharray="{da:.1f} {C - da:.1f}" stroke-dashoffset="{-lf * C:.1f}" transform="rotate(-90 65 65)"/>'
-             f'<text x="65" y="61" text-anchor="middle" font-size="20" font-weight="800" fill="#1e293b">{total}</text>'
-             '<text x="65" y="78" text-anchor="middle" font-size="9" fill="#64748b">changed</text></svg>'
+             f'<circle cx="65" cy="65" r="52" fill="none" stroke="var(--rpt-series-3)" stroke-width="20" stroke-dasharray="{da:.1f} {C - da:.1f}" stroke-dashoffset="{-lf * C:.1f}" transform="rotate(-90 65 65)"/>'
+             f'<text x="65" y="61" text-anchor="middle" font-size="20" font-weight="800" fill="var(--rpt-ink)">{total}</text>'
+             '<text x="65" y="78" text-anchor="middle" font-size="9" fill="var(--rpt-muted)">changed</text></svg>'
              f'<div class="dnl"><div><i style="background:{_BLUE}"></i><b>{logic_n}</b> logic / lag <span>({round(lf * 100)}%)</span></div>'
-             f'<div><i style="background:#eb6834"></i><b>{dur_n}</b> duration only <span>({round(df * 100)}%)</span></div></div></div>')
+             f'<div><i style="background:var(--rpt-series-3)"></i><b>{dur_n}</b> duration only <span>({round(df * 100)}%)</span></div></div></div>')
 
     # but-for (instant, no-F9 estimate): how much of the delay the edits manufactured
     bf_wd, mfd = dash.get('butfor_delay_working_days'), dash.get('manufactured_working_days')
@@ -298,7 +307,7 @@ def _charts_html(report):
                        f"delay is genuine, not manufactured.")
         else:
             verdict = "Reverting the flagged changes does not reduce the delay."
-        hot = ' style="background:#fdeaea;border-color:#f3c1c1"' if mfd and mfd > 0 else ''
+        hot = ' style="background:var(--rpt-bad-bg);border-color:var(--rpt-bad)"' if mfd and mfd > 0 else ''
         butfor_pdf = (f'<div class="butfor"{hot}><b>But-for delay: {bf_wd} wd · {mfd} manufactured</b>'
                       f'<div class="bfn">{verdict} Instant estimate — tool-scheduled, no F9.</div></div>')
     else:
@@ -311,7 +320,7 @@ def _charts_html(report):
             f'</div>')
 
 
-def render_html(report, impact=None):
+def render_html(report, impact=None, theme='light'):
     cs = report.get('change_summary', {}) or {}
     pills = ''.join(f'<span class="pill">{it.get("count")} {_e(it.get("label"))}</span>'
                     for it in cs.get('items', [])) or '<span class="note">No changes vs the baseline.</span>'
@@ -320,56 +329,56 @@ def render_html(report, impact=None):
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: A4 landscape; margin: 12mm; }}
       * {{ box-sizing: border-box; }}
-      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 12px; margin: 0; }}
+      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: var(--rpt-ink); font-size: 12px; margin: 0; }}
       h1 {{ font-size: 20px; margin: 0 0 2px; }}
-      h2 {{ font-size: 14px; margin: 18px 0 8px; border-bottom: 2px solid #1e2d40; padding-bottom: 4px; }}
-      .sub {{ color: #64748b; font-size: 12px; margin-bottom: 10px; }}
+      h2 {{ font-size: 14px; margin: 18px 0 8px; border-bottom: 2px solid var(--rpt-ink); padding-bottom: 4px; }}
+      .sub {{ color: var(--rpt-muted); font-size: 12px; margin-bottom: 10px; }}
       .tiles {{ display: flex; gap: 10px; margin: 8px 0; }}
-      .tile {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 14px; min-width: 150px; }}
-      .tl {{ font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #64748b; font-weight: 700; }}
+      .tile {{ border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 8px 14px; min-width: 150px; }}
+      .tl {{ font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--rpt-muted); font-weight: 700; }}
       .tv {{ font-size: 20px; font-weight: 800; margin-top: 2px; }}
-      .tsub {{ font-size: 10.5px; color: #475569; font-weight: 600; margin-top: 4px; }}
-      .recon {{ font-size: 11.5px; color: #334155; margin: 2px 0 6px; }} .recon b {{ color: #1e293b; }}
-      .pill {{ display: inline-block; background: #eef2ff; color: #1e3a8a; border-radius: 12px; padding: 2px 10px; font-size: 11px; margin: 0 6px 6px 0; }}
+      .tsub {{ font-size: 10.5px; color: var(--rpt-ink-soft); font-weight: 600; margin-top: 4px; }}
+      .recon {{ font-size: 11.5px; color: var(--rpt-ink-soft); margin: 2px 0 6px; }} .recon b {{ color: var(--rpt-ink); }}
+      .pill {{ display: inline-block; background: var(--rpt-accent-soft); color: var(--rpt-accent); border-radius: 12px; padding: 2px 10px; font-size: 11px; margin: 0 6px 6px 0; }}
       table.data {{ width: 100%; border-collapse: collapse; font-size: 10.5px; margin: 6px 0; }}
-      table.data th {{ background: #26517d; color: #fff; text-align: left; padding: 5px 6px; font-weight: 600; }}
-      table.data th.grp {{ background: #445; }} table.data th.grpu {{ background: #1e3a8a; }}
-      table.data td {{ border-bottom: 1px solid #e2e8f0; padding: 4px 6px; vertical-align: top; }}
+      table.data th {{ background: var(--rpt-th-bg); color: var(--rpt-th-ink); text-align: left; padding: 5px 6px; font-weight: 600; }}
+      table.data th.grp {{ background: var(--rpt-th-bg); }} table.data th.grpu {{ background: var(--rpt-accent); color: var(--rpt-accent-ink); }}
+      table.data td {{ border-bottom: 1px solid var(--rpt-edge); padding: 4px 6px; vertical-align: top; }}
       .mono {{ font-family: Consolas, monospace; }}
       .num {{ text-align: right; }}
-      .chg {{ color: #b91c1c; font-weight: 700; }}
-      .note {{ color: #64748b; font-style: italic; }}
-      .fc {{ color: #334155; }}
-      .legend {{ font-size: 11px; color: #64748b; margin: 4px 0; }}
+      .chg {{ color: var(--rpt-bad); font-weight: 700; }}
+      .note {{ color: var(--rpt-muted); font-style: italic; }}
+      .fc {{ color: var(--rpt-ink-soft); }}
+      .legend {{ font-size: 11px; color: var(--rpt-muted); margin: 4px 0; }}
       .legend span {{ margin-right: 16px; }} .legend i {{ display: inline-block; width: 16px; height: 3px; vertical-align: middle; margin-right: 5px; }}
-      .reco {{ border: 1px solid #e2e8f0; border-left: 4px solid #16a34a; border-radius: 0 8px 8px 0; padding: 10px 14px; line-height: 1.6; }}
+      .reco {{ border: 1px solid var(--rpt-edge); border-left: 4px solid var(--rpt-good); border-radius: 0 8px 8px 0; padding: 10px 14px; line-height: 1.6; }}
       .charts {{ display: grid; grid-template-columns: 1.5fr 1.15fr 1fr; gap: 10px; margin: 10px 0; }}
-      .chart {{ border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }}
+      .chart {{ border: 1px solid var(--rpt-edge); border-radius: 10px; padding: 10px 12px; }}
       .ct {{ font-size: 12px; font-weight: 800; }}
-      .cs {{ font-size: 10px; color: #64748b; margin: 2px 0 9px; }}
+      .cs {{ font-size: 10px; color: var(--rpt-muted); margin: 2px 0 9px; }}
       .cbar {{ display: grid; grid-template-columns: 120px 1fr 30px; align-items: center; gap: 7px; margin-bottom: 6px; }}
-      .cbl {{ font-size: 9.5px; color: #475569; text-align: right; line-height: 1.15; }}
-      .cbt {{ height: 12px; background: #eef1f5; border-radius: 6px; overflow: hidden; }}
-      .cbf {{ height: 100%; background: #2a78d6; border-radius: 6px; }}
+      .cbl {{ font-size: 9.5px; color: var(--rpt-ink-soft); text-align: right; line-height: 1.15; }}
+      .cbt {{ height: 12px; background: var(--rpt-surface-2); border-radius: 6px; overflow: hidden; }}
+      .cbf {{ height: 100%; background: var(--rpt-series-1); border-radius: 6px; }}
       .cbv {{ font-size: 10px; font-weight: 800; text-align: right; }}
       .slh {{ display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }}
       .sln {{ font-size: 24px; font-weight: 800; line-height: 1; }}
-      .slc {{ font-size: 10px; color: #64748b; font-weight: 600; }}
+      .slc {{ font-size: 10px; color: var(--rpt-muted); font-weight: 600; }}
       .dnw {{ display: flex; align-items: center; gap: 10px; }}
       .dnl {{ font-size: 10.5px; }}
       .dnl div {{ display: flex; align-items: center; gap: 6px; margin: 4px 0; }}
       .dnl i {{ width: 10px; height: 10px; border-radius: 2px; }}
-      .dnl span {{ color: #64748b; }}
-      .butfor {{ margin-top: 8px; padding: 6px 9px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 10px; line-height: 1.35; background: #f8fafc; }}
-      .butfor b {{ color: #1e293b; }}
-      .bfn {{ color: #64748b; margin-top: 2px; }}
+      .dnl span {{ color: var(--rpt-muted); }}
+      .butfor {{ margin-top: 8px; padding: 6px 9px; border: 1px solid var(--rpt-edge); border-radius: 7px; font-size: 10px; line-height: 1.35; background: var(--rpt-surface); }}
+      .butfor b {{ color: var(--rpt-ink); }}
+      .bfn {{ color: var(--rpt-muted); margin-top: 2px; }}
       table.data tr, table.data td {{ page-break-inside: avoid; break-inside: avoid; }}
       table.data thead {{ display: table-header-group; }}
       table.data td {{ font-size: 9px; line-height: 1.2; padding: 3px 5px; }}   /* compact rows so they fit a page and never split */
-      .newscope {{ display: inline-block; font-size: 8px; font-weight: 700; padding: 0 4px; border-radius: 8px; background: #fdeccb; color: #8a5a00; }}
-      .legend2 {{ font-size: 9.5px; color: #64748b; line-height: 1.5; margin: 5px 0 2px; }}
-      .legend2 b {{ color: #1e293b; }}
-    </style></head><body>
+      .newscope {{ display: inline-block; font-size: 8px; font-weight: 700; padding: 0 4px; border-radius: 8px; background: var(--rpt-warn-bg); color: var(--rpt-warn); }}
+      .legend2 {{ font-size: 9.5px; color: var(--rpt-muted); line-height: 1.5; margin: 5px 0 2px; }}
+      .legend2 b {{ color: var(--rpt-ink); }}
+    </style>{report_theme.theme_style_tag(theme)}</head><body>
       <h1>Consultant Review — Baseline vs Current Update</h1>
       <div class="sub">{_e(report.get('project_name'))} · data date {_e(report.get('data_date'))} · baseline {_e(report.get('baseline_file'))} vs {_e(report.get('update_file'))}</div>
       {dash}

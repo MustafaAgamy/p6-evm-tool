@@ -7,6 +7,11 @@
 import { state }             from './state.js';
 import { showError, clearError } from './render.js';
 import { escapeHtml }        from './format.js';
+import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
+
+// The report-appearance mode chosen in this panel's PDF preview modal — remembered
+// across sessions via appearance.js, shared with every other report preview flow.
+let _cmpTheme = getSavedMode();
 
 // ── Pure helpers (unit-tested in tests/js/test_compare.js) ────────────────
 
@@ -154,7 +159,7 @@ function _chartSlip(report) {
                 ontime: 'on the baseline finish', none: 'no finish date' }[s.dir];
   const dd = report.data_date || '—', bf = report.baseline_finish || '—', uf = report.update_finish || '—';
   const slipLine = (s.dir === 'late' || s.dir === 'early')
-    ? `<line x1="150" y1="30" x2="268" y2="30" stroke="${s.dir === 'late' ? 'var(--danger)' : 'var(--success,#16a34a)'}" stroke-width="6" stroke-linecap="round"/>`
+    ? `<line x1="150" y1="30" x2="268" y2="30" stroke="${s.dir === 'late' ? 'var(--danger)' : 'var(--success)'}" stroke-width="6" stroke-linecap="round"/>`
     : '';
   return `
     <div class="cmp-slip-head"><span class="cmp-slip-num ${cls}">${escapeHtml(num)}</span>
@@ -186,14 +191,14 @@ function _chartDonut(report) {
         <circle cx="65" cy="65" r="52" fill="none" stroke="var(--border)" stroke-width="20"/>
         <circle cx="65" cy="65" r="52" fill="none" stroke="var(--accent)" stroke-width="20"
                 stroke-dasharray="${la.toFixed(1)} ${(_DONUT_C - la).toFixed(1)}" transform="rotate(-90 65 65)"/>
-        <circle cx="65" cy="65" r="52" fill="none" stroke="#eb6834" stroke-width="20"
+        <circle cx="65" cy="65" r="52" fill="none" stroke="var(--chart-3)" stroke-width="20"
                 stroke-dasharray="${da.toFixed(1)} ${(_DONUT_C - da).toFixed(1)}" stroke-dashoffset="${(-seg.logicFrac * _DONUT_C).toFixed(1)}" transform="rotate(-90 65 65)"/>
         <text x="65" y="61" text-anchor="middle" style="font-size:20px;font-weight:800;fill:var(--text)">${escapeHtml(String(b.total))}</text>
         <text x="65" y="78" text-anchor="middle" style="font-size:9px;fill:var(--muted)">changed</text>
       </svg>
       <div class="cmp-donut-legend">
         <div><i style="background:var(--accent)"></i><b>${escapeHtml(String(b.logic))}</b> logic / lag <span class="mut">(${pct(seg.logicFrac)}%)</span></div>
-        <div><i style="background:#eb6834"></i><b>${escapeHtml(String(b.duration))}</b> duration only <span class="mut">(${pct(seg.durationFrac)}%)</span></div>
+        <div><i style="background:var(--chart-3)"></i><b>${escapeHtml(String(b.duration))}</b> duration only <span class="mut">(${pct(seg.durationFrac)}%)</span></div>
       </div>
     </div>`;
 }
@@ -422,16 +427,17 @@ async function _withBtn(id, idle, fn) {
 export async function previewComparePdf() {
   const report = _shownReportOrWarn();
   if (!report) return;
+  const impact = state.compareImpact || _shownImpact || null;
   const btn = document.getElementById('cmp-preview-pdf');
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, preview: true }),
+      body: JSON.stringify({ report, impact, preview: true, theme: _cmpTheme }),
     });
     const data = await resp.json();
     if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
-    _showPreviewModal(data.html);
+    _showPreviewModal(data.html, report, impact);
   } catch {
     showError('Could not reach the local server to build the preview.');
   } finally {
@@ -439,7 +445,10 @@ export async function previewComparePdf() {
   }
 }
 
-function _showPreviewModal(html) {
+// `report`/`impact` are the exact payload the modal was opened with (captured by the caller,
+// not re-read from state) — the appearance picker's re-fetch reuses them so the re-rendered
+// preview matches the one first shown, even if a background re-import clears state.compare*.
+function _showPreviewModal(html, report, impact) {
   const old = document.getElementById('cmp-preview-modal');
   if (old) old.remove();
   const modal = document.createElement('div');
@@ -455,7 +464,29 @@ function _showPreviewModal(html) {
     </div>
     <iframe class="cmp-modal-frame" id="cmp-modal-frame" title="Consultant Review PDF preview"></iframe>`;
   document.body.appendChild(modal);
-  document.getElementById('cmp-modal-frame').srcdoc = html;
+  const frame = document.getElementById('cmp-modal-frame');
+  frame.srcdoc = html;
+  frame.style.background = backdropColor(_cmpTheme);
+
+  const actions = modal.querySelector('.cmp-modal-actions');
+  const picker = buildAppearancePicker({
+    current: _cmpTheme,
+    compact: true,
+    onChange: async (mode) => {
+      _cmpTheme = mode;
+      frame.style.background = backdropColor(_cmpTheme);
+      try {
+        const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report, impact, preview: true, theme: _cmpTheme }),
+        });
+        const data = await resp.json();
+        if (data.ok) frame.srcdoc = data.html;
+      } catch { /* keep showing the last-good preview */ }
+    },
+  });
+  if (actions) actions.insertBefore(picker, actions.firstChild);
+
   document.getElementById('cmp-modal-close').addEventListener('click', () => modal.remove());
   document.getElementById('cmp-modal-save').addEventListener('click', () => { modal.remove(); exportComparePdf(); });
 }
@@ -469,7 +500,7 @@ export async function exportComparePdf() {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath }),
+        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath, theme: _cmpTheme }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
@@ -593,19 +624,19 @@ function _scurveSvg(sc) {
   let marks = '';
   if (bx != null && ux != null && ux > bx) {
     marks += `<rect x="${bx.toFixed(1)}" y="${y1}" width="${(ux - bx).toFixed(1)}" height="${y0 - y1}" fill="rgba(226,75,74,.09)"/>`;
-    marks += `<text x="${((bx + ux) / 2).toFixed(1)}" y="${(y1 + 13).toFixed(1)}" text-anchor="middle" style="fill:#e24b4a;font-size:9px;font-weight:700">◄ slip ►</text>`;
+    marks += `<text x="${((bx + ux) / 2).toFixed(1)}" y="${(y1 + 13).toFixed(1)}" text-anchor="middle" style="fill:var(--danger);font-size:9px;font-weight:700">◄ slip ►</text>`;
   }
-  if (bx != null) marks += `<line x1="${bx.toFixed(1)}" y1="${y1}" x2="${bx.toFixed(1)}" y2="${y0}" stroke="#888781" stroke-width="1" stroke-dasharray="3 2"/>` +
-    `<text x="${bx.toFixed(1)}" y="${(y1 - 16).toFixed(1)}" text-anchor="${anch(bx)}" style="fill:#888781;font-size:9px;font-weight:700">Baseline ${escapeHtml(m.baseline_label || '')}</text>`;
-  if (ux != null) marks += `<line x1="${ux.toFixed(1)}" y1="${y1}" x2="${ux.toFixed(1)}" y2="${y0}" stroke="#e24b4a" stroke-width="1" stroke-dasharray="3 2"/>` +
-    `<text x="${ux.toFixed(1)}" y="${(y1 - 5).toFixed(1)}" text-anchor="${anch(ux)}" style="fill:#e24b4a;font-size:9px;font-weight:700">Update ${escapeHtml(m.update_label || '')}</text>`;
+  if (bx != null) marks += `<line x1="${bx.toFixed(1)}" y1="${y1}" x2="${bx.toFixed(1)}" y2="${y0}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 2"/>` +
+    `<text x="${bx.toFixed(1)}" y="${(y1 - 16).toFixed(1)}" text-anchor="${anch(bx)}" style="fill:var(--muted);font-size:9px;font-weight:700">Baseline ${escapeHtml(m.baseline_label || '')}</text>`;
+  if (ux != null) marks += `<line x1="${ux.toFixed(1)}" y1="${y1}" x2="${ux.toFixed(1)}" y2="${y0}" stroke="var(--danger)" stroke-width="1" stroke-dasharray="3 2"/>` +
+    `<text x="${ux.toFixed(1)}" y="${(y1 - 5).toFixed(1)}" text-anchor="${anch(ux)}" style="fill:var(--danger);font-size:9px;font-weight:700">Update ${escapeHtml(m.update_label || '')}</text>`;
   return `<svg viewBox="0 0 620 278" width="100%" role="img" aria-label="S-curve: baseline plan vs update, with the finish of each marked and the slip between them shaded">
     ${ygrid}
     ${marks}
     <line x1="${x0}" y1="${y1}" x2="${x0}" y2="${y0}" stroke="var(--border)" stroke-width="1"/>
-    ${poly(sc.baseline, '#888781', '4 3')}
-    ${poly(sc.after, '#e24b4a')}
-    ${poly(sc.before, '#2a78d6')}
+    ${poly(sc.baseline, 'var(--muted)', '4 3')}
+    ${poly(sc.after, 'var(--danger)')}
+    ${poly(sc.before, 'var(--accent)')}
     ${xlabels}
   </svg>`;
 }
@@ -616,9 +647,9 @@ function _scurveSection(sc) {
     <div class="mod-sec">S-curve — baseline vs reported vs but-for</div>
     <div class="cmp-scurve-card">
       <div class="cmp-scurve-legend">
-        <span><i style="background:#888781"></i>Baseline plan</span>
-        <span><i style="background:#e24b4a"></i>Reported (update)</span>
-        <span><i style="background:#2a78d6"></i>But-for (corrected)</span>
+        <span><i style="background:var(--muted)"></i>Baseline plan</span>
+        <span><i style="background:var(--danger)"></i>Reported (update)</span>
+        <span><i style="background:var(--accent)"></i>But-for (corrected)</span>
       </div>
       ${_scurveSvg(sc)}
       <div class="cmp-scurve-note">Each curve reaches 100% at that schedule's finish — the dashed lines mark the <b>baseline finish</b> and the <b>update finish</b>, and the shaded band between them is the <b>slip</b>. The but-for curve shows where the finish would sit with the flagged changes reverted; the exact delay is in the numbers above.</div>

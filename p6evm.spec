@@ -26,6 +26,10 @@ datas = [
                                           # feature-dashboard filesystem scan can find them.
     ('config.json',    '.'),              # Config at root of bundle
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
+    ('report_theme.py', '.'),             # Shared report appearance themes — imported at
+                                          # runtime by the report renderers (which run after
+                                          # sys.path.insert(resource_path('.'))); ship as root
+                                          # data so `import report_theme` resolves in the bundle.
 ]
 
 # ── Hidden imports pywebview / webview2 needs ──────────────────────────────
@@ -63,6 +67,8 @@ hiddenimports = [
     'p6_kb.detect',
     'p6_kb.model',
     'p6_kb.scoring',
+    # Shared report appearance themes (imported by every report renderer)
+    'report_theme',
 ]
 
 a = Analysis(

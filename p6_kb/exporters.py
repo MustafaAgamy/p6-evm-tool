@@ -8,15 +8,25 @@ produced.
 """
 import html
 
-_BAND_HEX = {'green': '#16a34a', 'amber': '#d97706', 'orange': '#ea580c', 'red': '#dc2626'}
+import report_theme
+
+# Score bands (scoring.py: green/amber/orange/red) collapse onto the 3 semantic
+# tokens the theme system defines (bad/warn/good) — red and orange (the two
+# "not ready" tiers, 0-69) both read as --rpt-bad, amber (70-84, "minor gaps")
+# as --rpt-warn, green (85-100, "ready") as --rpt-good.
+_BAND_TOKEN = {'green': 'rpt-good', 'amber': 'rpt-warn', 'orange': 'rpt-bad', 'red': 'rpt-bad'}
 
 
 def _e(v):
     return html.escape(str(v if v is not None else ''))
 
 
-def _hex(band):
-    return _BAND_HEX.get(band, '#94a3b8')
+def _band_var(band):
+    return report_theme.var(_BAND_TOKEN.get(band, 'rpt-warn'))
+
+
+def _band_bg_var(band):
+    return report_theme.var(f'{_BAND_TOKEN.get(band, "rpt-warn")}-bg')
 
 
 def _links(lst):
@@ -56,10 +66,10 @@ def findings_excel(report):
 # ── PDF: HTML → Chrome ──────────────────────────────────────────────────────
 
 def _band_legend(score):
-    bands = [(50, '#dc2626', 'Major', '0–49'), (20, '#ea580c', 'Significant', '50–69'),
-             (15, '#d97706', 'Minor', '70–84'), (15, '#16a34a', 'Ready', '85–100')]
-    segs = ''.join(f'<div class="lseg" style="width:{w}%;background:{c}"><b>{t}</b><span>{r}</span></div>'
-                   for w, c, t, r in bands)
+    bands = [(50, 'red', 'Major', '0–49'), (20, 'orange', 'Significant', '50–69'),
+             (15, 'amber', 'Minor', '70–84'), (15, 'green', 'Ready', '85–100')]
+    segs = ''.join(f'<div class="lseg" style="width:{w}%;background:{_band_var(b)}"><b>{t}</b><span>{r}</span></div>'
+                   for w, b, t, r in bands)
     pos = max(0, min(100, score))
     return (f'<div class="legwrap"><div class="lmark" style="left:{pos}%">'
             f'<div class="bub">Score {score}</div><div class="arw"></div></div>'
@@ -160,10 +170,12 @@ def _wbs_review(report):
     return f'<div class="wbsrev">{items}</div>'
 
 
-def render_html(report):
+def render_html(report, theme='light'):
     s = report.get('score') or {}
     v = report.get('verdict') or {}
-    hex_ = _hex(s.get('band'))
+    band = s.get('band')
+    hex_ = _band_var(band)
+    hex_bg = _band_bg_var(band)
     proj = report.get('projected')
     conf = report.get('confidence') or {}
     proj_html = (f'<div class="proj">What-if: correcting the flagged logic would raise the score to '
@@ -175,49 +187,51 @@ def render_html(report):
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: A4 landscape; margin: 11mm; }}
       * {{ box-sizing: border-box; }}
-      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 11.5px; margin: 0; }}
+      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: var(--rpt-ink); font-size: 11.5px; margin: 0; }}
       h1 {{ font-size: 19px; margin: 0 0 2px; }}
-      h2 {{ font-size: 13px; margin: 15px 0 7px; border-bottom: 2px solid #1e2d40; padding-bottom: 3px; }}
-      .sub {{ color: #64748b; font-size: 11px; margin-bottom: 10px; }}
-      .verdict {{ display: flex; gap: 12px; align-items: center; border: 1px solid {hex_}55; background: {hex_}12; border-radius: 9px; padding: 10px 14px; margin-bottom: 12px; }}
+      h2 {{ font-size: 13px; margin: 15px 0 7px; border-bottom: 2px solid var(--rpt-ink); padding-bottom: 3px; }}
+      .sub {{ color: var(--rpt-muted); font-size: 11px; margin-bottom: 10px; }}
+      .verdict {{ display: flex; gap: 12px; align-items: center; border: 1px solid {hex_}; background: {hex_bg}; border-radius: 9px; padding: 10px 14px; margin-bottom: 12px; }}
       .verdict .vt {{ font-size: 15px; font-weight: 800; color: {hex_}; }}
-      .verdict .vd {{ font-size: 11px; color: #475569; margin-top: 2px; }}
+      .verdict .vd {{ font-size: 11px; color: var(--rpt-ink-soft); margin-top: 2px; }}
       .verdict .vr {{ margin-left: auto; text-align: right; font-size: 11px; }}
       .verdict .vr b {{ font-size: 13px; }}
       .hero {{ display: flex; gap: 16px; align-items: center; margin-bottom: 10px; }}
-      .scorebox {{ text-align: center; border: 1px solid #e2e8f0; border-radius: 9px; padding: 10px 18px; min-width: 130px; }}
+      .scorebox {{ text-align: center; border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 10px 18px; min-width: 130px; }}
       .scorebox .n {{ font-size: 40px; font-weight: 800; color: {hex_}; line-height: 1; }}
-      .scorebox .b {{ display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px; background: {hex_}22; color: {hex_}; }}
-      .scorebox .sl {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-top: 5px; }}
+      .scorebox .b {{ display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px; background: {hex_bg}; color: {hex_}; }}
+      .scorebox .sl {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--rpt-muted); margin-top: 5px; }}
       .dims {{ flex: 1; }}
       .dim {{ margin-bottom: 7px; }} .dim .dh {{ display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }}
-      .track {{ height: 8px; background: #eef2f7; border-radius: 5px; overflow: hidden; }} .track i {{ display: block; height: 100%; background: {hex_}; }}
+      .track {{ height: 8px; background: var(--rpt-surface); border-radius: 5px; overflow: hidden; }} .track i {{ display: block; height: 100%; background: {hex_}; }}
       .legwrap {{ position: relative; padding-top: 20px; margin: 6px 0 4px; }}
       .lbar {{ display: flex; height: 26px; border-radius: 6px; overflow: hidden; }}
-      .lseg {{ display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-size: 9px; line-height: 1.1; }}
+      .lseg {{ display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--rpt-accent-ink); font-size: 9px; line-height: 1.1; }}
       .lseg b {{ font-size: 10px; }}
       .lmark {{ position: absolute; top: 0; transform: translateX(-50%); text-align: center; }}
-      .lmark .bub {{ background: #1e293b; color: #fff; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 5px; white-space: nowrap; }}
-      .lmark .arw {{ width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #1e293b; margin: 0 auto; }}
-      .proj {{ background: #fffbeb; border: 1px solid #fde68a; border-radius: 7px; padding: 7px 11px; font-size: 11px; margin: 8px 0; }}
+      .lmark .bub {{ background: var(--rpt-accent); color: var(--rpt-accent-ink); font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 5px; white-space: nowrap; }}
+      .lmark .arw {{ width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--rpt-accent); margin: 0 auto; }}
+      .proj {{ background: var(--rpt-warn-bg); border: 1px solid var(--rpt-warn); border-radius: 7px; padding: 7px 11px; font-size: 11px; margin: 8px 0; }}
       .tiles {{ display: flex; gap: 8px; margin: 8px 0; }}
-      .tile {{ flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 10px; }}
-      .tile .tv {{ font-size: 17px; font-weight: 800; }} .tile .tl {{ font-size: 10px; font-weight: 700; margin-top: 2px; }} .tile .ts {{ font-size: 9px; color: #64748b; }}
+      .tile {{ flex: 1; border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 7px 10px; }}
+      .tile .tv {{ font-size: 17px; font-weight: 800; }} .tile .tl {{ font-size: 10px; font-weight: 700; margin-top: 2px; }} .tile .ts {{ font-size: 9px; color: var(--rpt-muted); }}
       .two {{ display: flex; gap: 14px; }} .two > div {{ flex: 1; }}
       .wbsrow {{ display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 5px; }}
-      .wbsrow .nm {{ width: 150px; }} .wbsrow .bar {{ flex: 1; height: 13px; background: #eef2f7; border-radius: 4px; overflow: hidden; }}
-      .wbsrow .bar i {{ display: block; height: 100%; background: linear-gradient(90deg,#dc2626,#f59e0b); }} .wbsrow .c {{ width: 22px; text-align: right; font-weight: 700; }}
+      .wbsrow .nm {{ width: 150px; }} .wbsrow .bar {{ flex: 1; height: 13px; background: var(--rpt-surface); border-radius: 4px; overflow: hidden; }}
+      .wbsrow .bar i {{ display: block; height: 100%; background: linear-gradient(90deg,var(--rpt-bad),var(--rpt-warn)); }} .wbsrow .c {{ width: 22px; text-align: right; font-weight: 700; }}
       table.data {{ width: 100%; border-collapse: collapse; font-size: 9.5px; margin: 5px 0; }}
-      table.data th {{ background: #26517d; color: #fff; text-align: left; padding: 4px 6px; font-weight: 600; }}
-      table.data td {{ border-bottom: 1px solid #e2e8f0; padding: 3px 6px; vertical-align: top; word-break: break-word; }}
+      table.data th {{ background: var(--rpt-th-bg); color: var(--rpt-th-ink); text-align: left; padding: 4px 6px; font-weight: 600; }}
+      table.data td {{ border-bottom: 1px solid var(--rpt-edge); padding: 3px 6px; vertical-align: top; word-break: break-word; }}
       table.illog {{ table-layout: fixed; }}
-      .mono {{ font-family: Consolas, monospace; }} .mut {{ color: #64748b; }} .chg {{ color: #b91c1c; }}
-      .sn {{ text-align: center; color: #64748b; font-weight: 700; width: 16px; }}
-      .prio td {{ padding: 5px 6px; }} .prio .rk {{ width: 20px; font-weight: 800; color: #dc2626; }} .prio .pd {{ color: #64748b; font-size: 9px; }} .prio .sev {{ white-space: nowrap; font-weight: 700; }}
-      .wbsrev {{ font-size: 10.5px; }} .wbsr {{ padding: 2px 0; }} .wbsr.miss {{ color: #b45309; }}
-      .note {{ color: #64748b; font-style: italic; }}
-      .foot {{ margin-top: 14px; font-size: 9.5px; color: #94a3b8; font-style: italic; border-top: 1px solid #e2e8f0; padding-top: 6px; }}
-    </style></head><body>
+      .mono {{ font-family: Consolas, monospace; }} .mut {{ color: var(--rpt-muted); }} .chg {{ color: var(--rpt-bad); }}
+      .sn {{ text-align: center; color: var(--rpt-muted); font-weight: 700; width: 16px; }}
+      .prio td {{ padding: 5px 6px; }} .prio .rk {{ width: 20px; font-weight: 800; color: var(--rpt-bad); }} .prio .pd {{ color: var(--rpt-muted); font-size: 9px; }} .prio .sev {{ white-space: nowrap; font-weight: 700; }}
+      .wbsrev {{ font-size: 10.5px; }} .wbsr {{ padding: 2px 0; }} .wbsr.miss {{ color: var(--rpt-warn); }}
+      .note {{ color: var(--rpt-muted); font-style: italic; }}
+      .foot {{ margin-top: 14px; font-size: 9.5px; color: var(--rpt-muted); font-style: italic; border-top: 1px solid var(--rpt-edge); padding-top: 6px; }}
+    </style>
+    {report_theme.theme_style_tag(theme)}
+    </head><body>
       <h1>Constructability Review — Execution Readiness</h1>
       <div class="sub">{_e(report.get('project_type'))} · {conf_html} · Rule + Knowledge Base · offline</div>
       <div class="verdict"><div><div class="vt">{_e(v.get('title'))}</div><div class="vd">{_e(v.get('detail') or v.get('text'))}</div></div>

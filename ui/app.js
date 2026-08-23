@@ -1,5 +1,5 @@
 import { state }                              from './modules/state.js';
-import { initTheme, toggleTheme }            from './modules/theme.js';
+import { initTheme }                          from './modules/theme.js';
 import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, exportCalendarExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
@@ -9,9 +9,11 @@ import { showDatabase, exitDatabase, initDatabase } from './modules/database.js'
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
 import { renderPeriodPanel }                   from './modules/period.js';
+import { renderCritPathPanel }                 from './modules/critpath.js';
 import { renderUpdatePanel }                   from './modules/update.js';
 import { renderDashboardPanel }                from './modules/dashboard.js';
 import { initTooltips }                        from './modules/tooltip.js';
+import { initReportAppearanceControl }         from './modules/appearance.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
@@ -21,7 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initDatabase();
   loadHistory();
 
-  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+  // Unified Appearance control (six modes) — themes the whole app screen AND every report
+  // preview/PDF from one choice. initTheme() above already painted the saved mode on load.
+  initReportAppearanceControl('report-appearance');
 
   document.getElementById('sb-home-btn').addEventListener('click', () => {
     exitKbLibrary();
@@ -66,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (card.dataset.view === 'construct') renderConstructPanel();
       if (card.dataset.view === 'compare') renderComparePanel();
       if (card.dataset.view === 'period') renderPeriodPanel();
+      if (card.dataset.view === 'critpath') renderCritPathPanel();
       if (card.dataset.view === 'update') renderUpdatePanel();
       if (card.dataset.view === 'dashboard') renderDashboardPanel();
     }));
@@ -80,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-compare').addEventListener('click', () => { switchView('compare'); renderComparePanel(); });
   document.getElementById('tab-lag').addEventListener('click', () => switchView('lag'));
   document.getElementById('tab-period').addEventListener('click', () => { switchView('period'); renderPeriodPanel(); });
+  document.getElementById('tab-critpath').addEventListener('click', () => { switchView('critpath'); renderCritPathPanel(); });
   document.getElementById('tab-update').addEventListener('click', () => { switchView('update'); renderUpdatePanel(); });
   document.getElementById('tab-dashboard').addEventListener('click', () => { switchView('dashboard'); renderDashboardPanel(); });
 

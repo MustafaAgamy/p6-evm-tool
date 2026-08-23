@@ -7,6 +7,7 @@ import { showError, clearError }                    from './render.js';
 import { escapeHtml }                               from './format.js';
 import { bandHex, kindClass, markerLeft, impactPill } from './aireview_helpers.js';
 import { showReportPreview }                        from './preview.js';
+import { getSavedMode }                             from './appearance.js';
 
 // ── shared cell/table renderers (same data shape as the report) ────────────
 
@@ -129,10 +130,10 @@ function _gauge(score, hex) {
 
 function _legend(score) {
   const bands = [
-    { w: 50, c: '#dc2626', t: 'Major gaps', r: '0–49' },
-    { w: 20, c: '#ea580c', t: 'Significant', r: '50–69' },
-    { w: 15, c: '#d97706', t: 'Minor gaps', r: '70–84' },
-    { w: 15, c: '#16a34a', t: 'Ready', r: '85–100' },
+    { w: 50, c: 'var(--danger)', t: 'Major gaps', r: '0–49' },
+    { w: 20, c: 'var(--chart-3)', t: 'Significant', r: '50–69' },
+    { w: 15, c: 'var(--warning)', t: 'Minor gaps', r: '70–84' },
+    { w: 15, c: 'var(--success)', t: 'Ready', r: '85–100' },
   ];
   const segs = bands.map(b => `<div class="xd-lseg" style="width:${b.w}%;background:${b.c}"><b>${b.t}</b><span>${b.r}</span></div>`).join('');
   return `<div class="xd-legend"><div class="xd-lttl">How to read the score — Constructability bands</div>
@@ -178,9 +179,9 @@ function _severity(sev) {
   const c = sev.critical || 0, n = sev.near_critical || 0, tot = c + n;
   if (!tot) return '<p class="ai-empty">No illogical links flagged.</p>';
   const cp = Math.round(100 * c / tot);
-  return `<div class="xd-sevbar"><i style="width:${cp}%;background:#dc2626"></i><i style="width:${100 - cp}%;background:#d97706"></i></div>
-    <div class="xd-sevleg"><span><span class="dot" style="background:#dc2626"></span>Critical <b>${c}</b></span>
-      <span><span class="dot" style="background:#d97706"></span>Near-critical <b>${n}</b></span></div>
+  return `<div class="xd-sevbar"><i style="width:${cp}%;background:var(--danger)"></i><i style="width:${100 - cp}%;background:var(--warning)"></i></div>
+    <div class="xd-sevleg"><span><span class="dot" style="background:var(--danger)"></span>Critical <b>${c}</b></span>
+      <span><span class="dot" style="background:var(--warning)"></span>Near-critical <b>${n}</b></span></div>
     <div class="xd-sevnote">Critical = on / near the critical path (float ≤ 10 working days)</div>`;
 }
 
@@ -375,18 +376,25 @@ async function previewReport(btn) {
   if (!rep || !rep.detected) return;
   const orig = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing preview…'; }
-  try {
+  const mode = getSavedMode();
+  const fetchPreview = async (theme) => {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: rep, preview: true }),
+      body: JSON.stringify({ report: rep, preview: true, theme }),
     });
     const data = await resp.json();
-    if (!data.ok || !data.html) { showError(data.error || 'Preview failed.'); return; }
+    if (!data.ok || !data.html) throw new Error(data.error || 'Preview failed.');
+    return data.html;
+  };
+  try {
+    const html = await fetchPreview(mode);
     showReportPreview({
       title: 'Constructability Review — print preview',
       subtitle: rep.project_type || '',
-      html: data.html,
-      onSave: () => saveReportPdf(rep),
+      html,
+      initialMode: mode,
+      onThemeChange: fetchPreview,
+      onSave: (m) => saveReportPdf(rep, m),
     });
   } catch {
     showError('Could not reach the local server. Try restarting the app.');
@@ -395,13 +403,13 @@ async function previewReport(btn) {
   }
 }
 
-async function saveReportPdf(rep) {
+async function saveReportPdf(rep, theme) {
   const slug = (rep.detected.type || 'constructability').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
   const path = await window.pywebview.api.choose_save_path(`${slug}_constructability.pdf`, 'pdf');
   if (!path) return false;
   const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability/report`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ report: rep, output_path: path }),
+    body: JSON.stringify({ report: rep, output_path: path, theme: theme || getSavedMode() }),
   });
   const data = await resp.json();
   if (!data.ok) { showError(data.error || 'PDF generation failed.'); return false; }
@@ -456,7 +464,7 @@ async function exportReport(kind, btn) {
     const url = kind === 'pdf' ? '/api/constructability/report' : '/api/constructability/excel';
     const resp = await fetch(`http://localhost:${state.serverPort}${url}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: rep, output_path: path }),
+      body: JSON.stringify({ report: rep, output_path: path, theme: getSavedMode() }),
     });
     const data = await resp.json();
     if (!data.ok) showError(data.error || 'Export failed.');

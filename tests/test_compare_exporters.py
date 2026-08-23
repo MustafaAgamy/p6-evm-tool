@@ -1,5 +1,6 @@
 """Consultant Review exporters — logic_excel (flattened change table) and render_html
 (landscape consultant PDF page, with or without the before/after impact)."""
+import report_theme
 from p6_compare.exporters import render_html, logic_excel
 
 
@@ -103,3 +104,15 @@ def test_render_html_with_impact_adds_scurve_and_recommendation():
     assert 'Consultant recommendation' in h
     assert 'Overall completion' in h           # overall completion only (no per-milestone table)
     assert '14 d' in h                          # manufactured tile
+
+
+def test_render_html_dark_theme_injects_palette():
+    h = render_html(_report(), theme='dark')
+    assert 'data-rpt-theme="dark"' in h
+    assert report_theme.THEMES['dark']['rpt-accent'] in h   # '#5b9bff'
+
+
+def test_render_html_default_theme_is_light_full_document():
+    h = render_html(_report())
+    assert h.startswith('<!doctype html>') and h.rstrip().endswith('</html>')
+    assert 'data-rpt-theme="light"' in h

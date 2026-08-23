@@ -138,7 +138,7 @@ console.log('\ncriticalTimelineData / CompareBody (connected chain — 1 row unc
     const h = criticalCompareBody(report, 'leaf-parent', 'timeline');
     assert.ok(h.includes('<svg') && h.includes('Critical path timeline') && !h.includes('cpchain'));
     assert.ok(h.includes('WAS · 07-Aug-2026') && h.includes('NOW · 22-Aug-2026'));   // data dates label rows
-    assert.ok(h.includes('rerouted here') && h.includes('#f87171'));                 // divergence + new route red
+    assert.ok(h.includes('rerouted here') && h.includes('var(--danger)'));           // divergence + new route red (themed)
     assert.ok(h.includes('finish 12-Mar-2027') && h.includes('finish 26-Mar-2027'));
     assert.ok(h.includes('+14 wd') && h.includes('rerouted at Steel'));              // slip bracket + shared conclusion
   });

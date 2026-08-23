@@ -1,10 +1,15 @@
 // Report preview — shows the exact report HTML (what the PDF will contain) scaled to FIT
-// the window width, with Save as PDF / Close. Used by both the EVM and Audit report flows.
+// the window width, with an Appearance picker, Save as PDF / Close. Used by the EVM, Audit,
+// Calendar and Constructability report flows. Picking an appearance re-renders the preview
+// (server-side) and tints the backdrop; the same mode is sent when saving, so preview == PDF.
 import { escapeHtml } from './format.js';
+import { buildAppearancePicker, getSavedMode, backdropColor } from './appearance.js';
 
 const PAGE_W = 820;   // approximate print page content width (px); the page is scaled to fit
 
-export function showReportPreview({ title, subtitle, html, onSave }) {
+export function showReportPreview({ title, subtitle, html, onSave, onThemeChange, initialMode }) {
+  let mode = initialMode || getSavedMode();
+
   const overlay = document.createElement('div');
   overlay.className = 'rpv-overlay';
   overlay.innerHTML = `
@@ -13,6 +18,7 @@ export function showReportPreview({ title, subtitle, html, onSave }) {
         <div class="rpv-title"><i class="ti ti-file-text" aria-hidden="true"></i>
           <span>${escapeHtml(title)}</span>
           ${subtitle ? `<span class="rpv-sub">${escapeHtml(subtitle)} · fit to width</span>` : ''}</div>
+        <div class="rpv-appearance-slot"></div>
         <div class="rpv-actions">
           <button class="btn-mini" id="rpv-close">Close</button>
           <button class="btn-mini primary" id="rpv-save">⬇ Save as PDF</button>
@@ -30,6 +36,9 @@ export function showReportPreview({ title, subtitle, html, onSave }) {
   const frame  = overlay.querySelector('.rpv-frame');
   page.style.width = frame.style.width = PAGE_W + 'px';
   page.style.transformOrigin = 'top left';
+
+  const paintBackdrop = () => { page.style.background = frame.style.background = backdropColor(mode); };
+  paintBackdrop();
 
   let contentH = 1100;
   const relayout = () => {
@@ -51,6 +60,23 @@ export function showReportPreview({ title, subtitle, html, onSave }) {
   frame.srcdoc = html;
   window.addEventListener('resize', relayout);
 
+  // Appearance picker — only when the caller can re-render the preview for a new mode.
+  if (typeof onThemeChange === 'function') {
+    const picker = buildAppearancePicker({
+      current: mode,
+      compact: true,
+      onChange: async (m) => {
+        mode = m;
+        paintBackdrop();
+        try {
+          const newHtml = await onThemeChange(m);
+          if (typeof newHtml === 'string') frame.srcdoc = newHtml;
+        } catch { /* keep the current preview if the re-render fails */ }
+      },
+    });
+    overlay.querySelector('.rpv-appearance-slot').appendChild(picker);
+  }
+
   const close = () => { window.removeEventListener('resize', relayout); overlay.remove(); };
   overlay.querySelector('#rpv-close').addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
@@ -64,7 +90,7 @@ export function showReportPreview({ title, subtitle, html, onSave }) {
     const label = saveBtn.textContent;
     saveBtn.textContent = 'Saving…';
     try {
-      const ok = await onSave();                        // returns true → saved, close; false → keep open
+      const ok = await onSave(mode);                    // returns true → saved, close; false → keep open
       if (ok !== false) { saveBtn.textContent = '✓ Saved'; setTimeout(close, 900); }
       else { saveBtn.disabled = false; saveBtn.textContent = label; }
     } catch {

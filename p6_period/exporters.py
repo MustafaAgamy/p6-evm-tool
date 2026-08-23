@@ -9,11 +9,15 @@ the same sections into one sheet. Nothing here computes a number.
 import html
 from datetime import datetime
 
-_BLUE = '#26517d'
-_AMBER = '#d97706'
-_GOOD = '#16a34a'
-_BAD = '#dc2626'
-_PALETTE = ['#dc2626', '#16a34a', '#2563eb', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#ea580c']
+import report_theme
+
+_BLUE = report_theme.var('rpt-accent')
+_AMBER = report_theme.var('rpt-warn')
+_GOOD = report_theme.var('rpt-good')
+_BAD = report_theme.var('rpt-bad')
+_PALETTE = [report_theme.var('rpt-bad'), report_theme.var('rpt-good'), report_theme.var('rpt-series-1'),
+            report_theme.var('rpt-warn'), report_theme.var('rpt-series-4'), report_theme.var('rpt-series-6'),
+            report_theme.var('rpt-series-5'), report_theme.var('rpt-series-3')]
 
 
 def _e(v):
@@ -167,8 +171,8 @@ def _progress_bar_html(report):
     pdd, cdd = _e(report.get('data_date_prev')), _e(report.get('data_date_now'))
     fill = max(0.0, min(100.0, an))
     start_m = '' if ap is None else (
-        f'<div class="pmark" style="left:{max(0.0, min(100.0, ap)):.1f}%;background:#94a3b8"></div>'
-        f'<span class="tag-above" style="left:{max(0.0, min(100.0, ap)):.1f}%;color:#64748b">▾ start {ap:.1f}%</span>')
+        f'<div class="pmark" style="left:{max(0.0, min(100.0, ap)):.1f}%;background:var(--rpt-muted)"></div>'
+        f'<span class="tag-above" style="left:{max(0.0, min(100.0, ap)):.1f}%;color:var(--rpt-muted)">▾ start {ap:.1f}%</span>')
     plan_m = '' if fn is None else (
         f'<div class="pmark" style="left:{max(0.0, min(100.0, fn)):.1f}%"></div>'
         f'<span class="tag-above" style="left:{max(0.0, min(100.0, fn)):.1f}%">▾ planned {fn:.1f}%</span>')
@@ -340,9 +344,9 @@ def _cp_chain_body(data):
     slip = data.get('slip_days')
     slipnote = (f'<div class="cpslip">↳ the finish moved {"+" if slip > 0 else ""}{slip} working days '
                 f'(the Now chain runs {"longer" if slip > 0 else "shorter"} than the old one).</div>') if slip else ''
-    legend = ('<div class="cplegend"><i style="background:#bcd6f5"></i>shared route (unchanged)'
-              '<i style="background:#f4a3a3"></i>new route (from the reroute)'
-              '<i style="background:#e9edf2"></i>old route (dropped off)</div>')
+    legend = ('<div class="cplegend"><i style="background:var(--rpt-accent-soft)"></i>shared route (unchanged)'
+              '<i style="background:var(--rpt-bad-bg)"></i>new route (from the reroute)'
+              '<i style="background:var(--rpt-surface-2)"></i>old route (dropped off)</div>')
     return ('<div class="cprowlbl">Was — last update</div>'
             + _cp_chain_html(prev, wprev, div, 'gone', 'was', data['finish_prev'])
             + '<div class="cprowlbl" style="margin-top:9px">Now — this update</div>'
@@ -352,8 +356,8 @@ def _cp_chain_body(data):
               'is greyed, the new route red, and the finish flags sit further apart the bigger the slip.</p>')
 
 
-_CP_TL_FILL = {'same': '#93c5fd', 'new': '#f87171', 'gone': '#e2e8f0'}
-_CP_TL_INK = {'same': '#1e3a8a', 'new': '#ffffff', 'gone': '#64748b'}
+_CP_TL_FILL = {'same': report_theme.var('rpt-accent-soft'), 'new': report_theme.var('rpt-bad'), 'gone': report_theme.var('rpt-surface-2')}
+_CP_TL_INK = {'same': report_theme.var('rpt-accent'), 'new': report_theme.var('rpt-accent-ink'), 'gone': report_theme.var('rpt-muted')}
 
 
 def _cp_timeline_body(data, report):
@@ -392,8 +396,8 @@ def _cp_timeline_body(data, report):
     for k in range(5):                               # month gridlines + labels
         t = tmin + (tmax - tmin) * k / 4
         x = xat(t)
-        p.append(f'<line x1="{x:.0f}" y1="40" x2="{x:.0f}" y2="222" stroke="#f1f5f9"/>'
-                 f'<text x="{x:.0f}" y="238" text-anchor="middle" font-size="9" fill="#94a3b8">'
+        p.append(f'<line x1="{x:.0f}" y1="40" x2="{x:.0f}" y2="222" stroke="var(--rpt-chart-grid)"/>'
+                 f'<text x="{x:.0f}" y="238" text-anchor="middle" font-size="9" fill="var(--rpt-chart-axis)">'
                  f'{datetime.fromordinal(int(t)).strftime("%b-%y")}</text>')
 
     def _draw(segs, pos, y, is_curr):
@@ -408,33 +412,33 @@ def _cp_timeline_body(data, report):
                          f'font-size="10" fill="{_CP_TL_INK[role]}">{_e(lab)}</text>')
     _draw(prev, pprev, 60, False)
     _draw(curr, pcurr, 120, True)
-    p.append(f'<text x="14" y="74" font-size="11" font-weight="700" fill="#64748b">WAS · {_e(report.get("data_date_prev"))}</text>')
-    p.append(f'<text x="14" y="134" font-size="11" font-weight="700" fill="#1e293b">NOW · {_e(report.get("data_date_now"))}</text>')
+    p.append(f'<text x="14" y="74" font-size="11" font-weight="700" fill="var(--rpt-muted)">WAS · {_e(report.get("data_date_prev"))}</text>')
+    p.append(f'<text x="14" y="134" font-size="11" font-weight="700" fill="var(--rpt-ink)">NOW · {_e(report.get("data_date_now"))}</text>')
     if pprev:
         fx = xat(pprev[-1][1])
-        p.append(f'<path d="M{fx:.0f},72 l7,-7 l7,7 l-7,7 z" fill="#94a3b8"/>'
-                 f'<text x="{fx + 18:.0f}" y="58" font-size="9.5" fill="#64748b">finish {_e(data["finish_prev"])}</text>')
+        p.append(f'<path d="M{fx:.0f},72 l7,-7 l7,7 l-7,7 z" fill="var(--rpt-muted)"/>'
+                 f'<text x="{fx + 18:.0f}" y="58" font-size="9.5" fill="var(--rpt-muted)">finish {_e(data["finish_prev"])}</text>')
     if pcurr:
         gx = xat(pcurr[-1][1])
-        p.append(f'<path d="M{gx:.0f},132 l7,-7 l7,7 l-7,7 z" fill="#dc2626"/>'
-                 f'<text x="{gx + 18:.0f}" y="118" font-size="9.5" fill="#b91c1c" font-weight="700">finish {_e(data["finish_now"])}</text>')
+        p.append(f'<path d="M{gx:.0f},132 l7,-7 l7,7 l-7,7 z" fill="var(--rpt-bad)"/>'
+                 f'<text x="{gx + 18:.0f}" y="118" font-size="9.5" fill="var(--rpt-bad)" font-weight="700">finish {_e(data["finish_now"])}</text>')
     slip = data.get('slip_days')
     if pprev and pcurr and slip:
         lo, hi = sorted((xat(pprev[-1][1]), xat(pcurr[-1][1])))
-        p.append(f'<line x1="{lo:.0f}" y1="196" x2="{hi:.0f}" y2="196" stroke="#dc2626" stroke-width="1.5"/>'
-                 f'<line x1="{lo:.0f}" y1="192" x2="{lo:.0f}" y2="200" stroke="#dc2626"/>'
-                 f'<line x1="{hi:.0f}" y1="192" x2="{hi:.0f}" y2="200" stroke="#dc2626"/>'
+        p.append(f'<line x1="{lo:.0f}" y1="196" x2="{hi:.0f}" y2="196" stroke="var(--rpt-bad)" stroke-width="1.5"/>'
+                 f'<line x1="{lo:.0f}" y1="192" x2="{lo:.0f}" y2="200" stroke="var(--rpt-bad)"/>'
+                 f'<line x1="{hi:.0f}" y1="192" x2="{hi:.0f}" y2="200" stroke="var(--rpt-bad)"/>'
                  f'<text x="{(lo + hi) / 2:.0f}" y="212" text-anchor="middle" font-size="10.5" '
-                 f'fill="#b91c1c" font-weight="700">{"+" if slip > 0 else ""}{slip} wd</text>')
+                 f'fill="var(--rpt-bad)" font-weight="700">{"+" if slip > 0 else ""}{slip} wd</text>')
     if div < len(curr) or div < len(prev):
         src = pcurr[div][0] if div < len(pcurr) else (pprev[div][0] if div < len(pprev) else None)
         if src is not None:
             dx = xat(src)
-            p.append(f'<line x1="{dx:.0f}" y1="52" x2="{dx:.0f}" y2="168" stroke="#dc2626" stroke-width="1" stroke-dasharray="3 3"/>'
-                     f'<text x="{dx:.0f}" y="182" text-anchor="middle" font-size="9.5" fill="#b91c1c" font-weight="700">rerouted here</text>')
-    legend = ('<div class="cplegend"><i style="background:#93c5fd"></i>shared route (on both)'
-              '<i style="background:#f87171"></i>new critical route (from the reroute)'
-              '<i style="background:#e2e8f0"></i>old route (dropped off)</div>')
+            p.append(f'<line x1="{dx:.0f}" y1="52" x2="{dx:.0f}" y2="168" stroke="var(--rpt-bad)" stroke-width="1" stroke-dasharray="3 3"/>'
+                     f'<text x="{dx:.0f}" y="182" text-anchor="middle" font-size="9.5" fill="var(--rpt-bad)" font-weight="700">rerouted here</text>')
+    legend = ('<div class="cplegend"><i style="background:var(--rpt-accent-soft)"></i>shared route (on both)'
+              '<i style="background:var(--rpt-bad)"></i>new critical route (from the reroute)'
+              '<i style="background:var(--rpt-surface-2)"></i>old route (dropped off)</div>')
     return (f'<svg viewBox="0 0 960 250" width="100%" role="img" aria-label="Critical path timeline">{"".join(p)}</svg>'
             f'{legend}<p class="note">The finish-driving route on a real date axis — <b>WAS</b> (last update) over '
             f'<b>NOW</b> (this update). The bracket at the right is the <b>total finish movement</b>.</p>')
@@ -662,24 +666,24 @@ def _milestone_drift_svg(report):
     for k in range(5):
         t = tmin + (tmax - tmin) * k / 4
         x = xat(t)
-        parts.append(f'<line x1="{x:.0f}" y1="{top}" x2="{x:.0f}" y2="{top + n * rowh:.0f}" stroke="#f1f5f9"/>'
-                     f'<text x="{x:.0f}" y="{top + n * rowh + 14:.0f}" text-anchor="middle" font-size="8" fill="#94a3b8">'
+        parts.append(f'<line x1="{x:.0f}" y1="{top}" x2="{x:.0f}" y2="{top + n * rowh:.0f}" stroke="var(--rpt-chart-grid)"/>'
+                     f'<text x="{x:.0f}" y="{top + n * rowh + 14:.0f}" text-anchor="middle" font-size="8" fill="var(--rpt-chart-axis)">'
                      f'{datetime.fromordinal(int(t)).strftime("%b-%y")}</text>')
     for i, r in enumerate(rows):
         y = top + i * rowh + 12
-        parts.append(f'<text x="{x0 - 8}" y="{y + 3:.0f}" text-anchor="end" font-size="8.5" fill="#1e293b">{_e(trunc(r.get("name")))}</text>')
+        parts.append(f'<text x="{x0 - 8}" y="{y + 3:.0f}" text-anchor="end" font-size="8.5" fill="var(--rpt-ink)">{_e(trunc(r.get("name")))}</text>')
         xs = [xat(od(r[k])) for k in ('baseline_iso', 'prev_iso', 'curr_iso') if r.get(k)]
         if len(xs) >= 2:
-            parts.append(f'<line x1="{min(xs):.0f}" y1="{y}" x2="{max(xs):.0f}" y2="{y}" stroke="#cbd5e1"/>')
+            parts.append(f'<line x1="{min(xs):.0f}" y1="{y}" x2="{max(xs):.0f}" y2="{y}" stroke="var(--rpt-chart-grid)"/>')
         if r.get('baseline_iso'):
-            parts.append(f'<circle cx="{xat(od(r["baseline_iso"])):.0f}" cy="{y}" r="4" fill="#fff" stroke="#94a3b8" stroke-width="1.8"/>')
+            parts.append(f'<circle cx="{xat(od(r["baseline_iso"])):.0f}" cy="{y}" r="4" fill="var(--rpt-bg)" stroke="var(--rpt-muted)" stroke-width="1.8"/>')
         if r.get('prev_iso'):
-            parts.append(f'<circle cx="{xat(od(r["prev_iso"])):.0f}" cy="{y}" r="3.6" fill="#d97706"/>')
+            parts.append(f'<circle cx="{xat(od(r["prev_iso"])):.0f}" cy="{y}" r="3.6" fill="var(--rpt-warn)"/>')
         if r.get('curr_iso'):
-            parts.append(f'<circle cx="{xat(od(r["curr_iso"])):.0f}" cy="{y}" r="4" fill="#dc2626"/>')
-    legend = ('<div class="legend" style="font-size:9.5px"><span><i style="background:#fff;border:2px solid #94a3b8;border-radius:50%;width:9px;height:9px"></i>Baseline</span>'
-              '<span><i style="background:#d97706;border-radius:50%;width:10px;height:10px"></i>Previous forecast</span>'
-              '<span><i style="background:#dc2626;border-radius:50%;width:10px;height:10px"></i>Current forecast</span></div>')
+            parts.append(f'<circle cx="{xat(od(r["curr_iso"])):.0f}" cy="{y}" r="4" fill="var(--rpt-bad)"/>')
+    legend = ('<div class="legend" style="font-size:9.5px"><span><i style="background:var(--rpt-bg);border:2px solid var(--rpt-muted);border-radius:50%;width:9px;height:9px"></i>Baseline</span>'
+              '<span><i style="background:var(--rpt-warn);border-radius:50%;width:10px;height:10px"></i>Previous forecast</span>'
+              '<span><i style="background:var(--rpt-bad);border-radius:50%;width:10px;height:10px"></i>Current forecast</span></div>')
     return legend + f'<svg viewBox="0 0 940 {h}" width="100%" style="max-height:{h}px">{"".join(parts)}</svg>'
 
 
@@ -709,7 +713,7 @@ def _apply_code_filter(report, cf):
 
 
 def render_html(report, trend=None, sections=None, code_filter=None,
-                critical_style='chain', critical_mode='leaf-parent'):
+                critical_style='chain', critical_mode='leaf-parent', theme='light'):
     """`sections` = list of section keys to include (None = all); `code_filter` =
     {'type','value'} to limit the activity tables to one activity code; `critical_style`
     (chain | timeline | table) + `critical_mode` = the critical-path presentation the user
@@ -744,7 +748,7 @@ def render_html(report, trend=None, sections=None, code_filter=None,
     cf = report.get('code_filter')
     body = [header]
     if cf:
-        body.append(f'<div class="cutoff" style="background:#eef4fb;border-color:#c9ddf3;color:#1e3a8a">'
+        body.append(f'<div class="cutoff" style="background:var(--rpt-accent-soft);border-color:var(--rpt-accent-soft);color:var(--rpt-accent)">'
                     f'<b>Filtered:</b> {_e(cf.get("type"))} = <b>{_e(cf.get("value"))}</b> — the activity tables below show only this activity code.</div>')
     for key, title, html, planner in secs:
         if keys is not None and key not in keys:
@@ -754,116 +758,116 @@ def render_html(report, trend=None, sections=None, code_filter=None,
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: A4 landscape; margin: 11mm; }}
       section.pagebreak {{ page-break-before: always; }}
-      .prog {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 28px 16px 12px; }}
-      .cap {{ display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; margin-bottom: 12px; }}
-      .tag-above {{ position: absolute; top: -22px; transform: translateX(-50%); white-space: nowrap; font-size: 10px; font-weight: 700; color: #d97706; }}
-      .tag-below {{ position: absolute; top: 36px; transform: translateX(-50%); white-space: nowrap; font-size: 10px; font-weight: 700; color: #2a78d6; }}
-      .psent {{ margin-top: 34px; font-size: 11.5px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; line-height: 1.5; }}
+      .prog {{ border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 28px 16px 12px; }}
+      .cap {{ display: flex; justify-content: space-between; font-size: 10px; color: var(--rpt-muted); margin-bottom: 12px; }}
+      .tag-above {{ position: absolute; top: -22px; transform: translateX(-50%); white-space: nowrap; font-size: 10px; font-weight: 700; color: var(--rpt-warn); }}
+      .tag-below {{ position: absolute; top: 36px; transform: translateX(-50%); white-space: nowrap; font-size: 10px; font-weight: 700; color: var(--rpt-accent); }}
+      .psent {{ margin-top: 34px; font-size: 11.5px; background: var(--rpt-surface); border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 8px 12px; line-height: 1.5; }}
       .wmrow {{ display: flex; align-items: center; gap: 10px; margin: 6px 0; }} .wml {{ width: 96px; font-size: 11.5px; font-weight: 600; }}
       .wmtrack {{ flex: 1; position: relative; height: 18px; }}
-      .wmp {{ position: absolute; left: 0; top: 0; height: 100%; background: #e5ebf2; border: 1px solid #d7dfe8; border-radius: 5px; }}
+      .wmp {{ position: absolute; left: 0; top: 0; height: 100%; background: var(--rpt-surface-2); border: 1px solid var(--rpt-edge); border-radius: 5px; }}
       .wma {{ position: absolute; left: 0; top: 2px; height: 14px; border-radius: 4px; }}
-      .wma.g {{ background: #16a34a; }} .wma.b {{ background: #dc2626; }} .wma.w {{ background: #d97706; }} .wma.n {{ background: #94a3b8; }}
-      .wmnum {{ width: 118px; font-size: 11px; color: #334155; }} .wmnum b {{ font-size: 12px; }}
+      .wma.g {{ background: var(--rpt-good); }} .wma.b {{ background: var(--rpt-bad); }} .wma.w {{ background: var(--rpt-warn); }} .wma.n {{ background: var(--rpt-muted); }}
+      .wmnum {{ width: 118px; font-size: 11px; color: var(--rpt-ink-soft); }} .wmnum b {{ font-size: 12px; }}
       .cprow {{ display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 6px 0; }}
-      .cplbl {{ width: 62px; font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .3px; }}
+      .cplbl {{ width: 62px; font-size: 10.5px; font-weight: 700; color: var(--rpt-muted); text-transform: uppercase; letter-spacing: .3px; }}
       .wbs {{ border-radius: 8px; padding: 6px 12px; font-size: 11.5px; font-weight: 700; }}
-      .wbs.same {{ background: #eef4fb; border: 1px solid #c9ddf3; color: #1e3a8a; }}
-      .wbs.new {{ background: #fdecec; border: 1px solid #f2b8b8; color: #b91c1c; }}
-      .wbs.gone {{ background: #f4f4f5; border: 1px dashed #cbd5e1; color: #94a3b8; text-decoration: line-through; }}
-      .arr {{ color: #94a3b8; font-weight: 800; }} .arr.newarr {{ color: #dc2626; }}
-      .cplegend {{ font-size: 10.5px; color: #64748b; margin-top: 7px; }} .cplegend i {{ display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin: 0 5px 0 12px; }}
+      .wbs.same {{ background: var(--rpt-accent-soft); border: 1px solid var(--rpt-accent-soft); color: var(--rpt-accent); }}
+      .wbs.new {{ background: var(--rpt-bad-bg); border: 1px solid var(--rpt-bad); color: var(--rpt-bad); }}
+      .wbs.gone {{ background: var(--rpt-surface-2); border: 1px dashed var(--rpt-edge); color: var(--rpt-muted); text-decoration: line-through; }}
+      .arr {{ color: var(--rpt-muted); font-weight: 800; }} .arr.newarr {{ color: var(--rpt-bad); }}
+      .cplegend {{ font-size: 10.5px; color: var(--rpt-muted); margin-top: 7px; }} .cplegend i {{ display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin: 0 5px 0 12px; }}
       .cpconcl {{ border-radius: 8px; padding: 10px 14px; font-size: 12.5px; line-height: 1.5; margin-bottom: 13px; display: flex; gap: 9px; align-items: flex-start; }}
-      .cpconcl.good {{ background: #eafaf0; color: #166534; }} .cpconcl.warn {{ background: #fff6e9; color: #92400e; }}
+      .cpconcl.good {{ background: var(--rpt-good-bg); color: var(--rpt-good); }} .cpconcl.warn {{ background: var(--rpt-warn-bg); color: var(--rpt-warn); }}
       .cpconcl .cpic {{ font-size: 15px; line-height: 1.2; }}
-      .cprowlbl {{ font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #64748b; margin: 2px 0 5px; }}
+      .cprowlbl {{ font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--rpt-muted); margin: 2px 0 5px; }}
       .cpchain {{ display: flex; align-items: stretch; margin-bottom: 4px; }}
       .cpblk {{ flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 44px; border-radius: 7px; font-weight: 700; font-size: 11px; padding: 0 4px; text-align: center; overflow: hidden; }}
       .cpblk small {{ font-weight: 600; font-size: 9px; opacity: .85; margin-top: 1px; }}
-      .cpblk.shared {{ background: #bcd6f5; color: #1e3a8a; }} .cpblk.new {{ background: #f4a3a3; color: #7f1d1d; }} .cpblk.gone {{ background: #e9edf2; color: #94a3b8; text-decoration: line-through; }}
-      .cparw {{ flex: none; display: flex; align-items: center; color: #94a3b8; font-weight: 900; font-size: 14px; padding: 0 4px; }} .cparw.new {{ color: #dc2626; }}
+      .cpblk.shared {{ background: var(--rpt-accent-soft); color: var(--rpt-accent); }} .cpblk.new {{ background: var(--rpt-bad-bg); color: var(--rpt-bad); }} .cpblk.gone {{ background: var(--rpt-surface-2); color: var(--rpt-muted); text-decoration: line-through; }}
+      .cparw {{ flex: none; display: flex; align-items: center; color: var(--rpt-muted); font-weight: 900; font-size: 14px; padding: 0 4px; }} .cparw.new {{ color: var(--rpt-bad); }}
       .cpflag {{ flex: none; display: flex; flex-direction: column; justify-content: center; padding-left: 9px; white-space: nowrap; }}
-      .cpflag b {{ font-size: 12px; }} .cpflag .cpfl {{ font-size: 9px; color: #94a3b8; text-transform: uppercase; letter-spacing: .3px; }}
-      .cpflag.now b {{ color: #b91c1c; }} .cpflag.was b {{ color: #64748b; }}
-      .cpdia {{ width: 10px; height: 10px; transform: rotate(45deg); border-radius: 2px; margin-bottom: 3px; }} .cpdia.now {{ background: #dc2626; }} .cpdia.was {{ background: #94a3b8; }}
-      .cpslip {{ font-size: 11px; color: #b91c1c; font-weight: 700; margin-top: 3px; }}
+      .cpflag b {{ font-size: 12px; }} .cpflag .cpfl {{ font-size: 9px; color: var(--rpt-muted); text-transform: uppercase; letter-spacing: .3px; }}
+      .cpflag.now b {{ color: var(--rpt-bad); }} .cpflag.was b {{ color: var(--rpt-muted); }}
+      .cpdia {{ width: 10px; height: 10px; transform: rotate(45deg); border-radius: 2px; margin-bottom: 3px; }} .cpdia.now {{ background: var(--rpt-bad); }} .cpdia.was {{ background: var(--rpt-muted); }}
+      .cpslip {{ font-size: 11px; color: var(--rpt-bad); font-weight: 700; margin-top: 3px; }}
       .cptable {{ width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 2px; }}
-      .cptable th, .cptable td {{ border: 1px solid #e2e8f0; padding: 6px 10px; text-align: left; vertical-align: top; }}
-      .cptable th {{ background: #f4f7fb; color: #26517d; font-size: 11px; }}
-      .cptable td.cpt-k {{ font-weight: 700; color: #64748b; width: 130px; white-space: nowrap; }}
-      .cptable .cpt-red {{ color: #b91c1c; font-weight: 700; }} .cptable .cpt-mut {{ color: #94a3b8; }}
+      .cptable th, .cptable td {{ border: 1px solid var(--rpt-edge); padding: 6px 10px; text-align: left; vertical-align: top; }}
+      .cptable th {{ background: var(--rpt-th-bg); color: var(--rpt-th-ink); font-size: 11px; }}
+      .cptable td.cpt-k {{ font-weight: 700; color: var(--rpt-muted); width: 130px; white-space: nowrap; }}
+      .cptable .cpt-red {{ color: var(--rpt-bad); font-weight: 700; }} .cptable .cpt-mut {{ color: var(--rpt-muted); }}
       .cptable td.cpt-fin {{ font-weight: 700; }}
       .bar2 {{ display: flex; align-items: center; gap: 10px; margin: 5px 0; }} .bar2 .l {{ width: 160px; font-size: 11.5px; }}
-      .bar2 .t {{ flex: 1; background: #eef2f7; border-radius: 6px; height: 18px; overflow: hidden; border: 1px solid #e2e8f0; }}
-      .bar2 .f {{ height: 100%; background: #2a78d6; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; }}
-      .bar2r {{ margin: 8px 0; }} .bar2r-h {{ font-size: 12px; margin-bottom: 3px; }} .bar2r-n {{ font-size: 10.5px; color: #64748b; margin-top: 2px; }}
-      .bar2r-t {{ position: relative; height: 16px; background: #eef2f7; border: 1px solid #e2e8f0; border-radius: 5px; }}
-      .bar2r-pl {{ position: absolute; left: 0; top: 0; height: 100%; background: #e5ebf2; border: 1px solid #cbd5e1; border-radius: 5px; }}
-      .bar2r-ac {{ position: absolute; left: 0; top: 2px; height: 10px; background: #2a78d6; border-radius: 4px; }}
+      .bar2 .t {{ flex: 1; background: var(--rpt-surface-2); border-radius: 6px; height: 18px; overflow: hidden; border: 1px solid var(--rpt-edge); }}
+      .bar2 .f {{ height: 100%; background: var(--rpt-accent); display: flex; align-items: center; padding-left: 8px; color: var(--rpt-accent-ink); font-weight: 700; font-size: 11px; }}
+      .bar2r {{ margin: 8px 0; }} .bar2r-h {{ font-size: 12px; margin-bottom: 3px; }} .bar2r-n {{ font-size: 10.5px; color: var(--rpt-muted); margin-top: 2px; }}
+      .bar2r-t {{ position: relative; height: 16px; background: var(--rpt-surface-2); border: 1px solid var(--rpt-edge); border-radius: 5px; }}
+      .bar2r-pl {{ position: absolute; left: 0; top: 0; height: 100%; background: var(--rpt-surface-2); border: 1px solid var(--rpt-edge); border-radius: 5px; }}
+      .bar2r-ac {{ position: absolute; left: 0; top: 2px; height: 10px; background: var(--rpt-accent); border-radius: 4px; }}
       * {{ box-sizing: border-box; }}
-      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 12px; margin: 0; }}
+      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: var(--rpt-ink); font-size: 12px; margin: 0; }}
       .page {{ page-break-after: always; }} .page:last-child {{ page-break-after: auto; }}
       .keep {{ page-break-inside: avoid; }} .chart {{ page-break-inside: avoid; }}
       h1 {{ font-size: 21px; margin: 0 0 2px; }}
-      h2 {{ font-size: 14px; margin: 16px 0 8px; color: #26517d; border-bottom: 2px solid #26517d; padding-bottom: 4px; }}
-      h3 {{ font-size: 12.5px; margin: 10px 0 6px; color: #26517d; }}
-      .rh {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #26517d; padding-bottom: 10px; margin-bottom: 12px; }}
-      .rh .meta {{ color: #64748b; font-size: 11.5px; }} .rh .win {{ text-align: right; font-size: 11.5px; color: #64748b; }} .rh .win b {{ color: #1e293b; font-size: 13px; }}
+      h2 {{ font-size: 14px; margin: 16px 0 8px; color: var(--rpt-accent); border-bottom: 2px solid var(--rpt-accent); padding-bottom: 4px; }}
+      h3 {{ font-size: 12.5px; margin: 10px 0 6px; color: var(--rpt-accent); }}
+      .rh {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--rpt-accent); padding-bottom: 10px; margin-bottom: 12px; }}
+      .rh .meta {{ color: var(--rpt-muted); font-size: 11.5px; }} .rh .win {{ text-align: right; font-size: 11.5px; color: var(--rpt-muted); }} .rh .win b {{ color: var(--rpt-ink); font-size: 13px; }}
       .banner {{ display: flex; gap: 12px; align-items: center; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }}
-      .banner.good {{ background: #eafaf0; border: 1px solid #a7e0bd; }}
-      .banner.warn {{ background: #fff6e9; border: 1px solid #f4d199; }}
-      .banner.bad {{ background: #fdecec; border: 1px solid #f2b8b8; }}
+      .banner.good {{ background: var(--rpt-good-bg); border: 1px solid var(--rpt-good); }}
+      .banner.warn {{ background: var(--rpt-warn-bg); border: 1px solid var(--rpt-warn); }}
+      .banner.bad {{ background: var(--rpt-bad-bg); border: 1px solid var(--rpt-bad); }}
       .dot {{ width: 13px; height: 13px; border-radius: 50%; flex: none; }}
-      .dot.good {{ background: #16a34a; }} .dot.warn {{ background: #d97706; }} .dot.bad {{ background: #dc2626; }}
-      .banner .b1 {{ font-size: 15px; font-weight: 800; }} .banner .b2 {{ font-size: 12px; color: #475569; }}
-      .cutoff {{ color: #334155; font-size: 12px; margin: 2px 0 8px; }}
+      .dot.good {{ background: var(--rpt-good); }} .dot.warn {{ background: var(--rpt-warn); }} .dot.bad {{ background: var(--rpt-bad); }}
+      .banner .b1 {{ font-size: 15px; font-weight: 800; }} .banner .b2 {{ font-size: 12px; color: var(--rpt-ink-soft); }}
+      .cutoff {{ color: var(--rpt-ink-soft); font-size: 12px; margin: 2px 0 8px; }}
       .cards {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }}
-      .card {{ border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }}
-      .card .ct {{ background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 5px 9px; font-size: 9.5px; text-transform: uppercase; letter-spacing: .3px; color: #64748b; font-weight: 700; }}
+      .card {{ border: 1px solid var(--rpt-edge); border-radius: 8px; overflow: hidden; }}
+      .card .ct {{ background: var(--rpt-surface); border-bottom: 1px solid var(--rpt-edge); padding: 5px 9px; font-size: 9.5px; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-muted); font-weight: 700; }}
       .card .cb {{ display: grid; grid-template-columns: 1fr 1fr; }}
-      .card .cc {{ padding: 6px 9px; }} .card .cc + .cc {{ border-left: 1px solid #e2e8f0; }}
-      .card .cl {{ font-size: 9px; color: #94a3b8; }} .card .cv {{ font-size: 15px; font-weight: 800; }}
-      .card .cf {{ padding: 5px 9px; border-top: 1px solid #e2e8f0; font-size: 11.5px; font-weight: 700; text-align: center; }}
-      .cf.good {{ background: #eafaf0; color: #16a34a; }} .cf.bad {{ background: #fdecec; color: #dc2626; }}
-      .recov {{ display: grid; grid-template-columns: 1.5fr 1fr; border: 1px solid #f4d199; border-radius: 8px; overflow: hidden; margin-top: 12px; }}
-      .recov .rl {{ padding: 11px 15px; background: #fff6e9; line-height: 1.55; }} .recov .rr {{ padding: 11px 15px; border-left: 1px solid #f4d199; }}
-      .rh4 {{ font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: #d97706; font-weight: 700; margin-bottom: 4px; }}
-      .rr-h {{ font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: #26517d; font-weight: 700; }}
+      .card .cc {{ padding: 6px 9px; }} .card .cc + .cc {{ border-left: 1px solid var(--rpt-edge); }}
+      .card .cl {{ font-size: 9px; color: var(--rpt-muted); }} .card .cv {{ font-size: 15px; font-weight: 800; }}
+      .card .cf {{ padding: 5px 9px; border-top: 1px solid var(--rpt-edge); font-size: 11.5px; font-weight: 700; text-align: center; }}
+      .cf.good {{ background: var(--rpt-good-bg); color: var(--rpt-good); }} .cf.bad {{ background: var(--rpt-bad-bg); color: var(--rpt-bad); }}
+      .recov {{ display: grid; grid-template-columns: 1.5fr 1fr; border: 1px solid var(--rpt-warn); border-radius: 8px; overflow: hidden; margin-top: 12px; }}
+      .recov .rl {{ padding: 11px 15px; background: var(--rpt-warn-bg); line-height: 1.55; }} .recov .rr {{ padding: 11px 15px; border-left: 1px solid var(--rpt-warn); }}
+      .rh4 {{ font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: var(--rpt-warn); font-weight: 700; margin-bottom: 4px; }}
+      .rr-h {{ font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: var(--rpt-accent); font-weight: 700; }}
       .rr-big {{ font-size: 14px; font-weight: 800; margin: 3px 0; }}
-      .rr-v {{ font-size: 12px; font-weight: 700; }} .rr-v.bad {{ color: #dc2626; }} .rr-v.good {{ color: #16a34a; }} .rr-v.warn {{ color: #d97706; }}
+      .rr-v {{ font-size: 12px; font-weight: 700; }} .rr-v.bad {{ color: var(--rpt-bad); }} .rr-v.good {{ color: var(--rpt-good); }} .rr-v.warn {{ color: var(--rpt-warn); }}
       .facts {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 12px; }}
-      .fact {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 11px; }}
-      .fact .fl {{ font-size: 9.5px; color: #64748b; text-transform: uppercase; letter-spacing: .3px; }} .fact .fv {{ font-size: 15px; font-weight: 800; margin-top: 1px; }} .fact .fs {{ font-size: 10px; color: #94a3b8; }}
+      .fact {{ border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 8px 11px; }}
+      .fact .fl {{ font-size: 9.5px; color: var(--rpt-muted); text-transform: uppercase; letter-spacing: .3px; }} .fact .fv {{ font-size: 15px; font-weight: 800; margin-top: 1px; }} .fact .fs {{ font-size: 10px; color: var(--rpt-muted); }}
       .split {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }}
-      .chart {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; }}
+      .chart {{ border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 8px; }}
       table.data {{ width: 100%; border-collapse: collapse; font-size: 10.5px; margin: 6px 0; }}
-      table.data th {{ background: #26517d; color: #fff; text-align: left; padding: 5px 6px; font-weight: 600; }}
+      table.data th {{ background: var(--rpt-th-bg); color: var(--rpt-th-ink); text-align: left; padding: 5px 6px; font-weight: 600; }}
       table.data th.num {{ text-align: right; }}
-      table.data td {{ border-bottom: 1px solid #e2e8f0; padding: 4px 6px; vertical-align: top; }}
+      table.data td {{ border-bottom: 1px solid var(--rpt-edge); padding: 4px 6px; vertical-align: top; }}
       .mono {{ font-family: Consolas, monospace; }} .num {{ text-align: right; font-variant-numeric: tabular-nums; }}
-      .pos {{ color: #15803d; font-weight: 700; }} .neg {{ color: #b91c1c; font-weight: 700; }}
-      .note {{ color: #64748b; font-style: italic; }}
-      .pills {{ margin: 4px 0; }} .pill {{ display: inline-block; background: #eef2ff; color: #1e3a8a; border-radius: 12px; padding: 2px 10px; font-size: 11px; margin: 0 6px 6px 0; }}
-      .legend {{ font-size: 11px; color: #64748b; margin: 4px 0; }} .legend span {{ margin-right: 16px; }} .legend i {{ display: inline-block; width: 16px; height: 3px; vertical-align: middle; margin-right: 5px; }}
-      .reco {{ border: 1px solid #e2e8f0; border-left: 4px solid #26517d; border-radius: 0 8px 8px 0; padding: 10px 14px; line-height: 1.6; }}
-      .reco.warn {{ border-left-color: #d97706; }}
-      .pbwrap {{ margin: 4px 0; }} .pbtop {{ display: flex; justify-content: space-between; font-size: 10.5px; color: #94a3b8; margin-bottom: 15px; }}
-      .pbar {{ position: relative; height: 30px; background: #eef2f7; border-radius: 8px; border: 1px solid #e2e8f0; }}
-      .pfill {{ position: absolute; left: 0; top: 0; bottom: 0; background: #2a78d6; border-radius: 7px 0 0 7px; display: flex; align-items: center; justify-content: flex-end; padding-right: 9px; color: #fff; font-weight: 800; font-size: 12px; }}
-      .pmark {{ position: absolute; top: -5px; bottom: -5px; width: 3px; background: #d97706; }}
-      .pmark .lab {{ position: absolute; top: -16px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 10px; color: #d97706; font-weight: 700; }}
-      .pbbot {{ text-align: center; font-size: 11.5px; color: #475569; margin-top: 5px; }}
+      .pos {{ color: var(--rpt-good); font-weight: 700; }} .neg {{ color: var(--rpt-bad); font-weight: 700; }}
+      .note {{ color: var(--rpt-muted); font-style: italic; }}
+      .pills {{ margin: 4px 0; }} .pill {{ display: inline-block; background: var(--rpt-accent-soft); color: var(--rpt-accent); border-radius: 12px; padding: 2px 10px; font-size: 11px; margin: 0 6px 6px 0; }}
+      .legend {{ font-size: 11px; color: var(--rpt-muted); margin: 4px 0; }} .legend span {{ margin-right: 16px; }} .legend i {{ display: inline-block; width: 16px; height: 3px; vertical-align: middle; margin-right: 5px; }}
+      .reco {{ border: 1px solid var(--rpt-edge); border-left: 4px solid var(--rpt-accent); border-radius: 0 8px 8px 0; padding: 10px 14px; line-height: 1.6; }}
+      .reco.warn {{ border-left-color: var(--rpt-warn); }}
+      .pbwrap {{ margin: 4px 0; }} .pbtop {{ display: flex; justify-content: space-between; font-size: 10.5px; color: var(--rpt-muted); margin-bottom: 15px; }}
+      .pbar {{ position: relative; height: 30px; background: var(--rpt-surface-2); border-radius: 8px; border: 1px solid var(--rpt-edge); }}
+      .pfill {{ position: absolute; left: 0; top: 0; bottom: 0; background: var(--rpt-accent); border-radius: 7px 0 0 7px; display: flex; align-items: center; justify-content: flex-end; padding-right: 9px; color: var(--rpt-accent-ink); font-weight: 800; font-size: 12px; }}
+      .pmark {{ position: absolute; top: -5px; bottom: -5px; width: 3px; background: var(--rpt-warn); }}
+      .pmark .lab {{ position: absolute; top: -16px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 10px; color: var(--rpt-warn); font-weight: 700; }}
+      .pbbot {{ text-align: center; font-size: 11.5px; color: var(--rpt-ink-soft); margin-top: 5px; }}
       .twobar {{ margin-top: 12px; }} .tb {{ display: flex; align-items: center; gap: 10px; margin: 5px 0; }}
-      .tb .lbl {{ width: 170px; font-size: 11.5px; color: #64748b; }}
-      .tb .track {{ flex: 1; background: #eef2f7; border-radius: 6px; height: 19px; overflow: hidden; border: 1px solid #e2e8f0; }}
-      .tb .fillp {{ height: 100%; background: #f0b357; display: flex; align-items: center; padding-left: 8px; color: #7c4a03; font-weight: 700; font-size: 11px; }}
-      .tb .filla {{ height: 100%; background: #2a78d6; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; }}
-      .chartlegend {{ margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #334155; line-height: 1.6; }}
+      .tb .lbl {{ width: 170px; font-size: 11.5px; color: var(--rpt-muted); }}
+      .tb .track {{ flex: 1; background: var(--rpt-surface-2); border-radius: 6px; height: 19px; overflow: hidden; border: 1px solid var(--rpt-edge); }}
+      .tb .fillp {{ height: 100%; background: var(--rpt-warn); display: flex; align-items: center; padding-left: 8px; color: var(--rpt-accent-ink); font-weight: 700; font-size: 11px; }}
+      .tb .filla {{ height: 100%; background: var(--rpt-accent); display: flex; align-items: center; padding-left: 8px; color: var(--rpt-accent-ink); font-weight: 700; font-size: 11px; }}
+      .chartlegend {{ margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--rpt-edge); font-size: 11px; color: var(--rpt-ink-soft); line-height: 1.6; }}
       .chartlegend > div {{ margin: 2px 0; }} .lg-sw {{ display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 7px; }}
-      .defs {{ margin-top: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }}
-      .defs-h {{ font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #64748b; font-weight: 700; margin-bottom: 5px; }}
-      .def {{ font-size: 11px; color: #334155; line-height: 1.5; margin: 2px 0; }} .def b {{ color: #1e293b; }}
-    </style></head><body>{"".join(body)}</body></html>'''
+      .defs {{ margin-top: 12px; background: var(--rpt-surface); border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 10px 14px; }}
+      .defs-h {{ font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--rpt-muted); font-weight: 700; margin-bottom: 5px; }}
+      .def {{ font-size: 11px; color: var(--rpt-ink-soft); line-height: 1.5; margin: 2px 0; }} .def b {{ color: var(--rpt-ink); }}
+    </style>{report_theme.theme_style_tag(theme)}</head><body>{"".join(body)}</body></html>'''
 
 
 # ── Excel: mirrors the PDF, one sheet ───────────────────────────────────────
