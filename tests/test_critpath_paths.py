@@ -50,9 +50,11 @@ def test_path_boxes_returns_chain():
     r = path_boxes(d)
     assert r['milestone']['name'] == 'Completion'
     names = [b['name'] for b in r['boxes']]
-    # all three work fronts (WBS names) on the path
-    assert 'Foundations' in names and 'MEP' in names
+    # box title = the driving ACTIVITY name (leaf), with its full WBS chain in the crumb
+    assert 'Foundations work' in names and 'MEP work' in names
     assert len(r['boxes']) == 3
+    # the crumb carries the full WBS path, '@'-prefixed
+    assert all(b['crumb'].startswith('@') for b in r['boxes'])
 
 
 def test_path_diff_detects_reroute():
@@ -61,9 +63,9 @@ def test_path_diff_detects_reroute():
     diff = path_diff(prev['boxes'], curr['boxes'])
     entered = [b['name'] for b in diff['entered']]
     left = [b['name'] for b in diff['left']]
-    assert 'MEP' in entered
-    assert 'Roof' in left
-    assert any(b['name'] == 'Foundations' for b in diff['stayed'])
+    assert 'MEP work' in entered
+    assert 'Roof work' in left
+    assert any(b['name'] == 'Foundations work' for b in diff['stayed'])
 
 
 def test_milestone_list_across_schedules():

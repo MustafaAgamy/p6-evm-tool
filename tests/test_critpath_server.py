@@ -83,8 +83,8 @@ def test_critpath_two_updates(test_server, tmp_path):
     cur_lane = next(l for l in r['lanes'] if l['role'] == 'current')
     assert cur_lane['boxes'], 'current lane should have work-front boxes from the parsed chain'
     states = {b['name']: b['state'] for b in cur_lane['boxes']}
-    assert states.get('MEP') == 'new'
-    assert states.get('Roof') == 'left'
+    assert states.get('MEP work') == 'new'
+    assert states.get('Roof work') == 'left'
 
 
 def test_critpath_missing_previous(test_server, tmp_path):

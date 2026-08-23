@@ -114,6 +114,17 @@ def _crumb(wbs_id, wmap):
     return ' · '.join(list(reversed(names))[1:])   # drop project root
 
 
+def _full_crumb(wbs_id, wmap):
+    """The FULL WBS path of a work front, immediate-first, each level prefixed with '@' —
+    e.g. '@Silo 9 @Phase C @Silos Civil Works'. The project root (top-most WBS) is dropped,
+    since it just repeats the report title. So a box reads: <driving activity> @<its WBS> @…up."""
+    ids = _wbs_ancestor_ids(wbs_id, wmap)          # [self, parent, …, root]
+    if len(ids) > 1:
+        ids = ids[:-1]                             # drop the project root
+    names = [n for n in (_wbs_name(i, wmap) for i in ids) if n]
+    return ' '.join('@' + n for n in names)
+
+
 def _box_wbs_id(act, wmap, summary_level):
     ids = _wbs_ancestor_ids(act.get('wbs_id'), wmap)
     if not ids:
@@ -227,8 +238,10 @@ def path_boxes(data, milestone_code=None, summary_level=0, construction_only=Tru
         driver = box_driver[wid]
         boxes.append({
             'wbs_id': wid,
-            'name': _wbs_name(wid, wmap) or driver.get('name') or driver.get('id'),
-            'crumb': _crumb(wid, wmap),
+            # Title = the driving activity (the specific work), then the full WBS chain in the crumb
+            # → "Piles @Level +2.25" · "@Silo 9 @Phase C @Silos Civil Works" (Ibrahim's criteria).
+            'name': driver.get('name') or driver.get('id') or _wbs_name(wid, wmap),
+            'crumb': _full_crumb(wid, wmap),
             'pct': pct,
             'planned': planned,
             'complete': pct >= 100.0,
