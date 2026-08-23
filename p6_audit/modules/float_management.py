@@ -53,14 +53,22 @@ def _penalty(pct, target, max_pct, max_penalty):
     return min(max_penalty, (pct - target) / span * max_penalty)
 
 
-def float_health(high_pct, neg_pct, cfg=None):
-    """DCMA-anchored composite → (score 0-100, high-float penalty, negative-float penalty).
-    Meeting both DCMA targets scores 100; each driver pulls the score down toward 0."""
-    c = {**FH_DEFAULTS, **(cfg or {})}
-    hp = _penalty(high_pct, c['high_target_pct'], c['high_max_pct'], c['high_max_penalty'])
-    npn = _penalty(neg_pct, c['neg_target_pct'], c['neg_max_pct'], c['neg_max_penalty'])
-    score = max(0, round(100 - hp - npn))
-    return score, round(hp), round(npn)
+# DCMA Metric 5 benchmark — shown as a REFERENCE next to the score, it does not set it.
+DCMA_HIGH_MAX_PCT = 5.0     # high float should be < 5% of activities ...
+DCMA_WITHIN_PCT = 95.0      # ... i.e. >= 95% within the float threshold
+
+
+def float_health(high_pct, neg_pct=0.0, cfg=None):
+    """Score = 100 - the construction excess-float defect% (share of construction
+    activities whose total float exceeds the threshold). One decimal, clamped 0-100 —
+    the Schedule Health Review's linear 'Score = 100 - defect%' model.
+
+    Negative float is scored by its own 'Leads & Negative Float' sub-feature, so it is
+    returned here as CONTEXT and does NOT reduce this score.
+    Returns (score, defect%, negative% [context])."""
+    hp = max(0.0, high_pct or 0.0)
+    score = round(max(0.0, min(100.0, 100.0 - hp)), 1)
+    return score, round(hp, 1), round(max(0.0, neg_pct or 0.0), 1)
 
 
 def fh_color(score):
@@ -224,10 +232,10 @@ def float_management(graph, config):
     }
     return {
         'float_health': score, 'fh_color': fh_color(score),
+        # High Float IS the score driver (100 - this %); neg is context (its own sub-feature).
         'high': {'pct': high_pct, 'penalty': high_pen, 'count': len(constr_over), 'base': len(constr),
-                 'target': eff['high_target_pct'], 'max_pct': eff['high_max_pct'], 'max_penalty': eff['high_max_penalty']},
-        'neg': {'pct': neg_pct, 'penalty': neg_pen, 'count': len(negative),
-                'target': eff['neg_target_pct'], 'max_pct': eff['neg_max_pct'], 'max_penalty': eff['neg_max_penalty']},
+                 'dcma_max_pct': DCMA_HIGH_MAX_PCT, 'dcma_within_pct': DCMA_WITHIN_PCT},
+        'neg': {'pct': neg_pct, 'penalty': neg_pen, 'count': len(negative), 'context': True},
         'stats': stats,
         'indicators': indicators,
         'wbs': wbs,
