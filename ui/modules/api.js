@@ -233,13 +233,13 @@ export async function reverseGeocode(lat, lon) {
   } catch { return { ok: false, error: 'offline' }; }
 }
 
-export async function computeWeather(lat, lon, placeName, thresholds) {
+export async function computeWeather(lat, lon, placeName, thresholds, siteType) {
   return apiFetch('api/weather', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       snapshot_id: state.currentSnapshotId, xml_path: state.currentXmlPath,
       cached_path: state.currentCachedPath, lat, lon, place_name: placeName,
-      thresholds: thresholds || null,
+      thresholds: thresholds || null, site_type: siteType || null,
     }),
   });
 }

@@ -3,7 +3,8 @@
  * Run: node tests/js/test_calendar.js
  */
 import assert from 'node:assert/strict';
-import { fmtCalDate, statusClass, monthGridCells, conflictSeverityClass }
+import { fmtCalDate, statusClass, monthGridCells, conflictSeverityClass,
+         SITE_TYPES, SITE_TYPE_ORDER, matchSiteType, buildSiteCriteria }
   from '../../ui/modules/calendar.js';
 
 let passed = 0, failed = 0;
@@ -46,6 +47,38 @@ test('empty days -> only blanks', () => {
 console.log('\nconflictSeverityClass');
 test('High',  () => assert.equal(conflictSeverityClass('High'), 'cf-high'));
 test('Low default', () => assert.equal(conflictSeverityClass('???'), 'cf-low'));
+
+console.log('\nSITE_TYPES (must mirror weather.py)');
+test('desert equals the app default limits', () =>
+  assert.deepEqual(SITE_TYPES.desert.thresholds, { rain_mm: 5, temp_max_c: 42, wind_kmh: null, dust: true }));
+test('marine turns wind on at 35, heat 40', () => {
+  assert.equal(SITE_TYPES.marine.thresholds.wind_kmh, 35);
+  assert.equal(SITE_TYPES.marine.thresholds.temp_max_c, 40);
+});
+test('order lists the four presets', () =>
+  assert.deepEqual(SITE_TYPE_ORDER, ['marine', 'desert', 'coastal', 'building']));
+
+console.log('\nmatchSiteType');
+test('desert preset limits → desert', () =>
+  assert.equal(matchSiteType({ rain_mm: 5, temp_max_c: 42, wind_kmh: null, dust: true }), 'desert'));
+test('marine preset limits → marine', () =>
+  assert.equal(matchSiteType({ ...SITE_TYPES.marine.thresholds }), 'marine'));
+test('edited limits → null (Custom)', () =>
+  assert.equal(matchSiteType({ rain_mm: 3, temp_max_c: 38, wind_kmh: 30, dust: true }), null));
+
+console.log('\nbuildSiteCriteria');
+test('wind first, marine framing, on-state', () => {
+  const rows = buildSiteCriteria('marine', SITE_TYPES.marine.thresholds);
+  assert.deepEqual(rows.map(r => r.key), ['wind', 'heat', 'rain', 'dust']);
+  assert.equal(rows[0].on, true);
+  assert.match(rows[0].value, /35/);
+  assert.match(rows[0].explain.toLowerCase(), /marine|crane/);
+});
+test('wind off shown as off / not counted', () => {
+  const wind = buildSiteCriteria('desert', SITE_TYPES.desert.thresholds)[0];
+  assert.equal(wind.on, false);
+  assert.equal(wind.value, 'off');
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

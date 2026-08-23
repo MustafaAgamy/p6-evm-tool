@@ -276,6 +276,45 @@ def _weather_section(weather):
         f'of your stop-work limits is met — {_esc(" · ".join(lim))}. Each flagged day below shows the '
         'measured value against your limit. Applied to <b>construction</b> activities only; a day '
         'already off (weekend / holiday / shutdown) is never double-counted.</div>')
+    # Site type + the stop-work criteria shown IN FULL (what stops work here), so a
+    # consultant reading the report sees exactly how every lost day was decided.
+    criteria_block = ''
+    crit = w.get('criteria') or []
+    if crit:
+        label = (w.get('site_type_label')
+                 or ('Custom limits' if w.get('site_type') == 'custom'
+                     else 'Default limits (Desert / inland)'))
+        crows = ''.join(
+            f'<tr><td>{_esc(c["icon"])} {_esc(c["label"])}</td>'
+            f'<td>{_esc(c["value"])}</td><td>{_esc(c["explain"])}'
+            f'{"" if c.get("on") else " (not counted)"}</td></tr>' for c in crit)
+        criteria_block = (
+            f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-accent")}">'
+            f'Stop-Work Criteria — {_esc(label)}</span></div>'
+            '<p class="lg">A construction working day between the data date and finish is counted lost when '
+            '<b>any</b> limit below is met.</p>'
+            '<table><thead><tr><th>Limit</th><th>Value</th><th>What work it stops</th></tr></thead>'
+            f'<tbody>{crows}</tbody></table>')
+    # Why this result — how each limit performed over the window (explain a near-zero).
+    why_block = ''
+    perf = w.get('limit_performance') or []
+    if perf:
+        def _perf_txt(p):
+            unit = f' {p["unit"]}' if p.get('unit') else ''
+            if not p.get('on'):
+                pk = f' — highest seen {p["peak"]}{unit}' if p.get('peak') is not None else ''
+                return f'off (not counted){pk}'
+            lim = f' ≥ {p["limit"]}{unit}' if p.get('limit') is not None else ''
+            pk = f' · peak {p["peak"]}{unit}' if p.get('peak') is not None else ''
+            return f'limit{lim} → flagged {p.get("flagged", 0)} day(s){pk}'
+        prows = ''.join(
+            f'<tr><td>{_esc(p["label"])}</td><td>{_esc(_perf_txt(p))}</td></tr>' for p in perf)
+        why_block = (
+            f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-accent")}">'
+            'Why This Result — How Each Limit Performed</span></div>'
+            '<p class="lg">Over the project window, so a near-zero estimate is explained rather than hidden.</p>'
+            '<table><thead><tr><th>Limit</th><th>Result</th></tr></thead>'
+            f'<tbody>{prows}</tbody></table>')
     # What's driving the lost days (cause breakdown).
     cause_rows = ''
     for c in w.get('by_cause', []):
@@ -338,9 +377,9 @@ def _weather_section(weather):
         '<h2 class="sec">9 · Weather Impact '
         f'<span style="font-weight:400;font-size:9.5px;color:{report_theme.var("rpt-warn")};text-transform:none;letter-spacing:0">'
         '— estimate, not a P6 figure</span></h2>'
-        f'{method}'
+        f'{method}{criteria_block}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">{kpis}</div>'
-        f'{monthly_bars}{cause_table}{days_table}{ms_table}{rec_table}{conclusion}')
+        f'{why_block}{monthly_bars}{cause_table}{days_table}{ms_table}{rec_table}{conclusion}')
 
 
 def _conclusion(bullets, weather=None):

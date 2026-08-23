@@ -1615,15 +1615,21 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
-            from p6_calendar.weather import weather_inputs, build_daily_weather, weather_impact
+            from p6_calendar.weather import (weather_inputs, build_daily_weather,
+                                             weather_impact, resolve_site_thresholds)
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             sid = body.get('snapshot_id')
             pid = db.get_project_id_for_snapshot(sid) if sid else None
             saved = db.get_project_settings(pid) if pid else {}
-            # Stop-work limits: this request's edits win, else the project's saved limits,
-            # else the app defaults (rain>=5 / heat>=42 / dust on / wind off).
-            thresholds = (body.get('thresholds') or saved.get('weather_thresholds')
+            # Site type (Marine/Port, Desert, …) — one pick loads the limits that fit the work.
+            site_type = body.get('site_type') or saved.get('site_type')
+            # Stop-work limits: this request's edits win, else the picked site-type preset,
+            # else the project's saved limits, else the app defaults (rain>=5 / heat>=42 /
+            # dust on / wind off = the Desert preset).
+            thresholds = (body.get('thresholds')
+                          or (resolve_site_thresholds(site_type) if site_type else None)
+                          or saved.get('weather_thresholds')
                           or config.get('weather_thresholds'))
             data = parse_file(resolved)
             inp = weather_inputs(data)
@@ -1632,11 +1638,14 @@ class Handler(BaseHTTPRequestHandler):
                 return
             daily, horizon = build_daily_weather(lat, lon, inp['data_date'], inp['project_finish'])
             wx = weather_impact(**inp, daily_weather=daily, forecast_horizon=horizon,
-                                thresholds=thresholds)
+                                thresholds=thresholds, site_type=site_type)
             location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
             if pid:
-                # Persist location, the edited limits, and the latest weather (so the PDF can include it).
+                # Persist location, the site type, the edited limits, and the latest weather
+                # (so re-opening restores the picker and the PDF can include it).
                 patch = {'location': location, 'last_weather': wx}
+                if site_type is not None:
+                    patch['site_type'] = site_type
                 if body.get('thresholds'):
                     patch['weather_thresholds'] = body['thresholds']
                 db.save_project_settings(pid, patch)

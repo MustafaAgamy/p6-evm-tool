@@ -102,6 +102,37 @@ def test_report_weather_section_only_when_provided(tmp_path):
     assert 'How to read this table' in html and 'Net = Before' in html
 
 
+def test_report_shows_site_type_criteria_and_why(tmp_path):
+    """The stop-work criteria (site type) and the why-this-result read-out are shown in
+    full in the PDF, so a consultant sees exactly how every lost day was decided."""
+    from p6_calendar.weather import build_criteria, resolve_site_thresholds, SITE_TYPES
+    thr = resolve_site_thresholds('marine')
+    weather = {
+        'expected_bad_days_total': 10, 'net_finish_delay': 8,
+        'weather_adjusted_finish': '2027-02-17', 'monthly': [], 'by_cause': [],
+        'bad_days': [], 'milestones': [], 'recovery': [],
+        'thresholds': thr, 'site_type': 'marine',
+        'site_type_label': SITE_TYPES['marine']['label'],
+        'criteria': build_criteria('marine', thr),
+        'limit_performance': [
+            {'key': 'wind', 'label': 'Wind', 'on': True, 'limit': 35, 'unit': 'km/h',
+             'flagged': 6, 'peak': 41.0},
+            {'key': 'heat', 'label': 'Heat', 'on': True, 'limit': 40, 'unit': '°C',
+             'flagged': 1, 'peak': 41.3},
+        ],
+    }
+    html = render_calendar_report(_result(tmp_path), META, weather=weather)
+    assert 'Stop-Work Criteria' in html and 'Marine / Port' in html
+    assert 'What work it stops' in html and 'marine works' in html  # wind explanation shown
+    assert 'Why This Result' in html and 'flagged 1 day' in html and '41.3' in html
+
+    # A user-edited set is labelled "Custom limits", never mislabelled as the desert default.
+    weather['site_type'] = 'custom'
+    weather['site_type_label'] = None
+    html2 = render_calendar_report(_result(tmp_path), META, weather=weather)
+    assert 'Custom limits' in html2 and 'Default limits (Desert / inland)' not in html2
+
+
 def test_report_hides_empty_exception_groups(tmp_path):
     """Ibrahim: the PDF drops a section/group with no results — the fixture's Jan holiday is
     before the data date, so the Holidays group is empty and hidden; the Feb shutdown shows."""
