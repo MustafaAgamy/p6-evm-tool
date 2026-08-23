@@ -639,7 +639,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_critpath.exporters import render_html
             import subprocess, tempfile
-            html_content = render_html(report, sections, milestone_ids)
+            html_content = render_html(report, sections, milestone_ids,
+                                       theme=report_theme.normalize(body.get('theme')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

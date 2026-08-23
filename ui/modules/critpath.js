@@ -6,6 +6,7 @@
 // milestone comparison, float migration and the effect/recommendation.
 import { state }      from './state.js';
 import { showError }  from './render.js';
+import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 import { escapeHtml } from './format.js';
 
 const MODES = [
@@ -192,11 +193,12 @@ async function _openPreview() {
   // Milestone paths available for inclusion; the governing one is checked by default.
   const msPaths = _shownReport.milestone_paths || [];
   const defaultMsIds = msPaths.filter(p => p.is_governing).map(p => p.id);
+  let cpaMode = getSavedMode();                 // appearance mode for this preview + its PDF
   let html = '';
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: _shownReport, preview: true, milestone_ids: defaultMsIds }),
+      body: JSON.stringify({ report: _shownReport, preview: true, milestone_ids: defaultMsIds, theme: cpaMode }),
     });
     const data = await resp.json();
     if (!data.ok) { showError(data.error || 'Could not build the preview.'); return; }
@@ -249,6 +251,23 @@ async function _openPreview() {
   cbs().forEach(c => c.addEventListener('change', applyToFrame));
   document.getElementById('cpa-pick-all').addEventListener('click', () => { cbs().forEach(c => { c.checked = true; }); applyToFrame(); });
   document.getElementById('cpa-pick-none').addEventListener('click', () => { cbs().forEach(c => { c.checked = false; }); applyToFrame(); });
+  // Appearance picker — themes this preview and the exported PDF (and the whole app, via setAppMode).
+  frame.style.background = backdropColor(cpaMode);
+  ov.querySelector('.per-preview-pick').appendChild(buildAppearancePicker({
+    current: cpaMode, compact: false,
+    onChange: async (m) => {
+      cpaMode = m;
+      frame.style.background = backdropColor(m);
+      try {
+        const r = await fetch(`http://localhost:${state.serverPort}/api/critpath/report`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report: _shownReport, preview: true, milestone_ids: selectedMs(), theme: m }),
+        });
+        const d = await r.json();
+        if (d.ok) { frame.onload = applyToFrame; frame.srcdoc = d.html; }
+      } catch { /* keep the current preview on a failed re-render */ }
+    },
+  }));
   document.getElementById('cpa-preview-print').addEventListener('click', () => {
     applyToFrame();
     try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { showError('Could not open the print dialog.'); }
@@ -261,7 +280,7 @@ async function _openPreview() {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), milestone_ids: selectedMs() }),
+        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), milestone_ids: selectedMs(), theme: cpaMode }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
