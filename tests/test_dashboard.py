@@ -169,8 +169,29 @@ def test_write_dashboard_xlsx_is_valid_workbook():
             names = z.namelist()
             assert '[Content_Types].xml' in names and 'xl/worksheets/sheet1.xml' in names
             for nm in names:
+                if nm.endswith('.xml') or nm.endswith('.rels'):
+                    parseString(z.read(nm))     # every part well-formed
+            # the bars component ('c') must produce a native Excel chart
+            assert 'xl/charts/chart1.xml' in names
+            assert 'xl/drawings/drawing1.xml' in names
+    finally:
+        os.remove(path)
+
+
+def test_write_dashboard_xlsx_data_only_when_no_charts():
+    # a composition with no chart components stays a plain (valid) workbook
+    comp = {'header': {'title': 'X'}, 'components': [
+        {'id': 'k', 'type': 'kpi', 'title': 'SPI', 'source': 'EVM', 'size': 1,
+         'payload': {'type': 'kpi', 'data': {'value': '0.9'}}}]}
+    path = os.path.join(tempfile.gettempdir(), 'pd_noc.xlsx')
+    write_dashboard_xlsx(path, comp)
+    try:
+        with zipfile.ZipFile(path) as z:
+            names = z.namelist()
+            assert not any(n.startswith('xl/charts/') for n in names)
+            for nm in names:
                 if nm.endswith('.xml'):
-                    parseString(z.read(nm))     # well-formed
+                    parseString(z.read(nm))
     finally:
         os.remove(path)
 
