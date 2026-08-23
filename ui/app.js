@@ -11,6 +11,7 @@ import { renderComparePanel }                  from './modules/compare.js';
 import { renderPeriodPanel }                   from './modules/period.js';
 import { renderUpdatePanel }                   from './modules/update.js';
 import { initTooltips }                        from './modules/tooltip.js';
+import { initReportAppearanceControl }         from './modules/appearance.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
@@ -21,6 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
   loadHistory();
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+  // Report appearance ("Report look") — always-visible toolbar control; sets the mode
+  // every report preview/PDF uses. Independent of the app's own screen theme above.
+  initReportAppearanceControl('report-appearance');
 
   document.getElementById('sb-home-btn').addEventListener('click', () => {
     exitKbLibrary();

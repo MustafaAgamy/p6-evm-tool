@@ -56,12 +56,10 @@ export function buildAppearancePicker(opts = {}) {
   const root = document.createElement('div');
   root.className = 'rpt-appearance' + (opts.compact ? ' rpt-appearance--compact' : '');
 
-  if (!opts.compact) {
-    const h = document.createElement('div');
-    h.className = 'rpt-appearance-h';
-    h.textContent = 'Appearance';
-    root.appendChild(h);
-  }
+  const h = document.createElement('span');
+  h.className = 'rpt-appearance-h';
+  h.textContent = 'Appearance';
+  root.appendChild(h);
 
   const row = document.createElement('div');
   row.className = 'rpt-chip-row';
@@ -94,4 +92,22 @@ export function buildAppearancePicker(opts = {}) {
   root.setMode = setMode;
   root.getMode = () => current;
   return root;
+}
+
+/**
+ * Wire the always-visible toolbar "Report look" <select> to the remembered mode.
+ * Populates it with the six modes, reflects the saved choice, and persists changes so
+ * every report preview/PDF picks it up. `onChange(modeId)` is optional (e.g. to re-theme
+ * an open preview). Returns the element, or null if not found.
+ */
+export function initReportAppearanceControl(sel, onChange) {
+  const el = typeof sel === 'string' ? document.getElementById(sel) : sel;
+  if (!el) return null;
+  el.innerHTML = REPORT_MODES.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
+  el.value = getSavedMode();
+  el.addEventListener('change', () => {
+    setSavedMode(el.value);
+    if (typeof onChange === 'function') onChange(el.value);
+  });
+  return el;
 }

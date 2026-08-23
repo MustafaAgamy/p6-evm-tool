@@ -1535,8 +1535,18 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rpt-chip-sw i:nth-child(1) { left: 2px; width: 10px; }   /* card/tile sliver */
 .rpt-chip-sw i:nth-child(2) { right: 2px; width: 6px; }   /* accent sliver */
 .rpt-chip-lb { white-space: nowrap; }
-/* Compact (toolbar) mode: labels only on the selected chip to save room */
-.rpt-appearance--compact .rpt-chip .rpt-chip-lb { display: none; }
-.rpt-appearance--compact .rpt-chip[aria-pressed="true"] .rpt-chip-lb { display: inline; }
+/* Compact (toolbar) mode: the "Appearance" label sits inline before the chips */
+.rpt-appearance--compact .rpt-appearance-h { margin-right: 2px; }
 .rpv-appearance-slot { display: flex; align-items: center; min-width: 0; }
 .rpv-appearance-slot:empty { display: none; }
+
+/* Toolbar "Report look" control (always visible, sets the mode reports use) */
+.tb-appearance { display: inline-flex; align-items: center; gap: 7px; margin-right: 10px; cursor: pointer; }
+.tb-appearance-lb { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+#report-appearance {
+  font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 8px;
+  border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg);
+  color: var(--text); cursor: pointer;
+}
+#report-appearance:hover { border-color: var(--accent); }
+@media (max-width: 640px) { .tb-appearance-lb { display: none; } }
