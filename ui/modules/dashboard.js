@@ -24,10 +24,22 @@ const D = {
   selected: [],          // ordered component ids on the board
   custom: {},            // {id: {id, source:'Custom', type, title, size, data}}
   titles: {}, sizes: {}, // per-id overrides
-  header: { title: '', subtitle: '', logo_left: null, logo_right: null },
+  header: { title: '', subtitle: '', title_size: 'm', sub_size: 'm', logos_left: [], logos_right: [] },
   payloads: {},          // {id: {type, data}}
   editing: false, loaded: false,
 };
+
+const SIZES = ['s', 'm', 'l', 'xl'];          // logo + text size steps
+function nextSize(s) { const i = SIZES.indexOf(s); return SIZES[(i < 0 ? 1 : i + 1) % SIZES.length]; }
+// migrate an older saved header (logo_left/logo_right scalars) to the logos_left/right arrays
+function migrateHeader(h) {
+  h = Object.assign({ title_size: 'm', sub_size: 'm', logos_left: [], logos_right: [] }, h || {});
+  if (!Array.isArray(h.logos_left)) h.logos_left = [];
+  if (!Array.isArray(h.logos_right)) h.logos_right = [];
+  if (h.logo_left) { h.logos_left.unshift({ src: h.logo_left, size: 'm' }); delete h.logo_left; }
+  if (h.logo_right) { h.logos_right.push({ src: h.logo_right, size: 'm' }); delete h.logo_right; }
+  return h;
+}
 
 const CUSTOM_KINDS = [
   { kind: 'text',  label: 'Text / Project Brief', type: 'text' },
@@ -79,7 +91,7 @@ function initComposition(layout) {
   D.custom = {}; D.titles = {}; D.sizes = {};
   if (layout && Array.isArray(layout.components)) {
     D.custom = layout.custom || {};
-    D.header = Object.assign(defaultHeader(), layout.header || {});
+    D.header = migrateHeader(Object.assign(defaultHeader(), layout.header || {}));
     D.selected = [];
     for (const c of layout.components) {
       D.selected.push(c.id);
@@ -99,7 +111,7 @@ function defaultHeader() {
   if (r.data_date) bits.push(`Data date ${escapeHtml(String(r.data_date).slice(0, 10))}`);
   if (r.activity_count) bits.push(`${r.activity_count} activities`);
   return { title: r.project_name || 'Project Dashboard', subtitle: bits.join('  ·  '),
-           logo_left: null, logo_right: null };
+           title_size: 'm', sub_size: 'm', logos_left: [], logos_right: [] };
 }
 
 async function fetchPayloads() {
@@ -147,21 +159,45 @@ function renderShell(host) {
 function renderLetterhead() {
   const el = document.getElementById('pd-letterhead');
   if (!el) return;
-  const logo = (side, src) => src
-    ? `<img class="pd-logo" src="${src}" alt="" data-side="${side}">`
-    : `<div class="pd-logo-slot" data-side="${side}">${D.editing ? 'Set logo' : ''}</div>`;
+  const h = D.header;
+  const logoGroup = (side) => {
+    const arr = h['logos_' + side] || [];
+    const items = arr.map((lg, i) =>
+      `<span class="pd-logo-wrap" data-side="${side}" data-i="${i}">
+         <img class="pd-logo sz-${lg.size || 'm'}" src="${lg.src}" alt="">
+         ${D.editing ? `<span class="pd-logo-tools">
+            <button class="pd-logo-btn" data-act="size" title="Resize">⤢</button>
+            <button class="pd-logo-btn" data-act="rm" title="Remove">✕</button></span>` : ''}
+       </span>`).join('');
+    const add = D.editing ? `<button class="pd-addlogo" data-side="${side}">＋ Logo</button>` : '';
+    return `<div class="pd-logos pd-logos-${side}">${items}${add}</div>`;
+  };
   el.innerHTML = `
-    ${logo('left', D.header.logo_left)}
+    ${logoGroup('left')}
     <div class="pd-ttl">
-      <div class="pd-h-title" id="pd-h-title" contenteditable="${D.editing}">${escapeHtml(D.header.title || '')}</div>
-      <div class="pd-h-sub" id="pd-h-sub" contenteditable="${D.editing}">${escapeHtml(D.header.subtitle || '')}</div>
+      <div class="pd-h-title tsz-${h.title_size || 'm'}" id="pd-h-title" contenteditable="${D.editing}">${escapeHtml(h.title || '')}</div>
+      <div class="pd-h-sub tsz-${h.sub_size || 'm'}" id="pd-h-sub" contenteditable="${D.editing}">${escapeHtml(h.subtitle || '')}</div>
+      ${D.editing ? `<div class="pd-textsizes">
+         Title <button class="pd-tsz" data-t="title" title="Cycle title size">A⇄</button>
+         &nbsp; Subtitle <button class="pd-tsz" data-t="sub" title="Cycle subtitle size">A⇄</button></div>` : ''}
     </div>
-    ${logo('right', D.header.logo_right)}`;
+    ${logoGroup('right')}`;
   if (D.editing) {
     document.getElementById('pd-h-title').addEventListener('blur', e => { D.header.title = e.target.textContent.trim(); });
     document.getElementById('pd-h-sub').addEventListener('blur', e => { D.header.subtitle = e.target.textContent.trim(); });
-    el.querySelectorAll('.pd-logo-slot, .pd-logo').forEach(n =>
-      n.addEventListener('click', () => pickLogo(n.dataset.side)));
+    el.querySelectorAll('.pd-addlogo').forEach(b => b.addEventListener('click', () => pickLogo(b.dataset.side)));
+    el.querySelectorAll('.pd-logo-wrap .pd-logo-btn').forEach(b => b.addEventListener('click', ev => {
+      ev.stopPropagation();
+      const wrap = b.closest('.pd-logo-wrap'), side = wrap.dataset.side, i = +wrap.dataset.i;
+      const arr = D.header['logos_' + side];
+      if (b.dataset.act === 'rm') arr.splice(i, 1);
+      else arr[i].size = nextSize(arr[i].size || 'm');
+      renderLetterhead();
+    }));
+    el.querySelectorAll('.pd-tsz').forEach(b => b.addEventListener('click', () => {
+      const key = b.dataset.t === 'title' ? 'title_size' : 'sub_size';
+      D.header[key] = nextSize(D.header[key] || 'm'); renderLetterhead();
+    }));
   }
 }
 
@@ -179,6 +215,8 @@ function renderBoard() {
   kpis.forEach(c => {
     const el = document.createElement('div');
     el.className = 'pd-kpi';
+    el.dataset.id = c.id;
+    el.draggable = D.editing;
     el.innerHTML =
       `<div class="pd-k-head" contenteditable="${D.editing}" data-id="${c.id}">${escapeHtml(titleOf(c))}</div>
        <div class="pd-k-body">${renderPayload(c)}</div>
@@ -194,8 +232,10 @@ function renderBoard() {
   cards.forEach(c => {
     const el = document.createElement('div');
     el.className = 'pd-panel' + (sizeOf(c) === 2 ? ' span2' : '');
+    el.dataset.id = c.id;
+    el.draggable = D.editing;
     el.innerHTML =
-      `<div class="pd-p-head"><span class="pd-p-title" contenteditable="${D.editing}" data-id="${c.id}">${escapeHtml(titleOf(c))}</span>
+      `<div class="pd-p-head">${D.editing ? '<span class="pd-grip" title="Drag to move">⠿</span>' : ''}<span class="pd-p-title" contenteditable="${D.editing}" data-id="${c.id}">${escapeHtml(titleOf(c))}</span>
         <span class="pd-src">${escapeHtml(c.source || '')}</span><span class="pd-ctl">${ctlBtns(c.id)}</span></div>
        <div class="pd-p-body">${renderPayload(c)}</div>`;
     grid.appendChild(el);
@@ -225,6 +265,41 @@ function wireCard(el, c) {
       const v = e.target.textContent.trim();
       if (v) D.titles[e.target.dataset.id] = v; else delete D.titles[e.target.dataset.id];
     }));
+
+  if (D.editing) {
+    el.addEventListener('dragstart', e => {
+      D._dragId = el.dataset.id; el.classList.add('pd-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', el.dataset.id); } catch { /* ignore */ }
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('pd-dragging');
+      document.querySelectorAll('.pd-dropover').forEach(n => n.classList.remove('pd-dropover'));
+    });
+    el.addEventListener('dragover', e => {
+      if (D._dragId && D._dragId !== el.dataset.id) { e.preventDefault(); el.classList.add('pd-dropover'); }
+    });
+    el.addEventListener('dragleave', () => el.classList.remove('pd-dropover'));
+    el.addEventListener('drop', e => {
+      e.preventDefault(); el.classList.remove('pd-dropover');
+      const from = D._dragId, to = el.dataset.id; D._dragId = null;
+      if (!from || from === to) return;
+      const rect = el.getBoundingClientRect();
+      const after = (e.clientX - rect.left) > rect.width / 2;
+      dropReorder(from, to, after);
+    });
+  }
+}
+
+function dropReorder(fromId, toId, after) {
+  const arr = D.selected;
+  const fi = arr.indexOf(fromId);
+  if (fi < 0) return;
+  arr.splice(fi, 1);
+  const ti = arr.indexOf(toId);
+  if (ti < 0) { arr.splice(fi, 0, fromId); return; }
+  arr.splice(ti + (after ? 1 : 0), 0, fromId);
+  renderBoard();
 }
 
 function move(id, dir) {
@@ -413,7 +488,13 @@ function editCustomText(id) {
   if (v != null) { D.custom[id].data.text = v; D.payloads[id] = { type: 'text', data: D.custom[id].data }; renderBoard(); }
 }
 function pickImage(id) { pickFileAsDataUrl(url => { D.custom[id].data.src = url; D.payloads[id] = { type: 'image', data: D.custom[id].data }; renderBoard(); }); }
-function pickLogo(side) { pickFileAsDataUrl(url => { D.header['logo_' + side] = url; renderLetterhead(); }); }
+function pickLogo(side) {
+  pickFileAsDataUrl(url => {
+    const key = 'logos_' + side;
+    (D.header[key] = D.header[key] || []).push({ src: url, size: 'm' });
+    renderLetterhead();
+  });
+}
 function pickFileAsDataUrl(cb) {
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';

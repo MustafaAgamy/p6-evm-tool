@@ -1598,3 +1598,28 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pd-avail.a-run { background: rgba(251,191,36,.16); color: var(--warning); }
 .pd-note-i { font-size: 10px; color: var(--muted); padding: 2px 9px 6px; font-style: italic; }
 @media (max-width: 900px) { .pd-layout { flex-direction: column; } .pd-catalog { width: 100%; position: static; max-height: none; } }
+
+/* letterhead: multiple logos, per-logo + text sizing */
+.pd-logos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pd-logos-left { justify-content: flex-start; } .pd-logos-right { justify-content: flex-end; }
+.pd-logo-wrap { position: relative; display: inline-flex; }
+.pd-logo { object-fit: contain; display: block; }
+.pd-logo.sz-s { max-height: 28px; max-width: 64px; }
+.pd-logo.sz-m { max-height: 42px; max-width: 96px; }
+.pd-logo.sz-l { max-height: 60px; max-width: 140px; }
+.pd-logo.sz-xl { max-height: 84px; max-width: 190px; }
+.pd-logo-tools { position: absolute; top: -8px; right: -8px; display: none; gap: 2px; }
+.pd-logo-wrap:hover .pd-logo-tools { display: inline-flex; }
+.pd-logo-btn { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); cursor: pointer; font-size: 10px; line-height: 1; padding: 0; }
+.pd-logo-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pd-addlogo, .pd-tsz { border: 1px dashed var(--border); background: transparent; color: var(--accent); border-radius: 6px; font-size: 10px; padding: 3px 8px; cursor: pointer; font-family: inherit; }
+.pd-addlogo:hover, .pd-tsz:hover { border-color: var(--accent); }
+.pd-textsizes { margin-top: 5px; font-size: 10px; color: var(--muted); }
+.pd-h-title.tsz-s { font-size: 14px; } .pd-h-title.tsz-m { font-size: 17px; } .pd-h-title.tsz-l { font-size: 21px; } .pd-h-title.tsz-xl { font-size: 26px; }
+.pd-h-sub.tsz-s { font-size: 10px; } .pd-h-sub.tsz-m { font-size: 12px; } .pd-h-sub.tsz-l { font-size: 14px; } .pd-h-sub.tsz-xl { font-size: 17px; }
+
+/* drag-and-drop reorder */
+.pd-wrap.editing .pd-kpi, .pd-wrap.editing .pd-panel { cursor: grab; }
+.pd-grip { color: var(--muted2); margin-right: 5px; cursor: grab; }
+.pd-dragging { opacity: .45; }
+.pd-dropover { outline: 2px solid var(--accent) !important; outline-offset: 1px; }

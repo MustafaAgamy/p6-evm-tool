@@ -203,17 +203,24 @@ def _gauge(score, cls):
 
 # ── document ────────────────────────────────────────────────────────────────
 
-def _logo(src, side):
-    if src and str(src).startswith('data:'):
-        return f'<img class="logo {side}" src="{src}" alt="">'
-    return ''
+def _logos(header, side):
+    """Render one side's logo group from the new header model (list of {src,size}),
+    falling back to the legacy single logo_left/logo_right scalar."""
+    arr = header.get('logos_' + side)
+    if not arr:
+        legacy = header.get('logo_' + side)
+        arr = [{'src': legacy, 'size': 'm'}] if legacy else []
+    imgs = ''.join(
+        f'<img class="logo sz-{lg.get("size", "m")}" src="{lg.get("src")}" alt="">'
+        for lg in arr if str(lg.get('src') or '').startswith('data:'))
+    return f'<div class="logos logos-{side}">{imgs}</div>'
 
 
 def render_dashboard_html(composition):
     header = composition.get('header') or {}
     comps = composition.get('components') or []
     panels = []
-    for i, c in enumerate(comps, 1):
+    for c in comps:
         span = ' span2' if (c.get('size') == 2) else ''
         panels.append(
             f'<section class="panel{span}"><div class="p-head">{_e(c.get("title"))}</div>'
@@ -221,8 +228,10 @@ def render_dashboard_html(composition):
     return _DOC.format(
         title=_e(header.get('title') or 'Project Dashboard'),
         subtitle=_e(header.get('subtitle') or ''),
-        logo_left=_logo(header.get('logo_left'), 'left'),
-        logo_right=_logo(header.get('logo_right'), 'right'),
+        tsz=_e(header.get('title_size') or 'm'),
+        ssz=_e(header.get('sub_size') or 'm'),
+        logo_left=_logos(header, 'left'),
+        logo_right=_logos(header, 'right'),
         panels=''.join(panels) or '<div class="empty">No components selected.</div>',
     )
 
@@ -234,9 +243,13 @@ body {{ font: 11px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:#
 .titleband {{ display:flex; align-items:center; gap:14px; border:1px solid #b7c5d8; border-radius:5px;
   padding:9px 14px; margin-bottom:12px; background:linear-gradient(180deg,#d6e2f2,#fff); }}
 .titleband .ttl {{ flex:1; text-align:center; }}
-.titleband .t {{ font-size:16px; font-weight:800; color:#1f3c66; }}
-.titleband .s {{ font-size:11px; color:#5d6b80; margin-top:2px; }}
-.logo {{ max-height:40px; max-width:90px; object-fit:contain; }}
+.titleband .t {{ font-weight:800; color:#1f3c66; }}
+.titleband .t.tsz-s {{ font-size:13px; }} .titleband .t.tsz-m {{ font-size:16px; }} .titleband .t.tsz-l {{ font-size:20px; }} .titleband .t.tsz-xl {{ font-size:25px; }}
+.titleband .s {{ color:#5d6b80; margin-top:2px; }}
+.titleband .s.ssz-s {{ font-size:10px; }} .titleband .s.ssz-m {{ font-size:11px; }} .titleband .s.ssz-l {{ font-size:13px; }} .titleband .s.ssz-xl {{ font-size:16px; }}
+.logos {{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }}
+.logo {{ object-fit:contain; }}
+.logo.sz-s {{ max-height:28px; max-width:64px; }} .logo.sz-m {{ max-height:42px; max-width:96px; }} .logo.sz-l {{ max-height:60px; max-width:140px; }} .logo.sz-xl {{ max-height:84px; max-width:190px; }}
 .grid {{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }}
 .panel {{ border:1px solid #b7c5d8; border-radius:5px; overflow:hidden; break-inside:avoid; }}
 .panel.span2 {{ grid-column:span 2; }}
@@ -266,6 +279,6 @@ body {{ font: 11px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:#
 .empty {{ color:#93a0b3; font-size:11px; text-align:center; padding:10px; }}
 svg {{ display:block; }}
 </style></head><body>
-<div class="titleband">{logo_left}<div class="ttl"><div class="t">{title}</div><div class="s">{subtitle}</div></div>{logo_right}</div>
+<div class="titleband">{logo_left}<div class="ttl"><div class="t tsz-{tsz}">{title}</div><div class="s ssz-{ssz}">{subtitle}</div></div>{logo_right}</div>
 <div class="grid">{panels}</div>
 </body></html>'''

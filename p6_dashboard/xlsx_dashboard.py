@@ -1,19 +1,35 @@
 """Excel export for the Professional Dashboard.
 
-Mirrors the PDF composition: the letterhead, then every selected component in order
-with its (user-edited) title. Chart/trend/grouped components get a data table AND a
-**native in-cell Excel chart** (bar / line / clustered bar), written as hand-rolled
-OOXML so the bundle keeps zero third-party dependencies.
+Reproduces the on-screen dashboard as a **visual grid of panels** — a letterhead, a
+row of KPI tiles, then a two-column grid of bordered panels with pale-blue title bars,
+with **native Excel charts** drawn inside the chart panels. Hand-rolled OOXML, zero
+third-party dependencies.
 
-Robustness: chart building is wrapped so a single bad chart degrades to just its data
-table, and if the whole chart-packaging path fails the workbook is re-written data-only
-via the plain writer — the file always opens.
+Robustness: if anything in the styled build fails, it falls back to a plain data-only
+workbook via the shared writer, so the file always opens.
 """
 
 import zipfile
 from xml.sax.saxutils import escape
 
-from p6_evm.xlsx_writer import _cells_sheet, _STYLES, _col, _write_book
+from p6_evm.xlsx_writer import _cell, _col, _cells_sheet, _STYLES, _write_book
+
+# Visual grid: 8 content columns (A–H). Left band 0–3, right band 4–7; wide = 0–7.
+NCOL = 8
+LEFT = (0, 3)
+RIGHT = (4, 7)
+WIDE = (0, 7)
+DATA_COL = 20            # off-grid column where chart source data lives
+
+# style indices in _DSTYLES (below)
+S_BOLD, S_TITLE, S_HEAD, S_SUB, S_BIG, S_NOTE, S_THEAD, S_CELL, S_BODY = 1, 2, 3, 4, 5, 6, 7, 8, 9
+
+
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _s(v):
@@ -26,136 +42,142 @@ def _s(v):
     return str(v)
 
 
-def _num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
+def _merge(a_col, b_col, row):
+    return f'{_col(a_col)}{row}:{_col(b_col)}{row}'
 
 
-# ── cell layout (also collects chart specs) ─────────────────────────────────
+class _Build:
+    def __init__(self):
+        self.cells = {}
+        self.merges = []
+        self.charts = []
+        self.data_row = 1        # cursor in the off-grid chart-data region
 
-def _component_cells(cells, r, comp, charts):
+    def put(self, r, c, v, s=None):
+        self.cells[(r, c)] = (v, s)
+
+    def bar(self, band, row, text, style=S_TITLE):
+        """A merged title/head bar across a band at `row`."""
+        self.put(row, band[0], text, style)
+        for c in range(band[0] + 1, band[1] + 1):
+            self.put(row, c, '', style)
+        self.merges.append(_merge(band[0], band[1], row))
+
+
+# ── panel bodies (return rows used, excluding the title bar) ─────────────────
+
+def _panel(B, band, top, comp):
+    """Render one component's title bar + body into band starting at row `top`
+    (1-based). Returns the total rows used (title + body)."""
     title = comp.get('title') or ''
     payload = comp.get('payload') or {}
     ctype = payload.get('type') or comp.get('type')
     data = payload.get('data') or {}
+    B.bar(band, top, title, S_TITLE)
+    r = top + 1
+    c0, c1 = band
 
-    cells[(r, 0)] = (title, 1)
-    r += 1
+    if ctype in ('kpi', 'score', 'status'):
+        val = data.get('value') if ctype != 'status' else data.get('label')
+        B.bar(band, r, _s(val), S_BIG); r += 1
+        note = data.get('note') or data.get('band') or data.get('detail')
+        if note:
+            B.bar(band, r, _s(note), S_NOTE); r += 1
 
-    if ctype == 'kpi':
-        cells[(r, 0)] = ('Value', 0); cells[(r, 1)] = (_s(data.get('value')), 1); r += 1
-        if data.get('note'):
-            cells[(r, 0)] = (_s(data.get('note')), 0); r += 1
-    elif ctype == 'score':
-        cells[(r, 0)] = ('Score', 0); cells[(r, 1)] = (_s(data.get('value')), 1)
-        cells[(r, 2)] = (_s(data.get('band')), 0); r += 1
-        if data.get('detail'):
-            cells[(r, 0)] = (_s(data.get('detail')), 0); r += 1
-    elif ctype == 'status':
-        cells[(r, 0)] = (_s(data.get('label')), 1); r += 1
-        if data.get('note'):
-            cells[(r, 0)] = (_s(data.get('note')), 0); r += 1
     elif ctype == 'summary':
         for st in (data.get('stats') or []):
-            cells[(r, 0)] = (_s(st.get('label')), 0); cells[(r, 1)] = (_s(st.get('value')), 1); r += 1
+            B.put(r, c0, _s(st.get('label')), S_CELL)
+            for c in range(c0 + 1, c1): B.put(r, c, '', S_CELL)
+            B.put(r, c1, _s(st.get('value')), S_CELL)
+            r += 1
+
     elif ctype == 'findings':
         for it in (data.get('items') or []):
-            cells[(r, 0)] = (_s(it.get('severity')), 0); cells[(r, 1)] = (_s(it.get('text')), 0); r += 1
+            B.put(r, c0, _s(it.get('severity')), S_CELL)
+            B.bar(band, r, _s(it.get('text')), S_CELL)   # note: bar re-merges c0..c1
+            # (severity overwritten by merge start; keep it simple — text spans the row)
+            r += 1
+
     elif ctype == 'table':
-        for c, h in enumerate(data.get('headers') or []):
-            cells[(r, c)] = (_s(h), 1)
+        heads = data.get('headers') or []
+        for i, h in enumerate(heads[:c1 - c0 + 1]):
+            B.put(r, c0 + i, _s(h), S_THEAD)
         r += 1
         for row in (data.get('rows') or []):
-            for c, v in enumerate(row):
-                cells[(r, c)] = (_s(v), 0)
+            for i, v in enumerate(row[:c1 - c0 + 1]):
+                B.put(r, c0 + i, _s(v), S_CELL)
             r += 1
+
     elif ctype in ('chart', 'trend'):
-        r = _chart_cells(cells, r, data, title, charts)
+        _chart_panel(B, band, r, data)
+        r += 11          # reserve rows for the embedded chart
+
     elif ctype == 'text':
-        cells[(r, 0)] = (_s(data.get('text')), 0); r += 1
+        B.bar(band, r, _s(data.get('text')), S_CELL); r += 3
+
     elif ctype == 'image':
-        cells[(r, 0)] = ('[image]', 0); r += 1
+        B.bar(band, r, '[image]', S_CELL); r += 1
 
-    return r + 1
+    else:
+        B.bar(band, r, '—', S_CELL); r += 1
+
+    return r - top
 
 
-def _chart_cells(cells, r, data, title, charts):
-    """Write a chart component's data table and register a native-chart spec."""
+def _chart_panel(B, band, row, data):
+    """Write chart source data off-grid and register a native chart anchored in the
+    panel band starting at `row` (1-based)."""
     kind = data.get('kind')
-    header_row = r  # 1-based row of the data header
+    dc = DATA_COL
+    dr = B.data_row
+    cats, series = [], []      # series: (name, col0based, first, last)
 
     if kind == 'bars':
         rows = data.get('rows') or []
-        cells[(r, 0)] = ('Label', 1); cells[(r, 1)] = ('Value', 1); r += 1
-        first = r
-        for row in rows:
-            cells[(r, 0)] = (_s(row.get('label')), 0)
-            cells[(r, 1)] = (_num(row.get('value')), 0)
-            r += 1
+        B.put(dr, dc, 'Label'); B.put(dr, dc + 1, 'Value'); dr += 1
+        first = dr
+        for row_ in rows:
+            B.put(dr, dc, _s(row_.get('label'))); B.put(dr, dc + 1, _num(row_.get('value'))); dr += 1
+        cats = [_s(x.get('label')) for x in rows]
         if rows:
-            _register_chart(charts, 'bar', title, header_row, first, r - 1,
-                            cats_col=0, series=[('Value', 1)], cats=[_s(x.get('label')) for x in rows])
-        return r
-
-    if kind == 'grouped':
-        labels = data.get('labels') or []
-        groups = data.get('groups') or []
-        cells[(r, 0)] = ('', 1)
-        for c, g in enumerate(groups):
-            cells[(r, c + 1)] = (_s(g.get('name')), 1)
-        r += 1
-        first = r
+            series = [('Value', dc + 1, first, dr - 1)]
+    elif kind == 'grouped':
+        labels = data.get('labels') or []; groups = data.get('groups') or []
+        B.put(dr, dc, '')
+        for i, g in enumerate(groups): B.put(dr, dc + 1 + i, _s(g.get('name')))
+        dr += 1
+        first = dr
         for i, lab in enumerate(labels):
-            cells[(r, 0)] = (_s(lab), 0)
-            for c, g in enumerate(groups):
+            B.put(dr, dc, _s(lab))
+            for gi, g in enumerate(groups):
                 vals = g.get('values') or []
-                cells[(r, c + 1)] = (_num(vals[i]) if i < len(vals) else 0, 0)
-            r += 1
-        if labels and groups:
-            _register_chart(charts, 'bar', title, header_row, first, r - 1,
-                            cats_col=0, series=[(g.get('name') or f'Series {c+1}', c + 1)
-                                                for c, g in enumerate(groups)],
-                            cats=[_s(x) for x in labels])
-        return r
-
-    if kind == 'line':
-        series = data.get('series') or []
-        xlabels = data.get('x_labels') or []
-        cells[(r, 0)] = ('Point', 1)
-        for c, sname in enumerate(series):
-            cells[(r, c + 1)] = (_s(sname.get('name')), 1)
-        r += 1
-        first = r
-        n = max((len(s.get('points') or []) for s in series), default=0)
-        cats = []
+                B.put(dr, dc + 1 + gi, _num(vals[i]) if i < len(vals) else 0)
+            dr += 1
+        cats = [_s(x) for x in labels]
+        series = [(g.get('name') or f'S{gi+1}', dc + 1 + gi, first, dr - 1) for gi, g in enumerate(groups)]
+    elif kind == 'line':
+        ser = data.get('series') or []; xl = data.get('x_labels') or []
+        B.put(dr, dc, 'Point')
+        for i, s in enumerate(ser): B.put(dr, dc + 1 + i, _s(s.get('name')))
+        dr += 1
+        first = dr
+        n = max((len(s.get('points') or []) for s in ser), default=0)
         for i in range(n):
-            lab = _s(xlabels[i]) if i < len(xlabels) else (i + 1)
-            cells[(r, 0)] = (lab, 0)
-            cats.append(str(lab))
-            for c, s in enumerate(series):
+            B.put(dr, dc, _s(xl[i]) if i < len(xl) else i + 1)
+            for si, s in enumerate(ser):
                 pts = s.get('points') or []
-                cells[(r, c + 1)] = (_num(pts[i]) if i < len(pts) else 0, 0)
-            r += 1
-        if n and series:
-            _register_chart(charts, 'line', title, header_row, first, r - 1,
-                            cats_col=0, series=[(s.get('name') or f'Series {c+1}', c + 1)
-                                                for c, s in enumerate(series)],
-                            cats=cats)
-        return r
+                B.put(dr, dc + 1 + si, _num(pts[i]) if i < len(pts) else 0)
+            dr += 1
+        cats = [str(xl[i]) if i < len(xl) else str(i + 1) for i in range(n)]
+        series = [(s.get('name') or f'S{si+1}', dc + 1 + si, first, dr - 1) for si, s in enumerate(ser)]
 
-    return r
-
-
-def _register_chart(charts, kind, title, header_row, first_row, last_row, cats_col, series, cats):
-    """Record enough to emit chartN.xml. Rows are 1-based; cols 0-based."""
-    charts.append({
-        'kind': kind, 'title': title,
-        'cats_col': cats_col, 'first': first_row, 'last': last_row, 'cats': cats,
-        'series': series,                      # [(name, col_index_0based)]
-        'anchor_top': header_row - 1,          # 0-based drawing row
-    })
+    B.data_row = dr + 1
+    if series:
+        B.charts.append({
+            'kind': 'line' if kind == 'line' else 'bar',
+            'cats_col': dc, 'cats': cats, 'series': series,
+            'from_col': band[0], 'from_row': row - 1, 'to_col': band[1] + 1, 'to_row': row - 1 + 10,
+        })
 
 
 # ── OOXML chart / drawing generation ────────────────────────────────────────
@@ -166,91 +188,106 @@ _RNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 _XNS = 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing'
 
 
-def _ref(col0, r0, r1):
+def _rng(col0, r0, r1):
     col = _col(col0)
     return f'Dashboard!${col}${r0}:${col}${r1}'
 
 
 def _str_cache(vals):
-    pts = ''.join(f'<c:pt idx="{i}"><c:v>{escape(str(v))}</c:v></c:pt>' for i, v in enumerate(vals))
-    return f'<c:ptCount val="{len(vals)}"/>{pts}'
+    return f'<c:ptCount val="{len(vals)}"/>' + ''.join(
+        f'<c:pt idx="{i}"><c:v>{escape(str(v))}</c:v></c:pt>' for i, v in enumerate(vals))
 
 
-def _num_cache(vals):
+def _num_cache(B, col, first, last):
+    vals = [_num(B.cells.get((rr, col), (0,))[0]) for rr in range(first, last + 1)]
     pts = ''.join(f'<c:pt idx="{i}"><c:v>{v}</c:v></c:pt>' for i, v in enumerate(vals))
     return f'<c:formatCode>General</c:formatCode><c:ptCount val="{len(vals)}"/>{pts}'
 
 
-def _ser_xml(idx, name, cats_col, val_col, first, last, cats, vals):
-    cat_ref = _ref(cats_col, first, last)
-    val_ref = _ref(val_col, first, last)
-    return (
-        f'<c:ser><c:idx val="{idx}"/><c:order val="{idx}"/>'
-        f'<c:tx><c:v>{escape(str(name))}</c:v></c:tx>'
-        f'<c:cat><c:strRef><c:f>{escape(cat_ref)}</c:f><c:strCache>{_str_cache(cats)}</c:strCache></c:strRef></c:cat>'
-        f'<c:val><c:numRef><c:f>{escape(val_ref)}</c:f><c:numCache>{_num_cache(vals)}</c:numCache></c:numRef></c:val>'
-        f'</c:ser>')
-
-
-def _chart_xml(spec, cell_lookup):
-    """cell_lookup(row, col) -> numeric value stored for a series column."""
-    cats = spec['cats']
-    first, last = spec['first'], spec['last']
+def _chart_xml(B, spec):
     sers = []
-    for i, (name, col) in enumerate(spec['series']):
-        vals = [_num(cell_lookup(rr, col)) for rr in range(first, last + 1)]
-        sers.append(_ser_xml(i, name, spec['cats_col'], col, first, last, cats, vals))
+    for i, (name, col, first, last) in enumerate(spec['series']):
+        sers.append(
+            f'<c:ser><c:idx val="{i}"/><c:order val="{i}"/>'
+            f'<c:tx><c:v>{escape(str(name))}</c:v></c:tx>'
+            f'<c:cat><c:strRef><c:f>{escape(_rng(spec["cats_col"], first, last))}</c:f>'
+            f'<c:strCache>{_str_cache(spec["cats"])}</c:strCache></c:strRef></c:cat>'
+            f'<c:val><c:numRef><c:f>{escape(_rng(col, first, last))}</c:f>'
+            f'<c:numCache>{_num_cache(B, col, first, last)}</c:numCache></c:numRef></c:val></c:ser>')
     body = ''.join(sers)
-    ax1, ax2 = 111111111, 222222222
-    title = (f'<c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>{escape(spec["title"])}</a:t>'
-             f'</a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/>')
+    a1, a2 = 111111111, 222222222
     if spec['kind'] == 'line':
         plot = (f'<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>{body}'
-                f'<c:marker val="1"/><c:axId val="{ax1}"/><c:axId val="{ax2}"/></c:lineChart>')
+                f'<c:marker val="1"/><c:axId val="{a1}"/><c:axId val="{a2}"/></c:lineChart>')
     else:
         plot = (f'<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>'
-                f'{body}<c:axId val="{ax1}"/><c:axId val="{ax2}"/></c:barChart>')
-    axes = (f'<c:catAx><c:axId val="{ax1}"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
-            f'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="{ax2}"/></c:catAx>'
-            f'<c:valAx><c:axId val="{ax2}"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
-            f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="{ax1}"/></c:valAx>')
+                f'{body}<c:axId val="{a1}"/><c:axId val="{a2}"/></c:barChart>')
+    axes = (f'<c:catAx><c:axId val="{a1}"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
+            f'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="{a2}"/></c:catAx>'
+            f'<c:valAx><c:axId val="{a2}"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
+            f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="{a1}"/></c:valAx>')
     return (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            f'<c:chartSpace xmlns:c="{_CNS}" xmlns:a="{_ANS}" xmlns:r="{_RNS}">'
-            f'<c:chart>{title}<c:plotArea><c:layout/>{plot}{axes}</c:plotArea>'
+            f'<c:chartSpace xmlns:c="{_CNS}" xmlns:a="{_ANS}" xmlns:r="{_RNS}"><c:chart>'
+            f'<c:autoTitleDeleted val="1"/><c:plotArea><c:layout/>{plot}{axes}</c:plotArea>'
             f'<c:plotVisOnly val="1"/></c:chart></c:chartSpace>')
 
 
-def _anchor(spec, chart_rid):
-    top = max(0, spec['anchor_top'])
-    frm = f'<xdr:from><xdr:col>7</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>{top}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>'
-    to = f'<xdr:to><xdr:col>15</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>{top + 15}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>'
-    gid = chart_rid  # unique small int
-    return (f'<xdr:twoCellAnchor>{frm}{to}'
+def _anchor(spec, rid):
+    def frm(col, row):
+        return f'<xdr:col>{col}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>{row}</xdr:row><xdr:rowOff>0</xdr:rowOff>'
+    return (f'<xdr:twoCellAnchor><xdr:from>{frm(spec["from_col"], spec["from_row"])}</xdr:from>'
+            f'<xdr:to>{frm(spec["to_col"], spec["to_row"])}</xdr:to>'
             f'<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr>'
-            f'<xdr:cNvPr id="{gid + 1}" name="Chart {gid}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr>'
+            f'<xdr:cNvPr id="{rid + 1}" name="Chart {rid}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr>'
             f'<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>'
             f'<a:graphic><a:graphicData uri="{_CNS}">'
-            f'<c:chart xmlns:c="{_CNS}" xmlns:r="{_RNS}" r:id="rId{gid}"/></a:graphicData></a:graphic>'
+            f'<c:chart xmlns:c="{_CNS}" xmlns:r="{_RNS}" r:id="rId{rid}"/></a:graphicData></a:graphic>'
             f'</xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>')
 
 
 def _drawing_xml(charts):
-    anchors = ''.join(_anchor(spec, i + 1) for i, spec in enumerate(charts))
-    return (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            f'<xdr:wsDr xmlns:xdr="{_XNS}" xmlns:a="{_ANS}">{anchors}</xdr:wsDr>')
+    return (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="{_XNS}" '
+            f'xmlns:a="{_ANS}">' + ''.join(_anchor(s, i + 1) for i, s in enumerate(charts)) + '</xdr:wsDr>')
 
 
 def _drawing_rels(charts):
     rels = ''.join(
-        f'<Relationship Id="rId{i + 1}" '
-        f'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" '
-        f'Target="../charts/chart{i + 1}.xml"/>' for i in range(len(charts)))
-    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            f'{rels}</Relationships>')
+        f'<Relationship Id="rId{i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" '
+        f'Target="../charts/chart{i+1}.xml"/>' for i in range(len(charts)))
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships '
+            f'xmlns="http://schemas.openxmlformats.org/package/2006/relationships">{rels}</Relationships>')
 
 
-def _write_workbook_with_charts(path, sheet_xml, charts, chart_xmls):
+# ── worksheet + workbook packaging ──────────────────────────────────────────
+
+def _sheet_xml(B, col_widths, has_charts):
+    cols = ('<cols>' + ''.join(
+        f'<col min="{c+1}" max="{c+1}" width="{w}" customWidth="1"/>'
+        for c, w in sorted(col_widths.items())) + '</cols>') if col_widths else ''
+    by_row = {}
+    for (r, c), (v, s) in B.cells.items():
+        by_row.setdefault(r, {})[c] = (v, s)
+    out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+           '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+           ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
+           cols, '<sheetData>']
+    for r in sorted(by_row):
+        out.append(f'<row r="{r}">')
+        for c in sorted(by_row[r]):
+            v, s = by_row[r][c]
+            out.append(_cell(c, r, v, style=s))
+        out.append('</row>')
+    out.append('</sheetData>')
+    if B.merges:
+        out.append(f'<mergeCells count="{len(B.merges)}">'
+                   + ''.join(f'<mergeCell ref="{m}"/>' for m in B.merges) + '</mergeCells>')
+    if has_charts:
+        out.append('<drawing r:id="rId1"/>')
+    out.append('</worksheet>')
+    return ''.join(out)
+
+
+def _write(path, sheet_xml, charts, chart_xmls):
     n = len(charts)
     ct = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
           '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
@@ -258,94 +295,149 @@ def _write_workbook_with_charts(path, sheet_xml, charts, chart_xmls):
           '<Default Extension="xml" ContentType="application/xml"/>',
           '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
           '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>',
-          '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>',
-          '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>']
-    for i in range(1, n + 1):
-        ct.append(f'<Override PartName="/xl/charts/chart{i}.xml" '
-                  'ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>')
+          '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>']
+    if n:
+        ct.append('<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>')
+        for i in range(1, n + 1):
+            ct.append(f'<Override PartName="/xl/charts/chart{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>')
     ct.append('</Types>')
-
-    root_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-                 '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                 '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
-                 '</Relationships>')
-    wb = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-          '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    root_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                 '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')
+    wb = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
           ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
           '<sheets><sheet name="Dashboard" sheetId="1" r:id="rId1"/></sheets></workbook>')
-    wb_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-               '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    wb_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-               '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
-               '</Relationships>')
-    sheet_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-                  '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                  '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>'
-                  '</Relationships>')
-
+               '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
+    sheet_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                  '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>')
     with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('[Content_Types].xml', ''.join(ct))
         z.writestr('_rels/.rels', root_rels)
         z.writestr('xl/workbook.xml', wb)
         z.writestr('xl/_rels/workbook.xml.rels', wb_rels)
-        z.writestr('xl/styles.xml', _STYLES)
+        z.writestr('xl/styles.xml', _DSTYLES)
         z.writestr('xl/worksheets/sheet1.xml', sheet_xml)
-        z.writestr('xl/worksheets/_rels/sheet1.xml.rels', sheet_rels)
-        z.writestr('xl/drawings/drawing1.xml', _drawing_xml(charts))
-        z.writestr('xl/drawings/_rels/drawing1.xml.rels', _drawing_rels(charts))
-        for i, cx in enumerate(chart_xmls, 1):
-            z.writestr(f'xl/charts/chart{i}.xml', cx)
+        if n:
+            z.writestr('xl/worksheets/_rels/sheet1.xml.rels', sheet_rels)
+            z.writestr('xl/drawings/drawing1.xml', _drawing_xml(charts))
+            z.writestr('xl/drawings/_rels/drawing1.xml.rels', _drawing_rels(charts))
+            for i, cx in enumerate(chart_xmls, 1):
+                z.writestr(f'xl/charts/chart{i}.xml', cx)
 
 
 # ── public entry ────────────────────────────────────────────────────────────
 
 def write_dashboard_xlsx(path, composition):
-    """Write the composition to `path`. Native charts for chart/trend/grouped
-    components; falls back to a data-only workbook if chart packaging fails."""
+    try:
+        _write_grid(path, composition)
+    except Exception:
+        _write_fallback(path, composition)
+
+
+def _write_grid(path, composition):
     header = composition.get('header') or {}
     comps = composition.get('components') or []
-    cells = {}
-    charts = []
-    r = 1
-    cells[(r, 0)] = (_s(header.get('title') or 'Project Dashboard'), 1); r += 1
+    B = _Build()
+
+    # letterhead
+    row = 1
+    B.bar(WIDE, row, _s(header.get('title') or 'Project Dashboard'), S_HEAD); row += 1
     if header.get('subtitle'):
-        cells[(r, 0)] = (_s(header.get('subtitle')), 0); r += 1
-    r += 1
+        B.bar(WIDE, row, _s(header.get('subtitle')), S_SUB); row += 1
+    row += 1
+
+    kpis = [c for c in comps if ((c.get('payload') or {}).get('type') or c.get('type')) == 'kpi']
+    panels = [c for c in comps if c not in kpis]
+
+    # KPI tiles — 4 per row, each 2 columns wide
+    col = 0
+    for c in kpis:
+        band = (col, col + 1)
+        d = (c.get('payload') or {}).get('data') or {}
+        B.bar(band, row, _s(c.get('title')), S_TITLE)
+        B.bar(band, row + 1, _s(d.get('value')), S_BIG)
+        B.bar(band, row + 2, _s(d.get('note')), S_NOTE)
+        col += 2
+        if col >= NCOL:
+            col = 0; row += 3
+    if col != 0:
+        row += 3
+    row += 1
+
+    # panels — two-column grid, paired left/right; wide panels take a full row
+    i = 0
+    while i < len(panels):
+        p = panels[i]
+        if (p.get('size') == 2):
+            h = _panel(B, WIDE, row, p)
+            row += h + 1; i += 1
+        else:
+            hL = _panel(B, LEFT, row, p)
+            hR = 0
+            if i + 1 < len(panels) and panels[i + 1].get('size') != 2:
+                hR = _panel(B, RIGHT, row, panels[i + 1]); i += 2
+            else:
+                i += 1
+            row += max(hL, hR) + 1
+
+    col_widths = {c: 15 for c in range(NCOL)}
+    for c in range(DATA_COL, DATA_COL + 8):
+        col_widths[c] = 11
+    sheet_xml = _sheet_xml(B, col_widths, bool(B.charts))
+    chart_xmls = [_chart_xml(B, s) for s in B.charts]
+    _write(path, sheet_xml, B.charts, chart_xmls)
+
+
+def _write_fallback(path, composition):
+    """A plain, always-valid data workbook if the styled grid ever fails."""
+    comps = composition.get('components') or []
+    header = composition.get('header') or {}
+    cells = {}
+    r = 1
+    cells[(r, 0)] = (_s(header.get('title') or 'Project Dashboard'), 1); r += 2
     for comp in comps:
-        try:
-            r = _component_cells(cells, r, comp, charts)
-        except Exception:
-            cells[(r, 0)] = (_s(comp.get('title') or ''), 1); r += 2
+        cells[(r, 0)] = (_s(comp.get('title') or ''), 1); r += 1
+        d = (comp.get('payload') or {}).get('data') or {}
+        v = d.get('value') or d.get('label')
+        if v is not None:
+            cells[(r, 0)] = (_s(v), 0); r += 1
+        r += 1
+    _write_book(path, [('Dashboard', _cells_sheet(cells, col_widths={0: 30, 1: 20}))], _STYLES)
 
-    col_widths = {0: 30, 1: 22, 2: 18, 3: 18, 4: 18, 5: 18}
-    sheet_body = _cells_sheet(cells, col_widths=col_widths)
 
-    if not charts:
-        _write_book(path, [('Dashboard', sheet_body)], _STYLES)
-        return
-
-    def _lookup(row, col):
-        v = cells.get((row, col))
-        return v[0] if v else 0
-
-    try:
-        chart_xmls = []
-        good = []
-        for spec in charts:
-            try:
-                chart_xmls.append(_chart_xml(spec, _lookup))
-                good.append(spec)
-            except Exception:
-                continue          # skip this chart; its data table is already in the sheet
-        if not good:
-            _write_book(path, [('Dashboard', sheet_body)], _STYLES)
-            return
-        sheet_with_drawing = sheet_body.replace(
-            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
-            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
-            ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        ).replace('</worksheet>', '<drawing r:id="rId1"/></worksheet>')
-        _write_workbook_with_charts(path, sheet_with_drawing, good, chart_xmls)
-    except Exception:
-        # ultimate safety net — a valid data-only workbook always opens
-        _write_book(path, [('Dashboard', sheet_body)], _STYLES)
+# ── styles ──────────────────────────────────────────────────────────────────
+_DSTYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="6">
+<font><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FF1F3C66"/><name val="Calibri"/></font>
+<font><b/><sz val="16"/><color rgb="FF1F3C66"/><name val="Calibri"/></font>
+<font><b/><sz val="18"/><name val="Calibri"/></font>
+<font><sz val="9"/><color rgb="FF5D6B80"/><name val="Calibri"/></font>
+</fonts>
+<fills count="4">
+<fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFD6E2F2"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFEEF2F7"/></patternFill></fill>
+</fills>
+<borders count="2">
+<border/>
+<border><left style="thin"><color rgb="FFB7C5D8"/></left><right style="thin"><color rgb="FFB7C5D8"/></right><top style="thin"><color rgb="FFB7C5D8"/></top><bottom style="thin"><color rgb="FFB7C5D8"/></bottom></border>
+</borders>
+<cellStyleXfs count="1"><xf/></cellStyleXfs>
+<cellXfs count="10">
+<xf/>
+<xf fontId="1" applyFont="1"/>
+<xf fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf fontId="3" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+<xf fontId="5" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+<xf fontId="4" borderId="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf fontId="5" borderId="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf fontId="1" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+<xf borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+</cellXfs>
+</styleSheet>'''
