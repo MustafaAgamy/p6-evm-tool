@@ -8,6 +8,8 @@ render_evm_report() returns HTML; the caller renders it to PDF via Chrome.
 import html as _html
 from datetime import datetime
 
+import report_theme
+
 
 def _esc(v):
     return _html.escape('' if v is None else str(v))
@@ -37,12 +39,12 @@ def _gap_val(v, fmt):
 
 def spi_status(spi):
     if spi is None:
-        return 'n/a', '#6b7a8d'
+        return 'n/a', report_theme.var('rpt-muted')
     if spi >= 1.0:
-        return 'Ahead / On Schedule', '#2e8b57'
+        return 'Ahead / On Schedule', report_theme.var('rpt-good')
     if spi >= 0.95:
-        return 'Slightly Behind', '#e07b1a'
-    return 'Behind Schedule', '#c0392b'
+        return 'Slightly Behind', report_theme.var('rpt-warn')
+    return 'Behind Schedule', report_theme.var('rpt-bad')
 
 
 def _tile(label, value, note='', accent=None):
@@ -110,8 +112,8 @@ def _pv_ev_bar(result):
         return (f'<div class="bar-row"><div class="bar-label">{label}</div>'
                 f'<div class="bar-track"><div class="bar-fill" style="width:{w:.1f}%;background:{color}"></div></div>'
                 f'<div class="bar-val">{_egp(val)}</div></div>')
-    return (row('Planned Value (PV)', pv, '#3b6fa8')
-            + row('Earned Value (EV)', ev, '#8bb648'))
+    return (row('Planned Value (PV)', pv, report_theme.var('rpt-series-1'))
+            + row('Earned Value (EV)', ev, report_theme.var('rpt-series-2')))
 
 
 def _progress_band(result):
@@ -130,7 +132,7 @@ def _progress_band(result):
     tiles = (_tile('Planned %', f'{planned * 100:.2f}%', 'Overall Planned Weight %')
              + _tile('Actual %', f'{actual * 100:.2f}%', 'Overall Weighted Actual %')
              + _tile('Variance', var_txt, 'behind plan' if behind else 'ahead of plan',
-                     accent='#c0392b' if behind else '#2e8b57'))
+                     accent=report_theme.var('rpt-bad') if behind else report_theme.var('rpt-good')))
     mx = max(planned, actual, 0.0001)
 
     def bar(label, val, color):
@@ -138,7 +140,7 @@ def _progress_band(result):
         return (f'<div class="bar-row"><div class="bar-label">{label}</div>'
                 f'<div class="bar-track"><div class="bar-fill" style="width:{w:.1f}%;background:{color}"></div></div>'
                 f'<div class="bar-val">{val * 100:.2f}%</div></div>')
-    bars = bar('Planned', planned, '#3b6fa8') + bar('Actual', actual, '#5aa86f')
+    bars = bar('Planned', planned, report_theme.var('rpt-series-1')) + bar('Actual', actual, report_theme.var('rpt-series-2'))
     return (f'<div class="dash-grid" style="grid-template-columns:repeat(3,1fr)">{tiles}</div>'
             f'<div style="margin-top:10px">{bars}</div>')
 
@@ -234,8 +236,8 @@ def _engineering_section(engineering):
                     f'<td class="num">{o.get("planned_pct", "")}%</td><td class="num">{o.get("submitted_pct", "")}%</td>'
                     f'<td class="num">{o.get("approved_pct", "")}%</td></tr>')
         if ov:
-            rows.append(_ov('Overall — Design Drawings', ov.get('design', {}), '#e8eefb'))
-            rows.append(_ov('Overall — Engineering (Shop) Drawings', ov.get('engineering', {}), '#e6f4ea'))
+            rows.append(_ov('Overall — Design Drawings', ov.get('design', {}), report_theme.var('rpt-accent-soft')))
+            rows.append(_ov('Overall — Engineering (Shop) Drawings', ov.get('engineering', {}), report_theme.var('rpt-good-bg')))
         table = (
             '<div style="overflow-x:auto"><table style="min-width:720px"><thead><tr>'
             '<th>Trade</th><th>Submittal Type</th><th class="num">Req</th><th class="num">Planned</th>'
@@ -250,7 +252,7 @@ def _engineering_section(engineering):
     trade_html = ''
     if by_trade:
         trows = ''.join(
-            f'<tr style="font-weight:700;background:#f4f7fb"><td>Total {_esc(t.get("trade"))}</td>'
+            f'<tr style="font-weight:700;background:{report_theme.var("rpt-surface-2")}"><td>Total {_esc(t.get("trade"))}</td>'
             f'<td class="num">{t.get("req", "")}</td><td class="num">{t.get("submitted_rows", "")}</td>'
             f'<td class="num">{t.get("approved_rows", "")}</td><td class="num">{t.get("not_approved_rows", "")}</td>'
             f'<td class="num">{t.get("submitted_pct", "")}%</td><td class="num">{t.get("approved_pct", "")}%</td></tr>'
@@ -283,40 +285,42 @@ def _engineering_section(engineering):
             f'<p class="note">{_esc(note)}</p>{table}{trade_html}{gap_html}')
 
 
-def render_evm_report(result, meta, gap=None, engineering=None):
+def render_evm_report(result, meta, gap=None, engineering=None, theme='light'):
     gap_html = _gap_section(gap)
     eng_html = _engineering_section(engineering)
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>EVM Results — {_esc(meta.get('project_name', ''))}</title>
 <style>
   @page {{ margin: 20mm 14mm; }}
-  body {{ font-family:'Segoe UI',Arial,sans-serif; color:#1f2a37; font-size:11px; margin:0; }}
-  .head {{ border-bottom:3px solid #17457a; padding-bottom:12px; margin-bottom:18px; }}
-  .kicker {{ font-size:10px; letter-spacing:2px; color:#17457a; font-weight:700; text-transform:uppercase; }}
-  .title {{ font-size:24px; font-weight:800; color:#0f2440; margin:3px 0 1px; }}
-  .subtitle {{ font-size:12px; color:#5b6472; }}
+  body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:11px; margin:0; }}
+  .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:18px; }}
+  .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}
+  .title {{ font-size:24px; font-weight:800; color:var(--rpt-ink); margin:3px 0 1px; }}
+  .subtitle {{ font-size:12px; color:var(--rpt-ink-soft); }}
   .meta {{ display:flex; flex-wrap:wrap; gap:3px 26px; margin-top:10px; font-size:11px; }}
-  .meta span {{ color:#8a93a0; }}
-  h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#17457a; border-bottom:1px solid #dbe1e8; padding-bottom:4px; margin:22px 0 10px; }}
+  .meta span {{ color:var(--rpt-muted); }}
+  h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--rpt-accent); border-bottom:1px solid var(--rpt-hair); padding-bottom:4px; margin:22px 0 10px; }}
   .dash-grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }}
-  .kpi {{ border:1px solid #e8ecf1; border-radius:8px; padding:12px 13px; min-height:62px; display:flex; flex-direction:column; justify-content:center; }}
-  .kpi .k {{ font-size:9px; text-transform:uppercase; letter-spacing:.4px; color:#8a93a0; font-weight:700; }}
-  .kpi .v {{ font-size:19px; font-weight:800; margin-top:2px; color:#0f2440; }}
-  .kpi .n {{ font-size:9px; color:#8a93a0; margin-top:1px; }}
+  .kpi {{ border:1px solid var(--rpt-edge); border-radius:8px; padding:12px 13px; min-height:62px; display:flex; flex-direction:column; justify-content:center; }}
+  .kpi .k {{ font-size:9px; text-transform:uppercase; letter-spacing:.4px; color:var(--rpt-muted); font-weight:700; }}
+  .kpi .v {{ font-size:19px; font-weight:800; margin-top:2px; color:var(--rpt-ink); }}
+  .kpi .n {{ font-size:9px; color:var(--rpt-muted); margin-top:1px; }}
   .bar-row {{ display:flex; align-items:center; gap:8px; margin:6px 0; font-size:10px; }}
-  .bar-label {{ width:150px; color:#5b6472; }}
-  .bar-track {{ flex:1; background:#eef1f5; border-radius:4px; height:18px; overflow:hidden; }}
+  .bar-label {{ width:150px; color:var(--rpt-ink-soft); }}
+  .bar-track {{ flex:1; background:var(--rpt-surface-2); border-radius:4px; height:18px; overflow:hidden; }}
   .bar-fill {{ height:100%; border-radius:4px; }}
   .bar-val {{ width:90px; text-align:right; font-weight:700; }}
   table {{ width:100%; border-collapse:collapse; font-size:10.5px; margin-top:4px; }}
-  th {{ background:#26517d; color:#fff; text-align:left; padding:7px 9px; font-weight:600; font-size:9.5px; }}
-  td {{ padding:7px 9px; border-bottom:1px solid #eef1f5; }}
-  tbody tr:nth-child(even) {{ background:#f7f9fb; }}
+  th {{ background:var(--rpt-th-bg); color:var(--rpt-th-ink); text-align:left; padding:7px 9px; font-weight:600; font-size:9.5px; }}
+  td {{ padding:7px 9px; border-bottom:1px solid var(--rpt-hair); }}
+  tbody tr:nth-child(even) {{ background:var(--rpt-surface); }}
   .num {{ text-align:right; font-variant-numeric:tabular-nums; }}
-  .tot {{ font-weight:800; background:#eef4fb !important; }}
-  .note {{ font-size:10px; color:#8a93a0; font-style:italic; }}
-  .foot {{ border-top:1px solid #dbe1e8; margin-top:20px; padding-top:8px; font-size:9px; color:#8a93a0; }}
-</style></head><body>
+  .tot {{ font-weight:800; background:var(--rpt-accent-soft) !important; }}
+  .note {{ font-size:10px; color:var(--rpt-muted); font-style:italic; }}
+  .foot {{ border-top:1px solid var(--rpt-hair); margin-top:20px; padding-top:8px; font-size:9px; color:var(--rpt-muted); }}
+</style>
+{report_theme.theme_style_tag(theme)}
+</head><body>
   <div class="head">
     <div class="kicker">Earned Value Management · Report</div>
     <div class="title">EVM Results</div>

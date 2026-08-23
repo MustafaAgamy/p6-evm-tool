@@ -9,9 +9,11 @@ Nothing here computes a number — it only presents what `p6_update.analysis` pr
 import html
 from datetime import datetime
 
-_BLUE = '#26517d'
-_PLAN = '#e0912f'
-_ACT = '#2a78d6'
+import report_theme
+
+_BLUE = report_theme.var('rpt-accent')
+_PLAN = report_theme.var('rpt-series-3')
+_ACT = report_theme.var('rpt-series-1')
 _MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 
@@ -62,12 +64,12 @@ def _donut(elapsed, planned, actual):
         return f'{on:.1f} {c - on:.1f}'
     lab = f'{actual:.2f}%' if actual is not None else '—'
     return f'''<svg width="140" height="140" viewBox="0 0 150 150">
-      <circle cx="75" cy="75" r="58" fill="none" stroke="#eef2f7" stroke-width="18"/>
+      <circle cx="75" cy="75" r="58" fill="none" stroke="{report_theme.var('rpt-surface')}" stroke-width="18"/>
       <circle cx="75" cy="75" r="58" fill="none" stroke="{_ACT}" stroke-width="18" stroke-dasharray="{arc(58, elapsed)}" transform="rotate(-90 75 75)"/>
-      <circle cx="75" cy="75" r="40" fill="none" stroke="#eef2f7" stroke-width="10"/>
-      <circle cx="75" cy="75" r="40" fill="none" stroke="#16a34a" stroke-width="10" stroke-dasharray="{arc(40, actual)}" transform="rotate(-90 75 75)"/>
-      <text x="75" y="70" text-anchor="middle" font-size="17" font-weight="700" fill="#1e293b">{_e(lab)}</text>
-      <text x="75" y="88" text-anchor="middle" font-size="10" fill="#94a3b8">earned</text>
+      <circle cx="75" cy="75" r="40" fill="none" stroke="{report_theme.var('rpt-surface')}" stroke-width="10"/>
+      <circle cx="75" cy="75" r="40" fill="none" stroke="{report_theme.var('rpt-series-2')}" stroke-width="10" stroke-dasharray="{arc(40, actual)}" transform="rotate(-90 75 75)"/>
+      <text x="75" y="70" text-anchor="middle" font-size="17" font-weight="700" fill="{report_theme.var('rpt-ink')}">{_e(lab)}</text>
+      <text x="75" y="88" text-anchor="middle" font-size="10" fill="{report_theme.var('rpt-muted')}">earned</text>
     </svg>'''
 
 
@@ -248,7 +250,7 @@ def _counts_html(report):
 
 # ── Assembly ────────────────────────────────────────────────────────────────
 
-def render_html(report, sections=None, code_filter=None, scope_code=None):
+def render_html(report, sections=None, code_filter=None, scope_code=None, theme='light'):
     """`sections` = list of keys to include (None = all): conclusion · time · bycode ·
     driving · counts · scope. `code_filter` = {'types': [...]} picks Section 2's charts;
     `scope_code` picks Section 5's activity-code dimension."""
@@ -270,78 +272,87 @@ def render_html(report, sections=None, code_filter=None, scope_code=None):
         if keys is not None and key not in keys:
             continue
         body.append(f'<section data-sec="{key}"><h2>{_e(title)}</h2>{htmls}</section>')
+    _ink = report_theme.var('rpt-ink')
+    _muted = report_theme.var('rpt-muted')
+    _edge = report_theme.var('rpt-edge')
+    _surface = report_theme.var('rpt-surface')
+    _accent_soft = report_theme.var('rpt-accent-soft')
+    _good = report_theme.var('rpt-good')
+    _good_bg = report_theme.var('rpt-good-bg')
+    _warn = report_theme.var('rpt-warn')
+    _bad = report_theme.var('rpt-bad')
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: A4 landscape; margin: 11mm; }}
       * {{ box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 12px; margin: 0; }}
+      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: {_ink}; font-size: 12px; margin: 0; }}
       h1 {{ font-size: 21px; margin: 0 0 2px; }}
       h2 {{ font-size: 14px; margin: 18px 0 8px; color: {_BLUE}; border-bottom: 2px solid {_BLUE}; padding-bottom: 4px; }}
       h3 {{ font-size: 13px; margin: 0 0 10px; color: {_BLUE}; }}
       .rh {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid {_BLUE}; padding-bottom: 10px; margin-bottom: 12px; }}
-      .rh .meta {{ color: #64748b; font-size: 11.5px; }} .rh .win {{ text-align: right; font-size: 11.5px; color: #64748b; }} .rh .win b {{ color: #1e293b; font-size: 13px; }}
+      .rh .meta {{ color: {_muted}; font-size: 11.5px; }} .rh .win {{ text-align: right; font-size: 11.5px; color: {_muted}; }} .rh .win b {{ color: {_ink}; font-size: 13px; }}
       section {{ page-break-inside: avoid; }}
-      .reco {{ border: 1px solid #e2e8f0; border-left: 4px solid {_BLUE}; border-radius: 0 8px 8px 0; padding: 10px 14px; line-height: 1.6; }}
-      .note {{ color: #64748b; font-style: italic; }}
-      .mono {{ font-variant-numeric: tabular-nums; }} .neg {{ color: #b91c1c; }} .pos {{ color: #15803d; }}
+      .reco {{ border: 1px solid {_edge}; border-left: 4px solid {_BLUE}; border-radius: 0 8px 8px 0; padding: 10px 14px; line-height: 1.6; }}
+      .note {{ color: {_muted}; font-style: italic; }}
+      .mono {{ font-variant-numeric: tabular-nums; }} .neg {{ color: {_bad}; }} .pos {{ color: {_good}; }}
       /* Time status */
-      .ts {{ display: flex; gap: 22px; align-items: center; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; }}
+      .ts {{ display: flex; gap: 22px; align-items: center; border: 1px solid {_edge}; border-radius: 10px; padding: 14px 16px; }}
       .ts-sentence {{ font-size: 15px; line-height: 1.5; }}
       .verdicts {{ margin-top: 10px; display: flex; flex-direction: column; gap: 7px; }}
       .vrow {{ display: flex; gap: 10px; font-size: 12.5px; }} .vtag {{ flex: none; width: 108px; font-weight: 700; }}
-      .vtag.bad {{ color: #b91c1c; }} .vtag.good {{ color: #15803d; }}
+      .vtag.bad {{ color: {_bad}; }} .vtag.good {{ color: {_good}; }}
       .cost {{ margin-top: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }}
-      .costcard {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 13px; }}
-      .costcard .cl {{ font-size: 10.5px; color: #64748b; text-transform: uppercase; letter-spacing: .3px; }}
+      .costcard {{ border: 1px solid {_edge}; border-radius: 8px; padding: 10px 13px; }}
+      .costcard .cl {{ font-size: 10.5px; color: {_muted}; text-transform: uppercase; letter-spacing: .3px; }}
       .costcard .cv {{ font-size: 17px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; }}
       /* By code */
-      .chart2 {{ border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }}
+      .chart2 {{ border: 1px solid {_edge}; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }}
       .bc-row {{ margin-bottom: 12px; }} .bc-name {{ font-size: 12px; font-weight: 600; margin-bottom: 3px; }}
-      .bc-track {{ height: 13px; background: #eef2f7; border-radius: 3px; overflow: hidden; margin-bottom: 3px; }}
+      .bc-track {{ height: 13px; background: {_surface}; border-radius: 3px; overflow: hidden; margin-bottom: 3px; }}
       .bc-pl {{ height: 100%; background: {_PLAN}; }} .bc-ac {{ height: 100%; background: {_ACT}; }}
-      .bc-num {{ font-size: 11px; color: #64748b; }}
-      .bc-leg {{ font-size: 11px; color: #64748b; margin-top: 4px; }} .bc-leg span {{ margin-right: 16px; }}
+      .bc-num {{ font-size: 11px; color: {_muted}; }}
+      .bc-leg {{ font-size: 11px; color: {_muted}; margin-top: 4px; }} .bc-leg span {{ margin-right: 16px; }}
       .bc-leg i {{ display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 6px; }}
       /* Driving path */
-      .dphead {{ background: #eef4fb; border: 1px solid #c9ddf3; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; line-height: 1.5; margin-bottom: 12px; }}
+      .dphead {{ background: {_accent_soft}; border: 1px solid {_edge}; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; line-height: 1.5; margin-bottom: 12px; }}
       .chain {{ display: flex; align-items: stretch; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }}
-      .arw {{ display: flex; align-items: center; color: #94a3b8; font-weight: 900; font-size: 15px; }}
-      .msbox {{ flex: none; width: 188px; border: 2px solid {_BLUE}; border-radius: 10px; padding: 10px 11px; background: #eef4fb; }}
-      .msbox.start {{ border-color: #3c7a49; background: #eafaf0; }}
-      .msbox.start .msflag, .msbox.start .mst {{ color: #166534; }}
+      .arw {{ display: flex; align-items: center; color: {_muted}; font-weight: 900; font-size: 15px; }}
+      .msbox {{ flex: none; width: 188px; border: 2px solid {_BLUE}; border-radius: 10px; padding: 10px 11px; background: {_accent_soft}; }}
+      .msbox.start {{ border-color: {_good}; background: {_good_bg}; }}
+      .msbox.start .msflag, .msbox.start .mst {{ color: {_good}; }}
       .msbox .msflag {{ font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: {_BLUE}; opacity: .8; margin-bottom: 6px; }}
       .msbox .mst {{ font-size: 12px; font-weight: 800; color: {_BLUE}; line-height: 1.2; margin-bottom: 6px; }}
-      .msbox .r {{ display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }} .msbox .r span {{ color: #64748b; }}
-      .box {{ flex: none; width: 184px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 11px; }}
-      .box.done {{ border-color: #b7d5be; background: #eafaf0; }}
-      .box .bt {{ font-size: 12px; font-weight: 700; line-height: 1.2; }} .box .bc {{ font-size: 9.5px; color: #94a3b8; margin: 3px 0 8px; }}
-      .bx-tag {{ font-size: 8px; color: #b45309; font-weight: 600; }}
+      .msbox .r {{ display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }} .msbox .r span {{ color: {_muted}; }}
+      .box {{ flex: none; width: 184px; border: 1px solid {_edge}; border-radius: 10px; padding: 9px 11px; }}
+      .box.done {{ border-color: {_good}; background: {_good_bg}; }}
+      .box .bt {{ font-size: 12px; font-weight: 700; line-height: 1.2; }} .box .bc {{ font-size: 9.5px; color: {_muted}; margin: 3px 0 8px; }}
+      .bx-tag {{ font-size: 8px; color: {_warn}; font-weight: 600; }}
       .b4 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }}
-      .b4 .k {{ font-size: 9px; color: #94a3b8; text-transform: uppercase; letter-spacing: .3px; }}
-      .b4 .v {{ font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }} .b4 .full {{ grid-column: 1 / -1; border-top: 1px dashed #e2e8f0; padding-top: 4px; }}
+      .b4 .k {{ font-size: 9px; color: {_muted}; text-transform: uppercase; letter-spacing: .3px; }}
+      .b4 .v {{ font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }} .b4 .full {{ grid-column: 1 / -1; border-top: 1px dashed {_edge}; padding-top: 4px; }}
       /* Counts */
       .cn-total {{ font-size: 12.5px; margin-bottom: 10px; }}
       .cn-row {{ display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }}
       .cn-lbl {{ flex: none; width: 110px; font-size: 12.5px; font-weight: 600; }}
       .cn-bars {{ flex: 1; }}
-      .cn-track {{ position: relative; height: 18px; background: #eef2f7; border-radius: 4px; margin: 3px 0; overflow: hidden; }}
-      .cn-track span {{ position: absolute; left: 8px; top: 1px; font-size: 11px; font-weight: 700; color: #1e293b; }}
+      .cn-track {{ position: relative; height: 18px; background: {_surface}; border-radius: 4px; margin: 3px 0; overflow: hidden; }}
+      .cn-track span {{ position: absolute; left: 8px; top: 1px; font-size: 11px; font-weight: 700; color: {_ink}; }}
       .cn-pl {{ height: 100%; background: {_PLAN}; opacity: .85; }} .cn-ac {{ height: 100%; background: {_ACT}; opacity: .85; }}
       /* Scope */
-      .scope-h {{ font-size: 12.5px; color: #64748b; margin-bottom: 12px; }}
+      .scope-h {{ font-size: 12.5px; color: {_muted}; margin-bottom: 12px; }}
       .wrow {{ display: flex; align-items: center; gap: 12px; margin-bottom: 7px; }}
       .wname {{ flex: none; width: 220px; font-size: 12px; }}
-      .wtrack {{ flex: 1; height: 17px; background: #eef2f7; border-radius: 4px; overflow: hidden; }}
-      .wfill {{ height: 100%; background: #bcd6f5; }} .wrow.top .wfill {{ background: {_ACT}; }}
+      .wtrack {{ flex: 1; height: 17px; background: {_surface}; border-radius: 4px; overflow: hidden; }}
+      .wfill {{ height: 100%; background: {_accent_soft}; }} .wrow.top .wfill {{ background: {_ACT}; }}
       .wpct {{ flex: none; width: 50px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }}
-      .wcost {{ flex: none; width: 110px; text-align: right; font-variant-numeric: tabular-nums; color: #64748b; font-size: 11px; }}
+      .wcost {{ flex: none; width: 110px; text-align: right; font-variant-numeric: tabular-nums; color: {_muted}; font-size: 11px; }}
       .wpa {{ flex: none; width: 130px; }}
-      .wpa-t {{ height: 5px; background: #eef2f7; border-radius: 3px; overflow: hidden; margin: 2px 0; }}
+      .wpa-t {{ height: 5px; background: {_surface}; border-radius: 3px; overflow: hidden; margin: 2px 0; }}
       .wpa-pl {{ height: 100%; background: {_PLAN}; }} .wpa-ac {{ height: 100%; background: {_ACT}; }}
-      .wpanum {{ font-size: 10px; color: #64748b; font-variant-numeric: tabular-nums; margin-top: 1px; }}
-      .rec {{ margin-top: 14px; background: #eef4fb; border: 1px solid #c9ddf3; border-radius: 10px; padding: 12px 15px; }}
+      .wpanum {{ font-size: 10px; color: {_muted}; font-variant-numeric: tabular-nums; margin-top: 1px; }}
+      .rec {{ margin-top: 14px; background: {_accent_soft}; border: 1px solid {_edge}; border-radius: 10px; padding: 12px 15px; }}
       .rec h4 {{ margin: 0 0 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: {_BLUE}; }}
       .rec p {{ margin: 5px 0; font-size: 13px; }} .rec .star {{ color: {_BLUE}; font-weight: 800; margin-right: 6px; }}
-    </style></head><body>{"".join(body)}</body></html>'''
+    </style>{report_theme.theme_style_tag(theme)}</head><body>{"".join(body)}</body></html>'''
 
 
 # ── Excel: one sheet mirroring the four sections ────────────────────────────

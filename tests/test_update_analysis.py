@@ -348,6 +348,29 @@ def test_render_html_and_excel_smoke():
     assert any(r[0] == 'Activity count' for r in rows)
 
 
+def test_render_html_theme():
+    import report_theme
+    from p6_update.exporters import render_html
+    wbs = [(100, 'Proj', ''), (200, 'Silo 1', 100), (301, 'Soil Replacement', 200)]
+    acts = [
+        (20, 'S1', 'Soil a', 0.5, '2025-03-02', '2025-06-01', 320, 301, {'Discipline': 'Civil'}),
+        (21, 'S2', 'Soil b', 0.3, '2025-03-02', '2025-06-01', 320, 301, {'Discipline': 'Civil'}),
+    ]
+    rels = [(20, 999)]
+    ms = [(999, 'MS', 'Project completion', '2025-06-01', 200)]
+    data, metrics = _parse_and_compute(_xml('2025-04-01', acts, rels, wbs, ms))
+    report = build_report_from_data(data, metrics)
+    report['file'] = 'test.xml'
+
+    dark = render_html(report, theme='dark')
+    assert 'data-rpt-theme="dark"' in dark
+    assert report_theme.THEMES['dark']['rpt-accent'] in dark  # '#5b9bff'
+
+    default = render_html(report)
+    assert default.startswith('<!doctype html><html>') and default.rstrip().endswith('</html>')
+    assert 'data-rpt-theme="light"' in default
+
+
 def test_scope_weights_and_recommendation():
     from p6_update.analysis import scope_weights
     # Civil is the heavy scope (dur 800 → BAC 80000) AND behind plan (20% actual by mid-year);

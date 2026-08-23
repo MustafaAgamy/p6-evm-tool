@@ -10,7 +10,10 @@ HTML here, then to PDF by the caller (Chrome headless).
 """
 import html as _html
 
-_RED, _AMBER, _GREEN = '#c0392b', '#e07b1a', '#2e8b57'
+import report_theme
+
+_RED, _AMBER, _GREEN = (report_theme.var('rpt-bad'), report_theme.var('rpt-warn'),
+                         report_theme.var('rpt-good'))
 
 
 def _esc(v):
@@ -141,20 +144,22 @@ def _wbs_rows(mgmt):
     return ''.join(rows)
 
 
-def _notice(name, meta, msg):
+def _notice(name, meta, msg, theme='light'):
     """Clean 'no data' page — never show a zeroed dashboard as if it were a real result."""
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
   @page {{ margin: 18mm 14mm; }}
-  body {{ font-family:'Segoe UI',Arial,sans-serif; color:#1f2a37; font-size:12px; margin:0; }}
-  .head {{ border-bottom:3px solid #17457a; padding-bottom:12px; margin-bottom:18px; }}
-  .kicker {{ font-size:10px; letter-spacing:2px; color:#17457a; font-weight:700; text-transform:uppercase; }}
-  .title {{ font-size:24px; font-weight:800; color:#0f2440; margin:3px 0 1px; }}
-  .subtitle {{ font-size:12px; color:#5b6472; }}
-  .notice {{ border:1px solid #e6e0c8; border-left:4px solid #c9a227; background:#fffdf5; border-radius:8px;
-             padding:18px 20px; font-size:13px; color:#5b4a1a; line-height:1.6; margin-top:24px; }}
-</style></head>
+  body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:12px; margin:0; }}
+  .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:18px; }}
+  .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}
+  .title {{ font-size:24px; font-weight:800; color:var(--rpt-ink); margin:3px 0 1px; }}
+  .subtitle {{ font-size:12px; color:var(--rpt-ink-soft); }}
+  .notice {{ border:1px solid var(--rpt-warn-bg); border-left:4px solid var(--rpt-warn); background:var(--rpt-warn-bg); border-radius:8px;
+             padding:18px 20px; font-size:13px; color:var(--rpt-warn); line-height:1.6; margin-top:24px; }}
+</style>
+{report_theme.theme_style_tag(theme)}
+</head>
 <body>
   <div class="head"><div class="kicker">Schedule Audit · Management Report</div>
     <div class="title">{_esc(name)}</div>
@@ -163,83 +168,85 @@ def _notice(name, meta, msg):
 </body></html>'''
 
 
-def render_float_report(module_result, meta):
+def render_float_report(module_result, meta, theme='light'):
     m = module_result or {}
     mgmt = m.get('mgmt') or {}
     meta = meta or {}
     name = m.get('name', 'Float Analysis')
     if not m.get('mgmt'):
         return _notice(name, meta, 'This schedule was imported before the Float dashboard was added — '
-                                   're-import it to generate the management report.')
+                                   're-import it to generate the management report.', theme=theme)
     if not (mgmt.get('stats') or {}).get('total'):
         return _notice(name, meta, 'No activities with assessable total float were found in this schedule, '
-                                   'so no float indicators can be shown.')
+                                   'so no float indicators can be shown.', theme=theme)
     thr = (mgmt.get('indicators', {}) or {}).get('threshold', 44)
     conclusion = mgmt.get('conclusion') or 'No conclusion available for this schedule.'
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
   @page {{ margin: 18mm 14mm; }}
-  body {{ font-family:'Segoe UI',Arial,sans-serif; color:#1f2a37; font-size:11px; margin:0; }}
-  .head {{ border-bottom:3px solid #17457a; padding-bottom:12px; margin-bottom:16px; }}
-  .kicker {{ font-size:10px; letter-spacing:2px; color:#17457a; font-weight:700; text-transform:uppercase; }}
-  .title {{ font-size:24px; font-weight:800; color:#0f2440; margin:3px 0 1px; }}
-  .subtitle {{ font-size:12px; color:#5b6472; }}
+  body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:11px; margin:0; }}
+  .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:16px; }}
+  .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}
+  .title {{ font-size:24px; font-weight:800; color:var(--rpt-ink); margin:3px 0 1px; }}
+  .subtitle {{ font-size:12px; color:var(--rpt-ink-soft); }}
   .meta {{ display:flex; flex-wrap:wrap; gap:3px 26px; margin-top:10px; font-size:11px; }}
-  .meta span {{ color:#8a93a0; }}
-  h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#17457a;
-            border-bottom:1px solid #dbe1e8; padding-bottom:4px; margin:20px 0 10px; }}
-  .subhd {{ font-size:10.5px; text-transform:uppercase; letter-spacing:.7px; color:#8a93a0; font-weight:700; margin:14px 0 7px; }}
-  .subhd span {{ text-transform:none; font-weight:400; color:#a2abb6; }}
+  .meta span {{ color:var(--rpt-muted); }}
+  h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--rpt-accent);
+            border-bottom:1px solid var(--rpt-hair); padding-bottom:4px; margin:20px 0 10px; }}
+  .subhd {{ font-size:10.5px; text-transform:uppercase; letter-spacing:.7px; color:var(--rpt-muted); font-weight:700; margin:14px 0 7px; }}
+  .subhd span {{ text-transform:none; font-weight:400; color:var(--rpt-muted); }}
   .tiles {{ display:grid; gap:9px; }}
   .g5 {{ grid-template-columns:repeat(5,1fr); }} .g4 {{ grid-template-columns:repeat(4,1fr); }}
-  .kpi {{ border:1px solid #e8ecf1; border-radius:8px; padding:11px 12px; background:#fafbfc; }}
-  .kpi.hot {{ border-color:#f0c9a8; background:#fff8f1; }}
-  .kpi .k {{ font-size:9px; text-transform:uppercase; letter-spacing:.5px; color:#8a93a0; font-weight:700; line-height:1.3; }}
-  .kpi .v {{ font-size:22px; font-weight:800; margin-top:3px; color:#0f2440; }}
-  .kpi .v.amber {{ color:#c0651a; }}
+  .kpi {{ border:1px solid var(--rpt-edge); border-radius:8px; padding:11px 12px; background:var(--rpt-surface); }}
+  .kpi.hot {{ border-color:var(--rpt-warn); background:var(--rpt-warn-bg); }}
+  .kpi .k {{ font-size:9px; text-transform:uppercase; letter-spacing:.5px; color:var(--rpt-muted); font-weight:700; line-height:1.3; }}
+  .kpi .v {{ font-size:22px; font-weight:800; margin-top:3px; color:var(--rpt-ink); }}
+  .kpi .v.amber {{ color:var(--rpt-warn); }}
   .kpi .v .tilewbs {{ font-size:14px; line-height:1.2; display:inline-block; }}
-  .kpi .v .wbsline {{ font-size:12px; font-weight:700; color:#31414f; margin-top:2px; }}
-  .kpi .n {{ font-size:9px; color:#8a93a0; margin-top:2px; }}
-  .fh {{ display:flex; gap:18px; align-items:stretch; border:1px solid #e2e7ee; border-radius:8px; background:#fafbfc; padding:14px 16px; margin-bottom:10px; }}
-  .fh-score {{ text-align:center; flex-shrink:0; width:150px; border-right:1px solid #e6ebf0; display:flex; flex-direction:column; justify-content:center; }}
+  .kpi .v .wbsline {{ font-size:12px; font-weight:700; color:var(--rpt-ink); margin-top:2px; }}
+  .kpi .n {{ font-size:9px; color:var(--rpt-muted); margin-top:2px; }}
+  .fh {{ display:flex; gap:18px; align-items:stretch; border:1px solid var(--rpt-edge); border-radius:8px; background:var(--rpt-surface); padding:14px 16px; margin-bottom:10px; }}
+  .fh-score {{ text-align:center; flex-shrink:0; width:150px; border-right:1px solid var(--rpt-hair); display:flex; flex-direction:column; justify-content:center; }}
   .fh-num {{ font-size:46px; font-weight:800; line-height:1; }}
-  .fh-num.red{{ color:#c0392b; }} .fh-num.amber{{ color:#e07b1a; }} .fh-num.green{{ color:#2e8b57; }}
-  .fh-den {{ font-size:10px; color:#8a93a0; margin-top:4px; letter-spacing:.3px; }}
+  .fh-num.red{{ color:var(--rpt-bad); }} .fh-num.amber{{ color:var(--rpt-warn); }} .fh-num.green{{ color:var(--rpt-good); }}
+  .fh-den {{ font-size:10px; color:var(--rpt-muted); margin-top:4px; letter-spacing:.3px; }}
   .fh-drivers {{ flex:1; display:flex; flex-direction:column; justify-content:center; gap:9px; }}
   .fh-d {{ display:grid; grid-template-columns:1fr 150px 78px; align-items:center; gap:10px; }}
-  .fh-dl {{ font-size:10.5px; color:#31414f; font-weight:600; }}
-  .fh-dl span {{ display:block; font-size:8.5px; color:#a2abb6; font-weight:400; }}
-  .fh-bar2 {{ height:8px; background:#eef1f5; border-radius:4px; overflow:hidden; }}
+  .fh-dl {{ font-size:10.5px; color:var(--rpt-ink); font-weight:600; }}
+  .fh-dl span {{ display:block; font-size:8.5px; color:var(--rpt-muted); font-weight:400; }}
+  .fh-bar2 {{ height:8px; background:var(--rpt-chart-grid); border-radius:4px; overflow:hidden; }}
   .fh-bar2 > i {{ display:block; height:100%; border-radius:4px; }}
-  .fh-dv {{ font-size:12.5px; font-weight:800; color:#0f2440; text-align:right; white-space:nowrap; }}
-  .fh-dv small {{ font-size:9px; font-weight:700; color:#8a93a0; }}
-  .fh-note {{ font-size:8.5px; color:#a2abb6; line-height:1.5; margin-top:3px; }}
-  .scorelegend {{ border:1px solid #e6ebf0; border-radius:8px; background:#fff; padding:11px 14px; margin-bottom:14px; }}
-  .sl-title {{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:#17457a; }}
-  .sl-title span {{ text-transform:none; letter-spacing:0; font-weight:400; color:#a2abb6; }}
-  .sl-formula {{ font-family:'Consolas',monospace; font-size:11px; color:#0f2440; background:#f4f7fa; border-radius:4px; padding:6px 9px; margin:7px 0; display:inline-block; }}
+  .fh-dv {{ font-size:12.5px; font-weight:800; color:var(--rpt-ink); text-align:right; white-space:nowrap; }}
+  .fh-dv small {{ font-size:9px; font-weight:700; color:var(--rpt-muted); }}
+  .fh-note {{ font-size:8.5px; color:var(--rpt-muted); line-height:1.5; margin-top:3px; }}
+  .scorelegend {{ border:1px solid var(--rpt-hair); border-radius:8px; background:var(--rpt-bg); padding:11px 14px; margin-bottom:14px; }}
+  .sl-title {{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--rpt-accent); }}
+  .sl-title span {{ text-transform:none; letter-spacing:0; font-weight:400; color:var(--rpt-muted); }}
+  .sl-formula {{ font-family:'Consolas',monospace; font-size:11px; color:var(--rpt-ink); background:var(--rpt-surface); border-radius:4px; padding:6px 9px; margin:7px 0; display:inline-block; }}
   .sl-rows {{ display:flex; flex-direction:column; gap:3px; }}
-  .sl-row {{ font-size:10px; color:#31414f; line-height:1.5; }} .sl-row b {{ color:#0f2440; }}
-  .sl-t {{ color:#2e7d4f; font-weight:600; }}
-  .sl-colours {{ display:flex; gap:18px; margin-top:8px; font-size:9.5px; color:#5b6472; }}
+  .sl-row {{ font-size:10px; color:var(--rpt-ink); line-height:1.5; }} .sl-row b {{ color:var(--rpt-ink); }}
+  .sl-t {{ color:var(--rpt-good); font-weight:600; }}
+  .sl-colours {{ display:flex; gap:18px; margin-top:8px; font-size:9.5px; color:var(--rpt-ink-soft); }}
   .sl-colours i.dot {{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:middle; }}
-  .dot.g{{ background:#2e8b57; }} .dot.a{{ background:#e07b1a; }} .dot.r{{ background:#c0392b; }}
+  .dot.g{{ background:var(--rpt-good); }} .dot.a{{ background:var(--rpt-warn); }} .dot.r{{ background:var(--rpt-bad); }}
   table {{ width:100%; border-collapse:collapse; font-size:10.5px; margin-top:4px; }}
   thead {{ display:table-header-group; }}
-  th {{ background:#26517d; color:#fff; text-align:left; padding:7px 9px; font-weight:600; font-size:9.5px; }}
+  th {{ background:var(--rpt-th-bg); color:var(--rpt-th-ink); text-align:left; padding:7px 9px; font-weight:600; font-size:9.5px; }}
   th.num,td.num {{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }}
-  td {{ padding:6px 9px; border-bottom:1px solid #eef1f5; vertical-align:middle; }}
-  tbody tr:nth-child(even){{ background:#f7f9fb; }}
+  td {{ padding:6px 9px; border-bottom:1px solid var(--rpt-hair); vertical-align:middle; }}
+  tbody tr:nth-child(even){{ background:var(--rpt-surface); }}
   .tag {{ display:inline-block; font-size:8px; font-weight:700; letter-spacing:.4px; padding:1px 6px; border-radius:9px; text-transform:uppercase; }}
-  .tag.con {{ background:#e5efe8; color:#2e7d4f; }} .tag.non {{ background:#eef0f3; color:#7a8494; }}
-  .bar {{ position:relative; height:6px; background:#eef1f5; border-radius:4px; overflow:hidden; min-width:60px; margin-top:3px; }}
-  .bar > i {{ position:absolute; left:0; top:0; bottom:0; background:#c0651a; border-radius:4px; }}
-  .concl {{ border:1px solid #e2e7ee; border-left:4px solid #17457a; border-radius:6px; background:#f7f9fb; padding:13px 16px; font-size:11.5px; line-height:1.6; color:#31414f; }}
-  .hovernote {{ font-size:9px; color:#a2abb6; font-style:italic; margin-top:3px; }}
-  .empty {{ color:#6b7480; font-style:italic; text-align:center; padding:14px; }}
-  .foot {{ border-top:1px solid #dbe1e8; margin-top:20px; padding-top:8px; font-size:9px; color:#8a93a0; line-height:1.55; }}
-</style></head>
+  .tag.con {{ background:var(--rpt-good-bg); color:var(--rpt-good); }} .tag.non {{ background:var(--rpt-surface-2); color:var(--rpt-muted); }}
+  .bar {{ position:relative; height:6px; background:var(--rpt-chart-grid); border-radius:4px; overflow:hidden; min-width:60px; margin-top:3px; }}
+  .bar > i {{ position:absolute; left:0; top:0; bottom:0; background:var(--rpt-warn); border-radius:4px; }}
+  .concl {{ border:1px solid var(--rpt-edge); border-left:4px solid var(--rpt-accent); border-radius:6px; background:var(--rpt-surface); padding:13px 16px; font-size:11.5px; line-height:1.6; color:var(--rpt-ink); }}
+  .hovernote {{ font-size:9px; color:var(--rpt-muted); font-style:italic; margin-top:3px; }}
+  .empty {{ color:var(--rpt-muted); font-style:italic; text-align:center; padding:14px; }}
+  .foot {{ border-top:1px solid var(--rpt-hair); margin-top:20px; padding-top:8px; font-size:9px; color:var(--rpt-muted); line-height:1.55; }}
+</style>
+{report_theme.theme_style_tag(theme)}
+</head>
 <body>
   <div class="head">
     <div class="kicker">Schedule Audit · Management Report</div>

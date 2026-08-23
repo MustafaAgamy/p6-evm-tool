@@ -1,3 +1,4 @@
+import report_theme
 from p6_audit.report import render_module_report, short_wbs
 from p6_audit.exporters import excel_columns
 
@@ -178,3 +179,23 @@ def test_excel_columns_float_has_impact():
     headers, rows = excel_columns(_float())
     assert 'Impact' in headers
     assert any('5.6' in str(c) for c in rows[0])
+
+
+def test_render_module_report_dark_theme_injects_palette():
+    html = render_module_report(_dangling(), META, theme='dark')
+    assert 'data-rpt-theme="dark"' in html
+    assert report_theme.THEMES['dark']['rpt-accent'] in html          # '#5b9bff'
+
+
+def test_render_module_report_default_theme_is_light_full_doc():
+    html = render_module_report(_dangling(), META)
+    assert html.strip().startswith('<!DOCTYPE html>')
+    assert '</html>' in html
+    assert 'data-rpt-theme="light"' in html
+
+
+def test_render_module_report_float_dispatch_threads_theme():
+    # Float delegates to render_float_report — the theme must survive the dispatch.
+    html = render_module_report(_float(), META, theme='dark')
+    assert 'data-rpt-theme="dark"' in html
+    assert report_theme.THEMES['dark']['rpt-accent'] in html

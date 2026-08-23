@@ -1514,3 +1514,29 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .per-chartlegend { margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--border); font-size: 11.5px; color: #cbd5e1; line-height: 1.6; }
 .per-chartlegend > div { margin: 2px 0; } .per-lgsw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 7px; }
 .per-slip-bad { color: var(--danger); font-weight: 700; } .per-slip-good { color: var(--success); font-weight: 700; }
+
+/* ── Report Appearance picker (shared by every report preview flow) ───────── */
+.rpt-appearance { display: flex; flex-direction: column; gap: 8px; }
+.rpt-appearance-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.rpt-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.rpt-appearance--compact { flex-direction: row; align-items: center; min-width: 0; }
+.rpt-appearance--compact .rpt-chip-row { flex-wrap: wrap; justify-content: flex-end; }
+.rpt-chip {
+  display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px;
+  border: 1.5px solid var(--border); background: var(--card-bg); color: var(--text);
+  border-radius: 8px; font: inherit; font-size: 12px; font-weight: 600; line-height: 1;
+  cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.rpt-chip:hover { border-color: var(--accent); }
+.rpt-chip[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.rpt-chip-sw { position: relative; width: 26px; height: 17px; border-radius: 4px; overflow: hidden;
+  border: 1px solid var(--border); flex: none; }
+.rpt-chip-sw i { position: absolute; top: 2px; bottom: 2px; border-radius: 2px; }
+.rpt-chip-sw i:nth-child(1) { left: 2px; width: 10px; }   /* card/tile sliver */
+.rpt-chip-sw i:nth-child(2) { right: 2px; width: 6px; }   /* accent sliver */
+.rpt-chip-lb { white-space: nowrap; }
+/* Compact (toolbar) mode: labels only on the selected chip to save room */
+.rpt-appearance--compact .rpt-chip .rpt-chip-lb { display: none; }
+.rpt-appearance--compact .rpt-chip[aria-pressed="true"] .rpt-chip-lb { display: inline; }
+.rpv-appearance-slot { display: flex; align-items: center; min-width: 0; }
+.rpv-appearance-slot:empty { display: none; }

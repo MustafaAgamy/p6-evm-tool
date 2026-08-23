@@ -3,6 +3,7 @@ from datetime import datetime
 
 import pytest
 
+import report_theme
 from p6_evm.report import find_finish_milestone, render_html
 
 
@@ -144,3 +145,17 @@ def test_render_html_with_audit_escapes_findings():
     html = render_html(make_result(), make_meta(), audit=a)
     assert '<script>x</script>' not in html
     assert '&lt;script&gt;' in html
+
+
+# ── Theme support ────────────────────────────────────────────────────────────
+
+def test_render_html_default_theme_is_light():
+    out = render_html(make_result(), make_meta())
+    assert out.strip().startswith('<html>')
+    assert out.strip().endswith('</html>')
+    assert 'data-rpt-theme="light"' in out
+
+def test_render_html_dark_theme():
+    out = render_html(make_result(), make_meta(), theme='dark')
+    assert 'data-rpt-theme="dark"' in out
+    assert report_theme.THEMES['dark']['rpt-accent'] in out  # '#5b9bff'

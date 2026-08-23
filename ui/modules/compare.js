@@ -7,6 +7,11 @@
 import { state }             from './state.js';
 import { showError, clearError } from './render.js';
 import { escapeHtml }        from './format.js';
+import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
+
+// The report-appearance mode chosen in this panel's PDF preview modal — remembered
+// across sessions via appearance.js, shared with every other report preview flow.
+let _cmpTheme = getSavedMode();
 
 // ── Pure helpers (unit-tested in tests/js/test_compare.js) ────────────────
 
@@ -422,16 +427,17 @@ async function _withBtn(id, idle, fn) {
 export async function previewComparePdf() {
   const report = _shownReportOrWarn();
   if (!report) return;
+  const impact = state.compareImpact || _shownImpact || null;
   const btn = document.getElementById('cmp-preview-pdf');
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, preview: true }),
+      body: JSON.stringify({ report, impact, preview: true, theme: _cmpTheme }),
     });
     const data = await resp.json();
     if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
-    _showPreviewModal(data.html);
+    _showPreviewModal(data.html, report, impact);
   } catch {
     showError('Could not reach the local server to build the preview.');
   } finally {
@@ -439,7 +445,10 @@ export async function previewComparePdf() {
   }
 }
 
-function _showPreviewModal(html) {
+// `report`/`impact` are the exact payload the modal was opened with (captured by the caller,
+// not re-read from state) — the appearance picker's re-fetch reuses them so the re-rendered
+// preview matches the one first shown, even if a background re-import clears state.compare*.
+function _showPreviewModal(html, report, impact) {
   const old = document.getElementById('cmp-preview-modal');
   if (old) old.remove();
   const modal = document.createElement('div');
@@ -455,7 +464,29 @@ function _showPreviewModal(html) {
     </div>
     <iframe class="cmp-modal-frame" id="cmp-modal-frame" title="Consultant Review PDF preview"></iframe>`;
   document.body.appendChild(modal);
-  document.getElementById('cmp-modal-frame').srcdoc = html;
+  const frame = document.getElementById('cmp-modal-frame');
+  frame.srcdoc = html;
+  frame.style.background = backdropColor(_cmpTheme);
+
+  const actions = modal.querySelector('.cmp-modal-actions');
+  const picker = buildAppearancePicker({
+    current: _cmpTheme,
+    compact: true,
+    onChange: async (mode) => {
+      _cmpTheme = mode;
+      frame.style.background = backdropColor(_cmpTheme);
+      try {
+        const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report, impact, preview: true, theme: _cmpTheme }),
+        });
+        const data = await resp.json();
+        if (data.ok) frame.srcdoc = data.html;
+      } catch { /* keep showing the last-good preview */ }
+    },
+  });
+  if (actions) actions.insertBefore(picker, actions.firstChild);
+
   document.getElementById('cmp-modal-close').addEventListener('click', () => modal.remove());
   document.getElementById('cmp-modal-save').addEventListener('click', () => { modal.remove(); exportComparePdf(); });
 }
@@ -469,7 +500,7 @@ export async function exportComparePdf() {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath }),
+        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath, theme: _cmpTheme }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);

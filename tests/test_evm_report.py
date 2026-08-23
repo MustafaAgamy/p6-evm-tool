@@ -112,3 +112,16 @@ def test_report_gap_section_optional():
     assert 'Piles Works' in html
     # without gap → no section
     assert 'PV vs EV Gap Analysis' not in render_evm_report(_result(), META)
+
+
+def test_report_default_theme_is_light():
+    html = render_evm_report(_result(), META)
+    assert '<html' in html.lower() and '</html>' in html.lower()
+    assert 'data-rpt-theme="light"' in html
+
+
+def test_report_dark_theme_injects_palette():
+    import report_theme
+    html = render_evm_report(_result(), META, theme='dark')
+    assert 'data-rpt-theme="dark"' in html
+    assert report_theme.THEMES['dark']['rpt-accent'] in html  # #5b9bff

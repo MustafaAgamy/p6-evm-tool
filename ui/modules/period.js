@@ -7,11 +7,13 @@
 import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
+import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 
 let _shownReport = null;   // the report currently on screen (exports read this)
 let _shownTrend = null;    // the milestone trend currently on screen (carried into the PDF)
 let _prev = null;          // {prev_path} or {prev_cached_path} chosen for the comparison
 let _cpStyle = 'chain';    // critical-path presentation: 'chain' | 'timeline' | 'table' (remembered)
+let _perTheme = getSavedMode();   // report-appearance mode for this panel's PDF preview
 let _cpMode = 'leaf-parent';   // critical-path grouping — reset to default on each fresh render
 try { const s = localStorage.getItem('per_cp_style'); if (s) _cpStyle = s; } catch { /* no storage */ }
 
@@ -796,9 +798,10 @@ export async function exportPeriodPdf() {
   if (!_shownReport) { showError('Run the comparison first, then export.'); return; }
   await _withBtn('per-export-pdf', 'Export PDF', async () => {
     try {
+      _perTheme = getSavedMode();
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, critical_style: _cpStyle, critical_mode: _cpMode }),
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, critical_style: _cpStyle, critical_mode: _cpMode, theme: _perTheme }),
       });
       const data = await resp.json();
       if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
@@ -839,7 +842,7 @@ function _showPdfPreview(reportHtml) {
       <div class="per-preview-body">
         <div class="per-preview-pick"><div class="per-pick-h">Include sections</div>${picks}
           <div class="per-pick-controls"><button class="btn-mini" id="per-pick-all">All</button><button class="btn-mini" id="per-pick-none">None</button></div>
-          ${fltUi}${cpStyleUi}</div>
+          ${fltUi}${cpStyleUi}<div id="per-appearance-pick" style="margin-top:14px"></div></div>
         <iframe class="per-preview-frame" id="per-preview-frame" title="Report preview"></iframe>
       </div>
     </div>`;
@@ -862,12 +865,13 @@ function _showPdfPreview(reportHtml) {
     const on = new Set(selected());
     doc.querySelectorAll('[data-sec]').forEach(el => { el.style.display = on.has(el.getAttribute('data-sec')) ? '' : 'none'; });
   };
-  // Re-render server-side when the activity-code filter changes (so preview == PDF).
+  // Re-render server-side when the activity-code filter, critical-path style, or report
+  // appearance changes (so preview == PDF).
   const refresh = async () => {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, code_filter: codeFilter(), critical_style: cpStyle(), critical_mode: _cpMode }),
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, code_filter: codeFilter(), critical_style: cpStyle(), critical_mode: _cpMode, theme: _perTheme }),
       });
       const data = await resp.json();
       if (data.ok) { frame.onload = applyToFrame; frame.srcdoc = data.html; }
@@ -875,6 +879,21 @@ function _showPdfPreview(reportHtml) {
   };
   frame.onload = applyToFrame;
   frame.srcdoc = reportHtml;
+  frame.style.background = backdropColor(_perTheme);
+
+  const appearanceBox = document.getElementById('per-appearance-pick');
+  if (appearanceBox) {
+    const picker = buildAppearancePicker({
+      current: _perTheme,
+      compact: false,
+      onChange: (mode) => {
+        _perTheme = mode;
+        frame.style.background = backdropColor(_perTheme);
+        refresh();
+      },
+    });
+    appearanceBox.appendChild(picker);
+  }
 
   cbs().forEach(c => c.addEventListener('change', applyToFrame));
   document.getElementById('per-pick-all').addEventListener('click', () => { cbs().forEach(c => { c.checked = true; }); applyToFrame(); });
@@ -902,7 +921,7 @@ function _showPdfPreview(reportHtml) {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath, sections: selected(), code_filter: codeFilter(), critical_style: cpStyle(), critical_mode: _cpMode }),
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath, sections: selected(), code_filter: codeFilter(), critical_style: cpStyle(), critical_mode: _cpMode, theme: _perTheme }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);

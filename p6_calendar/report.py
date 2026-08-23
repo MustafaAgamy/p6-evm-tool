@@ -5,8 +5,13 @@ Monthly Calendar View, Exceptions, Working Hours, Comparison, Usage, Conflicts,
 across printed pages."""
 import html as _html
 
-_STATUS_COLOR = {'work': '#22c55e', 'weekend': '#cbd5e1', 'holiday': '#ef4444',
-                 'shutdown': '#f59e0b', 'special': '#3b82f6'}
+import report_theme
+
+# Day-status swatch colours — 'work' reads as good, 'weekend' as a neutral non-working
+# grey, 'holiday'/'shutdown' as bad (a full day lost), 'special' (modified hours) as accent.
+_STATUS_COLOR = {'work': report_theme.var('rpt-good'), 'weekend': report_theme.var('rpt-hair-strong'),
+                 'holiday': report_theme.var('rpt-bad'), 'shutdown': report_theme.var('rpt-bad'),
+                 'special': report_theme.var('rpt-accent')}
 _DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 _MON = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -86,8 +91,8 @@ def _working_hist(months):
                  f'<div class="whcol"><div class="whn" style="height:{nwpx}px"></div>'
                  f'<div class="whw" style="height:{wpx}px"></div></div>'
                  f'<div class="whl">{_esc(m["label"])}</div></div>')
-    legend = ('<div class="whleg"><span><i style="background:#22c55e"></i>Working days</span>'
-              '<span><i style="background:#cbd5e1"></i>Non-working (weekends + holidays + shutdowns)</span></div>')
+    legend = (f'<div class="whleg"><span><i style="background:{report_theme.var("rpt-good")}"></i>Working days</span>'
+              f'<span><i style="background:{report_theme.var("rpt-hair-strong")}"></i>Non-working (weekends + holidays + shutdowns)</span></div>')
     return legend + f'<div class="whist">{cols}</div>'
 
 
@@ -98,8 +103,11 @@ def _month_grids(months, hidden_months=0, tl_from=None):
         pad = ((m.get('first_weekday', 0) % 7) + 7) % 7
         cells = ''.join('<div class="mc blank"></div>' for _ in range(pad))
         for day in m.get('days', []):
-            col = _STATUS_COLOR.get(day['status'], '#22c55e')
-            faded = 'style="background:%s22;border-color:%s"' % (col, col) if day['status'] != 'work' else ''
+            col = _STATUS_COLOR.get(day['status'], report_theme.var('rpt-good'))
+            # var() can't take a hex alpha suffix like the old "%s22" trick, so blend via
+            # color-mix() instead — same ~13% tint effect, still colour-only.
+            faded = ('style="background:color-mix(in srgb, %s 13%%, transparent);border-color:%s"'
+                     % (col, col)) if day['status'] != 'work' else ''
             nm = day.get('name')
             nm_html = f'<div class="cn">{_esc(nm)}</div>' if nm else ''
             cells += f'<div class="mc" {faded}><span class="dn">{day["d"]}</span>{nm_html}</div>'
@@ -107,9 +115,9 @@ def _month_grids(months, hidden_months=0, tl_from=None):
                       f'<div class="mgrid">{head}{cells}</div></div>')
     legend = ('<div class="legend">'
               + ''.join(f'<span><i style="background:{c}"></i>{_esc(n)}</span>'
-                        for n, c in [('Working', '#22c55e'), ('Weekend', '#cbd5e1'),
-                                     ('Holiday', '#ef4444'), ('Shutdown', '#f59e0b'),
-                                     ('Special hours', '#3b82f6')])
+                        for n, c in [('Working', _STATUS_COLOR['work']), ('Weekend', _STATUS_COLOR['weekend']),
+                                     ('Holiday', _STATUS_COLOR['holiday']), ('Shutdown', _STATUS_COLOR['shutdown']),
+                                     ('Special hours', _STATUS_COLOR['special'])])
               + '</div>')
     if hidden_months:
         sub = (f'— working vs non-working days per month, from the data date ({_fmt(tl_from)}) · '
@@ -117,7 +125,7 @@ def _month_grids(months, hidden_months=0, tl_from=None):
     else:
         sub = '— working vs non-working days per month'
     return ('<h2 class="sec">2 · Calendar Timeline '
-            '<span style="font-weight:400;font-size:9.5px;color:#8a93a0;text-transform:none;letter-spacing:0">'
+            f'<span style="font-weight:400;font-size:9.5px;color:{report_theme.var("rpt-muted")};text-transform:none;letter-spacing:0">'
             f'{_esc(sub)}</span></h2>'
             + _working_hist(months)
             + '<div class="sub2">Each month’s calendar — holiday / shutdown names shown in the day cells</div>'
@@ -142,11 +150,11 @@ def _exceptions(exc):
     sh = ''.join(f'<tr><td>{_esc(x["description"])}</td><td class="num">{x["days"]}</td>'
                  f'<td>{("[added] " if x.get("source") == "manual" else "") + (x.get("reason") or "—")}</td></tr>'
                  for x in exc.get('shutdowns', []))
-    groups = (tbl('Holidays & Vacations', '#c0392b', hol,
+    groups = (tbl('Holidays & Vacations', report_theme.var('rpt-bad'), hol,
                   [('Date', 0), ('Days', 1), ('Description', 0)])
-              + tbl('Reduced / Special Working Hours', '#2563eb', sp,
+              + tbl('Reduced / Special Working Hours', report_theme.var('rpt-accent'), sp,
                     [('Date', 0), ('Days', 1), ('Hours', 0)])
-              + tbl('Shutdowns', '#e07b1a', sh,
+              + tbl('Shutdowns', report_theme.var('rpt-bad'), sh,
                     [('Date', 0), ('Days', 1), ('Reason', 0)]))
     if not groups:                        # no exceptions ahead → drop the whole section
         return ''
@@ -161,12 +169,13 @@ def _acts_cell(d):
     """The construction activities a bad-weather day hits (#07)."""
     names = d.get('activities') or []
     extra = d.get('activities_count', len(names)) - len(names)
+    muted = report_theme.var('rpt-muted')
     if names:
         return (_esc(', '.join(names))
-                + (f' <span style="color:#8a93a0">(+{extra} more)</span>' if extra > 0 else ''))
+                + (f' <span style="color:{muted}">(+{extra} more)</span>' if extra > 0 else ''))
     if str(d.get('effect', '')).startswith('Non-working'):
-        return '<span style="color:#8a93a0">No construction activity scheduled</span>'
-    return f'<span style="color:#8a93a0">{_esc(d.get("effect", ""))}</span>'
+        return f'<span style="color:{muted}">No construction activity scheduled</span>'
+    return f'<span style="color:{muted}">{_esc(d.get("effect", ""))}</span>'
 
 
 def _hours(profiles):
@@ -230,7 +239,7 @@ def _wx_monthly_bars(monthly):
         f'<div class="wxb-bar{" pk" if m.get("count", 0) == mx and mx > 0 else ""}" '
         f'style="height:{max(3, round(m.get("count", 0) / mx * 62))}px"></div>'
         f'<div class="wxb-l">{_esc(m.get("label", ""))}</div></div>' for m in monthly)
-    return ('<div class="grp"><span class="pill" style="background:#d97706">When the Risk Falls'
+    return (f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">When the Risk Falls'
             ' — bad-weather days by month</span></div>'
             f'<div class="wxbars">{bars}</div>')
 
@@ -278,7 +287,7 @@ def _weather_section(weather):
         cause_rows += (f'<tr><td>{_esc(c["label"])}</td><td class="num">{cnt}</td>'
                        f'<td class="num">{share}</td></tr>')
     cause_table = (
-        '<div class="grp"><span class="pill" style="background:#b45309">What&rsquo;s Causing the Lost Days — by Weather Type</span></div>'
+        f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">What&rsquo;s Causing the Lost Days — by Weather Type</span></div>'
         '<p class="lg">Of all the bad-weather days, which condition causes them — so you know what to '
         'plan around (heat-driven → shift the working day earlier; rain-driven → drainage / protection).</p>'
         '<table><thead><tr><th>Cause</th><th class="num">Days</th><th class="num">Share of flagged days</th>'
@@ -299,11 +308,11 @@ def _weather_section(weather):
         f'<td>{_acts_cell(d)}</td></tr>' for d in w.get('bad_days', []))
     # Empty sub-tables are dropped from the PDF (Ibrahim: don't print a section with no results).
     days_table = (
-        '<div class="grp"><span class="pill" style="background:#2563eb">Upcoming Bad-Weather Days</span></div>'
+        f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-accent")}">Upcoming Bad-Weather Days</span></div>'
         '<table><thead><tr><th>Date</th><th>Day</th><th>Why it’s a lost day (measured)</th>'
         f'<th>Confidence</th><th>Affected work (by WBS)</th></tr></thead><tbody>{days}</tbody></table>') if days else ''
     ms_table = (
-        '<div class="grp"><span class="pill" style="background:#e07b1a">Impact on Milestone Completion</span></div>'
+        f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">Impact on Milestone Completion</span></div>'
         '<table><thead><tr><th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>'
         '<th class="num">Already in calendar</th><th class="num">Net weather delay</th>'
         f'<th>Weather-adjusted completion</th></tr></thead><tbody>{ms}</tbody></table>'
@@ -316,18 +325,18 @@ def _weather_section(weather):
         '<i>Example — 6 bad-weather days fall before finish; 4 land on Fridays/holidays already off, '
         'so only 2 hit working days → +2 working days.</i></p>') if ms else ''
     rec_table = (
-        '<div class="grp"><span class="pill" style="background:#2e8b57">Recovery Recommendations</span></div>'
+        f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-good")}">Recovery Recommendations</span></div>'
         '<table><thead><tr><th>Period / milestone</th><th class="num">Days</th><th>Longer days</th>'
         f'<th>Extra working days</th><th>Add shift</th></tr></thead><tbody>{rec}</tbody></table>') if rec else ''
     conclusion = ''
     if w.get('conclusion'):
         conclusion = (
-            '<div class="grp"><span class="pill" style="background:#e07b1a">Weather Conclusion</span></div>'
-            '<div class="concl" style="border-left-color:#e07b1a;background:#fff7ed">'
+            f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">Weather Conclusion</span></div>'
+            f'<div class="concl" style="border-left-color:{report_theme.var("rpt-warn")};background:{report_theme.var("rpt-warn-bg")}">'
             f'<p style="margin:0;font-size:10.5px;line-height:1.5">{_esc(w["conclusion"])}</p></div>')
     return (
         '<h2 class="sec">9 · Weather Impact '
-        '<span style="font-weight:400;font-size:9.5px;color:#e07b1a;text-transform:none;letter-spacing:0">'
+        f'<span style="font-weight:400;font-size:9.5px;color:{report_theme.var("rpt-warn")};text-transform:none;letter-spacing:0">'
         '— estimate, not a P6 figure</span></h2>'
         f'{method}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">{kpis}</div>'
@@ -342,7 +351,7 @@ def _conclusion(bullets, weather=None):
             f'<div class="concl"><ul>{items}{wx}</ul></div>')
 
 
-def render_calendar_report(result, meta, weather=None, sections=None):
+def render_calendar_report(result, meta, weather=None, sections=None, theme='light'):
     d = result.get('dashboard', {})
     proj = result.get('project', {}) or {}
     primary = result.get('primary_calendar_id')
@@ -371,86 +380,88 @@ def render_calendar_report(result, meta, weather=None, sections=None):
 <html><head><meta charset="utf-8"><title>Calendar Audit — {_esc(meta.get('project_name', ''))}</title>
 <style>
   @page {{ margin: 18mm 12mm; }}
-  body {{ font-family: 'Segoe UI', Arial, sans-serif; color: #1f2a37; font-size: 11px; margin: 0; }}
-  .head {{ border-bottom: 3px solid #17457a; padding-bottom: 12px; margin-bottom: 16px; }}
-  .kicker {{ font-size: 10px; letter-spacing: 2px; color: #17457a; font-weight: 700; text-transform: uppercase; }}
-  .title {{ font-size: 24px; font-weight: 800; color: #0f2440; margin: 3px 0 1px; }}
-  .subtitle {{ font-size: 12px; color: #5b6472; }}
+  body {{ font-family: 'Segoe UI', Arial, sans-serif; color: var(--rpt-ink); font-size: 11px; margin: 0; }}
+  .head {{ border-bottom: 3px solid var(--rpt-accent); padding-bottom: 12px; margin-bottom: 16px; }}
+  .kicker {{ font-size: 10px; letter-spacing: 2px; color: var(--rpt-accent); font-weight: 700; text-transform: uppercase; }}
+  .title {{ font-size: 24px; font-weight: 800; color: var(--rpt-ink); margin: 3px 0 1px; }}
+  .subtitle {{ font-size: 12px; color: var(--rpt-ink-soft); }}
   .meta {{ display: flex; flex-wrap: wrap; gap: 3px 26px; margin-top: 10px; font-size: 11px; }}
-  .meta span {{ color: #8a93a0; }}
-  h2.sec {{ font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #17457a;
-            border-bottom: 1px solid #dbe1e8; padding-bottom: 4px; margin: 20px 0 10px; page-break-after: avoid; }}
-  .sub2 {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: #8a93a0; font-weight: 700; margin: 8px 0 6px; }}
+  .meta span {{ color: var(--rpt-muted); }}
+  h2.sec {{ font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--rpt-accent);
+            border-bottom: 1px solid var(--rpt-hair); padding-bottom: 4px; margin: 20px 0 10px; page-break-after: avoid; }}
+  .sub2 {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--rpt-muted); font-weight: 700; margin: 8px 0 6px; }}
   .kpis {{ display: grid; gap: 8px; }}
   .kpis.k5 {{ grid-template-columns: repeat(5, 1fr); }}
   .kpis.k4 {{ grid-template-columns: repeat(4, 1fr); }}
-  .kpi {{ border: 1px solid #e8ecf1; border-radius: 8px; padding: 9px 11px; }}
-  .kpi .k {{ font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: #8a93a0; font-weight: 700; }}
-  .kpi .v {{ font-size: 17px; font-weight: 800; margin-top: 2px; color: #0f2440; }}
-  .kpi .n {{ font-size: 9px; color: #8a93a0; margin-top: 1px; }}
+  .kpi {{ border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 9px 11px; }}
+  .kpi .k {{ font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: var(--rpt-muted); font-weight: 700; }}
+  .kpi .v {{ font-size: 17px; font-weight: 800; margin-top: 2px; color: var(--rpt-ink); }}
+  .kpi .n {{ font-size: 9px; color: var(--rpt-muted); margin-top: 1px; }}
   table {{ width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 2px; }}
   thead {{ display: table-header-group; }}
-  th {{ background: #26517d; color: #fff; text-align: left; padding: 6px 8px; font-weight: 600; font-size: 9.5px; }}
-  td {{ padding: 5px 8px; border-bottom: 1px solid #eef1f5; vertical-align: top; }}
-  tbody tr:nth-child(even) {{ background: #f7f9fb; }}
+  th {{ background: var(--rpt-th-bg); color: var(--rpt-th-ink); text-align: left; padding: 6px 8px; font-weight: 600; font-size: 9.5px; }}
+  td {{ padding: 5px 8px; border-bottom: 1px solid var(--rpt-hair); vertical-align: top; }}
+  tbody tr:nth-child(even) {{ background: var(--rpt-surface); }}
   .num {{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }}
-  .empty {{ color: #6b7480; font-style: italic; }}
-  .legend {{ display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0 10px; font-size: 9.5px; color: #5b6472; }}
+  .empty {{ color: var(--rpt-muted); font-style: italic; }}
+  .legend {{ display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0 10px; font-size: 9.5px; color: var(--rpt-ink-soft); }}
   .legend span {{ display: inline-flex; align-items: center; gap: 4px; }}
   .legend i {{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }}
   .timeline {{ display: flex; flex-wrap: wrap; gap: 8px; }}
-  .tlm {{ width: 118px; border: 1px solid #e8ecf1; border-radius: 8px; padding: 8px; }}
+  .tlm {{ width: 118px; border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 8px; }}
   .tlh {{ font-size: 10px; font-weight: 700; display: flex; justify-content: space-between; margin-bottom: 6px; }}
-  .tlh span {{ color: #8a93a0; font-weight: 600; }}
+  .tlh span {{ color: var(--rpt-muted); font-weight: 600; }}
   .dg {{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }}
   .dg i {{ aspect-ratio: 1; border-radius: 2px; display: block; }}
   .tlflag {{ margin-top: 6px; font-size: 8.5px; font-weight: 700; text-align: center; }}
   .grp {{ margin: 12px 0 6px; }}
-  .pill {{ display: inline-block; padding: 2px 9px; border-radius: 20px; color: #fff; font-weight: 700; font-size: 9px; }}
+  .pill {{ display: inline-block; padding: 2px 9px; border-radius: 20px; color: var(--rpt-accent-ink); font-weight: 700; font-size: 9px; }}
   .hours {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }}
-  .hp {{ border: 1px solid #e8ecf1; border-radius: 8px; padding: 11px; }}
+  .hp {{ border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 11px; }}
   .hp .t {{ font-weight: 700; }}
-  .hp .h {{ font-size: 17px; font-weight: 800; color: #17457a; margin-top: 2px; }}
-  .hp .s {{ font-size: 9px; color: #8a93a0; margin-top: 3px; }}
+  .hp .h {{ font-size: 17px; font-weight: 800; color: var(--rpt-accent); margin-top: 2px; }}
+  .hp .s {{ font-size: 9px; color: var(--rpt-muted); margin-top: 3px; }}
   .mgrids {{ display: flex; flex-wrap: wrap; gap: 12px; }}
-  .whleg {{ display: flex; gap: 14px; margin: 4px 0 8px; font-size: 9px; color: #5b6472; }}
+  .whleg {{ display: flex; gap: 14px; margin: 4px 0 8px; font-size: 9px; color: var(--rpt-ink-soft); }}
   .whleg span {{ display: inline-flex; align-items: center; gap: 4px; }}
   .whleg i {{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }}
-  .whist {{ display: flex; align-items: flex-end; gap: 8px; height: 118px; border-bottom: 1.5px solid #dbe1e8; padding: 0 2px; margin-bottom: 10px; }}
+  .whist {{ display: flex; align-items: flex-end; gap: 8px; height: 118px; border-bottom: 1.5px solid var(--rpt-hair); padding: 0 2px; margin-bottom: 10px; }}
   .whc {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }}
-  .wht {{ font-size: 8px; font-weight: 800; color: #0f2440; margin-bottom: 2px; }}
+  .wht {{ font-size: 8px; font-weight: 800; color: var(--rpt-ink); margin-bottom: 2px; }}
   .whcol {{ width: 62%; max-width: 34px; }}
-  .whn {{ background: #cbd5e1; }}
-  .whw {{ background: #22c55e; border-radius: 3px 3px 0 0; }}
-  .whl {{ font-size: 7.5px; color: #8a93a0; margin-top: 3px; }}
+  .whn {{ background: var(--rpt-hair-strong); }}
+  .whw {{ background: var(--rpt-good); border-radius: 3px 3px 0 0; }}
+  .whl {{ font-size: 7.5px; color: var(--rpt-muted); margin-top: 3px; }}
   .mgrid-wrap {{ width: 230px; }}
   .mgrid-t {{ font-size: 10px; font-weight: 700; margin-bottom: 4px; }}
   .mgrid {{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }}
-  .mh {{ font-size: 8px; font-weight: 700; color: #8a93a0; text-align: center; }}
-  .mc {{ min-height: 22px; border: 1px solid #e8ecf1; border-radius: 4px; font-size: 8.5px; padding: 2px 3px; overflow: hidden; }}
+  .mh {{ font-size: 8px; font-weight: 700; color: var(--rpt-muted); text-align: center; }}
+  .mc {{ min-height: 22px; border: 1px solid var(--rpt-edge); border-radius: 4px; font-size: 8.5px; padding: 2px 3px; overflow: hidden; }}
   .mc.blank {{ border: none; }}
   .mc .dn {{ font-weight: 700; }}
-  .mc .cn {{ font-size: 6.3px; line-height: 1.12; color: #b45309; font-weight: 600; margin-top: 1px; }}
-  .lg {{ font-size: 9px; color: #5b6472; line-height: 1.5; margin: 4px 0 8px; background: #f7f9fb; border-left: 3px solid #cfe0f5; padding: 6px 9px; border-radius: 0 5px 5px 0; }}
-  .lg b {{ color: #2a3644; }}
-  .conf {{ border: 1px solid #e8ecf1; border-left: 3px solid #e07b1a; border-radius: 0 6px 6px 0;
+  .mc .cn {{ font-size: 6.3px; line-height: 1.12; color: var(--rpt-warn); font-weight: 600; margin-top: 1px; }}
+  .lg {{ font-size: 9px; color: var(--rpt-ink-soft); line-height: 1.5; margin: 4px 0 8px; background: var(--rpt-surface); border-left: 3px solid var(--rpt-accent-soft); padding: 6px 9px; border-radius: 0 5px 5px 0; }}
+  .lg b {{ color: var(--rpt-ink); }}
+  .conf {{ border: 1px solid var(--rpt-edge); border-left: 3px solid var(--rpt-bad); border-radius: 0 6px 6px 0;
            padding: 8px 11px; margin-bottom: 6px; }}
   .conf .ct {{ font-weight: 700; font-size: 11px; }}
-  .conf .cd {{ font-size: 10px; color: #5b6472; margin-top: 2px; }}
-  .ok {{ color: #2e8b57; font-size: 11px; }}
-  .wxm {{ border: 1px solid #e8ecf1; background: #f4f8fd; border-radius: 6px; padding: 9px 12px;
-          font-size: 9.8px; line-height: 1.55; color: #3f4a57; margin-bottom: 10px; }}
-  .wxbars {{ display: flex; align-items: flex-end; gap: 8px; height: 92px; border-bottom: 1.5px solid #dbe1e8; padding: 0 4px; margin: 2px 0 8px; }}
+  .conf .cd {{ font-size: 10px; color: var(--rpt-ink-soft); margin-top: 2px; }}
+  .ok {{ color: var(--rpt-good); font-size: 11px; }}
+  .wxm {{ border: 1px solid var(--rpt-edge); background: var(--rpt-surface); border-radius: 6px; padding: 9px 12px;
+          font-size: 9.8px; line-height: 1.55; color: var(--rpt-ink-soft); margin-bottom: 10px; }}
+  .wxbars {{ display: flex; align-items: flex-end; gap: 8px; height: 92px; border-bottom: 1.5px solid var(--rpt-hair); padding: 0 4px; margin: 2px 0 8px; }}
   .wxb {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }}
-  .wxb-v {{ font-size: 9px; font-weight: 800; color: #b45309; margin-bottom: 2px; }}
-  .wxb-bar {{ width: 62%; max-width: 30px; background: linear-gradient(180deg, #f59e0b, rgba(245,158,11,.45)); border-radius: 3px 3px 0 0; }}
-  .wxb-bar.pk {{ background: linear-gradient(180deg, #dc2626, rgba(220,38,38,.5)); }}
-  .wxb-l {{ font-size: 8px; color: #8a93a0; margin-top: 3px; }}
-  .concl {{ border-left: 4px solid #17457a; background: #f4f8fd; border-radius: 0 8px 8px 0; padding: 10px 15px; }}
+  .wxb-v {{ font-size: 9px; font-weight: 800; color: var(--rpt-warn); margin-bottom: 2px; }}
+  .wxb-bar {{ width: 62%; max-width: 30px; background: linear-gradient(180deg, var(--rpt-warn), color-mix(in srgb, var(--rpt-warn) 45%, transparent)); border-radius: 3px 3px 0 0; }}
+  .wxb-bar.pk {{ background: linear-gradient(180deg, var(--rpt-bad), color-mix(in srgb, var(--rpt-bad) 50%, transparent)); }}
+  .wxb-l {{ font-size: 8px; color: var(--rpt-muted); margin-top: 3px; }}
+  .concl {{ border-left: 4px solid var(--rpt-accent); background: var(--rpt-surface); border-radius: 0 8px 8px 0; padding: 10px 15px; }}
   .concl ul {{ margin: 0; padding-left: 18px; }}
   .concl li {{ font-size: 11px; line-height: 1.5; margin-bottom: 5px; }}
-  .foot {{ border-top: 1px solid #dbe1e8; margin-top: 20px; padding-top: 8px; font-size: 9px; color: #8a93a0; line-height: 1.5; }}
-</style></head>
+  .foot {{ border-top: 1px solid var(--rpt-hair); margin-top: 20px; padding-top: 8px; font-size: 9px; color: var(--rpt-muted); line-height: 1.5; }}
+</style>
+{report_theme.theme_style_tag(theme)}
+</head>
 <body>
   <div class="head">
     <div class="kicker">Project Calendar Report</div>

@@ -7,6 +7,7 @@ import { showError, clearError }                    from './render.js';
 import { escapeHtml }                               from './format.js';
 import { bandHex, kindClass, markerLeft, impactPill } from './aireview_helpers.js';
 import { showReportPreview }                        from './preview.js';
+import { getSavedMode }                             from './appearance.js';
 
 // ── shared cell/table renderers (same data shape as the report) ────────────
 
@@ -375,18 +376,25 @@ async function previewReport(btn) {
   if (!rep || !rep.detected) return;
   const orig = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing preview…'; }
-  try {
+  const mode = getSavedMode();
+  const fetchPreview = async (theme) => {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: rep, preview: true }),
+      body: JSON.stringify({ report: rep, preview: true, theme }),
     });
     const data = await resp.json();
-    if (!data.ok || !data.html) { showError(data.error || 'Preview failed.'); return; }
+    if (!data.ok || !data.html) throw new Error(data.error || 'Preview failed.');
+    return data.html;
+  };
+  try {
+    const html = await fetchPreview(mode);
     showReportPreview({
       title: 'Constructability Review — print preview',
       subtitle: rep.project_type || '',
-      html: data.html,
-      onSave: () => saveReportPdf(rep),
+      html,
+      initialMode: mode,
+      onThemeChange: fetchPreview,
+      onSave: (m) => saveReportPdf(rep, m),
     });
   } catch {
     showError('Could not reach the local server. Try restarting the app.');
@@ -395,13 +403,13 @@ async function previewReport(btn) {
   }
 }
 
-async function saveReportPdf(rep) {
+async function saveReportPdf(rep, theme) {
   const slug = (rep.detected.type || 'constructability').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
   const path = await window.pywebview.api.choose_save_path(`${slug}_constructability.pdf`, 'pdf');
   if (!path) return false;
   const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability/report`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ report: rep, output_path: path }),
+    body: JSON.stringify({ report: rep, output_path: path, theme: theme || getSavedMode() }),
   });
   const data = await resp.json();
   if (!data.ok) { showError(data.error || 'PDF generation failed.'); return false; }
@@ -456,7 +464,7 @@ async function exportReport(kind, btn) {
     const url = kind === 'pdf' ? '/api/constructability/report' : '/api/constructability/excel';
     const resp = await fetch(`http://localhost:${state.serverPort}${url}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: rep, output_path: path }),
+      body: JSON.stringify({ report: rep, output_path: path, theme: getSavedMode() }),
     });
     const data = await resp.json();
     if (!data.ok) showError(data.error || 'Export failed.');
