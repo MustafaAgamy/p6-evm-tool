@@ -3,12 +3,43 @@
 render_html builds a landscape, print-ready page from the report the client already
 holds (no re-parse). Every section is wrapped in <section data-sec="KEY"> so the
 preview's Report Contents picker can toggle it and the PDF re-flows. Print colours are
-literal hex (the PDF renders on white), mirroring the other module exporters.
+theme tokens (`--rpt-*`, injected via report_theme.theme_style_tag) so the same markup
+renders in every appearance mode — see report_theme.py.
 """
+
+import report_theme
+
+# Module colour constants, resolved at render time via the injected `--rpt-*` custom
+# properties (see report_theme.py). Verified usage before mapping:
+#   _BAD/_WARN/_GOOD/_MUTED -> the census/milestone/dashboard "critical / near / safe"
+#                              semantic states (red/amber/green/grey), unchanged meaning
+#   _ACCENT                 -> the page's one brand blue, reused everywhere as heading /
+#                              link / "current"-role colour, not a chart-series colour
+#   _GRID / _AXIS_TXT       -> chart gridlines/reference lines vs. bar/point value labels
+#   Driving-path lane states (NEW ON PATH / LEFT PATH / stayed / complete):
+#     - complete (bdone)  -> _GOOD  (already green; finished work, unambiguous)
+#     - new on path (bnew)-> _BAD   (already red in the source design; a newly-critical
+#                                    front is the headline risk of the report)
+#     - left path (bleft) -> NEUTRAL (hair-strong/surface-2/muted; kept neutral as in the
+#                                    source design — a front leaving the critical path isn't
+#                                    inherently bad, and must stay visually distinct from the
+#                                    red "new on path" alarm)
+#     - stayed (default)  -> neutral edge/surface tokens, no semantic colour
+_BAD = report_theme.var('rpt-bad')
+_BAD_BG = report_theme.var('rpt-bad-bg')
+_WARN = report_theme.var('rpt-warn')
+_GOOD = report_theme.var('rpt-good')
+_MUTED = report_theme.var('rpt-muted')
+_ACCENT = report_theme.var('rpt-accent')
+_GRID = report_theme.var('rpt-chart-grid')
+_AXIS_TXT = report_theme.var('rpt-chart-axis')
+_EDGE = report_theme.var('rpt-edge')
+_BG = report_theme.var('rpt-bg')
 
 _ROLE_LABEL = {'baseline': 'Baseline', 'previous': 'Previous update', 'current': 'Current update'}
 _ROLE_SHORT = {'baseline': 'Baseline', 'previous': 'Previous', 'current': 'Current'}
-_STATUS_HEX = {'good': ('#16a34a', '#eafaf0'), 'warn': ('#d97706', '#fff6e9'), 'bad': ('#dc2626', '#fdecec')}
+_STATUS_HEX = {'good': (_GOOD, report_theme.var('rpt-good-bg')), 'warn': (_WARN, report_theme.var('rpt-warn-bg')),
+               'bad': (_BAD, _BAD_BG)}
 
 
 def _e(v):
@@ -53,7 +84,7 @@ def _banner(report):
             f'<span class="btext">{_e(report.get("conclusion") or d.get("verdict"))}</span></div>')
 
 
-# ── Dashboard charts (inline SVG / pure-HTML, print-friendly literal hex) ─────
+# ── Dashboard charts (inline SVG / pure-HTML, theme-token colours) ────────────
 
 def _chart_crit_near(cn):
     """Grouped bars: critical (red) + near-critical (amber) per schedule. A null near
@@ -76,26 +107,26 @@ def _chart_crit_near(cn):
     bw = min(26.0, group_w / 3)
     gap = 4.0
     y0 = pad_t + plot_h
-    parts = [f'<line x1="{pad_l}" y1="{y0}" x2="{W - pad_r}" y2="{y0}" stroke="#cbd5e1" stroke-width="1"/>']
+    parts = [f'<line x1="{pad_l}" y1="{y0}" x2="{W - pad_r}" y2="{y0}" stroke="{_GRID}" stroke-width="1"/>']
     for i, role in enumerate(roles):
         gx = pad_l + i * group_w + group_w / 2
-        pairs = [(crit[i] if i < len(crit) else None, '#dc2626'),
-                 (near[i] if i < len(near) else None, '#d97706')]
+        pairs = [(crit[i] if i < len(crit) else None, _BAD),
+                 (near[i] if i < len(near) else None, _WARN)]
         bx0 = gx - (bw * 2 + gap) / 2
         for j, (val, col) in enumerate(pairs):
             x = bx0 + j * (bw + gap)
             if val is None:
                 parts.append(f'<text x="{x + bw / 2:.1f}" y="{y0 - 4:.1f}" font-size="8" '
-                             f'fill="#94a3b8" text-anchor="middle">n/a</text>')
+                             f'fill="{_MUTED}" text-anchor="middle">n/a</text>')
                 continue
             bh = (val / mx) * plot_h
             y = y0 - bh
             parts.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bw:.1f}" height="{bh:.1f}" '
                          f'fill="{col}" rx="2"/>')
             parts.append(f'<text x="{x + bw / 2:.1f}" y="{y - 3:.1f}" font-size="9" '
-                         f'font-weight="700" fill="#334155" text-anchor="middle">{val}</text>')
+                         f'font-weight="700" fill="{_AXIS_TXT}" text-anchor="middle">{val}</text>')
         parts.append(f'<text x="{gx:.1f}" y="{H - pad_b + 14:.1f}" font-size="9" '
-                     f'fill="#64748b" text-anchor="middle">{_e(_ROLE_SHORT.get(role, role))}</text>')
+                     f'fill="{_MUTED}" text-anchor="middle">{_e(_ROLE_SHORT.get(role, role))}</text>')
     return (f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto" '
             f'xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>')
 
@@ -133,19 +164,19 @@ def _chart_cpli(ct):
     for ref, lbl in ((1.0, '1.00'), (0.95, '0.95')):
         y = ypos(ref)
         parts.append(f'<line x1="{inset}" y1="{y:.1f}" x2="{W - inset}" y2="{y:.1f}" '
-                     f'stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 3"/>')
-        parts.append(f'<text x="2" y="{y + 3:.1f}" font-size="8" fill="#94a3b8">{lbl}</text>')
+                     f'stroke="{_GRID}" stroke-width="1" stroke-dasharray="4 3"/>')
+        parts.append(f'<text x="2" y="{y + 3:.1f}" font-size="8" fill="{_MUTED}">{lbl}</text>')
     if len(pts) >= 2:
         poly = ' '.join(f'{xpos(i):.1f},{ypos(v):.1f}' for i, v in pts)
-        parts.append(f'<polyline points="{poly}" fill="none" stroke="#1d4ed8" stroke-width="2"/>')
+        parts.append(f'<polyline points="{poly}" fill="none" stroke="{_ACCENT}" stroke-width="2"/>')
     for i, v in pts:
         x, y = xpos(i), ypos(v)
-        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#1d4ed8"/>')
+        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="{_ACCENT}"/>')
         parts.append(f'<text x="{x:.1f}" y="{y - 6:.1f}" font-size="9" font-weight="700" '
-                     f'fill="#1d4ed8" text-anchor="middle">{v:.2f}</text>')
+                     f'fill="{_ACCENT}" text-anchor="middle">{v:.2f}</text>')
     for i, role in enumerate(roles):
         parts.append(f'<text x="{xpos(i):.1f}" y="{H - pad_b + 16:.1f}" font-size="9" '
-                     f'fill="#64748b" text-anchor="middle">{_e(_ROLE_SHORT.get(role, role))}</text>')
+                     f'fill="{_MUTED}" text-anchor="middle">{_e(_ROLE_SHORT.get(role, role))}</text>')
     return (f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto" '
             f'xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>')
 
@@ -160,7 +191,7 @@ def _chart_ms_variance(msv):
     for m in msv:
         v = m.get('var') or 0
         w = abs(v) / mx * 100
-        col = '#dc2626' if v > 0 else ('#16a34a' if v < 0 else '#94a3b8')
+        col = _BAD if v > 0 else (_GOOD if v < 0 else _MUTED)
         name = _e(m.get('name'))
         rows.append(
             f'<div class="mvrow"><div class="mvname" title="{name}">{name}</div>'
@@ -207,8 +238,8 @@ def _dashboard(report):
         charts_html = (
             '<div class="charts">'
             f'<div class="chartcard"><div class="chartt">Critical &amp; near by schedule</div>{cn}'
-            '<div class="chartlegend"><i style="background:#dc2626"></i>Critical '
-            '<i style="background:#d97706"></i>Near-critical</div></div>'
+            f'<div class="chartlegend"><i style="background:{_BAD}"></i>Critical '
+            f'<i style="background:{_WARN}"></i>Near-critical</div></div>'
             f'<div class="chartcard"><div class="chartt">CPLI trend</div>{ct}</div>'
             f'<div class="chartcard"><div class="chartt">Milestone slip vs baseline</div>{mv}</div>'
             '</div>')
@@ -261,10 +292,10 @@ def _lanes(report, milestone_ids=None):
         blocks = [b for b in blocks if b.get('id') in wanted]
     if not any(any(ln.get('boxes') for ln in b.get('lanes', [])) for b in blocks):
         return '<div class="note">No governing critical path was found in these schedules.</div>'
-    legend = ('<div class="cplegend"><i style="background:#fdecec;border:2px solid #dc2626"></i>New on critical path '
-              '<i style="background:#f4f4f5;border:1px dashed #94a3b8"></i>Left the path '
-              '<i style="background:#fff;border:1px solid #e2e8f0"></i>Stayed '
-              '<i style="background:#fff;border:1px solid #16a34a"></i>Complete</div>')
+    legend = (f'<div class="cplegend"><i style="background:{_BAD_BG};border:2px solid {_BAD}"></i>New on critical path '
+              f'<i style="background:{_BAD_BG};border:1px dashed {_BAD}"></i>Left the path '
+              f'<i style="background:{_BG};border:1px solid {_EDGE}"></i>Stayed '
+              f'<i style="background:{_BG};border:1px solid {_GOOD}"></i>Complete</div>')
     out = []
     for b in sorted(blocks, key=lambda x: 0 if x.get('is_governing') else 1):
         flag = '◆ ' if b.get('is_governing') else ''
@@ -294,7 +325,7 @@ def _census(report):
 
     def _red(txt):
         # Every census variance is RED (Ibrahim's rule).
-        return f'<td class="num" style="color:#dc2626;font-weight:700">{txt}</td>' if txt is not None else '<td class="num">—</td>'
+        return f'<td class="num" style="color:{_BAD};font-weight:700">{txt}</td>' if txt is not None else '<td class="num">—</td>'
 
     def _sum_over(key, rs):
         vals = [c.get(r, {}).get(key) for r in rs if has(r)]
@@ -359,7 +390,7 @@ def _milestones(report):
     def slip(v):
         if v is None:
             return '—'
-        col = '#dc2626' if v > 0 else '#16a34a' if v < 0 else '#94a3b8'
+        col = _BAD if v > 0 else _GOOD if v < 0 else _MUTED
         return f'<span style="color:{col};font-weight:700">{"+" if v > 0 else ""}{v} d</span>'
 
     def colh(role, label):
@@ -392,10 +423,10 @@ def _migration(report):
         return '<div class="note">Load a previous update or a baseline to see how float moved.</div>'
     c = m.get('counts', {})
     base = 'baseline' if report.get('float_migration_base') == 'baseline' else 'last period'
-    cards = [('Near → CRITICAL', c.get('near_to_crit', 0), '#dc2626', 'worsened'),
-             ('Safe → near', c.get('safe_to_near', 0), '#d97706', 'eroding'),
-             ('Critical → recovered', c.get('crit_to_recovered', 0), '#16a34a', 'improved'),
-             ('Held critical', c.get('held_crit', 0), '#94a3b8', 'unchanged')]
+    cards = [('Near → CRITICAL', c.get('near_to_crit', 0), _BAD, 'worsened'),
+             ('Safe → near', c.get('safe_to_near', 0), _WARN, 'eroding'),
+             ('Critical → recovered', c.get('crit_to_recovered', 0), _GOOD, 'improved'),
+             ('Held critical', c.get('held_crit', 0), _MUTED, 'unchanged')]
     cells = ''.join(f'<div class="band"><div class="bandl">{_e(lbl)}</div>'
                     f'<div class="bandv" style="color:{col}">{n}</div>'
                     f'<div class="bandt" style="color:{col}">{tag}</div></div>' for lbl, n, col, tag in cards)
@@ -410,7 +441,7 @@ def _recommendation(report):
             f'<div class="recoh">Recommendation</div><ol class="reco">{rec}</ol>')
 
 
-def render_html(report, sections=None, milestone_ids=None):
+def render_html(report, sections=None, milestone_ids=None, theme='light'):
     secs = [
         ('verdict', '', _banner(report), False),
         ('dashboard', 'Execution dashboard', _dashboard(report), False),
@@ -430,84 +461,84 @@ def render_html(report, sections=None, milestone_ids=None):
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: A4 landscape; margin: 11mm; }}
       * {{ box-sizing: border-box; }}
-      body {{ font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #1e293b; font-size: 12px; margin: 0; }}
-      h1 {{ font-size: 18px; margin: 0; }} h2 {{ font-size: 13px; margin: 16px 0 8px; color: #1d4ed8; }}
+      body {{ font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: var(--rpt-ink); font-size: 12px; margin: 0; }}
+      h1 {{ font-size: 18px; margin: 0; }} h2 {{ font-size: 13px; margin: 16px 0 8px; color: var(--rpt-accent); }}
       section.pagebreak {{ page-break-before: always; }}
-      .rh {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }}
-      .meta {{ color: #64748b; font-size: 11px; margin-top: 3px; }}
+      .rh {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--rpt-edge); padding-bottom: 8px; }}
+      .meta {{ color: var(--rpt-muted); font-size: 11px; margin-top: 3px; }}
       .ddstrip {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }}
-      .ddpill {{ background: #f1f5f9; color: #475569; font-size: 10px; border-radius: 5px; padding: 2px 8px; }}
-      .ddpill b {{ color: #1e293b; }}
+      .ddpill {{ background: var(--rpt-surface-2); color: var(--rpt-ink-soft); font-size: 10px; border-radius: 5px; padding: 2px 8px; }}
+      .ddpill b {{ color: var(--rpt-ink); }}
       .banner {{ display: flex; align-items: center; gap: 11px; border: 1px solid; border-radius: 9px; padding: 10px 14px; margin-top: 10px; }}
-      .btag {{ color: #fff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 5px; }}
+      .btag {{ color: var(--rpt-accent-ink); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 5px; }}
       .btext {{ font-size: 13px; font-weight: 600; }}
       .dash {{ display: flex; gap: 12px; }}
-      .health {{ flex: 1; display: flex; gap: 12px; align-items: center; border: 1px solid #e2e8f0; border-left: 4px solid #dc2626; border-radius: 10px; padding: 10px 14px; }}
-      .hgauge {{ flex: none; width: 74px; height: 74px; border-radius: 50%; border: 6px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 19px; font-weight: 800; }}
-      .hgauge span {{ font-size: 9px; font-weight: 600; color: #94a3b8; }}
-      .htitle {{ font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #64748b; }}
+      .health {{ flex: 1; display: flex; gap: 12px; align-items: center; border: 1px solid var(--rpt-edge); border-left: 4px solid var(--rpt-bad); border-radius: 10px; padding: 10px 14px; }}
+      .hgauge {{ flex: none; width: 74px; height: 74px; border-radius: 50%; border: 6px solid var(--rpt-edge); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 19px; font-weight: 800; }}
+      .hgauge span {{ font-size: 9px; font-weight: 600; color: var(--rpt-muted); }}
+      .htitle {{ font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--rpt-muted); }}
       .hverdict {{ font-size: 12px; font-weight: 700; margin: 3px 0 5px; }}
-      .hfactors {{ margin: 0; padding-left: 15px; font-size: 10.5px; color: #64748b; line-height: 1.5; }}
+      .hfactors {{ margin: 0; padding-left: 15px; font-size: 10.5px; color: var(--rpt-muted); line-height: 1.5; }}
       .kpis {{ flex: 1; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }}
-      .kpi {{ border: 1px solid #e2e8f0; border-radius: 9px; padding: 8px 11px; }}
-      .kk {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .3px; color: #94a3b8; font-weight: 700; }}
+      .kpi {{ border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 8px 11px; }}
+      .kk {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-muted); font-weight: 700; }}
       .kv {{ font-size: 19px; font-weight: 800; margin-top: 2px; }}
-      .kv .kcur {{ font-size: 9px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: .3px; }}
-      .kd {{ font-size: 11px; font-weight: 700; color: #64748b; margin-top: 2px; }}
+      .kv .kcur {{ font-size: 9px; font-weight: 700; color: var(--rpt-accent); text-transform: uppercase; letter-spacing: .3px; }}
+      .kd {{ font-size: 11px; font-weight: 700; color: var(--rpt-muted); margin-top: 2px; }}
       .charts {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }}
-      .chartcard {{ border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; page-break-inside: avoid; }}
-      .chartt {{ font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: #64748b; margin-bottom: 6px; }}
-      .chartlegend {{ font-size: 9.5px; color: #64748b; margin-top: 4px; }}
+      .chartcard {{ border: 1px solid var(--rpt-edge); border-radius: 10px; padding: 10px 12px; page-break-inside: avoid; }}
+      .chartt {{ font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-muted); margin-bottom: 6px; }}
+      .chartlegend {{ font-size: 9.5px; color: var(--rpt-muted); margin-top: 4px; }}
       .chartlegend i {{ display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: middle; margin: 0 3px 0 8px; }}
       .mvchart {{ display: flex; flex-direction: column; gap: 6px; }}
       .mvrow {{ font-size: 10px; }}
-      .mvname {{ color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }}
+      .mvname {{ color: var(--rpt-ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }}
       .mvbar {{ display: flex; align-items: center; gap: 5px; }}
       .mvbar span {{ display: inline-block; height: 10px; border-radius: 3px; min-width: 1px; }}
       .mvbar b {{ font-size: 9.5px; white-space: nowrap; }}
       .mpblock {{ page-break-inside: avoid; margin-bottom: 14px; }}
-      .mphdr {{ display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 8px; }}
-      .mpname {{ font-size: 12px; font-weight: 800; color: #1e293b; }}
-      .mpfin {{ font-size: 10px; color: #64748b; }}
+      .mphdr {{ display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--rpt-edge); padding-bottom: 4px; margin-bottom: 8px; }}
+      .mpname {{ font-size: 12px; font-weight: 800; color: var(--rpt-ink); }}
+      .mpfin {{ font-size: 10px; color: var(--rpt-muted); }}
       .lane {{ margin-bottom: 12px; }} .lanehdr {{ display: flex; gap: 9px; align-items: center; margin-bottom: 6px; }}
       .lanetag {{ font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 6px; }}
-      .lt-baseline {{ background: #eef2f7; color: #475569; }} .lt-previous {{ background: #fff6e9; color: #b45309; }} .lt-current {{ background: #eff6ff; color: #1d4ed8; }}
-      .lanesub {{ color: #64748b; font-size: 10.5px; }}
+      .lt-baseline {{ background: var(--rpt-surface-2); color: var(--rpt-ink-soft); }} .lt-previous {{ background: var(--rpt-warn-bg); color: var(--rpt-warn); }} .lt-current {{ background: var(--rpt-accent-soft); color: var(--rpt-accent); }}
+      .lanesub {{ color: var(--rpt-muted); font-size: 10.5px; }}
       .chain {{ display: flex; align-items: stretch; flex-wrap: wrap; gap: 5px; }}
-      .arw {{ display: flex; align-items: center; color: #1d4ed8; font-weight: 900; font-size: 26px; padding: 0 1px; }}
-      .msbox {{ flex: none; width: 150px; border: 2px solid #1d4ed8; border-radius: 10px; padding: 8px 10px; background: #eff6ff; }}
-      .msflag {{ font-size: 9px; text-transform: uppercase; color: #1d4ed8; margin-bottom: 4px; }}
-      .mst {{ font-size: 11.5px; font-weight: 800; color: #1d4ed8; margin-bottom: 5px; }}
-      .msr {{ display: flex; justify-content: space-between; font-size: 10.5px; margin: 2px 0; }} .msr span {{ color: #94a3b8; }}
-      .box {{ flex: none; width: 176px; border: 1px solid #e2e8f0; border-radius: 9px; padding: 7px 9px; position: relative; }}
+      .arw {{ display: flex; align-items: center; color: var(--rpt-accent); font-weight: 900; font-size: 26px; padding: 0 1px; }}
+      .msbox {{ flex: none; width: 150px; border: 2px solid var(--rpt-accent); border-radius: 10px; padding: 8px 10px; background: var(--rpt-accent-soft); }}
+      .msflag {{ font-size: 9px; text-transform: uppercase; color: var(--rpt-accent); margin-bottom: 4px; }}
+      .mst {{ font-size: 11.5px; font-weight: 800; color: var(--rpt-accent); margin-bottom: 5px; }}
+      .msr {{ display: flex; justify-content: space-between; font-size: 10.5px; margin: 2px 0; }} .msr span {{ color: var(--rpt-muted); }}
+      .box {{ flex: none; width: 176px; border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 7px 9px; position: relative; }}
       .bgrid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; margin-top: 2px; }}
       .bgrid .bk {{ font-size: 8px; text-transform: uppercase; }} .bgrid .bv {{ font-size: 10.5px; }}
-      .bfull {{ grid-column: 1 / -1; border-top: 1px dashed #e2e8f0; padding-top: 3px; margin-top: 1px; }}
-      .box.bdone {{ border-color: #16a34a; }}
-      .box.bnew {{ border: 2px solid #dc2626; background: #fdf4f4; }}
-      .box.bleft {{ border: 1px dashed #cbd5e1; background: #f6f7f9; }}
-      .bflag {{ position: absolute; top: -8px; left: 8px; color: #fff; font-size: 8px; font-weight: 800; padding: 1px 6px; border-radius: 4px; }}
-      .bfnew {{ background: #dc2626; }} .bfleft {{ background: #94a3b8; }}
-      .bt {{ font-size: 11px; font-weight: 700; }} .bcrumb {{ font-size: 8.5px; color: #94a3b8; margin: 2px 0 6px; }}
+      .bfull {{ grid-column: 1 / -1; border-top: 1px dashed var(--rpt-edge); padding-top: 3px; margin-top: 1px; }}
+      .box.bdone {{ border-color: var(--rpt-good); }}
+      .box.bnew {{ border: 2px solid var(--rpt-bad); background: var(--rpt-bad-bg); }}
+      .box.bleft {{ border: 1px dashed var(--rpt-hair-strong); background: var(--rpt-surface-2); }}
+      .bflag {{ position: absolute; top: -8px; left: 8px; color: var(--rpt-accent-ink); font-size: 8px; font-weight: 800; padding: 1px 6px; border-radius: 4px; }}
+      .bfnew {{ background: var(--rpt-bad); }} .bfleft {{ background: var(--rpt-muted); color: var(--rpt-bg); }}
+      .bt {{ font-size: 11px; font-weight: 700; }} .bcrumb {{ font-size: 8.5px; color: var(--rpt-muted); margin: 2px 0 6px; }}
       .brow {{ display: flex; justify-content: space-between; font-size: 10px; margin: 2px 0; }}
-      .brow.last {{ border-top: 1px dashed #e2e8f0; padding-top: 3px; margin-top: 3px; }}
-      .bk {{ color: #94a3b8; }} .bv {{ font-weight: 700; }}
-      .cplegend {{ font-size: 10px; color: #64748b; margin-top: 6px; }}
+      .brow.last {{ border-top: 1px dashed var(--rpt-edge); padding-top: 3px; margin-top: 3px; }}
+      .bk {{ color: var(--rpt-muted); }} .bv {{ font-weight: 700; }}
+      .cplegend {{ font-size: 10px; color: var(--rpt-muted); margin-top: 6px; }}
       .cplegend i {{ display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin: 0 4px 0 12px; }}
       table.t {{ width: 100%; border-collapse: collapse; font-size: 11px; }}
-      table.t th, table.t td {{ padding: 6px 9px; text-align: left; border-bottom: 1px solid #e2e8f0; }}
-      table.t th {{ font-size: 10px; text-transform: uppercase; letter-spacing: .3px; color: #94a3b8; }}
-      table.t th .thdd {{ text-transform: none; font-weight: 600; font-size: 9px; color: #64748b; margin-top: 2px; }}
+      table.t th, table.t td {{ padding: 6px 9px; text-align: left; border-bottom: 1px solid var(--rpt-edge); }}
+      table.t th {{ font-size: 10px; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-muted); }}
+      table.t th .thdd {{ text-transform: none; font-weight: 600; font-size: 9px; color: var(--rpt-muted); margin-top: 2px; }}
       table.t td.num, table.t th.num {{ text-align: right; }}
       table.t tr.gov td {{ font-weight: 800; }}
       .bands {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }}
-      .band {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px; text-align: center; }}
-      .bandl {{ font-size: 10px; color: #64748b; font-weight: 700; }} .bandv {{ font-size: 18px; font-weight: 800; margin-top: 3px; }} .bandt {{ font-size: 10px; font-weight: 700; margin-top: 2px; }}
-      .effect {{ font-size: 12px; line-height: 1.5; background: #f8fafc; border-left: 3px solid #1d4ed8; border-radius: 0 8px 8px 0; padding: 10px 13px; }}
-      .recoh {{ font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #1d4ed8; margin: 12px 0 5px; }}
+      .band {{ border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 9px; text-align: center; }}
+      .bandl {{ font-size: 10px; color: var(--rpt-muted); font-weight: 700; }} .bandv {{ font-size: 18px; font-weight: 800; margin-top: 3px; }} .bandt {{ font-size: 10px; font-weight: 700; margin-top: 2px; }}
+      .effect {{ font-size: 12px; line-height: 1.5; background: var(--rpt-surface); border-left: 3px solid var(--rpt-accent); border-radius: 0 8px 8px 0; padding: 10px 13px; }}
+      .recoh {{ font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--rpt-accent); margin: 12px 0 5px; }}
       .reco {{ margin: 0; padding-left: 18px; font-size: 11.5px; line-height: 1.6; }}
-      .note {{ color: #64748b; font-size: 11px; margin-top: 8px; }}
-    </style></head><body>{"".join(body)}</body></html>'''
+      .note {{ color: var(--rpt-muted); font-size: 11px; margin-top: 8px; }}
+    </style>{report_theme.theme_style_tag(theme)}</head><body>{"".join(body)}</body></html>'''
 
 
 # ── Excel ────────────────────────────────────────────────────────────────────

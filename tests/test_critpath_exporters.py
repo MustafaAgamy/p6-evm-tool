@@ -1,5 +1,6 @@
 """Critical Path Analyzer — PDF (HTML) and Excel exporters."""
 from datetime import datetime
+import report_theme
 from p6_evm.parser import ScheduleData
 from p6_critpath.analysis import build_report
 from p6_critpath.exporters import render_html, to_excel
@@ -55,6 +56,18 @@ def test_render_html_section_filter():
     html = render_html(_report(), sections=['census'])
     assert 'data-sec="census"' in html
     assert 'data-sec="dashboard"' not in html
+
+
+def test_render_html_theme_dark():
+    html = render_html(_report(), theme='dark')
+    assert 'data-rpt-theme="dark"' in html
+    assert report_theme.THEMES['dark']['rpt-accent'] in html  # '#5b9bff'
+
+
+def test_render_html_theme_default_is_light():
+    html = render_html(_report())
+    assert html.startswith('<!doctype html>') and html.rstrip().endswith('</html>')
+    assert 'data-rpt-theme="light"' in html
 
 
 def test_to_excel_writes_expected_sheets(tmp_path):
