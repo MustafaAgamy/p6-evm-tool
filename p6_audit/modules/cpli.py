@@ -40,8 +40,8 @@ TARGET = 0.95  # DCMA acceptance threshold for CPLI
 # Critical-path DENSITY — THIS IS the CPLI sub-feature score. It bands the share of
 # task-dependent activities that are critical: too many critical = fragile (small
 # slips ripple), so a low density scores high. (upper %bound, score, grade)
-_DENSITY_BANDS = [(20.0, 100, 'Excellent'), (25.0, 95, 'Good'), (30.0, 90, 'Acceptable'),
-                  (35.0, 85, 'Watch'), (40.0, 80, 'Watch')]
+_DENSITY_BANDS = [(25.0, 100, 'Excellent'), (30.0, 90, 'Good'), (35.0, 85, 'Acceptable'),
+                  (40.0, 75, 'Watch')]
 
 
 def _critical_density(pct):
@@ -51,7 +51,7 @@ def _critical_density(pct):
     for thr, sc, gr in _DENSITY_BANDS:
         if pct <= thr:
             return (sc, gr)
-    return (75, 'High density')
+    return (60, 'High density')
 
 # Spans, not finish candidates — they run to the project end by construction.
 _SUMMARY_TYPES = {'LOE', 'WBSSummary'}

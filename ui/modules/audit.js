@@ -628,7 +628,7 @@ function renderCpliModule(m) {
     </div>
     <div class="shr-legend">
       <b>How it's scored.</b> The score is the <b>critical-path density</b> — the share of task-dependent activities on the critical path. A schedule with many critical activities is fragile (small slips ripple), so fewer critical = a higher score.
-      <div style="margin-top:5px">Band: ≤ 20% → 100 · ≤ 25% → 95 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 80 · &gt; 40% → 75.</div>
+      <div style="margin-top:5px">Band: ≤ 25% → 100 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 75 · &gt; 40% → 60.</div>
     </div>
     <div class="shr-legend">
       <b>Context — CPLI ratio &amp; baseline rule (not the score).</b> CPLI = (CPL + TF) ÷ CPL = <b>${ratioComputable ? `${ratioPct}%` : '—'}</b> — DCMA 14-Point, Point 13 (target ≥ 95%). Completion total float = <b>${dnum(k.project_total_float_days)}</b>. Ibrahim's baseline rule: total float must be ≥ 0; negative float is a re-plan signal.
@@ -941,9 +941,9 @@ function renderSummary(health, am) {
             </div>
           </div>
           <div class="shr-bands">
-            <div class="lab">How status is decided — each check's score vs the 80% submission standard</div>
-            <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–98</div><div class="bd bd-p">Pass ≥ 98</div></div>
-            <div class="note">A check below 80 needs review (the 80% submission standard). Per-check targets adjust where DCMA differs — e.g. FS ≥ 90%.</div>
+            <div class="lab">How status is decided — each check's score against the per-check bands</div>
+            <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass ≥ 95</div></div>
+            <div class="note">A check below 95 needs review; below 90 is critical. Per-check targets adjust where DCMA differs — e.g. FS ≥ 90%. The overall baseline is submit-ready at ≥ 80%.</div>
           </div>
         </div>
 

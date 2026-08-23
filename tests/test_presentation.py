@@ -139,7 +139,7 @@ def test_cpli_scoring_has_its_own_formula():
          'findings': []}
     s = build_presentation(m)['scoring']
     assert 'density' in s['formula']                       # score is critical-path density now
-    assert '≤ 20%' in s['bands'] and '> 40%' in s['bands']  # the density band is the criteria
+    assert '≤ 25%' in s['bands'] and '> 40%' in s['bands']  # the density band is the criteria
     assert 'Metric 13' in s['benchmark']                   # CPLI ratio still cited as context
 
 

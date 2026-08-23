@@ -833,8 +833,8 @@ def render_summary_report(health, meta, sections=None, modules=None):
     <div class="card3 mid">
       <div class="ct">Checks status &nbsp;·&nbsp; {total} sub-features</div>
       <div>{chips}</div>
-      <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–98</div><div class="bd bd-p">Pass &ge; 98</div></div>
-      <div class="bnote">How status is decided — each check's score vs the 80% submission standard. A check below 80 needs review. Per-check targets adjust where DCMA differs — e.g. FS &ge; 90%.</div>
+      <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass &ge; 95</div></div>
+      <div class="bnote">How status is decided — each check's score against the per-check bands. A check below 95 needs review; below 90 is critical. Per-check targets adjust where DCMA differs — e.g. FS &ge; 90%. The overall baseline is submit-ready at &ge; 80%.</div>
     </div>
     <div class="card3 head3">
       <div class="ct">Headline</div>

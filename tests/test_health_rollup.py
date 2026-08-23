@@ -87,12 +87,12 @@ def test_merged_leads_and_negative_float_takes_the_lower_part():
 # ── per-check targets ──────────────────────────────────────────────────────
 def test_relationship_types_uses_the_dcma_fs_target():
     """FS >= 90% is the DCMA line, so relationship_types keeps a 90/85 band; the
-    default status band is 98/90 (Ibrahim's per-check numbers)."""
+    default status band is 95/90 (Ibrahim's per-check numbers)."""
     assert status_for('relationship_types', 88.0) == 'Review'    # in [85, 90) on the FS band
     assert status_for('relationship_types', 84.0) == 'Critical'  # below the 85 review line
     assert status_for('cpli', 89.0) == 'Critical'   # default band: below 90
-    assert status_for('cpli', 95.0) == 'Review'     # 90 <= 95 < 98
-    assert status_for('cpli', 98.0) == 'Pass'       # >= 98
+    assert status_for('cpli', 94.0) == 'Review'     # 90 <= 94 < 95
+    assert status_for('cpli', 95.0) == 'Pass'       # >= 95
 
 
 def test_checks_status_counts_match_the_donut():
@@ -101,7 +101,9 @@ def test_checks_status_counts_match_the_donut():
         dangling=_m('dangling', 72.0), relationship_types=_m('relationship_types', 88.0),
         cpli=_m('cpli', 94.0), high_duration=_m('high_duration', 95.0),
         whole_day=_m('whole_day', 96.0), open_ends=_m('open_ends', 97.0)))
-    assert h['counts'] == {'Pass': 1, 'Review': 5, 'Critical': 3, 'Not computed': 0}
+    # default band 95/90: 95/96/97 + the un-supplied Leads&NegFloat (100) -> Pass;
+    # 94 (cpli) & 88 (rel_types FS band) -> Review; 45/50/72 -> Critical
+    assert h['counts'] == {'Pass': 4, 'Review': 2, 'Critical': 3, 'Not computed': 0}
 
 
 # ── the circular gate ──────────────────────────────────────────────────────

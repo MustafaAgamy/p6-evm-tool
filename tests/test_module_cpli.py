@@ -149,7 +149,7 @@ def test_score_is_critical_path_density():
 
     r50 = run_cpli(_g(_acts_with(5, 10), data_date=dd), CONFIG)   # 50% (>40%)
     assert r50['kpis']['critical_pct'] == 50.0
-    assert r50['score'] == 75.0
+    assert r50['score'] == 60.0
 
 
 def test_density_population_excludes_milestones_but_gantt_keeps_them():

@@ -71,9 +71,9 @@ _DEFAULT_ACTION = {
 
 # Pass / Review thresholds per sub-feature. Default is the uniform legend; a check
 # whose DCMA target differs overrides it (FS >= 90% for relationship types).
-# Pass >= 98, Review 90-98, Critical < 90 — the per-check status bands Ibrahim set
+# Pass >= 95, Review 90-95, Critical < 90 — the per-check status bands Ibrahim set
 # (the overall 80% submission standard is a separate, whole-schedule verdict).
-_DEFAULT_THRESHOLDS = (98.0, 90.0)
+_DEFAULT_THRESHOLDS = (95.0, 90.0)
 _THRESHOLDS = {'relationship_types': (90.0, 85.0)}
 
 

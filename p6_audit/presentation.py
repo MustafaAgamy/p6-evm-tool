@@ -315,7 +315,7 @@ def _scoring(m):
     if mod == 'cpli':
         return {'formula': 'Score = critical-path density — the share of activities on the critical path',
                 'derivation': _cpli_verdict(m),
-                'bands': '≤ 20% → 100 · ≤ 25% → 95 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 80 · > 40% → 75',
+                'bands': '≤ 25% → 100 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 75 · > 40% → 60',
                 'benchmark': ref}
     if mod == 'circular':
         loops = k.get('loops', 0) or 0
