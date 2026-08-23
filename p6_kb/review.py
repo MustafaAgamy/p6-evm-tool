@@ -368,7 +368,7 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
         # computed only from the R1–R7 findings. Shown whenever the archetype resolved
         # (so a genuinely clean schedule shows 100 / execution-logic-sound); None only
         # when the engine could not analyse the project at all.
-        v2_score = evidence_score(v2_findings) if archetype else None
+        v2_score = evidence_score(v2_findings, total_act) if archetype else None
         # Cross-project intelligence — annotate each finding with how well its expected
         # sequence is corroborated across the curated KB + the user's imported projects.
         # SUPPORTING context only: it never changes whether a finding fired.

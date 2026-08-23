@@ -67,19 +67,17 @@ def compute_score(*, illogical_pct, missing_pct, missing_wbs,
     }
 
 
-# ── MEP-first evidence-weighted score (Phase 3) ──────────────────────────────
-# A SECOND, distinct score beside the KB Constructability score above. It reads the
-# evidence-graded R1–R7 findings only, and deducts from 100 by
-#     points = strength_base × discipline_weight
-# so a strong, MEP/commissioning finding costs the most and a weak civil-interface
-# finding the least. MEP-first (Ibrahim's rule): commissioning / mechanical / electrical
-# / piping / instrumentation carry full weight; civil enters only at its interface and
-# is weighted lowest. Deterministic — an honest computed number, not a confidence figure.
+# ── Constructability risk score — normalized finding-severity DENSITY ─────────
+# A SECOND, distinct score beside the KB Constructability score above, computed only
+# from the evidence-graded R1–R7 findings. Project-size independent (Ibrahim's V1 rule):
+# a raw "100 − Σ impacts" collapses on a large project with many findings even when the
+# finding density is low. So we normalise by project size:
+#     severity points  : Strong = 10, Moderate = 5, Low = 2   (PER FINDING, never per activity)
+#     weighted density  = (Σ severity points / total project activities) × 100
+#     risk score        = clamp(100 − weighted density, 0, 100)
+# One finding counts once regardless of how many activities it references.
 EVIDENCE_CFG = {
-    # cost of one finding at each evidence strength, before the discipline weight
-    'strength_base': {'strong': 10, 'moderate': 5, 'weak': 2, 'insufficient': 2},
-    # MEP-first discipline multipliers
-    'discipline_weight': {'mep': 1.0, 'structural': 0.7, 'civil': 0.5, 'other': 0.8},
+    'severity_points': {'strong': 10, 'moderate': 5, 'weak': 2, 'insufficient': 2},
 }
 
 # Risk bands (Ibrahim's V1 spec). The score is a 0–100 where HIGHER = lower risk;
@@ -94,9 +92,6 @@ EVIDENCE_BANDS = [
 # Display names for evidence strength (internal 'weak'/'insufficient' both read as 'Low').
 STRENGTH_DISPLAY = {'strong': 'Strong', 'moderate': 'Moderate', 'weak': 'Low', 'insufficient': 'Low'}
 
-_MEP_ROOTS = ('MECH', 'ELEC', 'ELV', 'PIP', 'INSTR', 'PLUMB', 'FIRE', 'PROCESS', 'UTIL',
-              'HVAC', 'MATERIAL HANDLING', 'BULK', 'CONVEY', 'COMMISSION')
-
 
 def _evidence_band(score):
     for lo, label, color in EVIDENCE_BANDS:
@@ -105,59 +100,41 @@ def _evidence_band(score):
     return (EVIDENCE_BANDS[-1][1], EVIDENCE_BANDS[-1][2])
 
 
-def _discipline_class(system, discipline):
-    """MEP-first bucket for a finding, from its system then its KB discipline text.
-    Civil enters only at its interface (weighted lowest); steel is structural; every
-    real MEP / commissioning discipline is full-weight."""
-    if system == 'civil_interface':
-        return 'civil'
-    if system == 'structural_steel':
-        return 'structural'
-    d = (discipline or '').upper()
-    if any(root in d for root in _MEP_ROOTS):
-        return 'mep'
-    if 'CIVIL' in d:
-        return 'civil'
-    if 'STRUCT' in d:
-        return 'structural'
-    return 'other'
-
-
-def evidence_score(findings, cfg=None):
-    """Score the evidence-graded R1–R7 findings, MEP-first, strength-weighted. An empty
-    finding list is a legitimate 100 (execution logic sound) — the caller decides whether
-    it analysed the schedule at all (only score when an archetype actually resolved)."""
+def evidence_score(findings, total_activities=0, cfg=None):
+    """Normalized constructability risk score from the R1–R7 findings, independent of
+    project size. Score = clamp(100 − (Σ severity points / total activities) × 100, 0,
+    100). Severity points are per FINDING (Strong 10 / Moderate 5 / Low 2), never per
+    activity. An empty finding list is a legitimate 100. The caller only scores when an
+    archetype resolved; it passes the project's total activity count for the density."""
     cfg = cfg or EVIDENCE_CFG
-    base = cfg.get('strength_base', EVIDENCE_CFG['strength_base'])
-    dw = cfg.get('discipline_weight', EVIDENCE_CFG['discipline_weight'])
+    pts_map = cfg.get('severity_points', EVIDENCE_CFG['severity_points'])
     findings = findings or []
 
     deductions, by_strength = [], {'strong': 0, 'moderate': 0, 'weak': 0, 'insufficient': 0}
-    total = 0.0
+    total_points = 0.0
     for f in findings:
         strength = f.get('strength', 'moderate')
-        cls = _discipline_class(f.get('system'), f.get('discipline'))
-        pts = base.get(strength, base['moderate']) * dw.get(cls, dw['other'])
-        total += pts
+        pts = pts_map.get(strength, pts_map['moderate'])
+        total_points += pts
         by_strength[strength] = by_strength.get(strength, 0) + 1
-        # stamp the per-finding deduction on the finding itself (one finding = one
-        # penalty, regardless of how many activities it references) — the report's
-        # 'Score Impact' column reads this.
+        # stamp the per-finding severity points (one finding = one contribution, whatever
+        # the activity count) — the report's 'Score Impact' column reads this.
         if isinstance(f, dict):
-            f['score_impact'] = round(pts, 1)
-        deductions.append({
-            'title': f.get('title', ''), 'system': f.get('system'),
-            'discipline_class': cls, 'strength': strength, 'points': round(pts, 1),
-        })
+            f['score_impact'] = pts
+        deductions.append({'title': f.get('title', ''), 'system': f.get('system'),
+                           'strength': strength, 'points': pts})
 
-    overall = _round(100 - total)
+    acts = max(int(total_activities or 0), 1)
+    density = (total_points / acts) * 100.0
+    overall = _round(max(0.0, 100.0 - density))
     label, color = _evidence_band(overall)
     deductions.sort(key=lambda d: -d['points'])
     return {
         'overall': overall, 'band': color, 'band_label': label,
-        'total_deducted': round(total, 1), 'finding_count': len(findings),
+        'total_severity_points': int(total_points),
+        'weighted_finding_density': round(density, 2),
+        'total_activities': acts, 'finding_count': len(findings),
         'by_strength': {k: v for k, v in by_strength.items() if v},
         'deductions': deductions,
-        'weights': {'strength_base': base, 'discipline_weight': dw},
-        'basis': 'MEP-first · strength × discipline weight',
+        'basis': 'finding-severity density (project-size independent)',
     }

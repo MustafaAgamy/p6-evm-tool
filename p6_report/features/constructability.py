@@ -108,14 +108,31 @@ def _project_risk_summary(report):
         f'<span class="lgi{" on" if b == s.get("band") else ""}">'
         f'<span class="esdot" style="background:{_BAND_HEX[b]}"></span>{rng} {X._e(lbl)}</span>'
         for b, rng, lbl in _SCORE_LEGEND)
+    pts = s.get('total_severity_points', 0)
+    acts = s.get('total_activities', 0)
+    density = s.get('weighted_finding_density', 0)
     method = (
         '<details class="howcalc"><summary>How is this score calculated?</summary>'
-        '<div class="howbody">Constructability Score = max(0, 100 − Σ finding deductions). '
-        'Each <b>logical finding</b> is penalised once — the number of activities it '
-        'references never multiplies the penalty. '
-        'Deduction = severity weight × discipline multiplier: '
-        'severity Strong −10 / Moderate −5 / Low −2; '
-        'discipline MEP ×1.0 / Structural ×0.7 / Civil ×0.5 / Other ×0.8.</div></details>')
+        '<div class="howbody">The score is <b>independent of project size</b> — it uses '
+        'finding-severity <b>density</b>, not a flat subtraction, so a large project with '
+        'many findings is not unfairly driven to zero.<br>'
+        'Severity points (per <b>finding</b>, never per activity): Strong = 10, '
+        'Moderate = 5, Low = 2.<br>'
+        'Weighted Finding Density = (Σ severity points ÷ total project activities) × 100.<br>'
+        'Risk Score = 100 − Weighted Finding Density, clamped to 0–100.<br>'
+        f'This project: {pts} severity point(s) ÷ {acts} activities × 100 = '
+        f'{density} density → <b>{X._e(s.get("overall", "—"))}</b>/100.</div></details>')
+    # severity summary (Strong / Moderate / Low counts)
+    bys = s.get('by_strength', {})
+    low = bys.get('weak', 0) + bys.get('insufficient', 0)
+    sev_parts = []
+    if bys.get('strong'):
+        sev_parts.append(f'{bys["strong"]} Strong')
+    if bys.get('moderate'):
+        sev_parts.append(f'{bys["moderate"]} Moderate')
+    if low:
+        sev_parts.append(f'{low} Low')
+    sev_summary = ' · '.join(sev_parts) or 'none'
     return (
         f'<div class="prs">'
         f'<div class="prsrow"><span class="prsk">Project Type</span>'
@@ -132,7 +149,8 @@ def _project_risk_summary(report):
         f'<div class="lgrow"><span class="lgt">Score</span>{score_leg}</div>'
         f'{method}'
         f'<div class="prsrow"><span class="prsk">Total findings</span>'
-        f'<span class="prsv"><b>{len(fs)}</b></span></div>'
+        f'<span class="prsv"><b>{len(fs)}</b></span>'
+        f'<span class="prsk">Severity</span><span class="prsv">{X._e(sev_summary)}</span></div>'
         f'<div class="prssum">{X._e(_risk_summary_line(s, fs))}</div>'
         f'</div>')
 
@@ -172,26 +190,57 @@ def _p6_logic_table(p6):
             + rows + '</tbody></table>')
 
 
+def _node(aid, name):
+    return f'<span class="mono">{X._e(aid)}</span> {X._e(name)}'
+
+
 def _compact_logic(primary):
-    """A compact current-logic chain for the primary activity: pred → activity → succ
-    (IDs only), e.g. 'A001 → A002 → A003'. Full detail lives in the drill-down."""
+    """The current P6 sequence around the finding's primary activity, with IDs, names and
+    relationship types (and lag), e.g. 'A001 Spool Erection (FS) → A002 Insulation (FS) →
+    A003 Hydrotest' — readable without opening P6."""
     if not primary:
         return '—'
-    pid = primary.get('id', '')
     preds = primary.get('preds') or []
     succs = primary.get('succs') or []
-    left = f"{X._e(preds[0].get('id'))} → " if preds else ''
-    right = f" → {X._e(succs[0].get('id'))}" if succs else ''
-    more_p = f' <span class="mut">(+{len(preds) - 1})</span>' if len(preds) > 1 else ''
-    more_s = f' <span class="mut">(+{len(succs) - 1})</span>' if len(succs) > 1 else ''
-    return f'<span class="mono">{left}<b>{X._e(pid)}</b>{right}</span>{more_p}{more_s}'
+    chain = ''
+    if preds:
+        p = preds[0]
+        lag = f' {X._e(p.get("lag"))}' if p.get('lag') else ''
+        chain += f'{_node(p.get("id"), p.get("name"))} <span class="rtype">{X._e(p.get("type"))}{lag}</span> → '
+    chain += f'<b>{_node(primary.get("id"), primary.get("name"))}</b>'
+    if succs:
+        sc = succs[0]
+        lag = f' {X._e(sc.get("lag"))}' if sc.get('lag') else ''
+        chain += f' <span class="rtype">{X._e(sc.get("type"))}{lag}</span> → {_node(sc.get("id"), sc.get("name"))}'
+    return chain
+
+
+def _fwe_block(f):
+    """Finding / Why / Evidence / Knowledge Support, each clearly labelled in one cell."""
+    parts = [f'<div class="fw"><span class="fwl">Finding:</span> {X._e(f.get("title"))}</div>',
+             f'<div class="fw"><span class="fwl">Why:</span> {X._e(f.get("reason"))}</div>',
+             f'<div class="fw"><span class="fwl">Evidence:</span> {X._e(f.get("existing"))}</div>']
+    support = f.get('support') or {}
+    if support:
+        parts.append(f'<div class="fw"><span class="fwl">Knowledge Support:</span> '
+                     f'<span class="supln">{X._e(support.get("label"))}</span></div>')
+    return ''.join(parts)
+
+
+def _activity_cell(p6, key):
+    """All involved activities, one per line — never hidden behind '+N more'."""
+    if not p6:
+        return '—'
+    css = 'mono' if key == 'id' else ''
+    return '<br>'.join(f'<span class="{css}">{X._e(c.get(key, ""))}</span>' for c in p6)
 
 
 def _constructability_findings(report):
-    """Section 2 — ONE consolidated findings table. Each row is self-explanatory:
+    """Section 2 — ONE consolidated findings table, one row per finding:
     # · Severity · Activity ID · Activity Name · Current P6 Logic · Finding/Why/Evidence
-    · Recommendation · Score Impact. Full P6 traceability is an expandable drill-down per
-    finding so the main table stays clean. Findings come solely from the current XER."""
+    · Recommendation · Score Impact. All involved activities are shown (never '+N more').
+    Full P6 traceability + a Current-vs-Recommended comparison are an expandable drill-down
+    per finding so the main table stays clean. Findings come solely from the current XER."""
     fs = report.get('v2_findings') or []
     if not fs:
         return ''
@@ -201,12 +250,6 @@ def _constructability_findings(report):
     for i, f in enumerate(fs, 1):
         p6 = f.get('p6') or []
         primary = p6[0] if p6 else {}
-        more = f' <span class="mut">(+{len(p6) - 1} more)</span>' if len(p6) > 1 else ''
-        support = f.get('support') or {}
-        supln = (f' <span class="supln">Supporting knowledge: {X._e(support.get("label"))}.</span>'
-                 if support else '')
-        fwe = (f'<b>{X._e(f.get("title"))}</b> {X._e(f.get("reason"))} '
-               f'<span class="mut">{X._e(f.get("evidence"))}</span>{supln}')
         rec = f.get('recommended_sequence') or f.get('recommendation') or ''
         impact = f.get('score_impact')
         impact_txt = f'−{impact}' if impact is not None else '—'
@@ -214,21 +257,24 @@ def _constructability_findings(report):
             f'<tr class="cfrow">'
             f'<td class="sn">{i}</td>'
             f'<td>{_sev_chip(f.get("strength"))}</td>'
-            f'<td class="mono">{X._e(primary.get("id", "—"))}</td>'
-            f'<td>{X._e(primary.get("name", ""))}{more}</td>'
+            f'<td>{_activity_cell(p6, "id")}</td>'
+            f'<td>{_activity_cell(p6, "name")}</td>'
             f'<td class="cflogic">{_compact_logic(primary)}</td>'
-            f'<td class="cfwe">{fwe}</td>'
-            f'<td class="chg">{X._e(rec)}</td>'
+            f'<td class="cfwe">{_fwe_block(f)}</td>'
+            f'<td class="chg cfrec">{X._e(rec)}</td>'
             f'<td class="mono cfimpact">{impact_txt}</td>'
             f'</tr>'
             f'<tr class="cfdetailrow"><td></td><td colspan="7">'
-            f'<details class="cfdetail"><summary>P6 traceability — activities &amp; links</summary>'
-            f'<div class="recnote">Recommended sequence: <b>{X._e(rec)}</b></div>'
+            f'<details class="cfdetail"><summary>P6 traceability &amp; current vs recommended</summary>'
+            f'<div class="cmp"><div class="cmpk">Current P6 Logic</div>'
+            f'<div class="cmpv">{_compact_logic(primary)}</div></div>'
+            f'<div class="cmp"><div class="cmpk rec">Recommended Sequence</div>'
+            f'<div class="cmpv"><b>{X._e(rec)}</b></div></div>'
             f'{_p6_logic_table(p6)}</details></td></tr>')
     return (
         '<table class="data cfind"><colgroup>'
-        '<col style="width:3%"><col style="width:8%"><col style="width:8%"><col style="width:15%">'
-        '<col style="width:13%"><col style="width:32%"><col style="width:15%"><col style="width:6%">'
+        '<col style="width:3%"><col style="width:7%"><col style="width:8%"><col style="width:14%">'
+        '<col style="width:16%"><col style="width:29%"><col style="width:16%"><col style="width:7%">'
         '</colgroup><thead><tr><th>#</th><th>Severity</th><th>Activity ID</th><th>Activity Name</th>'
         '<th>Current P6 Logic</th><th>Finding / Why / Evidence</th><th>Recommendation</th>'
         '<th>Score Impact</th></tr></thead><tbody>' + rows + '</tbody></table>'
@@ -267,9 +313,18 @@ _EXTRA_CSS = '''
       table.cfind { table-layout: fixed; }
       table.cfind td { vertical-align: top; }
       table.cfind td.cfwe { font-size: 10.5px; line-height: 1.5; }
-      table.cfind td.cflogic { font-size: 10px; }
+      table.cfind td.cflogic { font-size: 10px; line-height: 1.5; }
+      table.cfind td.cfrec { font-size: 10.5px; line-height: 1.5; }
       table.cfind td.cfimpact { text-align: right; font-weight: 700; color: #dc2626; }
+      .cfwe .fw { padding: 1px 0; }
+      .cfwe .fwl { font-weight: 700; color: #475569; text-transform: uppercase;
+                   letter-spacing: .2px; font-size: 9px; }
       .cfwe .supln { color: #15803d; }
+      .cmp { display: flex; gap: 8px; margin: 3px 0; font-size: 10.5px; }
+      .cmp .cmpk { flex: 0 0 130px; color: #64748b; text-transform: uppercase; letter-spacing: .3px;
+                   font-size: 9px; font-weight: 700; padding-top: 1px; }
+      .cmp .cmpk.rec { color: #15803d; }
+      .cmp .cmpv { color: #1e293b; }
       .cfdetailrow td { background: #f8fafc; border-top: none; padding: 0 8px 8px; }
       .cfdetail > summary { font-size: 10px; color: #64748b; cursor: pointer; padding: 5px 0;
                             font-weight: 600; list-style: none; }
