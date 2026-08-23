@@ -22,17 +22,40 @@ export const DEFAULT_MODE = 'light';
 
 const _ids = REPORT_MODES.map(m => m.id);
 
-/** The user's last-picked report appearance (remembered across features). Falls back to Light. */
+/** The user's last-picked appearance (remembered; themes both the app screen and reports).
+ *  Falls back to the legacy 2-mode key, then Light. */
 export function getSavedMode() {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    return _ids.includes(v) ? v : DEFAULT_MODE;
+    if (_ids.includes(v)) return v;
+    const legacy = localStorage.getItem('p6_evm_theme');   // old light/dark-only key
+    if (legacy === 'light' || legacy === 'dark') return legacy;
+    return DEFAULT_MODE;
   } catch { return DEFAULT_MODE; }
 }
 
 export function setSavedMode(mode) {
   if (!_ids.includes(mode)) return;
   try { localStorage.setItem(STORAGE_KEY, mode); } catch { /* no storage — session only */ }
+}
+
+/** Paint the whole app in a mode by stamping the root — CSS `:root[data-appearance="…"]` does the rest. */
+export function applyAppMode(mode) {
+  const m = _ids.includes(mode) ? mode : DEFAULT_MODE;
+  try { document.documentElement.setAttribute('data-appearance', m); } catch { /* no DOM */ }
+}
+
+/** The unified setter: persist the choice, retheme the whole app screen, and sync the toolbar control.
+ *  Report previews/PDFs read the same saved mode, so one call themes everything. */
+export function setAppMode(mode) {
+  const m = _ids.includes(mode) ? mode : DEFAULT_MODE;
+  setSavedMode(m);
+  applyAppMode(m);
+  try {
+    const sel = document.getElementById('report-appearance');
+    if (sel && sel.value !== m) sel.value = m;
+  } catch { /* no DOM */ }
+  return m;
 }
 
 /** The report page background for a mode — used to tint the preview letterbox so a dark
@@ -85,7 +108,7 @@ export function buildAppearancePicker(opts = {}) {
     if (!_ids.includes(id)) return;
     current = id;
     chips.forEach(c => c.setAttribute('aria-pressed', String(c.dataset.mode === id)));
-    setSavedMode(id);
+    setAppMode(id);                 // persist + retheme the whole app + sync the toolbar control
     if (!silent) onChange(id);
   }
 
@@ -106,7 +129,7 @@ export function initReportAppearanceControl(sel, onChange) {
   el.innerHTML = REPORT_MODES.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
   el.value = getSavedMode();
   el.addEventListener('change', () => {
-    setSavedMode(el.value);
+    setAppMode(el.value);                       // persist + retheme the whole app screen
     if (typeof onChange === 'function') onChange(el.value);
   });
   return el;

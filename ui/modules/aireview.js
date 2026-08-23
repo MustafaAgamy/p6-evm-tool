@@ -115,10 +115,10 @@ function _score(s) {
         Bands: 85+ Ready to baseline · 70–84 Minor gaps · 50–69 Significant · under 50 Major.</div>
     </div></div>
     <div class="ai-legend"><div class="ai-gauge">
-      <div class="seg" style="width:50%;background:#dc2626">0–49 Major</div>
-      <div class="seg" style="width:20%;background:#ea580c">50–69 Significant</div>
-      <div class="seg" style="width:15%;background:#d97706">70–84 Minor</div>
-      <div class="seg" style="width:15%;background:#16a34a">85–100 Ready</div>
+      <div class="seg" style="width:50%;background:var(--danger)">0–49 Major</div>
+      <div class="seg" style="width:20%;background:var(--chart-3)">50–69 Significant</div>
+      <div class="seg" style="width:15%;background:var(--warning)">70–84 Minor</div>
+      <div class="seg" style="width:15%;background:var(--success)">85–100 Ready</div>
       <div class="ai-marker" style="left:${markerLeft(s.overall)}%"><b>You: ${s.overall} · ${escapeHtml(s.band_label)}</b></div>
     </div></div>`;
 }

@@ -17,7 +17,7 @@ let _pickedTypes = [];          // Section 2 — the activity-code dimensions to
 let _countFilter = { type: '', value: '' };   // Section 4 — activity-code filter
 let _uaTheme = getSavedMode();  // report-appearance mode for this panel's PDF preview
 
-const C = { plan: '#e0912f', actual: '#2a78d6', good: '#16a34a', bad: '#dc2626', blue: '#2a78d6' };
+const C = { plan: 'var(--chart-3)', actual: 'var(--chart-1)', good: 'var(--success)', bad: 'var(--danger)', blue: 'var(--chart-1)' };
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function _fileName() {
@@ -96,7 +96,7 @@ function _injectStyle() {
     .ua-box { flex: none; width: 196px; border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; background: var(--card-bg); }
     .ua-box.done { border-color: var(--success); }
     .ua-bt { font-size: 12.5px; font-weight: 700; line-height: 1.25; color: var(--text); }
-    .ua-btag { font-size: 9px; color: #b45309; font-weight: 600; }
+    .ua-btag { font-size: 9px; color: var(--warning); font-weight: 600; }
     .ua-bcrumb { font-size: 10px; color: var(--muted); margin: 3px 0 9px; }
     .ua-b4 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 9px; }
     .ua-k { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }

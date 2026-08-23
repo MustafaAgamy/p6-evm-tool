@@ -1,5 +1,5 @@
 import { state }                              from './modules/state.js';
-import { initTheme, toggleTheme }            from './modules/theme.js';
+import { initTheme }                          from './modules/theme.js';
 import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, exportCalendarExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
@@ -21,9 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initDatabase();
   loadHistory();
 
-  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
-  // Report appearance ("Report look") — always-visible toolbar control; sets the mode
-  // every report preview/PDF uses. Independent of the app's own screen theme above.
+  // Unified Appearance control (six modes) — themes the whole app screen AND every report
+  // preview/PDF from one choice. initTheme() above already painted the saved mode on load.
   initReportAppearanceControl('report-appearance');
 
   document.getElementById('sb-home-btn').addEventListener('click', () => {

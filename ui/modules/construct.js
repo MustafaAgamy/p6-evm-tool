@@ -130,10 +130,10 @@ function _gauge(score, hex) {
 
 function _legend(score) {
   const bands = [
-    { w: 50, c: '#dc2626', t: 'Major gaps', r: '0–49' },
-    { w: 20, c: '#ea580c', t: 'Significant', r: '50–69' },
-    { w: 15, c: '#d97706', t: 'Minor gaps', r: '70–84' },
-    { w: 15, c: '#16a34a', t: 'Ready', r: '85–100' },
+    { w: 50, c: 'var(--danger)', t: 'Major gaps', r: '0–49' },
+    { w: 20, c: 'var(--chart-3)', t: 'Significant', r: '50–69' },
+    { w: 15, c: 'var(--warning)', t: 'Minor gaps', r: '70–84' },
+    { w: 15, c: 'var(--success)', t: 'Ready', r: '85–100' },
   ];
   const segs = bands.map(b => `<div class="xd-lseg" style="width:${b.w}%;background:${b.c}"><b>${b.t}</b><span>${b.r}</span></div>`).join('');
   return `<div class="xd-legend"><div class="xd-lttl">How to read the score — Constructability bands</div>
@@ -179,9 +179,9 @@ function _severity(sev) {
   const c = sev.critical || 0, n = sev.near_critical || 0, tot = c + n;
   if (!tot) return '<p class="ai-empty">No illogical links flagged.</p>';
   const cp = Math.round(100 * c / tot);
-  return `<div class="xd-sevbar"><i style="width:${cp}%;background:#dc2626"></i><i style="width:${100 - cp}%;background:#d97706"></i></div>
-    <div class="xd-sevleg"><span><span class="dot" style="background:#dc2626"></span>Critical <b>${c}</b></span>
-      <span><span class="dot" style="background:#d97706"></span>Near-critical <b>${n}</b></span></div>
+  return `<div class="xd-sevbar"><i style="width:${cp}%;background:var(--danger)"></i><i style="width:${100 - cp}%;background:var(--warning)"></i></div>
+    <div class="xd-sevleg"><span><span class="dot" style="background:var(--danger)"></span>Critical <b>${c}</b></span>
+      <span><span class="dot" style="background:var(--warning)"></span>Near-critical <b>${n}</b></span></div>
     <div class="xd-sevnote">Critical = on / near the critical path (float ≤ 10 working days)</div>`;
 }
 
