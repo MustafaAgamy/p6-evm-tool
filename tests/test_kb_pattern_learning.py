@@ -86,3 +86,68 @@ def test_no_imports_still_curated_baseline(tmp_path):
     PL.annotate_findings(findings, base=str(tmp_path))   # empty store
     assert findings[0]['support']['curated'] is True
     assert findings[0]['support']['learned_projects'] == 0
+
+
+# ── export / import (user-extensible knowledge) ──────────────────────────────
+
+def _seed(base, ids=('P-1', 'P-2', 'P-3')):
+    store = PL.load_store(base)
+    for pid in ids:
+        v = mkview([f'{pid} Process Pipe Spool Erection', f'{pid} Process Pipe Hydrotest',
+                    f'{pid} Process Pipe Insulation'], rels=[(0, 1), (1, 2)])
+        store = PL.learn_from_view(v, pid, 'process', store=store)
+    PL.save(store, base)
+    return store
+
+
+def test_export_is_project_agnostic(tmp_path):
+    _seed(str(tmp_path))
+    bundle = PL.export_knowledge(base=str(tmp_path))
+    assert bundle['format'] == 'constructability-knowledge'
+    assert bundle['projects_count'] == 3
+    blob = str(bundle)
+    # never exports raw activity text — only generalized concepts + provenance metadata
+    assert 'Spool Erection' not in blob and 'Process Pipe' not in blob
+    for rec in bundle['projects'].values():
+        for t in rec['transitions']:
+            assert PL._valid_transition(t)
+
+
+def test_import_contributes_and_dedups(tmp_path, tmp_path_factory):
+    src = str(tmp_path)
+    _seed(src, ids=('A', 'B'))
+    bundle = PL.export_knowledge(base=src)
+    dst = str(tmp_path_factory.mktemp('dst'))
+    _seed(dst, ids=('B', 'C'))          # B overlaps → must dedup, not double-count
+    res = PL.import_knowledge(bundle, base=dst)
+    assert res['imported'] == 1 and res['refreshed'] == 1     # A new, B refreshed
+    assert PL.project_count(PL.load_store(dst)) == 3          # A, B, C
+    # imported knowledge now contributes to support
+    prov = PL.provenance(base=dst)
+    assert prov['projects_learned'] == 3 and prov['pattern_count'] >= 1
+
+
+def test_import_rejects_raw_or_malformed_knowledge(tmp_path):
+    base = str(tmp_path)
+    bad = {'format': 'constructability-knowledge', 'version': 1, 'projects': {
+        'X': {'type': 'process', 'systems': ['piping'],
+              'transitions': ['Install Pump before Foundation',      # raw name — must be dropped
+                              'piping:ERECTION_INSTALL>piping:TESTING:FS']}}}   # valid
+    res = PL.import_knowledge(bad, base=base)
+    store = PL.load_store(base)
+    stored = store['projects']['X']['transitions']
+    assert stored == ['piping:ERECTION_INSTALL>piping:TESTING:FS']
+    assert res['dropped_transitions'] == 1
+
+
+def test_import_rejects_wrong_format(tmp_path):
+    import pytest
+    with pytest.raises(ValueError):
+        PL.import_knowledge({'format': 'something-else'}, base=str(tmp_path))
+
+
+def test_provenance_shows_support_strength(tmp_path):
+    _seed(str(tmp_path), ids=('P-1', 'P-2', 'P-3'))
+    prov = PL.provenance(base=str(tmp_path))
+    top = prov['patterns'][0]
+    assert top['support'] == 3 and len(top['projects']) == 3   # seen in all 3 projects

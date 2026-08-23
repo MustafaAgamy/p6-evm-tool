@@ -32,6 +32,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_settings_get()
         elif self.path == '/api/kb':
             self._handle_kb_list()
+        elif self.path == '/api/kb/knowledge':
+            self._handle_kb_knowledge_get()
         elif self.path == '/api/database':
             self._handle_database_list()
         else:
@@ -98,6 +100,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_database_example(body)
         elif self.path == '/api/database/download':
             self._handle_database_download(body)
+        elif self.path == '/api/kb/knowledge/export':
+            self._handle_kb_knowledge_export(body)
+        elif self.path == '/api/kb/knowledge/import':
+            self._handle_kb_knowledge_import(body)
         elif self.path == '/api/constructability/report':
             self._handle_constructability_report(body)
         elif self.path == '/api/constructability/excel':
@@ -614,6 +620,54 @@ class Handler(BaseHTTPRequestHandler):
                 return
             shutil.copy2(src, os.path.abspath(output_path))
             self._json(200, {'ok': True, 'filename': os.path.basename(output_path)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── Constructability Knowledge Base — export / import / provenance ──────
+    def _handle_kb_knowledge_get(self):
+        """The cross-project learned knowledge: how many projects, and which projects
+        support each generalized pattern (provenance + support strength)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import provenance
+            self._json(200, {'ok': True, **provenance()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_knowledge_export(self, body):
+        """Write the learned knowledge to a portable, project-agnostic knowledge file
+        (generalized concepts + provenance only — never raw activity/WBS text)."""
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import export_knowledge
+            data = export_knowledge()
+            with open(os.path.abspath(output_path), 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=1)
+            self._json(200, {'ok': True, 'projects': data.get('projects_count', 0),
+                             'filename': os.path.basename(output_path)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_knowledge_import(self, body):
+        """Merge a knowledge file into the KB — deduped by project, generalized-only
+        (raw-looking entries are dropped). Contributes to future supporting knowledge."""
+        input_path = body.get('input_path', '')
+        if not input_path:
+            self._json(200, {'ok': False, 'error': 'No input path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import import_knowledge, provenance
+            with open(os.path.abspath(input_path), encoding='utf-8') as f:
+                data = json.load(f)
+            result = import_knowledge(data)
+            self._json(200, {'ok': True, 'result': result, **provenance()})
+        except ValueError as exc:
+            self._json(200, {'ok': False, 'error': f'Not a valid knowledge file: {exc}'})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

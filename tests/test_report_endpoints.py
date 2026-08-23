@@ -82,3 +82,58 @@ def test_render_endpoint_unknown_feature_errors():
     h._handle_report_render({'feature': 'ghost', 'report': REPORT})
     status, data = h._captured[-1]
     assert data['ok'] is False and 'Unknown report feature' in data['error']
+
+
+# ── Constructability Knowledge Base export / import / provenance endpoints ────
+
+def _seed_kb(base):
+    import p6_kb.pattern_learning as PL
+    from p6_kb.tagging import tag_view
+    for pid in ('EP-1', 'EP-2'):
+        oid = [{'object_id': f'O{i}', 'id': f'A{i}', 'name': n, 'wbs_path': '',
+                'activity_codes': {}, 'task_type': 'Task'} for i, n in enumerate(
+                [f'{pid} Process Pipe Spool Erection', f'{pid} Process Pipe Hydrotest',
+                 f'{pid} Process Pipe Insulation'])]
+        v = {'activities_oid': oid, 'by_oid': {a['object_id']: a for a in oid},
+             'relationships_oid': [{'pred_oid': 'O0', 'succ_oid': 'O1', 'type': 'FS', 'lag_days': 0},
+                                   {'pred_oid': 'O1', 'succ_oid': 'O2', 'type': 'FS', 'lag_days': 0}],
+             'activities': oid, 'by_code': {}, 'relationships': [], 'wbs': [],
+             'activity_count': 3, 'relationship_count': 2, 'activity_code_types': []}
+        tag_view(v)
+        PL.learn_from_view(v, pid, 'process', base=base)
+
+
+def test_kb_knowledge_export_import_and_provenance(tmp_path, monkeypatch):
+    import p6_kb.pattern_learning as PL
+    src, dst = tmp_path / 'src', tmp_path / 'dst'
+    src.mkdir(); dst.mkdir()
+
+    monkeypatch.setattr(PL, 'app_data_dir', lambda: str(src))
+    _seed_kb(str(src))
+    h = _handler()
+    h._handle_kb_knowledge_get()
+    assert h._captured[-1][1]['ok'] and h._captured[-1][1]['projects_learned'] == 2
+
+    out = str(tmp_path / 'knowledge.json')
+    h = _handler()
+    h._handle_kb_knowledge_export({'output_path': out})
+    assert h._captured[-1][1]['ok'] and os.path.exists(out)
+    # the exported file carries no raw activity text
+    assert 'Spool Erection' not in open(out, encoding='utf-8').read()
+
+    monkeypatch.setattr(PL, 'app_data_dir', lambda: str(dst))   # a fresh environment
+    h = _handler()
+    h._handle_kb_knowledge_import({'input_path': out})
+    res = h._captured[-1][1]
+    assert res['ok'] and res['result']['imported'] == 2 and res['projects_learned'] == 2
+
+
+def test_kb_knowledge_import_rejects_bad_file(tmp_path, monkeypatch):
+    import p6_kb.pattern_learning as PL
+    monkeypatch.setattr(PL, 'app_data_dir', lambda: str(tmp_path))
+    bad = str(tmp_path / 'bad.json')
+    with open(bad, 'w', encoding='utf-8') as f:
+        f.write('{"format": "not-ours"}')
+    h = _handler()
+    h._handle_kb_knowledge_import({'input_path': bad})
+    assert h._captured[-1][1]['ok'] is False

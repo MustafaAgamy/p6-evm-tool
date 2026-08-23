@@ -308,6 +308,12 @@ function renderReport(report) {
       <button class="btn-secondary" id="cx-xls">📊 Export Excel</button>
       <button class="btn-primary" id="cx-pdf">📄 Print Preview</button>
     </div>
+    <div class="cx-kb" id="cx-kb">
+      <span class="cx-kb-info" id="cx-kb-info">Cross-project knowledge base…</span>
+      <button class="btn-secondary" id="cx-kb-export">⬇ Export Knowledge</button>
+      <button class="btn-secondary" id="cx-kb-import">⬆ Import Knowledge</button>
+      <span class="cx-kb-note">Supporting knowledge only · generalized &amp; project-agnostic · never changes a finding</span>
+    </div>
     <div class="cx-eps hidden" id="cx-eps-row">
       <label for="cx-eps-select">Add this schedule to the Database under (EPS):</label>
       ${_typeSelectFor(report, 'cx-eps-select')}
@@ -342,6 +348,62 @@ function renderReport(report) {
   });
   document.querySelectorAll('.lp-act').forEach(b =>
     b.addEventListener('click', () => exportLearned(b.dataset.lact, b.dataset.type, b)));
+  const kbx = document.getElementById('cx-kb-export');
+  if (kbx) kbx.addEventListener('click', () => kbExport(kbx));
+  const kbi = document.getElementById('cx-kb-import');
+  if (kbi) kbi.addEventListener('click', () => kbImport(kbi));
+  kbKnowledgeRefresh();
+}
+
+async function kbKnowledgeRefresh() {
+  const info = document.getElementById('cx-kb-info');
+  if (!info) return;
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge`);
+    const d = await resp.json();
+    if (d.ok) {
+      info.textContent = `Cross-project knowledge: ${d.projects_learned} project(s) learned · `
+        + `${d.pattern_count} generalized pattern(s)`;
+    }
+  } catch { /* leave default text */ }
+}
+
+async function kbExport(btn) {
+  let path = null;
+  try { path = await window.pywebview.api.choose_save_path('constructability_knowledge.json', 'json'); }
+  catch { showError('Could not open the save dialog.'); return; }
+  if (!path) return;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Exporting…';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge/export`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ output_path: path }),
+    });
+    const d = await resp.json();
+    if (!d.ok) showError(d.error || 'Export failed.');
+  } catch { showError('Could not reach the local server.'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+
+async function kbImport(btn) {
+  let path = null;
+  try { path = await window.pywebview.api.choose_open_path('json'); }
+  catch { showError('Could not open the file dialog.'); return; }
+  if (!path) return;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Importing…';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge/import`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input_path: path }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showError(d.error || 'Import failed.'); return; }
+    const r = d.result || {};
+    const info = document.getElementById('cx-kb-info');
+    if (info) info.textContent = `Cross-project knowledge: ${d.projects_learned} project(s) learned · `
+      + `${d.pattern_count} generalized pattern(s) — imported ${r.imported || 0}, refreshed ${r.refreshed || 0}`;
+  } catch { showError('Could not reach the local server.'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
 }
 
 async function exportLearned(kind, type, btn) {

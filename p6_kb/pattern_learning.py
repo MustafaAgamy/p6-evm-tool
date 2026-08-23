@@ -125,6 +125,81 @@ def project_count(store):
     return len(store.get('projects') or {})
 
 
+# ── export / import (user-extensible knowledge) ──────────────────────────────
+
+_KNOWLEDGE_FORMAT = 'constructability-knowledge'
+_KEY_RX = __import__('re').compile(r'^[a-z_*]{1,40}:[A-Z_*]{1,40}>[a-z_*]{1,40}:[A-Z_*]{1,40}:[A-Z]{2}$')
+
+
+def _valid_transition(key):
+    """A transition key is a GENERALIZED concept (system:PHASE>system:PHASE:TYPE) — no
+    spaces, no raw names. This both guards the format and enforces the project-agnostic
+    rule: anything that looks like an activity/WBS name (spaces, long free text) is
+    rejected on import so raw project data can never enter the reusable knowledge."""
+    return isinstance(key, str) and bool(_KEY_RX.match(key))
+
+
+def export_knowledge(base=None, store=None):
+    """The full learned knowledge as a portable, project-agnostic knowledge file: only
+    generalized transitions + provenance (project label/type), never activity/WBS text.
+    This is what the user downloads and can move between environments."""
+    store = store if store is not None else load_store(base)
+    projects = {}
+    for pid, rec in (store.get('projects') or {}).items():
+        projects[pid] = {'type': rec.get('type', ''),
+                         'systems': list(rec.get('systems', [])),
+                         'transitions': [t for t in rec.get('transitions', []) if _valid_transition(t)]}
+    return {'format': _KNOWLEDGE_FORMAT, 'version': _STORE_VERSION,
+            'projects_count': len(projects), 'projects': projects}
+
+
+def import_knowledge(data, base=None, store=None):
+    """Merge a knowledge file into the store. Deduped by project id (a project already
+    present is refreshed, never double-counted). Every transition is validated as a
+    generalized concept — malformed / raw-looking entries are dropped, never stored.
+    Returns {imported, refreshed, skipped, total, dropped_transitions}."""
+    if not isinstance(data, dict) or data.get('format') != _KNOWLEDGE_FORMAT:
+        raise ValueError('not a constructability-knowledge file')
+    owns = store is None
+    store = store if store is not None else load_store(base)
+    existing = store.setdefault('projects', {})
+    imported = refreshed = skipped = dropped = 0
+    for pid, rec in (data.get('projects') or {}).items():
+        if not isinstance(rec, dict):
+            skipped += 1
+            continue
+        clean = [t for t in rec.get('transitions', []) if _valid_transition(t)]
+        dropped += len(rec.get('transitions', []) or []) - len(clean)
+        if not clean and not rec.get('systems'):
+            skipped += 1
+            continue
+        refreshed += 1 if pid in existing else 0
+        imported += 0 if pid in existing else 1
+        existing[pid] = {'type': str(rec.get('type', ''))[:80],
+                         'systems': [str(s)[:40] for s in rec.get('systems', []) if isinstance(s, str)],
+                         'transitions': clean}
+    if owns:
+        _save_store(store, base)
+    return {'imported': imported, 'refreshed': refreshed, 'skipped': skipped,
+            'total': len(existing), 'dropped_transitions': dropped}
+
+
+def provenance(store=None, base=None, limit=200):
+    """Which imported projects support each learned pattern, and how strongly — the view
+    that lets a user SEE the corroboration behind the knowledge. Returns patterns sorted
+    by support (most-corroborated first)."""
+    store = store if store is not None else load_store(base)
+    tx_index, _sy = _index(store)
+    labels = {pid: (rec.get('type') or pid) for pid, rec in (store.get('projects') or {}).items()}
+    rows = []
+    for key, pids in tx_index.items():
+        rows.append({'pattern': key, 'support': len(pids),
+                     'projects': sorted(labels.get(p, p) for p in pids)})
+    rows.sort(key=lambda r: (-r['support'], r['pattern']))
+    return {'projects_learned': project_count(store), 'patterns': rows[:limit],
+            'pattern_count': len(rows)}
+
+
 # ── annotation (supporting only — never changes whether a finding fires) ──────
 
 def _expected_transition(finding):
