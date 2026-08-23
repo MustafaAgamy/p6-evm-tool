@@ -18,6 +18,9 @@ async function post(path, body) {
   return resp.json();
 }
 
+// the app's current appearance mode (Light/Dark/Midnight/…) — carried into the PDF/Excel
+function appearance() { return document.documentElement.getAttribute('data-appearance') || 'light'; }
+
 // ── module state ────────────────────────────────────────────────────────────
 const D = {
   catalog: [], projectId: null,
@@ -61,7 +64,18 @@ function comp(id) {
   return D.custom[id] || D.catalog.find(c => c.id === id) || null;
 }
 function titleOf(c) { return D.titles[c.id] != null ? D.titles[c.id] : c.title; }
-function sizeOf(c) { return D.sizes[c.id] != null ? D.sizes[c.id] : (c.size || 1); }
+// shape = {w:1|2 columns, h:1|2 height}. Migrates the old numeric size (2 => wide).
+function shapeOf(c) {
+  const s = D.sizes[c.id];
+  if (s && typeof s === 'object') return { w: s.w || 1, h: s.h || 1 };
+  if (s === 2 || c.size === 2) return { w: 2, h: 1 };
+  return { w: 1, h: 1 };
+}
+const SHAPES = [{ w: 1, h: 1 }, { w: 2, h: 1 }, { w: 1, h: 2 }, { w: 2, h: 2 }];
+function nextShape(sh) {
+  const i = SHAPES.findIndex(x => x.w === sh.w && x.h === sh.h);
+  return SHAPES[(i + 1) % SHAPES.length];
+}
 
 // ── entry ────────────────────────────────────────────────────────────────────
 export async function renderDashboardPanel() {
@@ -231,7 +245,8 @@ function renderBoard() {
   }
   cards.forEach(c => {
     const el = document.createElement('div');
-    el.className = 'pd-panel' + (sizeOf(c) === 2 ? ' span2' : '');
+    const sh = shapeOf(c);
+    el.className = 'pd-panel' + (sh.w === 2 ? ' span2' : '') + (sh.h === 2 ? ' pd-tall' : '');
     el.dataset.id = c.id;
     el.draggable = D.editing;
     el.innerHTML =
@@ -248,7 +263,7 @@ function renderBoard() {
 function ctlBtns(id) {
   return `<button class="pd-cbtn" data-act="up" data-id="${id}" title="Move up">↑</button>
           <button class="pd-cbtn" data-act="down" data-id="${id}" title="Move down">↓</button>
-          <button class="pd-cbtn" data-act="size" data-id="${id}" title="Toggle width">⇔</button>
+          <button class="pd-cbtn" data-act="size" data-id="${id}" title="Resize — width × height">⤢</button>
           <button class="pd-cbtn rm" data-act="rm" data-id="${id}" title="Remove">✕</button>`;
 }
 
@@ -257,7 +272,7 @@ function wireCard(el, c) {
     const act = b.dataset.act, id = b.dataset.id;
     if (act === 'up') move(id, -1);
     else if (act === 'down') move(id, 1);
-    else if (act === 'size') { D.sizes[id] = sizeOf(comp(id)) === 2 ? 1 : 2; renderBoard(); }
+    else if (act === 'size') { D.sizes[id] = nextShape(shapeOf(comp(id))); renderBoard(); }
     else if (act === 'rm') { D.selected = D.selected.filter(x => x !== id); renderBoard(); }
   }));
   el.querySelectorAll('[contenteditable="true"][data-id]').forEach(t =>
@@ -540,7 +555,7 @@ function composition() {
     header: D.header,
     components: D.selected.map(comp).filter(Boolean).map(c => ({
       id: c.id, type: (D.payloads[c.id]?.type) || c.type, title: titleOf(c),
-      source: c.source, size: sizeOf(c), payload: D.payloads[c.id] || { type: c.type, data: {} },
+      source: c.source, size: shapeOf(c).w, payload: D.payloads[c.id] || { type: c.type, data: {} },
     })),
   };
 }
@@ -548,7 +563,7 @@ async function exportPdf(e) {
   const btn = e?.currentTarget;
   clearError();
   try {
-    const res = await post('api/dashboard/report', { composition: composition(), preview: true });
+    const res = await post('api/dashboard/report', { composition: composition(), preview: true, theme: appearance() });
     if (!res.ok || !res.html) { showError(res.error || 'Preview failed.'); return; }
     showReportPreview({
       title: 'Professional Dashboard — print preview',
@@ -561,7 +576,7 @@ async function exportPdf(e) {
 async function saveDashboardPdf() {
   const path = await window.pywebview.api.choose_save_path('professional_dashboard.pdf', 'pdf');
   if (!path) return false;
-  const res = await post('api/dashboard/report', { composition: composition(), output_path: path });
+  const res = await post('api/dashboard/report', { composition: composition(), output_path: path, theme: appearance() });
   if (!res.ok) { showError(res.error || 'PDF generation failed.'); return false; }
   return true;
 }

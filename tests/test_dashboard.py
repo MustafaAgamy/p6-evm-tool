@@ -178,6 +178,34 @@ def test_write_dashboard_xlsx_is_valid_workbook():
         os.remove(path)
 
 
+def test_render_dashboard_html_is_themed():
+    from p6_dashboard.exporters import render_dashboard_html
+    html = render_dashboard_html({'header': {'title': 'X'}, 'components': []}, theme='dark')
+    assert 'rpt-theme' in html and '--rpt-bg' in html      # appearance theme injected
+    # unknown/absent theme still renders (falls back)
+    assert '<html' in render_dashboard_html({'header': {}, 'components': []}, theme='bogus')
+
+
+_PNG_1x1 = (b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06'
+            b'\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00'
+            b'\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82')
+
+
+def test_write_dashboard_xlsx_embeds_image_when_given():
+    path = os.path.join(tempfile.gettempdir(), 'pd_img.xlsx')
+    write_dashboard_xlsx(path, _COMP, image_png=_PNG_1x1)
+    try:
+        with zipfile.ZipFile(path) as z:
+            names = z.namelist()
+            assert 'xl/media/image1.png' in names          # the exact-PDF image is embedded
+            assert 'xl/drawings/drawing1.xml' in names
+            for nm in names:
+                if nm.endswith('.xml') or nm.endswith('.rels'):
+                    parseString(z.read(nm))
+    finally:
+        os.remove(path)
+
+
 def test_write_dashboard_xlsx_data_only_when_no_charts():
     # a composition with no chart components stays a plain (valid) workbook
     comp = {'header': {'title': 'X'}, 'components': [

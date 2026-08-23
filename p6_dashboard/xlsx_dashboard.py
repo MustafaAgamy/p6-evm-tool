@@ -328,11 +328,84 @@ def _write(path, sheet_xml, charts, chart_xmls):
 
 # ── public entry ────────────────────────────────────────────────────────────
 
-def write_dashboard_xlsx(path, composition):
+def write_dashboard_xlsx(path, composition, image_png=None):
+    """When ``image_png`` (a rendered picture of the exact PDF one-pager) is supplied,
+    the workbook is that image on one sheet — so Excel matches the PDF exactly. Without
+    it (e.g. Chrome unavailable) it falls back to the styled grid, then to a plain
+    data workbook — the file always opens."""
+    if image_png:
+        try:
+            _write_image_workbook(path, image_png)
+            return
+        except Exception:
+            pass
     try:
         _write_grid(path, composition)
     except Exception:
         _write_fallback(path, composition)
+
+
+def _png_size(b):
+    import struct
+    if len(b) >= 24 and b[:8] == b'\x89PNG\r\n\x1a\n':
+        try:
+            w, h = struct.unpack('>II', b[16:24])
+            return int(w), int(h)
+        except Exception:
+            pass
+    return 1400, 1000
+
+
+def _write_image_workbook(path, png):
+    """One sheet holding the dashboard image at A1 (1 px = 9525 EMU)."""
+    w, h = _png_size(png)
+    cx, cy = w * 9525, h * 9525
+    ct = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+          '<Default Extension="xml" ContentType="application/xml"/>'
+          '<Default Extension="png" ContentType="image/png"/>'
+          '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+          '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+          '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+          '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'
+          '</Types>')
+    root_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                 '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')
+    wb = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+          ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+          '<sheets><sheet name="Dashboard" sheetId="1" r:id="rId1"/></sheets></workbook>')
+    wb_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+               '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+               '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
+    sheet = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+             '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+             ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+             '<sheetData/><drawing r:id="rId1"/></worksheet>')
+    sheet_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                  '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>')
+    drawing = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+               f'<xdr:wsDr xmlns:xdr="{_XNS}" xmlns:a="{_ANS}"><xdr:oneCellAnchor>'
+               f'<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>'
+               f'<xdr:ext cx="{cx}" cy="{cy}"/>'
+               f'<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="Dashboard"/><xdr:cNvPicPr/></xdr:nvPicPr>'
+               f'<xdr:blipFill><a:blip xmlns:r="{_RNS}" r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>'
+               f'<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm>'
+               f'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/>'
+               f'</xdr:oneCellAnchor></xdr:wsDr>')
+    drawing_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>')
+    with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr('[Content_Types].xml', ct)
+        z.writestr('_rels/.rels', root_rels)
+        z.writestr('xl/workbook.xml', wb)
+        z.writestr('xl/_rels/workbook.xml.rels', wb_rels)
+        z.writestr('xl/styles.xml', _STYLES)
+        z.writestr('xl/worksheets/sheet1.xml', sheet)
+        z.writestr('xl/worksheets/_rels/sheet1.xml.rels', sheet_rels)
+        z.writestr('xl/drawings/drawing1.xml', drawing)
+        z.writestr('xl/drawings/_rels/drawing1.xml.rels', drawing_rels)
+        z.writestr('xl/media/image1.png', png)
 
 
 def _write_grid(path, composition):

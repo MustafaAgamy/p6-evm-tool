@@ -1541,6 +1541,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 
 .pd-kpi, .pd-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; position: relative; display: flex; flex-direction: column; }
 .pd-panel.span2 { grid-column: span 2; }
+.pd-panel.pd-tall { min-height: 300px; } .pd-panel.pd-tall .pd-p-body { display: flex; flex-direction: column; justify-content: center; }
 .pd-wrap.editing .pd-kpi, .pd-wrap.editing .pd-panel { outline: 1px dashed var(--accent); outline-offset: -1px; }
 .pd-k-head, .pd-p-head { background: var(--pd-phead); color: var(--pd-phead-t); font-weight: 700; font-size: 11px; padding: 5px 26px 5px 8px; border-bottom: 1px solid var(--border); position: relative; }
 .pd-k-head { text-align: center; text-transform: uppercase; letter-spacing: .4px; font-size: 9.5px; }

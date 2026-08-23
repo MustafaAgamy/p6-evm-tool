@@ -16,6 +16,7 @@ _BUILTINS = (
     'constructability',
     'update',
     'twofile',
+    'critpath',
 )
 
 
@@ -27,9 +28,9 @@ def load_builtins():
     # run once per process, but register_provider is idempotent.
     from p6_dashboard.registry import register_provider
     from p6_dashboard.providers import (
-        overview, evm, audit, calendar, constructability, update, twofile,
+        overview, evm, audit, calendar, constructability, update, twofile, critpath,
     )
-    for mod in (overview, evm, audit, calendar, constructability, update, twofile):
+    for mod in (overview, evm, audit, calendar, constructability, update, twofile, critpath):
         prov = getattr(mod, 'provide', None)
         if prov is not None:
             try:

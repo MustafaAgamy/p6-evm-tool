@@ -76,7 +76,7 @@ def provide(ctx):
     if isinstance(oos, dict):
         k = oos.get('kpis') or {}
         out.append(component(
-            'audit.oos', 'Out of Sequence', SOURCE, 'kpi',
+            'audit.oos', 'Out of Sequence', 'Out of Sequence', 'kpi',
             lambda c, k=k: payload_kpi(
                 fmt.pct(k.get('oos_pct')),
                 note=f"{k.get('oos_count', 0)} activities · {k.get('critical_oos', 0)} critical",
@@ -88,7 +88,7 @@ def provide(ctx):
     if isinstance(lag, dict):
         k = lag.get('kpis') or {}
         out.append(component(
-            'audit.lag', 'Lag & Lead Verdict', SOURCE, 'status',
+            'audit.lag', 'Lag & Lead Verdict', 'Lag Report', 'status',
             lambda c, k=k: payload_status(
                 k.get('verdict') or 'Reviewed',
                 status=_verdict_status(k.get('verdict')),

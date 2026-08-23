@@ -15,6 +15,20 @@ import html as _html
 
 from p6_dashboard.xlsx_dashboard import write_dashboard_xlsx  # noqa: F401  (re-export for server)
 
+try:
+    import report_theme            # shared 6-mode appearance themes (light/dark/…); merged from #26
+except Exception:                  # pragma: no cover - defensive (older base)
+    report_theme = None
+
+
+def _theme_tag(mode):
+    if report_theme is None:
+        return ''
+    try:
+        return report_theme.theme_style_tag(report_theme.normalize(mode))
+    except Exception:
+        return ''
+
 _STATUS = {'good': 's-good', 'warn': 's-warn', 'bad': 's-bad', 'neutral': 's-neutral'}
 
 
@@ -216,7 +230,7 @@ def _logos(header, side):
     return f'<div class="logos logos-{side}">{imgs}</div>'
 
 
-def render_dashboard_html(composition):
+def render_dashboard_html(composition, theme='light'):
     header = composition.get('header') or {}
     comps = composition.get('components') or []
     panels = []
@@ -226,6 +240,7 @@ def render_dashboard_html(composition):
             f'<section class="panel{span}"><div class="p-head">{_e(c.get("title"))}</div>'
             f'<div class="p-body">{_body(c)}</div></section>')
     return _DOC.format(
+        theme_tag=_theme_tag(theme),
         title=_e(header.get('title') or 'Project Dashboard'),
         subtitle=_e(header.get('subtitle') or ''),
         tsz=_e(header.get('title_size') or 'm'),
@@ -236,49 +251,51 @@ def render_dashboard_html(composition):
     )
 
 
+# Colours are report_theme --rpt-* tokens (merged appearance modes) with hex fallbacks,
+# so the dashboard PDF honours the 6 looks and still renders if a token is absent.
 _DOC = '''<!doctype html><html><head><meta charset="utf-8"><style>
 @page {{ size: A4 landscape; margin: 12mm; }}
 * {{ box-sizing: border-box; }}
-body {{ font: 11px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:#1e293b; margin:0; }}
-.titleband {{ display:flex; align-items:center; gap:14px; border:1px solid #b7c5d8; border-radius:5px;
-  padding:9px 14px; margin-bottom:12px; background:linear-gradient(180deg,#d6e2f2,#fff); }}
+body {{ font: 11px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:var(--rpt-ink,#1e293b); background:var(--rpt-bg,#fff); margin:0; }}
+.titleband {{ display:flex; align-items:center; gap:14px; border:1px solid var(--rpt-edge,#b7c5d8); border-radius:5px;
+  padding:9px 14px; margin-bottom:12px; background:var(--rpt-surface-2,#d6e2f2); }}
 .titleband .ttl {{ flex:1; text-align:center; }}
-.titleband .t {{ font-weight:800; color:#1f3c66; }}
+.titleband .t {{ font-weight:800; color:var(--rpt-accent,#1f3c66); }}
 .titleband .t.tsz-s {{ font-size:13px; }} .titleband .t.tsz-m {{ font-size:16px; }} .titleband .t.tsz-l {{ font-size:20px; }} .titleband .t.tsz-xl {{ font-size:25px; }}
-.titleband .s {{ color:#5d6b80; margin-top:2px; }}
+.titleband .s {{ color:var(--rpt-muted,#5d6b80); margin-top:2px; }}
 .titleband .s.ssz-s {{ font-size:10px; }} .titleband .s.ssz-m {{ font-size:11px; }} .titleband .s.ssz-l {{ font-size:13px; }} .titleband .s.ssz-xl {{ font-size:16px; }}
 .logos {{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }}
 .logo {{ object-fit:contain; }}
 .logo.sz-s {{ max-height:28px; max-width:64px; }} .logo.sz-m {{ max-height:42px; max-width:96px; }} .logo.sz-l {{ max-height:60px; max-width:140px; }} .logo.sz-xl {{ max-height:84px; max-width:190px; }}
 .grid {{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }}
-.panel {{ border:1px solid #b7c5d8; border-radius:5px; overflow:hidden; break-inside:avoid; }}
+.panel {{ border:1px solid var(--rpt-edge,#b7c5d8); border-radius:5px; overflow:hidden; break-inside:avoid; background:var(--rpt-surface,#fff); }}
 .panel.span2 {{ grid-column:span 2; }}
-.p-head {{ background:linear-gradient(180deg,#d6e2f2,#c4d6ec); color:#1f3c66; font-weight:700;
-  font-size:11px; text-align:center; padding:5px; border-bottom:1px solid #b7c5d8; }}
+.p-head {{ background:var(--rpt-surface-2,#d6e2f2); color:var(--rpt-th-ink,#1f3c66); font-weight:700;
+  font-size:11px; text-align:center; padding:5px; border-bottom:1px solid var(--rpt-edge,#b7c5d8); }}
 .p-body {{ padding:10px 12px; }}
-.kpi-val {{ font-size:22px; font-weight:800; }} .kpi-note {{ font-size:10px; color:#5d6b80; margin-top:4px; }}
+.kpi-val {{ font-size:22px; font-weight:800; }} .kpi-note {{ font-size:10px; color:var(--rpt-muted,#5d6b80); margin-top:4px; }}
 .trend {{ font-size:10px; margin-left:6px; }}
-.s-good {{ color:#2e8b45; }} .s-warn {{ color:#c47d16; }} .s-bad {{ color:#c0392b; }} .s-neutral {{ color:#1e293b; }}
+.s-good {{ color:var(--rpt-good,#2e8b45); }} .s-warn {{ color:var(--rpt-warn,#c47d16); }} .s-bad {{ color:var(--rpt-bad,#c0392b); }} .s-neutral {{ color:var(--rpt-ink,#1e293b); }}
 .score-row {{ display:flex; align-items:center; gap:12px; }} .score-band {{ font-weight:700; font-size:12px; }}
 .status-lbl {{ font-size:15px; font-weight:800; }}
 .stats {{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }}
-.stat-l {{ font-size:9px; text-transform:uppercase; letter-spacing:.4px; color:#5d6b80; }}
+.stat-l {{ font-size:9px; text-transform:uppercase; letter-spacing:.4px; color:var(--rpt-muted,#5d6b80); }}
 .stat-v {{ font-size:15px; font-weight:800; }}
-.finds .find {{ display:flex; gap:8px; padding:5px 0; border-bottom:1px solid #eef2f7; font-size:10.5px; }}
+.finds .find {{ display:flex; gap:8px; padding:5px 0; border-bottom:1px solid var(--rpt-hair,#eef2f7); font-size:10.5px; }}
 .dot {{ width:8px; height:8px; border-radius:50%; margin-top:4px; flex:none; background:currentColor; }}
-.find .src {{ color:#93a0b3; font-size:9px; }}
+.find .src {{ color:var(--rpt-muted,#93a0b3); font-size:9px; }}
 .tbl {{ width:100%; border-collapse:collapse; font-size:10px; }}
-.tbl th,.tbl td {{ border:1px solid #e2e8f0; padding:3px 6px; text-align:left; }}
-.tbl th {{ background:#eef2f7; font-weight:700; }}
+.tbl th,.tbl td {{ border:1px solid var(--rpt-hair,#e2e8f0); padding:3px 6px; text-align:left; }}
+.tbl th {{ background:var(--rpt-surface-2,#eef2f7); font-weight:700; }}
 .barrow {{ display:grid; grid-template-columns:90px 1fr 56px; align-items:center; gap:8px; margin:6px 0; font-size:10.5px; }}
-.barlbl {{ color:#5d6b80; }} .track {{ height:10px; background:#e6ebf2; border-radius:2px; overflow:hidden; }}
+.barlbl {{ color:var(--rpt-muted,#5d6b80); }} .track {{ height:10px; background:var(--rpt-surface-2,#e6ebf2); border-radius:2px; overflow:hidden; }}
 .fill {{ height:100%; border-radius:2px; }} .barval {{ text-align:right; }}
-.legend {{ display:flex; gap:11px; flex-wrap:wrap; font-size:9px; color:#5d6b80; margin-top:6px; justify-content:center; }}
+.legend {{ display:flex; gap:11px; flex-wrap:wrap; font-size:9px; color:var(--rpt-muted,#5d6b80); margin-top:6px; justify-content:center; }}
 .legend i {{ width:9px; height:9px; border-radius:2px; display:inline-block; margin-right:4px; }}
 .usertext {{ font-size:11px; line-height:1.5; }} .userimg {{ max-width:100%; border-radius:4px; }}
-.empty {{ color:#93a0b3; font-size:11px; text-align:center; padding:10px; }}
+.empty {{ color:var(--rpt-muted,#93a0b3); font-size:11px; text-align:center; padding:10px; }}
 svg {{ display:block; }}
-</style></head><body>
+</style>{theme_tag}</head><body>
 <div class="titleband">{logo_left}<div class="ttl"><div class="t tsz-{tsz}">{title}</div><div class="s ssz-{ssz}">{subtitle}</div></div>{logo_right}</div>
 <div class="grid">{panels}</div>
 </body></html>'''
