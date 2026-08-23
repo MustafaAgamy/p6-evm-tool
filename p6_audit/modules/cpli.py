@@ -22,8 +22,12 @@ Per Ibrahim's baseline rule, a healthy baseline must carry total float >= 0 at
 the finish milestone (CPLI >= 1.0). Negative float is a re-plan signal, surfaced
 here as `baseline_rule_met = False`.
 
-Score is CPLI itself expressed as a percent (capped at 100); the findings list
-is the DRIVING PATH — every activity P6 flags critical.
+SCORE (Ibrahim's decision): the sub-feature score is the CRITICAL-PATH DENSITY —
+the share of task-dependent activities that sit on the critical path — banded so a
+low density scores high (a schedule with few critical activities is less fragile).
+The CPLI ratio above and the baseline float >= 0 rule are KEPT AS CONTEXT indicators
+on the page; they no longer drive the score. The findings list is the DRIVING PATH —
+every activity P6 flags critical.
 """
 from p6_evm.calendars import signed_working_days
 from p6_audit.scoring import uniform_grade
@@ -33,15 +37,15 @@ NAME = 'Critical Path / CPLI'
 
 TARGET = 0.95  # DCMA acceptance threshold for CPLI
 
-# Critical-path DENSITY — an INDICATOR only, shown next to CPLI. It never changes the
-# CPLI score; it flags a schedule where too many activities are critical (fragile).
-# Fewer critical activities = healthier. (upper %bound, score, grade)
+# Critical-path DENSITY — THIS IS the CPLI sub-feature score. It bands the share of
+# task-dependent activities that are critical: too many critical = fragile (small
+# slips ripple), so a low density scores high. (upper %bound, score, grade)
 _DENSITY_BANDS = [(20.0, 100, 'Excellent'), (25.0, 95, 'Good'), (30.0, 90, 'Acceptable'),
                   (35.0, 85, 'Watch'), (40.0, 80, 'Watch')]
 
 
 def _critical_density(pct):
-    """Informational density indicator (NOT the CPLI score). (score, grade)."""
+    """The CPLI sub-feature score from critical-path density. (score, grade)."""
     if pct is None:
         return (None, None)
     for thr, sc, gr in _DENSITY_BANDS:
@@ -115,20 +119,16 @@ def run_cpli(graph, config):
     else:
         cpl, cpl_basis = None, None
 
-    # 5) CPLI.
+    # 5) CPLI ratio — KEPT AS CONTEXT ONLY. The sub-feature score is the critical-path
+    #    density (step 7); the ratio and the baseline float >= 0 rule stay on the page
+    #    as supporting indicators, no longer driving the score.
     cpli = compute_cpli(cpl, tf)
+    cpli_computable = cpli is not None
+    baseline_rule_met = bool(tf is not None and tf >= 0)
 
-    # 6) Score = CPLI as a percent, clamped to 0..100 so a deeply negative float
-    #    cannot push a negative score into the weighted roll-up. When CPLI is not
-    #    computable the check does not penalise the schedule (100), and
-    #    `computable` tells the dashboard to say "not computable", not "Excellent".
-    computable = cpli is not None
-    score = round(max(0.0, min(100.0, cpli * 100)), 1) if computable else 100.0
-    grade = uniform_grade(score)
-    pct = round(100.0 - score, 1)
-
-    # Findings = the DRIVING PATH: one row per critical activity, carrying its dates
-    # so the driving-path timeline can be drawn straight from them.
+    # 6) Findings = the DRIVING PATH: one row per critical activity (any type), with
+    #    its dates, so the driving-path Gantt draws the full path incl. the finish
+    #    milestone diamond.
     findings = []
     for oid in graph.critical_ids():
         act = acts.get(oid, {})
@@ -158,32 +158,45 @@ def run_cpli(graph, config):
     # chronological — the timeline reads left to right; id breaks ties
     findings.sort(key=lambda f: (f['start'] or '', f['finish'] or '', str(f['activity_id'])))
 
-    critical_count = len(findings)
-    total_real = sum(1 for oid in acts if graph.is_real_activity(oid))
-    critical_pct = round(100.0 * critical_count / total_real, 1) if total_real else 0.0
+    # 7) SCORE = critical-path DENSITY. Numerator and denominator use the SAME
+    #    population — task-dependent activities (what P6 calls "activities") — so the
+    #    percentage is trustworthy. Fewer critical activities = less fragile schedule.
+    real_ids = [oid for oid in acts if graph.is_real_activity(oid)]
+    total_real = len(real_ids)
+    critical_count = sum(1 for oid in real_ids if acts[oid].get('is_critical'))
+    critical_pct = round(100.0 * critical_count / total_real, 1) if total_real else None
     density_score, density_grade = _critical_density(critical_pct)
 
-    baseline_rule_met = bool(tf is not None and tf >= 0)
+    computable = critical_pct is not None            # a density needs >= 1 task activity
+    score = float(density_score) if density_score is not None else 100.0
+    grade = uniform_grade(score)
+    pct = round(100.0 - score, 1)
+
     return {
         'module': MODULE,
         'name': NAME,
         'kpis': {
-            'cpli':                     round(cpli, 2) if cpli is not None else None,
-            'critical_path_length_days': cpl,
-            'cpl_basis':                 cpl_basis,      # 'working' | 'calendar' | None
+            # --- the sub-feature score driver: critical-path density ---
+            'critical_count':            critical_count,   # critical task-dependent activities
+            'critical_pct':              critical_pct,     # over all task-dependent activities
+            'total_activities':          total_real,
+            'critical_density_score':    density_score,    # == score
+            'critical_density_grade':    density_grade,
+            'driving_path_count':        len(findings),    # all critical incl. milestones (Gantt)
             'computable':                computable,
+            'score_basis':               'critical_density',
+            # --- CPLI ratio + baseline rule: CONTEXT indicators only ---
+            'cpli':                      round(cpli, 2) if cpli is not None else None,
+            'cpli_pct':                  round(max(0.0, min(100.0, cpli * 100)), 1) if cpli is not None else None,
+            'cpli_computable':           cpli_computable,
+            'critical_path_length_days': cpl,
+            'cpl_basis':                 cpl_basis,        # 'working' | 'calendar' | None
             'project_total_float_days':  tf,
             'target':                    TARGET,
-            'critical_count':            critical_count,
-            'critical_pct':              critical_pct,
-            'critical_density_score':    density_score,
-            'critical_density_grade':    density_grade,
-            'total_activities':          total_real,
             'finish_milestone_id':       finish_milestone.get('id') if finish_milestone else None,
-            'data_date':                 _iso(data_date),      # for the Gantt's data-date marker
-            'finish_date':               _iso(finish_date),    # completion marker
-            # also a KPI so Ibrahim's baseline rule survives the DB round-trip —
-            # only the KPIs are stored per module
+            'data_date':                 _iso(data_date),  # for the Gantt's data-date marker
+            'finish_date':               _iso(finish_date),  # completion marker
+            # a KPI so Ibrahim's baseline rule survives the DB round-trip
             'baseline_rule_met':         baseline_rule_met,
         },
         'pct':   pct,

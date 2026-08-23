@@ -607,17 +607,22 @@ def _cpli_driving_chart(m):
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
-def _cpli_density_note(m):
-    """The critical-path density indicator for the CPLI PDF — informational, never the score."""
+def _cpli_context_note(m):
+    """CPLI ratio + baseline-float rule — CONTEXT indicators for the CPLI PDF. The
+    sub-feature score itself is the critical-path density (see the scoring legend)."""
     k = m.get('kpis') or {}
-    sc = k.get('critical_density_score')
-    if sc is None:
+    ratio = k.get('cpli_pct')
+    tf = k.get('project_total_float_days')
+    if ratio is None and tf is None:
         return ''
-    return (f'<div class="slegend"><div class="t">Critical-path density — indicator only, not the CPLI score</div>'
-            f'<div class="d">{_esc(k.get("critical_pct"))}% of activities are critical &rarr; '
-            f'<b>{_esc(sc)} &middot; {_esc(k.get("critical_density_grade"))}</b>. '
-            f'Band: &le;20%&rarr;100 &middot; &le;25%&rarr;95 &middot; &le;30%&rarr;90 &middot; &le;35%&rarr;85 '
-            f'&middot; &le;40%&rarr;80 &middot; &gt;40%&rarr;75. This does not change the CPLI score.</div></div>')
+    rule_txt = ('Baseline rule met — total float &ge; 0' if k.get('baseline_rule_met')
+                else 'Negative float — re-plan (baseline must be &ge; 0)')
+    ratio_txt = '—' if ratio is None else f'{_pnum(ratio)}%'
+    tf_txt = '—' if tf is None else f'{_pnum(tf)} d'
+    return (f'<div class="slegend"><div class="t">CPLI ratio &amp; baseline rule — context, not the score</div>'
+            f'<div class="d">CPLI (CPL + TF) &divide; CPL = <b>{_esc(ratio_txt)}</b> (DCMA target &ge; 95%); '
+            f'completion total float = <b>{_esc(tf_txt)}</b>. {rule_txt}. '
+            f'The sub-feature score above is the critical-path density.</div></div>')
 
 
 def _sections(m, sections=None):
@@ -658,7 +663,7 @@ def _sections(m, sections=None):
     if on('executive'):
         parts.append(f'<h2 class="sec">Executive Dashboard</h2>{_presentation_dashboard(m)}')
         if mod == 'cpli':
-            parts.append(_cpli_density_note(m))
+            parts.append(_cpli_context_note(m))
     if on('scoring'):
         parts.append(_scoring_legend(m))
     if on('severity'):

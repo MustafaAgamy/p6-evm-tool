@@ -594,25 +594,24 @@ function renderCircularModule(m) {
 // and the driving path shown as a compact timeline + table. May be "not computed".
 function renderCpliModule(m) {
   const k = m.kpis || {};
-  const computable = k.computable !== false && k.cpli != null;
-  // Show CPLI as the module score (CPLI %, one decimal, clamped 0–100) so the
-  // tile and the gauge always agree — never a rounded 97 next to a 96.9 gauge.
-  const cpliPct = computable ? m.score : null;
+  const computable = k.computable !== false && k.critical_pct != null;   // density computable
+  const ratioComputable = k.cpli != null;                                // CPLI ratio (context)
+  const ratioPct = ratioComputable ? (k.cpli_pct != null ? k.cpli_pct : Math.round(k.cpli * 100)) : null;
   const ruleBadge = k.baseline_rule_met
     ? `<span class="shr-rule ok">Baseline rule met — total float ≥ 0</span>`
     : `<span class="shr-rule bad">Negative float — re-plan (baseline must be ≥ 0)</span>`;
   const fmTile = k.finish_date ? fmtDate(k.finish_date) : (k.finish_milestone_id || '—');
   const tiles = [
-    ['CPLI', computable ? `${cpliPct}%` : '—'],
-    ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
-    ['Completion Total Float', dnum(k.project_total_float_days)],
-    ['Critical Activities', k.critical_count == null ? '—' : Number(k.critical_count).toLocaleString()],
     ['Critical %', k.critical_pct == null ? '—' : `${k.critical_pct}%`],
+    ['Critical Activities', k.critical_count == null ? '—' : Number(k.critical_count).toLocaleString()],
+    ['CPLI (context)', ratioComputable ? `${ratioPct}%` : '—'],
+    ['Completion Total Float', dnum(k.project_total_float_days)],
+    ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
     ['Finish Milestone', fmTile],
   ];
   const verdict = computable
-    ? `CPLI ${cpliPct}% — how realistically the finish can still be met (DCMA target ${Math.round((k.target || 0.95) * 100)}%).`
-    : 'CPLI not computable — the schedule has no dated finish milestone, or no float on it.';
+    ? `${k.critical_pct}% of activities are on the critical path → score ${m.score}. Fewer critical activities = a less fragile schedule.`
+    : 'Critical-path density not computable — no task-dependent activities to assess.';
 
   document.getElementById('module-body').innerHTML = `
     <div class="audit-hero">
@@ -622,17 +621,17 @@ function renderCpliModule(m) {
           <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(computable ? (m.grade || '') : 'Not computed')}</div>
           <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
           <div class="coverage">${escapeHtml(verdict)}</div>
-          ${computable ? `<div style="margin-top:8px">${ruleBadge}</div>` : ''}
+          ${ratioComputable ? `<div style="margin-top:8px">${ruleBadge}</div>` : ''}
         </div>
       </div>
       <div class="kpi-tiles">${tiles.map(([lab, val]) => `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
     </div>
     <div class="shr-legend">
-      <b>How it's measured.</b> CPLI = (CPL + TF) ÷ CPL — DCMA 14-Point, Point 13. CPL is the critical-path length in working days from the data date to the completion milestone; TF is that milestone's total float. Ibrahim's baseline rule: total float must be ≥ 0 (CPLI ≥ 100%); negative float is a re-plan signal.
+      <b>How it's scored.</b> The score is the <b>critical-path density</b> — the share of task-dependent activities on the critical path. A schedule with many critical activities is fragile (small slips ripple), so fewer critical = a higher score.
+      <div style="margin-top:5px">Band: ≤ 20% → 100 · ≤ 25% → 95 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 80 · &gt; 40% → 75.</div>
     </div>
     <div class="shr-legend">
-      <b>Critical-path density — indicator only, not the CPLI score.</b> ${k.critical_pct ?? '—'}% of activities are critical → <b>${k.critical_density_score ?? '—'} · ${escapeHtml(k.critical_density_grade || '—')}</b>. A schedule with many critical activities is fragile — small slips ripple.
-      <div style="margin-top:5px">Band: ≤ 20% → 100 · ≤ 25% → 95 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 80 · &gt; 40% → 75. This never changes the CPLI score above.</div>
+      <b>Context — CPLI ratio &amp; baseline rule (not the score).</b> CPLI = (CPL + TF) ÷ CPL = <b>${ratioComputable ? `${ratioPct}%` : '—'}</b> — DCMA 14-Point, Point 13 (target ≥ 95%). Completion total float = <b>${dnum(k.project_total_float_days)}</b>. Ibrahim's baseline rule: total float must be ≥ 0; negative float is a re-plan signal.
     </div>
     <div class="mod-sec">Driving path <span class="mod-sub">— the activities P6 flags critical, in sequence</span></div>
     ${cpliGantt(m.findings || [], m.kpis || {})}`;

@@ -51,31 +51,35 @@ def test_days_and_num_columns_right_align():
 
 
 def test_cpli_tiles_use_module_score_and_dates():
-    m = {'module': 'cpli', 'name': 'Critical Path / CPLI', 'score': 99.0, 'grade': 'Excellent', 'pct': 1.0,
-         'kpis': {'cpli': 0.99, 'computable': True, 'critical_path_length_days': 366, 'cpl_basis': 'working',
+    # score is now the critical-path DENSITY; the CPLI ratio is context
+    m = {'module': 'cpli', 'name': 'Critical Path / CPLI', 'score': 90.0, 'grade': 'Acceptable', 'pct': 10.0,
+         'kpis': {'cpli': 1.04, 'cpli_pct': 100.0, 'cpli_computable': True, 'computable': True,
+                  'critical_path_length_days': 366, 'cpl_basis': 'working',
                   'project_total_float_days': 4, 'target': 0.95, 'finish_milestone_id': 'A1130',
-                  'critical_count': 4, 'critical_pct': 66.7, 'finish_date': '2028-06-12'},
+                  'critical_count': 30, 'critical_pct': 30.0, 'total_activities': 100,
+                  'finish_date': '2028-06-12'},
          'findings': [{'activity_id': 'A1000', 'activity_name': 'Mob', 'wbs_path': 'P > Civil',
                        'start': '2026-02-09', 'finish': '2026-02-27', 'total_float_days': 0}]}
     p = build_presentation(m)
     labels = [t['label'] for t in p['tiles']]
-    assert p['tiles'][0] == {'label': 'CPLI', 'value': '99%'}         # from module score, not raw 0.99
-    assert 'DCMA Target' not in labels                                # removed from the PDF tiles too
-    assert {'label': 'Critical Activities', 'value': '4'} in p['tiles']
-    assert {'label': 'Critical %', 'value': '66.7%'} in p['tiles']
+    assert p['tiles'][0] == {'label': 'Critical %', 'value': '30%'}   # density drives the score
+    assert 'DCMA Target' not in labels
+    assert {'label': 'Critical Activities', 'value': '30'} in p['tiles']
+    assert {'label': 'CPLI (context)', 'value': '100%'} in p['tiles']  # ratio kept as context, not the score
     assert {'label': 'Finish Milestone', 'value': '12-Jun-2028'} in p['tiles']   # date, not the id
     start_idx = [c['label'] for c in p['columns']].index('Start')
     assert p['rows'][0][start_idx] == {'text': '2026-02-09', 'cls': 'mut'}
-    assert 'CPLI 99%' in p['verdict']
+    assert '30% of activities are on the critical path' in p['verdict']
 
 
 def test_cpli_not_computable():
     m = {'module': 'cpli', 'score': None, 'grade': None, 'pct': None,
-         'kpis': {'cpli': None, 'computable': False, 'critical_path_length_days': None,
+         'kpis': {'cpli': None, 'cpli_computable': False, 'computable': False,
+                  'critical_path_length_days': None, 'critical_pct': None,
                   'project_total_float_days': None, 'target': 0.95, 'finish_milestone_id': None},
          'findings': []}
     p = build_presentation(m)
-    assert p['tiles'][0] == {'label': 'CPLI', 'value': '—'}
+    assert p['tiles'][0] == {'label': 'Critical %', 'value': '—'}
     assert 'not computable' in p['verdict']
 
 
@@ -128,13 +132,15 @@ def test_scoring_relationship_types_shows_fs_derivation():
 
 
 def test_cpli_scoring_has_its_own_formula():
-    m = {'module': 'cpli', 'score': 99.0, 'pct': 1.0,
-         'kpis': {'cpli': 0.99, 'computable': True, 'critical_path_length_days': 366,
+    m = {'module': 'cpli', 'score': 90.0, 'pct': 10.0,
+         'kpis': {'cpli': 1.04, 'cpli_pct': 100.0, 'cpli_computable': True, 'computable': True,
+                  'critical_path_length_days': 366, 'critical_pct': 30.0,
                   'project_total_float_days': 4, 'target': 0.95, 'finish_milestone_id': 'A1130'},
          'findings': []}
     s = build_presentation(m)['scoring']
-    assert 'CPLI' in s['formula'] and '(CPL + TF)' in s['formula']
-    assert 'Metric 13' in s['benchmark']
+    assert 'density' in s['formula']                       # score is critical-path density now
+    assert '≤ 20%' in s['bands'] and '> 40%' in s['bands']  # the density band is the criteria
+    assert 'Metric 13' in s['benchmark']                   # CPLI ratio still cited as context
 
 
 def test_severity_legend_reflects_rule_engine():

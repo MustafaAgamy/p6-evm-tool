@@ -53,16 +53,18 @@ def test_finish_milestone_tf_zero_scores_100():
     g = _g(acts, data_date=data_date, calendars={'C1': cal})
     r = run_cpli(g, CONFIG)
 
-    assert r['kpis']['cpli'] == 1.0
-    assert r['kpis']['computable'] is True
+    assert r['kpis']['cpli'] == 1.0                     # CPLI ratio kept as context
+    assert r['kpis']['cpli_computable'] is True
     assert r['kpis']['critical_path_length_days'] is not None
     assert r['kpis']['critical_path_length_days'] > 0
-    assert r['score'] == 100.0
-    assert r['pct'] == 0.0
-    assert r['grade'] == 'Excellent'
     assert r['baseline_rule_met'] is True
     assert r['kpis']['finish_milestone_id'] == 'm'
     assert r['kpis']['target'] == 0.95
+    # no task-dependent activities -> density not computable -> score defaults to 100
+    assert r['kpis']['computable'] is False
+    assert r['score'] == 100.0
+    assert r['pct'] == 0.0
+    assert r['grade'] == 'Excellent'
 
 
 # ── behind plan: TF = -22 via the calendar-days fallback → score < 95 ───────
@@ -78,9 +80,8 @@ def test_negative_float_fails_baseline_rule():
 
     assert r['kpis']['critical_path_length_days'] == 380
     assert r['kpis']['cpli'] == 0.94
-    assert r['score'] < 95                              # below the DCMA acceptance score
-    assert r['kpis']['cpli'] < r['kpis']['target']     # 0.94 < 0.95 target -> fails DCMA
-    assert r['baseline_rule_met'] is False
+    assert r['kpis']['cpli'] < r['kpis']['target']     # 0.94 < 0.95 target -> fails DCMA (context)
+    assert r['baseline_rule_met'] is False             # negative float breaks the baseline rule
 
 
 # ── no finish / float data anywhere → safe defaults, no crash ───────────────
@@ -123,6 +124,52 @@ def test_findings_are_the_driving_path():
     assert f0['start'] is None                   # this fixture dates finishes only
 
 
+# ── the SUB-FEATURE SCORE is the critical-path density band ─────────────────
+def _acts_with(crit, total):
+    a = {}
+    for i in range(total):
+        a[f't{i}'] = _act(f't{i}', is_critical=(i < crit),
+                          planned_finish=datetime(2026, 2, 1), total_float_days=0.0)
+    return a
+
+
+def test_score_is_critical_path_density():
+    """Score = share of task-dependent activities on the critical path, banded:
+    <=20% -> 100, <=25% -> 95, <=30% -> 90, <=35% -> 85, <=40% -> 80, >40% -> 75."""
+    dd = datetime(2026, 1, 1)
+    r10 = run_cpli(_g(_acts_with(1, 10), data_date=dd), CONFIG)   # 10%
+    assert r10['kpis']['critical_pct'] == 10.0
+    assert r10['kpis']['critical_count'] == 1
+    assert r10['kpis']['total_activities'] == 10
+    assert r10['score'] == 100.0
+
+    r30 = run_cpli(_g(_acts_with(3, 10), data_date=dd), CONFIG)   # 30%
+    assert r30['kpis']['critical_pct'] == 30.0
+    assert r30['score'] == 90.0
+
+    r50 = run_cpli(_g(_acts_with(5, 10), data_date=dd), CONFIG)   # 50% (>40%)
+    assert r50['kpis']['critical_pct'] == 50.0
+    assert r50['score'] == 75.0
+
+
+def test_density_population_excludes_milestones_but_gantt_keeps_them():
+    """Critical % uses task-dependent activities for BOTH numerator and denominator,
+    so a critical finish milestone does not inflate it — yet the driving-path Gantt
+    still shows every critical activity, milestone included."""
+    acts = {
+        't1': _act('t1', is_critical=True, planned_finish=datetime(2026, 2, 1), total_float_days=0.0),
+        't2': _act('t2', is_critical=False, planned_finish=datetime(2026, 3, 1), total_float_days=5.0),
+        'ms': _act('ms', task_type='FinishMilestone', is_critical=True,
+                   planned_finish=datetime(2026, 4, 1), total_float_days=0.0),
+    }
+    r = run_cpli(_g(acts, data_date=datetime(2026, 1, 1)), CONFIG)
+    assert r['kpis']['total_activities'] == 2      # only the two Tasks
+    assert r['kpis']['critical_count'] == 1         # one critical Task (milestone excluded)
+    assert r['kpis']['critical_pct'] == 50.0
+    assert r['kpis']['driving_path_count'] == 2     # t1 + ms both on the path (Gantt)
+    assert len(r['findings']) == 2
+
+
 # ── module identity + required extra key ───────────────────────────────────
 def test_module_id_and_baseline_key_present():
     g = _g({'a': _act('a')})
@@ -156,10 +203,11 @@ def test_deep_negative_float_clamps_score_to_zero():
                       total_float_days=-260.0)}
     r = run_cpli(_g(acts, data_date=data_date), CONFIG)
 
-    assert r['kpis']['cpli'] == -1.6      # (100 - 260) / 100
-    assert r['score'] == 0.0              # clamped, never negative
-    assert r['pct'] == 100.0
-    assert r['grade'] == 'Critical'
+    assert r['kpis']['cpli'] == -1.6      # (100 - 260) / 100 — ratio context, may be negative
+    assert r['baseline_rule_met'] is False
+    # the score is the critical-path density (a band value), never the raw ratio,
+    # so a deeply negative ratio can no longer feed a negative score into the roll-up
+    assert 0.0 <= r['score'] <= 100.0
 
 
 def test_summary_spans_are_not_finish_candidates():

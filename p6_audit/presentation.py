@@ -233,19 +233,21 @@ GENERIC = {
 
 
 def _cpli_computable(k):
-    return k.get('computable') is not False and k.get('cpli') is not None
+    # the sub-feature is scored by critical-path DENSITY; computable when there is at
+    # least one task-dependent activity to measure the critical share against.
+    return k.get('computable') is not False and k.get('critical_pct') is not None
 
 
 def _cpli_tiles(k):
-    computable = _cpli_computable(k)
     cpl = k.get('critical_path_length_days')
     cpl_txt = '—' if cpl is None else f"{cpl} d{' (cal)' if k.get('cpl_basis') == 'calendar' else ''}"
+    cpli_ratio = k.get('cpli')
     return [
-        ('CPLI', f"{_plain(k.get('score', k.get('cpli')))}%" if computable else '—'),
-        ('Critical Path Length', cpl_txt),
-        ('Completion Total Float', _days(k.get('project_total_float_days'))),
-        ('Critical Activities', _num(k.get('critical_count')) if k.get('critical_count') is not None else '—'),
         ('Critical %', _pct(k.get('critical_pct')) if k.get('critical_pct') is not None else '—'),
+        ('Critical Activities', _num(k.get('critical_count')) if k.get('critical_count') is not None else '—'),
+        ('CPLI (context)', f"{_plain(k.get('cpli_pct'))}%" if cpli_ratio is not None else '—'),
+        ('Completion Total Float', _days(k.get('project_total_float_days'))),
+        ('Critical Path Length', cpl_txt),
         ('Finish Milestone', _fmt_date(k.get('finish_date')) if k.get('finish_date') else (k.get('finish_milestone_id') or '—')),
     ]
 
@@ -253,9 +255,13 @@ def _cpli_tiles(k):
 def _cpli_verdict(m):
     k = m.get('kpis') or {}
     if not _cpli_computable(k):
-        return 'CPLI not computable — the schedule has no dated finish milestone, or no float on it.'
-    tgt = round((k.get('target') or 0.95) * 100)
-    return f"CPLI {_plain(m.get('score'))}% — how realistically the finish can still be met (DCMA target {tgt}%)."
+        return 'Critical-path density not computable — no task-dependent activities to assess.'
+    cp = _plain(k.get('critical_pct'))
+    sc = _plain(m.get('score'))
+    ratio = k.get('cpli_pct')
+    ctx = '' if ratio is None else f" Context — CPLI ratio (CPL + TF) ÷ CPL = {_plain(ratio)}% (DCMA Metric 13)."
+    return (f"{cp}% of activities are on the critical path → score {sc}. "
+            f"Fewer critical activities = a less fragile schedule.{ctx}")
 
 
 # CPLI's CPLI tile needs the module score, which lives on the module, not the kpis.
@@ -281,7 +287,7 @@ _DCMA_REF = {
     'negative_float':     'DCMA Metric 7 — Negative Float · benchmark: 0',
     'hard_constraints':   'DCMA Metric 5 — Hard Constraints · benchmark: 0',
     'high_duration':      'DCMA Metric 8 — High Duration · benchmark: 0',
-    'cpli':               'DCMA Metric 13 — Critical Path Length Index · benchmark: CPLI ≥ 95%',
+    'cpli':               'Critical-path density (fragility) — fewer critical = healthier · CPLI ratio ≥ 95% shown as context (DCMA Metric 13)',
     'whole_day':          'Tool check — calendar-consistent whole-day durations',
     'circular':           'F9 gate — a circular loop stops P6 calculating; not weighted',
 }
@@ -307,8 +313,10 @@ def _scoring(m):
     ref = _DCMA_REF.get(mod, '')
 
     if mod == 'cpli':
-        return {'formula': 'Score = CPLI × 100, where CPLI = (CPL + TF) ÷ CPL',
-                'derivation': _cpli_verdict(m), 'bands': _UNIFORM_BANDS_TEXT, 'benchmark': ref}
+        return {'formula': 'Score = critical-path density — the share of activities on the critical path',
+                'derivation': _cpli_verdict(m),
+                'bands': '≤ 20% → 100 · ≤ 25% → 95 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 80 · > 40% → 75',
+                'benchmark': ref}
     if mod == 'circular':
         loops = k.get('loops', 0) or 0
         return {'formula': 'Gate — a circular loop caps the review; not weighted into the score',
