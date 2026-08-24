@@ -1129,6 +1129,7 @@ table.kbp-table .kbp-num { text-align: right; font-variant-numeric: tabular-nums
 .kbp-toggle input:checked + span::before { transform: translateX(16px); }
 .kb-subhead { font-size: 13px; font-weight: 700; color: var(--text); margin: 6px 0 8px; }
 .kb-subhead .n { font-weight: 400; color: var(--muted); font-size: 11px; }
+.kb-back { font-size: 11px; padding: 3px 9px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
 /* ── Evidence-graded output (R1–R7) rendered on screen — mirrors the PDF ── */
 .v2sec { margin: 0 0 16px; }
 .v2h { font-size: 15px; font-weight: 800; color: var(--text); margin: 6px 0 8px; padding-bottom: 5px; border-bottom: 2px solid var(--border); }
@@ -1145,6 +1146,8 @@ table.kbp-table .kbp-num { text-align: right; font-variant-numeric: tabular-nums
 .v2lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; margin-left: auto; }
 .v2legend { font-size: 10.5px; color: var(--muted); margin: 4px 0; }
 .v2legend .v2lt { color: var(--muted); text-transform: uppercase; letter-spacing: .3px; font-weight: 700; font-size: 9px; margin-right: 6px; }
+.v2cov { margin-top: 6px; font-size: 10.5px; color: var(--muted); }
+.v2clean { margin-top: 5px; padding: 6px 10px; background: #16a34a1a; border: 1px solid #16a34a55; border-radius: 6px; font-size: 11.5px; color: var(--success, #16a34a); font-weight: 600; }
 .v2calc { margin: 5px 0; }
 .v2calc > summary { font-size: 11px; color: var(--accent, #2563eb); cursor: pointer; font-weight: 600; }
 .v2calc .v2calcb { font-size: 10.5px; color: var(--muted); padding: 6px 0 2px; line-height: 1.6; }

@@ -3,9 +3,10 @@
 // gaps" one); the user can also add their own imported schedules (which feed the
 // learning engine). Reuses the KB-library layout classes. Private & local.
 
-import { state }       from './state.js';
-import { showError }   from './render.js';
-import { escapeHtml }  from './format.js';
+import { state }          from './state.js';
+import { showError }      from './render.js';
+import { escapeHtml }     from './format.js';
+import { showKbLibrary }  from './kblib.js';
 
 const CAT_ICON = {
   Buildings: '🏢', Infrastructure: '🛣️', Industrial: '🏭', Energy: '⚡', Landscape: '🌳',
@@ -335,6 +336,7 @@ export function initDatabase() {
   document.getElementById('kbp-addxer')?.addEventListener('click', (e) => kbAddXer(e.currentTarget));
   document.getElementById('kbp-export')?.addEventListener('click', (e) => kbExport(e.currentTarget));
   document.getElementById('kbp-import')?.addEventListener('click', (e) => kbImport(e.currentTarget));
+  document.getElementById('kbp-standards')?.addEventListener('click', () => { exitDatabase(); showKbLibrary(); });
   const kbt = document.getElementById('kbp-table');
   if (kbt) { kbt.addEventListener('click', kbTableClick); kbt.addEventListener('change', kbToggle); }
 }

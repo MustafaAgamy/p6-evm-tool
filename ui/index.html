@@ -25,13 +25,7 @@
           <path d="M9 12l2 2 4-4"/>
         </svg>
       </button>
-      <button class="sb-item" id="sb-kb-btn" title="Reference Standards — curated construction standards by project type">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-        </svg>
-      </button>
-      <button class="sb-item" id="sb-db-btn" title="Knowledge Base — your knowledge projects (learned patterns + XERs)">
+      <button class="sb-item" id="sb-db-btn" title="Knowledge Base — your knowledge projects + reference standards">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <ellipse cx="12" cy="5" rx="9" ry="3"/>
           <path d="M3 5v14a9 3 0 0 0 18 0V5"/>
@@ -286,7 +280,7 @@
       <!-- Knowledge Base library (EPS view) — its own page, hidden until opened -->
       <section class="kb-section hidden" id="kb-section">
         <div class="kb-head">
-          <div class="section-label">Reference Standards</div>
+          <div class="section-label"><button class="kb-back" id="kb-back-btn">← Knowledge Base</button> &nbsp; Reference Standards</div>
           <div class="kb-subtitle">Browse the reference standard for every project type — the baseline your imported
             schedules are reviewed against. <span class="kb-eps-badge">EPS view · <span id="kb-total">…</span></span></div>
         </div>
@@ -314,6 +308,7 @@
           <button class="btn-primary" id="kbp-addxer">＋ Add Project XER</button>
           <button class="btn-secondary" id="kbp-export">⬇ Export Knowledge</button>
           <button class="btn-secondary" id="kbp-import">⬆ Import Knowledge</button>
+          <button class="btn-secondary" id="kbp-standards">📖 Reference Standards</button>
           <span class="kbp-note">Supporting knowledge only · generalized &amp; project-agnostic · never creates a finding</span>
         </div>
         <div class="kbp-tablewrap"><table class="kbp-table" id="kbp-table"></table></div>

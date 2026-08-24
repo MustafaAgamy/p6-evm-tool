@@ -151,8 +151,23 @@ def _project_risk_summary(report):
         f'<div class="prsrow"><span class="prsk">Total findings</span>'
         f'<span class="prsv"><b>{len(fs)}</b></span>'
         f'<span class="prsk">Severity</span><span class="prsv">{X._e(sev_summary)}</span></div>'
+        f'{_coverage_line(report.get("v2_coverage"), len(fs))}'
         f'<div class="prssum">{X._e(_risk_summary_line(s, fs))}</div>'
         f'</div>')
+
+
+def _coverage_line(cov, n_findings):
+    """What the engine analysed — so a clean result reads as thoroughly checked."""
+    if not cov:
+        return ''
+    sys = len(cov.get('systems') or [])
+    line = (f'<div class="prscov">Analysed <b>{cov.get("activities", 0)}</b> activities · '
+            f'<b>{cov.get("relationships", 0)}</b> relationships · <b>{cov.get("classified", 0)}</b> '
+            f'classified into <b>{sys}</b> system(s) · all 7 constructability checks run</div>')
+    clean = ('<div class="prsclean">✓ No sequencing risks found — the schedule is well-linked and '
+             'correctly sequenced for the systems present. A clean result here means the logic is sound, '
+             'not that nothing was checked.</div>') if n_findings == 0 else ''
+    return line + clean
 
 
 def _rel_cell(rels):
@@ -308,6 +323,9 @@ _EXTRA_CSS = '''
       .howcalc { margin: 4px 0; }
       .howcalc > summary { font-size: 10.5px; color: #0369a1; cursor: pointer; font-weight: 600; }
       .howcalc .howbody { font-size: 10.5px; color: #475569; padding: 5px 0 2px; line-height: 1.5; }
+      .prscov { margin-top: 6px; font-size: 10.5px; color: #64748b; }
+      .prsclean { margin-top: 5px; padding: 6px 10px; background: #f0fdf4; border: 1px solid #bbf7d0;
+                  border-radius: 6px; font-size: 11px; color: #15803d; font-weight: 600; }
       .prssum { margin-top: 6px; padding-top: 6px; border-top: 1px solid #f1f5f9; font-size: 12px;
                 color: #1e293b; font-weight: 600; }
       table.cfind { table-layout: fixed; width: 100%; border-collapse: collapse; }

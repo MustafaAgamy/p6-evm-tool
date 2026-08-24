@@ -27,10 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
   });
 
-  // Knowledge Base — its own sidebar page (browse the project-type standards)
-  document.getElementById('sb-kb-btn').addEventListener('click', () => { exitDatabase(); showKbLibrary(); });
-  // Construction Database — downloadable schedules by type
+  // ONE Knowledge Base sidebar entry (projects + patterns + reference standards).
+  // Reference Standards is reached from a link inside the Knowledge Base screen.
   document.getElementById('sb-db-btn').addEventListener('click', () => { exitKbLibrary(); showDatabase(); });
+  document.getElementById('kb-back-btn')?.addEventListener('click', () => { exitKbLibrary(); showDatabase(); });
 
   document.getElementById('browse-btn').addEventListener('click', async () => {
     const path = await window.pywebview.api.choose_file();

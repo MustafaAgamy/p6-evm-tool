@@ -361,6 +361,7 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
     v2_findings = []
     v2_score = None
     v2_kb = None
+    v2_coverage = None
     try:
         archetype = resolve_archetype(view)
         # Findings come from the XER's OWN logic — NOT gated by the archetype. The score
@@ -368,6 +369,17 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
         # context when it resolved.
         v2_findings = generate_findings(view, archetype)   # evidence-graded, read-only
         v2_score = evidence_score(v2_findings, total_act)
+        # Coverage — what the engine actually analysed, so a clean result reads as
+        # "thoroughly checked, well-built", not "nothing found".
+        try:
+            tagged = [a for a in view.get('activities_oid', [])
+                      if (a.get('identity') or {}).get('system')]
+            systems = sorted({(a.get('identity') or {}).get('system') for a in tagged} - {None})
+            v2_coverage = {'activities': total_act, 'relationships': total_rel,
+                           'classified': len(tagged), 'systems': systems,
+                           'rules_run': 7}
+        except Exception:
+            v2_coverage = None
         # Cross-project intelligence — annotate each finding with how well its expected
         # sequence is corroborated across the curated KB + the user's imported projects.
         # SUPPORTING context only: it never changes whether a finding fired.
@@ -427,5 +439,6 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
         'v2_findings': v2_findings,
         'v2_score': v2_score,
         'v2_kb': v2_kb,
+        'v2_coverage': v2_coverage,
         'conclusion': conclusion,
     }

@@ -19,13 +19,14 @@ const CAT_ICON = {
 
 export function showKbLibrary() {
   document.getElementById('kb-section').classList.remove('hidden');
+  document.getElementById('kb-database-section')?.classList.add('hidden');
   document.querySelector('.import-section')?.classList.add('hidden');
   document.getElementById('results-section')?.classList.add('hidden');
   document.querySelector('.recent-section')?.classList.add('hidden');
   document.getElementById('sb-home-btn')?.classList.remove('active');
   document.getElementById('sb-audit-btn')?.classList.remove('active');
-  document.getElementById('sb-kb-btn')?.classList.add('active');
-  document.getElementById('topbar-sub').textContent = 'Reference Standards · by project type';
+  document.getElementById('sb-db-btn')?.classList.add('active');   // stays under the one KB entry
+  document.getElementById('topbar-sub').textContent = 'Knowledge Base · Reference Standards';
   if (state.kbLibrary) { renderTree(); }
   else { loadKb(); }
 }
@@ -34,7 +35,6 @@ export function exitKbLibrary() {
   document.getElementById('kb-section')?.classList.add('hidden');
   document.querySelector('.import-section')?.classList.remove('hidden');
   document.querySelector('.recent-section')?.classList.remove('hidden');
-  document.getElementById('sb-kb-btn')?.classList.remove('active');
   document.getElementById('sb-home-btn')?.classList.add('active');
 }
 

@@ -319,7 +319,20 @@ function _v2RiskSummary(report) {
       ${calc}
       <div class="v2row"><span class="v2k">Total findings</span><b>${fs.length}</b>
         <span class="v2k">Severity</span><span>${sp.join(' · ') || 'none'}</span></div>
+      ${_v2Coverage(report.v2_coverage, fs.length)}
     </div></div>`;
+}
+
+function _v2Coverage(cov, nFindings) {
+  if (!cov) return '';
+  const sys = (cov.systems || []).length;
+  const line = `<div class="v2cov">Analysed <b>${cov.activities}</b> activities · <b>${cov.relationships}</b> `
+    + `relationships · <b>${cov.classified}</b> classified into <b>${sys}</b> system(s) · all 7 constructability checks run</div>`;
+  const clean = (nFindings === 0)
+    ? `<div class="v2clean">✓ No sequencing risks found — the schedule is well-linked and correctly `
+      + `sequenced for the systems present. A clean result here means the logic is sound, not that nothing was checked.</div>`
+    : '';
+  return line + clean;
 }
 
 function _confChip(conf, cap) {
