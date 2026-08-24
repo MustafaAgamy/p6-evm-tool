@@ -89,51 +89,110 @@ def _working_days(graph, act, d1, d2):
 
 # ── Advisory suggestions (never applied automatically) ─────────────────────
 
+def _lag_suffix(lag):
+    """'(+3d)' / '(−2d)' / '' for a zero lag."""
+    lag = round(lag or 0.0, 1)
+    if lag == 0:
+        return ''
+    return f"({'+' if lag > 0 else '−'}{abs(lag):g}d)"
+
+
+def _rel_lag_label(rel, lag):
+    """'SS(+3d)' / 'FS' — a compact relationship+lag label."""
+    suf = _lag_suffix(lag)
+    return f"{rel}{suf}" if suf else rel
+
+
+def _resolution(action, applicable, action_text, *, new_type=None, new_lag_days=None,
+                new_pred_id=None, sug_pred_id='', sug_pred_name='', sug_pred_rel='',
+                sug_pred_lag=None, sug_succ_id='', sug_succ_name='No change'):
+    """A machine-actionable proposed correction the planner can accept, edit, and apply.
+
+    ``action`` ∈ {'change', 'remove', 'replace', 'data'}. 'data' is not applicable
+    (a wrong actual date — no relationship edit clears it, so the finding stays Open).
+    All fields are advisory defaults; the planner may edit type/lag/predecessor before
+    applying, and re-validation (the same detection engine) is the final arbiter.
+    """
+    return {
+        'action': action, 'applicable': applicable, 'action_text': action_text,
+        'new_type': new_type, 'new_lag_days': new_lag_days, 'new_pred_id': new_pred_id,
+        'sug_pred_id': sug_pred_id, 'sug_pred_name': sug_pred_name,
+        'sug_pred_rel': sug_pred_rel, 'sug_pred_lag': sug_pred_lag,
+        'sug_succ_id': sug_succ_id, 'sug_succ_name': sug_succ_name,
+    }
+
+
 def _suggest(graph, rel_type, succ, pred):
-    """Two alternative fixes per side (like the Dangling module), plus the
-    diagnosis. Each fix is (text, kind); kind is 'change' (recommend a different
-    link), 'remove' (delete the relationship), 'same' (keep as-is) or 'na'
-    (no further option). All advisory — never applied automatically.
+    """Advisory diagnosis + the two legacy fix labels (kept for backward compatibility
+    and the PDF/Excel), PLUS a structured, machine-actionable ``resolution`` the planner
+    can accept and apply (Resolve & Correct). Each fix label is (text, kind); kind is
+    'change' / 'remove' / 'same' / 'na'. Nothing is applied automatically.
     """
     s_as, s_af = succ.get('actual_start'), succ.get('actual_finish')
     p_as, p_af = pred.get('actual_start'), pred.get('actual_finish')
-    pred_label = f"{pred.get('id', '')} · {pred.get('name', '')}"
+    pred_id, pred_name = pred.get('id', ''), pred.get('name', '')
+    succ_id = succ.get('id', '')
+    pred_label = f"{pred_id} · {pred_name}"
     NA = ('N/A', 'na')
 
-    # Defaults (SF / unknown).
+    # Defaults (SF / unknown). Legacy fix labels unchanged (PDF/Excel read them); the
+    # new actionable resolution recommends removing the tie reality contradicts, editable.
     root = 'Schedule logic requires review following execution changes.'
     comment = 'Planning Engineer review required before modifying schedule logic.'
     pred_fix1, pred_fix2 = ('Planner to review', 'change'), NA
+    resolution = _resolution(
+        'remove', True, f"Remove link {pred_id} → {succ_id} ({rel_type})",
+        sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
 
     if s_af is not None and p_as is not None and s_af < p_as:
         # Successor fully executed before the predecessor even began → link contradicts reality.
         pred_fix1, pred_fix2 = ('Remove Relationship', 'remove'), ('Planner to review', 'change')
         root = 'Relationship logic may not represent actual execution sequence.'
         comment = 'Review predecessor-successor relationship.'
+        resolution = _resolution(
+            'remove', True, f"Remove link {pred_id} → {succ_id} ({rel_type})",
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
     elif p_as is None:
         # Predecessor shows no actual start yet the successor has progressed → data inconsistency.
         pred_fix1, pred_fix2 = ('Planner to review', 'change'), NA
         root = 'Inconsistent Actual Dates.'
         comment = 'Validate Actual Dates.'
+        resolution = _resolution(
+            'data', False, 'Review actual dates in P6 — no logic fix applies',
+            sug_pred_id='', sug_pred_name='Actual dates inconsistent', sug_pred_rel='DATA',
+            sug_succ_name='—')
     elif rel_type == 'FS' and s_as is not None and s_as >= p_as:
         # Real execution overlapped — model it as Start-to-Start with lag, or Finish-to-Finish.
         lag = _working_days(graph, succ, p_as, s_as)
         pred_fix1, pred_fix2 = (f'SS({lag}) - {pred_label}', 'change'), (f'FF - {pred_label}', 'change')
         root = 'Activity started before predecessor completion.'
         comment = 'Review construction sequence.'
+        resolution = _resolution(
+            'change', True, f"Change {pred_id} → {succ_id} from FS to {_rel_lag_label('SS', lag)}",
+            new_type='SS', new_lag_days=lag, new_pred_id=pred_id,
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='SS', sug_pred_lag=lag)
     elif rel_type == 'FS':
         # Successor started before the predecessor started, on an FS link.
         pred_fix1, pred_fix2 = ('Planner to review', 'change'), ('Remove Relationship', 'remove')
         root = 'Relationship logic may not represent actual execution sequence.'
         comment = 'Review predecessor-successor relationship.'
+        resolution = _resolution(
+            'remove', True, f"Remove link {pred_id} → {succ_id} (FS)",
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
     elif rel_type == 'SS':
         pred_fix1, pred_fix2 = ('Planner to review', 'change'), ('Remove Relationship', 'remove')
         root = 'Relationship logic may not represent actual execution sequence.'
         comment = 'Review predecessor-successor relationship.'
+        resolution = _resolution(
+            'remove', True, f"Remove link {pred_id} → {succ_id} (SS)",
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
     elif rel_type in ('FF', 'SF'):
         pred_fix1, pred_fix2 = ('Planner to review', 'change'), NA
         root = 'Relationship logic may not represent actual execution sequence.'
         comment = 'Review predecessor-successor relationship.'
+        resolution = _resolution(
+            'remove', True, f"Remove link {pred_id} → {succ_id} ({rel_type})",
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
 
     # The out-of-sequence violation is on the predecessor side; the successor tie
     # is context and normally needs no change.
@@ -144,16 +203,19 @@ def _suggest(graph, rel_type, succ, pred):
         'succ_fix1': succ_fix1[0], 'succ_fix1_kind': succ_fix1[1],
         'succ_fix2': succ_fix2[0], 'succ_fix2_kind': succ_fix2[1],
         'root_cause': root, 'planning_review_comment': comment,
+        'resolution': resolution,
     }
 
 
 def _first_successor(graph, oid):
-    """(relationship, 'id · name') of the activity's first real successor, for context."""
+    """(relationship, succ_id, succ_name, lag_days) of the activity's first real
+    successor, for context. Empty strings / 0 when there is no successor."""
     for link in graph.succs_of(oid):
         s = graph.activities.get(link['other'])
         if s:
-            return link.get('type', 'FS'), f"{s.get('id', '')} · {s.get('name', '')}"
-    return '', 'No successor'
+            return (link.get('type', 'FS'), s.get('id', ''), s.get('name', ''),
+                    link.get('lag_days', 0.0) or 0.0)
+    return '', '', '', 0.0
 
 
 def _category_of(graph, oid):
@@ -232,7 +294,7 @@ def run_out_of_sequence(graph, config):
             continue
         _link, pred, rel_type = offending
         sug = _suggest(graph, rel_type, act, pred)
-        succ_rel, succ_act = _first_successor(graph, oid)
+        succ_rel, succ_id, succ_name, succ_lag = _first_successor(graph, oid)
         crit = _criticality(act, near_days)
         findings.append({
             'finding_id':                 content_id('OOS', act.get('id'), pred.get('id')),
@@ -242,14 +304,23 @@ def run_out_of_sequence(graph, config):
             'category':                   _category_of(graph, oid),
             'current_pred_rel':           rel_type,
             'current_pred_activity':      f"{pred.get('id', '')} · {pred.get('name', '')}",
+            # Split IDs + lag (Resolve & Correct — one clean column each, no overlap):
+            'pred_id':                    pred.get('id', ''),
+            'pred_name':                  pred.get('name', ''),
+            'current_pred_lag':           _link.get('lag_days', 0.0) or 0.0,
             'current_succ_rel':           succ_rel,
-            'current_succ_activity':      succ_act,
+            'current_succ_activity':      (f"{succ_id} · {succ_name}" if succ_id else 'No successor'),
+            'succ_id':                    succ_id,
+            'succ_name':                  succ_name,
+            'current_succ_lag':           succ_lag,
             'suggested_predecessor':      sug['pred_fix1'], 'suggested_predecessor_kind': sug['pred_fix1_kind'],
             'suggested_successor':        sug['succ_fix1'], 'suggested_successor_kind': sug['succ_fix1_kind'],
             'root_cause':                 sug['root_cause'],
             'planning_review_comment':    sug['planning_review_comment'],
             'criticality':                crit,
             'severity':                   _SEV_OF.get(crit, 'Medium'),
+            # Machine-actionable proposed correction (accept / edit / apply):
+            'resolution':                 sug['resolution'],
         })
 
     oos_count = len(findings)

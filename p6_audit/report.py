@@ -284,6 +284,7 @@ def _oos_review_log(m):
             '<th>Current Pred. Rel.</th><th>Current Predecessor Activity</th>'
             '<th>Current Succ. Rel.</th><th>Current Successor Activity</th><th>Cutoff Date</th>'
             '<th>Suggested Predecessor</th><th>Suggested Successor</th>'
+            '<th>Recommended Action</th>'
             '<th>Root Cause</th><th>Planning Review Comment</th><th>Criticality</th>')
     rows = ''.join(
         f'<tr><td class="num">{i}</td><td class="mono">{_esc(f.get("activity_id"))}</td>'
@@ -296,12 +297,13 @@ def _oos_review_log(m):
         f'<td class="mut">{cutoff}</td>'
         f'<td>{_sug_cell(f.get("suggested_predecessor"), f.get("suggested_predecessor_kind"))}</td>'
         f'<td>{_sug_cell(f.get("suggested_successor"), f.get("suggested_successor_kind"))}</td>'
+        f'<td>{_esc((f.get("resolution") or {}).get("action_text", ""))}</td>'
         f'<td class="mut">{_esc(f.get("root_cause"))}</td>'
         f'<td class="mut">{_esc(f.get("planning_review_comment"))}</td>'
         f'<td>{_crit_cell(f.get("criticality"))}</td></tr>'
         for i, f in enumerate(findings, 1))
     return f'''
-      <h2 class="sec">Out-of-Sequence Review Log</h2>
+      <h2 class="sec">Out-of-Sequence Review &amp; Recommended Corrections</h2>
       <table class="findings"><thead><tr>{head}</tr></thead>
         <tbody>{rows}</tbody></table>'''
 

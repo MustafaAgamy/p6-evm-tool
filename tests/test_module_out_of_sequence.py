@@ -208,6 +208,58 @@ def test_suggested_lag_counts_working_days_not_calendar_days():
     assert f['s']['suggested_predecessor'] == 'SS(5) - p · Act p'   # 5 working days, not 7
 
 
+# ── Enrichment: split IDs / lag + structured resolution (Resolve & Correct) ──
+
+def test_finding_carries_split_pred_succ_ids_and_lag():
+    g = _g({
+        'p': _act('p', actual_start=dt('2026-01-01')),
+        's': _act('s', actual_start=dt('2026-01-05')),
+        't': _act('t', actual_start=dt('2026-02-01')),   # a successor of s, for context
+    }, [
+        {'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 2},
+        {'pred_id': 's', 'succ_id': 't', 'type': 'SS', 'lag_days': 1},
+    ])
+    f = _by_id(run_out_of_sequence(g, CONFIG))['s']
+    assert f['pred_id'] == 'p' and f['pred_name'] == 'Act p'
+    assert f['current_pred_lag'] == 2
+    assert f['succ_id'] == 't' and f['succ_name'] == 'Act t'
+    assert f['current_succ_lag'] == 1
+
+
+def test_resolution_change_to_ss_for_fs_overlap():
+    # Successor started AFTER predecessor started but before it finished → model as SS(lag).
+    g = _g({
+        'p': _act('p', actual_start=dt('2026-01-01')),
+        's': _act('s', actual_start=dt('2026-01-05')),
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
+    assert r['action'] == 'change' and r['applicable'] is True
+    assert r['new_type'] == 'SS' and r['new_lag_days'] >= 0
+    assert r['new_pred_id'] == 'p'
+    assert 'SS' in r['action_text'] and 'p' in r['action_text']
+    assert r['sug_pred_rel'] == 'SS'
+
+
+def test_resolution_remove_when_successor_finished_before_pred_started():
+    g = _g({
+        'p': _act('p', actual_start=dt('2026-02-01')),
+        's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
+    assert r['action'] == 'remove' and r['applicable'] is True
+    assert r['action_text'].lower().startswith('remove')
+
+
+def test_resolution_data_when_pred_not_started_stays_open():
+    # No relationship edit can fix a wrong actual date → not applicable, stays Open.
+    g = _g({
+        'p': _act('p'),
+        's': _act('s', actual_start=dt('2026-01-05')),
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
+    assert r['action'] == 'data' and r['applicable'] is False
+
+
 # ── End-to-end: real parse path → audit → module ───────────────────────────
 
 def test_end_to_end_xml_actuals_flag_out_of_sequence(tmp_path):

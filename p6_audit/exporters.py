@@ -15,13 +15,14 @@ def excel_columns(module_result):
         headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path',
                    'Current Pred. Rel.', 'Current Predecessor Activity',
                    'Current Succ. Rel.', 'Current Successor Activity', 'Cutoff Date',
-                   'Suggested Predecessor', 'Suggested Successor',
+                   'Suggested Predecessor', 'Suggested Successor', 'Recommended Action',
                    'Root Cause', 'Planning Review Comment', 'Criticality']
         rows = [[
             i, f.get('activity_id', ''), f.get('activity_name', ''), f.get('wbs_path', ''),
             f.get('current_pred_rel', ''), f.get('current_pred_activity', ''),
             f.get('current_succ_rel', ''), f.get('current_succ_activity', ''), cutoff,
             f.get('suggested_predecessor', ''), f.get('suggested_successor', ''),
+            (f.get('resolution') or {}).get('action_text', ''),
             f.get('root_cause', ''), f.get('planning_review_comment', ''), f.get('criticality', ''),
         ] for i, f in enumerate(findings, 1)]
         return headers, rows

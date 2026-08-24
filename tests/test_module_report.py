@@ -130,7 +130,7 @@ def test_oos_report_has_five_sections_in_order():
     html = render_module_report(_oos(), META)
     assert 'Out of Sequence' in html
     assert 'Acceptable' in html and '83' in html
-    order = ['Executive Dashboard', 'Distribution by WBS', 'Out-of-Sequence Review Log',
+    order = ['Executive Dashboard', 'Distribution by WBS', 'Out-of-Sequence Review &amp; Recommended Corrections',
              'Critical Path Impact Assessment', 'Executive Conclusion']
     positions = [html.find(s) for s in order]
     assert all(p != -1 for p in positions)

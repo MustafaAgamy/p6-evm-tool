@@ -492,6 +492,81 @@ body {
 .oos-concl { border: 1px solid var(--border); border-left: 4px solid var(--accent); background: var(--card-bg);
   border-radius: 0 10px 10px 0; padding: 13px 16px; font-size: 13px; line-height: 1.6; color: var(--text); margin-top: 2px; }
 
+/* ── Out-of-Sequence Review & Resolve (interactive) ─────────────────────── */
+.oos-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; }
+.oos-tabs { display: inline-flex; background: var(--card-bg); border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
+.oos-tab { border: 0; background: transparent; color: var(--ink-soft); padding: 7px 14px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.oos-tab.active { background: var(--accent); color: #fff; }
+.oos-tab .cnt { font-weight: 800; margin-left: 4px; opacity: .9; }
+.oos-dl { border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 8px 14px; border-radius: 8px;
+  cursor: pointer; font-size: 13px; font-weight: 700; }
+.oos-dl:disabled { opacity: .45; cursor: not-allowed; }
+.oos-dlnote { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+.oos-tblwrap { overflow-x: auto; }
+.oos-log2 { min-width: 1180px; border-collapse: collapse; width: 100%; }
+.oos-log2 thead .oos-grp th { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  font-weight: 700; padding: 7px 10px 3px; text-align: left; border-bottom: 0; }
+.oos-log2 thead th { font-size: 11px; color: var(--ink-soft); font-weight: 700; text-align: left; padding: 5px 10px 9px;
+  border-bottom: 1px solid var(--border); vertical-align: bottom; white-space: nowrap; }
+.oos-log2 td { padding: 10px; border-bottom: 1px solid var(--hair); vertical-align: top; }
+.oos-log2 .cur { background: var(--hair); }
+.oos-log2 .sug { background: var(--success-bg); }
+.oos-log2 .oos-num { text-align: center; color: var(--muted); font-weight: 700; }
+.oos-log2 .mono { font-family: ui-monospace, 'Consolas', monospace; font-weight: 600; font-size: 12px; white-space: nowrap; }
+.oos-log2 .nm { color: var(--ink-soft); font-size: 11.5px; margin-top: 2px; max-width: 200px; line-height: 1.35; }
+.oos-relb { display: inline-block; font-family: ui-monospace, 'Consolas', monospace; font-size: 10.5px; font-weight: 700;
+  padding: 1px 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent-dark); }
+.oos-relb.sg { background: var(--card-bg); color: var(--success); border: 1px solid var(--success); }
+.oos-relb.rem { background: var(--danger-bg); color: var(--danger); }
+
+.oos-actchip { display: inline-flex; align-items: center; font-size: 11.5px; font-weight: 700; padding: 4px 9px;
+  border-radius: 7px; margin-bottom: 7px; }
+.oos-actchip.change { background: var(--accent-soft); color: var(--accent-dark); }
+.oos-actchip.remove { background: var(--danger-bg); color: var(--danger); }
+.oos-actchip.data { background: var(--warning-bg); color: var(--warning); }
+.oos-rescell { min-width: 210px; }
+.oos-rowbtns { display: flex; gap: 6px; align-items: center; }
+.oos-mini { border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; padding: 4px 9px;
+  font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--text); }
+.oos-mini.apply { background: var(--success); border-color: var(--success); color: #fff; }
+.oos-mini.data { opacity: .6; cursor: not-allowed; }
+.oos-caret { border: 0; background: transparent; cursor: pointer; color: var(--muted); font-size: 12px; padding: 2px 4px; }
+.oos-stale { font-size: 10.5px; color: var(--warning); margin-top: 5px; }
+
+.oos-drawer { display: none; }
+.oos-drawer.open { display: table-row; }
+.oos-drawer td { padding: 0; background: var(--bg); border-bottom: 1px solid var(--border); }
+.oos-draw { padding: 14px 18px; }
+.oos-draw h4 { margin: 0 0 10px; font-size: 12px; color: var(--accent-dark); text-transform: uppercase; letter-spacing: .03em; }
+.oos-qa { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.oos-qcard { background: var(--card-bg); border: 1px solid var(--border); border-radius: 9px; padding: 11px 13px; }
+.oos-qcard .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; margin-bottom: 5px; }
+.oos-qcard .val { font-size: 12.5px; line-height: 1.5; color: var(--text); }
+.oos-editrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--success-bg);
+  border: 1px solid var(--border); border-radius: 9px; padding: 10px 13px; margin-bottom: 11px; }
+.oos-editrow.soft { background: var(--card-bg); }
+.oos-editrow label { font-size: 11px; color: var(--ink-soft); font-weight: 700; }
+.oos-editgrp { display: inline-flex; align-items: center; gap: 6px; }
+.oos-editrow select, .oos-editrow input { font-size: 12.5px; padding: 5px 8px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--card-bg); color: var(--text); }
+.oos-editrow input[type="number"] { width: 62px; }
+.oos-reason { flex: 1; min-width: 220px; }
+.oos-willchange { font-size: 12.5px; color: var(--ink-soft); background: var(--accent-soft); border-radius: 8px;
+  padding: 9px 12px; margin-bottom: 12px; line-height: 1.5; }
+.oos-willchange:empty { display: none; }
+.oos-willchange b { color: var(--accent-dark); }
+.oos-drawbtns { display: flex; gap: 10px; align-items: center; }
+.oos-btn { border: 1px solid var(--border); background: var(--card-bg); color: var(--text); padding: 8px 14px;
+  border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.oos-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.oos-resolved { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--success);
+  background: var(--success-bg); padding: 3px 10px; border-radius: 20px; }
+.oos-empty { padding: 26px; text-align: center; color: var(--muted); font-size: 13px;
+  border: 1px dashed var(--border); border-radius: 10px; background: var(--card-bg); }
+.oos-flowhint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+.oos-flowhint b { color: var(--ink-soft); }
+
 /* findings table — cleaner, lighter, roomier */
 .findings-table { min-width: 760px; }
 .findings-table th { background: var(--accent); color: #fff; }
