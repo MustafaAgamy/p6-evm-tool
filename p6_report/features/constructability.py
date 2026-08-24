@@ -352,41 +352,12 @@ def build_spec(report):
                       f"({conf.get('hits', 0)}/{conf.get('signatures', 0)} keywords)")
     meta = f"{report.get('project_type', '')} · {conf_line} · Rule + Knowledge Base · offline"
 
+    # ── The Constructability Review output = TWO sections, ONE score (Ibrahim's V1
+    # spec). These default ON and are what the screen shows, so Print Preview / PDF ==
+    # screen. The legacy KB-standard components (verdict/scorecard/illogical/missing/
+    # WBS/conclusion — a SECOND, contradictory score) are kept selectable for anyone who
+    # wants them, but default OFF so they never contradict the headline output. ──
     components = [
-        ReportComponent('verdict', 'Verdict', 'summary', render=_verdict,
-                        has_data=lambda r: bool(r.get('verdict')),
-                        description='Overall readiness statement and project type'),
-        ReportComponent('scorecard', 'Constructability Score', 'summary', render=_scorecard,
-                        has_data=lambda r: bool(r.get('score')),
-                        description='Headline score and the three scoring dimensions'),
-        ReportComponent('readiness_legend', 'Readiness Band', 'chart', render=_legend,
-                        has_data=lambda r: bool(r.get('score')),
-                        description='Where the score sits on the readiness scale'),
-        # projection defaults ON only when the engine produced one — matching the
-        # legacy report, which omitted the What-If line entirely when absent rather
-        # than showing an empty section.
-        ReportComponent('projection', 'What-If Projection', 'text', render=_projection,
-                        default=bool(report.get('projected')),
-                        has_data=lambda r: bool(r.get('projected')),
-                        description='Score achievable if the flagged logic is corrected'),
-        ReportComponent('tiles', 'Key Metrics', 'summary', render=X._tiles,
-                        has_data=lambda r: bool(r.get('dashboard')),
-                        description='Illogical links, missing activities, coverage, critical path'),
-        # These three render their OWN graceful "none flagged" note when empty, so
-        # they carry no has_data gate — the friendly wording shows instead of the
-        # framework's generic placeholder (matches the approved legacy report).
-        ReportComponent('issues_by_wbs', 'Issues by WBS Phase', 'chart', render=X._issues_by_wbs,
-                        description='Where the problems concentrate across the schedule'),
-        ReportComponent('illogical', 'Illogical Relationships', 'table', render=X._illogical_table,
-                        description='Flagged links with the better logic suggested'),
-        ReportComponent('missing', 'Missing Activities', 'table', render=X._missing_table,
-                        description='Activities normally expected against the standard'),
-        ReportComponent('wbs_review', 'WBS Review', 'table', render=X._wbs_review,
-                        has_data=lambda r: bool(r.get('wbs_review')),
-                        description='Standard WBS branches present or missing'),
-        # MEP-first rule engine (Phase 3) — resolution + evidence-graded findings, each
-        # a first-class selectable component per the Global Reporting standard.
-        # ── The final V1 Constructability Review output: two self-explanatory sections ──
         ReportComponent('project_risk_summary', 'Project Risk Summary', 'summary',
                         render=_project_risk_summary,
                         has_data=lambda r: bool(r.get('archetype') or r.get('v2_score')),
@@ -395,9 +366,35 @@ def build_spec(report):
                         render=_constructability_findings,
                         has_data=lambda r: bool(r.get('v2_findings')),
                         description='One consolidated evidence-graded findings table with P6 drill-down'),
-        ReportComponent('conclusion', 'Conclusion', 'text', render=_conclusion,
+        # ── legacy KB-standard components — default OFF (optional) ──
+        ReportComponent('verdict', 'Verdict (legacy)', 'summary', render=_verdict, default=False,
+                        has_data=lambda r: bool(r.get('verdict')),
+                        description='Legacy KB-standard readiness statement'),
+        ReportComponent('scorecard', 'KB-Standard Score (legacy)', 'summary', render=_scorecard, default=False,
+                        has_data=lambda r: bool(r.get('score')),
+                        description='Legacy KB-standard score and its three dimensions'),
+        ReportComponent('readiness_legend', 'Readiness Band (legacy)', 'chart', render=_legend, default=False,
+                        has_data=lambda r: bool(r.get('score')),
+                        description='Legacy readiness scale'),
+        ReportComponent('projection', 'What-If Projection (legacy)', 'text', render=_projection, default=False,
+                        has_data=lambda r: bool(r.get('projected')),
+                        description='Legacy score achievable if the flagged logic is corrected'),
+        ReportComponent('tiles', 'Key Metrics (legacy)', 'summary', render=X._tiles, default=False,
+                        has_data=lambda r: bool(r.get('dashboard')),
+                        description='Legacy illogical/missing/coverage tiles'),
+        # these three render their OWN graceful "none flagged" note when empty (no has_data)
+        ReportComponent('issues_by_wbs', 'Issues by WBS Phase (legacy)', 'chart', render=X._issues_by_wbs,
+                        default=False, description='Legacy: where problems concentrate'),
+        ReportComponent('illogical', 'Illogical Relationships (legacy)', 'table', render=X._illogical_table,
+                        default=False, description='Legacy flagged links vs the KB standard'),
+        ReportComponent('missing', 'Missing Activities (legacy)', 'table', render=X._missing_table,
+                        default=False, description='Legacy: activities expected against the standard'),
+        ReportComponent('wbs_review', 'WBS Review (legacy)', 'table', render=X._wbs_review, default=False,
+                        has_data=lambda r: bool(r.get('wbs_review')),
+                        description='Legacy standard WBS branches present or missing'),
+        ReportComponent('conclusion', 'Conclusion (legacy)', 'text', render=_conclusion, default=False,
                         has_data=lambda r: bool(r.get('conclusion')),
-                        description='Closing summary line'),
+                        description='Legacy closing summary line'),
     ]
 
     return ReportSpec(

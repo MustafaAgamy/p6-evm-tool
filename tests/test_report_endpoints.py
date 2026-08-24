@@ -74,7 +74,9 @@ def test_render_endpoint_selection_none_uses_defaults():
     h._handle_report_render({'feature': 'constructability', 'report': REPORT})
     status, data = h._captured[-1]
     assert data['ok'] is True
-    assert 'Verdict' in data['html'] and 'Illogical Relationships' in data['html']
+    # default = the two Constructability sections (one score); legacy sections default off
+    assert 'Project Risk Summary' in data['html'] and 'Constructability Findings' in data['html']
+    assert 'Illogical Relationships' not in data['html']
 
 
 def test_render_endpoint_unknown_feature_errors():

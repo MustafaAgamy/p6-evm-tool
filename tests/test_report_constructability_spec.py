@@ -40,16 +40,17 @@ def test_feature_is_registered():
     assert 'Execution Readiness' in spec.title
 
 
-def test_default_selection_includes_every_populated_section():
-    spec = get_spec('constructability', REPORT)
-    doc = build_document(spec, REPORT, selected_ids=None)
-    for heading in ('Verdict', 'Constructability Score', 'Readiness Band', 'What-If Projection',
-                    'Key Metrics', 'Issues by WBS Phase', 'Illogical Relationships',
-                    'Missing Activities', 'WBS Review', 'Conclusion'):
-        assert heading in doc, f'missing section: {heading}'
-    # the underlying content rendered, not just the headings
-    assert 'Conveyor test' in doc and 'Hydrotest' in doc
-    assert 'Constructability Score</div>' in doc          # scorebox label from exporters
+def test_default_selection_is_the_two_sections_only():
+    # Ibrahim's V1 spec: the Constructability Review defaults to exactly two sections —
+    # one engine, one score. The legacy KB-standard sections are default OFF so they can
+    # never contradict the headline output (and the PDF == the screen).
+    v2 = dict(REPORT, archetype={'archetype_name': 'X', 'confidence': 'low'},
+              v2_score={'overall': 100, 'band': 'green', 'band_label': 'Low Risk'}, v2_findings=[])
+    doc = build_document(get_spec('constructability', v2), v2, selected_ids=None)
+    assert 'Project Risk Summary' in doc and 'Constructability Findings' in doc
+    # legacy contradictory sections are NOT in the default output
+    assert 'Illogical Relationships' not in doc and 'Verdict' not in doc
+    assert 'What-If Projection' not in doc
 
 
 def test_user_can_drop_the_tables_and_keep_the_dashboard():
@@ -100,10 +101,16 @@ def test_projection_defaults_off_when_the_engine_produced_none():
     assert proj['default'] is False and proj['has_data'] is False
 
 
-def test_projection_defaults_on_when_present():
-    spec = get_spec('constructability', REPORT)
-    doc = build_document(spec, REPORT, selected_ids=None)
-    assert 'What-If Projection' in doc
+def test_legacy_sections_are_selectable_but_off_by_default():
+    # the legacy KB-standard sections stay available in the selector (unticked) for
+    # anyone who wants them — they are just not in the default output any more
+    m = manifest(spec := get_spec('constructability', REPORT), REPORT)
+    by = {c['id']: c for c in m}
+    for cid in ('verdict', 'scorecard', 'illogical', 'missing', 'projection', 'conclusion'):
+        assert by[cid]['default'] is False, f'{cid} should be default-off'
+    # explicitly selecting a legacy section still renders it
+    doc = build_document(spec, REPORT, selected_ids=['illogical'])
+    assert 'Illogical Relationships' in doc and 'Conveyor test' in doc
 
 
 def test_manifest_lists_all_sections_with_types():

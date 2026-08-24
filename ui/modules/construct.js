@@ -425,20 +425,11 @@ function renderReport(report) {
     </div>
 
     ${_v2RiskSummary(report)}
-    ${_v2Findings(report)}
-
-    <details class="v2legacy"><summary>Detailed knowledge-base standard check (missing activities · WBS · scope)</summary>
-    ${_dashboard(report)}
-    <div class="mod-sec">Illogical relationships &amp; better logic</div>
-    ${_illogicalTable(report.illogical)}
-    <div class="mod-sec">Missing activities</div>
-    ${_missingTable(report.missing)}
-    <div class="mod-sec">WBS review &amp; missing WBS</div>
-    ${_wbsReview(report.wbs_review, report.missing_wbs)}
-    ${_learnedPanel(report.learned)}
-    </details>
-    <div class="mod-sec">Executive conclusion</div>
-    <div class="ai-concl"><div class="lead">Constructability — rule + knowledge base</div>${escapeHtml(report.conclusion || '')}</div>`;
+    ${_v2Findings(report)}`;
+    // The Constructability Review is ONE engine, ONE score — the two sections above.
+    // The legacy KB-standard dashboard / illogical / missing / WBS / conclusion (a
+    // second, contradictory score) is intentionally not shown (Ibrahim's V1 spec:
+    // only two sections; no repeated/duplicate information).
 
   const sel = document.getElementById('ct-type');
   if (sel) sel.addEventListener('change', () => fetchAndRender(sel.value || null));

@@ -25,7 +25,7 @@ export function showKbLibrary() {
   document.getElementById('sb-home-btn')?.classList.remove('active');
   document.getElementById('sb-audit-btn')?.classList.remove('active');
   document.getElementById('sb-kb-btn')?.classList.add('active');
-  document.getElementById('topbar-sub').textContent = 'Knowledge Base · Project Standards';
+  document.getElementById('topbar-sub').textContent = 'Reference Standards · by project type';
   if (state.kbLibrary) { renderTree(); }
   else { loadKb(); }
 }
