@@ -136,6 +136,30 @@ def _category_table(ctx):
     )
 
 
+def _pv_ev_ac(ctx):
+    e = ctx.evm or {}
+    pv, ev, ac = e.get('pv'), e.get('ev'), e.get('ac')
+    vals = [x for x in (pv, ev, ac) if isinstance(x, (int, float))]
+    if not vals:
+        return P.NO_DATA
+    amax = max(vals) * 1.05
+    return P.bars(
+        rows=[{'label': 'Value', 'values': [pv or 0, ev or 0, ac or 0],
+               'display': [fmt.money(pv), fmt.money(ev), fmt.money(ac)]}],
+        series=[{'label': 'Planned Value', 'tone': 'neutral'},
+                {'label': 'Earned Value', 'tone': 'accent'},
+                {'label': 'Actual Cost', 'tone': 'warn'}],
+        axis_max=amax)
+
+
+def _gap(ctx):
+    gap = (ctx.extras or {}).get('gap')
+    if isinstance(gap, list) and gap and isinstance(gap[0], dict):
+        from p6_special.providers import _util as U
+        return U.table_from_dicts(gap)
+    return P.NO_DATA
+
+
 def provide(ctx):
     A = _ready
     return [
@@ -152,4 +176,6 @@ def provide(ctx):
         Item('evm:ev', FEATURE, FEATURE_TITLE, 'Earned Value (EV)', 'kpi', _kpi_ev, A),
         Item('evm:ac', FEATURE, FEATURE_TITLE, 'Actual Cost (AC)', 'kpi', _kpi_ac, A),
         Item('evm:delay', FEATURE, FEATURE_TITLE, 'Delay in working days', 'kpi', _kpi_delay, A),
+        Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned / Earned / Actual value (chart)', 'chart', _pv_ev_ac, A),
+        Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'table', _gap, A),
     ]

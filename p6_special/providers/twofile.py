@@ -41,48 +41,132 @@ def _cp_report(ctx):
     return ctx.memo('cp_report', build)
 
 
-def _cp_health(ctx):
+def _cp(ctx):
+    """Guarded CPA report (baseline attached) or None."""
     if not ctx.has_input('baseline'):
-        return P.NO_DATA
+        return None
     try:
-        r = _cp_report(ctx)
+        return _cp_report(ctx)
     except Exception:
-        return P.NO_DATA
+        return None
+
+
+def _cp_health(ctx):
+    r = _cp(ctx)
     if not r:
         return P.NO_DATA
-    blocks = [U.kpi_from_dict(r.get('dashboard') or {})]
-    if r.get('conclusion'):
-        blocks.append(P.text(r['conclusion']))
-    return P.group([b for b in blocks if b and b.get('kind') != 'no_data']) or P.NO_DATA
+    d = r.get('dashboard') or {}
+    blocks = []
+    cpli = d.get('cpli')
+    if cpli is not None or d.get('status_label'):
+        blocks.append(P.kpi_group([P.kpi('Critical Path Health', d.get('status_label') or '—',
+                                         sub=(f'CPLI {fmt.ratio(cpli)}' if cpli is not None else None),
+                                         tone=('good' if (cpli or 0) >= 1 else 'bad'))]))
+    if d.get('verdict'):
+        blocks.append(P.text(d['verdict']))
+    return P.group([b for b in blocks if b]) if blocks else P.NO_DATA
+
+
+def _cp_kpis(ctx):
+    r = _cp(ctx)
+    d = (r or {}).get('dashboard') or {}
+    kpis = d.get('kpis') or []
+    if not kpis:
+        return P.NO_DATA
+    items = []
+    for k in kpis:
+        v = k.get('value')
+        val = fmt.ratio(v) if k.get('key') == 'cpli' else fmt.num(v)
+        dlt = k.get('delta')
+        sub = None
+        if dlt not in (None, 0):
+            sub = f'{dlt:+g} vs baseline'
+        items.append(P.kpi(k.get('label'), val, sub=sub))
+    return P.kpi_group(items)
+
+
+def _cp_crit_near(ctx):
+    r = _cp(ctx)
+    ch = ((r or {}).get('dashboard') or {}).get('charts') or {}
+    cn = ch.get('crit_near') or {}
+    roles = cn.get('roles') or []
+    if not roles:
+        return P.NO_DATA
+    crit, near = cn.get('critical') or [], cn.get('near') or []
+    vals = [x for x in (crit + near) if isinstance(x, (int, float))]
+    amax = max(vals) if vals else None
+    rows = [{'label': roles[i].title(),
+             'values': [crit[i] if i < len(crit) else 0, near[i] if i < len(near) else 0],
+             'display': [fmt.num(crit[i] if i < len(crit) else 0),
+                         fmt.num(near[i] if i < len(near) else 0)]}
+            for i in range(len(roles))]
+    return P.bars(rows, series=[{'label': 'Critical', 'tone': 'bad'},
+                                {'label': 'Near-critical', 'tone': 'warn'}], axis_max=amax)
+
+
+def _cp_cpli_trend(ctx):
+    r = _cp(ctx)
+    ch = ((r or {}).get('dashboard') or {}).get('charts') or {}
+    tr = ch.get('cpli_trend') or {}
+    roles, values = tr.get('roles') or [], tr.get('values') or []
+    pts = [(roles[i], values[i]) for i in range(len(roles)) if i < len(values) and values[i] is not None]
+    if not pts:
+        return P.NO_DATA
+    amax = max(v for _, v in pts) * 1.1
+    rows = [{'label': role.title(), 'values': [v], 'display': [fmt.ratio(v)]} for role, v in pts]
+    return P.bars(rows, series=[{'label': 'CPLI', 'tone': 'accent'}], axis_max=amax)
+
+
+def _cp_slip(ctx):
+    r = _cp(ctx)
+    ch = ((r or {}).get('dashboard') or {}).get('charts') or {}
+    msv = ch.get('ms_variance') or []
+    if not msv:
+        return P.NO_DATA
+    rows = []
+    for m in msv:
+        v = m.get('var')
+        tone = 'neutral' if v is None else ('bad' if v > 0 else 'good')
+        rows.append([m.get('name'), (fmt.days(v), tone)])
+    return P.table(['Milestone', 'Slip vs baseline'], rows, aligns=['l', 'r'])
 
 
 def _cp_census(ctx):
-    if not ctx.has_input('baseline'):
-        return P.NO_DATA
-    try:
-        r = _cp_report(ctx)
-    except Exception:
-        return P.NO_DATA
+    r = _cp(ctx)
     census = (r or {}).get('census') or {}
     rows = []
     for role, c in census.items():
         if isinstance(c, dict):
-            rows.append({'schedule': role,
+            rows.append({'schedule': role.title(),
                          **{k: v for k, v in c.items() if isinstance(v, (int, float, str))}})
     return U.table_from_dicts(rows) if rows else P.NO_DATA
 
 
 def _cp_milestones(ctx):
-    if not ctx.has_input('baseline'):
-        return P.NO_DATA
-    try:
-        r = _cp_report(ctx)
-    except Exception:
-        return P.NO_DATA
+    r = _cp(ctx)
     ms = (r or {}).get('milestones')
     if isinstance(ms, list) and ms and isinstance(ms[0], dict):
         return U.table_from_dicts(ms)
     return P.NO_DATA
+
+
+def _cp_float_migration(ctx):
+    r = _cp(ctx)
+    fmg = (r or {}).get('float_migration')
+    if isinstance(fmg, list) and fmg and isinstance(fmg[0], dict):
+        return U.table_from_dicts(fmg)
+    if isinstance(fmg, dict):
+        return U.kpi_from_dict(fmg)
+    return P.NO_DATA
+
+
+def _cp_recommendation(ctx):
+    r = _cp(ctx)
+    if not r:
+        return P.NO_DATA
+    parts = [r.get('effect'), r.get('recommendation'), r.get('conclusion')]
+    parts = [p for p in parts if p]
+    return P.text(parts) if parts else P.NO_DATA
 
 
 # ── Consultant Review (baseline vs update) ───────────────────────────────────
@@ -141,6 +225,19 @@ def _cmp_milestones(ctx):
     return P.NO_DATA
 
 
+def _cmp_durations(ctx):
+    if not ctx.has_input('baseline'):
+        return P.NO_DATA
+    try:
+        r = _cmp_report(ctx)
+    except Exception:
+        return P.NO_DATA
+    rows = ((r or {}).get('durations') or {}).get('rows')
+    if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+        return U.table_from_dicts(rows)
+    return P.NO_DATA
+
+
 # ── Update vs Update (previous vs current) ───────────────────────────────────
 def _pd_report(ctx):
     def build():
@@ -194,20 +291,60 @@ def _pd_milestones(ctx):
     return P.NO_DATA
 
 
+def _pd_bycode(ctx):
+    if not ctx.has_input('previous'):
+        return P.NO_DATA
+    try:
+        r = _pd_report(ctx)
+    except Exception:
+        return P.NO_DATA
+    bc = (r or {}).get('progress_by_code')
+    if isinstance(bc, list) and bc and isinstance(bc[0], dict):
+        return U.table_from_dicts(bc)
+    return P.NO_DATA
+
+
+def _pd_watch(ctx):
+    if not ctx.has_input('previous'):
+        return P.NO_DATA
+    try:
+        r = _pd_report(ctx)
+    except Exception:
+        return P.NO_DATA
+    w = (r or {}).get('watch_list')
+    if isinstance(w, list) and w and isinstance(w[0], dict):
+        return U.table_from_dicts(w)
+    return P.NO_DATA
+
+
 def provide(ctx):
     return [
         # Critical Path Analyzer
         Item('critpath:health', 'critpath', 'Critical Path Analyzer', 'Critical path health + CPLI',
              'score', _cp_health, _need('baseline'), BASELINE_REQ),
-        Item('critpath:census', 'critpath', 'Critical Path Analyzer', 'Critical & near-critical counts',
-             'kpi', _cp_census, _need('baseline'), BASELINE_REQ),
-        Item('critpath:milestones', 'critpath', 'Critical Path Analyzer', 'Milestone slip table',
+        Item('critpath:kpis', 'critpath', 'Critical Path Analyzer', 'CPLI / length / critical / near-critical',
+             'kpi', _cp_kpis, _need('baseline'), BASELINE_REQ),
+        Item('critpath:crit_near', 'critpath', 'Critical Path Analyzer', 'Critical & near-critical by schedule (chart)',
+             'chart', _cp_crit_near, _need('baseline'), BASELINE_REQ),
+        Item('critpath:cpli_trend', 'critpath', 'Critical Path Analyzer', 'CPLI by schedule (chart)',
+             'chart', _cp_cpli_trend, _need('baseline'), BASELINE_REQ),
+        Item('critpath:slip', 'critpath', 'Critical Path Analyzer', 'Milestone slip (chart)',
+             'chart', _cp_slip, _need('baseline'), BASELINE_REQ),
+        Item('critpath:census', 'critpath', 'Critical Path Analyzer', 'Critical & near-critical census',
+             'table', _cp_census, _need('baseline'), BASELINE_REQ),
+        Item('critpath:milestones', 'critpath', 'Critical Path Analyzer', 'Every-milestone finish table',
              'table', _cp_milestones, _need('baseline'), BASELINE_REQ),
+        Item('critpath:float_migration', 'critpath', 'Critical Path Analyzer', 'Float migration',
+             'table', _cp_float_migration, _need('baseline'), BASELINE_REQ),
+        Item('critpath:recommendation', 'critpath', 'Critical Path Analyzer', 'Effect & recommendation',
+             'text', _cp_recommendation, _need('baseline'), BASELINE_REQ),
         # Consultant Review
         Item('compare:impact', 'compare', 'Consultant Review', 'Delay before / after (but-for)',
              'kpi', _cmp_impact, _need('baseline'), BASELINE_REQ),
         Item('compare:changes', 'compare', 'Consultant Review', 'Logic & lag change summary',
              'table', _cmp_changes, _need('baseline'), BASELINE_REQ),
+        Item('compare:durations', 'compare', 'Consultant Review', 'Duration & remaining changes',
+             'table', _cmp_durations, _need('baseline'), BASELINE_REQ),
         Item('compare:milestones', 'compare', 'Consultant Review', 'Milestone finishes (baseline vs update)',
              'table', _cmp_milestones, _need('baseline'), BASELINE_REQ),
         # Update vs Update
@@ -215,6 +352,10 @@ def provide(ctx):
              'kpi', _pd_progress, _need('previous'), PREV_REQ),
         Item('period:critical', 'period', 'Update vs Update', 'Critical-path movement this period',
              'table', _pd_critical, _need('previous'), PREV_REQ),
+        Item('period:bycode', 'period', 'Update vs Update', 'Progress by activity code',
+             'table', _pd_bycode, _need('previous'), PREV_REQ),
+        Item('period:watch', 'period', 'Update vs Update', 'Next-period watch list',
+             'table', _pd_watch, _need('previous'), PREV_REQ),
         Item('period:milestones', 'period', 'Update vs Update', 'Milestone finishes this period',
              'table', _pd_milestones, _need('previous'), PREV_REQ),
     ]

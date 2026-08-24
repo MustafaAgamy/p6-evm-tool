@@ -28,6 +28,10 @@ def test_catalog_endpoint(test_server, xml_path):
     cp = next(g for g in r['groups'] if g['feature'] == 'critpath')
     assert all(i['availability'] == 'needs_input' for i in cp['items'])
     assert cp['items'][0]['requires']
+    # completeness: Critical Path exposes its charts, not just a couple of tables
+    cp_ids = {i['id'] for i in cp['items']}
+    assert {'critpath:crit_near', 'critpath:cpli_trend', 'critpath:slip',
+            'critpath:float_migration'}.issubset(cp_ids)
 
 
 def test_render_endpoint_word_safe(test_server, xml_path):
@@ -39,6 +43,7 @@ def test_render_endpoint_word_safe(test_server, xml_path):
     assert 'Weekly Board' in r['html']
     assert 'Table of contents' in r['html']
     assert 'var(--' not in r['html']
+    assert 'Source:' not in r['html']   # internal feature-source labels removed from the report
 
 
 def test_templates_roundtrip(test_server, xml_path):

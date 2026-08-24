@@ -114,6 +114,11 @@ def _bars(pl, C):
     rows = pl.get('rows') or []
     if not rows or not series:
         return _no_data({}, C)
+    axis_max = pl.get('axis_max')
+    try:
+        axis_max = float(axis_max) if axis_max else None
+    except (TypeError, ValueError):
+        axis_max = None
     track = C('rpt-surface-2')
     blocks = []
     for row in rows:
@@ -123,12 +128,17 @@ def _bars(pl, C):
         lines = []
         for i, s in enumerate(series):
             v = vals[i] if i < len(vals) else 0
+            try:
+                vnum = float(v or 0)
+            except (TypeError, ValueError):
+                vnum = 0.0
+            width = (vnum / axis_max * 100.0) if axis_max else vnum
             color = C.bar(s.get('tone', 'accent'))
-            shown = disp[i] if i < len(disp) and disp[i] is not None else f'{v:.1f}%'
+            shown = disp[i] if i < len(disp) and disp[i] is not None else (f'{vnum:.1f}%' if not axis_max else f'{vnum:g}')
             lines.append(
                 f'<tr>'
                 f'<td width="120" style="font-size:11.5px;color:{C("rpt-ink-soft")};padding:3px 8px 3px 0">{_esc(s.get("label"))}</td>'
-                f'<td>{_bar_track(v, color, track)}</td>'
+                f'<td>{_bar_track(width, color, track)}</td>'
                 f'<td width="80" align="right" style="font-size:11.5px;color:{C("rpt-ink")};padding-left:8px;white-space:nowrap">{_esc(shown)}</td>'
                 f'</tr>'
             )
@@ -237,15 +247,14 @@ def render_payload(payload, C):
 
 # ── document assembly ────────────────────────────────────────────────────────
 def render_section(index, item, C):
-    src = item.get('feature_title') or item.get('feature') or ''
     body = render_payload(item.get('payload'), C)
     return (
         f'<div class="sr-sec" style="margin:0 0 26px;page-break-inside:avoid">'
-        f'<table cellpadding="0" cellspacing="0" style="margin-bottom:2px"><tr>'
-        f'<td valign="middle" style="font-size:20px;font-weight:800;color:{C("rpt-accent")};padding-right:10px">{index}</td>'
-        f'<td valign="middle" style="font-size:17px;font-weight:750;color:{C("rpt-ink")}">{_esc(item.get("title"))}</td>'
+        f'<table cellpadding="0" cellspacing="0" style="margin-bottom:10px;'
+        f'border-bottom:1px solid {C("rpt-hair")};width:100%"><tr>'
+        f'<td valign="middle" style="font-size:20px;font-weight:800;color:{C("rpt-accent")};padding:0 10px 8px 0">{index}</td>'
+        f'<td valign="middle" style="font-size:17px;font-weight:750;color:{C("rpt-ink")};padding-bottom:8px">{_esc(item.get("title"))}</td>'
         f'</tr></table>'
-        f'<div style="font-size:11px;color:{C("rpt-muted")};border-bottom:1px solid {C("rpt-hair")};padding-bottom:8px;margin-bottom:12px">Source: {_esc(src)}</div>'
         f'{body}</div>'
     )
 
@@ -287,11 +296,9 @@ def _cover(report_name, meta, letterhead, C):
 def _toc(rendered, C):
     lines = []
     for i, item in enumerate(rendered, 1):
-        src = item.get('feature_title') or ''
         lines.append(
             f'<tr><td valign="top" style="font-size:13.5px;font-weight:800;color:{C("rpt-accent")};width:28px;padding:6px 0">{i}</td>'
-            f'<td style="font-size:13.5px;font-weight:600;color:{C("rpt-ink")};padding:6px 0">{_esc(item.get("title"))}'
-            f' <span style="font-size:11.5px;font-weight:400;color:{C("rpt-muted")}">· {_esc(src)}</span></td></tr>'
+            f'<td style="font-size:13.5px;font-weight:600;color:{C("rpt-ink")};padding:6px 0">{_esc(item.get("title"))}</td></tr>'
         )
     return (
         f'<div class="sr-toc" style="margin-bottom:30px;page-break-after:avoid">'

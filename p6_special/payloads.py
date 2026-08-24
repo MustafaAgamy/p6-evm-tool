@@ -38,14 +38,17 @@ def table(columns, rows, aligns=None):
     }
 
 
-def bars(rows, series, note=None):
-    """Horizontal comparison bars (e.g. Planned vs Actual).
+def bars(rows, series, note=None, axis_max=None):
+    """Horizontal comparison bars (e.g. Planned vs Actual, or counts by schedule).
 
     ``series``: list of ``{'label': str, 'tone': str}`` — one measure per bar row.
     ``rows``: list of ``{'label': str, 'values': [num, ...], 'display': [str, ...]?}``
-        where ``values`` (0..100 scale) align to ``series``.
+        aligned to ``series``.
+    ``axis_max``: if given, bar width = value / axis_max (for counts/days/money);
+        if omitted, ``values`` are treated as already on a 0..100 percent scale.
     """
-    return {'kind': 'bars', 'series': list(series), 'rows': list(rows), 'note': note}
+    return {'kind': 'bars', 'series': list(series), 'rows': list(rows),
+            'note': note, 'axis_max': axis_max}
 
 
 def segbar(segments, note=None):
