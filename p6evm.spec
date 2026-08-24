@@ -21,6 +21,9 @@ datas = [
                                           # the whole package like p6_evm, so every submodule
                                           # (e.g. modules/lag_lead.py) ships even though server.py
                                           # only imports it deferred inside handlers.
+    ('p6_dashboard',   'p6_dashboard'),   # Professional Dashboard aggregation layer — bundle the
+                                          # whole package so every provider ships and the
+                                          # feature-dashboard filesystem scan can find them.
     ('config.json',    '.'),              # Config at root of bundle
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
     ('report_theme.py', '.'),             # Shared report appearance themes — imported at
@@ -49,6 +52,10 @@ hiddenimports = [
     # server.py imports p6_audit only via deferred (in-function) imports, which PyInstaller's
     # graph can miss — force every submodule (engine, report, exporters, modules/lag_lead, …).
     *collect_submodules('p6_audit'),
+    # Professional Dashboard: providers are loaded via load_builtins + a filesystem scan,
+    # so force every submodule (registry, context, exporters, xlsx_dashboard, providers.*).
+    'p6_dashboard',
+    *collect_submodules('p6_dashboard'),
     'p6_evm.e1_log',
     'p6_evm.gap',
     'p6_evm.evm_report',

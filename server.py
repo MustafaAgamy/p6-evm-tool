@@ -133,6 +133,16 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_constructability_report(body)
         elif self.path == '/api/constructability/excel':
             self._handle_constructability_excel(body)
+        elif self.path == '/api/dashboard/catalog':
+            self._handle_dashboard_catalog(body)
+        elif self.path == '/api/dashboard/render':
+            self._handle_dashboard_render(body)
+        elif self.path == '/api/dashboard/save':
+            self._handle_dashboard_save(body)
+        elif self.path == '/api/dashboard/report':
+            self._handle_dashboard_report(body)
+        elif self.path == '/api/dashboard/excel':
+            self._handle_dashboard_excel(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -903,6 +913,136 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── Professional Dashboard ──────────────────────────────────────────────
+    def _dash_ctx(self, body):
+        from p6_dashboard.context import DashboardContext
+        return DashboardContext(
+            snapshot_id=body.get('snapshot_id'),
+            project_id=body.get('project_id'),
+            xml_path=body.get('xml_path'),
+            cached_path=body.get('cached_path'),
+        )
+
+    def _handle_dashboard_catalog(self, body):
+        """Every available dashboard component (metadata only) for the current project,
+        plus the saved layout. Payloads are fetched separately by /render."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_dashboard import registry
+            ctx = self._dash_ctx(body)
+            cat = registry.catalog(ctx)
+            layout = db.get_dashboard_layout(ctx.project_id) if ctx.project_id else None
+            self._json(200, {'ok': True, 'catalog': cat, 'layout': layout,
+                             'project_id': ctx.project_id})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_dashboard_render(self, body):
+        """Payloads for the selected component ids (produce runs only for these)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_dashboard import registry
+            ctx = self._dash_ctx(body)
+            payloads = registry.render(ctx, body.get('ids') or [])
+            self._json(200, {'ok': True, 'payloads': payloads})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_dashboard_save(self, body):
+        """Persist the per-project dashboard layout (selection + order + custom + titles
+        + header)."""
+        project_id = body.get('project_id')
+        if not project_id:
+            self._json(200, {'ok': False, 'error': 'No project id'})
+            return
+        try:
+            db.save_dashboard_layout(project_id, body.get('layout'))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_dashboard_report(self, body):
+        """Compose the selected components into the one-pager HTML → preview or PDF.
+        Screen == PDF: the client posts the exact composition it renders."""
+        import subprocess
+        import tempfile
+        composition = body.get('composition') or {}
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_dashboard.exporters import render_dashboard_html
+            html_content = render_dashboard_html(composition, theme=report_theme.normalize(body.get('theme')))
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_dashboard_excel(self, body):
+        """Excel that matches the PDF: renders the SAME themed one-pager, rasterises it
+        with headless Chrome, and embeds that exact image. Falls back to the styled grid
+        if the screenshot can't be produced (e.g. Chrome missing)."""
+        composition = body.get('composition') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_dashboard.exporters import write_dashboard_xlsx, render_dashboard_html
+            html_content = render_dashboard_html(composition, theme=report_theme.normalize(body.get('theme')))
+            image_png = self._dashboard_png(html_content)   # None if Chrome unavailable
+            write_dashboard_xlsx(os.path.abspath(output_path), composition, image_png=image_png)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _dashboard_png(self, html_content):
+        """Rasterise the dashboard HTML to a full-page PNG via headless Chrome (so Excel
+        matches the PDF). Returns bytes, or None on any failure."""
+        import subprocess
+        import tempfile
+        html_path = png_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                # a fixed width lays the grid out like the PDF; extra height is trimmed by Chrome's full-page capture
+                tmp.write(html_content.replace('<body>', '<body style="width:1360px">'))
+                html_path = tmp.name
+            png_path = html_path[:-5] + '.png'
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
+                '--force-device-scale-factor=1', '--default-background-color=ffffffff',
+                f'--screenshot={png_path}', '--window-size=1400,2000',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+            with open(png_path, 'rb') as f:
+                return f.read()
+        except Exception:
+            return None
+        finally:
+            for p in (html_path, png_path):
+                try:
+                    if p and os.path.isfile(p):
+                        os.unlink(p)
+                except OSError:
+                    pass
 
     # ── /api/compare/corrected-xml ────────────────────────────────────────
     def _handle_corrected_xml(self, body):

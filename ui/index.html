@@ -226,6 +226,16 @@
               <div class="cc-title">Update Analysis</div>
               <div class="cc-sub">One update vs its baseline — time status, planned vs actual by code, critical path</div>
             </button>
+            <button class="chooser-card" data-view="dashboard">
+              <div class="cc-icon" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/>
+                  <rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>
+                </svg>
+              </div>
+              <div class="cc-title">Professional Dashboard</div>
+              <div class="cc-sub">Compose one management dashboard from every feature's results — you choose what appears</div>
+            </button>
           </div>
         </div>
 
@@ -241,6 +251,7 @@
           <button class="view-tab" id="tab-period" data-view="period">Update vs Update</button>
           <button class="view-tab" id="tab-critpath" data-view="critpath">Critical Path Analyzer</button>
           <button class="view-tab" id="tab-update" data-view="update">Update Analysis</button>
+          <button class="view-tab" id="tab-dashboard" data-view="dashboard">▦ Professional Dashboard</button>
           <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
 
@@ -304,6 +315,9 @@
         </div>
         <div class="view-panel hidden" id="update-panel">
           <div id="update-body"></div>
+        </div>
+        <div class="view-panel hidden" id="dashboard-panel">
+          <div id="dashboard-body"></div>
         </div>
         </div><!-- /analysis-views -->
       </section>
