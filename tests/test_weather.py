@@ -296,6 +296,76 @@ def test_finish_equals_completion_milestone_no_contradiction():
     assert r['net_finish_delay'] == completion['net_delay'] == 2
 
 
+# ── Multi-year climate history (representative year + monthly average) ───────
+
+def _yearly(*vals):
+    """{year: {rain_mm}} for the last len(vals) years, newest year last."""
+    return {2021 + i: {'rain_mm': v} for i, v in enumerate(vals)}
+
+
+def test_representative_year_drives_the_day_list():
+    """Beyond the forecast, the day-list uses a TYPICAL (representative) year — the one whose
+    bad-day count is closest to the N-year average — so a single freak year can't skew it, and
+    the delay reflects a normal year's exposure (a strict exact-date match undercounts)."""
+    cal = _cal()
+    d1 = date(2025, 6, 17)   # Tue (working)
+    d2 = date(2025, 6, 24)   # Tue (working)
+    # d1: bad in years {2021,2022,2023} ; d2: bad only in 2021 (a high year).
+    climate = {
+        d1: _yearly(12, 9, 8, 0, 0),    # bad 3 yrs
+        d2: _yearly(20, 0, 0, 0, 0),    # bad 1 yr
+    }
+    r = weather_impact(
+        calendars={'C': cal}, construction_cal_ids={'C'}, milestones=[],
+        data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather={}, forecast_horizon=date(2025, 6, 8),
+        climate_samples=climate, climate_meta={'years': 5, 'year_start': 2021, 'year_end': 2025},
+        thresholds=DEFAULT_THRESHOLDS)
+    # per-year totals: 2021→2 (d1,d2), 2022→1, 2023→1, 2024→0, 2025→0 ; mean 0.8 → rep year 2022 or 2023 (count 1)
+    assert r['climate_reference']['representative_year'] in (2022, 2023)
+    # a representative (count-1) year has exactly one bad day → d1 (bad in 2022/2023), not d2
+    assert [d['date'] for d in r['bad_days']] == ['2025-06-17']
+    assert all(d['confidence'] == 'expected' for d in r['bad_days'])
+    assert r['climate_avg_total'] == 1                    # round(mean 0.8)
+
+
+def test_monthly_bars_carry_average_and_range():
+    cal = _cal()
+    climate = {
+        date(2025, 6, 17): _yearly(12, 9, 8, 0, 0),   # bad 3 of 5 yrs
+        date(2025, 6, 24): _yearly(20, 0, 0, 0, 0),   # bad 1 of 5 yrs
+    }
+    r = weather_impact(
+        calendars={'C': cal}, construction_cal_ids={'C'}, milestones=[],
+        data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather={}, forecast_horizon=date(2025, 6, 8),
+        climate_samples=climate, thresholds=DEFAULT_THRESHOLDS)
+    jun = next(m for m in r['monthly'] if m['label'] == 'Jun 2025')
+    # per-year June counts: 2021→2, 2022→1, 2023→1, 2024→0, 2025→0 → avg 0.8, range 0–2
+    assert jun['avg'] == 0.8 and jun['lo'] == 0 and jun['hi'] == 2
+
+
+def test_forecast_day_kept_near_term():
+    """A near-term FORECAST bad day is shown from the live forecast, labelled 'forecast'."""
+    cal = _cal()
+    r = weather_impact(
+        calendars={'C': cal}, construction_cal_ids={'C'}, milestones=[],
+        data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather={date(2025, 6, 3): {'rain_mm': 15}},   # Tue, within horizon
+        forecast_horizon=date(2025, 6, 8),
+        climate_samples={date(2025, 6, 3): _yearly(0, 0, 0, 0, 0)},   # climate present
+        thresholds=DEFAULT_THRESHOLDS)
+    day = next(d for d in r['bad_days'] if d['date'] == '2025-06-03')
+    assert day['confidence'] == 'forecast'
+
+
+def test_climate_reference_in_result():
+    ref = _impact()['climate_reference']
+    assert 'ERA5' in ref['history_source'] and ref['history_url']
+    assert ref['forecast_source'] == 'Open-Meteo'
+    assert 'avg_total' in ref and 'representative_year' in ref
+
+
 # ── Site-type presets (the East Port Said fix) ───────────────────────────────
 
 def test_desert_preset_equals_current_default():

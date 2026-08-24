@@ -241,7 +241,8 @@ def _pick_primary(calendars, con_ids, counts):
 def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
                    project_finish, daily_weather, forecast_horizon,
                    thresholds=None, config=None, construction_activities=None,
-                   site_type=None, construction_cal_counts=None):
+                   site_type=None, construction_cal_counts=None,
+                   climate_samples=None, climate_years=5, climate_meta=None):
     thresholds = thresholds or DEFAULT_THRESHOLDS
     data_date = _to_date(data_date)
     project_finish = _to_date(project_finish)
@@ -255,8 +256,53 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     primary_con = _pick_primary(calendars, con_ids, construction_cal_counts)
     primary_cal = calendars.get(primary_con) if primary_con else None
 
-    bad = bad_weather_days(daily_weather, thresholds)
-    remaining = {d: lbl for d, lbl in bad.items() if data_date < d <= project_finish}
+    # Flag bad-weather days. NEAR-TERM (≤ forecast horizon) uses the live forecast; BEYOND
+    # that, the estimate is grounded in MULTI-YEAR CLIMATE HISTORY (not one possibly-freak
+    # year): we look across the last N years and drive the day-list from a REPRESENTATIVE
+    # (typical) year — the one whose bad-day count is closest to the N-year average — and
+    # report the N-year average + range per month. A strict exact-date match drastically
+    # undercounts scattered wind/rain (it rarely repeats on the same date), so a typical
+    # year is used instead (Ibrahim, Option A).
+    has_climate = bool(climate_samples)
+    flagged = {}
+    for d, rec in (daily_weather or {}).items():
+        if not (data_date < d <= project_finish):
+            continue
+        if has_climate and d > forecast_horizon:      # beyond-horizon comes from the climate history
+            continue
+        is_bad, label, detail = classify_day(rec, thresholds)
+        if is_bad:
+            flagged[d] = {'detail': detail or label, 'label': label,
+                          'confidence': 'forecast' if d <= forecast_horizon else 'expected'}
+
+    # Per-year bad-day sets over the whole window (for the representative year + monthly stats).
+    years_seen = set()
+    for s in (climate_samples or {}).values():
+        years_seen.update(s.keys())
+    years_list = sorted(years_seen)
+    year_bad = {y: set() for y in years_list}      # {year: {dates bad that year}}
+    for d, s in (climate_samples or {}).items():
+        if not (data_date < d <= project_finish):
+            continue
+        for y, rec in s.items():
+            if classify_day(rec, thresholds)[0]:
+                year_bad[y].add(d)
+    counts_by_year = {y: len(year_bad[y]) for y in years_list}
+    climate_avg_total = (round(sum(counts_by_year.values()) / len(years_list))
+                         if years_list else 0)
+    rep_year = None
+    if years_list:
+        mean = sum(counts_by_year.values()) / len(years_list)
+        rep_year = min(years_list, key=lambda y: (abs(counts_by_year[y] - mean), -y))
+
+    # Representative year's bad days BEYOND the forecast horizon (near-term already covered).
+    if rep_year is not None:
+        for d in sorted(year_bad[rep_year]):
+            if d > forecast_horizon and d not in flagged:
+                _, lb, dt = classify_day(climate_samples[d][rep_year], thresholds)
+                flagged[d] = {'detail': dt or lb, 'label': lb, 'confidence': 'expected'}
+
+    remaining = flagged
     # Lost construction days = bad days landing on a WORKING day of the reference calendar.
     # Days already off (weekend / holiday / shutdown) carry no impact, so they never move a
     # milestone or trigger a recovery option (Ibrahim's rule).
@@ -283,8 +329,7 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     # so the counts can sum to more than the day total).
     cause_count = {'Rain': 0, 'Heat': 0, 'Dust storm': 0, 'High wind': 0}
     for d in remaining:
-        _, label, _ = classify_day(daily_weather.get(d, {}), thresholds)
-        for part in label.split(' / '):
+        for part in (remaining[d].get('label') or '').split(' / '):
             if part in cause_count:
                 cause_count[part] += 1
     by_cause = [
@@ -313,22 +358,36 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
                     if label and label not in seen:
                         seen.add(label)
                         wbs_brief.append(label)
+        meta = remaining[d]
         bad_list.append({
             'date': d.isoformat(), 'day_name': _DAY_NAMES[d.weekday()],
-            'condition': remaining[d],
-            'confidence': 'forecast' if d <= forecast_horizon else 'expected',
+            'condition': meta['detail'],
+            'confidence': meta.get('confidence', 'expected'),
             'effect': 'Non-working (construction)' if working else 'Falls on a non-working day',
             'activities': wbs_brief,          # every affected WBS (de-duplicated), not capped
             'activities_count': len(wbs_brief),
         })
 
-    # Monthly counts (raw expected bad days per month)
-    monthly_map = {}
-    for d in remaining:
-        key = (d.year, d.month)
-        monthly_map[key] = monthly_map.get(key, 0) + 1
-    monthly = [{'label': f'{_MON[m]} {y}', 'count': monthly_map[(y, m)]}
-               for (y, m) in sorted(monthly_map)]
+    # Monthly bad-weather days. With climate history: the N-year AVERAGE per month plus the
+    # range (fewest–most across those years). Without it (unit tests): a plain count of the
+    # flagged days.
+    if years_list:
+        month_year = {}
+        for y in years_list:
+            for d in year_bad[y]:
+                month_year.setdefault((d.year, d.month), {yy: 0 for yy in years_list})[y] += 1
+        monthly = []
+        for (y, m) in sorted(month_year):
+            vals = list(month_year[(y, m)].values())
+            avg = sum(vals) / len(vals) if vals else 0
+            monthly.append({'label': f'{_MON[m]} {y}', 'count': round(avg),
+                            'avg': round(avg, 1), 'lo': min(vals), 'hi': max(vals)})
+    else:
+        monthly_map = {}
+        for d in remaining:
+            monthly_map[(d.year, d.month)] = monthly_map.get((d.year, d.month), 0) + 1
+        monthly = [{'label': f'{_MON[m]} {y}', 'count': c, 'avg': c, 'lo': c, 'hi': c}
+                   for (y, m), c in sorted(monthly_map.items())]
 
     # Recovery recommendations (advisory) — per milestone that slips.
     recovery = []
@@ -349,12 +408,27 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         total=len(remaining), net=net_finish, adjusted=adjusted_finish,
         by_cause=by_cause, monthly=monthly, milestones=ms)
 
+    # For the "why this result" panel, fold the multi-year climate into a single per-date view
+    # (the worst value seen across the years), so peaks like "hottest expected day" are real.
+    daily_eff = dict(daily_weather or {})
+    for d, samples in (climate_samples or {}).items():
+        recs = list(samples.values())
+        if d in daily_eff or not recs:
+            continue
+        daily_eff[d] = {
+            'rain_mm': max((float(r.get('rain_mm') or 0) for r in recs), default=0.0),
+            'temp_max_c': max((float(r.get('temp_max_c') or 0) for r in recs), default=0.0),
+            'wind_kmh': max((float(r.get('wind_kmh') or 0) for r in recs), default=0.0),
+        }
+
+    meta = climate_meta or {}
     return {
         'bad_days': bad_list,
         'monthly': monthly,
         'by_cause': by_cause,
         'milestones': ms,
         'expected_bad_days_total': len(remaining),
+        'climate_avg_total': climate_avg_total,   # N-year average bad days over the window
         'net_finish_delay': net_finish,
         'weather_adjusted_finish': adjusted_finish.isoformat(),
         'recovery': recovery,
@@ -363,7 +437,17 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         'site_type': site_type,            # the chosen site type (None = today's default)
         'site_type_label': (SITE_TYPES.get(site_type) or {}).get('label'),
         'criteria': build_criteria(site_type, thresholds),          # shown in full (screen + PDF)
-        'limit_performance': limit_performance(daily_weather, data_date, project_finish, thresholds),
+        'limit_performance': limit_performance(daily_eff, data_date, project_finish, thresholds),
+        # Where the numbers come from (shown to the user + in the PDF); the server adds location.
+        'climate_reference': {
+            'history_source': 'Open-Meteo ERA5 reanalysis',
+            'history_url': 'archive-api.open-meteo.com',
+            'forecast_source': 'Open-Meteo', 'forecast_url': 'open-meteo.com',
+            'dust_source': 'Open-Meteo Air-Quality',
+            'years': len(years_list) or climate_years,
+            'year_start': meta.get('year_start'), 'year_end': meta.get('year_end'),
+            'representative_year': rep_year, 'avg_total': climate_avg_total,
+        },
         'from_date': data_date.isoformat(),  # the update's cutoff — window is (cutoff, finish]
         'source': 'Open-Meteo (forecast + ERA5 historical + air-quality)',
         'is_estimate': True,
@@ -523,12 +607,14 @@ def fetch_historical(lat, lon, start, end):
         return {}
 
 
-def build_daily_weather(lat, lon, data_date, project_finish, today=None):
-    """Assemble a {date: rec} across [data_date, project_finish]:
-      * near term (≤ ~16 days from today) → live forecast
-      * beyond → the SAME calendar dates from the most recent full past year
-        (historical climate proxy), remapped onto the future dates.
-    Returns (daily_weather, forecast_horizon). Network failures degrade to {}.
+def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5):
+    """Assemble the weather the estimate runs on:
+      * near term (≤ ~16 days from today) → live FORECAST → `daily` {date: rec}
+      * beyond the forecast → MULTI-YEAR CLIMATE HISTORY: the same calendar date across the
+        last `years` full years of recorded weather (Open-Meteo ERA5), so a single freak
+        year can't skew it → `climate_samples` {future_date: [rec, rec, ...]}.
+    Returns (daily, climate_samples, forecast_horizon, climate_meta). Network failures
+    degrade to empty dicts (offline-safe). climate_meta = {years, year_start, year_end}.
     """
     data_date = _to_date(data_date)
     project_finish = _to_date(project_finish)
@@ -541,22 +627,40 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None):
         if data_date < d <= project_finish:
             daily[d] = rec
 
-    # Future beyond the forecast horizon → prior-year actuals for the same dates.
+    # Multi-year climate for the WHOLE remaining window (so the monthly averages are complete):
+    # for each future date, the same calendar date across the last `years` FULL calendar years
+    # before the run starts, keyed by year → {future_date: {year: rec}}. Using full years (not
+    # a span that bleeds into partial ones) keeps every date's sample count equal to `years`,
+    # so the average/range and the "last N years" reference are honest.
+    climate_samples = {}
+    climate_meta = {'years': years, 'year_start': None, 'year_end': None}
     if project_finish > horizon:
-        fut_start = max(horizon + timedelta(days=1), data_date + timedelta(days=1))
-        # Use last year's window (shift back 1 year) as the climate proxy.
-        hist = fetch_historical(lat, lon,
-                                _shift_year(fut_start, -1), _shift_year(project_finish, -1))
+        fut_start = data_date + timedelta(days=1)
+        # First future date for each (month, day) in the remaining window.
+        fut_by_md = {}
+        d = fut_start
+        while d <= project_finish:
+            fut_by_md.setdefault((d.month, d.day), d)
+            d += timedelta(days=1)
+        # The `years` full calendar years ending just before the run begins.
+        end_year = fut_start.year - 1
+        start_year = end_year - years + 1
+        # One archive call over those full years, then bucket each historical day onto its
+        # matching future date by (month, day) → every date gets exactly `years` samples.
+        hist = fetch_historical(lat, lon, date(start_year, 1, 1), date(end_year, 12, 31))
         for hd, rec in hist.items():
-            fd = _shift_year(hd, +1)
-            if fut_start <= fd <= project_finish and fd not in daily:
-                daily[fd] = rec
+            fd = fut_by_md.get((hd.month, hd.day))
+            if fd is not None and start_year <= hd.year <= end_year:
+                climate_samples.setdefault(fd, {})[hd.year] = rec
+        if hist:
+            climate_meta['year_start'] = start_year
+            climate_meta['year_end'] = end_year
 
     # Dust / sandstorm days for the near-term window (air-quality forecast), merged in.
     for d, aq in fetch_air_quality(lat, lon).items():
         if d in daily and aq.get('dust'):
             daily[d].update(aq)
-    return daily, horizon
+    return daily, climate_samples, horizon, climate_meta
 
 
 _AIR_QUALITY = 'https://air-quality-api.open-meteo.com/v1/air-quality'

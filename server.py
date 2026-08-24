@@ -1636,10 +1636,16 @@ class Handler(BaseHTTPRequestHandler):
             if not inp['data_date'] or not inp['project_finish']:
                 self._json(200, {'ok': False, 'error': 'Schedule has no usable start/finish dates.'})
                 return
-            daily, horizon = build_daily_weather(lat, lon, inp['data_date'], inp['project_finish'])
+            daily, climate_samples, horizon, climate_meta = build_daily_weather(
+                lat, lon, inp['data_date'], inp['project_finish'])
             wx = weather_impact(**inp, daily_weather=daily, forecast_horizon=horizon,
-                                thresholds=thresholds, site_type=site_type)
+                                thresholds=thresholds, site_type=site_type,
+                                climate_samples=climate_samples, climate_meta=climate_meta)
             location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
+            # Fill the climate reference's location so the user sees exactly where it applies.
+            if isinstance(wx.get('climate_reference'), dict):
+                wx['climate_reference'].update({'lat': lat, 'lon': lon,
+                                                'place_name': body.get('place_name', '')})
             if pid:
                 # Persist location, the site type, the edited limits, and the latest weather
                 # (so re-opening restores the picker and the PDF can include it).
@@ -1650,7 +1656,7 @@ class Handler(BaseHTTPRequestHandler):
                     patch['weather_thresholds'] = body['thresholds']
                 db.save_project_settings(pid, patch)
             self._json(200, {'ok': True, 'weather': wx, 'location': location,
-                             'offline': not daily})
+                             'offline': not daily and not climate_samples})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

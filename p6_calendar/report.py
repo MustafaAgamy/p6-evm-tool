@@ -266,12 +266,16 @@ def _weather_section(weather):
     lim.append(f'wind ≥ {t["wind_kmh"]:g} km/h' if t.get('wind_kmh') is not None else 'wind off')
     lim.append('dust on' if t.get('dust', True) else 'dust off')
     # The clarification Ibrahim asked for — how the source works, and what "bad weather" means.
+    ref0 = w.get('climate_reference') or {}
+    _yrs = ref0.get('years', 5)
     method = (
         '<div class="wxm">'
         '<b>How this estimate is built.</b> Weather is pulled for the project location from '
-        '<b>Open-Meteo</b> (free, open, no key): a live ~16-day <b>forecast</b>, then the same '
-        'calendar dates from the most recent year&rsquo;s <b>actual recorded weather</b> for the rest '
-        'of the run (shown as <i>Expected</i>), plus an air-quality feed for <b>dust</b>.<br>'
+        '<b>Open-Meteo</b> (free, open, no key): a live ~16-day <b>forecast</b>, then for the rest of '
+        f'the run a <b>multi-year climate history</b> — the last {_yrs} years of actual recorded '
+        'weather (ERA5), with the day-list following a <b>typical (representative) year</b> and the '
+        'monthly view showing the <b>5-year average and range</b> (shown as <i>Expected</i>), plus an '
+        'air-quality feed for <b>dust</b>.<br>'
         '<b>What counts as a bad-weather day:</b> a construction day is counted lost when <b>any</b> '
         f'of your stop-work limits is met — {_esc(" · ".join(lim))}. Each flagged day below shows the '
         'measured value against your limit. Applied to <b>construction</b> activities only; a day '
@@ -349,7 +353,35 @@ def _weather_section(weather):
     days_table = (
         f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-accent")}">Upcoming Bad-Weather Days</span></div>'
         '<table><thead><tr><th>Date</th><th>Day</th><th>Why it’s a lost day (measured)</th>'
-        f'<th>Confidence</th><th>Affected work (by WBS)</th></tr></thead><tbody>{days}</tbody></table>') if days else ''
+        f'<th>Confidence</th><th>Affected work (by WBS)</th></tr></thead>'
+        f'<tbody>{days}</tbody></table>') if days else ''
+    # Source & climate reference — where the bad-weather days come from (Ibrahim: shown in the PDF too).
+    source_ref = ''
+    ref = w.get('climate_reference') or {}
+    if ref:
+        loc = ''
+        if ref.get('lat') is not None and ref.get('lon') is not None:
+            loc = f'{ref["lat"]:.3f}, {ref["lon"]:.3f}'
+            if ref.get('place_name'):
+                loc = f'{_esc(ref["place_name"])} ({loc})'
+        yrs = (f'{ref.get("year_start")}–{ref.get("year_end")}'
+               if ref.get('year_start') and ref.get('year_end') else f'last {ref.get("years", 5)} years')
+        ref_pairs = [
+            ('Climate history', f'<b>{_esc(ref.get("history_source", ""))}</b> — {_esc(ref.get("history_url", ""))}'),
+            ('History window', f'{_esc(str(yrs))} · day-list uses a typical year; months show the {ref.get("years", 5)}-year average &amp; range'),
+            ('Live forecast', f'{_esc(ref.get("forecast_source", ""))} — {_esc(ref.get("forecast_url", ""))} (next ~16 days)'),
+            ('Dust / sandstorm', _esc(ref.get('dust_source', ''))),
+        ]
+        if loc:
+            ref_pairs.append(('Location', loc))
+        ref_rows = ''.join(f'<tr><td>{_esc(k)}</td><td>{v}</td></tr>' for k, v in ref_pairs)
+        source_ref = (
+            f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-good")}">Where These Bad-Weather Days Come From</span></div>'
+            '<p class="lg">The data source &amp; climate reference — so the numbers can be trusted and checked. '
+            'Beyond ~16 days these are <b>climate-based expectations</b> (multi-year history for this site), '
+            'not a guaranteed forecast — kept separate from the exact P6 Delay.</p>'
+            '<table><thead><tr><th>Feed</th><th>Reference</th></tr></thead>'
+            f'<tbody>{ref_rows}</tbody></table>')
     ms_table = (
         f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">Impact on Milestone Completion</span></div>'
         '<table><thead><tr><th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>'
@@ -379,7 +411,7 @@ def _weather_section(weather):
         '— estimate, not a P6 figure</span></h2>'
         f'{method}{criteria_block}'
         f'<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">{kpis}</div>'
-        f'{why_block}{monthly_bars}{cause_table}{days_table}{ms_table}{rec_table}{conclusion}')
+        f'{why_block}{monthly_bars}{source_ref}{cause_table}{days_table}{ms_table}{rec_table}{conclusion}')
 
 
 def _conclusion(bullets, weather=None):

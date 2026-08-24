@@ -413,7 +413,7 @@ function _weatherControls() {
     <div class="cal-wx-method">
       <div class="cal-wx-mh">📡 How the estimate is built — three free Open-Meteo feeds</div>
       <div class="cal-wx-feed"><span class="ic">🛰️</span><div><b>Live forecast</b> — the real daily forecast (rain, heat, wind) for the next ~16 days from the update's cutoff.<span class="cal-pill mini def">Forecast</span></div></div>
-      <div class="cal-wx-feed"><span class="ic">📚</span><div><b>Historical climate</b> — beyond 16 days, the same calendar dates from the most recent year's actual recorded weather.<span class="cal-pill mini warn">Expected</span></div></div>
+      <div class="cal-wx-feed"><span class="ic">📚</span><div><b>Multi-year climate history</b> — beyond ~16 days, each date is drawn from the site's recorded weather over the <b>last 5 years</b> (Open-Meteo ERA5). The day-list follows a <b>typical (representative) year</b> so a fluke year can't skew it; months show the <b>5-year average and range</b>.<span class="cal-pill mini warn">Expected · climate</span></div></div>
       <div class="cal-wx-feed"><span class="ic">🌫️</span><div><b>Air-quality</b> — near-term PM10 / dust concentration, to flag sandstorm days.</div></div>
     </div>
     ${_siteTypePickerHtml()}
@@ -491,6 +491,26 @@ function _whyResultHtml() {
     <div class="cal-why">${rows}</div>`;
 }
 
+// Source & climate reference — where the bad-weather days come from (shown on import).
+function _climateRefHtml() {
+  const r = _weather && _weather.climate_reference;
+  if (!r) return '';
+  const loc = (r.place_name ? escapeHtml(r.place_name) + ' · ' : '') +
+    (r.lat != null ? `${(+r.lat).toFixed(2)}°, ${(+r.lon).toFixed(2)}°` : '');
+  const yrs = (r.year_start && r.year_end) ? `${r.year_start}–${r.year_end} (${r.years} years)` : `${r.years} years`;
+  const row = (k, v) => `<div class="cal-ref-row"><div class="cal-ref-k">${k}</div><div class="cal-ref-v">${v}</div></div>`;
+  return `<div class="cal-grp"><span class="cal-pill def">🔗 Where these bad-weather days come from</span>
+      <span class="cal-grp-meta">the data source &amp; climate reference — so you can trust and check the numbers</span></div>
+    <div class="cal-ref">
+      ${row('Climate history', `<b>${escapeHtml(r.history_source)}</b> — <span class="cal-ref-url">${escapeHtml(r.history_url)}</span>`)}
+      ${row('History window', `<b>${yrs}</b>, averaged per month`)}
+      ${loc ? row('Location', loc) : ''}
+      ${row('Live forecast', `${escapeHtml(r.forecast_source)} — <span class="cal-ref-url">${escapeHtml(r.forecast_url)}</span> (next ~16 days)`)}
+      ${row('Dust / sandstorm', escapeHtml(r.dust_source))}
+      <div class="cal-ref-note">Beyond ~16 days these are <b>climate-based expectations</b> (5-year average for this site) — not a guaranteed forecast. Kept separate from the exact P6 Delay.</div>
+    </div>`;
+}
+
 // The construction activities a bad-weather day hits (#07).
 function _actsCell(d) {
   const names = d.activities || [];
@@ -516,17 +536,27 @@ function _weatherSection() {
       Adjust the stop-work limits above if needed, then click <b>Apply &amp; recalculate</b> (or <b>Use this location</b> at the top).</p></div>`;
   }
   const w = _weather;
+  const badSub = (w.climate_avg_total != null && w.climate_avg_total !== w.expected_bad_days_total)
+    ? `~${w.climate_avg_total} on the 5-yr average` : '';
   const kpis = `<div class="cal-kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
-    ${_tile('Bad-weather days (remaining)', w.expected_bad_days_total, '', 'hl-amber')}
+    ${_tile('Bad-weather days (remaining)', w.expected_bad_days_total, badSub, 'hl-amber')}
     ${_tile('Net weather delay to finish', `+${w.net_finish_delay} wd`, '', 'hl-amber')}
     ${_tile('Weather-adjusted finish', fmtCalDate(w.weather_adjusted_finish))}</div>`;
-  const maxc = Math.max(1, ...(w.monthly || []).map(x => x.count));
-  const bars = (w.monthly || []).map(x =>
-    `<div class="cal-wxbar"><div class="cal-wxbar-v">${x.count || ''}</div>
-      <div class="cal-wxbar-b" style="height:${Math.max(4, x.count / maxc * 70)}px;${x.count >= 3 ? 'background:var(--warning)' : ''}"></div>
-      <div class="cal-wxbar-l">${escapeHtml(x.label)}</div></div>`).join('');
+  // Monthly bars: 5-year AVERAGE (bar) with a whisker for the fewest–most across those years.
+  const H = 70;
+  const maxHi = Math.max(1, ...(w.monthly || []).map(x => (x.hi != null ? x.hi : x.count)));
+  const bars = (w.monthly || []).map(x => {
+    const avg = x.avg != null ? x.avg : x.count;
+    const lo = x.lo != null ? x.lo : avg, hi = x.hi != null ? x.hi : avg;
+    const whisker = (hi > lo)
+      ? `<div class="cal-wxbar-rng" style="bottom:${lo / maxHi * H}px;height:${(hi - lo) / maxHi * H}px"></div>` : '';
+    return `<div class="cal-wxbar"><div class="cal-wxbar-v">${avg || ''}</div>
+      <div class="cal-wxbar-col" style="height:${H}px">
+        <div class="cal-wxbar-b" style="height:${Math.max(3, avg / maxHi * H)}px;${avg >= 3 ? 'background:var(--warning)' : ''}"></div>${whisker}</div>
+      <div class="cal-wxbar-l">${escapeHtml(x.label)}</div></div>`;
+  }).join('');
   const bar = `<div class="cal-card" style="margin-bottom:12px">
-    <div class="cal-muted" style="font-size:12px;margin-bottom:10px">Expected bad-weather days per month — historical climate at the location, applied to construction phases only</div>
+    <div class="cal-muted" style="font-size:12px;margin-bottom:10px">Expected bad-weather days per month — <b>5-year average</b> (bar) with the range across those years (whisker) · construction phases only</div>
     <div class="cal-wxbars">${bars || '<span class="cal-muted">No data.</span>'}</div></div>`;
   const dayRows = (w.bad_days || []).slice(0, 200).map(d =>
     `<tr><td>${fmtCalDate(d.date)}</td><td>${escapeHtml(d.day_name)}</td>
@@ -534,7 +564,7 @@ function _weatherSection() {
       <td><span class="cal-pill mini ${d.confidence === 'forecast' ? 'def' : 'warn'}">${d.confidence === 'forecast' ? 'Forecast' : 'Expected'}</span></td>
       <td>${_actsCell(d)}</td></tr>`).join('');
   const dayTable = `<div class="cal-grp"><span class="cal-pill special">Upcoming Bad-Weather Days</span>
-      <span class="cal-grp-meta">each day shows the measured value, why it counts &amp; the work (by WBS) it hits · next ~16 days = live forecast · beyond = expected from historical climate</span></div>
+      <span class="cal-grp-meta">each day shows the measured value, why it counts &amp; the work (by WBS) it hits · next ~16 days = live forecast · beyond = a typical year from the 5-year climate history</span></div>
     <div class="cal-card p0" style="max-height:300px;overflow-y:auto"><table class="cal-table"><thead><tr>
       <th>Date</th><th>Day</th><th>Why it's a lost day (measured)</th><th>Confidence</th><th>Affected work (by WBS)</th></tr></thead>
       <tbody>${dayRows || '<tr><td colspan="5" class="cal-empty">No bad-weather days expected.</td></tr>'}</tbody></table></div>`;
@@ -579,7 +609,7 @@ function _weatherSection() {
        <div class="cal-concl" style="border-left:4px solid var(--warning)"><p style="margin:0;font-size:13px;line-height:1.6">${escapeHtml(w.conclusion)}</p></div>`
     : '';
   const note = '<div class="cal-note">Applies to construction activities only (auto-detected), and only to Finish/completion milestones. A forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
-  return head + controls + kpis + _whyResultHtml() + bar + causeCard + dayTable + msTable + recTable + conclHtml + note;
+  return head + controls + kpis + _whyResultHtml() + bar + _climateRefHtml() + causeCard + dayTable + msTable + recTable + conclHtml + note;
 }
 
 // Read the stop-work-limit inputs → thresholds object (blank = off).
