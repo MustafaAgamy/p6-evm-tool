@@ -182,17 +182,67 @@ def _save_store(store, base=None):
         json.dump(store, f, ensure_ascii=False, indent=0)
 
 
-def learn_from_view(view, project_id, project_type='', label='', file_hash='', base=None, store=None):
+def _today():
+    try:
+        from datetime import date
+        return date.today().isoformat()
+    except Exception:
+        return ''
+
+
+def learn_from_view(view, project_id, project_type='', label='', file_hash='', base=None,
+                    store=None, source='user', raw=''):
     """Fold one imported schedule's multi-level patterns into the store under its P6
     project id (deduped — a re-import of the same project REPLACES its entry, never
-    inflates support/confidence). Concept only; no activity/WBS text stored."""
+    inflates support/confidence). Concept only; no activity/WBS text stored. Records the
+    KB metadata a user sees: source (curated/user), date added, enabled, raw filename."""
     owns = store is None
     store = store if store is not None else load_store(base)
     ex = extract(view)
     key = str(project_id or '').strip() or f'anon:{len(store["projects"])}'
+    prior = store['projects'].get(key, {})
     store['projects'][key] = {'label': str(label or '')[:120], 'type': str(project_type or '')[:80],
                               'hash': str(file_hash or ''), 'systems': ex['systems'],
-                              'disciplines': ex['disciplines'], 'levels': ex['levels']}
+                              'disciplines': ex['disciplines'], 'levels': ex['levels'],
+                              'source': prior.get('source', source), 'enabled': prior.get('enabled', True),
+                              'date': prior.get('date') or _today(), 'raw': raw or prior.get('raw', '')}
+    if owns:
+        _save_store(store, base)
+    return store
+
+
+def kb_list(store=None, base=None):
+    """The one user-facing Knowledge Base list: every knowledge project with its metadata
+    (name · type · source · date · enabled · patterns · raw). One place, not two."""
+    store = store if store is not None else load_store(base)
+    rows = []
+    for pid, rec in (store.get('projects') or {}).items():
+        n = sum(len(rec.get('levels', {}).get(lv, {}) or {}) for lv in _LEVELS)
+        rows.append({'id': pid, 'name': rec.get('label') or pid, 'type': rec.get('type', ''),
+                     'source': rec.get('source', 'user'), 'date': rec.get('date', ''),
+                     'enabled': rec.get('enabled', True), 'patterns': n,
+                     'systems': len(rec.get('systems', [])), 'raw': rec.get('raw', '')})
+    rows.sort(key=lambda r: (r['source'] != 'curated', r['name'].lower()))
+    return rows
+
+
+def set_enabled(project_id, enabled, base=None, store=None):
+    """Turn a project's contribution to supporting knowledge on/off without deleting it."""
+    owns = store is None
+    store = store if store is not None else load_store(base)
+    rec = (store.get('projects') or {}).get(str(project_id))
+    if rec is not None:
+        rec['enabled'] = bool(enabled)
+        if owns:
+            _save_store(store, base)
+    return store
+
+
+def remove_project(project_id, base=None, store=None):
+    """Remove a project from the Knowledge Base entirely."""
+    owns = store is None
+    store = store if store is not None else load_store(base)
+    (store.get('projects') or {}).pop(str(project_id), None)
     if owns:
         _save_store(store, base)
     return store
@@ -213,6 +263,8 @@ def _index(store):
     occ = {lv: Counter() for lv in _LEVELS}
     sysp = {}
     for pid, rec in (store.get('projects') or {}).items():
+        if not rec.get('enabled', True):
+            continue                                 # disabled projects don't corroborate
         for lv in _LEVELS:
             for k, n in (rec.get('levels', {}).get(lv, {}) or {}).items():
                 idx[lv].setdefault(k, set()).add(pid)

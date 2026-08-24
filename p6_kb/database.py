@@ -105,11 +105,14 @@ def add_import(src_path, data, base=None, entries=None, forced_type=None, when=N
     try:
         from p6_kb.model import schedule_view
         from p6_kb.tagging import tag_view
-        from p6_kb.pattern_learning import learn_from_view
+        from p6_kb.pattern_learning import learn_from_view, store_raw
         pv = schedule_view(data)
         tag_view(pv)
-        learn_from_view(pv, proj.get('id') or filename, project_type=entry['type'],
-                        label=proj.get('name') or filename, base=base)
+        pid = proj.get('id') or filename
+        pname = proj.get('name') or filename
+        rawp = store_raw(src_path, pid, pname, base=base)          # single raw store
+        learn_from_view(pv, pid, project_type=entry['type'], label=pname, base=base,
+                        source='user', raw=(os.path.basename(rawp) if rawp else ''))
     except Exception:
         pass
     return {'type': entry['type'], 'category': entry.get('category', ''), **record}

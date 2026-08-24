@@ -23,6 +23,10 @@ _LATE = {'TESTING', 'PRE_COMMISSIONING', 'COMMISSIONING', 'INTEGRATED_TESTING', 
 # or passive pre-commissioning and needs NO power, so TESTING and PRE_COMMISSIONING are
 # deliberately excluded — including them made R1 fire on every hydrostatic test.
 _R1_POWER_LATE = {'COMMISSIONING', 'INTEGRATED_TESTING', 'PERFORMANCE', 'STARTUP'}
+# Systems whose commissioning is NOT gated by permanent power (Ibrahim): basic plumbing
+# / drainage commissioning is flushing / disinfection / pressure-testing — no power. Also
+# electrical_power itself (it IS the power). Fire-fighting stays gated (fire pumps need power).
+_R1_NO_POWER_SYS = {'electrical_power', 'plumbing', 'sanitary_fixtures'}
 _INSTALL = {'ERECTION_INSTALL', 'MECHANICAL_COMPLETION', 'ROUGH_IN'}
 _STRENGTH = {'strong': 3, 'moderate': 2, 'weak': 1, 'insufficient': 0}
 _MEP_DISC = {'MECH', 'ELEC', 'ELV', 'PIPING', 'INSTR', 'PLUMB', 'FIRE', 'PROCESS', 'UTIL'}
@@ -426,7 +430,7 @@ def generate_findings(view, resolution=None, patterns=None):
         # AHU does not vouch for an unpowered AHU beside it. Transitive; a same-system or
         # electrical energization anywhere upstream counts.
         commissioning = [a for a in acts if _phase_of(a) in _R1_POWER_LATE]
-        if commissioning and _is_mep_disc(disc) and sysid != 'electrical_power' \
+        if commissioning and _is_mep_disc(disc) and sysid not in _R1_NO_POWER_SYS \
                 and 'electrical_power' in sys_present:
             unpowered = [a for a in commissioning if not _powered(a)]
             if unpowered:

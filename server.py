@@ -106,6 +106,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_knowledge_import(body)
         elif self.path == '/api/kb/knowledge/import-xer':
             self._handle_kb_import_xer(body)
+        elif self.path == '/api/kb/knowledge/enable':
+            self._handle_kb_enable(body)
+        elif self.path == '/api/kb/knowledge/remove':
+            self._handle_kb_remove(body)
         elif self.path == '/api/kb/raw/download':
             self._handle_kb_raw_download(body)
         elif self.path == '/api/constructability/report':
@@ -613,12 +617,32 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── Constructability Knowledge Base — export / import / provenance ──────
     def _handle_kb_knowledge_get(self):
-        """The learned knowledge: how many projects, patterns by level, which projects
-        support each generalized pattern (provenance), and the retained raw project files."""
+        """The ONE Knowledge Base: the metadata list of every knowledge project
+        (name/type/source/date/enabled/patterns/raw), plus provenance + counts."""
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_kb.pattern_learning import provenance, list_raw
-            self._json(200, {'ok': True, **provenance(), 'raw_projects': list_raw()})
+            from p6_kb.pattern_learning import provenance, kb_list
+            self._json(200, {'ok': True, 'projects': kb_list(), **provenance()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_enable(self, body):
+        """Turn a KB project's contribution to supporting knowledge on/off."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import set_enabled, kb_list
+            set_enabled(body.get('id', ''), bool(body.get('enabled', True)))
+            self._json(200, {'ok': True, 'projects': kb_list()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_remove(self, body):
+        """Remove a project from the Knowledge Base."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import remove_project, kb_list
+            remove_project(body.get('id', ''))
+            self._json(200, {'ok': True, 'projects': kb_list()})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
@@ -645,10 +669,13 @@ class Handler(BaseHTTPRequestHandler):
             view = schedule_view(data)
             tag_view(view)
             arc = (_resolve_arc(view) or {}).get('archetype', '')
-            learn_from_view(view, pid, project_type=arc, label=name, file_hash=fh)
-            store_raw(os.path.abspath(input_path), pid, name, fh)
+            rawp = store_raw(os.path.abspath(input_path), pid, name, fh)
+            learn_from_view(view, pid, project_type=arc, label=name, file_hash=fh,
+                            source='user', raw=(os.path.basename(rawp) if rawp else ''))
+            from p6_kb.pattern_learning import kb_list
             self._json(200, {'ok': True, 'project': name,
-                             'activities': view.get('activity_count', 0), **provenance()})
+                             'activities': view.get('activity_count', 0),
+                             'projects': kb_list(), **provenance()})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

@@ -7,6 +7,7 @@ import { showError, clearError }                    from './render.js';
 import { escapeHtml }                               from './format.js';
 import { bandHex, kindClass, markerLeft, impactPill } from './aireview_helpers.js';
 import { showReportContentsPreview }                from './preview.js';
+import { showDatabase }                             from './database.js';
 
 // ── shared cell/table renderers (same data shape as the report) ────────────
 
@@ -412,11 +413,9 @@ function renderReport(report) {
       <button class="btn-primary" id="cx-pdf">📄 Print Preview</button>
     </div>
     <div class="cx-kb" id="cx-kb">
-      <span class="cx-kb-info" id="cx-kb-info">Planning Knowledge Engine…</span>
-      <button class="btn-secondary" id="cx-kb-addxer">➕ Import Project XER → KB</button>
-      <button class="btn-secondary" id="cx-kb-export">⬇ Export Knowledge</button>
-      <button class="btn-secondary" id="cx-kb-import">⬆ Import Knowledge</button>
-      <span class="cx-kb-note">Supporting knowledge only · generalized &amp; project-agnostic · never changes a finding</span>
+      <span class="cx-kb-info" id="cx-kb-info">Knowledge Base…</span>
+      <button class="btn-secondary" id="cx-kb-manage">📚 Manage Knowledge Base</button>
+      <span class="cx-kb-note">Supporting knowledge only · never changes a finding · add projects in the Knowledge Base</span>
     </div>
     <div class="cx-eps hidden" id="cx-eps-row">
       <label for="cx-eps-select">Add this schedule to the Database under (EPS):</label>
@@ -458,12 +457,8 @@ function renderReport(report) {
   });
   document.querySelectorAll('.lp-act').forEach(b =>
     b.addEventListener('click', () => exportLearned(b.dataset.lact, b.dataset.type, b)));
-  const kbx = document.getElementById('cx-kb-export');
-  if (kbx) kbx.addEventListener('click', () => kbExport(kbx));
-  const kbi = document.getElementById('cx-kb-import');
-  if (kbi) kbi.addEventListener('click', () => kbImport(kbi));
-  const kba = document.getElementById('cx-kb-addxer');
-  if (kba) kba.addEventListener('click', () => kbImportXer(kba));
+  const kbm = document.getElementById('cx-kb-manage');
+  if (kbm) kbm.addEventListener('click', () => showDatabase());
   kbKnowledgeRefresh();
 }
 
@@ -481,63 +476,6 @@ async function kbKnowledgeRefresh() {
     const d = await resp.json();
     if (d.ok) info.textContent = _kbInfoText(d);
   } catch { /* leave default text */ }
-}
-
-async function kbImportXer(btn) {
-  let path = null;
-  try { path = await window.pywebview.api.choose_file(); }
-  catch { showError('Could not open the file dialog.'); return; }
-  if (!path) return;
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Learning…';
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge/import-xer`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input_path: path }),
-    });
-    const d = await resp.json();
-    if (!d.ok) { showError(d.error || 'Could not learn from that XER.'); return; }
-    const info = document.getElementById('cx-kb-info');
-    if (info) info.textContent = _kbInfoText(d) + ` — learned from "${d.project}" (${d.activities} activities)`;
-  } catch { showError('Could not reach the local server.'); }
-  finally { btn.disabled = false; btn.textContent = orig; }
-}
-
-async function kbExport(btn) {
-  let path = null;
-  try { path = await window.pywebview.api.choose_save_path('constructability_knowledge.json', 'json'); }
-  catch { showError('Could not open the save dialog.'); return; }
-  if (!path) return;
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Exporting…';
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge/export`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ output_path: path }),
-    });
-    const d = await resp.json();
-    if (!d.ok) showError(d.error || 'Export failed.');
-  } catch { showError('Could not reach the local server.'); }
-  finally { btn.disabled = false; btn.textContent = orig; }
-}
-
-async function kbImport(btn) {
-  let path = null;
-  try { path = await window.pywebview.api.choose_open_path('json'); }
-  catch { showError('Could not open the file dialog.'); return; }
-  if (!path) return;
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Importing…';
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge/import`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input_path: path }),
-    });
-    const d = await resp.json();
-    if (!d.ok) { showError(d.error || 'Import failed.'); return; }
-    const r = d.result || {};
-    const info = document.getElementById('cx-kb-info');
-    if (info) info.textContent = `Cross-project knowledge: ${d.projects_learned} project(s) learned · `
-      + `${d.pattern_count} generalized pattern(s) — imported ${r.imported || 0}, refreshed ${r.refreshed || 0}`;
-  } catch { showError('Could not reach the local server.'); }
-  finally { btn.disabled = false; btn.textContent = orig; }
 }
 
 async function exportLearned(kind, type, btn) {

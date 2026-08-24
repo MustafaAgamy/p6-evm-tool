@@ -22,8 +22,9 @@ export function showDatabase() {
   document.getElementById('sb-home-btn')?.classList.remove('active');
   document.getElementById('sb-kb-btn')?.classList.remove('active');
   document.getElementById('sb-db-btn')?.classList.add('active');
-  document.getElementById('topbar-sub').textContent = 'Construction Database · Schedules';
+  document.getElementById('topbar-sub').textContent = 'Knowledge Base';
   if (state.dbLibrary) renderTree(); else loadDatabase();
+  loadKbProjects();
 }
 
 export function exitDatabase() {
@@ -189,6 +190,116 @@ function note(msg, ok = false) {
   if (n) { n.textContent = msg; n.className = 'kb-actnote' + (ok ? ' ok' : ' info'); }
 }
 
+// ── unified Knowledge Base projects list ─────────────────────────────────────
+
+export async function loadKbProjects() {
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge`);
+    const d = await resp.json();
+    if (!d.ok) return;
+    renderKbTable(d.projects || []);
+    const c = document.getElementById('kbp-count');
+    if (c) c.textContent = `${d.projects_learned} knowledge project(s) · ${d.pattern_count} generalized pattern(s)`;
+  } catch { /* offline; leave as-is */ }
+}
+
+function renderKbTable(rows) {
+  const t = document.getElementById('kbp-table');
+  if (!t) return;
+  if (!rows.length) {
+    t.innerHTML = '<tbody><tr><td class="kbp-empty">No knowledge projects yet. Click <b>＋ Add Project XER</b> to add a real project — its generalized sequencing patterns become supporting knowledge for future reviews.</td></tr></tbody>';
+    return;
+  }
+  const head = '<thead><tr><th>Project</th><th>Type</th><th>Source</th><th>Added</th><th>Patterns</th><th>Enabled</th><th></th></tr></thead>';
+  const body = rows.map(r => `<tr>
+    <td class="kbp-nm">${escapeHtml(r.name)}</td>
+    <td>${escapeHtml(r.type || '—')}</td>
+    <td><span class="kbp-src ${r.source === 'curated' ? 'curated' : 'user'}">${r.source === 'curated' ? 'Curated' : 'User'}</span></td>
+    <td>${escapeHtml(r.date || '')}</td>
+    <td class="kbp-num">${r.patterns}</td>
+    <td><label class="kbp-toggle"><input type="checkbox" data-kb="enable" data-id="${escapeHtml(r.id)}" ${r.enabled ? 'checked' : ''}><span></span></label></td>
+    <td class="kbp-acts">
+      ${r.raw ? `<button class="kbp-mini" data-kb="download" data-raw="${escapeHtml(r.raw)}" data-name="${escapeHtml(r.name)}">⬇ XER</button>` : ''}
+      <button class="kbp-mini danger" data-kb="remove" data-id="${escapeHtml(r.id)}" data-name="${escapeHtml(r.name)}">Remove</button>
+    </td></tr>`).join('');
+  t.innerHTML = head + '<tbody>' + body + '</tbody>';
+}
+
+async function kbAddXer(btn) {
+  let path = null;
+  try { path = await window.pywebview.api.choose_file(); } catch { showError('Could not open the file dialog.'); return; }
+  if (!path) return;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Learning…';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge/import-xer`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input_path: path }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showError(d.error || 'Could not learn from that XER.'); return; }
+    renderKbTable(d.projects || []);
+    const c = document.getElementById('kbp-count');
+    if (c) c.textContent = `${d.projects_learned} knowledge project(s) · ${d.pattern_count} generalized pattern(s) — added "${d.project}"`;
+  } catch { showError('Could not reach the local server.'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+
+async function kbExport(btn) {
+  let path = null;
+  try { path = await window.pywebview.api.choose_save_path('constructability_knowledge.json', 'json'); }
+  catch { showError('Could not open the save dialog.'); return; }
+  if (!path) return;
+  await _post('/api/kb/knowledge/export', { output_path: path }, btn, (d) => `✓ Exported ${d.projects || 0} project(s) of knowledge.`);
+}
+
+async function kbImport(btn) {
+  let path = null;
+  try { path = await window.pywebview.api.choose_open_path('json'); }
+  catch { showError('Could not open the file dialog.'); return; }
+  if (!path) return;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Importing…';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge/import`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input_path: path }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showError(d.error || 'Import failed.'); return; }
+    loadKbProjects();
+  } catch { showError('Could not reach the local server.'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+
+async function kbTableClick(e) {
+  const btn = e.target.closest('[data-kb]');
+  if (!btn || btn.dataset.kb === 'enable') return;
+  if (btn.dataset.kb === 'download') {
+    let path = null;
+    try { path = await window.pywebview.api.choose_save_path(btn.dataset.raw, 'xml'); }
+    catch { showError('Could not open the save dialog.'); return; }
+    if (!path) return;
+    await _post('/api/kb/raw/download', { filename: btn.dataset.raw, output_path: path }, btn, () => '✓ Saved the raw project XER.');
+  } else if (btn.dataset.kb === 'remove') {
+    if (!window.confirm(`Remove "${btn.dataset.name}" from the Knowledge Base? Its supporting patterns will no longer corroborate findings.`)) return;
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge/remove`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: btn.dataset.id }),
+      });
+      const d = await resp.json();
+      if (d.ok) { renderKbTable(d.projects || []); loadKbProjects(); }
+    } catch { showError('Could not reach the local server.'); }
+  }
+}
+
+async function kbToggle(e) {
+  const cb = e.target.closest('input[data-kb="enable"]');
+  if (!cb) return;
+  try {
+    await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge/enable`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: cb.dataset.id, enabled: cb.checked }),
+    });
+  } catch { showError('Could not reach the local server.'); cb.checked = !cb.checked; }
+}
+
 // Called by the review after a successful "Add to Database" so the view refreshes.
 export function invalidateDatabase() { state.dbLibrary = null; }
 
@@ -219,4 +330,11 @@ export function initDatabase() {
     else if (act === 'clean') exportExample(btn.dataset.type, false, btn);
     else if (act === 'download') downloadContributed(btn.dataset.type, btn.dataset.file, btn);
   });
+
+  // unified Knowledge Base list toolbar + row actions
+  document.getElementById('kbp-addxer')?.addEventListener('click', (e) => kbAddXer(e.currentTarget));
+  document.getElementById('kbp-export')?.addEventListener('click', (e) => kbExport(e.currentTarget));
+  document.getElementById('kbp-import')?.addEventListener('click', (e) => kbImport(e.currentTarget));
+  const kbt = document.getElementById('kbp-table');
+  if (kbt) { kbt.addEventListener('click', kbTableClick); kbt.addEventListener('change', kbToggle); }
 }

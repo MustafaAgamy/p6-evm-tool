@@ -300,14 +300,25 @@
         </div>
       </section>
 
-      <!-- Construction Database — downloadable schedules by type; its own page -->
+      <!-- Knowledge Base — one place for knowledge projects + downloadable baselines -->
       <section class="kb-section hidden" id="kb-database-section">
         <div class="kb-head">
-          <div class="section-label">Construction Database · Schedules</div>
-          <div class="kb-subtitle">Download a P6 baseline for any project type — clean, or with typical gaps to see the review
-            flag them — and add your own imported schedules to grow the tool's knowledge.
+          <div class="section-label">Knowledge Base</div>
+          <div class="kb-subtitle">Your knowledge projects — real schedules that grow the tool's supporting intelligence
+            (sequencing patterns, provenance). Add a project explicitly; analysis imports are never added automatically.
             <span class="kb-eps-badge">Local &amp; private · <span id="db-total">…</span></span></div>
         </div>
+
+        <div class="kbp-toolbar">
+          <span class="kbp-count" id="kbp-count">Knowledge Base…</span>
+          <button class="btn-primary" id="kbp-addxer">＋ Add Project XER</button>
+          <button class="btn-secondary" id="kbp-export">⬇ Export Knowledge</button>
+          <button class="btn-secondary" id="kbp-import">⬆ Import Knowledge</button>
+          <span class="kbp-note">Supporting knowledge only · generalized &amp; project-agnostic · never creates a finding</span>
+        </div>
+        <div class="kbp-tablewrap"><table class="kbp-table" id="kbp-table"></table></div>
+
+        <div class="kb-subhead">Reference baselines by project type <span class="n">clean or with typical gaps — for demo &amp; download</span></div>
         <div class="kb-grid">
           <aside class="kb-eps">
             <input class="kb-search" id="db-search" placeholder="🔍  Filter project types…" aria-label="Filter project types">

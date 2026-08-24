@@ -1104,6 +1104,31 @@ table.kb-acts tr:last-child td { border-bottom: none; }
 .cx-kb { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; padding: 8px 12px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 9px; font-size: 12px; }
 .cx-kb .cx-kb-info { font-weight: 600; color: var(--text); }
 .cx-kb .cx-kb-note { color: var(--muted); font-size: 10.5px; font-style: italic; margin-left: auto; }
+/* ── unified Knowledge Base projects list ── */
+.kbp-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; padding: 10px 12px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 9px; }
+.kbp-toolbar .kbp-count { font-weight: 700; color: var(--text); font-size: 12.5px; }
+.kbp-toolbar .kbp-note { color: var(--muted); font-size: 10.5px; font-style: italic; margin-left: auto; }
+.kbp-tablewrap { overflow-x: auto; margin-bottom: 16px; }
+table.kbp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.kbp-table th { text-align: left; background: var(--card-bg); color: var(--muted); font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; padding: 7px 9px; border-bottom: 2px solid var(--border); }
+table.kbp-table td { padding: 7px 9px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.kbp-table .kbp-nm { font-weight: 600; color: var(--text); }
+table.kbp-table .kbp-num { text-align: right; font-variant-numeric: tabular-nums; }
+.kbp-empty { padding: 18px; color: var(--muted); text-align: center; }
+.kbp-src { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; padding: 1px 8px; border-radius: 20px; border: 1px solid; }
+.kbp-src.curated { color: #2563eb; background: #2563eb1a; border-color: #2563eb55; }
+.kbp-src.user { color: #16a34a; background: #16a34a1a; border-color: #16a34a55; }
+.kbp-acts { display: flex; gap: 6px; justify-content: flex-end; }
+.kbp-mini { font-size: 10.5px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
+.kbp-mini.danger { color: #dc2626; border-color: #dc262655; }
+.kbp-toggle { position: relative; display: inline-block; width: 34px; height: 18px; }
+.kbp-toggle input { opacity: 0; width: 0; height: 0; }
+.kbp-toggle span { position: absolute; inset: 0; background: var(--border); border-radius: 20px; transition: .15s; }
+.kbp-toggle span::before { content: ''; position: absolute; height: 14px; width: 14px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: .15s; }
+.kbp-toggle input:checked + span { background: #16a34a; }
+.kbp-toggle input:checked + span::before { transform: translateX(16px); }
+.kb-subhead { font-size: 13px; font-weight: 700; color: var(--text); margin: 6px 0 8px; }
+.kb-subhead .n { font-weight: 400; color: var(--muted); font-size: 11px; }
 /* ── Evidence-graded output (R1–R7) rendered on screen — mirrors the PDF ── */
 .v2sec { margin: 0 0 16px; }
 .v2h { font-size: 15px; font-weight: 800; color: var(--text); margin: 6px 0 8px; padding-bottom: 5px; border-bottom: 2px solid var(--border); }

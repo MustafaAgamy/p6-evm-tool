@@ -175,3 +175,32 @@ def test_raw_store_keeps_dedups_and_guards(tmp_path):
     fn = PL.list_raw(base)[0]['filename']
     assert PL.raw_file_path(fn, base=base)
     assert PL.raw_file_path('../../secret.txt', base=base) is None
+
+
+# ── unified Knowledge Base: metadata list + enable toggle + remove ───────────
+
+def test_kb_list_carries_metadata(tmp_path):
+    base = str(tmp_path)
+    PL.learn_from_view(_proc('P-1'), 'P-1', 'process', label='Alpha', base=base)
+    row = PL.kb_list(base=base)[0]
+    assert row['name'] == 'Alpha' and row['type'] == 'process'
+    assert row['source'] == 'user' and row['enabled'] is True and row['date']
+    assert row['patterns'] >= 1
+
+
+def test_disabled_project_does_not_corroborate_but_stays_listed(tmp_path):
+    base = str(tmp_path)
+    PL.learn_from_view(_proc('P-1'), 'P-1', 'process', label='A', base=base)
+    PL.learn_from_view(_proc('P-2'), 'P-2', 'process', label='B', base=base)
+    assert PL.provenance(base=base)['patterns'][0]['support'] == 2
+    PL.set_enabled('P-2', False, base=base)
+    # still in the list (not deleted) but no longer corroborates
+    assert len(PL.kb_list(base=base)) == 2
+    assert PL.provenance(base=base)['patterns'][0]['support'] == 1
+
+
+def test_remove_project(tmp_path):
+    base = str(tmp_path)
+    PL.learn_from_view(_proc('P-1'), 'P-1', 'process', label='A', base=base)
+    PL.remove_project('P-1', base=base)
+    assert PL.kb_list(base=base) == []
