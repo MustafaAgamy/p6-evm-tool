@@ -85,6 +85,10 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
 
 export function renderHistory(history) {
   const tbody = document.getElementById('recent-tbody');
+  const totalEl = document.getElementById('recent-total');
+  if (totalEl) totalEl.textContent = history.length
+    ? `${history.length} project${history.length === 1 ? '' : 's'}`
+    : 'none yet';
   if (!history.length) {
     tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No recent projects — import a P6 XML file to get started.</td></tr>';
     return;
