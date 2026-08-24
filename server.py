@@ -996,9 +996,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': False, 'error': str(exc)})
 
     def _handle_dashboard_excel(self, body):
-        """Excel that matches the PDF: renders the SAME themed one-pager, rasterises it
-        with headless Chrome, and embeds that exact image. Falls back to the styled grid
-        if the screenshot can't be produced (e.g. Chrome missing)."""
+        """Excel that mirrors the on-screen dashboard AND stays fully editable: a styled
+        grid of panels (pale-blue title bars, KPI tiles, native Excel charts) — not a
+        flat list and not a picture, so the user can edit every cell."""
         composition = body.get('composition') or {}
         output_path = body.get('output_path', '')
         if not output_path:
@@ -1006,10 +1006,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_dashboard.exporters import write_dashboard_xlsx, render_dashboard_html
-            html_content = render_dashboard_html(composition, theme=report_theme.normalize(body.get('theme')))
-            image_png = self._dashboard_png(html_content)   # None if Chrome unavailable
-            write_dashboard_xlsx(os.path.abspath(output_path), composition, image_png=image_png)
+            from p6_dashboard.exporters import write_dashboard_xlsx
+            write_dashboard_xlsx(os.path.abspath(output_path), composition)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

@@ -68,7 +68,8 @@ const SIZES = ['s', 'm', 'l', 'xl'];          // logo + text size steps
 function nextSize(s) { const i = SIZES.indexOf(s); return SIZES[(i < 0 ? 1 : i + 1) % SIZES.length]; }
 // migrate an older saved header (logo_left/logo_right scalars) to the logos_left/right arrays
 function migrateHeader(h) {
-  h = Object.assign({ title_size: 'm', sub_size: 'm', logos_left: [], logos_right: [] }, h || {});
+  h = Object.assign({ title_size: 'm', sub_size: 'm', title_bold: true, sub_bold: false,
+                      logos_left: [], logos_right: [] }, h || {});
   if (!Array.isArray(h.logos_left)) h.logos_left = [];
   if (!Array.isArray(h.logos_right)) h.logos_right = [];
   if (h.logo_left) { h.logos_left.unshift({ src: h.logo_left, size: 'm' }); delete h.logo_left; }
@@ -97,18 +98,15 @@ function comp(id) {
   return D.custom[id] || D.catalog.find(c => c.id === id) || null;
 }
 function titleOf(c) { return D.titles[c.id] != null ? D.titles[c.id] : c.title; }
-// shape = {w:1|2 columns, h:1|2 height}. Migrates the old numeric size (2 => wide).
+// shape = {w:1|2 columns, h:0 compact | 1 normal | 2 tall}. Migrates the old numeric size.
 function shapeOf(c) {
   const s = D.sizes[c.id];
-  if (s && typeof s === 'object') return { w: s.w || 1, h: s.h || 1 };
+  if (s && typeof s === 'object') return { w: s.w || 1, h: (s.h == null ? 1 : s.h) };
   if (s === 2 || c.size === 2) return { w: 2, h: 1 };
   return { w: 1, h: 1 };
 }
-const SHAPES = [{ w: 1, h: 1 }, { w: 2, h: 1 }, { w: 1, h: 2 }, { w: 2, h: 2 }];
-function nextShape(sh) {
-  const i = SHAPES.findIndex(x => x.w === sh.w && x.h === sh.h);
-  return SHAPES[(i + 1) % SHAPES.length];
-}
+const cycleWidth = w => (w === 1 ? 2 : 1);                 // narrow ↔ wide
+const cycleHeight = h => (h === 0 ? 1 : (h === 1 ? 2 : 0)); // compact → normal → tall → compact
 
 // ── entry ────────────────────────────────────────────────────────────────────
 export async function renderDashboardPanel() {
@@ -158,7 +156,8 @@ function defaultHeader() {
   if (r.data_date) bits.push(`Data date ${escapeHtml(String(r.data_date).slice(0, 10))}`);
   if (r.activity_count) bits.push(`${r.activity_count} activities`);
   return { title: r.project_name || 'Project Dashboard', subtitle: bits.join('  ·  '),
-           title_size: 'm', sub_size: 'm', logos_left: [], logos_right: [] };
+           title_size: 'm', sub_size: 'm', title_bold: true, sub_bold: false,
+           logos_left: [], logos_right: [] };
 }
 
 async function fetchPayloads() {
@@ -222,11 +221,13 @@ function renderLetterhead() {
   el.innerHTML = `
     ${logoGroup('left')}
     <div class="pd-ttl">
-      <div class="pd-h-title tsz-${h.title_size || 'm'}" id="pd-h-title" contenteditable="${D.editing}">${escapeHtml(h.title || '')}</div>
-      <div class="pd-h-sub tsz-${h.sub_size || 'm'}" id="pd-h-sub" contenteditable="${D.editing}">${escapeHtml(h.subtitle || '')}</div>
+      <div class="pd-h-title tsz-${h.title_size || 'm'}${h.title_bold ? ' pd-b' : ''}" id="pd-h-title" contenteditable="${D.editing}">${escapeHtml(h.title || '')}</div>
+      <div class="pd-h-sub tsz-${h.sub_size || 'm'}${h.sub_bold ? ' pd-b' : ''}" id="pd-h-sub" contenteditable="${D.editing}">${escapeHtml(h.subtitle || '')}</div>
       ${D.editing ? `<div class="pd-textsizes">
          Title <button class="pd-tsz" data-t="title" title="Cycle title size">A⇄</button>
-         &nbsp; Subtitle <button class="pd-tsz" data-t="sub" title="Cycle subtitle size">A⇄</button></div>` : ''}
+         <button class="pd-tsz ${h.title_bold ? 'on' : ''}" data-b="title" title="Bold title"><b>B</b></button>
+         &nbsp;·&nbsp; Subtitle <button class="pd-tsz" data-t="sub" title="Cycle subtitle size">A⇄</button>
+         <button class="pd-tsz ${h.sub_bold ? 'on' : ''}" data-b="sub" title="Bold subtitle"><b>B</b></button></div>` : ''}
     </div>
     ${logoGroup('right')}`;
   if (D.editing) {
@@ -241,9 +242,13 @@ function renderLetterhead() {
       else arr[i].size = nextSize(arr[i].size || 'm');
       renderLetterhead();
     }));
-    el.querySelectorAll('.pd-tsz').forEach(b => b.addEventListener('click', () => {
+    el.querySelectorAll('.pd-tsz[data-t]').forEach(b => b.addEventListener('click', () => {
       const key = b.dataset.t === 'title' ? 'title_size' : 'sub_size';
       D.header[key] = nextSize(D.header[key] || 'm'); renderLetterhead();
+    }));
+    el.querySelectorAll('.pd-tsz[data-b]').forEach(b => b.addEventListener('click', () => {
+      const key = b.dataset.b === 'title' ? 'title_bold' : 'sub_bold';
+      D.header[key] = !D.header[key]; renderLetterhead();
     }));
   }
 }
@@ -279,7 +284,7 @@ function renderBoard() {
   cards.forEach(c => {
     const el = document.createElement('div');
     const sh = shapeOf(c);
-    el.className = 'pd-panel' + (sh.w === 2 ? ' span2' : '') + (sh.h === 2 ? ' pd-tall' : '');
+    el.className = 'pd-panel' + (sh.w === 2 ? ' span2' : '') + (sh.h === 2 ? ' pd-tall' : (sh.h === 0 ? ' pd-compact' : ''));
     el.dataset.id = c.id;
     el.draggable = D.editing;
     el.innerHTML =
@@ -296,7 +301,8 @@ function renderBoard() {
 function ctlBtns(id) {
   return `<button class="pd-cbtn" data-act="up" data-id="${id}" title="Move up">↑</button>
           <button class="pd-cbtn" data-act="down" data-id="${id}" title="Move down">↓</button>
-          <button class="pd-cbtn" data-act="size" data-id="${id}" title="Resize — width × height">⤢</button>
+          <button class="pd-cbtn" data-act="width" data-id="${id}" title="Toggle width (narrow / wide)">⇔</button>
+          <button class="pd-cbtn" data-act="height" data-id="${id}" title="Toggle height (compact / normal / tall)">⇕</button>
           <button class="pd-cbtn rm" data-act="rm" data-id="${id}" title="Remove">✕</button>`;
 }
 
@@ -305,7 +311,8 @@ function wireCard(el, c) {
     const act = b.dataset.act, id = b.dataset.id;
     if (act === 'up') move(id, -1);
     else if (act === 'down') move(id, 1);
-    else if (act === 'size') { D.sizes[id] = nextShape(shapeOf(comp(id))); renderBoard(); }
+    else if (act === 'width') { const sh = shapeOf(comp(id)); D.sizes[id] = { w: cycleWidth(sh.w), h: sh.h }; renderBoard(); }
+    else if (act === 'height') { const sh = shapeOf(comp(id)); D.sizes[id] = { w: sh.w, h: cycleHeight(sh.h) }; renderBoard(); }
     else if (act === 'rm') { D.selected = D.selected.filter(x => x !== id); renderBoard(); }
   }));
   el.querySelectorAll('[contenteditable="true"][data-id]').forEach(t =>

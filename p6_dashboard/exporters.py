@@ -245,6 +245,8 @@ def render_dashboard_html(composition, theme='light'):
         subtitle=_e(header.get('subtitle') or ''),
         tsz=_e(header.get('title_size') or 'm'),
         ssz=_e(header.get('sub_size') or 'm'),
+        tbold=('b' if header.get('title_bold', True) else ''),
+        sbold=('b' if header.get('sub_bold') else ''),
         logo_left=_logos(header, 'left'),
         logo_right=_logos(header, 'right'),
         panels=''.join(panels) or '<div class="empty">No components selected.</div>',
@@ -260,9 +262,9 @@ body {{ font: 11px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:v
 .titleband {{ display:flex; align-items:center; gap:14px; border:1px solid var(--rpt-edge,#b7c5d8); border-radius:5px;
   padding:9px 14px; margin-bottom:12px; background:var(--rpt-surface-2,#d6e2f2); }}
 .titleband .ttl {{ flex:1; text-align:center; }}
-.titleband .t {{ font-weight:800; color:var(--rpt-accent,#1f3c66); }}
+.titleband .t {{ font-weight:400; color:var(--rpt-accent,#1f3c66); }} .titleband .t.b {{ font-weight:800; }}
 .titleband .t.tsz-s {{ font-size:13px; }} .titleband .t.tsz-m {{ font-size:16px; }} .titleband .t.tsz-l {{ font-size:20px; }} .titleband .t.tsz-xl {{ font-size:25px; }}
-.titleband .s {{ color:var(--rpt-muted,#5d6b80); margin-top:2px; }}
+.titleband .s {{ font-weight:400; color:var(--rpt-muted,#5d6b80); margin-top:2px; }} .titleband .s.b {{ font-weight:700; }}
 .titleband .s.ssz-s {{ font-size:10px; }} .titleband .s.ssz-m {{ font-size:11px; }} .titleband .s.ssz-l {{ font-size:13px; }} .titleband .s.ssz-xl {{ font-size:16px; }}
 .logos {{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }}
 .logo {{ object-fit:contain; }}
@@ -296,6 +298,6 @@ body {{ font: 11px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:v
 .empty {{ color:var(--rpt-muted,#93a0b3); font-size:11px; text-align:center; padding:10px; }}
 svg {{ display:block; }}
 </style>{theme_tag}</head><body>
-<div class="titleband">{logo_left}<div class="ttl"><div class="t tsz-{tsz}">{title}</div><div class="s ssz-{ssz}">{subtitle}</div></div>{logo_right}</div>
+<div class="titleband">{logo_left}<div class="ttl"><div class="t tsz-{tsz} {tbold}">{title}</div><div class="s ssz-{ssz} {sbold}">{subtitle}</div></div>{logo_right}</div>
 <div class="grid">{panels}</div>
 </body></html>'''

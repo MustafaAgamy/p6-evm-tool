@@ -1529,8 +1529,10 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pd-sheet { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
 .pd-letterhead { display: flex; align-items: center; gap: 14px; border: 1px solid var(--border); border-radius: 6px; padding: 9px 14px; margin-bottom: 12px; background: linear-gradient(180deg, var(--pd-phead), transparent); }
 .pd-ttl { flex: 1; text-align: center; }
-.pd-h-title { font-size: 17px; font-weight: 800; color: var(--text); }
-.pd-h-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.pd-h-title { font-size: 17px; font-weight: 400; color: var(--text); }
+.pd-h-title.pd-b { font-weight: 800; }
+.pd-h-sub { font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+.pd-h-sub.pd-b { font-weight: 700; }
 .pd-logo { max-height: 42px; max-width: 96px; object-fit: contain; }
 .pd-logo-slot { width: 78px; height: 40px; border: 1px dashed var(--border); border-radius: 4px; display: grid; place-items: center; color: var(--muted); font-size: 9px; }
 .pd-wrap.editing .pd-logo, .pd-wrap.editing .pd-logo-slot { cursor: pointer; border-color: var(--accent); }
@@ -1542,6 +1544,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pd-kpi, .pd-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; position: relative; display: flex; flex-direction: column; }
 .pd-panel.span2 { grid-column: span 2; }
 .pd-panel.pd-tall { min-height: 300px; } .pd-panel.pd-tall .pd-p-body { display: flex; flex-direction: column; justify-content: center; }
+.pd-panel.pd-compact { min-height: 0; align-self: start; } .pd-panel.pd-compact .pd-p-body { padding: 8px 11px; }
 .pd-wrap.editing .pd-kpi, .pd-wrap.editing .pd-panel { outline: 1px dashed var(--accent); outline-offset: -1px; }
 .pd-k-head, .pd-p-head { background: var(--pd-phead); color: var(--pd-phead-t); font-weight: 700; font-size: 11px; padding: 5px 26px 5px 8px; border-bottom: 1px solid var(--border); position: relative; }
 .pd-k-head { text-align: center; text-transform: uppercase; letter-spacing: .4px; font-size: 9.5px; }
@@ -1630,6 +1633,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pd-logo-btn { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); cursor: pointer; font-size: 10px; line-height: 1; padding: 0; }
 .pd-logo-btn:hover { border-color: var(--accent); color: var(--accent); }
 .pd-addlogo, .pd-tsz { border: 1px dashed var(--border); background: transparent; color: var(--accent); border-radius: 6px; font-size: 10px; padding: 3px 8px; cursor: pointer; font-family: inherit; }
+.pd-tsz.on { background: var(--accent); color: #fff; border-style: solid; border-color: var(--accent); }
 .pd-addlogo:hover, .pd-tsz:hover { border-color: var(--accent); }
 .pd-textsizes { margin-top: 5px; font-size: 10px; color: var(--muted); }
 .pd-h-title.tsz-s { font-size: 14px; } .pd-h-title.tsz-m { font-size: 17px; } .pd-h-title.tsz-l { font-size: 21px; } .pd-h-title.tsz-xl { font-size: 26px; }
