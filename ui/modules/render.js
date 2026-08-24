@@ -85,6 +85,10 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
 
 export function renderHistory(history) {
   const tbody = document.getElementById('recent-tbody');
+  const totalEl = document.getElementById('recent-total');
+  if (totalEl) totalEl.textContent = history.length
+    ? `${history.length} project${history.length === 1 ? '' : 's'}`
+    : 'none yet';
   if (!history.length) {
     tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No recent projects — import a P6 XML file to get started.</td></tr>';
     return;
@@ -117,12 +121,12 @@ export function renderHistory(history) {
               data-path="${escapeHtml(h.path)}"
               data-cached="${escapeHtml(h.cached_path)}"
               data-project-id="${escapeHtml(h.project_id)}"
-              data-tooltip="Re-open this schedule"
+              title="Re-open this schedule"
             >Open</button>
             <button
               class="delete-btn"
               data-project-id="${escapeHtml(h.project_id)}"
-              data-tooltip="Remove all history for this project"
+              title="Remove all history for this project"
               aria-label="Delete project"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

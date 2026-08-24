@@ -21,6 +21,7 @@ export function showDatabase() {
   document.getElementById('kb-section')?.classList.add('hidden');
   document.getElementById('sb-home-btn')?.classList.remove('active');
   document.getElementById('sb-kb-btn')?.classList.remove('active');
+  document.getElementById('sb-recent-btn')?.classList.remove('active');
   document.getElementById('sb-db-btn')?.classList.add('active');
   document.getElementById('topbar-sub').textContent = 'Construction Database · Schedules';
   if (state.dbLibrary) renderTree(); else loadDatabase();
@@ -29,7 +30,6 @@ export function showDatabase() {
 export function exitDatabase() {
   document.getElementById('kb-database-section')?.classList.add('hidden');
   document.querySelector('.import-section')?.classList.remove('hidden');
-  document.querySelector('.recent-section')?.classList.remove('hidden');
   document.getElementById('sb-db-btn')?.classList.remove('active');
   document.getElementById('sb-home-btn')?.classList.add('active');
 }

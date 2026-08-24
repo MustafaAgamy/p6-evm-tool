@@ -269,10 +269,14 @@ body {
 }
 
 /* ── Recent table ────────────────────────────────────────────────────────── */
-.recent-section { padding-bottom: 24px; }
+/* translateZ(0) pins the Recent page to its own GPU compositing layer. Without it,
+   showing the position:fixed hover-tooltip overlay while the mouse moves over the
+   table can make WebView2 (the desktop app's engine) drop this section's paint layer,
+   so the whole page appears to vanish on mouse-move. Its own layer is immune to that. */
+.recent-section { padding-bottom: 24px; transform: translateZ(0); }
 .recent-table-wrap {
   border-radius: 10px; border: 1px solid var(--border); overflow: hidden;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s; transform: translateZ(0);
 }
 .recent-table { width: 100%; border-collapse: collapse; }
 .recent-table th {
