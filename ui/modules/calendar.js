@@ -30,6 +30,56 @@ export function conflictSeverityClass(sev) {
   return { High: 'cf-high', Medium: 'cf-med', Low: 'cf-low' }[sev] || 'cf-low';
 }
 
+// ── Site-type presets — mirror of p6_calendar/weather.py SITE_TYPES ──────────
+// One pick loads the stop-work limits that fit that kind of work. DESERT equals the
+// app default (wind off / heat 42), so a project that never picks a type is unchanged.
+// Keep the numbers in sync with weather.py (tests guard both sides).
+export const SITE_TYPES = {
+  desert:   { label: 'Desert / inland civil', icon: '🏜️',
+              blurb: 'Heat & dust drive stoppages; wind rarely halts inland civil work.',
+              thresholds: { rain_mm: 5, temp_max_c: 42, wind_kmh: null, dust: true } },
+  marine:   { label: 'Marine / Port', icon: '⚓',
+              blurb: 'Cranes & marine works stop for high wind — the main risk for a port / terminal.',
+              thresholds: { rain_mm: 5, temp_max_c: 40, wind_kmh: 35, dust: true } },
+  coastal:  { label: 'Coastal / general', icon: '🌊',
+              blurb: 'A mix of wind and rain; heat reaches the limit less often than inland.',
+              thresholds: { rain_mm: 5, temp_max_c: 42, wind_kmh: 40, dust: true } },
+  building: { label: 'Building / enclosed', icon: '🏢',
+              blurb: 'Least weather-exposed once enclosed; only heavy rain / extreme heat stop work.',
+              thresholds: { rain_mm: 10, temp_max_c: 45, wind_kmh: null, dust: false } },
+};
+export const SITE_TYPE_ORDER = ['marine', 'desert', 'coastal', 'building'];
+
+const _eqLim = (a, b) => (a == null ? null : a) === (b == null ? null : b);
+
+// Do these limits exactly match a site-type preset? null → the user has a Custom set.
+export function matchSiteType(t) {
+  if (!t) return null;
+  for (const key of SITE_TYPE_ORDER) {
+    const p = SITE_TYPES[key].thresholds;
+    if (_eqLim(p.rain_mm, t.rain_mm) && _eqLim(p.temp_max_c, t.temp_max_c) &&
+        _eqLim(p.wind_kmh, t.wind_kmh) && !!p.dust === !!t.dust) return key;
+  }
+  return null;
+}
+
+// The 'criteria in full' rows — mirror of build_criteria() in weather.py. Wind first
+// (the dominant driver on a port). Reflects the ACTUAL limits, so Custom shows truly.
+export function buildSiteCriteria(siteType, t) {
+  const marine = siteType === 'marine';
+  const num = (key, icon, label, v, unit, expl) => ({
+    key, icon, label, value: (v == null ? 'off' : `≥ ${v} ${unit}`), on: v != null, explain: expl });
+  return [
+    num('wind', '💨', 'Wind', t.wind_kmh, 'km/h',
+        marine ? 'High wind stops crane lifts, tower-crane and marine works'
+               : 'High wind stops crane lifts and work at height'),
+    num('heat', '🌡', 'Heat', t.temp_max_c, '°C', 'Extreme heat halts outdoor labour'),
+    num('rain', '🌧', 'Rain', t.rain_mm, 'mm', 'Work-stopping rain (light drizzle below the limit is ignored)'),
+    { key: 'dust', icon: '🌫', label: 'Dust / sandstorm', value: (t.dust ? 'on' : 'off'),
+      on: !!t.dust, explain: 'Sandstorm days (near-term air-quality PM10) counted as a lost day' },
+  ];
+}
+
 // ── DOM rendering (browser only) ──────────────────────────────────────────
 
 import { escapeHtml } from './format.js';
@@ -43,6 +93,7 @@ let _sel = null;
 let _weather = null;      // last computed weather impact
 let _pendingLoc = null;   // location chosen in the picker, not yet applied
 let _thresholds = null;   // stop-work limits (rain/heat/wind/dust)
+let _siteType = null;     // chosen site type (marine/desert/coastal/building/custom); null = default
 let _map = null;          // Leaflet map instance (location picker)
 let _marker = null;       // the draggable location pin
 let _leafletPromise = null;
@@ -54,6 +105,7 @@ export function renderCalendar(ca) {
   _weather = null;
   _pendingLoc = null;
   _thresholds = { ...DEFAULT_THRESHOLDS };
+  _siteType = null;
   _openMonths.clear();
   const body = document.getElementById('calendar-body');
   if (!body) return;
@@ -65,6 +117,8 @@ export function renderCalendar(ca) {
   const settings = (state.currentResult && state.currentResult.calendar_settings) || {};
   if (settings.location) _pendingLoc = settings.location;
   if (settings.weather_thresholds) _thresholds = { ...DEFAULT_THRESHOLDS, ...settings.weather_thresholds };
+  if (settings.site_type) _siteType = settings.site_type;        // restore the picked site type
+  else if (settings.weather_thresholds) _siteType = matchSiteType(_thresholds);  // infer from saved limits
   if (settings.last_weather) _weather = settings.last_weather;   // show the last saved estimate on re-open
   _render();
 }
@@ -369,8 +423,10 @@ function _weatherControls() {
       <div class="cal-wx-feed"><span class="ic">📚</span><div><b>Historical climate</b> — beyond 16 days, the same calendar dates from the most recent year's actual recorded weather.<span class="cal-pill mini warn">Expected</span></div></div>
       <div class="cal-wx-feed"><span class="ic">🌫️</span><div><b>Air-quality</b> — near-term PM10 / dust concentration, to flag sandstorm days.</div></div>
     </div>
-    <div class="cal-grp" style="margin-top:0"><span class="cal-pill warn">What counts as a bad-weather day</span>
-      <span class="cal-grp-meta">a construction day is counted lost when ANY limit is met — edit to match your site</span></div>
+    ${_siteTypePickerHtml()}
+    ${_criteriaPanelHtml()}
+    <div class="cal-grp" style="margin-top:0"><span class="cal-pill warn">✎ Fine-tune the limits</span>
+      <span class="cal-grp-meta">the site type sets these — change any number to match your site (blank = off; switches to “Custom”)</span></div>
     <div class="cal-thr">
       ${num('thr-rain', '🌧 Rain ≥ (mm)', t.rain_mm)}
       ${num('thr-heat', '🌡 Heat ≥ (°C)', t.temp_max_c)}
@@ -380,6 +436,66 @@ function _weatherControls() {
       <span id="thr-status" class="cal-muted" style="font-size:12px"></span>
     </div>
     <div class="cal-note" style="margin-top:8px">Each flagged day below shows the measured value against your limit. Applied to <b>construction</b> activities only; a day already off (weekend / holiday / shutdown) is never double-counted — kept separate from the exact P6 Delay.</div>`;
+}
+
+// Site-type picker — one pick loads the limits that fit the work.
+function _siteTypePickerHtml() {
+  const cards = SITE_TYPE_ORDER.map(key => {
+    const st = SITE_TYPES[key];
+    return `<div class="cal-site${_siteType === key ? ' sel' : ''}" data-site="${key}">
+      <div class="cal-site-ic">${st.icon}</div>
+      <div class="cal-site-nm">${escapeHtml(st.label)}</div>
+      <div class="cal-site-ds">${escapeHtml(st.blurb)}</div></div>`;
+  }).join('');
+  const custom = _siteType === 'custom'
+    ? `<div class="cal-site sel" data-site="custom"><div class="cal-site-ic">⚙️</div>
+        <div class="cal-site-nm">Custom</div><div class="cal-site-ds">your own edited limits</div></div>` : '';
+  return `<div class="cal-grp" style="margin-top:2px"><span class="cal-pill def">🏗️ Site type</span>
+      <span class="cal-grp-meta">pick what kind of site this is — it loads the stop-work limits that fit this work</span></div>
+    <div class="cal-sites">${cards}${custom}</div>`;
+}
+
+// The stop-work criteria shown IN FULL — every limit, its value, and what work it stops.
+function _criteriaPanelHtml() {
+  const st = _siteType;
+  const meta = st === 'custom' ? { label: 'Custom limits', icon: '⚙️' }
+    : (SITE_TYPES[st] || { label: 'Default limits (Desert / inland)', icon: '🏜️' });
+  const rows = buildSiteCriteria(st, _thr()).map(r =>
+    `<div class="cal-crit-row">
+      <div class="cal-crit-lim ${r.on ? 'on' : 'off'}">${r.icon} ${escapeHtml(r.label)} <b>${escapeHtml(r.value)}</b></div>
+      <div class="cal-crit-exp">${escapeHtml(r.explain)}${r.on ? '' : ' <span class="cal-muted">(not counted)</span>'}</div>
+    </div>`).join('');
+  return `<div class="cal-crit">
+    <div class="cal-crit-top"><span class="cal-crit-t">${meta.icon} ${escapeHtml(meta.label)} — what stops work here</span>
+      <span class="cal-pill mini def" style="margin-left:auto">criteria in full</span></div>
+    <div class="cal-crit-lead">A construction <b>working</b> day between the data date and finish is a <b>lost day</b> when <b>any</b> limit below is met. Days already off (weekend / holiday / shutdown) are never double-counted.</div>
+    ${rows}
+    <div class="cal-crit-any">⚠️ Any one limit met → that day is a lost construction day. These exact limits are carried into the PDF.</div>
+  </div>`;
+}
+
+const _PERF_IC = { wind: '💨', heat: '🌡', rain: '🌧', dust: '🌫' };
+
+// "Why this result" — how each limit performed, so a near-zero is never a silent black box.
+function _whyResultHtml() {
+  const w = _weather;
+  if (!w || !w.limit_performance) return '';
+  const unit = u => (u ? ' ' + u : '');
+  const rows = w.limit_performance.map(p => {
+    const ic = `<span class="mk">${_PERF_IC[p.key] || '•'}</span>`;
+    if (!p.on) {
+      const peak = p.peak != null ? ` — highest seen ${p.peak}${unit(p.unit)}` : '';
+      return `<div class="cal-why-row">${ic}<span class="noflag"><b>${escapeHtml(p.label)}</b> — off (not counted)${peak}</span></div>`;
+    }
+    const flagged = p.flagged || 0;
+    const limTxt = p.limit != null ? ` ≥ ${p.limit}${unit(p.unit)}` : '';
+    const peak = p.peak != null ? ` · peak ${p.peak}${unit(p.unit)}` : '';
+    return `<div class="cal-why-row">${ic}<span class="${flagged ? 'flag' : 'noflag'}">
+      <b>${escapeHtml(p.label)}${limTxt} → flagged ${flagged} ${flagged === 1 ? 'day' : 'days'}.</b>${peak}</span></div>`;
+  }).join('');
+  return `<div class="cal-grp"><span class="cal-pill def">🔎 Why this result</span>
+      <span class="cal-grp-meta">how each limit performed over the project window — a near-zero is explained, not hidden</span></div>
+    <div class="cal-why">${rows}</div>`;
 }
 
 // The construction activities a bad-weather day hits (#07).
@@ -470,7 +586,7 @@ function _weatherSection() {
        <div class="cal-concl" style="border-left:4px solid var(--warning)"><p style="margin:0;font-size:13px;line-height:1.6">${escapeHtml(w.conclusion)}</p></div>`
     : '';
   const note = '<div class="cal-note">Applies to construction activities only (auto-detected), and only to Finish/completion milestones. A forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
-  return head + controls + kpis + bar + causeCard + dayTable + msTable + recTable + conclHtml + note;
+  return head + controls + kpis + _whyResultHtml() + bar + causeCard + dayTable + msTable + recTable + conclHtml + note;
 }
 
 // Read the stop-work-limit inputs → thresholds object (blank = off).
@@ -517,6 +633,7 @@ function _wire() {
     document.querySelectorAll('.cal-sec-cb').forEach(c => { c.checked = false; }));
 
   _wireLocation();
+  _wireSiteTypes();
   _wireWeather();
   _wireShutdowns();
 }
@@ -678,11 +795,24 @@ async function _initMap() {
   setTimeout(recentre, 400);
 }
 
+// Pick a site type → load its preset limits and refresh the criteria panel + inputs.
+function _wireSiteTypes() {
+  document.querySelectorAll('#calendar-body .cal-site').forEach(card =>
+    card.addEventListener('click', () => {
+      const key = card.dataset.site;
+      if (key === 'custom' || !SITE_TYPES[key]) return;   // 'custom' is a state, not a choice
+      _siteType = key;
+      _thresholds = { ...SITE_TYPES[key].thresholds };
+      _render();                                          // fills the limit inputs + criteria panel
+    }));
+}
+
 // Wire the Weather-Impact "Apply & recalculate" (edited stop-work limits).
 function _wireWeather() {
   const applyBtn = document.getElementById('thr-apply');
   if (applyBtn) applyBtn.addEventListener('click', () => {
     _thresholds = _readThresholds();
+    _siteType = matchSiteType(_thresholds) || 'custom';   // edited away from a preset → Custom
     _runWeather(applyBtn, document.getElementById('thr-status'));
   });
 }
@@ -692,7 +822,7 @@ async function _runWeather(btn, statusEl) {
   if (btn) btn.disabled = true;
   if (statusEl) statusEl.textContent = 'Calculating weather…';
   try {
-    const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name, _thresholds);
+    const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name, _thresholds, _siteType);
     if (resp.ok) {
       _weather = resp.weather;
       _pendingLoc = resp.location || _pendingLoc;

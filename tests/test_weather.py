@@ -5,6 +5,7 @@ from datetime import date
 from p6_evm.calendars import Calendar
 from p6_calendar.weather import (
     classify_day, bad_weather_days, weather_impact, DEFAULT_THRESHOLDS,
+    SITE_TYPES, resolve_site_thresholds, build_criteria, limit_performance,
 )
 
 
@@ -226,3 +227,88 @@ def test_bad_days_brief_falls_back_to_name_without_wbs():
         milestones=[], data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
         daily_weather=daily, forecast_horizon=date(2025, 6, 8), thresholds=DEFAULT_THRESHOLDS)
     assert next(d for d in r['bad_days'] if d['date'] == '2025-06-03')['activities'] == ['Pour']
+
+
+# ── Site-type presets (the East Port Said fix) ───────────────────────────────
+
+def test_desert_preset_equals_current_default():
+    """The 'no numbers change' guarantee: today's exact limits ARE the Desert preset."""
+    assert SITE_TYPES['desert']['thresholds'] == DEFAULT_THRESHOLDS
+
+
+def test_site_type_catalog_shape():
+    for key in ('desert', 'marine', 'coastal', 'building'):
+        st = SITE_TYPES[key]
+        assert st['label'] and st['blurb']
+        assert set(st['thresholds']) == {'rain_mm', 'temp_max_c', 'wind_kmh', 'dust'}
+    # Marine is the fix: wind ON, heat lower than the desert 42.
+    assert SITE_TYPES['marine']['thresholds']['wind_kmh'] == 35.0
+    assert SITE_TYPES['marine']['thresholds']['temp_max_c'] == 40.0
+    # Desert leaves wind off.
+    assert SITE_TYPES['desert']['thresholds']['wind_kmh'] is None
+
+
+def test_resolve_site_thresholds():
+    assert resolve_site_thresholds('marine')['wind_kmh'] == 35.0
+    # unknown / None → today's default behaviour, unchanged
+    assert resolve_site_thresholds(None) == DEFAULT_THRESHOLDS
+    assert resolve_site_thresholds('nope') == DEFAULT_THRESHOLDS
+    # explicit edits win over the preset (a user tweak → Custom)
+    assert resolve_site_thresholds('marine', {'wind_kmh': 30})['wind_kmh'] == 30
+    # a returned dict is a copy — mutating it must not corrupt the catalog
+    resolve_site_thresholds('marine')['wind_kmh'] = 999
+    assert SITE_TYPES['marine']['thresholds']['wind_kmh'] == 35.0
+
+
+def test_build_criteria_order_off_and_marine_framing():
+    rows = build_criteria('marine', resolve_site_thresholds('marine'))
+    assert [r['key'] for r in rows] == ['wind', 'heat', 'rain', 'dust']   # wind first (dominant)
+    wind = rows[0]
+    assert wind['on'] is True and '35' in wind['value']
+    assert 'marine' in wind['explain'].lower() or 'crane' in wind['explain'].lower()
+    # Desert → wind shown as off.
+    dwind = build_criteria('desert', resolve_site_thresholds('desert'))[0]
+    assert dwind['on'] is False and dwind['value'] == 'off'
+    # Custom limits still render truthfully.
+    crit = build_criteria('custom', {'rain_mm': None, 'temp_max_c': 38, 'wind_kmh': 30, 'dust': False})
+    by = {r['key']: r for r in crit}
+    assert by['rain']['on'] is False and by['rain']['value'] == 'off'
+    assert by['dust']['on'] is False
+    assert by['heat']['on'] is True and '38' in by['heat']['value']
+
+
+def test_limit_performance_peak_and_flagged():
+    daily = {
+        date(2025, 6, 2):  {'wind_kmh': 41, 'temp_max_c': 30, 'rain_mm': 0},   # wind flags
+        date(2025, 6, 5):  {'wind_kmh': 20, 'temp_max_c': 41.3, 'rain_mm': 1}, # nothing (heat<42/wind<35)
+        date(2025, 6, 9):  {'wind_kmh': 36, 'temp_max_c': 25, 'rain_mm': 8.3}, # wind + rain flag
+        date(2025, 5, 30): {'wind_kmh': 99, 'temp_max_c': 99, 'rain_mm': 99},  # BEFORE data date → ignored
+    }
+    by = {p['key']: p for p in limit_performance(
+        daily, date(2025, 6, 1), date(2025, 6, 30), resolve_site_thresholds('marine'))}
+    assert by['wind']['on'] is True
+    assert by['wind']['flagged'] == 2                 # 41 and 36 ≥ 35 (the pre-window 99 excluded)
+    assert abs(by['wind']['peak'] - 41) < 1e-6        # peak over the window only
+    assert by['heat']['flagged'] == 1                 # 41.3 ≥ the marine 40 °C limit
+    assert abs(by['heat']['peak'] - 41.3) < 1e-6      # hottest expected day shown
+    assert by['rain']['flagged'] == 1                 # only the 8.3 mm day
+
+    # The real East Port Said story: under the DESERT limit (42 °C) the hottest day
+    # (41.3) never reaches it → flagged 0, but the peak is still reported so the user
+    # sees WHY heat found nothing.
+    d = {p['key']: p for p in limit_performance(
+        daily, date(2025, 6, 1), date(2025, 6, 30), resolve_site_thresholds('desert'))}
+    assert d['heat']['flagged'] == 0 and abs(d['heat']['peak'] - 41.3) < 1e-6
+    assert d['wind']['on'] is False                   # desert leaves wind off
+
+
+def test_weather_impact_emits_site_type_and_criteria():
+    r = _impact(site_type='marine',
+                thresholds=resolve_site_thresholds('marine'))
+    assert r['site_type'] == 'marine'
+    assert r['site_type_label'] == SITE_TYPES['marine']['label']
+    assert [c['key'] for c in r['criteria']] == ['wind', 'heat', 'rain', 'dust']
+    assert isinstance(r['limit_performance'], list) and r['limit_performance']
+    # backward-compatible: no site type → still works, label is None
+    r0 = _impact()
+    assert r0['site_type'] is None and r0['criteria']

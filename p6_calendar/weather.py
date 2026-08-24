@@ -30,6 +30,117 @@ _DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 _MON = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+# ── Site-type presets ────────────────────────────────────────────────────────
+# One pick loads the stop-work limits that fit that kind of work. Different jobs
+# stop for different weather — the built-in default is desert-tuned (heat/dust,
+# wind off), which reads a wind-driven coastal PORT as weather-free. The DESERT
+# preset is byte-for-byte DEFAULT_THRESHOLDS, so a project that never picks a type
+# behaves exactly as before. Mirrored in ui/modules/calendar.js (SITE_TYPES) for
+# the picker; keep the two in sync (tests guard the numbers on each side).
+SITE_TYPES = {
+    'desert': {
+        'label': 'Desert / inland civil',
+        'blurb': 'Heat and dust drive stoppages; wind rarely halts inland civil work. (Today’s default.)',
+        'thresholds': {'rain_mm': 5.0, 'temp_max_c': 42.0, 'wind_kmh': None, 'dust': True},
+    },
+    'marine': {
+        'label': 'Marine / Port',
+        'blurb': 'Cranes and marine works stop for high wind — the main weather risk for a port / terminal.',
+        'thresholds': {'rain_mm': 5.0, 'temp_max_c': 40.0, 'wind_kmh': 35.0, 'dust': True},
+    },
+    'coastal': {
+        'label': 'Coastal / general',
+        'blurb': 'A mix of wind and rain; heat reaches the limit less often than inland.',
+        'thresholds': {'rain_mm': 5.0, 'temp_max_c': 42.0, 'wind_kmh': 40.0, 'dust': True},
+    },
+    'building': {
+        'label': 'Building / enclosed',
+        'blurb': 'Least weather-exposed once enclosed; only heavy rain or extreme heat stops work.',
+        'thresholds': {'rain_mm': 10.0, 'temp_max_c': 45.0, 'wind_kmh': None, 'dust': False},
+    },
+}
+_THR_KEYS = ('rain_mm', 'temp_max_c', 'wind_kmh', 'dust')
+
+
+def _limit_explanations(site_type):
+    """Plain-language 'what work each limit stops', shown in full to the user and in
+    the PDF. Wind is framed for marine work; the rest are generic."""
+    marine = site_type == 'marine'
+    return {
+        'wind': ('High wind stops crane lifts, tower-crane and marine works'
+                 if marine else 'High wind stops crane lifts and work at height'),
+        'heat': 'Extreme heat halts outdoor labour',
+        'rain': 'Work-stopping rain (light drizzle below the limit is ignored)',
+        'dust': 'Sandstorm days (near-term air-quality PM10) counted as a lost day',
+    }
+
+
+def resolve_site_thresholds(site_type, overrides=None):
+    """Stop-work limits for a site type, with any explicit per-limit edits applied on top.
+    Unknown / None site_type → DEFAULT_THRESHOLDS (today's desert behaviour, unchanged).
+    Always returns a fresh dict (never the shared catalog object)."""
+    base = (SITE_TYPES.get(site_type) or {}).get('thresholds')
+    out = dict(base if base is not None else DEFAULT_THRESHOLDS)
+    if overrides:
+        out.update({k: v for k, v in overrides.items() if k in _THR_KEYS})
+    return out
+
+
+def build_criteria(site_type, thresholds):
+    """The 'criteria in full' rows — one per limit with its value, on/off state and the
+    plain reason it stops work. Reflects the ACTUAL thresholds, so an edited 'Custom'
+    set still shows true limits. Single source for the on-screen panel and the PDF.
+    Order is wind → heat → rain → dust (wind first: the dominant driver on a port)."""
+    t = thresholds or DEFAULT_THRESHOLDS
+    ex = _limit_explanations(site_type)
+
+    def numrow(key, icon, label, thr_key, unit, expl):
+        v = t.get(thr_key)
+        on = v is not None
+        return {'key': key, 'icon': icon, 'label': label,
+                'value': (f'≥ {v:g} {unit}' if on else 'off'),
+                'on': on, 'explain': expl}
+
+    return [
+        numrow('wind', '\U0001F4A8', 'Wind', 'wind_kmh', 'km/h', ex['wind']),
+        numrow('heat', '\U0001F321', 'Heat', 'temp_max_c', '°C', ex['heat']),
+        numrow('rain', '\U0001F327', 'Rain', 'rain_mm', 'mm', ex['rain']),
+        {'key': 'dust', 'icon': '\U0001F32B', 'label': 'Dust / sandstorm',
+         'value': ('on' if t.get('dust', True) else 'off'),
+         'on': bool(t.get('dust', True)), 'explain': ex['dust']},
+    ]
+
+
+def limit_performance(daily_weather, data_date, project_finish, thresholds):
+    """Explain-the-result: for each limit, how many days it flagged over the window and
+    the PEAK measured value seen — so a near-zero is never a silent black box
+    ('heat limit never reached — peak 41.3 °C'). Pure; window is (data_date, finish]."""
+    t = thresholds or DEFAULT_THRESHOLDS
+    dd, pf = _to_date(data_date), _to_date(project_finish)
+    window = [r for d, r in (daily_weather or {}).items()
+              if (dd is None or d > dd) and (pf is None or d <= pf)]
+
+    def peak(key):
+        vals = [float(r.get(key) or 0) for r in window]
+        return round(max(vals), 1) if vals else None
+
+    def numperf(key, label, thr_key, meas_key, unit):
+        lim = t.get(thr_key)
+        on = lim is not None
+        flagged = sum(1 for r in window if on and float(r.get(meas_key) or 0) >= lim)
+        return {'key': key, 'label': label, 'on': on, 'limit': lim, 'unit': unit,
+                'flagged': flagged, 'peak': peak(meas_key)}
+
+    dust_on = bool(t.get('dust', True))
+    return [
+        numperf('wind', 'Wind', 'wind_kmh', 'wind_kmh', 'km/h'),
+        numperf('heat', 'Heat', 'temp_max_c', 'temp_max_c', '°C'),
+        numperf('rain', 'Rain', 'rain_mm', 'rain_mm', 'mm'),
+        {'key': 'dust', 'label': 'Dust / sandstorm', 'on': dust_on, 'limit': None,
+         'unit': None, 'flagged': sum(1 for r in window if dust_on and r.get('dust')),
+         'peak': None},
+    ]
+
 
 # ── classification ───────────────────────────────────────────────────────────
 
@@ -99,7 +210,8 @@ def _shift_working_days(cal, start, n):
 
 def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
                    project_finish, daily_weather, forecast_horizon,
-                   thresholds=None, config=None, construction_activities=None):
+                   thresholds=None, config=None, construction_activities=None,
+                   site_type=None):
     thresholds = thresholds or DEFAULT_THRESHOLDS
     data_date = _to_date(data_date)
     project_finish = _to_date(project_finish)
@@ -219,6 +331,10 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         'recovery': recovery,
         'conclusion': conclusion,
         'thresholds': thresholds,          # the stop-work limits applied
+        'site_type': site_type,            # the chosen site type (None = today's default)
+        'site_type_label': (SITE_TYPES.get(site_type) or {}).get('label'),
+        'criteria': build_criteria(site_type, thresholds),          # shown in full (screen + PDF)
+        'limit_performance': limit_performance(daily_weather, data_date, project_finish, thresholds),
         'from_date': data_date.isoformat(),  # the update's cutoff — window is (cutoff, finish]
         'source': 'Open-Meteo (forecast + ERA5 historical + air-quality)',
         'is_estimate': True,

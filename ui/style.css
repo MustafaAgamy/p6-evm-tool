@@ -792,6 +792,37 @@ body {
 .cal-cause-fill { height:100%; border-radius:20px; transition:width .3s; }
 .cal-cause-n { width:96px; text-align:right; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
 .cal-hidden-note { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); background:var(--bg); border:1px dashed var(--border); border-radius:8px; padding:7px 12px; margin-bottom:10px; }
+
+/* Site-type picker */
+.cal-sites { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:2px 0 12px; }
+.cal-site { border:1.5px solid var(--border); border-radius:10px; padding:10px; cursor:pointer; background:var(--bg); text-align:center; transition:border-color .15s, background .15s; }
+.cal-site:hover { border-color:var(--accent); }
+.cal-site.sel { border-color:var(--accent); background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent); }
+.cal-site-ic { font-size:20px; line-height:1.1; }
+.cal-site-nm { font-weight:700; font-size:12.5px; margin-top:4px; }
+.cal-site.sel .cal-site-nm { color:var(--accent); }
+.cal-site-ds { font-size:10.5px; color:var(--muted); margin-top:3px; line-height:1.35; }
+@media (max-width:720px) { .cal-sites { grid-template-columns:repeat(2, 1fr); } }
+
+/* Criteria in full */
+.cal-crit { border:1px solid var(--accent); border-radius:10px; background:var(--accent-soft); padding:13px 14px; margin:0 0 12px; }
+.cal-crit-top { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.cal-crit-t { font-weight:700; font-size:13.5px; }
+.cal-crit-lead { font-size:12px; color:var(--ink-soft); margin-bottom:10px; line-height:1.5; }
+.cal-crit-row { display:grid; grid-template-columns:190px 1fr; gap:12px; padding:8px 0; border-top:1px solid var(--border); }
+.cal-crit-row:first-of-type { border-top:none; }
+.cal-crit-lim { font-size:12.5px; white-space:nowrap; }
+.cal-crit-lim.off { color:var(--muted); }
+.cal-crit-exp { font-size:12px; color:var(--ink-soft); line-height:1.45; }
+.cal-crit-any { margin-top:9px; font-size:12px; font-weight:700; background:var(--warning-bg); color:var(--warning); border-radius:8px; padding:8px 10px; }
+@media (max-width:720px) { .cal-crit-row { grid-template-columns:1fr; gap:2px; } }
+
+/* Why this result (explain-the-zero) */
+.cal-why { background:var(--bg); border-left:4px solid var(--warning); border-radius:0 8px 8px 0; padding:10px 13px; }
+.cal-why-row { display:flex; gap:9px; font-size:12.5px; padding:3px 0; line-height:1.45; }
+.cal-why-row .mk { width:16px; flex:0 0 16px; text-align:center; }
+.cal-why-row .flag { color:var(--danger); }
+.cal-why-row .noflag { color:var(--muted); }
 .cal-hidden-note b { color:var(--accent); }
 
 /* Calendar Timeline as a working/non-working days-per-month histogram */
