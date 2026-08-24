@@ -46,9 +46,12 @@ def provide(ctx):
 
     return [
         component('critpath.cpli', 'CPLI', SOURCE, 'kpi', kpi_cpli,
-                  category='Time', available=have, note=(None if have else _NOTE)),
+                  category='Time', available=have, note=(None if have else _NOTE),
+                  needs='Baseline (XER/XML) to compare against', action='critpath'),
         component('critpath.cpli_gauge', 'CPLI Health', SOURCE, 'score', score_cpli,
-                  category='Time', size=1, available=have, note=(None if have else _NOTE)),
+                  category='Time', size=1, available=have, note=(None if have else _NOTE),
+                  needs='Baseline (XER/XML) to compare against', action='critpath'),
         component('critpath.census', 'Critical / Near-critical', SOURCE, 'chart', census,
-                  category='Time', size=1, available=have, note=(None if have else _NOTE)),
+                  category='Time', size=1, available=have, note=(None if have else _NOTE),
+                  needs='Baseline (XER/XML) to compare against', action='critpath'),
     ]

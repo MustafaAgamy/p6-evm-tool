@@ -21,6 +21,19 @@ async function post(path, body) {
 // the app's current appearance mode (Light/Dark/Midnight/…) — carried into the PDF/Excel
 function appearance() { return document.documentElement.getAttribute('data-appearance') || 'light'; }
 
+// open the analysis view where the user supplies a feature's required input
+function openFeature(action) {
+  const btn = action && document.getElementById('tab-' + action);
+  if (btn) btn.click();
+}
+// highlighted "this result needs X" block with a button to go provide it
+function needsHtml(c) {
+  const label = escapeHtml(c.needs || c.note || 'more input');
+  const btn = c.action
+    ? `<button class="pd-needs-btn" data-action="${c.action}">▸ Provide it</button>` : '';
+  return `<div class="pd-needs"><div class="pd-needs-lbl">⚑ Needs: ${label}</div>${btn}</div>`;
+}
+
 // ── module state ────────────────────────────────────────────────────────────
 const D = {
   catalog: [], projectId: null,
@@ -280,6 +293,8 @@ function wireCard(el, c) {
       const v = e.target.textContent.trim();
       if (v) D.titles[e.target.dataset.id] = v; else delete D.titles[e.target.dataset.id];
     }));
+  el.querySelectorAll('.pd-needs-btn').forEach(b =>
+    b.addEventListener('click', e => { e.stopPropagation(); openFeature(b.dataset.action); }));
 
   if (D.editing) {
     el.addEventListener('dragstart', e => {
@@ -326,6 +341,9 @@ function move(id, dir) {
 
 // ── payload rendering (mirrors p6_dashboard/exporters.py) ───────────────────
 function renderPayload(c) {
+  // Unavailable feature result → highlight the required input + a button to supply it,
+  // instead of an empty placeholder.
+  if (c.available === false && (c.needs || c.action)) return needsHtml(c);
   const p = D.payloads[c.id] || { type: c.type, data: {} };
   const d = p.data || {};
   switch (p.type) {
@@ -445,9 +463,17 @@ function renderCatalog() {
     html += `<div class="pd-grp"><div class="pd-grp-h">${escapeHtml(src)}<span class="pd-badge">${items.length}</span></div>`;
     for (const c of items) {
       const on = D.selected.includes(c.id);
-      html += `<label class="pd-citem"><input type="checkbox" data-id="${c.id}" ${on ? 'checked' : ''}>
-        <span class="pd-ci-t">${escapeHtml(c.title)}<div class="pd-ty">${c.type}</div></span>
-        <span class="pd-avail ${c.available ? 'a-ready' : 'a-run'}">${c.available ? avail.true : avail.false}</span></label>`;
+      if (c.available === false && (c.needs || c.action)) {
+        // a div (not a label) so the Provide button doesn't also toggle the checkbox
+        html += `<div class="pd-citem pd-citem-need">
+          <input type="checkbox" data-id="${c.id}" ${on ? 'checked' : ''}>
+          <span class="pd-ci-t">${escapeHtml(c.title)}<div class="pd-needs-cat">⚑ Needs: ${escapeHtml(c.needs || c.note || 'input')}</div></span>
+          ${c.action ? `<button class="pd-needs-btn sm" data-action="${c.action}">▸ Provide</button>` : ''}</div>`;
+      } else {
+        html += `<label class="pd-citem"><input type="checkbox" data-id="${c.id}" ${on ? 'checked' : ''}>
+          <span class="pd-ci-t">${escapeHtml(c.title)}<div class="pd-ty">${c.type}</div></span>
+          <span class="pd-avail ${c.available ? 'a-ready' : 'a-run'}">${c.available ? avail.true : avail.false}</span></label>`;
+      }
     }
     html += `</div>`;
   }
@@ -455,6 +481,8 @@ function renderCatalog() {
   el.innerHTML = html;
   el.querySelectorAll('.pd-citem input[data-id]').forEach(cb =>
     cb.addEventListener('change', () => toggle(cb.dataset.id, cb.checked)));
+  el.querySelectorAll('.pd-needs-btn').forEach(b =>
+    b.addEventListener('click', e => { e.stopPropagation(); openFeature(b.dataset.action); }));
   el.querySelectorAll('.pd-add').forEach(n =>
     n.addEventListener('click', () => addCustom(n.dataset.kind)));
   document.getElementById('pd-selall').addEventListener('click', () => selectAll(true));

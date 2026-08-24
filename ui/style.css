@@ -1601,6 +1601,16 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pd-avail.a-ready { background: rgba(74,222,128,.15); color: var(--success); }
 .pd-avail.a-run { background: rgba(251,191,36,.16); color: var(--warning); }
 .pd-note-i { font-size: 10px; color: var(--muted); padding: 2px 9px 6px; font-style: italic; }
+/* required-input highlighting (multi-file features: CPA baseline, Consultant, Period) */
+.pd-needs { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 6px; text-align: center; }
+.pd-needs-lbl { font-size: 11.5px; color: var(--warning); font-weight: 600; }
+.pd-needs-btn { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 7px; padding: 5px 12px; font-size: 11.5px; cursor: pointer; font-family: inherit; }
+.pd-needs-btn:hover { background: var(--accent-dark); }
+.pd-needs-btn.sm { padding: 3px 8px; font-size: 10px; white-space: nowrap; }
+.pd-citem-need { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 11.5px; background: rgba(251,191,36,.08); }
+.pd-citem-need input { accent-color: var(--accent); width: 15px; height: 15px; }
+.pd-citem-need .pd-ci-t { flex: 1; min-width: 0; }
+.pd-needs-cat { font-size: 9px; color: var(--warning); font-weight: 600; margin-top: 1px; }
 @media (max-width: 900px) { .pd-layout { flex-direction: column; } .pd-catalog { width: 100%; position: static; max-height: none; } }
 
 /* letterhead: multiple logos, per-logo + text sizing */

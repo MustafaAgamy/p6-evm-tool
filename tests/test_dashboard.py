@@ -178,6 +178,18 @@ def test_write_dashboard_xlsx_is_valid_workbook():
         os.remove(path)
 
 
+def test_unavailable_components_declare_required_input():
+    # multi-file features advertise what input they need + which view supplies it
+    registry.clear_providers()
+    cat = {c['id']: c for c in catalog(FakeCtx())}
+    for cid, action in [('critpath.cpli', 'critpath'),
+                        ('consultant.delay', 'compare'),
+                        ('period.slip', 'period')]:
+        c = cat[cid]
+        assert c['available'] is False
+        assert c['needs'] and c['action'] == action
+
+
 def test_render_dashboard_html_is_themed():
     from p6_dashboard.exporters import render_dashboard_html
     html = render_dashboard_html({'header': {'title': 'X'}, 'components': []}, theme='dark')

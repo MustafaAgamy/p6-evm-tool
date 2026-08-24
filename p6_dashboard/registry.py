@@ -186,14 +186,21 @@ def render(ctx, ids):
 # ── Descriptor & payload helpers (used by providers) ────────────────────────
 
 def component(id, title, source, type, produce, *, category=None, size=1,
-              default_on=False, available=True, note=None):
-    """Build a component descriptor with validation."""
+              default_on=False, available=True, note=None, needs=None, action=None):
+    """Build a component descriptor with validation.
+
+    ``needs``  — when a component is unavailable, a short phrase naming the extra input
+                 it requires (e.g. 'Baseline XER file'); the UI highlights it.
+    ``action`` — the analysis view to open so the user can supply that input
+                 (e.g. 'critpath', 'compare', 'period'); the UI shows a button.
+    """
     if type not in COMPONENT_TYPES:
         raise ValueError(f'unknown component type {type!r}')
     return {
         'id': id, 'title': title, 'source': source, 'type': type,
         'category': category, 'size': size, 'default_on': default_on,
-        'available': available, 'note': note, 'produce': produce,
+        'available': available, 'note': note, 'needs': needs, 'action': action,
+        'produce': produce,
     }
 
 

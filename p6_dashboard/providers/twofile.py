@@ -53,7 +53,8 @@ def provide(ctx):
     out.append(component(
         'consultant.delay', 'Delay — reported vs but-for', SOURCE_CR, 'chart',
         _delay, category='Time', size=1,
-        available=avail_cr, note=(None if avail_cr else _NOTE_CR)))
+        available=avail_cr, note=(None if avail_cr else _NOTE_CR),
+        needs='Baseline (XER) + this update', action='compare'))
 
     def _finish_slip(c, dc=dc, absent_note=_NOTE_CR):
         if not dc:
@@ -68,7 +69,8 @@ def provide(ctx):
     out.append(component(
         'consultant.finish_slip', 'Finish Slip · but-for', SOURCE_CR, 'kpi',
         _finish_slip, category='Time',
-        available=avail_cr, note=(None if avail_cr else _NOTE_CR)))
+        available=avail_cr, note=(None if avail_cr else _NOTE_CR),
+        needs='Baseline (XER) + this update', action='compare'))
 
     # ── Update vs Update ────────────────────────────────────────────────────
     avail_uu = bool(dp)
@@ -88,7 +90,8 @@ def provide(ctx):
     out.append(component(
         'period.slip', 'Finish Slip · this period', SOURCE_UU, 'kpi',
         _period_slip, category='Time',
-        available=avail_uu, note=(None if avail_uu else _NOTE_UU)))
+        available=avail_uu, note=(None if avail_uu else _NOTE_UU),
+        needs='The previous update schedule', action='period'))
 
     def _spi_trend(c, series=spi_series, absent_note=_NOTE_UU):
         if not series:
@@ -101,6 +104,7 @@ def provide(ctx):
     out.append(component(
         'period.spi_trend', 'SPI Trend · by period', SOURCE_UU, 'trend',
         _spi_trend, category='Progress', size=1,
-        available=avail_trend, note=(None if avail_trend else _NOTE_UU)))
+        available=avail_trend, note=(None if avail_trend else _NOTE_UU),
+        needs='The previous update schedule', action='period'))
 
     return out
