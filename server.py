@@ -231,33 +231,14 @@ class Handler(BaseHTTPRequestHandler):
             prior_import   = db.get_prior_import_date(file_hash)
             cached_path    = db.cache_xml(xml_path, file_hash)
 
-            # ── Local learning — quietly grow the private per-type Knowledge
-            # Base from this import (offline, deduped by hash, never breaks import) ──
-            try:
-                from p6_kb.learn import learn_from_schedule
-                learn_from_schedule(data, file_hash=file_hash)
-            except Exception as learn_exc:
-                print(f'[learn] skipped: {learn_exc}', file=sys.stderr)
+            # NOTE: importing an XER for ANALYSIS no longer adds it to the Knowledge Base
+            # (Ibrahim's rule: a project joins the KB only when the user explicitly adds
+            # it). Both learning mechanisms — the per-type profile and the generalized
+            # sequencing patterns — now run only from the explicit "Add to Knowledge Base"
+            # action (see db.add_import), never silently on analysis import.
 
             p6_id = data.project.get('id', '') or ''
             name  = data.project.get('name', '') or os.path.basename(xml_path)
-
-            # ── Cross-project constructability intelligence — learn this schedule's
-            # GENERALIZED sequencing patterns (concept only: system/phase transitions,
-            # no activity names/WBS/ids), deduped by P6 project id. Supporting knowledge
-            # for the Constructability Review; never the basis of a finding on its own. ──
-            try:
-                from p6_kb.model import schedule_view
-                from p6_kb.tagging import tag_view
-                from p6_kb.pattern_learning import learn_from_view, store_raw
-                from p6_kb.resolve import resolve as _resolve_arc
-                _pv = schedule_view(data)
-                tag_view(_pv)
-                _arc = (_resolve_arc(_pv) or {}).get('archetype', '')
-                learn_from_view(_pv, p6_id, project_type=_arc, label=name, file_hash=file_hash)
-                store_raw(xml_path, p6_id, name, file_hash)   # keep the raw XER (level 1)
-            except Exception as pl_exc:
-                print(f'[pattern-learn] skipped: {pl_exc}', file=sys.stderr)
             pid   = db.upsert_project(p6_id, name)
 
             sid = db.insert_snapshot(
