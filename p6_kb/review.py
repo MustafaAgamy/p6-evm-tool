@@ -363,12 +363,11 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
     v2_kb = None
     try:
         archetype = resolve_archetype(view)
+        # Findings come from the XER's OWN logic — NOT gated by the archetype. The score
+        # is always computed (no findings → a legitimate 100); the archetype is shown as
+        # context when it resolved.
         v2_findings = generate_findings(view, archetype)   # evidence-graded, read-only
-        # MEP-first evidence-weighted score — a SECOND score beside the KB score,
-        # computed only from the R1–R7 findings. Shown whenever the archetype resolved
-        # (so a genuinely clean schedule shows 100 / execution-logic-sound); None only
-        # when the engine could not analyse the project at all.
-        v2_score = evidence_score(v2_findings, total_act) if archetype else None
+        v2_score = evidence_score(v2_findings, total_act)
         # Cross-project intelligence — annotate each finding with how well its expected
         # sequence is corroborated across the curated KB + the user's imported projects.
         # SUPPORTING context only: it never changes whether a finding fired.

@@ -362,14 +362,15 @@ def _iface_required_systems(iface, patterns):
     return req
 
 
-def generate_findings(view, resolution, patterns=None):
-    """Return a list of evidence-graded findings (may be empty). Read-only."""
-    if not resolution:
-        return []
+def generate_findings(view, resolution=None, patterns=None):
+    """Return a list of evidence-graded findings (may be empty). Read-only.
+
+    The rules operate ENTIRELY on the current XER's own tagged systems + relationships;
+    the archetype `resolution` is context only and is NOT a gate — findings are produced
+    whenever the schedule's own logic trips a rule, even when no archetype resolved."""
     patterns = patterns if patterns is not None else load_system_patterns()
     _ensure_tagged(view)
     by_oid = view.get('by_oid', {})
-    present = {p['system'] for p in resolution.get('relevant_patterns', []) if p['present']}
 
     # index activities by their tagged system
     sys_acts = {}

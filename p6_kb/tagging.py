@@ -113,6 +113,22 @@ def _phase_of(text):
                 best = phase
     if best == 'COMMISSIONING' and any(p in text for p in ('pre-comm', 'pre comm', 'precomm', 'cold comm')):
         best = 'PRE_COMMISSIONING'
+    # 'insulation' as a MODIFIER — "pipes above insulation installation", "copper pipes &
+    # insulation - delivery" — must NOT promote a delivery/install activity to the late
+    # INSULATION phase; that manufactured false 'later-drives-earlier' inversions on real
+    # schedules. INSULATION wins only when insulating/lagging is the actual action (no
+    # delivery/erection/install verb present). R6 still catches insulation-before-hydrotest
+    # via activity-name keywords, so this loses no genuine coverage.
+    if best == 'INSULATION' and any(k in text for k in (
+            'install', 'erect', 'delivery', 'deliver', 'fabricat', 'laying', 'fixing',
+            'mounting', 'supply', 'procure', 'purchase', 'order', 'p.o', 'submittal',
+            'approval', 'shop drawing', 'manufactur')):
+        best = None
+        for phase, kws in _PHASE_KW:
+            if phase == 'INSULATION':
+                continue
+            if any(k in text for k in kws) and (best is None or PHASE_RANK[phase] > PHASE_RANK[best]):
+                best = phase
     return best
 
 
@@ -128,9 +144,25 @@ def _discipline_from_codes(codes):
     return None, None
 
 
-def _system_from_text(text):
+# Generic discipline / trade words that legitimately match a system keyword on the
+# ACTIVITY NAME (specific enough there) but are UNSAFE on a WBS branch or a discipline
+# code value — a "Mechanical Works" WBS branch groups silo sheets, steel and civil under
+# it, so tagging every child 'mechanical_equipment' mis-classifies structural/civil work
+# as MEP and produces false findings. WBS/code inference must use SPECIFIC system terms.
+_WBS_UNSAFE_KW = {
+    'mechanical works', 'mechanical installation', 'mechanical equipment', 'mechanical work',
+    'equipment installation', 'equipment erection', 'equipment works', 'equipment setting',
+    'equipment alignment', 'electrical installation', 'electrical works', 'electrical work',
+    'power work', 'power works', 'mechanical vent',
+}
+
+
+def _system_from_text(text, safe_only=False):
+    """Match a system by keyword. With safe_only, GENERIC discipline words (see
+    _WBS_UNSAFE_KW) are ignored so WBS/code inference tags only on specific system terms."""
     for system, disc, kws, excl in _SYSTEMS:
-        if any(k in text for k in kws) and not any(e in text for e in excl):
+        use = [k for k in kws if not (safe_only and k.strip() in _WBS_UNSAFE_KW)]
+        if any(k in text for k in use) and not any(e in text for e in excl):
             return system, disc
     return None, None
 
@@ -191,6 +223,23 @@ def tag_activity(activity):
         discipline, system, confidence, source = 'CIVIL', None, 'low', 'name-civil'
     else:
         discipline, system, confidence, source = 'UNKNOWN', None, 'none', 'none'
+
+    # ── recall: real schedules put the discipline/system in the WBS branch or an
+    # activity code, not always the activity name. If the name gave no system — and the
+    # activity is not itself a civil task and not civil-coded — fall back to the WBS path,
+    # then the code values, using the SAME specific system lexicon (so an area name only
+    # tags when it genuinely names a system). This never overrides a name/code system or
+    # a civil discipline; it only fills in the large 'unknown' remainder. ──
+    if system is None and not name_civil and code_disc not in _CIVIL_DISC:
+        for src_text, tag in ((activity.get('wbs_path'), 'wbs'),
+                              (' '.join(str(v) for v in codes.values()), 'codeval')):
+            fsys, fdisc = _system_from_text(_norm(src_text), safe_only=True)
+            if fsys:
+                system = fsys
+                discipline = discipline if discipline in _MEP_DISC else fdisc
+                source = f'{source}+{tag}'
+                confidence = 'medium' if confidence in ('low', 'none') else confidence
+                break
 
     phase = _phase_of(ntext)   # name only — WBS summary branches (e.g. "Handing Over") pollute phase
     ambiguous = confidence in ('low', 'none') or bool(name_civil and system and sys_disc in _MEP_DISC)
