@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-audit').addEventListener('click', () => switchView('audit'));
   document.getElementById('tab-oos').addEventListener('click', () => switchView('oos'));
   document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
+  document.getElementById('tab-weather').addEventListener('click', () => switchView('weather'));
   document.getElementById('tab-construct').addEventListener('click', () => { switchView('construct'); renderConstructPanel(); });
   document.getElementById('tab-compare').addEventListener('click', () => { switchView('compare'); renderComparePanel(); });
   document.getElementById('tab-lag').addEventListener('click', () => switchView('lag'));

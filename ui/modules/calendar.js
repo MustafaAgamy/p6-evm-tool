@@ -120,13 +120,14 @@ export function renderCalendar(ca) {
   if (settings.site_type) _siteType = settings.site_type;        // restore the picked site type
   else if (settings.weather_thresholds) _siteType = matchSiteType(_thresholds);  // infer from saved limits
   if (settings.last_weather) _weather = settings.last_weather;   // show the last saved estimate on re-open
-  _render();
+  _renderCalendarBody();
 }
 
-function _render() {
+// Feature 1 — P6 Calendar Audit → its own tab (calendar-body). No weather here.
+function _renderCalendarBody() {
   const body = document.getElementById('calendar-body');
+  if (!body) return;
   body.innerHTML =
-    _locationCard() +
     _dashboard(_ca.dashboard) +
     _timelineSection() +
     _monthlyStatsSection() +
@@ -135,9 +136,27 @@ function _render() {
     _comparisonSection(_ca.comparison) +
     _usageSection(_ca.usage) +
     _conflictsSection(_ca.conflicts) +
-    _weatherSection() +
     _conclusionSection(_ca.conclusion);
-  _wire();
+  _wireCalendar();
+}
+
+// Feature 2 — Bad Weather effect on Forecast Finish → its own tab (weather-body).
+export function renderWeatherView(ca) {
+  if (ca) _ca = ca;
+  const body = document.getElementById('weather-body');
+  if (!body) return;
+  if (!_ca || !_ca.dashboard) {
+    body.innerHTML = '<p style="color:var(--muted);font-size:13px">No schedule loaded — import a file first.</p>';
+    return;
+  }
+  _renderWeatherBody();
+}
+
+function _renderWeatherBody() {
+  const body = document.getElementById('weather-body');
+  if (!body) return;
+  body.innerHTML = _locationCard() + _weatherSection();
+  _wireWeatherView();
 }
 
 function _sec(n, title, extra = '') {
@@ -195,16 +214,9 @@ function _locationCard() {
 }
 
 function _dashboard(d) {
-  const adj = _weather ? fmtCalDate(_weather.weather_adjusted_finish) : '—';
-  const adjSub = _weather
-    ? `<span style="color:var(--warning)">+${_weather.net_finish_delay} wd from weather</span>`
-    : '<span class="cal-muted">set location</span>';
   const dates = [
     _tile('Baseline Start', fmtCalDate(d.baseline_start)),
-    _tile('Baseline Finish', fmtCalDate(d.baseline_finish), 'plan of record'),
-    _tile('Data Date', fmtCalDate(d.data_date)),
-    _tile('Forecast Finish <span class="cal-tag-exact">P6</span>', fmtCalDate(d.project_finish)),
-    _tile('Weather-Adjusted Finish <span class="cal-tag-est">estimate</span>', adj, adjSub, _weather ? 'hl-amber' : ''),
+    _tile('Baseline Finish / Completion', fmtCalDate(d.baseline_finish), 'plan of record'),
   ].join('');
   const stats = [
     _tile('Total Calendar Days', d.total_calendar_days),
@@ -217,7 +229,7 @@ function _dashboard(d) {
     _tile('Avg Working Hours / Day', `${d.avg_working_hours_per_day} hrs`),
   ].join('');
   return _sec(1, 'Executive Dashboard') +
-    `<div class="cal-subhead">Key Dates &amp; Forecast</div><div class="cal-dates-grid">${dates}</div>
+    `<div class="cal-subhead">Key Dates</div><div class="cal-dates-grid">${dates}</div>
      <div class="cal-subhead">Calendar Statistics</div><div class="cal-kpi-grid">${stats}</div>`;
 }
 
@@ -628,30 +640,30 @@ function _readThresholds() {
 
 function _conclusionSection(bullets) {
   const items = (bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('');
-  const wx = _weather
-    ? `<li><b>Weather:</b> ~${_weather.expected_bad_days_total} bad-weather days expected; net estimated +${_weather.net_finish_delay} working days to the finish (see Weather Impact).</li>`
-    : '';
-  return _sec(10, 'Executive Conclusion') +
-    `<div class="cal-concl"><ul>${items}${wx}</ul>
+  return _sec(9, 'Executive Conclusion') +
+    `<div class="cal-concl"><ul>${items}</ul>
       <div class="cal-note">Generated automatically from the numbers above.</div></div>`;
 }
 
 // ── wiring ─────────────────────────────────────────────────────────────────
-function _wire() {
+function _wireCalendar() {
   const picker = document.getElementById('cal-picker');
-  if (picker) picker.addEventListener('change', e => { _sel = e.target.value; _openMonths.clear(); _render(); });
+  if (picker) picker.addEventListener('change', e => { _sel = e.target.value; _openMonths.clear(); _renderCalendarBody(); });
 
   document.querySelectorAll('#calendar-body .cal-whc').forEach(bar =>
     bar.addEventListener('click', () => {
       const i = +bar.dataset.month;
       if (_openMonths.has(i)) _openMonths.delete(i); else _openMonths.add(i);
-      _render();
+      _renderCalendarBody();
     }));
 
+  _wireShutdowns();
+}
+
+function _wireWeatherView() {
   _wireLocation();
   _wireSiteTypes();
   _wireWeather();
-  _wireShutdowns();
 }
 
 function _wireLocation() {
@@ -813,13 +825,13 @@ async function _initMap() {
 
 // Pick a site type → load its preset limits and refresh the criteria panel + inputs.
 function _wireSiteTypes() {
-  document.querySelectorAll('#calendar-body .cal-site').forEach(card =>
+  document.querySelectorAll('#weather-body .cal-site').forEach(card =>
     card.addEventListener('click', () => {
       const key = card.dataset.site;
       if (key === 'custom' || !SITE_TYPES[key]) return;   // 'custom' is a state, not a choice
       _siteType = key;
       _thresholds = { ...SITE_TYPES[key].thresholds };
-      _render();                                          // fills the limit inputs + criteria panel
+      _renderWeatherBody();                               // fills the limit inputs + criteria panel
     }));
 }
 
@@ -844,7 +856,7 @@ async function _runWeather(btn, statusEl) {
       _pendingLoc = resp.location || _pendingLoc;
       if (resp.weather && resp.weather.thresholds) _thresholds = resp.weather.thresholds;
       if (resp.offline && statusEl) statusEl.textContent = 'No weather data (offline) — location saved.';
-      _render();
+      _renderWeatherBody();
     } else if (statusEl) {
       statusEl.textContent = resp.error || 'Weather failed.'; if (btn) btn.disabled = false;
     }
@@ -867,7 +879,7 @@ function _wireShutdowns() {
     const existing = _existingManualShutdowns();
     existing.push({ start, end: end || start, reason });
     const resp = await saveCalendarSettings({ manual_shutdowns: existing });
-    if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _render(); }
+    if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _renderCalendarBody(); }
   });
   // reason inline-edit (both P6 and manual shutdowns) → store per project
   document.querySelectorAll('#calendar-body .cal-reason').forEach(inp =>
@@ -875,7 +887,7 @@ function _wireShutdowns() {
       const key = inp.dataset.key; if (!key) return;
       const reasons = {}; reasons[key] = inp.value;
       const resp = await saveCalendarSettings({ shutdown_reasons: reasons });
-      if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _render(); }
+      if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _renderCalendarBody(); }
     }));
 }
 

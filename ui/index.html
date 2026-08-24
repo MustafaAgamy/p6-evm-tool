@@ -169,8 +169,17 @@
                   <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                 </svg>
               </div>
-              <div class="cc-title">Calendar Audit</div>
+              <div class="cc-title">P6 Calendar Audit</div>
               <div class="cc-sub">Project calendar timeline, holidays, shutdowns, working-hour changes</div>
+            </button>
+            <button class="chooser-card" data-view="weather">
+              <div class="cc-icon" style="background:linear-gradient(135deg,#e6a53a,#d97706)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 16.2A4.5 4.5 0 0017.5 8h-1.8A7 7 0 104 14.9"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="16" y1="19" x2="16" y2="21"/>
+                </svg>
+              </div>
+              <div class="cc-title">Bad Weather effect on Forecast Finish</div>
+              <div class="cc-sub">Choose project type + location → weather-adjusted finish, milestone impact, recovery · estimate</div>
             </button>
             <button class="chooser-card" data-view="construct">
               <div class="cc-icon" style="background:linear-gradient(135deg,#0d9488,#14b8a6)">
@@ -234,7 +243,8 @@
           <button class="view-tab active" id="tab-evm" data-view="evm">EVM Results</button>
           <button class="view-tab" id="tab-audit" data-view="audit">Schedule Audit</button>
           <button class="view-tab" id="tab-oos" data-view="oos">Out of Sequence</button>
-          <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
+          <button class="view-tab" id="tab-calendar" data-view="calendar">📅 P6 Calendar Audit</button>
+          <button class="view-tab" id="tab-weather" data-view="weather">🌦 Bad Weather</button>
           <button class="view-tab" id="tab-construct" data-view="construct">🧠 Constructability</button>
           <button class="view-tab" id="tab-compare" data-view="compare">Consultant Review</button>
           <button class="view-tab" id="tab-lag" data-view="lag">Lag Report</button>
@@ -276,6 +286,13 @@
           <div class="action-buttons">
             <button class="btn-secondary" id="cal-excel-btn">Export to Excel</button>
             <button class="btn-primary" id="cal-pdf-btn">Generate Calendar Audit PDF</button>
+          </div>
+        </div>
+
+        <div class="view-panel hidden" id="weather-panel">
+          <div id="weather-body"></div>
+          <div class="action-buttons">
+            <button class="btn-primary" id="weather-pdf-btn">Generate Bad-Weather PDF</button>
           </div>
         </div>
 

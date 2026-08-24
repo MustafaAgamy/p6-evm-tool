@@ -63,6 +63,7 @@ export function switchView(view) {
   document.getElementById('audit-panel').classList.toggle('hidden', view !== 'audit');
   document.getElementById('oos-panel').classList.toggle('hidden', view !== 'oos');
   document.getElementById('calendar-panel').classList.toggle('hidden', view !== 'calendar');
+  document.getElementById('weather-panel').classList.toggle('hidden', view !== 'weather');
   document.getElementById('construct-panel').classList.toggle('hidden', view !== 'construct');
   document.getElementById('compare-panel').classList.toggle('hidden', view !== 'compare');
   document.getElementById('lag-panel').classList.toggle('hidden', view !== 'lag');
@@ -73,6 +74,7 @@ export function switchView(view) {
   document.getElementById('tab-audit').classList.toggle('active', view === 'audit');
   document.getElementById('tab-oos').classList.toggle('active', view === 'oos');
   document.getElementById('tab-calendar').classList.toggle('active', view === 'calendar');
+  document.getElementById('tab-weather').classList.toggle('active', view === 'weather');
   document.getElementById('tab-construct').classList.toggle('active', view === 'construct');
   document.getElementById('tab-compare').classList.toggle('active', view === 'compare');
   document.getElementById('tab-lag').classList.toggle('active', view === 'lag');
