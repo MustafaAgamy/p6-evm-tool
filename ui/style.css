@@ -331,7 +331,7 @@ body {
 .view-change:hover { color: var(--accent); background: var(--card-bg); }
 
 /* ── View tabs ─────────────────────────────────────────────────────────── */
-.view-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); align-items: center; }
+.view-tabs { display: flex; flex-wrap: wrap; gap: 6px 4px; border-bottom: 1px solid var(--border); align-items: center; }
 .view-tab {
   padding: 8px 14px; font-size: 12px; font-weight: 600; color: var(--muted);
   border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent;
