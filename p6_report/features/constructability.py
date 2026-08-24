@@ -256,11 +256,11 @@ def _constructability_findings(report):
         rows += (
             f'<tr class="cfrow">'
             f'<td class="sn">{i}</td>'
-            f'<td>{_sev_chip(f.get("strength"))}</td>'
             f'<td>{_activity_cell(p6, "id")}</td>'
             f'<td>{_activity_cell(p6, "name")}</td>'
             f'<td class="cflogic">{_compact_logic(primary)}</td>'
             f'<td class="cfwe">{_fwe_block(f)}</td>'
+            f'<td>{_sev_chip(f.get("strength"))}</td>'
             f'<td class="chg cfrec">{X._e(rec)}</td>'
             f'<td class="mono cfimpact">{impact_txt}</td>'
             f'</tr>'
@@ -273,10 +273,10 @@ def _constructability_findings(report):
             f'{_p6_logic_table(p6)}</details></td></tr>')
     return (
         '<table class="data cfind"><colgroup>'
-        '<col style="width:3%"><col style="width:7%"><col style="width:8%"><col style="width:14%">'
-        '<col style="width:16%"><col style="width:29%"><col style="width:16%"><col style="width:7%">'
-        '</colgroup><thead><tr><th>#</th><th>Severity</th><th>Activity ID</th><th>Activity Name</th>'
-        '<th>Current P6 Logic</th><th>Finding / Why / Evidence</th><th>Recommendation</th>'
+        '<col style="width:3%"><col style="width:8%"><col style="width:14%"><col style="width:16%">'
+        '<col style="width:29%"><col style="width:7%"><col style="width:16%"><col style="width:7%">'
+        '</colgroup><thead><tr><th>#</th><th>Activity ID</th><th>Activity Name</th>'
+        '<th>Current P6 Logic</th><th>Finding / Why / Evidence</th><th>Severity</th><th>Recommendation</th>'
         '<th>Score Impact</th></tr></thead><tbody>' + rows + '</tbody></table>'
         f'<div class="lgrow"><span class="lgt">Severity</span>{sev_leg}</div>'
         '<div class="cfnote">Every finding is raised solely from the current XER\'s own '
@@ -310,12 +310,14 @@ _EXTRA_CSS = '''
       .howcalc .howbody { font-size: 10.5px; color: #475569; padding: 5px 0 2px; line-height: 1.5; }
       .prssum { margin-top: 6px; padding-top: 6px; border-top: 1px solid #f1f5f9; font-size: 12px;
                 color: #1e293b; font-weight: 600; }
-      table.cfind { table-layout: fixed; }
-      table.cfind td { vertical-align: top; }
+      table.cfind { table-layout: fixed; width: 100%; border-collapse: collapse; }
+      table.cfind th, table.cfind td { border: 1px solid #e2e8f0; padding: 4px 6px; }
+      table.cfind td { vertical-align: top; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
+      table.cfind td .mono, table.cfind td.cflogic, table.cfind td.cfrec { overflow-wrap: anywhere; word-break: break-word; }
       table.cfind td.cfwe { font-size: 10.5px; line-height: 1.5; }
       table.cfind td.cflogic { font-size: 10px; line-height: 1.5; }
       table.cfind td.cfrec { font-size: 10.5px; line-height: 1.5; }
-      table.cfind td.cfimpact { text-align: right; font-weight: 700; color: #dc2626; }
+      table.cfind td.cfimpact { text-align: right; font-weight: 700; color: #dc2626; white-space: nowrap; }
       .cfwe .fw { padding: 1px 0; }
       .cfwe .fwl { font-weight: 700; color: #475569; text-transform: uppercase;
                    letter-spacing: .2px; font-size: 9px; }

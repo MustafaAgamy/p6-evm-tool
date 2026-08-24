@@ -284,6 +284,109 @@ function _typeSelectFor(report, id) {
 
 // ── report + prompt rendering ──────────────────────────────────────────────
 
+// ── Evidence-graded output (R1–R7) rendered ON SCREEN — same data as the PDF ──
+const _SEV_DISP = { strong: 'Strong', moderate: 'Moderate', weak: 'Low', insufficient: 'Low' };
+const _SEV_HEX = { strong: '#dc2626', moderate: '#d97706', weak: '#64748b', insufficient: '#94a3b8' };
+const _BAND_HEX2 = { green: '#16a34a', amber: '#d97706', orange: '#ea580c', red: '#dc2626' };
+
+function _sevChip(s) {
+  const h = _SEV_HEX[s] || '#64748b';
+  return `<span class="v2chip" style="background:${h}1a;color:${h};border-color:${h}55">${_SEV_DISP[s] || s}</span>`;
+}
+
+function _v2RiskSummary(report) {
+  const a = report.archetype || {}, s = report.v2_score, fs = report.v2_findings || [];
+  if (!s && !a.archetype) return '';
+  const conf = (a.confidence || 'low'), cap = conf.charAt(0).toUpperCase() + conf.slice(1);
+  const hb = _BAND_HEX2[s ? s.band : ''] || '#64748b';
+  const bys = (s && s.by_strength) || {}, low = (bys.weak || 0) + (bys.insufficient || 0);
+  const sp = []; if (bys.strong) sp.push(`${bys.strong} Strong`); if (bys.moderate) sp.push(`${bys.moderate} Moderate`); if (low) sp.push(`${low} Low`);
+  const calc = s ? `<details class="v2calc"><summary>How is this score calculated?</summary>
+    <div class="v2calcb">Independent of project size — it uses finding-severity <b>density</b>, not a flat subtraction.<br>
+    Severity points per <b>finding</b> (never per activity): Strong 10 · Moderate 5 · Low 2.<br>
+    Weighted density = (Σ points ÷ total activities) × 100 · Risk Score = 100 − density (clamped 0–100).<br>
+    This project: ${s.total_severity_points} point(s) ÷ ${s.total_activities} activities × 100 = ${s.weighted_finding_density} → <b>${s.overall}</b>/100.</div></details>` : '';
+  return `<div class="v2sec">
+    <div class="v2h">Project Risk Summary</div>
+    <div class="v2prs">
+      <div class="v2row"><span class="v2k">Project Type</span><b>${escapeHtml(a.archetype_name || a.archetype || '—')}</b>
+        <span class="v2k">Confidence</span>${_confChip(conf, cap)}</div>
+      <div class="v2legend"><span class="v2lt">Confidence</span> <b>High</b> strong &amp; consistent evidence · <b>Medium</b> some ambiguity remains · <b>Low</b> limited / conflicting</div>
+      <div class="v2hero"><span class="v2num" style="color:${hb}">${s ? s.overall : '—'}</span><span class="v2den">/ 100</span>
+        <span class="v2band" style="color:${hb}">${s ? escapeHtml(s.band_label) : ''}</span><span class="v2lbl">Constructability Risk Score</span></div>
+      <div class="v2legend"><span class="v2lt">Score</span> 80–100 Low Risk · 60–79 Moderate · 40–59 Significant · 0–39 High</div>
+      ${calc}
+      <div class="v2row"><span class="v2k">Total findings</span><b>${fs.length}</b>
+        <span class="v2k">Severity</span><span>${sp.join(' · ') || 'none'}</span></div>
+    </div></div>`;
+}
+
+function _confChip(conf, cap) {
+  const h = { high: '#16a34a', medium: '#d97706', low: '#64748b' }[conf] || '#64748b';
+  return `<span class="v2chip" style="background:${h}1a;color:${h};border-color:${h}55">${cap}</span>`;
+}
+
+function _v2Logic(primary) {
+  if (!primary || !primary.id) return '—';
+  const preds = primary.preds || [], succs = primary.succs || [];
+  let c = '';
+  if (preds.length) { const p = preds[0]; c += `<span class="v2mono">${escapeHtml(p.id)}</span> ${escapeHtml(p.name)} <span class="v2rt">${escapeHtml(p.type)}${p.lag ? ' ' + escapeHtml(p.lag) : ''}</span> → `; }
+  c += `<b><span class="v2mono">${escapeHtml(primary.id)}</span> ${escapeHtml(primary.name)}</b>`;
+  if (succs.length) { const s = succs[0]; c += ` <span class="v2rt">${escapeHtml(s.type)}${s.lag ? ' ' + escapeHtml(s.lag) : ''}</span> → <span class="v2mono">${escapeHtml(s.id)}</span> ${escapeHtml(s.name)}`; }
+  return c;
+}
+
+function _relList(rels) {
+  if (!rels || !rels.length) return '<span class="v2mut">— none —</span>';
+  return rels.map(r => `<span class="v2mono">${escapeHtml(r.id)}</span> ${escapeHtml(r.name)} <span class="v2rt">${escapeHtml(r.type)}</span>${r.lag ? ' <b>' + escapeHtml(r.lag) + '</b>' : ''}`).join('<br>');
+}
+
+function _p6Table(p6) {
+  if (!p6 || !p6.length) return '';
+  const rows = p6.map(c => `<tr><td class="v2mono">${escapeHtml(c.id)}</td>
+    <td>${escapeHtml(c.name)}<div class="v2mut">${escapeHtml(c.phase || '')}${c.system ? ' · ' + escapeHtml(c.system) : ''}</div></td>
+    <td>${_relList(c.preds)}</td><td>${_relList(c.succs)}</td></tr>`).join('');
+  return `<table class="v2p6"><thead><tr><th>Activity ID</th><th>Activity</th>
+    <th>Current predecessor · type · lag</th><th>Current successor · type · lag</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function _v2Findings(report) {
+  const fs = report.v2_findings || [];
+  const head = `<div class="v2h">Constructability Findings</div>`;
+  if (!fs.length) {
+    return `<div class="v2sec">${head}<div class="v2empty">No constructability sequencing risks were detected against the current schedule logic.</div></div>`;
+  }
+  let rows = '';
+  fs.forEach((f, i) => {
+    const p6 = f.p6 || [], primary = p6[0] || {};
+    const ids = p6.length ? p6.map(c => `<span class="v2mono">${escapeHtml(c.id)}</span>`).join('<br>') : '—';
+    const names = p6.map(c => escapeHtml(c.name)).join('<br>');
+    const rec = f.recommended_sequence || f.recommendation || '';
+    const sup = f.support || {};
+    const supln = sup.label ? `<div class="v2fw"><span class="v2fwl">Knowledge Support:</span> <span class="v2sup">${escapeHtml(sup.label)}</span></div>` : '';
+    const fwe = `<div class="v2fw"><span class="v2fwl">Finding:</span> ${escapeHtml(f.title)}</div>
+      <div class="v2fw"><span class="v2fwl">Why:</span> ${escapeHtml(f.reason)}</div>
+      <div class="v2fw"><span class="v2fwl">Evidence:</span> ${escapeHtml(f.existing)}</div>${supln}`;
+    const imp = (f.score_impact != null) ? `−${f.score_impact}` : '—';
+    rows += `<tr class="v2frow">
+      <td>${i + 1}</td><td>${ids}</td><td>${names}</td>
+      <td class="v2logic">${_v2Logic(primary)}</td><td class="v2fwe">${fwe}</td>
+      <td>${_sevChip(f.strength)}</td><td class="v2rec">${escapeHtml(rec)}</td><td class="v2mono v2imp">${imp}</td></tr>
+      <tr class="v2detrow"><td></td><td colspan="7">
+        <details class="v2det"><summary>P6 traceability &amp; current vs recommended</summary>
+          <div class="v2cmp"><span class="v2ck">Current P6 Logic</span><span>${_v2Logic(primary)}</span></div>
+          <div class="v2cmp"><span class="v2ck rec">Recommended Sequence</span><span><b>${escapeHtml(rec)}</b></span></div>
+          ${_p6Table(p6)}</details></td></tr>`;
+  });
+  return `<div class="v2sec">${head}
+    <table class="v2tbl"><thead><tr><th>#</th><th>Activity ID</th><th>Activity Name</th>
+      <th>Current P6 Logic</th><th>Finding / Why / Evidence</th><th>Severity</th><th>Recommendation</th><th>Score Impact</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    <div class="v2legend"><span class="v2lt">Severity</span> ${_sevChip('strong')} significant execution / constructability risk ·
+      ${_sevChip('moderate')} meaningful sequencing concern · ${_sevChip('weak')} minor or lower-impact concern</div>
+    <div class="v2note">Every finding is raised solely from the current XER's own schedule logic; supporting knowledge is corroboration only. Open a row for the full P6 predecessors, successors, relationship types and lags.</div></div>`;
+}
+
 function renderReport(report) {
   const body = document.getElementById('construct-body');
   if (!body) return;
@@ -321,6 +424,11 @@ function renderReport(report) {
       <button class="btn-primary" id="cx-eps-save">Save to Database</button>
       <span id="cx-eps-note" class="cx-eps-note"></span>
     </div>
+
+    ${_v2RiskSummary(report)}
+    ${_v2Findings(report)}
+
+    <details class="v2legacy"><summary>Detailed knowledge-base standard check (missing activities · WBS · scope)</summary>
     ${_dashboard(report)}
     <div class="mod-sec">Illogical relationships &amp; better logic</div>
     ${_illogicalTable(report.illogical)}
@@ -329,6 +437,7 @@ function renderReport(report) {
     <div class="mod-sec">WBS review &amp; missing WBS</div>
     ${_wbsReview(report.wbs_review, report.missing_wbs)}
     ${_learnedPanel(report.learned)}
+    </details>
     <div class="mod-sec">Executive conclusion</div>
     <div class="ai-concl"><div class="lead">Constructability — rule + knowledge base</div>${escapeHtml(report.conclusion || '')}</div>`;
 
