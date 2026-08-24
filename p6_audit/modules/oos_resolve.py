@@ -73,7 +73,7 @@ def apply_ops_to_relationships(data, accepted):
     for raw in accepted:
         o = _norm_op(raw)
         act, pc, sc = o['action'], o['pred_id'], o['succ_id']
-        if act == 'data' or not sc:
+        if act in ('data', 'manual') or not sc:
             continue
         if act in ('remove', 'replace'):
             rels = [r for r in rels if not _match(r, pc, sc)]
@@ -147,7 +147,7 @@ def to_file_ops(accepted, data):
     for raw in accepted:
         o = _norm_op(raw)
         act, pc, sc = o['action'], o['pred_id'], o['succ_id']
-        if act == 'data' or not sc:
+        if act in ('data', 'manual') or not sc:
             continue
         day_hours = _succ_day_hours(data, sc)
         lag_days = o['new_lag_days'] if o['new_lag_days'] is not None else 0.0

@@ -48,7 +48,7 @@ def test_fs_break_against_incomplete_predecessor_is_flagged():
     assert 's' in f
     assert f['s']['current_pred_rel'] == 'FS'
     assert f['s']['current_pred_activity'].startswith('p ')
-    assert f['s']['root_cause'] == 'Activity started before predecessor completion.'
+    # Repair-first: the successor started after the predecessor started → change FS to SS(lag).
     assert f['s']['suggested_predecessor'].startswith('SS(')
     assert f['s']['suggested_predecessor_kind'] == 'change'
     assert f['s']['suggested_successor'] == 'No Change'
@@ -84,7 +84,12 @@ def test_ss_break_flagged():
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'SS', 'lag_days': 0}])
     f = _by_id(run_out_of_sequence(g, CONFIG))
     assert 's' in f and f['s']['current_pred_rel'] == 'SS'
-    assert f['s']['suggested_predecessor'] == 'Planner to review'
+    # SS is violated (successor started before predecessor) but the successor is still
+    # running → repair by changing to FF rather than removing the dependency.
+    res = f['s']['resolution']
+    assert res['action'] == 'change' and res['new_type'] == 'FF'
+    assert f['s']['suggested_predecessor'].startswith('FF')
+    assert f['s']['suggested_predecessor_kind'] == 'change'
 
 
 def test_ff_break_flagged():
@@ -194,8 +199,11 @@ def test_inconsistent_dates_when_pred_not_started():
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
     f = _by_id(run_out_of_sequence(g, CONFIG))
     assert f['s']['root_cause'] == 'Inconsistent Actual Dates.'
-    assert f['s']['planning_review_comment'] == 'Validate Actual Dates.'
-    assert f['s']['suggested_predecessor'] == 'Planner to review'
+    # Predecessor never started → no automatic correction is safe → explicit manual-review.
+    res = f['s']['resolution']
+    assert res['action'] == 'manual' and res['applicable'] is False
+    assert 'inconsistent' in res['reasoning'].lower() and 'manual review' in res['reasoning'].lower()
+    assert f['s']['suggested_predecessor'] == 'Manual review'
 
 
 def test_suggested_lag_counts_working_days_not_calendar_days():
@@ -205,7 +213,7 @@ def test_suggested_lag_counts_working_days_not_calendar_days():
         's': _act('s', calendar_id='c1', actual_start=dt('2026-01-12')),   # next Monday
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}], cals={'c1': cal})
     f = _by_id(run_out_of_sequence(g, CONFIG))
-    assert f['s']['suggested_predecessor'] == 'SS(5) - p · Act p'   # 5 working days, not 7
+    assert f['s']['suggested_predecessor'] == 'SS(+5d) - p · Act p'   # 5 working days, not 7
 
 
 # ── Enrichment: split IDs / lag + structured resolution (Resolve & Correct) ──
@@ -246,18 +254,35 @@ def test_resolution_remove_when_successor_finished_before_pred_started():
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
     r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
+    # Remove is the LAST resort here — successor finished before predecessor started, so no
+    # relationship type can hold — and the reason must be stated explicitly.
     assert r['action'] == 'remove' and r['applicable'] is True
     assert r['action_text'].lower().startswith('remove')
+    assert 'no valid relationship type' in r['action_text'].lower()
+    assert 'finished before the predecessor started' in r['reasoning'].lower()
 
 
-def test_resolution_data_when_pred_not_started_stays_open():
-    # No relationship edit can fix a wrong actual date → not applicable, stays Open.
+def test_ff_repair_when_successor_started_before_pred_but_still_running():
+    # Successor started before the predecessor started (SS would still be violated) but has
+    # NOT finished → repair by changing to FF, never remove.
+    g = _g({
+        'p': _act('p', actual_start=dt('2026-01-10')),
+        's': _act('s', actual_start=dt('2026-01-05')),   # started first, still in progress
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
+    assert r['action'] == 'change' and r['new_type'] == 'FF'
+    assert 'to FF' in r['action_text']
+
+
+def test_resolution_manual_when_pred_not_started_stays_open():
+    # No relationship edit can fix a wrong actual date → manual review, not applicable, stays Open.
     g = _g({
         'p': _act('p'),
         's': _act('s', actual_start=dt('2026-01-05')),
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
     r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
-    assert r['action'] == 'data' and r['applicable'] is False
+    assert r['action'] == 'manual' and r['applicable'] is False
+    assert r['reasoning'] and 'manual review' in r['reasoning'].lower()
 
 
 # ── End-to-end: real parse path → audit → module ───────────────────────────

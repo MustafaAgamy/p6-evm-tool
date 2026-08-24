@@ -97,6 +97,18 @@ def test_change_to_ss_clears_the_finding(tmp_path):
     assert all(x['activity_id'] != 'A200' for x in out['findings'])
 
 
+def test_recommended_ff_repair_clears_on_revalidation(tmp_path):
+    # Successor started before the predecessor but is still running → engine recommends FF (not
+    # remove). Applying the recommendation must clear the finding — the repair search and the
+    # re-validation use the SAME rule, so they always agree.
+    ff_xml = XML.replace('2026-01-05T08:00:00', '2026-01-20T08:00:00')  # A100 (pred) starts later
+    data = parse_file(_write(tmp_path, 'ff.xml', ff_xml))
+    f = _finding(data)
+    assert f['resolution']['action'] == 'change' and f['resolution']['new_type'] == 'FF'
+    out = R.revalidate(data, CONFIG, [_accepted_from(f)])
+    assert f['finding_id'] in out['resolved']
+
+
 def test_remove_clears_the_finding(tmp_path):
     data = parse_file(_write(tmp_path, 's.xml', XML))
     f = _finding(data)

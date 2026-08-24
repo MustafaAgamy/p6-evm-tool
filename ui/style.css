@@ -503,29 +503,45 @@ body {
 .oos-dl:disabled { opacity: .45; cursor: not-allowed; }
 .oos-dlnote { font-size: 11px; color: var(--muted); margin-top: 4px; }
 
-.oos-tblwrap { overflow-x: auto; }
-.oos-log2 { min-width: 1180px; border-collapse: collapse; width: 100%; }
-.oos-log2 thead .oos-grp th { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
-  font-weight: 700; padding: 7px 10px 3px; text-align: left; border-bottom: 0; }
-.oos-log2 thead th { font-size: 11px; color: var(--ink-soft); font-weight: 700; text-align: left; padding: 5px 10px 9px;
-  border-bottom: 1px solid var(--border); vertical-align: bottom; white-space: nowrap; }
+/* The wrapper is the horizontal-scroll boundary; min-width:0 on the flex-item ancestors
+   lets it shrink so the TABLE scrolls inside it instead of overflowing the whole page. */
+#oos-body, #oos-review { min-width: 0; }
+.oos-tblwrap { overflow-x: auto; max-width: 100%; }
+.oos-log2 { min-width: 820px; border-collapse: collapse; width: 100%; }
+.oos-log2 thead th { font-size: 11px; color: var(--ink-soft); font-weight: 700; text-align: left; padding: 8px 10px 9px;
+  border-bottom: 2px solid var(--border); vertical-align: bottom; white-space: nowrap; }
+.oos-log2 thead th.cur { background: var(--hair); }
+.oos-log2 thead th.sug { background: var(--success-bg); }
 .oos-log2 td { padding: 10px; border-bottom: 1px solid var(--hair); vertical-align: top; }
 .oos-log2 .cur { background: var(--hair); }
 .oos-log2 .sug { background: var(--success-bg); }
-.oos-log2 .oos-num { text-align: center; color: var(--muted); font-weight: 700; }
+.oos-log2 .oos-num { text-align: center; color: var(--muted); font-weight: 700; width: 34px; }
+.oos-log2 .oos-act { min-width: 124px; }
+.oos-log2 .oos-dd { white-space: nowrap; width: 88px; }
+.oos-log2 .cur { min-width: 116px; }
 .oos-log2 .mono { font-family: ui-monospace, 'Consolas', monospace; font-weight: 600; font-size: 12px; white-space: nowrap; }
-.oos-log2 .nm { color: var(--ink-soft); font-size: 11.5px; margin-top: 2px; max-width: 200px; line-height: 1.35; }
+.oos-log2 .nm { color: var(--ink-soft); font-size: 11.5px; margin-top: 2px; line-height: 1.35; word-break: break-word; }
+.oos-relline { margin-top: 3px; }
 .oos-relb { display: inline-block; font-family: ui-monospace, 'Consolas', monospace; font-size: 10.5px; font-weight: 700;
   padding: 1px 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent-dark); }
 .oos-relb.sg { background: var(--card-bg); color: var(--success); border: 1px solid var(--success); }
 .oos-relb.rem { background: var(--danger-bg); color: var(--danger); }
 
-.oos-actchip { display: inline-flex; align-items: center; font-size: 11.5px; font-weight: 700; padding: 4px 9px;
-  border-radius: 7px; margin-bottom: 7px; }
+/* Suggested Correction — the star column: the exact P6 change + the WHY, wrapped and readable. */
+.oos-log2 .oos-sugcell { min-width: 250px; max-width: 330px; }
+.oos-actchip { display: inline-block; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 7px;
+  line-height: 1.4; white-space: normal; word-break: break-word; }
 .oos-actchip.change { background: var(--accent-soft); color: var(--accent-dark); }
 .oos-actchip.remove { background: var(--danger-bg); color: var(--danger); }
 .oos-actchip.data { background: var(--warning-bg); color: var(--warning); }
-.oos-rescell { min-width: 210px; }
+.oos-why { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.oos-rec { border: 1px solid var(--border); border-left: 4px solid var(--accent); background: var(--card-bg);
+  border-radius: 0 8px 8px 0; padding: 10px 13px; margin-bottom: 12px; }
+.oos-rec.remove { border-left-color: var(--danger); }
+.oos-rec .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
+.oos-rec .rt { font-size: 13px; font-weight: 700; color: var(--text); margin-top: 3px; }
+.oos-rec .rw { font-size: 12px; color: var(--ink-soft); margin-top: 5px; line-height: 1.5; }
+.oos-rescell { min-width: 118px; }
 .oos-rowbtns { display: flex; gap: 6px; align-items: center; }
 .oos-mini { border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; padding: 4px 9px;
   font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--text); }
