@@ -1600,8 +1600,8 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .shr-comptot .tl { font-size:13px; font-weight:800; grid-column:1; } .shr-comptot .tw { grid-column:4; text-align:right; font-weight:700; } .shr-comptot .tv { grid-column:5; text-align:right; font-size:16px; font-weight:800; }
 
 .shr-grid2 { display:grid; grid-template-columns:1fr 1.25fr; gap:12px; } @media (max-width:900px){ .shr-grid2 { grid-template-columns:1fr; } }
-.shr-wb { display:grid; grid-template-columns:110px 1fr 40px; align-items:center; gap:10px; margin:9px 0; }
-.shr-wb .l { font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .shr-wb .c { text-align:right; font-size:11.5px; color:var(--muted); }
+.shr-wb { display:grid; grid-template-columns:170px 1fr 44px; align-items:center; gap:10px; margin:9px 0; }
+.shr-wb .l { font-size:12px; font-weight:600; white-space:normal; overflow-wrap:anywhere; line-height:1.25; } .shr-wb .c { text-align:right; font-size:11.5px; color:var(--muted); }
 .shr-wbt { height:14px; background:var(--border); border-radius:4px; overflow:hidden; } .shr-wbt > i { display:block; height:100%; border-radius:4px; }
 .shr-fix { display:flex; gap:11px; padding:9px 0; border-bottom:1px solid var(--border); font-size:12.5px; align-items:flex-start; } .shr-fix:last-child { border-bottom:none; }
 .shr-fix .rk { width:21px; height:21px; flex:none; border-radius:50%; background:var(--bg); border:1px solid var(--border); display:grid; place-items:center; font-size:11px; font-weight:700; color:var(--muted); }

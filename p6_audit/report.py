@@ -913,8 +913,8 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
   .ctot {{ padding-top:9px; margin-top:2px; border-top:2px solid var(--rpt-hair-strong); }}
   .ctot .tl {{ font-size:11px; font-weight:800; }} .ctot .tw {{ text-align:right; font-weight:700; font-size:10px; }} .ctot .tv {{ text-align:right; font-size:14px; font-weight:800; }}
   /* Where the problems are — bars */
-  .wb {{ display:grid; grid-template-columns:120px 1fr 40px; align-items:center; gap:10px; margin:7px 0; }}
-  .wb .l {{ font-size:10px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }} .wb .c {{ text-align:right; font-size:10px; color:var(--rpt-ink-soft); font-weight:700; }}
+  .wb {{ display:grid; grid-template-columns:152px 1fr 40px; align-items:center; gap:10px; margin:7px 0; }}
+  .wb .l {{ font-size:10px; font-weight:600; white-space:normal; overflow-wrap:anywhere; line-height:1.2; }} .wb .c {{ text-align:right; font-size:10px; color:var(--rpt-ink-soft); font-weight:700; }}
   .wbt {{ height:12px; background:var(--rpt-hair); border-radius:4px; overflow:hidden; }} .wbt > i {{ display:block; height:100%; border-radius:4px; }}
   /* Fix these first — ranked list */
   .fix {{ display:flex; gap:10px; padding:7px 0; border-bottom:1px solid var(--rpt-hair); font-size:10.5px; align-items:flex-start; }}
