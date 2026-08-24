@@ -18,12 +18,35 @@ import db
 
 
 class DashboardContext:
-    def __init__(self, snapshot_id, project_id=None, xml_path=None, cached_path=None):
+    def __init__(self, snapshot_id, project_id=None, xml_path=None, cached_path=None, inputs=None):
         self.snapshot_id = snapshot_id
         self.project_id = project_id or (db.snapshot_project_id(snapshot_id) if snapshot_id else None)
         self._xml_path = xml_path
         self._cached_path = cached_path
+        self.inputs = inputs or {}     # user-attached files keyed by role (baseline / previous / …)
         self._memo = {}
+
+    # ── user-attached inputs (two-/three-file features) ─────────────────────
+
+    def input_path(self, role):
+        """The path the user attached for a required ``role`` (or None if absent/missing)."""
+        p = self.inputs.get(role)
+        return p if (p and os.path.isfile(p)) else None
+
+    def has_input(self, role):
+        return self.input_path(role) is not None
+
+    def parsed_input(self, role):
+        """Parsed ScheduleData for an attached input file (memoised), or None."""
+        def _parse():
+            p = self.input_path(role)
+            if not p:
+                return None
+            from utils import resource_path
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            return parse_file(p)
+        return self._get(f'input:{role}', _parse)
 
     def _get(self, key, fn):
         if key not in self._memo:

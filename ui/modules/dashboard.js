@@ -21,17 +21,35 @@ async function post(path, body) {
 // the app's current appearance mode (Light/Dark/Midnight/…) — carried into the PDF/Excel
 function appearance() { return document.documentElement.getAttribute('data-appearance') || 'light'; }
 
-// open the analysis view where the user supplies a feature's required input
-function openFeature(action) {
-  const btn = action && document.getElementById('tab-' + action);
-  if (btn) btn.click();
-}
-// highlighted "this result needs X" block with a button to go provide it
+function fileName(p) { return String(p).split(/[\\/]/).pop(); }
+
+// The required-input block: for each file a result needs, highlight it and let the user
+// ATTACH it inline — the dashboard then runs the feature itself (no tab-hop).
 function needsHtml(c) {
-  const label = escapeHtml(c.needs || c.note || 'more input');
-  const btn = c.action
-    ? `<button class="pd-needs-btn" data-action="${c.action}">▸ Provide it</button>` : '';
-  return `<div class="pd-needs"><div class="pd-needs-lbl">⚑ Needs: ${label}</div>${btn}</div>`;
+  const reqs = c.requires || [];
+  if (!reqs.length) return '<div class="pd-na">Not available for this project.</div>';
+  const rows = reqs.map(r => {
+    const got = D.inputs[r.role];
+    const btn = got
+      ? `<button class="pd-attach done" data-attach="${r.role}">✓ ${escapeHtml(fileName(got))}</button>`
+      : `<button class="pd-attach" data-attach="${r.role}">📎 Attach ${escapeHtml(r.label)}</button>`;
+    return `<div class="pd-need">
+      <div class="pd-needtxt">This result needs a <b>${escapeHtml(r.label)}</b>. Attach it and the dashboard runs the analysis for you — no need to open the ${escapeHtml(c.source || 'feature')} tab.</div>
+      ${btn}</div>`;
+  }).join('');
+  return `<div class="pd-needs">${rows}</div>`;
+}
+
+// attach a required file → store its path by role → re-fetch (availability turns ready + the feature runs)
+async function attachInput(role) {
+  let path = null;
+  try { path = await window.pywebview.api.choose_file(); } catch { /* dialog unavailable */ }
+  if (!path) return;
+  D.inputs[role] = path;
+  await fetchPayloads();
+  const cat = await post('api/dashboard/catalog', ctxParams());
+  if (cat.ok) D.catalog = cat.catalog || D.catalog;
+  renderBoard();
 }
 
 // ── module state ────────────────────────────────────────────────────────────
@@ -42,6 +60,7 @@ const D = {
   titles: {}, sizes: {}, // per-id overrides
   header: { title: '', subtitle: '', title_size: 'm', sub_size: 'm', logos_left: [], logos_right: [] },
   payloads: {},          // {id: {type, data}}
+  inputs: {},            // {role: path} — files the user attached for multi-file features
   editing: false, loaded: false,
 };
 
@@ -70,6 +89,7 @@ function ctxParams() {
     project_id: D.projectId,
     xml_path: state.currentXmlPath,
     cached_path: state.currentCachedPath,
+    inputs: D.inputs,
   };
 }
 
@@ -293,8 +313,8 @@ function wireCard(el, c) {
       const v = e.target.textContent.trim();
       if (v) D.titles[e.target.dataset.id] = v; else delete D.titles[e.target.dataset.id];
     }));
-  el.querySelectorAll('.pd-needs-btn').forEach(b =>
-    b.addEventListener('click', e => { e.stopPropagation(); openFeature(b.dataset.action); }));
+  el.querySelectorAll('.pd-attach').forEach(b =>
+    b.addEventListener('click', e => { e.stopPropagation(); attachInput(b.dataset.attach); }));
 
   if (D.editing) {
     el.addEventListener('dragstart', e => {
@@ -343,7 +363,7 @@ function move(id, dir) {
 function renderPayload(c) {
   // Unavailable feature result → highlight the required input + a button to supply it,
   // instead of an empty placeholder.
-  if (c.available === false && (c.needs || c.action)) return needsHtml(c);
+  if (c.available === false && c.requires && c.requires.length) return needsHtml(c);
   const p = D.payloads[c.id] || { type: c.type, data: {} };
   const d = p.data || {};
   switch (p.type) {
@@ -463,12 +483,17 @@ function renderCatalog() {
     html += `<div class="pd-grp"><div class="pd-grp-h">${escapeHtml(src)}<span class="pd-badge">${items.length}</span></div>`;
     for (const c of items) {
       const on = D.selected.includes(c.id);
-      if (c.available === false && (c.needs || c.action)) {
-        // a div (not a label) so the Provide button doesn't also toggle the checkbox
+      if (c.available === false && c.requires && c.requires.length) {
+        // a div (not a label) so the Attach button doesn't also toggle the checkbox
+        const r0 = c.requires[0];
+        const got = D.inputs[r0.role];
+        const btn = got
+          ? `<button class="pd-attach sm done" data-attach="${r0.role}">✓ attached</button>`
+          : `<button class="pd-attach sm" data-attach="${r0.role}">📎 Attach</button>`;
         html += `<div class="pd-citem pd-citem-need">
           <input type="checkbox" data-id="${c.id}" ${on ? 'checked' : ''}>
-          <span class="pd-ci-t">${escapeHtml(c.title)}<div class="pd-needs-cat">⚑ Needs: ${escapeHtml(c.needs || c.note || 'input')}</div></span>
-          ${c.action ? `<button class="pd-needs-btn sm" data-action="${c.action}">▸ Provide</button>` : ''}</div>`;
+          <span class="pd-ci-t">${escapeHtml(c.title)}<div class="pd-needs-cat">⚑ Needs: ${escapeHtml(r0.label)}</div></span>
+          ${btn}</div>`;
       } else {
         html += `<label class="pd-citem"><input type="checkbox" data-id="${c.id}" ${on ? 'checked' : ''}>
           <span class="pd-ci-t">${escapeHtml(c.title)}<div class="pd-ty">${c.type}</div></span>
@@ -481,8 +506,8 @@ function renderCatalog() {
   el.innerHTML = html;
   el.querySelectorAll('.pd-citem input[data-id]').forEach(cb =>
     cb.addEventListener('change', () => toggle(cb.dataset.id, cb.checked)));
-  el.querySelectorAll('.pd-needs-btn').forEach(b =>
-    b.addEventListener('click', e => { e.stopPropagation(); openFeature(b.dataset.action); }));
+  el.querySelectorAll('.pd-attach').forEach(b =>
+    b.addEventListener('click', e => { e.stopPropagation(); attachInput(b.dataset.attach); }));
   el.querySelectorAll('.pd-add').forEach(n =>
     n.addEventListener('click', () => addCustom(n.dataset.kind)));
   document.getElementById('pd-selall').addEventListener('click', () => selectAll(true));

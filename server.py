@@ -922,6 +922,7 @@ class Handler(BaseHTTPRequestHandler):
             project_id=body.get('project_id'),
             xml_path=body.get('xml_path'),
             cached_path=body.get('cached_path'),
+            inputs=body.get('inputs') or {},
         )
 
     def _handle_dashboard_catalog(self, body):

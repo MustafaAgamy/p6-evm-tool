@@ -1601,12 +1601,15 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pd-avail.a-ready { background: rgba(74,222,128,.15); color: var(--success); }
 .pd-avail.a-run { background: rgba(251,191,36,.16); color: var(--warning); }
 .pd-note-i { font-size: 10px; color: var(--muted); padding: 2px 9px 6px; font-style: italic; }
-/* required-input highlighting (multi-file features: CPA baseline, Consultant, Period) */
-.pd-needs { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 6px; text-align: center; }
-.pd-needs-lbl { font-size: 11.5px; color: var(--warning); font-weight: 600; }
-.pd-needs-btn { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 7px; padding: 5px 12px; font-size: 11.5px; cursor: pointer; font-family: inherit; }
-.pd-needs-btn:hover { background: var(--accent-dark); }
-.pd-needs-btn.sm { padding: 3px 8px; font-size: 10px; white-space: nowrap; }
+/* required-input: attach the file inline; the dashboard then runs the feature */
+.pd-needs { display: flex; flex-direction: column; gap: 10px; padding: 12px 8px; }
+.pd-need { display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center; }
+.pd-needtxt { font-size: 11px; line-height: 1.45; color: var(--muted); }
+.pd-needtxt b { color: var(--warning); }
+.pd-attach { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 7px; padding: 5px 12px; font-size: 11.5px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.pd-attach:hover { background: var(--accent-dark); }
+.pd-attach.done { background: transparent; color: var(--success); border-color: var(--success); }
+.pd-attach.sm { padding: 3px 8px; font-size: 10px; }
 .pd-citem-need { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 11.5px; background: rgba(251,191,36,.08); }
 .pd-citem-need input { accent-color: var(--accent); width: 15px; height: 15px; }
 .pd-citem-need .pd-ci-t { flex: 1; min-width: 0; }

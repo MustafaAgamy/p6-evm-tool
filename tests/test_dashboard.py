@@ -33,6 +33,11 @@ class FakeCtx:
     def has_xml(self):    return self._v('has_xml', False)
     def parsed(self):     return self._v('parsed')
     def computed(self):   return self._v('computed')
+    def config(self):     return self._v('config', {})
+    def inputs(self):     return self._v('inputs', {})
+    def input_path(self, role): return (self._v('inputs', {}) or {}).get(role)
+    def has_input(self, role):  return self.input_path(role) is not None
+    def parsed_input(self, role): return self._v('parsed_input')
     def memo(self, k, fn):  # no caching needed in tests
         return fn()
 
@@ -78,7 +83,7 @@ def test_catalog_empty_project_only_unavailable_components():
     assert cat, 'expected the recompute/two-file descriptors'
     assert all(not c['available'] for c in cat)
     ids = {c['id'] for c in cat}
-    assert {'construct.score', 'update.time_elapsed', 'consultant.delay', 'period.spi_trend'} <= ids
+    assert {'construct.score', 'update.time_elapsed', 'consultant.delay', 'period.slip', 'critpath.cpli'} <= ids
 
 
 def test_render_never_raises_on_empty():
@@ -179,15 +184,23 @@ def test_write_dashboard_xlsx_is_valid_workbook():
 
 
 def test_unavailable_components_declare_required_input():
-    # multi-file features advertise what input they need + which view supplies it
+    # multi-file features advertise the file they need to attach (role + label)
     registry.clear_providers()
     cat = {c['id']: c for c in catalog(FakeCtx())}
-    for cid, action in [('critpath.cpli', 'critpath'),
-                        ('consultant.delay', 'compare'),
-                        ('period.slip', 'period')]:
+    for cid, role in [('critpath.cpli', 'baseline'),
+                      ('consultant.delay', 'baseline'),
+                      ('period.slip', 'previous')]:
         c = cat[cid]
         assert c['available'] is False
-        assert c['needs'] and c['action'] == action
+        assert c['requires'] and c['requires'][0]['role'] == role and c['requires'][0].get('label')
+
+
+def test_attached_input_flips_availability():
+    # when the required file is attached, the component becomes available
+    registry.clear_providers()
+    cat = {c['id']: c for c in catalog(FakeCtx(has_xml=True, inputs={'baseline': __file__}))}
+    assert cat['critpath.cpli']['available'] is True
+    assert cat['consultant.delay']['available'] is True
 
 
 def test_render_dashboard_html_is_themed():

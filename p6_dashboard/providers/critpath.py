@@ -1,57 +1,77 @@
 """Critical Path Analyzer provider.
 
-The CPA compares the critical path across 2–3 schedules, so its results (CPLI,
-critical/near-critical census, reroute) aren't derivable from the single open
-project. Its cards therefore appear in the catalog as *run-to-enable* until the
-CPA tab is run and its summary is persisted (a future hook, like the other
-two-file features). This keeps every finished feature represented in the catalog.
+CPA compares the critical path across schedules, so it needs a baseline the single
+import doesn't provide. The component declares ``requires`` (a baseline XER/XML); the
+UI lets the user attach it inline, the path arrives on ``ctx.inputs['baseline']`` and
+this provider **runs CPA itself** (current vs baseline) — the user never opens the
+CPA tab. Same model as the Special Report and the two-file provider.
 """
 
-from p6_dashboard.registry import register_provider, component, payload_kpi, payload_score, payload_bars
+from p6_dashboard.registry import (
+    register_provider, component, payload_kpi, payload_score, payload_bars,
+)
 from p6_dashboard import fmt
 
 SOURCE = 'Critical Path Analyzer'
-_NOTE = 'Open the Critical Path Analyzer tab (compare 2–3 schedules) to populate.'
+BASELINE_REQ = [{'role': 'baseline', 'label': 'Baseline (XER/XML)',
+                 'accept': '.xer,.xml', 'hint': 'the approved baseline to compare against'}]
+_STATUS = {'good': 'good', 'warn': 'warn', 'bad': 'bad'}
+
+
+def _cp(ctx):
+    def build():
+        cur, base = ctx.parsed(), ctx.parsed_input('baseline')
+        if cur is None or base is None:
+            return None
+        from p6_critpath.analysis import build_report
+        from p6_critpath.dashboard import build_dashboard
+        rep = build_report({'current': cur, 'baseline': base}, mode='update_baseline')
+        return {'report': rep, 'dash': build_dashboard(rep)}
+    return ctx.memo('cp', build)
+
+
+def _cur_census(ctx):
+    r = _cp(ctx) or {}
+    return ((r.get('report') or {}).get('census') or {}).get('current') or {}
+
+
+def _cpli_kpi(ctx):
+    if not ctx.has_input('baseline'):
+        return payload_kpi('—', note='Attach a baseline to run')
+    v = (_cp(ctx) or {}).get('dash', {}).get('cpli')
+    return payload_kpi(fmt.num2(v), note='Critical Path Length Index',
+                       status=('good' if (v or 0) >= 1 else 'bad'))
+
+
+def _cpli_health(ctx):
+    if not ctx.has_input('baseline'):
+        return payload_score(0, band='Not run', status='neutral', detail='Attach a baseline to run')
+    dash = (_cp(ctx) or {}).get('dash') or {}
+    v = dash.get('cpli') or 0
+    return payload_score(int(round(min(v, 1.5) / 1.5 * 100)),
+                         band=dash.get('status_label') or '',
+                         status=_STATUS.get(dash.get('status'), 'neutral'),
+                         detail=dash.get('verdict') or f'CPLI {fmt.num2(v)}')
+
+
+def _census(ctx):
+    if not ctx.has_input('baseline'):
+        return payload_bars([])
+    c = _cur_census(ctx)
+    return payload_bars([
+        {'label': 'Critical', 'value': c.get('critical') or 0, 'display': c.get('critical') or 0, 'color': '#c0504d'},
+        {'label': 'Near-critical', 'value': c.get('near') or 0, 'display': c.get('near') or 0, 'color': '#e0a13a'},
+    ])
 
 
 @register_provider
 def provide(ctx):
-    settings = ctx.settings() or {}
-    cp = settings.get('dashboard_critpath')   # persisted by the CPA tab (future hook)
-    have = bool(cp)
-
-    def kpi_cpli(c, cp=cp):
-        if not cp:
-            return payload_kpi('—', note=_NOTE, status='neutral')
-        v = cp.get('cpli')
-        return payload_kpi(fmt.num2(v), note='Critical Path Length Index',
-                           status=('good' if (v or 0) >= 1 else 'bad'))
-
-    def score_cpli(c, cp=cp):
-        if not cp:
-            return payload_score(0, band='Not run', status='neutral', detail=_NOTE)
-        v = cp.get('cpli') or 0
-        return payload_score(int(round(min(v, 1.5) / 1.5 * 100)),
-                             band=('On track' if v >= 1 else 'Behind'),
-                             status=('good' if v >= 1 else 'bad'),
-                             detail=f'CPLI {fmt.num2(v)}')
-
-    def census(c, cp=cp):
-        if not cp:
-            return payload_bars([])
-        return payload_bars([
-            {'label': 'Critical', 'value': cp.get('critical', 0), 'display': cp.get('critical', 0), 'color': '#c0504d'},
-            {'label': 'Near-critical', 'value': cp.get('near', 0), 'display': cp.get('near', 0), 'color': '#e0a13a'},
-        ])
-
+    have = ctx.has_input('baseline')
     return [
-        component('critpath.cpli', 'CPLI', SOURCE, 'kpi', kpi_cpli,
-                  category='Time', available=have, note=(None if have else _NOTE),
-                  needs='Baseline (XER/XML) to compare against', action='critpath'),
-        component('critpath.cpli_gauge', 'CPLI Health', SOURCE, 'score', score_cpli,
-                  category='Time', size=1, available=have, note=(None if have else _NOTE),
-                  needs='Baseline (XER/XML) to compare against', action='critpath'),
-        component('critpath.census', 'Critical / Near-critical', SOURCE, 'chart', census,
-                  category='Time', size=1, available=have, note=(None if have else _NOTE),
-                  needs='Baseline (XER/XML) to compare against', action='critpath'),
+        component('critpath.cpli', 'CPLI', SOURCE, 'kpi', _cpli_kpi,
+                  category='Time', available=have, requires=BASELINE_REQ),
+        component('critpath.cpli_gauge', 'CPLI Health', SOURCE, 'score', _cpli_health,
+                  category='Time', size=1, available=have, requires=BASELINE_REQ),
+        component('critpath.census', 'Critical / Near-critical', SOURCE, 'chart', _census,
+                  category='Time', size=1, available=have, requires=BASELINE_REQ),
     ]
