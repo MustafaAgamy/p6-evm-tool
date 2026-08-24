@@ -4,7 +4,6 @@ import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, e
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
-import { showKbLibrary, exitKbLibrary, initKbLibrary } from './modules/kblib.js';
 import { showDatabase, exitDatabase, initDatabase } from './modules/database.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
@@ -14,23 +13,20 @@ document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
   initTheme();
   initTooltips();
-  initKbLibrary();
   initDatabase();
   loadHistory();
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
   document.getElementById('sb-home-btn').addEventListener('click', () => {
-    exitKbLibrary();
     exitDatabase();
     loadAnother();
     loadHistory();
   });
 
-  // ONE Knowledge Base sidebar entry (projects + patterns + reference standards).
-  // Reference Standards is reached from a link inside the Knowledge Base screen.
-  document.getElementById('sb-db-btn').addEventListener('click', () => { exitKbLibrary(); showDatabase(); });
-  document.getElementById('kb-back-btn')?.addEventListener('click', () => { exitKbLibrary(); showDatabase(); });
+  // ONE Knowledge Base sidebar entry — knowledge projects + reference standards +
+  // example baselines all live on this single screen.
+  document.getElementById('sb-db-btn').addEventListener('click', () => { showDatabase(); });
 
   document.getElementById('browse-btn').addEventListener('click', async () => {
     const path = await window.pywebview.api.choose_file();
@@ -73,7 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {
-    exitKbLibrary();
     exitDatabase();
     if (state.currentResult) {
       document.getElementById('results-section').classList.remove('hidden');
@@ -104,7 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
       showError('Please drop a .xml or .xer file exported from Primavera P6.');
       return;
     }
-    exitKbLibrary();
     exitDatabase();
     importFile(file.path);
   });

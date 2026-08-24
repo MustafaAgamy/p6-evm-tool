@@ -277,24 +277,7 @@
         </div>
       </section>
 
-      <!-- Knowledge Base library (EPS view) — its own page, hidden until opened -->
-      <section class="kb-section hidden" id="kb-section">
-        <div class="kb-head">
-          <div class="section-label"><button class="kb-back" id="kb-back-btn">← Knowledge Base</button> &nbsp; Reference Standards</div>
-          <div class="kb-subtitle">Browse the reference standard for every project type — the baseline your imported
-            schedules are reviewed against. <span class="kb-eps-badge">EPS view · <span id="kb-total">…</span></span></div>
-        </div>
-        <div class="kb-grid">
-          <aside class="kb-eps">
-            <input class="kb-search" id="kb-search" placeholder="🔍  Filter project types…" aria-label="Filter project types">
-            <p class="kb-hint">Like a P6 <b>EPS</b>: category folders hold the project types, and each type carries its own <b>baseline</b> standard.</p>
-            <div id="kb-tree"></div>
-          </aside>
-          <main class="kb-detailwrap"><div id="kb-detail"></div></main>
-        </div>
-      </section>
-
-      <!-- Knowledge Base — one place for knowledge projects + downloadable baselines -->
+      <!-- Knowledge Base — one place for knowledge projects + reference standards + baselines -->
       <section class="kb-section hidden" id="kb-database-section">
         <div class="kb-head">
           <div class="section-label">Knowledge Base</div>
@@ -308,16 +291,15 @@
           <button class="btn-primary" id="kbp-addxer">＋ Add Project XER</button>
           <button class="btn-secondary" id="kbp-export">⬇ Export Knowledge</button>
           <button class="btn-secondary" id="kbp-import">⬆ Import Knowledge</button>
-          <button class="btn-secondary" id="kbp-standards">📖 Reference Standards</button>
           <span class="kbp-note">Supporting knowledge only · generalized &amp; project-agnostic · never creates a finding</span>
         </div>
         <div class="kbp-tablewrap"><table class="kbp-table" id="kbp-table"></table></div>
 
-        <div class="kb-subhead">Reference baselines by project type <span class="n">clean or with typical gaps — for demo &amp; download</span></div>
+        <div class="kb-subhead">Project types <span class="n">reference standard · example baselines · your schedules</span></div>
         <div class="kb-grid">
           <aside class="kb-eps">
             <input class="kb-search" id="db-search" placeholder="🔍  Filter project types…" aria-label="Filter project types">
-            <p class="kb-hint">Each type holds <b>generated examples</b> plus any <b>schedules you've added</b>. Nothing leaves your PC.</p>
+            <p class="kb-hint">Each type opens to its <b>reference standard</b>, <b>generated examples</b>, and any <b>schedules you've added</b>. Nothing leaves your PC.</p>
             <div id="db-tree"></div>
           </aside>
           <main class="kb-detailwrap"><div id="db-detail"></div></main>
