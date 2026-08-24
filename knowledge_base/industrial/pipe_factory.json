@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Pipe Factory (Steel & HDPE)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["pipe", "pipe mill", "erw", "saw", "spiral", "hdpe", "extrusion", "forming mill", "welding mill",
+                 "sizing", "hydro test", "hydrotest", "coating line", "ndt", "weld", "coil slitting"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Overhead Cranes", "keywords": ["overhead crane", "gantry", "eot crane", "crane rail"]},
+    {"name": "Forming & Welding Mill / Extrusion Line", "keywords": ["forming mill", "welding mill", "erw", "saw", "extruder", "extrusion", "die"]},
+    {"name": "Sizing & Cutting", "keywords": ["sizing", "cutting", "cut-off", "sizing mill"]},
+    {"name": "Hydro-test & NDT", "keywords": ["hydro test", "hydrotest", "ndt", "ultrasonic", "test bay"]},
+    {"name": "Coating / Lining Line", "keywords": ["coating", "lining", "3lpe", "fbe", "galvanizing"]},
+    {"name": "Utilities & Commissioning", "keywords": ["utilities", "power", "compressed air", "commission", "test"]}
+  ],
+  "activities": [
+    {"name": "Forming / Welding Mill Installation", "keywords": ["forming mill", "welding mill", "erw", "saw", "extruder"], "wbs": "Forming & Welding Mill / Extrusion Line",
+     "typical_pred": "Overhead Crane Installation", "typical_succ": "Mill Commissioning", "duration_days": 60,
+     "why": "The forming/welding mill (or HDPE extrusion line) is the long-lead core machine that sets the whole schedule."},
+    {"name": "Hydro-test Bay & NDT Installation", "keywords": ["hydro test", "hydrotest", "ndt", "test bay"], "wbs": "Hydro-test & NDT",
+     "typical_pred": "Sizing & Cutting Installation", "typical_succ": "Weld Procedure Qualification", "duration_days": 25,
+     "why": "Every pipe is pressure- and NDT-tested; the hydro-test bay is a heavy long-lead item often omitted."},
+    {"name": "Coating / Lining Line Installation", "keywords": ["coating", "lining", "3lpe", "fbe", "galvanizing"], "wbs": "Coating / Lining Line",
+     "typical_pred": "Hydro-test Bay & NDT Installation", "typical_succ": "Trial Production", "duration_days": 30,
+     "why": "External coating / internal lining is a separate line whose scope and tie-in are frequently under-planned."},
+    {"name": "Weld Procedure Qualification / Trial Pipe", "keywords": ["weld procedure", "wpq", "trial pipe", "first pipe"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Mill Commissioning", "typical_succ": "Handover", "duration_days": 15,
+     "why": "Weld procedure qualification and a trial pipe prove quality before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["building", "structure", "roofing"], "after_keywords": ["crane install", "overhead crane", "gantry"],
+     "reason": "Overhead cranes are installed onto the completed building structure, not before it.",
+     "impact": "Critical"},
+    {"before_keywords": ["forming mill", "welding mill", "extruder", "mill install"], "after_keywords": ["hydro test", "hydrotest", "trial pipe", "commission"],
+     "reason": "Hydro-testing and trial pipe follow the forming/welding mill being installed and commissioned.",
+     "impact": "Critical"},
+    {"before_keywords": ["hydro test", "hydrotest", "ndt"], "after_keywords": ["coating", "lining"],
+     "reason": "Pipe is coated/lined after it has passed hydro-test and NDT.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Mill Installed", "Hydro-test Bay Ready", "Trial Pipe / Handover"],
+  "common_issues": ["Cranes before building structure", "Missing hydro-test / NDT bay scope",
+                    "Coating line under-planned", "No weld-procedure-qualification / trial-pipe phase"]
+}

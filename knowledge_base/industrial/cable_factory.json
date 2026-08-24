@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Cable & Wire Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["cable", "wire", "wire drawing", "drawing machine", "annealing", "stranding", "insulation",
+                 "extrusion", "cv line", "ccv", "armouring", "sheathing", "hv test", "drum", "catenary"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Rod Break-down & Drawing", "keywords": ["rod break", "wire drawing", "drawing machine", "annealing"]},
+    {"name": "Stranding", "keywords": ["stranding", "bunching", "strander"]},
+    {"name": "Insulation & Extrusion (CV Line)", "keywords": ["insulation", "extrusion", "cv line", "ccv", "catenary", "curing tower"]},
+    {"name": "Armouring & Sheathing", "keywords": ["armouring", "armour", "sheathing", "sheath"]},
+    {"name": "Testing Laboratory (HV)", "keywords": ["hv test", "high voltage", "test lab", "routine test", "type test"]},
+    {"name": "Utilities & Commissioning", "keywords": ["utilities", "power", "commission", "test"]}
+  ],
+  "activities": [
+    {"name": "CV / CCV Extrusion Line Installation", "keywords": ["cv line", "ccv", "extrusion", "catenary", "curing tower"], "wbs": "Insulation & Extrusion (CV Line)",
+     "typical_pred": "Building Weathertight", "typical_succ": "Extrusion Commissioning", "duration_days": 70,
+     "why": "The CV/CCV insulation line (with its curing tower) is the very-long-lead core machine for MV/HV cable."},
+    {"name": "HV Test Laboratory Installation", "keywords": ["hv test", "high voltage", "test lab"], "wbs": "Testing Laboratory (HV)",
+     "typical_pred": "Building Weathertight", "typical_succ": "Type / Routine Testing", "duration_days": 40,
+     "why": "Every cable design is HV type- and routine-tested; the shielded HV lab is a specialist long-lead facility."},
+    {"name": "Wire Drawing & Annealing Line", "keywords": ["wire drawing", "drawing machine", "annealing"], "wbs": "Rod Break-down & Drawing",
+     "typical_pred": "Utilities Connection", "typical_succ": "Stranding Commissioning", "duration_days": 25,
+     "why": "Rod is drawn down and annealed at the head of the line before stranding; often under-planned."},
+    {"name": "Type / Routine Test / First Cable", "keywords": ["type test", "routine test", "first cable", "trial production"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Extrusion Commissioning", "typical_succ": "Handover", "duration_days": 20,
+     "why": "Type and routine tests prove the cable meets standard before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["drawing", "wire drawing", "rod"], "after_keywords": ["stranding", "bunching"],
+     "reason": "Wire is drawn and annealed before it is stranded/bunched.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["extrusion", "cv line", "ccv", "insulation"], "after_keywords": ["hv test", "type test", "routine test", "commission"],
+     "reason": "Testing follows the insulation/extrusion line being installed and commissioned.",
+     "impact": "Critical"},
+    {"before_keywords": ["power", "utilities"], "after_keywords": ["commission", "extrusion commission", "trial production"],
+     "reason": "Line commissioning follows the utilities (power) being live.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "CV Line Installed", "HV Lab Ready", "First Cable / Handover"],
+  "common_issues": ["Testing before extrusion line commissioned", "CV/CCV line under-planned as very-long-lead",
+                    "Missing HV test-lab scope", "No type/routine-test phase"]
+}

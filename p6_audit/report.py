@@ -7,10 +7,12 @@ Detailed-findings tables use <thead>, so headers repeat on every printed page.
 import html as _html
 
 from p6_audit.presentation import build_presentation
+import report_theme
 
-_SEV = {'Critical': '#c0392b', 'High': '#e07b1a', 'Medium': '#c9a227', 'Low': '#6b7a8d'}
-_GRADE = {'Excellent': '#2e8b57', 'Acceptable': '#c9a227',
-          'Needs Attention': '#e07b1a', 'Critical': '#c0392b'}
+_SEV = {'Critical': report_theme.var('rpt-bad'), 'High': report_theme.var('rpt-warn'),
+        'Medium': report_theme.var('rpt-warn'), 'Low': report_theme.var('rpt-muted')}
+_GRADE = {'Excellent': report_theme.var('rpt-good'), 'Acceptable': report_theme.var('rpt-warn'),
+          'Needs Attention': report_theme.var('rpt-warn'), 'Critical': report_theme.var('rpt-bad')}
 
 _DCMA = {
     'dangling': 'DCMA Metric 3 — Missing Logic (target: 0 activities)',
@@ -31,7 +33,7 @@ def _esc(v):
 
 
 def _sev_badge(sev):
-    return f'<span class="sev" style="background:{_SEV.get(sev, "#6b7a8d")}">{_esc(sev)}</span>'
+    return f'<span class="sev" style="background:{_SEV.get(sev, report_theme.var("rpt-muted"))}">{_esc(sev)}</span>'
 
 
 def _sug_cell(text, kind):
@@ -66,7 +68,7 @@ def _kpi(label, value, note=''):
 def _dashboard(m, verdict):
     grade = m.get('grade', '')
     score = m.get('score', 0)
-    color = _GRADE.get(grade, '#6b7a8d')
+    color = _GRADE.get(grade, report_theme.var('rpt-muted'))
     if m['module'] == 'dangling':
         k = m['kpis']
         tiles = [
@@ -208,7 +210,7 @@ def _oos_dashboard(m):
     k = m.get('kpis', {})
     grade = m.get('grade', '')
     score = m.get('score', 0)
-    color = _GRADE.get(grade, '#6b7a8d')
+    color = _GRADE.get(grade, report_theme.var('rpt-muted'))
     pct = m.get('pct', 0)
     tiles = [
         _oos_tile('Total Activities', f"{k.get('total_activities', 0):,}"),
@@ -236,10 +238,10 @@ def _oos_dashboard(m):
           mapped on the approved band curve (0%&rarr;100 &middot; 2%&rarr;90 &middot; 5%&rarr;75 &middot; 8%&rarr;50 &middot; 20%&rarr;0).
           This schedule: <b>{pct}% &rarr; {_esc(grade)} &rarr; {score} / 100</b>.</div>
         <div class="bands">
-          <span><span class="dot" style="background:#2e8b57"></span>Excellent &le; 2%</span>
-          <span><span class="dot" style="background:#c9a227"></span>Acceptable 2&ndash;5%</span>
-          <span><span class="dot" style="background:#e07b1a"></span>Needs Attention 5&ndash;8%</span>
-          <span><span class="dot" style="background:#c0392b"></span>Critical &gt; 8%</span>
+          <span><span class="dot" style="background:{report_theme.var('rpt-good')}"></span>Excellent &le; 2%</span>
+          <span><span class="dot" style="background:{report_theme.var('rpt-warn')}"></span>Acceptable 2&ndash;5%</span>
+          <span><span class="dot" style="background:{report_theme.var('rpt-warn')}"></span>Needs Attention 5&ndash;8%</span>
+          <span><span class="dot" style="background:{report_theme.var('rpt-bad')}"></span>Critical &gt; 8%</span>
         </div>
       </div>'''
     stdref = '''
@@ -308,9 +310,9 @@ def _oos_cpi(m):
     k = m.get('kpis', {})
     cpi = k.get('critical_path_impact', 'No')
     cdi = k.get('completion_date_impact', 'No Impact')
-    cpi_color = '#c0392b' if cpi == 'Yes' else '#2e8b57'
-    cdi_color = {'Direct Impact': '#a93226', 'Potential Impact': '#e07b1a',
-                 'No Impact': '#2e8b57'}.get(cdi, '#6b7a8d')
+    cpi_color = report_theme.var('rpt-bad') if cpi == 'Yes' else report_theme.var('rpt-good')
+    cdi_color = {'Direct Impact': report_theme.var('rpt-bad'), 'Potential Impact': report_theme.var('rpt-warn'),
+                 'No Impact': report_theme.var('rpt-good')}.get(cdi, report_theme.var('rpt-muted'))
     return f'''
       <h2 class="sec">Critical Path Impact Assessment</h2>
       <div class="cpi-wrap">
@@ -376,7 +378,9 @@ def _lag_donut(m):
     need = k.get('need_justification_count', longp + leads)
     thr = k.get('long_threshold_days', 14)
     C, off, segs = 251.33, 0.0, []
-    for val, color in ((normal, '#8a93a0'), (longp, '#e0a11a'), (leads, '#d0433b')):
+    _muted, _warn, _bad, _thbg = (report_theme.var('rpt-muted'), report_theme.var('rpt-warn'),
+                                   report_theme.var('rpt-bad'), report_theme.var('rpt-th-bg'))
+    for val, color in ((normal, _muted), (longp, _warn), (leads, _bad)):
         if val and total:
             ln = C * val / total
             segs.append(f'<circle cx="50" cy="50" r="40" fill="none" stroke="{color}" stroke-width="15" '
@@ -384,13 +388,13 @@ def _lag_donut(m):
             off += ln
     return (f'<div class="ldonut"><svg width="86" height="86" viewBox="0 0 100 100">'
             f'<g transform="rotate(-90 50 50)">{"".join(segs)}</g>'
-            f'<text x="50" y="48" text-anchor="middle" font-size="18" font-weight="800" fill="#0f2440">{need}</text>'
-            f'<text x="50" y="62" text-anchor="middle" font-size="8" fill="#8a93a0">to justify</text></svg>'
+            f'<text x="50" y="48" text-anchor="middle" font-size="18" font-weight="800" fill="{report_theme.var("rpt-ink")}">{need}</text>'
+            f'<text x="50" y="62" text-anchor="middle" font-size="8" fill="{_muted}">to justify</text></svg>'
             f'<div class="lleg">'
-            f'<div><span class="d" style="background:#8a93a0"></span>Normal &le;{thr} wd <b>{normal}</b></div>'
-            f'<div><span class="d" style="background:#e0a11a"></span>Long &gt;{thr} wd <b>{longp}</b></div>'
-            f'<div><span class="d" style="background:#d0433b"></span>Leads <b>{leads}</b></div>'
-            f'<div><span class="d" style="background:#26517d"></span>On critical path <b>{k.get("critical_count", 0)}</b></div>'
+            f'<div><span class="d" style="background:{_muted}"></span>Normal &le;{thr} wd <b>{normal}</b></div>'
+            f'<div><span class="d" style="background:{_warn}"></span>Long &gt;{thr} wd <b>{longp}</b></div>'
+            f'<div><span class="d" style="background:{_bad}"></span>Leads <b>{leads}</b></div>'
+            f'<div><span class="d" style="background:{_thbg}"></span>On critical path <b>{k.get("critical_count", 0)}</b></div>'
             f'</div></div>')
 
 
@@ -463,7 +467,7 @@ def _presentation_dashboard(m):
     p = m.get('presentation') or build_presentation(m)
     grade = m.get('grade', '')
     score = m.get('score', 0)
-    color = _GRADE.get(grade, '#6b7a8d')
+    color = _GRADE.get(grade, report_theme.var('rpt-muted'))
     score_txt = '—' if score is None else score
     tiles = ''.join(_kpi(t['label'], t['value']) for t in p.get('tiles', []))
     return f'''
@@ -571,9 +575,9 @@ def _cpli_driving_chart(m):
         # a genuine P6 milestone OR the completion milestone CPLI identified -> diamond
         is_ms = bool(f.get('is_milestone')) or (fm_id is not None and f.get('activity_id') == fm_id)
         if is_ms:
-            bar = f'<span style="position:absolute;left:{x:.1f}%;top:2px;width:9px;height:9px;background:#2e8b57;transform:translateX(-50%) rotate(45deg)"></span>'
+            bar = f'<span style="position:absolute;left:{x:.1f}%;top:2px;width:9px;height:9px;background:{report_theme.var("rpt-good")};transform:translateX(-50%) rotate(45deg)"></span>'
         else:
-            color = '#c0392b' if (f.get('total_float_days') or 0) <= 0 else '#17457a'
+            color = report_theme.var('rpt-bad') if (f.get('total_float_days') or 0) <= 0 else report_theme.var('rpt-accent')
             bar = f'<span style="position:absolute;left:{x:.1f}%;width:{min(w, 100 - x):.1f}%;top:4px;height:7px;background:{color};border-radius:2px"></span>'
         dur = f.get('duration_days')
         rows.append(
@@ -592,7 +596,7 @@ def _cpli_driving_chart(m):
         pos = 100.0 * (d - lo).days / span
         if -2 <= pos <= 102:
             ticks.append(f'<span style="position:absolute;left:{max(0.0, min(100.0, pos)):.1f}%;top:4px;'
-                         f'font-size:7.5px;color:#eaf1fb;font-weight:400;transform:translateX(-50%);white-space:nowrap">'
+                         f'font-size:7.5px;color:{report_theme.var("rpt-th-ink")};font-weight:400;transform:translateX(-50%);white-space:nowrap">'
                          f'{d.strftime("%b %y")}</span>')
         mo = d.month - 1 + step
         d = _dt.datetime(d.year + mo // 12, mo % 12 + 1, 1)
@@ -688,7 +692,7 @@ def _pnum(v):
     return str(v)
 
 
-def render_summary_report(health, meta, sections=None, modules=None, completion_float=None):
+def render_summary_report(health, meta, sections=None, modules=None, completion_float=None, theme='light'):
     """Standalone PDF for the Schedule Health Review Summary — the weighted roll-up.
     Mirrors the on-screen dashboard exactly: overall score + verdict, checks-status
     (donut + counts + circular gate + status bands), headline stats (incl. completion
@@ -699,7 +703,7 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
     score = h.get('score')
     score_txt = _pnum(score)
     grade = h.get('grade', '') or ''
-    color = _GRADE.get(grade, '#17457a')
+    color = _GRADE.get(grade, report_theme.var('rpt-accent'))
     verdict = h.get('verdict', '') or ''
     statement = h.get('statement', '') or ''
     counts = h.get('counts', {}) or {}
@@ -718,27 +722,30 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
     a1 = 100.0 * p_n / _t
     a2 = a1 + 100.0 * r_n / _t
     a3 = a2 + 100.0 * c_n / _t
+    _GOOD, _WARN, _BAD, _MUT = ('var(--rpt-good)', 'var(--rpt-warn)', 'var(--rpt-bad)', 'var(--rpt-muted)')
+    _ACC, _GOODBG, _WARNBG, _BADBG, _ACCSOFT = ('var(--rpt-accent)', 'var(--rpt-good-bg)',
+                                                'var(--rpt-warn-bg)', 'var(--rpt-bad-bg)', 'var(--rpt-accent-soft)')
     donut = (f'<div style="width:74px;height:74px;border-radius:50%;flex-shrink:0;'
-             f'background:conic-gradient(#2e8b57 0 {a1:.1f}%,#e07b1a {a1:.1f}% {a2:.1f}%,'
-             f'#c0392b {a2:.1f}% {a3:.1f}%,#8a93a0 {a3:.1f}% 100%)">'
-             f'<div style="width:46px;height:46px;margin:14px;background:#fff;border-radius:50%;'
+             f'background:conic-gradient({_GOOD} 0 {a1:.1f}%,{_WARN} {a1:.1f}% {a2:.1f}%,'
+             f'{_BAD} {a2:.1f}% {a3:.1f}%,{_MUT} {a3:.1f}% 100%)">'
+             f'<div style="width:46px;height:46px;margin:14px;background:var(--rpt-bg);border-radius:50%;'
              f'display:flex;flex-direction:column;align-items:center;justify-content:center">'
-             f'<b style="font-size:17px;color:#1f2a37;line-height:1">{p_n}</b>'
-             f'<span style="font-size:7px;color:#8a93a0">of {total} pass</span></div></div>')
-    _leg = [('#2e8b57', 'Pass', p_n), ('#e07b1a', 'Review', r_n), ('#c0392b', 'Critical', c_n)]
+             f'<b style="font-size:17px;color:var(--rpt-ink);line-height:1">{p_n}</b>'
+             f'<span style="font-size:7px;color:var(--rpt-muted)">of {total} pass</span></div></div>')
+    _leg = [(_GOOD, 'Pass', p_n), (_WARN, 'Review', r_n), (_BAD, 'Critical', c_n)]
     if nc_n:
-        _leg.append(('#8a93a0', 'Not computed', nc_n))
-    _leg.append(('#2e8b57' if gate_clear else '#c0392b', 'Circular gate', 'clear' if gate_clear else 'blocking'))
+        _leg.append((_MUT, 'Not computed', nc_n))
+    _leg.append((_GOOD if gate_clear else _BAD, 'Circular gate', 'clear' if gate_clear else 'blocking'))
     donut_legend = ''.join(
         f'<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:9.5px">'
         f'<span style="width:9px;height:9px;border-radius:2px;background:{col};display:inline-block"></span>'
         f'{lab} <b style="margin-left:auto">{val}</b></div>' for col, lab, val in _leg)
 
     def _tone(s):
-        return '#8a93a0' if s is None else ('#2e8b57' if s >= 85 else '#e07b1a' if s >= 60 else '#c0392b')
+        return _MUT if s is None else (_GOOD if s >= 85 else _WARN if s >= 60 else _BAD)
 
     def _scol(st):
-        return {'Pass': '#2e8b57', 'Review': '#e07b1a', 'Critical': '#c0392b'}.get(st, '#8a93a0')
+        return {'Pass': _GOOD, 'Review': _WARN, 'Critical': _BAD}.get(st, _MUT)
 
     # Sub-feature composition as BARS — the same layout the screen shows (not a table).
     comp = ('<div class="chead"><span>Sub-feature</span><span>Score</span>'
@@ -750,17 +757,17 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
         col = _scol(st)
         sc = '—' if sc_val is None else f"{_pnum(sc_val)}%"
         needs = st in ('Review', 'Critical')
-        revtag = (f'<span class="revtag" style="background:{"#fdecea" if st == "Critical" else "#fdf3e6"};'
+        revtag = (f'<span class="revtag" style="background:{_BADBG if st == "Critical" else _WARNBG};'
                   f'color:{col}">{"needs review" if st == "Critical" else "review"}</span>') if needs else ''
-        prov = ' <span style="color:#c0392b;font-size:8px">(provisional)</span>' if s.get('provisional') else ''
+        prov = f' <span style="color:{_BAD};font-size:8px">(provisional)</span>' if s.get('provisional') else ''
         comp += (f'<div class="crow{" crow-review" if needs else ""}">'
                  f'<div class="nm"><span class="dot" style="background:{col}"></span>{_esc(s.get("name"))}{prov} {revtag}</div>'
                  f'<div class="bar"><i style="width:{barw:.0f}%;background:{col}"></i></div>'
                  f'<div class="sc">{sc}</div><div class="wt">{_pnum(s.get("weight"))}</div>'
                  f'<div class="pt">{_pnum(s.get("points"))}</div></div>')
-    gcol = '#2e8b57' if gate_clear else '#c0392b'
+    gcol = _GOOD if gate_clear else _BAD
     comp += (f'<div class="crow"><div class="nm"><span class="dot" style="background:{gcol}"></span>'
-             f'Circular logic <span class="revtag" style="background:#eef3f9;color:{gcol}">'
+             f'Circular logic <span class="revtag" style="background:{_ACCSOFT};color:{gcol}">'
              f'gate · {"clear" if gate_clear else "blocking"}</span></div>'
              f'<div class="bar"><i style="width:{100 if gate_clear else 0}%;background:{gcol}"></i></div>'
              f'<div class="sc">—</div><div class="wt">—</div><div class="pt">—</div></div>')
@@ -770,11 +777,11 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
 
     # Headline stat cards
     cf_txt = '—' if comp_float is None else f'{_pnum(comp_float)} d'
-    cf_col = '#8a93a0' if comp_float is None else ('#c0392b' if comp_float < 0 else '#2e8b57')
+    cf_col = _MUT if comp_float is None else (_BAD if comp_float < 0 else _GOOD)
     headline = (
         f'<div class="stat"><div class="sv" style="color:{_tone(score)}">{score_txt}'
         f'<span>/100</span></div><div class="sk">Baseline health score</div></div>'
-        f'<div class="stat"><div class="sv" style="color:{"#c0392b" if c_n else "#2e8b57"}">{c_n}</div>'
+        f'<div class="stat"><div class="sv" style="color:{_BAD if c_n else _GOOD}">{c_n}</div>'
         f'<div class="sk">Critical sub-features</div></div>'
         f'<div class="stat"><div class="sv" style="color:{cf_col}">{cf_txt}</div>'
         f'<div class="sk">Completion total float (rule &ge; 0)</div></div>')
@@ -785,7 +792,7 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
     problem_bars = ''.join(
         f'<div class="wb"><div class="l" title="{_esc(a.get("name"))}">{_esc(a.get("name"))}</div>'
         f'<div class="wbt"><i style="width:{round(100.0 * (a.get("pct") or 0) / pa_max)}%;'
-        f'background:{"#c0392b" if i == 0 else ("#e07b1a" if i < 3 else "#17457a")}"></i></div>'
+        f'background:{_BAD if i == 0 else (_WARN if i < 3 else _ACC)}"></i></div>'
         f'<div class="c">{_pnum(a.get("pct"))}%</div></div>' for i, a in enumerate(areas)) \
         or '<div class="empty2">No findings to place — the logic is clean.</div>'
 
@@ -857,67 +864,69 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
 <html><head><meta charset="utf-8"><title>Schedule Health Review — Summary — {_esc(meta.get('project_name', ''))}</title>
 <style>
   @page {{ margin: 20mm 14mm; }}
-  body {{ font-family:'Segoe UI',Arial,sans-serif; color:#1f2a37; font-size:11px; margin:0; }}
-  .head {{ border-bottom:3px solid #17457a; padding-bottom:12px; margin-bottom:18px; }}
-  .kicker {{ font-size:10px; letter-spacing:2px; color:#17457a; font-weight:700; text-transform:uppercase; }}
-  .title {{ font-size:24px; font-weight:800; color:#0f2440; margin:3px 0 1px; }}
-  .subtitle {{ font-size:12px; color:#5b6472; }}
+  body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:11px; margin:0; }}
+  .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:18px; }}
+  .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}
+  .title {{ font-size:24px; font-weight:800; color:var(--rpt-ink); margin:3px 0 1px; }}
+  .subtitle {{ font-size:12px; color:var(--rpt-ink-soft); }}
   .meta {{ display:flex; flex-wrap:wrap; gap:3px 26px; margin-top:10px; font-size:11px; }}
-  .meta span {{ color:#8a93a0; }}
-  h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#17457a; border-bottom:1px solid #dbe1e8; padding-bottom:4px; margin:22px 0 10px; }}
+  .meta span {{ color:var(--rpt-muted); }}
+  h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--rpt-accent); border-bottom:1px solid var(--rpt-hair-strong); padding-bottom:4px; margin:22px 0 10px; }}
   .top3 {{ display:flex; gap:12px; align-items:stretch; }}
-  .card3 {{ border:1px solid #e2e7ee; border-radius:8px; padding:13px 15px; background:#fafbfc; flex:1; }}
+  .card3 {{ border:1px solid var(--rpt-edge); border-radius:8px; padding:13px 15px; background:var(--rpt-surface); flex:1; }}
   .card3.gauge {{ flex:1.5; display:flex; gap:18px; align-items:center; }}
   .card3.mid {{ flex:1.1; }} .card3.head3 {{ flex:1; }}
-  .ct {{ font-size:9.5px; text-transform:uppercase; letter-spacing:.6px; color:#17457a; font-weight:700; margin-bottom:9px; }}
+  .ct {{ font-size:9.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--rpt-accent); font-weight:700; margin-bottom:9px; }}
   .score-num {{ font-size:46px; font-weight:800; line-height:1; }}
-  .score-den {{ font-size:11px; color:#8a93a0; }}
-  .verdict-badge {{ display:inline-block; padding:4px 14px; border-radius:20px; font-size:12px; font-weight:700; color:#fff; }}
-  .statement {{ font-size:11px; color:#31414f; line-height:1.55; margin-top:8px; }}
+  .score-den {{ font-size:11px; color:var(--rpt-muted); }}
+  .verdict-badge {{ display:inline-block; padding:4px 14px; border-radius:20px; font-size:12px; font-weight:700; color:var(--rpt-accent-ink); }}
+  .statement {{ font-size:11px; color:var(--rpt-ink-soft); line-height:1.55; margin-top:8px; }}
   .bands {{ display:flex; gap:4px; margin-top:6px; }}
-  .bd {{ flex:1; text-align:center; font-size:8.5px; font-weight:700; padding:3px 2px; border-radius:4px; color:#fff; }}
-  .bd-c {{ background:#c0392b; }} .bd-r {{ background:#e07b1a; }} .bd-p {{ background:#2e8b57; }}
-  .bnote {{ font-size:8.5px; color:#8a93a0; margin-top:6px; line-height:1.45; }}
-  .stat {{ display:flex; align-items:baseline; gap:9px; padding:6px 0; border-bottom:1px solid #eef1f5; }}
+  .bd {{ flex:1; text-align:center; font-size:8.5px; font-weight:700; padding:3px 2px; border-radius:4px; color:var(--rpt-accent-ink); }}
+  .bd-c {{ background:var(--rpt-bad); }} .bd-r {{ background:var(--rpt-warn); }} .bd-p {{ background:var(--rpt-good); }}
+  .bnote {{ font-size:8.5px; color:var(--rpt-muted); margin-top:6px; line-height:1.45; }}
+  .stat {{ display:flex; align-items:baseline; gap:9px; padding:6px 0; border-bottom:1px solid var(--rpt-hair); }}
   .stat:last-child {{ border-bottom:0; }}
-  .stat .sv {{ font-size:22px; font-weight:800; }} .stat .sv span {{ font-size:11px; color:#8a93a0; font-weight:600; }}
-  .stat .sk {{ font-size:9.5px; color:#8a93a0; }}
+  .stat .sv {{ font-size:22px; font-weight:800; }} .stat .sv span {{ font-size:11px; color:var(--rpt-muted); font-weight:600; }}
+  .stat .sk {{ font-size:9.5px; color:var(--rpt-muted); }}
   table {{ width:100%; border-collapse:collapse; font-size:10.5px; margin-top:4px; }}
   thead {{ display:table-header-group; }}
-  th {{ background:#26517d; color:#fff; text-align:left; padding:7px 9px; font-weight:600; font-size:9.5px; }}
-  td {{ padding:6px 9px; border-bottom:1px solid #eef1f5; vertical-align:top; }}
-  tbody tr:nth-child(even) {{ background:#f7f9fb; }}
+  th {{ background:var(--rpt-th-bg); color:var(--rpt-th-ink); text-align:left; padding:7px 9px; font-weight:600; font-size:9.5px; }}
+  td {{ padding:6px 9px; border-bottom:1px solid var(--rpt-hair); vertical-align:top; }}
+  tbody tr:nth-child(even) {{ background:var(--rpt-surface); }}
   .num {{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }}
-  .sev {{ display:inline-block; padding:1px 8px; border-radius:4px; color:#fff; font-weight:700; font-size:9px; }}
-  .empty {{ color:#6b7480; font-style:italic; text-align:center; padding:12px; }}
-  .empty2 {{ color:#6b7480; font-style:italic; font-size:10px; padding:8px 0; }}
-  .rlab {{ font-size:9px; font-weight:600; color:#8a93a0; text-transform:none; letter-spacing:0; }}
+  .sev {{ display:inline-block; padding:1px 8px; border-radius:4px; color:var(--rpt-accent-ink); font-weight:700; font-size:9px; }}
+  .empty {{ color:var(--rpt-muted); font-style:italic; text-align:center; padding:12px; }}
+  .empty2 {{ color:var(--rpt-muted); font-style:italic; font-size:10px; padding:8px 0; }}
+  .rlab {{ font-size:9px; font-weight:600; color:var(--rpt-muted); text-transform:none; letter-spacing:0; }}
   /* Sub-feature composition — bars (mirrors the on-screen layout) */
   .chead, .crow, .ctot {{ display:grid; grid-template-columns:1.7fr 2fr 52px 32px 40px; align-items:center; gap:12px; }}
-  .chead {{ font-size:8.5px; color:#8a93a0; text-transform:uppercase; letter-spacing:.4px; font-weight:700; padding-bottom:6px; border-bottom:1px solid #dbe1e8; }}
+  .chead {{ font-size:8.5px; color:var(--rpt-muted); text-transform:uppercase; letter-spacing:.4px; font-weight:700; padding-bottom:6px; border-bottom:1px solid var(--rpt-hair-strong); }}
   .chead span:nth-child(n+2) {{ text-align:right; }}
-  .crow {{ padding:6px 0; border-bottom:1px solid #eef1f5; }}
-  .crow-review {{ background:#fdf6ee; }}
+  .crow {{ padding:6px 0; border-bottom:1px solid var(--rpt-hair); }}
+  .crow-review {{ background:var(--rpt-warn-bg); }}
   .nm {{ font-size:10.5px; font-weight:600; display:flex; align-items:center; gap:7px; }}
   .dot {{ width:8px; height:8px; border-radius:50%; flex-shrink:0; display:inline-block; }}
   .revtag {{ font-size:8px; font-weight:700; padding:1px 6px; border-radius:8px; white-space:nowrap; }}
-  .bar {{ height:8px; background:#eef1f5; border-radius:5px; overflow:hidden; }} .bar > i {{ display:block; height:100%; border-radius:5px; }}
-  .sc {{ text-align:right; font-size:11px; font-weight:800; }} .wt {{ text-align:right; font-size:9.5px; color:#8a93a0; }} .pt {{ text-align:right; font-size:10px; font-weight:700; color:#17457a; }}
-  .ctot {{ padding-top:9px; margin-top:2px; border-top:2px solid #dbe1e8; }}
+  .bar {{ height:8px; background:var(--rpt-hair); border-radius:5px; overflow:hidden; }} .bar > i {{ display:block; height:100%; border-radius:5px; }}
+  .sc {{ text-align:right; font-size:11px; font-weight:800; }} .wt {{ text-align:right; font-size:9.5px; color:var(--rpt-muted); }} .pt {{ text-align:right; font-size:10px; font-weight:700; color:var(--rpt-accent); }}
+  .ctot {{ padding-top:9px; margin-top:2px; border-top:2px solid var(--rpt-hair-strong); }}
   .ctot .tl {{ font-size:11px; font-weight:800; }} .ctot .tw {{ text-align:right; font-weight:700; font-size:10px; }} .ctot .tv {{ text-align:right; font-size:14px; font-weight:800; }}
   /* Where the problems are — bars */
   .wb {{ display:grid; grid-template-columns:120px 1fr 40px; align-items:center; gap:10px; margin:7px 0; }}
-  .wb .l {{ font-size:10px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }} .wb .c {{ text-align:right; font-size:10px; color:#5b6472; font-weight:700; }}
-  .wbt {{ height:12px; background:#eef1f5; border-radius:4px; overflow:hidden; }} .wbt > i {{ display:block; height:100%; border-radius:4px; }}
+  .wb .l {{ font-size:10px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }} .wb .c {{ text-align:right; font-size:10px; color:var(--rpt-ink-soft); font-weight:700; }}
+  .wbt {{ height:12px; background:var(--rpt-hair); border-radius:4px; overflow:hidden; }} .wbt > i {{ display:block; height:100%; border-radius:4px; }}
   /* Fix these first — ranked list */
-  .fix {{ display:flex; gap:10px; padding:7px 0; border-bottom:1px solid #eef1f5; font-size:10.5px; align-items:flex-start; }}
-  .fix .rk {{ width:19px; height:19px; flex:none; border-radius:50%; background:#f4f8fd; border:1px solid #dbe1e8; display:flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:700; color:#5b6472; }}
-  .fix .sub {{ color:#5b6472; font-size:9.5px; }} .fix .lift {{ margin-left:auto; font-size:9px; font-weight:700; color:#2e8b57; background:#eef7f0; border-radius:5px; padding:2px 8px; white-space:nowrap; align-self:center; }}
+  .fix {{ display:flex; gap:10px; padding:7px 0; border-bottom:1px solid var(--rpt-hair); font-size:10.5px; align-items:flex-start; }}
+  .fix .rk {{ width:19px; height:19px; flex:none; border-radius:50%; background:var(--rpt-accent-soft); border:1px solid var(--rpt-hair-strong); display:flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:700; color:var(--rpt-ink-soft); }}
+  .fix .sub {{ color:var(--rpt-ink-soft); font-size:9.5px; }} .fix .lift {{ margin-left:auto; font-size:9px; font-weight:700; color:var(--rpt-good); background:var(--rpt-good-bg); border-radius:5px; padding:2px 8px; white-space:nowrap; align-self:center; }}
   .grid2 {{ display:flex; gap:16px; align-items:flex-start; }} .grid2 > div {{ flex:1; }}
-  .concl {{ border-left:4px solid #17457a; background:#f4f8fd; border-radius:0 8px 8px 0; padding:13px 16px; font-size:11.5px; line-height:1.6; color:#25313f; margin-top:6px; }}
-  .dcma {{ font-size:10px; color:#5b6472; font-style:italic; margin-top:6px; }}
-  .foot {{ border-top:1px solid #dbe1e8; margin-top:20px; padding-top:8px; font-size:9px; color:#8a93a0; }}
-</style></head>
+  .concl {{ border-left:4px solid var(--rpt-accent); background:var(--rpt-accent-soft); border-radius:0 8px 8px 0; padding:13px 16px; font-size:11.5px; line-height:1.6; color:var(--rpt-ink); margin-top:6px; }}
+  .dcma {{ font-size:10px; color:var(--rpt-ink-soft); font-style:italic; margin-top:6px; }}
+  .foot {{ border-top:1px solid var(--rpt-hair-strong); margin-top:20px; padding-top:8px; font-size:9px; color:var(--rpt-muted); }}
+</style>
+{report_theme.theme_style_tag(theme)}
+</head>
 <body>
   <div class="head">
     <div class="kicker">Schedule Health Review · Summary</div>
@@ -938,12 +947,12 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
 </body></html>'''
 
 
-def render_module_report(module_result, meta, sections=None):
+def render_module_report(module_result, meta, sections=None, theme='light'):
     m = module_result
     # Float Analysis has its own management-dashboard layout (V2 redesign).
     if m.get('module') == 'float':
         from p6_audit.float_report import render_float_report
-        return render_float_report(m, meta, sections)
+        return render_float_report(m, meta, sections=sections, theme=theme)
     name = m.get('name', 'Schedule Health Review')
     subtitle = ('Open / Broken Logic Assessment' if m['module'] == 'dangling'
                 else 'Excessive Total Float Assessment' if m['module'] == 'float'
@@ -956,95 +965,97 @@ def render_module_report(module_result, meta, sections=None):
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
   @page {{ margin: 20mm 14mm; }}
-  body {{ font-family: 'Segoe UI', Arial, sans-serif; color: #1f2a37; font-size: 11px; margin: 0; }}
-  .head {{ border-bottom: 3px solid #17457a; padding-bottom: 12px; margin-bottom: 18px; }}
-  .kicker {{ font-size: 10px; letter-spacing: 2px; color: #17457a; font-weight: 700; text-transform: uppercase; }}
-  .title {{ font-size: 24px; font-weight: 800; color: #0f2440; margin: 3px 0 1px; }}
-  .subtitle {{ font-size: 12px; color: #5b6472; }}
+  body {{ font-family: 'Segoe UI', Arial, sans-serif; color: var(--rpt-ink); font-size: 11px; margin: 0; }}
+  .head {{ border-bottom: 3px solid var(--rpt-accent); padding-bottom: 12px; margin-bottom: 18px; }}
+  .kicker {{ font-size: 10px; letter-spacing: 2px; color: var(--rpt-accent); font-weight: 700; text-transform: uppercase; }}
+  .title {{ font-size: 24px; font-weight: 800; color: var(--rpt-ink); margin: 3px 0 1px; }}
+  .subtitle {{ font-size: 12px; color: var(--rpt-ink-soft); }}
   .meta {{ display: flex; flex-wrap: wrap; gap: 3px 26px; margin-top: 10px; font-size: 11px; }}
-  .meta span {{ color: #8a93a0; }}
-  h2.sec {{ font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #17457a;
-            border-bottom: 1px solid #dbe1e8; padding-bottom: 4px; margin: 22px 0 10px; }}
+  .meta span {{ color: var(--rpt-muted); }}
+  h2.sec {{ font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--rpt-accent);
+            border-bottom: 1px solid var(--rpt-hair); padding-bottom: 4px; margin: 22px 0 10px; }}
   .dash {{ display: flex; gap: 14px; align-items: stretch; }}
-  .grade-card {{ border: 1px solid #e2e7ee; border-radius: 8px; padding: 15px 16px; width: 200px;
-                 flex-shrink: 0; text-align: center; background: #fafbfc; }}
+  .grade-card {{ border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 15px 16px; width: 200px;
+                 flex-shrink: 0; text-align: center; background: var(--rpt-surface); }}
   .score-num {{ font-size: 42px; font-weight: 800; line-height: 1; }}
-  .score-den {{ font-size: 11px; color: #8a93a0; }}
+  .score-den {{ font-size: 11px; color: var(--rpt-muted); }}
   .grade-badge {{ display: inline-block; margin-top: 8px; padding: 4px 14px; border-radius: 20px;
-                  font-size: 12px; font-weight: 700; color: #fff; }}
-  .verdict {{ font-size: 10.5px; color: #5b6472; margin-top: 9px; line-height: 1.4; }}
+                  font-size: 12px; font-weight: 700; color: var(--rpt-accent-ink); }}
+  .verdict {{ font-size: 10.5px; color: var(--rpt-ink-soft); margin-top: 9px; line-height: 1.4; }}
   .kpis {{ flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }}
-  .kpi {{ border: 1px solid #e8ecf1; border-radius: 8px; padding: 10px 12px; }}
-  .kpi .k {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: #8a93a0; font-weight: 700; }}
-  .kpi .v {{ font-size: 21px; font-weight: 800; margin-top: 2px; color: #0f2440; }}
-  .kpi .n {{ font-size: 9.5px; color: #8a93a0; margin-top: 1px; }}
-  .dcma {{ font-size: 10px; color: #5b6472; margin-top: 8px; font-style: italic; }}
+  .kpi {{ border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 10px 12px; }}
+  .kpi .k {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--rpt-muted); font-weight: 700; }}
+  .kpi .v {{ font-size: 21px; font-weight: 800; margin-top: 2px; color: var(--rpt-ink); }}
+  .kpi .n {{ font-size: 9.5px; color: var(--rpt-muted); margin-top: 1px; }}
+  .dcma {{ font-size: 10px; color: var(--rpt-ink-soft); margin-top: 8px; font-style: italic; }}
   table {{ width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 2px; }}
   thead {{ display: table-header-group; }}   /* repeat header on every printed page */
-  th {{ background: #26517d; color: #fff; text-align: left; padding: 7px 8px; font-weight: 600; font-size: 9.5px; }}
-  td {{ padding: 6px 8px; border-bottom: 1px solid #eef1f5; vertical-align: top; }}
-  tbody tr:nth-child(even) {{ background: #f7f9fb; }}
+  th {{ background: var(--rpt-th-bg); color: var(--rpt-th-ink); text-align: left; padding: 7px 8px; font-weight: 600; font-size: 9.5px; }}
+  td {{ padding: 6px 8px; border-bottom: 1px solid var(--rpt-hair); vertical-align: top; }}
+  tbody tr:nth-child(even) {{ background: var(--rpt-surface); }}
   table.summary {{ max-width: 420px; }}
   .num {{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }}
   .mono {{ font-family: 'Consolas', monospace; white-space: nowrap; }}
-  .mut {{ color: #6b7480; font-size: 9.5px; }}
-  .sev {{ display: inline-block; padding: 1px 7px; border-radius: 4px; color: #fff; font-weight: 700; font-size: 9px; white-space: nowrap; }}
-  .empty {{ color: #6b7480; font-style: italic; }}
+  .mut {{ color: var(--rpt-muted); font-size: 9.5px; }}
+  .sev {{ display: inline-block; padding: 1px 7px; border-radius: 4px; color: var(--rpt-accent-ink); font-weight: 700; font-size: 9px; white-space: nowrap; }}
+  .empty {{ color: var(--rpt-muted); font-style: italic; }}
   ul.recs {{ margin: 4px 0 0; padding-left: 18px; }}
   ul.recs li {{ margin: 3px 0; font-size: 11px; }}
-  .foot {{ border-top: 1px solid #dbe1e8; margin-top: 20px; padding-top: 8px; font-size: 9px; color: #8a93a0; line-height: 1.5; }}
+  .foot {{ border-top: 1px solid var(--rpt-hair); margin-top: 20px; padding-top: 8px; font-size: 9px; color: var(--rpt-muted); line-height: 1.5; }}
   /* Out of Sequence module */
   .kpis.k4 {{ grid-template-columns: repeat(4, 1fr); }}
-  .kpi.crit {{ border-color: #eec9c4; background: #fdf5f4; }}
-  .kpi.crit .v {{ color: #c0392b; }}
-  .kpi.near {{ border-color: #f0dcc0; background: #fdf8f1; }}
-  .kpi.near .v {{ color: #e07b1a; }}
-  .slegend {{ border: 1px solid #e2e7ee; background: #fafbfc; border-radius: 8px; padding: 9px 12px; margin-top: 10px; font-size: 9.5px; }}
-  .slegend .t {{ font-size: 9px; text-transform: uppercase; letter-spacing: .6px; color: #17457a; font-weight: 700; }}
-  .slegend .d {{ color: #5b6472; margin: 3px 0 6px; line-height: 1.4; }}
+  .kpi.crit {{ border-color: var(--rpt-bad); background: var(--rpt-bad-bg); }}
+  .kpi.crit .v {{ color: var(--rpt-bad); }}
+  .kpi.near {{ border-color: var(--rpt-warn); background: var(--rpt-warn-bg); }}
+  .kpi.near .v {{ color: var(--rpt-warn); }}
+  .slegend {{ border: 1px solid var(--rpt-edge); background: var(--rpt-surface); border-radius: 8px; padding: 9px 12px; margin-top: 10px; font-size: 9.5px; }}
+  .slegend .t {{ font-size: 9px; text-transform: uppercase; letter-spacing: .6px; color: var(--rpt-accent); font-weight: 700; }}
+  .slegend .d {{ color: var(--rpt-ink-soft); margin: 3px 0 6px; line-height: 1.4; }}
   .slegend .bands span {{ margin-right: 14px; }}
   .slegend .dot {{ display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: -1px; margin-right: 3px; }}
-  .stdref {{ font-size: 9.5px; color: #5b6472; font-style: italic; margin-top: 9px; padding: 7px 11px;
-             background: #f2f6fb; border-left: 3px solid #17457a; border-radius: 0 6px 6px 0; line-height: 1.45; }}
-  .stdref b {{ color: #17457a; font-style: normal; }}
+  .stdref {{ font-size: 9.5px; color: var(--rpt-ink-soft); font-style: italic; margin-top: 9px; padding: 7px 11px;
+             background: var(--rpt-accent-soft); border-left: 3px solid var(--rpt-accent); border-radius: 0 6px 6px 0; line-height: 1.45; }}
+  .stdref b {{ color: var(--rpt-accent); font-style: normal; }}
   .pill {{ display: inline-block; padding: 1px 6px; border-radius: 10px; font-weight: 700; font-size: 8.5px; }}
-  .pill.same {{ color: #6b7480; background: transparent; padding: 0; }}
-  .pill.na {{ color: #9aa3ad; background: transparent; padding: 0; font-style: italic; }}
-  .pill.change {{ color: #17457a; background: #e7effb; }}
-  .pill.remove {{ color: #c0392b; background: #fdeeec; }}
-  .badge2 {{ display: inline-block; padding: 1px 6px; border-radius: 4px; color: #fff; font-weight: 700; font-size: 8px; white-space: nowrap; }}
-  .badge2.c {{ background: #c0392b; }}
-  .badge2.n {{ background: #e07b1a; }}
+  .pill.same {{ color: var(--rpt-muted); background: transparent; padding: 0; }}
+  .pill.na {{ color: var(--rpt-muted); background: transparent; padding: 0; font-style: italic; }}
+  .pill.change {{ color: var(--rpt-accent); background: var(--rpt-accent-soft); }}
+  .pill.remove {{ color: var(--rpt-bad); background: var(--rpt-bad-bg); }}
+  .badge2 {{ display: inline-block; padding: 1px 6px; border-radius: 4px; color: var(--rpt-accent-ink); font-weight: 700; font-size: 8px; white-space: nowrap; }}
+  .badge2.c {{ background: var(--rpt-bad); }}
+  .badge2.n {{ background: var(--rpt-warn); }}
   .cpi-wrap {{ display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap; }}
   .cpi-wrap table {{ max-width: 360px; }}
   .vcards {{ display: flex; flex-direction: column; gap: 8px; justify-content: center; }}
-  .vcard {{ border-radius: 8px; padding: 9px 14px; color: #fff; min-width: 200px; }}
+  .vcard {{ border-radius: 8px; padding: 9px 14px; color: var(--rpt-accent-ink); min-width: 200px; }}
   .vcard .l {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .5px; opacity: .9; font-weight: 700; }}
   .vcard .v2 {{ font-size: 14px; font-weight: 800; margin-top: 1px; }}
-  .concl {{ border-left: 4px solid #17457a; background: #f4f8fd; border-radius: 0 8px 8px 0; padding: 11px 15px; font-size: 11px; line-height: 1.55; color: #25313f; }}
-  .lagsum {{ font-size: 12px; color: #5b6472; margin: 2px 0 6px; }}
-  .lagsum b {{ color: #0f2440; }}
+  .concl {{ border-left: 4px solid var(--rpt-accent); background: var(--rpt-accent-soft); border-radius: 0 8px 8px 0; padding: 11px 15px; font-size: 11px; line-height: 1.55; color: var(--rpt-ink); }}
+  .lagsum {{ font-size: 12px; color: var(--rpt-ink-soft); margin: 2px 0 6px; }}
+  .lagsum b {{ color: var(--rpt-ink); }}
   .lcharts {{ display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }}
-  .lcard {{ flex: 1; min-width: 200px; border: 1px solid #e8ecf1; border-radius: 8px; padding: 11px 13px; }}
-  .lch {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: #8a93a0; font-weight: 700; margin-bottom: 10px; }}
+  .lcard {{ flex: 1; min-width: 200px; border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 11px 13px; }}
+  .lch {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--rpt-muted); font-weight: 700; margin-bottom: 10px; }}
   .lbar {{ display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }}
-  .lbar .lbl {{ width: 76px; font-size: 10px; color: #25313f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-  .lbar .trk {{ flex: 1; height: 8px; background: #eef1f5; border-radius: 4px; overflow: hidden; }}
-  .lbar .trk i {{ display: block; height: 100%; background: #26517d; border-radius: 4px; }}
-  .lbar .lval {{ width: 56px; text-align: right; font-size: 9.5px; color: #6b7480; white-space: nowrap; }}
+  .lbar .lbl {{ width: 76px; font-size: 10px; color: var(--rpt-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+  .lbar .trk {{ flex: 1; height: 8px; background: var(--rpt-chart-grid); border-radius: 4px; overflow: hidden; }}
+  .lbar .trk i {{ display: block; height: 100%; background: var(--rpt-th-bg); border-radius: 4px; }}
+  .lbar .lval {{ width: 56px; text-align: right; font-size: 9.5px; color: var(--rpt-muted); white-space: nowrap; }}
   .lbarS {{ margin-bottom: 9px; }}
-  .lblS {{ font-size: 10px; color: #25313f; margin-bottom: 3px; line-height: 1.3; }}
+  .lblS {{ font-size: 10px; color: var(--rpt-ink); margin-bottom: 3px; line-height: 1.3; }}
   .lineS {{ display: flex; align-items: center; gap: 8px; }}
-  .lineS .trk {{ flex: 1; height: 8px; background: #eef1f5; border-radius: 4px; overflow: hidden; }}
-  .lineS .trk i {{ display: block; height: 100%; background: #26517d; border-radius: 4px; }}
-  .lineS .lval {{ width: 56px; text-align: right; font-size: 9.5px; color: #6b7480; white-space: nowrap; }}
-  .lmut {{ color: #8a93a0; font-size: 10px; }}
+  .lineS .trk {{ flex: 1; height: 8px; background: var(--rpt-chart-grid); border-radius: 4px; overflow: hidden; }}
+  .lineS .trk i {{ display: block; height: 100%; background: var(--rpt-th-bg); border-radius: 4px; }}
+  .lineS .lval {{ width: 56px; text-align: right; font-size: 9.5px; color: var(--rpt-muted); white-space: nowrap; }}
+  .lmut {{ color: var(--rpt-muted); font-size: 10px; }}
   .ldonut {{ display: flex; align-items: center; gap: 12px; }}
-  .lleg {{ font-size: 10px; color: #25313f; flex: 1; }}
+  .lleg {{ font-size: 10px; color: var(--rpt-ink); flex: 1; }}
   .lleg > div {{ display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }}
   .lleg .d {{ width: 8px; height: 8px; border-radius: 2px; display: inline-block; }}
   .lleg b {{ margin-left: auto; font-weight: 700; }}
-</style></head>
+</style>
+{report_theme.theme_style_tag(theme)}
+</head>
 <body>
   <div class="head">
     <div class="kicker">{_esc(kicker)}</div>

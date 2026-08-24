@@ -1,4 +1,5 @@
 """p6_period.exporters — Excel mirror + the two-page management PDF layout."""
+import report_theme
 from p6_period.exporters import (progress_excel, report_excel, render_html, _verdict,
                                  _PROGRESS_HEADERS as _PROGRESS, _CRITICAL_HEADERS as _CRITICAL,
                                  _WATCH_HEADERS as _WATCH)
@@ -194,7 +195,7 @@ def test_critical_compare_timeline_style_draws_svg_gantt():
     assert '<svg' in html and 'Critical path timeline' in html    # date-axis Gantt, not the block chain
     assert 'cpchain' not in html and 'cptable' not in html
     assert 'WAS · 30-Jun-2026' in html and 'NOW · 31-Jul-2026' in html   # the two data dates label the rows
-    assert 'rerouted here' in html and '#f87171' in html          # divergence marker + new route drawn red
+    assert 'rerouted here' in html and 'var(--rpt-bad)' in html   # divergence marker + new route drawn in the "bad" token
     assert 'finish 12-Mar-2027' in html and 'finish 26-Mar-2027' in html
     assert '+14 wd' in html                                        # the total-slip bracket
     assert 'rerouted at Steel' in html                            # the shared plain conclusion is still there
@@ -264,3 +265,17 @@ def test_render_html_code_filter_limits_activity_tables_to_selected_code():
     assert 'CIV1' in filtered                           # the Civil activity is kept
     assert 'MEC1' not in filtered                       # the Mechanical activity is filtered out of every table
     assert 'Filtered:' in filtered and 'Discipline' in filtered and 'Civil' in filtered
+
+
+# ── Report appearance theming (shared report_theme module) ───────────────────
+
+def test_render_html_dark_theme_injects_dark_palette():
+    html = render_html(_report(), trend=None, theme='dark')
+    assert 'data-rpt-theme="dark"' in html
+    assert report_theme.THEMES['dark']['rpt-accent'] in html   # '#5b9bff'
+
+
+def test_render_html_default_theme_is_light_full_document():
+    html = render_html(_report(), trend=None)
+    assert html.startswith('<!doctype html>') and html.rstrip().endswith('</html>')
+    assert 'data-rpt-theme="light"' in html

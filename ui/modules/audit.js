@@ -67,6 +67,8 @@ export function switchView(view) {
   document.getElementById('compare-panel').classList.toggle('hidden', view !== 'compare');
   document.getElementById('lag-panel').classList.toggle('hidden', view !== 'lag');
   document.getElementById('period-panel').classList.toggle('hidden', view !== 'period');
+  document.getElementById('critpath-panel').classList.toggle('hidden', view !== 'critpath');
+  document.getElementById('update-panel').classList.toggle('hidden', view !== 'update');
   document.getElementById('tab-evm').classList.toggle('active', view === 'evm');
   document.getElementById('tab-audit').classList.toggle('active', view === 'audit');
   document.getElementById('tab-oos').classList.toggle('active', view === 'oos');
@@ -75,6 +77,8 @@ export function switchView(view) {
   document.getElementById('tab-compare').classList.toggle('active', view === 'compare');
   document.getElementById('tab-lag').classList.toggle('active', view === 'lag');
   document.getElementById('tab-period').classList.toggle('active', view === 'period');
+  document.getElementById('tab-critpath').classList.toggle('active', view === 'critpath');
+  document.getElementById('tab-update').classList.toggle('active', view === 'update');
   // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
   document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
   document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');
@@ -403,10 +407,10 @@ export function renderOutOfSequence(m) {
         mapped on the approved band curve (0%→100 · 2%→90 · 5%→75 · 8%→50 · 20%→0).
         This schedule: <b>${m.pct}% → ${escapeHtml(m.grade || '')} → ${m.score} / 100</b>.</div>
       <div class="bands">
-        <span><i class="dot" style="background:#2e8b57"></i>Excellent ≤ 2%</span>
-        <span><i class="dot" style="background:#c9a227"></i>Acceptable 2–5%</span>
-        <span><i class="dot" style="background:#e07b1a"></i>Needs Attention 5–8%</span>
-        <span><i class="dot" style="background:#c0392b"></i>Critical &gt; 8%</span>
+        <span><i class="dot" style="background:var(--success)"></i>Excellent ≤ 2%</span>
+        <span><i class="dot" style="background:var(--chart-2)"></i>Acceptable 2–5%</span>
+        <span><i class="dot" style="background:var(--warning)"></i>Needs Attention 5–8%</span>
+        <span><i class="dot" style="background:var(--danger)"></i>Critical &gt; 8%</span>
       </div>
     </div>
     <div class="oos-stdref"><b>Standard Reference:</b> Based on the <b>DCMA 14-Point Schedule Assessment</b>
@@ -1230,15 +1234,15 @@ function lagDonut(k) {
   };
   return `<div class="lag-donut">
     <svg width="90" height="90" viewBox="0 0 100 100" aria-hidden="true">
-      <g transform="rotate(-90 50 50)">${seg(normal, '#475569')}${seg(longp, '#fbbf24')}${seg(leads, '#f87171')}</g>
+      <g transform="rotate(-90 50 50)">${seg(normal, 'var(--muted)')}${seg(longp, 'var(--warning)')}${seg(leads, 'var(--danger)')}</g>
       <text x="50" y="48" text-anchor="middle" font-size="18" font-weight="800" fill="currentColor">${need}</text>
-      <text x="50" y="62" text-anchor="middle" font-size="8" fill="#94a3b8">to justify</text>
+      <text x="50" y="62" text-anchor="middle" font-size="8" fill="var(--muted)">to justify</text>
     </svg>
     <div class="lag-leg">
-      <div><span class="ld-dot" style="background:#475569"></span>Normal &le;${thr} wd <b>${normal}</b></div>
-      <div><span class="ld-dot" style="background:#fbbf24"></span>Long &gt;${thr} wd <b>${longp}</b></div>
-      <div><span class="ld-dot" style="background:#f87171"></span>Leads <b>${leads}</b></div>
-      <div><span class="ld-dot" style="background:#3b82f6"></span>On critical path <b>${k.critical_count || 0}</b></div>
+      <div><span class="ld-dot" style="background:var(--muted)"></span>Normal &le;${thr} wd <b>${normal}</b></div>
+      <div><span class="ld-dot" style="background:var(--warning)"></span>Long &gt;${thr} wd <b>${longp}</b></div>
+      <div><span class="ld-dot" style="background:var(--danger)"></span>Leads <b>${leads}</b></div>
+      <div><span class="ld-dot" style="background:var(--accent)"></span>On critical path <b>${k.critical_count || 0}</b></div>
     </div>
   </div>`;
 }

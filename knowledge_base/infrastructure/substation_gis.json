@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "GIS Substation (Gas-Insulated)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["gis", "gas insulated", "gas-insulated", "sf6", "gis hall", "gis building", "gas zone", "gas compartment",
+                 "gis installation", "gis assembly", "gas filling", "gas & hv", "busbar", "transformer", "substation", "switchgear", "kv", "indoor"],
+  "wbs": [
+    {"name": "Civil & GIS Building", "keywords": ["civil", "foundation", "gis building", "gis hall", "building", "floor"]},
+    {"name": "Earthing Grid", "keywords": ["earthing", "earth grid", "grounding", "bonding"]},
+    {"name": "GIS Installation & Gas Filling", "keywords": ["gis", "gas insulated", "sf6", "gas filling", "gas zone", "assembly"]},
+    {"name": "Power Transformers", "keywords": ["transformer", "power transformer", "bushing"]},
+    {"name": "Protection & Control", "keywords": ["protection", "relay", "control", "scada", "panel"]},
+    {"name": "Cabling & Earthing Connections", "keywords": ["cabling", "cable", "termination", "earthing connection"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "sat", "gas test", "pre-commission"]},
+    {"name": "Energization & Handover", "keywords": ["energ", "charging", "handover", "take over"]}
+  ],
+  "activities": [
+    {"name": "GIS Building Ready for Equipment", "keywords": ["gis building", "gis hall", "building complete", "clean"], "wbs": "Civil & GIS Building",
+     "typical_pred": "Building Structure", "typical_succ": "GIS Installation", "duration_days": 25,
+     "why": "GIS is assembled indoors in a clean, weathertight hall; the building must be ready and dust-free before GIS delivery."},
+    {"name": "GIS Assembly & SF6 Gas Filling", "keywords": ["gis assembly", "sf6", "gas filling", "gas zone"], "wbs": "GIS Installation & Gas Filling",
+     "typical_pred": "GIS Building Ready for Equipment", "typical_succ": "Gas & HV Testing", "duration_days": 35,
+     "why": "GIS bays are assembled and filled with SF6 by specialists; gas handling is a distinctive long-lead step."},
+    {"name": "Earthing Grid Installation & Test", "keywords": ["earthing", "earth grid", "grounding"], "wbs": "Earthing Grid",
+     "typical_pred": "Civil Works", "typical_succ": "Equipment Installation", "duration_days": 15,
+     "why": "The earth grid must be installed and tested before energization for safety — often omitted."},
+    {"name": "Gas & HV Testing / SAT", "keywords": ["gas test", "sf6 test", "hv test", "sat", "site acceptance"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Protection Commissioning", "typical_succ": "Energization", "duration_days": 15,
+     "why": "SF6 gas quality and HV withstand tests prove the GIS before energization."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["gis building", "gis hall", "building", "weathertight"], "after_keywords": ["gis assembly", "gis install", "gas filling"],
+     "reason": "GIS is assembled inside a completed, clean building — the hall must be weathertight first.",
+     "impact": "Critical"},
+    {"before_keywords": ["earthing", "earth grid", "grounding"], "after_keywords": ["energ", "energization", "charging"],
+     "reason": "Energization must follow a tested earthing system.",
+     "impact": "Critical"},
+    {"before_keywords": ["sat", "gas test", "hv test", "protection"], "after_keywords": ["energ", "energization", "charging"],
+     "reason": "Energization must follow SAT, SF6 gas/HV testing and protection commissioning.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["GIS Building Weathertight", "GIS Assembled & Gas-Filled", "SAT Complete", "Energization", "Handover"],
+  "common_issues": ["GIS delivered before building weathertight/clean", "SF6 gas handling not planned as specialist step",
+                    "Earthing untested before energization", "Energization before gas/HV testing"]
+}

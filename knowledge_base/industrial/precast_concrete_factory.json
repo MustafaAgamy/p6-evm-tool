@@ -1,0 +1,47 @@
+{
+  "category": "Industrial",
+  "type": "Precast Concrete Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["precast", "pre-cast", "hollow core", "hollowcore", "casting bed", "tilting table", "carousel",
+                 "steam curing", "demoulding", "mould", "prestress", "prestressing", "spun pile", "facade panel",
+                 "batching plant", "gantry crane", "storage yard"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Foundations & Production Hall", "keywords": ["foundation", "raft", "hall", "building", "structure", "cladding"]},
+    {"name": "Gantry / Overhead Cranes", "keywords": ["gantry", "overhead crane", "eot crane", "crane rail"]},
+    {"name": "Concrete Batching Plant", "keywords": ["batching plant", "batch plant", "cement silo", "mixer"]},
+    {"name": "Casting Beds & Moulds", "keywords": ["casting bed", "tilting table", "carousel", "mould", "formwork", "prestress"]},
+    {"name": "Curing System (Steam Chambers)", "keywords": ["steam curing", "curing chamber", "curing", "accelerated"]},
+    {"name": "Storage & Dispatch Yard", "keywords": ["storage yard", "stockyard", "dispatch", "handling"]},
+    {"name": "Utilities & Commissioning", "keywords": ["utilities", "power", "electrical", "commission", "test"]}
+  ],
+  "activities": [
+    {"name": "Concrete Batching Plant Commissioning", "keywords": ["batching plant", "batch plant", "mixer"], "wbs": "Concrete Batching Plant",
+     "typical_pred": "Cement Silo Erection", "typical_succ": "First Casting", "duration_days": 20,
+     "why": "No element can be cast until the batching plant that feeds the beds is erected and commissioned."},
+    {"name": "Steam Curing System Installation", "keywords": ["steam curing", "curing chamber", "accelerated curing"], "wbs": "Curing System (Steam Chambers)",
+     "typical_pred": "Casting Beds Installation", "typical_succ": "First Casting", "duration_days": 25,
+     "why": "Precast relies on accelerated steam curing to hit a next-day demould cycle; the boiler/steam lines are often forgotten."},
+    {"name": "Gantry Crane Erection & Load Test", "keywords": ["gantry", "overhead crane", "load test"], "wbs": "Gantry / Overhead Cranes",
+     "typical_pred": "Production Hall Structure", "typical_succ": "Casting Beds Installation", "duration_days": 20,
+     "why": "Mould handling, demoulding and stacking all depend on the gantry crane being installed and load-tested first."},
+    {"name": "First Element Casting / Trial Casting", "keywords": ["first casting", "trial casting", "first element", "mock-up"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Concrete Batching Plant Commissioning", "typical_succ": "Handover", "duration_days": 10,
+     "why": "A trial cast proves mix, curing cycle and demould strength before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["hall", "building", "structure", "roofing"], "after_keywords": ["gantry", "crane install", "load test"],
+     "reason": "The gantry crane is erected on the completed production hall, not before it.",
+     "impact": "Critical"},
+    {"before_keywords": ["batching plant", "batch plant", "cement silo"], "after_keywords": ["casting", "first element", "production"],
+     "reason": "Casting cannot start before the concrete batching plant that supplies it is commissioned.",
+     "impact": "Critical"},
+    {"before_keywords": ["steam curing", "curing chamber"], "after_keywords": ["demould", "demoulding", "stacking"],
+     "reason": "Elements are demoulded after the accelerated curing cycle, never before curing is available.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Production Hall Weathertight", "Gantry Crane Load-Tested", "Batching Plant Commissioned", "First Element Cast / Handover"],
+  "common_issues": ["Casting scheduled before batching plant commissioned", "Missing steam-curing / boiler scope",
+                    "Mould handling before gantry crane load test", "No trial-casting / first-element phase"]
+}

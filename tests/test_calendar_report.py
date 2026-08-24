@@ -1,5 +1,6 @@
 """Task 6 — p6_calendar.report.render_calendar_report(result, meta) -> HTML."""
 import textwrap
+import report_theme
 from p6_evm.parser import parse_file
 from p6_calendar import calendar_audit
 from p6_calendar.report import render_calendar_report
@@ -152,6 +153,18 @@ def test_report_shows_named_holiday_in_cell(tmp_path):
     result = calendar_audit(data, {}, {'shutdown_reasons': {key: 'Plant Turnaround'}})
     html = render_calendar_report(result, META)
     assert 'Plant Turnaround' in html and 'class="cn"' in html
+
+
+def test_report_theme_default_is_light(tmp_path):
+    html = render_calendar_report(_result(tmp_path), META)
+    assert html.startswith('<!DOCTYPE html>') and html.rstrip().endswith('</html>')
+    assert 'data-rpt-theme="light"' in html
+
+
+def test_report_theme_dark(tmp_path):
+    html = render_calendar_report(_result(tmp_path), META, theme='dark')
+    assert 'data-rpt-theme="dark"' in html
+    assert report_theme.THEMES['dark']['rpt-accent'] in html  # '#5b9bff'
 
 
 def _xml_for_name(tmp_path):

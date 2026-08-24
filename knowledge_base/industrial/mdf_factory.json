@@ -1,0 +1,47 @@
+{
+  "category": "Industrial",
+  "type": "MDF / Wood Panel Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["mdf", "fibreboard", "fiberboard", "particle board", "particleboard", "wood panel", "chipper",
+                 "defibrator", "refiner", "blowline", "continuous press", "hot press", "sander", "wood yard",
+                 "thermal oil", "forming line", "lamination"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Foundations", "keywords": ["foundation", "raft", "footing", "pile cap"]},
+    {"name": "Structural Steel & Building", "keywords": ["steel", "frame", "building", "structure", "erection", "cladding", "roofing"]},
+    {"name": "Wood Yard & Chip Preparation", "keywords": ["wood yard", "log", "debark", "chipper", "chip", "screening"]},
+    {"name": "Fibre Line (Refiner / Dryer / Former)", "keywords": ["refiner", "defibrator", "blowline", "dryer", "forming", "mat"]},
+    {"name": "Press Line (Hot Press)", "keywords": ["press", "hot press", "continuous press", "pre-press", "cooling"]},
+    {"name": "Finishing (Sanding / Cut-to-size / Lamination)", "keywords": ["sander", "sanding", "cut-to-size", "saw", "lamination", "packaging"]},
+    {"name": "Utilities, Thermal Oil & Commissioning", "keywords": ["utilities", "thermal oil", "energy plant", "dust", "electrical", "commission"]}
+  ],
+  "activities": [
+    {"name": "Thermal Oil / Energy Plant Installation", "keywords": ["thermal oil", "energy plant", "heater", "hot oil"], "wbs": "Utilities, Thermal Oil & Commissioning",
+     "typical_pred": "Building Weathertight", "typical_succ": "Hot Press Commissioning", "duration_days": 45,
+     "why": "The continuous hot press is heated by a thermal-oil/energy plant; it must be live before the press can be commissioned."},
+    {"name": "Continuous Hot Press Installation & Alignment", "keywords": ["hot press", "continuous press", "press installation"], "wbs": "Press Line (Hot Press)",
+     "typical_pred": "Forming Line Installation", "typical_succ": "Hot Press Commissioning", "duration_days": 60,
+     "why": "The continuous press is the long-lead core machine; its precise alignment governs the whole line schedule."},
+    {"name": "Dust Extraction & Fire Suppression", "keywords": ["dust extraction", "fire suppression", "spark detection", "aspiration"], "wbs": "Utilities, Thermal Oil & Commissioning",
+     "typical_pred": "Building Weathertight", "typical_succ": "Trial Production", "duration_days": 30,
+     "why": "Wood-fibre dust is explosive; extraction, spark detection and suppression must be in place before any trial run."},
+    {"name": "Trial Production / Board Quality Test", "keywords": ["trial production", "board test", "first board", "quality test"], "wbs": "Utilities, Thermal Oil & Commissioning",
+     "typical_pred": "Hot Press Commissioning", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A trial run proves board thickness, density and bond strength before taking over."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["thermal oil", "energy plant", "hot oil"], "after_keywords": ["hot press", "press commission", "commission"],
+     "reason": "The hot press cannot be commissioned before the thermal-oil / energy plant that heats it is live.",
+     "impact": "Critical"},
+    {"before_keywords": ["cladding", "roofing", "weathertight", "building"], "after_keywords": ["press install", "forming", "machine install"],
+     "reason": "Precision press and forming machinery is installed after the building is weathertight to protect it.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["dust extraction", "fire suppression", "spark"], "after_keywords": ["trial production", "first board", "commission"],
+     "reason": "Dust extraction and fire/spark suppression must precede any trial run — wood dust is an explosion hazard.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Building Weathertight", "Thermal Oil Plant Live", "Hot Press Commissioned", "First Board / Handover"],
+  "common_issues": ["Hot press commissioned before thermal-oil plant live", "Missing dust extraction / fire-suppression scope",
+                    "Machine install before weathertight building", "No trial-production / board-quality phase"]
+}

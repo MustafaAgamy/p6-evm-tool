@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Plastics / Injection-Moulding Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["plastic", "injection moulding", "injection molding", "extrusion", "blow moulding", "moulding machine",
+                 "mould shop", "chiller", "compressor", "granule", "resin", "hopper dryer", "material handling"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Machine Foundations", "keywords": ["machine foundation", "plinth", "isolation", "pit"]},
+    {"name": "Moulding Machines (Injection / Extrusion / Blow)", "keywords": ["injection", "extrusion", "blow", "moulding machine", "molding machine"]},
+    {"name": "Mould Shop", "keywords": ["mould shop", "tool room", "mould", "tooling"]},
+    {"name": "Chiller & Cooling", "keywords": ["chiller", "cooling", "cooling tower", "mtc"]},
+    {"name": "Material Handling & Utilities", "keywords": ["material handling", "compressor", "compressed air", "central feeding", "hopper"]},
+    {"name": "Testing & Commissioning", "keywords": ["commission", "mould trial", "first article", "test"]}
+  ],
+  "activities": [
+    {"name": "Chiller / Cooling Plant Installation", "keywords": ["chiller", "cooling", "cooling tower"], "wbs": "Chiller & Cooling",
+     "typical_pred": "Building Weathertight", "typical_succ": "Machine Commissioning", "duration_days": 25,
+     "why": "Every moulding machine needs mould cooling; the chiller plant must be live before machines can be commissioned."},
+    {"name": "Compressed Air / Central Material Feeding", "keywords": ["compressed air", "compressor", "central feeding", "material handling"], "wbs": "Material Handling & Utilities",
+     "typical_pred": "Building Weathertight", "typical_succ": "Machine Commissioning", "duration_days": 20,
+     "why": "Compressed air and central granule feeding serve the whole hall and are often left off the plan."},
+    {"name": "Moulding Machine Installation", "keywords": ["injection", "moulding machine", "molding machine", "extruder"], "wbs": "Moulding Machines (Injection / Extrusion / Blow)",
+     "typical_pred": "Machine Foundations", "typical_succ": "Machine Commissioning", "duration_days": 30,
+     "why": "The moulding machines sit on isolated foundations and are the core production assets."},
+    {"name": "Mould Trial / First Article", "keywords": ["mould trial", "first article", "trial production", "t0"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Machine Commissioning", "typical_succ": "Handover", "duration_days": 12,
+     "why": "Mould trials prove cycle time, part dimensions and quality before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["chiller", "cooling", "compressed air", "utilities"], "after_keywords": ["machine commission", "commission", "mould trial"],
+     "reason": "Machine commissioning follows the chiller, cooling and compressed-air utilities being live.",
+     "impact": "Critical"},
+    {"before_keywords": ["machine foundation", "plinth"], "after_keywords": ["machine install", "moulding machine", "molding machine"],
+     "reason": "Moulding machines are installed on their foundations, not before.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["machine install", "moulding machine", "molding machine"], "after_keywords": ["mould trial", "first article", "commission"],
+     "reason": "Mould trials follow machine installation and commissioning.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Chiller Plant Live", "Machines Commissioned", "First Article / Handover"],
+  "common_issues": ["Machine commissioning before chiller/utilities live", "Missing compressed-air / central-feeding scope",
+                    "Machines before foundations", "No mould-trial / first-article phase"]
+}

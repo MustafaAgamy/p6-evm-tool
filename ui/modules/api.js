@@ -2,6 +2,7 @@ import { state }                                                  from './state.
 import { setLoading, showError, clearError, renderResults, renderHistory } from './render.js';
 import { evmInputs }                                             from './evm.js';
 import { showReportPreview }                                     from './preview.js';
+import { getSavedMode }                                          from './appearance.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -112,6 +113,20 @@ export async function exportExcel(btnId = 'excel-btn') {
   }
 }
 
+// Re-render the preview HTML for a newly-picked appearance mode (used by the shared preview
+// modal's Appearance picker). Returns the report HTML string for the given theme.
+function _previewFetcher(route, reqBody) {
+  return async (theme) => {
+    const data = await apiFetch(route, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ...reqBody, preview: true, theme }),
+    });
+    if (!data.ok || !data.html) throw new Error(data.error || 'no content');
+    return data.html;
+  };
+}
+
 export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   if (!state.currentSnapshotId || !state.currentModule) { showError('Open a schedule and pick a module first.'); return; }
   const _el = document.getElementById(btnId);
@@ -157,24 +172,26 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   let selected = sections ? sections.filter(s => !s.empty).map(s => s.key) : null;
   if (sections) { try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default */ } }
 
-  const fetchPreview = async (keys) => {
+  const mode = getSavedMode();                        // the saved appearance mode (one of the 6)
+  const fetchPreview = async (keys, theme) => {
     const data = await apiFetch('api/report/module', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || undefined }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || undefined, theme: theme || mode }),
     });
     return (data.ok && data.html) ? data.html : null;
   };
 
   try {
-    const html = await fetchPreview(selected);
+    const html = await fetchPreview(selected, mode);
     btn.reset();
     if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
       title: 'Report — Schedule Health Review', subtitle: mod.name || module, html,
-      sections, selected, storageKey,
-      onRerender: (keys) => fetchPreview(keys),
-      onSave: (keys) => _savePdf('api/report/module', { ...reqBody, sections: keys }, `${module}_report.pdf`, 'pdf'),
+      sections, selected, storageKey, initialMode: mode,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: (m, keys) => _savePdf('api/report/module', { ...reqBody, theme: m, sections: keys }, `${module}_report.pdf`, 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');
@@ -296,17 +313,19 @@ export async function generateCalendarPdf() {
   const btn = new ButtonState(document.getElementById('cal-pdf-btn'), 'Generate Calendar Audit PDF');
   btn.loading('Preparing preview…');
   const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), sections: _calendarSections() };
+  const mode = getSavedMode();
   try {
     const data = await apiFetch('api/report/calendar', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true }),
+      body:    JSON.stringify({ ...reqBody, preview: true, theme: mode }),
     });
     btn.reset();
     if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
     showReportPreview({
-      title: 'Calendar Audit preview', subtitle: reqBody.meta.source_file, html: data.html,
-      onSave: () => _savePdf('api/report/calendar', reqBody, 'Calendar_Audit.pdf', 'pdf'),
+      title: 'Calendar Audit preview', subtitle: reqBody.meta.source_file, html: data.html, initialMode: mode,
+      onThemeChange: _previewFetcher('api/report/calendar', reqBody),
+      onSave: (m) => _savePdf('api/report/calendar', { ...reqBody, theme: m }, 'Calendar_Audit.pdf', 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');
@@ -319,18 +338,20 @@ export async function generatePdf() {
   const btn = new ButtonState(document.getElementById('pdf-btn'), 'Generate EVM PDF');
   btn.loading('Preparing preview…');
   const reqBody = _evmReportBody();
+  const mode = getSavedMode();
   try {
     // Preview first — render the report HTML and show it fitted before writing any PDF.
     const data = await apiFetch('api/report/evm', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true }),
+      body:    JSON.stringify({ ...reqBody, preview: true, theme: mode }),
     });
     btn.reset();
     if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
     showReportPreview({
-      title: 'EVM report preview', subtitle: reqBody.meta.source_file, html: data.html,
-      onSave: () => _savePdf('api/report/evm', reqBody, 'EVM_report.pdf', 'pdf'),
+      title: 'EVM report preview', subtitle: reqBody.meta.source_file, html: data.html, initialMode: mode,
+      onThemeChange: _previewFetcher('api/report/evm', reqBody),
+      onSave: (m) => _savePdf('api/report/evm', { ...reqBody, theme: m }, 'EVM_report.pdf', 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');

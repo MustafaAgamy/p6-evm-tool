@@ -11,12 +11,12 @@ function test(name, fn) {
   catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); failed++; }
 }
 
-test('bandHex maps each band to a colour, unknown → grey', () => {
-  assert.equal(bandHex('green'), '#16a34a');
-  assert.equal(bandHex('amber'), '#d97706');
-  assert.equal(bandHex('orange'), '#ea580c');
-  assert.equal(bandHex('red'), '#dc2626');
-  assert.equal(bandHex('what'), '#94a3b8');
+test('bandHex maps each band to a themeable colour token, unknown → muted', () => {
+  assert.equal(bandHex('green'), 'var(--success)');
+  assert.equal(bandHex('amber'), 'var(--warning)');
+  assert.equal(bandHex('orange'), 'var(--chart-3)');
+  assert.equal(bandHex('red'), 'var(--danger)');
+  assert.equal(bandHex('what'), 'var(--muted)');
 });
 
 test('kindClass maps suggestion kinds', () => {
