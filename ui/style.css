@@ -535,6 +535,12 @@ body {
 .oos-actchip.remove { background: var(--danger-bg); color: var(--danger); }
 .oos-actchip.data { background: var(--warning-bg); color: var(--warning); }
 .oos-why { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.oos-alts { margin-top: 7px; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.oos-altlbl { font-weight: 700; color: var(--ink-soft); }
+.oos-altpill { display: inline-block; font-family: ui-monospace, 'Consolas', monospace; font-size: 10.5px; font-weight: 700;
+  padding: 2px 7px; border-radius: 20px; background: var(--card-bg); color: var(--success); border: 1px solid var(--success); }
+.oos-altpill.pick { cursor: pointer; }
+.oos-altpill.pick:hover { background: var(--success-bg); }
 .oos-rec { border: 1px solid var(--border); border-left: 4px solid var(--accent); background: var(--card-bg);
   border-radius: 0 8px 8px 0; padding: 10px 13px; margin-bottom: 12px; }
 .oos-rec.remove { border-left-color: var(--danger); }

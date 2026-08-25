@@ -104,8 +104,9 @@ def _rel_lag_label(rel, lag):
 
 
 def _resolution(action, applicable, action_text, *, reasoning='', new_type=None,
-                new_lag_days=None, new_pred_id=None, sug_pred_id='', sug_pred_name='',
-                sug_pred_rel='', sug_pred_lag=None, sug_succ_id='', sug_succ_name='No change'):
+                new_lag_days=None, new_pred_id=None, alternatives=None, sug_pred_id='',
+                sug_pred_name='', sug_pred_rel='', sug_pred_lag=None, sug_succ_id='',
+                sug_succ_name='No change'):
     """A machine-actionable proposed correction the planner can accept, edit, and apply.
 
     ``action`` ∈ {'change', 'remove', 'replace', 'manual'}:
@@ -113,6 +114,9 @@ def _resolution(action, applicable, action_text, *, reasoning='', new_type=None,
       - 'remove'  — last resort: no relationship type can hold; ``reasoning`` states why.
       - 'manual'  — not applicable (inconsistent actual dates); ``reasoning`` explains why no
                     automatic correction is safe.
+    ``alternatives`` — other P6-valid relationship types that also clear the condition
+    (each ``{new_type, new_lag_days, label}``), so the planner sees the preferred fix plus
+    valid alternatives rather than an invalid combined tie. Never a combination like 'SS/FF'.
     ``reasoning`` is the plain-language WHY behind the recommendation (shown to the planner).
     Every field is an editable default; re-validation (the same detection engine) is the arbiter.
     """
@@ -120,17 +124,16 @@ def _resolution(action, applicable, action_text, *, reasoning='', new_type=None,
         'action': action, 'applicable': applicable, 'action_text': action_text,
         'reasoning': reasoning,
         'new_type': new_type, 'new_lag_days': new_lag_days, 'new_pred_id': new_pred_id,
+        'alternatives': alternatives or [],
         'sug_pred_id': sug_pred_id, 'sug_pred_name': sug_pred_name,
         'sug_pred_rel': sug_pred_rel, 'sug_pred_lag': sug_pred_lag,
         'sug_succ_id': sug_succ_id, 'sug_succ_name': sug_succ_name,
     }
 
 
-# Relationship types the repair search may try, in planner-preference order.
-# Finish-to-Start is deliberately excluded: the offending predecessor is always INCOMPLETE
-# (no actual finish), so an FS tie can never be satisfied while the successor has progressed —
-# recommending FS would never clear the condition.
-_REPAIR_TYPES = ('SS', 'FF', 'SF')
+# Repair-search note: Finish-to-Start is deliberately never tried — the offending predecessor is
+# always INCOMPLETE (no actual finish), so an FS tie can never be satisfied while the successor
+# has progressed. The search tries SS/FF (meaningful overlaps) and SF only as a fallback.
 
 
 def _repair_lag(graph, new_type, succ, pred):
@@ -185,23 +188,35 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
             sug_pred_id='', sug_pred_name='Manual review required', sug_pred_rel='MANUAL',
             sug_succ_name='—')
 
-    # 2) Repair search — the first relationship type that clears the condition (SS → FF → SF).
-    #    This keeps the dependency and only changes its form to match what actually happened.
-    for new_type in _REPAIR_TYPES:
+    # 2) Repair search — the relationship types that clear the condition, in planner-preference
+    #    order. SS and FF are the meaningful overlap repairs and are considered first (either may
+    #    be a legitimate alternative). SF is odd and trivially "clears" for any unfinished
+    #    successor, so it is only a FALLBACK when neither SS nor FF can hold — never listed as a
+    #    noisy alternative. The first is preferred; the rest are valid alternatives. Each is a
+    #    single, P6-valid tie with a lag from the logic — never an invalid combined 'SS/FF'.
+    clearing = []
+    for new_type in ('SS', 'FF'):
         if new_type == cur_type:
             continue                              # already the flagged type — changing it is the point
         if not _is_oos(new_type, succ, pred):     # candidate clears the out-of-sequence condition
-            lag = _repair_lag(graph, new_type, succ, pred)
-            new_label = _rel_lag_label(new_type, lag)
-            reasoning = (f"Keep the dependency. Changing {pred_id} → {succ_id} from {cur_label} to "
-                         f"{new_label} makes the logic match what actually happened "
-                         f"({_why_clears(new_type)}), so the sequence becomes consistent without "
-                         f"deleting the link.")
-            return _resolution(
-                'change', True,
-                f"Change {pred_id} → {succ_id} from {cur_label} to {new_label}",
-                reasoning=reasoning, new_type=new_type, new_lag_days=lag, new_pred_id=pred_id,
-                sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel=new_type, sug_pred_lag=lag)
+            clearing.append((new_type, _repair_lag(graph, new_type, succ, pred)))
+    if not clearing and cur_type != 'SF' and not _is_oos('SF', succ, pred):
+        clearing.append(('SF', _repair_lag(graph, 'SF', succ, pred)))
+    if clearing:
+        new_type, lag = clearing[0]
+        new_label = _rel_lag_label(new_type, lag)
+        alternatives = [{'new_type': t, 'new_lag_days': l, 'label': _rel_lag_label(t, l)}
+                        for (t, l) in clearing[1:]]
+        reasoning = (f"Keep the dependency. Changing {pred_id} → {succ_id} from {cur_label} to "
+                     f"{new_label} makes the logic match what actually happened "
+                     f"({_why_clears(new_type)}), so the sequence becomes consistent without "
+                     f"deleting the link.")
+        return _resolution(
+            'change', True,
+            f"Change {pred_id} → {succ_id} from {cur_label} to {new_label}",
+            reasoning=reasoning, new_type=new_type, new_lag_days=lag, new_pred_id=pred_id,
+            alternatives=alternatives,
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel=new_type, sug_pred_lag=lag)
 
     # 3) No relationship type can hold — removal is the last resort, with the reason stated.
     #    This is only reached when the successor FINISHED before the predecessor STARTED.

@@ -528,6 +528,25 @@ function _oosMode(f) {
   return 'manual';                                 // 'manual' / 'data' / anything non-applicable
 }
 
+// Compact, scannable "valid alternatives" pills (preferred fix is the chip above them).
+function _oosAltPills(r) {
+  const alts = (r && r.alternatives) || [];
+  if (!alts.length) return '';
+  const pills = alts.map(a => `<span class="oos-altpill">${escapeHtml(a.label || '')}</span>`).join('');
+  return `<div class="oos-alts"><span class="oos-altlbl">Also valid:</span> ${pills}</div>`;
+}
+
+// Same alternatives in the drawer, but CLICKABLE — click to pre-fill the edit form with that fix.
+function _oosAltPicks(r, fid) {
+  const alts = (r && r.alternatives) || [];
+  if (!alts.length) return '';
+  const pills = alts.map(a =>
+    `<span class="oos-altpill pick" data-oosact="pickalt" data-fid="${escapeHtml(fid)}" `
+    + `data-type="${escapeHtml(a.new_type || '')}" data-lag="${a.new_lag_days == null ? 0 : a.new_lag_days}">`
+    + `${escapeHtml(a.label || '')}</span>`).join('');
+  return `<div class="oos-alts"><span class="oos-altlbl">Alternatives (click to use):</span> ${pills}</div>`;
+}
+
 function _oosCorrectionCell(f) {
   const r = f.resolution || {};
   const mode = _oosMode(f);
@@ -537,7 +556,7 @@ function _oosCorrectionCell(f) {
   }
   const cls = mode === 'remove' ? 'remove' : (mode === 'manual' ? 'data' : 'change');
   const why = r.reasoning ? `<div class="oos-why">${escapeHtml(r.reasoning)}</div>` : '';
-  return `<div class="oos-actchip ${cls}">${escapeHtml(r.action_text || '')}</div>${why}`;
+  return `<div class="oos-actchip ${cls}">${escapeHtml(r.action_text || '')}</div>${_oosAltPills(r)}${why}`;
 }
 
 function _oosOpenTable(openF, dd) {
@@ -609,7 +628,7 @@ function _oosDrawer(f) {
       <div class="oos-qcard"><div class="lbl">What is wrong?</div><div class="val">${escapeHtml(f.root_cause || '')}</div></div>
       <div class="oos-qcard"><div class="lbl">What is the relationship now?</div><div class="val"><span class="mono">${escapeHtml(f.pred_id || '')}</span> ${_oosCurRel(f.current_pred_rel, f.current_pred_lag)} → <span class="mono">${escapeHtml(f.activity_id)}</span><div class="nm">${escapeHtml(f.pred_name || '')} → ${escapeHtml(f.activity_name || '')}</div></div></div>
     </div>
-    <div class="oos-rec ${recCls}"><div class="lbl">Engine recommendation</div><div class="rt">${escapeHtml(r.action_text || '')}</div>${r.reasoning ? `<div class="rw">${escapeHtml(r.reasoning)}</div>` : ''}</div>
+    <div class="oos-rec ${recCls}"><div class="lbl">Engine recommendation</div><div class="rt">${escapeHtml(r.action_text || '')}</div>${r.reasoning ? `<div class="rw">${escapeHtml(r.reasoning)}</div>` : ''}${_oosAltPicks(r, f.finding_id)}</div>
     <div class="oos-editrow">
       <label>Action</label>
       <select data-oosfield="action" data-fid="${escapeHtml(f.finding_id)}">${actOpts}</select>
@@ -780,6 +799,13 @@ function _oosWire() {
     else if (act === 'apply') { _oosApply(fid); }
     else if (act === 'reopen') { _oosReopen(fid); }
     else if (act === 'download') { _oosDownload(); }
+    else if (act === 'pickalt') {
+      // Click a valid alternative → pre-fill the edit form with that relationship type + lag.
+      const aEl = _oosSel('action', fid); if (aEl) aEl.value = 'change';
+      const tEl = _oosSel('new_type', fid); if (tEl) tEl.value = t.getAttribute('data-type');
+      const lEl = _oosSel('new_lag_days', fid); if (lEl) lEl.value = t.getAttribute('data-lag');
+      _oosApplyEditVisibility(fid);
+    }
   };
   host.onchange = (e) => {
     const el = e.target.closest('[data-oosfield]');

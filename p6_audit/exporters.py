@@ -22,7 +22,9 @@ def excel_columns(module_result):
             f.get('current_pred_rel', ''), f.get('current_pred_activity', ''),
             f.get('current_succ_rel', ''), f.get('current_succ_activity', ''), cutoff,
             f.get('suggested_predecessor', ''), f.get('suggested_successor', ''),
-            (f.get('resolution') or {}).get('action_text', ''),
+            (lambda r: (r.get('action_text', '') or '')
+             + (' · Also valid: ' + ', '.join(a.get('label', '') for a in (r.get('alternatives') or []))
+                if r.get('alternatives') else ''))(f.get('resolution') or {}),
             f.get('root_cause', ''), f.get('planning_review_comment', ''), f.get('criticality', ''),
         ] for i, f in enumerate(findings, 1)]
         return headers, rows

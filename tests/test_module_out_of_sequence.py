@@ -248,6 +248,39 @@ def test_resolution_change_to_ss_for_fs_overlap():
     assert r['sug_pred_rel'] == 'SS'
 
 
+def test_change_recommendation_lists_valid_alternatives():
+    # Successor started after the predecessor and is still running → SS preferred, FF a valid
+    # alternative. SF must NOT be listed (it trivially "clears" for any unfinished successor).
+    g = _g({
+        'p': _act('p', actual_start=dt('2026-01-01')),
+        's': _act('s', actual_start=dt('2026-01-05')),
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
+    assert r['action'] == 'change' and r['new_type'] == 'SS'
+    alt_types = [a['new_type'] for a in r['alternatives']]
+    assert alt_types == ['FF']            # FF is a valid alternative; SF is not listed as noise
+    assert all(a.get('label') for a in r['alternatives'])
+
+
+def test_ff_repair_has_no_noisy_alternatives():
+    # Successor started before the predecessor (SS can't hold) but is running → FF only, no alts.
+    g = _g({
+        'p': _act('p', actual_start=dt('2026-01-10')),
+        's': _act('s', actual_start=dt('2026-01-05')),
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
+    assert r['action'] == 'change' and r['new_type'] == 'FF'
+    assert r['alternatives'] == []
+
+
+def test_remove_and_manual_have_no_alternatives():
+    remove_g = _g({
+        'p': _act('p', actual_start=dt('2026-02-01')),
+        's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    assert _by_id(run_out_of_sequence(remove_g, CONFIG))['s']['resolution']['alternatives'] == []
+
+
 def test_resolution_remove_when_successor_finished_before_pred_started():
     g = _g({
         'p': _act('p', actual_start=dt('2026-02-01')),

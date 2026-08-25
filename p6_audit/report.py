@@ -273,6 +273,16 @@ def _oos_wbs(m):
         <tbody>{rows}</tbody></table>'''
 
 
+def _oos_action_text(f):
+    """The recommended action plus any valid alternatives (preferred fix first)."""
+    r = f.get('resolution') or {}
+    txt = r.get('action_text', '') or ''
+    alts = r.get('alternatives') or []
+    if alts:
+        txt += ' · Also valid: ' + ', '.join(a.get('label', '') for a in alts)
+    return txt
+
+
 def _oos_review_log(m):
     findings = m.get('findings', [])
     if not findings:
@@ -297,7 +307,7 @@ def _oos_review_log(m):
         f'<td class="mut">{cutoff}</td>'
         f'<td>{_sug_cell(f.get("suggested_predecessor"), f.get("suggested_predecessor_kind"))}</td>'
         f'<td>{_sug_cell(f.get("suggested_successor"), f.get("suggested_successor_kind"))}</td>'
-        f'<td>{_esc((f.get("resolution") or {}).get("action_text", ""))}</td>'
+        f'<td>{_esc(_oos_action_text(f))}</td>'
         f'<td class="mut">{_esc(f.get("root_cause"))}</td>'
         f'<td class="mut">{_esc(f.get("planning_review_comment"))}</td>'
         f'<td>{_crit_cell(f.get("criticality"))}</td></tr>'
