@@ -1,0 +1,275 @@
+{
+ "system": "conveying",
+ "discipline": "MECHANICAL / BULK MATERIAL HANDLING",
+ "name": "Conveying & Material-Handling Systems",
+ "aliases": [
+  "belt conveyor",
+  "chain conveyor",
+  "screw conveyor",
+  "drag conveyor",
+  "bucket elevator",
+  "apron feeder",
+  "reclaim / stacker",
+  "shuttle conveyor",
+  "diverter",
+  "transfer chute",
+  "material handling",
+  "conveyor gallery"
+ ],
+ "sequence": [
+  {
+   "stage": "design_detailing",
+   "activities": [
+    "routing & gallery/support coordination",
+    "transfer-chute & skirting design",
+    "drive & take-up selection"
+   ]
+  },
+  {
+   "stage": "fabrication_delivery",
+   "activities": [
+    "shop-fab of conveyor sections, gallery steel, drives",
+    "deliver in modules to laydown"
+   ]
+  },
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "foundations for drive & tail ends, transfer towers, gallery supports",
+    "pits / trenches ready",
+    "anchor bolts surveyed"
+   ],
+   "note": "Civil enters only as the setting-out & foundation enabler."
+  },
+  {
+   "stage": "support_steel",
+   "activities": [
+    "erect & align conveyor gallery / trestle / transfer-tower steel"
+   ],
+   "note": "Structural_steel interface — conveyor mounts on this."
+  },
+  {
+   "stage": "mechanical_erection",
+   "activities": [
+    "set stringers & idler frames",
+    "install drive & tail pulleys, take-up, gearbox / drive unit",
+    "structural alignment of the run"
+   ]
+  },
+  {
+   "stage": "belt_chain_install",
+   "activities": [
+    "belt splicing / vulcanising or chain assembly",
+    "tensioning via take-up",
+    "belt tracking adjustment"
+   ]
+  },
+  {
+   "stage": "component_fit",
+   "activities": [
+    "idlers, skirting, transfer chutes",
+    "guards, pull-cords, belt-sway & zero-speed switches"
+   ]
+  },
+  {
+   "stage": "alignment_no_load",
+   "activities": [
+    "pulley / shaft alignment",
+    "level & square check",
+    "gearbox oil fill & manual rotation"
+   ]
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "drive-motor power from MCC",
+    "local control station",
+    "field-device termination (speed, zero-speed, belt-drift, pull-cord, chute-plugged / level)",
+    "PLC / DCS interlock I/O loop check"
+   ]
+  },
+  {
+   "stage": "no_load_commissioning",
+   "activities": [
+    "empty dry run",
+    "confirm direction, current, temperature, vibration",
+    "prove guards, E-stops & pull-cords",
+    "interlock proving"
+   ]
+  },
+  {
+   "stage": "load_commissioning",
+   "activities": [
+    "progressive loaded runs",
+    "capacity / throughput test vs design",
+    "transfer-point spillage check",
+    "integrated run with upstream feed & downstream receiving"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "gallery / support steel erected & aligned",
+   "after": "conveyor mechanical erection",
+   "reason": "The conveyor mounts on and is aligned to its support structure.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "drive & tail pulleys set and aligned",
+   "after": "belt install / splicing",
+   "reason": "The belt is fitted around aligned pulleys and a set take-up.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "belt / chain installed & tensioned",
+   "after": "no-load dry run",
+   "reason": "The machine cannot run empty until the belt or chain is on and tensioned.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "mechanical alignment complete",
+   "after": "motor / drive electrical connection & instrument termination",
+   "reason": "E&I connection follows mechanical completion of the drive train.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "guards, pull-cords & E-stops installed & proven",
+   "after": "no-load commissioning run",
+   "reason": "Safety interlocks must be live before the machine is first rotated.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "no-load commissioning passed",
+   "after": "loaded / throughput commissioning",
+   "reason": "Load runs only after empty runs prove tracking, direction and safety.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "upstream feeder & downstream receiving equipment ready",
+   "after": "integrated loaded commissioning",
+   "reason": "A conveyor is commissioned as part of the material-handling train, not in isolation.",
+   "strength": "moderate",
+   "rel": "FS"
+  },
+  {
+   "before": "transfer chutes & skirting installed",
+   "after": "loaded run",
+   "reason": "Loaded operation without chutes/skirting causes uncontrolled spillage.",
+   "strength": "moderate",
+   "rel": "FS"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "structural_steel",
+   "requirement": "Gallery / trestle / transfer-tower steel erected & aligned before conveyor mechanical install.",
+   "type": "enabler",
+   "phase": "erection",
+   "strength": "strong"
+  },
+  {
+   "with": "civil_interface",
+   "requirement": "Drive/tail foundations, transfer-tower footings, pits & trenches ready before setting equipment.",
+   "type": "physical",
+   "phase": "setting",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "Permanent power to the drive MCC before no-load commissioning.",
+   "type": "enabler",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "requirement": "Field devices (zero-speed, belt-drift, pull-cord, level) terminated & loop-checked before commissioning.",
+   "type": "control",
+   "phase": "pre-commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "bms",
+   "requirement": "PLC/DCS interlock logic downloaded & I/O proven before first rotation.",
+   "type": "control",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "process_equipment",
+   "requirement": "Upstream feeders and downstream equipment ready for integrated loaded run.",
+   "type": "sequence",
+   "phase": "commissioning",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Shaft / pulley alignment, belt tracking and take-up travel check",
+  "Belt splice / vulcanising integrity (or chain tension) test",
+  "Gearbox oil fill & manual rotation check",
+  "Instrument loop checks — zero-speed, belt-drift, pull-cord, level, motor feedback",
+  "No-load run — direction, current draw, temperature, vibration, guard & E-stop function",
+  "Loaded run — throughput/capacity vs design, transfer spillage, sustained current & temperature",
+  "Cascade interlock proving with upstream / downstream equipment"
+ ],
+ "commissioning_dependencies": [
+  "Permanent power to drive and local control station live",
+  "All safety devices (pull-cords, guards, zero-speed) proven before first rotation",
+  "PLC/DCS interlock logic loaded and I/O loop-checked",
+  "Upstream feeders & downstream conveyors available for integrated (train) commissioning",
+  "Material available for loaded / throughput test"
+ ],
+ "typical_exceptions": [
+  "Packaged / skid-mounted short conveyors arrive largely pre-assembled, compressing erection",
+  "Pneumatic conveying is blower- & piping-driven, not belt/chain — a different sub-pattern"
+ ],
+ "zones": [
+  "conveyor galleries",
+  "transfer towers",
+  "stockyard / reclaim",
+  "feed & discharge points",
+  "process material-handling train"
+ ],
+ "work_packages": [
+  {
+   "wp": "Gallery / support-steel interface",
+   "discipline": "structural",
+   "interface": true
+  },
+  {
+   "wp": "Mechanical erection (pulleys, drive, take-up)",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Belt / chain install & tensioning",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "E&I connection & loop check",
+   "discipline": "electrical",
+   "interface": true,
+   "note": "Instrument & interlock termination to MCC/PLC."
+  },
+  {
+   "wp": "No-load commissioning",
+   "discipline": "commissioning",
+   "interface": false
+  },
+  {
+   "wp": "Loaded / integrated commissioning",
+   "discipline": "commissioning",
+   "interface": true
+  }
+ ],
+ "evidence": "A conveyor is scheduled for loaded/throughput commissioning before its support steel, drive power, safety interlocks or no-load dry run are complete.",
+ "status": "curated",
+ "source": "system_pattern"
+}

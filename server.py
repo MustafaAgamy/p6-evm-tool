@@ -35,6 +35,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_settings_get()
         elif self.path == '/api/kb':
             self._handle_kb_list()
+        elif self.path == '/api/kb/knowledge':
+            self._handle_kb_knowledge_get()
         elif self.path == '/api/database':
             self._handle_database_list()
         else:
@@ -131,10 +133,26 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_database_example(body)
         elif self.path == '/api/database/download':
             self._handle_database_download(body)
+        elif self.path == '/api/kb/knowledge/export':
+            self._handle_kb_knowledge_export(body)
+        elif self.path == '/api/kb/knowledge/import':
+            self._handle_kb_knowledge_import(body)
+        elif self.path == '/api/kb/knowledge/import-xer':
+            self._handle_kb_import_xer(body)
+        elif self.path == '/api/kb/knowledge/enable':
+            self._handle_kb_enable(body)
+        elif self.path == '/api/kb/knowledge/remove':
+            self._handle_kb_remove(body)
+        elif self.path == '/api/kb/raw/download':
+            self._handle_kb_raw_download(body)
         elif self.path == '/api/constructability/report':
             self._handle_constructability_report(body)
         elif self.path == '/api/constructability/excel':
             self._handle_constructability_excel(body)
+        elif self.path == '/api/report/manifest':
+            self._handle_report_manifest(body)
+        elif self.path == '/api/report/render':
+            self._handle_report_render(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -250,13 +268,11 @@ class Handler(BaseHTTPRequestHandler):
             prior_import   = db.get_prior_import_date(file_hash)
             cached_path    = db.cache_xml(xml_path, file_hash)
 
-            # ── Local learning — quietly grow the private per-type Knowledge
-            # Base from this import (offline, deduped by hash, never breaks import) ──
-            try:
-                from p6_kb.learn import learn_from_schedule
-                learn_from_schedule(data, file_hash=file_hash)
-            except Exception as learn_exc:
-                print(f'[learn] skipped: {learn_exc}', file=sys.stderr)
+            # NOTE: importing an XER for ANALYSIS no longer adds it to the Knowledge Base
+            # (Ibrahim's rule: a project joins the KB only when the user explicitly adds
+            # it). Both learning mechanisms — the per-type profile and the generalized
+            # sequencing patterns — now run only from the explicit "Add to Knowledge Base"
+            # action (see db.add_import), never silently on analysis import.
 
             p6_id = data.project.get('id', '') or ''
             name  = data.project.get('name', '') or os.path.basename(xml_path)
@@ -868,6 +884,127 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── Constructability Knowledge Base — export / import / provenance ──────
+    def _handle_kb_knowledge_get(self):
+        """The ONE Knowledge Base: the metadata list of every knowledge project
+        (name/type/source/date/enabled/patterns/raw), plus provenance + counts."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import provenance, kb_list
+            self._json(200, {'ok': True, 'projects': kb_list(), **provenance()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_enable(self, body):
+        """Turn a KB project's contribution to supporting knowledge on/off."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import set_enabled, kb_list
+            set_enabled(body.get('id', ''), bool(body.get('enabled', True)))
+            self._json(200, {'ok': True, 'projects': kb_list()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_remove(self, body):
+        """Remove a project from the Knowledge Base."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import remove_project, kb_list
+            remove_project(body.get('id', ''))
+            self._json(200, {'ok': True, 'projects': kb_list()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_import_xer(self, body):
+        """Import a real project XER/XML straight into the Knowledge Base: parse → tag →
+        learn generalized patterns (deduped by project id, supporting-only) and keep the
+        raw file. This is how the KB continuously grows from large real projects."""
+        input_path = body.get('input_path', '')
+        if not input_path:
+            self._json(200, {'ok': False, 'error': 'No input path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_kb.model import schedule_view
+            from p6_kb.tagging import tag_view
+            from p6_kb.resolve import resolve as _resolve_arc
+            from p6_kb.pattern_learning import learn_from_view, store_raw, provenance
+            import db
+            data = parse_file(os.path.abspath(input_path))
+            fh = db.hash_file(os.path.abspath(input_path))
+            pid = (data.project or {}).get('id', '') or fh
+            name = (data.project or {}).get('name', '') or os.path.basename(input_path)
+            view = schedule_view(data)
+            tag_view(view)
+            arc = (_resolve_arc(view) or {}).get('archetype', '')
+            rawp = store_raw(os.path.abspath(input_path), pid, name, fh)
+            learn_from_view(view, pid, project_type=arc, label=name, file_hash=fh,
+                            source='user', raw=(os.path.basename(rawp) if rawp else ''))
+            from p6_kb.pattern_learning import kb_list
+            self._json(200, {'ok': True, 'project': name,
+                             'activities': view.get('activity_count', 0),
+                             'projects': kb_list(), **provenance()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_raw_download(self, body):
+        """Copy a retained raw project file out to output_path (level-1 backup)."""
+        filename = body.get('filename', '')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import shutil
+            from p6_kb.pattern_learning import raw_file_path
+            src = raw_file_path(filename)
+            if not src:
+                self._json(200, {'ok': False, 'error': 'Raw project file not found.'})
+                return
+            shutil.copy2(src, os.path.abspath(output_path))
+            self._json(200, {'ok': True, 'filename': os.path.basename(output_path)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_knowledge_export(self, body):
+        """Write the learned knowledge to a portable, project-agnostic knowledge file
+        (generalized concepts + provenance only — never raw activity/WBS text)."""
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import export_knowledge
+            data = export_knowledge()
+            with open(os.path.abspath(output_path), 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=1)
+            self._json(200, {'ok': True, 'projects': data.get('projects_count', 0),
+                             'filename': os.path.basename(output_path)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_knowledge_import(self, body):
+        """Merge a knowledge file into the KB — deduped by project, generalized-only
+        (raw-looking entries are dropped). Contributes to future supporting knowledge."""
+        input_path = body.get('input_path', '')
+        if not input_path:
+            self._json(200, {'ok': False, 'error': 'No input path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import import_knowledge, provenance
+            with open(os.path.abspath(input_path), encoding='utf-8') as f:
+                data = json.load(f)
+            result = import_knowledge(data)
+            self._json(200, {'ok': True, 'result': result, **provenance()})
+        except ValueError as exc:
+            self._json(200, {'ok': False, 'error': f'Not a valid knowledge file: {exc}'})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/constructability/excel ────────────────────────────────────────
     def _handle_constructability_excel(self, body):
         """Export the Constructability findings to .xlsx from the report dict the
@@ -886,6 +1023,74 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── Global Print-Preview framework: manifest + unified render/PDF ──────
+    def _handle_report_manifest(self, body):
+        """Return the Report-Contents component list for a feature + its report dict.
+
+        The client holds the report already (no re-parse); this just tells the selector
+        which sections exist, their type, default state and whether they have data."""
+        feature = body.get('feature', '')
+        report = body.get('report') or {}
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_report import get_spec, manifest
+            spec = get_spec(feature, report)
+            if spec is None:
+                self._json(200, {'ok': False, 'error': f'Unknown report feature: {feature}'})
+                return
+            self._json(200, {'ok': True, 'feature': feature, 'title': spec.title,
+                             'subtitle': spec.subtitle, 'components': manifest(spec, report)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_report_render(self, body):
+        """The ONE assembler behind Preview == PDF == Print.
+
+        Given a feature, its report dict and the user's selection (ids + order), build
+        exactly one HTML document. With no ``output_path`` → return that HTML for the
+        on-screen preview. With ``output_path`` → Chrome headless prints the SAME HTML
+        to PDF. The preview and the PDF are therefore the identical document."""
+        feature = body.get('feature', '')
+        report = body.get('report') or {}
+        selected_ids = body.get('selected_ids')          # None → the spec defaults
+        order = body.get('order')
+        output_path = body.get('output_path', '')
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_report import build_document, get_spec
+            spec = get_spec(feature, report)
+            if spec is None:
+                self._json(200, {'ok': False, 'error': f'Unknown report feature: {feature}'})
+                return
+            html_content = build_document(spec, report, selected_ids, order)
+            if not output_path:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            self._html_to_pdf(html_content, output_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _html_to_pdf(self, html_content, output_path):
+        """Shared HTML→PDF via Chrome headless (same pipeline as every report)."""
+        import subprocess
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+            tmp.write(html_content)
+            html_path = tmp.name
+        try:
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+        finally:
+            try:
+                os.unlink(html_path)
+            except OSError:
+                pass
 
     # ── /api/constructability/report ───────────────────────────────────────
     def _handle_constructability_report(self, body):

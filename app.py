@@ -21,6 +21,16 @@ class Api:
         )
         return list(result) if result else []
 
+    def choose_open_path(self, file_type='json'):
+        """Open native file picker filtered by type; returns a path or None. Used for
+        importing a Constructability knowledge file (.json)."""
+        types = {
+            'json': ('Knowledge Files (*.json)', 'All Files (*.*)'),
+            'xml':  ('P6 XML Files (*.xml)',),
+        }.get(file_type, ('All Files (*.*)',))
+        result = webview.windows[0].create_file_dialog(webview.OPEN_DIALOG, file_types=types)
+        return result[0] if result else None
+
     def choose_save_path(self, default_name='report.pdf', file_type='pdf'):
         """Open native save dialog; returns absolute path string or None.
 

@@ -1,0 +1,253 @@
+{
+ "system": "mechanical_equipment",
+ "discipline": "MECH",
+ "name": "Static & General Mechanical Equipment — Setting, Alignment & Grouting",
+ "aliases": [
+  "mechanical equipment installation",
+  "static equipment setting",
+  "equipment setting and grouting",
+  "baseplate installation",
+  "machinery installation",
+  "general mechanical erection"
+ ],
+ "zones": [
+  "plant rooms",
+  "process areas",
+  "equipment foundations",
+  "mezzanines",
+  "pump houses",
+  "utility buildings"
+ ],
+ "work_packages": [
+  {
+   "wp": "Foundation & embed acceptance (civil handover)",
+   "discipline": "civil",
+   "interface": true,
+   "note": "Concrete strength, anchor-bolt template survey, level survey of top-of-concrete before any setting"
+  },
+  {
+   "wp": "Equipment receipt, rigging & setting",
+   "discipline": "mechanical",
+   "interface": false,
+   "note": "Offload, inspect for transit damage, rig into position over foundation"
+  },
+  {
+   "wp": "Alignment, shimming & levelling",
+   "discipline": "mechanical",
+   "interface": false,
+   "note": "Coarse then final level; soft-foot check for machinery"
+  },
+  {
+   "wp": "Grouting",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "Epoxy or cementitious grout under baseplate/soleplate; interface with civil for grout spec and surface prep"
+  },
+  {
+   "wp": "Anchor-bolt final torque & mechanical completion",
+   "discipline": "mechanical",
+   "interface": false,
+   "note": "Torque to spec after grout cure; punch and MC"
+  }
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "Accept equipment foundation (28-day / spec concrete strength)",
+    "Survey anchor-bolt locations and projections against template",
+    "Survey and record top-of-concrete level and flatness",
+    "Chip/roughen and clean grout-bearing surface",
+    "Confirm embedded plates / pockets / sleeves as per GA"
+   ],
+   "note": "No equipment is set until the foundation is surveyed and accepted; template survey prevents baseplate/anchor mismatch"
+  },
+  {
+   "stage": "delivery_setting",
+   "activities": [
+    "Offload and inspect equipment for transit/preservation damage",
+    "Verify tag, nameplate and orientation against GA",
+    "Rig and lower equipment/baseplate over anchor bolts",
+    "Set on levelling shims, jack bolts or levelling nuts"
+   ],
+   "note": "Setting is coarse; final elevation is established by shim/jackbolt, not by grout"
+  },
+  {
+   "stage": "alignment_grouting",
+   "activities": [
+    "Level baseplate/soleplate to tolerance (typ. 0.05 mm/m)",
+    "Check for soft foot on machinery mounts",
+    "Set final elevation and hold with jack/levelling screws",
+    "Form and dam grout area, prime with epoxy where specified",
+    "Place grout (cementitious or epoxy), vent air, cure",
+    "Remove/back-off levelling screws after cure; final torque anchor bolts"
+   ],
+   "note": "Grout must fully cure before final anchor torque and before any load or piping is connected"
+  },
+  {
+   "stage": "piping_connection",
+   "activities": [
+    "Connect process/utility piping to equipment nozzles",
+    "Verify no pipe strain (dial-indicator check at flanges/coupling)",
+    "Fit and set spring/rigid pipe supports near equipment"
+   ],
+   "note": "Piping must be cold-sprung/aligned to the nozzle — the equipment is never pulled to meet a mis-fabricated spool"
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "Terminate power to any driver/actuator",
+    "Land instrument, control and earthing connections",
+    "Bond equipment to the earthing grid"
+   ],
+   "note": "Earthing bonded before energisation"
+  },
+  {
+   "stage": "inspection",
+   "activities": [
+    "Installation dimensional check vs GA",
+    "Grout cure and anchor-torque records verified",
+    "Punch-list walkdown, mechanical completion sign-off"
+   ],
+   "note": "MC is the gate to testing"
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "Hydrotest/leak-test connected piping",
+    "Function-test any manual/actuated valves and interlocks"
+   ],
+   "note": ""
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "Cleaning/flushing of connected systems",
+    "Preservation removal, lubrication to running condition",
+    "Post-flush final alignment re-check"
+   ],
+   "note": "Final alignment is re-verified AFTER piping is connected and systems flushed — pipe strain and thermal state can move the machine"
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "Energise/operate under process conditions",
+    "Performance and acceptance run"
+   ],
+   "note": ""
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "Foundation cured and surveyed (level + anchor template)",
+   "after": "Equipment setting on foundation",
+   "reason": "Equipment cannot be set until concrete has reached strength and the anchor pattern is confirmed to match the baseplate",
+   "strength": "strong"
+  },
+  {
+   "before": "Equipment setting and final levelling",
+   "after": "Grouting under baseplate",
+   "reason": "Grout locks in the final level and position; it is placed only after the machine is set and levelled",
+   "strength": "strong"
+  },
+  {
+   "before": "Grout cure",
+   "after": "Final anchor-bolt torque",
+   "reason": "Torquing anchors before grout has cured pulls the baseplate down onto an incompletely supported bed and destroys the level",
+   "strength": "strong"
+  },
+  {
+   "before": "Grout cure",
+   "after": "Process/utility piping connection to nozzles",
+   "reason": "Connecting piping to an ungrouted, un-torqued machine transfers pipe load into an unsupported baseplate",
+   "strength": "strong"
+  },
+  {
+   "before": "Piping connection complete and flushed",
+   "after": "Final alignment re-check / pre-commissioning",
+   "reason": "Connected pipe strain and flushing can shift the machine; alignment must be verified in the as-connected state",
+   "strength": "strong"
+  },
+  {
+   "before": "Earthing/bonding to equipment",
+   "after": "Energisation of driver/controls",
+   "reason": "Equipment must be bonded to earth before any electrical energisation",
+   "strength": "strong"
+  },
+  {
+   "before": "Anchor-bolt template survey",
+   "after": "Delivery/setting of the equipment",
+   "reason": "A template survey catches anchor mismatch while the machine is still on the truck, not hanging from the crane",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "requirement": "Equipment setting REQUIRES the foundation cured to spec strength, anchor bolts/pockets surveyed to template, and top-of-concrete level recorded and accepted",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "strength": "strong"
+  },
+  {
+   "with": "civil_interface",
+   "requirement": "Grouting REQUIRES agreed grout type/spec and a prepared, roughened, clean bearing surface",
+   "type": "enabler",
+   "phase": "alignment_grouting",
+   "strength": "strong"
+  },
+  {
+   "with": "piping",
+   "requirement": "Nozzle connection REQUIRES connecting spools fabricated and erected to the nozzle position with acceptable flange alignment (no strain)",
+   "type": "coordination",
+   "phase": "piping_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "earthing",
+   "requirement": "Energisation REQUIRES the equipment bonded to the earthing grid",
+   "type": "enabler",
+   "phase": "ei_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "Driver/actuator operation REQUIRES permanent (or commissioning) power terminated and available",
+   "type": "enabler",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "structural_steel",
+   "requirement": "Equipment on a steel plinth/mezzanine REQUIRES the supporting steel erected, aligned and grouted/bolted before setting",
+   "type": "enabler",
+   "phase": "delivery_setting",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Foundation level and anchor-template survey records",
+  "Baseplate/soleplate final level within tolerance (e.g. 0.05 mm/m)",
+  "Soft-foot check for any machined-mount equipment",
+  "Grout cure certificate / compressive-strength confirmation before final torque",
+  "Anchor-bolt torque record to specified value",
+  "Connected-piping hydrotest / leak test",
+  "Flange alignment / pipe-strain (dial-indicator) record at nozzles"
+ ],
+ "commissioning_dependencies": [
+  "Grout fully cured and anchors torqued",
+  "Connected piping tested, flushed and cleared",
+  "Final alignment re-verified in as-connected state",
+  "Permanent or temporary commissioning power available",
+  "Earthing/bonding complete and tested",
+  "Lubrication and preservation removal complete"
+ ],
+ "typical_exceptions": [
+  "Spring-mounted / anti-vibration-mounted equipment is levelled on its mounts, not grouted",
+  "Small skid-mounted units may arrive pre-grouted on their own baseplate and only need anchoring",
+  "Free-standing light equipment may be bolted to inserts without grout"
+ ],
+ "evidence": "Equipment was set and piping connected before the baseplate grout had cured and anchors were finally torqued, leaving the machine loaded on an unsupported baseplate.",
+ "status": "curated",
+ "source": "system_pattern"
+}

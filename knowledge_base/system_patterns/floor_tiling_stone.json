@@ -1,0 +1,224 @@
+{
+ "system": "floor_tiling_stone",
+ "discipline": "FINISHES",
+ "name": "Floor & Wall Tiling, Marble & Stone, Hard Flooring",
+ "aliases": [
+  "ceramic tiling",
+  "porcelain tiling",
+  "wall tiling",
+  "floor tiling",
+  "marble",
+  "granite",
+  "natural stone",
+  "stone cladding",
+  "terrazzo",
+  "mosaic",
+  "skirting tiles",
+  "grouting",
+  "large-format tile",
+  "stone slab",
+  "honed/polished stone",
+  "epoxy grout",
+  "tile adhesive",
+  "thin-set",
+  "thick-bed mortar",
+  "expansion joints"
+ ],
+ "zones": [
+  "wet rooms (floors + wall wet zones)",
+  "kitchens",
+  "lobbies / feature floors",
+  "corridors / circulation",
+  "stairs / risers / landings",
+  "external paving / balconies (frost-rated)",
+  "feature walls / stone cladding"
+ ],
+ "sequence": [
+  {
+   "stage": "S1 - Substrate & waterproofing sign-off (ENABLER)",
+   "activities": [
+    "confirm waterproofing flood-tested and protected (wet areas)",
+    "confirm screed cured to moisture spec",
+    "confirm falls to drains and level datum"
+   ],
+   "note": "Tiling cannot start until waterproofing is signed and screed moisture is within spec; covering wet/untested substrate is the top cause of tile failure."
+  },
+  {
+   "stage": "S2 - Setting-out & dry-lay",
+   "activities": [
+    "establish datum lines and tile grid from architect's setting-out",
+    "dry-lay to balance cuts and match features",
+    "mark expansion/movement joint locations",
+    "shade/vein matching for stone slabs"
+   ],
+   "note": "Setting-out is agreed against door thresholds, drains and feature centrelines before any adhesive."
+  },
+  {
+   "stage": "S3 - Substrate for stone / feature",
+   "activities": [
+    "slurry/scratch coat or mortar bed for natural stone",
+    "backing preparation and sealing of porous stone rear (anti-staining)",
+    "confirm substrate flatness for large-format/stone"
+   ],
+   "note": "Marble/stone needs a fully prepared, flat, non-staining substrate; laying stone on an unready bed causes lippage and picture-framing stains."
+  },
+  {
+   "stage": "S4 - Fixing floor tiles / stone",
+   "activities": [
+    "notch-trowel adhesive / full-buttering for large format",
+    "lay to falls in wet areas",
+    "cut to gullies, penetrations, thresholds",
+    "maintain movement joints"
+   ],
+   "note": "Fall to gully is maintained through the tile plane; movement joints are never bridged with rigid grout."
+  },
+  {
+   "stage": "S5 - Wall tiling / stone cladding",
+   "activities": [
+    "wall tiling over cementitious background",
+    "stone cladding with mechanical anchors where required",
+    "coordinate with sanitary fixings and niches"
+   ],
+   "note": ""
+  },
+  {
+   "stage": "S6 - Grouting & sealing",
+   "activities": [
+    "grout (epoxy in wet/heavy-duty)",
+    "seal natural stone and grout lines",
+    "install movement/silicone joints at perimeters and changes of plane"
+   ],
+   "note": "Perimeter and internal corners get flexible sealant, not grout, to absorb movement."
+  },
+  {
+   "stage": "S7 - Protection & clean",
+   "activities": [
+    "board/protect finished floor",
+    "acid-free clean of stone",
+    "hand over protected surface"
+   ],
+   "note": "Finished stone/tile is protected immediately; following trades work over protection."
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "waterproofing flood-tested + protected",
+   "after": "wet-area tiling",
+   "reason": "tiling over untested tanking hides leaks and forces tile demolition to repair the membrane",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "screed cured to moisture spec",
+   "after": "floor tiling/stone",
+   "reason": "adhesives over green screed debond; moisture migrates and stains natural stone",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "substrate prepared, flat & sealed (stone)",
+   "after": "marble/stone laying",
+   "reason": "stone laid on an unready or porous substrate suffers lippage, hollowness and rear-face staining",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "setting-out & drainage falls fixed",
+   "after": "tile laying",
+   "reason": "tiles laid without agreed setting-out create bad cuts at thresholds and break the fall to gully",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "wall/floor tiling",
+   "after": "sanitary & second-fix fixtures",
+   "reason": "WCs, basins, mixers and accessories mount onto or through finished tiling; fixing before tiling blocks the tile plane",
+   "strength": "moderate",
+   "rel": "FS"
+  },
+  {
+   "before": "heavy overhead trades (ceiling, painting)",
+   "after": "final floor tiling in same room",
+   "reason": "finished floors are damaged by overhead work; where possible ceilings/paint precede or floors are protected",
+   "strength": "moderate",
+   "rel": "FS"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "Waterproofing",
+   "requirement": "membrane cured, flood-tested (signed) and protected before wet-area tiling; adhesive compatible with membrane",
+   "phase": "finish",
+   "strength": "strong",
+   "type": "hold-point"
+  },
+  {
+   "with": "Architectural finishing (screed)",
+   "requirement": "screed cured to moisture spec and laid to falls; wet-wall background cementitious",
+   "phase": "pre-finish",
+   "strength": "strong",
+   "type": "predecessor-enabler"
+  },
+  {
+   "with": "MEP - plumbing first fix",
+   "requirement": "floor gullies, drains and penetration levels fixed so tile falls run to them and cuts land cleanly",
+   "phase": "first fix",
+   "strength": "strong",
+   "type": "coordination"
+  },
+  {
+   "with": "Sanitary fixtures / second-fix MEP",
+   "requirement": "tiling complete and set-out to fixture centrelines before sanitaryware, accessories and mixers are mounted through/onto tile",
+   "phase": "second fix",
+   "strength": "moderate",
+   "type": "sequence"
+  },
+  {
+   "with": "Joinery / thresholds",
+   "requirement": "finished floor levels coordinated with door undercuts, thresholds and skirting/joinery datums",
+   "phase": "finish",
+   "strength": "moderate",
+   "type": "coordination"
+  }
+ ],
+ "commissioning_dependencies": [
+  "fall-to-gully verified on finished tile before fixtures",
+  "stone sealing complete before wet commissioning"
+ ],
+ "testing_requirements": [
+  "hollowness / bond (tap test)",
+  "lippage and flatness (straightedge)",
+  "fall to drain (water/ball test)",
+  "slip resistance of specified finish",
+  "grout/joint continuity and sealed movement joints"
+ ],
+ "typical_exceptions": [
+  "raised-access floor or vinyl/resin flooring replaces bedded tile in offices/labs - different substrate rules",
+  "stone rainscreen/cladding on walls is a facade-adjacent mechanically-fixed package",
+  "pre-cured large-format thin porcelain needs specialist backing and handling",
+  "external frost-rated paving ties to landscape/drainage rather than internal wet zones"
+ ],
+ "work_packages": [
+  {
+   "wp": "Wet-area floor & wall tiling",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "gated by waterproofing + screed"
+  },
+  {
+   "wp": "Marble / natural stone",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "substrate prep + sealing critical"
+  },
+  {
+   "wp": "Feature stone cladding",
+   "discipline": "FINISHES",
+   "interface": false,
+   "note": "mechanical fixing"
+  }
+ ],
+ "evidence": "Tiling/stone constructability is dominated by two upstream gates - cured screed and signed waterproofing - and hands off to sanitary/second-fix downstream. Setting-out, fall-to-gully, movement joints and stone substrate preparation are trade universals. Generalized across residential and commercial fit-out; no project data embedded.",
+ "status": "curated",
+ "source": "system_pattern"
+}

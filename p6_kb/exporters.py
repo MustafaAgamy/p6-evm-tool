@@ -253,3 +253,63 @@ def render_html(report, theme='light'):
       {_wbs_review(report)}
       <div class="foot">{_e(report.get('conclusion'))}</div>
     </body></html>'''
+
+
+# ── Constructability component CSS (hardcoded-hex band colour) ───────────────
+# Ported from the feature branch so the Global Print-Preview constructability
+# component (p6_report/features/constructability.py) can call exporters._hex()
+# and exporters.component_css(). The themed render_html above (report_theme /
+# --rpt-* tokens) is the legacy one-shot PDF path and is unchanged.
+_BAND_HEX = {'green': '#16a34a', 'amber': '#d97706', 'orange': '#ea580c', 'red': '#dc2626'}
+
+
+def _hex(band):
+    return _BAND_HEX.get(band, '#94a3b8')
+
+
+def component_css(hex_):
+    """The Constructability-specific CSS (verdict, scorecard, legend, tiles, tables…),
+    parameterised by the score-band colour. Shared verbatim by the legacy one-shot
+    ``render_html`` below AND by the Global Print-Preview framework spec
+    (``p6_report/features/constructability.py``) so the two never drift — the page
+    frame (``@page``, body font, section headings) is owned by whoever wraps it."""
+    return f'''
+      .verdict {{ display: flex; gap: 12px; align-items: center; border: 1px solid {hex_}55; background: {hex_}12; border-radius: 9px; padding: 10px 14px; margin-bottom: 12px; }}
+      .verdict .vt {{ font-size: 15px; font-weight: 800; color: {hex_}; }}
+      .verdict .vd {{ font-size: 11px; color: #475569; margin-top: 2px; }}
+      .verdict .vr {{ margin-left: auto; text-align: right; font-size: 11px; }}
+      .verdict .vr b {{ font-size: 13px; }}
+      .hero {{ display: flex; gap: 16px; align-items: center; margin-bottom: 10px; }}
+      .scorebox {{ text-align: center; border: 1px solid #e2e8f0; border-radius: 9px; padding: 10px 18px; min-width: 130px; }}
+      .scorebox .n {{ font-size: 40px; font-weight: 800; color: {hex_}; line-height: 1; }}
+      .scorebox .b {{ display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px; background: {hex_}22; color: {hex_}; }}
+      .scorebox .sl {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-top: 5px; }}
+      .dims {{ flex: 1; }}
+      .dim {{ margin-bottom: 7px; }} .dim .dh {{ display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }}
+      .track {{ height: 8px; background: #eef2f7; border-radius: 5px; overflow: hidden; }} .track i {{ display: block; height: 100%; background: {hex_}; }}
+      .legwrap {{ position: relative; padding-top: 20px; margin: 6px 0 4px; }}
+      .lbar {{ display: flex; height: 26px; border-radius: 6px; overflow: hidden; }}
+      .lseg {{ display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-size: 9px; line-height: 1.1; }}
+      .lseg b {{ font-size: 10px; }}
+      .lmark {{ position: absolute; top: 0; transform: translateX(-50%); text-align: center; }}
+      .lmark .bub {{ background: #1e293b; color: #fff; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 5px; white-space: nowrap; }}
+      .lmark .arw {{ width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #1e293b; margin: 0 auto; }}
+      .proj {{ background: #fffbeb; border: 1px solid #fde68a; border-radius: 7px; padding: 7px 11px; font-size: 11px; margin: 8px 0; }}
+      .tiles {{ display: flex; gap: 8px; margin: 8px 0; }}
+      .tile {{ flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 10px; }}
+      .tile .tv {{ font-size: 17px; font-weight: 800; }} .tile .tl {{ font-size: 10px; font-weight: 700; margin-top: 2px; }} .tile .ts {{ font-size: 9px; color: #64748b; }}
+      .two {{ display: flex; gap: 14px; }} .two > div {{ flex: 1; }}
+      .wbsrow {{ display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 5px; }}
+      .wbsrow .nm {{ width: 150px; }} .wbsrow .bar {{ flex: 1; height: 13px; background: #eef2f7; border-radius: 4px; overflow: hidden; }}
+      .wbsrow .bar i {{ display: block; height: 100%; background: linear-gradient(90deg,#dc2626,#f59e0b); }} .wbsrow .c {{ width: 22px; text-align: right; font-weight: 700; }}
+      table.data {{ width: 100%; border-collapse: collapse; font-size: 9.5px; margin: 5px 0; }}
+      table.data th {{ background: #26517d; color: #fff; text-align: left; padding: 4px 6px; font-weight: 600; }}
+      table.data td {{ border-bottom: 1px solid #e2e8f0; padding: 3px 6px; vertical-align: top; word-break: break-word; }}
+      table.illog {{ table-layout: fixed; }}
+      .mono {{ font-family: Consolas, monospace; }} .mut {{ color: #64748b; }} .chg {{ color: #b91c1c; }}
+      .sn {{ text-align: center; color: #64748b; font-weight: 700; width: 16px; }}
+      .prio td {{ padding: 5px 6px; }} .prio .rk {{ width: 20px; font-weight: 800; color: #dc2626; }} .prio .pd {{ color: #64748b; font-size: 9px; }} .prio .sev {{ white-space: nowrap; font-weight: 700; }}
+      .wbsrev {{ font-size: 10.5px; }} .wbsr {{ padding: 2px 0; }} .wbsr.miss {{ color: #b45309; }}
+      .note {{ color: #64748b; font-style: italic; }}
+      .foot {{ margin-top: 14px; font-size: 9.5px; color: #94a3b8; font-style: italic; border-top: 1px solid #e2e8f0; padding-top: 6px; }}'''
+

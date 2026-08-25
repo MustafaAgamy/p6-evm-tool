@@ -92,11 +92,27 @@ def add_import(src_path, data, base=None, entries=None, forced_type=None, when=N
     else:
         rec['files'].append(record)
     _save_index(idx, base)
-    # Adding a schedule also grows the tool's learned knowledge for this exact type
-    # (deduped by project id — safe alongside import-time learning).
+    # One explicit "Add to Knowledge Base" grows BOTH learning layers from the same
+    # project: (1) the per-type activity/WBS profile, and (2) the generalized cross-
+    # project sequencing patterns (constructability supporting knowledge). Deduped by
+    # project id; supporting-only; never silently on analysis import.
+    proj = getattr(data, 'project', None) or {}
     try:
         from p6_kb.learn import fold_under
         fold_under(data, entry, base=base)
+    except Exception:
+        pass
+    try:
+        from p6_kb.model import schedule_view
+        from p6_kb.tagging import tag_view
+        from p6_kb.pattern_learning import learn_from_view, store_raw
+        pv = schedule_view(data)
+        tag_view(pv)
+        pid = proj.get('id') or filename
+        pname = proj.get('name') or filename
+        rawp = store_raw(src_path, pid, pname, base=base)          # single raw store
+        learn_from_view(pv, pid, project_type=entry['type'], label=pname, base=base,
+                        source='user', raw=(os.path.basename(rawp) if rawp else ''))
     except Exception:
         pass
     return {'type': entry['type'], 'category': entry.get('category', ''), **record}

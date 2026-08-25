@@ -1,0 +1,276 @@
+{
+ "system": "architectural_finishing",
+ "discipline": "FINISHES",
+ "name": "Architectural Finishing (Blockwork, Plaster, Screed, Ceilings, Partitions, Painting)",
+ "aliases": [
+  "blockwork",
+  "masonry infill",
+  "internal partitions",
+  "drywall",
+  "gypsum board",
+  "GRG/GRC",
+  "plaster",
+  "render",
+  "cement plaster",
+  "gypsum plaster",
+  "POP",
+  "skim coat",
+  "putty",
+  "screed",
+  "floor screed",
+  "self-levelling screed",
+  "suspended ceiling",
+  "false ceiling",
+  "gypsum ceiling",
+  "POP ceiling",
+  "MF ceiling",
+  "painting",
+  "emulsion",
+  "wall finishes",
+  "decorative finishes",
+  "dry lining"
+ ],
+ "zones": [
+  "wet rooms (bathrooms, kitchens, laundries)",
+  "dry rooms (bedrooms, offices, living)",
+  "circulation (corridors, lobbies, stairs)",
+  "back-of-house / plant rooms",
+  "external facade returns / soffits",
+  "high/double-height spaces requiring access"
+ ],
+ "sequence": [
+  {
+   "stage": "S1 - Substrate & enclosure ready",
+   "activities": [
+    "structure/slab handed over and surveyed",
+    "building watertight (roof/facade/glazing closed)",
+    "setting-out of block/partition lines to architectural grid",
+    "openings and lintels formed"
+   ],
+   "note": "Finishing must not start on an unenclosed, wet, or unsurveyed shell; water ingress and structural movement void downstream finishes."
+  },
+  {
+   "stage": "S2 - Blockwork & partition framing",
+   "activities": [
+    "masonry/blockwork infill walls",
+    "metal-stud partition framing",
+    "one-side boarding of drywall (leave open for services)",
+    "door/window sub-frames and bucks set"
+   ],
+   "note": "Leave drywall single-sided until MEP first fix inside the cavity is complete and inspected."
+  },
+  {
+   "stage": "S3 - MEP first fix in walls (ENABLER)",
+   "activities": [
+    "conduits, back-boxes, chases cut and made good",
+    "concealed pipework (water, drainage stub-ups)",
+    "cable pulls / rough-in"
+   ],
+   "note": "This is an MEP scope acting as a hold-point for plaster; chasing after plaster is rework and is prohibited on quality plans."
+  },
+  {
+   "stage": "S4 - Plaster / render / close cavities",
+   "activities": [
+    "cement/gypsum plaster to masonry",
+    "close-up second face of drywall",
+    "bead/angle protection",
+    "render to wet-area walls (cementitious background for tiling)"
+   ],
+   "note": "Wet-area walls receive a cementitious/water-resistant background, NOT gypsum plaster, because tiling and waterproofing follow."
+  },
+  {
+   "stage": "S5 - Floor screed",
+   "activities": [
+    "level and datum transfer",
+    "bonded/unbonded/floating screed as spec",
+    "underfloor heating or conduit encased first",
+    "curing and drying period"
+   ],
+   "note": "Screed must reach the specified moisture content before any adhered floor finish; premature covering traps moisture."
+  },
+  {
+   "stage": "S6 - Ceiling framing & MEP above-ceiling coordination",
+   "activities": [
+    "ceiling grid/MF framing set to level",
+    "hold for above-ceiling ductwork/tray/pipe first fix + insulation + pressure/leak tests",
+    "first layer boarding once services signed off"
+   ],
+   "note": "Do not close the ceiling until every above-ceiling service is installed, tested, and inspected; reopening is major rework."
+  },
+  {
+   "stage": "S7 - Skim, jointing & preparation",
+   "activities": [
+    "board jointing/taping",
+    "skim/putty to walls and ceilings",
+    "surface repair and sanding",
+    "corner and edge protection"
+   ],
+   "note": ""
+  },
+  {
+   "stage": "S8 - Painting (undercoat/first coats)",
+   "activities": [
+    "primer/sealer",
+    "filler and first finish coats to walls and ceilings"
+   ],
+   "note": "First coats only until wet works and dust-generating trades are clear; final coat is deferred."
+  },
+  {
+   "stage": "S9 - Final paint / touch-up (after second fix)",
+   "activities": [
+    "final finish coat",
+    "protection of finished surfaces",
+    "snagging touch-ups after fixtures installed"
+   ],
+   "note": "Final decoration is the last wet trade; it closes after joinery, fixtures, and second-fix MEP so damage is captured once."
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "blockwork/partition framing",
+   "after": "plaster/skim",
+   "reason": "plaster requires a stable, complete, dimensionally-set substrate; plastering a partial or unsettled wall cracks and delaminates",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "MEP first fix in walls",
+   "after": "plaster/close drywall cavity",
+   "reason": "conduits, back-boxes and concealed pipe must be buried and inspected before the wall is sealed; chasing finished plaster is rework",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "all wet works (plaster, screed, render curing)",
+   "after": "painting",
+   "reason": "residual construction moisture and alkalinity cause efflorescence, blistering and adhesion failure of paint",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "above-ceiling MEP (duct/tray/pipe) installed & tested",
+   "after": "ceiling close-up",
+   "reason": "closing the ceiling before services are complete and tested forces destructive reopening for access or leak repair",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "screed cured to spec moisture",
+   "after": "floor finish / skirting",
+   "reason": "adhered finishes over green screed debond and trap moisture; skirting set on damp screed wicks and stains",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "second-fix MEP & joinery",
+   "after": "final paint coat",
+   "reason": "final decoration captures all preceding damage in a single touch-up pass; painting first guarantees rework",
+   "strength": "moderate",
+   "rel": "FS"
+  },
+  {
+   "before": "dust-generating trades (grinding, cutting, sanding)",
+   "after": "final paint",
+   "reason": "airborne dust embeds in wet paint film",
+   "strength": "moderate",
+   "rel": "FS"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "MEP - electrical/mechanical first fix (walls)",
+   "requirement": "conduit, back-boxes and concealed pipe installed, chased and inspected before plaster / drywall close-up (architecture-MEP first-fix handshake)",
+   "phase": "first fix",
+   "strength": "strong",
+   "type": "hold-point"
+  },
+  {
+   "with": "MEP - above-ceiling services",
+   "requirement": "ductwork, cable tray, containment, piping and insulation installed and pressure/leak tested before ceiling boarding; access panels coordinated to valves/dampers/VAVs",
+   "phase": "first fix / test",
+   "strength": "strong",
+   "type": "hold-point"
+  },
+  {
+   "with": "MEP - underfloor services",
+   "requirement": "floor conduit/UFH/drainage stub-ups fixed and, where required, tested before screed pour",
+   "phase": "first fix",
+   "strength": "strong",
+   "type": "hold-point"
+  },
+  {
+   "with": "Structure/Civil (enabler)",
+   "requirement": "slab handed over, surveyed and to tolerance; building watertight before any internal finishing starts",
+   "phase": "pre-finish",
+   "strength": "strong",
+   "type": "predecessor-enabler"
+  },
+  {
+   "with": "Facade / glazing",
+   "requirement": "external envelope closed and weathertight to protect internal wet trades",
+   "phase": "pre-finish",
+   "strength": "strong",
+   "type": "predecessor-enabler"
+  },
+  {
+   "with": "MEP - second fix",
+   "requirement": "final paint coat released only after wiring devices, grilles/diffusers and fixtures are terminated so touch-up is single-pass",
+   "phase": "second fix",
+   "strength": "moderate",
+   "type": "sequence"
+  }
+ ],
+ "commissioning_dependencies": [
+  "screed moisture test passed before floor finish",
+  "permanent HVAC or dehumidification available to dry the building before final paint",
+  "protection regime in place before handover"
+ ],
+ "testing_requirements": [
+  "plaster adhesion / hollowness (tap test)",
+  "screed surface regularity (straightedge / SR rating) and moisture content (hygrometer / CM)",
+  "ceiling level and flatness survey",
+  "paint DFT / coverage and colour/sheen approval on benchmark",
+  "fire-rated partition and ceiling penetration / integrity check"
+ ],
+ "typical_exceptions": [
+  "exposed-services (no ceiling) design - above-ceiling MEP handshake becomes a coordinated finished-services exposure, painted/wrapped",
+  "fair-faced concrete or exposed blockwork - plaster stage omitted, joint/repair and sealer only",
+  "access-floor systems replace screed in data/office - pedestal floor after underfloor services",
+  "dry-lining on dabs instead of wet plaster shortens drying but needs level substrate"
+ ],
+ "work_packages": [
+  {
+   "wp": "Blockwork & partitions",
+   "discipline": "FINISHES",
+   "interface": false,
+   "note": "masonry + drywall framing"
+  },
+  {
+   "wp": "Plaster & render",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "gated by MEP wall first fix"
+  },
+  {
+   "wp": "Floor screed",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "gated by underfloor MEP"
+  },
+  {
+   "wp": "Suspended/gypsum ceilings",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "gated by above-ceiling MEP test"
+  },
+  {
+   "wp": "Painting & decoration",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "split first/final coats around second fix"
+  }
+ ],
+ "evidence": "Universal building-finishing constructability logic on residential, commercial and industrial fit-out: masonry/partition -> MEP wall first fix -> plaster -> screed -> ceiling (after above-ceiling MEP test) -> paint, with wet-trade moisture control gating decoration. Terminology generalized; no project-specific data.",
+ "status": "curated",
+ "source": "system_pattern"
+}
