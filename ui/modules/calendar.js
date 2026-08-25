@@ -134,7 +134,6 @@ function _renderCalendarBody() {
     _exceptionsSection() +
     _hoursSection() +
     _comparisonSection(_ca.comparison) +
-    _usageSection(_ca.usage) +
     _conflictsSection(_ca.conflicts) +
     _conclusionSection(_ca.conclusion);
   _wireCalendar();
@@ -255,12 +254,12 @@ function _timelineSection() {
     const wd = m.working_days || 0, nw = m.nonworking_days || 0, tot = wd + nw;
     const totPx = Math.round(tot / mx * 100), nwPx = tot ? Math.round(nw / tot * totPx) : 0, wPx = Math.max(0, totPx - nwPx);
     const open = _openMonths.has(i);
-    return `<div class="cal-whc ${open ? 'open' : ''}" data-month="${i}" title="${escapeHtml(m.label)}: ${wd} working · ${nw} non-working — click to open its calendar">
-      <div class="cal-wht">${tot}</div>
+    return `<div class="cal-whc ${open ? 'open' : ''}" data-month="${i}" title="${escapeHtml(m.label)}: ${wd} net working · ${nw} non-working — click to open its calendar">
+      <div class="cal-wht">${wd}</div>
       <div class="cal-whcol"><div class="cal-whn" style="height:${nwPx}px"></div><div class="cal-whw" style="height:${wPx}px"></div></div>
       <div class="cal-whl">${escapeHtml(m.label)}${open ? ' ▾' : ''}</div></div>`;
   }).join('');
-  const hleg = `<div class="cal-whleg"><span><i class="wsw wsw-w"></i>Working days</span><span><i class="wsw wsw-n"></i>Non-working (weekends + holidays + shutdowns)</span></div>`;
+  const hleg = `<div class="cal-whleg"><span><i class="wsw wsw-w"></i>Working days</span><span><i class="wsw wsw-n"></i>Non-working (weekends + holidays + shutdowns)</span><span>▲ number above bar = <b>net working days</b></span></div>`;
   const detail = _monthDetailHtml();
   const dayLegend = _openMonths.size ? `<div class="cal-legend" style="margin-top:10px">
     <span><i class="dot cs-work"></i>Working</span>
@@ -359,18 +358,30 @@ function _hoursSection() {
      <div class="cal-hours-grid">${cards}</div>`;
 }
 
+// Feature 1 — Calendar Comparison & Usage (merged): each calendar's hours/day, days/week,
+// activities assigned, % of activities, and role.
 function _comparisonSection(cmp) {
   const dd = (_ca.dashboard && _ca.dashboard.data_date) ? fmtCalDate(_ca.dashboard.data_date) : '';
-  const rows = (cmp || []).map(c =>
-    `<tr><td>${escapeHtml(c.name)}${c.is_default ? ' <span class="cal-pill mini def">Default</span>' : ''}</td>
+  const usage = {};
+  (_ca.usage || []).forEach(u => { usage[u.name] = u; });
+  const rows = (cmp || []).map(c => {
+    const u = usage[c.name] || {};
+    const roleCls = u.role === 'Default' ? 'def' : (u.role === 'Unused' ? 'warn' : '');
+    const acts = u.activities != null ? u.activities : 0;
+    const pct = (u.role === 'Unused' || u.pct == null) ? (acts ? `${u.pct}%` : '0%') : `${u.pct}%`;
+    return `<tr><td>${escapeHtml(c.name)}${c.is_default ? ' <span class="cal-pill mini def">Default</span>' : ''}</td>
      <td class="num">${c.hours_per_day}</td><td class="num">${c.days_per_week}</td>
-     <td class="num">${c.nonworking_days != null ? c.nonworking_days : 0}</td></tr>`).join('');
-  return _sec(6, 'Calendar Comparison') +
+     <td class="num">${acts}</td><td class="num">${pct}</td>
+     <td class="num">${c.nonworking_days != null ? c.nonworking_days : 0}</td>
+     <td>${u.role ? `<span class="cal-pill mini ${roleCls}">${escapeHtml(u.role)}</span>` : ''}</td></tr>`;
+  }).join('');
+  return _sec(6, 'Calendar Comparison & Usage') +
     `<div class="cal-card p0"><table class="cal-table"><thead><tr>
       <th>Calendar</th><th class="num">Hours/Day</th><th class="num">Days/Week</th>
-      <th class="num">Non-Working Days</th></tr></thead>
+      <th class="num">Assigned to</th><th class="num">% of Activities</th>
+      <th class="num">Non-Working Days</th><th>Role</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-     <div class="cal-note" style="font-style:normal"><b>Non-Working Days</b> — weekends, holidays and shutdowns still ahead${dd ? `, from the data date (${dd}) to finish` : ''}. Already-elapsed days are excluded.</div>`;
+     <div class="cal-note" style="font-style:normal"><b>% of Activities</b> — share of the schedule's activities on each calendar. <b>Non-Working Days</b> — weekends, holidays and shutdowns still ahead${dd ? `, from the data date (${dd}) to finish` : ''}. <b>Unused</b> calendars carry 0 activities and can be removed.</div>`;
 }
 
 function _usageSection(usage) {
@@ -391,7 +402,7 @@ function _usageSection(usage) {
 function _conflictsSection(conflicts) {
   conflicts = conflicts || [];
   if (!conflicts.length) {
-    return _sec(8, 'Calendar Conflicts') +
+    return _sec(7, 'Calendar Conflicts') +
       '<div class="cal-card"><p style="color:var(--success);font-size:13px;margin:0">✓ No calendar conflicts detected — assignments look clean.</p></div>';
   }
   const counts = { mixed_wbs: 0, not_default: 0, unused: 0 };
@@ -401,7 +412,7 @@ function _conflictsSection(conflicts) {
   if (counts.not_default) chips.push(`<span class="cal-pill warn">activities off the default calendar</span>`);
   if (counts.unused) chips.push(`<span class="cal-pill warn">${counts.unused} unused calendar${counts.unused === 1 ? '' : 's'}</span>`);
   const lines = conflicts.map(c => `<li><b>${escapeHtml(c.title)}</b> — ${escapeHtml(c.detail)}</li>`).join('');
-  return _sec(8, 'Calendar Conflicts') +
+  return _sec(7, 'Calendar Conflicts') +
     `<div class="cal-card">
       <div style="margin-bottom:8px">${chips.join(' ')} <span class="cal-muted">— ${conflicts.length} issue${conflicts.length === 1 ? '' : 's'} total</span></div>
       <ul class="cal-conf-sum">${lines}</ul></div>`;
