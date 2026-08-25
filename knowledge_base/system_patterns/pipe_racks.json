@@ -1,0 +1,226 @@
+{
+ "system": "pipe_racks",
+ "discipline": "STRUCTURAL_PIPING_INTERFACE",
+ "name": "Pipe Racks — Steel and Piping Interface",
+ "aliases": [
+  "pipe rack",
+  "pipe bridge",
+  "sleeper way",
+  "piperack modules",
+  "rack steel",
+  "utility bridge",
+  "main rack"
+ ],
+ "zones": [
+  "main pipe rack",
+  "unit pipe racks",
+  "grade-level sleeper ways",
+  "pre-assembled rack modules (PAR/PAU)"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "pile caps / foundations",
+    "anchor bolts",
+    "base-plate grouting"
+   ]
+  },
+  {
+   "stage": "steel_erection",
+   "activities": [
+    "erect columns, beams and bracing",
+    "survey/plumb",
+    "final bolt-up and torque",
+    "connection inspection"
+   ]
+  },
+  {
+   "stage": "rack_readiness",
+   "activities": [
+    "grouting",
+    "fireproofing of steel where required",
+    "survey release 'ready for piping'"
+   ]
+  },
+  {
+   "stage": "primary_supports",
+   "activities": [
+    "install shoes, guides, anchors, rigid/spring supports on rack beams"
+   ]
+  },
+  {
+   "stage": "large_bore_piping_first",
+   "activities": [
+    "set largest/lowest-tier lines first for crane access",
+    "progress to smaller/upper lines"
+   ]
+  },
+  {
+   "stage": "small_bore_and_tray",
+   "activities": [
+    "small-bore piping",
+    "cable tray and electrical/instrument tray on dedicated tiers"
+   ]
+  },
+  {
+   "stage": "field_welds_NDT",
+   "activities": [
+    "field welding and NDT of rack piping"
+   ]
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "hydrotest of rack lines by test package"
+   ]
+  },
+  {
+   "stage": "flushing_reinstatement",
+   "activities": [
+    "flushing",
+    "reinstatement",
+    "insulation/painting"
+   ]
+  },
+  {
+   "stage": "tie_in",
+   "activities": [
+    "connect rack headers to ISBL/OSBL units"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "complete foundations and anchor bolts",
+   "after": "erect rack steel",
+   "reason": "columns are set on cured foundations with grouted base plates",
+   "strength": "strong"
+  },
+  {
+   "before": "erect, survey and bolt-up rack steel",
+   "after": "install any piping or cable tray on the rack",
+   "reason": "the load path and safe access depend on the steel being complete and released",
+   "strength": "strong"
+  },
+  {
+   "before": "install large-bore / bottom-tier lines",
+   "after": "install small-bore / upper-tier lines and tray",
+   "reason": "upper-tier work blocks crane access to the lower/larger lines, so they go in first",
+   "strength": "strong"
+  },
+  {
+   "before": "install pipe supports on the rack",
+   "after": "set the pipe they carry",
+   "reason": "the pipe lands on its supports",
+   "strength": "strong"
+  },
+  {
+   "before": "fireproof / grout the steel",
+   "after": "impose heavy pipe load on it",
+   "reason": "PFP and grout are done before the steel is fully loaded and access is lost",
+   "strength": "moderate"
+  },
+  {
+   "before": "coordinate cable-tray tier with piping tier",
+   "after": "install both without clash",
+   "reason": "tray and pipe share rack tiers and must be sequenced to avoid rework",
+   "strength": "moderate"
+  },
+  {
+   "before": "test/flush rack headers",
+   "after": "tie in to connected units",
+   "reason": "the header is proven before it is connected and put in service",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "structural_steel",
+   "requirement": "rack is steel — foundation, erection, survey and bolt-up gate all rack MEP work",
+   "type": "enabler",
+   "phase": "steel_erection",
+   "strength": "strong"
+  },
+  {
+   "with": "civil_interface",
+   "requirement": "foundations, anchor bolts and grouting complete before steel erection",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "strength": "strong"
+  },
+  {
+   "with": "containment_cabling",
+   "requirement": "cable tray and cables share rack tiers with piping — coordinated to avoid clash",
+   "type": "coordination",
+   "phase": "small_bore_and_tray",
+   "strength": "moderate"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "power/tray tiers routed on the rack alongside piping",
+   "type": "coordination",
+   "phase": "small_bore_and_tray",
+   "strength": "moderate"
+  },
+  {
+   "with": "process_piping",
+   "requirement": "rack carries the headers routed between units; header route ready before tie-ins",
+   "type": "route",
+   "phase": "tie_in",
+   "strength": "strong"
+  },
+  {
+   "with": "utility_piping",
+   "requirement": "rack carries utility mains between units",
+   "type": "route",
+   "phase": "large_bore_piping_first",
+   "strength": "strong"
+  },
+  {
+   "with": "insulation_coating",
+   "requirement": "passive fire protection on rack steel; insulation on rack lines after test",
+   "type": "sequence",
+   "phase": "flushing_reinstatement",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Steel: connection torque/bolt-up inspection, field-connection weld inspection, survey/plumb and elevation checks",
+  "Fireproofing thickness/adhesion where applicable",
+  "Rack piping: same weld NDT and hydrotest regime as its service class",
+  "Cable-tray and support load/installation checks"
+ ],
+ "commissioning_dependencies": [
+  "Rack structurally complete and released before line commissioning of its headers",
+  "Headers on the rack tested and flushed before feeding connected systems"
+ ],
+ "typical_exceptions": [
+  "Modular / pre-assembled rack units (PAR/PAU) delivered with piping and tray pre-installed — the field sequence collapses into module-yard fabrication then set-in-place",
+  "Grade-level sleeper-supported racks skip steel erection — foundations/sleepers only"
+ ],
+ "work_packages": [
+  {
+   "wp": "Rack foundations",
+   "discipline": "civil",
+   "interface": true
+  },
+  {
+   "wp": "Rack steel erection",
+   "discipline": "structural",
+   "interface": true
+  },
+  {
+   "wp": "Rack piping by tier",
+   "discipline": "piping"
+  },
+  {
+   "wp": "Rack cable tray",
+   "discipline": "electrical",
+   "interface": true
+  }
+ ],
+ "evidence": "Pipe-rack steel was founded, erected, surveyed and bolted-up — and fireproofed where required — before any piping or cable tray was installed, and the lowest/largest-bore lines went in first because upper-tier work blocks crane access to them.",
+ "status": "curated",
+ "source": "system_pattern"
+}

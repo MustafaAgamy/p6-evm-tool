@@ -109,7 +109,21 @@ export function gradeClass(grade) {
            'Needs Attention': 'g-need', 'Critical': 'g-crit' }[grade] || 'g-need';
 }
 
-// Render the isolated-modules audit view: a module selector + one module's report.
+// Rail order for the Schedule Health Review checks. The diagnostic checks come
+// first (the user reviews the individual schedule issues), and Summary sits at
+// the very END as the executive roll-up / conclusion. Out of Sequence and Lag
+// Report are separate top-level features, not tabs here.
+const SHR_RAIL_ORDER = ['dangling', 'open_ends', 'leads', 'negative_float',
+  'relationship_types', 'whole_day', 'hard_constraints', 'high_duration',
+  'cpli', 'float', 'circular'];
+const SUMMARY_KEY = '__summary__';
+
+// The tab score shows the module's own score; CPLI can be "not computed" (null).
+export function tabScore(m) {
+  return (m.score === null || m.score === undefined) ? '—' : m.score;
+}
+
+// Render the Schedule Health Review: a Summary dashboard + one tab per check.
 export function renderAudit(auditModules) {
   state.currentModules = auditModules || null;
   const body = document.getElementById('audit-body');
@@ -117,15 +131,32 @@ export function renderAudit(auditModules) {
   // Always rebuild a fresh #module-body so repeated renders never hit a
   // container that a prior "no audit" render replaced.
   body.innerHTML = '<div id="module-body"></div>';
-  // Out of Sequence and Lag Report are shown as their own top-level features, not Schedule Audit tabs.
-  const order = ((auditModules && auditModules.module_order) || [])
+  const present = ((auditModules && auditModules.module_order) || [])
     .filter(k => k !== 'out_of_sequence' && k !== 'lag_lead');
-  if (!order.length) {
+  if (!present.length) {
     tabs.innerHTML = '';
     document.getElementById('module-body').innerHTML =
-      '<p style="color:var(--muted);font-size:13px">No audit available for this schedule.</p>';
+      '<p style="color:var(--muted);font-size:13px">No Schedule Health Review available for this schedule.</p>';
     return;
   }
+  // Locked order first, then anything unexpected appended so nothing is dropped.
+  const order = SHR_RAIL_ORDER.filter(k => present.includes(k))
+    .concat(present.filter(k => !SHR_RAIL_ORDER.includes(k)));
+
+  // Gate B — nothing in the review shows until the contract milestones are entered.
+  const mcGate = auditModules.modules.hard_constraints;
+  if (mcGate && mcGate.needs_input) {
+    tabs.innerHTML = '';
+    return renderMilestoneGate(auditModules);
+  }
+
+  const health = (auditModules && auditModules.health) || null;
+  // Summary is the executive roll-up — placed LAST, after the diagnostic checks.
+  const summaryTab = health
+    ? `<button class="module-tab mt-summary" data-module="${SUMMARY_KEY}">
+         <span class="mt-dot ${scoreColor(health.score ?? 0)}"></span>Summary
+         <span class="mt-score">${health.score ?? '—'}</span></button>`
+    : '';
   tabs.innerHTML = order.map(key => {
     const m = auditModules.modules[key];
     // Float shows its DCMA Float Health score + colour (no word-grade); others keep the grade dot.
@@ -138,41 +169,119 @@ export function renderAudit(auditModules) {
     }
     return `<button class="module-tab" data-module="${escapeHtml(key)}">
       <span class="mt-dot ${gradeClass(m.grade)}"></span>${escapeHtml(m.name)}
-      <span class="mt-score">${m.score}</span></button>`;
-  }).join('');
+      <span class="mt-score">${tabScore(m)}</span></button>`;
+  }).join('') + summaryTab;
   tabs.querySelectorAll('.module-tab').forEach(btn =>
     btn.addEventListener('click', () => selectModule(btn.dataset.module)));
+  // Land on the first diagnostic check; the user reaches Summary at the end.
   selectModule(order[0]);
 }
 
 export function selectModule(key) {
   const am = state.currentModules;
-  if (!am || !am.modules[key]) return;
-  state.currentModule = key;
+  if (!am) return;
   document.querySelectorAll('.module-tab').forEach(b =>
     b.classList.toggle('active', b.dataset.module === key));
   _filters = { severity: '', check: '', wbs: '', query: '', area: '' };
+  if (key === SUMMARY_KEY) {
+    state.currentModule = SUMMARY_KEY;
+    return renderSummary(am.health || null, am);
+  }
+  if (!am.modules[key]) return;
+  state.currentModule = key;
   renderModuleBody(am.modules[key]);
 }
 
-function kpiTiles(m) {
-  const k = m.kpis || {};
-  const tiles = m.module === 'dangling'
-    ? [['Total Activities', (k.total_activities || 0).toLocaleString()],
-       ['Total Dangling', k.total_dangling || 0],
-       ['Dangling %', `${k.dangling_pct ?? 0}%`],
-       ['Dangling Start', k.start_dangling || 0],
-       ['Dangling Finish', k.finish_dangling || 0],
-       ['Dangling Start + Dangling Finish', k.both_dangling || 0]]
-    : [['Total Activities', (k.total_activities || 0).toLocaleString()],
-       ['Above Threshold', k.above_threshold || 0],
-       ['Float %', `${k.float_pct ?? 0}%`],
-       ['Max Float', `${k.max_float ?? 0} d`],
-       ['Average Float', `${k.avg_float ?? 0} d`],
-       ['Threshold', `${k.threshold ?? 44} d`]];
-  return tiles.map(([lab, val]) =>
-    `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(val)}</div></div>`).join('');
+// ── Small formatting + table-cell helpers (shared by every check view) ────
+const num = v => (Number(v) || 0).toLocaleString();
+const pctv = v => `${v ?? 0}%`;
+const dnum = v => (v === null || v === undefined) ? '—' : `${v} d`;
+const isoDate = v => v ? String(v).slice(0, 10) : '—';
+const MON3 = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtDate = v => {                       // ISO or already-nice → 9-Feb-2027
+  if (!v) return '—';
+  const p = String(v).slice(0, 10).split('-');
+  return (p.length === 3 && +p[1]) ? `${+p[2]}-${MON3[+p[1]]}-${p[0]}` : String(v);
+};
+const td = v => `<td>${escapeHtml(v ?? '')}</td>`;
+const tdNum = v => `<td class="num">${escapeHtml(String(v ?? ''))}</td>`;
+const tdMono = v => `<td class="mono">${escapeHtml(v ?? '')}</td>`;
+const tdMut = v => `<td class="mut">${escapeHtml(v ?? '')}</td>`;
+const tdWbs = p => `<td title="${escapeHtml(p ?? '')}">${escapeHtml(shortWbs(p))}</td>`;
+const tdSev = s => `<td><span class="sevtag ${severityClass(s)}">${escapeHtml(s ?? '')}</span></td>`;
+
+// Pass / Review / Critical → colour + dot class (the roll-up's status semantics).
+export function statusColor(status) {
+  return { Pass: 'var(--success)', Review: 'var(--warning)', Critical: 'var(--danger)' }[status] || 'var(--muted)';
 }
+export function statusDot(status) {
+  return { Pass: 'd-g', Review: 'd-a', Critical: 'd-c' }[status] || 'd-n';
+}
+export function verdictClass(verdict) {
+  if (verdict === 'Ready to submit') return 'v-good';
+  if (verdict === 'Acceptable to submit') return 'v-warn';   // 80–90: meets the standard
+  return 'v-bad';   // Not ready / Blocked / Not computed
+}
+
+// The reusable gauge (120px ring + centred score). `score` may be null.
+function gaugeHtml(score, label = '/ 100') {
+  const C = 326.7;
+  const shown = (score === null || score === undefined) ? '—' : score;
+  return `<div class="gauge">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="12"/>
+        <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                stroke-dasharray="${C}" stroke-dashoffset="${gaugeDashoffset(score || 0, C)}"
+                transform="rotate(-90 60 60)" class="gauge-arc ${scoreColor(score || 0)}"/>
+      </svg>
+      <div class="gauge-num"><b>${shown}</b><span>${escapeHtml(label)}</span></div>
+    </div>`;
+}
+
+// Render one normalized presentation cell — mirrors report.py _pcell so the
+// screen, the PDF and Excel draw identical cells from the one source.
+function cellHtml(cell) {
+  if (cell.badge) return `<td><span class="sevtag ${cell.badge}">${escapeHtml(cell.text)}</span></td>`;
+  const cls = cell.cls ? ` class="${cell.cls}"` : '';
+  const title = cell.title ? ` title="${escapeHtml(cell.title)}"` : '';
+  return `<td${cls}${title}>${escapeHtml(cell.text)}</td>`;
+}
+
+function presentationTiles(p) {
+  return (p.tiles || []).map(t =>
+    `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div><div class="v">${escapeHtml(t.value)}</div></div>`).join('');
+}
+
+// "How this score is calculated" — the transparent scoring legend every check
+// shows (formula + this schedule's derivation + bands + the DCMA benchmark, which
+// is deliberately kept separate from the 0-100 score).
+function scoringLegendHtml(s) {
+  if (!s) return '';
+  const parts = [
+    `<div class="sl-t">How this score is calculated</div>`,
+    `<div class="sl-r"><b>Formula:</b> ${escapeHtml(s.formula)}</div>`,
+    `<div class="sl-r"><b>This schedule:</b> ${escapeHtml(s.derivation)}</div>`,
+  ];
+  if (s.bands) parts.push(`<div class="sl-r"><b>Score bands:</b> ${escapeHtml(s.bands)}</div>`);
+  if (s.benchmark) parts.push(`<div class="sl-r sl-bench"><b>Benchmark:</b> ${escapeHtml(s.benchmark)}</div>`);
+  return `<div class="shr-legend score-legend">${parts.join('')}</div>`;
+}
+
+// "What the severity levels mean" — the criteria straight from the rule engine, so
+// the user knows why a finding is Critical/High/Medium/Low (not just its colour).
+function severityLegendHtml(sev) {
+  if (!sev || !(sev.levels || []).length) return '';
+  const rows = sev.levels.map(l =>
+    `<div class="sl2-row"><span class="sevtag ${severityClass(l.level)}">${escapeHtml(l.level)}</span>` +
+    `<span>${escapeHtml(l.criteria)}</span></div>`).join('');
+  const basis = sev.basis ? `<div class="sl-r sl-bench">${escapeHtml(sev.basis)}</div>` : '';
+  return `<div class="shr-legend sev-legend"><div class="sl-t">What the severity levels mean</div>` +
+    `<div class="sl2">${rows}</div>${basis}</div>`;
+}
+
+// Per-check KPI tiles + table columns now live in ONE place — p6_audit/presentation.py
+// (build_presentation) — and arrive on each module as `m.presentation`, so the screen,
+// the PDF and Excel render identical tiles/columns/cells (see cellHtml/presentationTiles).
 
 function wbsSummaryHtml(m) {
   const ws = m.wbs_summary || [];
@@ -353,33 +462,86 @@ export function renderOosPanel(auditModules) {
 
 function renderModuleBody(m) {
   if (m.module === 'float') return renderFloatModule(m);
-  const C = 326.7;
-  const verdict = m.module === 'dangling'
-    ? `${m.pct}% of activities have broken start/finish logic.`
-    : `${m.pct}% of activities carry total float above the threshold.`;
+  if (m.module === 'circular') return renderCircularModule(m);
+  if (m.module === 'cpli') return renderCpliModule(m);
+  if (m.module === 'hard_constraints') return renderMilestoneCheck(m);
+  if (m.module === 'whole_day') return renderWholeDay(m);
+  return renderStandardModule(m);
+}
+
+// Whole-day Durations — evidence view. Each flagged activity shows the calendar and
+// hours/day it sits on and WHY the duration is a decimal (calendar-driven, a part-hours
+// entry, or not determinable), expanding to Finding / Evidence / Root cause / Impact /
+// Recommendation — so the user sees where the decimal comes from, not just a score.
+function wdCauseClass(c) {
+  return { cal: 'wd-cal', entry: 'wd-entry', nd: 'wd-nd' }[c] || 'wd-nd';
+}
+function renderWholeDay(m) {
+  const p = m.presentation || {};
+  const rows = (m.findings || []).map(f => {
+    const nl = (k, v) => `<div class="ms-nl"><div class="mk">${escapeHtml(k)}</div><div class="mv">${escapeHtml(v || '')}</div></div>`;
+    return `<div class="wd-row">
+      <div class="wd-top">
+        <div class="wd-id mono">${escapeHtml(f.activity_id)}</div>
+        <div class="wd-nm" title="${escapeHtml(f.activity_name)}">${escapeHtml(f.activity_name)}</div>
+        <div class="wd-dur"><b>${escapeHtml(String(f.original_days))} d</b> → ${escapeHtml(String(f.rounds_to))} d</div>
+        <div class="wd-cal" title="${escapeHtml(f.calendar)}">${escapeHtml(f.calendar)}${f.day_hours ? ' · ' + escapeHtml(String(f.day_hours)) + 'h' : ''}</div>
+        <div class="wd-cause ${wdCauseClass(f.cause)}">${escapeHtml(f.cause_label)}</div>
+        <div class="wd-chev">›</div>
+      </div>
+      <div class="wd-det">
+        ${nl('Finding', `Duration is ${f.original_days} working days — not a whole day.`)}
+        ${nl('Evidence', f.evidence)}${nl('Root cause', f.root_cause)}${nl('Impact', f.impact)}
+        <div class="ms-nl"><div class="mk">Recommendation</div><div class="mv rec">${escapeHtml(f.recommendation || '')}</div></div>
+      </div>
+    </div>`;
+  }).join('') || '<p style="color:var(--muted);font-size:13px">No decimal durations — every activity is a whole number of days.</p>';
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(p.verdict || '')}</div>
+        </div>
+      </div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
+    </div>
+    ${scoringLegendHtml(p.scoring)}
+    <div class="wd-legend2">
+      <span><i class="dot wd-cal"></i>Calendar hrs/day — likely contributing</span>
+      <span><i class="dot wd-entry"></i>Part-hours entry — not the calendar</span>
+      <span><i class="dot wd-nd"></i>Cause not determinable</span>
+    </div>
+    <div class="mod-sec">Decimal durations <span class="mod-sub">— where each comes from, and why (click a row)</span></div>
+    <div class="wd-rows">${rows}</div>`;
+  document.querySelectorAll('#module-body .wd-top').forEach(t =>
+    t.addEventListener('click', () => t.parentNode.classList.toggle('open')));
+}
+
+// Standard check view: gauge hero + KPI tiles + filterable findings table,
+// driven entirely by the module's spec so every check reads the same way.
+function renderStandardModule(m) {
+  const p = m.presentation || {};
   const body = document.getElementById('module-body');
   body.innerHTML = `
     <div class="audit-hero">
       <div class="score-card">
-        <div class="gauge">
-          <svg width="120" height="120" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="12"/>
-            <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
-                    stroke-dasharray="${C}" stroke-dashoffset="${gaugeDashoffset(m.score, C)}"
-                    transform="rotate(-90 60 60)" class="gauge-arc ${scoreColor(m.score)}"/>
-          </svg>
-          <div class="gauge-num"><b>${m.score ?? '—'}</b><span>/ 100</span></div>
-        </div>
+        ${gaugeHtml(m.score)}
         <div class="score-meta">
           <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
-          <div class="coverage">${escapeHtml(m.name)} — Module Score</div>
-          <div class="coverage">${escapeHtml(verdict)}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(p.verdict || '')}</div>
         </div>
       </div>
-      <div class="kpi-tiles">${kpiTiles(m)}</div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
     </div>
+    ${scoringLegendHtml(p.scoring)}
     ${wbsSummaryHtml(m)}
     <div class="mod-sec">Detailed Findings</div>
+    ${(m.findings && m.findings.length) ? severityLegendHtml(p.severity) : ''}
     <div class="filters">
       ${renderSevChips(m.findings)}
       <input class="searchbox" id="f-search" placeholder="🔍  Search activity ID or name…">
@@ -397,6 +559,436 @@ function renderModuleBody(m) {
       syncChips(); renderRows();
     }));
   renderRows();
+}
+
+// Circular Logic — the F9 gate. Loops block P6's calculation, so this reads as a
+// gate banner (clear / blocking) with each loop's closing chain, not a table.
+function renderCircularModule(m) {
+  const k = m.kpis || {};
+  const clear = (k.loops || 0) === 0;
+  const banner = clear
+    ? `<div class="shr-banner ok"><b>F9 clear — no circular logic.</b> P6 can calculate this schedule.</div>`
+    : `<div class="shr-banner bad"><b>Blocking — a circular loop stops P6 from calculating (F9).</b> Break one link in each loop below, then re-run.</div>`;
+  const tiles = [['Total Activities', num(k.total_activities)], ['Loops', k.loops || 0],
+    ['Activities in Loops', k.activities_in_loops || 0], ['Longest Loop', k.longest_loop || 0], ['Circular %', pctv(k.circular_pct)]];
+  const loopsHtml = (m.findings || []).map(f => {
+    const chain = (f.chain || []).map((n, i) =>
+      `${i ? '<span class="shr-arrow">→</span>' : ''}<span class="shr-node" title="${escapeHtml(n.name)}">${escapeHtml(n.id)}</span>`).join('');
+    return `<div class="shr-loop">
+      <div class="shr-loop-h">Loop ${f.loop_index} <span>· ${f.activity_count} activities</span></div>
+      <div class="shr-chain">${chain}</div>
+      <div class="shr-loop-rec">${escapeHtml(f.recommendation || '')}</div></div>`;
+  }).join('');
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — F9 Gate</div>
+          <div class="coverage">${clear ? 'No loops — the network calculates.' : `${k.loops} loop${k.loops === 1 ? '' : 's'} block F9.`}</div>
+        </div>
+      </div>
+      <div class="kpi-tiles">${tiles.map(([lab, val]) => `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
+    </div>
+    ${banner}
+    ${clear ? '' : `<div class="mod-sec">Loops to break</div><div class="shr-loops">${loopsHtml}</div>`}`;
+}
+
+// Critical Path / CPLI — DCMA Point 13. Gauge = CPLI %, a baseline-rule badge,
+// and the driving path shown as a compact timeline + table. May be "not computed".
+function renderCpliModule(m) {
+  const k = m.kpis || {};
+  const computable = k.computable !== false && k.critical_pct != null;   // density computable
+  const ratioComputable = k.cpli != null;                                // CPLI ratio (context)
+  const ratioPct = ratioComputable ? (k.cpli_pct != null ? k.cpli_pct : Math.round(k.cpli * 100)) : null;
+  const ruleBadge = k.baseline_rule_met
+    ? `<span class="shr-rule ok">Baseline rule met — total float ≥ 0</span>`
+    : `<span class="shr-rule bad">Negative float — re-plan (baseline must be ≥ 0)</span>`;
+  const fmTile = k.finish_date ? fmtDate(k.finish_date) : (k.finish_milestone_id || '—');
+  const tiles = [
+    ['Critical %', k.critical_pct == null ? '—' : `${k.critical_pct}%`],
+    ['Critical Activities', k.critical_count == null ? '—' : Number(k.critical_count).toLocaleString()],
+    ['CPLI', ratioComputable ? `${ratioPct}%` : '—'],
+    ['Completion Total Float', dnum(k.project_total_float_days)],
+    ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
+    ['Finish Milestone', fmTile],
+  ];
+  const verdict = computable
+    ? `${k.critical_pct}% of activities are on the critical path → score ${m.score}. Fewer critical activities = a less fragile schedule.`
+    : 'Critical-path density not computable — no task-dependent activities to assess.';
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score, computable ? '/ 100' : 'n/a')}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(computable ? (m.grade || '') : 'Not computed')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(verdict)}</div>
+          ${ratioComputable ? `<div style="margin-top:8px">${ruleBadge}</div>` : ''}
+        </div>
+      </div>
+      <div class="kpi-tiles">${tiles.map(([lab, val]) => `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
+    </div>
+    <div class="shr-legend">
+      <b>How it's scored.</b> The score is the <b>critical-path density</b> — the share of task-dependent activities on the critical path. A schedule with many critical activities is fragile (small slips ripple), so fewer critical = a higher score.
+      <div style="margin-top:5px">Band: ≤ 25% → 100 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 75 · &gt; 40% → 60.</div>
+      <div style="margin-top:5px">Grade of the score: 100 = Excellent · 90 = Acceptable · below 90 (85 / 75 / 60) = Critical.</div>
+    </div>
+    <div class="shr-legend">
+      <b>Context — CPLI ratio &amp; baseline rule (not the score).</b> CPLI = (CPL + TF) ÷ CPL = <b>${ratioComputable ? `${ratioPct}%` : '—'}</b> — DCMA 14-Point, Point 13 (target ≥ 95%). Completion total float = <b>${dnum(k.project_total_float_days)}</b>.
+    </div>
+    <div class="mod-sec">Driving path <span class="mod-sub">— the activities P6 flags critical, in sequence</span></div>
+    ${cpliGantt(m.findings || [], m.kpis || {})}`;
+}
+
+// Driving-path Gantt: one row per critical activity — Activity ID · Name · Start ·
+// Finish · Duration and a time-based bar on a shared month axis. Red = critical
+// (the driving path); blue = near-critical (carries float). Every activity is
+// reachable — the body scrolls, nothing is hidden behind a "+N more" (works at
+// 1,500+). Replaces the old timeline AND the separate table (one view now).
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function cpliGantt(findings, kpis) {
+  const dated = (findings || []).filter(f => f.start && f.finish);
+  if (!dated.length) {
+    return '<p style="color:var(--muted);font-size:13px">No dated critical activities to plot.</p>';
+  }
+  const t = d => new Date(d + 'T00:00:00').getTime();
+  const lo = Math.min(...dated.map(f => t(f.start)));
+  const hi = Math.max(...dated.map(f => t(f.finish)));
+  const span = Math.max(1, hi - lo);
+  const posOf = ms => Math.max(0, Math.min(100, 100 * (ms - lo) / span));
+  const totalMonths = Math.max(1, Math.round((hi - lo) / (86400000 * 30.44)));
+  const monthPct = 100 / totalMonths;                      // gridline + label spacing
+  const step = Math.max(1, Math.ceil(totalMonths / 11));   // ~11 labels max
+
+  const ticks = [];
+  const first = new Date(lo);
+  for (let mk = new Date(first.getFullYear(), first.getMonth(), 1); mk.getTime() <= hi; mk.setMonth(mk.getMonth() + step)) {
+    const p = 100 * (mk.getTime() - lo) / span;
+    if (p >= -1 && p <= 101) {
+      ticks.push(`<span class="cg-m" style="left:${Math.max(0, Math.min(100, p))}%">${MONTHS[mk.getMonth()]} ${String(mk.getFullYear()).slice(2)}</span>`);
+    }
+  }
+  // Data-date (amber) + finish (green) markers, as agreed.
+  const ddIso = (kpis || {}).data_date;
+  const ddPos = ddIso ? posOf(t(ddIso)) : 0;
+  const markers = `<span class="cg-mk dd" style="left:${ddPos}%" title="Data date"></span>` +
+                  `<span class="cg-mk fn" style="left:100%" title="Completion"></span>`;
+
+  const rows = dated.map(f => {
+    const x = posOf(t(f.start));
+    const w = Math.max(0.5, 100 * (t(f.finish) - t(f.start)) / span);
+    const crit = (f.total_float_days ?? 0) <= 0;    // red = critical; blue = near-critical (has float)
+    const isMs = f.is_milestone === true;   // only genuine P6 milestones get a diamond, never a short Task
+    const dur = f.duration_days == null ? '—' : `${f.duration_days} wd`;
+    const bar = isMs
+      ? `<span class="cg-ms" style="left:${x}%"></span>`
+      : `<i class="${crit ? 'crit' : ''}" style="left:${x}%;width:${Math.min(w, 100 - x)}%"></i>`;
+    return `<div class="cg-row" data-q="${escapeHtml((f.activity_id + ' ' + (f.activity_name || '')).toLowerCase())}">
+      <div class="cg-c cg-id">${escapeHtml(f.activity_id)}</div>
+      <div class="cg-c cg-nm" title="${escapeHtml(f.activity_name)}">${escapeHtml(f.activity_name)}</div>
+      <div class="cg-c cg-dt">${escapeHtml(isoDate(f.start))}</div>
+      <div class="cg-c cg-dt">${escapeHtml(isoDate(f.finish))}</div>
+      <div class="cg-c cg-du">${escapeHtml(dur)}</div>
+      <div class="cg-track">${bar}</div>
+    </div>`;
+  }).join('');
+
+  // Search wiring runs after this HTML is placed into #module-body.
+  setTimeout(() => {
+    const s = document.getElementById('cg-search');
+    if (!s) return;
+    s.addEventListener('input', e => {
+      const q = e.target.value.trim().toLowerCase();
+      let shown = 0;
+      document.querySelectorAll('#cg-body .cg-row').forEach(r => {
+        const hit = !q || (r.dataset.q || '').includes(q);
+        r.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      const cnt = document.getElementById('cg-cnt');
+      if (cnt) cnt.textContent = q ? `${shown.toLocaleString()} of ${dated.length.toLocaleString()} shown`
+                                   : `${dated.length.toLocaleString()} critical activities · all shown (scroll)`;
+    });
+  }, 0);
+
+  return `
+    <div class="cg-tools">
+      <input class="cg-search" id="cg-search" placeholder="🔍  Search activity ID or name…">
+      <span class="cg-cnt" id="cg-cnt">${dated.length.toLocaleString()} critical activities · all shown (scroll)</span>
+      <span class="cg-leg"><i class="sw r"></i>Critical <i class="sw b"></i>Near-critical <i class="sw dd"></i>Data date <i class="sw fn"></i>Finish</span>
+    </div>
+    <div class="cg-wrap" style="--m:${monthPct}%">
+      <div class="cg-axis"><div class="cg-c">ID</div><div class="cg-c">Activity</div><div class="cg-c">Start</div>
+        <div class="cg-c">Finish</div><div class="cg-c cg-du">Dur</div>
+        <div class="cg-axtrack">${ticks.join('')}${markers}</div></div>
+      <div class="cg-body" id="cg-body">${rows}</div>
+    </div>`;
+}
+
+// ── Milestone Check (gate B) — contract milestones vs the baseline ─────────
+function msDatalist(baseline) {
+  return `<datalist id="ms-baseline">${(baseline || []).map(b =>
+    `<option value="${escapeHtml(b.name)}">${escapeHtml(b.activity_id)}${b.finish ? ' · ' + escapeHtml(b.finish) : ''}</option>`).join('')}</datalist>`;
+}
+function msRowHtml(name = '', date = '') {
+  return `<div class="ms-row">
+    <input class="ms-name" list="ms-baseline" placeholder="Contract milestone (e.g. Mechanical Completion)" value="${escapeHtml(name)}">
+    <input class="ms-date" type="date" value="${escapeHtml(date)}">
+    <button class="ms-del" title="Remove">✕</button>
+  </div>`;
+}
+
+// The gate screen shown before ANY check results (gate B). Pre-filled from the saved
+// contract milestones when re-opening a project.
+function renderMilestoneGate(am) {
+  const mc = am.modules.hard_constraints || {};
+  const baseline = mc.baseline_milestones || [];
+  const saved = mc.contract_milestones || [];
+  const body = document.getElementById('audit-body');
+  body.innerHTML = `
+    <div class="ms-gate">
+      <div class="ms-gate-h">Step 1 · Enter your contract milestones</div>
+      <div class="ms-gate-sub">The Schedule Health Review runs after you enter the project completion milestone (and any other contractual milestones). Each is matched to a real activity in this baseline — <b>${baseline.length}</b> milestone activit${baseline.length === 1 ? 'y' : 'ies'} found in the file (start typing to pick one).</div>
+      ${msDatalist(baseline)}
+      <div id="ms-rows"></div>
+      <div class="ms-gate-actions">
+        <button class="btn-secondary" id="ms-add">+ Add milestone</button>
+        <button class="btn-primary" id="ms-run">Run Schedule Health Review ▸</button>
+      </div>
+      <div class="ms-gate-hint" id="ms-hint">Nothing is assessed until a milestone is matched — the tool never invents one.</div>
+    </div>`;
+  const rows = document.getElementById('ms-rows');
+  const add = (n = '', d = '') => rows.insertAdjacentHTML('beforeend', msRowHtml(n, d));
+  if (saved.length) saved.forEach(s => add(s.name, s.date)); else add();
+  rows.addEventListener('click', e => {
+    if (!e.target.classList.contains('ms-del')) return;
+    const r = e.target.closest('.ms-row');
+    if (rows.children.length > 1) r.remove();
+    else { r.querySelector('.ms-name').value = ''; r.querySelector('.ms-date').value = ''; }
+  });
+  document.getElementById('ms-add').addEventListener('click', () => add());
+  document.getElementById('ms-run').addEventListener('click', () => submitMilestones(am));
+}
+
+function collectMilestones() {
+  return [...document.querySelectorAll('#ms-rows .ms-row')].map(r => ({
+    name: r.querySelector('.ms-name').value.trim(),
+    date: r.querySelector('.ms-date').value.trim(),
+  })).filter(m => m.name && m.date);
+}
+
+async function submitMilestones(am) {
+  const milestones = collectMilestones();
+  const hint = document.getElementById('ms-hint');
+  if (!milestones.length) { hint.textContent = 'Enter at least one milestone name and its contract date.'; return; }
+  const runBtn = document.getElementById('ms-run');
+  runBtn.disabled = true; runBtn.textContent = 'Evaluating…';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/milestones/save`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, milestones }),
+    }).then(r => r.json());
+    if (resp.ok && resp.milestone_module) {
+      am.modules.hard_constraints = resp.milestone_module;   // now carries the evals; needs_input=false
+      if (resp.health) am.health = resp.health;              // keep the roll-up (donut/counts) in sync
+      renderAudit(am);                                        // un-gated
+      selectModule('hard_constraints');                      // land on the Milestone Check
+    } else {
+      hint.textContent = resp.error || 'Could not evaluate the milestones — please retry.';
+      runBtn.disabled = false; runBtn.textContent = 'Run Schedule Health Review ▸';
+    }
+  } catch (e) {
+    hint.textContent = 'Server error — please retry.';
+    runBtn.disabled = false; runBtn.textContent = 'Run Schedule Health Review ▸';
+  }
+}
+
+function msStatusClass(s) {
+  return { 'Masked': 'st-mask', 'Late': 'st-late', 'On track': 'st-ok', 'Unmatched': 'st-un' }[s] || 'st-un';
+}
+function msCard(e) {
+  const variance = e.variance_days == null ? '—'
+    : (e.variance_days > 0 ? `+${e.variance_days} wd late` : `${Math.abs(e.variance_days)} wd on/early`);
+  const facts = [
+    ['Contract date', e.contract_date || '—'],
+    ['Matched activity', e.matched_activity_id ? `${e.matched_activity_id} · ${e.matched_activity_name || ''}` : '— none —'],
+    ['Scheduled finish', e.scheduled_finish || '—'],
+    ['Variance', variance],
+    ['Total float', dnum(e.total_float_days)],
+    ['On driving path', e.on_driving_path == null ? '—' : (e.on_driving_path ? 'Yes' : 'No')],
+  ].map(([k, v]) => `<div class="ms-fact"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`).join('');
+  const nl = (k, v) => `<div class="ms-nl"><div class="mk">${escapeHtml(k)}</div><div class="mv">${escapeHtml(v || '')}</div></div>`;
+  return `<div class="ms-card">
+    <div class="ms-ct"><div class="ms-cn">${escapeHtml(e.contract_name)}</div><div class="ms-st ${msStatusClass(e.status)}">${escapeHtml(e.status)}</div></div>
+    <div class="ms-facts">${facts}</div>
+    <div class="ms-narr">${nl('Finding', e.finding)}${nl('Evidence', e.evidence)}${nl('Root cause', e.root_cause)}${nl('Impact', e.impact)}${nl('Recommendation', e.recommendation)}</div>
+  </div>`;
+}
+
+// Hard-constraint findings (the merge) — rendered directly from the module findings.
+function hardConstraintsTable(m) {
+  const findings = m.findings || [];
+  if (!findings.length) return '<p style="color:var(--muted);font-size:13px">No hard constraints in this baseline.</p>';
+  const rows = findings.map((f, i) =>
+    `<tr>${tdNum(i + 1)}${tdMono(f.activity_id)}${td(f.activity_name)}${tdWbs(f.wbs_path)}${td(f.constraint_type)}${tdMut(isoDate(f.constraint_date))}${tdSev(f.severity)}${tdMut(f.recommendation)}</tr>`).join('');
+  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table"><thead><tr>
+    <th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th><th>Constraint Type</th><th>Constraint Date</th><th>Severity</th><th>Recommendation</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// The Milestone Check detail view: contract-milestone verdict cards (evidence-first)
+// then the hard-constraint findings underneath.
+function renderMilestoneCheck(m) {
+  const p = m.presentation || {};
+  const evals = m.milestones || [];
+  const counts = m.milestone_counts || {};
+  const cards = evals.map(msCard).join('')
+    || '<p style="color:var(--muted);font-size:13px">No contract milestones entered yet — use “Edit contract milestones”.</p>';
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${['Masked', 'Late', 'On track', 'Unmatched'].filter(s => counts[s]).map(s => `${counts[s]} ${s.toLowerCase()}`).join(' · ') || 'No milestones matched'}</div>
+          <div style="margin-top:8px"><button class="btn-secondary" id="ms-edit">Edit contract milestones</button></div>
+        </div>
+      </div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
+    </div>
+    <div class="mod-sec">Contract milestones <span class="mod-sub">— entered by you, matched to the baseline</span></div>
+    <div class="ms-cards">${cards}</div>
+    ${scoringLegendHtml(p.scoring)}`;
+  const eb = document.getElementById('ms-edit');
+  if (eb) eb.addEventListener('click', () => renderMilestoneGate(state.currentModules));
+}
+
+// The Summary dashboard — the weighted Schedule Health roll-up, rendered from the
+// `health` payload (score, verdict, checks-status, composition, problem areas, fixes).
+function renderSummary(health, am) {
+  const body = document.getElementById('module-body');
+  if (!health) {
+    body.innerHTML = '<p style="color:var(--muted);font-size:13px">No Summary available for this schedule.</p>';
+    return;
+  }
+  const score = health.score, grade = health.grade || '', verdict = health.verdict || '', statement = health.statement || '';
+  const counts = health.counts || {};
+  const subs = health.sub_features || [];
+  const gate = health.gate || {};
+  const gateClear = !gate.blocking;
+  const total = health.total_count || subs.length || 1;
+  const p = counts.Pass || 0, r = counts.Review || 0, c = counts.Critical || 0, n = counts['Not computed'] || 0;
+  const a1 = 100 * p / total, a2 = a1 + 100 * r / total, a3 = a2 + 100 * c / total;
+  const donutGrad = `conic-gradient(var(--success) 0 ${a1}%, var(--warning) ${a1}% ${a2}%, var(--danger) ${a2}% ${a3}%, var(--muted) ${a3}% 100%)`;
+  const cpliK = (am && am.modules && am.modules.cpli && am.modules.cpli.kpis) || {};
+  const compFloat = cpliK.project_total_float_days;
+
+  const tone = s => (s == null ? '' : s >= 85 ? 'shr-green' : s >= 60 ? 'shr-amber' : 'shr-red');
+
+  const compRows = subs.map(s => {
+    const barW = s.score == null ? 0 : Math.max(0, Math.min(100, s.score));
+    const etag = (s.modules || []).some(k => k === 'dangling' || k === 'float') ? '<span class="shr-etag">existing</span>' : '';
+    const prov = s.provisional ? '<span class="shr-prov">provisional</span>' : '';
+    // Highlight the sub-features the user must review (below the 80% standard).
+    const needsReview = s.status === 'Review' || s.status === 'Critical';
+    const reviewTag = needsReview
+      ? `<span class="shr-review ${s.status === 'Critical' ? 'crit' : ''}">${s.status === 'Critical' ? 'needs review' : 'review'}</span>` : '';
+    return `<div class="shr-crow${needsReview ? ' needs-review' : ''}">
+      <div class="shr-nm"><span class="dot ${statusDot(s.status)}"></span>${escapeHtml(s.name)} ${etag}${prov}${reviewTag}</div>
+      <div class="shr-bar"><i style="width:${barW}%;background:${statusColor(s.status)}"></i></div>
+      <div class="shr-sc">${s.score == null ? '—' : s.score + '%'}</div>
+      <div class="shr-wt">${s.weight}</div>
+      <div class="shr-pt">${s.points == null ? '—' : s.points}</div>
+    </div>`;
+  }).join('');
+  const gateRow = `<div class="shr-crow">
+      <div class="shr-nm"><span class="dot ${gateClear ? 'd-g' : 'd-c'}"></span>Circular logic <span class="shr-gate ${gateClear ? 'ok' : 'bad'}">gate · ${gateClear ? 'clear' : 'blocking'}</span></div>
+      <div class="shr-bar"><i style="width:${gateClear ? 100 : 0}%;background:${gateClear ? 'var(--success)' : 'var(--danger)'}"></i></div>
+      <div class="shr-sc">—</div><div class="shr-wt">—</div><div class="shr-pt">—</div>
+    </div>`;
+
+  const areas = (health.problem_areas || {}).areas || [];
+  const paMax = Math.max(1, ...areas.map(a => a.pct || 0));
+  const paRows = areas.slice(0, 6).map((a, i) => `
+    <div class="shr-wb"><div class="l" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
+      <div class="shr-wbt"><i style="width:${Math.round(100 * (a.pct || 0) / paMax)}%;background:${i === 0 ? 'var(--danger)' : i < 3 ? 'var(--warning)' : 'var(--accent)'}"></i></div>
+      <div class="c">${a.pct}%</div></div>`).join('') || '<div class="shr-empty">No findings to place — the logic is clean.</div>';
+
+  const fixRows = (health.fix_first || []).map((f, i) => `
+    <div class="shr-fix"><div class="rk">${i + 1}</div>
+      <div><b>${escapeHtml(f.name)} ${f.score}%</b> <span class="sub">(wt ${f.weight})</span>
+        <div class="sub">${escapeHtml(f.recommendation || '')}</div></div>
+      <span class="shr-lift">+~${f.lift}</span></div>`).join('') || '<div class="shr-empty">Every check is at target — nothing to fix first.</div>';
+
+  body.innerHTML = `
+    <div class="shr-dash">
+      <div class="shr-top">
+        <div class="card shr-gaugecard">
+          ${gaugeHtml(score, `/ 100 · ${grade}`)}
+          <div class="shr-gmeta">
+            <div class="shr-verdict ${verdictClass(verdict)}">${escapeHtml(verdict)}</div>
+            <div class="shr-gl">Overall <b>Schedule Health</b> — the weighted roll-up of every sub-feature.<br>${escapeHtml(statement)}</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="shr-ct">Checks status <span class="r">${total} sub-features</span></div>
+          <div class="shr-donutwrap">
+            <div class="shr-donut" style="background:${donutGrad}"><div class="dh"><b>${p}</b><span>of ${total} pass</span></div></div>
+            <div class="shr-dleg">
+              <div class="dl"><span class="sw" style="background:var(--success)"></span>Pass <b>${p}</b></div>
+              <div class="dl"><span class="sw" style="background:var(--warning)"></span>Review <b>${r}</b></div>
+              <div class="dl"><span class="sw" style="background:var(--danger)"></span>Critical <b>${c}</b></div>
+              ${n ? `<div class="dl"><span class="sw" style="background:var(--muted)"></span>Not computed <b>${n}</b></div>` : ''}
+              <div class="dl"><span class="sw" style="background:${gateClear ? 'var(--success)' : 'var(--danger)'}"></span>Circular gate <b>${gateClear ? 'clear' : 'blocking'}</b></div>
+            </div>
+          </div>
+          <div class="shr-bands">
+            <div class="lab">How status is decided — each check's score against the per-check bands</div>
+            <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass ≥ 95</div></div>
+            <div class="note">A check below 95 needs review; below 90 is critical. Per-check targets adjust where DCMA differs — e.g. FS ≥ 90%. The overall baseline is submit-ready at ≥ 80%.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="shr-ct">Headline</div>
+          <div class="shr-statcol">
+            <div class="stat"><div class="sv ${tone(score)}">${score ?? '—'}<span>/100</span></div><div class="sk">Baseline health score</div></div>
+            <div class="stat"><div class="sv ${c ? 'shr-red' : 'shr-green'}">${c}</div><div class="sk">Critical sub-features</div></div>
+            <div class="stat"><div class="sv ${compFloat == null ? '' : compFloat < 0 ? 'shr-red' : 'shr-green'}">${compFloat == null ? '—' : compFloat + ' d'}</div><div class="sk">Completion total float (rule ≥ 0)</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shr-comp">
+        <div class="shr-ct">Sub-feature scores × your weights <span class="r">worst first</span></div>
+        <div class="shr-chead"><span>Sub-feature</span><span>Score</span><span>Score</span><span>Wt</span><span>Pts</span></div>
+        ${compRows}
+        ${gateRow}
+        <div class="shr-comptot"><div class="tl">Overall Schedule Health</div><div class="tw">${health.weight_covered ?? 100}</div><div class="tv ${tone(score)}">${score ?? '—'}</div></div>
+      </div>
+
+      <div class="shr-grid2">
+        <div class="card">
+          <div class="shr-ct">Where the problems are <span class="r">defect share by discipline</span></div>
+          ${paRows}
+        </div>
+        <div class="card">
+          <div class="shr-ct">Fix these first <span class="r">biggest lift</span></div>
+          ${fixRows}
+        </div>
+      </div>
+
+      <div class="card shr-concl">
+        <div class="shr-ct">Conclusion</div>
+        <p>${escapeHtml(statement)}</p>
+      </div>
+    </div>`;
 }
 
 // ── Float Analysis management dashboard (V2 redesign) ─────────────────────
@@ -479,19 +1071,17 @@ function renderFloatModule(m) {
         </div>
         <div class="fh-drivers">
           ${fhDriver(`High Float > ${thr} WD — construction`,
-                     `DCMA target < ${fhFmt(high.target ?? 5)}% · penalty maxes at ${fhFmt(high.max_pct ?? 20)}%`,
-                     high.pct ?? 0, high.max_pct ?? 20, high.penalty ?? 0, 'var(--danger)')}
-          ${fhDriver('Negative Float — whole schedule',
-                     `DCMA target ${fhFmt(neg.target ?? 0)}% · penalty maxes at ${fhFmt(neg.max_pct ?? 5)}%`,
-                     neg.pct ?? 0, neg.max_pct ?? 5, neg.penalty ?? 0, 'var(--warning)')}
+                     'the score driver — 100 − this %',
+                     high.pct ?? 0, 25, high.penalty ?? 0, 'var(--danger)')}
+          <div class="fh-note">Score = 100 − the construction High-Float defect above.</div>
         </div>
       </div>
     </div>
     <div class="scorelegend">
-      <div class="sl-title">How the Float Health score is calculated <span>— anchored to the DCMA 14-Point float targets</span></div>
-      <div class="sl-formula">Float Health = 100 − High-Float penalty − Negative-Float penalty</div>
-      <div class="sl-row"><b>High Float</b> — construction activities with total float &gt; ${thr} WD · <span class="sl-t">DCMA target &lt; ${fhFmt(high.target ?? 5)}%</span> · penalty 0 at ≤ ${fhFmt(high.target ?? 5)}%, rising to −${high.max_penalty ?? 60} at ${fhFmt(high.max_pct ?? 20)}%.</div>
-      <div class="sl-row"><b>Negative Float</b> — activities with total float &lt; 0 (whole schedule) · <span class="sl-t">DCMA target ${fhFmt(neg.target ?? 0)}%</span> · penalty 0 at ${fhFmt(neg.target ?? 0)}%, rising to −${neg.max_penalty ?? 40} at ${fhFmt(neg.max_pct ?? 5)}%.</div>
+      <div class="sl-title">How the Float Health score is calculated <span>— Schedule Health Review linear model</span></div>
+      <div class="sl-formula">Float Health = 100 − construction excess-float defect%</div>
+      <div class="sl-row"><b>Defect%</b> = construction activities with total float &gt; ${thr} WD ÷ all construction activities. Each 1% of defect costs 1 point — here ${fhFmt(high.pct ?? 0)}% → <b>${score}</b>.</div>
+      <div class="sl-row sl-ref"><b>DCMA reference — not the score.</b> DCMA Metric 5 benchmark: at least ${fhFmt(high.dcma_within_pct ?? 95)}% of activities within the float threshold (high float &lt; ${fhFmt(high.dcma_max_pct ?? 5)}%). Shown for reference; it does not set the score.</div>
       <div class="sl-colours"><span><i class="g"></i>Green ≥ 85</span><span><i class="a"></i>Amber 60–84</span><span><i class="r"></i>Red &lt; 60</span></div>
     </div>
     <div class="mod-sec">Schedule Statistics <span class="mod-sub">— whole schedule</span></div>
@@ -527,42 +1117,28 @@ function renderRows() {
   const key = state.currentModule;
   const tbody = document.getElementById('audit-tbody');
   const thead = document.getElementById('find-head');
-  if (!am || !key || !tbody) return;
+  if (!am || !key || !tbody || !am.modules[key]) return;
   const m = am.modules[key];
-  const rows = filterFindings(m.findings, { severity: _filters.severity, query: _filters.query });
-
-  const cols = m.module === 'dangling'
-    ? ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix', 'Suggested Logic Fix 2']
-    : ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float', 'Threshold', 'Impact', 'Status', 'Severity', 'Recommendation'];
-  thead.innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>`;
-
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:20px">No findings match.</td></tr>`;
+  const p = m.presentation || {};
+  const cols = p.columns || [];
+  const prows = p.rows || [];
+  thead.innerHTML = `<tr><th>#</th>${cols.map(c =>
+    c.align === 'num' ? `<th class="num">${escapeHtml(c.label)}</th>` : `<th>${escapeHtml(c.label)}</th>`).join('')}</tr>`;
+  // Filter by the raw finding; render the PARALLEL presentation row (same index),
+  // so the on-screen table shows the exact cells the PDF and Excel do.
+  const sev = _filters.severity, q = (_filters.query || '').trim().toLowerCase();
+  const visible = [];
+  (m.findings || []).forEach((f, idx) => {
+    if (sev && f.severity !== sev) return;
+    if (q && !`${f.activity_id || ''} ${f.activity_name || ''}`.toLowerCase().includes(q)) return;
+    if (prows[idx]) visible.push(prows[idx]);
+  });
+  if (!visible.length) {
+    tbody.innerHTML = `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:var(--muted);padding:20px">No findings match.</td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map((f, i) => {
-    const wbs = `<td title="${escapeHtml(f.wbs_path)}">${escapeHtml(shortWbs(f.wbs_path))}</td>`;
-    const sev = `<td><span class="sevtag ${severityClass(f.severity)}">${escapeHtml(f.severity)}</span></td>`;
-    if (m.module === 'dangling') {
-      return `<tr><td class="num">${i + 1}</td>
-        <td class="mono">${escapeHtml(f.activity_id)}</td>
-        <td>${escapeHtml(f.activity_name)}</td>${wbs}${sev}
-        <td>${escapeHtml(f.logic_issue)}</td>
-        <td class="mut">${escapeHtml(f.predecessors)}</td>
-        <td class="mut">${escapeHtml(f.successors)}</td>
-        <td>${escapeHtml(f.suggested_fix)}</td>
-        <td class="mut">${escapeHtml(f.suggested_fix_2)}</td></tr>`;
-    }
-    const impact = f.impact != null ? `${f.impact}×` : '—';
-    return `<tr><td class="num">${i + 1}</td>
-      <td class="mono">${escapeHtml(f.activity_id)}</td>
-      <td>${escapeHtml(f.activity_name)}</td>${wbs}
-      <td class="num">${escapeHtml(f.total_float_days)} d</td>
-      <td class="num">${escapeHtml(f.threshold)} d</td>
-      <td class="num">${impact}</td>
-      <td>${escapeHtml(f.status)}</td>${sev}
-      <td class="mut">${escapeHtml(f.recommendation)}</td></tr>`;
-  }).join('');
+  tbody.innerHTML = visible.map((row, i) =>
+    `<tr><td class="num">${i + 1}</td>${row.map(cellHtml).join('')}</tr>`).join('');
 }
 
 // ── Lag Report — standalone report (charts + register + editable justification) ──

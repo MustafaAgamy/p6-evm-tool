@@ -132,21 +132,66 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   const _el = document.getElementById(btnId);
   const btn = new ButtonState(_el, _el ? _el.textContent : 'Generate PDF');
   btn.loading('Preparing preview…');
-  const reqBody = { snapshot_id: state.currentSnapshotId, module: state.currentModule, meta: moduleMeta() };
-  const mode = getSavedMode();
-  try {
-    // Preview first — render the report HTML and show it fitted before writing any PDF.
+  const module = state.currentModule;
+  const reqBody = { snapshot_id: state.currentSnapshotId, module, meta: moduleMeta() };
+
+  // Summary PDF: send the health the screen is CURRENTLY showing so the PDF matches
+  // exactly (incl. a Milestone Check the user just entered), plus the completion float
+  // (from the CPLI module) for the headline stat.
+  if (module === '__summary__' && state.currentModules) {
+    reqBody.health = state.currentModules.health || null;
+    const ck = ((state.currentModules.modules || {}).cpli || {}).kpis || {};
+    reqBody.completion_float = ck.project_total_float_days;
+  }
+
+  // Report-content selector — the sections this check exposes + the remembered choice.
+  // Fully generic: ANY module that carries a presentation.sections list gets the picker,
+  // so every current and future feature inherits it automatically.
+  const mod = (state.currentModules && state.currentModules.modules && state.currentModules.modules[module]) || {};
+  let sections;
+  if (module === '__summary__') {
+    // The Summary is the roll-up, not a module, so it carries no presentation —
+    // give it its own component registry so it inherits the picker like every check.
+    const sh = (state.currentModules && state.currentModules.health) || {};
+    const noAreas = !(((sh.problem_areas || {}).areas) || []).length;
+    const noFixes = !((sh.fix_first) || []).length;
+    sections = [
+      { key: 'overview',    label: 'Overall score & verdict',       empty: false },
+      { key: 'checks',      label: 'Checks status (donut)',         empty: false },
+      { key: 'headline',    label: 'Headline stats',                empty: false },
+      { key: 'composition', label: 'Sub-feature scores × weights',  empty: false },
+      { key: 'problems',    label: 'Where the problems are',        empty: noAreas },
+      { key: 'fixes',       label: 'Fix these first',               empty: noFixes },
+      { key: 'conclusion',  label: 'Conclusion',                    empty: false },
+    ];
+  } else {
+    const useSelector = mod.presentation && Array.isArray(mod.presentation.sections);
+    sections = useSelector ? mod.presentation.sections : null;
+  }
+  const storageKey = `p6_report_sections_${module}`;
+  let selected = sections ? sections.filter(s => !s.empty).map(s => s.key) : null;
+  if (sections) { try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default */ } }
+
+  const mode = getSavedMode();                        // the saved appearance mode (one of the 6)
+  const fetchPreview = async (keys, theme) => {
     const data = await apiFetch('api/report/module', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true, theme: mode }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || undefined, theme: theme || mode }),
     });
+    return (data.ok && data.html) ? data.html : null;
+  };
+
+  try {
+    const html = await fetchPreview(selected, mode);
     btn.reset();
-    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
-      title: 'Audit report preview', subtitle: state.currentModule, html: data.html, initialMode: mode,
-      onThemeChange: _previewFetcher('api/report/module', reqBody),
-      onSave: (m) => _savePdf('api/report/module', { ...reqBody, theme: m }, `${state.currentModule}_report.pdf`, 'pdf'),
+      title: 'Report — Schedule Health Review', subtitle: mod.name || module, html,
+      sections, selected, storageKey, initialMode: mode,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: (m, keys) => _savePdf('api/report/module', { ...reqBody, theme: m, sections: keys }, `${module}_report.pdf`, 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');

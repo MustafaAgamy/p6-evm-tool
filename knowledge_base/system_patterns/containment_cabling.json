@@ -1,0 +1,238 @@
+{
+ "system": "containment_cabling",
+ "discipline": "ELEC",
+ "name": "Cable Containment & Cabling — support-first, pull-into-complete-tray, then terminate",
+ "aliases": [
+  "cable tray",
+  "cable ladder",
+  "cable basket",
+  "trunking",
+  "conduit",
+  "cable containment",
+  "cable management",
+  "cable pulling",
+  "cable termination",
+  "glanding",
+  "wireway"
+ ],
+ "zones": [
+  "risers",
+  "ceiling voids",
+  "plant rooms",
+  "corridors",
+  "trenches",
+  "external cable routes"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "wall/floor penetrations, sleeves and cutouts formed",
+    "fire-barrier openings coordinated",
+    "MEP/BIM route and rack-space sign-off"
+   ],
+   "note": "Route coordination and penetrations must be settled before supports go up."
+  },
+  {
+   "stage": "support_installation",
+   "activities": [
+    "set out routes",
+    "install unistrut, cantilever arms, trapeze and threaded-rod supports off structure/soffit",
+    "level and align at correct spacing"
+   ],
+   "note": "Supported off structural steel/soffit; large overhead services should be in first to avoid clash rework."
+  },
+  {
+   "stage": "containment_installation",
+   "activities": [
+    "install tray/ladder/trunking sections, bends, tees, reducers, couplers",
+    "conduit runs",
+    "earth-bonding jumpers across every joint",
+    "maintain LV/ELV/data/IS segregation"
+   ]
+  },
+  {
+   "stage": "inspection_pre_pull",
+   "activities": [
+    "containment complete, deburred, covers off",
+    "bonding continuity across joints",
+    "bend-radius and cleanliness check"
+   ],
+   "note": "Gate before any cable is pulled."
+  },
+  {
+   "stage": "cable_pulling",
+   "activities": [
+    "pull power/control/instrument/data cables respecting fill % and bend radius",
+    "control pulling tension",
+    "label as pulled, dress and tie",
+    "maintain segregation"
+   ]
+  },
+  {
+   "stage": "termination_glanding",
+   "activities": [
+    "gland at both ends, bond SWA/armour",
+    "lug/crimp and connect to equipment/DB",
+    "core identification"
+   ]
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "earth continuity/bonding across tray and ladder",
+    "insulation resistance and continuity after pulling",
+    "point-to-point and phasing"
+   ]
+  },
+  {
+   "stage": "close_out",
+   "activities": [
+    "fit covers",
+    "firestop penetrations",
+    "complete cable schedule and labelling"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "structural steel/soffit available",
+   "after": "containment support installation",
+   "reason": "supports hang off structure and cannot be fixed until it exists",
+   "strength": "strong"
+  },
+  {
+   "before": "containment supports installed",
+   "after": "tray/ladder installation",
+   "reason": "sections rest on and are fixed to the supports",
+   "strength": "strong"
+  },
+  {
+   "before": "containment installed and bonded",
+   "after": "cable pulling",
+   "reason": "cable must never be pulled into incomplete or unbonded containment",
+   "strength": "strong"
+  },
+  {
+   "before": "cable pulled",
+   "after": "termination and glanding",
+   "reason": "cores must be in place and dressed before glanding at each end",
+   "strength": "strong"
+  },
+  {
+   "before": "termination complete",
+   "after": "insulation/continuity testing",
+   "reason": "point-to-point and IR tests need both ends terminated",
+   "strength": "strong"
+  },
+  {
+   "before": "large overhead services (duct/large pipe) installed",
+   "after": "high-level containment",
+   "reason": "installing tray before bulky services forces later removal/rework",
+   "strength": "moderate"
+  },
+  {
+   "before": "wall/floor penetration sleeves in place",
+   "after": "containment through the barrier",
+   "reason": "tray cannot pass a wall without the coordinated opening",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "structural_steel",
+   "requirement": "containment is supported off structure; steel/soffit must be erected before supports",
+   "type": "requires",
+   "phase": "support_installation",
+   "strength": "strong"
+  },
+  {
+   "with": "civil_interface",
+   "requirement": "wall/floor penetrations and sleeves must be formed for cross-barrier routes",
+   "type": "requires",
+   "phase": "support_installation",
+   "strength": "moderate"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "provides the earthed route that power-cable pulling depends on",
+   "type": "provides",
+   "phase": "cable_pulling",
+   "strength": "strong"
+  },
+  {
+   "with": "earthing",
+   "requirement": "every tray/ladder run must be bonded to earth with continuity across joints",
+   "type": "requires",
+   "phase": "containment_installation",
+   "strength": "strong"
+  },
+  {
+   "with": "hvac",
+   "requirement": "overhead spatial coordination — bulky mechanical services generally routed before high-level containment",
+   "type": "coordinate",
+   "phase": "support_installation",
+   "strength": "moderate"
+  },
+  {
+   "with": "fire_fighting",
+   "requirement": "cable penetrations firestopped at close-out to restore barrier rating",
+   "type": "requires",
+   "phase": "close_out",
+   "strength": "moderate"
+  },
+  {
+   "with": "instrumentation",
+   "requirement": "instrument/IS cabling needs segregated containment at required separation from power",
+   "type": "coordinate",
+   "phase": "containment_installation",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Earth continuity/bonding across tray and ladder joints",
+  "Cable insulation resistance and continuity after pulling",
+  "Visual: fill ratio, bend radius, segregation, support spacing, armour/gland bonding",
+  "Firestop integrity at penetrations"
+ ],
+ "commissioning_dependencies": [
+  "Approved cable and pulling schedule",
+  "Containment bonded to the earthing system",
+  "Segregation of power/ELV/data/IS verified per spec",
+  "Firestopping approved at close-out"
+ ],
+ "typical_exceptions": [
+  "Pre-wired modular/plug-and-play containment",
+  "Underground direct-buried cable follows a trench/sand/warning-tile/backfill sequence with no tray"
+ ],
+ "work_packages": [
+  {
+   "wp": "Containment supports",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Tray/ladder/trunking install",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Cable pulling",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Termination and glanding",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Firestopping",
+   "discipline": "fire",
+   "interface": true
+  }
+ ],
+ "evidence": "Cables were pulled into cable tray before the tray was fully installed and bonded, glanding proceeded ahead of the tray earth-continuity test, and supports were shown starting before the structural steel they hang from was erected.",
+ "status": "curated",
+ "source": "system_pattern"
+}

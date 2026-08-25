@@ -22,8 +22,14 @@ def _data():
 
 def test_returns_isolated_modules():
     out = audit_modules(_data(), CONFIG)
-    assert set(out['modules'].keys()) == {'dangling', 'float', 'out_of_sequence', 'lag_lead'}
-    assert out['module_order'] == ['dangling', 'float', 'out_of_sequence', 'lag_lead']
+    assert set(out['modules'].keys()) == {
+        'dangling', 'float', 'out_of_sequence', 'lag_lead',
+        'open_ends', 'relationship_types', 'hard_constraints', 'high_duration',
+        'leads', 'negative_float', 'whole_day', 'circular', 'cpli'}
+    assert out['module_order'] == [
+        'dangling', 'float', 'out_of_sequence', 'lag_lead',
+        'open_ends', 'relationship_types', 'hard_constraints', 'high_duration',
+        'leads', 'negative_float', 'whole_day', 'circular', 'cpli']
     # each module carries its own score/grade/findings/kpis — nothing shared
     for key in ('dangling', 'float', 'out_of_sequence'):
         m = out['modules'][key]

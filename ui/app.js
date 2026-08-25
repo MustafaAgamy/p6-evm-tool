@@ -4,8 +4,8 @@ import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, e
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
-import { showKbLibrary, exitKbLibrary, initKbLibrary } from './modules/kblib.js';
 import { showDatabase, exitDatabase, initDatabase } from './modules/database.js';
+import { showRecent, exitRecent }                   from './modules/recent.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
 import { renderPeriodPanel }                   from './modules/period.js';
@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
   initTheme();
   initTooltips();
-  initKbLibrary();
   initDatabase();
   loadHistory();
 
@@ -28,16 +27,17 @@ document.addEventListener('DOMContentLoaded', () => {
   initReportAppearanceControl('report-appearance');
 
   document.getElementById('sb-home-btn').addEventListener('click', () => {
-    exitKbLibrary();
     exitDatabase();
+    exitRecent();
     loadAnother();
     loadHistory();
   });
 
-  // Knowledge Base — its own sidebar page (browse the project-type standards)
-  document.getElementById('sb-kb-btn').addEventListener('click', () => { exitDatabase(); showKbLibrary(); });
-  // Construction Database — downloadable schedules by type
-  document.getElementById('sb-db-btn').addEventListener('click', () => { exitKbLibrary(); showDatabase(); });
+  // Recent Projects — its own sidebar page (Decision 010; no longer trails Home/reports)
+  document.getElementById('sb-recent-btn').addEventListener('click', () => { exitDatabase(); showRecent(); });
+  // ONE Knowledge Base sidebar entry — knowledge projects + reference standards +
+  // example baselines all live on this single screen.
+  document.getElementById('sb-db-btn').addEventListener('click', () => { exitRecent(); showDatabase(); });
 
   document.getElementById('browse-btn').addEventListener('click', async () => {
     const path = await window.pywebview.api.choose_file();
@@ -91,8 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sidebar shield → jump to the Audit view when a schedule is loaded
   document.getElementById('sb-audit-btn').addEventListener('click', () => {
-    exitKbLibrary();
     exitDatabase();
+    exitRecent();
     if (state.currentResult) {
       document.getElementById('results-section').classList.remove('hidden');
       switchView('audit');
@@ -122,8 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
       showError('Please drop a .xml or .xer file exported from Primavera P6.');
       return;
     }
-    exitKbLibrary();
     exitDatabase();
+    exitRecent();
     importFile(file.path);
   });
 
@@ -138,6 +138,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const origText = openBtn.textContent;
       openBtn.disabled = true;
       openBtn.textContent = '…';
+      // Opening from the Recent Projects page → leave that page and show the
+      // schedule on the normal Home + results view (import bar back, recent hidden).
+      exitRecent();
       try {
         await loadProject(projectId, filePath, cachedPath);
         document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });

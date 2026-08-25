@@ -1,0 +1,319 @@
+{
+ "system": "electrical_power",
+ "discipline": "ELEC",
+ "name": "LV & MV Power Distribution — from civil-ready room to staged energization",
+ "aliases": [
+  "power distribution",
+  "LV distribution",
+  "MV distribution",
+  "switchgear",
+  "transformers",
+  "MDB",
+  "SMDB",
+  "distribution board",
+  "busbar",
+  "busduct",
+  "standby generator",
+  "UPS",
+  "power cabling",
+  "substation",
+  "electrical rooms"
+ ],
+ "zones": [
+  "substation",
+  "MV room",
+  "LV switchroom",
+  "electrical room",
+  "generator room",
+  "UPS room",
+  "MDB/SMDB room",
+  "cable trenches/basement"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "substation/switchroom slab, blockwork, roof, doors complete",
+    "housekeeping plinths/pads and transformer bunds cast",
+    "cable trenches, sleeves and floor cutouts formed",
+    "switchroom environmental control (HVAC) available",
+    "floor flatness for switchboard rolling/alignment"
+   ],
+   "note": "MEP cannot start until the room and its plinths/trenches are handed over; floor flatness governs switchboard section alignment."
+  },
+  {
+   "stage": "delivery_setting",
+   "activities": [
+    "rig and set transformers, MV/LV switchgear, MDB/SMDB, generators, UPS onto plinths",
+    "anti-vibration mounts and anchor/bolt-down",
+    "level and align switchboard sections, join shipping splits"
+   ],
+   "note": "Heavy rigging needs the access/lifting route and clear room; alignment precedes any bus connection."
+  },
+  {
+   "stage": "interconnection",
+   "activities": [
+    "assemble busbar/busduct between sections and boards",
+    "bus-tie and primary/secondary interconnections",
+    "neutral earthing / transformer star-point connection"
+   ]
+  },
+  {
+   "stage": "power_cable_installation",
+   "activities": [
+    "pull MV/LV power cable on completed containment or in trenches",
+    "gland and terminate at both ends",
+    "phasing, coring and circuit identification"
+   ],
+   "note": "Depends entirely on containment being installed and bonded first."
+  },
+  {
+   "stage": "earthing_bonding",
+   "activities": [
+    "connect switchgear, transformer body/neutral, generators, DBs to the earth grid",
+    "bond enclosures and cable armour"
+   ],
+   "note": "Interfaces the earthing system; must be complete before any energization."
+  },
+  {
+   "stage": "pre_energization_inspection",
+   "activities": [
+    "torque/tightness checks",
+    "insulation resistance (megger)",
+    "contact/ductor resistance on busbar joints and breaker contacts",
+    "protection relay settings loaded, CT/VT ratio and polarity",
+    "mechanical interlock and breaker rack-in/out checks"
+   ]
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "HV/VLF hi-pot on MV cables",
+    "transformer ratio, winding resistance, vector group, insulation (oil tests if applicable)",
+    "protection relay secondary and primary injection",
+    "phase rotation/sequence at each board",
+    "earth loop impedance"
+   ]
+  },
+  {
+   "stage": "energization",
+   "activities": [
+    "establish upstream/utility back-feed source",
+    "staged cascade: energize MV, transformers, then LV boards",
+    "verify phase rotation at each downstream board"
+   ],
+   "note": "Never energize without protection settings loaded and earthing tested; downstream loads isolated or ready."
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "generator load-bank test and AMF/ATS changeover",
+    "UPS battery autonomy/discharge test",
+    "synchronising and load transfer",
+    "protection discrimination/coordination verification",
+    "thermographic survey under load"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "switchroom civil (slab, plinths, trenches) complete",
+   "after": "switchgear/transformer setting",
+   "reason": "equipment cannot be rigged, set or aligned without the room, its plinths and clear rigging access",
+   "strength": "strong"
+  },
+  {
+   "before": "switchgear set and anchored",
+   "after": "busbar/busduct interconnection",
+   "reason": "board sections must be levelled and joined before bus links can be made up",
+   "strength": "strong"
+  },
+  {
+   "before": "cable containment installed and bonded",
+   "after": "power cable pulling",
+   "reason": "power cable must have a complete, earthed route before it can be pulled",
+   "strength": "strong"
+  },
+  {
+   "before": "power cable pulled",
+   "after": "termination and glanding",
+   "reason": "cores must be in place before gland/lug termination at each end",
+   "strength": "strong"
+  },
+  {
+   "before": "earthing grid installed and tested",
+   "after": "equipment earthing and energization",
+   "reason": "energizing an unearthed board is a safety violation",
+   "strength": "strong"
+  },
+  {
+   "before": "protection relay settings loaded and injection-tested",
+   "after": "energization",
+   "reason": "a board must never be energized without verified protection",
+   "strength": "strong"
+  },
+  {
+   "before": "MV cable HV/VLF hi-pot test passed",
+   "after": "MV cable energization",
+   "reason": "insulation integrity must be proven before applying medium voltage",
+   "strength": "strong"
+  },
+  {
+   "before": "upstream/utility supply available",
+   "after": "energization",
+   "reason": "there must be a live source to back-feed the scheme",
+   "strength": "strong"
+  },
+  {
+   "before": "transformer energized",
+   "after": "downstream LV board energization",
+   "reason": "LV boards are fed through the transformer in the cascade",
+   "strength": "strong"
+  },
+  {
+   "before": "insulation resistance (megger) test passed",
+   "after": "energization",
+   "reason": "faulted insulation must be found before applying voltage",
+   "strength": "strong"
+  },
+  {
+   "before": "switchroom HVAC operational",
+   "after": "sustained energization/load run",
+   "reason": "switchgear, transformers and UPS reject heat and need room cooling under load",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "requirement": "substation/switchroom, housekeeping plinths, transformer bunds, cable trenches and sleeves must be complete and handed over before equipment setting",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "strength": "strong"
+  },
+  {
+   "with": "containment_cabling",
+   "requirement": "power cable pulling requires cable tray/ladder installed, bonded and inspected",
+   "type": "requires",
+   "phase": "power_cable_installation",
+   "strength": "strong"
+  },
+  {
+   "with": "earthing",
+   "requirement": "energization requires the earth grid connected and resistance-tested; transformer neutral earthed",
+   "type": "requires",
+   "phase": "energization",
+   "strength": "strong"
+  },
+  {
+   "with": "utilities",
+   "requirement": "energization requires a permanent utility/upstream HV supply as the back-feed source",
+   "type": "requires",
+   "phase": "energization",
+   "strength": "strong"
+  },
+  {
+   "with": "hvac",
+   "requirement": "switchroom/UPS-room cooling must be operational before sustained energized load",
+   "type": "requires",
+   "phase": "commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "fire_alarm",
+   "requirement": "code often requires fire detection live in electrical rooms and shunt-trip interfaces wired before energization",
+   "type": "requires",
+   "phase": "energization",
+   "strength": "moderate"
+  },
+  {
+   "with": "bms",
+   "requirement": "breaker/generator/UPS status, metering and changeover signals are monitored by BMS",
+   "type": "coordinate",
+   "phase": "commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "process_equipment",
+   "requirement": "motors/drives need their board energized before motor bumps and loop checks",
+   "type": "provides",
+   "phase": "commissioning",
+   "strength": "strong"
+  }
+ ],
+ "testing_requirements": [
+  "Insulation resistance (megger) on cables and busbars",
+  "Contact/ductor resistance on busbar joints and breaker contacts",
+  "HV/VLF hi-pot test on MV cables",
+  "Transformer: turns ratio, winding resistance, vector group, insulation, oil analysis (oil-filled)",
+  "Protection relay secondary and primary injection; CT/VT ratio and polarity",
+  "Phase rotation/sequence at every board",
+  "Earth loop impedance and earth continuity",
+  "Functional interlock and trip checks; breaker timing/trip-unit test",
+  "Generator load-bank test; AMF/ATS changeover; synchronising",
+  "UPS battery autonomy/discharge test",
+  "Thermographic survey under load"
+ ],
+ "commissioning_dependencies": [
+  "Upstream/utility back-feed source available",
+  "Earthing system installed and tested",
+  "Approved protection/coordination study with settings loaded",
+  "Switchroom/UPS-room HVAC operational",
+  "Fire detection live in electrical rooms (code dependent)",
+  "Cable schedule and terminations complete and megger'd",
+  "Approved-for-energization SLD / as-built",
+  "Safe isolation, permit-to-work and LOTO regime in place",
+  "Downstream loads ready or isolated for staged energization"
+ ],
+ "typical_exceptions": [
+  "Packaged/skid substations arrive pre-wired and FAT'd, collapsing several setting/interconnection stages",
+  "Temporary construction-power generation precedes the permanent scheme",
+  "Factory-tested LV boards reduce site protection-testing scope"
+ ],
+ "work_packages": [
+  {
+   "wp": "MV switchgear supply, set and test",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "LV switchgear / MDB-SMDB",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Transformers",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Standby generator",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "UPS system",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Power cabling and containment",
+   "discipline": "electrical",
+   "interface": true,
+   "note": "shares containment work package"
+  },
+  {
+   "wp": "Earthing and bonding tie-in",
+   "discipline": "electrical",
+   "interface": true
+  },
+  {
+   "wp": "Substation civil/plinths/trenches",
+   "discipline": "civil",
+   "interface": true
+  }
+ ],
+ "evidence": "Switchgear was set and busbar-connected before the substation room's plinths and cable trenches were signed off, power-cable pulling was sequenced ahead of the tray/ladder being installed and bonded, and energization was booked before the earthing resistance test and protection injection.",
+ "status": "curated",
+ "source": "system_pattern"
+}

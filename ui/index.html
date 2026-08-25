@@ -19,19 +19,20 @@
           <polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
       </button>
-      <button class="sb-item" id="sb-audit-btn" title="Schedule Audit">
+      <button class="sb-item" id="sb-recent-btn" title="Recent Projects">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 3v5h5"/>
+          <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/>
+          <path d="M12 7v5l3 2"/>
+        </svg>
+      </button>
+      <button class="sb-item" id="sb-audit-btn" title="Schedule Health Review">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           <path d="M9 12l2 2 4-4"/>
         </svg>
       </button>
-      <button class="sb-item" id="sb-kb-btn" title="Knowledge Base — Project Standards">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-        </svg>
-      </button>
-      <button class="sb-item" id="sb-db-btn" title="Construction Database — downloadable schedules">
+      <button class="sb-item" id="sb-db-btn" title="Knowledge Base — your knowledge projects + reference standards">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <ellipse cx="12" cy="5" rx="9" ry="3"/>
           <path d="M3 5v14a9 3 0 0 0 18 0V5"/>
@@ -150,8 +151,8 @@
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>
                 </svg>
               </div>
-              <div class="cc-title">Schedule Audit</div>
-              <div class="cc-sub">Dangling Activities &amp; Float Analysis — isolated module reports</div>
+              <div class="cc-title">Schedule Health Review</div>
+              <div class="cc-sub">DCMA-based logic checks scored into one schedule health score</div>
             </button>
             <button class="chooser-card" data-view="oos">
               <div class="cc-icon oos">
@@ -241,7 +242,7 @@
         <div id="analysis-views" class="hidden">
         <div class="view-tabs">
           <button class="view-tab active" id="tab-evm" data-view="evm">EVM Results</button>
-          <button class="view-tab" id="tab-audit" data-view="audit">Schedule Audit</button>
+          <button class="view-tab" id="tab-audit" data-view="audit">Schedule Health Review</button>
           <button class="view-tab" id="tab-oos" data-view="oos">Out of Sequence</button>
           <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
           <button class="view-tab" id="tab-construct" data-view="construct">🧠 Constructability</button>
@@ -321,9 +322,13 @@
         </div><!-- /analysis-views -->
       </section>
 
-      <!-- Recent projects -->
-      <section class="recent-section">
-        <div class="section-label">Recent Projects</div>
+      <!-- Recent projects — its own sidebar page, hidden until opened (Decision 010) -->
+      <section class="recent-section hidden" id="recent-section">
+        <div class="kb-head">
+          <div class="section-label">Recent Projects</div>
+          <div class="kb-subtitle">Every schedule you've imported — most recent first. Open one to jump straight back in,
+            or remove its history. <span class="kb-eps-badge">Local &amp; private · <span id="recent-total">…</span></span></div>
+        </div>
         <div class="recent-table-wrap">
           <table class="recent-table">
             <thead>
@@ -341,35 +346,29 @@
         </div>
       </section>
 
-      <!-- Knowledge Base library (EPS view) — its own page, hidden until opened -->
-      <section class="kb-section hidden" id="kb-section">
-        <div class="kb-head">
-          <div class="section-label">Knowledge Base · Project Standards</div>
-          <div class="kb-subtitle">Browse the reference standard for every project type — the baseline your imported
-            schedules are reviewed against. <span class="kb-eps-badge">EPS view · <span id="kb-total">…</span></span></div>
-        </div>
-        <div class="kb-grid">
-          <aside class="kb-eps">
-            <input class="kb-search" id="kb-search" placeholder="🔍  Filter project types…" aria-label="Filter project types">
-            <p class="kb-hint">Like a P6 <b>EPS</b>: category folders hold the project types, and each type carries its own <b>baseline</b> standard.</p>
-            <div id="kb-tree"></div>
-          </aside>
-          <main class="kb-detailwrap"><div id="kb-detail"></div></main>
-        </div>
-      </section>
-
-      <!-- Construction Database — downloadable schedules by type; its own page -->
+      <!-- Knowledge Base — one place for knowledge projects + reference standards + baselines -->
       <section class="kb-section hidden" id="kb-database-section">
         <div class="kb-head">
-          <div class="section-label">Construction Database · Schedules</div>
-          <div class="kb-subtitle">Download a P6 baseline for any project type — clean, or with typical gaps to see the review
-            flag them — and add your own imported schedules to grow the tool's knowledge.
+          <div class="section-label">Knowledge Base</div>
+          <div class="kb-subtitle">Your knowledge projects — real schedules that grow the tool's supporting intelligence
+            (sequencing patterns, provenance). Add a project explicitly; analysis imports are never added automatically.
             <span class="kb-eps-badge">Local &amp; private · <span id="db-total">…</span></span></div>
         </div>
+
+        <div class="kbp-toolbar">
+          <span class="kbp-count" id="kbp-count">Knowledge Base…</span>
+          <button class="btn-primary" id="kbp-addxer">＋ Add Project XER</button>
+          <button class="btn-secondary" id="kbp-export">⬇ Export Knowledge</button>
+          <button class="btn-secondary" id="kbp-import">⬆ Import Knowledge</button>
+          <span class="kbp-note">Supporting knowledge only · generalized &amp; project-agnostic · never creates a finding</span>
+        </div>
+        <div class="kbp-tablewrap"><table class="kbp-table" id="kbp-table"></table></div>
+
+        <div class="kb-subhead">Project types <span class="n">reference standard · example baselines · your schedules</span></div>
         <div class="kb-grid">
           <aside class="kb-eps">
             <input class="kb-search" id="db-search" placeholder="🔍  Filter project types…" aria-label="Filter project types">
-            <p class="kb-hint">Each type holds <b>generated examples</b> plus any <b>schedules you've added</b>. Nothing leaves your PC.</p>
+            <p class="kb-hint">Each type opens to its <b>reference standard</b>, <b>generated examples</b>, and any <b>schedules you've added</b>. Nothing leaves your PC.</p>
             <div id="db-tree"></div>
           </aside>
           <main class="kb-detailwrap"><div id="db-detail"></div></main>
