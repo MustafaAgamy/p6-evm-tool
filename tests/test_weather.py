@@ -366,6 +366,24 @@ def test_climate_reference_in_result():
     assert 'avg_total' in ref and 'representative_year' in ref
 
 
+def test_histogram_per_month_net_bad_nonworking():
+    """Feature 2 3-colour histogram: per month, net working (green), weather-lost (amber) and
+    non-working (red) days. A bad day on a non-working day is not weather-lost. net = working − lost."""
+    cal = _cal()   # Sun–Thu working, Fri+Sat off
+    daily = {date(2025, 6, 3): {'rain_mm': 15},    # Tue — working → weather-lost
+             date(2025, 6, 7): {'rain_mm': 15}}    # Sat — already off → not lost
+    r = weather_impact(
+        calendars={'C': cal}, construction_cal_ids={'C'}, milestones=[],
+        data_date=date(2025, 5, 31), project_finish=date(2025, 6, 30),
+        daily_weather=daily, forecast_horizon=date(2025, 6, 30),
+        thresholds=DEFAULT_THRESHOLDS)
+    jun = next(h for h in r['histogram'] if h['label'] == 'Jun 2025')
+    assert jun['bad'] == 1                         # only the working bad day counts as lost
+    assert jun['nonworking'] == 8                  # 4 Fridays + 4 Saturdays in Jun 2025
+    assert jun['working'] == 22                    # 30 days − 8 non-working
+    assert jun['net'] == jun['working'] - jun['bad'] == 21
+
+
 # ── Site-type presets (the East Port Said fix) ───────────────────────────────
 
 def test_desert_preset_equals_current_default():

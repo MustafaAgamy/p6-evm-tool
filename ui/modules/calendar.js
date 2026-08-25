@@ -536,8 +536,60 @@ function _actsCell(d) {
   return `<span class="cal-muted">${escapeHtml(d.effect || '')}</span>`;
 }
 
+// Calendar days between two ISO dates (b − a); 0 if either missing.
+function _daysBetween(a, b) {
+  if (!a || !b) return 0;
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+
+// Feature 2 §1 — Execution Dashboard: Baseline Finish → Forecast Completion → Bad-weather
+// Completion, with the variance on each step (schedule's own slip, then what weather adds).
+function _weatherDashboard() {
+  const d = (_ca && _ca.dashboard) || {};
+  const w = _weather;
+  const slip = _daysBetween(d.baseline_finish, d.project_finish);   // schedule's own slip (cal. days)
+  const wxAdd = w.net_finish_delay || 0;                            // weather adds (working days)
+  return _sec(1, 'Execution Dashboard', '<span class="cal-pill warn">Estimate · not a P6 figure</span>') +
+    `<div class="cal-flow">
+      <div class="cal-step bl"><div class="cal-k">Baseline Finish</div><div class="cal-v">${fmtCalDate(d.baseline_finish)}</div></div>
+      <div class="cal-arrow"><div class="cal-alab">Schedule slip</div><div class="cal-avar ${slip > 0 ? 'pos' : 'zero'}">${slip > 0 ? '+' : ''}${slip} d</div><div class="cal-aln">→</div></div>
+      <div class="cal-step fc"><div class="cal-k">Forecast Completion</div><div class="cal-v">${fmtCalDate(d.project_finish)}</div></div>
+      <div class="cal-arrow"><div class="cal-alab">Weather adds</div><div class="cal-avar ${wxAdd > 0 ? 'pos' : 'zero'}">+${wxAdd} wd</div><div class="cal-aln">→</div></div>
+      <div class="cal-step bw"><div class="cal-k">Bad-weather Completion</div><div class="cal-v">${fmtCalDate(w.weather_adjusted_finish)}</div></div>
+    </div>
+    <div class="cal-note">Reads left → right: the baseline finish, the schedule's own forecast finish, then the weather-adjusted finish. Each arrow shows that step's variance — the schedule's own slip, then, separately, what bad weather adds.</div>`;
+}
+
+// Feature 2 §2 — 3-colour monthly histogram: net working (green) / bad-weather (amber) /
+// non-working (red) days; the number above each bar is the NET working days that month.
+function _weatherHistogram() {
+  const h = (_weather && _weather.histogram) || [];
+  if (!h.length) return '';
+  const H = 130;
+  const maxTot = Math.max(1, ...h.map(m => (m.net || 0) + (m.bad || 0) + (m.nonworking || 0)));
+  const px = v => Math.round((v || 0) / maxTot * H);
+  const bars = h.map(m =>
+    `<div class="cal-3bar" title="${escapeHtml(m.label)}: ${m.net} net working · ${m.bad} bad-weather · ${m.nonworking} non-working">
+      <div class="cal-3v">${m.net}</div>
+      <div class="cal-3col">
+        <div class="s-bad" style="height:${px(m.bad)}px"></div>
+        <div class="s-nw" style="height:${px(m.nonworking)}px"></div>
+        <div class="s-net" style="height:${px(m.net)}px"></div>
+      </div>
+      <div class="cal-3l">${escapeHtml(m.label)}</div></div>`).join('');
+  return _sec(2, 'Calendar Timeline &amp; Statistics') +
+    `<div class="cal-3leg"><span><i class="sw sw-net"></i>Net working days</span>
+       <span><i class="sw sw-nw"></i>Non-working days</span>
+       <span><i class="sw sw-bad"></i>Bad-weather days</span>
+       <span>▲ number above bar = <b>net working days</b> (working − bad-weather)</span></div>
+     <div class="cal-3hist">${bars}</div>`;
+}
+
 function _weatherSection() {
-  const head = _sec(9, 'Weather Impact', '<span class="cal-pill warn">Estimate · not a P6 figure</span>');
+  const dd = (_ca && _ca.dashboard && _ca.dashboard.data_date) ? fmtCalDate(_ca.dashboard.data_date) : '';
+  const head = dd
+    ? `<div class="cal-ddbanner">📅 All results start from the <b>Data Date · ${dd}</b> — nothing before it. Weather window: data date → finish.</div>`
+    : '';
   if (!_pendingLoc) {
     return head + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
       Set the <b>Project Location</b> at the top and click <b>Use this location</b> to calculate the expected bad-weather days, milestone impact and recovery options.</p></div>`;
@@ -548,9 +600,11 @@ function _weatherSection() {
       Adjust the stop-work limits above if needed, then click <b>Apply &amp; recalculate</b> (or <b>Use this location</b> at the top).</p></div>`;
   }
   const w = _weather;
+  const dashboard = _weatherDashboard();
+  const histogram = _weatherHistogram();
   const badSub = (w.climate_avg_total != null && w.climate_avg_total !== w.expected_bad_days_total)
     ? `~${w.climate_avg_total} on the 5-yr average` : '';
-  const kpis = `<div class="cal-kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+  const kpis = `<div class="cal-kpi-grid" style="grid-template-columns:repeat(3,1fr);margin:12px 0">
     ${_tile('Bad-weather days (remaining)', w.expected_bad_days_total, badSub, 'hl-amber')}
     ${_tile('Net weather delay to finish', `+${w.net_finish_delay} wd`, '', 'hl-amber')}
     ${_tile('Weather-adjusted finish', fmtCalDate(w.weather_adjusted_finish))}</div>`;
@@ -621,7 +675,7 @@ function _weatherSection() {
        <div class="cal-concl" style="border-left:4px solid var(--warning)"><p style="margin:0;font-size:13px;line-height:1.6">${escapeHtml(w.conclusion)}</p></div>`
     : '';
   const note = '<div class="cal-note">Applies to construction activities only (auto-detected), and only to Finish/completion milestones. A forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
-  return head + controls + kpis + _whyResultHtml() + bar + _climateRefHtml() + causeCard + dayTable + msTable + recTable + conclHtml + note;
+  return head + controls + dashboard + histogram + kpis + _whyResultHtml() + causeCard + dayTable + msTable + recTable + bar + _climateRefHtml() + conclHtml + note;
 }
 
 // Read the stop-work-limit inputs → thresholds object (blank = off).

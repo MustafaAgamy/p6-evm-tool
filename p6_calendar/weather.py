@@ -389,6 +389,27 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         monthly = [{'label': f'{_MON[m]} {y}', 'count': c, 'avg': c, 'lo': c, 'hi': c}
                    for (y, m), c in sorted(monthly_map.items())]
 
+    # 3-colour histogram per month (Feature 2 — Bad Weather tab): from the data date onward,
+    # each month's NET working days (green), the working days lost to weather (amber) and the
+    # non-working days (red). net = working days − weather-lost days; bar = calendar days.
+    hcount = {}
+    hd = data_date + timedelta(days=1)
+    while hd <= project_finish:
+        h = hcount.setdefault((hd.year, hd.month), {'working': 0, 'nonworking': 0, 'lost': 0})
+        if primary_cal and primary_cal.is_working_day(hd):
+            h['working'] += 1
+            if hd in lost:
+                h['lost'] += 1
+        else:
+            h['nonworking'] += 1
+        hd += timedelta(days=1)
+    histogram = [{'label': f'{_MON[m]} {y}',
+                  'net': hcount[(y, m)]['working'] - hcount[(y, m)]['lost'],
+                  'bad': hcount[(y, m)]['lost'],
+                  'nonworking': hcount[(y, m)]['nonworking'],
+                  'working': hcount[(y, m)]['working']}
+                 for (y, m) in sorted(hcount)]
+
     # Recovery recommendations (advisory) — per milestone that slips.
     recovery = []
     for m in ms:
@@ -425,6 +446,7 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     return {
         'bad_days': bad_list,
         'monthly': monthly,
+        'histogram': histogram,      # per-month net / bad-weather / non-working days (Feature 2)
         'by_cause': by_cause,
         'milestones': ms,
         'expected_bad_days_total': len(remaining),
