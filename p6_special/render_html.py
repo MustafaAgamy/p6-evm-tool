@@ -231,10 +231,16 @@ def _group(pl, C):
     return ''.join(render_payload(b, C) for b in (pl.get('blocks') or []))
 
 
+def _html_block(pl, C):
+    """A feature's own report markup (already scoped). CSS is collected at the
+    document level; here we just place the fragment."""
+    return pl.get('html') or _no_data({}, C)
+
+
 _DISPATCH = {
     'kpi_group': _kpi_group, 'table': _table, 'bars': _bars, 'segbar': _segbar,
     'findings': _findings, 'keyvals': _keyvals, 'text': _text, 'note': _note,
-    'no_data': _no_data, 'group': _group,
+    'no_data': _no_data, 'group': _group, 'html': _html_block,
 }
 
 
@@ -318,9 +324,22 @@ def _base_css(C):
     )
 
 
+def _feature_css_head(rendered, mode):
+    """Theme tokens + each reused feature's scoped CSS (deduped), for the head.
+    Only emitted when a reused feature-report section is present."""
+    feat_css = {}
+    for it in rendered:
+        pl = it.get('payload') or {}
+        if pl.get('kind') == 'html' and pl.get('css'):
+            feat_css.setdefault(pl.get('feature'), pl['css'])
+    if not feat_css:
+        return ''
+    return report_theme.theme_style_tag(mode) + '<style>' + '\n'.join(feat_css.values()) + '</style>'
+
+
 def document_parts(report_name, meta, rendered, mode='light', letterhead=None):
     """Shared assembly used by both the HTML/PDF and the Word wrappers, so the
-    two never diverge. Returns ``{colors, css, body, title}``."""
+    two never diverge. Returns ``{colors, css, head_extra, body, title}``."""
     C = _Colors(mode)
     report_name = report_name or 'Special Report'
     body = _cover(report_name, meta, letterhead, C)
@@ -330,21 +349,23 @@ def document_parts(report_name, meta, rendered, mode='light', letterhead=None):
     else:
         body += (f'<div style="font-size:13px;color:{C("rpt-muted")};padding:20px 0">'
                  f'No results selected. Pick results on the left to build the report.</div>')
-    return {'colors': C, 'css': _base_css(C), 'body': body, 'title': report_name}
+    return {'colors': C, 'css': _base_css(C), 'head_extra': _feature_css_head(rendered, mode),
+            'body': body, 'title': report_name}
 
 
 def build_document(report_name, meta, rendered, mode='light', letterhead=None):
     """Assemble the full themed HTML document (cover + TOC + numbered sections).
 
-    ``rendered`` is the list from ``registry.render(ctx, ids)``.
-    Returns a complete ``<html>`` string used for screen preview and Chrome PDF;
-    ``word_export`` wraps the same parts for Word so all three look identical.
+    ``rendered`` is the list from ``registry.render(ctx, ids)``. Reused feature
+    sections bring their own (scoped) CSS + the shared report_theme tokens; the
+    Special Report base CSS is injected last so it wins on shared elements.
+    Used for screen preview and Chrome PDF.
     """
     parts = document_parts(report_name, meta, rendered, mode=mode, letterhead=letterhead)
     return (
         '<!DOCTYPE html><html><head><meta charset="utf-8">'
         f'<title>{_esc(parts["title"])}</title>'
-        f'<style>{parts["css"]}</style></head><body>'
+        f'{parts["head_extra"]}<style>{parts["css"]}</style></head><body>'
         f'{parts["body"]}'
         '</body></html>'
     )

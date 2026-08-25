@@ -6,7 +6,6 @@ import db
 from utils import resource_path
 from p6_special import registry
 from p6_special.context import SpecialContext
-from p6_special.providers import update as update_provider
 
 
 def _seed(fixture):
@@ -78,34 +77,7 @@ def test_calendar_renders(temp_db, xml_path):
     _payloads_ok(registry.render(ctx, cal_ids))
 
 
-# ── update (recompute) — flagship unit test ──────────────────────────────────
-class _FakeCtx:
-    def __init__(self, report):
-        self._c = {'update_report': report}
-
-    def memo(self, key, fn):
-        if key not in self._c:
-            self._c[key] = fn()
-        return self._c[key]
-
-    def has_xml(self):
-        return True
-
-
-def test_update_counts_flagship():
-    report = {'counts': {'total': 10, 'planned_total': 9,
-                         'planned_completed': 7, 'planned_in_progress': 1, 'planned_not_started': 1,
-                         'actual_completed': 5, 'actual_in_progress': 3, 'actual_not_started': 2}}
-    payload = update_provider._counts(_FakeCtx(report))
-    assert payload['kind'] == 'group'
-    kinds = [b['kind'] for b in payload['blocks']]
-    assert 'bars' in kinds and 'segbar' in kinds
-    bars = next(b for b in payload['blocks'] if b['kind'] == 'bars')
-    assert bars['rows'][0]['display'] == ['7 planned', '5 actual']
-    seg = next(b for b in payload['blocks'] if b['kind'] == 'segbar')
-    assert [s['value'] for s in seg['segments']] == [5, 3, 2]
-
-
+# ── update (recompute) — real feature sections ───────────────────────────────
 def test_update_renders_via_registry(temp_db, xml_path):
     registry.clear_providers()
     ctx = SpecialContext(_seed(xml_path))
@@ -157,10 +129,21 @@ def test_end_to_end_document(temp_db, xml_path):
     from p6_special.assemble import build_html, build_word
     registry.clear_providers()
     pid = _seed(xml_path)
-    ids = ['evm:planned_pct', 'evm:actual_pct', 'update:counts', 'audit:dangling_score']
+    # granular (Word-clean) items → no CSS variables leak into the document
+    ids = ['evm:planned_pct', 'evm:actual_pct', 'audit:dangling_score']
     html = build_html(pid, ids, 'October Board Report', mode='dark')
     assert 'October Board Report' in html
     assert 'Table of contents' in html
     assert 'var(--' not in html
     doc = build_word(pid, ids, 'October Board Report', mode='dark')
     assert 'WordSection1' in doc and 'var(--' not in doc
+
+
+def test_reused_feature_section_composes(temp_db, xml_path):
+    """A reused feature-report section (EVM full report) composes into the document
+    with the feature's own markup + its scoped CSS."""
+    from p6_special.assemble import build_html
+    registry.clear_providers()
+    pid = _seed(xml_path)
+    html = build_html(pid, ['evm:full_report'], 'Detailed', mode='light')
+    assert 'Detailed' in html and 'srf-evm' in html   # feature markup wrapped + scoped

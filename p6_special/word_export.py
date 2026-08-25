@@ -26,7 +26,7 @@ def build_word_document(report_name, meta, rendered, mode='light', letterhead=No
         f'<title>{title}</title>'
         '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View>'
         '<w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->'
-        f'<style>{parts["css"]} {page_css}</style></head>'
+        f'{parts.get("head_extra", "")}<style>{parts["css"]} {page_css}</style></head>'
         f'<body><div class="WordSection1">{parts["body"]}</div></body></html>'
     )
 

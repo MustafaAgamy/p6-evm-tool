@@ -18,12 +18,14 @@ from utils import resource_path
 
 
 class SpecialContext:
-    def __init__(self, project_id, snapshot_id=None, inputs=None):
+    def __init__(self, project_id, snapshot_id=None, inputs=None, mode='light'):
         self.project_id = project_id
         self._sid = snapshot_id
         # Extra user-attached inputs keyed by role, e.g.
         # {'baseline': 'C:/.../baseline.xer', 'previous': 'C:/.../update_sep.xml'}.
         self.inputs = dict(inputs or {})
+        # Appearance mode for reused feature-report HTML (set per render).
+        self.mode = mode or 'light'
         self._cache = {}
 
     # ── memo ────────────────────────────────────────────────────────────────

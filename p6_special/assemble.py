@@ -6,10 +6,10 @@ from p6_special import registry, render_html, word_export
 from p6_special.context import SpecialContext
 
 
-def _ctx(project_id=None, snapshot_id=None, inputs=None):
+def _ctx(project_id=None, snapshot_id=None, inputs=None, mode='light'):
     if not project_id and snapshot_id:
         project_id = db.get_project_id_for_snapshot(snapshot_id)
-    return SpecialContext(project_id, snapshot_id=snapshot_id, inputs=inputs)
+    return SpecialContext(project_id, snapshot_id=snapshot_id, inputs=inputs, mode=mode)
 
 
 def catalog(project_id=None, snapshot_id=None, inputs=None):
@@ -28,7 +28,7 @@ def _meta(ctx, meta):
 def build_html(project_id=None, item_ids=None, report_name='Special Report', mode='light',
                meta=None, letterhead=None, inputs=None, snapshot_id=None):
     """Full themed HTML document (screen preview + Chrome PDF)."""
-    ctx = _ctx(project_id, snapshot_id, inputs)
+    ctx = _ctx(project_id, snapshot_id, inputs, mode=mode)
     rendered = registry.render(ctx, item_ids or [])
     return render_html.build_document(report_name, _meta(ctx, meta), rendered,
                                       mode=mode, letterhead=letterhead)
@@ -36,8 +36,8 @@ def build_html(project_id=None, item_ids=None, report_name='Special Report', mod
 
 def build_word(project_id=None, item_ids=None, report_name='Special Report', mode='light',
                meta=None, letterhead=None, inputs=None, snapshot_id=None):
-    """Word-openable document (identical styling to the PDF)."""
-    ctx = _ctx(project_id, snapshot_id, inputs)
+    """Word-openable document (best-effort match to the PDF)."""
+    ctx = _ctx(project_id, snapshot_id, inputs, mode=mode)
     rendered = registry.render(ctx, item_ids or [])
     return word_export.build_word_document(report_name, _meta(ctx, meta), rendered,
                                            mode=mode, letterhead=letterhead)

@@ -1,12 +1,9 @@
-"""Constructability Review provider.
-
-Single file, recomputed on demand: ``run_review(ctx.parsed())``. Score is a dict
-with 'overall' (0..100) + 'band_label'; findings come from 'illogical' + 'missing'.
-"""
+"""Constructability Review provider — the feature's OWN full report (score,
+dimensions, findings, charts), recomputed on demand; plus a quick score figure."""
 from p6_special import payloads as P
 from p6_special import fmt
+from p6_special import feature_reports as FR
 from p6_special.registry import Item
-from p6_special.providers import _util as U
 
 FEATURE = 'constructability'
 FEATURE_TITLE = 'Constructability Review'
@@ -44,48 +41,9 @@ def _score(ctx):
                               sub=band, tone=_tone(overall))])
 
 
-def _type(ctx):
-    r = _review(ctx)
-    if not r or not r.get('project_type'):
-        return P.NO_DATA
-    conf = r.get('confidence') or {}
-    return P.keyvals([
-        ('Detected type', r.get('project_type')),
-        ('Confidence', conf.get('level') or '—'),
-        ('Signature hits', conf.get('hits')),
-    ])
-
-
-def _dimensions(ctx):
-    r = _review(ctx)
-    d = (r or {}).get('dashboard') or {}
-    return U.kpi_from_dict(d) if d else P.NO_DATA
-
-
-def _whatif(ctx):
-    r = _review(ctx)
-    pj = (r or {}).get('projected')
-    if not pj:
-        return P.NO_DATA
-    return P.kpi_group([P.kpi('Projected score if fixed',
-                              f"{fmt.num(pj.get('overall'))}/100",
-                              sub=pj.get('basis'), tone='good')])
-
-
-def _findings(ctx):
-    r = _review(ctx)
-    if not r:
-        return P.NO_DATA
-    items = list(r.get('illogical') or []) + list(r.get('missing') or [])
-    return U.findings_from_list(items, empty='No constructability issues flagged.')
-
-
 def provide(ctx):
-    R = _ready
     return [
-        Item('construct:score', FEATURE, FEATURE_TITLE, 'Constructability score', 'score', _score, R),
-        Item('construct:type', FEATURE, FEATURE_TITLE, 'Detected project type', 'text', _type, R),
-        Item('construct:dimensions', FEATURE, FEATURE_TITLE, 'Review breakdown', 'kpi', _dimensions, R),
-        Item('construct:whatif', FEATURE, FEATURE_TITLE, 'Projected score if fixed', 'kpi', _whatif, R),
-        Item('construct:findings', FEATURE, FEATURE_TITLE, 'Constructability findings', 'findings', _findings, R),
+        Item('construct:score', FEATURE, FEATURE_TITLE, 'Constructability score', 'score', _score, _ready),
+        Item('construct:report', FEATURE, FEATURE_TITLE, 'Full Constructability report', 'section',
+             lambda ctx: FR.kb_full_report(ctx) or P.NO_DATA, _ready),
     ]

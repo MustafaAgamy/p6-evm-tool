@@ -28,10 +28,10 @@ def test_catalog_endpoint(test_server, xml_path):
     cp = next(g for g in r['groups'] if g['feature'] == 'critpath')
     assert all(i['availability'] == 'needs_input' for i in cp['items'])
     assert cp['items'][0]['requires']
-    # completeness: Critical Path exposes its charts, not just a couple of tables
+    # completeness: Critical Path exposes its OWN report sections (charts included)
     cp_ids = {i['id'] for i in cp['items']}
-    assert {'critpath:crit_near', 'critpath:cpli_trend', 'critpath:slip',
-            'critpath:float_migration'}.issubset(cp_ids)
+    assert {'critpath:dashboard', 'critpath:driving_path', 'critpath:census',
+            'critpath:milestones', 'critpath:float_migration'}.issubset(cp_ids)
 
 
 def test_render_endpoint_word_safe(test_server, xml_path):

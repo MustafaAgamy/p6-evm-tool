@@ -13,6 +13,7 @@ Copy this file's shape to add a provider for another feature:
 """
 from p6_special import payloads as P
 from p6_special import fmt
+from p6_special import feature_reports as FR
 from p6_special.registry import Item
 
 FEATURE = 'evm'
@@ -178,4 +179,6 @@ def provide(ctx):
         Item('evm:delay', FEATURE, FEATURE_TITLE, 'Delay in working days', 'kpi', _kpi_delay, A),
         Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned / Earned / Actual value (chart)', 'chart', _pv_ev_ac, A),
         Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'table', _gap, A),
+        Item('evm:full_report', FEATURE, FEATURE_TITLE, 'Full EVM report (detailed)', 'section',
+             lambda ctx: FR.evm_full_report(ctx) or P.NO_DATA, A),
     ]
