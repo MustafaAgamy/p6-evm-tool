@@ -14,6 +14,7 @@ Selection rules (binding Global Reporting standard):
 import html as _html
 from typing import List, Optional
 
+import report_theme
 from p6_report.registry import ReportSpec
 
 _NO_DATA = ('summary', 'chart', 'table', 'text', 'findings', 'recommendations')
@@ -75,8 +76,14 @@ def _section(n: int, comp, report: dict) -> str:
 
 def build_document(spec: ReportSpec, report: dict,
                    selected_ids: Optional[List[str]] = None,
-                   order: Optional[List[str]] = None) -> str:
-    """Assemble the selected components into one print-ready HTML document."""
+                   order: Optional[List[str]] = None,
+                   theme: Optional[str] = None) -> str:
+    """Assemble the selected components into one print-ready HTML document.
+
+    ``theme`` is one of the shared appearance modes (report_theme.MODES). Its
+    ``--rpt-*`` token palette is injected at the end of <head>, so this ONE
+    assembler themes every print-preview report — and the frame + every feature
+    that reads the tokens gets all six modes for free. Unknown/None → light."""
     report = report or {}
     ids = _resolve_selection(spec, selected_ids, order)
     by_id = spec.by_id()
@@ -100,19 +107,20 @@ def build_document(spec: ReportSpec, report: dict,
       @page {{ @bottom-right {{ content: "Page " counter(page) " of " counter(pages); }} }}
       * {{ box-sizing: border-box; }}
       html, body {{ margin: 0; }}
-      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 11.5px; }}
-      .rf-title {{ font-size: 19px; font-weight: 800; margin: 0 0 2px; }}
-      .rf-sub {{ color: #64748b; font-size: 11px; margin-bottom: 2px; }}
-      .rf-meta {{ color: #94a3b8; font-size: 10px; margin-bottom: 10px; }}
-      .rf-h2 {{ font-size: 13px; margin: 15px 0 7px; border-bottom: 2px solid #1e2d40; padding-bottom: 3px; }}
-      .rf-num {{ color: #26517d; font-weight: 800; margin-right: 4px; }}
+      body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: var(--rpt-ink); font-size: 11.5px; }}
+      .rf-title {{ font-size: 19px; font-weight: 800; margin: 0 0 2px; color: var(--rpt-ink); }}
+      .rf-sub {{ color: var(--rpt-ink-soft); font-size: 11px; margin-bottom: 2px; }}
+      .rf-meta {{ color: var(--rpt-muted); font-size: 10px; margin-bottom: 10px; }}
+      .rf-h2 {{ font-size: 13px; margin: 15px 0 7px; color: var(--rpt-ink);
+                border-bottom: 2px solid var(--rpt-th-ink); padding-bottom: 3px; }}
+      .rf-num {{ color: var(--rpt-accent); font-weight: 800; margin-right: 4px; }}
       .rf-section {{ break-inside: avoid-page; }}
       .rf-section:first-of-type .rf-h2 {{ margin-top: 6px; }}
-      .rf-nodata {{ color: #94a3b8; font-style: italic; font-size: 11px; padding: 4px 0; }}
-      .rf-foot {{ margin-top: 14px; font-size: 9.5px; color: #94a3b8; font-style: italic;
-                  border-top: 1px solid #e2e8f0; padding-top: 6px; }}
+      .rf-nodata {{ color: var(--rpt-muted); font-style: italic; font-size: 11px; padding: 4px 0; }}
+      .rf-foot {{ margin-top: 14px; font-size: 9.5px; color: var(--rpt-muted); font-style: italic;
+                  border-top: 1px solid var(--rpt-hair); padding-top: 6px; }}
       {spec.css}
-    </style></head><body>
+    </style>{report_theme.theme_style_tag(theme)}</head><body>
       <div class="rf-title">{_e(spec.title)}</div>
       {sub}
       {meta}
