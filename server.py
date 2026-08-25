@@ -1524,7 +1524,8 @@ class Handler(BaseHTTPRequestHandler):
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
             html_content = render_calendar_report(ca, meta_in, weather=weather,
                                                   sections=body.get('sections'),
-                                                  theme=report_theme.normalize(body.get('theme')))
+                                                  theme=report_theme.normalize(body.get('theme')),
+                                                  feature=body.get('feature', 'calendar'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

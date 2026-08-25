@@ -84,7 +84,7 @@ def test_report_weather_section_only_when_provided(tmp_path):
     }
     weather['bad_days'][0]['activities'] = ['Cable pulling']
     weather['bad_days'][0]['activities_count'] = 1
-    html = render_calendar_report(result, META, weather=weather)
+    html = render_calendar_report(result, META, weather=weather, feature='weather')
     assert 'Weather Impact' in html and 'Impact on Milestone Completion' in html
     assert 'Recovery Recommendations' in html
     # new results carried into the PDF: upcoming days with measured reason, source + limits
@@ -121,7 +121,7 @@ def test_report_shows_site_type_criteria_and_why(tmp_path):
              'flagged': 1, 'peak': 41.3},
         ],
     }
-    html = render_calendar_report(_result(tmp_path), META, weather=weather)
+    html = render_calendar_report(_result(tmp_path), META, weather=weather, feature='weather')
     assert 'Stop-Work Criteria' in html and 'Marine / Port' in html
     assert 'What work it stops' in html and 'marine works' in html  # wind explanation shown
     assert 'Why This Result' in html and 'flagged 1 day' in html and '41.3' in html
@@ -129,7 +129,7 @@ def test_report_shows_site_type_criteria_and_why(tmp_path):
     # A user-edited set is labelled "Custom limits", never mislabelled as the desert default.
     weather['site_type'] = 'custom'
     weather['site_type_label'] = None
-    html2 = render_calendar_report(_result(tmp_path), META, weather=weather)
+    html2 = render_calendar_report(_result(tmp_path), META, weather=weather, feature='weather')
     assert 'Custom limits' in html2 and 'Default limits (Desert / inland)' not in html2
 
 
@@ -157,7 +157,7 @@ def test_report_weather_cause_relabelled(tmp_path):
         'by_cause': [{'label': 'Heat', 'count': 3}, {'label': 'Wind', 'count': 0, 'off': True}],
         'bad_days': [], 'milestones': [], 'recovery': [], 'monthly': [], 'conclusion': 'x',
     }
-    html = render_calendar_report(_result(tmp_path), META, weather=weather)
+    html = render_calendar_report(_result(tmp_path), META, weather=weather, feature='weather')
     assert 'Causing the Lost Days' in html and 'by Weather Type' in html
     assert 'which condition causes them' in html
 

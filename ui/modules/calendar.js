@@ -172,12 +172,17 @@ function _tile(lab, val, sub = '', cls = '') {
 // ── Report Contents (#06) — the sections the Calendar Audit PDF can print. Shown as the
 // in-preview "Include sections" picker (shared showReportPreview), matching every other
 // module's report picker. ──
+// Feature 1 — P6 Calendar Audit PDF (no weather; that's the Bad Weather report).
 export const CAL_SECTIONS = [
   ['dashboard', '1 Executive Dashboard'], ['timeline', '2 Calendar Timeline'],
   ['stats', '3 Monthly Statistics'], ['exceptions', '4 Calendar Exceptions'],
   ['hours', '5 Working Hours Profile'], ['comparison', '6 Calendar Comparison'],
   ['usage', '7 Calendar Usage'], ['conflicts', '8 Calendar Conflicts'],
-  ['weather', '9 Weather Impact'], ['conclusion', '10 Executive Conclusion'],
+  ['conclusion', '9 Executive Conclusion'],
+];
+// Feature 2 — Bad Weather effect on Forecast Finish PDF (weather-only).
+export const WEATHER_SECTIONS = [
+  ['weather', 'Bad Weather Impact'],
 ];
 
 // ── Location picker (top — drives the Weather-Adjusted Finish + Section 9) ──

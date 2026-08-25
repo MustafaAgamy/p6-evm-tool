@@ -1,6 +1,6 @@
 import { state }                              from './modules/state.js';
 import { initTheme }                          from './modules/theme.js';
-import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, exportCalendarExcel } from './modules/api.js';
+import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('lag-excel-btn').addEventListener('click', () => exportExcel('lag-excel-btn'));
   document.getElementById('cal-pdf-btn').addEventListener('click', generateCalendarPdf);
   document.getElementById('cal-excel-btn').addEventListener('click', exportCalendarExcel);
+  document.getElementById('weather-pdf-btn').addEventListener('click', generateWeatherPdf);
 
   // Analysis chooser (shown after upload) → reveal the chosen view
   document.querySelectorAll('.chooser-card').forEach(card =>

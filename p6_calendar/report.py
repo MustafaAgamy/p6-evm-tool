@@ -422,7 +422,8 @@ def _conclusion(bullets, weather=None):
             f'<div class="concl"><ul>{items}{wx}</ul></div>')
 
 
-def render_calendar_report(result, meta, weather=None, sections=None, theme='light'):
+def render_calendar_report(result, meta, weather=None, sections=None, theme='light',
+                           feature='calendar'):
     d = result.get('dashboard', {})
     proj = result.get('project', {}) or {}
     primary = result.get('primary_calendar_id')
@@ -432,17 +433,23 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
     profiles = bc.get('hours_profiles', [])
     cal_name = next((c['name'] for c in result.get('assigned_calendars', [])
                      if c['object_id'] == primary), '')
-    # #06 — the section-picker: `sections` is the list of keys to print (None = all).
-    # Each section is wrapped in a data-sec container so the in-preview Report-Contents
-    # picker (shared showReportPreview) can show/hide it live; the same `sections` list
-    # is honoured server-side so a saved PDF contains exactly the ticked sections.
-    inc = (lambda k: True) if not sections else (lambda k: k in sections)
+    # The two features print different reports (Ibrahim's split): the P6 Calendar Audit
+    # (feature='calendar') never includes weather; the Bad Weather report (feature='weather')
+    # is weather-only. `sections` (the in-preview picker) still filters within the feature.
+    is_weather = (feature == 'weather')
+    if sections is None:
+        sections = (['weather'] if is_weather else
+                    ['dashboard', 'timeline', 'stats', 'exceptions', 'hours',
+                     'comparison', 'usage', 'conflicts', 'conclusion'])
+    inc = lambda k: k in sections
+    # Feature 1's dashboard/conclusion carry no weather (weather lives in the Bad Weather report).
+    dash_weather = weather if is_weather else None
     period_note = f"from the data date ({_fmt(d.get('data_date'))}) to finish"
 
     def _wrap(key, html):
         return f'<div data-sec="{key}">{html}</div>' if html else ''
     body = ''.join([
-        _wrap('dashboard', _dashboard(d, weather)) if inc('dashboard') else '',
+        _wrap('dashboard', _dashboard(d, dash_weather)) if inc('dashboard') else '',
         _wrap('timeline', _month_grids(months, proj.get('hidden_months', 0), proj.get('timeline_start'))) if inc('timeline') else '',
         _wrap('stats', _monthly_stats(months)) if inc('stats') else '',
         _wrap('exceptions', _exceptions(exc)) if inc('exceptions') else '',
@@ -451,7 +458,7 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
         _wrap('usage', _usage(result.get('usage', []))) if inc('usage') else '',
         _wrap('conflicts', _conflicts(result.get('conflicts', []))) if inc('conflicts') else '',
         _wrap('weather', _weather_section(weather)) if inc('weather') else '',
-        _wrap('conclusion', _conclusion(result.get('conclusion', []), weather)) if inc('conclusion') else '',
+        _wrap('conclusion', _conclusion(result.get('conclusion', []), dash_weather)) if inc('conclusion') else '',
     ])
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Calendar Audit — {_esc(meta.get('project_name', ''))}</title>
