@@ -1664,13 +1664,15 @@ class Handler(BaseHTTPRequestHandler):
     # ── /api/calendar/settings ─────────────────────────────────────────────
     def _handle_calendar_settings(self, body):
         """Persist per-project Calendar Audit settings (location / manual shutdowns /
-        shutdown reasons) and recompute the calendar audit so the changes show at once."""
+        shutdown reasons / working-hours notes) and recompute the calendar audit so the
+        changes show at once."""
         sid = body.get('snapshot_id')
         pid = db.get_project_id_for_snapshot(sid) if sid else None
         if not pid:
             self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
             return
-        patch = {k: body[k] for k in ('location', 'manual_shutdowns', 'shutdown_reasons')
+        patch = {k: body[k] for k in ('location', 'manual_shutdowns', 'shutdown_reasons',
+                                      'hours_notes')
                  if body.get(k) is not None}
         settings = db.save_project_settings(pid, patch)
         ca = None

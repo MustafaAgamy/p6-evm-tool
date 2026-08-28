@@ -184,10 +184,16 @@ def _acts_cell(d):
 
 
 def _hours(profiles):
-    cards = ''.join(f'<div class="hp"><div class="t">{_esc(p["name"])}</div>'
-                    f'<div class="h">{_esc(p["hours"])}</div>'
-                    f'<div class="s">{_esc(p["hours_per_day"])} hrs · {_esc(p.get("sub", ""))}</div></div>'
-                    for p in profiles)
+    def _card(p):
+        # The planner's justification note (e.g. "Summer / Ramadan reduced hours") prints
+        # under the profile when set; hidden when blank (Ibrahim: don't print empty rows).
+        note = (p.get('note') or '').strip()
+        note_html = f'<div class="hpn">✎ {_esc(note)}</div>' if note else ''
+        return (f'<div class="hp"><div class="t">{_esc(p["name"])}</div>'
+                f'<div class="h">{_esc(p["hours"])}</div>'
+                f'<div class="s">{_esc(p["hours_per_day"])} hrs · {_esc(p.get("sub", ""))}</div>'
+                f'{note_html}</div>')
+    cards = ''.join(_card(p) for p in profiles)
     return ('<h2 class="sec">5 · Working Hours Profile</h2>'
             '<p class="lg">Your <b>standard working day</b>, used all year — different from the '
             '<i>Reduced / Special Working Hours</i> in section 4, which are specific dates whose hours '
@@ -522,6 +528,8 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
   .hp .t {{ font-weight: 700; }}
   .hp .h {{ font-size: 17px; font-weight: 800; color: var(--rpt-accent); margin-top: 2px; }}
   .hp .s {{ font-size: 9px; color: var(--rpt-muted); margin-top: 3px; }}
+  .hp .hpn {{ font-size: 9.5px; color: var(--rpt-ink-soft); margin-top: 6px; font-style: italic;
+              border-top: 1px solid var(--rpt-hair); padding-top: 5px; }}
   .mgrids {{ display: flex; flex-wrap: wrap; gap: 12px; }}
   .whleg {{ display: flex; gap: 14px; margin: 4px 0 8px; font-size: 9px; color: var(--rpt-ink-soft); }}
   .whleg span {{ display: inline-flex; align-items: center; gap: 4px; }}

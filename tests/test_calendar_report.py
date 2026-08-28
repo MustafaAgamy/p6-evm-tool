@@ -186,6 +186,19 @@ def test_report_shows_named_holiday_in_cell(tmp_path):
     assert 'Plant Turnaround' in html and 'class="cn"' in html
 
 
+def test_report_prints_hours_note(tmp_path):
+    """§5 — a planner's working-hours note prints in the PDF's Working Hours Profile."""
+    _result(tmp_path)                                        # writes tmp_path/s.xml
+    data = parse_file(str(tmp_path / 's.xml'))
+    base = calendar_audit(data, {}, {})
+    key = base['by_calendar'][base['primary_calendar_id']]['hours_profiles'][0]['key']
+    result = calendar_audit(data, {}, {'hours_notes': {key: 'Summer / Ramadan reduced hours'}})
+    html = render_calendar_report(result, META)
+    assert 'Summer / Ramadan reduced hours' in html
+    # blank note → nothing printed (no empty note row)
+    assert 'Summer / Ramadan reduced hours' not in render_calendar_report(base, META)
+
+
 def test_report_theme_default_is_light(tmp_path):
     html = render_calendar_report(_result(tmp_path), META)
     assert html.startswith('<!DOCTYPE html>') and html.rstrip().endswith('</html>')

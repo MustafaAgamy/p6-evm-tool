@@ -30,6 +30,20 @@ export function conflictSeverityClass(sev) {
   return { High: 'cf-high', Medium: 'cf-med', Low: 'cf-low' }[sev] || 'cf-low';
 }
 
+// Per-month bar geometry for the Calendar Timeline histogram (Feature 1 §2). Heights are in
+// px, scaled so the tallest month (working + non-working) fills ~100px; the non-working
+// segment stacks under the working one. Shared by the primary and the compare histogram.
+export function histBarGeom(months) {
+  const mx = Math.max(1, ...months.map(m => (m.working_days || 0) + (m.nonworking_days || 0)));
+  return months.map(m => {
+    const wd = m.working_days || 0, nw = m.nonworking_days || 0, tot = wd + nw;
+    const totPx = Math.round(tot / mx * 100);
+    const nwPx = tot ? Math.round(nw / tot * totPx) : 0;
+    const wPx = Math.max(0, totPx - nwPx);
+    return { label: m.label, wd, nw, totPx, nwPx, wPx };
+  });
+}
+
 // ── Site-type presets — mirror of p6_calendar/weather.py SITE_TYPES ──────────
 // One pick loads the stop-work limits that fit that kind of work. DESERT equals the
 // app default (wind off / heat 42), so a project that never picks a type is unchanged.
@@ -263,17 +277,14 @@ function _calPicker2() {
 // One calendar's net-working / non-working days-per-month histogram. `clickable` months
 // open their full calendar grid (primary only); the comparison histogram is view-only.
 function _histBars(months, clickable) {
-  const mx = Math.max(1, ...months.map(m => (m.working_days || 0) + (m.nonworking_days || 0)));
-  return months.map((m, i) => {
-    const wd = m.working_days || 0, nw = m.nonworking_days || 0, tot = wd + nw;
-    const totPx = Math.round(tot / mx * 100), nwPx = tot ? Math.round(nw / tot * totPx) : 0, wPx = Math.max(0, totPx - nwPx);
+  return histBarGeom(months).map((g, i) => {
     const open = clickable && _openMonths.has(i);
     const cls = clickable ? `cal-whc ${open ? 'open' : ''}` : 'cal-whc static';
     const dm = clickable ? ` data-month="${i}"` : '';
-    return `<div class="${cls}"${dm} title="${escapeHtml(m.label)}: ${wd} net working · ${nw} non-working${clickable ? ' — click to open its calendar' : ''}">
-      <div class="cal-wht">${wd}</div>
-      <div class="cal-whcol"><div class="cal-whn" style="height:${nwPx}px"></div><div class="cal-whw" style="height:${wPx}px"></div></div>
-      <div class="cal-whl">${escapeHtml(m.label)}${open ? ' ▾' : ''}</div></div>`;
+    return `<div class="${cls}"${dm} title="${escapeHtml(g.label)}: ${g.wd} net working · ${g.nw} non-working${clickable ? ' — click to open its calendar' : ''}">
+      <div class="cal-wht">${g.wd}</div>
+      <div class="cal-whcol"><div class="cal-whn" style="height:${g.nwPx}px"></div><div class="cal-whw" style="height:${g.wPx}px"></div></div>
+      <div class="cal-whl">${escapeHtml(g.label)}${open ? ' ▾' : ''}</div></div>`;
   }).join('');
 }
 function _histBlock(calId, clickable) {
@@ -380,7 +391,8 @@ function _hoursSection() {
   const cards = profs.map(p =>
     `<div class="cal-hprof"><div class="t">${escapeHtml(p.name)}</div>
      <div class="h">${escapeHtml(p.hours)}</div>
-     <div class="sub">${escapeHtml(String(p.hours_per_day))} hrs · ${escapeHtml(p.sub || '')}</div></div>`).join('');
+     <div class="sub">${escapeHtml(String(p.hours_per_day))} hrs · ${escapeHtml(p.sub || '')}</div>
+     <input class="cal-hnote" data-key="${escapeHtml(p.key || '')}" value="${escapeHtml(p.note || '')}" placeholder="note (e.g. Summer / Ramadan reduced hours)…"></div>`).join('');
   return _sec(5, 'Working Hours Profile') +
     `<div class="cal-note" style="font-style:normal">Your <b>standard working day</b>, used all year — different from the <i>Reduced / Special Working Hours</i> in section 4 (specific dates whose hours differ from this standard; differences under 5 minutes are ignored).</div>
      <div class="cal-hours-grid">${cards}</div>`;
@@ -982,6 +994,14 @@ function _wireShutdowns() {
       const key = inp.dataset.key; if (!key) return;
       const reasons = {}; reasons[key] = inp.value;
       const resp = await saveCalendarSettings({ shutdown_reasons: reasons });
+      if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _renderCalendarBody(); }
+    }));
+  // working-hours note inline-edit (§5) → store per project (mirrors the shutdown reasons)
+  document.querySelectorAll('#calendar-body .cal-hnote').forEach(inp =>
+    inp.addEventListener('change', async () => {
+      const key = inp.dataset.key; if (!key) return;
+      const notes = {}; notes[key] = inp.value;
+      const resp = await saveCalendarSettings({ hours_notes: notes });
       if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _renderCalendarBody(); }
     }));
 }

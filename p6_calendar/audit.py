@@ -275,8 +275,12 @@ def _calendar_totals(cal, start, finish):
     return wd, nwd, round(hours, 1)
 
 
-def _hours_profiles(cal):
-    """Distinct working-hour patterns: the standard week + any special blocks."""
+def _hours_profiles(cal, notes=None):
+    """Distinct working-hour patterns: the standard week + any special blocks. Each profile
+    also carries a stable `key` (its hours string; a duplicate is suffixed with its index) and
+    a planner-typed `note` — a justification for a reduced-hours period, restored from
+    `notes` (settings['hours_notes']). Mirrors how shutdown reasons persist."""
+    notes = notes or {}
     profiles = []
     # Standard: pick the most common intraday interval across the week, else flat hours.
     week_sigs = {}
@@ -295,6 +299,16 @@ def _hours_profiles(cal):
         profiles.append({'name': 'Normal', 'hours': f'{cal.day_hours:g} hrs/day',
                          'hours_per_day': cal.day_hours,
                          'sub': f'{cal.days_per_week()} days/week'})
+    # Stable per-profile key = the hours string; a repeat gets an index suffix so each card
+    # keeps its own note. Restore the saved note (default '') onto every profile.
+    seen = {}
+    for p in profiles:
+        base = p['hours']
+        n = seen.get(base, 0)
+        seen[base] = n + 1
+        key = base if n == 0 else f'{base}#{n}'
+        p['key'] = key
+        p['note'] = notes.get(key, '')
     return profiles
 
 
@@ -304,6 +318,7 @@ def calendar_audit(data, config=None, settings=None):
     settings = settings or {}
     reasons = settings.get('shutdown_reasons', {}) or {}
     manual = _normalise_manual(settings.get('manual_shutdowns', []))
+    hours_notes = settings.get('hours_notes', {}) or {}
 
     cals = data.calendars
     cstart, cfinish = _project_window(data)      # current schedule window (fallback)
@@ -360,7 +375,7 @@ def calendar_audit(data, config=None, settings=None):
             'object_id': cid, 'name': cal.name,
             'monthly_stats': months,
             'exceptions': exc,
-            'hours_profiles': _hours_profiles(cal),
+            'hours_profiles': _hours_profiles(cal, hours_notes),
             'totals': {'working_days': wd, 'nonworking_days': nwd, 'working_hours': hours},
         }
 

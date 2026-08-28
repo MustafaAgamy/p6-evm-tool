@@ -255,6 +255,20 @@ def test_exceptions_hide_dates_before_data_date(tmp_path):
     assert not any('15 Jan' in d for d in dates)      # before the data date → hidden
 
 
+def test_hours_note_saved_and_attached(tmp_path):
+    """§5 — a saved working-hours note appears on the matching profile, keyed by the
+    profile's stable `key` (mirrors how shutdown reasons persist)."""
+    base = _run(tmp_path)
+    prim = base['by_calendar'][base['primary_calendar_id']]
+    prof = prim['hours_profiles'][0]
+    assert prof['note'] == '' and prof['key']            # a stable key, no note yet
+    key = prof['key']
+    r = _run(tmp_path, settings={'hours_notes': {key: 'Summer / Ramadan reduced hours'}})
+    prof2 = r['by_calendar'][r['primary_calendar_id']]['hours_profiles'][0]
+    assert prof2['key'] == key                           # key is stable across recompute
+    assert prof2['note'] == 'Summer / Ramadan reduced hours'
+
+
 def test_timeline_starts_at_data_date(tmp_path):
     """Ibrahim's rule: the month strip starts at the data date; the headline totals
     still cover the whole window (project start → finish)."""

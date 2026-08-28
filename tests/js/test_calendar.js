@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { fmtCalDate, statusClass, monthGridCells, conflictSeverityClass,
-         SITE_TYPES, SITE_TYPE_ORDER, matchSiteType, buildSiteCriteria }
+         SITE_TYPES, SITE_TYPE_ORDER, matchSiteType, buildSiteCriteria, histBarGeom }
   from '../../ui/modules/calendar.js';
 
 let passed = 0, failed = 0;
@@ -78,6 +78,24 @@ test('wind off shown as off / not counted', () => {
   const wind = buildSiteCriteria('desert', SITE_TYPES.desert.thresholds)[0];
   assert.equal(wind.on, false);
   assert.equal(wind.value, 'off');
+});
+
+console.log('\nhistBarGeom (Calendar Timeline histogram — Feature 1 §2)');
+test('tallest month scales to ~100px; column split into working + non-working', () => {
+  const g = histBarGeom([
+    { label: 'Jan', working_days: 20, nonworking_days: 11 },   // 31 total → tallest
+    { label: 'Feb', working_days: 18, nonworking_days: 10 },   // 28 total → shorter
+  ]);
+  assert.equal(g.length, 2);
+  assert.equal(g[0].totPx, 100);                    // the tallest month fills the axis
+  assert.equal(g[0].wd, 20);                        // the number above the bar = net working days
+  assert.equal(g[0].nwPx + g[0].wPx, g[0].totPx);   // the two segments fill the column exactly
+  assert.ok(g[1].totPx < g[0].totPx);               // a shorter month is a shorter bar
+});
+test('empty months → no bars', () => assert.deepEqual(histBarGeom([]), []));
+test('a zero-day month → flat bar, no NaN', () => {
+  const g = histBarGeom([{ label: 'X', working_days: 0, nonworking_days: 0 }])[0];
+  assert.equal(g.totPx, 0); assert.equal(g.nwPx, 0); assert.equal(g.wPx, 0);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
