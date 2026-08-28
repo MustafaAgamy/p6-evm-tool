@@ -12,20 +12,20 @@ def excel_columns(module_result):
 
     if module == 'out_of_sequence':
         cutoff = module_result.get('kpis', {}).get('data_date', '')
-        headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path',
-                   'Current Pred. Rel.', 'Current Predecessor Activity',
-                   'Current Succ. Rel.', 'Current Successor Activity', 'Cutoff Date',
-                   'Suggested Predecessor', 'Suggested Successor', 'Recommended Action',
-                   'Root Cause', 'Planning Review Comment', 'Criticality']
+        # LOG format: Baseline (Predecessor · Rel · Successor · Rel) vs After Modification.
+        headers = ['#', 'Activity ID', 'Activity Name',
+                   'Baseline Predecessor', 'Baseline Pred. Rel.',
+                   'Baseline Successor', 'Baseline Succ. Rel.', 'Data Date',
+                   'After Predecessor', 'After Pred. Rel.',
+                   'After Successor', 'After Succ. Rel.', 'Severity']
         rows = [[
-            i, f.get('activity_id', ''), f.get('activity_name', ''), f.get('wbs_path', ''),
-            f.get('current_pred_rel', ''), f.get('current_pred_activity', ''),
-            f.get('current_succ_rel', ''), f.get('current_succ_activity', ''), cutoff,
-            f.get('suggested_predecessor', ''), f.get('suggested_successor', ''),
-            (lambda r: (r.get('action_text', '') or '')
-             + (' · Also valid: ' + ', '.join(a.get('label', '') for a in (r.get('alternatives') or []))
-                if r.get('alternatives') else ''))(f.get('resolution') or {}),
-            f.get('root_cause', ''), f.get('planning_review_comment', ''), f.get('criticality', ''),
+            i, f.get('activity_id', ''), f.get('activity_name', ''),
+            f.get('pred_name', ''), f.get('pred_baseline_label', ''),
+            (f.get('succ_name', '') or ('No successor' if not f.get('succ_id') else '')),
+            f.get('succ_baseline_label', ''), cutoff,
+            f.get('pred_name', ''), f.get('pred_after_label', ''),
+            (f.get('succ_name', '') if f.get('succ_id') else ''), f.get('succ_after_label', ''),
+            f.get('severity', 'Medium'),
         ] for i, f in enumerate(findings, 1)]
         return headers, rows
 

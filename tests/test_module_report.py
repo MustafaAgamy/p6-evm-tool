@@ -72,6 +72,10 @@ def _oos():
             'wbs_path': 'Project > Structural Works > Structural Steel', 'category': 'Construction',
             'current_pred_rel': 'FS', 'current_pred_activity': 'SS-1410 · Fabricate Steel',
             'current_succ_rel': 'FS', 'current_succ_activity': 'SS-1430 · Install Beams',
+            'pred_id': 'SS-1410', 'pred_name': 'Fabricate Steel', 'current_pred_lag': 0,
+            'succ_id': 'SS-1430', 'succ_name': 'Install Beams', 'current_succ_lag': 0,
+            'pred_baseline_label': 'FS', 'pred_after_label': 'FS → SS(2)',
+            'succ_baseline_label': 'FS', 'succ_after_label': 'No change',
             'suggested_predecessor': 'SS(2) - SS-1410 · Fabricate Steel', 'suggested_predecessor_kind': 'change',
             'suggested_successor': 'No Change', 'suggested_successor_kind': 'same',
             'root_cause': 'Activity started before predecessor completion.',
@@ -130,21 +134,18 @@ def test_oos_report_has_five_sections_in_order():
     html = render_module_report(_oos(), META)
     assert 'Out of Sequence' in html
     assert 'Acceptable' in html and '83' in html
-    order = ['Executive Dashboard', 'Distribution by WBS', 'Out-of-Sequence Review &amp; Recommended Corrections',
+    order = ['Executive Dashboard', 'Distribution by WBS', 'Out Of Sequence Activity',
              'Critical Path Impact Assessment', 'Executive Conclusion']
     positions = [html.find(s) for s in order]
     assert all(p != -1 for p in positions)
     assert positions == sorted(positions)
-    # review-log content: split pred/succ rel + activity, single suggested cols, # + cutoff
-    assert 'SS-1420' in html and 'SS(2)' in html
-    assert '<th>#</th>' in html and '<th>Cutoff Date</th>' in html
-    assert '19-Jul-2026' in html
-    assert 'Current Pred. Rel.' in html and 'Current Predecessor Activity' in html
-    assert 'Current Successor Activity' in html
-    assert '<th>Suggested Predecessor</th>' in html and '<th>Suggested Successor</th>' in html
-    assert 'Fix 2' not in html                     # Fix 2 columns removed
+    # LOG format: Baseline vs After Modification, the exact P6 change in the after-cell.
+    assert 'SS-1420' in html and 'SS(2)' in html          # activity + after-modification relationship
+    assert 'Baseline' in html and 'After Modification' in html
+    assert 'Data Date' in html and '19-Jul-2026' in html
+    assert 'Fabricate Steel' in html and 'Install Beams' in html   # predecessor + successor names
+    assert 'Fix 2' not in html                            # legacy fix columns removed
     assert 'Distribution by WBS Category' in html and 'Design' in html
-    assert 'Review construction sequence.' in html
     assert 'DCMA 14-Point Schedule Assessment' in html
     assert 'Direct Impact' in html
 
@@ -161,13 +162,14 @@ def test_oos_review_log_empty_when_clean():
 
 def test_excel_columns_out_of_sequence():
     headers, rows = excel_columns(_oos())
-    assert 'Current Pred. Rel.' in headers and 'Current Predecessor Activity' in headers
-    assert 'Cutoff Date' in headers
-    assert 'Suggested Predecessor' in headers and 'Suggested Successor' in headers
+    # LOG format: Baseline vs After Modification, Severity.
+    assert 'Baseline Predecessor' in headers and 'Baseline Pred. Rel.' in headers
+    assert 'After Predecessor' in headers and 'After Succ. Rel.' in headers
+    assert 'Data Date' in headers and 'Severity' in headers
     assert 'Fix 2' not in ' '.join(headers)
-    assert 'Root Cause' in headers and 'Criticality' in headers
     assert rows[0][1] == 'SS-1420'
-    assert '19-Jul-2026' in rows[0]                # cutoff on the row
+    assert 'FS → SS(2)' in rows[0]                 # the after-modification predecessor relationship
+    assert '19-Jul-2026' in rows[0]               # data date on the row
 
 
 def test_excel_columns_dangling():

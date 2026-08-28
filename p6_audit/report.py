@@ -273,48 +273,37 @@ def _oos_wbs(m):
         <tbody>{rows}</tbody></table>'''
 
 
-def _oos_action_text(f):
-    """The recommended action plus any valid alternatives (preferred fix first)."""
-    r = f.get('resolution') or {}
-    txt = r.get('action_text', '') or ''
-    alts = r.get('alternatives') or []
-    if alts:
-        txt += ' · Also valid: ' + ', '.join(a.get('label', '') for a in alts)
-    return txt
-
-
 def _oos_review_log(m):
     findings = m.get('findings', [])
     if not findings:
-        return ('<h2 class="sec">Out-of-Sequence Review Log</h2>'
+        return ('<h2 class="sec">Out Of Sequence Activity</h2>'
                 '<p class="empty">No out-of-sequence activities &mdash; schedule progress is consistent '
                 'with the network logic.</p>')
     cutoff = _esc(m.get('kpis', {}).get('data_date', ''))
-    head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>'
-            '<th>Current Pred. Rel.</th><th>Current Predecessor Activity</th>'
-            '<th>Current Succ. Rel.</th><th>Current Successor Activity</th><th>Cutoff Date</th>'
-            '<th>Suggested Predecessor</th><th>Suggested Successor</th>'
-            '<th>Recommended Action</th>'
-            '<th>Root Cause</th><th>Planning Review Comment</th><th>Criticality</th>')
+    head = ('<tr class="grp"><th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>'
+            '<th colspan="4" class="bl">Baseline</th><th rowspan="2">Data Date</th>'
+            '<th colspan="4" class="am">After Modification</th><th rowspan="2">Severity</th></tr>'
+            '<tr class="grp"><th class="bl">Predecessor</th><th class="bl">Relationship</th>'
+            '<th class="bl">Successor</th><th class="bl">Relationship</th>'
+            '<th class="am">Predecessor</th><th class="am">Relationship</th>'
+            '<th class="am">Successor</th><th class="am">Relationship</th></tr>')
     rows = ''.join(
         f'<tr><td class="num">{i}</td><td class="mono">{_esc(f.get("activity_id"))}</td>'
         f'<td>{_esc(f.get("activity_name"))}</td>'
-        f'<td title="{_esc(f.get("wbs_path"))}">{_esc(short_wbs(f.get("wbs_path")))}</td>'
-        f'<td>{_esc(f.get("current_pred_rel"))}</td>'
-        f'<td class="mut">{_esc(f.get("current_pred_activity"))}</td>'
-        f'<td>{_esc(f.get("current_succ_rel"))}</td>'
-        f'<td class="mut">{_esc(f.get("current_succ_activity"))}</td>'
+        f'<td class="bl">{_esc(f.get("pred_name"))}</td>'
+        f'<td class="bl">{_esc(f.get("pred_baseline_label"))}</td>'
+        f'<td class="bl">{_esc(f.get("succ_name") or ("No successor" if not f.get("succ_id") else ""))}</td>'
+        f'<td class="bl">{_esc(f.get("succ_baseline_label") or "—")}</td>'
         f'<td class="mut">{cutoff}</td>'
-        f'<td>{_sug_cell(f.get("suggested_predecessor"), f.get("suggested_predecessor_kind"))}</td>'
-        f'<td>{_sug_cell(f.get("suggested_successor"), f.get("suggested_successor_kind"))}</td>'
-        f'<td>{_esc(_oos_action_text(f))}</td>'
-        f'<td class="mut">{_esc(f.get("root_cause"))}</td>'
-        f'<td class="mut">{_esc(f.get("planning_review_comment"))}</td>'
-        f'<td>{_crit_cell(f.get("criticality"))}</td></tr>'
+        f'<td class="am">{_esc(f.get("pred_name"))}</td>'
+        f'<td class="am">{_esc(f.get("pred_after_label"))}</td>'
+        f'<td class="am">{_esc(f.get("succ_name") or "—") if f.get("succ_id") else "—"}</td>'
+        f'<td class="am">{_esc(f.get("succ_after_label"))}</td>'
+        f'<td>{_esc(f.get("severity", "Medium"))}</td></tr>'
         for i, f in enumerate(findings, 1))
     return f'''
-      <h2 class="sec">Out-of-Sequence Review &amp; Recommended Corrections</h2>
-      <table class="findings"><thead><tr>{head}</tr></thead>
+      <h2 class="sec">Out Of Sequence Activity</h2>
+      <table class="findings oos-logpdf"><thead>{head}</thead>
         <tbody>{rows}</tbody></table>'''
 
 

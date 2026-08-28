@@ -507,34 +507,43 @@ body {
    lets it shrink so the TABLE scrolls inside it instead of overflowing the whole page. */
 #oos-body, #oos-review { min-width: 0; }
 .oos-tblwrap { overflow-x: auto; max-width: 100%; }
-.oos-log2 { min-width: 820px; border-collapse: collapse; width: 100%; }
-.oos-log2 thead th { font-size: 11px; color: var(--ink-soft); font-weight: 700; text-align: left; padding: 8px 10px 9px;
-  border-bottom: 2px solid var(--border); vertical-align: bottom; white-space: nowrap; }
-.oos-log2 thead th.cur { background: var(--hair); }
-.oos-log2 thead th.sug { background: var(--success-bg); }
-.oos-log2 td { padding: 10px; border-bottom: 1px solid var(--hair); vertical-align: top; }
-.oos-log2 .cur { background: var(--hair); }
-.oos-log2 .sug { background: var(--success-bg); }
-.oos-log2 .oos-num { text-align: center; color: var(--muted); font-weight: 700; width: 34px; }
-.oos-log2 .oos-act { min-width: 124px; }
-.oos-log2 .oos-dd { white-space: nowrap; width: 88px; }
-.oos-log2 .cur { min-width: 116px; }
-.oos-log2 .mono { font-family: ui-monospace, 'Consolas', monospace; font-weight: 600; font-size: 12px; white-space: nowrap; }
-.oos-log2 .nm { color: var(--ink-soft); font-size: 11.5px; margin-top: 2px; line-height: 1.35; word-break: break-word; }
-.oos-relline { margin-top: 3px; }
+/* ── Out-of-Sequence LOG (Baseline vs After Modification) ── */
+.oos-logx { min-width: 1120px; border-collapse: collapse; width: 100%; }
+.oos-cap { caption-side: top; background: #b11116; color: #fff; font-weight: 700; font-size: 12.5px;
+  padding: 7px; letter-spacing: .03em; text-align: center; }
+.oos-logx th, .oos-logx td { border: 1px solid var(--border); padding: 7px 9px; vertical-align: top; text-align: left; }
+.oos-logx thead .oos-grp th { background: #c62329; color: #fff; text-align: center; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.oos-logx thead .oos-grp th.bl { background: #7b1216; }
+.oos-logx thead .oos-grp th.am { background: #124a8b; }
+.oos-logx thead .oos-sub th { background: var(--hair); color: var(--ink-soft); font-size: 10.5px; font-weight: 700; white-space: nowrap; }
+.oos-logx td.bl { background: var(--hair); }
+.oos-logx td.am { background: var(--success-bg); }
+.oos-logx .oos-num { text-align: center; color: var(--muted); font-weight: 700; width: 30px; }
+.oos-logx .id { white-space: nowrap; }
+.oos-logx .mono { font-family: ui-monospace, 'Consolas', monospace; font-weight: 600; font-size: 12px; white-space: nowrap; }
+.oos-logx .actnm { min-width: 140px; max-width: 190px; line-height: 1.35; }
+.oos-logx td.pred { min-width: 140px; max-width: 200px; line-height: 1.35; font-size: 11.5px; color: var(--ink-soft); }
+.oos-logx td.rel { white-space: nowrap; }
+.oos-logx td.dd { white-space: nowrap; width: 84px; }
+.oos-logx td.sev { text-align: center; }
+.oos-nochg { color: var(--muted); font-size: 11.5px; font-style: italic; }
+.oos-sevb { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.oos-sevb.crit { background: var(--danger-bg); color: var(--danger); }
+.oos-sevb.high { background: var(--warning-bg); color: var(--warning); }
+.oos-sevb.med { background: var(--hair); color: var(--ink-soft); }
+.oos-critnote { font-size: 9.5px; color: var(--muted); }
 .oos-relb { display: inline-block; font-family: ui-monospace, 'Consolas', monospace; font-size: 10.5px; font-weight: 700;
-  padding: 1px 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent-dark); }
+  padding: 1px 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent-dark); white-space: nowrap; }
 .oos-relb.sg { background: var(--card-bg); color: var(--success); border: 1px solid var(--success); }
 .oos-relb.rem { background: var(--danger-bg); color: var(--danger); }
+.oos-relb.rev { background: var(--warning-bg); color: var(--warning); }
+.oos-appliednote { font-size: 10.5px; color: var(--muted); margin: 4px 0; line-height: 1.4; }
 
-/* Suggested Correction — the star column: the exact P6 change + the WHY, wrapped and readable. */
-.oos-log2 .oos-sugcell { min-width: 250px; max-width: 330px; }
-.oos-actchip { display: inline-block; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 7px;
-  line-height: 1.4; white-space: normal; word-break: break-word; }
-.oos-actchip.change { background: var(--accent-soft); color: var(--accent-dark); }
-.oos-actchip.remove { background: var(--danger-bg); color: var(--danger); }
-.oos-actchip.data { background: var(--warning-bg); color: var(--warning); }
-.oos-why { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+/* Drawer per-tie editors */
+.oos-tieblk { border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; margin-bottom: 10px; background: var(--card-bg); }
+.oos-tielbl { font-size: 11px; font-weight: 700; color: var(--accent-dark); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 7px; }
+.oos-tieok { font-size: 12px; color: var(--success); font-weight: 600; }
+.oos-tierev { font-size: 12px; color: var(--warning); line-height: 1.5; }
 .oos-alts { margin-top: 7px; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .oos-altlbl { font-weight: 700; color: var(--ink-soft); }
 .oos-altpill { display: inline-block; font-family: ui-monospace, 'Consolas', monospace; font-size: 10.5px; font-weight: 700;

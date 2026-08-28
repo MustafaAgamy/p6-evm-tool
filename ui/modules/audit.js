@@ -458,10 +458,11 @@ export function renderOutOfSequence(m) {
   _oosInit(m);
 }
 
-// ── Out-of-Sequence Resolve & Correct — interactive review ─────────────────
-// Session state for the OOS panel. `res[fid]` = {finding, op, reason, resolved}.
-// Preserved while the same schedule is open (toggling tabs/panels); reset on a new import.
-let _oos = { sig: null, fresh: [], res: {}, view: 'open', dataDate: '' };
+// ── Out-of-Sequence Resolve & Correct — LOG (Baseline vs After Modification) ──
+// Server-truth model: `all` = original findings; `fresh` = findings after the applied corrections
+// (from re-validation); `applied[fid]` = {finding, ops, reason}. A finding is Resolved when it is
+// in `all` but no longer in `fresh`. Preserved while the same schedule is open; reset on a new import.
+let _oos = { sig: null, all: [], fresh: [], applied: {}, view: 'open', dataDate: '' };
 
 function _oosSig(m) {
   const f = (m.findings || [])[0] || {};
@@ -471,19 +472,46 @@ function _oosSig(m) {
 function _oosInit(m) {
   const sig = _oosSig(m);
   if (sig !== _oos.sig) {
-    _oos = { sig, fresh: (m.findings || []).slice(), res: {}, view: 'open',
-             dataDate: (m.kpis || {}).data_date || '' };
+    _oos = { sig, all: (m.findings || []).slice(), fresh: (m.findings || []).slice(),
+             applied: {}, view: 'open', dataDate: (m.kpis || {}).data_date || '' };
   } else {
     _oos.dataDate = (m.kpis || {}).data_date || '';
   }
   renderOosReview();
 }
 
-function _oosResolvedList() {
-  return Object.values(_oos.res).filter(r => r.resolved);
-}
+// Every accepted correction across all applied rows (predecessor + successor ties), for
+// re-validation and the corrected-file export.
 function _oosAppliedOps() {
-  return Object.values(_oos.res).map(r => r.op);
+  const ops = [];
+  Object.values(_oos.applied).forEach(a => (a.ops || []).forEach(o => ops.push(o)));
+  return ops;
+}
+
+// Build the predecessor + successor tie corrections for a finding, honouring any drawer edits.
+function _oosBuildOps(f) {
+  const ops = [];
+  const pr = f.pred_resolution || f.resolution;
+  if (pr && pr.applicable && (pr.action === 'change' || pr.action === 'remove')) {
+    ops.push(_oosOpFor(f, 'pred', f.pred_id, f.activity_id, pr));
+  }
+  const sr = f.succ_resolution;
+  if (sr && sr.applicable && (sr.action === 'change' || sr.action === 'remove')) {
+    ops.push(_oosOpFor(f, 'succ', f.activity_id, f.succ_id, sr));
+  }
+  return ops;
+}
+
+function _oosOpFor(f, side, predCode, succCode, res) {
+  const get = (field) => document.querySelector(
+    `[data-oosfield="${field}"][data-fid="${f.finding_id}"][data-side="${side}"]`);
+  let action = res.action, newType = res.new_type, newLag = res.new_lag_days;
+  const aEl = get('action'); if (aEl) action = aEl.value;
+  const tEl = get('new_type'); if (tEl) newType = tEl.value;
+  const lEl = get('new_lag_days'); if (lEl && lEl.value !== '') newLag = parseFloat(lEl.value);
+  if (action === 'remove') { newType = null; newLag = null; }
+  return { finding_id: f.finding_id, pred_id: predCode, succ_id: succCode,
+           action, new_type: newType, new_lag_days: newLag, new_pred_id: '' };
 }
 
 function _oosCurRel(rel, lag) {
@@ -491,199 +519,180 @@ function _oosCurRel(rel, lag) {
   return s ? `<span class="oos-relb">${escapeHtml(s)}</span>` : '';
 }
 
+// Severity badge (Critical / High / Medium) — his LOG's "Severity" column.
+function _oosSevCell(f) {
+  const s = f.severity || 'Medium';
+  const cls = s === 'Critical' ? 'crit' : (s === 'High' ? 'high' : 'med');
+  const crit = f.criticality && f.criticality !== '' ? ` <span class="oos-critnote">(${escapeHtml(f.criticality)})</span>` : '';
+  return `<span class="oos-sevb ${cls}">${escapeHtml(s)}</span>${crit}`;
+}
+
+// The 'After Modification' relationship cell: "No change", the "OLD → NEW" transition, or a flag.
+function _oosAfterCell(label) {
+  if (!label || label === 'No change') return `<span class="oos-nochg">No change</span>`;
+  if (label === 'Planner review') return `<span class="oos-relb rev">Planner review</span>`;
+  const cls = /Removed/.test(label) ? 'rem' : 'sg';
+  return `<span class="oos-relb ${cls}">${escapeHtml(label)}</span>`;
+}
+
 function renderOosReview() {
   const host = document.getElementById('oos-review');
   if (!host) return;
-  const openF = _oos.fresh.filter(f => !(_oos.res[f.finding_id] && _oos.res[f.finding_id].resolved));
-  const resolved = _oosResolvedList();
+  const freshIds = new Set(_oos.fresh.map(f => f.finding_id));
+  const openF = _oos.fresh;
+  const resolvedF = _oos.all.filter(f => !freshIds.has(f.finding_id));
   const dd = escapeHtml(_oos.dataDate || '');
-  const anyResolved = resolved.length > 0;
+  const anyOps = _oosAppliedOps().length > 0;
 
   const toolbar = `
     <div class="oos-toolbar">
       <div class="oos-tabs">
         <button class="oos-tab ${_oos.view === 'open' ? 'active' : ''}" data-oosact="view" data-view="open">Open <span class="cnt">${openF.length}</span></button>
-        <button class="oos-tab ${_oos.view === 'resolved' ? 'active' : ''}" data-oosact="view" data-view="resolved">Resolved <span class="cnt">${resolved.length}</span></button>
+        <button class="oos-tab ${_oos.view === 'resolved' ? 'active' : ''}" data-oosact="view" data-view="resolved">Resolved <span class="cnt">${resolvedF.length}</span></button>
       </div>
       <div style="flex:1"></div>
       <div style="text-align:right">
-        <button class="oos-dl" data-oosact="download" ${anyResolved ? '' : 'disabled'}>⬇ Download Corrected Schedule</button>
-        <div class="oos-dlnote">${anyResolved
-          ? `${resolved.length} correction(s) applied · exports the same format you imported (XER / XML) — open in P6 and F9.`
+        <button class="oos-dl" data-oosact="download" ${anyOps ? '' : 'disabled'}>⬇ Download Corrected Schedule</button>
+        <div class="oos-dlnote">${anyOps
+          ? `${resolvedF.length} finding(s) resolved · exports the same format you imported (XER / XML) — open in P6 and F9.`
           : `Apply at least one correction to enable. Exports the same format you imported (XER / XML).`}</div>
       </div>
     </div>`;
 
-  host.innerHTML = toolbar + (_oos.view === 'open' ? _oosOpenTable(openF, dd) : _oosResolvedTable(resolved));
+  host.innerHTML = toolbar + _oosLogTable(_oos.view === 'open' ? openF : resolvedF, dd, _oos.view === 'resolved');
   _oosWire();
 }
 
-// Which resolution "mode" a finding is in — drives the Suggested Correction cell + Apply button.
-function _oosMode(f) {
-  const r = f.resolution;
-  if (!r || !r.action) return 'legacy';           // stored before this feature → re-import
-  if (r.action === 'change') return 'change';
-  if (r.action === 'replace') return 'change';
-  if (r.action === 'remove') return 'remove';
-  return 'manual';                                 // 'manual' / 'data' / anything non-applicable
-}
-
-// Compact, scannable "valid alternatives" pills (preferred fix is the chip above them).
-function _oosAltPills(r) {
-  const alts = (r && r.alternatives) || [];
-  if (!alts.length) return '';
-  const pills = alts.map(a => `<span class="oos-altpill">${escapeHtml(a.label || '')}</span>`).join('');
-  return `<div class="oos-alts"><span class="oos-altlbl">Also valid:</span> ${pills}</div>`;
-}
-
-// Same alternatives in the drawer, but CLICKABLE — click to pre-fill the edit form with that fix.
-function _oosAltPicks(r, fid) {
+// Valid alternatives in the drawer, CLICKABLE — click to pre-fill the edit form with that fix.
+function _oosAltPicks(r, fid, side) {
   const alts = (r && r.alternatives) || [];
   if (!alts.length) return '';
   const pills = alts.map(a =>
-    `<span class="oos-altpill pick" data-oosact="pickalt" data-fid="${escapeHtml(fid)}" `
+    `<span class="oos-altpill pick" data-oosact="pickalt" data-fid="${escapeHtml(fid)}" data-side="${side}" `
     + `data-type="${escapeHtml(a.new_type || '')}" data-lag="${a.new_lag_days == null ? 0 : a.new_lag_days}">`
     + `${escapeHtml(a.label || '')}</span>`).join('');
   return `<div class="oos-alts"><span class="oos-altlbl">Alternatives (click to use):</span> ${pills}</div>`;
 }
 
-function _oosCorrectionCell(f) {
-  const r = f.resolution || {};
-  const mode = _oosMode(f);
-  if (mode === 'legacy') {
-    return `<div class="oos-actchip data">Re-import to enable corrections</div>
-      <div class="oos-why">Re-open this schedule in the new build to get a one-click correction.</div>`;
+function _oosResCell(f, resolved) {
+  if (resolved) {
+    const a = _oos.applied[f.finding_id];
+    if (!a) {
+      // Cleared as a side-effect of another row's correction — no own op to re-open.
+      return `<span class="oos-resolved">✓ Resolved</span><div class="oos-appliednote">via a linked correction</div>`;
+    }
+    const note = a.reason ? `<div class="oos-appliednote">${escapeHtml(a.reason)}</div>` : '';
+    return `<span class="oos-resolved">✓ Resolved</span>${note}`
+      + `<button class="oos-mini" data-oosact="reopen" data-fid="${escapeHtml(f.finding_id)}">Re-open</button>`;
   }
-  const cls = mode === 'remove' ? 'remove' : (mode === 'manual' ? 'data' : 'change');
-  const why = r.reasoning ? `<div class="oos-why">${escapeHtml(r.reasoning)}</div>` : '';
-  return `<div class="oos-actchip ${cls}">${escapeHtml(r.action_text || '')}</div>${_oosAltPills(r)}${why}`;
+  const pr = f.pred_resolution || f.resolution || {};
+  const actionable = _oosBuildOps(f).length > 0;
+  const predManual = (pr.action === 'manual' || !pr.applicable);
+  let btn;
+  if (actionable) {
+    btn = `<button class="oos-mini apply" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply</button>`;
+  } else if (predManual) {
+    btn = `<button class="oos-mini data" disabled title="Insufficient evidence — planner review">Planner review</button>`;
+  } else {
+    btn = `<button class="oos-mini data" disabled>No change</button>`;
+  }
+  const applied = _oos.applied[f.finding_id];
+  const stale = applied ? `<div class="oos-stale">Applied — didn't fully clear; edit &amp; retry.</div>` : '';
+  return `<div class="oos-rowbtns">${btn}<button class="oos-caret" data-oosact="details" data-fid="${escapeHtml(f.finding_id)}">▾</button></div>${stale}`;
 }
 
-function _oosOpenTable(openF, dd) {
-  if (!openF.length) {
-    return `<div class="oos-empty">No open findings — every out-of-sequence condition has been resolved. 🎉</div>`;
-  }
-  const rows = openF.map((f, i) => {
-    const mode = _oosMode(f);
-    const applied = _oos.res[f.finding_id];
-    const applyBtn = mode === 'legacy'
-      ? `<button class="oos-mini data" disabled title="Re-import this schedule to enable one-click corrections">Re-import</button>`
-      : (mode === 'manual'
-        ? `<button class="oos-mini data" disabled title="Actual dates are inconsistent — fix them in P6; no automatic correction applies">Manual review</button>`
-        : `<button class="oos-mini apply" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply</button>`);
-    const detailsBtn = mode === 'manual'
-      ? `<button class="oos-caret" data-oosact="details" data-fid="${escapeHtml(f.finding_id)}">▾ why</button>`
-      : `<button class="oos-caret" data-oosact="details" data-fid="${escapeHtml(f.finding_id)}">▾ edit</button>`;
-    const staleNote = (applied && !applied.resolved)
-      ? `<div class="oos-stale">Applied fix didn't clear it — edit &amp; retry.</div>` : '';
-    return `
+function _oosLogRow(f, i, dd, resolved) {
+  const succName = f.succ_name || (f.succ_id ? '' : 'No successor');
+  return `
     <tr class="oos-frow" data-fid="${escapeHtml(f.finding_id)}">
       <td class="oos-num">${i + 1}</td>
-      <td class="oos-act"><div class="mono">${escapeHtml(f.activity_id)}</div><div class="nm">${escapeHtml(f.activity_name)}</div></td>
-      <td class="cur"><div class="mono">${escapeHtml(f.pred_id || '')}</div><div class="oos-relline">${_oosCurRel(f.current_pred_rel, f.current_pred_lag)}</div><div class="nm">${escapeHtml(f.pred_name || '')}</div></td>
-      <td class="cur"><div class="mono">${escapeHtml(f.succ_id || '')}</div><div class="oos-relline">${_oosCurRel(f.current_succ_rel, f.current_succ_lag)}</div><div class="nm">${escapeHtml(f.succ_name || (f.succ_id ? '' : 'No successor'))}</div></td>
-      <td class="mono mut oos-dd">${dd}</td>
-      <td class="oos-sugcell">${_oosCorrectionCell(f)}</td>
-      <td>${oosCrit(f.criticality)}</td>
-      <td class="oos-rescell"><div class="oos-rowbtns">${applyBtn}${detailsBtn}</div>${staleNote}</td>
+      <td class="id mono">${escapeHtml(f.activity_id)}</td>
+      <td class="nm actnm">${escapeHtml(f.activity_name)}</td>
+      <td class="bl pred">${escapeHtml(f.pred_name || '')}</td>
+      <td class="bl rel"><span class="oos-relb">${escapeHtml(f.pred_baseline_label || '')}</span></td>
+      <td class="bl pred">${escapeHtml(succName)}</td>
+      <td class="bl rel">${f.succ_baseline_label ? `<span class="oos-relb">${escapeHtml(f.succ_baseline_label)}</span>` : '<span class="mut">—</span>'}</td>
+      <td class="dd mono mut">${dd}</td>
+      <td class="am pred">${escapeHtml(f.pred_name || '')}</td>
+      <td class="am rel">${_oosAfterCell(f.pred_after_label)}</td>
+      <td class="am pred">${escapeHtml(f.succ_id ? succName : '—')}</td>
+      <td class="am rel">${_oosAfterCell(f.succ_after_label)}</td>
+      <td class="sev">${_oosSevCell(f)}</td>
+      <td class="oos-rescell">${_oosResCell(f, resolved)}</td>
     </tr>
-    <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="8">${_oosDrawer(f)}</td></tr>`;
-  }).join('');
-
-  return `
-    <div class="tblwrap oos-tblwrap"><table class="audit-table oos-log2">
-      <thead>
-        <tr>
-          <th>#</th><th>Activity</th>
-          <th class="cur">Current Predecessor</th><th class="cur">Current Successor</th>
-          <th>Data Date</th>
-          <th class="sug">Suggested Correction</th>
-          <th>Criticality</th><th>Resolution</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody></table></div>
-    <div class="oos-flowhint">Per finding: <b>What's wrong?</b> → What is it now? → What should it be? → What changes if I apply? → Is it resolved? → Download the fix. The engine <b>repairs</b> the dependency (change type/lag) where it can, and only removes it as a last resort.</div>`;
+    <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="14">${_oosDrawer(f)}</td></tr>`;
 }
 
-function _oosDrawer(f) {
-  const r = f.resolution || {};
-  if (r.action === 'manual' || r.action === 'data' || !r.applicable) {
-    return `<div class="oos-draw"><h4>Why this finding needs manual review</h4>
-      <div class="oos-qa"><div class="oos-qcard"><div class="lbl">What is wrong?</div><div class="val">${escapeHtml(f.root_cause || '')}</div></div>
-      <div class="oos-qcard"><div class="lbl">Why no automatic correction</div><div class="val">${escapeHtml(r.reasoning || 'A wrong actual date — no relationship edit can clear it. Correct the actual dates in P6, then re-import.')}</div></div></div></div>`;
+function _oosLogTable(rows, dd, resolved) {
+  if (!rows.length) {
+    return `<div class="oos-empty">${resolved
+      ? 'Nothing resolved yet. Apply a correction from the Open tab.'
+      : 'No open findings — every out-of-sequence condition has been resolved. 🎉'}</div>`;
+  }
+  const body = rows.map((f, i) => _oosLogRow(f, i, dd, resolved)).join('');
+  return `
+    <div class="tblwrap oos-tblwrap"><table class="audit-table oos-logx">
+      <caption class="oos-cap">Out Of Sequence Activity</caption>
+      <thead>
+        <tr class="oos-grp">
+          <th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>
+          <th class="bl" colspan="4">Baseline</th>
+          <th rowspan="2">Data Date</th>
+          <th class="am" colspan="4">After Modification</th>
+          <th rowspan="2">Severity</th><th rowspan="2">Resolution</th>
+        </tr>
+        <tr class="oos-sub">
+          <th class="bl">Predecessor</th><th class="bl">Relationship</th><th class="bl">Successor</th><th class="bl">Relationship</th>
+          <th class="am">Predecessor</th><th class="am">Relationship</th><th class="am">Successor</th><th class="am">Relationship</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody></table></div>
+    <div class="oos-flowhint">The engine corrects each tie to match actual execution: <b>change the relationship type</b> to the one that fits the real overlap (SS/FF, with the lag from the logic), <b>remove</b> only as a last resort with the reason stated, <b>Planner review</b> when the evidence is insufficient. "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>`;
+}
+
+// One editable block per tie (predecessor / successor) inside the drawer.
+function _oosTieBlock(f, side, res, tieLabel) {
+  const head = `<div class="oos-tielbl">${escapeHtml(tieLabel)}</div>`;
+  if (!res || !res.action || res.action === 'nochange') {
+    return `<div class="oos-tieblk">${head}<div class="oos-tieok">No change — this tie already matches the actual execution.</div></div>`;
+  }
+  if (res.action === 'manual' || !res.applicable) {
+    return `<div class="oos-tieblk">${head}<div class="oos-tierev">${escapeHtml(res.reasoning || res.action_text || 'Planner review — insufficient evidence.')}</div></div>`;
   }
   const types = ['FS', 'SS', 'FF', 'SF'];
-  const curType = r.new_type || f.current_pred_rel || 'FS';
+  const curType = res.new_type || 'SS';
   const typeOpts = types.map(t => `<option value="${t}" ${t === curType ? 'selected' : ''}>${t}</option>`).join('');
-  const actions = [
-    ['change', 'Change relationship type / lag'],
-    ['remove', 'Remove relationship'],
-    ['replace', 'Replace predecessor'],
-  ];
-  const actOpts = actions.map(([v, lbl]) => `<option value="${v}" ${v === r.action ? 'selected' : ''}>${lbl}</option>`).join('');
-  const lag = (r.new_lag_days === null || r.new_lag_days === undefined) ? 0 : r.new_lag_days;
-  const recCls = r.action === 'remove' ? 'remove' : 'change';
-  return `<div class="oos-draw"><h4>Resolve this finding</h4>
-    <div class="oos-qa">
-      <div class="oos-qcard"><div class="lbl">What is wrong?</div><div class="val">${escapeHtml(f.root_cause || '')}</div></div>
-      <div class="oos-qcard"><div class="lbl">What is the relationship now?</div><div class="val"><span class="mono">${escapeHtml(f.pred_id || '')}</span> ${_oosCurRel(f.current_pred_rel, f.current_pred_lag)} → <span class="mono">${escapeHtml(f.activity_id)}</span><div class="nm">${escapeHtml(f.pred_name || '')} → ${escapeHtml(f.activity_name || '')}</div></div></div>
-    </div>
-    <div class="oos-rec ${recCls}"><div class="lbl">Engine recommendation</div><div class="rt">${escapeHtml(r.action_text || '')}</div>${r.reasoning ? `<div class="rw">${escapeHtml(r.reasoning)}</div>` : ''}${_oosAltPicks(r, f.finding_id)}</div>
+  const actOpts = [['change', 'Change type / lag'], ['remove', 'Remove relationship']]
+    .map(([v, l]) => `<option value="${v}" ${v === res.action ? 'selected' : ''}>${l}</option>`).join('');
+  const lag = (res.new_lag_days == null) ? 0 : res.new_lag_days;
+  return `<div class="oos-tieblk">${head}
+    <div class="oos-rec ${res.action === 'remove' ? 'remove' : 'change'}"><div class="rt">${escapeHtml(res.action_text || '')}</div>${res.reasoning ? `<div class="rw">${escapeHtml(res.reasoning)}</div>` : ''}${_oosAltPicks(res, f.finding_id, side)}</div>
     <div class="oos-editrow">
-      <label>Action</label>
-      <select data-oosfield="action" data-fid="${escapeHtml(f.finding_id)}">${actOpts}</select>
-      <span class="oos-editgrp" data-grp="type"><label>Type</label><select data-oosfield="new_type" data-fid="${escapeHtml(f.finding_id)}">${typeOpts}</select></span>
-      <span class="oos-editgrp" data-grp="lag"><label>Lag</label><input type="number" step="0.5" data-oosfield="new_lag_days" data-fid="${escapeHtml(f.finding_id)}" value="${lag}"> d</span>
-      <span class="oos-editgrp" data-grp="newpred" style="display:none"><label>New predecessor ID</label><input type="text" data-oosfield="new_pred_id" data-fid="${escapeHtml(f.finding_id)}" value="${escapeHtml(r.new_pred_id || '')}"></span>
+      <label>Action</label><select data-oosfield="action" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${actOpts}</select>
+      <span class="oos-editgrp" data-grp="type"><label>Type</label><select data-oosfield="new_type" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${typeOpts}</select></span>
+      <span class="oos-editgrp" data-grp="lag"><label>Lag</label><input type="number" step="0.5" data-oosfield="new_lag_days" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" value="${lag}"> d</span>
     </div>
-    <div class="oos-willchange" id="ooswc-${escapeHtml(f.finding_id)}"></div>
-    <div class="oos-editrow soft"><label>Reason (kept with the correction)</label><input type="text" class="oos-reason" data-oosfield="reason" data-fid="${escapeHtml(f.finding_id)}" placeholder="e.g. reinforcement &amp; casting overlapped in the field"></div>
-    <div class="oos-drawbtns"><button class="oos-btn primary" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply correction</button><button class="oos-btn" data-oosact="details" data-fid="${escapeHtml(f.finding_id)}">Close</button></div>
   </div>`;
 }
 
-function _oosResolvedTable(resolved) {
-  if (!resolved.length) {
-    return `<div class="oos-empty">Nothing resolved yet. Apply a correction from the Open tab.</div>`;
-  }
-  const rows = resolved.map((r, i) => `
-    <tr>
-      <td class="oos-num">${i + 1}</td>
-      <td><div class="mono">${escapeHtml(r.finding.activity_id)}</div><div class="nm">${escapeHtml(r.finding.activity_name)}</div></td>
-      <td><span class="oos-resolved">✓ ${escapeHtml(oosOpSummary(r.op))}</span></td>
-      <td class="nm">${escapeHtml(r.reason || '—')}</td>
-      <td>${oosCrit(r.finding.criticality)}</td>
-      <td><button class="oos-mini" data-oosact="reopen" data-fid="${escapeHtml(r.finding.finding_id)}">Re-open</button></td>
-    </tr>`).join('');
-  return `<div class="tblwrap oos-tblwrap"><table class="audit-table oos-log2"><thead><tr>
-      <th>#</th><th>Activity</th><th>Correction applied</th><th>Reason</th><th>Criticality</th><th></th>
-    </tr></thead><tbody>${rows}</tbody></table></div>`;
-}
-
-// Build a short "what will change if I apply it" preview.
-function _oosWillChange(op) {
-  const a = (op.action || '').toLowerCase();
-  const rl = oosRelLabel(op.new_type, op.new_lag_days);
-  if (a === 'remove') return `The relationship <b>${escapeHtml(op.pred_id)} → ${escapeHtml(op.succ_id)}</b> is deleted. With no predecessor link to violate, the tool re-checks and the finding clears if nothing else violates.`;
-  if (a === 'replace') return `Predecessor replaced with <b>${escapeHtml(op.new_pred_id || '?')}</b> as <b>${escapeHtml(rl)}</b>. The tool re-runs detection to confirm the finding clears.`;
-  return `Relationship becomes <b>${escapeHtml(rl)}</b>. The tool re-runs the same detection; if this clears the out-of-sequence condition the finding moves to Resolved.`;
-}
-
-function _oosSel(field, fid) {
-  return document.querySelector(`[data-oosfield="${field}"][data-fid="${fid}"]`);
-}
-
-// Read the (possibly edited) accepted correction for a finding from its drawer inputs.
-function _oosReadOp(f) {
-  const fid = f.finding_id;
-  const op = oosDefaultOp(f);
-  const aEl = _oosSel('action', fid); if (aEl) op.action = aEl.value;
-  const tEl = _oosSel('new_type', fid); if (tEl) op.new_type = tEl.value;
-  const lEl = _oosSel('new_lag_days', fid); if (lEl && lEl.value !== '') op.new_lag_days = parseFloat(lEl.value);
-  const pEl = _oosSel('new_pred_id', fid); if (pEl) op.new_pred_id = pEl.value.trim();
-  const rEl = _oosSel('reason', fid); if (rEl) op.reason = rEl.value.trim();
-  if (op.action === 'remove') { op.new_type = null; op.new_lag_days = null; }
-  return op;
+function _oosDrawer(f) {
+  const pr = f.pred_resolution || f.resolution;
+  const sr = f.succ_resolution;
+  const succChain = f.succ_id
+    ? ` ${_oosCurRel(f.current_succ_rel, f.current_succ_lag)} → <span class="mono">${escapeHtml(f.succ_id)}</span>` : '';
+  const applyBtn = _oosBuildOps(f).length
+    ? `<button class="oos-btn primary" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply correction</button>` : '';
+  return `<div class="oos-draw">
+    <h4>Resolve this finding</h4>
+    <div class="oos-qa">
+      <div class="oos-qcard"><div class="lbl">What is wrong?</div><div class="val">${escapeHtml(f.root_cause || '')}</div></div>
+      <div class="oos-qcard"><div class="lbl">Baseline logic</div><div class="val"><span class="mono">${escapeHtml(f.pred_id || '')}</span> ${_oosCurRel(f.current_pred_rel, f.current_pred_lag)} → <span class="mono">${escapeHtml(f.activity_id)}</span>${succChain}</div></div>
+    </div>
+    ${_oosTieBlock(f, 'pred', pr, `Predecessor tie: ${f.pred_id || ''} → ${f.activity_id}`)}
+    ${f.succ_id ? _oosTieBlock(f, 'succ', sr, `Successor tie: ${f.activity_id} → ${f.succ_id}`) : ''}
+    <div class="oos-editrow soft"><label>Reason (kept with the correction)</label><input type="text" class="oos-reason" data-oosfield="reason" data-fid="${escapeHtml(f.finding_id)}" placeholder="e.g. approval overlaps submittal in the field"></div>
+    <div class="oos-drawbtns">${applyBtn}<button class="oos-btn" data-oosact="details" data-fid="${escapeHtml(f.finding_id)}">Close</button></div>
+  </div>`;
 }
 
 function _oosDlNote(text, isErr) {
@@ -703,33 +712,30 @@ async function _oosValidate() {
 }
 
 async function _oosApply(fid) {
-  const f = _oos.fresh.find(x => x.finding_id === fid);
+  const f = (_oos.fresh.find(x => x.finding_id === fid) || _oos.all.find(x => x.finding_id === fid));
   if (!f) return;
-  const op = _oosReadOp(f);
-  _oos.res[fid] = { finding: f, op, reason: op.reason, resolved: false };
+  const ops = _oosBuildOps(f);
+  if (!ops.length) return;
+  const rEl = document.querySelector(`[data-oosfield="reason"][data-fid="${fid}"]`);
+  _oos.applied[fid] = { finding: f, ops, reason: rEl ? rEl.value.trim() : '' };
   _oosDlNote('Re-validating…');
   try {
     const out = await _oosValidate();
-    if (!out.ok) { _oosDlNote(out.error || 'Validation failed.', true); return; }
+    if (!out.ok) { delete _oos.applied[fid]; _oosDlNote(out.error || 'Validation failed.', true); renderOosReview(); return; }
     _oos.fresh = out.findings || [];
-    const resolvedSet = new Set(out.resolved || []);
-    Object.keys(_oos.res).forEach(id => { _oos.res[id].resolved = resolvedSet.has(id); });
-    if (!resolvedSet.has(fid)) _oos.view = 'open';   // stay so the planner sees the stale note
     renderOosReview();
   } catch (e) {
+    delete _oos.applied[fid];                        // roll back so a failed Apply leaves no phantom op
     _oosDlNote('Could not reach the analysis engine.', true);
+    renderOosReview();
   }
 }
 
 async function _oosReopen(fid) {
-  delete _oos.res[fid];
+  delete _oos.applied[fid];
   try {
     const out = await _oosValidate();
-    if (out.ok) {
-      _oos.fresh = out.findings || [];
-      const resolvedSet = new Set(out.resolved || []);
-      Object.keys(_oos.res).forEach(id => { _oos.res[id].resolved = resolvedSet.has(id); });
-    }
+    if (out.ok) _oos.fresh = out.findings || [];
   } catch (e) { /* keep local state */ }
   renderOosReview();
 }
@@ -765,22 +771,17 @@ async function _oosDownload() {
   }
 }
 
-function _oosApplyEditVisibility(fid) {
-  const aEl = _oosSel('action', fid);
+// Show/hide the Type + Lag inputs for one tie's editor based on its Action select.
+function _oosEditVisibility(fid, side) {
+  const aEl = document.querySelector(`[data-oosfield="action"][data-fid="${fid}"][data-side="${side}"]`);
   if (!aEl) return;
   const act = aEl.value;
-  const drawer = document.getElementById(`oosdr-${fid}`);
-  if (!drawer) return;
-  const show = (grp, on) => {
-    const el = drawer.querySelector(`.oos-editgrp[data-grp="${grp}"]`);
-    if (el) el.style.display = on ? '' : 'none';
-  };
-  show('type', act !== 'remove');
-  show('lag', act !== 'remove');
-  show('newpred', act === 'replace');
-  const wc = document.getElementById(`ooswc-${fid}`);
-  const f = _oos.fresh.find(x => x.finding_id === fid);
-  if (wc && f) wc.innerHTML = `<b>What will change if I apply it:</b> ${_oosWillChange(_oosReadOp(f))}`;
+  const blk = aEl.closest('.oos-tieblk');
+  if (!blk) return;
+  blk.querySelectorAll('.oos-editgrp').forEach(el => {
+    const grp = el.getAttribute('data-grp');
+    el.style.display = (act === 'remove' && (grp === 'type' || grp === 'lag')) ? 'none' : '';
+  });
 }
 
 function _oosWire() {
@@ -794,28 +795,27 @@ function _oosWire() {
     if (act === 'view') { _oos.view = t.getAttribute('data-view'); renderOosReview(); }
     else if (act === 'details') {
       const dr = document.getElementById(`oosdr-${fid}`);
-      if (dr) { dr.classList.toggle('open'); if (dr.classList.contains('open')) _oosApplyEditVisibility(fid); }
+      if (dr) {
+        dr.classList.toggle('open');
+        if (dr.classList.contains('open')) { _oosEditVisibility(fid, 'pred'); _oosEditVisibility(fid, 'succ'); }
+      }
     }
     else if (act === 'apply') { _oosApply(fid); }
     else if (act === 'reopen') { _oosReopen(fid); }
     else if (act === 'download') { _oosDownload(); }
     else if (act === 'pickalt') {
-      // Click a valid alternative → pre-fill the edit form with that relationship type + lag.
-      const aEl = _oosSel('action', fid); if (aEl) aEl.value = 'change';
-      const tEl = _oosSel('new_type', fid); if (tEl) tEl.value = t.getAttribute('data-type');
-      const lEl = _oosSel('new_lag_days', fid); if (lEl) lEl.value = t.getAttribute('data-lag');
-      _oosApplyEditVisibility(fid);
+      // Click a valid alternative → pre-fill that tie's editor with the alternative type + lag.
+      const side = t.getAttribute('data-side');
+      const sel = (field) => document.querySelector(`[data-oosfield="${field}"][data-fid="${fid}"][data-side="${side}"]`);
+      const aEl = sel('action'); if (aEl) aEl.value = 'change';
+      const tEl = sel('new_type'); if (tEl) tEl.value = t.getAttribute('data-type');
+      const lEl = sel('new_lag_days'); if (lEl) lEl.value = t.getAttribute('data-lag');
+      _oosEditVisibility(fid, side);
     }
   };
   host.onchange = (e) => {
-    const el = e.target.closest('[data-oosfield]');
-    if (el) _oosApplyEditVisibility(el.getAttribute('data-fid'));
-  };
-  host.oninput = (e) => {
-    const el = e.target.closest('[data-oosfield]');
-    if (el && ['new_type', 'new_lag_days', 'new_pred_id', 'action'].includes(el.getAttribute('data-oosfield'))) {
-      _oosApplyEditVisibility(el.getAttribute('data-fid'));
-    }
+    const el = e.target.closest('[data-oosfield="action"]');
+    if (el) _oosEditVisibility(el.getAttribute('data-fid'), el.getAttribute('data-side'));
   };
 }
 
