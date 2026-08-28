@@ -47,7 +47,7 @@ def test_report_has_sections_in_order(tmp_path):
     html = render_calendar_report(_result(tmp_path), META)
     order = ['Executive Dashboard', 'Calendar Timeline', 'Monthly Calendar Statistics',
              'Calendar Exceptions', 'Working Hours Profile',
-             'Calendar Comparison', 'Calendar Usage', 'Calendar Conflicts', 'Executive Conclusion']
+             'Calendar Comparison &amp; Usage', 'Calendar Conflicts', 'Executive Conclusion']
     pos = [html.find(s) for s in order]
     assert all(p != -1 for p in pos), pos
     assert pos == sorted(pos)
@@ -165,14 +165,14 @@ def test_report_weather_cause_relabelled(tmp_path):
 def test_report_comparison_usage_and_section_picker(tmp_path):
     result = _result(tmp_path)
     html = render_calendar_report(result, META)
-    # #09 comparison: Non-Working Days column, no Activities column header in comparison
-    assert 'Non-Working Days' in html
-    # #10 usage role legend
-    assert 'Roles.' in html and 'Non-default' in html and 'Unused' in html
+    # Merged Comparison & Usage: one table with hours/day, activities, % of activities and role
+    assert 'Calendar Comparison &amp; Usage' in html
+    assert 'Non-Working Days' in html and '% of Activities' in html and 'Assigned to' in html
+    assert 'Unused' in html
     # #06 section-picker: only the requested sections render
     only_dash = render_calendar_report(result, META, sections=['dashboard'])
     assert 'Executive Dashboard' in only_dash
-    assert 'Calendar Timeline' not in only_dash and 'Calendar Usage' not in only_dash
+    assert 'Calendar Timeline' not in only_dash and 'Comparison &amp; Usage' not in only_dash
 
 
 def test_report_shows_named_holiday_in_cell(tmp_path):

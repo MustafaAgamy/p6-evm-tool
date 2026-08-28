@@ -90,6 +90,7 @@ const DEFAULT_THRESHOLDS = { rain_mm: 5, temp_max_c: 42, wind_kmh: null, dust: t
 
 let _ca = null;
 let _sel = null;
+let _sel2 = null;         // 2nd calendar to compare in the timeline histogram (Feature 1 §2)
 let _weather = null;      // last computed weather impact
 let _pendingLoc = null;   // location chosen in the picker, not yet applied
 let _thresholds = null;   // stop-work limits (rain/heat/wind/dust)
@@ -114,6 +115,7 @@ export function renderCalendar(ca) {
     return;
   }
   _sel = _ca.primary_calendar_id;
+  _sel2 = null;
   const settings = (state.currentResult && state.currentResult.calendar_settings) || {};
   if (settings.location) _pendingLoc = settings.location;
   if (settings.weather_thresholds) _thresholds = { ...DEFAULT_THRESHOLDS, ...settings.weather_thresholds };
@@ -176,9 +178,8 @@ function _tile(lab, val, sub = '', cls = '') {
 export const CAL_SECTIONS = [
   ['dashboard', '1 Executive Dashboard'], ['timeline', '2 Calendar Timeline'],
   ['stats', '3 Monthly Statistics'], ['exceptions', '4 Calendar Exceptions'],
-  ['hours', '5 Working Hours Profile'], ['comparison', '6 Calendar Comparison'],
-  ['usage', '7 Calendar Usage'], ['conflicts', '8 Calendar Conflicts'],
-  ['conclusion', '9 Executive Conclusion'],
+  ['hours', '5 Working Hours Profile'], ['comparison', '6 Calendar Comparison & Usage'],
+  ['conflicts', '7 Calendar Conflicts'], ['conclusion', '8 Executive Conclusion'],
 ];
 // Feature 2 — Bad Weather effect on Forecast Finish PDF (weather-only).
 export const WEATHER_SECTIONS = [
@@ -244,26 +245,47 @@ function _calPicker() {
   return `<select class="cal-picker" id="cal-picker">${opts}</select>`;
 }
 
-function _selMonths() {
-  const bc = (_ca.by_calendar || {})[_sel];
+function _monthsFor(calId) {
+  const bc = (_ca.by_calendar || {})[calId];
   return (bc && bc.monthly_stats) || [];
 }
+function _selMonths() { return _monthsFor(_sel); }
 
-// Section 2 — the timeline is a working vs non-working days-per-month histogram
-// (Ibrahim's restructure — replaces the crude colour strip; §3 has the numbers).
-// Clicking a month's bar opens its full calendar grid (holiday names in the cells).
-function _timelineSection() {
-  const months = _selMonths();
+// A 2nd calendar to compare against (Feature 1 §2). "none" hides the comparison histogram.
+function _calPicker2() {
+  const opts = ['<option value="">— none —</option>'].concat((_ca.assigned_calendars || [])
+    .filter(c => c.object_id !== _sel)
+    .map(c => `<option value="${escapeHtml(c.object_id)}" ${c.object_id === _sel2 ? 'selected' : ''}>
+      ${escapeHtml(c.name)} (${c.activity_count})</option>`)).join('');
+  return `<select class="cal-picker" id="cal-picker2">${opts}</select>`;
+}
+
+// One calendar's net-working / non-working days-per-month histogram. `clickable` months
+// open their full calendar grid (primary only); the comparison histogram is view-only.
+function _histBars(months, clickable) {
   const mx = Math.max(1, ...months.map(m => (m.working_days || 0) + (m.nonworking_days || 0)));
-  const bars = months.map((m, i) => {
+  return months.map((m, i) => {
     const wd = m.working_days || 0, nw = m.nonworking_days || 0, tot = wd + nw;
     const totPx = Math.round(tot / mx * 100), nwPx = tot ? Math.round(nw / tot * totPx) : 0, wPx = Math.max(0, totPx - nwPx);
-    const open = _openMonths.has(i);
-    return `<div class="cal-whc ${open ? 'open' : ''}" data-month="${i}" title="${escapeHtml(m.label)}: ${wd} net working · ${nw} non-working — click to open its calendar">
+    const open = clickable && _openMonths.has(i);
+    const cls = clickable ? `cal-whc ${open ? 'open' : ''}` : 'cal-whc static';
+    const dm = clickable ? ` data-month="${i}"` : '';
+    return `<div class="${cls}"${dm} title="${escapeHtml(m.label)}: ${wd} net working · ${nw} non-working${clickable ? ' — click to open its calendar' : ''}">
       <div class="cal-wht">${wd}</div>
       <div class="cal-whcol"><div class="cal-whn" style="height:${nwPx}px"></div><div class="cal-whw" style="height:${wPx}px"></div></div>
       <div class="cal-whl">${escapeHtml(m.label)}${open ? ' ▾' : ''}</div></div>`;
   }).join('');
+}
+function _histBlock(calId, clickable) {
+  const c = (_ca.assigned_calendars || []).find(x => x.object_id === calId);
+  const bars = _histBars(_monthsFor(calId), clickable);
+  return `<div class="cal-histblock"><div class="cal-histtitle">${escapeHtml(c ? c.name : '')}</div>
+    <div class="cal-whist">${bars || '<span class="cal-muted">No months.</span>'}</div></div>`;
+}
+
+// Section 2 — net working vs non-working days-per-month histogram (Feature 1). Clicking a
+// month's bar opens its full calendar grid; a 2nd calendar can be added to compare.
+function _timelineSection() {
   const hleg = `<div class="cal-whleg"><span><i class="wsw wsw-w"></i>Working days</span><span><i class="wsw wsw-n"></i>Non-working (weekends + holidays + shutdowns)</span><span>▲ number above bar = <b>net working days</b></span></div>`;
   const detail = _monthDetailHtml();
   const dayLegend = _openMonths.size ? `<div class="cal-legend" style="margin-top:10px">
@@ -278,10 +300,11 @@ function _timelineSection() {
   const hiddenChip = hidden
     ? `<div class="cal-hidden-note">◀ <b>${hidden} earlier month${hidden === 1 ? '' : 's'}</b> hidden — everything before the data date${dd ? ` (${fmtCalDate(dd)})` : ''}</div>`
     : '';
+  const compare = _sel2 ? _histBlock(_sel2, false) : '';
   return _sec(2, 'Calendar Timeline',
-      `<span class="cal-sec-note">working vs non-working days per month · click a month to open its calendar</span>
-       <span class="cal-showing">Showing: ${_calPicker()}</span>`) +
-    hiddenChip + hleg + `<div class="cal-whist">${bars || '<span class="cal-muted">No months.</span>'}</div>` +
+      `<span class="cal-sec-note">net working vs non-working days per month · click a month to open its calendar</span>
+       <span class="cal-showing">Showing: ${_calPicker()} &nbsp; Compare with: ${_calPicker2()}</span>`) +
+    hiddenChip + hleg + _histBlock(_sel, true) + compare +
     dayLegend + `<div id="cal-month-detail">${detail}</div>`;
 }
 
@@ -710,7 +733,7 @@ function _readThresholds() {
 
 function _conclusionSection(bullets) {
   const items = (bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('');
-  return _sec(9, 'Executive Conclusion') +
+  return _sec(8, 'Executive Conclusion') +
     `<div class="cal-concl"><ul>${items}</ul>
       <div class="cal-note">Generated automatically from the numbers above.</div></div>`;
 }
@@ -718,7 +741,9 @@ function _conclusionSection(bullets) {
 // ── wiring ─────────────────────────────────────────────────────────────────
 function _wireCalendar() {
   const picker = document.getElementById('cal-picker');
-  if (picker) picker.addEventListener('change', e => { _sel = e.target.value; _openMonths.clear(); _renderCalendarBody(); });
+  if (picker) picker.addEventListener('change', e => { _sel = e.target.value; if (_sel === _sel2) _sel2 = null; _openMonths.clear(); _renderCalendarBody(); });
+  const picker2 = document.getElementById('cal-picker2');
+  if (picker2) picker2.addEventListener('change', e => { _sel2 = e.target.value || null; _renderCalendarBody(); });
 
   document.querySelectorAll('#calendar-body .cal-whc').forEach(bar =>
     bar.addEventListener('click', () => {

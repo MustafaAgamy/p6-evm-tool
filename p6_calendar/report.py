@@ -38,15 +38,20 @@ def _tile(lab, val, sub=''):
 
 
 def _dashboard(d, weather=None):
-    adj = _fmt(weather['weather_adjusted_finish']) if weather else '—'
-    adj_sub = f"+{weather['net_finish_delay']} wd from weather" if weather else 'set location'
-    dates = ''.join([
+    # Feature 1 (Calendar Audit) carries NO weather: the Weather-Adjusted Finish tile is only
+    # added when a weather estimate is supplied (Feature 2 / the combined preview).
+    date_tiles = [
         _tile('Baseline Start', _fmt(d.get('baseline_start'))),
         _tile('Baseline Finish', _fmt(d.get('baseline_finish')), 'plan of record'),
         _tile('Data Date', _fmt(d.get('data_date'))),
         _tile('Forecast Finish (P6)', _fmt(d.get('project_finish'))),
-        _tile('Weather-Adjusted Finish', adj, adj_sub),
-    ])
+    ]
+    if weather:
+        date_tiles.append(_tile('Weather-Adjusted Finish',
+                                _fmt(weather['weather_adjusted_finish']),
+                                f"+{weather['net_finish_delay']} wd from weather"))
+    dates = ''.join(date_tiles)
+    dates_grid = 'k5' if weather else 'k4'
     stats = ''.join([
         _tile('Total Calendar Days', d.get('total_calendar_days')),
         _tile('Working Days', d.get('total_working_days')),
@@ -58,7 +63,7 @@ def _dashboard(d, weather=None):
         _tile('Avg Working Hours / Day', f"{d.get('avg_working_hours_per_day')} hrs"),
     ])
     return (f'<h2 class="sec">1 · Executive Dashboard</h2>'
-            f'<div class="sub2">Key Dates</div><div class="kpis k5">{dates}</div>'
+            f'<div class="sub2">Key Dates</div><div class="kpis {dates_grid}">{dates}</div>'
             f'<div class="sub2">Calendar Statistics</div><div class="kpis k4">{stats}</div>')
 
 
@@ -190,39 +195,37 @@ def _hours(profiles):
             f'<div class="hours">{cards}</div>')
 
 
-def _comparison(cmp, period_note=''):
-    rows = ''.join(
-        f'<tr><td>{_esc(c["name"])}{" (default)" if c.get("is_default") else ""}</td>'
-        f'<td class="num">{c["hours_per_day"]}</td><td class="num">{c["days_per_week"]}</td>'
-        f'<td class="num">{c.get("nonworking_days", 0)}</td></tr>' for c in cmp)
-    note = (f'<p class="lg"><b>Non-Working Days</b> — weekends, holidays and shutdowns still '
-            f'ahead, {_esc(period_note)}. Already-elapsed days are excluded.</p>') if period_note else ''
-    return ('<h2 class="sec">6 · Calendar Comparison</h2>'
+def _comparison(cmp, usage=None, period_note=''):
+    # Merged Calendar Comparison & Usage (matches the screen): hours/day, days/week, activities
+    # assigned, % of activities, non-working days ahead, and role — one row per calendar.
+    umap = {u['name']: u for u in (usage or [])}
+    rows = ''
+    for c in cmp:
+        u = umap.get(c['name'], {})
+        acts = u.get('activities', 0)
+        pct = '—' if u.get('role') == 'Unused' or u.get('pct') is None else f'{u["pct"]}%'
+        role = _esc(u.get('role', ''))
+        rows += (f'<tr><td>{_esc(c["name"])}{" (default)" if c.get("is_default") else ""}</td>'
+                 f'<td class="num">{c["hours_per_day"]}</td><td class="num">{c["days_per_week"]}</td>'
+                 f'<td class="num">{acts}</td><td class="num">{pct}</td>'
+                 f'<td class="num">{c.get("nonworking_days", 0)}</td><td>{role}</td></tr>')
+    note = (f'<p class="lg"><b>% of Activities</b> — share of the schedule\'s activities on each '
+            f'calendar. <b>Non-Working Days</b> — weekends, holidays and shutdowns still ahead, '
+            f'{_esc(period_note)}. <b>Unused</b> calendars carry no activity and can be removed.</p>'
+            ) if period_note else ''
+    return ('<h2 class="sec">6 · Calendar Comparison &amp; Usage</h2>'
             '<table><thead><tr><th>Calendar</th><th class="num">Hours/Day</th>'
-            '<th class="num">Days/Week</th><th class="num">Non-Working Days</th>'
+            '<th class="num">Days/Week</th><th class="num">Assigned to</th>'
+            '<th class="num">% of Activities</th><th class="num">Non-Working Days</th><th>Role</th>'
             f'</tr></thead><tbody>{rows}</tbody></table>{note}')
-
-
-def _usage(usage):
-    rows = ''.join(
-        f'<tr><td>{_esc(u["name"])}</td><td class="num">{u["activities"]}</td>'
-        f'<td class="num">{"—" if u["role"] == "Unused" else str(u["pct"]) + "%"}</td>'
-        f'<td>{_esc(u["role"])}</td></tr>' for u in usage)
-    return ('<h2 class="sec">7 · Calendar Usage</h2>'
-            '<table><thead><tr><th>Calendar</th><th class="num">Activities</th>'
-            f'<th class="num">% of Activities</th><th>Role</th></tr></thead><tbody>{rows}</tbody></table>'
-            '<p class="lg"><b>Roles.</b> <b>Default</b> — the project’s default calendar; new '
-            'activities are created on it automatically. <b>Non-default</b> — a calendar deliberately '
-            'assigned to specific activities instead of the default. <b>Unused</b> — defined in the '
-            'file but no activity uses it.</p>')
 
 
 def _conflicts(conflicts):
     if not conflicts:
-        return '<h2 class="sec">8 · Calendar Conflicts</h2><p class="ok">✓ No calendar conflicts detected — assignments look clean.</p>'
+        return '<h2 class="sec">7 · Calendar Conflicts</h2><p class="ok">✓ No calendar conflicts detected — assignments look clean.</p>'
     lines = ''.join(f'<li><b>{_esc(c["title"])}</b> — {_esc(c["detail"])}</li>' for c in conflicts)
     n = len(conflicts)
-    return (f'<h2 class="sec">8 · Calendar Conflicts</h2>'
+    return (f'<h2 class="sec">7 · Calendar Conflicts</h2>'
             f'<p style="margin:0 0 6px;font-size:11px">Summary: <b>{n}</b> issue{"" if n == 1 else "s"} found.</p>'
             f'<ul style="margin:0;padding-left:18px">{lines}</ul>')
 
@@ -406,7 +409,7 @@ def _weather_section(weather):
             f'<div class="concl" style="border-left-color:{report_theme.var("rpt-warn")};background:{report_theme.var("rpt-warn-bg")}">'
             f'<p style="margin:0;font-size:10.5px;line-height:1.5">{_esc(w["conclusion"])}</p></div>')
     return (
-        '<h2 class="sec">9 · Weather Impact '
+        '<h2 class="sec">1 · Weather Impact '
         f'<span style="font-weight:400;font-size:9.5px;color:{report_theme.var("rpt-warn")};text-transform:none;letter-spacing:0">'
         '— estimate, not a P6 figure</span></h2>'
         f'{method}{criteria_block}'
@@ -418,7 +421,7 @@ def _conclusion(bullets, weather=None):
     items = ''.join(f'<li>{_esc(b)}</li>' for b in bullets)
     wx = (f'<li><b>Weather:</b> ~{weather["expected_bad_days_total"]} bad-weather days expected; '
           f'net estimated +{weather["net_finish_delay"]} working days to the finish.</li>') if weather else ''
-    return (f'<h2 class="sec">10 · Executive Conclusion</h2>'
+    return (f'<h2 class="sec">8 · Executive Conclusion</h2>'
             f'<div class="concl"><ul>{items}{wx}</ul></div>')
 
 
@@ -440,7 +443,7 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
     if sections is None:
         sections = (['weather'] if is_weather else
                     ['dashboard', 'timeline', 'stats', 'exceptions', 'hours',
-                     'comparison', 'usage', 'conflicts', 'conclusion'])
+                     'comparison', 'conflicts', 'conclusion'])
     inc = lambda k: k in sections
     # Feature 1's dashboard/conclusion carry no weather (weather lives in the Bad Weather report).
     dash_weather = weather if is_weather else None
@@ -454,14 +457,28 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
         _wrap('stats', _monthly_stats(months)) if inc('stats') else '',
         _wrap('exceptions', _exceptions(exc)) if inc('exceptions') else '',
         _wrap('hours', _hours(profiles)) if inc('hours') else '',
-        _wrap('comparison', _comparison(result.get('comparison', []), period_note)) if inc('comparison') else '',
-        _wrap('usage', _usage(result.get('usage', []))) if inc('usage') else '',
+        _wrap('comparison', _comparison(result.get('comparison', []), result.get('usage', []), period_note)) if inc('comparison') else '',
         _wrap('conflicts', _conflicts(result.get('conflicts', []))) if inc('conflicts') else '',
         _wrap('weather', _weather_section(weather)) if inc('weather') else '',
         _wrap('conclusion', _conclusion(result.get('conclusion', []), dash_weather)) if inc('conclusion') else '',
     ])
+    # Feature-aware document branding — the Bad Weather report is its own document, not a
+    # Calendar Audit (the review caught calendar branding bleeding into Feature 2).
+    proj_name = _esc(meta.get('project_name', ''))
+    if is_weather:
+        doc_title, kicker = 'Bad Weather effect on Forecast Finish', 'Weather Impact Report'
+        subtitle = 'Expected bad-weather days, milestone impact &amp; recovery — a forward-looking estimate'
+        cal_label = 'Construction calendar'
+        foot = (f'Bad-weather forecast for <b>{proj_name}</b>. A forward-looking estimate from '
+                f'Open-Meteo climate history — an estimate, kept separate from the exact P6 dates.')
+    else:
+        doc_title, kicker = 'Calendar Audit', 'Project Calendar Report'
+        subtitle = 'Project working calendar, holidays, shutdowns &amp; working-hour analysis'
+        cal_label = 'Calendar'
+        foot = (f'Calendar Audit for <b>{proj_name}</b> · calendar "{_esc(cal_name)}". '
+                f'Working days, holidays, exceptions and working hours are read directly from the P6 calendar.')
     return f'''<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Calendar Audit — {_esc(meta.get('project_name', ''))}</title>
+<html><head><meta charset="utf-8"><title>{doc_title} — {proj_name}</title>
 <style>
   @page {{ margin: 18mm 12mm; }}
   body {{ font-family: 'Segoe UI', Arial, sans-serif; color: var(--rpt-ink); font-size: 11px; margin: 0; }}
@@ -548,20 +565,19 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
 </head>
 <body>
   <div class="head">
-    <div class="kicker">Project Calendar Report</div>
-    <div class="title">Calendar Audit</div>
-    <div class="subtitle">Project working calendar, holidays, shutdowns &amp; working-hour analysis</div>
+    <div class="kicker">{kicker}</div>
+    <div class="title">{doc_title}</div>
+    <div class="subtitle">{subtitle}</div>
     <div class="meta">
-      <div><span>Project:</span> {_esc(meta.get('project_name', ''))}</div>
+      <div><span>Project:</span> {proj_name}</div>
       <div><span>Data Date:</span> {_esc(_fmt(meta.get('data_date', '')))}</div>
       <div><span>Report Date:</span> {_esc(meta.get('report_date', ''))}</div>
       <div><span>Schedule File:</span> {_esc(meta.get('source_file', ''))}</div>
-      <div><span>Calendar:</span> {_esc(cal_name)}</div>
+      <div><span>{cal_label}:</span> {_esc(cal_name)}</div>
     </div>
   </div>
   {body}
   <div class="foot">
-    Calendar Audit for <b>{_esc(meta.get('project_name', ''))}</b> · calendar "{_esc(cal_name)}".
-    Working days, holidays, exceptions and working hours are read directly from the P6 calendar.
+    {foot}
   </div>
 </body></html>'''
