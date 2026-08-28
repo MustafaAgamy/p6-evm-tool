@@ -147,3 +147,43 @@ def test_reused_feature_section_composes(temp_db, xml_path):
     pid = _seed(xml_path)
     html = build_html(pid, ['evm:full_report'], 'Detailed', mode='light')
     assert 'Detailed' in html and 'srf-evm' in html   # feature markup wrapped + scoped
+
+
+# ── silent-empty / honest-availability regressions ───────────────────────────
+def test_calendar_weather_gated_without_estimate(temp_db, xml_path):
+    """No weather estimate -> 'Weather impact' must be no_data, not a 'ready' item
+    that renders an empty weather section. And every 'ready' calendar section must
+    render real content."""
+    registry.clear_providers()
+    ctx = SpecialContext(_seed(xml_path))          # calendar saved, no weather estimate
+    cal = {g['feature']: g for g in registry.catalog(ctx)}['calendar']['items']
+    avail = {i['id']: i['availability'] for i in cal}
+    assert avail['calendar:weather'] == 'no_data'
+    ready_ids = [i['id'] for i in cal if i['availability'] == 'ready']
+    for r in registry.render(ctx, ready_ids):
+        assert r['payload']['kind'] != 'no_data', r['id']
+
+
+def test_evm_full_report_no_data_when_xml_missing(temp_db):
+    """evm:full_report re-parses XML; with the file gone it must be no_data (not a
+    'ready' item that renders 'No data')."""
+    from p6_special.providers import evm
+    pid = db.upsert_project('PX', 'Gone')
+    sid = db.insert_snapshot(pid, '2026-01-01', 'C:/nope/missing.xml', 'C:/nope/missing.xml', 'h', 5, 1)
+    db.insert_metrics(sid, {'pv': 1e6, 'ev': 6e5, 'ac': 7e5,
+                            'overall_planned_pct': 0.6, 'overall_actual_pct': 0.4})
+    ctx = SpecialContext(pid)
+    full = {i.id: i for i in evm.provide(ctx)}['evm:full_report']
+    assert full.availability(ctx) == 'no_data'     # ctx.evm truthy but no XML
+
+
+def test_word_reused_section_has_no_css_vars(temp_db, xml_path):
+    """Reused feature sections must be resolved to concrete hex in Word (var()/
+    color-mix dropped by Word) so they stay themed like the PDF, in every mode."""
+    from p6_special.assemble import build_word
+    registry.clear_providers()
+    pid = _seed(xml_path)
+    doc = build_word(pid, ['evm:full_report'], 'Detailed', mode='midnight')
+    assert 'srf-evm' in doc               # reused section present
+    assert 'var(--' not in doc            # resolved to hex for Word
+    assert 'color-mix(' not in doc

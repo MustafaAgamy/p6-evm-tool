@@ -24,6 +24,36 @@ def _ready(ctx):
     return 'ready' if ctx.evm else 'needs_run'
 
 
+def _full_ready(ctx):
+    """The full EVM report re-renders from a fresh XML parse (ctx.computed), so it
+    must gate on the file being available — not just on the DB metrics existing —
+    or an evicted-cache project would advertise 'ready' then render 'No data'."""
+    if not ctx.evm:
+        return 'needs_run'
+    return 'ready' if ctx.has_xml() else 'no_data'
+
+
+def _paired_ready(ctx):
+    if not ctx.evm:
+        return 'needs_run'
+    e = ctx.evm
+    return 'ready' if (e.get('overall_planned_pct') is not None
+                       or e.get('overall_actual_pct') is not None) else 'no_data'
+
+
+def _value_ready(ctx):
+    if not ctx.evm:
+        return 'needs_run'
+    e = ctx.evm
+    return 'ready' if any(isinstance(e.get(k), (int, float)) for k in ('pv', 'ev', 'ac')) else 'no_data'
+
+
+def _cats_ready(ctx):
+    if not ctx.evm:
+        return 'needs_run'
+    return 'ready' if (ctx.evm or {}).get('categories') else 'no_data'
+
+
 def _var_tone(v):
     if v is None:
         return 'neutral'
@@ -187,17 +217,17 @@ def provide(ctx):
         Item('evm:actual_pct', FEATURE, FEATURE_TITLE, 'Actual % — overall', 'kpi', _kpi_actual, A),
         Item('evm:variance', FEATURE, FEATURE_TITLE, 'Variance — overall', 'kpi', _kpi_variance, A),
         Item('evm:planned_vs_actual', FEATURE, FEATURE_TITLE,
-             'Planned % vs Actual % — overall (paired)', 'chart', _paired, A),
+             'Planned % vs Actual % — overall (paired)', 'chart', _paired, _paired_ready),
         Item('evm:category_table', FEATURE, FEATURE_TITLE,
-             'Planned % vs Actual % — by category', 'table', _category_table, A),
+             'Planned % vs Actual % — by category', 'table', _category_table, _cats_ready),
         Item('evm:spi', FEATURE, FEATURE_TITLE, 'SPI', 'kpi', _kpi_spi, A),
         Item('evm:cpi', FEATURE, FEATURE_TITLE, 'CPI', 'kpi', _kpi_cpi, A),
         Item('evm:pv', FEATURE, FEATURE_TITLE, 'Planned Value (PV)', 'kpi', _kpi_pv, A),
         Item('evm:ev', FEATURE, FEATURE_TITLE, 'Earned Value (EV)', 'kpi', _kpi_ev, A),
         Item('evm:ac', FEATURE, FEATURE_TITLE, 'Actual Cost (AC)', 'kpi', _kpi_ac, A),
         Item('evm:delay', FEATURE, FEATURE_TITLE, 'Delay in working days', 'kpi', _kpi_delay, A),
-        Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned / Earned / Actual value (chart)', 'chart', _pv_ev_ac, A),
+        Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned / Earned / Actual value (chart)', 'chart', _pv_ev_ac, _value_ready),
         Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'table', _gap, _gap_ready),
         Item('evm:full_report', FEATURE, FEATURE_TITLE, 'Full EVM report (detailed)', 'section',
-             lambda ctx: FR.evm_full_report(ctx) or P.NO_DATA, A),
+             lambda ctx: FR.evm_full_report(ctx) or P.NO_DATA, _full_ready),
     ]

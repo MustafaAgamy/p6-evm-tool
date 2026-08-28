@@ -7,13 +7,23 @@ FEATURE = 'calendar'
 FEATURE_TITLE = 'Calendar & Weather'
 
 
-def _ready(ctx):
-    return 'ready' if ctx.calendar else 'no_data'
+def _avail(ctx, key):
+    """Honest per-section gating: 'ready' only if this section actually produces
+    content for the current schedule. Several calendar sections are conditional —
+    Weather is empty without a weather estimate, Exceptions without holidays/
+    shutdowns ahead, Comparison with a single calendar, Conflicts when none — so
+    gating the whole feature on 'a calendar exists' would advertise empty sections
+    as ready (a silent-empty section). The render is memoized, so this costs
+    nothing extra when the section is later selected."""
+    if not ctx.calendar:
+        return 'no_data'
+    return 'ready' if FR.calendar_section(ctx, key) else 'no_data'
 
 
 def _mk(key, title):
     return Item(f'calendar:{key}', FEATURE, FEATURE_TITLE, title, 'section',
-                lambda ctx, k=key: FR.calendar_section(ctx, k) or P.NO_DATA, _ready)
+                lambda ctx, k=key: FR.calendar_section(ctx, k) or P.NO_DATA,
+                lambda ctx, k=key: _avail(ctx, k))
 
 
 def provide(ctx):

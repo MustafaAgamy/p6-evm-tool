@@ -325,16 +325,24 @@ def _base_css(C):
 
 
 def _feature_css_head(rendered, mode):
-    """Theme tokens + each reused feature's scoped CSS (deduped), for the head.
-    Only emitted when a reused feature-report section is present."""
-    feat_css = {}
+    """Theme tokens + each reused feature's scoped CSS, for the head. Deduped by
+    CSS *content*, not by feature: one feature can ship different stylesheets for
+    different sections (e.g. Schedule Audit's Float report uses a different
+    stylesheet than OOS/Lag/Dangling), and every distinct one must be kept or the
+    later section renders unstyled. Identical blocks are emitted once. Only
+    emitted when a reused feature-report section is present."""
+    seen = set()
+    blocks = []
     for it in rendered:
         pl = it.get('payload') or {}
         if pl.get('kind') == 'html' and pl.get('css'):
-            feat_css.setdefault(pl.get('feature'), pl['css'])
-    if not feat_css:
+            css = pl['css']
+            if css not in seen:
+                seen.add(css)
+                blocks.append(css)
+    if not blocks:
         return ''
-    return report_theme.theme_style_tag(mode) + '<style>' + '\n'.join(feat_css.values()) + '</style>'
+    return report_theme.theme_style_tag(mode) + '<style>' + '\n'.join(blocks) + '</style>'
 
 
 def document_parts(report_name, meta, rendered, mode='light', letterhead=None):

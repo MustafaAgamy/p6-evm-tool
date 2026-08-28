@@ -71,6 +71,15 @@ def _body_after_head(html):
     return _strip_leading_header(frag.strip()).strip()
 
 
+def _strip_trailing_foot(frag):
+    """Drop the Calendar report's boilerplate footer sentence. Without this, a
+    section whose body rendered empty (e.g. Weather with no estimate, Exceptions
+    with none ahead) would still carry the always-present footer div, so the
+    fragment looks non-empty and the section shows a heading over just boilerplate.
+    Removing it lets an empty section collapse to '' -> NO_DATA -> honestly gated."""
+    return re.sub(r'\s*<div class="foot">.*?</div>\s*$', '', frag or '', flags=re.S).strip()
+
+
 def _payload(feature, css, fragment):
     if not fragment or not fragment.strip():
         return None
@@ -153,7 +162,7 @@ def calendar_section(ctx, key):
     html = ctx.memo(f'fr:calendar:{key}:{ctx.mode}', b)
     if not html:
         return None
-    return _payload('calendar', reuse.extract_styles(html), _body_after_head(html))
+    return _payload('calendar', reuse.extract_styles(html), _strip_trailing_foot(_body_after_head(html)))
 
 
 def audit_module(ctx, key):

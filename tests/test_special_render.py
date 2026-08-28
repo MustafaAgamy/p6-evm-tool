@@ -1,9 +1,36 @@
 """Tests for the Special Report renderer + Word export (PDF/Word parity)."""
+import report_theme
 from p6_special import payloads as P
-from p6_special.render_html import build_document, document_parts
-from p6_special.word_export import build_word_document
+from p6_special.render_html import build_document, document_parts, _feature_css_head
+from p6_special.word_export import build_word_document, _resolve_theme_colors
 
 MODES = ('light', 'dark', 'midnight', 'sepia', 'contrast', 'blueprint')
+
+
+def test_feature_css_dedup_keeps_distinct_blocks():
+    """One feature can ship different stylesheets for different sections (audit
+    Float vs OOS). _feature_css_head must keep every DISTINCT block (deduping only
+    identical ones), or the later section renders unstyled."""
+    rendered = [
+        {'payload': {'kind': 'html', 'feature': 'audit', 'css': '.srf-audit .fh{color:#f00}'}},
+        {'payload': {'kind': 'html', 'feature': 'audit', 'css': '.srf-audit .dash{color:#00f}'}},
+        {'payload': {'kind': 'html', 'feature': 'audit', 'css': '.srf-audit .fh{color:#f00}'}},
+    ]
+    head = _feature_css_head(rendered, 'light')
+    assert '.fh{color:#f00}' in head      # first distinct block kept
+    assert '.dash{color:#00f}' in head    # second distinct block ALSO kept (was dropped before)
+    assert head.count('.fh{color:#f00}') == 1   # identical block emitted once
+
+
+def test_word_resolves_theme_vars_and_color_mix_to_hex():
+    """Word ignores var()/color-mix, so the Word path must resolve reused-section
+    colours to concrete hex for every appearance mode."""
+    accent = report_theme.theme_vars('midnight')['rpt-accent']
+    out = _resolve_theme_colors('a{color:var(--rpt-accent)}', 'midnight')
+    assert 'var(' not in out and accent.lower() in out.lower()
+    mixed = _resolve_theme_colors(
+        'b{background:color-mix(in srgb, var(--rpt-warn) 45%, transparent)}', 'midnight')
+    assert 'var(' not in mixed and 'color-mix' not in mixed and '#' in mixed
 
 
 def _rendered():
