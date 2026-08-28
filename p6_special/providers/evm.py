@@ -153,12 +153,31 @@ def _pv_ev_ac(ctx):
         axis_max=amax)
 
 
-def _gap(ctx):
+def _gap_rows(ctx):
+    """The PV−EV gap-by-code rows if present for this snapshot, else None.
+
+    ``gap`` is optional stored data (only present when the engineering/E1 gap was
+    computed), so its item gates on this rather than on EVM alone — otherwise it
+    would advertise as 'ready' and then render an empty 'No data' section, the
+    exact silent-empty case Special Report must avoid."""
     gap = (ctx.extras or {}).get('gap')
     if isinstance(gap, list) and gap and isinstance(gap[0], dict):
+        return gap
+    return None
+
+
+def _gap(ctx):
+    gap = _gap_rows(ctx)
+    if gap:
         from p6_special.providers import _util as U
         return U.table_from_dicts(gap)
     return P.NO_DATA
+
+
+def _gap_ready(ctx):
+    if not ctx.evm:
+        return 'needs_run'
+    return 'ready' if _gap_rows(ctx) is not None else 'no_data'
 
 
 def provide(ctx):
@@ -178,7 +197,7 @@ def provide(ctx):
         Item('evm:ac', FEATURE, FEATURE_TITLE, 'Actual Cost (AC)', 'kpi', _kpi_ac, A),
         Item('evm:delay', FEATURE, FEATURE_TITLE, 'Delay in working days', 'kpi', _kpi_delay, A),
         Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned / Earned / Actual value (chart)', 'chart', _pv_ev_ac, A),
-        Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'table', _gap, A),
+        Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'table', _gap, _gap_ready),
         Item('evm:full_report', FEATURE, FEATURE_TITLE, 'Full EVM report (detailed)', 'section',
              lambda ctx: FR.evm_full_report(ctx) or P.NO_DATA, A),
     ]

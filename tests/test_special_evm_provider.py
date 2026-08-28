@@ -78,3 +78,24 @@ def test_availability_ready(temp_db, xml_path):
 def test_availability_needs_run_without_data(temp_db):
     ctx = SpecialContext(9999)
     assert evm.provide(ctx)[0].availability(ctx) == 'needs_run'
+
+
+def test_gap_gated_no_data_when_absent(temp_db, xml_path):
+    """PV-EV gap is optional: with no stored gap it must report 'no_data', not a
+    'ready' item that then renders an empty section (silent-empty regression)."""
+    ctx = SpecialContext(_seed(xml_path))
+    item = _items(ctx)['evm:gap']
+    assert item.availability(ctx) == 'no_data'
+    assert item.produce(ctx)['kind'] == 'no_data'
+
+
+def test_gap_ready_and_renders_table_when_present(temp_db, xml_path):
+    pid = _seed(xml_path)
+    sid = db.get_latest_snapshot_id(pid)
+    db.save_evm_extras(sid, {'gap': [{'code': 'CIV', 'pv': 100.0, 'ev': 60.0, 'gap': 40.0}]})
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    item = _items(ctx)['evm:gap']
+    assert item.availability(ctx) == 'ready'
+    pl = item.produce(ctx)
+    assert pl['kind'] == 'table'
+    assert pl['rows']
