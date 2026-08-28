@@ -153,6 +153,7 @@ export function showReportContentsPreview(opts) {
   const { feature, report, title, subtitle, serverPort } = opts;
   const onError = opts.onError || (() => {});
   const LS_KEY = `p6_report_sel_${feature}`;
+  let mode = getSavedMode();                       // shared appearance mode (6 themes)
   const api = (path, body) => fetch(`http://localhost:${serverPort}${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   }).then(r => r.json());
@@ -165,6 +166,7 @@ export function showReportContentsPreview(opts) {
         <div class="rpv-title"><i class="ti ti-file-text" aria-hidden="true"></i>
           <span>${escapeHtml(title)}</span>
           ${subtitle ? `<span class="rpv-sub">${escapeHtml(subtitle)}</span>` : ''}</div>
+        <div class="rpv-appearance-slot"></div>
         <div class="rpv-actions">
           <button class="btn-mini" id="rpv-close">Close</button>
           <button class="btn-mini" id="rpv-print">🖨 Print</button>
@@ -197,6 +199,8 @@ export function showReportContentsPreview(opts) {
   const frame  = overlay.querySelector('.rpv-frame');
   page.style.width = frame.style.width = PAGE_W + 'px';
   page.style.transformOrigin = 'top left';
+  const paintBackdrop = () => { page.style.background = frame.style.background = backdropColor(mode); };
+  paintBackdrop();
 
   let contentH = 1100;
   const relayout = () => {
@@ -240,7 +244,7 @@ export function showReportContentsPreview(opts) {
     renderTimer = setTimeout(async () => {
       const selected_ids = order.filter(id => selected.has(id));
       try {
-        const data = await api('/api/report/render', { feature, report, selected_ids, order });
+        const data = await api('/api/report/render', { feature, report, selected_ids, order, theme: mode });
         if (data.ok) frame.srcdoc = data.html;
         else onError(data.error || 'Preview failed.');
       } catch { onError('Could not reach the local server.'); }
@@ -300,7 +304,7 @@ export function showReportContentsPreview(opts) {
     if (!path) return;
     saveBtn.disabled = true; const label = saveBtn.textContent; saveBtn.textContent = 'Saving…';
     try {
-      const data = await api('/api/report/render', { feature, report, selected_ids, order, output_path: path });
+      const data = await api('/api/report/render', { feature, report, selected_ids, order, output_path: path, theme: mode });
       if (data.ok) { saveBtn.textContent = '✓ Saved'; setTimeout(() => { saveBtn.disabled = false; saveBtn.textContent = label; }, 1200); }
       else { onError(data.error || 'PDF failed.'); saveBtn.disabled = false; saveBtn.textContent = label; }
     } catch { onError('Could not reach the local server.'); saveBtn.disabled = false; saveBtn.textContent = label; }
@@ -309,6 +313,15 @@ export function showReportContentsPreview(opts) {
   overlay.querySelector('#rpv-print').addEventListener('click', () => {
     try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { onError('Print is unavailable here.'); }
   });
+
+  // Appearance picker — one of the 6 shared modes; re-renders the report server-side
+  // so Preview == PDF == Print stays true in every mode.
+  const picker = buildAppearancePicker({
+    current: mode,
+    compact: true,
+    onChange: (m) => { mode = m; paintBackdrop(); refreshPreview(); },
+  });
+  overlay.querySelector('.rpv-appearance-slot').appendChild(picker);
 
   const close = () => { window.removeEventListener('resize', relayout); overlay.remove(); };
   overlay.querySelector('#rpv-close').addEventListener('click', close);

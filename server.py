@@ -1185,7 +1185,8 @@ class Handler(BaseHTTPRequestHandler):
             if spec is None:
                 self._json(200, {'ok': False, 'error': f'Unknown report feature: {feature}'})
                 return
-            html_content = build_document(spec, report, selected_ids, order)
+            html_content = build_document(spec, report, selected_ids, order,
+                                          theme=report_theme.normalize(body.get('theme')))
             if not output_path:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

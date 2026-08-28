@@ -51,9 +51,17 @@ def _conclusion(report):
     return f'<div class="foot">{X._e(c)}</div>' if c else ''
 
 
-_STRENGTH_HEX = {'strong': '#dc2626', 'moderate': '#d97706', 'weak': '#64748b', 'insufficient': '#94a3b8'}
-_BAND_HEX = {'green': '#16a34a', 'amber': '#d97706', 'orange': '#ea580c', 'red': '#dc2626'}
-_CONF_HEX = {'high': '#16a34a', 'medium': '#d97706', 'low': '#64748b'}
+# Semantic colours as appearance tokens — (text, tint-background) — so the chips and
+# score theme in all 6 appearance modes instead of a fixed light-mode hex.
+_STRENGTH_TOK = {'strong': ('var(--rpt-bad)', 'var(--rpt-bad-bg)'),
+                 'moderate': ('var(--rpt-warn)', 'var(--rpt-warn-bg)'),
+                 'weak': ('var(--rpt-ink-soft)', 'var(--rpt-surface-2)'),
+                 'insufficient': ('var(--rpt-muted)', 'var(--rpt-surface-2)')}
+_BAND_TOK = {'green': 'var(--rpt-good)', 'amber': 'var(--rpt-warn)',
+             'orange': 'var(--rpt-bad)', 'red': 'var(--rpt-bad)'}
+_CONF_TOK = {'high': ('var(--rpt-good)', 'var(--rpt-good-bg)'),
+             'medium': ('var(--rpt-warn)', 'var(--rpt-warn-bg)'),
+             'low': ('var(--rpt-ink-soft)', 'var(--rpt-surface-2)')}
 
 _CONF_LEGEND = [('High', 'strong and consistent evidence from the schedule'),
                 ('Medium', 'sufficient evidence, but some ambiguity remains'),
@@ -66,8 +74,8 @@ _SEV_LEGEND = [('strong', 'Strong', 'significant execution / constructability ri
 
 
 def _sev_chip(strength):
-    hex_ = _STRENGTH_HEX.get(strength, '#64748b')
-    return (f'<span class="schip" style="background:{hex_}1a;color:{hex_};border-color:{hex_}55">'
+    col, bg = _STRENGTH_TOK.get(strength, ('var(--rpt-ink-soft)', 'var(--rpt-surface-2)'))
+    return (f'<span class="schip" style="background:{bg};color:{col};border-color:{col}">'
             f'{X._e(STRENGTH_DISPLAY.get(strength, strength))}</span>')
 
 
@@ -100,13 +108,13 @@ def _project_risk_summary(report):
     if not a and not s:
         return ''
     conf = (a.get('confidence') or 'low').lower()
-    hexc = _CONF_HEX.get(conf, '#64748b')
-    hexb = _BAND_HEX.get(s.get('band'), '#64748b')
+    cfg_col, cfg_bg = _CONF_TOK.get(conf, ('var(--rpt-ink-soft)', 'var(--rpt-surface-2)'))
+    band_col = _BAND_TOK.get(s.get('band'), 'var(--rpt-ink-soft)')
     conf_leg = ' '.join(f'<span class="lgi"><b>{lbl}</b> — {X._e(desc)}</span>'
                         for lbl, desc in _CONF_LEGEND)
     score_leg = ''.join(
         f'<span class="lgi{" on" if b == s.get("band") else ""}">'
-        f'<span class="esdot" style="background:{_BAND_HEX[b]}"></span>{rng} {X._e(lbl)}</span>'
+        f'<span class="esdot" style="background:{_BAND_TOK[b]}"></span>{rng} {X._e(lbl)}</span>'
         for b, rng, lbl in _SCORE_LEGEND)
     pts = s.get('total_severity_points', 0)
     acts = s.get('total_activities', 0)
@@ -138,13 +146,13 @@ def _project_risk_summary(report):
         f'<div class="prsrow"><span class="prsk">Project Type</span>'
         f'<span class="prsv"><b>{X._e(a.get("archetype_name") or a.get("archetype") or "—")}</b></span>'
         f'<span class="prsk">Confidence</span>'
-        f'<span class="schip" style="background:{hexc}1a;color:{hexc};border-color:{hexc}55">'
+        f'<span class="schip" style="background:{cfg_bg};color:{cfg_col};border-color:{cfg_col}">'
         f'{X._e(conf.capitalize())}</span></div>'
         f'<div class="lgrow"><span class="lgt">Confidence</span>{conf_leg}</div>'
         f'<div class="scorehero">'
-        f'<span class="shnum" style="color:{hexb}">{X._e(s.get("overall", "—"))}</span>'
+        f'<span class="shnum" style="color:{band_col}">{X._e(s.get("overall", "—"))}</span>'
         f'<span class="shden">/ 100</span>'
-        f'<span class="shband" style="color:{hexb}">{X._e(s.get("band_label", ""))}</span>'
+        f'<span class="shband" style="color:{band_col}">{X._e(s.get("band_label", ""))}</span>'
         f'<span class="shlabel">Constructability Risk Score</span></div>'
         f'<div class="lgrow"><span class="lgt">Score</span>{score_leg}</div>'
         f'{method}'
@@ -304,66 +312,68 @@ _EXTRA_CSS = '''
       .schip { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase;
                letter-spacing: .3px; padding: 1px 7px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
       .esdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-      .prs { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 13px; }
+      .prs { border: 1px solid var(--rpt-hair); border-radius: 8px; padding: 10px 13px; }
       .prsrow { display: flex; align-items: baseline; gap: 10px; padding: 3px 0; font-size: 12px; }
-      .prsrow .prsk { color: #64748b; text-transform: uppercase; letter-spacing: .3px; font-size: 10px; }
-      .prsrow .prsv { color: #0f172a; }
+      .prsrow .prsk { color: var(--rpt-ink-soft); text-transform: uppercase; letter-spacing: .3px; font-size: 10px; }
+      .prsrow .prsv { color: var(--rpt-ink); }
       .scorehero { display: flex; align-items: baseline; gap: 8px; margin: 8px 0 2px; }
       .scorehero .shnum { font-size: 40px; font-weight: 800; line-height: 1; }
-      .scorehero .shden { font-size: 13px; color: #94a3b8; }
+      .scorehero .shden { font-size: 13px; color: var(--rpt-muted); }
       .scorehero .shband { font-size: 16px; font-weight: 700; margin-left: 6px; }
-      .scorehero .shlabel { font-size: 10px; color: #64748b; text-transform: uppercase;
+      .scorehero .shlabel { font-size: 10px; color: var(--rpt-ink-soft); text-transform: uppercase;
                             letter-spacing: .3px; margin-left: auto; }
       .lgrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 3px 0;
-               font-size: 10px; color: #475569; }
-      .lgrow .lgt { color: #94a3b8; text-transform: uppercase; letter-spacing: .3px; font-weight: 700;
+               font-size: 10px; color: var(--rpt-ink-soft); }
+      .lgrow .lgt { color: var(--rpt-muted); text-transform: uppercase; letter-spacing: .3px; font-weight: 700;
                     font-size: 9px; }
       .lgi { display: inline-flex; align-items: center; gap: 4px; opacity: .8; }
-      .lgi.on { opacity: 1; font-weight: 700; color: #1e293b; }
+      .lgi.on { opacity: 1; font-weight: 700; color: var(--rpt-ink); }
       .howcalc { margin: 4px 0; }
-      .howcalc > summary { font-size: 10.5px; color: #0369a1; cursor: pointer; font-weight: 600; }
-      .howcalc .howbody { font-size: 10.5px; color: #475569; padding: 5px 0 2px; line-height: 1.5; }
-      .prscov { margin-top: 6px; font-size: 10.5px; color: #64748b; }
-      .prsclean { margin-top: 5px; padding: 6px 10px; background: #f0fdf4; border: 1px solid #bbf7d0;
-                  border-radius: 6px; font-size: 11px; color: #15803d; font-weight: 600; }
-      .prssum { margin-top: 6px; padding-top: 6px; border-top: 1px solid #f1f5f9; font-size: 12px;
-                color: #1e293b; font-weight: 600; }
+      .howcalc > summary { font-size: 10.5px; color: var(--rpt-accent); cursor: pointer; font-weight: 600; }
+      .howcalc .howbody { font-size: 10.5px; color: var(--rpt-ink-soft); padding: 5px 0 2px; line-height: 1.5; }
+      .prscov { margin-top: 6px; font-size: 10.5px; color: var(--rpt-ink-soft); }
+      .prsclean { margin-top: 5px; padding: 6px 10px; background: var(--rpt-good-bg); border: 1px solid var(--rpt-good);
+                  border-radius: 6px; font-size: 11px; color: var(--rpt-good); font-weight: 600; }
+      .prssum { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--rpt-hair); font-size: 12px;
+                color: var(--rpt-ink); font-weight: 600; }
       table.cfind { table-layout: fixed; width: 100%; border-collapse: collapse; }
-      table.cfind th, table.cfind td { border: 1px solid #e2e8f0; padding: 4px 6px; }
+      table.cfind th, table.cfind td { border: 1px solid var(--rpt-hair); padding: 4px 6px; }
       table.cfind td { vertical-align: top; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
       table.cfind td .mono, table.cfind td.cflogic, table.cfind td.cfrec { overflow-wrap: anywhere; word-break: break-word; }
       table.cfind td.cfwe { font-size: 10.5px; line-height: 1.5; }
       table.cfind td.cflogic { font-size: 10px; line-height: 1.5; }
       table.cfind td.cfrec { font-size: 10.5px; line-height: 1.5; }
-      table.cfind td.cfimpact { text-align: right; font-weight: 700; color: #dc2626; white-space: nowrap; }
+      table.cfind td.cfimpact { text-align: right; font-weight: 700; color: var(--rpt-bad); white-space: nowrap; }
       .cfwe .fw { padding: 1px 0; }
-      .cfwe .fwl { font-weight: 700; color: #475569; text-transform: uppercase;
+      .cfwe .fwl { font-weight: 700; color: var(--rpt-ink-soft); text-transform: uppercase;
                    letter-spacing: .2px; font-size: 9px; }
-      .cfwe .supln { color: #15803d; }
+      .cfwe .supln { color: var(--rpt-good); }
       .cmp { display: flex; gap: 8px; margin: 3px 0; font-size: 10.5px; }
-      .cmp .cmpk { flex: 0 0 130px; color: #64748b; text-transform: uppercase; letter-spacing: .3px;
+      .cmp .cmpk { flex: 0 0 130px; color: var(--rpt-ink-soft); text-transform: uppercase; letter-spacing: .3px;
                    font-size: 9px; font-weight: 700; padding-top: 1px; }
-      .cmp .cmpk.rec { color: #15803d; }
-      .cmp .cmpv { color: #1e293b; }
-      .cfdetailrow td { background: #f8fafc; border-top: none; padding: 0 8px 8px; }
-      .cfdetail > summary { font-size: 10px; color: #64748b; cursor: pointer; padding: 5px 0;
+      .cmp .cmpk.rec { color: var(--rpt-good); }
+      .cmp .cmpv { color: var(--rpt-ink); }
+      .cfdetailrow td { background: var(--rpt-surface); border-top: none; padding: 0 8px 8px; }
+      .cfdetail > summary { font-size: 10px; color: var(--rpt-ink-soft); cursor: pointer; padding: 5px 0;
                             font-weight: 600; list-style: none; }
       .cfdetail > summary::-webkit-details-marker { display: none; }
-      .cfdetail .recnote { font-size: 10.5px; color: #14532d; background: #f0fdf4;
-                           border: 1px solid #bbf7d0; border-radius: 5px; padding: 4px 8px; margin: 3px 0; }
+      .cfdetail .recnote { font-size: 10.5px; color: var(--rpt-good); background: var(--rpt-good-bg);
+                           border: 1px solid var(--rpt-good); border-radius: 5px; padding: 4px 8px; margin: 3px 0; }
       table.p6log { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 10px; }
-      table.p6log th { text-align: left; background: #eef2f7; color: #475569; font-weight: 600;
-                       padding: 3px 6px; border: 1px solid #e2e8f0; }
-      table.p6log td { padding: 3px 6px; border: 1px solid #e2e8f0; vertical-align: top; }
-      .rtype { display: inline-block; font-size: 9px; font-weight: 700; color: #0369a1;
-               background: #e0f2fe; border-radius: 3px; padding: 0 4px; }
-      .cfnote { font-size: 9.5px; color: #94a3b8; margin-top: 6px; font-style: italic; }
+      table.p6log th { text-align: left; background: var(--rpt-surface-2); color: var(--rpt-ink-soft); font-weight: 600;
+                       padding: 3px 6px; border: 1px solid var(--rpt-hair); }
+      table.p6log td { padding: 3px 6px; border: 1px solid var(--rpt-hair); vertical-align: top; }
+      .rtype { display: inline-block; font-size: 9px; font-weight: 700; color: var(--rpt-accent);
+               background: var(--rpt-accent-soft); border-radius: 3px; padding: 0 4px; }
+      .cfnote { font-size: 9.5px; color: var(--rpt-muted); margin-top: 6px; font-style: italic; }
 '''
 
 
 def build_spec(report):
     s = report.get('score') or {}
-    hex_ = X._hex(s.get('band'))
+    # Band accent as appearance tokens (not fixed hex) so the report themes in all 6 modes.
+    accent = X._band_var(s.get('band'))
+    accent_bg = X._band_bg_var(s.get('band'))
     conf = report.get('confidence') or {}
     conf_line = ('Type chosen manually' if conf.get('forced')
                  else f"Detection confidence: {conf.get('level', '')} "
@@ -419,7 +429,7 @@ def build_spec(report):
         feature=FEATURE,
         title='Constructability Review — Execution Readiness',
         meta_line=meta,
-        css=X.component_css(hex_) + _EXTRA_CSS,
+        css=X.component_css(accent, accent_bg) + _EXTRA_CSS,
         orientation='landscape',
         components=components,
     )

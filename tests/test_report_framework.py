@@ -127,3 +127,22 @@ def test_register_and_get_spec_roundtrip():
 def test_component_render_receives_the_report_dict():
     doc = build_document(_spec(), {'score': 77, 'rows': [1]}, selected_ids=['summary'])
     assert 'Score 77' in doc
+
+
+# ── appearance modes: the assembler themes every print-preview report ─────────
+
+def test_document_injects_the_selected_appearance_theme():
+    # a non-default mode must stamp its palette + data-rpt-theme, and the frame CSS
+    # must read from tokens (so the whole report follows the six appearance modes).
+    doc = build_document(_spec(), {'score': 90, 'rows': [1]}, selected_ids=['summary'],
+                         theme='dark')
+    assert 'data-rpt-theme="dark"' in doc          # the palette block for dark is present
+    assert '--rpt-bg:' in doc                       # tokens defined on :root
+    assert 'var(--rpt-ink)' in doc                  # frame CSS reads a token, not a fixed hex
+
+
+def test_document_defaults_to_light_and_unknown_mode_falls_back():
+    light = build_document(_spec(), {'score': 90}, selected_ids=['summary'])           # theme unset
+    assert 'data-rpt-theme="light"' in light
+    bogus = build_document(_spec(), {'score': 90}, selected_ids=['summary'], theme='nope')
+    assert 'data-rpt-theme="light"' in bogus        # unknown mode is normalized to light
