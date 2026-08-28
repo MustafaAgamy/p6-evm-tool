@@ -149,12 +149,134 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_constructability_report(body)
         elif self.path == '/api/constructability/excel':
             self._handle_constructability_excel(body)
+        elif self.path == '/api/special/catalog':
+            self._handle_special_catalog(body)
+        elif self.path == '/api/special/render':
+            self._handle_special_render(body)
+        elif self.path == '/api/special/pdf':
+            self._handle_special_pdf(body)
+        elif self.path == '/api/special/doc':
+            self._handle_special_doc(body)
+        elif self.path == '/api/special/templates/list':
+            self._handle_special_templates_list(body)
+        elif self.path == '/api/special/templates/save':
+            self._handle_special_templates_save(body)
+        elif self.path == '/api/special/templates/delete':
+            self._handle_special_templates_delete(body)
         elif self.path == '/api/report/manifest':
             self._handle_report_manifest(body)
         elif self.path == '/api/report/render':
             self._handle_report_render(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
+
+    # ── /api/special/* — Special Report ─────────────────────────────────────
+    def _special_pid(self, body):
+        pid = body.get('project_id')
+        if not pid and body.get('snapshot_id'):
+            pid = db.get_project_id_for_snapshot(body.get('snapshot_id'))
+        return pid
+
+    def _handle_special_catalog(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            pid = self._special_pid(body)
+            if not pid:
+                self._json(200, {'ok': False, 'error': 'No project loaded.'})
+                return
+            groups = assemble.catalog(pid, snapshot_id=body.get('snapshot_id'),
+                                      inputs=body.get('inputs') or {})
+            self._json(200, {'ok': True, 'groups': groups})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _special_html(self, body):
+        sys.path.insert(0, resource_path('.'))
+        from p6_special import assemble
+        import report_theme
+        return assemble.build_html(
+            self._special_pid(body), body.get('item_ids') or [],
+            body.get('report_name') or 'Special Report',
+            mode=report_theme.normalize(body.get('theme')),
+            meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
+            inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
+
+    def _handle_special_render(self, body):
+        try:
+            self._json(200, {'ok': True, 'html': self._special_html(body)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_pdf(self, body):
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            html = self._special_html(body)
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
+                                             encoding='utf-8') as tmp:
+                tmp.write(html)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            out = os.path.abspath(output_path)
+            subprocess.run([chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                            f'--print-to-pdf={out}', '--no-pdf-header-footer',
+                            f'file:///{html_path.replace(os.sep, "/")}'],
+                           check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_doc(self, body):
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            from p6_special.word_export import save_word_document
+            import report_theme
+            html = assemble.build_word(
+                self._special_pid(body), body.get('item_ids') or [],
+                body.get('report_name') or 'Special Report',
+                mode=report_theme.normalize(body.get('theme')),
+                meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
+                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
+            save_word_document(html, os.path.abspath(output_path))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_templates_list(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import templates
+            self._json(200, {'ok': True,
+                             'templates': templates.list_templates(self._special_pid(body))})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_templates_save(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import templates
+            rec = templates.save_template(self._special_pid(body), body.get('template') or {})
+            self._json(200, {'ok': True, 'template': rec})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_templates_delete(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import templates
+            templates.delete_template(self._special_pid(body), body.get('id'))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── Static files ───────────────────────────────────────────────────────
     def _serve_index(self):

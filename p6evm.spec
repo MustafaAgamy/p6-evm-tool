@@ -23,6 +23,10 @@ datas = [
                                           # the whole package like p6_evm, so every submodule
                                           # (e.g. modules/lag_lead.py) ships even though server.py
                                           # only imports it deferred inside handlers.
+    ('p6_special',     'p6_special'),     # Special Report — cross-feature report builder. Its
+                                          # registry auto-discovers provider modules dynamically,
+                                          # which PyInstaller's graph can miss, so ship the whole
+                                          # package (see collect_submodules below).
     ('config.json',    '.'),              # Config at root of bundle
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
     ('report_theme.py', '.'),             # Shared report appearance themes — imported at
@@ -64,6 +68,11 @@ hiddenimports = [
     'p6_kb.scoring',
     # Shared report appearance themes (imported by every report renderer)
     'report_theme',
+    # Special Report — registry + context + renderer + all built-in providers.
+    # discover() uses importlib dynamically, so force every submodule to ship
+    # (mirrors the p6_audit fix; a missing provider would show an empty catalog).
+    'p6_special',
+    *collect_submodules('p6_special'),
 ]
 
 # Collect EVERY submodule of the in-tree packages so nothing loaded via a deferred /

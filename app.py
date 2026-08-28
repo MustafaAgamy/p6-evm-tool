@@ -38,6 +38,7 @@ class Api:
         """
         types = {
             'pdf':  ('PDF Files (*.pdf)',),
+            'doc':  ('Word Files (*.doc)',),
             'xlsx': ('Excel Files (*.xlsx)',),
             'xml':  ('P6 XML Files (*.xml)',),
             'xer':  ('P6 XER Files (*.xer)',),
