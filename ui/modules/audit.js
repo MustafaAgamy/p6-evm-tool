@@ -469,14 +469,28 @@ function _oosSig(m) {
   return `${(m.kpis || {}).data_date || ''}|${(m.findings || []).length}|${f.finding_id || ''}`;
 }
 
+let _oosEscBound = false;
+
 function _oosInit(m) {
+  if (!_oosEscBound) {
+    _oosEscBound = true;
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && _oos.fullscreen) { _oos.fullscreen = false; renderOosReview(); }
+    });
+  }
+  // The panel was (re)rendered fresh in #oos-body — clear any stray full-screen overlay a prior
+  // session left attached to <body>, and exit full screen.
+  Array.from(document.body.children).forEach(c => { if (c.id === 'oos-review') c.remove(); });
+  document.body.classList.remove('oos-fs-body');
   const sig = _oosSig(m);
   if (sig !== _oos.sig) {
     _oos = { sig, all: (m.findings || []).slice(), fresh: (m.findings || []).slice(),
-             applied: {}, view: 'open', dataDate: (m.kpis || {}).data_date || '' };
+             applied: {}, view: 'open', dataDate: (m.kpis || {}).data_date || '', fullscreen: false };
   } else {
     _oos.dataDate = (m.kpis || {}).data_date || '';
+    _oos.fullscreen = false;
   }
+  _oos._home = null;
   renderOosReview();
 }
 
@@ -550,6 +564,7 @@ function renderOosReview() {
         <button class="oos-tab ${_oos.view === 'open' ? 'active' : ''}" data-oosact="view" data-view="open">Open <span class="cnt">${openF.length}</span></button>
         <button class="oos-tab ${_oos.view === 'resolved' ? 'active' : ''}" data-oosact="view" data-view="resolved">Resolved <span class="cnt">${resolvedF.length}</span></button>
       </div>
+      <button class="oos-fs" data-oosact="fullscreen" title="Show the full table using the whole window">${_oos.fullscreen ? '✕ Exit full screen' : '⛶ Full screen'}</button>
       <div style="flex:1"></div>
       <div style="text-align:right">
         <button class="oos-dl" data-oosact="download" ${anyOps ? '' : 'disabled'}>⬇ Download Corrected Schedule</button>
@@ -560,6 +575,23 @@ function renderOosReview() {
     </div>`;
 
   host.innerHTML = toolbar + _oosLogTable(_oos.view === 'open' ? openF : resolvedF, dd, _oos.view === 'resolved');
+  // Full-screen: move the overlay to <body> so it escapes any transformed/contained ancestor
+  // (those trap position:fixed) and truly fills the window; restore it to its home on exit.
+  if (_oos.fullscreen) {
+    if (!_oos._home) _oos._home = { parent: host.parentElement, next: host.nextElementSibling };
+    if (host.parentElement !== document.body) document.body.appendChild(host);
+    host.classList.add('oos-fs-on');
+    document.body.classList.add('oos-fs-body');
+  } else {
+    if (_oos._home && host.parentElement === document.body) {
+      const { parent, next } = _oos._home;
+      if (next && next.parentElement === parent) parent.insertBefore(host, next);
+      else parent.appendChild(host);
+    }
+    _oos._home = null;
+    host.classList.remove('oos-fs-on');
+    document.body.classList.remove('oos-fs-body');
+  }
   _oosWire();
 }
 
@@ -802,6 +834,7 @@ function _oosWire() {
     }
     else if (act === 'apply') { _oosApply(fid); }
     else if (act === 'reopen') { _oosReopen(fid); }
+    else if (act === 'fullscreen') { _oos.fullscreen = !_oos.fullscreen; renderOosReview(); }
     else if (act === 'download') { _oosDownload(); }
     else if (act === 'pickalt') {
       // Click a valid alternative → pre-fill that tie's editor with the alternative type + lag.
