@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+### Added — Special Report (compose your own cross-feature report)
+- **New "Special Report" analysis** — build your own report by picking the exact **detailed results** you want from any feature: each figure on its own (Planned %, Actual %, SPI, the category table, audit scores & findings, "Planned vs Actual activities", …) **plus each feature's own full report sections with their real tables and charts**. Order and number them, name the report, and export to **Word or PDF that look identical** — in all **six appearance modes**. Prints as a proper document: cover page → table of contents → numbered sections.
+- **It runs the features for you** — single-file results come straight from the imported schedule; results that need a second file (Critical Path / Consultant Review → a **baseline XER**; Update-vs-Update → a **previous update**) highlight what's missing with an **Attach** button, then compute on the spot — you never open the feature's own tab.
+- **Saved report templates** per project (re-run the same report next week on the new update), and **new features appear in the list automatically** (auto-discovery registry, like the Professional Dashboard).
+- Isolated `p6_special/` package + `/api/special/*` routes; **EVM untouched**. Word matches the PDF because both render one HTML with every colour resolved to concrete hex.
+
 ## [v1.3.0] - 2026-08-23
 ### Added — Critical Path Analyzer (new module)
 - **New "Critical Path Analyzer" sidebar section** — compares the critical path across **2–3 schedules** (two updates · update-vs-baseline · both + baseline; you can swap any of the three, including the current update). It answers *how the critical path moved and what it does to completion*.
