@@ -192,18 +192,16 @@ def test_remove_relationship_when_successor_finished_before_pred_started():
     assert f['s']['suggested_predecessor_kind'] == 'remove'
 
 
-def test_inconsistent_dates_when_pred_not_started():
+def test_pred_not_started_but_successor_running_gets_ff_fix():
+    # Predecessor never started, but the successor is still in progress → FF legitimately resolves
+    # it (a real fix), NOT planner review.
     g = _g({
-        'p': _act('p'),                                  # no actuals → incomplete
-        's': _act('s', actual_start=dt('2026-01-05')),
+        'p': _act('p'),                                  # no actuals → incomplete, never started
+        's': _act('s', actual_start=dt('2026-01-05')),   # started, still running
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
-    f = _by_id(run_out_of_sequence(g, CONFIG))
-    assert f['s']['root_cause'] == 'Inconsistent Actual Dates.'
-    # Predecessor never started → no automatic correction is safe → explicit manual-review.
-    res = f['s']['resolution']
-    assert res['action'] == 'manual' and res['applicable'] is False
-    assert 'inconsistent' in res['reasoning'].lower() and 'manual review' in res['reasoning'].lower()
-    assert f['s']['suggested_predecessor'] == 'Manual review'
+    res = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
+    assert res['action'] == 'change' and res['new_type'] == 'FF'
+    assert 'to FF' in res['action_text']
 
 
 def test_suggested_lag_counts_working_days_not_calendar_days():
@@ -307,15 +305,18 @@ def test_ff_repair_when_successor_started_before_pred_but_still_running():
     assert 'to FF' in r['action_text']
 
 
-def test_resolution_manual_when_pred_not_started_stays_open():
-    # No relationship edit can fix a wrong actual date → manual review, not applicable, stays Open.
+def test_no_type_fits_gives_actionable_remove_even_when_pred_never_started():
+    # Predecessor never started AND the successor is already COMPLETE → no relationship type fits,
+    # but removing IS a valid solution, so the engine gives an actionable Remove (not a bare review),
+    # with the reason flagging the missing actual date + the replace-predecessor option.
     g = _g({
-        'p': _act('p'),
-        's': _act('s', actual_start=dt('2026-01-05')),
+        'p': _act('p'),                                  # never started
+        's': _act('s', actual_start=dt('2026-01-05'), actual_finish=dt('2026-01-12')),  # complete
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
     r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
-    assert r['action'] == 'manual' and r['applicable'] is False
-    assert r['reasoning'] and 'manual review' in r['reasoning'].lower()
+    assert r['action'] == 'remove' and r['applicable'] is True
+    assert r['action_text'].lower().startswith('remove')
+    assert 'no actual start' in r['reasoning'].lower() or 'never started' in r['action_text'].lower()
 
 
 # ── Baseline / After Modification labels + successor-tie evaluation (LOG format) ─

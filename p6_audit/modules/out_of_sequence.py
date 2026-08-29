@@ -199,8 +199,15 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
       2. If the type no longer fits (the activities actually overlap) → **change the type** to the
          one that fits (SS / FF, SF as a fallback), with the lag computed from the real overlap.
          Other fitting types are offered as valid alternatives — never an invalid combined 'SS/FF'.
-      3. If no relationship type can hold → **remove** (last resort, reason stated).
-      4. If the evidence is insufficient (predecessor never started) → **Planner Review**.
+         This runs even when the predecessor has no actual start: if the successor is still in
+         progress, an FF tie legitimately resolves it (a real fix, not a review).
+      3. If no relationship type can hold → **remove** (last resort, reason stated). Removing a link
+         always resolves the out-of-sequence, so every finding gets an actionable fix (a type change
+         or a removal). When the predecessor never started, the removal reason also flags the missing
+         actual date and the option to replace it with the correct predecessor.
+      4. **Planner Review** (the `'manual'` action) is reserved for a case with genuinely no
+         relationship solution — which does not arise for a single out-of-sequence tie — so it is
+         not emitted here; the UI/report still support it as a capability.
 
     Whether a type fits is decided by the SAME detection rule (`_is_oos`), so a recommended change
     and the later re-validation always agree. A same-type, lag-only fix is deliberately not offered:
@@ -210,20 +217,6 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
     pred_id, pred_name = pred.get('id', ''), pred.get('name', '')
     succ_id = succ.get('id', '')
     cur_label = _rel_num(cur_type, cur_lag)
-
-    # 5) Insufficient evidence — predecessor never started yet the successor progressed.
-    if p_as is None:
-        reasoning = (f"Actual dates are inconsistent: predecessor {pred_id} shows no actual start "
-                     f"while successor {succ_id} has already progressed. An automatic relationship "
-                     f"correction cannot be safely determined from the schedule logic — verify the "
-                     f"actual dates in P6. Manual review required.")
-        return _resolution(
-            'manual', False,
-            f"Manual review — actual dates inconsistent: {pred_id} has no actual start while "
-            f"{succ_id} has progressed, so no automatic correction can be safely determined.",
-            reasoning=reasoning,
-            sug_pred_id='', sug_pred_name='Manual review required', sug_pred_rel='MANUAL',
-            sug_succ_name='—')
 
     # 1) Defensive — the current relationship already matches reality (no out-of-sequence).
     #    Detection only passes out-of-sequence ties here, so this rarely fires; it guards against
@@ -263,7 +256,26 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
             alternatives=alternatives,
             sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel=new_type, sug_pred_lag=lag)
 
-    # 4) No relationship type can hold — removal is the last resort, with the reason stated.
+    # 3) No relationship TYPE can hold (the successor finished before this predecessor). Removing the
+    #    link IS a valid solution (it clears the out-of-sequence), so we always give the actionable
+    #    Remove — Planner Review is reserved for a case with genuinely no relationship solution, which
+    #    does not arise for a single out-of-sequence tie (removal always resolves it).
+    if p_as is None:
+        # Predecessor never started AND successor already complete — removing resolves it, but the
+        # missing actual start is a data signal, so the reason flags it and offers the add-instead option.
+        reasoning = (f"No relationship type (SS, FF or SF) fits: the successor {succ_id} is already "
+                     f"complete while predecessor {pred_id} shows no actual start. Removing the link "
+                     f"resolves the out-of-sequence — but the predecessor has no actual date, so verify "
+                     f"its dates in P6, or replace it with the correct predecessor, before finalising.")
+        return _resolution(
+            'remove', True,
+            f"Remove {pred_id} → {succ_id} — successor complete while predecessor never started; "
+            f"removing resolves it (verify the predecessor's dates, or replace it with the correct one).",
+            reasoning=reasoning,
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
+
+    # The predecessor did start, but the successor finished before it — the dependency contradicts
+    # reality and no type fits → removal is the last resort, with the reason stated.
     reasoning = (f"No relationship type (SS, FF or SF) or lag can hold between {pred_id} and "
                  f"{succ_id} without creating another logical conflict: the successor finished "
                  f"before the predecessor started, so the dependency no longer reflects reality. "
