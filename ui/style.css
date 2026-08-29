@@ -670,6 +670,26 @@ body {
 .cal-k  { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; font-weight:700; }
 .cal-v  { font-size:19px; font-weight:800; margin-top:5px; }
 .cal-k2 { font-size:10.5px; font-weight:700; margin-top:4px; color:var(--muted); }
+.cal-kpi.hl { border-color:var(--accent); }
+
+/* §2 selectable calendar chips (replace the dropdowns) */
+.cal-chips { display:flex; gap:8px; flex-wrap:wrap; margin:2px 0 12px; }
+.cal-chip { border:1.5px solid var(--border); border-radius:8px; padding:7px 11px; font-size:12px;
+  cursor:pointer; background:var(--card-bg); color:var(--text); user-select:none; }
+.cal-chip:hover { border-color:var(--accent); }
+.cal-chip.sel { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); font-weight:700; }
+.cal-chip .meta { display:block; color:var(--muted); font-size:10.5px; font-weight:400; margin-top:2px; }
+.cal-chip.sel .meta { color:var(--accent); }
+.cal-tothrs { font-size:12.5px; margin-bottom:12px; }
+/* §3/§4 editable-column tag + table footer + demoted add-shutdown affordance */
+.cal-edit-tag { font-weight:400; text-transform:none; letter-spacing:0; color:var(--accent); }
+.cal-tfoot { font-size:12.5px; color:var(--text); border-top:2px solid var(--border); }
+.cal-add-demote { margin:8px 0 0; }
+/* §5 conflicts list appended inside the Comparison & Usage card */
+.cal-conflicts-foot { border-top:1px solid var(--border); padding:11px 13px; }
+.cal-conflicts-h { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+.cal-confline { font-size:12.5px; line-height:1.6; }
+.cal-confline .cal-pill { margin-right:4px; }
 
 .cal-showing { font-size:12px; color:var(--muted); }
 .cal-picker { background:var(--card-bg); border:1px solid var(--border); color:var(--text);

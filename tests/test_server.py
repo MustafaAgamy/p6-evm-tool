@@ -299,7 +299,7 @@ def test_calendar_report_preview_returns_html(test_server, xml_path):
                          {'snapshot_id': sid, 'preview': True, 'meta': {'project_name': 'X'}})
     assert data['ok'] is True
     assert '<!DOCTYPE html>' in data['html']
-    assert 'Executive Dashboard' in data['html']
+    assert 'Execution Dashboard' in data['html']
 
 
 def test_calendar_excel_writes_file(test_server, xml_path, tmp_path):

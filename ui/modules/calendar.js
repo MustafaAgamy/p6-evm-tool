@@ -153,19 +153,28 @@ export function renderCalendar(ca) {
 }
 
 // Feature 1 — P6 Calendar Audit → its own tab (calendar-body). No weather here.
+// Five numbered sections (mockup): 1 Execution Dashboard · 2 Calendar Timeline & Statistics ·
+// 3 Calendar Non-working days · 4 Working-hours Profile · 5 Calendar Comparison & Usage.
 function _renderCalendarBody() {
   const body = document.getElementById('calendar-body');
   if (!body) return;
   body.innerHTML =
+    _calDdBanner() +
     _dashboard(_ca.dashboard) +
     _timelineSection() +
-    _monthlyStatsSection() +
     _exceptionsSection() +
     _hoursSection() +
-    _comparisonSection(_ca.comparison) +
-    _conflictsSection(_ca.conflicts) +
-    _conclusionSection(_ca.conclusion);
+    _comparisonSection(_ca.comparison);
   _wireCalendar();
+}
+
+// The data-date banner — every Calendar-Audit result starts from it. Emitted at the very top
+// (mirrors the weather view's _ddBanner; kept separate so the two features stay independent).
+function _calDdBanner() {
+  const dd = (_ca && _ca.dashboard && _ca.dashboard.data_date) ? fmtCalDate(_ca.dashboard.data_date) : '';
+  return dd
+    ? `<div class="cal-ddbanner">📅 All results (statistics, histograms, tables) start from the <b>Data Date · ${dd}</b> — nothing before it is shown.</div>`
+    : '';
 }
 
 // Feature 2 — Bad Weather effect on Forecast Finish → its own tab (weather-body).
@@ -249,10 +258,9 @@ function _tile(lab, val, sub = '', cls = '') {
 // module's report picker. ──
 // Feature 1 — P6 Calendar Audit PDF (no weather; that's the Bad Weather report).
 export const CAL_SECTIONS = [
-  ['dashboard', '1 Executive Dashboard'], ['timeline', '2 Calendar Timeline'],
-  ['stats', '3 Monthly Statistics'], ['exceptions', '4 Calendar Exceptions'],
-  ['hours', '5 Working Hours Profile'], ['comparison', '6 Calendar Comparison & Usage'],
-  ['conflicts', '7 Calendar Conflicts'], ['conclusion', '8 Executive Conclusion'],
+  ['dashboard', '1 Execution Dashboard'], ['timeline', '2 Calendar Timeline & Statistics'],
+  ['exceptions', '3 Calendar Non-working days'], ['hours', '4 Working-hours Profile'],
+  ['comparison', '5 Calendar Comparison & Usage'],
 ];
 // Feature 2 — Bad Weather effect on Forecast Finish PDF (weather-only).
 export const WEATHER_SECTIONS = [
@@ -297,29 +305,41 @@ function _locationCard() {
 
 function _dashboard(d) {
   const dates = [
-    _tile('Baseline Start', fmtCalDate(d.baseline_start)),
-    _tile('Baseline Finish / Completion', fmtCalDate(d.baseline_finish), 'plan of record'),
+    _tile('Baseline Start', fmtCalDate(d.baseline_start), '', 'hl'),
+    _tile('Baseline Finish / Completion', fmtCalDate(d.baseline_finish), 'plan of record', 'hl'),
   ].join('');
-  const stats = [
+  // Row 1 (3 tiles): the calendar-day split. Row 2 (4 tiles): holidays, averages + normal hours.
+  const stats1 = [
     _tile('Total Calendar Days', d.total_calendar_days),
     _tile('Working Days', d.total_working_days),
     _tile('Non-Working Days', d.total_nonworking_days),
-    _tile('Holidays', d.total_holidays),
-    _tile('Exceptions', d.total_exceptions),
-    _tile('Shutdown Periods', d.shutdown_periods),
+  ].join('');
+  const stats2 = [
+    _tile('Holidays', d.total_holidays, 'incl. expected + shutdowns'),
     _tile('Avg Working Days / Month', d.avg_working_days_per_month),
     _tile('Avg Working Hours / Day', `${d.avg_working_hours_per_day} hrs`),
+    _tile('Normal Hours', d.normal_hours || '—'),
   ].join('');
-  return _sec(1, 'Executive Dashboard') +
-    `<div class="cal-subhead">Key Dates</div><div class="cal-dates-grid">${dates}</div>
-     <div class="cal-subhead">Calendar Statistics</div><div class="cal-kpi-grid">${stats}</div>`;
+  return _sec(1, 'Execution Dashboard') +
+    `<div class="cal-subhead">Key Dates</div>
+     <div class="cal-kpi-grid" style="grid-template-columns:repeat(2,1fr)">${dates}</div>
+     <div class="cal-subhead">Calendar Statistics</div>
+     <div class="cal-kpi-grid" style="grid-template-columns:repeat(3,1fr)">${stats1}</div>
+     <div class="cal-kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-top:10px">${stats2}</div>`;
 }
 
-function _calPicker() {
-  const opts = (_ca.assigned_calendars || []).map(c =>
-    `<option value="${escapeHtml(c.object_id)}" ${c.object_id === _sel ? 'selected' : ''}>
-      ${escapeHtml(c.name)}${c.is_default ? ' — default' : ''} (${c.activity_count})</option>`).join('');
-  return `<select class="cal-picker" id="cal-picker">${opts}</select>`;
+// Selectable calendar CHIPS (§2, mockup) — one per assigned calendar: full name + meta
+// "Xh · Yd/wk · N acts". The primary (`_sel`) and an optional comparison (`_sel2`) get `.sel`.
+// Clicking a 2nd chip adds a comparison histogram below; clicking a selected chip toggles it off.
+function _calChips() {
+  const chips = (_ca.assigned_calendars || []).map(c => {
+    const on = (c.object_id === _sel || c.object_id === _sel2);
+    const acts = Number(c.activity_count || 0).toLocaleString();
+    const meta = `${c.hours_per_day}h · ${c.days_per_week}d/wk · ${acts} acts`;
+    return `<div class="cal-chip ${on ? 'sel' : ''}" data-cal="${escapeHtml(c.object_id)}">
+      ${escapeHtml(c.name)}<span class="meta">${escapeHtml(meta)}</span></div>`;
+  }).join('');
+  return `<div class="cal-chips">${chips}</div>`;
 }
 
 function _monthsFor(calId) {
@@ -327,15 +347,6 @@ function _monthsFor(calId) {
   return (bc && bc.monthly_stats) || [];
 }
 function _selMonths() { return _monthsFor(_sel); }
-
-// A 2nd calendar to compare against (Feature 1 §2). "none" hides the comparison histogram.
-function _calPicker2() {
-  const opts = ['<option value="">— none —</option>'].concat((_ca.assigned_calendars || [])
-    .filter(c => c.object_id !== _sel)
-    .map(c => `<option value="${escapeHtml(c.object_id)}" ${c.object_id === _sel2 ? 'selected' : ''}>
-      ${escapeHtml(c.name)} (${c.activity_count})</option>`)).join('');
-  return `<select class="cal-picker" id="cal-picker2">${opts}</select>`;
-}
 
 // One calendar's net-working / non-working days-per-month histogram. `clickable` months
 // open their full calendar grid (primary only); the comparison histogram is view-only.
@@ -357,8 +368,9 @@ function _histBlock(calId, clickable) {
     <div class="cal-whist">${bars || '<span class="cal-muted">No months.</span>'}</div></div>`;
 }
 
-// Section 2 — net working vs non-working days-per-month histogram (Feature 1). Clicking a
-// month's bar opens its full calendar grid; a 2nd calendar can be added to compare.
+// Section 2 — Calendar Timeline & Statistics (Feature 1). Selectable calendar chips choose the
+// calendar; the net working vs non-working days-per-month histogram follows. Clicking a month's
+// bar opens its full calendar grid; clicking a 2nd chip adds a comparison histogram below.
 function _timelineSection() {
   const hleg = `<div class="cal-whleg"><span><i class="wsw wsw-w"></i>Working days</span><span><i class="wsw wsw-n"></i>Non-working (weekends + holidays + shutdowns)</span><span>▲ number above bar = <b>net working days</b></span></div>`;
   const detail = _monthDetailHtml();
@@ -374,10 +386,14 @@ function _timelineSection() {
   const hiddenChip = hidden
     ? `<div class="cal-hidden-note">◀ <b>${hidden} earlier month${hidden === 1 ? '' : 's'}</b> hidden — everything before the data date${dd ? ` (${fmtCalDate(dd)})` : ''}</div>`
     : '';
+  const bc = (_ca.by_calendar || {})[_sel] || {};
+  const totHrs = Number((bc.totals && bc.totals.working_hours) || 0)
+    .toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const totLine = `<div class="cal-tothrs">Total working hours (selected calendar): <b>${totHrs} hrs</b></div>`;
   const compare = _sel2 ? _histBlock(_sel2, false) : '';
-  return _sec(2, 'Calendar Timeline',
-      `<span class="cal-sec-note">net working vs non-working days per month · click a month to open its calendar</span>
-       <span class="cal-showing">Showing: ${_calPicker()} &nbsp; Compare with: ${_calPicker2()}</span>`) +
+  return _sec(2, 'Calendar Timeline & Statistics',
+      `<span class="cal-sec-note">net working vs non-working days per month · click a month to open its calendar</span>`) +
+    _calChips() + totLine +
     hiddenChip + hleg + _histBlock(_sel, true) + compare +
     dayLegend + `<div id="cal-month-detail">${detail}</div>`;
 }
@@ -399,66 +415,50 @@ function _monthDetailHtml() {
   }).join('');
 }
 
-function _monthlyStatsSection() {
-  const rows = _selMonths().map(m =>
-    `<tr><td>${escapeHtml(m.label)}</td><td class="num">${m.working_days}</td>
-     <td class="num">${m.holidays}</td><td class="num">${m.exceptions}</td>
-     <td class="num">${m.working_hours}</td></tr>`).join('');
-  return _sec(3, 'Monthly Calendar Statistics') +
-    `<div class="cal-card p0"><table class="cal-table"><thead><tr>
-      <th>Month</th><th class="num">Working Days</th><th class="num">Holidays</th>
-      <th class="num">Exceptions</th><th class="num">Working Hours</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
-}
-
-function _excGroup(title, cls, meta, headHtml, rowsHtml, extra = '') {
-  return `<div class="cal-grp"><span class="cal-pill ${cls}">${escapeHtml(title)}</span>
-    <span class="cal-grp-meta">${escapeHtml(meta)}</span>${extra}</div>
-    <div class="cal-card p0"><table class="cal-table"><thead>${headHtml}</thead>
-      <tbody>${rowsHtml || `<tr><td colspan="6" class="cal-empty">None.</td></tr>`}</tbody></table></div>`;
-}
-
+// Section 3 — Calendar Non-working days (holidays only). One row per holiday DATE (runs are
+// expanded to individual dates with their weekday); the Description is editable via the existing
+// cal-reason / saveCalendarSettings({shutdown_reasons}) plumbing. The "+ Add shutdown" capability
+// is preserved as a small demoted affordance below the table.
 function _exceptionsSection() {
   const bc = (_ca.by_calendar || {})[_sel] || {};
-  const exc = bc.exceptions || { holidays: [], special: [], shutdowns: [] };
-  const hDays = exc.holidays.reduce((a, h) => a + h.days, 0);
-  const sDays = exc.shutdowns.reduce((a, s) => a + s.days, 0);
-  const holRows = exc.holidays.map(h =>
-    `<tr><td>${escapeHtml(h.description)}</td><td class="num">${h.days}</td>
-     <td><input class="cal-reason" data-key="${escapeHtml(h.key || '')}" value="${escapeHtml(h.reason || '')}" placeholder="name this holiday…"></td></tr>`).join('');
-  const spRows = exc.special.map(s =>
-    `<tr><td>${escapeHtml(s.description)}</td><td class="num">${s.days}</td>
-     <td>${escapeHtml(s.hours || '')}</td><td>${escapeHtml(s.description)}</td></tr>`).join('');
-  const shRows = exc.shutdowns.map(s =>
-    `<tr><td>${escapeHtml(s.description)}</td><td class="num">${s.days}</td>
-     <td>${s.source === 'manual' ? '<span class="cal-pill mini warn">Added</span> ' : ''}
-       <input class="cal-reason" data-key="${escapeHtml(s.key || '')}" value="${escapeHtml(s.reason || '')}" placeholder="type a reason…"></td></tr>`).join('');
+  const exc = bc.exceptions || { holidays: [], holiday_dates: [] };
+  const hd = exc.holiday_dates || [];
+  const rows = hd.map(h =>
+    `<tr><td>${fmtCalDate(h.date)}</td><td>${escapeHtml(h.weekday || '')}</td>
+     <td><input class="cal-reason" data-key="${escapeHtml(h.key || '')}" value="${escapeHtml(h.reason || '')}" placeholder="Add a description for this holiday…"></td></tr>`).join('');
+  const body = rows || '<tr><td colspan="3" class="cal-empty">No holidays in the project window.</td></tr>';
   const addBtn = '<button class="cal-btn sec mini" id="cal-add-shutdown-btn">+ Add shutdown</button>';
   const addForm = `<div id="cal-add-shutdown" class="cal-addform hidden">
       <input type="date" id="cal-sd-start"><span>→</span><input type="date" id="cal-sd-end">
       <input id="cal-sd-reason" placeholder="reason (e.g. Plant turnaround)">
       <button class="cal-btn pri mini" id="cal-sd-save">Add</button></div>`;
-  return _sec(4, 'Calendar Exceptions', '<span class="cal-sec-note">separated by type</span>') +
-    _excGroup('Holidays & Vacations', 'holiday', `${exc.holidays.length} events · ${hDays} days`,
-      '<tr><th>Date</th><th class="num">Days</th><th>Description</th></tr>', holRows) +
-    _excGroup('Reduced / Special Working Hours', 'special', `${exc.special.length} periods`,
-      '<tr><th>Date</th><th class="num">Days</th><th>Hours</th><th>Description</th></tr>', spRows) +
-    _excGroup('Shutdowns', 'shutdown', `${exc.shutdowns.length} periods · ${sDays} days`,
-      '<tr><th>Date</th><th class="num">Days</th><th>Reason (stored)</th></tr>', shRows, addBtn) +
-    addForm;
+  return _sec(3, 'Calendar Non-working days', '<span class="cal-sec-note">holidays only</span>') +
+    `<div class="cal-card p0"><table class="cal-table"><thead><tr>
+      <th>Date</th><th>Day</th><th style="width:55%">Description <span class="cal-edit-tag">✎ editable</span></th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr><td colspan="3" class="cal-tfoot">Total holidays: <b>${hd.length}</b> &nbsp;·&nbsp;
+        <span class="cal-muted">the Description is editable — type/adjust each holiday's name; saved with the project and printed in the PDF.</span></td></tr></tfoot>
+      </table></div>
+     <div class="cal-add-demote">${addBtn}${addForm}</div>`;
 }
 
+// Section 4 — Working-hours Profile as a TABLE: Period | Hours | Days/week | Hrs/day | Note.
+// One row per distinct working-time profile; the Note is editable (cal-hnote / hours_notes).
 function _hoursSection() {
   const bc = (_ca.by_calendar || {})[_sel] || {};
   const profs = bc.hours_profiles || [];
-  const cards = profs.map(p =>
-    `<div class="cal-hprof"><div class="t">${escapeHtml(p.name)}</div>
-     <div class="h">${escapeHtml(p.hours)}</div>
-     <div class="sub">${escapeHtml(String(p.hours_per_day))} hrs · ${escapeHtml(p.sub || '')}</div>
-     <input class="cal-hnote" data-key="${escapeHtml(p.key || '')}" value="${escapeHtml(p.note || '')}" placeholder="note (e.g. Summer / Ramadan reduced hours)…"></div>`).join('');
-  return _sec(5, 'Working Hours Profile') +
-    `<div class="cal-note" style="font-style:normal">Your <b>standard working day</b>, used all year — different from the <i>Reduced / Special Working Hours</i> in section 4 (specific dates whose hours differ from this standard; differences under 5 minutes are ignored).</div>
-     <div class="cal-hours-grid">${cards}</div>`;
+  const rows = profs.map(p =>
+    `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.hours)}</td>
+     <td class="num">${escapeHtml(String(p.days_per_week != null ? p.days_per_week : (p.sub || '')))}</td>
+     <td class="num">${escapeHtml(String(p.hours_per_day))}</td>
+     <td><input class="cal-hnote" data-key="${escapeHtml(p.key || '')}" value="${escapeHtml(p.note || '')}" placeholder="note (e.g. Summer / Ramadan reduced hours)…"></td></tr>`).join('');
+  const body = rows || '<tr><td colspan="5" class="cal-empty">No working-hours profile.</td></tr>';
+  return _sec(4, 'Working-hours Profile') +
+    `<div class="cal-card p0"><table class="cal-table"><thead><tr>
+      <th>Period</th><th>Hours</th><th class="num">Days / week</th><th class="num">Hrs / day</th>
+      <th style="width:34%">Note <span class="cal-edit-tag">✎ editable</span></th></tr></thead>
+      <tbody>${body}</tbody></table></div>
+     <div class="cal-note" style="font-style:normal">Shows each distinct working-time period in the calendar (P6 calendars can change hours over time). The <b>Note</b> column is editable — type the justification for a reduced-hours period; it's saved with the project and printed in the PDF.</div>`;
 }
 
 // Feature 1 — Calendar Comparison & Usage (merged): each calendar's hours/day, days/week,
@@ -478,13 +478,27 @@ function _comparisonSection(cmp) {
      <td class="num">${c.nonworking_days != null ? c.nonworking_days : 0}</td>
      <td>${u.role ? `<span class="cal-pill mini ${roleCls}">${escapeHtml(u.role)}</span>` : ''}</td></tr>`;
   }).join('');
-  return _sec(6, 'Calendar Comparison & Usage') +
+  return _sec(5, 'Calendar Comparison & Usage') +
     `<div class="cal-card p0"><table class="cal-table"><thead><tr>
       <th>Calendar</th><th class="num">Hours/Day</th><th class="num">Days/Week</th>
       <th class="num">Assigned to</th><th class="num">% of Activities</th>
       <th class="num">Non-Working Days</th><th>Role</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>
+      <tbody>${rows}</tbody></table>${_conflictsBlock(_ca.conflicts)}</div>
      <div class="cal-note" style="font-style:normal"><b>% of Activities</b> — share of the schedule's activities on each calendar. <b>Non-Working Days</b> — weekends, holidays and shutdowns still ahead${dd ? `, from the data date (${dd}) to finish` : ''}. <b>Unused</b> calendars carry 0 activities and can be removed.</div>`;
+}
+
+// The "Calendar Conflicts — to be removed" list, appended INSIDE the Comparison & Usage card
+// (mockup §5). Empty conflicts → nothing rendered.
+function _conflictsBlock(conflicts) {
+  conflicts = conflicts || [];
+  if (!conflicts.length) return '';
+  const pill = t => (t === 'unused'
+    ? '<span class="cal-pill holiday">Unused</span>'
+    : '<span class="cal-pill shutdown">Review</span>');
+  const lines = conflicts.map(c =>
+    `<div class="cal-confline">${pill(c.type)} <b>${escapeHtml(c.title)}</b> — ${escapeHtml(c.detail)}</div>`).join('');
+  return `<div class="cal-conflicts-foot">
+    <div class="cal-conflicts-h">Calendar Conflicts — to be removed</div>${lines}</div>`;
 }
 
 function _usageSection(usage) {
@@ -499,26 +513,6 @@ function _usageSection(usage) {
       <th>Calendar</th><th class="num">Activities</th><th>% of Activities</th><th>Role</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
      <div class="cal-note" style="font-style:normal"><b>Roles:</b> <b>Default</b> — the project's default calendar; new activities are created on it automatically. <b>Non-default</b> — a calendar deliberately assigned to specific activities instead of the default. <b>Unused</b> — defined in the file but no activity uses it.</div>`;
-}
-
-// Section 8 — concise summary (no repeated detail).
-function _conflictsSection(conflicts) {
-  conflicts = conflicts || [];
-  if (!conflicts.length) {
-    return _sec(7, 'Calendar Conflicts') +
-      '<div class="cal-card"><p style="color:var(--success);font-size:13px;margin:0">✓ No calendar conflicts detected — assignments look clean.</p></div>';
-  }
-  const counts = { mixed_wbs: 0, not_default: 0, unused: 0 };
-  conflicts.forEach(c => { counts[c.type] = (counts[c.type] || 0) + 1; });
-  const chips = [];
-  if (counts.mixed_wbs) chips.push(`<span class="cal-pill warn">${counts.mixed_wbs} WBS with mixed calendars</span>`);
-  if (counts.not_default) chips.push(`<span class="cal-pill warn">activities off the default calendar</span>`);
-  if (counts.unused) chips.push(`<span class="cal-pill warn">${counts.unused} unused calendar${counts.unused === 1 ? '' : 's'}</span>`);
-  const lines = conflicts.map(c => `<li><b>${escapeHtml(c.title)}</b> — ${escapeHtml(c.detail)}</li>`).join('');
-  return _sec(7, 'Calendar Conflicts') +
-    `<div class="cal-card">
-      <div style="margin-bottom:8px">${chips.join(' ')} <span class="cal-muted">— ${conflicts.length} issue${conflicts.length === 1 ? '' : 's'} total</span></div>
-      <ul class="cal-conf-sum">${lines}</ul></div>`;
 }
 
 // Section 9 — Weather Impact (estimate).
@@ -767,19 +761,21 @@ function _readThresholds() {
   };
 }
 
-function _conclusionSection(bullets) {
-  const items = (bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('');
-  return _sec(8, 'Executive Conclusion') +
-    `<div class="cal-concl"><ul>${items}</ul>
-      <div class="cal-note">Generated automatically from the numbers above.</div></div>`;
-}
-
 // ── wiring ─────────────────────────────────────────────────────────────────
 function _wireCalendar() {
-  const picker = document.getElementById('cal-picker');
-  if (picker) picker.addEventListener('change', e => { _sel = e.target.value; if (_sel === _sel2) _sel2 = null; _openMonths.clear(); _renderCalendarBody(); });
-  const picker2 = document.getElementById('cal-picker2');
-  if (picker2) picker2.addEventListener('change', e => { _sel2 = e.target.value || null; _renderCalendarBody(); });
+  // §2 calendar chips: _sel is the primary (main histogram), _sel2 the optional comparison.
+  // Click an unselected chip → it becomes the comparison (2nd histogram); click a selected
+  // chip → toggle it off (primary clicked with a compare present promotes the compare).
+  document.querySelectorAll('#calendar-body .cal-chip').forEach(chip =>
+    chip.addEventListener('click', () => {
+      const id = chip.dataset.cal;
+      if (!id) return;
+      if (id === _sel) { if (_sel2) { _sel = _sel2; _sel2 = null; } }
+      else if (id === _sel2) { _sel2 = null; }
+      else { _sel2 = id; }
+      _openMonths.clear();
+      _renderCalendarBody();
+    }));
 
   document.querySelectorAll('#calendar-body .cal-whc').forEach(bar =>
     bar.addEventListener('click', () => {

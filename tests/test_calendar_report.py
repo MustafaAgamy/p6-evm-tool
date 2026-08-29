@@ -44,20 +44,60 @@ def _result(tmp_path):
 
 
 def test_report_has_sections_in_order(tmp_path):
-    html = render_calendar_report(_result(tmp_path), META)
-    order = ['Executive Dashboard', 'Calendar Timeline', 'Monthly Calendar Statistics',
-             'Calendar Exceptions', 'Working Hours Profile',
-             'Calendar Comparison &amp; Usage', 'Calendar Conflicts', 'Executive Conclusion']
+    # The fixture has no in-window holidays, so §3 (holidays only) is dropped; use a fixture
+    # that carries a holiday so all five numbered sections render in order.
+    html = render_calendar_report(_result_with_holiday(tmp_path), META)
+    order = ['1 · Execution Dashboard', '2 · Calendar Timeline &amp; Statistics',
+             '3 · Calendar Non-working days', '4 · Working-hours Profile',
+             '5 · Calendar Comparison &amp; Usage']
     pos = [html.find(s) for s in order]
     assert all(p != -1 for p in pos), pos
     assert pos == sorted(pos)
+    # the deleted sections are gone
+    assert 'Monthly Calendar Statistics' not in html
+    assert 'Executive Conclusion' not in html
+    assert 'Calendar Conflicts</h2>' not in html    # no standalone conflicts section
+
+
+def _result_with_holiday(tmp_path):
+    """Fixture with an in-window single-day holiday (10 Mar 2025) so §3 (holidays only) renders."""
+    content = textwrap.dedent('''\
+    <?xml version="1.0"?>
+    <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
+      <Calendar>
+        <ObjectId>C1</ObjectId><Name>5 Days/Week</Name><Type>Global</Type><IsDefault>true</IsDefault>
+        <HoursPerDay>8</HoursPerDay>
+        <StandardWorkWeek>
+          <StandardWorkHours><DayOfWeek>Friday</DayOfWeek></StandardWorkHours>
+          <StandardWorkHours><DayOfWeek>Saturday</DayOfWeek></StandardWorkHours>
+          <StandardWorkHours><DayOfWeek>Sunday</DayOfWeek><WorkTime><Start>08:00:00</Start><Finish>16:00:00</Finish></WorkTime></StandardWorkHours>
+          <StandardWorkHours><DayOfWeek>Monday</DayOfWeek><WorkTime><Start>08:00:00</Start><Finish>16:00:00</Finish></WorkTime></StandardWorkHours>
+        </StandardWorkWeek>
+        <HolidayOrExceptions>
+          <HolidayOrException><Date>2025-03-10T00:00:00</Date></HolidayOrException>
+        </HolidayOrExceptions>
+      </Calendar>
+      <Project>
+        <ObjectId>1</ObjectId><Id>P1</Id><Name>Test</Name>
+        <DataDate>2025-02-01T00:00:00</DataDate>
+        <PlannedStartDate>2025-01-01T00:00:00</PlannedStartDate>
+        <ScheduledFinishDate>2025-03-31T17:00:00</ScheduledFinishDate>
+        <WBS><ObjectId>10</ObjectId><Name>Construction</Name><ParentObjectId></ParentObjectId></WBS>
+        <Activity><ObjectId>A1</ObjectId><Id>A1</Id><Name>a</Name><Status>Not Started</Status>
+          <CalendarObjectId>C1</CalendarObjectId><WBSObjectId>10</WBSObjectId><PercentComplete>0</PercentComplete></Activity>
+      </Project>
+    </APIBusinessObjects>
+    ''')
+    p = tmp_path / "sh.xml"; p.write_text(content, encoding='utf-8')
+    return calendar_audit(parse_file(str(p)), {}, {})
 
 
 def test_report_is_html_and_has_content(tmp_path):
     html = render_calendar_report(_result(tmp_path), META)
     assert html.startswith('<!DOCTYPE html>')
     assert 'Test' in html                       # project name
-    assert 'Shutdowns' in html                  # exception group
+    assert 'Execution Dashboard' in html        # §1 heading (renamed)
+    assert 'Normal Hours' in html               # new dashboard tile
     assert '59' in html                         # total calendar days (forward from the data date)
     assert 'Monthly Calendar View' not in html  # merged into the Timeline (no duplicate)
 
@@ -144,12 +184,20 @@ def test_report_shows_site_type_criteria_and_why(tmp_path):
     assert 'Custom limits' in html2 and 'Default limits (Desert / inland)' not in html2
 
 
-def test_report_hides_empty_exception_groups(tmp_path):
-    """Ibrahim: the PDF drops a section/group with no results — the fixture's Jan holiday is
-    before the data date, so the Holidays group is empty and hidden; the Feb shutdown shows."""
+def test_report_nonworking_is_holidays_only(tmp_path):
+    """§3 Calendar Non-working days is a holidays-only table (Date | Day | Description). The
+    Feb 10–16 shutdown run is NOT a holiday, and the Jan holiday is before the data date, so
+    the fixture yields no in-window holidays → §3 is dropped entirely."""
     html = render_calendar_report(_result(tmp_path), META)
-    assert 'Shutdowns' in html                     # the Feb shutdown is ahead → shown
-    assert 'Holidays & Vacations' not in html      # the Jan holiday is before the data date → group hidden
+    assert 'Calendar Non-working days' not in html   # no holidays in window → section dropped
+    assert 'Shutdowns' not in html                   # shutdowns are excluded from §3
+    assert 'Holidays & Vacations' not in html        # the old grouped layout is gone
+
+    # A fixture WITH an in-window holiday renders the holidays-only table with the weekday.
+    html2 = render_calendar_report(_result_with_holiday(tmp_path), META)
+    assert '3 · Calendar Non-working days' in html2 and 'holidays only' in html2
+    assert '10 Mar 2025' in html2 and 'Monday' in html2   # date + weekday
+    assert 'Total holidays: <b>1</b>' in html2
 
 
 def test_report_timeline_is_working_histogram(tmp_path):
@@ -213,7 +261,7 @@ def test_report_comparison_usage_and_section_picker(tmp_path):
     assert 'Unused' in html
     # #06 section-picker: only the requested sections render
     only_dash = render_calendar_report(result, META, sections=['dashboard'])
-    assert 'Executive Dashboard' in only_dash
+    assert 'Execution Dashboard' in only_dash
     assert 'Calendar Timeline' not in only_dash and 'Comparison &amp; Usage' not in only_dash
 
 
@@ -239,6 +287,40 @@ def test_report_prints_hours_note(tmp_path):
     assert 'Summer / Ramadan reduced hours' in html
     # blank note → nothing printed (no empty note row)
     assert 'Summer / Ramadan reduced hours' not in render_calendar_report(base, META)
+
+
+def test_report_conflicts_appended_in_comparison(tmp_path):
+    """§5 — the 'Calendar Conflicts — to be removed' list is appended INSIDE the Comparison &
+    Usage section (no standalone Calendar Conflicts section)."""
+    content = textwrap.dedent('''\
+    <?xml version="1.0"?>
+    <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
+      <Calendar><ObjectId>C1</ObjectId><Name>5 Days/Week</Name><IsDefault>true</IsDefault>
+        <StandardWorkWeek><StandardWorkHours><DayOfWeek>Friday</DayOfWeek></StandardWorkHours>
+        <StandardWorkHours><DayOfWeek>Saturday</DayOfWeek></StandardWorkHours></StandardWorkWeek></Calendar>
+      <Project><ObjectId>1</ObjectId><Id>P1</Id><Name>Test</Name>
+        <DataDate>2025-02-01T00:00:00</DataDate><PlannedStartDate>2025-01-01T00:00:00</PlannedStartDate>
+        <ScheduledFinishDate>2025-03-31T17:00:00</ScheduledFinishDate>
+        <Calendar><ObjectId>C3</ObjectId><Name>Old Unused</Name><IsDefault>false</IsDefault></Calendar>
+        <WBS><ObjectId>10</ObjectId><Name>Construction</Name><ParentObjectId></ParentObjectId></WBS>
+        <Activity><ObjectId>A1</ObjectId><Id>A1</Id><Name>a</Name><Status>Not Started</Status>
+          <CalendarObjectId>C1</CalendarObjectId><WBSObjectId>10</WBSObjectId><PercentComplete>0</PercentComplete></Activity>
+      </Project>
+    </APIBusinessObjects>
+    ''')
+    p = tmp_path / "cf.xml"; p.write_text(content, encoding='utf-8')
+    result = calendar_audit(parse_file(str(p)), {}, {})
+    html = render_calendar_report(result, META)
+    assert 'Calendar Conflicts — to be removed' in html
+    assert 'Unused calendar' in html and 'Old Unused' in html   # (quotes HTML-escaped)
+    assert 'Calendar Conflicts</h2>' not in html      # not a standalone section
+
+
+def test_report_hours_profile_is_a_table(tmp_path):
+    """§4 — the Working-hours Profile is a table with a Days/week column."""
+    html = render_calendar_report(_result(tmp_path), META)
+    assert '4 · Working-hours Profile' in html
+    assert 'Days / week' in html and 'Hrs / day' in html and 'Period' in html
 
 
 def test_report_theme_default_is_light(tmp_path):

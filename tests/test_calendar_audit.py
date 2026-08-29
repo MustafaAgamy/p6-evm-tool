@@ -269,6 +269,56 @@ def test_hours_note_saved_and_attached(tmp_path):
     assert prof2['note'] == 'Summer / Ramadan reduced hours'
 
 
+def test_dashboard_has_normal_hours(tmp_path):
+    """§1 — the dashboard carries the primary calendar's standard working hours (Normal hours
+    tile), matching its first hours profile."""
+    r = _run(tmp_path)
+    prim = r['by_calendar'][r['primary_calendar_id']]
+    assert r['dashboard']['normal_hours'] == prim['hours_profiles'][0]['hours']
+    assert r['dashboard']['normal_hours'] == '08:00–16:00'      # C1 works 08:00–16:00
+
+
+def test_hours_profiles_carry_days_per_week(tmp_path):
+    """§4 — each working-hours profile exposes days_per_week for the table column."""
+    r = _run(tmp_path)
+    prim = r['by_calendar'][r['primary_calendar_id']]
+    for p in prim['hours_profiles']:
+        assert 'days_per_week' in p and isinstance(p['days_per_week'], int)
+    # C1 = 5-day week (Fri + Sat off)
+    assert prim['hours_profiles'][0]['days_per_week'] == 5
+
+
+def test_holiday_dates_expanded_with_weekday(tmp_path):
+    """§3 — holiday RUNS are expanded to per-date rows with a weekday name; HOLIDAYS ONLY
+    (the Feb 10–16 shutdown run is excluded)."""
+    import textwrap
+    content = textwrap.dedent('''\
+    <?xml version="1.0"?>
+    <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
+      <Calendar><ObjectId>C1</ObjectId><Name>5d</Name><IsDefault>true</IsDefault>
+        <StandardWorkWeek><StandardWorkHours><DayOfWeek>Friday</DayOfWeek></StandardWorkHours>
+        <StandardWorkHours><DayOfWeek>Saturday</DayOfWeek></StandardWorkHours></StandardWorkWeek>
+        <HolidayOrExceptions>
+          <HolidayOrException><Date>2025-03-10T00:00:00</Date></HolidayOrException>
+          <HolidayOrException><Date>2025-03-11T00:00:00</Date></HolidayOrException>
+        </HolidayOrExceptions></Calendar>
+      <Project><ObjectId>1</ObjectId><Id>P</Id><Name>P</Name><DataDate>2025-02-01T00:00:00</DataDate>
+        <PlannedStartDate>2025-01-01T00:00:00</PlannedStartDate><ScheduledFinishDate>2025-03-31T00:00:00</ScheduledFinishDate>
+        <WBS><ObjectId>10</ObjectId><Name>Construction</Name><ParentObjectId></ParentObjectId></WBS>
+        <Activity><ObjectId>A1</ObjectId><Id>A1</Id><Name>a</Name><Status>Not Started</Status>
+          <CalendarObjectId>C1</CalendarObjectId><WBSObjectId>10</WBSObjectId><PercentComplete>0</PercentComplete></Activity>
+      </Project>
+    </APIBusinessObjects>
+    ''')
+    p = tmp_path / "s.xml"; p.write_text(content, encoding='utf-8')
+    r = calendar_audit(parse_file(str(p)), {}, {})
+    hd = r['exceptions']['holiday_dates']
+    assert [h['date'] for h in hd] == ['2025-03-10', '2025-03-11']   # run expanded to 2 dates
+    assert hd[0]['weekday'] == 'Monday' and hd[1]['weekday'] == 'Tuesday'
+    # the run shares one block key (existing shutdown_reasons plumbing edits the description)
+    assert hd[0]['key'] == hd[1]['key']
+
+
 def test_timeline_starts_at_data_date(tmp_path):
     """Ibrahim's rule: the month strip starts at the data date; the headline totals
     still cover the whole window (project start → finish)."""
