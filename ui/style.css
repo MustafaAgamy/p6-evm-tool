@@ -771,17 +771,6 @@ body {
 .cal-cause-n { width:96px; text-align:right; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
 .cal-hidden-note { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); background:var(--bg); border:1px dashed var(--border); border-radius:8px; padding:7px 12px; margin-bottom:10px; }
 
-/* Site-type picker */
-.cal-sites { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:2px 0 12px; }
-.cal-site { border:1.5px solid var(--border); border-radius:10px; padding:10px; cursor:pointer; background:var(--bg); text-align:center; transition:border-color .15s, background .15s; }
-.cal-site:hover { border-color:var(--accent); }
-.cal-site.sel { border-color:var(--accent); background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent); }
-.cal-site-ic { font-size:20px; line-height:1.1; }
-.cal-site-nm { font-weight:700; font-size:12.5px; margin-top:4px; }
-.cal-site.sel .cal-site-nm { color:var(--accent); }
-.cal-site-ds { font-size:10.5px; color:var(--muted); margin-top:3px; line-height:1.35; }
-@media (max-width:720px) { .cal-sites { grid-template-columns:repeat(2, 1fr); } }
-
 /* Criteria in full */
 .cal-crit { border:1px solid var(--accent); border-radius:10px; background:var(--accent-soft); padding:13px 14px; margin:0 0 12px; }
 .cal-crit-top { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
@@ -871,11 +860,6 @@ body {
 .cal-conf-sum { margin: 0; padding-left: 18px; }
 .cal-conf-sum li { font-size: 12.5px; line-height: 1.5; margin-bottom: 5px; }
 
-.cal-wxbars { display: flex; gap: 5px; align-items: flex-end; height: 96px; }
-.cal-wxbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.cal-wxbar-v { font-size: 10px; font-weight: 700; color: var(--warning); }
-.cal-wxbar-b { width: 100%; background: rgba(217,119,6,.5); border-radius: 4px 4px 0 0; min-height: 4px; }
-.cal-wxbar-l { font-size: 9px; color: var(--muted); }
 /* Feature 2 — Bad Weather: data-date banner + execution-dashboard waterfall */
 .cal-ddbanner { background:var(--success-bg); border:1px solid var(--success); color:var(--success); border-radius:8px; padding:7px 12px; font-size:12px; margin-bottom:12px; }
 .cal-flow { display:flex; align-items:stretch; flex-wrap:wrap; margin-top:6px; }
@@ -903,6 +887,42 @@ body {
 .cal-3col .s-nw { background:var(--danger); }
 .cal-3col .s-net { background:var(--success); }
 .cal-3l { font-size:9px; color:var(--muted); margin-top:5px; white-space:nowrap; }
+/* Feature 2 — 3-colour histogram title + subtitle (above the bars) */
+.cal-3title { font-size:14px; font-weight:800; color:var(--warning); line-height:1.25; }
+.cal-3sub { font-size:11.5px; color:var(--muted); margin:2px 0 12px; }
+.cal-3sub b { color:var(--success); }
+
+/* Feature 2 — compact entry bar (Project Type + Location + Calculate) */
+.cal-entry { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; background:var(--card-bg);
+  border:1px solid var(--accent); box-shadow:0 0 0 1px rgba(59,130,246,.12); border-radius:12px; padding:14px; margin-bottom:10px; }
+.cal-entry-fld { display:flex; flex-direction:column; gap:5px; }
+.cal-entry-fld.grow { flex:1; min-width:220px; }
+.cal-entry-fld label { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+.cal-entry-sel { background:var(--bg); border:1px solid var(--accent); color:var(--accent); border-radius:8px;
+  padding:8px 11px; font-size:13px; font-weight:700; min-width:190px; }
+.cal-entry-box { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:8px 11px;
+  font-size:13px; min-width:200px; }
+.cal-entry-go { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px 16px;
+  font-weight:800; font-size:13px; cursor:pointer; }
+.cal-entry-go:disabled { opacity:.5; cursor:not-allowed; }
+.cal-entry-hint { flex-basis:100%; font-size:11.5px; color:var(--muted); margin-top:2px; }
+
+/* Feature 2 — the map demoted to a secondary, expandable control */
+.cal-loc-details { border:1px solid var(--border); border-radius:12px; margin-bottom:18px; background:var(--card-bg); }
+.cal-loc-details > summary { cursor:pointer; padding:10px 14px; font-size:12.5px; font-weight:700; color:var(--text); list-style:none; }
+.cal-loc-details > summary::-webkit-details-marker { display:none; }
+.cal-loc-details[open] > summary { border-bottom:1px solid var(--border); }
+.cal-loc-details .cal-loc-card { border:none; box-shadow:none; margin:0; }
+
+/* Feature 2 — footnotes (below §7): auto-conclusion + demoted source/climate reference */
+.cal-foot { border:1px solid var(--border); border-left:3px solid var(--warning); border-radius:0 8px 8px 0;
+  background:var(--card-bg); padding:9px 13px; margin:14px 0 6px; }
+.cal-foot-lab { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--warning); }
+.cal-foot-details { border:1px solid var(--border); border-radius:8px; background:var(--card-bg); margin:8px 0 6px; }
+.cal-foot-details > summary { cursor:pointer; padding:9px 13px; font-size:12px; font-weight:700; color:var(--muted); list-style:none; }
+.cal-foot-details > summary::-webkit-details-marker { display:none; }
+.cal-foot-details[open] > summary { border-bottom:1px solid var(--border); color:var(--text); }
+.cal-foot-details .cal-ref { border:none; margin:0; }
 
 .cal-reason { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 3px 7px; font-size: 12px; width: 90%; }
 .cal-addform { display: flex; gap: 8px; align-items: center; margin: 8px 0 16px; flex-wrap: wrap; }

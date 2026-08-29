@@ -44,6 +44,19 @@ export function histBarGeom(months) {
   });
 }
 
+// Per-month segment geometry for the Feature 2 3-colour histogram (net working / bad-weather /
+// non-working). Heights in px, scaled so the tallest month (net + bad + non-working) fills `H`
+// px; the label above each bar is the NET working days. Pure — unit-tested.
+export function hist3Geom(histogram, H = 130) {
+  const rows = histogram || [];
+  const maxTot = Math.max(1, ...rows.map(m => (m.net || 0) + (m.bad || 0) + (m.nonworking || 0)));
+  const px = v => Math.round((v || 0) / maxTot * H);
+  return rows.map(m => ({
+    label: m.label, net: m.net || 0, bad: m.bad || 0, nonworking: m.nonworking || 0,
+    netPx: px(m.net), badPx: px(m.bad), nwPx: px(m.nonworking),
+  }));
+}
+
 // ── Site-type presets — mirror of p6_calendar/weather.py SITE_TYPES ──────────
 // One pick loads the stop-work limits that fit that kind of work. DESERT equals the
 // app default (wind off / heat 42), so a project that never picks a type is unchanged.
@@ -170,8 +183,54 @@ export function renderWeatherView(ca) {
 function _renderWeatherBody() {
   const body = document.getElementById('weather-body');
   if (!body) return;
-  body.innerHTML = _locationCard() + _weatherSection();
+  // Mockup order: data-date banner → compact entry bar (type + location + Calculate) →
+  // the map (demoted to a secondary, expandable control) → the numbered weather sections.
+  body.innerHTML = _ddBanner() + _entryBar() + _locationCard() + _weatherSection();
   _wireWeatherView();
+}
+
+// The data-date banner — every weather result starts from it. Emitted at the very top.
+function _ddBanner() {
+  const dd = (_ca && _ca.dashboard && _ca.dashboard.data_date) ? fmtCalDate(_ca.dashboard.data_date) : '';
+  return dd
+    ? `<div class="cal-ddbanner">📅 All results start from the <b>Data Date · ${dd}</b> — nothing before it. Weather window: data date → finish.</div>`
+    : '';
+}
+
+// The project / scope name shown above the 3-colour histogram (falls back gracefully).
+function _scopeName() {
+  const r = state.currentResult || {};
+  return r.project_name || (_ca && _ca.project && _ca.project.name) || 'Project scope';
+}
+
+// The Location readout used inside the compact entry bar (mirrors _locationReadoutHtml, compact).
+function _entryLocHtml() {
+  const loc = _pendingLoc;
+  return loc
+    ? `📍 <b>${escapeHtml(loc.name || 'Selected location')}</b> · ${(+loc.lat).toFixed(2)}°, ${(+loc.lon).toFixed(2)}°`
+    : '<span class="cal-muted">No location set — open the map below to place a pin</span>';
+}
+
+// Compact entry bar (mockup): Project-Type selector + Location readout + Calculate button.
+// The Project-Type choice loads the stop-work limits (SITE_TYPES); Calculate runs the estimate.
+function _entryBar() {
+  const st = _siteType;
+  const opts = SITE_TYPE_ORDER.map(key => {
+    const s = SITE_TYPES[key];
+    return `<option value="${key}" ${st === key ? 'selected' : ''}>${s.icon} ${escapeHtml(s.label)}</option>`;
+  }).join('');
+  const customOpt = st === 'custom'
+    ? '<option value="custom" selected>⚙️ Custom limits</option>' : '';
+  const placeholder = st ? '' : '<option value="" selected>— pick site type —</option>';
+  const loc = _pendingLoc;
+  return `<div class="cal-entry">
+    <div class="cal-entry-fld"><label>Project Type</label>
+      <select class="cal-entry-sel" id="cal-entry-site">${placeholder}${opts}${customOpt}</select></div>
+    <div class="cal-entry-fld grow"><label>Location</label>
+      <div class="cal-entry-box" id="cal-entry-loc">${_entryLocHtml()}</div></div>
+    <button class="cal-entry-go" id="cal-entry-go" ${loc ? '' : 'disabled'}>Calculate weather →</button>
+    <div class="cal-entry-hint">Start here — the project type loads the stop-work limits that fit the work, and the location drives the weather. Fine-tune the exact spot on the map below.</div>
+  </div>`;
 }
 
 function _sec(n, title, extra = '') {
@@ -209,27 +268,31 @@ function _locationReadoutHtml() {
     : '<div class="cal-loc-read cal-muted">No location set yet — search, or click the map to drop a pin.</div>';
 }
 
+// Secondary/expandable location control — demoted below the entry bar (mockup). The entry
+// bar is the primary path; open this to search or drop a pin on the exact site.
 function _locationCard() {
   const loc = _pendingLoc;
   return `
-    <div class="cal-loc-card">
-      <div class="cal-loc-left">
-        <div class="cal-loc-title">📍 Project Location <span class="cal-pill mini warn">required for weather</span></div>
-        <div class="cal-muted" style="font-size:12px;margin-bottom:8px">Set this first — the Weather-Adjusted Finish and the Weather Impact section are calculated from it. <b>Search a place, or click the map to drop a pin on the exact site</b> (drag it to fine-tune). Saved with the project.</div>
-        <div class="cal-loc-search">
-          <input id="cal-loc-q" placeholder="Search a place or address… (e.g. Jubail, Saudi Arabia)" value="">
-          <button class="cal-btn pri" id="cal-loc-search-btn">Search</button>
+    <details class="cal-loc-details"${loc ? '' : ' open'}>
+      <summary>🗺️ Set the exact site on the map${loc ? ` — <b>${escapeHtml(loc.name || 'pin set')}</b>` : ''}</summary>
+      <div class="cal-loc-card">
+        <div class="cal-loc-left">
+          <div class="cal-muted" style="font-size:12px;margin-bottom:8px"><b>Search a place, or click the map to drop a pin on the exact site</b> (drag it to fine-tune). Saved with the project.</div>
+          <div class="cal-loc-search">
+            <input id="cal-loc-q" placeholder="Search a place or address… (e.g. Jubail, Saudi Arabia)" value="">
+            <button class="cal-btn pri" id="cal-loc-search-btn">Search</button>
+          </div>
+          <div id="cal-loc-results" class="cal-loc-results"></div>
+          <div id="cal-loc-readout">${_locationReadoutHtml()}</div>
+          <button class="cal-btn pri" id="cal-loc-use" style="margin-top:10px" ${loc ? '' : 'disabled'}>✓ Use this location &amp; calculate weather</button>
+          <span id="cal-loc-status" class="cal-muted" style="font-size:12px;margin-left:8px"></span>
         </div>
-        <div id="cal-loc-results" class="cal-loc-results"></div>
-        <div id="cal-loc-readout">${_locationReadoutHtml()}</div>
-        <button class="cal-btn pri" id="cal-loc-use" style="margin-top:10px" ${loc ? '' : 'disabled'}>✓ Use this location &amp; calculate weather</button>
-        <span id="cal-loc-status" class="cal-muted" style="font-size:12px;margin-left:8px"></span>
+        <div class="cal-loc-right">
+          <div id="cal-map" class="cal-map"></div>
+          <div class="cal-map-hint cal-muted">🖱️ Click the map to place the pin · drag to fine-tune</div>
+        </div>
       </div>
-      <div class="cal-loc-right">
-        <div id="cal-map" class="cal-map"></div>
-        <div class="cal-map-hint cal-muted">🖱️ Click the map to place the pin · drag to fine-tune</div>
-      </div>
-    </div>`;
+    </details>`;
 }
 
 function _dashboard(d) {
@@ -479,7 +542,6 @@ function _weatherControls() {
       <div class="cal-wx-feed"><span class="ic">📚</span><div><b>Multi-year climate history</b> — beyond ~16 days, each date is drawn from the site's recorded weather over the <b>last 5 years</b> (Open-Meteo ERA5). The day-list follows a <b>typical (representative) year</b> so a fluke year can't skew it; months show the <b>5-year average and range</b>.<span class="cal-pill mini warn">Expected · climate</span></div></div>
       <div class="cal-wx-feed"><span class="ic">🌫️</span><div><b>Air-quality</b> — near-term PM10 / dust concentration, to flag sandstorm days.</div></div>
     </div>
-    ${_siteTypePickerHtml()}
     ${_criteriaPanelHtml()}
     <div class="cal-grp" style="margin-top:0"><span class="cal-pill warn">✎ Fine-tune the limits</span>
       <span class="cal-grp-meta">the site type sets these — change any number to match your site (blank = off; switches to “Custom”)</span></div>
@@ -492,23 +554,6 @@ function _weatherControls() {
       <span id="thr-status" class="cal-muted" style="font-size:12px"></span>
     </div>
     <div class="cal-note" style="margin-top:8px">Each flagged day below shows the measured value against your limit. Applied to <b>construction</b> activities only; a day already off (weekend / holiday / shutdown) is never double-counted — kept separate from the exact P6 Delay.</div>`;
-}
-
-// Site-type picker — one pick loads the limits that fit the work.
-function _siteTypePickerHtml() {
-  const cards = SITE_TYPE_ORDER.map(key => {
-    const st = SITE_TYPES[key];
-    return `<div class="cal-site${_siteType === key ? ' sel' : ''}" data-site="${key}">
-      <div class="cal-site-ic">${st.icon}</div>
-      <div class="cal-site-nm">${escapeHtml(st.label)}</div>
-      <div class="cal-site-ds">${escapeHtml(st.blurb)}</div></div>`;
-  }).join('');
-  const custom = _siteType === 'custom'
-    ? `<div class="cal-site sel" data-site="custom"><div class="cal-site-ic">⚙️</div>
-        <div class="cal-site-nm">Custom</div><div class="cal-site-ds">your own edited limits</div></div>` : '';
-  return `<div class="cal-grp" style="margin-top:2px"><span class="cal-pill def">🏗️ Site type</span>
-      <span class="cal-grp-meta">pick what kind of site this is — it loads the stop-work limits that fit this work</span></div>
-    <div class="cal-sites">${cards}${custom}</div>`;
 }
 
 // The stop-work criteria shown IN FULL — every limit, its value, and what work it stops.
@@ -549,9 +594,9 @@ function _whyResultHtml() {
     return `<div class="cal-why-row">${ic}<span class="${flagged ? 'flag' : 'noflag'}">
       <b>${escapeHtml(p.label)}${limTxt} → flagged ${flagged} ${flagged === 1 ? 'day' : 'days'}.</b>${peak}</span></div>`;
   }).join('');
-  return `<div class="cal-grp"><span class="cal-pill def">🔎 Why this result</span>
-      <span class="cal-grp-meta">how each limit performed over the project window — a near-zero is explained, not hidden</span></div>
-    <div class="cal-why">${rows}</div>`;
+  return _sec(3, 'Why this result',
+      'how each limit performed over the project window — a near-zero is explained, not hidden') +
+    `<div class="cal-why">${rows}</div>`;
 }
 
 // Source & climate reference — where the bad-weather days come from (shown on import).
@@ -562,8 +607,9 @@ function _climateRefHtml() {
     (r.lat != null ? `${(+r.lat).toFixed(2)}°, ${(+r.lon).toFixed(2)}°` : '');
   const yrs = (r.year_start && r.year_end) ? `${r.year_start}–${r.year_end} (${r.years} years)` : `${r.years} years`;
   const row = (k, v) => `<div class="cal-ref-row"><div class="cal-ref-k">${k}</div><div class="cal-ref-v">${v}</div></div>`;
-  return `<div class="cal-grp"><span class="cal-pill def">🔗 Where these bad-weather days come from</span>
-      <span class="cal-grp-meta">the data source &amp; climate reference — so you can trust and check the numbers</span></div>
+  // Demoted to a footnote (collapsible) below §7 — reference, not a headline section.
+  return `<details class="cal-foot-details">
+      <summary>🔗 Where these bad-weather days come from — data source &amp; climate reference</summary>
     <div class="cal-ref">
       ${row('Climate history', `<b>${escapeHtml(r.history_source)}</b> — <span class="cal-ref-url">${escapeHtml(r.history_url)}</span>`)}
       ${row('History window', `<b>${yrs}</b>, averaged per month`)}
@@ -571,7 +617,7 @@ function _climateRefHtml() {
       ${row('Live forecast', `${escapeHtml(r.forecast_source)} — <span class="cal-ref-url">${escapeHtml(r.forecast_url)}</span> (next ~16 days)`)}
       ${row('Dust / sandstorm', escapeHtml(r.dust_source))}
       <div class="cal-ref-note">Beyond ~16 days these are <b>climate-based expectations</b> (5-year average for this site) — not a guaranteed forecast. Kept separate from the exact P6 Delay.</div>
-    </div>`;
+    </div></details>`;
 }
 
 // The construction activities a bad-weather day hits (#07).
@@ -614,96 +660,73 @@ function _weatherDashboard() {
 // Feature 2 §2 — 3-colour monthly histogram: net working (green) / bad-weather (amber) /
 // non-working (red) days; the number above each bar is the NET working days that month.
 function _weatherHistogram() {
-  const h = (_weather && _weather.histogram) || [];
-  if (!h.length) return '';
-  const H = 130;
-  const maxTot = Math.max(1, ...h.map(m => (m.net || 0) + (m.bad || 0) + (m.nonworking || 0)));
-  const px = v => Math.round((v || 0) / maxTot * H);
-  const bars = h.map(m =>
+  const geom = hist3Geom((_weather && _weather.histogram) || []);
+  if (!geom.length) return '';
+  const bars = geom.map(m =>
     `<div class="cal-3bar" title="${escapeHtml(m.label)}: ${m.net} net working · ${m.bad} bad-weather · ${m.nonworking} non-working">
       <div class="cal-3v">${m.net}</div>
       <div class="cal-3col">
-        <div class="s-bad" style="height:${px(m.bad)}px"></div>
-        <div class="s-nw" style="height:${px(m.nonworking)}px"></div>
-        <div class="s-net" style="height:${px(m.net)}px"></div>
+        <div class="s-bad" style="height:${m.badPx}px"></div>
+        <div class="s-nw" style="height:${m.nwPx}px"></div>
+        <div class="s-net" style="height:${m.netPx}px"></div>
       </div>
       <div class="cal-3l">${escapeHtml(m.label)}</div></div>`).join('');
   return _sec(2, 'Calendar Timeline &amp; Statistics') +
-    `<div class="cal-3leg"><span><i class="sw sw-net"></i>Net working days</span>
+    `<div class="cal-3title">${escapeHtml(_scopeName())}</div>
+     <div class="cal-3sub">Working / non-working / bad-weather days per month · the number above each bar = <b>net working days</b> (working − bad-weather)</div>
+     <div class="cal-3leg"><span><i class="sw sw-net"></i>Net working days</span>
        <span><i class="sw sw-nw"></i>Non-working days</span>
-       <span><i class="sw sw-bad"></i>Bad-weather days</span>
-       <span>▲ number above bar = <b>net working days</b> (working − bad-weather)</span></div>
+       <span><i class="sw sw-bad"></i>Bad-weather days (expected)</span>
+       <span>▲ number above bar = <b>net working days</b></span></div>
      <div class="cal-3hist">${bars}</div>`;
 }
 
 function _weatherSection() {
-  const dd = (_ca && _ca.dashboard && _ca.dashboard.data_date) ? fmtCalDate(_ca.dashboard.data_date) : '';
-  const head = dd
-    ? `<div class="cal-ddbanner">📅 All results start from the <b>Data Date · ${dd}</b> — nothing before it. Weather window: data date → finish.</div>`
-    : '';
+  // The data-date banner + compact entry bar are emitted by _renderWeatherBody (above this).
   if (!_pendingLoc) {
-    return head + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
-      Set the <b>Project Location</b> at the top and click <b>Use this location</b> to calculate the expected bad-weather days, milestone impact and recovery options.</p></div>`;
+    return `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
+      Pick a <b>Project Type</b> and set the <b>Location</b> in the bar above (or drop a pin on the map), then click <b>Calculate weather</b> to see the expected bad-weather days, milestone impact and recovery options.</p></div>`;
   }
   const controls = `<div class="cal-card" style="margin-bottom:12px">${_weatherControls()}</div>`;
   if (!_weather) {
-    return head + controls + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
-      Adjust the stop-work limits above if needed, then click <b>Apply &amp; recalculate</b> (or <b>Use this location</b> at the top).</p></div>`;
+    return controls + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
+      Adjust the stop-work limits above if needed, then click <b>Apply &amp; recalculate</b> (or <b>Calculate weather</b> in the entry bar).</p></div>`;
   }
   const w = _weather;
-  const dashboard = _weatherDashboard();
-  const histogram = _weatherHistogram();
-  const badSub = (w.climate_avg_total != null && w.climate_avg_total !== w.expected_bad_days_total)
-    ? `~${w.climate_avg_total} on the 5-yr average` : '';
-  const kpis = `<div class="cal-kpi-grid" style="grid-template-columns:repeat(3,1fr);margin:12px 0">
-    ${_tile('Bad-weather days (remaining)', w.expected_bad_days_total, badSub, 'hl-amber')}
-    ${_tile('Net weather delay to finish', `+${w.net_finish_delay} wd`, '', 'hl-amber')}
-    ${_tile('Weather-adjusted finish', fmtCalDate(w.weather_adjusted_finish))}</div>`;
-  // Monthly bars: 5-year AVERAGE (bar) with a whisker for the fewest–most across those years.
-  const H = 70;
-  const maxHi = Math.max(1, ...(w.monthly || []).map(x => (x.hi != null ? x.hi : x.count)));
-  const bars = (w.monthly || []).map(x => {
-    const avg = x.avg != null ? x.avg : x.count;
-    const lo = x.lo != null ? x.lo : avg, hi = x.hi != null ? x.hi : avg;
-    const whisker = (hi > lo)
-      ? `<div class="cal-wxbar-rng" style="bottom:${lo / maxHi * H}px;height:${(hi - lo) / maxHi * H}px"></div>` : '';
-    return `<div class="cal-wxbar"><div class="cal-wxbar-v">${avg || ''}</div>
-      <div class="cal-wxbar-col" style="height:${H}px">
-        <div class="cal-wxbar-b" style="height:${Math.max(3, avg / maxHi * H)}px;${avg >= 3 ? 'background:var(--warning)' : ''}"></div>${whisker}</div>
-      <div class="cal-wxbar-l">${escapeHtml(x.label)}</div></div>`;
-  }).join('');
-  const bar = `<div class="cal-card" style="margin-bottom:12px">
-    <div class="cal-muted" style="font-size:12px;margin-bottom:10px">Expected bad-weather days per month — <b>5-year average</b> (bar) with the range across those years (whisker) · construction phases only</div>
-    <div class="cal-wxbars">${bars || '<span class="cal-muted">No data.</span>'}</div></div>`;
+  const dashboard = _weatherDashboard();      // §1 Execution Dashboard (waterfall)
+  const histogram = _weatherHistogram();      // §2 Calendar Timeline & Statistics (3-colour)
+  // §5 — Upcoming bad weather
   const dayRows = (w.bad_days || []).slice(0, 200).map(d =>
     `<tr><td>${fmtCalDate(d.date)}</td><td>${escapeHtml(d.day_name)}</td>
       <td>${escapeHtml(d.condition)}</td>
       <td><span class="cal-pill mini ${d.confidence === 'forecast' ? 'def' : 'warn'}">${d.confidence === 'forecast' ? 'Forecast' : 'Expected'}</span></td>
       <td>${_actsCell(d)}</td></tr>`).join('');
-  const dayTable = `<div class="cal-grp"><span class="cal-pill special">Upcoming Bad-Weather Days</span>
-      <span class="cal-grp-meta">each day shows the measured value, why it counts &amp; the work (by WBS) it hits · next ~16 days = live forecast · beyond = a typical year from the 5-year climate history</span></div>
-    <div class="cal-card p0" style="max-height:300px;overflow-y:auto"><table class="cal-table"><thead><tr>
+  const dayTable = _sec(5, 'Upcoming bad weather',
+      'next ~16 days = live forecast · beyond = a typical year from the 5-year climate history') +
+    `<div class="cal-card p0" style="max-height:300px;overflow-y:auto"><table class="cal-table"><thead><tr>
       <th>Date</th><th>Day</th><th>Why it's a lost day (measured)</th><th>Confidence</th><th>Affected work (by WBS)</th></tr></thead>
       <tbody>${dayRows || '<tr><td colspan="5" class="cal-empty">No bad-weather days expected.</td></tr>'}</tbody></table></div>`;
+  // §6 — Impact on milestones
   const msRows = (w.milestones || []).map(m =>
     `<tr><td>${escapeHtml(m.name)}</td><td>${fmtCalDate(m.planned)}</td>
       <td class="num">${m.bad_days_before}</td><td class="num">${m.already_allowed}</td>
       <td class="num"><span class="cal-pill mini ${m.net_delay > 0 ? 'shutdown' : 'def'}">+${m.net_delay} d</span></td>
       <td>${fmtCalDate(m.adjusted)}</td></tr>`).join('');
-  const msTable = `<div class="cal-grp"><span class="cal-pill shutdown">Impact on Milestone Completion</span></div>
-    <div class="cal-card p0"><table class="cal-table"><thead><tr>
+  const msTable = _sec(6, 'Impact on milestones') +
+    `<div class="cal-card p0"><table class="cal-table"><thead><tr>
       <th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>
       <th class="num">Already in calendar</th><th class="num">Net weather delay</th><th>Weather-adjusted completion</th></tr></thead>
       <tbody>${msRows || '<tr><td colspan="6" class="cal-empty">No milestones found.</td></tr>'}</tbody></table></div>
      <div class="cal-note" style="font-style:normal"><b>How to read this table:</b> <b>Bad-weather days before it</b> — expected bad-weather days between the data date and the milestone's planned finish. <b>Already in calendar</b> — of those, the ones landing on a day already off (weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days weather adds. <i>Example — 6 bad-weather days before finish; 4 already fell on off-days, so only 2 hit working days → +2 working days.</i></div>`;
+  // §7 — Recovery recommendation
   const recRows = (w.recovery || []).map(r =>
     `<tr><td>${escapeHtml(r.period)}</td><td class="num"><span class="cal-pill mini shutdown">${r.days} d</span></td>
       <td>${escapeHtml(r.option_longer_days)}</td><td>${escapeHtml(r.option_extra_days)}</td><td>${escapeHtml(r.option_shift)}</td></tr>`).join('');
-  const recTable = `<div class="cal-grp"><span class="cal-pill def">Recovery Recommendations</span>
-      <span class="cal-grp-meta">advisory — one option per period, computed from the estimated lost hours</span></div>
-    <div class="cal-card p0"><table class="cal-table"><thead><tr>
+  const recTable = _sec(7, 'Recovery recommendation', 'advisory — one option per period, computed from the estimated lost hours') +
+    `<div class="cal-card p0"><table class="cal-table"><thead><tr>
       <th>Period / milestone</th><th class="num">Days</th><th>Longer days</th><th>Extra working days</th><th>Add shift</th></tr></thead>
       <tbody>${recRows || '<tr><td colspan="5" class="cal-empty">No recovery needed — no net weather delay.</td></tr>'}</tbody></table></div>`;
+  // §4 — What's causing the lost days, by weather type
   const totalBad = w.expected_bad_days_total || 0;
   const causeColor = { Heat: 'var(--danger)', Dust: 'var(--warning)', Rain: 'var(--chart-1)', Wind: 'var(--muted)' };
   const causeRows = (w.by_cause || []).map(c => {
@@ -716,17 +739,18 @@ function _weatherSection() {
       <div class="cal-cause-n">${val}</div></div>`;
   }).join('');
   const causeCard = (w.by_cause || []).length
-    ? `<div class="cal-grp"><span class="cal-pill shutdown">What's causing the lost days — by weather type</span>
-        <span class="cal-grp-meta">which condition to plan around (heat → shift hours earlier; rain → drainage)</span></div>
-       <div class="cal-card">${causeRows}</div>`
+    ? _sec(4, "What's causing the lost days — by weather type", 'which condition to plan around (heat → shift hours earlier; rain → drainage)') +
+      `<div class="cal-card">${causeRows}</div>`
     : '';
+  // Footnotes (after §7) — auto weather-conclusion, then the source & climate reference. Demoted.
   const conclHtml = w.conclusion
-    ? `<div class="cal-grp"><span class="cal-pill warn">Weather conclusion</span>
-        <span class="cal-grp-meta">auto-generated from the numbers above</span></div>
-       <div class="cal-concl" style="border-left:4px solid var(--warning)"><p style="margin:0;font-size:13px;line-height:1.6">${escapeHtml(w.conclusion)}</p></div>`
+    ? `<div class="cal-foot"><span class="cal-foot-lab">Weather conclusion — auto-generated</span>
+        <p style="margin:2px 0 0;font-size:12px;line-height:1.55">${escapeHtml(w.conclusion)}</p></div>`
     : '';
   const note = '<div class="cal-note">Applies to construction activities only (auto-detected), and only to Finish/completion milestones. A forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
-  return head + controls + dashboard + histogram + kpis + _whyResultHtml() + causeCard + dayTable + msTable + recTable + bar + _climateRefHtml() + conclHtml + note;
+  return controls + dashboard + histogram +
+    _whyResultHtml() + causeCard + dayTable + msTable + recTable +
+    conclHtml + _climateRefHtml() + note;
 }
 
 // Read the stop-work-limit inputs → thresholds object (blank = off).
@@ -768,9 +792,23 @@ function _wireCalendar() {
 }
 
 function _wireWeatherView() {
+  _wireEntry();
   _wireLocation();
-  _wireSiteTypes();
   _wireWeather();
+}
+
+// Entry bar — the Project-Type dropdown loads the preset stop-work limits; Calculate runs it.
+function _wireEntry() {
+  const sel = document.getElementById('cal-entry-site');
+  if (sel) sel.addEventListener('change', () => {
+    const key = sel.value;
+    if (!SITE_TYPES[key]) return;                       // '' placeholder / 'custom' — not a choice
+    _siteType = key;
+    _thresholds = { ...SITE_TYPES[key].thresholds };
+    _renderWeatherBody();                               // reloads the criteria panel + limit inputs
+  });
+  const go = document.getElementById('cal-entry-go');
+  if (go) go.addEventListener('click', () => _runWeather(go, document.getElementById('cal-loc-status')));
 }
 
 function _wireLocation() {
@@ -806,12 +844,17 @@ function _wireLocation() {
   _initMap();
 }
 
-// Refresh just the coordinates read-out + enable the Use button (no full re-render).
+// Refresh the coordinates read-out (map card + entry bar) + enable both Calculate buttons
+// (no full re-render, so the map stays put while the pin is fine-tuned).
 function _updateLocReadout() {
   const el = document.getElementById('cal-loc-readout');
   if (el) el.innerHTML = _locationReadoutHtml();
   const use = document.getElementById('cal-loc-use');
   if (use && _pendingLoc) use.disabled = false;
+  const eb = document.getElementById('cal-entry-loc');
+  if (eb) eb.innerHTML = _entryLocHtml();
+  const go = document.getElementById('cal-entry-go');
+  if (go && _pendingLoc) go.disabled = false;
 }
 
 // Load the vendored Leaflet (local file — ships in the .exe) exactly once.
@@ -928,18 +971,6 @@ async function _initMap() {
   }
   setTimeout(recentre, 80);
   setTimeout(recentre, 400);
-}
-
-// Pick a site type → load its preset limits and refresh the criteria panel + inputs.
-function _wireSiteTypes() {
-  document.querySelectorAll('#weather-body .cal-site').forEach(card =>
-    card.addEventListener('click', () => {
-      const key = card.dataset.site;
-      if (key === 'custom' || !SITE_TYPES[key]) return;   // 'custom' is a state, not a choice
-      _siteType = key;
-      _thresholds = { ...SITE_TYPES[key].thresholds };
-      _renderWeatherBody();                               // fills the limit inputs + criteria panel
-    }));
 }
 
 // Wire the Weather-Impact "Apply & recalculate" (edited stop-work limits).

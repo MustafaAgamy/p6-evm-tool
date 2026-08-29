@@ -236,35 +236,82 @@ def _conflicts(conflicts):
             f'<ul style="margin:0;padding-left:18px">{lines}</ul>')
 
 
-def _wx_monthly_bars(monthly):
-    """Section 9 histogram — expected bad-weather days per month (the mockup's
-    'When the risk falls'). Print-friendly CSS bars; peak month highlighted red."""
-    monthly = monthly or []
-    if not monthly:
+def _days_between(a, b):
+    """Calendar days b − a from two ISO date strings; 0 if either missing/unparseable."""
+    from datetime import date
+    try:
+        ya, ma, da = str(a)[:10].split('-')
+        yb, mb, db = str(b)[:10].split('-')
+        return (date(int(yb), int(mb), int(db)) - date(int(ya), int(ma), int(da))).days
+    except (ValueError, AttributeError):
+        return 0
+
+
+def _weather_waterfall(d, w):
+    """§1 Execution Dashboard — a 3-tile waterfall matching the screen: Baseline Finish →
+    Forecast Completion → Bad-weather Completion, with the schedule's own slip and, separately,
+    what weather adds, shown on the arrows. Print-safe (flex + colour-only)."""
+    d = d or {}
+    slip = _days_between(d.get('baseline_finish'), d.get('project_finish'))   # schedule's own slip
+    wx_add = w.get('net_finish_delay', 0) or 0                                # weather adds (working days)
+    slip_cls = 'pos' if slip > 0 else 'zero'
+    wx_cls = 'pos' if wx_add > 0 else 'zero'
+    return (
+        '<h2 class="sec">1 · Execution Dashboard '
+        f'<span style="font-weight:400;font-size:9.5px;color:{report_theme.var("rpt-warn")};text-transform:none;letter-spacing:0">'
+        '— estimate, not a P6 figure</span></h2>'
+        '<div class="wf">'
+        f'<div class="wf-step bl"><div class="k">Baseline Finish</div><div class="v">{_fmt(d.get("baseline_finish"))}</div></div>'
+        f'<div class="wf-arr"><div class="l">Schedule slip</div><div class="var {slip_cls}">{"+" if slip > 0 else ""}{slip} d</div><div class="a">→</div></div>'
+        f'<div class="wf-step fc"><div class="k">Forecast Completion</div><div class="v">{_fmt(d.get("project_finish"))}</div></div>'
+        f'<div class="wf-arr"><div class="l">Weather adds</div><div class="var {wx_cls}">+{wx_add} wd</div><div class="a">→</div></div>'
+        f'<div class="wf-step bw"><div class="k">Bad-weather Completion</div><div class="v">{_fmt(w.get("weather_adjusted_finish"))}</div></div>'
+        '</div>'
+        '<p class="lg">Reads left → right: the <b>baseline</b> finish, the schedule&rsquo;s own <b>forecast</b> '
+        'finish, then the <b>weather-adjusted</b> finish. Each arrow shows that step&rsquo;s variance — the '
+        'schedule&rsquo;s own slip, then, separately, what bad weather adds.</p>')
+
+
+def _wx_hist3(histogram, scope=''):
+    """§2 Calendar Timeline & Statistics — the 3-colour monthly histogram (net working / bad-weather
+    / non-working), matching the screen. Reads weather['histogram']. Print-safe stacked CSS bars."""
+    rows = histogram or []
+    if not rows:
         return ''
-    mx = max((m.get('count', 0) for m in monthly), default=0) or 1
+    H = 96
+    mx = max((r.get('net', 0) + r.get('bad', 0) + r.get('nonworking', 0) for r in rows), default=0) or 1
+    def _px(v):
+        return round((v or 0) / mx * H)
     bars = ''.join(
-        f'<div class="wxb"><div class="wxb-v">{m.get("count") or ""}</div>'
-        f'<div class="wxb-bar{" pk" if m.get("count", 0) == mx and mx > 0 else ""}" '
-        f'style="height:{max(3, round(m.get("count", 0) / mx * 62))}px"></div>'
-        f'<div class="wxb-l">{_esc(m.get("label", ""))}</div></div>' for m in monthly)
-    return (f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">When the Risk Falls'
-            ' — bad-weather days by month</span></div>'
-            f'<div class="wxbars">{bars}</div>')
+        f'<div class="h3c"><div class="h3v">{r.get("net", 0)}</div>'
+        f'<div class="h3col">'
+        f'<div class="s-bad" style="height:{_px(r.get("bad"))}px"></div>'
+        f'<div class="s-nw" style="height:{_px(r.get("nonworking"))}px"></div>'
+        f'<div class="s-net" style="height:{_px(r.get("net"))}px"></div></div>'
+        f'<div class="h3l">{_esc(r.get("label", ""))}</div></div>' for r in rows)
+    legend = (
+        f'<div class="whleg"><span><i style="background:{report_theme.var("rpt-good")}"></i>Net working days</span>'
+        f'<span><i style="background:{report_theme.var("rpt-bad")}"></i>Non-working days</span>'
+        f'<span><i style="background:{report_theme.var("rpt-warn")}"></i>Bad-weather days (expected)</span></div>')
+    title = f'<div class="h3title">{_esc(scope)}</div>' if scope else ''
+    return (
+        '<h2 class="sec">2 · Calendar Timeline &amp; Statistics</h2>'
+        f'{title}'
+        '<div class="h3sub">Working / non-working / bad-weather days per month · the number above each '
+        'bar = <b>net working days</b> (working − bad-weather)</div>'
+        f'{legend}<div class="h3bars">{bars}</div>')
 
 
-def _weather_section(weather):
-    """Section 9 — Weather Impact (only when a location/weather estimate exists)."""
+def _weather_section(weather, dashboard=None, scope=''):
+    """Bad Weather report body — matches the screen (Feature 2): §1 Execution Dashboard
+    (waterfall), §2 Calendar Timeline & Statistics (3-colour histogram), §3 Why this result,
+    §4 cause, §5 upcoming days, §6 milestones, §7 recovery, then footnotes."""
     if not weather:
         return ''
     w = weather
     total = w.get('expected_bad_days_total', 0) or 0
-    kpis = ''.join([
-        _tile('Bad-weather days (remaining)', total),
-        _tile('Net weather delay to finish', f"+{w.get('net_finish_delay', 0)} wd"),
-        _tile('Weather-adjusted finish', _fmt(w.get('weather_adjusted_finish'))),
-    ])
-    monthly_bars = _wx_monthly_bars(w.get('monthly'))
+    waterfall = _weather_waterfall(dashboard, w)          # §1 (replaces the old KPI tiles)
+    hist3 = _wx_hist3(w.get('histogram'), scope)          # §2 (replaces the bad-days-only bars)
     # Stop-work limits applied → readable line, reused in the "how it works" note.
     t = w.get('thresholds') or {}
     lim = []
@@ -323,8 +370,7 @@ def _weather_section(weather):
         prows = ''.join(
             f'<tr><td>{_esc(p["label"])}</td><td>{_esc(_perf_txt(p))}</td></tr>' for p in perf)
         why_block = (
-            f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-accent")}">'
-            'Why This Result — How Each Limit Performed</span></div>'
+            '<h2 class="sec">3 · Why This Result — How Each Limit Performed</h2>'
             '<p class="lg">Over the project window, so a near-zero estimate is explained rather than hidden.</p>'
             '<table><thead><tr><th>Limit</th><th>Result</th></tr></thead>'
             f'<tbody>{prows}</tbody></table>')
@@ -339,7 +385,7 @@ def _weather_section(weather):
         cause_rows += (f'<tr><td>{_esc(c["label"])}</td><td class="num">{cnt}</td>'
                        f'<td class="num">{share}</td></tr>')
     cause_table = (
-        f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">What&rsquo;s Causing the Lost Days — by Weather Type</span></div>'
+        '<h2 class="sec">4 · What&rsquo;s Causing the Lost Days — by Weather Type</h2>'
         '<p class="lg">Of all the bad-weather days, which condition causes them — so you know what to '
         'plan around (heat-driven → shift the working day earlier; rain-driven → drainage / protection).</p>'
         '<table><thead><tr><th>Cause</th><th class="num">Days</th><th class="num">Share of flagged days</th>'
@@ -360,7 +406,7 @@ def _weather_section(weather):
         f'<td>{_acts_cell(d)}</td></tr>' for d in w.get('bad_days', []))
     # Empty sub-tables are dropped from the PDF (Ibrahim: don't print a section with no results).
     days_table = (
-        f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-accent")}">Upcoming Bad-Weather Days</span></div>'
+        '<h2 class="sec">5 · Upcoming Bad-Weather Days</h2>'
         '<table><thead><tr><th>Date</th><th>Day</th><th>Why it’s a lost day (measured)</th>'
         f'<th>Confidence</th><th>Affected work (by WBS)</th></tr></thead>'
         f'<tbody>{days}</tbody></table>') if days else ''
@@ -392,7 +438,7 @@ def _weather_section(weather):
             '<table><thead><tr><th>Feed</th><th>Reference</th></tr></thead>'
             f'<tbody>{ref_rows}</tbody></table>')
     ms_table = (
-        f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">Impact on Milestone Completion</span></div>'
+        '<h2 class="sec">6 · Impact on Milestone Completion</h2>'
         '<table><thead><tr><th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>'
         '<th class="num">Already in calendar</th><th class="num">Net weather delay</th>'
         f'<th>Weather-adjusted completion</th></tr></thead><tbody>{ms}</tbody></table>'
@@ -405,7 +451,7 @@ def _weather_section(weather):
         '<i>Example — 6 bad-weather days fall before finish; 4 land on Fridays/holidays already off, '
         'so only 2 hit working days → +2 working days.</i></p>') if ms else ''
     rec_table = (
-        f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-good")}">Recovery Recommendations</span></div>'
+        '<h2 class="sec">7 · Recovery Recommendations</h2>'
         '<table><thead><tr><th>Period / milestone</th><th class="num">Days</th><th>Longer days</th>'
         f'<th>Extra working days</th><th>Add shift</th></tr></thead><tbody>{rec}</tbody></table>') if rec else ''
     conclusion = ''
@@ -414,13 +460,13 @@ def _weather_section(weather):
             f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">Weather Conclusion</span></div>'
             f'<div class="concl" style="border-left-color:{report_theme.var("rpt-warn")};background:{report_theme.var("rpt-warn-bg")}">'
             f'<p style="margin:0;font-size:10.5px;line-height:1.5">{_esc(w["conclusion"])}</p></div>')
+    # Screen-parity order: §1 waterfall, §2 3-colour histogram, then the how/criteria supporting
+    # blocks, §3–§7, and the source-reference + conclusion demoted to footnotes at the end.
     return (
-        '<h2 class="sec">1 · Weather Impact '
-        f'<span style="font-weight:400;font-size:9.5px;color:{report_theme.var("rpt-warn")};text-transform:none;letter-spacing:0">'
-        '— estimate, not a P6 figure</span></h2>'
+        f'{waterfall}{hist3}'
         f'{method}{criteria_block}'
-        f'<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">{kpis}</div>'
-        f'{why_block}{monthly_bars}{source_ref}{cause_table}{days_table}{ms_table}{rec_table}{conclusion}')
+        f'{why_block}{cause_table}{days_table}{ms_table}{rec_table}'
+        f'{source_ref}{conclusion}')
 
 
 def _conclusion(bullets, weather=None):
@@ -465,7 +511,7 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
         _wrap('hours', _hours(profiles)) if inc('hours') else '',
         _wrap('comparison', _comparison(result.get('comparison', []), result.get('usage', []), period_note)) if inc('comparison') else '',
         _wrap('conflicts', _conflicts(result.get('conflicts', []))) if inc('conflicts') else '',
-        _wrap('weather', _weather_section(weather)) if inc('weather') else '',
+        _wrap('weather', _weather_section(weather, d, meta.get('project_name', ''))) if inc('weather') else '',
         _wrap('conclusion', _conclusion(result.get('conclusion', []), dash_weather)) if inc('conclusion') else '',
     ])
     # Feature-aware document branding — the Bad Weather report is its own document, not a
@@ -558,12 +604,33 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
   .ok {{ color: var(--rpt-good); font-size: 11px; }}
   .wxm {{ border: 1px solid var(--rpt-edge); background: var(--rpt-surface); border-radius: 6px; padding: 9px 12px;
           font-size: 9.8px; line-height: 1.55; color: var(--rpt-ink-soft); margin-bottom: 10px; }}
-  .wxbars {{ display: flex; align-items: flex-end; gap: 8px; height: 92px; border-bottom: 1.5px solid var(--rpt-hair); padding: 0 4px; margin: 2px 0 8px; }}
-  .wxb {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }}
-  .wxb-v {{ font-size: 9px; font-weight: 800; color: var(--rpt-warn); margin-bottom: 2px; }}
-  .wxb-bar {{ width: 62%; max-width: 30px; background: linear-gradient(180deg, var(--rpt-warn), color-mix(in srgb, var(--rpt-warn) 45%, transparent)); border-radius: 3px 3px 0 0; }}
-  .wxb-bar.pk {{ background: linear-gradient(180deg, var(--rpt-bad), color-mix(in srgb, var(--rpt-bad) 50%, transparent)); }}
-  .wxb-l {{ font-size: 8px; color: var(--rpt-muted); margin-top: 3px; }}
+  /* Feature 2 §1 — Execution Dashboard waterfall (print-safe, colour-only) */
+  .wf {{ display: flex; align-items: stretch; flex-wrap: wrap; margin: 2px 0 6px; }}
+  .wf-step {{ flex: 1; min-width: 130px; border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 9px 11px; }}
+  .wf-step.bl {{ border-color: var(--rpt-ink-soft); }}
+  .wf-step.fc {{ border-color: var(--rpt-accent); }}
+  .wf-step.bw {{ border-color: var(--rpt-warn); }}
+  .wf-step .k {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .4px; color: var(--rpt-muted); font-weight: 700; }}
+  .wf-step .v {{ font-size: 15px; font-weight: 800; margin-top: 2px; color: var(--rpt-ink); }}
+  .wf-step.bw .v {{ color: var(--rpt-warn); }}
+  .wf-arr {{ display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 8px; min-width: 78px; }}
+  .wf-arr .l {{ font-size: 8px; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-muted); }}
+  .wf-arr .var {{ font-size: 12px; font-weight: 800; margin-top: 1px; }}
+  .wf-arr .var.zero {{ color: var(--rpt-good); }}
+  .wf-arr .var.pos {{ color: var(--rpt-warn); }}
+  .wf-arr .a {{ font-size: 14px; color: var(--rpt-muted); }}
+  /* Feature 2 §2 — 3-colour monthly histogram (net working / bad-weather / non-working) */
+  .h3title {{ font-size: 12px; font-weight: 800; color: var(--rpt-warn); }}
+  .h3sub {{ font-size: 9px; color: var(--rpt-muted); margin: 1px 0 8px; }}
+  .h3sub b {{ color: var(--rpt-good); }}
+  .h3bars {{ display: flex; align-items: flex-end; gap: 8px; height: 118px; border-bottom: 1.5px solid var(--rpt-hair); padding: 0 2px; margin-bottom: 8px; }}
+  .h3c {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }}
+  .h3v {{ font-size: 8.5px; font-weight: 800; color: var(--rpt-good); margin-bottom: 2px; }}
+  .h3col {{ width: 62%; max-width: 34px; display: flex; flex-direction: column; justify-content: flex-end; }}
+  .h3col .s-bad {{ background: var(--rpt-warn); border-radius: 3px 3px 0 0; }}
+  .h3col .s-nw {{ background: var(--rpt-bad); }}
+  .h3col .s-net {{ background: var(--rpt-good); }}
+  .h3l {{ font-size: 7.5px; color: var(--rpt-muted); margin-top: 3px; }}
   .concl {{ border-left: 4px solid var(--rpt-accent); background: var(--rpt-surface); border-radius: 0 8px 8px 0; padding: 10px 15px; }}
   .concl ul {{ margin: 0; padding-left: 18px; }}
   .concl li {{ font-size: 11px; line-height: 1.5; margin-bottom: 5px; }}

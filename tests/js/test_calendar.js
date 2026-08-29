@@ -4,7 +4,8 @@
  */
 import assert from 'node:assert/strict';
 import { fmtCalDate, statusClass, monthGridCells, conflictSeverityClass,
-         SITE_TYPES, SITE_TYPE_ORDER, matchSiteType, buildSiteCriteria, histBarGeom }
+         SITE_TYPES, SITE_TYPE_ORDER, matchSiteType, buildSiteCriteria, histBarGeom,
+         hist3Geom }
   from '../../ui/modules/calendar.js';
 
 let passed = 0, failed = 0;
@@ -96,6 +97,26 @@ test('empty months → no bars', () => assert.deepEqual(histBarGeom([]), []));
 test('a zero-day month → flat bar, no NaN', () => {
   const g = histBarGeom([{ label: 'X', working_days: 0, nonworking_days: 0 }])[0];
   assert.equal(g.totPx, 0); assert.equal(g.nwPx, 0); assert.equal(g.wPx, 0);
+});
+
+console.log('\nhist3Geom (Feature 2 — Bad Weather 3-colour histogram)');
+test('tallest month (net+bad+nonworking) fills ~H; segments scale to it', () => {
+  const g = hist3Geom([
+    { label: 'Jan 26', net: 20, bad: 3, nonworking: 8 },   // 31 total → tallest
+    { label: 'Feb 26', net: 18, bad: 1, nonworking: 8 },   // 27 total → shorter
+  ], 100);
+  assert.equal(g.length, 2);
+  const tall = g[0].netPx + g[0].badPx + g[0].nwPx;
+  const short = g[1].netPx + g[1].badPx + g[1].nwPx;
+  assert.ok(Math.abs(tall - 100) <= 2, `tallest stack ~fills the axis (got ${tall})`);  // ±rounding
+  assert.equal(g[0].net, 20);                               // net working days carried through (label above bar)
+  assert.ok(short < tall);                                  // a shorter month is a shorter stack
+});
+test('empty histogram → no bars', () => assert.deepEqual(hist3Geom([]), []));
+test('missing fields default to 0 (no NaN)', () => {
+  const g = hist3Geom([{ label: 'X' }])[0];
+  assert.equal(g.net, 0); assert.equal(g.bad, 0); assert.equal(g.nonworking, 0);
+  assert.equal(g.netPx, 0); assert.equal(g.badPx, 0); assert.equal(g.nwPx, 0);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

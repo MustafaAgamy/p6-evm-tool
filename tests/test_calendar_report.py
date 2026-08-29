@@ -69,6 +69,8 @@ def test_report_weather_section_only_when_provided(tmp_path):
         'expected_bad_days_total': 12, 'net_finish_delay': 5,
         'weather_adjusted_finish': '2025-04-07',
         'monthly': [{'label': 'Mar 2025', 'count': 3}, {'label': 'Apr 2025', 'count': 1}],
+        'histogram': [{'label': 'Mar 2025', 'net': 18, 'bad': 3, 'nonworking': 8, 'working': 21},
+                      {'label': 'Apr 2025', 'net': 20, 'bad': 1, 'nonworking': 8, 'working': 21}],
         'source': 'Open-Meteo (forecast + ERA5 historical + air-quality)',
         'thresholds': {'rain_mm': 5, 'temp_max_c': 42, 'wind_kmh': None, 'dust': True},
         'bad_days': [{'date': '2025-03-03', 'day_name': 'Mon',
@@ -95,8 +97,17 @@ def test_report_weather_section_only_when_provided(tmp_path):
     assert 'How this estimate is built' in html and 'What counts as a bad-weather day' in html
     assert 'Causing the Lost Days' in html            # cause breakdown table (relabelled #03)
     assert 'Weather Conclusion' in html and 'cost about 5 working days' in html
-    # the monthly histogram ("When the risk falls") must be in the PDF, not just on screen
-    assert 'When the Risk Falls' in html and 'wxb-bar' in html
+    # Feature-2 screen parity: §1 Execution Dashboard waterfall (three dates + variances)
+    assert '1 · Execution Dashboard' in html
+    assert 'Baseline Finish' in html and 'Forecast Completion' in html and 'Bad-weather Completion' in html
+    assert '+5 wd' in html                            # weather-adds variance chip (net_finish_delay)
+    # §2 Calendar Timeline & Statistics — the 3-colour histogram (net / bad / non-working)
+    assert '2 · Calendar Timeline &amp; Statistics' in html
+    assert 'class="h3bars"' in html and 's-net' in html and 's-bad' in html and 's-nw' in html
+    assert 'net working days' in html                 # the histogram subtitle
+    # sections are numbered to match the screen (3 Why … 7 Recovery)
+    assert '5 · Upcoming Bad-Weather Days' in html and '6 · Impact on Milestone Completion' in html
+    assert '7 · Recovery Recommendations' in html
     # #07 affected activities column + #12 milestone legend
     assert 'Affected work (by WBS)' in html and 'Cable pulling' in html
     assert 'How to read this table' in html and 'Net = Before' in html
@@ -160,6 +171,37 @@ def test_report_weather_cause_relabelled(tmp_path):
     html = render_calendar_report(_result(tmp_path), META, weather=weather, feature='weather')
     assert 'Causing the Lost Days' in html and 'by Weather Type' in html
     assert 'which condition causes them' in html
+
+
+def test_report_weather_waterfall_shows_schedule_slip(tmp_path):
+    """Feature 2 §1 waterfall — the schedule's own slip (baseline → forecast, calendar days)
+    is shown separately from what weather adds (net_finish_delay, working days)."""
+    result = _result(tmp_path)
+    d = result['dashboard']
+    d['baseline_finish'] = '2027-02-09'
+    d['project_finish'] = '2027-02-19'                 # 10-day slip vs baseline
+    weather = {
+        'expected_bad_days_total': 5, 'net_finish_delay': 22,
+        'weather_adjusted_finish': '2027-03-16',
+        'thresholds': {'rain_mm': 5, 'temp_max_c': 42, 'wind_kmh': None, 'dust': True},
+        'by_cause': [], 'bad_days': [], 'milestones': [], 'recovery': [], 'monthly': [],
+    }
+    html = render_calendar_report(result, META, weather=weather, feature='weather')
+    assert '1 · Execution Dashboard' in html
+    assert '+10 d' in html                             # schedule slip (calendar days)
+    assert '+22 wd' in html                            # weather adds (working days)
+
+
+def test_report_weather_hist3_omitted_without_histogram(tmp_path):
+    """The §2 3-colour histogram is dropped cleanly when weather carries no histogram field."""
+    weather = {
+        'expected_bad_days_total': 0, 'net_finish_delay': 0, 'weather_adjusted_finish': '2025-03-31',
+        'thresholds': {'rain_mm': 5, 'temp_max_c': 42, 'wind_kmh': None, 'dust': True},
+        'by_cause': [], 'bad_days': [], 'milestones': [], 'recovery': [], 'monthly': [],
+    }
+    html = render_calendar_report(_result(tmp_path), META, weather=weather, feature='weather')
+    assert 'class="h3bars"' not in html               # no histogram markup
+    assert '1 · Execution Dashboard' in html          # the waterfall still renders
 
 
 def test_report_comparison_usage_and_section_picker(tmp_path):
