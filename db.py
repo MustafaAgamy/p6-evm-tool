@@ -1,6 +1,6 @@
 """
-All SQLite database operations for P6 EVM Tool.
-DB lives at %APPDATA%/P6EVMTool/p6evm.db — one per OS user.
+All SQLite database operations for Controlyx.
+DB lives at %APPDATA%/Controlyx/controlyx.db — one per OS user.
 """
 
 import sqlite3
@@ -17,7 +17,24 @@ MAX_CACHED_XML = 20  # oldest cached XML files deleted beyond this
 # ── Connection ─────────────────────────────────────────────────────────────
 
 def _db_path():
-    return os.path.join(app_data_dir(), 'p6evm.db')
+    """Path to the SQLite DB, migrating the legacy 'p6evm.db' file to the
+    branded 'controlyx.db' in place (WAL sidecars moved too). If the rename
+    fails, the existing DB is read where it is so no history is lost."""
+    d = app_data_dir()
+    new = os.path.join(d, 'controlyx.db')
+    legacy = os.path.join(d, 'p6evm.db')
+    if not os.path.exists(new) and os.path.exists(legacy):
+        try:
+            os.rename(legacy, new)
+        except OSError:
+            return legacy
+        for suffix in ('-wal', '-shm'):
+            try:
+                if os.path.exists(legacy + suffix):
+                    os.rename(legacy + suffix, new + suffix)
+            except OSError:
+                pass
+    return new
 
 def get_conn():
     conn = sqlite3.connect(_db_path())

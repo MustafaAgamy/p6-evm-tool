@@ -1,6 +1,6 @@
 import threading
 import webview
-from utils import resource_path
+from utils import resource_path, APP_TITLE
 
 
 class Api:
@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     api = Api()
     webview.create_window(
-        'P6 EVM Tool',
+        APP_TITLE,
         f'http://localhost:{port}/',
         js_api=api,
         width=1100,

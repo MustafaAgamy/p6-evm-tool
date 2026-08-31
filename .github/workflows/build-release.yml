@@ -67,14 +67,14 @@ jobs:
           playwright install chromium
 
       - name: Build exe
-        run: pyinstaller p6evm.spec
+        run: pyinstaller controlyx.spec
 
       - name: Upload build artifact (manual run)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: P6EVMTool-${{ github.run_number }}
-          path: dist/P6EVMTool.exe
+          name: Controlyx-${{ github.run_number }}
+          path: dist/Controlyx.exe
           retention-days: 14
 
       - name: Create GitHub Release
@@ -82,6 +82,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body: ${{ steps.changelog.outputs.notes }}
-          files: dist/P6EVMTool.exe
+          files: dist/Controlyx.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

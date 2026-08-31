@@ -69,7 +69,8 @@ def write_activity_csv(result, path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='P6 XML EVM/delay report')
+    parser = argparse.ArgumentParser(prog='controlyx',
+                                     description='Controlyx — Primavera P6 EVM & delay report (CLI)')
     parser.add_argument('xml_file')
     parser.add_argument('--config', default=DEFAULT_CONFIG_PATH)
     parser.add_argument('--overrides', help=(

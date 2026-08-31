@@ -9,7 +9,7 @@
 
 ## 1. Summary
 
-Add a **Schedule Quality Audit** to the existing P6 EVM Tool. It parses a Primavera schedule
+Add a **Schedule Quality Audit** to the existing Controlyx app. It parses a Primavera schedule
 (XER or XML), builds a relationship graph, runs **deterministic rule-based checks** (open ends,
 dangling logic, circular logic, float analysis), computes a transparent **Schedule Health Score**,
 and displays findings in the existing single-page dashboard next to the EVM results — with a PDF
