@@ -26,18 +26,126 @@ document.addEventListener('DOMContentLoaded', () => {
   // preview/PDF from one choice. initTheme() above already painted the saved mode on load.
   initReportAppearanceControl('report-appearance');
 
-  document.getElementById('sb-home-btn').addEventListener('click', () => {
-    exitDatabase();
-    exitRecent();
-    loadAnother();
-    loadHistory();
+  // ── Aurora+ shell — Project Navigator (module selector) + menu bar ──────────
+  const NAV_ICONS = {
+    home:'<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+    evm:'<path d="M4 19V5M4 15l5-5 4 3 7-8"/>',
+    audit:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>',
+    oos:'<path d="M3 12h5l3-8 4 16 3-8h3"/>',
+    calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    construct:'<path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/>',
+    compare:'<path d="M7 8l-4 4 4 4"/><path d="M17 8l4 4-4 4"/><line x1="14" y1="4" x2="10" y2="20"/>',
+    lag:'<path d="M4 4h11l5 5v11H4z"/><path d="M8 12h8"/>',
+    period:'<path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/>',
+    critpath:'<path d="M4 20V4"/><path d="M4 8h6l4 6h6"/>',
+    update:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    special:'<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/>',
+    recent:'<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l3 2"/>',
+    kb:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5"/><path d="M3 12a9 3 0 0018 0"/>',
+  };
+  const svgIcon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[k] || ''}</svg>`;
+  const NAV = [
+    { node: { id:'home', label:'Import a schedule', icon:'home' } },
+    { group:'Analysis', items:[
+      ['evm','EVM Results'], ['audit','Schedule Health'], ['oos','Out of Sequence'],
+      ['calendar','Calendar Audit'], ['construct','Constructability'], ['compare','Consultant Review'],
+      ['lag','Lag Report'], ['period','Update vs Update'], ['critpath','Critical Path'], ['update','Update Analysis'],
+    ]},
+    { group:'Reports', items:[ ['special','Special Report'] ] },
+    { group:'Library', items:[ ['recent','Recent Projects'], ['kb','Knowledge Base'] ] },
+  ];
+  const CRUMB = { home:'Home', recent:'Recent Projects', kb:'Knowledge Base', evm:'EVM Results',
+    audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendar Audit', construct:'Constructability',
+    compare:'Consultant Review', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
+    update:'Update Analysis', special:'Special Report' };
+  const navTree = document.getElementById('nav-tree');
+  const tnode = (id, label, icon, root) =>
+    `<button class="tnode${root ? ' root' : ''}" data-nav="${id}"><span class="ti">${svgIcon(icon)}</span><span class="tl">${label}</span></button>`;
+  navTree.innerHTML = NAV.map(sec => sec.node
+    ? tnode(sec.node.id, sec.node.label, sec.node.icon, true)
+    : `<div class="tgrp">${sec.group}</div>` + sec.items.map(([id, label]) => tnode(id, label, id)).join('')
+  ).join('');
+
+  const setCrumb = (id) => { const c = document.getElementById('topbar-crumb'); if (c) c.textContent = CRUMB[id] || ''; };
+  const markNav = (id) => document.querySelectorAll('#nav-tree .tnode[data-nav]')
+    .forEach(n => n.classList.toggle('on', n.dataset.nav === id));
+
+  // Open a feature view — reuses the exact per-view render path the chooser cards used.
+  function openView(view) {
+    switchView(view);
+    if (view === 'evm')       maybePromptBaseline(state.currentResult);
+    if (view === 'construct')  renderConstructPanel();
+    if (view === 'compare')    renderComparePanel();
+    if (view === 'period')     renderPeriodPanel();
+    if (view === 'critpath')   renderCritPathPanel();
+    if (view === 'update')     renderUpdatePanel();
+    if (view === 'special')    renderSpecialPanel();
+  }
+  function goHome() { exitDatabase(); exitRecent(); loadAnother(); loadHistory(); setCrumb('home'); }
+
+  navTree.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tnode[data-nav]'); if (!btn) return;
+    const id = btn.dataset.nav;
+    if (id === 'home')   { goHome(); return; }
+    if (id === 'recent') { exitDatabase(); showRecent();   setCrumb('recent'); markNav('recent'); return; }
+    if (id === 'kb')     { exitRecent();  showDatabase();  setCrumb('kb');     markNav('kb');     return; }
+    // a feature/module view — only runs the one the user picked
+    exitDatabase(); exitRecent();
+    if (!state.currentResult) {
+      showError('Import a P6 schedule first, then choose a module.');
+      document.querySelector('.import-section')?.scrollIntoView({ behavior:'smooth', block:'start' });
+      return;
+    }
+    document.getElementById('results-section').classList.remove('hidden');
+    openView(id);
+    setCrumb(id);
+    document.getElementById('results-section').scrollIntoView({ behavior:'smooth', block:'start' });
   });
 
-  // Recent Projects — its own sidebar page (Decision 010; no longer trails Home/reports)
-  document.getElementById('sb-recent-btn').addEventListener('click', () => { exitDatabase(); showRecent(); });
-  // ONE Knowledge Base sidebar entry — knowledge projects + reference standards +
-  // example baselines all live on this single screen.
-  document.getElementById('sb-db-btn').addEventListener('click', () => { exitRecent(); showDatabase(); });
+  // Shared file-picker trigger (used by the Import cards AND File ▸ Import)
+  async function triggerBrowse() { const path = await window.pywebview.api.choose_file(); if (path) importFile(path); }
+
+  // ── Menu bar — the single home for global commands ──────────────────────────
+  const MENUS = {
+    file:    [['Import XML / XER…','import'], ['Load another file','load-another'], ['sep'], ['Recent projects','recent'], ['sep'], ['Exit','']],
+    project: [['Recent projects','recent'], ['Knowledge Base','kb']],
+    view:    [['Show / hide navigator','nav-toggle'], ['sep'], ['Appearance — top-right','']],
+    analysis:[['Choose module…','showchooser'], ['Back to import','load-another']],
+    tools:   [['Knowledge Base','kb'], ['Settings','']],
+    help:    [['About Controlyx 2026','about']],
+  };
+  const menubar = document.getElementById('menubar');
+  const menuLayer = document.getElementById('menu-layer');
+  let openMenu = null;
+  function closeMenus() { menuLayer.innerHTML = ''; document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')); openMenu = null; }
+  function runMenuCmd(cmd) {
+    if (cmd === 'import')            triggerBrowse();
+    else if (cmd === 'load-another'){ loadAnother(); loadHistory(); setCrumb('home'); }
+    else if (cmd === 'nav-toggle')  toggleNav();
+    else if (cmd === 'recent')      { exitDatabase(); showRecent(); setCrumb('recent'); markNav('recent'); }
+    else if (cmd === 'kb')          { exitRecent(); showDatabase(); setCrumb('kb'); markNav('kb'); }
+    else if (cmd === 'showchooser') { if (state.currentResult) { document.getElementById('results-section').classList.remove('hidden'); showChooser(); } }
+    else if (cmd === 'about')       showError('Controlyx 2026 — Primavera P6 schedule analysis. Import a P6 XML/XER, pick a module from the navigator, review results, export.');
+  }
+  menubar.addEventListener('click', (e) => {
+    const m = e.target.closest('.menu'); if (!m) return;
+    const key = m.dataset.menu;
+    if (openMenu === key) { closeMenus(); return; }
+    closeMenus(); m.classList.add('open'); openMenu = key;
+    const rect = m.getBoundingClientRect();
+    const d = document.createElement('div'); d.className = 'mdrop';
+    d.style.left = rect.left + 'px'; d.style.top = (rect.bottom - 2) + 'px';
+    d.innerHTML = (MENUS[key] || []).map(it =>
+      it[0] === 'sep' ? '<div class="mdsep"></div>' : `<button class="mditem" data-cmd="${it[1]}">${it[0]}</button>`).join('');
+    menuLayer.appendChild(d);
+    d.querySelectorAll('.mditem').forEach(b => b.addEventListener('click', () => { const c = b.dataset.cmd; closeMenus(); if (c) runMenuCmd(c); }));
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#menubar') && !e.target.closest('#menu-layer')) closeMenus(); });
+
+  // ── Navigator collapse toggle ───────────────────────────────────────────────
+  function toggleNav() { document.querySelector('.appmain').classList.toggle('navhidden'); }
+  document.getElementById('nav-toggle').addEventListener('click', toggleNav);
+  document.getElementById('nav-collapse').addEventListener('click', toggleNav);
 
   document.getElementById('browse-btn').addEventListener('click', async () => {
     const path = await window.pywebview.api.choose_file();
@@ -88,19 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-critpath').addEventListener('click', () => { switchView('critpath'); renderCritPathPanel(); });
   document.getElementById('tab-update').addEventListener('click', () => { switchView('update'); renderUpdatePanel(); });
   document.getElementById('tab-special').addEventListener('click', () => { switchView('special'); renderSpecialPanel(); });
-
-  // Sidebar shield → jump to the Audit view when a schedule is loaded
-  document.getElementById('sb-audit-btn').addEventListener('click', () => {
-    exitDatabase();
-    exitRecent();
-    if (state.currentResult) {
-      document.getElementById('results-section').classList.remove('hidden');
-      switchView('audit');
-      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      document.querySelector('.import-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
 
   // Drag-and-drop
   const dropTarget = document.getElementById('drop-target');

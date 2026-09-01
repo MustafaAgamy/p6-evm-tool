@@ -81,9 +81,9 @@ export function switchView(view) {
   document.getElementById('tab-critpath').classList.toggle('active', view === 'critpath');
   document.getElementById('tab-update').classList.toggle('active', view === 'update');
   document.getElementById('tab-special').classList.toggle('active', view === 'special');
-  // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
-  document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
-  document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');
+  // Highlight the active module in the Project Navigator (Aurora+ shell).
+  document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n =>
+    n.classList.toggle('on', n.dataset.nav === view));
   // Out of Sequence and Lag Report are top-level views but reuse the module export path
   // (PDF/Excel) with a fixed module id.
   if (view === 'oos') state.currentModule = 'out_of_sequence';
@@ -94,8 +94,7 @@ export function switchView(view) {
 export function showChooser() {
   document.getElementById('analysis-chooser').classList.remove('hidden');
   document.getElementById('analysis-views').classList.add('hidden');
-  document.getElementById('sb-audit-btn').classList.remove('active');
-  document.getElementById('sb-home-btn').classList.add('active');
+  document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n => n.classList.remove('on'));
 }
 
 export function shortWbs(path, n = 3) {

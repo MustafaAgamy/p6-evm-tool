@@ -37,9 +37,9 @@ export function clearError() {
 export function loadAnother() {
   document.getElementById('results-section').classList.add('hidden');
   document.getElementById('topbar-sub').textContent = 'Home · Import';
-  // Back to the import screen: Home highlighted, Audit shield cleared.
-  document.getElementById('sb-home-btn').classList.add('active');
-  document.getElementById('sb-audit-btn').classList.remove('active');
+  // Back to the import screen: clear any active module in the navigator (Aurora+ shell).
+  document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n =>
+    n.classList.toggle('on', n.dataset.nav === 'home'));
   state.currentResult      = null;
   state.currentXmlPath     = null;
   state.currentCachedPath  = null;

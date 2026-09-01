@@ -1910,3 +1910,93 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .sr-foot { display: flex; align-items: center; gap: 10px; padding: 13px 15px; border-top: 1px solid var(--border);
   flex-wrap: wrap; }
 .sr-foot .sr-appear { margin-left: auto; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Aurora+ shell — menu bar + collapsible Project Navigator (2026 redesign)
+   Themes via the same --* tokens, so all six appearance modes carry over.
+   ══════════════════════════════════════════════════════════════════════════ */
+.app { flex-direction: column; }                 /* was flex-row (icon rail | main) */
+
+/* Menu bar — the single home for global commands */
+.menubar {
+  height: 38px; flex-shrink: 0; background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 2px; padding: 0 12px;
+  position: relative; z-index: 60;
+}
+.mb-mark {
+  width: 24px; height: 24px; border-radius: 7px; margin-right: 8px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), #7c5cff);
+  display: grid; place-items: center;
+}
+.mb-brand { font-weight: 800; font-size: 14px; letter-spacing: -0.02em; color: var(--text); margin-right: 16px; white-space: nowrap; }
+.menu { padding: 5px 11px; border-radius: 7px; font-size: 13px; color: var(--ink-soft); cursor: default; font-weight: 500; user-select: none; }
+.menu:hover, .menu.open { background: var(--accent-soft); color: var(--text); }
+.mb-right { margin-left: auto; display: flex; gap: 6px; }
+.mb-right .wd { width: 11px; height: 11px; border-radius: 50%; }
+.wd.r { background: #e0655a; } .wd.y { background: #e0b23f; } .wd.g { background: #4fb06a; }
+
+/* Menu dropdowns (rendered into #menu-layer, positioned fixed) */
+#menu-layer { position: fixed; inset: 0; pointer-events: none; z-index: 200; }
+.mdrop {
+  position: fixed; pointer-events: auto; min-width: 210px; padding: 6px;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 24px 60px -28px rgba(8,15,35,0.55);
+}
+.mditem { display: block; width: 100%; text-align: left; border: 0; background: transparent;
+  color: var(--text); font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 7px; cursor: pointer; }
+.mditem:hover { background: var(--accent); color: #fff; }
+.mdsep { height: 1px; background: var(--border); margin: 5px 6px; }
+
+/* App body: navigator | main */
+.appmain { flex: 1; display: grid; grid-template-columns: 232px 1fr; min-height: 0;
+  transition: grid-template-columns 0.25s cubic-bezier(0.4,0,0.2,1); }
+.appmain.navhidden { grid-template-columns: 0 1fr; }
+
+/* Project Navigator */
+.side { background: var(--sidebar-bg); color: var(--sidebar-ink); display: flex; flex-direction: column;
+  min-height: 0; overflow: hidden; transition: opacity 0.18s; }
+.appmain.navhidden .side { opacity: 0; pointer-events: none; }
+.navh { display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 14px 7px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--sidebar-ink-dim); }
+.navx { border: 0; background: transparent; color: var(--sidebar-ink-dim); cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 2px 5px; border-radius: 5px; }
+.navx:hover { background: rgba(255,255,255,0.08); color: var(--sidebar-ink); }
+.tree { flex: 1; overflow-y: auto; padding: 2px 8px 12px; }
+.tgrp { font-size: 9.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--sidebar-ink-dim); padding: 14px 10px 5px; }
+.tnode { width: 100%; display: flex; align-items: center; gap: 9px; padding: 8px 10px;
+  border: 0; background: transparent; color: var(--sidebar-ink); border-radius: 8px; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 500; text-align: left; position: relative; }
+.tnode:hover { background: rgba(255,255,255,0.05); }
+.tnode.on { background: rgba(59,130,246,0.16); color: #fff; font-weight: 600; }
+.tnode.on::before { content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px; width: 3px;
+  border-radius: 3px; background: var(--accent); }
+.tnode.root { font-weight: 700; color: #fff; margin-bottom: 2px; }
+.tnode .ti { width: 17px; height: 17px; display: grid; place-items: center; color: var(--sidebar-ink-dim); flex-shrink: 0; }
+.tnode .ti svg { width: 16px; height: 16px; }
+.tnode.on .ti { color: #8fb0ff; }
+.tnode .tl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct { display: flex; align-items: center; gap: 9px; padding: 11px 14px; border-top: 1px solid rgba(255,255,255,0.08); }
+.acct-av { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #7c5cff); flex-shrink: 0; }
+.acct-who b { font-size: 12px; color: #fff; display: block; line-height: 1.15; }
+.acct-who span { font-size: 10px; color: var(--sidebar-ink-dim); }
+
+/* Topbar tweaks for the new shell */
+.nav-toggle { width: 34px; height: 34px; border: 1px solid var(--border); background: var(--card-bg);
+  border-radius: 9px; cursor: pointer; color: var(--ink-soft); display: grid; place-items: center;
+  margin-right: 14px; flex-shrink: 0; }
+.nav-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.topbar { gap: 0; }
+.tb-crumb { font-weight: 700; font-size: 14px; color: var(--text); }
+
+/* Post-import prompt (navigator is the module selector) */
+.chooser-prompt { max-width: 560px; margin: 8vh auto 0; text-align: center; }
+.cp-icon { width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 16px;
+  background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.cp-title { font-size: 19px; font-weight: 700; color: var(--text); }
+.cp-sub { font-size: 13px; color: var(--ink-soft); max-width: 46ch; margin: 8px auto 0; line-height: 1.55; }
+
+/* View tabs are superseded by the navigator; keep in DOM (switchView refs them) but hidden. */
+.view-tabs[hidden] { display: none !important; }
