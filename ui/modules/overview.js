@@ -18,8 +18,15 @@ export function renderOverview(result) {
   if (!el || !result) return;
   const spi = result.spi != null ? result.spi.toFixed(2) : '—';
   const cpi = result.cpi != null ? result.cpi.toFixed(2) : '—';
-  const delay = result.delay_days != null ? `${result.delay_days} d` : '—';
-  const delayCls = result.delay_days > 0 ? 'bad' : (result.delay_days < 0 ? 'good' : '');
+  // Delay in working days from the finish-milestone float; when the schedule
+  // carries no milestone float, fall back to forecast-finish minus baseline-finish.
+  let delayDays = result.delay_days;
+  if (delayDays == null && result.expected_finish && result.baseline_finish) {
+    const d = Math.round((new Date(result.expected_finish) - new Date(result.baseline_finish)) / 86400000);
+    if (!Number.isNaN(d)) delayDays = d;
+  }
+  const delay = delayDays != null ? `${delayDays} d` : '—';
+  const delayCls = delayDays > 0 ? 'bad' : (delayDays < 0 ? 'good' : '');
   const cats = Object.entries(result.categories || {});
   const catRows = cats.map(([name, c]) => `
     <div class="ov-cat">
