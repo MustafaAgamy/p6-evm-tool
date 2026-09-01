@@ -12,6 +12,7 @@ import { renderPeriodPanel }                   from './modules/period.js';
 import { renderCritPathPanel }                 from './modules/critpath.js';
 import { renderUpdatePanel }                   from './modules/update.js';
 import { renderSpecialPanel }                  from './modules/special.js';
+import { renderOverview, renderWbs }           from './modules/overview.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
 
@@ -42,6 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
     special:'<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/>',
     recent:'<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l3 2"/>',
     kb:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5"/><path d="M3 12a9 3 0 0018 0"/>',
+    overview:'<rect x="3" y="3" width="8" height="9" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="12" width="8" height="9" rx="1"/><rect x="3" y="16" width="8" height="5" rx="1"/>',
+    sched:'<rect x="3" y="4" width="18" height="17" rx="1"/><path d="M3 9h18M8 13h5M8 17h8"/>',
+    wbs:'<rect x="9" y="3" width="6" height="4"/><rect x="3" y="17" width="6" height="4"/><rect x="15" y="17" width="6" height="4"/><path d="M12 7v5M6 17v-3h12v3"/>',
     dash:'<rect x="3" y="3" width="8" height="9" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="12" width="8" height="9" rx="1"/><rect x="3" y="16" width="8" height="5" rx="1"/>',
     weather:'<path d="M17 18a4 4 0 000-8 6 6 0 00-11.3 2A3.5 3.5 0 006 18z"/>',
     ai:'<path d="M12 3l1.8 4.4L18 9l-4.2 1.6L12 15l-1.8-4.4L6 9z"/>',
@@ -50,11 +54,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const svgIcon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[k] || ''}</svg>`;
   const NAV = [
     { node: { id:'home', label:'Import a schedule', icon:'home' } },
+    { group:'Project', items:[
+      ['overview','Overview','overview'], ['schedule','Schedule (Gantt)','sched','soon'],
+      ['wbs','WBS','wbs'], ['calendar','Calendars','calendar'],
+    ]},
     { group:'Analysis', items:[
       ['evm','Earned Value'], ['audit','Schedule Health'], ['critpath','Critical Path'],
       ['construct','Constructability'], ['oos','Out of Sequence'], ['lag','Lag Report'],
       ['compare','Consultant Review'], ['update','Update Analysis'], ['period','Update vs Update'],
-      ['calendar','Calendar Audit'],
     ]},
     { group:'Preview · coming soon', items:[
       ['pv_dash','Professional Dashboard','dash','preview'], ['pv_weather','Weather → Forecast','weather','preview'],
@@ -63,17 +70,20 @@ document.addEventListener('DOMContentLoaded', () => {
     { group:'Reports', items:[ ['special','Special Report'] ] },
     { group:'Library', items:[ ['recent','Recent Projects'], ['kb','Knowledge Base'] ] },
   ];
-  const CRUMB = { home:'Home', recent:'Recent Projects', kb:'Knowledge Base', evm:'EVM Results',
-    audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendar Audit', construct:'Constructability',
+  const CRUMB = { home:'Home', recent:'Recent Projects', kb:'Knowledge Base', evm:'Earned Value',
+    audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
     compare:'Consultant Review', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
-    update:'Update Analysis', special:'Special Report' };
+    update:'Update Analysis', special:'Special Report', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS' };
   const navTree = document.getElementById('nav-tree');
-  const tnode = (id, label, icon, o = {}) =>
-    `<button class="tnode${o.root ? ' root' : ''}${o.preview ? ' disabled' : ''}" data-nav="${id}"${o.preview ? ' title="In development — coming soon"' : ''}>` +
-    `<span class="ti">${svgIcon(icon)}</span><span class="tl">${label}</span>${o.preview ? '<span class="pbadge">Preview</span>' : ''}</button>`;
+  const tnode = (id, label, icon, o = {}) => {
+    const dis = o.preview || o.soon;
+    const badge = o.preview ? '<span class="pbadge">Preview</span>' : (o.soon ? '<span class="pbadge soon">Soon</span>' : '');
+    return `<button class="tnode${o.root ? ' root' : ''}${dis ? ' disabled' : ''}" data-nav="${id}"${dis ? ' title="In development — coming soon"' : ''}>` +
+      `<span class="ti">${svgIcon(icon)}</span><span class="tl">${label}</span>${badge}</button>`;
+  };
   navTree.innerHTML = NAV.map(sec => sec.node
     ? tnode(sec.node.id, sec.node.label, sec.node.icon, { root: true })
-    : `<div class="tgrp">${sec.group}</div>` + sec.items.map(it => tnode(it[0], it[1], it[2] || it[0], { preview: it[3] === 'preview' })).join('')
+    : `<div class="tgrp">${sec.group}</div>` + sec.items.map(it => tnode(it[0], it[1], it[2] || it[0], { preview: it[3] === 'preview', soon: it[3] === 'soon' })).join('')
   ).join('');
 
   const setCrumb = (id) => { const c = document.getElementById('topbar-crumb'); if (c) c.textContent = CRUMB[id] || ''; };
@@ -83,6 +93,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Open a feature view — reuses the exact per-view render path the chooser cards used.
   function openView(view) {
     switchView(view);
+    if (view === 'overview')  renderOverview(state.currentResult);
+    if (view === 'wbs')       renderWbs(state.currentResult);
     if (view === 'evm')       maybePromptBaseline(state.currentResult);
     if (view === 'construct')  renderConstructPanel();
     if (view === 'compare')    renderComparePanel();
@@ -107,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelector('.import-section')?.scrollIntoView({ behavior:'smooth', block:'start' });
       return;
     }
+    document.getElementById('import-section')?.classList.add('hidden');  // keep the landing hidden while a module is open (exit* re-shows it)
     document.getElementById('results-section').classList.remove('hidden');
     openView(id);
     setCrumb(id);
