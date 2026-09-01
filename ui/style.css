@@ -2000,3 +2000,34 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 
 /* View tabs are superseded by the navigator; keep in DOM (switchView refs them) but hidden. */
 .view-tabs[hidden] { display: none !important; }
+
+/* ── Aurora+ empty-state landing (drop-zone + guided steps) ─────────────────── */
+.aurora-empty { max-width: 680px; margin: 6vh auto 0; text-align: center;
+  border-radius: 16px; padding: 8px 8px 24px; transition: background 0.15s, box-shadow 0.15s; }
+.ae-steps { gap: 8px; }
+.ae-step { padding: 7px 12px; }
+.aurora-empty.drag-over { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent) inset; }
+.ae-ic { width: 76px; height: 76px; margin: 0 auto 18px; border-radius: 20px;
+  background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.ae-title { font-size: 24px; font-weight: 800; margin: 0 0 8px; color: var(--text); }
+.ae-sub { color: var(--ink-soft); font-size: 14px; margin: 0 auto 20px; max-width: 46ch; line-height: 1.55; }
+.ae-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%;
+  border: 2px dashed var(--border); border-radius: 14px; padding: 26px 24px; background: var(--card-bg);
+  cursor: pointer; color: var(--ink-soft); font: inherit; transition: border-color 0.15s, background 0.15s; }
+.ae-drop:hover { border-color: var(--accent); background: var(--accent-soft); }
+.ae-dz { width: 34px; height: 34px; border-radius: 10px; background: var(--accent-soft); color: var(--accent);
+  display: grid; place-items: center; margin-bottom: 4px; }
+.ae-drop b { font-size: 14px; color: var(--text); }
+.ae-hint { font-size: 12px; color: var(--muted); }
+.ae-steps { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+.ae-step { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ink-soft);
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; }
+.ae-n { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: #fff;
+  display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+.ae-arrow { color: var(--muted); font-weight: 700; }
+
+/* ── Navigator: Preview / coming-soon items ─────────────────────────────────── */
+.tnode.disabled { cursor: default; opacity: 0.72; }
+.tnode.disabled:hover { background: transparent; }
+.tnode .pbadge { font-family: ui-monospace, monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.02em;
+  padding: 2px 7px; border-radius: 7px; color: #c3a6ff; background: rgba(124,58,237,0.22); flex-shrink: 0; }

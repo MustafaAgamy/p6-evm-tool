@@ -14,10 +14,8 @@ const KPI_TOOLTIPS = {
 };
 
 export function setLoading(active) {
-  document.getElementById('browse-btn').classList.toggle('hidden', active);
-  document.getElementById('browse-spinner').classList.toggle('hidden', !active);
-  document.getElementById('xer-btn').classList.toggle('hidden', active);
-  document.getElementById('xer-spinner').classList.toggle('hidden', !active);
+  document.getElementById('browse-btn')?.classList.toggle('hidden', active);
+  document.getElementById('browse-spinner')?.classList.toggle('hidden', !active);
   if (active) {
     document.getElementById('topbar-sub').textContent = 'Parsing…';
   } else if (!state.currentResult) {
@@ -36,6 +34,7 @@ export function clearError() {
 
 export function loadAnother() {
   document.getElementById('results-section').classList.add('hidden');
+  document.getElementById('import-section')?.classList.remove('hidden');  // Aurora+ landing back
   document.getElementById('topbar-sub').textContent = 'Home · Import';
   // Back to the import screen: clear any active module in the navigator (Aurora+ shell).
   document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n =>
@@ -79,7 +78,7 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
   renderCalendar(result.calendar_audit);  // Calendar Audit — its own top-level panel
   showChooser();   // do NOT auto-open EVM — let the user pick a view
 
-
+  document.getElementById('import-section')?.classList.add('hidden');   // Aurora+: landing gives way to results
   document.getElementById('results-section').classList.remove('hidden');
 }
 

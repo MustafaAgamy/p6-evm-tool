@@ -42,14 +42,23 @@ document.addEventListener('DOMContentLoaded', () => {
     special:'<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/>',
     recent:'<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l3 2"/>',
     kb:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5"/><path d="M3 12a9 3 0 0018 0"/>',
+    dash:'<rect x="3" y="3" width="8" height="9" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="12" width="8" height="9" rx="1"/><rect x="3" y="16" width="8" height="5" rx="1"/>',
+    weather:'<path d="M17 18a4 4 0 000-8 6 6 0 00-11.3 2A3.5 3.5 0 006 18z"/>',
+    ai:'<path d="M12 3l1.8 4.4L18 9l-4.2 1.6L12 15l-1.8-4.4L6 9z"/>',
+    doc:'<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/>',
   };
   const svgIcon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[k] || ''}</svg>`;
   const NAV = [
     { node: { id:'home', label:'Import a schedule', icon:'home' } },
     { group:'Analysis', items:[
-      ['evm','EVM Results'], ['audit','Schedule Health'], ['oos','Out of Sequence'],
-      ['calendar','Calendar Audit'], ['construct','Constructability'], ['compare','Consultant Review'],
-      ['lag','Lag Report'], ['period','Update vs Update'], ['critpath','Critical Path'], ['update','Update Analysis'],
+      ['evm','Earned Value'], ['audit','Schedule Health'], ['critpath','Critical Path'],
+      ['construct','Constructability'], ['oos','Out of Sequence'], ['lag','Lag Report'],
+      ['compare','Consultant Review'], ['update','Update Analysis'], ['period','Update vs Update'],
+      ['calendar','Calendar Audit'],
+    ]},
+    { group:'Preview · coming soon', items:[
+      ['pv_dash','Professional Dashboard','dash','preview'], ['pv_weather','Weather → Forecast','weather','preview'],
+      ['pv_ai','AI Copilot · TIA','ai','preview'], ['pv_narr','Baseline Narrative','doc','preview'],
     ]},
     { group:'Reports', items:[ ['special','Special Report'] ] },
     { group:'Library', items:[ ['recent','Recent Projects'], ['kb','Knowledge Base'] ] },
@@ -59,11 +68,12 @@ document.addEventListener('DOMContentLoaded', () => {
     compare:'Consultant Review', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
     update:'Update Analysis', special:'Special Report' };
   const navTree = document.getElementById('nav-tree');
-  const tnode = (id, label, icon, root) =>
-    `<button class="tnode${root ? ' root' : ''}" data-nav="${id}"><span class="ti">${svgIcon(icon)}</span><span class="tl">${label}</span></button>`;
+  const tnode = (id, label, icon, o = {}) =>
+    `<button class="tnode${o.root ? ' root' : ''}${o.preview ? ' disabled' : ''}" data-nav="${id}"${o.preview ? ' title="In development — coming soon"' : ''}>` +
+    `<span class="ti">${svgIcon(icon)}</span><span class="tl">${label}</span>${o.preview ? '<span class="pbadge">Preview</span>' : ''}</button>`;
   navTree.innerHTML = NAV.map(sec => sec.node
-    ? tnode(sec.node.id, sec.node.label, sec.node.icon, true)
-    : `<div class="tgrp">${sec.group}</div>` + sec.items.map(([id, label]) => tnode(id, label, id)).join('')
+    ? tnode(sec.node.id, sec.node.label, sec.node.icon, { root: true })
+    : `<div class="tgrp">${sec.group}</div>` + sec.items.map(it => tnode(it[0], it[1], it[2] || it[0], { preview: it[3] === 'preview' })).join('')
   ).join('');
 
   const setCrumb = (id) => { const c = document.getElementById('topbar-crumb'); if (c) c.textContent = CRUMB[id] || ''; };
@@ -85,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   navTree.addEventListener('click', (e) => {
     const btn = e.target.closest('.tnode[data-nav]'); if (!btn) return;
+    if (btn.classList.contains('disabled')) { showError('This module is in development — it will light up in an upcoming release.'); return; }
     const id = btn.dataset.nav;
     if (id === 'home')   { goHome(); return; }
     if (id === 'recent') { exitDatabase(); showRecent();   setCrumb('recent'); markNav('recent'); return; }
@@ -147,12 +158,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-toggle').addEventListener('click', toggleNav);
   document.getElementById('nav-collapse').addEventListener('click', toggleNav);
 
+  // The Aurora+ empty-state drop-zone (id="browse-btn") opens the native picker,
+  // which accepts both XML and XER — one import affordance for both formats.
   document.getElementById('browse-btn').addEventListener('click', async () => {
-    const path = await window.pywebview.api.choose_file();
-    if (path) importFile(path);
-  });
-
-  document.getElementById('xer-btn').addEventListener('click', async () => {
     const path = await window.pywebview.api.choose_file();
     if (path) importFile(path);
   });
