@@ -2071,3 +2071,33 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .ov-empty { color: var(--muted); font-style: italic; padding: 8px 2px; }
 
 .tnode .pbadge.soon { color: #f0c36a; background: rgba(183,121,31,0.22); }
+
+/* ── Project ▸ Schedule (Gantt) ─────────────────────────────────────────────── */
+.g-wrap { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
+.g-inner { position: relative; width: calc(248px + var(--trackw)); }
+.g-scale { display: flex; position: sticky; top: 0; z-index: 3; background: var(--card-bg); border-bottom: 1px solid var(--border); height: 34px; }
+.g-lbl { width: 248px; flex-shrink: 0; padding: 0 12px; box-sizing: border-box; overflow: hidden; }
+.g-scale-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; display: flex; align-items: center; }
+.g-track { width: var(--trackw); flex-shrink: 0; position: relative; }
+.g-scale-track { height: 34px; }
+.g-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--hair); }
+.g-tick span { position: absolute; top: 10px; left: 5px; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; }
+.g-grids { position: absolute; left: 0; right: 0; top: 34px; bottom: 0; z-index: 0; pointer-events: none; }
+.g-grid-line { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--hair); }
+.g-dd { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--accent); }
+.g-dd span { position: absolute; top: 3px; left: 4px; font-size: 9px; color: var(--accent); font-family: ui-monospace, monospace; font-weight: 700; }
+.g-dd-line { position: absolute; top: 34px; bottom: 0; width: 0; border-left: 2px dashed var(--accent); opacity: 0.55; z-index: 0; pointer-events: none; }
+.g-rows { position: relative; z-index: 1; }
+.g-row { display: flex; height: 30px; border-bottom: 1px solid var(--hair); }
+.g-row .g-lbl { display: flex; flex-direction: column; justify-content: center; }
+.g-row .g-lbl b { font-size: 11.5px; color: var(--text); font-family: ui-monospace, monospace; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-row .g-lbl span { font-size: 10.5px; color: var(--muted); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-grp { display: flex; height: 26px; background: var(--bg); border-bottom: 1px solid var(--border); }
+.g-grp-lbl { font-size: 11px; font-weight: 700; color: var(--text); display: flex; align-items: center; }
+.g-bar { position: absolute; top: 8px; height: 14px; border-radius: 4px; background: var(--accent-soft); overflow: hidden; }
+.g-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 4px; }
+.g-bar.crit { background: var(--danger-bg); } .g-bar.crit .g-fill { background: var(--danger); }
+.g-plabel { position: absolute; top: 8px; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; line-height: 14px; white-space: nowrap; }
+.g-ms { position: absolute; top: 9px; width: 12px; height: 12px; background: var(--text); transform: rotate(45deg); }
+.g-key { width: 11px; height: 11px; border-radius: 3px; background: var(--accent); display: inline-block; vertical-align: middle; }
+.g-key.crit { background: var(--danger); }
