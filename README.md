@@ -1,4 +1,6 @@
-# Controlyx
+<p align="center">
+  <img src="ui/brand/controlyx-lockup.png" alt="Controlyx — Project Control Intelligence Platform" width="620">
+</p>
 
 **Controlyx** is a Primavera P6 **project-controls** desktop app (and CLI) for project controls
 engineers. It computes Delay, Planned/Earned Value, SPI, CPI, and category-level Planned% /

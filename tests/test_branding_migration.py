@@ -88,3 +88,20 @@ def test_report_footer_uses_brand_constant():
     it tracks the single source of truth."""
     from p6_evm import report
     assert report.APP_NAME == utils.APP_NAME
+
+
+# ── Brand assets: splash markup + image serving ─────────────────────────────
+
+def test_served_index_has_brand_splash(test_server):
+    import urllib.request
+    html = urllib.request.urlopen(f'http://localhost:{test_server}/').read().decode()
+    assert 'id="brand-splash"' in html
+    assert '/ui/brand/controlyx-lockup-stacked.png' in html
+
+
+def test_brand_asset_served_as_png(test_server):
+    import urllib.request
+    r = urllib.request.urlopen(f'http://localhost:{test_server}/ui/brand/controlyx-mark.png')
+    assert r.status == 200
+    assert r.headers.get('Content-Type') == 'image/png'
+    assert r.read(8).startswith(b'\x89PNG')
