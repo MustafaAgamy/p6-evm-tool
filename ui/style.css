@@ -492,6 +492,128 @@ body {
 .oos-concl { border: 1px solid var(--border); border-left: 4px solid var(--accent); background: var(--card-bg);
   border-radius: 0 10px 10px 0; padding: 13px 16px; font-size: 13px; line-height: 1.6; color: var(--text); margin-top: 2px; }
 
+/* ── Out-of-Sequence Review & Resolve (interactive) ─────────────────────── */
+.oos-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; }
+.oos-tabs { display: inline-flex; background: var(--card-bg); border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
+.oos-tab { border: 0; background: transparent; color: var(--ink-soft); padding: 7px 14px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.oos-tab.active { background: var(--accent); color: #fff; }
+.oos-tab .cnt { font-weight: 800; margin-left: 4px; opacity: .9; }
+.oos-dl { border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 8px 14px; border-radius: 8px;
+  cursor: pointer; font-size: 13px; font-weight: 700; }
+.oos-dl:disabled { opacity: .45; cursor: not-allowed; }
+.oos-dlnote { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.oos-fs { border: 1px solid var(--border); background: var(--card-bg); color: var(--text); padding: 7px 12px;
+  border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.oos-fs:hover { border-color: var(--accent); color: var(--accent-dark); }
+
+/* Full-screen table — use the whole window (over the sidebar) so the wide LOG is fully visible. */
+#oos-review.oos-fs-on { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh;
+  z-index: 1200; background: var(--bg); padding: 16px 20px 24px; overflow: auto; }
+#oos-review.oos-fs-on .oos-toolbar { position: sticky; top: 0; background: var(--bg); padding-top: 4px; z-index: 2; }
+/* Compact the wide LOG in full screen so more columns fit before any horizontal scroll. */
+#oos-review.oos-fs-on .oos-logx { font-size: 11.5px; }
+#oos-review.oos-fs-on .oos-logx th, #oos-review.oos-fs-on .oos-logx td { padding: 5px 7px; }
+#oos-review.oos-fs-on .oos-logx td.pred, #oos-review.oos-fs-on .oos-logx .actnm { max-width: 150px; }
+body.oos-fs-body { overflow: hidden; }
+/* A transform on #results-section would make the fixed overlay relative to it (not the viewport);
+   neutralise it while full-screen so the table uses the WHOLE window. Content behind is hidden. */
+body.oos-fs-body #results-section { transform: none !important; }
+
+/* The wrapper is the horizontal-scroll boundary; min-width:0 on the flex-item ancestors
+   lets it shrink so the TABLE scrolls inside it instead of overflowing the whole page. */
+#oos-body, #oos-review { min-width: 0; }
+.oos-tblwrap { overflow-x: auto; max-width: 100%; }
+/* ── Out-of-Sequence LOG (Baseline vs After Modification) ── */
+.oos-logx { min-width: 1120px; border-collapse: collapse; width: 100%; }
+.oos-cap { caption-side: top; background: #b11116; color: #fff; font-weight: 700; font-size: 12.5px;
+  padding: 7px; letter-spacing: .03em; text-align: center; }
+.oos-logx th, .oos-logx td { border: 1px solid var(--border); padding: 7px 9px; vertical-align: top; text-align: left; }
+.oos-logx thead .oos-grp th { background: #c62329; color: #fff; text-align: center; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.oos-logx thead .oos-grp th.bl { background: #7b1216; }
+.oos-logx thead .oos-grp th.am { background: #124a8b; }
+.oos-logx thead .oos-sub th { background: var(--hair); color: var(--ink-soft); font-size: 10.5px; font-weight: 700; white-space: nowrap; }
+.oos-logx td.bl { background: var(--hair); }
+.oos-logx td.am { background: var(--success-bg); }
+.oos-logx .oos-num { text-align: center; color: var(--muted); font-weight: 700; width: 30px; }
+.oos-logx .id { white-space: nowrap; }
+.oos-logx .mono { font-family: ui-monospace, 'Consolas', monospace; font-weight: 600; font-size: 12px; white-space: nowrap; }
+.oos-logx .actnm { min-width: 140px; max-width: 190px; line-height: 1.35; }
+.oos-logx td.pred { min-width: 140px; max-width: 200px; line-height: 1.35; font-size: 11.5px; color: var(--ink-soft); }
+.oos-logx td.rel { white-space: nowrap; }
+.oos-logx td.dd { white-space: nowrap; width: 84px; }
+.oos-logx td.sev { text-align: center; }
+.oos-nochg { color: var(--muted); font-size: 11.5px; font-style: italic; }
+.oos-sevb { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.oos-sevb.crit { background: var(--danger-bg); color: var(--danger); }
+.oos-sevb.high { background: var(--warning-bg); color: var(--warning); }
+.oos-sevb.med { background: var(--hair); color: var(--ink-soft); }
+.oos-critnote { font-size: 9.5px; color: var(--muted); }
+.oos-relb { display: inline-block; font-family: ui-monospace, 'Consolas', monospace; font-size: 10.5px; font-weight: 700;
+  padding: 1px 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent-dark); white-space: nowrap; }
+.oos-relb.sg { background: var(--card-bg); color: var(--success); border: 1px solid var(--success); }
+.oos-relb.rem { background: var(--danger-bg); color: var(--danger); }
+.oos-relb.rev { background: var(--warning-bg); color: var(--warning); }
+.oos-appliednote { font-size: 10.5px; color: var(--muted); margin: 4px 0; line-height: 1.4; }
+
+/* Drawer per-tie editors */
+.oos-tieblk { border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; margin-bottom: 10px; background: var(--card-bg); }
+.oos-tielbl { font-size: 11px; font-weight: 700; color: var(--accent-dark); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 7px; }
+.oos-tieok { font-size: 12px; color: var(--success); font-weight: 600; }
+.oos-tierev { font-size: 12px; color: var(--warning); line-height: 1.5; }
+.oos-alts { margin-top: 7px; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.oos-altlbl { font-weight: 700; color: var(--ink-soft); }
+.oos-altpill { display: inline-block; font-family: ui-monospace, 'Consolas', monospace; font-size: 10.5px; font-weight: 700;
+  padding: 2px 7px; border-radius: 20px; background: var(--card-bg); color: var(--success); border: 1px solid var(--success); }
+.oos-altpill.pick { cursor: pointer; }
+.oos-altpill.pick:hover { background: var(--success-bg); }
+.oos-rec { border: 1px solid var(--border); border-left: 4px solid var(--accent); background: var(--card-bg);
+  border-radius: 0 8px 8px 0; padding: 10px 13px; margin-bottom: 12px; }
+.oos-rec.remove { border-left-color: var(--danger); }
+.oos-rec .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
+.oos-rec .rt { font-size: 13px; font-weight: 700; color: var(--text); margin-top: 3px; }
+.oos-rec .rw { font-size: 12px; color: var(--ink-soft); margin-top: 5px; line-height: 1.5; }
+.oos-rescell { min-width: 118px; }
+.oos-rowbtns { display: flex; gap: 6px; align-items: center; }
+.oos-mini { border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; padding: 4px 9px;
+  font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--text); }
+.oos-mini.apply { background: var(--success); border-color: var(--success); color: #fff; }
+.oos-mini.data { opacity: .6; cursor: not-allowed; }
+.oos-caret { border: 0; background: transparent; cursor: pointer; color: var(--muted); font-size: 12px; padding: 2px 4px; }
+.oos-stale { font-size: 10.5px; color: var(--warning); margin-top: 5px; }
+
+.oos-drawer { display: none; }
+.oos-drawer.open { display: table-row; }
+.oos-drawer td { padding: 0; background: var(--bg); border-bottom: 1px solid var(--border); }
+.oos-draw { padding: 14px 18px; }
+.oos-draw h4 { margin: 0 0 10px; font-size: 12px; color: var(--accent-dark); text-transform: uppercase; letter-spacing: .03em; }
+.oos-qa { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.oos-qcard { background: var(--card-bg); border: 1px solid var(--border); border-radius: 9px; padding: 11px 13px; }
+.oos-qcard .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; margin-bottom: 5px; }
+.oos-qcard .val { font-size: 12.5px; line-height: 1.5; color: var(--text); }
+.oos-editrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--success-bg);
+  border: 1px solid var(--border); border-radius: 9px; padding: 10px 13px; margin-bottom: 11px; }
+.oos-editrow.soft { background: var(--card-bg); }
+.oos-editrow label { font-size: 11px; color: var(--ink-soft); font-weight: 700; }
+.oos-editgrp { display: inline-flex; align-items: center; gap: 6px; }
+.oos-editrow select, .oos-editrow input { font-size: 12.5px; padding: 5px 8px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--card-bg); color: var(--text); }
+.oos-editrow input[type="number"] { width: 62px; }
+.oos-reason { flex: 1; min-width: 220px; }
+.oos-willchange { font-size: 12.5px; color: var(--ink-soft); background: var(--accent-soft); border-radius: 8px;
+  padding: 9px 12px; margin-bottom: 12px; line-height: 1.5; }
+.oos-willchange:empty { display: none; }
+.oos-willchange b { color: var(--accent-dark); }
+.oos-drawbtns { display: flex; gap: 10px; align-items: center; }
+.oos-btn { border: 1px solid var(--border); background: var(--card-bg); color: var(--text); padding: 8px 14px;
+  border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.oos-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.oos-resolved { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--success);
+  background: var(--success-bg); padding: 3px 10px; border-radius: 20px; }
+.oos-empty { padding: 26px; text-align: center; color: var(--muted); font-size: 13px;
+  border: 1px dashed var(--border); border-radius: 10px; background: var(--card-bg); }
+.oos-flowhint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+.oos-flowhint b { color: var(--ink-soft); }
+
 /* findings table — cleaner, lighter, roomier */
 .findings-table { min-width: 760px; }
 .findings-table th { background: var(--accent); color: #fff; }

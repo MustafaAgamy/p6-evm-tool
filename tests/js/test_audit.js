@@ -4,7 +4,8 @@
  */
 import assert from 'node:assert/strict';
 import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
-         oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass }
+         oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass,
+         oosLagLabel, oosRelLabel, oosDefaultOp, oosOpSummary }
   from '../../ui/modules/audit.js';
 
 let passed = 0, failed = 0;
@@ -77,6 +78,31 @@ test('pill unknown → change', () => assert.equal(oosPillClass('???'), 'change'
 test('crit label',         () => assert.equal(oosCritLabel('Critical'), 'Critical'));
 test('near label',         () => assert.equal(oosCritLabel('Near-Critical'), 'Near-Critical'));
 test('normal label dash',  () => assert.equal(oosCritLabel(''), '—'));
+
+// ── OOS Resolve & Correct helpers ─────────────────────────────────────────
+test('lag label zero → empty',   () => assert.equal(oosLagLabel(0), ''));
+test('lag label positive',       () => assert.equal(oosLagLabel(3), '(+3d)'));
+test('lag label negative',       () => assert.equal(oosLagLabel(-2), '(−2d)'));
+test('rel label no lag',         () => assert.equal(oosRelLabel('FS', 0), 'FS'));
+test('rel label with lag',       () => assert.equal(oosRelLabel('SS', 3), 'SS(+3d)'));
+test('rel label empty rel',      () => assert.equal(oosRelLabel('', 0), ''));
+test('default op maps fields', () => {
+  const f = { finding_id: 'abc', pred_id: 'P1', activity_id: 'S1',
+    resolution: { action: 'change', new_type: 'SS', new_lag_days: 3, new_pred_id: 'P1' } };
+  const op = oosDefaultOp(f);
+  assert.equal(op.finding_id, 'abc');
+  assert.equal(op.pred_id, 'P1');
+  assert.equal(op.succ_id, 'S1');
+  assert.equal(op.action, 'change');
+  assert.equal(op.new_type, 'SS');
+  assert.equal(op.new_lag_days, 3);
+});
+test('op summary change', () => assert.equal(
+  oosOpSummary({ action: 'change', pred_id: 'P1', succ_id: 'S1', new_type: 'SS', new_lag_days: 3 }),
+  'Changed P1 → S1 to SS(+3d)'));
+test('op summary remove', () => assert.equal(
+  oosOpSummary({ action: 'remove', pred_id: 'P1', succ_id: 'S1' }),
+  'Removed link P1 → S1'));
 
 console.log('\nSchedule Health Review — rail + roll-up helpers (Slice 3)');
 test('tabScore shows score',        () => assert.equal(tabScore({ score: 84.6 }), 84.6));

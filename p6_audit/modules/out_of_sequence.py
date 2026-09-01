@@ -89,71 +89,246 @@ def _working_days(graph, act, d1, d2):
 
 # ── Advisory suggestions (never applied automatically) ─────────────────────
 
-def _suggest(graph, rel_type, succ, pred):
-    """Two alternative fixes per side (like the Dangling module), plus the
-    diagnosis. Each fix is (text, kind); kind is 'change' (recommend a different
-    link), 'remove' (delete the relationship), 'same' (keep as-is) or 'na'
-    (no further option). All advisory — never applied automatically.
+def _lag_suffix(lag):
+    """'(+3d)' / '(−2d)' / '' for a zero lag."""
+    lag = round(lag or 0.0, 1)
+    if lag == 0:
+        return ''
+    return f"({'+' if lag > 0 else '−'}{abs(lag):g}d)"
+
+
+def _rel_lag_label(rel, lag):
+    """'SS(+3d)' / 'FS' — a compact relationship+lag label."""
+    suf = _lag_suffix(lag)
+    return f"{rel}{suf}" if suf else rel
+
+
+def _resolution(action, applicable, action_text, *, reasoning='', new_type=None,
+                new_lag_days=None, new_pred_id=None, alternatives=None, sug_pred_id='',
+                sug_pred_name='', sug_pred_rel='', sug_pred_lag=None, sug_succ_id='',
+                sug_succ_name='No change'):
+    """A machine-actionable proposed correction the planner can accept, edit, and apply.
+
+    ``action`` ∈ {'change', 'remove', 'replace', 'manual'}:
+      - 'change'  — repair the dependency by changing the relationship type (+ lag). Preferred.
+      - 'remove'  — last resort: no relationship type can hold; ``reasoning`` states why.
+      - 'manual'  — not applicable (inconsistent actual dates); ``reasoning`` explains why no
+                    automatic correction is safe.
+    ``alternatives`` — other P6-valid relationship types that also clear the condition
+    (each ``{new_type, new_lag_days, label}``), so the planner sees the preferred fix plus
+    valid alternatives rather than an invalid combined tie. Never a combination like 'SS/FF'.
+    ``reasoning`` is the plain-language WHY behind the recommendation (shown to the planner).
+    Every field is an editable default; re-validation (the same detection engine) is the arbiter.
     """
+    return {
+        'action': action, 'applicable': applicable, 'action_text': action_text,
+        'reasoning': reasoning,
+        'new_type': new_type, 'new_lag_days': new_lag_days, 'new_pred_id': new_pred_id,
+        'alternatives': alternatives or [],
+        'sug_pred_id': sug_pred_id, 'sug_pred_name': sug_pred_name,
+        'sug_pred_rel': sug_pred_rel, 'sug_pred_lag': sug_pred_lag,
+        'sug_succ_id': sug_succ_id, 'sug_succ_name': sug_succ_name,
+    }
+
+
+# Repair-search note: Finish-to-Start is deliberately never tried — the offending predecessor is
+# always INCOMPLETE (no actual finish), so an FS tie can never be satisfied while the successor
+# has progressed. The search tries SS/FF (meaningful overlaps) and SF only as a fallback.
+
+
+def _repair_lag(graph, new_type, succ, pred):
+    """A lag that represents the observed overlap for the repaired relationship, so the
+    corrected link reflects what actually happened rather than snapping to zero."""
     s_as, s_af = succ.get('actual_start'), succ.get('actual_finish')
     p_as, p_af = pred.get('actual_start'), pred.get('actual_finish')
-    pred_label = f"{pred.get('id', '')} · {pred.get('name', '')}"
-    NA = ('N/A', 'na')
+    if new_type == 'FS' and p_af and s_as:
+        return _working_days(graph, succ, p_af, s_as)
+    if new_type == 'SS' and p_as and s_as:
+        return _working_days(graph, succ, p_as, s_as)
+    if new_type == 'FF' and p_af and s_af:
+        return _working_days(graph, succ, p_af, s_af)
+    if new_type == 'SF' and p_as and s_af:
+        return _working_days(graph, succ, p_as, s_af)
+    return 0
 
-    # Defaults (SF / unknown).
-    root = 'Schedule logic requires review following execution changes.'
-    comment = 'Planning Engineer review required before modifying schedule logic.'
-    pred_fix1, pred_fix2 = ('Planner to review', 'change'), NA
 
-    if s_af is not None and p_as is not None and s_af < p_as:
-        # Successor fully executed before the predecessor even began → link contradicts reality.
-        pred_fix1, pred_fix2 = ('Remove Relationship', 'remove'), ('Planner to review', 'change')
-        root = 'Relationship logic may not represent actual execution sequence.'
-        comment = 'Review predecessor-successor relationship.'
-    elif p_as is None:
-        # Predecessor shows no actual start yet the successor has progressed → data inconsistency.
-        pred_fix1, pred_fix2 = ('Planner to review', 'change'), NA
-        root = 'Inconsistent Actual Dates.'
-        comment = 'Validate Actual Dates.'
-    elif rel_type == 'FS' and s_as is not None and s_as >= p_as:
-        # Real execution overlapped — model it as Start-to-Start with lag, or Finish-to-Finish.
-        lag = _working_days(graph, succ, p_as, s_as)
-        pred_fix1, pred_fix2 = (f'SS({lag}) - {pred_label}', 'change'), (f'FF - {pred_label}', 'change')
-        root = 'Activity started before predecessor completion.'
-        comment = 'Review construction sequence.'
-    elif rel_type == 'FS':
-        # Successor started before the predecessor started, on an FS link.
-        pred_fix1, pred_fix2 = ('Planner to review', 'change'), ('Remove Relationship', 'remove')
-        root = 'Relationship logic may not represent actual execution sequence.'
-        comment = 'Review predecessor-successor relationship.'
-    elif rel_type == 'SS':
-        pred_fix1, pred_fix2 = ('Planner to review', 'change'), ('Remove Relationship', 'remove')
-        root = 'Relationship logic may not represent actual execution sequence.'
-        comment = 'Review predecessor-successor relationship.'
-    elif rel_type in ('FF', 'SF'):
-        pred_fix1, pred_fix2 = ('Planner to review', 'change'), NA
-        root = 'Relationship logic may not represent actual execution sequence.'
-        comment = 'Review predecessor-successor relationship.'
+def _rel_num(rel, lag, always_lag=False):
+    """Relationship label in the planner's LOG notation: 'FS', 'FS(33)', 'SS(5)'.
+    ``always_lag`` forces the lag in parentheses even when it is 0 (e.g. an 'After' value
+    that was reduced to FS(0)), so a lag reduction is always visible."""
+    if not rel:
+        return ''
+    n = int(round(lag or 0))
+    if n == 0 and not always_lag:
+        return rel
+    return f"{rel}({n})"
 
-    # The out-of-sequence violation is on the predecessor side; the successor tie
-    # is context and normally needs no change.
-    succ_fix1, succ_fix2 = ('No Change', 'same'), NA
+
+def _why_clears(new_type):
     return {
-        'pred_fix1': pred_fix1[0], 'pred_fix1_kind': pred_fix1[1],
-        'pred_fix2': pred_fix2[0], 'pred_fix2_kind': pred_fix2[1],
-        'succ_fix1': succ_fix1[0], 'succ_fix1_kind': succ_fix1[1],
-        'succ_fix2': succ_fix2[0], 'succ_fix2_kind': succ_fix2[1],
+        'SS': 'the successor started after the predecessor started',
+        'FF': 'the successor has not finished, so it can still finish after the predecessor',
+        'SF': 'the successor finished after the predecessor started',
+    }.get(new_type, '')
+
+
+def _after_display(baseline_label, res):
+    """The 'After Modification' relationship cell (Ibrahim's LOG): 'No change' when the tie is
+    left alone, the transition 'OLD → NEW' (e.g. 'FS(140) → FS(25)', 'FS → SS(3)/FF(0)') when it
+    is corrected, '… → Removed' for a removal, or 'Planner review' when evidence is insufficient."""
+    if res is None or res.get('action') in (None, 'nochange'):
+        return 'No change'
+    action = res['action']
+    if action == 'manual':
+        return 'Planner review'
+    if action == 'remove':
+        return f"{baseline_label} → Removed"
+    new = _rel_num(res.get('new_type'), res.get('new_lag_days') or 0, always_lag=True)
+    alts = res.get('alternatives') or []
+    if alts:
+        new += '/' + '/'.join(a['label'] for a in alts)
+    return f"{baseline_label} → {new}"
+
+
+def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
+    """Correct ONE relationship tie so it matches the actual execution, like an experienced
+    Planning / Project-Controls engineer, with the MINIMUM logical change:
+
+      1. If the current relationship already matches reality → **No change** (defensive; detection
+         normally only passes out-of-sequence ties here).
+      2. If the type no longer fits (the activities actually overlap) → **change the type** to the
+         one that fits (SS / FF, SF as a fallback), with the lag computed from the real overlap.
+         Other fitting types are offered as valid alternatives — never an invalid combined 'SS/FF'.
+         This runs even when the predecessor has no actual start: if the successor is still in
+         progress, an FF tie legitimately resolves it (a real fix, not a review).
+      3. If no relationship type can hold → **remove** (last resort, reason stated). Removing a link
+         always resolves the out-of-sequence, so every finding gets an actionable fix (a type change
+         or a removal). When the predecessor never started, the removal reason also flags the missing
+         actual date and the option to replace it with the correct predecessor.
+      4. **Planner Review** (the `'manual'` action) is reserved for a case with genuinely no
+         relationship solution — which does not arise for a single out-of-sequence tie — so it is
+         not emitted here; the UI/report still support it as a capability.
+
+    Whether a type fits is decided by the SAME detection rule (`_is_oos`), so a recommended change
+    and the later re-validation always agree. A same-type, lag-only fix is deliberately not offered:
+    the offending predecessor is incomplete, so only a type change can clear the condition.
+    """
+    p_as = pred.get('actual_start')
+    pred_id, pred_name = pred.get('id', ''), pred.get('name', '')
+    succ_id = succ.get('id', '')
+    cur_label = _rel_num(cur_type, cur_lag)
+
+    # 1) Defensive — the current relationship already matches reality (no out-of-sequence).
+    #    Detection only passes out-of-sequence ties here, so this rarely fires; it guards against
+    #    an incidental call on a valid tie and keeps "No change" honest. NOTE: a same-type,
+    #    lag-only correction can never *clear* a detected out-of-sequence condition (the predecessor
+    #    is incomplete, so the type must change), which is why there is no lag-only repair branch.
+    if not _is_oos(cur_type, succ, pred):
+        return _resolution(
+            'nochange', False, 'No change',
+            reasoning='This relationship already matches the actual execution — no correction needed.',
+            new_type=cur_type, new_lag_days=cur_lag, new_pred_id=pred_id,
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel=cur_type, sug_pred_lag=cur_lag)
+
+    # 3) Type no longer fits — change to the type that matches, with the lag from the logic.
+    #    SS/FF are the meaningful overlap repairs (either may be a valid alternative); SF is only a
+    #    fallback (it trivially fits any unfinished successor, so it's never a noisy alternative).
+    clearing = []
+    for new_type in ('SS', 'FF'):
+        if new_type == cur_type:
+            continue
+        if not _is_oos(new_type, succ, pred):
+            clearing.append((new_type, _repair_lag(graph, new_type, succ, pred)))
+    if not clearing and cur_type != 'SF' and not _is_oos('SF', succ, pred):
+        clearing.append(('SF', _repair_lag(graph, 'SF', succ, pred)))
+    if clearing:
+        new_type, lag = clearing[0]
+        new_label = _rel_num(new_type, lag, always_lag=True)
+        alternatives = [{'new_type': t, 'new_lag_days': l, 'label': _rel_num(t, l, always_lag=True)}
+                        for (t, l) in clearing[1:]]
+        reasoning = (f"The activities actually overlap, so {cur_label} is too restrictive. Changing "
+                     f"{pred_id} → {succ_id} from {cur_label} to {new_label} makes the logic match "
+                     f"what happened ({_why_clears(new_type)}), keeping the dependency.")
+        return _resolution(
+            'change', True,
+            f"Change {pred_id} → {succ_id} from {cur_label} to {new_label}",
+            reasoning=reasoning, new_type=new_type, new_lag_days=lag, new_pred_id=pred_id,
+            alternatives=alternatives,
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel=new_type, sug_pred_lag=lag)
+
+    # 3) No relationship TYPE can hold (the successor finished before this predecessor). Removing the
+    #    link IS a valid solution (it clears the out-of-sequence), so we always give the actionable
+    #    Remove — Planner Review is reserved for a case with genuinely no relationship solution, which
+    #    does not arise for a single out-of-sequence tie (removal always resolves it).
+    if p_as is None:
+        # Predecessor never started AND successor already complete — removing resolves it, but the
+        # missing actual start is a data signal, so the reason flags it and offers the add-instead option.
+        reasoning = (f"No relationship type (SS, FF or SF) fits: the successor {succ_id} is already "
+                     f"complete while predecessor {pred_id} shows no actual start. Removing the link "
+                     f"resolves the out-of-sequence — but the predecessor has no actual date, so verify "
+                     f"its dates in P6, or replace it with the correct predecessor, before finalising.")
+        return _resolution(
+            'remove', True,
+            f"Remove {pred_id} → {succ_id} — successor complete while predecessor never started; "
+            f"removing resolves it (verify the predecessor's dates, or replace it with the correct one).",
+            reasoning=reasoning,
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
+
+    # The predecessor did start, but the successor finished before it — the dependency contradicts
+    # reality and no type fits → removal is the last resort, with the reason stated.
+    reasoning = (f"No relationship type (SS, FF or SF) or lag can hold between {pred_id} and "
+                 f"{succ_id} without creating another logical conflict: the successor finished "
+                 f"before the predecessor started, so the dependency no longer reflects reality. "
+                 f"Removing the link is the only reasonable correction.")
+    return _resolution(
+        'remove', True,
+        f"Remove {pred_id} → {succ_id} — no valid relationship type or lag resolves the sequence "
+        f"without another logical conflict.",
+        reasoning=reasoning,
+        sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
+
+
+def _suggest(graph, cur_type, cur_lag, succ, pred):
+    """Wrap the repair-first recommendation and derive the legacy fix labels (kept for the
+    PDF/Excel and older tests) from it, so every surface tells the same story."""
+    res = _recommend_correction(graph, cur_type, cur_lag, succ, pred)
+    pred_id, pred_name = pred.get('id', ''), pred.get('name', '')
+    if res['action'] == 'change':
+        pred_fix = f"{_rel_num(res['sug_pred_rel'], res['sug_pred_lag'], always_lag=True)} - {pred_id} · {pred_name}"
+        kind = 'change'
+        root = 'Activity progressed out of logical sequence — the relationship can be corrected to match execution.'
+        comment = 'Correct the relationship (type and/or lag) to match the actual sequence (dependency preserved).'
+    elif res['action'] == 'nochange':
+        pred_fix, kind = 'No change', 'same'
+        root = 'Relationship already matches the actual execution.'
+        comment = 'No correction needed.'
+    elif res['action'] == 'remove':
+        pred_fix, kind = 'Remove Relationship', 'remove'
+        root = 'Successor executed before the predecessor began — the dependency contradicts reality.'
+        comment = 'No valid relationship type resolves it; remove the dependency (last resort).'
+    else:  # manual
+        pred_fix, kind = 'Manual review', 'na'
+        root = 'Inconsistent Actual Dates.'
+        comment = 'Validate actual dates in P6; no automatic correction can be safely determined.'
+    return {
+        'pred_fix1': pred_fix, 'pred_fix1_kind': kind,
+        'pred_fix2': 'N/A', 'pred_fix2_kind': 'na',
+        'succ_fix1': 'No Change', 'succ_fix1_kind': 'same',
+        'succ_fix2': 'N/A', 'succ_fix2_kind': 'na',
         'root_cause': root, 'planning_review_comment': comment,
+        'resolution': res,
     }
 
 
 def _first_successor(graph, oid):
-    """(relationship, 'id · name') of the activity's first real successor, for context."""
+    """(relationship, succ_id, succ_name, lag_days, succ_oid, succ_act) of the activity's first
+    real successor, for context + successor-tie evaluation. Empty/None when there is no successor."""
     for link in graph.succs_of(oid):
         s = graph.activities.get(link['other'])
         if s:
-            return link.get('type', 'FS'), f"{s.get('id', '')} · {s.get('name', '')}"
-    return '', 'No successor'
+            return (link.get('type', 'FS'), s.get('id', ''), s.get('name', ''),
+                    link.get('lag_days', 0.0) or 0.0, link['other'], s)
+    return '', '', '', 0.0, None, None
 
 
 def _category_of(graph, oid):
@@ -231,9 +406,22 @@ def run_out_of_sequence(graph, config):
         if not offending:
             continue
         _link, pred, rel_type = offending
-        sug = _suggest(graph, rel_type, act, pred)
-        succ_rel, succ_act = _first_successor(graph, oid)
+        cur_lag = _link.get('lag_days', 0.0) or 0.0
+        sug = _suggest(graph, rel_type, cur_lag, act, pred)
+        pred_res = sug['resolution']                        # predecessor-tie correction (the OOS cause)
+        succ_rel, succ_id, succ_name, succ_lag, succ_oid, succ_act = _first_successor(graph, oid)
         crit = _criticality(act, near_days)
+
+        # Successor tie (this activity → its successor): evaluate INDEPENDENTLY (Ibrahim's
+        # principle) — correct it only if the successor is itself out of sequence relative to this
+        # (still-incomplete) activity; otherwise it is "No change".
+        succ_res = None
+        if succ_oid and succ_act and graph.is_real_activity(succ_oid) and _incomplete(act) \
+                and _is_oos(succ_rel, succ_act, act):
+            succ_res = _recommend_correction(graph, succ_rel, succ_lag, succ_act, act)
+
+        pred_baseline = _rel_num(rel_type, cur_lag)
+        succ_baseline = _rel_num(succ_rel, succ_lag) if succ_id else ''
         findings.append({
             'finding_id':                 content_id('OOS', act.get('id'), pred.get('id')),
             'activity_id':                act.get('id', ''),
@@ -242,14 +430,30 @@ def run_out_of_sequence(graph, config):
             'category':                   _category_of(graph, oid),
             'current_pred_rel':           rel_type,
             'current_pred_activity':      f"{pred.get('id', '')} · {pred.get('name', '')}",
+            # Split IDs + lag:
+            'pred_id':                    pred.get('id', ''),
+            'pred_name':                  pred.get('name', ''),
+            'current_pred_lag':           cur_lag,
             'current_succ_rel':           succ_rel,
-            'current_succ_activity':      succ_act,
+            'current_succ_activity':      (f"{succ_id} · {succ_name}" if succ_id else 'No successor'),
+            'succ_id':                    succ_id,
+            'succ_name':                  succ_name,
+            'current_succ_lag':           succ_lag,
+            # Baseline vs After Modification labels (LOG format), per tie:
+            'pred_baseline_label':        pred_baseline,
+            'pred_after_label':           _after_display(pred_baseline, pred_res),
+            'succ_baseline_label':        succ_baseline,
+            'succ_after_label':           (_after_display(succ_baseline, succ_res) if succ_id else '—'),
             'suggested_predecessor':      sug['pred_fix1'], 'suggested_predecessor_kind': sug['pred_fix1_kind'],
             'suggested_successor':        sug['succ_fix1'], 'suggested_successor_kind': sug['succ_fix1_kind'],
             'root_cause':                 sug['root_cause'],
             'planning_review_comment':    sug['planning_review_comment'],
             'criticality':                crit,
             'severity':                   _SEV_OF.get(crit, 'Medium'),
+            # Machine-actionable proposed corrections (accept / edit / apply), per tie:
+            'resolution':                 pred_res,          # predecessor tie (the OOS cause)
+            'pred_resolution':            pred_res,
+            'succ_resolution':            succ_res,          # successor tie, or None (= No change)
         })
 
     oos_count = len(findings)

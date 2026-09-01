@@ -110,6 +110,75 @@ def test_compare_report_pdf_route_runs_without_reschedule(test_server, tmp_path,
 
 # ── GET / ─────────────────────────────────────────────────────────────────
 
+# ── POST /api/oos/* (Out-of-Sequence — Resolve & Correct) ──────────────────
+
+_OOS_XML = (
+    '<?xml version="1.0"?>\n'
+    '<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
+    '  <Project><ObjectId>1</ObjectId><Id>PJ</Id><Name>P</Name>'
+    '<DataDate>2026-02-01T00:00:00</DataDate>\n'
+    '    <WBS><ObjectId>10</ObjectId><Name>Construction Works</Name><ParentObjectId></ParentObjectId></WBS>\n'
+    '    <Activity><ObjectId>1001</ObjectId><Id>A100</Id><Name>Fabricate</Name>'
+    '<Type>Task Dependent</Type><Status>In Progress</Status><WBSObjectId>10</WBSObjectId>'
+    '<CalendarObjectId></CalendarObjectId><PercentComplete>50</PercentComplete>'
+    '<ActualStartDate>2026-01-05T08:00:00</ActualStartDate></Activity>\n'
+    '    <Activity><ObjectId>1002</ObjectId><Id>A200</Id><Name>Erect</Name>'
+    '<Type>Task Dependent</Type><Status>In Progress</Status><WBSObjectId>10</WBSObjectId>'
+    '<CalendarObjectId></CalendarObjectId><PercentComplete>20</PercentComplete>'
+    '<ActualStartDate>2026-01-12T08:00:00</ActualStartDate></Activity>\n'
+    '    <Relationship><PredecessorActivityObjectId>1001</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>1002</SuccessorActivityObjectId><Type>Finish to Start</Type>'
+    '<Lag>0</Lag></Relationship>\n'
+    '  </Project>\n</APIBusinessObjects>\n'
+)
+
+
+def _oos_accepted(test_server, path, **override):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': path})
+    oos = parsed['result']['audit_modules']['modules']['out_of_sequence']
+    f = next(x for x in oos['findings'] if x['activity_id'] == 'A200')
+    r = f['resolution']
+    op = {'finding_id': f['finding_id'], 'pred_id': f['pred_id'], 'succ_id': f['activity_id'],
+          'action': r['action'], 'new_type': r['new_type'],
+          'new_lag_days': r['new_lag_days'], 'new_pred_id': r['new_pred_id']}
+    op.update(override)
+    return f['finding_id'], op
+
+
+def test_oos_validate_resolves_after_accepting_change(test_server, tmp_path):
+    p = tmp_path / 'oos.xml'; p.write_text(_OOS_XML, encoding='utf-8')
+    fid, op = _oos_accepted(test_server, str(p))
+    _, out = _post_json(test_server, '/api/oos/validate', {'xml_path': str(p), 'accepted': [op]})
+    assert out['ok'] is True
+    assert fid in out['resolved']
+
+
+def test_oos_validate_missing_file_errors(test_server):
+    _, out = _post_json(test_server, '/api/oos/validate',
+                        {'xml_path': '/nope/x.xml', 'accepted': []})
+    assert out['ok'] is False and 'Re-import' in out['error']
+
+
+def test_oos_corrected_file_written(test_server, tmp_path):
+    from p6_evm.parser import parse_file
+    p = tmp_path / 'oos.xml'; p.write_text(_OOS_XML, encoding='utf-8')
+    _fid, op = _oos_accepted(test_server, str(p))
+    out_path = tmp_path / 'oos_corrected.xml'
+    _, out = _post_json(test_server, '/api/oos/corrected-file',
+                        {'xml_path': str(p), 'output_path': str(out_path), 'accepted': [op]})
+    assert out['ok'] is True and out['applied'] >= 1
+    assert out_path.exists()
+    assert parse_file(str(out_path)).relationships[0]['type'] == 'SS'
+
+
+def test_oos_corrected_file_requires_applied(test_server, tmp_path):
+    p = tmp_path / 'oos.xml'; p.write_text(_OOS_XML, encoding='utf-8')
+    out_path = tmp_path / 'x.xml'
+    _, out = _post_json(test_server, '/api/oos/corrected-file',
+                        {'xml_path': str(p), 'output_path': str(out_path), 'accepted': []})
+    assert out['ok'] is False
+
+
 def test_index_returns_200(test_server):
     status, ct, _ = _get(test_server, '/')
     assert status == 200

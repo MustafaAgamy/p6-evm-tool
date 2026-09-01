@@ -59,6 +59,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_compare_excel(body)
         elif self.path == '/api/compare/report':
             self._handle_compare_report(body)
+        elif self.path == '/api/oos/validate':
+            self._handle_oos_validate(body)
+        elif self.path == '/api/oos/corrected-file':
+            self._handle_oos_corrected(body)
         elif self.path == '/api/period/compare':
             self._handle_period_compare(body)
         elif self.path == '/api/period/previous':
@@ -1300,6 +1304,52 @@ class Handler(BaseHTTPRequestHandler):
                 baseline_path, os.path.abspath(update_path), os.path.abspath(output_path),
                 selected_ids=selected_ids, note=note)
             self._json(200, {'ok': True, 'applied': res['applied']})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/oos/validate ─────────────────────────────────────────────────
+    def _handle_oos_validate(self, body):
+        """Out-of-Sequence — re-validate after the planner applies corrections. Re-parses
+        the imported schedule, applies the accepted relationship corrections to an in-memory
+        copy, re-runs the SAME detection engine, and reports the fresh findings + which
+        accepted findings are now genuinely resolved. Nothing is written to disk."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        accepted = body.get('accepted') or []
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.oos_resolve import revalidate_from_path
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            res = revalidate_from_path(resolved, config, accepted)
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/oos/corrected-file ───────────────────────────────────────────
+    def _handle_oos_corrected(self, body):
+        """Out-of-Sequence — write the corrected schedule (accepted relationship corrections
+        only) to a separate file in the same format as the import (P6 XML or XER). Actuals
+        and dates are never touched; open in P6 → F9. The user's original file is not modified."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        output_path = body.get('output_path', '')
+        accepted = body.get('accepted') or []
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        if not accepted:
+            self._json(200, {'ok': False, 'error': 'No corrections have been applied yet.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.oos_resolve import write_corrected
+            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path))
+            self._json(200, {'ok': True, 'applied': res['applied'], 'out_path': res['out_path']})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

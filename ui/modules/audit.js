@@ -47,6 +47,45 @@ export function uniqueValues(findings, key) {
   return [...new Set(findings.map(f => f[key]).filter(Boolean))].sort();
 }
 
+// ── Out-of-Sequence Resolve & Correct — pure helpers (unit-tested) ─────────
+
+export function oosLagLabel(lag) {
+  const l = Math.round((lag || 0) * 10) / 10;
+  if (!l) return '';
+  return `(${l > 0 ? '+' : '−'}${Math.abs(l)}d)`;
+}
+
+// 'SS(+3d)' / 'FS' — compact relationship + lag label.
+export function oosRelLabel(rel, lag) {
+  if (!rel) return '';
+  const s = oosLagLabel(lag);
+  return s ? `${rel}${s}` : rel;
+}
+
+// The default accepted correction for a finding (the recommended action, editable later).
+export function oosDefaultOp(f) {
+  const r = f.resolution || {};
+  return {
+    finding_id: f.finding_id,
+    pred_id: f.pred_id || '',
+    succ_id: f.activity_id || '',
+    action: r.action || 'remove',
+    new_type: r.new_type || null,
+    new_lag_days: (r.new_lag_days === undefined ? null : r.new_lag_days),
+    new_pred_id: r.new_pred_id || '',
+    reason: '',
+  };
+}
+
+// A one-line human summary of an accepted op, for the Resolved view.
+export function oosOpSummary(op) {
+  const a = (op.action || '').toLowerCase();
+  if (a === 'remove') return `Removed link ${op.pred_id} → ${op.succ_id}`;
+  if (a === 'replace') return `Replaced predecessor → ${op.new_pred_id} (${oosRelLabel(op.new_type, op.new_lag_days)})`;
+  if (a === 'add') return `Added ${op.new_pred_id || op.pred_id} → ${op.succ_id} (${oosRelLabel(op.new_type, op.new_lag_days)})`;
+  return `Changed ${op.pred_id} → ${op.succ_id} to ${oosRelLabel(op.new_type, op.new_lag_days)}`;
+}
+
 // ── DOM rendering + wiring (browser only) ─────────────────────────────────
 
 import { state } from './state.js';
@@ -306,10 +345,6 @@ export function oosPillClass(kind) {
   return kind === 'remove' ? 'remove' : 'change';
 }
 
-function oosSug(text, kind) {
-  return `<span class="oos-pill ${oosPillClass(kind)}">${escapeHtml(text || '')}</span>`;
-}
-
 export function oosCritLabel(c) {
   return c === 'Critical' ? 'Critical' : c === 'Near-Critical' ? 'Near-Critical' : '—';
 }
@@ -351,31 +386,6 @@ export function renderOutOfSequence(m) {
       <td class="num">${r.activities}</td><td class="num">${r.oos}</td>
       <td class="num">${r.pct}%</td><td class="num">${r.critical_oos || 0}</td>
       <td class="num">${r.near_critical_oos || 0}</td></tr>`).join('');
-
-  const logRows = findings.map((f, i) => `
-    <tr><td class="num">${i + 1}</td><td class="mono">${escapeHtml(f.activity_id)}</td>
-      <td>${escapeHtml(f.activity_name)}</td>
-      <td title="${escapeHtml(f.wbs_path)}">${escapeHtml(shortWbs(f.wbs_path))}</td>
-      <td>${escapeHtml(f.current_pred_rel)}</td>
-      <td class="mut">${escapeHtml(f.current_pred_activity)}</td>
-      <td>${escapeHtml(f.current_succ_rel)}</td>
-      <td class="mut">${escapeHtml(f.current_succ_activity)}</td>
-      <td class="mut">${cutoff}</td>
-      <td>${oosSug(f.suggested_predecessor, f.suggested_predecessor_kind)}</td>
-      <td>${oosSug(f.suggested_successor, f.suggested_successor_kind)}</td>
-      <td class="mut">${escapeHtml(f.root_cause)}</td>
-      <td class="mut">${escapeHtml(f.planning_review_comment)}</td>
-      <td>${oosCrit(f.criticality)}</td></tr>`).join('');
-
-  const logTable = findings.length ? `
-    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table oos-log"><thead><tr>
-      <th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>
-      <th>Current Pred. Rel.</th><th>Current Predecessor Activity</th>
-      <th>Current Succ. Rel.</th><th>Current Successor Activity</th><th>Cutoff Date</th>
-      <th>Suggested Predecessor</th><th>Suggested Successor</th>
-      <th>Root Cause</th><th>Planning Review Comment</th><th>Criticality</th>
-    </tr></thead><tbody>${logRows}</tbody></table></div>`
-    : `<p style="color:var(--muted);font-size:13px">No out-of-sequence activities — schedule progress is consistent with the network logic.</p>`;
 
   const conclusion = k.executive_conclusion ? `
     <div class="mod-sec">Executive Conclusion</div>
@@ -427,8 +437,8 @@ export function renderOutOfSequence(m) {
       <th class="num">%</th><th class="num">Critical OOS</th><th class="num">Near-Critical OOS</th></tr></thead>
       <tbody>${distRows}</tbody></table></div>
 
-    <div class="mod-sec">Out-of-Sequence Review Log</div>
-    ${logTable}
+    <div class="mod-sec">Out-of-Sequence Review &amp; Resolve</div>
+    <div id="oos-review"></div>
 
     <div class="mod-sec">Critical Path Impact Assessment</div>
     <div class="oos-cpi">
@@ -446,6 +456,402 @@ export function renderOutOfSequence(m) {
     <div style="font-size:11px;color:var(--muted);margin-top:6px">Classification only — the module does not predict a number of delay days.</div>
 
     ${conclusion}`;
+
+  _oosInit(m);
+}
+
+// ── Out-of-Sequence Resolve & Correct — LOG (Baseline vs After Modification) ──
+// Server-truth model: `all` = original findings; `fresh` = findings after the applied corrections
+// (from re-validation); `applied[fid]` = {finding, ops, reason}. A finding is Resolved when it is
+// in `all` but no longer in `fresh`. Preserved while the same schedule is open; reset on a new import.
+let _oos = { sig: null, all: [], fresh: [], applied: {}, view: 'open', dataDate: '' };
+
+function _oosSig(m) {
+  const f = (m.findings || [])[0] || {};
+  return `${(m.kpis || {}).data_date || ''}|${(m.findings || []).length}|${f.finding_id || ''}`;
+}
+
+let _oosEscBound = false;
+
+function _oosInit(m) {
+  if (!_oosEscBound) {
+    _oosEscBound = true;
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && _oos.fullscreen) { _oos.fullscreen = false; renderOosReview(); }
+    });
+  }
+  // The panel was (re)rendered fresh in #oos-body — clear any stray full-screen overlay a prior
+  // session left attached to <body>, and exit full screen.
+  Array.from(document.body.children).forEach(c => { if (c.id === 'oos-review') c.remove(); });
+  document.body.classList.remove('oos-fs-body');
+  const sig = _oosSig(m);
+  if (sig !== _oos.sig) {
+    _oos = { sig, all: (m.findings || []).slice(), fresh: (m.findings || []).slice(),
+             applied: {}, view: 'open', dataDate: (m.kpis || {}).data_date || '', fullscreen: false };
+  } else {
+    _oos.dataDate = (m.kpis || {}).data_date || '';
+    _oos.fullscreen = false;
+  }
+  _oos._home = null;
+  renderOosReview();
+}
+
+// Every accepted correction across all applied rows (predecessor + successor ties), for
+// re-validation and the corrected-file export.
+function _oosAppliedOps() {
+  const ops = [];
+  Object.values(_oos.applied).forEach(a => (a.ops || []).forEach(o => ops.push(o)));
+  return ops;
+}
+
+// Build the predecessor + successor tie corrections for a finding, honouring any drawer edits.
+function _oosBuildOps(f) {
+  const ops = [];
+  const pr = f.pred_resolution || f.resolution;
+  if (pr && pr.applicable && (pr.action === 'change' || pr.action === 'remove')) {
+    ops.push(_oosOpFor(f, 'pred', f.pred_id, f.activity_id, pr));
+  }
+  const sr = f.succ_resolution;
+  if (sr && sr.applicable && (sr.action === 'change' || sr.action === 'remove')) {
+    ops.push(_oosOpFor(f, 'succ', f.activity_id, f.succ_id, sr));
+  }
+  return ops;
+}
+
+function _oosOpFor(f, side, predCode, succCode, res) {
+  const get = (field) => document.querySelector(
+    `[data-oosfield="${field}"][data-fid="${f.finding_id}"][data-side="${side}"]`);
+  let action = res.action, newType = res.new_type, newLag = res.new_lag_days;
+  const aEl = get('action'); if (aEl) action = aEl.value;
+  const tEl = get('new_type'); if (tEl) newType = tEl.value;
+  const lEl = get('new_lag_days'); if (lEl && lEl.value !== '') newLag = parseFloat(lEl.value);
+  if (action === 'remove') { newType = null; newLag = null; }
+  return { finding_id: f.finding_id, pred_id: predCode, succ_id: succCode,
+           action, new_type: newType, new_lag_days: newLag, new_pred_id: '' };
+}
+
+function _oosCurRel(rel, lag) {
+  const s = oosRelLabel(rel, lag);
+  return s ? `<span class="oos-relb">${escapeHtml(s)}</span>` : '';
+}
+
+// Severity badge (Critical / High / Medium) — his LOG's "Severity" column.
+function _oosSevCell(f) {
+  const s = f.severity || 'Medium';
+  const cls = s === 'Critical' ? 'crit' : (s === 'High' ? 'high' : 'med');
+  const crit = f.criticality && f.criticality !== '' ? ` <span class="oos-critnote">(${escapeHtml(f.criticality)})</span>` : '';
+  return `<span class="oos-sevb ${cls}">${escapeHtml(s)}</span>${crit}`;
+}
+
+// The 'After Modification' relationship cell: "No change", the "OLD → NEW" transition, or a flag.
+function _oosAfterCell(label) {
+  if (!label || label === 'No change') return `<span class="oos-nochg">No change</span>`;
+  if (label === 'Planner review') return `<span class="oos-relb rev">Planner review</span>`;
+  const cls = /Removed/.test(label) ? 'rem' : 'sg';
+  return `<span class="oos-relb ${cls}">${escapeHtml(label)}</span>`;
+}
+
+function renderOosReview() {
+  const host = document.getElementById('oos-review');
+  if (!host) return;
+  const freshIds = new Set(_oos.fresh.map(f => f.finding_id));
+  const openF = _oos.fresh;
+  const resolvedF = _oos.all.filter(f => !freshIds.has(f.finding_id));
+  const dd = escapeHtml(_oos.dataDate || '');
+  const anyOps = _oosAppliedOps().length > 0;
+
+  const toolbar = `
+    <div class="oos-toolbar">
+      <div class="oos-tabs">
+        <button class="oos-tab ${_oos.view === 'open' ? 'active' : ''}" data-oosact="view" data-view="open">Open <span class="cnt">${openF.length}</span></button>
+        <button class="oos-tab ${_oos.view === 'resolved' ? 'active' : ''}" data-oosact="view" data-view="resolved">Resolved <span class="cnt">${resolvedF.length}</span></button>
+      </div>
+      <button class="oos-fs" data-oosact="fullscreen" title="Show the full table using the whole window">${_oos.fullscreen ? '✕ Exit full screen' : '⛶ Full screen'}</button>
+      <div style="flex:1"></div>
+      <div style="text-align:right">
+        <button class="oos-dl" data-oosact="download" ${anyOps ? '' : 'disabled'}>⬇ Download Corrected Schedule</button>
+        <div class="oos-dlnote">${anyOps
+          ? `${resolvedF.length} finding(s) resolved · exports the same format you imported (XER / XML) — open in P6 and F9.`
+          : `Apply at least one correction to enable. Exports the same format you imported (XER / XML).`}</div>
+      </div>
+    </div>`;
+
+  host.innerHTML = toolbar + _oosLogTable(_oos.view === 'open' ? openF : resolvedF, dd, _oos.view === 'resolved');
+  // Full-screen: move the overlay to <body> so it escapes any transformed/contained ancestor
+  // (those trap position:fixed) and truly fills the window; restore it to its home on exit.
+  if (_oos.fullscreen) {
+    if (!_oos._home) _oos._home = { parent: host.parentElement, next: host.nextElementSibling };
+    if (host.parentElement !== document.body) document.body.appendChild(host);
+    host.classList.add('oos-fs-on');
+    document.body.classList.add('oos-fs-body');
+  } else {
+    if (_oos._home && host.parentElement === document.body) {
+      const { parent, next } = _oos._home;
+      if (next && next.parentElement === parent) parent.insertBefore(host, next);
+      else parent.appendChild(host);
+    }
+    _oos._home = null;
+    host.classList.remove('oos-fs-on');
+    document.body.classList.remove('oos-fs-body');
+  }
+  _oosWire();
+}
+
+// Valid alternatives in the drawer, CLICKABLE — click to pre-fill the edit form with that fix.
+function _oosAltPicks(r, fid, side) {
+  const alts = (r && r.alternatives) || [];
+  if (!alts.length) return '';
+  const pills = alts.map(a =>
+    `<span class="oos-altpill pick" data-oosact="pickalt" data-fid="${escapeHtml(fid)}" data-side="${side}" `
+    + `data-type="${escapeHtml(a.new_type || '')}" data-lag="${a.new_lag_days == null ? 0 : a.new_lag_days}">`
+    + `${escapeHtml(a.label || '')}</span>`).join('');
+  return `<div class="oos-alts"><span class="oos-altlbl">Alternatives (click to use):</span> ${pills}</div>`;
+}
+
+function _oosResCell(f, resolved) {
+  if (resolved) {
+    const a = _oos.applied[f.finding_id];
+    if (!a) {
+      // Cleared as a side-effect of another row's correction — no own op to re-open.
+      return `<span class="oos-resolved">✓ Resolved</span><div class="oos-appliednote">via a linked correction</div>`;
+    }
+    const note = a.reason ? `<div class="oos-appliednote">${escapeHtml(a.reason)}</div>` : '';
+    return `<span class="oos-resolved">✓ Resolved</span>${note}`
+      + `<button class="oos-mini" data-oosact="reopen" data-fid="${escapeHtml(f.finding_id)}">Re-open</button>`;
+  }
+  const pr = f.pred_resolution || f.resolution || {};
+  const actionable = _oosBuildOps(f).length > 0;
+  const predManual = (pr.action === 'manual' || !pr.applicable);
+  let btn;
+  if (actionable) {
+    btn = `<button class="oos-mini apply" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply</button>`;
+  } else if (predManual) {
+    btn = `<button class="oos-mini data" disabled title="Insufficient evidence — planner review">Planner review</button>`;
+  } else {
+    btn = `<button class="oos-mini data" disabled>No change</button>`;
+  }
+  const applied = _oos.applied[f.finding_id];
+  const stale = applied ? `<div class="oos-stale">Applied — didn't fully clear; edit &amp; retry.</div>` : '';
+  return `<div class="oos-rowbtns">${btn}<button class="oos-caret" data-oosact="details" data-fid="${escapeHtml(f.finding_id)}">▾</button></div>${stale}`;
+}
+
+function _oosLogRow(f, i, dd, resolved) {
+  const succName = f.succ_name || (f.succ_id ? '' : 'No successor');
+  return `
+    <tr class="oos-frow" data-fid="${escapeHtml(f.finding_id)}">
+      <td class="oos-num">${i + 1}</td>
+      <td class="id mono">${escapeHtml(f.activity_id)}</td>
+      <td class="nm actnm">${escapeHtml(f.activity_name)}</td>
+      <td class="bl pred">${escapeHtml(f.pred_name || '')}</td>
+      <td class="bl rel"><span class="oos-relb">${escapeHtml(f.pred_baseline_label || '')}</span></td>
+      <td class="bl pred">${escapeHtml(succName)}</td>
+      <td class="bl rel">${f.succ_baseline_label ? `<span class="oos-relb">${escapeHtml(f.succ_baseline_label)}</span>` : '<span class="mut">—</span>'}</td>
+      <td class="dd mono mut">${dd}</td>
+      <td class="am pred">${escapeHtml(f.pred_name || '')}</td>
+      <td class="am rel">${_oosAfterCell(f.pred_after_label)}</td>
+      <td class="am pred">${escapeHtml(f.succ_id ? succName : '—')}</td>
+      <td class="am rel">${_oosAfterCell(f.succ_after_label)}</td>
+      <td class="sev">${_oosSevCell(f)}</td>
+      <td class="oos-rescell">${_oosResCell(f, resolved)}</td>
+    </tr>
+    <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="14">${_oosDrawer(f)}</td></tr>`;
+}
+
+function _oosLogTable(rows, dd, resolved) {
+  if (!rows.length) {
+    return `<div class="oos-empty">${resolved
+      ? 'Nothing resolved yet. Apply a correction from the Open tab.'
+      : 'No open findings — every out-of-sequence condition has been resolved. 🎉'}</div>`;
+  }
+  const body = rows.map((f, i) => _oosLogRow(f, i, dd, resolved)).join('');
+  return `
+    <div class="tblwrap oos-tblwrap"><table class="audit-table oos-logx">
+      <caption class="oos-cap">Out Of Sequence Activity</caption>
+      <thead>
+        <tr class="oos-grp">
+          <th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>
+          <th class="bl" colspan="4">Baseline</th>
+          <th rowspan="2">Data Date</th>
+          <th class="am" colspan="4">After Modification</th>
+          <th rowspan="2">Severity</th><th rowspan="2">Resolution</th>
+        </tr>
+        <tr class="oos-sub">
+          <th class="bl">Predecessor</th><th class="bl">Relationship</th><th class="bl">Successor</th><th class="bl">Relationship</th>
+          <th class="am">Predecessor</th><th class="am">Relationship</th><th class="am">Successor</th><th class="am">Relationship</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody></table></div>
+    <div class="oos-flowhint">The engine corrects each tie to match actual execution: <b>change the relationship type</b> to the one that fits the real overlap (SS/FF, with the lag from the logic), <b>remove</b> only as a last resort with the reason stated, <b>Planner review</b> when the evidence is insufficient. "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>`;
+}
+
+// One editable block per tie (predecessor / successor) inside the drawer.
+function _oosTieBlock(f, side, res, tieLabel) {
+  const head = `<div class="oos-tielbl">${escapeHtml(tieLabel)}</div>`;
+  if (!res || !res.action || res.action === 'nochange') {
+    return `<div class="oos-tieblk">${head}<div class="oos-tieok">No change — this tie already matches the actual execution.</div></div>`;
+  }
+  if (res.action === 'manual' || !res.applicable) {
+    return `<div class="oos-tieblk">${head}<div class="oos-tierev">${escapeHtml(res.reasoning || res.action_text || 'Planner review — insufficient evidence.')}</div></div>`;
+  }
+  const types = ['FS', 'SS', 'FF', 'SF'];
+  const curType = res.new_type || 'SS';
+  const typeOpts = types.map(t => `<option value="${t}" ${t === curType ? 'selected' : ''}>${t}</option>`).join('');
+  const actOpts = [['change', 'Change type / lag'], ['remove', 'Remove relationship']]
+    .map(([v, l]) => `<option value="${v}" ${v === res.action ? 'selected' : ''}>${l}</option>`).join('');
+  const lag = (res.new_lag_days == null) ? 0 : res.new_lag_days;
+  return `<div class="oos-tieblk">${head}
+    <div class="oos-rec ${res.action === 'remove' ? 'remove' : 'change'}"><div class="rt">${escapeHtml(res.action_text || '')}</div>${res.reasoning ? `<div class="rw">${escapeHtml(res.reasoning)}</div>` : ''}${_oosAltPicks(res, f.finding_id, side)}</div>
+    <div class="oos-editrow">
+      <label>Action</label><select data-oosfield="action" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${actOpts}</select>
+      <span class="oos-editgrp" data-grp="type"><label>Type</label><select data-oosfield="new_type" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${typeOpts}</select></span>
+      <span class="oos-editgrp" data-grp="lag"><label>Lag</label><input type="number" step="0.5" data-oosfield="new_lag_days" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" value="${lag}"> d</span>
+    </div>
+  </div>`;
+}
+
+function _oosDrawer(f) {
+  const pr = f.pred_resolution || f.resolution;
+  const sr = f.succ_resolution;
+  const succChain = f.succ_id
+    ? ` ${_oosCurRel(f.current_succ_rel, f.current_succ_lag)} → <span class="mono">${escapeHtml(f.succ_id)}</span>` : '';
+  const applyBtn = _oosBuildOps(f).length
+    ? `<button class="oos-btn primary" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply correction</button>` : '';
+  return `<div class="oos-draw">
+    <h4>Resolve this finding</h4>
+    <div class="oos-qa">
+      <div class="oos-qcard"><div class="lbl">What is wrong?</div><div class="val">${escapeHtml(f.root_cause || '')}</div></div>
+      <div class="oos-qcard"><div class="lbl">Baseline logic</div><div class="val"><span class="mono">${escapeHtml(f.pred_id || '')}</span> ${_oosCurRel(f.current_pred_rel, f.current_pred_lag)} → <span class="mono">${escapeHtml(f.activity_id)}</span>${succChain}</div></div>
+    </div>
+    ${_oosTieBlock(f, 'pred', pr, `Predecessor tie: ${f.pred_id || ''} → ${f.activity_id}`)}
+    ${f.succ_id ? _oosTieBlock(f, 'succ', sr, `Successor tie: ${f.activity_id} → ${f.succ_id}`) : ''}
+    <div class="oos-editrow soft"><label>Reason (kept with the correction)</label><input type="text" class="oos-reason" data-oosfield="reason" data-fid="${escapeHtml(f.finding_id)}" placeholder="e.g. approval overlaps submittal in the field"></div>
+    <div class="oos-drawbtns">${applyBtn}<button class="oos-btn" data-oosact="details" data-fid="${escapeHtml(f.finding_id)}">Close</button></div>
+  </div>`;
+}
+
+function _oosDlNote(text, isErr) {
+  const el = document.querySelector('#oos-review .oos-dlnote');
+  if (el) { el.textContent = text; el.style.color = isErr ? 'var(--danger)' : ''; }
+}
+
+async function _oosValidate() {
+  const resp = await fetch(`http://localhost:${state.serverPort}/api/oos/validate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+      accepted: _oosAppliedOps(),
+    }),
+  });
+  return resp.json();
+}
+
+async function _oosApply(fid) {
+  const f = (_oos.fresh.find(x => x.finding_id === fid) || _oos.all.find(x => x.finding_id === fid));
+  if (!f) return;
+  const ops = _oosBuildOps(f);
+  if (!ops.length) return;
+  const rEl = document.querySelector(`[data-oosfield="reason"][data-fid="${fid}"]`);
+  _oos.applied[fid] = { finding: f, ops, reason: rEl ? rEl.value.trim() : '' };
+  _oosDlNote('Re-validating…');
+  try {
+    const out = await _oosValidate();
+    if (!out.ok) { delete _oos.applied[fid]; _oosDlNote(out.error || 'Validation failed.', true); renderOosReview(); return; }
+    _oos.fresh = out.findings || [];
+    renderOosReview();
+  } catch (e) {
+    delete _oos.applied[fid];                        // roll back so a failed Apply leaves no phantom op
+    _oosDlNote('Could not reach the analysis engine.', true);
+    renderOosReview();
+  }
+}
+
+async function _oosReopen(fid) {
+  delete _oos.applied[fid];
+  try {
+    const out = await _oosValidate();
+    if (out.ok) _oos.fresh = out.findings || [];
+  } catch (e) { /* keep local state */ }
+  renderOosReview();
+}
+
+async function _oosDownload() {
+  const applied = _oosAppliedOps();
+  if (!applied.length) return;
+  const base = (state.currentXmlPath || 'schedule').split(/[\\/]/).pop();
+  const dot = base.lastIndexOf('.');
+  const ext = dot > 0 ? base.slice(dot + 1).toLowerCase() : 'xml';
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const suggested = `${stem}_corrected.${ext === 'xer' ? 'xer' : 'xml'}`;
+  let outputPath;
+  try {
+    outputPath = await window.pywebview.api.choose_save_path(suggested, ext === 'xer' ? 'xer' : 'xml');
+  } catch (e) { outputPath = null; }
+  if (!outputPath) return;
+  _oosDlNote('Writing corrected schedule…');
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/oos/corrected-file`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+        output_path: outputPath, accepted: applied,
+      }),
+    });
+    const out = await resp.json();
+    _oosDlNote(out.ok
+      ? `Saved — ${out.applied} correction(s) written. Open it in P6 and press F9.`
+      : (out.error || 'Could not write the corrected file.'), !out.ok);
+  } catch (e) {
+    _oosDlNote('Could not write the corrected file.', true);
+  }
+}
+
+// Show/hide the Type + Lag inputs for one tie's editor based on its Action select.
+function _oosEditVisibility(fid, side) {
+  const aEl = document.querySelector(`[data-oosfield="action"][data-fid="${fid}"][data-side="${side}"]`);
+  if (!aEl) return;
+  const act = aEl.value;
+  const blk = aEl.closest('.oos-tieblk');
+  if (!blk) return;
+  blk.querySelectorAll('.oos-editgrp').forEach(el => {
+    const grp = el.getAttribute('data-grp');
+    el.style.display = (act === 'remove' && (grp === 'type' || grp === 'lag')) ? 'none' : '';
+  });
+}
+
+function _oosWire() {
+  const host = document.getElementById('oos-review');
+  if (!host) return;
+  host.onclick = (e) => {
+    const t = e.target.closest('[data-oosact]');
+    if (!t) return;
+    const act = t.getAttribute('data-oosact');
+    const fid = t.getAttribute('data-fid');
+    if (act === 'view') { _oos.view = t.getAttribute('data-view'); renderOosReview(); }
+    else if (act === 'details') {
+      const dr = document.getElementById(`oosdr-${fid}`);
+      if (dr) {
+        dr.classList.toggle('open');
+        if (dr.classList.contains('open')) { _oosEditVisibility(fid, 'pred'); _oosEditVisibility(fid, 'succ'); }
+      }
+    }
+    else if (act === 'apply') { _oosApply(fid); }
+    else if (act === 'reopen') { _oosReopen(fid); }
+    else if (act === 'fullscreen') { _oos.fullscreen = !_oos.fullscreen; renderOosReview(); }
+    else if (act === 'download') { _oosDownload(); }
+    else if (act === 'pickalt') {
+      // Click a valid alternative → pre-fill that tie's editor with the alternative type + lag.
+      const side = t.getAttribute('data-side');
+      const sel = (field) => document.querySelector(`[data-oosfield="${field}"][data-fid="${fid}"][data-side="${side}"]`);
+      const aEl = sel('action'); if (aEl) aEl.value = 'change';
+      const tEl = sel('new_type'); if (tEl) tEl.value = t.getAttribute('data-type');
+      const lEl = sel('new_lag_days'); if (lEl) lEl.value = t.getAttribute('data-lag');
+      _oosEditVisibility(fid, side);
+    }
+  };
+  host.onchange = (e) => {
+    const el = e.target.closest('[data-oosfield="action"]');
+    if (el) _oosEditVisibility(el.getAttribute('data-fid'), el.getAttribute('data-side'));
+  };
 }
 
 // Out of Sequence is a top-level feature (its own panel), not a Schedule Audit module tab.
