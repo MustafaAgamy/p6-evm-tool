@@ -27,7 +27,10 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_index()
         elif self.path.startswith('/ui/'):
             ext = self.path.rsplit('.', 1)[-1]
-            mime = {'css': 'text/css', 'js': 'application/javascript'}.get(ext, 'text/plain')
+            mime = {'css': 'text/css', 'js': 'application/javascript',
+                    'png': 'image/png', 'svg': 'image/svg+xml', 'ico': 'image/x-icon',
+                    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif',
+                    'webp': 'image/webp'}.get(ext, 'text/plain')
             self._serve(resource_path(self.path.lstrip('/')), mime)
         elif self.path == '/api/history':
             self._handle_history()

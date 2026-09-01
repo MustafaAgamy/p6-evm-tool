@@ -129,5 +129,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    # icon='ui/icon.ico',   # uncomment and add icon.ico to use a custom icon
+    icon='ui/icon.ico',     # Controlyx app icon (multi-size .ico, 16–256px)
 )

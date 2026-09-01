@@ -24,6 +24,10 @@ controlyx.db
 *.bmp
 *.webp
 
+# Brand assets are committed (exception to the image ignore above)
+!ui/brand/
+!ui/brand/*.png
+
 # Session notes and AI context files
 SESSION_NOTES.md
 session_notes.md
