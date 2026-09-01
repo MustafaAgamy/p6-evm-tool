@@ -1,11 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# PyInstaller spec for P6 EVM Tool
+# PyInstaller spec for Controlyx
 #
 # Build with:
-#   pyinstaller p6evm.spec
+#   pyinstaller controlyx.spec
 #
-# Output: dist\P6EVMTool.exe  (single self-contained executable)
+# Output: dist\Controlyx.exe  (single self-contained executable)
 
 import sys
 from pathlib import Path
@@ -116,7 +116,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='P6EVMTool',
+    name='Controlyx',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

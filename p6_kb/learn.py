@@ -5,7 +5,7 @@ Per project type, it accumulates which activities and WBS branches recur across
 under the per-user app folder, nothing leaves the PC. Kept separate from the
 curated Knowledge Base standards and always marked "learned".
 
-Storage: one JSON profile per project type under ``%APPDATA%/P6EVMTool/learned/``.
+Storage: one JSON profile per project type under ``%APPDATA%/Controlyx/learned/``.
 Deduped by file hash, so re-importing the same schedule never inflates the counts.
 """
 import json

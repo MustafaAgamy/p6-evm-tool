@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ---
 
 ## [Unreleased]
+### Changed — Rebranded to **Controlyx** (edition **2026**)
+- The product is now **Controlyx**, shown as **Controlyx 2026**. Rebranded across the window title, in-app header and HTML title, the CLI banner, the README/CLAUDE docs, the built executable (**`Controlyx.exe`**), the PyInstaller spec (**`controlyx.spec`**), and the GitHub Actions build artifact + release asset.
+- **Existing installs keep their data.** The per-user data folder (`%APPDATA%\P6EVMTool` → `%APPDATA%\Controlyx`) and the database (`p6evm.db` → `controlyx.db`) are renamed and **migrated automatically on first run**; if the rename can't complete it safely falls back to the old location so nothing is lost.
+- **Intentionally unchanged** (renaming these would break imports or discard user settings — technical identifiers, not branding): the `p6_evm` Python package and the UI `localStorage` keys (`p6_evm_theme`, `p6evm_w_*`, `p6evm_ac_*`). The user-facing name now lives in one place — `APP_NAME` / `APP_EDITION` / `APP_TITLE` in `utils.py`.
+
 ### Added — Special Report (compose your own cross-feature report)
 - **New "Special Report" analysis** — build your own report by picking the exact **detailed results** you want from any feature: each figure on its own (Planned %, Actual %, SPI, the category table, audit scores & findings, "Planned vs Actual activities", …) **plus each feature's own full report sections with their real tables and charts**. Order and number them, name the report, and export to **Word or PDF that look identical** — in all **six appearance modes**. Prints as a proper document: cover page → table of contents → numbered sections.
 - **It runs the features for you** — single-file results come straight from the imported schedule; results that need a second file (Critical Path / Consultant Review → a **baseline XER**; Update-vs-Update → a **previous update**) highlight what's missing with an **Attach** button, then compute on the spot — you never open the feature's own tab.

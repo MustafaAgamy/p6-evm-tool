@@ -1,11 +1,24 @@
-# P6 EVM Tool — Project Brain
+# Controlyx — Project Brain
 
 ## What this is
 
-A desktop app (and CLI) that parses Primavera P6 XML exports, computes EVM metrics
-(Planned Value, Earned Value, SPI, CPI, Delay in days, category-level progress), and
-generates a one-page PDF weekly report. Distributed as a standalone `.exe` — no Python
-required on the target machine.
+**Controlyx** (edition **2026**) is a desktop app (and CLI) that parses Primavera P6 XML
+exports, computes EVM metrics (Planned Value, Earned Value, SPI, CPI, Delay in days,
+category-level progress), and generates a one-page PDF weekly report. Distributed as a
+standalone `.exe` (`Controlyx.exe`) — no Python required on the target machine.
+
+**Naming / branding.** The user-facing product name lives in one place — `APP_NAME` /
+`APP_EDITION` / `APP_TITLE` in `utils.py`. **Never hardcode the product name in a feature:**
+Python code does `from utils import APP_NAME` (or `APP_TITLE`); UI code reads
+`window.__APP_NAME__` / `window.__APP_TITLE__`, which `server.py` injects into every served
+page (the `<title>` and the `#app-title` toolbar element update from it automatically). A new
+feature — or an edition bump to 2027 (one edit to `APP_EDITION`) — then inherits the name
+everywhere with no extra work. Some identifiers intentionally keep their original
+names (they are **not** product branding — renaming them would break imports or orphan user
+data): the `p6_evm` Python package (industry term "P6/EVM", imported across every module and
+test) and the UI `localStorage` keys (`p6_evm_theme`, `p6evm_w_*`, `p6evm_ac_*`). The per-user
+data folder was rebranded `P6EVMTool` → `Controlyx` and the DB `p6evm.db` → `controlyx.db`,
+each migrated automatically on first run (`utils.app_data_dir()` / `db._db_path()`).
 
 ---
 
@@ -21,8 +34,8 @@ required on the target machine.
 | **Report** | `p6_evm/report.py` | `render_html(result, meta)` → HTML string; Chrome headless → PDF |
 | **CLI** | `cli.py` | Terminal usage (no GUI needed) |
 | **Database** | `db.py` | SQLite schema, XML caching, all DB read/write operations |
-| **Utils** | `utils.py` | `resource_path()` for PyInstaller, `app_data_dir()` / `schedules_dir()` for per-user storage |
-| **Build** | `p6evm.spec` | PyInstaller spec → `dist/P6EVMTool.exe` |
+| **Utils** | `utils.py` | brand constants (`APP_NAME`/`APP_EDITION`/`APP_TITLE`), `resource_path()` for PyInstaller, `app_data_dir()` / `schedules_dir()` for per-user storage |
+| **Build** | `controlyx.spec` | PyInstaller spec → `dist/Controlyx.exe` |
 
 ---
 
@@ -87,8 +100,8 @@ POST /api/report  →  resolve_xml_path() (original → cached fallback)
 
 ```powershell
 pip install pyinstaller
-pyinstaller p6evm.spec
-# → dist\P6EVMTool.exe
+pyinstaller controlyx.spec
+# → dist\Controlyx.exe
 ```
 
 Data bundled: `ui/`, `p6_evm/`, `config.json`. `resource_path()` in `utils.py` resolves paths correctly in both dev and bundle.
@@ -103,9 +116,9 @@ Data bundled: `ui/`, `p6_evm/`, `config.json`. `resource_path()` in `utils.py` r
 
 ## Persistence (db.py)
 
-**DB location:** `%APPDATA%\P6EVMTool\p6evm.db` (Windows) / `~/.p6evmtool/p6evm.db` (Mac/Linux) — one per OS user, gitignored.
+**DB location:** `%APPDATA%\Controlyx\controlyx.db` (Windows) / `~/.controlyx/controlyx.db` (Mac/Linux) — one per OS user, gitignored. Legacy `P6EVMTool` / `p6evm.db` are migrated automatically on first run.
 
-**XML cache:** `%APPDATA%\P6EVMTool\schedules\{hash12}_{filename}` — capped at 20 files, oldest deleted on overflow. Dedup by SHA256: importing the same file twice stores one copy.
+**XML cache:** `%APPDATA%\Controlyx\schedules\{hash12}_{filename}` — capped at 20 files, oldest deleted on overflow. Dedup by SHA256: importing the same file twice stores one copy.
 
 **Schema:**
 
@@ -156,7 +169,7 @@ JOIN metrics m ON m.snapshot_id = s.id
    git push origin master vX.Y.Z
    ```
 
-The GitHub Actions workflow (`.github/workflows/build-release.yml`) builds `dist/P6EVMTool.exe`
+The GitHub Actions workflow (`.github/workflows/build-release.yml`) builds `dist/Controlyx.exe`
 via PyInstaller and creates a GitHub Release. It extracts the `[vX.Y.Z]` section from
 `CHANGELOG.md` automatically as the release notes — **never use `generate_release_notes: true`
 or manual release note inputs**; the changelog is the single source of truth.

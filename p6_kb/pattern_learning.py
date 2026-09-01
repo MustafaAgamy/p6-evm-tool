@@ -29,7 +29,7 @@ pattern signature, not copied.
 a finding — that is decided solely by the current XER's own logic. It only annotates a
 finding with cross-project corroboration. The R1–R7 validation gate is untouched.
 
-Storage: ``%APPDATA%/P6EVMTool/learned_patterns.json`` (per-user, private, offline).
+Storage: ``%APPDATA%/Controlyx/learned_patterns.json`` (per-user, private, offline).
 """
 import json
 import os

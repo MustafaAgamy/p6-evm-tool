@@ -1,6 +1,6 @@
 ---
 name: wiring-features-into-the-ui
-description: Use when planning, implementing, or marking done any user-facing feature in the P6 EVM Tool (new import source, button, panel, KPI, view) — before writing the plan and before claiming the feature works. Symptoms you are about to violate this: "coming soon" placeholder, "the UI is a later phase", "the backend/parser is done", a feature that only a test or CLI can reach.
+description: Use when planning, implementing, or marking done any user-facing feature in Controlyx (new import source, button, panel, KPI, view) — before writing the plan and before claiming the feature works. Symptoms you are about to violate this: "coming soon" placeholder, "the UI is a later phase", "the backend/parser is done", a feature that only a test or CLI can reach.
 ---
 
 # Wiring Features Into the UI
