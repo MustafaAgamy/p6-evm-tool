@@ -2031,3 +2031,43 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .tnode.disabled:hover { background: transparent; }
 .tnode .pbadge { font-family: ui-monospace, monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.02em;
   padding: 2px 7px; border-radius: 7px; color: #c3a6ff; background: rgba(124,58,237,0.22); flex-shrink: 0; }
+
+/* ── Project ▸ Overview & WBS views ─────────────────────────────────────────── */
+.ov-head { margin-bottom: 16px; }
+.ov-title h2 { font-size: 20px; font-weight: 800; margin: 0 0 8px; color: var(--text); }
+.ov-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.ov-chip { font-size: 11px; font-family: ui-monospace, monospace; color: var(--ink-soft);
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 7px; padding: 5px 10px; }
+.ov-chip b { color: var(--text); }
+.ov-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.ov-kpi { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; }
+.ov-kpi .k { font-size: 11px; color: var(--muted); font-weight: 600; }
+.ov-kpi .v { font-size: 24px; font-weight: 800; margin-top: 5px; color: var(--text); }
+.ov-kpi .v.sm { font-size: 18px; }
+.ov-kpi .v.bad { color: var(--danger); } .ov-kpi .v.good { color: var(--success); }
+.ov-section-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.8px; margin: 4px 2px 12px; display: flex; align-items: center; gap: 12px; }
+.ovl { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--muted); display: inline-flex; gap: 12px; }
+.ovl i { display: inline-flex; align-items: center; gap: 5px; }
+.ovl i::before { content: ""; width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.ovl i.dp::before { background: var(--accent-soft); } .ovl i.da::before { background: var(--accent); }
+.ov-cats { display: flex; flex-direction: column; gap: 12px; }
+.ov-cat { display: grid; grid-template-columns: 220px 1fr 92px; gap: 14px; align-items: center; }
+.ov-cat-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.ov-cat-name span { display: block; font-size: 10.5px; color: var(--muted); font-weight: 400; font-family: ui-monospace, monospace; margin-top: 1px; }
+.ovb { position: relative; height: 15px; background: var(--hair); border-radius: 5px; overflow: hidden; }
+.ovb-plan { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent-soft); border-radius: 5px; }
+.ovb-act { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 5px; }
+.ov-cat-val { text-align: right; font-family: ui-monospace, monospace; font-size: 12px; }
+.ov-cat-val b { font-size: 14px; color: var(--text); } .ov-cat-val span { display: block; font-size: 10.5px; color: var(--muted); }
+.ov-tablewrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.ov-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ov-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+  font-weight: 700; padding: 10px 13px; border-bottom: 1px solid var(--border); background: var(--card-bg); }
+.ov-table th.n, .ov-table td.n { text-align: right; font-family: ui-monospace, monospace; }
+.ov-table td { padding: 10px 13px; border-bottom: 1px solid var(--hair); color: var(--text); }
+.ov-table tfoot td { font-weight: 700; border-top: 1px solid var(--border); background: var(--card-bg); }
+.ov-note { font-size: 12px; color: var(--muted); font-style: italic; margin-top: 16px; line-height: 1.5; }
+.ov-empty { color: var(--muted); font-style: italic; padding: 8px 2px; }
+
+.tnode .pbadge.soon { color: #f0c36a; background: rgba(183,121,31,0.22); }
