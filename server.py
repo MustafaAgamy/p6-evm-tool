@@ -398,6 +398,36 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
+            # ── Slim activity timeline for the Schedule (Gantt) view ──────────
+            # JSON-safe {id,name,wbs,start,finish,pct,critical,milestone} — NOT the
+            # heavy/non-serialisable `records`. Only rows with both dates are kept.
+            try:
+                from p6_evm.metrics import wbs_ancestor_names
+                gantt = []
+                for r in result['records']:
+                    a = r['activity']
+                    s, f = a.get('planned_start'), a.get('planned_finish')
+                    if not s or not f:
+                        continue
+                    names = wbs_ancestor_names(a.get('wbs_id'), data.wbs)
+                    tf = r.get('total_float')
+                    gantt.append({
+                        'id':        a.get('id') or '',
+                        'name':      a.get('name') or '',
+                        'wbs':       ' > '.join(names),
+                        'wbs_top':   names[0] if names else 'Ungrouped',
+                        'start':     s.isoformat() if hasattr(s, 'isoformat') else str(s),
+                        'finish':    f.isoformat() if hasattr(f, 'isoformat') else str(f),
+                        'pct':       round((a.get('percent_complete') or 0) * 100),
+                        'critical':  tf is not None and tf <= 0,
+                        'milestone': a.get('task_type') in ('StartMilestone', 'FinishMilestone'),
+                    })
+                gantt.sort(key=lambda x: x['start'])
+                safe_result['activities'] = gantt
+            except Exception as gantt_exc:
+                safe_result['activities'] = []
+                print(f'[gantt] slim activities skipped: {gantt_exc}', file=sys.stderr)
+
             code_types = list(getattr(data, 'activity_code_types', []) or [])
             safe_result['activity_code_types'] = code_types
             # Default PV-EV gap on a sensible dimension (records still present on `result`)

@@ -13,6 +13,7 @@ import { renderCritPathPanel }                 from './modules/critpath.js';
 import { renderUpdatePanel }                   from './modules/update.js';
 import { renderSpecialPanel }                  from './modules/special.js';
 import { renderOverview, renderWbs }           from './modules/overview.js';
+import { renderSchedule }                       from './modules/gantt.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
 
@@ -55,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const NAV = [
     { node: { id:'home', label:'Import a schedule', icon:'home' } },
     { group:'Project', items:[
-      ['overview','Overview','overview'], ['schedule','Schedule (Gantt)','sched','soon'],
+      ['overview','Overview','overview'], ['schedule','Schedule (Gantt)','sched'],
       ['wbs','WBS','wbs'], ['calendar','Calendars','calendar'],
     ]},
     { group:'Analysis', items:[
@@ -95,6 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
     switchView(view);
     if (view === 'overview')  renderOverview(state.currentResult);
     if (view === 'wbs')       renderWbs(state.currentResult);
+    if (view === 'schedule')  renderSchedule(state.currentResult);
     if (view === 'evm')       maybePromptBaseline(state.currentResult);
     if (view === 'construct')  renderConstructPanel();
     if (view === 'compare')    renderComparePanel();
