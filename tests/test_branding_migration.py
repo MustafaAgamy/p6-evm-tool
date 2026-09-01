@@ -68,3 +68,23 @@ def test_app_data_dir_fresh_when_no_legacy(tmp_path, monkeypatch):
     path = utils.app_data_dir()
     assert path == str(tmp_path / '.controlyx')
     assert os.path.isdir(path)
+
+
+# ── Brand is centralized: the served UI inherits it automatically ───────────
+
+def test_served_index_injects_brand(test_server):
+    """The UI must derive its name from utils.APP_* at runtime, so any current
+    or future UI feature inherits the brand without hardcoding it."""
+    import urllib.request
+    html = urllib.request.urlopen(f'http://localhost:{test_server}/').read().decode()
+    assert 'window.__APP_NAME__' in html
+    assert 'window.__APP_TITLE__' in html
+    assert utils.APP_TITLE in html      # e.g. "Controlyx 2026"
+    assert 'id="app-title"' in html     # element the injected title binds to
+
+
+def test_report_footer_uses_brand_constant():
+    """The PDF/HTML report footer is rendered from APP_NAME, not a literal, so
+    it tracks the single source of truth."""
+    from p6_evm import report
+    assert report.APP_NAME == utils.APP_NAME

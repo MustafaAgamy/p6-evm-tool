@@ -5,7 +5,7 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, date
-from utils import resource_path, exe_dir, app_data_dir
+from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE
 import db
 import report_theme
 
@@ -284,7 +284,27 @@ class Handler(BaseHTTPRequestHandler):
             with open(resource_path('ui/index.html'), 'rb') as f:
                 html = f.read().decode()
             port = self.server.server_address[1]
-            html = html.replace('</head>', f'<script>window.__SERVER_PORT__ = {port};</script></head>', 1)
+            # Inject runtime globals so the UI derives its branding from the
+            # single source of truth (utils.APP_*). Any current or future UI
+            # feature reads window.__APP_NAME__ / window.__APP_TITLE__ instead
+            # of hardcoding the product name.
+            assigns = ''.join(
+                f'window.{k} = {json.dumps(v)};' for k, v in (
+                    ('__SERVER_PORT__', port),
+                    ('__APP_NAME__', APP_NAME),
+                    ('__APP_EDITION__', APP_EDITION),
+                    ('__APP_TITLE__', APP_TITLE),
+                )
+            )
+            brand_script = (
+                '<script>' + assigns
+                + 'document.title=window.__APP_TITLE__;'
+                + 'document.addEventListener("DOMContentLoaded",function(){'
+                + 'var e=document.getElementById("app-title");'
+                + 'if(e)e.textContent=window.__APP_TITLE__;});'
+                + '</script>'
+            )
+            html = html.replace('</head>', brand_script + '</head>', 1)
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
             self.end_headers()

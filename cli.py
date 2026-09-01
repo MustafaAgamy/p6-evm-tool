@@ -6,6 +6,7 @@ import sys
 
 from p6_evm.metrics import compute
 from p6_evm.parser import parse_file
+from utils import APP_NAME
 
 DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
 
@@ -69,8 +70,8 @@ def write_activity_csv(result, path):
 
 
 def main():
-    parser = argparse.ArgumentParser(prog='controlyx',
-                                     description='Controlyx — Primavera P6 EVM & delay report (CLI)')
+    parser = argparse.ArgumentParser(prog=APP_NAME.lower(),
+                                     description=f'{APP_NAME} — Primavera P6 EVM & delay report (CLI)')
     parser.add_argument('xml_file')
     parser.add_argument('--config', default=DEFAULT_CONFIG_PATH)
     parser.add_argument('--overrides', help=(

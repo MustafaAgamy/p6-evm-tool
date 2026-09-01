@@ -8,7 +8,12 @@ category-level progress), and generates a one-page PDF weekly report. Distribute
 standalone `.exe` (`Controlyx.exe`) — no Python required on the target machine.
 
 **Naming / branding.** The user-facing product name lives in one place — `APP_NAME` /
-`APP_EDITION` / `APP_TITLE` in `utils.py`. Some identifiers intentionally keep their original
+`APP_EDITION` / `APP_TITLE` in `utils.py`. **Never hardcode the product name in a feature:**
+Python code does `from utils import APP_NAME` (or `APP_TITLE`); UI code reads
+`window.__APP_NAME__` / `window.__APP_TITLE__`, which `server.py` injects into every served
+page (the `<title>` and the `#app-title` toolbar element update from it automatically). A new
+feature — or an edition bump to 2027 (one edit to `APP_EDITION`) — then inherits the name
+everywhere with no extra work. Some identifiers intentionally keep their original
 names (they are **not** product branding — renaming them would break imports or orphan user
 data): the `p6_evm` Python package (industry term "P6/EVM", imported across every module and
 test) and the UI `localStorage` keys (`p6_evm_theme`, `p6evm_w_*`, `p6evm_ac_*`). The per-user
