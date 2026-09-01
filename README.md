@@ -1,7 +1,8 @@
 # Controlyx
 
-Computes Delay, Planned/Earned Value, SPI, CPI, and category-level Planned% / Actual%
-from a Primavera P6 Professional XML export, and generates a one-page PDF weekly report.
+**Controlyx** is a Primavera P6 **project-controls** desktop app (and CLI) for project controls
+engineers. It computes Delay, Planned/Earned Value, SPI, CPI, and category-level Planned% /
+Actual% from a P6 Professional XML/XER export, and generates a one-page PDF weekly report.
 
 Two ways to use it:
 
