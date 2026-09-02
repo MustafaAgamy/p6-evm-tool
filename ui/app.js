@@ -8,6 +8,7 @@ import { showDatabase, exitDatabase, initDatabase } from './modules/database.js'
 import { showRecent, exitRecent }                   from './modules/recent.js';
 import { maybePromptBaseline }                 from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
+import { renderRevComparePanel }               from './modules/revcompare.js';
 import { renderPeriodPanel }                   from './modules/period.js';
 import { renderCritPathPanel }                 from './modules/critpath.js';
 import { renderUpdatePanel }                   from './modules/update.js';
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
     construct:'<path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/>',
     compare:'<path d="M7 8l-4 4 4 4"/><path d="M17 8l4 4-4 4"/><line x1="14" y1="4" x2="10" y2="20"/>',
+    revcompare:'<path d="M6 3v6a3 3 0 003 3h6"/><path d="M18 21v-6a3 3 0 00-3-3H9"/><path d="M15 9l3 3-3 3"/><path d="M9 15l-3-3 3-3"/>',
     lag:'<path d="M4 4h11l5 5v11H4z"/><path d="M8 12h8"/>',
     period:'<path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/>',
     critpath:'<path d="M4 20V4"/><path d="M4 8h6l4 6h6"/>',
@@ -61,7 +63,8 @@ document.addEventListener('DOMContentLoaded', () => {
     { group:'Analysis', items:[
       ['evm','Earned Value'], ['audit','Schedule Health'], ['critpath','Critical Path'],
       ['construct','Constructability'], ['oos','Out of Sequence'], ['lag','Lag Report'],
-      ['compare','Consultant Review'], ['update','Update Analysis'], ['period','Update vs Update'],
+      ['compare','Consultant Review'], ['revcompare','Baseline Revision','revcompare'],
+      ['update','Update Analysis'], ['period','Update vs Update'],
     ]},
     { group:'Preview · coming soon', items:[
       ['pv_dash','Professional Dashboard','dash','preview'], ['pv_weather','Weather → Forecast','weather','preview'],
@@ -72,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   const CRUMB = { home:'Home', recent:'Recent Projects', kb:'Knowledge Base', evm:'Earned Value',
     audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
-    compare:'Consultant Review', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
+    compare:'Consultant Review', revcompare:'Baseline Revision Comparison', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
     update:'Update Analysis', special:'Special Report', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS' };
   const navTree = document.getElementById('nav-tree');
   const tnode = (id, label, icon, o = {}) => {
@@ -100,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'evm')       maybePromptBaseline(state.currentResult);
     if (view === 'construct')  renderConstructPanel();
     if (view === 'compare')    renderComparePanel();
+    if (view === 'revcompare') renderRevComparePanel();
     if (view === 'period')     renderPeriodPanel();
     if (view === 'critpath')   renderCritPathPanel();
     if (view === 'update')     renderUpdatePanel();
@@ -156,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lag:      { pdf: 'lag-pdf-btn',     xls: 'lag-excel-btn' },
     calendar: { pdf: 'cal-pdf-btn',     xls: 'cal-excel-btn' },
     compare:  { pdf: 'cmp-preview-pdf', xls: 'cmp-export-xlsx' },
+    revcompare:{ pdf: 'rc-preview-pdf' },
     critpath: { pdf: 'cpa-export-pdf',  xls: 'cpa-export-xlsx' },
     construct:{ pdf: 'cx-pdf',          xls: 'cx-xls' },
     period:   { pdf: 'per-export-pdf',  xls: 'per-export-xlsx' },
@@ -237,6 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
   document.getElementById('tab-construct').addEventListener('click', () => { switchView('construct'); renderConstructPanel(); });
   document.getElementById('tab-compare').addEventListener('click', () => { switchView('compare'); renderComparePanel(); });
+  document.getElementById('tab-revcompare')?.addEventListener('click', () => { switchView('revcompare'); renderRevComparePanel(); });
   document.getElementById('tab-lag').addEventListener('click', () => switchView('lag'));
   document.getElementById('tab-period').addEventListener('click', () => { switchView('period'); renderPeriodPanel(); });
   document.getElementById('tab-critpath').addEventListener('click', () => { switchView('critpath'); renderCritPathPanel(); });

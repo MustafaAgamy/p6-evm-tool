@@ -19,6 +19,10 @@ export const state = {
   constructForcedType: null, // user-overridden project sub-type, if any
   compareReport:     null,   // Consultant Review — last Baseline vs Update report dict
   compareBaselineName: null, // filename of the baseline chosen for the comparison
+  revcompareReport:  null,   // Baseline Revision Comparison — last Rev.00 vs Rev.01 report dict
+  revcompareRev0:    null,   // {path, name} assigned original baseline (Rev.00)
+  revcompareRev1:    null,   // {path, name} assigned revised baseline (Rev.01)
+  revcompareTab:     'summary', // active result sub-tab (summary|register|cp|ms)
   kbLibrary:         null,   // Knowledge Base library — {categories:[…], total} cached from /api/kb
   kbSelectedType:    null,   // type name selected in the KB EPS tree
   kbSelectedCat:     null,   // category currently expanded in the KB tree

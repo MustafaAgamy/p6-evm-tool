@@ -62,6 +62,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_compare_excel(body)
         elif self.path == '/api/compare/report':
             self._handle_compare_report(body)
+        elif self.path == '/api/revcompare':
+            self._handle_revcompare(body)
+        elif self.path == '/api/revcompare/report':
+            self._handle_revcompare_report(body)
         elif self.path == '/api/period/compare':
             self._handle_period_compare(body)
         elif self.path == '/api/period/previous':
@@ -982,6 +986,66 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_critpath.exporters import to_excel
             to_excel(report, output_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/revcompare — Baseline Revision Comparison (Rev.00 vs Rev.01) ───
+    def _handle_revcompare(self, body):
+        """Baseline Revision Comparison. Parses two assigned baseline revisions and returns
+        the neutral comparison report (executive summary, change register, critical path &
+        sequence, milestones). Both files are user-assigned — neither is auto-run on import.
+        Nothing is written to the DB; the report carries no `records`."""
+        rev0_path = body.get('rev0_path', '')
+        rev1_path = body.get('rev1_path', '')
+        if not rev0_path or not os.path.isfile(rev0_path):
+            self._json(200, {'ok': False, 'error': 'Assign the original baseline (Rev.00) file.'})
+            return
+        if not rev1_path or not os.path.isfile(rev1_path):
+            self._json(200, {'ok': False, 'error': 'Assign the revised baseline (Rev.01) file.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_revcompare import build_report
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            report = build_report(rev0_path, rev1_path, config, options=body.get('options'))
+            report['rev0']['file'] = os.path.basename(rev0_path)
+            report['rev1']['file'] = os.path.basename(rev1_path)
+            self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_revcompare_report(self, body):
+        """Baseline Revision Comparison PDF (or preview HTML) — rendered from the report the
+        client already holds (no re-parse). `sections` limits which sections are printed;
+        Chrome headless → PDF when an output path is given."""
+        report = body.get('report') or {}
+        sections = body.get('sections')
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_revcompare.exporters import render_html
+            import subprocess, tempfile
+            html_content = render_html(report, meta=body.get('meta'), sections=sections,
+                                       theme=report_theme.normalize(body.get('theme')))
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

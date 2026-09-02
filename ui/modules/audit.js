@@ -65,6 +65,7 @@ export function switchView(view) {
   document.getElementById('calendar-panel').classList.toggle('hidden', view !== 'calendar');
   document.getElementById('construct-panel').classList.toggle('hidden', view !== 'construct');
   document.getElementById('compare-panel').classList.toggle('hidden', view !== 'compare');
+  document.getElementById('revcompare-panel')?.classList.toggle('hidden', view !== 'revcompare');
   document.getElementById('lag-panel').classList.toggle('hidden', view !== 'lag');
   document.getElementById('period-panel').classList.toggle('hidden', view !== 'period');
   document.getElementById('critpath-panel').classList.toggle('hidden', view !== 'critpath');
@@ -79,6 +80,7 @@ export function switchView(view) {
   document.getElementById('tab-calendar').classList.toggle('active', view === 'calendar');
   document.getElementById('tab-construct').classList.toggle('active', view === 'construct');
   document.getElementById('tab-compare').classList.toggle('active', view === 'compare');
+  document.getElementById('tab-revcompare')?.classList.toggle('active', view === 'revcompare');
   document.getElementById('tab-lag').classList.toggle('active', view === 'lag');
   document.getElementById('tab-period').classList.toggle('active', view === 'period');
   document.getElementById('tab-critpath').classList.toggle('active', view === 'critpath');
