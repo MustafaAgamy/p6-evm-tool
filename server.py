@@ -428,6 +428,103 @@ class Handler(BaseHTTPRequestHandler):
                 safe_result['activities'] = []
                 print(f'[gantt] slim activities skipped: {gantt_exc}', file=sys.stderr)
 
+            # ── WBS summary tree — rolled up to the level that holds activities ──
+            # Pre-order list of WBS nodes (with depth) whose subtree contains
+            # activities; each carries weighted planned/actual %, an activity count
+            # and the rolled-up start/finish, using the same BAC-else-duration
+            # weighting as the EVM roll-up. `wbs_main` lists the selectable top-
+            # level branches (e.g. Engineering / Construction). Leaf nodes are the
+            # WBS that directly hold activities (activities themselves are NOT listed).
+            try:
+                from collections import defaultdict
+                wmap = data.wbs
+                any_bac = any((r.get('bac') or 0) > 0 for r in result['records'])
+
+                def _mn(a, b):
+                    return b if a is None else (a if b is None else min(a, b))
+
+                def _mx(a, b):
+                    return b if a is None else (a if b is None else max(a, b))
+
+                base = lambda: {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0, 's': None, 'f': None}
+                direct = defaultdict(base)
+                for r in result['records']:
+                    a = r['activity']
+                    wid = a.get('wbs_id')
+                    if wid is None:
+                        continue
+                    d = direct[wid]
+                    d['s'] = _mn(d['s'], a.get('planned_start'))
+                    d['f'] = _mx(d['f'], a.get('planned_finish'))
+                    if r.get('planned_pct') is None:
+                        continue
+                    w = (r.get('bac') or 0.0) if any_bac else float(a.get('planned_duration') or 1.0)
+                    d['n'] += 1; d['w'] += w
+                    d['wp'] += w * r['planned_pct']; d['wa'] += w * (r.get('actual_pct') or 0.0)
+
+                kids = defaultdict(list)
+                for wid, node in wmap.items():
+                    kids[node.get('parent_object_id')].append(wid)
+                roots = [wid for wid in wmap
+                         if not wmap[wid].get('parent_object_id') or wmap[wid].get('parent_object_id') not in wmap]
+
+                sub = {}
+                def _rollup(wid):
+                    t = dict(direct.get(wid) or base())
+                    for k in kids.get(wid, []):
+                        c = _rollup(k)
+                        t['n'] += c['n']; t['w'] += c['w']; t['wp'] += c['wp']; t['wa'] += c['wa']
+                        t['s'] = _mn(t['s'], c['s']); t['f'] = _mx(t['f'], c['f'])
+                    sub[wid] = t
+                    return t
+                for rt in roots:
+                    _rollup(rt)
+
+                def _iso(x):
+                    return x.date().isoformat() if hasattr(x, 'date') else (str(x)[:10] if x else None)
+
+                wbs_summary = []
+                def _emit(wid, depth, parent):
+                    t = sub.get(wid) or base()
+                    if t['n'] == 0:
+                        return
+                    childs = [k for k in kids.get(wid, []) if (sub.get(k) or base())['n'] > 0]
+                    wbs_summary.append({
+                        'id':         str(wid),
+                        'parent':     str(parent) if parent is not None else None,
+                        'name':       wmap[wid].get('name') or '(WBS)',
+                        'depth':      depth,
+                        'activities': t['n'],
+                        'planned':    round(100 * t['wp'] / t['w'], 1) if t['w'] else None,
+                        'actual':     round(100 * t['wa'] / t['w'], 1) if t['w'] else None,
+                        'start':      _iso(t['s']),
+                        'finish':     _iso(t['f']),
+                        'leaf':       (direct.get(wid) or base())['n'] > 0 and not childs,
+                    })
+                    for k in sorted(childs, key=lambda x: (wmap[x].get('name') or '').lower()):
+                        _emit(k, depth + 1, wid)
+                for rt in sorted(roots, key=lambda x: (wmap[x].get('name') or '').lower()):
+                    _emit(rt, 0, None)
+
+                # Selectable top-level branches: the activity-bearing roots when
+                # there are several, else the activity-bearing children of the sole
+                # root (so a single "Project" root exposes Engineering/Construction).
+                roots_act = [rt for rt in roots if (sub.get(rt) or base())['n'] > 0]
+                if len(roots_act) >= 2:
+                    main_ids = roots_act
+                elif roots_act:
+                    ch = [k for k in kids.get(roots_act[0], []) if (sub.get(k) or base())['n'] > 0]
+                    main_ids = ch if len(ch) >= 2 else [roots_act[0]]
+                else:
+                    main_ids = []
+                main_ids = sorted(main_ids, key=lambda x: (wmap[x].get('name') or '').lower())
+                safe_result['wbs_main'] = [{'id': str(w), 'name': wmap[w].get('name') or '(WBS)'} for w in main_ids]
+                safe_result['wbs_summary'] = wbs_summary
+            except Exception as wbs_exc:
+                safe_result['wbs_summary'] = []
+                safe_result['wbs_main'] = []
+                print(f'[wbs] summary skipped: {wbs_exc}', file=sys.stderr)
+
             code_types = list(getattr(data, 'activity_code_types', []) or [])
             safe_result['activity_code_types'] = code_types
             # Default PV-EV gap on a sensible dimension (records still present on `result`)

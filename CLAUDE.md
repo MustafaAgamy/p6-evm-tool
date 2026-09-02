@@ -86,7 +86,7 @@ POST /api/report  →  resolve_xml_path() (original → cached fallback)
 }
 ```
 
-`activity_count`, `calendar_count`, `project_name` are added by `_handle_parse()` from the parsed `ScheduleData`.
+`activity_count`, `calendar_count`, `project_name` are added by `_handle_parse()` from the parsed `ScheduleData`. `_handle_parse()` also attaches view-only projections built from the (soon-stripped) `records`: `activities` (slim per-activity list for the Schedule/Gantt view) and `wbs_summary` + `wbs_main` (the WBS hierarchy rolled up to the activity-bearing level — pre-order nodes with weighted planned/actual %, rolled-up start/finish and leaf flags, plus the selectable top-level branches — for the Project ▸ WBS view). All are additive and guarded; they never appear on `compute()`'s own return.
 
 ---
 
