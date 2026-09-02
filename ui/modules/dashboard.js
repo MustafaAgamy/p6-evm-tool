@@ -7,6 +7,9 @@
 import { state } from './state.js';
 import { fmtEGP, fmtDate, escapeHtml } from './format.js';
 
+let _print = null;   // printable sections for the global File ▸ Print flow
+export function dashboardPrint() { return _print; }
+
 const spiFmt = (v) => (v == null ? '—' : Number(v).toFixed(2));
 // metrics.overall_*_pct is stored as a fraction (0–1); show it as a percent.
 const pct1   = (v) => (v == null ? '—' : `${(Number(v) * 100).toFixed(1)}%`);
@@ -80,6 +83,7 @@ function trendBlock(title, legend, svg) {
 export async function renderDashboard() {
   const el = document.getElementById('dash-body');
   if (!el) return;
+  _print = null;
   el.innerHTML = `<div class="dash-loading">Loading portfolio…</div>`;
 
   let data;
@@ -135,7 +139,7 @@ export async function renderDashboard() {
   }).join('');
 
   // active project's trend (needs ≥2 snapshots to draw a line)
-  let trends = '';
+  let trends = '', trendInner = '';
   const trend = data.active && Array.isArray(data.active.trend) ? data.active.trend : [];
   const dated = trend.filter((t) => !Number.isNaN(toMs(t.data_date)));
   if (data.active && dated.length >= 2) {
@@ -155,12 +159,18 @@ export async function renderDashboard() {
     if (hasData(delYs))
       blocks.push(trendBlock('Finish delay', `<i style="background:${delC}"></i>days <em>· 0 on baseline</em>`,
         lineChart(xs, [{ ys: delYs, color: delC }], { ref: 0, fmtY: (v) => `${Math.round(v)}d` })));
-    if (blocks.length) trends = `
+    if (blocks.length) {
+      trendInner = `<div class="dash-trends">${blocks.join('')}</div>`;
+      trends = `
       <div class="ov-section-label">Trend · ${escapeHtml(data.active.name || 'current project')} <span class="dash-trend-sub">${dated.length} updates</span></div>
-      <div class="dash-trends">${blocks.join('')}</div>`;
+      ${trendInner}`;
+    }
   } else if (data.active) {
     trends = `<p class="ov-note dash-trend-note">Import another update for <b>${escapeHtml(data.active.name || 'this project')}</b> to see its week-over-week trend — the dashboard charts SPI, progress and delay across every stored snapshot.</p>`;
   }
+
+  _print = [{ key: 'portfolio', label: 'Portfolio', html: `<div class="dash-grid">${cards}</div>` }];
+  if (trendInner) _print.push({ key: 'trend', label: `Trend · ${data.active.name || 'current project'}`, html: trendInner });
 
   el.innerHTML = `
     <div class="ov-head"><div class="ov-title">

@@ -100,6 +100,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_forecast(body)
         elif self.path == '/api/copilot':
             self._handle_copilot(body)
+        elif self.path == '/api/report/html':
+            self._handle_report_html(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -2325,6 +2327,34 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
 
     # ── /api/history ───────────────────────────────────────────────────────
+    def _handle_report_html(self, body):
+        """Generic 'print this view' → PDF. The client composes a self-contained HTML
+        document (app stylesheet inlined, light theme, only the ticked sections) so
+        Preview == PDF == Print; this route just renders it with headless Chrome.
+        Every screen view prints through here via the shared printView() helper."""
+        output_path = body.get('output_path', '')
+        html_content = body.get('html', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not html_content:
+            self._json(200, {'ok': False, 'error': 'Nothing to print — the report was empty.'})
+            return
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     def _handle_copilot(self, body):
         """AI Copilot · TIA — the deterministic, offline core (Time-Impact Analysis +
         prioritised insights) from the already-computed result, reusing the saved

@@ -2177,6 +2177,13 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wbst-colmenu label { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; }
 .wbst-colmenu label:hover { background: var(--bg); }
 .wbst-colmenu input { cursor: pointer; margin: 0; }
+/* WBS printable table (used by the File ▸ Print flow) */
+.wbs-print { width: 100%; border-collapse: collapse; font-size: 12px; }
+.wbs-print th, .wbs-print td { padding: 5px 8px; border-bottom: 1px solid var(--hair); text-align: left; }
+.wbs-print th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); border-bottom: 1px solid var(--border); }
+.wbs-print th.wp-num, .wbs-print td.wp-num { text-align: right; font-family: ui-monospace, monospace; }
+.wbs-print td.wp-date { font-family: ui-monospace, monospace; }
+.wbs-print tr.sum td { font-weight: 700; }
 
 /* ── Baseline Revision Comparison (Rev.00 vs Rev.01) ──────────────────────── */
 #revcompare-body { display: flex; flex-direction: column; gap: 14px; }
