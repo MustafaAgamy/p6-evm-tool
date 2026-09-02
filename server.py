@@ -92,6 +92,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_dashboard(body)
         elif self.path == '/api/narrative':
             self._handle_narrative(body)
+        elif self.path == '/api/forecast':
+            self._handle_forecast(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -2257,6 +2259,28 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
 
     # ── /api/history ───────────────────────────────────────────────────────
+    def _handle_forecast(self, body):
+        """Weather → Forecast: finish-date scenarios from the schedule's own
+        figures + the weather impact Calendar Audit already computed (reused from
+        project settings). Prefers the client result (it carries the finish dates)."""
+        try:
+            from p6_evm.forecast import build_forecast
+            result = body.get('result')
+            weather = None
+            snap = body.get('snapshot_id')
+            if snap is not None:
+                pid = db.snapshot_project_id(snap)
+                if pid is not None:
+                    weather = (db.get_project_settings(pid) or {}).get('last_weather')
+                    if not result:
+                        result = db.get_project_result(pid)
+            if not result:
+                self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
+                return
+            self._json(200, {'ok': True, **build_forecast(result, weather)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     def _handle_narrative(self, body):
         """Baseline Narrative: a deterministic status narrative built from the
         already-computed result. Prefers the DB result for the given snapshot
