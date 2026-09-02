@@ -734,6 +734,47 @@ def get_project_snapshots(project_id):
         ).fetchall()
     return [dict(r) for r in rows]
 
+def get_dashboard(active_snapshot_id=None, limit=12):
+    """Read-model behind the Professional Dashboard — entirely from the DB, no
+    XML re-parse (the architecture's read path).
+
+    Returns:
+      {
+        'portfolio': [ {project_id, name, snapshot_id, data_date, imported_at,
+                        activity_count, snapshot_count, spi, cpi, delay_days,
+                        overall_planned_pct, overall_actual_pct, pv, ev, ac}, … ],
+                     # one row per project, its most recent snapshot, newest first
+        'active':    {project_id, name, trend:[snapshot rows…]} | None
+                     # the trend series for the project owning active_snapshot_id
+      }
+    """
+    with get_conn() as conn:
+        portfolio = [dict(r) for r in conn.execute(
+            '''SELECT p.id AS project_id, p.name,
+                      s.id AS snapshot_id, s.data_date, s.imported_at, s.activity_count,
+                      m.spi, m.cpi, m.delay_days,
+                      m.overall_planned_pct, m.overall_actual_pct,
+                      m.pv, m.ev, m.ac
+               FROM projects p
+               JOIN snapshots s ON s.id = (
+                   SELECT id FROM snapshots WHERE project_id = p.id
+                   ORDER BY imported_at DESC, id DESC LIMIT 1)
+               LEFT JOIN metrics m ON m.snapshot_id = s.id
+               ORDER BY s.imported_at DESC, s.id DESC LIMIT ?''', (limit,)).fetchall()]
+        counts = {r['project_id']: r['n'] for r in conn.execute(
+            'SELECT project_id, COUNT(*) AS n FROM snapshots GROUP BY project_id').fetchall()}
+    for r in portfolio:
+        r['snapshot_count'] = counts.get(r['project_id'], 1)
+
+    active = None
+    if active_snapshot_id is not None:
+        pid = snapshot_project_id(active_snapshot_id)
+        if pid is not None:
+            name = next((r['name'] for r in portfolio if r['project_id'] == pid), None)
+            active = {'project_id': pid, 'name': name, 'trend': get_project_snapshots(pid)}
+    return {'portfolio': portfolio, 'active': active}
+
+
 def get_prev_snapshot(snapshot_id):
     """The snapshot immediately before `snapshot_id` for the same project (by data
     date, then import time) — used by Update vs Update to auto-suggest last period.

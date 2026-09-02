@@ -88,6 +88,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_excel(body)
         elif self.path == '/api/update/report':
             self._handle_update_report(body)
+        elif self.path == '/api/dashboard':
+            self._handle_dashboard(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -2253,6 +2255,16 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
 
     # ── /api/history ───────────────────────────────────────────────────────
+    def _handle_dashboard(self, body):
+        """Professional Dashboard read-model: the portfolio (latest snapshot per
+        project) + the active project's snapshot trend. DB-only, no re-parse."""
+        try:
+            snap = body.get('snapshot_id')
+            data = db.get_dashboard(active_snapshot_id=snap)
+            self._json(200, {'ok': True, **data})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     def _handle_history(self):
         rows = db.get_recent_projects(limit=10)
         # Normalise to the shape app.js already expects
