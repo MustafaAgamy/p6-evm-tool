@@ -1991,7 +1991,8 @@ class Handler(BaseHTTPRequestHandler):
                     if name in cats:
                         cats[name]['actual_pct'] = actual
             html_content = render_evm_report(result, meta_in, gap=gap, engineering=engineering,
-                                             theme=report_theme.normalize(body.get('theme')))
+                                             theme=report_theme.normalize(body.get('theme')),
+                                             sections=body.get('sections'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

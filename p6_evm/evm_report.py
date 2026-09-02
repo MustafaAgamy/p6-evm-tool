@@ -285,9 +285,18 @@ def _engineering_section(engineering):
             f'<p class="note">{_esc(note)}</p>{table}{trade_html}{gap_html}')
 
 
-def render_evm_report(result, meta, gap=None, engineering=None, theme='light'):
+def render_evm_report(result, meta, gap=None, engineering=None, theme='light', sections=None):
+    # `sections` (list of keys) limits which of the four core blocks render, for the
+    # Printing Selection picker. None = the whole report — unchanged behaviour for
+    # the CLI and every existing caller. Engineering and PV-EV Gap are data-driven
+    # add-ons (empty string when absent), so they are always shown when present.
+    _inc = (lambda _k: True) if not sections else (lambda _k: _k in sections)
     gap_html = _gap_section(gap)
     eng_html = _engineering_section(engineering)
+    progress_html  = (f'<h2 class="sec">Project Progress — Planned vs Actual</h2>\n  {_progress_band(result)}' if _inc('progress') else '')
+    dashboard_html = (f'<h2 class="sec">Executive Dashboard</h2>\n  {_dashboard(result, meta)}' if _inc('dashboard') else '')
+    value_html     = (f'<h2 class="sec">Planned Value vs Earned Value</h2>\n  {_pv_ev_bar(result)}' if _inc('value') else '')
+    category_html  = (f'<h2 class="sec">Category Weights &amp; Overall Progress</h2>\n  {_category_table(result)}' if _inc('category') else '')
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>EVM Results — {_esc(meta.get('project_name', ''))}</title>
 <style>
@@ -333,17 +342,13 @@ def render_evm_report(result, meta, gap=None, engineering=None, theme='light'):
     </div>
   </div>
 
-  <h2 class="sec">Project Progress — Planned vs Actual</h2>
-  {_progress_band(result)}
+  {progress_html}
 
-  <h2 class="sec">Executive Dashboard</h2>
-  {_dashboard(result, meta)}
+  {dashboard_html}
 
-  <h2 class="sec">Planned Value vs Earned Value</h2>
-  {_pv_ev_bar(result)}
+  {value_html}
 
-  <h2 class="sec">Category Weights &amp; Overall Progress</h2>
-  {_category_table(result)}
+  {category_html}
 
   {eng_html}
 

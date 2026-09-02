@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Open a feature view — reuses the exact per-view render path the chooser cards used.
   function openView(view) {
+    state.currentView = view;          // drives the global File ▸ Print / Export to PDF action
     switchView(view);
     if (view === 'overview')  renderOverview(state.currentResult);
     if (view === 'wbs')       renderWbs(state.currentResult);
@@ -133,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Menu bar — the single home for global commands ──────────────────────────
   const MENUS = {
-    file:    [['Import XML / XER…','import'], ['Load another file','load-another'], ['sep'], ['Recent projects','recent'], ['sep'], ['Exit','']],
+    file:    [['Import XML / XER…','import'], ['sep'], ['Print / Export to PDF…','print'], ['Export to Excel…','export-excel'], ['sep'], ['Load another file','load-another'], ['sep'], ['Recent projects','recent'], ['sep'], ['Exit','']],
     project: [['Recent projects','recent'], ['Knowledge Base','kb']],
     view:    [['Show / hide navigator','nav-toggle'], ['sep'], ['Appearance — top-right','']],
     analysis:[['Choose module…','showchooser'], ['Back to import','load-another']],
@@ -144,8 +145,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuLayer = document.getElementById('menu-layer');
   let openMenu = null;
   function closeMenus() { menuLayer.innerHTML = ''; document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')); openMenu = null; }
+  // Active-view → its (now-hidden) report trigger buttons. The single global
+  // File ▸ Print / Export to PDF (and Export to Excel) invokes the active module's
+  // existing PDF Preview + Printing Selection workflow — one primary control, no
+  // per-module duplicate buttons. Views without a report (overview/wbs/schedule)
+  // aren't listed and report a friendly message.
+  const REPORT_BTN = {
+    evm:      { pdf: 'pdf-btn' },
+    audit:    { pdf: 'pdf-btn-audit',   xls: 'excel-btn' },
+    oos:      { pdf: 'oos-pdf-btn',     xls: 'oos-excel-btn' },
+    lag:      { pdf: 'lag-pdf-btn',     xls: 'lag-excel-btn' },
+    calendar: { pdf: 'cal-pdf-btn',     xls: 'cal-excel-btn' },
+    compare:  { pdf: 'cmp-preview-pdf', xls: 'cmp-export-xlsx' },
+    critpath: { pdf: 'cpa-export-pdf',  xls: 'cpa-export-xlsx' },
+    construct:{ pdf: 'cx-pdf',          xls: 'cx-xls' },
+    period:   { pdf: 'per-export-pdf',  xls: 'per-export-xlsx' },
+    update:   { pdf: 'ua-export-pdf',   xls: 'ua-export-xlsx' },
+  };
+  function runReport(kind) {
+    if (!state.currentResult) { showError('Import a P6 schedule and open a module first.'); return; }
+    const map = REPORT_BTN[state.currentView];
+    if (!map) { showError('This view has no report — open an analysis module (Earned Value, Schedule Health, Calendar, …), then use File ▸ Print / Export.'); return; }
+    const el = map[kind] && document.getElementById(map[kind]);
+    if (el) { el.click(); return; }                        // opens the module's Preview + Printing Selection
+    showError(kind === 'pdf'
+      ? 'Run this module’s analysis first, then File ▸ Print / Export to PDF.'
+      : 'This module has no Excel export.');
+  }
+
   function runMenuCmd(cmd) {
     if (cmd === 'import')            triggerBrowse();
+    else if (cmd === 'print')        runReport('pdf');
+    else if (cmd === 'export-excel') runReport('xls');
     else if (cmd === 'load-another'){ loadAnother(); loadHistory(); setCrumb('home'); }
     else if (cmd === 'nav-toggle')  toggleNav();
     else if (cmd === 'recent')      { exitDatabase(); showRecent(); setCrumb('recent'); markNav('recent'); }
@@ -193,19 +224,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cal-pdf-btn').addEventListener('click', generateCalendarPdf);
   document.getElementById('cal-excel-btn').addEventListener('click', exportCalendarExcel);
 
-  // Analysis chooser (shown after upload) → reveal the chosen view
+  // Analysis chooser (shown after upload) → reveal the chosen view. Routed through
+  // openView so it takes the exact same path as the navigator (incl. setting
+  // state.currentView, which drives the global File ▸ Print / Export action).
   document.querySelectorAll('.chooser-card').forEach(card =>
-    card.addEventListener('click', () => {
-      switchView(card.dataset.view);
-      // XER + EVM → prompt to import the baseline first so results match the XML/P6 exactly
-      if (card.dataset.view === 'evm') maybePromptBaseline(state.currentResult);
-      if (card.dataset.view === 'construct') renderConstructPanel();
-      if (card.dataset.view === 'compare') renderComparePanel();
-      if (card.dataset.view === 'period') renderPeriodPanel();
-      if (card.dataset.view === 'critpath') renderCritPathPanel();
-      if (card.dataset.view === 'update') renderUpdatePanel();
-      if (card.dataset.view === 'special') renderSpecialPanel();
-    }));
+    card.addEventListener('click', () => openView(card.dataset.view)));
   document.getElementById('btn-change-analysis').addEventListener('click', showChooser);
 
   // View tabs (EVM ⇄ Schedule Audit ⇄ Out of Sequence ⇄ Calendar Audit ⇄ Consultant Review)

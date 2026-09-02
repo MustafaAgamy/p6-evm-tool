@@ -46,10 +46,12 @@ export async function loadHistory() {
 }
 
 class ButtonState {
+  // el may be null when a report action is triggered from the global File menu
+  // (the per-module buttons were removed) — every method no-ops without an element.
   constructor(el, idleText) { this.el = el; this.idleText = idleText; }
-  loading(text)               { this.el.disabled = true;  this.el.textContent = text; }
-  reset()                     { this.el.disabled = false; this.el.textContent = this.idleText; }
-  success(text, delay = 2500) { this.el.textContent = text; setTimeout(() => this.reset(), delay); }
+  loading(text)               { if (this.el) { this.el.disabled = true;  this.el.textContent = text; } }
+  reset()                     { if (this.el) { this.el.disabled = false; this.el.textContent = this.idleText; } }
+  success(text, delay = 2500) { if (this.el) { this.el.textContent = text; setTimeout(() => this.reset(), delay); } }
 }
 
 export async function loadProject(projectId, filePath, cachedPath) {
@@ -333,25 +335,45 @@ export async function generateCalendarPdf() {
   }
 }
 
+// EVM report sections — the Printing Selection picker, same generic mechanism the
+// module reports use (keys match render_evm_report()'s gate). Engineering / PV-EV
+// Gap are data-driven add-ons shown when present, so they aren't user-toggled here.
+const EVM_SECTIONS = [
+  { key: 'progress',  label: 'Project progress — planned vs actual' },
+  { key: 'dashboard', label: 'Executive dashboard (KPIs)' },
+  { key: 'value',     label: 'Planned Value vs Earned Value' },
+  { key: 'category',  label: 'Category weights & overall progress' },
+];
+
 export async function generatePdf() {
   if (!state.currentXmlPath && !state.currentCachedPath) return;
   const btn = new ButtonState(document.getElementById('pdf-btn'), 'Generate EVM PDF');
   btn.loading('Preparing preview…');
   const reqBody = _evmReportBody();
   const mode = getSavedMode();
-  try {
-    // Preview first — render the report HTML and show it fitted before writing any PDF.
+  const storageKey = 'p6_report_sections_evm';
+  let selected = EVM_SECTIONS.map(s => s.key);
+  try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default: all */ }
+  const fetchPreview = async (keys, theme) => {
     const data = await apiFetch('api/report/evm', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true, theme: mode }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || undefined, theme: theme || mode }),
     });
+    return (data.ok && data.html) ? data.html : null;
+  };
+  try {
+    // Preview first — render the report HTML and show it (with the section picker)
+    // before writing any PDF.
+    const html = await fetchPreview(selected, mode);
     btn.reset();
-    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
-      title: 'EVM report preview', subtitle: reqBody.meta.source_file, html: data.html, initialMode: mode,
-      onThemeChange: _previewFetcher('api/report/evm', reqBody),
-      onSave: (m) => _savePdf('api/report/evm', { ...reqBody, theme: m }, 'EVM_report.pdf', 'pdf'),
+      title: 'EVM report preview', subtitle: reqBody.meta.source_file, html,
+      sections: EVM_SECTIONS, selected, storageKey, initialMode: mode,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: (m, keys) => _savePdf('api/report/evm', { ...reqBody, theme: m, sections: keys }, 'EVM_report.pdf', 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');
