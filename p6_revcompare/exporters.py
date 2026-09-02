@@ -212,6 +212,41 @@ def _register(report):
     return f'''<table class="grid reg"><thead><tr><th>Activity</th><th>Name</th><th>Type</th><th>Rev.00</th><th>Rev.01</th><th>Change</th><th>Impact</th><th>Severity</th></tr></thead><tbody>{rows}</tbody></table>'''
 
 
+def _resources(report):
+    rc = report.get('resource_changes') or {}
+    if not (rc.get('cost_available') or rc.get('resource_available')):
+        return '<p class="muted">Neither revision carries resource loading or cost — reported as not applicable.</p>'
+    tb = rc.get('total_budget') or {}
+    b0 = f"{tb.get('rev0', 0):,}"
+    b1 = f"{tb.get('rev1', 0):,}"
+    bd = tb.get('delta', 0) or 0
+    bd_str = ('+' if bd > 0 else '') + f"{bd:,}"
+    out = [f'<p class="sub">Total budget {_e(b0)} → {_e(b1)} ({_e(bd_str)}). '
+           'Informational — a cost or resource change is not a schedule impact.</p>']
+    cc = rc.get('activity_cost_changes') or []
+    if cc:
+        rows = ''
+        for c in cc[:25]:
+            dstr = ('+' if c['delta'] > 0 else '') + f"{c['delta']:,}"
+            rows += (f'<tr><td class="mono">{_e(c["code"])}</td><td>{_e(c["name"])}</td>'
+                     f'<td class="num">{_e(c["rev0"])}</td><td class="num">{_e(c["rev1"])}</td>'
+                     f'<td class="num">{_e(dstr)}</td></tr>')
+        out.append('<h3>Budget cost by activity</h3><table class="grid"><thead><tr><th>Activity</th><th>Name</th>'
+                   '<th class="num">Rev.00</th><th class="num">Rev.01</th><th class="num">Δ</th></tr></thead>'
+                   f'<tbody>{rows}</tbody></table>')
+    ac = rc.get('assignment_changes') or []
+    if ac:
+        _kl = {'added': 'Added', 'removed': 'Removed', 'units': 'Units changed', 'rate': 'Rate changed'}
+        rows = ''
+        for a in ac[:25]:
+            rows += (f'<tr><td class="mono">{_e(a["code"])}</td><td>{_e(a["resource"])}</td>'
+                     f'<td>{_e(_kl.get(a["kind"], a["kind"]))}</td><td>{_e(a["rev0"])}</td><td>{_e(a["rev1"])}</td></tr>')
+        out.append('<h3 style="margin-top:12px">Resource assignments</h3><table class="grid"><thead><tr><th>Activity</th>'
+                   '<th>Resource</th><th>Change</th><th>Rev.00</th><th>Rev.01</th></tr></thead>'
+                   f'<tbody>{rows}</tbody></table>')
+    return ''.join(out)
+
+
 def _detailed(report):
     out = []
     for row in report.get('register', []):
@@ -254,16 +289,21 @@ def render_html(report, meta=None, sections=None, theme='light'):
         ('critpath', 'Critical Path Comparison', _critpath(report), True),
         ('sequence', 'Major Sequence Changes', _sequences(report), False),
         ('logic', 'Major Relationship / Logic Changes', _logic(report), False),
-        ('scope', 'WBS, Calendar &amp; Constraint Changes', _scope(report), False),
+        ('scope', 'WBS, Calendar & Constraint Changes', _scope(report), False),
+        ('resource', 'Resource & Cost Comparison', _resources(report), False),
         ('register', 'Detailed Change Register', _register(report), True),
         ('detailed', 'Detailed Change Analysis', _detailed(report), True),
     ]
+    _rc = report.get('resource_changes') or {}
+    _res_available = bool(_rc.get('cost_available') or _rc.get('resource_available'))
     keys = set(sections) if sections else None
     body = [_header(report, meta)]
     for key, title, htmlc, brk in secs:
         if keys is not None and key not in keys:
             continue
         if key == 'detailed' and not htmlc:
+            continue
+        if key == 'resource' and not _res_available:
             continue
         body.append(f'<section data-sec="{key}"{" class=pagebreak" if brk else ""}><h2>{_e(title)}</h2>{htmlc}</section>')
 

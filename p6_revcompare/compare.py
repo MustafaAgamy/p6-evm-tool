@@ -323,10 +323,15 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
     calendar_changes = ST.diff_calendars(rev0, rev1c, matched)
     constraint_changes = ST.diff_constraints(matched)
 
+    # ── slice 3: resource & cost (conditional on the export carrying it) ─────────
+    from p6_revcompare.resources import diff_resources
+    resource_changes = diff_resources(rev0, rev1c, matched)
+
     # ── register ───────────────────────────────────────────────────────────────
     register = _build_register(match, matched, logic, sequences, milestones, floats,
                                time_changes, crit0, crit1, cal, rev0, rev1c,
-                               wbs_changes, calendar_changes, constraint_changes)
+                               wbs_changes, calendar_changes, constraint_changes,
+                               resource_changes)
 
     # ── summary / profile / ledger / findings / narrative ───────────────────────
     gov0, gov1 = _governing_finish(rev0), _governing_finish(rev1c)
@@ -349,9 +354,12 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
         'constraint_changes': len(constraint_changes),
         'wbs_added': len(wbs_changes['added']), 'wbs_removed': len(wbs_changes['removed']),
         'wbs_renamed': len(wbs_changes['renamed']),
+        'cost_activities': resource_changes['summary']['cost_activities'],
+        'budget_delta': resource_changes['total_budget']['delta'],
+        'resource_changes': len(resource_changes['assignment_changes']),
     }
     profile = _profile(match, logic_stats, sequences, floats, milestones, time_changes,
-                       wbs_changes, calendar_changes, constraint_changes)
+                       wbs_changes, calendar_changes, constraint_changes, resource_changes)
     ledger = _ledger(summary, match, milestones)
     findings = _findings(register, sequences, milestones, cp)
     narrative = _narrative(summary, finish_shift, sequences, milestones)
@@ -368,7 +376,7 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
         'register': register, 'critical_path': cp, 'sequence': sequences,
         'float_movement': floats, 'milestones': milestones, 'narrative': narrative,
         'wbs_changes': wbs_changes, 'calendar_changes': calendar_changes,
-        'constraint_changes': constraint_changes,
+        'constraint_changes': constraint_changes, 'resource_changes': resource_changes,
     }
 
 
@@ -388,7 +396,7 @@ def _time_changes(pairs, data0, data1):
 
 def _build_register(match, matched, logic, sequences, milestones, floats, time_changes,
                     crit0, crit1, cal, data0, data1,
-                    wbs_changes, calendar_changes, constraint_changes):
+                    wbs_changes, calendar_changes, constraint_changes, resource_changes):
     rows = []
     seen = set()   # (activity, kind) dedupe
 
@@ -519,6 +527,18 @@ def _build_register(match, matched, logic, sequences, milestones, floats, time_c
         imp, sev = SEV.classify('wbs_rename')
         add(_row_direct(f"WBS:{w['from']}", _leaf(w['to']), 'wbs_rename', _leaf(w['from']), _leaf(w['to']), 'WBS renamed', imp, sev))
 
+    # Slice 3 — cost (per-activity budget) and resource assignment changes (informational).
+    for c in resource_changes['activity_cost_changes']:
+        imp, sev = SEV.classify('cost', magnitude=abs(c['delta']))
+        add(_row_direct(c['code'], c['name'], 'cost', c['rev0'], c['rev1'],
+                        f"{'+' if c['delta'] > 0 else ''}{c['delta']:,} budget", imp, sev))
+    for a in resource_changes['assignment_changes']:
+        imp, sev = SEV.classify('resource', magnitude=(1 if a['kind'] in ('added', 'removed', 'units') else 0))
+        lbl = {'added': 'Resource added', 'removed': 'Resource removed',
+               'units': 'Units changed', 'rate': 'Rate changed'}[a['kind']]
+        add(_row_direct(f"RES:{a['code']}:{a['resource']}", f"{a['name']} · {a['resource']}",
+                        'resource', a['rev0'], a['rev1'], lbl, imp, sev))
+
     rows.sort(key=SEV.rank_key)
     return rows
 
@@ -594,13 +614,13 @@ def _modified_count(register):
 # ── summary presentation ─────────────────────────────────────────────────────
 
 def _profile(match, logic, sequences, floats, milestones, time_changes,
-             wbs_changes, calendar_changes, constraint_changes):
+             wbs_changes, calendar_changes, constraint_changes, resource_changes):
     scope = len(match['added']) + len(match['removed'])
     ms = sum(1 for m in milestones if m['kind'] in ('delayed', 'advanced', 'new', 'removed'))
     wbs = (len(wbs_changes['added']) + len(wbs_changes['removed']) + len(wbs_changes['renamed'])
            + len(match['moved_wbs']))
     cal = sum(g['count'] for g in calendar_changes['reassignments']) + len(calendar_changes['calendars'])
-    return [
+    bars = [
         {'key': 'logic', 'label': 'Logic / relationships', 'count': logic['total'], 'color': '#2563eb'},
         {'key': 'time', 'label': 'Time / durations', 'count': len(time_changes), 'color': '#b7791f'},
         {'key': 'scope', 'label': 'Scope (add/remove)', 'count': scope, 'color': '#12805c'},
@@ -612,6 +632,11 @@ def _profile(match, logic, sequences, floats, milestones, time_changes,
         {'key': 'wbs', 'label': 'WBS / structure', 'count': wbs, 'color': '#7c3aed'},
         {'key': 'idchange', 'label': 'Identity (ID) changes', 'count': len(match['id_changes']), 'color': '#69768c'},
     ]
+    # Cost / resource bars only when the export carries that data (§12 — conditional).
+    if resource_changes['cost_available'] or resource_changes['resource_available']:
+        n = resource_changes['summary']['cost_activities'] + len(resource_changes['assignment_changes'])
+        bars.append({'key': 'resource', 'label': 'Resource / cost', 'count': n, 'color': '#0891b2'})
+    return bars
 
 
 def _ledger(summary, match, milestones):

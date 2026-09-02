@@ -20,6 +20,7 @@ CHANGE_TYPES = (
     'added', 'removed', 'renamed', 'idchange', 'moved_wbs',
     'logic', 'sequence', 'time', 'milestone', 'criticality',
     'calendar', 'constraint', 'wbs_add', 'wbs_remove', 'wbs_rename',
+    'cost', 'resource',
 )
 
 TYPE_LABEL = {
@@ -28,6 +29,7 @@ TYPE_LABEL = {
     'milestone': 'Milestone', 'criticality': 'Criticality',
     'calendar': 'Calendar', 'constraint': 'Constraint',
     'wbs_add': 'WBS', 'wbs_remove': 'WBS', 'wbs_rename': 'WBS',
+    'cost': 'Cost', 'resource': 'Resource',
 }
 
 # Which planning category each change type rolls up into for the change profile (§13).
@@ -37,6 +39,7 @@ PROFILE_BUCKET = {
     'milestone': 'milestone', 'criticality': 'criticality',
     'calendar': 'calendar', 'constraint': 'constraint',
     'wbs_add': 'wbs', 'wbs_remove': 'wbs', 'wbs_rename': 'wbs',
+    'cost': 'cost', 'resource': 'resource',
 }
 
 
@@ -92,6 +95,11 @@ def classify(kind, *, tf0=None, tf1=None, magnitude=0.0, on_cp=False, hard=False
         return ('material', 'hi') if on_cp else ('minor', 'med')
     if kind == 'wbs_rename':
         return 'minor', 'low'
+
+    if kind in ('cost', 'resource'):
+        # Commercial information, not a schedule impact — surfaced for review, never
+        # counted as a "material" schedule change. Severity is a magnitude hint only.
+        return 'minor', ('med' if mag > 0 else 'low')
 
     if kind == 'milestone':
         impact = 'material'

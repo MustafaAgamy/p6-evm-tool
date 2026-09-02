@@ -256,6 +256,8 @@ function registerView(r) {
     ['calendar', 'Calendar', count(x => x.change_type === 'calendar')],
     ['constraint', 'Constraints', count(x => x.change_type === 'constraint')],
     ['wbs', 'WBS', count(x => bucketOf(x.change_type) === 'wbs')],
+    ['cost', 'Cost', count(x => x.change_type === 'cost')],
+    ['resource', 'Resource', count(x => x.change_type === 'resource')],
   ].filter(c => c[0] === 'all' || c[2] > 0);
   const chipsHtml = chips.map(([k, l, n], idx) =>
     `<button class="rc-fchip ${idx === 0 ? 'on' : ''}" data-filter="${k}">${l} <span class="rc-fc">${n}</span></button>`).join('');
@@ -321,7 +323,7 @@ function wireRegister(body) {
     || (f === 'material' && tr.dataset.imp === 'material')
     || (f === 'crit' && tr.dataset.sev === 'crit')
     || (['scope', 'wbs'].includes(f) && tr.dataset.bucket === f)
-    || (['logic', 'sequence', 'milestone', 'criticality', 'calendar', 'constraint'].includes(f) && tr.dataset.type === f);
+    || (['logic', 'sequence', 'milestone', 'criticality', 'calendar', 'constraint', 'cost', 'resource'].includes(f) && tr.dataset.type === f);
   body.querySelectorAll('.rc-fchip').forEach(chip => chip.addEventListener('click', () => {
     body.querySelectorAll('.rc-fchip').forEach(c => c.classList.toggle('on', c === chip));
     const f = chip.dataset.filter;
@@ -435,8 +437,33 @@ function structView(r) {
       ${conRows ? `<table class="rc-t"><thead><tr><th>Activity</th><th>Change</th><th>Rev.00</th><th>Rev.01</th></tr></thead><tbody>${conRows}</tbody></table>`
                 : '<div class="rc-mut">No primary-constraint changes.</div>'}</div>`;
 
-  return `<div class="rc-split">${wbsCard}${calCard}</div>${conCard}
+  return `<div class="rc-split">${wbsCard}${calCard}</div>${conCard}${resourceCard(r)}
     <div class="rc-callout"><b>Neutral by design.</b> A workweek change, a new constraint or a re-packaged WBS may all be legitimate, approved decisions. These are surfaced for <b>planning review</b> — the tool flags what changed and its potential effect, never that the revision is wrong.</div>`;
+}
+
+function resourceCard(r) {
+  const rc = r.resource_changes;
+  if (!rc || (!rc.cost_available && !rc.resource_available)) {
+    return '<div class="rc-card"><h3>Resource &amp; cost <span class="rc-n">optional</span></h3><div class="rc-mut">Neither revision carries resource loading or cost — this comparison is reported as <b>not applicable</b> rather than "no change".</div></div>';
+  }
+  const tb = rc.total_budget;
+  const budgetLine = rc.cost_available
+    ? `<div class="rc-sec">Total budget ${escapeHtml(String(tb.rev0.toLocaleString()))} → ${escapeHtml(String(tb.rev1.toLocaleString()))} · <span class="${tb.delta > 0 ? 'rc-d up' : tb.delta < 0 ? 'rc-d down' : 'rc-d zero'}">${tb.delta > 0 ? '+' : ''}${tb.delta.toLocaleString()}</span></div>`
+    : '';
+  const costRows = (rc.activity_cost_changes || []).slice(0, 12).map(c =>
+    `<tr><td><span class="rc-aid">${escapeHtml(c.code)}</span> ${escapeHtml(c.name)}</td><td class="rc-mut">${escapeHtml(c.rev0)}</td>
+      <td class="rc-new">${escapeHtml(c.rev1)}</td><td class="n">${deltaCell(c.delta)}</td></tr>`).join('');
+  const asgRows = (rc.assignment_changes || []).slice(0, 12).map(a => {
+    const kindLabel = { added: 'Added', removed: 'Removed', units: 'Units', rate: 'Rate' }[a.kind] || a.kind;
+    return `<tr><td><span class="rc-aid">${escapeHtml(a.code)}</span> ${escapeHtml(a.resource)}</td>
+      <td>${typeTag('resource', kindLabel)}</td><td class="rc-mut">${escapeHtml(a.rev0)}</td><td class="rc-new">${escapeHtml(a.rev1)}</td></tr>`;
+  }).join('');
+  return `<div class="rc-card"><h3>Resource &amp; cost <span class="rc-n">informational · not a schedule impact</span></h3>
+    ${budgetLine}
+    <div class="rc-split">
+      <div>${costRows ? `<div class="rc-cklab">Budget cost by activity</div><table class="rc-t"><thead><tr><th>Activity</th><th>Rev.00</th><th>Rev.01</th><th class="n">Δ</th></tr></thead><tbody>${costRows}</tbody></table>` : '<div class="rc-mut">No per-activity budget changes.</div>'}</div>
+      <div>${asgRows ? `<div class="rc-cklab">Resource assignments</div><table class="rc-t"><thead><tr><th>Activity · Resource</th><th>Change</th><th>Rev.00</th><th>Rev.01</th></tr></thead><tbody>${asgRows}</tbody></table>` : '<div class="rc-mut">No resource-assignment changes.</div>'}</div>
+    </div></div>`;
 }
 
 // ── Milestones ─────────────────────────────────────────────────────────────────

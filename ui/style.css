@@ -2366,3 +2366,5 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-tag.wbs_add, .rc-tag.wbs_remove, .rc-tag.wbs_rename { background: var(--accent-soft); color: var(--chart-4); }
 .rc-callrow { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 0; border-top: 1px solid var(--hair); }
 .rc-callrow:first-of-type { border-top: 0; margin-top: 4px; }
+.rc-tag.cost { background: var(--success-bg); color: var(--success); }
+.rc-tag.resource { background: var(--accent-soft); color: var(--chart-5); }
