@@ -2212,3 +2212,17 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .dash-ref-lbl { fill: var(--muted); font-size: 9px; font-family: ui-monospace, monospace; }
 .dash-endlbl { font-size: 10px; font-weight: 700; font-family: ui-monospace, monospace; }
 .dash-axlbl { fill: var(--muted); font-size: 9px; font-family: ui-monospace, monospace; }
+
+/* ── Reports ▸ Baseline Narrative ───────────────────────────────────────── */
+.narr-loading, .narr-empty { padding: 40px 8px; color: var(--muted); font-size: 14px; }
+.narr-doc { max-width: 780px; display: flex; flex-direction: column; gap: 14px; margin: 6px 0 4px; }
+.narr-sec { border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 10px; background: var(--card-bg); padding: 14px 18px; }
+.narr-sec h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.03em; }
+.narr-sec p { margin: 0 0 8px; font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
+.narr-sec p:last-child { margin-bottom: 0; }
+.narr-sec.narr-good { border-left-color: var(--success); }
+.narr-sec.narr-warn { border-left-color: var(--warning); }
+.narr-sec.narr-bad  { border-left-color: var(--danger); }
+.ov-chip.narr-chip-good b { color: var(--success); }
+.ov-chip.narr-chip-warn b { color: var(--warning); }
+.ov-chip.narr-chip-bad b  { color: var(--danger); }
