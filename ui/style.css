@@ -2226,3 +2226,35 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .ov-chip.narr-chip-good b { color: var(--success); }
 .ov-chip.narr-chip-warn b { color: var(--warning); }
 .ov-chip.narr-chip-bad b  { color: var(--danger); }
+
+/* ── Project ▸ Weather → Forecast ───────────────────────────────────────── */
+.fc-loading, .fc-empty { padding: 40px 8px; color: var(--muted); font-size: 14px; }
+.fc-hero { border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); padding: 20px 22px; margin: 6px 0 18px; }
+.fc-hero-k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; }
+.fc-hero-v { font-size: 34px; font-weight: 800; color: var(--text); line-height: 1.1; margin: 4px 0; font-family: ui-monospace, monospace; }
+.fc-hero-delta { font-size: 13px; font-weight: 600; color: var(--muted); }
+.fc-hero-delta.bad { color: var(--danger); } .fc-hero-delta.good { color: var(--success); }
+.fc-timeline { position: relative; height: 64px; margin: 4px 6px 22px; }
+.fc-axis { position: absolute; left: 0; right: 0; top: 12px; height: 2px; background: var(--hair); border-radius: 2px; }
+.fc-mark { position: absolute; top: 0; transform: translateX(-50%); text-align: center; }
+.fc-mark-dot { display: block; width: 12px; height: 12px; border-radius: 50%; margin: 7px auto 0; background: var(--muted); border: 2px solid var(--card-bg); box-shadow: 0 0 0 1px var(--border); }
+.fc-mark-lbl { display: block; font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.25; white-space: nowrap; }
+.fc-mark-lbl b { display: block; color: var(--text); font-family: ui-monospace, monospace; }
+.fc-mark.fc-base   .fc-mark-dot { background: var(--muted); }
+.fc-mark.fc-best   .fc-mark-dot { background: var(--success); }
+.fc-mark.fc-likely .fc-mark-dot { background: var(--accent); }
+.fc-mark.fc-worst  .fc-mark-dot { background: var(--danger); }
+.fc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 4px 0 16px; }
+.fc-card { border: 1px solid var(--border); border-top: 3px solid var(--border); border-radius: 12px; background: var(--card-bg); padding: 14px 16px; }
+.fc-card-best   { border-top-color: var(--success); }
+.fc-card-likely { border-top-color: var(--accent); }
+.fc-card-worst  { border-top-color: var(--danger); }
+.fc-card-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; }
+.fc-card-date { font-size: 19px; font-weight: 700; color: var(--text); font-family: ui-monospace, monospace; margin: 3px 0; }
+.fc-card-delta { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.fc-card-delta.bad { color: var(--danger); } .fc-card-delta.good { color: var(--success); }
+.fc-card-basis { font-size: 12px; color: var(--ink-soft); line-height: 1.45; }
+.fc-weather { display: flex; align-items: flex-start; gap: 9px; border-radius: 10px; padding: 11px 14px; font-size: 13px; line-height: 1.5; margin: 2px 0 6px; }
+.fc-weather.on  { background: var(--warning-bg); color: var(--ink-soft); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); }
+.fc-weather.off { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.fc-wx-ic { flex-shrink: 0; }
