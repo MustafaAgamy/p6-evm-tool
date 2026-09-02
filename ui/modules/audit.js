@@ -70,6 +70,7 @@ export function switchView(view) {
   document.getElementById('critpath-panel').classList.toggle('hidden', view !== 'critpath');
   document.getElementById('update-panel').classList.toggle('hidden', view !== 'update');
   document.getElementById('special-panel').classList.toggle('hidden', view !== 'special');
+  document.getElementById('dash-panel')?.classList.toggle('hidden', view !== 'dash');
   document.getElementById('overview-panel')?.classList.toggle('hidden', view !== 'overview');
   document.getElementById('wbs-panel')?.classList.toggle('hidden', view !== 'wbs');
   document.getElementById('schedule-panel')?.classList.toggle('hidden', view !== 'schedule');
