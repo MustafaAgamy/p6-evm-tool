@@ -8,6 +8,9 @@ import { escapeHtml } from './format.js';
 
 const TONE_WORD = { good: 'On track', warn: 'Watch', bad: 'Action needed', neutral: '' };
 
+let _print = null;   // printable sections for the global File ▸ Print flow
+export function narrativePrint() { return _print; }
+
 export async function renderNarrative() {
   const el = document.getElementById('narrative-body');
   if (!el) return;
@@ -38,6 +41,10 @@ export async function renderNarrative() {
   const r = state.currentResult;
   const sections = data.sections || [];
   const toneWord = TONE_WORD[data.tone] || '';
+  _print = sections.map((s) => ({
+    key: s.key, label: s.title,
+    html: `<div class="narr-sec${s.tone && s.tone !== 'neutral' ? ' narr-' + s.tone : ''}">${(s.paragraphs || []).map((p) => `<p>${escapeHtml(p)}</p>`).join('')}</div>`,
+  }));
   const secHtml = sections.map((s) => {
     const paras = (s.paragraphs || []).map((p) => `<p>${escapeHtml(p)}</p>`).join('');
     const tone = s.tone && s.tone !== 'neutral' ? ` narr-${s.tone}` : '';

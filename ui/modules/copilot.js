@@ -7,6 +7,9 @@ import { state } from './state.js';
 import { escapeHtml, fmtDate } from './format.js';
 import { renderAiReviewPanel } from './aireview.js';
 
+let _print = null;   // printable sections for the global File ▸ Print flow (deterministic core only)
+export function copilotPrint() { return _print; }
+
 const SEV_LABEL = { high: 'High', med: 'Medium', low: 'Low' };
 const dCls = (d) => (d == null ? '' : (d > 0 ? 'bad' : (d < 0 ? 'good' : '')));
 const dTxt = (d) => (d == null ? '—' : `${d > 0 ? '+' : ''}${d} d`);
@@ -20,6 +23,7 @@ export async function renderCopilot() {
       <p class="ov-note">Import a P6 schedule first — the copilot analyses that update's metrics.</p>`;
     return;
   }
+  _print = null;
   el.innerHTML = `<div class="cp-loading">Analysing the schedule…</div>`;
 
   let d;
@@ -71,6 +75,10 @@ export async function renderCopilot() {
       <div class="cp-ins-sev">${SEV_LABEL[i.severity] || ''}</div>
       <div class="cp-ins-body"><b>${escapeHtml(i.title)}</b><p>${escapeHtml(i.detail)}</p></div>
     </div>`).join('');
+
+  // print sections — the deterministic core only (the AI narrative is interactive/cloud)
+  _print = [{ key: 'tia', label: 'Time-Impact Analysis', html: `<div class="cp-card">${tiaHtml}</div>` }];
+  if ((d.insights || []).length) _print.push({ key: 'insights', label: 'Copilot insights', html: `<div class="cp-insights">${insights}</div>` });
 
   el.innerHTML = `
     <div class="ov-head"><div class="ov-title">

@@ -12,11 +12,12 @@ import { renderPeriodPanel }                   from './modules/period.js';
 import { renderCritPathPanel }                 from './modules/critpath.js';
 import { renderUpdatePanel }                   from './modules/update.js';
 import { renderSpecialPanel }                  from './modules/special.js';
-import { renderOverview, renderWbs }           from './modules/overview.js';
-import { renderDashboard }                      from './modules/dashboard.js';
-import { renderNarrative }                       from './modules/narrative.js';
-import { renderForecast }                        from './modules/forecast.js';
-import { renderCopilot }                         from './modules/copilot.js';
+import { renderOverview, renderWbs, overviewPrint, wbsPrint } from './modules/overview.js';
+import { renderDashboard, dashboardPrint }       from './modules/dashboard.js';
+import { renderNarrative, narrativePrint }        from './modules/narrative.js';
+import { renderForecast, forecastPrint }          from './modules/forecast.js';
+import { renderCopilot, copilotPrint }            from './modules/copilot.js';
+import { printView }                              from './modules/printview.js';
 import { renderSchedule }                       from './modules/gantt.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
@@ -169,15 +170,40 @@ document.addEventListener('DOMContentLoaded', () => {
     period:   { pdf: 'per-export-pdf',  xls: 'per-export-xlsx' },
     update:   { pdf: 'ua-export-pdf',   xls: 'ua-export-xlsx' },
   };
+  // Screen views (Overview, WBS, Dashboard, Forecast, Narrative, Copilot) print
+  // through the shared printView() — File ▸ Print gives them the same PDF Preview +
+  // Printing Selection picker as the analysis modules. Every feature prints from the
+  // menu bar with a section picker; a new view only needs a print-sections provider.
+  const PRINT_VIEW = {
+    overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint },
+    wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint },
+    dash:      { module: 'dashboard',  title: 'Professional Dashboard', get: dashboardPrint },
+    forecast:  { module: 'forecast',   title: 'Weather → Forecast',     get: forecastPrint },
+    narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
+    copilot:   { module: 'copilot',    title: 'AI Copilot · TIA',       get: copilotPrint },
+  };
   function runReport(kind) {
     if (!state.currentResult) { showError('Import a P6 schedule and open a module first.'); return; }
     const map = REPORT_BTN[state.currentView];
-    if (!map) { showError('This view has no report — open an analysis module (Earned Value, Schedule Health, Calendar, …), then use File ▸ Print / Export.'); return; }
-    const el = map[kind] && document.getElementById(map[kind]);
-    if (el) { el.click(); return; }                        // opens the module's Preview + Printing Selection
-    showError(kind === 'pdf'
-      ? 'Run this module’s analysis first, then File ▸ Print / Export to PDF.'
-      : 'This module has no Excel export.');
+    if (map) {
+      const el = map[kind] && document.getElementById(map[kind]);
+      if (el) { el.click(); return; }                      // opens the module's Preview + Printing Selection
+      showError(kind === 'pdf'
+        ? 'Run this module’s analysis first, then File ▸ Print / Export to PDF.'
+        : 'This module has no Excel export.');
+      return;
+    }
+    const pv = PRINT_VIEW[state.currentView];
+    if (pv) {
+      if (kind !== 'pdf') { showError('This view exports to PDF — use File ▸ Print / Export to PDF.'); return; }
+      const sections = pv.get && pv.get();
+      if (!sections || !sections.length) { showError('Open this view and let it finish loading, then File ▸ Print / Export to PDF.'); return; }
+      const r = state.currentResult;
+      const subtitle = [r.project_name, r.data_date ? 'data date ' + String(r.data_date).slice(0, 10) : ''].filter(Boolean).join(' · ');
+      printView({ module: pv.module, title: pv.title, subtitle, sections });
+      return;
+    }
+    showError('This view has no report — open an analysis module (Earned Value, Schedule Health, Calendar, …), then use File ▸ Print / Export.');
   }
 
   function runMenuCmd(cmd) {

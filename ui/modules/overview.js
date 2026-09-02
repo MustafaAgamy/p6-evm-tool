@@ -6,6 +6,11 @@
 // holds activities, with weighted planned/actual % and a start→finish bar.
 import { fmtEGP, fmtDate } from './format.js';
 
+// printable sections for the global File ▸ Print flow
+let _ovPrint = null, _wbsPrint = null;
+export function overviewPrint() { return _ovPrint; }
+export function wbsPrint() { return _wbsPrint; }
+
 const pct = (v) => (v == null ? '—' : `${(v * 100).toFixed(2)}%`);
 const bar = (planned, actual) => {
   const p = Math.max(0, Math.min(100, (planned || 0) * 100));
@@ -16,6 +21,7 @@ const bar = (planned, actual) => {
 
 export function renderOverview(result) {
   const el = document.getElementById('overview-body');
+  _ovPrint = null;
   if (!el || !result) return;
   const spi = result.spi != null ? result.spi.toFixed(2) : '—';
   const cpi = result.cpi != null ? result.cpi.toFixed(2) : '—';
@@ -36,6 +42,25 @@ export function renderOverview(result) {
       <div class="ov-cat-val"><b>${pct(c.actual_pct)}</b><span>plan ${pct(c.planned_pct)}</span></div>
     </div>`).join('');
 
+  const kpisHtml = `<div class="ov-kpis">
+      <div class="ov-kpi"><div class="k">SPI · schedule</div><div class="v ${result.spi != null && result.spi < 1 ? 'bad' : ''}">${spi}</div></div>
+      <div class="ov-kpi"><div class="k">Forecast finish</div><div class="v sm">${result.expected_finish ? fmtDate(result.expected_finish) : '—'}</div></div>
+      <div class="ov-kpi"><div class="k">Delay</div><div class="v ${delayCls}">${delay}</div></div>
+      <div class="ov-kpi"><div class="k">Baseline finish</div><div class="v sm">${result.baseline_finish ? fmtDate(result.baseline_finish) : '—'}</div></div>
+      <div class="ov-kpi"><div class="k">Overall planned</div><div class="v">${pct(result.overall_planned_pct)}</div></div>
+      <div class="ov-kpi"><div class="k">Overall actual</div><div class="v">${pct(result.overall_actual_pct)}</div></div>
+      <div class="ov-kpi"><div class="k">Planned value</div><div class="v sm">${fmtEGP(result.pv)}</div></div>
+      <div class="ov-kpi"><div class="k">Earned value</div><div class="v sm">${fmtEGP(result.ev)}</div></div>
+      <div class="ov-kpi"><div class="k">Actual cost</div><div class="v sm">${fmtEGP(result.ac)}</div></div>
+      <div class="ov-kpi"><div class="k">CPI · cost</div><div class="v">${cpi}</div></div>
+    </div>`;
+  const catsHtml = `<div class="ov-cats">${catRows || '<p class="ov-empty">No categories configured for this schedule.</p>'}</div>`;
+
+  _ovPrint = [
+    { key: 'kpis', label: 'Key indicators', html: kpisHtml },
+    { key: 'categories', label: 'Progress by category', html: catsHtml },
+  ];
+
   el.innerHTML = `
     <div class="ov-head">
       <div class="ov-title">
@@ -48,20 +73,9 @@ export function renderOverview(result) {
         </div>
       </div>
     </div>
-    <div class="ov-kpis">
-      <div class="ov-kpi"><div class="k">SPI · schedule</div><div class="v ${result.spi != null && result.spi < 1 ? 'bad' : ''}">${spi}</div></div>
-      <div class="ov-kpi"><div class="k">Forecast finish</div><div class="v sm">${result.expected_finish ? fmtDate(result.expected_finish) : '—'}</div></div>
-      <div class="ov-kpi"><div class="k">Delay</div><div class="v ${delayCls}">${delay}</div></div>
-      <div class="ov-kpi"><div class="k">Baseline finish</div><div class="v sm">${result.baseline_finish ? fmtDate(result.baseline_finish) : '—'}</div></div>
-      <div class="ov-kpi"><div class="k">Overall planned</div><div class="v">${pct(result.overall_planned_pct)}</div></div>
-      <div class="ov-kpi"><div class="k">Overall actual</div><div class="v">${pct(result.overall_actual_pct)}</div></div>
-      <div class="ov-kpi"><div class="k">Planned value</div><div class="v sm">${fmtEGP(result.pv)}</div></div>
-      <div class="ov-kpi"><div class="k">Earned value</div><div class="v sm">${fmtEGP(result.ev)}</div></div>
-      <div class="ov-kpi"><div class="k">Actual cost</div><div class="v sm">${fmtEGP(result.ac)}</div></div>
-      <div class="ov-kpi"><div class="k">CPI · cost</div><div class="v">${cpi}</div></div>
-    </div>
+    ${kpisHtml}
     <div class="ov-section-label">Progress by category <span class="ovl"><i class="dp"></i>planned <i class="da"></i>actual</span></div>
-    <div class="ov-cats">${catRows || '<p class="ov-empty">No categories configured for this schedule.</p>'}</div>
+    ${catsHtml}
     <p class="ov-note">A project summary from the imported update — the same figures the modules and PDF report use. Open a module from the navigator to drill in.</p>`;
 }
 
@@ -112,6 +126,7 @@ function wbsCellVal(col, n) {
 
 export function renderWbs(result) {
   const el = document.getElementById('wbs-body');
+  _wbsPrint = null;
   if (!el || !result) return;
   const nodes = result.wbs_summary || [];
   const mains = result.wbs_main || [];
@@ -212,6 +227,16 @@ export function renderWbs(result) {
       <div class="wc-tl">${bar}</div>
     </div>`;
   }).join('');
+
+  // printable WBS: a clean static table of the visible columns (no scrolling timeline)
+  const headCells = cols.map((c) => `<th class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${c.label}</th>`).join('');
+  const bodyRows = subset.map((n) => {
+    const rd = n.depth - baseDepth;
+    const cells = cols.map((c) => `<td class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsCellVal(c, n)}</td>`).join('');
+    return `<tr class="${n.leaf ? 'leaf' : 'sum'}"><td style="padding-left:${rd * 14}px">${escapeHtml(n.name)}</td>${cells}</tr>`;
+  }).join('');
+  _wbsPrint = [{ key: 'table', label: `WBS summary — ${branch.name || 'all'}`,
+    html: `<table class="wbs-print"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>` }];
 
   const seg = mains.length > 1
     ? `<div class="wbst-seg" id="wbst-seg">${mains.map((m) =>

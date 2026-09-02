@@ -7,6 +7,9 @@
 import { state } from './state.js';
 import { fmtDate, escapeHtml } from './format.js';
 
+let _print = null;   // printable sections for the global File ▸ Print flow
+export function forecastPrint() { return _print; }
+
 const DAY = 86400000;
 const toMs = (s) => { if (!s) return NaN; const t = new Date(String(s).slice(0, 10) + 'T00:00:00').getTime(); return Number.isNaN(t) ? NaN : t; };
 const deltaTxt = (d) => (d == null ? '' : (d > 0 ? `+${d} d late` : (d < 0 ? `${d} d early` : 'on baseline')));
@@ -21,6 +24,7 @@ export async function renderForecast() {
       <p class="ov-note">Import a P6 schedule first — the forecast is built from that update's finish date and performance.</p>`;
     return;
   }
+  _print = null;
   el.innerHTML = `<div class="fc-loading">Building the forecast…</div>`;
 
   let d;
@@ -79,6 +83,12 @@ export async function renderForecast() {
   const weatherLine = d.has_weather
     ? `<div class="fc-weather on"><span class="fc-wx-ic">🌧️</span> Worst case includes <b>+${d.weather_days} day${d.weather_days === 1 ? '' : 's'}</b> of expected weather impact, reused from <b>Calendar Audit</b>'s weather estimate.</div>`
     : `<div class="fc-weather off"><span class="fc-wx-ic">☀️</span> No weather impact applied yet. Set the <b>project location</b> and run weather in <b>Calendar Audit</b> to add a weather-adjusted worst case here — this page reuses that estimate rather than asking twice.</div>`;
+
+  const heroHtml = `<div class="fc-hero"><div class="fc-hero-k">Likely finish</div>
+      <div class="fc-hero-v">${fmtDate(likely.date)}</div>
+      ${likely.delta_days != null ? `<div class="fc-hero-delta ${deltaCls(likely.delta_days)}">${deltaTxt(likely.delta_days)} vs baseline ${d.baseline_finish ? fmtDate(d.baseline_finish) : '—'}</div>` : ''}</div>`;
+  _print = [{ key: 'scenarios', label: 'Finish forecast', html: `${heroHtml}<div class="fc-cards">${cards}</div>${weatherLine}` }];
+  if (timeline) _print.push({ key: 'timeline', label: 'Timeline', html: timeline });
 
   el.innerHTML = `
     <div class="ov-head"><div class="ov-title">
