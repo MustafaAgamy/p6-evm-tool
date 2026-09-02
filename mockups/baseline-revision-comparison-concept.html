@@ -1,0 +1,577 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controlyx · Baseline Revision Comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{--app:#eef1f7;--panel:#fff;--panel2:#f5f8fc;--panel3:#eef2f8;--line:#e4e9f1;--hair:#eef2f7;--ink:#141f36;--ink2:#45536b;--muted:#69768c;--faint:#9aa6b6;
+--brand:#3457d5;--brand2:#2643a8;--soft:#e7ecfb;--nav:#0e1626;--nav2:#0a111e;--navink:#c4cfe2;--navdim:#6b7897;--navon:#1a2740;--navline:#1c2740;
+--add:#12805c;--addbg:#dcf1e8;--rem:#c23a3a;--rembg:#fbe4e2;--chg:#b7791f;--chgbg:#f7ecd6;--info:#2563eb;--infobg:#e3ecfe;--vio:#7c3aed;--viobg:#efe9fe;
+--crit:#c23a3a;--critbg:#fbe4e2;--hi:#d9822b;--hibg:#f9ecd9;--med:#b7791f;--medbg:#f7ecd6;--low:#5b6b86;--lowbg:#eef1f7;
+--sh:0 1px 2px rgba(16,28,54,.05),0 10px 28px -16px rgba(16,28,54,.26);--shlg:0 30px 70px -34px rgba(12,22,48,.45);--fs:"Plus Jakarta Sans",system-ui,sans-serif;--fm:"IBM Plex Mono",monospace}
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{background:var(--app);color:var(--ink);font-family:var(--fs);font-size:14px}
+.shell{display:flex;flex-direction:column;height:100vh}
+.menubar{height:38px;flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:2px;padding:0 12px}
+.mk{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--brand),#7c5cff);display:grid;place-items:center;margin-right:8px}.mk svg{width:14px;height:14px}
+.bn{font-weight:800;font-size:14px;letter-spacing:-.02em;margin-right:16px}.menu{padding:5px 11px;border-radius:7px;font-size:13px;color:var(--ink2);font-weight:500;cursor:default}.menu:hover{background:var(--panel2)}
+.mb-right{margin-left:auto;display:flex;gap:6px;align-items:center}.wd{width:11px;height:11px;border-radius:50%}.wd.r{background:#e0655a}.wd.y{background:#e0b23f}.wd.g{background:#4fb06a}
+.app{flex:1;display:grid;grid-template-columns:230px 1fr;min-height:0}
+.side{background:linear-gradient(180deg,var(--nav),var(--nav2));color:var(--navink);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.navh{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--navdim);padding:13px 16px 7px;font-weight:600}
+.tree{flex:1;overflow:auto;padding:2px 8px 12px}.tgrp{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--navdim);padding:13px 10px 4px;font-weight:600}
+.tnode{width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border:0;background:transparent;color:var(--navink);border-radius:8px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:500;text-align:left;position:relative}
+.tnode:hover{background:rgba(255,255,255,.05)}.tnode.on{background:var(--navon);color:#fff;font-weight:600}.tnode.on::before{content:"";position:absolute;left:-8px;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--brand)}
+.tnode.root{font-weight:700;color:#fff}.tnode .i{width:17px;height:17px;display:grid;place-items:center;color:var(--navdim);flex-shrink:0}.tnode.on .i{color:#8fb0ff}.tnode .i svg{width:16px;height:16px}.tnode .l{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbadge{font-family:var(--fm);font-size:8.5px;font-weight:700;padding:1px 6px;border-radius:6px;background:#22345a;color:#8fb0ff;letter-spacing:.04em}
+.acct{border-top:1px solid var(--navline);padding:11px 14px;display:flex;align-items:center;gap:9px}.acct .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#7c5cff)}.acct b{font-size:12px;color:#fff;display:block;line-height:1.1}.acct span{font-size:10px;color:var(--navdim)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{height:54px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 18px}
+.tt{display:flex;flex-direction:column}.tt .cr{font-size:10.5px;color:var(--muted);font-family:var(--fm)}.tt b{font-size:15px}
+.seg{margin-left:auto;display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:3px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer;font-family:inherit}.seg button.on{background:var(--panel);color:var(--ink);box-shadow:var(--sh)}.seg button:disabled{opacity:.4;cursor:not-allowed}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#7c5cff);flex-shrink:0}
+.work{flex:1;overflow:auto;padding:18px 20px}
+.hd{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px}
+.hd .fi{width:46px;height:46px;border-radius:12px;background:var(--soft);color:var(--brand);display:grid;place-items:center;flex-shrink:0}.hd .fi svg{width:24px;height:24px}
+.hd h2{font-size:20px;margin:0;letter-spacing:-.01em}.hd p{margin:4px 0 0;color:var(--ink2);font-size:13px;max-width:86ch;line-height:1.5}
+.hd .rev{display:flex;gap:8px;margin-left:auto;flex-shrink:0}
+.revtag{border:1px solid var(--line);border-radius:10px;padding:7px 12px;background:var(--panel);box-shadow:var(--sh);min-width:118px}
+.revtag .rk{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--fm);font-weight:700}
+.revtag b{font-size:13px;display:block;margin-top:2px}.revtag span{font-size:10.5px;color:var(--muted);font-family:var(--fm)}
+.revtag.r0{border-left:3px solid var(--muted)}.revtag.r1{border-left:3px solid var(--brand)}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:8px 13px;font-weight:600;font-size:12.5px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink2);font-family:inherit}.btn:hover{border-color:var(--brand);color:var(--brand)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 8px 20px -10px rgba(52,87,213,.7)}.btn.primary:hover{color:#fff}.btn svg{width:14px;height:14px}
+.btn.lg{padding:11px 20px;font-size:13.5px;border-radius:11px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);padding:15px 17px;margin-bottom:14px}
+.card h3{font-size:13.5px;margin:0 0 3px;display:flex;align-items:center;gap:9px}.card h3 .n{font-family:var(--fm);font-size:10px;color:var(--muted);font-weight:500;margin-left:auto}
+.sec{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin:2px 0 10px;font-family:var(--fm)}
+.callout{background:linear-gradient(120deg,#eef2fe,#f4effe);border:1px solid #dee3fb;border-radius:12px;padding:13px 16px;font-size:12.5px;color:var(--ink2);line-height:1.55;margin-bottom:14px}.callout b{color:var(--ink)}
+.mut{color:var(--muted)}.mono{font-family:var(--fm)}
+/* ── Inputs / assign ─────────────────────────────────────────── */
+.steps{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.step{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:600}
+.step .sn{width:22px;height:22px;border-radius:50%;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;font-family:var(--fm);font-size:11px;font-weight:700;color:var(--muted)}
+.step.on{color:var(--ink)}.step.on .sn{background:var(--brand);border-color:var(--brand);color:#fff}
+.step.done .sn{background:var(--addbg);border-color:var(--add);color:var(--add)}
+.step .arw{color:var(--faint)}
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.slot{border:1.5px dashed var(--line);border-radius:12px;padding:16px;background:var(--panel2);position:relative}
+.slot.filled{border-style:solid;background:var(--panel)}
+.slot.r0.filled{border-color:#c9d1de}.slot.r1.filled{border-color:#c3d0f5}
+.slot .badge{font-family:var(--fm);font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:7px}
+.slot.r0 .badge{background:var(--lowbg);color:var(--low)}.slot.r1 .badge{background:var(--soft);color:var(--brand)}
+.slot h4{margin:9px 0 2px;font-size:15px}.slot .sub{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+.slot .file{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+.slot.filled .file{background:var(--panel3)}
+.slot .file .fic{width:30px;height:30px;border-radius:8px;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;color:var(--brand);flex-shrink:0}.slot .file .fic svg{width:15px;height:15px}
+.slot .file .fn{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot .file .fm{font-size:10.5px;color:var(--muted);font-family:var(--fm);margin-top:1px}
+.slot .file .chk{margin-left:auto;color:var(--add);flex-shrink:0}
+.slot .empty{display:flex;flex-direction:column;align-items:center;gap:9px;padding:6px 0 2px;text-align:center}
+.slot .empty svg{width:26px;height:26px;color:var(--faint)}.slot .empty .et{font-size:12px;color:var(--muted)}
+.metagrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:10px}
+.metagrid div{background:var(--panel);padding:7px 10px}.metagrid .mk2{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-family:var(--fm)}.metagrid .mv{font-size:12.5px;font-weight:600;margin-top:1px}
+.slotswap{position:absolute;top:14px;right:14px}
+.opts{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.optrow{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink2)}
+.tog{width:34px;height:20px;border-radius:11px;background:var(--brand);position:relative;flex-shrink:0}.tog::after{content:"";position:absolute;width:15px;height:15px;border-radius:50%;background:#fff;top:2.5px;right:2.5px}
+.tog.off{background:#cfd6e2}.tog.off::after{right:auto;left:2.5px}
+.runbar{display:flex;align-items:center;gap:14px;margin-top:18px;padding-top:16px;border-top:1px solid var(--hair)}
+.runbar .rn{font-size:12px;color:var(--muted);max-width:60ch;line-height:1.5}
+/* ── KPI ─────────────────────────────────────────── */
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px;box-shadow:var(--sh)}
+.kpi .k{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-family:var(--fm)}
+.kpi .v{font-size:23px;font-weight:800;margin-top:6px;letter-spacing:-.02em;line-height:1}
+.kpi .d{font-size:10.5px;margin-top:5px;font-family:var(--fm);color:var(--muted)}
+.kpi .v.add{color:var(--add)}.kpi .v.rem{color:var(--rem)}.kpi .v.chg{color:var(--chg)}.kpi .v.crit{color:var(--crit)}
+.kpi .d.up{color:var(--rem)}.kpi .d.down{color:var(--add)}
+/* ── Change profile bars ─────────────────────────────────────────── */
+.profile{display:grid;grid-template-columns:1fr 1fr;gap:10px 26px}
+.pbar{display:flex;align-items:center;gap:11px;font-size:12.5px}
+.pbar .pl{width:150px;color:var(--ink2);display:flex;align-items:center;gap:8px}
+.pbar .pdot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.pbar .pt{flex:1;height:8px;border-radius:5px;background:var(--panel3);overflow:hidden}
+.pbar .pf{height:100%;border-radius:5px}
+.pbar .pv{width:34px;text-align:right;font-family:var(--fm);font-weight:700;font-size:12px}
+/* ── Findings ─────────────────────────────────────────── */
+.finding{border:1px solid var(--line);border-radius:11px;padding:13px 15px;background:var(--panel2);margin-bottom:10px;display:flex;gap:13px}
+.finding .fsev{width:4px;border-radius:3px;flex-shrink:0}
+.finding .ftitle{font-weight:700;font-size:13px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.finding .fbody{font-size:12.5px;color:var(--ink2);line-height:1.55;margin-top:5px}.finding .fbody b{color:var(--ink)}
+.flow{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;font-size:11px}
+.flow span{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm)}
+.flow .fk{padding:2px 9px;border-radius:7px;font-weight:600}.flow .fk.det{background:var(--infobg);color:var(--info)}.flow .fk.imp{background:var(--chgbg);color:var(--chg)}.flow .fk.rev{background:var(--viobg);color:var(--vio)}
+.flow .arw{color:var(--faint)}
+/* ── badges / pills ─────────────────────────────────────────── */
+.tag{font-family:var(--fm);font-size:10px;font-weight:700;padding:2px 8px;border-radius:7px;display:inline-flex;align-items:center;gap:5px;letter-spacing:.02em}
+.tag.add{background:var(--addbg);color:var(--add)}.tag.rem{background:var(--rembg);color:var(--rem)}.tag.chg{background:var(--chgbg);color:var(--chg)}
+.tag.logic{background:var(--infobg);color:var(--info)}.tag.seq{background:var(--viobg);color:var(--vio)}.tag.cal{background:#e6f0ee;color:#0f766e}.tag.wbs{background:#efe9fe;color:var(--vio)}
+.sev{font-family:var(--fm);font-size:9.5px;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+.sev.crit{background:var(--critbg);color:var(--crit)}.sev.hi{background:var(--hibg);color:var(--hi)}.sev.med{background:var(--medbg);color:var(--med)}.sev.low{background:var(--lowbg);color:var(--low)}
+.imp{font-size:11.5px;font-weight:600}.imp.material{color:var(--crit)}.imp.minor{color:var(--muted)}
+.stat-chip{font-family:var(--fm);font-size:10px;font-weight:600;padding:2px 8px;border-radius:7px;background:var(--panel3);color:var(--ink2)}
+/* ── tables ─────────────────────────────────────────── */
+table.t{width:100%;border-collapse:collapse;font-size:12px}
+table.t th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--panel2);position:sticky;top:0;font-family:var(--fm)}
+table.t td{padding:9px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+table.t tr:hover td{background:var(--panel2)}
+table.t td.n,table.t th.n{text-align:right;font-family:var(--fm)}
+table.t .aid{font-family:var(--fm);font-size:11px;color:var(--ink2)}
+.old{color:var(--muted);text-decoration:line-through;text-decoration-color:#c9b0b0}
+.new{color:var(--ink);font-weight:600}
+.delta.up{color:var(--rem);font-weight:700;font-family:var(--fm)}.delta.down{color:var(--add);font-weight:700;font-family:var(--fm)}.delta.zero{color:var(--muted);font-family:var(--fm)}
+.rowx{cursor:pointer}.rowx.open{background:var(--soft)!important}.rowx .exp{color:var(--faint);transition:transform .15s}.rowx.open .exp{transform:rotate(90deg);color:var(--brand)}
+.drawer td{background:var(--panel2)!important;padding:0!important;border-bottom:1px solid var(--line)}
+/* ── filter bar ─────────────────────────────────────────── */
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.fchip{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:12px;color:var(--ink2);font-weight:600;cursor:pointer}
+.fchip.on{border-color:var(--brand);color:var(--brand);background:var(--soft)}
+.fchip .c{font-family:var(--fm);font-size:10px;background:var(--panel3);border-radius:6px;padding:1px 6px}
+.search{flex:1;min-width:180px;max-width:280px;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 11px;color:var(--muted);font-size:12.5px}.search svg{width:14px;height:14px}
+/* ── detail drawer ─────────────────────────────────────────── */
+.dd{padding:15px 17px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ddcol{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--panel)}
+.ddcol .ch{padding:9px 13px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-family:var(--fm);display:flex;align-items:center;justify-content:space-between}
+.ddcol.c0 .ch{background:var(--panel3);color:var(--ink2)}.ddcol.c1 .ch{background:var(--soft);color:var(--brand)}
+.ddrow{display:flex;justify-content:space-between;gap:12px;padding:7px 13px;border-top:1px solid var(--hair);font-size:12px}
+.ddrow .dk{color:var(--muted)}.ddrow .dv{font-weight:600;text-align:right}
+.ddrow .dv.hot{color:var(--rem)}
+.analysis{grid-column:1/3;display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.abox{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--panel)}
+.abox .at{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-family:var(--fm);margin-bottom:6px}
+.abox.det .at{color:var(--info)}.abox.why .at{color:var(--chg)}.abox.imp2 .at{color:var(--hi)}.abox.rev .at{color:var(--vio)}
+.abox p{margin:0;font-size:12px;line-height:1.5;color:var(--ink2)}.abox p b{color:var(--ink)}
+/* ── sequence / critical path chains ─────────────────────────────────────────── */
+.chain{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 0}
+.node{border:1px solid var(--line);border-radius:9px;padding:8px 12px;background:var(--panel);font-size:12px;font-weight:600;white-space:nowrap;box-shadow:var(--sh)}
+.node.moved{border-color:var(--vio);background:var(--viobg);color:var(--vio)}
+.node.enter{border-color:var(--add);background:var(--addbg);color:var(--add)}
+.node.leave{border-color:var(--rem);background:var(--rembg);color:var(--rem);text-decoration:line-through;text-decoration-color:#d99}
+.node.crit{border-color:var(--crit)}
+.node .nf{display:block;font-family:var(--fm);font-size:9.5px;font-weight:500;color:var(--muted);margin-top:2px}
+.node.enter .nf,.node.leave .nf,.node.moved .nf{color:inherit;opacity:.75}
+.lnk{color:var(--faint);font-family:var(--fm);font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;line-height:1}
+.lnk .lt{font-size:8.5px;color:var(--muted)}
+.chainrow{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.chainrow .clab{width:92px;flex-shrink:0;padding-top:9px}
+.clab .ck{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-family:var(--fm);font-weight:700;color:var(--muted)}
+.clab.r1 .ck{color:var(--brand)}
+.clab .cv{font-size:11px;color:var(--muted);font-family:var(--fm);margin-top:2px}
+.chainwrap{flex:1;overflow-x:auto;padding-bottom:4px}
+.leg{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--ink2);margin-top:10px}
+.leg span{display:inline-flex;align-items:center;gap:6px}.leg .ld{width:11px;height:11px;border-radius:3px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.slots,.split,.profile{grid-template-columns:1fr}.analysis{grid-template-columns:1fr 1fr}}
+.hide{display:none}
+.foot{font-size:11px;color:var(--muted);font-family:var(--fm);line-height:1.5;margin-top:8px}
+.reg-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);overflow:hidden}
+.reg-head{display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.reg-head b{font-size:13.5px}
+.tblscroll{max-height:none;overflow:auto}
+</style></head>
+<body>
+<div class="shell">
+  <div class="menubar">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M4 19V5M4 15l5-5 4 3 7-8"/></svg></span><span class="bn">Controlyx</span>
+    <div class="menu">File</div><div class="menu">Project</div><div class="menu">View</div><div class="menu">Analysis</div><div class="menu">Tools</div><div class="menu">Help</div>
+    <div class="mb-right"><span class="stat-chip">2026</span><span class="wd r"></span><span class="wd y"></span><span class="wd g"></span></div>
+  </div>
+  <div class="app">
+    <aside class="side">
+      <div class="navh">Project Navigator</div>
+      <nav class="tree">
+        <button class="tnode root"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span><span class="l">New Cairo Medical City</span></button>
+        <div class="tgrp">Analysis</div>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 15l5-5 4 3 7-8"/></svg></span><span class="l">Earned Value</span></button>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="l">Schedule Health</span></button>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4M4 8h6l4 6h6"/></svg></span><span class="l">Critical Path</span></button>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 8l-4 4 4 4M17 8l4 4-4 4M14 4l-4 16"/></svg></span><span class="l">Consultant Review</span></button>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M17 7h4v4"/></svg></span><span class="l">Update vs Update</span></button>
+        <button class="tnode on"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v6a3 3 0 003 3h6M18 21v-6a3 3 0 00-3-3H9"/><circle cx="6" cy="3" r="0.5"/></svg></span><span class="l">Baseline Revision</span><span class="pbadge">New</span></button>
+        <div class="tgrp">Reports</div>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/></svg></span><span class="l">Special Report</span></button>
+        <div class="tgrp">Library</div>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5M3 13a9 9 0 103-7"/></svg></span><span class="l">Recent Projects</span></button>
+      </nav>
+      <div class="acct"><span class="av"></span><div><b>I. Gebril</b><span>Planning Manager</span></div></div>
+    </aside>
+    <div class="main">
+      <div class="top">
+        <div class="tt"><span class="cr" id="crumb">Analysis ▸ Baseline Revision Comparison</span><b>Baseline Revision Comparison</b></div>
+        <div class="seg" id="seg">
+          <button data-v="inputs" class="on">Inputs</button>
+          <button data-v="summary" id="s-summary" disabled>Executive Summary</button>
+          <button data-v="register" id="s-register" disabled>Change Register</button>
+          <button data-v="cp" id="s-cp" disabled>Critical Path &amp; Sequence</button>
+          <button data-v="ms" id="s-ms" disabled>Milestones</button>
+        </div>
+        <span class="avatar"></span>
+      </div>
+      <div class="work" id="work"></div>
+    </div>
+  </div>
+</div>
+<script>
+const ic={
+ flip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4M21 7H9M7 21l-4-4 4-4M3 17h12"/></svg>',
+ file:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/></svg>',
+ chk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>',
+ plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>',
+ run:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9z"/></svg>',
+ srch:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>',
+ doc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l5 5v15H6z"/><path d="M9 13h6M9 17h6"/></svg>',
+ up:'▲',dn:'▼'
+};
+
+/* ─────────────── 1. INPUTS ─────────────── */
+function inputsView(){return `
+  <div class="hd">
+    <div class="fi">${ic.flip}</div>
+    <div>
+      <h2>Baseline Revision Comparison</h2>
+      <p>Compare two approved baseline revisions from a planning &amp; consultant perspective — what changed between submissions, and whether it materially affected the planned execution strategy, logic, sequence, critical path, milestones, scope or duration. This is an analytical review, not a raw file diff: it stays neutral and evidence-based — <b>Change detected → potential impact → planning review</b>, never an automatic verdict.</p>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step done"><span class="sn">${ic.chk}</span>Select feature</div><span class="arw">›</span>
+    <div class="step on"><span class="sn">2</span>Assign required inputs</div><span class="arw">›</span>
+    <div class="step"><span class="sn">3</span>Run comparison</div><span class="arw">›</span>
+    <div class="step"><span class="sn">4</span>Review results</div>
+  </div>
+
+  <div class="card">
+    <div class="sec">Required inputs — assign both, then run</div>
+    <div class="slots">
+      <div class="slot r0 filled">
+        <span class="badge">Rev.00 · Original</span>
+        <h4>Original Baseline</h4>
+        <div class="sub">The first approved baseline programme (the reference).</div>
+        <div class="file">
+          <span class="fic">${ic.file}</span>
+          <div style="min-width:0"><div class="fn">NCMC-Main-Hospital-Baseline-Rev00.xer</div><div class="fm">assigned · 24 Feb 2026</div></div>
+          <span class="chk">${ic.chk}</span>
+        </div>
+        <div class="metagrid">
+          <div><div class="mk2">Activities</div><div class="mv">1,180</div></div>
+          <div><div class="mk2">Data date</div><div class="mv">01 Mar 2025</div></div>
+          <div><div class="mk2">Finish</div><div class="mv">19 Dec 2026</div></div>
+        </div>
+        <button class="btn slotswap" style="padding:5px 9px;font-size:11px">Change…</button>
+      </div>
+
+      <div class="slot r1 filled">
+        <span class="badge">Rev.01 · Revised</span>
+        <h4>Revised Baseline</h4>
+        <div class="sub">The re-submitted / revised baseline to compare against Rev.00.</div>
+        <div class="file">
+          <span class="fic">${ic.file}</span>
+          <div style="min-width:0"><div class="fn">NCMC-Main-Hospital-Baseline-Rev01.xer</div><div class="fm">assigned · 24 Feb 2026</div></div>
+          <span class="chk">${ic.chk}</span>
+        </div>
+        <div class="metagrid">
+          <div><div class="mk2">Activities</div><div class="mv">1,214</div></div>
+          <div><div class="mk2">Data date</div><div class="mv">01 Mar 2025</div></div>
+          <div><div class="mk2">Finish</div><div class="mv">04 Feb 2027</div></div>
+        </div>
+        <button class="btn slotswap" style="padding:5px 9px;font-size:11px">Change…</button>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:center;margin-top:10px"><button class="btn" style="padding:6px 12px;font-size:11.5px">${ic.flip} Swap Rev.00 ⇄ Rev.01</button></div>
+
+    <div class="sec" style="margin-top:18px">Comparison options</div>
+    <div class="opts">
+      <div class="optrow"><span class="tog"></span> Fuzzy activity matching <span class="mut">(beyond Activity ID — name · WBS · dates · codes · logic)</span></div>
+      <div class="optrow"><span class="tog"></span> Recompute critical path &amp; float in each revision</div>
+      <div class="optrow"><span class="tog off"></span> Include resources &amp; cost <span class="mut">(shown only when both files carry it)</span></div>
+    </div>
+
+    <div class="runbar">
+      <button class="btn primary lg" onclick="go('summary')">${ic.run} Run Comparison</button>
+      <div class="rn">Nothing is analysed until you press <b>Run Comparison</b>. Importing or assigning a file never triggers the comparison on its own — you stay in control of when it runs.</div>
+    </div>
+  </div>
+
+  <div class="callout"><b>Matching before diffing.</b> The tool first matches activities across the two revisions using more than the Activity ID — it weighs name, WBS, activity codes, dates/durations and surrounding logic — so an activity that kept its work but changed ID reads as an <b>identity change</b>, not a false “removed + added”. Only then does it diff scope, logic, sequence, critical path, float, milestones, calendars and constraints.</div>
+`;}
+
+/* ─────────────── 2. EXECUTIVE SUMMARY ─────────────── */
+function kpi(k,v,cls,d,dc){return `<div class="kpi"><div class="k">${k}</div><div class="v ${cls||''}">${v}</div>${d?`<div class="d ${dc||''}">${d}</div>`:''}</div>`;}
+function pbar(label,dot,val,max,color){const w=Math.round(val/max*100);return `<div class="pbar"><div class="pl"><span class="pdot" style="background:${dot}"></span>${label}</div><div class="pt"><div class="pf" style="width:${w}%;background:${color}"></div></div><div class="pv">${val}</div></div>`;}
+function finding(sev,color,title,tags,body,flow){return `
+  <div class="finding"><div class="fsev" style="background:${color}"></div>
+    <div><div class="ftitle">${title} ${tags}</div><div class="fbody">${body}</div>
+    ${flow?`<div class="flow"><span class="fk det">Change detected</span><span class="arw">→</span><span class="fk imp">${flow[0]}</span><span class="arw">→</span><span class="fk rev">Planning review</span></div>`:''}</div></div>`;}
+
+function summaryView(){return `
+  <div class="hd">
+    <div class="fi">${ic.flip}</div>
+    <div><h2>Executive Comparison Summary</h2><p>Rev.00 → Rev.01 at a glance. Every number below is evidence from the two files; the material findings that follow are analytical observations for planning review — not judgements that the revision is wrong.</p></div>
+    <div class="rev">
+      <div class="revtag r0"><div class="rk">Rev.00 · Original</div><b>Baseline-Rev00</b><span>1,180 act · fin 19 Dec 2026</span></div>
+      <div class="revtag r1"><div class="rk">Rev.01 · Revised</div><b>Baseline-Rev01</b><span>1,214 act · fin 04 Feb 2027</span></div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    ${kpi('Activities','1,180→1,214','',' +34 net','up')}
+    ${kpi('New','52','add','added in Rev.01')}
+    ${kpi('Removed','18','rem','not in Rev.01')}
+    ${kpi('Modified','141','chg','+ 9 ID changes')}
+    ${kpi('Project duration','+34 wd','crit','longer','up')}
+    ${kpi('Finish date','04 Feb 2027','crit','+46 days','up')}
+  </div>
+
+  <div class="split">
+    <div class="card">
+      <h3>Change profile <span class="n">by category</span></h3>
+      <div class="sec" style="margin:8px 0 12px">Detected changes classified into planning categories</div>
+      <div class="profile">
+        ${pbar('Logic / relationships','#2563eb',96,141,'#2563eb')}
+        ${pbar('Time / dates','#b7791f',141,141,'#b7791f')}
+        ${pbar('Scope (add/remove)','#12805c',70,141,'#12805c')}
+        ${pbar('Sequence','#7c3aed',7,141,'#7c3aed')}
+        ${pbar('Criticality / float','#c23a3a',63,141,'#c23a3a')}
+        ${pbar('Milestones','#0f766e',6,141,'#0f766e')}
+        ${pbar('WBS / structure','#7c3aed',40,141,'#7c3aed')}
+        ${pbar('Calendar','#0f766e',88,141,'#0f766e')}
+        ${pbar('Constraints','#d9822b',12,141,'#d9822b')}
+        ${pbar('Resource / cost','#69768c',0,141,'#cfd6e2')}
+      </div>
+      <div class="foot">Bars are counts, not severity. “Resource / cost” is 0 here — Rev.00 carries no resource loading, so that dimension is reported as <b>not applicable</b> rather than “no change”.</div>
+    </div>
+
+    <div class="card">
+      <h3>Comparison ledger <span class="n">Rev.00 → Rev.01</span></h3>
+      <table class="t">
+        <tbody>
+          <tr><td>Total activities</td><td class="n"><span class="old">1,180</span> <span class="new">1,214</span></td><td class="n delta up">+34</td></tr>
+          <tr><td>New / removed activities</td><td class="n">52 new · 18 removed</td><td class="n"><span class="tag add">+52</span> <span class="tag rem">−18</span></td></tr>
+          <tr><td>Modified · identity (ID) changes</td><td class="n">141 · 9</td><td class="n delta zero">—</td></tr>
+          <tr><td>Project finish</td><td class="n"><span class="old">19 Dec 2026</span> <span class="new">04 Feb 2027</span></td><td class="n delta up">+46 d</td></tr>
+          <tr><td>Logic / relationship changes</td><td class="n">96 total</td><td class="n">+41 −23 · 14 type · 18 lag</td></tr>
+          <tr><td>Meaningful sequence changes</td><td class="n">7</td><td class="n delta up">▲</td></tr>
+          <tr><td>Critical-path activities in/out</td><td class="n">11 in · 8 out</td><td class="n delta up">CP +34 d</td></tr>
+          <tr><td>Criticality / float movement</td><td class="n">26 crit ± · 63 float ±</td><td class="n delta up">▲</td></tr>
+          <tr><td>Calendar reassignments</td><td class="n">88 act · 6-day→7-day</td><td class="n delta up">▲</td></tr>
+          <tr><td>Constraint changes</td><td class="n">12</td><td class="n">+5 −3 · 2 type · 2 date</td></tr>
+          <tr><td>WBS added / removed / renamed</td><td class="n">3 / 1 / 2</td><td class="n">34 act moved</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Key findings — material changes <span class="n">ranked · for planning review</span></h3>
+    <div class="sec" style="margin:8px 0 12px">The differences most likely to affect the execution strategy. Each is an observation, not a verdict.</div>
+    ${finding('crit','#c23a3a','Substructure sequence revised — waterproofing now follows the raft',
+      '<span class="tag seq">Sequence</span><span class="sev crit">Material</span>',
+      'In Rev.00 the tanking was planned <b>Excavation → Blinding → Waterproofing → Raft → Columns</b>. In Rev.01 the raft is poured before the waterproofing (<b>… → Raft → Waterproofing → …</b>). This is a genuine change of execution method for the substructure, detected from the logic — not just a date shift.',
+      ['May change the substructure execution strategy'])}
+    ${finding('crit','#c23a3a','Steel procurement → erection relaxed from FS to SS + 0d',
+      '<span class="tag logic">Logic</span><span class="sev crit">Material</span>',
+      'The driving link <b>Steel Procurement → Steel Erection</b> changed from <b>FS</b> to <b>SS + 0d</b>, allowing erection to overlap procurement. This compresses the structural phase and re-routes part of the critical path through the steel package.',
+      ['Overlap may materially change the structural strategy'])}
+    ${finding('hi','#d9822b','Practical Completion milestone moved +46 days',
+      '<span class="tag chg">Milestone</span><span class="sev hi">High</span>',
+      'Practical Completion moves from <b>19 Dec 2026</b> to <b>04 Feb 2027</b>. The largest contributors are the extended façade logic and longer MEP durations, partly offset by the steel overlap above.',
+      ['Contract completion date impact'])}
+    ${finding('hi','#d9822b','88 activities re-assigned from a 6-day to a 7-day calendar',
+      '<span class="tag cal">Calendar</span><span class="sev hi">High</span>',
+      'A large block of finishing and MEP activities changed calendar. A 7-day week shortens their <b>planned</b> durations even where the work content is identical — worth confirming the basis (approved acceleration vs. an inadvertent reassignment).',
+      ['Durations may shorten without scope change'])}
+    ${finding('med','#b7791f','Critical path re-routed through the MEP risers',
+      '<span class="tag logic">Critical path</span><span class="sev med">Review</span>',
+      'Rev.01 introduces MEP riser installation as a new controlling chain. 11 activities enter the critical path and 8 leave it; the controlling logic in the superstructure changes accordingly.',
+      ['New controlling activities'])}
+  </div>
+`;}
+
+/* ─────────────── 3. CHANGE REGISTER ─────────────── */
+const REG=[
+ ['A1220','Waterproofing to Raft — Zone B','seq','Seq','Before Raft (pos 3)','After Raft (pos 4)','Re-sequenced after raft','material','crit','open',
+   {r0:['A1220','Waterproofing to Raft — Zone B','WBS 1.2 Substructure','12 Apr 2025','28 Apr 2025','14 d','8 d TF','Near-critical','Blinding → | → Raft (FS)'],
+    r1:['A1362','Raft Waterproofing — Zone B','WBS 1.2 Substructure','02 May 2025','18 May 2025','14 d','0 d TF','Critical','Raft → | → Columns (FS)'],
+    det:'Matched across revisions by name + WBS + duration despite the changed Activity ID (A1220 → A1362). The predecessor changed from Blinding to Raft and the successor from Raft to Columns — the activity now sits <b>after</b> the raft pour.',
+    why:'This reverses the planned tanking method for the substructure. Waterproofing applied after the raft is a different construction approach with different QA/inspection holds.',
+    imp:'The activity moves onto the critical path (TF 8 d → 0 d) and pushes downstream column starts by ~10 working days.',
+    rev:'Confirm the revised tanking methodology is approved and reflected in the method statement. Neutral: a legitimate method change, but it drives the critical path — verify the basis.'}],
+ ['A2050','Steel Procurement','logic','Logic','FS → Steel Erection','SS + 0d → Steel Erection','FS → SS+0','material','crit','open',null],
+ ['A2075','Steel Erection — Grid 1–6','logic','Logic','TF 12 d','TF 0 d','Became critical','material','hi','open',null],
+ ['A0000','52 activities','add','Scope','—','Present in Rev.01','New activities','material','med','review',null],
+ ['A1980','Temporary Dewatering','rem','Scope','Present in Rev.00','—','Removed','minor','low','ack',null],
+ ['A3110','Façade Unitized Panels','chg','Time','Dur 90 d','Dur 120 d','+30 d duration','material','hi','open',null],
+ ['C-CAL','88 activities','cal','Calendar','6-day week','7-day week','Calendar reassigned','material','hi','review',null],
+ ['A4400','MEP Riser Installation','logic','Critical path','Off CP','On CP','Entered critical path','material','med','open',null],
+ ['W-1.6','WBS 1.6 — External Works','wbs','WBS','—','Added branch','New WBS + 14 act','minor','low','ack',null],
+ ['A1450','Blinding — Zone C','chg','Constraint','SNET 10 Apr','(removed)','Constraint removed','minor','low','ack',null],
+];
+function regRow(r,i){
+  const [aid,name,ttype,tlab,r0,r1,chg,impc,sev,status,detail]=r;
+  const expandable=!!detail;
+  return `
+  <tr class="${expandable?'rowx':''}" data-i="${i}" ${expandable?`onclick="toggleRow(${i})"`:''}>
+    <td>${expandable?`<span class="exp">▸</span> `:'<span style="display:inline-block;width:14px"></span>'}<span class="aid">${aid}</span></td>
+    <td><b style="font-size:12px">${name}</b></td>
+    <td><span class="tag ${ttype}">${tlab}</span></td>
+    <td class="mut">${r0}</td>
+    <td class="new">${r1}</td>
+    <td>${chg}</td>
+    <td><span class="imp ${impc}">${impc==='material'?'Material':'Minor'}</span></td>
+    <td><span class="sev ${sev}">${sev==='crit'?'Critical':sev==='hi'?'High':sev==='med'?'Review':'Info'}</span></td>
+    <td><span class="stat-chip">${status}</span></td>
+  </tr>
+  ${expandable?`<tr class="drawer hide" id="dr-${i}"><td colspan="9">${detailDrawer(detail,name)}</td></tr>`:''}`;
+}
+function ddcol(cls,head,vals){const K=['Activity ID','Activity name','WBS','Start','Finish','Duration','Total float','Criticality','Key logic'];
+  return `<div class="ddcol ${cls}"><div class="ch">${head}</div>${K.map((k,i)=>`<div class="ddrow"><span class="dk">${k}</span><span class="dv ${i>=6&&cls==='c1'?'hot':''}">${vals[i]}</span></div>`).join('')}</div>`;}
+function detailDrawer(d,name){return `<div class="dd">
+   ${ddcol('c0','Rev.00 · Original',d.r0)}
+   ${ddcol('c1','Rev.01 · Revised',d.r1)}
+   <div class="analysis">
+     <div class="abox det"><div class="at">Change detected</div><p>${d.det}</p></div>
+     <div class="abox why"><div class="at">Why it matters</div><p>${d.why}</p></div>
+     <div class="abox imp2"><div class="at">Potential impact</div><p>${d.imp}</p></div>
+     <div class="abox rev"><div class="at">Planning review</div><p>${d.rev}</p></div>
+   </div>
+ </div>`;}
+function registerView(){return `
+  <div class="hd">
+    <div class="fi">${ic.doc}</div>
+    <div><h2>Change Register</h2><p>The consolidated record of every material change between Rev.00 and Rev.01. Filter by type, severity, impact or criticality; select a row to open the detailed Rev.00 ⇄ Rev.01 analysis. Minor and cosmetic differences are collapsed by default so the register stays consultant-readable.</p></div>
+  </div>
+  <div class="filters">
+    <div class="search">${ic.srch} Filter activity, WBS or ID…</div>
+    <div class="fchip on">All <span class="c">148</span></div>
+    <div class="fchip">Material <span class="c">96</span></div>
+    <div class="fchip">Critical only <span class="c">19</span></div>
+    <div class="fchip">Logic <span class="c">96</span></div>
+    <div class="fchip">Sequence <span class="c">7</span></div>
+    <div class="fchip">Scope <span class="c">70</span></div>
+    <div class="fchip">Calendar <span class="c">88</span></div>
+    <div class="fchip">Milestones <span class="c">6</span></div>
+  </div>
+  <div class="reg-wrap">
+    <div class="reg-head"><b>Material changes</b> <span class="mut" style="font-size:11.5px">10 of 148 shown · ranked by impact then severity</span>
+      <button class="btn" style="margin-left:auto;padding:6px 11px;font-size:11.5px">Columns…</button></div>
+    <div class="tblscroll">
+      <table class="t">
+        <thead><tr>
+          <th>Activity ID</th><th>Activity name</th><th>Change type</th><th>Rev.00</th><th>Rev.01</th><th>Change</th><th>Impact</th><th>Severity</th><th>Status</th>
+        </tr></thead>
+        <tbody>${REG.map(regRow).join('')}</tbody>
+      </table>
+    </div>
+  </div>
+  <div class="foot">▸ Rows with a triangle expand to the full side-by-side comparison and the four-part planning analysis. The register never labels a change “wrong” — severity reflects <b>schedule impact</b>, and status is the consultant's own workflow (open · review · acknowledged).</div>
+`;}
+
+/* ─────────────── 4. CRITICAL PATH & SEQUENCE ─────────────── */
+function node(txt,cls,fl){return `<div class="node ${cls||''}">${txt}${fl?`<span class="nf">${fl}</span>`:''}</div>`;}
+const lnkFS='<div class="lnk"><span class="lt">FS</span>→</div>';
+function cpView(){return `
+  <div class="hd">
+    <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4M4 8h6l4 6h6"/></svg></div>
+    <div><h2>Critical Path &amp; Sequence</h2><p>The two headline analytical outputs. First, the driving critical path of each revision and what entered or left it; then the meaningful execution-sequence changes read from the logic, and the float movement behind them.</p></div>
+  </div>
+
+  <div class="card">
+    <h3>Critical path — Rev.00 vs Rev.01 <span class="n">driving chain · longest path</span></h3>
+    <div class="sec" style="margin:8px 0 14px">Rev.01 critical path is 34 working days longer and re-routes through the steel and MEP-riser packages.</div>
+    <div class="chainrow">
+      <div class="clab r0"><div class="ck">Rev.00</div><div class="cv">ends 19 Dec 26</div></div>
+      <div class="chainwrap"><div class="chain">
+        ${node('Excavation','crit','A1000')}${lnkFS}${node('Blinding','crit','A1100')}${lnkFS}${node('Waterproofing','crit','A1220')}${lnkFS}${node('Raft','crit','A1300')}${lnkFS}${node('Columns L0','crit','A1500')}${lnkFS}${node('Slab L1–L6','crit','A1700')}${lnkFS}${node('Façade','leave','A3110')}${lnkFS}${node('MEP Fit-out','crit','A4000')}${lnkFS}${node('Commissioning','crit','A5000')}${lnkFS}${node('PC','crit','MS-PC')}
+      </div></div>
+    </div>
+    <div class="chainrow">
+      <div class="clab r1"><div class="ck">Rev.01</div><div class="cv">ends 04 Feb 27</div></div>
+      <div class="chainwrap"><div class="chain">
+        ${node('Excavation','crit','A1000')}${lnkFS}${node('Blinding','crit','A1100')}${lnkFS}${node('Raft','crit','A1300')}${lnkFS}${node('Columns L0','crit','A1500')}${lnkFS}${node('Steel Erection','enter','A2075')}${lnkFS}${node('Slab L1–L6','crit','A1700')}${lnkFS}${node('MEP Risers','enter','A4400')}${lnkFS}${node('MEP Fit-out','crit','A4000')}${lnkFS}${node('Commissioning','crit','A5000')}${lnkFS}${node('PC','crit','MS-PC')}
+      </div></div>
+    </div>
+    <div class="leg">
+      <span><span class="ld" style="background:var(--addbg);border:1px solid var(--add)"></span>Entered critical path (11)</span>
+      <span><span class="ld" style="background:var(--rembg);border:1px solid var(--rem)"></span>Left critical path (8)</span>
+      <span><span class="ld" style="background:var(--panel);border:1px solid var(--crit)"></span>Critical in both</span>
+      <span class="mut">Waterproofing (A1220) is no longer separately critical — it now trails the raft.</span>
+    </div>
+  </div>
+
+  <div class="split">
+    <div class="card">
+      <h3>Sequence change detected <span class="n">substructure</span></h3>
+      <div class="sec" style="margin:8px 0 12px">Read from logic &amp; execution relationships — not from sorting by start date</div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-family:var(--fm);font-weight:700;margin-bottom:6px">Rev.00 — planned method</div>
+      <div class="chain" style="margin-bottom:12px">
+        ${node('Excavation')}${lnkFS}${node('Blinding')}${lnkFS}${node('Waterproofing','moved')}${lnkFS}${node('Raft')}${lnkFS}${node('Columns')}
+      </div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--brand);font-family:var(--fm);font-weight:700;margin-bottom:6px">Rev.01 — revised method</div>
+      <div class="chain">
+        ${node('Excavation')}${lnkFS}${node('Blinding')}${lnkFS}${node('Raft')}${lnkFS}${node('Waterproofing','moved')}${lnkFS}${node('Columns')}
+      </div>
+      <div class="finding" style="margin-top:14px;background:var(--panel2)"><div class="fsev" style="background:var(--vio)"></div>
+        <div><div class="ftitle">Waterproofing re-sequenced after the raft</div>
+        <div class="fbody">Originally planned <b>before</b> the raft pour; now planned <b>after</b> it. A deliberate change of substructure methodology — flagged for review, not marked incorrect.</div>
+        <div class="flow"><span class="fk det">Change detected</span><span class="arw">→</span><span class="fk imp">Substructure method change</span><span class="arw">→</span><span class="fk rev">Planning review</span></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Float / criticality movement <span class="n">total float, working days</span></h3>
+      <div class="sec" style="margin:8px 0 12px">Activities whose criticality changed most between revisions</div>
+      <table class="t">
+        <thead><tr><th>Activity</th><th class="n">Rev.00 TF</th><th class="n">Rev.01 TF</th><th class="n">Δ</th><th>Movement</th></tr></thead>
+        <tbody>
+          <tr><td><span class="aid">A2075</span> Steel Erection</td><td class="n">12 d</td><td class="n">0 d</td><td class="n delta down">−12</td><td><span class="tag rem">Became critical</span></td></tr>
+          <tr><td><span class="aid">A1362</span> Waterproofing (Zone B)</td><td class="n">8 d</td><td class="n">0 d</td><td class="n delta down">−8</td><td><span class="tag rem">Became critical</span></td></tr>
+          <tr><td><span class="aid">A4400</span> MEP Risers</td><td class="n">15 d</td><td class="n">0 d</td><td class="n delta down">−15</td><td><span class="tag rem">Became critical</span></td></tr>
+          <tr><td><span class="aid">A3110</span> Façade Panels</td><td class="n">0 d</td><td class="n">6 d</td><td class="n delta up">+6</td><td><span class="tag add">Left critical path</span></td></tr>
+          <tr><td><span class="aid">A1980</span> Fit-out Level 2</td><td class="n">4 d</td><td class="n">21 d</td><td class="n delta up">+17</td><td><span class="tag add">Gained float</span></td></tr>
+        </tbody>
+      </table>
+      <div class="foot">26 activities changed criticality band (critical / near-critical / non-critical); 63 moved total float by more than 5 working days.</div>
+    </div>
+  </div>
+`;}
+
+/* ─────────────── 5. MILESTONES ─────────────── */
+function msView(){return `
+  <div class="hd">
+    <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 8l7 3-7 3-7-3 7-3M5 11v8M19 11v8"/></svg></div>
+    <div><h2>Milestone Comparison</h2><p>Finish milestones in both revisions, with the movement and its schedule impact. Delayed, advanced, unchanged, new and removed milestones are distinguished. Dates in full form for the review record.</p></div>
+  </div>
+  <div class="card">
+    <table class="t">
+      <thead><tr><th>Milestone</th><th>Rev.00</th><th>Rev.01</th><th class="n">Change</th><th>Impact</th></tr></thead>
+      <tbody>
+        <tr><td><b>Practical Completion</b></td><td class="mut">19 December 2026</td><td class="new">04 February 2027</td><td class="n delta up">+46 d</td><td><span class="sev hi">Delayed</span> Contract completion</td></tr>
+        <tr><td><b>Substructure Complete</b></td><td class="mut">28 August 2025</td><td class="new">11 September 2025</td><td class="n delta up">+14 d</td><td><span class="sev med">Delayed</span> Tanking re-sequence</td></tr>
+        <tr><td><b>Structure Topped Out</b></td><td class="mut">15 March 2026</td><td class="new">02 March 2026</td><td class="n delta down">−13 d</td><td><span class="sev low" style="background:var(--addbg);color:var(--add)">Advanced</span> Steel overlap</td></tr>
+        <tr><td><b>Building Watertight</b></td><td class="mut">10 July 2026</td><td class="new">10 July 2026</td><td class="n delta zero">0 d</td><td><span class="stat-chip">Unchanged</span></td></tr>
+        <tr><td><b>MEP Risers Energised</b></td><td class="mut">—</td><td class="new">18 October 2026</td><td class="n"><span class="tag add">New</span></td><td><span class="sev med">New</span> New controlling milestone</td></tr>
+        <tr><td><b>Temporary Power Off</b></td><td class="mut">05 May 2026</td><td class="new">—</td><td class="n"><span class="tag rem">Removed</span></td><td><span class="sev low">Removed</span> Merged into commissioning</td></tr>
+      </tbody>
+    </table>
+    <div class="foot">Major movement: <b>Practical Completion +46 days</b>. Largest contributors identified by the tool — façade duration (+30 d) and MEP fit-out logic — partly offset by the structural steel overlap (−13 d at top-out).</div>
+  </div>
+  <div class="callout"><b>Report output.</b> Executive Summary, Revision Overview, Milestone Comparison, Critical Path Comparison, Sequence &amp; Logic changes, WBS/Scope, Calendar/Constraint changes and the Change Register assemble into one consultant-grade PDF via the global <b>File ▸ Print / Export to PDF</b> — no separate export button lives inside this feature, matching every other module.</div>
+`;}
+
+/* ─────────────── router ─────────────── */
+const VIEWS={inputs:inputsView,summary:summaryView,register:registerView,cp:cpView,ms:msView};
+let ran=false;
+function render(v){document.getElementById('work').innerHTML=VIEWS[v]();document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  const crumbs={inputs:'Analysis ▸ Baseline Revision Comparison',summary:'Baseline Revision ▸ Executive Summary',register:'Baseline Revision ▸ Change Register',cp:'Baseline Revision ▸ Critical Path & Sequence',ms:'Baseline Revision ▸ Milestones'};
+  document.getElementById('crumb').textContent=crumbs[v];window.scrollTo(0,0);document.getElementById('work').scrollTo(0,0);}
+function go(v){ran=true;['summary','register','cp','ms'].forEach(id=>document.getElementById('s-'+id).disabled=false);render(v);}
+function toggleRow(i){const r=document.querySelector(`.rowx[data-i="${i}"]`);const d=document.getElementById('dr-'+i);if(!d)return;r.classList.toggle('open');d.classList.toggle('hide');}
+document.getElementById('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;render(b.dataset.v);});
+// Deep-link: #summary / #register / #cp / #ms open that result view directly (also used for review screenshots).
+const _h=(location.hash||'').replace('#','');
+if(_h && _h!=='inputs' && VIEWS[_h]){go(_h);if(_h==='register'&&location.search.includes('open'))toggleRow(0);} else {render('inputs');}
+window.addEventListener('hashchange',()=>{const h=(location.hash||'').replace('#','');if(VIEWS[h])(h==='inputs'?render('inputs'):go(h));});
+</script>
+</body></html>
