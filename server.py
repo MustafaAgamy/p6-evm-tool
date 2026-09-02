@@ -446,7 +446,9 @@ class Handler(BaseHTTPRequestHandler):
                 def _mx(a, b):
                     return b if a is None else (a if b is None else max(a, b))
 
-                base = lambda: {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0, 's': None, 'f': None}
+                base = lambda: {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0,
+                                's': None, 'f': None, 'bs': None, 'bf': None}
+                bl_by_id = getattr(data, 'baseline_by_id', None) or {}
                 direct = defaultdict(base)
                 for r in result['records']:
                     a = r['activity']
@@ -454,8 +456,12 @@ class Handler(BaseHTTPRequestHandler):
                     if wid is None:
                         continue
                     d = direct[wid]
-                    d['s'] = _mn(d['s'], a.get('planned_start'))
+                    d['s'] = _mn(d['s'], a.get('planned_start'))    # current schedule (expected)
                     d['f'] = _mx(d['f'], a.get('planned_finish'))
+                    bl = bl_by_id.get(a.get('id'))                  # embedded baseline, when present
+                    if bl:
+                        d['bs'] = _mn(d['bs'], bl.get('planned_start'))
+                        d['bf'] = _mx(d['bf'], bl.get('planned_finish'))
                     if r.get('planned_pct') is None:
                         continue
                     w = (r.get('bac') or 0.0) if any_bac else float(a.get('planned_duration') or 1.0)
@@ -475,6 +481,7 @@ class Handler(BaseHTTPRequestHandler):
                         c = _rollup(k)
                         t['n'] += c['n']; t['w'] += c['w']; t['wp'] += c['wp']; t['wa'] += c['wa']
                         t['s'] = _mn(t['s'], c['s']); t['f'] = _mx(t['f'], c['f'])
+                        t['bs'] = _mn(t['bs'], c['bs']); t['bf'] = _mx(t['bf'], c['bf'])
                     sub[wid] = t
                     return t
                 for rt in roots:
@@ -497,8 +504,10 @@ class Handler(BaseHTTPRequestHandler):
                         'activities': t['n'],
                         'planned':    round(100 * t['wp'] / t['w'], 1) if t['w'] else None,
                         'actual':     round(100 * t['wa'] / t['w'], 1) if t['w'] else None,
-                        'start':      _iso(t['s']),
-                        'finish':     _iso(t['f']),
+                        'start':          _iso(t['s']),     # expected (current) start
+                        'finish':         _iso(t['f']),     # expected (current) finish
+                        'baseline_start': _iso(t['bs']),
+                        'baseline_finish':_iso(t['bf']),
                         'leaf':       (direct.get(wid) or base())['n'] > 0 and not childs,
                     })
                     for k in sorted(childs, key=lambda x: (wmap[x].get('name') or '').lower()):

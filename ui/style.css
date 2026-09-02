@@ -2128,12 +2128,18 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wbst-lg.tgt { width: 3px; height: 14px; background: var(--text); border-radius: 2px; }
 
 .wbst-wrap { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
-.wbst-inner { position: relative; width: calc(540px + var(--trackw)); }
+.wbst-inner { position: relative; width: max-content; }   /* exact width set inline per render */
 .wbst-scale { display: flex; position: sticky; top: 0; z-index: 3; background: var(--card-bg); border-bottom: 1px solid var(--border); height: 40px; }
 .wbst-scale .wbst-h { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; display: flex; align-items: center; }
 .wc-wbs { width: 260px; flex-shrink: 0; padding: 0 12px; box-sizing: border-box; display: flex; align-items: center; min-width: 0; }
-.wc-pl, .wc-ac { width: 52px; flex-shrink: 0; box-sizing: border-box; padding-right: 6px; display: flex; align-items: center; justify-content: flex-end; font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--ink-soft); }
-.wc-st, .wc-fn { width: 88px; flex-shrink: 0; box-sizing: border-box; padding-left: 2px; display: flex; align-items: center; font-family: ui-monospace, monospace; font-size: 11px; color: var(--ink-soft); }
+/* configurable data columns — widths set inline; kind drives alignment/colour */
+.wc-cell { flex-shrink: 0; box-sizing: border-box; padding: 0 6px; display: flex; align-items: center; font-family: ui-monospace, monospace; font-size: 11px; color: var(--ink-soft); }
+.wc-cell.wc-num { justify-content: flex-end; text-align: right; }
+.wc-cell.wc-date { padding-left: 4px; }
+.wc-cell b { color: var(--text); font-weight: 700; }
+.wc-cell.wc-bad { color: var(--danger); font-weight: 700; }
+.wc-cell.wc-good { color: var(--success); font-weight: 700; }
+.wbst-scale .wc-cell.wbst-h { font-size: 10px; text-transform: uppercase; letter-spacing: 0.02em; font-weight: 700; color: var(--muted); white-space: normal; line-height: 1.05; }
 .wc-tl { width: var(--trackw); flex-shrink: 0; position: relative; }
 .wbst-scale-track { height: 40px; }
 .wbst-tk { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--hair); }
@@ -2148,7 +2154,6 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wbst-row.sum .wc-wbs { font-weight: 700; color: var(--text); }
 .wbst-row.d0 .wc-wbs { font-weight: 800; }
 .wbst-row.leaf .wc-wbs { color: var(--ink-soft); }
-.wc-ac b { color: var(--text); }
 .wbst-nm { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .wbst-nm .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wbst-mk { width: 14px; text-align: center; flex-shrink: 0; color: var(--muted); font-size: 10px; }
@@ -2162,3 +2167,13 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wbst-behind { position: absolute; top: 0; bottom: 0; background: var(--warning); z-index: 1; }
 .wbst-tick { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); border-radius: 2px; z-index: 4; }
 .wbst-cap { position: absolute; right: -1.5px; top: -3px; bottom: -3px; width: 3px; border-radius: 2px; background: var(--accent-dark); z-index: 3; }
+
+/* column chooser — pick which WBS data columns are shown */
+.wbst-colpick { position: relative; }
+.wbst-colbtn { border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); font-weight: 600; font-size: 12px; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-family: inherit; }
+.wbst-colbtn:hover { color: var(--text); border-color: var(--accent); }
+.wbst-colmenu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 190px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 26px rgba(0, 0, 0, 0.22); padding: 8px; }
+.wbst-colmenu-t { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; padding: 4px 8px 8px; }
+.wbst-colmenu label { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; }
+.wbst-colmenu label:hover { background: var(--bg); }
+.wbst-colmenu input { cursor: pointer; margin: 0; }
