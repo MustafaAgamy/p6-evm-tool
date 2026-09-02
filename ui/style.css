@@ -2258,3 +2258,32 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .fc-weather.on  { background: var(--warning-bg); color: var(--ink-soft); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); }
 .fc-weather.off { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 .fc-wx-ic { flex-shrink: 0; }
+
+/* ── Analysis ▸ AI Copilot · TIA ────────────────────────────────────────── */
+.cp-loading, .cp-empty { padding: 40px 8px; color: var(--muted); font-size: 14px; }
+.cp-sub { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.ov-chip.cp-chip-offline { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+.cp-card { border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); padding: 16px 18px; margin-bottom: 6px; }
+.cp-tia-head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--hair); margin-bottom: 12px; }
+.cp-tia-head b { display: block; font-size: 18px; font-weight: 700; color: var(--text); font-family: ui-monospace, monospace; }
+.cp-k { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; }
+.cp-arrow { color: var(--muted); font-size: 18px; }
+.cp-tia-total { margin-left: auto; text-align: right; }
+.cp-tia-total.bad b { color: var(--danger); } .cp-tia-total.good b { color: var(--success); }
+.cp-tia-rows { display: flex; flex-direction: column; gap: 9px; }
+.cp-tia-row { display: grid; grid-template-columns: minmax(160px, 260px) 1fr 62px; align-items: center; gap: 12px; }
+.cp-tia-lbl { font-size: 12.5px; font-weight: 600; color: var(--text); } .cp-tia-lbl span { display: block; font-size: 10.5px; font-weight: 400; color: var(--muted); }
+.cp-tia-track { height: 12px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+.cp-tia-fill { height: 100%; border-radius: 6px; } .cp-tia-fill.bad { background: var(--danger); } .cp-tia-fill.good { background: var(--success); }
+.cp-tia-days { text-align: right; font-family: ui-monospace, monospace; font-size: 13px; font-weight: 700; color: var(--muted); }
+.cp-tia-days.bad { color: var(--danger); } .cp-tia-days.good { color: var(--success); }
+.cp-tia-note { margin: 12px 0 0; font-size: 11.5px; color: var(--muted); }
+.cp-insights { display: flex; flex-direction: column; gap: 9px; margin-bottom: 6px; }
+.cp-ins { display: flex; gap: 12px; border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 10px; background: var(--card-bg); padding: 11px 14px; }
+.cp-ins-sev { flex-shrink: 0; width: 62px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding-top: 2px; }
+.cp-ins-body b { font-size: 13.5px; color: var(--text); } .cp-ins-body p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.45; }
+.cp-ins.cp-high { border-left-color: var(--danger); } .cp-ins.cp-high .cp-ins-sev { color: var(--danger); }
+.cp-ins.cp-med  { border-left-color: var(--warning); } .cp-ins.cp-med .cp-ins-sev { color: var(--warning); }
+.cp-ins.cp-low  { border-left-color: var(--success); } .cp-ins.cp-low .cp-ins-sev { color: var(--success); }
+.cp-ai { border: 1px dashed var(--border); border-radius: 12px; padding: 14px 16px; }
+.cp-ai-note { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }

@@ -94,6 +94,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_narrative(body)
         elif self.path == '/api/forecast':
             self._handle_forecast(body)
+        elif self.path == '/api/copilot':
+            self._handle_copilot(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -2259,6 +2261,35 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
 
     # ── /api/history ───────────────────────────────────────────────────────
+    def _handle_copilot(self, body):
+        """AI Copilot · TIA — the deterministic, offline core (Time-Impact Analysis +
+        prioritised insights) from the already-computed result, reusing the saved
+        weather estimate. `has_key` tells the UI whether the optional AI narrative
+        (the key-gated AI review) can be offered."""
+        try:
+            from p6_evm.copilot import build_copilot
+            result = body.get('result')
+            weather = None
+            snap = body.get('snapshot_id')
+            if snap is not None:
+                pid = db.snapshot_project_id(snap)
+                if pid is not None:
+                    weather = (db.get_project_settings(pid) or {}).get('last_weather')
+                    if not result:
+                        result = db.get_project_result(pid)
+            if not result:
+                self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
+                return
+            has_key = False
+            try:
+                from p6_ai import settings as ai_settings
+                has_key = bool(ai_settings.has_api_key())
+            except Exception:
+                has_key = False
+            self._json(200, {'ok': True, 'has_key': has_key, **build_copilot(result, weather)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     def _handle_forecast(self, body):
         """Weather → Forecast: finish-date scenarios from the schedule's own
         figures + the weather impact Calendar Audit already computed (reused from
