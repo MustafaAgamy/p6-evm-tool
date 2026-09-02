@@ -46,10 +46,12 @@ export async function loadHistory() {
 }
 
 class ButtonState {
+  // el may be null when a report action is triggered from the global File menu
+  // (the per-module buttons were removed) — every method no-ops without an element.
   constructor(el, idleText) { this.el = el; this.idleText = idleText; }
-  loading(text)               { this.el.disabled = true;  this.el.textContent = text; }
-  reset()                     { this.el.disabled = false; this.el.textContent = this.idleText; }
-  success(text, delay = 2500) { this.el.textContent = text; setTimeout(() => this.reset(), delay); }
+  loading(text)               { if (this.el) { this.el.disabled = true;  this.el.textContent = text; } }
+  reset()                     { if (this.el) { this.el.disabled = false; this.el.textContent = this.idleText; } }
+  success(text, delay = 2500) { if (this.el) { this.el.textContent = text; setTimeout(() => this.reset(), delay); } }
 }
 
 export async function loadProject(projectId, filePath, cachedPath) {

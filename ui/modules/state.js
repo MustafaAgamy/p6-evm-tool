@@ -7,6 +7,7 @@ export const state = {
   currentSnapshotId: null,
   currentModules:    null,   // {modules, module_order}
   currentModule:     null,   // selected module key ('dangling' | 'float')
+  currentView:       null,   // active navigator view — drives the global File ▸ Print / Export action
   baselinePath:      null,   // cached path of an attached baseline (XER updates); drives PDF re-gen
   baselineName:      null,   // filename of the attached baseline, for the banner
   baselineMatched:   null,   // activities matched between update and baseline (by Id)

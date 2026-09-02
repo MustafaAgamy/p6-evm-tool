@@ -224,6 +224,17 @@ body {
 .action-buttons {
   display: flex; gap: 10px; justify-content: flex-end; padding-top: 4px;
 }
+/* Single-source-of-action: report generation is ONE global command —
+   File ▸ Print / Export to PDF (and Export to Excel). The per-module trigger
+   buttons are removed from the UI; the global action drives the active module's
+   existing PDF Preview + Printing Selection workflow. Contextual controls INSIDE
+   a preview (the Print Picker, Save as PDF) are part of that workflow, not here. */
+.action-buttons,
+#cmp-preview-pdf, #cmp-export-pdf, #cmp-export-xlsx,
+#cpa-export-pdf, #cpa-export-xlsx,
+#cx-pdf, #cx-xls,
+#per-export-pdf, #per-export-xlsx,
+#ua-export-pdf, #ua-export-xlsx { display: none !important; }
 .btn-primary {
   padding: 9px 20px; background: var(--accent); color: white;
   border: none; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;
