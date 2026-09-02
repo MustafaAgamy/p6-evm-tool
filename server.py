@@ -90,6 +90,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_report(body)
         elif self.path == '/api/dashboard':
             self._handle_dashboard(body)
+        elif self.path == '/api/narrative':
+            self._handle_narrative(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -2255,6 +2257,27 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
 
     # ── /api/history ───────────────────────────────────────────────────────
+    def _handle_narrative(self, body):
+        """Baseline Narrative: a deterministic status narrative built from the
+        already-computed result. Prefers the DB result for the given snapshot
+        (the read path); falls back to the client-supplied result."""
+        try:
+            from p6_evm.narrative import build_narrative
+            result = None
+            snap = body.get('snapshot_id')
+            if snap is not None:
+                pid = db.snapshot_project_id(snap)
+                if pid is not None:
+                    result = db.get_project_result(pid)
+            if result is None:
+                result = body.get('result')
+            if not result:
+                self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
+                return
+            self._json(200, {'ok': True, **build_narrative(result)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     def _handle_dashboard(self, body):
         """Professional Dashboard read-model: the portfolio (latest snapshot per
         project) + the active project's snapshot trend. DB-only, no re-parse."""
