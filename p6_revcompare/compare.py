@@ -317,9 +317,16 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
     # ── time (duration) changes on matched activities ───────────────────────────
     time_changes = _time_changes(match['pairs'], rev0, rev1c)
 
+    # ── slice 2: WBS structure, calendar and constraint diffs (no parser changes) ─
+    from p6_revcompare import structure as ST
+    wbs_changes = ST.diff_wbs(rev0, rev1c, match['moved_wbs'])
+    calendar_changes = ST.diff_calendars(rev0, rev1c, matched)
+    constraint_changes = ST.diff_constraints(matched)
+
     # ── register ───────────────────────────────────────────────────────────────
     register = _build_register(match, matched, logic, sequences, milestones, floats,
-                               time_changes, crit0, crit1, cal, rev0, rev1c)
+                               time_changes, crit0, crit1, cal, rev0, rev1c,
+                               wbs_changes, calendar_changes, constraint_changes)
 
     # ── summary / profile / ledger / findings / narrative ───────────────────────
     gov0, gov1 = _governing_finish(rev0), _governing_finish(rev1c)
@@ -337,8 +344,14 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
         'cp_in': len(entered), 'cp_out': len(left), 'cp_length_change_wd': cp_len_change,
         'criticality': sum(1 for f in floats if f['movement_cls'] in ('rem', 'add') and 'critical' in f['movement'].lower()),
         'float_moves': len(floats),
+        'calendar_reassigned': sum(g['count'] for g in calendar_changes['reassignments']),
+        'calendar_changed': len(calendar_changes['calendars']),
+        'constraint_changes': len(constraint_changes),
+        'wbs_added': len(wbs_changes['added']), 'wbs_removed': len(wbs_changes['removed']),
+        'wbs_renamed': len(wbs_changes['renamed']),
     }
-    profile = _profile(match, logic_stats, sequences, floats, milestones, time_changes)
+    profile = _profile(match, logic_stats, sequences, floats, milestones, time_changes,
+                       wbs_changes, calendar_changes, constraint_changes)
     ledger = _ledger(summary, match, milestones)
     findings = _findings(register, sequences, milestones, cp)
     narrative = _narrative(summary, finish_shift, sequences, milestones)
@@ -354,6 +367,8 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
         'summary': summary, 'profile': profile, 'ledger': ledger, 'findings': findings,
         'register': register, 'critical_path': cp, 'sequence': sequences,
         'float_movement': floats, 'milestones': milestones, 'narrative': narrative,
+        'wbs_changes': wbs_changes, 'calendar_changes': calendar_changes,
+        'constraint_changes': constraint_changes,
     }
 
 
@@ -372,7 +387,8 @@ def _time_changes(pairs, data0, data1):
 
 
 def _build_register(match, matched, logic, sequences, milestones, floats, time_changes,
-                    crit0, crit1, cal, data0, data1):
+                    crit0, crit1, cal, data0, data1,
+                    wbs_changes, calendar_changes, constraint_changes):
     rows = []
     seen = set()   # (activity, kind) dedupe
 
@@ -473,8 +489,52 @@ def _build_register(match, matched, logic, sequences, milestones, floats, time_c
                      p['act0'].get('wbs_path') or '—', p['act1'].get('wbs_path') or '—',
                      'Moved WBS', p['act0'].get('total_float_days'), p['act1'].get('total_float_days')))
 
+    # Slice 2 — calendar reassignments (grouped), calendar-level changes, constraints, WBS structure.
+    for g in calendar_changes['reassignments']:
+        wd_delta = 0
+        if g.get('from_wd') is not None and g.get('to_wd') is not None:
+            wd_delta = g['to_wd'] - g['from_wd']
+        on_cp = any(c in crit1 for c in g['codes'])
+        label = f"{g['from']} → {g['to']}" + (f" ({g['from_wd']}-day → {g['to_wd']}-day)" if wd_delta else '')
+        imp, sev = SEV.classify('calendar', magnitude=wd_delta, on_cp=on_cp)
+        add(_row_direct(f"CAL:{g['from']}>{g['to']}", f"{g['count']} activities", 'calendar',
+                        g['from'], g['to'], label, imp, sev))
+    for c in calendar_changes['calendars']:
+        imp, sev = SEV.classify('calendar', magnitude=(1 if 'workweek' in c['detail'] else 0))
+        add(_row_direct(f"CAL:{c['name']}", c['name'], 'calendar',
+                        '—' if c['change'] == 'added' else 'present',
+                        '—' if c['change'] == 'removed' else 'present', c['detail'], imp, sev))
+    for c in constraint_changes:
+        imp, sev = SEV.classify('constraint', tf0=c.get('tf0'), tf1=c.get('tf1'), hard=c.get('hard'))
+        lbl = {'added': 'Constraint added', 'removed': 'Constraint removed',
+               'type': 'Constraint type changed', 'date': 'Constraint date changed'}[c['kind']]
+        add(_row_direct(c['activity_id'], c['name'], 'constraint', c['rev0'], c['rev1'], lbl, imp, sev))
+    for w in wbs_changes['added']:
+        imp, sev = SEV.classify('wbs_add')
+        add(_row_direct(f"WBS:{w['path']}", _leaf(w['path']), 'wbs_add', '—', w['path'], 'New WBS branch', imp, sev))
+    for w in wbs_changes['removed']:
+        imp, sev = SEV.classify('wbs_remove')
+        add(_row_direct(f"WBS:{w['path']}", _leaf(w['path']), 'wbs_remove', w['path'], '—', 'Removed WBS branch', imp, sev))
+    for w in wbs_changes['renamed']:
+        imp, sev = SEV.classify('wbs_rename')
+        add(_row_direct(f"WBS:{w['from']}", _leaf(w['to']), 'wbs_rename', _leaf(w['from']), _leaf(w['to']), 'WBS renamed', imp, sev))
+
     rows.sort(key=SEV.rank_key)
     return rows
+
+
+def _row_direct(activity_id, name, change_type, rev0, rev1, change, impact, severity):
+    """A register row whose impact/severity are already decided (structure-level changes)."""
+    return {
+        'activity_id': activity_id, 'orig_id': None, 'activity_name': name,
+        'change_type': change_type, 'type_label': SEV.TYPE_LABEL.get(change_type, change_type),
+        'rev0': rev0, 'rev1': rev1, 'change': change,
+        'impact': impact, 'severity': severity, 'status': 'open', 'detail': None,
+    }
+
+
+def _leaf(path):
+    return path.rsplit(' > ', 1)[-1] if path else path
 
 
 def _rel_lbl(l, arrow):
@@ -533,10 +593,13 @@ def _modified_count(register):
 
 # ── summary presentation ─────────────────────────────────────────────────────
 
-def _profile(match, logic, sequences, floats, milestones, time_changes):
+def _profile(match, logic, sequences, floats, milestones, time_changes,
+             wbs_changes, calendar_changes, constraint_changes):
     scope = len(match['added']) + len(match['removed'])
-    crit = sum(1 for f in floats if 'critical' in f['movement'].lower())
     ms = sum(1 for m in milestones if m['kind'] in ('delayed', 'advanced', 'new', 'removed'))
+    wbs = (len(wbs_changes['added']) + len(wbs_changes['removed']) + len(wbs_changes['renamed'])
+           + len(match['moved_wbs']))
+    cal = sum(g['count'] for g in calendar_changes['reassignments']) + len(calendar_changes['calendars'])
     return [
         {'key': 'logic', 'label': 'Logic / relationships', 'count': logic['total'], 'color': '#2563eb'},
         {'key': 'time', 'label': 'Time / durations', 'count': len(time_changes), 'color': '#b7791f'},
@@ -544,7 +607,9 @@ def _profile(match, logic, sequences, floats, milestones, time_changes):
         {'key': 'sequence', 'label': 'Sequence', 'count': len(sequences), 'color': '#7c3aed'},
         {'key': 'criticality', 'label': 'Criticality / float', 'count': len(floats), 'color': '#c23a3a'},
         {'key': 'milestone', 'label': 'Milestones', 'count': ms, 'color': '#0f766e'},
-        {'key': 'wbs', 'label': 'WBS moves', 'count': len(match['moved_wbs']), 'color': '#7c3aed'},
+        {'key': 'calendar', 'label': 'Calendar', 'count': cal, 'color': '#0f766e'},
+        {'key': 'constraint', 'label': 'Constraints', 'count': len(constraint_changes), 'color': '#d9822b'},
+        {'key': 'wbs', 'label': 'WBS / structure', 'count': wbs, 'color': '#7c3aed'},
         {'key': 'idchange', 'label': 'Identity (ID) changes', 'count': len(match['id_changes']), 'color': '#69768c'},
     ]
 

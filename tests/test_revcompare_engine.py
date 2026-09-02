@@ -126,6 +126,14 @@ def test_identical_revisions_yield_empty_register():
     assert r['summary']['added'] == 0 and r['summary']['removed'] == 0
 
 
+def test_report_carries_slice2_keys():
+    r = build_report_from_data(*_pair(), config={})
+    for key in ('wbs_changes', 'calendar_changes', 'constraint_changes'):
+        assert key in r
+    assert 'reassignments' in r['calendar_changes'] and 'calendars' in r['calendar_changes']
+    assert {'added', 'removed', 'renamed'} <= set(r['wbs_changes'])
+
+
 def test_report_html_renders_all_sections():
     r = build_report_from_data(*_pair(), config={})
     html = render_html(r, meta={'report_date': '02 Sep 2026'}, theme='light')

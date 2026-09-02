@@ -165,12 +165,36 @@ def _scope(report):
     lg = s['logic']
     items = [
         ('New activities', s['added']), ('Removed activities', s['removed']),
-        ('Renamed', s['renamed']), ('Identity (ID) changes', s['id_changes']),
-        ('Moved between WBS', s.get('moved_wbs', 0)),
+        ('Identity (ID) changes', s['id_changes']), ('Moved between WBS', s.get('moved_wbs', 0)),
+        ('WBS branches +/−/renamed', f"{s.get('wbs_added', 0)} / {s.get('wbs_removed', 0)} / {s.get('wbs_renamed', 0)}"),
         ('Relationships added / removed', f"{lg['added']} / {lg['removed']}"),
+        ('Calendar reassignments', s.get('calendar_reassigned', 0)),
+        ('Constraint changes', s.get('constraint_changes', 0)),
     ]
     cells = ''.join(f'<div class="scard"><div class="kk">{_e(k)}</div><div class="kv">{_e(v)}</div></div>' for k, v in items)
-    return f'<div class="scope">{cells}</div>'
+    out = [f'<div class="scope">{cells}</div>']
+
+    reas = (report.get('calendar_changes') or {}).get('reassignments') or []
+    if reas:
+        rows = ''.join(
+            f'<tr><td class="k">{_e(g["from"])}</td><td>{_e(g["to"])}</td>'
+            f'<td>{(_e(str(g["from_wd"]) + "-day → " + str(g["to_wd"]) + "-day") if g.get("from_wd") is not None and g.get("to_wd") is not None else "—")}</td>'
+            f'<td class="num">{g["count"]}</td></tr>' for g in reas)
+        out.append('<h3 style="margin-top:12px">Calendar reassignments</h3>'
+                   '<table class="grid"><thead><tr><th>From</th><th>To</th><th>Workweek</th><th class="num">Activities</th></tr></thead>'
+                   f'<tbody>{rows}</tbody></table>')
+
+    cons = report.get('constraint_changes') or []
+    if cons:
+        _kl = {'added': 'Added', 'removed': 'Removed', 'type': 'Type changed', 'date': 'Date changed'}
+        rows = ''.join(
+            f'<tr><td class="mono">{_e(c["activity_id"])}</td><td>{_e(c["name"])}</td>'
+            f'<td>{_e(_kl.get(c["kind"], c["kind"]))}{" · hard" if c.get("hard") else ""}</td>'
+            f'<td>{_e(c["rev0"])}</td><td>{_e(c["rev1"])}</td></tr>' for c in cons[:20])
+        out.append('<h3 style="margin-top:12px">Constraint changes</h3>'
+                   '<table class="grid"><thead><tr><th>Activity</th><th>Name</th><th>Change</th><th>Rev.00</th><th>Rev.01</th></tr></thead>'
+                   f'<tbody>{rows}</tbody></table>')
+    return ''.join(out)
 
 
 def _register(report):
@@ -230,7 +254,7 @@ def render_html(report, meta=None, sections=None, theme='light'):
         ('critpath', 'Critical Path Comparison', _critpath(report), True),
         ('sequence', 'Major Sequence Changes', _sequences(report), False),
         ('logic', 'Major Relationship / Logic Changes', _logic(report), False),
-        ('scope', 'WBS / Scope Changes', _scope(report), False),
+        ('scope', 'WBS, Calendar &amp; Constraint Changes', _scope(report), False),
         ('register', 'Detailed Change Register', _register(report), True),
         ('detailed', 'Detailed Change Analysis', _detailed(report), True),
     ]

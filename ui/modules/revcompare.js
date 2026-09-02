@@ -12,7 +12,7 @@ import { showReportPreview } from './preview.js';
 
 const RC_TABS = [
   ['summary', 'Executive Summary'], ['register', 'Change Register'],
-  ['cp', 'Critical Path & Sequence'], ['ms', 'Milestones'],
+  ['cp', 'Critical Path & Sequence'], ['struct', 'Scope & Structure'], ['ms', 'Milestones'],
 ];
 
 export function renderRevComparePanel() {
@@ -132,7 +132,7 @@ function renderResults(body) {
   const tab = state.revcompareTab || 'summary';
   const tabs = RC_TABS.map(([k, l]) =>
     `<button class="rc-tab ${k === tab ? 'on' : ''}" data-rctab="${k}">${l}</button>`).join('');
-  const view = { summary: summaryView, register: registerView, cp: cpView, ms: msView }[tab](r);
+  const view = { summary: summaryView, register: registerView, cp: cpView, struct: structView, ms: msView }[tab](r);
   body.innerHTML = `
     <div class="rc-bar">
       <div class="rc-revtags">
@@ -234,7 +234,10 @@ function summaryView(r) {
 
 // ── Change Register ────────────────────────────────────────────────────────────
 
-export const REG_BUCKET = { added: 'scope', removed: 'scope', renamed: 'scope', idchange: 'identity', moved_wbs: 'wbs' };
+export const REG_BUCKET = {
+  added: 'scope', removed: 'scope', renamed: 'scope', idchange: 'identity',
+  moved_wbs: 'wbs', wbs_add: 'wbs', wbs_remove: 'wbs', wbs_rename: 'wbs',
+};
 export function bucketOf(t) { return REG_BUCKET[t] || t; }
 
 function registerView(r) {
@@ -250,6 +253,9 @@ function registerView(r) {
     ['scope', 'Scope', count(x => bucketOf(x.change_type) === 'scope')],
     ['milestone', 'Milestones', count(x => x.change_type === 'milestone')],
     ['criticality', 'Criticality', count(x => x.change_type === 'criticality')],
+    ['calendar', 'Calendar', count(x => x.change_type === 'calendar')],
+    ['constraint', 'Constraints', count(x => x.change_type === 'constraint')],
+    ['wbs', 'WBS', count(x => bucketOf(x.change_type) === 'wbs')],
   ].filter(c => c[0] === 'all' || c[2] > 0);
   const chipsHtml = chips.map(([k, l, n], idx) =>
     `<button class="rc-fchip ${idx === 0 ? 'on' : ''}" data-filter="${k}">${l} <span class="rc-fc">${n}</span></button>`).join('');
@@ -314,8 +320,8 @@ function wireRegister(body) {
   const matches = (tr, f) => f === 'all'
     || (f === 'material' && tr.dataset.imp === 'material')
     || (f === 'crit' && tr.dataset.sev === 'crit')
-    || (f === 'scope' && tr.dataset.bucket === 'scope')
-    || (['logic', 'sequence', 'milestone', 'criticality'].includes(f) && tr.dataset.type === f);
+    || (['scope', 'wbs'].includes(f) && tr.dataset.bucket === f)
+    || (['logic', 'sequence', 'milestone', 'criticality', 'calendar', 'constraint'].includes(f) && tr.dataset.type === f);
   body.querySelectorAll('.rc-fchip').forEach(chip => chip.addEventListener('click', () => {
     body.querySelectorAll('.rc-fchip').forEach(c => c.classList.toggle('on', c === chip));
     const f = chip.dataset.filter;
@@ -384,6 +390,53 @@ function cpView(r) {
         <table class="rc-t"><thead><tr><th>Activity</th><th class="n">Rev.00 TF</th><th class="n">Rev.01 TF</th><th class="n">Δ</th><th>Movement</th></tr></thead>
           <tbody>${floats || '<tr><td colspan="5" class="rc-mut">No material float movement.</td></tr>'}</tbody></table></div>
     </div>`;
+}
+
+// ── Scope & Structure (WBS · Calendar · Constraint) ────────────────────────────
+
+function structView(r) {
+  const w = r.wbs_changes || { added: [], removed: [], renamed: [], moved_activities: 0 };
+  const cc = r.calendar_changes || { calendars: [], reassignments: [] };
+  const con = r.constraint_changes || [];
+
+  const wbsRows = [
+    ...w.added.map(x => `<tr><td>${typeTag('wbs_add', 'Added')}</td><td class="rc-mut">—</td><td class="rc-new">${escapeHtml(x.path)}</td></tr>`),
+    ...w.removed.map(x => `<tr><td>${typeTag('wbs_remove', 'Removed')}</td><td class="rc-mut">${escapeHtml(x.path)}</td><td class="rc-mut">—</td></tr>`),
+    ...w.renamed.map(x => `<tr><td>${typeTag('wbs_rename', 'Renamed')}</td><td class="rc-mut">${escapeHtml(x.from)}</td><td class="rc-new">${escapeHtml(x.to)}</td></tr>`),
+  ].join('');
+  const wbsCard = `
+    <div class="rc-card"><h3>WBS / scope structure <span class="rc-n">branches &amp; work packages</span></h3>
+      <div class="rc-sec">${w.added.length} added · ${w.removed.length} removed · ${w.renamed.length} renamed · ${w.moved_activities} activities moved between WBS</div>
+      ${wbsRows ? `<table class="rc-t"><thead><tr><th>Change</th><th>Rev.00</th><th>Rev.01</th></tr></thead><tbody>${wbsRows}</tbody></table>`
+                : '<div class="rc-mut">No WBS branches added, removed or renamed.</div>'}</div>`;
+
+  const reassign = cc.reassignments.map(g => `
+    <tr><td class="rc-mut">${escapeHtml(g.from)}</td><td class="rc-new">${escapeHtml(g.to)}</td>
+      <td class="n">${g.from_wd != null && g.to_wd != null ? `${g.from_wd}-day → ${g.to_wd}-day` : '—'}</td>
+      <td class="n">${g.count}</td></tr>`).join('');
+  const calLevel = cc.calendars.map(c =>
+    `<div class="rc-callrow">${typeTag(c.change === 'added' ? 'added' : c.change === 'removed' ? 'removed' : 'chg', c.change)} <b>${escapeHtml(c.name)}</b> <span class="rc-mut">${escapeHtml(c.detail)}</span></div>`).join('');
+  const calCard = `
+    <div class="rc-card"><h3>Calendar comparison <span class="rc-n">assignments &amp; workweek</span></h3>
+      <div class="rc-sec">Per-activity calendar reassignments and calendar-level changes</div>
+      ${reassign ? `<table class="rc-t"><thead><tr><th>From</th><th>To</th><th class="n">Workweek</th><th class="n">Activities</th></tr></thead><tbody>${reassign}</tbody></table>` : ''}
+      ${calLevel || (reassign ? '' : '<div class="rc-mut">No calendar assignment or workweek changes.</div>')}
+      ${reassign && cc.reassignments.some(g => g.from_wd !== g.to_wd && g.from_wd != null) ? '<div class="rc-foot">A workweek change shortens planned durations even where the work content is identical — confirm the basis (approved acceleration vs. an inadvertent reassignment).</div>' : ''}</div>`;
+
+  const conRows = con.map(c => {
+    const kindLabel = { added: 'Added', removed: 'Removed', type: 'Type changed', date: 'Date changed' }[c.kind] || c.kind;
+    return `<tr><td><span class="rc-aid">${escapeHtml(c.activity_id)}</span> ${escapeHtml(c.name)}</td>
+      <td>${typeTag('constraint', kindLabel)}${c.hard ? ' <span class="rc-sev hi">Hard</span>' : ''}</td>
+      <td class="rc-mut">${escapeHtml(c.rev0)}</td><td class="rc-new">${escapeHtml(c.rev1)}</td></tr>`;
+  }).join('');
+  const conCard = `
+    <div class="rc-card"><h3>Constraint comparison <span class="rc-n">primary constraints</span></h3>
+      <div class="rc-sec">Constraints added, removed or changed on matched activities</div>
+      ${conRows ? `<table class="rc-t"><thead><tr><th>Activity</th><th>Change</th><th>Rev.00</th><th>Rev.01</th></tr></thead><tbody>${conRows}</tbody></table>`
+                : '<div class="rc-mut">No primary-constraint changes.</div>'}</div>`;
+
+  return `<div class="rc-split">${wbsCard}${calCard}</div>${conCard}
+    <div class="rc-callout"><b>Neutral by design.</b> A workweek change, a new constraint or a re-packaged WBS may all be legitimate, approved decisions. These are surfaced for <b>planning review</b> — the tool flags what changed and its potential effect, never that the revision is wrong.</div>`;
 }
 
 // ── Milestones ─────────────────────────────────────────────────────────────────
