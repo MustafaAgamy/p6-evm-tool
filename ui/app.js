@@ -56,8 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const NAV = [
     { node: { id:'home', label:'Import a schedule', icon:'home' } },
     { group:'Project', items:[
-      ['overview','Overview','overview'], ['schedule','Schedule (Gantt)','sched'],
-      ['wbs','WBS','wbs'], ['calendar','Calendars','calendar'],
+      ['overview','Overview','overview'], ['wbs','WBS','wbs'],
     ]},
     { group:'Analysis', items:[
       ['evm','Earned Value'], ['audit','Schedule Health'], ['critpath','Critical Path'],

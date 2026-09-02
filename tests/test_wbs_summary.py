@@ -121,6 +121,29 @@ def test_dates_roll_up_to_min_start_max_finish(tree_result):
     assert nodes['1000']['finish'] == '2026-11-30'  # latest across all
 
 
+def test_baseline_dates_roll_up_from_baseline_project(tree_result):
+    # Baseline start/finish come from the BaselineProject activities, keyed by Id,
+    # and roll up min-start / max-finish exactly like the expected dates do.
+    nodes = _by_id(tree_result)
+    # Quay Wall: QW-1 [01 Jan 26 → 30 Sep 26], QW-2 [01 Mar 26 → 31 Oct 26]
+    assert nodes['1211']['baseline_start'] == '2026-01-01'
+    assert nodes['1211']['baseline_finish'] == '2026-10-31'
+    # Design (ENG-1) carries the latest baseline finish in the programme
+    assert nodes['1110']['baseline_finish'] == '2027-06-30'
+    # Programme rolls up the widest span across every branch
+    assert nodes['1000']['baseline_start'] == '2026-01-01'
+    assert nodes['1000']['baseline_finish'] == '2027-06-30'
+
+
+def test_baseline_dates_distinct_from_expected(tree_result):
+    # The two date pairs are independent: Quay Wall's expected finish (30 Nov 26)
+    # differs from its baseline finish (31 Oct 26), which is what drives Delay.
+    nodes = _by_id(tree_result)
+    qw = nodes['1211']
+    assert qw['finish'] == '2026-11-30' and qw['baseline_finish'] == '2026-10-31'
+    assert qw['finish'] != qw['baseline_finish']
+
+
 def test_planned_present_and_behind_vs_ahead(tree_result):
     nodes = _by_id(tree_result)
     # baselines supplied -> planned% is computed (not None)
