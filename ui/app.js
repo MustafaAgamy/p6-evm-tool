@@ -181,7 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('error-close').addEventListener('click', clearError);
-  document.getElementById('load-another-btn').addEventListener('click', () => { loadAnother(); loadHistory(); });
+  // "Load another file" is a single global action (File ▸ Load another file / Analysis ▸ Back
+  // to import / the "Import a schedule" navigator root) — no per-module duplicate button.
   document.getElementById('pdf-btn').addEventListener('click', generatePdf);
   document.getElementById('pdf-btn-audit').addEventListener('click', () => generateModulePdf());
   document.getElementById('excel-btn').addEventListener('click', () => exportExcel());
