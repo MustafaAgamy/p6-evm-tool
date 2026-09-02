@@ -14,6 +14,9 @@ import { renderCritPathPanel }                 from './modules/critpath.js';
 import { renderUpdatePanel }                   from './modules/update.js';
 import { renderSpecialPanel }                  from './modules/special.js';
 import { renderOverview, renderWbs }           from './modules/overview.js';
+import { renderDashboard }                      from './modules/dashboard.js';
+import { renderNarrative }                       from './modules/narrative.js';
+import { renderForecast }                        from './modules/forecast.js';
 import { renderSchedule }                       from './modules/gantt.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
@@ -58,7 +61,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const NAV = [
     { node: { id:'home', label:'Import a schedule', icon:'home' } },
     { group:'Project', items:[
-      ['overview','Overview','overview'], ['wbs','WBS','wbs'],
+      ['dash','Professional Dashboard','dash'], ['overview','Overview','overview'], ['wbs','WBS','wbs'],
+      ['forecast','Weather → Forecast','weather'],
     ]},
     { group:'Analysis', items:[
       ['evm','Earned Value'], ['audit','Schedule Health'], ['critpath','Critical Path'],
@@ -67,16 +71,16 @@ document.addEventListener('DOMContentLoaded', () => {
       ['update','Update Analysis'], ['period','Update vs Update'],
     ]},
     { group:'Preview · coming soon', items:[
-      ['pv_dash','Professional Dashboard','dash','preview'], ['pv_weather','Weather → Forecast','weather','preview'],
-      ['pv_ai','AI Copilot · TIA','ai','preview'], ['pv_narr','Baseline Narrative','doc','preview'],
+      ['pv_ai','AI Copilot · TIA','ai','preview'],
     ]},
-    { group:'Reports', items:[ ['special','Special Report'] ] },
+    { group:'Reports', items:[ ['narrative','Baseline Narrative','doc'], ['special','Special Report'] ] },
     { group:'Library', items:[ ['recent','Recent Projects'], ['kb','Knowledge Base'] ] },
   ];
   const CRUMB = { home:'Home', recent:'Recent Projects', kb:'Knowledge Base', evm:'Earned Value',
     audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
     compare:'Consultant Review', revcompare:'Baseline Revision Comparison', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
-    update:'Update Analysis', special:'Special Report', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS' };
+    update:'Update Analysis', special:'Special Report', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
+    dash:'Professional Dashboard', narrative:'Baseline Narrative', forecast:'Weather → Forecast' };
   const navTree = document.getElementById('nav-tree');
   const tnode = (id, label, icon, o = {}) => {
     const dis = o.preview || o.soon;
@@ -97,6 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function openView(view) {
     state.currentView = view;          // drives the global File ▸ Print / Export to PDF action
     switchView(view);
+    if (view === 'dash')      renderDashboard();
+    if (view === 'forecast')  renderForecast();
+    if (view === 'narrative') renderNarrative();
     if (view === 'overview')  renderOverview(state.currentResult);
     if (view === 'wbs')       renderWbs(state.currentResult);
     if (view === 'schedule')  renderSchedule(state.currentResult);

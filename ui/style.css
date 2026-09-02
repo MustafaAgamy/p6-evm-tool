@@ -2368,3 +2368,83 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-callrow:first-of-type { border-top: 0; margin-top: 4px; }
 .rc-tag.cost { background: var(--success-bg); color: var(--success); }
 .rc-tag.resource { background: var(--accent-soft); color: var(--chart-5); }
+/* ── Project ▸ Professional Dashboard ───────────────────────────────────── */
+.dash-loading, .dash-empty { padding: 40px 8px; color: var(--muted); font-size: 14px; }
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin: 4px 0 8px; }
+.dash-card { border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); padding: 14px 15px; display: flex; flex-direction: column; gap: 10px; }
+.dash-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.dash-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dash-card-name { font-weight: 700; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); background: var(--accent-soft); border-radius: 5px; padding: 2px 7px; flex-shrink: 0; }
+.dash-card-sub { font-size: 11.5px; color: var(--muted); margin-top: -4px; }
+.dash-kpis { display: flex; gap: 6px; }
+.dash-kpi { flex: 1; background: var(--bg); border-radius: 8px; padding: 7px 8px; text-align: center; }
+.dash-kpi span { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; }
+.dash-kpi b { font-size: 16px; font-family: ui-monospace, monospace; color: var(--text); }
+.dash-kpi b.good { color: var(--success); } .dash-kpi b.bad { color: var(--danger); }
+.dash-prog { display: flex; flex-direction: column; gap: 4px; }
+.dash-mbar { position: relative; height: 10px; border-radius: 6px; background: var(--bg); overflow: hidden; }
+.dash-mbar-plan { position: absolute; left: 0; top: 0; bottom: 0; background: color-mix(in srgb, var(--accent) 30%, var(--card-bg)); }
+.dash-mbar-act { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 6px 0 0 6px; }
+.dash-prog-lbl { font-size: 11px; color: var(--muted); } .dash-prog-lbl b { color: var(--text); }
+.dash-trends { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 380px)); justify-content: start; gap: 14px; margin: 4px 0 8px; }
+.dash-trend { border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); padding: 12px 14px; }
+.dash-trend-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.dash-trend-h h4 { margin: 0; font-size: 12.5px; font-weight: 700; color: var(--text); }
+.dash-leg { display: inline-flex; gap: 10px; font-size: 10.5px; color: var(--muted); }
+.dash-leg i { display: inline-block; width: 11px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 3px; }
+.dash-leg em { font-style: normal; opacity: 0.75; }
+.dash-trend-sub { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.dash-trend-note { margin-top: 4px; }
+.dash-chart { width: 100%; height: auto; display: block; }
+.dash-chart-empty { height: 132px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; }
+.dash-ref { stroke: var(--hair); stroke-width: 1; stroke-dasharray: 3 3; }
+.dash-ref-lbl { fill: var(--muted); font-size: 9px; font-family: ui-monospace, monospace; }
+.dash-endlbl { font-size: 10px; font-weight: 700; font-family: ui-monospace, monospace; }
+.dash-axlbl { fill: var(--muted); font-size: 9px; font-family: ui-monospace, monospace; }
+
+/* ── Reports ▸ Baseline Narrative ───────────────────────────────────────── */
+.narr-loading, .narr-empty { padding: 40px 8px; color: var(--muted); font-size: 14px; }
+.narr-doc { max-width: 780px; display: flex; flex-direction: column; gap: 14px; margin: 6px 0 4px; }
+.narr-sec { border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 10px; background: var(--card-bg); padding: 14px 18px; }
+.narr-sec h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.03em; }
+.narr-sec p { margin: 0 0 8px; font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
+.narr-sec p:last-child { margin-bottom: 0; }
+.narr-sec.narr-good { border-left-color: var(--success); }
+.narr-sec.narr-warn { border-left-color: var(--warning); }
+.narr-sec.narr-bad  { border-left-color: var(--danger); }
+.ov-chip.narr-chip-good b { color: var(--success); }
+.ov-chip.narr-chip-warn b { color: var(--warning); }
+.ov-chip.narr-chip-bad b  { color: var(--danger); }
+
+/* ── Project ▸ Weather → Forecast ───────────────────────────────────────── */
+.fc-loading, .fc-empty { padding: 40px 8px; color: var(--muted); font-size: 14px; }
+.fc-hero { border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); padding: 20px 22px; margin: 6px 0 18px; }
+.fc-hero-k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; }
+.fc-hero-v { font-size: 34px; font-weight: 800; color: var(--text); line-height: 1.1; margin: 4px 0; font-family: ui-monospace, monospace; }
+.fc-hero-delta { font-size: 13px; font-weight: 600; color: var(--muted); }
+.fc-hero-delta.bad { color: var(--danger); } .fc-hero-delta.good { color: var(--success); }
+.fc-timeline { position: relative; height: 64px; margin: 4px 6px 22px; }
+.fc-axis { position: absolute; left: 0; right: 0; top: 12px; height: 2px; background: var(--hair); border-radius: 2px; }
+.fc-mark { position: absolute; top: 0; transform: translateX(-50%); text-align: center; }
+.fc-mark-dot { display: block; width: 12px; height: 12px; border-radius: 50%; margin: 7px auto 0; background: var(--muted); border: 2px solid var(--card-bg); box-shadow: 0 0 0 1px var(--border); }
+.fc-mark-lbl { display: block; font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.25; white-space: nowrap; }
+.fc-mark-lbl b { display: block; color: var(--text); font-family: ui-monospace, monospace; }
+.fc-mark.fc-base   .fc-mark-dot { background: var(--muted); }
+.fc-mark.fc-best   .fc-mark-dot { background: var(--success); }
+.fc-mark.fc-likely .fc-mark-dot { background: var(--accent); }
+.fc-mark.fc-worst  .fc-mark-dot { background: var(--danger); }
+.fc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 4px 0 16px; }
+.fc-card { border: 1px solid var(--border); border-top: 3px solid var(--border); border-radius: 12px; background: var(--card-bg); padding: 14px 16px; }
+.fc-card-best   { border-top-color: var(--success); }
+.fc-card-likely { border-top-color: var(--accent); }
+.fc-card-worst  { border-top-color: var(--danger); }
+.fc-card-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; }
+.fc-card-date { font-size: 19px; font-weight: 700; color: var(--text); font-family: ui-monospace, monospace; margin: 3px 0; }
+.fc-card-delta { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.fc-card-delta.bad { color: var(--danger); } .fc-card-delta.good { color: var(--success); }
+.fc-card-basis { font-size: 12px; color: var(--ink-soft); line-height: 1.45; }
+.fc-weather { display: flex; align-items: flex-start; gap: 9px; border-radius: 10px; padding: 11px 14px; font-size: 13px; line-height: 1.5; margin: 2px 0 6px; }
+.fc-weather.on  { background: var(--warning-bg); color: var(--ink-soft); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); }
+.fc-weather.off { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.fc-wx-ic { flex-shrink: 0; }
