@@ -16,6 +16,7 @@ import { renderOverview, renderWbs }           from './modules/overview.js';
 import { renderDashboard }                      from './modules/dashboard.js';
 import { renderNarrative }                       from './modules/narrative.js';
 import { renderForecast }                        from './modules/forecast.js';
+import { renderCopilot }                         from './modules/copilot.js';
 import { renderSchedule }                       from './modules/gantt.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
@@ -66,9 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ['evm','Earned Value'], ['audit','Schedule Health'], ['critpath','Critical Path'],
       ['construct','Constructability'], ['oos','Out of Sequence'], ['lag','Lag Report'],
       ['compare','Consultant Review'], ['update','Update Analysis'], ['period','Update vs Update'],
-    ]},
-    { group:'Preview · coming soon', items:[
-      ['pv_ai','AI Copilot · TIA','ai','preview'],
+      ['copilot','AI Copilot · TIA','ai'],
     ]},
     { group:'Reports', items:[ ['narrative','Baseline Narrative','doc'], ['special','Special Report'] ] },
     { group:'Library', items:[ ['recent','Recent Projects'], ['kb','Knowledge Base'] ] },
@@ -77,7 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
     audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
     compare:'Consultant Review', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
     update:'Update Analysis', special:'Special Report', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
-    dash:'Professional Dashboard', narrative:'Baseline Narrative', forecast:'Weather → Forecast' };
+    dash:'Professional Dashboard', narrative:'Baseline Narrative', forecast:'Weather → Forecast',
+    copilot:'AI Copilot · TIA' };
   const navTree = document.getElementById('nav-tree');
   const tnode = (id, label, icon, o = {}) => {
     const dis = o.preview || o.soon;
@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.currentView = view;          // drives the global File ▸ Print / Export to PDF action
     switchView(view);
     if (view === 'dash')      renderDashboard();
+    if (view === 'copilot')   renderCopilot();
     if (view === 'forecast')  renderForecast();
     if (view === 'narrative') renderNarrative();
     if (view === 'overview')  renderOverview(state.currentResult);
