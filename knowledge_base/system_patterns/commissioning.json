@@ -1,0 +1,303 @@
+{
+ "system": "commissioning",
+ "discipline": "COMMISSIONING",
+ "name": "Integrated Commissioning, Start-Up & Handover Chain",
+ "aliases": [
+  "testing and commissioning",
+  "T&C",
+  "pre-commissioning",
+  "cold / hot commissioning",
+  "mechanical completion to handover",
+  "system completion / systems completion",
+  "integrated system testing",
+  "performance / reliability test",
+  "start-up and ramp-up",
+  "initial operation",
+  "care, custody & control transfer",
+  "SAT (site acceptance test)"
+ ],
+ "zones": [
+  "system / sub-system commissioning packages",
+  "utility & permanent-power backbone (enablers)",
+  "control room / DCS-BMS integration",
+  "battery-limit and inter-system tie-ins",
+  "punch-list and completion-certificate workflow",
+  "performance-test boundary (feed-to-product)"
+ ],
+ "sequence": [
+  {
+   "stage": "mechanical_completion",
+   "activities": [
+    "construction complete per sub-system boundary",
+    "installation checks, inspection reports and A-punch clearance",
+    "mechanical completion certificate per system",
+    "walk-down and handover from construction to commissioning"
+   ],
+   "note": "Mechanical Completion (MC) is the gate: no pre-commissioning on a system before its MC and construction (A) punch clearance."
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "static / cold testing: pressure & leak tests, continuity, insulation resistance",
+    "loop checks and instrument calibration (needs instrument air + control live)",
+    "motor solo / bump / rotation checks (needs power)",
+    "flushing, cleaning, drying of piping and vessels"
+   ],
+   "note": "Cold, no-load testing of individual components and loops; largely discipline-internal."
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "energise switchboards and motor control centres (permanent power)",
+    "no-load / solo runs of pumps, compressors, fans, drives",
+    "establish enabling utilities (instrument air, cooling water, N2)",
+    "control-system I/O, interlock and cause-and-effect proving offline",
+    "clear B-punch that blocks live running"
+   ],
+   "note": "Everything up to but not including introduction of the real process medium; sub-system by sub-system."
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "introduce process medium / first fill / first feed to each sub-system",
+    "wet / hot functional runs of equipment on real load",
+    "control loops in auto, tuning and trip testing live",
+    "system functional acceptance per commissioning package"
+   ],
+   "note": "First live operation of each individual system on its real medium."
+  },
+  {
+   "stage": "integrated_testing",
+   "activities": [
+    "run interconnected systems together across battery limits",
+    "plant-wide cause-and-effect / ESD and interlock proving",
+    "sequence and interlock verification between upstream/downstream systems",
+    "control-room integrated operation from DCS/BMS"
+   ],
+   "note": "The heart of MEP/industrial commissioning: systems proven individually are now proven to work together as a plant."
+  },
+  {
+   "stage": "performance",
+   "activities": [
+    "performance / guarantee test at design throughput and quality",
+    "reliability / availability run over an agreed continuous period",
+    "energy, yield and emissions verification against guarantees"
+   ]
+  },
+  {
+   "stage": "start_up_ramp_up",
+   "activities": [
+    "stable start-up to design operating point",
+    "staged ramp-up of production rate",
+    "operations team takeover under supervision"
+   ]
+  },
+  {
+   "stage": "handover",
+   "activities": [
+    "final punch (C-punch) clearance",
+    "as-built, dossier, spares and training complete",
+    "commissioning / acceptance certificate and care-custody-control transfer",
+    "warranty / defects liability period start"
+   ]
+  }
+ ],
+ "work_packages": [
+  {
+   "wp": "Mechanical completion & construction punch clearance",
+   "discipline": "commissioning",
+   "interface": true
+  },
+  {
+   "wp": "Static / cold testing (pressure, loop, insulation, calibration)",
+   "discipline": "commissioning"
+  },
+  {
+   "wp": "Permanent power energisation & motor solo runs",
+   "discipline": "electrical_power",
+   "interface": true,
+   "note": "Gate for all live running"
+  },
+  {
+   "wp": "Enabling utilities availability",
+   "discipline": "utilities",
+   "interface": true,
+   "note": "Air/CW/N2/steam/fuel must precede consumer commissioning"
+  },
+  {
+   "wp": "Control-system integration (DCS/BMS) & cause-and-effect",
+   "discipline": "instrumentation",
+   "interface": true
+  },
+  {
+   "wp": "System-by-system wet/hot commissioning",
+   "discipline": "commissioning"
+  },
+  {
+   "wp": "Integrated / plant-wide testing",
+   "discipline": "commissioning",
+   "interface": true,
+   "note": "Cross-system convergence point"
+  },
+  {
+   "wp": "Performance / reliability test",
+   "discipline": "commissioning"
+  },
+  {
+   "wp": "Start-up, ramp-up & handover",
+   "discipline": "commissioning",
+   "interface": true
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "Mechanical completion & construction (A) punch clearance for a system",
+   "after": "Pre-commissioning activities on that system",
+   "reason": "A system must be mechanically complete and its blocking construction punch cleared before it can be energised or run.",
+   "strength": "strong"
+  },
+  {
+   "before": "Permanent power energisation (switchboards/MCC live)",
+   "after": "Motor solo runs and any live equipment test",
+   "reason": "No rotating equipment or powered device can be run before its permanent power supply is energised.",
+   "strength": "strong"
+  },
+  {
+   "before": "Instrument air available & control system live",
+   "after": "Loop checks and control-valve stroking",
+   "reason": "Loop checks need the control system live and pneumatic valves need instrument air to stroke.",
+   "strength": "strong"
+  },
+  {
+   "before": "Enabling utilities established (air / cooling water / N2 / steam / fuel)",
+   "after": "Wet/hot commissioning of the consumer system",
+   "reason": "A consumer system cannot run on load until the utilities it depends on are available at the battery limit.",
+   "strength": "strong"
+  },
+  {
+   "before": "Pre-commissioning (no-load / solo) complete for a system",
+   "after": "Commissioning (first medium introduced) for that system",
+   "reason": "Solo and interlock proving must pass offline before the real process medium is introduced, for safety and equipment protection.",
+   "strength": "strong"
+  },
+  {
+   "before": "Individual systems commissioned",
+   "after": "Integrated / plant-wide testing",
+   "reason": "Systems must each work alone before they are run together; integrated testing assumes each part is already proven.",
+   "strength": "strong"
+  },
+  {
+   "before": "Integrated testing / cause-and-effect proven",
+   "after": "Performance / guarantee test",
+   "reason": "A guarantee run at design throughput is only meaningful once the interconnected plant operates correctly and safely.",
+   "strength": "strong"
+  },
+  {
+   "before": "Performance / reliability test passed",
+   "after": "Start-up, ramp-up and handover",
+   "reason": "Care-custody-control and ramp-up follow demonstrated performance; you do not hand over an unproven plant.",
+   "strength": "strong"
+  },
+  {
+   "before": "Final (C) punch clearance & dossier complete",
+   "after": "Handover / acceptance certificate",
+   "reason": "Formal handover cannot be certified until outstanding punch items and completion documentation are closed.",
+   "strength": "strong"
+  },
+  {
+   "before": "Upstream (feed) system commissioned",
+   "after": "Downstream (product) system commissioned",
+   "reason": "Downstream systems need feed from upstream; commissioning generally follows the process flow direction.",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "electrical_power",
+   "type": "requires",
+   "requirement": "Permanent power energised (switchgear, MCCs, distribution) before any live running, motor solo or wet commissioning.",
+   "phase": "pre_commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "type": "requires",
+   "requirement": "Control system (DCS/PLC) live, I/O checked and cause-and-effect available before functional and integrated commissioning.",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "utilities",
+   "type": "requires",
+   "requirement": "Enabling utilities (instrument air, cooling water, nitrogen, steam, fuel) available before commissioning their consumer systems.",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "bms",
+   "type": "requires",
+   "requirement": "BMS/plant control integrated and graphics live for monitored, interlocked integrated operation.",
+   "phase": "integrated_testing",
+   "strength": "strong"
+  },
+  {
+   "with": "process_equipment",
+   "type": "requires",
+   "requirement": "Process/mechanical equipment mechanically complete, aligned, grouted and pre-commissioned before hot runs.",
+   "phase": "pre_commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "piping",
+   "type": "requires",
+   "requirement": "Interconnecting piping erected, tested, flushed and reinstated before medium is introduced across the battery limit.",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "fire_fighting",
+   "type": "requires",
+   "requirement": "Fire protection commissioned and available as a safety pre-condition before plant start-up / hot commissioning.",
+   "phase": "commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "civil_interface",
+   "type": "requires",
+   "requirement": "All construction-punch (A) items affecting the system cleared at mechanical completion.",
+   "phase": "mechanical_completion",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Mechanical completion certification per sub-system with A-punch cleared",
+  "Static / cold tests: pressure, leak, insulation resistance, continuity",
+  "Instrument loop checks and calibration certificates",
+  "Motor solo / rotation / vibration baseline runs",
+  "Functional (wet/hot) test of each system on its real medium",
+  "Integrated cause-and-effect / ESD / interlock proving across systems",
+  "Performance / guarantee test at design duty",
+  "Reliability / availability run over the agreed continuous period",
+  "Handover dossier, as-builts, spares and training verification"
+ ],
+ "commissioning_dependencies": [
+  "Permanent power energised (the master gate for live running)",
+  "Control system (DCS/BMS/PLC) live and cause-and-effect available",
+  "Enabling utilities available (instrument air first, then cooling water, N2, steam, fuel)",
+  "Mechanical completion achieved per system",
+  "Construction (A) and live-blocking (B) punch cleared",
+  "Interconnecting piping/cabling complete and tested",
+  "Fire & life-safety systems commissioned before start-up",
+  "Upstream (feed) systems commissioned before downstream (product) systems"
+ ],
+ "typical_exceptions": [
+  "Buildings use a lighter path (pre-functional checklist -> functional -> integrated systems test -> seasonal/deferred test) versus a heavy industrial start-up/ramp-up",
+  "Some systems commission cold-only (no process medium) and skip the wet/hot stage",
+  "Performance/guarantee testing may be deferred to a seasonal window (e.g. HVAC summer/winter) after handover",
+  "On fast-track plants, sub-system handover (partial CoC) precedes whole-plant performance test",
+  "Reliability run duration and pass criteria are contract-specific and may be waived by agreement"
+ ],
+ "evidence": "A commissioning, integrated-test, performance-test or start-up activity is scheduled ahead of its enablers — mechanical completion, permanent power, control-system live, enabling utilities, or the prerequisite individual-system commissioning — collapsing the mandatory testing -> pre-commissioning -> commissioning -> integrated -> performance -> start-up -> handover order.",
+ "status": "curated",
+ "source": "system_pattern"
+}

@@ -45,27 +45,29 @@ def test_category_empty_falls_back_to_construction():
     assert activity_category('') == 'Construction'
 
 
-# ── float_health — DCMA-anchored composite score ─────────────────────────────
-def test_fh_perfect_meets_both_dcma_targets():
-    assert float_health(3, 0, {}) == (100, 0, 0)
+# ── float_health — linear model: score = 100 − construction excess-float defect% ──
+def test_fh_linear_no_defect_is_100():
+    assert float_health(0, 0, {}) == (100.0, 0.0, 0.0)
 
 
-def test_fh_slightly_over_high_float():
-    assert float_health(8, 0, {}) == (88, 12, 0)
+def test_fh_linear_matches_defect():
+    # Ibrahim's rule: 4.2% construction defect -> 100 - 4.2 = 95.8
+    assert float_health(4.2, 0, {}) == (95.8, 4.2, 0.0)
 
 
-def test_fh_composite_mockup_numbers():
-    # 21.6% high float (penalty caps at 60) + 1.2% negative (~10) -> 30
-    assert float_health(21.6, 1.2, {}) == (30, 60, 10)
+def test_fh_no_free_target_below_5pct():
+    # the old DCMA curve gave a free 5% allowance; the linear model does not
+    assert float_health(3, 0, {}) == (97.0, 3.0, 0.0)
+    assert float_health(8, 0, {}) == (92.0, 8.0, 0.0)
 
 
-def test_fh_passes_high_but_negative_float_still_hurts():
-    # 4% high float passes DCMA (<5%) but 6% negative float -> 60, not 100
-    assert float_health(4, 6, {}) == (60, 0, 40)
+def test_fh_negative_float_is_context_not_scored():
+    # negative float is scored by its own sub-feature -> it does NOT reduce this score
+    assert float_health(4, 6, {}) == (96.0, 4.0, 6.0)
 
 
 def test_fh_floors_at_zero():
-    assert float_health(50, 20, {})[0] == 0
+    assert float_health(150, 20, {})[0] == 0
 
 
 def test_fh_color_bands():

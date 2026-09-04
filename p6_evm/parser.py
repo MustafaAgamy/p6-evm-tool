@@ -41,6 +41,12 @@ class ScheduleData:
         self.ac_by_activity = {}   # ActivityObjectId -> actual cost
         self.relationships = []    # list of {pred_id, succ_id, type, lag_days, lag_hours}
         self.activity_code_types = []  # available activity-code dimensions, e.g. ['Type of Works', ...]
+        # Resource-loading detail (additive; populated only when the export carries it — a bare
+        # XER/XML has none). Used by the optional Baseline Revision resource/cost comparison;
+        # never read by EVM/metrics, which keep using bac_by_activity / ac_by_activity.
+        self.resources = {}                # resource id -> {'name'}
+        self.assignments_by_activity = {}  # activity ObjectId -> [{resource_id, resource_name,
+                                           #   budget_units, actual_units, budget_cost, rate}]
 
 
 def full_wbs_path(wbs_id, wbs_map):
@@ -271,6 +277,13 @@ def parse_file(path) -> ScheduleData:
     data.activity_code_types = sorted(
         {dim for a in data.activities.values() for dim in a['activity_codes']})
 
+    # Resource names (additive) — resources sit at document root in P6 XML. Best-effort:
+    # any export without them simply yields no resource comparison.
+    for res_el in root.iter(tag('Resource')):
+        rid = text(res_el, 'ObjectId')
+        if rid:
+            data.resources[rid] = {'name': text(res_el, 'Name') or text(res_el, 'Id') or rid}
+
     for ra_el in project_el.findall(tag('ResourceAssignment')):
         activity_id = text(ra_el, 'ActivityObjectId')
         if not activity_id:
@@ -279,6 +292,16 @@ def parse_file(path) -> ScheduleData:
         actual_cost = parse_float(text(ra_el, 'ActualCost'))
         data.bac_by_activity[activity_id] = data.bac_by_activity.get(activity_id, 0.0) + planned_cost
         data.ac_by_activity[activity_id] = data.ac_by_activity.get(activity_id, 0.0) + actual_cost
+        # Per-assignment resource detail (additive; independent of the cost sums above).
+        rid = text(ra_el, 'ResourceObjectId')
+        data.assignments_by_activity.setdefault(activity_id, []).append({
+            'resource_id': rid,
+            'resource_name': (data.resources.get(rid) or {}).get('name'),
+            'budget_units': parse_float(text(ra_el, 'PlannedUnits')),
+            'actual_units': parse_float(text(ra_el, 'ActualUnits')),
+            'budget_cost': planned_cost,
+            'rate': parse_float(text(ra_el, 'PricePerUnit'), None),
+        })
 
     # Link baseline BAC (keyed by activity Id) to each current activity's ObjectId, so metrics
     # can weight PV/EV/%-rollup by the baseline budget like P6 does. Only set when the baseline

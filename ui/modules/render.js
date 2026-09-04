@@ -14,10 +14,8 @@ const KPI_TOOLTIPS = {
 };
 
 export function setLoading(active) {
-  document.getElementById('browse-btn').classList.toggle('hidden', active);
-  document.getElementById('browse-spinner').classList.toggle('hidden', !active);
-  document.getElementById('xer-btn').classList.toggle('hidden', active);
-  document.getElementById('xer-spinner').classList.toggle('hidden', !active);
+  document.getElementById('browse-btn')?.classList.toggle('hidden', active);
+  document.getElementById('browse-spinner')?.classList.toggle('hidden', !active);
   if (active) {
     document.getElementById('topbar-sub').textContent = 'Parsing…';
   } else if (!state.currentResult) {
@@ -36,10 +34,11 @@ export function clearError() {
 
 export function loadAnother() {
   document.getElementById('results-section').classList.add('hidden');
+  document.getElementById('import-section')?.classList.remove('hidden');  // Aurora+ landing back
   document.getElementById('topbar-sub').textContent = 'Home · Import';
-  // Back to the import screen: Home highlighted, Audit shield cleared.
-  document.getElementById('sb-home-btn').classList.add('active');
-  document.getElementById('sb-audit-btn').classList.remove('active');
+  // Back to the import screen: clear any active module in the navigator (Aurora+ shell).
+  document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n =>
+    n.classList.toggle('on', n.dataset.nav === 'home'));
   state.currentResult      = null;
   state.currentXmlPath     = null;
   state.currentCachedPath  = null;
@@ -80,12 +79,16 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
   renderWeatherView(result.calendar_audit);   // Feature 2 — Bad Weather tab
   showChooser();   // do NOT auto-open EVM — let the user pick a view
 
-
+  document.getElementById('import-section')?.classList.add('hidden');   // Aurora+: landing gives way to results
   document.getElementById('results-section').classList.remove('hidden');
 }
 
 export function renderHistory(history) {
   const tbody = document.getElementById('recent-tbody');
+  const totalEl = document.getElementById('recent-total');
+  if (totalEl) totalEl.textContent = history.length
+    ? `${history.length} project${history.length === 1 ? '' : 's'}`
+    : 'none yet';
   if (!history.length) {
     tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No recent projects — import a P6 XML file to get started.</td></tr>';
     return;
@@ -118,12 +121,12 @@ export function renderHistory(history) {
               data-path="${escapeHtml(h.path)}"
               data-cached="${escapeHtml(h.cached_path)}"
               data-project-id="${escapeHtml(h.project_id)}"
-              data-tooltip="Re-open this schedule"
+              title="Re-open this schedule"
             >Open</button>
             <button
               class="delete-btn"
               data-project-id="${escapeHtml(h.project_id)}"
-              data-tooltip="Remove all history for this project"
+              title="Remove all history for this project"
               aria-label="Delete project"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

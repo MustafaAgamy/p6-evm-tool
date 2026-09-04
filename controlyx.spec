@@ -1,14 +1,16 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# PyInstaller spec for P6 EVM Tool
+# PyInstaller spec for Controlyx
 #
 # Build with:
-#   pyinstaller p6evm.spec
+#   pyinstaller controlyx.spec
 #
-# Output: dist\P6EVMTool.exe  (single self-contained executable)
+# Output: dist\Controlyx.exe  (single self-contained executable)
 
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_submodules
+
 from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
@@ -21,6 +23,10 @@ datas = [
                                           # the whole package like p6_evm, so every submodule
                                           # (e.g. modules/lag_lead.py) ships even though server.py
                                           # only imports it deferred inside handlers.
+    ('p6_special',     'p6_special'),     # Special Report — cross-feature report builder. Its
+                                          # registry auto-discovers provider modules dynamically,
+                                          # which PyInstaller's graph can miss, so ship the whole
+                                          # package (see collect_submodules below).
     ('config.json',    '.'),              # Config at root of bundle
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
     ('report_theme.py', '.'),             # Shared report appearance themes — imported at
@@ -62,7 +68,23 @@ hiddenimports = [
     'p6_kb.scoring',
     # Shared report appearance themes (imported by every report renderer)
     'report_theme',
+    # Special Report — registry + context + renderer + all built-in providers.
+    # discover() uses importlib dynamically, so force every submodule to ship
+    # (mirrors the p6_audit fix; a missing provider would show an empty catalog).
+    'p6_special',
+    *collect_submodules('p6_special'),
 ]
+
+# Collect EVERY submodule of the in-tree packages so nothing loaded via a deferred /
+# in-function import (server.py loads p6_report and several p6_kb modules lazily) is
+# dropped from the .exe — this bit us before (an empty catalog / missing feature that
+# only showed on the built exe, never in dev or tests). p6_report registers the
+# Global Print-Preview features on import, so its submodules must ship.
+for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare'):
+    try:
+        hiddenimports += collect_submodules(_pkg)
+    except Exception:
+        pass
 
 a = Analysis(
     ['app.py'],
@@ -94,7 +116,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='P6EVMTool',
+    name='Controlyx',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -107,5 +129,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    # icon='ui/icon.ico',   # uncomment and add icon.ico to use a custom icon
+    icon='ui/icon.ico',     # Controlyx app icon (multi-size .ico, 16–256px)
 )

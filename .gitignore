@@ -14,7 +14,7 @@ dist/
 # Runtime user data
 history.json
 history.json.migrated
-p6evm.db
+controlyx.db
 
 # Images / media dropped into the project folder
 *.jpeg
@@ -23,6 +23,10 @@ p6evm.db
 *.gif
 *.bmp
 *.webp
+
+# Brand assets are committed (exception to the image ignore above)
+!ui/brand/
+!ui/brand/*.png
 
 # Session notes and AI context files
 SESSION_NOTES.md

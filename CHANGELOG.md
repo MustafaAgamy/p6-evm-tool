@@ -5,6 +5,50 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+
+### Added — Baseline Revision Comparison (Rev.00 vs Rev.01)
+- **New "Baseline Revision Comparison" analysis** — compare two approved baseline revisions (e.g. Baseline Rev.00 vs Rev.01) from a planning/consultant perspective and see what changed and whether it materially affected the planned execution strategy, logic, sequence, critical path, milestones, scope or duration. It is an analytical review, **not** a raw file diff, and stays neutral and evidence-based: every finding reads **Change detected → Potential impact → Planning review**, never an automatic "wrong/bad" verdict.
+- **Explicit workflow** — Select feature → **assign both revisions** (Rev.00 Original, Rev.01 Revised) → **Run Comparison** → review results. Nothing is analysed until Run is pressed; assigning a file never triggers the comparison on its own. Uses the global File ▸ Print / Export to PDF — no duplicate import/export/print buttons inside the feature.
+- **Activity matching beyond the Activity ID** — activities are reconciled on the evidence (name, WBS, activity codes, dates, duration, surrounding logic), so an activity that kept its work but changed ID reads as an **identity change**, not a false "removed + added".
+- **Results** — an Executive Summary (KPIs, change profile by planning category, ranked material findings), a **Critical Path & Sequence** view (Rev.00 vs Rev.01 driving chains with activities entering/leaving the critical path, logic-based **sequence-change detection**, and float/criticality movement), a **Scope & Structure** view (**WBS** branches added/removed/renamed and activities moved, **calendar** reassignments and workweek/holiday changes, and primary **constraint** changes), a **Milestone Comparison** (delayed/advanced/new/removed), and a filterable **Change Register** whose rows expand to a full Rev.00 ⇄ Rev.01 side-by-side plus a four-part planning analysis (Change detected · Why it matters · Potential impact · Planning review). Severity reflects **schedule impact** (material vs minor), never a judgement that a change is wrong.
+- **WBS / calendar / constraint comparison** — WBS structure diff (added/removed/renamed branches, work packages, activities moved between WBS), calendar comparison (per-activity reassignments grouped e.g. "N activities moved 6-day → 7-day", plus calendar-level workweek/holiday/hours changes), and primary-constraint comparison (added/removed/type/date, hard constraints flagged) — all classified into the change profile and register.
+- **Resource & cost comparison** (conditional on the export carrying it) — total budget change, per-activity budget-cost changes, and resource-assignment changes (resources added/removed, budgeted units and rate changes). Presented as **informational** — a cost or resource change is never counted as a material schedule impact. Backed by a small **additive** parser extension (new `ScheduleData.resources` / `assignments_by_activity`, populated from P6-XML `ResourceAssignment` and XER `TASKRSRC`/`RSRC`); the existing per-activity cost sums (`bac_by_activity` / `ac_by_activity`) and all EVM math are unchanged.
+- **Consultant-grade report** — Executive Summary, Revision Overview, Milestone Comparison, Critical Path Comparison, Major Sequence Changes, Major Logic Changes, WBS/Calendar/Constraint Changes, Resource & Cost Comparison and the Change Register assemble into one professional PDF, rendered through the shared report framework so all six appearance modes and the on-screen preview match the printed output.
+- Isolated `p6_revcompare/` package built on the existing diff (`p6_compare`) and critical-path (`p6_critpath`) primitives with a new neutral, progress-free interpretation layer; new `/api/revcompare` and `/api/revcompare/report` routes. The only `p6_evm` change is the additive resource/assignment capture above; EVM and metrics are untouched. _Two minor P6-XML data gaps remain (they only limit specific sub-cases, and primary constraints / total float are covered): free float is often absent from XML exports (present in XER), and secondary constraints are not parsed._
+
+## [v2.0.0] - 2026-09-01
+### Changed — Rebranded to **Controlyx** (edition **2026**)
+- The product is now **Controlyx**, shown as **Controlyx 2026**. Rebranded across the window title, in-app header and HTML title, the CLI banner, the README/CLAUDE docs, the built executable (**`Controlyx.exe`**), the PyInstaller spec (**`controlyx.spec`**), and the GitHub Actions build artifact + release asset.
+- **Existing installs keep their data.** The per-user data folder (`%APPDATA%\P6EVMTool` → `%APPDATA%\Controlyx`) and the database (`p6evm.db` → `controlyx.db`) are renamed and **migrated automatically on first run**; if the rename can't complete it safely falls back to the old location so nothing is lost.
+- **Intentionally unchanged** (renaming these would break imports or discard user settings — technical identifiers, not branding): the `p6_evm` Python package and the UI `localStorage` keys (`p6_evm_theme`, `p6evm_w_*`, `p6evm_ac_*`). The user-facing name now lives in one place — `APP_NAME` / `APP_EDITION` / `APP_TITLE` in `utils.py`.
+
+### Added — Brand identity (app icon, logo lockup, in-app splash)
+- **App icon** — a project-control-intelligence mark (amber "C" ring + EVM S-curve + intelligence spark), embedded into `Controlyx.exe`.
+- **Logo lockup** in PNG **and** SVG (light / dark / stacked) pairing the mark with the **"Project Control Intelligence Platform"** tagline — used in the README header and an in-app launch splash, and available for report/doc headers.
+- **In-app launch splash** (fades out, reduced-motion aware) and a rebranded sidebar mark.
+
+### Added — Special Report (compose your own cross-feature report)
+- **New "Special Report" analysis** — build your own report by picking the exact **detailed results** you want from any feature: each figure on its own (Planned %, Actual %, SPI, the category table, audit scores & findings, "Planned vs Actual activities", …) **plus each feature's own full report sections with their real tables and charts**. Order and number them, name the report, and export to **Word or PDF that look identical** — in all **six appearance modes**. Prints as a proper document: cover page → table of contents → numbered sections.
+- **It runs the features for you** — single-file results come straight from the imported schedule; results that need a second file (Critical Path / Consultant Review → a **baseline XER**; Update-vs-Update → a **previous update**) highlight what's missing with an **Attach** button, then compute on the spot — you never open the feature's own tab.
+- **Saved report templates** per project (re-run the same report next week on the new update), and **new features appear in the list automatically** (auto-discovery registry, like the Professional Dashboard).
+- Isolated `p6_special/` package + `/api/special/*` routes; **EVM untouched**. Word matches the PDF because both render one HTML with every colour resolved to concrete hex.
+
+### Added — Schedule Health Review (score a baseline's logic health)
+- **New "Schedule Health Review" analysis** — scores a **baseline's** logic health against the **DCMA 14-point** checks as weighted sub-features — **Milestones & Constraints · Critical Path / CPLI · Float · Dangling · Whole-day durations · Leads & Negative Float · Open Ends · Relationship Types · High Duration** (circular logic is a pass/fail gate) — rolled into one weighted **Schedule Health %**.
+- **Summary dashboard** — an overall health gauge with a plain-language verdict, a **Pass / Review / Critical** split, each check's score × weight worst-first, where the problems concentrate, and a **"fix these first"** list; plus a **detail view per check** (including the CPLI driving-path timeline).
+- PDF export with the Report Contents selector. Scoring layer on top of the existing audit; EVM untouched.
+
+### Added — Report Appearance Modes (six looks, screen + every report)
+- **Six appearance looks** — **Light** (default), **Dark**, **Midnight**, **Sepia**, **High-contrast** and **Blueprint** — chosen from one **Appearance** control in the toolbar. Your choice themes the **whole app screen and every report preview, PDF and Word export**, and is remembered. It changes only the look — never a number, date or word.
+- Built as one shared colour layer, so **every current report and every future feature gets all six looks for free** (the Critical Path Analyzer PDF and the Constructability print-preview included).
+
+### Added — Report Contents selector (Preview = PDF = Print, everywhere)
+- **Every report's Print Preview now lets you choose exactly what goes in it** — tick/untick individual tables and charts, reorder them, Select / Clear All, and it remembers your choice per report. **What you see in the preview is exactly what prints and what the PDF contains** (Preview = PDF = Print), from one shared framework used across all modules.
+
+### Changed — Recent Projects moved to its own page
+- The **Recent Projects** list is now its **own left-sidebar page** (like the Knowledge Base and Construction Database) instead of trailing the bottom of the Home reports — so it never appears under a module's report again. Same list, just relocated; open a project to jump straight to its results.
+
 ## [v1.3.0] - 2026-08-23
 ### Added — Critical Path Analyzer (new module)
 - **New "Critical Path Analyzer" sidebar section** — compares the critical path across **2–3 schedules** (two updates · update-vs-baseline · both + baseline; you can swap any of the three, including the current update). It answers *how the critical path moved and what it does to completion*.

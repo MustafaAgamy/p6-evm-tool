@@ -24,6 +24,7 @@ export function showKbLibrary() {
   document.querySelector('.recent-section')?.classList.add('hidden');
   document.getElementById('sb-home-btn')?.classList.remove('active');
   document.getElementById('sb-audit-btn')?.classList.remove('active');
+  document.getElementById('sb-recent-btn')?.classList.remove('active');
   document.getElementById('sb-kb-btn')?.classList.add('active');
   document.getElementById('topbar-sub').textContent = 'Knowledge Base · Project Standards';
   if (state.kbLibrary) { renderTree(); }
@@ -33,7 +34,6 @@ export function showKbLibrary() {
 export function exitKbLibrary() {
   document.getElementById('kb-section')?.classList.add('hidden');
   document.querySelector('.import-section')?.classList.remove('hidden');
-  document.querySelector('.recent-section')?.classList.remove('hidden');
   document.getElementById('sb-kb-btn')?.classList.remove('active');
   document.getElementById('sb-home-btn')?.classList.add('active');
 }

@@ -1,6 +1,6 @@
 """Per-user AI settings (API key + model/config), stored outside the repo.
 
-The Anthropic API key lives in ``%APPDATA%/P6EVMTool/ai_settings.json`` — the same
+The Anthropic API key lives in ``%APPDATA%/Controlyx/ai_settings.json`` — the same
 per-user area as the database — never in the bundle or the repo. It leaves the
 machine only in the Authorization header of the review call the user triggers.
 """

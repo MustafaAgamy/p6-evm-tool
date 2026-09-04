@@ -48,23 +48,23 @@ def excel_columns(module_result):
         ] for i, f in enumerate(findings, 1)]
         return headers, rows
 
-    if module == 'dangling':
-        headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity',
-                   'Logic Issue', 'Predecessor(s)', 'Successor(s)',
-                   'Suggested Logic Fix', 'Suggested Logic Fix 2']
+    if module == 'float':
+        headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float (d)',
+                   'Threshold (d)', 'Impact', 'Status', 'Severity', 'Reason', 'Engineering Recommendation']
         rows = [[
             i, f.get('activity_id', ''), f.get('activity_name', ''), f.get('wbs_path', ''),
-            f.get('severity', ''), f.get('logic_issue', ''), f.get('predecessors', ''),
-            f.get('successors', ''), f.get('suggested_fix', ''), f.get('suggested_fix_2', ''),
+            f.get('total_float_days', ''), f.get('threshold', ''), _impact_str(f.get('impact')),
+            f.get('status', ''), f.get('severity', ''), f.get('reason', ''), f.get('recommendation', ''),
         ] for i, f in enumerate(findings, 1)]
         return headers, rows
 
-    # float
-    headers = ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float (d)',
-               'Threshold (d)', 'Impact', 'Status', 'Severity', 'Reason', 'Engineering Recommendation']
-    rows = [[
-        i, f.get('activity_id', ''), f.get('activity_name', ''), f.get('wbs_path', ''),
-        f.get('total_float_days', ''), f.get('threshold', ''), _impact_str(f.get('impact')),
-        f.get('status', ''), f.get('severity', ''), f.get('reason', ''), f.get('recommendation', ''),
-    ] for i, f in enumerate(findings, 1)]
+    # Every other check exports from the single-source presentation — the same
+    # columns and cells as the screen and the PDF. WBS exports its full path (the
+    # cell carries it as the title; a spreadsheet has no hover), otherwise the cell
+    # text, which is already formatted once (N d, %, ISO dates).
+    from p6_audit.presentation import build_presentation
+    p = module_result.get('presentation') or build_presentation(module_result)
+    headers = ['#'] + [c['label'] for c in p.get('columns', [])]
+    rows = [[i] + [(cell.get('title') or cell.get('text', '')) for cell in row]
+            for i, row in enumerate(p.get('rows', []), 1)]
     return headers, rows

@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
-         oosPillClass, oosCritLabel, barPct }
+         oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass }
   from '../../ui/modules/audit.js';
 
 let passed = 0, failed = 0;
@@ -77,6 +77,23 @@ test('pill unknown → change', () => assert.equal(oosPillClass('???'), 'change'
 test('crit label',         () => assert.equal(oosCritLabel('Critical'), 'Critical'));
 test('near label',         () => assert.equal(oosCritLabel('Near-Critical'), 'Near-Critical'));
 test('normal label dash',  () => assert.equal(oosCritLabel(''), '—'));
+
+console.log('\nSchedule Health Review — rail + roll-up helpers (Slice 3)');
+test('tabScore shows score',        () => assert.equal(tabScore({ score: 84.6 }), 84.6));
+test('tabScore null → dash',        () => assert.equal(tabScore({ score: null }), '—'));
+test('tabScore undefined → dash',   () => assert.equal(tabScore({}), '—'));
+test('statusColor pass → success',  () => assert.equal(statusColor('Pass'), 'var(--success)'));
+test('statusColor review → warning', () => assert.equal(statusColor('Review'), 'var(--warning)'));
+test('statusColor critical → danger', () => assert.equal(statusColor('Critical'), 'var(--danger)'));
+test('statusColor other → muted',   () => assert.equal(statusColor('Not computed'), 'var(--muted)'));
+test('statusDot pass → d-g',        () => assert.equal(statusDot('Pass'), 'd-g'));
+test('statusDot review → d-a',      () => assert.equal(statusDot('Review'), 'd-a'));
+test('statusDot critical → d-c',    () => assert.equal(statusDot('Critical'), 'd-c'));
+test('statusDot other → d-n',       () => assert.equal(statusDot('Not computed'), 'd-n'));
+test('verdictClass ready → good',   () => assert.equal(verdictClass('Ready to submit'), 'v-good'));
+test('verdictClass conditional → warn', () => assert.equal(verdictClass('Conditional pass'), 'v-warn'));
+test('verdictClass not-ready → bad', () => assert.equal(verdictClass('Not ready to submit'), 'v-bad'));
+test('verdictClass blocked → bad',  () => assert.equal(verdictClass('Blocked'), 'v-bad'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

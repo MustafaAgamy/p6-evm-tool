@@ -1,0 +1,261 @@
+{
+ "system": "fire_alarm",
+ "discipline": "FIRE",
+ "name": "Fire Detection & Alarm — device test then cause-and-effect once interfaces are live",
+ "aliases": [
+  "fire alarm",
+  "fire detection",
+  "FACP",
+  "fire alarm control panel",
+  "smoke detectors",
+  "heat detectors",
+  "manual call points",
+  "MCP",
+  "sounders",
+  "beacons",
+  "addressable loop",
+  "aspirating",
+  "VESDA",
+  "cause and effect",
+  "voice alarm"
+ ],
+ "zones": [
+  "all areas",
+  "escape routes",
+  "plant rooms",
+  "FACP/fire control room",
+  "risers"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "FACP room/location",
+    "coordination with ceilings/walls for device positions",
+    "conduit and back boxes"
+   ]
+  },
+  {
+   "stage": "containment_wiring",
+   "activities": [
+    "fire-rated cable/containment",
+    "loop and riser wiring",
+    "segregation",
+    "back boxes at device points"
+   ],
+   "note": "Interfaces containment; fire-rated route required."
+  },
+  {
+   "stage": "panel_installation",
+   "activities": [
+    "install FACP, repeater panels, power supplies and standby batteries, network cards"
+   ]
+  },
+  {
+   "stage": "device_installation",
+   "activities": [
+    "mount and address detectors, MCPs, sounders/beacons, interface modules, door holders",
+    "aspirating pipework (VESDA)"
+   ]
+  },
+  {
+   "stage": "termination_addressing",
+   "activities": [
+    "terminate loops",
+    "address devices",
+    "connect interfaces to shutdown circuits"
+   ]
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "loop integrity, insulation and earth-fault checks",
+    "isolator/fault-tolerance check",
+    "battery/standby power"
+   ]
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "individual device functional test (smoke/heat/aspirating/MCP)",
+    "sounder SPL/audibility survey and visual-alarm coverage",
+    "battery standby and alarm-duration test"
+   ]
+  },
+  {
+   "stage": "cause_effect_commissioning",
+   "activities": [
+    "verify cause-and-effect matrix: detection to HVAC shutdown, smoke control/dampers, AHU trip, lift homing, door/mag-lock release, suppression release, fireman's interface, BMS signalling"
+   ]
+  },
+  {
+   "stage": "integration_verification",
+   "activities": [
+    "interface to BMS, lifts, access control, HVAC, suppression, voice alarm/PA"
+   ]
+  },
+  {
+   "stage": "handover",
+   "activities": [
+    "AHJ/authority witness test",
+    "certification and as-builts",
+    "cause-and-effect sign-off"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "FACP location and fire-rated containment ready",
+   "after": "loop wiring",
+   "reason": "loops run on the fire-rated route back to the panel location",
+   "strength": "strong"
+  },
+  {
+   "before": "containment/wiring complete",
+   "after": "device installation and termination",
+   "reason": "devices land on the roughed-in wiring at each position",
+   "strength": "strong"
+  },
+  {
+   "before": "devices installed and addressed",
+   "after": "individual functional testing",
+   "reason": "each detector/MCP is tested in place once addressed",
+   "strength": "strong"
+  },
+  {
+   "before": "panel and standby power installed",
+   "after": "loop energization and testing",
+   "reason": "the loop needs a powered panel to drive and monitor it",
+   "strength": "strong"
+  },
+  {
+   "before": "individual devices tested",
+   "after": "cause-and-effect commissioning",
+   "reason": "the matrix builds on proven inputs before verifying outputs",
+   "strength": "strong"
+  },
+  {
+   "before": "interfacing systems live (HVAC, dampers, lifts, doors, suppression)",
+   "after": "cause-and-effect verification",
+   "reason": "outputs cannot be proven until the systems they trip are installed and controllable",
+   "strength": "strong"
+  },
+  {
+   "before": "system tested and cause-and-effect complete",
+   "after": "AHJ witness test",
+   "reason": "the authority witnesses a fully working, verified system",
+   "strength": "strong"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "containment_cabling",
+   "requirement": "fire-rated loop cabling on dedicated/fire-rated containment",
+   "type": "requires",
+   "phase": "containment_wiring",
+   "strength": "strong"
+  },
+  {
+   "with": "hvac",
+   "requirement": "cause-and-effect shutdown/smoke control requires HVAC and dampers installed and controllable",
+   "type": "requires",
+   "phase": "cause_effect_commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "bms",
+   "requirement": "fire-to-BMS signalling and smoke-control interface must be live",
+   "type": "requires",
+   "phase": "integration_verification",
+   "strength": "strong"
+  },
+  {
+   "with": "conveying",
+   "requirement": "fireman's lift homing/recall interface must be wired and testable",
+   "type": "requires",
+   "phase": "cause_effect_commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "fire_fighting",
+   "requirement": "detection releases suppression and monitors sprinkler flow/valve status",
+   "type": "requires",
+   "phase": "cause_effect_commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "FACP power and shunt-trip/shutdown interfaces to switchgear; standby power",
+   "type": "requires",
+   "phase": "panel_installation",
+   "strength": "moderate"
+  },
+  {
+   "with": "elv_security",
+   "requirement": "door release/mag-lock drop on alarm for egress",
+   "type": "requires",
+   "phase": "cause_effect_commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "data_telecom",
+   "requirement": "voice-alarm/PA evacuation-messaging interface",
+   "type": "coordinate",
+   "phase": "integration_verification",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Loop insulation, continuity, earth-fault and short-circuit isolator test",
+  "Individual device functional test (smoke/heat/aspirating/MCP)",
+  "Sounder SPL/audibility survey and visual-alarm coverage",
+  "Battery standby and alarm-load duration test",
+  "Full cause-and-effect matrix verification",
+  "Interface/integration tests (HVAC, lifts, dampers, doors, suppression, BMS)",
+  "AHJ/authority witness and certification"
+ ],
+ "commissioning_dependencies": [
+  "All interfacing systems installed and controllable (HVAC, dampers, lifts, doors, suppression)",
+  "Standby batteries charged",
+  "Approved cause-and-effect matrix",
+  "FACP power and network complete",
+  "Architectural finishes/ceilings sufficiently complete for device coverage",
+  "AHJ availability for the witness test"
+ ],
+ "typical_exceptions": [
+  "Aspirating (VESDA) adds pipework install, transport-time and hole-sensitivity calibration",
+  "Voice-alarm/PA (EVAC) adds separate audio commissioning",
+  "Wireless fire systems reduce containment scope"
+ ],
+ "work_packages": [
+  {
+   "wp": "Fire-alarm containment/wiring",
+   "discipline": "fire",
+   "interface": true
+  },
+  {
+   "wp": "Panel install",
+   "discipline": "fire",
+   "interface": false
+  },
+  {
+   "wp": "Device install and addressing",
+   "discipline": "fire",
+   "interface": false
+  },
+  {
+   "wp": "Testing",
+   "discipline": "fire",
+   "interface": false
+  },
+  {
+   "wp": "Cause-and-effect commissioning",
+   "discipline": "fire",
+   "interface": true,
+   "note": "needs all interfacing systems live"
+  }
+ ],
+ "evidence": "Cause-and-effect commissioning was scheduled before the HVAC dampers, lifts and door interfaces it must trip were installed and controllable, and the sounder-audibility and battery-standby-duration tests were absent from the test plan.",
+ "status": "curated",
+ "source": "system_pattern"
+}

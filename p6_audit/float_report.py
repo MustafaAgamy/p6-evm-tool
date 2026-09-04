@@ -51,10 +51,8 @@ def _gauge(mgmt):
     score = mgmt.get('float_health', 0)
     color = mgmt.get('fh_color', 'red')
     high = mgmt.get('high', {}) or {}
-    neg = mgmt.get('neg', {}) or {}
     thr = (mgmt.get('indicators', {}) or {}).get('threshold', 44)
-    hw = _bar_width(high.get('pct', 0), high.get('max_pct', 20))
-    nw = _bar_width(neg.get('pct', 0), neg.get('max_pct', 5))
+    hw = _bar_width(high.get('pct', 0), 25)
     return f'''
       <div class="fh">
         <div class="fh-score">
@@ -64,36 +62,28 @@ def _gauge(mgmt):
         <div class="fh-drivers">
           <div class="fh-d">
             <div class="fh-dl">High Float &gt; {_esc(thr)} WD — construction
-              <span>DCMA target &lt; {_esc(_num(high.get("target", 5)))}% · penalty maxes at {_esc(_num(high.get("max_pct", 20)))}%</span></div>
+              <span>the score driver — 100 − this %</span></div>
             <div class="fh-bar2"><i style="width:{hw}%;background:{_RED}"></i></div>
             <div class="fh-dv">{_esc(_num(high.get("pct", 0)))}% <small>−{_esc(high.get("penalty", 0))}</small></div>
           </div>
-          <div class="fh-d">
-            <div class="fh-dl">Negative Float — whole schedule
-              <span>DCMA target {_esc(_num(neg.get("target", 0)))}% · penalty maxes at {_esc(_num(neg.get("max_pct", 5)))}%</span></div>
-            <div class="fh-bar2"><i style="width:{nw}%;background:{_AMBER}"></i></div>
-            <div class="fh-dv">{_esc(_num(neg.get("pct", 0)))}% <small>−{_esc(neg.get("penalty", 0))}</small></div>
-          </div>
-          <div class="fh-note">The two drivers above are what move the score — the full method is in the legend below.</div>
+          <div class="fh-note">Score = 100 − the construction High-Float defect above.</div>
         </div>
       </div>'''
 
 
 def _legend(mgmt):
     high = mgmt.get('high', {}) or {}
-    neg = mgmt.get('neg', {}) or {}
     thr = (mgmt.get('indicators', {}) or {}).get('threshold', 44)
+    within = _num(high.get('dcma_within_pct', 95))
+    dmax = _num(high.get('dcma_max_pct', 5))
     return f'''
       <div class="scorelegend">
-        <div class="sl-title">How the Float Health score is calculated <span>— anchored to the DCMA 14-Point float targets</span></div>
-        <div class="sl-formula">Float Health = 100 − High-Float penalty − Negative-Float penalty</div>
+        <div class="sl-title">How the Float Health score is calculated <span>— Schedule Health Review linear model</span></div>
+        <div class="sl-formula">Float Health = 100 − construction excess-float defect%</div>
         <div class="sl-rows">
-          <div class="sl-row"><b>High Float</b> — construction activities with total float &gt; {_esc(thr)} WD ·
-            <span class="sl-t">DCMA target &lt; {_esc(_num(high.get("target", 5)))}%</span> ·
-            penalty 0 at ≤ {_esc(_num(high.get("target", 5)))}%, rising straight-line to <b>−{_esc(high.get("max_penalty", 60))}</b> at {_esc(_num(high.get("max_pct", 20)))}%.</div>
-          <div class="sl-row"><b>Negative Float</b> — activities with total float &lt; 0 (whole schedule) ·
-            <span class="sl-t">DCMA target {_esc(_num(neg.get("target", 0)))}%</span> ·
-            penalty 0 at {_esc(_num(neg.get("target", 0)))}%, rising straight-line to <b>−{_esc(neg.get("max_penalty", 40))}</b> at {_esc(_num(neg.get("max_pct", 5)))}%.</div>
+          <div class="sl-row"><b>Defect%</b> = construction activities with total float &gt; {_esc(thr)} WD ÷ all construction activities.
+            Each 1% of defect costs 1 point — here {_esc(_num(high.get("pct", 0)))}% &rarr; <b>{_esc(mgmt.get("float_health", 0))}</b>.</div>
+          <div class="sl-row sl-ref"><b>DCMA reference — not the score.</b> DCMA Metric 5 benchmark: at least {within}% of activities within the float threshold (high float &lt; {dmax}%). Shown for reference; it does not set the score.</div>
         </div>
         <div class="sl-colours"><span><i class="dot g"></i>Green ≥ 85</span><span><i class="dot a"></i>Amber 60–84</span><span><i class="dot r"></i>Red &lt; 60</span></div>
       </div>'''
@@ -161,14 +151,14 @@ def _notice(name, meta, msg, theme='light'):
 {report_theme.theme_style_tag(theme)}
 </head>
 <body>
-  <div class="head"><div class="kicker">Schedule Audit · Management Report</div>
+  <div class="head"><div class="kicker">Schedule Health Review · Management Report</div>
     <div class="title">{_esc(name)}</div>
     <div class="subtitle">Schedule Stability &amp; Float Distribution — Management Dashboard</div></div>
   <div class="notice"><b>Float dashboard unavailable.</b><br>{_esc(msg)}</div>
 </body></html>'''
 
 
-def render_float_report(module_result, meta, theme='light'):
+def render_float_report(module_result, meta, sections=None, theme='light'):
     m = module_result or {}
     mgmt = m.get('mgmt') or {}
     meta = meta or {}
@@ -181,6 +171,33 @@ def render_float_report(module_result, meta, theme='light'):
                                    'so no float indicators can be shown.', theme=theme)
     thr = (mgmt.get('indicators', {}) or {}).get('threshold', 44)
     conclusion = mgmt.get('conclusion') or 'No conclusion available for this schedule.'
+
+    # Report-content picker: include only the selected sections (Preview = PDF = Print).
+    want = set(sections) if sections else None
+
+    def on(key):
+        return want is None or key in want
+
+    exec_html = f'<h2 class="sec">Executive Dashboard</h2>{_gauge(mgmt)}{_legend(mgmt)}' if on('executive') else ''
+    stats_html = (f'<div class="subhd">Schedule Statistics <span>— whole schedule</span></div>'
+                  f'<div class="tiles g5">{_stats_tiles(mgmt)}</div>') if on('statistics') else ''
+    ind_html = (f'<div class="subhd">Float Indicators <span>— Construction scope only '
+                f'(Engineering / Procurement / Design excluded)</span></div>'
+                f'<div class="tiles g4">{_indicator_tiles(mgmt)}</div>'
+                f'<div class="hovernote">Average Float and Maximum Float are always shown '
+                f'<b>per&nbsp;WBS</b> below — never as a single project-wide figure.</div>') if on('indicators') else ''
+    wbs_html = (f'<h2 class="sec">Float Distribution by WBS</h2>'
+                f'<table><thead><tr><th>WBS Package</th><th class="num">Activities</th>'
+                f'<th class="num">Average Float</th><th class="num">Maximum Float</th>'
+                f'<th class="num">Activities &gt; {_esc(thr)} WD</th>'
+                f'<th class="num" style="min-width:120px">% &gt; {_esc(thr)} WD</th></tr></thead>'
+                f'<tbody>{_wbs_rows(mgmt)}</tbody></table>'
+                f'<div class="hovernote">Sorted by % over threshold (highest first) · shows the last 2–3 WBS levels · '
+                f'full WBS path on hover (on screen) · <span class="tag con">Constr.</span> counts toward the '
+                f'Construction KPIs, <span class="tag non">Excl.</span> is shown for context only.</div>') if on('wbs') else ''
+    concl_html = (f'<h2 class="sec">Executive Conclusion</h2>'
+                  f'<div class="concl">{_esc(conclusion)}</div>') if on('conclusion') else ''
+    body = exec_html + stats_html + ind_html + wbs_html + concl_html
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
@@ -226,6 +243,7 @@ def render_float_report(module_result, meta, theme='light'):
   .sl-formula {{ font-family:'Consolas',monospace; font-size:11px; color:var(--rpt-ink); background:var(--rpt-surface); border-radius:4px; padding:6px 9px; margin:7px 0; display:inline-block; }}
   .sl-rows {{ display:flex; flex-direction:column; gap:3px; }}
   .sl-row {{ font-size:10px; color:var(--rpt-ink); line-height:1.5; }} .sl-row b {{ color:var(--rpt-ink); }}
+  .sl-ref {{ background:var(--rpt-good-bg); border-left:3px solid var(--rpt-good); border-radius:0 5px 5px 0; padding:6px 9px; }}
   .sl-t {{ color:var(--rpt-good); font-weight:600; }}
   .sl-colours {{ display:flex; gap:18px; margin-top:8px; font-size:9.5px; color:var(--rpt-ink-soft); }}
   .sl-colours i.dot {{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:middle; }}
@@ -249,7 +267,7 @@ def render_float_report(module_result, meta, theme='light'):
 </head>
 <body>
   <div class="head">
-    <div class="kicker">Schedule Audit · Management Report</div>
+    <div class="kicker">Schedule Health Review · Management Report</div>
     <div class="title">{_esc(name)}</div>
     <div class="subtitle">Schedule Stability &amp; Float Distribution — Management Dashboard</div>
     <div class="meta">
@@ -260,34 +278,12 @@ def render_float_report(module_result, meta, theme='light'):
     </div>
   </div>
 
-  <h2 class="sec">Executive Dashboard</h2>
-  {_gauge(mgmt)}
-  {_legend(mgmt)}
-
-  <div class="subhd">Schedule Statistics <span>— whole schedule</span></div>
-  <div class="tiles g5">{_stats_tiles(mgmt)}</div>
-
-  <div class="subhd">Float Indicators <span>— Construction scope only (Engineering / Procurement / Design excluded)</span></div>
-  <div class="tiles g4">{_indicator_tiles(mgmt)}</div>
-  <div class="hovernote">Average Float and Maximum Float are always shown <b>per&nbsp;WBS</b> below — never as a single project-wide figure.</div>
-
-  <h2 class="sec">Float Distribution by WBS</h2>
-  <table>
-    <thead><tr><th>WBS Package</th><th class="num">Activities</th><th class="num">Average Float</th>
-      <th class="num">Maximum Float</th><th class="num">Activities &gt; {_esc(thr)} WD</th>
-      <th class="num" style="min-width:120px">% &gt; {_esc(thr)} WD</th></tr></thead>
-    <tbody>{_wbs_rows(mgmt)}</tbody>
-  </table>
-  <div class="hovernote">Sorted by % over threshold (highest first) · shows the last 2–3 WBS levels · full WBS path on hover (on screen) ·
-    <span class="tag con">Constr.</span> counts toward the Construction KPIs, <span class="tag non">Excl.</span> is shown for context only.</div>
-
-  <h2 class="sec">Executive Conclusion</h2>
-  <div class="concl">{_esc(conclusion)}</div>
+  {body}
 
   <div class="foot">
-    The <b>Float Health score</b> is anchored to the DCMA 14-Point float targets (High Float &lt; 5%, Negative Float = 0)
-    and its two drivers are printed above, so the number is fully transparent — a colour band is used instead of a
-    subjective status word. Construction KPIs exclude Engineering, Procurement, Vendor Documentation and Long-Lead scope.
+    The <b>Float Health score</b> = 100 − the construction excess-float defect% (activities over the threshold), a fully
+    transparent linear number; the DCMA Metric 5 benchmark (high float &lt; 5%) is shown as a reference only, not the score.
+    Construction KPIs exclude Engineering, Procurement, Vendor Documentation and Long-Lead scope.
     Activity-by-activity detail (Activity ID, Name, Float, Recommendation) is available in the separate <b>Excel export</b>.
     &nbsp;·&nbsp; {_esc(meta.get('project_name', ''))} · {_esc(name)}
   </div>
