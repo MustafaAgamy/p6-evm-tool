@@ -6,8 +6,7 @@ Pure and guarded — no LLM, no key, no network.
 """
 from datetime import date
 
-from p6_evm.copilot import build_copilot, build_insights, build_tia
-from p6_evm.forecast import build_forecast
+from p6_evm.copilot import build_copilot, build_forecast, build_insights, build_tia
 
 
 def _r(**kw):

@@ -252,6 +252,34 @@ def test_report_weather_hist3_omitted_without_histogram(tmp_path):
     assert '1 · Execution Dashboard' in html          # the waterfall still renders
 
 
+def test_report_honors_sections_list_for_both_features(tmp_path):
+    """Regression — the Calendar Audit AND Bad Weather PDF previews now pass the ticked
+    `sections` list through (the in-preview Report-contents toggle was dead). The report
+    route must honour an explicit list for feature='calendar' AND feature='weather':
+    an empty list drops the body, a ticked list renders exactly those sections."""
+    result = _result(tmp_path)
+    weather = {
+        'expected_bad_days_total': 4, 'net_finish_delay': 3,
+        'weather_adjusted_finish': '2025-04-03',
+        'thresholds': {'rain_mm': 5, 'temp_max_c': 42, 'wind_kmh': None, 'dust': True},
+        'by_cause': [], 'bad_days': [], 'milestones': [], 'recovery': [], 'monthly': [],
+    }
+    # feature='weather' — the whole report lives under the single 'weather' section key.
+    # (Body-only waterfall labels as markers, so the CSS/header text can't mask the result.)
+    on = render_calendar_report(result, META, weather=weather, feature='weather',
+                                sections=['weather'])
+    assert 'Baseline Finish' in on and 'Bad-weather Completion' in on
+    off = render_calendar_report(result, META, weather=weather, feature='weather',
+                                 sections=[])           # unticked → body dropped, valid HTML
+    assert 'Baseline Finish' not in off and 'Bad-weather Completion' not in off
+    assert off.startswith('<!DOCTYPE html>') and off.rstrip().endswith('</html>')
+
+    # feature='calendar' — an explicit two-section list renders exactly those two, no more.
+    two = render_calendar_report(result, META, sections=['dashboard', 'hours'])
+    assert 'Baseline Finish' in two and 'Working-hours Profile' in two   # dashboard + hours in
+    assert 'Calendar Timeline' not in two and 'Comparison &amp; Usage' not in two
+
+
 def test_report_comparison_usage_and_section_picker(tmp_path):
     result = _result(tmp_path)
     html = render_calendar_report(result, META)
@@ -289,9 +317,10 @@ def test_report_prints_hours_note(tmp_path):
     assert 'Summer / Ramadan reduced hours' not in render_calendar_report(base, META)
 
 
-def test_report_conflicts_appended_in_comparison(tmp_path):
-    """§5 — the 'Calendar Conflicts — to be removed' list is appended INSIDE the Comparison &
-    Usage section (no standalone Calendar Conflicts section)."""
+def test_report_omits_calendar_conflicts(tmp_path):
+    """§5 — Calendar Conflicts is removed from the report entirely (Ibrahim): neither a
+    standalone section nor the 'to be removed' list appears, even when an unused calendar
+    would otherwise trigger a conflict. The Comparison & Usage table still renders."""
     content = textwrap.dedent('''\
     <?xml version="1.0"?>
     <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
@@ -311,9 +340,9 @@ def test_report_conflicts_appended_in_comparison(tmp_path):
     p = tmp_path / "cf.xml"; p.write_text(content, encoding='utf-8')
     result = calendar_audit(parse_file(str(p)), {}, {})
     html = render_calendar_report(result, META)
-    assert 'Calendar Conflicts — to be removed' in html
-    assert 'Unused calendar' in html and 'Old Unused' in html   # (quotes HTML-escaped)
-    assert 'Calendar Conflicts</h2>' not in html      # not a standalone section
+    assert 'Calendar Conflicts — to be removed' not in html   # the list is gone
+    assert 'Calendar Conflicts</h2>' not in html              # no standalone section either
+    assert 'Calendar Comparison &amp; Usage' in html          # the §5 table still renders
 
 
 def test_report_hours_profile_is_a_table(tmp_path):
