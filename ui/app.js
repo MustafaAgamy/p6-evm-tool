@@ -2,11 +2,11 @@ import { state }                              from './modules/state.js';
 import { initTheme }                          from './modules/theme.js';
 import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
-import { switchView, showChooser }             from './modules/audit.js';
+import { switchView, showChooser, renderAudit, renderOosPanel, renderLagPanel } from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
 import { showDatabase, exitDatabase, initDatabase } from './modules/database.js';
 import { showRecent, exitRecent }                   from './modules/recent.js';
-import { maybePromptBaseline }                 from './modules/evm.js';
+import { maybePromptBaseline, renderEvm }      from './modules/evm.js';
 import { renderComparePanel }                  from './modules/compare.js';
 import { renderRevComparePanel }               from './modules/revcompare.js';
 import { renderPeriodPanel }                   from './modules/period.js';
@@ -20,11 +20,14 @@ import { renderForecast, forecastPrint }          from './modules/forecast.js';
 import { renderCopilot, copilotPrint }            from './modules/copilot.js';
 import { printView }                              from './modules/printview.js';
 import { renderSchedule }                       from './modules/gantt.js';
+import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
+import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
+  state.ranFeatures = new Set();   // features the user has explicitly Run this session (issues #3/#4)
   initTheme();
   initTooltips();
   initDatabase();
@@ -100,25 +103,107 @@ document.addEventListener('DOMContentLoaded', () => {
   const markNav = (id) => document.querySelectorAll('#nav-tree .tnode[data-nav]')
     .forEach(n => n.classList.toggle('on', n.dataset.nav === id));
 
-  // Open a feature view — reuses the exact per-view render path the chooser cards used.
+  // ── Feature launch flow (issues #3/#4) ──────────────────────────────────────
+  // Importing runs nothing. Selecting a feature shows a "required inputs → Run"
+  // gate (single-input features) or the feature's own inputs panel (multi-input
+  // features); analysis happens only on the explicit Run. Once a feature has been
+  // run this session, re-selecting it jumps straight back to its results.
+  //
+  // SELF_GATING features collect their own inputs + Run inside their panel
+  // (a second file / two revisions / a location), so they skip the generic gate.
+  const SELF_GATING = new Set(['compare', 'revcompare', 'period', 'critpath', 'weather']);
+  const FEATURE_META = {
+    evm:       { title:'Earned Value',            icon:'evm',       verb:'Run EVM Analysis',      desc:'Planned vs earned value, SPI / CPI and finish delay from this update.' },
+    overview:  { title:'Overview',                icon:'overview',  verb:'Show Overview',         desc:'A one-page snapshot of progress and category performance.' },
+    wbs:       { title:'WBS Summary',             icon:'wbs',       verb:'Show WBS Summary',      desc:'Work-breakdown rollup with baseline dates and a timeline.' },
+    schedule:  { title:'Schedule (Gantt)',        icon:'sched',     verb:'Show Gantt',            desc:'A time-scaled Gantt of the activities, grouped by WBS.' },
+    audit:     { title:'Schedule Health',         icon:'construct', verb:'Run Schedule Health',   desc:'DCMA-style checks on logic, constraints, float and more.' },
+    oos:       { title:'Out of Sequence',         icon:'critpath',  verb:'Run Analysis',          desc:'Activities progressing against their planned logic.' },
+    lag:       { title:'Lag Report',              icon:'lag',       verb:'Run Lag Report',        desc:'Relationship lags and leads, with a justification register.' },
+    calendar:  { title:'P6 Calendar Audit',       icon:'calendar',  verb:'Run Calendar Audit',    desc:'Working-time calendars, net working days and comparisons.' },
+    construct: { title:'Constructability',        icon:'construct', verb:'Run Constructability',  desc:'Reviews sequencing and logic against the built-in construction knowledge base.' },
+    copilot:   { title:'AI Copilot · TIA',        icon:'ai',        verb:'Run Copilot',           desc:'Deterministic Time-Impact Analysis and insights — offline.' },
+    narrative: { title:'Baseline Narrative',      icon:'doc',       verb:'Generate Narrative',    desc:'A written basis-of-schedule narrative from this programme.' },
+    forecast:  { title:'Weather → Forecast',      icon:'weather',   verb:'Run Forecast',          desc:'Forecast finish date factoring likely bad-weather days.' },
+    dash:      { title:'Professional Dashboard',  icon:'dash',      verb:'Open Dashboard',        desc:'Portfolio KPIs and week-over-week trends across your projects.' },
+    update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its own embedded baseline.' },
+    special:   { title:'Special Report',          icon:'special',   verb:'Open Report Builder',   desc:"Compose a custom report from any feature's results." },
+  };
+
+  // Compute + render a feature's results (the actual analysis).
+  function runFeature(view) {
+    const r = state.currentResult;
+    switch (view) {
+      case 'evm':        renderEvm(r); maybePromptBaseline(r); break;
+      case 'overview':   renderOverview(r); break;
+      case 'wbs':        renderWbs(r); break;
+      case 'schedule':   renderSchedule(r); break;
+      case 'audit':      renderAudit(r.audit_modules); break;
+      case 'oos':        renderOosPanel(r.audit_modules); break;
+      case 'lag':        renderLagPanel(r.audit_modules); break;
+      case 'calendar':   renderCalendar(r.calendar_audit); break;
+      case 'weather':    renderWeatherView(r.calendar_audit); break;
+      case 'construct':  renderConstructPanel(); break;
+      case 'copilot':    renderCopilot(); break;
+      case 'narrative':  renderNarrative(); break;
+      case 'forecast':   renderForecast(); break;
+      case 'dash':       renderDashboard(); break;
+      case 'update':     renderUpdatePanel(); break;
+      case 'special':    renderSpecialPanel(); break;
+      case 'compare':    renderComparePanel(); break;
+      case 'revcompare': renderRevComparePanel(); break;
+      case 'period':     renderPeriodPanel(); break;
+      case 'critpath':   renderCritPathPanel(); break;
+    }
+  }
+
+  // The "required inputs → Run" gate for a single-input feature (before it computes).
+  function renderRunGate(view) {
+    const gate = document.getElementById('feature-gate');
+    const meta = FEATURE_META[view] || { title: view, icon: 'doc', verb: 'Run Analysis', desc: '' };
+    const fname = state.currentXmlPath
+      ? state.currentXmlPath.split(/[\\/]/).pop()
+      : ((state.currentResult && state.currentResult.project_name) || 'the imported schedule');
+    gate.innerHTML =
+      `<div class="fg-card">
+        <div class="fg-head">
+          <span class="fg-ic">${svgIcon(meta.icon)}</span>
+          <div><h2 class="fg-title">${escapeHtml(meta.title)}</h2><p class="fg-desc">${escapeHtml(meta.desc)}</p></div>
+        </div>
+        <div class="fg-inputs">
+          <div class="fg-inlabel">Required input</div>
+          <div class="fg-in ready">
+            <span class="fg-in-k">P6 schedule</span>
+            <span class="fg-in-v">${escapeHtml(fname)}</span>
+            <span class="fg-in-ok">✓ ready</span>
+          </div>
+        </div>
+        <button class="btn-primary fg-run" type="button">▶ ${escapeHtml(meta.verb)}</button>
+        <p class="fg-note">Nothing is calculated until you press <b>${escapeHtml(meta.verb)}</b>.</p>
+      </div>`;
+    gate.querySelector('.fg-run').addEventListener('click', () => {
+      state.ranFeatures.add(view);
+      gate.classList.add('hidden');
+      switchView(view);
+      runFeature(view);
+      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  // Open a feature from the navigator — routes through the launch flow above.
   function openView(view) {
     state.currentView = view;          // drives the global File ▸ Print / Export to PDF action
-    switchView(view);
-    if (view === 'dash')      renderDashboard();
-    if (view === 'copilot')   renderCopilot();
-    if (view === 'forecast')  renderForecast();
-    if (view === 'narrative') renderNarrative();
-    if (view === 'overview')  renderOverview(state.currentResult);
-    if (view === 'wbs')       renderWbs(state.currentResult);
-    if (view === 'schedule')  renderSchedule(state.currentResult);
-    if (view === 'evm')       maybePromptBaseline(state.currentResult);
-    if (view === 'construct')  renderConstructPanel();
-    if (view === 'compare')    renderComparePanel();
-    if (view === 'revcompare') renderRevComparePanel();
-    if (view === 'period')     renderPeriodPanel();
-    if (view === 'critpath')   renderCritPathPanel();
-    if (view === 'update')     renderUpdatePanel();
-    if (view === 'special')    renderSpecialPanel();
+    const gate = document.getElementById('feature-gate');
+    // Multi-input features present their own required-inputs + Run inside the panel.
+    if (SELF_GATING.has(view)) { gate.classList.add('hidden'); switchView(view); runFeature(view); return; }
+    // Already run this session → jump straight back to the rendered results.
+    if (state.ranFeatures && state.ranFeatures.has(view)) { gate.classList.add('hidden'); switchView(view); return; }
+    // First open of a single-input feature → show the Run gate; compute nothing yet.
+    document.getElementById('analysis-chooser').classList.add('hidden');
+    document.getElementById('analysis-views').classList.remove('hidden');
+    document.querySelectorAll('#analysis-views .view-panel').forEach(p => p.classList.add('hidden'));
+    renderRunGate(view);
+    gate.classList.remove('hidden');
   }
   function goHome() { exitDatabase(); exitRecent(); loadAnother(); loadHistory(); setCrumb('home'); }
 

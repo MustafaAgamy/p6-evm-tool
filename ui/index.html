@@ -92,19 +92,30 @@
       <!-- Results section (hidden until a file is parsed) -->
       <section class="results-section hidden" id="results-section">
         <div class="file-info-bar" id="file-info-bar"></div>
+        <div class="import-summary" id="import-summary"></div>
 
-        <!-- After import: the Project Navigator (left) is the module selector. -->
+        <!-- After import: the Project Navigator (left) is the feature selector. Nothing runs
+             until the user chooses a feature and presses its Run button (issues #3/#4). -->
         <div class="analysis-chooser" id="analysis-chooser">
           <div class="chooser-prompt">
             <div class="cp-icon">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h5l3-8 4 16 3-8h3"/></svg>
             </div>
-            <div class="cp-title">Schedule loaded — choose a module to analyse</div>
-            <div class="cp-sub">Pick an analysis from the <b>Project Navigator</b> on the left. Only the module you choose runs — the rest stay idle.</div>
+            <div class="cp-title">Choose a feature to analyze</div>
+            <div class="cp-sub">Pick a feature from the <b>Project Navigator</b> on the left. It will show the inputs it needs — then press <b>Run</b>. Only the feature you choose runs; nothing is analysed automatically.</div>
+            <div class="cp-flow" aria-hidden="true">
+              <span class="cp-step done">Import</span><span class="cp-arrow">→</span>
+              <span class="cp-step now">Choose feature</span><span class="cp-arrow">→</span>
+              <span class="cp-step">Inputs</span><span class="cp-arrow">→</span>
+              <span class="cp-step">Run</span><span class="cp-arrow">→</span>
+              <span class="cp-step">Results</span>
+            </div>
           </div>
         </div>
 
         <div id="analysis-views" class="hidden">
+        <!-- Feature launch gate (issues #3/#4): required inputs + Run, shown before a feature computes. -->
+        <div class="feature-gate hidden" id="feature-gate"></div>
         <div class="view-tabs" hidden aria-hidden="true">
           <button class="view-tab active" id="tab-evm" data-view="evm">EVM Results</button>
           <button class="view-tab" id="tab-audit" data-view="audit">Schedule Health Review</button>
