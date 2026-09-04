@@ -259,10 +259,11 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
             alternatives=alternatives,
             sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel=new_type, sug_pred_lag=lag)
 
-    # 3) No relationship TYPE can hold (the successor finished before this predecessor). Removing the
-    #    link IS a valid solution (it clears the out-of-sequence), so we always give the actionable
-    #    Remove — Planner Review is reserved for a case with genuinely no relationship solution, which
-    #    does not arise for a single out-of-sequence tie (removal always resolves it).
+    # 3) No overlap TYPE can hold (the successor finished before this predecessor). Rather than delete
+    #    the dependency (an open end), suggest a REPLACEMENT: revert to a standard Finish-to-Start (FS)
+    #    link and keep the dependency (Ibrahim's rule — never a bare "Remove"); Remove stays available
+    #    in the drawer. For these genuine date contradictions the FS link does not stop P6 flagging the
+    #    tie, so the finding stays Open until the dates are fixed — honest; Remove clears it outright.
     # No overlap type (SS/FF/SF) fits because the successor finished before this predecessor
     # started. Rather than DELETE the dependency (which leaves an open end), suggest a replacement:
     # revert to a standard Finish-to-Start link and keep the dependency — the planner verifies the
