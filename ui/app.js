@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     { node: { id:'home', label:'Import a schedule', icon:'home' } },
     { group:'Project', items:[
       ['dash','Professional Dashboard','dash'], ['overview','Overview','overview'], ['wbs','WBS','wbs'],
+      ['schedule','Schedule (Gantt)','sched'],
       ['forecast','Weather → Forecast','weather'],
       ['calendar','P6 Calendar Audit','calendar'], ['weather','Bad Weather','weather'],
     ]},
