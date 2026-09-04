@@ -482,7 +482,7 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
         _wrap('exceptions', _exceptions(exc)) if inc('exceptions') else '',
         _wrap('hours', _hours(profiles)) if inc('hours') else '',
         _wrap('comparison', _comparison(result.get('comparison', []), result.get('usage', []),
-                                        period_note, result.get('conflicts', []))) if inc('comparison') else '',
+                                        period_note)) if inc('comparison') else '',
         _wrap('weather', _weather_section(weather, d, meta.get('project_name', ''))) if inc('weather') else '',
     ])
     # Feature-aware document branding — the Bad Weather report is its own document, not a

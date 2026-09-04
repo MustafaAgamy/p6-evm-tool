@@ -317,9 +317,10 @@ def test_report_prints_hours_note(tmp_path):
     assert 'Summer / Ramadan reduced hours' not in render_calendar_report(base, META)
 
 
-def test_report_conflicts_appended_in_comparison(tmp_path):
-    """§5 — the 'Calendar Conflicts — to be removed' list is appended INSIDE the Comparison &
-    Usage section (no standalone Calendar Conflicts section)."""
+def test_report_omits_calendar_conflicts(tmp_path):
+    """§5 — Calendar Conflicts is removed from the report entirely (Ibrahim): neither a
+    standalone section nor the 'to be removed' list appears, even when an unused calendar
+    would otherwise trigger a conflict. The Comparison & Usage table still renders."""
     content = textwrap.dedent('''\
     <?xml version="1.0"?>
     <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
@@ -339,9 +340,9 @@ def test_report_conflicts_appended_in_comparison(tmp_path):
     p = tmp_path / "cf.xml"; p.write_text(content, encoding='utf-8')
     result = calendar_audit(parse_file(str(p)), {}, {})
     html = render_calendar_report(result, META)
-    assert 'Calendar Conflicts — to be removed' in html
-    assert 'Unused calendar' in html and 'Old Unused' in html   # (quotes HTML-escaped)
-    assert 'Calendar Conflicts</h2>' not in html      # not a standalone section
+    assert 'Calendar Conflicts — to be removed' not in html   # the list is gone
+    assert 'Calendar Conflicts</h2>' not in html              # no standalone section either
+    assert 'Calendar Comparison &amp; Usage' in html          # the §5 table still renders
 
 
 def test_report_hours_profile_is_a_table(tmp_path):

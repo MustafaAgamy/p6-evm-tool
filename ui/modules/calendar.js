@@ -483,22 +483,8 @@ function _comparisonSection(cmp) {
       <th>Calendar</th><th class="num">Hours/Day</th><th class="num">Days/Week</th>
       <th class="num">Assigned to</th><th class="num">% of Activities</th>
       <th class="num">Non-Working Days</th><th>Role</th></tr></thead>
-      <tbody>${rows}</tbody></table>${_conflictsBlock(_ca.conflicts)}</div>
+      <tbody>${rows}</tbody></table></div>
      <div class="cal-note" style="font-style:normal"><b>% of Activities</b> — share of the schedule's activities on each calendar. <b>Non-Working Days</b> — weekends, holidays and shutdowns still ahead${dd ? `, from the data date (${dd}) to finish` : ''}. <b>Unused</b> calendars carry 0 activities and can be removed.</div>`;
-}
-
-// The "Calendar Conflicts — to be removed" list, appended INSIDE the Comparison & Usage card
-// (mockup §5). Empty conflicts → nothing rendered.
-function _conflictsBlock(conflicts) {
-  conflicts = conflicts || [];
-  if (!conflicts.length) return '';
-  const pill = t => (t === 'unused'
-    ? '<span class="cal-pill holiday">Unused</span>'
-    : '<span class="cal-pill shutdown">Review</span>');
-  const lines = conflicts.map(c =>
-    `<div class="cal-confline">${pill(c.type)} <b>${escapeHtml(c.title)}</b> — ${escapeHtml(c.detail)}</div>`).join('');
-  return `<div class="cal-conflicts-foot">
-    <div class="cal-conflicts-h">Calendar Conflicts — to be removed</div>${lines}</div>`;
 }
 
 function _usageSection(usage) {
