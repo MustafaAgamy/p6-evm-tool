@@ -2116,7 +2116,8 @@ class Handler(BaseHTTPRequestHandler):
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
             html_content = render_calendar_report(ca, meta_in, weather=weather,
                                                   sections=body.get('sections'),
-                                                  theme=report_theme.normalize(body.get('theme')))
+                                                  theme=report_theme.normalize(body.get('theme')),
+                                                  feature=body.get('feature', 'calendar'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -2207,46 +2208,63 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
-            from p6_calendar.weather import weather_inputs, build_daily_weather, weather_impact
+            from p6_calendar.weather import (weather_inputs, build_daily_weather,
+                                             weather_impact, resolve_site_thresholds)
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             sid = body.get('snapshot_id')
             pid = db.get_project_id_for_snapshot(sid) if sid else None
             saved = db.get_project_settings(pid) if pid else {}
-            # Stop-work limits: this request's edits win, else the project's saved limits,
-            # else the app defaults (rain>=5 / heat>=42 / dust on / wind off).
-            thresholds = (body.get('thresholds') or saved.get('weather_thresholds')
+            # Site type (Marine/Port, Desert, …) — one pick loads the limits that fit the work.
+            site_type = body.get('site_type') or saved.get('site_type')
+            # Stop-work limits: this request's edits win, else the picked site-type preset,
+            # else the project's saved limits, else the app defaults (rain>=5 / heat>=42 /
+            # dust on / wind off = the Desert preset).
+            thresholds = (body.get('thresholds')
+                          or (resolve_site_thresholds(site_type) if site_type else None)
+                          or saved.get('weather_thresholds')
                           or config.get('weather_thresholds'))
             data = parse_file(resolved)
             inp = weather_inputs(data)
             if not inp['data_date'] or not inp['project_finish']:
                 self._json(200, {'ok': False, 'error': 'Schedule has no usable start/finish dates.'})
                 return
-            daily, horizon = build_daily_weather(lat, lon, inp['data_date'], inp['project_finish'])
+            daily, climate_samples, horizon, climate_meta = build_daily_weather(
+                lat, lon, inp['data_date'], inp['project_finish'])
             wx = weather_impact(**inp, daily_weather=daily, forecast_horizon=horizon,
-                                thresholds=thresholds)
+                                thresholds=thresholds, site_type=site_type,
+                                climate_samples=climate_samples, climate_meta=climate_meta)
             location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
+            # Fill the climate reference's location so the user sees exactly where it applies.
+            if isinstance(wx.get('climate_reference'), dict):
+                wx['climate_reference'].update({'lat': lat, 'lon': lon,
+                                                'place_name': body.get('place_name', '')})
             if pid:
-                # Persist location, the edited limits, and the latest weather (so the PDF can include it).
+                # Persist location, the site type, the edited limits, and the latest weather
+                # (so re-opening restores the picker and the PDF can include it).
                 patch = {'location': location, 'last_weather': wx}
+                if site_type is not None:
+                    patch['site_type'] = site_type
                 if body.get('thresholds'):
                     patch['weather_thresholds'] = body['thresholds']
                 db.save_project_settings(pid, patch)
             self._json(200, {'ok': True, 'weather': wx, 'location': location,
-                             'offline': not daily})
+                             'offline': not daily and not climate_samples})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/calendar/settings ─────────────────────────────────────────────
     def _handle_calendar_settings(self, body):
         """Persist per-project Calendar Audit settings (location / manual shutdowns /
-        shutdown reasons) and recompute the calendar audit so the changes show at once."""
+        shutdown reasons / working-hours notes) and recompute the calendar audit so the
+        changes show at once."""
         sid = body.get('snapshot_id')
         pid = db.get_project_id_for_snapshot(sid) if sid else None
         if not pid:
             self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
             return
-        patch = {k: body[k] for k in ('location', 'manual_shutdowns', 'shutdown_reasons')
+        patch = {k: body[k] for k in ('location', 'manual_shutdowns', 'shutdown_reasons',
+                                      'hours_notes')
                  if body.get(k) is not None}
         settings = db.save_project_settings(pid, patch)
         ca = None

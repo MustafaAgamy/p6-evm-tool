@@ -3,6 +3,7 @@ import { setLoading, showError, clearError, renderResults, renderHistory } from 
 import { evmInputs }                                             from './evm.js';
 import { showReportPreview }                                     from './preview.js';
 import { getSavedMode }                                          from './appearance.js';
+import { CAL_SECTIONS, WEATHER_SECTIONS }                        from './calendar.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -280,13 +281,13 @@ export async function reverseGeocode(lat, lon) {
   } catch { return { ok: false, error: 'offline' }; }
 }
 
-export async function computeWeather(lat, lon, placeName, thresholds) {
+export async function computeWeather(lat, lon, placeName, thresholds, siteType) {
   return apiFetch('api/weather', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       snapshot_id: state.currentSnapshotId, xml_path: state.currentXmlPath,
       cached_path: state.currentCachedPath, lat, lon, place_name: placeName,
-      thresholds: thresholds || null,
+      thresholds: thresholds || null, site_type: siteType || null,
     }),
   });
 }
@@ -301,20 +302,13 @@ export async function saveCalendarSettings(patch) {
   });
 }
 
-// Which Calendar Audit sections to print — from the section-picker checkboxes.
-// Returns null (all sections) unless the user has unticked at least one.
-function _calendarSections() {
-  const cbs = [...document.querySelectorAll('.cal-sec-cb')];
-  if (!cbs.length) return null;
-  const on = cbs.filter(c => c.checked).map(c => c.value);
-  return on.length === cbs.length ? null : on;
-}
-
 export async function generateCalendarPdf() {
   if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
   const btn = new ButtonState(document.getElementById('cal-pdf-btn'), 'Generate Calendar Audit PDF');
   btn.loading('Preparing preview…');
-  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), sections: _calendarSections() };
+  // Preview renders ALL sections; the in-preview "Include sections" picker toggles them
+  // live and hands the ticked keys to the save (server filters the PDF to match).
+  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), feature: 'calendar' };
   const mode = getSavedMode();
   try {
     const data = await apiFetch('api/report/calendar', {
@@ -325,9 +319,37 @@ export async function generateCalendarPdf() {
     btn.reset();
     if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
     showReportPreview({
-      title: 'Calendar Audit preview', subtitle: reqBody.meta.source_file, html: data.html, initialMode: mode,
+      title: 'P6 Calendar Audit preview', subtitle: reqBody.meta.source_file, html: data.html, initialMode: mode,
+      sections: CAL_SECTIONS.map(([key, label]) => ({ key, label })),
       onThemeChange: _previewFetcher('api/report/calendar', reqBody),
-      onSave: (m) => _savePdf('api/report/calendar', { ...reqBody, theme: m }, 'Calendar_Audit.pdf', 'pdf'),
+      onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'P6_Calendar_Audit.pdf', 'pdf'),
+    });
+  } catch {
+    showError('Preview failed. Check the schedule and try again.');
+    btn.reset();
+  }
+}
+
+// Feature 2 — Bad Weather effect on Forecast Finish PDF (weather-only report).
+export async function generateWeatherPdf() {
+  if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('weather-pdf-btn'), 'Generate Bad-Weather PDF');
+  btn.loading('Preparing preview…');
+  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), feature: 'weather' };
+  const mode = getSavedMode();
+  try {
+    const data = await apiFetch('api/report/calendar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ...reqBody, preview: true, theme: mode }),
+    });
+    btn.reset();
+    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    showReportPreview({
+      title: 'Bad Weather report preview', subtitle: reqBody.meta.source_file, html: data.html, initialMode: mode,
+      sections: WEATHER_SECTIONS.map(([key, label]) => ({ key, label })),
+      onThemeChange: _previewFetcher('api/report/calendar', reqBody),
+      onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'Bad_Weather_Forecast.pdf', 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');

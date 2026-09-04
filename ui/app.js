@@ -1,6 +1,6 @@
 import { state }                              from './modules/state.js';
 import { initTheme }                          from './modules/theme.js';
-import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, exportCalendarExcel } from './modules/api.js';
+import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser }             from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     { group:'Project', items:[
       ['dash','Professional Dashboard','dash'], ['overview','Overview','overview'], ['wbs','WBS','wbs'],
       ['forecast','Weather → Forecast','weather'],
+      ['calendar','P6 Calendar Audit','calendar'], ['weather','Bad Weather','weather'],
     ]},
     { group:'Analysis', items:[
       ['evm','Earned Value'], ['audit','Schedule Health'], ['critpath','Critical Path'],
@@ -81,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     compare:'Consultant Review', revcompare:'Baseline Revision Comparison', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
     update:'Update Analysis', special:'Special Report', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
     dash:'Professional Dashboard', narrative:'Baseline Narrative', forecast:'Weather → Forecast',
-    copilot:'AI Copilot · TIA' };
+    weather:'Bad Weather', copilot:'AI Copilot · TIA' };
   const navTree = document.getElementById('nav-tree');
   const tnode = (id, label, icon, o = {}) => {
     const dis = o.preview || o.soon;
@@ -168,6 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     oos:      { pdf: 'oos-pdf-btn',     xls: 'oos-excel-btn' },
     lag:      { pdf: 'lag-pdf-btn',     xls: 'lag-excel-btn' },
     calendar: { pdf: 'cal-pdf-btn',     xls: 'cal-excel-btn' },
+    weather:  { pdf: 'weather-pdf-btn' },
     compare:  { pdf: 'cmp-preview-pdf', xls: 'cmp-export-xlsx' },
     revcompare:{ pdf: 'rc-preview-pdf' },
     critpath: { pdf: 'cpa-export-pdf',  xls: 'cpa-export-xlsx' },
@@ -261,6 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('lag-excel-btn').addEventListener('click', () => exportExcel('lag-excel-btn'));
   document.getElementById('cal-pdf-btn').addEventListener('click', generateCalendarPdf);
   document.getElementById('cal-excel-btn').addEventListener('click', exportCalendarExcel);
+  document.getElementById('weather-pdf-btn').addEventListener('click', generateWeatherPdf);
 
   // Analysis chooser (shown after upload) → reveal the chosen view. Routed through
   // openView so it takes the exact same path as the navigator (incl. setting
@@ -274,6 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-audit').addEventListener('click', () => switchView('audit'));
   document.getElementById('tab-oos').addEventListener('click', () => switchView('oos'));
   document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
+  document.getElementById('tab-weather').addEventListener('click', () => switchView('weather'));
   document.getElementById('tab-construct').addEventListener('click', () => { switchView('construct'); renderConstructPanel(); });
   document.getElementById('tab-compare').addEventListener('click', () => { switchView('compare'); renderComparePanel(); });
   document.getElementById('tab-revcompare')?.addEventListener('click', () => { switchView('revcompare'); renderRevComparePanel(); });

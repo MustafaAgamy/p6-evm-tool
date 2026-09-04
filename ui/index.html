@@ -111,7 +111,8 @@
           <button class="view-tab active" id="tab-evm" data-view="evm">EVM Results</button>
           <button class="view-tab" id="tab-audit" data-view="audit">Schedule Health Review</button>
           <button class="view-tab" id="tab-oos" data-view="oos">Out of Sequence</button>
-          <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
+          <button class="view-tab" id="tab-calendar" data-view="calendar">📅 P6 Calendar Audit</button>
+          <button class="view-tab" id="tab-weather" data-view="weather">🌦 Bad Weather</button>
           <button class="view-tab" id="tab-construct" data-view="construct">🧠 Constructability</button>
           <button class="view-tab" id="tab-compare" data-view="compare">Consultant Review</button>
           <button class="view-tab" id="tab-revcompare" data-view="revcompare">Baseline Revision Comparison</button>
@@ -154,6 +155,13 @@
           <div class="action-buttons">
             <button class="btn-secondary" id="cal-excel-btn">Export to Excel</button>
             <button class="btn-primary" id="cal-pdf-btn">Generate Calendar Audit PDF</button>
+          </div>
+        </div>
+
+        <div class="view-panel hidden" id="weather-panel">
+          <div id="weather-body"></div>
+          <div class="action-buttons">
+            <button class="btn-primary" id="weather-pdf-btn">Generate Bad-Weather PDF</button>
           </div>
         </div>
 
