@@ -216,12 +216,13 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
          progress, an FF tie legitimately resolves it (a real fix, not a review).
       3. If no overlap type fits (the successor finished before this predecessor started) → suggest a
          **replacement relationship**: change the tie to a standard **Finish-to-Start (FS)** link
-         rather than delete it, so the dependency is kept (Ibrahim's rule — never a bare "Remove").
-         The reason tells the planner to verify the actual dates in P6, and **Remove** is still
-         available in the drawer if the activities are genuinely unrelated. NOTE: for these genuine
-         data contradictions the FS link does not make P6 stop flagging the tie (the dates conflict),
-         so the finding stays Open until the dates are corrected — that is honest, and Remove is the
-         alternative that clears it outright.
+         rather than delete it, so the dependency is kept (Ibrahim's rule — avoid a bare "Remove").
+         EXCEPTION: when the tie is ALREADY FS(0), an FS "replacement" would be a no-op (a fake
+         change), so there the only real correction is **Remove** (reason stated). The reason tells
+         the planner to verify the actual dates in P6, and **Remove** is available in the drawer for
+         the FS-replacement case too. NOTE: for these genuine data contradictions the FS link does not
+         make P6 stop flagging the tie (the dates conflict), so the finding stays Open until the dates
+         are corrected — that is honest, and Remove clears it outright.
       4. **Planner Review** (the `'manual'` action) is reserved for a case with genuinely no
          relationship solution; it is not emitted here but the UI/report still support it.
 
