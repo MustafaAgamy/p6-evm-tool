@@ -116,20 +116,6 @@ export async function exportExcel(btnId = 'excel-btn') {
   }
 }
 
-// Re-render the preview HTML for a newly-picked appearance mode (used by the shared preview
-// modal's Appearance picker). Returns the report HTML string for the given theme.
-function _previewFetcher(route, reqBody) {
-  return async (theme) => {
-    const data = await apiFetch(route, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true, theme }),
-    });
-    if (!data.ok || !data.html) throw new Error(data.error || 'no content');
-    return data.html;
-  };
-}
-
 export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   if (!state.currentSnapshotId || !state.currentModule) { showError('Open a schedule and pick a module first.'); return; }
   const _el = document.getElementById(btnId);
@@ -306,22 +292,32 @@ export async function generateCalendarPdf() {
   if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
   const btn = new ButtonState(document.getElementById('cal-pdf-btn'), 'Generate Calendar Audit PDF');
   btn.loading('Preparing preview…');
-  // Preview renders ALL sections; the in-preview "Include sections" picker toggles them
-  // live and hands the ticked keys to the save (server filters the PDF to match).
+  // The in-preview "Report contents" picker toggles sections LIVE: every tick re-renders the
+  // iframe from the server (same route + sections list), and the Save honours the ticks — so
+  // Preview = PDF = Print. Mirrors the module/EVM report flow (local fetchPreview + onRerender).
   const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), feature: 'calendar' };
   const mode = getSavedMode();
-  try {
+  const sections = CAL_SECTIONS.map(([key, label]) => ({ key, label }));
+  const storageKey = 'p6_report_sections_calendar';
+  let selected = sections.map(s => s.key);
+  try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default: all */ }
+  const fetchPreview = async (keys, theme) => {
     const data = await apiFetch('api/report/calendar', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true, theme: mode }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || null, theme: theme || mode }),
     });
+    return (data.ok && data.html) ? data.html : null;
+  };
+  try {
+    const html = await fetchPreview(selected, mode);
     btn.reset();
-    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
-      title: 'P6 Calendar Audit preview', subtitle: reqBody.meta.source_file, html: data.html, initialMode: mode,
-      sections: CAL_SECTIONS.map(([key, label]) => ({ key, label })),
-      onThemeChange: _previewFetcher('api/report/calendar', reqBody),
+      title: 'P6 Calendar Audit preview', subtitle: reqBody.meta.source_file, html, initialMode: mode,
+      sections, selected, storageKey,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
       onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'P6_Calendar_Audit.pdf', 'pdf'),
     });
   } catch {
@@ -335,20 +331,32 @@ export async function generateWeatherPdf() {
   if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
   const btn = new ButtonState(document.getElementById('weather-pdf-btn'), 'Generate Bad-Weather PDF');
   btn.loading('Preparing preview…');
+  // Live "Report contents" picker: every tick re-renders the iframe from the server (same
+  // route + sections list) and the Save honours the ticks — Preview = PDF = Print. Same
+  // fetchPreview + onRerender pattern as the module/EVM report flow.
   const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), feature: 'weather' };
   const mode = getSavedMode();
-  try {
+  const sections = WEATHER_SECTIONS.map(([key, label]) => ({ key, label }));
+  const storageKey = 'p6_report_sections_weather';
+  let selected = sections.map(s => s.key);
+  try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default: all */ }
+  const fetchPreview = async (keys, theme) => {
     const data = await apiFetch('api/report/calendar', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true, theme: mode }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || null, theme: theme || mode }),
     });
+    return (data.ok && data.html) ? data.html : null;
+  };
+  try {
+    const html = await fetchPreview(selected, mode);
     btn.reset();
-    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
-      title: 'Bad Weather report preview', subtitle: reqBody.meta.source_file, html: data.html, initialMode: mode,
-      sections: WEATHER_SECTIONS.map(([key, label]) => ({ key, label })),
-      onThemeChange: _previewFetcher('api/report/calendar', reqBody),
+      title: 'Bad Weather report preview', subtitle: reqBody.meta.source_file, html, initialMode: mode,
+      sections, selected, storageKey,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
       onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'Bad_Weather_Forecast.pdf', 'pdf'),
     });
   } catch {
