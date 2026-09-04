@@ -182,14 +182,17 @@ def test_conclusion_and_empty():
 
 # ── Advisory suggestions ───────────────────────────────────────────────────
 
-def test_remove_relationship_when_successor_finished_before_pred_started():
+def test_fs_replacement_when_successor_finished_before_pred_started():
+    # Successor finished before predecessor started: no overlap type fits → suggest a replacement
+    # FS link (keep the dependency), not a bare Remove. Legacy label reflects the FS change.
     g = _g({
         'p': _act('p', actual_start=dt('2026-02-01')),
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
-    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
-    f = _by_id(run_out_of_sequence(g, CONFIG))
-    assert f['s']['suggested_predecessor'] == 'Remove Relationship'
-    assert f['s']['suggested_predecessor_kind'] == 'remove'
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FF', 'lag_days': 0}])
+    f = _by_id(run_out_of_sequence(g, CONFIG))['s']
+    assert f['resolution']['action'] == 'change' and f['resolution']['new_type'] == 'FS'
+    assert f['suggested_predecessor'].startswith('FS')
+    assert f['suggested_predecessor_kind'] == 'change'
 
 
 def test_pred_not_started_but_successor_running_gets_ff_fix():
@@ -285,12 +288,11 @@ def test_resolution_remove_when_successor_finished_before_pred_started():
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
     r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
-    # Remove is the LAST resort here — successor finished before predecessor started, so no
-    # relationship type can hold — and the reason must be stated explicitly.
-    assert r['action'] == 'remove' and r['applicable'] is True
-    assert r['action_text'].lower().startswith('remove')
-    assert 'no valid relationship type' in r['action_text'].lower()
-    assert 'finished before the predecessor started' in r['reasoning'].lower()
+    # No overlap type fits (successor finished before predecessor started) → rather than a bare
+    # Remove, suggest a REPLACEMENT: change the tie to a standard FS link (keep the dependency).
+    assert r['action'] == 'change' and r['new_type'] == 'FS' and r['applicable'] is True
+    assert 'to FS' in r['action_text']
+    assert 'remove' in r['reasoning'].lower()          # Remove still offered in the drawer
 
 
 def test_ff_repair_when_successor_started_before_pred_but_still_running():
@@ -305,18 +307,18 @@ def test_ff_repair_when_successor_started_before_pred_but_still_running():
     assert 'to FF' in r['action_text']
 
 
-def test_no_type_fits_gives_actionable_remove_even_when_pred_never_started():
-    # Predecessor never started AND the successor is already COMPLETE → no relationship type fits,
-    # but removing IS a valid solution, so the engine gives an actionable Remove (not a bare review),
-    # with the reason flagging the missing actual date + the replace-predecessor option.
+def test_no_type_fits_suggests_fs_replacement_not_bare_remove():
+    # Predecessor never started AND the successor is already COMPLETE → no overlap type fits, but
+    # rather than a bare Remove the engine suggests a REPLACEMENT: change the tie to a standard FS
+    # link (keep the dependency), with the reason telling the planner to verify dates / offering Remove.
     g = _g({
         'p': _act('p'),                                  # never started
         's': _act('s', actual_start=dt('2026-01-05'), actual_finish=dt('2026-01-12')),  # complete
-    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FF', 'lag_days': 0}])
     r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
-    assert r['action'] == 'remove' and r['applicable'] is True
-    assert r['action_text'].lower().startswith('remove')
-    assert 'no actual start' in r['reasoning'].lower() or 'never started' in r['action_text'].lower()
+    assert r['action'] == 'change' and r['new_type'] == 'FS' and r['applicable'] is True
+    assert 'to FS' in r['action_text']
+    assert 'verify' in r['reasoning'].lower() and 'remove' in r['reasoning'].lower()
 
 
 # ── Baseline / After Modification labels + successor-tie evaluation (LOG format) ─

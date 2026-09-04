@@ -201,13 +201,16 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
          Other fitting types are offered as valid alternatives — never an invalid combined 'SS/FF'.
          This runs even when the predecessor has no actual start: if the successor is still in
          progress, an FF tie legitimately resolves it (a real fix, not a review).
-      3. If no relationship type can hold → **remove** (last resort, reason stated). Removing a link
-         always resolves the out-of-sequence, so every finding gets an actionable fix (a type change
-         or a removal). When the predecessor never started, the removal reason also flags the missing
-         actual date and the option to replace it with the correct predecessor.
+      3. If no overlap type fits (the successor finished before this predecessor started) → suggest a
+         **replacement relationship**: change the tie to a standard **Finish-to-Start (FS)** link
+         rather than delete it, so the dependency is kept (Ibrahim's rule — never a bare "Remove").
+         The reason tells the planner to verify the actual dates in P6, and **Remove** is still
+         available in the drawer if the activities are genuinely unrelated. NOTE: for these genuine
+         data contradictions the FS link does not make P6 stop flagging the tie (the dates conflict),
+         so the finding stays Open until the dates are corrected — that is honest, and Remove is the
+         alternative that clears it outright.
       4. **Planner Review** (the `'manual'` action) is reserved for a case with genuinely no
-         relationship solution — which does not arise for a single out-of-sequence tie — so it is
-         not emitted here; the UI/report still support it as a capability.
+         relationship solution; it is not emitted here but the UI/report still support it.
 
     Whether a type fits is decided by the SAME detection rule (`_is_oos`), so a recommended change
     and the later re-validation always agree. A same-type, lag-only fix is deliberately not offered:
@@ -260,32 +263,26 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
     #    link IS a valid solution (it clears the out-of-sequence), so we always give the actionable
     #    Remove — Planner Review is reserved for a case with genuinely no relationship solution, which
     #    does not arise for a single out-of-sequence tie (removal always resolves it).
+    # No overlap type (SS/FF/SF) fits because the successor finished before this predecessor
+    # started. Rather than DELETE the dependency (which leaves an open end), suggest a replacement:
+    # revert to a standard Finish-to-Start link and keep the dependency — the planner verifies the
+    # actual dates in P6, or switches to Remove in the drawer if the activities are truly unrelated.
+    fs_label = _rel_num('FS', 0, always_lag=True)
     if p_as is None:
-        # Predecessor never started AND successor already complete — removing resolves it, but the
-        # missing actual start is a data signal, so the reason flags it and offers the add-instead option.
-        reasoning = (f"No relationship type (SS, FF or SF) fits: the successor {succ_id} is already "
-                     f"complete while predecessor {pred_id} shows no actual start. Removing the link "
-                     f"resolves the out-of-sequence — but the predecessor has no actual date, so verify "
-                     f"its dates in P6, or replace it with the correct predecessor, before finalising.")
-        return _resolution(
-            'remove', True,
-            f"Remove {pred_id} → {succ_id} — successor complete while predecessor never started; "
-            f"removing resolves it (verify the predecessor's dates, or replace it with the correct one).",
-            reasoning=reasoning,
-            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
-
-    # The predecessor did start, but the successor finished before it — the dependency contradicts
-    # reality and no type fits → removal is the last resort, with the reason stated.
-    reasoning = (f"No relationship type (SS, FF or SF) or lag can hold between {pred_id} and "
-                 f"{succ_id} without creating another logical conflict: the successor finished "
-                 f"before the predecessor started, so the dependency no longer reflects reality. "
-                 f"Removing the link is the only reasonable correction.")
+        reasoning = (f"No overlap type (SS, FF or SF) fits: the successor {succ_id} is already complete "
+                     f"while predecessor {pred_id} shows no actual start. Rather than delete the link, "
+                     f"change it to a standard {fs_label} dependency and verify the predecessor's actual "
+                     f"dates in P6 (or use Remove, in the drawer, if the activities are not dependent).")
+    else:
+        reasoning = (f"No overlap type (SS, FF or SF) fits: the successor {succ_id} finished before "
+                     f"{pred_id} started. Rather than delete the link, change it to a standard {fs_label} "
+                     f"dependency and verify the actual dates in P6 (or use Remove, in the drawer, if the "
+                     f"activities are not dependent).")
     return _resolution(
-        'remove', True,
-        f"Remove {pred_id} → {succ_id} — no valid relationship type or lag resolves the sequence "
-        f"without another logical conflict.",
-        reasoning=reasoning,
-        sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
+        'change', True,
+        f"Change {pred_id} → {succ_id} from {cur_label} to {fs_label} (keep the dependency; verify dates in P6)",
+        reasoning=reasoning, new_type='FS', new_lag_days=0, new_pred_id=pred_id,
+        sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='FS', sug_pred_lag=0)
 
 
 def _suggest(graph, cur_type, cur_lag, succ, pred):
