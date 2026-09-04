@@ -667,7 +667,7 @@ function _weatherHistogram() {
       <div class="cal-3l">${escapeHtml(m.label)}</div></div>`).join('');
   return _sec(2, 'Calendar Timeline &amp; Statistics') +
     `<div class="cal-3title">${escapeHtml(_scopeName())}</div>
-     <div class="cal-3sub">Working / non-working / bad-weather days per month · the number above each bar = <b>net working days</b> (working − bad-weather)</div>
+     <div class="cal-3sub">Net-working (green) · non-working (red) · bad-weather (amber) days per month · the number above each bar = <b>net working days</b> (working − bad-weather)</div>
      <div class="cal-3leg"><span><i class="sw sw-net"></i>Net working days</span>
        <span><i class="sw sw-nw"></i>Non-working days</span>
        <span><i class="sw sw-bad"></i>Bad-weather days (expected)</span>
