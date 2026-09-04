@@ -777,9 +777,10 @@ function _wireCalendar() {
       _renderCalendarBody();
     }));
 
-  document.querySelectorAll('#calendar-body .cal-whc').forEach(bar =>
+  document.querySelectorAll('#calendar-body .cal-whc[data-month]').forEach(bar =>
     bar.addEventListener('click', () => {
       const i = +bar.dataset.month;
+      if (Number.isNaN(i)) return;   // guard: the comparison histogram's view-only bars carry no data-month
       if (_openMonths.has(i)) _openMonths.delete(i); else _openMonths.add(i);
       _renderCalendarBody();
     }));

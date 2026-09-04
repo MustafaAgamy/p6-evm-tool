@@ -147,11 +147,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Menu bar — the single home for global commands ──────────────────────────
   const MENUS = {
-    file:    [['Import XML / XER…','import'], ['sep'], ['Print / Export to PDF…','print'], ['Export to Excel…','export-excel'], ['sep'], ['Load another file','load-another'], ['sep'], ['Recent projects','recent'], ['sep'], ['Exit','']],
-    project: [['Recent projects','recent'], ['Knowledge Base','kb']],
-    view:    [['Show / hide navigator','nav-toggle'], ['sep'], ['Appearance — top-right','']],
+    file:    [['Import XML / XER…','import'], ['sep'], ['Print / Export to PDF…','print'], ['Export to Excel…','export-excel'], ['sep'], ['Back to import screen','load-another'], ['sep'], ['Recent projects','recent'], ['sep'], ['Exit','exit']],
+    view:    [['Show / hide navigator','nav-toggle']],
     analysis:[['Choose module…','showchooser'], ['Back to import','load-another']],
-    tools:   [['Knowledge Base','kb'], ['Settings','']],
+    tools:   [['Knowledge Base','kb']],
     help:    [['About Controlyx 2026','about']],
   };
   const menubar = document.getElementById('menubar');
@@ -223,6 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (cmd === 'kb')          { exitRecent(); showDatabase(); setCrumb('kb'); markNav('kb'); }
     else if (cmd === 'showchooser') { if (state.currentResult) { document.getElementById('results-section').classList.remove('hidden'); showChooser(); } }
     else if (cmd === 'about')       showError('Controlyx 2026 — Primavera P6 schedule analysis. Import a P6 XML/XER, pick a module from the navigator, review results, export.');
+    else if (cmd === 'exit')        { try { window.pywebview?.api?.quit?.(); } catch (e) {} }
   }
   menubar.addEventListener('click', (e) => {
     const m = e.target.closest('.menu'); if (!m) return;

@@ -123,7 +123,7 @@ export async function renderDashboard() {
     return `<div class="dash-card${isActive ? ' active' : ''}" data-pid="${r.project_id}">
       <div class="dash-card-top">
         <div class="dash-card-name" title="${escapeHtml(r.name || '')}">${escapeHtml(r.name || '(project)')}</div>
-        ${isActive ? '<span class="dash-badge">open</span>' : ''}
+        ${isActive ? '<span class="dash-badge">current</span>' : ''}
       </div>
       <div class="dash-card-sub">${r.data_date ? fmtDate(r.data_date) : '—'} · ${r.snapshot_count || 1} update${(r.snapshot_count || 1) === 1 ? '' : 's'} · ${r.activity_count ?? '—'} act.</div>
       <div class="dash-kpis">
