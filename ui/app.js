@@ -16,7 +16,6 @@ import { renderSpecialPanel }                  from './modules/special.js';
 import { renderOverview, renderWbs, overviewPrint, wbsPrint } from './modules/overview.js';
 import { renderDashboard, dashboardPrint }       from './modules/dashboard.js';
 import { renderNarrative, narrativePrint }        from './modules/narrative.js';
-import { renderForecast, forecastPrint }          from './modules/forecast.js';
 import { renderCopilot, copilotPrint }            from './modules/copilot.js';
 import { printView }                              from './modules/printview.js';
 import { renderSchedule }                       from './modules/gantt.js';
@@ -64,7 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
     { node: { id:'home', label:'Import a schedule', icon:'home' } },
     { group:'Project', items:[
       ['dash','Professional Dashboard','dash'], ['overview','Overview','overview'], ['wbs','WBS','wbs'],
-      ['forecast','Weather → Forecast','weather'],
       ['calendar','P6 Calendar Audit','calendar'], ['weather','Bad Weather','weather'],
     ]},
     { group:'Analysis', items:[
@@ -81,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
     compare:'Consultant Review', revcompare:'Baseline Revision Comparison', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
     update:'Update Analysis', special:'Special Report', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
-    dash:'Professional Dashboard', narrative:'Baseline Narrative', forecast:'Weather → Forecast',
+    dash:'Professional Dashboard', narrative:'Baseline Narrative',
     weather:'Bad Weather', copilot:'AI Copilot · TIA' };
   const navTree = document.getElementById('nav-tree');
   const tnode = (id, label, icon, o = {}) => {
@@ -105,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
     switchView(view);
     if (view === 'dash')      renderDashboard();
     if (view === 'copilot')   renderCopilot();
-    if (view === 'forecast')  renderForecast();
     if (view === 'narrative') renderNarrative();
     if (view === 'overview')  renderOverview(state.currentResult);
     if (view === 'wbs')       renderWbs(state.currentResult);
@@ -177,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     period:   { pdf: 'per-export-pdf',  xls: 'per-export-xlsx' },
     update:   { pdf: 'ua-export-pdf',   xls: 'ua-export-xlsx' },
   };
-  // Screen views (Overview, WBS, Dashboard, Forecast, Narrative, Copilot) print
+  // Screen views (Overview, WBS, Dashboard, Narrative, Copilot) print
   // through the shared printView() — File ▸ Print gives them the same PDF Preview +
   // Printing Selection picker as the analysis modules. Every feature prints from the
   // menu bar with a section picker; a new view only needs a print-sections provider.
@@ -185,7 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
     overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint },
     wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint },
     dash:      { module: 'dashboard',  title: 'Professional Dashboard', get: dashboardPrint },
-    forecast:  { module: 'forecast',   title: 'Weather → Forecast',     get: forecastPrint },
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
     copilot:   { module: 'copilot',    title: 'AI Copilot · TIA',       get: copilotPrint },
   };

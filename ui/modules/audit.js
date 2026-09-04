@@ -74,7 +74,6 @@ export function switchView(view) {
   document.getElementById('special-panel').classList.toggle('hidden', view !== 'special');
   document.getElementById('dash-panel')?.classList.toggle('hidden', view !== 'dash');
   document.getElementById('narrative-panel')?.classList.toggle('hidden', view !== 'narrative');
-  document.getElementById('forecast-panel')?.classList.toggle('hidden', view !== 'forecast');
   document.getElementById('copilot-panel')?.classList.toggle('hidden', view !== 'copilot');
   document.getElementById('overview-panel')?.classList.toggle('hidden', view !== 'overview');
   document.getElementById('wbs-panel')?.classList.toggle('hidden', view !== 'wbs');
