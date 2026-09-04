@@ -7,6 +7,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [v2.1.0] - 2026-09-04
+
 ### Added — Baseline Revision Comparison (Rev.00 vs Rev.01)
 - **New "Baseline Revision Comparison" analysis** — compare two approved baseline revisions (e.g. Baseline Rev.00 vs Rev.01) from a planning/consultant perspective and see what changed and whether it materially affected the planned execution strategy, logic, sequence, critical path, milestones, scope or duration. It is an analytical review, **not** a raw file diff, and stays neutral and evidence-based: every finding reads **Change detected → Potential impact → Planning review**, never an automatic "wrong/bad" verdict.
 - **Explicit workflow** — Select feature → **assign both revisions** (Rev.00 Original, Rev.01 Revised) → **Run Comparison** → review results. Nothing is analysed until Run is pressed; assigning a file never triggers the comparison on its own. Uses the global File ▸ Print / Export to PDF — no duplicate import/export/print buttons inside the feature.
