@@ -282,17 +282,19 @@ def test_remove_and_manual_have_no_alternatives():
     assert _by_id(run_out_of_sequence(remove_g, CONFIG))['s']['resolution']['alternatives'] == []
 
 
-def test_resolution_remove_when_successor_finished_before_pred_started():
+def test_fs_replacement_when_non_fs_tie_and_no_overlap_fits():
+    # A NON-FS tie (SS) where the successor finished before the predecessor started → no overlap
+    # type fits → rather than a bare Remove, suggest a REPLACEMENT to a standard FS link (a real
+    # change, SS → FS), with the reason offering Remove in the drawer.
     g = _g({
         'p': _act('p', actual_start=dt('2026-02-01')),
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
-    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
-    r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
-    # No overlap type fits (successor finished before predecessor started) → rather than a bare
-    # Remove, suggest a REPLACEMENT: change the tie to a standard FS link (keep the dependency).
-    assert r['action'] == 'change' and r['new_type'] == 'FS' and r['applicable'] is True
-    assert 'to FS' in r['action_text']
-    assert 'remove' in r['reasoning'].lower()          # Remove still offered in the drawer
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'SS', 'lag_days': 0}])
+    f = _by_id(run_out_of_sequence(g, CONFIG))['s']
+    assert f['resolution']['action'] == 'change' and f['resolution']['new_type'] == 'FS'
+    assert 'to FS' in f['resolution']['action_text']
+    assert 'remove' in f['resolution']['reasoning'].lower()   # Remove still offered in the drawer
+    assert f['pred_after_label'] == 'SS → FS(0)'              # a real before→after, not same→same
 
 
 def test_ff_repair_when_successor_started_before_pred_but_still_running():
@@ -340,6 +342,20 @@ def test_both_ties_get_baseline_and_after_labels():
     assert f['succ_baseline_label'] == 'FS'
     assert f['succ_resolution'] is not None
     assert '→' in f['succ_after_label']                             # successor tie corrected
+
+
+def test_no_fake_change_when_tie_already_fs0():
+    # The offending tie is ALREADY FS(0) and no overlap type fits (successor finished before the
+    # predecessor started). An "FS replacement" would be a no-op, so the engine must NOT report a
+    # fake 'FS(0) → FS(0)' change — it recommends Remove, and the After label is 'FS → Removed'.
+    g = _g({
+        'p': _act('p', actual_start=dt('2026-02-01')),
+        's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
+    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    f = _by_id(run_out_of_sequence(g, CONFIG))['s']
+    assert f['resolution']['action'] == 'remove'
+    assert f['pred_after_label'] == 'FS → Removed'
+    assert '→ FS' not in f['pred_after_label']       # never a same→same fake change
 
 
 def test_successor_tie_is_no_change_when_valid():

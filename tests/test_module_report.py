@@ -162,13 +162,16 @@ def test_oos_review_log_empty_when_clean():
 
 def test_excel_columns_out_of_sequence():
     headers, rows = excel_columns(_oos())
-    # LOG format: Baseline vs After Modification, Severity.
+    # LOG format: Baseline (related ID + name + Rel per side) vs After Modification (per-tie
+    # before→after transition), Severity. The After side no longer repeats the names.
     assert 'Baseline Predecessor' in headers and 'Baseline Pred. Rel.' in headers
-    assert 'After Predecessor' in headers and 'After Succ. Rel.' in headers
+    assert 'Baseline Pred. ID' in headers and 'Baseline Succ. ID' in headers
+    assert 'After Predecessor Tie' in headers and 'After Successor Tie' in headers
     assert 'Data Date' in headers and 'Severity' in headers
     assert 'Fix 2' not in ' '.join(headers)
+    assert 'After Predecessor' not in headers      # redundant name column dropped
     assert rows[0][1] == 'SS-1420'
-    assert 'FS → SS(2)' in rows[0]                 # the after-modification predecessor relationship
+    assert 'FS → SS(2)' in rows[0]                 # the after-modification predecessor transition
     assert '19-Jul-2026' in rows[0]               # data date on the row
 
 

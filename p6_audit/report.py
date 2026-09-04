@@ -280,24 +280,29 @@ def _oos_review_log(m):
                 '<p class="empty">No out-of-sequence activities &mdash; schedule progress is consistent '
                 'with the network logic.</p>')
     cutoff = _esc(m.get('kpis', {}).get('data_date', ''))
+    # The After-Modification predecessor/successor NAMES are identical to Baseline (a correction
+    # changes the relationship, not which activity), so the After section carries only the
+    # before→after relationship transitions; the related activity ID + name stay in Baseline.
     head = ('<tr class="grp"><th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>'
             '<th colspan="4" class="bl">Baseline</th><th rowspan="2">Data Date</th>'
-            '<th colspan="4" class="am">After Modification</th><th rowspan="2">Severity</th></tr>'
+            '<th colspan="2" class="am">After Modification</th><th rowspan="2">Severity</th></tr>'
             '<tr class="grp"><th class="bl">Predecessor</th><th class="bl">Relationship</th>'
             '<th class="bl">Successor</th><th class="bl">Relationship</th>'
-            '<th class="am">Predecessor</th><th class="am">Relationship</th>'
-            '<th class="am">Successor</th><th class="am">Relationship</th></tr>')
+            '<th class="am">Predecessor tie</th><th class="am">Successor tie</th></tr>')
+
+    def _rel_party(pid, pname, fallback=''):
+        pid_html = f'<div class="mono">{_esc(pid)}</div>' if pid else ''
+        return pid_html + f'<div>{_esc(pname or fallback)}</div>'
+
     rows = ''.join(
         f'<tr><td class="num">{i}</td><td class="mono">{_esc(f.get("activity_id"))}</td>'
         f'<td>{_esc(f.get("activity_name"))}</td>'
-        f'<td class="bl">{_esc(f.get("pred_name"))}</td>'
+        f'<td class="bl">{_rel_party(f.get("pred_id"), f.get("pred_name"))}</td>'
         f'<td class="bl">{_esc(f.get("pred_baseline_label"))}</td>'
-        f'<td class="bl">{_esc(f.get("succ_name") or ("No successor" if not f.get("succ_id") else ""))}</td>'
+        f'<td class="bl">{_rel_party(f.get("succ_id"), f.get("succ_name"), "No successor" if not f.get("succ_id") else "")}</td>'
         f'<td class="bl">{_esc(f.get("succ_baseline_label") or "—")}</td>'
         f'<td class="mut">{cutoff}</td>'
-        f'<td class="am">{_esc(f.get("pred_name"))}</td>'
         f'<td class="am">{_esc(f.get("pred_after_label"))}</td>'
-        f'<td class="am">{_esc(f.get("succ_name") or "—") if f.get("succ_id") else "—"}</td>'
         f'<td class="am">{_esc(f.get("succ_after_label"))}</td>'
         f'<td>{_esc(f.get("severity", "Medium"))}</td></tr>'
         for i, f in enumerate(findings, 1))

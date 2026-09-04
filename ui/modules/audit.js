@@ -635,24 +635,25 @@ function _oosResCell(f, resolved) {
 
 function _oosLogRow(f, i, dd, resolved) {
   const succName = f.succ_name || (f.succ_id ? '' : 'No successor');
+  // The After-Modification predecessor/successor NAMES are always identical to Baseline (a
+  // correction changes the relationship, not which activity), so they are not repeated — the
+  // After columns carry the before→after relationship transition; the names stay in Baseline.
   return `
     <tr class="oos-frow" data-fid="${escapeHtml(f.finding_id)}">
       <td class="oos-num">${i + 1}</td>
       <td class="id mono">${escapeHtml(f.activity_id)}</td>
       <td class="nm actnm">${escapeHtml(f.activity_name)}</td>
-      <td class="bl pred">${escapeHtml(f.pred_name || '')}</td>
+      <td class="bl pred">${f.pred_id ? `<div class="mono relid">${escapeHtml(f.pred_id)}</div>` : ''}<div>${escapeHtml(f.pred_name || '')}</div></td>
       <td class="bl rel"><span class="oos-relb">${escapeHtml(f.pred_baseline_label || '')}</span></td>
-      <td class="bl pred">${escapeHtml(succName)}</td>
+      <td class="bl pred">${f.succ_id ? `<div class="mono relid">${escapeHtml(f.succ_id)}</div>` : ''}<div>${escapeHtml(succName)}</div></td>
       <td class="bl rel">${f.succ_baseline_label ? `<span class="oos-relb">${escapeHtml(f.succ_baseline_label)}</span>` : '<span class="mut">—</span>'}</td>
       <td class="dd mono mut">${dd}</td>
-      <td class="am pred">${escapeHtml(f.pred_name || '')}</td>
       <td class="am rel">${_oosAfterCell(f.pred_after_label)}</td>
-      <td class="am pred">${escapeHtml(f.succ_id ? succName : '—')}</td>
       <td class="am rel">${_oosAfterCell(f.succ_after_label)}</td>
       <td class="sev">${_oosSevCell(f)}</td>
       <td class="oos-rescell">${_oosResCell(f, resolved)}</td>
     </tr>
-    <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="14">${_oosDrawer(f)}</td></tr>`;
+    <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="12">${_oosDrawer(f)}</td></tr>`;
 }
 
 function _oosLogTable(rows, dd, resolved) {
@@ -670,12 +671,12 @@ function _oosLogTable(rows, dd, resolved) {
           <th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>
           <th class="bl" colspan="4">Baseline</th>
           <th rowspan="2">Data Date</th>
-          <th class="am" colspan="4">After Modification</th>
+          <th class="am" colspan="2">After Modification</th>
           <th rowspan="2">Severity</th><th rowspan="2">Resolution</th>
         </tr>
         <tr class="oos-sub">
           <th class="bl">Predecessor</th><th class="bl">Relationship</th><th class="bl">Successor</th><th class="bl">Relationship</th>
-          <th class="am">Predecessor</th><th class="am">Relationship</th><th class="am">Successor</th><th class="am">Relationship</th>
+          <th class="am">Predecessor tie</th><th class="am">Successor tie</th>
         </tr>
       </thead>
       <tbody>${body}</tbody></table></div>
@@ -720,8 +721,8 @@ function _oosDrawer(f) {
       <div class="oos-qcard"><div class="lbl">What is wrong?</div><div class="val">${escapeHtml(f.root_cause || '')}</div></div>
       <div class="oos-qcard"><div class="lbl">Baseline logic</div><div class="val"><span class="mono">${escapeHtml(f.pred_id || '')}</span> ${_oosCurRel(f.current_pred_rel, f.current_pred_lag)} → <span class="mono">${escapeHtml(f.activity_id)}</span>${succChain}</div></div>
     </div>
-    ${_oosTieBlock(f, 'pred', pr, `Predecessor tie: ${f.pred_id || ''} → ${f.activity_id}`)}
-    ${f.succ_id ? _oosTieBlock(f, 'succ', sr, `Successor tie: ${f.activity_id} → ${f.succ_id}`) : ''}
+    ${_oosTieBlock(f, 'pred', pr, `Predecessor tie — ${f.pred_id || ''} ${f.pred_name || ''} → ${f.activity_id} ${f.activity_name || ''}`)}
+    ${f.succ_id ? _oosTieBlock(f, 'succ', sr, `Successor tie — ${f.activity_id} ${f.activity_name || ''} → ${f.succ_id} ${f.succ_name || ''}`) : ''}
     <div class="oos-editrow soft"><label>Reason (kept with the correction)</label><input type="text" class="oos-reason" data-oosfield="reason" data-fid="${escapeHtml(f.finding_id)}" placeholder="e.g. approval overlaps submittal in the field"></div>
     <div class="oos-drawbtns">${applyBtn}<button class="oos-btn" data-oosact="details" data-fid="${escapeHtml(f.finding_id)}">Close</button></div>
   </div>`;

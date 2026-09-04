@@ -172,22 +172,35 @@ def _why_clears(new_type):
     }.get(new_type, '')
 
 
-def _after_display(baseline_label, res):
-    """The 'After Modification' relationship cell (Ibrahim's LOG): 'No change' when the tie is
-    left alone, the transition 'OLD → NEW' (e.g. 'FS(140) → FS(25)', 'FS → SS(3)/FF(0)') when it
-    is corrected, '… → Removed' for a removal, or 'Planner review' when evidence is insufficient."""
+def _same_rel(t1, l1, t2, l2):
+    """True when two relationships are identical (same type AND same whole-day lag)."""
+    return (t1 or '') == (t2 or '') and int(round(l1 or 0)) == int(round(l2 or 0))
+
+
+def _after_display(base_type, base_lag, res):
+    """The 'After Modification' relationship cell (Ibrahim's LOG). It reports a change ONLY when
+    the relationship is genuinely different from the baseline:
+      - 'No change'        — the tie is left alone, OR the recommendation equals the baseline;
+      - 'OLD → NEW'        — a real change ('FS(140) → FS(25)', 'FS → SS(3)/FF(0)');
+      - 'OLD → Removed'    — a removal;
+      - 'Planner review'   — evidence insufficient.
+    A 'same → same' (e.g. FS(0) → FS(0)) is never presented as a correction."""
+    base = _rel_num(base_type, base_lag)
     if res is None or res.get('action') in (None, 'nochange'):
         return 'No change'
     action = res['action']
     if action == 'manual':
         return 'Planner review'
     if action == 'remove':
-        return f"{baseline_label} → Removed"
-    new = _rel_num(res.get('new_type'), res.get('new_lag_days') or 0, always_lag=True)
+        return f"{base} → Removed"
+    nt, nl = res.get('new_type'), res.get('new_lag_days') or 0
+    if _same_rel(base_type, base_lag, nt, nl):   # recommendation equals the baseline → not a change
+        return 'No change'
+    new = _rel_num(nt, nl, always_lag=True)
     alts = res.get('alternatives') or []
     if alts:
         new += '/' + '/'.join(a['label'] for a in alts)
-    return f"{baseline_label} → {new}"
+    return f"{base} → {new}"
 
 
 def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
@@ -264,11 +277,21 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
     #    link and keep the dependency (Ibrahim's rule — never a bare "Remove"); Remove stays available
     #    in the drawer. For these genuine date contradictions the FS link does not stop P6 flagging the
     #    tie, so the finding stays Open until the dates are fixed — honest; Remove clears it outright.
-    # No overlap type (SS/FF/SF) fits because the successor finished before this predecessor
-    # started. Rather than DELETE the dependency (which leaves an open end), suggest a replacement:
-    # revert to a standard Finish-to-Start link and keep the dependency — the planner verifies the
-    # actual dates in P6, or switches to Remove in the drawer if the activities are truly unrelated.
     fs_label = _rel_num('FS', 0, always_lag=True)
+    if _same_rel(cur_type, cur_lag, 'FS', 0):
+        # The tie is ALREADY a plain FS(0), so an "FS replacement" would be a no-op (a fake change).
+        # The only correction that actually changes anything here is to remove the contradicting link.
+        reasoning = (f"The link is already a standard {fs_label} and no overlap type (SS, FF or SF) fits "
+                     f"— the successor finished before {pred_id} started. The only real correction is to "
+                     f"remove the contradicting dependency; verify the actual dates in P6 first, or replace "
+                     f"it with the correct predecessor.")
+        return _resolution(
+            'remove', True,
+            f"Remove {pred_id} → {succ_id} — already {fs_label} and no overlap type fits; removing "
+            f"resolves it (verify the actual dates in P6, or replace with the correct predecessor).",
+            reasoning=reasoning,
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
+
     if p_as is None:
         reasoning = (f"No overlap type (SS, FF or SF) fits: the successor {succ_id} is already complete "
                      f"while predecessor {pred_id} shows no actual start. Rather than delete the link, "
@@ -439,9 +462,9 @@ def run_out_of_sequence(graph, config):
             'current_succ_lag':           succ_lag,
             # Baseline vs After Modification labels (LOG format), per tie:
             'pred_baseline_label':        pred_baseline,
-            'pred_after_label':           _after_display(pred_baseline, pred_res),
+            'pred_after_label':           _after_display(rel_type, cur_lag, pred_res),
             'succ_baseline_label':        succ_baseline,
-            'succ_after_label':           (_after_display(succ_baseline, succ_res) if succ_id else '—'),
+            'succ_after_label':           (_after_display(succ_rel, succ_lag, succ_res) if succ_id else '—'),
             'suggested_predecessor':      sug['pred_fix1'], 'suggested_predecessor_kind': sug['pred_fix1_kind'],
             'suggested_successor':        sug['succ_fix1'], 'suggested_successor_kind': sug['succ_fix1_kind'],
             'root_cause':                 sug['root_cause'],

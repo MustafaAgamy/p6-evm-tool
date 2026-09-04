@@ -12,19 +12,21 @@ def excel_columns(module_result):
 
     if module == 'out_of_sequence':
         cutoff = module_result.get('kpis', {}).get('data_date', '')
-        # LOG format: Baseline (Predecessor · Rel · Successor · Rel) vs After Modification.
+        # LOG format: Baseline (related activity ID + name + Rel, per side) vs After Modification
+        # (the before→after relationship transition per tie). The After side does not repeat the
+        # names — they are unchanged — but includes the related activity ID so a multi-predecessor /
+        # multi-successor activity shows exactly WHICH tie was modified.
         headers = ['#', 'Activity ID', 'Activity Name',
-                   'Baseline Predecessor', 'Baseline Pred. Rel.',
-                   'Baseline Successor', 'Baseline Succ. Rel.', 'Data Date',
-                   'After Predecessor', 'After Pred. Rel.',
-                   'After Successor', 'After Succ. Rel.', 'Severity']
+                   'Baseline Pred. ID', 'Baseline Predecessor', 'Baseline Pred. Rel.',
+                   'Baseline Succ. ID', 'Baseline Successor', 'Baseline Succ. Rel.', 'Data Date',
+                   'After Predecessor Tie', 'After Successor Tie', 'Severity']
         rows = [[
             i, f.get('activity_id', ''), f.get('activity_name', ''),
-            f.get('pred_name', ''), f.get('pred_baseline_label', ''),
+            f.get('pred_id', ''), f.get('pred_name', ''), f.get('pred_baseline_label', ''),
+            f.get('succ_id', ''),
             (f.get('succ_name', '') or ('No successor' if not f.get('succ_id') else '')),
             f.get('succ_baseline_label', ''), cutoff,
-            f.get('pred_name', ''), f.get('pred_after_label', ''),
-            (f.get('succ_name', '') if f.get('succ_id') else ''), f.get('succ_after_label', ''),
+            f.get('pred_after_label', ''), f.get('succ_after_label', ''),
             f.get('severity', 'Medium'),
         ] for i, f in enumerate(findings, 1)]
         return headers, rows
