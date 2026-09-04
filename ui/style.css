@@ -88,7 +88,12 @@ body {
 }
 
 /* ── Main ────────────────────────────────────────────────────────────────── */
-.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+/* min-height:0 is load-bearing: in the 2026 shell .main is a CSS-grid item inside
+   .appmain, and grid/flex items default to min-height:auto (won't shrink below their
+   content). Without this, .main grows to the full report height instead of the viewport,
+   so its child .content{overflow-y:auto} never gets a bounded height and long reports
+   get clipped by html,body{overflow:hidden} with no way to scroll. Keep this. */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
 /* ── Topbar ──────────────────────────────────────────────────────────────── */
 .topbar {
