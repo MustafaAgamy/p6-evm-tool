@@ -678,7 +678,7 @@ function _oosLogTable(rows, dd, resolved) {
         </tr>
       </thead>
       <tbody>${body}</tbody></table></div>
-    <div class="oos-flowhint">The engine corrects each tie to match actual execution: <b>change the relationship type</b> to the one that fits the real overlap (SS/FF, with the lag from the logic), <b>remove</b> only as a last resort with the reason stated, <b>Planner review</b> when the evidence is insufficient. "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>`;
+    <div class="oos-flowhint">The engine corrects each tie to match actual execution: it <b>changes the relationship type/lag</b> to the one that fits the real overlap (SS/FF, lag from the logic). When <b>no relationship change can resolve</b> the sequence, the tie is flagged <b>Needs Planner Review</b> and stays unresolved — removal is offered as a manual planner decision in the details drawer, never an automatic fix. "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>`;
 }
 
 // One editable block per tie (predecessor / successor) inside the drawer.

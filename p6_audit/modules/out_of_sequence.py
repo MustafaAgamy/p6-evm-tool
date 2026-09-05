@@ -291,8 +291,8 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
                  f"remove the link. This is not auto-resolved.")
     return _resolution(
         'manual', False,
-        f"Relationship Removed — Needs Planner Review: no automatic relationship correction resolves "
-        f"{pred_id} → {succ_id} ({why}); removal is a planner decision, not an automatic fix.",
+        f"Needs Planner Review — no automatic relationship correction resolves {pred_id} → {succ_id} "
+        f"({why}); removal is a planner decision, not an automatic fix.",
         reasoning=reasoning,
         sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REVIEW', sug_succ_name='—')
 
