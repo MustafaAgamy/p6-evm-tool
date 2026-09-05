@@ -587,6 +587,7 @@ body.oos-fs-body #results-section { transform: none !important; }
   font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--text); }
 .oos-mini.apply { background: var(--success); border-color: var(--success); color: #fff; }
 .oos-mini.data { opacity: .6; cursor: not-allowed; }
+.oos-mini.review { background: var(--warning-bg); border-color: var(--warning); color: var(--warning); font-weight: 700; cursor: default; white-space: normal; line-height: 1.2; }
 .oos-caret { border: 0; background: transparent; cursor: pointer; color: var(--muted); font-size: 12px; padding: 2px 4px; }
 .oos-stale { font-size: 10.5px; color: var(--warning); margin-top: 5px; }
 

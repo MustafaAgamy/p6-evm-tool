@@ -502,27 +502,25 @@ function _oosAppliedOps() {
   return ops;
 }
 
-// Build the predecessor + successor tie corrections for a finding, honouring any drawer edits.
+// Build the predecessor + successor tie corrections for a finding. An op is produced only for a
+// genuine change/remove — either the engine's auto recommendation, OR a manual decision the planner
+// picked in the drawer (a 'manual'/'review'/'nochange' tie yields no op, so it stays unresolved).
 function _oosBuildOps(f) {
-  const ops = [];
-  const pr = f.pred_resolution || f.resolution;
-  if (pr && pr.applicable && (pr.action === 'change' || pr.action === 'remove')) {
-    ops.push(_oosOpFor(f, 'pred', f.pred_id, f.activity_id, pr));
-  }
-  const sr = f.succ_resolution;
-  if (sr && sr.applicable && (sr.action === 'change' || sr.action === 'remove')) {
-    ops.push(_oosOpFor(f, 'succ', f.activity_id, f.succ_id, sr));
-  }
-  return ops;
+  return [
+    _oosOpFor(f, 'pred', f.pred_id, f.activity_id, f.pred_resolution || f.resolution),
+    f.succ_id ? _oosOpFor(f, 'succ', f.activity_id, f.succ_id, f.succ_resolution) : null,
+  ].filter(Boolean);
 }
 
 function _oosOpFor(f, side, predCode, succCode, res) {
+  res = res || {};
   const get = (field) => document.querySelector(
     `[data-oosfield="${field}"][data-fid="${f.finding_id}"][data-side="${side}"]`);
   let action = res.action, newType = res.new_type, newLag = res.new_lag_days;
-  const aEl = get('action'); if (aEl) action = aEl.value;
+  const aEl = get('action'); if (aEl) action = aEl.value;        // the drawer (planner) overrides
   const tEl = get('new_type'); if (tEl) newType = tEl.value;
   const lEl = get('new_lag_days'); if (lEl && lEl.value !== '') newLag = parseFloat(lEl.value);
+  if (action !== 'change' && action !== 'remove') return null;   // manual / review / nochange → no op
   if (action === 'remove') { newType = null; newLag = null; }
   return { finding_id: f.finding_id, pred_id: predCode, succ_id: succCode,
            action, new_type: newType, new_lag_days: newLag, new_pred_id: '' };
@@ -544,7 +542,7 @@ function _oosSevCell(f) {
 // The 'After Modification' relationship cell: "No change", the "OLD → NEW" transition, or a flag.
 function _oosAfterCell(label) {
   if (!label || label === 'No change') return `<span class="oos-nochg">No change</span>`;
-  if (label === 'Planner review') return `<span class="oos-relb rev">Planner review</span>`;
+  if (label === 'Needs Planner Review' || label === 'Planner review') return `<span class="oos-relb rev">⚠ Needs Planner Review</span>`;
   const cls = /Removed/.test(label) ? 'rem' : 'sg';
   return `<span class="oos-relb ${cls}">${escapeHtml(label)}</span>`;
 }
@@ -624,7 +622,7 @@ function _oosResCell(f, resolved) {
   if (actionable) {
     btn = `<button class="oos-mini apply" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply</button>`;
   } else if (predManual) {
-    btn = `<button class="oos-mini data" disabled title="Insufficient evidence — planner review">Planner review</button>`;
+    btn = `<button class="oos-mini review" disabled title="No automatic relationship correction resolves this — open ▾ to review or make a manual decision">⚠ Needs Planner Review</button>`;
   } else {
     btn = `<button class="oos-mini data" disabled>No change</button>`;
   }
@@ -689,19 +687,25 @@ function _oosTieBlock(f, side, res, tieLabel) {
   if (!res || !res.action || res.action === 'nochange') {
     return `<div class="oos-tieblk">${head}<div class="oos-tieok">No change — this tie already matches the actual execution.</div></div>`;
   }
-  if (res.action === 'manual' || !res.applicable) {
-    return `<div class="oos-tieblk">${head}<div class="oos-tierev">${escapeHtml(res.reasoning || res.action_text || 'Planner review — insufficient evidence.')}</div></div>`;
-  }
+  const isManual = (res.action === 'manual' || !res.applicable);
   const types = ['FS', 'SS', 'FF', 'SF'];
-  const curType = res.new_type || 'SS';
+  const curType = res.new_type || 'FS';
   const typeOpts = types.map(t => `<option value="${t}" ${t === curType ? 'selected' : ''}>${t}</option>`).join('');
-  const actOpts = [['change', 'Change type / lag'], ['remove', 'Remove relationship']]
-    .map(([v, l]) => `<option value="${v}" ${v === res.action ? 'selected' : ''}>${l}</option>`).join('');
+  // For a planner-review tie, the engine makes NO automatic change: default the editor to a
+  // "leave for review" no-op and let the planner CHOOSE to remove or change if they decide to.
+  const actionList = isManual
+    ? [['review', 'Needs planner review (leave open)'], ['remove', 'Remove relationship'], ['change', 'Change relationship type / lag']]
+    : [['change', 'Change relationship type / lag'], ['remove', 'Remove relationship']];
+  const defAction = isManual ? 'review' : res.action;
+  const actOpts = actionList.map(([v, l]) => `<option value="${v}" ${v === defAction ? 'selected' : ''}>${l}</option>`).join('');
   const lag = (res.new_lag_days == null) ? 0 : res.new_lag_days;
+  const recBlock = isManual
+    ? `<div class="oos-tierev">⚠ ${escapeHtml(res.reasoning || 'No automatic correction — needs planner review.')}</div>`
+    : `<div class="oos-rec ${res.action === 'remove' ? 'remove' : 'change'}"><div class="rt">${escapeHtml(res.action_text || '')}</div>${res.reasoning ? `<div class="rw">${escapeHtml(res.reasoning)}</div>` : ''}${_oosAltPicks(res, f.finding_id, side)}</div>`;
   return `<div class="oos-tieblk">${head}
-    <div class="oos-rec ${res.action === 'remove' ? 'remove' : 'change'}"><div class="rt">${escapeHtml(res.action_text || '')}</div>${res.reasoning ? `<div class="rw">${escapeHtml(res.reasoning)}</div>` : ''}${_oosAltPicks(res, f.finding_id, side)}</div>
+    ${recBlock}
     <div class="oos-editrow">
-      <label>Action</label><select data-oosfield="action" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${actOpts}</select>
+      <label>${isManual ? 'Planner decision' : 'Action'}</label><select data-oosfield="action" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${actOpts}</select>
       <span class="oos-editgrp" data-grp="type"><label>Type</label><select data-oosfield="new_type" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${typeOpts}</select></span>
       <span class="oos-editgrp" data-grp="lag"><label>Lag</label><input type="number" step="0.5" data-oosfield="new_lag_days" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" value="${lag}"> d</span>
     </div>
@@ -713,8 +717,9 @@ function _oosDrawer(f) {
   const sr = f.succ_resolution;
   const succChain = f.succ_id
     ? ` ${_oosCurRel(f.current_succ_rel, f.current_succ_lag)} → <span class="mono">${escapeHtml(f.succ_id)}</span>` : '';
-  const applyBtn = _oosBuildOps(f).length
-    ? `<button class="oos-btn primary" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply correction</button>` : '';
+  // Always offer Apply — for a planner-review finding the planner may CHOOSE to remove/change here
+  // (their decision); if nothing is chosen, _oosApply shows a hint rather than applying.
+  const applyBtn = `<button class="oos-btn primary" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply correction</button>`;
   return `<div class="oos-draw">
     <h4>Resolve this finding</h4>
     <div class="oos-qa">
@@ -748,7 +753,10 @@ async function _oosApply(fid) {
   const f = (_oos.fresh.find(x => x.finding_id === fid) || _oos.all.find(x => x.finding_id === fid));
   if (!f) return;
   const ops = _oosBuildOps(f);
-  if (!ops.length) return;
+  if (!ops.length) {
+    _oosDlNote('This finding needs planner review — pick a decision (Remove, or change the relationship type/lag) in the details drawer before applying.', true);
+    return;
+  }
   const rEl = document.querySelector(`[data-oosfield="reason"][data-fid="${fid}"]`);
   _oos.applied[fid] = { finding: f, ops, reason: rEl ? rEl.value.trim() : '' };
   _oosDlNote('Re-validating…');
@@ -811,9 +819,10 @@ function _oosEditVisibility(fid, side) {
   const act = aEl.value;
   const blk = aEl.closest('.oos-tieblk');
   if (!blk) return;
+  const hideTypeLag = (act === 'remove' || act === 'review');   // nothing to set for remove / review
   blk.querySelectorAll('.oos-editgrp').forEach(el => {
     const grp = el.getAttribute('data-grp');
-    el.style.display = (act === 'remove' && (grp === 'type' || grp === 'lag')) ? 'none' : '';
+    el.style.display = (hideTypeLag && (grp === 'type' || grp === 'lag')) ? 'none' : '';
   });
 }
 

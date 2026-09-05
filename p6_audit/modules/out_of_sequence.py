@@ -190,7 +190,7 @@ def _after_display(base_type, base_lag, res):
         return 'No change'
     action = res['action']
     if action == 'manual':
-        return 'Planner review'
+        return 'Needs Planner Review'
     if action == 'remove':
         return f"{base} → Removed"
     nt, nl = res.get('new_type'), res.get('new_lag_days') or 0
@@ -214,21 +214,21 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
          Other fitting types are offered as valid alternatives — never an invalid combined 'SS/FF'.
          This runs even when the predecessor has no actual start: if the successor is still in
          progress, an FF tie legitimately resolves it (a real fix, not a review).
-      3. If no overlap type fits (the successor finished before this predecessor started) → suggest a
-         **replacement relationship**: change the tie to a standard **Finish-to-Start (FS)** link
-         rather than delete it, so the dependency is kept (Ibrahim's rule — avoid a bare "Remove").
-         EXCEPTION: when the tie is ALREADY FS(0), an FS "replacement" would be a no-op (a fake
-         change), so there the only real correction is **Remove** (reason stated). The reason tells
-         the planner to verify the actual dates in P6, and **Remove** is available in the drawer for
-         the FS-replacement case too. NOTE: for these genuine data contradictions the FS link does not
-         make P6 stop flagging the tie (the dates conflict), so the finding stays Open until the dates
-         are corrected — that is honest, and Remove clears it outright.
-      4. **Planner Review** (the `'manual'` action) is reserved for a case with genuinely no
-         relationship solution; it is not emitted here but the UI/report still support it.
+      3. If NO P6-legal relationship type or lag can resolve the out-of-sequence (the successor
+         finished before this predecessor started, or the predecessor never started while the
+         successor completed) → **Needs Planner Review** (the `'manual'` action). Removal would
+         eliminate the flag, but deleting a dependency is a planning decision, NOT a defensible
+         automatic correction, so the tool never claims removal as an auto-resolution: the row stays
+         UNRESOLVED and the planner verifies the dates, reverses the tie, or removes it (removal is a
+         manual choice offered in the drawer). This upholds the "no false resolution" principle — a
+         correction counts only when the relationship actually changed to a P6-legal one that clears
+         the condition.
 
-    Whether a type fits is decided by the SAME detection rule (`_is_oos`), so a recommended change
-    and the later re-validation always agree. A same-type, lag-only fix is deliberately not offered:
-    the offending predecessor is incomplete, so only a type change can clear the condition.
+    Whether a type CLEARS the condition is decided by the SAME detection rule (`_is_oos`), so a
+    recommended change and the later re-validation always agree; and a change is only reported when
+    the result genuinely differs from the baseline (`_same_rel` guards against a fake same→same). A
+    same-type, lag-only fix is deliberately not offered: the offending predecessor is incomplete, so
+    only a type change can clear the condition.
     """
     p_as = pred.get('actual_start')
     pred_id, pred_name = pred.get('id', ''), pred.get('name', '')
@@ -273,41 +273,28 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
             alternatives=alternatives,
             sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel=new_type, sug_pred_lag=lag)
 
-    # 3) No overlap TYPE can hold (the successor finished before this predecessor). Rather than delete
-    #    the dependency (an open end), suggest a REPLACEMENT: revert to a standard Finish-to-Start (FS)
-    #    link and keep the dependency (Ibrahim's rule — never a bare "Remove"); Remove stays available
-    #    in the drawer. For these genuine date contradictions the FS link does not stop P6 flagging the
-    #    tie, so the finding stays Open until the dates are fixed — honest; Remove clears it outright.
-    fs_label = _rel_num('FS', 0, always_lag=True)
-    if _same_rel(cur_type, cur_lag, 'FS', 0):
-        # The tie is ALREADY a plain FS(0), so an "FS replacement" would be a no-op (a fake change).
-        # The only correction that actually changes anything here is to remove the contradicting link.
-        reasoning = (f"The link is already a standard {fs_label} and no overlap type (SS, FF or SF) fits "
-                     f"— the successor finished before {pred_id} started. The only real correction is to "
-                     f"remove the contradicting dependency; verify the actual dates in P6 first, or replace "
-                     f"it with the correct predecessor.")
-        return _resolution(
-            'remove', True,
-            f"Remove {pred_id} → {succ_id} — already {fs_label} and no overlap type fits; removing "
-            f"resolves it (verify the actual dates in P6, or replace with the correct predecessor).",
-            reasoning=reasoning,
-            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
-
+    # 3) No P6-legal relationship type or lag can RESOLVE the out-of-sequence — the successor
+    #    finished before this predecessor started (or the predecessor never started while the
+    #    successor completed), so the dependency contradicts the actual execution and no type change
+    #    clears it. Removal WOULD eliminate the flag, but deleting a dependency is a planning decision,
+    #    not a defensible automatic correction — so this is NOT auto-resolved. It is flagged for the
+    #    planner (who can verify the dates, reverse the tie, or remove it — the last of these is
+    #    available as a manual choice in the drawer). Never present removal as an automatic resolution.
     if p_as is None:
-        reasoning = (f"No overlap type (SS, FF or SF) fits: the successor {succ_id} is already complete "
-                     f"while predecessor {pred_id} shows no actual start. Rather than delete the link, "
-                     f"change it to a standard {fs_label} dependency and verify the predecessor's actual "
-                     f"dates in P6 (or use Remove, in the drawer, if the activities are not dependent).")
+        why = (f"the successor {succ_id} is already complete while predecessor {pred_id} shows no actual "
+               f"start")
     else:
-        reasoning = (f"No overlap type (SS, FF or SF) fits: the successor {succ_id} finished before "
-                     f"{pred_id} started. Rather than delete the link, change it to a standard {fs_label} "
-                     f"dependency and verify the actual dates in P6 (or use Remove, in the drawer, if the "
-                     f"activities are not dependent).")
+        why = f"the successor {succ_id} finished before predecessor {pred_id} started"
+    reasoning = (f"No P6-legal relationship type or lag can resolve this out-of-sequence: {why}, so the "
+                 f"dependency contradicts the actual execution. No safe automatic correction exists — a "
+                 f"planner should verify the actual dates in P6, reverse the relationship, or (last resort) "
+                 f"remove the link. This is not auto-resolved.")
     return _resolution(
-        'change', True,
-        f"Change {pred_id} → {succ_id} from {cur_label} to {fs_label} (keep the dependency; verify dates in P6)",
-        reasoning=reasoning, new_type='FS', new_lag_days=0, new_pred_id=pred_id,
-        sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='FS', sug_pred_lag=0)
+        'manual', False,
+        f"Relationship Removed — Needs Planner Review: no automatic relationship correction resolves "
+        f"{pred_id} → {succ_id} ({why}); removal is a planner decision, not an automatic fix.",
+        reasoning=reasoning,
+        sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REVIEW', sug_succ_name='—')
 
 
 def _suggest(graph, cur_type, cur_lag, succ, pred):

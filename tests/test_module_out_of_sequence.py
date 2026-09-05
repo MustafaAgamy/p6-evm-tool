@@ -182,17 +182,18 @@ def test_conclusion_and_empty():
 
 # ── Advisory suggestions ───────────────────────────────────────────────────
 
-def test_fs_replacement_when_successor_finished_before_pred_started():
-    # Successor finished before predecessor started: no overlap type fits → suggest a replacement
-    # FS link (keep the dependency), not a bare Remove. Legacy label reflects the FS change.
+def test_planner_review_when_successor_finished_before_pred_started():
+    # Successor finished before predecessor started: NO relationship type or lag can resolve the
+    # out-of-sequence, so removal would be a false resolution → the engine flags Needs Planner
+    # Review (unresolved), it does NOT auto-remove or pretend an FS "replacement" fixes it.
     g = _g({
         'p': _act('p', actual_start=dt('2026-02-01')),
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FF', 'lag_days': 0}])
     f = _by_id(run_out_of_sequence(g, CONFIG))['s']
-    assert f['resolution']['action'] == 'change' and f['resolution']['new_type'] == 'FS'
-    assert f['suggested_predecessor'].startswith('FS')
-    assert f['suggested_predecessor_kind'] == 'change'
+    assert f['resolution']['action'] == 'manual' and f['resolution']['applicable'] is False
+    assert f['pred_after_label'] == 'Needs Planner Review'
+    assert 'planner' in f['resolution']['action_text'].lower()
 
 
 def test_pred_not_started_but_successor_running_gets_ff_fix():
@@ -282,19 +283,17 @@ def test_remove_and_manual_have_no_alternatives():
     assert _by_id(run_out_of_sequence(remove_g, CONFIG))['s']['resolution']['alternatives'] == []
 
 
-def test_fs_replacement_when_non_fs_tie_and_no_overlap_fits():
+def test_planner_review_for_non_fs_tie_when_no_overlap_fits():
     # A NON-FS tie (SS) where the successor finished before the predecessor started → no overlap
-    # type fits → rather than a bare Remove, suggest a REPLACEMENT to a standard FS link (a real
-    # change, SS → FS), with the reason offering Remove in the drawer.
+    # type resolves it. Changing to FS would NOT clear the OOS (a false resolution), so the engine
+    # flags Needs Planner Review (unresolved), not an auto FS/Remove.
     g = _g({
         'p': _act('p', actual_start=dt('2026-02-01')),
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'SS', 'lag_days': 0}])
     f = _by_id(run_out_of_sequence(g, CONFIG))['s']
-    assert f['resolution']['action'] == 'change' and f['resolution']['new_type'] == 'FS'
-    assert 'to FS' in f['resolution']['action_text']
-    assert 'remove' in f['resolution']['reasoning'].lower()   # Remove still offered in the drawer
-    assert f['pred_after_label'] == 'SS → FS(0)'              # a real before→after, not same→same
+    assert f['resolution']['action'] == 'manual' and f['resolution']['applicable'] is False
+    assert f['pred_after_label'] == 'Needs Planner Review'
 
 
 def test_ff_repair_when_successor_started_before_pred_but_still_running():
@@ -309,18 +308,16 @@ def test_ff_repair_when_successor_started_before_pred_but_still_running():
     assert 'to FF' in r['action_text']
 
 
-def test_no_type_fits_suggests_fs_replacement_not_bare_remove():
-    # Predecessor never started AND the successor is already COMPLETE → no overlap type fits, but
-    # rather than a bare Remove the engine suggests a REPLACEMENT: change the tie to a standard FS
-    # link (keep the dependency), with the reason telling the planner to verify dates / offering Remove.
+def test_planner_review_when_pred_never_started_and_succ_complete():
+    # Predecessor never started AND the successor is already COMPLETE → no overlap type resolves it
+    # → Needs Planner Review (unresolved), NOT an auto FS-replacement or Remove.
     g = _g({
         'p': _act('p'),                                  # never started
         's': _act('s', actual_start=dt('2026-01-05'), actual_finish=dt('2026-01-12')),  # complete
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FF', 'lag_days': 0}])
     r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
-    assert r['action'] == 'change' and r['new_type'] == 'FS' and r['applicable'] is True
-    assert 'to FS' in r['action_text']
-    assert 'verify' in r['reasoning'].lower() and 'remove' in r['reasoning'].lower()
+    assert r['action'] == 'manual' and r['applicable'] is False
+    assert 'planner' in r['action_text'].lower()
 
 
 # ── Baseline / After Modification labels + successor-tie evaluation (LOG format) ─
@@ -346,15 +343,16 @@ def test_both_ties_get_baseline_and_after_labels():
 
 def test_no_fake_change_when_tie_already_fs0():
     # The offending tie is ALREADY FS(0) and no overlap type fits (successor finished before the
-    # predecessor started). An "FS replacement" would be a no-op, so the engine must NOT report a
-    # fake 'FS(0) → FS(0)' change — it recommends Remove, and the After label is 'FS → Removed'.
+    # predecessor started). There is no P6-legal correction that resolves it (and an FS "replacement"
+    # would be a no-op fake change), so the engine flags Needs Planner Review — never a fake
+    # 'FS(0) → FS(0)' and never a claimed auto-resolution.
     g = _g({
         'p': _act('p', actual_start=dt('2026-02-01')),
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
     f = _by_id(run_out_of_sequence(g, CONFIG))['s']
-    assert f['resolution']['action'] == 'remove'
-    assert f['pred_after_label'] == 'FS → Removed'
+    assert f['resolution']['action'] == 'manual' and f['resolution']['applicable'] is False
+    assert f['pred_after_label'] == 'Needs Planner Review'
     assert '→ FS' not in f['pred_after_label']       # never a same→same fake change
 
 
