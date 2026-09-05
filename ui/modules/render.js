@@ -36,6 +36,8 @@ export function loadAnother() {
   document.getElementById('results-section').classList.add('hidden');
   document.getElementById('import-section')?.classList.remove('hidden');  // Aurora+ landing back
   document.getElementById('topbar-sub').textContent = 'Home · Import';
+  document.getElementById('feature-gate')?.classList.add('hidden');       // clear any open Run gate
+  if (state.ranFeatures && typeof state.ranFeatures.clear === 'function') state.ranFeatures.clear();
   // Back to the import screen: clear any active module in the navigator (Aurora+ shell).
   document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n =>
     n.classList.toggle('on', n.dataset.nav === 'home'));
@@ -71,16 +73,35 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
     `${filename}  ·  Data date: ${dataDate}  ·  ${actCount} activities  ·  ${calCount} calendars${prevNote}`;
   document.getElementById('topbar-sub').textContent = `${filename} · ${dataDate}`;
 
-  renderEvm(result);
-  renderAudit(result.audit_modules);
-  renderOosPanel(result.audit_modules);   // Out of Sequence — its own top-level panel
-  renderLagPanel(result.audit_modules);   // Lag Report — its own top-level panel
-  renderCalendar(result.calendar_audit);      // Feature 1 — P6 Calendar Audit tab
-  renderWeatherView(result.calendar_audit);   // Feature 2 — Bad Weather tab
-  showChooser();   // do NOT auto-open EVM — let the user pick a view
+  // Issues #3/#4: importing must NOT run or display any feature's analysis. We only
+  // show a light read-only snapshot + the "Choose a feature to analyze" prompt. Each
+  // feature computes and renders on its own explicit Run (see app.js openView/runFeature).
+  if (state.ranFeatures && typeof state.ranFeatures.clear === 'function') state.ranFeatures.clear();
+  renderImportSummary(result);
+  showChooser();   // "Choose a feature to analyze" — the user picks; nothing auto-runs
 
   document.getElementById('import-section')?.classList.add('hidden');   // Aurora+: landing gives way to results
   document.getElementById('results-section').classList.remove('hidden');
+}
+
+// Light read-only snapshot shown right after import — headline metrics only, from the
+// EVM figures already computed by parse. The full features stay gated behind their Run.
+function renderImportSummary(result) {
+  const el = document.getElementById('import-summary');
+  if (!el) return;
+  const num = (v, d = 2) => (v == null || Number.isNaN(Number(v))) ? '—' : Number(v).toFixed(d);
+  const spi = result.spi, cpi = result.cpi, delay = result.delay_days, pct = result.overall_actual_pct;
+  const cls = (v, good) => v == null ? '' : (good ? 'pos' : 'neg');
+  const tiles = [
+    ['Progress',     pct != null ? `${num(pct, 1)}%` : '—', ''],
+    ['Finish delay', delay != null ? `${delay}d` : '—', delay == null ? '' : (delay > 0 ? 'neg' : (delay < 0 ? 'pos' : ''))],
+    ['SPI',          spi != null ? num(spi) : '—', cls(spi, spi >= 1)],
+    ['CPI',          cpi != null ? num(cpi) : '—', cls(cpi, cpi >= 1)],
+  ];
+  el.innerHTML =
+    `<div class="isum-lbl">Schedule snapshot <span>headline metrics · open a feature for the full analysis</span></div>
+     <div class="isum-row">${tiles.map(([k, v, c]) =>
+       `<div class="isum-tile"><span class="isum-k">${k}</span><span class="isum-v ${c}">${v}</span></div>`).join('')}</div>`;
 }
 
 export function renderHistory(history) {

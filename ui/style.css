@@ -2534,6 +2534,42 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .ov-chip.narr-chip-warn b { color: var(--warning); }
 .ov-chip.narr-chip-bad b  { color: var(--danger); }
 
+/* ── Post-import: light snapshot · choose-a-feature prompt · Run gate (issues #3/#4) ── */
+.import-summary { display: flex; flex-direction: column; gap: 8px; }
+.import-summary:empty { display: none; }
+.isum-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.isum-lbl span { text-transform: none; letter-spacing: 0; font-weight: 500; opacity: 0.85; margin-left: 6px; }
+.isum-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.isum-tile { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.isum-k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; }
+.isum-v { font-size: 22px; font-weight: 700; font-family: ui-monospace, monospace; color: var(--text); }
+.isum-v.pos { color: var(--success); }
+.isum-v.neg { color: var(--danger); }
+
+/* Flow stepper on the "choose a feature" prompt */
+.cp-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.cp-step { font-size: 11px; font-weight: 600; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 4px 11px; }
+.cp-step.done { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, var(--border)); }
+.cp-step.now { color: #fff; background: var(--accent); border-color: var(--accent); }
+.cp-arrow { color: var(--muted); font-size: 12px; opacity: 0.7; }
+
+/* Feature Run gate — required inputs + explicit Run, shown before a feature computes */
+.feature-gate { animation: slideDown 0.2s ease; }
+.fg-card { max-width: 640px; margin: 2vh auto 0; background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 26px 28px 24px; display: flex; flex-direction: column; gap: 18px; }
+.fg-head { display: flex; align-items: flex-start; gap: 14px; }
+.fg-ic { width: 46px; height: 46px; flex-shrink: 0; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.fg-ic svg { width: 24px; height: 24px; }
+.fg-title { margin: 0; font-size: 19px; font-weight: 700; color: var(--text); }
+.fg-desc { margin: 3px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.fg-inputs { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; background: var(--bg); }
+.fg-inlabel { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; color: var(--muted); }
+.fg-in { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.fg-in-k { font-weight: 600; color: var(--text); min-width: 92px; }
+.fg-in-v { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fg-in-ok { font-size: 11px; font-weight: 700; color: var(--success); flex-shrink: 0; }
+.fg-run { align-self: flex-start; font-size: 14px; padding: 10px 22px; }
+.fg-note { margin: 0; font-size: 11.5px; color: var(--muted); }
+
 /* ── Project ▸ Weather → Forecast ───────────────────────────────────────── */
 .fc-loading, .fc-empty { padding: 40px 8px; color: var(--muted); font-size: 14px; }
 .fc-hero { border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); padding: 20px 22px; margin: 6px 0 18px; }

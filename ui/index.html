@@ -18,14 +18,13 @@
 <div id="brand-splash"><img src="/ui/brand/controlyx-lockup-stacked.png" alt="Controlyx — Project Control Intelligence Platform"></div>
 <div class="app">
 
-  <!-- MENU BAR — the single home for global commands (File · Project · View · Analysis · Tools · Help) -->
+  <!-- MENU BAR — the single home for global commands (File · View · Analysis · Tools · Help) -->
   <div class="menubar" id="menubar">
     <span class="mb-mark">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 15l5-5 4 3 7-8"/></svg>
     </span>
     <span class="mb-brand" id="app-title">Controlyx 2026</span>
     <div class="menu" data-menu="file">File</div>
-    <div class="menu" data-menu="project">Project</div>
     <div class="menu" data-menu="view">View</div>
     <div class="menu" data-menu="analysis">Analysis</div>
     <div class="menu" data-menu="tools">Tools</div>
@@ -57,7 +56,6 @@
           <span class="tb-appearance-lb">Appearance</span>
           <select id="report-appearance" aria-label="Appearance mode"></select>
         </label>
-        <div class="tb-avatar"></div>
       </div>
     </header>
 
@@ -94,19 +92,30 @@
       <!-- Results section (hidden until a file is parsed) -->
       <section class="results-section hidden" id="results-section">
         <div class="file-info-bar" id="file-info-bar"></div>
+        <div class="import-summary" id="import-summary"></div>
 
-        <!-- After import: the Project Navigator (left) is the module selector. -->
+        <!-- After import: the Project Navigator (left) is the feature selector. Nothing runs
+             until the user chooses a feature and presses its Run button (issues #3/#4). -->
         <div class="analysis-chooser" id="analysis-chooser">
           <div class="chooser-prompt">
             <div class="cp-icon">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h5l3-8 4 16 3-8h3"/></svg>
             </div>
-            <div class="cp-title">Schedule loaded — choose a module to analyse</div>
-            <div class="cp-sub">Pick an analysis from the <b>Project Navigator</b> on the left. Only the module you choose runs — the rest stay idle.</div>
+            <div class="cp-title">Choose a feature to analyze</div>
+            <div class="cp-sub">Pick a feature from the <b>Project Navigator</b> on the left. It will show the inputs it needs — then press <b>Run</b>. Only the feature you choose runs; nothing is analysed automatically.</div>
+            <div class="cp-flow" aria-hidden="true">
+              <span class="cp-step done">Import</span><span class="cp-arrow">→</span>
+              <span class="cp-step now">Choose feature</span><span class="cp-arrow">→</span>
+              <span class="cp-step">Inputs</span><span class="cp-arrow">→</span>
+              <span class="cp-step">Run</span><span class="cp-arrow">→</span>
+              <span class="cp-step">Results</span>
+            </div>
           </div>
         </div>
 
         <div id="analysis-views" class="hidden">
+        <!-- Feature launch gate (issues #3/#4): required inputs + Run, shown before a feature computes. -->
+        <div class="feature-gate hidden" id="feature-gate"></div>
         <div class="view-tabs" hidden aria-hidden="true">
           <button class="view-tab active" id="tab-evm" data-view="evm">EVM Results</button>
           <button class="view-tab" id="tab-audit" data-view="audit">Schedule Health Review</button>
