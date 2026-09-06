@@ -63,23 +63,33 @@ document.addEventListener('DOMContentLoaded', () => {
     doc:'<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/>',
   };
   const svgIcon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[k] || ''}</svg>`;
+  // Project Navigator — grouped by planning workflow (setup → validate → track →
+  // compare → report), with outputs + the knowledge/reference library kept secondary
+  // at the bottom. Weather → Forecast's nav entry was dropped on request (its code
+  // remains until PR #55 fully removes the feature). Every feature appears exactly once.
   const NAV = [
     { node: { id:'home', label:'Import a schedule', icon:'home' } },
-    { group:'Project', items:[
-      ['dash','Professional Dashboard','dash'], ['overview','Overview','overview'], ['wbs','WBS','wbs'],
-      ['schedule','Schedule (Gantt)','sched'],
-      ['forecast','Weather → Forecast','weather'],
+    { group:'Project Overview', items:[
+      ['overview','Overview','overview'], ['wbs','WBS','wbs'], ['schedule','Schedule (Gantt)','sched'],
+    ]},
+    { group:'Schedule Quality', items:[
+      ['audit','Schedule Health'], ['narrative','Baseline Narrative','doc'], ['lag','Lag Report'],
+    ]},
+    { group:'Progress & Performance', items:[
+      ['evm','Earned Value'], ['oos','Out of Sequence'], ['update','Update Analysis'], ['critpath','Critical Path'],
+    ]},
+    { group:'Compare & Claims', items:[
+      ['period','Update vs Update'], ['compare','Consultant Review'], ['revcompare','Baseline Revision','revcompare'], ['copilot','AI Copilot · TIA','ai'],
+    ]},
+    { group:'Calendars & Weather', items:[
       ['calendar','P6 Calendar Audit','calendar'], ['weather','Bad Weather','weather'],
     ]},
-    { group:'Analysis', items:[
-      ['evm','Earned Value'], ['audit','Schedule Health'], ['critpath','Critical Path'],
-      ['construct','Constructability'], ['oos','Out of Sequence'], ['lag','Lag Report'],
-      ['compare','Consultant Review'], ['revcompare','Baseline Revision','revcompare'],
-      ['update','Update Analysis'], ['period','Update vs Update'],
-      ['copilot','AI Copilot · TIA','ai'],
+    { group:'Reports & Dashboards', items:[
+      ['dash','Professional Dashboard','dash'], ['special','Special Report'],
     ]},
-    { group:'Reports', items:[ ['narrative','Baseline Narrative','doc'], ['special','Special Report'] ] },
-    { group:'Library', items:[ ['recent','Recent Projects'], ['kb','Knowledge Base'] ] },
+    { group:'Library', items:[
+      ['kb','Knowledge Base'], ['construct','Constructability'], ['recent','Recent Projects'],
+    ]},
   ];
   const CRUMB = { home:'Home', recent:'Recent Projects', kb:'Knowledge Base', evm:'Earned Value',
     audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
@@ -178,7 +188,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="fg-in-ok">✓ ready</span>
           </div>
         </div>
-        <button class="btn-primary fg-run" type="button">▶ ${escapeHtml(meta.verb)}</button>
+        <div class="fg-actions">
+          <button class="btn-primary fg-run" type="button">▶ ${escapeHtml(meta.verb)}</button>
+          <button class="btn-secondary fg-change" type="button">Change inputs</button>
+        </div>
         <p class="fg-note">Nothing is calculated until you press <b>${escapeHtml(meta.verb)}</b>.</p>
       </div>`;
     gate.querySelector('.fg-run').addEventListener('click', () => {
@@ -188,6 +201,8 @@ document.addEventListener('DOMContentLoaded', () => {
       runFeature(view);
       document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+    // Secondary action — re-open the native file picker to import a different schedule.
+    gate.querySelector('.fg-change').addEventListener('click', () => { triggerBrowse(); });
   }
 
   // Open a feature from the navigator — routes through the launch flow above.
