@@ -86,6 +86,14 @@ export function oosOpSummary(op) {
   return `Changed ${op.pred_id} → ${op.succ_id} to ${oosRelLabel(op.new_type, op.new_lag_days)}`;
 }
 
+// True when a finding carries a recommended, applicable correction (change / remove / re-tie) on
+// either tie — so "Apply all recommended fixes" will act on it. A finding that only needs planner
+// review (no auto-applicable op on either tie) returns false and is left open by "Apply all".
+export function oosHasFix(f) {
+  const acts = (r) => !!r && (r.action === 'change' || r.action === 'remove' || r.action === 'replace');
+  return acts(f.pred_resolution || f.resolution) || (!!f.succ_id && acts(f.succ_resolution));
+}
+
 // ── DOM rendering + wiring (browser only) ─────────────────────────────────
 
 import { state } from './state.js';
@@ -692,6 +700,13 @@ function _oosLogTable(rows, dd, resolved) {
       : 'No open findings — every out-of-sequence condition has been resolved. 🎉'}</div>`;
   }
   const body = rows.map((f, i) => _oosLogRow(f, i, dd, resolved)).join('');
+  // "Apply all" sits BELOW the table (the planner reviews the results first, then applies) — shown
+  // only in the Open view and only when at least one open finding has a recommended fix to apply.
+  const applyAllBar = (!resolved && rows.some(oosHasFix)) ? `
+    <div class="oos-applyall">
+      <button class="oos-applyall-btn" data-oosact="applyall">⚡ Apply all recommended fixes</button>
+      <span class="oos-applyall-hint">Review the results above, then apply every finding that has a recommended fix in one step — no need to Apply each activity. Findings that need planner review stay open.</span>
+    </div>` : '';
   return `
     <div class="oos-sevlegend"><span class="oos-sevlegend-t">Severity</span>
       <span class="oos-sevb crit">Critical</span> on the critical path (total float ≤ 0)
@@ -713,6 +728,7 @@ function _oosLogTable(rows, dd, resolved) {
         </tr>
       </thead>
       <tbody>${body}</tbody></table></div>
+    ${applyAllBar}
     <div class="oos-flowhint">The engine corrects each tie to match actual execution, preserving as much logic as possible: it <b>changes the relationship type/lag</b> to the one that fits the real overlap (SS/FF, lag from the logic); if no type fits but the activity keeps other valid predecessors (or is 100% complete), it <b>removes / re-ties the driving link</b> (valid logic remains); only when removal would leave an in-progress activity with <b>no predecessor</b> is it flagged <b>Needs Planner Review</b> (unresolved). "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>`;
 }
 
@@ -811,6 +827,44 @@ async function _oosApply(fid) {
   }
 }
 
+// Bulk-apply: apply every OPEN finding that has a recommended fix in a single re-validation, so the
+// planner needn't click Apply on each activity. Findings that need planner review (no auto op) are
+// skipped and stay open. Any per-finding edits made in a drawer are respected (_oosBuildOps reads them).
+async function _oosApplyAll() {
+  const candidates = _oos.fresh.map(f => ({ f, ops: _oosBuildOps(f) })).filter(c => c.ops.length);
+  const applicable = candidates.length;
+  const review = _oos.fresh.length - applicable;
+  if (!applicable) {
+    _oosDlNote('None of the open findings have a recommended fix — the remaining ones need planner review. Open a finding to decide it.', true);
+    return;
+  }
+  const msg = `Apply the recommended correction to ${applicable} finding${applicable === 1 ? '' : 's'}?`
+    + (review ? `\n\n${review} finding${review === 1 ? '' : 's'} need planner review and will stay open.` : '')
+    + '\n\nNothing is written to your P6 file until you click Download Corrected Schedule.';
+  if (!window.confirm(msg)) return;
+  const touched = [];
+  candidates.forEach(({ f, ops }) => { _oos.applied[f.finding_id] = { finding: f, ops, reason: '' }; touched.push(f.finding_id); });
+  _oosDlNote('Applying all recommended corrections…');
+  try {
+    const out = await _oosValidate();
+    if (!out.ok) {
+      touched.forEach(id => delete _oos.applied[id]);   // roll back so a failed bulk apply leaves no phantom ops
+      _oosDlNote(out.error || 'Validation failed.', true);
+      renderOosReview();
+      return;
+    }
+    _oos.fresh = out.findings || [];
+    renderOosReview();
+    const left = (_oos.fresh || []).length;
+    _oosDlNote(`Applied ${touched.length} correction${touched.length === 1 ? '' : 's'} — moved to Resolved.`
+      + (left ? ` ${left} finding${left === 1 ? '' : 's'} still open (needs planner review).` : ''));
+  } catch (e) {
+    touched.forEach(id => delete _oos.applied[id]);
+    _oosDlNote('Could not reach the analysis engine.', true);
+    renderOosReview();
+  }
+}
+
 async function _oosReopen(fid) {
   delete _oos.applied[fid];
   try {
@@ -886,6 +940,7 @@ function _oosWire() {
       }
     }
     else if (act === 'apply') { _oosApply(fid); }
+    else if (act === 'applyall') { _oosApplyAll(); }
     else if (act === 'reopen') { _oosReopen(fid); }
     else if (act === 'fullscreen') { _oos.fullscreen = !_oos.fullscreen; renderOosReview(); }
     else if (act === 'download') { _oosDownload(); }

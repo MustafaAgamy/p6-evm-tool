@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
          oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass,
-         oosLagLabel, oosRelLabel, oosDefaultOp, oosOpSummary,
+         oosLagLabel, oosRelLabel, oosDefaultOp, oosOpSummary, oosHasFix,
          lagQuickPickValues, normalizeColumnFilter, matchesColumnFilter, filterLagFindings, sortLagFindings,
          LAG_FILTER_COLUMNS }
   from '../../ui/modules/audit.js';
@@ -105,6 +105,20 @@ test('op summary change', () => assert.equal(
 test('op summary remove', () => assert.equal(
   oosOpSummary({ action: 'remove', pred_id: 'P1', succ_id: 'S1' }),
   'Removed link P1 → S1'));
+
+console.log('\nApply all — which findings have a recommended fix (oosHasFix)');
+test('change on pred is a fix',   () => assert.equal(oosHasFix({ resolution: { action: 'change' } }), true));
+test('remove on pred is a fix',   () => assert.equal(oosHasFix({ resolution: { action: 'remove' } }), true));
+test('replace on pred is a fix',  () => assert.equal(oosHasFix({ resolution: { action: 'replace' } }), true));
+test('manual review is NOT a fix',() => assert.equal(oosHasFix({ resolution: { action: 'manual', applicable: false } }), false));
+test('data error is NOT a fix',   () => assert.equal(oosHasFix({ resolution: { action: 'data' } }), false));
+test('no resolution is NOT a fix',() => assert.equal(oosHasFix({}), false));
+test('pred_resolution overrides resolution', () => assert.equal(
+  oosHasFix({ resolution: { action: 'manual' }, pred_resolution: { action: 'change' } }), true));
+test('succ tie fix counts when pred needs review', () => assert.equal(
+  oosHasFix({ resolution: { action: 'manual' }, succ_id: 'S1', succ_resolution: { action: 'change' } }), true));
+test('succ fix ignored without succ_id', () => assert.equal(
+  oosHasFix({ resolution: { action: 'manual' }, succ_resolution: { action: 'change' } }), false));
 
 console.log('\nSchedule Health Review — rail + roll-up helpers (Slice 3)');
 test('tabScore shows score',        () => assert.equal(tabScore({ score: 84.6 }), 84.6));

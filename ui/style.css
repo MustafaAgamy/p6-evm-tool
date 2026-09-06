@@ -648,6 +648,12 @@ body.oos-fs-body #results-section { transform: none !important; }
   border: 1px dashed var(--border); border-radius: 10px; background: var(--card-bg); }
 .oos-flowhint { font-size: 11px; color: var(--muted); margin-top: 8px; }
 .oos-flowhint b { color: var(--ink-soft); }
+.oos-applyall { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px;
+  padding: 12px 14px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; }
+.oos-applyall-btn { border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 8px 16px;
+  border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.oos-applyall-btn:hover { filter: brightness(1.06); }
+.oos-applyall-hint { font-size: 11.5px; color: var(--muted); flex: 1; min-width: 220px; line-height: 1.5; }
 .oos-sevlegend { font-size: 11px; color: var(--muted); margin: 4px 0 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; }
 .oos-sevlegend-t { font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; margin-right: 2px; }
 
