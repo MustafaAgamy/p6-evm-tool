@@ -1,13 +1,28 @@
 """Per-module Excel column mappings. Each module exports only its own findings."""
 
-# Column headers that carry the driving-relationship highlight (amber fill) in the .xlsx —
-# so the driving activity stands out on export exactly as it does on screen.
-DRIVING_HEADER = 'Driving Relationship'
+# The Excel column that carries the driving-activity highlight (amber fill) — so the driving
+# relationship stands out on export exactly as its [DRIVING] highlight does on screen.
+DRIVING_HEADER = 'Driving Activity'
+
+# Severity colour key (matches the on-screen badges + the OOS criticality rule).
+OOS_SEVERITY_LEGEND = [
+    ('Critical', 'On the critical path (total float <= 0)'),
+    ('High', 'Near-critical (0 < total float <= 10 working days)'),
+    ('Medium', 'Has float - not near-critical'),
+]
 
 
 def excel_highlight_cols(headers):
-    """0-based indices of columns to render with the driving-relationship highlight."""
+    """0-based indices of columns to render with the driving-activity highlight."""
     return [i for i, h in enumerate(headers) if h == DRIVING_HEADER]
+
+
+def excel_severity_meta(module_result, headers):
+    """(severity_col_index, legend) for the colour-coded Severity column + its legend — for the
+    Out-of-Sequence export; (None, None) for other modules so their exports are unchanged."""
+    if module_result.get('module') != 'out_of_sequence' or 'Severity' not in headers:
+        return None, None
+    return headers.index('Severity'), OOS_SEVERITY_LEGEND
 
 
 def _impact_str(v):
@@ -35,26 +50,36 @@ def excel_columns(module_result):
                 for p in lst)
 
         def _driving(f):
-            # The driving relationship (the OOS cause) — its own amber-highlighted column so it
-            # stands out on export exactly as the [DRIVING] highlight does on screen.
+            # The driving activity (the OOS cause) — its own amber-highlighted column, so it stands
+            # out on export exactly as the [DRIVING] highlight does on screen.
             pid, pname = f.get('pred_id', ''), f.get('pred_name', '')
             if not pid:
                 return ''
-            return f"Predecessor · {pid} — {pname} · {f.get('pred_after_label', '')}"
+            return f"{pid} - {pname} · {f.get('pred_after_label', '')}"
 
-        headers = ['#', 'Activity ID', 'Activity Name', DRIVING_HEADER,
+        def _after_pred(f):
+            # Mirror the on-screen After-Predecessor cell, incl. the "Remaining predecessors: N"
+            # sub-note shown there for an auto-remove.
+            lbl = f.get('pred_after_label', '')
+            if (f.get('pred_resolution') or {}).get('action') == 'remove' \
+                    and f.get('remaining_preds') is not None:
+                lbl = f"{lbl}  (remaining predecessors: {f['remaining_preds']})"
+            return lbl
+
+        # The on-screen columns EXACTLY (minus the last two — Resolution and the plain Severity),
+        # then a highlighted Driving Activity column, then a colour-coded Severity (with a legend).
+        headers = ['#', 'Activity ID', 'Activity Name',
                    'Baseline Predecessors', 'Baseline Successors', 'Data Date',
-                   'After Predecessor Tie', 'After Successor Tie', 'Remaining Preds', 'Severity']
+                   'After Predecessor Tie', 'After Successor Tie', DRIVING_HEADER, 'Severity']
         rows = [[
-            i, f.get('activity_id', ''), f.get('activity_name', ''), _driving(f),
+            i, f.get('activity_id', ''), f.get('activity_name', ''),
             _rel_lines(f.get('all_predecessors'), f.get('pred_id'), f.get('pred_name'),
                        f.get('pred_baseline_label'), 'No predecessor'),
             _rel_lines(f.get('all_successors'), f.get('succ_id'), f.get('succ_name'),
                        f.get('succ_baseline_label'), 'No successor'),
             cutoff,
-            f.get('pred_after_label', ''), f.get('succ_after_label', ''),
-            (f.get('remaining_preds', '') if f.get('remaining_preds') is not None else ''),
-            f.get('severity', 'Medium'),
+            _after_pred(f), f.get('succ_after_label', ''),
+            _driving(f), f.get('severity', 'Medium'),
         ] for i, f in enumerate(findings, 1)]
         return headers, rows
 

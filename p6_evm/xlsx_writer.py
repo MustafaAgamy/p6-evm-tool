@@ -16,24 +16,37 @@ _ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
 </Relationships>'''
 
-# Flat-table styles: xf 0 = default · 1 = bold (header) · 2 = highlight (bold on light-amber fill,
-# top-aligned + wrapped) for the driving-relationship column, matching the UI's [DRIVING] highlight.
+# Flat-table styles (xf indices): 0 default · 1 bold (header) · 2 driving highlight (bold brown on
+# amber fill, top-aligned + wrapped) · 3 Severity=Critical (red) · 4 Severity=High (amber) ·
+# 5 Severity=Medium/other (grey). The severity fills match the on-screen badge colours.
 _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font>
+<fonts count="6">
+<font><sz val="11"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><name val="Calibri"/></font>
-<font><b/><sz val="11"/><color rgb="FF92400E"/><name val="Calibri"/></font></fonts>
-<fills count="3"><fill><patternFill patternType="none"/></fill>
+<font><b/><sz val="11"/><color rgb="FF92400E"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FFC02626"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FFB45309"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FF41506A"/><name val="Calibri"/></font>
+</fonts>
+<fills count="6"><fill><patternFill patternType="none"/></fill>
 <fill><patternFill patternType="gray125"/></fill>
-<fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/></patternFill></fill></fills>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFADDDD"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFBECCF"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFEEF1F6"/></patternFill></fill></fills>
 <borders count="1"><border/></borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="3"><xf/><xf fontId="1" applyFont="1"/>
+<cellXfs count="6"><xf/><xf fontId="1" applyFont="1"/>
 <xf fontId="2" fillId="2" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf fontId="3" fillId="3" applyFont="1" applyFill="1"/>
+<xf fontId="4" fillId="4" applyFont="1" applyFill="1"/>
+<xf fontId="5" fillId="5" applyFont="1" applyFill="1"/>
 </cellXfs>
 </styleSheet>'''
 
-_HIGHLIGHT_STYLE = 2   # the driving-relationship highlight xf index in _STYLES
+_HIGHLIGHT_STYLE = 2                                    # driving-relationship highlight xf
+_SEV_STYLE = {'Critical': 3, 'High': 4, 'Medium': 5, 'Low': 5}   # Severity value → xf
 
 # Calendar styles — fills tinted to match the PDF timeline legend.
 #   fills: 0 none · 1 gray125(reserved) · 2 work · 3 weekend · 4 holiday · 5 shutdown · 6 special · 7 header
@@ -102,9 +115,15 @@ def _cell(col, row, value, style=None):
             f'<t xml:space="preserve">{escape(str(value))}</t></is></c>')
 
 
-def _sheet(headers, rows, highlight_cols=None):
-    """A flat table sheet: bold frozen header row + autofilter. Data cells in any column listed
-    in ``highlight_cols`` (0-based indices) get the amber highlight style (e.g. the driving tie)."""
+def _sheet(headers, rows, highlight_cols=None, severity_col=None, legend=None):
+    """A flat table sheet: bold frozen header row + autofilter (over the data only).
+      * ``highlight_cols`` — 0-based column indices whose data cells get the amber highlight
+        (the driving relationship).
+      * ``severity_col`` — a column index whose data cells are colour-coded by value
+        (Critical=red, High=amber, Medium/Low=grey), matching the on-screen badges.
+      * ``legend`` — optional [(severity_value, description), …] rendered as a small colour key
+        a couple of rows below the table.
+    """
     hi = set(highlight_cols or ())
     n_cols = max(len(headers), 1)
     last = f'{_col(n_cols - 1)}{len(rows) + 1}'
@@ -121,10 +140,24 @@ def _sheet(headers, rows, highlight_cols=None):
     for i, row in enumerate(rows, start=2):
         out.append(f'<row r="{i}">')
         for c, v in enumerate(row):
-            out.append(_cell(c, i, v, style=(_HIGHLIGHT_STYLE if c in hi else None)))
+            if severity_col is not None and c == severity_col:
+                st = _SEV_STYLE.get(str(v), _SEV_STYLE['Medium'])
+            elif c in hi:
+                st = _HIGHLIGHT_STYLE
+            else:
+                st = None
+            out.append(_cell(c, i, v, style=st))
         out.append('</row>')
+    if legend:
+        r = len(rows) + 3                                  # a blank row, then the legend
+        out.append(f'<row r="{r}">{_cell(0, r, "Severity legend", style=1)}</row>')
+        for label, desc in legend:
+            r += 1
+            out.append(f'<row r="{r}">'
+                       f'{_cell(0, r, label, style=_SEV_STYLE.get(label, _SEV_STYLE["Medium"]))}'
+                       f'{_cell(1, r, desc, style=0)}</row>')
     out.append('</sheetData>')
-    out.append(f'<autoFilter ref="A1:{last}"/>')
+    out.append(f'<autoFilter ref="A1:{last}"/>')           # filter the data only, not the legend
     out.append('</worksheet>')
     return ''.join(out)
 
@@ -197,14 +230,16 @@ def _write_book(path, sheets, styles_xml):
             z.writestr(f'xl/worksheets/sheet{i}.xml', sheet_xml)
 
 
-def write_xlsx(path, sheet_name, headers, rows, highlight_cols=None):
+def write_xlsx(path, sheet_name, headers, rows, highlight_cols=None, severity_col=None, legend=None):
     """Write a single-sheet flat table to `path`.
 
     headers: list[str]. rows: list of lists of str|int|float.
     Numbers become numeric cells; everything else an XML-escaped inline string.
     highlight_cols: optional 0-based column indices whose data cells get the amber highlight style.
+    severity_col: optional column index colour-coded by value (Critical/High/Medium).
+    legend: optional [(severity_value, description), …] rendered as a colour key below the table.
     """
-    _write_book(path, [(sheet_name, _sheet(headers, rows, highlight_cols))], _STYLES)
+    _write_book(path, [(sheet_name, _sheet(headers, rows, highlight_cols, severity_col, legend))], _STYLES)
 
 
 _BAD_SHEET_CHARS = set('[]:*?/\\')

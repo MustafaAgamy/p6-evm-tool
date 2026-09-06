@@ -166,16 +166,18 @@ def test_excel_columns_out_of_sequence():
     # before→after transition), Remaining Preds, Severity.
     assert 'Baseline Predecessors' in headers and 'Baseline Successors' in headers
     assert 'After Predecessor Tie' in headers and 'After Successor Tie' in headers
-    assert 'Remaining Preds' in headers
-    assert 'Driving Relationship' in headers        # highlighted column pinpointing the driving tie
+    assert 'Driving Activity' in headers            # highlighted column pinpointing the driving tie
     assert 'Data Date' in headers and 'Severity' in headers
+    assert 'Resolution' not in headers              # interactive column excluded from the export
     assert 'Fix 2' not in ' '.join(headers)
     assert rows[0][1] == 'SS-1420'
     assert 'FS → SS(2)' in rows[0]                 # the after-modification predecessor transition
-    # the driving column is flagged for the amber highlight on export
-    from p6_audit.exporters import excel_highlight_cols
-    hi = excel_highlight_cols(headers)
-    assert hi == [headers.index('Driving Relationship')]
+    # the driving column is flagged for the amber highlight; Severity carries a colour legend
+    from p6_audit.exporters import excel_highlight_cols, excel_severity_meta
+    assert excel_highlight_cols(headers) == [headers.index('Driving Activity')]
+    sev_col, legend = excel_severity_meta({'module': 'out_of_sequence'}, headers)
+    assert sev_col == headers.index('Severity')
+    assert [lab for lab, _ in legend] == ['Critical', 'High', 'Medium']
     assert '19-Jul-2026' in rows[0]               # data date on the row
 
 

@@ -43,3 +43,22 @@ def test_highlight_cols_apply_amber_style(tmp_path):
     # the driving-column data cells (B2, B3) are styled s="2"; the plain-column cells are not
     assert '<c r="B2" s="2"' in sheet and '<c r="B3" s="2"' in sheet
     assert '<c r="A2" s="2"' not in sheet
+
+
+def test_severity_colours_and_legend(tmp_path):
+    # The severity column is colour-coded by value (Critical=3, High=4, Medium=5) and a legend is
+    # rendered below the table.
+    p = tmp_path / "s.xlsx"
+    write_xlsx(str(p), "S", ["Activity", "Severity"],
+               [["A", "Critical"], ["B", "High"], ["C", "Medium"]],
+               severity_col=1,
+               legend=[("Critical", "On the critical path"), ("High", "Near-critical"), ("Medium", "Has float")])
+    with zipfile.ZipFile(p) as z:
+        sheet = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
+        styles = z.read('xl/styles.xml').decode('utf-8')
+    assert 'FFFADDDD' in styles and 'FFFBECCF' in styles and 'FFEEF1F6' in styles   # sev fills defined
+    assert '<c r="B2" s="3"' in sheet          # Critical → red
+    assert '<c r="B3" s="4"' in sheet          # High → amber
+    assert '<c r="B4" s="5"' in sheet          # Medium → grey
+    assert 'Severity legend' in sheet          # legend rendered below the table
+    assert 'On the critical path' in sheet
