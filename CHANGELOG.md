@@ -7,6 +7,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [v2.2.0] - 2026-09-06
+
 ### Changed — Explicit "choose a feature → Run" workflow
 - **Importing a schedule no longer runs or shows any analysis.** After import you get a clear **"Choose a feature to analyze"** prompt with the workflow spelled out (Import → Choose feature → Run → Results). You pick a feature from the Project Navigator and the feature screen shows exactly the inputs it needs **inline** — there is no separate "inputs" step — and only when you press **Run** does that one feature compute. Nothing runs automatically after import, and there is no "Run All".
 - **Every feature states its required inputs up front** — a single schedule, or a second file where the analysis needs one (Consultant Review → a baseline; Baseline Revision → Rev.00 + Rev.01; Update vs Update → a previous update; Critical Path → baseline / previous; Bad Weather → a location). **Consultant Review** and **Update vs Update** no longer start the instant you pick a file — you assign the file, then press **Run**.
