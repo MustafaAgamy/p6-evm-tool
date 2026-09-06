@@ -7,6 +7,31 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Explicit "choose a feature → Run" workflow
+- **Importing a schedule no longer runs or shows any analysis.** After import you get a clear **"Choose a feature to analyze"** prompt with the workflow spelled out (Import → Choose feature → Run → Results). You pick a feature from the Project Navigator and the feature screen shows exactly the inputs it needs **inline** — there is no separate "inputs" step — and only when you press **Run** does that one feature compute. Nothing runs automatically after import, and there is no "Run All".
+- **Every feature states its required inputs up front** — a single schedule, or a second file where the analysis needs one (Consultant Review → a baseline; Baseline Revision → Rev.00 + Rev.01; Update vs Update → a previous update; Critical Path → baseline / previous; Bad Weather → a location). **Consultant Review** and **Update vs Update** no longer start the instant you pick a file — you assign the file, then press **Run**.
+- **Change inputs** — the feature screen shows a secondary **Change inputs** button beside Run, to reassign the schedule/file without restarting the workflow.
+- Re-opening a feature you have already run this session jumps straight back to its results.
+
+### Changed — Project Navigator reorganised by planning workflow
+- The left **Project Navigator** is regrouped around how a planner works — **set up → validate → track → compare → report** — instead of the old generic Project / Analysis / Reports buckets:
+  - **Project Overview** — Overview · WBS · Schedule (Gantt)
+  - **Schedule Quality** — Schedule Health · Baseline Narrative · Lag Report
+  - **Progress & Performance** — Earned Value · Out of Sequence · Update Analysis · Critical Path
+  - **Compare & Claims** — Update vs Update · Consultant Review · Baseline Revision · AI Copilot · TIA
+  - **Calendars & Weather** — P6 Calendar Audit · Bad Weather
+  - **Reports & Dashboards** — Professional Dashboard · Special Report
+  - **Library** — Knowledge Base · Constructability · Recent Projects
+- **No duplicated access points** — every feature appears in exactly one place. Constructability sits under Knowledge Base (it reviews the schedule against that knowledge base). The **Weather → Forecast** entry was removed from the navigator.
+
+### Added — Schedule (Gantt) view
+- The **Schedule (Gantt)** view is now reachable from the Project Navigator — a time-scaled bar chart of the activities grouped by WBS, with % complete, critical-path highlighting, month gridlines and a data-date line. (The view existed but had no way in.)
+
+### Fixed — Scrolling, and a functional cleanup of the on-screen controls
+- **The main workspace scrolls again.** Reports, tables and results that run past the bottom of the window can now be scrolled — consistently across every feature.
+- **Removed dead and misleading controls** after a full audit of every button, menu item and control: retired `Tools ▸ Settings` and the redundant `Project` menu (their actions live elsewhere), made `File ▸ Exit` actually close the app, renamed the mislabelled `File ▸ Load another file` to the honest **"Back to import screen"**, and dropped a decorative profile avatar and other non-working affordances. Removed a large block of unreachable dead code behind the scenes.
+- **Two real bugs fixed** — clicking a bar on the P6 Calendar Audit comparison chart no longer produces a stray empty legend, and the AI Copilot note now points to the correct place to add your Anthropic API key.
+
 ## [v2.1.0] - 2026-09-04
 
 ### Added — Baseline Revision Comparison (Rev.00 vs Rev.01)

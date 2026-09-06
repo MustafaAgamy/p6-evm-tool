@@ -396,7 +396,7 @@ export function renderCompareReport(report) {
     <div class="mod-sec">Corrected but-for XML</div>
     ${_correctedSection(report)}`;
   const chg = document.getElementById('cmp-change-baseline');
-  if (chg) chg.addEventListener('click', chooseBaselineAndCompare);
+  if (chg) chg.addEventListener('click', chooseBaseline);   // assign-only → user re-runs explicitly
   const eprev = document.getElementById('cmp-preview-pdf');
   if (eprev) eprev.addEventListener('click', previewComparePdf);
   const epdf = document.getElementById('cmp-export-pdf');
@@ -742,24 +742,66 @@ export function renderComparePanel() {
   const body = document.getElementById('compare-body');
   if (!body) return;
   if (state.compareReport) { renderCompareReport(state.compareReport); return; }
+  _renderComparePrompt();
+}
+
+// The assign-inputs prompt: pick a baseline (assign only), then click Run to compare.
+// The review NEVER runs off the file pick — only off the explicit Run button below.
+function _renderComparePrompt() {
+  const body = document.getElementById('compare-body');
+  if (!body) return;
   const updName = (state.currentXmlPath || '').split(/[\\/]/).pop() || '—';
+  const ready   = !!(state.compareBaselinePath && state.compareBaselineName);
+  const status  = ready
+    ? `<span style="font-size:13px">Baseline: <b>${escapeHtml(state.compareBaselineName)}</b>` +
+      `<span style="color:var(--success);font-weight:700;margin-left:6px">✓ ready</span></span>`
+    : `<span class="mut" style="font-size:13px">No baseline chosen yet.</span>`;
   body.innerHTML = `
     <div class="cmp-prompt">
       <div class="cmp-prompt-t">Compare against the approved baseline</div>
       <div class="cmp-prompt-d">Current update: <b>${escapeHtml(updName)}</b>. Choose the baseline programme (XER or XML) to compare it against — the tool shows what changed and, next, the corrected file that gives the right delay.</div>
-      <button class="btn-primary" id="cmp-choose-baseline">Choose baseline file</button>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <button class="btn-secondary" id="cmp-choose-baseline">${ready ? 'Change baseline file' : 'Choose baseline file'}</button>
+        ${status}
+      </div>
+      <button class="btn-primary" id="cmp-run-review"${ready ? '' : ' disabled'}>Run Consultant Review</button>
     </div>`;
-  const btn = document.getElementById('cmp-choose-baseline');
-  if (btn) btn.addEventListener('click', chooseBaselineAndCompare);
+  const choose = document.getElementById('cmp-choose-baseline');
+  if (choose) choose.addEventListener('click', chooseBaseline);
+  const run = document.getElementById('cmp-run-review');
+  if (run) run.addEventListener('click', runConsultantReview);
 }
 
-export async function chooseBaselineAndCompare() {
+// Assign the baseline only — store its path/name, show it as "ready", enable Run.
+// Does NOT POST /api/compare; changing the baseline discards any on-screen report so
+// re-entry lands back on the assign→Run prompt with the new file queued.
+export async function chooseBaseline() {
   if (!state.currentXmlPath && !state.currentCachedPath) {
     showError('Open a schedule first, then compare it against a baseline.');
     return;
   }
   const path = await window.pywebview.api.choose_file();
-  if (!path) return;
+  if (!path) return;   // cancelled — keep any previously-assigned baseline
+  clearError();
+  state.compareBaselinePath = path;                      // full path — request + corrected-XML writer need it
+  state.compareBaselineName = path.split(/[\\/]/).pop(); // filename shown as "ready"
+  state.compareReport = null;   // a changed baseline invalidates any prior comparison…
+  state.compareImpact = null;   // …and its before/after impact
+  _renderComparePrompt();       // reflect the assigned file + enable Run (no comparison yet)
+}
+
+// The explicit run: fires the comparison off the assigned baseline. This is the ONLY
+// path that POSTs /api/compare and renders results.
+export async function runConsultantReview() {
+  if (!state.currentXmlPath && !state.currentCachedPath) {
+    showError('Open a schedule first, then compare it against a baseline.');
+    return;
+  }
+  const path = state.compareBaselinePath;
+  if (!path || !state.compareBaselineName) {
+    showError('Choose a baseline programme file first, then run the review.');
+    return;
+  }
   clearError();
   const body = document.getElementById('compare-body');
   if (body) body.innerHTML = '<div class="cmp-loading">Comparing against the baseline…</div>';
@@ -773,14 +815,12 @@ export async function chooseBaselineAndCompare() {
       }),
     });
     const data = await resp.json();
-    if (!data.ok) { showError(data.error || 'Comparison failed.'); renderComparePanel(); return; }
+    if (!data.ok) { showError(data.error || 'Comparison failed.'); _renderComparePrompt(); return; }
     state.compareReport = data.report;
     state.compareImpact = null;          // a fresh comparison clears any prior before/after
-    state.compareBaselineName = path.split(/[\\/]/).pop();
-    state.compareBaselinePath = path;   // full path — the corrected-XML writer needs it
     renderCompareReport(data.report);
   } catch {
     showError('Could not reach the local server. Try restarting the app.');
-    renderComparePanel();
+    _renderComparePrompt();
   }
 }

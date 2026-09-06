@@ -11,7 +11,8 @@ import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance
 
 let _shownReport = null;   // the report currently on screen (exports read this)
 let _shownTrend = null;    // the milestone trend currently on screen (carried into the PDF)
-let _prev = null;          // {prev_path} or {prev_cached_path} chosen for the comparison
+let _prev = null;          // {prev_path} or {prev_cached_path} assigned for the comparison
+let _prevName = null;       // display name of the assigned last-period file (for the inputs bar)
 let _cpStyle = 'chain';    // critical-path presentation: 'chain' | 'timeline' | 'table' (remembered)
 let _perTheme = getSavedMode();   // report-appearance mode for this panel's PDF preview
 let _cpMode = 'leaf-parent';   // critical-path grouping — reset to default on each fresh render
@@ -49,10 +50,30 @@ export function renderPeriodPanel() {
       <span class="cmp-vs">vs</span>
       <span id="per-prev-suggest" class="per-suggest">Looking for last period…</span>
       <button class="btn-mini" id="per-choose-prev">Choose a different file…</button>
+      <button class="btn-primary" id="per-run-compare" disabled>Run Comparison</button>
     </div>
     <div id="per-report"></div>`;
-  document.getElementById('per-choose-prev').addEventListener('click', choosePrevAndCompare);
-  _fetchPreviousSuggestion();
+  document.getElementById('per-choose-prev').addEventListener('click', choosePrev);
+  document.getElementById('per-run-compare').addEventListener('click', _runCompare);
+  if (_prev) {
+    // Re-entering with a last-period file already assigned: restore the "ready" inputs
+    // state (Run enabled), and if a comparison was already run this session, jump
+    // straight back to the cached results rather than forcing a re-run.
+    _markPrevAssigned(_prevName);
+    if (_shownReport) renderPeriodReport(_shownReport);
+  } else {
+    _fetchPreviousSuggestion();
+  }
+}
+
+// Mark a last-period file as assigned: name it in the inputs bar and enable Run.
+// Assign-only — the comparison never runs here; it fires only on the Run button.
+function _markPrevAssigned(name) {
+  if (name) _prevName = name;
+  const el = document.getElementById('per-prev-suggest');
+  if (el) el.innerHTML = `<b>Last period:</b> ${escapeHtml(_prevName || 'selected file')} <span class="cmp-pill good">ready</span>`;
+  const run = document.getElementById('per-run-compare');
+  if (run) run.disabled = false;
 }
 
 async function _fetchPreviousSuggestion() {
@@ -64,26 +85,30 @@ async function _fetchPreviousSuggestion() {
       body: JSON.stringify({ snapshot_id: state.currentSnapshotId }),
     });
     const data = await resp.json();
+    if (_prev) return;   // a file was assigned while we were fetching — don't clobber it
     if (data.ok && data.previous) {
       const p = data.previous;
       el.innerHTML = `<button class="btn-secondary" id="per-use-prev">Use last period · ${escapeHtml(_shortDate(p.data_date))}${p.filename ? ' · ' + escapeHtml(p.filename) : ''}</button>`;
+      // Assign only — this stages the suggested previous update; the comparison runs
+      // when the user clicks Run Comparison.
       document.getElementById('per-use-prev').addEventListener('click', () => {
         _prev = { prev_cached_path: p.cached_path };
-        _runCompare();
+        _markPrevAssigned(p.filename || _shortDate(p.data_date));
       });
     } else {
       el.innerHTML = `<span class="mut">No earlier import found for this project — pick the previous file →</span>`;
     }
   } catch {
-    el.innerHTML = `<span class="mut">Pick the previous update file →</span>`;
+    if (!_prev) el.innerHTML = `<span class="mut">Pick the previous update file →</span>`;
   }
 }
 
-async function choosePrevAndCompare() {
+// Assign only — stages the chosen previous update; the comparison runs on Run Comparison.
+async function choosePrev() {
   const path = await window.pywebview.api.choose_file();
   if (!path) return;
   _prev = { prev_path: path };
-  _runCompare();
+  _markPrevAssigned(path.split(/[\\/]/).pop() || 'selected file');
 }
 
 async function _runCompare() {

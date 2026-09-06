@@ -98,7 +98,7 @@ export async function renderCopilot() {
 
     <div class="ov-section-label">AI narrative <span class="cp-sub">optional · uses your Anthropic key</span></div>
     <div class="cp-ai">
-      <p class="cp-ai-note">Everything above is generated on your machine with no account. For an AI-written deep-dive, add an Anthropic API key in <b>Tools ▸ Settings</b>; the panel below runs the cloud review only when you choose to.</p>
+      <p class="cp-ai-note">Everything above is generated on your machine with no account. For an AI-written deep-dive, add your Anthropic API key in the panel below; it runs the cloud review only when you choose to.</p>
       <div id="aireview-body"></div>
     </div>
     <p class="ov-note">Deterministic Time-Impact Analysis and insights from this update's metrics — always available offline. The AI narrative is an optional layer, not a dependency.</p>`;
