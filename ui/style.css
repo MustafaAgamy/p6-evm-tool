@@ -2534,17 +2534,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .ov-chip.narr-chip-warn b { color: var(--warning); }
 .ov-chip.narr-chip-bad b  { color: var(--danger); }
 
-/* ── Post-import: light snapshot · choose-a-feature prompt · Run gate (issues #3/#4) ── */
-.import-summary { display: flex; flex-direction: column; gap: 8px; }
-.import-summary:empty { display: none; }
-.isum-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-.isum-lbl span { text-transform: none; letter-spacing: 0; font-weight: 500; opacity: 0.85; margin-left: 6px; }
-.isum-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.isum-tile { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
-.isum-k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; }
-.isum-v { font-size: 22px; font-weight: 700; font-family: ui-monospace, monospace; color: var(--text); }
-.isum-v.pos { color: var(--success); }
-.isum-v.neg { color: var(--danger); }
+/* ── Post-import: choose-a-feature prompt · Run gate (issues #3/#4) ── */
 
 /* Flow stepper on the "choose a feature" prompt */
 .cp-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
