@@ -449,16 +449,9 @@ def _lag_charts(m):
 
 
 def _lag_flags_cell(f):
-    chips = []
-    if f.get('is_lead'):
-        chips.append('<span class="badge2 c">Lead</span>')
-    if f.get('is_long'):
-        chips.append('<span class="pill change">Long</span>')
-    if f.get('criticality') == 'Critical':
-        chips.append('<span class="badge2 c">Crit</span>')
-    elif f.get('criticality') == 'Near-Critical':
-        chips.append('<span class="badge2 n">Near</span>')
-    return ' '.join(chips)
+    # Only the Lead flag sits beside the relationship. Long and Critical/Near were
+    # removed as redundant clutter (Ibrahim, 2026-09-06) — kept in step with the screen.
+    return '<span class="badge2 c">Lead</span>' if f.get('is_lead') else ''
 
 
 def _lag_register(m, caption=None):
@@ -479,7 +472,7 @@ def _lag_register(m, caption=None):
         f'<td class="mut">{_esc(f.get("pred_name"))}</td>'
         f'<td class="mono">{_esc(f.get("succ_rel")) or "&mdash;"}</td>'
         f'<td class="mut">{_esc(f.get("succ_name")) or "&mdash;"}</td>'
-        f'<td>{_esc(f.get("justification"))}</td></tr>'
+        f'<td class="ljust">{_esc(f.get("justification"))}</td></tr>'
         for i, f in enumerate(findings, 1))
     return f'''
       <h2 class="sec">Lag &amp; Lead Register — all project lags (worst first)</h2>
@@ -1079,6 +1072,7 @@ def render_module_report(module_result, meta, sections=None, theme='light', lag_
   .lagsum b {{ color: var(--rpt-ink); }}
   .lagfilter {{ display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--rpt-accent);
                 background: var(--rpt-accent-soft); border-radius: 6px; padding: 5px 10px; margin: 0 0 8px; }}
+  .ljust {{ white-space: normal; overflow-wrap: anywhere; word-break: break-word; min-width: 150px; }}
   .lcharts {{ display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }}
   .lcard {{ flex: 1; min-width: 200px; border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 11px 13px; }}
   .lch {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--rpt-muted); font-weight: 700; margin-bottom: 10px; }}

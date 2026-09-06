@@ -1690,12 +1690,10 @@ function lagRelHtml(rel, isLead, isLong) {
 }
 
 function lagFlagChips(f) {
-  let c = '';
-  if (f.is_lead) c += '<span class="lag-chip lead">Lead</span>';
-  if (f.is_long) c += '<span class="lag-chip long">Long</span>';
-  if (f.criticality === 'Critical') c += '<span class="lag-chip crit">Crit</span>';
-  else if (f.criticality === 'Near-Critical') c += '<span class="lag-chip near">Near</span>';
-  return c;   // empty when clean — chips sit inline in the relationship cell
+  // Only the Lead flag sits beside the relationship. Long and Critical/Near were
+  // removed as redundant clutter — the Lag (wd) column already colours long/lead,
+  // and criticality isn't needed inline (Ibrahim, 2026-09-06).
+  return f.is_lead ? '<span class="lag-chip lead">Lead</span>' : '';
 }
 
 // Lag (wd) cell — the SAME emphasis the relationship cell uses (red lead, amber long),
@@ -1759,10 +1757,14 @@ function renderLagRows(m) {
       <td><textarea class="lag-just" data-relkey="${escapeHtml(f.rel_key)}" rows="1" placeholder="Add reason…">${escapeHtml(f.justification || '')}</textarea></td>
     </tr>`).join('');
 
+  // Auto-grow each justification box to fit ALL the text the planner types — no hidden
+  // overflow, the full sentence is always visible (wrap handled by the textarea + CSS).
+  const autosize = ta => { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; };
   tbody.querySelectorAll('.lag-just').forEach(ta => {
     const relKey = ta.dataset.relkey;
     const sync = () => { const f = (m.findings || []).find(x => x.rel_key === relKey); if (f) f.justification = ta.value; };
-    ta.addEventListener('input', sync);
+    autosize(ta);
+    ta.addEventListener('input', () => { sync(); autosize(ta); });
     ta.addEventListener('change', () => { sync(); saveLagJustification(relKey, ta.value); });
   });
 }

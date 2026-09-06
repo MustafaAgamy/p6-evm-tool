@@ -353,6 +353,47 @@ def test_makeup_counts_are_mutually_exclusive():
     assert k['leads_count'] + k['long_positive_count'] + k['normal_count'] == k['lagged_count']
 
 
+# ── 2026-09-06 polish: report-content picker, chip removal, justification wrap ──
+
+def test_lag_module_declares_report_sections_for_the_picker():
+    # The Report-Contents picker (generateModulePdf) appears only when the module
+    # carries presentation.sections; keys must match report.py _sections() for lag.
+    g = _g({'p': _act('p'), 's': _act('s')},
+           [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 7}])
+    secs = run_lag_lead(g, CONFIG)['presentation']['sections']
+    assert [s['key'] for s in secs] == ['summary', 'charts', 'findings']
+    assert all('label' in s and 'empty' in s for s in secs)
+    # every section is empty only when there are no lags at all
+    empty_g = _g({'p': _act('p'), 's': _act('s')},
+                 [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    assert all(s['empty'] for s in run_lag_lead(empty_g, CONFIG)['presentation']['sections'])
+
+
+def test_lag_register_drops_long_and_critical_chips_keeps_lead():
+    # A long+critical positive lag must NOT render Long / Crit / Near chips beside the
+    # relationship; a lead still shows its Lead chip. (Ibrahim 2026-09-06 declutter.)
+    from p6_audit.report import render_module_report
+    g = _g({'p': _act('p'),
+            'lc': _act('lc', is_critical=True, total_float_days=-1.0),   # long + critical positive
+            'ld': _act('ld')},
+           [{'pred_id': 'p', 'succ_id': 'lc', 'type': 'FS', 'lag_days': 20},
+            {'pred_id': 'p', 'succ_id': 'ld', 'type': 'FS', 'lag_days': -3}])   # lead
+    html = render_module_report(run_lag_lead(g, CONFIG), {'project_name': 'Demo'})
+    assert 'change">Long</span>' not in html      # Long chip removed
+    assert '>Crit</span>' not in html             # Critical chip removed
+    assert '>Near</span>' not in html             # Near-Critical chip removed
+    assert 'badge2 c">Lead</span>' in html        # Lead chip kept
+
+
+def test_lag_register_justification_cell_wraps():
+    # The justification cell carries the wrapping class so long text shows fully in the PDF.
+    from p6_audit.report import render_module_report
+    g = _g({'p': _act('p'), 's': _act('s')},
+           [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 7}])
+    html = render_module_report(run_lag_lead(g, CONFIG), {'project_name': 'Demo'})
+    assert '<td class="ljust">' in html
+
+
 # ── End-to-end via the parser + audit_modules ───────────────────────────────
 
 def test_end_to_end_xml_lag_detected(tmp_path):
