@@ -276,33 +276,67 @@ def _oos_wbs(m):
 def _oos_review_log(m):
     findings = m.get('findings', [])
     if not findings:
-        return ('<h2 class="sec">Out-of-Sequence Review Log</h2>'
+        return ('<h2 class="sec">Out Of Sequence Activity</h2>'
                 '<p class="empty">No out-of-sequence activities &mdash; schedule progress is consistent '
                 'with the network logic.</p>')
     cutoff = _esc(m.get('kpis', {}).get('data_date', ''))
-    head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>'
-            '<th>Current Pred. Rel.</th><th>Current Predecessor Activity</th>'
-            '<th>Current Succ. Rel.</th><th>Current Successor Activity</th><th>Cutoff Date</th>'
-            '<th>Suggested Predecessor</th><th>Suggested Successor</th>'
-            '<th>Root Cause</th><th>Planning Review Comment</th><th>Criticality</th>')
+    # Baseline lists ALL predecessor/successor ties (driving one flagged); the After section carries
+    # the before→after transition per affected tie. Names live in the Baseline lists (unchanged by a fix).
+    head = ('<tr class="grp"><th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>'
+            '<th colspan="2" class="bl">Baseline relationships</th><th rowspan="2">Data Date</th>'
+            '<th colspan="2" class="am">After Modification</th><th rowspan="2">Severity</th></tr>'
+            '<tr class="grp"><th class="bl">Predecessors</th><th class="bl">Successors</th>'
+            '<th class="am">Predecessor tie</th><th class="am">Successor tie</th></tr>')
+
+    def _rel_list(items, fallback):
+        if not items:
+            return f'<span class="mut">{_esc(fallback)}</span>'
+        out = []
+        for p in items:
+            if p.get('affected'):
+                # Driving relationship — amber highlight, matching the on-screen [DRIVING] flag.
+                out.append('<div style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 4px;'
+                           '-webkit-print-color-adjust:exact;print-color-adjust:exact;">'
+                           f'<span class="mono">{_esc(p.get("id"))}</span> {_esc(p.get("label"))} '
+                           '<b>[DRIVING]</b>'
+                           f'<br>{_esc(p.get("name"))}</div>')
+            else:
+                out.append(f'<div><span class="mono">{_esc(p.get("id"))}</span> {_esc(p.get("label"))}'
+                           f'<br><span class="mut">{_esc(p.get("name"))}</span></div>')
+        return ''.join(out)
+
+    def _fallback_list(f, side):
+        # Pre-enrichment snapshots: fall back to the single driving tie.
+        pid, pname, lbl = ((f.get('pred_id'), f.get('pred_name'), f.get('pred_baseline_label'))
+                           if side == 'pred' else
+                           (f.get('succ_id'), f.get('succ_name'), f.get('succ_baseline_label')))
+        return [{'id': pid, 'name': pname, 'label': lbl, 'affected': True}] if pid else []
+
     rows = ''.join(
         f'<tr><td class="num">{i}</td><td class="mono">{_esc(f.get("activity_id"))}</td>'
         f'<td>{_esc(f.get("activity_name"))}</td>'
-        f'<td title="{_esc(f.get("wbs_path"))}">{_esc(short_wbs(f.get("wbs_path")))}</td>'
-        f'<td>{_esc(f.get("current_pred_rel"))}</td>'
-        f'<td class="mut">{_esc(f.get("current_pred_activity"))}</td>'
-        f'<td>{_esc(f.get("current_succ_rel"))}</td>'
-        f'<td class="mut">{_esc(f.get("current_succ_activity"))}</td>'
+        f'<td class="bl">{_rel_list(f.get("all_predecessors") or _fallback_list(f, "pred"), "No predecessor")}</td>'
+        f'<td class="bl">{_rel_list(f.get("all_successors") or _fallback_list(f, "succ"), "No successor")}</td>'
         f'<td class="mut">{cutoff}</td>'
-        f'<td>{_sug_cell(f.get("suggested_predecessor"), f.get("suggested_predecessor_kind"))}</td>'
-        f'<td>{_sug_cell(f.get("suggested_successor"), f.get("suggested_successor_kind"))}</td>'
-        f'<td class="mut">{_esc(f.get("root_cause"))}</td>'
-        f'<td class="mut">{_esc(f.get("planning_review_comment"))}</td>'
-        f'<td>{_crit_cell(f.get("criticality"))}</td></tr>'
+        f'<td class="am">{_esc(f.get("pred_after_label"))}</td>'
+        f'<td class="am">{_esc(f.get("succ_after_label"))}</td>'
+        f'<td>{_esc(f.get("severity", "Medium"))}</td></tr>'
         for i, f in enumerate(findings, 1))
+    def _chip(text, bg, fg):
+        return (f'<span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;'
+                f'font-size:10px;background:{bg};color:{fg};-webkit-print-color-adjust:exact;'
+                f'print-color-adjust:exact;">{text}</span>')
+    near = (m.get('kpis') or {}).get('near_critical_days', 10)
+    sev_legend = (
+        '<div style="font-size:10.5px;color:#64748b;margin:0 0 8px;line-height:1.8;">'
+        '<b>Severity</b> &mdash; '
+        f'{_chip("Critical", "#FADDDD", "#C02626")} on the critical path (total float &le; 0) &nbsp;·&nbsp; '
+        f'{_chip("High", "#FBECCF", "#B45309")} near-critical (0 &lt; total float &le; {near} working days) &nbsp;·&nbsp; '
+        f'{_chip("Medium", "#EEF1F6", "#41506A")} has float &mdash; not near-critical</div>')
     return f'''
-      <h2 class="sec">Out-of-Sequence Review Log</h2>
-      <table class="findings"><thead><tr>{head}</tr></thead>
+      <h2 class="sec">Out Of Sequence Activity</h2>
+      {sev_legend}
+      <table class="findings oos-logpdf"><thead>{head}</thead>
         <tbody>{rows}</tbody></table>'''
 
 

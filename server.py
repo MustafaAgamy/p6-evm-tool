@@ -62,6 +62,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_compare_excel(body)
         elif self.path == '/api/compare/report':
             self._handle_compare_report(body)
+        elif self.path == '/api/oos/validate':
+            self._handle_oos_validate(body)
+        elif self.path == '/api/oos/corrected-file':
+            self._handle_oos_corrected(body)
         elif self.path == '/api/revcompare':
             self._handle_revcompare(body)
         elif self.path == '/api/revcompare/report':
@@ -1516,6 +1520,52 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/oos/validate ─────────────────────────────────────────────────
+    def _handle_oos_validate(self, body):
+        """Out-of-Sequence — re-validate after the planner applies corrections. Re-parses
+        the imported schedule, applies the accepted relationship corrections to an in-memory
+        copy, re-runs the SAME detection engine, and reports the fresh findings + which
+        accepted findings are now genuinely resolved. Nothing is written to disk."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        accepted = body.get('accepted') or []
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.oos_resolve import revalidate_from_path
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            res = revalidate_from_path(resolved, config, accepted)
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/oos/corrected-file ───────────────────────────────────────────
+    def _handle_oos_corrected(self, body):
+        """Out-of-Sequence — write the corrected schedule (accepted relationship corrections
+        only) to a separate file in the same format as the import (P6 XML or XER). Actuals
+        and dates are never touched; open in P6 → F9. The user's original file is not modified."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        output_path = body.get('output_path', '')
+        accepted = body.get('accepted') or []
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        if not accepted:
+            self._json(200, {'ok': False, 'error': 'No corrections have been applied yet.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.oos_resolve import write_corrected
+            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path))
+            self._json(200, {'ok': True, 'applied': res['applied'], 'out_path': res['out_path']})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/compare/before-after ─────────────────────────────────────────
     def _handle_before_after(self, body):
         """Consultant Review — the but-for impact. Given the baseline, the update, and
@@ -1833,7 +1883,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.xlsx_writer import write_xlsx
-            from p6_audit.exporters import excel_columns, filter_lag_findings
+            from p6_audit.exporters import (excel_columns, excel_highlight_cols,
+                                            excel_severity_meta, filter_lag_findings)
             lag_visible_keys = body.get('lag_visible_keys')
             if module == 'lag_lead' and lag_visible_keys is not None:
                 # On-screen filter honoured in the export — findings only; the row-detail
@@ -1841,7 +1892,10 @@ class Handler(BaseHTTPRequestHandler):
                 # has no title/caption argument (see p6_evm/xlsx_writer.py — read-only).
                 m = filter_lag_findings(m, lag_visible_keys)
             headers, rows = excel_columns(m)
-            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31], headers, rows)
+            sev_col, legend = excel_severity_meta(m, headers)
+            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31],
+                       headers, rows, highlight_cols=excel_highlight_cols(headers),
+                       severity_col=sev_col, legend=legend)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
