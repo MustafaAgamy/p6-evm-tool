@@ -1,6 +1,6 @@
 import { state }                              from './modules/state.js';
 import { initTheme }                          from './modules/theme.js';
-import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel } from './modules/api.js';
+import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel, exportWeatherExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser, renderAudit, renderOosPanel, renderLagPanel } from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
     oos:      { pdf: 'oos-pdf-btn',     xls: 'oos-excel-btn' },
     lag:      { pdf: 'lag-pdf-btn',     xls: 'lag-excel-btn' },
     calendar: { pdf: 'cal-pdf-btn',     xls: 'cal-excel-btn' },
-    weather:  { pdf: 'weather-pdf-btn' },
+    weather:  { pdf: 'weather-pdf-btn',  xls: 'weather-excel-btn' },
     compare:  { pdf: 'cmp-preview-pdf', xls: 'cmp-export-xlsx' },
     revcompare:{ pdf: 'rc-preview-pdf' },
     critpath: { pdf: 'cpa-export-pdf',  xls: 'cpa-export-xlsx' },
@@ -360,6 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('lag-excel-btn').addEventListener('click', () => exportExcel('lag-excel-btn'));
   document.getElementById('cal-pdf-btn').addEventListener('click', generateCalendarPdf);
   document.getElementById('cal-excel-btn').addEventListener('click', exportCalendarExcel);
+  document.getElementById('weather-excel-btn').addEventListener('click', exportWeatherExcel);
   document.getElementById('weather-pdf-btn').addEventListener('click', generateWeatherPdf);
 
   // Analysis chooser (shown after upload) → reveal the chosen view. Routed through
