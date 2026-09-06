@@ -4,7 +4,9 @@
  */
 import assert from 'node:assert/strict';
 import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
-         oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass }
+         oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass,
+         lagQuickPickValues, normalizeColumnFilter, matchesColumnFilter, filterLagFindings, sortLagFindings,
+         LAG_FILTER_COLUMNS }
   from '../../ui/modules/audit.js';
 
 let passed = 0, failed = 0;
@@ -94,6 +96,65 @@ test('verdictClass ready → good',   () => assert.equal(verdictClass('Ready to 
 test('verdictClass conditional → warn', () => assert.equal(verdictClass('Conditional pass'), 'v-warn'));
 test('verdictClass not-ready → bad', () => assert.equal(verdictClass('Not ready to submit'), 'v-bad'));
 test('verdictClass blocked → bad',  () => assert.equal(verdictClass('Blocked'), 'v-bad'));
+
+console.log('\nLag Report — Excel-style column filters');
+const LAG_VALUES = [10, -5, 20, 1, -20, 3];
+test('quickpick all returns everything',   () => assert.deepEqual(lagQuickPickValues(LAG_VALUES, 'all'), LAG_VALUES));
+test('quickpick ge2 by magnitude',         () => assert.deepEqual(lagQuickPickValues(LAG_VALUES, 'ge2'), [10, -5, 20, -20, 3]));
+test('quickpick ge5 by magnitude',         () => assert.deepEqual(lagQuickPickValues(LAG_VALUES, 'ge5'), [10, -5, 20, -20]));
+test('quickpick long is value > 14, not a lead', () => assert.deepEqual(lagQuickPickValues(LAG_VALUES, 'long'), [20]));
+test('quickpick leads is value < 0',       () => assert.deepEqual(lagQuickPickValues(LAG_VALUES, 'leads'), [-5, -20]));
+test('quickpick custom threshold by magnitude', () => assert.deepEqual(lagQuickPickValues(LAG_VALUES, 'custom', 8), [10, 20, -20]));
+test('quickpick custom NaN falls back to all',  () => assert.deepEqual(lagQuickPickValues(LAG_VALUES, 'custom', 'nope'), LAG_VALUES));
+test('quickpick unknown pick falls back to all', () => assert.deepEqual(lagQuickPickValues(LAG_VALUES, 'bogus'), LAG_VALUES));
+
+test('normalize: all selected -> null (no filter)', () => assert.equal(normalizeColumnFilter(['a', 'b'], ['a', 'b']), null));
+test('normalize: subset selected -> Set',  () => assert.deepEqual([...normalizeColumnFilter(['a'], ['a', 'b'])], ['a']));
+test('normalize: null selection -> null',  () => assert.equal(normalizeColumnFilter(null, ['a', 'b']), null));
+test('normalize: empty selection -> empty Set (matches nothing)', () => assert.equal(normalizeColumnFilter([], ['a', 'b']).size, 0));
+
+test('matchesColumnFilter: no filter always matches', () => assert.equal(matchesColumnFilter('x', null), true));
+test('matchesColumnFilter: value in set',  () => assert.equal(matchesColumnFilter('x', new Set(['x', 'y'])), true));
+test('matchesColumnFilter: value not in set', () => assert.equal(matchesColumnFilter('z', new Set(['x', 'y'])), false));
+
+test('LAG_FILTER_COLUMNS covers the 5 filterable columns', () =>
+  assert.deepEqual(LAG_FILTER_COLUMNS.map(c => c.key),
+    ['activity_id', 'activity_name', 'lag_days', 'pred_rel_type', 'pred_name']));
+
+const LAG_F = [
+  { activity_id: 'A1', activity_name: 'Excavate',      pred_name: 'Site Clear',    rel_type: 'FS', lag_days: 10,  rel_key: 'k1' },
+  { activity_id: 'A2', activity_name: 'Backfill',       pred_name: 'Excavate',      rel_type: 'FS', lag_days: -5,  rel_key: 'k2' },
+  { activity_id: 'A3', activity_name: 'Formwork',       pred_name: 'Backfill',      rel_type: 'SS', lag_days: 20,  rel_key: 'k3' },
+  { activity_id: 'A4', activity_name: 'Pour Concrete',  pred_name: 'Formwork',      rel_type: 'FF', lag_days: 1,   rel_key: 'k4' },
+  { activity_id: 'A5', activity_name: 'Cure',           pred_name: 'Pour Concrete', rel_type: 'SF', lag_days: -20, rel_key: 'k5' },
+];
+test('filterLagFindings: no filters returns all',   () => assert.equal(filterLagFindings(LAG_F, {}).length, 5));
+test('filterLagFindings: distinct-value column filter (lag_days)', () => {
+  const r = filterLagFindings(LAG_F, { cols: { lag_days: new Set([20]) } });
+  assert.equal(r.length, 1); assert.equal(r[0].activity_id, 'A3');
+});
+test('filterLagFindings: rel_type column filter (not the "FS+21" label)', () =>
+  assert.equal(filterLagFindings(LAG_F, { cols: { pred_rel_type: new Set(['FS']) } }).length, 2));
+test('filterLagFindings: global search matches activity name AND pred name', () =>
+  assert.equal(filterLagFindings(LAG_F, { query: 'excavate' }).length, 2));
+test('filterLagFindings: column filter AND search combine', () => {
+  const r = filterLagFindings(LAG_F, { cols: { pred_rel_type: new Set(['FS']) }, query: 'backfill' });
+  assert.equal(r.length, 1); assert.equal(r[0].activity_id, 'A2');
+});
+test('filterLagFindings: unchecking everything shows nothing', () =>
+  assert.equal(filterLagFindings(LAG_F, { cols: { lag_days: new Set() } }).length, 0));
+
+test('sortLagFindings: numeric asc on lag_days (not lexicographic)', () =>
+  assert.deepEqual(sortLagFindings(LAG_F, 'lag_days', 'asc').map(f => f.activity_id),
+    ['A5', 'A2', 'A4', 'A1', 'A3']));
+test('sortLagFindings: numeric desc on lag_days', () =>
+  assert.deepEqual(sortLagFindings(LAG_F, 'lag_days', 'desc').map(f => f.activity_id),
+    ['A3', 'A1', 'A4', 'A2', 'A5']));
+test('sortLagFindings: text column sorts alphabetically', () =>
+  assert.deepEqual(sortLagFindings(LAG_F, 'activity_name', 'asc').map(f => f.activity_id),
+    ['A2', 'A5', 'A1', 'A3', 'A4']));
+test('sortLagFindings: unknown column returns input unchanged', () =>
+  assert.deepEqual(sortLagFindings(LAG_F, 'nope', 'asc'), LAG_F));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
