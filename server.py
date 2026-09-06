@@ -122,6 +122,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_calendar_report(body)
         elif self.path == '/api/export/calendar_excel':
             self._handle_calendar_excel(body)
+        elif self.path == '/api/export/weather_excel':
+            self._handle_weather_excel(body)
         elif self.path == '/api/geocode':
             self._handle_geocode(body)
         elif self.path == '/api/weather':
@@ -2153,6 +2155,31 @@ class Handler(BaseHTTPRequestHandler):
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
             write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_weather_excel(self, body):
+        """Export the Bad Weather workbook to .xlsx: a construction-calendar month grid with
+        the bad-weather days highlighted amber, then the weather tables."""
+        snapshot_id = body.get('snapshot_id')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        ca = db.get_calendar_audit(snapshot_id) if snapshot_id else None
+        if not ca:
+            self._json(200, {'ok': False, 'error': 'No calendar audit stored for this schedule.'})
+            return
+        pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
+        weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
+        if not weather:
+            self._json(200, {'ok': False, 'error': 'Set a location and calculate the weather first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.xlsx_writer import write_weather_xlsx
+            write_weather_xlsx(os.path.abspath(output_path), ca, weather)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

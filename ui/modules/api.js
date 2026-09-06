@@ -247,6 +247,26 @@ export async function exportCalendarExcel() {
   }
 }
 
+export async function exportWeatherExcel() {
+  if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('weather-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('bad_weather.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/export/weather_excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
 // ── Calendar Audit — weather / location / settings ────────────────────────
 export async function geocodePlace(q) {
   try {

@@ -39,7 +39,7 @@ _CAL_STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
 <font><b/><sz val="14"/><name val="Calibri"/></font>
 </fonts>
-<fills count="8">
+<fills count="9">
 <fill><patternFill patternType="none"/></fill>
 <fill><patternFill patternType="gray125"/></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFDCFCE7"/></patternFill></fill>
@@ -48,13 +48,14 @@ _CAL_STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/></patternFill></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/></patternFill></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FF26517D"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFBECCF"/></patternFill></fill>
 </fills>
 <borders count="2">
 <border/>
 <border><left style="thin"><color rgb="FFD0D7DE"/></left><right style="thin"><color rgb="FFD0D7DE"/></right><top style="thin"><color rgb="FFD0D7DE"/></top><bottom style="thin"><color rgb="FFD0D7DE"/></bottom></border>
 </borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="10">
+<cellXfs count="11">
 <xf/>
 <xf fontId="1" applyFont="1"/>
 <xf fontId="2" fillId="7" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>
@@ -65,11 +66,15 @@ _CAL_STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xf fontId="0" fillId="6" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
 <xf fontId="1" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
 <xf fontId="3" applyFont="1"/>
+<xf fontId="0" fillId="8" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
 </cellXfs>
 </styleSheet>'''
 
 _STATUS_STYLE = {'work': 3, 'weekend': 4, 'holiday': 5, 'shutdown': 6, 'special': 7}
 _LEGEND = [('Working', 3), ('Weekend', 4), ('Holiday', 5), ('Shutdown', 6), ('Special hours', 7)]
+# Bad Weather grid: two-category calendar (working / non-working) + the amber bad-weather overlay.
+WX_BAD_STYLE = 10                     # amber fill (bad-weather day) — style index 10
+_WX_LEGEND = [('Working', 3), ('Non-working', 4), ('Bad-weather day', WX_BAD_STYLE)]
 _DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 
@@ -354,4 +359,102 @@ def write_calendar_xlsx(path, ca, weather=None):
         ]
         sheets.append(('Weather', _stacked_sheet(wx_blocks, col_widths={0: 22, 2: 40, 4: 30})))
 
+    _write_book(path, sheets, _CAL_STYLES)
+
+
+def _wx_grid_sheet_xml(months, cal_name, bad_by_date, subtitle):
+    """A month grid for the weather's construction calendar — working / non-working days —
+    with the BAD-WEATHER days overlaid in amber (bad_by_date: 'YYYY-MM-DD' -> condition text)."""
+    cells = {(1, 0): (f'Bad-Weather Calendar — {cal_name}', 9)}
+    if subtitle:
+        cells[(2, 0)] = (subtitle, 0)
+    for i, (lab, st) in enumerate(_WX_LEGEND):
+        cells[(4, i)] = (lab, st)
+    row_heights = {}
+    r = 6
+    for m in months:
+        cells[(r, 0)] = (m.get('label', ''), 1)
+        r += 1
+        for c, d in enumerate(_DOW):
+            cells[(r, c)] = (d, 8)
+        r += 1
+        pad = ((m.get('first_weekday', 0) % 7) + 7) % 7
+        idx = pad
+        y, mo = m.get('year'), m.get('month')
+        for day in m.get('days', []):
+            rr, cc = r + idx // 7, idx % 7
+            dnum = day['d']
+            iso = f'{y:04d}-{mo:02d}-{dnum:02d}' if y and mo else None
+            if iso in bad_by_date:                       # bad-weather day → amber (wins over status)
+                cond = bad_by_date[iso]
+                cells[(rr, cc)] = ((f'{dnum}\n{cond}' if cond else dnum), WX_BAD_STYLE)
+                if cond:
+                    row_heights[rr] = 30
+            elif day['status'] == 'work':
+                cells[(rr, cc)] = (dnum, _STATUS_STYLE['work'])
+            else:                                        # weekend / holiday / shutdown → one "Non-working"
+                nm = day.get('name')
+                cells[(rr, cc)] = ((f'{dnum}\n{nm}' if nm else dnum), _STATUS_STYLE['weekend'])
+                if nm:
+                    row_heights[rr] = 30
+            idx += 1
+        r += max(1, (idx + 6) // 7) + 1     # weeks used + a blank row
+    return _cells_sheet(cells, col_widths={i: 15 for i in range(7)}, row_heights=row_heights)
+
+
+def write_weather_xlsx(path, ca, weather):
+    """Bad Weather workbook: a construction-calendar month grid with the bad-weather days
+    highlighted amber (same concept as the P6 Calendar grid), then the weather tables —
+    Upcoming Bad-Weather Days (with a serial #), Causes by weather type, Milestone impact,
+    Recovery."""
+    w = weather or {}
+    by_cal = ca.get('by_calendar') or {}
+    assigned = ca.get('assigned_calendars') or []
+    proj = ca.get('project', {}) or {}
+    hidden = proj.get('hidden_months') or 0
+    subtitle = (f'Weather window from data date {proj.get("timeline_start") or "start"} to finish'
+                + (f' · {hidden} earlier month(s) hidden' if hidden else ''))
+    # Reference construction calendar = the assigned calendar with the most activities (matches
+    # how the weather engine picks its dominant calendar); fall back to primary / first.
+    ref = max(assigned, key=lambda c: c.get('activity_count', 0)) if assigned else None
+    ref_id = ref['object_id'] if ref else ca.get('primary_calendar_id')
+    ref_name = ref['name'] if ref else 'Calendar'
+    months = (by_cal.get(ref_id, {}) or {}).get('monthly_stats', [])
+    bad_by_date = {str(d.get('date', ''))[:10]: d.get('condition', '')
+                   for d in w.get('bad_days', []) if d.get('date')}
+
+    sheets = [('Bad-Weather Calendar', _wx_grid_sheet_xml(months, ref_name, bad_by_date, subtitle))]
+
+    def _acts(d):
+        names = d.get('activities') or []
+        extra = (d.get('activities_count', len(names)) - len(names))
+        if not names:
+            return d.get('effect', '')
+        return ', '.join(names) + (f' (+{extra} more)' if extra > 0 else '')
+    total = w.get('expected_bad_days_total', 0) or 0
+    cause_rows = []
+    for c in (w.get('by_cause') or []):
+        off = bool(c.get('off'))
+        cnt = 0 if off else (c.get('count', 0) or 0)
+        pct = (round(cnt / total * 100) if (total and not off) else 0)
+        cause_rows.append([c.get('label', ''), 'off' if off else cnt,
+                           '' if off else (f'{pct}%' if total else '')])
+    wx_blocks = [
+        {'title': 'Upcoming Bad-Weather Days', 'headers':
+            ['#', 'Date', 'Day', 'Why it is a lost day (measured)', 'Confidence', 'Affected work (by WBS)'],
+         'rows': [[i, d['date'], d.get('day_name', ''), d.get('condition', ''),
+                   ('Forecast' if d.get('confidence') == 'forecast' else 'Expected'), _acts(d)]
+                  for i, d in enumerate(w.get('bad_days', []), 1)]},
+        {'title': "What's Causing the Lost Days — by Weather Type",
+         'headers': ['Weather type', 'Days', '% of bad-weather days'], 'rows': cause_rows},
+        {'title': 'Impact on Milestone Completion', 'headers':
+            ['Milestone', 'Planned', 'Bad days before', 'Already in calendar', 'Net delay', 'Weather-adjusted'],
+         'rows': [[m['name'], m['planned'], m['bad_days_before'], m['already_allowed'],
+                   f"+{m['net_delay']} d", m['adjusted']] for m in w.get('milestones', [])]},
+        {'title': 'Recovery Recommendations', 'headers':
+            ['Period / milestone', 'Days', 'Longer days', 'Extra working days', 'Add shift'],
+         'rows': [[r['period'], r['days'], r['option_longer_days'],
+                   r['option_extra_days'], r['option_shift']] for r in w.get('recovery', [])]},
+    ]
+    sheets.append(('Weather Detail', _stacked_sheet(wx_blocks, col_widths={0: 5, 1: 14, 3: 40, 5: 30})))
     _write_book(path, sheets, _CAL_STYLES)
