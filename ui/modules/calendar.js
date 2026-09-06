@@ -186,6 +186,16 @@ export function renderWeatherView(ca) {
     body.innerHTML = '<p style="color:var(--muted);font-size:13px">No schedule loaded — import a file first.</p>';
     return;
   }
+  // Load the saved location / limits / last estimate so Bad Weather is self-sufficient: the
+  // single "Apply & Recalculate" button is enabled whenever a location exists — regardless of
+  // whether the Calendar tab rendered first (previously the button stayed disabled here because
+  // only renderCalendar loaded the location).
+  const settings = (state.currentResult && state.currentResult.calendar_settings) || {};
+  if (settings.location) _pendingLoc = settings.location;
+  if (settings.weather_thresholds) _thresholds = { ...DEFAULT_THRESHOLDS, ...settings.weather_thresholds };
+  if (settings.site_type) _siteType = settings.site_type;
+  else if (settings.weather_thresholds) _siteType = matchSiteType(_thresholds);
+  if (settings.last_weather) _weather = settings.last_weather;
   _renderWeatherBody();
 }
 
@@ -261,9 +271,14 @@ export const CAL_SECTIONS = [
   ['exceptions', '3 Calendar Non-working days'], ['hours', '4 Working-hours Profile'],
   ['comparison', '5 Calendar Comparison & Usage'],
 ];
-// Feature 2 — Bad Weather effect on Forecast Finish PDF (weather-only).
+// Feature 2 — Bad Weather effect on Forecast Finish PDF (weather-only). Split into selectable
+// sections so the Report-Contents picker can print specific parts (keys match report.py's
+// data-sec wrappers). Global Reporting standard: every feature's PDF is section-selectable.
 export const WEATHER_SECTIONS = [
-  ['weather', 'Bad Weather Impact'],
+  ['wx_dashboard', '1 Execution Dashboard'], ['wx_timeline', '2 Calendar Timeline & Statistics'],
+  ['wx_why', '3 Why This Result'], ['wx_upcoming', '4 Upcoming Bad Weather'],
+  ['wx_causes', "5 What's Causing the Lost Days"], ['wx_milestones', '6 Impact on Milestones'],
+  ['wx_recovery', '7 Recovery Recommendations'],
 ];
 
 // ── Location picker (top — drives the Weather-Adjusted Finish + Section 9) ──
@@ -674,16 +689,16 @@ function _weatherSection() {
   const dashboard = _weatherDashboard();      // §1 Execution Dashboard (waterfall)
   const histogram = _weatherHistogram();      // §2 Calendar Timeline & Statistics (3-colour)
   // §5 — Upcoming bad weather
-  const dayRows = (w.bad_days || []).slice(0, 200).map(d =>
-    `<tr><td>${fmtCalDate(d.date)}</td><td>${escapeHtml(d.day_name)}</td>
+  const dayRows = (w.bad_days || []).slice(0, 200).map((d, i) =>
+    `<tr><td class="num">${i + 1}</td><td>${fmtCalDate(d.date)}</td><td>${escapeHtml(d.day_name)}</td>
       <td>${escapeHtml(d.condition)}</td>
       <td><span class="cal-pill mini ${d.confidence === 'forecast' ? 'def' : 'warn'}">${d.confidence === 'forecast' ? 'Forecast' : 'Expected'}</span></td>
       <td>${_actsCell(d)}</td></tr>`).join('');
-  const dayTable = _sec(5, 'Upcoming bad weather',
+  const dayTable = _sec(4, 'Upcoming bad weather',
       'next ~16 days = live forecast · beyond = a typical year from the 5-year climate history') +
     `<div class="cal-card p0" style="max-height:300px;overflow-y:auto"><table class="cal-table"><thead><tr>
-      <th>Date</th><th>Day</th><th>Why it's a lost day (measured)</th><th>Confidence</th><th>Affected work (by WBS)</th></tr></thead>
-      <tbody>${dayRows || '<tr><td colspan="5" class="cal-empty">No bad-weather days expected.</td></tr>'}</tbody></table></div>`;
+      <th class="num">#</th><th>Date</th><th>Day</th><th>Why it's a lost day (measured)</th><th>Confidence</th><th>Affected work (by WBS)</th></tr></thead>
+      <tbody>${dayRows || '<tr><td colspan="6" class="cal-empty">No bad-weather days expected.</td></tr>'}</tbody></table></div>`;
   // §6 — Impact on milestones
   const msRows = (w.milestones || []).map(m =>
     `<tr><td>${escapeHtml(m.name)}</td><td>${fmtCalDate(m.planned)}</td>
@@ -717,7 +732,7 @@ function _weatherSection() {
       <div class="cal-cause-n">${val}</div></div>`;
   }).join('');
   const causeCard = (w.by_cause || []).length
-    ? _sec(4, "What's causing the lost days — by weather type", 'which condition to plan around (heat → shift hours earlier; rain → drainage)') +
+    ? _sec(5, "What's causing the lost days — by weather type", 'which condition to plan around (heat → shift hours earlier; rain → drainage)') +
       `<div class="cal-card">${causeRows}</div>`
     : '';
   // Footnotes (after §7) — auto weather-conclusion, then the source & climate reference. Demoted.
@@ -727,7 +742,7 @@ function _weatherSection() {
     : '';
   const note = '<div class="cal-note">Applies to construction activities only (auto-detected), and only to Finish/completion milestones. A forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
   return controls + dashboard + histogram +
-    _whyResultHtml() + causeCard + dayTable + msTable + recTable +
+    _whyResultHtml() + dayTable + causeCard + msTable + recTable +
     conclHtml + _climateRefHtml() + note;
 }
 

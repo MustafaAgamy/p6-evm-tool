@@ -145,12 +145,84 @@ def test_report_weather_section_only_when_provided(tmp_path):
     assert '2 · Calendar Timeline &amp; Statistics' in html
     assert 'class="h3bars"' in html and 's-net' in html and 's-bad' in html and 's-nw' in html
     assert 'net working days' in html                 # the histogram subtitle
-    # sections are numbered to match the screen (3 Why … 7 Recovery)
-    assert '5 · Upcoming Bad-Weather Days' in html and '6 · Impact on Milestone Completion' in html
+    # sections are numbered to match the screen, with the §4/§5 SWAP (Upcoming = §4, Causes = §5)
+    assert '4 · Upcoming Bad-Weather Days' in html and '6 · Impact on Milestone Completion' in html
     assert '7 · Recovery Recommendations' in html
-    # #07 affected activities column + #12 milestone legend
+    assert '5 · Upcoming' not in html                  # Upcoming is no longer §5 (swapped to §4)
+    # #07 affected activities column (now with a leading serial #) + #12 milestone legend
     assert 'Affected work (by WBS)' in html and 'Cable pulling' in html
     assert 'How to read this table' in html and 'Net = Before' in html
+
+
+def test_report_weather_seven_selectable_sections(tmp_path):
+    """The Bad Weather PDF splits into 7 individually-selectable wx_* subsections (own data-sec
+    each), with the §4/§5 SWAP (Upcoming = §4, Causes = §5), a leading serial (#) column on the
+    Upcoming table, and a working `sections` filter so the SAVED pdf honours the ticked sections
+    (footnotes — conclusion + climate reference — always render, not selectable)."""
+    result = _result(tmp_path)
+    weather = {
+        'expected_bad_days_total': 6, 'net_finish_delay': 4,
+        'weather_adjusted_finish': '2027-03-01',
+        'thresholds': {'rain_mm': 5, 'temp_max_c': 42, 'wind_kmh': None, 'dust': True},
+        'histogram': [{'label': 'Mar 2025', 'net': 18, 'bad': 3, 'nonworking': 8},
+                      {'label': 'Apr 2025', 'net': 20, 'bad': 1, 'nonworking': 8}],
+        'by_cause': [{'label': 'Heat', 'count': 4}, {'label': 'Dust', 'count': 2}],
+        'bad_days': [
+            {'date': '2025-03-03', 'day_name': 'Mon', 'condition': '45.5 °C ≥ 42 °C',
+             'confidence': 'forecast', 'effect': 'Non-working (construction)',
+             'activities': ['Cable pulling'], 'activities_count': 1},
+            {'date': '2025-03-05', 'day_name': 'Wed', 'condition': 'Dust',
+             'confidence': 'expected', 'effect': 'Non-working (construction)',
+             'activities': ['Painting'], 'activities_count': 1},
+            {'date': '2025-03-07', 'day_name': 'Fri', 'condition': '46 °C ≥ 42 °C',
+             'confidence': 'expected', 'effect': 'Non-working (construction)',
+             'activities': ['Welding'], 'activities_count': 1},
+        ],
+        'milestones': [{'name': 'M1', 'planned': '2025-03-01', 'bad_days_before': 3,
+                        'already_allowed': 1, 'net_delay': 2, 'adjusted': '2025-03-05'}],
+        'recovery': [{'period': 'M1', 'days': 2, 'option_longer_days': 'longer',
+                      'option_extra_days': 'weekends', 'option_shift': 'shift'}],
+        'conclusion': 'Bad weather is estimated to cost about 4 working days to project finish.',
+        'climate_reference': {'history_source': 'ERA5', 'history_url': 'https://ex/hist',
+                              'forecast_source': 'Open-Meteo', 'forecast_url': 'https://ex/fc',
+                              'dust_source': 'CAMS', 'years': 5,
+                              'lat': 24.5, 'lon': 54.4, 'place_name': 'Site'},
+    }
+    html = render_calendar_report(result, META, weather=weather, feature='weather')
+    # every selectable subsection carries its OWN data-sec wrapper, in contract order
+    for key in ['wx_dashboard', 'wx_timeline', 'wx_why', 'wx_upcoming',
+                'wx_causes', 'wx_milestones', 'wx_recovery']:
+        assert f'data-sec="{key}"' in html, key
+    # the §4/§5 SWAP — Upcoming is now §4, Causes is now §5
+    assert '4 · Upcoming Bad-Weather Days' in html
+    assert '5 · What' in html and 'Causing the Lost Days' in html
+    assert '5 · Upcoming' not in html and '4 · What' not in html
+    # leading serial (#) column on the Upcoming table — header + 1-based row numbers, bounded
+    # to the Upcoming section so the milestone table's num cells can't spoof the assertion
+    i0 = html.find('data-sec="wx_upcoming"')
+    up = html[i0:html.find('</table>', i0)]
+    assert '<th>#</th>' in up
+    assert '<td class="num">1</td>' in up and '<td class="num">2</td>' in up \
+        and '<td class="num">3</td>' in up
+    # footnotes always render, whatever the ticks
+    assert 'Weather Conclusion' in html and 'Where These Bad-Weather Days Come From' in html
+
+    # `sections` filter — only the ticked wx_* keys reach the saved PDF
+    only_up = render_calendar_report(result, META, weather=weather, feature='weather',
+                                     sections=['wx_upcoming'])
+    assert '4 · Upcoming Bad-Weather Days' in only_up      # the one ticked section
+    assert 'Baseline Finish' not in only_up                # wx_dashboard absent
+    assert 'class="h3bars"' not in only_up                 # wx_timeline absent
+    assert 'Causing the Lost Days' not in only_up          # wx_causes absent
+    assert 'Impact on Milestone Completion' not in only_up  # wx_milestones absent
+    assert 'Recovery Recommendations' not in only_up       # wx_recovery absent
+
+    two = render_calendar_report(result, META, weather=weather, feature='weather',
+                                 sections=['wx_dashboard', 'wx_recovery'])
+    assert 'Baseline Finish' in two and 'Recovery Recommendations' in two  # the two ticked
+    assert '4 · Upcoming Bad-Weather Days' not in two      # wx_upcoming absent
+    assert 'Causing the Lost Days' not in two              # wx_causes absent
+    assert 'class="h3bars"' not in two                     # wx_timeline absent
 
 
 def test_report_shows_site_type_criteria_and_why(tmp_path):
@@ -264,10 +336,11 @@ def test_report_honors_sections_list_for_both_features(tmp_path):
         'thresholds': {'rain_mm': 5, 'temp_max_c': 42, 'wind_kmh': None, 'dust': True},
         'by_cause': [], 'bad_days': [], 'milestones': [], 'recovery': [], 'monthly': [],
     }
-    # feature='weather' — the whole report lives under the single 'weather' section key.
-    # (Body-only waterfall labels as markers, so the CSS/header text can't mask the result.)
+    # feature='weather' — the report is split into 7 wx_* section keys (own data-sec each).
+    # Ticking just wx_dashboard renders the waterfall (its labels are the body markers, so the
+    # CSS/header text can't mask the result); an empty list drops the body (valid HTML).
     on = render_calendar_report(result, META, weather=weather, feature='weather',
-                                sections=['weather'])
+                                sections=['wx_dashboard'])
     assert 'Baseline Finish' in on and 'Bad-weather Completion' in on
     off = render_calendar_report(result, META, weather=weather, feature='weather',
                                  sections=[])           # unticked → body dropped, valid HTML
