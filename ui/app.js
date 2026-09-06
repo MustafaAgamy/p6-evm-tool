@@ -16,7 +16,6 @@ import { renderSpecialPanel }                  from './modules/special.js';
 import { renderOverview, renderWbs, overviewPrint, wbsPrint } from './modules/overview.js';
 import { renderDashboard, dashboardPrint }       from './modules/dashboard.js';
 import { renderNarrative, narrativePrint }        from './modules/narrative.js';
-import { renderForecast, forecastPrint }          from './modules/forecast.js';
 import { renderCopilot, copilotPrint }            from './modules/copilot.js';
 import { printView }                              from './modules/printview.js';
 import { renderSchedule }                       from './modules/gantt.js';
@@ -95,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
     compare:'Consultant Review', revcompare:'Baseline Revision Comparison', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
     update:'Update Analysis', special:'Special Report', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
-    dash:'Professional Dashboard', narrative:'Baseline Narrative', forecast:'Weather → Forecast',
+    dash:'Professional Dashboard', narrative:'Baseline Narrative',
     weather:'Bad Weather', copilot:'AI Copilot · TIA' };
   const navTree = document.getElementById('nav-tree');
   const tnode = (id, label, icon, o = {}) => {
@@ -134,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
     construct: { title:'Constructability',        icon:'construct', verb:'Run Constructability',  desc:'Reviews sequencing and logic against the built-in construction knowledge base.' },
     copilot:   { title:'AI Copilot · TIA',        icon:'ai',        verb:'Run Copilot',           desc:'Deterministic Time-Impact Analysis and insights — offline.' },
     narrative: { title:'Baseline Narrative',      icon:'doc',       verb:'Generate Narrative',    desc:'A written basis-of-schedule narrative from this programme.' },
-    forecast:  { title:'Weather → Forecast',      icon:'weather',   verb:'Run Forecast',          desc:'Forecast finish date factoring likely bad-weather days.' },
     dash:      { title:'Professional Dashboard',  icon:'dash',      verb:'Open Dashboard',        desc:'Portfolio KPIs and week-over-week trends across your projects.' },
     update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its own embedded baseline.' },
     special:   { title:'Special Report',          icon:'special',   verb:'Open Report Builder',   desc:"Compose a custom report from any feature's results." },
@@ -156,7 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'construct':  renderConstructPanel(); break;
       case 'copilot':    renderCopilot(); break;
       case 'narrative':  renderNarrative(); break;
-      case 'forecast':   renderForecast(); break;
       case 'dash':       renderDashboard(); break;
       case 'update':     renderUpdatePanel(); break;
       case 'special':    renderSpecialPanel(); break;
@@ -277,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     period:   { pdf: 'per-export-pdf',  xls: 'per-export-xlsx' },
     update:   { pdf: 'ua-export-pdf',   xls: 'ua-export-xlsx' },
   };
-  // Screen views (Overview, WBS, Dashboard, Forecast, Narrative, Copilot) print
+  // Screen views (Overview, WBS, Dashboard, Narrative, Copilot) print
   // through the shared printView() — File ▸ Print gives them the same PDF Preview +
   // Printing Selection picker as the analysis modules. Every feature prints from the
   // menu bar with a section picker; a new view only needs a print-sections provider.
@@ -285,7 +282,6 @@ document.addEventListener('DOMContentLoaded', () => {
     overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint },
     wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint },
     dash:      { module: 'dashboard',  title: 'Professional Dashboard', get: dashboardPrint },
-    forecast:  { module: 'forecast',   title: 'Weather → Forecast',     get: forecastPrint },
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
     copilot:   { module: 'copilot',    title: 'AI Copilot · TIA',       get: copilotPrint },
   };

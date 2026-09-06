@@ -285,11 +285,17 @@ def _wx_hist3(histogram, scope=''):
 
 
 def _weather_section(weather, dashboard=None, scope=''):
-    """Bad Weather report body — matches the screen (Feature 2): §1 Execution Dashboard
-    (waterfall), §2 Calendar Timeline & Statistics (3-colour histogram), §3 Why this result,
-    §4 cause, §5 upcoming days, §6 milestones, §7 recovery, then footnotes."""
+    """Bad Weather report body, split into 7 individually-selectable subsections.
+
+    Returns ``(sections, footnotes)`` where ``sections`` is an ordered list of
+    ``(data-sec key, html)`` pairs — wx_dashboard (§1 waterfall), wx_timeline (§2 3-colour
+    histogram), wx_why (§3 Why This Result, with the how/criteria preamble), wx_upcoming
+    (§4 upcoming bad-weather days — note the §4/§5 SWAP), wx_causes (§5 cause breakdown),
+    wx_milestones (§6), wx_recovery (§7) — and ``footnotes`` (the auto weather-conclusion +
+    climate/source reference) which ALWAYS renders and is not selectable. render_calendar_report
+    wraps each section in its own ``<div data-sec="…">`` and filters by the ticked `sections`."""
     if not weather:
-        return ''
+        return [], ''
     w = weather
     total = w.get('expected_bad_days_total', 0) or 0
     waterfall = _weather_waterfall(dashboard, w)          # §1 (replaces the old KPI tiles)
@@ -367,7 +373,7 @@ def _weather_section(weather, dashboard=None, scope=''):
         cause_rows += (f'<tr><td>{_esc(c["label"])}</td><td class="num">{cnt}</td>'
                        f'<td class="num">{share}</td></tr>')
     cause_table = (
-        '<h2 class="sec">4 · What&rsquo;s Causing the Lost Days — by Weather Type</h2>'
+        '<h2 class="sec">5 · What&rsquo;s Causing the Lost Days — by Weather Type</h2>'
         '<p class="lg">Of all the bad-weather days, which condition causes them — so you know what to '
         'plan around (heat-driven → shift the working day earlier; rain-driven → drainage / protection).</p>'
         '<table><thead><tr><th>Cause</th><th class="num">Days</th><th class="num">Share of flagged days</th>'
@@ -382,14 +388,14 @@ def _weather_section(weather, dashboard=None, scope=''):
         f'<td>{_esc(r["option_longer_days"])}</td><td>{_esc(r["option_extra_days"])}</td>'
         f'<td>{_esc(r["option_shift"])}</td></tr>' for r in w.get('recovery', []))
     days = ''.join(
-        f'<tr><td>{_fmt(d["date"])}</td><td>{_esc(d.get("day_name",""))}</td>'
+        f'<tr><td class="num">{i}</td><td>{_fmt(d["date"])}</td><td>{_esc(d.get("day_name",""))}</td>'
         f'<td>{_esc(d.get("condition",""))}</td>'
         f'<td>{"Forecast" if d.get("confidence") == "forecast" else "Expected"}</td>'
-        f'<td>{_acts_cell(d)}</td></tr>' for d in w.get('bad_days', []))
+        f'<td>{_acts_cell(d)}</td></tr>' for i, d in enumerate(w.get('bad_days', []), 1))
     # Empty sub-tables are dropped from the PDF (Ibrahim: don't print a section with no results).
     days_table = (
-        '<h2 class="sec">5 · Upcoming Bad-Weather Days</h2>'
-        '<table><thead><tr><th>Date</th><th>Day</th><th>Why it’s a lost day (measured)</th>'
+        '<h2 class="sec">4 · Upcoming Bad-Weather Days</h2>'
+        '<table><thead><tr><th>#</th><th>Date</th><th>Day</th><th>Why it’s a lost day (measured)</th>'
         f'<th>Confidence</th><th>Affected work (by WBS)</th></tr></thead>'
         f'<tbody>{days}</tbody></table>') if days else ''
     # Source & climate reference — where the bad-weather days come from (Ibrahim: shown in the PDF too).
@@ -442,13 +448,21 @@ def _weather_section(weather, dashboard=None, scope=''):
             f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">Weather Conclusion</span></div>'
             f'<div class="concl" style="border-left-color:{report_theme.var("rpt-warn")};background:{report_theme.var("rpt-warn-bg")}">'
             f'<p style="margin:0;font-size:10.5px;line-height:1.5">{_esc(w["conclusion"])}</p></div>')
-    # Screen-parity order: §1 waterfall, §2 3-colour histogram, then the how/criteria supporting
-    # blocks, §3–§7, and the source-reference + conclusion demoted to footnotes at the end.
-    return (
-        f'{waterfall}{hist3}'
-        f'{method}{criteria_block}'
-        f'{why_block}{cause_table}{days_table}{ms_table}{rec_table}'
-        f'{source_ref}{conclusion}')
+    # Seven individually-selectable subsections, each returned under its own data-sec key.
+    # The how/criteria preamble rides inside wx_why (it explains "why this result"); the §4/§5
+    # SWAP puts Upcoming (§4) ahead of Causes (§5). The source-reference + auto conclusion are
+    # returned separately as footnotes — always rendered, never selectable.
+    sections = [
+        ('wx_dashboard', waterfall),                       # §1 Execution Dashboard
+        ('wx_timeline', hist3),                            # §2 Calendar Timeline & Statistics
+        ('wx_why', method + criteria_block + why_block),   # §3 Why This Result
+        ('wx_upcoming', days_table),                       # §4 Upcoming Bad-Weather Days (SWAP)
+        ('wx_causes', cause_table),                        # §5 What's Causing the Lost Days (SWAP)
+        ('wx_milestones', ms_table),                       # §6 Impact on Milestone Completion
+        ('wx_recovery', rec_table),                        # §7 Recovery Recommendations
+    ]
+    footnotes = source_ref + conclusion
+    return sections, footnotes
 
 
 def render_calendar_report(result, meta, weather=None, sections=None, theme='light',
@@ -466,8 +480,13 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
     # (feature='calendar') never includes weather; the Bad Weather report (feature='weather')
     # is weather-only. `sections` (the in-preview picker) still filters within the feature.
     is_weather = (feature == 'weather')
+    # The Bad Weather report is split into 7 individually-selectable subsections (its own
+    # data-sec each) — the shared contract with the screen's WEATHER_SECTIONS. The Calendar
+    # Audit keeps its five section keys. `sections` (the in-preview picker) filters within.
+    WX_KEYS = ['wx_dashboard', 'wx_timeline', 'wx_why', 'wx_upcoming',
+               'wx_causes', 'wx_milestones', 'wx_recovery']
     if sections is None:
-        sections = (['weather'] if is_weather else
+        sections = (WX_KEYS if is_weather else
                     ['dashboard', 'timeline', 'exceptions', 'hours', 'comparison'])
     inc = lambda k: k in sections
     # Feature 1's dashboard carries no weather (weather lives in the Bad Weather report).
@@ -476,15 +495,29 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
 
     def _wrap(key, html):
         return f'<div data-sec="{key}">{html}</div>' if html else ''
-    body = ''.join([
-        _wrap('dashboard', _dashboard(d, dash_weather)) if inc('dashboard') else '',
-        _wrap('timeline', _month_grids(months, proj.get('hidden_months', 0), proj.get('timeline_start'))) if inc('timeline') else '',
-        _wrap('exceptions', _exceptions(exc)) if inc('exceptions') else '',
-        _wrap('hours', _hours(profiles)) if inc('hours') else '',
-        _wrap('comparison', _comparison(result.get('comparison', []), result.get('usage', []),
-                                        period_note, result.get('conflicts', []))) if inc('comparison') else '',
-        _wrap('weather', _weather_section(weather, d, meta.get('project_name', ''))) if inc('weather') else '',
-    ])
+    # The 7 selectable weather subsections + the always-rendered footnotes (built once; empty
+    # when no weather is supplied).
+    wx_sections, wx_footnotes = _weather_section(weather, d, meta.get('project_name', ''))
+    if is_weather:
+        # Each subsection gets its own data-sec wrapper so the live preview can toggle it
+        # client-side; the `sections` filter makes the SAVED pdf honour the ticks. The
+        # footnotes (auto conclusion + climate/source reference) always render, not selectable.
+        body = ''.join(_wrap(k, h) for k, h in wx_sections if inc(k)) + wx_footnotes
+    else:
+        # Legacy single 'weather' key — the Special Report's Calendar & Weather provider requests
+        # the weather body under feature='calendar'. It renders as one block ONLY when explicitly
+        # ticked; the Calendar Audit's own default sections never include 'weather', so the audit
+        # itself stays weather-free.
+        legacy_weather = ''.join(h for _, h in wx_sections) + wx_footnotes
+        body = ''.join([
+            _wrap('dashboard', _dashboard(d, dash_weather)) if inc('dashboard') else '',
+            _wrap('timeline', _month_grids(months, proj.get('hidden_months', 0), proj.get('timeline_start'))) if inc('timeline') else '',
+            _wrap('exceptions', _exceptions(exc)) if inc('exceptions') else '',
+            _wrap('hours', _hours(profiles)) if inc('hours') else '',
+            _wrap('comparison', _comparison(result.get('comparison', []), result.get('usage', []),
+                                            period_note)) if inc('comparison') else '',
+            _wrap('weather', legacy_weather) if inc('weather') else '',
+        ])
     # Feature-aware document branding — the Bad Weather report is its own document, not a
     # Calendar Audit (the review caught calendar branding bleeding into Feature 2).
     proj_name = _esc(meta.get('project_name', ''))

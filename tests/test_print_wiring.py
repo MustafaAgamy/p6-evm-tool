@@ -28,11 +28,11 @@ def test_shared_printview_helper_exists():
 
 def test_every_screen_view_is_registered_for_print():
     assert 'const PRINT_VIEW = {' in APP
-    for view in ('overview', 'wbs', 'dash', 'forecast', 'narrative', 'copilot'):
+    for view in ('overview', 'wbs', 'dash', 'narrative', 'copilot'):
         assert f'{view}:' in APP, f'{view} not registered in PRINT_VIEW'
     # each provider is imported from its module
     for fn in ('overviewPrint', 'wbsPrint', 'dashboardPrint',
-               'forecastPrint', 'narrativePrint', 'copilotPrint'):
+               'narrativePrint', 'copilotPrint'):
         assert fn in APP, f'{fn} not imported/used in app.js'
 
 
