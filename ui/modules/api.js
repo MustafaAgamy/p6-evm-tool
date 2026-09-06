@@ -106,9 +106,10 @@ export async function exportExcel(btnId = 'excel-btn') {
     if (!outputPath) { btn.reset(); return; }
     const excelBody = { snapshot_id: state.currentSnapshotId, module: state.currentModule, output_path: outputPath };
     if (state.currentModule === 'lag_lead') {
-      const { visible_keys, caption } = lagExportFilter();
+      const { visible_keys, caption, justifications } = lagExportFilter();
       if (Array.isArray(visible_keys)) excelBody.lag_visible_keys = visible_keys;
       if (caption) excelBody.lag_filter_caption = caption;
+      if (justifications && Object.keys(justifications).length) excelBody.lag_justifications = justifications;
     }
     const data = await apiFetch('api/export/excel', {
       method:  'POST',
@@ -134,9 +135,10 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   // Lag Report: mirror the on-screen AutoFilter/search state into the PDF so the
   // preview and the saved file match what the planner is actually looking at.
   if (module === 'lag_lead') {
-    const { visible_keys, caption } = lagExportFilter();
+    const { visible_keys, caption, justifications } = lagExportFilter();
     if (Array.isArray(visible_keys)) reqBody.lag_visible_keys = visible_keys;
     if (caption) reqBody.lag_filter_caption = caption;
+    if (justifications && Object.keys(justifications).length) reqBody.lag_justifications = justifications;
   }
 
   // Summary PDF: send the health the screen is CURRENTLY showing so the PDF matches

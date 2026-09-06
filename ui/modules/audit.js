@@ -2167,11 +2167,17 @@ export function renderLagPanel(auditModules) {
 // short caption describing why. null/'' when nothing is filtered (export the full register).
 export function lagExportFilter() {
   const m = _lagModule;
-  if (!m) return { visible_keys: null, caption: '' };
+  if (!m) return { visible_keys: null, caption: '', justifications: null };
   const all = m.findings || [];
+  // The on-screen justifications, keyed by rel_key — the register's textarea `input` handler
+  // keeps f.justification fresh, so this is exactly what the planner is looking at. Sent with
+  // every export so the PDF/Excel print what's on screen (typed OR previously saved), instead
+  // of the DB copy which the export handlers load without the per-project justification merge.
+  const justifications = {};
+  all.forEach(f => { if (f.rel_key) justifications[f.rel_key] = f.justification || ''; });
   const active = (_lagFilter.query || '').trim() !== '' ||
     Object.values(_lagFilter.cols || {}).some(s => s != null);
-  if (!active) return { visible_keys: null, caption: '' };
+  if (!active) return { visible_keys: null, caption: '', justifications };
   const rows = lagRowsFiltered(m);
   const keys = rows.map(f => f.rel_key);
   let caption = `Filtered — showing ${rows.length.toLocaleString()} of ${all.length.toLocaleString()} lags`;
@@ -2183,5 +2189,5 @@ export function lagExportFilter() {
     }[_lagFilter.quickPick];
     if (suffix) caption += ` · ${suffix}`;
   }
-  return { visible_keys: keys, caption };
+  return { visible_keys: keys, caption, justifications };
 }

@@ -1072,7 +1072,7 @@ def render_module_report(module_result, meta, sections=None, theme='light', lag_
   .lagsum b {{ color: var(--rpt-ink); }}
   .lagfilter {{ display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--rpt-accent);
                 background: var(--rpt-accent-soft); border-radius: 6px; padding: 5px 10px; margin: 0 0 8px; }}
-  .ljust {{ white-space: normal; overflow-wrap: anywhere; word-break: break-word; min-width: 150px; }}
+  .ljust {{ white-space: normal; overflow-wrap: anywhere; word-break: break-word; min-width: 220px; width: 220px; line-height: 1.5; }}
   .lcharts {{ display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }}
   .lcard {{ flex: 1; min-width: 200px; border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 11px 13px; }}
   .lch {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--rpt-muted); font-weight: 700; margin-bottom: 10px; }}
