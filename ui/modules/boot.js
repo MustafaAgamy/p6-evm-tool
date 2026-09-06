@@ -27,6 +27,8 @@ function injectCss() {
     filter:drop-shadow(0 2px 18px rgba(91,155,255,.35)); clip-path:inset(0 100% 0 0);}
   #boot .wm .nm .yr{-webkit-text-fill-color:#5b9bff; color:#5b9bff; font-size:.42em; font-weight:700; letter-spacing:.02em; margin-left:.26em; vertical-align:.62em;}
   #boot .wm .tg{margin-top:10px; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#8a99bd; font-weight:600; white-space:nowrap;}
+  #boot .wm .p6{margin-top:7px; font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:#5f6d8f; font-weight:600; white-space:nowrap;}
+  #boot .wm .p6 em{font-style:normal; color:#7f8fb3;}
   #boot .hud{position:absolute; left:50%; bottom:8%; transform:translateX(-50%); width:min(440px,74vw); text-align:center;}
   #boot .cap{display:flex; justify-content:space-between; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#9fb0d6; font-weight:600; margin-bottom:9px;}
   #boot .cap b{color:#fff; font-variant-numeric:tabular-nums; font-family:Archivo,"Segoe UI",system-ui;}
@@ -47,7 +49,7 @@ const ease = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(1 - x, 3);
 
 export function playBoot(opts) {
   opts = opts || {};
-  const DUR = opts.durationMs || 10000;
+  const DUR = opts.durationMs || 13000;
   const onDone = typeof opts.onDone === 'function' ? opts.onDone : function () {};
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   injectCss();
@@ -75,7 +77,7 @@ export function playBoot(opts) {
          </g>
          <circle class="spark" r="5.5" fill="#fff" opacity="0"/>
        </svg>
-       <div class="wm"><div class="nm">Controlyx<span class="yr">2026</span></div><div class="tg">Project&nbsp;Control&nbsp;Intelligence&nbsp;Platform</div></div>
+       <div class="wm"><div class="nm">Controlyx<span class="yr">2026</span></div><div class="tg">Project&nbsp;Control&nbsp;Intelligence&nbsp;Platform</div><div class="p6">for&nbsp;<em>Primavera&nbsp;P6</em>&nbsp;·&nbsp;XER&nbsp;&amp;&nbsp;XML</div></div>
      </div>
      <div class="hud"><div class="cap"><span class="capt">Starting local server</span><b class="pct">0%</b></div>
        <div class="track"><div class="barf"></div></div></div>
