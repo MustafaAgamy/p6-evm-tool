@@ -178,7 +178,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="fg-in-ok">✓ ready</span>
           </div>
         </div>
-        <button class="btn-primary fg-run" type="button">▶ ${escapeHtml(meta.verb)}</button>
+        <div class="fg-actions">
+          <button class="btn-primary fg-run" type="button">▶ ${escapeHtml(meta.verb)}</button>
+          <button class="btn-secondary fg-change" type="button">Change inputs</button>
+        </div>
         <p class="fg-note">Nothing is calculated until you press <b>${escapeHtml(meta.verb)}</b>.</p>
       </div>`;
     gate.querySelector('.fg-run').addEventListener('click', () => {
@@ -188,6 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
       runFeature(view);
       document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+    // Secondary action — re-open the native file picker to import a different schedule.
+    gate.querySelector('.fg-change').addEventListener('click', () => { triggerBrowse(); });
   }
 
   // Open a feature from the navigator — routes through the launch flow above.
