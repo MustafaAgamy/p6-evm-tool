@@ -682,6 +682,10 @@ function _oosLogTable(rows, dd, resolved) {
   }
   const body = rows.map((f, i) => _oosLogRow(f, i, dd, resolved)).join('');
   return `
+    <div class="oos-sevlegend"><span class="oos-sevlegend-t">Severity</span>
+      <span class="oos-sevb crit">Critical</span> on the critical path (total float ≤ 0)
+      <span class="oos-sevb high">High</span> near-critical (0 &lt; total float ≤ ${_oos.near} working days)
+      <span class="oos-sevb med">Medium</span> has float — not near-critical</div>
     <div class="tblwrap oos-tblwrap"><table class="audit-table oos-logx">
       <caption class="oos-cap">Out Of Sequence Activity</caption>
       <thead>
@@ -698,11 +702,7 @@ function _oosLogTable(rows, dd, resolved) {
         </tr>
       </thead>
       <tbody>${body}</tbody></table></div>
-    <div class="oos-flowhint">The engine corrects each tie to match actual execution, preserving as much logic as possible: it <b>changes the relationship type/lag</b> to the one that fits the real overlap (SS/FF, lag from the logic); if no type fits but the activity keeps other valid predecessors (or is 100% complete), it <b>removes / re-ties the driving link</b> (valid logic remains); only when removal would leave an in-progress activity with <b>no predecessor</b> is it flagged <b>Needs Planner Review</b> (unresolved). "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>
-    <div class="oos-sevlegend"><span class="oos-sevlegend-t">Severity</span>
-      <span class="oos-sevb crit">Critical</span> on the critical path (total float ≤ 0)
-      <span class="oos-sevb high">High</span> near-critical (0 &lt; total float ≤ ${_oos.near} working days)
-      <span class="oos-sevb med">Medium</span> has float — not near-critical</div>`;
+    <div class="oos-flowhint">The engine corrects each tie to match actual execution, preserving as much logic as possible: it <b>changes the relationship type/lag</b> to the one that fits the real overlap (SS/FF, lag from the logic); if no type fits but the activity keeps other valid predecessors (or is 100% complete), it <b>removes / re-ties the driving link</b> (valid logic remains); only when removal would leave an in-progress activity with <b>no predecessor</b> is it flagged <b>Needs Planner Review</b> (unresolved). "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>`;
 }
 
 // One editable block per tie (predecessor / successor) inside the drawer.

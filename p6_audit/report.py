@@ -328,16 +328,16 @@ def _oos_review_log(m):
                 f'print-color-adjust:exact;">{text}</span>')
     near = (m.get('kpis') or {}).get('near_critical_days', 10)
     sev_legend = (
-        '<div style="font-size:10.5px;color:#64748b;margin-top:8px;line-height:1.8;">'
+        '<div style="font-size:10.5px;color:#64748b;margin:0 0 8px;line-height:1.8;">'
         '<b>Severity</b> &mdash; '
         f'{_chip("Critical", "#FADDDD", "#C02626")} on the critical path (total float &le; 0) &nbsp;·&nbsp; '
         f'{_chip("High", "#FBECCF", "#B45309")} near-critical (0 &lt; total float &le; {near} working days) &nbsp;·&nbsp; '
         f'{_chip("Medium", "#EEF1F6", "#41506A")} has float &mdash; not near-critical</div>')
     return f'''
       <h2 class="sec">Out Of Sequence Activity</h2>
+      {sev_legend}
       <table class="findings oos-logpdf"><thead>{head}</thead>
-        <tbody>{rows}</tbody></table>
-      {sev_legend}'''
+        <tbody>{rows}</tbody></table>'''
 
 
 def _oos_cpi(m):

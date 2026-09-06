@@ -632,7 +632,7 @@ body.oos-fs-body #results-section { transform: none !important; }
   border: 1px dashed var(--border); border-radius: 10px; background: var(--card-bg); }
 .oos-flowhint { font-size: 11px; color: var(--muted); margin-top: 8px; }
 .oos-flowhint b { color: var(--ink-soft); }
-.oos-sevlegend { font-size: 11px; color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; }
+.oos-sevlegend { font-size: 11px; color: var(--muted); margin: 4px 0 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; }
 .oos-sevlegend-t { font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; margin-right: 2px; }
 
 /* findings table — cleaner, lighter, roomier */
