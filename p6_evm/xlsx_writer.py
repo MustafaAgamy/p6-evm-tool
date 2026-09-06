@@ -16,16 +16,24 @@ _ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
 </Relationships>'''
 
-# Flat-table styles: index 0 = default, index 1 = bold (header row).
+# Flat-table styles: xf 0 = default · 1 = bold (header) · 2 = highlight (bold on light-amber fill,
+# top-aligned + wrapped) for the driving-relationship column, matching the UI's [DRIVING] highlight.
 _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>
-<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>
-<fills count="1"><fill><patternFill patternType="none"/></fill></fills>
+<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FF92400E"/><name val="Calibri"/></font></fonts>
+<fills count="3"><fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/></patternFill></fill></fills>
 <borders count="1"><border/></borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="2"><xf/><xf fontId="1" applyFont="1"/></cellXfs>
+<cellXfs count="3"><xf/><xf fontId="1" applyFont="1"/>
+<xf fontId="2" fillId="2" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+</cellXfs>
 </styleSheet>'''
+
+_HIGHLIGHT_STYLE = 2   # the driving-relationship highlight xf index in _STYLES
 
 # Calendar styles — fills tinted to match the PDF timeline legend.
 #   fills: 0 none · 1 gray125(reserved) · 2 work · 3 weekend · 4 holiday · 5 shutdown · 6 special · 7 header
@@ -94,8 +102,10 @@ def _cell(col, row, value, style=None):
             f'<t xml:space="preserve">{escape(str(value))}</t></is></c>')
 
 
-def _sheet(headers, rows):
-    """A flat table sheet: bold frozen header row + autofilter."""
+def _sheet(headers, rows, highlight_cols=None):
+    """A flat table sheet: bold frozen header row + autofilter. Data cells in any column listed
+    in ``highlight_cols`` (0-based indices) get the amber highlight style (e.g. the driving tie)."""
+    hi = set(highlight_cols or ())
     n_cols = max(len(headers), 1)
     last = f'{_col(n_cols - 1)}{len(rows) + 1}'
     out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
@@ -111,7 +121,7 @@ def _sheet(headers, rows):
     for i, row in enumerate(rows, start=2):
         out.append(f'<row r="{i}">')
         for c, v in enumerate(row):
-            out.append(_cell(c, i, v))
+            out.append(_cell(c, i, v, style=(_HIGHLIGHT_STYLE if c in hi else None)))
         out.append('</row>')
     out.append('</sheetData>')
     out.append(f'<autoFilter ref="A1:{last}"/>')
@@ -187,13 +197,14 @@ def _write_book(path, sheets, styles_xml):
             z.writestr(f'xl/worksheets/sheet{i}.xml', sheet_xml)
 
 
-def write_xlsx(path, sheet_name, headers, rows):
+def write_xlsx(path, sheet_name, headers, rows, highlight_cols=None):
     """Write a single-sheet flat table to `path`.
 
     headers: list[str]. rows: list of lists of str|int|float.
     Numbers become numeric cells; everything else an XML-escaped inline string.
+    highlight_cols: optional 0-based column indices whose data cells get the amber highlight style.
     """
-    _write_book(path, [(sheet_name, _sheet(headers, rows))], _STYLES)
+    _write_book(path, [(sheet_name, _sheet(headers, rows, highlight_cols))], _STYLES)
 
 
 _BAD_SHEET_CHARS = set('[]:*?/\\')

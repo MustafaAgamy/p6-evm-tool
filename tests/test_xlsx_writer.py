@@ -29,3 +29,17 @@ def test_empty_rows_ok(tmp_path):
     p = tmp_path / "e.xlsx"
     write_xlsx(str(p), "S", ["H1", "H2"], [])
     assert p.exists()
+
+
+def test_highlight_cols_apply_amber_style(tmp_path):
+    # A highlighted column's DATA cells carry the amber highlight style (xf s="2"); other cells and
+    # the header do not. This is how the driving relationship is highlighted on export.
+    p = tmp_path / "h.xlsx"
+    write_xlsx(str(p), "S", ["Plain", "Driving"], [["a", "D1"], ["b", "D2"]], highlight_cols=[1])
+    with zipfile.ZipFile(p) as z:
+        sheet = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
+        styles = z.read('xl/styles.xml').decode('utf-8')
+    assert 'FFFEF3C7' in styles                      # amber fill defined
+    # the driving-column data cells (B2, B3) are styled s="2"; the plain-column cells are not
+    assert '<c r="B2" s="2"' in sheet and '<c r="B3" s="2"' in sheet
+    assert '<c r="A2" s="2"' not in sheet

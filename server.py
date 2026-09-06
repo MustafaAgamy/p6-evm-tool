@@ -1322,9 +1322,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.xlsx_writer import write_xlsx
-            from p6_audit.exporters import excel_columns
+            from p6_audit.exporters import excel_columns, excel_highlight_cols
             headers, rows = excel_columns(m)
-            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31], headers, rows)
+            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31],
+                       headers, rows, highlight_cols=excel_highlight_cols(headers))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

@@ -167,10 +167,15 @@ def test_excel_columns_out_of_sequence():
     assert 'Baseline Predecessors' in headers and 'Baseline Successors' in headers
     assert 'After Predecessor Tie' in headers and 'After Successor Tie' in headers
     assert 'Remaining Preds' in headers
+    assert 'Driving Relationship' in headers        # highlighted column pinpointing the driving tie
     assert 'Data Date' in headers and 'Severity' in headers
     assert 'Fix 2' not in ' '.join(headers)
     assert rows[0][1] == 'SS-1420'
     assert 'FS → SS(2)' in rows[0]                 # the after-modification predecessor transition
+    # the driving column is flagged for the amber highlight on export
+    from p6_audit.exporters import excel_highlight_cols
+    hi = excel_highlight_cols(headers)
+    assert hi == [headers.index('Driving Relationship')]
     assert '19-Jul-2026' in rows[0]               # data date on the row
 
 

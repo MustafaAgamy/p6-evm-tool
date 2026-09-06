@@ -1,5 +1,14 @@
 """Per-module Excel column mappings. Each module exports only its own findings."""
 
+# Column headers that carry the driving-relationship highlight (amber fill) in the .xlsx —
+# so the driving activity stands out on export exactly as it does on screen.
+DRIVING_HEADER = 'Driving Relationship'
+
+
+def excel_highlight_cols(headers):
+    """0-based indices of columns to render with the driving-relationship highlight."""
+    return [i for i, h in enumerate(headers) if h == DRIVING_HEADER]
+
 
 def _impact_str(v):
     return f'{v}×' if v is not None else '—'
@@ -25,11 +34,19 @@ def excel_columns(module_result):
                 f"{p.get('id','')}  {p.get('label','')}{'  [Driving]' if p.get('affected') else ''}  —  {p.get('name','')}"
                 for p in lst)
 
-        headers = ['#', 'Activity ID', 'Activity Name',
+        def _driving(f):
+            # The driving relationship (the OOS cause) — its own amber-highlighted column so it
+            # stands out on export exactly as the [DRIVING] highlight does on screen.
+            pid, pname = f.get('pred_id', ''), f.get('pred_name', '')
+            if not pid:
+                return ''
+            return f"Predecessor · {pid} — {pname} · {f.get('pred_after_label', '')}"
+
+        headers = ['#', 'Activity ID', 'Activity Name', DRIVING_HEADER,
                    'Baseline Predecessors', 'Baseline Successors', 'Data Date',
                    'After Predecessor Tie', 'After Successor Tie', 'Remaining Preds', 'Severity']
         rows = [[
-            i, f.get('activity_id', ''), f.get('activity_name', ''),
+            i, f.get('activity_id', ''), f.get('activity_name', ''), _driving(f),
             _rel_lines(f.get('all_predecessors'), f.get('pred_id'), f.get('pred_name'),
                        f.get('pred_baseline_label'), 'No predecessor'),
             _rel_lines(f.get('all_successors'), f.get('succ_id'), f.get('succ_name'),

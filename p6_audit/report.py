@@ -293,9 +293,16 @@ def _oos_review_log(m):
             return f'<span class="mut">{_esc(fallback)}</span>'
         out = []
         for p in items:
-            drv = ' <b>[Driving]</b>' if p.get('affected') else ''
-            out.append(f'<div><span class="mono">{_esc(p.get("id"))}</span> {_esc(p.get("label"))}{drv}'
-                       f'<br><span class="mut">{_esc(p.get("name"))}</span></div>')
+            if p.get('affected'):
+                # Driving relationship — amber highlight, matching the on-screen [DRIVING] flag.
+                out.append('<div style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 4px;'
+                           '-webkit-print-color-adjust:exact;print-color-adjust:exact;">'
+                           f'<span class="mono">{_esc(p.get("id"))}</span> {_esc(p.get("label"))} '
+                           '<b>[DRIVING]</b>'
+                           f'<br>{_esc(p.get("name"))}</div>')
+            else:
+                out.append(f'<div><span class="mono">{_esc(p.get("id"))}</span> {_esc(p.get("label"))}'
+                           f'<br><span class="mut">{_esc(p.get("name"))}</span></div>')
         return ''.join(out)
 
     def _fallback_list(f, side):
