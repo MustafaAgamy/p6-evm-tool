@@ -203,7 +203,7 @@ def _after_display(base_type, base_lag, res):
     return f"{base} → {new}"
 
 
-def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
+def _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=0):
     """Correct ONE relationship tie so it matches the actual execution, like an experienced
     Planning / Project-Controls engineer, with the MINIMUM logical change:
 
@@ -216,13 +216,16 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
          progress, an FF tie legitimately resolves it (a real fix, not a review).
       3. If NO P6-legal relationship type or lag can resolve the out-of-sequence (the successor
          finished before this predecessor started, or the predecessor never started while the
-         successor completed) → **Needs Planner Review** (the `'manual'` action). Removal would
-         eliminate the flag, but deleting a dependency is a planning decision, NOT a defensible
-         automatic correction, so the tool never claims removal as an auto-resolution: the row stays
-         UNRESOLVED and the planner verifies the dates, reverses the tie, or removes it (removal is a
-         manual choice offered in the drawer). This upholds the "no false resolution" principle — a
-         correction counts only when the relationship actually changed to a P6-legal one that clears
-         the condition.
+         successor completed), removal is judged by the RESULTING logic (``remaining_preds`` = the
+         successor's other predecessors if this tie is removed):
+           - remaining_preds ≥ 1 (valid predecessor logic remains) → **Remove** as a defensible
+             automatic correction (removing the driving tie resolves it, other predecessors stay);
+           - remaining_preds == 0 (removal would leave an open end) → **Needs Planner Review**
+             (the `'manual'` action) — the row stays UNRESOLVED; the planner verifies the dates,
+             reverses the tie, or adds the correct predecessor (removal still offered in the drawer).
+         Removal is never used merely because it eliminates the OOS — only when the schedule logic
+         survives it. This upholds the "no false resolution" principle: a correction counts only when
+         the relationship genuinely changed to a P6-legal one that clears the condition.
 
     Whether a type CLEARS the condition is decided by the SAME detection rule (`_is_oos`), so a
     recommended change and the later re-validation always agree; and a change is only reported when
@@ -273,34 +276,44 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred):
             alternatives=alternatives,
             sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel=new_type, sug_pred_lag=lag)
 
-    # 3) No P6-legal relationship type or lag can RESOLVE the out-of-sequence — the successor
+    # 3) No P6-legal relationship TYPE or lag can RESOLVE the out-of-sequence — the successor
     #    finished before this predecessor started (or the predecessor never started while the
-    #    successor completed), so the dependency contradicts the actual execution and no type change
-    #    clears it. Removal WOULD eliminate the flag, but deleting a dependency is a planning decision,
-    #    not a defensible automatic correction — so this is NOT auto-resolved. It is flagged for the
-    #    planner (who can verify the dates, reverse the tie, or remove it — the last of these is
-    #    available as a manual choice in the drawer). Never present removal as an automatic resolution.
+    #    successor completed), so the dependency contradicts the actual execution. Removal WOULD clear
+    #    the flag; whether that is a defensible AUTOMATIC correction depends on the resulting logic:
+    #      - if the successor keeps ≥1 OTHER predecessor after removal (logic stays intact) → auto Remove;
+    #      - if removal would leave it with NO predecessor (an open end) → Needs Planner Review.
+    #    Removal is never used just because it is the easy way to eliminate the OOS.
     if p_as is None:
-        why = (f"the successor {succ_id} is already complete while predecessor {pred_id} shows no actual "
-               f"start")
+        why = f"the successor {succ_id} is already complete while predecessor {pred_id} shows no actual start"
     else:
         why = f"the successor {succ_id} finished before predecessor {pred_id} started"
-    reasoning = (f"No P6-legal relationship type or lag can resolve this out-of-sequence: {why}, so the "
-                 f"dependency contradicts the actual execution. No safe automatic correction exists — a "
-                 f"planner should verify the actual dates in P6, reverse the relationship, or (last resort) "
-                 f"remove the link. This is not auto-resolved.")
+    if remaining_preds >= 1:
+        others = f"{remaining_preds} other predecessor{'s' if remaining_preds != 1 else ''}"
+        reasoning = (f"No overlap type (SS/FF/SF) fits — {why}. Removing this driving relationship resolves "
+                     f"the out-of-sequence, and {succ_id} still keeps {others}, so the schedule logic stays "
+                     f"intact — a defensible automatic correction. Verify the actual dates in P6 if in doubt.")
+        return _resolution(
+            'remove', True,
+            f"Remove {pred_id} → {succ_id} — {succ_id} keeps {others}; removing the driving tie resolves "
+            f"the out-of-sequence while valid predecessor logic remains.",
+            reasoning=reasoning,
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
+    reasoning = (f"No overlap type (SS/FF/SF) fits — {why} — and removing this relationship would leave "
+                 f"{succ_id} with no valid predecessor (an open end), breaking the schedule logic. This "
+                 f"needs planner review: verify the actual dates in P6, reverse the relationship, or add "
+                 f"the correct predecessor. It is not auto-resolved.")
     return _resolution(
         'manual', False,
-        f"Needs Planner Review — no automatic relationship correction resolves {pred_id} → {succ_id} "
-        f"({why}); removal is a planner decision, not an automatic fix.",
+        f"Relationship Removed — Needs Planner Review: removing {pred_id} → {succ_id} would leave "
+        f"{succ_id} with no predecessor ({why}), so it cannot be auto-resolved.",
         reasoning=reasoning,
         sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REVIEW', sug_succ_name='—')
 
 
-def _suggest(graph, cur_type, cur_lag, succ, pred):
+def _suggest(graph, cur_type, cur_lag, succ, pred, remaining_preds=0):
     """Wrap the repair-first recommendation and derive the legacy fix labels (kept for the
     PDF/Excel and older tests) from it, so every surface tells the same story."""
-    res = _recommend_correction(graph, cur_type, cur_lag, succ, pred)
+    res = _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=remaining_preds)
     pred_id, pred_name = pred.get('id', ''), pred.get('name', '')
     if res['action'] == 'change':
         pred_fix = f"{_rel_num(res['sug_pred_rel'], res['sug_pred_lag'], always_lag=True)} - {pred_id} · {pred_name}"
@@ -338,6 +351,35 @@ def _first_successor(graph, oid):
             return (link.get('type', 'FS'), s.get('id', ''), s.get('name', ''),
                     link.get('lag_days', 0.0) or 0.0, link['other'], s)
     return '', '', '', 0.0, None, None
+
+
+def _rel_list(graph, links, affected_oid):
+    """All real predecessor/successor ties for an activity as {id, name, rel, lag, label, affected},
+    marking the affected (driving) one — so the planner sees the FULL relationship context, not just
+    the driving tie. De-duplicated by the related activity's ObjectId."""
+    out, seen = [], set()
+    for link in links:
+        oid2 = link.get('other')
+        other = graph.activities.get(oid2)
+        if not other or not graph.is_real_activity(oid2) or oid2 in seen:
+            continue
+        seen.add(oid2)
+        rel, lag = link.get('type', 'FS'), link.get('lag_days', 0.0) or 0.0
+        out.append({'id': other.get('id', ''), 'name': other.get('name', ''),
+                    'rel': rel, 'lag': lag, 'label': _rel_num(rel, lag),
+                    'affected': (oid2 == affected_oid)})
+    # Affected tie first, then the rest in their natural order — planner scans the change first.
+    out.sort(key=lambda r: (not r['affected']))
+    return out
+
+
+def _count_other_preds(graph, oid, affected_pred_oid):
+    """How many OTHER real predecessors an activity keeps if the affected tie is removed — the
+    'remaining valid predecessor logic' test that decides auto-Remove vs Needs Planner Review."""
+    preds = {l.get('other') for l in graph.preds_of(oid)
+             if graph.is_real_activity(l.get('other'))}
+    preds.discard(affected_pred_oid)
+    return len(preds)
 
 
 def _category_of(graph, oid):
@@ -416,7 +458,10 @@ def run_out_of_sequence(graph, config):
             continue
         _link, pred, rel_type = offending
         cur_lag = _link.get('lag_days', 0.0) or 0.0
-        sug = _suggest(graph, rel_type, cur_lag, act, pred)
+        pred_oid = _link.get('other')
+        # 'Remaining valid predecessor logic' after removing the driving tie → auto-Remove vs review.
+        pred_remaining = _count_other_preds(graph, oid, pred_oid)
+        sug = _suggest(graph, rel_type, cur_lag, act, pred, remaining_preds=pred_remaining)
         pred_res = sug['resolution']                        # predecessor-tie correction (the OOS cause)
         succ_rel, succ_id, succ_name, succ_lag, succ_oid, succ_act = _first_successor(graph, oid)
         crit = _criticality(act, near_days)
@@ -427,7 +472,14 @@ def run_out_of_sequence(graph, config):
         succ_res = None
         if succ_oid and succ_act and graph.is_real_activity(succ_oid) and _incomplete(act) \
                 and _is_oos(succ_rel, succ_act, act):
-            succ_res = _recommend_correction(graph, succ_rel, succ_lag, succ_act, act)
+            # Removing the X→S tie affects S's predecessor logic → count S's OTHER predecessors.
+            succ_remaining = _count_other_preds(graph, succ_oid, oid)
+            succ_res = _recommend_correction(graph, succ_rel, succ_lag, succ_act, act,
+                                             remaining_preds=succ_remaining)
+
+        # Full relationship context (Ibrahim): ALL predecessors + successors, driving one marked.
+        all_predecessors = _rel_list(graph, graph.preds_of(oid), pred_oid)
+        all_successors = _rel_list(graph, graph.succs_of(oid), succ_oid if succ_res is not None else None)
 
         pred_baseline = _rel_num(rel_type, cur_lag)
         succ_baseline = _rel_num(succ_rel, succ_lag) if succ_id else ''
@@ -448,6 +500,10 @@ def run_out_of_sequence(graph, config):
             'succ_id':                    succ_id,
             'succ_name':                  succ_name,
             'current_succ_lag':           succ_lag,
+            # Full relationship context — ALL predecessors + successors, driving one flagged:
+            'all_predecessors':           all_predecessors,
+            'all_successors':             all_successors,
+            'remaining_preds':            pred_remaining,     # other predecessors kept if driving tie removed
             # Baseline vs After Modification labels (LOG format), per tie:
             'pred_baseline_label':        pred_baseline,
             'pred_after_label':           _after_display(rel_type, cur_lag, pred_res),

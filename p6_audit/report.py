@@ -280,27 +280,36 @@ def _oos_review_log(m):
                 '<p class="empty">No out-of-sequence activities &mdash; schedule progress is consistent '
                 'with the network logic.</p>')
     cutoff = _esc(m.get('kpis', {}).get('data_date', ''))
-    # The After-Modification predecessor/successor NAMES are identical to Baseline (a correction
-    # changes the relationship, not which activity), so the After section carries only the
-    # before→after relationship transitions; the related activity ID + name stay in Baseline.
+    # Baseline lists ALL predecessor/successor ties (driving one flagged); the After section carries
+    # the before→after transition per affected tie. Names live in the Baseline lists (unchanged by a fix).
     head = ('<tr class="grp"><th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>'
-            '<th colspan="4" class="bl">Baseline</th><th rowspan="2">Data Date</th>'
+            '<th colspan="2" class="bl">Baseline relationships</th><th rowspan="2">Data Date</th>'
             '<th colspan="2" class="am">After Modification</th><th rowspan="2">Severity</th></tr>'
-            '<tr class="grp"><th class="bl">Predecessor</th><th class="bl">Relationship</th>'
-            '<th class="bl">Successor</th><th class="bl">Relationship</th>'
+            '<tr class="grp"><th class="bl">Predecessors</th><th class="bl">Successors</th>'
             '<th class="am">Predecessor tie</th><th class="am">Successor tie</th></tr>')
 
-    def _rel_party(pid, pname, fallback=''):
-        pid_html = f'<div class="mono">{_esc(pid)}</div>' if pid else ''
-        return pid_html + f'<div>{_esc(pname or fallback)}</div>'
+    def _rel_list(items, fallback):
+        if not items:
+            return f'<span class="mut">{_esc(fallback)}</span>'
+        out = []
+        for p in items:
+            drv = ' <b>[Driving]</b>' if p.get('affected') else ''
+            out.append(f'<div><span class="mono">{_esc(p.get("id"))}</span> {_esc(p.get("label"))}{drv}'
+                       f'<br><span class="mut">{_esc(p.get("name"))}</span></div>')
+        return ''.join(out)
+
+    def _fallback_list(f, side):
+        # Pre-enrichment snapshots: fall back to the single driving tie.
+        pid, pname, lbl = ((f.get('pred_id'), f.get('pred_name'), f.get('pred_baseline_label'))
+                           if side == 'pred' else
+                           (f.get('succ_id'), f.get('succ_name'), f.get('succ_baseline_label')))
+        return [{'id': pid, 'name': pname, 'label': lbl, 'affected': True}] if pid else []
 
     rows = ''.join(
         f'<tr><td class="num">{i}</td><td class="mono">{_esc(f.get("activity_id"))}</td>'
         f'<td>{_esc(f.get("activity_name"))}</td>'
-        f'<td class="bl">{_rel_party(f.get("pred_id"), f.get("pred_name"))}</td>'
-        f'<td class="bl">{_esc(f.get("pred_baseline_label"))}</td>'
-        f'<td class="bl">{_rel_party(f.get("succ_id"), f.get("succ_name"), "No successor" if not f.get("succ_id") else "")}</td>'
-        f'<td class="bl">{_esc(f.get("succ_baseline_label") or "—")}</td>'
+        f'<td class="bl">{_rel_list(f.get("all_predecessors") or _fallback_list(f, "pred"), "No predecessor")}</td>'
+        f'<td class="bl">{_rel_list(f.get("all_successors") or _fallback_list(f, "succ"), "No successor")}</td>'
         f'<td class="mut">{cutoff}</td>'
         f'<td class="am">{_esc(f.get("pred_after_label"))}</td>'
         f'<td class="am">{_esc(f.get("succ_after_label"))}</td>'

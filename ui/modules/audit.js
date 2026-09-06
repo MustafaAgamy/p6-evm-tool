@@ -633,25 +633,38 @@ function _oosResCell(f, resolved) {
 
 function _oosLogRow(f, i, dd, resolved) {
   const succName = f.succ_name || (f.succ_id ? '' : 'No successor');
-  // The After-Modification predecessor/successor NAMES are always identical to Baseline (a
-  // correction changes the relationship, not which activity), so they are not repeated — the
-  // After columns carry the before→after relationship transition; the names stay in Baseline.
+  // Baseline shows ALL predecessor/successor ties (driving one flagged), so the planner sees the
+  // full context — not only the driving tie. The After columns carry the before→after transition
+  // for the affected tie; predecessor/successor NAMES are in the Baseline lists (unchanged by a fix).
+  const predList = f.all_predecessors || (f.pred_id ? [{ id: f.pred_id, name: f.pred_name, label: f.pred_baseline_label, affected: true }] : []);
+  const succList = f.all_successors || (f.succ_id ? [{ id: f.succ_id, name: f.succ_name, label: f.succ_baseline_label, affected: (f.succ_after_label && f.succ_after_label !== 'No change' && f.succ_after_label !== '—') }] : []);
+  const remainNote = (f.pred_resolution && f.pred_resolution.action === 'remove' && typeof f.remaining_preds === 'number')
+    ? `<div class="oos-remain">Remaining predecessors: ${f.remaining_preds}</div>` : '';
   return `
     <tr class="oos-frow" data-fid="${escapeHtml(f.finding_id)}">
       <td class="oos-num">${i + 1}</td>
       <td class="id mono">${escapeHtml(f.activity_id)}</td>
       <td class="nm actnm">${escapeHtml(f.activity_name)}</td>
-      <td class="bl pred">${f.pred_id ? `<div class="mono relid">${escapeHtml(f.pred_id)}</div>` : ''}<div>${escapeHtml(f.pred_name || '')}</div></td>
-      <td class="bl rel"><span class="oos-relb">${escapeHtml(f.pred_baseline_label || '')}</span></td>
-      <td class="bl pred">${f.succ_id ? `<div class="mono relid">${escapeHtml(f.succ_id)}</div>` : ''}<div>${escapeHtml(succName)}</div></td>
-      <td class="bl rel">${f.succ_baseline_label ? `<span class="oos-relb">${escapeHtml(f.succ_baseline_label)}</span>` : '<span class="mut">—</span>'}</td>
+      <td class="bl rellist">${_oosRelListCell(predList, 'No predecessor')}</td>
+      <td class="bl rellist">${_oosRelListCell(succList, 'No successor')}</td>
       <td class="dd mono mut">${dd}</td>
-      <td class="am rel">${_oosAfterCell(f.pred_after_label)}</td>
+      <td class="am rel">${_oosAfterCell(f.pred_after_label)}${remainNote}</td>
       <td class="am rel">${_oosAfterCell(f.succ_after_label)}</td>
       <td class="sev">${_oosSevCell(f)}</td>
       <td class="oos-rescell">${_oosResCell(f, resolved)}</td>
     </tr>
-    <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="12">${_oosDrawer(f)}</td></tr>`;
+    <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="10">${_oosDrawer(f)}</td></tr>`;
+}
+
+// A Baseline cell listing every predecessor/successor tie, the driving one flagged + listed first.
+function _oosRelListCell(list, emptyLabel) {
+  if (!list || !list.length) return `<span class="oos-nochg">${escapeHtml(emptyLabel)}</span>`;
+  return list.map(p => {
+    const badge = p.affected ? `<span class="oos-affbadge">Driving</span>` : '';
+    return `<div class="oos-relrow${p.affected ? ' aff' : ''}">`
+      + `<span class="mono relid">${escapeHtml(p.id || '')}</span> <span class="oos-relb">${escapeHtml(p.label || '')}</span> ${badge}`
+      + `<div class="nm">${escapeHtml(p.name || '')}</div></div>`;
+  }).join('');
 }
 
 function _oosLogTable(rows, dd, resolved) {
@@ -667,13 +680,13 @@ function _oosLogTable(rows, dd, resolved) {
       <thead>
         <tr class="oos-grp">
           <th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>
-          <th class="bl" colspan="4">Baseline</th>
+          <th class="bl" colspan="2">Baseline relationships</th>
           <th rowspan="2">Data Date</th>
           <th class="am" colspan="2">After Modification</th>
           <th rowspan="2">Severity</th><th rowspan="2">Resolution</th>
         </tr>
         <tr class="oos-sub">
-          <th class="bl">Predecessor</th><th class="bl">Relationship</th><th class="bl">Successor</th><th class="bl">Relationship</th>
+          <th class="bl">Predecessors</th><th class="bl">Successors</th>
           <th class="am">Predecessor tie</th><th class="am">Successor tie</th>
         </tr>
       </thead>

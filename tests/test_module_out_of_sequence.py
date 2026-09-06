@@ -283,6 +283,61 @@ def test_remove_and_manual_have_no_alternatives():
     assert _by_id(run_out_of_sequence(remove_g, CONFIG))['s']['resolution']['alternatives'] == []
 
 
+def test_remove_auto_resolves_when_other_predecessors_remain():
+    # X finished before its driving predecessor A started (no overlap type fits). X ALSO has a valid
+    # predecessor B (complete before X started). Removing the driving A→X resolves the OOS while B
+    # remains → this IS a defensible automatic Remove (not planner review).
+    g = _g({
+        'A': _act('A', actual_start=dt('2026-02-01')),                                 # driving, starts late
+        'B': _act('B', actual_start=dt('2025-12-01'), actual_finish=dt('2025-12-20')),  # valid, complete
+        'X': _act('X', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),  # finished before A started
+    }, [
+        {'pred_id': 'A', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0},
+        {'pred_id': 'B', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0},
+    ])
+    f = _by_id(run_out_of_sequence(g, CONFIG))['X']
+    assert f['resolution']['action'] == 'remove' and f['resolution']['applicable'] is True
+    assert f['pred_after_label'] == 'FS → Removed'
+    assert f['remaining_preds'] == 1
+    assert 'keeps' in f['resolution']['action_text'].lower()
+
+
+def test_planner_review_when_removal_leaves_open_end():
+    # X finished before its ONLY predecessor A started → removing A→X would leave X with no
+    # predecessor (an open end) → Needs Planner Review, NOT an auto-remove.
+    g = _g({
+        'A': _act('A', actual_start=dt('2026-02-01')),
+        'X': _act('X', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
+    }, [{'pred_id': 'A', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0}])
+    f = _by_id(run_out_of_sequence(g, CONFIG))['X']
+    assert f['resolution']['action'] == 'manual' and f['resolution']['applicable'] is False
+    assert f['pred_after_label'] == 'Needs Planner Review'
+    assert f['remaining_preds'] == 0
+
+
+def test_all_predecessors_listed_with_driving_marked():
+    # An activity with several predecessors shows ALL of them, with the driving/affected one flagged
+    # and listed first — not only the driving relationship.
+    g = _g({
+        'A': _act('A', actual_start=dt('2026-01-10')),                                  # driving (incomplete)
+        'B': _act('B', actual_start=dt('2025-12-01'), actual_finish=dt('2025-12-20')),
+        'C': _act('C', actual_start=dt('2025-12-05'), actual_finish=dt('2025-12-25')),
+        'X': _act('X', actual_start=dt('2026-01-05')),                                  # OOS vs A
+    }, [
+        {'pred_id': 'A', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0},
+        {'pred_id': 'B', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0},
+        {'pred_id': 'C', 'succ_id': 'X', 'type': 'FS', 'lag_days': 2},
+    ])
+    f = _by_id(run_out_of_sequence(g, CONFIG))['X']
+    preds = f['all_predecessors']
+    assert len(preds) == 3
+    affected = [p for p in preds if p['affected']]
+    assert len(affected) == 1 and affected[0]['id'] == 'A'
+    assert preds[0]['affected']                                  # driving listed first
+    assert {p['id'] for p in preds} == {'A', 'B', 'C'}
+    assert all(p.get('id') and 'label' in p for p in preds)     # each fully identified
+
+
 def test_planner_review_for_non_fs_tie_when_no_overlap_fits():
     # A NON-FS tie (SS) where the successor finished before the predecessor started → no overlap
     # type resolves it. Changing to FS would NOT clear the OOS (a false resolution), so the engine

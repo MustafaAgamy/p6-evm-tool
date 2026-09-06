@@ -12,21 +12,31 @@ def excel_columns(module_result):
 
     if module == 'out_of_sequence':
         cutoff = module_result.get('kpis', {}).get('data_date', '')
-        # LOG format: Baseline (related activity ID + name + Rel, per side) vs After Modification
-        # (the before→after relationship transition per tie). The After side does not repeat the
-        # names — they are unchanged — but includes the related activity ID so a multi-predecessor /
-        # multi-successor activity shows exactly WHICH tie was modified.
+        # LOG format: Baseline lists ALL predecessor/successor ties (driving one marked) vs After
+        # Modification (the before→after transition per affected tie). Each Baseline cell is a
+        # multi-line list so a multi-predecessor / multi-successor activity shows the full context and
+        # exactly WHICH tie was modified.
+        def _rel_lines(items, single_id, single_name, single_label, fallback):
+            lst = items if items else ([{'id': single_id, 'name': single_name,
+                                         'label': single_label, 'affected': True}] if single_id else [])
+            if not lst:
+                return fallback
+            return '\n'.join(
+                f"{p.get('id','')}  {p.get('label','')}{'  [Driving]' if p.get('affected') else ''}  —  {p.get('name','')}"
+                for p in lst)
+
         headers = ['#', 'Activity ID', 'Activity Name',
-                   'Baseline Pred. ID', 'Baseline Predecessor', 'Baseline Pred. Rel.',
-                   'Baseline Succ. ID', 'Baseline Successor', 'Baseline Succ. Rel.', 'Data Date',
-                   'After Predecessor Tie', 'After Successor Tie', 'Severity']
+                   'Baseline Predecessors', 'Baseline Successors', 'Data Date',
+                   'After Predecessor Tie', 'After Successor Tie', 'Remaining Preds', 'Severity']
         rows = [[
             i, f.get('activity_id', ''), f.get('activity_name', ''),
-            f.get('pred_id', ''), f.get('pred_name', ''), f.get('pred_baseline_label', ''),
-            f.get('succ_id', ''),
-            (f.get('succ_name', '') or ('No successor' if not f.get('succ_id') else '')),
-            f.get('succ_baseline_label', ''), cutoff,
+            _rel_lines(f.get('all_predecessors'), f.get('pred_id'), f.get('pred_name'),
+                       f.get('pred_baseline_label'), 'No predecessor'),
+            _rel_lines(f.get('all_successors'), f.get('succ_id'), f.get('succ_name'),
+                       f.get('succ_baseline_label'), 'No successor'),
+            cutoff,
             f.get('pred_after_label', ''), f.get('succ_after_label', ''),
+            (f.get('remaining_preds', '') if f.get('remaining_preds') is not None else ''),
             f.get('severity', 'Medium'),
         ] for i, f in enumerate(findings, 1)]
         return headers, rows
