@@ -94,6 +94,15 @@ export function oosHasFix(f) {
   return acts(f.pred_resolution || f.resolution) || (!!f.succ_id && acts(f.succ_resolution));
 }
 
+// Honest outcome of a bulk apply: of the findings an op was applied to (touchedIds), how many
+// actually CLEARED — i.e. are absent from the post-validation open set (freshAfter) — vs were applied
+// but are still out of sequence. Never counts a still-open finding as resolved.
+export function oosBulkOutcome(touchedIds, freshAfter) {
+  const open = new Set((freshAfter || []).map(f => f.finding_id));
+  const resolved = (touchedIds || []).filter(id => !open.has(id)).length;
+  return { applied: (touchedIds || []).length, resolved, notCleared: (touchedIds || []).length - resolved };
+}
+
 // ── DOM rendering + wiring (browser only) ─────────────────────────────────
 
 import { state } from './state.js';
@@ -831,37 +840,46 @@ async function _oosApply(fid) {
 // planner needn't click Apply on each activity. Findings that need planner review (no auto op) are
 // skipped and stay open. Any per-finding edits made in a drawer are respected (_oosBuildOps reads them).
 async function _oosApplyAll() {
+  if (_oos._applying) return;                            // ignore re-entrant clicks while a bulk apply is in flight
   const candidates = _oos.fresh.map(f => ({ f, ops: _oosBuildOps(f) })).filter(c => c.ops.length);
   const applicable = candidates.length;
-  const review = _oos.fresh.length - applicable;
+  const review = _oos.fresh.length - applicable;         // open findings with no automatic fix (need review / a data fix)
   if (!applicable) {
     _oosDlNote('None of the open findings have a recommended fix — the remaining ones need planner review. Open a finding to decide it.', true);
     return;
   }
   const msg = `Apply the recommended correction to ${applicable} finding${applicable === 1 ? '' : 's'}?`
-    + (review ? `\n\n${review} finding${review === 1 ? '' : 's'} need planner review and will stay open.` : '')
+    + (review ? `\n\n${review} finding${review === 1 ? '' : 's'} have no automatic fix and will stay open for review.` : '')
     + '\n\nNothing is written to your P6 file until you click Download Corrected Schedule.';
   if (!window.confirm(msg)) return;
-  const touched = [];
-  candidates.forEach(({ f, ops }) => { _oos.applied[f.finding_id] = { finding: f, ops, reason: '' }; touched.push(f.finding_id); });
+  const prev = {}, touched = [];
+  candidates.forEach(({ f, ops }) => {
+    prev[f.finding_id] = _oos.applied[f.finding_id];     // snapshot (may be undefined) for a clean rollback
+    const reason = (_oos.applied[f.finding_id] || {}).reason || '';   // keep a reason from a prior individual Apply
+    _oos.applied[f.finding_id] = { finding: f, ops, reason };
+    touched.push(f.finding_id);
+  });
+  const rollback = () => touched.forEach(id => {
+    if (prev[id] === undefined) delete _oos.applied[id]; else _oos.applied[id] = prev[id];
+  });
+  _oos._applying = true;
   _oosDlNote('Applying all recommended corrections…');
   try {
     const out = await _oosValidate();
-    if (!out.ok) {
-      touched.forEach(id => delete _oos.applied[id]);   // roll back so a failed bulk apply leaves no phantom ops
-      _oosDlNote(out.error || 'Validation failed.', true);
-      renderOosReview();
-      return;
-    }
+    if (!out.ok) { rollback(); _oosDlNote(out.error || 'Validation failed.', true); renderOosReview(); return; }
     _oos.fresh = out.findings || [];
     renderOosReview();
-    const left = (_oos.fresh || []).length;
-    _oosDlNote(`Applied ${touched.length} correction${touched.length === 1 ? '' : 's'} — moved to Resolved.`
-      + (left ? ` ${left} finding${left === 1 ? '' : 's'} still open (needs planner review).` : ''));
+    const outcome = oosBulkOutcome(touched, _oos.fresh);          // honest: count what actually cleared
+    const stillReview = (_oos.fresh || []).length - outcome.notCleared;   // untouched, still open (review / data)
+    _oosDlNote(`Applied ${outcome.applied} correction${outcome.applied === 1 ? '' : 's'} — ${outcome.resolved} moved to Resolved.`
+      + (outcome.notCleared ? ` ${outcome.notCleared} applied but still out of sequence (check the actual dates in P6).` : '')
+      + (stillReview ? ` ${stillReview} still need review.` : ''));
   } catch (e) {
-    touched.forEach(id => delete _oos.applied[id]);
+    rollback();
     _oosDlNote('Could not reach the analysis engine.', true);
     renderOosReview();
+  } finally {
+    _oos._applying = false;
   }
 }
 
