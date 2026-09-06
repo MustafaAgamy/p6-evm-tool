@@ -1886,6 +1886,13 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_xlsx
             from p6_audit.exporters import (excel_columns, excel_highlight_cols,
                                             excel_severity_meta, filter_lag_findings)
+            lag_justifications = body.get('lag_justifications')
+            if module == 'lag_lead' and lag_justifications:
+                # Print the justifications the planner has on screen (typed or previously saved).
+                # The DB copy loaded above carries none — they're merged in only on parse /
+                # project-load — so without this the register would export blank reasons.
+                from p6_audit.modules.lag_lead import apply_justifications
+                apply_justifications(m, lag_justifications)
             lag_visible_keys = body.get('lag_visible_keys')
             if module == 'lag_lead' and lag_visible_keys is not None:
                 # On-screen filter honoured in the export — findings only; the row-detail
@@ -1933,6 +1940,13 @@ class Handler(BaseHTTPRequestHandler):
             from p6_audit.exporters import filter_lag_findings
             import subprocess, tempfile
             _theme = report_theme.normalize(body.get('theme'))
+            lag_justifications = body.get('lag_justifications')
+            if not is_summary and module == 'lag_lead' and lag_justifications:
+                # Print the on-screen justifications (typed or saved) — the DB module has none
+                # (merged only on parse / project-load), so the PDF register would be blank
+                # otherwise. Applied before the filter so surviving rows carry their reasons.
+                from p6_audit.modules.lag_lead import apply_justifications
+                apply_justifications(m, lag_justifications)
             lag_visible_keys = body.get('lag_visible_keys')
             if not is_summary and module == 'lag_lead' and lag_visible_keys is not None:
                 # On-screen filter honoured in the PDF — register (findings) only; charts/KPIs

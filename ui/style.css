@@ -1768,12 +1768,12 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .lag-table td.mono { font-family: ui-monospace, 'Consolas', monospace; font-weight: 600; white-space: nowrap; }
 .lag-relcell { min-width: 120px; white-space: normal; }
 .lag-relcell .lag-chip { vertical-align: middle; }
-.lag-jcol { min-width: 190px; }
+.lag-jcol { min-width: 300px; width: 300px; }
 .lag-jhdr { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
 .lag-fontsize { display: inline-flex; gap: 3px; }
 .lag-fontsize button { border: 1px solid var(--border); background: var(--card-bg); color: var(--ink-soft); font-size: 10px; font-weight: 700; line-height: 1; cursor: pointer; border-radius: 4px; padding: 3px 6px; }
 .lag-fontsize button:hover { border-color: var(--accent); color: var(--accent); }
-.lag-just { display: block; width: 100%; min-width: 170px; background: var(--row-hover); border: 1px dashed var(--border); border-radius: 6px; padding: 6px 8px; font-size: var(--lag-just-fs, 12px); color: var(--text); font-family: inherit; line-height: 1.4; resize: vertical; min-height: 32px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; }
+.lag-just { display: block; width: 100%; min-width: 260px; background: var(--row-hover); border: 1px dashed var(--border); border-radius: 6px; padding: 7px 10px; font-size: var(--lag-just-fs, 12px); color: var(--text); font-family: inherit; line-height: 1.45; resize: vertical; min-height: 46px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; }
 .lag-just::placeholder { color: var(--muted); font-style: italic; }
 .lag-just:focus { border-style: solid; border-color: var(--accent); outline: none; }
 
