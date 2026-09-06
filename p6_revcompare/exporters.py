@@ -296,7 +296,7 @@ def render_html(report, meta=None, sections=None, theme='light'):
     ]
     _rc = report.get('resource_changes') or {}
     _res_available = bool(_rc.get('cost_available') or _rc.get('resource_available'))
-    keys = set(sections) if sections else None
+    keys = set(sections) if sections is not None else None   # [] = picker cleared all → header only (not "render all")
     body = [_header(report, meta)]
     for key, title, htmlc, brk in secs:
         if keys is not None and key not in keys:

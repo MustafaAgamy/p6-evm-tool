@@ -489,6 +489,24 @@ function msView(r) {
 
 // ── Report (PDF) — invoked by the global File ▸ Print / Export action ─────────
 
+// The Report-Contents sections the Baseline Revision PDF can print (tool-wide picker
+// standard). Keys + order mirror p6_revcompare/exporters.py render_html()'s `secs` list;
+// the server already gates each `data-sec` by the passed `sections`. Resource and the
+// register-derived sections are marked empty (disabled "no data" pick) when absent.
+export const REVCOMPARE_SECTIONS = [
+  { key: 'summary',    label: 'Executive Summary' },
+  { key: 'overview',   label: 'Revision Overview' },
+  { key: 'milestones', label: 'Milestone Comparison' },
+  { key: 'critpath',   label: 'Critical Path Comparison' },
+  { key: 'sequence',   label: 'Major Sequence Changes' },
+  { key: 'logic',      label: 'Major Relationship / Logic Changes' },
+  { key: 'scope',      label: 'WBS, Calendar & Constraint Changes' },
+  { key: 'resource',   label: 'Resource & Cost Comparison' },
+  { key: 'register',   label: 'Detailed Change Register' },
+  { key: 'detailed',   label: 'Detailed Change Analysis' },
+];
+const _RC_STORAGE_KEY = 'p6_report_sections_revcompare';
+
 export async function openRevcompareReport() {
   const r = state.revcompareReport;
   if (!r) { showError('Run the comparison first, then print.'); return; }
@@ -497,27 +515,40 @@ export async function openRevcompareReport() {
     rev0_file: r.rev0.file, rev1_file: r.rev1.file,
     report_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
   };
-  const fetchPreview = async (theme) => {
+  // Which sections have data (matches the server's own skip conditions): resource needs a
+  // cost/resource change; the register + detailed analysis need change-register rows.
+  const rc = r.resource_changes || {};
+  const hasRegister = Array.isArray(r.register) && r.register.length > 0;
+  const sections = REVCOMPARE_SECTIONS.map(s => ({ ...s,
+    empty: (s.key === 'resource' && !(rc.cost_available || rc.resource_available))
+        || ((s.key === 'register' || s.key === 'detailed') && !hasRegister) }));
+  let selected = sections.filter(s => !s.empty).map(s => s.key);
+  try {
+    const saved = JSON.parse(localStorage.getItem(_RC_STORAGE_KEY) || 'null');
+    if (Array.isArray(saved)) selected = saved.filter(k => sections.some(s => s.key === k && !s.empty));
+  } catch { /* default: every non-empty section */ }
+  const fetchPreview = async (keys, theme) => {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/revcompare/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: r, meta, preview: true, theme: theme || mode }),
+      body: JSON.stringify({ report: r, meta, preview: true, sections: keys || null, theme: theme || mode }),
     });
     const data = await resp.json();
     return (data.ok && data.html) ? data.html : null;
   };
   try {
-    const html = await fetchPreview(mode);
+    const html = await fetchPreview(selected, mode);
     if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
       title: 'Baseline Revision Comparison', subtitle: `${r.rev0.file || 'Rev.00'} vs ${r.rev1.file || 'Rev.01'}`,
-      html, initialMode: mode,
-      onThemeChange: (theme) => fetchPreview(theme),
-      onSave: async (m) => {
+      html, sections, selected, storageKey: _RC_STORAGE_KEY, initialMode: mode,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: async (m, keys) => {
         const outputPath = await window.pywebview.api.choose_save_path('Baseline_Revision_Comparison.pdf', 'pdf');
         if (!outputPath) return false;
         const resp = await fetch(`http://localhost:${state.serverPort}/api/revcompare/report`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ report: r, meta, theme: m, output_path: outputPath }),
+          body: JSON.stringify({ report: r, meta, theme: m, sections: keys || null, output_path: outputPath }),
         });
         const data = await resp.json();
         if (!data.ok) { showError(`PDF generation failed: ${data.error}`); return false; }
