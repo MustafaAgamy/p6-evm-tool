@@ -112,6 +112,20 @@ def _xlsx_sheet_text(path):
         return z.read('xl/worksheets/sheet1.xml').decode('utf-8')
 
 
+def _xlsx_all_text(path):
+    """Shared-string + sheet text of an xlsx, for substring assertions (cell text may live
+    in sharedStrings.xml or be written inline into the sheet — search both)."""
+    import zipfile
+    parts = []
+    with zipfile.ZipFile(path) as z:
+        for name in ('xl/sharedStrings.xml', 'xl/worksheets/sheet1.xml'):
+            try:
+                parts.append(z.read(name).decode('utf-8'))
+            except KeyError:
+                pass
+    return '\n'.join(parts)
+
+
 def test_compare_missing_files_returns_error(test_server):
     _, data = _post_json(test_server, '/api/compare',
                          {'baseline_path': 'nope.xer', 'update_path': 'nope.xml'})
@@ -614,6 +628,38 @@ def test_module_report_preview_lag_lead_no_filter_shows_all_no_caption(test_serv
     html = data['html']
     assert 'class="lagfilter"' not in html
     assert html.count('<tr><td class="num">') == 2             # both findings, unfiltered
+
+
+def test_module_report_lag_lead_prints_on_screen_justifications(test_server, tmp_path):
+    # The planner's typed/saved justification must reach the exported register. It rides in the
+    # request (lag_justifications) because the DB module carries none — they're merged onto the
+    # module only on parse / project-load, not in the export handler that re-reads from the DB.
+    xml = tmp_path / 'lag.xml'; xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+    # baseline: nothing sent -> the register cell is blank (this is the bug being fixed)
+    _, base = _post_json(test_server, '/api/report/module',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'preview': True,
+                          'meta': {'project_name': 'P'}})
+    assert base['ok'] is True and 'CURE 28 DAYS' not in base['html']
+    # with the on-screen text sent -> it prints in the register
+    _, data = _post_json(test_server, '/api/report/module',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'preview': True,
+                          'meta': {'project_name': 'P'},
+                          'lag_justifications': {'A100|A200|FS': 'CURE 28 DAYS'}})
+    assert data['ok'] is True and 'CURE 28 DAYS' in data['html']
+
+
+def test_export_excel_lag_lead_includes_on_screen_justifications(test_server, tmp_path):
+    xml = tmp_path / 'lag.xml'; xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+    out = str(tmp_path / 'lag_just.xlsx')
+    _, data = _post_json(test_server, '/api/export/excel',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'output_path': out,
+                          'lag_justifications': {'A100|A200|FS': 'CURE 28 DAYS'}})
+    assert data['ok'] is True
+    assert 'CURE 28 DAYS' in _xlsx_all_text(out)
 
 
 def test_gap_route_reparses(test_server, xml_path):
