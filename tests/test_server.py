@@ -104,6 +104,14 @@ def _xlsx_row_count(path):
     return xml.count('<row r="')
 
 
+def _xlsx_sheet_text(path):
+    """Raw XML of the first worksheet. write_xlsx uses inline strings, so a cell value
+    like an Activity ID ('A200') is stored verbatim and findable by substring."""
+    import zipfile
+    with zipfile.ZipFile(path) as z:
+        return z.read('xl/worksheets/sheet1.xml').decode('utf-8')
+
+
 def test_compare_missing_files_returns_error(test_server):
     _, data = _post_json(test_server, '/api/compare',
                          {'baseline_path': 'nope.xer', 'update_path': 'nope.xml'})
@@ -213,6 +221,53 @@ def test_oos_corrected_file_requires_applied(test_server, tmp_path):
     _, out = _post_json(test_server, '/api/oos/corrected-file',
                         {'xml_path': str(p), 'output_path': str(out_path), 'accepted': []})
     assert out['ok'] is False
+
+
+def test_oos_excel_export_unchanged_after_apply_all(test_server, tmp_path):
+    """req 01 (regression): the Out-of-Sequence 'Export to Excel' reads the STORED snapshot
+    from the DB, while 'Apply all recommended fixes' re-validates in memory only (writes
+    nothing to the DB). So applying every fix must NEVER empty or shrink the export — a
+    silently-empty export would be a serious defect for a planner who trusts the register.
+
+    This is the strongest, least-mocked proof: it drives the real /api/parse, /api/oos/validate
+    (the endpoint the 'Apply all' button calls) and /api/export/excel handlers end to end.
+    It FAILS the moment a future change makes the export depend on the applied/resolved state."""
+    p = tmp_path / 'oos.xml'; p.write_text(_OOS_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(p)})
+    sid = parsed['snapshot_id']
+    oos = parsed['result']['audit_modules']['modules']['out_of_sequence']
+    n_findings = len(oos['findings'])
+    assert n_findings >= 1                                   # the fixture carries a real OOS finding (A200)
+
+    # Export BEFORE apply-all — the baseline the planner would download.
+    out_before = str(tmp_path / 'oos_before.xlsx')
+    _, d_before = _post_json(test_server, '/api/export/excel',
+                             {'snapshot_id': sid, 'module': 'out_of_sequence', 'output_path': out_before})
+    assert d_before['ok'] is True
+    rows_before = _xlsx_row_count(out_before)
+    assert 'A200' in _xlsx_sheet_text(out_before)
+
+    # Apply ALL recommended fixes — build an accepted op for every finding, then hit the real
+    # /api/oos/validate endpoint (what _oosApplyAll POSTs). This resolves the finding in memory.
+    def _op_for(f):
+        r = f['resolution']
+        return {'finding_id': f['finding_id'], 'pred_id': f['pred_id'], 'succ_id': f['activity_id'],
+                'action': r['action'], 'new_type': r['new_type'],
+                'new_lag_days': r['new_lag_days'], 'new_pred_id': r['new_pred_id']}
+    accepted_all = [_op_for(f) for f in oos['findings']]
+    _, val = _post_json(test_server, '/api/oos/validate',
+                        {'xml_path': str(p), 'accepted': accepted_all})
+    assert val['ok'] is True
+    assert set(val['resolved']) == {f['finding_id'] for f in oos['findings']}   # apply-all really cleared them
+    assert val['findings'] == []                                                 # nothing left out of sequence
+
+    # Export AFTER apply-all — must be identical: same row count, still shows A200.
+    out_after = str(tmp_path / 'oos_after.xlsx')
+    _, d_after = _post_json(test_server, '/api/export/excel',
+                            {'snapshot_id': sid, 'module': 'out_of_sequence', 'output_path': out_after})
+    assert d_after['ok'] is True
+    assert _xlsx_row_count(out_after) == rows_before        # NOT reduced or emptied by apply-all
+    assert 'A200' in _xlsx_sheet_text(out_after)            # every OOS finding still exported
 
 
 def test_index_returns_200(test_server):
