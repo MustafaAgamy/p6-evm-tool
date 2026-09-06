@@ -232,5 +232,16 @@ def run_lag_lead(graph, config):
             'executive_conclusion': _conclusion(lagged, lagged_pct, leads, longs, crit_c, long_days),
         },
         'wbs_summary': wbs_summary,
+        # Report-Contents picker (tool-wide standard): declaring sections here makes
+        # the generic selector in generateModulePdf appear for the Lag Report, so the
+        # planner can choose which parts print (Preview == PDF). Keys match report.py
+        # _sections() for lag_lead: 'summary' | 'charts' | 'findings'.
+        'presentation': {
+            'sections': [
+                {'key': 'summary',  'label': 'Summary line',                        'empty': lagged == 0},
+                {'key': 'charts',   'label': 'Charts — by type, by WBS, lag makeup', 'empty': lagged == 0},
+                {'key': 'findings', 'label': 'Lag & Lead register',                  'empty': lagged == 0},
+            ],
+        },
         'findings': findings,
     }
