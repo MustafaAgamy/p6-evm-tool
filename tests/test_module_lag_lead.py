@@ -247,6 +247,98 @@ def test_render_module_report_lag_lead_smoke():
     assert 'Needs attention' not in html            # verdict lives in the scoring feature, not here
 
 
+def test_excel_columns_lag_lead_filtered_reduces_rows_same_headers():
+    from p6_audit.exporters import excel_columns, filter_lag_findings
+    g = _g({'p': _act('p'), 's1': _act('s1'), 's2': _act('s2')},
+           [{'pred_id': 'p', 'succ_id': 's1', 'type': 'FS', 'lag_days': 7},
+            {'pred_id': 'p', 'succ_id': 's2', 'type': 'FS', 'lag_days': 4}])
+    mod = run_lag_lead(g, CONFIG)
+    headers_all, rows_all = excel_columns(mod)
+    assert len(rows_all) == 2
+
+    filtered = filter_lag_findings(mod, ['p|s1|FS'])
+    headers_f, rows_f = excel_columns(filtered)
+    assert headers_f == headers_all           # same columns, fewer rows
+    assert len(rows_f) == 1
+    assert rows_f[0][1] == 's1'
+
+
+def test_render_module_report_lag_lead_filtered_caption_and_narrowed_register():
+    # The register narrows to the visible findings, but the summary/charts read
+    # kpis/wbs_summary (precomputed, whole-schedule) — they must NOT narrow.
+    from p6_audit.report import render_module_report
+    from p6_audit.exporters import filter_lag_findings
+    g = _g({'p': _act('p'), 's1': _act('s1'), 's2': _act('s2')},
+           [{'pred_id': 'p', 'succ_id': 's1', 'type': 'FS', 'lag_days': 7},
+            {'pred_id': 'p', 'succ_id': 's2', 'type': 'FS', 'lag_days': 20}])
+    mod = run_lag_lead(g, CONFIG)
+    assert mod['kpis']['lagged_count'] == 2                    # whole-schedule truth, pre-filter
+
+    filtered = filter_lag_findings(mod, ['p|s1|FS'])
+    caption = 'Filtered — showing 1 of 2 lags'
+    html = render_module_report(filtered, {'project_name': 'Demo'}, lag_caption=caption)
+    assert caption in html
+    assert html.count('<tr><td class="num">') == 1             # register narrowed to 1 row
+    assert '<b>2</b> lags across the schedule' in html          # summary/charts stayed whole-schedule
+
+
+def test_render_module_report_lag_lead_no_caption_when_not_filtered():
+    from p6_audit.report import render_module_report
+    g = _g({'p': _act('p'), 's': _act('s')},
+           [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 7}])
+    mod = run_lag_lead(g, CONFIG)
+    html = render_module_report(mod, {'project_name': 'Demo'})   # lag_caption omitted
+    assert 'class="lagfilter"' not in html
+
+
+def test_render_module_report_lag_lead_filtered_to_empty_still_shows_caption():
+    from p6_audit.report import render_module_report
+    from p6_audit.exporters import filter_lag_findings
+    g = _g({'p': _act('p'), 's': _act('s')},
+           [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 7}])
+    mod = run_lag_lead(g, CONFIG)
+    filtered = filter_lag_findings(mod, [])                     # filtered everything out
+    caption = 'Filtered — showing 0 of 1 lags'
+    html = render_module_report(filtered, {'project_name': 'Demo'}, lag_caption=caption)
+    assert caption in html
+    assert 'No lags or leads' in html
+
+
+# ── filter_lag_findings (pure helper — p6_audit/exporters.py) ───────────────
+
+def test_filter_lag_findings_keeps_matching_rel_keys_order_preserved():
+    from p6_audit.exporters import filter_lag_findings
+    mod = {'module': 'lag_lead', 'kpis': {'lagged_count': 3}, 'findings': [
+        {'rel_key': 'a|b|FS'}, {'rel_key': 'c|d|FS'}, {'rel_key': 'e|f|FS'},
+    ]}
+    out = filter_lag_findings(mod, ['e|f|FS', 'a|b|FS'])         # visible_keys order shouldn't matter
+    assert [f['rel_key'] for f in out['findings']] == ['a|b|FS', 'e|f|FS']  # input order preserved
+    assert out['kpis'] is mod['kpis']                            # kpis untouched (same object)
+
+
+def test_filter_lag_findings_none_returns_unchanged():
+    from p6_audit.exporters import filter_lag_findings
+    mod = {'module': 'lag_lead', 'findings': [{'rel_key': 'a|b|FS'}]}
+    assert filter_lag_findings(mod, None) is mod
+
+
+def test_filter_lag_findings_missing_keys_gives_empty_findings():
+    from p6_audit.exporters import filter_lag_findings
+    mod = {'module': 'lag_lead', 'findings': [{'rel_key': 'a|b|FS'}]}
+    out = filter_lag_findings(mod, ['zzz|yyy|FS'])
+    assert out['findings'] == []
+
+
+def test_filter_lag_findings_does_not_mutate_input():
+    from p6_audit.exporters import filter_lag_findings
+    mod = {'module': 'lag_lead', 'findings': [{'rel_key': 'a|b|FS'}, {'rel_key': 'c|d|FS'}]}
+    original_findings = mod['findings']
+    out = filter_lag_findings(mod, ['a|b|FS'])
+    assert mod['findings'] is original_findings                 # input list object untouched
+    assert len(mod['findings']) == 2
+    assert out is not mod                                       # shallow copy, not the same dict
+
+
 def test_makeup_counts_are_mutually_exclusive():
     # leads (any negative) + long positives (> threshold) + normal positives (1..threshold) = all lags.
     g = _g({'p': _act('p'), 'lead': _act('lead'), 'long': _act('long'), 'norm': _act('norm')},

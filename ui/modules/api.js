@@ -4,6 +4,7 @@ import { evmInputs }                                             from './evm.js'
 import { showReportPreview }                                     from './preview.js';
 import { getSavedMode }                                          from './appearance.js';
 import { CAL_SECTIONS, WEATHER_SECTIONS }                        from './calendar.js';
+import { lagExportFilter }                                       from './audit.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -103,10 +104,16 @@ export async function exportExcel(btnId = 'excel-btn') {
   try {
     const outputPath = await window.pywebview.api.choose_save_path(`${state.currentModule}_findings.xlsx`, 'xlsx');
     if (!outputPath) { btn.reset(); return; }
+    const excelBody = { snapshot_id: state.currentSnapshotId, module: state.currentModule, output_path: outputPath };
+    if (state.currentModule === 'lag_lead') {
+      const { visible_keys, caption } = lagExportFilter();
+      if (Array.isArray(visible_keys)) excelBody.lag_visible_keys = visible_keys;
+      if (caption) excelBody.lag_filter_caption = caption;
+    }
     const data = await apiFetch('api/export/excel', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, module: state.currentModule, output_path: outputPath }),
+      body:    JSON.stringify(excelBody),
     });
     if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
     else          { btn.success('✓ Excel Saved'); }
@@ -123,6 +130,14 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   btn.loading('Preparing preview…');
   const module = state.currentModule;
   const reqBody = { snapshot_id: state.currentSnapshotId, module, meta: moduleMeta() };
+
+  // Lag Report: mirror the on-screen AutoFilter/search state into the PDF so the
+  // preview and the saved file match what the planner is actually looking at.
+  if (module === 'lag_lead') {
+    const { visible_keys, caption } = lagExportFilter();
+    if (Array.isArray(visible_keys)) reqBody.lag_visible_keys = visible_keys;
+    if (caption) reqBody.lag_filter_caption = caption;
+  }
 
   // Summary PDF: send the health the screen is CURRENTLY showing so the PDF matches
   // exactly (incl. a Milestone Check the user just entered), plus the completion float

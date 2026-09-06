@@ -68,6 +68,42 @@ def _write_pair(tmp_path):
     return str(b), str(u)
 
 
+# A schedule with two lag relationships off the same predecessor, so the on-screen
+# filter (lag_visible_keys) has something real to narrow: rel_key 'A100|A200|FS'
+# (7 wd) and 'A100|A300|FS' (4 wd) — see p6_audit/modules/lag_lead.py's rel_key.
+_LAG_XML = (
+    '<?xml version="1.0"?>\n'
+    '<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
+    '  <Project><ObjectId>1</ObjectId><Id>PJ</Id><Name>P</Name>'
+    '<DataDate>2026-02-01T00:00:00</DataDate>\n'
+    '    <WBS><ObjectId>10</ObjectId><Name>Construction Works</Name><ParentObjectId></ParentObjectId></WBS>\n'
+    '    <Activity><ObjectId>1001</ObjectId><Id>A100</Id><Name>Cure slab</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status>'
+    '<WBSObjectId>10</WBSObjectId><CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Activity><ObjectId>1002</ObjectId><Id>A200</Id><Name>Strike formwork</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status>'
+    '<WBSObjectId>10</WBSObjectId><CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Activity><ObjectId>1003</ObjectId><Id>A300</Id><Name>Test slab</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status>'
+    '<WBSObjectId>10</WBSObjectId><CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Relationship><PredecessorActivityObjectId>1001</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>1002</SuccessorActivityObjectId><Type>Finish to Start</Type>'
+    '<Lag>56</Lag></Relationship>\n'
+    '    <Relationship><PredecessorActivityObjectId>1001</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>1003</SuccessorActivityObjectId><Type>Finish to Start</Type>'
+    '<Lag>32</Lag></Relationship>\n'
+    '  </Project>\n</APIBusinessObjects>\n'
+)
+
+
+def _xlsx_row_count(path):
+    """Count <row r="..."> elements in the first (only) sheet — header + data rows."""
+    import zipfile
+    with zipfile.ZipFile(path) as z:
+        xml = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
+    return xml.count('<row r="')
+
+
 def test_compare_missing_files_returns_error(test_server):
     _, data = _post_json(test_server, '/api/compare',
                          {'baseline_path': 'nope.xer', 'update_path': 'nope.xml'})
@@ -375,6 +411,85 @@ def test_export_excel_unknown_module_fails(test_server, xml_path, tmp_path):
 def test_export_excel_missing_output_path(test_server):
     _, data = _post_json(test_server, '/api/export/excel', {'snapshot_id': 1, 'module': 'float'})
     assert data['ok'] is False
+
+
+# ── Lag Report on-screen filter honoured by exports ─────────────────────────
+
+def test_export_excel_lag_lead_honours_visible_keys_filter(test_server, tmp_path):
+    xml = tmp_path / 'lag.xml'
+    xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+
+    out_all = str(tmp_path / 'lag_all.xlsx')
+    _, data_all = _post_json(test_server, '/api/export/excel',
+                             {'snapshot_id': sid, 'module': 'lag_lead', 'output_path': out_all})
+    assert data_all['ok'] is True
+    assert _xlsx_row_count(out_all) == 3          # header + 2 findings, unfiltered
+
+    out_f = str(tmp_path / 'lag_filtered.xlsx')
+    _, data_f = _post_json(test_server, '/api/export/excel',
+                           {'snapshot_id': sid, 'module': 'lag_lead', 'output_path': out_f,
+                            'lag_visible_keys': ['A100|A200|FS']})
+    assert data_f['ok'] is True
+    assert _xlsx_row_count(out_f) == 2            # header + 1 filtered finding
+
+
+def test_export_excel_lag_lead_null_visible_keys_exports_everything(test_server, tmp_path):
+    xml = tmp_path / 'lag.xml'
+    xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+    out = str(tmp_path / 'lag.xlsx')
+    _, data = _post_json(test_server, '/api/export/excel',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'output_path': out,
+                          'lag_visible_keys': None})
+    assert data['ok'] is True
+    assert _xlsx_row_count(out) == 3              # absent/null filter -> unfiltered, as before
+
+
+def test_export_excel_non_lag_module_ignores_lag_filter_keys(test_server, xml_path, tmp_path):
+    """lag_visible_keys is meaningless for any module other than lag_lead — must be a no-op."""
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    sid = parsed['snapshot_id']
+    out = str(tmp_path / 'dangling.xlsx')
+    _, data = _post_json(test_server, '/api/export/excel',
+                         {'snapshot_id': sid, 'module': 'dangling', 'output_path': out,
+                          'lag_visible_keys': []})
+    assert data['ok'] is True
+    import os
+    assert os.path.exists(out)
+
+
+def test_module_report_preview_lag_lead_honours_filter_and_caption(test_server, tmp_path):
+    xml = tmp_path / 'lag.xml'
+    xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+    caption = 'Filtered — showing 1 of 2 lags'
+    _, data = _post_json(test_server, '/api/report/module',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'preview': True,
+                          'meta': {'project_name': 'P'},
+                          'lag_visible_keys': ['A100|A200|FS'], 'lag_filter_caption': caption})
+    assert data['ok'] is True
+    html = data['html']
+    assert caption in html
+    assert html.count('<tr><td class="num">') == 1            # register narrowed to the visible finding
+    assert '<b>2</b> lags across the schedule' in html         # summary/charts stayed whole-schedule
+
+
+def test_module_report_preview_lag_lead_no_filter_shows_all_no_caption(test_server, tmp_path):
+    xml = tmp_path / 'lag.xml'
+    xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+    _, data = _post_json(test_server, '/api/report/module',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'preview': True,
+                          'meta': {'project_name': 'P'}})
+    assert data['ok'] is True
+    html = data['html']
+    assert 'class="lagfilter"' not in html
+    assert html.count('<tr><td class="num">') == 2             # both findings, unfiltered
 
 
 def test_gap_route_reparses(test_server, xml_path):

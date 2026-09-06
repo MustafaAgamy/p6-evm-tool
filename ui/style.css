@@ -1608,7 +1608,6 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .lag-wrow:last-child { margin-bottom: 0; }
 .lag-wname { font-size: 12px; color: var(--text); margin-bottom: 4px; line-height: 1.3; }
 .lag-wline { display: flex; align-items: center; gap: 10px; }
-.lag-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
 .lag-chip { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; padding: 2px 7px; border-radius: 20px; margin-right: 3px; }
 .lag-chip.lead { background: rgba(248,113,113,0.16); color: var(--danger); }
 .lag-chip.long { background: rgba(251,191,36,0.16); color: var(--warning); }
@@ -1616,12 +1615,66 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .lag-chip.near { background: rgba(59,130,246,0.12); color: var(--accent); }
 .lag-table .rel-long { color: var(--warning); font-weight: 700; }
 .lag-table .rel-lead { color: var(--danger); font-weight: 700; }
+.lag-table td.num, .lag-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.lag-table td.mono { font-family: ui-monospace, 'Consolas', monospace; font-weight: 600; white-space: nowrap; }
 .lag-relcell { min-width: 120px; white-space: normal; }
 .lag-relcell .lag-chip { vertical-align: middle; }
 .lag-jcol { min-width: 190px; }
 .lag-just { width: 100%; min-width: 170px; background: var(--row-hover); border: 1px dashed var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12px; color: var(--text); font-family: inherit; line-height: 1.4; resize: vertical; min-height: 32px; }
 .lag-just::placeholder { color: var(--muted); font-style: italic; }
 .lag-just:focus { border-style: solid; border-color: var(--accent); outline: none; }
+
+/* ── Lag Report — Excel-style AutoFilter (header buttons + popover) ──────── */
+.lag-count { font-size: 11.5px; color: var(--muted); margin: 2px 0 8px; }
+.lag-count b { color: var(--text); font-weight: 700; }
+.lag-filtered-tag { color: var(--accent); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; }
+.lag-clearall { background: none; border: 0; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 2px; white-space: nowrap; }
+.lag-clearall:hover { text-decoration: underline; }
+
+.lag-th-wrap { display: inline-flex; align-items: center; gap: 4px; }
+.lag-fbtn { border: 0; background: transparent; color: var(--muted); font-size: 9px; cursor: pointer;
+  padding: 1px 4px; border-radius: 4px; line-height: 1.4; }
+.lag-fbtn:hover { background: var(--row-hover); color: var(--text); }
+.lag-fbtn.on { color: var(--accent); font-weight: 700; }
+
+.lag-fpop { position: fixed; z-index: 500; width: 260px; max-width: calc(100vw - 24px);
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 24px 60px -28px rgba(8,15,35,0.55); padding: 9px; font-size: 12px; color: var(--text); }
+.lag-fpop-sort { display: flex; gap: 6px; margin-bottom: 7px; }
+.lag-fpop-sort .lag-fsort { flex: 1; background: var(--row-hover); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 6px; font-size: 11px; color: var(--text); cursor: pointer; }
+.lag-fpop-sort .lag-fsort:hover { border-color: var(--accent); color: var(--accent); }
+.lag-fpop-qh { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin: 2px 0 6px; }
+.lag-fpop-qrow { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.lag-qp { background: var(--row-hover); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px;
+  font-size: 11px; color: var(--text); cursor: pointer; }
+.lag-qp:hover { border-color: var(--accent); }
+.lag-qp.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.lag-fpop-custom { display: flex; align-items: center; gap: 5px; margin-bottom: 7px; font-size: 11px; color: var(--muted); }
+.lag-qcustom { width: 52px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 6px; font-size: 11px; color: var(--text); outline: none; }
+.lag-qcustom:focus { border-color: var(--accent); }
+.lag-qgo { background: var(--accent); border: 0; border-radius: 6px; color: #fff; font-size: 11px; font-weight: 700;
+  padding: 4px 10px; cursor: pointer; }
+.lag-qgo:hover { background: var(--accent-dark); }
+.lag-fpop-sep { height: 1px; background: var(--border); margin: 3px 0 8px; }
+.lag-fpop-search { width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 8px; font-size: 11.5px; color: var(--text); outline: none; margin-bottom: 7px; }
+.lag-fpop-search:focus { border-color: var(--accent); }
+.lag-fpop-all { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--text);
+  padding: 3px 2px 7px; border-bottom: 1px solid var(--border); margin-bottom: 4px; cursor: pointer; }
+.lag-fpop-list { max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; margin-bottom: 9px; }
+.lag-fpop-item { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--text);
+  padding: 4px 4px; border-radius: 5px; cursor: pointer; }
+.lag-fpop-item:hover { background: var(--row-hover); }
+.lag-fpop-empty { font-size: 11.5px; color: var(--muted); padding: 6px 2px; }
+.lag-fpop-item input, .lag-fpop-all input { accent-color: var(--accent); }
+.lag-fpop-foot { display: flex; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+.lag-fpop-foot button { flex: 1; border-radius: 6px; padding: 6px 0; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.lag-fclear { background: var(--row-hover); border: 1px solid var(--border); color: var(--text); }
+.lag-fclear:hover { border-color: var(--danger); color: var(--danger); }
+.lag-fapply { background: var(--accent); border: 1px solid var(--accent); color: #fff; }
+.lag-fapply:hover { background: var(--accent-dark); }
 /* Update vs Update (period) */
 .mut { color: var(--muted); }
 .per-inputs { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; font-size: 12px; }

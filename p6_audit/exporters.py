@@ -5,6 +5,24 @@ def _impact_str(v):
     return f'{v}×' if v is not None else '—'
 
 
+def filter_lag_findings(module_result, visible_keys):
+    """Narrow a module's findings to those whose `rel_key` is in `visible_keys`,
+    preserving order — the on-screen filter's request to the exporters. `visible_keys`
+    is None when the user has no active filter, in which case `module_result` is
+    returned unchanged (identity, no copy).
+
+    Only `findings` narrows: `kpis` / `wbs_summary` are left untouched so charts and
+    KPI tiles stay whole-schedule even when the register/Excel rows are filtered.
+    Generic (keys off `rel_key`, not module-specific) but only used for lag_lead
+    today. Never mutates the input dict."""
+    if visible_keys is None:
+        return module_result
+    keys = set(visible_keys)
+    out = dict(module_result)
+    out['findings'] = [f for f in module_result.get('findings', []) if f.get('rel_key') in keys]
+    return out
+
+
 def excel_columns(module_result):
     """Return (headers, rows) for the module's findings — full detail for Excel."""
     module = module_result.get('module')

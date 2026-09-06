@@ -1833,7 +1833,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.xlsx_writer import write_xlsx
-            from p6_audit.exporters import excel_columns
+            from p6_audit.exporters import excel_columns, filter_lag_findings
+            lag_visible_keys = body.get('lag_visible_keys')
+            if module == 'lag_lead' and lag_visible_keys is not None:
+                # On-screen filter honoured in the export — findings only; the row-detail
+                # columns already exist here (Lag (wd), Flags). No caption row: write_xlsx
+                # has no title/caption argument (see p6_evm/xlsx_writer.py — read-only).
+                m = filter_lag_findings(m, lag_visible_keys)
             headers, rows = excel_columns(m)
             write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31], headers, rows)
             self._json(200, {'ok': True})
@@ -1869,12 +1875,20 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_audit.report import render_module_report, render_summary_report
+            from p6_audit.exporters import filter_lag_findings
             import subprocess, tempfile
             _theme = report_theme.normalize(body.get('theme'))
+            lag_visible_keys = body.get('lag_visible_keys')
+            if not is_summary and module == 'lag_lead' and lag_visible_keys is not None:
+                # On-screen filter honoured in the PDF — register (findings) only; charts/KPIs
+                # read m['kpis']/m['wbs_summary'], untouched by filter_lag_findings, so they
+                # stay whole-schedule even though the register narrows.
+                m = filter_lag_findings(m, lag_visible_keys)
             html_content = (render_summary_report(summary_health, meta_in, sections=body.get('sections'),
                                                    modules=(mods or {}).get('modules'),
                                                    completion_float=body.get('completion_float'), theme=_theme)
-                            if is_summary else render_module_report(m, meta_in, sections=body.get('sections'), theme=_theme))
+                            if is_summary else render_module_report(m, meta_in, sections=body.get('sections'), theme=_theme,
+                                                                     lag_caption=body.get('lag_filter_caption')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
