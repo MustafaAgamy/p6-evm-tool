@@ -682,5 +682,18 @@ def run_out_of_sequence(graph, config):
             'executive_conclusion':   _conclusion(oos_count, distribution, critical_oos, near_oos),
         },
         'wbs_summary': distribution,   # persisted as-is; the OOS renderer reads OOS keys
+        # Report-Contents picker (tool-wide standard): declaring sections makes the generic
+        # selector in generateModulePdf appear for the OOS PDF, so the planner can choose
+        # which parts print (Preview == PDF). Keys match report.py _sections() for
+        # out_of_sequence: 'executive' | 'wbs' | 'findings' | 'cpi' | 'conclusion'.
+        'presentation': {
+            'sections': [
+                {'key': 'executive',   'label': 'Executive dashboard',        'empty': False},
+                {'key': 'wbs',         'label': 'Distribution by WBS',        'empty': not distribution},
+                {'key': 'findings',    'label': 'Out-of-sequence review log', 'empty': oos_count == 0},
+                {'key': 'cpi',         'label': 'Critical-path impact',       'empty': False},
+                {'key': 'conclusion',  'label': 'Conclusion',                 'empty': False},
+            ],
+        },
         'findings': findings,
     }

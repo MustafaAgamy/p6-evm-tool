@@ -320,12 +320,37 @@ def _charts_html(report):
             f'</div>')
 
 
-def render_html(report, impact=None, theme='light'):
+# The five selectable Report-Contents sections — mirrors ui/modules/compare.js's
+# COMPARE_SECTIONS (same keys, same order). `sections=None` (every caller that predates the
+# picker, e.g. p6_special's cross-feature report) renders every section — unchanged from
+# before this gate existed.
+COMPARE_SECTIONS = ('dashboard', 'charts', 'logic', 'duration', 'impact')
+
+
+def render_html(report, impact=None, theme='light', sections=None):
+    if sections is None:
+        sections = COMPARE_SECTIONS
+    inc = lambda k: k in sections
+
     cs = report.get('change_summary', {}) or {}
     pills = ''.join(f'<span class="pill">{it.get("count")} {_e(it.get("label"))}</span>'
                     for it in cs.get('items', [])) or '<span class="note">No changes vs the baseline.</span>'
-    dash = _impact_dashboard(report, impact)
+    dash = _impact_dashboard(report, impact) if inc('dashboard') else ''
+    charts = _charts_html(report) if inc('charts') else ''
     dboard = report.get('dashboard') or {}
+    logic_section = ''
+    if inc('logic'):
+        logic_section = (
+            '<h2>Driving logic &amp; lag changes vs baseline</h2>'
+            f'<p class="recon">Activities with driving-logic / lag changes: <b>{dboard.get("logic_changed", 0)}</b> '
+            f'— of the {dboard.get("changed_activities", 0)} total changed (the other '
+            f'{dboard.get("duration_only", 0)} changed in duration only).</p>'
+            f'<div>{pills}</div>'
+            f'{_logic_table_html(report)}')
+    duration_section = ''
+    if inc('duration'):
+        duration_section = f'<h2>Duration &amp; remaining changes vs baseline</h2>{_duration_table_html(report)}'
+    impact_section = _impact_html(impact) if inc('impact') else ''
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: A4 landscape; margin: 12mm; }}
       * {{ box-sizing: border-box; }}
@@ -382,14 +407,10 @@ def render_html(report, impact=None, theme='light'):
       <h1>Consultant Review — Baseline vs Current Update</h1>
       <div class="sub">{_e(report.get('project_name'))} · data date {_e(report.get('data_date'))} · baseline {_e(report.get('baseline_file'))} vs {_e(report.get('update_file'))}</div>
       {dash}
-      {_charts_html(report)}
-      <h2>Driving logic &amp; lag changes vs baseline</h2>
-      <p class="recon">Activities with driving-logic / lag changes: <b>{dboard.get('logic_changed', 0)}</b> — of the {dboard.get('changed_activities', 0)} total changed (the other {dboard.get('duration_only', 0)} changed in duration only).</p>
-      <div>{pills}</div>
-      {_logic_table_html(report)}
-      <h2>Duration &amp; remaining changes vs baseline</h2>
-      {_duration_table_html(report)}
-      {_impact_html(impact)}
+      {charts}
+      {logic_section}
+      {duration_section}
+      {impact_section}
     </body></html>'''
 
 

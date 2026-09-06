@@ -116,3 +116,52 @@ def test_render_html_default_theme_is_light_full_document():
     h = render_html(_report())
     assert h.startswith('<!doctype html>') and h.rstrip().endswith('</html>')
     assert 'data-rpt-theme="light"' in h
+
+
+# ── Report-Contents section picker (sections=None → everything, unchanged) ─────────────
+
+def test_render_html_sections_default_none_includes_everything():
+    h = render_html(_report(), _impact())
+    assert 'Reported delay (as submitted)' in h          # dashboard tiles
+    assert 'How the logic was changed' in h              # charts
+    assert 'Driving logic &amp; lag changes vs baseline' in h
+    assert 'Duration &amp; remaining changes vs baseline' in h
+    assert 'Impact — reported vs but-for delay' in h     # impact (only rendered when impact given)
+
+
+def test_render_html_sections_subset_omits_unselected_keeps_chosen():
+    h = render_html(_report(), _impact(), sections=['logic'])
+    # Chosen section's content is present, in full.
+    assert 'Driving logic &amp; lag changes vs baseline' in h
+    assert 'A1120' in h and 'Excavate zone B' in h and 'FS+10' in h
+    # Every other section is omitted.
+    assert 'Reported delay (as submitted)' not in h
+    assert 'How the logic was changed' not in h
+    assert 'Duration &amp; remaining changes vs baseline' not in h
+    assert 'Rebar' not in h                              # duration table content gone
+    assert 'Impact — reported vs but-for delay' not in h
+    assert 'Consultant recommendation' not in h
+
+
+def test_render_html_sections_content_of_kept_section_unchanged():
+    r, impact = _report(), _impact()
+    h_full = render_html(r, impact)
+    h_subset = render_html(r, impact, sections=['duration'])
+    # The duration table's numbers/content are identical whether or not siblings render.
+    assert 'A1250' in h_full and 'A1250' in h_subset
+    assert '18 d' in h_full and '18 d' in h_subset       # update_orig_days, unchanged
+    assert '3 d' in h_full and '3 d' in h_subset          # remaining_minus_baseline_days, unchanged
+
+
+def test_render_html_sections_empty_list_still_self_contained_document():
+    h = render_html(_report(), sections=[])
+    assert h.startswith('<!doctype html>') and h.rstrip().endswith('</html>')
+    assert 'Driving logic' not in h and 'Duration &amp; remaining' not in h
+
+
+def test_render_html_sections_omits_dashboard_and_charts_independently():
+    h = render_html(_report(), _impact(), sections=['dashboard'])
+    assert '>Reported delay<' in h                         # dashboard summary tile kept
+    assert 'How the logic was changed' not in h            # charts omitted
+    assert 'Driving logic &amp; lag changes vs baseline' not in h
+    assert 'Impact — reported vs but-for delay' not in h   # the separate impact section omitted
