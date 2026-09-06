@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
          oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass,
-         oosLagLabel, oosRelLabel, oosDefaultOp, oosOpSummary,
+         oosLagLabel, oosRelLabel, oosDefaultOp, oosOpSummary, oosHasFix, oosBulkOutcome,
          lagQuickPickValues, normalizeColumnFilter, matchesColumnFilter, filterLagFindings, sortLagFindings,
          LAG_FILTER_COLUMNS }
   from '../../ui/modules/audit.js';
@@ -105,6 +105,42 @@ test('op summary change', () => assert.equal(
 test('op summary remove', () => assert.equal(
   oosOpSummary({ action: 'remove', pred_id: 'P1', succ_id: 'S1' }),
   'Removed link P1 → S1'));
+
+console.log('\nApply all — which findings have a recommended fix (oosHasFix)');
+test('change on pred is a fix',   () => assert.equal(oosHasFix({ resolution: { action: 'change' } }), true));
+test('remove on pred is a fix',   () => assert.equal(oosHasFix({ resolution: { action: 'remove' } }), true));
+test('replace on pred is a fix',  () => assert.equal(oosHasFix({ resolution: { action: 'replace' } }), true));
+test('manual review is NOT a fix',() => assert.equal(oosHasFix({ resolution: { action: 'manual', applicable: false } }), false));
+test('data error is NOT a fix',   () => assert.equal(oosHasFix({ resolution: { action: 'data' } }), false));
+test('no resolution is NOT a fix',() => assert.equal(oosHasFix({}), false));
+test('pred_resolution overrides resolution', () => assert.equal(
+  oosHasFix({ resolution: { action: 'manual' }, pred_resolution: { action: 'change' } }), true));
+test('succ tie fix counts when pred needs review', () => assert.equal(
+  oosHasFix({ resolution: { action: 'manual' }, succ_id: 'S1', succ_resolution: { action: 'change' } }), true));
+test('succ fix ignored without succ_id', () => assert.equal(
+  oosHasFix({ resolution: { action: 'manual' }, succ_resolution: { action: 'change' } }), false));
+
+console.log('\nApply all — honest outcome counts (oosBulkOutcome)');
+test('all applied cleared', () => {
+  const o = oosBulkOutcome(['a', 'b', 'c'], []);            // none still open
+  assert.equal(o.applied, 3); assert.equal(o.resolved, 3); assert.equal(o.notCleared, 0);
+});
+test('some applied did not clear', () => {
+  const o = oosBulkOutcome(['a', 'b', 'c'], [{ finding_id: 'b' }]);   // b still out of sequence
+  assert.equal(o.applied, 3); assert.equal(o.resolved, 2); assert.equal(o.notCleared, 1);
+});
+test('none cleared', () => {
+  const o = oosBulkOutcome(['a', 'b'], [{ finding_id: 'a' }, { finding_id: 'b' }]);
+  assert.equal(o.resolved, 0); assert.equal(o.notCleared, 2);
+});
+test('ignores untouched findings still open', () => {
+  const o = oosBulkOutcome(['a'], [{ finding_id: 'z' }]);   // z was not applied by this bulk run
+  assert.equal(o.applied, 1); assert.equal(o.resolved, 1); assert.equal(o.notCleared, 0);
+});
+test('empty touched is zero', () => {
+  const o = oosBulkOutcome([], [{ finding_id: 'x' }]);
+  assert.equal(o.applied, 0); assert.equal(o.resolved, 0); assert.equal(o.notCleared, 0);
+});
 
 console.log('\nSchedule Health Review — rail + roll-up helpers (Slice 3)');
 test('tabScore shows score',        () => assert.equal(tabScore({ score: 84.6 }), 84.6));
