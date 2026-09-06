@@ -1763,7 +1763,11 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .lag-relcell { min-width: 120px; white-space: normal; }
 .lag-relcell .lag-chip { vertical-align: middle; }
 .lag-jcol { min-width: 190px; }
-.lag-just { display: block; width: 100%; min-width: 170px; background: var(--row-hover); border: 1px dashed var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12px; color: var(--text); font-family: inherit; line-height: 1.4; resize: vertical; min-height: 32px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; }
+.lag-jhdr { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.lag-fontsize { display: inline-flex; gap: 3px; }
+.lag-fontsize button { border: 1px solid var(--border); background: var(--card-bg); color: var(--ink-soft); font-size: 10px; font-weight: 700; line-height: 1; cursor: pointer; border-radius: 4px; padding: 3px 6px; }
+.lag-fontsize button:hover { border-color: var(--accent); color: var(--accent); }
+.lag-just { display: block; width: 100%; min-width: 170px; background: var(--row-hover); border: 1px dashed var(--border); border-radius: 6px; padding: 6px 8px; font-size: var(--lag-just-fs, 12px); color: var(--text); font-family: inherit; line-height: 1.4; resize: vertical; min-height: 32px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; }
 .lag-just::placeholder { color: var(--muted); font-style: italic; }
 .lag-just:focus { border-style: solid; border-color: var(--accent); outline: none; }
 
@@ -1774,11 +1778,14 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .lag-clearall { background: none; border: 0; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 2px; white-space: nowrap; }
 .lag-clearall:hover { text-decoration: underline; }
 
-.lag-th-wrap { display: inline-flex; align-items: center; gap: 4px; }
-.lag-fbtn { border: 0; background: transparent; color: var(--muted); font-size: 9px; cursor: pointer;
-  padding: 1px 4px; border-radius: 4px; line-height: 1.4; }
-.lag-fbtn:hover { background: var(--row-hover); color: var(--text); }
-.lag-fbtn.on { color: var(--accent); font-weight: 700; }
+/* Excel-style column filter button: a clearly visible boxed control pinned to the right
+   of each header (like Excel's AutoFilter), accent-filled when a filter is active. */
+.lag-th-wrap { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
+.lag-fbtn { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px;
+  border: 1px solid var(--border); background: var(--card-bg); color: var(--ink-soft); font-size: 10px;
+  line-height: 1; cursor: pointer; padding: 0; border-radius: 4px; flex-shrink: 0; }
+.lag-fbtn:hover { border-color: var(--accent); color: var(--accent); }
+.lag-fbtn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .lag-fpop { position: fixed; z-index: 500; width: 260px; max-width: calc(100vw - 24px);
   background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;

@@ -2056,8 +2056,25 @@ export function renderLagPanel(auditModules) {
       ${lagHeaderCell('Pred. Relationship', 'pred_rel_type')}
       ${lagHeaderCell('Pred. Name', 'pred_name')}
       <th>Succ. Relationship</th><th>Succ. Name</th>
-      <th class="lag-jcol">Justification</th>
+      <th class="lag-jcol"><span class="lag-jhdr">Justification<span class="lag-fontsize" title="Justification text size">` +
+        `<button type="button" id="lag-fs-dec" aria-label="Smaller justification text">A&minus;</button>` +
+        `<button type="button" id="lag-fs-inc" aria-label="Larger justification text">A+</button></span></span></th>
     </tr></thead><tbody id="lag-tbody"></tbody></table></div>`;
+
+  // Justification text size (per-user, screen only) — A− / A+ scale the justification boxes so
+  // the planner can read/write long reasons at a comfortable size; remembered across sessions.
+  const LAG_FS_MIN = 10, LAG_FS_MAX = 22, LAG_FS_DEF = 12;
+  const clampFs = px => Math.min(LAG_FS_MAX, Math.max(LAG_FS_MIN, px));
+  const applyJustFs = px => {
+    body.style.setProperty('--lag-just-fs', `${px}px`);
+    body.querySelectorAll('.lag-just').forEach(ta => { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; });
+  };
+  let justFs = LAG_FS_DEF;
+  try { const v = parseInt(localStorage.getItem('p6_lag_just_fs'), 10); if (Number.isFinite(v)) justFs = clampFs(v); } catch { /* default */ }
+  body.style.setProperty('--lag-just-fs', `${justFs}px`);   // set before rows render so autosize is correct
+  const setJustFs = px => { justFs = clampFs(px); try { localStorage.setItem('p6_lag_just_fs', String(justFs)); } catch { /* ignore */ } applyJustFs(justFs); };
+  document.getElementById('lag-fs-dec').addEventListener('click', () => setJustFs(justFs - 1));
+  document.getElementById('lag-fs-inc').addEventListener('click', () => setJustFs(justFs + 1));
 
   document.getElementById('lag-search').addEventListener('input', e => {
     _lagFilter.query = e.target.value; renderLagRows(m);

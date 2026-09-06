@@ -1628,7 +1628,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_compare.exporters import render_html
-            html_content = render_html(report, impact, theme=report_theme.normalize(body.get('theme')))
+            html_content = render_html(report, impact, theme=report_theme.normalize(body.get('theme')),
+                                        sections=body.get('sections'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

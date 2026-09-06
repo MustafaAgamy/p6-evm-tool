@@ -7,11 +7,24 @@
 import { state }             from './state.js';
 import { showError, clearError } from './render.js';
 import { escapeHtml }        from './format.js';
-import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
+import { getSavedMode }      from './appearance.js';
+import { showReportPreview } from './preview.js';
 
 // The report-appearance mode chosen in this panel's PDF preview modal — remembered
 // across sessions via appearance.js, shared with every other report preview flow.
 let _cmpTheme = getSavedMode();
+
+// ── Report Contents — the sections the Consultant Review PDF can print. Shown as the
+// in-preview "Report contents" picker (shared showReportPreview component), matching every
+// other module's report picker (Calendar Audit, EVM, Schedule Health Review…). Keys mirror
+// p6_compare/exporters.py render_html()'s `inc()` gate — see COMPARE_SECTIONS there.
+export const COMPARE_SECTIONS = [
+  { key: 'dashboard', label: 'Executive dashboard — KPIs' },
+  { key: 'charts',    label: 'Executive dashboard — charts' },
+  { key: 'logic',     label: 'Driving logic & lag changes vs baseline' },
+  { key: 'duration',  label: 'Duration & remaining changes vs baseline' },
+  { key: 'impact',    label: 'Impact & consultant recommendation (but-for)' },
+];
 
 // ── Pure helpers (unit-tested in tests/js/test_compare.js) ────────────────
 
@@ -421,74 +434,74 @@ async function _withBtn(id, idle, fn) {
   finally { if (btn) { btn.disabled = false; btn.textContent = idle; } }
 }
 
-// Print preview: render the exact PDF HTML (server preview=true) in a modal, so the report
-// can be reviewed before saving — works both before and after the corrected file is loaded
-// (the impact section shows once it is). A "Save as PDF" button exports from the preview.
+// Print preview: render the exact PDF HTML (server preview=true) via the shared
+// showReportPreview component, so the report can be reviewed — with a "Report contents"
+// picker to choose which sections print — before saving. Works both before and after the
+// corrected file is loaded (the Impact section shows as selectable once it is; "no data"
+// and disabled beforehand, same as every other module's picker). Preview = PDF = Print:
+// every tick re-renders from the same /api/compare/report route with the same sections,
+// and Save posts that exact selection.
+const _CMP_STORAGE_KEY = 'p6_report_sections_compare';
+
 export async function previewComparePdf() {
   const report = _shownReportOrWarn();
   if (!report) return;
   const impact = state.compareImpact || _shownImpact || null;
   const btn = document.getElementById('cmp-preview-pdf');
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+  const sections = COMPARE_SECTIONS.map(s => ({ ...s, empty: s.key === 'impact' && !impact }));
+  let selected = sections.filter(s => !s.empty).map(s => s.key);
   try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report, impact, preview: true, theme: _cmpTheme }),
+    const saved = JSON.parse(localStorage.getItem(_CMP_STORAGE_KEY) || 'null');
+    if (Array.isArray(saved)) selected = saved.filter(k => sections.some(s => s.key === k && !s.empty));
+  } catch { /* default: every non-empty section */ }
+  // `report`/`impact` are the exact payload the preview was opened with (captured here, not
+  // re-read from state) — every re-render (ticking a section, changing appearance) reuses
+  // them so the preview never drifts even if a background re-import clears state.compare*.
+  const fetchPreview = async (keys, theme) => {
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report, impact, preview: true, sections: keys || null, theme: theme || _cmpTheme }),
+      });
+      const data = await resp.json();
+      return (data.ok && data.html) ? data.html : null;
+    } catch { return null; }
+  };
+  try {
+    const html = await fetchPreview(selected, _cmpTheme);
+    if (btn) { btn.disabled = false; btn.textContent = 'Preview PDF'; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
+    showReportPreview({
+      title: 'Print preview — Consultant Review', subtitle: report.update_file || '', html,
+      sections, selected, storageKey: _CMP_STORAGE_KEY, initialMode: _cmpTheme,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => { _cmpTheme = theme; return fetchPreview(keys, theme); },
+      onSave: (mode, keys) => _saveComparePdf(report, impact, mode, keys),
     });
-    const data = await resp.json();
-    if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
-    _showPreviewModal(data.html, report, impact);
   } catch {
     showError('Could not reach the local server to build the preview.');
-  } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Preview PDF'; }
   }
 }
 
-// `report`/`impact` are the exact payload the modal was opened with (captured by the caller,
-// not re-read from state) — the appearance picker's re-fetch reuses them so the re-rendered
-// preview matches the one first shown, even if a background re-import clears state.compare*.
-function _showPreviewModal(html, report, impact) {
-  const old = document.getElementById('cmp-preview-modal');
-  if (old) old.remove();
-  const modal = document.createElement('div');
-  modal.id = 'cmp-preview-modal';
-  modal.className = 'cmp-modal';
-  modal.innerHTML = `
-    <div class="cmp-modal-bar">
-      <span class="cmp-modal-t">Print preview — Consultant Review</span>
-      <div class="cmp-modal-actions">
-        <button class="btn-primary" id="cmp-modal-save">Save as PDF</button>
-        <button class="btn-mini" id="cmp-modal-close">Close</button>
-      </div>
-    </div>
-    <iframe class="cmp-modal-frame" id="cmp-modal-frame" title="Consultant Review PDF preview"></iframe>`;
-  document.body.appendChild(modal);
-  const frame = document.getElementById('cmp-modal-frame');
-  frame.srcdoc = html;
-  frame.style.background = backdropColor(_cmpTheme);
-
-  const actions = modal.querySelector('.cmp-modal-actions');
-  const picker = buildAppearancePicker({
-    current: _cmpTheme,
-    compact: true,
-    onChange: async (mode) => {
-      _cmpTheme = mode;
-      frame.style.background = backdropColor(_cmpTheme);
-      try {
-        const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ report, impact, preview: true, theme: _cmpTheme }),
-        });
-        const data = await resp.json();
-        if (data.ok) frame.srcdoc = data.html;
-      } catch { /* keep showing the last-good preview */ }
-    },
-  });
-  if (actions) actions.insertBefore(picker, actions.firstChild);
-
-  document.getElementById('cmp-modal-close').addEventListener('click', () => modal.remove());
-  document.getElementById('cmp-modal-save').addEventListener('click', () => { modal.remove(); exportComparePdf(); });
+// Save as PDF from the preview modal — picks a path, then posts the SAME report/impact
+// payload and ticked sections the preview iframe is currently showing.
+async function _saveComparePdf(report, impact, mode, keys) {
+  const outputPath = await window.pywebview.api.choose_save_path('consultant_review.pdf', 'pdf');
+  if (!outputPath) return false;
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report, impact, output_path: outputPath, theme: mode, sections: keys || null }),
+    });
+    const data = await resp.json();
+    if (!data.ok) { showError(`PDF export failed: ${data.error || 'unknown error'}`); return false; }
+    return true;
+  } catch {
+    showError('Could not reach the local server to export the PDF.');
+    return false;
+  }
 }
 
 export async function exportComparePdf() {

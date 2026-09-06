@@ -537,3 +537,15 @@ def test_end_to_end_xml_actuals_flag_out_of_sequence(tmp_path):
     assert f['A200']['current_pred_rel'] == 'FS'
     assert f['A200']['current_pred_activity'].startswith('A100')
     assert f['A200']['suggested_predecessor'].startswith('SS(')
+
+
+# ── 2026-09-06: Report-Contents picker (tool-wide standard) ─────────────────
+
+def test_oos_module_declares_report_sections_for_the_picker():
+    # Declaring presentation.sections makes the generic generateModulePdf selector
+    # appear for the OOS PDF; keys must match report.py _sections() for out_of_sequence.
+    g = _g({'a': _act('a'), 'b': _act('b')},
+           [{'pred_id': 'a', 'succ_id': 'b', 'type': 'FS', 'lag_days': 0}])
+    secs = run_out_of_sequence(g, CONFIG)['presentation']['sections']
+    assert [s['key'] for s in secs] == ['executive', 'wbs', 'findings', 'cpi', 'conclusion']
+    assert all('label' in s and 'empty' in s for s in secs)
