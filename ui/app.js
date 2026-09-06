@@ -23,10 +23,13 @@ import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
 import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
+import { playBoot }                            from './modules/boot.js';
+import { playFeatureReveal }                   from './modules/featurereveal.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
   state.ranFeatures = new Set();   // features the user has explicitly Run this session (issues #3/#4)
+  playBoot();                      // branded ~10s startup splash, then lifts to reveal the app beneath
   initTheme();
   initTooltips();
   initDatabase();
@@ -195,8 +198,12 @@ document.addEventListener('DOMContentLoaded', () => {
       state.ranFeatures.add(view);
       gate.classList.add('hidden');
       switchView(view);
-      runFeature(view);
       document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Brief branded "opening the feature" reveal (same motion family as the startup
+      // splash), then render the results underneath it. Overlay the full content area
+      // (the feature panel is still empty here, so it has no height to cover).
+      const host = document.querySelector('main.content') || document.getElementById('results-section') || document.getElementById(view + '-panel');
+      playFeatureReveal(host, { title: meta.title, onDone: () => runFeature(view) });
     });
     // Secondary action — re-open the native file picker to import a different schedule.
     gate.querySelector('.fg-change').addEventListener('click', () => { triggerBrowse(); });
