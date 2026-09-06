@@ -7,6 +7,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added — Branded startup splash & feature-open reveal
+- **A ~10-second Controlyx 2026 startup splash** now plays when the app opens: a schedule builds, a glowing critical path rises, and it resolves into the Controlyx 2026 mark and wordmark before lifting away to reveal the app. A **Skip** button is always available, and the splash never blocks a slow start.
+- **Opening a feature now plays a short branded reveal** — pressing **Run** plays a ~2-second animation (an accent scan sweeping the schedule and critical path, with the feature's name and a progress bar) over the workspace, then the results appear. Same look-and-feel as the startup splash.
+- Both respect the system "reduce motion" accessibility setting.
+
 ## [v2.2.0] - 2026-09-06
 
 ### Changed — Explicit "choose a feature → Run" workflow
