@@ -980,6 +980,10 @@ function _oosWire() {
 
 // Out of Sequence is a top-level feature (its own panel), not a Schedule Audit module tab.
 export function renderOosPanel(auditModules) {
+  // Store the full audit module set so the shared PDF picker (generateModulePdf reads
+  // state.currentModules.modules[module].presentation.sections) works when this top-level
+  // view is opened directly — without it, currentModules is null/stale and no picker shows.
+  state.currentModules = auditModules || null;
   const body = document.getElementById('oos-body');
   if (!body) return;
   const m = auditModules && auditModules.modules && auditModules.modules.out_of_sequence;
@@ -2071,6 +2075,10 @@ function lagDonut(k) {
 // Lag Report — a standalone top-level report (register of all project lags + charts), not a
 // Schedule Audit tab. Renders into #lag-body. No verdict/score — that's the separate scoring feature.
 export function renderLagPanel(auditModules) {
+  // Store the full audit module set so the shared PDF picker (generateModulePdf reads
+  // state.currentModules.modules[module].presentation.sections) works when the Lag Report
+  // is opened directly — without it, currentModules is null/stale and no picker shows.
+  state.currentModules = auditModules || null;
   const body = document.getElementById('lag-body');
   if (!body) return;
   const m = auditModules && auditModules.modules && auditModules.modules.lag_lead;
