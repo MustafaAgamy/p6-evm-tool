@@ -217,11 +217,12 @@ function _entryLocHtml() {
   const loc = _pendingLoc;
   return loc
     ? `📍 <b>${escapeHtml(loc.name || 'Selected location')}</b> · ${(+loc.lat).toFixed(2)}°, ${(+loc.lon).toFixed(2)}°`
-    : '<span class="cal-muted">No location set — open the map below to place a pin</span>';
+    : '<span class="cal-muted">No location set — search or drop a pin on the map below</span>';
 }
 
-// Compact entry bar (mockup): Project-Type selector + Location readout + Calculate button.
-// The Project-Type choice loads the stop-work limits (SITE_TYPES); Calculate runs the estimate.
+// Compact entry bar (mockup): Project-Type selector + Location readout.
+// The Project-Type choice loads the stop-work limits (SITE_TYPES); the single
+// "Apply & Recalculate" button (below, in the limits editor) runs the estimate.
 function _entryBar() {
   const st = _siteType;
   const opts = SITE_TYPE_ORDER.map(key => {
@@ -231,14 +232,12 @@ function _entryBar() {
   const customOpt = st === 'custom'
     ? '<option value="custom" selected>⚙️ Custom limits</option>' : '';
   const placeholder = st ? '' : '<option value="" selected>— pick site type —</option>';
-  const loc = _pendingLoc;
   return `<div class="cal-entry">
     <div class="cal-entry-fld"><label>Project Type</label>
       <select class="cal-entry-sel" id="cal-entry-site">${placeholder}${opts}${customOpt}</select></div>
     <div class="cal-entry-fld grow"><label>Location</label>
       <div class="cal-entry-box" id="cal-entry-loc">${_entryLocHtml()}</div></div>
-    <button class="cal-entry-go" id="cal-entry-go" ${loc ? '' : 'disabled'}>Calculate weather →</button>
-    <div class="cal-entry-hint">Start here — the project type loads the stop-work limits that fit the work, and the location drives the weather. Fine-tune the exact spot on the map below.</div>
+    <div class="cal-entry-hint">Start here — the project type loads the stop-work limits that fit the work, and the location (set on the map below) drives the weather. Then click <b>Apply &amp; Recalculate</b>.</div>
   </div>`;
 }
 
@@ -276,31 +275,27 @@ function _locationReadoutHtml() {
     : '<div class="cal-loc-read cal-muted">No location set yet — search, or click the map to drop a pin.</div>';
 }
 
-// Secondary/expandable location control — demoted below the entry bar (mockup). The entry
-// bar is the primary path; open this to search or drop a pin on the exact site.
+// Location control — always visible, right under the entry bar (approved layout). Search a
+// place, or drop a pin on the map and drag it to the exact project point; those coordinates
+// become the weather location. The single "Apply & Recalculate" button (in the limits editor
+// below) runs the estimate.
 function _locationCard() {
-  const loc = _pendingLoc;
   return `
-    <details class="cal-loc-details"${loc ? '' : ' open'}>
-      <summary>🗺️ Set the exact site on the map${loc ? ` — <b>${escapeHtml(loc.name || 'pin set')}</b>` : ''}</summary>
-      <div class="cal-loc-card">
-        <div class="cal-loc-left">
-          <div class="cal-muted" style="font-size:12px;margin-bottom:8px"><b>Search a place, or click the map to drop a pin on the exact site</b> (drag it to fine-tune). Saved with the project.</div>
-          <div class="cal-loc-search">
-            <input id="cal-loc-q" placeholder="Search a place or address… (e.g. Jubail, Saudi Arabia)" value="">
-            <button class="cal-btn pri" id="cal-loc-search-btn">Search</button>
-          </div>
-          <div id="cal-loc-results" class="cal-loc-results"></div>
-          <div id="cal-loc-readout">${_locationReadoutHtml()}</div>
-          <button class="cal-btn pri" id="cal-loc-use" style="margin-top:10px" ${loc ? '' : 'disabled'}>✓ Use this location &amp; calculate weather</button>
-          <span id="cal-loc-status" class="cal-muted" style="font-size:12px;margin-left:8px"></span>
+    <div class="cal-loc-card">
+      <div class="cal-loc-left">
+        <div class="cal-muted" style="font-size:12px;margin-bottom:8px"><b>Search a place, or click the map to drop a pin on the exact site</b> (drag it to fine-tune). Saved with the project.</div>
+        <div class="cal-loc-search">
+          <input id="cal-loc-q" placeholder="Search a place or address… (e.g. Jubail, Saudi Arabia)" value="">
+          <button class="cal-btn pri" id="cal-loc-search-btn">Search</button>
         </div>
-        <div class="cal-loc-right">
-          <div id="cal-map" class="cal-map"></div>
-          <div class="cal-map-hint cal-muted">🖱️ Click the map to place the pin · drag to fine-tune</div>
-        </div>
+        <div id="cal-loc-results" class="cal-loc-results"></div>
+        <div id="cal-loc-readout">${_locationReadoutHtml()}</div>
       </div>
-    </details>`;
+      <div class="cal-loc-right">
+        <div id="cal-map" class="cal-map"></div>
+        <div class="cal-map-hint cal-muted">🖱️ Click the map to place the pin · drag to fine-tune</div>
+      </div>
+    </div>`;
 }
 
 function _dashboard(d) {
@@ -530,7 +525,7 @@ function _weatherControls() {
       ${num('thr-heat', '🌡 Heat ≥ (°C)', t.temp_max_c)}
       ${num('thr-wind', '💨 Wind ≥ (km/h)', t.wind_kmh)}
       <div class="thr-f"><label>🌫 Dust</label><span class="thr-sw"><input type="checkbox" id="thr-dust" ${t.dust ? 'checked' : ''}> count sandstorm days</span></div>
-      <button class="cal-btn pri" id="thr-apply">Apply &amp; recalculate</button>
+      <button class="cal-btn pri" id="thr-apply" ${_pendingLoc ? '' : 'disabled'}>Apply &amp; Recalculate</button>
       <span id="thr-status" class="cal-muted" style="font-size:12px"></span>
     </div>
     <div class="cal-note" style="margin-top:8px">Each flagged day below shows the measured value against your limit. Applied to <b>construction</b> activities only; a day already off (weekend / holiday / shutdown) is never double-counted — kept separate from the exact P6 Delay.</div>`;
@@ -662,15 +657,18 @@ function _weatherHistogram() {
 }
 
 function _weatherSection() {
-  // The data-date banner + compact entry bar are emitted by _renderWeatherBody (above this).
-  if (!_pendingLoc) {
-    return `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
-      Pick a <b>Project Type</b> and set the <b>Location</b> in the bar above (or drop a pin on the map), then click <b>Calculate weather</b> to see the expected bad-weather days, milestone impact and recovery options.</p></div>`;
-  }
+  // The data-date banner + compact entry bar + location map are emitted by _renderWeatherBody
+  // (above this). The stop-work criteria/limits editor holds the single "Apply & Recalculate"
+  // button, so it's shown up-front (button disabled until a location is set) — one always-
+  // available CTA that serves both the first calculation and every recalculation.
   const controls = `<div class="cal-card" style="margin-bottom:12px">${_weatherControls()}</div>`;
+  if (!_pendingLoc) {
+    return controls + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
+      Pick a <b>Project Type</b> and set the <b>Location</b> on the map above (search or drop a pin), then click <b>Apply &amp; Recalculate</b> to see the expected bad-weather days, milestone impact and recovery options.</p></div>`;
+  }
   if (!_weather) {
     return controls + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
-      Adjust the stop-work limits above if needed, then click <b>Apply &amp; recalculate</b> (or <b>Calculate weather</b> in the entry bar).</p></div>`;
+      Adjust the stop-work limits above if needed, then click <b>Apply &amp; Recalculate</b>.</p></div>`;
   }
   const w = _weather;
   const dashboard = _weatherDashboard();      // §1 Execution Dashboard (waterfall)
@@ -779,7 +777,8 @@ function _wireWeatherView() {
   _wireWeather();
 }
 
-// Entry bar — the Project-Type dropdown loads the preset stop-work limits; Calculate runs it.
+// Entry bar — the Project-Type dropdown loads the preset stop-work limits. The single
+// "Apply & Recalculate" button (in the limits editor) runs the estimate.
 function _wireEntry() {
   const sel = document.getElementById('cal-entry-site');
   if (sel) sel.addEventListener('change', () => {
@@ -789,16 +788,12 @@ function _wireEntry() {
     _thresholds = { ...SITE_TYPES[key].thresholds };
     _renderWeatherBody();                               // reloads the criteria panel + limit inputs
   });
-  const go = document.getElementById('cal-entry-go');
-  if (go) go.addEventListener('click', () => _runWeather(go, document.getElementById('cal-loc-status')));
 }
 
 function _wireLocation() {
   const q = document.getElementById('cal-loc-q');
   const searchBtn = document.getElementById('cal-loc-search-btn');
   const results = document.getElementById('cal-loc-results');
-  const useBtn = document.getElementById('cal-loc-use');
-  const statusEl = document.getElementById('cal-loc-status');
   const doSearch = async () => {
     const term = (q.value || '').trim();
     if (!term) return;
@@ -822,21 +817,19 @@ function _wireLocation() {
   };
   if (searchBtn) searchBtn.addEventListener('click', doSearch);
   if (q) q.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-  if (useBtn) useBtn.addEventListener('click', () => _runWeather(useBtn, statusEl));
   _initMap();
 }
 
-// Refresh the coordinates read-out (map card + entry bar) + enable both Calculate buttons
-// (no full re-render, so the map stays put while the pin is fine-tuned).
+// Refresh the coordinates read-out (map card + entry bar) + enable the single
+// "Apply & Recalculate" button (no full re-render, so the map stays put while the pin is
+// fine-tuned).
 function _updateLocReadout() {
   const el = document.getElementById('cal-loc-readout');
   if (el) el.innerHTML = _locationReadoutHtml();
-  const use = document.getElementById('cal-loc-use');
-  if (use && _pendingLoc) use.disabled = false;
   const eb = document.getElementById('cal-entry-loc');
   if (eb) eb.innerHTML = _entryLocHtml();
-  const go = document.getElementById('cal-entry-go');
-  if (go && _pendingLoc) go.disabled = false;
+  const apply = document.getElementById('thr-apply');
+  if (apply && _pendingLoc) apply.disabled = false;
 }
 
 // Load the vendored Leaflet (local file — ships in the .exe) exactly once.

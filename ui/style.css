@@ -986,7 +986,7 @@ body {
 .cal-3sub { font-size:11.5px; color:var(--muted); margin:2px 0 12px; }
 .cal-3sub b { color:var(--success); }
 
-/* Feature 2 — compact entry bar (Project Type + Location + Calculate) */
+/* Feature 2 — compact entry bar (Project Type + Location) */
 .cal-entry { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; background:var(--card-bg);
   border:1px solid var(--accent); box-shadow:0 0 0 1px rgba(59,130,246,.12); border-radius:12px; padding:14px; margin-bottom:10px; }
 .cal-entry-fld { display:flex; flex-direction:column; gap:5px; }
@@ -996,17 +996,7 @@ body {
   padding:8px 11px; font-size:13px; font-weight:700; min-width:190px; }
 .cal-entry-box { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:8px 11px;
   font-size:13px; min-width:200px; }
-.cal-entry-go { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px 16px;
-  font-weight:800; font-size:13px; cursor:pointer; }
-.cal-entry-go:disabled { opacity:.5; cursor:not-allowed; }
 .cal-entry-hint { flex-basis:100%; font-size:11.5px; color:var(--muted); margin-top:2px; }
-
-/* Feature 2 — the map demoted to a secondary, expandable control */
-.cal-loc-details { border:1px solid var(--border); border-radius:12px; margin-bottom:18px; background:var(--card-bg); }
-.cal-loc-details > summary { cursor:pointer; padding:10px 14px; font-size:12.5px; font-weight:700; color:var(--text); list-style:none; }
-.cal-loc-details > summary::-webkit-details-marker { display:none; }
-.cal-loc-details[open] > summary { border-bottom:1px solid var(--border); }
-.cal-loc-details .cal-loc-card { border:none; box-shadow:none; margin:0; }
 
 /* Feature 2 — footnotes (below §7): auto-conclusion + demoted source/climate reference */
 .cal-foot { border:1px solid var(--border); border-left:3px solid var(--warning); border-radius:0 8px 8px 0;
