@@ -485,9 +485,11 @@ function _oosInit(m) {
   const sig = _oosSig(m);
   if (sig !== _oos.sig) {
     _oos = { sig, all: (m.findings || []).slice(), fresh: (m.findings || []).slice(),
-             applied: {}, view: 'open', dataDate: (m.kpis || {}).data_date || '', fullscreen: false };
+             applied: {}, view: 'open', dataDate: (m.kpis || {}).data_date || '',
+             near: (m.kpis || {}).near_critical_days || 10, fullscreen: false };
   } else {
     _oos.dataDate = (m.kpis || {}).data_date || '';
+    _oos.near = (m.kpis || {}).near_critical_days || 10;
     _oos.fullscreen = false;
   }
   _oos._home = null;
@@ -516,14 +518,18 @@ function _oosOpFor(f, side, predCode, succCode, res) {
   res = res || {};
   const get = (field) => document.querySelector(
     `[data-oosfield="${field}"][data-fid="${f.finding_id}"][data-side="${side}"]`);
-  let action = res.action, newType = res.new_type, newLag = res.new_lag_days;
+  let action = res.action, newType = res.new_type, newLag = res.new_lag_days, newPred = res.new_pred_id || '';
   const aEl = get('action'); if (aEl) action = aEl.value;        // the drawer (planner) overrides
   const tEl = get('new_type'); if (tEl) newType = tEl.value;
   const lEl = get('new_lag_days'); if (lEl && lEl.value !== '') newLag = parseFloat(lEl.value);
-  if (action !== 'change' && action !== 'remove') return null;   // manual / review / nochange → no op
+  const pEl = get('new_pred_id'); if (pEl && pEl.value.trim()) newPred = pEl.value.trim();
+  // 'replace' = remove the offending tie + add a new predecessor (the commencement for a completed
+  // activity). manual / review / nochange → no op (stays unresolved).
+  if (action !== 'change' && action !== 'remove' && action !== 'replace') return null;
   if (action === 'remove') { newType = null; newLag = null; }
   return { finding_id: f.finding_id, pred_id: predCode, succ_id: succCode,
-           action, new_type: newType, new_lag_days: newLag, new_pred_id: '' };
+           action, new_type: newType, new_lag_days: newLag,
+           new_pred_id: (action === 'replace' ? newPred : '') };
 }
 
 function _oosCurRel(rel, lag) {
@@ -543,7 +549,8 @@ function _oosSevCell(f) {
 function _oosAfterCell(label) {
   if (!label || label === 'No change') return `<span class="oos-nochg">No change</span>`;
   if (label === 'Needs Planner Review' || label === 'Planner review') return `<span class="oos-relb rev">⚠ Needs Planner Review</span>`;
-  const cls = /Removed/.test(label) ? 'rem' : 'sg';
+  // A replace ("… → Removed; + <pred> FS(0)") is a positive fix (re-tied), not a bare removal.
+  const cls = /;\s*\+/.test(label) ? 'sg' : (/Removed/.test(label) ? 'rem' : 'sg');
   return `<span class="oos-relb ${cls}">${escapeHtml(label)}</span>`;
 }
 
@@ -691,7 +698,11 @@ function _oosLogTable(rows, dd, resolved) {
         </tr>
       </thead>
       <tbody>${body}</tbody></table></div>
-    <div class="oos-flowhint">The engine corrects each tie to match actual execution, preserving as much logic as possible: it <b>changes the relationship type/lag</b> to the one that fits the real overlap (SS/FF, lag from the logic); if no type fits but the activity keeps other valid predecessors, it <b>removes the driving tie</b> (valid logic remains); only when removal would leave the activity with <b>no predecessor</b> is it flagged <b>Needs Planner Review</b> (unresolved). "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>`;
+    <div class="oos-flowhint">The engine corrects each tie to match actual execution, preserving as much logic as possible: it <b>changes the relationship type/lag</b> to the one that fits the real overlap (SS/FF, lag from the logic); if no type fits but the activity keeps other valid predecessors (or is 100% complete), it <b>removes / re-ties the driving link</b> (valid logic remains); only when removal would leave an in-progress activity with <b>no predecessor</b> is it flagged <b>Needs Planner Review</b> (unresolved). "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>
+    <div class="oos-sevlegend"><span class="oos-sevlegend-t">Severity</span>
+      <span class="oos-sevb crit">Critical</span> on the critical path (total float ≤ 0)
+      <span class="oos-sevb high">High</span> near-critical (0 &lt; total float ≤ ${_oos.near} working days)
+      <span class="oos-sevb med">Medium</span> has float — not near-critical</div>`;
 }
 
 // One editable block per tie (predecessor / successor) inside the drawer.
@@ -706,9 +717,12 @@ function _oosTieBlock(f, side, res, tieLabel) {
   const typeOpts = types.map(t => `<option value="${t}" ${t === curType ? 'selected' : ''}>${t}</option>`).join('');
   // For a planner-review tie, the engine makes NO automatic change: default the editor to a
   // "leave for review" no-op and let the planner CHOOSE to remove or change if they decide to.
+  const isReplace = res.action === 'replace';
   const actionList = isManual
-    ? [['review', 'Needs planner review (leave open)'], ['remove', 'Remove relationship'], ['change', 'Change relationship type / lag']]
-    : [['change', 'Change relationship type / lag'], ['remove', 'Remove relationship']];
+    ? [['review', 'Needs planner review (leave open)'], ['remove', 'Remove relationship'], ['replace', 'Replace predecessor'], ['change', 'Change relationship type / lag']]
+    : isReplace
+      ? [['replace', 'Replace predecessor'], ['change', 'Change relationship type / lag'], ['remove', 'Remove relationship']]
+      : [['change', 'Change relationship type / lag'], ['remove', 'Remove relationship'], ['replace', 'Replace predecessor']];
   const defAction = isManual ? 'review' : res.action;
   const actOpts = actionList.map(([v, l]) => `<option value="${v}" ${v === defAction ? 'selected' : ''}>${l}</option>`).join('');
   const lag = (res.new_lag_days == null) ? 0 : res.new_lag_days;
@@ -719,6 +733,7 @@ function _oosTieBlock(f, side, res, tieLabel) {
     ${recBlock}
     <div class="oos-editrow">
       <label>${isManual ? 'Planner decision' : 'Action'}</label><select data-oosfield="action" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${actOpts}</select>
+      <span class="oos-editgrp" data-grp="newpred"${isReplace ? '' : ' style="display:none"'}><label>New predecessor ID</label><input type="text" data-oosfield="new_pred_id" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" value="${escapeHtml(res.new_pred_id || '')}"></span>
       <span class="oos-editgrp" data-grp="type"><label>Type</label><select data-oosfield="new_type" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${typeOpts}</select></span>
       <span class="oos-editgrp" data-grp="lag"><label>Lag</label><input type="number" step="0.5" data-oosfield="new_lag_days" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" value="${lag}"> d</span>
     </div>
@@ -835,7 +850,11 @@ function _oosEditVisibility(fid, side) {
   const hideTypeLag = (act === 'remove' || act === 'review');   // nothing to set for remove / review
   blk.querySelectorAll('.oos-editgrp').forEach(el => {
     const grp = el.getAttribute('data-grp');
-    el.style.display = (hideTypeLag && (grp === 'type' || grp === 'lag')) ? 'none' : '';
+    let show;
+    if (grp === 'newpred') show = (act === 'replace');           // new predecessor only for replace
+    else if (grp === 'type' || grp === 'lag') show = !hideTypeLag;
+    else show = true;
+    el.style.display = show ? '' : 'none';
   });
 }
 

@@ -85,7 +85,9 @@ def apply_ops_to_relationships(data, accepted):
                     if o['new_lag_days'] is not None:
                         r['lag_days'] = o['new_lag_days']
         if act in ('add', 'replace'):
-            npc = o['new_pred_id'] or pc
+            npc = o['new_pred_id']
+            if not npc:
+                continue   # a replace/add with no new predecessor = the remove above; nothing to re-add
             p_oids, s_oids = code_to_oids.get(npc), code_to_oids.get(sc)
             if p_oids and s_oids:
                 rels.append({
@@ -107,8 +109,20 @@ def revalidate(data, config, accepted):
         project=getattr(data, 'project', None))
     fresh = run_out_of_sequence(ScheduleGraph(shim), config)
     fresh_ids = {f['finding_id'] for f in fresh['findings']}
-    accepted_ids = {_norm_op(o)['finding_id'] for o in accepted if _norm_op(o)['finding_id']}
-    resolved = sorted(accepted_ids - fresh_ids)
+    still_oos_acts = {f['activity_id'] for f in fresh['findings']}
+    # A finding is resolved only when its out-of-sequence condition genuinely no longer holds. For a
+    # 'replace' the finding_id changes with the predecessor, so a vanished id is NOT proof on its own:
+    # if the activity is still out of sequence via the new predecessor the finding is not resolved —
+    # honest accounting that never credits a "fix" that merely moved the problem.
+    resolved = []
+    for o in (_norm_op(x) for x in accepted):
+        fid = o['finding_id']
+        if not fid or fid in fresh_ids:
+            continue
+        if o['action'] == 'replace' and o['succ_id'] and o['succ_id'] in still_oos_acts:
+            continue
+        resolved.append(fid)
+    resolved = sorted(set(resolved))
     return {
         'findings': fresh['findings'],
         'fresh_ids': sorted(fresh_ids),
@@ -162,10 +176,11 @@ def to_file_ops(accepted, data):
             ops.append({'kind': 'add_rel', 'pred_code': pc, 'succ_code': sc,
                         'type': typ, 'lag_hours': lag_hours})
         elif act == 'replace':
-            npc = o['new_pred_id'] or pc
             ops.append({'kind': 'remove_rel', 'pred_code': pc, 'succ_code': sc})
-            ops.append({'kind': 'add_rel', 'pred_code': npc, 'succ_code': sc,
-                        'type': typ, 'lag_hours': lag_hours})
+            npc = o['new_pred_id']
+            if npc:   # no new predecessor → behave as a plain remove (never re-add the same tie)
+                ops.append({'kind': 'add_rel', 'pred_code': npc, 'succ_code': sc,
+                            'type': typ, 'lag_hours': lag_hours})
     return ops
 
 

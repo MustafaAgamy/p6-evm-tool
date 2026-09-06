@@ -1,28 +1,29 @@
 """Per-module Excel column mappings. Each module exports only its own findings."""
 
-# The Excel column that carries the driving-activity highlight (amber fill) — so the driving
-# relationship stands out on export exactly as its [DRIVING] highlight does on screen.
-DRIVING_HEADER = 'Driving Activity'
-
-# Severity colour key (matches the on-screen badges + the OOS criticality rule).
-OOS_SEVERITY_LEGEND = [
-    ('Critical', 'On the critical path (total float <= 0)'),
-    ('High', 'Near-critical (0 < total float <= 10 working days)'),
-    ('Medium', 'Has float - not near-critical'),
-]
+from p6_evm.xlsx_writer import RichText
 
 
 def excel_highlight_cols(headers):
-    """0-based indices of columns to render with the driving-activity highlight."""
-    return [i for i, h in enumerate(headers) if h == DRIVING_HEADER]
+    """No column-level fill highlight is used any more. The driving predecessor is highlighted
+    IN-cell — a bold amber run inside the Baseline Predecessors cell (see excel_columns), the
+    closest Excel can do to the on-screen highlighted row — so no whole column is filled. Kept
+    (returning []) because server.py still passes its result to write_xlsx(highlight_cols=...)."""
+    return []
 
 
 def excel_severity_meta(module_result, headers):
     """(severity_col_index, legend) for the colour-coded Severity column + its legend — for the
-    Out-of-Sequence export; (None, None) for other modules so their exports are unchanged."""
+    Out-of-Sequence export; (None, None) for other modules so their exports are unchanged. The
+    near-critical band reflects the configured ``near_critical_days`` (not a hardcoded 10)."""
     if module_result.get('module') != 'out_of_sequence' or 'Severity' not in headers:
         return None, None
-    return headers.index('Severity'), OOS_SEVERITY_LEGEND
+    near = ((module_result.get('kpis') or {}).get('near_critical_days')) or 10
+    legend = [
+        ('Critical', 'On the critical path (total float <= 0)'),
+        ('High', f'Near-critical (0 < total float <= {near} working days)'),
+        ('Medium', 'Has float - not near-critical'),
+    ]
+    return headers.index('Severity'), legend
 
 
 def _impact_str(v):
@@ -40,22 +41,38 @@ def excel_columns(module_result):
         # Modification (the before→after transition per affected tie). Each Baseline cell is a
         # multi-line list so a multi-predecessor / multi-successor activity shows the full context and
         # exactly WHICH tie was modified.
+        def _rel_items(items, single_id, single_name, single_label):
+            # ALL ties (driving one flagged), or a single one synthesised from the flat fields.
+            return items if items else ([{'id': single_id, 'name': single_name,
+                                          'label': single_label, 'affected': True}] if single_id else [])
+
+        def _rel_line(p):
+            return (f"{p.get('id','')}  {p.get('label','')}"
+                    f"{'  [Driving]' if p.get('affected') else ''}  —  {p.get('name','')}")
+
         def _rel_lines(items, single_id, single_name, single_label, fallback):
-            lst = items if items else ([{'id': single_id, 'name': single_name,
-                                         'label': single_label, 'affected': True}] if single_id else [])
+            # Plain multi-line text (successors): the affected tie carries a " [Driving]" tag.
+            lst = _rel_items(items, single_id, single_name, single_label)
             if not lst:
                 return fallback
-            return '\n'.join(
-                f"{p.get('id','')}  {p.get('label','')}{'  [Driving]' if p.get('affected') else ''}  —  {p.get('name','')}"
-                for p in lst)
+            return '\n'.join(_rel_line(p) for p in lst)
 
-        def _driving(f):
-            # The driving activity (the OOS cause) — its own amber-highlighted column, so it stands
-            # out on export exactly as the [DRIVING] highlight does on screen.
-            pid, pname = f.get('pred_id', ''), f.get('pred_name', '')
-            if not pid:
-                return ''
-            return f"{pid} - {pname} · {f.get('pred_after_label', '')}"
+        def _pred_rich(f):
+            # Baseline Predecessors as a RichText cell: the driving predecessor line is bold +
+            # amber-brown (FF92400E), the rest plain — the closest Excel can do to the on-screen
+            # highlighted row. Lines are joined by a newline (the cell wraps).
+            lst = _rel_items(f.get('all_predecessors'), f.get('pred_id'),
+                             f.get('pred_name'), f.get('pred_baseline_label'))
+            if not lst:
+                return 'No predecessor'
+            runs = []
+            for k, p in enumerate(lst):
+                text = ('\n' if k else '') + _rel_line(p)
+                if p.get('affected'):
+                    runs.append({'t': text, 'b': True, 'color': 'FF92400E'})
+                else:
+                    runs.append({'t': text, 'b': False, 'color': None})
+            return RichText(runs)
 
         def _after_pred(f):
             # Mirror the on-screen After-Predecessor cell, incl. the "Remaining predecessors: N"
@@ -67,19 +84,19 @@ def excel_columns(module_result):
             return lbl
 
         # The on-screen columns EXACTLY (minus the last two — Resolution and the plain Severity),
-        # then a highlighted Driving Activity column, then a colour-coded Severity (with a legend).
+        # then a colour-coded Severity (with a legend). The driving predecessor is no longer a
+        # separate column — it is highlighted in-cell inside Baseline Predecessors (bold amber).
         headers = ['#', 'Activity ID', 'Activity Name',
                    'Baseline Predecessors', 'Baseline Successors', 'Data Date',
-                   'After Predecessor Tie', 'After Successor Tie', DRIVING_HEADER, 'Severity']
+                   'After Predecessor Tie', 'After Successor Tie', 'Severity']
         rows = [[
             i, f.get('activity_id', ''), f.get('activity_name', ''),
-            _rel_lines(f.get('all_predecessors'), f.get('pred_id'), f.get('pred_name'),
-                       f.get('pred_baseline_label'), 'No predecessor'),
+            _pred_rich(f),
             _rel_lines(f.get('all_successors'), f.get('succ_id'), f.get('succ_name'),
                        f.get('succ_baseline_label'), 'No successor'),
             cutoff,
             _after_pred(f), f.get('succ_after_label', ''),
-            _driving(f), f.get('severity', 'Medium'),
+            f.get('severity', 'Medium'),
         ] for i, f in enumerate(findings, 1)]
         return headers, rows
 

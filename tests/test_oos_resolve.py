@@ -132,6 +132,99 @@ def test_data_op_is_not_applied(tmp_path):
     assert f['finding_id'] not in out['resolved']
 
 
+# ── Re-validation: commencement re-tie (rule 01) is honest ───────────────────
+
+from datetime import datetime as _DT
+from p6_evm.parser import ScheduleData as _SD
+from p6_audit.graph import ScheduleGraph as _SG
+from p6_audit.modules.out_of_sequence import run_out_of_sequence as _run
+
+
+def _dt(s):
+    return _DT.fromisoformat(s)
+
+
+def _mk(oid, **kw):
+    b = {'object_id': oid, 'id': oid, 'name': f'Act {oid}', 'task_type': 'Task',
+         'is_critical': False, 'total_float_days': 50.0, 'wbs_path': 'P > W',
+         'category': None, 'calendar_id': None, 'percent_complete': 0.0,
+         'actual_start': None, 'actual_finish': None}
+    b.update(kw)
+    return b
+
+
+def _data(acts, rels):
+    d = _SD()
+    d.activities = acts
+    d.relationships = rels
+    return d
+
+
+def _oos_finding(data, act_id):
+    return next(f for f in _run(_SG(data), CONFIG)['findings'] if f['activity_id'] == act_id)
+
+
+def test_incomplete_task_commencement_falls_back_to_remove_and_truly_clears():
+    # X (100% complete) is out of sequence after its only predecessor A; the only 'commencement'-named
+    # activity is a still-INCOMPLETE Task — an unsafe re-tie target (P6 would re-flag it). The engine
+    # must fall back to a plain remove, and re-validation must show X GENUINELY cleared (no false
+    # 'resolved' left behind by the finding_id changing with the predecessor).
+    data = _data({
+        'NTP': _mk('NTP', name='Commencement of Works', actual_start=_dt('2025-12-01')),
+        'A': _mk('A', actual_start=_dt('2026-02-01')),
+        'X': _mk('X', actual_start=_dt('2026-01-01'), actual_finish=_dt('2026-01-10')),
+    }, [{'pred_id': 'A', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0}])
+    f = _oos_finding(data, 'X')
+    assert f['resolution']['action'] == 'remove'
+    out = R.revalidate(data, CONFIG, [_accepted_from(f)])
+    assert f['finding_id'] in out['resolved']
+    assert all(x['activity_id'] != 'X' for x in out['findings'])
+
+
+def test_manual_replace_to_incomplete_pred_is_not_credited_resolved():
+    # Even if a planner manually re-ties X to a still-incomplete predecessor B (which stays out of
+    # sequence), revalidate must NOT credit the finding as resolved just because its finding_id
+    # changed with the predecessor — the activity is still out of sequence, honestly reported.
+    data = _data({
+        'A': _mk('A', actual_start=_dt('2026-02-01')),
+        'B': _mk('B', actual_start=_dt('2026-02-05')),           # still incomplete (no finish)
+        'X': _mk('X', actual_start=_dt('2026-01-01'), actual_finish=_dt('2026-01-10')),
+    }, [{'pred_id': 'A', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0}])
+    f = _oos_finding(data, 'X')
+    op = _accepted_from(f, action='replace', new_type='FS', new_lag_days=0, new_pred_id='B')
+    out = R.revalidate(data, CONFIG, [op])
+    assert f['finding_id'] not in out['resolved']
+    assert any(x['activity_id'] == 'X' for x in out['findings'])
+
+
+def test_milestone_commencement_replace_clears_and_is_resolved():
+    # The happy path: a completed X out of sequence after A, with a Start-Milestone commencement NTP.
+    # The engine recommends a safe replace (re-tie X to NTP); re-validation must show X GENUINELY
+    # cleared AND credit the finding resolved — the honest-accounting guard must not over-block it.
+    data = _data({
+        'NTP': _mk('NTP', task_type='StartMilestone', name='Project Commencement',
+                   actual_start=_dt('2025-12-01')),
+        'A': _mk('A', actual_start=_dt('2026-02-01')),
+        'X': _mk('X', actual_start=_dt('2026-01-01'), actual_finish=_dt('2026-01-10')),
+    }, [{'pred_id': 'A', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0}])
+    f = _oos_finding(data, 'X')
+    assert f['resolution']['action'] == 'replace' and f['resolution']['new_pred_id'] == 'NTP'
+    out = R.revalidate(data, CONFIG, [_accepted_from(f)])
+    assert f['finding_id'] in out['resolved']
+    assert all(x['activity_id'] != 'X' for x in out['findings'])
+
+
+def test_replace_with_blank_new_pred_removes_without_readding(tmp_path):
+    # A 'replace' carrying no new predecessor must behave as a plain remove — never silently re-add
+    # the SAME offending predecessor as FS(0), which would leave the activity out of sequence.
+    data = parse_file(_write(tmp_path, 's.xml', XML))
+    f = _finding(data)   # A200 out of sequence after A100
+    op = _accepted_from(f, action='replace', new_type='FS', new_lag_days=0, new_pred_id='')
+    out = R.revalidate(data, CONFIG, [op])
+    assert f['finding_id'] in out['resolved']
+    assert all(x['activity_id'] != 'A200' for x in out['findings'])
+
+
 # ── Corrected file export: XML ───────────────────────────────────────────────
 
 def test_corrected_xml_change_roundtrip(tmp_path):

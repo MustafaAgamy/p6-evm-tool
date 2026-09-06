@@ -182,18 +182,19 @@ def test_conclusion_and_empty():
 
 # ── Advisory suggestions ───────────────────────────────────────────────────
 
-def test_planner_review_when_successor_finished_before_pred_started():
-    # Successor finished before predecessor started: NO relationship type or lag can resolve the
-    # out-of-sequence, so removal would be a false resolution → the engine flags Needs Planner
-    # Review (unresolved), it does NOT auto-remove or pretend an FS "replacement" fixes it.
+def test_completed_activity_removed_when_finished_before_pred_started():
+    # Successor is 100% COMPLETE and finished before its predecessor started: no relationship type or
+    # lag can resolve the out-of-sequence. Because the activity is complete it needs no driving
+    # predecessor going forward, so (with no commencement milestone to tie it to) the engine removes
+    # the contradicting tie — a defensible automatic correction, not Needs Planner Review (rule 01).
     g = _g({
         'p': _act('p', actual_start=dt('2026-02-01')),
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FF', 'lag_days': 0}])
     f = _by_id(run_out_of_sequence(g, CONFIG))['s']
-    assert f['resolution']['action'] == 'manual' and f['resolution']['applicable'] is False
-    assert f['pred_after_label'] == 'Needs Planner Review'
-    assert 'planner' in f['resolution']['action_text'].lower()
+    assert f['resolution']['action'] == 'remove' and f['resolution']['applicable'] is True
+    assert f['pred_after_label'] == 'FF → Removed'
+    assert 'complete' in f['resolution']['action_text'].lower()
 
 
 def test_pred_not_started_but_successor_running_gets_ff_fix():
@@ -302,17 +303,63 @@ def test_remove_auto_resolves_when_other_predecessors_remain():
     assert 'keeps' in f['resolution']['action_text'].lower()
 
 
-def test_planner_review_when_removal_leaves_open_end():
-    # X finished before its ONLY predecessor A started → removing A→X would leave X with no
-    # predecessor (an open end) → Needs Planner Review, NOT an auto-remove.
+def test_completed_activity_removed_when_it_is_the_only_predecessor():
+    # X (100% complete) finished before its ONLY predecessor A started, and there is no commencement
+    # milestone to reconnect it to → removing A→X leaves X an open end, which is acceptable for a
+    # finished activity (rule 01): auto-remove, not Needs Planner Review.
     g = _g({
         'A': _act('A', actual_start=dt('2026-02-01')),
         'X': _act('X', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
     }, [{'pred_id': 'A', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0}])
     f = _by_id(run_out_of_sequence(g, CONFIG))['X']
-    assert f['resolution']['action'] == 'manual' and f['resolution']['applicable'] is False
-    assert f['pred_after_label'] == 'Needs Planner Review'
+    assert f['resolution']['action'] == 'remove' and f['resolution']['applicable'] is True
+    assert f['pred_after_label'] == 'FS → Removed'
     assert f['remaining_preds'] == 0
+
+
+def test_completed_activity_reconnected_to_commencement():
+    # X (100% complete) finished before its ONLY predecessor A started, but the schedule HAS a project
+    # commencement milestone (NTP). Rule 01: remove the contradicting A→X tie and reconnect X to the
+    # commencement (a 'replace') so it stays connected instead of becoming an open end.
+    g = _g({
+        'NTP': _act('NTP', task_type='StartMilestone', name='Project Commencement',
+                    actual_start=dt('2025-12-01')),
+        'A': _act('A', actual_start=dt('2026-02-01')),
+        'X': _act('X', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
+    }, [{'pred_id': 'A', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0}])
+    r = _by_id(run_out_of_sequence(g, CONFIG))['X']
+    assert r['resolution']['action'] == 'replace' and r['resolution']['applicable'] is True
+    assert r['resolution']['new_pred_id'] == 'NTP' and r['resolution']['new_type'] == 'FS'
+    assert 'NTP' in r['resolution']['action_text']
+    # After-Modification cell shows the tie removed AND the commencement added
+    assert r['pred_after_label'] == 'FS → Removed; + NTP FS(0)'
+
+
+def test_completed_activity_not_retied_to_incomplete_task_commencement():
+    # The only 'commencement'-named candidate is a real Task that is still INCOMPLETE. Re-tying the
+    # completed X to it with FS would ITSELF be out-of-sequence (P6 flags a still-incomplete
+    # predecessor), so the engine must NOT propose that replace — it falls back to a plain remove.
+    g = _g({
+        'NTP': _act('NTP', name='Commencement of Works', actual_start=dt('2025-12-01')),  # Task, no finish
+        'A': _act('A', actual_start=dt('2026-02-01')),
+        'X': _act('X', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
+    }, [{'pred_id': 'A', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0}])
+    r = _by_id(run_out_of_sequence(g, CONFIG))['X']['resolution']
+    assert r['action'] == 'remove' and r['applicable'] is True
+    assert not r['new_pred_id']
+
+
+def test_completed_activity_retied_to_completed_task_commencement():
+    # A real-Task commencement that is already COMPLETE is a safe re-tie target — P6 never flags a
+    # completed predecessor as out-of-sequence — so the engine may reconnect X to it.
+    g = _g({
+        'AOC': _act('AOC', name='Award of Contract',
+                    actual_start=dt('2025-11-01'), actual_finish=dt('2025-11-05')),
+        'A': _act('A', actual_start=dt('2026-02-01')),
+        'X': _act('X', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
+    }, [{'pred_id': 'A', 'succ_id': 'X', 'type': 'FS', 'lag_days': 0}])
+    r = _by_id(run_out_of_sequence(g, CONFIG))['X']['resolution']
+    assert r['action'] == 'replace' and r['new_pred_id'] == 'AOC'
 
 
 def test_all_predecessors_listed_with_driving_marked():
@@ -338,17 +385,17 @@ def test_all_predecessors_listed_with_driving_marked():
     assert all(p.get('id') and 'label' in p for p in preds)     # each fully identified
 
 
-def test_planner_review_for_non_fs_tie_when_no_overlap_fits():
-    # A NON-FS tie (SS) where the successor finished before the predecessor started → no overlap
-    # type resolves it. Changing to FS would NOT clear the OOS (a false resolution), so the engine
-    # flags Needs Planner Review (unresolved), not an auto FS/Remove.
+def test_completed_activity_on_non_fs_tie_is_removed_not_faked_to_fs():
+    # A NON-FS tie (SS) where the COMPLETE successor finished before the predecessor started → no
+    # overlap type resolves it, and changing to FS would NOT clear the OOS (a false resolution). The
+    # activity is complete, so (no commencement present) the engine removes the tie — never a fake FS.
     g = _g({
         'p': _act('p', actual_start=dt('2026-02-01')),
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'SS', 'lag_days': 0}])
     f = _by_id(run_out_of_sequence(g, CONFIG))['s']
-    assert f['resolution']['action'] == 'manual' and f['resolution']['applicable'] is False
-    assert f['pred_after_label'] == 'Needs Planner Review'
+    assert f['resolution']['action'] == 'remove' and f['resolution']['applicable'] is True
+    assert f['pred_after_label'] == 'SS → Removed'
 
 
 def test_ff_repair_when_successor_started_before_pred_but_still_running():
@@ -363,16 +410,17 @@ def test_ff_repair_when_successor_started_before_pred_but_still_running():
     assert 'to FF' in r['action_text']
 
 
-def test_planner_review_when_pred_never_started_and_succ_complete():
-    # Predecessor never started AND the successor is already COMPLETE → no overlap type resolves it
-    # → Needs Planner Review (unresolved), NOT an auto FS-replacement or Remove.
+def test_completed_activity_removed_when_pred_never_started():
+    # Predecessor never started AND the successor is already COMPLETE → no overlap type resolves it.
+    # The successor is complete and has no other predecessor and no commencement → auto-remove the
+    # contradicting tie (rule 01), not Needs Planner Review.
     g = _g({
         'p': _act('p'),                                  # never started
         's': _act('s', actual_start=dt('2026-01-05'), actual_finish=dt('2026-01-12')),  # complete
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FF', 'lag_days': 0}])
     r = _by_id(run_out_of_sequence(g, CONFIG))['s']['resolution']
-    assert r['action'] == 'manual' and r['applicable'] is False
-    assert 'planner' in r['action_text'].lower()
+    assert r['action'] == 'remove' and r['applicable'] is True
+    assert 'complete' in r['action_text'].lower()
 
 
 # ── Baseline / After Modification labels + successor-tie evaluation (LOG format) ─
@@ -397,17 +445,16 @@ def test_both_ties_get_baseline_and_after_labels():
 
 
 def test_no_fake_change_when_tie_already_fs0():
-    # The offending tie is ALREADY FS(0) and no overlap type fits (successor finished before the
-    # predecessor started). There is no P6-legal correction that resolves it (and an FS "replacement"
-    # would be a no-op fake change), so the engine flags Needs Planner Review — never a fake
-    # 'FS(0) → FS(0)' and never a claimed auto-resolution.
+    # The offending tie is ALREADY FS(0) and no overlap type fits (a COMPLETE successor finished
+    # before the predecessor started). An FS "replacement" would be a no-op fake change, so the engine
+    # removes the tie (the activity is complete, no commencement present) — never a fake 'FS(0) → FS(0)'.
     g = _g({
         'p': _act('p', actual_start=dt('2026-02-01')),
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
     f = _by_id(run_out_of_sequence(g, CONFIG))['s']
-    assert f['resolution']['action'] == 'manual' and f['resolution']['applicable'] is False
-    assert f['pred_after_label'] == 'Needs Planner Review'
+    assert f['resolution']['action'] == 'remove' and f['resolution']['applicable'] is True
+    assert f['pred_after_label'] == 'FS → Removed'
     assert '→ FS' not in f['pred_after_label']       # never a same→same fake change
 
 

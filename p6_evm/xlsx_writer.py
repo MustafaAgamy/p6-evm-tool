@@ -11,6 +11,22 @@ No third-party deps (openpyxl) — keeps the PyInstaller bundle small.
 import zipfile
 from xml.sax.saxutils import escape
 
+
+class RichText:
+    """A multi-run cell value: one inline string whose individual runs can each be
+    bold and/or coloured. Used so a single line of a multi-line cell (e.g. the driving
+    predecessor inside the Baseline Predecessors cell) stands out — the closest Excel
+    can do to the on-screen highlighted row.
+
+    ``runs`` is a list of dicts, one per run:
+        {'t': text, 'b': bool, 'color': 'FFRRGGBB' or None}
+    A run with neither bold nor colour is emitted as a plain run (no run-properties).
+    """
+
+    def __init__(self, runs):
+        self.runs = runs
+
+
 _ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
@@ -18,7 +34,8 @@ _ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 # Flat-table styles (xf indices): 0 default · 1 bold (header) · 2 driving highlight (bold brown on
 # amber fill, top-aligned + wrapped) · 3 Severity=Critical (red) · 4 Severity=High (amber) ·
-# 5 Severity=Medium/other (grey). The severity fills match the on-screen badge colours.
+# 5 Severity=Medium/other (grey) · 6 wrap-top, no fill (multi-line rich cells such as the
+# Baseline Predecessors list). The severity fills match the on-screen badge colours.
 _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <fonts count="6">
@@ -37,15 +54,17 @@ _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <fill><patternFill patternType="solid"><fgColor rgb="FFEEF1F6"/></patternFill></fill></fills>
 <borders count="1"><border/></borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="6"><xf/><xf fontId="1" applyFont="1"/>
+<cellXfs count="7"><xf/><xf fontId="1" applyFont="1"/>
 <xf fontId="2" fillId="2" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
 <xf fontId="3" fillId="3" applyFont="1" applyFill="1"/>
 <xf fontId="4" fillId="4" applyFont="1" applyFill="1"/>
 <xf fontId="5" fillId="5" applyFont="1" applyFill="1"/>
+<xf applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
 </cellXfs>
 </styleSheet>'''
 
 _HIGHLIGHT_STYLE = 2                                    # driving-relationship highlight xf
+_WRAP_STYLE = 6                                         # wrap-top, no fill (multi-line rich cells)
 _SEV_STYLE = {'Critical': 3, 'High': 4, 'Medium': 5, 'Low': 5}   # Severity value → xf
 
 # Calendar styles — fills tinted to match the PDF timeline legend.
@@ -106,6 +125,24 @@ def _col(idx):
 
 def _cell(col, row, value, style=None):
     ref = f'{_col(col)}{row}'
+    if isinstance(value, RichText):
+        # An inline string of several runs; each run may carry bold/colour run-properties
+        # so one line of a multi-line cell stands out. Rich cells wrap by default (so the
+        # multiple lines actually show) unless the caller supplied an explicit style.
+        if style is None:
+            style = _WRAP_STYLE
+        s_attr = f' s="{style}"' if style else ''
+        parts = []
+        for run in value.runs:
+            props = ''
+            if run.get('b'):
+                props += '<b/>'
+            if run.get('color'):
+                props += f'<color rgb="{run["color"]}"/>'
+            rpr = f'<rPr>{props}<sz val="11"/><rFont val="Calibri"/></rPr>' if props else ''
+            parts.append(f'<r>{rpr}<t xml:space="preserve">'
+                         f'{escape(str(run.get("t", "")))}</t></r>')
+        return f'<c r="{ref}"{s_attr} t="inlineStr"><is>{"".join(parts)}</is></c>'
     s_attr = f' s="{style}"' if style else ''
     if isinstance(value, bool):
         value = str(value)

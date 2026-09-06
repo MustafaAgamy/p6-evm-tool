@@ -1,5 +1,6 @@
 import zipfile
-from p6_evm.xlsx_writer import write_xlsx
+import xml.etree.ElementTree as ET
+from p6_evm.xlsx_writer import write_xlsx, RichText
 
 
 def test_produces_valid_xlsx_zip(tmp_path):
@@ -62,3 +63,29 @@ def test_severity_colours_and_legend(tmp_path):
     assert '<c r="B4" s="5"' in sheet          # Medium → grey
     assert 'Severity legend' in sheet          # legend rendered below the table
     assert 'On the critical path' in sheet
+
+
+def test_richtext_cell_emits_runs_with_bold_colour(tmp_path):
+    # A RichText cell becomes an inline string of multiple <r> runs; the driving run carries
+    # a bold + amber-brown (FF92400E) rPr, a plain run carries no rPr. This is how the driving
+    # predecessor line is highlighted INSIDE the Baseline Predecessors cell.
+    rich = RichText([
+        {'t': 'SS-1410  FS  [Driving]  —  Fabricate Steel', 'b': True, 'color': 'FF92400E'},
+        {'t': '\nSS-1400  SS  —  Site Handover', 'b': False, 'color': None},
+    ])
+    p = tmp_path / "rich.xlsx"
+    write_xlsx(str(p), "Findings", ["Baseline Predecessors"], [[rich]])
+    assert p.exists()
+    with zipfile.ZipFile(p) as z:
+        sheet = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
+        styles = z.read('xl/styles.xml').decode('utf-8')
+        # valid zip whose styles.xml + sheet1.xml both parse as XML
+        ET.fromstring(sheet)
+        ET.fromstring(styles)
+    assert sheet.count('<r>') == 2                    # two runs in one cell
+    assert '<b/>' in sheet                            # the driving run is bold …
+    assert '<color rgb="FF92400E"/>' in sheet         # … and amber-brown
+    assert '[Driving]' in sheet and 'Fabricate Steel' in sheet
+    assert 'Site Handover' in sheet                   # the plain run text present too
+    # the rich cell wraps (multi-line): it carries the wrap-top style, not a fill
+    assert '<c r="A2" s="6"' in sheet

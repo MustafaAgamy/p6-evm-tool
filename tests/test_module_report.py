@@ -161,20 +161,28 @@ def test_oos_review_log_empty_when_clean():
 
 
 def test_excel_columns_out_of_sequence():
+    from p6_evm.xlsx_writer import RichText
     headers, rows = excel_columns(_oos())
     # LOG format: Baseline lists ALL predecessor/successor ties vs After Modification (per-tie
     # before→after transition), Remaining Preds, Severity.
     assert 'Baseline Predecessors' in headers and 'Baseline Successors' in headers
     assert 'After Predecessor Tie' in headers and 'After Successor Tie' in headers
-    assert 'Driving Activity' in headers            # highlighted column pinpointing the driving tie
+    assert 'Driving Activity' not in headers        # separate driving column removed
     assert 'Data Date' in headers and 'Severity' in headers
     assert 'Resolution' not in headers              # interactive column excluded from the export
     assert 'Fix 2' not in ' '.join(headers)
+    assert len(headers) == 9                         # #, ID, Name, BaselinePred, BaselineSucc,
+    #                                                 Data Date, AfterPred, AfterSucc, Severity
     assert rows[0][1] == 'SS-1420'
     assert 'FS → SS(2)' in rows[0]                 # the after-modification predecessor transition
-    # the driving column is flagged for the amber highlight; Severity carries a colour legend
+    # the driving predecessor is highlighted IN-cell (a bold amber run), not in a separate column
+    pred_cell = rows[0][headers.index('Baseline Predecessors')]
+    assert isinstance(pred_cell, RichText)
+    driving = [r for r in pred_cell.runs if r.get('b') and r.get('color') == 'FF92400E']
+    assert driving and '[Driving]' in driving[0]['t'] and 'Fabricate Steel' in driving[0]['t']
+    # no whole-column fill highlight any more; Severity still carries a colour legend
     from p6_audit.exporters import excel_highlight_cols, excel_severity_meta
-    assert excel_highlight_cols(headers) == [headers.index('Driving Activity')]
+    assert excel_highlight_cols(headers) == []
     sev_col, legend = excel_severity_meta({'module': 'out_of_sequence'}, headers)
     assert sev_col == headers.index('Severity')
     assert [lab for lab, _ in legend] == ['Critical', 'High', 'Medium']

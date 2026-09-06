@@ -53,6 +53,43 @@ def _incomplete(act):
     return act.get('actual_finish') is None
 
 
+_COMMENCE_KEYS = ('commenc', 'notice to proceed', 'ntp', 'project start', 'contract start',
+                  'site possession', 'start of works', 'award of contract', 'commencement date')
+
+
+def _find_commencement(graph):
+    """The project Commencement / start (the baseline commencement date) — used as the replacement
+    predecessor for a COMPLETED out-of-sequence activity whose offending tie is removed, so it stays
+    connected instead of becoming an open end. Preference: an activity named like a commencement,
+    else the earliest Start-Milestone. Only a candidate that is SAFE to tie to is returned — one P6
+    will never itself flag out-of-sequence: a milestone (detection skips non-Task predecessors) or an
+    already-completed activity (detection only flags a still-INCOMPLETE predecessor). A named but
+    still-incomplete activity is skipped so the re-tie can never move the problem instead of fixing
+    it. Returns (id, name, oid) or (None, None, None) — editable by the planner, and skipped (plain
+    remove) when none is found."""
+    def start_of(a):
+        return a.get('actual_start') or a.get('planned_start')
+
+    def earliest(cands):
+        cands = [(oid, a) for oid, a in cands if start_of(a)]
+        return min(cands, key=lambda t: start_of(t[1]), default=(None, None))
+
+    def safe(oid, a):
+        # P6 never flags a milestone or a completed predecessor as out-of-sequence, so re-tying to
+        # one can't re-create the condition (mirrors the detection rule in _first_offending_pred).
+        return (not graph.is_real_activity(oid)) or (a.get('actual_finish') is not None)
+
+    items = list(graph.activities.items())
+    named = [(oid, a) for oid, a in items
+             if any(k in ((a.get('name') or '').lower()) for k in _COMMENCE_KEYS) and safe(oid, a)]
+    milestones = [(oid, a) for oid, a in items if a.get('task_type') == 'StartMilestone']
+    for pool in (named, milestones):
+        oid, a = earliest(pool)
+        if oid:
+            return a.get('id', ''), a.get('name', ''), oid
+    return None, None, None
+
+
 def _first_offending_pred(graph, oid, act):
     """The predecessor link this activity violated (FS preferred), or None.
     Only predecessors that are still incomplete count, to match P6."""
@@ -193,6 +230,11 @@ def _after_display(base_type, base_lag, res):
         return 'Needs Planner Review'
     if action == 'remove':
         return f"{base} → Removed"
+    if action == 'replace':
+        # offending tie removed, a new predecessor (the commencement) added
+        np = res.get('new_pred_id') or ''
+        nlabel = _rel_num(res.get('new_type') or 'FS', res.get('new_lag_days') or 0, always_lag=True)
+        return f"{base} → Removed; + {np} {nlabel}"
     nt, nl = res.get('new_type'), res.get('new_lag_days') or 0
     if _same_rel(base_type, base_lag, nt, nl):   # recommendation equals the baseline → not a change
         return 'No change'
@@ -203,7 +245,8 @@ def _after_display(base_type, base_lag, res):
     return f"{base} → {new}"
 
 
-def _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=0):
+def _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=0,
+                          is_complete=False, commencement=None):
     """Correct ONE relationship tie so it matches the actual execution, like an experienced
     Planning / Project-Controls engineer, with the MINIMUM logical change:
 
@@ -278,11 +321,17 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=
 
     # 3) No P6-legal relationship TYPE or lag can RESOLVE the out-of-sequence — the successor
     #    finished before this predecessor started (or the predecessor never started while the
-    #    successor completed), so the dependency contradicts the actual execution. Removal WOULD clear
-    #    the flag; whether that is a defensible AUTOMATIC correction depends on the resulting logic:
-    #      - if the successor keeps ≥1 OTHER predecessor after removal (logic stays intact) → auto Remove;
-    #      - if removal would leave it with NO predecessor (an open end) → Needs Planner Review.
+    #    successor completed). Removal clears the flag; whether that is a defensible AUTOMATIC
+    #    correction depends on the resulting logic and on whether the activity is COMPLETE:
+    #      - keeps ≥1 OTHER predecessor after removal → auto Remove (valid logic remains);
+    #      - COMPLETE (100%) with no other predecessor → remove the offending tie and tie it to the
+    #        project Commencement instead (a done activity needs no driving predecessor going forward);
+    #      - IN-PROGRESS with no other predecessor → Needs Planner Review (removal would leave an open end).
     #    Removal is never used just because it is the easy way to eliminate the OOS.
+    #    NOTE: reaching here means no overlap type cleared the flag, which for an FF tie requires the
+    #    successor to be FINISHED — an in-progress successor is always cleared earlier by an FF change
+    #    and never arrives here. So in practice ``is_complete`` is True below; the final in-progress
+    #    Needs-Planner-Review branch is a defensive fallback, not a normal outcome.
     if p_as is None:
         why = f"the successor {succ_id} is already complete while predecessor {pred_id} shows no actual start"
     else:
@@ -298,6 +347,39 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=
             f"the out-of-sequence while valid predecessor logic remains.",
             reasoning=reasoning,
             sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
+    if is_complete:
+        # A finished activity needs no driving predecessor going forward — removing the contradicting
+        # tie is valid even if nothing else remains. Where a Commencement milestone exists, tie the
+        # activity to it (a 'replace') so it stays connected instead of becoming an open end.
+        c_safe = False
+        if commencement and commencement[0] and commencement[0] not in (succ_id, pred_id):
+            c_oid = commencement[2]
+            c_act = graph.activities.get(c_oid) or {}
+            # Only re-tie to a commencement P6 will not itself flag out-of-sequence (a milestone or a
+            # completed activity); otherwise the replace would merely move the problem, so fall back
+            # to a plain remove below. (_find_commencement already screens for this — belt-and-braces.)
+            c_safe = (not graph.is_real_activity(c_oid)) or (c_act.get('actual_finish') is not None)
+        if c_safe:
+            c_id, c_name = commencement[0], commencement[1]
+            reasoning = (f"No overlap type fits — {why} — and {succ_id} is 100% complete, so it needs no "
+                         f"driving predecessor going forward. Remove the contradicting {pred_id} tie and tie "
+                         f"{succ_id} to the project commencement {c_id} ({c_name}) instead, so it stays "
+                         f"connected. Actuals are unchanged; verify in P6.")
+            return _resolution(
+                'replace', True,
+                f"Remove {pred_id} → {succ_id} and set {c_id} ({c_name}) → {succ_id} FS — {succ_id} is "
+                f"complete; tie it to the commencement instead of a contradicting predecessor.",
+                reasoning=reasoning, new_type='FS', new_lag_days=0, new_pred_id=c_id,
+                sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REPLACE')
+        reasoning = (f"No overlap type fits — {why} — and {succ_id} is 100% complete, so it needs no driving "
+                     f"predecessor going forward. Removing the contradicting {pred_id} tie resolves the "
+                     f"out-of-sequence (no project commencement milestone was found to tie it to). Verify in P6.")
+        return _resolution(
+            'remove', True,
+            f"Remove {pred_id} → {succ_id} — {succ_id} is 100% complete; removing the contradicting tie "
+            f"resolves the out-of-sequence.",
+            reasoning=reasoning,
+            sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REMOVE')
     reasoning = (f"No overlap type (SS/FF/SF) fits — {why} — and removing this relationship would leave "
                  f"{succ_id} with no valid predecessor (an open end), breaking the schedule logic. This "
                  f"needs planner review: verify the actual dates in P6, reverse the relationship, or add "
@@ -310,10 +392,12 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=
         sug_pred_id=pred_id, sug_pred_name=pred_name, sug_pred_rel='REVIEW', sug_succ_name='—')
 
 
-def _suggest(graph, cur_type, cur_lag, succ, pred, remaining_preds=0):
+def _suggest(graph, cur_type, cur_lag, succ, pred, remaining_preds=0,
+             is_complete=False, commencement=None):
     """Wrap the repair-first recommendation and derive the legacy fix labels (kept for the
     PDF/Excel and older tests) from it, so every surface tells the same story."""
-    res = _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=remaining_preds)
+    res = _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=remaining_preds,
+                                is_complete=is_complete, commencement=commencement)
     pred_id, pred_name = pred.get('id', ''), pred.get('name', '')
     if res['action'] == 'change':
         pred_fix = f"{_rel_num(res['sug_pred_rel'], res['sug_pred_lag'], always_lag=True)} - {pred_id} · {pred_name}"
@@ -324,6 +408,10 @@ def _suggest(graph, cur_type, cur_lag, succ, pred, remaining_preds=0):
         pred_fix, kind = 'No change', 'same'
         root = 'Relationship already matches the actual execution.'
         comment = 'No correction needed.'
+    elif res['action'] == 'replace':
+        pred_fix, kind = f'Replace predecessor → {res.get("new_pred_id", "")}', 'change'
+        root = 'Completed activity progressed out of sequence — its driving tie no longer applies.'
+        comment = 'Remove the contradicting predecessor and tie the completed activity to the commencement.'
     elif res['action'] == 'remove':
         pred_fix, kind = 'Remove Relationship', 'remove'
         root = 'Successor executed before the predecessor began — the dependency contradicts reality.'
@@ -447,6 +535,7 @@ def run_out_of_sequence(graph, config):
     data_date_str = dd.strftime('%d-%b-%Y') if hasattr(dd, 'strftime') else ''
     real = [(oid, a) for oid, a in graph.activities.items() if graph.is_real_activity(oid)]
     total = len(real)
+    commencement = _find_commencement(graph)   # project commencement (id, name, oid) or (None,)*3
 
     findings = []
     for oid, act in real:
@@ -461,7 +550,11 @@ def run_out_of_sequence(graph, config):
         pred_oid = _link.get('other')
         # 'Remaining valid predecessor logic' after removing the driving tie → auto-Remove vs review.
         pred_remaining = _count_other_preds(graph, oid, pred_oid)
-        sug = _suggest(graph, rel_type, cur_lag, act, pred, remaining_preds=pred_remaining)
+        # A completed activity (has an actual finish) needs no driving predecessor going forward — its
+        # offending tie can be removed and re-tied to the project commencement.
+        act_complete = not _incomplete(act)
+        sug = _suggest(graph, rel_type, cur_lag, act, pred, remaining_preds=pred_remaining,
+                       is_complete=act_complete, commencement=commencement)
         pred_res = sug['resolution']                        # predecessor-tie correction (the OOS cause)
         succ_rel, succ_id, succ_name, succ_lag, succ_oid, succ_act = _first_successor(graph, oid)
         crit = _criticality(act, near_days)
@@ -475,7 +568,9 @@ def run_out_of_sequence(graph, config):
             # Removing the X→S tie affects S's predecessor logic → count S's OTHER predecessors.
             succ_remaining = _count_other_preds(graph, succ_oid, oid)
             succ_res = _recommend_correction(graph, succ_rel, succ_lag, succ_act, act,
-                                             remaining_preds=succ_remaining)
+                                             remaining_preds=succ_remaining,
+                                             is_complete=not _incomplete(succ_act),
+                                             commencement=commencement)
 
         # Full relationship context (Ibrahim): ALL predecessors + successors, driving one marked.
         all_predecessors = _rel_list(graph, graph.preds_of(oid), pred_oid)
