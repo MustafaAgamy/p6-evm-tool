@@ -8,8 +8,13 @@ from p6_kb.detect import detect_subtype, score_entries
 from p6_kb.kb import load_kb
 from p6_kb.learn import (has_learning, learned_panel, load_profile,
                          recurring_activities, recurring_wbs)
+from p6_kb.findings import generate_findings
 from p6_kb.model import schedule_view
-from p6_kb.scoring import compute_score
+from p6_kb.resolve import resolve as resolve_archetype
+from p6_kb.scoring import compute_score, evidence_score
+from p6_kb.pattern_learning import (annotate_findings, load_store as load_pattern_store,
+                                    project_count as pattern_project_count)
+from p6_kb.tagging import detect_systems
 
 
 def _matches(name, keywords):
@@ -341,6 +346,52 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
     except Exception:
         learned = None
 
+    # Which MEP systems are present (multi-signal tagger) — additive, read-only:
+    # informs the MEP-first review; does not change v1 scores/findings yet.
+    systems = None
+    try:
+        systems = detect_systems(view)
+    except Exception:
+        systems = None
+
+    # Phase 2 (read-only): resolve the project archetype from the systems present
+    # and expose the relevant System Patterns + expected-but-absent systems. Does
+    # not change v1 findings/score; the Phase 3 rule engine will consume it.
+    archetype = None
+    v2_findings = []
+    v2_score = None
+    v2_kb = None
+    v2_coverage = None
+    try:
+        archetype = resolve_archetype(view)
+        # Findings come from the XER's OWN logic — NOT gated by the archetype. The score
+        # is always computed (no findings → a legitimate 100); the archetype is shown as
+        # context when it resolved.
+        v2_findings = generate_findings(view, archetype)   # evidence-graded, read-only
+        v2_score = evidence_score(v2_findings, total_act)
+        # Coverage — what the engine actually analysed, so a clean result reads as
+        # "thoroughly checked, well-built", not "nothing found".
+        try:
+            tagged = [a for a in view.get('activities_oid', [])
+                      if (a.get('identity') or {}).get('system')]
+            systems = sorted({(a.get('identity') or {}).get('system') for a in tagged} - {None})
+            v2_coverage = {'activities': total_act, 'relationships': total_rel,
+                           'classified': len(tagged), 'systems': systems,
+                           'rules_run': 7}
+        except Exception:
+            v2_coverage = None
+        # Cross-project intelligence — annotate each finding with how well its expected
+        # sequence is corroborated across the curated KB + the user's imported projects.
+        # SUPPORTING context only: it never changes whether a finding fired.
+        try:
+            store = load_pattern_store(learn_base)
+            annotate_findings(v2_findings, store=store)
+            v2_kb = {'projects_learned': pattern_project_count(store)}
+        except Exception:
+            v2_kb = None
+    except Exception:
+        archetype = None
+
     if illogical or missing or missing_wbs:
         gaps = (f"{len(illogical)} illogical link(s), {len(missing)} missing activities and "
                 f"{len(missing_wbs)} missing WBS branch(es) found. ")
@@ -383,5 +434,11 @@ def run_review(data, entries=None, cfg=None, forced_type=None, learn_base=None):
         'missing_wbs': missing_wbs,
         'wbs_review': wbs_review,
         'learned': learned,
+        'systems': systems,
+        'archetype': archetype,
+        'v2_findings': v2_findings,
+        'v2_score': v2_score,
+        'v2_kb': v2_kb,
+        'v2_coverage': v2_coverage,
         'conclusion': conclusion,
     }

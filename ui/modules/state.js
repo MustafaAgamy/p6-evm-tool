@@ -7,6 +7,7 @@ export const state = {
   currentSnapshotId: null,
   currentModules:    null,   // {modules, module_order}
   currentModule:     null,   // selected module key ('dangling' | 'float')
+  currentView:       null,   // active navigator view — drives the global File ▸ Print / Export action
   baselinePath:      null,   // cached path of an attached baseline (XER updates); drives PDF re-gen
   baselineName:      null,   // filename of the attached baseline, for the banner
   baselineMatched:   null,   // activities matched between update and baseline (by Id)
@@ -18,6 +19,10 @@ export const state = {
   constructForcedType: null, // user-overridden project sub-type, if any
   compareReport:     null,   // Consultant Review — last Baseline vs Update report dict
   compareBaselineName: null, // filename of the baseline chosen for the comparison
+  revcompareReport:  null,   // Baseline Revision Comparison — last Rev.00 vs Rev.01 report dict
+  revcompareRev0:    null,   // {path, name} assigned original baseline (Rev.00)
+  revcompareRev1:    null,   // {path, name} assigned revised baseline (Rev.01)
+  revcompareTab:     'summary', // active result sub-tab (summary|register|cp|ms)
   kbLibrary:         null,   // Knowledge Base library — {categories:[…], total} cached from /api/kb
   kbSelectedType:    null,   // type name selected in the KB EPS tree
   kbSelectedCat:     null,   // category currently expanded in the KB tree

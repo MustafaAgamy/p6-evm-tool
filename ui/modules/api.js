@@ -3,6 +3,8 @@ import { setLoading, showError, clearError, renderResults, renderHistory } from 
 import { evmInputs }                                             from './evm.js';
 import { showReportPreview }                                     from './preview.js';
 import { getSavedMode }                                          from './appearance.js';
+import { CAL_SECTIONS, WEATHER_SECTIONS }                        from './calendar.js';
+import { lagExportFilter }                                       from './audit.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -46,10 +48,12 @@ export async function loadHistory() {
 }
 
 class ButtonState {
+  // el may be null when a report action is triggered from the global File menu
+  // (the per-module buttons were removed) — every method no-ops without an element.
   constructor(el, idleText) { this.el = el; this.idleText = idleText; }
-  loading(text)               { this.el.disabled = true;  this.el.textContent = text; }
-  reset()                     { this.el.disabled = false; this.el.textContent = this.idleText; }
-  success(text, delay = 2500) { this.el.textContent = text; setTimeout(() => this.reset(), delay); }
+  loading(text)               { if (this.el) { this.el.disabled = true;  this.el.textContent = text; } }
+  reset()                     { if (this.el) { this.el.disabled = false; this.el.textContent = this.idleText; } }
+  success(text, delay = 2500) { if (this.el) { this.el.textContent = text; setTimeout(() => this.reset(), delay); } }
 }
 
 export async function loadProject(projectId, filePath, cachedPath) {
@@ -100,10 +104,16 @@ export async function exportExcel(btnId = 'excel-btn') {
   try {
     const outputPath = await window.pywebview.api.choose_save_path(`${state.currentModule}_findings.xlsx`, 'xlsx');
     if (!outputPath) { btn.reset(); return; }
+    const excelBody = { snapshot_id: state.currentSnapshotId, module: state.currentModule, output_path: outputPath };
+    if (state.currentModule === 'lag_lead') {
+      const { visible_keys, caption } = lagExportFilter();
+      if (Array.isArray(visible_keys)) excelBody.lag_visible_keys = visible_keys;
+      if (caption) excelBody.lag_filter_caption = caption;
+    }
     const data = await apiFetch('api/export/excel', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, module: state.currentModule, output_path: outputPath }),
+      body:    JSON.stringify(excelBody),
     });
     if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
     else          { btn.success('✓ Excel Saved'); }
@@ -113,20 +123,6 @@ export async function exportExcel(btnId = 'excel-btn') {
   }
 }
 
-// Re-render the preview HTML for a newly-picked appearance mode (used by the shared preview
-// modal's Appearance picker). Returns the report HTML string for the given theme.
-function _previewFetcher(route, reqBody) {
-  return async (theme) => {
-    const data = await apiFetch(route, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true, theme }),
-    });
-    if (!data.ok || !data.html) throw new Error(data.error || 'no content');
-    return data.html;
-  };
-}
-
 export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   if (!state.currentSnapshotId || !state.currentModule) { showError('Open a schedule and pick a module first.'); return; }
   const _el = document.getElementById(btnId);
@@ -134,6 +130,14 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   btn.loading('Preparing preview…');
   const module = state.currentModule;
   const reqBody = { snapshot_id: state.currentSnapshotId, module, meta: moduleMeta() };
+
+  // Lag Report: mirror the on-screen AutoFilter/search state into the PDF so the
+  // preview and the saved file match what the planner is actually looking at.
+  if (module === 'lag_lead') {
+    const { visible_keys, caption } = lagExportFilter();
+    if (Array.isArray(visible_keys)) reqBody.lag_visible_keys = visible_keys;
+    if (caption) reqBody.lag_filter_caption = caption;
+  }
 
   // Summary PDF: send the health the screen is CURRENTLY showing so the PDF matches
   // exactly (incl. a Milestone Check the user just entered), plus the completion float
@@ -258,6 +262,26 @@ export async function exportCalendarExcel() {
   }
 }
 
+export async function exportWeatherExcel() {
+  if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('weather-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('bad_weather.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/export/weather_excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
 // ── Calendar Audit — weather / location / settings ────────────────────────
 export async function geocodePlace(q) {
   try {
@@ -278,13 +302,13 @@ export async function reverseGeocode(lat, lon) {
   } catch { return { ok: false, error: 'offline' }; }
 }
 
-export async function computeWeather(lat, lon, placeName, thresholds) {
+export async function computeWeather(lat, lon, placeName, thresholds, siteType) {
   return apiFetch('api/weather', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       snapshot_id: state.currentSnapshotId, xml_path: state.currentXmlPath,
       cached_path: state.currentCachedPath, lat, lon, place_name: placeName,
-      thresholds: thresholds || null,
+      thresholds: thresholds || null, site_type: siteType || null,
     }),
   });
 }
@@ -299,33 +323,37 @@ export async function saveCalendarSettings(patch) {
   });
 }
 
-// Which Calendar Audit sections to print — from the section-picker checkboxes.
-// Returns null (all sections) unless the user has unticked at least one.
-function _calendarSections() {
-  const cbs = [...document.querySelectorAll('.cal-sec-cb')];
-  if (!cbs.length) return null;
-  const on = cbs.filter(c => c.checked).map(c => c.value);
-  return on.length === cbs.length ? null : on;
-}
-
 export async function generateCalendarPdf() {
   if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
   const btn = new ButtonState(document.getElementById('cal-pdf-btn'), 'Generate Calendar Audit PDF');
   btn.loading('Preparing preview…');
-  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), sections: _calendarSections() };
+  // The in-preview "Report contents" picker toggles sections LIVE: every tick re-renders the
+  // iframe from the server (same route + sections list), and the Save honours the ticks — so
+  // Preview = PDF = Print. Mirrors the module/EVM report flow (local fetchPreview + onRerender).
+  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), feature: 'calendar' };
   const mode = getSavedMode();
-  try {
+  const sections = CAL_SECTIONS.map(([key, label]) => ({ key, label }));
+  const storageKey = 'p6_report_sections_calendar';
+  let selected = sections.map(s => s.key);
+  try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default: all */ }
+  const fetchPreview = async (keys, theme) => {
     const data = await apiFetch('api/report/calendar', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true, theme: mode }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || null, theme: theme || mode }),
     });
+    return (data.ok && data.html) ? data.html : null;
+  };
+  try {
+    const html = await fetchPreview(selected, mode);
     btn.reset();
-    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
-      title: 'Calendar Audit preview', subtitle: reqBody.meta.source_file, html: data.html, initialMode: mode,
-      onThemeChange: _previewFetcher('api/report/calendar', reqBody),
-      onSave: (m) => _savePdf('api/report/calendar', { ...reqBody, theme: m }, 'Calendar_Audit.pdf', 'pdf'),
+      title: 'P6 Calendar Audit preview', subtitle: reqBody.meta.source_file, html, initialMode: mode,
+      sections, selected, storageKey,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'P6_Calendar_Audit.pdf', 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');
@@ -333,25 +361,84 @@ export async function generateCalendarPdf() {
   }
 }
 
+// Feature 2 — Bad Weather effect on Forecast Finish PDF (weather-only report).
+export async function generateWeatherPdf() {
+  if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('weather-pdf-btn'), 'Generate Bad-Weather PDF');
+  btn.loading('Preparing preview…');
+  // Live "Report contents" picker: every tick re-renders the iframe from the server (same
+  // route + sections list) and the Save honours the ticks — Preview = PDF = Print. Same
+  // fetchPreview + onRerender pattern as the module/EVM report flow.
+  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), feature: 'weather' };
+  const mode = getSavedMode();
+  const sections = WEATHER_SECTIONS.map(([key, label]) => ({ key, label }));
+  const storageKey = 'p6_report_sections_weather';
+  let selected = sections.map(s => s.key);
+  try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default: all */ }
+  const fetchPreview = async (keys, theme) => {
+    const data = await apiFetch('api/report/calendar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || null, theme: theme || mode }),
+    });
+    return (data.ok && data.html) ? data.html : null;
+  };
+  try {
+    const html = await fetchPreview(selected, mode);
+    btn.reset();
+    if (!html) { showError('Preview failed — please retry.'); return; }
+    showReportPreview({
+      title: 'Bad Weather report preview', subtitle: reqBody.meta.source_file, html, initialMode: mode,
+      sections, selected, storageKey,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'Bad_Weather_Forecast.pdf', 'pdf'),
+    });
+  } catch {
+    showError('Preview failed. Check the schedule and try again.');
+    btn.reset();
+  }
+}
+
+// EVM report sections — the Printing Selection picker, same generic mechanism the
+// module reports use (keys match render_evm_report()'s gate). Engineering / PV-EV
+// Gap are data-driven add-ons shown when present, so they aren't user-toggled here.
+const EVM_SECTIONS = [
+  { key: 'progress',  label: 'Project progress — planned vs actual' },
+  { key: 'dashboard', label: 'Executive dashboard (KPIs)' },
+  { key: 'value',     label: 'Planned Value vs Earned Value' },
+  { key: 'category',  label: 'Category weights & overall progress' },
+];
+
 export async function generatePdf() {
   if (!state.currentXmlPath && !state.currentCachedPath) return;
   const btn = new ButtonState(document.getElementById('pdf-btn'), 'Generate EVM PDF');
   btn.loading('Preparing preview…');
   const reqBody = _evmReportBody();
   const mode = getSavedMode();
-  try {
-    // Preview first — render the report HTML and show it fitted before writing any PDF.
+  const storageKey = 'p6_report_sections_evm';
+  let selected = EVM_SECTIONS.map(s => s.key);
+  try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default: all */ }
+  const fetchPreview = async (keys, theme) => {
     const data = await apiFetch('api/report/evm', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true, theme: mode }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || undefined, theme: theme || mode }),
     });
+    return (data.ok && data.html) ? data.html : null;
+  };
+  try {
+    // Preview first — render the report HTML and show it (with the section picker)
+    // before writing any PDF.
+    const html = await fetchPreview(selected, mode);
     btn.reset();
-    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
-      title: 'EVM report preview', subtitle: reqBody.meta.source_file, html: data.html, initialMode: mode,
-      onThemeChange: _previewFetcher('api/report/evm', reqBody),
-      onSave: (m) => _savePdf('api/report/evm', { ...reqBody, theme: m }, 'EVM_report.pdf', 'pdf'),
+      title: 'EVM report preview', subtitle: reqBody.meta.source_file, html,
+      sections: EVM_SECTIONS, selected, storageKey, initialMode: mode,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: (m, keys) => _savePdf('api/report/evm', { ...reqBody, theme: m, sections: keys }, 'EVM_report.pdf', 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');

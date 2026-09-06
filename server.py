@@ -5,7 +5,7 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, date
-from utils import resource_path, exe_dir, app_data_dir
+from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE
 import db
 import report_theme
 
@@ -27,7 +27,10 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_index()
         elif self.path.startswith('/ui/'):
             ext = self.path.rsplit('.', 1)[-1]
-            mime = {'css': 'text/css', 'js': 'application/javascript'}.get(ext, 'text/plain')
+            mime = {'css': 'text/css', 'js': 'application/javascript',
+                    'png': 'image/png', 'svg': 'image/svg+xml', 'ico': 'image/x-icon',
+                    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif',
+                    'webp': 'image/webp'}.get(ext, 'text/plain')
             self._serve(resource_path(self.path.lstrip('/')), mime)
         elif self.path == '/api/history':
             self._handle_history()
@@ -35,6 +38,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_settings_get()
         elif self.path == '/api/kb':
             self._handle_kb_list()
+        elif self.path == '/api/kb/knowledge':
+            self._handle_kb_knowledge_get()
         elif self.path == '/api/database':
             self._handle_database_list()
         else:
@@ -61,6 +66,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_oos_validate(body)
         elif self.path == '/api/oos/corrected-file':
             self._handle_oos_corrected(body)
+        elif self.path == '/api/revcompare':
+            self._handle_revcompare(body)
+        elif self.path == '/api/revcompare/report':
+            self._handle_revcompare_report(body)
         elif self.path == '/api/period/compare':
             self._handle_period_compare(body)
         elif self.path == '/api/period/previous':
@@ -87,6 +96,14 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_excel(body)
         elif self.path == '/api/update/report':
             self._handle_update_report(body)
+        elif self.path == '/api/dashboard':
+            self._handle_dashboard(body)
+        elif self.path == '/api/narrative':
+            self._handle_narrative(body)
+        elif self.path == '/api/copilot':
+            self._handle_copilot(body)
+        elif self.path == '/api/report/html':
+            self._handle_report_html(body)
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -109,6 +126,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_calendar_report(body)
         elif self.path == '/api/export/calendar_excel':
             self._handle_calendar_excel(body)
+        elif self.path == '/api/export/weather_excel':
+            self._handle_weather_excel(body)
         elif self.path == '/api/geocode':
             self._handle_geocode(body)
         elif self.path == '/api/weather':
@@ -135,12 +154,150 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_database_example(body)
         elif self.path == '/api/database/download':
             self._handle_database_download(body)
+        elif self.path == '/api/kb/knowledge/export':
+            self._handle_kb_knowledge_export(body)
+        elif self.path == '/api/kb/knowledge/import':
+            self._handle_kb_knowledge_import(body)
+        elif self.path == '/api/kb/knowledge/import-xer':
+            self._handle_kb_import_xer(body)
+        elif self.path == '/api/kb/knowledge/enable':
+            self._handle_kb_enable(body)
+        elif self.path == '/api/kb/knowledge/remove':
+            self._handle_kb_remove(body)
+        elif self.path == '/api/kb/raw/download':
+            self._handle_kb_raw_download(body)
         elif self.path == '/api/constructability/report':
             self._handle_constructability_report(body)
         elif self.path == '/api/constructability/excel':
             self._handle_constructability_excel(body)
+        elif self.path == '/api/special/catalog':
+            self._handle_special_catalog(body)
+        elif self.path == '/api/special/render':
+            self._handle_special_render(body)
+        elif self.path == '/api/special/pdf':
+            self._handle_special_pdf(body)
+        elif self.path == '/api/special/doc':
+            self._handle_special_doc(body)
+        elif self.path == '/api/special/templates/list':
+            self._handle_special_templates_list(body)
+        elif self.path == '/api/special/templates/save':
+            self._handle_special_templates_save(body)
+        elif self.path == '/api/special/templates/delete':
+            self._handle_special_templates_delete(body)
+        elif self.path == '/api/report/manifest':
+            self._handle_report_manifest(body)
+        elif self.path == '/api/report/render':
+            self._handle_report_render(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
+
+    # ── /api/special/* — Special Report ─────────────────────────────────────
+    def _special_pid(self, body):
+        pid = body.get('project_id')
+        if not pid and body.get('snapshot_id'):
+            pid = db.get_project_id_for_snapshot(body.get('snapshot_id'))
+        return pid
+
+    def _handle_special_catalog(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            pid = self._special_pid(body)
+            if not pid:
+                self._json(200, {'ok': False, 'error': 'No project loaded.'})
+                return
+            groups = assemble.catalog(pid, snapshot_id=body.get('snapshot_id'),
+                                      inputs=body.get('inputs') or {})
+            self._json(200, {'ok': True, 'groups': groups})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _special_html(self, body):
+        sys.path.insert(0, resource_path('.'))
+        from p6_special import assemble
+        import report_theme
+        return assemble.build_html(
+            self._special_pid(body), body.get('item_ids') or [],
+            body.get('report_name') or 'Special Report',
+            mode=report_theme.normalize(body.get('theme')),
+            meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
+            inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
+
+    def _handle_special_render(self, body):
+        try:
+            self._json(200, {'ok': True, 'html': self._special_html(body)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_pdf(self, body):
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            html = self._special_html(body)
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
+                                             encoding='utf-8') as tmp:
+                tmp.write(html)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            out = os.path.abspath(output_path)
+            subprocess.run([chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                            f'--print-to-pdf={out}', '--no-pdf-header-footer',
+                            f'file:///{html_path.replace(os.sep, "/")}'],
+                           check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_doc(self, body):
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            from p6_special.word_export import save_word_document
+            import report_theme
+            html = assemble.build_word(
+                self._special_pid(body), body.get('item_ids') or [],
+                body.get('report_name') or 'Special Report',
+                mode=report_theme.normalize(body.get('theme')),
+                meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
+                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
+            save_word_document(html, os.path.abspath(output_path))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_templates_list(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import templates
+            self._json(200, {'ok': True,
+                             'templates': templates.list_templates(self._special_pid(body))})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_templates_save(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import templates
+            rec = templates.save_template(self._special_pid(body), body.get('template') or {})
+            self._json(200, {'ok': True, 'template': rec})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_templates_delete(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import templates
+            templates.delete_template(self._special_pid(body), body.get('id'))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── Static files ───────────────────────────────────────────────────────
     def _serve_index(self):
@@ -148,7 +305,27 @@ class Handler(BaseHTTPRequestHandler):
             with open(resource_path('ui/index.html'), 'rb') as f:
                 html = f.read().decode()
             port = self.server.server_address[1]
-            html = html.replace('</head>', f'<script>window.__SERVER_PORT__ = {port};</script></head>', 1)
+            # Inject runtime globals so the UI derives its branding from the
+            # single source of truth (utils.APP_*). Any current or future UI
+            # feature reads window.__APP_NAME__ / window.__APP_TITLE__ instead
+            # of hardcoding the product name.
+            assigns = ''.join(
+                f'window.{k} = {json.dumps(v)};' for k, v in (
+                    ('__SERVER_PORT__', port),
+                    ('__APP_NAME__', APP_NAME),
+                    ('__APP_EDITION__', APP_EDITION),
+                    ('__APP_TITLE__', APP_TITLE),
+                )
+            )
+            brand_script = (
+                '<script>' + assigns
+                + 'document.title=window.__APP_TITLE__;'
+                + 'document.addEventListener("DOMContentLoaded",function(){'
+                + 'var e=document.getElementById("app-title");'
+                + 'if(e)e.textContent=window.__APP_TITLE__;});'
+                + '</script>'
+            )
+            html = html.replace('</head>', brand_script + '</head>', 1)
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
             self.end_headers()
@@ -239,6 +416,142 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
+            # ── Slim activity timeline for the Schedule (Gantt) view ──────────
+            # JSON-safe {id,name,wbs,start,finish,pct,critical,milestone} — NOT the
+            # heavy/non-serialisable `records`. Only rows with both dates are kept.
+            try:
+                from p6_evm.metrics import wbs_ancestor_names
+                gantt = []
+                for r in result['records']:
+                    a = r['activity']
+                    s, f = a.get('planned_start'), a.get('planned_finish')
+                    if not s or not f:
+                        continue
+                    names = wbs_ancestor_names(a.get('wbs_id'), data.wbs)
+                    tf = r.get('total_float')
+                    gantt.append({
+                        'id':        a.get('id') or '',
+                        'name':      a.get('name') or '',
+                        'wbs':       ' > '.join(names),
+                        'wbs_top':   names[0] if names else 'Ungrouped',
+                        'start':     s.isoformat() if hasattr(s, 'isoformat') else str(s),
+                        'finish':    f.isoformat() if hasattr(f, 'isoformat') else str(f),
+                        'pct':       round((a.get('percent_complete') or 0) * 100),
+                        'critical':  tf is not None and tf <= 0,
+                        'milestone': a.get('task_type') in ('StartMilestone', 'FinishMilestone'),
+                    })
+                gantt.sort(key=lambda x: x['start'])
+                safe_result['activities'] = gantt
+            except Exception as gantt_exc:
+                safe_result['activities'] = []
+                print(f'[gantt] slim activities skipped: {gantt_exc}', file=sys.stderr)
+
+            # ── WBS summary tree — rolled up to the level that holds activities ──
+            # Pre-order list of WBS nodes (with depth) whose subtree contains
+            # activities; each carries weighted planned/actual %, an activity count
+            # and the rolled-up start/finish, using the same BAC-else-duration
+            # weighting as the EVM roll-up. `wbs_main` lists the selectable top-
+            # level branches (e.g. Engineering / Construction). Leaf nodes are the
+            # WBS that directly hold activities (activities themselves are NOT listed).
+            try:
+                from collections import defaultdict
+                wmap = data.wbs
+                any_bac = any((r.get('bac') or 0) > 0 for r in result['records'])
+
+                def _mn(a, b):
+                    return b if a is None else (a if b is None else min(a, b))
+
+                def _mx(a, b):
+                    return b if a is None else (a if b is None else max(a, b))
+
+                base = lambda: {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0,
+                                's': None, 'f': None, 'bs': None, 'bf': None}
+                bl_by_id = getattr(data, 'baseline_by_id', None) or {}
+                direct = defaultdict(base)
+                for r in result['records']:
+                    a = r['activity']
+                    wid = a.get('wbs_id')
+                    if wid is None:
+                        continue
+                    d = direct[wid]
+                    d['s'] = _mn(d['s'], a.get('planned_start'))    # current schedule (expected)
+                    d['f'] = _mx(d['f'], a.get('planned_finish'))
+                    bl = bl_by_id.get(a.get('id'))                  # embedded baseline, when present
+                    if bl:
+                        d['bs'] = _mn(d['bs'], bl.get('planned_start'))
+                        d['bf'] = _mx(d['bf'], bl.get('planned_finish'))
+                    if r.get('planned_pct') is None:
+                        continue
+                    w = (r.get('bac') or 0.0) if any_bac else float(a.get('planned_duration') or 1.0)
+                    d['n'] += 1; d['w'] += w
+                    d['wp'] += w * r['planned_pct']; d['wa'] += w * (r.get('actual_pct') or 0.0)
+
+                kids = defaultdict(list)
+                for wid, node in wmap.items():
+                    kids[node.get('parent_object_id')].append(wid)
+                roots = [wid for wid in wmap
+                         if not wmap[wid].get('parent_object_id') or wmap[wid].get('parent_object_id') not in wmap]
+
+                sub = {}
+                def _rollup(wid):
+                    t = dict(direct.get(wid) or base())
+                    for k in kids.get(wid, []):
+                        c = _rollup(k)
+                        t['n'] += c['n']; t['w'] += c['w']; t['wp'] += c['wp']; t['wa'] += c['wa']
+                        t['s'] = _mn(t['s'], c['s']); t['f'] = _mx(t['f'], c['f'])
+                        t['bs'] = _mn(t['bs'], c['bs']); t['bf'] = _mx(t['bf'], c['bf'])
+                    sub[wid] = t
+                    return t
+                for rt in roots:
+                    _rollup(rt)
+
+                def _iso(x):
+                    return x.date().isoformat() if hasattr(x, 'date') else (str(x)[:10] if x else None)
+
+                wbs_summary = []
+                def _emit(wid, depth, parent):
+                    t = sub.get(wid) or base()
+                    if t['n'] == 0:
+                        return
+                    childs = [k for k in kids.get(wid, []) if (sub.get(k) or base())['n'] > 0]
+                    wbs_summary.append({
+                        'id':         str(wid),
+                        'parent':     str(parent) if parent is not None else None,
+                        'name':       wmap[wid].get('name') or '(WBS)',
+                        'depth':      depth,
+                        'activities': t['n'],
+                        'planned':    round(100 * t['wp'] / t['w'], 1) if t['w'] else None,
+                        'actual':     round(100 * t['wa'] / t['w'], 1) if t['w'] else None,
+                        'start':          _iso(t['s']),     # expected (current) start
+                        'finish':         _iso(t['f']),     # expected (current) finish
+                        'baseline_start': _iso(t['bs']),
+                        'baseline_finish':_iso(t['bf']),
+                        'leaf':       (direct.get(wid) or base())['n'] > 0 and not childs,
+                    })
+                    for k in sorted(childs, key=lambda x: (wmap[x].get('name') or '').lower()):
+                        _emit(k, depth + 1, wid)
+                for rt in sorted(roots, key=lambda x: (wmap[x].get('name') or '').lower()):
+                    _emit(rt, 0, None)
+
+                # Selectable top-level branches: the activity-bearing roots when
+                # there are several, else the activity-bearing children of the sole
+                # root (so a single "Project" root exposes Engineering/Construction).
+                roots_act = [rt for rt in roots if (sub.get(rt) or base())['n'] > 0]
+                if len(roots_act) >= 2:
+                    main_ids = roots_act
+                elif roots_act:
+                    ch = [k for k in kids.get(roots_act[0], []) if (sub.get(k) or base())['n'] > 0]
+                    main_ids = ch if len(ch) >= 2 else [roots_act[0]]
+                else:
+                    main_ids = []
+                main_ids = sorted(main_ids, key=lambda x: (wmap[x].get('name') or '').lower())
+                safe_result['wbs_main'] = [{'id': str(w), 'name': wmap[w].get('name') or '(WBS)'} for w in main_ids]
+                safe_result['wbs_summary'] = wbs_summary
+            except Exception as wbs_exc:
+                safe_result['wbs_summary'] = []
+                safe_result['wbs_main'] = []
+                print(f'[wbs] summary skipped: {wbs_exc}', file=sys.stderr)
+
             code_types = list(getattr(data, 'activity_code_types', []) or [])
             safe_result['activity_code_types'] = code_types
             # Default PV-EV gap on a sensible dimension (records still present on `result`)
@@ -254,13 +567,11 @@ class Handler(BaseHTTPRequestHandler):
             prior_import   = db.get_prior_import_date(file_hash)
             cached_path    = db.cache_xml(xml_path, file_hash)
 
-            # ── Local learning — quietly grow the private per-type Knowledge
-            # Base from this import (offline, deduped by hash, never breaks import) ──
-            try:
-                from p6_kb.learn import learn_from_schedule
-                learn_from_schedule(data, file_hash=file_hash)
-            except Exception as learn_exc:
-                print(f'[learn] skipped: {learn_exc}', file=sys.stderr)
+            # NOTE: importing an XER for ANALYSIS no longer adds it to the Knowledge Base
+            # (Ibrahim's rule: a project joins the KB only when the user explicitly adds
+            # it). Both learning mechanisms — the per-type profile and the generalized
+            # sequencing patterns — now run only from the explicit "Add to Knowledge Base"
+            # action (see db.add_import), never silently on analysis import.
 
             p6_id = data.project.get('id', '') or ''
             name  = data.project.get('name', '') or os.path.basename(xml_path)
@@ -693,6 +1004,66 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/revcompare — Baseline Revision Comparison (Rev.00 vs Rev.01) ───
+    def _handle_revcompare(self, body):
+        """Baseline Revision Comparison. Parses two assigned baseline revisions and returns
+        the neutral comparison report (executive summary, change register, critical path &
+        sequence, milestones). Both files are user-assigned — neither is auto-run on import.
+        Nothing is written to the DB; the report carries no `records`."""
+        rev0_path = body.get('rev0_path', '')
+        rev1_path = body.get('rev1_path', '')
+        if not rev0_path or not os.path.isfile(rev0_path):
+            self._json(200, {'ok': False, 'error': 'Assign the original baseline (Rev.00) file.'})
+            return
+        if not rev1_path or not os.path.isfile(rev1_path):
+            self._json(200, {'ok': False, 'error': 'Assign the revised baseline (Rev.01) file.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_revcompare import build_report
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            report = build_report(rev0_path, rev1_path, config, options=body.get('options'))
+            report['rev0']['file'] = os.path.basename(rev0_path)
+            report['rev1']['file'] = os.path.basename(rev1_path)
+            self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_revcompare_report(self, body):
+        """Baseline Revision Comparison PDF (or preview HTML) — rendered from the report the
+        client already holds (no re-parse). `sections` limits which sections are printed;
+        Chrome headless → PDF when an output path is given."""
+        report = body.get('report') or {}
+        sections = body.get('sections')
+        preview = bool(body.get('preview'))
+        output_path = body.get('output_path', '')
+        if not preview and not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_revcompare.exporters import render_html
+            import subprocess, tempfile
+            html_content = render_html(report, meta=body.get('meta'), sections=sections,
+                                       theme=report_theme.normalize(body.get('theme')))
+            if preview:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/constructability (rule-based, offline, no AI) ──────────────────
     def _handle_constructability(self, body):
         """Rule-based Constructability Review against the local Knowledge Base.
@@ -872,6 +1243,127 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── Constructability Knowledge Base — export / import / provenance ──────
+    def _handle_kb_knowledge_get(self):
+        """The ONE Knowledge Base: the metadata list of every knowledge project
+        (name/type/source/date/enabled/patterns/raw), plus provenance + counts."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import provenance, kb_list
+            self._json(200, {'ok': True, 'projects': kb_list(), **provenance()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_enable(self, body):
+        """Turn a KB project's contribution to supporting knowledge on/off."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import set_enabled, kb_list
+            set_enabled(body.get('id', ''), bool(body.get('enabled', True)))
+            self._json(200, {'ok': True, 'projects': kb_list()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_remove(self, body):
+        """Remove a project from the Knowledge Base."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import remove_project, kb_list
+            remove_project(body.get('id', ''))
+            self._json(200, {'ok': True, 'projects': kb_list()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_import_xer(self, body):
+        """Import a real project XER/XML straight into the Knowledge Base: parse → tag →
+        learn generalized patterns (deduped by project id, supporting-only) and keep the
+        raw file. This is how the KB continuously grows from large real projects."""
+        input_path = body.get('input_path', '')
+        if not input_path:
+            self._json(200, {'ok': False, 'error': 'No input path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_kb.model import schedule_view
+            from p6_kb.tagging import tag_view
+            from p6_kb.resolve import resolve as _resolve_arc
+            from p6_kb.pattern_learning import learn_from_view, store_raw, provenance
+            import db
+            data = parse_file(os.path.abspath(input_path))
+            fh = db.hash_file(os.path.abspath(input_path))
+            pid = (data.project or {}).get('id', '') or fh
+            name = (data.project or {}).get('name', '') or os.path.basename(input_path)
+            view = schedule_view(data)
+            tag_view(view)
+            arc = (_resolve_arc(view) or {}).get('archetype', '')
+            rawp = store_raw(os.path.abspath(input_path), pid, name, fh)
+            learn_from_view(view, pid, project_type=arc, label=name, file_hash=fh,
+                            source='user', raw=(os.path.basename(rawp) if rawp else ''))
+            from p6_kb.pattern_learning import kb_list
+            self._json(200, {'ok': True, 'project': name,
+                             'activities': view.get('activity_count', 0),
+                             'projects': kb_list(), **provenance()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_raw_download(self, body):
+        """Copy a retained raw project file out to output_path (level-1 backup)."""
+        filename = body.get('filename', '')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import shutil
+            from p6_kb.pattern_learning import raw_file_path
+            src = raw_file_path(filename)
+            if not src:
+                self._json(200, {'ok': False, 'error': 'Raw project file not found.'})
+                return
+            shutil.copy2(src, os.path.abspath(output_path))
+            self._json(200, {'ok': True, 'filename': os.path.basename(output_path)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_knowledge_export(self, body):
+        """Write the learned knowledge to a portable, project-agnostic knowledge file
+        (generalized concepts + provenance only — never raw activity/WBS text)."""
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import export_knowledge
+            data = export_knowledge()
+            with open(os.path.abspath(output_path), 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=1)
+            self._json(200, {'ok': True, 'projects': data.get('projects_count', 0),
+                             'filename': os.path.basename(output_path)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_knowledge_import(self, body):
+        """Merge a knowledge file into the KB — deduped by project, generalized-only
+        (raw-looking entries are dropped). Contributes to future supporting knowledge."""
+        input_path = body.get('input_path', '')
+        if not input_path:
+            self._json(200, {'ok': False, 'error': 'No input path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.pattern_learning import import_knowledge, provenance
+            with open(os.path.abspath(input_path), encoding='utf-8') as f:
+                data = json.load(f)
+            result = import_knowledge(data)
+            self._json(200, {'ok': True, 'result': result, **provenance()})
+        except ValueError as exc:
+            self._json(200, {'ok': False, 'error': f'Not a valid knowledge file: {exc}'})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/constructability/excel ────────────────────────────────────────
     def _handle_constructability_excel(self, body):
         """Export the Constructability findings to .xlsx from the report dict the
@@ -890,6 +1382,75 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── Global Print-Preview framework: manifest + unified render/PDF ──────
+    def _handle_report_manifest(self, body):
+        """Return the Report-Contents component list for a feature + its report dict.
+
+        The client holds the report already (no re-parse); this just tells the selector
+        which sections exist, their type, default state and whether they have data."""
+        feature = body.get('feature', '')
+        report = body.get('report') or {}
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_report import get_spec, manifest
+            spec = get_spec(feature, report)
+            if spec is None:
+                self._json(200, {'ok': False, 'error': f'Unknown report feature: {feature}'})
+                return
+            self._json(200, {'ok': True, 'feature': feature, 'title': spec.title,
+                             'subtitle': spec.subtitle, 'components': manifest(spec, report)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_report_render(self, body):
+        """The ONE assembler behind Preview == PDF == Print.
+
+        Given a feature, its report dict and the user's selection (ids + order), build
+        exactly one HTML document. With no ``output_path`` → return that HTML for the
+        on-screen preview. With ``output_path`` → Chrome headless prints the SAME HTML
+        to PDF. The preview and the PDF are therefore the identical document."""
+        feature = body.get('feature', '')
+        report = body.get('report') or {}
+        selected_ids = body.get('selected_ids')          # None → the spec defaults
+        order = body.get('order')
+        output_path = body.get('output_path', '')
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_report import build_document, get_spec
+            spec = get_spec(feature, report)
+            if spec is None:
+                self._json(200, {'ok': False, 'error': f'Unknown report feature: {feature}'})
+                return
+            html_content = build_document(spec, report, selected_ids, order,
+                                          theme=report_theme.normalize(body.get('theme')))
+            if not output_path:
+                self._json(200, {'ok': True, 'html': html_content})
+                return
+            self._html_to_pdf(html_content, output_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _html_to_pdf(self, html_content, output_path):
+        """Shared HTML→PDF via Chrome headless (same pipeline as every report)."""
+        import subprocess
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+            tmp.write(html_content)
+            html_path = tmp.name
+        try:
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+        finally:
+            try:
+                os.unlink(html_path)
+            except OSError:
+                pass
 
     # ── /api/constructability/report ───────────────────────────────────────
     def _handle_constructability_report(self, body):
@@ -1322,7 +1883,14 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.xlsx_writer import write_xlsx
-            from p6_audit.exporters import excel_columns, excel_highlight_cols, excel_severity_meta
+            from p6_audit.exporters import (excel_columns, excel_highlight_cols,
+                                            excel_severity_meta, filter_lag_findings)
+            lag_visible_keys = body.get('lag_visible_keys')
+            if module == 'lag_lead' and lag_visible_keys is not None:
+                # On-screen filter honoured in the export — findings only; the row-detail
+                # columns already exist here (Lag (wd), Flags). No caption row: write_xlsx
+                # has no title/caption argument (see p6_evm/xlsx_writer.py — read-only).
+                m = filter_lag_findings(m, lag_visible_keys)
             headers, rows = excel_columns(m)
             sev_col, legend = excel_severity_meta(m, headers)
             write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31],
@@ -1361,12 +1929,20 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_audit.report import render_module_report, render_summary_report
+            from p6_audit.exporters import filter_lag_findings
             import subprocess, tempfile
             _theme = report_theme.normalize(body.get('theme'))
+            lag_visible_keys = body.get('lag_visible_keys')
+            if not is_summary and module == 'lag_lead' and lag_visible_keys is not None:
+                # On-screen filter honoured in the PDF — register (findings) only; charts/KPIs
+                # read m['kpis']/m['wbs_summary'], untouched by filter_lag_findings, so they
+                # stay whole-schedule even though the register narrows.
+                m = filter_lag_findings(m, lag_visible_keys)
             html_content = (render_summary_report(summary_health, meta_in, sections=body.get('sections'),
                                                    modules=(mods or {}).get('modules'),
                                                    completion_float=body.get('completion_float'), theme=_theme)
-                            if is_summary else render_module_report(m, meta_in, sections=body.get('sections'), theme=_theme))
+                            if is_summary else render_module_report(m, meta_in, sections=body.get('sections'), theme=_theme,
+                                                                     lag_caption=body.get('lag_filter_caption')))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -1566,7 +2142,8 @@ class Handler(BaseHTTPRequestHandler):
                     if name in cats:
                         cats[name]['actual_pct'] = actual
             html_content = render_evm_report(result, meta_in, gap=gap, engineering=engineering,
-                                             theme=report_theme.normalize(body.get('theme')))
+                                             theme=report_theme.normalize(body.get('theme')),
+                                             sections=body.get('sections'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -1607,7 +2184,8 @@ class Handler(BaseHTTPRequestHandler):
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
             html_content = render_calendar_report(ca, meta_in, weather=weather,
                                                   sections=body.get('sections'),
-                                                  theme=report_theme.normalize(body.get('theme')))
+                                                  theme=report_theme.normalize(body.get('theme')),
+                                                  feature=body.get('feature', 'calendar'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return
@@ -1645,6 +2223,31 @@ class Handler(BaseHTTPRequestHandler):
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
             write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_weather_excel(self, body):
+        """Export the Bad Weather workbook to .xlsx: a construction-calendar month grid with
+        the bad-weather days highlighted amber, then the weather tables."""
+        snapshot_id = body.get('snapshot_id')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        ca = db.get_calendar_audit(snapshot_id) if snapshot_id else None
+        if not ca:
+            self._json(200, {'ok': False, 'error': 'No calendar audit stored for this schedule.'})
+            return
+        pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
+        weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
+        if not weather:
+            self._json(200, {'ok': False, 'error': 'Set a location and calculate the weather first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.xlsx_writer import write_weather_xlsx
+            write_weather_xlsx(os.path.abspath(output_path), ca, weather)
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1698,46 +2301,63 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
-            from p6_calendar.weather import weather_inputs, build_daily_weather, weather_impact
+            from p6_calendar.weather import (weather_inputs, build_daily_weather,
+                                             weather_impact, resolve_site_thresholds)
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             sid = body.get('snapshot_id')
             pid = db.get_project_id_for_snapshot(sid) if sid else None
             saved = db.get_project_settings(pid) if pid else {}
-            # Stop-work limits: this request's edits win, else the project's saved limits,
-            # else the app defaults (rain>=5 / heat>=42 / dust on / wind off).
-            thresholds = (body.get('thresholds') or saved.get('weather_thresholds')
+            # Site type (Marine/Port, Desert, …) — one pick loads the limits that fit the work.
+            site_type = body.get('site_type') or saved.get('site_type')
+            # Stop-work limits: this request's edits win, else the picked site-type preset,
+            # else the project's saved limits, else the app defaults (rain>=5 / heat>=42 /
+            # dust on / wind off = the Desert preset).
+            thresholds = (body.get('thresholds')
+                          or (resolve_site_thresholds(site_type) if site_type else None)
+                          or saved.get('weather_thresholds')
                           or config.get('weather_thresholds'))
             data = parse_file(resolved)
             inp = weather_inputs(data)
             if not inp['data_date'] or not inp['project_finish']:
                 self._json(200, {'ok': False, 'error': 'Schedule has no usable start/finish dates.'})
                 return
-            daily, horizon = build_daily_weather(lat, lon, inp['data_date'], inp['project_finish'])
+            daily, climate_samples, horizon, climate_meta = build_daily_weather(
+                lat, lon, inp['data_date'], inp['project_finish'])
             wx = weather_impact(**inp, daily_weather=daily, forecast_horizon=horizon,
-                                thresholds=thresholds)
+                                thresholds=thresholds, site_type=site_type,
+                                climate_samples=climate_samples, climate_meta=climate_meta)
             location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
+            # Fill the climate reference's location so the user sees exactly where it applies.
+            if isinstance(wx.get('climate_reference'), dict):
+                wx['climate_reference'].update({'lat': lat, 'lon': lon,
+                                                'place_name': body.get('place_name', '')})
             if pid:
-                # Persist location, the edited limits, and the latest weather (so the PDF can include it).
+                # Persist location, the site type, the edited limits, and the latest weather
+                # (so re-opening restores the picker and the PDF can include it).
                 patch = {'location': location, 'last_weather': wx}
+                if site_type is not None:
+                    patch['site_type'] = site_type
                 if body.get('thresholds'):
                     patch['weather_thresholds'] = body['thresholds']
                 db.save_project_settings(pid, patch)
             self._json(200, {'ok': True, 'weather': wx, 'location': location,
-                             'offline': not daily})
+                             'offline': not daily and not climate_samples})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/calendar/settings ─────────────────────────────────────────────
     def _handle_calendar_settings(self, body):
         """Persist per-project Calendar Audit settings (location / manual shutdowns /
-        shutdown reasons) and recompute the calendar audit so the changes show at once."""
+        shutdown reasons / working-hours notes) and recompute the calendar audit so the
+        changes show at once."""
         sid = body.get('snapshot_id')
         pid = db.get_project_id_for_snapshot(sid) if sid else None
         if not pid:
             self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
             return
-        patch = {k: body[k] for k in ('location', 'manual_shutdowns', 'shutdown_reasons')
+        patch = {k: body[k] for k in ('location', 'manual_shutdowns', 'shutdown_reasons',
+                                      'hours_notes')
                  if body.get(k) is not None}
         settings = db.save_project_settings(pid, patch)
         ca = None
@@ -1818,6 +2438,94 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
 
     # ── /api/history ───────────────────────────────────────────────────────
+    def _handle_report_html(self, body):
+        """Generic 'print this view' → PDF. The client composes a self-contained HTML
+        document (app stylesheet inlined, light theme, only the ticked sections) so
+        Preview == PDF == Print; this route just renders it with headless Chrome.
+        Every screen view prints through here via the shared printView() helper."""
+        output_path = body.get('output_path', '')
+        html_content = body.get('html', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not html_content:
+            self._json(200, {'ok': False, 'error': 'Nothing to print — the report was empty.'})
+            return
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
+                tmp.write(html_content)
+                html_path = tmp.name
+            chrome = _find_chrome()
+            subprocess.run([
+                chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
+                f'file:///{html_path.replace(os.sep, "/")}',
+            ], check=True, capture_output=True)
+            os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_copilot(self, body):
+        """AI Copilot · TIA — the deterministic, offline core (Time-Impact Analysis +
+        prioritised insights) from the already-computed result, reusing the saved
+        weather estimate. `has_key` tells the UI whether the optional AI narrative
+        (the key-gated AI review) can be offered."""
+        try:
+            from p6_evm.copilot import build_copilot
+            result = body.get('result')
+            weather = None
+            snap = body.get('snapshot_id')
+            if snap is not None:
+                pid = db.snapshot_project_id(snap)
+                if pid is not None:
+                    weather = (db.get_project_settings(pid) or {}).get('last_weather')
+                    if not result:
+                        result = db.get_project_result(pid)
+            if not result:
+                self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
+                return
+            has_key = False
+            try:
+                from p6_ai import settings as ai_settings
+                has_key = bool(ai_settings.has_api_key())
+            except Exception:
+                has_key = False
+            self._json(200, {'ok': True, 'has_key': has_key, **build_copilot(result, weather)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_narrative(self, body):
+        """Baseline Narrative: a deterministic status narrative built from the
+        already-computed result. Prefers the DB result for the given snapshot
+        (the read path); falls back to the client-supplied result."""
+        try:
+            from p6_evm.narrative import build_narrative
+            result = None
+            snap = body.get('snapshot_id')
+            if snap is not None:
+                pid = db.snapshot_project_id(snap)
+                if pid is not None:
+                    result = db.get_project_result(pid)
+            if result is None:
+                result = body.get('result')
+            if not result:
+                self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
+                return
+            self._json(200, {'ok': True, **build_narrative(result)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_dashboard(self, body):
+        """Professional Dashboard read-model: the portfolio (latest snapshot per
+        project) + the active project's snapshot trend. DB-only, no re-parse."""
+        try:
+            snap = body.get('snapshot_id')
+            data = db.get_dashboard(active_snapshot_id=snap)
+            self._json(200, {'ok': True, **data})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     def _handle_history(self):
         rows = db.get_recent_projects(limit=10)
         # Normalise to the shape app.js already expects

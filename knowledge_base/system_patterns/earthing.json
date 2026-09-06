@@ -1,0 +1,215 @@
+{
+ "system": "earthing",
+ "discipline": "ELEC",
+ "name": "Earthing, Bonding & Lightning Protection — buried-grid-first, test before energize",
+ "aliases": [
+  "earthing",
+  "grounding",
+  "bonding",
+  "equipotential bonding",
+  "earth grid",
+  "earth electrode",
+  "earth pit",
+  "lightning protection",
+  "LPS",
+  "air termination",
+  "down conductor",
+  "main earth bar",
+  "clean earth"
+ ],
+ "zones": [
+  "foundations",
+  "external ground ring",
+  "roof (LPS)",
+  "substation",
+  "every plant room"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "coordinate earth pits/rods with foundations",
+    "install below-slab earth grid/ring before slab pour",
+    "connect to foundation steel (Ufer) where accessible",
+    "excavation for external ring"
+   ],
+   "note": "The buried grid is a hold-point on the civil programme — it must go in before slabs/backfill cover it."
+  },
+  {
+   "stage": "buried_grid",
+   "activities": [
+    "drive earth electrodes/rods",
+    "lay buried ring/mesh conductor",
+    "exothermic (cadweld) joints",
+    "earth pits with inspection covers",
+    "record and photograph before backfill"
+   ]
+  },
+  {
+   "stage": "above_grade_bonding",
+   "activities": [
+    "install main earth bar (MET)",
+    "equipotential bonding of structural steel, pipework and containment",
+    "supplementary bonding in wet areas"
+   ]
+  },
+  {
+   "stage": "lps_installation",
+   "activities": [
+    "air terminals/finials/mesh on roof",
+    "down conductors with test clamps",
+    "bond roof plant and metal masses",
+    "connect down conductors to the earth ring"
+   ],
+   "note": "Follows roof structure and waterproofing."
+  },
+  {
+   "stage": "equipment_earthing",
+   "activities": [
+    "connect switchgear, transformers (body and neutral), generators, DBs, motors to earth",
+    "clean/instrument earth for electronics where specified"
+   ]
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "earth electrode resistance (fall-of-potential/clamp)",
+    "bonding/continuity resistance of all bonds",
+    "LPS down-conductor continuity and test-joint resistance",
+    "touch/step voltage at MV substations"
+   ]
+  },
+  {
+   "stage": "close_out",
+   "activities": [
+    "earth pit test records",
+    "as-built and labelling"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "excavation/foundations ready",
+   "after": "buried earth grid installation",
+   "reason": "the ring/rods are laid in the ground before slabs and backfill",
+   "strength": "strong"
+  },
+  {
+   "before": "buried grid installed and recorded",
+   "after": "backfill / slab pour",
+   "reason": "the grid must be inspected and recorded before it is permanently covered",
+   "strength": "strong"
+  },
+  {
+   "before": "earth grid complete",
+   "after": "equipment earthing and bonding",
+   "reason": "equipment earths connect back to the established grid/main earth bar",
+   "strength": "strong"
+  },
+  {
+   "before": "roof structure and waterproofing complete",
+   "after": "LPS air-termination installation",
+   "reason": "air terminals and mesh are fixed to a completed, watertight roof",
+   "strength": "strong"
+  },
+  {
+   "before": "earthing installed and resistance-tested",
+   "after": "electrical energization",
+   "reason": "energizing before a proven earth is a safety violation",
+   "strength": "strong"
+  },
+  {
+   "before": "structural steel erected",
+   "after": "structural equipotential bonding",
+   "reason": "steel must be up before it can be bonded/used as a down conductor",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "requirement": "buried grid, earth pits and foundation earth must be installed before slabs/backfill cover them",
+   "type": "requires",
+   "phase": "buried_grid",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "energization requires the earth grid connected and resistance-tested; provides neutral earthing",
+   "type": "provides",
+   "phase": "equipment_earthing",
+   "strength": "strong"
+  },
+  {
+   "with": "containment_cabling",
+   "requirement": "provides the earth reference that tray/ladder runs bond to",
+   "type": "provides",
+   "phase": "above_grade_bonding",
+   "strength": "strong"
+  },
+  {
+   "with": "structural_steel",
+   "requirement": "steel bonded to earth / used as natural down-conductor per LPS design",
+   "type": "coordinate",
+   "phase": "lps_installation",
+   "strength": "moderate"
+  },
+  {
+   "with": "hvac",
+   "requirement": "roof-mounted plant must be bonded into the LPS",
+   "type": "requires",
+   "phase": "lps_installation",
+   "strength": "moderate"
+  },
+  {
+   "with": "instrumentation",
+   "requirement": "provides clean/instrument earth reference for signal circuits and IS",
+   "type": "provides",
+   "phase": "equipment_earthing",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Earth electrode resistance (fall-of-potential / clamp)",
+  "Soil resistivity (design stage)",
+  "Bonding/continuity resistance of all bonds",
+  "LPS down-conductor continuity and test-joint resistance",
+  "Touch/step voltage survey at MV substations"
+ ],
+ "commissioning_dependencies": [
+  "Earthing installed and resistance-tested before any energization",
+  "Earth pit test records signed off",
+  "LPS continuity verified before handover",
+  "Design earth-resistance target achieved (soil dependent)"
+ ],
+ "typical_exceptions": [
+  "High-resistivity/rock soil needs chemical or deep-driven electrodes (extra scope and re-test)",
+  "Foundation (Ufer) earthing only where rebar is accessible before pour"
+ ],
+ "work_packages": [
+  {
+   "wp": "Buried earth grid and pits",
+   "discipline": "electrical",
+   "interface": true,
+   "note": "civil-coordinated hold point"
+  },
+  {
+   "wp": "Equipotential bonding",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Lightning protection system",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Equipment earthing",
+   "discipline": "electrical",
+   "interface": false
+  }
+ ],
+ "evidence": "Equipment energization was scheduled before the earth-electrode resistance test, the buried earth grid was set to be backfilled before its inspection record, and LPS air terminations were sequenced before the roof was watertight.",
+ "status": "curated",
+ "source": "system_pattern"
+}

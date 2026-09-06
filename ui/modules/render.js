@@ -2,7 +2,7 @@ import { state }                                   from './state.js';
 import { fmtEGP, fmtDate, kpiColor, escapeHtml }  from './format.js';
 import { renderAudit, renderOosPanel, renderLagPanel, showChooser } from './audit.js';
 import { renderEvm }                                from './evm.js';
-import { renderCalendar }                           from './calendar.js';
+import { renderCalendar, renderWeatherView }        from './calendar.js';
 
 const KPI_TOOLTIPS = {
   'Finish Delay':  'Days behind schedule — positive = late, negative = ahead',
@@ -14,10 +14,8 @@ const KPI_TOOLTIPS = {
 };
 
 export function setLoading(active) {
-  document.getElementById('browse-btn').classList.toggle('hidden', active);
-  document.getElementById('browse-spinner').classList.toggle('hidden', !active);
-  document.getElementById('xer-btn').classList.toggle('hidden', active);
-  document.getElementById('xer-spinner').classList.toggle('hidden', !active);
+  document.getElementById('browse-btn')?.classList.toggle('hidden', active);
+  document.getElementById('browse-spinner')?.classList.toggle('hidden', !active);
   if (active) {
     document.getElementById('topbar-sub').textContent = 'Parsing…';
   } else if (!state.currentResult) {
@@ -36,10 +34,13 @@ export function clearError() {
 
 export function loadAnother() {
   document.getElementById('results-section').classList.add('hidden');
+  document.getElementById('import-section')?.classList.remove('hidden');  // Aurora+ landing back
   document.getElementById('topbar-sub').textContent = 'Home · Import';
-  // Back to the import screen: Home highlighted, Audit shield cleared.
-  document.getElementById('sb-home-btn').classList.add('active');
-  document.getElementById('sb-audit-btn').classList.remove('active');
+  document.getElementById('feature-gate')?.classList.add('hidden');       // clear any open Run gate
+  if (state.ranFeatures && typeof state.ranFeatures.clear === 'function') state.ranFeatures.clear();
+  // Back to the import screen: clear any active module in the navigator (Aurora+ shell).
+  document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n =>
+    n.classList.toggle('on', n.dataset.nav === 'home'));
   state.currentResult      = null;
   state.currentXmlPath     = null;
   state.currentCachedPath  = null;
@@ -72,14 +73,13 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
     `${filename}  ·  Data date: ${dataDate}  ·  ${actCount} activities  ·  ${calCount} calendars${prevNote}`;
   document.getElementById('topbar-sub').textContent = `${filename} · ${dataDate}`;
 
-  renderEvm(result);
-  renderAudit(result.audit_modules);
-  renderOosPanel(result.audit_modules);   // Out of Sequence — its own top-level panel
-  renderLagPanel(result.audit_modules);   // Lag Report — its own top-level panel
-  renderCalendar(result.calendar_audit);  // Calendar Audit — its own top-level panel
-  showChooser();   // do NOT auto-open EVM — let the user pick a view
+  // Issues #3/#4: importing must NOT run or display any feature's analysis — only the
+  // "Choose a feature to analyze" prompt. Each feature computes and renders on its own
+  // explicit Run (see app.js openView/runFeature).
+  if (state.ranFeatures && typeof state.ranFeatures.clear === 'function') state.ranFeatures.clear();
+  showChooser();   // "Choose a feature to analyze" — the user picks; nothing auto-runs
 
-
+  document.getElementById('import-section')?.classList.add('hidden');   // Aurora+: landing gives way to results
   document.getElementById('results-section').classList.remove('hidden');
 }
 

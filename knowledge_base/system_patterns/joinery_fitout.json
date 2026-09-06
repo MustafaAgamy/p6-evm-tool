@@ -1,0 +1,220 @@
+{
+ "system": "joinery_fitout",
+ "discipline": "FINISHES",
+ "name": "Joinery & Fit-Out (Doors, Windows, Wardrobes, Kitchens, Architectural Metal)",
+ "aliases": [
+  "doors",
+  "door sets",
+  "door frames",
+  "architraves",
+  "skirting",
+  "windows (finishes trim)",
+  "wardrobes",
+  "fitted furniture",
+  "kitchen units",
+  "cabinetry",
+  "millwork",
+  "joinery",
+  "carpentry",
+  "panelling",
+  "reception desks",
+  "balustrades",
+  "handrails",
+  "architectural metalwork",
+  "ironmongery",
+  "hardware",
+  "second-fix carpentry"
+ ],
+ "zones": [
+  "bedrooms / wardrobes",
+  "kitchens / pantries",
+  "bathrooms (vanities, mirror units)",
+  "reception / lobby feature joinery",
+  "offices (workstations, storage walls)",
+  "stairs (balustrades/handrails)",
+  "circulation (doors, architraves)"
+ ],
+ "sequence": [
+  {
+   "stage": "S1 - Sub-frames & bucks (first fix)",
+   "activities": [
+    "door/window sub-frames and bucks built into blockwork/partitions",
+    "blocking/noggins for heavy wall-hung joinery",
+    "fixing grounds for skirting and panelling"
+   ],
+   "note": "Structural fixing points for heavy joinery are set at first fix inside the wall build-up, not retrofitted."
+  },
+  {
+   "stage": "S2 - Wait for wet trades & finishes",
+   "activities": [
+    "hold delivery/install of finished joinery until plaster, screed, tiling and first-coat paint are complete and dry"
+   ],
+   "note": "Timber and finished cabinetry are moisture-sensitive; installing before wet works dry causes warping, staining and delamination."
+  },
+  {
+   "stage": "S3 - Door & window finishes install",
+   "activities": [
+    "hang door leaves to frames",
+    "architraves, skirtings, thresholds",
+    "window trim / cills",
+    "adjust for floor finish thickness"
+   ],
+   "note": "Door undercuts and thresholds are set to the FINISHED floor level, so flooring datum must be known/laid."
+  },
+  {
+   "stage": "S4 - Fitted furniture & cabinetry",
+   "activities": [
+    "wardrobes, kitchen carcasses and worktops",
+    "vanities and mirror units",
+    "panelling and feature joinery",
+    "template and fit worktops after carcasses set"
+   ],
+   "note": "Kitchen/vanity carcasses must be set before plumbing and electrical second-fix so services terminate into them."
+  },
+  {
+   "stage": "S5 - Architectural metal & balustrades",
+   "activities": [
+    "balustrades, handrails, feature metalwork",
+    "fixing to structure/finished floor with sealed penetrations"
+   ],
+   "note": "Balustrade fixings into waterproofed or finished substrates use approved sealed details."
+  },
+  {
+   "stage": "S6 - Ironmongery & adjustment",
+   "activities": [
+    "locks, hinges, closers, handles",
+    "final adjustment and alignment",
+    "protection of finished joinery"
+   ],
+   "note": "Ironmongery and fine adjustment are second-fix; door closers/access-control coordinate with MEP/security."
+  },
+  {
+   "stage": "S7 - Snag & protect",
+   "activities": [
+    "snag joinery gaps/alignment",
+    "apply protection until handover"
+   ],
+   "note": ""
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "wet trades (plaster, screed, tiling, first-coat paint) dry",
+   "after": "finished joinery install",
+   "reason": "moisture warps and stains timber and board joinery; installing into a wet room guarantees replacement",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "finished floor level known/laid",
+   "after": "door hanging + skirting",
+   "reason": "door undercut, threshold and skirting height reference the finished floor; guessing the datum causes binding doors or gaps",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "first-fix blocking/grounds in wall",
+   "after": "heavy wall-hung joinery",
+   "reason": "wardrobes, storage walls and worktops need concealed structural fixing set during wall build",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "kitchen/vanity carcasses set",
+   "after": "MEP second fix (plumb/elec terminations)",
+   "reason": "taps, wastes, sockets and appliances terminate into the cabinetry; services before carcasses land in the wrong place",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "tiling / wall finishes complete",
+   "after": "cabinetry & fixtures against that wall",
+   "reason": "units mount onto finished walls; fixing first blocks the tile/paint plane and traps the finish behind furniture",
+   "strength": "moderate",
+   "rel": "FS"
+  },
+  {
+   "before": "final paint / decoration",
+   "after": "ironmongery final fit",
+   "reason": "handles, closers and hardware fit after decoration so paint does not foul moving parts",
+   "strength": "moderate",
+   "rel": "FS"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "Architectural finishing (plaster/screed/paint)",
+   "requirement": "wet works complete and dried; finished floor datum established before doors, skirting and cabinetry",
+   "phase": "finish",
+   "strength": "strong",
+   "type": "predecessor-enabler"
+  },
+  {
+   "with": "MEP - electrical/plumbing second fix",
+   "requirement": "kitchen and vanity carcasses set and services coordinated so sockets, taps, wastes and appliance connections terminate into the joinery; sequence carcass -> MEP termination -> worktop/appliance",
+   "phase": "second fix",
+   "strength": "strong",
+   "type": "handshake"
+  },
+  {
+   "with": "Waterproofing",
+   "requirement": "joinery/balustrade fixings into wet-area or tanked substrates use approved sealed penetration details, not open drilling",
+   "phase": "second fix",
+   "strength": "moderate",
+   "type": "protection-constraint"
+  },
+  {
+   "with": "Floor tiling / stone",
+   "requirement": "finished floor laid or level agreed so thresholds, undercuts and skirting land correctly",
+   "phase": "finish",
+   "strength": "moderate",
+   "type": "coordination"
+  },
+  {
+   "with": "MEP - fire/security",
+   "requirement": "door hardware (closers, mag-locks, access control, door position switches) coordinated with fire and security second fix and commissioning",
+   "phase": "second fix / test",
+   "strength": "moderate",
+   "type": "coordination"
+  }
+ ],
+ "commissioning_dependencies": [
+  "fire/smoke door sets certified and door hardware commissioned with fire alarm interface",
+  "access-control doors integrated and tested"
+ ],
+ "testing_requirements": [
+  "fire-door gap/intumescent/closer inspection and certification",
+  "operational check of doors, drawers, hinges under load",
+  "balustrade load / infill compliance test",
+  "moisture content of timber at install"
+ ],
+ "typical_exceptions": [
+  "off-site prefabricated pods/rooms deliver joinery pre-installed, compressing on-site sequence",
+  "glazed partitions/screens are a specialist package overlapping facade",
+  "fire-rated and acoustic door sets carry certification hold-points beyond standard doors",
+  "loose/FF&E furniture is a separate post-handover package, not fixed joinery"
+ ],
+ "work_packages": [
+  {
+   "wp": "Doors, frames & ironmongery",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "fire-door certification + hardware to MEP/security"
+  },
+  {
+   "wp": "Fitted furniture / kitchens / wardrobes",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "carcass before MEP second fix"
+  },
+  {
+   "wp": "Architectural metalwork / balustrades",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "sealed fixings to structure/finish"
+  }
+ ],
+ "evidence": "Joinery is a moisture-gated second-fix trade whose defining interfaces are finished-floor datum, concealed first-fix blocking, and the carcass-before-MEP-termination handshake for kitchens/vanities. Fire-door certification and hardware-to-security coordination are universal. Generalized across sectors; no project-specific content.",
+ "status": "curated",
+ "source": "system_pattern"
+}

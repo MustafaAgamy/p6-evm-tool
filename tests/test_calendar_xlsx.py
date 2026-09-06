@@ -68,6 +68,42 @@ def _all_wellformed(path):
                 minidom.parseString(z.read(n).decode())
 
 
+def test_weather_workbook_grid_highlights_bad_days_amber(tmp_path):
+    """write_weather_xlsx: a construction-calendar month grid where the bad-weather days are
+    highlighted amber (style 10), a Working/Non-working/Bad-weather legend, and the weather
+    tables — Upcoming (with a serial #) + Causes."""
+    from p6_evm.xlsx_writer import write_weather_xlsx
+    months = [{'label': 'Feb 2025', 'year': 2025, 'month': 2, 'first_weekday': 5,
+               'working_days': 8, 'nonworking_days': 2, 'holidays': 0, 'exceptions': 0,
+               'working_hours': 64.0,
+               'days': [{'d': d, 'status': ('weekend' if d in (22, 23) else 'work')}
+                        for d in range(19, 29)]}]
+    ca = {'primary_calendar_id': 'C1',
+          'assigned_calendars': [{'object_id': 'C1', 'name': 'Site 6d', 'activity_count': 100}],
+          'by_calendar': {'C1': {'monthly_stats': months,
+                                 'exceptions': {'holidays': [], 'special': [], 'shutdowns': []}}},
+          'project': {'timeline_start': '2025-02-19', 'hidden_months': 0}}
+    weather = {'expected_bad_days_total': 2,
+               'bad_days': [{'date': '2025-02-20', 'day_name': 'Thu', 'condition': '40 km/h >= 35',
+                             'confidence': 'expected', 'activities': ['Piles'], 'activities_count': 1},
+                            {'date': '2025-02-25', 'day_name': 'Tue', 'condition': '6 mm >= 5',
+                             'confidence': 'expected', 'activities': [], 'activities_count': 0}],
+               'by_cause': [{'label': 'Wind', 'count': 1}, {'label': 'Rain', 'count': 1}],
+               'milestones': [{'name': 'M1', 'planned': '2025-09-15', 'bad_days_before': 2,
+                               'already_allowed': 0, 'net_delay': 2, 'adjusted': '2025-09-17'}],
+               'recovery': [{'period': 'M1', 'days': 2, 'option_longer_days': 'a',
+                             'option_extra_days': 'b', 'option_shift': 'c'}]}
+    p = tmp_path / 'wx.xlsx'
+    write_weather_xlsx(str(p), ca, weather)
+    _all_wellformed(str(p))
+    txt = _sheets_text(str(p))
+    assert txt.count('s="10"') >= 2          # the 2 bad-weather days painted amber (+ legend swatch)
+    assert 'Bad-weather day' in txt          # weather legend
+    assert 'Working' in txt and 'Non-working' in txt
+    assert 'Upcoming Bad-Weather Days' in txt and 'Causing the Lost Days' in txt
+    assert '>#<' in txt                       # serial column header (# cell)
+
+
 def test_workbook_has_a_sheet_per_calendar_plus_report_tables(tmp_path):
     p = tmp_path / 'cal.xlsx'
     write_calendar_xlsx(str(p), _ca(), weather=_weather())

@@ -215,6 +215,12 @@ def parse_xer(path):
             'lag_hours': lag_hr,
         })
 
+    # Resource names (additive) — resolve TASKRSRC assignments to a readable resource name.
+    for rr in tables.get('RSRC', []):
+        rid = rr.get('rsrc_id')
+        if rid:
+            data.resources[rid] = {'name': rr.get('rsrc_name') or rr.get('rsrc_short_name') or rid}
+
     for ra in tables.get('TASKRSRC', []):
         tid = ra.get('task_id')
         if not tid or tid not in data.activities:
@@ -223,5 +229,15 @@ def parse_xer(path):
         ac = (_num(ra.get('act_reg_cost'), 0.0) or 0.0) + (_num(ra.get('act_ot_cost'), 0.0) or 0.0)
         data.bac_by_activity[tid] = data.bac_by_activity.get(tid, 0.0) + bac
         data.ac_by_activity[tid] = data.ac_by_activity.get(tid, 0.0) + ac
+        # Per-assignment resource detail (additive; independent of the cost sums above).
+        rid = ra.get('rsrc_id')
+        data.assignments_by_activity.setdefault(tid, []).append({
+            'resource_id': rid,
+            'resource_name': (data.resources.get(rid) or {}).get('name'),
+            'budget_units': _num(ra.get('target_qty'), 0.0) or 0.0,
+            'actual_units': (_num(ra.get('act_reg_qty'), 0.0) or 0.0) + (_num(ra.get('act_ot_qty'), 0.0) or 0.0),
+            'budget_cost': bac,
+            'rate': _num(ra.get('cost_per_qty'), None),
+        })
 
     return data

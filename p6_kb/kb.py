@@ -2,7 +2,7 @@
 
 Two sources merge: the **bundled defaults** shipped in the app
 (``knowledge_base/<category>/<type>.json``) and an optional **user overlay** in the
-per-user app folder (``%APPDATA%/P6EVMTool/knowledge_base/...``). An overlay entry
+per-user app folder (``%APPDATA%/Controlyx/knowledge_base/...``). An overlay entry
 overrides a bundled one with the same (category, type) — so Ibrahim, and later a
 company, can add or refine standards without touching the application.
 """

@@ -461,10 +461,12 @@ def _lag_flags_cell(f):
     return ' '.join(chips)
 
 
-def _lag_register(m):
+def _lag_register(m, caption=None):
     findings = m.get('findings', [])
+    cap_html = f'<div class="lagfilter">{_esc(caption)}</div>' if caption else ''
     if not findings:
         return ('<h2 class="sec">Lag &amp; Lead Register</h2>'
+                f'{cap_html}'
                 '<p class="empty">No lags or leads &mdash; every relationship drives directly.</p>')
     head = ('<th>#</th><th>Activity ID</th><th>Activity Name</th>'
             '<th>Pred. Relationship</th><th>Pred. Name</th>'
@@ -481,6 +483,7 @@ def _lag_register(m):
         for i, f in enumerate(findings, 1))
     return f'''
       <h2 class="sec">Lag &amp; Lead Register — all project lags (worst first)</h2>
+      {cap_html}
       <table class="findings"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>'''
 
 
@@ -663,11 +666,13 @@ def _cpli_context_note(m):
             f'The sub-feature score above is the critical-path density.</div></div>')
 
 
-def _sections(m, sections=None):
+def _sections(m, sections=None, lag_caption=None):
     """Body sections for a module report — respecting the user's report-content
     selection (Preview = PDF = Print) and skipping sections with no data. OOS and
     Lag & Lead keep their bespoke order; every other check renders from the single
-    source, so the PDF matches the screen exactly."""
+    source, so the PDF matches the screen exactly. `lag_caption` (Lag & Lead only)
+    notes the on-screen filter above the register; findings arrive pre-filtered by
+    the caller, charts/summary read `kpis`/`wbs_summary` so they stay whole-schedule."""
     want = set(sections) if sections else None
 
     def on(key):
@@ -694,7 +699,7 @@ def _sections(m, sections=None):
         if on('charts'):
             parts.append(_lag_charts(m))
         if on('findings'):
-            parts.append(_lag_register(m))
+            parts.append(_lag_register(m, caption=lag_caption))
         return ''.join(parts)
 
     parts = []
@@ -981,7 +986,12 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
 </body></html>'''
 
 
-def render_module_report(module_result, meta, sections=None, theme='light'):
+def render_module_report(module_result, meta, sections=None, theme='light', lag_caption=None):
+    """`lag_caption` (Lag & Lead only): a short on-screen-filter note rendered above
+    the register, e.g. "Filtered — showing 34 of 512 lags · lag >= 2 wd". None/empty
+    ⇒ no caption. `module_result['findings']` should already be narrowed by the
+    caller (see p6_audit.exporters.filter_lag_findings) — this function just renders
+    whatever findings it is given; charts/KPIs read kpis/wbs_summary, unaffected."""
     m = module_result
     # Float Analysis has its own management-dashboard layout (V2 redesign).
     if m.get('module') == 'float':
@@ -1067,6 +1077,8 @@ def render_module_report(module_result, meta, sections=None, theme='light'):
   .concl {{ border-left: 4px solid var(--rpt-accent); background: var(--rpt-accent-soft); border-radius: 0 8px 8px 0; padding: 11px 15px; font-size: 11px; line-height: 1.55; color: var(--rpt-ink); }}
   .lagsum {{ font-size: 12px; color: var(--rpt-ink-soft); margin: 2px 0 6px; }}
   .lagsum b {{ color: var(--rpt-ink); }}
+  .lagfilter {{ display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--rpt-accent);
+                background: var(--rpt-accent-soft); border-radius: 6px; padding: 5px 10px; margin: 0 0 8px; }}
   .lcharts {{ display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }}
   .lcard {{ flex: 1; min-width: 200px; border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 11px 13px; }}
   .lch {{ font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--rpt-muted); font-weight: 700; margin-bottom: 10px; }}
@@ -1103,7 +1115,7 @@ def render_module_report(module_result, meta, sections=None, theme='light'):
     </div>
   </div>
 
-  {_sections(m, sections)}
+  {_sections(m, sections, lag_caption=lag_caption)}
 
   <div class="foot">
     {'This Lag Report lists every relationship lag and lead in the schedule, worst first, with the planner&rsquo;s own justification for the ones over the long-lag threshold or using a lead. Advisory only &mdash; schedule logic is never edited.' if is_lag else f'This report covers the <b>{_esc(name)}</b> module only, in isolation from other Schedule Audit checks and from cost / earned-value / progress. Module score is derived from the module KPI percentage on the approved band curve. Findings are engineering guidance and require planner verification.' + _scope_note(m)} &nbsp;·&nbsp; {_esc(meta.get('project_name', ''))} · {_esc(title_txt)}

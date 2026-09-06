@@ -150,7 +150,24 @@ def _classify_exceptions(cal, start, finish, reasons, manual):
     for ms in manual:
         shutdowns.append(ms)
 
-    return {'holidays': holidays, 'special': special, 'shutdowns': shutdowns}
+    return {'holidays': holidays, 'special': special, 'shutdowns': shutdowns,
+            'holiday_dates': _holiday_dates(holidays)}
+
+
+def _holiday_dates(holidays):
+    """§3 Calendar Non-working days — expand each holiday RUN into individual dates, each
+    carrying its weekday name. Reuses the run's block key + stored reason so the existing
+    shutdown_reasons plumbing edits the (editable) description. HOLIDAYS ONLY — shutdowns and
+    reduced/special-hours days are deliberately excluded."""
+    out = []
+    for grp in holidays:
+        s, e = _to_date(grp['start']), _to_date(grp['end'])
+        d = s
+        while d and e and d <= e:
+            out.append({'date': _iso(d), 'weekday': DOW_NAMES[d.weekday()],
+                        'reason': grp.get('reason', ''), 'key': grp.get('key', '')})
+            d += timedelta(days=1)
+    return out
 
 
 def _hhmm(minutes):
@@ -275,8 +292,12 @@ def _calendar_totals(cal, start, finish):
     return wd, nwd, round(hours, 1)
 
 
-def _hours_profiles(cal):
-    """Distinct working-hour patterns: the standard week + any special blocks."""
+def _hours_profiles(cal, notes=None):
+    """Distinct working-hour patterns: the standard week + any special blocks. Each profile
+    also carries a stable `key` (its hours string; a duplicate is suffixed with its index) and
+    a planner-typed `note` — a justification for a reduced-hours period, restored from
+    `notes` (settings['hours_notes']). Mirrors how shutdown reasons persist."""
+    notes = notes or {}
     profiles = []
     # Standard: pick the most common intraday interval across the week, else flat hours.
     week_sigs = {}
@@ -295,6 +316,17 @@ def _hours_profiles(cal):
         profiles.append({'name': 'Normal', 'hours': f'{cal.day_hours:g} hrs/day',
                          'hours_per_day': cal.day_hours,
                          'sub': f'{cal.days_per_week()} days/week'})
+    # Stable per-profile key = the hours string; a repeat gets an index suffix so each card
+    # keeps its own note. Restore the saved note (default '') onto every profile.
+    seen = {}
+    for p in profiles:
+        base = p['hours']
+        n = seen.get(base, 0)
+        seen[base] = n + 1
+        key = base if n == 0 else f'{base}#{n}'
+        p['key'] = key
+        p['note'] = notes.get(key, '')
+        p['days_per_week'] = cal.days_per_week()   # §4 table column (mirror of the 'sub' text)
     return profiles
 
 
@@ -304,6 +336,7 @@ def calendar_audit(data, config=None, settings=None):
     settings = settings or {}
     reasons = settings.get('shutdown_reasons', {}) or {}
     manual = _normalise_manual(settings.get('manual_shutdowns', []))
+    hours_notes = settings.get('hours_notes', {}) or {}
 
     cals = data.calendars
     cstart, cfinish = _project_window(data)      # current schedule window (fallback)
@@ -360,7 +393,7 @@ def calendar_audit(data, config=None, settings=None):
             'object_id': cid, 'name': cal.name,
             'monthly_stats': months,
             'exceptions': exc,
-            'hours_profiles': _hours_profiles(cal),
+            'hours_profiles': _hours_profiles(cal, hours_notes),
             'totals': {'working_days': wd, 'nonworking_days': nwd, 'working_hours': hours},
         }
 
@@ -378,6 +411,11 @@ def calendar_audit(data, config=None, settings=None):
                       + sum(s['days'] for s in prim_exc['special']))
     wd = prim_totals['working_days']
 
+    # §1 Execution Dashboard — the primary calendar's standard working hours (e.g. "08:00–16:00"),
+    # read by both the screen and the PDF as the "Normal hours" tile.
+    prim_profiles = by_calendar.get(primary_id, {}).get('hours_profiles', [])
+    normal_hours = prim_profiles[0]['hours'] if prim_profiles else ''
+
     dashboard = {
         'project_start': _iso(cstart or start),
         'project_finish': _iso(cfinish or fin_exact),
@@ -394,6 +432,7 @@ def calendar_audit(data, config=None, settings=None):
         'shutdown_periods': len(prim_exc['shutdowns']),
         'avg_working_days_per_month': round(wd / n_months, 1),
         'avg_working_hours_per_day': round(prim_totals['working_hours'] / wd, 1) if wd else 0.0,
+        'normal_hours': normal_hours,
     }
 
     usage = _usage(cals, usage_count, total_assigned)

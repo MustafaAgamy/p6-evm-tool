@@ -102,25 +102,37 @@ export function switchView(view) {
   document.getElementById('audit-panel').classList.toggle('hidden', view !== 'audit');
   document.getElementById('oos-panel').classList.toggle('hidden', view !== 'oos');
   document.getElementById('calendar-panel').classList.toggle('hidden', view !== 'calendar');
+  document.getElementById('weather-panel').classList.toggle('hidden', view !== 'weather');
   document.getElementById('construct-panel').classList.toggle('hidden', view !== 'construct');
   document.getElementById('compare-panel').classList.toggle('hidden', view !== 'compare');
+  document.getElementById('revcompare-panel')?.classList.toggle('hidden', view !== 'revcompare');
   document.getElementById('lag-panel').classList.toggle('hidden', view !== 'lag');
   document.getElementById('period-panel').classList.toggle('hidden', view !== 'period');
   document.getElementById('critpath-panel').classList.toggle('hidden', view !== 'critpath');
   document.getElementById('update-panel').classList.toggle('hidden', view !== 'update');
+  document.getElementById('special-panel').classList.toggle('hidden', view !== 'special');
+  document.getElementById('dash-panel')?.classList.toggle('hidden', view !== 'dash');
+  document.getElementById('narrative-panel')?.classList.toggle('hidden', view !== 'narrative');
+  document.getElementById('copilot-panel')?.classList.toggle('hidden', view !== 'copilot');
+  document.getElementById('overview-panel')?.classList.toggle('hidden', view !== 'overview');
+  document.getElementById('wbs-panel')?.classList.toggle('hidden', view !== 'wbs');
+  document.getElementById('schedule-panel')?.classList.toggle('hidden', view !== 'schedule');
   document.getElementById('tab-evm').classList.toggle('active', view === 'evm');
   document.getElementById('tab-audit').classList.toggle('active', view === 'audit');
   document.getElementById('tab-oos').classList.toggle('active', view === 'oos');
   document.getElementById('tab-calendar').classList.toggle('active', view === 'calendar');
+  document.getElementById('tab-weather').classList.toggle('active', view === 'weather');
   document.getElementById('tab-construct').classList.toggle('active', view === 'construct');
   document.getElementById('tab-compare').classList.toggle('active', view === 'compare');
+  document.getElementById('tab-revcompare')?.classList.toggle('active', view === 'revcompare');
   document.getElementById('tab-lag').classList.toggle('active', view === 'lag');
   document.getElementById('tab-period').classList.toggle('active', view === 'period');
   document.getElementById('tab-critpath').classList.toggle('active', view === 'critpath');
   document.getElementById('tab-update').classList.toggle('active', view === 'update');
-  // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
-  document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
-  document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');
+  document.getElementById('tab-special').classList.toggle('active', view === 'special');
+  // Highlight the active module in the Project Navigator (Aurora+ shell).
+  document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n =>
+    n.classList.toggle('on', n.dataset.nav === view));
   // Out of Sequence and Lag Report are top-level views but reuse the module export path
   // (PDF/Excel) with a fixed module id.
   if (view === 'oos') state.currentModule = 'out_of_sequence';
@@ -131,8 +143,7 @@ export function switchView(view) {
 export function showChooser() {
   document.getElementById('analysis-chooser').classList.remove('hidden');
   document.getElementById('analysis-views').classList.add('hidden');
-  document.getElementById('sb-audit-btn').classList.remove('active');
-  document.getElementById('sb-home-btn').classList.add('active');
+  document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n => n.classList.remove('on'));
 }
 
 export function shortWbs(path, n = 3) {
@@ -1587,9 +1598,86 @@ function renderRows() {
     `<tr><td class="num">${i + 1}</td>${row.map(cellHtml).join('')}</tr>`).join('');
 }
 
+// ── Lag Report — Excel-style column filters (pure helpers, unit-tested) ────
+// A column filter is the SET of allowed values for that column. Quick-pick lag-size
+// buttons work by MAGNITUDE (|lag_days|) except "Long", which is a straight value >
+// threshold — a lead is never "long". "All" (and an unrecognised pick) returns everything.
+export function lagQuickPickValues(values, pick, customThreshold) {
+  const v = values || [];
+  switch (pick) {
+    case 'ge2':   return v.filter(n => Math.abs(n) >= 2);
+    case 'ge5':   return v.filter(n => Math.abs(n) >= 5);
+    case 'long':  return v.filter(n => n > 14);
+    case 'leads': return v.filter(n => n < 0);
+    case 'custom': {
+      const t = Number(customThreshold);
+      return Number.isFinite(t) ? v.filter(n => Math.abs(n) >= t) : v.slice();
+    }
+    default: return v.slice();   // 'all'
+  }
+}
+
+// When every distinct value in a column is selected, that is equivalent to no filter
+// at all — normalize to null so "is this column filtered?" is a plain truthy check.
+export function normalizeColumnFilter(selected, allValues) {
+  if (!selected) return null;
+  const sel = new Set(selected);
+  if (sel.size >= (allValues || []).length) return null;
+  return sel;
+}
+
+export function matchesColumnFilter(value, allowedSet) {
+  return !allowedSet || allowedSet.has(value);
+}
+
+// One entry per filterable Lag Report column: how to read its raw value off a finding.
+// The Pred. Relationship column filters by relationship TYPE (rel_type: FS/SS/FF/SF),
+// not the full "FS+21" label.
+export const LAG_FILTER_COLUMNS = [
+  { key: 'activity_id',   label: 'Activity ID',        type: 'text',    valueOf: f => f.activity_id || '' },
+  { key: 'activity_name', label: 'Activity Name',      type: 'text',    valueOf: f => f.activity_name || '' },
+  { key: 'lag_days',      label: 'Lag (wd)',           type: 'number',  valueOf: f => Number(f.lag_days) || 0 },
+  { key: 'pred_rel_type', label: 'Pred. Relationship', type: 'reltype', valueOf: f => f.rel_type || '' },
+  { key: 'pred_name',     label: 'Pred. Name',         type: 'text',    valueOf: f => f.pred_name || '' },
+];
+
+// Every active column filter combines with AND, plus the existing global search box
+// (activity id / name / predecessor name).
+export function filterLagFindings(findings, { query = '', cols = {} } = {}) {
+  const q = (query || '').trim().toLowerCase();
+  return (findings || []).filter(f => {
+    for (const col of LAG_FILTER_COLUMNS) {
+      const allowed = cols[col.key];
+      if (allowed && !matchesColumnFilter(col.valueOf(f), allowed)) return false;
+    }
+    if (q) {
+      const hay = `${f.activity_id || ''} ${f.activity_name || ''} ${f.pred_name || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+export function sortLagFindings(findings, sortKey, dir) {
+  const col = LAG_FILTER_COLUMNS.find(c => c.key === sortKey);
+  if (!col) return findings;
+  const mul = dir === 'desc' ? -1 : 1;
+  return [...findings].sort((a, b) => {
+    const av = col.valueOf(a), bv = col.valueOf(b);
+    if (col.type === 'number') return mul * (av - bv);
+    return mul * String(av).localeCompare(String(bv));
+  });
+}
+
 // ── Lag Report — standalone report (charts + register + editable justification) ──
 
-let _lagFilter = { query: '', flaggedOnly: false };
+// _lagFilter.cols maps a LAG_FILTER_COLUMNS key → Set of allowed values (absent/null =
+// column not filtered). _lagFilter.quickPick tracks which Lag (wd) quick-pick button (if
+// any) produced the current lag_days filter — used for the button highlight and the export
+// caption; a manual checkbox edit clears it to null ("custom", no caption suffix).
+let _lagFilter = { query: '', cols: {}, quickPick: 'all', customThreshold: null, sort: null };
+let _lagModule = null;    // module data behind the currently-rendered register (for lagExportFilter)
+let _lagPopover = null;   // { col, allValues, selected: Set, search } for the ONE open filter popover
 
 function lagBar(pct) {
   const w = Math.max(0, Math.min(100, Math.round(pct || 0)));
@@ -1610,6 +1698,15 @@ function lagFlagChips(f) {
   return c;   // empty when clean — chips sit inline in the relationship cell
 }
 
+// Lag (wd) cell — the SAME emphasis the relationship cell uses (red lead, amber long),
+// right-aligned/monospace with a real minus sign for a lead.
+function lagDaysCell(f) {
+  const n = Number(f.lag_days) || 0;
+  const cls = f.is_lead ? 'rel-lead' : (f.is_long ? 'rel-long' : '');
+  const shown = n < 0 ? `−${Math.abs(n)}` : String(n);
+  return `<td class="num mono ${cls}">${escapeHtml(shown)}</td>`;
+}
+
 // Save one justification to the server (per project). Raw fetch keeps audit.js free of an
 // api.js import cycle; a failed save is silent — the typed text stays in the in-memory copy.
 async function saveLagJustification(relKey, text) {
@@ -1623,26 +1720,30 @@ async function saveLagJustification(relKey, text) {
 }
 
 function lagRowsFiltered(m) {
-  const q = (_lagFilter.query || '').trim().toLowerCase();
-  return (m.findings || []).filter(f => {
-    if (_lagFilter.flaggedOnly && !(f.is_lead || f.is_long)) return false;
-    if (q) {
-      const hay = `${f.activity_id || ''} ${f.activity_name || ''} ${f.pred_name || ''}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
+  let rows = filterLagFindings(m.findings || [], _lagFilter);
+  if (_lagFilter.sort) rows = sortLagFindings(rows, _lagFilter.sort.key, _lagFilter.sort.dir);
+  return rows;
+}
+
+function updateLagCountLine(m, shownCount) {
+  const el = document.getElementById('lag-count');
+  if (!el) return;
+  const total = (m.findings || []).length;
+  el.innerHTML = (shownCount === total)
+    ? `Showing <b>${total.toLocaleString()}</b> of ${total.toLocaleString()}`
+    : `Showing <b>${shownCount.toLocaleString()}</b> of ${total.toLocaleString()} <span class="lag-filtered-tag">· filtered</span>`;
 }
 
 function renderLagRows(m) {
   const tbody = document.getElementById('lag-tbody');
   if (!tbody) return;
   const rows = lagRowsFiltered(m);
+  updateLagCountLine(m, rows.length);
   if (!rows.length) {
     const empty = !(m.findings || []).length
       ? 'No lags or leads in this schedule — every relationship drives directly.'
-      : 'No lags match your search.';
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">${empty}</td></tr>`;
+      : 'No lags match the current filters.';
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">${empty}</td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map((f, i) => `
@@ -1650,6 +1751,7 @@ function renderLagRows(m) {
       <td class="num">${i + 1}</td>
       <td class="mono">${escapeHtml(f.activity_id)}</td>
       <td>${escapeHtml(f.activity_name)}</td>
+      ${lagDaysCell(f)}
       <td class="lag-relcell">${lagRelHtml(f.pred_rel, f.is_lead, f.is_long)} ${lagFlagChips(f)}</td>
       <td class="mut">${escapeHtml(f.pred_name)}</td>
       <td><span class="mono">${escapeHtml(f.succ_rel || '—')}</span></td>
@@ -1663,6 +1765,202 @@ function renderLagRows(m) {
     ta.addEventListener('input', sync);
     ta.addEventListener('change', () => { sync(); saveLagJustification(relKey, ta.value); });
   });
+}
+
+// ── Lag Report — header filter popover (Excel-style AutoFilter) ────────────
+
+function lagColDef(key) { return LAG_FILTER_COLUMNS.find(c => c.key === key); }
+
+function lagDistinctValues(findings, col) {
+  const seen = new Set();
+  const out = [];
+  (findings || []).forEach(f => {
+    const v = col.valueOf(f);
+    if (v === null || v === undefined) return;
+    if (col.type !== 'number' && v === '') return;
+    if (!seen.has(v)) { seen.add(v); out.push(v); }
+  });
+  return col.type === 'number' ? out.sort((a, b) => a - b) : out.sort((a, b) => String(a).localeCompare(String(b)));
+}
+
+function lagValueLabel(col, v) {
+  if (col.type === 'number') { const n = Number(v) || 0; return n < 0 ? `−${Math.abs(n)}` : String(n); }
+  return String(v);
+}
+
+function lagHeaderCell(label, colKey, cls = '') {
+  return `<th class="${cls}"><span class="lag-th-wrap">${escapeHtml(label)}` +
+    `<button type="button" class="lag-fbtn" data-col="${colKey}" title="Filter ${escapeHtml(label)}">&#9662;</button></span></th>`;
+}
+
+function closeLagFilterPopover() {
+  const el = document.getElementById('lag-fpop');
+  if (el) el.remove();
+  document.removeEventListener('mousedown', lagPopoverOutsideHandler, true);
+  _lagPopover = null;
+}
+
+function lagPopoverOutsideHandler(e) {
+  const pop = document.getElementById('lag-fpop');
+  if (pop && !pop.contains(e.target) && !e.target.closest('.lag-fbtn')) closeLagFilterPopover();
+}
+
+function updateLagFilterButtons() {
+  document.querySelectorAll('.lag-fbtn').forEach(btn =>
+    btn.classList.toggle('on', !!_lagFilter.cols[btn.dataset.col]));
+}
+
+function lagPopoverHtml(col) {
+  const qp = col.type === 'number' ? `
+    <div class="lag-fpop-qh">Number filters — lag size</div>
+    <div class="lag-fpop-qrow">
+      <button type="button" class="lag-qp" data-pick="all">All</button>
+      <button type="button" class="lag-qp" data-pick="ge2">&ge; 2 wd</button>
+      <button type="button" class="lag-qp" data-pick="ge5">&ge; 5 wd</button>
+      <button type="button" class="lag-qp" data-pick="long">Long &gt; 14</button>
+      <button type="button" class="lag-qp" data-pick="leads">Leads</button>
+    </div>
+    <div class="lag-fpop-custom">
+      <span>or &ge;</span><input type="number" class="lag-qcustom" min="0" placeholder="N">
+      <span>wd</span><button type="button" class="lag-qgo">Go</button>
+    </div>
+    <div class="lag-fpop-sep"></div>` : '';
+  const search = col.type !== 'reltype'
+    ? `<input class="lag-fpop-search" placeholder="Search values…">` : '';
+  return `
+    <div class="lag-fpop-sort">
+      <button type="button" class="lag-fsort" data-dir="asc">Sort A&rarr;Z</button>
+      <button type="button" class="lag-fsort" data-dir="desc">Sort Z&rarr;A</button>
+    </div>
+    ${qp}
+    ${search}
+    <label class="lag-fpop-all"><input type="checkbox" class="lag-fpop-allcb"> (Select all)</label>
+    <div class="lag-fpop-list"></div>
+    <div class="lag-fpop-foot">
+      <button type="button" class="lag-fclear">Clear</button>
+      <button type="button" class="lag-fapply">Apply</button>
+    </div>`;
+}
+
+function renderLagPopoverList() {
+  if (!_lagPopover) return;
+  const list = document.querySelector('#lag-fpop .lag-fpop-list');
+  if (!list) return;
+  const { allValues, selected, search } = _lagPopover;
+  const col = lagColDef(_lagPopover.col);
+  const q = (search || '').trim().toLowerCase();
+  const shown = allValues.filter(v => !q || lagValueLabel(col, v).toLowerCase().includes(q));
+  list.innerHTML = shown.length ? shown.map(v => {
+    const idx = allValues.indexOf(v);
+    return `<label class="lag-fpop-item"><input type="checkbox" class="lag-fpop-item-cb" data-idx="${idx}" ${selected.has(v) ? 'checked' : ''}> ${escapeHtml(lagValueLabel(col, v))}</label>`;
+  }).join('') : '<div class="lag-fpop-empty">No values</div>';
+  const allCb = document.querySelector('#lag-fpop .lag-fpop-allcb');
+  if (allCb) allCb.checked = shown.length > 0 && shown.every(v => selected.has(v));
+  list.querySelectorAll('.lag-fpop-item-cb').forEach(cb => cb.addEventListener('change', () => {
+    const v = allValues[Number(cb.dataset.idx)];
+    if (cb.checked) selected.add(v); else selected.delete(v);
+    if (allCb) allCb.checked = shown.every(x => selected.has(x));
+  }));
+}
+
+function applyLagQuickPick(pick, customThreshold, m) {
+  if (!_lagPopover) return;
+  const matched = lagQuickPickValues(_lagPopover.allValues, pick, customThreshold);
+  _lagPopover.selected = new Set(matched);
+  _lagFilter.cols.lag_days = normalizeColumnFilter(matched, _lagPopover.allValues);
+  _lagFilter.quickPick = pick;
+  _lagFilter.customThreshold = pick === 'custom' ? customThreshold : null;
+  renderLagPopoverList();
+  const pop = document.getElementById('lag-fpop');
+  if (pop) pop.querySelectorAll('.lag-qp').forEach(b => b.classList.toggle('on', b.dataset.pick === pick));
+  updateLagFilterButtons();
+  renderLagRows(m);
+}
+
+function wireLagPopover(col, m) {
+  renderLagPopoverList();
+  const pop = document.getElementById('lag-fpop');
+  if (!pop) return;
+
+  pop.querySelectorAll('.lag-fsort').forEach(btn => btn.addEventListener('click', () => {
+    _lagFilter.sort = { key: col.key, dir: btn.dataset.dir };
+    closeLagFilterPopover();
+    renderLagRows(m);
+  }));
+
+  const searchInput = pop.querySelector('.lag-fpop-search');
+  if (searchInput) searchInput.addEventListener('input', e => {
+    _lagPopover.search = e.target.value;
+    renderLagPopoverList();
+  });
+
+  const allCb = pop.querySelector('.lag-fpop-allcb');
+  if (allCb) allCb.addEventListener('change', () => {
+    const q = (_lagPopover.search || '').trim().toLowerCase();
+    const shown = _lagPopover.allValues.filter(v => !q || lagValueLabel(col, v).toLowerCase().includes(q));
+    shown.forEach(v => { if (allCb.checked) _lagPopover.selected.add(v); else _lagPopover.selected.delete(v); });
+    renderLagPopoverList();
+  });
+
+  if (col.type === 'number') {
+    pop.querySelectorAll('.lag-qp').forEach(btn => btn.addEventListener('click', () =>
+      applyLagQuickPick(btn.dataset.pick, null, m)));
+    const goBtn = pop.querySelector('.lag-qgo');
+    const customInput = pop.querySelector('.lag-qcustom');
+    if (goBtn) goBtn.addEventListener('click', () => {
+      const n = Number(customInput.value);
+      if (customInput.value.trim() !== '' && Number.isFinite(n)) applyLagQuickPick('custom', n, m);
+    });
+  }
+
+  pop.querySelector('.lag-fclear').addEventListener('click', () => {
+    delete _lagFilter.cols[col.key];
+    if (col.key === 'lag_days') { _lagFilter.quickPick = 'all'; _lagFilter.customThreshold = null; }
+    closeLagFilterPopover();
+    updateLagFilterButtons();
+    renderLagRows(m);
+  });
+
+  pop.querySelector('.lag-fapply').addEventListener('click', () => {
+    _lagFilter.cols[col.key] = normalizeColumnFilter([..._lagPopover.selected], _lagPopover.allValues);
+    if (col.key === 'lag_days') { _lagFilter.quickPick = null; _lagFilter.customThreshold = null; }
+    closeLagFilterPopover();
+    updateLagFilterButtons();
+    renderLagRows(m);
+  });
+}
+
+function openLagFilterPopover(key, btn, m) {
+  closeLagFilterPopover();
+  const col = lagColDef(key);
+  if (!col) return;
+  const allValues = lagDistinctValues(m.findings || [], col);
+  const current = _lagFilter.cols[key];
+  const selected = new Set(current ? [...current] : allValues);
+  _lagPopover = { col: key, allValues, selected, search: '' };
+
+  const rect = btn.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.className = 'lag-fpop';
+  pop.id = 'lag-fpop';
+  pop.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 276))}px`;
+  pop.style.top = `${rect.bottom + 5}px`;
+  pop.innerHTML = lagPopoverHtml(col);
+  document.body.appendChild(pop);
+  wireLagPopover(col, m);
+  if (col.type === 'number') {
+    pop.querySelectorAll('.lag-qp').forEach(b => b.classList.toggle('on', b.dataset.pick === _lagFilter.quickPick));
+  }
+  document.addEventListener('mousedown', lagPopoverOutsideHandler, true);
+}
+
+function clearAllLagFilters(m) {
+  _lagFilter = { query: '', cols: {}, quickPick: 'all', customThreshold: null, sort: null };
+  const search = document.getElementById('lag-search');
+  if (search) search.value = '';
+  closeLagFilterPopover();
+  updateLagFilterButtons();
+  renderLagRows(m);
 }
 
 // Lag makeup donut: normal (grey) · long positive (amber) · leads (red). Centre = to-justify count.
@@ -1701,7 +1999,9 @@ export function renderLagPanel(auditModules) {
   const body = document.getElementById('lag-body');
   if (!body) return;
   const m = auditModules && auditModules.modules && auditModules.modules.lag_lead;
+  closeLagFilterPopover();
   if (!m) {
+    _lagModule = null;
     body.innerHTML = '<p style="color:var(--muted);font-size:13px">No lag report for this schedule.</p>';
     return;
   }
@@ -1711,7 +2011,8 @@ export function renderLagPanel(auditModules) {
   const typeMax = Math.max(1, ...byType.map(t => t.count || 0));
   const wbsMax = Math.max(1, ...ws.map(r => r.lagged || 0));
   const thr = k.long_threshold_days || 14;
-  _lagFilter = { query: '', flaggedOnly: false };
+  _lagFilter = { query: '', cols: {}, quickPick: 'all', customThreshold: null, sort: null };
+  _lagModule = m;
 
   const typeRows = byType.map(t =>
     `<div class="lag-drow"><span class="lag-dk">${escapeHtml(t.type)}</span>` +
@@ -1742,11 +2043,16 @@ export function renderLagPanel(auditModules) {
 
     <div class="filters">
       <input class="searchbox" id="lag-search" placeholder="🔍  Search activity ID, name or predecessor…">
-      <label class="lag-toggle"><input type="checkbox" id="lag-flagged"> Flagged only (leads &amp; long lags)</label>
+      <button type="button" class="lag-clearall" id="lag-clearall">Clear all filters</button>
     </div>
+    <div class="lag-count" id="lag-count"></div>
     <div class="tblwrap" style="overflow-x:auto"><table class="audit-table lag-table"><thead><tr>
-      <th>#</th><th>Activity ID</th><th>Activity Name</th>
-      <th>Pred. Relationship</th><th>Pred. Name</th>
+      <th>#</th>
+      ${lagHeaderCell('Activity ID', 'activity_id')}
+      ${lagHeaderCell('Activity Name', 'activity_name')}
+      ${lagHeaderCell('Lag (wd)', 'lag_days', 'num')}
+      ${lagHeaderCell('Pred. Relationship', 'pred_rel_type')}
+      ${lagHeaderCell('Pred. Name', 'pred_name')}
       <th>Succ. Relationship</th><th>Succ. Name</th>
       <th class="lag-jcol">Justification</th>
     </tr></thead><tbody id="lag-tbody"></tbody></table></div>`;
@@ -1754,8 +2060,36 @@ export function renderLagPanel(auditModules) {
   document.getElementById('lag-search').addEventListener('input', e => {
     _lagFilter.query = e.target.value; renderLagRows(m);
   });
-  document.getElementById('lag-flagged').addEventListener('change', e => {
-    _lagFilter.flaggedOnly = e.target.checked; renderLagRows(m);
-  });
+  document.getElementById('lag-clearall').addEventListener('click', () => clearAllLagFilters(m));
+  document.querySelectorAll('.lag-fbtn').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const key = btn.dataset.col;
+    if (_lagPopover && _lagPopover.col === key) { closeLagFilterPopover(); return; }
+    openLagFilterPopover(key, btn, m);
+  }));
   renderLagRows(m);
+}
+
+// Export-filter hook — shared by Excel + PDF exports (see ui/modules/api.js). Reflects the
+// CURRENT on-screen filter/search state of the register: which rel_keys are visible, plus a
+// short caption describing why. null/'' when nothing is filtered (export the full register).
+export function lagExportFilter() {
+  const m = _lagModule;
+  if (!m) return { visible_keys: null, caption: '' };
+  const all = m.findings || [];
+  const active = (_lagFilter.query || '').trim() !== '' ||
+    Object.values(_lagFilter.cols || {}).some(s => s != null);
+  if (!active) return { visible_keys: null, caption: '' };
+  const rows = lagRowsFiltered(m);
+  const keys = rows.map(f => f.rel_key);
+  let caption = `Filtered — showing ${rows.length.toLocaleString()} of ${all.length.toLocaleString()} lags`;
+  if (_lagFilter.cols.lag_days && _lagFilter.quickPick && _lagFilter.quickPick !== 'all') {
+    const suffix = {
+      ge2: 'lag ≥ 2 wd', ge5: 'lag ≥ 5 wd',
+      long: 'long lags (> 14 wd)', leads: 'leads only',
+      custom: `lag ≥ ${_lagFilter.customThreshold} wd`,
+    }[_lagFilter.quickPick];
+    if (suffix) caption += ` · ${suffix}`;
+  }
+  return { visible_keys: keys, caption };
 }

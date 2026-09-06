@@ -5,6 +5,7 @@ from datetime import date
 from p6_evm.calendars import Calendar
 from p6_calendar.weather import (
     classify_day, bad_weather_days, weather_impact, DEFAULT_THRESHOLDS,
+    SITE_TYPES, resolve_site_thresholds, build_criteria, limit_performance,
 )
 
 
@@ -226,3 +227,243 @@ def test_bad_days_brief_falls_back_to_name_without_wbs():
         milestones=[], data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
         daily_weather=daily, forecast_horizon=date(2025, 6, 8), thresholds=DEFAULT_THRESHOLDS)
     assert next(d for d in r['bad_days'] if d['date'] == '2025-06-03')['activities'] == ['Pour']
+
+
+# ── Multi-calendar consistency (the grain-terminal discrepancy fix) ──────────
+
+def _multi_cal():
+    """A dominant 5-day construction calendar + a degenerate 24h/all-off calendar,
+    mirroring the grain terminal (Roots Silos 6591 vs the 24-Hrs 6592)."""
+    main = Calendar(object_id='MAIN', name='Main 6d',
+                    nonworking_days={'Friday', 'Saturday'}, day_hours=8.0)
+    cont = Calendar(object_id='CONT', name='24h',
+                    nonworking_days={'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+                                     'Friday', 'Saturday', 'Sunday'}, day_hours=24.0)
+    return main, cont
+
+
+def test_reference_calendar_is_the_one_with_most_activities():
+    """Ibrahim's rule: the calendar that decides working vs non-working is the one MOST
+    construction activities are assigned to — chosen deterministically, never set-order."""
+    main, cont = _multi_cal()
+    daily = {date(2025, 6, 3): {'rain_mm': 15}}      # Tue — working on MAIN, 'off' on CONT
+    r = weather_impact(
+        calendars={'MAIN': main, 'CONT': cont},
+        construction_cal_ids={'MAIN', 'CONT'},
+        construction_cal_counts={'MAIN': 1438, 'CONT': 17},   # MAIN dominates (like 6591)
+        milestones=[{'name': 'Completion', 'date': date(2025, 6, 20), 'cal_id': 'CONT'}],
+        data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather=daily, forecast_horizon=date(2025, 6, 8),
+        thresholds=DEFAULT_THRESHOLDS)
+    bd = next(d for d in r['bad_days'] if d['date'] == '2025-06-03')
+    assert bd['effect'].startswith('Non-working')            # a working (lost) day, not "falls on non-working"
+    assert r['net_finish_delay'] == 1                        # counted on the dominant calendar
+    # day-list, finish AND milestone all agree (even though the milestone's own cal is CONT)
+    assert r['milestones'][0]['net_delay'] == 1
+    assert r['weather_adjusted_finish'] > '2025-06-30'
+
+
+def test_degenerate_24h_calendar_never_becomes_the_reference():
+    """Even if the degenerate all-days-off (24h) calendar has MORE activities, it must not
+    be the reference — it would mark every bad day non-working and hide the real slip."""
+    main, cont = _multi_cal()
+    daily = {date(2025, 6, 3): {'rain_mm': 15}}      # Tue
+    r = weather_impact(
+        calendars={'MAIN': main, 'CONT': cont},
+        construction_cal_ids={'MAIN', 'CONT'},
+        construction_cal_counts={'MAIN': 5, 'CONT': 100},     # CONT has more, but is degenerate
+        milestones=[], data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather=daily, forecast_horizon=date(2025, 6, 8), thresholds=DEFAULT_THRESHOLDS)
+    assert r['net_finish_delay'] == 1                        # still counts on MAIN, not the 24h calendar
+    assert next(d for d in r['bad_days'] if d['date'] == '2025-06-03')['effect'].startswith('Non-working')
+
+
+def test_finish_equals_completion_milestone_no_contradiction():
+    """The headline weather-adjusted finish must equal the completion milestone's adjusted
+    date when they share the project-finish date — no dashboard-vs-table contradiction."""
+    main, cont = _multi_cal()
+    daily = {date(2025, 6, 3): {'rain_mm': 15}, date(2025, 6, 10): {'rain_mm': 15}}  # both Tue, working
+    finish = date(2025, 6, 30)
+    r = weather_impact(
+        calendars={'MAIN': main, 'CONT': cont},
+        construction_cal_ids={'MAIN', 'CONT'},
+        construction_cal_counts={'MAIN': 100, 'CONT': 3},
+        milestones=[{'name': 'Project Completion', 'date': finish, 'cal_id': 'MAIN'}],
+        data_date=date(2025, 6, 1), project_finish=finish,
+        daily_weather=daily, forecast_horizon=date(2025, 6, 8), thresholds=DEFAULT_THRESHOLDS)
+    completion = next(m for m in r['milestones'] if m['name'] == 'Project Completion')
+    assert r['weather_adjusted_finish'] == completion['adjusted']   # dashboard == table
+    assert r['net_finish_delay'] == completion['net_delay'] == 2
+
+
+# ── Multi-year climate history (representative year + monthly average) ───────
+
+def _yearly(*vals):
+    """{year: {rain_mm}} for the last len(vals) years, newest year last."""
+    return {2021 + i: {'rain_mm': v} for i, v in enumerate(vals)}
+
+
+def test_representative_year_drives_the_day_list():
+    """Beyond the forecast, the day-list uses a TYPICAL (representative) year — the one whose
+    bad-day count is closest to the N-year average — so a single freak year can't skew it, and
+    the delay reflects a normal year's exposure (a strict exact-date match undercounts)."""
+    cal = _cal()
+    d1 = date(2025, 6, 17)   # Tue (working)
+    d2 = date(2025, 6, 24)   # Tue (working)
+    # d1: bad in years {2021,2022,2023} ; d2: bad only in 2021 (a high year).
+    climate = {
+        d1: _yearly(12, 9, 8, 0, 0),    # bad 3 yrs
+        d2: _yearly(20, 0, 0, 0, 0),    # bad 1 yr
+    }
+    r = weather_impact(
+        calendars={'C': cal}, construction_cal_ids={'C'}, milestones=[],
+        data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather={}, forecast_horizon=date(2025, 6, 8),
+        climate_samples=climate, climate_meta={'years': 5, 'year_start': 2021, 'year_end': 2025},
+        thresholds=DEFAULT_THRESHOLDS)
+    # per-year totals: 2021→2 (d1,d2), 2022→1, 2023→1, 2024→0, 2025→0 ; mean 0.8 → rep year 2022 or 2023 (count 1)
+    assert r['climate_reference']['representative_year'] in (2022, 2023)
+    # a representative (count-1) year has exactly one bad day → d1 (bad in 2022/2023), not d2
+    assert [d['date'] for d in r['bad_days']] == ['2025-06-17']
+    assert all(d['confidence'] == 'expected' for d in r['bad_days'])
+    assert r['climate_avg_total'] == 1                    # round(mean 0.8)
+
+
+def test_monthly_bars_carry_average_and_range():
+    cal = _cal()
+    climate = {
+        date(2025, 6, 17): _yearly(12, 9, 8, 0, 0),   # bad 3 of 5 yrs
+        date(2025, 6, 24): _yearly(20, 0, 0, 0, 0),   # bad 1 of 5 yrs
+    }
+    r = weather_impact(
+        calendars={'C': cal}, construction_cal_ids={'C'}, milestones=[],
+        data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather={}, forecast_horizon=date(2025, 6, 8),
+        climate_samples=climate, thresholds=DEFAULT_THRESHOLDS)
+    jun = next(m for m in r['monthly'] if m['label'] == 'Jun 2025')
+    # per-year June counts: 2021→2, 2022→1, 2023→1, 2024→0, 2025→0 → avg 0.8, range 0–2
+    assert jun['avg'] == 0.8 and jun['lo'] == 0 and jun['hi'] == 2
+
+
+def test_forecast_day_kept_near_term():
+    """A near-term FORECAST bad day is shown from the live forecast, labelled 'forecast'."""
+    cal = _cal()
+    r = weather_impact(
+        calendars={'C': cal}, construction_cal_ids={'C'}, milestones=[],
+        data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+        daily_weather={date(2025, 6, 3): {'rain_mm': 15}},   # Tue, within horizon
+        forecast_horizon=date(2025, 6, 8),
+        climate_samples={date(2025, 6, 3): _yearly(0, 0, 0, 0, 0)},   # climate present
+        thresholds=DEFAULT_THRESHOLDS)
+    day = next(d for d in r['bad_days'] if d['date'] == '2025-06-03')
+    assert day['confidence'] == 'forecast'
+
+
+def test_climate_reference_in_result():
+    ref = _impact()['climate_reference']
+    assert 'ERA5' in ref['history_source'] and ref['history_url']
+    assert ref['forecast_source'] == 'Open-Meteo'
+    assert 'avg_total' in ref and 'representative_year' in ref
+
+
+def test_histogram_per_month_net_bad_nonworking():
+    """Feature 2 3-colour histogram: per month, net working (green), weather-lost (amber) and
+    non-working (red) days. A bad day on a non-working day is not weather-lost. net = working − lost."""
+    cal = _cal()   # Sun–Thu working, Fri+Sat off
+    daily = {date(2025, 6, 3): {'rain_mm': 15},    # Tue — working → weather-lost
+             date(2025, 6, 7): {'rain_mm': 15}}    # Sat — already off → not lost
+    r = weather_impact(
+        calendars={'C': cal}, construction_cal_ids={'C'}, milestones=[],
+        data_date=date(2025, 5, 31), project_finish=date(2025, 6, 30),
+        daily_weather=daily, forecast_horizon=date(2025, 6, 30),
+        thresholds=DEFAULT_THRESHOLDS)
+    jun = next(h for h in r['histogram'] if h['label'] == 'Jun 2025')
+    assert jun['bad'] == 1                         # only the working bad day counts as lost
+    assert jun['nonworking'] == 8                  # 4 Fridays + 4 Saturdays in Jun 2025
+    assert jun['working'] == 22                    # 30 days − 8 non-working
+    assert jun['net'] == jun['working'] - jun['bad'] == 21
+
+
+# ── Site-type presets (the East Port Said fix) ───────────────────────────────
+
+def test_desert_preset_equals_current_default():
+    """The 'no numbers change' guarantee: today's exact limits ARE the Desert preset."""
+    assert SITE_TYPES['desert']['thresholds'] == DEFAULT_THRESHOLDS
+
+
+def test_site_type_catalog_shape():
+    for key in ('desert', 'marine', 'coastal', 'building'):
+        st = SITE_TYPES[key]
+        assert st['label'] and st['blurb']
+        assert set(st['thresholds']) == {'rain_mm', 'temp_max_c', 'wind_kmh', 'dust'}
+    # Marine is the fix: wind ON, heat lower than the desert 42.
+    assert SITE_TYPES['marine']['thresholds']['wind_kmh'] == 35.0
+    assert SITE_TYPES['marine']['thresholds']['temp_max_c'] == 40.0
+    # Desert leaves wind off.
+    assert SITE_TYPES['desert']['thresholds']['wind_kmh'] is None
+
+
+def test_resolve_site_thresholds():
+    assert resolve_site_thresholds('marine')['wind_kmh'] == 35.0
+    # unknown / None → today's default behaviour, unchanged
+    assert resolve_site_thresholds(None) == DEFAULT_THRESHOLDS
+    assert resolve_site_thresholds('nope') == DEFAULT_THRESHOLDS
+    # explicit edits win over the preset (a user tweak → Custom)
+    assert resolve_site_thresholds('marine', {'wind_kmh': 30})['wind_kmh'] == 30
+    # a returned dict is a copy — mutating it must not corrupt the catalog
+    resolve_site_thresholds('marine')['wind_kmh'] = 999
+    assert SITE_TYPES['marine']['thresholds']['wind_kmh'] == 35.0
+
+
+def test_build_criteria_order_off_and_marine_framing():
+    rows = build_criteria('marine', resolve_site_thresholds('marine'))
+    assert [r['key'] for r in rows] == ['wind', 'heat', 'rain', 'dust']   # wind first (dominant)
+    wind = rows[0]
+    assert wind['on'] is True and '35' in wind['value']
+    assert 'marine' in wind['explain'].lower() or 'crane' in wind['explain'].lower()
+    # Desert → wind shown as off.
+    dwind = build_criteria('desert', resolve_site_thresholds('desert'))[0]
+    assert dwind['on'] is False and dwind['value'] == 'off'
+    # Custom limits still render truthfully.
+    crit = build_criteria('custom', {'rain_mm': None, 'temp_max_c': 38, 'wind_kmh': 30, 'dust': False})
+    by = {r['key']: r for r in crit}
+    assert by['rain']['on'] is False and by['rain']['value'] == 'off'
+    assert by['dust']['on'] is False
+    assert by['heat']['on'] is True and '38' in by['heat']['value']
+
+
+def test_limit_performance_peak_and_flagged():
+    daily = {
+        date(2025, 6, 2):  {'wind_kmh': 41, 'temp_max_c': 30, 'rain_mm': 0},   # wind flags
+        date(2025, 6, 5):  {'wind_kmh': 20, 'temp_max_c': 41.3, 'rain_mm': 1}, # nothing (heat<42/wind<35)
+        date(2025, 6, 9):  {'wind_kmh': 36, 'temp_max_c': 25, 'rain_mm': 8.3}, # wind + rain flag
+        date(2025, 5, 30): {'wind_kmh': 99, 'temp_max_c': 99, 'rain_mm': 99},  # BEFORE data date → ignored
+    }
+    by = {p['key']: p for p in limit_performance(
+        daily, date(2025, 6, 1), date(2025, 6, 30), resolve_site_thresholds('marine'))}
+    assert by['wind']['on'] is True
+    assert by['wind']['flagged'] == 2                 # 41 and 36 ≥ 35 (the pre-window 99 excluded)
+    assert abs(by['wind']['peak'] - 41) < 1e-6        # peak over the window only
+    assert by['heat']['flagged'] == 1                 # 41.3 ≥ the marine 40 °C limit
+    assert abs(by['heat']['peak'] - 41.3) < 1e-6      # hottest expected day shown
+    assert by['rain']['flagged'] == 1                 # only the 8.3 mm day
+
+    # The real East Port Said story: under the DESERT limit (42 °C) the hottest day
+    # (41.3) never reaches it → flagged 0, but the peak is still reported so the user
+    # sees WHY heat found nothing.
+    d = {p['key']: p for p in limit_performance(
+        daily, date(2025, 6, 1), date(2025, 6, 30), resolve_site_thresholds('desert'))}
+    assert d['heat']['flagged'] == 0 and abs(d['heat']['peak'] - 41.3) < 1e-6
+    assert d['wind']['on'] is False                   # desert leaves wind off
+
+
+def test_weather_impact_emits_site_type_and_criteria():
+    r = _impact(site_type='marine',
+                thresholds=resolve_site_thresholds('marine'))
+    assert r['site_type'] == 'marine'
+    assert r['site_type_label'] == SITE_TYPES['marine']['label']
+    assert [c['key'] for c in r['criteria']] == ['wind', 'heat', 'rain', 'dust']
+    assert isinstance(r['limit_performance'], list) and r['limit_performance']
+    # backward-compatible: no site type → still works, label is None
+    r0 = _impact()
+    assert r0['site_type'] is None and r0['criteria']

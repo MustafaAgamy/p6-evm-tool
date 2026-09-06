@@ -1,0 +1,260 @@
+{
+ "system": "skids_packaged",
+ "discipline": "MECH",
+ "name": "Skid-Mounted & Packaged Units — Modular Equipment Packages",
+ "aliases": [
+  "packaged units",
+  "skids",
+  "modular packages",
+  "vendor packages",
+  "package equipment",
+  "pre-assembled units (PAU)",
+  "process modules",
+  "packaged plant"
+ ],
+ "zones": [
+  "process areas",
+  "utility plants",
+  "compressor/pump houses",
+  "plant rooms",
+  "module setting areas"
+ ],
+ "work_packages": [
+  {
+   "wp": "Foundation / module support acceptance",
+   "discipline": "civil",
+   "interface": true,
+   "note": "Pad or steel module support; multi-point level survey for large skids"
+  },
+  {
+   "wp": "Transport, lift & setting",
+   "discipline": "mechanical",
+   "interface": false,
+   "note": "Heavy-lift/multi-point rig plan; set on levelling points"
+  },
+  {
+   "wp": "Levelling, grouting & anchoring",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "Full-bed or point grout; anchor to spec"
+  },
+  {
+   "wp": "Inter-skid / tie-in connections",
+   "discipline": "multi",
+   "interface": true,
+   "note": "Battery-limit piping, cable, duct and utility tie-ins between skid and plant"
+  },
+  {
+   "wp": "Package internal re-commissioning",
+   "discipline": "mechanical",
+   "interface": false,
+   "note": "Re-connect any items removed for transport; vendor punch-list; re-align internal rotating gear"
+  },
+  {
+   "wp": "Vendor-supervised commissioning",
+   "discipline": "multi",
+   "interface": true,
+   "note": "OEM field service engineer leads functional and performance test"
+  }
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "Accept module foundation/support steel with multi-point level",
+    "Confirm anchor pattern vs skid base",
+    "Verify access and lay-down for the setting lift"
+   ],
+   "note": "Large skids need a flat, level multi-point support or they twist and internal alignment is lost"
+  },
+  {
+   "stage": "delivery_setting",
+   "activities": [
+    "Receive skid; inspect for transit/preservation damage and loose-shipped items",
+    "Execute lift/setting per rig plan onto levelling points",
+    "Set on foundation over anchors"
+   ],
+   "note": "Loose-shipped items (removed for transport width/weight) logged for re-fit"
+  },
+  {
+   "stage": "alignment_grouting",
+   "activities": [
+    "Level skid frame across all support points (no rack/twist)",
+    "Grout (full-bed or point) and cure",
+    "Final anchor torque",
+    "Re-check internal rotating-equipment alignment after setting"
+   ],
+   "note": "A skid can rack in transport/lift; internal pump/compressor alignment is re-verified once the frame is level and grouted"
+  },
+  {
+   "stage": "piping_connection",
+   "activities": [
+    "Connect battery-limit process/utility piping to skid tie-in flanges",
+    "Re-fit loose-shipped piping/spools",
+    "Support tie-in piping independently"
+   ],
+   "note": "Tie-ins are at defined battery-limit points; skid-internal piping is pre-fabricated by vendor"
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "Land incoming power to skid distribution/MCC",
+    "Connect field/plant instrument and control tie-ins to the skid junction boxes / local panel",
+    "Earth/bond the skid frame",
+    "Re-terminate any cabling disconnected for transport"
+   ],
+   "note": "Skid usually has a local control panel; plant DCS ties into it at a defined interface"
+  },
+  {
+   "stage": "inspection",
+   "activities": [
+    "Verify all loose-shipped items re-fitted",
+    "Vendor and site joint installation inspection",
+    "Mechanical completion against vendor checklist"
+   ],
+   "note": "Vendor sign-off that transport-removed items are restored is a key gate"
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "Hydrotest/leak-test the re-made tie-in joints (skid-internal already vendor-tested)",
+    "Flush utility connections into the skid",
+    "Loop-check plant-to-skid signals and interlocks"
+   ],
+   "note": "Do not re-test the vendor's internal package; test only the field-made connections"
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "Energise skid utilities (air, cooling, power, lube)",
+    "Vendor pre-checks: levels, preservation removal, protection",
+    "Local-panel I/O and interlock checks"
+   ],
+   "note": "Vendor field-service engineer typically must be on site before energising the package"
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "Vendor-led functional and performance run under warranty",
+    "Prove package-to-plant interlocks and trips live",
+    "Acceptance/performance test"
+   ],
+   "note": "Running without the OEM present often voids the package warranty"
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "Skid frame levelled across all support points and grouted",
+   "after": "Internal rotating-equipment alignment re-check",
+   "reason": "Transport and lifting can rack the frame; internal alignment only holds once the base is level and fixed",
+   "strength": "strong"
+  },
+  {
+   "before": "All loose-shipped items re-fitted and cabling re-terminated",
+   "after": "Package energisation / commissioning",
+   "reason": "Items removed for transport must be restored or the package is incomplete and unsafe to run",
+   "strength": "strong"
+  },
+  {
+   "before": "Battery-limit tie-in joints made and tested",
+   "after": "Package commissioning",
+   "reason": "The plant-to-skid interfaces must be leak-tight and looped before the package runs against the plant",
+   "strength": "strong"
+  },
+  {
+   "before": "Skid utilities (power, air, cooling, lube) energised and clean",
+   "after": "First run of the package",
+   "reason": "The package cannot function until its enabling utilities are live and within spec",
+   "strength": "strong"
+  },
+  {
+   "before": "Vendor field-service engineer on site",
+   "after": "Package energisation under warranty",
+   "reason": "OEM-supervised start protects the warranty and applies package-specific knowledge",
+   "strength": "moderate"
+  },
+  {
+   "before": "Skid frame earthed/bonded",
+   "after": "Energisation of skid electrical distribution",
+   "reason": "The frame must be bonded before power is applied",
+   "strength": "strong"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "requirement": "Setting REQUIRES a multi-point-level foundation/support steel with the correct anchor pattern",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "strength": "strong"
+  },
+  {
+   "with": "piping",
+   "requirement": "Commissioning REQUIRES battery-limit process/utility piping connected and tested to the skid tie-in points",
+   "type": "coordination",
+   "phase": "piping_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "Energisation REQUIRES incoming power terminated to the skid distribution/MCC",
+   "type": "enabler",
+   "phase": "ei_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "bms",
+   "requirement": "Integrated operation REQUIRES the plant control system tied into the skid local panel at the defined signal interface",
+   "type": "coordination",
+   "phase": "ei_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "utilities",
+   "requirement": "Package function REQUIRES enabling utilities (instrument air, cooling water, N2/inert, lube) live and clean",
+   "type": "enabler",
+   "phase": "pre_commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "earthing",
+   "requirement": "Energisation REQUIRES the skid frame bonded to the earthing grid",
+   "type": "enabler",
+   "phase": "ei_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "process_equipment",
+   "requirement": "Upstream/downstream process readiness REQUIRES connected units available for an integrated run",
+   "type": "coordination",
+   "phase": "commissioning",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Skid frame multi-point level record (no twist/rack)",
+  "Grout cure and anchor torque records",
+  "Internal rotating-equipment alignment re-check after setting",
+  "Re-made battery-limit tie-in joint hydrotest/leak test",
+  "Utility connection flush and cleanliness",
+  "Plant-to-skid signal loop-checks and interlock tests",
+  "Vendor pre-start checklist sign-off",
+  "Loose-shipped item re-fit verification"
+ ],
+ "commissioning_dependencies": [
+  "Frame level, grouted, anchored; internal alignment re-verified",
+  "All loose-shipped items re-fitted and cabling re-terminated",
+  "Battery-limit tie-ins connected, tested and flushed",
+  "Skid power, air, cooling and lube utilities live and clean",
+  "Plant control tied into the skid panel and interlocks proven",
+  "Vendor field-service engineer available for warranty start"
+ ],
+ "typical_exceptions": [
+  "Small factory-tested packages ship complete — field scope is setting, tie-in and a functional check only",
+  "Weather-enclosed modules (PAUs) need no plant-room; they are self-contained",
+  "A package delivered fully assembled skips the loose-item re-fit and internal re-alignment steps"
+ ],
+ "evidence": "The package was energised and run before its transport-removed items were re-fitted and before the internal rotating gear was re-aligned on the levelled, grouted frame.",
+ "status": "curated",
+ "source": "system_pattern"
+}

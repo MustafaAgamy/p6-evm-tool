@@ -1,0 +1,236 @@
+{
+ "system": "insulation_coating",
+ "discipline": "MECHANICAL FINISHING / PROTECTIVE COATINGS & INSULATION",
+ "name": "Thermal Insulation & Protective Coating",
+ "aliases": [
+  "insulation",
+  "lagging",
+  "thermal insulation",
+  "cold / hot insulation",
+  "metal cladding / jacketing",
+  "painting",
+  "protective coating",
+  "industrial coating",
+  "surface protection",
+  "PFP / passive fire protection",
+  "heat-trace covering",
+  "colour coding / identification"
+ ],
+ "sequence": [
+  {
+   "stage": "surface_prep",
+   "activities": [
+    "abrasive blast / power-tool clean to spec (e.g. Sa 2.5)",
+    "profile & cleanliness check",
+    "soluble-salt test"
+   ]
+  },
+  {
+   "stage": "shop_priming",
+   "activities": [
+    "primer / intermediate coats in fab shop for spools, steel & equipment"
+   ],
+   "note": "Shop-primed items arrive with only field joints & touch-up left."
+  },
+  {
+   "stage": "field_prep",
+   "activities": [
+    "post-weld surface prep at field joints",
+    "masking of faces to remain bare"
+   ]
+  },
+  {
+   "stage": "field_coating",
+   "activities": [
+    "field intermediate & topcoats applied after substrate weld inspection & testing"
+   ],
+   "note": "Applied only after the substrate is NDT-inspected and pressure-tested."
+  },
+  {
+   "stage": "insulation_prep",
+   "activities": [
+    "confirm surface dry & pressure test complete",
+    "fix insulation pins / bands / supports"
+   ]
+  },
+  {
+   "stage": "insulation_application",
+   "activities": [
+    "thermal insulation (mineral wool / PIR / cellular glass) on pipe, equipment & duct",
+    "vapour barrier for cold service"
+   ]
+  },
+  {
+   "stage": "cladding_jacketing",
+   "activities": [
+    "metal / aluminium weatherproof jacketing",
+    "banding & sealing"
+   ]
+  },
+  {
+   "stage": "inspection",
+   "activities": [
+    "coating DFT & holiday/spark test",
+    "insulation thickness & vapour-barrier continuity check"
+   ]
+  },
+  {
+   "stage": "touchup_final",
+   "activities": [
+    "repair damaged areas",
+    "final topcoat",
+    "identification / colour coding"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "pipe / equipment hydrotest & pressure test complete",
+   "after": "insulation application",
+   "reason": "Insulating before a successful pressure test would hide leaks at joints and welds.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "field welds NDT-inspected",
+   "after": "field coating over the joints",
+   "reason": "Welds must be inspected before they are coated over and hidden.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "surface prepared to spec profile",
+   "after": "primer / coating application",
+   "reason": "Coating adhesion depends on the prepared blast profile and cleanliness.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "primer / coating cured",
+   "after": "insulation over the coated surface",
+   "reason": "Insulation is applied on a protected, coated substrate.",
+   "strength": "moderate",
+   "rel": "FS"
+  },
+  {
+   "before": "insulation applied",
+   "after": "metal cladding / jacketing",
+   "reason": "Jacketing is the weather barrier fixed over the insulation.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "pipe / equipment set, connected & tested",
+   "after": "insulation & cladding",
+   "reason": "Items are insulated in their final connected position, not loose.",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "electrical heat-tracing installed & tested",
+   "after": "insulation covering the traced line",
+   "reason": "Heat-tracing must be proven before insulation permanently covers it.",
+   "strength": "strong",
+   "rel": "FS"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "piping",
+   "requirement": "Line pressure-tested and welds inspected before insulation/coating over the joints.",
+   "type": "sequence",
+   "phase": "pre-commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "structural_steel",
+   "requirement": "Field welds inspected before steel coating; PFP applied after connections complete.",
+   "type": "sequence",
+   "phase": "finishing",
+   "strength": "moderate"
+  },
+  {
+   "with": "process_equipment",
+   "requirement": "Equipment set, connected & tested before insulation and cladding.",
+   "type": "sequence",
+   "phase": "finishing",
+   "strength": "moderate"
+  },
+  {
+   "with": "tanks_vessels",
+   "requirement": "Vessel/tank hydrotest complete before insulation & jacketing.",
+   "type": "sequence",
+   "phase": "pre-commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "Heat-tracing installed & continuity/IR-tested before insulation covers it.",
+   "type": "coordination",
+   "phase": "pre-commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "requirement": "Instrument tappings & devices left accessible; insulate after loop check where devices are covered.",
+   "type": "coordination",
+   "phase": "pre-commissioning",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Surface prep — blast profile & cleanliness (Sa 2.5), soluble-salt test",
+  "Coating — DFT per coat, holiday/spark (pinhole) test, adhesion pull-off, cure check",
+  "Insulation — thickness, no gaps at supports, vapour-barrier continuity (cold service)",
+  "Cladding — weathertight laps & seals, banding",
+  "Heat-tracing continuity / insulation-resistance before covering",
+  "PFP thickness verification"
+ ],
+ "commissioning_dependencies": [
+  "Not a commissioned system, but a hold-point gate — lines/equipment must be pressure-tested & weld-inspected before being insulated (insulation hides the substrate)",
+  "Heat-tracing energised & proven before final insulation closure on traced lines",
+  "Passive fire protection in place before the plant is declared operational where the fire scenario requires it"
+ ],
+ "typical_exceptions": [
+  "Shop-primed steel & spools arrive primed — only field joints and touch-up on site",
+  "Architectural / decorative painting of building finishes is a different trade and out of scope"
+ ],
+ "zones": [
+  "process piping",
+  "equipment & vessels",
+  "structural steel (PFP)",
+  "ducting",
+  "traced hot & cold-service lines"
+ ],
+ "work_packages": [
+  {
+   "wp": "Surface preparation",
+   "discipline": "coating",
+   "interface": false
+  },
+  {
+   "wp": "Field coating",
+   "discipline": "coating",
+   "interface": true,
+   "note": "Gated by weld inspection & pressure test of the substrate."
+  },
+  {
+   "wp": "Insulation application",
+   "discipline": "insulation",
+   "interface": true
+  },
+  {
+   "wp": "Cladding / jacketing",
+   "discipline": "insulation",
+   "interface": false
+  },
+  {
+   "wp": "Inspection & touch-up",
+   "discipline": "coating",
+   "interface": false
+  }
+ ],
+ "evidence": "Insulation or coating is scheduled over a pipe/vessel before its pressure test and weld inspection — hiding a substrate that has not been proven leak-tight.",
+ "status": "curated",
+ "source": "system_pattern"
+}

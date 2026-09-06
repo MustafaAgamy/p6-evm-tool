@@ -1,0 +1,302 @@
+{
+ "system": "process_equipment",
+ "discipline": "MECH",
+ "name": "Heavy Process Equipment — Crushers, Mills, Kilns, Dust Collection & Mixers",
+ "aliases": [
+  "crushers",
+  "mills",
+  "grinding mills",
+  "kilns",
+  "rotary kilns",
+  "dryers",
+  "dust collectors",
+  "baghouses",
+  "mixers",
+  "agitators",
+  "screens",
+  "conve40yors interface",
+  "material handling equipment",
+  "comminution equipment"
+ ],
+ "zones": [
+  "process buildings",
+  "grinding areas",
+  "kiln lines",
+  "material handling plants",
+  "dust-collection houses",
+  "crushing stations"
+ ],
+ "work_packages": [
+  {
+   "wp": "Heavy foundation / pier / mill sole-plate acceptance",
+   "discipline": "civil",
+   "interface": true,
+   "note": "Massive dynamic foundations; embedded soleplates for mills/crushers; kiln pier survey and roller-station level"
+  },
+  {
+   "wp": "Heavy-lift delivery and setting",
+   "discipline": "mechanical",
+   "interface": false,
+   "note": "Multi-piece assembly (mill shell, trunnions, gear, kiln shell sections); big-lift rig plans"
+  },
+  {
+   "wp": "Precision alignment & grouting",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "Kiln roller/tyre alignment, mill trunnion/gear mesh, crusher shaft; epoxy grouting of soleplates"
+  },
+  {
+   "wp": "Drive train, lube & liners",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "Girth gear/pinion mesh, main drive, lube/hydraulic sets, wear liners, refractory (kilns)"
+  },
+  {
+   "wp": "Dust collection, ducting & material tie-ins",
+   "discipline": "multi",
+   "interface": true,
+   "note": "Baghouse/cyclone, ducting, feed/discharge chutes, conveyor interfaces"
+  },
+  {
+   "wp": "E&I, protection & control",
+   "discipline": "electrical",
+   "interface": true,
+   "note": "HV/MV drive, VFD, vibration/temperature/speed protection, interlocked start sequence"
+  }
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "Accept dynamic foundation/piers at strength with embedded soleplates surveyed",
+    "Kiln pier and roller-station level/alignment datum established",
+    "Confirm anchor/embed pattern for mill/crusher/mixer bases"
+   ],
+   "note": "These are dynamic, high-load machines — foundation mass, level and embed accuracy are safety-critical"
+  },
+  {
+   "stage": "delivery_setting",
+   "activities": [
+    "Offload and stage heavy components",
+    "Assemble multi-piece equipment (mill shell + trunnions, kiln shell sections, crusher frame)",
+    "Set on soleplates/roller stations per rig plan"
+   ],
+   "note": "Field assembly of large mills/kilns is a major sub-sequence in itself"
+  },
+  {
+   "stage": "alignment_grouting",
+   "activities": [
+    "Kiln: align roller stations, set tyre/roller contact and slope; Mill: set trunnion bearings level and girth-gear/pinion backlash & root clearance; Crusher: set main shaft/eccentric",
+    "Epoxy grout soleplates; cure",
+    "Final anchor torque and re-check alignment",
+    "Install wear liners; install/dry refractory for kilns"
+   ],
+   "note": "Gear mesh (backlash + contact pattern) and kiln roller alignment are precision, safety-critical steps; refractory dry-out is a controlled heating curve"
+  },
+  {
+   "stage": "piping_connection",
+   "activities": [
+    "Connect lube/hydraulic/cooling/spray-water piping",
+    "Connect process/utility lines (water, air, gas/fuel for kilns)",
+    "Fit dust-collection ducting, chutes and material tie-ins"
+   ],
+   "note": "Fuel/gas piping for kilns/dryers is a hazardous-service interface with its own testing"
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "Terminate main HV/MV drive and any inching/barring drive",
+    "Land vibration, bearing/gear temperature, speed and position protection",
+    "Earth/bond frame and structure",
+    "Connect dust-collector controls, dampers and cleaning system"
+   ],
+   "note": "Barring/inching drive lets the machine be turned slowly for checks and refractory dry-out"
+  },
+  {
+   "stage": "inspection",
+   "activities": [
+    "Alignment, gear-mesh contact pattern and clearance records",
+    "Lube system, liner and refractory sign-off",
+    "Mechanical completion walkdown"
+   ],
+   "note": ""
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "Lube/hydraulic system flush to cleanliness spec",
+    "Ducting leak/flow test; baghouse pressure-drop and cleaning-cycle test",
+    "Protection loop-check and trip test",
+    "Barring/inching run then solo no-load drive run"
+   ],
+   "note": "No-load run checks bearings, gear temperature and vibration before any material or heat"
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "Refractory dry-out on controlled curve (kilns/dryers)",
+    "No-load run of the full drive train",
+    "Set lube pressures/temperatures, spray systems and dust-collection dampers",
+    "Calibrate feed/weigh and speed instruments"
+   ],
+   "note": "Refractory dry-out must follow the OEM heating curve or the lining spalls"
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "Introduce material / heat progressively",
+    "Ramp to rated throughput; tune drive, dust collection and process",
+    "Prove interlocks and emergency stops live",
+    "Performance/throughput acceptance run"
+   ],
+   "note": "Interlocked start/stop sequence with upstream/downstream conveyors is proven before material"
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "Foundation soleplates surveyed and accepted",
+   "after": "Setting and field assembly of the machine",
+   "reason": "Dynamic mills/kilns/crushers cannot be assembled true on an unsurveyed foundation",
+   "strength": "strong"
+  },
+  {
+   "before": "Trunnion/roller/gear alignment and mesh set",
+   "after": "Grouting of soleplates",
+   "reason": "Grout fixes the alignment; it is placed only after the precision alignment is set and accepted",
+   "strength": "strong"
+  },
+  {
+   "before": "Lube/hydraulic system flushed to cleanliness spec",
+   "after": "Rotating the machine under load",
+   "reason": "Grinding gear and heavy bearings are destroyed by contaminated lube",
+   "strength": "strong"
+  },
+  {
+   "before": "Refractory dry-out on the controlled curve",
+   "after": "Introducing process heat/material to a kiln or dryer",
+   "reason": "Firing green refractory hard spalls and cracks the lining",
+   "strength": "strong"
+  },
+  {
+   "before": "No-load / barring run of the drive train",
+   "after": "Introducing material or heat",
+   "reason": "Bearings, gear temperature and vibration must be proven clean before the machine is loaded",
+   "strength": "strong"
+  },
+  {
+   "before": "Interlocked start sequence and E-stops proven with upstream/downstream conveyors",
+   "after": "First material feed",
+   "reason": "Starting a crusher/mill out of sequence buries or damages equipment and endangers people",
+   "strength": "strong"
+  },
+  {
+   "before": "Dust-collection / baghouse commissioned",
+   "after": "Running the material process",
+   "reason": "Environmental permits and worker safety require dust extraction live before dust-generating operation",
+   "strength": "moderate"
+  },
+  {
+   "before": "Wear liners installed",
+   "after": "Material throughput",
+   "reason": "Running a mill/crusher without liners wrecks the shell/frame",
+   "strength": "strong"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "requirement": "Setting REQUIRES a dynamic foundation/piers at strength with embedded soleplates and a survey datum",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "Drive operation REQUIRES the HV/MV feeder and VFD terminated, tested and energised",
+   "type": "enabler",
+   "phase": "ei_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "requirement": "First run REQUIRES vibration/temperature/speed protection looped and trips proven",
+   "type": "enabler",
+   "phase": "testing",
+   "strength": "strong"
+  },
+  {
+   "with": "conveying",
+   "requirement": "Material commissioning REQUIRES upstream/downstream conveyors installed and the interlocked start/stop sequence proven",
+   "type": "coordination",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "piping",
+   "requirement": "Kiln/dryer firing REQUIRES fuel/gas piping erected, tested and purged; grinding REQUIRES lube/hydraulic/spray-water piping connected and flushed",
+   "type": "enabler",
+   "phase": "piping_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "hvac",
+   "requirement": "Dust-generating operation REQUIRES the dust-collection/baghouse and ducting commissioned",
+   "type": "coordination",
+   "phase": "commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "bms",
+   "requirement": "Automatic sequenced operation REQUIRES the plant control logic (start permissives, interlocks, trips) configured and proven",
+   "type": "coordination",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "earthing",
+   "requirement": "Energisation REQUIRES the machine frame and structure bonded to the earthing grid",
+   "type": "enabler",
+   "phase": "ei_connection",
+   "strength": "strong"
+  },
+  {
+   "with": "utilities",
+   "requirement": "Operation REQUIRES cooling water, instrument/plant air and any process gas headers live and clean",
+   "type": "enabler",
+   "phase": "pre_commissioning",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Foundation soleplate survey and alignment datum records",
+  "Trunnion/roller-station alignment and kiln slope records",
+  "Girth-gear/pinion backlash, root clearance and contact-pattern check",
+  "Epoxy grout cure and anchor torque records",
+  "Lube/hydraulic flush cleanliness (particle count) certificate",
+  "Refractory dry-out heating-curve record (kilns/dryers)",
+  "Ducting leak/flow test and baghouse pressure-drop / cleaning-cycle test",
+  "Protection loop-check and trip test (vibration, bearing/gear temp, speed)",
+  "Barring then no-load solo drive run with vibration and temperature baseline",
+  "Interlocked start-sequence and E-stop functional test"
+ ],
+ "commissioning_dependencies": [
+  "Precision alignment set, grouted, anchored and re-checked",
+  "Wear liners installed and refractory dried out on curve",
+  "Lube/hydraulic systems flushed and functional",
+  "HV/MV drive and VFD energised and tested",
+  "Protection and trip loops proven; E-stops functional",
+  "Dust collection / baghouse commissioned",
+  "Upstream/downstream conveyors and interlocked sequence proven",
+  "Fuel/gas, cooling water and air utilities live and clean",
+  "No-load run completed clean before material/heat introduction"
+ ],
+ "typical_exceptions": [
+  "Smaller mixers/agitators may arrive assembled and need only mounting, coupling and a no-load run",
+  "Screens/vibrating equipment are spring-isolated and levelled on their mounts, not grouted",
+  "Electrically-heated dryers skip fuel-gas piping and use a different (electrical) dry-out",
+  "Cyclone-only dust separation has no baghouse cleaning-cycle test"
+ ],
+ "evidence": "The mill was fed material before the girth-gear mesh contact pattern was verified, the lube system was flushed, and the interlocked start sequence with the feed conveyors was proven; the kiln was fired before refractory dry-out on the OEM curve.",
+ "status": "curated",
+ "source": "system_pattern"
+}

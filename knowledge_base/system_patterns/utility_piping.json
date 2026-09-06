@@ -1,0 +1,246 @@
+{
+ "system": "utility_piping",
+ "discipline": "MECHANICAL_PIPING",
+ "name": "Utility Piping — Cooling, Steam, Air, Water and N2 Services",
+ "aliases": [
+  "utility lines",
+  "service piping",
+  "cooling water",
+  "steam and condensate",
+  "plant and instrument air",
+  "nitrogen lines",
+  "potable/service water",
+  "OSBL utility mains",
+  "balance-of-plant piping"
+ ],
+ "zones": [
+  "utility corridors and pipe racks",
+  "underground utility runs and valve chambers",
+  "utility/pump stations",
+  "OSBL / off-plot"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "trenches and bedding",
+    "valve chambers/pits",
+    "thrust blocks",
+    "road/rail crossings",
+    "rack steel and sleeper foundations"
+   ]
+  },
+  {
+   "stage": "fabrication",
+   "activities": [
+    "spool fabrication (B31.1 for steam/power, water/GRP/HDPE for services)"
+   ]
+  },
+  {
+   "stage": "delivery_and_receipt",
+   "activities": [
+    "delivery",
+    "material receiving inspection"
+   ]
+  },
+  {
+   "stage": "support_installation",
+   "activities": [
+    "supports, guides, anchors on rack/sleepers"
+   ]
+  },
+  {
+   "stage": "erection_or_laying",
+   "activities": [
+    "above-ground erection onto rack/sleepers",
+    "buried line laying on bedding in trench"
+   ]
+  },
+  {
+   "stage": "jointing_welding",
+   "activities": [
+    "welded, flanged, grooved-coupling, HDPE butt-fusion or PVC solvent joints as service dictates"
+   ]
+  },
+  {
+   "stage": "NDT",
+   "activities": [
+    "reduced scope vs process; RT for steam/power lines, mostly VT for water; fusion-joint records for non-metallic"
+   ]
+  },
+  {
+   "stage": "pressure_test",
+   "activities": [
+    "hydrotest; buried lines tested before backfill"
+   ]
+  },
+  {
+   "stage": "flushing_disinfection",
+   "activities": [
+    "cooling-water flushing",
+    "potable-water disinfection/chlorination",
+    "steam-line blow-through"
+   ]
+  },
+  {
+   "stage": "reinstatement_backfill",
+   "activities": [
+    "backfill buried lines after test",
+    "reinstate valves/strainers",
+    "insulation/tracing"
+   ]
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "fill, vent and circulate",
+    "target-plate steam blowing for steam lines"
+   ]
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "put utility header into service ahead of the process systems it feeds"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "trench excavation and bedding",
+   "after": "lay buried utility pipe",
+   "reason": "buried pipe is laid on prepared bedding in an open, shored trench",
+   "strength": "strong"
+  },
+  {
+   "before": "hydrotest buried utility line",
+   "after": "backfill the trench",
+   "reason": "a buried line cannot be inspected or leak-located once covered",
+   "strength": "strong"
+  },
+  {
+   "before": "erect rack/sleeper steel",
+   "after": "install above-ground utility mains on it",
+   "reason": "the rack carries the utility header; steel must be up and surveyed first",
+   "strength": "strong"
+  },
+  {
+   "before": "complete jointing/welding",
+   "after": "pressure test",
+   "reason": "the joint must exist and be accepted before it can hold test pressure",
+   "strength": "strong"
+  },
+  {
+   "before": "flush/disinfect the header",
+   "after": "put the utility into service",
+   "reason": "debris and contamination must be cleared before a utility feeds equipment or is consumed",
+   "strength": "strong"
+  },
+  {
+   "before": "hydrotest steam line",
+   "after": "steam-blow the line",
+   "reason": "the line is proven for pressure before high-energy steam blowing to a target plate",
+   "strength": "strong"
+  },
+  {
+   "before": "commission utility systems (cooling water, air, N2, steam)",
+   "after": "commission the process systems that consume them",
+   "reason": "process commissioning needs live utilities as prerequisites",
+   "strength": "strong"
+  },
+  {
+   "before": "construct valve chamber/foundation",
+   "after": "install valve station",
+   "reason": "the valve station is mounted in/on its chamber",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "requirement": "trenches, valve pits, thrust blocks, crossings and backfill/reinstatement coordinated with pipe laying and testing",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "strength": "strong"
+  },
+  {
+   "with": "structural_steel",
+   "requirement": "pipe rack / sleeper steel erected before above-ground utility mains",
+   "type": "enabler",
+   "phase": "erection_or_laying",
+   "strength": "strong"
+  },
+  {
+   "with": "process_piping",
+   "requirement": "utility headers commissioned before the process systems they feed",
+   "type": "commissioning",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "process_equipment",
+   "requirement": "utilities (cooling, air, N2, steam) live to support equipment commissioning",
+   "type": "commissioning_support",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "requirement": "flow meters and control valves on utility headers reinstated and calibrated",
+   "type": "connection",
+   "phase": "reinstatement_backfill",
+   "strength": "moderate"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "utility pumps energised; heat tracing on outdoor water lines before insulation",
+   "type": "connection",
+   "phase": "commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "fire_fighting",
+   "requirement": "shared underground corridor and crossing coordination",
+   "type": "coordination",
+   "phase": "civil_interface",
+   "strength": "weak"
+  }
+ ],
+ "testing_requirements": [
+  "Hydrotest per B31.1 (steam/power) or water spec; buried lines tested before backfill",
+  "Steam blowing / target-plate cleanliness before connecting steam to turbines or equipment",
+  "Potable water disinfection/chlorination with bacteriological clearance",
+  "Cooling-water flushing to remove debris",
+  "Non-metallic (HDPE/GRP/PVC) fusion/joint records in lieu of weld NDT",
+  "Air/N2 tightness/leak test"
+ ],
+ "commissioning_dependencies": [
+  "Utility source available (pump station, package unit, or tie-in to existing utility)",
+  "System flushed / disinfected / blown and certified clean",
+  "Utilities scheduled early in the commissioning sequence as prerequisites to process systems",
+  "Instrumentation and control on the utility header live"
+ ],
+ "typical_exceptions": [
+  "Non-metallic services have no weld NDT — fusion/joint records instead",
+  "Gravity drains tested by fill/flow rather than pressure",
+  "Temporary commissioning utilities (temp air/water/N2) precede permanent systems and support other commissioning"
+ ],
+ "work_packages": [
+  {
+   "wp": "Underground utility runs",
+   "discipline": "piping_civil",
+   "interface": true
+  },
+  {
+   "wp": "Above-ground utility mains",
+   "discipline": "piping"
+  },
+  {
+   "wp": "Utility flushing/blowing & disinfection",
+   "discipline": "commissioning",
+   "interface": true
+  }
+ ],
+ "evidence": "Utility headers (cooling water, instrument air, N2, steam) were flushed/blown and commissioned ahead of the process systems they feed, and buried utility runs were hydrotested before backfill because they cannot be inspected once covered.",
+ "status": "curated",
+ "source": "system_pattern"
+}
