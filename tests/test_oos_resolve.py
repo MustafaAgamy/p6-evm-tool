@@ -225,6 +225,42 @@ def test_replace_with_blank_new_pred_removes_without_readding(tmp_path):
     assert all(x['activity_id'] != 'A200' for x in out['findings'])
 
 
+# ── req 01: 'Apply all' must never shrink the Excel export ───────────────────
+
+def test_apply_all_does_not_mutate_stored_findings_or_shrink_excel(tmp_path):
+    """The Excel export reads the STORED findings (db.get_audit_modules_for_snapshot →
+    excel_columns). Simulating 'Apply all recommended fixes' via revalidate() is in-memory
+    only, so it must (a) never mutate those stored findings, and (b) never let excel_columns
+    drop a row — even when every finding is resolved. A silently-empty export would be a
+    serious defect. This test FAILS if a future change couples the export to applied state."""
+    import copy
+    import json as _json
+    from p6_audit.graph import ScheduleGraph
+    from p6_audit.modules.out_of_sequence import run_out_of_sequence
+    from p6_audit.exporters import excel_columns
+
+    data = parse_file(_write(tmp_path, 's.xml', XML))
+    res = run_out_of_sequence(ScheduleGraph(data), CONFIG)
+    # The module dict in exactly the shape db.get_audit_modules_for_snapshot serves it and
+    # excel_columns consumes it — JSON-round-tripped, as the DB persists/reads findings.
+    stored = _json.loads(_json.dumps({'module': 'out_of_sequence', 'name': 'Out of Sequence',
+                                      'kpis': res['kpis'], 'findings': res['findings']}))
+    assert stored['findings'], 'fixture must carry at least one OOS finding'
+    before = copy.deepcopy(stored)
+
+    # Apply ALL recommended fixes (what the button does) — in memory only.
+    accepted_all = [_accepted_from(f) for f in res['findings']]
+    out = R.revalidate(data, CONFIG, accepted_all)
+    assert out['resolved'] and out['findings'] == []        # apply-all genuinely cleared them in memory
+
+    # (a) the stored findings the export reads are untouched by revalidate …
+    assert stored == before
+    # (b) … so the export still returns the FULL set of OOS rows, A200 included.
+    headers, rows = excel_columns(stored)
+    assert len(rows) == len(before['findings'])             # every finding still exported
+    assert headers[1] == 'Activity ID' and 'A200' in [r[1] for r in rows]
+
+
 # ── Corrected file export: XML ───────────────────────────────────────────────
 
 def test_corrected_xml_change_roundtrip(tmp_path):
