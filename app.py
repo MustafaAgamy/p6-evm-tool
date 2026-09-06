@@ -51,6 +51,11 @@ class Api:
         )
         return result[0] if result else None
 
+    def quit(self):
+        """Close the application window (File ▸ Exit)."""
+        for w in list(webview.windows):
+            w.destroy()
+
 
 if __name__ == '__main__':
     from server import make_server
