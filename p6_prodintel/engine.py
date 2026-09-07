@@ -133,7 +133,7 @@ def item_result(item, context=None, quantity=None):
             if has_qty:
                 cqty = qty * float(comp.get("qty_per_primary", 1.0))
                 mhu = adj if adj is not None else float(rate["mh_per_unit"])
-                n_gangs = int(comp.get("default_gangs", 1))
+                n_gangs = max(1, int(comp.get("default_gangs", 1) or 1))
                 mh = cqty * mhu
                 out_day = rate.get("output_per_day")
                 if out_day:
