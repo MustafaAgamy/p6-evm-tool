@@ -8,9 +8,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased]
 
 ### Added — Branded startup splash & feature-open reveal
-- **A ~10-second Controlyx 2026 startup splash** now plays when the app opens: a schedule builds, a glowing critical path rises, and it resolves into the Controlyx 2026 mark and wordmark before lifting away to reveal the app. A **Skip** button is always available, and the splash never blocks a slow start.
-- **Opening a feature now plays a short branded reveal** — pressing **Run** plays a ~2-second animation (an accent scan sweeping the schedule and critical path, with the feature's name and a progress bar) over the workspace, then the results appear. Same look-and-feel as the startup splash.
+- **A ~13-second Controlyx 2026 startup splash** plays when the app opens: a schedule builds, a glowing critical path rises, and it resolves into the Controlyx 2026 mark and the **"Project Control Intelligence Platform"** wordmark (with a small **"for Primavera P6 · XER & XML"** line) before lifting away to reveal the app. A **Skip** button is always available, and the splash never blocks a slow start. This is now a single opening sequence — it replaces the earlier separate logo splash.
+- **Opening a feature plays a short branded reveal** — pressing **Run** plays a brief animation (an accent scan sweeping the schedule and critical path, with the feature's name and a progress bar); the results appear the **instant the bar reaches 100%**, with no wait afterwards.
 - Both respect the system "reduce motion" accessibility setting.
+
+### Added — In-app Help Center
+- The **Help** menu opens a Help Center with **Getting Started** (how the tool works), a **Feature Guide** that lists every feature and the inputs it needs (with live search), **Keyboard Shortcuts**, **What's New**, **Contact & Support**, and **About**. Contact & Support carries the developer's contact details and the technical-support contact; About credits the tool's developer. It follows the active appearance mode.
+
+### Added — Change the imported file
+- Imported the wrong file? A **"Change file"** button on the file bar lets you pick a different P6 XER/XML and swap it in place — no need to start over.
+
+### Changed — Menus & navigation
+- The **Analysis** menu is now a grouped, cascading **"Choose a module"** that mirrors the Project Navigator — each group (Project Overview, Schedule Quality, Progress & Performance, Compare & Claims, Calendars & Weather, Reports & Dashboards) fans out to its features, so you can open any module straight from the menu bar.
+- The **Project Navigator now starts hidden** on launch for a cleaner first view; the ☰ button shows or hides it, and its scrollbar now matches the dark sidebar.
+- The import prompt now reads **"Pick a P6 file (XER or XML)"**.
 
 ## [v2.2.0] - 2026-09-06
 
