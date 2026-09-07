@@ -5,6 +5,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+
+### Changed — Constructability is now Construction Intelligence (Edition 1, reference-first)
+- The **Constructability** module is reborn as **Construction Intelligence** — a professional construction *reference*, not an automatic verdict. There is **no constructability score, no "constructible / not constructible" judgement, and no automatic findings** raised against your schedule.
+- **Knowledge Base** tab — browse and search the built-in construction knowledge by discipline. For each system: its typical construction sequence, typical relationships (with the reasoning and an evidence grade), interfaces with other disciplines, work components, testing and commissioning dependencies, the context that changes it, and provenance. Opens without a schedule.
+- **Activity Intelligence** tab — pick any activity from your schedule and the tool *surfaces* the relevant construction knowledge for it (planner-initiated, never a check). A five-state status vocabulary (Knowledge available / Potentially relevant / Insufficient evidence / Not assessed / Planner review) makes plain that **no result never means the schedule is correct**.
+- Resources, crew and productivity are intentionally not shown here — they belong to the separate Productivity Knowledge Base.
+- The underlying rule engine is preserved in the codebase, unexposed, for a possible future edition.
+
+---
+
 ## [v2.4.0] - 2026-09-07
 
 ### Added — More keyboard shortcuts
