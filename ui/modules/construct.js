@@ -192,12 +192,19 @@ function wireTax() {
   });
 }
 
+// snake_case KB stage keys → readable titles; leave already-spaced titles alone.
+function prettyStage(s) {
+  s = s || '';
+  if (s.indexOf(' ') === -1 && s.indexOf('_') !== -1) { s = s.replace(/_/g, ' '); s = s.charAt(0).toUpperCase() + s.slice(1); }
+  return s;
+}
+
 function seqFlow(seq) {
   if (!seq || !seq.length) return '';
   const steps = seq.map((st, i) => {
     const acts = (st.activities || []).slice(0, 3).map(escapeHtml).join(' · ');
     return `<div class="ci-step"><div class="ci-stn">STAGE ${i + 1}</div>
-      <div class="ci-stt">${escapeHtml(st.stage || '')}</div>${acts ? `<div class="ci-std">${acts}</div>` : ''}
+      <div class="ci-stt">${escapeHtml(prettyStage(st.stage))}</div>${acts ? `<div class="ci-std">${acts}</div>` : ''}
       ${st.note ? `<div class="ci-stnote">${escapeHtml(st.note)}</div>` : ''}</div>`;
   }).join('<span class="ci-separr">›</span>');
   return `<div class="ci-seqflow">${steps}</div>`;
@@ -370,7 +377,7 @@ function activityKnowledgeView(act, d) {
         the name is generic, or this work isn't covered yet. You can search the Knowledge Base tab or refine the activity name.</p></div>`;
   }
   // condensed surfaced knowledge from the mapped concept
-  const seq = (k.sequence || []).map(s => escapeHtml(s.stage)).slice(0, 6).join(' → ');
+  const seq = (k.sequence || []).map(s => escapeHtml(prettyStage(s.stage))).slice(0, 6).join(' → ');
   const preds = (k.relationships || []).slice(0, 3).map(r => escapeHtml(r.before)).join(' · ');
   const succs = (k.relationships || []).slice(0, 3).map(r => escapeHtml(r.after)).join(' · ');
   const ctx = (k.typical_exceptions || []).slice(0, 3).map(escapeHtml).join(' · ');
