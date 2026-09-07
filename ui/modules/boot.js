@@ -81,8 +81,7 @@ export function playBoot(opts) {
      </div>
      <div class="hud"><div class="cap"><span class="capt">Starting local server</span><b class="pct">0%</b></div>
        <div class="track"><div class="barf"></div></div></div>
-     <div class="ver">Controlyx&nbsp;2026 · Project&nbsp;Control&nbsp;Intelligence&nbsp;Platform</div>
-     <button class="skip" type="button">Skip &rarr;</button>`;
+     <div class="ver">Controlyx&nbsp;2026 · Project&nbsp;Control&nbsp;Intelligence&nbsp;Platform</div>`;
   document.body.appendChild(boot);
   // We are now the single startup splash — drop the immediate anti-flash cover.
   const _cover = document.getElementById('brand-splash');
@@ -147,7 +146,7 @@ export function playBoot(opts) {
     setTimeout(() => { if (boot.parentNode) boot.parentNode.removeChild(boot); }, 650);
     try { onDone(); } catch (e) {}
   }
-  boot.querySelector('.skip').addEventListener('click', finish);
+  // #07: the startup presentation plays in full — no Skip button, by request.
 
   render(0);
   function step(ts) {
