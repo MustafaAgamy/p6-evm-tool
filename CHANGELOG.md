@@ -5,7 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
-## [Unreleased]
+## [v2.4.1] - 2026-09-07
 
 ### Added
 - **Ctrl+B shows / hides the Project Navigator** (the left sidebar) — the same toggle as View ▸ Show / hide navigator and the ☰ button. Listed automatically in Help ▸ Keyboard Shortcuts.
