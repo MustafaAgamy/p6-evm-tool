@@ -21,6 +21,7 @@ export const SHORTCUTS = [
   { id: 'guide',           ctrl: true,  key: 'f',      keys: ['Ctrl', 'F'], label: 'Search the feature guide' },
   { id: 'cycleAppearance', ctrl: true,  key: 'd',      keys: ['Ctrl', 'D'], label: 'Cycle appearance mode (all 6)' },
   { id: 'help',            ctrl: true,  key: '/',      keys: ['Ctrl', '/'], label: 'Open Help Center' },
+  { id: 'toggleNav',       ctrl: true,  key: 'b',      keys: ['Ctrl', 'B'], label: 'Show / hide Project Navigator' },
   { id: 'close',           ctrl: false, key: 'escape', keys: ['Esc'],       label: 'Close menu / panel' },
 ];
 
