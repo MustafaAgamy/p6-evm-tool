@@ -368,7 +368,7 @@ function activityKnowledgeView(act, d) {
         : stChip('not_assessed')}</div>
     </div>
     <div class="ci-mut ci-matchnote">Selected: <b>${escapeHtml(act.id || '')}</b> ${escapeHtml(act.name || '')}
-      ${matched ? '· matched via the Semantic Mapping Layer (name + WBS). Corrections will be remembered.' : ''}</div>`;
+      ${matched ? '· matched via the Semantic Mapping Layer (name + WBS).' : ''}</div>`;
 
   if (!matched) {
     return head + `<div class="ci-emptycard">
