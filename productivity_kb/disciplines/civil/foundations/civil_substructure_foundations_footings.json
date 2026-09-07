@@ -1,0 +1,279 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.substructure.foundations.footings",
+  "discipline": "Civil",
+  "work_type": "Substructure",
+  "system": "Foundations",
+  "item": "Isolated / Strip / Combined Footings",
+  "aliases": [
+    "isolated footings",
+    "strip footings",
+    "combined footings",
+    "pad footings",
+    "spread footings"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Spread footings are a classic multi-trade RC element decomposing into blinding, formwork, reinforcement and concrete. Being shallower than caps, they carry more footprint (blinding) and more perimeter formwork per cubic metre, but lighter reinforcement.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Ready-mix concrete",
+    "Conventional timber/ply formwork",
+    "Formation level trimmed and compacted"
+  ],
+  "exclusions": [
+    "Excavation and backfill",
+    "Waterproofing / tanking",
+    "Dewatering",
+    "Column starter bars beyond footing",
+    "Abnormal congestion and rework"
+  ],
+  "components": [
+    {
+      "component_id": "blinding",
+      "name": "Blinding / lean concrete",
+      "unit": "m2",
+      "qty_per_primary": 1.5,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.21,
+        "low": 0.15,
+        "likely": 0.21,
+        "high": 0.3,
+        "output_per_day": 150,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Mason / Concreter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Screed / poker",
+          "basis": "utilization",
+          "value": 0.05,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Lean concrete (75 mm)",
+          "qty_per_unit": 0.08,
+          "unit": "m3/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — blinding under footings",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "lean blinding layer — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "formwork",
+      "name": "Formwork / carpentry",
+      "unit": "m2",
+      "qty_per_primary": 3.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.5,
+        "low": 1.3,
+        "likely": 1.5,
+        "high": 2,
+        "output_per_day": 16,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Small tools / power saw",
+          "basis": "utilization",
+          "value": 0.05,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Plywood / timber",
+          "qty_per_unit": 1.1,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Form oil",
+          "qty_per_unit": 0.03,
+          "unit": "l/m2"
+        },
+        {
+          "name": "Nails / ties",
+          "qty_per_unit": 0.15,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — footing perimeter formwork",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "conventional formwork to spread footings — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "RFT / steel fixing",
+      "unit": "ton",
+      "qty_per_primary": 0.1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 24,
+        "low": 20,
+        "likely": 24,
+        "high": 30,
+        "output_per_day": 1,
+        "output_unit": "t/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bar bending machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Reinforcement bar (Gr60)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Tie wire",
+          "qty_per_unit": 8,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Spacers / chairs",
+          "qty_per_unit": 20,
+          "unit": "kg/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — footing reinforcement (~80-120 kg/m3)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "spread footing reinforcement — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Concrete — place, vibrate, cure",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.73,
+        "low": 0.6,
+        "likely": 0.73,
+        "high": 1,
+        "output_per_day": 55,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Concreter / Placer",
+          "count": 2
+        },
+        {
+          "trade": "Vibrator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete pump",
+          "basis": "utilization",
+          "value": 0.12,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Poker vibrator",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete",
+          "qty_per_unit": 1.03,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Curing compound",
+          "qty_per_unit": 0.1,
+          "unit": "l/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — pumped placement to footings",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "pumped concrete to spread footings — validate with your XER to promote"
+      }
+    }
+  ]
+}

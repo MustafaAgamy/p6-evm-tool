@@ -1,0 +1,186 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.substructure.dewatering.wells",
+  "discipline": "Civil",
+  "work_type": "Substructure",
+  "system": "Dewatering",
+  "item": "Deep Dewatering Wells",
+  "aliases": [
+    "dewatering wells",
+    "deep wells",
+    "dewatering",
+    "wellpoint deep well",
+    "ground water lowering"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Deep-well dewatering is priced per well: a one-off installation (drill borehole, set screen/casing, gravel pack and develop) plus supply and commissioning of the submersible pump. The continuous running (weeks of pumping, power/fuel, monitoring) is duration-driven and deliberately excluded here so it is priced by time, not by well.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "One installed and commissioned deep well per unit",
+    "Drillable ground to design depth",
+    "Design provided (spacing, depth, screen)"
+  ],
+  "exclusions": [
+    "Continuous pumping duration, power/fuel and operator watch (priced by time)",
+    "Hydrogeological design and pumping test",
+    "Discharge disposal / settlement treatment and permits",
+    "Standby pumps and generators",
+    "Decommissioning and grouting-up of wells"
+  ],
+  "components": [
+    {
+      "component_id": "well_install",
+      "name": "Well drilling, screen/casing, gravel pack & development",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 32,
+        "low": 24,
+        "likely": 32,
+        "high": 48,
+        "output_per_day": 1,
+        "output_unit": "no/rig·day"
+      },
+      "gang": [
+        {
+          "trade": "Driller / Rig Operator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        },
+        {
+          "trade": "Foreman",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Rotary / percussion water-well drilling rig",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Support truck / service",
+          "basis": "utilization",
+          "value": 2,
+          "unit": "h/no"
+        },
+        {
+          "name": "Development pump / airlift",
+          "basis": "utilization",
+          "value": 3,
+          "unit": "h/no"
+        }
+      ],
+      "material": [
+        {
+          "name": "uPVC well screen & casing",
+          "qty_per_unit": 15,
+          "unit": "m/no"
+        },
+        {
+          "name": "Gravel / filter pack",
+          "qty_per_unit": 2,
+          "unit": "m3/no"
+        },
+        {
+          "name": "Bentonite seal",
+          "qty_per_unit": 0.2,
+          "unit": "m3/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — single deep well install ~1 well/rig·day in drillable ground",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "installed deep dewatering wells (excl. running) — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "pump_install",
+      "name": "Submersible pump — supply, install & commission",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 5.3,
+        "low": 4,
+        "likely": 5.3,
+        "high": 8,
+        "output_per_day": 3,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pump Fitter / Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Service crane / tripod",
+          "basis": "utilization",
+          "value": 1,
+          "unit": "h/no"
+        },
+        {
+          "name": "Test tools / meters",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "h/no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Submersible dewatering pump",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Riser / discharge pipe",
+          "qty_per_unit": 12,
+          "unit": "m/no"
+        },
+        {
+          "name": "Cable & header connection",
+          "qty_per_unit": 15,
+          "unit": "m/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — pump set drop-in and commissioning per well",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "submersible pump install per deep well — validate with your XER to promote"
+      }
+    }
+  ]
+}

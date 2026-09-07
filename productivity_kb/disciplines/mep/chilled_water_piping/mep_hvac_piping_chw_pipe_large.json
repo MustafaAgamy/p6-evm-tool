@@ -1,0 +1,162 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.hvac.piping.chw_pipe_large",
+  "discipline": "MEP",
+  "work_type": "HVAC",
+  "system": "Chilled Water Piping",
+  "item": "Chilled-Water Piping — Large Bore (≥200 mm)",
+  "aliases": [
+    "chw pipe large",
+    "chilled water large bore",
+    "chw ≥200mm",
+    "chw mains"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Large-bore CHW mains (DN200 and above, butt/flange welded) measured per metre. Heavy handling needs a larger welded crew plus lifting gear, and supports become significant structural fabrications.",
+  "assumptions": [
+    "Black steel Sch40/STD, DN200+, butt/flange welded",
+    "Lifting by chain block / small crane",
+    "Header/riser mains in plant room or ceiling void",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Insulation (separate item)",
+    "Valves as loose supply",
+    "Hydrotest & flushing (commissioning)",
+    "NDT/radiography",
+    "Structural steel for pipe racks",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "pipe_install",
+      "name": "Pipe installation (rig / fit / weld)",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 2.2,
+        "low": 1.8,
+        "likely": 2.2,
+        "high": 3,
+        "output_per_day": 14.5,
+        "output_unit": "m/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Welder",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Welding machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Chain block / mobile crane (shared)",
+          "basis": "utilization",
+          "value": 0.2,
+          "unit": "h/m"
+        }
+      ],
+      "material": [
+        {
+          "name": "Black steel pipe (incl. waste)",
+          "qty_per_unit": 1,
+          "unit": "m/m"
+        },
+        {
+          "name": "Weld consumables / flanges & gaskets",
+          "qty_per_unit": 0.6,
+          "unit": "kg/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf MEP norm — large-bore CHW mains, welded, with lifting gear",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "DN200+ black steel, welded — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "supports",
+      "name": "Heavy pipe supports & hangers",
+      "unit": "no",
+      "qty_per_primary": 0.25,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 2.5,
+        "low": 2,
+        "likely": 2.5,
+        "high": 3.2,
+        "output_per_day": 9.6,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Welder",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Welding machine / drill",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Fabricated heavy support + anchors/base",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf MEP norm — large-bore pipe support at ~4 m spacing",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "roller/trapeze supports, ≥200 mm — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "commissioning.testing_commissioning.performance.performance_run",
+  "discipline": "Commissioning",
+  "work_type": "Testing & Commissioning",
+  "system": "Commissioning",
+  "item": "Performance / Reliability Run",
+  "aliases": [
+    "performance run",
+    "performance test",
+    "performance guarantee test",
+    "reliability run",
+    "trial run"
+  ],
+  "project_types": [
+    "Industrial",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "day",
+  "why": "Sustained monitored operation at declared load to demonstrate performance/reliability guarantees; duration is set by contract (e.g. 72 hr / 7-day run), so the honest quantity unit is a supervised run-day, with a fixed monitoring team present.",
+  "assumptions": [
+    "Continuous coverage over the run period",
+    "Hot commissioning complete",
+    "Feedstock/utilities steady",
+    "One monitoring gang per shift"
+  ],
+  "exclusions": [
+    "Feedstock/production cost",
+    "Run restart after failure (adds days)",
+    "Guarantee dispute analysis"
+  ],
+  "components": [
+    {
+      "component_id": "performance_run",
+      "name": "Monitored performance run (per run-day)",
+      "unit": "day",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 32,
+        "low": 24,
+        "likely": 32,
+        "high": 48,
+        "output_per_day": 1,
+        "output_unit": "day/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Engineer",
+          "count": 1
+        },
+        {
+          "trade": "Commissioning Technician",
+          "count": 2
+        },
+        {
+          "trade": "Operator",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Data logging / analyser instruments",
+          "basis": "utilization",
+          "value": 1,
+          "unit": "set·day/day"
+        }
+      ],
+      "material": [
+        {
+          "name": "Analysis consumables / lab samples",
+          "qty_per_unit": 1,
+          "unit": "lot/day"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry reference norm — supervised performance/reliability run, per run-day; multiply by contract run duration",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "monitored performance run at declared load — validate with your XER to promote"
+      }
+    }
+  ]
+}

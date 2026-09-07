@@ -1,0 +1,157 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.plumbing.water_supply.ppr_pipe",
+  "discipline": "MEP",
+  "work_type": "Plumbing",
+  "system": "Water Supply",
+  "item": "PPR Water Supply Piping",
+  "aliases": [
+    "ppr pipe",
+    "polypropylene pipe",
+    "cold/hot water ppr",
+    "ppr-r piping"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "PPR is the default potable cold/hot water distribution material for buildings in Egypt and the Gulf; fusion-welded, corrosion-free and fast to install. Piping is a single-operation trade item (install + testing).",
+  "assumptions": [
+    "Representative bore 20-50 mm mixed run",
+    "Normal access, indoor routing on brackets",
+    "Single 8 hr/day shift",
+    "Fittings and brackets included in the install rate"
+  ],
+  "exclusions": [
+    "Insulation / lagging",
+    "Builder's work openings and sleeves",
+    "Chases and making good",
+    "Abnormal congestion or working at height beyond 3 m"
+  ],
+  "components": [
+    {
+      "component_id": "install",
+      "name": "PPR pipe install (fusion welded, incl. fittings & brackets)",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.62,
+        "low": 0.45,
+        "likely": 0.62,
+        "high": 0.85,
+        "output_per_day": 26,
+        "output_unit": "m/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "PPR fusion welding machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Pipe cutter / shears",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "PPR pipe",
+          "qty_per_unit": 1.03,
+          "unit": "m/m"
+        },
+        {
+          "name": "PPR fittings (elbows/tees/sockets)",
+          "qty_per_unit": 0.35,
+          "unit": "no/m"
+        },
+        {
+          "name": "Pipe clamps / brackets",
+          "qty_per_unit": 0.6,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — small-bore PPR distribution, fusion welded",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "20-50 mm indoor PPR runs on normal access — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "pressure_test",
+      "name": "Pressure test & flushing",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.13,
+        "low": 0.1,
+        "likely": 0.13,
+        "high": 0.2,
+        "output_per_day": 120,
+        "output_unit": "m/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hydrostatic test pump + gauge",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Test caps / plugs (allowance)",
+          "qty_per_unit": 0.02,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — hydrostatic testing of water piping",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "system pressure test and flush, expressed per metre of installed run — validate with your XER to promote"
+      }
+    }
+  ]
+}

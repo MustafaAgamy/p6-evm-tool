@@ -1,0 +1,104 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.screed.floor_screed",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Screed",
+  "item": "Floor Cement Screed",
+  "aliases": [
+    "screed",
+    "floor screed",
+    "cement sand screed",
+    "levelling screed"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Cement/sand levelling screed laid to falls/level as the bed for tiling, marble or resilient finishes; a single lay-and-float operation measured per m2 at nominal 50 mm thickness.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "50 mm bonded/unbonded screed to level or falls",
+    "Datum/screed rails set",
+    "Slab primed where bonded"
+  ],
+  "exclusions": [
+    "Structural toppings",
+    "Self-levelling compounds",
+    "Waterproofing below screed",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "screeding",
+      "name": "Screeding (lay & float)",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.6,
+        "low": 0.5,
+        "likely": 0.6,
+        "high": 0.8,
+        "output_per_day": 40,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Mason/Screeder",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mortar mixer (shared)",
+          "basis": "utilization",
+          "value": 0.02,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Screed rails/straightedge",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Cement/sand screed mortar",
+          "qty_per_unit": 0.05,
+          "unit": "m3/m2"
+        },
+        {
+          "name": "Bonding agent",
+          "qty_per_unit": 0.2,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — 50 mm floor screed",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "cement/sand levelling screed on slabs — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "arch.finishes.painting",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Painting",
+  "item": "Painting (Internal)",
+  "aliases": [
+    "painting",
+    "paint",
+    "decoration"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Standard Egypt productivity norm for painting (internal), refined by validated project evidence over time.",
+  "assumptions": [
+    "Normal site access",
+    "Standard working conditions",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Abnormal congestion",
+    "Rework / rectification",
+    "Exceptional or restricted access",
+    "Night / shift premiums"
+  ],
+  "components": [
+    {
+      "component_id": "painting",
+      "name": "Internal painting",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.18,
+        "low": 0.14,
+        "likely": 0.18,
+        "high": 0.25,
+        "output_per_day": 90,
+        "output_unit": "m2/painter·day"
+      },
+      "gang": [
+        {
+          "trade": "Painter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [],
+      "material": [
+        {
+          "name": "Paint (primer+2 coats)",
+          "qty_per_unit": 0.35,
+          "unit": "L/m2"
+        },
+        {
+          "name": "Putty",
+          "qty_per_unit": 0.4,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt / industry standard norm — internal painting",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "normal access & conditions — validate with your XER to promote"
+      }
+    }
+  ]
+}

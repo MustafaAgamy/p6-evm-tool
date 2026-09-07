@@ -1,0 +1,97 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "electrical.testing_commissioning.cable_testing.continuity_insulation",
+  "discipline": "Electrical",
+  "work_type": "Testing & Commissioning",
+  "system": "Electrical Testing",
+  "item": "Cable Continuity & Insulation (Megger) Testing",
+  "aliases": [
+    "megger test",
+    "insulation resistance test",
+    "IR test",
+    "continuity test",
+    "cable testing"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "point",
+  "why": "Every installed cable/circuit is proven end-to-end (continuity) and its insulation checked (megger) before energisation; a stable, quantity-based test that scales with the number of cables/circuits.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Cables installed, glanded and terminated",
+    "Test certificates/records issued per point"
+  ],
+  "exclusions": [
+    "Retest after termination rework",
+    "Waiting time for isolation permits",
+    "Fault-finding on failed cables"
+  ],
+  "components": [
+    {
+      "component_id": "testing",
+      "name": "Continuity & insulation resistance testing",
+      "unit": "point",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.6,
+        "likely": 0.8,
+        "high": 1.1,
+        "output_per_day": 20,
+        "output_unit": "point/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Technician",
+          "count": 1
+        },
+        {
+          "trade": "Electrician",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Insulation resistance tester (megger)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Continuity tester / multimeter",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Test tags / labels & records",
+          "qty_per_unit": 1,
+          "unit": "no/point"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry standard norm — LV/MV cable continuity and IR testing per circuit",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "LV and MV power/control cables, per tested point/circuit — validate with your XER to promote"
+      }
+    }
+  ]
+}

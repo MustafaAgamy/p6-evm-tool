@@ -1,0 +1,152 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "coatings.protective.painting.industrial_coating",
+  "discipline": "Coatings",
+  "work_type": "Protective Coating",
+  "system": "Painting",
+  "item": "Industrial Coating / Painting",
+  "aliases": [
+    "industrial painting",
+    "protective coating",
+    "blasting and painting",
+    "sandblast and paint",
+    "surface protection"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port",
+    "Commercial"
+  ],
+  "primary_unit": "m2",
+  "why": "Protective coating of steel, piping and equipment is normed per square metre of coated surface and decomposes into abrasive blasting (surface prep to Sa 2.5) and multi-coat application, which use different crews, plant and consumables.",
+  "assumptions": [
+    "Abrasive blast to Sa 2.5 then 3-coat system",
+    "Shop or field with normal access/staging",
+    "Single 8 hr/day shift",
+    "Ambient within coating window",
+    "m2 = coated external surface area"
+  ],
+  "exclusions": [
+    "Scaffolding and access",
+    "Fireproofing / intumescent (separate norm)",
+    "Internal linings and specialty coatings",
+    "Abrasive disposal and environmental controls",
+    "Holiday testing/DFT survey engineering hours"
+  ],
+  "components": [
+    {
+      "component_id": "blasting",
+      "name": "Abrasive blasting (surface prep Sa 2.5)",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.25,
+        "low": 0.18,
+        "likely": 0.25,
+        "high": 0.4,
+        "output_per_day": 64,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Blaster",
+          "count": 1
+        },
+        {
+          "trade": "Pot Tender/Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Blast pot & compressor",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Blast helmet & air supply",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Abrasive (garnet / grit)",
+          "qty_per_unit": 25,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - abrasive blasting per m2",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Sa 2.5 prep of steel/piping surfaces — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "coating",
+      "name": "Coating application (multi-coat, airless)",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.35,
+        "low": 0.25,
+        "likely": 0.35,
+        "high": 0.5,
+        "output_per_day": 45.7,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Painter",
+          "count": 1
+        },
+        {
+          "trade": "Painter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Airless spray unit",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Coating (primer + intermediate + topcoat)",
+          "qty_per_unit": 0.5,
+          "unit": "L/m2"
+        },
+        {
+          "name": "Thinner",
+          "qty_per_unit": 0.05,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - 3-coat protective coating application per m2",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Airless-sprayed 3-coat systems on prepared steel — validate with your XER to promote"
+      }
+    }
+  ]
+}

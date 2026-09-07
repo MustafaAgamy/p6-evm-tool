@@ -1,0 +1,104 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "structural.steel.piperack.steel_erection",
+  "discipline": "Structural",
+  "work_type": "Erection",
+  "system": "Structural Steel",
+  "item": "Pipe-Rack Steel Erection",
+  "aliases": [
+    "pipe rack steel",
+    "structural steel erection",
+    "rack steel",
+    "steel erection"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "ton",
+  "why": "Bolted pipe-rack and technological structural steel is the backbone erection front on industrial plots, normed per ton of erected steel; it is a single erection-and-bolting operation, with grating/handrail and connection welds handled separately.",
+  "assumptions": [
+    "Shop pre-fabricated and painted steel delivered marked",
+    "Bolted connections (HSFG)",
+    "Mobile crane erection, normal access",
+    "Single 8 hr/day shift",
+    "ton = erected structural steel weight"
+  ],
+  "exclusions": [
+    "Steel supply and shop fabrication/painting",
+    "Grating, handrail, ladders and platforms (separate)",
+    "Field connection welding and touch-up beyond stated",
+    "Grouting of base plates",
+    "Foundations and anchor-bolt setting"
+  ],
+  "components": [
+    {
+      "component_id": "erection",
+      "name": "Erect, plumb & bolt structural steel",
+      "unit": "ton",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 14,
+        "low": 10,
+        "likely": 14,
+        "high": 20,
+        "output_per_day": 2.86,
+        "output_unit": "ton/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Erector",
+          "count": 1
+        },
+        {
+          "trade": "Rigger",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane",
+          "basis": "utilization",
+          "value": 1.2,
+          "unit": "h/ton"
+        },
+        {
+          "name": "Impact wrenches",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "HSFG bolts / nuts / washers",
+          "qty_per_unit": 18,
+          "unit": "kg/ton"
+        },
+        {
+          "name": "Touch-up paint",
+          "qty_per_unit": 0.3,
+          "unit": "L/ton"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - bolted structural steel erection per ton",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Pipe-rack / technological steel, bolted, medium members — validate with your XER to promote"
+      }
+    }
+  ]
+}

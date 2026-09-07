@@ -1,0 +1,109 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.tiling.floor_tiling",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Tiling",
+  "item": "Ceramic/Porcelain Floor Tiling",
+  "aliases": [
+    "floor tiling",
+    "ceramic floor",
+    "porcelain tiling",
+    "floor tiles"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Ceramic/porcelain floor tiling on adhesive or mortar bed, including cutting, laying, spacing and grouting; a single fixing operation measured per m2 over prepared screed.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Tiles up to 600x600 on adhesive bed",
+    "Prepared/level screed substrate",
+    "Straightforward room shapes"
+  ],
+  "exclusions": [
+    "Screed/substrate preparation",
+    "Skirtings (separate)",
+    "Complex patterns/borders premium",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "tile_fixing",
+      "name": "Tile fixing & grouting",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.89,
+        "low": 0.7,
+        "likely": 0.9,
+        "high": 1.2,
+        "output_per_day": 18,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Tiler",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Wet tile cutter",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Mixing drill/paddle",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Floor tiles",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Tile adhesive",
+          "qty_per_unit": 5,
+          "unit": "kg/m2"
+        },
+        {
+          "name": "Grout",
+          "qty_per_unit": 0.5,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — ceramic/porcelain floor tiling",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "floor tiles up to 600x600 on adhesive bed — validate with your XER to promote"
+      }
+    }
+  ]
+}

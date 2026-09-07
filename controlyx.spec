@@ -29,6 +29,8 @@ datas = [
                                           # package (see collect_submodules below).
     ('config.json',    '.'),              # Config at root of bundle
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
+    ('p6_prodintel',   'p6_prodintel'),   # Productivity & Resource Intelligence engine
+    ('productivity_kb', 'productivity_kb'),# Productivity norm KB (component-based JSON data)
     ('report_theme.py', '.'),             # Shared report appearance themes — imported at
                                           # runtime by the report renderers (which run after
                                           # sys.path.insert(resource_path('.'))); ship as root
@@ -73,6 +75,12 @@ hiddenimports = [
     # (mirrors the p6_audit fix; a missing provider would show an empty catalog).
     'p6_special',
     *collect_submodules('p6_special'),
+    # Productivity & Resource Intelligence — server.py imports p6_prodintel lazily in-function,
+    # which PyInstaller's graph misses; force the package + submodules to ship.
+    'p6_prodintel',
+    'p6_prodintel.kb',
+    'p6_prodintel.engine',
+    *collect_submodules('p6_prodintel'),
 ]
 
 # Collect EVERY submodule of the in-tree packages so nothing loaded via a deferred /
@@ -80,7 +88,7 @@ hiddenimports = [
 # dropped from the .exe — this bit us before (an empty catalog / missing feature that
 # only showed on the built exe, never in dev or tests). p6_report registers the
 # Global Print-Preview features on import, so its submodules must ship.
-for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare'):
+for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel'):
     try:
         hiddenimports += collect_submodules(_pkg)
     except Exception:

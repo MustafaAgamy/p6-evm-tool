@@ -1,0 +1,177 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "precast.erection.facade.cladding_panels",
+  "discipline": "Precast Concrete",
+  "work_type": "Erection",
+  "system": "Precast Facade",
+  "item": "Precast Facade / Cladding Panel Erection",
+  "aliases": [
+    "precast cladding",
+    "precast facade",
+    "architectural precast",
+    "GRC panels",
+    "cladding panel erection"
+  ],
+  "project_types": [
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Erecting architectural precast/cladding panels is a crane-served fixing operation followed by joint sealing/pointing, both measured per m2 of panel face. Splitting erection from sealing keeps the crane crew rate honest and lets the (often different-trade) sealing labour be planned separately.",
+  "assumptions": [
+    "Cast-in fixing brackets/anchors already in the structure",
+    "Crane or vacuum lifter suited to panel size",
+    "Single 8 hr/day shift",
+    "Average panel size (storey-height units)",
+    "Two-stage weatherproof joints (backing rod + sealant)"
+  ],
+  "exclusions": [
+    "Panel manufacture and transport",
+    "Structural steel/RC support framing",
+    "Waterproof membrane behind panels",
+    "Cast-in socket installation in the primary structure",
+    "Access scaffold supply"
+  ],
+  "components": [
+    {
+      "component_id": "panel_erection",
+      "name": "Panel lift, set & fix",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.6,
+        "low": 0.45,
+        "likely": 0.6,
+        "high": 0.9,
+        "output_per_day": 80,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Crane Operator",
+          "count": 1
+        },
+        {
+          "trade": "Rigger / Banksman",
+          "count": 1
+        },
+        {
+          "trade": "Facade Installer",
+          "count": 3
+        },
+        {
+          "trade": "Foreman",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane / tower crane (shared)",
+          "basis": "utilization",
+          "value": 0.06,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Vacuum lifter / rigging",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "MEWP / access",
+          "basis": "utilization",
+          "value": 0.1,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Fixing brackets / anchors",
+          "qty_per_unit": 0.3,
+          "unit": "set/m2"
+        },
+        {
+          "name": "Shims / packs",
+          "qty_per_unit": 0.3,
+          "unit": "set/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - architectural precast/cladding panel erection",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "storey-height panels with cast-in fixings — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "joint_sealing",
+      "name": "Joint sealing & pointing",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.15,
+        "low": 0.1,
+        "likely": 0.15,
+        "high": 0.25,
+        "output_per_day": 107,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Sealant Applicator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Sealant guns / tooling",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "MEWP / access (shared)",
+          "basis": "utilization",
+          "value": 0.05,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Backing rod",
+          "qty_per_unit": 0.4,
+          "unit": "m/m2"
+        },
+        {
+          "name": "Weatherproof sealant",
+          "qty_per_unit": 0.3,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - two-stage weatherproof joint sealing per m2 of panel face",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "standard panel joint widths and spacing — validate with your XER to promote"
+      }
+    }
+  ]
+}

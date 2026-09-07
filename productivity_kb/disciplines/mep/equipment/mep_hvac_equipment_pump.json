@@ -1,0 +1,96 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.hvac.equipment.pump",
+  "discipline": "MEP",
+  "work_type": "HVAC",
+  "system": "Equipment",
+  "item": "Pump Set Installation",
+  "aliases": [
+    "pump",
+    "chw pump",
+    "primary pump",
+    "end-suction pump install"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Pump set installation is a per-unit set-grout-align operation (offload, set on plinth, grout, fit AVM, align coupling) by a mechanical crew. Connecting piping is a separate item.",
+  "assumptions": [
+    "Base-mounted end-suction / split-case pump, typical size",
+    "Set on plinth, grouted, AVM fitted, coupling aligned",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Suction/discharge piping & valves (piping item)",
+    "Electrical power & controls",
+    "Concrete plinth (civil)",
+    "Testing & commissioning"
+  ],
+  "components": [
+    {
+      "component_id": "pump_install",
+      "name": "Pump set, grout & align",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 16,
+        "low": 10,
+        "likely": 16,
+        "high": 28,
+        "output_per_day": 1.5,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Fitter",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Chain block / lifting gear",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Dial gauge / laser aligner",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Anti-vibration mounts + grout + anchors",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf HVAC norm — base-mounted pump set, grout and coupling alignment",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "base-mounted end-suction / split-case pump — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.containment.cable_tray",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Containment",
+  "item": "Cable Tray / Ladder Installation",
+  "aliases": [
+    "cable tray",
+    "cable ladder",
+    "perforated tray",
+    "ladder rack",
+    "cable containment"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Data Center"
+  ],
+  "primary_unit": "m",
+  "why": "Support system for power/ELV cabling; installed as continuous runs with supports, couplers and fittings before cable pulling.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Medium tray 300-600mm at up to 4-5m height",
+    "Supports at ~1.5m centres"
+  ],
+  "exclusions": [
+    "Cable pulling",
+    "Abnormal congestion / very high level work needing full scaffold",
+    "Painting / special coatings",
+    "Fire barrier penetrations"
+  ],
+  "components": [
+    {
+      "component_id": "installation",
+      "name": "Cable tray/ladder erection with supports",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.75,
+        "low": 0.5,
+        "likely": 0.75,
+        "high": 1.2,
+        "output_per_day": 32,
+        "output_unit": "m/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Scissor lift (shared)",
+          "basis": "utilization",
+          "value": 0.3,
+          "unit": "h/m"
+        },
+        {
+          "name": "Power tools / cordless drill",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Cable tray / ladder section",
+          "qty_per_unit": 1.05,
+          "unit": "m/m"
+        },
+        {
+          "name": "Cantilever arm / support bracket",
+          "qty_per_unit": 0.7,
+          "unit": "no/m"
+        },
+        {
+          "name": "Anchors / fixings",
+          "qty_per_unit": 3,
+          "unit": "no/m"
+        },
+        {
+          "name": "Coupler / joint plate set",
+          "qty_per_unit": 0.7,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — cable tray/ladder including supports and fittings",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "conventional galvanised tray/ladder up to 600mm at moderate height — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.waterproofing.membrane_waterproofing",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Waterproofing",
+  "item": "Membrane Waterproofing",
+  "aliases": [
+    "waterproofing",
+    "tanking",
+    "bituminous membrane",
+    "liquid membrane",
+    "damp proofing"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Applied waterproofing to roofs, wet areas and below-grade elements — surface prep, primer and torch-applied bituminous or liquid-applied membrane with laps/upstands; a single applied-membrane operation measured per m2.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Primer + single-layer membrane with laps and upstands",
+    "Substrate sound, clean and dry",
+    "Standard details at penetrations/upstands"
+  ],
+  "exclusions": [
+    "Screed/protection board over membrane",
+    "Substrate repair/levelling",
+    "Insulation layers",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "membrane_application",
+      "name": "Prime & membrane application",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.32,
+        "low": 0.25,
+        "likely": 0.32,
+        "high": 0.45,
+        "output_per_day": 50,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Waterproofing Applicator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Gas torch & cylinder",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Rollers/brushes",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Bituminous primer",
+          "qty_per_unit": 0.3,
+          "unit": "L/m2"
+        },
+        {
+          "name": "Waterproof membrane (incl. laps)",
+          "qty_per_unit": 1.15,
+          "unit": "m2/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — torch/liquid-applied membrane waterproofing",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "single-layer membrane with laps and upstands — validate with your XER to promote"
+      }
+    }
+  ]
+}

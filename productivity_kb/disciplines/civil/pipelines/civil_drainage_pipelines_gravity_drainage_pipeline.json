@@ -1,0 +1,221 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.drainage.pipelines.gravity_drainage_pipeline",
+  "discipline": "Civil",
+  "work_type": "Drainage",
+  "system": "Pipelines",
+  "item": "Gravity Drainage Pipeline (sanitary/storm)",
+  "aliases": [
+    "drainage pipeline",
+    "sewer pipe",
+    "storm drain",
+    "gravity sewer",
+    "pipe laying"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Airport",
+    "Marine/Port",
+    "Power Plant",
+    "Oil & Gas"
+  ],
+  "primary_unit": "m",
+  "why": "Installation of a gravity sanitary/storm pipeline in an open trench — granular bedding, pipe laying & jointing to line and level, then surround and backfill. Excavation and dewatering are separate items.",
+  "assumptions": [
+    "Pipe DN300–DN600 (uPVC/HDPE/RC)",
+    "Open trench up to ~3 m deep",
+    "Granular bed and surround; selected backfill above",
+    "Excavator assists lowering pipes",
+    "Single 8 hr/day shift",
+    "Measured per metre of pipeline"
+  ],
+  "exclusions": [
+    "Trench excavation (separate item)",
+    "Dewatering",
+    "Trench shoring supply",
+    "Manholes/chambers",
+    "Testing (CCTV/air/water) and disinfection"
+  ],
+  "components": [
+    {
+      "component_id": "pipe_bedding",
+      "name": "Granular pipe bedding",
+      "unit": "m3",
+      "qty_per_primary": 0.15,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.6,
+        "likely": 0.8,
+        "high": 1,
+        "output_per_day": 30,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipelayer",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Plate compactor",
+          "basis": "utilization",
+          "value": 0.2,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Laser level",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Granular bedding aggregate (loose)",
+          "qty_per_unit": 1.15,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — granular bedding placed & levelled to invert",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Class B/S granular bedding, ~0.15 m3/m for DN300–600 — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "pipe_laying_jointing",
+      "name": "Pipe laying & jointing",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.5,
+        "likely": 0.8,
+        "high": 1.2,
+        "output_per_day": 50,
+        "output_unit": "m/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipelayer",
+          "count": 1
+        },
+        {
+          "trade": "Excavator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Excavator (lower/lift pipes)",
+          "basis": "utilization",
+          "value": 0.16,
+          "unit": "h/m"
+        },
+        {
+          "name": "Laser level / pipe laser",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Drainage pipe",
+          "qty_per_unit": 1,
+          "unit": "m/m"
+        },
+        {
+          "name": "Joint rings / lubricant",
+          "qty_per_unit": 0.35,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — gravity pipe laying & jointing to line and level (DN300–600)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Open-trench gravity pipeline DN300–DN600 — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "pipe_surround_backfill",
+      "name": "Pipe surround & backfill",
+      "unit": "m3",
+      "qty_per_primary": 1.3,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.4,
+        "low": 0.3,
+        "likely": 0.4,
+        "high": 0.55,
+        "output_per_day": 60,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Compactor Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Plate / trench compactor",
+          "basis": "utilization",
+          "value": 0.13,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [
+        {
+          "name": "Granular surround (loose)",
+          "qty_per_unit": 0.3,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Selected backfill (loose)",
+          "qty_per_unit": 0.95,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — pipe surround and compacted trench backfill",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Granular surround plus selected backfill over pipe, compacted m3 — validate with your XER to promote"
+      }
+    }
+  ]
+}

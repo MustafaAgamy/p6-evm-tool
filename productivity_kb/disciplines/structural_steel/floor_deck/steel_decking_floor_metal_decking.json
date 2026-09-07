@@ -1,0 +1,112 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "steel.decking.floor.metal_decking",
+  "discipline": "Structural Steel",
+  "work_type": "Decking",
+  "system": "Floor Deck",
+  "item": "Metal Floor Decking",
+  "aliases": [
+    "metal decking",
+    "profiled steel deck",
+    "composite deck",
+    "floor deck sheets"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Laying and fixing profiled steel floor deck is a single fast, repetitive operation - landing bundles, positioning sheets, side-lapping and fastening down to the steel. It is one component measured per m2 of deck area; edge trims and end closures are carried as material rather than separate operations.",
+  "assumptions": [
+    "Deck bundles landed on the frame by crane",
+    "Regular bay layout with normal cutting/fitting at edges",
+    "Single 8 hr/day shift",
+    "Fixing by powder-actuated pins or self-drilling screws"
+  ],
+  "exclusions": [
+    "Shear stud welding (separate item)",
+    "Concrete topping/slab pour",
+    "Edge form and pour-stop supply beyond nominal",
+    "Complex penetrations and heavy trimming",
+    "Crane mobilisation"
+  ],
+  "components": [
+    {
+      "component_id": "deck_laying",
+      "name": "Deck laying & fastening",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.25,
+        "low": 0.18,
+        "likely": 0.25,
+        "high": 0.35,
+        "output_per_day": 128,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Decker / Installer",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Powder-actuated fastening tool",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Screw guns",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        },
+        {
+          "name": "Crane for landing bundles (shared)",
+          "basis": "utilization",
+          "value": 0.02,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Profiled deck sheet",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Fasteners (pins/screws)",
+          "qty_per_unit": 6,
+          "unit": "no/m2"
+        },
+        {
+          "name": "Edge trim / closures",
+          "qty_per_unit": 0.1,
+          "unit": "m/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - profiled composite floor decking",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "regular bay layouts with standard deck profiles — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,169 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.firefighting.fire_cabinets.hose_cabinet",
+  "discipline": "MEP",
+  "work_type": "Fire Fighting",
+  "system": "Fire Cabinets",
+  "item": "Fire Hose / Equipment Cabinets",
+  "aliases": [
+    "fire hose cabinet",
+    "hose reel cabinet",
+    "fire cabinet",
+    "extinguisher cabinet",
+    "fhc"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Recessed / surface fire cabinets housing hose reels, landing valves and extinguishers — cabinet fixing and levelling, then fit-out of the hose reel/equipment and connection to the riser with a function check.",
+  "assumptions": [
+    "Riser / landing valve connection point available at cabinet",
+    "Recessed or surface-mounted cabinet",
+    "Normal access, single 8 hr/day shift",
+    "Cabinet and equipment supplied to location"
+  ],
+  "exclusions": [
+    "Riser pipework (separate item)",
+    "Builder's work opening for recessed cabinets and making good",
+    "Supply of the cabinet and extinguishers",
+    "Wall strengthening"
+  ],
+  "components": [
+    {
+      "component_id": "cabinet_fix",
+      "name": "Cabinet fixing, mounting & levelling",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 2.67,
+        "low": 2,
+        "likely": 2.67,
+        "high": 3.6,
+        "output_per_day": 6,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipefitter",
+          "count": 1
+        },
+        {
+          "trade": "Pipefitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cordless drill / hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Spirit level",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Fixing anchors / plugs",
+          "qty_per_unit": 6,
+          "unit": "no/no"
+        },
+        {
+          "name": "Packing / shims",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — fire cabinet fixing",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "recessed / surface fire hose cabinets — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "equip_connect_test",
+      "name": "Hose reel / equipment fit, riser connection & test",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 2,
+        "low": 1.5,
+        "likely": 2,
+        "high": 2.8,
+        "output_per_day": 8,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipefitter",
+          "count": 1
+        },
+        {
+          "trade": "Pipefitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pipe tools / hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Pressure gauge",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Hose reel connection set",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Gaskets / adaptors",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Sealant / PTFE",
+          "qty_per_unit": 0.1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — cabinet equipment fit-out & connection",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "hose reel/landing valve connection to riser and function check — validate with your XER to promote"
+      }
+    }
+  ]
+}

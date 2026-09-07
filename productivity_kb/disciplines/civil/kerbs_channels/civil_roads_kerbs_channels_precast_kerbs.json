@@ -1,0 +1,147 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.roads.kerbs_channels.precast_kerbs",
+  "discipline": "Civil",
+  "work_type": "Roads",
+  "system": "Kerbs & Channels",
+  "item": "Precast Concrete Kerbs",
+  "aliases": [
+    "kerbs",
+    "precast kerb",
+    "curbs",
+    "kerb laying"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Airport",
+    "Marine/Port",
+    "Power Plant",
+    "Oil & Gas"
+  ],
+  "primary_unit": "m",
+  "why": "Laying precast concrete kerb units to line and level on a concrete bed with rear haunch. Multi-trade: decomposed into the cast-in-place concrete bed/haunch and the kerb-laying operation.",
+  "assumptions": [
+    "Standard precast kerb units (~1.0 m long)",
+    "Concrete bed and rear haunch cast in place (C15/20)",
+    "Set to line and level by string",
+    "Single 8 hr/day shift",
+    "Measured per metre run of kerb"
+  ],
+  "exclusions": [
+    "Excavation/trimming of kerb race",
+    "Concrete supply plant cost",
+    "Backfill behind kerb",
+    "Radius/special kerb units (lower output)"
+  ],
+  "components": [
+    {
+      "component_id": "kerb_bed_haunch",
+      "name": "Concrete bed & haunch",
+      "unit": "m3",
+      "qty_per_primary": 0.04,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 3,
+        "low": 2.5,
+        "likely": 3,
+        "high": 3.5,
+        "output_per_day": 8,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Mason",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete mixer / small placing tools",
+          "basis": "utilization",
+          "value": 0.3,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [
+        {
+          "name": "Concrete C15/20 (incl. wastage)",
+          "qty_per_unit": 1.05,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — hand-placed kerb bed and haunch concrete",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Concrete bed/haunch to precast kerb, ~0.04 m3/m — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "kerb_laying",
+      "name": "Kerb unit laying",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.3,
+        "low": 0.25,
+        "likely": 0.3,
+        "high": 0.4,
+        "output_per_day": 80,
+        "output_unit": "m/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Kerb Layer/Mason",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Kerb lifter / hand tools",
+          "basis": "utilization",
+          "value": 0.02,
+          "unit": "h/m"
+        }
+      ],
+      "material": [
+        {
+          "name": "Precast kerb units",
+          "qty_per_unit": 1.02,
+          "unit": "m/m"
+        },
+        {
+          "name": "Bedding/jointing mortar",
+          "qty_per_unit": 0.006,
+          "unit": "m3/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — precast kerb laying to line and level",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Straight-run precast kerb, ~1.0 m units — validate with your XER to promote"
+      }
+    }
+  ]
+}

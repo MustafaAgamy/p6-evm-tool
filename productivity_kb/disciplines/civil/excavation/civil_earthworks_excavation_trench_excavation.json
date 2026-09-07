@@ -1,0 +1,87 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.earthworks.excavation.trench_excavation",
+  "discipline": "Civil",
+  "work_type": "Earthworks",
+  "system": "Excavation",
+  "item": "Trench Excavation (narrow)",
+  "aliases": [
+    "trench excavation",
+    "trenching",
+    "pipe trench",
+    "cable trench"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Narrow linear excavation for pipelines/cables/foundations; slower per m3 than bulk work because of confined width, trimming and interface with shoring/services.",
+  "assumptions": [
+    "Common soil trench up to ~3 m deep",
+    "Single 8 hr/day shift",
+    "Wheeled backhoe or tracked excavator",
+    "Hand trimming of trench bottom",
+    "In-situ (bank) m3"
+  ],
+  "exclusions": [
+    "Rock",
+    "Dewatering",
+    "Trench shoring/support supply",
+    "Bedding & backfill",
+    "Existing-service protection"
+  ],
+  "components": [
+    {
+      "component_id": "excavate_trench",
+      "name": "Excavate & trim trench",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.133,
+        "low": 0.1,
+        "likely": 0.133,
+        "high": 0.18,
+        "output_per_day": 180,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Excavator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Backhoe / tracked excavator",
+          "basis": "utilization",
+          "value": 0.044,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — machine trench excavation with hand trimming, common soil",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Narrow trench ≤3 m deep in common soil — validate with your XER to promote"
+      }
+    }
+  ]
+}

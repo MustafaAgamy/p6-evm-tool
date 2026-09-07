@@ -1,0 +1,100 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "steel.composite.floor.shear_studs",
+  "discipline": "Structural Steel",
+  "work_type": "Composite Works",
+  "system": "Composite Floor",
+  "item": "Shear Stud Welding",
+  "aliases": [
+    "shear studs",
+    "shear connectors",
+    "stud welding",
+    "nelson studs"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Through-deck (or direct) welding of shear connectors is a single stud-welding operation priced per stud. A stud-welding operator with a helper places, welds and bend-tests studs at a steady rate; output per day is the natural driver and mh/stud follows directly from the two-person gang.",
+  "assumptions": [
+    "Stud welding gun with adequate generator power",
+    "Clean deck/flange surface at stud location",
+    "Single 8 hr/day shift",
+    "Studs of standard 19 mm diameter"
+  ],
+  "exclusions": [
+    "Deck laying (separate item)",
+    "Bend testing beyond routine sampling",
+    "Grinding/repair of failed studs (rework)",
+    "Generator fuel and mobilisation"
+  ],
+  "components": [
+    {
+      "component_id": "stud_welding",
+      "name": "Shear stud welding",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.05,
+        "low": 0.04,
+        "likely": 0.05,
+        "high": 0.07,
+        "output_per_day": 320,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Stud Welder Operator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Stud welding gun + controller",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Diesel welding generator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Shear studs",
+          "qty_per_unit": 1.02,
+          "unit": "no/no"
+        },
+        {
+          "name": "Ceramic ferrules",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - through-deck shear stud welding",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "standard 19 mm studs, deck-borne composite floors — validate with your XER to promote"
+      }
+    }
+  ]
+}

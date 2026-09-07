@@ -1,0 +1,52 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.structural.concrete.rc_column",
+  "discipline": "Civil",
+  "work_type": "Structural",
+  "system": "Concrete",
+  "item": "RC Columns",
+  "aliases": ["rc column", "rc columns", "column concrete", "columns", "reinforced concrete column"],
+  "project_types": ["Industrial", "Commercial", "Residential", "Hospital", "Infrastructure", "Oil & Gas", "Marine/Port", "Airport", "Power Plant"],
+  "primary_unit": "m3",
+  "why": "Column production is built up from its three trades — formwork, reinforcement and concrete — each measured in its own unit and delivered by its own gang. Norms are Egypt-standard, refined by validated project evidence.",
+  "assumptions": ["Normal site access", "Standard working conditions", "Single 8 hr/day shift", "Lift <= 6 m, normal congestion"],
+  "exclusions": ["Abnormal congestion", "Rework / rectification", "Exceptional or restricted access", "Night / shift premiums"],
+  "components": [
+    {
+      "component_id": "formwork",
+      "name": "Formwork / carpentry",
+      "unit": "m2",
+      "qty_per_primary": 9.0,
+      "default_gangs": 4,
+      "rate": {"mh_per_unit": 1.6, "low": 1.3, "likely": 1.6, "high": 2.0, "output_per_day": 10, "output_unit": "m2/gang·day"},
+      "gang": [{"trade": "Carpenter", "count": 1}, {"trade": "Helper", "count": 1}],
+      "equipment": [{"name": "Tower crane (shared)", "basis": "utilization", "value": 0.2, "unit": "h/m2"}],
+      "material": [{"name": "Plywood / timber", "qty_per_unit": 1.05, "unit": "m2/m2"}, {"name": "Form oil", "qty_per_unit": 0.03, "unit": "L/m2"}, {"name": "Tie rods / clamps", "qty_per_unit": null, "unit": "as reqd"}],
+      "provenance": {"source": "built_in_kb", "source_type": "Internal reference", "basis": "Egypt standard norm — RC column formwork (conventional)", "confidence": "draft", "records": 0, "projects": [], "period": "Built-in reference", "valid_for": "conventional / jump-form, lift <= 6 m, normal congestion"}
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "RFT / steel fixing",
+      "unit": "ton",
+      "qty_per_primary": 0.15,
+      "default_gangs": 3,
+      "rate": {"mh_per_unit": 23, "low": 20, "likely": 23, "high": 26, "output_per_day": 0.7, "output_unit": "t/gang·day"},
+      "gang": [{"trade": "Steel Fixer", "count": 1}, {"trade": "Steel Fixer Helper", "count": 1}],
+      "equipment": [{"name": "Bar bending machine", "basis": "count", "value": 1, "unit": "no"}, {"name": "Bar cutting machine", "basis": "count", "value": 1, "unit": "no"}],
+      "material": [{"name": "Reinforcement bar (Gr60)", "qty_per_unit": 1000, "unit": "kg/t"}, {"name": "Tie wire", "qty_per_unit": 10, "unit": "kg/t"}, {"name": "Plastic spacers", "qty_per_unit": null, "unit": "as reqd"}],
+      "provenance": {"source": "built_in_kb", "source_type": "Industry reference", "basis": "Egypt / industry standard norm — column reinforcement", "confidence": "moderate", "records": 0, "projects": [], "period": "Built-in reference", "valid_for": "RC columns, normal access — validate with your XER to promote"}
+    },
+    {
+      "component_id": "concrete",
+      "name": "Concrete pouring",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {"mh_per_unit": 0.72, "low": 0.6, "likely": 0.72, "high": 0.9, "output_per_day": 100, "output_unit": "m3/day"},
+      "gang": [{"trade": "Mason", "count": 3}, {"trade": "Helper", "count": 4}, {"trade": "Vibrator operator", "count": 2}],
+      "equipment": [{"name": "Concrete pump", "basis": "count", "value": 1, "unit": "no"}, {"name": "Poker vibrators", "basis": "count", "value": 3, "unit": "no"}],
+      "material": [{"name": "Ready-mix concrete C40", "qty_per_unit": 1.02, "unit": "m3/m3"}, {"name": "Curing compound", "qty_per_unit": 0.2, "unit": "L/m2"}],
+      "provenance": {"source": "built_in_kb", "source_type": "Industry reference", "basis": "Egypt / industry standard norm — pumped concrete placement", "confidence": "moderate", "records": 0, "projects": [], "period": "Built-in reference", "valid_for": "pumped placement, columns — validate with your XER to promote"}
+    }
+  ]
+}

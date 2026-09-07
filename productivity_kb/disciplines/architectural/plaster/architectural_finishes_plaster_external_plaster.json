@@ -1,0 +1,104 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.plaster.external_plaster",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Plaster",
+  "item": "External Cement Render",
+  "aliases": [
+    "external plaster",
+    "external render",
+    "facade plaster",
+    "cement render"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Three-coat external cement render (spatterdash + float + finish) with mesh at dissimilar-material junctions; slower than internal due to external scaffold access, weathering coat thickness and curing discipline.",
+  "assumptions": [
+    "Single 8 hr/day shift",
+    "20-25 mm three-coat render on masonry",
+    "Facade access via external scaffold",
+    "Alkali-resistant mesh at junctions",
+    "Water curing of coats"
+  ],
+  "exclusions": [
+    "Scaffold erection (measured separately)",
+    "Insulated render/EIFS systems",
+    "Decorative textures premium",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "rendering",
+      "name": "Rendering (three-coat)",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 1.33,
+        "low": 1.1,
+        "likely": 1.33,
+        "high": 1.7,
+        "output_per_day": 18,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Plasterer",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mortar mixer (shared)",
+          "basis": "utilization",
+          "value": 0.03,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Facade scaffold (shared)",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Cement/sand render mortar",
+          "qty_per_unit": 0.03,
+          "unit": "m3/m2"
+        },
+        {
+          "name": "Alkali-resistant mesh",
+          "qty_per_unit": 0.15,
+          "unit": "m2/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — external three-coat render",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "external cement render on masonry/concrete facades — validate with your XER to promote"
+      }
+    }
+  ]
+}

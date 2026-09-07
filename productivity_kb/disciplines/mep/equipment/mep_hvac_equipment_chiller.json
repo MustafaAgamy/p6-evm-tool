@@ -1,0 +1,96 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.hvac.equipment.chiller",
+  "discipline": "MEP",
+  "work_type": "HVAC",
+  "system": "Equipment",
+  "item": "Chiller Installation",
+  "aliases": [
+    "chiller",
+    "water-cooled chiller",
+    "air-cooled chiller install"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Chiller installation is a per-unit heavy-rigging operation (offload, rig into plant room/roof, position on inertia base/AVM, level and align) requiring a larger crew and crane/rigging gear. Piping, electrical and refrigerant charging are separate.",
+  "assumptions": [
+    "Medium-tonnage packaged chiller",
+    "Rigging into position by crane + skates/rollers",
+    "Set on inertia base with anti-vibration mounts, levelled",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "CHW/CW piping connections (piping item)",
+    "Electrical power & controls",
+    "Refrigerant charging (vendor)",
+    "Concrete inertia base (civil)",
+    "Testing & commissioning (T&B / vendor)"
+  ],
+  "components": [
+    {
+      "component_id": "chiller_install",
+      "name": "Chiller rig, set, level & align",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 120,
+        "low": 80,
+        "likely": 120,
+        "high": 220,
+        "output_per_day": 0.4,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Fitter",
+          "count": 3
+        },
+        {
+          "trade": "Helper",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane (shared)",
+          "basis": "utilization",
+          "value": 8,
+          "unit": "h/no"
+        },
+        {
+          "name": "Skates / rollers / chain blocks",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Anti-vibration mounts + shims + anchors",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf HVAC norm — medium packaged chiller rig and setting",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "medium-tonnage packaged chiller — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.elv.bms.field_devices",
+  "discipline": "MEP",
+  "work_type": "ELV",
+  "system": "BMS",
+  "item": "BMS Field Devices",
+  "aliases": [
+    "bms",
+    "bas",
+    "building management system",
+    "sensor install",
+    "damper actuator",
+    "valve actuator",
+    "ddc controller"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Airport",
+    "Power Plant",
+    "Data Center"
+  ],
+  "primary_unit": "no",
+  "why": "Install and wire-terminate BMS field devices (temperature/pressure sensors, thermostats, damper and valve actuators, field controllers); measured per device.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Cabling and containment installed",
+    "Blended sensor / actuator / controller mix",
+    "Mechanical interfaces (wells, dampers) available"
+  ],
+  "exclusions": [
+    "Field cabling / containment",
+    "Head-end server & software",
+    "Point-to-point commissioning & graphics",
+    "Mechanical valve / damper supply"
+  ],
+  "components": [
+    {
+      "component_id": "device_install",
+      "name": "BMS field device mount and terminate",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 2.29,
+        "low": 1.3,
+        "likely": 2.29,
+        "high": 4.5,
+        "output_per_day": 7,
+        "output_unit": "devices/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Instrument Technician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Laptop (point checkout)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Drill",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Mounting kit / bracket",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Cable gland",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Ferrules / labels",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Immersion pocket / well (sensors)",
+          "qty_per_unit": 0.4,
+          "unit": "no/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — BMS field device installation and termination",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "sensors, thermostats, damper/valve actuators, field controllers — validate with your XER to promote"
+      }
+    }
+  ]
+}

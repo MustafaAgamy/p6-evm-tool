@@ -1,0 +1,297 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.structural.concrete.composite_slab_metal_deck",
+  "discipline": "Civil",
+  "work_type": "Structural",
+  "system": "Concrete",
+  "item": "Composite Slab on Metal Deck",
+  "aliases": [
+    "composite slab",
+    "metal deck slab",
+    "profiled deck slab",
+    "steel deck floor",
+    "comflor slab"
+  ],
+  "project_types": [
+    "Commercial",
+    "Industrial",
+    "Airport",
+    "Power Plant",
+    "Oil & Gas",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "m3",
+  "why": "A composite slab uses profiled steel decking as permanent formwork acting with the concrete topping, so there is no traditional carpentry — the trades are deck laying, shear-stud welding, light mesh reinforcement and topping concrete; each is a separate crew and the deck plus studs replace the soffit form entirely.",
+  "assumptions": [
+    "Steel or composite frame already erected",
+    "Total slab ~120–140 mm, net concrete ≈0.10 m3/m2",
+    "Single 8 hr/day shift",
+    "Through-deck stud welding",
+    "Light mesh + local trench bars only"
+  ],
+  "exclusions": [
+    "Abnormal congestion",
+    "Rework/deck re-laying",
+    "Structural steel beams/frame (separate item)",
+    "Edge trims/closures beyond the allowance"
+  ],
+  "components": [
+    {
+      "component_id": "metal_deck",
+      "name": "Profiled metal decking — supply & fix",
+      "unit": "m2",
+      "qty_per_primary": 10.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.2,
+        "low": 0.16,
+        "likely": 0.2,
+        "high": 0.26,
+        "output_per_day": 120,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Deck Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Tower/mobile crane (shared, bundle lift)",
+          "basis": "utilization",
+          "value": 0.03,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Cordless self-drill screw gun",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Galvanised profiled deck sheet",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Self-drilling fasteners",
+          "qty_per_unit": 6,
+          "unit": "no/m2"
+        },
+        {
+          "name": "Edge trim / closures",
+          "qty_per_unit": 0.12,
+          "unit": "m/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — profiled deck laying and fixing to steel frame",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "trapezoidal/re-entrant composite deck — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "shear_studs",
+      "name": "Shear-stud welding (through deck)",
+      "unit": "no",
+      "qty_per_primary": 50.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.08,
+        "low": 0.06,
+        "likely": 0.08,
+        "high": 0.11,
+        "output_per_day": 200,
+        "output_unit": "studs/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Stud Welder",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Stud welding gun + generator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Headed shear studs (19 mm)",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Ceramic ferrules",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — through-deck stud welding rate",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "composite action studs on steel beams — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "Mesh & trench-bar reinforcement",
+      "unit": "ton",
+      "qty_per_primary": 0.03,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 13.3,
+        "low": 11.5,
+        "likely": 13.3,
+        "high": 15.5,
+        "output_per_day": 1.2,
+        "output_unit": "t/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bar cutting machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Welded steel mesh (A142/A193)",
+          "qty_per_unit": 850,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Trench/support bars",
+          "qty_per_unit": 150,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Tie wire",
+          "qty_per_unit": 8,
+          "unit": "kg/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — light mesh + local bars over composite deck",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "composite slabs ~25–40 kg/m3 — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Topping concrete placing & finishing",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.67,
+        "low": 0.55,
+        "likely": 0.67,
+        "high": 0.85,
+        "output_per_day": 60,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Ganger/Foreman",
+          "count": 1
+        },
+        {
+          "trade": "Vibrator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Concrete Finisher",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete pump (boom, shared)",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Poker vibrator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Power float",
+          "basis": "utilization",
+          "value": 0.1,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete C30/37",
+          "qty_per_unit": 1.04,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Curing compound",
+          "qty_per_unit": 0.25,
+          "unit": "L/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — fast topping pour over deck (deck acts as form)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "pumped ready-mix over profiled deck — validate with your XER to promote"
+      }
+    }
+  ]
+}

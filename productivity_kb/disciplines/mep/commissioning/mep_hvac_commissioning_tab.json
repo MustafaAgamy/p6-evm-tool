@@ -1,0 +1,97 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.hvac.commissioning.tab",
+  "discipline": "MEP",
+  "work_type": "HVAC",
+  "system": "Commissioning",
+  "item": "Testing & Balancing (T&B)",
+  "aliases": [
+    "t&b",
+    "tab",
+    "testing and balancing",
+    "air & water balancing"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "point",
+  "why": "Testing & balancing is a commissioning activity measured per balancing point (each air terminal or water branch measured and adjusted). A technician-led crew takes readings, adjusts dampers/valves, and iterates to design flow, then records results.",
+  "assumptions": [
+    "One point = one air terminal or one water branch balanced",
+    "System installed, clean, and energised for balancing",
+    "Includes proportional balancing iterations and recording",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Snagging/rectification of installation defects",
+    "Re-tests after design changes",
+    "Controls commissioning (BMS)",
+    "Witnessing delays by others"
+  ],
+  "components": [
+    {
+      "component_id": "tab_point",
+      "name": "Balance & record a point",
+      "unit": "point",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.2,
+        "low": 0.8,
+        "likely": 1.2,
+        "high": 1.8,
+        "output_per_day": 13.3,
+        "output_unit": "point/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Technician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Balometer / flow hood",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Manometer / anemometer / tachometer",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Consumables / record sheets",
+          "qty_per_unit": 0.05,
+          "unit": "set/point"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf HVAC norm — proportional air/water balancing per terminal point",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "air terminal or water branch balancing point — validate with your XER to promote"
+      }
+    }
+  ]
+}

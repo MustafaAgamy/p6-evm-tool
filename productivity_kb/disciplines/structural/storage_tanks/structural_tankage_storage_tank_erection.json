@@ -1,0 +1,155 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "structural.tankage.storage.tank_erection",
+  "discipline": "Structural",
+  "work_type": "Erection",
+  "system": "Storage Tanks",
+  "item": "Storage Tank Erection (field-erected, API 650)",
+  "aliases": [
+    "tank erection",
+    "field erected tank",
+    "api 650 tank",
+    "shell erection"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "ton",
+  "why": "Field-erected storage tanks are normed per ton of plate/steel, split between plate erection/fit-up and the very weld-intensive shell/annular/roof welding; larger tanks trend to the low end of the band per ton.",
+  "assumptions": [
+    "Conventional API 650 above-ground tank",
+    "Foundation/ringwall complete",
+    "Single 8 hr/day shift",
+    "Mid-size tank base case; large tanks lower mh/ton",
+    "ton = erected steel plate/structure weight"
+  ],
+  "exclusions": [
+    "Plate supply and shop pre-fabrication",
+    "NDT (vacuum box, RT) and PWHT",
+    "Hydrotest / settlement survey",
+    "Internal/external coating and cathodic protection",
+    "Foundation, ringwall and firewater works"
+  ],
+  "components": [
+    {
+      "component_id": "erection_fitup",
+      "name": "Plate handling, forming, erection & fit-up",
+      "unit": "ton",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 20,
+        "low": 14,
+        "likely": 20,
+        "high": 30,
+        "output_per_day": 2,
+        "output_unit": "ton/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Fitter/Erector",
+          "count": 1
+        },
+        {
+          "trade": "Rigger",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane / hydraulic jacks",
+          "basis": "utilization",
+          "value": 1.5,
+          "unit": "h/ton"
+        },
+        {
+          "name": "Plate rolling/forming (shared)",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "h/ton"
+        }
+      ],
+      "material": [
+        {
+          "name": "Erection cleats, wedges & bracing",
+          "qty_per_unit": 5,
+          "unit": "kg/ton"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - tank plate erection and fit-up per ton",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "API 650 mid-size tanks, conventional erection — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "welding",
+      "name": "Shell / annular / roof welding (SAW/FCAW)",
+      "unit": "ton",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 28,
+        "low": 20,
+        "likely": 28,
+        "high": 40,
+        "output_per_day": 0.57,
+        "output_unit": "ton/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Welder",
+          "count": 1
+        },
+        {
+          "trade": "Welder Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "SAW / FCAW welding sets",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        },
+        {
+          "name": "Automatic girth welding gear",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Welding consumables (wire/flux)",
+          "qty_per_unit": 12,
+          "unit": "kg/ton"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - tank shell/roof welding per ton",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "API 650 vertical seams, girth and roof welds — validate with your XER to promote"
+      }
+    }
+  ]
+}

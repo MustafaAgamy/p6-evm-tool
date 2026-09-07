@@ -1,0 +1,174 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.doors.timber_door_set",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Doors & Ironmongery",
+  "item": "Timber Door Set (with Ironmongery)",
+  "aliases": [
+    "doors",
+    "door set",
+    "timber door",
+    "flush door",
+    "door and ironmongery",
+    "door installation"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "A single-leaf timber door set is installed as a small assembly: fix frame plumb/square and hang the leaf, then fit ironmongery (hinges, lockset, closer, handles). Decomposed into installation and ironmongery, measured per door.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Single-leaf flush timber door, factory pre-hung frame",
+    "Standard ironmongery set",
+    "Openings formed and plumb"
+  ],
+  "exclusions": [
+    "Door and frame supply/finishing",
+    "Fire-door certification/intumescent works premium",
+    "Automatic operators",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "door_installation",
+      "name": "Frame fixing & leaf hanging",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 2.67,
+        "low": 2.2,
+        "likely": 2.67,
+        "high": 3.3,
+        "output_per_day": 6,
+        "output_unit": "doors/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cordless drill/driver",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Router/planer",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Level & wedges",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Frame fixings & anchors",
+          "qty_per_unit": 8,
+          "unit": "no/door"
+        },
+        {
+          "name": "Foam/mortar packing",
+          "qty_per_unit": 0.5,
+          "unit": "kg/door"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — timber door frame fixing and hanging",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "single-leaf flush timber doors, pre-hung frame — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "ironmongery",
+      "name": "Ironmongery fitting",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1,
+        "low": 0.8,
+        "likely": 1,
+        "high": 1.3,
+        "output_per_day": 8,
+        "output_unit": "doors/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter/Fitter",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cordless drill/driver",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Chisel set",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Hinges",
+          "qty_per_unit": 3,
+          "unit": "no/door"
+        },
+        {
+          "name": "Lockset & handles",
+          "qty_per_unit": 1,
+          "unit": "set/door"
+        },
+        {
+          "name": "Door closer",
+          "qty_per_unit": 1,
+          "unit": "no/door"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — door ironmongery fitting",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "standard hinge/lock/closer ironmongery set — validate with your XER to promote"
+      }
+    }
+  ]
+}

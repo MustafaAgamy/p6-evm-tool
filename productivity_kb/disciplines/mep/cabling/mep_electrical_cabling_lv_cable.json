@@ -1,0 +1,121 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.cabling.lv_cable",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Cabling",
+  "item": "LV Cable Pulling & Laying",
+  "aliases": [
+    "lv cable",
+    "power cable pulling",
+    "cable laying",
+    "cable installation",
+    "control cable"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Data Center"
+  ],
+  "primary_unit": "m",
+  "why": "Pulling and laying LV power/control cables on installed containment; the bulk field electrical activity before terminations.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Containment already installed",
+    "Average LV cable up to ~4C x 95mm² laid on tray",
+    "Blended rate per single cable route metre"
+  ],
+  "exclusions": [
+    "Terminations / glanding (separate item)",
+    "Containment installation",
+    "Testing & megger",
+    "Trenching / direct burial civils"
+  ],
+  "components": [
+    {
+      "component_id": "laying",
+      "name": "LV cable pulling and dressing on containment",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.18,
+        "low": 0.12,
+        "likely": 0.18,
+        "high": 0.3,
+        "output_per_day": 180,
+        "output_unit": "m/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Drum jack & spindle",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Cable rollers / guides",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Cable pulling winch/grip (shared)",
+          "basis": "utilization",
+          "value": 0.2,
+          "unit": "h/m"
+        }
+      ],
+      "material": [
+        {
+          "name": "LV cable",
+          "qty_per_unit": 1.03,
+          "unit": "m/m"
+        },
+        {
+          "name": "Cable tie / lashing",
+          "qty_per_unit": 3,
+          "unit": "no/m"
+        },
+        {
+          "name": "Cleat / clamp",
+          "qty_per_unit": 0.3,
+          "unit": "no/m"
+        },
+        {
+          "name": "Cable marker / tag",
+          "qty_per_unit": 0.1,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — LV cable pulling and laying on tray",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "LV power/control cable on installed containment, moderate size — validate with your XER to promote"
+      }
+    }
+  ]
+}

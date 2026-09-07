@@ -1,0 +1,151 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "insulation.thermal.hot.pipe_equipment_insulation",
+  "discipline": "Insulation",
+  "work_type": "Insulation",
+  "system": "Thermal Insulation",
+  "item": "Thermal Insulation (pipe & equipment)",
+  "aliases": [
+    "thermal insulation",
+    "hot insulation",
+    "pipe insulation",
+    "cladding",
+    "lagging"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port",
+    "Commercial"
+  ],
+  "primary_unit": "m2",
+  "why": "Hot/cold thermal insulation of piping and equipment is normed per square metre of insulated surface and decomposes into the insulation application (wool/calsil with banding/pins) and the metal cladding/jacketing, which are distinct trades and materials.",
+  "assumptions": [
+    "Mineral wool / calcium silicate with aluminium or SS jacketing",
+    "Standard thickness for hot service",
+    "Field with normal access/staging",
+    "Single 8 hr/day shift",
+    "m2 = insulated outer surface area"
+  ],
+  "exclusions": [
+    "Scaffolding and access",
+    "Removable insulation covers / boxes (separate)",
+    "Refractory and fire protection",
+    "Vapour barrier for cryogenic (factor up)",
+    "Surface preparation/painting under insulation"
+  ],
+  "components": [
+    {
+      "component_id": "insulation",
+      "name": "Insulation application (wool/calsil, banding)",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.6,
+        "low": 0.45,
+        "likely": 0.6,
+        "high": 0.9,
+        "output_per_day": 26.7,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Insulator",
+          "count": 1
+        },
+        {
+          "trade": "Insulator Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hand tools & cutting shears",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Insulation (mineral wool / calcium silicate)",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Banding, wire & pins",
+          "qty_per_unit": 0.2,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - thermal insulation application per m2",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Hot-service pipe & equipment, standard thickness — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "cladding",
+      "name": "Metal cladding / jacketing",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.4,
+        "low": 0.3,
+        "likely": 0.4,
+        "high": 0.6,
+        "output_per_day": 40,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Insulator",
+          "count": 1
+        },
+        {
+          "trade": "Insulator Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Roll former & crimper",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Aluminium / SS jacketing",
+          "qty_per_unit": 1.1,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Screws / bands / sealant",
+          "qty_per_unit": 0.15,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - metal jacketing/cladding per m2",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Aluminium/SS weatherproof cladding over insulation — validate with your XER to promote"
+      }
+    }
+  ]
+}

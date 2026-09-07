@@ -1,0 +1,101 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.firefighting.ff_pipe",
+  "discipline": "MEP",
+  "work_type": "Fire Fighting",
+  "system": "Piping",
+  "item": "Fire Fighting Pipe (CS)",
+  "aliases": [
+    "fire fighting",
+    "ff pipe",
+    "sprinkler pipe",
+    "firefighting"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Standard Egypt productivity norm for fire fighting pipe (cs), refined by validated project evidence over time.",
+  "assumptions": [
+    "Normal site access",
+    "Standard working conditions",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Abnormal congestion",
+    "Rework / rectification",
+    "Exceptional or restricted access",
+    "Night / shift premiums"
+  ],
+  "components": [
+    {
+      "component_id": "ffpipe",
+      "name": "CS fire-fighting pipe erection",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 2.0,
+        "low": 1.6,
+        "likely": 2.0,
+        "high": 2.7,
+        "output_per_day": 8,
+        "output_unit": "m/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Welding machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Grooving machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "CS pipe",
+          "qty_per_unit": 1.0,
+          "unit": "m/m"
+        },
+        {
+          "name": "Fittings / couplings",
+          "qty_per_unit": 1.0,
+          "unit": "lot"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt / industry standard norm — cs fire-fighting pipe erection",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "normal access & conditions — validate with your XER to promote"
+      }
+    }
+  ]
+}

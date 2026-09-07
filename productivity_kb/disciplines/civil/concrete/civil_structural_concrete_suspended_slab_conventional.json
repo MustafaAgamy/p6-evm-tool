@@ -1,0 +1,260 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.structural.concrete.suspended_slab_conventional",
+  "discipline": "Civil",
+  "work_type": "Structural",
+  "system": "Concrete",
+  "item": "Suspended Slab — Conventional (solid RC)",
+  "aliases": [
+    "solid slab",
+    "conventional slab",
+    "two-way slab",
+    "suspended floor slab",
+    "RC solid slab"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "A conventional cast-in-place solid suspended slab is a multi-trade element and must be estimated as its true trades — soffit formwork/shoring, steel fixing and concrete placing/finishing — rather than a single blended concrete rate, because the formwork and reinforcement effort dominate the cost and the labour peaks at different times in the cycle.",
+  "assumptions": [
+    "Normal access with a floor crane/hoist available",
+    "Single 8 hr/day shift",
+    "Slab thickness ~180–250 mm (≈0.20 m3/m2)",
+    "Pumped ready-mix concrete",
+    "Reinforcement pre-cut/bent in a yard and hoisted to level"
+  ],
+  "exclusions": [
+    "Abnormal congestion or very small bays (< 15 m2)",
+    "Rework and remedial cutting/patching",
+    "Waterproofing, screed and finishes (separate items)",
+    "Slab drops, kerbs and upstands beyond the flat field"
+  ],
+  "components": [
+    {
+      "component_id": "formwork",
+      "name": "Soffit formwork, shoring & carpentry",
+      "unit": "m2",
+      "qty_per_primary": 5.25,
+      "default_gangs": 5,
+      "rate": {
+        "mh_per_unit": 1.33,
+        "low": 1.1,
+        "likely": 1.33,
+        "high": 1.6,
+        "output_per_day": 12,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Tower/floor crane (shared)",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Adjustable steel props / shoring set",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "prop-set/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Film-faced plywood",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Sawn timber bearers/joists",
+          "qty_per_unit": 0.012,
+          "unit": "m3/m2"
+        },
+        {
+          "name": "Form release oil",
+          "qty_per_unit": 0.03,
+          "unit": "L/m2"
+        },
+        {
+          "name": "Nails & fixings",
+          "qty_per_unit": 0.1,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — suspended slab soffit formwork on props",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "prop-and-ply or table-form soffit, floor-to-floor ≤ 3.5 m — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "RFT / steel fixing",
+      "unit": "ton",
+      "qty_per_primary": 0.1,
+      "default_gangs": 4,
+      "rate": {
+        "mh_per_unit": 16,
+        "low": 14,
+        "likely": 16,
+        "high": 18.5,
+        "output_per_day": 1,
+        "output_unit": "t/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bar bending machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Bar cutting machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Reinforcement bar (B500B / Gr60)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Tie wire",
+          "qty_per_unit": 10,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Plastic bar spacers/chairs",
+          "qty_per_unit": 30,
+          "unit": "no/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — slab steel fixing (top + bottom mats)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "solid two-way/one-way slabs, ~80–120 kg/m3 — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Concrete placing, compaction & finishing",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.87,
+        "low": 0.7,
+        "likely": 0.87,
+        "high": 1.1,
+        "output_per_day": 55,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Ganger/Foreman",
+          "count": 1
+        },
+        {
+          "trade": "Vibrator Operator",
+          "count": 2
+        },
+        {
+          "trade": "Concrete Finisher",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete pump (boom, shared)",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Poker vibrator",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        },
+        {
+          "name": "Ride-on/edge power float",
+          "basis": "utilization",
+          "value": 0.1,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete C30/37",
+          "qty_per_unit": 1.04,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Curing compound",
+          "qty_per_unit": 0.25,
+          "unit": "L/m3"
+        },
+        {
+          "name": "Polythene curing sheet",
+          "qty_per_unit": 5.2,
+          "unit": "m2/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — pumped slab pour with float finish",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "pumped ready-mix, open slab bays — validate with your XER to promote"
+      }
+    }
+  ]
+}

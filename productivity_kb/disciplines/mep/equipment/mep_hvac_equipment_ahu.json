@@ -1,0 +1,97 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.hvac.equipment.ahu",
+  "discipline": "MEP",
+  "work_type": "HVAC",
+  "system": "Equipment",
+  "item": "AHU Installation (Air Handling Unit)",
+  "aliases": [
+    "ahu",
+    "air handling unit",
+    "ahu install"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "AHU installation is a per-unit modular assembly (offload, position on plinth/AVM, join and seal sections, level, prepare coil/duct/drain connections) needing a larger mechanical crew and lifting gear.",
+  "assumptions": [
+    "Modular AHU delivered in sections, medium size",
+    "Assembly of sections, sealing, section-to-section bolting",
+    "Set on plinth with anti-vibration mounts",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "CHW/condensate piping connections (piping item)",
+    "Ductwork connections (ductwork item)",
+    "Electrical/controls",
+    "Testing & balancing (T&B item)",
+    "Concrete plinth (civil)"
+  ],
+  "components": [
+    {
+      "component_id": "ahu_install",
+      "name": "AHU rig, assemble, level & connect-prep",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 60,
+        "low": 40,
+        "likely": 60,
+        "high": 100,
+        "output_per_day": 0.53,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Fitter",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Forklift / mobile crane (shared)",
+          "basis": "utilization",
+          "value": 8,
+          "unit": "h/no"
+        },
+        {
+          "name": "Chain blocks & rigging gear",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Anti-vibration mounts + gaskets + bolts",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf HVAC norm — medium modular AHU rig and assembly",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "medium modular AHU, sectional delivery — validate with your XER to promote"
+      }
+    }
+  ]
+}

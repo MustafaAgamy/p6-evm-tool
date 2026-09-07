@@ -1,0 +1,109 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.painting.internal_painting",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Painting",
+  "item": "Internal Emulsion Painting",
+  "aliases": [
+    "internal painting",
+    "emulsion paint",
+    "plastic paint",
+    "wall painting"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Complete internal paint system to plastered walls/soffits — filler/putty, primer and two finish coats of emulsion; a single decorating operation measured per m2 of finished face.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Putty + primer + 2 emulsion coats on plaster",
+    "Surfaces dry and cured",
+    "Rooms cleared for access"
+  ],
+  "exclusions": [
+    "Substrate plaster/skim",
+    "Enamel/epoxy paints",
+    "Decorative/textured finishes premium",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "painting_system",
+      "name": "Putty, primer & two finish coats",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.5,
+        "low": 0.4,
+        "likely": 0.5,
+        "high": 0.65,
+        "output_per_day": 32,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Painter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Rollers/brushes & trays",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Mobile scaffold/ladder",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Wall putty/filler",
+          "qty_per_unit": 0.5,
+          "unit": "kg/m2"
+        },
+        {
+          "name": "Primer",
+          "qty_per_unit": 0.1,
+          "unit": "L/m2"
+        },
+        {
+          "name": "Emulsion paint (2 coats)",
+          "qty_per_unit": 0.25,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — internal emulsion system",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "internal emulsion on plastered surfaces — validate with your XER to promote"
+      }
+    }
+  ]
+}

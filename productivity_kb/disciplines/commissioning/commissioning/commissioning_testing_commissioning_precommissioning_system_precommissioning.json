@@ -1,0 +1,93 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "commissioning.testing_commissioning.precommissioning.system_precommissioning",
+  "discipline": "Commissioning",
+  "work_type": "Testing & Commissioning",
+  "system": "Commissioning",
+  "item": "System Pre-commissioning",
+  "aliases": [
+    "pre-commissioning",
+    "precomm",
+    "mechanical completion checks",
+    "static commissioning"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "system",
+  "why": "Static, de-energised checks that a subsystem is complete and ready for commissioning — punch-list clearing, alignment/lubrication checks, blowing/cleaning verification, walkdowns and system handover; effort is per subsystem and highly variable, so a per-system norm is given honestly.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Mechanical completion declared",
+    "Represents a mid-size subsystem"
+  ],
+  "exclusions": [
+    "Construction completion / punch-list execution",
+    "Dynamic (cold/hot) commissioning",
+    "Vendor specialist attendance"
+  ],
+  "components": [
+    {
+      "component_id": "precommissioning",
+      "name": "Static pre-commissioning checks & walkdown",
+      "unit": "system",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 160,
+        "low": 120,
+        "likely": 160,
+        "high": 240,
+        "output_per_day": 0.2,
+        "output_unit": "system/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Engineer",
+          "count": 1
+        },
+        {
+          "trade": "Commissioning Technician",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Portable test/measuring kit (shared)",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "set·day/system"
+        }
+      ],
+      "material": [
+        {
+          "name": "Consumables (gaskets, lubricants, cleaning)",
+          "qty_per_unit": 1,
+          "unit": "lot/system"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry reference norm — subsystem pre-commissioning; adjust to subsystem size/complexity",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "mid-size mechanical/electrical subsystem — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -42,6 +42,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_knowledge_get()
         elif self.path == '/api/database':
             self._handle_database_list()
+        elif self.path == '/api/prodintel/tree':
+            self._handle_prodintel_tree()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -66,6 +68,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_oos_validate(body)
         elif self.path == '/api/oos/corrected-file':
             self._handle_oos_corrected(body)
+        elif self.path == '/api/prodintel/query':
+            self._handle_prodintel_query(body)
         elif self.path == '/api/revcompare':
             self._handle_revcompare(body)
         elif self.path == '/api/revcompare/report':
@@ -350,6 +354,26 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(body)
+
+    # ── /api/prodintel — Productivity & Resource Intelligence ──────────
+    def _handle_prodintel_tree(self):
+        try:
+            import p6_prodintel
+            self._json(200, {'ok': True, 'tree': p6_prodintel.build_tree()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodintel_query(self, body):
+        try:
+            import p6_prodintel
+            res = p6_prodintel.query(
+                body.get('item_id'),
+                context=body.get('context') or {},
+                quantity=body.get('quantity'),
+            )
+            self._json(200, {'ok': True, 'result': res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/parse ─────────────────────────────────────────────────────────
     def _handle_parse(self, body):

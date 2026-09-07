@@ -1,0 +1,165 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.substructure.waterproofing.tanking",
+  "discipline": "Civil",
+  "work_type": "Substructure",
+  "system": "Waterproofing",
+  "item": "Foundation Waterproofing / Tanking",
+  "aliases": [
+    "waterproofing",
+    "tanking",
+    "foundation waterproofing",
+    "basement tanking",
+    "membrane waterproofing"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Below-ground tanking is a two-operation trade: apply the waterproofing membrane, then fix a protection layer before backfill/rebar. Splitting them lets the planner price systems (torch-on bituminous vs self-adhesive vs HDPE) against the constant protection step.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Substrate blinded/screeded, clean and dry",
+    "Torch-on or self-adhesive bituminous membrane",
+    "Priming coat applied to substrate"
+  ],
+  "exclusions": [
+    "Substrate repair / screeding",
+    "Cementitious/crystalline coatings (separate system)",
+    "Waterstops and joint sealing",
+    "Testing / flood test",
+    "Abnormal congestion and rework"
+  ],
+  "components": [
+    {
+      "component_id": "membrane",
+      "name": "Waterproofing membrane — prime & apply",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.24,
+        "low": 0.18,
+        "likely": 0.24,
+        "high": 0.35,
+        "output_per_day": 100,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Waterproofing Applicator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Gas torch / burner set",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Rollers / applicators",
+          "basis": "utilization",
+          "value": 0.02,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Bituminous membrane",
+          "qty_per_unit": 1.15,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Bituminous primer",
+          "qty_per_unit": 0.25,
+          "unit": "l/m2"
+        },
+        {
+          "name": "Gas (LPG)",
+          "qty_per_unit": 0.05,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — torch-on/self-adhesive membrane, includes overlap allowance",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "single/double-layer bituminous tanking — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "protection",
+      "name": "Protection board / screed layer",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.11,
+        "low": 0.08,
+        "likely": 0.11,
+        "high": 0.15,
+        "output_per_day": 150,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Applicator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hand tools",
+          "basis": "utilization",
+          "value": 0.01,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Protection board",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Adhesive / fixings",
+          "qty_per_unit": 0.05,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — protection board to membrane before backfill",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "protection layer to tanking membrane — validate with your XER to promote"
+      }
+    }
+  ]
+}

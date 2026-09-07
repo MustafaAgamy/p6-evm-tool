@@ -1,0 +1,94 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "commissioning.testing_commissioning.commissioning.hot_commissioning",
+  "discipline": "Commissioning",
+  "work_type": "Testing & Commissioning",
+  "system": "Commissioning",
+  "item": "Hot Commissioning (On-load / With Product)",
+  "aliases": [
+    "hot commissioning",
+    "on-load commissioning",
+    "commissioning with product",
+    "start-up"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "system",
+  "why": "Bringing a subsystem into live operation with product/energised process — start-up, load ramping, control tuning, trip proving under load; the most resource-intensive commissioning stage, per subsystem and very project-specific.",
+  "assumptions": [
+    "Normal access",
+    "Extended/shift working may apply",
+    "Cold commissioning complete",
+    "Feedstock/utilities available",
+    "Represents a mid-size subsystem"
+  ],
+  "exclusions": [
+    "Performance guarantee run (separate item)",
+    "Feedstock cost",
+    "Production shortfall/rework"
+  ],
+  "components": [
+    {
+      "component_id": "hot_commissioning",
+      "name": "On-load dynamic commissioning / start-up",
+      "unit": "system",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 480,
+        "low": 360,
+        "likely": 480,
+        "high": 640,
+        "output_per_day": 0.1,
+        "output_unit": "system/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Engineer",
+          "count": 1
+        },
+        {
+          "trade": "Commissioning Technician",
+          "count": 3
+        },
+        {
+          "trade": "Operator",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Test / analyser instruments (shared)",
+          "basis": "utilization",
+          "value": 0.7,
+          "unit": "set·day/system"
+        }
+      ],
+      "material": [
+        {
+          "name": "Start-up consumables / chemicals",
+          "qty_per_unit": 1,
+          "unit": "lot/system"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry reference norm — hot commissioning of a subsystem; adjust to complexity",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "mid-size process/utility subsystem, on-load — validate with your XER to promote"
+      }
+    }
+  ]
+}

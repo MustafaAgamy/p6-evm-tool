@@ -1,0 +1,195 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mechanical.equipment.rotating.pump_compressor_install",
+  "discipline": "Mechanical",
+  "work_type": "Installation",
+  "system": "Rotating Equipment",
+  "item": "Rotating Equipment Install (pumps / compressors)",
+  "aliases": [
+    "pump installation",
+    "compressor install",
+    "rotating equipment setting",
+    "precision alignment"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "no",
+  "why": "Rotating equipment install is dominated by precision (laser) alignment and grouting rather than lift weight, so it is normed per unit; a medium centrifugal pump is the base case, with large compressor trains applied as multiples.",
+  "assumptions": [
+    "Foundations complete and cured",
+    "Base case = medium process centrifugal pump on skid/baseplate",
+    "Single 8 hr/day shift",
+    "Precision laser alignment to vendor tolerance",
+    "no = one rotating equipment unit set, aligned and grouted"
+  ],
+  "exclusions": [
+    "Large compressor/turbine trains (apply multiple)",
+    "Lube-oil / seal-gas systems and auxiliaries",
+    "Piping, cabling and instrumentation hook-up",
+    "No-load / performance run and commissioning",
+    "Vendor supervision"
+  ],
+  "components": [
+    {
+      "component_id": "setting",
+      "name": "Set equipment & baseplate on foundation",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 24,
+        "low": 16,
+        "likely": 24,
+        "high": 40,
+        "output_per_day": 1,
+        "output_unit": "unit/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Millwright",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane / forklift",
+          "basis": "utilization",
+          "value": 4,
+          "unit": "h/unit"
+        }
+      ],
+      "material": [
+        {
+          "name": "Anchor bolts & shims",
+          "qty_per_unit": 1,
+          "unit": "set/unit"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - setting rotating equipment per unit",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Medium process pumps on baseplate — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "alignment",
+      "name": "Precision (laser) alignment",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 20,
+        "low": 12,
+        "likely": 20,
+        "high": 32,
+        "output_per_day": 0.8,
+        "output_unit": "unit/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Millwright",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Laser alignment kit",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Dial indicators",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Shim packs (SS)",
+          "qty_per_unit": 1,
+          "unit": "set/unit"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - precision coupling alignment per unit",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Pump/driver coupling alignment to vendor tolerance — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "grouting",
+      "name": "Epoxy grout baseplate",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 8,
+        "low": 6,
+        "likely": 8,
+        "high": 12,
+        "output_per_day": 2,
+        "output_unit": "unit/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mixing tools & formwork",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Epoxy grout",
+          "qty_per_unit": 40,
+          "unit": "kg/unit"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - baseplate epoxy grouting per unit",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Rotating equipment baseplates — validate with your XER to promote"
+      }
+    }
+  ]
+}

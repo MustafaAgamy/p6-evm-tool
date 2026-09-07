@@ -1,0 +1,114 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.roads.pavement.aggregate_base_course",
+  "discipline": "Civil",
+  "work_type": "Roads",
+  "system": "Pavement Layers",
+  "item": "Aggregate Road Base Course",
+  "aliases": [
+    "road base",
+    "aggregate base course",
+    "ABC",
+    "base course",
+    "crusher run base"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Airport",
+    "Marine/Port",
+    "Power Plant",
+    "Oil & Gas"
+  ],
+  "primary_unit": "m3",
+  "why": "Supply, spread, grade and compact crushed aggregate base directly beneath the asphalt; tighter grading tolerance and higher compaction than subbase, so slightly slower.",
+  "assumptions": [
+    "Approved crushed aggregate base (Type 1 / dense-graded)",
+    "Placed to design thickness and tolerance",
+    "Compaction to ~98% MDD",
+    "Single 8 hr/day shift",
+    "Compacted (in-place) m3"
+  ],
+  "exclusions": [
+    "Prime coat",
+    "Density testing",
+    "Supply of rejected material",
+    "Subbase layer (separate item)"
+  ],
+  "components": [
+    {
+      "component_id": "spread_compact_base",
+      "name": "Spread, grade & compact road base",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.128,
+        "low": 0.1,
+        "likely": 0.128,
+        "high": 0.17,
+        "output_per_day": 250,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Grader Operator",
+          "count": 1
+        },
+        {
+          "trade": "Roller Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Motor grader",
+          "basis": "utilization",
+          "value": 0.032,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Vibratory roller",
+          "basis": "utilization",
+          "value": 0.032,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Water bowser",
+          "basis": "utilization",
+          "value": 0.018,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [
+        {
+          "name": "Crushed aggregate base (loose)",
+          "qty_per_unit": 1.18,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Water for compaction",
+          "qty_per_unit": 0.06,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — grader/roller placement of crushed road base",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Carriageway aggregate base beneath asphalt, compacted m3 — validate with your XER to promote"
+      }
+    }
+  ]
+}

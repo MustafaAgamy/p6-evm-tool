@@ -1,0 +1,228 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.plumbing.pumps.booster_pump_set",
+  "discipline": "MEP",
+  "work_type": "Plumbing",
+  "system": "Pumps",
+  "item": "Domestic Water Booster Pump Set",
+  "aliases": [
+    "booster set",
+    "pressure booster pumps",
+    "packaged pump skid",
+    "water booster unit"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Packaged multi-pump booster set (duty/standby + pressure vessel + controller on a skid). Installation splits into placement/anchoring, suction/discharge pipework, and commissioning; heavy skid needs rigging plant.",
+  "assumptions": [
+    "Packaged skid-mounted set, 2-3 pumps",
+    "Delivered to plant room by others",
+    "Anti-vibration mounts / inertia base",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Electrical power supply, cabling and termination (Electrical scope)",
+    "Concrete housekeeping pad / plinth",
+    "Supply of the pump set",
+    "Off-loading and horizontal transport to plant room"
+  ],
+  "components": [
+    {
+      "component_id": "place_anchor",
+      "name": "Set positioning, anchoring & alignment",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 24,
+        "low": 18,
+        "likely": 24,
+        "high": 34,
+        "output_per_day": 1,
+        "output_unit": "set/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Technician",
+          "count": 1
+        },
+        {
+          "trade": "Rigger / Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane / forklift (rigging)",
+          "basis": "utilization",
+          "value": 2,
+          "unit": "h/set"
+        },
+        {
+          "name": "Alignment / level tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Anti-vibration mounts",
+          "qty_per_unit": 4,
+          "unit": "no/set"
+        },
+        {
+          "name": "Chemical anchor bolts",
+          "qty_per_unit": 8,
+          "unit": "no/set"
+        },
+        {
+          "name": "Non-shrink grout (allowance)",
+          "qty_per_unit": 0.05,
+          "unit": "m3/set"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — packaged booster set placement",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "skid-mounted domestic booster set in a plant room — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "pipework_connect",
+      "name": "Suction / discharge pipework & valves connection",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 23,
+        "low": 18,
+        "likely": 23,
+        "high": 30,
+        "output_per_day": 0.7,
+        "output_unit": "set/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipefitter",
+          "count": 1
+        },
+        {
+          "trade": "Pipefitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pipe tools / threading",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Torque wrench",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Flexible connectors",
+          "qty_per_unit": 2,
+          "unit": "no/set"
+        },
+        {
+          "name": "Gate / check valves",
+          "qty_per_unit": 6,
+          "unit": "no/set"
+        },
+        {
+          "name": "Pressure gauges",
+          "qty_per_unit": 2,
+          "unit": "no/set"
+        },
+        {
+          "name": "Gaskets & bolt sets",
+          "qty_per_unit": 8,
+          "unit": "no/set"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — booster set header connection",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "suction/discharge header tie-in with isolation and non-return valves — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "commission",
+      "name": "Commissioning & performance test",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 16,
+        "low": 12,
+        "likely": 16,
+        "high": 22,
+        "output_per_day": 1,
+        "output_unit": "set/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Technician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pressure test gauge / flow check kit",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Consumables (allowance)",
+          "qty_per_unit": 1,
+          "unit": "set/set"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — booster set commissioning (excl. power supply)",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "controller set-up, pressure setting and run test — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.substructure.piling.cfa_piles",
+  "discipline": "Civil",
+  "work_type": "Substructure",
+  "system": "Piling",
+  "item": "CFA Piles (Continuous Flight Auger)",
+  "aliases": [
+    "cfa piles",
+    "continuous flight auger",
+    "auger cast piles"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "CFA piling combines drilling and concrete pumping in one continuous rig operation as the auger is withdrawn, so those are a single fast component; the reinforcement cage is plunged into the fresh concrete afterwards as a separate operation. Rates assumed for ~500 mm diameter piles.",
+  "assumptions": [
+    "Normal access with rig hardstanding",
+    "Single 8 hr/day shift",
+    "~500 mm nominal diameter",
+    "Concrete pumped through hollow stem",
+    "Ready-mix supply on-time to avoid rig idling"
+  ],
+  "exclusions": [
+    "Obstruction removal",
+    "Pile testing",
+    "Cut-off level demolition",
+    "Rig standing time waiting on concrete",
+    "Abnormal congestion and rework"
+  ],
+  "components": [
+    {
+      "component_id": "drill_concrete",
+      "name": "CFA drilling & concreting (combined)",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.27,
+        "low": 0.2,
+        "likely": 0.27,
+        "high": 0.4,
+        "output_per_day": 120,
+        "output_unit": "m/rig·day"
+      },
+      "gang": [
+        {
+          "trade": "CFA Rig Operator",
+          "count": 1
+        },
+        {
+          "trade": "Concrete Pump Operator",
+          "count": 1
+        },
+        {
+          "trade": "Banksman / Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "CFA piling rig",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Concrete pump",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete",
+          "qty_per_unit": 0.22,
+          "unit": "m3/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — CFA drill-and-cast production, ~500 mm dia",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "continuous flight auger piles in cohesive/granular soils — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "Reinforcement cage — plunge into fresh concrete",
+      "unit": "ton",
+      "qty_per_primary": 0.05,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 20,
+        "low": 16,
+        "likely": 20,
+        "high": 26,
+        "output_per_day": 1.2,
+        "output_unit": "t/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Excavator / crane (plunge & press)",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "h/t"
+        },
+        {
+          "name": "Poker vibrator (cage push aid)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Reinforcement bar (Gr60)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Spacers & links",
+          "qty_per_unit": 45,
+          "unit": "kg/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — plunged CFA cage; often only partial-length reinforcement",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "plunged CFA reinforcement cages — validate with your XER to promote"
+      }
+    }
+  ]
+}

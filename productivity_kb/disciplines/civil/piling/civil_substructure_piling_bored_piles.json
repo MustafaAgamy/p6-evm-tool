@@ -1,0 +1,241 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.substructure.piling.bored_piles",
+  "discipline": "Civil",
+  "work_type": "Substructure",
+  "system": "Piling",
+  "item": "Bored Cast-in-Situ Piles (rotary)",
+  "aliases": [
+    "bored piles",
+    "rotary bored piles",
+    "cast in situ piles",
+    "large diameter piles"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Rotary bored piles decompose into three distinct operations with different crews, rigs and outputs: boring the shaft, fabricating/placing the reinforcement cage, and tremie concreting. Costing them as one blended rate hides the rig-bound nature of the bore and the steel-fixing effort in the cage. Rates assumed for ~800 mm diameter piles in medium ground with support fluid.",
+  "assumptions": [
+    "Normal access with rig hardstanding",
+    "Single 8 hr/day shift",
+    "~800 mm nominal diameter",
+    "Polymer/bentonite support fluid where needed",
+    "Concrete supplied by ready-mix"
+  ],
+  "exclusions": [
+    "Obstruction removal / rock socketing",
+    "Pile testing (static/dynamic/integrity)",
+    "Cut-off level demolition and disposal",
+    "Permanent casing where ground demands it",
+    "Abnormal congestion and rework"
+  ],
+  "components": [
+    {
+      "component_id": "boring",
+      "name": "Boring / drilling of shaft",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.6,
+        "low": 1.2,
+        "likely": 1.6,
+        "high": 2.2,
+        "output_per_day": 20,
+        "output_unit": "m/rig·day"
+      },
+      "gang": [
+        {
+          "trade": "Piling Rig Operator",
+          "count": 1
+        },
+        {
+          "trade": "Banksman / Helper",
+          "count": 2
+        },
+        {
+          "trade": "Oiler / Foreman",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Rotary bored piling rig",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Service crane (shared)",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "h/m"
+        },
+        {
+          "name": "Bentonite / polymer plant",
+          "basis": "utilization",
+          "value": 0.3,
+          "unit": "h/m"
+        }
+      ],
+      "material": [
+        {
+          "name": "Support fluid (bentonite/polymer)",
+          "qty_per_unit": 0.15,
+          "unit": "m3/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — rotary bored pile drilling, medium ground ~800 mm dia",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "large-diameter rotary bored piles in medium soils with support fluid — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "Reinforcement cage — fabricate & place",
+      "unit": "ton",
+      "qty_per_primary": 0.09,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 24,
+        "low": 20,
+        "likely": 24,
+        "high": 30,
+        "output_per_day": 1,
+        "output_unit": "t/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bar bending machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Service crane (cage lowering)",
+          "basis": "utilization",
+          "value": 0.4,
+          "unit": "h/t"
+        }
+      ],
+      "material": [
+        {
+          "name": "Reinforcement bar (Gr60)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Spacers & spiral / links",
+          "qty_per_unit": 40,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Tie wire",
+          "qty_per_unit": 8,
+          "unit": "kg/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — pile cage fabrication and placing",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "welded/tied pile reinforcement cages — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Tremie concreting",
+      "unit": "m3",
+      "qty_per_primary": 0.55,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.53,
+        "low": 0.4,
+        "likely": 0.53,
+        "high": 0.7,
+        "output_per_day": 60,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Concrete Placer",
+          "count": 2
+        },
+        {
+          "trade": "Tremie Operator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Tremie pipe set",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Concrete pump / skip",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Service crane",
+          "basis": "utilization",
+          "value": 0.1,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete (self-compacting)",
+          "qty_per_unit": 1.05,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — tremie pile concreting; qty_per_primary includes overbreak for ~800 mm dia",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "wet-process tremie concreting — validate with your XER to promote"
+      }
+    }
+  ]
+}

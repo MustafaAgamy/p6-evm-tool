@@ -1,0 +1,183 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "precast.erection.frame.beam_column_erection",
+  "discipline": "Precast Concrete",
+  "work_type": "Erection",
+  "system": "Precast Frame",
+  "item": "Precast Beam & Column Erection",
+  "aliases": [
+    "precast frame erection",
+    "precast column erection",
+    "precast beam erection",
+    "precast structural erection"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Erecting a precast structural frame is two linked operations per element - the crane lift/set/plumb/temporary-prop, then the permanent connection (grouted sleeves, corbel bearing, dowel/pocket grout). Priced per element with a matched connection-grouting component so the connection labour is not buried in the crane rate.",
+  "assumptions": [
+    "Elements delivered to a laydown or lifted direct from trailer",
+    "Crane sized for the heaviest element",
+    "Single 8 hr/day shift",
+    "Propping/temporary bracing available",
+    "Average element mix of columns and beams"
+  ],
+  "exclusions": [
+    "Crane mobilisation/demobilisation",
+    "Precast element manufacture and transport",
+    "Cast in-situ topping/stitch concrete beyond connection grout",
+    "Grouting of large special nodes",
+    "Survey/setting-out of foundations"
+  ],
+  "components": [
+    {
+      "component_id": "element_erection",
+      "name": "Element lift, set & plumb",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 3,
+        "low": 2.2,
+        "likely": 3,
+        "high": 4.5,
+        "output_per_day": 16,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Crane Operator",
+          "count": 1
+        },
+        {
+          "trade": "Rigger / Banksman",
+          "count": 1
+        },
+        {
+          "trade": "Precast Erector",
+          "count": 3
+        },
+        {
+          "trade": "Foreman",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile / crawler crane",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Lifting clutches & rigging",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Temporary props / braces",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "h/no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Shims / packs / bearing pads",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Temporary prop consumables",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - precast column/beam erection with a single crane crew",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "medium-weight precast frame elements — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "connection_grouting",
+      "name": "Connection grouting / stitching",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.5,
+        "low": 1,
+        "likely": 1.5,
+        "high": 2.5,
+        "output_per_day": 16,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Grouter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Grout pump / mixer",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Non-shrink / sleeve grout",
+          "qty_per_unit": 25,
+          "unit": "kg/no"
+        },
+        {
+          "name": "Dowel bars / reinforcement",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Bearing pads",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - grouted sleeve / pocket / corbel connection per element",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "grouted-sleeve and pocket-type precast connections — validate with your XER to promote"
+      }
+    }
+  ]
+}

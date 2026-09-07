@@ -1,0 +1,163 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.firefighting.hydrants.landing_valves",
+  "discipline": "MEP",
+  "work_type": "Fire Fighting",
+  "system": "Hydrants",
+  "item": "Hydrants & Landing Valves",
+  "aliases": [
+    "landing valve",
+    "fire hydrant",
+    "pillar hydrant",
+    "breeching inlet",
+    "wet/dry riser valve"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Landing valves on risers, external pillar/underground hydrants and breeching inlets — install, connect to the riser/main and test each device. A blended per-device rate with a separate commissioning check.",
+  "assumptions": [
+    "Riser / ring main pipework already installed to the valve location",
+    "Blended mix of landing valves and external hydrants",
+    "Normal access, single 8 hr/day shift",
+    "Devices supplied to point of installation"
+  ],
+  "exclusions": [
+    "Riser and ring-main pipework (separate item)",
+    "Excavation and chambers for external hydrants",
+    "Supply of the valve / hydrant units",
+    "Chases and making good"
+  ],
+  "components": [
+    {
+      "component_id": "install_connect",
+      "name": "Landing valve / hydrant install & connection",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 4,
+        "low": 3,
+        "likely": 4,
+        "high": 5.5,
+        "output_per_day": 4,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipefitter",
+          "count": 1
+        },
+        {
+          "trade": "Pipefitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pipe tools / threading",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Cordless drill / hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Adaptors / instantaneous coupling",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Blank cap & chain",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Gaskets & bolt set",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Sealant / PTFE",
+          "qty_per_unit": 0.1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — landing valve / hydrant install",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "riser landing valves and external pillar/underground hydrants — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "test_commission",
+      "name": "Flow / pressure test & commissioning",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.33,
+        "low": 1,
+        "likely": 1.33,
+        "high": 1.9,
+        "output_per_day": 12,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipefitter",
+          "count": 1
+        },
+        {
+          "trade": "Pipefitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pressure gauge / flow test kit",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Consumables (allowance)",
+          "qty_per_unit": 0.05,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — hydrant/landing valve testing",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "pressure/flow verification per device — validate with your XER to promote"
+      }
+    }
+  ]
+}

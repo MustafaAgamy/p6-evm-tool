@@ -1,0 +1,113 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.earthworks.backfill.backfill_compaction",
+  "discipline": "Civil",
+  "work_type": "Earthworks",
+  "system": "Backfill",
+  "item": "Backfill & Compaction (imported fill)",
+  "aliases": [
+    "backfill",
+    "backfilling",
+    "fill and compaction",
+    "structural fill"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Placement of imported select fill in controlled layers with mechanical compaction to a specified density; measured as compacted in-place m3.",
+  "assumptions": [
+    "Imported select granular/sandy fill",
+    "Placed in ~250–300 mm layers",
+    "Compaction to ~95% MDD",
+    "Single 8 hr/day shift",
+    "Compacted (in-place) m3"
+  ],
+  "exclusions": [
+    "Supply of unsuitable/rejected fill",
+    "Field density testing",
+    "Dewatering",
+    "Fill in confined/hand-compacted areas (lower output)"
+  ],
+  "components": [
+    {
+      "component_id": "place_compact_fill",
+      "name": "Place, level & compact fill",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.16,
+        "low": 0.12,
+        "likely": 0.16,
+        "high": 0.22,
+        "output_per_day": 200,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Loader/Dozer Operator",
+          "count": 1
+        },
+        {
+          "trade": "Roller Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Vibratory roller / plate compactor",
+          "basis": "utilization",
+          "value": 0.04,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Wheel loader / dozer",
+          "basis": "utilization",
+          "value": 0.03,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Water bowser",
+          "basis": "utilization",
+          "value": 0.02,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [
+        {
+          "name": "Imported select fill (loose)",
+          "qty_per_unit": 1.3,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Water for compaction",
+          "qty_per_unit": 0.08,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — layered placement & roller compaction of select fill",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Open-area imported fill in controlled layers, compacted m3 — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,247 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.structural.concrete.jumpform_core",
+  "discipline": "Civil",
+  "work_type": "Structural",
+  "system": "Concrete",
+  "item": "Jump-Form / Slip-Form Core Walls",
+  "aliases": [
+    "jump form core",
+    "slip form core",
+    "climbing formwork core",
+    "self-climbing core",
+    "core wall system form"
+  ],
+  "project_types": [
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Power Plant",
+    "Marine/Port"
+  ],
+  "primary_unit": "m3",
+  "why": "High-rise cores are built with a self-climbing (jump-form) or continuous (slip-form) system operated by a specialist crew on a fixed cycle, so the forming operation is a system-plant activity distinct from ordinary wall carpentry; decomposing keeps the specialist climbing crew, the two-curtain steel and the lift pour separate and on cycle.",
+  "assumptions": [
+    "Self-climbing/hydraulic jump-form or slip-form system",
+    "Wall thickness ~300–400 mm (form op ≈8 m2/m3 face area)",
+    "Specialist system crew on a ~3–4 day cycle (jump) or continuous (slip)",
+    "Two curtains of reinforcement + starter bars",
+    "Tower crane/placing boom dedicated to the core"
+  ],
+  "exclusions": [
+    "Abnormal congestion at coupling beams/embeds",
+    "Rework and cycle-recovery labour",
+    "System design, hire and mobilisation of the climbing rig",
+    "Slab/link-beam tie-ins priced elsewhere"
+  ],
+  "components": [
+    {
+      "component_id": "climbing_formwork",
+      "name": "Jump/slip-form operation (set, climb, strike)",
+      "unit": "m2",
+      "qty_per_primary": 8.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 1.07,
+        "low": 0.9,
+        "likely": 1.07,
+        "high": 1.3,
+        "output_per_day": 30,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Formwork System Supervisor",
+          "count": 1
+        },
+        {
+          "trade": "Form Operator",
+          "count": 2
+        },
+        {
+          "trade": "Hydraulics/Rigger",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Self-climbing / slip-form system + hydraulics",
+          "basis": "utilization",
+          "value": 0.4,
+          "unit": "panel-use/m2"
+        },
+        {
+          "name": "Tower crane (dedicated, shared)",
+          "basis": "utilization",
+          "value": 0.2,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Form liner / plywood (replacement)",
+          "qty_per_unit": 0.15,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Form release oil",
+          "qty_per_unit": 0.03,
+          "unit": "L/m2"
+        },
+        {
+          "name": "Climbing cones/anchors (consumable)",
+          "qty_per_unit": 0.3,
+          "unit": "no/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — specialist climbing-form crew per m2 of formed face",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "self-climbing jump-form / slip-form cores — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "RFT / steel fixing (two curtains + starters)",
+      "unit": "ton",
+      "qty_per_primary": 0.13,
+      "default_gangs": 4,
+      "rate": {
+        "mh_per_unit": 18.8,
+        "low": 16,
+        "likely": 18.8,
+        "high": 21.5,
+        "output_per_day": 0.85,
+        "output_unit": "t/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bar bending machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Bar cutting machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Tower crane (shared, hoisting)",
+          "basis": "utilization",
+          "value": 2,
+          "unit": "h/t"
+        }
+      ],
+      "material": [
+        {
+          "name": "Reinforcement bar (B500B / Gr60)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Tie wire",
+          "qty_per_unit": 12,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Couplers/spacers (allowance)",
+          "qty_per_unit": 20,
+          "unit": "no/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — core-wall steel fixing on cycle (working at height)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "core walls ~100–150 kg/m3 — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Core concrete placing & compaction (per lift)",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.14,
+        "low": 0.95,
+        "likely": 1.14,
+        "high": 1.4,
+        "output_per_day": 35,
+        "output_unit": "m3/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Ganger/Foreman",
+          "count": 1
+        },
+        {
+          "trade": "Vibrator Operator",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Placing boom / core pump (dedicated)",
+          "basis": "utilization",
+          "value": 0.2,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Poker vibrator",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete C40/50",
+          "qty_per_unit": 1.04,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Curing compound",
+          "qty_per_unit": 0.2,
+          "unit": "L/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — core lift pour via placing boom on cycle",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "pumped high-strength concrete in climbing-form lifts — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,162 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.plumbing.domestic_hot_water.electric_water_heater",
+  "discipline": "MEP",
+  "work_type": "Plumbing",
+  "system": "Domestic Hot Water",
+  "item": "Electric Water Heater Installation",
+  "aliases": [
+    "water heater",
+    "electric geyser",
+    "storage heater install",
+    "boiler (electric domestic)"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Wall-hung / storage electric water heaters (50-100 L) — mounting, water and safety-valve connection, then fill and functional commissioning. Electrical supply termination is a separate discipline.",
+  "assumptions": [
+    "Wall-hung storage type 50-100 L",
+    "Water rough-in and power point already provided",
+    "Normal access, single 8 hr/day shift",
+    "Safety group / expansion device included"
+  ],
+  "exclusions": [
+    "Electrical final connection and isolation (Electrical scope)",
+    "Structural strengthening of wall",
+    "Supply of the heater unit",
+    "Chases and making good"
+  ],
+  "components": [
+    {
+      "component_id": "mount_connect",
+      "name": "Heater mounting & pipe/valve connection",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 3.2,
+        "low": 2.5,
+        "likely": 3.2,
+        "high": 4.5,
+        "output_per_day": 5,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cordless drill / hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Spirit level",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Mounting bracket set",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Safety / pressure-relief valve",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Isolation & check valves",
+          "qty_per_unit": 3,
+          "unit": "no/no"
+        },
+        {
+          "name": "Flexible connectors + PTFE",
+          "qty_per_unit": 2,
+          "unit": "no/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — domestic electric heater second-fix",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "50-100 L wall-hung storage heaters — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "commission_test",
+      "name": "Fill, leak test & functional commissioning",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.6,
+        "low": 1.2,
+        "likely": 1.6,
+        "high": 2.2,
+        "output_per_day": 10,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Consumables (allowance)",
+          "qty_per_unit": 0.05,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — heater commissioning (excl. electrical)",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "fill, leak and functional check per heater — validate with your XER to promote"
+      }
+    }
+  ]
+}

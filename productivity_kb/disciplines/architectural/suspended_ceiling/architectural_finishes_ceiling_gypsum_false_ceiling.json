@@ -1,0 +1,233 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.ceiling.gypsum_false_ceiling",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Suspended Ceiling",
+  "item": "Gypsum Board False Ceiling",
+  "aliases": [
+    "false ceiling",
+    "suspended ceiling",
+    "gypsum ceiling",
+    "plasterboard ceiling",
+    "drop ceiling"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Flush plasterboard suspended ceiling is a multi-trade assembly: GI suspension grid (hangers, main runners, furring channels), board fixing, then jointing/finishing to a paint-ready plane. Decomposed into suspension, boarding and finishing per m2 of ceiling.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Flush (jointless-look) gypsum ceiling",
+    "Suspension depth up to 600 mm",
+    "Working at 3-4 m from mobile scaffold"
+  ],
+  "exclusions": [
+    "Bulkheads/curved/coffered ceilings premium",
+    "Acoustic tile grid systems",
+    "Painting/decoration",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "suspension_system",
+      "name": "GI suspension grid & hangers",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.46,
+        "low": 0.37,
+        "likely": 0.46,
+        "high": 0.58,
+        "output_per_day": 35,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Ceiling Installer",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Rotary hammer drill",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Laser level",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Mobile scaffold",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "GI channels/runners",
+          "qty_per_unit": 3.5,
+          "unit": "m/m2"
+        },
+        {
+          "name": "Hangers & anchors",
+          "qty_per_unit": 2.5,
+          "unit": "no/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — gypsum ceiling suspension grid",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "flush gypsum ceiling suspension up to 600 mm drop — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "ceiling_board_fixing",
+      "name": "Gypsum board fixing to grid",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.4,
+        "low": 0.32,
+        "likely": 0.4,
+        "high": 0.5,
+        "output_per_day": 40,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Ceiling Installer",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Screw gun",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Board lifter",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Gypsum board 12.5 mm",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Drywall screws",
+          "qty_per_unit": 16,
+          "unit": "no/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — ceiling board fixing",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "single-layer board to suspended grid — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "ceiling_jointing",
+      "name": "Jointing, taping & finishing",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.32,
+        "low": 0.25,
+        "likely": 0.32,
+        "high": 0.42,
+        "output_per_day": 50,
+        "output_unit": "m2/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Drywall Finisher",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Jointing tools/knives",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Sander",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Joint compound",
+          "qty_per_unit": 0.5,
+          "unit": "kg/m2"
+        },
+        {
+          "name": "Joint tape",
+          "qty_per_unit": 1,
+          "unit": "m/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — ceiling jointing to flush finish",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "paint-ready flush gypsum ceiling — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,162 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.plumbing.sanitary.fixture_install",
+  "discipline": "MEP",
+  "work_type": "Plumbing",
+  "system": "Sanitary Ware",
+  "item": "Sanitary Ware Installation",
+  "aliases": [
+    "sanitary fixtures",
+    "wc basin install",
+    "sanitaryware fixing",
+    "fixture set & connect"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Second-fix installation of WCs, basins, sinks, urinals and their traps/connectors; a blended per-fixture rate covering set-and-fix plus final connection and commissioning.",
+  "assumptions": [
+    "Blended fixture mix (WC / basin / sink / urinal)",
+    "First-fix rough-in already in place",
+    "Normal access, single 8 hr/day shift",
+    "Fixture supplied to point of use"
+  ],
+  "exclusions": [
+    "First-fix water and drainage rough-in",
+    "Tiling and making good",
+    "Supply of the fixture units themselves",
+    "Accessories not part of the fixture (grab bars, mirrors)"
+  ],
+  "components": [
+    {
+      "component_id": "set_fix",
+      "name": "Fixture set, fix & final connection",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 2.67,
+        "low": 2,
+        "likely": 2.67,
+        "high": 3.5,
+        "output_per_day": 6,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cordless drill / hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Silicone gun",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Fixing bolts / brackets set",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Flexible connectors",
+          "qty_per_unit": 2,
+          "unit": "no/no"
+        },
+        {
+          "name": "Traps / seals",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Silicone sealant",
+          "qty_per_unit": 0.1,
+          "unit": "tube/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — second-fix sanitary ware",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "standard WC/basin/sink/urinal fixtures on completed rough-in — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "commission_test",
+      "name": "Commissioning & leak / function test",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.6,
+        "likely": 0.8,
+        "high": 1,
+        "output_per_day": 20,
+        "output_unit": "no/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Consumables (allowance)",
+          "qty_per_unit": 0.05,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — fixture commissioning",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "leak and flush/function check per fixture — validate with your XER to promote"
+      }
+    }
+  ]
+}

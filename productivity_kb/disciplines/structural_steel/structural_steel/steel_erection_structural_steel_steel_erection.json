@@ -1,0 +1,187 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "steel.erection.structural_steel.steel_erection",
+  "discipline": "Structural Steel",
+  "work_type": "Erection",
+  "system": "Structural Steel",
+  "item": "Structural Steel Erection",
+  "aliases": [
+    "steel erection",
+    "steelwork erection",
+    "steel installation",
+    "frame erection"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "ton",
+  "why": "Erection productivity is dominated by piece count per tonne, not just tonnage - primary members (columns, main beams, trusses) erect fast per tonne while secondary steel (bracing, purlins, girts, sag rods) is light and piece-heavy and erects much slower per tonne. Splitting the tonnage into primary and secondary gives a realistic blended rate for a crane-served erection crew.",
+  "assumptions": [
+    "Normal site access for mobile/crawler crane",
+    "Single 8 hr/day shift",
+    "Erection heights within standard crane reach",
+    "Members pre-fabricated and marked",
+    "Temporary bolting only during erection (final bolting billed separately)"
+  ],
+  "exclusions": [
+    "Crane mobilisation/demobilisation and standing time",
+    "Final connection bolting/tensioning (see field bolting)",
+    "Grouting of base plates (separate item)",
+    "Site painting and touch-up",
+    "Working at height beyond standard access provisions"
+  ],
+  "components": [
+    {
+      "component_id": "primary_erection",
+      "name": "Primary steel erection (columns/main beams/trusses)",
+      "unit": "ton",
+      "qty_per_primary": 0.7,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 10,
+        "low": 8,
+        "likely": 10,
+        "high": 14,
+        "output_per_day": 4.8,
+        "output_unit": "t/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Crane Operator",
+          "count": 1
+        },
+        {
+          "trade": "Rigger / Banksman",
+          "count": 1
+        },
+        {
+          "trade": "Steel Erector",
+          "count": 3
+        },
+        {
+          "trade": "Foreman",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile / crawler crane",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Rigging & lifting gear",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "MEWP / access equipment",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "h/t"
+        }
+      ],
+      "material": [
+        {
+          "name": "Erection bolts / drift pins",
+          "qty_per_unit": 3,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Shims / packs",
+          "qty_per_unit": 1,
+          "unit": "set/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - primary frame erection with a single crane crew",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "columns, main beams and trusses of medium weight — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "secondary_erection",
+      "name": "Secondary steel erection (bracing/purlins/girts)",
+      "unit": "ton",
+      "qty_per_primary": 0.3,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 18,
+        "low": 14,
+        "likely": 18,
+        "high": 26,
+        "output_per_day": 2.22,
+        "output_unit": "t/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Crane Operator",
+          "count": 1
+        },
+        {
+          "trade": "Rigger / Banksman",
+          "count": 1
+        },
+        {
+          "trade": "Steel Erector",
+          "count": 2
+        },
+        {
+          "trade": "Foreman",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane (shared)",
+          "basis": "utilization",
+          "value": 0.4,
+          "unit": "h/t"
+        },
+        {
+          "name": "MEWP / access equipment",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Erection bolts / fixings",
+          "qty_per_unit": 8,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Sag rods / ties (consumables)",
+          "qty_per_unit": 1,
+          "unit": "set/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - light piece-heavy secondary steel erection",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "bracing, purlins, girts and light secondary members — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.terminations.mv_termination",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Terminations",
+  "item": "MV Cable Terminations",
+  "aliases": [
+    "mv termination",
+    "heat shrink termination",
+    "cold shrink termination",
+    "11kv termination",
+    "cable jointing"
+  ],
+  "project_types": [
+    "Industrial",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Data Center",
+    "Commercial"
+  ],
+  "primary_unit": "no",
+  "why": "Specialist MV cable end preparation and termination kit (heat/cold shrink, stress control) at switchgear/transformer; slow, single-jointer task.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Indoor 11kV/33kV termination kit per cable end",
+    "Certified jointer",
+    "Clean, controlled environment"
+  ],
+  "exclusions": [
+    "MV cable pulling",
+    "VLF / HV testing",
+    "Straight joints (separate)",
+    "Equipment install"
+  ],
+  "components": [
+    {
+      "component_id": "termination",
+      "name": "MV cable end preparation + termination kit",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 12.3,
+        "low": 8,
+        "likely": 12.3,
+        "high": 20,
+        "output_per_day": 1.3,
+        "output_unit": "ends/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Cable Jointer",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hydraulic crimper (heavy)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Hot air gun / gas torch",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Torque wrench set",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Insulation tester / megger",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "MV termination kit",
+          "qty_per_unit": 1,
+          "unit": "no/end"
+        },
+        {
+          "name": "Lug set",
+          "qty_per_unit": 1,
+          "unit": "set/end"
+        },
+        {
+          "name": "Stress control / mastic",
+          "qty_per_unit": 1,
+          "unit": "set/end"
+        },
+        {
+          "name": "Cleaning / abrasive materials",
+          "qty_per_unit": 1,
+          "unit": "set/end"
+        },
+        {
+          "name": "Earth braid / constant force spring",
+          "qty_per_unit": 1,
+          "unit": "set/end"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — MV termination per cable end (specialist jointer)",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "11kV/33kV indoor heat/cold-shrink terminations — validate with your XER to promote"
+      }
+    }
+  ]
+}

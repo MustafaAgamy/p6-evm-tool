@@ -1,0 +1,101 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "instrumentation.testing_commissioning.loop_check.loop_checking",
+  "discipline": "Instrumentation",
+  "work_type": "Testing & Commissioning",
+  "system": "Instrumentation",
+  "item": "Instrument Loop Checking",
+  "aliases": [
+    "loop check",
+    "loop test",
+    "instrument loop check",
+    "DCS loop check"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "loop",
+  "why": "Each instrument loop is verified field-to-control-system (signal injection, DCS/PLC readback, valve/actuator stroke) before pre-commissioning; a well-defined per-loop activity needing coordinated field and control-room resources.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Instruments installed, calibrated and powered",
+    "DCS/PLC database loaded and control room manned"
+  ],
+  "exclusions": [
+    "Instrument calibration (separate)",
+    "Fault-finding/rework",
+    "Waiting for DCS graphics/database fixes"
+  ],
+  "components": [
+    {
+      "component_id": "loop_check",
+      "name": "Field-to-control-system loop check",
+      "unit": "loop",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 2,
+        "low": 1.5,
+        "likely": 2,
+        "high": 3,
+        "output_per_day": 8,
+        "output_unit": "loop/gang·day"
+      },
+      "gang": [
+        {
+          "trade": "Instrument Technician",
+          "count": 1
+        },
+        {
+          "trade": "Commissioning Engineer",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Multi-function process calibrator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "HART communicator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Two-way radios (pair)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Loop check sheets / consumables",
+          "qty_per_unit": 1,
+          "unit": "no/loop"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry standard norm — instrument loop check with field + control-room team",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "analogue/digital I/O loops with field device and DCS/PLC readback — validate with your XER to promote"
+      }
+    }
+  ]
+}
