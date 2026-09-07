@@ -20,7 +20,7 @@ export const SHORTCUTS = [
   { id: 'excel',           ctrl: true,  key: 'e',      keys: ['Ctrl', 'E'], label: 'Export report to Excel' },
   { id: 'guide',           ctrl: true,  key: 'f',      keys: ['Ctrl', 'F'], label: 'Search the feature guide' },
   { id: 'cycleAppearance', ctrl: true,  key: 'd',      keys: ['Ctrl', 'D'], label: 'Cycle appearance mode (all 6)' },
-  { id: 'help',            ctrl: false, key: 'f1',     keys: ['F1'],        label: 'Open Help Center' },
+  { id: 'help',            ctrl: true,  key: '/',      keys: ['Ctrl', '/'], label: 'Open Help Center' },
   { id: 'close',           ctrl: false, key: 'escape', keys: ['Esc'],       label: 'Close menu / panel' },
 ];
 
