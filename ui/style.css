@@ -2259,9 +2259,24 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .mb-brand { font-weight: 800; font-size: 14px; letter-spacing: -0.02em; color: var(--text); margin-right: 16px; white-space: nowrap; }
 .menu { padding: 5px 11px; border-radius: 7px; font-size: 13px; color: var(--ink-soft); cursor: default; font-weight: 500; user-select: none; }
 .menu:hover, .menu.open { background: var(--accent-soft); color: var(--text); }
-.mb-right { margin-left: auto; display: flex; gap: 6px; }
-.mb-right .wd { width: 11px; height: 11px; border-radius: 50%; }
-.wd.r { background: #e0655a; } .wd.y { background: #e0b23f; } .wd.g { background: #4fb06a; }
+.mb-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+/* Schedule-health status light: dim/neutral before import, lit + labelled once a
+   schedule is loaded. Colour reuses the app's RAG tokens so it matches all six
+   appearance modes; the SPI/label logic lives in render.js updateStatusLight(). */
+.shl { display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px;
+       border-radius: 20px; font-size: 12px; font-weight: 600; cursor: default;
+       border: 1px solid var(--border); background: var(--card-bg); }
+.shl-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.shl-txt { color: var(--ink-soft); white-space: nowrap; }
+.shl.neutral .shl-dot { background: var(--muted); }   .shl.neutral .shl-txt { color: var(--muted); }
+.shl.green .shl-dot { background: var(--success); box-shadow: 0 0 8px var(--success); animation: shl-breathe 2.6s ease-in-out infinite; }
+.shl.green .shl-txt { color: var(--success); }
+.shl.amber .shl-dot { background: var(--warning); box-shadow: 0 0 8px var(--warning); animation: shl-breathe 2.6s ease-in-out infinite; }
+.shl.amber .shl-txt { color: var(--warning); }
+.shl.red   .shl-dot { background: var(--danger);  box-shadow: 0 0 8px var(--danger);  animation: shl-breathe 2.6s ease-in-out infinite; }
+.shl.red   .shl-txt { color: var(--danger); }
+@keyframes shl-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) { .shl-dot { animation: none !important; } }
 
 /* Menu dropdowns (rendered into #menu-layer, positioned fixed) */
 #menu-layer { position: fixed; inset: 0; pointer-events: none; z-index: 200; }

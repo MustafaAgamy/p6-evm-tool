@@ -13,6 +13,36 @@ const KPI_TOOLTIPS = {
   'CPI':           'Cost Performance Index: Earned Value ÷ Actual Cost',
 };
 
+// Menu-bar schedule-health light. Dim/neutral before import; lit + labelled once a
+// schedule is loaded. Colour reuses the tested SPI buckets (kpiColor(...,'index'):
+// <0.85 red · <1.0 amber · else green) and the delay-sign convention — a late
+// forecast finish (delay > 0) never shows green. Tooltip carries the actual numbers.
+export function updateStatusLight(result) {
+  const el = document.getElementById('status-light');
+  if (!el) return;
+  const spi   = result ? result.spi : null;
+  const delay = result ? result.delay_days : null;
+  let cls, label, tip;
+  if (!result || spi == null) {
+    cls = 'neutral';
+    label = 'No schedule';
+    tip = 'No schedule imported yet — import a P6 file to see its status';
+  } else {
+    const rank = { green: 0, amber: 1, red: 2 };
+    const spiCls = kpiColor(spi, 'index').replace('color-', '');   // red | amber | green
+    let c = (spiCls in rank) ? spiCls : 'amber';
+    if (delay != null && delay > 0 && rank[c] < rank.amber) c = 'amber';  // late finish → at least At Risk
+    cls = c;
+    label = c === 'green' ? 'On Track' : c === 'amber' ? 'At Risk' : 'Behind';
+    const dtxt = delay == null ? '' : delay > 0 ? ` · ${delay}d behind` : delay < 0 ? ` · ${-delay}d ahead` : ' · on time';
+    tip = `${label} — SPI ${spi.toFixed(2)}${dtxt}`;
+  }
+  el.className = `shl ${cls}`;
+  el.dataset.tooltip = tip;
+  const txt = el.querySelector('.shl-txt');
+  if (txt) txt.textContent = label;
+}
+
 export function setLoading(active) {
   document.getElementById('browse-btn')?.classList.toggle('hidden', active);
   document.getElementById('browse-spinner')?.classList.toggle('hidden', !active);
@@ -56,6 +86,7 @@ export function loadAnother() {
   state.aiReferenceName    = null;
   state.constructReport    = null;
   state.constructForcedType = null;
+  updateStatusLight(null);   // back to import → status light returns to "No schedule"
 }
 
 export function renderResults(result, filePath, { previousImport = null } = {}) {
@@ -85,6 +116,7 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
 
   document.getElementById('import-section')?.classList.add('hidden');   // Aurora+: landing gives way to results
   document.getElementById('results-section').classList.remove('hidden');
+  updateStatusLight(result);   // light up the menu-bar schedule-health light (covers import + open-recent)
 }
 
 export function renderHistory(history) {

@@ -26,7 +26,11 @@
     <div class="menu" data-menu="analysis">Analysis</div>
     <div class="menu" data-menu="tools">Tools</div>
     <div class="menu" data-menu="help">Help</div>
-    <div class="mb-right"><span class="wd r"></span><span class="wd y"></span><span class="wd g"></span></div>
+    <div class="mb-right">
+      <span class="shl neutral" id="status-light" data-tooltip="No schedule imported yet — import a P6 file to see its status">
+        <span class="shl-dot"></span><span class="shl-txt">No schedule</span>
+      </span>
+    </div>
   </div>
 
   <div class="appmain navhidden">
@@ -63,7 +67,7 @@
         <div class="aurora-empty" id="drop-strip">
           <div class="ae-ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg></div>
           <h1 class="ae-title">Import a P6 schedule to begin</h1>
-          <p class="ae-sub">Controlyx reads a Primavera P6 file — an XER or XML export. Nothing is analysed until you pick a module and run it.</p>
+          <p class="ae-sub">Controlyx reads a Primavera P6 file — an XER or XML export. Nothing is analysed until you import a Primavera P6 file, then pick a module and run it.</p>
           <button class="ae-drop" id="browse-btn">
             <span class="ae-dz"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg></span>
             <b>Pick a P6 file (XER or XML) — or drag it here</b>

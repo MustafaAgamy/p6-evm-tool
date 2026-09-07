@@ -8,7 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased]
 
 ### Added — Branded startup splash & feature-open reveal
-- **A ~13-second Controlyx 2026 startup splash** plays when the app opens: a schedule builds, a glowing critical path rises, and it resolves into the Controlyx 2026 mark and the **"Project Control Intelligence Platform"** wordmark (with a small **"for Primavera P6 · XER & XML"** line) before lifting away to reveal the app. A **Skip** button is always available, and the splash never blocks a slow start. This is now a single opening sequence — it replaces the earlier separate logo splash.
+- **A ~13-second Controlyx 2026 startup splash** plays when the app opens: a schedule builds, a glowing critical path rises, and it resolves into the Controlyx 2026 mark and the **"Project Control Intelligence Platform"** wordmark (with a small **"for Primavera P6 · XER & XML"** line) before lifting away to reveal the app. The splash plays in full and never blocks a slow start. This is now a single opening sequence — it replaces the earlier separate logo splash.
 - **Opening a feature plays a short branded reveal** — pressing **Run** plays a brief animation (an accent scan sweeping the schedule and critical path, with the feature's name and a progress bar); the results appear the **instant the bar reaches 100%**, with no wait afterwards.
 - Both respect the system "reduce motion" accessibility setting.
 
@@ -22,6 +22,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - The **Analysis** menu is now a grouped, cascading **"Choose a module"** that mirrors the Project Navigator — each group (Project Overview, Schedule Quality, Progress & Performance, Compare & Claims, Calendars & Weather, Reports & Dashboards) fans out to its features, so you can open any module straight from the menu bar.
 - The **Project Navigator now starts hidden** on launch for a cleaner first view; the ☰ button shows or hides it, and its scrollbar now matches the dark sidebar.
 - The import prompt now reads **"Pick a P6 file (XER or XML)"**.
+
+### Added — Schedule-health status light
+- The three unlabelled colour dots at the top-right of the menu bar are now a **schedule-health status light**. Before you import anything it sits quietly as a grey **"No schedule"**; once a schedule is loaded it lights up as **On Track** (green), **At Risk** (amber), or **Behind** (red), read from the schedule's SPI — SPI ≥ 1.00 is On Track, 0.85–0.99 is At Risk, below 0.85 is Behind — and it never shows green while the forecast finish is late (a positive delay forces at least At Risk). Hovering shows the actual SPI and how many days ahead/behind. The colours follow the active appearance mode.
+
+### Changed — App window & import copy
+- **The app now opens maximised** instead of the small default window.
+- The import screen's sub-line now spells out the order: *"Nothing is analysed until you import a Primavera P6 file, then pick a module and run it."*
+
+### Fixed
+- **Keyboard shortcuts now work** — Ctrl+O (import), Ctrl+Enter (Run), Ctrl+P / Ctrl+S (export PDF), Ctrl+F (feature guide), Esc (close menus).
+- **Back to the import screen shows only the import screen** — the Recent Projects and Knowledge Base pages no longer trail beneath it.
+- The startup splash now **plays in full** — the Skip option was removed so the opening presentation always shows.
 
 ## [v2.2.0] - 2026-09-06
 
