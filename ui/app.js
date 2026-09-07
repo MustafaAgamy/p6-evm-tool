@@ -24,6 +24,7 @@ import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
 import { openHelp }                              from './modules/help.js';
+import { SHORTCUTS }                             from './modules/shortcuts.js';
 import { playBoot }                            from './modules/boot.js';
 import { playFeatureReveal }                   from './modules/featurereveal.js';
 
@@ -381,21 +382,35 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.addEventListener('click', (e) => { if (!e.target.closest('#menubar') && !e.target.closest('#menu-layer')) closeMenus(); });
 
-  // ── Keyboard shortcuts (#08) — the set listed in Help ▸ Keyboard Shortcuts ────
+  // ── Keyboard shortcuts (#08) — driven entirely by the SHORTCUTS registry, so the
+  //    Help ▸ Keyboard Shortcuts list always matches what actually fires. Add or
+  //    change a shortcut in ui/modules/shortcuts.js and wire its id below once.
+  const SHORTCUT_ACTIONS = {
+    import: () => triggerBrowse(),                                       // Import a schedule
+    run:    () => { const g = document.getElementById('feature-gate');    // Run the selected feature
+      const r = g && !g.classList.contains('hidden') ? g.querySelector('.fg-run') : null; if (r) r.click(); },
+    pdf:    () => runReport('pdf'),                                       // Print / save as PDF
+    excel:  () => runReport('xls'),                                       // Export the report to Excel
+    guide:  () => { openHelp('feature-guide'); setTimeout(() => document.getElementById('hc-fg-search')?.focus(), 80); },
+    cycleAppearance: () => { const sel = document.getElementById('report-appearance');   // Cycle all 6 appearance modes
+      if (sel && sel.options.length) {
+        const cur = document.documentElement.getAttribute('data-appearance') || sel.value || 'light';
+        let idx = Array.from(sel.options).findIndex(o => o.value === cur);
+        if (idx < 0) idx = 0;
+        sel.value = sel.options[(idx + 1) % sel.options.length].value;   // next mode, wrapping round
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      } },
+    help:   () => openHelp('getting-started'),                           // Open the Help Center
+    close:  () => closeMenus(),                                          // Close panel / cancel (Help handles its own Esc)
+  };
   document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && !e.altKey && !e.metaKey) {
-      const k = e.key.toLowerCase();
-      if (k === 'o')          { e.preventDefault(); triggerBrowse(); }                                  // Import a schedule
-      else if (k === 'enter') { e.preventDefault(); const g = document.getElementById('feature-gate');   // Run the selected feature
-        const r = g && !g.classList.contains('hidden') ? g.querySelector('.fg-run') : null; if (r) r.click(); }
-      else if (k === 'p')     { e.preventDefault(); runReport('pdf'); }                                  // Print / export PDF
-      else if (k === 's')     { e.preventDefault(); runReport('pdf'); }                                  // Save report (as PDF)
-      else if (k === 'f')     { e.preventDefault(); openHelp('feature-guide'); setTimeout(() => document.getElementById('hc-fg-search')?.focus(), 80); }  // Search the guide
-      else if (k === 'd')     { e.preventDefault(); const sel = document.getElementById('report-appearance');  // Toggle light / dark
-        if (sel) { const cur = document.documentElement.getAttribute('data-appearance') || 'light'; sel.value = (cur === 'dark' ? 'light' : 'dark'); sel.dispatchEvent(new Event('change', { bubbles: true })); } }
-      return;
-    }
-    if (e.key === 'Escape' || e.key === 'Esc') { closeMenus(); }   // Close panel / cancel (Help handles its own Esc)
+    if (e.altKey || e.metaKey) return;                                   // no Alt/Meta shortcuts are defined
+    const k = e.key.toLowerCase();
+    const sc = SHORTCUTS.find(s => !!s.ctrl === e.ctrlKey && s.key === k);
+    const run = sc && SHORTCUT_ACTIONS[sc.id];
+    if (!run) return;
+    e.preventDefault();
+    run();
   });
 
   // ── Navigator collapse toggle ───────────────────────────────────────────────
