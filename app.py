@@ -72,7 +72,8 @@ if __name__ == '__main__':
         f'http://localhost:{port}/',
         js_api=api,
         width=1100,
-        height=720,
+        height=720,          # restore-down size (window opens maximized)
         min_size=(800, 550),
+        maximized=True,       # open maximized by default, not the small default window
     )
     webview.start()
