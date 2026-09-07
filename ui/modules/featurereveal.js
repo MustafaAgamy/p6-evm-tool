@@ -11,9 +11,12 @@ const MARK = 'M4 19V5M4 15l5-5 4 3 7-8';
 function injectCss() {
   if (injected) return; injected = true;
   const css = `
+  /* Opaque (mode-aware) so the results rendered UNDERNEATH at t>=0.62 stay fully
+     hidden until the bar hits 100% — then the overlay lifts to reveal them. A
+     translucent overlay used to let results show through before 100% (bug). */
   .fr-ov{position:absolute; inset:0; z-index:60; display:grid; place-items:center; opacity:0;
-    background:rgba(238,242,247,.66); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
-    transition:opacity .28s ease; font-family:"Segoe UI",system-ui,-apple-system,sans-serif;}
+    background:var(--bg); transition:opacity .18s ease;
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;}
   .fr-ov.in{opacity:1;} .fr-ov.out{opacity:0;}
   .fr-card{width:min(400px,86%); background:#fff; border:1px solid #e2e8f0; border-radius:16px;
     box-shadow:0 24px 60px -24px rgba(15,23,42,.4); padding:20px 22px 18px;}
@@ -113,7 +116,7 @@ export function playFeatureReveal(host, opts) {
     setTimeout(() => {
       if (ov.parentNode) ov.parentNode.removeChild(ov);
       if (prevPos === 'static') host.style.position = '';
-    }, 220);
+    }, 190);
   }
 
   if (reduce) { render(1); fireOnce(); setTimeout(finish, 120); return; }
