@@ -103,25 +103,29 @@ export function playFeatureReveal(host, opts) {
     if (st1.textContent !== s) { st1.textContent = s; st2.textContent = s; }
   }
 
-  let raf = null, start = null, finished = false;
+  let raf = null, start = null, finished = false, onDoneFired = false;
+  function fireOnce() { if (!onDoneFired) { onDoneFired = true; try { onDone(); } catch (e) {} } }
   function finish() {
     if (finished) return; finished = true;
     if (raf) cancelAnimationFrame(raf);
+    fireOnce();                                   // ensure results are rendered by now
     ov.classList.remove('in'); ov.classList.add('out');
     setTimeout(() => {
       if (ov.parentNode) ov.parentNode.removeChild(ov);
       if (prevPos === 'static') host.style.position = '';
-    }, 300);
-    try { onDone(); } catch (e) {}
+    }, 220);
   }
 
-  if (reduce) { render(1); setTimeout(finish, 180); return; }
+  if (reduce) { render(1); fireOnce(); setTimeout(finish, 120); return; }
   render(0);
   function step(ts) {
     if (finished) return;
     if (start == null) start = ts;
     const t = (ts - start) / DUR;
     render(t);
+    // Render the results UNDER the overlay a touch before the bar completes, so the moment
+    // it hits 100% the overlay lifts to reveal ready results — no wait after 100% (issue #05).
+    if (t >= 0.62) fireOnce();
     if (t < 1) raf = requestAnimationFrame(step); else finish();
   }
   raf = requestAnimationFrame(step);

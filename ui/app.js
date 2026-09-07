@@ -23,6 +23,7 @@ import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
 import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
+import { openHelp }                              from './modules/help.js';
 import { playBoot }                            from './modules/boot.js';
 import { playFeatureReveal }                   from './modules/featurereveal.js';
 
@@ -256,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     view:    [['Show / hide navigator','nav-toggle']],
     analysis:[['Choose module…','showchooser'], ['Back to import','load-another']],
     tools:   [['Knowledge Base','kb']],
-    help:    [['About Controlyx 2026','about']],
+    help:    [['Getting started','help-start'], ['Feature guide — what each needs','help-features'], ['Keyboard shortcuts','help-keys'], ["What's new",'help-news'], ['sep'], ['Contact & support','help-contact'], ['About Controlyx','help-about']],
   };
   const menubar = document.getElementById('menubar');
   const menuLayer = document.getElementById('menu-layer');
@@ -325,9 +326,28 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (cmd === 'recent')      { exitDatabase(); showRecent(); setCrumb('recent'); markNav('recent'); }
     else if (cmd === 'kb')          { exitRecent(); showDatabase(); setCrumb('kb'); markNav('kb'); }
     else if (cmd === 'showchooser') { if (state.currentResult) { document.getElementById('results-section').classList.remove('hidden'); showChooser(); } }
-    else if (cmd === 'about')       showError('Controlyx 2026 — Primavera P6 schedule analysis. Import a P6 XML/XER, pick a module from the navigator, review results, export.');
+    else if (cmd === 'help-start')    openHelp('getting-started');
+    else if (cmd === 'help-features') openHelp('feature-guide');
+    else if (cmd === 'help-keys')     openHelp('shortcuts');
+    else if (cmd === 'help-news')     openHelp('whats-new');
+    else if (cmd === 'help-contact')  openHelp('contact');
+    else if (cmd === 'help-about')    openHelp('about');
     else if (cmd === 'exit')        { try { window.pywebview?.api?.quit?.(); } catch (e) {} }
   }
+  // Open a module chosen from the menu-bar Analysis cascade (mirrors a navigator click).
+  function openFeatureById(id) {
+    if (!state.currentResult) {
+      showError('Import a P6 schedule first, then choose a module.');
+      document.getElementById('import-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    exitDatabase(); exitRecent();
+    document.getElementById('import-section')?.classList.add('hidden');
+    document.getElementById('results-section').classList.remove('hidden');
+    openView(id); setCrumb(id); markNav(id);
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   menubar.addEventListener('click', (e) => {
     const m = e.target.closest('.menu'); if (!m) return;
     const key = m.dataset.menu;
@@ -336,6 +356,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const rect = m.getBoundingClientRect();
     const d = document.createElement('div'); d.className = 'mdrop';
     d.style.left = rect.left + 'px'; d.style.top = (rect.bottom - 2) + 'px';
+    if (key === 'analysis') {
+      // Grouped, cascading "Choose a module" — same groups and order as the Project Navigator.
+      d.classList.add('mdrop-cascade');
+      const groups = NAV.filter(s => s.group && s.group !== 'Library');
+      d.innerHTML =
+        '<div class="mdlead">Choose a module</div>' +
+        groups.map(g =>
+          `<div class="mgrp"><span class="mgt">${g.group}</span><span class="mcar">›</span>` +
+            `<div class="mfly"><div class="mflh">${g.group}</div>` +
+              g.items.map(it => `<button class="mfitem" data-nav="${it[0]}">${it[1]}</button>`).join('') +
+            '</div></div>').join('') +
+        '<div class="mdsep"></div>' +
+        '<button class="mditem" data-cmd="load-another">Back to import screen</button>';
+      menuLayer.appendChild(d);
+      d.querySelectorAll('.mfitem').forEach(b => b.addEventListener('click', () => { const id = b.dataset.nav; closeMenus(); openFeatureById(id); }));
+      d.querySelectorAll('.mditem').forEach(b => b.addEventListener('click', () => { const c = b.dataset.cmd; closeMenus(); if (c) runMenuCmd(c); }));
+      return;
+    }
     d.innerHTML = (MENUS[key] || []).map(it =>
       it[0] === 'sep' ? '<div class="mdsep"></div>' : `<button class="mditem" data-cmd="${it[1]}">${it[0]}</button>`).join('');
     menuLayer.appendChild(d);
@@ -354,6 +392,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const path = await window.pywebview.api.choose_file();
     if (path) importFile(path);
   });
+  // Change file (#04) — swap a mistakenly-imported XER/XML without restarting.
+  document.getElementById('change-file-btn')?.addEventListener('click', triggerBrowse);
 
   document.getElementById('error-close').addEventListener('click', clearError);
   // "Load another file" is a single global action (File ▸ Load another file / Analysis ▸ Back

@@ -186,10 +186,17 @@ body {
   from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.file-info-bar {
-  font-size: 12px; color: var(--muted);
+.file-info-row {
+  display: flex; align-items: center; gap: 12px;
   padding-bottom: 12px; border-bottom: 1px solid var(--border);
 }
+.file-info-bar { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); }
+.change-file-btn {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; color: var(--accent); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 12px; font: 600 12px/1 inherit; cursor: pointer;
+}
+.change-file-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
 
 /* KPI tiles */
 .kpi-row { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -2267,6 +2274,30 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
   color: var(--text); font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 7px; cursor: pointer; }
 .mditem:hover { background: var(--accent); color: #fff; }
 .mdsep { height: 1px; background: var(--border); margin: 5px 6px; }
+
+/* Analysis menu — grouped, cascading "Choose a module" (mirrors the Project Navigator) */
+.mdrop-cascade { min-width: 250px; }
+.mdlead { font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding: 7px 10px 5px; }
+.mgrp { position: relative; display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text); }
+.mgrp .mgt { flex: 1; }
+.mgrp .mcar { color: var(--muted); font-size: 13px; line-height: 1; }
+.mgrp:hover { background: var(--accent-soft); }
+.mgrp:hover .mcar { color: var(--accent); }
+.mfly { position: absolute; left: calc(100% - 4px); top: -6px; display: none; z-index: 1;
+  min-width: 234px; padding: 6px; background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 24px 60px -28px rgba(8,15,35,0.55); }
+.mgrp:hover .mfly { display: block; }
+.mflh { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding: 6px 10px 5px; }
+.mfitem { display: block; width: 100%; text-align: left; border: 0; background: transparent;
+  color: var(--text); font: inherit; font-size: 12.5px; padding: 8px 10px; border-radius: 7px; cursor: pointer; }
+.mfitem:hover { background: var(--accent); color: #fff; }
+
+/* Project Navigator scrollbar — matches the dark sidebar (slim, translucent thumb, no track) */
+.tree { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.20) transparent; }
+.tree::-webkit-scrollbar { width: 10px; }
+.tree::-webkit-scrollbar-track { background: transparent; }
+.tree::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 6px; border: 3px solid transparent; background-clip: padding-box; }
+.tree::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); background-clip: padding-box; }
 
 /* App body: navigator | main */
 .appmain { flex: 1; display: grid; grid-template-columns: 232px 1fr; min-height: 0;
