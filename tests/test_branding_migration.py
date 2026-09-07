@@ -95,8 +95,9 @@ def test_report_footer_uses_brand_constant():
 def test_served_index_has_brand_splash(test_server):
     import urllib.request
     html = urllib.request.urlopen(f'http://localhost:{test_server}/').read().decode()
+    # The startup splash is now the single animated boot sequence (ui/modules/boot.js);
+    # index.html keeps a plain #brand-splash cover to prevent any app flash before it paints.
     assert 'id="brand-splash"' in html
-    assert '/ui/brand/controlyx-lockup-stacked.png' in html
 
 
 def test_brand_asset_served_as_png(test_server):
