@@ -5,7 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
-## [Unreleased]
+## [v2.4.0] - 2026-09-07
 
 ### Added — More keyboard shortcuts
 - **Ctrl+E exports the current report to Excel** (alongside Ctrl+P / Ctrl+S for PDF).
@@ -16,6 +16,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Fixed
 - **Keyboard shortcuts now actually fire.** They were doing nothing because the app window could open — or come back from a file dialog — with keyboard focus outside the page, so key presses never reached it. The app now claims keyboard focus on startup, when the splash lifts, and whenever the window is re-focused, and listens for shortcuts at the window level so they work regardless of which part of the screen has focus.
 - **The feature-open animation no longer reveals the results before the progress bar reaches 100%.** The loading overlay is now fully opaque, so results stay hidden until the bar completes and then appear instantly.
+
+### Changed
+- Help ▸ Contact & Support now states the team responds **within 2 days**.
 
 ## [v2.3.0] - 2026-09-07
 
