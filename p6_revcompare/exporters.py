@@ -50,6 +50,28 @@ def _overview(report):
     </tbody></table>{warn}'''
 
 
+def _revsnapshot(report):
+    """Rev.00 vs Rev.01 at a glance — including the data date each was measured from."""
+    r0, r1 = report['rev0'], report['rev1']
+    shift = (report.get('summary') or {}).get('finish_shift_days')
+    shift_txt = ('—' if shift is None else (f"+{shift}d" if shift > 0 else (f"{shift}d" if shift < 0 else '0d')))
+    dd0, dd1 = r0.get('data_date'), r1.get('data_date')
+    diff = bool(dd0 and dd1 and dd0 != dd1)
+    caution = ('<div class="snapcaution">⚠ Different data dates — variances mix the revision change with the elapsed period.</div>'
+               if diff else '')
+
+    def side(tag, r, cls):
+        return f'''<div class="snapside {cls}"><div class="snaptag">{_e(tag)}</div>
+          <div class="snapfile">{_e(r.get('file') or '—')}</div>
+          <div class="snapkv"><span>Data date</span><b>{_e(r.get('data_date') or '—')}</b></div>
+          <div class="snapkv"><span>Governing finish</span><b>{_e(r.get('finish') or '—')}</b></div>
+          <div class="snapkv"><span>Activities</span><b>{_e(r.get('activities'))}</b></div></div>'''
+
+    return f'''<div class="revsnap">{side('Rev.00 · Original', r0, 's0')}
+      <div class="snapmid"><div class="snapd">{_e(shift_txt)}</div><div class="snapdl">Finish slip</div></div>
+      {side('Rev.01 · Revised', r1, 's1')}</div>{caution}'''
+
+
 def _kpis(report):
     s = report['summary']
     def sgn(n, unit=''):
@@ -188,28 +210,70 @@ def _scope(report):
     if cons:
         _kl = {'added': 'Added', 'removed': 'Removed', 'type': 'Type changed', 'date': 'Date changed'}
         rows = ''.join(
-            f'<tr><td class="mono">{_e(c["activity_id"])}</td><td>{_e(c["name"])}</td>'
+            f'<tr>{_act_cell(c["name"], c["activity_id"])}'
             f'<td>{_e(_kl.get(c["kind"], c["kind"]))}{" · hard" if c.get("hard") else ""}</td>'
             f'<td>{_e(c["rev0"])}</td><td>{_e(c["rev1"])}</td></tr>' for c in cons[:20])
         out.append('<h3 style="margin-top:12px">Constraint changes</h3>'
-                   '<table class="grid"><thead><tr><th>Activity</th><th>Name</th><th>Change</th><th>Rev.00</th><th>Rev.01</th></tr></thead>'
+                   '<table class="grid"><thead><tr><th>Activity</th><th>Change</th><th>Rev.00</th><th>Rev.01</th></tr></thead>'
                    f'<tbody>{rows}</tbody></table>')
     return ''.join(out)
 
 
+def _act_cell(name, sub):
+    """Combined Activity cell — name on top, a small muted ID · WBS (or context) sub-line."""
+    sub_html = f'<div class="asub">{_e(sub)}</div>' if sub else ''
+    return f'<td><div class="aname">{_e(name)}</div>{sub_html}</td>'
+
+
+def _grp_subline(e):
+    """The muted sub-line under an activity name in the register (id · WBS / context)."""
+    kind = e.get('kind')
+    if kind == 'milestone':
+        return 'Finish milestone'
+    if kind == 'structure':
+        return ''
+    bits = [b for b in (e.get('activity_id'), e.get('wbs')) if b]
+    sub = ' · '.join(bits)
+    if kind == 'added':
+        return ('New · ' + sub) if sub else 'New in Rev.01'
+    if kind == 'removed':
+        return (sub + ' · removed in Rev.01') if sub else 'Removed in Rev.01'
+    return sub
+
+
+def _grp_change_lines(e):
+    """The per-change Rev.00 → Rev.01 lines for one grouped activity (removed→added paired)."""
+    out = []
+    for c in e.get('changes', []):
+        if c.get('removed') or c.get('added'):
+            left, right = c.get('removed'), c.get('added')
+        else:
+            left, right = c.get('rev0'), c.get('rev1')
+        dim = _e(c.get('dimension') or '')
+        if left and right:
+            body = f'<span class="c0">{_e(left)}</span> <b class="ar">→</b> <span class="c1">{_e(right)}</span>'
+        elif right:
+            body = f'<b class="ar">+</b> <span class="c1">{_e(right)}</span>'
+        elif left:
+            body = f'<span class="c0">{_e(left)}</span> <b class="ar">−</b>'
+        else:
+            body = f'<span class="muted">{_e(c.get("note") or "")}</span>'
+        out.append(f'<div class="chgline"><span class="cdim">{dim}</span> {body}</div>')
+    return ''.join(out) or '<span class="muted">—</span>'
+
+
 def _register(report):
     rows = ''
-    for row in report.get('register', []):
-        idt = (row.get('orig_id') or row['activity_id'])
-        idt = idt.replace('MS:', '').replace('SCOPE:', '')
-        rows += f'''<tr><td class="mono">{_e(idt)}</td><td>{_e(row['activity_name'])}</td>
-          <td>{_e(row['type_label'])}</td><td>{_e(row.get('rev0') or '—')}</td><td>{_e(row.get('rev1') or '—')}</td>
-          <td>{_e(row.get('change') or '')}</td>
-          <td class="{'imp-mat' if row['impact'] == 'material' else 'imp-min'}">{'Material' if row['impact'] == 'material' else 'Minor'}</td>
-          <td><span class="tag {_sev_cls(row['severity'])}">{_sev_label(row['severity'])}</span></td></tr>'''
+    for e in report.get('register_grouped', []):
+        badges = ' '.join(f'<span class="tag muted">{_e(t)}</span>' for t in e.get('type_labels', []))
+        rows += f'''<tr>{_act_cell(e['activity_name'], _grp_subline(e))}
+          <td>{badges}</td>
+          <td class="chg">{_grp_change_lines(e)}</td>
+          <td class="{'imp-mat' if e['impact'] == 'material' else 'imp-min'}">{'Material' if e['impact'] == 'material' else 'Minor'}</td>
+          <td><span class="tag {_sev_cls(e['severity'])}">{_sev_label(e['severity'])}</span></td></tr>'''
     if not rows:
         return '<p class="muted">No material changes detected between the two revisions.</p>'
-    return f'''<table class="grid reg"><thead><tr><th>Activity</th><th>Name</th><th>Type</th><th>Rev.00</th><th>Rev.01</th><th>Change</th><th>Impact</th><th>Severity</th></tr></thead><tbody>{rows}</tbody></table>'''
+    return f'''<table class="grid reg"><thead><tr><th>Activity</th><th>Changes</th><th>Rev.00 → Rev.01</th><th>Impact</th><th>Severity</th></tr></thead><tbody>{rows}</tbody></table>'''
 
 
 def _resources(report):
@@ -228,10 +292,10 @@ def _resources(report):
         rows = ''
         for c in cc[:25]:
             dstr = ('+' if c['delta'] > 0 else '') + f"{c['delta']:,}"
-            rows += (f'<tr><td class="mono">{_e(c["code"])}</td><td>{_e(c["name"])}</td>'
+            rows += (f'<tr>{_act_cell(c["name"], c["code"])}'
                      f'<td class="num">{_e(c["rev0"])}</td><td class="num">{_e(c["rev1"])}</td>'
                      f'<td class="num">{_e(dstr)}</td></tr>')
-        out.append('<h3>Budget cost by activity</h3><table class="grid"><thead><tr><th>Activity</th><th>Name</th>'
+        out.append('<h3>Budget cost by activity</h3><table class="grid"><thead><tr><th>Activity</th>'
                    '<th class="num">Rev.00</th><th class="num">Rev.01</th><th class="num">Δ</th></tr></thead>'
                    f'<tbody>{rows}</tbody></table>')
     ac = rc.get('assignment_changes') or []
@@ -239,7 +303,7 @@ def _resources(report):
         _kl = {'added': 'Added', 'removed': 'Removed', 'units': 'Units changed', 'rate': 'Rate changed'}
         rows = ''
         for a in ac[:25]:
-            rows += (f'<tr><td class="mono">{_e(a["code"])}</td><td>{_e(a["resource"])}</td>'
+            rows += (f'<tr>{_act_cell(a["name"], a["code"])}<td>{_e(a["resource"])}</td>'
                      f'<td>{_e(_kl.get(a["kind"], a["kind"]))}</td><td>{_e(a["rev0"])}</td><td>{_e(a["rev1"])}</td></tr>')
         out.append('<h3 style="margin-top:12px">Resource assignments</h3><table class="grid"><thead><tr><th>Activity</th>'
                    '<th>Resource</th><th>Change</th><th>Rev.00</th><th>Rev.01</th></tr></thead>'
@@ -281,7 +345,7 @@ def render_html(report, meta=None, sections=None, theme='light'):
     narrative = report.get('narrative', '')
     secs = [
         ('summary', 'Executive Summary',
-         _kpis(report) + '<div class="two"><div class="col"><h3>Change profile</h3>' + _profile(report)
+         _revsnapshot(report) + _kpis(report) + '<div class="two"><div class="col"><h3>Change profile</h3>' + _profile(report)
          + '</div><div class="col"><h3>Assessment</h3><p class="narr">' + _e(narrative) + '</p></div></div>'
          + '<h3>Key findings — material changes</h3>' + _findings(report), False),
         ('overview', 'Revision Overview', _overview(report), False),
@@ -372,4 +436,22 @@ table.dtl td { padding: 4px 9px; border-top: 1px solid var(--rpt-hair); } table.
 .ab { border: 1px solid var(--rpt-hair); border-radius: 7px; padding: 8px 10px; }
 .ab span { font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-accent); }
 .ab p { margin: 4px 0 0; font-size: 10px; line-height: 1.45; color: var(--rpt-ink-soft); }
+/* combined Activity cell (name on top, ID · WBS beneath) */
+.aname { font-weight: 700; font-size: 11px; }
+.asub { font-size: 9px; color: var(--rpt-muted); margin-top: 1px; }
+/* grouped register — per-change Rev.00 → Rev.01 lines stacked in one cell */
+td.chg { font-size: 10px; }
+.chgline { padding: 1px 0; line-height: 1.5; }
+.cdim { display: inline-block; min-width: 62px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-muted); }
+.chgline .c0 { color: var(--rpt-muted); } .chgline .c1 { color: var(--rpt-ink); font-weight: 600; }
+.reg .tag.muted { margin: 0 3px 2px 0; display: inline-block; }
+/* Executive-Summary revision snapshot — data date before & after */
+.revsnap { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; margin-bottom: 11px; border: 1px solid var(--rpt-edge); border-radius: 9px; overflow: hidden; }
+.snapside { padding: 9px 13px; } .snapside.s0 { border-left: 3px solid var(--rpt-muted); } .snapside.s1 { border-left: 3px solid var(--rpt-accent); }
+.snaptag { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-muted); } .snapside.s1 .snaptag { color: var(--rpt-accent); }
+.snapfile { font-weight: 700; font-size: 11px; margin: 3px 0 6px; }
+.snapkv { display: flex; justify-content: space-between; gap: 12px; font-size: 10px; padding: 2px 0; color: var(--rpt-muted); } .snapkv b { color: var(--rpt-ink); }
+.snapmid { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 14px; border-left: 1px solid var(--rpt-hair); border-right: 1px solid var(--rpt-hair); }
+.snapd { font-size: 17px; font-weight: 800; color: var(--rpt-bad); } .snapdl { font-size: 8.5px; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-muted); margin-top: 2px; }
+.snapcaution { background: var(--rpt-warn-bg); color: var(--rpt-warn); border-radius: 6px; padding: 5px 10px; font-size: 10px; margin-bottom: 10px; }
 '''

@@ -2715,6 +2715,10 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
   .rc-kpis { grid-template-columns: repeat(3, 1fr); }
   .rc-slots, .rc-split { grid-template-columns: 1fr; }
   .rc-analysis { grid-template-columns: 1fr 1fr; }
+  .rc-snap { grid-template-columns: 1fr; }
+  .rc-snapmid { flex-direction: row; gap: 14px; padding: 12px 0; }
+  .rc-snapmid .dd { margin-top: 0; }
+  .rc-cline { grid-template-columns: 110px 1fr; }
 }
 
 /* register filters */
@@ -2724,6 +2728,44 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-fchip.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .rc-fc { font-size: 10px; background: var(--bg); border-radius: 6px; padding: 1px 6px; }
 .rc-reg tr[hidden] { display: none; }
+
+/* Fix 1 — combined activity cell (register + Scope & Structure tables) */
+.rc-actcell { min-width: 0; }
+.rc-an { font-weight: 700; font-size: 12.5px; color: var(--text); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.rc-am { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+.rc-am b { color: var(--ink-soft); font-weight: 700; }
+.rc-newbadge { font-size: 9px; font-weight: 800; color: #fff; background: var(--success); border-radius: 5px; padding: 1px 6px; letter-spacing: .05em; }
+
+/* Fix 2 — per-change drawer lines (one row per activity; removed → added on one line) */
+.rc-cgrid { padding: 12px 15px; }
+.rc-cline { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 7px 0; border-top: 1px solid var(--hair); font-size: 12px; align-items: baseline; }
+.rc-cline:first-child { border-top: 0; }
+.rc-clk { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.rc-clv { color: var(--ink-soft); line-height: 1.55; }
+.rc-was { color: var(--muted); }
+.rc-now { color: var(--text); font-weight: 600; }
+
+/* Fix 3 — Revision Snapshot (data date before & after) */
+.rc-snap { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; align-items: stretch; }
+.rc-snapcol { padding: 4px 18px; }
+.rc-snapcol.r0 { border-left: 3px solid var(--muted); }
+.rc-snapcol.r1 { border-left: 3px solid var(--accent); }
+.rc-snaptag { font-size: 11px; font-weight: 800; letter-spacing: .03em; color: var(--muted); margin-bottom: 8px; }
+.rc-snapcol.r1 .rc-snaptag { color: var(--accent); }
+.rc-snapfile { font-weight: 700; font-size: 13px; margin-bottom: 10px; word-break: break-all; color: var(--text); }
+.rc-kv { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 5px 0; border-top: 1px dashed var(--hair); }
+.rc-kv .k { color: var(--muted); }
+.rc-kv .v { font-weight: 600; color: var(--text); }
+.rc-kv .v.hot { color: var(--danger); }
+.rc-snapmid { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 16px; min-width: 118px; text-align: center; }
+.rc-snapmid .d { font-size: 22px; font-weight: 800; line-height: 1; color: var(--muted); }
+.rc-snapmid .d.up { color: var(--danger); } .rc-snapmid .d.down { color: var(--success); } .rc-snapmid .d.zero { color: var(--muted); }
+.rc-snapmid .dl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 5px; }
+.rc-snapmid .dd { font-size: 11.5px; color: var(--muted); margin-top: 12px; line-height: 1.4; }
+.rc-snapmid .dd b { color: var(--text); }
+.rc-snapcaution { display: flex; align-items: center; gap: 8px; margin-top: 12px; background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); border-radius: 9px; padding: 8px 12px; font-size: 11.5px; }
+.rc-snapcaution svg { width: 14px; height: 14px; flex-shrink: 0; }
+.rc-snapnote { font-size: 11px; color: var(--muted); margin-top: 12px; font-style: italic; }
 
 /* Scope & Structure tab (slice 2) */
 .rc-tag.calendar { background: var(--accent-soft); color: var(--chart-5); }

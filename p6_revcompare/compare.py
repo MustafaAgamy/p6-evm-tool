@@ -332,6 +332,9 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
                                time_changes, crit0, crit1, cal, rev0, rev1c,
                                wbs_changes, calendar_changes, constraint_changes,
                                resource_changes)
+    # One-row-per-activity view of the register (presentation only — no number changes).
+    from p6_revcompare.grouping import group_register
+    register_grouped = group_register(register)
 
     # ── summary / profile / ledger / findings / narrative ───────────────────────
     gov0, gov1 = _governing_finish(rev0), _governing_finish(rev1c)
@@ -373,7 +376,8 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
                  'finish': _short(gov1)},
         'warnings': warnings,
         'summary': summary, 'profile': profile, 'ledger': ledger, 'findings': findings,
-        'register': register, 'critical_path': cp, 'sequence': sequences,
+        'register': register, 'register_grouped': register_grouped,
+        'critical_path': cp, 'sequence': sequences,
         'float_movement': floats, 'milestones': milestones, 'narrative': narrative,
         'wbs_changes': wbs_changes, 'calendar_changes': calendar_changes,
         'constraint_changes': constraint_changes, 'resource_changes': resource_changes,
@@ -536,8 +540,32 @@ def _build_register(match, matched, logic, sequences, milestones, floats, time_c
         imp, sev = SEV.classify('resource', magnitude=(1 if a['kind'] in ('added', 'removed', 'units') else 0))
         lbl = {'added': 'Resource added', 'removed': 'Resource removed',
                'units': 'Units changed', 'rate': 'Rate changed'}[a['kind']]
-        add(_row_direct(f"RES:{a['code']}:{a['resource']}", f"{a['name']} · {a['resource']}",
-                        'resource', a['rev0'], a['rev1'], lbl, imp, sev))
+        rrow = _row_direct(f"RES:{a['code']}:{a['resource']}", f"{a['name']} · {a['resource']}",
+                           'resource', a['rev0'], a['rev1'], lbl, imp, sev)
+        # keep the underlying activity + resource so grouping can pair removed→added on one line
+        rrow['activity_key'] = a['code']
+        rrow['resource_name'] = a['resource']
+        rrow['res_kind'] = a['kind']
+        rrow['act_name'] = a['name']
+        add(rrow)
+
+    # Tag every row with its grouping key + WBS so one-row-per-activity grouping
+    # (p6_revcompare.grouping) can fold an activity's changes together. Additive only —
+    # existing consumers ignore these fields.
+    code_wbs = {}
+    for a in list(data1.activities.values()) + list(data0.activities.values()):
+        c = a.get('id')
+        if c and a.get('wbs_path') and c not in code_wbs:
+            code_wbs[c] = a['wbs_path']
+    for row in rows:
+        if 'activity_key' not in row:
+            aid = row.get('activity_id') or ''
+            row['activity_key'] = None if aid.startswith('SCOPE:') else aid
+        ak = row.get('activity_key')
+        if ak and not str(ak).startswith(('MS:', 'CAL:', 'WBS:')) and 'wbs' not in row:
+            w = code_wbs.get(ak)
+            if w:
+                row['wbs'] = w
 
     rows.sort(key=SEV.rank_key)
     return rows

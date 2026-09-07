@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Revision — Clearer Results (mockup)</title>
+<style>
+:root{
+  --bg:#eef2f7; --card-bg:#ffffff; --border:#e2e8f0; --hair:#eef1f6;
+  --text:#1e293b; --ink-soft:#41506a; --muted:#64748b;
+  --accent:#2563eb; --accent-dark:#1d4ed8; --accent-soft:#dbe6ff;
+  --danger:#c02626; --danger-bg:#fadddd; --success:#15803d; --success-bg:#dcf3e4;
+  --warning:#b45309; --warning-bg:#fbeccf; --row-hover:rgba(0,0,0,.03);
+  --chart-4:#6b5bbd; --chart-5:#2f9c9c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif;}
+.wrap{max-width:1140px;margin:0 auto;padding:26px 22px 60px;}
+h1{font-size:22px;margin:0 0 3px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 22px;max-width:820px}
+.stage{margin:30px 0 10px;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);}
+.stage span{color:var(--muted);font-weight:700}
+.card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:16px 17px;margin-bottom:16px;}
+.card h3{margin:0 0 3px;font-size:14.5px;}
+.card h3 .n{font-size:11px;font-weight:600;color:var(--muted);margin-left:6px}
+.sec{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+
+/* fix / problem chips */
+.tagrow{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 14px}
+.pill{font-size:11px;font-weight:700;border-radius:8px;padding:4px 10px;display:inline-flex;gap:6px;align-items:center}
+.pill.bad{background:var(--danger-bg);color:var(--danger)}
+.pill.good{background:var(--success-bg);color:var(--success)}
+.callout{border-radius:10px;padding:9px 12px;font-size:11.5px;margin:0 0 12px;border:1px solid}
+.callout.bad{background:var(--danger-bg);border-color:#f2c9c9;color:#7c1d1d}
+.callout.good{background:var(--success-bg);border-color:#bfe6cd;color:#14532d}
+.label{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:6px;display:inline-block;margin-bottom:9px}
+.label.before{background:#f1f0ee;color:#71717a}
+.label.after{background:var(--accent);color:#fff}
+
+/* ── Revision snapshot (Exec Summary header) ── */
+.snap{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch}
+.snapcol{padding:4px 18px}
+.snapcol.r0{border-left:3px solid var(--muted);}
+.snapcol.r1{border-left:3px solid var(--accent);}
+.snaptag{font-size:11px;font-weight:800;letter-spacing:.03em;color:var(--muted);margin-bottom:8px}
+.snapcol.r1 .snaptag{color:var(--accent)}
+.snapfile{font-weight:700;font-size:13px;margin-bottom:10px;word-break:break-all}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;padding:5px 0;border-top:1px dashed var(--hair)}
+.kv .k{color:var(--muted)}
+.kv .v{font-weight:600}
+.kv .v.hot{color:var(--danger)}
+.snapmid{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 16px;min-width:118px;text-align:center}
+.snapmid .d{font-size:22px;font-weight:800;color:var(--danger);line-height:1}
+.snapmid .dl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:5px}
+.snapmid .dd{font-size:11.5px;color:var(--muted);margin-top:12px}
+.snapmid .dd b{color:var(--text)}
+.newbadge{font-size:9px;font-weight:800;color:#fff;background:var(--success);border-radius:5px;padding:1px 6px;margin-left:6px;letter-spacing:.05em;vertical-align:middle}
+
+/* ── tables ── */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:800;padding:9px 10px;border-bottom:1px solid var(--border);background:var(--bg)}
+td{padding:9px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+td.n,th.n{text-align:right}
+tr:hover td{background:var(--row-hover)}
+.mut{color:var(--muted)}
+.new{color:var(--text);font-weight:600}
+.aid{color:var(--ink-soft);font-size:11px}
+.tbl-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+
+/* activity cell (combined) */
+.act .an{font-weight:700}
+.act .am{font-size:10.5px;color:var(--muted);margin-top:1px}
+.act .am b{color:var(--ink-soft);font-weight:700}
+
+/* badges */
+.tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:7px;display:inline-flex;align-items:center;gap:4px;letter-spacing:.02em;background:var(--bg);color:var(--muted);margin:1px 3px 1px 0}
+.tag.added{background:var(--success-bg);color:var(--success)}
+.tag.removed{background:var(--danger-bg);color:var(--danger)}
+.tag.logic{background:var(--accent-soft);color:var(--accent)}
+.tag.sequence{background:var(--accent-soft);color:var(--chart-4)}
+.tag.milestone{background:var(--warning-bg);color:var(--warning)}
+.tag.criticality{background:var(--danger-bg);color:var(--danger)}
+.tag.resource{background:var(--accent-soft);color:var(--chart-5)}
+.tag.identity{background:var(--bg);color:var(--ink-soft);border:1px solid var(--border)}
+.sev{font-size:9.5px;font-weight:800;padding:2px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+.sev.crit{background:var(--danger-bg);color:var(--danger)}
+.sev.med{background:var(--accent-soft);color:var(--accent)}
+.sev.low{background:var(--bg);color:var(--muted)}
+.imp.material{color:var(--danger);font-weight:700;font-size:11.5px}
+.imp.minor{color:var(--muted);font-weight:600;font-size:11.5px}
+.arrow{color:var(--muted);padding:0 4px}
+.was{color:var(--muted)}
+.status{font-size:11px;color:var(--ink-soft)}
+
+/* expand row */
+.exp{color:var(--accent);font-weight:800;margin-right:5px;font-size:11px}
+.drawer td{background:#f8fafc;padding:0}
+.dgrid{padding:12px 14px}
+.drow{display:grid;grid-template-columns:130px 1fr;gap:10px;padding:6px 0;border-top:1px solid var(--hair);font-size:12px}
+.drow:first-child{border-top:0}
+.dk{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding-top:2px}
+.dv b{color:var(--text)}
+.rev0v{color:var(--muted)}
+.rev1v{color:var(--text);font-weight:600}
+.note{font-size:11px;color:var(--muted);margin-top:8px;font-style:italic}
+
+.small{font-size:11px;color:var(--muted)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Baseline Revision — clearer results</h1>
+  <p class="lead">Three fixes you asked for, shown on the real screens. Nothing about the analysis changes —
+    only how the results read. Light theme shown; all six appearance modes follow automatically.</p>
+
+  <div class="tagrow">
+    <span class="pill good">Fix 1 — Activity ID + Name in one cell</span>
+    <span class="pill good">Fix 2 — one row per activity (no repeats; removed → added together)</span>
+    <span class="pill good">Fix 3 — data date before / after in the summary</span>
+  </div>
+
+  <!-- ═══════════ FIX 3 — Executive Summary ═══════════ -->
+  <div class="stage">Fix 3 · Executive Summary <span>— a Revision Snapshot with the data date before &amp; after</span></div>
+
+  <div class="card">
+    <h3>Revision snapshot <span class="n">Rev.00 → Rev.01</span></h3>
+    <div class="sec">The two revisions at a glance — including the <b>data date</b> each was measured from (new).</div>
+    <div class="snap">
+      <div class="snapcol r0">
+        <div class="snaptag">Rev.00 · Original</div>
+        <div class="snapfile">Project_Baseline_Rev00.xer</div>
+        <div class="kv"><span class="k">Data date</span><span class="v">01 Mar 2025</span></div>
+        <div class="kv"><span class="k">Governing finish</span><span class="v">19 Dec 2026</span></div>
+        <div class="kv"><span class="k">Activities</span><span class="v">9</span></div>
+      </div>
+      <div class="snapmid">
+        <div class="d">+47d</div>
+        <div class="dl">Finish slip</div>
+        <div class="dd">Data date<br><b>unchanged</b></div>
+      </div>
+      <div class="snapcol r1">
+        <div class="snaptag">Rev.01 · Revised</div>
+        <div class="snapfile">Project_Baseline_Rev01.xer</div>
+        <div class="kv"><span class="k">Data date</span><span class="v">01 Mar 2025</span></div>
+        <div class="kv"><span class="k">Governing finish</span><span class="v hot">04 Feb 2027</span></div>
+        <div class="kv"><span class="k">Activities</span><span class="v">9</span></div>
+      </div>
+    </div>
+    <div class="note">When the two data dates differ, the middle shows the gap and a caution that date variances mix the
+      revision change with the elapsed period.</div>
+  </div>
+
+  <div class="card">
+    <h3>Comparison ledger <span class="n">clear Rev.00 / Rev.01 / Δ columns</span></h3>
+    <div class="callout bad">Before: values ran together — <b>“9&nbsp;9”</b>, <b>“3&nbsp;1”</b> — with no column headers, so which number is which revision wasn’t obvious.</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Measure</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Change</th></tr></thead>
+        <tbody>
+          <tr><td>Total activities</td><td class="n">9</td><td class="n">9</td><td class="n mut">0</td></tr>
+          <tr><td>New / removed activities</td><td class="n">1 new</td><td class="n">1 removed</td><td class="n mut">—</td></tr>
+          <tr><td>Modified · identity (ID) changes</td><td class="n">3 modified</td><td class="n">1 ID</td><td class="n mut">—</td></tr>
+          <tr><td>Logic / relationship changes</td><td class="n" colspan="2" style="text-align:center">+3 added · −3 removed · 1 type · 0 lag</td><td class="n new">7</td></tr>
+          <tr><td>Critical-path activities in / out</td><td class="n">4 in</td><td class="n">0 out</td><td class="n" style="color:var(--danger);font-weight:700">CP +47 d</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════ FIX 1 + 2 — Change Register ═══════════ -->
+  <div class="stage">Fix 1 &amp; 2 · Change Register <span>— combined Activity cell, one row per activity</span></div>
+
+  <div class="card">
+    <span class="label before">Before — today</span>
+    <div class="callout bad">
+      <b>Activity ID</b> and <b>Activity name</b> sit in two columns side by side (for a milestone they’re identical:
+      “Practical Completion | Practical Completion”). And <b>Steel Erection appears twice</b> — once for its logic
+      change, once for its criticality change — so the same activity repeats down the list.
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Activity ID</th><th>Activity name</th><th>Change type</th><th>Rev.00</th><th>Rev.01</th><th>Change</th><th>Severity</th></tr></thead>
+        <tbody>
+          <tr><td class="aid">Practical&nbsp;Completion</td><td><b>Practical Completion</b></td><td><span class="tag milestone">Milestone</span></td><td class="mut">19 Dec 2026</td><td class="new">04 Feb 2027</td><td>+47 d</td><td><span class="sev crit">Critical</span></td></tr>
+          <tr style="background:#fff5f5"><td class="aid">A2075</td><td><b>Steel Erection</b></td><td><span class="tag logic">Logic</span></td><td class="mut">A2050 FS</td><td class="new">A2050 SS</td><td>Type changed</td><td><span class="sev crit">Critical</span></td></tr>
+          <tr style="background:#fff5f5"><td class="aid">A2075</td><td><b>Steel Erection</b></td><td><span class="tag criticality">Criticality</span></td><td class="mut">TF 12 d</td><td class="new">TF 0 d</td><td>Became critical</td><td><span class="sev crit">Critical</span></td></tr>
+          <tr><td class="aid">removed</td><td><b>1 activities</b></td><td><span class="tag removed">Scope</span></td><td class="mut">Present in Rev.00</td><td class="new">—</td><td>Removed</td><td><span class="sev low">Info</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="label after">After — proposed</span>
+    <div class="callout good">
+      One <b>Activity</b> column: name on top, <b>ID · WBS</b> beneath. <b>One row per activity</b> — Steel Erection’s
+      two changes fold into a single row with both badges. Open a row to see every change as Rev.00 → Rev.01,
+      including any <b>removed → added</b> resource on one line.
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:34%">Activity</th><th>Changes</th><th>Rev.00 → Rev.01</th><th>Impact</th><th>Severity</th><th>Status</th></tr></thead>
+        <tbody>
+          <!-- milestone -->
+          <tr>
+            <td class="act"><div class="an">Practical Completion</div><div class="am"><b>MS · Finish milestone</b></div></td>
+            <td><span class="tag milestone">Milestone</span></td>
+            <td><span class="was">19 Dec 2026</span><span class="arrow">→</span><span class="new">04 Feb 2027</span> &nbsp;<b style="color:var(--danger)">+47 d</b></td>
+            <td><span class="imp material">Material</span></td>
+            <td><span class="sev crit">Critical</span></td>
+            <td class="status">Open</td>
+          </tr>
+          <!-- Steel Erection consolidated (was 2 rows) -->
+          <tr>
+            <td class="act"><div class="an"><span class="exp">▾</span>Steel Erection</div><div class="am"><b>A2075</b> · WBS 1.3 Superstructure</div></td>
+            <td><span class="tag logic">Logic</span><span class="tag criticality">Criticality</span></td>
+            <td>Link type FS→SS · became critical</td>
+            <td><span class="imp material">Material</span></td>
+            <td><span class="sev crit">Critical</span></td>
+            <td class="status">Open</td>
+          </tr>
+          <tr class="drawer"><td colspan="6"><div class="dgrid">
+            <div class="drow"><div class="dk">Logic</div><div class="dv"><span class="rev0v">A2050&nbsp;FS</span> <span class="arrow">→</span> <span class="rev1v">A2050&nbsp;SS</span> <span class="mut">(predecessor link changed)</span></div></div>
+            <div class="drow"><div class="dk">Criticality</div><div class="dv"><span class="rev0v">TF 12 d</span> <span class="arrow">→</span> <span class="rev1v">TF 0 d</span> <span class="mut">(became critical)</span></div></div>
+          </div></td></tr>
+          <!-- Resource swap example: removed -> added on ONE line -->
+          <tr>
+            <td class="act"><div class="an"><span class="exp">▾</span>Raft</div><div class="am"><b>A1300</b> · WBS 1.2 Substructure</div></td>
+            <td><span class="tag resource">Resource</span></td>
+            <td>Crane swap · gang re-sized</td>
+            <td><span class="imp minor">Minor</span></td>
+            <td><span class="sev med">Review</span></td>
+            <td class="status">Open</td>
+          </tr>
+          <tr class="drawer"><td colspan="6"><div class="dgrid">
+            <div class="drow"><div class="dk">Resource</div><div class="dv"><span class="tag removed">removed</span> Crawler Crane 50T <span class="arrow">→</span> <span class="tag added">added</span> Tower Crane TC-7 <span class="mut">(one activity, one line — not two rows)</span></div></div>
+            <div class="drow"><div class="dk">Resource units</div><div class="dv"><span class="rev0v">Labour gang · 8</span> <span class="arrow">→</span> <span class="rev1v">Labour gang · 12</span></div></div>
+          </div></td></tr>
+          <!-- added activity -->
+          <tr>
+            <td class="act"><div class="an">MEP Risers <span class="newbadge">NEW</span></div><div class="am"><b>A4400</b> · WBS 1.5 MEP</div></td>
+            <td><span class="tag added">Added</span></td>
+            <td class="mut">Not in Rev.00 <span class="arrow">→</span> <span class="new">present, on critical path</span></td>
+            <td><span class="imp material">Material</span></td>
+            <td><span class="sev crit">Critical</span></td>
+            <td class="status">Open</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <span>▾ open row = per-change detail</span>
+      <span>Badges = every change on that activity</span>
+      <span>Severity / Impact = worst across the activity’s changes</span>
+    </div>
+  </div>
+
+  <div class="card" style="background:#f8fafc">
+    <h3>Same treatment everywhere else</h3>
+    <div class="sec">The combined-cell + removed→added rule also cleans up the Scope&nbsp;&amp;&nbsp;Structure tab.</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:40%">Activity · Resource</th><th>Change</th><th>Rev.00 → Rev.01</th></tr></thead>
+        <tbody>
+          <tr><td class="act"><div class="an">Piling Rig Mobilisation</div><div class="am"><b>A1050</b> · Crawler Crane 50T</div></td>
+            <td><span class="tag resource">Rig replaced</span></td>
+            <td><span class="rev0v">Crawler Crane 50T</span> <span class="arrow">→</span> <span class="rev1v">Tower Crane TC-7</span></td></tr>
+          <tr><td class="act"><div class="an">Concrete Pour — Core</div><div class="am"><b>A1600</b> · Constraint</div></td>
+            <td><span class="tag identity">Constraint changed</span></td>
+            <td><span class="rev0v">Start On 12 May</span> <span class="arrow">→</span> <span class="rev1v">Start On 02 Jun</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

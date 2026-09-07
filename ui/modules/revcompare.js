@@ -176,6 +176,13 @@ function impPill(imp) {
 function typeTag(kind, label) {
   return `<span class="rc-tag ${kind}">${escapeHtml(label)}</span>`;
 }
+// Fix 1 — a combined activity cell: bold name on top, a muted `id · extra` sub-line
+// beneath. Used by the Scope & Structure resource / constraint / cost tables.
+function actCell(name, id, extra) {
+  const sub = [id ? `<b>${escapeHtml(String(id))}</b>` : '', extra ? escapeHtml(String(extra)) : '']
+    .filter(Boolean).join(' · ');
+  return `<td class="rc-actcell"><div class="rc-an">${escapeHtml(name != null && name !== '' ? String(name) : '—')}</div>${sub ? `<div class="rc-am">${sub}</div>` : ''}</td>`;
+}
 export function num(n, sign) {
   if (n == null) return '—';
   if (sign && n > 0) return `+${n}`;
@@ -194,6 +201,53 @@ function kpi(k, v, cls, d, dc) {
   return `<div class="rc-kpi"><div class="rc-k">${k}</div><div class="rc-v ${cls || ''}">${v}</div>${d ? `<div class="rc-dd ${dc || ''}">${d}</div>` : ''}</div>`;
 }
 
+function fmtDD(d) { return d != null && d !== '' ? escapeHtml(String(d)) : '—'; }
+
+// Fix 3 — a Revision Snapshot at the head of the Executive Summary: Rev.00 and Rev.01
+// side by side, each with file · data date · governing finish · activity count, the
+// finish slip in the middle, and a caution when the two data dates differ (variances
+// then mix the revision change with the elapsed period).
+function revSnapshot(r) {
+  const s = r.summary || {};
+  const dd0 = r.rev0.data_date, dd1 = r.rev1.data_date;
+  const bothDates = dd0 != null && dd1 != null && dd0 !== '' && dd1 !== '';
+  const sameDD = bothDates && String(dd0) === String(dd1);
+  const fs = s.finish_shift_days;
+  const fsCls = fs == null ? 'zero' : fs > 0 ? 'up' : fs < 0 ? 'down' : 'zero';
+  const fsText = fs == null ? '—' : `${fs > 0 ? '+' : ''}${fs}d`;
+  const ddMid = !bothDates ? 'not stated' : sameDD ? 'unchanged' : 'differ';
+  const caution = (bothDates && !sameDD)
+    ? `<div class="rc-snapcaution">${IC.warn} Different data dates — variances mix the revision change with the elapsed period.</div>`
+    : `<div class="rc-snapnote">Both revisions are measured from the same data date — the variances reflect the revision change alone.</div>`;
+  const act = (n) => n != null ? escapeHtml(String(n)) : '—';
+  return `
+    <div class="rc-card"><h3>Revision snapshot <span class="rc-n">Rev.00 → Rev.01</span></h3>
+      <div class="rc-sec">The two revisions at a glance — including the data date each was measured from</div>
+      <div class="rc-snap">
+        <div class="rc-snapcol r0">
+          <div class="rc-snaptag">Rev.00 · Original</div>
+          <div class="rc-snapfile">${escapeHtml(r.rev0.file || '—')}</div>
+          <div class="rc-kv"><span class="k">Data date</span><span class="v">${fmtDD(dd0)}</span></div>
+          <div class="rc-kv"><span class="k">Governing finish</span><span class="v">${escapeHtml(r.rev0.finish || '—')}</span></div>
+          <div class="rc-kv"><span class="k">Activities</span><span class="v">${act(r.rev0.activities)}</span></div>
+        </div>
+        <div class="rc-snapmid">
+          <div class="d ${fsCls}">${fsText}</div>
+          <div class="dl">Finish slip</div>
+          <div class="dd">Data date<br><b>${ddMid}</b></div>
+        </div>
+        <div class="rc-snapcol r1">
+          <div class="rc-snaptag">Rev.01 · Revised</div>
+          <div class="rc-snapfile">${escapeHtml(r.rev1.file || '—')}</div>
+          <div class="rc-kv"><span class="k">Data date</span><span class="v">${fmtDD(dd1)}</span></div>
+          <div class="rc-kv"><span class="k">Governing finish</span><span class="v ${fs > 0 ? 'hot' : ''}">${escapeHtml(r.rev1.finish || '—')}</span></div>
+          <div class="rc-kv"><span class="k">Activities</span><span class="v">${act(r.rev1.activities)}</span></div>
+        </div>
+      </div>
+      ${caution}
+    </div>`;
+}
+
 function summaryView(r) {
   const s = r.summary;
   const maxCount = Math.max(1, ...r.profile.map(p => p.count));
@@ -203,7 +257,8 @@ function summaryView(r) {
       <div class="rc-pv">${p.count}</div></div>`).join('');
   const ledger = r.ledger.map(l => `
     <tr><td>${escapeHtml(l.label)}</td>
-      <td class="n">${l.rev0 != null ? escapeHtml(String(l.rev0)) : '—'}${l.rev1 != null ? ` <span class="rc-new">${escapeHtml(String(l.rev1))}</span>` : ''}</td>
+      <td class="n rc-mut">${l.rev0 != null ? escapeHtml(String(l.rev0)) : '—'}</td>
+      <td class="n rc-new">${l.rev1 != null ? escapeHtml(String(l.rev1)) : '—'}</td>
       <td class="n">${deltaCell(l.delta)}</td></tr>`).join('');
   const findings = r.findings.map(f => `
     <div class="rc-finding"><div class="rc-fsev ${f.severity}"></div>
@@ -212,6 +267,7 @@ function summaryView(r) {
         <div class="rc-flow"><span class="rc-fk det">Change detected</span><span class="rc-arw">→</span><span class="rc-fk imp">${escapeHtml(f.flow_impact || 'Potential schedule impact')}</span><span class="rc-arw">→</span><span class="rc-fk rev">Planning review</span></div>
       </div></div>`).join('');
   return `
+    ${revSnapshot(r)}
     <div class="rc-kpis">
       ${kpi('Activities', `${s.activities0}→${s.activities1}`, '', `${num(s.net, true)} net`, s.net > 0 ? 'up' : s.net < 0 ? 'down' : '')}
       ${kpi('New', s.added, 'add', 'added in Rev.01')}
@@ -225,7 +281,7 @@ function summaryView(r) {
         <div class="rc-sec">Detected changes classified into planning categories</div>
         <div class="rc-profile">${bars}</div></div>
       <div class="rc-card"><h3>Comparison ledger <span class="rc-n">Rev.00 → Rev.01</span></h3>
-        <table class="rc-t"><tbody>${ledger}</tbody></table></div>
+        <table class="rc-t"><thead><tr><th>Measure</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Change</th></tr></thead><tbody>${ledger}</tbody></table></div>
     </div>
     <div class="rc-card"><h3>Key findings — material changes <span class="rc-n">ranked · for planning review</span></h3>
       <div class="rc-sec">The differences most likely to affect the execution strategy. Each is an observation, not a verdict.</div>
@@ -241,55 +297,106 @@ export const REG_BUCKET = {
 export function bucketOf(t) { return REG_BUCKET[t] || t; }
 
 function registerView(r) {
-  const rows = r.register.map((row, i) => registerRow(row, i)).join('');
-  // Build filter chips from what's actually present, with live counts.
-  const count = (pred) => r.register.filter(pred).length;
+  // Fix 2 — render one row per activity from the engine's pre-grouped list (worst-first).
+  const grouped = r.register_grouped || [];
+  const rows = grouped.map((g, i) => groupedRow(g, i)).join('');
+  // Filter chips: counts from grouped rows; a row matches a type filter if ANY of its
+  // change_types matches (scope/wbs go through the bucket map).
+  const count = (pred) => grouped.filter(pred).length;
+  const hasType = (g, t) => (g.change_types || []).includes(t);
+  const hasBucket = (g, b) => (g.change_types || []).some(t => bucketOf(t) === b);
   const chips = [
-    ['all', 'All', r.register.length],
+    ['all', 'All', grouped.length],
     ['material', 'Material', count(x => x.impact === 'material')],
     ['crit', 'Critical only', count(x => x.severity === 'crit')],
-    ['logic', 'Logic', count(x => x.change_type === 'logic')],
-    ['sequence', 'Sequence', count(x => x.change_type === 'sequence')],
-    ['scope', 'Scope', count(x => bucketOf(x.change_type) === 'scope')],
-    ['milestone', 'Milestones', count(x => x.change_type === 'milestone')],
-    ['criticality', 'Criticality', count(x => x.change_type === 'criticality')],
-    ['calendar', 'Calendar', count(x => x.change_type === 'calendar')],
-    ['constraint', 'Constraints', count(x => x.change_type === 'constraint')],
-    ['wbs', 'WBS', count(x => bucketOf(x.change_type) === 'wbs')],
-    ['cost', 'Cost', count(x => x.change_type === 'cost')],
-    ['resource', 'Resource', count(x => x.change_type === 'resource')],
+    ['logic', 'Logic', count(x => hasType(x, 'logic'))],
+    ['sequence', 'Sequence', count(x => hasType(x, 'sequence'))],
+    ['scope', 'Scope', count(x => hasBucket(x, 'scope'))],
+    ['milestone', 'Milestones', count(x => hasType(x, 'milestone'))],
+    ['criticality', 'Criticality', count(x => hasType(x, 'criticality'))],
+    ['calendar', 'Calendar', count(x => hasType(x, 'calendar'))],
+    ['constraint', 'Constraints', count(x => hasType(x, 'constraint'))],
+    ['wbs', 'WBS', count(x => hasBucket(x, 'wbs'))],
+    ['cost', 'Cost', count(x => hasType(x, 'cost'))],
+    ['resource', 'Resource', count(x => hasType(x, 'resource'))],
   ].filter(c => c[0] === 'all' || c[2] > 0);
   const chipsHtml = chips.map(([k, l, n], idx) =>
     `<button class="rc-fchip ${idx === 0 ? 'on' : ''}" data-filter="${k}">${l} <span class="rc-fc">${n}</span></button>`).join('');
+  const nActs = grouped.length;
   return `
     <div class="rc-filters">${chipsHtml}</div>
     <div class="rc-card" style="padding:0;overflow:hidden">
-      <div class="rc-reghead"><b>Change Register</b><span class="rc-mut" id="rc-regcount"> ${r.register.length} changes · ranked by impact then severity</span></div>
+      <div class="rc-reghead"><b>Change Register</b><span class="rc-mut" id="rc-regcount"> ${nActs} ${nActs === 1 ? 'activity' : 'activities'} · one row per activity · ranked by impact then severity</span></div>
       <div class="rc-tblscroll"><table class="rc-t rc-reg">
-        <thead><tr><th>Activity ID</th><th>Activity name</th><th>Change type</th><th>Rev.00</th><th>Rev.01</th><th>Change</th><th>Impact</th><th>Severity</th><th>Status</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="9" class="rc-empty2">No material changes detected between the two revisions.</td></tr>'}</tbody>
+        <thead><tr><th style="width:30%">Activity</th><th>Changes</th><th>Rev.00 → Rev.01</th><th>Impact</th><th>Severity</th><th>Status</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="6" class="rc-empty2">No material changes detected between the two revisions.</td></tr>'}</tbody>
       </table></div>
     </div>
-    <div class="rc-foot">▸ Rows with a triangle expand to the full Rev.00 ⇄ Rev.01 comparison and the four-part planning analysis. Severity reflects <b>schedule impact</b>, never a judgement that a change is wrong.</div>`;
+    <div class="rc-foot">▸ Rows with a triangle expand to every change on that activity as Rev.00 → Rev.01 — a swapped resource on one line — plus the four-part planning analysis where available. Severity reflects <b>schedule impact</b>, never a judgement that a change is wrong.</div>`;
 }
 
-function registerRow(row, i) {
-  const hasDetail = !!row.detail;
-  const idText = row.orig_id && row.orig_id !== row.activity_id ? row.orig_id : row.activity_id;
-  const display = idText.replace(/^(MS:|SCOPE:)/, '');
+// The muted sub-line under the activity name, varying by the row's kind (Fix 1).
+function activitySubline(g) {
+  const id = g.activity_id ? `<b>${escapeHtml(g.activity_id)}</b>` : '';
+  const wbs = g.wbs ? escapeHtml(g.wbs) : '';
+  const idWbs = [id, wbs].filter(Boolean).join(' · ');
+  switch (g.kind) {
+    case 'milestone': return 'Finish milestone';
+    case 'removed':   return idWbs ? `${idWbs} · removed in Rev.01` : 'Removed in Rev.01';
+    case 'structure': return escapeHtml((g.type_labels && g.type_labels[0]) || 'Structure change');
+    case 'added':     return idWbs || 'Added in Rev.01';
+    default:          return idWbs || '—';
+  }
+}
+
+// One row per activity (Fix 2): all change badges together, a compact summary, and an
+// expandable drawer when there is more than one change, rich sequence detail, or a
+// removed→added resource swap to show on one line.
+export function groupedRow(g, i) {
+  const changes = g.changes || [];
+  const expandable = (g.change_count > 1) || !!g.detail || changes.some(c => c.removed || c.added);
+  const badges = (g.change_types || []).map((t, k) => typeTag(t, (g.type_labels && g.type_labels[k]) || t)).join('');
+  const types = (g.change_types || []).join(' ');
+  const buckets = (g.change_types || []).map(bucketOf).join(' ');
+  const newBadge = g.kind === 'added' ? ' <span class="rc-newbadge">NEW</span>' : '';
+  const exp = expandable ? '<span class="rc-exp">▸</span> ' : '';
   return `
-    <tr class="${hasDetail ? 'rc-rowx' : ''}" data-i="${i}" data-bucket="${bucketOf(row.change_type)}" data-type="${row.change_type}" data-imp="${row.impact}" data-sev="${row.severity}">
-      <td>${hasDetail ? '<span class="rc-exp">▸</span> ' : '<span class="rc-noexp"></span>'}<span class="rc-aid">${escapeHtml(display)}</span></td>
-      <td><b>${escapeHtml(row.activity_name)}</b></td>
-      <td>${typeTag(row.change_type, row.type_label)}</td>
-      <td class="rc-mut">${escapeHtml(String(row.rev0 ?? '—'))}</td>
-      <td class="rc-new">${escapeHtml(String(row.rev1 ?? '—'))}</td>
-      <td>${escapeHtml(String(row.change ?? ''))}</td>
-      <td>${impPill(row.impact)}</td>
-      <td>${sevPill(row.severity)}</td>
-      <td><span class="rc-status">${escapeHtml(row.status)}</span></td>
+    <tr class="${expandable ? 'rc-rowx' : ''}" data-i="${i}" data-types="${escapeHtml(types)}" data-buckets="${escapeHtml(buckets)}" data-imp="${escapeHtml(g.impact || '')}" data-sev="${escapeHtml(g.severity || '')}">
+      <td class="rc-actcell"><div class="rc-an">${exp}${escapeHtml(g.activity_name || '—')}${newBadge}</div><div class="rc-am">${activitySubline(g)}</div></td>
+      <td>${badges || '<span class="rc-mut">—</span>'}</td>
+      <td>${escapeHtml(g.summary || '')}</td>
+      <td>${impPill(g.impact)}</td>
+      <td>${sevPill(g.severity)}</td>
+      <td><span class="rc-status">${escapeHtml(g.status || 'open')}</span></td>
     </tr>
-    ${hasDetail ? `<tr class="rc-drawer hidden" id="rc-dr-${i}"><td colspan="9">${detailDrawer(row.detail)}</td></tr>` : ''}`;
+    ${expandable ? `<tr class="rc-drawer hidden" id="rc-dr-${i}"><td colspan="6">${groupedDrawer(g)}</td></tr>` : ''}`;
+}
+
+function groupedDrawer(g) {
+  const lines = (g.changes || []).map(changeLine).join('');
+  const linesBlock = lines ? `<div class="rc-cgrid">${lines}</div>` : '';
+  const detailBlock = g.detail ? detailDrawer(g.detail) : '';
+  return (linesBlock + detailBlock) || '<div class="rc-cgrid"><div class="rc-mut">No further detail.</div></div>';
+}
+
+// One per-change line as Rev.00 → Rev.01. A removed+added pair (a resource swap) renders
+// on ONE line, never two rows.
+export function changeLine(c) {
+  const dim = escapeHtml(c.dimension || c.change_type || 'Change');
+  let body;
+  if (c.removed || c.added) {
+    const bits = [];
+    if (c.removed) bits.push(`<span class="rc-tag removed">removed</span> ${escapeHtml(c.removed)}`);
+    if (c.removed && c.added) bits.push('<span class="rc-arw">→</span>');
+    if (c.added) bits.push(`<span class="rc-tag added">added</span> ${escapeHtml(c.added)}`);
+    body = bits.join(' ');
+  } else {
+    const has0 = c.rev0 != null && c.rev0 !== '';
+    const has1 = c.rev1 != null && c.rev1 !== '';
+    body = `<span class="rc-was">${has0 ? escapeHtml(String(c.rev0)) : '—'}</span> <span class="rc-arw">→</span> <span class="rc-now">${has1 ? escapeHtml(String(c.rev1)) : '—'}</span>`;
+  }
+  const note = c.note ? ` <span class="rc-mut">(${escapeHtml(c.note)})</span>` : '';
+  return `<div class="rc-cline"><div class="rc-clk">${dim}</div><div class="rc-clv">${body}${note}</div></div>`;
 }
 
 function detailDrawer(d) {
@@ -319,11 +426,17 @@ function wireRegister(body) {
     dr.classList.toggle('hidden');
   }));
   const rows = [...body.querySelectorAll('tbody tr[data-i]')];
-  const matches = (tr, f) => f === 'all'
-    || (f === 'material' && tr.dataset.imp === 'material')
-    || (f === 'crit' && tr.dataset.sev === 'crit')
-    || (['scope', 'wbs'].includes(f) && tr.dataset.bucket === f)
-    || (['logic', 'sequence', 'milestone', 'criticality', 'calendar', 'constraint', 'cost', 'resource'].includes(f) && tr.dataset.type === f);
+  // A grouped row carries all its change_types (space-separated) — it matches a type
+  // filter if ANY of them matches; scope/wbs match through the bucket list.
+  const matches = (tr, f) => {
+    if (f === 'all') return true;
+    if (f === 'material') return tr.dataset.imp === 'material';
+    if (f === 'crit') return tr.dataset.sev === 'crit';
+    const types = (tr.dataset.types || '').split(' ').filter(Boolean);
+    const buckets = (tr.dataset.buckets || '').split(' ').filter(Boolean);
+    if (f === 'scope' || f === 'wbs') return buckets.includes(f);
+    return types.includes(f);
+  };
   body.querySelectorAll('.rc-fchip').forEach(chip => chip.addEventListener('click', () => {
     body.querySelectorAll('.rc-fchip').forEach(c => c.classList.toggle('on', c === chip));
     const f = chip.dataset.filter;
@@ -336,7 +449,7 @@ function wireRegister(body) {
       if (dr) { dr.hidden = !vis; if (!vis) { dr.classList.add('hidden'); tr.classList.remove('open'); } }
     });
     const cnt = document.getElementById('rc-regcount');
-    if (cnt) cnt.textContent = ` ${shown} of ${rows.length} changes shown`;
+    if (cnt) cnt.textContent = ` ${shown} of ${rows.length} ${rows.length === 1 ? 'activity' : 'activities'} shown`;
   }));
 }
 
@@ -427,7 +540,7 @@ function structView(r) {
 
   const conRows = con.map(c => {
     const kindLabel = { added: 'Added', removed: 'Removed', type: 'Type changed', date: 'Date changed' }[c.kind] || c.kind;
-    return `<tr><td><span class="rc-aid">${escapeHtml(c.activity_id)}</span> ${escapeHtml(c.name)}</td>
+    return `<tr>${actCell(c.name, c.activity_id)}
       <td>${typeTag('constraint', kindLabel)}${c.hard ? ' <span class="rc-sev hi">Hard</span>' : ''}</td>
       <td class="rc-mut">${escapeHtml(c.rev0)}</td><td class="rc-new">${escapeHtml(c.rev1)}</td></tr>`;
   }).join('');
@@ -451,11 +564,11 @@ function resourceCard(r) {
     ? `<div class="rc-sec">Total budget ${escapeHtml(String(tb.rev0.toLocaleString()))} → ${escapeHtml(String(tb.rev1.toLocaleString()))} · <span class="${tb.delta > 0 ? 'rc-d up' : tb.delta < 0 ? 'rc-d down' : 'rc-d zero'}">${tb.delta > 0 ? '+' : ''}${tb.delta.toLocaleString()}</span></div>`
     : '';
   const costRows = (rc.activity_cost_changes || []).slice(0, 12).map(c =>
-    `<tr><td><span class="rc-aid">${escapeHtml(c.code)}</span> ${escapeHtml(c.name)}</td><td class="rc-mut">${escapeHtml(c.rev0)}</td>
+    `<tr>${actCell(c.name, c.code)}<td class="rc-mut">${escapeHtml(c.rev0)}</td>
       <td class="rc-new">${escapeHtml(c.rev1)}</td><td class="n">${deltaCell(c.delta)}</td></tr>`).join('');
   const asgRows = (rc.assignment_changes || []).slice(0, 12).map(a => {
     const kindLabel = { added: 'Added', removed: 'Removed', units: 'Units', rate: 'Rate' }[a.kind] || a.kind;
-    return `<tr><td><span class="rc-aid">${escapeHtml(a.code)}</span> ${escapeHtml(a.resource)}</td>
+    return `<tr>${actCell(a.resource, a.code)}
       <td>${typeTag('resource', kindLabel)}</td><td class="rc-mut">${escapeHtml(a.rev0)}</td><td class="rc-new">${escapeHtml(a.rev1)}</td></tr>`;
   }).join('');
   return `<div class="rc-card"><h3>Resource &amp; cost <span class="rc-n">informational · not a schedule impact</span></h3>
