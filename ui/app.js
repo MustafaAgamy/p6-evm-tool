@@ -401,6 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sel.dispatchEvent(new Event('change', { bubbles: true }));
       } },
     help:   () => openHelp('getting-started'),                           // Open the Help Center
+    toggleNav: () => toggleNav(),                                        // Show / hide the Project Navigator (Ctrl+B)
     close:  () => closeMenus(),                                          // Close panel / cancel (Help handles its own Esc)
   };
   const handleShortcut = (e) => {
