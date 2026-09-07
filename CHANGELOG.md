@@ -5,7 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
-## [Unreleased]
+## [v2.3.0] - 2026-09-07
 
 ### Added — Branded startup splash & feature-open reveal
 - **A ~13-second Controlyx 2026 startup splash** plays when the app opens: a schedule builds, a glowing critical path rises, and it resolves into the Controlyx 2026 mark and the **"Project Control Intelligence Platform"** wordmark (with a small **"for Primavera P6 · XER & XML"** line) before lifting away to reveal the app. The splash plays in full and never blocks a slow start. This is now a single opening sequence — it replaces the earlier separate logo splash.
