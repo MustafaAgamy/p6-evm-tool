@@ -2734,7 +2734,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-an { font-weight: 700; font-size: 12.5px; color: var(--text); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .rc-am { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
 .rc-am b { color: var(--ink-soft); font-weight: 700; }
-.rc-newbadge { font-size: 9px; font-weight: 800; color: #fff; background: var(--success); border-radius: 5px; padding: 1px 6px; letter-spacing: .05em; }
+.rc-newbadge { font-size: 9px; font-weight: 800; color: var(--success); background: var(--success-bg); border: 1px solid var(--success); border-radius: 5px; padding: 0 5px; letter-spacing: .05em; }
 
 /* Fix 2 — per-change drawer lines (one row per activity; removed → added on one line) */
 .rc-cgrid { padding: 12px 15px; }

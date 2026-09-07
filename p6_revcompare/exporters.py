@@ -55,6 +55,8 @@ def _revsnapshot(report):
     r0, r1 = report['rev0'], report['rev1']
     shift = (report.get('summary') or {}).get('finish_shift_days')
     shift_txt = ('—' if shift is None else (f"+{shift}d" if shift > 0 else (f"{shift}d" if shift < 0 else '0d')))
+    # colour by sign, mirroring the screen: a slip later is bad, an earlier finish is good.
+    shift_cls = 'zero' if shift in (None, 0) else ('up' if shift > 0 else 'down')
     dd0, dd1 = r0.get('data_date'), r1.get('data_date')
     diff = bool(dd0 and dd1 and dd0 != dd1)
     caution = ('<div class="snapcaution">⚠ Different data dates — variances mix the revision change with the elapsed period.</div>'
@@ -68,7 +70,7 @@ def _revsnapshot(report):
           <div class="snapkv"><span>Activities</span><b>{_e(r.get('activities'))}</b></div></div>'''
 
     return f'''<div class="revsnap">{side('Rev.00 · Original', r0, 's0')}
-      <div class="snapmid"><div class="snapd">{_e(shift_txt)}</div><div class="snapdl">Finish slip</div></div>
+      <div class="snapmid"><div class="snapd {shift_cls}">{_e(shift_txt)}</div><div class="snapdl">Finish slip</div></div>
       {side('Rev.01 · Revised', r1, 's1')}</div>{caution}'''
 
 
@@ -452,6 +454,7 @@ td.chg { font-size: 10px; }
 .snapfile { font-weight: 700; font-size: 11px; margin: 3px 0 6px; }
 .snapkv { display: flex; justify-content: space-between; gap: 12px; font-size: 10px; padding: 2px 0; color: var(--rpt-muted); } .snapkv b { color: var(--rpt-ink); }
 .snapmid { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 14px; border-left: 1px solid var(--rpt-hair); border-right: 1px solid var(--rpt-hair); }
-.snapd { font-size: 17px; font-weight: 800; color: var(--rpt-bad); } .snapdl { font-size: 8.5px; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-muted); margin-top: 2px; }
+.snapd { font-size: 17px; font-weight: 800; color: var(--rpt-muted); } .snapd.up { color: var(--rpt-bad); } .snapd.down { color: var(--rpt-good); } .snapd.zero { color: var(--rpt-muted); }
+.snapdl { font-size: 8.5px; text-transform: uppercase; letter-spacing: .3px; color: var(--rpt-muted); margin-top: 2px; }
 .snapcaution { background: var(--rpt-warn-bg); color: var(--rpt-warn); border-radius: 6px; padding: 5px 10px; font-size: 10px; margin-bottom: 10px; }
 '''

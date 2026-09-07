@@ -216,9 +216,11 @@ function revSnapshot(r) {
   const fsCls = fs == null ? 'zero' : fs > 0 ? 'up' : fs < 0 ? 'down' : 'zero';
   const fsText = fs == null ? '—' : `${fs > 0 ? '+' : ''}${fs}d`;
   const ddMid = !bothDates ? 'not stated' : sameDD ? 'unchanged' : 'differ';
-  const caution = (bothDates && !sameDD)
-    ? `<div class="rc-snapcaution">${IC.warn} Different data dates — variances mix the revision change with the elapsed period.</div>`
-    : `<div class="rc-snapnote">Both revisions are measured from the same data date — the variances reflect the revision change alone.</div>`;
+  const caution = !bothDates
+    ? `<div class="rc-snapnote">Data date not stated for one or both revisions — variances can't be confirmed to reflect the revision change alone.</div>`
+    : !sameDD
+      ? `<div class="rc-snapcaution">${IC.warn} Different data dates — variances mix the revision change with the elapsed period.</div>`
+      : `<div class="rc-snapnote">Both revisions are measured from the same data date — the variances reflect the revision change alone.</div>`;
   const act = (n) => n != null ? escapeHtml(String(n)) : '—';
   return `
     <div class="rc-card"><h3>Revision snapshot <span class="rc-n">Rev.00 → Rev.01</span></h3>

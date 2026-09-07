@@ -94,8 +94,10 @@ def _build_group(key, rows):
 
     disp_id, wbs = None, None
     if not is_ms and not is_struct:
-        rid = next((r.get('orig_id') or r.get('activity_id') for r in rows
-                    if (r.get('orig_id') or r.get('activity_id'))), None)
+        # Prefer a real Rev.01 id (idchange rows carry orig_id), else the group key — which
+        # IS the clean activity code. Never the raw activity_id: resource rows carry the
+        # synthetic "RES:<code>:<resource>" token there, which must not reach the display.
+        rid = next((r.get('orig_id') for r in rows if r.get('orig_id')), None) or key_s
         disp_id = _clean_id(rid)
         wbs = next((r.get('wbs') for r in rows if r.get('wbs')), None)
 

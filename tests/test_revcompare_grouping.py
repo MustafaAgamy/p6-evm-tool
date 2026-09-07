@@ -1,7 +1,7 @@
 """One-row-per-activity grouping of the change register (presentation only)."""
 from p6_revcompare.grouping import group_register
 from p6_revcompare import build_report_from_data
-from tests.test_revcompare_engine import _pair
+from tests.test_revcompare_engine import _pair, _act, _sched, D
 
 
 def _row(activity_id, change_type, rev0, rev1, change, impact, severity,
@@ -108,3 +108,40 @@ def test_grouped_is_empty_when_no_changes():
     rev0, _ = _pair()
     r = build_report_from_data(rev0, rev0, config={})
     assert r['register_grouped'] == []
+
+
+# ── review fixes ──────────────────────────────────────────────────────────────
+
+def test_resource_only_group_shows_clean_code_not_synthetic_token():
+    # a resource-only change: the register row carries the synthetic RES:<code>:<res> id,
+    # but the displayed activity_id must be the bare code (not the internal token).
+    reg = [_row('RES:A1020:Crawler Crane 50T', 'resource', '2 u', '—', 'Resource removed',
+                'minor', 'med', activity_name='Raft · Crawler Crane 50T',
+                activity_key='A1020', resource_name='Crawler Crane 50T', res_kind='removed', act_name='Raft')]
+    g = group_register(reg)
+    assert len(g) == 1
+    assert g[0]['activity_id'] == 'A1020'          # NOT 'RES:A1020:Crawler Crane 50T'
+    assert g[0]['activity_name'] == 'Raft'         # the activity, not "name · resource"
+
+
+def test_scope_only_revision_itemizes_added_and_removed():
+    # A revision whose ONLY changes are a (non-critical) added and removed activity must NOT
+    # yield an empty register — each is itemised as its own one-per-activity entry.
+    rev0 = _sched([
+        _act('A1', 'Excavation', tf=0, ps=D(2025, 3, 1), pf=D(2025, 3, 20)),
+        _act('A2', 'Old Temporary Fence', tf=40, wbs='WBS 1.9 Enabling',
+             ps=D(2025, 4, 1), pf=D(2025, 4, 10)),
+    ], [('A1', 'A2', 'FS', 0)], D(2025, 3, 1))
+    rev1 = _sched([
+        _act('A1', 'Excavation', tf=0, ps=D(2025, 3, 1), pf=D(2025, 3, 20)),
+        _act('A3', 'New Landscaping Works', tf=40, wbs='WBS 1.5 MEP',
+             ps=D(2025, 6, 1), pf=D(2025, 6, 12)),
+    ], [('A1', 'A3', 'FS', 0)], D(2025, 3, 1))
+    r = build_report_from_data(rev0, rev1, config={})
+    g = r['register_grouped']
+    assert g, 'scope-only revision must not produce an empty change register'
+    names = [e['activity_name'] for e in g]
+    assert 'New Landscaping Works' in names        # added activity itemised
+    assert 'Old Temporary Fence' in names          # removed activity itemised
+    # no synthetic "N activities" summary entry survives
+    assert not any((e['activity_name'] or '').endswith('activities') for e in g)

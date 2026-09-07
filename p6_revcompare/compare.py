@@ -472,23 +472,23 @@ def _build_register(match, matched, logic, sequences, milestones, floats, time_c
                      p['act0'].get('total_float_days'), p['act1'].get('total_float_days'),
                      magnitude=t['delta'], orig_id=(p['act1'].get('orig_id') or code)))
 
-    # Scope: summary rows for added / removed, plus individual critical add/removes.
-    if match['added']:
-        add(_sev_row('SCOPE:added', f"{len(match['added'])} activities", 'added',
-                     '—', 'Present in Rev.01', 'New activities', None, None))
-    if match['removed']:
-        add(_sev_row('SCOPE:removed', f"{len(match['removed'])} activities", 'removed',
-                     'Present in Rev.00', '—', 'Removed activities', None, None))
-    for a in match['added']:
-        if a.get('id') in crit1:
-            add(_sev_row(a['id'], a.get('name') or a['id'], 'added',
-                         '—', 'Present in Rev.01', 'New critical activity', None,
-                         a.get('total_float_days'), on_cp=True))
-    for a in match['removed']:
-        if a.get('id') in crit0:
-            add(_sev_row(a['id'], a.get('name') or a['id'], 'removed',
-                         'Present in Rev.00', '—', 'Removed critical activity',
-                         a.get('total_float_days'), None, on_cp=True))
+    # Scope: one register row per added / removed activity — itemised, one-row-per-activity,
+    # each keyed by its own code so it stays its own entry (never a "N activities" summary
+    # row). Critical adds/removes rank material; the rest are minor and sink down the register.
+    for i, a in enumerate(match['added']):
+        code = a.get('id') or a.get('name') or f'added-{i}'
+        on_cp = a.get('id') in crit1
+        add(_sev_row(code, a.get('name') or code, 'added',
+                     '—', 'Present in Rev.01',
+                     'New critical activity' if on_cp else 'New activity',
+                     None, a.get('total_float_days'), on_cp=on_cp))
+    for i, a in enumerate(match['removed']):
+        code = a.get('id') or a.get('name') or f'removed-{i}'
+        on_cp = a.get('id') in crit0
+        add(_sev_row(code, a.get('name') or code, 'removed',
+                     'Present in Rev.00', '—',
+                     'Removed critical activity' if on_cp else 'Removed activity',
+                     a.get('total_float_days'), None, on_cp=on_cp))
 
     # Identity changes and WBS moves.
     for p in match['id_changes']:
