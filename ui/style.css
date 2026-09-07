@@ -56,6 +56,9 @@ body {
   background: var(--bg); color: var(--text); font-size: 14px;
   transition: background 0.2s, color 0.2s;
 }
+/* <body> is given tabindex="-1" so app.js can pull keyboard focus into the page
+   (WebView2 only delivers keydown while the page holds focus); hide its focus ring. */
+body:focus { outline: none; }
 
 /* ── App shell ───────────────────────────────────────────────────────────── */
 .app { display: flex; height: 100vh; }

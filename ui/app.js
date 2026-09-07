@@ -31,7 +31,7 @@ import { playFeatureReveal }                   from './modules/featurereveal.js'
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
   state.ranFeatures = new Set();   // features the user has explicitly Run this session (issues #3/#4)
-  playBoot();                      // branded ~10s startup splash, then lifts to reveal the app beneath
+  playBoot({ onDone: grabKeyFocus });   // branded startup splash; on lift, pull key focus into the page so shortcuts receive keys
   initTheme();
   initTooltips();
   initDatabase();
@@ -403,15 +403,42 @@ document.addEventListener('DOMContentLoaded', () => {
     help:   () => openHelp('getting-started'),                           // Open the Help Center
     close:  () => closeMenus(),                                          // Close panel / cancel (Help handles its own Esc)
   };
-  document.addEventListener('keydown', (e) => {
+  const handleShortcut = (e) => {
     if (e.altKey || e.metaKey) return;                                   // no Alt/Meta shortcuts are defined
-    const k = e.key.toLowerCase();
+    const k = (e.key || '').toLowerCase();
     const sc = SHORTCUTS.find(s => !!s.ctrl === e.ctrlKey && s.key === k);
     const run = sc && SHORTCUT_ACTIONS[sc.id];
     if (!run) return;
     e.preventDefault();
     run();
-  });
+  };
+  // Attach on WINDOW, CAPTURE phase (not document/bubble). A physical keydown is
+  // dispatched to document.activeElement and must bubble up to reach a document
+  // listener — so it is lost whenever focus sits inside the report-preview <iframe>
+  // (preview.js srcdoc) or an overlay calls stopPropagation(). Window-capture is the
+  // first node in the dispatch path, so it sees every key regardless of focus target
+  // or downstream handlers. (Window ONLY — a second document listener would double-fire.)
+  window.addEventListener('keydown', handleShortcut, true);
+
+  // WebView2 (the packaged backend) only dispatches keydown INTO the page while the
+  // web content holds keyboard focus. Mouse hit-testing ignores focus — which is why
+  // every click control worked while no shortcut did: the window can open, or return
+  // from a native file dialog (Browse / Save), with focus on the host chrome instead
+  // of the page. Make <body> focusable and claim focus on load, when the splash lifts
+  // (playBoot onDone), and whenever the window regains focus — guarded so we never
+  // pull focus out of a field the user is typing in.
+  function grabKeyFocus() {
+    try {
+      const a = document.activeElement;
+      if (!a || a === document.body || a === document.documentElement) {
+        window.focus();
+        document.body.focus();
+      }
+    } catch (e) { /* focus is best-effort */ }
+  }
+  document.body.setAttribute('tabindex', '-1');   // programmatically focusable (ring suppressed in style.css)
+  grabKeyFocus();
+  window.addEventListener('focus', grabKeyFocus);
 
   // ── Navigator collapse toggle ───────────────────────────────────────────────
   function toggleNav() { document.querySelector('.appmain').classList.toggle('navhidden'); }
