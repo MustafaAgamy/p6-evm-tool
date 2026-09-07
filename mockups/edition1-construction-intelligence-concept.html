@@ -1,0 +1,461 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controlyx · Construction Logic & Buildability Intelligence — Edition 1 concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{--app:#eef1f7;--panel:#fff;--panel2:#f5f8fc;--panel3:#eef2f8;--line:#e4e9f1;--hair:#eef2f7;--ink:#141f36;--ink2:#45536b;--muted:#69768c;--faint:#9aa6b6;
+--brand:#3457d5;--brand2:#2643a8;--soft:#e7ecfb;--nav:#0e1626;--nav2:#0a111e;--navink:#c4cfe2;--navdim:#6b7897;--navon:#1a2740;--navline:#1c2740;
+--cur:#2563eb;--curbg:#e3ecfe;--gen:#7c3aed;--genbg:#efe9fe;--prod:#0e7490;--prodbg:#d6eef2;--ok:#12805c;--okbg:#dcf1e8;--warn:#b7791f;--warnbg:#f7ecd6;--crit:#c23a3a;--badbg:#fbe4e2;
+--sh:0 1px 2px rgba(16,28,54,.05),0 10px 28px -16px rgba(16,28,54,.26);--shlg:0 30px 70px -34px rgba(12,22,48,.45);--fs:"Plus Jakarta Sans",system-ui,sans-serif;--fm:"IBM Plex Mono",monospace}
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{background:var(--app);color:var(--ink);font-family:var(--fs);font-size:14px}
+.shell{display:flex;flex-direction:column;height:100vh}
+/* concept banner */
+.concept{height:30px;flex-shrink:0;background:linear-gradient(90deg,#141f36,#243357);color:#dfe6f5;display:flex;align-items:center;gap:10px;padding:0 14px;font-size:11.5px;font-weight:600;letter-spacing:.01em}
+.concept .tag{font-family:var(--fm);font-size:9.5px;background:#3457d5;color:#fff;padding:2px 7px;border-radius:6px;letter-spacing:.06em}
+.concept .r{margin-left:auto;color:#9fb0d4;font-weight:500;font-size:11px}
+.menubar{height:38px;flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:2px;padding:0 12px}
+.mk{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--brand),#7c5cff);display:grid;place-items:center;margin-right:8px}.mk svg{width:14px;height:14px}
+.bn{font-weight:800;font-size:14px;letter-spacing:-.02em;margin-right:16px}.menu{padding:5px 11px;border-radius:7px;font-size:13px;color:var(--ink2);font-weight:500}.menu:hover{background:var(--panel2)}
+.mb-right{margin-left:auto;display:flex;gap:6px}.wd{width:11px;height:11px;border-radius:50%}.wd.r{background:#e0655a}.wd.y{background:#e0b23f}.wd.g{background:#4fb06a}
+.app{flex:1;display:grid;grid-template-columns:230px 1fr;min-height:0}
+.side{background:linear-gradient(180deg,var(--nav),var(--nav2));color:var(--navink);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.navh{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--navdim);padding:13px 16px 7px;font-weight:600}
+.tree{flex:1;overflow:auto;padding:2px 8px 12px}.tgrp{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--navdim);padding:13px 10px 4px;font-weight:600}
+.tnode{width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border:0;background:transparent;color:var(--navink);border-radius:8px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:500;text-align:left;position:relative}
+.tnode:hover{background:rgba(255,255,255,.05)}.tnode.on{background:var(--navon);color:#fff;font-weight:600}.tnode.on::before{content:"";position:absolute;left:-8px;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--brand)}
+.tnode.root{font-weight:700;color:#fff}.tnode .i{width:17px;height:17px;display:grid;place-items:center;color:var(--navdim);flex-shrink:0}.tnode.on .i{color:#8fb0ff}.tnode .i svg{width:16px;height:16px}.tnode .l{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge-new{font-family:var(--fm);font-size:8px;font-weight:700;padding:1px 5px;border-radius:6px;background:var(--brand);color:#fff;letter-spacing:.04em}
+.acct{border-top:1px solid var(--navline);padding:11px 14px;display:flex;align-items:center;gap:9px}.acct .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#7c5cff)}.acct b{font-size:12px;color:#fff;display:block;line-height:1.1}.acct span{font-size:10px;color:var(--navdim)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{height:54px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 18px}
+.tt{display:flex;flex-direction:column}.tt .cr{font-size:10.5px;color:var(--muted);font-family:var(--fm)}.tt b{font-size:15px}
+.seg{margin-left:auto;display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:12.5px;padding:6px 13px;border-radius:7px;cursor:pointer;font-family:inherit}.seg button.on{background:var(--panel);color:var(--ink);box-shadow:var(--sh)}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#7c5cff)}
+.work{flex:1;overflow:auto;padding:18px 20px}
+.hd{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px}
+.hd .fi{width:46px;height:46px;border-radius:12px;background:var(--genbg);color:var(--gen);display:grid;place-items:center;flex-shrink:0}.hd .fi svg{width:24px;height:24px}
+.hd h2{font-size:20px;margin:0}.hd p{margin:4px 0 0;color:var(--ink2);font-size:13px;max-width:88ch;line-height:1.5}
+.stats{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 12px;text-align:center;box-shadow:var(--sh)}.stat b{font-size:17px;display:block}.stat span{font-size:9.5px;color:var(--muted);font-family:var(--fm);text-transform:uppercase;letter-spacing:.04em}
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.search{flex:1;max-width:340px;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 11px;color:var(--muted);font-size:12.5px}.search svg{width:14px;height:14px}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:8px 13px;font-weight:600;font-size:12.5px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink2);font-family:inherit}.btn:hover{border-color:var(--brand);color:var(--brand)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 8px 20px -10px rgba(52,87,213,.7)}.btn.primary:hover{color:#fff}.btn svg{width:14px;height:14px}
+.grid{display:grid;grid-template-columns:250px 1fr;gap:14px;align-items:start}
+.types{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);overflow:hidden;position:sticky;top:0}
+.tyh{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;padding:11px 13px 7px}
+.ty{width:100%;display:flex;align-items:center;gap:9px;padding:9px 13px;border:0;border-top:1px solid var(--hair);background:transparent;cursor:pointer;font:inherit;font-size:12.5px;text-align:left;color:var(--ink)}
+.ty:hover{background:var(--panel2)}.ty.on{background:var(--soft);color:var(--brand);font-weight:600}
+.ty .tyi{width:16px;color:var(--muted);flex-shrink:0}.ty.on .tyi{color:var(--brand)}.ty .tyn{flex:1}
+.ty .cnt{font-family:var(--fm);font-size:9px;color:var(--muted)}
+.sub{padding:5px 13px 5px 34px;font-size:12px;color:var(--ink2);border-top:1px solid var(--hair);cursor:pointer}.sub:hover{background:var(--panel2)}.sub.on{color:var(--brand);font-weight:600;background:var(--soft)}
+.detail{display:flex;flex-direction:column;gap:12px;min-width:0}
+.callout{background:linear-gradient(120deg,#eef2fe,#f4effe);border:1px solid #dee3fb;border-radius:12px;padding:12px 15px;font-size:12.5px;color:var(--ink2);line-height:1.5}.callout b{color:var(--ink)}
+.trust{display:flex;gap:11px;align-items:flex-start;background:#f0f7f4;border:1px solid #cfe6db;border-left:3px solid var(--ok);border-radius:11px;padding:12px 15px;font-size:12.5px;color:#1c4c3c;line-height:1.5}
+.trust svg{width:17px;height:17px;flex-shrink:0;margin-top:1px;color:var(--ok)}.trust b{color:#123a2d}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);padding:15px 17px}
+.card h3{font-size:13.5px;margin:0 0 3px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}.card h3 .n{font-family:var(--fm);font-size:10px;color:var(--muted);font-weight:500}
+.card h3>svg,.card h3>span:not(.chip)>svg{width:15px;height:15px;flex-shrink:0}.card h3 .chip svg{width:11px;height:11px}
+.card h3 .spacer{flex:1}
+.sec-lead{font-size:12px;color:var(--muted);margin:1px 0 10px}
+/* entry hero */
+.entry{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);padding:16px 18px}
+.entry .etop{display:flex;align-items:flex-start;gap:13px}
+.entry .eic{width:42px;height:42px;border-radius:11px;background:var(--genbg);color:var(--gen);display:grid;place-items:center;flex-shrink:0}.entry .eic svg{width:22px;height:22px}
+.entry h2{font-size:18px;margin:0}.entry .etag{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.tg{font-family:var(--fm);font-size:10px;color:var(--ink2);background:var(--panel3);border:1px solid var(--line);border-radius:7px;padding:2px 8px}
+.emeta{margin-left:auto;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+/* chips: source, evidence, status, confidence */
+.chip{font-family:var(--fm);font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.chip svg{width:11px;height:11px}
+.src-cur{background:var(--curbg);color:var(--cur)}.src-gen{background:var(--genbg);color:var(--gen)}.src-prod{background:var(--prodbg);color:var(--prod)}
+.ev-strong{background:var(--okbg);color:var(--ok)}.ev-mod{background:var(--warnbg);color:var(--warn)}.ev-emerg{background:var(--panel3);color:var(--muted)}
+.st{font-family:var(--fm);font-size:10px;font-weight:700;padding:3px 9px;border-radius:7px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.st .d{width:8px;height:8px;border-radius:50%}
+.st-avail{background:var(--okbg);color:var(--ok)}.st-avail .d{background:var(--ok)}
+.st-rel{background:var(--warnbg);color:var(--warn)}.st-rel .d{background:var(--warn)}
+.st-insuf{background:var(--panel3);color:var(--muted)}.st-insuf .d{background:var(--faint)}
+.st-na{background:transparent;color:var(--faint);border:1px dashed var(--line)}.st-na .d{background:var(--faint)}
+.st-review{background:var(--curbg);color:var(--cur)}.st-review .d{background:var(--cur)}
+.conf{font-family:var(--fm);font-size:10px;color:var(--muted)}.conf b{color:var(--ink2)}
+/* section blocks inside entry */
+.blk{border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.blkh{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--panel2);border-bottom:1px solid var(--line);font-weight:700;font-size:12.5px}
+.blkh .bi{width:15px;color:var(--muted);flex-shrink:0}.blkh .bi svg,.blkh>svg{width:15px;height:15px}.blkh .spacer{flex:1}
+.blkb{padding:12px 14px}
+.rel{display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--hair)}.rel:last-child{border-bottom:0}
+.rel .arw{font-family:var(--fm);font-size:10px;font-weight:700;color:var(--gen);background:var(--genbg);border-radius:6px;padding:2px 6px;flex-shrink:0;margin-top:1px}
+.rel .rc{flex:1;min-width:0}.rel .rc b{font-size:12.5px}.rel .why{font-size:11.5px;color:var(--ink2);margin-top:2px;line-height:1.45}
+.rel .flip{font-size:11px;color:var(--warn);margin-top:4px;display:flex;gap:6px;align-items:flex-start}.rel .flip svg{width:12px;height:12px;flex-shrink:0;margin-top:1px}
+.rel .rmeta{display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0}
+.seqflow{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch}
+.step{flex:1;min-width:118px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);padding:9px 10px;position:relative}
+.step .sn{font-family:var(--fm);font-size:9px;color:var(--gen);font-weight:700}.step .st2{font-size:11.5px;font-weight:600;margin-top:2px;line-height:1.25}.step .sd{font-size:10px;color:var(--muted);margin-top:3px}
+.step.hold{border-color:#e6c9a0;background:#fbf3e6}.step.hold .sn{color:var(--warn)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.kv{display:flex;gap:9px;padding:7px 0;border-bottom:1px dashed var(--hair);font-size:12.5px}.kv:last-child{border-bottom:0}.kv .k{width:132px;color:var(--muted);flex-shrink:0}.kv .v{flex:1;color:var(--ink)}
+.range{margin-top:5px}.rtrack{height:8px;border-radius:5px;background:linear-gradient(90deg,#e4e9f1,#cdd8ea);position:relative;margin:16px 4px 4px}
+.rtrack .fill{position:absolute;top:0;bottom:0;left:22%;right:28%;background:linear-gradient(90deg,#a6b8f0,#7c3aed);border-radius:5px;opacity:.55}
+.rtrack .mk2{position:absolute;top:-15px;transform:translateX(-50%);font-family:var(--fm);font-size:9.5px;color:var(--ink2)}.rtrack .mk2 i{display:block;width:1px;height:12px;background:var(--muted);margin:1px auto 0}
+.rlbl{display:flex;justify-content:space-between;font-family:var(--fm);font-size:9.5px;color:var(--faint);margin-top:5px}
+.reslist{display:flex;flex-wrap:wrap;gap:6px}.res{font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 9px}.res b{font-weight:600}.res span{color:var(--muted)}
+.prov{font-size:11.5px;color:var(--ink2);line-height:1.55;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:11px 13px}.prov b{color:var(--ink)}
+.assume{font-size:11.5px;color:var(--ink2);line-height:1.5}.assume li{margin:3px 0}
+/* status legend */
+.legend2{display:flex;gap:8px;flex-wrap:wrap}
+.leg{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--panel2);flex:1;min-width:180px}
+.leg .ld{width:10px;height:10px;border-radius:50%;margin-top:3px;flex-shrink:0}
+.leg b{font-size:12px;display:block}.leg span{font-size:11px;color:var(--muted);line-height:1.4}
+/* activity intelligence */
+.aiwrap{display:grid;grid-template-columns:300px 1fr;gap:14px;align-items:start}
+.sched{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);overflow:hidden;position:sticky;top:0}
+.schh{padding:11px 13px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;border-bottom:1px solid var(--hair)}
+.act{width:100%;text-align:left;border:0;border-bottom:1px solid var(--hair);background:transparent;padding:10px 13px;cursor:pointer;font:inherit;display:flex;flex-direction:column;gap:2px}
+.act:hover{background:var(--panel2)}.act.on{background:var(--soft)}
+.act .aid{font-family:var(--fm);font-size:10px;color:var(--muted)}.act .anm{font-size:12.5px;color:var(--ink);font-weight:500}.act.on .anm{color:var(--brand);font-weight:600}
+.act .amini{font-family:var(--fm);font-size:9px;margin-top:3px}
+.mmatch{color:var(--ok)}.mlow{color:var(--warn)}.mnone{color:var(--faint)}
+.match{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:11px;box-shadow:var(--sh);padding:12px 15px}
+.match .mo{width:34px;height:34px;border-radius:9px;background:var(--genbg);color:var(--gen);display:grid;place-items:center;flex-shrink:0}.match .mo svg{width:18px;height:18px}
+.match .mc{flex:1;min-width:0}.match .mc .ml{font-size:10px;color:var(--muted);font-family:var(--fm)}.match .mc b{font-size:14px}
+.remap{font-size:11.5px;color:var(--brand);font-weight:600;cursor:pointer;white-space:nowrap}
+.nomatch{border-color:#e6d3a6;background:#fbf6ea}.nomatch .mo{background:#f2e6c9;color:var(--warn)}
+.disc{display:flex;gap:11px;align-items:flex-start;background:#fdf4f3;border:1px solid #f2d6d1;border-left:3px solid var(--crit);border-radius:11px;padding:12px 15px;font-size:12.5px;color:#6b2c26;line-height:1.5}
+.disc svg{width:17px;height:17px;flex-shrink:0;margin-top:1px;color:var(--crit)}.disc b{color:#5a221d}
+/* principles / architecture */
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ba{display:flex;gap:10px;align-items:stretch}
+.bac{flex:1;border-radius:10px;padding:12px 13px;font-size:12px}
+.ba-before{background:#fbe9e7;border:1px solid #f2c9c3}.ba-before .h{color:var(--crit);font-weight:700;font-size:11px;font-family:var(--fm)}
+.ba-after{background:var(--okbg);border:1px solid #bfe3d3}.ba-after .h{color:var(--ok);font-weight:700;font-size:11px;font-family:var(--fm)}
+.strike{text-decoration:line-through;color:var(--crit);opacity:.8}
+.pipe{display:flex;flex-direction:column;gap:8px}
+.pstage{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:9px 12px;background:var(--panel2)}
+.pstage .pn{width:22px;height:22px;border-radius:6px;background:var(--curbg);color:var(--cur);display:grid;place-items:center;font-family:var(--fm);font-size:10px;font-weight:700;flex-shrink:0}
+.pstage.future{border-style:dashed;opacity:.75}.pstage.future .pn{background:var(--panel3);color:var(--muted)}
+.pstage b{font-size:12.5px}.pstage span{font-size:11px;color:var(--muted);margin-left:auto;font-family:var(--fm)}
+.flowline{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11.5px}
+.fnode{border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--panel2);font-weight:600}
+.fnode.gen{background:var(--genbg);border-color:#ddd0f7;color:var(--gen)}
+.fnode.strip{background:#fdf4ec;border-color:#f0dcc4;color:var(--warn)}
+.farrow{color:var(--faint);font-weight:700}
+table.dt{width:100%;border-collapse:collapse;font-size:12px}
+table.dt th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}
+table.dt td{padding:9px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+table.dt td:first-child{font-weight:600;white-space:nowrap;color:var(--ink)}
+.tick{color:var(--ok);font-weight:700}
+.note{font-size:11px;color:var(--muted);font-family:var(--fm);margin-top:9px;line-height:1.55}
+.hide{display:none}
+@media(max-width:900px){.grid,.aiwrap{grid-template-columns:1fr}.pgrid{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="shell">
+  <div class="concept"><span class="tag">CONCEPT</span> Edition 1 · UI/UX direction for your approval — not yet built. Toggle the three views top-right.<span class="r">Controlyx 2026 · reference-first · evidence-first · trust-first</span></div>
+  <div class="menubar">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M4 19V5M4 15l5-5 4 3 7-8"/></svg></span><span class="bn">Controlyx</span>
+    <div class="menu">File</div><div class="menu">Project</div><div class="menu">View</div><div class="menu">Analysis</div><div class="menu">Tools</div><div class="menu">Help</div>
+    <div class="mb-right"><span class="wd r"></span><span class="wd y"></span><span class="wd g"></span></div>
+  </div>
+  <div class="app">
+    <aside class="side">
+      <div class="navh">Project Navigator</div>
+      <nav class="tree">
+        <button class="tnode root"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span><span class="l">East Port Said Terminal</span></button>
+        <div class="tgrp">Analysis</div>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h5l3-8 4 16 3-8h3"/></svg></span><span class="l">Out of Sequence</span></button>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 15l5-5 4 3 7-8"/></svg></span><span class="l">Earned Value</span></button>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7L9 18l-5-5"/></svg></span><span class="l">Schedule Health</span></button>
+        <div class="tgrp">Knowledge</div>
+        <button class="tnode on" id="nv-kb"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5"/><path d="M3 12a9 3 0 0018 0"/></svg></span><span class="l">Knowledge Base</span><span class="badge-new">FLAGSHIP</span></button>
+        <button class="tnode" id="nv-ai"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.4L18 9l-4.2 1.6L12 15l-1.8-4.4L6 9z"/></svg></span><span class="l">Activity Intelligence</span></button>
+        <div class="tgrp">Library</div>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/></svg></span><span class="l">Recent Projects</span></button>
+      </nav>
+      <div class="acct"><span class="av"></span><div><b>I. Gebril</b><span>Planning Manager</span></div></div>
+    </aside>
+    <div class="main">
+      <div class="top">
+        <div class="tt"><span class="cr" id="crumb">Knowledge ▸ Knowledge Base</span><b id="ttl">Construction Logic &amp; Buildability Intelligence</b></div>
+        <div class="seg">
+          <button class="on" data-view="kb">Knowledge Base</button>
+          <button data-view="ai">Activity Intelligence</button>
+          <button data-view="pr">Design Principles</button>
+        </div>
+        <span class="avatar"></span>
+      </div>
+      <div class="work" id="work"></div>
+    </div>
+  </div>
+</div>
+<script>
+const I={
+ book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5"/><path d="M3 12a9 3 0 0018 0"/></svg>',
+ spark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.4L18 9l-4.2 1.6L12 15l-1.8-4.4L6 9z"/></svg>',
+ shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+ flip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>',
+ info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>',
+ lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>'
+};
+const chip=(cls,txt,ic)=>`<span class="chip ${cls}">${ic?ic:''}${txt}</span>`;
+const stt=(cls,txt)=>`<span class="st ${cls}"><span class="d"></span>${txt}</span>`;
+
+/* ───────────────────────── VIEW 1 · KNOWLEDGE BASE ───────────────────────── */
+function kbView(){return `
+  <div class="hd"><div class="fi">${I.book}</div>
+    <div><h2>Knowledge Base <span style="font-size:12px;color:var(--muted);font-weight:600">· the reference standard</span></h2>
+      <p>A searchable, evidence-graded reference for how work is typically built — sequences, logic, work components, interfaces and the context that changes them. It is a <b>professional reference you consult</b>; it never checks, scores or validates your schedule.</p></div>
+    <div class="stats"><div class="stat"><b>5</b><span>Disciplines</span></div><div class="stat"><b>68</b><span>Work concepts</span></div><div class="stat"><b>410</b><span>Typical relationships</span></div></div></div>
+
+  <div class="bar">
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Search work, systems, sequences, relationships…</div>
+    <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add Project XER</button>
+    <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg>Export Knowledge</button>
+  </div>
+
+  <div class="grid">
+    <div class="types">
+      <div class="tyh">Disciplines</div>
+      ${[['Civil',9],['Structural',11],['Architectural / Finishes',14],['MEP',18],['Industrial / Process',16,true]].map(([n,c,on])=>`<button class="ty ${on?'on':''}"><span class="tyi"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 21V9l6-4 6 4v12"/></svg></span><span class="tyn">${n}</span><span class="cnt">${c}</span></button>`).join('')}
+      <div class="tyh" style="border-top:1px solid var(--hair)">Industrial / Process ▸ systems</div>
+      ${[['Process Piping',true],['Static Equipment'],['Rotating Equipment'],['Structural Steel'],['E &amp; I / Cabling'],['Tankage']].map(([n,on])=>`<div class="sub ${on?'on':''}">${n}</div>`).join('')}
+    </div>
+
+    <div class="detail">
+      <div class="trust">${I.shield}<div><b>Reference knowledge — typical patterns, not rules.</b> Everything below is what is <i>usually</i> true. Whether it applies to your project depends on methodology, access, procurement, work packaging, means-and-methods and site conditions. You bring the judgement; this brings the reference and the reasoning.</div></div>
+
+      <div class="entry">
+        <div class="etop">
+          <div class="eic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l2-5 3 10 2-5h7"/></svg></div>
+          <div><h2>Install Process Piping</h2>
+            <div class="etag"><span class="tg">Industrial / Process</span><span class="tg">System · Process Piping</span><span class="tg">Phase · Construction → Pre-commissioning</span><span class="tg">Aliases · spool erection, pipe fit-up, above-ground piping</span></div>
+          </div>
+          <div class="emeta">
+            ${chip('src-cur','Curated reference',I.shield)}
+            ${chip('ev-strong','Strong evidence','')}
+            <span class="conf">Confidence · <b>High</b> (sequence backbone) · <b>Medium</b> (productivity)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>${I.spark} Typical construction sequence <span class="n">the usual backbone — test packages, modularization and tie-ins reshape it</span><span class="spacer"></span>${stt('st-avail','Knowledge available')}</h3>
+        <div class="seqflow" style="margin-top:6px">
+          ${[['1','Receive &amp; verify spools','mill certs · PMI'],['2','Erect pipe supports','needs steel/rack'],['3','Install / fit-up spools',''],['4','Bolt-up &amp; welding','root · fill · cap'],['5','NDT / weld inspection','RT · PT · MT'],['6','Flushing &amp; cleaning',''],['H','Hydro / pneumatic test','HOLD POINT',1],['7','Reinstatement','re-bolt after test'],['8','Insulation · paint · tracing','after test'],['9','Punch → mechanical completion','']].map(([n,t,d,h])=>`<div class="step ${h?'hold':''}"><div class="sn">${h?'HOLD':'STEP '+n}</div><div class="st2">${t}</div>${d?`<div class="sd">${d}</div>`:''}</div>`).join('<span style="align-self:center;color:var(--faint)">›</span>')}
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="blk">
+          <div class="blkh"><span class="bi">${I.spark}</span>Typical preceding work<span class="spacer"></span>${stt('st-avail','Available')}</div>
+          <div class="blkb">
+            <div class="rel"><span class="arw">PRED</span><div class="rc"><b>Pipe rack / support steel erected</b><div class="why">Supports and shoes land on the structure before spools can be set.</div></div><div class="rmeta">${chip('ev-strong','Strong','')}<span class="conf">FS</span></div></div>
+            <div class="rel"><span class="arw">PRED</span><div class="rc"><b>Spool fabrication &amp; delivery (ROS)</b><div class="why">Field install is gated by the fabrication/procurement release-on-site date, not by adjacency.</div><div class="flip">${I.flip}<span><b>Flips when</b> stick-built in place — no shop spools — then fab is not a predecessor.</span></div></div><div class="rmeta">${chip('ev-strong','Strong','')}<span class="conf">FS</span></div></div>
+            <div class="rel"><span class="arw">PRED</span><div class="rc"><b>Equipment set on foundations</b><div class="why">Piping ties into equipment nozzles, so major equipment is usually in place first.</div><div class="flip">${I.flip}<span><b>Flips when</b> rack piping runs ahead of equipment; only the tie-in spool waits.</span></div></div><div class="rmeta">${chip('ev-mod','Moderate','')}<span class="conf">FS/SS</span></div></div>
+          </div>
+        </div>
+        <div class="blk">
+          <div class="blkh"><span class="bi">${I.spark}</span>Typical following work<span class="spacer"></span>${stt('st-avail','Available')}</div>
+          <div class="blkb">
+            <div class="rel"><span class="arw">SUCC</span><div class="rc"><b>Hydro / pneumatic test</b><div class="why">The line is pressure-tested once welds are complete and inspected.</div></div><div class="rmeta">${chip('ev-strong','Strong','')}<span class="conf">FS</span></div></div>
+            <div class="rel"><span class="arw">SUCC</span><div class="rc"><b>Insulation · painting · heat tracing</b><div class="why">Applied after a successful test — covering a line before test hides leaks.</div></div><div class="rmeta">${chip('ev-strong','Strong','')}<span class="conf">FS</span></div></div>
+            <div class="rel"><span class="arw">SUCC</span><div class="rc"><b>Pre-commissioning / commissioning</b><div class="why">Follows mechanical completion of the test package.</div></div><div class="rmeta">${chip('ev-mod','Moderate','')}<span class="conf">FS</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="blk">
+          <div class="blkh"><span class="bi">${I.book}</span>Work components<span class="spacer"></span>${stt('st-avail','Available')}</div>
+          <div class="blkb"><div class="reslist">
+            ${['Large-bore piping','Small-bore piping','Pipe supports &amp; spring hangers','Inline valves &amp; specialities','Field welds (shop/field split)','Bolted flange joints','NDT &amp; PWHT','Hydro/pneumatic test packages','Insulation &amp; heat tracing'].map(x=>`<span class="res"><b>${x}</b></span>`).join('')}
+          </div></div>
+        </div>
+        <div class="blk">
+          <div class="blkh"><span class="bi">${I.info}</span>Context-dependent conditions<span class="spacer"></span>${stt('st-review','Planner review')}</div>
+          <div class="blkb"><ul class="assume" style="margin:0;padding-left:16px">
+            <li><b>Modularization / skids</b> — fit-up, weld and test move to the shop; field work collapses to <i>set module + tie-ins</i>, changing most predecessors.</li>
+            <li><b>Test-package boundaries</b> drive sequence more than physical adjacency.</li>
+            <li><b>Brownfield tie-ins</b> need shutdown windows — permit/procurement driven, not logic driven.</li>
+            <li><b>Alloy + PWHT</b> adds heat-treatment and extra NDT steps.</li>
+          </ul></div>
+        </div>
+      </div>
+
+      <div class="prov" style="display:flex;gap:10px;align-items:center"><span style="width:9px;height:9px;border-radius:50%;background:var(--prod);flex-shrink:0"></span><span>Resources, crew, durations &amp; productivity for this work are handled in the <b style="color:var(--prod)">separate Productivity Knowledge Base</b> feature — not part of this reference.</span></div>
+
+      <div class="card">
+        <h3>${I.info} Evidence, provenance &amp; assumptions<span class="spacer"></span></h3>
+        <div class="prov">
+          <b>Evidence.</b> Piping sequence is dominated by two invariants — <i>weld before test</i> and <i>test before covering</i> — with the rest shaped by test packages and fabrication strategy. Trade-universal across onshore process/industrial work.<br><br>
+          <b>Provenance.</b> ${chip('src-cur','Curated reference',I.shield)} &nbsp;+&nbsp; ${chip('src-gen','Generalized from 6 imported schedules',I.spark)} <span style="color:var(--muted)">— patterns are abstracted to concepts; <b>no project IDs, activity names or WBS terms are copied</b> into the knowledge.</span><br><br>
+          <b>Assumptions.</b> Onshore process plant · spool-fabricated CS/SS · normal access · no shutdown constraint. Change any of these and the sequence above shifts.
+        </div>
+      </div>
+
+    </div>
+  </div>`;}
+
+/* ───────────────────────── VIEW 2 · ACTIVITY INTELLIGENCE ───────────────────────── */
+function aiView(){return `
+  <div class="hd"><div class="fi" style="background:var(--curbg);color:var(--cur)">${I.spark}</div>
+    <div><h2>Activity Intelligence <span style="font-size:12px;color:var(--muted);font-weight:600">· planner-initiated</span></h2>
+      <p>Select an activity from your schedule and ask Controlyx to surface the relevant construction knowledge. <b>You ask; the system shows.</b> It never scans your schedule on its own and never raises a finding against it.</p></div></div>
+
+  <div class="disc" style="margin-bottom:14px">${I.info}<div><b>This does not validate your schedule.</b> It shows reference knowledge for the activity you picked. Nothing here is a check, a score or a verdict — and <b>an empty result never means your logic is correct.</b> See the status key below.</div></div>
+
+  <div class="aiwrap">
+    <div class="sched">
+      <div class="schh">Your schedule · pick an activity</div>
+      <button class="act on"><span class="aid">PIP-1420 · Unit 300</span><span class="anm">Install Process Piping</span><span class="amini mmatch">● matched · high confidence</span></button>
+      <button class="act"><span class="aid">EQP-1200 · Unit 300</span><span class="anm">Set Reactor R-301</span><span class="amini mmatch">● matched · high confidence</span></button>
+      <button class="act"><span class="aid">ELE-2210 · Unit 300</span><span class="anm">Cable Pulling — MCC-1</span><span class="amini mlow">● partial match · medium</span></button>
+      <button class="act"><span class="aid">GEN-1730 · Site</span><span class="anm">Misc. site works — area 40</span><span class="amini mnone">○ no confident match</span></button>
+      <div class="schh" style="border-top:1px solid var(--hair);border-bottom:0">1,284 activities · none assessed automatically</div>
+    </div>
+
+    <div class="detail">
+      <div class="match">
+        <div class="mo">${I.spark}</div>
+        <div class="mc"><div class="ml">Mapped to knowledge concept</div><b>Process Piping — Installation</b></div>
+        <div style="text-align:right"><div class="conf" style="margin-bottom:4px">match confidence · <b style="color:var(--ok)">High</b></div><span class="remap">Not right? Re-map ›</span></div>
+      </div>
+      <div class="note" style="margin-top:0">Matched from the activity name + WBS path through the <b style="color:var(--gen)">Semantic Mapping Layer</b>. You can always correct the mapping — corrections are remembered.</div>
+
+      <div class="card">
+        <h3>${I.spark} Surfaced for this activity<span class="spacer"></span>${chip('src-cur','Curated',I.shield)}${chip('src-gen','+ your projects',I.spark)}</h3>
+        <div class="sec-lead">The same reference knowledge from the Knowledge Base, brought to the activity you selected — condensed.</div>
+        <div class="grid2">
+          <div class="blk"><div class="blkh">Typical preceding work<span class="spacer"></span>${stt('st-avail','Available')}</div><div class="blkb" style="font-size:12px;color:var(--ink2);line-height:1.7">Pipe rack / support steel · Spool fabrication (ROS) · Equipment set <span style="color:var(--warn)">(flips with rack-first)</span></div></div>
+          <div class="blk"><div class="blkh">Typical following work<span class="spacer"></span>${stt('st-avail','Available')}</div><div class="blkb" style="font-size:12px;color:var(--ink2);line-height:1.7">Hydro/pneumatic test → Insulation &amp; paint → Pre-commissioning</div></div>
+        </div>
+        <div class="note" style="margin-top:11px">Resources, crew &amp; productivity for this work are handled in the separate <b style="color:var(--prod)">Productivity Knowledge Base</b> feature — not shown here.</div>
+        <div class="blk" style="margin-top:11px"><div class="blkh">Context that changes this<span class="spacer"></span>${stt('st-review','Planner review required')}</div><div class="blkb" style="font-size:12px;color:var(--ink2);line-height:1.6">Modularization moves fit-up/weld/test to the shop · test-package boundaries govern sequence · brownfield tie-ins need shutdown windows. <b>Only you know which apply.</b></div></div>
+        <div style="margin-top:12px"><button class="btn" data-view="kb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5"/></svg>Open full entry in Knowledge Base ›</button></div>
+      </div>
+
+      <div class="card" style="border-color:#e6d3a6;background:#fefaf1">
+        <h3>${I.info} What "no result" looks like <span class="n">the honest empty state — selected: GEN-1730 Misc. site works</span></h3>
+        <div class="match nomatch" style="margin-top:4px;box-shadow:none">
+          <div class="mo">${I.info}</div>
+          <div class="mc"><div class="ml">Semantic Mapping Layer</div><b>No confident concept match</b></div>
+          <div style="text-align:right">${stt('st-na','Not assessed')}</div>
+        </div>
+        <div style="margin-top:11px;display:flex;gap:8px;flex-wrap:wrap">${stt('st-insuf','Insufficient evidence')} ${stt('st-na','Not assessed')}</div>
+        <div class="note" style="color:var(--ink2);font-family:var(--fs);font-size:12.5px;margin-top:10px;line-height:1.6"><b style="color:var(--crit)">This does not mean the activity is correct.</b> It means the system has no confident knowledge to show — the name is generic, or this work isn't covered yet. You can <b style="color:var(--brand)">map it manually</b> or <b style="color:var(--brand)">search the Knowledge Base</b>.</div>
+      </div>
+
+      <div class="card">
+        <h3>${I.info} Status key <span class="n">what each state means — and does not mean</span></h3>
+        <div class="legend2" style="margin-top:4px">
+          <div class="leg"><span class="ld" style="background:var(--ok)"></span><div><b>Knowledge available</b><span>Relevant, evidence-graded knowledge exists for this concept.</span></div></div>
+          <div class="leg"><span class="ld" style="background:var(--warn)"></span><div><b>Potentially relevant</b><span>Partial or lower-confidence match — read with care.</span></div></div>
+          <div class="leg"><span class="ld" style="background:var(--faint)"></span><div><b>Insufficient evidence</b><span>Concept known, but the knowledge is too thin to rely on.</span></div></div>
+          <div class="leg"><span class="ld" style="background:var(--faint);border:1px dashed var(--muted)"></span><div><b>Not assessed</b><span>No confident match. <b style="color:var(--crit)">Not</b> a statement that the schedule is right.</span></div></div>
+          <div class="leg"><span class="ld" style="background:var(--cur)"></span><div><b>Planner review required</b><span>Context-dependent — only you can decide if it applies.</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>`;}
+
+/* ───────────────────────── VIEW 3 · DESIGN PRINCIPLES ───────────────────────── */
+function prView(){return `
+  <div class="hd"><div class="fi" style="background:var(--okbg);color:var(--ok)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div>
+    <div><h2>Design principles &amp; architecture</h2><p>How this concept honours your ten Edition 1 decisions — and the two seams (<b>Semantic Mapping Layer</b>, <b>knowledge generalization</b>) that keep it future-proof without redesigning the Knowledge Base.</p></div></div>
+
+  <div class="pgrid">
+    <div class="card">
+      <h3>What Edition 1 removes</h3>
+      <div class="sec-lead">Decisions 2 &amp; 3 — no certification, no automatic findings.</div>
+      <div class="ba">
+        <div class="bac ba-before"><div class="h">BEFORE</div><div style="margin-top:6px"><span class="strike">Constructability Risk Score 74 / 100</span><br><span class="strike">Findings register vs your schedule</span><br><span class="strike">"Constructible / Not constructible"</span></div></div>
+        <div class="bac ba-after"><div class="h">EDITION 1</div><div style="margin-top:6px">Knowledge Base (consult)<br>Activity Intelligence (you ask)<br>Honest status vocabulary</div></div>
+      </div>
+      <div class="note">No score, no verdict, no pass/fail — and none of it in the client PDF.</div>
+    </div>
+
+    <div class="card">
+      <h3>"No finding" never means "correct"</h3>
+      <div class="sec-lead">Decision 6 — absence of a result is never validation.</div>
+      <div class="legend2">
+        <div class="leg"><span class="ld" style="background:var(--ok)"></span><div><b>Knowledge available</b></div></div>
+        <div class="leg"><span class="ld" style="background:var(--warn)"></span><div><b>Potentially relevant</b></div></div>
+        <div class="leg"><span class="ld" style="background:var(--faint)"></span><div><b>Insufficient evidence</b></div></div>
+        <div class="leg"><span class="ld" style="background:var(--faint);border:1px dashed var(--muted)"></span><div><b>Not assessed</b></div></div>
+        <div class="leg"><span class="ld" style="background:var(--cur)"></span><div><b>Planner review required</b></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3>${I.spark} Semantic Mapping Layer <span class="n">Decision 7 — one interface, pluggable stages · no provider hard-coded</span></h3>
+    <div class="sec-lead">Messy activity name → normalized construction concept. Edition 1 ships the deterministic stages; richer matchers plug in later <b>without touching the Knowledge Base</b>.</div>
+    <div class="flowline" style="margin:6px 0 12px">
+      <span class="fnode">"Install Proc. Pipe U-300"</span><span class="farrow">→</span>
+      <span class="fnode">Normalize</span><span class="farrow">→</span>
+      <span class="fnode">Synonyms / aliases</span><span class="farrow">→</span>
+      <span class="fnode">Fuzzy match</span><span class="farrow">→</span>
+      <span class="fnode gen">Process Piping — Installation</span><span class="farrow">+</span><span class="fnode">confidence</span>
+    </div>
+    <div class="pipe">
+      <div class="pstage"><span class="pn">1</span><b>Deterministic normalization</b><span>Edition 1</span></div>
+      <div class="pstage"><span class="pn">2</span><b>Synonym / alias dictionary</b><span>Edition 1</span></div>
+      <div class="pstage"><span class="pn">3</span><b>Fuzzy / token matching</b><span>Edition 1</span></div>
+      <div class="pstage future"><span class="pn">4</span><b>Local / offline embeddings</b><span>drop-in later</span></div>
+      <div class="pstage future"><span class="pn">5</span><b>Cloud AI / LLM</b><span>future edition</span></div>
+    </div>
+    <div class="note">The Knowledge Base is queried the same way whichever stage answers — so improving the matcher never means rebuilding the knowledge (Decision 9 puts mapping <i>after</i> knowledge coverage).</div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3>${I.lock} Imported XERs improve the knowledge — safely <span class="n">Decision 8</span></h3>
+    <div class="sec-lead">Project specifics are transformed into generalized knowledge with provenance and evidence — never copied verbatim.</div>
+    <div class="flowline">
+      <span class="fnode">Import XER</span><span class="farrow">→</span>
+      <span class="fnode">Extract patterns</span><span class="farrow">→</span>
+      <span class="fnode strip">Strip project IDs · names · WBS terms</span><span class="farrow">→</span>
+      <span class="fnode">Generalize to concept</span><span class="farrow">→</span>
+      <span class="fnode gen">Knowledge + provenance + evidence</span>
+    </div>
+    <div class="note">"Generalized across projects; no project data embedded" — exactly what today's curated entries already promise.</div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3>${I.book} Scope boundary — a separate Productivity KB <span class="n">Decision 9 — productivity/resources is its own feature</span></h3>
+    <div class="sec-lead">This concept is the <b>Construction Logic KB</b> only. Durations, resources, crew and productivity rates are a <b style="color:var(--prod)">separate knowledge-base feature</b> — not part of this one.</div>
+    <div class="flowline" style="gap:10px">
+      <span class="fnode gen">Construction Logic KB <span style="font-weight:500">· this feature</span></span><span style="font-size:11px;color:var(--muted)">sequence · logic · interfaces · context · evidence</span>
+      <span class="farrow" style="color:var(--faint)">│</span>
+      <span class="fnode" style="background:var(--prodbg);border-color:#bfe0e7;color:var(--prod)">Productivity KB <span style="font-weight:500">· separate feature, in build</span></span><span style="font-size:11px;color:var(--muted)">durations · resources · crew · rates</span>
+    </div>
+    <div class="note">Each is curated independently — this concept covers only the logic axis.</div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3>Your ten decisions → where they live</h3>
+    <table class="dt"><thead><tr><th>Decision</th><th>Honoured in this concept</th></tr></thead><tbody>
+      <tr><td>1 · KB is flagship</td><td>Knowledge Base is the primary view &amp; sidebar flagship; searchable, evidence-graded, provenance-carrying, context-aware.</td></tr>
+      <tr><td>2 · No score / verdict</td><td><span class="tick">✓</span> Score &amp; verdict removed everywhere, incl. client PDF (see "What Edition 1 removes").</td></tr>
+      <tr><td>3 · No auto findings</td><td><span class="tick">✓</span> Activity Intelligence is planner-initiated — nothing scans or flags the schedule.</td></tr>
+      <tr><td>4 · Keep R1–R7</td><td>Engine preserved in code, not exposed as findings; reversible for a future edition.</td></tr>
+      <tr><td>5 · Advisory terminology</td><td>Feature named <i>Construction Logic &amp; Buildability Intelligence</i>; no certifying language.</td></tr>
+      <tr><td>6 · Empty ≠ correct</td><td><span class="tick">✓</span> Five-state status vocabulary; explicit "not a validation" empty state.</td></tr>
+      <tr><td>7 · Semantic Mapping Layer</td><td>Clean pluggable seam (deterministic → synonyms → fuzzy → embeddings → LLM); no provider hard-coded.</td></tr>
+      <tr><td>8 · XER → generalized</td><td>Import pipeline strips project specifics, stores generalized knowledge with provenance.</td></tr>
+      <tr><td>9 · Priority order</td><td>Coverage &amp; taxonomy first; <b style="color:var(--prod)">productivity/resources is a separate KB feature</b> (in build), not part of this one; semantic mapping, context capture &amp; intelligence follow.</td></tr>
+      <tr><td>10 · 16–24% unverified</td><td>Not used as an assumption anywhere; the principle (empty ≠ validated) is enforced by design instead.</td></tr>
+    </tbody></table>
+  </div>`;}
+
+const work=document.getElementById('work');
+const V={kb:kbView,ai:aiView,pr:prView};
+const T={kb:['Knowledge ▸ Knowledge Base','Construction Logic & Buildability Intelligence'],ai:['Knowledge ▸ Activity Intelligence','Construction Logic & Buildability Intelligence'],pr:['Knowledge ▸ Design Principles','Construction Logic & Buildability Intelligence']};
+function show(v){
+  document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  document.getElementById('crumb').textContent=T[v][0];document.getElementById('ttl').textContent=T[v][1];
+  document.getElementById('nv-kb').classList.toggle('on',v==='kb');
+  document.getElementById('nv-ai').classList.toggle('on',v==='ai');
+  work.innerHTML=V[v]();work.scrollTop=0;
+}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-view]');if(t){show(t.dataset.view);return;}
+  if(e.target.closest('#nv-kb'))show('kb');if(e.target.closest('#nv-ai'))show('ai');});
+show('kb');
+</script></body></html>
