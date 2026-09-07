@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+
+### Added — More keyboard shortcuts
+- **Ctrl+E exports the current report to Excel** (alongside Ctrl+P / Ctrl+S for PDF).
+- **Ctrl+D now cycles through all six appearance modes** (Light → Dark → Midnight → Sepia → High-contrast → Blueprint, then round again), instead of only toggling light/dark.
+- **F1 opens the Help Center.**
+- The **Help ▸ Keyboard Shortcuts** list is now generated from a single shortcut registry, so it always matches the shortcuts that actually work — add or change a shortcut and it appears in the list automatically, with no separate edit.
+
 ## [v2.3.0] - 2026-09-07
 
 ### Added — Branded startup splash & feature-open reveal

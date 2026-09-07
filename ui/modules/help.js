@@ -12,6 +12,8 @@
 // retheme's with the active appearance mode. The only fixed colour is the amber "extra
 // file" chip (#c2731a), which has no semantic token. Close via ✕, Esc, or the scrim.
 
+import { shortcutRows } from './shortcuts.js';
+
 const STYLE_ID = 'hc-help-style';
 const OVERLAY_ID = 'hc-help-overlay';
 
@@ -396,16 +398,10 @@ function screenFeatureGuide() {
 }
 
 function screenShortcuts() {
-  const rows = [
-    ['Import a schedule', ['Ctrl', 'O']],
-    ['Run the selected feature', ['Ctrl', '↵']],
-    ['Print / export PDF', ['Ctrl', 'P']],
-    ['Save report', ['Ctrl', 'S']],
-    ['Search this guide', ['Ctrl', 'F']],
-    ['Toggle light / dark', ['Ctrl', 'D']],
-    ['Open Help Center', ['F1']],
-    ['Close panel / cancel', ['Esc']],
-  ].map(([lbl, keys]) =>
+  // Rows come straight from the shared SHORTCUTS registry (shortcuts.js) — the same
+  // source app.js binds its key handler to — so this list can never drift from the
+  // shortcuts that actually fire. Add/change a shortcut there and it shows up here.
+  const rows = shortcutRows().map(([lbl, keys]) =>
     `<div class="hc-kb-row"><span class="lbl">${esc(lbl)}</span><span class="hc-keys">${
       keys.map(k => `<kbd>${esc(k)}</kbd>`).join('')
     }</span></div>`).join('');
