@@ -92,11 +92,11 @@ document.addEventListener('DOMContentLoaded', () => {
       ['dash','Professional Dashboard','dash'], ['special','Special Report'],
     ]},
     { group:'Library', items:[
-      ['kb','Knowledge Base'], ['construct','Constructability'], ['recent','Recent Projects'],
+      ['kb','Knowledge Base'], ['construct','Construction Intelligence','ai'], ['recent','Recent Projects'],
     ]},
   ];
   const CRUMB = { home:'Home', recent:'Recent Projects', kb:'Knowledge Base', evm:'Earned Value',
-    audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
+    audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Construction Intelligence',
     compare:'Consultant Review', revcompare:'Baseline Revision Comparison', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
     update:'Update Analysis', special:'Special Report', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
     dash:'Professional Dashboard', narrative:'Baseline Narrative',
@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
   //
   // SELF_GATING features collect their own inputs + Run inside their panel
   // (a second file / two revisions / a location), so they skip the generic gate.
-  const SELF_GATING = new Set(['compare', 'revcompare', 'period', 'critpath', 'weather']);
+  const SELF_GATING = new Set(['compare', 'revcompare', 'period', 'critpath', 'weather', 'construct']);
   const FEATURE_META = {
     evm:       { title:'Earned Value',            icon:'evm',       verb:'Run EVM Analysis',      desc:'Planned vs earned value, SPI / CPI and finish delay from this update.' },
     overview:  { title:'Overview',                icon:'overview',  verb:'Show Overview',         desc:'A one-page snapshot of progress and category performance.' },
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     oos:       { title:'Out of Sequence',         icon:'critpath',  verb:'Run Analysis',          desc:'Activities progressing against their planned logic.' },
     lag:       { title:'Lag Report',              icon:'lag',       verb:'Run Lag Report',        desc:'Relationship lags and leads, with a justification register.' },
     calendar:  { title:'P6 Calendar Audit',       icon:'calendar',  verb:'Run Calendar Audit',    desc:'Working-time calendars, net working days and comparisons.' },
-    construct: { title:'Constructability',        icon:'construct', verb:'Run Constructability',  desc:'Reviews sequencing and logic against the built-in construction knowledge base.' },
+    construct: { title:'Construction Intelligence', icon:'ai',      verb:'Open Construction Intelligence', desc:'Browse the construction Knowledge Base and surface typical logic for any activity — a professional reference, never a schedule verdict.' },
     copilot:   { title:'AI Copilot · TIA',        icon:'ai',        verb:'Run Copilot',           desc:'Deterministic Time-Impact Analysis and insights — offline.' },
     narrative: { title:'Baseline Narrative',      icon:'doc',       verb:'Generate Narrative',    desc:'A written basis-of-schedule narrative from this programme.' },
     dash:      { title:'Professional Dashboard',  icon:'dash',      verb:'Open Dashboard',        desc:'Portfolio KPIs and week-over-week trends across your projects.' },
@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (id === 'kb')     { exitRecent();  showDatabase();  setCrumb('kb');     markNav('kb');     return; }
     // a feature/module view — only runs the one the user picked
     exitDatabase(); exitRecent();
-    if (!state.currentResult) {
+    if (!state.currentResult && id !== 'construct') {
       showError('Import a P6 schedule first, then choose a module.');
       document.querySelector('.import-section')?.scrollIntoView({ behavior:'smooth', block:'start' });
       return;
@@ -279,7 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
     compare:  { pdf: 'cmp-preview-pdf', xls: 'cmp-export-xlsx' },
     revcompare:{ pdf: 'rc-preview-pdf' },
     critpath: { pdf: 'cpa-export-pdf',  xls: 'cpa-export-xlsx' },
-    construct:{ pdf: 'cx-pdf',          xls: 'cx-xls' },
     period:   { pdf: 'per-export-pdf',  xls: 'per-export-xlsx' },
     update:   { pdf: 'ua-export-pdf',   xls: 'ua-export-xlsx' },
   };

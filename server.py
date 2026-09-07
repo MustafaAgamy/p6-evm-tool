@@ -40,6 +40,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_list()
         elif self.path == '/api/kb/knowledge':
             self._handle_kb_knowledge_get()
+        elif self.path == '/api/kb/reference':
+            self._handle_kb_reference_get()
         elif self.path == '/api/database':
             self._handle_database_list()
         else:
@@ -144,6 +146,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ai_review(body)
         elif self.path == '/api/constructability':
             self._handle_constructability(body)
+        elif self.path == '/api/kb/activity-knowledge':
+            self._handle_kb_activity_knowledge(body)
         elif self.path == '/api/kb/starter-xml':
             self._handle_kb_starter_xml(body)
         elif self.path == '/api/kb/learned-file':
@@ -1251,6 +1255,44 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_kb.pattern_learning import provenance, kb_list
             self._json(200, {'ok': True, 'projects': kb_list(), **provenance()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_reference_get(self):
+        """Reference-first Knowledge Base for BROWSING (Edition 1): the
+        discipline/system index, the archetype list, and a full pattern_detail for
+        every system. Pure reference — no schedule, no score, no verdict. All
+        offline from the bundled + overlay system-pattern KB."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb import reference
+            from p6_kb.patterns import load_system_patterns, load_archetypes
+            patterns = load_system_patterns()
+            archetypes = load_archetypes()
+            index = reference.knowledge_index(patterns, archetypes)
+            details = {sid: reference.pattern_detail(sid, patterns) for sid in patterns}
+            self._json(200, {'ok': True, 'index': index, 'details': details,
+                             'status_vocab': reference.STATUS_VOCAB})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_activity_knowledge(self, body):
+        """Planner-initiated Activity Intelligence: map ONE selected activity to a
+        knowledge concept via the Semantic Mapping Layer and SURFACE the relevant
+        reference. Never a verdict; an empty result never means the schedule is
+        correct (status vocabulary carries that). Body: {name, wbs_path,
+        activity_codes}."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb import reference
+            activity = {
+                'name': body.get('name') or '',
+                'wbs_path': body.get('wbs_path') or '',
+                'activity_codes': body.get('activity_codes') or {},
+            }
+            result = reference.activity_knowledge(activity)
+            self._json(200, {'ok': True, **result,
+                             'status_vocab': reference.STATUS_VOCAB})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
