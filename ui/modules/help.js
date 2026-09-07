@@ -490,7 +490,7 @@ function screenContact() {
         </div>
       </div>
     </div>
-    <div class="hc-resp"><span class="rdot"></span>We usually respond within one business day.</div>
+    <div class="hc-resp"><span class="rdot"></span>We usually respond within 2 days.</div>
   </section>`;
 }
 
