@@ -392,6 +392,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const path = await window.pywebview.api.choose_file();
     if (path) importFile(path);
   });
+  // Change file (#04) — swap a mistakenly-imported XER/XML without restarting.
+  document.getElementById('change-file-btn')?.addEventListener('click', triggerBrowse);
 
   document.getElementById('error-close').addEventListener('click', clearError);
   // "Load another file" is a single global action (File ▸ Load another file / Analysis ▸ Back

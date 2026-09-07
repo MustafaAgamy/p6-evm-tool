@@ -88,7 +88,10 @@
 
       <!-- Results section (hidden until a file is parsed) -->
       <section class="results-section hidden" id="results-section">
-        <div class="file-info-bar" id="file-info-bar"></div>
+        <div class="file-info-row">
+          <div class="file-info-bar" id="file-info-bar"></div>
+          <button class="change-file-btn" id="change-file-btn" type="button" title="Imported the wrong file? Load a different P6 XER or XML.">↻ Change file</button>
+        </div>
 
         <!-- After import: the Project Navigator (left) is the feature selector. Nothing runs
              until the user chooses a feature and presses its Run button (issues #3/#4). -->
