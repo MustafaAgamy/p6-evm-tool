@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [v2.5.2] - 2026-09-07
+
+### Changed
+- **Every feature now plays the same branded "run" presentation** (the Loading → 100% reveal) when you start it. The multi-file features — **Baseline Revision, Consultant Review, Update vs Update, Critical Path, and Bad Weather** — previously ran without it; they now show the same reveal as every other feature. Built on one shared helper (`revealAndRun`) so it's the default for future features too.
+
 ## [v2.5.1] - 2026-09-07
 
 ### Changed
