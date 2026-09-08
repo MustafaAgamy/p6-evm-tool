@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+
+### Added — Excel export for every feature
+- **Every feature now exports its report to Excel (.xlsx)**, matching the on-screen / PDF layout (styled titled-section tables, not a flat data dump). New Excel exports: **Earned Value, Baseline Revision, AI Copilot · TIA, Professional Dashboard, Special Report, Baseline Narrative, Overview, WBS, and Schedule (Gantt)** — joining the ones that already had it (Schedule Health, Out of Sequence, Lag Report, Calendar Audit, Bad Weather, Consultant Review, Update vs Update, Update Analysis, Critical Path, Constructability). Each has an in-panel **Export to Excel** button and works from **File ▸ Export to Excel**; the workbook mirrors that report's sections.
+- Built on one shared workbook writer (`write_sections_xlsx`), so Excel export is now the **standard for every future feature** too.
+
+### Changed
+- **Baseline Revision** now shows visible **PDF** and **Excel** buttons in its results panel — previously its report was only reachable from the File menu.
+
 ## [v2.4.1] - 2026-09-07
 
 ### Added

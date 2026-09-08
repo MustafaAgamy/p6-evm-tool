@@ -284,6 +284,33 @@ def write_xlsx(path, sheet_name, headers, rows, highlight_cols=None, severity_co
     _write_book(path, [(sheet_name, _sheet(headers, rows, highlight_cols, severity_col, legend))], _STYLES)
 
 
+def write_sections_xlsx(path, sheets, col_widths=None):
+    """Write a styled multi-sheet workbook that MIRRORS a feature's on-screen / PDF report.
+
+    This is the shared standard every feature's Excel export should use so the workbook
+    reflects the report's sections (titled tables), matching the screen/PDF layout rather
+    than dumping one flat table.
+
+    sheets: list of {'name': str, 'blocks': [{'title', 'headers', 'rows', 'note'?}], 'col_widths'?}
+      - each sheet becomes one worksheet whose titled tables are stacked top-to-bottom
+        (via _stacked_sheet), sheet names sanitised + de-duplicated.
+    col_widths: default column-width map applied to any sheet that doesn't set its own.
+
+    Numbers render as numeric cells; a `note` line prints under a block's title. Reuse the
+    severity colours / RichText from write_xlsx where a table needs them (build the sheet
+    with _sheet/_cells_sheet directly and pass it in via `sheets=[{'name','xml'}]`).
+    """
+    used = set()
+    book = []
+    for sh in sheets:
+        nm = _uniq(_safe_sheet_name(sh.get('name') or 'Report'), used)
+        if 'xml' in sh:                       # caller pre-built a styled sheet (severity/RichText)
+            book.append((nm, sh['xml']))
+        else:
+            book.append((nm, _stacked_sheet(sh['blocks'], col_widths=sh.get('col_widths') or col_widths)))
+    _write_book(path, book, _STYLES)
+
+
 _BAD_SHEET_CHARS = set('[]:*?/\\')
 
 

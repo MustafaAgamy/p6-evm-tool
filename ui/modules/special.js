@@ -82,6 +82,7 @@ function drawBuilder(host, templates) {
           <span class="sr-appear" id="sr-appear"></span>
           <button class="btn-secondary" id="sr-preview">👁 Preview</button>
           <button class="btn-secondary" id="sr-word">⬇ Word</button>
+          <button class="btn-secondary" id="sr-xls">⬇ Excel</button>
           <button class="btn-primary" id="sr-pdf">⬇ PDF</button>
         </div>
       </div>
@@ -95,6 +96,7 @@ function drawBuilder(host, templates) {
   document.getElementById('sr-appear').appendChild(buildAppearancePicker({ current: getSavedMode(), compact: true }));
   document.getElementById('sr-preview').addEventListener('click', doPreview);
   document.getElementById('sr-word').addEventListener('click', () => doExport('doc'));
+  document.getElementById('sr-xls').addEventListener('click', () => doExport('xlsx'));
   document.getElementById('sr-pdf').addEventListener('click', () => doExport('pdf'));
   document.getElementById('sr-save-tpl').addEventListener('click', doSaveTemplate);
 }
@@ -229,7 +231,7 @@ async function saveFile(ext, mode) {
   const safe = (S.name || 'special-report').replace(/[^\w\- ]+/g, '').trim() || 'special-report';
   const out = await window.pywebview.api.choose_save_path(`${safe}.${ext}`, ext);
   if (!out) return false;
-  const route = ext === 'doc' ? 'api/special/doc' : 'api/special/pdf';
+  const route = ext === 'doc' ? 'api/special/doc' : ext === 'xlsx' ? 'api/special/excel' : 'api/special/pdf';
   const res = await api(route, reqBody({ theme: mode, output_path: out }));
   if (!res.ok) { showError(res.error || 'Export failed.'); return false; }
   return true;
