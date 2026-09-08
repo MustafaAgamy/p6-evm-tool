@@ -382,17 +382,21 @@ def _calendars(p, number):
 
 # ── codes (restored) ──────────────────────────────────────────────────────────
 def _codes(p, number):
-    cards = ''
-    for t in (p.get('tables') or []):
-        rows = ''.join('<tr><td class="bn-code">%s</td><td>%s</td></tr>'
-                       % (_esc(r.get('code')), _esc(r.get('description')))
-                       for r in (t.get('rows') or []))
-        cards += ('<div class="bn-codecard"><h4>%s</h4>'
-                  '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Code</th>'
-                  '<th>Description</th></tr></thead><tbody>%s</tbody></table></div></div>'
-                  % (_esc(t.get('dimension')), rows))
-    return ('<div class="bn-codes">%s</div>'
-            % (cards or '<p class="bn-empty">No activity codes in the file.</p>'))
+    # Comment 9 — minimize: one compact reference table (Code type / Code / Description)
+    # instead of a separate framed table per dimension.
+    tables = p.get('tables') or []
+    if not tables:
+        return '<p class="bn-empty">No activity codes in the file.</p>'
+    body = ''
+    for t in tables:
+        rows = t.get('rows') or []
+        for i, r in enumerate(rows):
+            grp = _esc(t.get('dimension')) if i == 0 else ''
+            body += ('<tr><td class="bn-k">%s</td><td class="bn-code">%s</td><td>%s</td></tr>'
+                     % (grp, _esc(r.get('code')), _esc(r.get('description'))))
+    return ('<p class="lead">The activity-code dictionary, compacted into one reference table.</p>'
+            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Code type</th>'
+            '<th>Code</th><th>Description</th></tr></thead><tbody>%s</tbody></table></div>' % body)
 
 
 # ── costbars (restored) ───────────────────────────────────────────────────────
@@ -534,24 +538,24 @@ def _value(p, number):
 
 # ── idanatomy (restored) ──────────────────────────────────────────────────────
 def _idanatomy(p, number):
+    # Comment 10 — the reference "decode grid": a token row (grey) over a meaning row,
+    # one column per ID segment, with a worked example above it.
     segs = p.get('segments') or []
     if not segs:
         return '<p class="bn-empty">No decodable activity IDs in the file.</p>'
-    palette = ['#265f7e', '#3487ae', '#5aa0c4', '#89bdd9', '#a9d0e3']
-    n = len(segs)
-    cells = ''
-    for i, s in enumerate(segs):
-        col = palette[min(i, len(palette) - 1)]
-        rad = ('border-radius:6px 0 0 6px;' if i == 0
-               else ('border-radius:0 6px 6px 0;' if i == n - 1 else ''))
-        tcol = '#fff' if i < 3 else '#12303d'
-        cells += ('<div style="background:%s;color:%s;padding:8px 12px;text-align:center;%s">'
-                  '<div style="font-family:Consolas,monospace;font-size:14px;font-weight:700">%s</div>'
-                  '<div style="font-size:9px;opacity:.9">%s</div></div>'
-                  % (col, tcol, rad, _esc(s.get('value')), _esc(s.get('label'))))
-    return ('<div class="bn-tw"><div style="display:flex;min-width:min-content">%s</div></div>'
-            '<div class="bn-cap-inline">Example decoded: <code>%s</code></div>'
-            % (cells, _esc(p.get('id'))))
+    toks = ''.join(
+        '<td style="background:#aeaaaa;color:#12303d;font-family:Consolas,monospace;'
+        'font-weight:700;text-align:center;padding:7px 11px;border:1px solid #9a9a9a">%s</td>'
+        % _esc(s.get('value')) for s in segs)
+    means = ''.join(
+        '<td style="text-align:center;padding:6px 11px;border:1px solid #d7dde5;'
+        'font-size:9.5pt;color:#334155">%s</td>' % _esc(s.get('label')) for s in segs)
+    idp = p.get('id')
+    lead = (('<p class="lead">Each activity ID decodes into ordered segments — the token '
+             'row (grey) sits above its plain-language meaning. Worked example: '
+             '<code>%s</code></p>' % _esc(idp)) if idp else '')
+    return ('%s<div class="bn-tw"><table style="border-collapse:collapse;width:auto">'
+            '<tr>%s</tr><tr>%s</tr></table></div>' % (lead, toks, means))
 
 
 _RENDER = {

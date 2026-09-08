@@ -385,34 +385,53 @@ def _render_table(document, p, sub, chrome, note):
 
 
 def _render_codes(document, p, sub, chrome, note):
+    # Comment 9 — minimize: one compact reference table (Code type / Code / Description)
+    # instead of a separate framed table per dimension.
     tables = p.get('tables', []) or []
     if not tables:
         _muted(document, 'No activity codes are defined in the file.')
         return
+    _lead(document, 'The activity-code dictionary, compacted into one reference table.')
+    rows = []
     for tbl in tables:
-        sub.heading(tbl.get('dimension', '') or '—')
-        rows = [[r.get('code'), r.get('description')] for r in tbl.get('rows', []) or []]
-        if rows:
-            docx_template.styled_table(document, ['Code', 'Description'], rows,
-                                       widths=(Inches(1.8), Inches(4.8)))
-        else:
-            _muted(document, 'No values defined for this dimension.')
+        tbl_rows = tbl.get('rows', []) or []
+        for i, r in enumerate(tbl_rows):
+            rows.append([tbl.get('dimension', '') if i == 0 else '',
+                         r.get('code'), r.get('description')])
+    if rows:
+        docx_template.styled_table(document, ['Code type', 'Code', 'Description'], rows,
+                                   widths=(Inches(1.9), Inches(1.4), Inches(3.3)))
 
 
 def _render_idanatomy(document, p, sub, chrome, note):
+    # Comment 10 — the reference "decode grid": a grey token row above its meaning row,
+    # one column per ID segment, with a worked example line above it.
     aid = p.get('id', '') or ''
     lead = document.add_paragraph()
-    lrun = lead.add_run('Example activity ID: ')
+    lrun = lead.add_run('Each activity ID decodes into ordered segments — the token row '
+                        '(grey) sits above its meaning. Worked example: ')
     lrun.font.name = _FONT
     lrun.font.size = Pt(_BODY_PT)
     idrun = lead.add_run(aid)
     idrun.bold = True
     idrun.font.name = 'Consolas'
     idrun.font.size = Pt(_BODY_PT)
-    segs = [[s.get('label'), s.get('value')] for s in p.get('segments', []) or []]
-    if segs:
-        docx_template.styled_table(document, ['Part', 'Value'], segs,
-                                   widths=(Inches(2.4), Inches(4.2)))
+    segs = p.get('segments', []) or []
+    if not segs:
+        return
+    table = document.add_table(rows=2, cols=len(segs))
+    table.style = 'Table Grid'
+    for i, s in enumerate(segs):
+        tok = table.rows[0].cells[i]
+        trun = tok.paragraphs[0].add_run(str(s.get('value') or ''))
+        trun.bold = True
+        trun.font.name = 'Consolas'
+        trun.font.size = Pt(9.5)
+        docx_template._set_cell_bg(tok, 'AEAAAA')
+        mean = table.rows[1].cells[i]
+        mrun = mean.paragraphs[0].add_run(str(s.get('label') or ''))
+        mrun.font.name = _FONT
+        mrun.font.size = Pt(9)
 
 
 def _render_cashflow(document, p, sub, chrome, note):
