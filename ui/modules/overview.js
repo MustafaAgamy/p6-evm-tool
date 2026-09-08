@@ -235,8 +235,24 @@ export function renderWbs(result) {
     const cells = cols.map((c) => `<td class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsCellVal(c, n)}</td>`).join('');
     return `<tr class="${n.leaf ? 'leaf' : 'sum'}"><td style="padding-left:${rd * 14}px">${escapeHtml(n.name)}</td>${cells}</tr>`;
   }).join('');
-  _wbsPrint = [{ key: 'table', label: `WBS summary — ${branch.name || 'all'}`,
-    html: `<table class="wbs-print"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>` }];
+  // Printable WBS report split into individually-selectable sections for the
+  // Report Contents picker (File ▸ Print): a headline Overview + the detailed table.
+  // (Both plain wbs-print tables, so they inherit the existing report styling.)
+  const _wbsLeaves = subset.filter((n) => n.leaf).length;
+  const _wbsOverview = `<table class="wbs-print"><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>
+      <tr><td>Main WBS branch</td><td>${escapeHtml(branch.name || 'all')}</td></tr>
+      <tr><td>Activities</td><td>${branch.activities ?? '—'}</td></tr>
+      <tr><td>WBS nodes shown</td><td>${subset.length} (${_wbsLeaves} at activity level)</td></tr>
+      <tr><td>Date span</td><td>${dated ? `${fmtShort(min)} → ${fmtShort(max)}` : '—'}</td></tr>
+      <tr><td>Data date</td><td>${!Number.isNaN(dd) ? fmtShort(dd) : '—'}</td></tr>
+      <tr><td>Overall planned</td><td>${pctVal(branch.planned)}</td></tr>
+      <tr><td>Overall actual</td><td>${pctVal(branch.actual)}</td></tr>
+    </tbody></table>`;
+  _wbsPrint = [
+    { key: 'overview', label: `WBS overview — ${branch.name || 'all'}`, html: _wbsOverview },
+    { key: 'table',    label: 'WBS summary table',
+      html: `<table class="wbs-print"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>` },
+  ];
 
   const seg = mains.length > 1
     ? `<div class="wbst-seg" id="wbst-seg">${mains.map((m) =>
