@@ -14,7 +14,6 @@ import { renderCritPathPanel }                 from './modules/critpath.js';
 import { renderUpdatePanel }                   from './modules/update.js';
 import { renderSpecialPanel }                  from './modules/special.js';
 import { renderOverview, renderWbs, overviewPrint, wbsPrint } from './modules/overview.js';
-import { renderDashboard, dashboardPrint }       from './modules/dashboard.js';
 import { renderNarrative, narrativePrint }        from './modules/narrative.js';
 import { renderCopilot, copilotPrint }            from './modules/copilot.js';
 import { printView }                              from './modules/printview.js';
@@ -61,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
     overview:'<rect x="3" y="3" width="8" height="9" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="12" width="8" height="9" rx="1"/><rect x="3" y="16" width="8" height="5" rx="1"/>',
     sched:'<rect x="3" y="4" width="18" height="17" rx="1"/><path d="M3 9h18M8 13h5M8 17h8"/>',
     wbs:'<rect x="9" y="3" width="6" height="4"/><rect x="3" y="17" width="6" height="4"/><rect x="15" y="17" width="6" height="4"/><path d="M12 7v5M6 17v-3h12v3"/>',
-    dash:'<rect x="3" y="3" width="8" height="9" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="12" width="8" height="9" rx="1"/><rect x="3" y="16" width="8" height="5" rx="1"/>',
     weather:'<path d="M17 18a4 4 0 000-8 6 6 0 00-11.3 2A3.5 3.5 0 006 18z"/>',
     ai:'<path d="M12 3l1.8 4.4L18 9l-4.2 1.6L12 15l-1.8-4.4L6 9z"/>',
     doc:'<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/>',
@@ -88,8 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
     { group:'Calendars & Weather', items:[
       ['calendar','P6 Calendar Audit','calendar'], ['weather','Bad Weather','weather'],
     ]},
-    { group:'Reports & Dashboards', items:[
-      ['dash','Portfolio','dash'], ['special','Reporting Studio'],
+    { group:'Reports', items:[
+      ['special','Reporting Studio'],
     ]},
     { group:'Library', items:[
       ['kb','Knowledge Base'], ['construct','Constructability'], ['recent','Recent Projects'],
@@ -99,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
     compare:'Consultant Review', revcompare:'Baseline Revision Comparison', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
     update:'Update Analysis', special:'Reporting Studio', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
-    dash:'Portfolio', narrative:'Baseline Narrative',
+    narrative:'Baseline Narrative',
     weather:'Bad Weather', copilot:'AI Copilot · TIA' };
   const navTree = document.getElementById('nav-tree');
   const tnode = (id, label, icon, o = {}) => {
@@ -138,7 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
     construct: { title:'Constructability',        icon:'construct', verb:'Run Constructability',  desc:'Reviews sequencing and logic against the built-in construction knowledge base.' },
     copilot:   { title:'AI Copilot · TIA',        icon:'ai',        verb:'Run Copilot',           desc:'Deterministic Time-Impact Analysis and insights — offline.' },
     narrative: { title:'Baseline Narrative',      icon:'doc',       verb:'Generate Narrative',    desc:'A written basis-of-schedule narrative from this programme.' },
-    dash:      { title:'Portfolio',               icon:'dash',      verb:'Open Portfolio',        desc:'Every project’s health at a glance, plus this project’s week-over-week trend.' },
     update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its own embedded baseline.' },
     special:   { title:'Reporting Studio',        icon:'special',   verb:'Open Reporting Studio', desc:"Pick results once — view them as a detailed document or a visual dashboard." },
   };
@@ -159,7 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'construct':  renderConstructPanel(); break;
       case 'copilot':    renderCopilot(); break;
       case 'narrative':  renderNarrative(); break;
-      case 'dash':       renderDashboard(); break;
       case 'update':     renderUpdatePanel(); break;
       case 'special':    renderSpecialPanel(); break;
       case 'compare':    renderComparePanel(); break;
@@ -290,7 +286,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const PRINT_VIEW = {
     overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint },
     wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint },
-    dash:      { module: 'dashboard',  title: 'Portfolio', get: dashboardPrint },
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
     copilot:   { module: 'copilot',    title: 'AI Copilot · TIA',       get: copilotPrint },
   };
