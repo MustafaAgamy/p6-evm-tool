@@ -176,6 +176,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_special_tiles(body)
         elif self.path == '/api/special/dash-report':
             self._handle_special_dash_report(body)
+        elif self.path == '/api/special/layout/load':
+            self._handle_special_layout_load(body)
+        elif self.path == '/api/special/layout/save':
+            self._handle_special_layout_save(body)
         elif self.path == '/api/special/pdf':
             self._handle_special_pdf(body)
         elif self.path == '/api/special/doc':
@@ -238,6 +242,27 @@ class Handler(BaseHTTPRequestHandler):
             res = assemble.tiles(self._special_pid(body), body.get('item_ids') or [],
                                  inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
             self._json(200, {'ok': True, 'tiles': res['tiles'], 'meta': res['meta']})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_layout_load(self, body):
+        """The saved Studio dashboard layout (order/sizes/titles/letterhead) for a
+        project, or null. Stored per project in project_settings['studio_layout']."""
+        try:
+            pid = self._special_pid(body)
+            layout = db.get_project_settings(pid).get('studio_layout') if pid else None
+            self._json(200, {'ok': True, 'layout': layout})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_layout_save(self, body):
+        try:
+            pid = self._special_pid(body)
+            if not pid:
+                self._json(200, {'ok': False, 'error': 'No project loaded.'})
+                return
+            db.save_project_settings(pid, {'studio_layout': body.get('layout') or {}})
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

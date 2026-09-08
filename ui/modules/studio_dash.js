@@ -19,8 +19,20 @@ import { getSavedMode } from './appearance.js';
 
 export { escapeHtml };
 
-// last rendered board (so Export can rebuild it) + a tiny POST helper
-let _last = { tiles: [], meta: {} };
+// last rendered board (so Export can rebuild it) + a tiny POST helper.
+// `layout` is the per-project saved layout (order/sizes/titles/header) or null.
+let _last = { tiles: [], meta: {}, layout: null, snapshotId: null };
+
+// ── edit-mode module state (view-only by default → today's behavior everywhere) ─
+let _editing = false;        // true only while the user is in edit mode
+let _headerActive = false;   // true once the letterhead header is in use (else omit on save)
+let _dragId = null;          // id of the grid panel currently being dragged
+
+const SIZES = ['s', 'm', 'l', 'xl'];   // logo + title/subtitle size steps
+function nextSize(s) { const i = SIZES.indexOf(s); return SIZES[(i < 0 ? 1 : i + 1) % SIZES.length]; }
+const cycleWidth = w => (w === 2 ? 1 : 2);                  // narrow ↔ wide
+const cycleHeight = h => (h === 0 ? 1 : (h === 1 ? 2 : 0)); // compact → normal → tall → compact
+
 function post(path, body) {
   return fetch(`http://localhost:${state.serverPort}/${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -140,19 +152,74 @@ function freshChip(dataDate) {
   return `<span class="pd-fresh">· ${txt}</span>`;
 }
 
-// ── letterhead ────────────────────────────────────────────────────────────────
-export function letterheadHtml(meta) {
+// The default (auto) subtitle line — kept in one place so edit mode can pre-fill
+// an editable header with the very text the auto letterhead would have shown.
+function autoSubtitle(meta) {
   meta = meta || {};
   let sub = 'Weekly Management Dashboard';
   if (meta.data_date) sub += ' · Data date ' + String(meta.data_date).slice(0, 10);
   if (meta.activity_count) sub += ' · ' + meta.activity_count + ' activities';
+  return sub;
+}
+
+// A default editable header derived from meta (used when a fresh board enters edit
+// mode). Mirrors the auto letterhead's text so nothing appears to change on entry.
+function defaultHeader(meta) {
+  meta = meta || {};
+  return {
+    title: meta.project_name || '', subtitle: autoSubtitle(meta),
+    title_size: 'm', sub_size: 'm', title_bold: true, sub_bold: false,
+    logos_left: [], logos_right: [],
+  };
+}
+
+// ── letterhead ────────────────────────────────────────────────────────────────
+// `header` (optional) turns the auto letterhead into a user-controlled one; when
+// absent → today's exact output. `editing` (optional) adds the inline controls.
+export function letterheadHtml(meta, header, editing = false) {
+  meta = meta || {};
+  if (!header) {
+    // View-only default — byte-identical to the original slice.
+    const sub = autoSubtitle(meta);
+    return `<div class="pd-letterhead">` +
+      `<div class="pd-logo-slot">LOGO</div>` +
+      `<div class="pd-ttl">` +
+        `<div class="pd-h-title pd-b">${escapeHtml(meta.project_name || '')}</div>` +
+        `<div class="pd-h-sub">${escapeHtml(sub)}${freshChip(meta.data_date)}</div>` +
+      `</div>` +
+      `<div class="pd-logo-slot">LOGO</div>` +
+    `</div>`;
+  }
+  const h = header;
+  const tsz = s => `tsz-${s || 'm'}`;
+  const logoGroup = side => {
+    const arr = h['logos_' + side] || [];
+    const items = arr.map((lg, i) =>
+      `<span class="pd-logo-wrap" data-side="${side}" data-i="${i}">` +
+        `<img class="pd-logo sz-${lg.size || 'm'}" src="${lg.src}" alt="">` +
+        (editing ? `<span class="pd-logo-tools">` +
+          `<button type="button" class="pd-logo-btn" data-act="size" title="Resize">⤢</button>` +
+          `<button type="button" class="pd-logo-btn" data-act="rm" title="Remove">✕</button></span>` : '') +
+      `</span>`).join('');
+    const add = editing ? `<button type="button" class="pd-addlogo" data-side="${side}">＋ Logo</button>` : '';
+    return `<div class="pd-logos pd-logos-${side}">${items}${add}</div>`;
+  };
+  const ce = editing ? ' contenteditable="true"' : '';
+  const titleCls = `pd-h-title ${tsz(h.title_size)}${h.title_bold ? ' pd-b' : ''}`;
+  const subCls = `pd-h-sub ${tsz(h.sub_size)}${h.sub_bold ? ' pd-b' : ''}`;
+  const controls = editing ? `<div class="pd-textsizes">` +
+    `Title <button type="button" class="pd-tsz" data-t="title" title="Cycle title size">A⇄</button>` +
+    `<button type="button" class="pd-tsz ${h.title_bold ? 'on' : ''}" data-b="title" title="Bold title"><b>B</b></button>` +
+    ` · Subtitle <button type="button" class="pd-tsz" data-t="sub" title="Cycle subtitle size">A⇄</button>` +
+    `<button type="button" class="pd-tsz ${h.sub_bold ? 'on' : ''}" data-b="sub" title="Bold subtitle"><b>B</b></button></div>` : '';
   return `<div class="pd-letterhead">` +
-    `<div class="pd-logo-slot">LOGO</div>` +
+    logoGroup('left') +
     `<div class="pd-ttl">` +
-      `<div class="pd-h-title pd-b">${escapeHtml(meta.project_name || '')}</div>` +
-      `<div class="pd-h-sub">${escapeHtml(sub)}${freshChip(meta.data_date)}</div>` +
+      `<div class="${titleCls}" id="pd-h-title"${ce}>${escapeHtml(h.title || '')}</div>` +
+      `<div class="${subCls}" id="pd-h-sub"${ce}>${escapeHtml(h.subtitle || '')}</div>` +
+      controls +
     `</div>` +
-    `<div class="pd-logo-slot">LOGO</div>` +
+    logoGroup('right') +
   `</div>`;
 }
 
@@ -299,14 +366,45 @@ function panelTone(tile) {
   return '';
 }
 
+// the per-panel edit controls (no "remove" — that lives in the Document builder).
+function ctlBtns(id) {
+  const d = `data-id="${escapeHtml(id)}"`;
+  return `<button type="button" class="pd-cbtn" data-act="up" ${d} title="Move up">↑</button>` +
+    `<button type="button" class="pd-cbtn" data-act="down" ${d} title="Move down">↓</button>` +
+    `<button type="button" class="pd-cbtn" data-act="width" ${d} title="Toggle width (narrow / wide)">⇔</button>` +
+    `<button type="button" class="pd-cbtn" data-act="height" ${d} title="Toggle height (compact / normal / tall)">⇕</button>`;
+}
+
 // ── panel ─────────────────────────────────────────────────────────────────────
-export function panelHtml(tile) {
+// `opts` (optional) = { size:{w,h}, title, editing }. With no opts → today's exact
+// view-mode output (width still honours tile.shape, heights are not applied).
+export function panelHtml(tile, opts) {
   tile = tile || {};
-  const span = (tile.shape && tile.shape.w === 2) ? ' span2' : '';
+  opts = opts || {};
+  const editing = !!opts.editing;
+  const size = opts.size || null;
+  const w = size ? size.w : ((tile.shape && tile.shape.w) || 1);
+  const span = w === 2 ? ' span2' : '';
+  let hcls = '';
+  if (size) {                             // heights come only from an explicit layout size
+    if (size.h === 2) hcls = ' pd-tall';
+    else if (size.h === 0) hcls = ' pd-compact';
+  }
+  const title = (opts.title != null) ? opts.title : tile.title;
   const tone = panelTone(tile);
   const rail = railClass(tone);
-  return `<div class="pd-panel${span}${rail ? ' ' + rail : ''}">${ragBadge(tone)}` +
-    `<div class="pd-p-head">${escapeHtml(tile.title)}</div>` +
+  const id = tile.id;
+  const attrs = editing ? `${id != null ? ` data-id="${escapeHtml(id)}"` : ''} draggable="true"` : '';
+  let head;
+  if (editing) {
+    head = `<div class="pd-p-head"><span class="pd-grip" title="Drag to move">⠿</span>` +
+      `<span class="pd-p-title" contenteditable="true"${id != null ? ` data-id="${escapeHtml(id)}"` : ''}>${escapeHtml(title)}</span>` +
+      `<span class="pd-ctl">${ctlBtns(id)}</span></div>`;
+  } else {
+    head = `<div class="pd-p-head">${escapeHtml(title)}</div>`;
+  }
+  return `<div class="pd-panel${span}${hcls}${rail ? ' ' + rail : ''}"${attrs}>${ragBadge(tone)}` +
+    head +
     `<div class="pd-p-body">${tileBodyHtml(tile.kind, tile.data || {})}</div></div>`;
 }
 
@@ -333,40 +431,70 @@ export function statusHeaderHtml(data) {
   return `<div class="pd-exec${rail ? ' ' + rail : ''}">${head}<div class="pd-chips">${chips}</div></div>`;
 }
 
+// the GRID panels are every tile that is NOT flattened into the KPI row and NOT a
+// full-width status band — edit controls (reorder/resize/title) apply ONLY here.
+function gridPanels(tiles) {
+  return (tiles || []).filter(t => t && t.kind !== 'status_header' && t.kind !== 'kpis');
+}
+// order panels by `order` (ids not listed keep their order, appended; unknown ids skipped)
+function orderPanels(panels, order) {
+  if (!Array.isArray(order) || !order.length) return panels.slice();
+  const byId = new Map(panels.map(p => [p.id, p]));
+  const seen = new Set();
+  const out = [];
+  for (const id of order) if (byId.has(id)) { out.push(byId.get(id)); seen.add(id); }
+  for (const p of panels) if (!seen.has(p.id)) out.push(p);
+  return out;
+}
+
 // ── whole board (one-pager sheet) ─────────────────────────────────────────────
-export function boardHtml(tiles, meta) {
+// `layout` (optional) = { order, sizes, titles, header }. With no layout → today's
+// exact output. `editing` (optional) defaults to the module flag (false in tests).
+export function boardHtml(tiles, meta, layout, editing) {
   tiles = tiles || [];
+  editing = editing == null ? _editing : editing;
+  layout = layout || null;
+  const sizes = (layout && layout.sizes) || {};
+  const titles = (layout && layout.titles) || {};
+  const header = (layout && layout.header) || null;
   let inner;
   if (!tiles.length) {
     inner = `<div class="pd-empty-state">Pick results in the builder, then switch to Dashboard to see them here.</div>`;
   } else {
     const headers = [];
     const kpiItems = [];
-    const panels = [];
     for (const t of tiles) {
       if (t.kind === 'status_header') headers.push(t);
       else if (t.kind === 'kpis') {
         for (const it of ((t.data && t.data.items) || [])) kpiItems.push(it);
-      } else {
-        panels.push(t);
       }
     }
+    const panels = orderPanels(gridPanels(tiles), layout && layout.order);
     const head = headers.map(t => statusHeaderHtml(t.data)).join('');
     const kpirow = kpiItems.length ? `<div class="pd-kpirow">${kpiItems.map(kpiTileHtml).join('')}</div>` : '';
-    const grid = panels.length ? `<div class="pd-grid">${panels.map(panelHtml).join('')}</div>` : '';
-    inner = `${letterheadHtml(meta)}${head}${kpirow}${grid}`;
+    const grid = panels.length ? `<div class="pd-grid">${panels.map(t => {
+      const o = { editing };
+      if (sizes[t.id]) o.size = sizes[t.id];
+      if (titles[t.id] != null) o.title = titles[t.id];
+      return panelHtml(t, o);
+    }).join('')}</div>` : '';
+    inner = `${letterheadHtml(meta, header, editing)}${head}${kpirow}${grid}`;
   }
-  return `<div class="studio-dash-wrap">` +
-    `<div class="pd-toolbar"><span class="pd-mode">View mode</span>` +
-    `<span class="pd-actions"><button type="button" class="btn-secondary" data-dash="pdf">⬇ PDF</button></span></div>` +
+  const mode = editing ? 'Edit mode — rename, reorder, resize' : 'View mode';
+  const editBtn = `<button type="button" class="btn-primary" data-dash="edit">${editing ? '✓ Done' : '⚙ Edit'}</button>`;
+  return `<div class="studio-dash-wrap${editing ? ' editing' : ''}">` +
+    `<div class="pd-toolbar"><span class="pd-mode">${mode}</span>` +
+    `<span class="pd-actions"><button type="button" class="btn-secondary" data-dash="pdf">⬇ PDF</button>${editBtn}</span></div>` +
     `<div class="pd-sheet">${inner}</div>` +
   `</div>`;
 }
 
 // Export the current board as a PDF that matches the screen across all 6 looks.
+// Always rendered in view mode (editing=false) so the saved layout — order, sizes,
+// titles and the letterhead header — is reflected, with no editing chrome leaking in.
 async function exportDashPdf() {
   const title = (_last.meta && _last.meta.project_name) || 'Dashboard';
-  const board = () => boardHtml(_last.tiles, _last.meta);
+  const board = () => boardHtml(_last.tiles, _last.meta, _last.layout, false);
   const first = await post('api/special/dash-report', { html: board(), theme: getSavedMode(), preview: true, title });
   if (!first || !first.ok) return;
   showReportPreview({
@@ -384,15 +512,212 @@ async function exportDashPdf() {
   });
 }
 
+// ── layout load / normalize ────────────────────────────────────────────────────
+function normalizeHeader(h) {
+  h = Object.assign({ title: '', subtitle: '', title_size: 'm', sub_size: 'm',
+                      title_bold: true, sub_bold: false, logos_left: [], logos_right: [] }, h || {});
+  if (!Array.isArray(h.logos_left)) h.logos_left = [];
+  if (!Array.isArray(h.logos_right)) h.logos_right = [];
+  return h;
+}
+function normalizeLayout(layout) {
+  if (!layout || typeof layout !== 'object') return null;
+  const out = {
+    order: Array.isArray(layout.order) ? layout.order.slice() : [],
+    sizes: (layout.sizes && typeof layout.sizes === 'object') ? layout.sizes : {},
+    titles: (layout.titles && typeof layout.titles === 'object') ? layout.titles : {},
+  };
+  if (layout.header && typeof layout.header === 'object') out.header = normalizeHeader(layout.header);
+  return out;
+}
+
+// Build a fully-editable working layout when entering edit mode. Missing pieces are
+// filled from the current tiles/meta; the header is only marked "active" (persisted)
+// if a saved header already existed — a fresh, untouched header stays out of the save.
+function ensureEditableLayout(layout, tiles, meta) {
+  const panels = orderPanels(gridPanels(tiles), layout && layout.order);
+  _headerActive = !!(layout && layout.header);
+  return {
+    order: panels.map(p => p.id),
+    sizes: Object.assign({}, (layout && layout.sizes) || {}),
+    titles: Object.assign({}, (layout && layout.titles) || {}),
+    header: (layout && layout.header)
+      ? Object.assign(defaultHeader(meta), layout.header)
+      : defaultHeader(meta),
+  };
+}
+
+// The layout to persist: order always; sizes/titles only when non-empty; the header
+// only when it has actually been put to use (else a fresh board keeps its auto letterhead).
+function currentLayout() {
+  const L = _last.layout || {};
+  const out = { order: (L.order || []).slice() };
+  if (L.sizes && Object.keys(L.sizes).length) out.sizes = L.sizes;
+  if (L.titles && Object.keys(L.titles).length) out.titles = L.titles;
+  if (_headerActive && L.header) out.header = L.header;
+  return out;
+}
+
+async function saveLayout() {
+  const snapshotId = _last.snapshotId ?? state.currentSnapshotId;
+  const layout = currentLayout();
+  _last.layout = layout;   // adopt the saved shape (header dropped if untouched → auto letterhead)
+  try { await post('api/special/layout/save', { snapshot_id: snapshotId, layout }); }
+  catch { /* non-fatal — the board still shows the edits until reload */ }
+}
+
+// ── size / order mutators (operate on the in-memory layout) ─────────────────────
+function sizeOf(id) {
+  const s = _last.layout.sizes[id];
+  if (s && typeof s === 'object') return { w: s.w || 1, h: (s.h == null ? 1 : s.h) };
+  return { w: 1, h: 1 };
+}
+function movePanel(id, dir) {
+  const arr = _last.layout.order;
+  const i = arr.indexOf(id), j = i + dir;
+  if (i < 0 || j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+}
+function dropReorder(fromId, toId, after) {
+  const arr = _last.layout.order;
+  const fi = arr.indexOf(fromId);
+  if (fi < 0) return;
+  arr.splice(fi, 1);
+  const ti = arr.indexOf(toId);
+  if (ti < 0) { arr.splice(fi, 0, fromId); return; }
+  arr.splice(ti + (after ? 1 : 0), 0, fromId);
+}
+
+// ── file → dataURL (logos) ──────────────────────────────────────────────────────
+function pickFileAsDataUrl(cb) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+  inp.addEventListener('change', () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => cb(rd.result);
+    rd.readAsDataURL(f);
+  });
+  document.body.appendChild(inp); inp.click(); setTimeout(() => inp.remove(), 1000);
+}
+function pickLogo(host, side) {
+  pickFileAsDataUrl(url => {
+    const key = 'logos_' + side, L = _last.layout;
+    (L.header[key] = L.header[key] || []).push({ src: url, size: 'm' });
+    _headerActive = true;
+    renderBoardInto(host);
+  });
+}
+
+// ── drag-reorder of grid panels ─────────────────────────────────────────────────
+function wireDrag(host, el) {
+  el.addEventListener('dragstart', e => {
+    _dragId = el.dataset.id; el.classList.add('pd-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', el.dataset.id); } catch { /* ignore */ }
+  });
+  el.addEventListener('dragend', () => {
+    el.classList.remove('pd-dragging');
+    host.querySelectorAll('.pd-dropover').forEach(n => n.classList.remove('pd-dropover'));
+  });
+  el.addEventListener('dragover', e => {
+    if (_dragId && _dragId !== el.dataset.id) { e.preventDefault(); el.classList.add('pd-dropover'); }
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('pd-dropover'));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); el.classList.remove('pd-dropover');
+    const from = _dragId, to = el.dataset.id; _dragId = null;
+    if (!from || from === to) return;
+    const rect = el.getBoundingClientRect();
+    const after = (e.clientX - rect.left) > rect.width / 2;
+    dropReorder(from, to, after);
+    renderBoardInto(host);
+  });
+}
+
+// ── wire every edit control after an editing-mode render ────────────────────────
+function wireEditing(host) {
+  const L = _last.layout;
+  if (!L) return;
+  // letterhead: title / subtitle text
+  const tEl = host.querySelector('#pd-h-title');
+  if (tEl) tEl.addEventListener('blur', e => { L.header.title = e.target.textContent.trim(); _headerActive = true; });
+  const sEl = host.querySelector('#pd-h-sub');
+  if (sEl) sEl.addEventListener('blur', e => { L.header.subtitle = e.target.textContent.trim(); _headerActive = true; });
+  // letterhead: logos (add / resize / remove)
+  host.querySelectorAll('.pd-addlogo').forEach(b => b.addEventListener('click', () => pickLogo(host, b.dataset.side)));
+  host.querySelectorAll('.pd-logo-wrap .pd-logo-btn').forEach(b => b.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const wrap = b.closest('.pd-logo-wrap'), side = wrap.dataset.side, i = +wrap.dataset.i;
+    const arr = L.header['logos_' + side] || [];
+    if (b.dataset.act === 'rm') arr.splice(i, 1);
+    else if (arr[i]) arr[i].size = nextSize(arr[i].size || 'm');
+    _headerActive = true;
+    renderBoardInto(host);
+  }));
+  // letterhead: title/subtitle size + bold
+  host.querySelectorAll('.pd-tsz[data-t]').forEach(b => b.addEventListener('click', () => {
+    const key = b.dataset.t === 'title' ? 'title_size' : 'sub_size';
+    L.header[key] = nextSize(L.header[key] || 'm'); _headerActive = true; renderBoardInto(host);
+  }));
+  host.querySelectorAll('.pd-tsz[data-b]').forEach(b => b.addEventListener('click', () => {
+    const key = b.dataset.b === 'title' ? 'title_bold' : 'sub_bold';
+    L.header[key] = !L.header[key]; _headerActive = true; renderBoardInto(host);
+  }));
+  // grid panels: up / down / width / height
+  host.querySelectorAll('.pd-grid .pd-ctl .pd-cbtn').forEach(b => b.addEventListener('click', () => {
+    const act = b.dataset.act, id = b.dataset.id;
+    if (act === 'up') movePanel(id, -1);
+    else if (act === 'down') movePanel(id, 1);
+    else if (act === 'width') { const sh = sizeOf(id); L.sizes[id] = { w: cycleWidth(sh.w), h: sh.h }; }
+    else if (act === 'height') { const sh = sizeOf(id); L.sizes[id] = { w: sh.w, h: cycleHeight(sh.h) }; }
+    renderBoardInto(host);
+  }));
+  // grid panels: title override
+  host.querySelectorAll('.pd-grid .pd-p-title[contenteditable="true"][data-id]').forEach(t =>
+    t.addEventListener('blur', e => {
+      const v = e.target.textContent.trim(), id = e.target.dataset.id;
+      if (v) L.titles[id] = v; else delete L.titles[id];
+    }));
+  // grid panels: drag-reorder
+  host.querySelectorAll('.pd-grid .pd-panel[data-id]').forEach(el => wireDrag(host, el));
+}
+
+// render (or re-render) the board into `host` and (re)wire its buttons
+function renderBoardInto(host) {
+  host.innerHTML = boardHtml(_last.tiles, _last.meta, _last.layout, _editing);
+  const pdfBtn = host.querySelector('[data-dash="pdf"]');
+  if (pdfBtn) pdfBtn.addEventListener('click', exportDashPdf);
+  const editBtn = host.querySelector('[data-dash="edit"]');
+  if (editBtn) editBtn.addEventListener('click', () => toggleEdit(host));
+  if (_editing) wireEditing(host);
+}
+
+// Edit ↔ Done. Entering builds a working layout; leaving saves the current one.
+async function toggleEdit(host) {
+  if (_editing) {
+    _editing = false;
+    await saveLayout();
+  } else {
+    _last.layout = ensureEditableLayout(_last.layout, _last.tiles, _last.meta);
+    _editing = true;
+  }
+  renderBoardInto(host);
+}
+
 // ── DOM entry (not unit-tested) ───────────────────────────────────────────────
 // opts: { itemIds, inputs, snapshotId, mode }
 export async function renderStudioDashboard(host, opts) {
   if (!host) return;
   opts = opts || {};
+  _editing = false;            // always mount in view mode
+  _headerActive = false;
+  const snapshotId = opts.snapshotId ?? state.currentSnapshotId;
   host.innerHTML = `<div class="pd-loading">Building your dashboard…</div>`;
   try {
     const res = await post('api/special/tiles', {
-      snapshot_id: opts.snapshotId ?? state.currentSnapshotId,
+      snapshot_id: snapshotId,
       item_ids: opts.itemIds || [],
       inputs: opts.inputs || {},
     });
@@ -400,10 +725,14 @@ export async function renderStudioDashboard(host, opts) {
       host.innerHTML = `<div class="pd-na">${escapeHtml((res && res.error) || 'Could not build the dashboard.')}</div>`;
       return;
     }
-    _last = { tiles: res.tiles || [], meta: res.meta || {} };
-    host.innerHTML = boardHtml(res.tiles, res.meta);
-    const pdfBtn = host.querySelector('[data-dash="pdf"]');
-    if (pdfBtn) pdfBtn.addEventListener('click', exportDashPdf);
+    // Saved per-project layout (order/sizes/titles/header). A failed load → no layout.
+    let layout = null;
+    try {
+      const lay = await post('api/special/layout/load', { snapshot_id: snapshotId });
+      if (lay && lay.ok && lay.layout) layout = normalizeLayout(lay.layout);
+    } catch { /* treat as no layout */ }
+    _last = { tiles: res.tiles || [], meta: res.meta || {}, layout, snapshotId };
+    renderBoardInto(host);
   } catch {
     host.innerHTML = `<div class="pd-na">Could not reach the local server. Try restarting the app.</div>`;
   }

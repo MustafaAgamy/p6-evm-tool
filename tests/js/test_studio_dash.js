@@ -235,5 +235,83 @@ test('ragLetter maps tones to R/A/G', () => {
   assert.equal(ragLetter('good'), 'G'); assert.equal(ragLetter('neutral'), '');
 });
 
+// ── edit-mode layout (backward-compatible, pure) ────────────────────────────────
+// a GRID panel whose title is distinct from its body text (so indexOf tests the head)
+const GP = (id, title) => ({ id, title, kind: 'note', shape: { w: 1, h: 1 }, data: { message: 'msg-' + id } });
+
+console.log('\nletterheadHtml — optional header (edit-mode data)');
+test('a custom header shows the title, sized+bold classes and a logo img', () => {
+  const h = letterheadHtml(META, { title: 'ACME Weekly', title_bold: true,
+    logos_left: [{ src: 'data:image/png;base64,AAA', size: 'm' }] });
+  assert.ok(h.includes('ACME Weekly'));
+  assert.ok(h.includes('pd-h-title tsz-m pd-b'));                              // size + bold classes
+  assert.ok(h.includes('pd-logos pd-logos-left') && h.includes('<img class="pd-logo sz-m"'));
+  assert.ok(h.includes('data:image/png;base64,AAA'));
+  assert.ok(!h.includes('LOGO'));                                             // custom → no placeholder slots
+  assert.ok(!h.includes('contenteditable'));                                  // header without editing → plain
+});
+test('letterheadHtml(meta) with no header is unchanged (default)', () => {
+  const h = letterheadHtml(META);
+  assert.ok(h.includes('pd-letterhead') && h.includes('Grain Bulk Terminal'));
+  assert.ok(h.includes('Weekly Management Dashboard') && h.includes('LOGO'));
+  assert.ok(!h.includes('contenteditable') && !h.includes('pd-logos'));
+});
+test('an editing header is contenteditable and carries the inline controls', () => {
+  const h = letterheadHtml(META, { title: 'X', subtitle: 'Y' }, true);
+  assert.ok(h.includes('contenteditable="true"'));
+  assert.ok(h.includes('pd-textsizes') && h.includes('pd-addlogo'));          // size/bold + add-logo controls
+});
+
+console.log('\nboardHtml — optional layout (order / sizes / titles / header)');
+test('no layout → still today\'s view-mode output (guard)', () => {
+  const tiles = [GP('a', 'PanelA'), GP('b', 'PanelB')];
+  const h = boardHtml(tiles, META);
+  assert.ok(h.includes('studio-dash-wrap') && h.includes('pd-toolbar') && h.includes('View mode') && h.includes('pd-sheet'));
+  assert.ok(h.includes('pd-grid') && h.includes('PanelA') && h.includes('PanelB'));
+  assert.ok(h.indexOf('PanelA') < h.indexOf('PanelB'));                       // natural order preserved
+  assert.ok(!h.includes('contenteditable') && !h.includes('pd-grip'));        // view mode → no edit chrome
+  assert.ok(h.includes('data-dash="pdf"') && h.includes('data-dash="edit"')); // toolbar has PDF + Edit
+});
+test('layout.order reorders the grid panels', () => {
+  const tiles = [GP('a', 'PanelA'), GP('b', 'PanelB')];
+  const h = boardHtml(tiles, META, { order: ['b', 'a'] });
+  assert.ok(h.indexOf('PanelB') < h.indexOf('PanelA'));
+});
+test('layout.order: ids not listed keep their order and are appended', () => {
+  const tiles = [GP('a', 'PanelA'), GP('b', 'PanelB'), GP('c', 'PanelC')];
+  const h = boardHtml(tiles, META, { order: ['c'] });                         // only c pinned first
+  assert.ok(h.indexOf('PanelC') < h.indexOf('PanelA'));
+  assert.ok(h.indexOf('PanelA') < h.indexOf('PanelB'));                       // a, b keep relative order
+});
+test('layout.sizes applies span2 + a height class to that panel', () => {
+  const tiles = [GP('a', 'PanelA')];
+  assert.ok(/pd-panel span2 pd-tall/.test(boardHtml(tiles, META, { sizes: { a: { w: 2, h: 2 } } })));
+  const compact = boardHtml(tiles, META, { sizes: { a: { w: 1, h: 0 } } });
+  assert.ok(compact.includes('pd-compact') && !compact.includes('span2'));
+});
+test('layout.titles overrides a grid-panel title', () => {
+  const h = boardHtml([GP('a', 'PanelA')], META, { titles: { a: 'Custom Title' } });
+  assert.ok(h.includes('Custom Title') && !h.includes('PanelA'));
+});
+test('layout.header replaces the auto letterhead subtitle', () => {
+  const h = boardHtml([GP('a', 'PanelA')], META, { header: { title: 'ACME Weekly', subtitle: 'wk 30' } });
+  assert.ok(h.includes('ACME Weekly') && h.includes('wk 30'));
+  assert.ok(!h.includes('Weekly Management Dashboard'));                      // custom header wins
+});
+test('layout never reorders/resizes kpis or status_header tiles', () => {
+  const tiles = [
+    { id: 'sh', title: 'Status', kind: 'status_header', shape: { w: 2, h: 0 },
+      data: { domains: [{ domain: 'EVM', tone: 'neutral', headline: 'SPI 0.87' }], verdict: null } },
+    { id: 'k', title: 'KPIs', kind: 'kpis', shape: { w: 1, h: 0 },
+      data: { items: [{ label: 'SPI', value: '0.87', tone: 'bad' }] } },
+    GP('a', 'PanelA'),
+  ];
+  // even asked to reorder/resize the kpis + status ids, they stay a band / in the KPI row
+  const h = boardHtml(tiles, META, { order: ['k', 'sh', 'a'], sizes: { k: { w: 2, h: 2 }, sh: { w: 1, h: 2 } } });
+  assert.ok(h.indexOf('pd-exec') < h.indexOf('pd-kpirow'));                   // status band above KPI row
+  assert.ok(h.indexOf('pd-kpirow') < h.indexOf('pd-grid'));                   // KPI row above the grid
+  assert.ok(!h.includes('span2') && !h.includes('pd-tall') && !h.includes('pd-compact')); // sizes ignored for them
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
