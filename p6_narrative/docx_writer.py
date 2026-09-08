@@ -150,13 +150,30 @@ def _render_overview(document, p, sub, chrome, note):
     breakdown = p.get('breakdown') or []
     if breakdown:
         sub.heading('Baseline composition')
-        rows = [[b.get('world', ''), _count(b.get('count'))] for b in breakdown]
+        # Comment 2 — show the composition as boxes (a row of tiles: count over scope),
+        # not a plain table.
+        table = document.add_table(rows=1, cols=len(breakdown))
+        table.autofit = True
+        for i, b in enumerate(breakdown):
+            cell = table.rows[0].cells[i]
+            docx_template._set_cell_bg(cell, 'DEEAF6')      # light-blue tile
+            cp = cell.paragraphs[0]
+            cp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            crun = cp.add_run(_count(b.get('count')))
+            crun.bold = True
+            crun.font.name = _FONT
+            crun.font.size = Pt(20)
+            crun.font.color.rgb = NAVY
+            lp = cell.add_paragraph()
+            lp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            lrun = lp.add_run(str(b.get('world', '')))
+            lrun.font.name = _FONT
+            lrun.font.size = Pt(9)
+            lrun.font.color.rgb = INK
         total = p.get('total')
         if total is not None:
-            rows.append(['Total', _count(total)])
-        docx_template.styled_table(document, ['Scope', 'Activities'], rows,
-                                   widths=(Inches(4.6), Inches(1.6)),
-                                   bold_last_row=total is not None)
+            _para(document, 'Total: %s baseline activities across %d major scopes.'
+                  % (_count(total), len(breakdown)))
 
 
 def _render_ms_table(document, p, sub, chrome, note):
