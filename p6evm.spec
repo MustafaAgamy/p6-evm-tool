@@ -49,11 +49,22 @@ hiddenimports = [
     'p6_kb.detect',
     'p6_kb.model',
     'p6_kb.scoring',
+    # Calendar Audit — a shipping feature, AND imported at runtime by the Baseline
+    # Narrative's Section 5 (report.py does `from p6_calendar.audit import calendar_audit`
+    # inside a function/try-except, which PyInstaller's static graph can miss). Listed so
+    # the narrative's calendar section never silently drops out of the frozen .exe.
+    'p6_calendar',
+    'p6_calendar.audit',
     # Baseline Narrative generator (assembler over the existing engines)
     'p6_narrative',
     'p6_narrative.builder',
     'p6_narrative.html',
     'p6_narrative.docx_writer',
+    'p6_narrative.docx_template',
+    'p6_narrative.docx_charts',
+    'p6_narrative.docx_calendar',
+    'p6_narrative.chart_png',
+    'p6_narrative.wbs_chart',
     'p6_narrative.sequence',
     'p6_narrative.costflow',
     'p6_narrative.codes',

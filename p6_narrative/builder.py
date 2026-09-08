@@ -6,7 +6,7 @@ cost loading / cash flow) and lays them into the Basis-of-Schedule skeleton.
 Recomputes nothing; generic across any construction project.
 """
 import re
-from datetime import date
+from datetime import date, timedelta
 
 from p6_narrative.costflow import branch_stats, cash_flow, cost_by_wbs
 from p6_narrative.model import NarrativeDoc, Section
@@ -16,6 +16,8 @@ from p6_narrative.util import as_date, wbs_grouping
 
 _MONTHS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+_WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday',
+             'Friday', 'Saturday', 'Sunday']            # Mon=0 (date.weekday())
 _MILESTONE_TYPES = ('StartMilestone', 'FinishMilestone')
 
 
@@ -108,9 +110,42 @@ def _codes_payload(data, code_catalog):
                        for dim, vals in sorted(dims.items())]}
 
 
+def _holiday_dates(exceptions):
+    """Explode each holiday RUN from the calendar report into individual dated rows,
+    each carrying its weekday name — for the narrative's dated-holidays table."""
+    rows = []
+    for h in (exceptions or {}).get('holidays', []):
+        s = as_date(h.get('start'))
+        e = as_date(h.get('end')) or s
+        if not s:
+            continue
+        d = s
+        while d <= e:
+            rows.append({
+                'date': d.isoformat(),
+                'display': _fmt_date(d),
+                'weekday': _WEEKDAYS[d.weekday()],
+                'reason': h.get('reason') or '',
+                'source': h.get('source') or 'p6',
+            })
+            d += timedelta(days=1)
+    rows.sort(key=lambda r: r['date'])
+    return rows
+
+
 def _calendars_payload(calendar_report):
+    """SLICE A — full calendar passthrough from the Calendar Audit CONTRACT.
+
+    The whole ``calendar_audit`` report is widened into the narrative payload (dashboard,
+    monthly grid, hours profile, dated holidays, comparison + usage tables). The primary
+    calendar (``primary_calendar_id``) is surfaced flat for the default view. The legacy
+    ``calendars`` / ``holidays`` keys are kept so existing renderers/tests still work, and
+    when a renderer sees none of the new keys it falls back to that flat render.
+    """
     if not calendar_report:
         return None
+
+    # ── legacy flat lists (kept — earlier renderers/tests depend on them) ────────
     calendars = []
     for c in calendar_report.get('assigned_calendars', []):
         dpw, hpd = c.get('days_per_week'), c.get('hours_per_day')
@@ -124,7 +159,33 @@ def _calendars_payload(calendar_report):
         {'range': h.get('description'), 'name': h.get('reason') or '', 'days': h.get('days')}
         for h in (calendar_report.get('exceptions') or {}).get('holidays', [])
     ]
-    return {'calendars': calendars, 'holidays': holidays}
+
+    payload = {'calendars': calendars, 'holidays': holidays}
+
+    # ── full SLICE A passthrough, indexed on the primary calendar ────────────────
+    primary_id = calendar_report.get('primary_calendar_id')
+    by_calendar = calendar_report.get('by_calendar') or {}
+    primary = by_calendar.get(primary_id) or {}
+    prim_exc = primary.get('exceptions') or (calendar_report.get('exceptions') or {})
+
+    # dashboard tiles — baseline_start/finish belong to the cover meta, not this grid
+    dashboard = dict(calendar_report.get('dashboard') or {})
+    dashboard.pop('baseline_start', None)
+    dashboard.pop('baseline_finish', None)
+
+    payload.update({
+        'primary_calendar_id': primary_id,
+        'primary_calendar_name': primary.get('name'),
+        'dashboard': dashboard,
+        'totals': primary.get('totals') or {},
+        'monthly': primary.get('monthly_stats') or [],
+        'hours_profiles': primary.get('hours_profiles') or [],
+        'holiday_dates': _holiday_dates(prim_exc),
+        'comparison': calendar_report.get('comparison') or [],
+        'usage': calendar_report.get('usage') or [],
+        'by_calendar': by_calendar,
+    })
+    return payload
 
 
 def _key_dates(data, limit=14):

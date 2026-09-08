@@ -260,6 +260,11 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
     meta.setdefault('project_id', project.get('id'))
     meta.setdefault('mode', r.get('mode'))
     setup = setup or {}
+    # Cover meta — graceful, None-safe defaults so the cover always has a data date,
+    # a location and a revision when any source carries them.
+    meta.setdefault('data_date', _full_date(project.get('data_date')))
+    meta['location'] = meta.get('location') or setup.get('location') or project.get('location')
+    meta['revision'] = meta.get('revision') or setup.get('revision')
     logos = {k: setup.get(k + '_logo') for k in ('owner', 'consultant', 'contractor')
              if setup.get(k + '_logo')}
     if logos:

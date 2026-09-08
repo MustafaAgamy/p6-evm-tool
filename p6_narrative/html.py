@@ -15,9 +15,13 @@ set. The section KINDS handled here, and their payload shapes, are:
   value      {total, rows:[{name, cost, pct}]}
   scope      {intro, blocks:[{discipline, activity_count, cost, paragraph,
                               packages:[str]}], stats:[{v, l}]}                 (editable)
-  table      {columns, rows:[[…]]}  ·  or calendars view:
+  table      {columns, rows:[[…]]}  ·  or calendars view (SLICE A widened):
              {view:'calendars', calendars:[{name,working_days,shift,activities}],
-              holidays:[{range,name,days}]}
+              holidays:[{range,name,days}],                        # legacy (flat fallback)
+              dashboard:{…tiles…}, monthly:[{label,working_days,working_hours,…}],
+              holiday_dates:[{date,display,weekday,reason}], hours_profiles:[…],
+              comparison:[{name,hours_per_day,days_per_week,activities,exceptions}],
+              usage:[{name,role,activities,pct}]}
   wbs_tree   {worlds:[{name, layout:'tree'|'columns', root:node}]}             (v5)
              node = {name, children:[node,…], more?:bool}
   codes      {tables:[{dimension, rows:[{code, description}]}]}
@@ -249,7 +253,19 @@ def _table(p, number):
 
 
 # ── calendars view (restored — dispatched from kind 'table') ──────────────────
-def _calendars(p, number):
+_DASH_TILES = [
+    ('total_calendar_days', 'Calendar days'),
+    ('total_working_days', 'Working days'),
+    ('total_nonworking_days', 'Non-working days'),
+    ('total_holidays', 'Holiday days'),
+    ('shutdown_periods', 'Shutdown periods'),
+    ('avg_working_days_per_month', 'Avg working days/mo'),
+    ('avg_working_hours_per_day', 'Avg working hrs/day'),
+]
+
+
+def _cal_flat(p):
+    """Legacy flat render — assigned-calendar list + named holidays/shutdowns."""
     crows = ''.join(
         '<tr><td>%s</td><td>%s</td><td>%s</td><td class="bn-num">%s</td></tr>'
         % (_esc(c.get('name')), _esc(c.get('working_days')), _esc(c.get('shift')),
@@ -266,6 +282,102 @@ def _calendars(p, number):
                 '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>When</th><th>Name</th>'
                 '<th>Days</th></tr></thead><tbody>%s</tbody></table></div>' % hrows)
     return cal
+
+
+def _cal_dashboard(dash):
+    tiles = ''
+    for key, lbl in _DASH_TILES:
+        v = dash.get(key)
+        if v is None:
+            continue
+        tiles += ('<div class="bn-statc"><div class="bn-statv">%s</div>'
+                  '<div class="bn-statl">%s</div></div>' % (_esc(v), _esc(lbl)))
+    if not tiles:
+        return ''
+    return ('<div class="bn-statwrap"><div class="bn-stath">Calendar at a glance</div>'
+            '<div class="bn-stats">%s</div></div>' % tiles)
+
+
+def _cal_monthly(months):
+    rows = ''.join(
+        '<tr><td>%s</td><td class="bn-num">%s</td><td class="bn-num">%s</td>'
+        '<td class="bn-num">%s</td><td>%s</td></tr>'
+        % (_esc(m.get('label')), _esc(m.get('working_days')), _esc(m.get('working_hours')),
+           _esc(m.get('exceptions', 0)), _esc(m.get('flag') or '')) for m in months)
+    return ('<div class="bn-cap">Working / non-working days by month (primary calendar):</div>'
+            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Month</th>'
+            '<th>Working days</th><th>Working hrs</th><th>Exceptions</th><th>Note</th></tr>'
+            '</thead><tbody>%s</tbody></table></div>' % rows)
+
+
+def _cal_holiday_dates(rows):
+    hr = ''.join(
+        '<tr><td>%s</td><td>%s</td><td>%s</td></tr>'
+        % (_esc(h.get('display') or h.get('date')), _esc(h.get('weekday')),
+           _esc(h.get('reason') or '')) for h in rows)
+    return ('<div class="bn-cap">Dated holidays (primary calendar):</div>'
+            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Date</th>'
+            '<th>Weekday</th><th>Name</th></tr></thead><tbody>%s</tbody></table></div>' % hr)
+
+
+def _cal_hours(profiles):
+    pr = ''.join(
+        '<tr><td>%s</td><td>%s</td><td class="bn-num">%s</td><td>%s</td></tr>'
+        % (_esc(pf.get('name')), _esc(pf.get('hours')), _esc(pf.get('hours_per_day')),
+           _esc(pf.get('sub') or '')) for pf in profiles)
+    return ('<div class="bn-cap">Working-hours profile:</div>'
+            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Pattern</th>'
+            '<th>Hours</th><th>Hrs/day</th><th>Week</th></tr></thead>'
+            '<tbody>%s</tbody></table></div>' % pr)
+
+
+def _cal_comparison(rows):
+    cr = ''.join(
+        '<tr><td>%s</td><td class="bn-num">%s</td><td class="bn-num">%s</td>'
+        '<td class="bn-num">%s</td><td class="bn-num">%s</td></tr>'
+        % (_esc(r.get('name')), _esc(r.get('hours_per_day')), _esc(r.get('days_per_week')),
+           _esc(r.get('activities')), _esc(r.get('exceptions'))) for r in rows)
+    return ('<div class="bn-cap">Calendar comparison:</div>'
+            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Calendar</th>'
+            '<th>Hrs/day</th><th>Days/week</th><th>Activities</th><th>Exceptions</th></tr>'
+            '</thead><tbody>%s</tbody></table></div>' % cr)
+
+
+def _cal_usage(rows):
+    ur = ''.join(
+        '<tr><td>%s</td><td>%s</td><td class="bn-num">%s</td><td class="bn-num">%s%%</td></tr>'
+        % (_esc(r.get('name')), _esc(r.get('role')), _esc(r.get('activities')),
+           _esc(r.get('pct'))) for r in rows)
+    return ('<div class="bn-cap">Calendar usage:</div>'
+            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Calendar</th>'
+            '<th>Role</th><th>Activities</th><th>Share</th></tr></thead>'
+            '<tbody>%s</tbody></table></div>' % ur)
+
+
+def _calendars(p, number):
+    # SLICE A rich render when the widened payload is present; otherwise the flat render.
+    rich_keys = ('dashboard', 'monthly', 'holiday_dates', 'hours_profiles',
+                 'comparison', 'usage')
+    if not any(p.get(k) for k in rich_keys):
+        return _cal_flat(p)
+
+    out = ''
+    if p.get('dashboard'):
+        out += _cal_dashboard(p['dashboard'])
+    # assigned-calendar list stays useful as the header table
+    if p.get('calendars'):
+        out += _cal_flat({'calendars': p['calendars']})
+    if p.get('comparison'):
+        out += _cal_comparison(p['comparison'])
+    if p.get('usage'):
+        out += _cal_usage(p['usage'])
+    if p.get('hours_profiles'):
+        out += _cal_hours(p['hours_profiles'])
+    if p.get('monthly'):
+        out += _cal_monthly(p['monthly'])
+    if p.get('holiday_dates'):
+        out += _cal_holiday_dates(p['holiday_dates'])
+    return out
 
 
 # ── codes (restored) ──────────────────────────────────────────────────────────
