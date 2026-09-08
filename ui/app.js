@@ -1,6 +1,6 @@
 import { state }                              from './modules/state.js';
 import { initTheme }                          from './modules/theme.js';
-import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel, exportWeatherExcel } from './modules/api.js';
+import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel, exportWeatherExcel, exportEvmExcel, exportCopilotExcel, exportDashboardExcel, exportNarrativeExcel, exportOverviewExcel, exportWbsExcel, exportScheduleExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser, renderAudit, renderOosPanel, renderLagPanel } from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
@@ -270,18 +270,25 @@ document.addEventListener('DOMContentLoaded', () => {
   // per-module duplicate buttons. Views without a report (overview/wbs/schedule)
   // aren't listed and report a friendly message.
   const REPORT_BTN = {
-    evm:      { pdf: 'pdf-btn' },
+    evm:      { pdf: 'pdf-btn',          xls: 'evm-excel-btn' },
     audit:    { pdf: 'pdf-btn-audit',   xls: 'excel-btn' },
     oos:      { pdf: 'oos-pdf-btn',     xls: 'oos-excel-btn' },
     lag:      { pdf: 'lag-pdf-btn',     xls: 'lag-excel-btn' },
     calendar: { pdf: 'cal-pdf-btn',     xls: 'cal-excel-btn' },
     weather:  { pdf: 'weather-pdf-btn',  xls: 'weather-excel-btn' },
     compare:  { pdf: 'cmp-preview-pdf', xls: 'cmp-export-xlsx' },
-    revcompare:{ pdf: 'rc-preview-pdf' },
+    revcompare:{ pdf: 'rc-preview-pdf', xls: 'rc-export-xlsx' },
     critpath: { pdf: 'cpa-export-pdf',  xls: 'cpa-export-xlsx' },
     construct:{ pdf: 'cx-pdf',          xls: 'cx-xls' },
     period:   { pdf: 'per-export-pdf',  xls: 'per-export-xlsx' },
     update:   { pdf: 'ua-export-pdf',   xls: 'ua-export-xlsx' },
+    overview: { xls: 'ov-excel-btn' },
+    wbs:      { xls: 'wbs-excel-btn' },
+    schedule: { xls: 'sched-excel-btn' },
+    dash:     { xls: 'dash-export-xlsx' },
+    narrative:{ xls: 'narr-excel-btn' },
+    copilot:  { xls: 'cp-export-xlsx' },
+    special:  { pdf: 'sr-pdf',           xls: 'sr-xls' },
   };
   // Screen views (Overview, WBS, Dashboard, Narrative, Copilot) print
   // through the shared printView() — File ▸ Print gives them the same PDF Preview +
@@ -297,15 +304,17 @@ document.addEventListener('DOMContentLoaded', () => {
   function runReport(kind) {
     if (!state.currentResult) { showError('Import a P6 schedule and open a module first.'); return; }
     const map = REPORT_BTN[state.currentView];
-    if (map) {
-      const el = map[kind] && document.getElementById(map[kind]);
+    if (map && map[kind]) {                                // module has a button for this kind
+      const el = document.getElementById(map[kind]);
       if (el) { el.click(); return; }                      // opens the module's Preview + Printing Selection
+    }
+    const pv = PRINT_VIEW[state.currentView];
+    if (map && !pv) {                                      // registered here only — no screen-print fallback
       showError(kind === 'pdf'
         ? 'Run this module’s analysis first, then File ▸ Print / Export to PDF.'
         : 'This module has no Excel export.');
       return;
     }
-    const pv = PRINT_VIEW[state.currentView];
     if (pv) {
       if (kind !== 'pdf') { showError('This view exports to PDF — use File ▸ Print / Export to PDF.'); return; }
       const sections = pv.get && pv.get();
@@ -469,6 +478,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cal-excel-btn').addEventListener('click', exportCalendarExcel);
   document.getElementById('weather-excel-btn').addEventListener('click', exportWeatherExcel);
   document.getElementById('weather-pdf-btn').addEventListener('click', generateWeatherPdf);
+  // Excel exports for the report/screen views (revcompare + special wire their own
+  // in-panel buttons inside their modules). The schedule button is re-created on every
+  // Gantt render, so it is bound by delegation on the static #schedule-body container.
+  document.getElementById('evm-excel-btn').addEventListener('click', exportEvmExcel);
+  document.getElementById('cp-export-xlsx').addEventListener('click', exportCopilotExcel);
+  document.getElementById('dash-export-xlsx').addEventListener('click', exportDashboardExcel);
+  document.getElementById('narr-excel-btn').addEventListener('click', exportNarrativeExcel);
+  document.getElementById('ov-excel-btn').addEventListener('click', exportOverviewExcel);
+  document.getElementById('wbs-excel-btn').addEventListener('click', exportWbsExcel);
+  document.getElementById('schedule-body')?.addEventListener('click', (e) => {
+    if (e.target.closest('#sched-excel-btn')) exportScheduleExcel();
+  });
 
   // Analysis chooser (shown after upload) → reveal the chosen view. Routed through
   // openView so it takes the exact same path as the navigator (incl. setting

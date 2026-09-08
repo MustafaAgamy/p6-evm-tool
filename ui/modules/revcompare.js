@@ -9,6 +9,7 @@ import { showError, clearError } from './render.js';
 import { escapeHtml } from './format.js';
 import { getSavedMode } from './appearance.js';
 import { showReportPreview } from './preview.js';
+import { exportRevcompareExcel } from './api.js';
 
 const RC_TABS = [
   ['summary', 'Executive Summary'], ['register', 'Change Register'],
@@ -141,7 +142,8 @@ function renderResults(body) {
       </div>
       <div class="rc-seg">${tabs}</div>
       <button class="rc-mini" id="rc-reset">${IC.flip} New comparison</button>
-      <button class="rc-hidden-report" id="rc-preview-pdf" aria-hidden="true" tabindex="-1"></button>
+      <button class="rc-mini" id="rc-preview-pdf">⬇ PDF</button>
+      <button class="rc-mini" id="rc-export-xlsx">⬇ Excel</button>
     </div>
     ${r.warnings && r.warnings.length ? `<div class="rc-warn">${IC.warn} ${r.warnings.map(escapeHtml).join(' · ')}</div>` : ''}
     <div id="rc-view">${view}</div>`;
@@ -151,6 +153,7 @@ function renderResults(body) {
     state.revcompareReport = null; renderInputs(body);
   });
   body.querySelector('#rc-preview-pdf').addEventListener('click', openRevcompareReport);
+  body.querySelector('#rc-export-xlsx').addEventListener('click', exportRevcompareExcel);
   if (tab === 'register') wireRegister(body);
 }
 

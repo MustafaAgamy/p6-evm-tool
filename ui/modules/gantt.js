@@ -77,5 +77,6 @@ export function renderSchedule(result) {
       <div class="g-grids">${grid}${ddx != null ? `<div class="g-dd-line" style="left:calc(${LBLW}px + ${ddx.toFixed(1)}px)"></div>` : ''}</div>
       <div class="g-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">Current-schedule bars (planned start → finish) with % complete fill; critical activities (total float ≤ 0) in red; milestones as diamonds; the data-date line marks the cut-off. Grouped by top-level WBS.</p>`;
+    <p class="ov-note">Current-schedule bars (planned start → finish) with % complete fill; critical activities (total float ≤ 0) in red; milestones as diamonds; the data-date line marks the cut-off. Grouped by top-level WBS.</p>
+    <div class="action-buttons"><button class="btn-secondary" id="sched-excel-btn">Export to Excel</button></div>`;
 }
