@@ -5,11 +5,15 @@ This writer is an ORCHESTRATOR: the professional "shell" of the deliverable — 
 geometry, the page-border frame, the repeating logo/title header, the page-number
 footer, the cover, the Table of Contents, base styles and the shared numbered
 heading / styled-table helpers — all live in :mod:`p6_narrative.docx_template`
-(SLICE B). The charts are drawn as self-contained SVGs and rasterised to PNG by
-:mod:`p6_narrative.docx_charts` (SLICE C, via headless Chrome), and Section 5
-(Project Calendars & Holidays) is delegated to :mod:`p6_narrative.docx_calendar`
-(SLICE D). This module wires those together and keeps the native, editable
-renderers for the text-shaped section kinds.
+(SLICE B). Charts and diagrams are drawn as NATIVE, editable Word objects by
+:mod:`p6_narrative.docx_native` — real ``c:chartSpace`` chart parts (donut, cost
+bars, cash flow, calendar histogram) and grouped DrawingML shapes (the WBS
+org-chart and the sequence process) — NOT rasterised pictures. Section 5 (Project
+Calendars & Holidays) is delegated to :mod:`p6_narrative.docx_calendar`. This
+module wires those together and keeps the native, editable renderers for the
+text-shaped section kinds. Only the timeline (not a native Word chart type) stays
+an editable table; :mod:`p6_narrative.docx_charts` (SVG→PNG) is retained solely
+for it when Chrome is available.
 
 The furniture intentionally follows the Roots template (NOT the PDF look). Only the
 DATA and the charts mirror the screen / PDF export, so a planner can change any word,
@@ -26,9 +30,11 @@ and renders every section kind the producer can emit::
     overview · keyvals · ms_table · timeline · value · scope · table · wbs_tree ·
     codes · idanatomy · seq · interfaces · prose · costbars · cashflow · image
 
-Chart kinds (wbs_tree · seq · value · costbars · timeline · cashflow) embed a real
-graph image when Chrome is available and fall back to a native table / outline when
-it is not — the export never crashes on a missing chrome.
+Chart / diagram kinds (wbs_tree · seq · value · costbars · cashflow) embed NATIVE,
+editable Word objects and fall back to a native table / outline only if the native
+object cannot be built — no Chrome is needed. The timeline stays an editable table
+(or a rasterised image when Chrome is present). The export never crashes on a
+missing chrome or a bad payload.
 """
 import base64
 import io
@@ -38,7 +44,8 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Inches, Pt
 
-from p6_narrative import chart_png, docx_calendar, docx_charts, docx_template
+from p6_narrative import (chart_png, docx_calendar, docx_charts, docx_native,
+                          docx_template)
 
 # ── palette / font (native renderers reuse the template's palette) ────────────
 NAVY = docx_template.NAVY
@@ -214,16 +221,17 @@ def _render_wbs_tree(document, p, sub, chrome, note):
                     'branches, then each major branch expanded to level 4. Structure only; the '
                     'execution order is in the Sequence of Work section. When the chart engine '
                     'is unavailable the same WBS renders as an editable indented outline.')
-    # (a) overview org-chart: Project → the major branches
+    # (a) overview org-chart: Project → the major branches — NATIVE, editable Word
+    # shapes; only fall back to the indented outline if the native diagram fails.
     if overview:
-        if not _add_chart_image(document, 'wbs_smartart', overview, chrome):
+        if docx_native.add_org_chart(document, overview) is None:
             for child in overview.get('children', []):
                 _wbs_node(document, child, 1)
     # (b) one breakdown chart per major branch (down to level 4)
     for w in branches:
         root = w.get('root') or {}
         sub.heading(root.get('name') or w.get('name') or '—')
-        if not _add_chart_image(document, 'wbs_smartart', root, chrome):
+        if docx_native.add_org_chart(document, root) is None:
             for child in root.get('children', []):
                 _wbs_node(document, child, 1)
 
@@ -248,9 +256,10 @@ def _render_seq(document, p, sub, chrome, note):
             trun.font.name = _FONT
             trun.font.size = Pt(_BODY_PT)
 
-            # flow: a chevron image when Chrome is available, else an arrow line
+            # flow: NATIVE, editable chevron process; only fall back to an arrow
+            # line if the native diagram fails.
             seq = [str(s) for s in (f.get('sequence') or []) if s]
-            if not _add_chart_image(document, 'sequence_flow', f, chrome) and seq:
+            if docx_native.add_process(document, seq) is None and seq:
                 sp = document.add_paragraph()
                 sp.paragraph_format.left_indent = Inches(0.22)
                 srun = sp.add_run(_ARROW.join(seq))
@@ -360,17 +369,26 @@ def _cost_table(document, p, name_header):
 
 
 def _render_value(document, p, sub, chrome, note):
-    # PDF shows BOTH a donut and the cost table — mirror that: image (when chrome)
-    # plus the editable cost table always.
-    if not p.get('rows'):
+    # PDF shows BOTH a donut and the cost table — mirror that: a NATIVE, editable
+    # doughnut chart (no rasterised image) plus the editable cost table always.
+    rows = p.get('rows') or []
+    if not rows:
         _muted(document, 'No cost-loading information is available in the file.')
         return
-    _add_chart_image(document, 'donut', p, chrome)
+    labels = [r.get('name') for r in rows]
+    values = [r.get('cost') for r in rows]
+    docx_native.add_pie_chart(document, labels, values, None)   # None-safe; may no-op
     _cost_table(document, p, 'Branch')
 
 
 def _render_costbars(document, p, sub, chrome, note):
-    if _add_chart_image(document, 'costbars', p, chrome):
+    rows = p.get('rows') or []
+    # NATIVE, editable column chart of the cost share per WBS branch (no image);
+    # fall back to the cost table only if the native chart cannot be built.
+    labels = [r.get('name') for r in rows]
+    values = [r.get('pct') for r in rows]
+    if rows and docx_native.add_bar_chart(
+            document, labels, values, None, color='3487AE') is not None:
         return
     _cost_table(document, p, 'WBS branch')
 
@@ -475,16 +493,21 @@ def _render_cashflow(document, p, sub, chrome, note):
         _muted(document, 'Time-phased cost information is not available in the file.')
         return
     _lead(document, 'Planned cost per month across the baseline — illustrative of the plan.')
-    if _add_chart_image(document, 'cashflow', p, chrome):
+    # NATIVE, editable monthly column chart (no rasterised image).
+    monthly = p.get('monthly') or []
+    labels = [m.get('label') for m in monthly]
+    values = [m.get('cost') for m in monthly]
+    if monthly and docx_native.add_bar_chart(
+            document, labels, values, None) is not None:
         return
-    # No working browser: a compact monthly fallback (the bar chart is the primary form).
+    # Native chart could not be built: a compact monthly table fallback.
     rows = [[m.get('label'), _money(m.get('cost')), '%s%%' % m.get('pct')]
-            for m in (p.get('monthly') or [])]
+            for m in monthly]
     if rows:
         docx_template.styled_table(document, ['Month', 'Cost', 'Cumulative %'], rows,
                                    widths=(Inches(1.9), Inches(2.2), Inches(1.4)))
     else:
-        _muted(document, 'The cash-flow chart needs a browser (Chrome/Edge) to render.')
+        _muted(document, 'Time-phased cost information is not available in the file.')
 
 
 _RENDER = {

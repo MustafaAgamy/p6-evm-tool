@@ -7,17 +7,18 @@ Start / Baseline Finish dates (those are cover meta, not Section-5 content and w
 already dropped from the dashboard block by the builder):
 
     5.1)  Dashboard tiles      — a compact borderless label/value grid
-    5.2)  Monthly histogram    — a stacked working(green)/non-working(red) per-month
-                                 bar chart (net working days above each bar); when
-                                 Chrome is unavailable falls back to a monthly stats
+    5.2)  Monthly histogram    — a NATIVE, editable stacked working(green)/non-working
+                                 (red) per-month column chart (a real Word chart object,
+                                 not a rasterised image); falls back to a monthly stats
                                  table (Month | Working | Non-working | Holidays | Hours)
+                                 only if the native chart cannot be built
     5.3)  National holidays     — Date | Weekday | Reason
     5.4)  Working hours         — Profile | Hours | Hours/Day | Days/Week | Note
     5.5)  Comparison & usage    — Calendar | Hrs/Day | Days/Week | Non-working ahead |
                                  Default?  followed by  Calendar | Activities | % | Role
 
-The module consumes B's template furniture (``docx_template``) and C's chart
-rasteriser (``docx_charts.render_svg_png``); it re-uses the shared numbered
+The module consumes B's template furniture (``docx_template``) and the native-chart
+builder (``docx_native.add_bar_chart_stacked``); it re-uses the shared numbered
 sub-heading + styled-table helpers so the section matches the rest of the report.
 Every block is guarded on the presence of its payload key, so a partial calendar
 payload renders whatever it has and never raises.
@@ -28,7 +29,7 @@ import re
 
 from docx.shared import Pt
 
-from p6_narrative import docx_charts, docx_template
+from p6_narrative import docx_native, docx_template
 
 
 # ── local helpers ─────────────────────────────────────────────────────────────
@@ -106,54 +107,6 @@ def _monthly_total(m):
     return wd + max(m.get('holidays', 0) or 0, m.get('exceptions', 0) or 0)
 
 
-def _monthly_svg(months):
-    """Self-contained stacked working(green)/non-working(red) per-month bar SVG,
-    with the NET working-days number above each bar. Returns (svg, width, height)."""
-    n = len(months)
-    bar_w, gap, left, top, plot_h = 34, 16, 44, 30, 200
-    base_y = top + plot_h
-    W = left + n * (bar_w + gap) + 24
-    H = base_y + 48
-    totals = [_monthly_total(m) for m in months]
-    maxt = max(totals) or 1
-
-    parts = [
-        '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" '
-        'viewBox="0 0 %d %d" font-family="Segoe UI,Arial,sans-serif">' % (W, H, W, H),
-        '<rect x="0" y="0" width="%d" height="%d" fill="#ffffff"/>' % (W, H),
-        '<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#cbd5e1" stroke-width="1"/>'
-        % (left - 6, base_y, W - 12, base_y),
-    ]
-    for i, m in enumerate(months):
-        total = totals[i]
-        wd = m.get('working_days', 0) or 0
-        nwd = max(total - wd, 0)
-        x = left + i * (bar_w + gap)
-        h_w = plot_h * (wd / maxt) if maxt else 0
-        h_n = plot_h * (nwd / maxt) if maxt else 0
-        y_work = base_y - h_w
-        y_non = y_work - h_n
-        parts.append('<rect x="%d" y="%.1f" width="%d" height="%.1f" fill="#22c55e"/>'
-                     % (x, y_work, bar_w, h_w))
-        parts.append('<rect x="%d" y="%.1f" width="%d" height="%.1f" fill="#ef4444"/>'
-                     % (x, y_non, bar_w, h_n))
-        parts.append('<text x="%.1f" y="%.1f" text-anchor="middle" font-size="11" '
-                     'font-weight="700" fill="#1a1d21">%s</text>'
-                     % (x + bar_w / 2, y_non - 6, wd))
-        parts.append('<text x="%.1f" y="%.1f" text-anchor="middle" font-size="9" '
-                     'fill="#5b6470">%s</text>'
-                     % (x + bar_w / 2, base_y + 16, _esc(m.get('label') or '')))
-    ly = H - 12
-    parts.append('<rect x="%d" y="%d" width="11" height="11" fill="#22c55e"/>'
-                 '<text x="%d" y="%d" font-size="9.5" fill="#1a1d21">Working days</text>'
-                 % (left, ly - 9, left + 16, ly))
-    parts.append('<rect x="%d" y="%d" width="11" height="11" fill="#ef4444"/>'
-                 '<text x="%d" y="%d" font-size="9.5" fill="#1a1d21">Non-working days</text>'
-                 % (left + 120, ly - 9, left + 136, ly))
-    parts.append('</svg>')
-    return ''.join(parts), W, H
-
-
 def _monthly_table(document, months):
     rows = []
     for m in months:
@@ -167,22 +120,21 @@ def _monthly_table(document, months):
 
 
 def _monthly(document, months, chrome):
-    png = None
-    try:
-        svg, w, h = _monthly_svg(months)
-        if svg and chrome:
-            png = docx_charts.render_svg_png(svg, w, h, chrome)
-    except Exception:
-        png = None
-    if png:
-        from docx.shared import Inches
-        # scale to the text column width, preserving the SVG aspect ratio
-        target = Inches(6.2)
-        try:
-            document.add_picture(docx_charts.stream(png), width=target)
-        except Exception:
-            _monthly_table(document, months)
-    else:
+    """NATIVE stacked working(green)/non-working(red) per-month column chart — a real,
+    editable Word chart object, NOT a rasterised SVG. Falls back to the monthly stats
+    table only if the native chart cannot be built. ``chrome`` is now unused (kept for
+    signature stability with the caller)."""
+    months = months or []
+    cats = [m.get('label') or '' for m in months]
+    working = [m.get('working_days', 0) or 0 for m in months]
+    nonworking = [max(_monthly_total(m) - (m.get('working_days', 0) or 0), 0)
+                  for m in months]
+    drawing = docx_native.add_bar_chart_stacked(
+        document, cats,
+        [{'name': 'Working days', 'values': working, 'color': '22C55E'},
+         {'name': 'Non-working days', 'values': nonworking, 'color': 'EF4444'}],
+        'Working / non-working days by month')
+    if drawing is None:
         _monthly_table(document, months)
 
 
