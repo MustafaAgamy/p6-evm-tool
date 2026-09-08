@@ -257,6 +257,52 @@ def _crit_label(tf):
 
 # ── the report ───────────────────────────────────────────────────────────────
 
+def _bottom_line(summary, finish_shift, gov1, resource_changes, quality):
+    """One neutral sentence summarising the revision — never a verdict."""
+    parts = []
+    if finish_shift is not None and finish_shift != 0:
+        word = 'later' if finish_shift > 0 else 'earlier'
+        parts.append(f"Rev.01 finishes {abs(finish_shift)} days {word}"
+                     + (f" ({_short(gov1)})" if gov1 else ''))
+    else:
+        parts.append("Rev.01 keeps the same governing finish")
+    net = summary.get('net', 0)
+    parts.append(f"{'+' if net >= 0 else ''}{net} net activities")
+    bd = ((resource_changes or {}).get('total_budget') or {}).get('delta')
+    if bd:
+        parts.append(f"{'+' if bd > 0 else ''}{bd:,} budget")
+    nf = ((quality or {}).get('negative_float') or {}).get('rev1') or 0
+    tail = f" {nf} activities now carry negative float." if nf else ''
+    return ', '.join(parts) + '.' + tail + ' Flagged for planning review, not marked wrong.'
+
+
+def _redesign_sections(rev0, rev1, rev1c, matched, match, cal, cp, crit1,
+                       sequences, wbs_changes, gov0, gov1):
+    """The new redesigned-report dimensions (each engine module is guarded so a single
+    failure degrades that section to empty rather than breaking the whole comparison)."""
+    from p6_revcompare import (codes as _codes, quality as _quality, curves as _curves,
+                               slip as _slip, logicreg as _logicreg, dates as _dates,
+                               wbsview as _wbsview)
+    out = {}
+
+    def _safe(key, fn, default):
+        try:
+            out[key] = fn()
+        except Exception:
+            out[key] = default
+
+    _safe('codes', lambda: _codes.build_codes(rev0, rev1, match), None)
+    _safe('quality', lambda: _quality.build_quality(rev0, rev1c, matched, cal), None)
+    _safe('curves', lambda: _curves.build_curves(rev0, rev1c, matched, match, cal, gov0), None)
+    _safe('slip', lambda: _slip.build_slip(rev0, rev1c, matched, match, cp, cal, gov0, gov1), None)
+    _safe('logic_register', lambda: _logicreg.build_logic_register(matched, crit1), [])
+    _safe('date_shifts', lambda: _dates.build_date_shifts(match, rev0, rev1c, cal), [])
+    _safe('duration_table', lambda: _dates.build_duration_table(match, rev0, rev1c, cal), [])
+    _safe('wbs_view', lambda: _wbsview.build_wbs_view(rev0, rev1c, wbs_changes), None)
+    _safe('sequence_rollup', lambda: _wbsview.build_sequence_rollup(sequences, matched), [])
+    return out
+
+
 def build_report(rev0_path, rev1_path, config=None, options=None):
     from p6_evm.parser import parse_file
     rev0 = parse_file(rev0_path)
@@ -364,6 +410,11 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
     findings = _findings(register, sequences, milestones, cp)
     narrative = _narrative(summary, finish_shift, sequences, milestones)
 
+    # ── redesigned-report dimensions (additive, guarded) ─────────────────────────
+    redesign = _redesign_sections(rev0, rev1, rev1c, matched, match, cal, cp, crit1,
+                                  sequences, wbs_changes, gov0, gov1)
+    bottom_line = _bottom_line(summary, finish_shift, gov1, resource_changes, redesign.get('quality'))
+
     return {
         'rev0': {'file': None, 'activities': len(rev0.activities),
                  'data_date': _short((rev0.project or {}).get('data_date')),
@@ -377,6 +428,8 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
         'float_movement': floats, 'milestones': milestones, 'narrative': narrative,
         'wbs_changes': wbs_changes, 'calendar_changes': calendar_changes,
         'constraint_changes': constraint_changes, 'resource_changes': resource_changes,
+        'bottom_line': bottom_line,
+        **redesign,
     }
 
 
