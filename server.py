@@ -1125,20 +1125,63 @@ CHROME_CANDIDATES = [
     r'C:\Program Files\Chromium\Application\chrome.exe',
 ]
 
-def _find_chrome():
+def _can_rasterise(chrome):
+    """Return True only if `chrome` can actually rasterise a chart — tested through the
+    SAME code path the export uses (p6_narrative.chart_png.render_svg_png). A binary
+    that merely EXISTS but can't launch (broken Playwright chromium / missing VC++
+    runtime, WinError 14001) returns no PNG here, so we never hand a dead browser to
+    the PDF or chart path (which would silently drop every chart to a plain table)."""
     try:
+        sys.path.insert(0, resource_path('.'))
+        from p6_narrative.chart_png import render_svg_png
+        svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48">'
+               '<rect width="48" height="48" fill="#1F4E79"/></svg>')
+        return bool(render_svg_png(svg, 48, 48, chrome))
+    except Exception:
+        return False
+
+
+def _chrome_candidates():
+    """Ordered most-robust-first: real Chrome / Edge BEFORE Playwright's chromium,
+    because a broken Playwright install still reports a valid executable_path."""
+    import shutil
+    out = []
+    for p in CHROME_CANDIDATES:                       # real Chrome installs
+        if os.path.exists(p):
+            out.append(p)
+    for exe in ('chrome', 'msedge'):                  # PATH lookups
+        w = shutil.which(exe)
+        if w:
+            out.append(w)
+    edge = r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+    if os.path.exists(edge):                          # Edge ships with Windows 11
+        out.append(edge)
+    try:                                              # Playwright chromium LAST
         from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            path = p.chromium.executable_path
+        with sync_playwright() as pw:
+            path = pw.chromium.executable_path
             if path and os.path.exists(path):
-                return path
+                out.append(path)
     except Exception:
         pass
-    for path in CHROME_CANDIDATES:
-        if os.path.exists(path):
-            return path
+    seen = set()
+    return [c for c in out if not (c in seen or seen.add(c))]
+
+
+_CHROME_PATH = None  # resolved once per process (the probe costs ~0.3s)
+
+
+def _find_chrome():
+    global _CHROME_PATH
+    if _CHROME_PATH:
+        return _CHROME_PATH
+    for cand in _chrome_candidates():
+        if _can_rasterise(cand):
+            _CHROME_PATH = cand
+            return cand
     raise RuntimeError(
-        'No Chrome/Chromium found. Install Google Chrome or run: '
+        'A browser was located but none could launch (broken Playwright chromium or '
+        'missing runtime). Install Google Chrome or Edge, or repair: '
         'pip install playwright && playwright install chromium'
     )
 

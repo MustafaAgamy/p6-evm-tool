@@ -4,6 +4,7 @@ already uses; when it isn't available the caller falls back to a table. Nothing 
 is project-specific — it renders whatever SVG it's given.
 """
 import os
+import shutil
 import subprocess
 import tempfile
 
@@ -16,14 +17,18 @@ def render_svg_png(svg, width, height, chrome=None):
     html = ('<!doctype html><html><head><meta charset="utf-8">'
             '<style>html,body{margin:0;padding:0;background:#fff}</style></head>'
             f'<body>{svg}</body></html>')
-    tmp_html = tmp_png = None
+    tmp_html = tmp_png = tmp_profile = None
     try:
         with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as f:
             f.write(html)
             tmp_html = f.name
         tmp_png = tmp_html[:-5] + '.png'
+        # Isolated profile dir: a stale default-profile lock (a prior headless run, or
+        # two exports at once) otherwise makes launch hang -> timeout -> silent table.
+        tmp_profile = tempfile.mkdtemp(prefix='p6chrome_')
         subprocess.run([
             chrome, '--headless', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
+            f'--user-data-dir={tmp_profile}',
             '--force-device-scale-factor=2', f'--window-size={width},{height}',
             f'--screenshot={tmp_png}', f'file:///{tmp_html.replace(os.sep, "/")}',
         ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
@@ -38,6 +43,8 @@ def render_svg_png(svg, width, height, chrome=None):
                     os.unlink(path)
             except OSError:
                 pass
+        if tmp_profile:
+            shutil.rmtree(tmp_profile, ignore_errors=True)
 
 
 def cashflow_svg(points, width=760, height=320):
