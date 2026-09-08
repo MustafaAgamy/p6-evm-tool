@@ -416,29 +416,21 @@ def _render_idanatomy(document, p, sub, chrome, note):
 
 
 def _render_cashflow(document, p, sub, chrome, note):
-    points = p.get('points', []) or []
-    if not points:
+    # Ibrahim's comment 12: a monthly BAR chart (not the S-curve) and NO data table.
+    if not (p.get('monthly') or p.get('points')):
         _muted(document, 'Time-phased cost information is not available in the file.')
         return
-    _lead(document, 'Cumulative planned cost (cost-loaded S-curve) sampled across the '
-                    'baseline — illustrative of the plan.')
-    # chart image via the shared cashflow SVG + Chrome rasteriser; table fallback.
-    placed = False
-    if chrome:
-        try:
-            svg = chart_png.cashflow_svg(points)
-            png = chart_png.render_svg_png(svg, 760, 320, chrome) if svg else None
-            if png:
-                document.add_picture(docx_charts.stream(png), width=_IMG_W)
-                document.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                placed = True
-        except Exception:
-            placed = False
-    if not placed:
-        rows = [[_fmt_iso(pt.get('date')), _money(pt.get('cumulative')),
-                 '%s%%' % pt.get('pct')] for pt in points]
-        docx_template.styled_table(document, ['Date', 'Cumulative cost', '% complete'],
-                                   rows, widths=(Inches(1.9), Inches(2.6), Inches(1.6)))
+    _lead(document, 'Planned cost per month across the baseline — illustrative of the plan.')
+    if _add_chart_image(document, 'cashflow', p, chrome):
+        return
+    # No working browser: a compact monthly fallback (the bar chart is the primary form).
+    rows = [[m.get('label'), _money(m.get('cost')), '%s%%' % m.get('pct')]
+            for m in (p.get('monthly') or [])]
+    if rows:
+        docx_template.styled_table(document, ['Month', 'Cost', 'Cumulative %'], rows,
+                                   widths=(Inches(1.9), Inches(2.2), Inches(1.4)))
+    else:
+        _muted(document, 'The cash-flow chart needs a browser (Chrome/Edge) to render.')
 
 
 _RENDER = {

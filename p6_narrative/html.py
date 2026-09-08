@@ -409,25 +409,34 @@ def _costbars(p, number):
 
 # ── cashflow (restored) ───────────────────────────────────────────────────────
 def _cashflow(p, number):
-    pts = p.get('points') or []
-    if not pts:
+    # Monthly cash-flow BAR chart (Ibrahim's comment 12 — bars, not an S-curve).
+    months = p.get('monthly') or []
+    if not months:
         return '<p class="bn-empty">No cost loading in the file.</p>'
-    w, h = 680, 200
-    n = len(pts) - 1 or 1
-    coords = [(40 + i * (w - 60) / n, h - 20 - ((pt.get('pct') or 0) / 100.0) * (h - 40))
-              for i, pt in enumerate(pts)]
-    line = ' '.join('%.1f,%.1f' % (x, y) for x, y in coords)
-    area = '40,%d %s %.1f,%d' % (h - 20, line, coords[-1][0], h - 20)
-    lx, ly = coords[-1]
-    return ('<div class="bn-tw"><svg class="bn-svg" viewBox="0 0 %d %d" preserveAspectRatio="xMidYMid meet">'
-            '<line x1="40" y1="%d" x2="%d" y2="%d" class="bn-axis"/>'
-            '<line x1="40" y1="20" x2="40" y2="%d" class="bn-axis"/>'
-            '<polygon points="%s" class="bn-area"/>'
-            '<polyline points="%s" class="bn-line"/>'
-            '<circle cx="%.1f" cy="%.1f" r="4" class="bn-dot"/>'
-            '<text x="36" y="24" text-anchor="end" class="bn-axl">100%%</text>'
-            '<text x="36" y="%d" text-anchor="end" class="bn-axl">0</text></svg></div>'
-            % (w, h, h - 20, w - 20, h - 20, h - 20, area, line, lx, ly, h - 16))
+    n = len(months)
+    bw = 30 if n <= 16 else max(12, int(520 / n))
+    gap = max(6, int(bw * 0.4))
+    left, top, plot_h = 20, 24, 180
+    base_y = top + plot_h
+    W = left + 16 + n * (bw + gap)
+    H = base_y + 46
+    max_cost = max((m.get('cost') or 0) for m in months) or 1
+    show_every = 1 if n <= 13 else (2 if n <= 26 else 3)
+    bars = ''
+    for i, m in enumerate(months):
+        x = left + i * (bw + gap) + gap / 2
+        hgt = plot_h * (m.get('cost') or 0) / max_cost
+        bars += '<rect x="%.0f" y="%.0f" width="%d" height="%.0f" rx="2" fill="#2E75B6"/>' % (
+            x, base_y - hgt, bw, max(hgt, 0))
+        if i % show_every == 0:
+            lx = x + bw / 2
+            bars += ('<text x="%.0f" y="%.0f" text-anchor="end" font-size="8.5" fill="#5b6472" '
+                     'transform="rotate(-40 %.0f %.0f)">%s</text>'
+                     % (lx, base_y + 12, lx, base_y + 12, _esc(m.get('label'))))
+    return ('<div class="bn-tw"><svg viewBox="0 0 %d %d" style="width:100%%;min-width:%dpx;height:auto">'
+            '<text x="%d" y="%d" font-size="11" font-weight="700" fill="#1F4E79">Planned cost per month</text>'
+            '<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#c9d6de" stroke-width="1"/>%s</svg></div>'
+            % (W, H, min(W, 720), left, top - 8, left, base_y, W - 16, base_y, bars))
 
 
 # ── scope (restored — editable prose) ─────────────────────────────────────────

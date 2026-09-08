@@ -217,6 +217,43 @@ def sequence_flow_svg(front):
     return _open(W, H) + body + '</svg>'
 
 
+# ── cash flow (monthly BAR chart — Ibrahim's comment: bars, not an S-curve) ────
+def cashflow_bars_svg(cashflow_payload):
+    """Planned cost per calendar month as vertical bars (matches the reference Word
+    file's cash-flow histogram). '' when there is no monthly data."""
+    months = (cashflow_payload or {}).get('monthly') or []
+    if not months:
+        return ''
+    n = len(months)
+    bw = 30 if n <= 16 else max(12, int(520 / n))
+    gap = max(6, int(bw * 0.4))
+    left, right, top, plot_h, bottom = 20, 16, 26, 210, 52
+    W = left + right + n * (bw + gap)
+    H = top + plot_h + bottom
+    max_cost = max((m.get('cost') or 0) for m in months) or 1
+    base_y = top + plot_h
+    body = f'<text x="{left}" y="{top - 8}" font-size="11" font-weight="700" fill="#1F4E79">Planned cost per month</text>'
+    for g in range(1, 5):                              # faint horizontal gridlines
+        gy = base_y - plot_h * g / 4
+        body += (f'<line x1="{left}" y1="{gy:.0f}" x2="{W - right}" y2="{gy:.0f}" '
+                 f'stroke="#eef1f5" stroke-width="1"/>')
+    body += (f'<line x1="{left}" y1="{base_y}" x2="{W - right}" y2="{base_y}" '
+             f'stroke="#c9d6de" stroke-width="1.2"/>')
+    show_every = 1 if n <= 13 else (2 if n <= 26 else 3)
+    for i, m in enumerate(months):
+        x = left + i * (bw + gap) + gap / 2
+        h = plot_h * (m.get('cost') or 0) / max_cost
+        y = base_y - h
+        body += (f'<rect x="{x:.0f}" y="{y:.0f}" width="{bw}" height="{max(h, 0):.0f}" '
+                 f'rx="2" fill="#2E75B6"/>')
+        if i % show_every == 0:
+            lx, ly = x + bw / 2, base_y + 12
+            body += (f'<text x="{lx:.0f}" y="{ly:.0f}" text-anchor="end" font-size="8.5" '
+                     f'fill="#5b6472" transform="rotate(-40 {lx:.0f} {ly:.0f})">'
+                     f'{_esc(m.get("label"))}</text>')
+    return _open(W, H) + body + '</svg>'
+
+
 # ── dispatch → PNG ────────────────────────────────────────────────────────────
 _BUILDERS = {
     'donut': donut_svg,
@@ -225,6 +262,8 @@ _BUILDERS = {
     'costbars': costbars_svg,
     'wbs_smartart': wbs_smartart_svg,
     'sequence_flow': sequence_flow_svg,
+    'cashflow': cashflow_bars_svg,
+    'cashflow_bars': cashflow_bars_svg,
 }
 
 _DIMS = re.compile(r'<svg[^>]*\bwidth="(\d+)"[^>]*\bheight="(\d+)"')

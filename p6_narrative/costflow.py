@@ -6,7 +6,7 @@ evenly across its planned start→finish calendar days and accumulates, which is
 standard cost-loaded S-curve; it is illustrative of the plan, not a new number.
 """
 import bisect
-from datetime import timedelta
+from datetime import date, timedelta
 
 from p6_narrative.util import as_date, top_wbs_name, wbs_grouping
 
@@ -97,4 +97,19 @@ def cash_flow(activities, bac_by_activity, n_points=24):
             'cumulative': round(value, 2),
             'pct': round(100 * value / total, 2) if total else 0.0,
         })
-    return {'total': round(total, 2), 'points': points}
+
+    # Monthly spend buckets — one bar per calendar month for the cash-flow bar chart
+    # (Ibrahim's comment: a monthly bar chart, not the S-curve line).
+    months = {}
+    for d, v in daily.items():
+        months[(d.year, d.month)] = months.get((d.year, d.month), 0.0) + v
+    monthly, run = [], 0.0
+    for (y, m) in sorted(months):
+        run += months[(y, m)]
+        monthly.append({
+            'label': date(y, m, 1).strftime('%b %Y'),
+            'cost': round(months[(y, m)], 2),
+            'cumulative': round(run, 2),
+            'pct': round(100 * run / total, 2) if total else 0.0,
+        })
+    return {'total': round(total, 2), 'points': points, 'monthly': monthly}

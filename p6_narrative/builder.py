@@ -273,8 +273,8 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, se
         if setup.get(key):
             brief.append((lbl, setup[key]))
     brief.append(('Project name', name))
-    if project.get('id'):
-        brief.append(('Project ID', project['id']))
+    # Project ID intentionally omitted from the Brief (Ibrahim's comment): the ID
+    # system is documented in the Activity IDs section, not repeated as a fact row.
     # Baseline start/finish — many XER exports leave the project dates blank, so fall
     # back to the activity range (generic for any file).
     a_starts = [as_date(a.get('planned_start')) for a in acts if a.get('planned_start')]
