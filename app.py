@@ -75,5 +75,6 @@ if __name__ == '__main__':
         height=720,          # restore-down size (window opens maximized)
         min_size=(800, 550),
         maximized=True,       # open maximized by default, not the small default window
+        background_color='#06090f',  # match the startup splash so the window never flashes black on cold-start
     )
     webview.start()

@@ -49,7 +49,7 @@ const ease = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(1 - x, 3);
 
 export function playBoot(opts) {
   opts = opts || {};
-  const DUR = opts.durationMs || 13000;
+  const DUR = opts.durationMs || 11000;
   const onDone = typeof opts.onDone === 'function' ? opts.onDone : function () {};
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   injectCss();
