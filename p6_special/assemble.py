@@ -18,6 +18,19 @@ def catalog(project_id=None, snapshot_id=None, inputs=None):
     return registry.catalog(_ctx(project_id, snapshot_id, inputs))
 
 
+def tiles(project_id=None, item_ids=None, inputs=None, snapshot_id=None):
+    """Per-item dashboard tiles for the selected items + dashboard meta."""
+    ctx = _ctx(project_id, snapshot_id, inputs)
+    rendered = registry.render(ctx, item_ids or [])
+    from p6_special import dash_payload
+    meta = {
+        'project_name': ctx.project_name,
+        'data_date': ctx.data_date,
+        'activity_count': (ctx.evm or {}).get('activity_count'),
+    }
+    return {'tiles': [dash_payload.map_tile(it) for it in rendered], 'meta': meta}
+
+
 def _meta(ctx, meta):
     m = dict(ctx.meta or {})
     if meta:

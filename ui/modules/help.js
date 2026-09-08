@@ -56,7 +56,7 @@ const FEATURES = [
   { name: 'Bad Weather', what: 'Stop-work impact', inputs: [{ t: '1 P6 schedule', k: 'p6' }, { t: 'project location', k: 'extra' }], extra: true },
   { name: 'Constructability', what: 'Buildability vs knowledge base', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
   { name: 'Portfolio', what: 'Every project’s health at a glance, plus this project’s week-over-week trend', inputs: [{ t: 'your imported projects', k: 'none' }] },
-  { name: 'Special Report', what: 'Compose a custom report', inputs: [{ t: 'results from any features', k: 'none' }] },
+  { name: 'Reporting Studio', what: 'Pick results once — view as a document or a dashboard', inputs: [{ t: 'results from any features', k: 'none' }] },
 ];
 
 let onKeyDown = null;   // active Esc handler (set on open, removed on close)

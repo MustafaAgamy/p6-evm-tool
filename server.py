@@ -174,6 +174,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_special_catalog(body)
         elif self.path == '/api/special/render':
             self._handle_special_render(body)
+        elif self.path == '/api/special/tiles':
+            self._handle_special_tiles(body)
         elif self.path == '/api/special/pdf':
             self._handle_special_pdf(body)
         elif self.path == '/api/special/doc':
@@ -226,6 +228,16 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_special_render(self, body):
         try:
             self._json(200, {'ok': True, 'html': self._special_html(body)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_tiles(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            res = assemble.tiles(self._special_pid(body), body.get('item_ids') or [],
+                                 inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
+            self._json(200, {'ok': True, 'tiles': res['tiles'], 'meta': res['meta']})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
