@@ -1,4 +1,4 @@
-// Project ▸ Professional Dashboard.
+// Project ▸ Portfolio (portfolio + trend read-model).
 // A portfolio + trend read-model rendered entirely from the database
 // (`/api/dashboard` → db.get_dashboard) — never a re-parse, per the
 // "DB is the read path" rule. It shows every imported project's latest health
@@ -106,7 +106,7 @@ export async function renderDashboard() {
   const activePid = data.active ? data.active.project_id : null;
   if (!portfolio.length) {
     el.innerHTML = `
-      <div class="ov-head"><div class="ov-title"><h2>Professional Dashboard</h2></div></div>
+      <div class="ov-head"><div class="ov-title"><h2>Portfolio</h2></div></div>
       <p class="ov-note">No projects yet. Import a P6 schedule and it will appear here — the dashboard reads your saved history from the database, so it fills in as you import updates.</p>`;
     return;
   }
@@ -174,7 +174,7 @@ export async function renderDashboard() {
 
   el.innerHTML = `
     <div class="ov-head"><div class="ov-title">
-      <h2>Professional Dashboard</h2>
+      <h2>Portfolio</h2>
       <div class="ov-chips">
         <span class="ov-chip"><b>${portfolio.length}</b> project${portfolio.length === 1 ? '' : 's'}</span>
         <span class="ov-chip"><b>${updates}</b> update${updates === 1 ? '' : 's'}</span>

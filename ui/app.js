@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ['calendar','P6 Calendar Audit','calendar'], ['weather','Bad Weather','weather'],
     ]},
     { group:'Reports & Dashboards', items:[
-      ['dash','Professional Dashboard','dash'], ['special','Special Report'],
+      ['dash','Portfolio','dash'], ['special','Reporting Studio'],
     ]},
     { group:'Library', items:[
       ['kb','Knowledge Base'], ['construct','Constructability'], ['recent','Recent Projects'],
@@ -98,8 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const CRUMB = { home:'Home', recent:'Recent Projects', kb:'Knowledge Base', evm:'Earned Value',
     audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
     compare:'Consultant Review', revcompare:'Baseline Revision Comparison', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
-    update:'Update Analysis', special:'Special Report', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
-    dash:'Professional Dashboard', narrative:'Baseline Narrative',
+    update:'Update Analysis', special:'Reporting Studio', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
+    dash:'Portfolio', narrative:'Baseline Narrative',
     weather:'Bad Weather', copilot:'AI Copilot · TIA' };
   const navTree = document.getElementById('nav-tree');
   const tnode = (id, label, icon, o = {}) => {
@@ -138,9 +138,9 @@ document.addEventListener('DOMContentLoaded', () => {
     construct: { title:'Constructability',        icon:'construct', verb:'Run Constructability',  desc:'Reviews sequencing and logic against the built-in construction knowledge base.' },
     copilot:   { title:'AI Copilot · TIA',        icon:'ai',        verb:'Run Copilot',           desc:'Deterministic Time-Impact Analysis and insights — offline.' },
     narrative: { title:'Baseline Narrative',      icon:'doc',       verb:'Generate Narrative',    desc:'A written basis-of-schedule narrative from this programme.' },
-    dash:      { title:'Professional Dashboard',  icon:'dash',      verb:'Open Dashboard',        desc:'Portfolio KPIs and week-over-week trends across your projects.' },
+    dash:      { title:'Portfolio',               icon:'dash',      verb:'Open Portfolio',        desc:'Every project’s health at a glance, plus this project’s week-over-week trend.' },
     update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its own embedded baseline.' },
-    special:   { title:'Special Report',          icon:'special',   verb:'Open Report Builder',   desc:"Compose a custom report from any feature's results." },
+    special:   { title:'Reporting Studio',        icon:'special',   verb:'Open Reporting Studio', desc:"Pick results once — view them as a detailed document or a visual dashboard." },
   };
 
   // Compute + render a feature's results (the actual analysis).
@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const PRINT_VIEW = {
     overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint },
     wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint },
-    dash:      { module: 'dashboard',  title: 'Professional Dashboard', get: dashboardPrint },
+    dash:      { module: 'dashboard',  title: 'Portfolio', get: dashboardPrint },
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
     copilot:   { module: 'copilot',    title: 'AI Copilot · TIA',       get: copilotPrint },
   };
