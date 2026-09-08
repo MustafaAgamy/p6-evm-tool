@@ -427,8 +427,10 @@ def _wps_box(counter, name, x, y, w, h, fill, line, tcol, text, sz=17, prst='rou
         f'<w:r><w:rPr><w:b/><w:color w:val="{tcol}"/><w:sz w:val="{sz * 2}"/>'
         f'<w:szCs w:val="{sz * 2}"/></w:rPr>'
         f'<w:t xml:space="preserve">{_xesc(text)}</w:t></w:r></w:p></w:txbxContent></wps:txbx>'
-        f'<wps:bodyPr rot="0" anchor="ctr" lIns="36000" rIns="36000" '
-        f'tIns="18000" bIns="18000"/></wps:wsp>')
+        # wrap="square" lets long names flow onto 2 lines; <a:normAutofit/> shrinks the
+        # text to fit the box (never clipped); tight insets give the text the whole box.
+        f'<wps:bodyPr rot="0" wrap="square" anchor="ctr" lIns="9144" rIns="9144" '
+        f'tIns="4572" bIns="4572"><a:normAutofit/></wps:bodyPr></wps:wsp>')
 
 
 def _wps_line(counter, x, y, cx, cy, color):
@@ -482,7 +484,10 @@ def add_org_chart(document, root_node):
         wbs_chart._collect(root, nodes)
         if not nodes:
             return None
-        BOX_W, BOX_H = wbs_chart.BOX_W, wbs_chart.BOX_H
+        BOX_W = wbs_chart.BOX_W
+        BOX_H = wbs_chart.BOX_H + 18         # taller boxes (from the row whitespace) so
+        #                                      wrapped names fit clearly; the row step is
+        #                                      unchanged, so the chart barely grows.
         X_STEP, Y_STEP, PAD = wbs_chart.X_STEP, wbs_chart.Y_STEP, wbs_chart.PAD
         max_x = max((n['_x'] for n in nodes), default=0)
         max_d = max((n['_y'] for n in nodes), default=0)
@@ -522,7 +527,7 @@ def add_org_chart(document, root_node):
             shapes.append(_wps_box(
                 counter, n.get('name') or '', _emu(bx(n)), _emu(by(n)),
                 _emu(BOX_W), _emu(BOX_H), fill, _WBS_ACCENT, tcol,
-                _clip(n.get('name'))))
+                _clip(n.get('name'), 46), sz=11))
 
         return _group_drawing(document, ''.join(shapes), base_id,
                               _emu(width_px), _emu(height_px))
@@ -560,7 +565,7 @@ def add_process(document, steps):
             prst = 'homePlate' if i == 0 else 'chevron'
             shapes.append(_wps_box(
                 counter, step, _emu(x), _emu(top), _emu(BW), _emu(BH),
-                col, None, 'FFFFFF', _clip(step, 18), sz=10, prst=prst))
+                col, None, 'FFFFFF', _clip(step, 30), sz=10, prst=prst))
 
         return _group_drawing(document, ''.join(shapes), base_id,
                               _emu(width_px), _emu(height_px))
