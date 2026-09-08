@@ -66,17 +66,74 @@ def _ratio_tone(x):
     return 'good' if x >= 1 else 'bad'
 
 
+def _num(x):
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+# ── trend helpers (a straight READ of the stored per-snapshot rows) ───────────
+def _date10(d):
+    """A snapshot's data_date as a 'YYYY-MM-DD' x-axis label (or None)."""
+    return str(d)[:10] if d else None
+
+
+def _points(ctx, key, scale=1.0):
+    """The metric `key` per snapshot (oldest→newest); null stays None (a gap)."""
+    return [(s.get(key) * scale) if _num(s.get(key)) else None
+            for s in (ctx.snapshots_trend() or [])]
+
+
+def _count_present(ctx, key):
+    return sum(1 for s in (ctx.snapshots_trend() or []) if _num(s.get(key)))
+
+
+def _spark(ctx, key, scale=1.0):
+    """Up to the last 8 non-null values of `key` (oldest→newest), or None if <2.
+
+    The sparkline needs ≥2 real points to mean anything; a lone value is left off
+    rather than drawn as a flat line."""
+    vals = [s.get(key) * scale for s in (ctx.snapshots_trend() or []) if _num(s.get(key))]
+    return vals[-8:] if len(vals) >= 2 else None
+
+
+def _delta(ctx, key, fmt_fn, scale=1.0):
+    """Raw change of `key` vs the previous snapshot — the second-to-last row by
+    data_date (``ctx.snapshots`` is ordered data_date ASC). No smoothing, no
+    threshold. None when <2 snapshots or either endpoint is null."""
+    snaps = ctx.snapshots_trend() or []
+    if len(snaps) < 2:
+        return None
+    cur, prev = snaps[-1].get(key), snaps[-2].get(key)
+    if not (_num(cur) and _num(prev)):
+        return None
+    return fmt_fn((cur - prev) * scale)
+
+
+def _trend_ready(key):
+    """A trend is 'ready' only with ≥2 snapshots carrying a non-null `key`."""
+    def _avail(ctx):
+        return 'ready' if _count_present(ctx, key) >= 2 else 'no_data'
+    return _avail
+
+
 # ── atomic KPI producers ─────────────────────────────────────────────────────
 def _kpi_planned(ctx):
     e = ctx.evm or {}
     return P.kpi_group([P.kpi('Planned %', fmt.pct01(e.get('overall_planned_pct')),
-                              sub='where the plan says we should be', tone='accent')])
+                              sub='where the plan says we should be', tone='accent',
+                              spark=_spark(ctx, 'overall_planned_pct', scale=100.0),
+                              delta=_delta(ctx, 'overall_planned_pct',
+                                           lambda d: f'{d:+.1f}%', scale=100.0),
+                              delta_tone='neutral')])
 
 
 def _kpi_actual(ctx):
     e = ctx.evm or {}
     return P.kpi_group([P.kpi('Actual %', fmt.pct01(e.get('overall_actual_pct')),
-                              sub='where the project actually is', tone='neutral')])
+                              sub='where the project actually is', tone='neutral',
+                              spark=_spark(ctx, 'overall_actual_pct', scale=100.0),
+                              delta=_delta(ctx, 'overall_actual_pct',
+                                           lambda d: f'{d:+.1f}%', scale=100.0),
+                              delta_tone='neutral')])
 
 
 def _kpi_variance(ctx):
@@ -90,13 +147,19 @@ def _kpi_variance(ctx):
 def _kpi_spi(ctx):
     e = ctx.evm or {}
     return P.kpi_group([P.kpi('SPI', fmt.ratio(e.get('spi')),
-                              sub='schedule performance index', tone=_ratio_tone(e.get('spi')))])
+                              sub='schedule performance index', tone=_ratio_tone(e.get('spi')),
+                              spark=_spark(ctx, 'spi'),
+                              delta=_delta(ctx, 'spi', lambda d: f'{d:+.2f}'),
+                              delta_tone='neutral')])
 
 
 def _kpi_cpi(ctx):
     e = ctx.evm or {}
     return P.kpi_group([P.kpi('CPI', fmt.ratio(e.get('cpi')),
-                              sub='cost performance index', tone=_ratio_tone(e.get('cpi')))])
+                              sub='cost performance index', tone=_ratio_tone(e.get('cpi')),
+                              spark=_spark(ctx, 'cpi'),
+                              delta=_delta(ctx, 'cpi', lambda d: f'{d:+.2f}'),
+                              delta_tone='neutral')])
 
 
 def _kpi_pv(ctx):
@@ -119,7 +182,10 @@ def _kpi_delay(ctx):
     d = e.get('delay_days')
     tone = 'neutral' if d is None else ('good' if d <= 0 else 'bad')
     return P.kpi_group([P.kpi('Finish Delay', fmt.days(d),
-                              sub='working days behind baseline finish', tone=tone)])
+                              sub='working days behind baseline finish', tone=tone,
+                              spark=_spark(ctx, 'delay_days'),
+                              delta=_delta(ctx, 'delay_days', lambda x: f'{x:+.0f} d'),
+                              delta_tone='neutral')])
 
 
 # ── combined items ───────────────────────────────────────────────────────────
@@ -183,6 +249,91 @@ def _pv_ev_ac(ctx):
         axis_max=amax)
 
 
+# ── trend producers (a straight read of the stored per-update rows) ───────────
+def _trend_spi_cpi(ctx):
+    snaps = ctx.snapshots_trend() or []
+    return P.line(
+        [{'label': 'SPI', 'tone': 'accent', 'points': _points(ctx, 'spi')},
+         {'label': 'CPI', 'tone': 'good', 'points': _points(ctx, 'cpi')}],
+        x=[_date10(s.get('data_date')) for s in snaps],
+        ref={'value': 1.0, 'label': '1.00 target'},
+        note='Across the weekly updates')
+
+
+def _trend_delay(ctx):
+    snaps = ctx.snapshots_trend() or []
+    return P.line(
+        [{'label': 'Delay (d)', 'tone': 'bad', 'points': _points(ctx, 'delay_days')}],
+        x=[_date10(s.get('data_date')) for s in snaps],
+        note='Working days behind baseline finish, per update')
+
+
+def _trend_progress(ctx):
+    snaps = ctx.snapshots_trend() or []
+    return P.line(
+        [{'label': 'Planned %', 'tone': 'neutral',
+          'points': _points(ctx, 'overall_planned_pct', scale=100.0)},
+         {'label': 'Actual %', 'tone': 'accent',
+          'points': _points(ctx, 'overall_actual_pct', scale=100.0)}],
+        x=[_date10(s.get('data_date')) for s in snaps],
+        y_max=100, note='Weekly updates')
+
+
+# ── discipline progress gap ───────────────────────────────────────────────────
+# Re-presents the SAME per-category numbers the category table reads
+# (`_category_table` above): planned_pct / actual_pct are 0..1 fractions shown via
+# fmt.pct01, and the behind/slightly-behind band is the same 0 / -0.05 split. No
+# EVM is recomputed — this is only a worst-first variance view of stored values.
+def _is_structural(c):
+    """A zero-weight / weightless category carries no progress signal."""
+    w = c.get('weight')
+    return not _num(w) or w == 0
+
+
+def _gap_categories(ctx):
+    cats = (ctx.evm or {}).get('categories') or {}
+    return [(name, c) for name, c in cats.items() if not _is_structural(c)]
+
+
+def _gap_tone(v):
+    """Same banding the category table uses: on/ahead → good, small miss → warn,
+    a large (>5 pt) miss → bad."""
+    if v is None:
+        return 'neutral'
+    if v >= 0:
+        return 'good'
+    return 'warn' if v >= -0.05 else 'bad'
+
+
+def _discipline_gap(ctx):
+    items = _gap_categories(ctx)
+    if not items:
+        return P.NO_DATA
+    rows = []
+    for name, c in items:
+        p, a = c.get('planned_pct'), c.get('actual_pct')
+        v = (a - p) if (_num(p) and _num(a)) else None       # actual − planned (0..1)
+        shortfall = (p or 0) - (a or 0)                        # planned − actual, sort key
+        rows.append((shortfall, {
+            'label': name,
+            'values': [(a or 0) * 100],
+            'display': [fmt.pct01(a)],
+            'target': (p or 0) * 100,
+            'target_display': fmt.pct01(p),
+            'tone': _gap_tone(v),
+        }))
+    rows.sort(key=lambda r: r[0], reverse=True)                # worst (largest shortfall) first
+    return P.bars(
+        rows=[r for _, r in rows],
+        series=[{'label': 'Actual', 'tone': 'accent'}],
+        style='variance',
+        note='Bar = actual · tick = planned · shaded = shortfall')
+
+
+def _discipline_gap_ready(ctx):
+    return 'ready' if _gap_categories(ctx) else 'no_data'
+
+
 def _gap_rows(ctx):
     """The PV−EV gap-by-code rows if present for this snapshot, else None.
 
@@ -228,6 +379,14 @@ def provide(ctx):
         Item('evm:delay', FEATURE, FEATURE_TITLE, 'Delay in working days', 'kpi', _kpi_delay, A),
         Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned / Earned / Actual value (chart)', 'chart', _pv_ev_ac, _value_ready),
         Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'table', _gap, _gap_ready),
+        Item('evm:trend_spi_cpi', FEATURE, FEATURE_TITLE, 'SPI / CPI trend', 'chart',
+             _trend_spi_cpi, _trend_ready('spi')),
+        Item('evm:trend_delay', FEATURE, FEATURE_TITLE, 'Delay trend (days)', 'chart',
+             _trend_delay, _trend_ready('delay_days')),
+        Item('evm:trend_progress', FEATURE, FEATURE_TITLE, 'Progress trend — planned vs actual', 'chart',
+             _trend_progress, _trend_ready('overall_actual_pct')),
+        Item('evm:discipline_gap', FEATURE, FEATURE_TITLE, 'Discipline progress gap — worst first', 'chart',
+             _discipline_gap, _discipline_gap_ready),
         Item('evm:full_report', FEATURE, FEATURE_TITLE, 'Full EVM report (detailed)', 'section',
              lambda ctx: FR.evm_full_report(ctx) or P.NO_DATA, _full_ready),
     ]

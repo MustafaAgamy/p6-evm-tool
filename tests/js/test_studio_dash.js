@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { boardHtml, panelHtml, tileBodyHtml, kpiTileHtml, letterheadHtml,
-         toneClass, sevClass } from '../../ui/modules/studio_dash.js';
+         toneClass, sevClass, statusHeaderHtml, sparkHtml, ragLetter } from '../../ui/modules/studio_dash.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -53,9 +53,10 @@ test('two kpi items → two .pd-kpi tiles with both values', () => {
       { label: 'CPI', value: '1.02', sub: 'stable on cost', tone: 'good' },
     ] } }];
   const h = boardHtml(tiles, META);
-  assert.equal(countOf(h, 'class="pd-kpi"'), 2);
+  assert.equal((h.match(/class="pd-kpi(?:"| )/g) || []).length, 2);   // tiles (may carry rail-*), not .pd-kpirow
   assert.ok(h.includes('0.87') && h.includes('1.02'));
   assert.ok(h.includes('pd-bad') && h.includes('pd-good'));
+  assert.ok(h.includes('rail-bad') && h.includes('rag bad'));  // RAG rail + redundant letter
   assert.ok(h.includes('pd-kpirow') && !h.includes('pd-grid'));  // no non-kpi tiles → no grid
 });
 
@@ -172,6 +173,66 @@ test('kpiTileHtml builds a head/body KPI tile', () => {
   const h = kpiTileHtml({ label: 'Delay', value: '+34 d', sub: 'vs baseline', tone: 'bad' });
   assert.ok(h.includes('pd-kpi') && h.includes('pd-k-head') && h.includes('Delay'));
   assert.ok(h.includes('pd-kv pd-bad') && h.includes('+34 d') && h.includes('vs baseline'));
+});
+
+console.log('\nline / sparkline (trends)');
+test('line tile → svg polyline + reference line + legend', () => {
+  const h = tileBodyHtml('line', { series: [
+    { label: 'SPI', tone: 'accent', points: [0.95, 0.92, 0.87] },
+    { label: 'CPI', tone: 'good', points: [1.0, 1.01, 1.02] }],
+    x: ['w1', 'w2', 'w3'], ref: { value: 1.0, label: '1.00 target' } });
+  assert.ok(h.includes('<svg') && h.includes('<polyline'));
+  assert.ok(h.includes('1.00 target') && h.includes('stroke-dasharray'));   // reference line
+  assert.ok(h.includes('SPI') && h.includes('CPI'));                        // legend
+});
+test('line with <2 points → no data', () => {
+  assert.ok(tileBodyHtml('line', { series: [{ label: 'x', points: [1] }] }).includes('pd-na'));
+});
+test('sparkHtml: ≥2 points → a polyline, <2 → empty', () => {
+  assert.ok(sparkHtml([1, 2, 3]).includes('<polyline'));
+  assert.equal(sparkHtml([1]), '');
+  assert.equal(sparkHtml(null), '');
+});
+test('kpiTileHtml carries a delta + a sparkline when present', () => {
+  const h = kpiTileHtml({ label: 'SPI', value: '0.87', tone: 'bad', delta: '-0.03', delta_tone: 'neutral', spark: [0.95, 0.9, 0.87] });
+  assert.ok(h.includes('pd-trend') && h.includes('-0.03'));
+  assert.ok(h.includes('class="spark"'));
+  assert.ok(h.includes('rail-bad') && h.includes('>R<'));                   // rail + redundant letter
+});
+
+console.log('\nvariance bars (discipline gap)');
+test('variance bars → actual fill + planned tick + shaded shortfall', () => {
+  const h = tileBodyHtml('bars', { style: 'variance', series: [{ label: 'Actual', tone: 'accent' }],
+    rows: [{ label: 'Construction', values: [45], display: ['45%'], target: 70, target_display: '70%', tone: 'bad' }] });
+  assert.ok(h.includes('pd-fl') && h.includes('pd-tick') && h.includes('pd-fl-short'));
+  assert.ok(h.includes('Construction') && h.includes('45%'));
+});
+
+console.log('\nstatus_header (executive)');
+test('no verdict → honest chips-only header with a "Not run" chip', () => {
+  const h = statusHeaderHtml({ domains: [
+    { domain: 'EVM', tone: 'neutral', headline: 'SPI 0.87' },
+    { domain: 'Schedule quality', tone: 'warn', headline: '72/100' },
+    { domain: 'Buildability', tone: 'neutral', headline: 'Not run' }], verdict: null });
+  assert.ok(h.includes('pd-exec') && h.includes('Status by area'));
+  assert.ok(h.includes('Schedule quality') && h.includes('72/100'));
+  assert.ok(h.includes('pd-chip warn') && h.includes('Not run'));
+  assert.ok(!h.includes('pd-verdict-lab pd-'));   // no coloured single verdict when none is set
+});
+test('with a verdict → coloured verdict label + rail', () => {
+  const h = statusHeaderHtml({ domains: [{ domain: 'EVM', tone: 'bad', headline: 'SPI 0.87' }],
+    verdict: { label: 'At risk', tone: 'warn', note: 'schedule slipping' } });
+  assert.ok(h.includes('At risk') && h.includes('rail-warn') && h.includes('schedule slipping'));
+});
+test('boardHtml renders a status_header band above the KPI row', () => {
+  const h = boardHtml([
+    { id: 'sh', title: 'Status', kind: 'status_header', shape: { w: 2, h: 0 }, data: { domains: [{ domain: 'EVM', tone: 'neutral', headline: 'SPI 0.87' }], verdict: null } },
+    { id: 'k', title: 'x', kind: 'kpis', shape: { w: 1, h: 0 }, data: { items: [{ label: 'A', value: '1' }] } }], META);
+  assert.ok(h.includes('pd-exec') && h.indexOf('pd-exec') < h.indexOf('pd-kpirow'));
+});
+test('ragLetter maps tones to R/A/G', () => {
+  assert.equal(ragLetter('bad'), 'R'); assert.equal(ragLetter('warn'), 'A');
+  assert.equal(ragLetter('good'), 'G'); assert.equal(ragLetter('neutral'), '');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

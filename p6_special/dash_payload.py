@@ -10,7 +10,7 @@ empty item.
 """
 
 _ALLOWED_KINDS = ('kpis', 'table', 'bars', 'segbar', 'findings', 'keyvals',
-                  'text', 'note', 'group', 'no_data')
+                  'text', 'note', 'group', 'line', 'status_header', 'no_data')
 
 
 def _map_payload(payload):
@@ -37,8 +37,28 @@ def _map_payload(payload):
             'rows': payload.get('rows') or [],
             'note': payload.get('note'),
             'axis_max': payload.get('axis_max'),
+            'style': payload.get('style'),
         }
         return 'bars', data, {'w': 1, 'h': 1}
+
+    if kind == 'line':
+        data = {
+            'series': payload.get('series') or [],
+            'x': payload.get('x'),
+            'y_max': payload.get('y_max'),
+            'ref': payload.get('ref'),
+            'note': payload.get('note'),
+        }
+        return 'line', data, {'w': 2, 'h': 1}
+
+    if kind == 'status_header':
+        data = {
+            'domains': payload.get('domains') or [],
+            'verdict': payload.get('verdict'),
+        }
+        # Rendered full-width above the grid (the board special-cases it),
+        # not as a normal panel; shape kept minimal.
+        return 'status_header', data, {'w': 2, 'h': 0}
 
     if kind == 'segbar':
         data = {'segments': payload.get('segments') or [], 'note': payload.get('note')}
