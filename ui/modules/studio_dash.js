@@ -14,8 +14,19 @@
 
 import { state } from './state.js';
 import { escapeHtml } from './format.js';
+import { showReportPreview } from './preview.js';
+import { getSavedMode } from './appearance.js';
 
 export { escapeHtml };
+
+// last rendered board (so Export can rebuild it) + a tiny POST helper
+let _last = { tiles: [], meta: {} };
+function post(path, body) {
+  return fetch(`http://localhost:${state.serverPort}/${path}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  }).then(r => r.json());
+}
 
 // ── tone / severity mapping ──────────────────────────────────────────────────
 // semantic tone -> a `.pd-*` colour class (colours resolve to app appearance tokens)
@@ -346,9 +357,31 @@ export function boardHtml(tiles, meta) {
     inner = `${letterheadHtml(meta)}${head}${kpirow}${grid}`;
   }
   return `<div class="studio-dash-wrap">` +
-    `<div class="pd-toolbar"><span class="pd-mode">View mode</span></div>` +
+    `<div class="pd-toolbar"><span class="pd-mode">View mode</span>` +
+    `<span class="pd-actions"><button type="button" class="btn-secondary" data-dash="pdf">⬇ PDF</button></span></div>` +
     `<div class="pd-sheet">${inner}</div>` +
   `</div>`;
+}
+
+// Export the current board as a PDF that matches the screen across all 6 looks.
+async function exportDashPdf() {
+  const title = (_last.meta && _last.meta.project_name) || 'Dashboard';
+  const board = () => boardHtml(_last.tiles, _last.meta);
+  const first = await post('api/special/dash-report', { html: board(), theme: getSavedMode(), preview: true, title });
+  if (!first || !first.ok) return;
+  showReportPreview({
+    title: `${title} — Dashboard`, subtitle: 'Dashboard', html: first.html, initialMode: getSavedMode(),
+    onThemeChange: async (m) => {
+      const r = await post('api/special/dash-report', { html: board(), theme: m, preview: true, title });
+      return r && r.ok ? r.html : '';
+    },
+    onSave: async (m) => {
+      const out = await window.pywebview.api.choose_save_path('dashboard.pdf', 'pdf');
+      if (!out) return false;
+      const r = await post('api/special/dash-report', { html: board(), theme: m, output_path: out, title });
+      return !!(r && r.ok);
+    },
+  });
 }
 
 // ── DOM entry (not unit-tested) ───────────────────────────────────────────────
@@ -358,20 +391,19 @@ export async function renderStudioDashboard(host, opts) {
   opts = opts || {};
   host.innerHTML = `<div class="pd-loading">Building your dashboard…</div>`;
   try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/special/tiles`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        snapshot_id: opts.snapshotId ?? state.currentSnapshotId,
-        item_ids: opts.itemIds || [],
-        inputs: opts.inputs || {},
-      }),
+    const res = await post('api/special/tiles', {
+      snapshot_id: opts.snapshotId ?? state.currentSnapshotId,
+      item_ids: opts.itemIds || [],
+      inputs: opts.inputs || {},
     });
-    const res = await resp.json();
     if (!res || !res.ok) {
       host.innerHTML = `<div class="pd-na">${escapeHtml((res && res.error) || 'Could not build the dashboard.')}</div>`;
       return;
     }
+    _last = { tiles: res.tiles || [], meta: res.meta || {} };
     host.innerHTML = boardHtml(res.tiles, res.meta);
+    const pdfBtn = host.querySelector('[data-dash="pdf"]');
+    if (pdfBtn) pdfBtn.addEventListener('click', exportDashPdf);
   } catch {
     host.innerHTML = `<div class="pd-na">Could not reach the local server. Try restarting the app.</div>`;
   }
