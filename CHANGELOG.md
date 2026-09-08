@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **The per-user data folder is now `.controlyx`** (Windows `%APPDATA%\.controlyx`, Mac/Linux `~/.controlyx`). Your existing data — recent projects, settings, cached schedules, knowledge base, database — is **migrated automatically on first run** from the previous `Controlyx` folder (and the older `P6EVMTool` / `.p6evmtool` folders), so nothing is lost.
+
 ## [v2.5.2] - 2026-09-07
 
 ### Changed
