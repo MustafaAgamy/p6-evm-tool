@@ -1,16 +1,208 @@
-"""Per-discipline Scope-of-Work discussion, derived from the schedule.
+"""Scope-of-Work discussion, derived from the schedule.
 
-Groups the construction activities by discipline (the Type-of-Works / trade code
-when the file has one, else the top-level WBS branch — same concept as the sequence
-charts), lists each discipline's WBS work-packages, and writes a short factual scope
-paragraph from the real counts. Pure logic; generic across any construction project.
+Two shapes, primary first:
+
+* :func:`scope_prose` — the target (Ibrahim, Comment 6): a BRIEF prose outline,
+  per **trade** x per **building/area**, read from the activity codes. Each area
+  reads "<Area> <Trade> works consist of: e1; e2; …" and, when several areas decode
+  to the SAME element set, only the first is described in full — the rest collapse to
+  one line "<Areas>: same scope as <first>". Returns ``None`` (so the caller falls
+  back to the block prose below) when the file has no usable trade/area codes.
+
+* :func:`scope_blocks` — the fallback: one block per discipline (the Type-of-Works /
+  trade code when the file has one, else the top-level WBS branch), listing that
+  discipline's WBS work-packages with a short factual paragraph from the real counts.
+
+Pure logic; generic across any construction project — no client names hardcoded.
 """
+import re
 from collections import OrderedDict
+from datetime import datetime
 
 from p6_narrative.sequence import pick_discipline_dim
 from p6_narrative.util import top_wbs_name
 
 _NON_WORK = {'StartMilestone', 'FinishMilestone', 'LOE', 'WBSSummary'}
+
+# Code-dimension pickers for the per-trade x per-area prose. Substring hints, matched
+# case-insensitively against whatever the file happens to call its dimensions.
+_TRADE_HINTS = ('discipline', 'trade', 'craft')
+_AREA_HINTS = ('area', 'building', 'zone', 'location', 'unit', 'facility',
+               'block', 'sector', 'silo', 'structure', 'system')
+_ELEMENT_HINTS = ('type of work', 'work type', 'worktype', 'element', 'scope',
+                  'work package', 'activity type', 'work')
+# Trade display order (Ibrahim): Civil, Mechanical, Steel, EQP, Cable, then the rest.
+_TRADE_ORDER = (('civil',), ('mechanical', 'mech'), ('steel',),
+                ('eqp', 'equipment'), ('cable', 'electric'))
+_ELEMENT_CAP = 14
+
+
+def _start_key(dt):
+    """Sort key that pushes activities with no start date to the end."""
+    if dt is None:
+        return (1, datetime.max)
+    if isinstance(dt, datetime):
+        return (0, dt)
+    try:
+        return (0, datetime.fromisoformat(str(dt)[:19]))
+    except ValueError:
+        return (1, datetime.max)
+
+
+def _pick_dim(code_types, hints, used):
+    for dim in code_types or []:
+        if dim in used:
+            continue
+        low = (dim or '').lower()
+        if any(h in low for h in hints):
+            return dim
+    return None
+
+
+def _trade_rank(trade):
+    low = (trade or '').lower()
+    for i, group in enumerate(_TRADE_ORDER):
+        if any(k in low for k in group):
+            return i
+    return len(_TRADE_ORDER)
+
+
+def _compact_areas(names):
+    """Compact a run of area labels: contiguous numeric ones fold to "A2-A10",
+    everything else joins with ", ". Generic across any naming convention."""
+    if len(names) == 1:
+        return names[0]
+    parsed = []
+    for n in names:
+        m = re.match(r'^(.*?)(\d+)$', (n or '').strip())
+        if not m:
+            return ', '.join(names)
+        parsed.append((m.group(1), int(m.group(2)), n))
+    if len({p[0] for p in parsed}) == 1:
+        parsed.sort(key=lambda p: p[1])
+        nums = [p[1] for p in parsed]
+        if nums == list(range(nums[0], nums[0] + len(nums))):
+            return f'{parsed[0][2]}-{parsed[-1][2]}'
+    return ', '.join(names)
+
+
+def _sentence(trade, area, elements):
+    if trade and area:
+        label = f'{area} {trade} works'
+    elif trade:
+        label = f'{trade} works'
+    elif area:
+        label = f'{area} works'
+    else:
+        label = 'The works'
+    return f"{label} consist of: {'; '.join(elements)}."
+
+
+def scope_prose(activities, wbs, code_types=None, bac_by_activity=None):
+    """Return ``{'trades': [...]}`` — the per-trade x per-area prose outline — or
+    ``None`` when the file has no usable trade/area codes (caller falls back).
+
+    Each trade: ``{trade, activity_count, areas: [entry, …]}`` where a described entry
+    is ``{area, elements:[str], activity_count, sentence}`` and a collapsed entry is
+    ``{areas, members:[str], same_as, sentence}``.
+    """
+    used = set()
+    trade_dim = _pick_dim(code_types, _TRADE_HINTS, used)
+    if trade_dim:
+        used.add(trade_dim)
+    area_dim = _pick_dim(code_types, _AREA_HINTS, used)
+    if area_dim:
+        used.add(area_dim)
+    element_dim = _pick_dim(code_types, _ELEMENT_HINTS, used)
+    if element_dim:
+        used.add(element_dim)
+
+    if not trade_dim and not area_dim:
+        return None                      # nothing to build the axes from → fallback
+
+    def code(act, dim):
+        return (act.get('activity_codes') or {}).get(dim) if dim else None
+
+    def element_of(act):
+        if element_dim:
+            val = code(act, element_dim)
+            if val:
+                return val
+        # fall back to the activity's WBS work-package name
+        return (wbs.get(act.get('wbs_id')) or {}).get('name') or 'General'
+
+    # trade -> area -> ordered list of activities (schedule order within each)
+    trades = OrderedDict()
+    for act in activities:
+        if act.get('task_type') in _NON_WORK:
+            continue
+        trade = code(act, trade_dim)
+        area = code(act, area_dim)
+        if trade is None and area is None:
+            continue                     # no axis value at all — can't place it
+        areas = trades.setdefault(trade, OrderedDict())
+        areas.setdefault(area, []).append(act)
+
+    if not trades:
+        return None
+
+    out_trades = []
+    for trade in sorted(trades, key=lambda t: (_trade_rank(t), _first_index(trades, t))):
+        areas = trades[trade]
+        # order areas by earliest scheduled activity (representative = earliest)
+        ordered_areas = sorted(
+            areas, key=lambda a: min(_start_key(x.get('planned_start')) for x in areas[a]))
+        count = sum(len(areas[a]) for a in ordered_areas)
+
+        signatures = OrderedDict()       # frozenset(elements) -> {rep, elements, members}
+        for area in ordered_areas:
+            acts = sorted(areas[area], key=lambda x: _start_key(x.get('planned_start')))
+            elements, seen = [], set()
+            for a in acts:
+                el = element_of(a)
+                if el and el not in seen:
+                    seen.add(el)
+                    elements.append(el)
+            if not elements:
+                continue
+            sig = frozenset(elements)
+            if sig in signatures:
+                signatures[sig]['members'].append(area)
+            else:
+                signatures[sig] = {'rep': area, 'elements': elements[:_ELEMENT_CAP],
+                                   'extra': max(0, len(elements) - _ELEMENT_CAP),
+                                   'members': [], 'count': len(areas[area])}
+
+        entries = []
+        for sig in signatures.values():
+            els = list(sig['elements'])
+            if sig['extra']:
+                els.append(f"and {sig['extra']} more")
+            entries.append({
+                'area': sig['rep'],
+                'elements': sig['elements'],
+                'activity_count': sig['count'],
+                'sentence': _sentence(trade, sig['rep'], els),
+            })
+            if sig['members']:
+                label = _compact_areas(sig['members'])
+                entries.append({
+                    'areas': label,
+                    'members': list(sig['members']),
+                    'same_as': sig['rep'],
+                    'sentence': f'{label}: same scope as {sig["rep"]}.',
+                })
+        if entries:
+            out_trades.append({'trade': trade, 'activity_count': count, 'areas': entries})
+
+    return {'trades': out_trades} if out_trades else None
+
+
+def _first_index(ordered_dict, key):
+    for i, k in enumerate(ordered_dict):
+        if k == key:
+            return i
+    return len(ordered_dict)
 
 
 def scope_blocks(activities, wbs, code_types=None, bac_by_activity=None, discipline_dim=None):

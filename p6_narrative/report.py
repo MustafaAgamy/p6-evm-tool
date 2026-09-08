@@ -31,6 +31,7 @@ from p6_narrative.model import NarrativeDoc, Section
 
 _MAX_WBS_DEPTH = 8          # real P6 WBS reaches ~10 levels; show the true depth, cap breadth only
 _MAX_WBS_KIDS = 12
+_MAX_WBS_BRANCH_DEPTH = 4   # per-branch breakdown charts are drawn down to level 4 (Ibrahim's sketch)
 
 # General EPC phase order (not project-specific): design/engineering → procurement →
 # construction → testing/commissioning → close-out. Keyword-ranked so close-out is last.
@@ -118,12 +119,12 @@ def _wbs_size(ctx, wid):
     return total[0], maxb[0]
 
 
-def _wbs_tree(ctx, wid, depth=0):
+def _wbs_tree(ctx, wid, depth=0, cap=_MAX_WBS_DEPTH):
     node = {'name': _wname(ctx, wid) if depth == 0 else _leaf(_wname(ctx, wid)), 'children': []}
     kids = ctx.children_of_wbs.get(wid, [])
-    if kids and depth < _MAX_WBS_DEPTH:
+    if kids and depth < cap:
         for k in kids[:_MAX_WBS_KIDS]:
-            node['children'].append(_wbs_tree(ctx, k, depth + 1))
+            node['children'].append(_wbs_tree(ctx, k, depth + 1, cap))
         if len(kids) > _MAX_WBS_KIDS:
             node['children'].append({'name': '+%d more' % (len(kids) - _MAX_WBS_KIDS),
                                      'children': [], 'more': True})
@@ -173,20 +174,30 @@ def _milestones(ctx):
 
 
 def _wbs(ctx, number='3'):
-    """One org-chart per MAJOR WBS branch (as the reference does), full P6 depth, exact
-    parent->child. Layout adapts per branch: small = centered tree, large/deep = compact
-    columns. Data-driven from children_of_wbs — never inferred from names."""
-    worlds = []
-    for wid in ctx.branch_ids:                       # every top-level branch, not only detected worlds
+    """Comment 8 — the WBS as the reference does it: (a) one OVERVIEW org-chart of the
+    Project and its MAJOR branches (shallow), then (b) one breakdown chart PER major
+    branch, expanded down to LEVEL 4. `worlds` is kept for back-compat / fallback.
+    Data-driven from children_of_wbs — never inferred from names."""
+    # (a) overview: project/root → the major branches only (no deeper)
+    parents = {(ctx.data.wbs.get(b) or {}).get('parent_object_id') for b in ctx.branch_ids}
+    root_id = parents.pop() if (len(parents) == 1 and None not in parents) else None
+    root_name = _wname(ctx, root_id) if root_id else ((ctx.data.project or {}).get('name') or 'Project')
+    overview = {'name': root_name,
+                'children': [{'name': _wname(ctx, wid), 'children': []} for wid in ctx.branch_ids]}
+
+    # (b) per-branch breakdown to level 4, plus (c) the legacy `worlds` (full-depth fallback)
+    branches, worlds = [], []
+    for wid in ctx.branch_ids:
         n, maxb = _wbs_size(ctx, wid)
-        worlds.append({'name': _wname(ctx, wid),
-                       'layout': 'tree' if (n <= 16 and maxb <= 5) else 'columns',
-                       'root': _wbs_tree(ctx, wid)})
+        layout = 'tree' if (n <= 16 and maxb <= 5) else 'columns'
+        branches.append({'name': _wname(ctx, wid), 'layout': layout,
+                         'root': _wbs_tree(ctx, wid, cap=_MAX_WBS_BRANCH_DEPTH)})
+        worlds.append({'name': _wname(ctx, wid), 'layout': layout, 'root': _wbs_tree(ctx, wid)})
     return Section(number, 'Work Breakdown Structure', 'wbs_tree', 'auto',
-                   payload={'worlds': worlds},
-                   note='Actual P6 breakdown, one chart per major branch; layout adapts (small = '
-                        'centered tree, large/deep = compact columns). Structure only — the '
-                        'execution order is in the Sequence of Work section.')
+                   payload={'overview': overview, 'branches': branches, 'worlds': worlds},
+                   note='Actual P6 breakdown: an overview org-chart of the major branches, then '
+                        'each major branch expanded to level 4. Structure only — the execution '
+                        'order is in the Sequence of Work section.')
 
 
 def _seq_worlds(ctx, r, keep):

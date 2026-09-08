@@ -205,15 +205,22 @@ def _wbs_node(document, node, depth):
 
 
 def _render_wbs_tree(document, p, sub, chrome, note):
-    worlds = p.get('worlds') or []
-    if not worlds:
+    overview = p.get('overview')
+    branches = p.get('branches') or p.get('worlds') or []
+    if not (overview or branches):
         _muted(document, 'No work breakdown structure is defined in the file.')
         return
-    _lead(document, 'The actual P6 breakdown, one org-chart per major branch, at full '
-                    'hierarchy depth. Structure only — the execution order is in the '
-                    'Sequence of Work section. When the chart engine is unavailable the '
-                    'same WBS renders as an editable indented outline.')
-    for w in worlds:
+    _lead(document, 'The actual P6 breakdown — first an overview org-chart of the major '
+                    'branches, then each major branch expanded to level 4. Structure only; the '
+                    'execution order is in the Sequence of Work section. When the chart engine '
+                    'is unavailable the same WBS renders as an editable indented outline.')
+    # (a) overview org-chart: Project → the major branches
+    if overview:
+        if not _add_chart_image(document, 'wbs_smartart', overview, chrome):
+            for child in overview.get('children', []):
+                _wbs_node(document, child, 1)
+    # (b) one breakdown chart per major branch (down to level 4)
+    for w in branches:
         root = w.get('root') or {}
         sub.heading(root.get('name') or w.get('name') or '—')
         if not _add_chart_image(document, 'wbs_smartart', root, chrome):
@@ -376,6 +383,17 @@ def _render_scope(document, p, sub, chrome, note):
         docx_template.styled_table(document, labels, [values], bold_last_row=True)
     if p.get('intro'):
         _para(document, p['intro'])
+    # Primary: brief per-trade x per-area prose ("… works consist of: …", with
+    # repeated areas collapsed to "same scope as …") — mirrors html.py::_scope.
+    if p.get('trades') is not None:
+        for t in p.get('trades') or []:
+            sub.heading(t.get('trade') or 'Works')
+            for a in t.get('areas', []) or []:
+                if a.get('same_as'):
+                    _para(document, a.get('sentence', ''), italic=True, color=GREY)
+                else:
+                    _para(document, a.get('sentence', ''))
+        return
     for b in p.get('blocks', []) or []:
         sub.heading(b.get('discipline', '') or '—')
         if b.get('paragraph'):

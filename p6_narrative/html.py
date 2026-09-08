@@ -13,8 +13,12 @@ set. The section KINDS handled here, and their payload shapes, are:
   ms_table   {columns, rows:[[name, date_str], …]}                             (v5)
   timeline   {items:[{label, date, milestone?}]}
   value      {total, rows:[{name, cost, pct}]}
-  scope      {intro, blocks:[{discipline, activity_count, cost, paragraph,
-                              packages:[str]}], stats:[{v, l}]}                 (editable)
+  scope      {intro, stats:[{v, l}], and EITHER
+                trades:[{trade, activity_count, areas:[
+                    {area, elements:[str], activity_count, sentence} |
+                    {areas, members:[str], same_as, sentence}]}]   # per-trade x area prose
+                OR blocks:[{discipline, activity_count, cost, paragraph,
+                            packages:[str]}]}                       # discipline fallback
   table      {columns, rows:[[…]]}  ·  or calendars view (SLICE A widened):
              {view:'calendars', calendars:[{name,working_days,shift,activities}],
               holidays:[{range,name,days}],                        # legacy (flat fallback)
@@ -155,23 +159,26 @@ def _ms_table(p, number):
 
 # ── WBS — ADAPTIVE (v5) ───────────────────────────────────────────────────────
 def _wbs_tree(p, number):
-    charts = []
-    for w in p.get('worlds') or []:
+    overview = p.get('overview')
+    branches = p.get('branches') or p.get('worlds') or []
+    parts = []
+    if overview:                                         # (a) overview org-chart of major branches
+        parts.append('<div class="subh">Project breakdown</div>'
+                     '<div class="tree"><ul><li>%s</li></ul></div>' % _topdown_node(overview, 0))
+    for w in branches:                                   # (b) each major branch, down to level 4
         root = w.get('root') or {}
         if w.get('layout') == 'columns':                 # large → compact multi-column tree
             cols = ''.join('<div class="wbs-col">%s</div>' % _indented_node(c, 1)
                            for c in (root.get('children') or []))
-            charts.append('<div class="wbs-lg"><div class="wt-box wt-root">%s</div>'
-                          '<div class="wbs-cols">%s</div></div>'
-                          % (_esc(root.get('name') or w.get('name')), cols))
+            parts.append('<div class="wbs-lg"><div class="wt-box wt-root">%s</div>'
+                         '<div class="wbs-cols">%s</div></div>'
+                         % (_esc(root.get('name') or w.get('name')), cols))
         else:                                            # small → centred top-down tree
-            charts.append('<div class="tree"><ul><li>%s</li></ul></div>' % _topdown_node(root, 0))
-    return ('<p class="lead">The actual P6 breakdown of each scope — Project → Main WBS '
-            '→ Sub-WBS → Trade/Discipline → Package. Small scopes render as a '
-            'centered tree; large scopes as a compact multi-column tree — the layout adapts to '
-            'fit the page (no horizontal scrolling). This view shows how the project is '
-            'organised; the execution order is in the Sequence of Work section.</p>'
-            '%s' % ''.join(charts))
+            parts.append('<div class="tree"><ul><li>%s</li></ul></div>' % _topdown_node(root, 0))
+    return ('<p class="lead">The actual P6 breakdown — an overview of the major branches, then '
+            'each major branch expanded to level 4. Small branches render as a centered tree; '
+            'large branches as a compact multi-column tree. Structure only; the execution order '
+            'is in the Sequence of Work section.</p>%s' % ''.join(parts))
 
 
 # ── Sequence of Work (v5) ─────────────────────────────────────────────────────
@@ -456,6 +463,19 @@ def _scope(p, number):
     if p.get('intro'):
         out += ('<p data-section="%s" data-field="scope.intro" data-editable="1">%s</p>'
                 % (_esc(number), _esc(p.get('intro'))))
+    # Primary: brief per-trade x per-area prose ("… works consist of: …", with
+    # repeated areas collapsed to "same scope as …").
+    if p.get('trades') is not None:
+        for t in p.get('trades') or []:
+            title = t.get('trade') or 'Works'
+            cnt = t.get('activity_count')
+            meta = ('<span class="bn-discm">%s activities</span>' % _esc(cnt)) if cnt else ''
+            out += '<div class="bn-disc"><div class="bn-disch">%s%s</div>' % (_esc(title), meta)
+            for a in t.get('areas') or []:
+                cls = 'bn-scopep bn-sameas' if a.get('same_as') else 'bn-scopep'
+                out += '<p class="%s">%s</p>' % (cls, _esc(a.get('sentence')))
+            out += '</div>'
+        return out or '<p class="bn-empty">—</p>'
     for i, b in enumerate(p.get('blocks') or []):
         bullets = ''.join('<li><b>%s</b></li>' % _esc(x) for x in (b.get('packages') or []))
         cost = ''
@@ -850,6 +870,8 @@ summary{cursor:pointer;color:var(--accent);font-size:9pt;}
 .bn-scopeul{margin:6px 0 2px;padding-left:22px;}
 .bn-scopeul li{font-size:10pt;margin:3px 0;}
 .bn-scopeul li b{font-weight:600;}
+.bn-scopep{margin:5px 0;font-size:10pt;line-height:1.45;}
+.bn-sameas{color:var(--mut);font-style:italic;}
 
 /* value donut */
 .bn-value{display:grid;grid-template-columns:1fr 190px;gap:14px;align-items:center;}

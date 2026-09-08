@@ -10,7 +10,7 @@ from datetime import date, timedelta
 
 from p6_narrative.costflow import branch_stats, cash_flow, cost_by_wbs
 from p6_narrative.model import NarrativeDoc, Section
-from p6_narrative.scope import scope_blocks
+from p6_narrative.scope import scope_blocks, scope_prose
 from p6_narrative.sequence import build_sequences
 from p6_narrative.util import as_date, wbs_grouping
 
@@ -309,23 +309,41 @@ def build_narrative(data, calendar_report=None, code_catalog=None, meta=None, se
                                 payload={'total': value['total'], 'rows': value['rows']},
                                 note='Budget split by major WBS branch, from cost loading.'))
 
-    scope = scope_blocks(acts, data.wbs, code_types=data.activity_code_types,
-                         bac_by_activity=data.bac_by_activity)
+    # Primary: a brief prose outline per trade x per building/area, read from the
+    # activity codes (Ibrahim, Comment 6). Falls back to the per-discipline block
+    # prose when the file has no usable trade/area codes.
+    prose = scope_prose(acts, data.wbs, code_types=data.activity_code_types,
+                        bac_by_activity=data.bac_by_activity)
+    blocks = scope_blocks(acts, data.wbs, code_types=data.activity_code_types,
+                          bac_by_activity=data.bac_by_activity)
+    n_disc = len(prose['trades']) if prose else len(blocks)
     n_ms = sum(1 for a in acts if a.get('task_type') in _MILESTONE_TYPES)
     stats = [
         {'v': _fmt_money(total_bac) if total_bac else '—', 'l': 'Budget'},
         {'v': str(len(acts)), 'l': 'Activities'},
-        {'v': str(len(scope)), 'l': 'Disciplines'},
+        {'v': str(n_disc), 'l': 'Trades' if prose else 'Disciplines'},
         {'v': str(len(data.wbs)), 'l': 'WBS nodes'},
         {'v': str(n_ms), 'l': 'Milestones'},
         {'v': str(len(data.relationships)), 'l': 'Logic links'},
     ]
-    sections.append(Section(
-        '4', 'Scope of work', 'scope', 'auto',
-        payload={'intro': f"The scope of {name} is delivered across the following "
-                          f"disciplines, read from the programme:",
-                 'blocks': scope, 'stats': stats},
-        note='A scope-at-a-glance dashboard, then a written block per discipline — from your file.'))
+    if prose:
+        scope_payload = {
+            'intro': f"The scope of {name} is described below per trade and area, "
+                     f"read from the activity codes.",
+            'trades': prose['trades'], 'stats': stats,
+        }
+        scope_note = ('A scope-at-a-glance dashboard, then a brief prose outline per '
+                      'trade and area — repeated areas collapse to "same scope as".')
+    else:
+        scope_payload = {
+            'intro': f"The scope of {name} is delivered across the following "
+                     f"disciplines, read from the programme:",
+            'blocks': blocks, 'stats': stats,
+        }
+        scope_note = ('A scope-at-a-glance dashboard, then a written block per '
+                      'discipline — from your file.')
+    sections.append(Section('4', 'Scope of work', 'scope', 'auto',
+                            payload=scope_payload, note=scope_note))
 
     calp = _calendars_payload(calendar_report)
     if calp is not None:
