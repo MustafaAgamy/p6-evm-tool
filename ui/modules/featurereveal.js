@@ -135,4 +135,19 @@ export function playFeatureReveal(host, opts) {
   setTimeout(() => { if (!finished) finish(); }, DUR + 900);   // safety cap (throttled rAF)
 }
 
+// Shared "run a feature" presentation — THE default for every feature's Run action.
+// Plays the branded feature-open reveal over `host`, then runs `work` (which computes +
+// renders the results; may be async). Every feature — single-input (via the shared Run
+// gate) and self-gating (its own Run button) — routes its Run through this so the
+// "Loading → 100%" presentation is consistent everywhere. New features: call this.
+export function revealAndRun(host, title, work, opts) {
+  opts = opts || {};
+  playFeatureReveal(host, {
+    title,
+    iconPath: opts.iconPath,
+    durationMs: opts.durationMs,
+    onDone: () => { try { Promise.resolve().then(work).catch(() => {}); } catch (e) {} },
+  });
+}
+
 export default playFeatureReveal;
