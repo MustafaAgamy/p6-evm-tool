@@ -327,6 +327,24 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
         old('cash flow'),                               # Cash Flow
     ]
     ordered = [s for s in ordered if s is not None]
+
+    # Comments 4 & 5 — let the planner pick, BEFORE running, which Major Milestones and
+    # Key Dates to include. Expose the full candidate lists (for the UI checklists) then
+    # apply the selection; an absent selection means "include all" (unchanged behaviour).
+    ms_sec = next((s for s in ordered if s.kind == 'ms_table'), None)
+    tl_sec = next((s for s in ordered if s.kind == 'timeline'), None)
+    meta['milestone_choices'] = [r[0] for r in (ms_sec.payload.get('rows') or [])] if ms_sec else []
+    meta['key_date_choices'] = [it.get('label') for it in (tl_sec.payload.get('items') or [])] if tl_sec else []
+    msel = setup.get('milestone_keys')
+    if ms_sec is not None and msel is not None:
+        keep = set(msel)
+        ms_sec.payload['rows'] = [r for r in (ms_sec.payload.get('rows') or []) if r and r[0] in keep]
+    ksel = setup.get('key_date_keys')
+    if tl_sec is not None and ksel is not None:
+        keep = set(ksel)
+        tl_sec.payload['items'] = [it for it in (tl_sec.payload.get('items') or [])
+                                   if it.get('label') in keep]
+
     for i, s in enumerate(ordered, 1):
         s.number = str(i)
     return NarrativeDoc(meta, ordered)

@@ -33,6 +33,7 @@ async function fetchAndRender() {
     const data = await resp.json();
     if (!data.ok) { showError(data.error || 'Narrative generation failed.'); host.innerHTML = ''; return; }
     state.narrativeDoc = data.doc;
+    renderSelection();               // populate the milestone / key-date checklists (comments 4 & 5)
     mountReport(data.html);
   } catch {
     showError('Could not reach the local server. Try restarting the app.');
@@ -460,6 +461,13 @@ function setupFormHtml() {
       #bn-setup-gen{margin-top:12px;font:inherit;font-size:13px;font-weight:600;background:#265f7e;color:#fff;border:none;border-radius:7px;padding:8px 18px;cursor:pointer}
       .bn-layout{display:flex;gap:18px;align-items:flex-start}
       .bn-contents{flex:0 0 220px}
+      .bn-select{margin-top:6px}
+      .bn-selgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+      .bn-selcol{border:1px solid var(--border,#dadee4);border-radius:9px;padding:9px 11px;max-height:190px;overflow:auto}
+      .bn-seltitle{font-size:11px;font-weight:700;color:#265f7e;margin-bottom:5px}
+      .bn-seltitle a{font-size:11px;font-weight:500;color:#3487ae;cursor:pointer;text-decoration:underline}
+      .bn-chk{display:block;font-size:12px;color:var(--text-primary,#1a1d21);padding:2px 0;cursor:pointer}
+      .bn-chk input{margin-right:6px}
     </style>
     <div class="bn-setup">
       <h4>Project setup — parties, logos &amp; layout</h4>
@@ -470,8 +478,49 @@ function setupFormHtml() {
           <label class="bn-file">${s.layout ? '✓ layout image' : '＋ layout image'}<input type="file" accept="image/*" data-logo="layout"></label>
         </div>
       </div>
+      <div id="bn-select" class="bn-select"></div>
       <button id="bn-setup-gen">Generate narrative</button>
     </div>`;
+}
+
+// Comments 4 & 5 — pick which Major Milestones and Key Dates to include (before Run).
+// Populated from the generated doc's meta.*_choices; the selection is stored in the
+// setup and posted with the next generate/export, which the server filters on.
+function _esc(x) {
+  return String(x == null ? '' : x).replace(/[&<>"]/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function renderSelection() {
+  const box = document.getElementById('bn-select');
+  if (!box) return;
+  const meta = (state.narrativeDoc && state.narrativeDoc.meta) || {};
+  const ms = meta.milestone_choices || [];
+  const kd = meta.key_date_choices || [];
+  if (!ms.length && !kd.length) { box.innerHTML = ''; return; }
+  const s = getSetup();
+  const col = (title, items, key) => {
+    const sel = Array.isArray(s[key]) ? new Set(s[key]) : null;    // null = all included
+    const rows = items.map(label =>
+      `<label class="bn-chk"><input type="checkbox" data-sel="${key}" value="${_esc(label)}"${(!sel || sel.has(label)) ? ' checked' : ''}> ${_esc(label)}</label>`).join('');
+    return `<div class="bn-selcol"><div class="bn-seltitle">${title} — <a data-all="${key}">all</a> · <a data-none="${key}">none</a></div>${rows || '<span class="hint">none in the file</span>'}</div>`;
+  };
+  box.innerHTML =
+    '<h4 style="margin:14px 0 3px">Choose what to include</h4>' +
+    '<div class="hint">Tick the Major Milestones and Key Dates to show, then Generate. All included by default.</div>' +
+    `<div class="bn-selgrid">${col('Major Milestones', ms, 'milestone_keys')}${col('Key Dates', kd, 'key_date_keys')}</div>`;
+  const collect = key => Array.from(box.querySelectorAll(`input[data-sel="${key}"]`))
+    .filter(c => c.checked).map(c => c.value);
+  box.querySelectorAll('input[data-sel]').forEach(c => c.addEventListener('change', () => {
+    s[c.dataset.sel] = collect(c.dataset.sel); saveSetup();
+  }));
+  box.querySelectorAll('[data-all]').forEach(a => a.addEventListener('click', () => {
+    box.querySelectorAll(`input[data-sel="${a.dataset.all}"]`).forEach(c => { c.checked = true; });
+    s[a.dataset.all] = collect(a.dataset.all); saveSetup();
+  }));
+  box.querySelectorAll('[data-none]').forEach(a => a.addEventListener('click', () => {
+    box.querySelectorAll(`input[data-sel="${a.dataset.none}"]`).forEach(c => { c.checked = false; });
+    s[a.dataset.none] = []; saveSetup();
+  }));
 }
 function setupForSend() {
   const s = { ...getSetup() };
