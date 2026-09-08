@@ -110,6 +110,8 @@ def _bar_track(width_pct, color, track_color):
 
 
 def _bars(pl, C):
+    if pl.get('style') == 'variance':
+        return _variance_bars(pl, C)
     series = pl.get('series') or []
     rows = pl.get('rows') or []
     if not rows or not series:
@@ -237,9 +239,131 @@ def _html_block(pl, C):
     return pl.get('html') or _no_data({}, C)
 
 
+def _numfmt(v):
+    if v is None:
+        return ''
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, (int, float)):
+        return f'{float(v):g}'
+    return str(v)
+
+
+def _variance_bars(pl, C):
+    """Discipline-gap 'variance' bars for the document: actual bar + the planned
+    target shown alongside (the dashboard draws the tick + shortfall visually)."""
+    rows = pl.get('rows') or []
+    if not rows:
+        return _no_data({}, C)
+    axis_max = pl.get('axis_max')
+    try:
+        axis_max = float(axis_max) if axis_max else None
+    except (TypeError, ValueError):
+        axis_max = None
+    track = C('rpt-surface-2')
+    lines = []
+    for row in rows:
+        vals = row.get('values') or []
+        try:
+            actual = float(vals[0] or 0)
+        except (TypeError, ValueError, IndexError):
+            actual = 0.0
+        target = row.get('target')
+        try:
+            target = float(target) if target is not None else None
+        except (TypeError, ValueError):
+            target = None
+        width = (actual / axis_max * 100.0) if axis_max else actual
+        color = C.bar(row.get('tone', 'accent'))
+        disp = (row.get('display') or [None])
+        shown = disp[0] if disp and disp[0] is not None else (f'{actual:.1f}%' if not axis_max else f'{actual:g}')
+        if target is not None:
+            tshown = row.get('target_display') or (f'{target:.1f}%' if not axis_max else f'{target:g}')
+            shown = f'{shown} · plan {tshown}'
+        ink = C.ink(row.get('tone')) if row.get('tone') else C('rpt-ink')
+        lines.append(
+            f'<tr><td width="120" style="font-size:11.5px;color:{C("rpt-ink-soft")};padding:3px 8px 3px 0">{_esc(row.get("label"))}</td>'
+            f'<td>{_bar_track(width, color, track)}</td>'
+            f'<td width="130" align="right" style="font-size:11.5px;color:{ink};padding-left:8px;white-space:nowrap">{_esc(shown)}</td></tr>'
+        )
+    note = pl.get('note')
+    note_html = f'<div style="font-size:11px;color:{C("rpt-muted")};margin-top:6px">{_esc(note)}</div>' if note else ''
+    return f'<table cellpadding="0" cellspacing="0" width="100%">{"".join(lines)}</table>{note_html}'
+
+
+def _line(pl, C):
+    """A trend across the weekly updates — rendered as a Word-safe table (x labels
+    across the top, one row per series) plus the reference/caption."""
+    series = pl.get('series') or []
+    x = pl.get('x') or []
+    n = max((len(s.get('points') or []) for s in series), default=0)
+    if not series or n < 2:
+        return _no_data({}, C)
+    xh = ''.join(
+        f'<th align="right" style="background:{C("rpt-th-bg")};color:{C("rpt-th-ink")};'
+        f'padding:6px 8px;font-size:11px">{_esc(x[i]) if i < len(x) else i + 1}</th>'
+        for i in range(n)
+    )
+    body = []
+    for s in series:
+        pts = s.get('points') or []
+        color = C.ink(s.get('tone', 'accent'))
+        cells = ''.join(
+            f'<td align="right" style="padding:6px 8px;font-size:11.5px;border-bottom:1px solid {C("rpt-hair")}">'
+            f'{"" if (i >= len(pts) or pts[i] is None) else _esc(_numfmt(pts[i]))}</td>'
+            for i in range(n)
+        )
+        body.append(
+            f'<tr><td style="padding:6px 8px;font-size:11.5px;font-weight:600;color:{color};'
+            f'border-bottom:1px solid {C("rpt-hair")}">{_esc(s.get("label"))}</td>{cells}</tr>'
+        )
+    ref, note = pl.get('ref'), pl.get('note')
+    cap = []
+    if ref and ref.get('value') is not None:
+        cap.append(f'{_esc(ref.get("label") or "target")} = {_esc(_numfmt(ref.get("value")))}')
+    if note:
+        cap.append(_esc(note))
+    cap_html = f'<div style="font-size:11px;color:{C("rpt-muted")};margin-top:6px">{" · ".join(cap)}</div>' if cap else ''
+    return (f'<table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin:6px 0;'
+            f'border:1px solid {C("rpt-edge")}"><thead><tr><th style="background:{C("rpt-th-bg")}"></th>{xh}</tr></thead>'
+            f'<tbody>{"".join(body)}</tbody></table>{cap_html}')
+
+
+def _status_header(pl, C):
+    """Executive status header for the document: an optional verdict + a row of
+    per-domain chips, each with its RAG letter (colour is never the only channel)."""
+    domains = pl.get('domains') or []
+    v = pl.get('verdict')
+    if v:
+        col = C.ink(v.get('tone'))
+        head = f'<div style="font-size:15px;font-weight:800;color:{col};margin-bottom:4px">{_esc(v.get("label"))}</div>'
+        if v.get('note'):
+            head += f'<div style="font-size:11px;color:{C("rpt-muted")};font-style:italic;margin-bottom:6px">{_esc(v.get("note"))}</div>'
+    else:
+        head = (f'<div style="font-size:13px;font-weight:700;color:{C("rpt-ink")};margin-bottom:2px">Status by area</div>'
+                f'<div style="font-size:11px;color:{C("rpt-muted")};font-style:italic;margin-bottom:6px">'
+                f'Each area shows its own status; the single overall verdict is set up separately.</div>')
+    cells = []
+    for d in domains:
+        tone = d.get('tone', 'neutral')
+        chip = C.ink(tone) if tone in ('good', 'warn', 'bad') else C('rpt-muted')
+        letter = {'good': 'G', 'warn': 'A', 'bad': 'R'}.get(tone, '–')
+        cells.append(
+            f'<td valign="top" style="padding:6px 10px;border:1px solid {C("rpt-edge")}">'
+            f'<span style="display:inline-block;width:15px;height:15px;border-radius:3px;background:{chip};color:#fff;'
+            f'font-size:9px;font-weight:800;text-align:center;line-height:15px;margin-right:6px">{letter}</span>'
+            f'<span style="font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:{C("rpt-muted")}">{_esc(d.get("domain"))}</span>'
+            f'<div style="font-size:12.5px;font-weight:700;color:{C("rpt-ink")};margin-top:2px">{_esc(d.get("headline"))}</div></td>'
+        )
+    row = (f'<table cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:6px 0;margin:4px 0">'
+           f'<tr>{"".join(cells)}</tr></table>')
+    return head + row
+
+
 _DISPATCH = {
     'kpi_group': _kpi_group, 'table': _table, 'bars': _bars, 'segbar': _segbar,
     'findings': _findings, 'keyvals': _keyvals, 'text': _text, 'note': _note,
+    'line': _line, 'status_header': _status_header,
     'no_data': _no_data, 'group': _group, 'html': _html_block,
 }
 
