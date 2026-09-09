@@ -466,10 +466,63 @@ def _group_drawing(document, shapes_xml, base_id, w_emu, h_emu):
     return drawing
 
 
+def _org_vertical(document, root):
+    """Vertical (indented) WBS layout — used for a big tree that would overflow the
+    page horizontally (Ibrahim's note). Every node is a wide box on its own row,
+    indented by depth and joined by elbow guides, so long labels read on one line."""
+    ROW_H, INDENT, BOX_W, BOX_H, PAD = 33, 26, 322, 27, 16
+    rowof, seq = {}, []
+
+    def dfs(n, depth):
+        rowof[id(n)] = len(seq)
+        seq.append((n, depth))
+        for k in (n.get('children') or []):
+            dfs(k, depth + 1)
+
+    dfs(root, 0)
+    if not seq:
+        return None
+    max_depth = max(d for _, d in seq)
+    total_w = PAD + max_depth * INDENT + BOX_W + PAD
+    total_h = PAD + len(seq) * ROW_H + PAD
+
+    def x_of(depth):
+        return PAD + depth * INDENT
+
+    def y_of(node):
+        return PAD + rowof[id(node)] * ROW_H
+
+    counter = [_next_id(document)]
+    base_id = counter[0]
+    counter[0] += 1
+    shapes = []
+    for n, depth in seq:                       # elbow guides first (boxes paint over)
+        kids = n.get('children') or []
+        if not kids:
+            continue
+        gx = x_of(depth) + INDENT / 2.0
+        top = y_of(n) + BOX_H
+        last_cy = y_of(kids[-1]) + BOX_H / 2.0
+        shapes.append(_wps_line(counter, _emu(gx), _emu(top), 0, _emu(last_cy - top), _WBS_ACCENT))
+        for k in kids:
+            cy = y_of(k) + BOX_H / 2.0
+            shapes.append(_wps_line(counter, _emu(gx), _emu(cy),
+                                    _emu(x_of(depth + 1) - gx), 0, _WBS_ACCENT))
+    for n, depth in seq:
+        fill = _WBS_PALETTE_HEX[min(depth, len(_WBS_PALETTE_HEX) - 1)]
+        tcol = '12303D' if depth >= len(_WBS_PALETTE_HEX) - 1 else 'FFFFFF'
+        shapes.append(_wps_box(
+            counter, n.get('name') or '', _emu(x_of(depth)), _emu(y_of(n)),
+            _emu(BOX_W), _emu(BOX_H), fill, _WBS_ACCENT, tcol,
+            _clip(n.get('name'), 60), sz=11))
+    return _group_drawing(document, ''.join(shapes), base_id, _emu(total_w), _emu(total_h))
+
+
 def add_org_chart(document, root_node):
-    """Native WBS org-chart: a top box over its child boxes joined by elbow line
-    connectors, with the per-depth blue palette (#1F4E79/#2E75B6/#4472C4/#5B9BD5/
-    #DEEAF6) — the editable Word twin of ``docx_charts.wbs_smartart_svg``.
+    """Native WBS org-chart. Small trees draw as a top-down box org-chart; a big tree
+    (would overflow the page width) switches to a VERTICAL indented layout so labels
+    stay readable. Per-depth blue palette (#1F4E79/#2E75B6/#4472C4/#5B9BD5/#DEEAF6) —
+    the editable Word twin of ``docx_charts.wbs_smartart_svg``.
 
     ``root_node`` = ``{'name', 'children': [...]}``. Returns the drawing element,
     or ``None`` on a missing document / empty tree / any internal error."""
@@ -492,6 +545,11 @@ def add_org_chart(document, root_node):
         max_x = max((n['_x'] for n in nodes), default=0)
         max_d = max((n['_y'] for n in nodes), default=0)
         width_px = max_x * X_STEP + BOX_W + PAD * 2
+        # Keep the top-down org-chart only for a small SHALLOW overview; anything deeper
+        # or wide switches to the vertical indented layout, where each box gets a full
+        # row so the labels read clearly (Ibrahim's note — big charts go vertical).
+        if max_d >= 2 or width_px > 560 or len(nodes) > 8:
+            return _org_vertical(document, root)
         height_px = max_d * Y_STEP + BOX_H + PAD * 2
 
         def bx(n):
@@ -535,10 +593,36 @@ def add_org_chart(document, root_node):
         return None
 
 
+def _process_vertical(document, steps):
+    """Vertical process — used for many steps that would overflow horizontally: wide
+    boxes stacked top-to-bottom with a down-arrow between, labels on their own row."""
+    BOX_W, BOX_H, GAP, PAD = 322, 34, 22, 8
+    n = len(steps)
+    total_w = PAD + BOX_W + PAD
+    total_h = PAD + n * BOX_H + (n - 1) * GAP + PAD
+    counter = [_next_id(document)]
+    base_id = counter[0]
+    counter[0] += 1
+    shapes = []
+    for i, step in enumerate(steps):
+        y = PAD + i * (BOX_H + GAP)
+        col = _SEQ_PALETTE_HEX[i % len(_SEQ_PALETTE_HEX)]
+        shapes.append(_wps_box(counter, step, _emu(PAD), _emu(y), _emu(BOX_W), _emu(BOX_H),
+                               col, None, 'FFFFFF', _clip(step, 60), sz=11, prst='roundRect'))
+        if i < n - 1:                          # down-arrow to the next step
+            aw = 18
+            ax = PAD + BOX_W / 2.0 - aw / 2.0
+            shapes.append(_wps_box(counter, '', _emu(ax), _emu(y + BOX_H + 2),
+                                   _emu(aw), _emu(GAP - 4), _SEQ_PALETTE_HEX[0], None,
+                                   'FFFFFF', '', sz=6, prst='downArrow'))
+    return _group_drawing(document, ''.join(shapes), base_id, _emu(total_w), _emu(total_h))
+
+
 def add_process(document, steps):
     """Native Sequence 'Basic Process': a left-to-right row of chevrons in the blue
     palette — the editable Word twin of ``docx_charts.sequence_flow_svg``. The first
-    step is a home-plate pentagon, the rest are chevrons.
+    step is a home-plate pentagon, the rest are chevrons. A long chain (would overflow
+    horizontally) stacks VERTICALLY with down-arrows instead (Ibrahim's note).
 
     ``steps`` = ``[str, ...]``. Returns the drawing element, or ``None`` on a missing
     document / empty step list / any internal error."""
@@ -552,6 +636,8 @@ def add_process(document, steps):
         top = 8
         n = len(clean)
         width_px = n * (BW + GAP) - GAP + 4
+        if width_px > 640 or n > 6:            # long chain → stack vertically
+            return _process_vertical(document, clean)
         height_px = top + BH + 8
 
         counter = [_next_id(document)]
