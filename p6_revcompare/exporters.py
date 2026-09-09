@@ -38,6 +38,17 @@ def _num(v):
     return _e(v)
 
 
+def _money_num(v):
+    """Parse a money value that may arrive as a formatted string ('420,000') into a float,
+    so per-activity cost variance % can be computed without dividing by a string."""
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(str(v).replace(',', '').replace('%', '').strip() or 0)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 def _sgn(v, unit=''):
     """Signed value with a leading + for positives; '—' for None."""
     if v is None:
@@ -160,7 +171,7 @@ def _redflags(report):
             f'<td class="n"><span class="d up">!</span></td></tr>')
     head = '<tr><th>Signal</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Δ</th></tr>'
     body = _tbl(head, rows)
-    return f'<div class="card flagcard"><h3 class="flagh">Credibility / red flags</h3>{body}</div>'
+    return f'<div class="card flagcard"><h3 class="flagh">Schedule-quality signals</h3>{body}</div>'
 
 
 def _scope_codes(report):
@@ -512,9 +523,9 @@ def _reg_calendars(report):
     if defs:
         rows = ''
         for d in defs:
-            rows += (f'<tr><td>{_e(d.get("name"))}</td><td class="n">{_num(d.get("days_per_week"))}</td>'
-                     f'<td class="n">{_num(d.get("hours_per_day"))}</td><td class="n">{_num(d.get("activities"))}</td></tr>')
-        head = '<tr><th>Calendar</th><th class="n">Days/wk</th><th class="n">Hrs/day</th><th class="n">Acts</th></tr>'
+            rows += (f'<tr><td>{_e(d.get("name"))}</td><td>{_e(d.get("change"))}</td>'
+                     f'<td>{_e(d.get("detail"))}</td></tr>')
+        head = '<tr><th>Calendar</th><th>Change</th><th>Detail</th></tr>'
         cols.append(_tbl(head, rows))
     body = '<div class="split">' + ''.join(cols) + '</div>' if len(cols) == 2 else ''.join(cols)
     foot = ('<div class="callout warn">A 5→6-day week or an hours/day change shortens durations on paper '
@@ -547,13 +558,10 @@ def _reg_cost(report):
     rows = ''
     for c in cc:
         delta = c.get('delta')
-        if c.get('rev0') in (None, 0) and delta:
-            var_cell = '<span class="tag add">Added</span>'
-            pct = '—'
-        else:
-            var_cell = _dcell(delta)
-            base = c.get('rev0') or 0
-            pct = (f'{"+" if delta > 0 else ""}{round(delta / base * 100)}%' if base and delta is not None else '—')
+        base = _money_num(c.get('rev0'))   # rev0 arrives as a formatted money string
+        var_cell = _dcell(delta)
+        pct = (f'{"+" if delta > 0 else ""}{round(delta / base * 100)}%'
+               if base and delta is not None else '—')
         rows += (f'<tr><td class="mono">{_e(c.get("code"))}</td><td>{_e(c.get("name"))}</td>'
                  f'<td class="n">{_num(c.get("rev0"))}</td><td class="n new">{_num(c.get("rev1"))}</td>'
                  f'<td class="n">{var_cell}</td><td class="n mut">{_e(pct)}</td></tr>')
@@ -594,8 +602,9 @@ def _scurve_svg(report):
     step = plot_w / max(n, 1)
     bw = min(14, step / 3)
     max_m = max([max(m.get('rev0', 0) or 0, m.get('rev1', 0) or 0) for m in vm] + [1])
-    cum0_mx = max([(x.get('rev0', 0) or 0) for x in vc] + [1])
-    cum1_mx = max([(x.get('rev1', 0) or 0) for x in vc] + [1])
+    # ONE shared cumulative max so the two curves keep their relative height (a bigger total
+    # reads taller) — matching the screen; independent maxima would flatten the value gap.
+    cum_mx = max([(x.get('rev0', 0) or 0) for x in vc] + [(x.get('rev1', 0) or 0) for x in vc] + [1])
     baseY = top + plot_h
 
     bars = []
@@ -638,8 +647,8 @@ def _scurve_svg(report):
            f'<line x1="{left}" y1="{baseY}" x2="{W - right}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
            f'<line x1="{left}" y1="{top}" x2="{left}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
            + ''.join(bars)
-           + line(cum0_mx, 'rev0', 'var(--rpt-muted)', '2.2')
-           + line(cum1_mx, 'rev1', 'var(--rpt-accent)', '2.6')
+           + line(cum_mx, 'rev0', 'var(--rpt-muted)', '2.2')
+           + line(cum_mx, 'rev1', 'var(--rpt-accent)', '2.6')
            + orig_line + labels + '</svg>')
     legend = ('<div class="legend"><span><b class="sw-r0"></b>Rev.00 value/mo</span>'
               '<span><b class="sw-r1"></b>Rev.01 value/mo</span>'

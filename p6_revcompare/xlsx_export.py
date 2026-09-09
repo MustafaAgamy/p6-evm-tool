@@ -141,7 +141,7 @@ def _summary_blocks(report):
         ['Relationships per activity', _num(rpa.get('rev0')), _num(rpa.get('rev1')),
          _delta(rpa.get('rev0'), rpa.get('rev1'))],
     ]
-    blocks.append({'title': 'Credibility / red flags',
+    blocks.append({'title': 'Schedule-quality signals',
                    'note': 'Signals for planning review, not defects.',
                    'headers': ['Signal', 'Rev.00', 'Rev.01', 'Δ'], 'rows': red})
 
@@ -293,6 +293,8 @@ def _register_blocks(report):
     for m in (report.get('milestones') or []):
         cd = m.get('change_days')
         kind = m.get('kind')
+        if kind == 'unchanged':
+            continue                       # "Milestone changed" lists only actual changes (matches PDF)
         if kind == 'new':
             change = 'Added'
         elif kind == 'removed':

@@ -283,9 +283,9 @@ function summaryView(r) {
     credRow('Leads (negative lags)', q.leads),
     calRow,
   ].filter(Boolean).join('');
-  const credCard = `<div class="rc-card rc-flag"><h3 class="rc-flagh">Credibility / red flags <span class="rc-n">signals to review</span></h3>
+  const credCard = `<div class="rc-card rc-flag"><h3 class="rc-flagh">Schedule-quality signals <span class="rc-n">signals to review</span></h3>
     ${credRows ? `<table class="rc-t"><thead><tr><th>Signal</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Δ</th></tr></thead><tbody>${credRows}</tbody></table>`
-               : noData('No credibility signals available.')}</div>`;
+               : noData('No schedule-quality signals available.')}</div>`;
 
   return secmark('1', 'Executive Summary') + bl + snap
     + `<div class="rc-split">${ledgerCard}${credCard}</div>`
@@ -561,7 +561,7 @@ function regDuration(r) {
 }
 
 function regMilestone(r) {
-  const rows = (r.milestones || []).map(m => {
+  const rows = (r.milestones || []).filter(m => m.kind !== 'unchanged').map(m => {
     const { id, name } = idName(m, ['id', 'activity_id', 'code'], ['name', 'activity_name']);
     const varCell = m.change_days != null
       ? deltaCell(`${m.change_days > 0 ? '+' : ''}${m.change_days} d`)
@@ -787,7 +787,7 @@ function costView(r) {
     ? `<div class="rc-card"><h3>Planned value of work <span class="rc-n">monthly bars + cumulative curves · Rev.00 vs Rev.01</span></h3>
         <div class="rc-chartwrap">${scurveSvg(curves, r.rev0 && r.rev0.finish)}</div>
         <div class="rc-legend"><span><i style="background:var(--muted)"></i>Rev.00 value/mo</span><span><i style="background:var(--accent)"></i>Rev.01 value/mo</span><span><i class="rc-line" style="background:var(--muted)"></i>Rev.00 cum</span><span><i class="rc-line" style="background:var(--accent)"></i>Rev.01 cum</span></div>
-        ${curves.value_after_orig_finish != null ? `<div class="rc-callout warn"><b>${fmt(curves.value_after_orig_finish)} of planned value now falls after the original finish (${esc(r.rev0 && r.rev0.finish)})</b> — potential extended-works exposure (prolongation, prelims, plant hire). Surfaced for review.</div>` : ''}
+        ${Number(curves.value_after_orig_finish) > 0 ? `<div class="rc-callout warn"><b>${fmt(curves.value_after_orig_finish)} of planned value now falls after the original finish (${esc(r.rev0 && r.rev0.finish)})</b> — potential extended-works exposure (prolongation, prelims, plant hire). Surfaced for review.</div>` : ''}
       </div>`
     : `<div class="rc-card"><h3>Planned value of work</h3>${noData('No cost loading — planned-value S-curve not applicable.')}</div>`;
 
@@ -915,7 +915,11 @@ export async function openRevcompareReport() {
       || (r.sequence_rollup && r.sequence_rollup.length) || (r.findings && r.findings.length)),
     critical: !!((cp.rev0 && cp.rev0.length) || (cp.rev1 && cp.rev1.length) || (q.float_bands && q.float_bands.length)),
     register: !!((r.duration_table && r.duration_table.length) || (r.logic_register && r.logic_register.length)
-      || (r.milestones && r.milestones.length) || (r.constraint_changes && r.constraint_changes.length)),
+      || (r.milestones && r.milestones.some(m => m.kind !== 'unchanged'))
+      || (r.constraint_changes && r.constraint_changes.length)
+      || (r.calendar_changes && (((r.calendar_changes.reassignments || []).length) || ((r.calendar_changes.calendars || []).length)))
+      || (((r.resource_changes || {}).assignment_changes || []).length)
+      || (((r.resource_changes || {}).activity_cost_changes || []).length)),
     cost: !!(c.cost_available || c.resource_available),
     scope: !!((wv.rev0 && wv.rev0.length) || (wv.rev1 && wv.rev1.length) || (r.date_shifts && r.date_shifts.length)),
   };

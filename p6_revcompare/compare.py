@@ -262,7 +262,7 @@ def _bottom_line(summary, finish_shift, gov1, resource_changes, quality):
     parts = []
     if finish_shift is not None and finish_shift != 0:
         word = 'later' if finish_shift > 0 else 'earlier'
-        parts.append(f"Rev.01 finishes {abs(finish_shift)} days {word}"
+        parts.append(f"Rev.01 finishes {abs(finish_shift)} working days {word}"
                      + (f" ({_short(gov1)})" if gov1 else ''))
     else:
         parts.append("Rev.01 keeps the same governing finish")
@@ -383,7 +383,9 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
     gov0, gov1 = _governing_finish(rev0), _governing_finish(rev1c)
     finish_shift = None
     if gov0 and gov1:
-        finish_shift = (_d0(gov1) - _d0(gov0)).days
+        # WORKING days (same basis as the milestone table + slip bridge) so the report never
+        # shows two different "finish moved N days" figures.
+        finish_shift = _wd_between(cal, _d0(gov0), _d0(gov1))
     summary = {
         'activities0': len(rev0.activities), 'activities1': len(rev1.activities),
         'net': len(rev1.activities) - len(rev0.activities),

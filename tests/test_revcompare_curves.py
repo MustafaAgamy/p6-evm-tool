@@ -82,9 +82,12 @@ def test_axis_is_contiguous_across_a_gap():
 def test_value_after_orig_finish():
     rev0 = _budget_sched(590.0, D(2025, 1, 1), D(2025, 2, 28))
     rev1 = _budget_sched(1180.0, D(2025, 1, 1), D(2025, 2, 28))
-    # orig finish inside Jan -> only Feb value (560) falls "after" it
+    # Day granularity (not whole-month): orig finish 15 Jan → the work from 16 Jan onward is
+    # "after" it — 44 of the 59 days of the 1180 activity → 880 (NOT just Feb's 560).
     c = _wire(rev0, rev1, orig_finish=D(2025, 1, 15))
-    assert c['value_after_orig_finish'] == 560
+    assert c['value_after_orig_finish'] == 880
+    # finish on the last day of Jan → only Feb (560) falls strictly after it.
+    assert _wire(rev0, rev1, orig_finish=D(2025, 1, 31))['value_after_orig_finish'] == 560
 
 
 # ── budget rolled up by dimension (+ WBS branch) ────────────────────────────────

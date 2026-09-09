@@ -139,6 +139,63 @@ def _total_bac(data):
     return sum(v or 0.0 for v in bac.values())
 
 
+def _total_units(data):
+    """Total budgeted resource units (man-hours) across the schedule — the real signal that
+    resource/manpower data is present (a cost-only assignment carries no units)."""
+    amap = getattr(data, 'assignments_by_activity', None) or {}
+    return sum((a.get('budget_units') or 0.0) for lst in amap.values() for a in (lst or []))
+
+
+def _span_days(calobj, s, f, after=None):
+    """(total_days, days_after) across the inclusive span s..f — working days via the
+    activity's calendar, calendar days as a fallback. ``days_after`` counts only days
+    strictly after ``after`` (a date), for the finish-date exposure."""
+    total = aft = 0
+    if calobj is not None:
+        d, guard = s, 0
+        while d <= f and guard < 40000:
+            guard += 1
+            if calobj.is_working_day(d):
+                total += 1
+                if after is not None and d > after:
+                    aft += 1
+            d += timedelta(days=1)
+        if total:
+            return total, aft
+    total = (f - s).days + 1
+    if after is not None and f > after:
+        lo = max(s, after + timedelta(days=1))
+        aft = max(0, (f - lo).days + 1)
+    return total, aft
+
+
+def _value_after(data, orig_finish):
+    """Rev.01 planned budget value falling strictly after the original governing finish DATE
+    (day granularity — not the whole finish month), for the extended-works exposure callout."""
+    if not isinstance(orig_finish, (datetime, date)):
+        return 0.0
+    of = orig_finish.date() if isinstance(orig_finish, datetime) else orig_finish
+    bac = getattr(data, 'bac_by_activity', None) or {}
+    total = 0.0
+    for oid, v in bac.items():
+        if not v:
+            continue
+        act = (getattr(data, 'activities', None) or {}).get(oid)
+        if not act:
+            continue
+        s, f = act.get('planned_start'), act.get('planned_finish')
+        if not isinstance(s, (datetime, date)) or not isinstance(f, (datetime, date)):
+            continue
+        s = s.date() if isinstance(s, datetime) else s
+        f = f.date() if isinstance(f, datetime) else f
+        if f < s:
+            f = s
+        tot, aft = _span_days(_actcal(data, act), s, f, after=of)
+        if tot > 0 and aft > 0:
+            total += v * (aft / tot)
+    return total
+
+
 def _has_assignments(data):
     amap = getattr(data, 'assignments_by_activity', None) or {}
     return any(v for v in amap.values())
@@ -166,7 +223,9 @@ def build_curves(rev0, rev1, matched, match, cal, orig_finish):
     Returns a fully-guarded, JSON-serialisable ``report['curves']`` dict.
     """
     cost_available = bool(_total_bac(rev0) or _total_bac(rev1))
-    resource_available = bool(_has_assignments(rev0) or _has_assignments(rev1))
+    # resource data means MAN-HOURS (units), not merely an assignment row: a cost-only
+    # assignment (budget_cost but no units) must not light up an all-zero manpower histogram.
+    resource_available = bool(_total_units(rev0) or _total_units(rev1))
 
     # ── per-month planned budget cost (spread each activity's bac) ──────────────
     val0 = _phase_budget(rev0) if cost_available else {}
@@ -192,11 +251,9 @@ def build_curves(rev0, rev1, matched, match, cal, orig_finish):
             value_cumulative.append({'month': _mlabel(k), 'rev0': round(c0), 'rev1': round(c1),
                                      'var': round(c1 - c0)})
 
-    # rev1 planned value falling in months strictly after the original governing finish
-    value_after_orig_finish = 0.0
-    of_key = _mkey(orig_finish)
-    if cost_available and of_key:
-        value_after_orig_finish = round(sum(v for k, v in val1.items() if k > of_key))
+    # rev1 planned value falling strictly after the original governing finish DATE
+    # (day granularity — counting the after-finish portion of the finish month too).
+    value_after_orig_finish = round(_value_after(rev1, orig_finish)) if cost_available else 0.0
 
     # manpower curves
     manpower_monthly = []
