@@ -88,13 +88,29 @@ def test_gap_gated_no_data_when_absent(temp_db, xml_path):
     assert item.produce(ctx)['kind'] == 'no_data'
 
 
-def test_gap_ready_and_renders_table_when_present(temp_db, xml_path):
+def test_gap_ready_and_reuses_report_section_when_present(temp_db, xml_path):
     pid = _seed(xml_path)
     sid = db.get_latest_snapshot_id(pid)
-    db.save_evm_extras(sid, {'gap': [{'code': 'CIV', 'pv': 100.0, 'ev': 60.0, 'gap': 40.0}]})
+    # The REAL stored gap is a dict {dimension, total_*, groups:[{code,pv,ev,gap,pct_of_gap}]}
+    # (p6_evm.gap.gap_by_code) — not a list. Seed the real shape.
+    db.save_evm_extras(sid, {'gap': {
+        'dimension': 'Discipline', 'total_pv': 1000.0, 'total_ev': 600.0, 'total_gap': 400.0,
+        'groups': [{'code': 'CIV', 'pv': 700.0, 'ev': 400.0, 'gap': 300.0, 'pct_of_gap': 75.0},
+                   {'code': 'MECH', 'pv': 300.0, 'ev': 200.0, 'gap': 100.0, 'pct_of_gap': 25.0}],
+    }})
     ctx = SpecialContext(pid, snapshot_id=sid)
     item = _items(ctx)['evm:gap']
     assert item.availability(ctx) == 'ready'
     pl = item.produce(ctx)
-    assert pl['kind'] == 'table'
-    assert pl['rows']
+    # Reuses the EVM Report's OWN PV-EV Gap section (exact style), not a generic table.
+    assert pl['kind'] == 'html'
+    assert 'Gap' in pl['html'] and 'CIV' in pl['html']
+
+
+def test_gap_no_data_when_stored_shape_is_wrong(temp_db, xml_path):
+    # A stray list (the old buggy shape) must NOT advertise 'ready'.
+    pid = _seed(xml_path)
+    sid = db.get_latest_snapshot_id(pid)
+    db.save_evm_extras(sid, {'gap': [{'code': 'CIV'}]})
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    assert _items(ctx)['evm:gap'].availability(ctx) == 'no_data'

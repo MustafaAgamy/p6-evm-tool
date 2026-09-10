@@ -334,31 +334,15 @@ def _discipline_gap_ready(ctx):
     return 'ready' if _gap_categories(ctx) else 'no_data'
 
 
-def _gap_rows(ctx):
-    """The PV−EV gap-by-code rows if present for this snapshot, else None.
-
-    ``gap`` is optional stored data (only present when the engineering/E1 gap was
-    computed), so its item gates on this rather than on EVM alone — otherwise it
-    would advertise as 'ready' and then render an empty 'No data' section, the
-    exact silent-empty case Special Report must avoid."""
-    gap = (ctx.extras or {}).get('gap')
-    if isinstance(gap, list) and gap and isinstance(gap[0], dict):
-        return gap
-    return None
-
-
-def _gap(ctx):
-    gap = _gap_rows(ctx)
-    if gap:
-        from p6_special.providers import _util as U
-        return U.table_from_dicts(gap)
-    return P.NO_DATA
-
-
 def _gap_ready(ctx):
+    """The PV−EV gap is optional stored data (present only when the engineering/E1
+    gap was computed) — a DICT ``{dimension, total_*, groups:[...]}``. Gate on that
+    real shape, so the item advertises 'ready' only when the EVM Report's gap
+    section will actually render."""
     if not ctx.evm:
         return 'needs_run'
-    return 'ready' if _gap_rows(ctx) is not None else 'no_data'
+    gap = (ctx.extras or {}).get('gap')
+    return 'ready' if (isinstance(gap, dict) and gap.get('groups')) else 'no_data'
 
 
 def provide(ctx):
@@ -383,7 +367,8 @@ def provide(ctx):
         Item('evm:delay', FEATURE, FEATURE_TITLE, 'Delay in working days', 'kpi', _kpi_delay, A),
         Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned / Earned / Actual value (chart)', 'section',
              lambda c: FR.evm_section(c, 'value') or P.NO_DATA, _full_ready),
-        Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'table', _gap, _gap_ready),
+        Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'section',
+             lambda c: FR.evm_gap_section(c) or P.NO_DATA, _gap_ready),
         Item('evm:trend_spi_cpi', FEATURE, FEATURE_TITLE, 'SPI / CPI trend', 'chart',
              _trend_spi_cpi, _trend_ready('spi')),
         Item('evm:trend_delay', FEATURE, FEATURE_TITLE, 'Delay trend (days)', 'chart',

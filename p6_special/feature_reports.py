@@ -219,6 +219,24 @@ def evm_section(ctx, key):
                     _strip_trailing_foot(_body_after_head(html)))
 
 
+def evm_gap_section(ctx):
+    """The EVM Report's PV-EV Gap section, reused verbatim. Parse-free: the gap
+    section only formats the STORED gap dict (ctx.extras['gap']), so it needs no
+    re-parse — ``sections=['gap']`` matches no core key, leaving only the
+    data-driven gap block to render."""
+    gap = (ctx.extras or {}).get('gap')
+    if not (isinstance(gap, dict) and gap.get('groups')):
+        return None
+    def b():
+        from p6_evm.evm_report import render_evm_report
+        return render_evm_report(ctx.evm or {}, _meta(ctx), gap=gap, sections=['gap'], theme=ctx.mode)
+    html = ctx.memo(f'fr:evm_gap:{ctx.mode}', b)
+    if not html:
+        return None
+    return _payload('evm', reuse.extract_styles(html),
+                    _strip_trailing_foot(_body_after_head(html)))
+
+
 def compare_full_report(ctx):
     def b():
         cur, base = ctx.parsed(), ctx.parsed_input('baseline')
