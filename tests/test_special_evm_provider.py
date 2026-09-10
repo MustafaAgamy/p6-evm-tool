@@ -53,21 +53,20 @@ def test_money_ev(temp_db, xml_path):
     assert _items(ctx)['evm:ev'].produce(ctx)['items'][0]['value'] == '600,000'
 
 
-def test_paired_bars(temp_db, xml_path):
+def test_paired_reuses_progress_section(temp_db, xml_path):
+    # Composite EVM results reuse the EVM Report's OWN section (exact style/format),
+    # not a re-derived generic block.
     ctx = SpecialContext(_seed(xml_path))
     b = _items(ctx)['evm:planned_vs_actual'].produce(ctx)
-    assert b['kind'] == 'bars'
-    assert b['rows'][0]['display'] == ['61.4%', '40.4%']
-    assert b['rows'][0]['values'][0] == 61.4  # 0.614 * 100
+    assert b['kind'] == 'html'
+    assert 'Project Progress' in b['html']
 
 
-def test_category_table(temp_db, xml_path):
+def test_category_reuses_section(temp_db, xml_path):
     ctx = SpecialContext(_seed(xml_path))
     t = _items(ctx)['evm:category_table'].produce(ctx)
-    assert t['kind'] == 'table'
-    assert t['rows'][0][0] == 'Construction'
-    assert t['rows'][0][1] == '85.5%'   # weight
-    assert t['rows'][0][2] == '58.0%'   # planned
+    assert t['kind'] == 'html'
+    assert 'Category Weights' in t['html'] and 'WBS Category' in t['html']
 
 
 def test_availability_ready(temp_db, xml_path):

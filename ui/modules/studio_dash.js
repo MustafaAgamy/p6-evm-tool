@@ -332,6 +332,10 @@ export function tileBodyHtml(kind, data) {
       if (!blocks.length) return naHtml();
       return blocks.map(b => tileBodyHtml(b.kind, b.data)).join('<div class="pd-gap"></div>');
     }
+    case 'html':
+      // A feature's OWN report section, reused verbatim. Its scoped stylesheet
+      // (data.css) + the report-theme tokens are injected once at board level.
+      return data.html ? `<div class="pd-reused">${data.html}</div>` : naHtml();
     case 'no_data':
     default:
       return naHtml();
@@ -480,9 +484,18 @@ export function boardHtml(tiles, meta, layout, editing) {
     }).join('')}</div>` : '';
     inner = `${letterheadHtml(meta, header, editing)}${head}${kpirow}${grid}`;
   }
+  // Reused feature-report sections (kind 'html') carry their own scoped CSS; inject
+  // it once, with the report-theme tokens those sections use, so they render styled.
+  // Reused feature-report sections (kind 'html') carry their OWN CSS, already
+  // scoped to `.srf-<feature>` AND including the report-theme tokens for the mode
+  // (reuse.scope_css scopes `:root`). So it is self-contained — inject it once.
+  const seen = new Set();
+  const sectionCss = (tiles || []).filter(t => t.kind === 'html' && t.data && t.data.css)
+    .map(t => t.data.css).filter(c => (seen.has(c) ? false : seen.add(c))).join('\n');
+  const styleBlock = sectionCss ? `<style>${sectionCss}\n.pd-reused{overflow-x:auto}</style>` : '';
   const mode = editing ? 'Edit mode — rename, reorder, resize' : 'View mode';
   const editBtn = `<button type="button" class="btn-primary" data-dash="edit">${editing ? '✓ Done' : '⚙ Edit'}</button>`;
-  return `<div class="studio-dash-wrap${editing ? ' editing' : ''}">` +
+  return `<div class="studio-dash-wrap${editing ? ' editing' : ''}">${styleBlock}` +
     `<div class="pd-toolbar"><span class="pd-mode">${mode}</span>` +
     `<span class="pd-actions"><button type="button" class="btn-secondary" data-dash="pdf">⬇ PDF</button>${editBtn}</span></div>` +
     `<div class="pd-sheet">${inner}</div>` +
@@ -720,6 +733,7 @@ export async function renderStudioDashboard(host, opts) {
       snapshot_id: snapshotId,
       item_ids: opts.itemIds || [],
       inputs: opts.inputs || {},
+      theme: opts.mode || getSavedMode(),
     });
     if (!res || !res.ok) {
       host.innerHTML = `<div class="pd-na">${escapeHtml((res && res.error) || 'Could not build the dashboard.')}</div>`;

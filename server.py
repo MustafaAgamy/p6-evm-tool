@@ -240,8 +240,10 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_special import assemble
             res = assemble.tiles(self._special_pid(body), body.get('item_ids') or [],
-                                 inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
-            self._json(200, {'ok': True, 'tiles': res['tiles'], 'meta': res['meta']})
+                                 inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
+                                 mode=body.get('theme') or 'light')
+            self._json(200, {'ok': True, 'tiles': res['tiles'], 'meta': res['meta'],
+                             'theme_css': res.get('theme_css', '')})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

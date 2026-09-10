@@ -192,6 +192,33 @@ def evm_full_report(ctx):
     return _payload('evm', reuse.extract_styles(html), _body_after_head(html))
 
 
+# EVM report section keys (render_evm_report's `sections=` filter), so a picked
+# EVM result looks EXACTLY like that section in the real EVM Report — the report's
+# own heading + styled table/bars — instead of a re-derived generic block.
+EVM_SECS = [('progress', 'Project Progress — Planned vs Actual'),
+            ('category', 'Category Weights & Overall Progress'),
+            ('value', 'Planned Value vs Earned Value')]
+
+
+def evm_section(ctx, key):
+    """One section of the EVM Report, reused verbatim (its exact style + format).
+
+    Renders the EVM report limited to ``key`` (no gap/engineering add-ons, so only
+    that section appears), then strips the report banner + footer so it drops into
+    a Special Report section cleanly."""
+    def b():
+        result = ctx.computed()
+        if result is None:
+            return None
+        from p6_evm.evm_report import render_evm_report
+        return render_evm_report(result, _meta(ctx), sections=[key], theme=ctx.mode)
+    html = ctx.memo(f'fr:evm:{key}:{ctx.mode}', b)
+    if not html:
+        return None
+    return _payload('evm', reuse.extract_styles(html),
+                    _strip_trailing_foot(_body_after_head(html)))
+
+
 def compare_full_report(ctx):
     def b():
         cur, base = ctx.parsed(), ctx.parsed_input('baseline')

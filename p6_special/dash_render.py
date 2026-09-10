@@ -36,10 +36,17 @@ def build_dashboard_html(board_html, mode='light', title='Dashboard'):
     """
     mode = mode or 'light'
     css = _app_css()
+    # report_theme --rpt-* tokens, so any REUSED feature-report section (kind 'html')
+    # embedded in the board is themed for the chosen mode in the PDF too.
+    try:
+        import report_theme
+        rpt_tokens = report_theme.theme_style_tag(report_theme.normalize(mode))
+    except Exception:
+        rpt_tokens = ''
     return (
         '<!doctype html><html data-appearance="' + _esc(mode) + '"><head><meta charset="utf-8">'
         '<title>' + _esc(title) + '</title>'
-        '<style>' + css + '</style>'
+        '<style>' + css + '</style>' + rpt_tokens +
         # print overrides: the app pins html/body overflow:hidden for the SPA shell;
         # a printed report must flow, and the on-screen toolbar is not part of it.
         '<style>html,body{overflow:visible !important;height:auto !important}'

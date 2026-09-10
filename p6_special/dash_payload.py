@@ -10,7 +10,7 @@ empty item.
 """
 
 _ALLOWED_KINDS = ('kpis', 'table', 'bars', 'segbar', 'findings', 'keyvals',
-                  'text', 'note', 'group', 'line', 'status_header', 'no_data')
+                  'text', 'note', 'group', 'line', 'status_header', 'html', 'no_data')
 
 
 def _map_payload(payload):
@@ -59,6 +59,12 @@ def _map_payload(payload):
         # Rendered full-width above the grid (the board special-cases it),
         # not as a normal panel; shape kept minimal.
         return 'status_header', data, {'w': 2, 'h': 0}
+
+    if kind == 'html':
+        # A feature's OWN report section, reused verbatim (its exact markup + a
+        # scoped stylesheet). Wide, since these are detailed sections.
+        data = {'html': payload.get('html') or '', 'css': payload.get('css') or ''}
+        return 'html', data, {'w': 2, 'h': 1}
 
     if kind == 'segbar':
         data = {'segments': payload.get('segments') or [], 'note': payload.get('note')}

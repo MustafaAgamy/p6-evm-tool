@@ -18,17 +18,25 @@ def catalog(project_id=None, snapshot_id=None, inputs=None):
     return registry.catalog(_ctx(project_id, snapshot_id, inputs))
 
 
-def tiles(project_id=None, item_ids=None, inputs=None, snapshot_id=None):
-    """Per-item dashboard tiles for the selected items + dashboard meta."""
-    ctx = _ctx(project_id, snapshot_id, inputs)
+def tiles(project_id=None, item_ids=None, inputs=None, snapshot_id=None, mode='light'):
+    """Per-item dashboard tiles for the selected items + dashboard meta.
+
+    ``mode`` themes any reused feature-report sections (kind 'html'); when the
+    board holds such a section the response also carries ``theme_css`` — the
+    report_theme token block those sections need to render styled on the board."""
+    import report_theme
+    mode = report_theme.normalize(mode)
+    ctx = _ctx(project_id, snapshot_id, inputs, mode=mode)
     rendered = registry.render(ctx, item_ids or [])
     from p6_special import dash_payload
+    out = [dash_payload.map_tile(it) for it in rendered]
+    theme_css = report_theme.theme_style_tag(mode) if any(t.get('kind') == 'html' for t in out) else ''
     meta = {
         'project_name': ctx.project_name,
         'data_date': ctx.data_date,
         'activity_count': (ctx.evm or {}).get('activity_count'),
     }
-    return {'tiles': [dash_payload.map_tile(it) for it in rendered], 'meta': meta}
+    return {'tiles': out, 'meta': meta, 'theme_css': theme_css}
 
 
 def _meta(ctx, meta):
