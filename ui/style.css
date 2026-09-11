@@ -2724,6 +2724,15 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-fchip.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .rc-fc { font-size: 10px; background: var(--bg); border-radius: 6px; padding: 1px 6px; }
 .rc-reg tr[hidden] { display: none; }
+.rc-t tr[hidden] { display: none; }
+.rc-fchip.disabled { opacity: .4; cursor: not-allowed; }
+.rc-fchip.disabled:hover { border-color: var(--border); }
+.rc-scopemeasures { display: inline-flex; gap: 8px; align-items: center; }
+/* Register filter selects */
+.rc-fsel { font-size: 12px; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--ink-soft); font-family: inherit; }
+.rc-fsel:hover { border-color: var(--accent); }
+/* WBS breadcrumb above an expanded sequence item */
+.rc-wbscrumb { font-size: 10.5px; color: var(--muted); margin: 0 0 8px; } .rc-wbscrumb b { color: var(--accent); }
 
 /* Scope & Structure tab (slice 2) */
 .rc-tag.calendar { background: var(--accent-soft); color: var(--chart-5); }

@@ -110,6 +110,8 @@ def _cp_chain(data, crit_codes, entered, left):
         nodes.append({
             'code': code, 'name': a.get('name') or code,
             'tf': a.get('total_float_days'),
+            'start': _short(a.get('planned_start')),
+            'finish': _short(_forecast_finish(a)),
             'is_ms': a.get('task_type') in _MS,
             'state': st,
         })
@@ -336,6 +338,8 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
     entered, left = (crit1 - crit0), (crit0 - crit1)
     len0, len1 = _path_length_wd(rev0), _path_length_wd(rev1c)
     cp_len_change = (len1 - len0) if (len0 is not None and len1 is not None) else None
+    from p6_critpath.paths import _governing_finish_ms as _gov_ms
+    _gm0, _gm1 = _gov_ms(rev0), _gov_ms(rev1c)
     cp = {
         'rev0': _cp_chain(rev0, crit0, set(), set()),
         'rev1': _cp_chain(rev1c, crit1, entered, left),
@@ -344,6 +348,9 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
         'left': [{'code': c, 'name': (matched.baseline_by_code.get(c) or {}).get('name') or c}
                  for c in sorted(left)],
         'length_change_wd': cp_len_change,
+        'rev0_len': len0, 'rev1_len': len1,
+        'rev0_tf_finish': (_gm0.get('total_float_days') if _gm0 else None),
+        'rev1_tf_finish': (_gm1.get('total_float_days') if _gm1 else None),
     }
 
     # ── sequence ───────────────────────────────────────────────────────────────

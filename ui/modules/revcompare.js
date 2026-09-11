@@ -243,6 +243,8 @@ function summaryView(r) {
     ? `<div class="rc-bottomline"><span class="rc-blpin">📌</span><span><b>Bottom line:</b> ${escapeHtml(r.bottom_line)}</span></div>`
     : '';
 
+  const sameDD = rev0.data_date != null && rev1.data_date != null && rev0.data_date === rev1.data_date;
+  const snapFoot = `Like-for-like: both files 0% complete (baselines, no actuals)${sameDD ? ' · same data date verified' : ''} · Rev.01 governing finish is <b>logic-driven</b>.`;
   const snap = `
     <div class="rc-card"><h3>Revision snapshot <span class="rc-n">Rev.00 → Rev.01</span></h3>
       <div class="rc-snap">
@@ -251,14 +253,23 @@ function summaryView(r) {
         <div class="rc-snapmid"><div class="rc-big">${slipWd != null ? num(slipWd, true) + 'd' : '—'}</div><div class="rc-biglbl">Finish slip</div></div>
         <div class="rc-snapcol r1"><div class="rc-snaptag">Rev.01 · Revised</div><div class="rc-snapfile">${esc(rev1.file)}</div>
           ${kv('Data date', rev1.data_date)}${kv('Governing finish', rev1.finish, slipWd > 0)}${kv('Activities', rev1.activities != null ? fmt(rev1.activities) : null)}</div>
-      </div></div>`;
+      </div>
+      <div class="rc-foot" style="margin-top:10px">${snapFoot}</div></div>`;
 
-  // Comparison ledger
-  const ledgerRows = (r.ledger || []).map(l => `
-    <tr><td>${esc(l.label)}</td>
+  // Comparison ledger — a composite measure (rev1 null + multi-part text delta) renders
+  // as one centered cell spanning the Rev.00 + Rev.01 columns, total in the Change column.
+  const ledgerRows = (r.ledger || []).map(l => {
+    const composite = l.rev1 == null && typeof l.delta === 'string' && l.delta;
+    if (composite) {
+      return `<tr><td>${esc(l.label)}</td>
+        <td class="n rc-mut" colspan="2" style="text-align:center">${esc(l.delta)}</td>
+        <td class="n">${l.rev0 != null ? `<span class="rc-d">${esc(l.rev0)}</span>` : '—'}</td></tr>`;
+    }
+    return `<tr><td>${esc(l.label)}</td>
       <td class="n rc-mut">${l.rev0 != null ? esc(l.rev0) : '—'}</td>
       <td class="n rc-new">${l.rev1 != null ? esc(l.rev1) : '—'}</td>
-      <td class="n">${deltaCell(l.delta)}</td></tr>`).join('');
+      <td class="n">${deltaCell(l.delta)}</td></tr>`;
+  }).join('');
   const ledgerCard = `<div class="rc-card"><h3>Comparison ledger</h3>
     ${ledgerRows ? `<table class="rc-t"><thead><tr><th>Measure</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Change</th></tr></thead><tbody>${ledgerRows}</tbody></table>`
                  : noData('No comparison measures available.')}</div>`;
@@ -279,9 +290,9 @@ function summaryView(r) {
   const credRows = [
     credRow('Negative-float activities', q.negative_float),
     credRow('Open ends (dangling)', q.open_ends),
-    credRow('Constraints (hard)', q.hard_constraints),
-    credRow('Leads (negative lags)', q.leads),
+    credRow('Constraints added (hard)', q.hard_constraints),
     calRow,
+    credRow('Leads (negative lags)', q.leads),
   ].filter(Boolean).join('');
   const credCard = `<div class="rc-card rc-flag"><h3 class="rc-flagh">Schedule-quality signals <span class="rc-n">signals to review</span></h3>
     ${credRows ? `<table class="rc-t"><thead><tr><th>Signal</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Δ</th></tr></thead><tbody>${credRows}</tbody></table>`
@@ -289,31 +300,47 @@ function summaryView(r) {
 
   return secmark('1', 'Executive Summary') + bl + snap
     + `<div class="rc-split">${ledgerCard}${credCard}</div>`
-    + scopeByCode(r.codes);
+    + scopeByCode(r.codes, r.curves);
 }
 
-function scopeByCode(codes) {
+// Bars for the scope-by-code card: Count mode re-scales by added/removed counts; £ Value
+// mode re-scales by curves.budget_by_dim for the dimension. Guarded — missing data → note.
+function scopeBarsHtml(codes, curves, dim, measure) {
+  if (measure === 'value') {
+    const bbd = (curves && curves.budget_by_dim) || {};
+    const barr = Array.isArray(bbd[dim]) ? bbd[dim] : [];
+    if (!barr.length) return noData('No £ budget breakdown for this code dimension.');
+    const maxV = Math.max(1, ...barr.map(x => Math.abs(x.rev1 || 0)));
+    return barr.map(x => {
+      const w = Math.round(Math.abs(x.rev1 || 0) / maxV * 100);
+      return `<div class="rc-sbar"><div class="rc-sbl">${esc(x.category)}</div>
+        <div class="rc-track"><div class="rc-f1" style="width:${w}%"></div></div>
+        <div class="rc-sbv">${fmt(x.rev1)}</div></div>`;
+    }).join('');
+  }
+  const sbc = (codes && codes.scope_by_code) || {};
+  const arr = Array.isArray(sbc[dim]) ? sbc[dim] : [];
+  if (!arr.length) return noData('No scope changes for this code dimension.');
+  const maxTot = Math.max(1, ...arr.map(x => (x.added || 0) + (x.removed || 0)));
+  return arr.map(x => {
+    const aw = Math.round((x.added || 0) / maxTot * 100);
+    const rw = Math.round((x.removed || 0) / maxTot * 100);
+    return `<div class="rc-sbar"><div class="rc-sbl">${esc(x.category)}</div>
+      <div class="rc-track"><div class="rc-fa" style="width:${aw}%"></div><div class="rc-fr" style="width:${rw}%"></div></div>
+      <div class="rc-sbv">${x.added || 0} / ${x.removed || 0}</div></div>`;
+  }).join('');
+}
+
+function scopeByCode(codes, curves) {
   if (!codes) return `<div class="rc-card"><h3>Scope change <span class="rc-n">added &amp; removed, by activity code</span></h3>${noData('No activity-code scope breakdown available.')}</div>`;
   const dims = codes.dimensions || [];
   const sbc = codes.scope_by_code || {};
   const dimKeys = dims.filter(d => Array.isArray(sbc[d]) && sbc[d].length);
   const added = codes.added || [], removed = codes.removed || [];
-
-  const barsFor = (dim) => {
-    const arr = sbc[dim] || [];
-    if (!arr.length) return noData('No scope changes for this code dimension.');
-    const maxTot = Math.max(1, ...arr.map(x => (x.added || 0) + (x.removed || 0)));
-    return arr.map(x => {
-      const aw = Math.round((x.added || 0) / maxTot * 100);
-      const rw = Math.round((x.removed || 0) / maxTot * 100);
-      return `<div class="rc-sbar"><div class="rc-sbl">${esc(x.category)}</div>
-        <div class="rc-track"><div class="rc-fa" style="width:${aw}%"></div><div class="rc-fr" style="width:${rw}%"></div></div>
-        <div class="rc-sbv">${x.added || 0} / ${x.removed || 0}</div></div>`;
-    }).join('');
-  };
+  const bbd = (curves && curves.budget_by_dim) || {};
+  const hasValue = dimKeys.some(d => Array.isArray(bbd[d]) && bbd[d].length);
 
   const chips = dimKeys.map((d, i) => `<button class="rc-fchip ${i === 0 ? 'on' : ''}" data-scopedim="${escapeHtml(d)}">${escapeHtml(d)}</button>`).join('');
-  const barGroups = dimKeys.map((d, i) => `<div class="rc-sbars" data-scopedimbars="${escapeHtml(d)}" ${i === 0 ? '' : 'hidden'}>${barsFor(d)}</div>`).join('');
 
   const itemRow = (x, label, cls) => `<tr>
       <td class="rc-aid">${esc(x.id)}</td><td>${esc(x.name)}</td>
@@ -333,9 +360,12 @@ function scopeByCode(codes) {
         <tbody>${invRows}${overflow}</tbody></table></div>`
     : noData('No added or removed activities to itemise.');
 
+  const firstDim = dimKeys[0];
+  const measChips = `<span class="rc-scopemeasures"><button class="rc-fchip on" data-scopemeasure="count">Count</button><button class="rc-fchip${hasValue ? '' : ' disabled'}" data-scopemeasure="value" ${hasValue ? '' : 'disabled'}>£ Value</button></span>`;
   const bars = dimKeys.length
-    ? `<div class="rc-filters" style="margin-bottom:10px">${chips}</div>${barGroups}
-       <div class="rc-legend"><span><i style="background:var(--success)"></i>Added (${added.length})</span><span><i style="background:var(--danger)"></i>Removed (${removed.length})</span></div>`
+    ? `<div class="rc-filters" style="margin-bottom:10px">${chips}<span style="margin-left:auto"></span>${measChips}</div>
+       <div class="rc-sbars" id="rc-scopebars" data-scopedim="${escapeHtml(firstDim)}" data-scopemeasure="count">${scopeBarsHtml(codes, curves, firstDim, 'count')}</div>
+       <div class="rc-legend"><span><i style="background:var(--success)"></i>Added (${added.length})</span><span><i style="background:var(--danger)"></i>Removed (${removed.length})</span><span>Toggle Count / £ Value</span></div>`
     : noData('No activity-code dimensions available for a scope breakdown.');
 
   return `<div class="rc-card"><h3>Scope change <span class="rc-n">added &amp; removed, by activity code</span></h3>
@@ -343,11 +373,26 @@ function scopeByCode(codes) {
 }
 
 function wireSummary(body) {
-  const chips = [...body.querySelectorAll('[data-scopedim]')];
-  chips.forEach(chip => chip.addEventListener('click', () => {
-    chips.forEach(c => c.classList.toggle('on', c === chip));
-    const dim = chip.dataset.scopedim;
-    body.querySelectorAll('[data-scopedimbars]').forEach(g => { g.hidden = (g.dataset.scopedimbars !== dim); });
+  const container = body.querySelector('#rc-scopebars');
+  if (!container) return;
+  const r = state.revcompareReport || {};
+  const dimChips = [...body.querySelectorAll('[data-scopedim].rc-fchip')];
+  const measChips = [...body.querySelectorAll('[data-scopemeasure].rc-fchip')];
+  const rerender = () => {
+    const dim = container.dataset.scopedim;
+    const measure = container.dataset.scopemeasure;
+    container.innerHTML = scopeBarsHtml(r.codes, r.curves, dim, measure);
+  };
+  dimChips.forEach(chip => chip.addEventListener('click', () => {
+    dimChips.forEach(c => c.classList.toggle('on', c === chip));
+    container.dataset.scopedim = chip.dataset.scopedim;
+    rerender();
+  }));
+  measChips.forEach(chip => chip.addEventListener('click', () => {
+    if (chip.disabled) return;
+    measChips.forEach(c => c.classList.toggle('on', c === chip));
+    container.dataset.scopemeasure = chip.dataset.scopemeasure;
+    rerender();
   }));
 }
 
@@ -387,7 +432,7 @@ function slipWaterfall(slip) {
   const th = Math.max(1, Math.abs(total) * scale);
   bars += `<rect x="${(tx - bw / 2).toFixed(1)}" y="${(base - th).toFixed(1)}" width="${bw.toFixed(1)}" height="${th.toFixed(1)}" rx="2" fill="var(--danger)" opacity=".9"/>`;
   labels += `<text x="${tx.toFixed(1)}" y="${(base - th - 6).toFixed(1)}" font-size="12" fill="var(--danger)" text-anchor="middle" font-weight="800">${num(total, true)}</text>`;
-  labels += `<text x="${tx.toFixed(1)}" y="${(base + 18).toFixed(1)}" font-size="9" fill="var(--ink-soft)" text-anchor="middle" font-weight="700">${esc(slip.rev1_finish)}</text>`;
+  labels += `<text x="${tx.toFixed(1)}" y="${(base + 18).toFixed(1)}" font-size="9" fill="var(--ink-soft)" text-anchor="middle" font-weight="700">Rev.01 · ${esc(slip.rev1_finish)}</text>`;
 
   return `<svg viewBox="0 0 ${W} 235" class="rc-svg" style="min-width:720px" role="img" aria-label="Finish-slip attribution waterfall">
     <line x1="${leftPad}" y1="${base}" x2="${W - rightPad + 40}" y2="${base}" stroke="var(--border)"/>
@@ -400,45 +445,40 @@ function slipWaterfall(slip) {
 }
 
 function findingsView(r) {
-  const slipCard = `<div class="rc-card"><h3>What drove the slip <span class="rc-n">finish-slip bridge · neutral attribution</span></h3>
+  const slip = r.slip || {};
+  const slipHead = slip.total_wd != null ? `What drove the ${num(slip.total_wd, true)} days` : 'What drove the slip';
+  const slipCard = `<div class="rc-card"><h3>${escapeHtml(slipHead)} <span class="rc-n">finish-slip bridge · neutral attribution</span></h3>
     <div class="rc-sec">Each contribution attributes part of the finish movement along the driving path</div>
     <div class="rc-chartwrap">${slipWaterfall(r.slip)}</div>
     <div class="rc-callout">Each contribution links back to the change that caused it. Neutral: this attributes the slip, it does not judge the revision.</div></div>`;
 
   // Sequence roll-up — grouped, expandable chains
   const groups = r.sequence_rollup || [];
+  const detected = groups.reduce((s, g) => s + (g.count || 0), 0)
+    || groups.reduce((s, g) => s + ((g.items || []).length), 0);
   let idx = 0;
   const seqInner = groups.map(g => {
     const items = (g.items || []).map(it => {
       const i = idx++;
+      const crumb = it.group || g.group;
       const chain = (nodes) => (nodes && nodes.length)
-        ? nodes.map(nm => `<span class="rc-node">${esc(nm)}</span>`).join('<span class="rc-arw">→</span>')
+        ? nodes.map(nm => `<span class="rc-node${(nm === it.a_name || nm === it.b_name) ? ' moved' : ''}">${esc(nm)}</span>`).join('<span class="rc-arw">→</span>')
         : '<span class="rc-mut">—</span>';
       return `<div class="rc-seqitem" data-seq="${i}"><span class="rc-seqexp">▸</span>
           <span>${esc(it.a_name)}${it.b_name ? ` vs ${esc(it.b_name)}` : ''}</span>
           ${it.direction ? `<span class="rc-dirtag">${esc(it.direction)}</span>` : ''}</div>
         <div class="rc-seqbody hidden" id="rc-seq-${i}">
+          ${crumb ? `<div class="rc-wbscrumb">${esc(crumb)}</div>` : ''}
           <div class="rc-cklab">Rev.00 order</div><div class="rc-chain">${chain(it.chain0)}</div>
           <div class="rc-cklab r1">Rev.01 order</div><div class="rc-chain">${chain(it.chain1)}</div>
         </div>`;
     }).join('');
     return `<div class="rc-grouplab">${esc(g.group)}${g.count != null ? ` — ${g.count} activities` : ''}</div>${items}`;
   }).join('');
-  const seqCard = `<div class="rc-card"><h3>Re-sequenced activities <span class="rc-n">grouped by WBS / zone</span></h3>
+  const seqCard = `<div class="rc-card"><h3>Re-sequenced activities <span class="rc-n">${detected} detected · grouped by WBS / zone</span></h3>
     ${groups.length ? seqInner : noData('No execution-order changes detected from the logic.')}</div>`;
 
-  // Findings list
-  const findings = (r.findings || []).map(f => `
-    <div class="rc-finding"><div class="rc-fsev ${escapeHtml(String(f.severity || 'med'))}"></div>
-      <div><div class="rc-ftitle">${esc(f.title)} ${typeTag(f.change_type, f.type_label)} ${sevPill(f.severity)}</div>
-        <div class="rc-fbody">${esc(f.body)}</div>
-        <div class="rc-flow"><span class="rc-fk det">Change detected</span><span class="rc-arw">→</span><span class="rc-fk imp">${esc(f.flow_impact || 'Potential schedule impact')}</span><span class="rc-arw">→</span><span class="rc-fk rev">Planning review</span></div>
-      </div></div>`).join('');
-  const findCard = `<div class="rc-card"><h3>Key findings <span class="rc-n">ranked · for planning review</span></h3>
-    <div class="rc-sec">The differences most likely to affect the execution strategy — each is an observation, not a verdict</div>
-    ${findings || noData('No material findings detected between the two revisions.')}</div>`;
-
-  return secmark('2', 'Key Findings') + slipCard + seqCard + findCard;
+  return secmark('2', 'Key Findings') + slipCard + seqCard;
 }
 
 function wireFindings(body) {
@@ -454,29 +494,46 @@ function wireFindings(body) {
 
 function cpNode(n) {
   const cls = n.state === 'enter' ? 'enter' : n.state === 'leave' ? 'leave' : (n.tf != null && n.tf <= 0 ? 'crit' : '');
-  const code = n.code ? `<span class="rc-nf">${esc(n.code)}</span>` : '';
-  return `<div class="rc-node ${cls}">${esc(n.name)}${code}</div>`;
+  let dates = '';
+  if (n.is_ms) {
+    dates = n.finish ? esc(n.finish) : '';
+  } else {
+    const s = n.start ? esc(n.start) : '';
+    const f = n.finish ? esc(n.finish) : '';
+    dates = (s && f) ? `${s} – ${f}` : (s || f);
+  }
+  const sub = dates ? `<span class="rc-nf">${dates}</span>` : '';
+  return `<div class="rc-node ${cls}">${esc(n.name)}${sub}</div>`;
 }
 function cpChain(nodes) {
   if (!nodes || !nodes.length) return '<div class="rc-mut">No driving path available for this revision.</div>';
-  return nodes.map(cpNode).join('<span class="rc-lnk"><span class="rc-lt">FS</span>→</span>');
+  return nodes.map(cpNode).join('<span class="rc-arw">→</span>');
 }
 
 function criticalView(r) {
   const cp = r.critical_path || {};
   const entered = cp.entered || [], left = cp.left || [];
-  const cpCard = `<div class="rc-card"><h3>Driving chain <span class="rc-n">Rev.00 vs Rev.01 · longest path</span></h3>
-    <div class="rc-sec">${cp.length_change_wd != null ? `Rev.01 critical path is ${num(cp.length_change_wd, true)} working days ${cp.length_change_wd >= 0 ? 'longer' : 'shorter'}` : 'Driving chain to the governing finish milestone'}</div>
-    <div class="rc-chainrow"><div class="rc-clab r0"><div class="rc-ck">Rev.00</div><div class="rc-cv">ends ${esc(r.rev0 && r.rev0.finish)}</div></div>
-      <div class="rc-chainwrap"><div class="rc-chain">${cpChain(cp.rev0)}</div></div></div>
-    <div class="rc-chainrow"><div class="rc-clab r1"><div class="rc-ck">Rev.01</div><div class="rc-cv">ends ${esc(r.rev1 && r.rev1.finish)}</div></div>
-      <div class="rc-chainwrap"><div class="rc-chain">${cpChain(cp.rev1)}</div></div></div>
+  const leftNames = left.map(e => esc(e.name)).join(', ');
+  const cpLabel = (side) => {
+    const rev = (side === 'r0' ? r.rev0 : r.rev1) || {};
+    const len = side === 'r0' ? cp.rev0_len : cp.rev1_len;
+    const tf = side === 'r0' ? cp.rev0_tf_finish : cp.rev1_tf_finish;
+    const tag = side === 'r0' ? 'Rev.00' : 'Rev.01';
+    const parts = [];
+    if (rev.finish) parts.push(`ends ${esc(rev.finish)}`);
+    if (len != null) parts.push(`path length ${esc(len)} wd`);
+    if (tf != null) parts.push(`TF on finish ${esc(tf)}`);
+    return `<div class="rc-cklab${side === 'r1' ? ' r1' : ''}">${tag}${parts.length ? ' — ' + parts.join(' · ') : ''}</div>`;
+  };
+  const cpCard = `<div class="rc-card"><h3>Driving chain <span class="rc-n">${cp.length_change_wd != null ? `Rev.01 critical path ${num(cp.length_change_wd, true)} wd · dates on each node` : 'driving chain · dates on each node'}</span></h3>
+    ${cpLabel('r0')}
+    <div class="rc-chainwrap"><div class="rc-chain">${cpChain(cp.rev0)}</div></div>
+    ${cpLabel('r1')}
+    <div class="rc-chainwrap"><div class="rc-chain">${cpChain(cp.rev1)}</div></div>
     <div class="rc-leg">
-      <span><span class="rc-ld enter"></span>Entered critical path (${entered.length})</span>
-      <span><span class="rc-ld leave"></span>Left critical path (${left.length})</span>
+      <span><span class="rc-ld enter"></span>Entered CP (${entered.length})</span>
       <span><span class="rc-ld crit"></span>Critical in both</span>
-      ${entered.length ? `<span class="rc-mut">Entering: ${entered.slice(0, 4).map(e => esc(e.name)).join(', ')}${entered.length > 4 ? '…' : ''}</span>` : ''}
-      ${left.length ? `<span class="rc-mut">Leaving: ${left.slice(0, 4).map(e => esc(e.name)).join(', ')}${left.length > 4 ? '…' : ''}</span>` : ''}
+      <span><span class="rc-ld leave"></span>Left CP (${left.length})${left.length ? ': ' + leftNames : ''}</span>
     </div></div>`;
 
   // Float-band bars
@@ -519,15 +576,35 @@ function idName(row, idKeys, nameKeys) {
   return { id: pick(idKeys), name: pick(nameKeys) };
 }
 
+// Distinct filter values per activity-code dimension, for the register filter selects.
+function regFilterValues(r) {
+  const sbc = (r.codes && r.codes.scope_by_code) || {};
+  const uniq = (arr) => [...new Set(arr.filter(v => v != null && v !== ''))];
+  const fromSbc = (dim) => (sbc[dim] || []).map(x => x.category);
+  const wbsRows = [];
+  (r.duration_table || []).forEach(d => wbsRows.push(d.wbs));
+  (r.constraint_changes || []).forEach(c => wbsRows.push(c.wbs));
+  (r.date_shifts || []).forEach(d => wbsRows.push(d.wbs));
+  return {
+    Discipline: uniq(fromSbc('Discipline')),
+    Building: uniq(fromSbc('Building')),
+    WBS: uniq([...fromSbc('WBS'), ...wbsRows]),
+  };
+}
+
 function registerView(r) {
-  // Code filter bar — lists the activity-code dimensions present (added/removed are
-  // inventoried in the Executive Summary, not repeated here).
-  const dims = (r.codes && r.codes.dimensions) || [];
-  const dimChips = dims.length
-    ? dims.map(d => `<span class="rc-codechip">${escapeHtml(d)}</span>`).join('')
-    : '<span class="rc-mut">no activity-code dimensions</span>';
-  const filterBar = `<div class="rc-card rc-filterbar"><div class="rc-filterrow"><b>Activity-code dimensions:</b> ${dimChips}
-    <span class="rc-foot" style="margin-left:auto">Added &amp; removed activities are inventoried in the Executive Summary.</span></div></div>`;
+  // Filter-by-activity-code bar — three dimension selects + an Include added & removed
+  // toggle (off by default; added/removed are inventoried in the Executive Summary).
+  const vals = regFilterValues(r);
+  const sel = (dim) => {
+    const opts = [`<option value="">${escapeHtml(dim)} — All</option>`]
+      .concat((vals[dim] || []).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`)).join('');
+    return `<select class="rc-fsel" data-regcode="${escapeHtml(dim)}">${opts}</select>`;
+  };
+  const filterBar = `<div class="rc-card rc-filterbar"><div class="rc-filterrow"><b>Filter by activity code:</b>
+    ${sel('Discipline')}${sel('Building')}${sel('WBS')}
+    <span class="rc-fchip" id="rc-inc-addrem">Include added &amp; removed</span>
+    <span class="rc-foot" style="margin:0">(off by default — added/removed are inventoried in §1)</span></div></div>`;
 
   return secmark('4', 'Change Register', 'one table per change type · separate ID / Name columns · Before → After → Variance')
     + filterBar
@@ -547,7 +624,8 @@ function regDuration(r) {
     const cal = (d.calendar_before && d.calendar_after && d.calendar_before !== d.calendar_after)
       ? `<span class="rc-tag chg">${esc(d.calendar_before)} → ${esc(d.calendar_after)}</span>`
       : `<span class="rc-mut">${esc(d.calendar_after || d.calendar_before)}</span>`;
-    return `<tr><td class="rc-aid">${esc(d.id)}</td><td>${esc(d.name)}</td>
+    const addRem = (d.before == null || d.before === '—' || d.after == null || d.after === '—');
+    return `<tr class="rc-regrow${addRem ? ' rc-addrem' : ''}" data-wbs="${escapeHtml(d.wbs || '')}"><td class="rc-aid">${esc(d.id)}</td><td>${esc(d.name)}</td>
       <td class="n">${d.before != null ? esc(d.before) + (typeof d.before === 'number' ? ' d' : '') : '—'}</td>
       <td class="n rc-new">${d.after != null ? esc(d.after) + (typeof d.after === 'number' ? ' d' : '') : '—'}</td>
       <td class="n">${deltaCell(typeof d.variance === 'number' ? d.variance : (d.variance ?? null))}</td>
@@ -567,7 +645,8 @@ function regMilestone(r) {
       ? deltaCell(`${m.change_days > 0 ? '+' : ''}${m.change_days} d`)
       : (m.kind === 'new' ? '<span class="rc-tag add">Added</span>' : m.kind === 'removed' ? '<span class="rc-tag rem">Removed</span>' : '—');
     const type = m.type || m.constraint || (m.hard ? 'Contract' : '');
-    return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}</td>
+    const addRem = (m.kind === 'new' || m.kind === 'removed');
+    return `<tr class="rc-regrow${addRem ? ' rc-addrem' : ''}"><td class="rc-aid">${esc(id)}</td><td>${esc(name)}</td>
       <td>${type ? `<span class="rc-tag ${m.hard ? 'hard' : ''}">${esc(type)}</span>` : '<span class="rc-mut">—</span>'}</td>
       <td class="n rc-mut">${esc(m.rev0)}</td><td class="n rc-new">${esc(m.rev1)}</td><td class="n">${varCell}</td></tr>`;
   }).join('');
@@ -598,7 +677,7 @@ function regConstraint(r) {
     const { id, name } = idName(c, ['activity_id', 'id', 'code'], ['name', 'activity_name']);
     const kindLabel = { added: 'Added', removed: 'Removed', type: 'Type changed', date: 'Date changed' }[c.kind] || c.kind || 'Changed';
     const kindTag = { added: 'add', removed: 'rem', type: 'chg', date: 'chg' }[c.kind] || 'chg';
-    return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}</td><td class="rc-mut">${esc(c.wbs)}</td>
+    return `<tr class="rc-regrow" data-wbs="${escapeHtml(c.wbs || '')}"><td class="rc-aid">${esc(id)}</td><td>${esc(name)}</td><td class="rc-mut">${esc(c.wbs)}</td>
       <td class="rc-mut">${esc(c.rev0)}</td><td class="rc-new">${esc(c.rev1)}</td>
       <td><span class="rc-tag ${kindTag}">${escapeHtml(String(kindLabel))}</span>${c.hard ? ' <span class="rc-tag hard">Hard</span>' : ''}${c.on_cp ? ' <span class="rc-sev crit">on CP</span>' : ''}</td></tr>`;
   }).join('');
@@ -611,13 +690,14 @@ function regCalendar(r) {
   const cc = r.calendar_changes || {};
   const reassign = (cc.reassignments || []).map(g => `<tr><td class="rc-mut">${esc(g.from)}</td><td class="rc-new">${esc(g.to)}</td>
       <td class="n">${g.from_wd != null && g.to_wd != null ? `${g.from_wd}-day → ${g.to_wd}-day` : '—'}</td><td class="n">${esc(g.count)}</td></tr>`).join('');
-  const defs = (cc.calendars || []).map(c => `<tr><td>${esc(c.name)}</td><td class="n rc-mut" colspan="2">${esc(c.detail)}</td>
-      <td>${typeTag(c.change === 'added' ? 'add' : c.change === 'removed' ? 'rem' : 'chg', c.change)}</td></tr>`).join('');
+  const defs = (cc.calendars || []).map(c => `<tr><td>${esc(c.name)}</td>
+      <td>${typeTag(c.change === 'added' ? 'add' : c.change === 'removed' ? 'rem' : 'chg', c.change)}</td>
+      <td class="rc-mut">${esc(c.detail)}</td></tr>`).join('');
   const left = reassign
     ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Calendar From</th><th>Calendar To</th><th class="n">Workweek</th><th class="n">Activities</th></tr></thead><tbody>${reassign}</tbody></table></div>`
     : noData('No per-activity calendar reassignments.');
   const right = defs
-    ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Calendar</th><th class="n" colspan="2">Definition change</th><th>Change</th></tr></thead><tbody>${defs}</tbody></table></div>`
+    ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Calendar</th><th>Change</th><th>Detail</th></tr></thead><tbody>${defs}</tbody></table></div>`
     : noData('No calendar-definition changes.');
   const hasAny = reassign || defs;
   return `<div class="rc-card"><h3>Calendar changed <span class="rc-n">reassignments &amp; definition changes</span></h3>
@@ -659,7 +739,8 @@ function regCost(r) {
   const rows = costChanges.slice(0, 40).map(c => {
     const { id, name } = idName(c, ['code', 'activity_id', 'id'], ['name', 'activity_name']);
     const b = typeof c.rev0 === 'number' ? c.rev0 : null, a = typeof c.rev1 === 'number' ? c.rev1 : null;
-    return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}</td>
+    const addRem = (b == null || a == null);
+    return `<tr class="rc-regrow${addRem ? ' rc-addrem' : ''}"><td class="rc-aid">${esc(id)}</td><td>${esc(name)}</td>
       <td class="n rc-mut">${b != null ? fmt(b) : esc(c.rev0)}</td><td class="n rc-new">${a != null ? fmt(a) : esc(c.rev1)}</td>
       <td class="n">${deltaCell(typeof c.delta === 'number' ? c.delta : (b != null && a != null ? a - b : null))}</td>
       <td class="n rc-mut">${b != null && a != null ? pct(b, a) : '—'}</td></tr>`;
@@ -682,8 +763,32 @@ function regCost(r) {
     rows + subRows, '');
 }
 
-// The register has no expandable drawers now; kept as a hook + code-chip context only.
-function wireRegister() { /* per-type tables need no row wiring */ }
+// Register filter wiring: the Include added & removed toggle shows/hides added/removed
+// rows (Duration/Milestone/Cost), and the code selects filter rows by the value they
+// carry (WBS at minimum). Rows lacking a code are left visible — never filtered blindly.
+function wireRegister(body) {
+  const inc = body.querySelector('#rc-inc-addrem');
+  const selects = [...body.querySelectorAll('.rc-fsel[data-regcode]')];
+  const rows = [...body.querySelectorAll('tr.rc-regrow')];
+  if (!rows.length && !inc) return;
+  const apply = () => {
+    const showAddRem = !!(inc && inc.classList.contains('on'));
+    const wbsSel = selects.find(s => s.dataset.regcode === 'WBS');
+    const wbsVal = wbsSel ? wbsSel.value : '';
+    rows.forEach(tr => {
+      let show = true;
+      if (!showAddRem && tr.classList.contains('rc-addrem')) show = false;
+      if (show && wbsVal) {
+        const w = tr.dataset.wbs;
+        if (w != null && w !== '' && w !== wbsVal) show = false;
+      }
+      tr.hidden = !show;
+    });
+  };
+  if (inc) inc.addEventListener('click', () => { inc.classList.toggle('on'); apply(); });
+  selects.forEach(s => s.addEventListener('change', apply));
+  apply();
+}
 
 // ══ 5 · Cost & Resources ═══════════════════════════════════════════════════════
 
@@ -734,6 +839,7 @@ function scurveSvg(curves, rev0finish) {
   return `<svg viewBox="0 0 ${W} 280" class="rc-svg" style="min-width:680px" role="img" aria-label="Planned value S-curve">
     <line x1="${plotL}" y1="${plotB}" x2="${plotR}" y2="${plotB}" stroke="var(--border)"/>
     <line x1="${plotL}" y1="${plotT}" x2="${plotL}" y2="${plotB}" stroke="var(--border)"/>
+    <line x1="${plotR}" y1="${plotT}" x2="${plotR}" y2="${plotB}" stroke="var(--border)"/>
     <text x="${plotR + 2}" y="${plotT + 6}" font-size="9" fill="var(--accent)">100%</text>
     ${bars}
     ${line('rev0', 'var(--muted)', 2.2)}
@@ -778,7 +884,7 @@ function manpowerSvg(curves) {
 function costView(r) {
   const curves = r.curves || {};
   if (!curves.cost_available && !curves.resource_available) {
-    return secmark('5', 'Cost & Resources')
+    return secmark('5', 'Cost & Resources', 'S-curve, value tables, budget by discipline, manpower histogram')
       + `<div class="rc-card"><h3>Cost &amp; resources <span class="rc-n">optional</span></h3>${noData('Neither revision carries cost or resource loading — this section is reported as not applicable rather than "no change".')}</div>`;
   }
 
@@ -786,7 +892,7 @@ function costView(r) {
   const scurve = curves.cost_available
     ? `<div class="rc-card"><h3>Planned value of work <span class="rc-n">monthly bars + cumulative curves · Rev.00 vs Rev.01</span></h3>
         <div class="rc-chartwrap">${scurveSvg(curves, r.rev0 && r.rev0.finish)}</div>
-        <div class="rc-legend"><span><i style="background:var(--muted)"></i>Rev.00 value/mo</span><span><i style="background:var(--accent)"></i>Rev.01 value/mo</span><span><i class="rc-line" style="background:var(--muted)"></i>Rev.00 cum</span><span><i class="rc-line" style="background:var(--accent)"></i>Rev.01 cum</span></div>
+        <div class="rc-legend"><span><i style="background:var(--muted)"></i>Rev.00 value/mo</span><span><i style="background:var(--accent)"></i>Rev.01 value/mo</span><span><i class="rc-line" style="background:var(--muted)"></i>Rev.00 cum %</span><span><i class="rc-line" style="background:var(--accent)"></i>Rev.01 cum %</span></div>
         ${Number(curves.value_after_orig_finish) > 0 ? `<div class="rc-callout warn"><b>${fmt(curves.value_after_orig_finish)} of planned value now falls after the original finish (${esc(r.rev0 && r.rev0.finish)})</b> — potential extended-works exposure (prolongation, prelims, plant hire). Surfaced for review.</div>` : ''}
       </div>`
     : `<div class="rc-card"><h3>Planned value of work</h3>${noData('No cost loading — planned-value S-curve not applicable.')}</div>`;
@@ -808,15 +914,16 @@ function costView(r) {
         <tbody>${valRows}${vm.length > CAP ? '<tr><td colspan="5" class="rc-mut">… full monthly series in the report</td></tr>' : ''}</tbody></table></div></div>`
     : `<div class="rc-card"><h3>Planned value table</h3>${noData('No monthly value series available.')}</div>`;
 
-  // Budget by dimension
+  // Budget by discipline — one table for the primary (discipline) dimension.
   const bbd = curves.budget_by_dim || {};
   const dimKeys = Object.keys(bbd).filter(d => Array.isArray(bbd[d]) && bbd[d].length);
-  const bdInner = dimKeys.map(d => {
-    const rows = bbd[d].map(x => `<tr><td>${esc(x.category)}</td><td class="n rc-mut">${fmt(x.rev0)}</td><td class="n rc-new">${fmt(x.rev1)}</td><td class="n">${deltaCell(typeof x.var === 'number' ? x.var : null)}</td></tr>`).join('');
-    return `<div class="rc-cklab">By ${escapeHtml(d)}</div><table class="rc-t"><thead><tr><th>${escapeHtml(d)}</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr></thead><tbody>${rows}</tbody></table>`;
-  }).join('');
-  const bdCard = `<div class="rc-card"><h3>Budget by dimension <span class="rc-n">where the money moved</span></h3>
-    ${dimKeys.length ? bdInner : noData('No budget-by-dimension breakdown available.')}</div>`;
+  const primaryDim = dimKeys.includes('Discipline') ? 'Discipline' : dimKeys[0];
+  const bdTitle = primaryDim === 'Discipline' ? 'Budget by discipline' : `Budget by ${escapeHtml(primaryDim || 'dimension')}`;
+  const bdRows = primaryDim
+    ? bbd[primaryDim].map(x => `<tr><td>${esc(x.category)}</td><td class="n rc-mut">${fmt(x.rev0)}</td><td class="n rc-new">${fmt(x.rev1)}</td><td class="n">${deltaCell(typeof x.var === 'number' ? x.var : null)}</td></tr>`).join('')
+    : '';
+  const bdCard = `<div class="rc-card"><h3>${bdTitle} <span class="rc-n">where the money moved</span></h3>
+    ${(primaryDim && bdRows) ? `<table class="rc-t"><thead><tr><th>${escapeHtml(primaryDim)}</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr></thead><tbody>${bdRows}</tbody></table>` : noData('No budget-by-dimension breakdown available.')}</div>`;
 
   // Manpower histogram + man-hours by trade
   const trade = curves.manhours_by_trade || [];
@@ -840,7 +947,8 @@ function costView(r) {
           <tbody>${tradeRows}${totRow}</tbody></table></div>` : noData('No man-hours-by-trade breakdown available.')}</div>`
     : `<div class="rc-card"><h3>Manpower histogram</h3>${noData('No resource loading — manpower histogram not applicable.')}</div>`;
 
-  return secmark('5', 'Cost & Resources') + scurve + `<div class="rc-split">${valTable}${bdCard}</div>` + manCard;
+  return secmark('5', 'Cost & Resources', 'S-curve, value tables, budget by discipline, manpower histogram')
+    + scurve + `<div class="rc-split">${valTable}${bdCard}</div>` + manCard;
 }
 
 // ══ 6 · Scope & Structure ══════════════════════════════════════════════════════
@@ -850,7 +958,9 @@ function wbsColumn(nodes, side) {
   return nodes.map(nd => {
     const lvl = Math.min(Math.max(parseInt(nd.level, 10) || 1, 1), 5);
     const state = nd.state && nd.state !== 'unchanged' ? nd.state : '';
-    const badge = state ? `<span class="rc-p6badge">${escapeHtml(state)}</span>` : '';
+    let badgeText = state;
+    if (state === 'moved') badgeText = side === 'r0' ? 'moved →' : '← moved here';
+    const badge = state ? `<span class="rc-p6badge">${escapeHtml(badgeText)}</span>` : '';
     return `<div class="rc-p6band rc-l${lvl} ${state}" style="margin-left:${(lvl - 1) * 14}px">${esc(nd.name)}${badge}</div>`;
   }).join('');
 }
@@ -879,7 +989,8 @@ function scopeView(r) {
     ${ds.length ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th>WBS</th><th>Start (before → after)</th><th>Finish (before → after)</th><th class="n">Shift</th></tr></thead><tbody>${dsRows}</tbody></table></div>`
                 : noData('No material date shifts detected.')}</div>`;
 
-  return secmark('6', 'Scope & Structure') + wbsCard + dsCard;
+  return secmark('6', 'Scope & Structure', '— WBS in Primavera colour-grouping + largest date shifts')
+    + wbsCard + dsCard;
 }
 
 // ── Report (PDF) — invoked by the ⬇ PDF button (global preview picker) ─────────
