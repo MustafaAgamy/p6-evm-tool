@@ -2993,3 +2993,33 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pi-noref-i{width:52px;height:52px;border-radius:14px;background:var(--bg);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px}
 .pi-noref h3{margin:0 0 6px;font-size:16px}
 .pi-noref p{max-width:420px;margin:0 auto;font-size:13px}
+.pi-expwrap{position:relative}
+.pi-expmenu{position:absolute;top:40px;right:0;border:1px solid var(--border);background:var(--card-bg);border-radius:10px;box-shadow:0 8px 24px rgba(16,24,40,.16);width:290px;overflow:hidden;z-index:40;display:none}
+.pi-expmenu.on{display:block}
+.pi-expitem{display:flex;gap:11px;padding:11px 13px;cursor:pointer;border-bottom:1px solid var(--hair)}
+.pi-expitem:last-child{border:none}.pi-expitem:hover{background:var(--bg)}
+.pi-expitem .di{width:26px;height:26px;border-radius:7px;background:var(--accent-soft);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;flex:none;font-size:14px}
+.pi-expitem b{display:block;font-size:12.5px}.pi-expitem span{font-size:11px;color:var(--muted)}
+.pi-ratekpi{border-color:var(--warning)}
+.pi-ratekpi .v{color:var(--warning)}
+.pi-conv{font-size:12px;font-weight:700;color:var(--text);margin-top:6px;border-top:1px dashed var(--hair);padding-top:6px}
+.pi-ccard{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px}
+.pi-ccard.ctrl{border-color:var(--warning)}
+.pi-cch{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--bg);border-bottom:1px solid var(--border)}
+.pi-cch .nm{font-weight:700;font-size:13px}
+.pi-cch .ct{font-size:9px;font-weight:700;color:#fff;background:var(--warning);border-radius:4px;padding:2px 6px;margin-left:6px}
+.pi-cbody{padding:13px 14px}
+.pi-rateblock{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.pi-rateblock .lab{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+.pi-rateblock .big{font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--accent-dark)}
+.pi-rateblock .per{font-size:12px;color:var(--ink-soft)}
+.pi-gang{margin-top:7px;font-size:12px;color:var(--ink-soft)}
+.pi-gang .g{background:var(--card-bg);border:1px solid var(--border);border-radius:5px;padding:1px 7px;margin-right:4px;white-space:nowrap;display:inline-block;margin-bottom:3px}
+.pi-convert{margin-top:11px;background:var(--accent-soft);border-radius:9px;padding:10px 12px}
+.pi-convert .cvh{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent-dark);font-weight:700;margin-bottom:6px}
+.pi-chain{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-variant-numeric:tabular-nums;font-size:12px}
+.pi-chain .chip{background:var(--card-bg);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-weight:600}
+.pi-chain .chip.res{border-color:var(--accent);color:var(--accent-dark)}
+.pi-chain .op{color:var(--muted);font-weight:700}
+.pi-dur{margin-top:7px;font-size:11.5px;color:var(--ink-soft)}
+.pi-addq{margin-top:10px;font-size:12px;color:var(--muted);background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:9px 11px}

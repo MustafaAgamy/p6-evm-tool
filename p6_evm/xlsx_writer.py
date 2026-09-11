@@ -284,6 +284,22 @@ def write_xlsx(path, sheet_name, headers, rows, highlight_cols=None, severity_co
     _write_book(path, [(sheet_name, _sheet(headers, rows, highlight_cols, severity_col, legend))], _STYLES)
 
 
+def write_sections_xlsx(path, sections):
+    """Write one sheet per report section — the shared multi-section export.
+
+    sections: iterable of (name, headers, rows). Sheet names are made Excel-safe and unique.
+    Empty input still writes a valid one-sheet workbook so the file is never corrupt.
+    """
+    used = set()
+    sheets = []
+    for name, headers, rows in (sections or []):
+        nm = _uniq(_safe_sheet_name(name or 'Sheet'), used)
+        sheets.append((nm, _sheet(list(headers or []), [list(r) for r in (rows or [])])))
+    if not sheets:
+        sheets = [(_uniq(_safe_sheet_name('Report'), used), _sheet(['(no data)'], []))]
+    _write_book(path, sheets, _STYLES)
+
+
 _BAD_SHEET_CHARS = set('[]:*?/\\')
 
 

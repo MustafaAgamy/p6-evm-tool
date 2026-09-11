@@ -6,6 +6,7 @@
 // (Knowledge reference / Project context / Evidence & confidence). Standalone page.
 import { state } from './state.js';
 import { escapeHtml } from './format.js';
+import { printView } from './printview.js';
 
 let _tree = null, _flat = [];
 let _ctx = { 'Project type': 'Industrial', 'Location': 'Egypt', 'Methodology': 'Conventional', 'shift_hours': 8 };
@@ -63,7 +64,11 @@ function renderShell() {
         <div class="pi-searchwrap"><span class="pi-sic">⌕</span><input class="pi-search" id="pi-search" placeholder="Search ${_flat.length} items — columns, ductwork, cable tray, piling…" autocomplete="off">
           <div class="pi-suggest" id="pi-suggest"></div></div>
         <button class="pi-btn" id="pi-browse">▤ Browse library (${_flat.length})</button>
-        <button class="pi-btn" id="pi-export">⭳ Export</button>
+        <div class="pi-expwrap"><button class="pi-btn" id="pi-export">⭳ Export ▾</button>
+          <div class="pi-expmenu" id="pi-expmenu">
+            <div class="pi-expitem" id="pi-exp-pdf"><span class="di">▤</span><span><b>Export to PDF</b><span>Print preview + section picker</span></span></div>
+            <div class="pi-expitem" id="pi-exp-xls"><span class="di">▦</span><span><b>Export to Excel</b><span>One sheet per report section</span></span></div>
+          </div></div>
       </div>
       <div class="pi-selrow" id="pi-selrow"></div>
       <div class="pi-grid">
@@ -116,7 +121,27 @@ function wireChrome() {
     sug.querySelectorAll('.pi-sug[data-id]').forEach(d => d.onclick = () => { _itemId = d.dataset.id; s.value = ''; sug.classList.remove('on'); renderSelRow(); selectItem(_itemId); });
   };
   document.getElementById('pi-browse').onclick = openBrowse;
-  document.getElementById('pi-export').onclick = () => { const b = document.getElementById('pdf-btn'); alert('Use File ▸ Print / Export to PDF to export this report (with the section picker).'); };
+  const expBtn = document.getElementById('pi-export'), expMenu = document.getElementById('pi-expmenu');
+  expBtn.onclick = (e) => { e.stopPropagation(); expMenu.classList.toggle('on'); };
+  document.addEventListener('click', () => expMenu && expMenu.classList.remove('on'));
+  document.getElementById('pi-exp-pdf').onclick = () => { expMenu.classList.remove('on'); exportPDF(); };
+  document.getElementById('pi-exp-xls').onclick = () => { expMenu.classList.remove('on'); exportXLS(); };
+}
+
+function exportPDF() {
+  if (!_print || !_print.length) { alert('Open a work item first, then export.'); return; }
+  const sub = _result ? [_result.item, (_result.context || {})['Project type'], (_result.context || {})['Location']].filter(Boolean).join(' · ') : '';
+  printView({ module: 'prodintel', title: 'Productivity & Resource Intelligence', subtitle: sub, sections: _print });
+}
+async function exportXLS() {
+  if (!_result || _result.found === false) { alert('Open a work item first, then export.'); return; }
+  try {
+    const name = (_result.item || 'productivity').replace(/[^a-z0-9]+/gi, '_').toLowerCase() + '.xlsx';
+    const outputPath = await window.pywebview.api.choose_save_path(name, 'xlsx');
+    if (!outputPath) return;
+    const j = await api('/api/prodintel/excel', { item_id: _itemId, context: _ctx, quantity: _quantity, output_path: outputPath });
+    if (!j || !j.ok) alert('Excel export failed: ' + ((j && j.error) || 'unknown'));
+  } catch (e) { alert('Excel export needs the desktop app (save dialog unavailable in the browser).'); }
 }
 
 function openBrowse() {
@@ -164,6 +189,19 @@ function aggregate(r) {
   return { labour, equip, material, shift };
 }
 
+// Express a component's rate as a production norm: per-gang output + per-primary-resource.
+function ratePhrase(c) {
+  const rate = c.rate; if (!rate) return null;
+  const g0 = (c.gang && c.gang[0]) || { count: 1, trade: 'crew' };
+  const unitNoun = ((rate.output_unit || c.unit || '').split('/')[0].trim()) || c.unit || '';
+  if (rate.output_per_day) {
+    const per = Math.round((rate.output_per_day / (g0.count || 1)) * 10) / 10;
+    return { gangRate: `${rate.output_per_day} ${rate.output_unit || (unitNoun + '/day')}`,
+             big: `${per} ${unitNoun} / ${(g0.trade || 'crew').toLowerCase()}·day`, unitNoun };
+  }
+  return { gangRate: `${rate.mh_per_unit} MH/${c.unit}`, big: `${rate.mh_per_unit} MH/${c.unit}`, unitNoun };
+}
+
 function renderResult() {
   const main = document.getElementById('pi-main'); if (!main) return;
   const r = _result;
@@ -181,11 +219,13 @@ function renderResult() {
   const band = comps.map(c => `<div class="pi-bpill ${c.controls ? 'ctrl' : ''}"><div class="n">${escapeHtml(c.name)}${c.controls ? ' <span class="ct">CONTROLS</span>' : ''}</div><div class="d">${c.rate ? (c.rate.mh_per_unit + ' MH/' + escapeHtml(c.unit) + (hasQ ? ' · ' + num(c.man_hours) + ' MH' : '')) : 'no reference'}</div></div>`).join('');
 
   // KPIs
+  const ctrlComp = comps.find(c => c.controls) || priced[0] || null;
+  const ctrlRate = ctrlComp ? ratePhrase(ctrlComp) : null;
   let kpis;
   if (hasQ && roll) {
     kpis = `
       <div class="pi-kpi hero"><span class="ic">◷</span><div class="l">Estimated duration</div><div class="v mono">~${roll.duration_days}</div><div class="u">working days</div><div class="sub">bottleneck · line-of-balance</div></div>
-      <div class="pi-kpi"><span class="ic">◔</span><div class="l">Total man-hours</div><div class="v mono">${num(roll.total_mh)}</div><div class="u">MH</div><div class="sub">band ${num(roll.total_mh_low)}–${num(roll.total_mh_high)}</div></div>
+      <div class="pi-kpi pi-ratekpi"><span class="ic">▮</span><div class="l">Productivity rate · controlling</div><div class="v mono" style="font-size:16px">${ctrlRate ? escapeHtml(ctrlRate.big) : '—'}</div><div class="u">${ctrlComp ? escapeHtml(ctrlComp.name) : ''}</div><div class="pi-conv mono">→ converts to ${num(roll.total_mh)} MH total</div></div>
       <div class="pi-kpi"><span class="ic">▤</span><div class="l">Blended rate</div><div class="v mono">${roll.blended_mh_per_primary}</div><div class="u">MH/${escapeHtml(r.primary_unit || '')}</div><div class="sub">across components</div></div>
       <div class="pi-kpi"><span class="ic">◈</span><div class="l">Controlling</div><div class="v" style="font-size:16px;margin-top:8px">${escapeHtml(roll.controlling_component || '—')}</div><div class="sub">sets the duration</div></div>`;
   } else {
@@ -205,29 +245,44 @@ function renderResult() {
     mh = `<div class="pi-mhbar">${segs}</div><div class="pi-mhleg">${leg}</div>`;
   }
 
-  // component rows with rate-range + MH bars
+  // rate-first component cards: productivity rate → convert to man-hours
+  const shift = (r.context && r.context.shift_hours) || 8;
   const rows = comps.map(c => {
-    if (!c.rate) return `<div class="pi-crow"><div class="cn">${escapeHtml(c.name)}<small>${escapeHtml(c.unit || '')}</small></div><div class="pi-muted" style="grid-column:2/5">No validated reference — not estimated ${stateChip(c.state, c.confidence)}</div></div>`;
+    if (!c.rate) return `<div class="pi-ccard"><div class="pi-cch"><span class="nm">${escapeHtml(c.name)}</span>${stateChip(c.state, c.confidence)}</div><div class="pi-cbody"><div class="pi-muted">No validated reference — not estimated.</div></div></div>`;
+    const rp = ratePhrase(c);
     const gang = (c.gang || []).map(g => `<span class="g">${g.count}× ${escapeHtml(g.trade)}</span>`).join('');
-    const out = c.rate.output_per_day ? ` · ${c.rate.output_per_day} ${escapeHtml(c.rate.output_unit || '')}` : '';
     let range = '';
     if (c.rate.low != null && c.rate.high != null && c.rate.high > c.rate.low) {
-      const pin = Math.max(0, Math.min(100, (( (c.rate.likely != null ? c.rate.likely : c.rate.mh_per_unit) - c.rate.low) / (c.rate.high - c.rate.low)) * 100));
-      range = `<div class="pi-rr"><div class="fill"></div><div class="pin" style="left:${pin}%"></div></div><div class="pi-rrl">${c.rate.low}–${c.rate.high} range · ${c.rate.mh_per_unit} selected</div>`;
+      const pin = Math.max(0, Math.min(100, (((c.rate.likely != null ? c.rate.likely : c.rate.mh_per_unit) - c.rate.low) / (c.rate.high - c.rate.low)) * 100));
+      range = `<div class="pi-rr" style="max-width:280px"><div class="fill"></div><div class="pin" style="left:${pin}%"></div></div><div class="pi-rrl">range ${c.rate.low}–${c.rate.high} MH/${escapeHtml(c.unit)} · ${c.rate.mh_per_unit} selected</div>`;
     }
-    return `<div class="pi-crow ${c.controls ? 'ctrl' : ''}">
-      <div class="cn">${escapeHtml(c.name)}${c.controls ? ' <span class="ctltag">CONTROLS</span>' : ''}<small>per ${escapeHtml(c.unit)}</small></div>
-      <div class="norm">${gang}${out} · ${c.rate.mh_per_unit} MH/${escapeHtml(c.unit)}${range}</div>
-      <div class="qty mono">${hasQ ? num(c.component_qty) + ' ' + escapeHtml(c.unit) : '—'}</div>
-      <div class="cmh">${hasQ ? '<b>' + num(c.man_hours) + ' MH</b><div class="pi-cmhbar"><i style="width:' + (c.man_hours / maxMH * 100) + '%"></i></div>' : stateChip(c.state, c.confidence)}</div></div>`;
+    let convert;
+    if (hasQ && c.man_hours != null) {
+      const gd = c.rate.output_per_day ? Math.round(c.component_qty / c.rate.output_per_day * 10) / 10 : null;
+      const chain = gd != null
+        ? `<span class="chip">${num(c.component_qty)} ${escapeHtml(c.unit)}</span><span class="op">÷</span><span class="chip">${c.rate.output_per_day} ${escapeHtml(rp.unitNoun)}/day</span><span class="op">=</span><span class="chip">${gd} gang-days</span><span class="op">×</span><span class="chip">${c.gang_persons} × ${shift} h</span><span class="op">=</span><span class="chip res">${num(c.man_hours)} MH</span>`
+        : `<span class="chip">${num(c.component_qty)} ${escapeHtml(c.unit)}</span><span class="op">×</span><span class="chip">${c.rate.mh_per_unit} MH/${escapeHtml(c.unit)}</span><span class="op">=</span><span class="chip res">${num(c.man_hours)} MH</span>`;
+      const dur = (c.duration_days != null)
+        ? `Duration: ${gd != null ? gd + ' gang-days ÷ ' + c.n_gangs + ' gangs = ' : ''}~${c.duration_days} days · equivalent ${c.rate.mh_per_unit} MH/${escapeHtml(c.unit)}`
+        : `equivalent ${c.rate.mh_per_unit} MH/${escapeHtml(c.unit)}`;
+      convert = `<div class="pi-convert"><div class="cvh">Convert to man-hours</div><div class="pi-chain">${chain}</div><div class="pi-dur">${dur}</div></div>`;
+    } else {
+      convert = `<div class="pi-addq">Add a quantity above to convert this rate into man-hours and duration.</div>`;
+    }
+    return `<div class="pi-ccard ${c.controls ? 'ctrl' : ''}">
+      <div class="pi-cch"><span class="nm">${escapeHtml(c.name)}${c.controls ? ' <span class="ct">CONTROLS</span>' : ''}</span>${stateChip(c.state, c.confidence)}</div>
+      <div class="pi-cbody">
+        <div class="pi-rateblock"><span class="lab">Productivity rate</span><span class="big mono">${escapeHtml(rp.gangRate)}</span>${rp.big !== rp.gangRate ? `<span class="per">≈ ${escapeHtml(rp.big)}</span>` : ''}</div>
+        <div class="pi-gang">Standard ${(c.gang && c.gang.length > 2) ? 'crew' : 'gang'}: ${gang}${range}</div>
+        ${convert}
+      </div></div>`;
   }).join('');
 
   const compCard = `<div class="pi-card pi-pad pi-smart">
-    <div class="pi-ch"><h3>Productivity &amp; man-hours — by component</h3><span class="m">standard norm per unit${hasQ ? ' × quantity' : ''}</span></div>
+    <div class="pi-ch"><h3>Productivity rate → man-hours — by component</h3><span class="m">rate first, then converted</span></div>
     ${mh}
-    <div class="pi-crow h"><div>Work component</div><div>Productivity norm (rate + gang)</div><div>Quantity</div><div style="text-align:right">Man-hours</div></div>
     ${rows}
-    <div class="pi-formula">Man-hours = Quantity × Productivity rate · Duration = Man-hours ÷ (crew × shift)${hasQ && roll ? ` · Total <b>${num(roll.total_mh)} MH</b> → ~${roll.duration_days} days (${escapeHtml(roll.controlling_component || '')} controls)` : ''}${r.basis_incomplete ? ' · <b>basis incomplete</b>' : ''}</div></div>`;
+    <div class="pi-formula">Man-hours = (Quantity ÷ productivity rate) × crew × shift${hasQ && roll ? ` · Total <b>${num(roll.total_mh)} MH</b> → ~${roll.duration_days} days (${escapeHtml(roll.controlling_component || '')} controls)` : ''}${r.basis_incomplete ? ' · <b>basis incomplete</b>' : ''}</div></div>`;
 
   main.innerHTML = `
     <div class="pi-card pi-pad">
