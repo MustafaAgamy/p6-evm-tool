@@ -53,20 +53,20 @@ def test_money_ev(temp_db, xml_path):
     assert _items(ctx)['evm:ev'].produce(ctx)['items'][0]['value'] == '600,000'
 
 
-def test_paired_reuses_progress_section(temp_db, xml_path):
-    # Composite EVM results reuse the EVM Report's OWN section (exact style/format),
-    # not a re-derived generic block.
+def test_paired_is_a_bars_payload(temp_db, xml_path):
+    # Composite EVM results ship DATA (bars / table): the narrative Document renders
+    # it in the house style, and the Dashboard turns the same data into a chart.
     ctx = SpecialContext(_seed(xml_path))
     b = _items(ctx)['evm:planned_vs_actual'].produce(ctx)
-    assert b['kind'] == 'html'
-    assert 'Project Progress' in b['html']
+    assert b['kind'] == 'bars'
+    assert b.get('rows')
 
 
-def test_category_reuses_section(temp_db, xml_path):
+def test_category_is_a_table_payload(temp_db, xml_path):
     ctx = SpecialContext(_seed(xml_path))
     t = _items(ctx)['evm:category_table'].produce(ctx)
-    assert t['kind'] == 'html'
-    assert 'Category Weights' in t['html'] and 'WBS Category' in t['html']
+    assert t['kind'] == 'table'
+    assert t.get('rows') and t.get('columns')
 
 
 def test_availability_ready(temp_db, xml_path):

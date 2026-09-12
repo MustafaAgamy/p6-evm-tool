@@ -1,8 +1,7 @@
-"""The Studio's EVM composite results reuse the EVM Report's OWN sections, so a
-pick looks EXACTLY like the EVM Report (style + format) — not a re-derived generic
-table/chart. Regression for Ibrahim's report: 'Planned vs Actual by category' in
-the Studio must match the EVM Report's category section.
-"""
+"""EVM results in the Studio ship their DATA as payloads (table / bars / kpi), so
+ONE selection feeds both views: the narrative Document renders the data in its
+house style, and the Dashboard turns the same data into a chart. The whole EVM
+report stays available as a detailed reused section (``evm:full_report``)."""
 import db
 from p6_special import registry
 from p6_special.context import SpecialContext
@@ -29,43 +28,26 @@ def _render_one(pid, sid, item_id):
     return out[0], ctx
 
 
-def test_category_item_reuses_the_evm_report_section(temp_db, xml_path):
+def test_composites_are_chartable_data_payloads(temp_db, xml_path):
+    """category -> table, planned-vs-actual + PV/EV/AC -> bars. Structured data (not
+    opaque html), so the Dashboard can turn each into a chart and the Document can
+    render it in the narrative house style."""
     pid, sid = _seed(xml_path)
-    item, ctx = _render_one(pid, sid, 'evm:category_table')
+    expected = {'evm:category_table': 'table',
+                'evm:planned_vs_actual': 'bars',
+                'evm:pv_ev_ac': 'bars'}
+    for item_id, kind in expected.items():
+        item, _ = _render_one(pid, sid, item_id)
+        pl = item['payload']
+        assert pl.get('kind') == kind, f'{item_id}: expected {kind}, got {pl.get("kind")}'
+        assert pl.get('rows'), f'{item_id} has no rows'   # real, non-empty structured data
 
-    # It is now a reused HTML section (not a generic re-derived table payload).
+
+def test_full_report_stays_a_reused_section(temp_db, xml_path):
+    """The whole EVM report remains available verbatim as a detailed section."""
+    pid, sid = _seed(xml_path)
+    item, ctx = _render_one(pid, sid, 'evm:full_report')
     assert item['ctype'] == 'section'
     pl = item['payload']
-    assert pl.get('kind') == 'html', f'expected reused html section, got {pl.get("kind")}'
-    html = pl.get('html') or ''
-
-    # It carries the EVM Report's OWN category heading + its styled table classes,
-    # so it looks identical to the EVM Report's category section.
-    assert 'Category Weights' in html
-    assert 'WBS Category' in html          # the report table's own header cell
-    assert 'class="num"' in html or 'class="tot"' in html   # the report's table styling
-
-
-def test_category_item_matches_the_real_report_section_verbatim(temp_db, xml_path):
-    """The item's fragment is exactly what the EVM Report renders for that section."""
-    pid, sid = _seed(xml_path)
-    item, ctx = _render_one(pid, sid, 'evm:category_table')
-    frag = item['payload']['html']
-
-    from p6_evm.evm_report import render_evm_report
-    from p6_special import feature_reports as FR
-    ref = render_evm_report(ctx.computed(), {'project_name': ctx.project_name,
-                                             'data_date': ctx.data_date},
-                            sections=['category'], theme=ctx.mode)
-    ref_body = FR._strip_trailing_foot(FR._body_after_head(ref))
-    assert ref_body and ref_body in frag       # the item wraps the exact report section
-
-
-def test_paired_and_value_items_are_also_reused_sections(temp_db, xml_path):
-    pid, sid = _seed(xml_path)
-    for item_id, needle in (('evm:planned_vs_actual', 'Project Progress'),
-                            ('evm:pv_ev_ac', 'Planned Value vs Earned Value')):
-        item, _ = _render_one(pid, sid, item_id)
-        assert item['ctype'] == 'section'
-        assert item['payload'].get('kind') == 'html'
-        assert needle in item['payload']['html']
+    assert pl.get('kind') == 'html'
+    assert 'Category Weights' in pl.get('html', '')   # the report's own section content

@@ -351,22 +351,20 @@ def provide(ctx):
         Item('evm:planned_pct', FEATURE, FEATURE_TITLE, 'Planned % — overall', 'kpi', _kpi_planned, A),
         Item('evm:actual_pct', FEATURE, FEATURE_TITLE, 'Actual % — overall', 'kpi', _kpi_actual, A),
         Item('evm:variance', FEATURE, FEATURE_TITLE, 'Variance — overall', 'kpi', _kpi_variance, A),
-        # These composite results reuse the EVM Report's OWN sections (its exact
-        # heading + styled table/bars), so a pick looks identical to the EVM Report.
+        # Composite results ship their DATA (bars / table): the narrative Document
+        # renders it in the house style, and the Dashboard turns the same data into
+        # a chart — one payload, both views (so any feature's results chart too).
         Item('evm:planned_vs_actual', FEATURE, FEATURE_TITLE,
-             'Planned % vs Actual % — overall (paired)', 'section',
-             lambda c: FR.evm_section(c, 'progress') or P.NO_DATA, _full_ready),
+             'Planned % vs Actual % — overall (paired)', 'chart', _paired, _paired_ready),
         Item('evm:category_table', FEATURE, FEATURE_TITLE,
-             'Planned % vs Actual % — by category', 'section',
-             lambda c: FR.evm_section(c, 'category') or P.NO_DATA, _full_ready),
+             'Planned % vs Actual % — by category', 'table', _category_table, _cats_ready),
         Item('evm:spi', FEATURE, FEATURE_TITLE, 'SPI', 'kpi', _kpi_spi, A),
         Item('evm:cpi', FEATURE, FEATURE_TITLE, 'CPI', 'kpi', _kpi_cpi, A),
         Item('evm:pv', FEATURE, FEATURE_TITLE, 'Planned Value (PV)', 'kpi', _kpi_pv, A),
         Item('evm:ev', FEATURE, FEATURE_TITLE, 'Earned Value (EV)', 'kpi', _kpi_ev, A),
         Item('evm:ac', FEATURE, FEATURE_TITLE, 'Actual Cost (AC)', 'kpi', _kpi_ac, A),
         Item('evm:delay', FEATURE, FEATURE_TITLE, 'Delay in working days', 'kpi', _kpi_delay, A),
-        Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned / Earned / Actual value (chart)', 'section',
-             lambda c: FR.evm_section(c, 'value') or P.NO_DATA, _full_ready),
+        Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned / Earned / Actual value (chart)', 'chart', _pv_ev_ac, _value_ready),
         Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'section',
              lambda c: FR.evm_gap_section(c) or P.NO_DATA, _gap_ready),
         Item('evm:trend_spi_cpi', FEATURE, FEATURE_TITLE, 'SPI / CPI trend', 'chart',
