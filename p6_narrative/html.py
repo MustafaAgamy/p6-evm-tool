@@ -207,7 +207,9 @@ def _value_bars(p, number, title, meta, cur):
     cur = _currency_prefix(meta, p) or cur
     banner = ('<div class="banner"><span class="l">Total Contract Value</span>'
               '<span class="v">%s</span></div>' % _fmt_full(p.get('total'), cur))
-    bars = _bars(p.get('rows') or [], 'name', lambda r: _fmt_abbrev(r.get('amount'), cur))
+    # Bar labels carry the EXACT contract amount (grouped, no rounding to millions),
+    # so a bar reads identically to the banner total — matches the Word _money() label.
+    bars = _bars(p.get('rows') or [], 'name', lambda r: _fmt_full(r.get('amount'), cur))
     return ('<p>The contract value and its distribution by type of work (the discipline '
             'activity code), from cost loading.</p>%s%s' % (banner, bars))
 
@@ -306,7 +308,8 @@ def _calendars(p, number, title, meta, cur):
                         for lbl, v in tiles[i:i + 4])
         style = ' style="margin-top:8px"' if i else ''
         trows += '<div class="tiles"%s>%s</div>' % (style, cells)
-    dash_block = '<div class="sub">8.1 &middot; Executive Dashboard</div>%s' % trows if trows else ''
+    dash_block = ('<div class="sub">%s.1 &middot; Executive Dashboard</div>%s'
+                  % (_esc(number), trows)) if trows else ''
 
     # 8.2 one stacked histogram per assigned calendar
     hists = ''.join(_cal_hist(c) for c in (p.get('calendars') or []))
@@ -314,11 +317,11 @@ def _calendars(p, number, title, meta, cur):
     if hists:
         legend = ('<div class="callegend"><span><i style="background:#1f7a3d"></i>Working days'
                   '</span><span><i style="background:#b23030"></i>Non-working days</span></div>')
-        hist_block = ('<div class="sub">8.2 &middot; Calendar Timeline '
+        hist_block = ('<div class="sub">%s.2 &middot; Calendar Timeline '
                       '<span style="font-weight:400;font-size:9.5px;color:#8a93a0;'
                       'text-transform:none;letter-spacing:0">&mdash; working vs non-working '
                       'days per month, for each calendar (from data date)</span></div>'
-                      '%s%s' % (legend, hists))
+                      '%s%s' % (_esc(number), legend, hists))
 
     # 8.3 holidays (Date | Description only)
     hols = p.get('holidays') or []
@@ -326,9 +329,9 @@ def _calendars(p, number, title, meta, cur):
     if hols:
         hrows = ''.join('<tr><td>%s</td><td>%s</td></tr>'
                         % (_esc(h.get('date')), _esc(h.get('description'))) for h in hols)
-        hol_block = ('<div class="sub">8.3 &middot; Holidays</div>'
+        hol_block = ('<div class="sub">%s.3 &middot; Holidays</div>'
                      '<table class="dt"><tr><th style="width:26%%">Date</th>'
-                     '<th>Description</th></tr>%s</table>' % hrows)
+                     '<th>Description</th></tr>%s</table>' % (_esc(number), hrows))
 
     # 8.4 working-hours profile cards
     profs = p.get('hours_profiles') or []
@@ -339,8 +342,8 @@ def _calendars(p, number, title, meta, cur):
             sub = pf.get('sub') or pf.get('name') or ''
             cards += ('<div class="tile stat"><div class="n" style="font-size:13px">%s</div>'
                       '<div class="l">%s</div></div>' % (_esc(pf.get('hours')), _esc(sub)))
-        prof_block = ('<div class="sub">8.4 &middot; Working Hours Profile</div>'
-                      '<div class="tiles">%s</div>' % cards)
+        prof_block = ('<div class="sub">%s.4 &middot; Working Hours Profile</div>'
+                      '<div class="tiles">%s</div>' % (_esc(number), cards))
 
     return lead + dash_block + hist_block + hol_block + prof_block
 
@@ -597,8 +600,8 @@ table { border-collapse: collapse; }
 .hist .m { font-size:8.5px; color:#8a95a1; margin-top:3px; font-family:Calibri,sans-serif; }
 .oc { text-align:center; }
 .ocroot { display:inline-block; background:#1F4E79; color:#fff; font-weight:700; font-size:11px; padding:7px 18px; border-radius:6px; font-family:Calibri,sans-serif; }
-.ocbranch { display:flex; justify-content:center; flex-wrap:wrap; gap:6px; margin-top:14px; }
-.ocbox { flex:1; min-width:90px; max-width:110px; background:#DEEAF6; border:1px solid #9cbcdd; border-radius:6px; padding:7px 4px; font-size:9px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; }
+.ocbranch { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.ocbox { flex:0 0 120px; width:120px; min-height:52px; display:flex; align-items:center; justify-content:center; text-align:center; background:#DEEAF6; border:1px solid #9cbcdd; border-radius:6px; padding:6px 6px; font-size:9.5px; line-height:1.25; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; overflow-wrap:anywhere; word-break:break-word; }
 .occols { display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:12px; }
 .occol { flex:1; min-width:120px; }
 .l2 { background:#bcd3ea; border:1px solid #9cbcdd; border-radius:6px; padding:6px; font-size:10px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; }

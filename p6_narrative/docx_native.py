@@ -104,8 +104,22 @@ def _cat_ref(cats):
             f'</c:strRef></c:cat>')
 
 
+def _vstr(v):
+    """Serialise a numeric cache value WITHOUT the 6-significant-figure rounding that
+    ``'%g'`` inflicts on large numbers (e.g. 916262587.95 → '9.16263e+08', which Word
+    then reads back as 916263000). Integers print as integers; non-integers keep full
+    round-trip precision so a data label formatted '#,##0' can show the exact figure."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return '0'
+    if f != f:                              # NaN
+        return '0'
+    return str(int(f)) if f == int(f) else repr(f)
+
+
 def _val_ref(vals, col_letter):
-    pts = ''.join(f'<c:pt idx="{i}"><c:v>{v:g}</c:v></c:pt>'
+    pts = ''.join(f'<c:pt idx="{i}"><c:v>{_vstr(v)}</c:v></c:pt>'
                   for i, v in enumerate(vals))
     return (f'<c:val><c:numRef>'
             f'<c:f>Sheet1!${col_letter}$2:${col_letter}${len(vals) + 1}</c:f>'
@@ -514,7 +528,7 @@ def _org_vertical(document, root):
         shapes.append(_wps_box(
             counter, n.get('name') or '', _emu(x_of(depth)), _emu(y_of(n)),
             _emu(BOX_W), _emu(BOX_H), fill, _WBS_ACCENT, tcol,
-            _clip(n.get('name'), 60), sz=11))
+            n.get('name') or '', sz=11))
     return _group_drawing(document, ''.join(shapes), base_id, _emu(total_w), _emu(total_h))
 
 
@@ -585,7 +599,7 @@ def add_org_chart(document, root_node):
             shapes.append(_wps_box(
                 counter, n.get('name') or '', _emu(bx(n)), _emu(by(n)),
                 _emu(BOX_W), _emu(BOX_H), fill, _WBS_ACCENT, tcol,
-                _clip(n.get('name'), 46), sz=11))
+                n.get('name') or '', sz=11))
 
         return _group_drawing(document, ''.join(shapes), base_id,
                               _emu(width_px), _emu(height_px))
@@ -669,9 +683,14 @@ def add_process(document, steps):
 # Every one is native/editable (a real c:chartSpace or a wpg:wgp shape group — never a
 # picture) and None-safe: any bad input / internal error returns None, never raises.
 # ══════════════════════════════════════════════════════════════════════════════
-def add_hbar(document, categories, values, title, color='1F4E79', name='Series'):
+def add_hbar(document, categories, values, title, color='1F4E79', name='Series',
+             num_fmt=None):
     """Native horizontal BAR chart (``barDir='bar'``) — the editable Word twin of the
-    HTML horizontal-bar list. Returns the drawing element, or ``None`` on bad input."""
+    HTML horizontal-bar list. Returns the drawing element, or ``None`` on bad input.
+
+    ``num_fmt`` (e.g. ``'#,##0'``) sets the data-label AND value-axis number format so a
+    large exact amount (e.g. a 916,262,588 contract value) shows with thousands
+    separators and no rounding, instead of the General/scientific default."""
     if document is None or not categories or values is None:
         return None
     cats = list(categories)
@@ -679,6 +698,8 @@ def add_hbar(document, categories, values, title, color='1F4E79', name='Series')
     if not cats or len(cats) != len(vals) or any(v is None for v in vals):
         return None
     col = _hex(color, '1F4E79')
+    lbl_fmt = (f'<c:numFmt formatCode="{_xesc(num_fmt)}" sourceLinked="0"/>'
+               if num_fmt else '')
 
     def build(rid):
         dpts = ''.join(
@@ -687,7 +708,7 @@ def add_hbar(document, categories, values, title, color='1F4E79', name='Series')
             for i in range(len(vals)))
         ser = (f'<c:ser><c:idx val="0"/><c:order val="0"/>{_tx_ref(name, "B")}'
                f'<c:spPr><a:solidFill><a:srgbClr val="{col}"/></a:solidFill></c:spPr>'
-               f'<c:dLbls><c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>'
+               f'<c:dLbls>{lbl_fmt}<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>'
                f'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>'
                f'{dpts}{_cat_ref(cats)}{_val_ref(vals, "B")}</c:ser>')
         return (
@@ -699,7 +720,7 @@ def add_hbar(document, categories, values, title, color='1F4E79', name='Series')
             f'<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="maxMin"/></c:scaling>'
             f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="222"/></c:catAx>'
             f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
-            f'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="111"/></c:valAx>'
+            f'<c:delete val="0"/><c:axPos val="b"/>{lbl_fmt}<c:crossAx val="111"/></c:valAx>'
             f'</c:plotArea><c:plotVisOnly val="1"/></c:chart>{_external_data(rid)}'
             f'</c:chartSpace>')
 
@@ -709,8 +730,15 @@ def add_hbar(document, categories, values, title, color='1F4E79', name='Series')
 def add_calendar_hist(document, categories, working, nonworking,
                       title='Working / non-working days by month'):
     """Native STACKED histogram: net-working days (green, bottom) + non-working days
-    (red, top), with the net-working-days value labelled on each bar (§8.2). Returns
-    the drawing element, or ``None`` on bad input."""
+    (red, top), matching the on-screen / PDF colours (working #1F7A3D, non-working
+    #B23030). A bottom two-item LEGEND names the colours ("Working days" /
+    "Non-working days"), and the NET-WORKING-DAYS total is labelled ABOVE each month's
+    stacked column (§8.2). Returns the drawing element, or ``None`` on bad input.
+
+    The top-of-bar total is carried by a third, invisible zero-height series stacked on
+    top: it adds no height, is hidden from the legend, and shows the working-days figure
+    as a custom label at the very top of each column (the on-screen ".v" number above
+    the bar). Colours mirror ``html.py`` (._cal_hist / .callegend)."""
     if document is None or not categories:
         return None
     cats = list(categories)
@@ -719,26 +747,47 @@ def add_calendar_hist(document, categories, working, nonworking,
     if (len(wk) != len(cats) or len(nw) != len(cats)
             or any(v is None for v in wk) or any(v is None for v in nw)):
         return None
+    zeros = [0 for _ in cats]
+    GREEN, RED, LABEL = '1F7A3D', 'B23030', '17457A'   # match html gseg / rseg / .v
 
-    def ser(idx, nm, vals, colr, letter, labels):
+    def seg(idx, nm, vals, colr, letter):
+        """A plain coloured stacked segment (no data labels)."""
         dpts = ''.join(f'<c:dPt><c:idx val="{j}"/><c:invertIfNegative val="0"/>'
                        f'<c:bubble3D val="0"/><c:spPr><a:solidFill>'
                        f'<a:srgbClr val="{colr}"/></a:solidFill></c:spPr></c:dPt>'
                        for j in range(len(vals)))
-        dl = ('<c:dLbls><c:numFmt formatCode="0" sourceLinked="0"/>'
-              '<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'
-              '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr b="1" sz="800"/></a:pPr>'
-              '<a:endParaRPr lang="en-US"/></a:p></c:txPr><c:dLblPos val="inEnd"/>'
-              '<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>'
-              '<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>'
-              if labels else '')
         return (f'<c:ser><c:idx val="{idx}"/><c:order val="{idx}"/>{_tx_ref(nm, letter)}'
                 f'<c:spPr><a:solidFill><a:srgbClr val="{colr}"/></a:solidFill></c:spPr>'
-                f'{dl}{dpts}{_cat_ref(cats)}{_val_ref(vals, letter)}</c:ser>')
+                f'{dpts}{_cat_ref(cats)}{_val_ref(vals, letter)}</c:ser>')
+
+    def topper(idx, letter):
+        """Invisible zero-height top series carrying the net-working-days number ABOVE
+        each column, via a per-point custom label."""
+        dlbls = ''.join(
+            f'<c:dLbl><c:idx val="{j}"/>'
+            f'<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p>'
+            f'<a:pPr><a:defRPr b="1" sz="800"><a:solidFill><a:srgbClr val="{LABEL}"/></a:solidFill></a:defRPr></a:pPr>'
+            f'<a:r><a:rPr lang="en-US" b="1" sz="800"><a:solidFill><a:srgbClr val="{LABEL}"/></a:solidFill></a:rPr>'
+            f'<a:t>{int(round(wk[j]))}</a:t></a:r></a:p></c:rich></c:tx>'
+            f'<c:dLblPos val="inEnd"/>'
+            f'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>'
+            f'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbl>'
+            for j in range(len(cats)))
+        dl = (f'<c:dLbls>{dlbls}<c:dLblPos val="inEnd"/>'
+              f'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>'
+              f'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>')
+        return (f'<c:ser><c:idx val="{idx}"/><c:order val="{idx}"/>{_tx_ref("Net working days", letter)}'
+                f'<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'
+                f'{dl}{_cat_ref(cats)}{_val_ref(zeros, letter)}</c:ser>')
 
     def build(rid):
-        s = (ser(0, 'Working days', wk, '22C55E', 'B', True) +
-             ser(1, 'Non-working days', nw, 'EF4444', 'C', False))
+        s = (seg(0, 'Working days', wk, GREEN, 'B') +
+             seg(1, 'Non-working days', nw, RED, 'C') +
+             topper(2, 'D'))
+        # bottom legend, but hide the invisible topper series' entry (idx 2)
+        legend = ('<c:legend><c:legendPos val="b"/>'
+                  '<c:legendEntry><c:idx val="2"/><c:delete val="1"/></c:legendEntry>'
+                  '<c:overlay val="0"/></c:legend>')
         return (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                 f'<c:chartSpace {_C_NS}><c:chart>{_title_el(title)}'
                 f'<c:plotArea><c:layout/><c:barChart><c:barDir val="col"/>'
@@ -749,103 +798,145 @@ def add_calendar_hist(document, categories, working, nonworking,
                 f'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222"/></c:catAx>'
                 f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
                 f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111"/></c:valAx>'
-                f'</c:plotArea><c:plotVisOnly val="1"/></c:chart>{_external_data(rid)}</c:chartSpace>')
+                f'</c:plotArea>{legend}<c:plotVisOnly val="1"/></c:chart>'
+                f'{_external_data(rid)}</c:chartSpace>')
 
     return _inject(document, build, cats,
-                   [('Working days', wk), ('Non-working days', nw)])
+                   [('Working days', wk), ('Non-working days', nw),
+                    ('Net working days', zeros)])
 
 
-def add_org_flat(document, root_name, branches, total_w=560):
-    """Horizontal org-chart: a root box on top, the branch boxes in a row beneath, joined
-    by elbow connector lines (§9.1). Native/editable shapes. ``branches`` is a list of
-    branch names. Returns the drawing element, or ``None`` on bad input."""
+def add_org_flat(document, root_name, branches, total_w=660):
+    """Horizontal org-chart: a root header on top, then the branch boxes in a UNIFORM,
+    WRAPPING grid beneath, joined by connector lines from the root (§9.1). Every branch
+    box is the SAME width and height and large enough that its full name WRAPS inside
+    (never clipped/truncated); rows that overflow the page width wrap to further rows,
+    each centred. Native/editable shapes. ``branches`` is a list of branch names.
+    Returns the drawing element, or ``None`` on bad input."""
     if document is None or not branches:
         return None
     try:
         names = [('' if b is None else str(b)) for b in branches]
         n = len(names)
-        GAP = 6
-        BW = max(1, (total_w - (n - 1) * GAP) // n)
-        RW, RH, BH = 152, 32, 46
-        rowW = n * BW + (n - 1) * GAP
+        GAP, BW, BH = 12, 150, 54           # uniform branch box (width matches §9.2 boxes)
+        per_row = max(1, min(n, (total_w + GAP) // (BW + GAP)))
+        rows = (n + per_row - 1) // per_row
+        grid_w = per_row * BW + (per_row - 1) * GAP
+        RH, bus_gap, row_step = 30, 14, BH + 14
+        grid_y = RH + bus_gap + 8
+        total_h = grid_y + rows * row_step - (row_step - BH)
+
+        def row_geom(r):
+            k = min(per_row, n - r * per_row)
+            xoff = (grid_w - (k * BW + (k - 1) * GAP)) // 2
+            return k, xoff
+
         cnt = [_next_id(document)]
         base = cnt[0]
         cnt[0] += 1
         sh = ''
-        rx = (rowW - RW) // 2
-        sh += _wps_box(cnt, 'root', _emu(rx), _emu(0), _emu(RW), _emu(RH),
+        # root header spans the grid width so a long project title reads in full
+        sh += _wps_box(cnt, 'root', _emu(0), _emu(0), _emu(grid_w), _emu(RH),
                        '1F4E79', '1F4E79', 'FFFFFF', str(root_name or 'Project'), sz=11)
-        busY = RH + 14
-        brY = busY + 14
-        sh += _wps_line(cnt, _emu(rowW // 2), _emu(RH), 0, _emu(busY - RH), '9FB4C6')
-        bx = [i * (BW + GAP) for i in range(n)]
-        ctr = [x + BW // 2 for x in bx]
-        if n > 1:
-            sh += _wps_line(cnt, _emu(ctr[0]), _emu(busY), _emu(ctr[-1] - ctr[0]), 0, '9FB4C6')
+        busY = RH + bus_gap
+        sh += _wps_line(cnt, _emu(grid_w // 2), _emu(RH), 0, _emu(busY - RH), '9FB4C6')
+        # connect the root bus to the first row of boxes
+        k0, xoff0 = row_geom(0)
+        ctr0 = [xoff0 + c * (BW + GAP) + BW // 2 for c in range(k0)]
+        if k0 > 1:
+            sh += _wps_line(cnt, _emu(ctr0[0]), _emu(busY), _emu(ctr0[-1] - ctr0[0]), 0, '9FB4C6')
+        for c in range(k0):
+            sh += _wps_line(cnt, _emu(ctr0[c]), _emu(busY), 0, _emu(grid_y - busY), '9FB4C6')
         for i, nm in enumerate(names):
-            sh += _wps_line(cnt, _emu(ctr[i]), _emu(busY), 0, _emu(brY - busY), '9FB4C6')
-            sh += _wps_box(cnt, nm, _emu(bx[i]), _emu(brY), _emu(BW), _emu(BH),
-                           'DEEAF6', '9CBCDD', '14324F', nm, sz=8)
-        return _group_drawing(document, sh, base, _emu(rowW), _emu(brY + BH))
+            r, c = divmod(i, per_row)
+            _, xoff = row_geom(r)
+            x = xoff + c * (BW + GAP)
+            y = grid_y + r * row_step
+            sh += _wps_box(cnt, nm, _emu(x), _emu(y), _emu(BW), _emu(BH),
+                           'DEEAF6', '9CBCDD', '14324F', nm, sz=9)
+        return _group_drawing(document, sh, base, _emu(grid_w), _emu(total_h))
     except Exception:                       # pragma: no cover - never crash the export
         return None
 
 
-def add_org_cols(document, root_name, columns, total_w=560):
-    """Horizontal org-chart with depth (§9.2): a root box, its Level-2 boxes in a row,
-    and under each L2 its L3 (and L4) boxes stacked in that column — elbow connectors
-    throughout. ``columns`` = ``[[l2name, [[l3name, [l4name, …]], …]], …]``. Native /
-    editable shapes. Returns the drawing element, or ``None`` on bad input."""
+def add_org_cols(document, root_name, columns, total_w=660):
+    """Horizontal org-chart with depth (§9.2): a root header, then one COLUMN per Level-2
+    node laid out in a UNIFORM, WRAPPING grid; under each L2 its L3 (and L4) boxes are
+    stacked in that column, linked by connectors. ``columns`` =
+    ``[[l2name, [[l3name, [l4name, …]], …]], …]``.
+
+    Every box — L2, L3 and L4 alike — is the SAME width and height (differing only in
+    fill so the level still reads), enlarged enough that its full text WRAPS inside and
+    is never clipped/truncated. Columns that overflow the page width wrap to further
+    rows (each centred). Native / editable shapes. Returns the drawing element, or
+    ``None`` on bad input."""
     if document is None or not columns:
         return None
     try:
         cols = list(columns)
         n = len(cols)
-        GAP = 14
-        CW = max(1, (total_w - (n - 1) * GAP) // n)
-        RW, RH, L2H, L3H, L4H, V = 152, 30, 24, 22, 20, 9
-        rowW = n * CW + (n - 1) * GAP
+        GAP, CW, BH, VGAP = 12, 150, 30, 8          # uniform box size
+        RH, bus_gap, ROW_VGAP = 30, 12, 18
+        # per-level fill / border / text colour (uniform SIZE, level shown by colour)
+        LVL = {'l2': ('BCD3EA', '9CBCDD', '14324F'),
+               'l3': ('E6EEF7', 'CDDDEF', '1F4E79'),
+               'l4': ('FFFFFF', 'D3DDEA', '33414D')}
+
+        def col_boxes(col):
+            """Flatten one column to a top-to-bottom list of (level, text) boxes."""
+            out = [('l2', str((col[0] if col else '') or ''))]
+            for entry in (col[1] if len(col) > 1 else []) or []:
+                out.append(('l3', str((entry[0] if entry else '') or '')))
+                for l4 in (entry[1] if len(entry) > 1 else []) or []:
+                    out.append(('l4', str(l4 or '')))
+            return out
+
+        colboxes = [col_boxes(c) for c in cols]
+        per_row = max(1, min(n, (total_w + GAP) // (CW + GAP)))
+        rows = (n + per_row - 1) // per_row
+        grid_w = per_row * CW + (per_row - 1) * GAP
+        grid_y = RH + bus_gap + 8
+
+        def col_h(cb):
+            return len(cb) * BH + (len(cb) - 1) * VGAP
+
+        row_h = [max((col_h(cb) for cb in colboxes[r * per_row:(r + 1) * per_row]),
+                     default=BH) for r in range(rows)]
+
         cnt = [_next_id(document)]
         base = cnt[0]
         cnt[0] += 1
         sh = ''
-        rx = (rowW - RW) // 2
-        sh += _wps_box(cnt, 'root', _emu(rx), _emu(0), _emu(RW), _emu(RH),
-                       '1F4E79', '1F4E79', 'FFFFFF', str(root_name or 'Project'), sz=10)
-        busY = RH + 12
-        l2Y = busY + 12
-        sh += _wps_line(cnt, _emu(rowW // 2), _emu(RH), 0, _emu(busY - RH), '9FB4C6')
-        colx = [i * (CW + GAP) for i in range(n)]
-        ctr = [x + CW // 2 for x in colx]
-        if n > 1:
-            sh += _wps_line(cnt, _emu(ctr[0]), _emu(busY), _emu(ctr[-1] - ctr[0]), 0, '9FB4C6')
-        maxH = 0
-        for i, col in enumerate(cols):
-            l2 = str((col[0] if col else '') or '')
-            l3s = (col[1] if len(col) > 1 else []) or []
-            cx = ctr[i]
-            sh += _wps_line(cnt, _emu(cx), _emu(busY), 0, _emu(l2Y - busY), '9FB4C6')
-            sh += _wps_box(cnt, l2, _emu(colx[i]), _emu(l2Y), _emu(CW), _emu(L2H),
-                           'BCD3EA', '9CBCDD', '14324F', l2, sz=9)
-            y = l2Y + L2H + V
-            for entry in l3s:
-                l3 = str((entry[0] if entry else '') or '')
-                l4s = (entry[1] if len(entry) > 1 else []) or []
-                sh += _wps_line(cnt, _emu(cx), _emu(y - V), 0, _emu(V), 'C2D2E2')
-                sh += _wps_box(cnt, l3, _emu(colx[i] + 10), _emu(y), _emu(CW - 20), _emu(L3H),
-                               'E6EEF7', 'CDDDEF', '1F4E79', l3, sz=8)
-                y += L3H
-                if l4s:
-                    y += 6
-                    lw = max(1, (CW - 34) // len(l4s))
-                    lx0 = colx[i] + 17
-                    for j, l4 in enumerate(l4s):
-                        sh += _wps_box(cnt, str(l4 or ''), _emu(lx0 + j * (lw + 3)), _emu(y),
-                                       _emu(lw), _emu(L4H), 'FFFFFF', 'D3DDEA', '33414D',
-                                       str(l4 or ''), sz=7)
-                    y += L4H
-                y += 8
-            maxH = max(maxH, y)
-        return _group_drawing(document, sh, base, _emu(rowW), _emu(maxH))
+        sh += _wps_box(cnt, 'root', _emu(0), _emu(0), _emu(grid_w), _emu(RH),
+                       '1F4E79', '1F4E79', 'FFFFFF', str(root_name or 'Project'), sz=11)
+        busY = RH + bus_gap
+        sh += _wps_line(cnt, _emu(grid_w // 2), _emu(RH), 0, _emu(busY - RH), '9FB4C6')
+
+        y0 = grid_y
+        for r in range(rows):
+            group = colboxes[r * per_row:(r + 1) * per_row]
+            k = len(group)
+            xoff = (grid_w - (k * CW + (k - 1) * GAP)) // 2
+            ctr = [xoff + c * (CW + GAP) + CW // 2 for c in range(k)]
+            if r == 0:                              # bus + drops from the root to row 1
+                if k > 1:
+                    sh += _wps_line(cnt, _emu(ctr[0]), _emu(busY),
+                                    _emu(ctr[-1] - ctr[0]), 0, '9FB4C6')
+                for c in range(k):
+                    sh += _wps_line(cnt, _emu(ctr[c]), _emu(busY), 0, _emu(y0 - busY), '9FB4C6')
+            for c in range(k):
+                cx0 = xoff + c * (CW + GAP)
+                ccx = cx0 + CW // 2
+                y = y0
+                for bi, (lvl, txt) in enumerate(group[c]):
+                    fill, line, tcol = LVL.get(lvl, LVL['l3'])
+                    if bi > 0:                      # connector down from the box above
+                        sh += _wps_line(cnt, _emu(ccx), _emu(y - VGAP), 0, _emu(VGAP), 'C2D2E2')
+                    sh += _wps_box(cnt, txt, _emu(cx0), _emu(y), _emu(CW), _emu(BH),
+                                   fill, line, tcol, txt, sz=9)
+                    y += BH + VGAP
+            y0 += row_h[r] + ROW_VGAP
+        total_h = y0 - ROW_VGAP
+        return _group_drawing(document, sh, base, _emu(grid_w), _emu(total_h))
     except Exception:                       # pragma: no cover - never crash the export
         return None

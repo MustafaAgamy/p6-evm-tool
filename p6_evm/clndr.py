@@ -37,9 +37,24 @@ def _intervals(segment):
     return out
 
 
+def _is_full_day(segment):
+    """True when a day carries P6's 24-hour working shift, encoded midnight-to-midnight
+    as ``s|00:00|f|00:00``. ``_intervals`` drops that as zero-length (em == sm), so a day
+    that works a full 24 h would otherwise look non-working. Used only to count the day in
+    the weekly working-day pattern (days/week) — it never adds a measurable interval, so
+    working-time math is unchanged. (P6's other 24-h form, ``s|00:00|f|24:00``, has em > sm
+    and is already parsed as a real interval by ``_intervals``.)"""
+    for m in _SHIFT_RE.finditer(segment):
+        start, finish = (m.group(1), m.group(2)) if m.group(1) is not None else (m.group(4), m.group(3))
+        if hhmmss_to_min(start) == 0 and hhmmss_to_min(finish) == 0:
+            return True
+    return False
+
+
 def parse_clndr_data(blob):
     result = {'work_intervals': {}, 'nonworking_days': set(),
-              'holidays': set(), 'added_work_days': set(), 'exception_intervals': {}}
+              'holidays': set(), 'added_work_days': set(), 'exception_intervals': {},
+              'weekly_working_days': set()}
     if not blob:
         return result
 
@@ -53,11 +68,20 @@ def parse_clndr_data(blob):
     for i, m in enumerate(day_hdrs):
         dow = _P6_DOW[int(m.group(1))]
         seg_end = day_hdrs[i + 1].start() if i + 1 < len(day_hdrs) else len(days_part)
-        ivs = _intervals(days_part[m.end():seg_end])
+        seg = days_part[m.end():seg_end]
+        ivs = _intervals(seg)
         if ivs:
             result['work_intervals'][dow] = ivs
+            result['weekly_working_days'].add(dow)
         else:
+            # No measurable interval → non-working for all working-time math, exactly as
+            # before. But a P6 24-hour day (midnight-to-midnight shift) works a full day
+            # despite carrying no interval — count it in the weekly working-day pattern so
+            # days/week reflects the real number of working weekdays (7 for a 24/7, 6 for a
+            # 24/6, …). A truly empty day (no shift at all) stays non-working here.
             result['nonworking_days'].add(dow)
+            if _is_full_day(seg):
+                result['weekly_working_days'].add(dow)
 
     # Exceptions: each d|SERIAL owns every shift up to the next d|.
     exc = list(_EXC_RE.finditer(exc_part))

@@ -125,6 +125,7 @@ def parse_xer(path):
             added_work_days=cd.get('added_work_days') or set(),
             work_intervals=cd.get('work_intervals') or {},
             exception_intervals=cd.get('exception_intervals') or {},
+            weekly_working_days=cd.get('weekly_working_days') or set(),
         )
 
     # Only import WBS nodes belonging to this project

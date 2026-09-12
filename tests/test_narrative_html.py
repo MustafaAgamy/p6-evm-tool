@@ -12,10 +12,10 @@ def test_render_contains_the_v5_sections():
     doc = build_report(parse_file(FIX)).to_dict()
     h = render_narrative_html(doc)
     assert 'Test Project' in h
-    for title in ('Project Overview', 'Major Milestones', 'Work Breakdown Structure',
-                  'Sequence of Work', 'Interfaces'):
+    for title in ('Project Overview', 'Project Brief', 'Major Milestones',
+                  'Work Breakdown Structure'):
         assert title in h
-    assert 'Baseline Schedule' in h            # cover kicker
+    assert 'NARRATIVE REPORT' in h             # cover kicker
 
 
 def test_page_html_is_standalone_document():

@@ -27,6 +27,11 @@ class Calendar:
     # Intraday work schedule (P6's actual work times), for exact working-time %:
     work_intervals: dict = field(default_factory=dict)       # DOW name -> [(start_min, end_min), ...]
     exception_intervals: dict = field(default_factory=dict)  # date -> [(start_min, end_min), ...]
+    # Weekdays that carry working hours in the weekly pattern (DOW names). Populated by the
+    # XER clndr parser; unlike (7 - nonworking_days) it also counts P6's 24-hour days, whose
+    # midnight-to-midnight shift carries no measurable interval. Empty when unknown → callers
+    # fall back to the nonworking-days count. Label/reporting only — never affects EVM math.
+    weekly_working_days: set = field(default_factory=set)
     # Calendar Audit metadata (additive — never affects EVM math):
     type: str = ''            # 'Global' | 'Project' | 'Resource' (raw P6 Type), '' when absent
     is_default: bool = False  # P6 IsDefault flag
@@ -62,7 +67,14 @@ class Calendar:
         return self.day_hours if self.is_working_day(d) else 0.0
 
     def days_per_week(self) -> int:
-        """Standard working days per week (7 minus the non-working weekdays)."""
+        """Working days per week — the number of weekdays that carry working hours.
+
+        Prefers the explicit weekly working-day set, which correctly counts a P6 24-hour
+        day (stored as a midnight-to-midnight shift that carries no measurable interval and
+        would otherwise look non-working). Falls back to 7 minus the non-working weekdays
+        for calendars built without that set (the XML path or a bare XER)."""
+        if self.weekly_working_days:
+            return len(self.weekly_working_days)
         return 7 - len(self.nonworking_days)
 
     def working_minutes(self, start: datetime, end: datetime) -> float:

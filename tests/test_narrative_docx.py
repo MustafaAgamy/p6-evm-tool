@@ -1,6 +1,7 @@
 """The v5 Narrative Report writes a valid, editable .docx with real content, driven
 through the SLICE-B/C/D furniture + chart + calendar modules."""
 import os
+import re
 
 import pytest
 from docx import Document
@@ -46,14 +47,15 @@ def test_writes_editable_tables_on_a_rich_schedule(tmp_path):
     reopened = Document(out)
     paras = [p.text for p in reopened.paragraphs]
     assert any('Work Breakdown Structure' in t for t in paras)
-    assert any('Sequence of Work' in t for t in paras)
+    assert any('Scope of Work' in t for t in paras)
     # native editable table(s), not flattened images
     assert len(reopened.tables) >= 1
 
 
 def test_cover_toc_and_numbered_headings_present(tmp_path):
-    """The SLICE-B furniture lands: the cover carries the project name, a live TOC
-    field is embedded, and section headings are numbered like '1)'."""
+    """The SLICE-B furniture lands: the cover carries the project name, a STATIC,
+    already-populated Table of Contents is written out (no live Word field / no
+    'right-click to update' placeholder), and section headings are numbered like '1)'."""
     doc = build_report(F.matrix_epc(4)).to_dict()
     project = doc['meta'].get('project_name')
     assert project
@@ -65,12 +67,18 @@ def test_cover_toc_and_numbered_headings_present(tmp_path):
     text = '\n'.join(p.text for p in reopened.paragraphs)
     assert project in text
 
-    # a real, updatable Table-of-Contents field is present in the document XML
-    xml = reopened.element.body.xml
-    assert 'TOC' in xml and 'Table of Contents' in text
+    # a STATIC Table of Contents is present — titled, with real section rows, and with
+    # NO live-field placeholder ('Right-click to update field') anywhere.
+    assert 'Table of Contents' in text
+    assert 'right-click to update' not in text.lower()
+    titles = [s.get('title') for s in doc['sections'] if s]
+    toc_rows = [p.text for p in reopened.paragraphs if re.match(r'^\d+\)\s', p.text.strip())]
+    # each real section title is written out as a static TOC row (title also reappears as
+    # the numbered body heading, so it must occur at least twice in the numbered lines)
+    for t in titles:
+        assert sum(t in row for row in toc_rows) >= 2, 'section %r missing from static TOC' % t
 
     # at least one heading run begins with a section number + ')', e.g. '1) Project…'
-    import re
     assert any(re.match(r'^\d+\)\s', p.text) for p in reopened.paragraphs), \
         'expected a numbered section heading like "1) ..."'
 

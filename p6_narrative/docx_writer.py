@@ -31,7 +31,8 @@ never raises, so the export is always produced.
 from docx import Document
 from docx.enum.table import (WD_ALIGN_VERTICAL, WD_ROW_HEIGHT_RULE,
                              WD_TABLE_ALIGNMENT)
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import (WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT,
+                             WD_TAB_LEADER)
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
@@ -408,7 +409,7 @@ def _render_value_bars(document, p, number, note):
     vals = [r.get('amount') for r in rows]
     title = 'Contract value by type of work' + (' (%s)' % unit if unit else '')
     if docx_native.add_hbar(document, cats, vals, title, color='1F4E79',
-                            name=unit or 'Value') is None:
+                            name=unit or 'Value', num_fmt='#,##0') is None:
         # native chart unavailable → an editable value table as a graceful fallback
         data_table(document, ['Type of work', 'Amount', 'Share %'],
                    [[r.get('name'), _money(r.get('amount')), '%s%%' % r.get('pct')]
@@ -567,6 +568,88 @@ def _dedupe_drawing_ids(document):
                 node.set('id', str(counter))
 
 
+# ── static Table of Contents (mirrors html.py _toc / _TOC_GROUPS) ─────────────
+# Same grouping and order the PDF/screen TOC uses. Any section whose title is not in a
+# named group is listed last under "OTHER" (defensive — every current section is grouped).
+_TOC_GROUPS = [
+    ('PROJECT DEFINITION', ('Project Overview', 'Project Layout', 'Project Brief')),
+    ('BASELINE TARGETS', ('Major Milestones', 'Key Dates', 'Contract Value')),
+    ('SCOPE & STRUCTURE', ('Scope of Work', 'Project Calendars & Holidays',
+                           'Work Breakdown Structure', 'Activity Codes')),
+]
+
+
+def _toc_group_header(document, label):
+    """A navy, small-caps group header with a hairline underneath (the PDF look)."""
+    p = document.add_paragraph()
+    p.paragraph_format.space_before = Pt(14)
+    p.paragraph_format.space_after = Pt(4)
+    r = run(p, label.upper(), font=CAL, size=10.5, bold=True, color=NAVY)
+    r.font.small_caps = True
+    pPr = p._p.get_or_add_pPr()
+    pbdr = OxmlElement('w:pBdr'); bot = OxmlElement('w:bottom')
+    bot.set(qn('w:val'), 'single'); bot.set(qn('w:sz'), '6')
+    bot.set(qn('w:space'), '3'); bot.set(qn('w:color'), 'DBE1E8')
+    pbdr.append(bot); pPr.append(pbdr)
+    return p
+
+
+def _toc_row(document, number, title, page):
+    """One TOC line: 'N)  Title' … <dotted leader> … page/ordinal, right-aligned."""
+    p = document.add_paragraph()
+    p.paragraph_format.space_before = Pt(2)
+    p.paragraph_format.space_after = Pt(2)
+    p.paragraph_format.tab_stops.add_tab_stop(Inches(7.0), WD_TAB_ALIGNMENT.RIGHT,
+                                              WD_TAB_LEADER.DOTS)
+    run(p, '%s)  ' % number, size=12, bold=True, color=NAVY)
+    run(p, '' if title is None else str(title), size=12)
+    run(p, '\t', size=12)
+    run(p, str(page), size=12, color=NAVY)
+    return p
+
+
+def _static_toc(document, sections):
+    """A STATIC, already-populated Table of Contents on its own page — the Word twin of
+    ``html.py._toc``. No live Word field (which shows only 'Right-click to update field'
+    until manually refreshed): the rows are written out, grouped and numbered exactly as
+    the PDF/screen TOC. ``sections`` is the ordered list of section dicts."""
+    # centred navy title + underline bar (mirrors html _toc)
+    tp = document.add_paragraph()
+    tp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    tp.paragraph_format.space_after = Pt(2)
+    run(tp, 'Table of Contents', font=CAL, size=22, bold=True, color=NAVY)
+    bar = document.add_paragraph()
+    bar.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    bar.paragraph_format.space_after = Pt(8)
+    br = run(bar, ' ' * 8, font=CAL, size=2, color=NAVY)  # short centred rule
+    rPr = br._element.get_or_add_rPr()
+    bdr = OxmlElement('w:bdr')
+    bdr.set(qn('w:val'), 'single'); bdr.set(qn('w:sz'), '18')
+    bdr.set(qn('w:space'), '0'); bdr.set(qn('w:color'), '1F4E79')
+    rPr.append(bdr)
+
+    # ordinal (page) per section — the same value the PDF uses: enumerate(sections, 1)
+    paged = list(enumerate([s for s in sections if s], 1))
+    by_title = {}
+    for pg, s in paged:
+        by_title.setdefault(s.get('title'), (s, pg))
+    used = set()
+    for label, titles in _TOC_GROUPS:
+        rowspecs = [(by_title[t][0], by_title[t][1]) for t in titles if t in by_title]
+        if not rowspecs:
+            continue
+        _toc_group_header(document, label)
+        for s, pg in rowspecs:
+            used.add(s.get('title'))
+            _toc_row(document, s.get('number'), s.get('title'), pg)
+    extra = [(s, pg) for pg, s in paged if s.get('title') not in used]
+    if extra:
+        _toc_group_header(document, 'OTHER')
+        for s, pg in extra:
+            _toc_row(document, s.get('number'), s.get('title'), pg)
+    document.add_page_break()
+
+
 # ── public entry point ────────────────────────────────────────────────────────
 def write_docx(doc, output_path, chrome=None):
     """Render the narrative model (``doc``) to an editable .docx at ``output_path``.
@@ -586,9 +669,11 @@ def write_docx(doc, output_path, chrome=None):
     docx_template.add_footer(section0)
     docx_template.add_header(document, meta)
     docx_template.add_cover(document, meta)
-    docx_template.add_toc(document)
 
     sections = [s for s in (doc.get('sections') or []) if s]
+    # A STATIC, already-populated TOC (not a live Word field) on its own page.
+    _static_toc(document, sections)
+
     for idx, section in enumerate(sections, 1):
         try:
             number = int(section.get('number'))

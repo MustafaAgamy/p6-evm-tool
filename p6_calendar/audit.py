@@ -176,6 +176,24 @@ def _shutdown_dates(exc):
     return dates
 
 
+def _is_working_day_display(cal, d):
+    """Working-day classification for DISPLAY counts only (histograms, dashboards, totals).
+
+    Prefers the parsed weekly working-day pattern, which correctly counts a P6 24-hour day —
+    its midnight-to-midnight shift carries no measurable interval, so ``nonworking_days`` (and
+    therefore ``cal.is_working_day``, an EVM input) wrongly marks every such day non-working,
+    leaving a 24h calendar with an all-red histogram. When the pattern is unknown (XML path or
+    a bare XER) this is byte-identical to ``cal.is_working_day``. Never used for EVM math."""
+    ww = getattr(cal, 'weekly_working_days', None)
+    if not ww:
+        return cal.is_working_day(d)
+    if d in cal.added_work_days:
+        return True
+    if d in cal.holidays:
+        return False
+    return DOW_NAMES[d.weekday()] in ww
+
+
 def _day_status(cal, d, shutdown_dates):
     if d in shutdown_dates:
         return 'shutdown'
@@ -183,7 +201,7 @@ def _day_status(cal, d, shutdown_dates):
         return 'special'
     if d in cal.holidays:
         return 'holiday'
-    if not cal.is_working_day(d):
+    if not _is_working_day_display(cal, d):
         return 'weekend'
     return 'work'
 
@@ -229,7 +247,7 @@ def _calendar_totals(cal, start, finish):
     hours = 0.0
     d = start
     while d <= finish:
-        if cal.is_working_day(d):
+        if _is_working_day_display(cal, d):
             wd += 1
             hours += cal.day_working_hours(d)
         else:
