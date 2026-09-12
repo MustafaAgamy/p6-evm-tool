@@ -202,7 +202,12 @@ def build_word_document(report_name, meta, rendered, mode='light', letterhead=No
     # Word ignores var()/color-mix; resolve them to hex so reused feature sections
     # stay themed (the Special Report's own payloads are already concrete hex).
     head_extra = _resolve_theme_colors(parts.get('head_extra', ''), mode)
-    body = _resolve_theme_colors(parts['body'], mode)
+    # Word ignores CSS `page-break-after` on a div, so force the cover, contents and
+    # sections onto separate pages with an explicit Word page-break element.
+    brk = '<br clear="all" style="page-break-before:always;mso-break-type:page-break">'
+    cover, toc, sections = parts.get('cover', ''), parts.get('toc', ''), parts.get('sections', '')
+    raw_body = cover + (brk + toc if toc else '') + (brk + sections if sections else '')
+    body = _resolve_theme_colors(raw_body, mode)
     page_css = _page_setup_css(navy, muted, zebra)
     header = _word_header(meta, letterhead, navy, muted)
     footer = _word_footer(navy, muted)

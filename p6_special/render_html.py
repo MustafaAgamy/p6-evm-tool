@@ -621,7 +621,7 @@ body{background:@SURROUND;padding:24px;font-family:"Segoe UI",Calibri,"Helvetica
 .sr-page>*{position:relative;z-index:3;}
 /* screen: cover + contents each fill their own page-height sheet (A4-ish at 900px) */
 .sr-cover-sheet,.sr-toc-sheet{min-height:1150px;}
-.sr-cover-sheet{padding:6px 34px;}
+.sr-cover-sheet{padding:6px 34px;display:flex;flex-direction:column;justify-content:center;}
 .sr-frame{display:none;}
 .sr-doc{width:100%;border-collapse:collapse;table-layout:fixed;}
 .sr-doc>thead{display:table-header-group;}
@@ -634,11 +634,14 @@ body{background:@SURROUND;padding:24px;font-family:"Segoe UI",Calibri,"Helvetica
 @media print{
 @page{size:A4 portrait;margin:14mm;@bottom-center{content:"Page " counter(page) " of " counter(pages);font:8.5pt "Segoe UI",Calibri,sans-serif;color:@MUTED;}}
 html,body{background:@PAPER;padding:0;}
-.sr-page{max-width:none;margin:0;border:0;box-shadow:none;}
-.sr-cover-sheet,.sr-toc-sheet{min-height:0;}
-.sr-cover-sheet{padding:0;}
+.sr-page{max-width:none;margin:0;border:0;box-shadow:none;background:transparent;}
+.sr-toc-sheet{min-height:0;}
+/* the cover fills the printable page so the report name centres vertically on page 1 */
+.sr-cover-sheet{min-height:245mm;padding:0;}
 .sr-page::before{display:none;}
-.sr-frame{display:block;position:fixed;top:0;left:0;right:0;bottom:0;border:1.4pt solid @NAVY;z-index:0;pointer-events:none;}
+/* the double frame paints ABOVE the (now transparent) pages so it shows on every
+   page, not just where a short page leaves the frame uncovered */
+.sr-frame{display:block;position:fixed;top:0;left:0;right:0;bottom:0;border:1.4pt solid @NAVY;z-index:40;pointer-events:none;}
 .sr-frame::after{content:"";position:absolute;top:3pt;left:3pt;right:3pt;bottom:3pt;border:.5pt solid @NAVY;}
 .sr-head-cell{padding:5mm 6mm 0;}
 .sr-main{padding:3mm 6mm 3mm;}
