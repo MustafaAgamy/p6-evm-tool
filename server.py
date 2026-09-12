@@ -66,6 +66,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_oos_validate(body)
         elif self.path == '/api/oos/corrected-file':
             self._handle_oos_corrected(body)
+        elif self.path == '/api/dangling/validate':
+            self._handle_dangling_validate(body)
+        elif self.path == '/api/dangling/corrected-file':
+            self._handle_dangling_corrected(body)
         elif self.path == '/api/revcompare':
             self._handle_revcompare(body)
         elif self.path == '/api/revcompare/report':
@@ -1763,6 +1767,52 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_audit.modules.oos_resolve import write_corrected
+            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path))
+            self._json(200, {'ok': True, 'applied': res['applied'], 'out_path': res['out_path']})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/dangling/validate ────────────────────────────────────────────
+    def _handle_dangling_validate(self, body):
+        """Dangling — re-validate after the planner applies relationship-type fixes. Re-parses the
+        imported schedule, applies the accepted fixes to an in-memory copy, re-runs the SAME dangling
+        engine, and reports the fresh findings + which activities are now genuinely no longer
+        dangling. Nothing is written to disk."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        accepted = body.get('accepted') or []
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.dangling_resolve import revalidate_from_path
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            res = revalidate_from_path(resolved, config, accepted)
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/dangling/corrected-file ──────────────────────────────────────
+    def _handle_dangling_corrected(self, body):
+        """Dangling — write the corrected schedule (accepted relationship-type fixes only) to a
+        separate file in the same format as the import (P6 XML or XER). Actuals and dates are never
+        touched; open in P6 → F9. The user's original file is not modified."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        output_path = body.get('output_path', '')
+        accepted = body.get('accepted') or []
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        if not accepted:
+            self._json(200, {'ok': False, 'error': 'No fixes have been applied yet.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.dangling_resolve import write_corrected
             res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path))
             self._json(200, {'ok': True, 'applied': res['applied'], 'out_path': res['out_path']})
         except Exception as exc:

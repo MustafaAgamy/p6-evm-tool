@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
          oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass,
          oosLagLabel, oosRelLabel, oosDefaultOp, oosOpSummary, oosHasFix, oosBulkOutcome,
+         dngDefaultOp, dngHasFix, dngResolvedActs, dngMergeOps,
          lagQuickPickValues, normalizeColumnFilter, matchesColumnFilter, filterLagFindings, sortLagFindings,
          LAG_FILTER_COLUMNS }
   from '../../ui/modules/audit.js';
@@ -217,6 +218,74 @@ test('sortLagFindings: text column sorts alphabetically', () =>
     ['A2', 'A5', 'A1', 'A3', 'A4']));
 test('sortLagFindings: unknown column returns input unchanged', () =>
   assert.deepEqual(sortLagFindings(LAG_F, 'nope', 'asc'), LAG_F));
+
+console.log('\nDangling — Resolve & Correct helpers');
+// start side: wrong-type predecessor (FF) → change P→A to the recommended type.
+const DF_START = {
+  finding_id: 'd1', activity_id: 'A200', start_dangling: true, finish_dangling: false,
+  start_fix: { kind: 'change', target_id: 'A100', current_type: 'FF', current_lag_days: 2,
+               recommended_type: 'FS', alt_type: 'SS', candidates: [{ id: 'A100', type: 'FF', lag_days: 2 }] },
+};
+// finish side: wrong-type successor (SS) → change A→S to the recommended type.
+const DF_FINISH = {
+  finding_id: 'd2', activity_id: 'B', start_dangling: false, finish_dangling: true,
+  finish_fix: { kind: 'change', target_id: 'C', current_type: 'SS', current_lag_days: 0,
+                recommended_type: 'FS', alt_type: 'FF', candidates: [{ id: 'C', type: 'SS', lag_days: 0 }] },
+};
+// no predecessor → review; nothing to apply.
+const DF_REVIEW = { finding_id: 'd3', activity_id: 'X', start_dangling: true, finish_dangling: false,
+  start_fix: { kind: 'review' } };
+
+test('dngDefaultOp start: relationship is predecessor→activity', () => {
+  const op = dngDefaultOp(DF_START, 'start');
+  assert.equal(op.pred_id, 'A100'); assert.equal(op.succ_id, 'A200');
+  assert.equal(op.action, 'change'); assert.equal(op.new_type, 'FS'); assert.equal(op.new_lag_days, 2);
+  assert.equal(op.activity_id, 'A200');
+});
+test('dngDefaultOp finish: relationship is activity→successor', () => {
+  const op = dngDefaultOp(DF_FINISH, 'finish');
+  assert.equal(op.pred_id, 'B'); assert.equal(op.succ_id, 'C'); assert.equal(op.new_type, 'FS');
+});
+test('dngDefaultOp review side → null (no op)', () => assert.equal(dngDefaultOp(DF_REVIEW, 'start'), null));
+test('dngDefaultOp side that is not dangling → null', () => assert.equal(dngDefaultOp(DF_START, 'finish'), null));
+
+test('dngHasFix true when a change fix exists',  () => assert.equal(dngHasFix(DF_START), true));
+test('dngHasFix true for finish change',         () => assert.equal(dngHasFix(DF_FINISH), true));
+test('dngHasFix false when only review',         () => assert.equal(dngHasFix(DF_REVIEW), false));
+test('dngHasFix false when no fixes at all',     () => assert.equal(dngHasFix({ activity_id: 'Z' }), false));
+
+test('dngResolvedActs = activities gone after re-validation', () => {
+  const all = [{ activity_id: 'A' }, { activity_id: 'B' }, { activity_id: 'C' }];
+  const fresh = [{ activity_id: 'B' }];                 // A and C cleared
+  assert.deepEqual(dngResolvedActs(all, fresh), ['A', 'C']);
+});
+test('dngResolvedActs: partially-fixed activity (still dangling) is NOT resolved', () => {
+  const all = [{ activity_id: 'B' }];
+  const fresh = [{ activity_id: 'B' }];                 // B still dangling on another side
+  assert.deepEqual(dngResolvedActs(all, fresh), []);
+});
+
+console.log('\nDangling — merge applied ops by side (never lose a prior fix)');
+const START_OP = { side: 'start', new_type: 'FS' };
+const FINISH_OP = { side: 'finish', new_type: 'FS' };
+test('merge: a new finish op preserves an earlier start op (the bug fix)', () => {
+  // Apply-all on a partly-fixed activity: fresh finding exposes only finish → must keep prior start.
+  const merged = dngMergeOps([START_OP], [FINISH_OP], ['finish']);
+  assert.equal(merged.length, 2);
+  assert.deepEqual(merged.map(o => o.side).sort(), ['finish', 'start']);
+});
+test('merge: same-side new op overwrites the prior one', () => {
+  const merged = dngMergeOps([{ side: 'start', new_type: 'FS' }], [{ side: 'start', new_type: 'SS' }], ['start']);
+  assert.equal(merged.length, 1); assert.equal(merged[0].new_type, 'SS');
+});
+test('merge: an exposed side set to review (no new op) drops its prior op', () => {
+  const merged = dngMergeOps([FINISH_OP], [], ['finish']);   // planner chose "leave for review"
+  assert.deepEqual(merged, []);
+});
+test('merge: a side NOT exposed by the current finding keeps its prior op', () => {
+  const merged = dngMergeOps([START_OP], [], []);            // start already fixed, not re-exposed
+  assert.deepEqual(merged, [START_OP]);
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

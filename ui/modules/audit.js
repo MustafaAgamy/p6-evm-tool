@@ -994,12 +994,514 @@ export function renderOosPanel(auditModules) {
   renderOutOfSequence(m);
 }
 
+// ── Dangling Activities — Resolve & Correct ──────────────────────────────────
+// Same flow as Out-of-Sequence: accept/edit a fix per finding → re-check with the SAME dangling
+// engine → download a corrected P6 file (XER/XML). The only applyable fix is a relationship-TYPE
+// change on a link that already exists; a side with no link at all is "Needs Planner Review".
+
+const DNG_TYPE_NAME = { FS: 'Finish-to-Start', SS: 'Start-to-Start', FF: 'Finish-to-Finish', SF: 'Start-to-Finish' };
+function _dngTypeName(t) { return DNG_TYPE_NAME[t] || t; }
+
+// The default accepted op for one dangling side (the recommended type change), or null when that
+// side is not an applyable change (already driven, or Needs Planner Review). Pure — unit-tested.
+export function dngDefaultOp(f, side) {
+  const fx = side === 'start' ? f.start_fix : f.finish_fix;
+  if (!fx || fx.kind !== 'change') return null;
+  const op = {
+    finding_id: f.finding_id, activity_id: f.activity_id, side, action: 'change',
+    new_type: fx.recommended_type, new_lag_days: fx.current_lag_days || 0,
+  };
+  if (side === 'start') { op.pred_id = fx.target_id; op.succ_id = f.activity_id; }
+  else { op.pred_id = f.activity_id; op.succ_id = fx.target_id; }
+  return op;
+}
+
+// True when a finding carries at least one applyable type-change fix (start and/or finish).
+export function dngHasFix(f) {
+  return !!((f.start_fix && f.start_fix.kind === 'change') || (f.finish_fix && f.finish_fix.kind === 'change'));
+}
+
+// Resolved = original findings whose ACTIVITY no longer appears dangling after re-validation. Fixing
+// one side of a both-sided finding changes its finding_id but the activity stays dangling, so keying
+// on activity_id (not finding_id) is the honest test. Pure — unit-tested.
+export function dngResolvedActs(all, fresh) {
+  const still = new Set((fresh || []).map(f => f.activity_id));
+  return (all || []).filter(f => !still.has(f.activity_id)).map(f => f.activity_id);
+}
+
+// Merge previously-applied ops with newly-built ops for ONE activity, keyed by side. Overlaying by
+// side means a later apply never drops the OTHER side's already-applied fix — the bug where applying
+// the finish side of a partly-fixed activity wiped the earlier start fix. A side the current finding
+// still exposes as fixable but that produced no new op = the planner chose "leave for review", so any
+// prior op on that side is dropped (their explicit decision). Pure — unit-tested.
+export function dngMergeOps(prevOps, newOps, exposedSides) {
+  const bySide = {};
+  (prevOps || []).forEach(o => { if (o && o.side) bySide[o.side] = o; });
+  (newOps || []).forEach(o => { if (o && o.side) bySide[o.side] = o; });
+  (exposedSides || []).forEach(side => {
+    if (!(newOps || []).some(o => o.side === side)) delete bySide[side];
+  });
+  return Object.values(bySide);
+}
+
+let _dng = { sig: null, all: [], fresh: [], applied: {}, view: 'open', dataDate: '', fullscreen: false };
+
+function _dngSig(m) {
+  const f = (m.findings || [])[0] || {};
+  return `${(m.kpis || {}).data_date || ''}|${(m.findings || []).length}|${f.finding_id || ''}`;
+}
+
+let _dngEscBound = false;
+function _dngInit(m) {
+  if (!_dngEscBound) {
+    _dngEscBound = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && _dng.fullscreen) { _dng.fullscreen = false; renderDngReview(); }
+    });
+  }
+  // A fresh #dng-review was just written into #module-body — clear any stray full-screen overlay a
+  // prior render left parked on <body>.
+  Array.from(document.body.children).forEach(c => { if (c.id === 'dng-review') c.remove(); });
+  document.body.classList.remove('dng-fs-body');
+  const sig = _dngSig(m);
+  if (sig !== _dng.sig) {
+    _dng = { sig, all: (m.findings || []).slice(), fresh: (m.findings || []).slice(),
+             applied: {}, view: 'open', dataDate: (m.kpis || {}).data_date || '', fullscreen: false };
+  }
+  _dng._home = null;
+  renderDngReview();
+}
+
+// Every accepted op across all applied activities, for re-validation and the corrected-file export.
+function _dngAppliedOps() {
+  const ops = [];
+  Object.values(_dng.applied).forEach(a => (a.ops || []).forEach(o => ops.push(o)));
+  return ops;
+}
+
+// The start + finish ops for one finding, honouring any per-side edits made in its drawer.
+function _dngBuildOps(f) {
+  return ['start', 'finish'].map(side => _dngOpFor(f, side)).filter(Boolean);
+}
+function _dngOpFor(f, side) {
+  const base = dngDefaultOp(f, side);
+  if (!base) return null;
+  const sel = (field) => document.querySelector(`[data-dngfield="${field}"][data-fid="${f.finding_id}"][data-side="${side}"]`);
+  const aEl = sel('action');
+  if (aEl && aEl.value === 'review') return null;           // planner chose to leave this side open
+  const tgtEl = sel('target'), tEl = sel('new_type'), lEl = sel('new_lag_days');
+  if (tgtEl && tgtEl.value) { if (side === 'start') base.pred_id = tgtEl.value; else base.succ_id = tgtEl.value; }
+  if (tEl && tEl.value) base.new_type = tEl.value;
+  if (lEl && lEl.value !== '') { const v = parseFloat(lEl.value); base.new_lag_days = isNaN(v) ? 0 : v; }
+  return base;
+}
+
+function _dngSevCell(f) {
+  const s = f.severity || 'Medium';
+  const cls = { Critical: 'crit', High: 'high', Medium: 'med', Low: 'low' }[s] || 'med';
+  return `<span class="dng-sevb ${cls}">${escapeHtml(s)}</span>`;
+}
+
+function _dngRelListCell(ties, emptyLabel) {
+  if (!ties || !ties.length) return `<span class="dng-none">${escapeHtml(emptyLabel)}</span>`;
+  return ties.map(t => `<div class="dng-relrow"><span class="mono relid">${escapeHtml(t.id)}</span> `
+    + `<span class="dng-reltype">${escapeHtml(t.type)}</span><div class="dng-relnm">${escapeHtml(t.name || '')}</div></div>`).join('');
+}
+
+// Is this side dangling? Prefer the enrichment boolean; fall back to the logic_issue text so a
+// pre-enrichment snapshot (findings cached in the DB before this feature) never renders a dangling
+// side as a false "OK — already driven".
+function _dngSideDangling(f, side) {
+  const b = side === 'start' ? f.start_dangling : f.finish_dangling;
+  if (b != null) return b;
+  return (side === 'start' ? /Start/ : /Finish/).test(f.logic_issue || '');
+}
+
+function _dngFixCell(f, side) {
+  if (!_dngSideDangling(f, side)) return `<span class="dng-fix ok">OK — already driven</span>`;
+  const fx = side === 'start' ? f.start_fix : f.finish_fix;
+  if (!fx || fx.kind === 'review') return `<span class="dng-fix review">⚠ Needs Planner Review</span>`;
+  return `<span class="dng-fix change">Change ${escapeHtml(fx.target_id)} `
+    + `<span class="arw">${escapeHtml(fx.current_type)} →</span> ${escapeHtml(_dngTypeName(fx.recommended_type))}</span>`;
+}
+
+function _dngResCell(f, resolved) {
+  if (resolved) {
+    const a = _dng.applied[f.activity_id];
+    const note = a && a.reason ? `<div class="dng-appliednote">${escapeHtml(a.reason)}</div>` : '';
+    return `<span class="dng-resolved">✓ Resolved</span>${note}`
+      + `<button class="dng-mini" data-dngact="reopen" data-fid="${escapeHtml(f.finding_id)}">Re-open</button>`;
+  }
+  if (!dngHasFix(f)) {
+    return `<button class="dng-review-btn" disabled title="No link exists to re-type — decide the logic in P6">⚠ Needs Planner Review</button>`;
+  }
+  return `<div class="dng-rowbtns"><button class="dng-mini apply" data-dngact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply</button>`
+    + `<button class="dng-caret" data-dngact="details" data-fid="${escapeHtml(f.finding_id)}">▾</button></div>`;
+}
+
+function _dngTieBlock(f, side, fx) {
+  const sideLabel = side === 'start' ? 'Start driver (predecessor)' : 'Finish driver (successor)';
+  const types = ['FS', 'SS', 'FF', 'SF'];
+  const typeOpts = types.map(t => `<option value="${t}" ${t === fx.recommended_type ? 'selected' : ''}>${t} — ${_dngTypeName(t)}</option>`).join('');
+  const cands = fx.candidates || [];
+  const targetPicker = cands.length > 1
+    ? `<span class="dng-editgrp"><label>Link to change</label><select data-dngfield="target" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">`
+      + cands.map(c => `<option value="${escapeHtml(c.id)}" data-lag="${c.lag_days == null ? 0 : c.lag_days}" ${c.id === fx.target_id ? 'selected' : ''}>${escapeHtml(c.id)} ${escapeHtml(c.name || '')} (${escapeHtml(c.type)})</option>`).join('')
+      + `</select></span>`
+    : '';
+  const alts = [fx.recommended_type, fx.alt_type].filter(Boolean).map(t =>
+    `<span class="dng-altpill ${t === fx.recommended_type ? 'sel' : ''}" data-dngact="pickalt" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" data-type="${t}">${_dngTypeName(t)}</span>`).join('');
+  const lag = fx.current_lag_days == null ? 0 : fx.current_lag_days;
+  return `<div class="dng-tieblk">
+    <div class="dng-tielbl">${escapeHtml(sideLabel)} — <span class="mono">${escapeHtml(fx.target_id)}</span> ${escapeHtml(fx.target_name || '')} <span class="dng-reltype">${escapeHtml(fx.current_type)}</span></div>
+    <div class="dng-rec"><div class="rt">Change the ${side === 'start' ? 'predecessor' : 'successor'} link to a real driver so the ${side} is controlled.</div>
+      <div class="alts">Use type: ${alts}</div></div>
+    <div class="dng-editrow">
+      <span class="dng-editgrp"><label>Action</label><select data-dngfield="action" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}"><option value="change">Change relationship type</option><option value="review">Leave for planner review (keep open)</option></select></span>
+      ${targetPicker}
+      <span class="dng-editgrp" data-grp="type"><label>Type</label><select data-dngfield="new_type" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${typeOpts}</select></span>
+      <span class="dng-editgrp" data-grp="lag"><label>Lag</label><input type="number" step="0.5" data-dngfield="new_lag_days" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" value="${lag}"> d</span>
+    </div>
+  </div>`;
+}
+
+function _dngDrawer(f) {
+  const blocks = [];
+  if (f.start_dangling && f.start_fix && f.start_fix.kind === 'change') blocks.push(_dngTieBlock(f, 'start', f.start_fix));
+  if (f.finish_dangling && f.finish_fix && f.finish_fix.kind === 'change') blocks.push(_dngTieBlock(f, 'finish', f.finish_fix));
+  const anyReview = (f.start_dangling && f.start_fix && f.start_fix.kind === 'review')
+    || (f.finish_dangling && f.finish_fix && f.finish_fix.kind === 'review');
+  const reviewNote = anyReview
+    ? `<div class="dng-revnote">⚠ One side has no link to re-type — that side needs planner review and will stay open. Add the missing logic in P6.</div>` : '';
+  return `<div class="dng-draw">
+    <h4>Resolve this finding — <span class="mono">${escapeHtml(f.activity_id)}</span> ${escapeHtml(f.activity_name || '')}</h4>
+    ${blocks.join('')}
+    ${reviewNote}
+    <div class="dng-editrow soft"><label>Reason (kept with the fix)</label><input type="text" class="dng-reason" data-dngfield="reason" data-fid="${escapeHtml(f.finding_id)}" placeholder="e.g. testing cannot finish before risers are installed"></div>
+    <div class="dng-drawbtns"><button class="dng-btn primary" data-dngact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply fix</button><button class="dng-btn" data-dngact="details" data-fid="${escapeHtml(f.finding_id)}">Close</button></div>
+  </div>`;
+}
+
+function _dngRow(f, i, dd, resolved) {
+  const issueCls = (f.logic_issue || '').includes('+') ? 'both' : 'one';
+  const drawer = resolved ? '' :
+    `<tr class="dng-drawer" id="dngdr-${escapeHtml(f.finding_id)}"><td colspan="10">${_dngDrawer(f)}</td></tr>`;
+  return `<tr class="dng-frow" data-fid="${escapeHtml(f.finding_id)}">
+      <td class="num">${i + 1}</td>
+      <td class="mono">${escapeHtml(f.activity_id)}</td>
+      <td class="actnm">${escapeHtml(f.activity_name || '')}<div class="dng-issue ${issueCls}">${escapeHtml(f.logic_issue || '')}</div></td>
+      <td class="dng-rel">${_dngRelListCell(f.pred_ties, 'No predecessor')}</td>
+      <td class="dng-rel">${_dngRelListCell(f.succ_ties, 'No successor')}</td>
+      <td class="mono mut">${dd}</td>
+      <td>${_dngFixCell(f, 'start')}</td>
+      <td>${_dngFixCell(f, 'finish')}</td>
+      <td>${_dngSevCell(f)}</td>
+      <td class="dng-rescell">${_dngResCell(f, resolved)}</td>
+    </tr>${drawer}`;
+}
+
+function _dngTable(rows, dd, resolved) {
+  if (!rows.length) {
+    return `<div class="dng-empty">${resolved
+      ? 'Nothing resolved yet. Apply a fix from the Open tab.'
+      : 'No open dangling findings — every activity is driven on both ends. 🎉'}</div>`;
+  }
+  const body = rows.map((f, i) => _dngRow(f, i, dd, resolved)).join('');
+  const applyAllBar = (!resolved && rows.some(dngHasFix)) ? `
+    <div class="dng-applyall">
+      <button class="dng-applyall-btn" data-dngact="applyall">⚡ Apply all recommended fixes</button>
+      <span class="dng-applyall-hint">Applies every finding that has a type-change fix in one step — no need to Apply each activity. Findings that need planner review stay open.</span>
+    </div>` : '';
+  return `
+    <div class="dng-sevlegend"><span class="dng-sevlegend-t">Severity</span>
+      <span class="dng-sevb crit">Critical</span> on the critical path
+      <span class="dng-sevb high">High</span> both ends dangling
+      <span class="dng-sevb med">Medium</span> one end dangling</div>
+    <div class="tblwrap dng-tblwrap"><table class="audit-table dng-logx">
+      <thead>
+        <tr class="dng-grp">
+          <th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>
+          <th class="dng-gcol" colspan="2">Current logic</th>
+          <th rowspan="2">Data Date</th>
+          <th class="dng-gcol" colspan="2">Suggested fix</th>
+          <th rowspan="2">Severity</th><th rowspan="2">Resolution</th>
+        </tr>
+        <tr class="dng-sub">
+          <th class="dng-gcol">Predecessors</th><th>Successors</th>
+          <th class="dng-gcol">Start side (predecessor)</th><th>Finish side (successor)</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody></table></div>
+    ${applyAllBar}
+    <div class="dng-flowhint">The tool only proposes a <b>relationship-type change on a link that already exists</b>
+      (Finish-to-Finish / Start-to-Start → Finish-to-Start, or the valid alternative). Where an activity has
+      <b>no predecessor or no successor at all</b>, there is nothing to re-type, so it is flagged
+      <b>Needs Planner Review</b> and left open — the tool never invents a link. <b>Apply</b> re-runs the same
+      dangling test and moves the finding to Resolved only if it is genuinely no longer dangling.
+      <b>Download Corrected Schedule</b> writes the accepted changes into a copy of your file (same XER / XML) —
+      actuals, %-complete and dates are never touched.</div>`;
+}
+
+function renderDngReview() {
+  const host = document.getElementById('dng-review');
+  if (!host) return;
+  const stillActs = new Set(_dng.fresh.map(f => f.activity_id));
+  const openF = _dng.fresh;
+  const resolvedF = _dng.all.filter(f => !stillActs.has(f.activity_id));
+  const dd = escapeHtml(_dng.dataDate || '');
+  const anyOps = _dngAppliedOps().length > 0;
+
+  const toolbar = `
+    <div class="dng-toolbar">
+      <div class="dng-tabs">
+        <button class="dng-tab ${_dng.view === 'open' ? 'active' : ''}" data-dngact="view" data-view="open">Open <span class="cnt">${openF.length}</span></button>
+        <button class="dng-tab ${_dng.view === 'resolved' ? 'active' : ''}" data-dngact="view" data-view="resolved">Resolved <span class="cnt">${resolvedF.length}</span></button>
+      </div>
+      <button class="dng-fs" data-dngact="fullscreen" title="Show the full table using the whole window">${_dng.fullscreen ? '✕ Exit full screen' : '⛶ Full screen'}</button>
+      <div class="dng-dlwrap">
+        <button class="dng-dl" data-dngact="download" ${anyOps ? '' : 'disabled'}>⬇ Download Corrected Schedule</button>
+        <div class="dng-dlnote">${anyOps
+          ? `${resolvedF.length} finding(s) resolved · exports the same format you imported (XER / XML) — open in P6 and F9.`
+          : 'Apply at least one fix to enable. Exports the same format you imported (XER / XML).'}</div>
+      </div>
+    </div>`;
+
+  host.innerHTML = toolbar + _dngTable(_dng.view === 'open' ? openF : resolvedF, dd, _dng.view === 'resolved');
+
+  if (_dng.fullscreen) {
+    if (!_dng._home) _dng._home = { parent: host.parentElement, next: host.nextElementSibling };
+    if (host.parentElement !== document.body) document.body.appendChild(host);
+    host.classList.add('dng-fs-on');
+    document.body.classList.add('dng-fs-body');
+  } else {
+    if (_dng._home && host.parentElement === document.body) {
+      const { parent, next } = _dng._home;
+      if (next && next.parentElement === parent) parent.insertBefore(host, next); else parent.appendChild(host);
+    }
+    _dng._home = null;
+    host.classList.remove('dng-fs-on');
+    document.body.classList.remove('dng-fs-body');
+  }
+  _dngWire();
+}
+
+function _dngDlNote(text, isErr) {
+  const el = document.querySelector('#dng-review .dng-dlnote');
+  if (el) { el.textContent = text; el.style.color = isErr ? 'var(--danger)' : ''; }
+}
+
+async function _dngValidate() {
+  const resp = await fetch(`http://localhost:${state.serverPort}/api/dangling/validate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+      accepted: _dngAppliedOps(),
+    }),
+  });
+  return resp.json();
+}
+
+// Set the applied entry for an activity, merging by side so a partly-fixed activity never loses the
+// other side's earlier fix. Returns true if the activity now has at least one applied op.
+function _dngSetApplied(activityId, finding, newOps, reason) {
+  const prev = _dng.applied[activityId];
+  const exposed = [];
+  if (finding.start_fix && finding.start_fix.kind === 'change') exposed.push('start');
+  if (finding.finish_fix && finding.finish_fix.kind === 'change') exposed.push('finish');
+  const ops = dngMergeOps(prev && prev.ops, newOps, exposed);
+  if (!ops.length) { delete _dng.applied[activityId]; return false; }
+  _dng.applied[activityId] = { finding, ops, reason: reason || (prev && prev.reason) || '' };
+  return true;
+}
+
+async function _dngApply(fid) {
+  const f = _dng.fresh.find(x => x.finding_id === fid) || _dng.all.find(x => x.finding_id === fid);
+  if (!f) return;
+  const ops = _dngBuildOps(f);
+  const prev = _dng.applied[f.activity_id];                       // snapshot for a clean rollback
+  const rEl = document.querySelector(`[data-dngfield="reason"][data-fid="${fid}"]`);
+  _dngSetApplied(f.activity_id, f, ops, rEl ? rEl.value.trim() : '');
+  if (!_dng.applied[f.activity_id]) {
+    _dngDlNote('This finding needs planner review — no link exists to re-type. Add the missing logic in P6.', true);
+    return;
+  }
+  const restore = () => { if (prev === undefined) delete _dng.applied[f.activity_id]; else _dng.applied[f.activity_id] = prev; };
+  _dngDlNote('Re-validating…');
+  try {
+    const out = await _dngValidate();
+    if (!out.ok) { restore(); _dngDlNote(out.error || 'Validation failed.', true); renderDngReview(); return; }
+    _dng.fresh = out.findings || [];
+    renderDngReview();
+  } catch (e) {
+    restore();
+    _dngDlNote('Could not reach the analysis engine.', true);
+    renderDngReview();
+  }
+}
+
+async function _dngApplyAll() {
+  if (_dng._applying) return;
+  const candidates = _dng.fresh.map(f => ({ f, ops: _dngBuildOps(f) })).filter(c => c.ops.length);
+  const applicable = candidates.length;
+  const review = _dng.fresh.length - applicable;
+  if (!applicable) {
+    _dngDlNote('None of the open findings have a type-change fix — the rest need planner review (no link to re-type).', true);
+    return;
+  }
+  const msg = `Apply the recommended fix to ${applicable} finding${applicable === 1 ? '' : 's'}?`
+    + (review ? `\n\n${review} finding${review === 1 ? '' : 's'} have no link to re-type and will stay open for review.` : '')
+    + '\n\nNothing is written to your P6 file until you click Download Corrected Schedule.';
+  if (!window.confirm(msg)) return;
+  const prev = {}, touched = [];
+  candidates.forEach(({ f, ops }) => {
+    prev[f.activity_id] = _dng.applied[f.activity_id];
+    const reason = (_dng.applied[f.activity_id] || {}).reason || '';
+    _dngSetApplied(f.activity_id, f, ops, reason);              // merge by side — never drop a prior fix
+    touched.push(f.activity_id);
+  });
+  const rollback = () => touched.forEach(id => { if (prev[id] === undefined) delete _dng.applied[id]; else _dng.applied[id] = prev[id]; });
+  _dng._applying = true;
+  _dngDlNote('Applying all recommended fixes…');
+  try {
+    const out = await _dngValidate();
+    if (!out.ok) { rollback(); _dngDlNote(out.error || 'Validation failed.', true); renderDngReview(); return; }
+    _dng.fresh = out.findings || [];
+    renderDngReview();
+    const stillActs = new Set(_dng.fresh.map(f => f.activity_id));
+    const resolved = touched.filter(id => !stillActs.has(id)).length;
+    const notCleared = touched.length - resolved;
+    _dngDlNote(`Applied ${touched.length} fix${touched.length === 1 ? '' : 'es'} — ${resolved} moved to Resolved.`
+      + (notCleared ? ` ${notCleared} still dangling on another side — open the row to fix it.` : ''));
+  } catch (e) {
+    rollback();
+    _dngDlNote('Could not reach the analysis engine.', true);
+    renderDngReview();
+  } finally {
+    _dng._applying = false;
+  }
+}
+
+async function _dngReopen(fid) {
+  const f = _dng.all.find(x => x.finding_id === fid);
+  if (f) delete _dng.applied[f.activity_id];
+  try { const out = await _dngValidate(); if (out.ok) _dng.fresh = out.findings || []; } catch (e) { /* keep local state */ }
+  renderDngReview();
+}
+
+async function _dngDownload() {
+  const applied = _dngAppliedOps();
+  if (!applied.length) return;
+  const base = (state.currentXmlPath || 'schedule').split(/[\\/]/).pop();
+  const dot = base.lastIndexOf('.');
+  const ext = dot > 0 ? base.slice(dot + 1).toLowerCase() : 'xml';
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const suggested = `${stem}_dangling_corrected.${ext === 'xer' ? 'xer' : 'xml'}`;
+  let outputPath;
+  try { outputPath = await window.pywebview.api.choose_save_path(suggested, ext === 'xer' ? 'xer' : 'xml'); } catch (e) { outputPath = null; }
+  if (!outputPath) return;
+  _dngDlNote('Writing corrected schedule…');
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/dangling/corrected-file`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+        output_path: outputPath, accepted: applied,
+      }),
+    });
+    const out = await resp.json();
+    _dngDlNote(out.ok
+      ? `Saved — ${out.applied} change(s) written. Open it in P6 and press F9.`
+      : (out.error || 'Could not write the corrected file.'), !out.ok);
+  } catch (e) {
+    _dngDlNote('Could not write the corrected file.', true);
+  }
+}
+
+function _dngEditVisibility(fid, side) {
+  const aEl = document.querySelector(`[data-dngfield="action"][data-fid="${fid}"][data-side="${side}"]`);
+  if (!aEl) return;
+  const review = aEl.value === 'review';
+  const blk = aEl.closest('.dng-tieblk');
+  if (!blk) return;
+  blk.querySelectorAll('.dng-editgrp[data-grp]').forEach(el => { el.style.display = review ? 'none' : ''; });
+}
+
+function _dngWire() {
+  const host = document.getElementById('dng-review');
+  if (!host) return;
+  host.onclick = (e) => {
+    const t = e.target.closest('[data-dngact]');
+    if (!t) return;
+    const act = t.getAttribute('data-dngact');
+    const fid = t.getAttribute('data-fid');
+    if (act === 'view') { _dng.view = t.getAttribute('data-view'); renderDngReview(); }
+    else if (act === 'details') {
+      const dr = document.getElementById(`dngdr-${fid}`);
+      if (dr) {
+        dr.classList.toggle('open');
+        if (dr.classList.contains('open')) { _dngEditVisibility(fid, 'start'); _dngEditVisibility(fid, 'finish'); }
+      }
+    }
+    else if (act === 'apply') { _dngApply(fid); }
+    else if (act === 'applyall') { _dngApplyAll(); }
+    else if (act === 'reopen') { _dngReopen(fid); }
+    else if (act === 'fullscreen') { _dng.fullscreen = !_dng.fullscreen; renderDngReview(); }
+    else if (act === 'download') { _dngDownload(); }
+    else if (act === 'pickalt') {
+      const side = t.getAttribute('data-side');
+      const sel = (field) => document.querySelector(`[data-dngfield="${field}"][data-fid="${fid}"][data-side="${side}"]`);
+      const aEl = sel('action'); if (aEl) aEl.value = 'change';
+      const tEl = sel('new_type'); if (tEl) tEl.value = t.getAttribute('data-type');
+      _dngEditVisibility(fid, side);
+      const blk = t.closest('.dng-tieblk'); if (blk) blk.querySelectorAll('.dng-altpill').forEach(p => p.classList.toggle('sel', p === t));
+    }
+  };
+  host.onchange = (e) => {
+    const el = e.target.closest('[data-dngfield="action"]');
+    if (el) { _dngEditVisibility(el.getAttribute('data-fid'), el.getAttribute('data-side')); return; }
+    // Switching the target link updates the lag input to that link's own lag, so a non-zero lag from
+    // a different candidate is never written for the newly-picked relationship.
+    const tg = e.target.closest('[data-dngfield="target"]');
+    if (tg) {
+      const opt = tg.selectedOptions && tg.selectedOptions[0];
+      const lag = opt && opt.getAttribute('data-lag');
+      if (lag != null) {
+        const lEl = document.querySelector(`[data-dngfield="new_lag_days"][data-fid="${tg.getAttribute('data-fid')}"][data-side="${tg.getAttribute('data-side')}"]`);
+        if (lEl) lEl.value = lag;
+      }
+    }
+  };
+}
+
+// Dangling module view: score hero + KPI tiles (unchanged) + the Resolve & Correct review table.
+function renderDangling(m) {
+  const p = m.presentation || {};
+  const body = document.getElementById('module-body');
+  body.innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(p.verdict || '')}</div>
+        </div>
+      </div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
+    </div>
+    ${scoringLegendHtml(p.scoring)}
+    <div class="mod-sec">Dangling Review &amp; Resolve <span class="mod-sub">— accept a fix, re-check, and download a corrected P6 file</span></div>
+    <div id="dng-review"></div>`;
+  _dngInit(m);
+}
+
 function renderModuleBody(m) {
   if (m.module === 'float') return renderFloatModule(m);
   if (m.module === 'circular') return renderCircularModule(m);
   if (m.module === 'cpli') return renderCpliModule(m);
   if (m.module === 'hard_constraints') return renderMilestoneCheck(m);
   if (m.module === 'whole_day') return renderWholeDay(m);
+  if (m.module === 'dangling') return renderDangling(m);
   return renderStandardModule(m);
 }
 
