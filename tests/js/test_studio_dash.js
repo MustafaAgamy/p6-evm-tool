@@ -60,18 +60,47 @@ test('two kpi items → two .pd-kpi tiles with both values', () => {
   assert.ok(h.includes('pd-kpirow') && !h.includes('pd-grid'));  // no non-kpi tiles → no grid
 });
 
-console.log('\nboardHtml — table tile');
-test('renders .pd-tbl with a header and a toned cell', () => {
+console.log('\nboardHtml — table tile → chart (charts-only dashboard)');
+test('a table is charted as bars (NOT a <table>), one numeric column', () => {
   const tiles = [{ id: 't', title: 'EVM table', kind: 'table', shape: { w: 2, h: 1 },
     data: { columns: ['Metric', 'Value'], aligns: ['l', 'r'],
       rows: [['SPI', ['0.87', 'bad']], ['CPI', '1.02']] } }];
   const h = boardHtml(tiles, META);
-  assert.ok(h.includes('pd-tbl'));
-  assert.ok(h.includes('<th') && h.includes('Metric') && h.includes('Value'));
-  assert.ok(h.includes('SPI') && h.includes('0.87'));
-  assert.ok(/<td class="pd-bad"[^>]*>0\.87<\/td>/.test(h));      // [text, tone] cell coloured
-  assert.ok(h.includes('text-align:right'));                     // aligns respected
-  assert.ok(h.includes('pd-panel span2'));                       // shape.w===2 → span2
+  assert.ok(!h.includes('<table') && !h.includes('pd-tbl'));     // never a <table> on the dashboard
+  assert.ok(h.includes('pd-bar') && h.includes('pd-fl') && h.includes('pd-trk'));
+  assert.ok(/pd-fl" style="width:85\.3%/.test(h));               // 0.87 / max(1.02) → 85.3%
+  assert.ok(/pd-fl" style="width:100\.0%/.test(h));              // 1.02 / 1.02 → 100%
+  assert.ok(h.includes('SPI') && h.includes('CPI'));             // row labels (col 0)
+  assert.ok(h.includes('0.87') && h.includes('1.02'));           // display values from cell[0]
+  assert.ok(h.includes('pd-legend') && h.includes('Value'));     // legend names the numeric column
+  assert.ok(h.includes('table → chart'));                        // subtle converted badge
+  assert.ok(h.includes('pd-panel span2'));                       // shape.w===2 → span2 (panel unchanged)
+});
+test('a table with numeric percent columns → grouped bars, 0..100 scale + legend', () => {
+  const h = tileBodyHtml('table', { columns: ['Category', 'Planned %', 'Actual %'],
+    rows: [['Construction', '70.0%', '45.0%'], ['Engineering', '88.0%', '74.0%'],
+           ['Procurement', '60.0%', '52.0%']] });
+  assert.ok(!h.includes('<table'));                              // charted, not tabular
+  assert.ok(h.includes('pd-bar') && h.includes('pd-fl'));
+  assert.ok(/width:70\.0%/.test(h) && /width:45\.0%/.test(h));   // percent scale (axisMax 100)
+  assert.ok(h.includes('Construction · Planned %'));             // multi-column → row · column label
+  assert.ok(h.includes('var(--chart-1)') && h.includes('var(--chart-2)')); // colour by column order
+  const leg = h.slice(h.indexOf('pd-legend'));
+  assert.ok(leg.includes('Planned %') && leg.includes('Actual %'));         // legend names both columns
+});
+test('a table of only text columns (register) → graceful row-count note, no crash', () => {
+  const h = tileBodyHtml('table', { columns: ['Activity', 'Status'],
+    rows: [['Pour slab', 'Open'], ['Erect steel', 'Late'], ['Fit MEP', 'Open']] });
+  assert.ok(!h.includes('<table') && !h.includes('pd-bar'));     // nothing numeric to chart
+  assert.ok(h.includes('3 rows') && h.includes('see the Document'));
+  assert.ok(h.includes('table → chart'));                        // still a tile with the badge
+});
+test('an ID/code register (A100, FS) is NOT charted as bars — falls back', () => {
+  // Activity IDs / codes carry digits but are not quantities; they must not chart.
+  const h = tileBodyHtml('table', { columns: ['Predecessor', 'Successor', 'Type'],
+    rows: [['A100', 'A090', 'FS'], ['A200', 'A150', 'SS'], ['A300', 'A250', 'FS']] });
+  assert.ok(!h.includes('pd-bar') && !h.includes('pd-fl'));       // no bars from IDs
+  assert.ok(h.includes('3 rows') && h.includes('see the Document'));
 });
 
 console.log('\nboardHtml — bars tile (1 series)');
@@ -106,19 +135,32 @@ test('stacked segments sized by share, with a legend', () => {
   assert.ok(h.includes('Done 30') && h.includes('Open 10') && h.includes('by count'));
 });
 
-console.log('\nboardHtml — findings tile');
-test('a high finding → a pd-dot pd-bad; detail shown', () => {
+console.log('\nboardHtml — findings tile → severity donut (charts-only dashboard)');
+test('a findings list is charted as a severity donut with a total + legend', () => {
   const tiles = [{ id: 't', title: 'Attention', kind: 'findings', shape: { w: 1, h: 1 },
-    data: { items: [{ severity: 'high', title: '14 activities on negative float', detail: 'Schedule Audit · Float' }],
+    data: { items: [
+      { severity: 'high', title: '14 activities on negative float', detail: 'Schedule Audit · Float' },
+      { severity: 'high', title: 'Missing predecessors', detail: 'Audit · Logic' },
+      { severity: 'medium', title: '23 out-of-sequence', detail: 'OOS' },
+      { severity: 'info', title: 'Data date is current', detail: 'EVM' }],
       empty: 'Nothing flagged.' } }];
   const h = boardHtml(tiles, META);
-  assert.ok(h.includes('pd-finds'));
-  assert.ok(/<span class="pd-dot pd-bad">/.test(h));
-  assert.ok(h.includes('14 activities on negative float') && h.includes('Schedule Audit · Float'));
+  assert.ok(!h.includes('pd-finds') && !h.includes('pd-dot'));   // not a text list any more
+  assert.ok(h.includes('<svg') && h.includes('pd-donut') && h.includes('stroke-dasharray')); // ring segments
+  assert.ok(h.includes('stroke="var(--danger)"') && h.includes('stroke="var(--warning)"'));  // severity colours
+  assert.ok(h.includes('pd-legend'));
+  assert.ok(h.includes('Critical 2') && h.includes('Review 1') && h.includes('Info 1'));      // counts by severity
+  assert.ok(/>4<\/text>/.test(h));                               // total findings in the centre
+  assert.ok(h.includes('list → chart'));                         // subtle converted badge
 });
-test('empty findings list → the empty message', () => {
+test('empty findings list → the empty message (no chart)', () => {
   const h = tileBodyHtml('findings', { items: [], empty: 'Nothing flagged.' });
   assert.ok(h.includes('pd-na') && h.includes('Nothing flagged.'));
+  assert.ok(!h.includes('<svg'));
+});
+test('findings with an unknown severity falls into the Info bucket', () => {
+  const h = tileBodyHtml('findings', { items: [{ severity: 'whatever', title: 'x' }] });
+  assert.ok(h.includes('<svg') && h.includes('Info 1'));
 });
 
 console.log('\ntileBodyHtml — keyvals / text / note');
@@ -135,17 +177,18 @@ test('note → a .pd-note callout, info tone maps to accent', () => {
   assert.ok(/class="pd-note pd-accent"/.test(h) && h.includes('Verdict is opt-in.'));
 });
 
-console.log('\nboardHtml — group tile renders every nested block');
-test('a keyvals + findings group shows both blocks', () => {
+console.log('\nboardHtml — group tile renders every nested block (each through the chart logic)');
+test('a keyvals + findings group shows both blocks; the finding block is a donut', () => {
   const tiles = [{ id: 'g', title: 'Summary', kind: 'group', shape: { w: 2, h: 1 },
     data: { blocks: [
       { kind: 'keyvals', data: { pairs: [['Delay', '+34 d']] } },
       { kind: 'findings', data: { items: [{ severity: 'medium', title: '23 out-of-sequence' }] } },
     ] } }];
   const h = boardHtml(tiles, META);
-  assert.ok(h.includes('pd-stats') && h.includes('+34 d'));                 // block 1
-  assert.ok(h.includes('pd-finds') && h.includes('23 out-of-sequence'));    // block 2
-  assert.ok(/pd-dot pd-warn/.test(h));                                      // medium severity in the nested finding
+  assert.ok(h.includes('pd-stats') && h.includes('+34 d'));                 // block 1 (keyvals, unchanged)
+  assert.ok(h.includes('<svg') && h.includes('pd-donut'));                  // block 2 charted as a donut
+  assert.ok(h.includes('Review 1'));                                        // medium severity counted
+  assert.ok(!h.includes('pd-finds') && !h.includes('pd-dot'));              // no text-list markup
 });
 
 console.log('\nboardHtml — no_data + empty board');
@@ -311,6 +354,15 @@ test('layout never reorders/resizes kpis or status_header tiles', () => {
   assert.ok(h.indexOf('pd-exec') < h.indexOf('pd-kpirow'));                   // status band above KPI row
   assert.ok(h.indexOf('pd-kpirow') < h.indexOf('pd-grid'));                   // KPI row above the grid
   assert.ok(!h.includes('span2') && !h.includes('pd-tall') && !h.includes('pd-compact')); // sizes ignored for them
+});
+
+console.log('\ncharts-only dashboard — bars / line still render unchanged');
+test('bars still render as bars and line still renders as a polyline', () => {
+  const bars = tileBodyHtml('bars', { series: [{ label: 'Actual', tone: 'accent' }],
+    rows: [{ label: 'Construction', values: [45], display: ['45%'] }] });
+  assert.ok(/pd-fl" style="width:45\.0%/.test(bars) && !bars.includes('table → chart'));
+  const line = tileBodyHtml('line', { series: [{ label: 'SPI', tone: 'accent', points: [0.95, 0.9, 0.87] }] });
+  assert.ok(line.includes('<polyline') && !line.includes('pd-donut'));
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

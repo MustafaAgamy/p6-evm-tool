@@ -141,6 +141,138 @@ function varianceBarsHtml(data) {
   return out;
 }
 
+// ── table → chart (generic, charts-only dashboard) ──────────────────────────────
+// The dashboard shows every result as a chart. A `table` payload becomes a chart:
+// the FIRST column is the row label; every OTHER column whose cells are mostly
+// numeric becomes a grouped horizontal bar (one bar per numeric column, coloured
+// by column order). A genuinely all-text table (a register) can't be charted, so
+// we fall back to an honest row-count note — never a crash. The full table always
+// stays available in the Document view.
+
+// The visible text of a cell — cells may be a bare value or a [text, tone] pair.
+function cellText(cell) {
+  const t = Array.isArray(cell) ? cell[0] : cell;
+  return t == null ? '' : String(t);
+}
+
+// Parse a cell to a number, tolerating %, thousands separators, currency and units.
+// Handles [text, tone] cells (uses cell[0]) and accounting negatives "(1,234)".
+function parseNum(cell) {
+  let v = Array.isArray(cell) ? cell[0] : cell;
+  if (v == null) return NaN;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : NaN;
+  const raw = String(v).trim().replace(/−/g, '-');
+  if (!/\d/.test(raw)) return NaN;                     // no digit at all → not a number
+  // A real numeric cell is an optional currency symbol/code, then the number (with
+  // thousands ',', decimals, accounting parens), then an optional %/magnitude/unit.
+  // An ID or code like "A100", "WBS-12" or "FS" has a letter FUSED to its digits and
+  // is rejected here, so a register never charts as meaningless bars.
+  if (!/^[$€£¥₹]?\s*(?:[A-Za-z]{2,4}\s+)?\(?[-+]?[\d,]+(?:\.\d+)?\)?\s*(?:%|[KMBkmb]|bn|d|days?|wd|hrs?|h)?\s*$/.test(raw)) {
+    return NaN;
+  }
+  let s = raw.replace(/[\s,%$€£¥₹]/g, '');              // strip %, thousands, currency, spaces
+  if (/^\(.*\)$/.test(s)) s = '-' + s.slice(1, -1);    // (1,234) accounting negative → -1234
+  s = s.replace(/[A-Za-z]+$/, '').replace(/^[A-Za-z]+/, '');   // drop a currency code / unit token
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function tableChartHtml(data) {
+  const cols = data.columns || [];
+  const rows = data.rows || [];
+  if (!cols.length && !rows.length) return naHtml();
+  const badge = `<div class="pd-note pd-conv">table → chart</div>`;
+  // A column (skip col 0 = labels) is numeric when most of its cells parse as numbers.
+  const numCols = [];
+  for (let c = 1; c < cols.length; c++) {
+    let seen = 0, num = 0;
+    for (const r of rows) {
+      if (!r || r[c] == null) continue;
+      seen++;
+      if (!Number.isNaN(parseNum(r[c]))) num++;
+    }
+    if (seen && num >= 1 && num * 2 >= seen) numCols.push(c);   // at least half numeric
+  }
+  // No numeric column (or no rows) → honest fallback; keep it a tile, never crash.
+  if (!numCols.length || !rows.length) {
+    const n = rows.length;
+    return `<div class="pd-na">${n} row${n === 1 ? '' : 's'} — see the Document for the table.</div>` + badge;
+  }
+  // Percent scale (0..100) only when a numeric column reads as a percent and every value fits.
+  const pctLike = numCols.some(c =>
+    String(cols[c] || '').includes('%') || rows.some(r => r && cellText(r[c]).includes('%')));
+  const allVals = [];
+  for (const r of rows) for (const c of numCols) {
+    const v = parseNum(r && r[c]);
+    if (!Number.isNaN(v)) allVals.push(v);
+  }
+  const maxV = allVals.length ? Math.max(...allVals) : 0;
+  const allUnder100 = allVals.every(v => v <= 100);
+  const axisMax = (pctLike && allUnder100) ? 100 : (maxV > 0 ? maxV : 1);
+  const clamp = v => Math.max(0, Math.min(100, v));
+  const multi = numCols.length > 1;
+  let out = '';
+  for (const r of rows) {
+    const label = cellText(r && r[0]);
+    numCols.forEach((c, k) => {
+      const raw = r && r[c];
+      const v = parseNum(raw);
+      const pct = Number.isNaN(v) ? 0 : clamp(v / axisMax * 100);
+      const shown = cellText(raw);
+      const barLabel = multi ? `${label} · ${cols[c]}` : label;
+      const color = `var(--chart-${(k % 6) + 1})`;
+      out += `<div class="pd-bar"><div class="pd-bl">${escapeHtml(barLabel)}</div>` +
+        `<div class="pd-trk"><div class="pd-fl" style="width:${pct.toFixed(1)}%;background:${color}"></div></div>` +
+        `<div class="pd-bv">${escapeHtml(shown)}</div></div>`;
+    });
+  }
+  out += `<div class="pd-legend">${numCols.map((c, k) =>
+    `<span><i style="background:var(--chart-${(k % 6) + 1})"></i>${escapeHtml(cols[c])}</span>`).join('')}</div>`;
+  return out + badge;
+}
+
+// ── findings → severity donut (generic) ─────────────────────────────────────────
+// A findings LIST becomes a donut of counts by severity, with the total in the
+// centre and a legend naming each present severity + its count. Buckets/colours use
+// the tone→token semantics (high=bad, medium=warn, low=neutral, info=accent).
+const SEV_META = [
+  { key: 'high',   label: 'Critical', token: 'var(--danger)' },
+  { key: 'medium', label: 'Review',   token: 'var(--warning)' },
+  { key: 'low',    label: 'Low',      token: 'var(--muted)' },
+  { key: 'info',   label: 'Info',     token: 'var(--accent)' },
+];
+function findingsChartHtml(data) {
+  const items = data.items || [];
+  if (!items.length) return `<div class="pd-na">${escapeHtml(data.empty || 'No findings.')}</div>`;
+  const counts = {};
+  for (const it of items) {
+    const s = SEV_META.some(m => m.key === it.severity) ? it.severity : 'info';
+    counts[s] = (counts[s] || 0) + 1;
+  }
+  const total = items.length;
+  const buckets = SEV_META.filter(m => counts[m.key]);   // only present severities, ring/legend order
+  // r = 15.9155 → circumference ≈ 100, so a dash length reads as a percentage.
+  const R = 15.9155;
+  let acc = 0;
+  const ring = buckets.map(m => {
+    const len = counts[m.key] / total * 100;
+    const seg = `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${m.token}" stroke-width="6" ` +
+      `stroke-dasharray="${len.toFixed(2)} ${(100 - len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" ` +
+      `transform="rotate(-90 21 21)"></circle>`;
+    acc += len;
+    return seg;
+  }).join('');
+  const svg = `<svg class="pd-donut" width="120" height="120" viewBox="0 0 42 42" role="img">` +
+    `<circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--border)" stroke-width="6"></circle>` +
+    ring +
+    `<text x="21" y="21.5" text-anchor="middle" font-size="8" font-weight="800" fill="var(--text)">${total}</text>` +
+    `<text x="21" y="27" text-anchor="middle" font-size="3.4" fill="var(--muted)">findings</text>` +
+    `</svg>`;
+  const legend = `<div class="pd-legend">${buckets.map(m =>
+    `<span><i style="background:${m.token}"></i>${escapeHtml(m.label)} ${counts[m.key]}</span>`).join('')}</div>`;
+  return `<div class="pd-donut-wrap">${svg}${legend}</div><div class="pd-note pd-conv">list → chart</div>`;
+}
+
 // informational freshness chip on the letterhead — days since the data date.
 // Neutral by design (no staleness threshold is invented here).
 function freshChip(dataDate) {
@@ -237,21 +369,9 @@ export function tileBodyHtml(kind, data) {
         `<div class="pd-note">${escapeHtml(it.sub || it.label || '')}</div>`
       ).join('');
     }
-    case 'table': {
-      const cols = data.columns || [];
-      const rows = data.rows || [];
-      if (!cols.length && !rows.length) return naHtml();
-      const aligns = data.aligns || null;
-      const al = i => alignStyle(aligns && aligns[i]);
-      const thead = `<thead><tr>${cols.map((c, i) => `<th${al(i)}>${escapeHtml(c)}</th>`).join('')}</tr></thead>`;
-      const tbody = `<tbody>${rows.map(r => `<tr>${(r || []).map((cell, i) => {
-        let text = cell, tone = null;
-        if (Array.isArray(cell)) { text = cell[0]; tone = cell[1]; }
-        const cls = tone ? ` class="${toneClass(tone)}"` : '';
-        return `<td${cls}${al(i)}>${escapeHtml(text)}</td>`;
-      }).join('')}</tr>`).join('')}</tbody>`;
-      return `<table class="pd-tbl">${thead}${tbody}</table>`;
-    }
+    // Dashboard is charts-only: a table result is charted (grouped bars) instead
+    // of rendered as a <table>. The full table stays in the Document view.
+    case 'table': return tableChartHtml(data);
     case 'line': return lineHtml(data);
     case 'bars': {
       if (data.style === 'variance') return varianceBarsHtml(data);
@@ -299,15 +419,9 @@ export function tileBodyHtml(kind, data) {
       if (data.note) out += `<div class="pd-note">${escapeHtml(data.note)}</div>`;
       return out;
     }
-    case 'findings': {
-      const items = data.items || [];
-      if (!items.length) return `<div class="pd-na">${escapeHtml(data.empty || 'No findings.')}</div>`;
-      return `<div class="pd-finds">${items.map(it => {
-        const detail = it.detail ? `<div class="pd-fsrc">${escapeHtml(it.detail)}</div>` : '';
-        return `<div class="pd-find"><span class="pd-dot ${sevClass(it.severity)}"></span>` +
-          `<div><div>${escapeHtml(it.title)}</div>${detail}</div></div>`;
-      }).join('')}</div>`;
-    }
+    // Charts-only: a findings list is charted as a severity donut (counts by
+    // severity), not a text list. Empty → the honest empty message.
+    case 'findings': return findingsChartHtml(data);
     case 'keyvals': {
       const pairs = data.pairs || [];
       if (!pairs.length) return naHtml();
