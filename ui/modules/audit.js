@@ -1093,10 +1093,21 @@ function _dngInit(m) {
   if (sig !== _dng.sig) {
     _dng = { sig, all: (m.findings || []).slice(), fresh: (m.findings || []).slice(),
              applied: {}, blocked: new Set(), view: 'open',
-             dataDate: (m.kpis || {}).data_date || '', fullscreen: false };
+             dataDate: (m.kpis || {}).data_date || '', fullscreen: false,
+             name: m.name || 'Dangling Activities',
+             hero: { name: m.name || 'Dangling Activities', score: m.score, grade: m.grade,
+                     presentation: m.presentation || {}, applied: 0 } };
   }
   _dng._home = null;
   renderDngReview();
+}
+
+// Repaint the execution-dashboard hero from a fresh revalidate result (score rises as fixes resolve).
+function _dngUpdateHero(out) {
+  if (!out || out.presentation == null) return;
+  _dng.hero = { name: _dng.name, score: out.score, grade: out.grade,
+                presentation: out.presentation, applied: Object.keys(_dng.applied).length };
+  _dngRenderHero();
 }
 
 // Every accepted op across all applied activities, for re-validation and the corrected-file export.
@@ -1162,7 +1173,9 @@ function _dngResCell(f, resolved) {
   // Held back by the contract-milestone guard — applying it would push completion past the contract
   // date (offline forward-pass estimate). Ibrahim's rule: don't solve it, show the message.
   if (_dng.blocked && _dng.blocked.has(f.finding_id)) {
-    return `<div class="dng-blocked" title="Estimated with the in-tool forward-pass (no F9): applying this fix would push the project completion milestone past its contractual date.">⚠ ${escapeHtml(DNG_BLOCK_MSG)}</div>`;
+    return `<div class="dng-blockedwrap">`
+      + `<div class="dng-blocked" title="Estimated with the in-tool forward-pass (no F9): applying this fix would push the project completion milestone past its contractual date.">⚠ ${escapeHtml(DNG_BLOCK_MSG)}</div>`
+      + `<button class="dng-caret" data-dngact="details" data-fid="${escapeHtml(f.finding_id)}" title="Open to inspect the links or try a different type/lag">▾</button></div>`;
   }
   if (!dngHasFix(f)) {
     return `<button class="dng-review-btn" disabled title="No link exists to re-type — decide the logic in P6">⚠ Needs Planner Review</button>`;
@@ -1316,6 +1329,7 @@ function renderDngReview() {
     host.classList.remove('dng-fs-on');
     document.body.classList.remove('dng-fs-body');
   }
+  _dngRenderHero();     // keep the execution dashboard (score + tiles) in sync with the current state
   _dngWire();
 }
 
@@ -1348,11 +1362,17 @@ function _dngCompletion() {
 
 // Reconcile the milestone-guard result: remember which findings were blocked and drop them from the
 // applied set (a blocked fix was never applied — it must not be counted, re-sent, or downloaded).
-function _dngReconcileBlocked(blockedIds) {
-  _dng.blocked = new Set(blockedIds || []);
+function _dngReconcileBlocked(blockedIds, submittedFindingIds) {
+  const nowBlocked = new Set(blockedIds || []);
+  // Persist the blocked flag: a finding's verdict is per-finding vs the ORIGINAL schedule (independent
+  // of other applied fixes), so once known to exceed the milestone it STAYS flagged — a single Apply is
+  // never silently inert; the row keeps its red "would exceed the milestone" reason. Clear it only for a
+  // finding that was just submitted and came back NOT blocked (the planner re-typed it so it now fits).
+  nowBlocked.forEach(id => _dng.blocked.add(id));
+  (submittedFindingIds || []).forEach(id => { if (!nowBlocked.has(id)) _dng.blocked.delete(id); });
   Object.keys(_dng.applied).forEach(actId => {
     const entry = _dng.applied[actId];
-    if ((entry.ops || []).some(o => _dng.blocked.has(o.finding_id))) delete _dng.applied[actId];
+    if ((entry.ops || []).some(o => nowBlocked.has(o.finding_id))) delete _dng.applied[actId];
   });
 }
 
@@ -1388,16 +1408,20 @@ async function _dngApply(fid) {
   const rEl = document.querySelector(`[data-dngfield="reason"][data-fid="${fid}"]`);
   _dngSetApplied(f.activity_id, f, ops, rEl ? rEl.value.trim() : '');
   if (!_dng.applied[f.activity_id]) {
-    _dngDlNote('This finding needs planner review — no link exists to re-type. Add the missing logic in P6.', true);
+    const msg = 'This finding needs planner review — no link exists to re-type. Add the missing logic in P6.';
+    _dngDlNote(msg, true);
+    _dngToast(`${f.activity_id}: needs planner review — nothing to re-type here. Add the logic in P6.`, 'err');
     return;
   }
   const restore = () => { if (prev === undefined) delete _dng.applied[f.activity_id]; else _dng.applied[f.activity_id] = prev; };
+  const submitted = new Set(_dngAppliedOps().map(o => o.finding_id));
   _dngDlNote('Re-validating…');
   try {
     const out = await _dngValidate();
     if (!out.ok) { restore(); _dngDlNote(out.error || 'Validation failed.', true); _dngToast(out.error || 'Validation failed — the fix was not applied.', 'err'); renderDngReview(); return; }
     _dng.fresh = out.findings || [];
-    _dngReconcileBlocked(out.blocked);
+    _dngReconcileBlocked(out.blocked, submitted);
+    _dngUpdateHero(out);
     renderDngReview();
     if (_dng.blocked.has(fid)) {
       _dngDlNote(DNG_BLOCK_MSG + ' — this fix was not applied.', true);
@@ -1436,13 +1460,15 @@ async function _dngApplyAll() {
     touched.push(f.activity_id);
   });
   const rollback = () => touched.forEach(id => { if (prev[id] === undefined) delete _dng.applied[id]; else _dng.applied[id] = prev[id]; });
+  const submitted = new Set(_dngAppliedOps().map(o => o.finding_id));
   _dng._applying = true;
   _dngDlNote('Applying all recommended fixes…');
   try {
     const out = await _dngValidate();
-    if (!out.ok) { rollback(); _dngDlNote(out.error || 'Validation failed.', true); renderDngReview(); return; }
+    if (!out.ok) { rollback(); _dngDlNote(out.error || 'Validation failed.', true); _dngToast(out.error || 'Validation failed — no fixes were applied.', 'err'); renderDngReview(); return; }
     _dng.fresh = out.findings || [];
-    _dngReconcileBlocked(out.blocked);
+    _dngReconcileBlocked(out.blocked, submitted);
+    _dngUpdateHero(out);
     renderDngReview();
     const stillActs = new Set(_dng.fresh.map(f => f.activity_id));
     const resolved = touched.filter(id => !stillActs.has(id)).length;
@@ -1467,7 +1493,8 @@ async function _dngApplyAll() {
 async function _dngReopen(fid) {
   const f = _dng.all.find(x => x.finding_id === fid);
   if (f) delete _dng.applied[f.activity_id];
-  try { const out = await _dngValidate(); if (out.ok) _dng.fresh = out.findings || []; } catch (e) { /* keep local state */ }
+  _dng.blocked.delete(fid);                       // reopening clears any stale block flag on it
+  try { const out = await _dngValidate(); if (out.ok) { _dng.fresh = out.findings || []; _dngUpdateHero(out); } } catch (e) { /* keep local state */ }
   renderDngReview();
 }
 
@@ -1556,23 +1583,37 @@ function _dngWire() {
   };
 }
 
-// Dangling module view: score hero + KPI tiles (unchanged) + the Resolve & Correct review table.
-function renderDangling(m) {
-  const p = m.presentation || {};
-  const body = document.getElementById('module-body');
-  body.innerHTML = `
+// The execution dashboard (score gauge + KPI tiles + scoring legend). Rendered into #dng-hero and
+// REPAINTED after every Apply so the score visibly rises and the KPI tiles update as findings resolve.
+function _dngRenderHero() {
+  const host = document.getElementById('dng-hero');
+  if (!host) return;
+  const h = _dng.hero || {};
+  const p = h.presentation || {};
+  const preview = h.applied > 0
+    ? `<div class="coverage dng-preview">Preview — reflects ${h.applied} applied fix${h.applied === 1 ? '' : 'es'}; click Download to write them to P6.</div>`
+    : '';
+  host.innerHTML = `
     <div class="audit-hero">
       <div class="score-card">
-        ${gaugeHtml(m.score)}
+        ${gaugeHtml(h.score)}
         <div class="score-meta">
-          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
-          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="grade-badge ${gradeClass(h.grade)}">${escapeHtml(h.grade || '')}</div>
+          <div class="coverage">${escapeHtml(h.name || '')} — Sub-feature Score</div>
           <div class="coverage">${escapeHtml(p.verdict || '')}</div>
+          ${preview}
         </div>
       </div>
       <div class="kpi-tiles">${presentationTiles(p)}</div>
     </div>
-    ${scoringLegendHtml(p.scoring)}
+    ${scoringLegendHtml(p.scoring)}`;
+}
+
+// Dangling module view: execution-dashboard hero (#dng-hero, live-updated) + the Resolve & Correct table.
+function renderDangling(m) {
+  const body = document.getElementById('module-body');
+  body.innerHTML = `
+    <div id="dng-hero"></div>
     <div class="mod-sec">Dangling Review &amp; Resolve <span class="mod-sub">— accept a fix, re-check, and download a corrected P6 file</span></div>
     <div id="dng-review"></div>`;
   _dngInit(m);

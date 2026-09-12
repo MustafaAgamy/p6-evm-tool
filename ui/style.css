@@ -719,6 +719,8 @@ body.oos-fs-body #results-section { transform: none !important; }
 .dng-caret:hover { border-color: var(--accent); color: var(--accent); }
 .dng-review-btn { padding: 5px 10px; font-size: 11px; font-weight: 700; color: var(--warning); background: var(--warning-bg); border: 1px solid var(--warning); border-radius: 6px; cursor: not-allowed; }
 .dng-blocked { font-size: 11px; font-weight: 700; color: var(--danger); background: var(--danger-bg); border: 1px solid var(--danger); border-radius: 6px; padding: 5px 10px; max-width: 250px; line-height: 1.35; white-space: normal; }
+.dng-preview { color: var(--accent-dark) !important; font-weight: 700; font-size: 11px; margin-top: 4px; }
+.dng-blockedwrap { display: flex; align-items: flex-start; gap: 5px; }
 
 /* Apply feedback toast — visible regardless of scroll / full screen. */
 .dng-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(12px);

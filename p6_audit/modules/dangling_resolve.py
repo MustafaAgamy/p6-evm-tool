@@ -31,6 +31,7 @@ from datetime import datetime
 
 from p6_evm.parser import parse_file
 from p6_audit.graph import ScheduleGraph
+from p6_audit.presentation import build_presentation
 from p6_audit.modules.dangling import run_dangling
 from p6_audit.modules.oos_resolve import (
     apply_ops_to_relationships,
@@ -141,6 +142,12 @@ def revalidate(data, config, accepted, completion=None):
         'resolved': resolved,
         'blocked': sorted(blocked),
         'kpis': fresh['kpis'],
+        # The recomputed score/grade/% + presentation of the CORRECTED (post-fix) state, so the screen's
+        # execution dashboard (gauge + KPI tiles) updates live as findings resolve — the score rises.
+        'score': fresh.get('score'),
+        'grade': fresh.get('grade'),
+        'pct': fresh.get('pct'),
+        'presentation': build_presentation(fresh),
     }
 
 

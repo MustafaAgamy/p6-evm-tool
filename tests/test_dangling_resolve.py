@@ -254,3 +254,18 @@ def test_milestone_blocked_helper_directly():
     fQ = _find(data, 'Q')
     blocked = R.milestone_blocked(data, [_accepted_start(fD), _accepted_start(fQ)], _COMPLETION)
     assert fD['finding_id'] in blocked and fQ['finding_id'] not in blocked
+
+
+# ── Live execution-dashboard update: revalidate returns the recomputed score/tiles ───────────
+
+def test_revalidate_returns_updated_score_and_presentation(tmp_path):
+    data = parse_file(_write(tmp_path, 's.xml', XML))
+    base = run_dangling(ScheduleGraph(data), CONFIG)
+    f = _find(data, 'A200')
+    out = R.revalidate(data, CONFIG, [_accepted_start(f)])
+    # the fresh score/grade/pct + presentation are returned so the screen dashboard can repaint
+    assert out['score'] is not None and out['grade'] and out['pct'] is not None
+    assert isinstance(out['presentation'], dict) and out['presentation'].get('tiles')
+    # resolving a finding removes it → fewer dangling → the score goes UP (never down)
+    assert out['kpis']['total_dangling'] < base['kpis']['total_dangling']
+    assert out['score'] >= base['score']
