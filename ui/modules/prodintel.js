@@ -241,7 +241,7 @@ function renderResult() {
   const shift0 = (r.context && r.context.shift_hours) || 8;
   const ctrlComp = comps.find(c => c.controls) || priced[0] || null;
   const ctrlRate = ctrlComp ? ratePhrase(ctrlComp) : null;
-  let flow, kpis2 = '';
+  let flow;
   if (hasQ && roll && ctrlComp && ctrlRate) {
     const cd = ctrlComp.rate.output_per_day ? Math.round(ctrlComp.component_qty / ctrlComp.rate.output_per_day * 10) / 10 : null;
     const calc = cd != null
@@ -258,12 +258,6 @@ function renderResult() {
       <div class="pi-step s3"><div class="sn"><span class="b">3</span> Estimated duration</div>
         <div class="pi-durBig mono">~${roll.duration_days}</div>
         <div class="pi-durSub">working days · ${num(roll.total_mh)} MH total</div></div>
-    </div>`;
-    kpis2 = `<div class="pi-kpis2">
-      <div class="pi-kpi2"><div class="kl">Total man-hours</div><div class="kv mono">${num(roll.total_mh)} MH</div></div>
-      <div class="pi-kpi2"><div class="kl">Blended rate (derived)</div><div class="kv mono">${roll.blended_mh_per_primary} MH/${escapeHtml(r.primary_unit || '')}</div></div>
-      <div class="pi-kpi2"><div class="kl">Controlling</div><div class="kv" style="font-size:15px">${escapeHtml(roll.controlling_component || '—')}</div></div>
-      <div class="pi-kpi2"><div class="kl">Overall confidence</div><div class="kv" style="font-size:15px">${(CONF[r.overall_confidence] || CONF.none)[1]}</div></div>
     </div>`;
   } else {
     flow = `<div class="pi-flow">

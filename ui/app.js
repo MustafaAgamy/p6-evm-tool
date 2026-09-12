@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     file:    [['Import XML / XER…','import'], ['sep'], ['Print / Export to PDF…','print'], ['Export to Excel…','export-excel'], ['sep'], ['Back to import screen','load-another'], ['sep'], ['Recent projects','recent'], ['sep'], ['Exit','exit']],
     view:    [['Show / hide navigator','nav-toggle']],
     analysis:[['Choose module…','showchooser'], ['Back to import','load-another']],
-    tools:   [['Knowledge Base','kb']],
+    tools:   [['Knowledge Base','kb'], ['Productivity & Resources','prodintel']],
     help:    [['Getting started','help-start'], ['Feature guide — what each needs','help-features'], ['Keyboard shortcuts','help-keys'], ["What's new",'help-news'], ['sep'], ['Contact & support','help-contact'], ['About Controlyx','help-about']],
   };
   const menubar = document.getElementById('menubar');
@@ -340,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (cmd === 'nav-toggle')  toggleNav();
     else if (cmd === 'recent')      { exitDatabase(); showRecent(); setCrumb('recent'); markNav('recent'); }
     else if (cmd === 'kb')          { exitRecent(); showDatabase(); setCrumb('kb'); markNav('kb'); }
+    else if (cmd === 'prodintel')   { exitDatabase(); exitRecent(); state.currentView = 'prodintel'; showProdIntel(); setCrumb('prodintel'); markNav('prodintel'); }
     else if (cmd === 'showchooser') { if (state.currentResult) { document.getElementById('results-section').classList.remove('hidden'); showChooser(); } }
     else if (cmd === 'help-start')    openHelp('getting-started');
     else if (cmd === 'help-features') openHelp('feature-guide');
