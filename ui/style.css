@@ -719,6 +719,15 @@ body.oos-fs-body #results-section { transform: none !important; }
 .dng-caret:hover { border-color: var(--accent); color: var(--accent); }
 .dng-review-btn { padding: 5px 10px; font-size: 11px; font-weight: 700; color: var(--warning); background: var(--warning-bg); border: 1px solid var(--warning); border-radius: 6px; cursor: not-allowed; }
 .dng-blocked { font-size: 11px; font-weight: 700; color: var(--danger); background: var(--danger-bg); border: 1px solid var(--danger); border-radius: 6px; padding: 5px 10px; max-width: 250px; line-height: 1.35; white-space: normal; }
+
+/* Apply feedback toast — visible regardless of scroll / full screen. */
+.dng-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(12px);
+  z-index: 2000; max-width: 620px; padding: 11px 18px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  background: var(--accent); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.28); opacity: 0;
+  pointer-events: none; transition: opacity .18s ease, transform .18s ease; }
+.dng-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.dng-toast.ok  { background: var(--success); }
+.dng-toast.err { background: var(--danger); }
 .dng-resolved { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--success); background: var(--success-bg); padding: 3px 10px; border-radius: 20px; }
 .dng-appliednote { font-size: 10.5px; color: var(--muted); margin-top: 3px; max-width: 220px; white-space: normal; }
 

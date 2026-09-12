@@ -843,15 +843,13 @@ async function _oosApplyAll() {
   if (_oos._applying) return;                            // ignore re-entrant clicks while a bulk apply is in flight
   const candidates = _oos.fresh.map(f => ({ f, ops: _oosBuildOps(f) })).filter(c => c.ops.length);
   const applicable = candidates.length;
-  const review = _oos.fresh.length - applicable;         // open findings with no automatic fix (need review / a data fix)
   if (!applicable) {
     _oosDlNote('None of the open findings have a recommended fix — the remaining ones need planner review. Open a finding to decide it.', true);
     return;
   }
-  const msg = `Apply the recommended correction to ${applicable} finding${applicable === 1 ? '' : 's'}?`
-    + (review ? `\n\n${review} finding${review === 1 ? '' : 's'} have no automatic fix and will stay open for review.` : '')
-    + '\n\nNothing is written to your P6 file until you click Download Corrected Schedule.';
-  if (!window.confirm(msg)) return;
+  // No window.confirm gate — native JS dialogs are unreliable in the packaged WebView2 (they can return
+  // falsy and silently cancel the whole bulk apply). Applying is reversible (nothing is written to the
+  // P6 file until Download Corrected Schedule); the outcome is reported in the note below.
   const prev = {}, touched = [];
   candidates.forEach(({ f, ops }) => {
     prev[f.finding_id] = _oos.applied[f.finding_id];     // snapshot (may be undefined) for a clean rollback
@@ -1061,6 +1059,17 @@ export function dngCompletionMilestone(milestones) {
   return { activity_id: best.matched_activity_id, contract_date: best.contract_date };
 }
 
+// Plain-language summary of what an Apply changed, e.g. "P → D from Finish-to-Finish to
+// Finish-to-Start". Reads the old type from the finding's fix. Pure — unit-tested.
+export function dngChangeSummary(f, ops) {
+  return (ops || []).map(o => {
+    const fx = o.side === 'start' ? (f.start_fix || {}) : (f.finish_fix || {});
+    const oldT = DNG_TYPE_NAME[fx.current_type] || fx.current_type || '?';
+    const newT = DNG_TYPE_NAME[o.new_type] || o.new_type || '?';
+    return `${o.pred_id} → ${o.succ_id} from ${oldT} to ${newT}`;
+  }).join('; ');
+}
+
 let _dng = { sig: null, all: [], fresh: [], applied: {}, blocked: new Set(), view: 'open', dataDate: '', fullscreen: false };
 
 function _dngSig(m) {
@@ -1208,11 +1217,12 @@ function _dngDrawer(f) {
 function _dngRow(f, i, dd, resolved) {
   const issueCls = (f.logic_issue || '').includes('+') ? 'both' : 'one';
   const drawer = resolved ? '' :
-    `<tr class="dng-drawer" id="dngdr-${escapeHtml(f.finding_id)}"><td colspan="10">${_dngDrawer(f)}</td></tr>`;
+    `<tr class="dng-drawer" id="dngdr-${escapeHtml(f.finding_id)}"><td colspan="11">${_dngDrawer(f)}</td></tr>`;
   return `<tr class="dng-frow" data-fid="${escapeHtml(f.finding_id)}">
       <td class="num">${i + 1}</td>
       <td class="mono">${escapeHtml(f.activity_id)}</td>
-      <td class="actnm">${escapeHtml(f.activity_name || '')}<div class="dng-issue ${issueCls}">${escapeHtml(f.logic_issue || '')}</div></td>
+      <td class="actnm">${escapeHtml(f.activity_name || '')}</td>
+      <td><span class="dng-issue ${issueCls}">${escapeHtml(f.logic_issue || '')}</span></td>
       <td class="dng-rel">${_dngRelListCell(f.pred_ties, 'No predecessor')}</td>
       <td class="dng-rel">${_dngRelListCell(f.succ_ties, 'No successor')}</td>
       <td class="mono mut">${dd}</td>
@@ -1244,6 +1254,7 @@ function _dngTable(rows, dd, resolved) {
       <thead>
         <tr class="dng-grp">
           <th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>
+          <th rowspan="2">Dangling Type</th>
           <th class="dng-gcol" colspan="2">Current logic</th>
           <th rowspan="2">Data Date</th>
           <th class="dng-gcol" colspan="2">Suggested fix</th>
@@ -1313,6 +1324,21 @@ function _dngDlNote(text, isErr) {
   if (el) { el.textContent = text; el.style.color = isErr ? 'var(--danger)' : ''; }
 }
 
+// A prominent, self-clearing toast — the Apply feedback must be visible no matter how far down the
+// table (or in full screen) the clicked row is, so an applied fix never "seems like nothing happened".
+let _dngToastTimer = null;
+function _dngToast(msg, kind) {
+  let el = document.getElementById('dng-toast');
+  if (!el) { el = document.createElement('div'); el.id = 'dng-toast'; document.body.appendChild(el); }
+  el.className = 'dng-toast ' + (kind || '');
+  el.textContent = msg;
+  // reflow so the transition re-runs on repeated toasts
+  void el.offsetWidth;
+  el.classList.add('show');
+  if (_dngToastTimer) clearTimeout(_dngToastTimer);
+  _dngToastTimer = setTimeout(() => { el.classList.remove('show'); }, 6000);
+}
+
 // The contractual completion milestone the planner entered (from the Milestone Check module), so the
 // server can guard a fix that would push completion past its contract date. null when none entered.
 function _dngCompletion() {
@@ -1369,14 +1395,24 @@ async function _dngApply(fid) {
   _dngDlNote('Re-validating…');
   try {
     const out = await _dngValidate();
-    if (!out.ok) { restore(); _dngDlNote(out.error || 'Validation failed.', true); renderDngReview(); return; }
+    if (!out.ok) { restore(); _dngDlNote(out.error || 'Validation failed.', true); _dngToast(out.error || 'Validation failed — the fix was not applied.', 'err'); renderDngReview(); return; }
     _dng.fresh = out.findings || [];
     _dngReconcileBlocked(out.blocked);
     renderDngReview();
-    if (_dng.blocked.has(fid)) _dngDlNote(DNG_BLOCK_MSG + ' — this fix was not applied.', true);
+    if (_dng.blocked.has(fid)) {
+      _dngDlNote(DNG_BLOCK_MSG + ' — this fix was not applied.', true);
+      _dngToast(`${f.activity_id}: ${DNG_BLOCK_MSG} — not applied.`, 'err');
+    } else {
+      const summary = dngChangeSummary(f, ops);
+      const stillOpen = (_dng.fresh || []).some(x => x.activity_id === f.activity_id);
+      _dngToast(stillOpen
+        ? `Applied ${f.activity_id} — changed ${summary}. Still dangling on the other side.`
+        : `✓ ${f.activity_id} resolved — changed ${summary}.`, 'ok');
+    }
   } catch (e) {
     restore();
     _dngDlNote('Could not reach the analysis engine.', true);
+    _dngToast('Could not reach the analysis engine — the fix was not applied.', 'err');
     renderDngReview();
   }
 }
@@ -1385,15 +1421,13 @@ async function _dngApplyAll() {
   if (_dng._applying) return;
   const candidates = _dng.fresh.map(f => ({ f, ops: _dngBuildOps(f) })).filter(c => c.ops.length);
   const applicable = candidates.length;
-  const review = _dng.fresh.length - applicable;
   if (!applicable) {
     _dngDlNote('None of the open findings have a type-change fix — the rest need planner review (no link to re-type).', true);
     return;
   }
-  const msg = `Apply the recommended fix to ${applicable} finding${applicable === 1 ? '' : 's'}?`
-    + (review ? `\n\n${review} finding${review === 1 ? '' : 's'} have no link to re-type and will stay open for review.` : '')
-    + '\n\nNothing is written to your P6 file until you click Download Corrected Schedule.';
-  if (!window.confirm(msg)) return;
+  // No window.confirm gate — native JS dialogs are unreliable in the packaged WebView2 (they can
+  // return falsy and silently cancel), and applying is reversible: nothing is written to the P6 file
+  // until Download Corrected Schedule. The outcome is reported in a toast below.
   const prev = {}, touched = [];
   candidates.forEach(({ f, ops }) => {
     prev[f.activity_id] = _dng.applied[f.activity_id];
@@ -1415,12 +1449,15 @@ async function _dngApplyAll() {
     const blockedN = (out.blocked || []).length;
     const applied = touched.length - blockedN;
     const notCleared = applied - resolved;
-    _dngDlNote(`Applied ${applied} fix${applied === 1 ? '' : 'es'} — ${resolved} moved to Resolved.`
+    const summary = `Applied ${applied} fix${applied === 1 ? '' : 'es'} — ${resolved} moved to Resolved.`
       + (blockedN ? ` ${blockedN} held back — would exceed the contractual completion milestone.` : '')
-      + (notCleared > 0 ? ` ${notCleared} still dangling on another side — open the row to fix it.` : ''));
+      + (notCleared > 0 ? ` ${notCleared} still dangling on another side — open the row to fix it.` : '');
+    _dngDlNote(summary);
+    _dngToast(summary, blockedN && !resolved ? 'err' : 'ok');
   } catch (e) {
     rollback();
     _dngDlNote('Could not reach the analysis engine.', true);
+    _dngToast('Could not reach the analysis engine — no fixes were applied.', 'err');
     renderDngReview();
   } finally {
     _dng._applying = false;

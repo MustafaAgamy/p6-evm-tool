@@ -89,26 +89,33 @@ def milestone_blocked(data, accepted, completion):
     estimate (no F9)."""
     if not completion:
         return set()
-    aid = completion.get('activity_id')
-    contract = _parse_date(completion.get('contract_date'))
-    if not aid or not contract:
+    # Best-effort estimate — the guard must NEVER break Apply. Any failure computing the offline
+    # forward pass falls open (allow the fix) rather than erroring the whole re-validation.
+    try:
+        aid = completion.get('activity_id')
+        contract = _parse_date(completion.get('contract_date'))
+        if not aid or not contract:
+            return set()
+        comp_oids = [oid for oid, a in data.activities.items() if a.get('id') == aid]
+        if not comp_oids:
+            return set()
+        base_finish = _completion_finish(data, data.relationships, comp_oids)
+        by_finding = {}
+        for op in accepted:
+            fid = op.get('finding_id')
+            if fid:
+                by_finding.setdefault(fid, []).append(op)
+        blocked = set()
+        for fid, ops in by_finding.items():
+            rels = apply_ops_to_relationships(data, ops)       # this finding's fix on the original
+            fx = _completion_finish(data, rels, comp_oids)
+            if fx and fx.date() > contract.date() and (base_finish is None or fx > base_finish):
+                blocked.add(fid)
+        return blocked
+    except Exception as exc:
+        import sys
+        print(f'[dangling] milestone guard skipped (estimate failed): {exc}', file=sys.stderr)
         return set()
-    comp_oids = [oid for oid, a in data.activities.items() if a.get('id') == aid]
-    if not comp_oids:
-        return set()
-    base_finish = _completion_finish(data, data.relationships, comp_oids)
-    by_finding = {}
-    for op in accepted:
-        fid = op.get('finding_id')
-        if fid:
-            by_finding.setdefault(fid, []).append(op)
-    blocked = set()
-    for fid, ops in by_finding.items():
-        rels = apply_ops_to_relationships(data, ops)          # this finding's fix on the original
-        fx = _completion_finish(data, rels, comp_oids)
-        if fx and fx.date() > contract.date() and (base_finish is None or fx > base_finish):
-            blocked.add(fid)
-    return blocked
 
 
 def revalidate(data, config, accepted, completion=None):

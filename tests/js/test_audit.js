@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
          oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass,
          oosLagLabel, oosRelLabel, oosDefaultOp, oosOpSummary, oosHasFix, oosBulkOutcome,
-         dngDefaultOp, dngHasFix, dngResolvedActs, dngMergeOps, dngCompletionMilestone,
+         dngDefaultOp, dngHasFix, dngResolvedActs, dngMergeOps, dngCompletionMilestone, dngChangeSummary,
          lagQuickPickValues, normalizeColumnFilter, matchesColumnFilter, filterLagFindings, sortLagFindings,
          LAG_FILTER_COLUMNS }
   from '../../ui/modules/audit.js';
@@ -306,6 +306,25 @@ test('completion ignores unmatched milestones', () => {
 test('completion null when none entered/matched', () => {
   assert.equal(dngCompletionMilestone([]), null);
   assert.equal(dngCompletionMilestone([{ contract_name: 'X', matched_activity_id: null, contract_date: '1-Jan-2026' }]), null);
+});
+
+console.log('\nDangling — Apply change summary (what changed)');
+test('change summary: start op reads pred→act and the FF→FS type change', () => {
+  const f = { start_fix: { current_type: 'FF' } };
+  const op = { side: 'start', pred_id: 'P1', succ_id: 'M1', new_type: 'FS' };
+  assert.equal(dngChangeSummary(f, [op]), 'P1 → M1 from Finish-to-Finish to Finish-to-Start');
+});
+test('change summary: finish op reads act→succ and the SS→FS type change', () => {
+  const f = { finish_fix: { current_type: 'SS' } };
+  const op = { side: 'finish', pred_id: 'M2', succ_id: 'S2', new_type: 'FS' };
+  assert.equal(dngChangeSummary(f, [op]), 'M2 → S2 from Start-to-Start to Finish-to-Start');
+});
+test('change summary: both sides joined', () => {
+  const f = { start_fix: { current_type: 'FF' }, finish_fix: { current_type: 'SS' } };
+  const ops = [{ side: 'start', pred_id: 'P', succ_id: 'B', new_type: 'FS' },
+               { side: 'finish', pred_id: 'B', succ_id: 'S', new_type: 'FS' }];
+  assert.equal(dngChangeSummary(f, ops),
+    'P → B from Finish-to-Finish to Finish-to-Start; B → S from Start-to-Start to Finish-to-Start');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
