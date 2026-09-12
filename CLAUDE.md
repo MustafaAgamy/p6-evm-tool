@@ -17,8 +17,9 @@ everywhere with no extra work. Some identifiers intentionally keep their origina
 names (they are **not** product branding — renaming them would break imports or orphan user
 data): the `p6_evm` Python package (industry term "P6/EVM", imported across every module and
 test) and the UI `localStorage` keys (`p6_evm_theme`, `p6evm_w_*`, `p6evm_ac_*`). The per-user
-data folder was rebranded `P6EVMTool` → `Controlyx` and the DB `p6evm.db` → `controlyx.db`,
-each migrated automatically on first run (`utils.app_data_dir()` / `db._db_path()`).
+data folder is `.controlyx` (Windows `%APPDATA%\.controlyx`, Mac/Linux `~/.controlyx`) and the
+DB is `controlyx.db`, each migrated automatically on first run from the older `P6EVMTool` /
+`Controlyx` / `.p6evmtool` folders and `p6evm.db` (`utils.app_data_dir()` / `db._db_path()`).
 
 ---
 
@@ -116,7 +117,7 @@ Data bundled: `ui/`, `p6_evm/`, `config.json`. `resource_path()` in `utils.py` r
 
 ## Persistence (db.py)
 
-**DB location:** `%APPDATA%\Controlyx\controlyx.db` (Windows) / `~/.controlyx/controlyx.db` (Mac/Linux) — one per OS user, gitignored. Legacy `P6EVMTool` / `p6evm.db` are migrated automatically on first run.
+**DB location:** `%APPDATA%\.controlyx\controlyx.db` (Windows) / `~/.controlyx/controlyx.db` (Mac/Linux) — one per OS user, gitignored. Older folders (`Controlyx` / `P6EVMTool` / `.p6evmtool`) and `p6evm.db` are migrated automatically on first run.
 
 **XML cache:** `%APPDATA%\Controlyx\schedules\{hash12}_{filename}` — capped at 20 files, oldest deleted on overflow. Dedup by SHA256: importing the same file twice stores one copy.
 

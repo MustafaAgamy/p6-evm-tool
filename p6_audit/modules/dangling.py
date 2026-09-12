@@ -51,6 +51,44 @@ def _fix(preds, succs, pred_drive, succ_drive):
     return f'{pred_part}   |   {succ_part}'
 
 
+def _ties(graph, edges):
+    """Structured predecessor/successor ties (by activity CODE) for the Resolve & Correct layer.
+    Additive — the display strings above are untouched."""
+    out = []
+    for e in edges:
+        other = graph.activities.get(e['other'], {})
+        out.append({
+            'id':       other.get('id', '') or '',
+            'name':     other.get('name', '') or '',
+            'type':     e.get('type', 'FS'),
+            'lag_days': float(e.get('lag_days', 0.0) or 0.0),
+        })
+    return out
+
+
+def _side_fix(ties, recommended, alt):
+    """A concrete, applyable fix for one dangling side, or a review marker.
+
+    A side is dangling only when *no* tie on it drives (start: FS/SS · finish: FS/FF), so every
+    existing tie is the wrong type and can be re-typed to a driver — a ``change``. When there is
+    no tie at all there is nothing to re-type, so it is flagged ``review`` (Needs Planner Review);
+    the tool never invents a link. ``recommended``/``alt`` are the two valid driver types for the
+    side (Fix 1 / Fix 2)."""
+    if not ties:
+        return {'kind': 'review'}
+    tgt = ties[0]
+    return {
+        'kind':             'change',
+        'target_id':        tgt['id'],
+        'target_name':      tgt['name'],
+        'current_type':     tgt['type'],
+        'current_lag_days': tgt['lag_days'],
+        'recommended_type': recommended,
+        'alt_type':         alt,
+        'candidates':       ties,
+    }
+
+
 def run_dangling(graph, config):
     findings = []
     real = [(oid, a) for oid, a in graph.activities.items() if graph.is_real_activity(oid)]
@@ -80,7 +118,9 @@ def run_dangling(graph, config):
         fix2 = _fix(preds, succs, 'SS', 'FF')
         if fix2 == fix1:                     # no alternative beyond Fix 1
             fix2 = 'N/A'
-        findings.append({
+        pred_ties = _ties(graph, preds)
+        succ_ties = _ties(graph, succs)
+        finding = {
             'finding_id':      content_id('DANGLING', act['id'], issue),
             'activity_id':     act['id'],
             'activity_name':   act.get('name', ''),
@@ -92,7 +132,19 @@ def run_dangling(graph, config):
             'suggested_fix':   fix1,
             'suggested_fix_2': fix2,
             'is_critical':     bool(act.get('is_critical')),
-        })
+            # ── Resolve & Correct enrichment (additive; detection unchanged) ──
+            'start_dangling':  start_dangling,
+            'finish_dangling': finish_dangling,
+            'pred_ties':       pred_ties,
+            'succ_ties':       succ_ties,
+        }
+        # A concrete, applyable fix per dangling side (start driven by a predecessor: FS/SS;
+        # finish driven by a successor: FS/FF), or a Needs-Planner-Review marker when no link exists.
+        if start_dangling:
+            finding['start_fix'] = _side_fix(pred_ties, 'FS', 'SS')
+        if finish_dangling:
+            finding['finish_fix'] = _side_fix(succ_ties, 'FS', 'FF')
+        findings.append(finding)
 
     total = len(real)
     dangling = len(findings)
@@ -100,6 +152,9 @@ def run_dangling(graph, config):
 
     order = {'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3}
     findings.sort(key=lambda f: (order.get(f['severity'], 9), f['activity_id']))
+
+    dd = getattr(graph, 'data_date', None)
+    data_date_str = dd.strftime('%d-%b-%Y') if hasattr(dd, 'strftime') else ''
 
     return {
         'module': MODULE,
@@ -111,6 +166,7 @@ def run_dangling(graph, config):
             'finish_dangling':  finish_n,
             'both_dangling':    both_n,
             'dangling_pct':     pct,
+            'data_date':        data_date_str,
         },
         'pct':   pct,
         # Unified Schedule Health model: Score = 100 − defect%, uniform legend

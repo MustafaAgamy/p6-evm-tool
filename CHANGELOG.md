@@ -7,15 +7,51 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed
+- **The per-user data folder is now `.controlyx`** (Windows `%APPDATA%\.controlyx`, Mac/Linux `~/.controlyx`). Your existing data — recent projects, settings, cached schedules, knowledge base, database — is **migrated automatically on first run** from the previous `Controlyx` folder (and the older `P6EVMTool` / `.p6evmtool` folders), so nothing is lost.
+
+### Fixed
+- **The app opens straight into the loading presentation** — no more black/blank screen for a moment on launch. The window background now matches the splash, and the branded loading screen ("Starting local server…") appears the instant the window opens and runs ~11 seconds before revealing the app.
+- **Once loading reaches 100%, the app and every feature's results now appear instantly.** The startup splash's slow blurry fade-out is replaced by a quick crisp reveal, and a feature's Run now holds the bar at 100% until its results have actually finished computing, then reveals them immediately — so there's no lag or blank moment after 100%. Applies to every feature (current, in-progress and future) via the shared reveal.
+
+## [v2.5.2] - 2026-09-07
+
+### Changed
+- **Every feature now plays the same branded "run" presentation** (the Loading → 100% reveal) when you start it. The multi-file features — **Baseline Revision, Consultant Review, Update vs Update, Critical Path, and Bad Weather** — previously ran without it; they now show the same reveal as every other feature. Built on one shared helper (`revealAndRun`) so it's the default for future features too.
+
+## [v2.5.1] - 2026-09-07
+
+### Changed
+- **The WBS report's PDF picker is now fully per-section** — its Report Contents selector (File ▸ Print) offers **WBS overview** and **WBS summary table** as separate, individually-selectable sections (it previously exposed a single combined item).
+
+## [v2.5.0] - 2026-09-07
+
+### Added — Excel export for every feature
+- **Every feature now exports its report to Excel (.xlsx)**, matching the on-screen / PDF layout (styled titled-section tables, not a flat data dump). New Excel exports: **Earned Value, Baseline Revision, AI Copilot · TIA, Professional Dashboard, Special Report, Baseline Narrative, Overview, WBS, and Schedule (Gantt)** — joining the ones that already had it (Schedule Health, Out of Sequence, Lag Report, Calendar Audit, Bad Weather, Consultant Review, Update vs Update, Update Analysis, Critical Path, Constructability). Each has an in-panel **Export to Excel** button and works from **File ▸ Export to Excel**; the workbook mirrors that report's sections.
+- Built on one shared workbook writer (`write_sections_xlsx`), so Excel export is now the **standard for every future feature** too.
+
+### Changed
+- **Baseline Revision** now shows visible **PDF** and **Excel** buttons in its results panel — previously its report was only reachable from the File menu.
+
+## [v2.4.1] - 2026-09-07
+
+### Added
+- **Ctrl+B shows / hides the Project Navigator** (the left sidebar) — the same toggle as View ▸ Show / hide navigator and the ☰ button. Listed automatically in Help ▸ Keyboard Shortcuts.
+
+## [v2.4.0] - 2026-09-07
+
 ### Added — More keyboard shortcuts
 - **Ctrl+E exports the current report to Excel** (alongside Ctrl+P / Ctrl+S for PDF).
 - **Ctrl+D now cycles through all six appearance modes** (Light → Dark → Midnight → Sepia → High-contrast → Blueprint, then round again), instead of only toggling light/dark.
-- **F1 opens the Help Center.**
+- **Ctrl+/ opens the Help Center** (the standard "show shortcuts/help" combo; F1 can't be used because the app window's WebView reserves it as the system Help key).
 - The **Help ▸ Keyboard Shortcuts** list is now generated from a single shortcut registry, so it always matches the shortcuts that actually work — add or change a shortcut and it appears in the list automatically, with no separate edit.
 
 ### Fixed
 - **Keyboard shortcuts now actually fire.** They were doing nothing because the app window could open — or come back from a file dialog — with keyboard focus outside the page, so key presses never reached it. The app now claims keyboard focus on startup, when the splash lifts, and whenever the window is re-focused, and listens for shortcuts at the window level so they work regardless of which part of the screen has focus.
 - **The feature-open animation no longer reveals the results before the progress bar reaches 100%.** The loading overlay is now fully opaque, so results stay hidden until the bar completes and then appear instantly.
+
+### Changed
+- Help ▸ Contact & Support now states the team responds **within 2 days**.
 
 ## [v2.3.0] - 2026-09-07
 

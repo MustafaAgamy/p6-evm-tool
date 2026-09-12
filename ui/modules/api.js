@@ -447,3 +447,234 @@ export async function generatePdf() {
     btn.reset();
   }
 }
+
+// ── Per-feature Excel exports ─────────────────────────────────────────────────
+// Each mirrors the feature's report/screen into a .xlsx via its /api/<id>/excel
+// route (server rebuilds/presents the held result → shared write_sections_xlsx).
+// Same exportCalendarExcel/exportWeatherExcel pattern: gate on state, drive the
+// in-panel button via ButtonState, choose_save_path, POST, success/error.
+// (Special Report has no function here by design — special.js owns its own
+//  saveFile('xlsx') using the builder's selection state, which api.js can't see.)
+
+// Earned Value (evm) — packs the held result + live inputs (weights, actual cost,
+// PV-EV gap, engineering) + meta into the report the server mirrors to sheets.
+export async function exportEvmExcel() {
+  if (!state.currentResult) { showError('Open a schedule and Earned Value first.'); return; }
+  const btn = new ButtonState(document.getElementById('evm-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('EVM_results.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const r = state.currentResult;
+    const inputs = evmInputs();                 // {weights, actualCost, gap}
+    let engineering = null;
+    if (r.engineering_e1 && r.engineering_e1.length) {
+      const ex = r.e1_extras || {};
+      engineering = { mode: 'E1', rows: r.engineering_e1, overall: ex.overall, by_trade: ex.by_trade, gaps: ex.gaps };
+    } else if (r.engineering_p6 && r.engineering_p6.length) {
+      engineering = { mode: 'P6', rows: r.engineering_p6 };
+    }
+    const report = {
+      result: r,
+      weights: inputs.weights,
+      actual_cost: inputs.actualCost,
+      gap: inputs.gap || null,
+      engineering,
+      meta: {
+        project_name: r.project_name || 'Schedule',
+        data_date: (r.data_date || '').slice(0, 10),
+        report_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        source_file: (state.currentXmlPath || '').split(/[\\/]/).pop(),
+        baseline_finish: r.baseline_finish, expected_finish: r.expected_finish,
+      },
+    };
+    const data = await apiFetch('api/evm/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ report, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Baseline Revision (revcompare) — posts the held comparison report; raw fetch +
+// inline button toggle (verbatim from the feature spec) since it runs on user-
+// assigned files, not the currently-imported schedule.
+export async function exportRevcompareExcel() {
+  const r = state.revcompareReport;
+  if (!r) { showError('Run the comparison first, then export.'); return; }
+  const outputPath = await window.pywebview.api.choose_save_path('Baseline_Revision_Comparison.xlsx', 'xlsx');
+  if (!outputPath) return;
+  const btn = document.getElementById('rc-export-xlsx');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/revcompare/excel`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report: r, output_path: outputPath }),
+    });
+    const data = await resp.json();
+    if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
+  } catch {
+    showError('Could not reach the local server to export the Excel.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Export Excel'; }
+  }
+}
+
+// AI Copilot · TIA (copilot) — server rebuilds the deterministic copilot report
+// from the held result (reusing the saved weather estimate), so no snapshot needed.
+export async function exportCopilotExcel() {
+  if (!state.currentResult) { showError('Import a P6 schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('cp-export-xlsx'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('ai_copilot_tia.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/copilot/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId || null,
+                                result: state.currentResult, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Professional Dashboard (dash) — re-fetches the /api/dashboard read-model (DB
+// read path, no re-parse), then posts that same dict for the workbook.
+export async function exportDashboardExcel() {
+  const btn = new ButtonState(document.getElementById('dash-export-xlsx'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    // Same source the screen renders — DB read path, no re-parse.
+    const dash = await apiFetch('api/dashboard', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId || null }),
+    });
+    if (!dash || !dash.ok) {
+      showError(`Excel export failed: ${(dash && dash.error) || 'no dashboard data'}`); btn.reset(); return;
+    }
+    const outputPath = await window.pywebview.api.choose_save_path('professional_dashboard.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/dash/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ dashboard: dash, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Baseline Narrative (narrative) — server rebuilds the section-keyed narrative
+// from the DB result (falling back to the held result) and mirrors it to a sheet.
+export async function exportNarrativeExcel() {
+  if (!state.currentResult) { showError('Open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('narr-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('baseline_narrative.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/narrative/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId || null, result: state.currentResult, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Project ▸ Overview (overview) — mirrors the on-screen summary/KPIs/category
+// tables from the held result + meta.
+export async function exportOverviewExcel() {
+  if (!state.currentResult) { showError('Import a P6 schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('ov-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('project_overview.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/overview/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ report: { result: state.currentResult, meta: moduleMeta() }, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Project ▸ WBS (wbs) — posts the held pre-order WBS tree + selectable main
+// branches (guarded: re-opened-from-DB projects may lack wbs_summary).
+export async function exportWbsExcel() {
+  const r = state.currentResult;
+  if (!r || !(r.wbs_summary && r.wbs_summary.length)) {
+    showError('Open the WBS view first — re-import the schedule if it shows no WBS breakdown.');
+    return;
+  }
+  const btn = new ButtonState(document.getElementById('wbs-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('wbs_summary.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const report = {
+      wbs_summary: r.wbs_summary,
+      wbs_main:    r.wbs_main,
+      project_name: r.project_name,
+      data_date:   r.data_date,
+    };
+    const data = await apiFetch('api/wbs/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ report, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Schedule (Gantt) (schedule) — posts the held slim per-activity list; the
+// exporter groups it by top-level WBS exactly like the on-screen Gantt.
+export async function exportScheduleExcel() {
+  const r = state.currentResult;
+  if (!r || !(r.activities && r.activities.length)) {
+    showError('Open Schedule (Gantt) with an imported schedule first.'); return;
+  }
+  const btn = new ButtonState(document.getElementById('sched-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('schedule_gantt.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/schedule/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ result: r, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}

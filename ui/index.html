@@ -6,13 +6,32 @@
   <link rel="stylesheet" href="/ui/style.css">
   <script>(function(){try{var ok=['light','dark','midnight','sepia','contrast','blueprint'];var m=localStorage.getItem('p6_report_appearance');if(ok.indexOf(m)<0){var l=localStorage.getItem('p6_evm_theme');m=(l==='light'||l==='dark')?l:'light';}document.documentElement.setAttribute('data-appearance',m);}catch(e){document.documentElement.setAttribute('data-appearance','light');}}());</script>
   <style>
-    /* Immediate dark cover — prevents any flash of the app before the single
-       animated startup splash (ui/modules/boot.js) paints; boot.js removes it. */
-    #brand-splash{position:fixed;inset:0;z-index:2000;background:#06090f;}
+    /* Instant branded loading cover — paints the SAME navy + "Starting local server"
+       HUD as boot.js's first frame, so the window opens straight into the loading
+       presentation (no black/blank gap while the JS modules load). boot.js removes
+       this the moment its animation starts, handing off seamlessly. */
+    #brand-splash{position:fixed;inset:0;z-index:2000;
+      background:radial-gradient(125% 95% at 50% 40%, #14284f 0%, #0a1330 42%, #06090f 100%);
+      font-family:"Segoe UI",system-ui,-apple-system,sans-serif;}
+    #brand-splash .bs-hud{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);width:min(440px,74vw);text-align:center;}
+    #brand-splash .bs-cap{display:flex;justify-content:space-between;font-size:12px;letter-spacing:.12em;
+      text-transform:uppercase;color:#9fb0d6;font-weight:600;margin-bottom:9px;}
+    #brand-splash .bs-cap b{color:#fff;font-variant-numeric:tabular-nums;}
+    #brand-splash .bs-track{height:3px;border-radius:3px;background:rgba(120,150,220,.16);overflow:hidden;}
+    #brand-splash .bs-fill{height:100%;width:22%;border-radius:3px;
+      background:linear-gradient(90deg,#f6a723,#5b9bff);box-shadow:0 0 12px rgba(91,155,255,.6);
+      animation:bs-indet 1.1s ease-in-out infinite;}
+    @keyframes bs-indet{0%{margin-left:-24%}100%{margin-left:100%}}
+    @media (prefers-reduced-motion: reduce){#brand-splash .bs-fill{animation:none;width:6%}}
   </style>
 </head>
 <body>
-<div id="brand-splash"></div>
+<div id="brand-splash">
+  <div class="bs-hud">
+    <div class="bs-cap"><span>Starting local server</span><b>0%</b></div>
+    <div class="bs-track"><div class="bs-fill"></div></div>
+  </div>
+</div>
 <div class="app">
 
   <!-- MENU BAR — the single home for global commands (File · View · Analysis · Tools · Help) -->
@@ -138,6 +157,7 @@
         <div class="view-panel" id="evm-panel">
           <div id="evm-body"></div>
           <div class="action-buttons">
+            <button class="btn-secondary" id="evm-excel-btn">Export to Excel</button>
             <button class="btn-primary" id="pdf-btn">Generate EVM PDF</button>
           </div>
         </div>
@@ -212,18 +232,33 @@
         </div>
         <div class="view-panel hidden" id="dash-panel">
           <div id="dash-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="dash-export-xlsx">Export to Excel</button>
+          </div>
         </div>
         <div class="view-panel hidden" id="narrative-panel">
           <div id="narrative-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="narr-excel-btn">Export to Excel</button>
+          </div>
         </div>
         <div class="view-panel hidden" id="copilot-panel">
           <div id="copilot-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="cp-export-xlsx">Export to Excel</button>
+          </div>
         </div>
         <div class="view-panel hidden" id="overview-panel">
           <div id="overview-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="ov-excel-btn">Export to Excel</button>
+          </div>
         </div>
         <div class="view-panel hidden" id="wbs-panel">
           <div id="wbs-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="wbs-excel-btn">Export to Excel</button>
+          </div>
         </div>
         <div class="view-panel hidden" id="schedule-panel">
           <div id="schedule-body"></div>

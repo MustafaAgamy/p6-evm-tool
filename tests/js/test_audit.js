@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
          oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass,
          oosLagLabel, oosRelLabel, oosDefaultOp, oosOpSummary, oosHasFix, oosBulkOutcome,
+         dngDefaultOp, dngHasFix, dngResolvedActs, dngMergeOps, dngCompletionMilestone, dngChangeSummary,
          lagQuickPickValues, normalizeColumnFilter, matchesColumnFilter, filterLagFindings, sortLagFindings,
          LAG_FILTER_COLUMNS }
   from '../../ui/modules/audit.js';
@@ -155,7 +156,7 @@ test('statusDot review → d-a',      () => assert.equal(statusDot('Review'), 'd
 test('statusDot critical → d-c',    () => assert.equal(statusDot('Critical'), 'd-c'));
 test('statusDot other → d-n',       () => assert.equal(statusDot('Not computed'), 'd-n'));
 test('verdictClass ready → good',   () => assert.equal(verdictClass('Ready to submit'), 'v-good'));
-test('verdictClass conditional → warn', () => assert.equal(verdictClass('Conditional pass'), 'v-warn'));
+test('verdictClass acceptable → warn', () => assert.equal(verdictClass('Acceptable to submit'), 'v-warn'));
 test('verdictClass not-ready → bad', () => assert.equal(verdictClass('Not ready to submit'), 'v-bad'));
 test('verdictClass blocked → bad',  () => assert.equal(verdictClass('Blocked'), 'v-bad'));
 
@@ -217,6 +218,114 @@ test('sortLagFindings: text column sorts alphabetically', () =>
     ['A2', 'A5', 'A1', 'A3', 'A4']));
 test('sortLagFindings: unknown column returns input unchanged', () =>
   assert.deepEqual(sortLagFindings(LAG_F, 'nope', 'asc'), LAG_F));
+
+console.log('\nDangling — Resolve & Correct helpers');
+// start side: wrong-type predecessor (FF) → change P→A to the recommended type.
+const DF_START = {
+  finding_id: 'd1', activity_id: 'A200', start_dangling: true, finish_dangling: false,
+  start_fix: { kind: 'change', target_id: 'A100', current_type: 'FF', current_lag_days: 2,
+               recommended_type: 'FS', alt_type: 'SS', candidates: [{ id: 'A100', type: 'FF', lag_days: 2 }] },
+};
+// finish side: wrong-type successor (SS) → change A→S to the recommended type.
+const DF_FINISH = {
+  finding_id: 'd2', activity_id: 'B', start_dangling: false, finish_dangling: true,
+  finish_fix: { kind: 'change', target_id: 'C', current_type: 'SS', current_lag_days: 0,
+                recommended_type: 'FS', alt_type: 'FF', candidates: [{ id: 'C', type: 'SS', lag_days: 0 }] },
+};
+// no predecessor → review; nothing to apply.
+const DF_REVIEW = { finding_id: 'd3', activity_id: 'X', start_dangling: true, finish_dangling: false,
+  start_fix: { kind: 'review' } };
+
+test('dngDefaultOp start: relationship is predecessor→activity', () => {
+  const op = dngDefaultOp(DF_START, 'start');
+  assert.equal(op.pred_id, 'A100'); assert.equal(op.succ_id, 'A200');
+  assert.equal(op.action, 'change'); assert.equal(op.new_type, 'FS'); assert.equal(op.new_lag_days, 2);
+  assert.equal(op.activity_id, 'A200');
+});
+test('dngDefaultOp finish: relationship is activity→successor', () => {
+  const op = dngDefaultOp(DF_FINISH, 'finish');
+  assert.equal(op.pred_id, 'B'); assert.equal(op.succ_id, 'C'); assert.equal(op.new_type, 'FS');
+});
+test('dngDefaultOp review side → null (no op)', () => assert.equal(dngDefaultOp(DF_REVIEW, 'start'), null));
+test('dngDefaultOp side that is not dangling → null', () => assert.equal(dngDefaultOp(DF_START, 'finish'), null));
+
+test('dngHasFix true when a change fix exists',  () => assert.equal(dngHasFix(DF_START), true));
+test('dngHasFix true for finish change',         () => assert.equal(dngHasFix(DF_FINISH), true));
+test('dngHasFix false when only review',         () => assert.equal(dngHasFix(DF_REVIEW), false));
+test('dngHasFix false when no fixes at all',     () => assert.equal(dngHasFix({ activity_id: 'Z' }), false));
+
+test('dngResolvedActs = activities gone after re-validation', () => {
+  const all = [{ activity_id: 'A' }, { activity_id: 'B' }, { activity_id: 'C' }];
+  const fresh = [{ activity_id: 'B' }];                 // A and C cleared
+  assert.deepEqual(dngResolvedActs(all, fresh), ['A', 'C']);
+});
+test('dngResolvedActs: partially-fixed activity (still dangling) is NOT resolved', () => {
+  const all = [{ activity_id: 'B' }];
+  const fresh = [{ activity_id: 'B' }];                 // B still dangling on another side
+  assert.deepEqual(dngResolvedActs(all, fresh), []);
+});
+
+console.log('\nDangling — merge applied ops by side (never lose a prior fix)');
+const START_OP = { side: 'start', new_type: 'FS' };
+const FINISH_OP = { side: 'finish', new_type: 'FS' };
+test('merge: a new finish op preserves an earlier start op (the bug fix)', () => {
+  // Apply-all on a partly-fixed activity: fresh finding exposes only finish → must keep prior start.
+  const merged = dngMergeOps([START_OP], [FINISH_OP], ['finish']);
+  assert.equal(merged.length, 2);
+  assert.deepEqual(merged.map(o => o.side).sort(), ['finish', 'start']);
+});
+test('merge: same-side new op overwrites the prior one', () => {
+  const merged = dngMergeOps([{ side: 'start', new_type: 'FS' }], [{ side: 'start', new_type: 'SS' }], ['start']);
+  assert.equal(merged.length, 1); assert.equal(merged[0].new_type, 'SS');
+});
+test('merge: an exposed side set to review (no new op) drops its prior op', () => {
+  const merged = dngMergeOps([FINISH_OP], [], ['finish']);   // planner chose "leave for review"
+  assert.deepEqual(merged, []);
+});
+test('merge: a side NOT exposed by the current finding keeps its prior op', () => {
+  const merged = dngMergeOps([START_OP], [], []);            // start already fixed, not re-exposed
+  assert.deepEqual(merged, [START_OP]);
+});
+
+console.log('\nDangling — contract completion milestone picker');
+test('completion = the matched milestone with the LATEST contract date', () => {
+  const ms = [
+    { contract_name: 'Commencement', matched_activity_id: 'NTP', contract_date: '5-Jan-2026' },
+    { contract_name: 'Practical Completion', matched_activity_id: 'PC', contract_date: '20-Dec-2027' },
+    { contract_name: 'Sectional', matched_activity_id: 'SEC', contract_date: '1-Jun-2027' },
+  ];
+  assert.deepEqual(dngCompletionMilestone(ms), { activity_id: 'PC', contract_date: '20-Dec-2027' });
+});
+test('completion ignores unmatched milestones', () => {
+  const ms = [
+    { contract_name: 'X', matched_activity_id: null, contract_date: '20-Dec-2099' },  // unmatched → skip
+    { contract_name: 'Completion', matched_activity_id: 'PC', contract_date: '20-Dec-2027' },
+  ];
+  assert.equal(dngCompletionMilestone(ms).activity_id, 'PC');
+});
+test('completion null when none entered/matched', () => {
+  assert.equal(dngCompletionMilestone([]), null);
+  assert.equal(dngCompletionMilestone([{ contract_name: 'X', matched_activity_id: null, contract_date: '1-Jan-2026' }]), null);
+});
+
+console.log('\nDangling — Apply change summary (what changed)');
+test('change summary: start op reads pred→act and the FF→FS type change', () => {
+  const f = { start_fix: { current_type: 'FF' } };
+  const op = { side: 'start', pred_id: 'P1', succ_id: 'M1', new_type: 'FS' };
+  assert.equal(dngChangeSummary(f, [op]), 'P1 → M1 from Finish-to-Finish to Finish-to-Start');
+});
+test('change summary: finish op reads act→succ and the SS→FS type change', () => {
+  const f = { finish_fix: { current_type: 'SS' } };
+  const op = { side: 'finish', pred_id: 'M2', succ_id: 'S2', new_type: 'FS' };
+  assert.equal(dngChangeSummary(f, [op]), 'M2 → S2 from Start-to-Start to Finish-to-Start');
+});
+test('change summary: both sides joined', () => {
+  const f = { start_fix: { current_type: 'FF' }, finish_fix: { current_type: 'SS' } };
+  const ops = [{ side: 'start', pred_id: 'P', succ_id: 'B', new_type: 'FS' },
+               { side: 'finish', pred_id: 'B', succ_id: 'S', new_type: 'FS' }];
+  assert.equal(dngChangeSummary(f, ops),
+    'P → B from Finish-to-Finish to Finish-to-Start; B → S from Start-to-Start to Finish-to-Start');
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

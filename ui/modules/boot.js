@@ -11,9 +11,9 @@ function injectCss() {
   const css = `
   #boot{position:fixed; inset:0; z-index:99999; overflow:hidden; opacity:1;
     background:radial-gradient(125% 95% at 50% 40%, #14284f 0%, #0a1330 42%, #06090f 100%);
-    display:grid; place-items:center; transition:opacity .6s ease, filter .6s ease; will-change:opacity;
+    display:grid; place-items:center; transition:opacity .28s ease; will-change:opacity;
     font-family:"Segoe UI",system-ui,-apple-system,sans-serif;}
-  #boot.gone{opacity:0; filter:blur(6px); pointer-events:none;}
+  #boot.gone{opacity:0; pointer-events:none;}
   #boot .grid{position:absolute; inset:0; opacity:.7;
     background-image:linear-gradient(rgba(120,150,220,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,150,220,.05) 1px,transparent 1px);
     background-size:44px 44px; -webkit-mask:radial-gradient(circle at 50% 44%,#000 30%,transparent 78%); mask:radial-gradient(circle at 50% 44%,#000 30%,transparent 78%);}
@@ -49,7 +49,7 @@ const ease = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(1 - x, 3);
 
 export function playBoot(opts) {
   opts = opts || {};
-  const DUR = opts.durationMs || 13000;
+  const DUR = opts.durationMs || 11000;
   const onDone = typeof opts.onDone === 'function' ? opts.onDone : function () {};
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   injectCss();
@@ -131,11 +131,8 @@ export function playBoot(opts) {
     const prog = clamp((t - 0.03) / 0.86); barf.style.width = (prog * 100).toFixed(1) + '%'; pct.textContent = Math.round(prog * 100) + '%';
     let s = STAGES[0][1]; for (let j = 0; j < STAGES.length; j++) if (t >= STAGES[j][0]) s = STAGES[j][1];
     if (capt.textContent !== s) capt.textContent = s;
-    // last phase: lift the whole splash to reveal the real app beneath.
-    const rv = ease(clamp((t - 0.88) / 0.12));
-    boot.style.opacity = (1 - rv).toFixed(3);
-    if (rv > 0) boot.style.filter = 'blur(' + (rv * 6).toFixed(1) + 'px)';
-    if (rv > 0.5) boot.style.pointerEvents = 'none';
+    // The splash stays fully opaque through the presentation; finish() does one quick
+    // crisp fade so the app appears the instant loading completes (no slow blur).
   }
 
   let raf = null, start = null, finished = false;
@@ -143,7 +140,7 @@ export function playBoot(opts) {
     if (finished) return; finished = true;
     if (raf) cancelAnimationFrame(raf);
     boot.classList.add('gone');
-    setTimeout(() => { if (boot.parentNode) boot.parentNode.removeChild(boot); }, 650);
+    setTimeout(() => { if (boot.parentNode) boot.parentNode.removeChild(boot); }, 320);
     try { onDone(); } catch (e) {}
   }
   // #07: the startup presentation plays in full — no Skip button, by request.
@@ -154,7 +151,9 @@ export function playBoot(opts) {
     if (start == null) start = ts;
     const t = (ts - start) / DUR;
     render(t);
-    if (t < 1) raf = requestAnimationFrame(step); else finish();
+    // Finish right after the bar hits 100% + the mark/wordmark settle (~t 0.89) — don't
+    // drag the last ~1s sitting at 100%; finish() does a quick crisp fade to reveal the app.
+    if (t < 0.9) raf = requestAnimationFrame(step); else finish();
   }
   raf = requestAnimationFrame(step);
   // Safety: if rAF is throttled (hidden window), never trap the user — hard cap.

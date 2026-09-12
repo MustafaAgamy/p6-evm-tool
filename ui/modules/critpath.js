@@ -8,6 +8,7 @@ import { state }      from './state.js';
 import { showError }  from './render.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 import { escapeHtml } from './format.js';
+import { revealAndRun } from './featurereveal.js';
 
 const MODES = [
   ['two_updates',       'Two updates',          'Update A vs Update B — this period vs a prior one',  ['previous']],
@@ -115,22 +116,24 @@ function _syncRun() {
   if (btn) btn.disabled = !ready;
 }
 
-async function _run() {
+function _run() {
   const rep = document.getElementById('cpa-report');
-  rep.innerHTML = `<div class="cpa-note">Reading the schedules and comparing critical paths…</div>`;
-  const payload = { mode: _mode, current_path: _currentOverride || state.currentXmlPath || '' };
-  // Only pass the cached copy of the open schedule when we're using it (no override).
-  if (!_currentOverride) payload.cached_path = state.currentCachedPath || '';
-  for (const role of _neededRoles()) payload[`${role}_path`] = _picked[role];
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/analyze`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-    });
-    const data = await resp.json();
-    if (!data.ok) { rep.innerHTML = `<div class="cpa-empty">${escapeHtml(data.error || 'Could not analyze.')}</div>`; return; }
-    _shownReport = data.report;
-    _renderReport(data.report);
-  } catch { rep.innerHTML = `<div class="cpa-empty">Could not reach the local server. Try re-importing the schedule.</div>`; }
+  revealAndRun(rep, 'Critical Path', async () => {
+    rep.innerHTML = `<div class="cpa-note">Reading the schedules and comparing critical paths…</div>`;
+    const payload = { mode: _mode, current_path: _currentOverride || state.currentXmlPath || '' };
+    // Only pass the cached copy of the open schedule when we're using it (no override).
+    if (!_currentOverride) payload.cached_path = state.currentCachedPath || '';
+    for (const role of _neededRoles()) payload[`${role}_path`] = _picked[role];
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/analyze`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!data.ok) { rep.innerHTML = `<div class="cpa-empty">${escapeHtml(data.error || 'Could not analyze.')}</div>`; return; }
+      _shownReport = data.report;
+      _renderReport(data.report);
+    } catch { rep.innerHTML = `<div class="cpa-empty">Could not reach the local server. Try re-importing the schedule.</div>`; }
+  });
 }
 
 // ── Render report ────────────────────────────────────────────────────────────

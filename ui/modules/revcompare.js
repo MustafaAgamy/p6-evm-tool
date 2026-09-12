@@ -9,6 +9,8 @@ import { showError, clearError } from './render.js';
 import { escapeHtml } from './format.js';
 import { getSavedMode } from './appearance.js';
 import { showReportPreview } from './preview.js';
+import { revealAndRun } from './featurereveal.js';
+import { exportRevcompareExcel } from './api.js';
 
 const RC_TABS = [
   ['summary', 'Executive Summary'], ['register', 'Change Register'],
@@ -104,25 +106,29 @@ async function runComparison() {
   if (!state.revcompareRev0 || !state.revcompareRev1) { showError('Assign both baseline revisions first.'); return; }
   const body = document.getElementById('revcompare-body');
   clearError();
-  body.innerHTML = '<div class="rc-loading">Comparing Rev.00 vs Rev.01…</div>';
   const options = {
     fuzzy: document.getElementById('rc-opt-fuzzy')?.checked !== false,
     recompute_cp: document.getElementById('rc-opt-cp')?.checked !== false,
   };
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/revcompare`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rev0_path: state.revcompareRev0.path, rev1_path: state.revcompareRev1.path, options }),
-    });
-    const data = await resp.json();
-    if (!data.ok) { showError(data.error || 'Comparison failed.'); renderInputs(body); return; }
-    state.revcompareReport = data.report;
-    state.revcompareTab = 'summary';
-    renderResults(body);
-  } catch {
-    showError('Could not reach the local server. Try restarting the app.');
-    renderInputs(body);
-  }
+  // Branded feature-open presentation (Loading → 100%) plays over the panel, then the
+  // comparison computes + renders — same experience as every other feature.
+  revealAndRun(body, 'Baseline Revision Comparison', async () => {
+    body.innerHTML = '<div class="rc-loading">Comparing Rev.00 vs Rev.01…</div>';
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/revcompare`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rev0_path: state.revcompareRev0.path, rev1_path: state.revcompareRev1.path, options }),
+      });
+      const data = await resp.json();
+      if (!data.ok) { showError(data.error || 'Comparison failed.'); renderInputs(body); return; }
+      state.revcompareReport = data.report;
+      state.revcompareTab = 'summary';
+      renderResults(body);
+    } catch {
+      showError('Could not reach the local server. Try restarting the app.');
+      renderInputs(body);
+    }
+  });
 }
 
 // ── 2. Results shell + sub-tabs ──────────────────────────────────────────────
@@ -141,7 +147,8 @@ function renderResults(body) {
       </div>
       <div class="rc-seg">${tabs}</div>
       <button class="rc-mini" id="rc-reset">${IC.flip} New comparison</button>
-      <button class="rc-hidden-report" id="rc-preview-pdf" aria-hidden="true" tabindex="-1"></button>
+      <button class="rc-mini" id="rc-preview-pdf">⬇ PDF</button>
+      <button class="rc-mini" id="rc-export-xlsx">⬇ Excel</button>
     </div>
     ${r.warnings && r.warnings.length ? `<div class="rc-warn">${IC.warn} ${r.warnings.map(escapeHtml).join(' · ')}</div>` : ''}
     <div id="rc-view">${view}</div>`;
@@ -151,6 +158,7 @@ function renderResults(body) {
     state.revcompareReport = null; renderInputs(body);
   });
   body.querySelector('#rc-preview-pdf').addEventListener('click', openRevcompareReport);
+  body.querySelector('#rc-export-xlsx').addEventListener('click', exportRevcompareExcel);
   if (tab === 'register') wireRegister(body);
 }
 
