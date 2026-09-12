@@ -184,6 +184,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_special_pdf(body)
         elif self.path == '/api/special/doc':
             self._handle_special_doc(body)
+        elif self.path == '/api/special/excel':
+            self._handle_special_excel(body)
         elif self.path == '/api/special/templates/list':
             self._handle_special_templates_list(body)
         elif self.path == '/api/special/templates/save':
@@ -339,6 +341,25 @@ class Handler(BaseHTTPRequestHandler):
                 meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
                 inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
             save_word_document(html, os.path.abspath(output_path))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_excel(self, body):
+        """Export the picked Studio results to .xlsx (a Contents sheet + one data
+        sheet per result) — the numbers behind the Document/Dashboard."""
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            assemble.excel(
+                os.path.abspath(output_path), self._special_pid(body),
+                body.get('item_ids') or [], body.get('report_name') or 'Special Report',
+                meta=body.get('meta') or {}, inputs=body.get('inputs') or {},
+                snapshot_id=body.get('snapshot_id'))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

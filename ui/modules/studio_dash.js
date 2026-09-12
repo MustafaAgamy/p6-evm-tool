@@ -611,9 +611,29 @@ export function boardHtml(tiles, meta, layout, editing) {
   const editBtn = `<button type="button" class="btn-primary" data-dash="edit">${editing ? '✓ Done' : '⚙ Edit'}</button>`;
   return `<div class="studio-dash-wrap${editing ? ' editing' : ''}">${styleBlock}` +
     `<div class="pd-toolbar"><span class="pd-mode">${mode}</span>` +
-    `<span class="pd-actions"><button type="button" class="btn-secondary" data-dash="pdf">⬇ PDF</button>${editBtn}</span></div>` +
+    `<span class="pd-actions"><button type="button" class="btn-secondary" data-dash="pdf">⬇ PDF</button>` +
+    `<button type="button" class="btn-secondary" data-dash="excel">⬇ Excel</button>${editBtn}</span></div>` +
     `<div class="pd-sheet">${inner}</div>` +
   `</div>`;
+}
+
+// Export the current board as a PDF that matches the screen across all 6 looks.
+// Always rendered in view mode (editing=false) so the saved layout — order, sizes,
+// titles and the letterhead header — is reflected, with no editing chrome leaking in.
+// Export the picked results as an .xlsx (the data behind the charts) — the same
+// workbook the Document's Excel button produces.
+async function exportDashExcel() {
+  const ids = (_last.tiles || []).map(t => t.id).filter(Boolean);
+  if (!ids.length) return;
+  const name = (_last.meta && _last.meta.project_name) || 'Reporting Studio';
+  const safe = name.replace(/[^\w\- ]+/g, '').trim() || 'reporting-studio';
+  let out = null;
+  try { out = await window.pywebview.api.choose_save_path(`${safe}.xlsx`, 'xlsx'); } catch { /* dialog unavailable */ }
+  if (!out) return;
+  await post('api/special/excel', {
+    snapshot_id: _last.snapshotId ?? state.currentSnapshotId,
+    item_ids: ids, report_name: name, meta: _last.meta || {}, output_path: out,
+  });
 }
 
 // Export the current board as a PDF that matches the screen across all 6 looks.
@@ -816,6 +836,8 @@ function renderBoardInto(host) {
   host.innerHTML = boardHtml(_last.tiles, _last.meta, _last.layout, _editing);
   const pdfBtn = host.querySelector('[data-dash="pdf"]');
   if (pdfBtn) pdfBtn.addEventListener('click', exportDashPdf);
+  const xlsBtn = host.querySelector('[data-dash="excel"]');
+  if (xlsBtn) xlsBtn.addEventListener('click', exportDashExcel);
   const editBtn = host.querySelector('[data-dash="edit"]');
   if (editBtn) editBtn.addEventListener('click', () => toggleEdit(host));
   if (_editing) wireEditing(host);
