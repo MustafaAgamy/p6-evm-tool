@@ -155,7 +155,7 @@ test('statusDot review → d-a',      () => assert.equal(statusDot('Review'), 'd
 test('statusDot critical → d-c',    () => assert.equal(statusDot('Critical'), 'd-c'));
 test('statusDot other → d-n',       () => assert.equal(statusDot('Not computed'), 'd-n'));
 test('verdictClass ready → good',   () => assert.equal(verdictClass('Ready to submit'), 'v-good'));
-test('verdictClass conditional → warn', () => assert.equal(verdictClass('Conditional pass'), 'v-warn'));
+test('verdictClass acceptable → warn', () => assert.equal(verdictClass('Acceptable to submit'), 'v-warn'));
 test('verdictClass not-ready → bad', () => assert.equal(verdictClass('Not ready to submit'), 'v-bad'));
 test('verdictClass blocked → bad',  () => assert.equal(verdictClass('Blocked'), 'v-bad'));
 
