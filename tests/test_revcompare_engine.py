@@ -137,6 +137,6 @@ def test_report_carries_slice2_keys():
 def test_report_html_renders_all_sections():
     r = build_report_from_data(*_pair(), config={})
     html = render_html(r, meta={'report_date': '02 Sep 2026'}, theme='light')
-    for key in ('summary', 'findings', 'critical', 'register', 'mcc', 'cost', 'scope'):
+    for key in ('summary', 'findings', 'critical', 'register', 'ms', 'cal', 'cost', 'manpower', 'scope'):
         assert f'data-sec="{key}"' in html
     assert '<!doctype html>' in html.lower()

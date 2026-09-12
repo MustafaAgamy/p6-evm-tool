@@ -10,8 +10,8 @@ from p6_evm.xlsx_writer import write_sections_xlsx
 
 _EXPECTED_SHEETS = [
     'Executive Summary', 'Key Findings', 'Critical Path & Float',
-    'Change Register', 'Milestones, Constr. & Cals',
-    'Cost & Resources', 'Scope & Structure',
+    'Change Register', 'Milestones', 'Calendar',
+    'Cost & Resources', 'Manpower', 'Scope & Structure',
 ]
 
 
@@ -131,9 +131,9 @@ def _open_sheets(path):
     return names, wb, sheets
 
 
-def test_full_report_produces_seven_section_sheets(tmp_path):
+def test_full_report_produces_nine_section_sheets(tmp_path):
     sheets = revcompare_excel(_report())
-    assert [s['name'] for s in sheets] == _EXPECTED_SHEETS   # the seven redesigned sections
+    assert [s['name'] for s in sheets] == _EXPECTED_SHEETS   # the nine redesigned sections
     for s in sheets:
         assert s['blocks'] and all('headers' in b and 'rows' in b for b in s['blocks'])
 
@@ -143,7 +143,7 @@ def test_full_report_produces_seven_section_sheets(tmp_path):
 
     names, wb, xml = _open_sheets(str(p))
     assert '[Content_Types].xml' in names and 'xl/workbook.xml' in names
-    assert len(xml) == 7                                   # one worksheet per section
+    assert len(xml) == 9                                   # one worksheet per section
     for body in xml.values():
         ET.fromstring(body)                                # every worksheet is well-formed XML
 
@@ -155,8 +155,8 @@ def test_full_report_produces_seven_section_sheets(tmp_path):
     # content mirrored from the report's sections
     assert 'Erect Steel Frame' in all_xml                  # finding / register / critpath
     assert 'Substantial Completion' in all_xml             # milestone
-    assert 'Must Finish On 10-Aug-2027' in all_xml         # constraint change
-    assert '<v>150000</v>' in all_xml or '150,000' in all_xml   # budget delta present
+    # budget delta present, formatted through the shared thousands + 2dp formatter (comment 9)
+    assert '150,000.00' in all_xml or '<v>150000</v>' in all_xml or '150,000' in all_xml
 
 
 def test_empty_report_never_crashes(tmp_path):
@@ -166,7 +166,7 @@ def test_empty_report_never_crashes(tmp_path):
     write_sections_xlsx(str(p), sheets)
     assert p.exists()
     names, wb, xml = _open_sheets(str(p))
-    assert len(xml) == 7
+    assert len(xml) == 9
     for body in xml.values():
         ET.fromstring(body)
     all_xml = '\n'.join(xml.values())

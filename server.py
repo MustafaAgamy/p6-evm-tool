@@ -1248,7 +1248,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_revcompare.exporters import render_html
             import subprocess, tempfile
             html_content = render_html(report, meta=body.get('meta'), sections=sections,
-                                       theme=report_theme.normalize(body.get('theme')))
+                                       theme=report_theme.normalize(body.get('theme')),
+                                       filters=body.get('filters'))
             if preview:
                 self._json(200, {'ok': True, 'html': html_content})
                 return

@@ -2838,6 +2838,31 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-rlink.removed { color: var(--danger); } .rc-rlink.removed .rc-rlt { background: var(--danger-bg); text-decoration: line-through; }
 .rc-rlink.added { color: var(--success); } .rc-rlink.added .rc-rlt { background: var(--success-bg); }
 
+/* "reflects in PDF" hint badge (scope / logic / duration / money selections) */
+.rc-pdfnote { font-size: 10px; font-weight: 700; color: var(--accent-dark); background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; margin-left: auto; }
+.rc-fblbl { font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-right: 2px; }
+
+/* Key Findings — BIG side-by-side WBS-breadcrumb logic boxes (comment 2). The chart lives
+   in an .rc-chartwrap so wide chains scroll horizontally instead of being trimmed. */
+.rc-relhd { display: flex; align-items: center; gap: 8px; margin: 16px 0 2px; flex-wrap: wrap; }
+.rc-rrow { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 8px 0 2px; }
+.rc-rrow.r1 { color: var(--accent); }
+.rc-lchain { display: flex; align-items: stretch; gap: 14px; margin: 4px 0 8px; min-width: max-content; }
+.rc-lnode { border: 2px solid var(--border); border-radius: 12px; padding: 11px 15px; min-width: 210px; background: var(--card-bg); }
+.rc-lnode.moved { border-color: var(--warning); background: var(--warning-bg); }
+.rc-lnode .rc-ln { font-weight: 800; font-size: 13.5px; color: var(--text); }
+.rc-lnode .rc-lb { font-size: 11px; color: var(--accent-dark); margin-top: 3px; font-weight: 600; line-height: 1.4; }
+.rc-lnode .rc-lid { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.rc-larw { display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--muted); font-weight: 800; min-width: 70px; }
+.rc-larw .rc-lt { font-size: 11px; background: var(--bg); border-radius: 5px; padding: 1px 7px; margin-bottom: 2px; white-space: nowrap; }
+.rc-larw .rc-ar { font-size: 30px; line-height: 1; }
+.rc-larw.changed { color: var(--warning); } .rc-larw.changed .rc-lt { background: var(--warning-bg); }
+.rc-larw.added { color: var(--success); } .rc-larw.added .rc-lt { background: var(--success-bg); }
+.rc-larw.removed { color: var(--danger); } .rc-larw.removed .rc-lt { background: var(--danger-bg); }
+
+/* Calendar chart — solid Rev.00 days/week swatch (matches the .rc-f0 muted bar, no opacity) */
+.rc-f0-solid { background: var(--muted); height: 100%; }
+
 /* Primavera WBS colour-grouping — level tokens (redefined per appearance below) */
 :root, :root[data-appearance="light"] { --rc-l1:#1f4e79; --rc-l2:#2e6da4; --rc-l3:#4a86c5; --rc-l4:#6fa0d0; --rc-l-ink:#ffffff; }
 :root[data-appearance="dark"]     { --rc-l1:#274b70; --rc-l2:#356194; --rc-l3:#4a7bb5; --rc-l4:#6094cc; --rc-l-ink:#f2f7ff; }

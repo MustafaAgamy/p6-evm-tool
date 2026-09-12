@@ -1,41 +1,47 @@
-"""Excel export for the Baseline Revision Comparison (Rev.00 vs Rev.01) — redesign.
+"""Excel export for the Baseline Revision Comparison (Rev.00 vs Rev.01) — round-4 redesign.
 
 Turns the report dict the client already holds (from ``compare.build_report_from_data``
 / ``/api/revcompare``) into the ``sheets`` structure consumed by the shared
 ``p6_evm.xlsx_writer.write_sections_xlsx`` — one worksheet per canonical report section,
-each a stack of titled tables that MIRROR the seven on-screen tabs, the PDF sections and
-the report-contents picker (same section keys throughout — the redesigned full report,
-``ui/modules/revcompare.js`` ``RC_TABS`` / ``p6_revcompare/exporters.py`` ``render_html``
-/ the interactive concept ``mockups/baseline-revision-interactive-concept.html``):
+each a stack of titled tables that MIRROR the on-screen tabs, the PDF ``data-sec`` sections
+and the report-contents picker (same nine section keys throughout — the approved interactive
+prototype ``mockups/baseline-revision-interactive-v2.html`` / ``ui/modules/revcompare.js``
+``RC_TABS`` / ``p6_revcompare/exporters.py`` ``render_html``):
 
-    summary   → Executive Summary  (bottom line · revision snapshot · comparison ledger ·
-                credibility / red flags · scope by activity code)
-    findings  → Key Findings       (finish-slip driver bridge + its contribution breakdown ·
+    summary   → Executive Summary   (bottom line · revision snapshot · comparison ledger ·
+                schedule-quality signals · scope BY ACTIVITY CODE — no Building column)
+    findings  → Key Findings        (finish-slip driver bridge + its contribution breakdown ·
                 the "Logic & Sequence Changes" — every changed relationship as rows carrying
                 a column per activity-code dimension · key findings list)
     critical  → Critical Path & Float (Rev.00/Rev.01 driving chains · membership change ·
                 total-float band shift · negative-float register)
-    register  → Change Register     (DURATION changed only — separate ID / Name columns,
-                Before → After → Variance, calendar & float context)
-    mcc       → Milestones, Constraints & Calendars (the milestone · constraint · calendar
-                tables moved out of the register)
-    cost      → Cost & Resources    (planned-value S-curve tables · budget by dimension ·
-                value after original finish · manpower histogram · man-hours by trade · plus
-                the Cost changed and Resource changed tables moved out of the register)
-    scope     → Scope & Structure   (WBS comparison Rev.00 / Rev.01 · largest date shifts)
+    register  → Change Register      (DURATION changed only — no Calendar / TF-After columns;
+                Before → After → Variance → % change, filterable by activity code)
+    ms        → Milestones           (Activity ID + Type + Before → After → Variance)
+    cal       → Calendar             (per-calendar working-days-per-week before → after +
+                calendar-definition changes)
+    cost      → Cost & Resources     (planned-value S-curve · budget by activity code · Cost
+                changed · Resource changed)
+    manpower  → Manpower             (man-hours by trade totals Rev.00 vs Rev.01 + the monthly
+                man-hours-by-trade matrix behind the stacked combo chart)
+    scope     → Scope & Structure    (WBS comparison Rev.00 / Rev.01 · largest date shifts)
 
-The "Logic & Sequence Changes" rows REPLACE the old sequence roll-up and the standalone
-Logic table — both are gone everywhere. Nothing here computes a number — it only presents
-what ``build_report_from_data`` produced. Every table degrades to a single "No data" row
-when its source is empty (via ``_rows_or_none``), so the export never crashes on a sparse
-or partial report. Neutral throughout: change detected, not judged.
+The old combined "Milestones, Constraints & Calendars" sheet is split into separate
+Milestones and Calendar sheets, and the Constraint table is REMOVED entirely (round-4
+comment 6). Manpower is its own sheet (comments 11/12) and no longer trails Cost.
+
+Nothing here computes a number — it only presents what ``build_report_from_data`` produced.
+Money / value / man-hour cells are formatted through one shared thousands + 2-decimal
+formatter (``_money`` — 124563 → "124,563.00"); counts (activities, days, float) stay plain
+integers. Every table degrades to a single "No data" row when its source is empty (via
+``_rows_or_none``), so the export never crashes on a sparse or partial report. Neutral
+throughout: change detected, not judged.
 """
 
 # severity code (as stored on register rows / findings) -> on-screen badge label
 _SEV_LABEL = {'crit': 'Critical', 'hi': 'High', 'med': 'Review', 'low': 'Info'}
 _KIND_LABEL = {'delayed': 'Delayed', 'advanced': 'Advanced', 'unchanged': 'Unchanged',
                'new': 'New', 'removed': 'Removed'}
-_CON_KIND = {'added': 'Added', 'removed': 'Removed', 'type': 'Type changed', 'date': 'Date changed'}
 _ASG_KIND = {'added': 'Added', 'removed': 'Removed', 'units': 'Units changed', 'rate': 'Rate changed'}
 
 
@@ -57,6 +63,25 @@ def _txt(v, dash=''):
     return dash if v is None else str(v)
 
 
+def _money(v, dash='—'):
+    """Shared money / value / man-hour DISPLAY formatter — thousands separators and two
+    decimals (124563 → "124,563.00"). Emitted as a string on purpose (a formatted display
+    cell, not a number the writer needs for arithmetic); non-numeric passes through / dashes
+    (round-4 comment 9)."""
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, (int, float)):
+        return f"{v:,.2f}"
+    return dash if v is None else str(v)
+
+
+def _money_sgn(v, dash='—'):
+    """Signed money / value delta, thousands + 2dp: +150,000.00 / -6,000.00 / 0.00."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return dash if v is None else str(v)
+    return f"{'+' if v > 0 else ''}{v:,.2f}"
+
+
 def _sgn(n, unit=''):
     """Signed count like the KPI tiles: +3, -2, 0 (with an optional trailing unit)."""
     if n is None:
@@ -69,6 +94,15 @@ def _delta(a, b, unit=''):
     if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
         return '—'
     return _sgn(b - a, unit)
+
+
+def _pct_change(before, variance):
+    """Signed % duration change from a numeric before + variance (+40% / -33%); em-dash
+    when either is non-numeric (added / removed rows) or before is zero."""
+    if (isinstance(before, (int, float)) and not isinstance(before, bool) and before
+            and isinstance(variance, (int, float)) and not isinstance(variance, bool)):
+        return _sgn(round(variance / before * 100), '%')
+    return '—'
 
 
 def _onoff(b):
@@ -146,7 +180,7 @@ def _summary_blocks(report):
                    'note': 'Signals for planning review, not defects.',
                    'headers': ['Signal', 'Rev.00', 'Rev.01', 'Δ'], 'rows': red})
 
-    # Scope change — by activity code
+    # Scope change — by activity code (the activity-code analysis; no Building column, comment 1)
     sbc = codes.get('scope_by_code') or {}
     for dim, rows in sbc.items():
         table = [[_txt(c.get('category')), _num(c.get('added')), _num(c.get('removed'))]
@@ -159,14 +193,15 @@ def _summary_blocks(report):
                        'headers': ['Category', 'Added', 'Removed'],
                        'rows': [['No activity-code scope changes.', '', '']]})
 
-    # Itemised added / removed
-    itemised = ([[_txt(a.get('id')), _txt(a.get('name')), 'Added', _txt(a.get('building'), '—'),
+    # Itemised added / removed — Building column removed (comment 1); a discipline/scope code
+    # column is kept so the list still reads as an activity-code analysis.
+    itemised = ([[_txt(a.get('id')), _txt(a.get('name')), 'Added',
                   _txt(a.get('wbs'), '—'), _txt(a.get('scope'), '—')] for a in (codes.get('added') or [])]
-                + [[_txt(a.get('id')), _txt(a.get('name')), 'Removed', _txt(a.get('building'), '—'),
+                + [[_txt(a.get('id')), _txt(a.get('name')), 'Removed',
                     _txt(a.get('wbs'), '—'), _txt(a.get('scope'), '—')] for a in (codes.get('removed') or [])])
     blocks.append({'title': 'Scope changes — activities added / removed',
-                   'headers': ['Activity ID', 'Activity Name', 'Change', 'Building', 'WBS (under)', 'Scope'],
-                   'rows': _rows_or_none(itemised, 6, 'No activities added or removed.')})
+                   'headers': ['Activity ID', 'Activity Name', 'Change', 'WBS (under)', 'Discipline / Scope'],
+                   'rows': _rows_or_none(itemised, 5, 'No activities added or removed.')})
 
     recoded = [[_txt(c.get('id')), _txt(c.get('name')), _txt(c.get('code_type')),
                 _txt(c.get('before'), '—'), _txt(c.get('after'), '—')] for c in (codes.get('recoded') or [])]
@@ -217,7 +252,8 @@ def _findings_blocks(report):
 
     # Logic & Sequence Changes — every changed relationship as a row, carrying a column per
     # activity-code dimension (so the grouping/filtering the chart offers is preserved on
-    # paper). REPLACES the old sequence roll-up AND the standalone Logic table.
+    # paper). The on-screen WBS-breadcrumb boxes reduce here to the predecessor / successor
+    # names + IDs and the code columns.
     dims = _logic_dims(report)
     lg_headers = list(dims) + ['Predecessor ID', 'Predecessor Name', 'Successor ID',
                                'Successor Name', 'Link Before', 'Link After', 'Change',
@@ -231,8 +267,7 @@ def _findings_blocks(report):
                      _txt(r.get('change')), _onoff(r.get('on_cp')), _flag(r.get('is_lead'), 'Lead')])
     blocks.append({'title': 'Logic & Sequence Changes — every changed relationship (by activity code)',
                    'note': 'Before → After per predecessor→successor link, grouped/filterable by activity code; '
-                           '"On CP?" flags links touching the revised critical path, leads (negative lags) flagged. '
-                           'Replaces the old sequence roll-up and logic table.',
+                           '"On CP?" flags links touching the revised critical path, leads (negative lags) flagged.',
                    'headers': lg_headers,
                    'rows': _rows_or_none(lg, len(lg_headers),
                                          'No relationship / logic changes on matched activities.')})
@@ -308,37 +343,31 @@ def _critical_blocks(report):
 # ── 4 · register — Change Register (DURATION changed only) ───────────────────────
 
 def _register_blocks(report):
-    # Only the Duration changed table lives in the register now — milestone / constraint /
-    # calendar moved to Milestones, Constraints & Calendars; logic to Key Findings; cost /
-    # resource to Cost & Resources.
+    # Only the Duration changed table lives in the register now — Calendar / TF-After columns
+    # removed (comment 3); a % change column added; milestone / calendar to their own sheets,
+    # logic to Key Findings, cost / resource to Cost & Resources.
     dur = [[_txt(d.get('id')), _txt(d.get('name')), _txt(d.get('wbs'), '—'),
             _num(d.get('before')), _num(d.get('after')), _num(d.get('variance')),
-            _txt(d.get('calendar_before'), '—'), _txt(d.get('calendar_after'), '—'),
-            _num(d.get('tf_after')), _flag(d.get('calendar_flag'))]
+            _pct_change(d.get('before'), d.get('variance'))]
            for d in (report.get('duration_table') or [])]
-    return [{'title': 'Duration changed — working days (+ calendar & float context)',
-             'note': 'A calendar-flagged row shortened on paper (workweek/hours change), not less work. '
-                     'Filter by activity code on screen (Discipline / Building / WBS); every changed row is listed here.',
-             'headers': ['Activity ID', 'Activity Name', 'WBS', 'Before', 'After', 'Variance',
-                         'Calendar Before', 'Calendar After', 'TF After', 'Calendar flag'],
-             'rows': _rows_or_none(dur, 10, 'No duration changes on matched activities.')}]
+    return [{'title': 'Duration changed — working days',
+             'note': 'Every activity whose planned duration moved. Filter by activity code on screen '
+                     '(Discipline / Building / WBS); % change is the variance over the Rev.00 duration.',
+             'headers': ['Activity ID', 'Activity Name', 'WBS', 'Before', 'After', 'Variance', '% change'],
+             'rows': _rows_or_none(dur, 7, 'No duration changes on matched activities.')}]
 
 
-# ── 5 · mcc — Milestones, Constraints & Calendars ────────────────────────────────
+# ── 5 · ms — Milestones ──────────────────────────────────────────────────────────
 
-def _mcc_blocks(report):
-    """The date-driver tables moved out of the Change Register — rendered exactly as they
-    were: milestone changes, primary-constraint changes, and calendar reassignments +
-    definition changes."""
-    blocks = []
-
-    # Milestone changed
+def _ms_blocks(report):
+    """Milestone changes as their own sheet — with Activity ID + Type columns (comment 5).
+    Lists only actual changes (matches the PDF / screen), never unchanged milestones."""
     ms = []
     for m in (report.get('milestones') or []):
         cd = m.get('change_days')
         kind = m.get('kind')
         if kind == 'unchanged':
-            continue                       # "Milestone changed" lists only actual changes (matches PDF)
+            continue
         if kind == 'new':
             change = 'Added'
         elif kind == 'removed':
@@ -347,56 +376,59 @@ def _mcc_blocks(report):
             change = _sgn(cd, ' d')
         else:
             change = _KIND_LABEL.get(kind, _txt(kind))
-        ms.append(['—', _txt(m.get('name')), _txt(m.get('rev0'), '—'), _txt(m.get('rev1'), '—'),
-                   change, _KIND_LABEL.get(kind, _txt(kind))])
-    blocks.append({'title': 'Milestone changed',
-                   'headers': ['Activity ID', 'Milestone', 'Before', 'After', 'Change', 'Impact'],
-                   'rows': _rows_or_none(ms, 6, 'No finish milestones found in the revisions.')})
+        ms.append([_txt(m.get('id'), '—'), _txt(m.get('name')), _txt(m.get('type'), '—'),
+                   _txt(m.get('rev0'), '—'), _txt(m.get('rev1'), '—'), change])
+    return [{'title': 'Milestone changed — Activity ID · Type · Before → After',
+             'note': 'Finish milestones whose date moved, plus milestones added / removed between the '
+                     'revisions. Type (Contract / Internal) is a neutral, name-based classification.',
+             'headers': ['Activity ID', 'Milestone', 'Type', 'Before', 'After', 'Variance'],
+             'rows': _rows_or_none(ms, 6, 'No finish-milestone changes between the revisions.')}]
 
-    # Constraint changed
-    con = [[_txt(c.get('activity_id')), _txt(c.get('name')),
-            _txt(c.get('rev0'), '—'), _txt(c.get('rev1'), '—'),
-            _CON_KIND.get(c.get('kind'), _txt(c.get('kind'))), _flag(c.get('hard'), 'Hard')]
-           for c in (report.get('constraint_changes') or [])]
-    blocks.append({'title': 'Constraint changed — a hidden lever on the finish date',
-                   'note': 'A hard constraint on the driving path can pin or move the finish independently of logic.',
-                   'headers': ['Activity ID', 'Activity Name', 'Constraint Before', 'Constraint After',
-                               'Change', 'Hard?'],
-                   'rows': _rows_or_none(con, 6, 'No primary-constraint changes.')})
 
-    # Calendar changed — reassignments + definitions
+# ── 6 · cal — Calendar ───────────────────────────────────────────────────────────
+
+def _cal_blocks(report):
+    """Calendar changes as their own sheet — the working-days-per-week before → after view
+    (comment 7). The Constraint table is gone entirely (comment 6)."""
     cc = report.get('calendar_changes') or {}
-    reassign = [[_txt(g.get('from')), _txt(g.get('to')),
-                 (f"{g.get('from_wd')}-day → {g.get('to_wd')}-day"
-                  if g.get('from_wd') is not None and g.get('to_wd') is not None else '—'),
-                 _num(g.get('count'))] for g in (cc.get('reassignments') or [])]
-    blocks.append({'title': 'Calendar changed — activities reassigned (grouped)',
-                   'note': 'A 5→6-day week or hours/day change shortens durations on paper without changing the work.',
-                   'headers': ['From', 'To', 'Workweek', 'Activities'],
-                   'rows': _rows_or_none(reassign, 4, 'No calendar assignment changes.')})
+
+    # Working days per week before → after, from the per-activity reassignment groups.
+    reassign = []
+    for g in (cc.get('reassignments') or []):
+        fw, tw = g.get('from_wd'), g.get('to_wd')
+        change = _sgn(tw - fw, ' d/wk') if isinstance(fw, (int, float)) and isinstance(tw, (int, float)) else '—'
+        reassign.append([_txt(g.get('from')), _txt(g.get('to')),
+                         _num(fw), _num(tw), change, _num(g.get('count'))])
+    blocks = [{'title': 'Working days per week — Rev.00 → Rev.01 (activities reassigned)',
+               'note': 'A calendar switched to a longer week shortens durations on paper without changing the '
+                       'work — a paper acceleration to confirm. Days/week before → after per reassignment group.',
+               'headers': ['From calendar', 'To calendar', 'Days/week before', 'Days/week after',
+                           'Days/week change', 'Activities'],
+               'rows': _rows_or_none(reassign, 6, 'No calendar assignment changes.')}]
+
     caldef = [[_txt(c.get('name')), _txt(c.get('change')), _txt(c.get('detail'))]
               for c in (cc.get('calendars') or [])]
-    blocks.append({'title': 'Calendar changed — definition changes',
+    blocks.append({'title': 'Calendar definition changes',
                    'headers': ['Calendar', 'Change', 'Detail'],
                    'rows': _rows_or_none(caldef, 3, 'No calendar-level changes.')})
     return blocks
 
 
-# ── 6 · cost — Cost & Resources ──────────────────────────────────────────────────
+# ── 7 · cost — Cost & Resources ──────────────────────────────────────────────────
 
 def _cost_moved_blocks(report):
-    """The Cost changed + Resource changed tables moved in from the Change Register."""
+    """The Cost changed + Resource changed tables (moved in from the old Change Register)."""
     rc = report.get('resource_changes') or {}
 
-    # Cost changed — per-activity budget + total
+    # Cost changed — per-activity budget + total (money formatted, comment 9)
     cost = []
     for c in (rc.get('activity_cost_changes') or []):
-        cost.append([_txt(c.get('code')), _txt(c.get('name')), _txt(c.get('rev0'), '—'),
-                     _txt(c.get('rev1'), '—'), _num(c.get('delta'))])
+        cost.append([_txt(c.get('code')), _txt(c.get('name')), _money(c.get('rev0')),
+                     _money(c.get('rev1')), _money_sgn(c.get('delta'))])
     tb = rc.get('total_budget') or {}
     if rc.get('cost_available'):
-        cost.append(['—', 'Total budget', _num(tb.get('rev0')), _num(tb.get('rev1')),
-                     _num(tb.get('delta'))])
+        cost.append(['—', 'Total budget', _money(tb.get('rev0')), _money(tb.get('rev1')),
+                     _money_sgn(tb.get('delta'))])
 
     # Resource changed — assignments
     asg = [[_txt(a.get('code')), _txt(a.get('name')), _txt(a.get('resource')),
@@ -404,11 +436,11 @@ def _cost_moved_blocks(report):
             _txt(a.get('rev1'), '—')] for a in (rc.get('assignment_changes') or [])]
 
     return [
-        {'title': 'Cost changed — budget total cost (moved from the Change Register)',
+        {'title': 'Cost changed — budget total cost',
          'note': 'Informational — a cost change is not itself a schedule impact.',
          'headers': ['Activity ID', 'Activity Name', 'Before', 'After', 'Variance'],
          'rows': _rows_or_none(cost, 5, 'No per-activity budget changes.')},
-        {'title': 'Resource changed — assignment before / after (moved from the Change Register)',
+        {'title': 'Resource changed — assignment before / after',
          'headers': ['Activity ID', 'Activity Name', 'Resource', 'Change', 'Before', 'After'],
          'rows': _rows_or_none(asg, 6, 'No resource-assignment changes.')},
     ]
@@ -419,80 +451,105 @@ def _cost_blocks(report):
     rc = report.get('resource_changes') or {}
     cost_av = c.get('cost_available') or rc.get('cost_available')
     res_av = c.get('resource_available') or rc.get('resource_available')
-    has_curves = bool(c.get('months') or c.get('budget_by_dim')
-                      or c.get('manpower_monthly') or c.get('manhours_by_trade'))
-    if not (cost_av or res_av) and not has_curves:
+    has_value = bool(c.get('value_monthly') or c.get('budget_by_dim'))
+    if not (cost_av or res_av) and not has_value:
         return [{'title': 'Cost & Resources',
                  'note': 'Neither revision carries resource loading or cost — reported as not applicable.',
                  'headers': ['Cost & resources'], 'rows': [['Not applicable']]}]
 
     blocks = []
-    if not has_curves:
-        # Cost / resource data present but no time-phased curves — go straight to the moved tables.
-        return _cost_moved_blocks(report)
-    # Planned value — monthly + cumulative merged by month
+    # Planned value — monthly + cumulative merged by month (money formatted, comment 9)
     cum = {r.get('month'): r for r in (c.get('value_cumulative') or [])}
     pv = []
     for r in (c.get('value_monthly') or []):
         mth = r.get('month')
         cr = cum.get(mth) or {}
-        pv.append([_txt(mth), _num(r.get('rev0')), _num(r.get('rev1')), _num(r.get('var')),
-                   _num(cr.get('rev0')), _num(cr.get('rev1')), _num(cr.get('var'))])
+        pv.append([_txt(mth), _money(r.get('rev0')), _money(r.get('rev1')), _money_sgn(r.get('var')),
+                   _money(cr.get('rev0')), _money(cr.get('rev1')), _money_sgn(cr.get('var'))])
     vao = c.get('value_after_orig_finish')
     note = None
     if isinstance(vao, (int, float)) and vao:
-        note = (f"{vao:,.2f} of planned value falls after the original governing finish — "
+        note = (f"{_money(vao)} of planned value falls after the original governing finish — "
                 f"extended-works exposure (prolongation, prelims, plant hire).")
-    blocks.append({'title': 'Planned value of work — monthly & cumulative', 'note': note,
-                   'headers': ['Month', 'Rev.00 monthly', 'Rev.01 monthly', 'Var',
-                               'Rev.00 cum', 'Rev.01 cum', 'Cum Var'],
-                   'rows': _rows_or_none(pv, 7, 'No time-phased planned value available.')})
+    if c.get('value_monthly'):
+        blocks.append({'title': 'Planned value of work — monthly & cumulative', 'note': note,
+                       'headers': ['Month', 'Rev.00 monthly', 'Rev.01 monthly', 'Var',
+                                   'Rev.00 cum', 'Rev.01 cum', 'Cum Var'],
+                       'rows': _rows_or_none(pv, 7, 'No time-phased planned value available.')})
 
-    # Budget by dimension
+    # Budget by dimension — where the money moved (money formatted, comment 10)
     for dim, rows in (c.get('budget_by_dim') or {}).items():
-        sub = [[_txt(x.get('category')), _num(x.get('rev0')), _num(x.get('rev1')), _num(x.get('var'))]
+        sub = [[_txt(x.get('category')), _money(x.get('rev0')), _money(x.get('rev1')), _money_sgn(x.get('var'))]
                for x in (rows or [])]
         blocks.append({'title': f'Budget by {dim} — where the money moved',
                        'headers': [dim, 'Before', 'After', 'Variance'],
                        'rows': _rows_or_none(sub, 4, 'No budget movement for this dimension.')})
-    if not (c.get('budget_by_dim')):
-        blocks.append({'title': 'Budget by dimension',
+    if not (c.get('budget_by_dim')) and cost_av:
+        blocks.append({'title': 'Budget by dimension — where the money moved',
                        'headers': ['Dimension', 'Before', 'After', 'Variance'],
                        'rows': [['No budget breakdown available.', '', '', '']]})
 
-    # Manpower histogram (persons/month) + peak
-    peak = c.get('peak') or {}
-    peak_note = None
-    if peak.get('rev0') or peak.get('rev1'):
-        peak_note = (f"Peak — Rev.00 {_num(peak.get('rev0'))} ({_txt(peak.get('rev0_month'), '—')}) · "
-                     f"Rev.01 {_num(peak.get('rev1'))} ({_txt(peak.get('rev1_month'), '—')}).")
-    mp = [[_txt(m.get('month')), _num(m.get('rev0')), _num(m.get('rev1')),
-           _delta(m.get('rev0'), m.get('rev1'))] for m in (c.get('manpower_monthly') or [])]
-    blocks.append({'title': 'Manpower histogram — persons / man-hours per month', 'note': peak_note,
-                   'headers': ['Month', 'Rev.00', 'Rev.01', 'Δ'],
-                   'rows': _rows_or_none(mp, 4, 'No manpower spread available.')})
-
-    # Man-hours by trade + total
-    trade = [[_txt(t.get('resource_id')), _txt(t.get('name')), _num(t.get('rev0')),
-              _num(t.get('rev1')), _num(t.get('var')),
-              {'added': 'Added', 'removed': 'Removed', 'changed': 'Changed'}.get(t.get('kind'), _txt(t.get('kind')))]
-             for t in (c.get('manhours_by_trade') or [])]
-    mt = c.get('manhours_total') or {}
-    if trade:
-        pct = mt.get('pct')
-        pct_s = f" ({_sgn(round(pct, 1), '%')})" if isinstance(pct, (int, float)) else ''
-        trade.append(['—', 'Total man-hours', _num(mt.get('rev0')), _num(mt.get('rev1')),
-                      f"{_sgn(mt.get('var'))}{pct_s}" if mt.get('var') is not None else _num(mt.get('var')), ''])
-    blocks.append({'title': 'Man-hours by trade — Rev.00 vs Rev.01',
-                   'headers': ['Resource ID', 'Trade', 'Man-hrs Before', 'After', 'Variance', 'Change'],
-                   'rows': _rows_or_none(trade, 6, 'No resource man-hours available.')})
-
-    # Cost changed + Resource changed — moved in from the Change Register (comment 4).
+    # Cost changed + Resource changed — moved in from the old Change Register.
     blocks.extend(_cost_moved_blocks(report))
     return blocks
 
 
-# ── 7 · scope — Scope & Structure ────────────────────────────────────────────────
+# ── 8 · manpower — Manpower ──────────────────────────────────────────────────────
+
+def _manpower_blocks(report):
+    """Manpower as its own sheet (comments 11/12) — the man-hours-by-trade totals and the
+    monthly man-hours-by-trade matrix that the stacked combo chart is drawn from. No tables
+    below beyond what the chart carries."""
+    c = report.get('curves') or {}
+    res_av = c.get('resource_available')
+    trade = c.get('manhours_by_trade') or []
+    monthly_trade = c.get('manpower_by_trade') or []
+    months = c.get('months') or []
+    if not (res_av or trade or monthly_trade):
+        return [{'title': 'Manpower',
+                 'note': 'Neither revision carries resource man-hours — reported as not applicable.',
+                 'headers': ['Manpower'], 'rows': [['Not applicable']]}]
+
+    # Man-hours by trade — Rev.00 vs Rev.01 totals (money/value formatted, comment 9)
+    trows = [[_txt(t.get('resource_id')), _txt(t.get('name')), _money(t.get('rev0')),
+              _money(t.get('rev1')), _money_sgn(t.get('var')),
+              {'added': 'Added', 'removed': 'Removed', 'changed': 'Changed'}.get(t.get('kind'), _txt(t.get('kind')))]
+             for t in trade]
+    mt = c.get('manhours_total') or {}
+    if trade:
+        pct = mt.get('pct')
+        pct_s = f" ({_sgn(round(pct, 1), '%')})" if isinstance(pct, (int, float)) else ''
+        var = mt.get('var')
+        trows.append(['—', 'Total man-hours', _money(mt.get('rev0')), _money(mt.get('rev1')),
+                      (f"{_money_sgn(var)}{pct_s}" if var is not None else _money(var)), ''])
+    blocks = [{'title': 'Man-hours by trade — Rev.00 vs Rev.01',
+               'note': 'Planned budgeted resource units (man-hours) per trade. The line on the combo chart is '
+                       'the monthly total headcount.',
+               'headers': ['Resource ID', 'Trade', 'Man-hrs Before', 'After', 'Variance', 'Change'],
+               'rows': _rows_or_none(trows, 6, 'No resource man-hours available.')}]
+
+    # Monthly man-hours by trade — the matrix behind the stacked combo chart (Rev.01).
+    if monthly_trade and months:
+        names = [_txt(t.get('trade')) for t in monthly_trade]
+        headers = ['Month'] + names + ['Monthly total']
+        rows = []
+        for i, mth in enumerate(months):
+            per = [(t.get('monthly') or [])[i] if i < len(t.get('monthly') or []) else 0.0
+                   for t in monthly_trade]
+            tot = sum(v for v in per if isinstance(v, (int, float)))
+            rows.append([_txt(mth)] + [_money(v) for v in per] + [_money(tot)])
+        # column of trade totals as a footer row
+        totals = [t.get('total') for t in monthly_trade]
+        grand = sum(v for v in totals if isinstance(v, (int, float)))
+        rows.append(['Total'] + [_money(v) for v in totals] + [_money(grand)])
+        blocks.append({'title': 'Man-hours by month, by trade — Rev.01 (stacked combo chart)',
+                       'note': 'Each month stacked by trade; the monthly total is the label above each bar.',
+                       'headers': headers,
+                       'rows': _rows_or_none(rows, len(headers), 'No monthly man-hours by trade available.')})
+    return blocks
+
+
+# ── 9 · scope — Scope & Structure ────────────────────────────────────────────────
 
 def _scope_blocks(report):
     wv = report.get('wbs_view') or {}
@@ -538,25 +595,27 @@ def _scope_blocks(report):
 
 def revcompare_excel(report):
     """Return the ``sheets`` list for ``write_sections_xlsx`` — one worksheet per canonical
-    report section (summary · findings · critical · register · mcc · cost · scope), mirroring
-    the seven redesigned on-screen tabs, the PDF's gated sections and the report-contents
-    picker (same section keys throughout)."""
+    report section (summary · findings · critical · register · ms · cal · cost · manpower ·
+    scope), mirroring the nine redesigned on-screen tabs, the PDF's gated sections and the
+    report-contents picker (same section keys throughout)."""
     report = report or {}
     return [
         {'name': 'Executive Summary', 'blocks': _summary_blocks(report),
-         'col_widths': {0: 30, 1: 22, 2: 22, 3: 16, 4: 26, 5: 14}},
+         'col_widths': {0: 30, 1: 26, 2: 26, 3: 16, 4: 26}},
         {'name': 'Key Findings', 'blocks': _findings_blocks(report),
          'col_widths': {0: 22, 1: 22, 2: 18, 3: 20, 4: 20, 5: 16, 6: 16, 7: 16, 8: 14, 9: 12, 10: 10}},
         {'name': 'Critical Path & Float', 'blocks': _critical_blocks(report),
          'col_widths': {0: 6, 1: 16, 2: 32, 3: 14, 4: 22}},
         {'name': 'Change Register', 'blocks': _register_blocks(report),
-         'col_widths': {0: 18, 1: 28, 2: 22, 3: 20, 4: 20, 5: 18, 6: 18, 7: 16, 8: 12, 9: 12}},
-        # Excel caps sheet names (the writer trims to 28 chars) — this abbreviation keeps all
-        # three subjects (screen tab / PDF / picker use the full "Milestones, Constraints & Calendars").
-        {'name': 'Milestones, Constr. & Cals', 'blocks': _mcc_blocks(report),
-         'col_widths': {0: 18, 1: 30, 2: 22, 3: 22, 4: 22, 5: 14}},
+         'col_widths': {0: 18, 1: 30, 2: 24, 3: 12, 4: 12, 5: 12, 6: 12}},
+        {'name': 'Milestones', 'blocks': _ms_blocks(report),
+         'col_widths': {0: 16, 1: 32, 2: 14, 3: 20, 4: 20, 5: 16}},
+        {'name': 'Calendar', 'blocks': _cal_blocks(report),
+         'col_widths': {0: 24, 1: 24, 2: 16, 3: 16, 4: 16, 5: 12}},
         {'name': 'Cost & Resources', 'blocks': _cost_blocks(report),
-         'col_widths': {0: 20, 1: 20, 2: 16, 3: 14, 4: 14, 5: 14, 6: 14}},
+         'col_widths': {0: 20, 1: 24, 2: 18, 3: 16, 4: 16, 5: 16, 6: 16}},
+        {'name': 'Manpower', 'blocks': _manpower_blocks(report),
+         'col_widths': {0: 16, 1: 22, 2: 16, 3: 16, 4: 16, 5: 14}},
         {'name': 'Scope & Structure', 'blocks': _scope_blocks(report),
          'col_widths': {0: 8, 1: 40, 2: 16, 3: 28, 4: 28, 5: 12}},
     ]

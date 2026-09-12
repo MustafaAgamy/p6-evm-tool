@@ -70,6 +70,12 @@ def _codes_of(matched, pc, sc):
     return codes
 
 
+def _wbs_of(matched, code):
+    """The activity's full WBS path (``a > b > c``) for the breadcrumb, or None."""
+    a = _act_of(matched, code)
+    return (a.get('wbs_path') if a else None) or None
+
+
 def build_logic_register(matched, crit1):
     """One row per CHANGED relationship between ``matched.baseline_rels`` (Rev.00) and
     ``matched.update_rels`` (Rev.01).
@@ -83,7 +89,7 @@ def build_logic_register(matched, crit1):
     Returns a list of dicts:
         {pred_id, pred_name, succ_id, succ_name, before, after,
          change: 'Type changed'|'Lag changed'|'Link added'|'Link removed',
-         on_cp: bool, is_lead: bool}
+         on_cp: bool, is_lead: bool, codes: {dim: value}, pred_wbs, succ_wbs}
     Rows touching the critical path are sorted first.
     """
     if matched is None:
@@ -104,6 +110,9 @@ def build_logic_register(matched, crit1):
             'on_cp': (pc in crit) or (sc in crit),
             'is_lead': bool(after_rel is not None and _lag_days(after_rel) < 0),
             'codes': _codes_of(matched, pc, sc),
+            # Full WBS path per end, for the Critical-Path-Analyzer-style breadcrumb in the report.
+            'pred_wbs': _wbs_of(matched, pc),
+            'succ_wbs': _wbs_of(matched, sc),
         })
 
     # Links added in Rev.01.
