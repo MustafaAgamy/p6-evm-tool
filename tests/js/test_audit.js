@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { filterFindings, severityClass, scoreColor, gaugeDashoffset, uniqueValues, areaOf, shortWbs, gradeClass,
          oosPillClass, oosCritLabel, barPct, tabScore, statusColor, statusDot, verdictClass,
          oosLagLabel, oosRelLabel, oosDefaultOp, oosOpSummary, oosHasFix, oosBulkOutcome,
-         dngDefaultOp, dngHasFix, dngResolvedActs, dngMergeOps,
+         dngDefaultOp, dngHasFix, dngResolvedActs, dngMergeOps, dngCompletionMilestone,
          lagQuickPickValues, normalizeColumnFilter, matchesColumnFilter, filterLagFindings, sortLagFindings,
          LAG_FILTER_COLUMNS }
   from '../../ui/modules/audit.js';
@@ -285,6 +285,27 @@ test('merge: an exposed side set to review (no new op) drops its prior op', () =
 test('merge: a side NOT exposed by the current finding keeps its prior op', () => {
   const merged = dngMergeOps([START_OP], [], []);            // start already fixed, not re-exposed
   assert.deepEqual(merged, [START_OP]);
+});
+
+console.log('\nDangling — contract completion milestone picker');
+test('completion = the matched milestone with the LATEST contract date', () => {
+  const ms = [
+    { contract_name: 'Commencement', matched_activity_id: 'NTP', contract_date: '5-Jan-2026' },
+    { contract_name: 'Practical Completion', matched_activity_id: 'PC', contract_date: '20-Dec-2027' },
+    { contract_name: 'Sectional', matched_activity_id: 'SEC', contract_date: '1-Jun-2027' },
+  ];
+  assert.deepEqual(dngCompletionMilestone(ms), { activity_id: 'PC', contract_date: '20-Dec-2027' });
+});
+test('completion ignores unmatched milestones', () => {
+  const ms = [
+    { contract_name: 'X', matched_activity_id: null, contract_date: '20-Dec-2099' },  // unmatched → skip
+    { contract_name: 'Completion', matched_activity_id: 'PC', contract_date: '20-Dec-2027' },
+  ];
+  assert.equal(dngCompletionMilestone(ms).activity_id, 'PC');
+});
+test('completion null when none entered/matched', () => {
+  assert.equal(dngCompletionMilestone([]), null);
+  assert.equal(dngCompletionMilestone([{ contract_name: 'X', matched_activity_id: null, contract_date: '1-Jan-2026' }]), null);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

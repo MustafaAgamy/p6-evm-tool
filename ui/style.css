@@ -718,6 +718,7 @@ body.oos-fs-body #results-section { transform: none !important; }
 .dng-caret { padding: 5px 7px; font-size: 11px; color: var(--muted); background: transparent; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
 .dng-caret:hover { border-color: var(--accent); color: var(--accent); }
 .dng-review-btn { padding: 5px 10px; font-size: 11px; font-weight: 700; color: var(--warning); background: var(--warning-bg); border: 1px solid var(--warning); border-radius: 6px; cursor: not-allowed; }
+.dng-blocked { font-size: 11px; font-weight: 700; color: var(--danger); background: var(--danger-bg); border: 1px solid var(--danger); border-radius: 6px; padding: 5px 10px; max-width: 250px; line-height: 1.35; white-space: normal; }
 .dng-resolved { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--success); background: var(--success-bg); padding: 3px 10px; border-radius: 20px; }
 .dng-appliednote { font-size: 10.5px; color: var(--muted); margin-top: 3px; max-width: 220px; white-space: normal; }
 

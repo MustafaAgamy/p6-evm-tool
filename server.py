@@ -1788,7 +1788,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_audit.modules.dangling_resolve import revalidate_from_path
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
-            res = revalidate_from_path(resolved, config, accepted)
+            res = revalidate_from_path(resolved, config, accepted, completion=body.get('completion'))
             self._json(200, {'ok': True, **res})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1813,7 +1813,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_audit.modules.dangling_resolve import write_corrected
-            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path))
+            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path),
+                                  completion=body.get('completion'))
             self._json(200, {'ok': True, 'applied': res['applied'], 'out_path': res['out_path']})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

@@ -182,3 +182,75 @@ def test_no_accepted_ops_changes_nothing(tmp_path):
     before = {x['activity_id'] for x in run_dangling(ScheduleGraph(data), CONFIG)['findings']}
     after = {x['activity_id'] for x in out['findings']}
     assert before == after
+
+
+# ── Contract-milestone guard (offline forward-pass estimate) ─────────────────
+# P --FF--> D --FS--> COMP(Practical Completion) ; R --FF--> Q --FS--> S. Data date 1-Jan-2026.
+# Baseline COMP finishes 16-Jan (FF from P doesn't drive D's start). Fixing P→D to FS delays D's
+# start to P's finish, pushing COMP to 21-Jan — past the 20-Jan contract → that fix is blocked.
+# Fixing R→Q (FF→FS) reshuffles Q/S but never touches COMP → allowed.
+from datetime import datetime as _dt
+
+
+def _mkd(oid, dur_h=0, task='Task', **kw):
+    b = {'object_id': oid, 'id': oid, 'name': f'Act {oid}', 'task_type': task,
+         'is_critical': False, 'wbs_path': 'P > W', 'category': None,
+         'remaining_duration': dur_h, 'calendar_id': None,
+         'actual_start': None, 'actual_finish': None}
+    b.update(kw); return b
+
+
+def _proj():
+    acts = {
+        'P':    _mkd('P', 120),                                   # 15 calendar days
+        'D':    _mkd('D', 40),                                    # 5 days
+        'COMP': _mkd('COMP', 0, task='FinishMilestone', name='Practical Completion'),
+        'R':    _mkd('R', 64),                                    # 8 days
+        'Q':    _mkd('Q', 40),                                    # 5 days
+        'S':    _mkd('S', 24),                                    # 3 days
+    }
+    rels = [
+        {'pred_id': 'P', 'succ_id': 'D', 'type': 'FF', 'lag_days': 0},
+        {'pred_id': 'D', 'succ_id': 'COMP', 'type': 'FS', 'lag_days': 0},
+        {'pred_id': 'R', 'succ_id': 'Q', 'type': 'FF', 'lag_days': 0},
+        {'pred_id': 'Q', 'succ_id': 'S', 'type': 'FS', 'lag_days': 0},
+    ]
+    d = ScheduleData(); d.activities = acts; d.relationships = rels
+    d.project = {'data_date': _dt(2026, 1, 1)}
+    return d
+
+
+_COMPLETION = {'activity_id': 'COMP', 'contract_date': '2026-01-20'}
+
+
+def test_fix_that_pushes_completion_past_contract_is_blocked():
+    data = _proj()
+    fD = _find(data, 'D')
+    out = R.revalidate(data, CONFIG, [_accepted_start(fD)], completion=_COMPLETION)
+    assert fD['finding_id'] in out['blocked']            # held back
+    assert fD['finding_id'] not in out['resolved']       # never counted resolved
+    assert any(x['activity_id'] == 'D' for x in out['findings'])  # stays open (fix not applied)
+
+
+def test_fix_that_does_not_touch_completion_is_allowed():
+    data = _proj()
+    fQ = _find(data, 'Q')
+    out = R.revalidate(data, CONFIG, [_accepted_start(fQ)], completion=_COMPLETION)
+    assert fQ['finding_id'] not in out['blocked']
+    assert fQ['finding_id'] in out['resolved']           # Q's only dangling side fixed → resolved
+
+
+def test_no_completion_means_no_guard():
+    data = _proj()
+    fD = _find(data, 'D')
+    out = R.revalidate(data, CONFIG, [_accepted_start(fD)])   # no completion passed
+    assert out['blocked'] == []
+    assert fD['finding_id'] in out['resolved']           # applies normally without the guard
+
+
+def test_milestone_blocked_helper_directly():
+    data = _proj()
+    fD = _find(data, 'D')
+    fQ = _find(data, 'Q')
+    blocked = R.milestone_blocked(data, [_accepted_start(fD), _accepted_start(fQ)], _COMPLETION)
+    assert fD['finding_id'] in blocked and fQ['finding_id'] not in blocked

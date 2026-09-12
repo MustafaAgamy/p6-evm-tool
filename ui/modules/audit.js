@@ -1002,6 +1002,10 @@ export function renderOosPanel(auditModules) {
 const DNG_TYPE_NAME = { FS: 'Finish-to-Start', SS: 'Start-to-Start', FF: 'Finish-to-Finish', SF: 'Start-to-Finish' };
 function _dngTypeName(t) { return DNG_TYPE_NAME[t] || t; }
 
+// Shown when a fix is held back because it would push the contractual completion milestone past its
+// date (offline forward-pass estimate). Ibrahim's exact wording.
+const DNG_BLOCK_MSG = 'Changing this could exceeds the contractual milestone';
+
 // The default accepted op for one dangling side (the recommended type change), or null when that
 // side is not an applyable change (already driven, or Needs Planner Review). Pure — unit-tested.
 export function dngDefaultOp(f, side) {
@@ -1044,7 +1048,20 @@ export function dngMergeOps(prevOps, newOps, exposedSides) {
   return Object.values(bySide);
 }
 
-let _dng = { sig: null, all: [], fresh: [], applied: {}, view: 'open', dataDate: '', fullscreen: false };
+// The contractual completion milestone to guard against — the matched entered milestone with the
+// LATEST contract date (the final contractual date = project completion). Returns {activity_id,
+// contract_date} for the server's offline forward-pass guard, or null when none was entered/matched
+// (then no guard applies). Pure — unit-tested.
+export function dngCompletionMilestone(milestones) {
+  const matched = (milestones || []).filter(m => m && m.matched_activity_id && m.contract_date);
+  if (!matched.length) return null;
+  const ms = d => { const t = Date.parse(String(d).replace(/-/g, ' ')); return isNaN(t) ? 0 : t; };
+  let best = matched[0];
+  matched.forEach(m => { if (ms(m.contract_date) > ms(best.contract_date)) best = m; });
+  return { activity_id: best.matched_activity_id, contract_date: best.contract_date };
+}
+
+let _dng = { sig: null, all: [], fresh: [], applied: {}, blocked: new Set(), view: 'open', dataDate: '', fullscreen: false };
 
 function _dngSig(m) {
   const f = (m.findings || [])[0] || {};
@@ -1066,7 +1083,8 @@ function _dngInit(m) {
   const sig = _dngSig(m);
   if (sig !== _dng.sig) {
     _dng = { sig, all: (m.findings || []).slice(), fresh: (m.findings || []).slice(),
-             applied: {}, view: 'open', dataDate: (m.kpis || {}).data_date || '', fullscreen: false };
+             applied: {}, blocked: new Set(), view: 'open',
+             dataDate: (m.kpis || {}).data_date || '', fullscreen: false };
   }
   _dng._home = null;
   renderDngReview();
@@ -1131,6 +1149,11 @@ function _dngResCell(f, resolved) {
     const note = a && a.reason ? `<div class="dng-appliednote">${escapeHtml(a.reason)}</div>` : '';
     return `<span class="dng-resolved">✓ Resolved</span>${note}`
       + `<button class="dng-mini" data-dngact="reopen" data-fid="${escapeHtml(f.finding_id)}">Re-open</button>`;
+  }
+  // Held back by the contract-milestone guard — applying it would push completion past the contract
+  // date (offline forward-pass estimate). Ibrahim's rule: don't solve it, show the message.
+  if (_dng.blocked && _dng.blocked.has(f.finding_id)) {
+    return `<div class="dng-blocked" title="Estimated with the in-tool forward-pass (no F9): applying this fix would push the project completion milestone past its contractual date.">⚠ ${escapeHtml(DNG_BLOCK_MSG)}</div>`;
   }
   if (!dngHasFix(f)) {
     return `<button class="dng-review-btn" disabled title="No link exists to re-type — decide the logic in P6">⚠ Needs Planner Review</button>`;
@@ -1290,12 +1313,29 @@ function _dngDlNote(text, isErr) {
   if (el) { el.textContent = text; el.style.color = isErr ? 'var(--danger)' : ''; }
 }
 
+// The contractual completion milestone the planner entered (from the Milestone Check module), so the
+// server can guard a fix that would push completion past its contract date. null when none entered.
+function _dngCompletion() {
+  const mc = state.currentModules && state.currentModules.modules && state.currentModules.modules.hard_constraints;
+  return mc ? dngCompletionMilestone(mc.milestones) : null;
+}
+
+// Reconcile the milestone-guard result: remember which findings were blocked and drop them from the
+// applied set (a blocked fix was never applied — it must not be counted, re-sent, or downloaded).
+function _dngReconcileBlocked(blockedIds) {
+  _dng.blocked = new Set(blockedIds || []);
+  Object.keys(_dng.applied).forEach(actId => {
+    const entry = _dng.applied[actId];
+    if ((entry.ops || []).some(o => _dng.blocked.has(o.finding_id))) delete _dng.applied[actId];
+  });
+}
+
 async function _dngValidate() {
   const resp = await fetch(`http://localhost:${state.serverPort}/api/dangling/validate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
-      accepted: _dngAppliedOps(),
+      accepted: _dngAppliedOps(), completion: _dngCompletion(),
     }),
   });
   return resp.json();
@@ -1331,7 +1371,9 @@ async function _dngApply(fid) {
     const out = await _dngValidate();
     if (!out.ok) { restore(); _dngDlNote(out.error || 'Validation failed.', true); renderDngReview(); return; }
     _dng.fresh = out.findings || [];
+    _dngReconcileBlocked(out.blocked);
     renderDngReview();
+    if (_dng.blocked.has(fid)) _dngDlNote(DNG_BLOCK_MSG + ' — this fix was not applied.', true);
   } catch (e) {
     restore();
     _dngDlNote('Could not reach the analysis engine.', true);
@@ -1366,12 +1408,16 @@ async function _dngApplyAll() {
     const out = await _dngValidate();
     if (!out.ok) { rollback(); _dngDlNote(out.error || 'Validation failed.', true); renderDngReview(); return; }
     _dng.fresh = out.findings || [];
+    _dngReconcileBlocked(out.blocked);
     renderDngReview();
     const stillActs = new Set(_dng.fresh.map(f => f.activity_id));
     const resolved = touched.filter(id => !stillActs.has(id)).length;
-    const notCleared = touched.length - resolved;
-    _dngDlNote(`Applied ${touched.length} fix${touched.length === 1 ? '' : 'es'} — ${resolved} moved to Resolved.`
-      + (notCleared ? ` ${notCleared} still dangling on another side — open the row to fix it.` : ''));
+    const blockedN = (out.blocked || []).length;
+    const applied = touched.length - blockedN;
+    const notCleared = applied - resolved;
+    _dngDlNote(`Applied ${applied} fix${applied === 1 ? '' : 'es'} — ${resolved} moved to Resolved.`
+      + (blockedN ? ` ${blockedN} held back — would exceed the contractual completion milestone.` : '')
+      + (notCleared > 0 ? ` ${notCleared} still dangling on another side — open the row to fix it.` : ''));
   } catch (e) {
     rollback();
     _dngDlNote('Could not reach the analysis engine.', true);
@@ -1405,7 +1451,7 @@ async function _dngDownload() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
-        output_path: outputPath, accepted: applied,
+        output_path: outputPath, accepted: applied, completion: _dngCompletion(),
       }),
     });
     const out = await resp.json();
