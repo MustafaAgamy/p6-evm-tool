@@ -53,6 +53,23 @@ def _name(matched, code):
     return (a.get('name') if a else None) or code
 
 
+def _act_of(matched, code):
+    up = getattr(matched, 'update_by_code', None) or {}
+    bl = getattr(matched, 'baseline_by_code', None) or {}
+    return up.get(code) or bl.get(code) or {}
+
+
+def _codes_of(matched, pc, sc):
+    """Activity-code values for grouping/filtering the logic chart — the predecessor's
+    codes (falling back to the successor's) plus a synthetic 'WBS' top branch."""
+    a = _act_of(matched, pc) or _act_of(matched, sc)
+    codes = dict(a.get('activity_codes') or {})
+    wp = a.get('wbs_path')
+    if wp:
+        codes['WBS'] = wp.split(' > ', 1)[0].strip() or wp
+    return codes
+
+
 def build_logic_register(matched, crit1):
     """One row per CHANGED relationship between ``matched.baseline_rels`` (Rev.00) and
     ``matched.update_rels`` (Rev.01).
@@ -86,6 +103,7 @@ def build_logic_register(matched, crit1):
             'change': change,
             'on_cp': (pc in crit) or (sc in crit),
             'is_lead': bool(after_rel is not None and _lag_days(after_rel) < 0),
+            'codes': _codes_of(matched, pc, sc),
         })
 
     # Links added in Rev.01.

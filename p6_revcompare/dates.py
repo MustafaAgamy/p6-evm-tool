@@ -124,6 +124,17 @@ def build_date_shifts(match, rev0, rev1, cal, top=None):
 
 # ── duration table ───────────────────────────────────────────────────────────
 
+def _codes_of(act):
+    """Activity-code values for filtering/grouping — the activity's own codes plus a
+    synthetic 'WBS' = its top WBS branch. Empty dict when nothing is available."""
+    act = act or {}
+    codes = dict(act.get('activity_codes') or {})
+    wp = act.get('wbs_path')
+    if wp:
+        codes['WBS'] = wp.split(' > ', 1)[0].strip() or wp
+    return codes
+
+
 def build_duration_table(match, rev0, rev1, cal, min_change=0.5):
     """Planned-duration change per activity with its calendar context.
 
@@ -158,6 +169,7 @@ def build_duration_table(match, rev0, rev1, cal, min_change=0.5):
             'calendar_before': cal_b, 'calendar_after': cal_a,
             'tf_after': _tf_after(a1),
             'calendar_flag': bool(variance < 0 and cal_changed),
+            'codes': _codes_of(a1 or a0),
         })
     rows.sort(key=lambda r: -abs(r['variance']))
 
@@ -168,6 +180,7 @@ def build_duration_table(match, rev0, rev1, cal, min_change=0.5):
             'before': '—', 'after': _dur_days(rev1, a), 'variance': None,
             'calendar_before': '—', 'calendar_after': _cal_label(rev1, a),
             'tf_after': _tf_after(a), 'calendar_flag': False,
+            'codes': _codes_of(a),
         })
     for a in (match.get('removed') or []):
         rows.append({
@@ -176,5 +189,6 @@ def build_duration_table(match, rev0, rev1, cal, min_change=0.5):
             'before': _dur_days(rev0, a), 'after': '—', 'variance': None,
             'calendar_before': _cal_label(rev0, a), 'calendar_after': '—',
             'tf_after': None, 'calendar_flag': False,
+            'codes': _codes_of(a),
         })
     return rows
