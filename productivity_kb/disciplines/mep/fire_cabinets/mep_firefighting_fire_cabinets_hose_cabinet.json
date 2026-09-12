@@ -50,7 +50,7 @@
         "likely": 2.67,
         "high": 3.6,
         "output_per_day": 6,
-        "output_unit": "no/gang·day"
+        "output_unit": "no/crew·day"
       },
       "gang": [
         {
@@ -111,7 +111,7 @@
         "likely": 2,
         "high": 2.8,
         "output_per_day": 8,
-        "output_unit": "no/gang·day"
+        "output_unit": "no/crew·day"
       },
       "gang": [
         {

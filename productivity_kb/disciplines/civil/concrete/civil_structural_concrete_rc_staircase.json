@@ -50,7 +50,7 @@
         "likely": 2.67,
         "high": 3.2,
         "output_per_day": 6,
-        "output_unit": "m2/gang·day"
+        "output_unit": "m2/crew·day"
       },
       "gang": [
         {
@@ -116,7 +116,7 @@
         "likely": 24.6,
         "high": 28,
         "output_per_day": 0.65,
-        "output_unit": "t/gang·day"
+        "output_unit": "t/crew·day"
       },
       "gang": [
         {
@@ -182,7 +182,7 @@
         "likely": 3.2,
         "high": 3.9,
         "output_per_day": 10,
-        "output_unit": "m3/gang·day"
+        "output_unit": "m3/crew·day"
       },
       "gang": [
         {

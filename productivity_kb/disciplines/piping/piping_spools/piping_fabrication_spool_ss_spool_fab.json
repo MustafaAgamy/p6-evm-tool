@@ -47,7 +47,7 @@
         "likely": 0.9,
         "high": 1.2,
         "output_per_day": 17.8,
-        "output_unit": "dia-inch/gang·day"
+        "output_unit": "dia-inch/crew·day"
       },
       "gang": [
         {
@@ -108,7 +108,7 @@
         "likely": 2.2,
         "high": 2.8,
         "output_per_day": 7.3,
-        "output_unit": "dia-inch/gang·day"
+        "output_unit": "dia-inch/crew·day"
       },
       "gang": [
         {

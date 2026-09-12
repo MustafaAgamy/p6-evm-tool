@@ -50,7 +50,7 @@
         "likely": 6.4,
         "high": 12,
         "output_per_day": 2.5,
-        "output_unit": "instruments/gang·day"
+        "output_unit": "instruments/crew·day"
       },
       "gang": [
         {

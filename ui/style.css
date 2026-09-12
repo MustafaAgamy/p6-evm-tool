@@ -3023,3 +3023,37 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pi-chain .op{color:var(--muted);font-weight:700}
 .pi-dur{margin-top:7px;font-size:11.5px;color:var(--ink-soft)}
 .pi-addq{margin-top:10px;font-size:12px;color:var(--muted);background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:9px 11px}
+.pi-ratebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--accent-soft);border:1px solid var(--border);border-radius:12px;padding:9px 12px;margin-bottom:14px}
+.pi-rblbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent-dark);font-weight:800}
+.pi-rchip{background:var(--card-bg);border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:12px;color:var(--ink-soft)}
+.pi-rchip.ctrl{border-color:var(--warning)}
+.pi-rchip b{color:var(--text);font-weight:600;margin-right:4px}
+.pi-rchip .cf{font-size:9px;font-weight:800;color:#fff;background:var(--warning);border-radius:4px;padding:1px 5px}
+.pi-rarrow{margin-left:auto;font-size:12px;color:var(--ink-soft)}
+.pi-flow{display:grid;grid-template-columns:1.15fr 1.5fr 1fr;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--card-bg);box-shadow:var(--shadow);margin-bottom:12px}
+.pi-step{padding:14px 16px;border-right:1px solid var(--border)}
+.pi-step:last-child{border-right:none}
+.pi-step.s1{background:var(--accent-soft)}
+.pi-step.s3{background:var(--success-bg)}
+.pi-step .sn{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;display:flex;align-items:center;gap:6px}
+.pi-step .sn .b{width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center}
+.pi-rateBig{font-size:19px;font-weight:800;color:var(--accent-dark);margin-top:8px;line-height:1.2}
+.pi-stepsub{font-size:11px;color:var(--ink-soft);margin-top:4px}
+.pi-calc{font-size:12px;color:var(--ink-soft);margin-top:8px;line-height:1.7}
+.pi-calc .ln{display:block}.pi-calc b{color:var(--text)}
+.pi-durBig{font-size:30px;font-weight:800;color:var(--success);margin-top:6px;line-height:1}
+.pi-durSub{font-size:12px;color:var(--ink-soft);margin-top:4px}
+@media(max-width:820px){.pi-flow{grid-template-columns:1fr}.pi-step{border-right:none;border-bottom:1px solid var(--border)}}
+.pi-kpis2{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.pi-kpi2{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:10px 14px;box-shadow:var(--shadow)}
+.pi-kpi2 .kl{font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.pi-kpi2 .kv{font-size:18px;font-weight:800;margin-top:3px}
+.pi-rowlab{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:800}
+.pi-rateline{font-size:18px;font-weight:800;color:var(--accent-dark);margin-top:4px}
+.pi-chain .chip.dur{border-color:var(--success);color:var(--success)}
+.pi-methdesc{font-size:12.5px;color:var(--ink-soft);line-height:1.6}
+.pi-methtable{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+.pi-methtable th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--border)}
+.pi-methtable td{padding:7px 8px;border-top:1px solid var(--hair);vertical-align:top}
+.pi-methtable tr.on td{background:var(--accent-soft)}
+.pi-methnote{font-size:11px;color:var(--muted);margin-top:8px}

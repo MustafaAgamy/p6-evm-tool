@@ -48,7 +48,7 @@
         "likely": 20,
         "high": 28,
         "output_per_day": 0.8,
-        "output_unit": "system/gang·day"
+        "output_unit": "system/crew·day"
       },
       "gang": [
         {
@@ -114,7 +114,7 @@
         "likely": 32,
         "high": 44,
         "output_per_day": 0.5,
-        "output_unit": "system/gang·day"
+        "output_unit": "system/crew·day"
       },
       "gang": [
         {
@@ -180,7 +180,7 @@
         "likely": 32,
         "high": 44,
         "output_per_day": 0.5,
-        "output_unit": "system/gang·day"
+        "output_unit": "system/crew·day"
       },
       "gang": [
         {
@@ -245,7 +245,7 @@
         "likely": 26.7,
         "high": 36,
         "output_per_day": 0.6,
-        "output_unit": "system/gang·day"
+        "output_unit": "system/crew·day"
       },
       "gang": [
         {

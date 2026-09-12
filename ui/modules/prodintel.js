@@ -168,6 +168,19 @@ async function selectItem(id) {
 // ---- helpers for the smart visuals + P6 ----
 const CONF = { high: ['pi-good', 'High'], moderate: ['pi-warn', 'Moderate'], draft: ['pi-warn', 'Draft'], none: ['pi-mut', 'Insufficient'] };
 const SEG = ['pi-s-ctrl', 'pi-s-a', 'pi-s-b', 'pi-s-c', 'pi-s-d'];
+const METHOD_ROWS = [
+  ['Conventional', 'Plywood / timber panels + props, built and stripped each pour', 'Carpenters + helpers; little plant', 'Flexible, slower per m²; low-rise / irregular'],
+  ['Jump-form', 'Large forms crane-lifted floor to floor', 'Carpenters + tower crane', 'Fast on repetitive cores / walls / tall columns'],
+  ['Climbing form', 'Form climbs on rails (often self-climbing, hydraulic)', 'Specialist crew + hydraulics', 'Fastest vertical cycle; tall cores / piers'],
+  ['Precast', 'Elements cast off-site, then erected on site', 'Erectors + heavy crane', 'Very fast erection; different resource profile'],
+];
+const METHOD_INFO = {
+  'Conventional': 'Plywood / timber panels with props, hand-built and stripped for each pour. Crew is carpenters + helpers with minimal plant. Flexible for any shape and low mobilisation, but slower per m² — best for low-rise, irregular or small-quantity work.',
+  'Jump-form': 'Large panel / table forms lifted by tower crane from one lift to the next. Fast on repetitive vertical elements (cores, walls, tall columns); higher mobilisation and needs a crane; productivity improves with repetition.',
+  'Climbing form': 'Form that climbs on embedded rails, often hydraulically self-climbing so it does not tie up the crane each lift. Fastest repetitive vertical cycle; highest equipment / mobilisation; for tall cores, piers and pylons.',
+  'Precast': 'Elements are cast off-site (or in a site yard) and erected on site, so site work becomes crane erection + connections rather than forming, fixing and pouring in place. Very fast on-site; labour shifts to the casting yard; needs heavy craneage.',
+  '_default': 'Select a methodology to see how it is built and how it affects crew, plant and speed.',
+};
 function stateChip(st, conf) {
   if (st === 'no_reference') return `<span class="pi-st pi-mut">○ No reference</span>`;
   if (st === 'validated') return `<span class="pi-st pi-good">● Validated</span>`;
@@ -192,14 +205,14 @@ function aggregate(r) {
 // Express a component's rate as a production norm: per-gang output + per-primary-resource.
 function ratePhrase(c) {
   const rate = c.rate; if (!rate) return null;
-  const g0 = (c.gang && c.gang[0]) || { count: 1, trade: 'crew' };
   const unitNoun = ((rate.output_unit || c.unit || '').split('/')[0].trim()) || c.unit || '';
+  const crewStr = (c.gang || []).map(g => `${g.count} ${g.trade}`).join(' + ') || 'crew';
   if (rate.output_per_day) {
-    const per = Math.round((rate.output_per_day / (g0.count || 1)) * 10) / 10;
-    return { gangRate: `${rate.output_per_day} ${rate.output_unit || (unitNoun + '/day')}`,
-             big: `${per} ${unitNoun} / ${(g0.trade || 'crew').toLowerCase()}·day`, unitNoun };
+    return { output: rate.output_per_day, unitNoun, crewStr,
+             big: `${rate.output_per_day} ${unitNoun} / ${crewStr} / day`,
+             short: `${rate.output_per_day} ${unitNoun}/crew·day` };
   }
-  return { gangRate: `${rate.mh_per_unit} MH/${c.unit}`, big: `${rate.mh_per_unit} MH/${c.unit}`, unitNoun };
+  return { output: null, unitNoun, crewStr, big: `${rate.mh_per_unit} MH/${c.unit}`, short: `${rate.mh_per_unit} MH/${c.unit}` };
 }
 
 function renderResult() {
@@ -215,25 +228,49 @@ function renderResult() {
   const priced = comps.filter(c => c.man_hours != null);
   const maxMH = Math.max(1, ...priced.map(c => c.man_hours));
 
-  // component band
-  const band = comps.map(c => `<div class="pi-bpill ${c.controls ? 'ctrl' : ''}"><div class="n">${escapeHtml(c.name)}${c.controls ? ' <span class="ct">CONTROLS</span>' : ''}</div><div class="d">${c.rate ? (c.rate.mh_per_unit + ' MH/' + escapeHtml(c.unit) + (hasQ ? ' · ' + num(c.man_hours) + ' MH' : '')) : 'no reference'}</div></div>`).join('');
+  // component band — per-crew rate first, then → man-hours
+  const band = comps.map(c => {
+    const rp = c.rate ? ratePhrase(c) : null;
+    const d = rp ? `${escapeHtml(rp.big)}${hasQ ? ' <small>→ ' + num(c.man_hours) + ' MH</small>' : ''}` : 'no reference';
+    return `<div class="pi-bpill ${c.controls ? 'ctrl' : ''}"><div class="n">${escapeHtml(c.name)}${c.controls ? ' <span class="ct">CONTROLS</span>' : ''}</div><div class="d">${d}</div></div>`;
+  }).join('');
 
-  // KPIs
+  // Headline flow (order: rate -> calculation -> duration), driven by the controlling component.
+  const shift0 = (r.context && r.context.shift_hours) || 8;
   const ctrlComp = comps.find(c => c.controls) || priced[0] || null;
   const ctrlRate = ctrlComp ? ratePhrase(ctrlComp) : null;
-  let kpis;
-  if (hasQ && roll) {
-    kpis = `
-      <div class="pi-kpi hero"><span class="ic">◷</span><div class="l">Estimated duration</div><div class="v mono">~${roll.duration_days}</div><div class="u">working days</div><div class="sub">bottleneck · line-of-balance</div></div>
-      <div class="pi-kpi pi-ratekpi"><span class="ic">▮</span><div class="l">Productivity rate · controlling</div><div class="v mono" style="font-size:16px">${ctrlRate ? escapeHtml(ctrlRate.big) : '—'}</div><div class="u">${ctrlComp ? escapeHtml(ctrlComp.name) : ''}</div><div class="pi-conv mono">→ converts to ${num(roll.total_mh)} MH total</div></div>
-      <div class="pi-kpi"><span class="ic">▤</span><div class="l">Blended rate</div><div class="v mono">${roll.blended_mh_per_primary}</div><div class="u">MH/${escapeHtml(r.primary_unit || '')}</div><div class="sub">across components</div></div>
-      <div class="pi-kpi"><span class="ic">◈</span><div class="l">Controlling</div><div class="v" style="font-size:16px;margin-top:8px">${escapeHtml(roll.controlling_component || '—')}</div><div class="sub">sets the duration</div></div>`;
+  let flow, kpis2 = '';
+  if (hasQ && roll && ctrlComp && ctrlRate) {
+    const cd = ctrlComp.rate.output_per_day ? Math.round(ctrlComp.component_qty / ctrlComp.rate.output_per_day * 10) / 10 : null;
+    const calc = cd != null
+      ? `<span class="ln"><b>Quantity ÷ rate</b> = ${num(ctrlComp.component_qty)} ${escapeHtml(ctrlComp.unit)} ÷ ${ctrlComp.rate.output_per_day} = ${cd} crew-days</span>
+         <span class="ln"><b>Man-hours</b> = ${cd} × ${ctrlComp.gang_persons} persons × ${shift0} h = ${num(ctrlComp.man_hours)} MH</span>
+         <span class="ln"><b>Duration</b> = ${cd} crew-days ÷ ${ctrlComp.n_gangs} crews = ~${ctrlComp.duration_days} days</span>`
+      : `<span class="ln"><b>Man-hours</b> = ${num(ctrlComp.component_qty)} × ${ctrlComp.rate.mh_per_unit} = ${num(ctrlComp.man_hours)} MH</span>`;
+    flow = `<div class="pi-flow">
+      <div class="pi-step s1"><div class="sn"><span class="b">1</span> Productivity rate · controlling</div>
+        <div class="pi-rateBig mono">${escapeHtml(ctrlRate.big)}</div>
+        <div class="pi-stepsub">${escapeHtml(ctrlComp.name)} — the component that sets the duration</div></div>
+      <div class="pi-step"><div class="sn"><span class="b">2</span> Calculation used for the duration</div>
+        <div class="pi-calc mono">${calc}</div></div>
+      <div class="pi-step s3"><div class="sn"><span class="b">3</span> Estimated duration</div>
+        <div class="pi-durBig mono">~${roll.duration_days}</div>
+        <div class="pi-durSub">working days · ${num(roll.total_mh)} MH total</div></div>
+    </div>`;
+    kpis2 = `<div class="pi-kpis2">
+      <div class="pi-kpi2"><div class="kl">Total man-hours</div><div class="kv mono">${num(roll.total_mh)} MH</div></div>
+      <div class="pi-kpi2"><div class="kl">Blended rate (derived)</div><div class="kv mono">${roll.blended_mh_per_primary} MH/${escapeHtml(r.primary_unit || '')}</div></div>
+      <div class="pi-kpi2"><div class="kl">Controlling</div><div class="kv" style="font-size:15px">${escapeHtml(roll.controlling_component || '—')}</div></div>
+      <div class="pi-kpi2"><div class="kl">Overall confidence</div><div class="kv" style="font-size:15px">${(CONF[r.overall_confidence] || CONF.none)[1]}</div></div>
+    </div>`;
   } else {
-    kpis = `
-      <div class="pi-kpi hero"><span class="ic">▣</span><div class="l">Work item</div><div class="v" style="font-size:17px;margin-top:8px">${escapeHtml(r.item)}</div><div class="sub">${escapeHtml(r.discipline || '')} · ${escapeHtml(r.system || '')}</div></div>
-      <div class="pi-kpi"><span class="ic">▦</span><div class="l">Components</div><div class="v mono">${comps.length}</div><div class="u">each its own norm</div></div>
-      <div class="pi-kpi"><span class="ic">✓</span><div class="l">Confidence</div><div class="v" style="font-size:17px;margin-top:8px">${(CONF[r.overall_confidence] || CONF.none)[1]}</div></div>
-      <div class="pi-kpi"><span class="ic">＋</span><div class="l">Add a quantity</div><div class="v" style="font-size:17px;margin-top:8px">to estimate</div><div class="sub">man-hours &amp; duration</div></div>`;
+    flow = `<div class="pi-flow">
+      <div class="pi-step s1"><div class="sn"><span class="b">1</span> Productivity rate</div>
+        <div class="pi-rateBig mono">${ctrlRate ? escapeHtml(ctrlRate.big) : '—'}</div>
+        <div class="pi-stepsub">${ctrlComp ? escapeHtml(ctrlComp.name) : escapeHtml(r.item)} · per crew</div></div>
+      <div class="pi-step" style="grid-column:2 / span 2"><div class="sn"><span class="b">2</span> Add a quantity</div>
+        <div class="pi-calc">Enter a quantity above to see the calculation and the estimated duration.</div></div>
+    </div>`;
   }
 
   // MH breakdown bar (quantity mode)
@@ -250,7 +287,6 @@ function renderResult() {
   const rows = comps.map(c => {
     if (!c.rate) return `<div class="pi-ccard"><div class="pi-cch"><span class="nm">${escapeHtml(c.name)}</span>${stateChip(c.state, c.confidence)}</div><div class="pi-cbody"><div class="pi-muted">No validated reference — not estimated.</div></div></div>`;
     const rp = ratePhrase(c);
-    const gang = (c.gang || []).map(g => `<span class="g">${g.count}× ${escapeHtml(g.trade)}</span>`).join('');
     let range = '';
     if (c.rate.low != null && c.rate.high != null && c.rate.high > c.rate.low) {
       const pin = Math.max(0, Math.min(100, (((c.rate.likely != null ? c.rate.likely : c.rate.mh_per_unit) - c.rate.low) / (c.rate.high - c.rate.low)) * 100));
@@ -258,22 +294,20 @@ function renderResult() {
     }
     let convert;
     if (hasQ && c.man_hours != null) {
-      const gd = c.rate.output_per_day ? Math.round(c.component_qty / c.rate.output_per_day * 10) / 10 : null;
-      const chain = gd != null
-        ? `<span class="chip">${num(c.component_qty)} ${escapeHtml(c.unit)}</span><span class="op">÷</span><span class="chip">${c.rate.output_per_day} ${escapeHtml(rp.unitNoun)}/day</span><span class="op">=</span><span class="chip">${gd} gang-days</span><span class="op">×</span><span class="chip">${c.gang_persons} × ${shift} h</span><span class="op">=</span><span class="chip res">${num(c.man_hours)} MH</span>`
+      const cd = c.rate.output_per_day ? Math.round(c.component_qty / c.rate.output_per_day * 10) / 10 : null;
+      const chain = cd != null
+        ? `<span class="chip">${num(c.component_qty)} ${escapeHtml(c.unit)}</span><span class="op">÷</span><span class="chip">${c.rate.output_per_day} ${escapeHtml(rp.unitNoun)}/day</span><span class="op">=</span><span class="chip">${cd} crew-days</span><span class="op">×</span><span class="chip">${c.gang_persons} × ${shift} h</span><span class="op">=</span><span class="chip res">${num(c.man_hours)} MH</span><span class="op">÷ ${c.n_gangs} crews =</span><span class="chip dur">~${c.duration_days} days</span>`
         : `<span class="chip">${num(c.component_qty)} ${escapeHtml(c.unit)}</span><span class="op">×</span><span class="chip">${c.rate.mh_per_unit} MH/${escapeHtml(c.unit)}</span><span class="op">=</span><span class="chip res">${num(c.man_hours)} MH</span>`;
-      const dur = (c.duration_days != null)
-        ? `Duration: ${gd != null ? gd + ' gang-days ÷ ' + c.n_gangs + ' gangs = ' : ''}~${c.duration_days} days · equivalent ${c.rate.mh_per_unit} MH/${escapeHtml(c.unit)}`
-        : `equivalent ${c.rate.mh_per_unit} MH/${escapeHtml(c.unit)}`;
-      convert = `<div class="pi-convert"><div class="cvh">Convert to man-hours</div><div class="pi-chain">${chain}</div><div class="pi-dur">${dur}</div></div>`;
+      convert = `<div class="pi-convert"><div class="cvh">Calculation → man-hours &amp; duration</div><div class="pi-chain">${chain}</div></div>`;
     } else {
       convert = `<div class="pi-addq">Add a quantity above to convert this rate into man-hours and duration.</div>`;
     }
     return `<div class="pi-ccard ${c.controls ? 'ctrl' : ''}">
       <div class="pi-cch"><span class="nm">${escapeHtml(c.name)}${c.controls ? ' <span class="ct">CONTROLS</span>' : ''}</span>${stateChip(c.state, c.confidence)}</div>
       <div class="pi-cbody">
-        <div class="pi-rateblock"><span class="lab">Productivity rate</span><span class="big mono">${escapeHtml(rp.gangRate)}</span>${rp.big !== rp.gangRate ? `<span class="per">≈ ${escapeHtml(rp.big)}</span>` : ''}</div>
-        <div class="pi-gang">Standard ${(c.gang && c.gang.length > 2) ? 'crew' : 'gang'}: ${gang}${range}</div>
+        <div class="pi-rowlab">Productivity rate</div>
+        <div class="pi-rateline mono">${escapeHtml(rp.big)}</div>
+        ${range}
         ${convert}
       </div></div>`;
   }).join('');
@@ -284,13 +318,25 @@ function renderResult() {
     ${rows}
     <div class="pi-formula">Man-hours = (Quantity ÷ productivity rate) × crew × shift${hasQ && roll ? ` · Total <b>${num(roll.total_mh)} MH</b> → ~${roll.duration_days} days (${escapeHtml(roll.controlling_component || '')} controls)` : ''}${r.basis_incomplete ? ' · <b>basis incomplete</b>' : ''}</div></div>`;
 
+  // Productivity-rate bar (shown under the toolbar): per-crew rate for each component
+  const rateBar = `<div class="pi-ratebar"><span class="pi-rblbl">Productivity rate</span>${comps.filter(c => c.rate).map(c => { const rp = ratePhrase(c); return `<span class="pi-rchip ${c.controls ? 'ctrl' : ''}"><b>${escapeHtml(c.name)}</b> ${escapeHtml(rp.big)}${c.controls ? ' <span class="cf">controls</span>' : ''}</span>`; }).join('')}${hasQ && roll ? `<span class="pi-rarrow mono">→ ${num(roll.total_mh)} MH · ~${roll.duration_days} days</span>` : ''}</div>`;
+  // Methodology explainer
+  const meth = (r.context || {}).Methodology || 'Conventional';
+  const methodCard = `<div class="pi-card pi-pad"><div class="pi-ch"><h3>Methodology — ${escapeHtml(meth)}</h3><span class="m">what it is &amp; how the options differ</span></div>
+    <div class="pi-methdesc">${escapeHtml(METHOD_INFO[meth] || METHOD_INFO._default)}</div>
+    <table class="pi-methtable"><thead><tr><th>Method</th><th>What it is</th><th>Crew / plant</th><th>Speed / use</th></tr></thead><tbody>${METHOD_ROWS.map(m => `<tr class="${m[0] === meth ? 'on' : ''}"><td><b>${escapeHtml(m[0])}</b></td><td>${escapeHtml(m[1])}</td><td>${escapeHtml(m[2])}</td><td>${escapeHtml(m[3])}</td></tr>`).join('')}</tbody></table>
+    <div class="pi-methnote">The rate shown is for the selected methodology. Where project evidence supports a methodology-specific rate the numbers change; otherwise the base norm is used — never a guessed multiplier.</div></div>`;
+
   main.innerHTML = `
     <div class="pi-card pi-pad">
       <div class="pi-ihead"><div><div class="t">${escapeHtml(r.item)}</div><div class="c">${escapeHtml(r.discipline || '')} › ${escapeHtml(r.work_type || '')} › ${escapeHtml(r.system || '')} · ${escapeHtml((r.context || {})['Project type'] || '')} · ${escapeHtml((r.context || {})['Location'] || '')}</div></div>
       <span class="pi-mode">${hasQ ? '◆ Quantity estimate' : '▣ Knowledge lookup'}</span></div>
       <div class="pi-band">${band}</div>
     </div>
-    <div class="pi-kpis">${kpis}</div>
+    ${rateBar}
+    ${flow}
+    ${kpis2}
+    ${methodCard}
     ${compCard}
     ${renderResources(r)}
     ${renderP6(r)}

@@ -47,7 +47,7 @@
         "likely": 160,
         "high": 240,
         "output_per_day": 0.2,
-        "output_unit": "system/gang·day"
+        "output_unit": "system/crew·day"
       },
       "gang": [
         {
