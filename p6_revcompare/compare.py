@@ -158,19 +158,33 @@ def _finish_ms_by_code(data):
     return out
 
 
+_MS_CONTRACT_HINTS = ('completion', 'handover', 'sectional', 'practical', 'substantial',
+                      'contract', 'commencement', 'possession', 'milestone date', 'access',
+                      'taking over', 'occupation')
+
+
+def _ms_type(name):
+    """Best-effort milestone type for the Type column — 'Contract' when the name reads like a
+    contractual key date, else 'Internal'. Name-based heuristic (P6 carries no such flag); a
+    planner can reclassify. Neutral label, not a judgement."""
+    n = (name or '').lower()
+    return 'Contract' if any(h in n for h in _MS_CONTRACT_HINTS) else 'Internal'
+
+
 def _compare_milestones(rev0, rev1, cal):
     m0, m1 = _finish_ms_by_code(rev0), _finish_ms_by_code(rev1)
     rows = []
     for code in sorted(set(m0) | set(m1)):
         a0, a1 = m0.get(code), m1.get(code)
         name = (a1 or a0).get('name') or code
+        base = {'id': code, 'type': _ms_type(name)}
         f0, f1 = (_forecast_finish(a0) if a0 else None), (_forecast_finish(a1) if a1 else None)
         if a0 and not a1:
-            rows.append({'name': name, 'rev0': _long(f0), 'rev1': None,
+            rows.append({**base, 'name': name, 'rev0': _long(f0), 'rev1': None,
                          'change': None, 'kind': 'removed', 'change_days': None})
             continue
         if a1 and not a0:
-            rows.append({'name': name, 'rev0': None, 'rev1': _long(f1),
+            rows.append({**base, 'name': name, 'rev0': None, 'rev1': _long(f1),
                          'change': None, 'kind': 'new', 'change_days': None})
             continue
         slip = _wd_between(cal, _d0(f0), _d0(f1)) if (f0 and f1) else None
@@ -182,7 +196,7 @@ def _compare_milestones(rev0, rev1, cal):
             kind = 'advanced'
         else:
             kind = 'unchanged'
-        rows.append({'name': name, 'rev0': _long(f0), 'rev1': _long(f1),
+        rows.append({**base, 'name': name, 'rev0': _long(f0), 'rev1': _long(f1),
                      'change': slip, 'kind': kind, 'change_days': slip})
     # governing / biggest movers first
     rows.sort(key=lambda r: (r['kind'] == 'unchanged', -abs(r.get('change_days') or 0)))

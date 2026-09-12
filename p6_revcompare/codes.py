@@ -112,6 +112,9 @@ def _itemise(activities):
             'building': _pick_by_hint(codes, _BUILDING_HINTS),
             'wbs': a.get('wbs_path') or None,
             'scope': _pick_by_hint(codes, _SCOPE_HINTS),
+            # full code map (incl. a synthetic 'WBS' top branch) so the scope analysis can
+            # filter added/removed by any activity-code dimension, live + in the PDF.
+            'codes': {**codes, 'WBS': _wbs_top(a.get('wbs_path'))},
         })
     return rows
 

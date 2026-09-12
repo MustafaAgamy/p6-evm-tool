@@ -284,7 +284,30 @@ def build_curves(rev0, rev1, matched, match, cal, orig_finish):
         'peak': peak,
         'manhours_by_trade': _manhours_by_trade(rev0, rev1) if resource_available else [],
         'manhours_total': _manhours_total(rev0, rev1),
+        # Rev.01 monthly man-hours per trade — drives the stacked manpower combo chart.
+        'manpower_by_trade': _manpower_by_trade_monthly(rev1, axis) if resource_available else [],
     }
+
+
+def _manpower_by_trade_monthly(data, axis):
+    """[{trade, monthly:[units aligned to axis], total}] — planned man-hours per resource/trade
+    spread by month, for the stacked manpower combo chart. Empty when no units are present."""
+    amap = getattr(data, 'assignments_by_activity', None) or {}
+    acts = getattr(data, 'activities', None) or {}
+    per = {}
+    for oid, act in acts.items():
+        for asg in (amap.get(oid) or []):
+            u = asg.get('budget_units') or 0.0
+            if not u:
+                continue
+            trade = asg.get('resource_name') or asg.get('resource_id') or 'Resource'
+            for k, part in _spread(_actcal(data, act), act.get('planned_start'),
+                                   act.get('planned_finish'), u).items():
+                per.setdefault(trade, {})[k] = per.setdefault(trade, {}).get(k, 0.0) + part
+    out = [{'trade': t, 'monthly': [round(m.get(k, 0.0), 1) for k in axis],
+            'total': round(sum(m.values()), 1)} for t, m in per.items()]
+    out.sort(key=lambda t: -t['total'])
+    return out
 
 
 # ── phasing over all activities ─────────────────────────────────────────────────
