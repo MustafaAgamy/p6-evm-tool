@@ -92,13 +92,20 @@ def _worst_confidence(levels):
     return min(priced, key=lambda l: order.index(l) if l in order else 0)
 
 
-def item_result(item, context=None, quantity=None):
-    """Compute the full result dict for one KB item."""
+def item_result(item, context=None, quantity=None, component_quantities=None):
+    """Compute the full result dict for one KB item.
+
+    quantity seeds each component from the item's primary unit (via qty_per_primary);
+    component_quantities {component_id: qty} lets the planner enter each component's own
+    quantity in its own unit (e.g. reinforcement in tonnes) and overrides the derived value.
+    """
     context = context or {}
     shift = float(context.get("shift_hours") or DEFAULT_SHIFT_HOURS)
     ledger, ctx_net = _context_ledger(item, context)
-    has_qty = quantity is not None and quantity != "" and float(quantity) > 0
-    qty = float(quantity) if has_qty else None
+    has_primary = quantity is not None and quantity != "" and float(quantity) > 0
+    qty = float(quantity) if has_primary else None
+    cq_over = component_quantities or {}
+    any_qty = False
 
     comps_out = []
     for comp in item.get("components", []):
@@ -130,8 +137,14 @@ def item_result(item, context=None, quantity=None):
                 "output_per_day": rate.get("output_per_day"),
                 "output_unit": rate.get("output_unit"),
             }
-            if has_qty:
-                cqty = qty * float(comp.get("qty_per_primary", 1.0))
+            ov = cq_over.get(comp.get("component_id"))
+            try:
+                ov = float(ov) if ov not in (None, "") else None
+            except (TypeError, ValueError):
+                ov = None
+            cqty = ov if (ov is not None and ov > 0) else (qty * float(comp.get("qty_per_primary", 1.0)) if has_primary else None)
+            if cqty is not None:
+                any_qty = True
                 mhu = adj if adj is not None else float(rate["mh_per_unit"])
                 n_gangs = max(1, int(comp.get("default_gangs", 1) or 1))
                 mh = cqty * mhu
@@ -163,7 +176,7 @@ def item_result(item, context=None, quantity=None):
         "aliases": item.get("aliases", []),
         "context": {**context, "shift_hours": shift},
         "context_ledger": ledger,
-        "has_quantity": has_qty,
+        "has_quantity": any_qty,
         "quantity": qty,
         "components": comps_out,
         "overall_confidence": _worst_confidence([c["confidence"] for c in comps_out]),
@@ -175,7 +188,7 @@ def item_result(item, context=None, quantity=None):
         "exclusions": item.get("exclusions", []),
     }
 
-    if has_qty:
+    if any_qty:
         priced = [c for c in comps_out if c.get("man_hours") is not None]
         total_mh = sum(c["man_hours"] for c in priced)
         durs = [(c, c.get("duration_days")) for c in priced if c.get("duration_days") is not None]
@@ -226,13 +239,13 @@ def _item_evidence(comps_out):
     }
 
 
-def query(item_id, context=None, quantity=None, items=None):
+def query(item_id, context=None, quantity=None, items=None, component_quantities=None):
     """Look up an item by id and compute its result. Unknown id -> honest no-reference."""
     index = by_id(items if items is not None else load_items())
     item = index.get(item_id)
     if not item:
         return {"item_id": item_id, "found": False, "state": "no_reference",
                 "message": "No validated reference available."}
-    res = item_result(item, context=context, quantity=quantity)
+    res = item_result(item, context=context, quantity=quantity, component_quantities=component_quantities)
     res["found"] = True
     return res

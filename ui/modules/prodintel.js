@@ -12,6 +12,7 @@ let _tree = null, _flat = [];
 let _ctx = { 'Project type': 'Industrial', 'Location': 'Egypt', 'Methodology': 'Conventional', 'shift_hours': 8 };
 let _quantity = 100;
 let _itemId = null, _result = null, _print = null;
+let _compQty = {}, _compQtyItem = null;   // planner's per-component quantity overrides (own units)
 
 const PROJECT_TYPES = ['Industrial', 'Commercial', 'Residential', 'Hospital', 'Infrastructure', 'Oil & Gas', 'Marine/Port', 'Airport', 'Power Plant'];
 const LOCATIONS = ['Egypt', 'KSA', 'GCC', 'Europe', 'Other'];
@@ -107,7 +108,7 @@ function renderSelRow() {
   el.querySelectorAll('.pi-ptchip').forEach(c => c.onclick = () => { _ctx['Project type'] = c.dataset.pt; renderSelRow(); selectItem(_itemId); });
   el.querySelector('#pi-loc').onchange = (e) => { _ctx['Location'] = e.target.value; selectItem(_itemId); };
   el.querySelector('#pi-meth').onchange = (e) => { _ctx['Methodology'] = e.target.value; selectItem(_itemId); };
-  el.querySelector('#pi-qty').onchange = (e) => { const v = parseFloat(e.target.value); _quantity = (e.target.value === '' || isNaN(v)) ? null : v; selectItem(_itemId); };
+  el.querySelector('#pi-qty').onchange = (e) => { const v = parseFloat(e.target.value); _quantity = (e.target.value === '' || isNaN(v)) ? null : v; _compQty = {}; selectItem(_itemId); };
 }
 
 function wireChrome() {
@@ -157,10 +158,11 @@ function openBrowse() {
 }
 
 async function selectItem(id) {
+  if (id !== _compQtyItem) { _compQty = {}; _compQtyItem = id; }   // fresh item -> drop overrides
   _itemId = id;
   const main = document.getElementById('pi-main');
   if (main) main.innerHTML = '<div class="pi-loading">Looking up the knowledge base…</div>';
-  try { const j = await api('/api/prodintel/query', { item_id: id, context: _ctx, quantity: _quantity }); _result = (j && j.ok) ? j.result : null; }
+  try { const j = await api('/api/prodintel/query', { item_id: id, context: _ctx, quantity: _quantity, component_quantities: _compQty }); _result = (j && j.ok) ? j.result : null; }
   catch (e) { _result = null; }
   renderResult();
 }
@@ -302,12 +304,18 @@ function renderResult() {
     } else {
       convert = `<div class="pi-addq">Add a quantity above to convert this rate into man-hours and duration.</div>`;
     }
+    const qhint = (_compQty[c.component_id] != null) ? 'you entered'
+      : (c.component_qty != null && r.quantity != null ? 'auto from ' + num(r.quantity) + ' ' + escapeHtml(r.primary_unit || '') : '');
+    const qtyInput = `<div class="pi-qtyrow"><span class="pi-rowlab">Quantity (${escapeHtml(c.unit)})</span>
+      <input class="pi-cqty" data-cid="${escapeHtml(c.component_id)}" type="number" min="0" step="any" value="${c.component_qty != null ? c.component_qty : ''}" placeholder="enter ${escapeHtml(c.unit)}">
+      ${qhint ? `<span class="pi-qhint">${qhint}</span>` : ''}</div>`;
     return `<div class="pi-ccard ${c.controls ? 'ctrl' : ''}">
       <div class="pi-cch"><span class="nm">${escapeHtml(c.name)}${c.controls ? ' <span class="ct">CONTROLS</span>' : ''}</span>${stateChip(c.state, c.confidence)}</div>
       <div class="pi-cbody">
         <div class="pi-rowlab">Productivity rate</div>
         <div class="pi-rateline mono">${escapeHtml(rp.big)}</div>
         ${range}
+        ${qtyInput}
         ${convert}
       </div></div>`;
   }).join('');
@@ -335,7 +343,6 @@ function renderResult() {
     </div>
     ${rateBar}
     ${flow}
-    ${kpis2}
     ${methodCard}
     ${compCard}
     ${renderResources(r)}
@@ -344,9 +351,21 @@ function renderResult() {
     ${renderWhy(r)}
     ${renderWhatIf(r)}`;
 
+  wireCompQty();
   renderRail(r);
   wireWhatIf(r);
   buildPrint(r);
+}
+
+function wireCompQty() {
+  document.querySelectorAll('.pi-cqty').forEach(inp => {
+    inp.onchange = () => {
+      const cid = inp.dataset.cid, v = parseFloat(inp.value);
+      if (inp.value === '' || isNaN(v) || v <= 0) delete _compQty[cid]; else _compQty[cid] = v;
+      _compQtyItem = _itemId;                 // keep overrides for this item
+      selectItem(_itemId);
+    };
+  });
 }
 
 function renderResources(r) {

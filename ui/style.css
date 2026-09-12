@@ -3057,3 +3057,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pi-methtable td{padding:7px 8px;border-top:1px solid var(--hair);vertical-align:top}
 .pi-methtable tr.on td{background:var(--accent-soft)}
 .pi-methnote{font-size:11px;color:var(--muted);margin-top:8px}
+.pi-qtyrow{display:flex;align-items:center;gap:8px;margin-top:10px}
+.pi-cqty{width:120px;height:32px;border:1px solid var(--border);background:var(--bg);border-radius:8px;color:var(--text);padding:0 9px;font-size:13px;text-align:right}
+.pi-cqty:focus{outline:none;border-color:var(--accent)}
+.pi-qhint{font-size:10.5px;color:var(--muted)}

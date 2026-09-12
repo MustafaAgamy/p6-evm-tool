@@ -117,3 +117,24 @@ def test_build_tree_shapes():
     assert isinstance(tree, list) and tree
     disc = tree[0]
     assert "name" in disc and "systems" in disc and disc["count"] >= 1
+
+
+def test_component_quantity_override():
+    """Planner can enter a component's quantity in its own unit; it overrides the derived value."""
+    r = engine.query("civil.structural.concrete.rc_column",
+                     context={"Project type": "Industrial"},
+                     component_quantities={"reinforcement": 20})
+    comps = {c["component_id"]: c for c in r["components"]}
+    assert r["has_quantity"] is True
+    # reinforcement uses the entered 20 t (not derived); 20 t x 23 MH/t = 460 MH
+    assert comps["reinforcement"]["component_qty"] == 20
+    assert comps["reinforcement"]["man_hours"] == 460
+    # a component with no override and no primary quantity stays knowledge-only
+    assert comps["formwork"].get("man_hours") is None
+
+
+def test_primary_quantity_still_derives_all():
+    r = engine.query("civil.structural.concrete.rc_column", context={}, quantity=100)
+    comps = {c["component_id"]: c for c in r["components"]}
+    assert comps["reinforcement"]["component_qty"] == 15   # 100 m3 x 0.15
+    assert comps["formwork"]["component_qty"] == 900

@@ -449,6 +449,7 @@ class Handler(BaseHTTPRequestHandler):
                 body.get('item_id'),
                 context=body.get('context') or {},
                 quantity=body.get('quantity'),
+                component_quantities=body.get('component_quantities') or {},
             )
             self._json(200, {'ok': True, 'result': res})
         except Exception as exc:
@@ -464,7 +465,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': 'No output path.'})
                 return
             r = p6_prodintel.query(body.get('item_id'), context=body.get('context') or {},
-                                   quantity=body.get('quantity'))
+                                   quantity=body.get('quantity'),
+                                   component_quantities=body.get('component_quantities') or {})
             if not r or r.get('found') is False:
                 self._json(200, {'ok': False, 'error': 'No validated reference for this selection.'})
                 return
