@@ -1,0 +1,121 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.distribution.lv_switchgear",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Distribution",
+  "item": "LV Switchgear / MCC Install",
+  "aliases": [
+    "lv switchgear",
+    "mcc",
+    "motor control centre",
+    "main distribution board",
+    "mdb",
+    "switchboard"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Data Center"
+  ],
+  "primary_unit": "no",
+  "why": "Floor-mounted LV switchgear/MCC set on base channel, aligned, bolted and section busbars linked; heavier than a wall DB, measured per vertical section/panel.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "One unit = one vertical section/panel",
+    "Base channel/plinth prepared by others",
+    "Sections shipped split for handling"
+  ],
+  "exclusions": [
+    "Base channel civils / grouting",
+    "Cable terminations",
+    "Busbar link between shipping splits beyond bolting",
+    "Testing & commissioning"
+  ],
+  "components": [
+    {
+      "component_id": "install",
+      "name": "Switchgear section setting, alignment and bolting",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 21.3,
+        "low": 12,
+        "likely": 21.3,
+        "high": 32,
+        "output_per_day": 1.5,
+        "output_unit": "sections/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Forklift / pallet truck",
+          "basis": "utilization",
+          "value": 2,
+          "unit": "h/no"
+        },
+        {
+          "name": "Lifting gear / skates",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Torque wrench set",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Base frame channel",
+          "qty_per_unit": 1.6,
+          "unit": "m/no"
+        },
+        {
+          "name": "Foundation / fixing bolts",
+          "qty_per_unit": 6,
+          "unit": "no/no"
+        },
+        {
+          "name": "Interconnection / busbar link hardware",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Shims / levelling packs",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — LV switchgear/MCC mechanical installation per section",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "floor-standing LV switchgear/MCC, per vertical section — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,283 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.substructure.foundations.pile_caps",
+  "discipline": "Civil",
+  "work_type": "Substructure",
+  "system": "Foundations",
+  "item": "Pile Caps",
+  "aliases": [
+    "pile caps",
+    "pile cap",
+    "cap beams"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "A pile cap is a multi-trade concrete element and must decompose into blinding, formwork, reinforcement and concrete. Pile caps are chunky and heavily reinforced, so the steel-fixing effort dominates the cost even though the formwork ratio is modest.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Pile heads already trimmed to cut-off",
+    "Ready-mix concrete",
+    "Conventional timber/ply formwork"
+  ],
+  "exclusions": [
+    "Pile head trimming (in piling scope)",
+    "Excavation and backfill",
+    "Waterproofing / tanking",
+    "Dewatering",
+    "Abnormal congestion and rework"
+  ],
+  "components": [
+    {
+      "component_id": "blinding",
+      "name": "Blinding / lean concrete",
+      "unit": "m2",
+      "qty_per_primary": 0.9,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.21,
+        "low": 0.15,
+        "likely": 0.21,
+        "high": 0.3,
+        "output_per_day": 150,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mason / Concreter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Poker vibrator / screed",
+          "basis": "utilization",
+          "value": 0.05,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Lean concrete (75 mm)",
+          "qty_per_unit": 0.08,
+          "unit": "m3/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — 75 mm lean blinding under caps",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "lean blinding layer — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "formwork",
+      "name": "Formwork / carpentry",
+      "unit": "m2",
+      "qty_per_primary": 2.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.7,
+        "low": 1.4,
+        "likely": 1.7,
+        "high": 2.2,
+        "output_per_day": 14,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane (shared)",
+          "basis": "utilization",
+          "value": 0.1,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Plywood / timber",
+          "qty_per_unit": 1.1,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Form oil",
+          "qty_per_unit": 0.03,
+          "unit": "l/m2"
+        },
+        {
+          "name": "Nails / ties",
+          "qty_per_unit": 0.15,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — heavy cap side formwork",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "conventional formwork to pile caps — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "RFT / steel fixing",
+      "unit": "ton",
+      "qty_per_primary": 0.15,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 27,
+        "low": 22,
+        "likely": 27,
+        "high": 32,
+        "output_per_day": 0.9,
+        "output_unit": "t/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bar bending machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Mobile crane (shared)",
+          "basis": "utilization",
+          "value": 0.3,
+          "unit": "h/t"
+        }
+      ],
+      "material": [
+        {
+          "name": "Reinforcement bar (Gr60)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Tie wire",
+          "qty_per_unit": 8,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Spacers / chairs",
+          "qty_per_unit": 25,
+          "unit": "kg/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — congested heavy cap reinforcement (~120-180 kg/m3)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "heavily reinforced pile caps — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Concrete — place, vibrate, cure",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.6,
+        "likely": 0.8,
+        "high": 1.1,
+        "output_per_day": 50,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Concreter / Placer",
+          "count": 2
+        },
+        {
+          "trade": "Vibrator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete pump",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Poker vibrator",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete",
+          "qty_per_unit": 1.03,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Curing compound",
+          "qty_per_unit": 0.1,
+          "unit": "l/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — pumped mass placement to caps",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "pumped concrete to pile caps — validate with your XER to promote"
+      }
+    }
+  ]
+}

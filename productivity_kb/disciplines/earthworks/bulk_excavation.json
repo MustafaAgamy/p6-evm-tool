@@ -1,0 +1,93 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.earthworks.bulk_excavation",
+  "discipline": "Civil",
+  "work_type": "Earthworks",
+  "system": "Earthworks",
+  "item": "Bulk Excavation",
+  "aliases": [
+    "excavation",
+    "bulk excavation",
+    "digging"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Standard Egypt productivity norm for bulk excavation, refined by validated project evidence over time.",
+  "assumptions": [
+    "Normal site access",
+    "Standard working conditions",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Abnormal congestion",
+    "Rework / rectification",
+    "Exceptional or restricted access",
+    "Night / shift premiums"
+  ],
+  "components": [
+    {
+      "component_id": "excavation",
+      "name": "Bulk excavation",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.08,
+        "low": 0.06,
+        "likely": 0.08,
+        "high": 0.12,
+        "output_per_day": 400,
+        "output_unit": "m3/day (per rig)"
+      },
+      "gang": [
+        {
+          "trade": "Excavator operator",
+          "count": 1
+        },
+        {
+          "trade": "Banksman",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Excavator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Dump truck",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt / industry standard norm — bulk excavation",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "normal access & conditions — validate with your XER to promote"
+      }
+    }
+  ]
+}

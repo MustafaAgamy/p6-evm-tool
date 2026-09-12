@@ -1,0 +1,106 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "piping.welding.field.butt_weld_cs",
+  "discipline": "Piping",
+  "work_type": "Welding",
+  "system": "Piping",
+  "item": "Field Pipe Welding (butt welds per dia-inch)",
+  "aliases": [
+    "field welding",
+    "golden welds",
+    "tie-in welding",
+    "position welding per dia-inch"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "dia-inch",
+  "why": "Field position welds (tie-ins, golden joints, field-run pipe) are slower than shop welds because of fixed 5G/6G positions, weather, access and habitat use; a dedicated field norm prevents underestimating the field welder count.",
+  "assumptions": [
+    "Fixed-position (5G/6G) welding in the field",
+    "Single 8 hr/day shift",
+    "Sch 40/80 carbon steel",
+    "Welding habitat/tent where required",
+    "dia-inch = pipe nominal diameter (in) per butt weld"
+  ],
+  "exclusions": [
+    "Shop welding (see fab items)",
+    "Stainless/alloy field welds (apply ~1.6-1.8x factor)",
+    "NDT and PWHT",
+    "Fit-up (part of erection/fab)",
+    "Repair welds"
+  ],
+  "components": [
+    {
+      "component_id": "welding_field",
+      "name": "Field butt welding (position)",
+      "unit": "dia-inch",
+      "qty_per_primary": 1.0,
+      "default_gangs": 4,
+      "rate": {
+        "mh_per_unit": 1.5,
+        "low": 1.2,
+        "likely": 1.5,
+        "high": 2.2,
+        "output_per_day": 10.7,
+        "output_unit": "dia-inch/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Welder",
+          "count": 1
+        },
+        {
+          "trade": "Welder Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Welding machine (engine-driven)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Welding habitat / tent",
+          "basis": "utilization",
+          "value": 0.2,
+          "unit": "h/dia-inch"
+        },
+        {
+          "name": "Grinder",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Filler metal (E7018 / ER70S)",
+          "qty_per_unit": 0.22,
+          "unit": "kg/dia-inch"
+        },
+        {
+          "name": "Shielding/purge gas",
+          "qty_per_unit": 0.12,
+          "unit": "m3/dia-inch"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - CS field position welding per diameter-inch",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "5G/6G CS butt welds, NPS 2-24 — validate with your XER to promote"
+      }
+    }
+  ]
+}

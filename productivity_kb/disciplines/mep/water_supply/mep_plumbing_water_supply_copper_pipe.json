@@ -1,0 +1,162 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.plumbing.water_supply.copper_pipe",
+  "discipline": "MEP",
+  "work_type": "Plumbing",
+  "system": "Water Supply",
+  "item": "Copper Water Supply Piping",
+  "aliases": [
+    "copper pipe",
+    "cu piping",
+    "brazed copper water",
+    "medical/plant copper"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Copper is used for hot water, plant-room, hospital and higher-spec distribution where PPR is not acceptable; brazed or press-fit jointing is slower than PPR fusion.",
+  "assumptions": [
+    "Representative bore 15-54 mm mixed run",
+    "Brazed / soldered or press-fit joints",
+    "Normal access, single 8 hr/day shift",
+    "Fittings and clips included"
+  ],
+  "exclusions": [
+    "Insulation / lagging",
+    "Medical-gas certification and purity testing",
+    "Chases and making good",
+    "Abnormal congestion"
+  ],
+  "components": [
+    {
+      "component_id": "install",
+      "name": "Copper pipe install (brazed / press-fit, incl. fittings & clips)",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.89,
+        "low": 0.7,
+        "likely": 0.89,
+        "high": 1.2,
+        "output_per_day": 18,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Oxy-acetylene brazing set",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Pipe bender / press tool",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Copper tube",
+          "qty_per_unit": 1.03,
+          "unit": "m/m"
+        },
+        {
+          "name": "Copper fittings",
+          "qty_per_unit": 0.35,
+          "unit": "no/m"
+        },
+        {
+          "name": "Brazing rod / solder & flux",
+          "qty_per_unit": 0.05,
+          "unit": "kg/m"
+        },
+        {
+          "name": "Pipe clips",
+          "qty_per_unit": 0.7,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — brazed copper water distribution",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "15-54 mm copper runs on normal access — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "pressure_test",
+      "name": "Pressure test & flushing",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.13,
+        "low": 0.1,
+        "likely": 0.13,
+        "high": 0.2,
+        "output_per_day": 120,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hydrostatic test pump + gauge",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Test caps / plugs (allowance)",
+          "qty_per_unit": 0.02,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — hydrostatic testing of water piping",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "system pressure test and flush per metre of run — validate with your XER to promote"
+      }
+    }
+  ]
+}

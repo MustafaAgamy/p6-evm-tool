@@ -1,0 +1,93 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.earthworks.excavation.bulk_excavation",
+  "discipline": "Civil",
+  "work_type": "Earthworks",
+  "system": "Excavation",
+  "item": "Bulk Excavation (common soil)",
+  "aliases": [
+    "bulk excavation",
+    "mass excavation",
+    "cut to spoil",
+    "site excavation"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Mechanical mass excavation of ordinary/soft ground by hydraulic excavator loading to trucks; the base earthmoving operation on almost every civil project. Rate is labour-light and plant-driven.",
+  "assumptions": [
+    "Normal access and haul distance on site",
+    "Single 8 hr/day shift",
+    "Common soil (no rock, no continuous groundwater)",
+    "Excavator 0.9–1.5 m3 bucket",
+    "Volumes measured in-situ (bank) m3"
+  ],
+  "exclusions": [
+    "Rock or hard strata (see rock excavation)",
+    "Dewatering",
+    "Off-site disposal/tipping fees",
+    "Shoring/support",
+    "Rework/re-handling of spoil"
+  ],
+  "components": [
+    {
+      "component_id": "excavate_load",
+      "name": "Excavate & load to trucks",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.032,
+        "low": 0.025,
+        "likely": 0.032,
+        "high": 0.05,
+        "output_per_day": 500,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Excavator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Banksman/Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hydraulic excavator (0.9–1.5 m3)",
+          "basis": "utilization",
+          "value": 0.016,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Tipper trucks (haulage, shared)",
+          "basis": "utilization",
+          "value": 0.03,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — hydraulic excavator mass excavation in common soil",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Common/soft soil, normal haul, single excavator gang — validate with your XER to promote"
+      }
+    }
+  ]
+}

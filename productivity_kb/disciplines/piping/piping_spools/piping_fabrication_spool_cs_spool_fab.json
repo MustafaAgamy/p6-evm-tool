@@ -1,0 +1,161 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "piping.fabrication.spool.cs_spool_fab",
+  "discipline": "Piping",
+  "work_type": "Fabrication",
+  "system": "Piping Spools",
+  "item": "Process Pipe Spool Fabrication - Carbon Steel (shop)",
+  "aliases": [
+    "cs spool fab",
+    "carbon steel spool fabrication",
+    "shop piping fabrication",
+    "spool shop CS"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "dia-inch",
+  "why": "Shop fabrication of process pipe spools is the highest-volume piping workfront on an industrial project and is universally normed in diameter-inch (pipe OD in inches per joint), letting a planner size fitter and welder crews directly from the spool weld count.",
+  "assumptions": [
+    "Controlled shop conditions with positioners/rotators",
+    "Single 8 hr/day shift",
+    "Average spool weld schedule of Sch 40/80 CS",
+    "5G/1G positions with positioner assist",
+    "dia-inch = pipe nominal diameter (in) per butt weld"
+  ],
+  "exclusions": [
+    "Alloy/exotic material (see SS item)",
+    "Field welding and erection",
+    "NDT and PWHT",
+    "Painting/insulation",
+    "Rework and repair welds"
+  ],
+  "components": [
+    {
+      "component_id": "fitup",
+      "name": "Cutting / beveling / fit-up & assembly",
+      "unit": "dia-inch",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.7,
+        "low": 0.55,
+        "likely": 0.7,
+        "high": 0.9,
+        "output_per_day": 23,
+        "output_unit": "dia-inch/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Fitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pipe cutting/beveling machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Grinder",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Cutting & grinding discs",
+          "qty_per_unit": 0.06,
+          "unit": "disc/dia-inch"
+        },
+        {
+          "name": "Fit-up consumables (tacks, clamps)",
+          "qty_per_unit": 0.02,
+          "unit": "set/dia-inch"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - shop cutting, beveling and fit-up of CS spools",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Sch 40/80 CS, NPS 2-24 — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "welding_shop",
+      "name": "Shop welding (SMAW/GTAW root)",
+      "unit": "dia-inch",
+      "qty_per_primary": 1.0,
+      "default_gangs": 4,
+      "rate": {
+        "mh_per_unit": 1.2,
+        "low": 0.9,
+        "likely": 1.2,
+        "high": 1.6,
+        "output_per_day": 13.3,
+        "output_unit": "dia-inch/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Welder",
+          "count": 1
+        },
+        {
+          "trade": "Welder Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Welding machine (SMAW/GTAW)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Pipe positioner/rotator (shared)",
+          "basis": "utilization",
+          "value": 0.3,
+          "unit": "h/dia-inch"
+        }
+      ],
+      "material": [
+        {
+          "name": "Filler metal (E7018 / ER70S)",
+          "qty_per_unit": 0.2,
+          "unit": "kg/dia-inch"
+        },
+        {
+          "name": "Shielding/purge gas",
+          "qty_per_unit": 0.1,
+          "unit": "m3/dia-inch"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - shop CS butt welding per diameter-inch",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "GTAW root + SMAW fill/cap, CS, NPS 2-24 — validate with your XER to promote"
+      }
+    }
+  ]
+}

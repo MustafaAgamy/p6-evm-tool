@@ -1,0 +1,231 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.earthing.earthing_lps",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Earthing & LPS",
+  "item": "Earthing & Lightning Protection",
+  "aliases": [
+    "earthing",
+    "grounding",
+    "lightning protection",
+    "lps",
+    "earth pit",
+    "earth conductor",
+    "down conductor"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Data Center"
+  ],
+  "primary_unit": "m",
+  "why": "Earthing/LPS conductor network with electrodes and bonding; measured per metre of conductor run with electrodes and test joints keyed to the run.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Bare copper tape/cable and down conductors",
+    "Electrode ~1 per 50m of run",
+    "Blended external/roof/internal runs"
+  ],
+  "exclusions": [
+    "Excavation / trenching civils",
+    "Air terminal masts / tall finials",
+    "System testing (earth resistance)",
+    "Structural roof works"
+  ],
+  "components": [
+    {
+      "component_id": "conductor",
+      "name": "Earth / LPS conductor & down conductor laying",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.29,
+        "low": 0.2,
+        "likely": 0.29,
+        "high": 0.45,
+        "output_per_day": 55,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Power tools / cordless drill",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Bare copper tape / cable",
+          "qty_per_unit": 1.05,
+          "unit": "m/m"
+        },
+        {
+          "name": "Holder / clip / saddle",
+          "qty_per_unit": 1.5,
+          "unit": "no/m"
+        },
+        {
+          "name": "Fixings",
+          "qty_per_unit": 1.5,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — earth/LPS conductor laying",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "bare copper tape/cable and down conductors — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "electrode",
+      "name": "Earth electrode / pit with rod and chamber",
+      "unit": "no",
+      "qty_per_primary": 0.02,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 8,
+        "low": 5,
+        "likely": 8,
+        "high": 14,
+        "output_per_day": 3,
+        "output_unit": "pits/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Rod driving hammer / rotary",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Earth rod set",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Inspection pit / chamber",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Rod clamp / connector",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Bentonite / GEM backfill",
+          "qty_per_unit": 25,
+          "unit": "kg/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — earth electrode/pit installation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "driven rod earth pit with inspection chamber — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "bonding",
+      "name": "Bonding, test joints and connections",
+      "unit": "no",
+      "qty_per_primary": 0.05,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.33,
+        "low": 0.8,
+        "likely": 1.33,
+        "high": 2.5,
+        "output_per_day": 12,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Exothermic weld mould / crimp tool",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Test clamp / disconnect joint",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Bonding conductor",
+          "qty_per_unit": 1.5,
+          "unit": "m/no"
+        },
+        {
+          "name": "Exothermic weld / clamp / lug",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — earth bonding and test joints",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "bonding connections and test clamps on earth/LPS network — validate with your XER to promote"
+      }
+    }
+  ]
+}

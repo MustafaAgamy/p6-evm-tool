@@ -10,6 +10,84 @@ import db
 import report_theme
 
 
+def _prodintel_excel_sections(r):
+    """Build (name, headers, rows) sheets from a Productivity Intelligence result."""
+    ctx = r.get('context') or {}
+    hasq = r.get('has_quantity')
+    roll = r.get('rollup') or {}
+    comps = r.get('components') or []
+    shift = ctx.get('shift_hours') or 8
+    dash = lambda x: x if x is not None else '—'
+
+    summ = [['Item', r.get('item')], ['Discipline', r.get('discipline')], ['System', r.get('system')],
+            ['Project type', ctx.get('Project type')], ['Location', ctx.get('Location')],
+            ['Methodology', ctx.get('Methodology')], ['Shift (hr/day)', shift]]
+    if hasq:
+        summ += [['Quantity', '%s %s' % (r.get('quantity'), r.get('primary_unit') or '')],
+                 ['Total man-hours', roll.get('total_mh')],
+                 ['Estimated duration (days)', roll.get('duration_days')],
+                 ['Controlling component', roll.get('controlling_component')],
+                 ['Blended rate (MH/%s)' % (r.get('primary_unit') or ''), roll.get('blended_mh_per_primary')]]
+    summ += [['Overall confidence', r.get('overall_confidence')]]
+
+    prod_h = ['Work component', 'Unit', 'Productivity rate (MH/unit)', 'Output/day', 'Crew', 'Quantity', 'Man-hours']
+    prod_r = []
+    for c in comps:
+        rate = c.get('rate') or {}
+        crew = ', '.join('%sx %s' % (g.get('count'), g.get('trade')) for g in (c.get('gang') or []))
+        prod_r.append([c.get('name'), c.get('unit'), dash(rate.get('mh_per_unit')),
+                       ('%s %s' % (rate.get('output_per_day'), rate.get('output_unit') or '')) if rate.get('output_per_day') else '—',
+                       crew or '—', dash(c.get('component_qty')) if hasq else '—',
+                       dash(c.get('man_hours')) if hasq else '—'])
+
+    labour, equip, material = {}, {}, {}
+    for c in comps:
+        if not c.get('rate'):
+            continue
+        n = c.get('n_gangs') or 1
+        gp = c.get('gang_persons') or 0
+        for g in (c.get('gang') or []):
+            cur = labour.setdefault(g.get('trade'), {'persons': 0, 'mh': 0.0})
+            cur['persons'] += (g.get('count') or 0) * n
+            if hasq and c.get('man_hours') and gp:
+                cur['mh'] += c['man_hours'] * (g.get('count') or 0) / gp
+        for e in (c.get('equipment') or []):
+            if e.get('name') not in equip:
+                hrs = round(c['duration_days'] * shift) if (hasq and c.get('duration_days')) else None
+                equip[e.get('name')] = 'shared' if 'shar' in (e.get('name') or '').lower() else (hrs if hrs is not None else '—')
+        for m in (c.get('material') or []):
+            q = (c.get('component_qty') or 0) * m['qty_per_unit'] if (hasq and c.get('component_qty') and m.get('qty_per_unit') is not None) else None
+            cur = material.setdefault(m.get('name'), {'unit': m.get('unit'), 'qty': 0.0, 'known': False})
+            if q is not None:
+                cur['qty'] += q
+                cur['known'] = True
+
+    res_r = []
+    for t, v in labour.items():
+        res_r.append(['Labour', t, v['persons'], 'persons' + (' · %d MH' % round(v['mh']) if v['mh'] else '')])
+    for name, val in equip.items():
+        res_r.append(['Equipment', name, val, 'h' if isinstance(val, (int, float)) else ''])
+    for name, val in material.items():
+        res_r.append(['Material', name, (round(val['qty']) if val['known'] else '—'), (val['unit'] or '').split('/')[0]])
+
+    sections = [('Summary', ['Field', 'Value'], summ),
+                ('Productivity', prod_h, prod_r),
+                ('Resources', ['Category', 'Resource', 'Amount', 'Unit'], res_r)]
+    if hasq:
+        p6_r = []
+        for t, v in labour.items():
+            p6_r.append([t, 'Labor', '%d MH' % round(v['mh']), '%d h/d' % (v['persons'] * shift)])
+        for name, val in equip.items():
+            p6_r.append([name, 'Nonlabor', ('shared' if val == 'shared' else ('%s h' % val if isinstance(val, (int, float)) else '—')), 'per method'])
+        for name, val in material.items():
+            if val['known']:
+                p6_r.append([name, 'Material', '%s %s' % (round(val['qty']), (val['unit'] or '').split('/')[0]), '—'])
+        if p6_r:
+            sections.append(('Assign in P6', ['Resource', 'P6 type', 'Budgeted units', 'Units/time'], p6_r))
+    # shape into the shared write_sections_xlsx contract: one sheet per section, one titled block each
+    return [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
+
+
 class _Encoder(json.JSONEncoder):
     """Handle datetime/date objects that metrics.py returns in data_date."""
     def default(self, obj):
@@ -42,6 +120,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_knowledge_get()
         elif self.path == '/api/database':
             self._handle_database_list()
+        elif self.path == '/api/prodintel/tree':
+            self._handle_prodintel_tree()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -66,6 +146,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_oos_validate(body)
         elif self.path == '/api/oos/corrected-file':
             self._handle_oos_corrected(body)
+        elif self.path == '/api/prodintel/query':
+            self._handle_prodintel_query(body)
+        elif self.path == '/api/prodintel/excel':
+            self._handle_prodintel_excel(body)
         elif self.path == '/api/dangling/validate':
             self._handle_dangling_validate(body)
         elif self.path == '/api/dangling/corrected-file':
@@ -374,6 +458,47 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(body)
+
+    # ── /api/prodintel — Productivity & Resource Intelligence ──────────
+    def _handle_prodintel_tree(self):
+        try:
+            import p6_prodintel
+            self._json(200, {'ok': True, 'tree': p6_prodintel.build_tree()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodintel_query(self, body):
+        try:
+            import p6_prodintel
+            res = p6_prodintel.query(
+                body.get('item_id'),
+                context=body.get('context') or {},
+                quantity=body.get('quantity'),
+                component_quantities=body.get('component_quantities') or {},
+            )
+            self._json(200, {'ok': True, 'result': res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodintel_excel(self, body):
+        """Export the current Productivity result to .xlsx — one sheet per report section."""
+        try:
+            import p6_prodintel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            r = p6_prodintel.query(body.get('item_id'), context=body.get('context') or {},
+                                   quantity=body.get('quantity'),
+                                   component_quantities=body.get('component_quantities') or {})
+            if not r or r.get('found') is False:
+                self._json(200, {'ok': False, 'error': 'No validated reference for this selection.'})
+                return
+            write_sections_xlsx(os.path.abspath(output_path), _prodintel_excel_sections(r))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/parse ─────────────────────────────────────────────────────────
     def _handle_parse(self, body):

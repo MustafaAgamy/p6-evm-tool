@@ -1,0 +1,115 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.containment.conduit",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Containment",
+  "item": "Conduit First Fix",
+  "aliases": [
+    "conduit",
+    "first fix conduit",
+    "concealed conduit",
+    "surface conduit",
+    "PVC conduit",
+    "GI conduit",
+    "trunking"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Data Center"
+  ],
+  "primary_unit": "m",
+  "why": "Concealed or surface conduit with boxes forms the raceway network for wiring; laid before wiring/second fix.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Mix of concealed slab/wall and surface runs",
+    "Boxes and bends included at typical density"
+  ],
+  "exclusions": [
+    "Wire pulling (second fix)",
+    "Chasing / making good of walls (builder's work)",
+    "Draw wires beyond installation"
+  ],
+  "components": [
+    {
+      "component_id": "installation",
+      "name": "Conduit run installation with boxes/fittings",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.32,
+        "low": 0.22,
+        "likely": 0.32,
+        "high": 0.5,
+        "output_per_day": 50,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Conduit bender",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Power tools / cordless drill",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Conduit (PVC/GI)",
+          "qty_per_unit": 1.05,
+          "unit": "m/m"
+        },
+        {
+          "name": "Coupler / connector",
+          "qty_per_unit": 0.4,
+          "unit": "no/m"
+        },
+        {
+          "name": "Saddle / clip",
+          "qty_per_unit": 2,
+          "unit": "no/m"
+        },
+        {
+          "name": "Junction / draw / device box",
+          "qty_per_unit": 0.12,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — conduit first fix with boxes and fittings",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "20-32mm conduit, concealed and surface, typical box density — validate with your XER to promote"
+      }
+    }
+  ]
+}

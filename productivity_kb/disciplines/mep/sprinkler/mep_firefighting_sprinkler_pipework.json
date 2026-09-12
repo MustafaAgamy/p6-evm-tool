@@ -1,0 +1,304 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.firefighting.sprinkler.pipework",
+  "discipline": "MEP",
+  "work_type": "Fire Fighting",
+  "system": "Sprinkler",
+  "item": "Fire Sprinkler Pipework (by size)",
+  "aliases": [
+    "sprinkler piping",
+    "wet riser sprinkler pipe",
+    "ff sprinkler network",
+    "black/gi sprinkler pipe"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Sprinkler distribution steel pipework installs at very different rates by size — threaded small bore vs grooved medium/large vs flanged large. Components are size bands; qty_per_primary is the typical length fraction of a network in each band, giving a blended per-metre rate, plus a system hydrostatic test.",
+  "assumptions": [
+    "Black / galvanized steel to NFPA 13",
+    "Threaded ≤50 mm, grooved 65-150 mm, grooved/flanged 200 mm",
+    "Hangers to NFPA spacing included",
+    "Single 8 hr/day shift, normal access at ceiling level"
+  ],
+  "exclusions": [
+    "Sprinkler heads (separate item / point)",
+    "Alarm valves, flow switches and control assemblies",
+    "Seismic bracing where specified",
+    "Painting / identification beyond primer"
+  ],
+  "components": [
+    {
+      "component_id": "small_bore_threaded",
+      "name": "Small bore ≤50 mm (threaded), incl. fittings & hangers",
+      "unit": "m",
+      "qty_per_primary": 0.5,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.6,
+        "likely": 0.8,
+        "high": 1.1,
+        "output_per_day": 20,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipefitter",
+          "count": 1
+        },
+        {
+          "trade": "Pipefitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pipe threading machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Pipe stands",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Steel pipe ≤50 mm",
+          "qty_per_unit": 1.03,
+          "unit": "m/m"
+        },
+        {
+          "name": "Threaded fittings",
+          "qty_per_unit": 0.4,
+          "unit": "no/m"
+        },
+        {
+          "name": "Hangers / supports",
+          "qty_per_unit": 0.35,
+          "unit": "no/m"
+        },
+        {
+          "name": "Threading oil / sealant",
+          "qty_per_unit": 0.02,
+          "unit": "L/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — threaded small-bore sprinkler pipe",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "≤50 mm branch/range piping — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "medium_grooved",
+      "name": "Medium 65-150 mm (grooved), incl. couplings & hangers",
+      "unit": "m",
+      "qty_per_primary": 0.35,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.71,
+        "low": 1.3,
+        "likely": 1.71,
+        "high": 2.3,
+        "output_per_day": 14,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipefitter",
+          "count": 2
+        },
+        {
+          "trade": "Pipefitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Roll grooving machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Pipe stands / trolley",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Steel pipe 65-150 mm",
+          "qty_per_unit": 1.03,
+          "unit": "m/m"
+        },
+        {
+          "name": "Grooved couplings & fittings",
+          "qty_per_unit": 0.3,
+          "unit": "no/m"
+        },
+        {
+          "name": "Hangers / supports",
+          "qty_per_unit": 0.3,
+          "unit": "no/m"
+        },
+        {
+          "name": "Groove gaskets",
+          "qty_per_unit": 0.3,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — grooved medium sprinkler mains",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "65-150 mm distribution mains — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "large_grooved_flanged",
+      "name": "Large 200 mm (grooved / flanged), incl. fittings & hangers",
+      "unit": "m",
+      "qty_per_primary": 0.15,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 3.56,
+        "low": 2.8,
+        "likely": 3.56,
+        "high": 4.6,
+        "output_per_day": 9,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipefitter",
+          "count": 2
+        },
+        {
+          "trade": "Pipefitter Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Roll grooving machine (large)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Chain hoist / lifting",
+          "basis": "utilization",
+          "value": 0.2,
+          "unit": "h/m"
+        }
+      ],
+      "material": [
+        {
+          "name": "Steel pipe 200 mm",
+          "qty_per_unit": 1.03,
+          "unit": "m/m"
+        },
+        {
+          "name": "Grooved / flanged fittings",
+          "qty_per_unit": 0.25,
+          "unit": "no/m"
+        },
+        {
+          "name": "Heavy hangers / supports",
+          "qty_per_unit": 0.3,
+          "unit": "no/m"
+        },
+        {
+          "name": "Gaskets & bolt sets",
+          "qty_per_unit": 0.3,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — large grooved/flanged sprinkler mains",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "200 mm risers and feed mains — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "hydro_test",
+      "name": "Hydrostatic test & flushing",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.16,
+        "low": 0.12,
+        "likely": 0.16,
+        "high": 0.24,
+        "output_per_day": 100,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipefitter",
+          "count": 1
+        },
+        {
+          "trade": "Pipefitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "High-pressure hydro test pump + gauge",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Test blanks / caps (allowance)",
+          "qty_per_unit": 0.01,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — NFPA 200 psi hydrostatic test",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "system test at 200 psi / 2 hr per metre of network — validate with your XER to promote"
+      }
+    }
+  ]
+}

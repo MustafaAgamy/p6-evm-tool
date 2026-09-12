@@ -1,0 +1,99 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.hvac.equipment.fcu",
+  "discipline": "MEP",
+  "work_type": "HVAC",
+  "system": "Equipment",
+  "item": "FCU Installation (Fan Coil Unit)",
+  "aliases": [
+    "fcu",
+    "fan coil unit",
+    "fan coil install"
+  ],
+  "project_types": [
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Airport",
+    "Industrial",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Fan Coil Unit installation is a per-unit set-and-connect operation (offload, hang/level, connect duct collar, condensate stub, isolate for pipe/electrical tie-in) done by a small mechanical crew.",
+  "assumptions": [
+    "Concealed ceiling-mounted FCU, typical building sizes",
+    "Hangers/anti-vibration mounts included",
+    "Duct collar and condensate stub connection included",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "CHW pipe drops & valve sets (piping item)",
+    "Electrical/controls wiring",
+    "Ductwork runs (ductwork item)",
+    "Condensate drain runs beyond stub",
+    "Testing & balancing (T&B item)"
+  ],
+  "components": [
+    {
+      "component_id": "fcu_install",
+      "name": "FCU set, hang & connect",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 6,
+        "low": 4,
+        "likely": 6,
+        "high": 9,
+        "output_per_day": 2.67,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile scaffold / ladder",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Drill / hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Hangers + anti-vibration mounts",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Flexible duct connector / collar",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf HVAC norm — concealed FCU set and mechanical connection",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "typical concealed ceiling FCU — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,243 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.structural.concrete.rc_staircase",
+  "discipline": "Civil",
+  "work_type": "Structural",
+  "system": "Concrete",
+  "item": "RC Staircase (flights & landings)",
+  "aliases": [
+    "staircase",
+    "stair flight",
+    "rc stair",
+    "cast-in-place stairs",
+    "waist slab stair"
+  ],
+  "project_types": [
+    "Residential",
+    "Commercial",
+    "Hospital",
+    "Industrial",
+    "Infrastructure",
+    "Airport",
+    "Marine/Port",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Stairs are geometrically complex and low-volume — riser/tread forms, waist soffit and stringers make formwork very labour-intensive per m3, steel is congested, and pours are small and awkward; separating the trades keeps the (deceptively high) man-hours per m3 honest instead of hiding them in a slab rate.",
+  "assumptions": [
+    "Cast-in-place waist-slab stairs with formed risers",
+    "Small awkward pours (< 5 m3 each)",
+    "Single 8 hr/day shift",
+    "Landings included in the volume",
+    "Timber riser boards and side stringers"
+  ],
+  "exclusions": [
+    "Precast stair flights",
+    "Rework and edge patching",
+    "Nosings, finishes and handrails",
+    "Feature/helical geometry beyond straight/dog-leg"
+  ],
+  "components": [
+    {
+      "component_id": "formwork",
+      "name": "Stair formwork (soffit, risers, stringers)",
+      "unit": "m2",
+      "qty_per_primary": 6.5,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 2.67,
+        "low": 2.2,
+        "likely": 2.67,
+        "high": 3.2,
+        "output_per_day": 6,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Tower/floor crane (shared)",
+          "basis": "utilization",
+          "value": 0.12,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Props / shoring set",
+          "basis": "utilization",
+          "value": 0.6,
+          "unit": "prop-set/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Film-faced plywood / timber",
+          "qty_per_unit": 1.15,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Sawn timber (risers/stringers)",
+          "qty_per_unit": 0.03,
+          "unit": "m3/m2"
+        },
+        {
+          "name": "Form release oil",
+          "qty_per_unit": 0.04,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — stair formwork (complex, slow)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "cast-in-place straight/dog-leg stairs — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "RFT / steel fixing",
+      "unit": "ton",
+      "qty_per_primary": 0.13,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 24.6,
+        "low": 21,
+        "likely": 24.6,
+        "high": 28,
+        "output_per_day": 0.65,
+        "output_unit": "t/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bar bending machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Bar cutting machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Reinforcement bar (B500B / Gr60)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Tie wire",
+          "qty_per_unit": 13,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Spacers/chairs",
+          "qty_per_unit": 30,
+          "unit": "no/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — stair steel (bent bars, congested)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "waist-slab stairs ~110–150 kg/m3 — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Concrete placing, compaction & finishing",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 3.2,
+        "low": 2.6,
+        "likely": 3.2,
+        "high": 3.9,
+        "output_per_day": 10,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Ganger/Foreman",
+          "count": 1
+        },
+        {
+          "trade": "Vibrator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Concrete Finisher",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete pump/skip (shared)",
+          "basis": "utilization",
+          "value": 0.3,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Poker vibrator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete C30/37",
+          "qty_per_unit": 1.06,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Curing compound",
+          "qty_per_unit": 0.25,
+          "unit": "L/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — small awkward stair pour, hand finishing",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "small-volume stair pours — validate with your XER to promote"
+      }
+    }
+  ]
+}

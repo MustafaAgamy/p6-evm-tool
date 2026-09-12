@@ -1,0 +1,102 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "steel.grouting.baseplate.baseplate_grouting",
+  "discipline": "Structural Steel",
+  "work_type": "Grouting",
+  "system": "Base Plates",
+  "item": "Base Plate Grouting",
+  "aliases": [
+    "baseplate grout",
+    "column base grouting",
+    "non-shrink grout",
+    "grouting baseplates"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Grouting the gap under a levelled steel base plate is a small self-contained operation per base plate - build the dam/formwork, mix non-shrink grout, pour/pump and finish. Priced per base plate; grout quantity is nominal and scales with plate size and gap thickness.",
+  "assumptions": [
+    "Column already erected, levelled and packed on shims",
+    "Non-shrink cementitious grout",
+    "Average base plate up to ~600 x 600 mm with ~40 mm gap",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Anchor bolt supply and setting",
+    "Column erection and plumbing",
+    "Epoxy grout systems (higher material cost)",
+    "Large machine-base grouting (separate item)"
+  ],
+  "components": [
+    {
+      "component_id": "baseplate_grouting",
+      "name": "Base plate grouting (dam + pour)",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 2,
+        "low": 1.5,
+        "likely": 2,
+        "high": 3,
+        "output_per_day": 12,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mason / Grouter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Paddle / grout mixer",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Hand tools & forms",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Non-shrink cementitious grout",
+          "qty_per_unit": 40,
+          "unit": "kg/no"
+        },
+        {
+          "name": "Formwork / dam timber",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - non-shrink grouting under steel base plates",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "typical column base plates; grout mass varies with plate size/gap — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.structural.concrete.screed",
+  "discipline": "Civil",
+  "work_type": "Structural",
+  "system": "Concrete",
+  "item": "Floor Screed (levelling / bonded)",
+  "aliases": [
+    "screed",
+    "floor screed",
+    "levelling screed",
+    "sand-cement screed",
+    "topping screed"
+  ],
+  "project_types": [
+    "Residential",
+    "Commercial",
+    "Hospital",
+    "Industrial",
+    "Infrastructure",
+    "Airport",
+    "Marine/Port",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Screed is a single-operation levelling/topping layer laid and finished by one trade to a set thickness, so it is estimated per m2 as one component (mix, lay, level, trowel) rather than decomposed — there is no formwork or structural steel, only edge/mesh where specified.",
+  "assumptions": [
+    "Sand-cement or fine-concrete screed ~40–60 mm",
+    "Laid to falls/level over a prepared slab",
+    "Single 8 hr/day shift",
+    "Bonded or unbonded on separating membrane",
+    "Priced per m2 of floor area at nominal thickness"
+  ],
+  "exclusions": [
+    "Structural toppings acting compositely (price as slab)",
+    "Self-levelling flow screeds (different rate)",
+    "Surface hardeners, sealers and floor finishes",
+    "Slab preparation/scabbling beyond light cleaning"
+  ],
+  "components": [
+    {
+      "component_id": "screed",
+      "name": "Screed — mix, lay, level & finish",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.4,
+        "low": 0.33,
+        "likely": 0.4,
+        "high": 0.5,
+        "output_per_day": 60,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Screeder / Mason",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Screed pump / forced-action mixer",
+          "basis": "utilization",
+          "value": 0.02,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Vibrating/straight-edge screed rail",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Power float (where trowel finish)",
+          "basis": "utilization",
+          "value": 0.03,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Sand-cement screed mortar (1:3–1:4)",
+          "qty_per_unit": 0.05,
+          "unit": "m3/m2"
+        },
+        {
+          "name": "Bonding agent / SBR (bonded)",
+          "qty_per_unit": 0.15,
+          "unit": "L/m2"
+        },
+        {
+          "name": "Anti-crack mesh (where specified)",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Curing / edge foam strip",
+          "qty_per_unit": 0.1,
+          "unit": "m/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — sand-cement screed laid to level (~50 mm)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "levelling/topping screed 40–60 mm, hand/pump laid — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "commissioning.testing_commissioning.integrated_test.integrated_system_testing",
+  "discipline": "Commissioning",
+  "work_type": "Testing & Commissioning",
+  "system": "Commissioning",
+  "item": "Integrated System Testing (SIT)",
+  "aliases": [
+    "integrated system testing",
+    "SIT",
+    "integrated functional test",
+    "end-to-end test",
+    "system integration test"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "system",
+  "why": "Proving that interfacing systems work together end-to-end (e.g. fire alarm → HVAC → BMS, or process → safeguarding), including cross-system cause-and-effect; per integrated system and dependent on interface count.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Individual systems functionally tested",
+    "Interface/cause-and-effect matrices issued"
+  ],
+  "exclusions": [
+    "Single-system functional testing (separate)",
+    "Software redesign",
+    "Vendor interface fixes"
+  ],
+  "components": [
+    {
+      "component_id": "integrated_test",
+      "name": "End-to-end integrated system test",
+      "unit": "system",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 333,
+        "low": 250,
+        "likely": 333,
+        "high": 450,
+        "output_per_day": 0.12,
+        "output_unit": "system/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Engineer",
+          "count": 2
+        },
+        {
+          "trade": "Commissioning Technician",
+          "count": 2
+        },
+        {
+          "trade": "Operator",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Simulation / test instruments (shared)",
+          "basis": "utilization",
+          "value": 0.6,
+          "unit": "set·day/system"
+        },
+        {
+          "name": "Two-way radios (set)",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Test scripts / records",
+          "qty_per_unit": 1,
+          "unit": "lot/system"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry reference norm — integrated (multi-system) testing; scale with interface count",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "integrated systems with cross-system cause-and-effect — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "piping.testing.hydrotest.pressure_test",
+  "discipline": "Piping",
+  "work_type": "Testing",
+  "system": "Piping",
+  "item": "Hydrotest / Pressure Testing",
+  "aliases": [
+    "hydrotest",
+    "pressure test",
+    "hydraulic test",
+    "system testing"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "dia-inch",
+  "why": "Pressure testing (blinding, filling, pressurising, holding, draining and reinstating) is a labour front late in mechanical completion; norming it per dia-inch of tested piping lets the planner load the test crew against the test-package register.",
+  "assumptions": [
+    "Hydrostatic testing with test water",
+    "Single 8 hr/day shift",
+    "Blinding/spading and gauge set-up included",
+    "Reinstatement to blind-flange level included",
+    "dia-inch = pipe nominal diameter (in) in the test package"
+  ],
+  "exclusions": [
+    "Reinstatement of relief valves, instruments and specialty items beyond blinding",
+    "Chemical cleaning / flushing",
+    "Test water supply and disposal cost",
+    "Drying/dewatering and preservation",
+    "Pneumatic/service testing (different norm)"
+  ],
+  "components": [
+    {
+      "component_id": "test",
+      "name": "Blind, fill, pressurise, hold, drain & reinstate",
+      "unit": "dia-inch",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.4,
+        "low": 0.3,
+        "likely": 0.4,
+        "high": 0.6,
+        "output_per_day": 60,
+        "output_unit": "dia-inch/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Test pump & manifold",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Calibrated gauges / recorder",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Blind flanges / spades & gaskets",
+          "qty_per_unit": 0.02,
+          "unit": "set/dia-inch"
+        },
+        {
+          "name": "Test water & corrosion inhibitor",
+          "qty_per_unit": 0.5,
+          "unit": "L/dia-inch"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - hydrostatic pressure testing per diameter-inch",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Process/utility piping test packages, NPS 2-24 — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.hvac.chilled_water_pipe",
+  "discipline": "MEP",
+  "work_type": "HVAC",
+  "system": "Piping",
+  "item": "Chilled Water Pipe",
+  "aliases": [
+    "chilled water",
+    "cw pipe",
+    "chw"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Standard Egypt productivity norm for chilled water pipe, refined by validated project evidence over time.",
+  "assumptions": [
+    "Normal site access",
+    "Standard working conditions",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Abnormal congestion",
+    "Rework / rectification",
+    "Exceptional or restricted access",
+    "Night / shift premiums"
+  ],
+  "components": [
+    {
+      "component_id": "cwp",
+      "name": "Chilled water pipe erection",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 2.4,
+        "low": 1.9,
+        "likely": 2.4,
+        "high": 3.2,
+        "output_per_day": 7,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Welding machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "CS pipe",
+          "qty_per_unit": 1.0,
+          "unit": "m/m"
+        },
+        {
+          "name": "Fittings",
+          "qty_per_unit": 1.0,
+          "unit": "lot"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt / industry standard norm — chilled water pipe erection",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "normal access & conditions — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "arch.finishes.false_ceiling",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Ceiling",
+  "item": "False Ceiling (Gypsum)",
+  "aliases": [
+    "false ceiling",
+    "gypsum ceiling",
+    "suspended ceiling"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Standard Egypt productivity norm for false ceiling (gypsum), refined by validated project evidence over time.",
+  "assumptions": [
+    "Normal site access",
+    "Standard working conditions",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Abnormal congestion",
+    "Rework / rectification",
+    "Exceptional or restricted access",
+    "Night / shift premiums"
+  ],
+  "components": [
+    {
+      "component_id": "ceiling",
+      "name": "Gypsum false ceiling",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.9,
+        "low": 0.7,
+        "likely": 0.9,
+        "high": 1.2,
+        "output_per_day": 16,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Ceiling fixer",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Scaffold / platform",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Gypsum board",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "GI frame",
+          "qty_per_unit": 1.0,
+          "unit": "m2/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt / industry standard norm — gypsum false ceiling",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "normal access & conditions — validate with your XER to promote"
+      }
+    }
+  ]
+}

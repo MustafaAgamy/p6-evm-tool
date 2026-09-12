@@ -1,0 +1,115 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.aluminium.aluminium_windows",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Aluminium Works",
+  "item": "Aluminium Windows",
+  "aliases": [
+    "aluminium windows",
+    "aluminum window",
+    "glazed windows",
+    "window installation"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Installation of factory-fabricated, pre-glazed aluminium window units — set into openings, plumb/level, anchor, seal perimeter and adjust hardware; a single installation operation measured per m2 of window.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Factory-fabricated, pre-glazed units",
+    "Openings formed to tolerance",
+    "Perimeter sealant and backing rod"
+  ],
+  "exclusions": [
+    "Window fabrication/glazing off site",
+    "Structural opening forming",
+    "Motorised/complex opening gear",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "window_installation",
+      "name": "Aluminium window installation",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 1.33,
+        "low": 1.1,
+        "likely": 1.33,
+        "high": 1.7,
+        "output_per_day": 12,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Aluminium Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cordless drill/driver",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Sealant gun",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Level & shims",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Aluminium window unit (fabricated)",
+          "qty_per_unit": 1,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Fixing lugs/anchors",
+          "qty_per_unit": 4,
+          "unit": "no/m2"
+        },
+        {
+          "name": "Perimeter sealant & backing rod",
+          "qty_per_unit": 0.15,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — aluminium window installation",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "factory-fabricated pre-glazed window units — validate with your XER to promote"
+      }
+    }
+  ]
+}

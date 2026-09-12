@@ -1,0 +1,120 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.distribution.transformer",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Distribution",
+  "item": "Distribution Transformer Install",
+  "aliases": [
+    "transformer install",
+    "dry type transformer",
+    "oil transformer",
+    "distribution transformer",
+    "package substation"
+  ],
+  "project_types": [
+    "Industrial",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Data Center",
+    "Commercial",
+    "Hospital"
+  ],
+  "primary_unit": "no",
+  "why": "Receive, position, level and set a distribution transformer on anti-vibration mounts, ready for MV/LV terminations; a rigging-led activity.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Distribution transformer up to ~2 MVA",
+    "Foundation/plinth by others",
+    "Crane / forklift access to substation room"
+  ],
+  "exclusions": [
+    "MV/LV terminations",
+    "Foundation / civil works",
+    "Oil filling / filtration for large oil units",
+    "Testing & energisation"
+  ],
+  "components": [
+    {
+      "component_id": "install",
+      "name": "Transformer offloading, positioning and setting",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 64,
+        "low": 40,
+        "likely": 64,
+        "high": 100,
+        "output_per_day": 0.5,
+        "output_unit": "units/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Rigger",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane (shared)",
+          "basis": "utilization",
+          "value": 4,
+          "unit": "h/no"
+        },
+        {
+          "name": "Skates / hydraulic jacks",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Forklift",
+          "basis": "utilization",
+          "value": 2,
+          "unit": "h/no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Anti-vibration pads",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        },
+        {
+          "name": "Foundation / fixing bolts",
+          "qty_per_unit": 4,
+          "unit": "no/no"
+        },
+        {
+          "name": "Earth connections",
+          "qty_per_unit": 2,
+          "unit": "no/no"
+        },
+        {
+          "name": "Rollers / packing consumables",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — distribution transformer mechanical installation/setting",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "dry-type / oil distribution transformer up to ~2 MVA — validate with your XER to promote"
+      }
+    }
+  ]
+}

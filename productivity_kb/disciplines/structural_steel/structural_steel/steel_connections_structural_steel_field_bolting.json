@@ -1,0 +1,107 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "steel.connections.structural_steel.field_bolting",
+  "discipline": "Structural Steel",
+  "work_type": "Connections",
+  "system": "Structural Steel",
+  "item": "Field Bolting (HSFG Connections)",
+  "aliases": [
+    "bolting",
+    "field bolting",
+    "HSFG bolting",
+    "TC bolts",
+    "connection bolting",
+    "bolt tensioning"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Permanent field bolting of steel connections - installing, snugging and tensioning high-strength friction-grip bolts - is a discrete operation separate from erection (which only uses temporary bolts). Priced per bolt so connection-heavy frames are estimated realistically rather than by tonnage.",
+  "assumptions": [
+    "Faying surfaces and holes prepared/aligned during erection",
+    "HSFG (TC or turn-of-nut) bolt assemblies",
+    "Access via MEWP or working platform",
+    "Single 8 hr/day shift",
+    "Routine bolt sizes (M16-M24)"
+  ],
+  "exclusions": [
+    "Temporary erection bolts (part of erection)",
+    "Hole drilling/reaming rework",
+    "Full torque-testing/QA sampling beyond routine",
+    "Access equipment mobilisation",
+    "Faying-surface treatment/repair"
+  ],
+  "components": [
+    {
+      "component_id": "field_bolting",
+      "name": "Install & tension HSFG bolts",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.15,
+        "low": 0.1,
+        "likely": 0.15,
+        "high": 0.22,
+        "output_per_day": 160,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Ironworker / Bolter",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Shear-wrench / tensioning tool",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Impact wrench",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Generator / power supply",
+          "basis": "utilization",
+          "value": 0.05,
+          "unit": "h/no"
+        }
+      ],
+      "material": [
+        {
+          "name": "HSFG bolt assembly (bolt/nut/washers)",
+          "qty_per_unit": 1.02,
+          "unit": "no/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - field installation and tensioning of high-strength bolts",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "M16-M24 HSFG connections at accessible locations — validate with your XER to promote"
+      }
+    }
+  ]
+}

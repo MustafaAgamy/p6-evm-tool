@@ -1,0 +1,119 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.distribution.busbar_trunking",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Distribution",
+  "item": "Busbar Trunking (Busway) Install",
+  "aliases": [
+    "busbar trunking",
+    "busway",
+    "bus duct",
+    "rising main",
+    "sandwich busbar"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Airport",
+    "Power Plant",
+    "Data Center"
+  ],
+  "primary_unit": "m",
+  "why": "Assemble and hang busbar trunking runs (feeder/plug-in), bolt and torque joints; used for high-current distribution and risers.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Standard feeder/plug-in run at moderate height",
+    "Hangers at manufacturer spacing",
+    "Joints torqued to spec"
+  ],
+  "exclusions": [
+    "Tap-off units connection / final circuits",
+    "Testing (megger of busbar)",
+    "Fire barrier at floor penetrations",
+    "Structural steel for supports"
+  ],
+  "components": [
+    {
+      "component_id": "install",
+      "name": "Busbar section erection, hanging and joint torquing",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.78,
+        "low": 1.2,
+        "likely": 1.78,
+        "high": 3,
+        "output_per_day": 18,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Chain hoist / lever block",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Scissor lift (shared)",
+          "basis": "utilization",
+          "value": 0.4,
+          "unit": "h/m"
+        },
+        {
+          "name": "Calibrated torque wrench",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Busbar trunking section",
+          "qty_per_unit": 1.02,
+          "unit": "m/m"
+        },
+        {
+          "name": "Hanger / support",
+          "qty_per_unit": 0.4,
+          "unit": "no/m"
+        },
+        {
+          "name": "Joint kit",
+          "qty_per_unit": 0.15,
+          "unit": "no/m"
+        },
+        {
+          "name": "Anchors / fixings",
+          "qty_per_unit": 1.5,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — busbar trunking installation",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "feeder/plug-in busway at moderate height — validate with your XER to promote"
+      }
+    }
+  ]
+}

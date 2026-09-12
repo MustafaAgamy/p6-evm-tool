@@ -1,0 +1,172 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "precast.erection.floor.hollowcore_slabs",
+  "discipline": "Precast Concrete",
+  "work_type": "Erection",
+  "system": "Precast Floor",
+  "item": "Hollowcore Slab Erection",
+  "aliases": [
+    "hollowcore",
+    "hollow core planks",
+    "precast floor planks",
+    "hollowcore slab installation"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Hollowcore floor erection is a very fast crane operation - land the plank, set on bearing, adjust - followed by grouting the longitudinal keyway joints. Both are measured per m2 of floor. Structural topping, if any, is a separate concrete item and is excluded here.",
+  "assumptions": [
+    "Bearing surfaces prepared and levelled",
+    "Crane sized and positioned for plank reach",
+    "Single 8 hr/day shift",
+    "Regular rectangular bays with limited cutting",
+    "Longitudinal joint grouting only (no structural topping)"
+  ],
+  "exclusions": [
+    "Structural concrete topping and mesh",
+    "Plank manufacture and transport",
+    "Complex trimming around penetrations/openings",
+    "Support beam/wall construction",
+    "Crane mobilisation"
+  ],
+  "components": [
+    {
+      "component_id": "plank_erection",
+      "name": "Plank lift & placement",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.15,
+        "low": 0.1,
+        "likely": 0.15,
+        "high": 0.22,
+        "output_per_day": 267,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Crane Operator",
+          "count": 1
+        },
+        {
+          "trade": "Rigger / Banksman",
+          "count": 1
+        },
+        {
+          "trade": "Precast Erector",
+          "count": 2
+        },
+        {
+          "trade": "Foreman",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile / crawler crane",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Plank clamps / spreader beam",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Bearing strips / neoprene pads",
+          "qty_per_unit": 0.15,
+          "unit": "m/m2"
+        },
+        {
+          "name": "Shims / packs",
+          "qty_per_unit": 0.1,
+          "unit": "set/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - hollowcore plank erection with a single crane crew",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "regular bays, standard plank widths — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "joint_grouting",
+      "name": "Keyway joint grouting",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.1,
+        "low": 0.07,
+        "likely": 0.1,
+        "high": 0.15,
+        "output_per_day": 240,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Grouter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Grout pump / mixer",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Joint grout",
+          "qty_per_unit": 8,
+          "unit": "kg/m2"
+        },
+        {
+          "name": "Tie / continuity reinforcement",
+          "qty_per_unit": 0.2,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - longitudinal keyway grouting per m2 of hollowcore floor",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "standard keyway joints; excludes structural topping — validate with your XER to promote"
+      }
+    }
+  ]
+}

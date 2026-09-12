@@ -1,0 +1,130 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.elv.instrumentation.field_instruments",
+  "discipline": "MEP",
+  "work_type": "Instrumentation",
+  "system": "Instrumentation",
+  "item": "Instrumentation Field Instruments & Hook-up",
+  "aliases": [
+    "instrumentation",
+    "field instruments",
+    "transmitter install",
+    "impulse tubing",
+    "instrument hook-up",
+    "pressure transmitter",
+    "flow instrument"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port",
+    "Data Center"
+  ],
+  "primary_unit": "no",
+  "why": "Install process field instruments (pressure/flow/level/temperature transmitters) on stands, with impulse tubing/hook-up and cable termination; heavier than BMS sensors, measured per instrument.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Process tapping points and cable available",
+    "Standard hook-up with manifold and impulse tubing",
+    "Instrument delivered and bench-calibrated"
+  ],
+  "exclusions": [
+    "Process piping / tapping installation",
+    "Cable pulling",
+    "Loop checking & calibration",
+    "DCS/PLC configuration"
+  ],
+  "components": [
+    {
+      "component_id": "install_hookup",
+      "name": "Instrument mount + impulse tubing/hook-up + termination",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 6.4,
+        "low": 4,
+        "likely": 6.4,
+        "high": 12,
+        "output_per_day": 2.5,
+        "output_unit": "instruments/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Instrument Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Tube bender",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Compression fitting / hydraulic tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Calibrator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Drill",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Instrument stand / 2\" pipe mount",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Tube fittings",
+          "qty_per_unit": 6,
+          "unit": "no/no"
+        },
+        {
+          "name": "Impulse tubing",
+          "qty_per_unit": 4,
+          "unit": "m/no"
+        },
+        {
+          "name": "Manifold",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        },
+        {
+          "name": "Cable gland / ferrules",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — instrument installation and hook-up per instrument",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "process transmitters with impulse tubing hook-up and termination — validate with your XER to promote"
+      }
+    }
+  ]
+}

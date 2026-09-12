@@ -1,0 +1,104 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "piping.erection.bolting.flange_boltup",
+  "discipline": "Piping",
+  "work_type": "Erection",
+  "system": "Piping",
+  "item": "Flange Bolt-up (controlled make-up)",
+  "aliases": [
+    "bolt up",
+    "flange make-up",
+    "torqued joint",
+    "gasket and bolt"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "no",
+  "why": "Controlled/torqued flange bolt-up is a discrete, high-count activity with its own JIC records and gasket/bolt logistics; norming it per joint lets planners track thousands of connections independently of weld count.",
+  "assumptions": [
+    "Controlled bolt-up with calibrated torque",
+    "Single 8 hr/day shift",
+    "Average process flange (mix of sizes, RF)",
+    "New gaskets and bolts supplied",
+    "no = one flanged joint made up"
+  ],
+  "exclusions": [
+    "Gasket/bolt supply cost",
+    "Bolt tensioning of very large flanges (>24in, factor up)",
+    "Re-torque after hydrotest",
+    "Special/high-integrity joint documentation beyond standard"
+  ],
+  "components": [
+    {
+      "component_id": "boltup",
+      "name": "Assemble, align & torque flanged joint",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 1.5,
+        "low": 0.8,
+        "likely": 1.5,
+        "high": 3,
+        "output_per_day": 10.7,
+        "output_unit": "joint/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Fitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hydraulic torque wrench & pump",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Calibrated torque tooling",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Gasket",
+          "qty_per_unit": 1,
+          "unit": "no/joint"
+        },
+        {
+          "name": "Bolts/studs & nuts",
+          "qty_per_unit": 1,
+          "unit": "set/joint"
+        },
+        {
+          "name": "Anti-seize / lubricant",
+          "qty_per_unit": 0.05,
+          "unit": "kg/joint"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - controlled flange bolt-up per joint",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Process RF flanges, mixed sizes to NPS 24 — validate with your XER to promote"
+      }
+    }
+  ]
+}

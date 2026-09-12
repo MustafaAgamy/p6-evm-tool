@@ -1,0 +1,106 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mechanical.testing_commissioning.cleaning.flushing_chemical_cleaning",
+  "discipline": "Mechanical",
+  "work_type": "Testing & Commissioning",
+  "system": "Cleaning & Flushing",
+  "item": "Piping Flushing / Chemical Cleaning",
+  "aliases": [
+    "flushing",
+    "line flushing",
+    "chemical cleaning",
+    "pipe cleaning",
+    "water flushing",
+    "pickling"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Water/chemical flushing removes construction debris from piping before commissioning; effort scales with pipe length flushed by a pump-and-hose crew, so a per-metre norm is used honestly (bore size and cleanliness class shift the band).",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Loops made up and temporary connections in place",
+    "Average bore piping"
+  ],
+  "exclusions": [
+    "Effluent treatment/disposal",
+    "Chemical cleaning of boilers (specialist scope)",
+    "Re-flush after debris/failed cleanliness"
+  ],
+  "components": [
+    {
+      "component_id": "flushing",
+      "name": "Flushing / cleaning of piping",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.16,
+        "low": 0.12,
+        "likely": 0.16,
+        "high": 0.25,
+        "output_per_day": 200,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Technician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        },
+        {
+          "trade": "Pump Operator",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Flushing pump",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Temporary hoses & filters",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Flushing water / chemical",
+          "qty_per_unit": 0.05,
+          "unit": "m3/m"
+        },
+        {
+          "name": "Filter cartridges / consumables",
+          "qty_per_unit": 0.02,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry reference norm — water/chemical flushing per metre; adjust for bore and cleanliness class",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "average-bore process/utility piping flushing — validate with your XER to promote"
+      }
+    }
+  ]
+}

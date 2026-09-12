@@ -1,0 +1,93 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "commissioning.testing_commissioning.commissioning.cold_commissioning",
+  "discipline": "Commissioning",
+  "work_type": "Testing & Commissioning",
+  "system": "Commissioning",
+  "item": "Cold Commissioning (No-load / Cold Run)",
+  "aliases": [
+    "cold commissioning",
+    "no-load test",
+    "cold run",
+    "dynamic commissioning without product"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "system",
+  "why": "First dynamic running of a subsystem without process/product (or on air/water) — motor bumping, rotation checks, no-load runs, trip and protection verification; per-system effort greater than static pre-comm and heavily project-dependent.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Pre-commissioning complete and system energised",
+    "Represents a mid-size subsystem"
+  ],
+  "exclusions": [
+    "On-load / hot commissioning",
+    "Feedstock/utilities supply",
+    "Extended standby for upstream systems"
+  ],
+  "components": [
+    {
+      "component_id": "cold_commissioning",
+      "name": "No-load dynamic commissioning",
+      "unit": "system",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 267,
+        "low": 200,
+        "likely": 267,
+        "high": 360,
+        "output_per_day": 0.15,
+        "output_unit": "system/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Engineer",
+          "count": 1
+        },
+        {
+          "trade": "Commissioning Technician",
+          "count": 3
+        },
+        {
+          "trade": "Operator",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Vibration / test instruments (shared)",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "set·day/system"
+        }
+      ],
+      "material": [
+        {
+          "name": "Test media / consumables (air, water, lube)",
+          "qty_per_unit": 1,
+          "unit": "lot/system"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry reference norm — cold commissioning of a subsystem; adjust to complexity",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "mid-size rotating/process subsystem, no-load — validate with your XER to promote"
+      }
+    }
+  ]
+}

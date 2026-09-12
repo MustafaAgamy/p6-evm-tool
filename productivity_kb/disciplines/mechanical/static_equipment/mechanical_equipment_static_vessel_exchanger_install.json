@@ -1,0 +1,155 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mechanical.equipment.static.vessel_exchanger_install",
+  "discipline": "Mechanical",
+  "work_type": "Installation",
+  "system": "Static Equipment",
+  "item": "Static Equipment Install (vessels / exchangers)",
+  "aliases": [
+    "vessel installation",
+    "exchanger install",
+    "static equipment setting",
+    "column erection",
+    "drum setting"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "ton",
+  "why": "Setting drums, columns, vessels and heat exchangers is normed per ton of equipment weight for early estimating; it decomposes into the heavy-lift setting front and the alignment/grouting front, which use different crews and plant.",
+  "assumptions": [
+    "Foundations complete and cured",
+    "Crawler/mobile crane available for the lift",
+    "Single 8 hr/day shift",
+    "Per-ton norm is an estimating proxy; very large single lifts trend lower per ton",
+    "ton = equipment erected weight"
+  ],
+  "exclusions": [
+    "Heavy-lift crane mobilisation and engineered rigging study",
+    "Internals installation (trays, packing, bundles)",
+    "Piping, insulation and painting",
+    "Refractory / lining",
+    "Foundation and civil works"
+  ],
+  "components": [
+    {
+      "component_id": "setting",
+      "name": "Rig, lift & set on foundation",
+      "unit": "ton",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 6,
+        "low": 4,
+        "likely": 6,
+        "high": 9,
+        "output_per_day": 5.33,
+        "output_unit": "ton/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Rigger",
+          "count": 1
+        },
+        {
+          "trade": "Millwright/Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Crawler / mobile crane",
+          "basis": "utilization",
+          "value": 0.6,
+          "unit": "h/ton"
+        },
+        {
+          "name": "Engineered rigging gear (slings, shackles)",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Anchor bolts, shims & wedges",
+          "qty_per_unit": 2,
+          "unit": "kg/ton"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - setting static equipment per ton",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Vessels/drums/exchangers on prepared foundations — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "align_grout",
+      "name": "Level, align, shim & grout",
+      "unit": "ton",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 2.5,
+        "low": 1.8,
+        "likely": 2.5,
+        "high": 3.5,
+        "output_per_day": 6.4,
+        "output_unit": "ton/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Millwright/Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Precision level / laser",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Epoxy / cementitious grout",
+          "qty_per_unit": 15,
+          "unit": "kg/ton"
+        },
+        {
+          "name": "Shim packs",
+          "qty_per_unit": 1,
+          "unit": "set/ton"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - leveling, alignment and grouting per ton",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Static equipment final setting — validate with your XER to promote"
+      }
+    }
+  ]
+}

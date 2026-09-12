@@ -1,0 +1,109 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.tiling.wall_tiling",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Tiling",
+  "item": "Ceramic Wall Tiling",
+  "aliases": [
+    "wall tiling",
+    "ceramic wall tiles",
+    "wall tiles",
+    "splashback tiling"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Ceramic wall tiling to wet areas and kitchens on adhesive over rendered/board substrate; slower than floor tiling due to vertical setting-out, back-buttering and support until set. Single fixing operation per m2.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Tiles up to 300x600 on adhesive",
+    "Plumb, rendered/board substrate",
+    "Standard grid layout"
+  ],
+  "exclusions": [
+    "Substrate render/board",
+    "Waterproof tanking",
+    "Mosaic/feature tiling premium",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "wall_tile_fixing",
+      "name": "Wall tile fixing & grouting",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 1.33,
+        "low": 1.1,
+        "likely": 1.33,
+        "high": 1.7,
+        "output_per_day": 12,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Tiler",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Wet tile cutter",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Mixing drill/paddle",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Wall tiles",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Tile adhesive",
+          "qty_per_unit": 4.5,
+          "unit": "kg/m2"
+        },
+        {
+          "name": "Grout",
+          "qty_per_unit": 0.4,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — ceramic wall tiling",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "wall tiles up to 300x600 on adhesive — validate with your XER to promote"
+      }
+    }
+  ]
+}
