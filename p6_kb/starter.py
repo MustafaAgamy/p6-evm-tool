@@ -15,6 +15,11 @@ import heapq
 from collections import defaultdict
 from xml.sax.saxutils import escape
 
+try:
+    from utils import APP_NAME
+except Exception:                       # pragma: no cover - utils always importable in app
+    APP_NAME = "Controlyx"
+
 NS = "http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects"
 DAY_HOURS = 8.0
 PHASE_DEFAULT_DAYS = 20
@@ -179,7 +184,7 @@ def _plan(entry):
 def build_starter_xml(entry, data_date="2025-01-01T00:00:00", start_date="2025-01-01T08:00:00"):
     """Return the P6 XML text for a starter schedule skeleton of this KB entry."""
     wbs_nodes, activities, rels = _plan(entry)
-    proj_name = f"{entry.get('type', 'Project')} — Starter Baseline (nPace KB)"
+    proj_name = f"{entry.get('type', 'Project')} — Starter Baseline ({APP_NAME} KB)"
 
     wbs_xml = "".join(
         f"<WBS>{_el('ObjectId', w['oid'])}{_el('ProjectObjectId', _PROJ_OID)}"

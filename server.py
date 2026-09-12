@@ -40,6 +40,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_list()
         elif self.path == '/api/kb/knowledge':
             self._handle_kb_knowledge_get()
+        elif self.path == '/api/kb/playbooks':
+            self._handle_kb_playbooks()
         elif self.path == '/api/database':
             self._handle_database_list()
         else:
@@ -164,6 +166,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_constructability(body)
         elif self.path == '/api/kb/starter-xml':
             self._handle_kb_starter_xml(body)
+        elif self.path == '/api/kb/playbook':
+            self._handle_kb_playbook(body)
         elif self.path == '/api/kb/learned-file':
             self._handle_kb_learned_file(body)
         elif self.path == '/api/database/add':
@@ -1314,6 +1318,33 @@ class Handler(BaseHTTPRequestHandler):
                                       'count': len(learned), 'types': learned, 'learned': True})
                 total += len(learned)
             self._json(200, {'ok': True, 'categories': categories, 'total': total})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/kb/playbooks + /api/kb/playbook (Project Type Playbooks) ────────
+    def _handle_kb_playbooks(self):
+        """The Project-Type Playbooks library — every project type as a card,
+        grouped by sector. Reference only; built from the bundled KB."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.playbooks import library
+            self._json(200, {'ok': True, **library()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_playbook(self, body):
+        """One Project-Type Playbook: overview, step-by-step construction
+        sequence, suggested WBS, baseline-file availability, hold points,
+        commissioning ladder and evidence."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.playbooks import playbook
+            pb = playbook(body.get('archetype', ''))
+            if pb is None:
+                self._json(200, {'ok': False,
+                                 'error': f"Unknown project type: {body.get('archetype', '')}"})
+                return
+            self._json(200, {'ok': True, 'playbook': pb})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
