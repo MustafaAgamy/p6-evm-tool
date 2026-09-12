@@ -524,6 +524,49 @@ def _render(document, section, number):
         _muted(document, note)
 
 
+# ── drawing-id de-duplication (guards against Word's "repair" on open) ─────────
+def _dedupe_drawing_ids(document):
+    """Give every drawing object a globally-unique id across the WHOLE package.
+
+    Every inline drawing carries a ``<wp:docPr id>`` and every picture / grouped
+    shape a ``<pic:cNvPr id>`` / ``<wps:cNvPr id>`` (and the group frame a
+    ``<wp:docPr id>``). Word treats two drawing objects that share an id as
+    corruption and, on open, offers to *repair* the file — dropping all content
+    after the clash (the reader sees only the first few pages, blank).
+
+    The ids were previously allocated per *story*: the header logos (built by
+    :func:`docx_template.add_header`) numbered 1, 2, 3 while the body's native
+    charts / calendar histograms / WBS org-charts (and the §2 layout image) also
+    restarted at 1 — because :func:`docx_native._next_id` scans only the document
+    body and python-docx's ``add_picture`` scans only the header story. On a rich
+    P6 file (many body drawings) those ranges overlap and Word repairs the file;
+    on a sparse file the body has no native drawings so nothing collides — which is
+    exactly why the bug only showed up with rich data.
+
+    This final pass walks every story part (document body + all headers/footers)
+    and renumbers every ``docPr`` / ``cNvPr`` id from a single monotonic counter,
+    so no two drawing objects anywhere in the package can share an id regardless of
+    how many charts, calendars or WBS branches the report contains. These ids are
+    non-visual labels referenced by nothing else, so renumbering them is safe.
+    """
+    counter = 0
+    try:
+        parts = list(document.part.package.iter_parts())
+    except Exception:                       # pragma: no cover - defensive
+        return
+    for part in parts:
+        el = getattr(part, 'element', None)
+        if el is None or not hasattr(el, 'iter'):
+            continue
+        for node in el.iter():
+            tag = node.tag
+            if not isinstance(tag, str):     # comments / processing instructions
+                continue
+            if tag.rsplit('}', 1)[-1] in ('docPr', 'cNvPr') and node.get('id') is not None:
+                counter += 1
+                node.set('id', str(counter))
+
+
 # ── public entry point ────────────────────────────────────────────────────────
 def write_docx(doc, output_path, chrome=None):
     """Render the narrative model (``doc``) to an editable .docx at ``output_path``.
@@ -556,6 +599,10 @@ def write_docx(doc, output_path, chrome=None):
         _render(document, section, number)
         if idx < len(sections):
             document.add_page_break()
+
+    # Final safety pass: guarantee every drawing object has a document-wide unique id
+    # (header logos vs. body charts/org-charts) so Word never "repairs" the file on open.
+    _dedupe_drawing_ids(document)
 
     document.save(output_path)
     return output_path
