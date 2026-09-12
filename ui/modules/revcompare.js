@@ -1,9 +1,9 @@
 // Baseline Revision Comparison — compare two approved baseline revisions (Rev.00 vs
 // Rev.01) from a planning/consultant perspective. Workflow: assign both revisions →
-// Run Comparison → review results across six sub-tabs (Executive Summary · Key Findings ·
-// Critical Path & Float · Change Register · Cost & Resources · Scope & Structure).
-// Neutral by design: Change detected → Potential impact → Planning review, never an
-// automatic verdict. Nothing runs until Run is pressed.
+// Run Comparison → review results across seven sub-tabs (Executive Summary · Key Findings ·
+// Critical Path & Float · Change Register · Milestones, Constraints & Calendars ·
+// Cost & Resources · Scope & Structure). Neutral by design: Change detected → Potential
+// impact → Planning review, never an automatic verdict. Nothing runs until Run is pressed.
 
 import { state } from './state.js';
 import { showError, clearError } from './render.js';
@@ -16,6 +16,7 @@ import { exportRevcompareExcel } from './api.js';
 const RC_TABS = [
   ['summary', 'Executive Summary'], ['findings', 'Key Findings'],
   ['critical', 'Critical Path & Float'], ['register', 'Change Register'],
+  ['mcc', 'Milestones, Constraints & Calendars'],
   ['cost', 'Cost & Resources'], ['scope', 'Scope & Structure'],
 ];
 
@@ -142,7 +143,7 @@ function renderResults(body) {
     `<button class="rc-tab ${k === tab ? 'on' : ''}" data-rctab="${k}">${escapeHtml(l)}</button>`).join('');
   const view = ({
     summary: summaryView, findings: findingsView, critical: criticalView,
-    register: registerView, cost: costView, scope: scopeView,
+    register: registerView, mcc: mccView, cost: costView, scope: scopeView,
   }[tab] || summaryView)(r);
   body.innerHTML = `
     <div class="rc-bar">
@@ -398,6 +399,17 @@ function wireSummary(body) {
 
 // ══ 2 · Key Findings ═════════════════════════════════════════════════════════
 
+// Shared, theme-token palette. The finish-slip waterfall bars and the contribution
+// breakdown list index into it identically, so a cause keeps ONE colour in both.
+const SLIP_PALETTE = ['--chart-3', '--warning', '--chart-1', '--chart-4', '--chart-5', '--chart-2', '--chart-6'];
+const slipColor = (i) => `var(${SLIP_PALETTE[i % SLIP_PALETTE.length]})`;
+// Deterministic token colour for a logic-chart group value (by first-seen order).
+function groupColor(value, order) {
+  const i = order.indexOf(value);
+  const pick = ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5', '--chart-6'];
+  return i < 0 ? 'var(--accent)' : `var(${pick[i % pick.length]})`;
+}
+
 function slipWaterfall(slip) {
   const cs = (slip && slip.contributions) || [];
   if (!cs.length) return noData('No finish-slip attribution available.');
@@ -411,7 +423,6 @@ function slipWaterfall(slip) {
   const plotW = W - leftPad - rightPad;
   const colStep = plotW / (n + 1);
   const bw = Math.min(66, colStep * 0.55);
-  const palette = ['--chart-3', '--warning', '--chart-1', '--chart-4', '--chart-5', '--chart-2', '--chart-6'];
   const xc = (i) => leftPad + (i + 1) * colStep;
 
   let cum = 0, bars = '', conns = '', labels = '';
@@ -419,7 +430,7 @@ function slipWaterfall(slip) {
     const before = cum; cum += (c.wd || 0); const after = cum;
     const hiV = Math.max(before, after), loV = Math.min(before, after);
     const y = base - hiV * scale, h = Math.max(1, (hiV - loV) * scale);
-    const cx = xc(i), col = `var(${palette[i % palette.length]})`;
+    const cx = xc(i), col = slipColor(i);
     bars += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${col}"/>`;
     labels += `<text x="${cx.toFixed(1)}" y="${(y - 6).toFixed(1)}" font-size="11" fill="var(--ink-soft)" text-anchor="middle" font-weight="700">${num(c.wd || 0, true)}</text>`;
     labels += `<text x="${cx.toFixed(1)}" y="${(base + 18).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="middle">${escapeHtml(String(c.cause || ''))}</text>`;
@@ -447,47 +458,125 @@ function slipWaterfall(slip) {
 function findingsView(r) {
   const slip = r.slip || {};
   const slipHead = slip.total_wd != null ? `What drove the ${num(slip.total_wd, true)} days` : 'What drove the slip';
+  const contribs = slip.contributions || [];
+  // Contribution breakdown — one row per cause, coloured to match its waterfall step.
+  const contribList = contribs.length
+    ? `<div class="rc-contribs">${contribs.map((c, i) => `
+        <div class="rc-contrib">
+          <span class="rc-cswatch" style="background:${slipColor(i)}"></span>
+          <span class="rc-ccause">${esc(c.cause)}</span>
+          <span class="rc-cwd">${num(c.wd || 0, true)} d</span>
+          <span class="rc-cmean">${esc(c.detail)}</span>
+        </div>`).join('')}</div>`
+    : '';
   const slipCard = `<div class="rc-card"><h3>${escapeHtml(slipHead)} <span class="rc-n">finish-slip bridge · neutral attribution</span></h3>
-    <div class="rc-sec">Each contribution attributes part of the finish movement along the driving path</div>
+    <div class="rc-sec">Reads left → right: starts at the Rev.00 finish; each step adds the working days that cause pushed the finish out; the last bar is the Rev.01 finish</div>
     <div class="rc-chartwrap">${slipWaterfall(r.slip)}</div>
-    <div class="rc-callout">Each contribution links back to the change that caused it. Neutral: this attributes the slip, it does not judge the revision.</div></div>`;
+    <div class="rc-howto"><b>How to read it —</b> each coloured step is a <b>cause</b>; its height is the <b>working days it added</b>. A bigger step is a bigger driver. The tool only <b>attributes</b> the movement — it never says a change is wrong.</div>
+    ${contribList}</div>`;
 
-  // Sequence roll-up — grouped, expandable chains
-  const groups = r.sequence_rollup || [];
-  const detected = groups.reduce((s, g) => s + (g.count || 0), 0)
-    || groups.reduce((s, g) => s + ((g.items || []).length), 0);
-  let idx = 0;
-  const seqInner = groups.map(g => {
-    const items = (g.items || []).map(it => {
-      const i = idx++;
-      const crumb = it.group || g.group;
-      const chain = (nodes) => (nodes && nodes.length)
-        ? nodes.map(nm => `<span class="rc-node${(nm === it.a_name || nm === it.b_name) ? ' moved' : ''}">${esc(nm)}</span>`).join('<span class="rc-arw">→</span>')
-        : '<span class="rc-mut">—</span>';
-      return `<div class="rc-seqitem" data-seq="${i}"><span class="rc-seqexp">▸</span>
-          <span>${esc(it.a_name)}${it.b_name ? ` vs ${esc(it.b_name)}` : ''}</span>
-          ${it.direction ? `<span class="rc-dirtag">${esc(it.direction)}</span>` : ''}</div>
-        <div class="rc-seqbody hidden" id="rc-seq-${i}">
-          ${crumb ? `<div class="rc-wbscrumb">${esc(crumb)}</div>` : ''}
-          <div class="rc-cklab">Rev.00 order</div><div class="rc-chain">${chain(it.chain0)}</div>
-          <div class="rc-cklab r1">Rev.01 order</div><div class="rc-chain">${chain(it.chain1)}</div>
-        </div>`;
-    }).join('');
-    return `<div class="rc-grouplab">${esc(g.group)}${g.count != null ? ` — ${g.count} activities` : ''}</div>${items}`;
+  const logicCard = `<div class="rc-card"><h3>Logic &amp; Sequence Changes <span class="rc-n">chart view · grouped by activity code</span></h3>
+    <div class="rc-sec">Every relationship change drawn as Before → After. Pick a dimension, then click a code to filter the charts to it</div>
+    <div class="rc-filters" id="rc-logic-dim"></div>
+    <div class="rc-filters" id="rc-logic-vals"></div>
+    <div id="rc-logic-chart"></div></div>`;
+
+  return secmark('2', 'Key Findings') + slipCard + logicCard;
+}
+
+// ── Logic & Sequence Changes chart (Before → After mini-diagrams) ───────────────
+
+// Which dimensions the group-by chips can offer: the report's code dimensions that
+// actually appear on at least one logic row. Falls back to whatever a row carries.
+function logicDims(r) {
+  const declared = (r.codes && r.codes.dimensions) || [];
+  const seen = new Set();
+  (r.logic_register || []).forEach(l => Object.keys(l.codes || {}).forEach(k => seen.add(k)));
+  const dims = declared.filter(d => seen.has(d));
+  // Include any code a row carries that wasn't declared (e.g. the synthetic 'WBS').
+  seen.forEach(k => { if (!dims.includes(k)) dims.push(k); });
+  return dims;
+}
+
+// Before → After card for one changed relationship. Highlight: green=added link,
+// red=removed link, amber=type/lag changed. On-CP rows carry a badge.
+function relCard(l) {
+  const change = String(l.change || '');
+  const kind = /added/i.test(change) ? 'added' : /removed/i.test(change) ? 'removed' : 'changed';
+  const tag = kind === 'added' ? 'add' : kind === 'removed' ? 'rem' : 'chg';
+  const beforeCls = /no link/i.test(String(l.before)) ? 'removed' : '';
+  const node = (name, id) => `<span class="rc-rnode">${esc(name)}<span class="rc-rid">${esc(id)}</span></span>`;
+  const linkRow = (label, r1, text, cls) => `<div class="rc-relchain">
+      <span class="rc-rlab${r1 ? ' r1' : ''}">${label}</span>
+      ${node(l.pred_name, l.pred_id)}
+      <span class="rc-rlink ${cls}"><span class="rc-rlt">${esc(text)}</span><span class="rc-rarw">→</span></span>
+      ${node(l.succ_name, l.succ_id)}
+    </div>`;
+  return `<div class="rc-rel">
+    <div class="rc-reltop"><span class="rc-tag ${tag}">${esc(l.change)}</span>${l.on_cp ? '<span class="rc-cpbadge">on critical path</span>' : ''}${l.is_lead ? '<span class="rc-sev crit">lead</span>' : ''}</div>
+    ${linkRow('Rev.00', false, l.before, beforeCls)}
+    ${linkRow('Rev.01', true, l.after, kind)}
+  </div>`;
+}
+
+function renderLogicChart(body) {
+  const host = body.querySelector('#rc-logic-chart');
+  if (!host) return;
+  const r = state.revcompareReport || {};
+  const all = r.logic_register || [];
+  const dim = host.dataset.dim;
+  const val = host.dataset.val || 'All';
+  if (!all.length) { host.innerHTML = noData('No relationship changes to chart.'); return; }
+  const rows = all.filter(l => val === 'All' || ((l.codes || {})[dim]) === val);
+  if (!rows.length) { host.innerHTML = noData('No relationship changes for this filter.'); return; }
+  // Group by the chosen dimension's value.
+  const groups = {};
+  rows.forEach(l => { const g = (l.codes || {})[dim] || '(no code)'; (groups[g] = groups[g] || []).push(l); });
+  const order = Object.keys(groups);
+  host.innerHTML = order.map(g => {
+    const rs = groups[g];
+    return `<div class="rc-loghd" style="background:${groupColor(g, order)}">${esc(g)}<span class="rc-loghd-ct">${rs.length} change${rs.length > 1 ? 's' : ''}</span></div>
+      ${rs.map(relCard).join('')}`;
   }).join('');
-  const seqCard = `<div class="rc-card"><h3>Re-sequenced activities <span class="rc-n">${detected} detected · grouped by WBS / zone</span></h3>
-    ${groups.length ? seqInner : noData('No execution-order changes detected from the logic.')}</div>`;
+}
 
-  return secmark('2', 'Key Findings') + slipCard + seqCard;
+function renderLogicVals(body) {
+  const host = body.querySelector('#rc-logic-vals');
+  const chart = body.querySelector('#rc-logic-chart');
+  if (!host || !chart) return;
+  const r = state.revcompareReport || {};
+  const dim = chart.dataset.dim;
+  const vals = ['All', ...[...new Set((r.logic_register || []).map(l => (l.codes || {})[dim]).filter(v => v != null && v !== ''))]];
+  const cur = chart.dataset.val || 'All';
+  host.innerHTML = `<b class="rc-fblbl">Activity code:</b>`
+    + vals.map(v => `<button class="rc-fchip ${v === cur ? 'on' : ''}" data-logicval="${escapeHtml(String(v))}">${esc(v)}</button>`).join('');
+  host.querySelectorAll('[data-logicval]').forEach(c => c.addEventListener('click', () => {
+    chart.dataset.val = c.dataset.logicval;
+    renderLogicVals(body);
+    renderLogicChart(body);
+  }));
 }
 
 function wireFindings(body) {
-  body.querySelectorAll('.rc-seqitem').forEach(it => it.addEventListener('click', () => {
-    const b = document.getElementById(`rc-seq-${it.dataset.seq}`);
-    if (!b) return;
-    it.classList.toggle('open');
-    b.classList.toggle('hidden');
+  const dimHost = body.querySelector('#rc-logic-dim');
+  const chart = body.querySelector('#rc-logic-chart');
+  if (!dimHost || !chart) return;
+  const r = state.revcompareReport || {};
+  const dims = logicDims(r);
+  if (!dims.length) { chart.innerHTML = noData('No activity-code dimensions available to group the logic changes.'); return; }
+  chart.dataset.dim = dims[0];
+  chart.dataset.val = 'All';
+  dimHost.innerHTML = `<b class="rc-fblbl">Group by:</b>`
+    + dims.map((d, i) => `<button class="rc-fchip ${i === 0 ? 'on' : ''}" data-logicdim="${escapeHtml(d)}">${escapeHtml(d)}</button>`).join('');
+  dimHost.querySelectorAll('[data-logicdim]').forEach(c => c.addEventListener('click', () => {
+    dimHost.querySelectorAll('[data-logicdim]').forEach(x => x.classList.toggle('on', x === c));
+    chart.dataset.dim = c.dataset.logicdim;
+    chart.dataset.val = 'All';
+    renderLogicVals(body);
+    renderLogicChart(body);
   }));
+  renderLogicVals(body);
+  renderLogicChart(body);
 }
 
 // ══ 3 · Critical Path & Float ══════════════════════════════════════════════════
@@ -576,19 +665,15 @@ function idName(row, idKeys, nameKeys) {
   return { id: pick(idKeys), name: pick(nameKeys) };
 }
 
-// Distinct filter values per activity-code dimension, for the register filter selects.
+// Distinct filter values per activity-code dimension, taken from the Duration table's own
+// per-row codes so the selects only ever offer values that actually filter a visible row.
 function regFilterValues(r) {
-  const sbc = (r.codes && r.codes.scope_by_code) || {};
-  const uniq = (arr) => [...new Set(arr.filter(v => v != null && v !== ''))];
-  const fromSbc = (dim) => (sbc[dim] || []).map(x => x.category);
-  const wbsRows = [];
-  (r.duration_table || []).forEach(d => wbsRows.push(d.wbs));
-  (r.constraint_changes || []).forEach(c => wbsRows.push(c.wbs));
-  (r.date_shifts || []).forEach(d => wbsRows.push(d.wbs));
+  const rows = r.duration_table || [];
+  const uniq = (dim) => [...new Set(rows.map(d => (d.codes || {})[dim]).filter(v => v != null && v !== ''))];
   return {
-    Discipline: uniq(fromSbc('Discipline')),
-    Building: uniq(fromSbc('Building')),
-    WBS: uniq([...fromSbc('WBS'), ...wbsRows]),
+    Discipline: uniq('Discipline'),
+    Building: uniq('Building'),
+    WBS: uniq('WBS'),
   };
 }
 
@@ -604,12 +689,12 @@ function registerView(r) {
   const filterBar = `<div class="rc-card rc-filterbar"><div class="rc-filterrow"><b>Filter by activity code:</b>
     ${sel('Discipline')}${sel('Building')}${sel('WBS')}
     <span class="rc-fchip" id="rc-inc-addrem">Include added &amp; removed</span>
-    <span class="rc-foot" style="margin:0">(off by default — added/removed are inventoried in §1)</span></div></div>`;
+    <span class="rc-foot" style="margin:0">(off by default — added/removed are inventoried in §1)</span></div>
+    <div class="rc-foot" style="margin-top:8px">Logic changes → the <b>Key Findings</b> chart · Cost &amp; Resource → <b>Cost &amp; Resources</b> · Milestone / Constraint / Calendar → the <b>Milestones, Constraints &amp; Calendars</b> tab.</div></div>`;
 
-  return secmark('4', 'Change Register', 'one table per change type · separate ID / Name columns · Before → After → Variance')
+  return secmark('4', 'Change Register', 'duration changes · separate ID / Name columns · filter by activity code')
     + filterBar
-    + regDuration(r) + regMilestone(r) + regLogic(r)
-    + regConstraint(r) + regCalendar(r) + regResource(r) + regCost(r);
+    + regDuration(r);
 }
 
 function regTableCard(title, note, head, rows, foot) {
@@ -625,7 +710,8 @@ function regDuration(r) {
       ? `<span class="rc-tag chg">${esc(d.calendar_before)} → ${esc(d.calendar_after)}</span>`
       : `<span class="rc-mut">${esc(d.calendar_after || d.calendar_before)}</span>`;
     const addRem = (d.before == null || d.before === '—' || d.after == null || d.after === '—');
-    return `<tr class="rc-regrow${addRem ? ' rc-addrem' : ''}" data-wbs="${escapeHtml(d.wbs || '')}"><td class="rc-aid">${esc(d.id)}</td><td>${esc(d.name)}</td>
+    const cd = d.codes || {};
+    return `<tr class="rc-regrow${addRem ? ' rc-addrem' : ''}" data-disc="${escapeHtml(cd.Discipline || '')}" data-bldg="${escapeHtml(cd.Building || '')}" data-wbs="${escapeHtml(cd.WBS || d.wbs || '')}"><td class="rc-aid">${esc(d.id)}</td><td>${esc(d.name)}</td>
       <td class="n">${d.before != null ? esc(d.before) + (typeof d.before === 'number' ? ' d' : '') : '—'}</td>
       <td class="n rc-new">${d.after != null ? esc(d.after) + (typeof d.after === 'number' ? ' d' : '') : '—'}</td>
       <td class="n">${deltaCell(typeof d.variance === 'number' ? d.variance : (d.variance ?? null))}</td>
@@ -653,23 +739,6 @@ function regMilestone(r) {
   return regTableCard('Milestone changed', '',
     '<tr><th>Activity ID</th><th>Activity Name</th><th>Type</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr>',
     rows, '');
-}
-
-function regLogic(r) {
-  const rows = (r.logic_register || []).map(l => {
-    const changeTag = { 'Type changed': 'chg', 'Lag changed': 'chg', 'Link added': 'add', 'Link removed': 'rem' }[l.change] || 'chg';
-    return `<tr>
-      <td class="rc-aid">${esc(l.pred_id)}</td><td class="rc-cellsep">${esc(l.pred_name)}</td>
-      <td class="rc-aid">${esc(l.succ_id)}</td><td class="rc-cellsep">${esc(l.succ_name)}</td>
-      <td class="${/no link/i.test(String(l.before)) ? 'rc-mut' : ''}">${esc(l.before)}</td>
-      <td class="${/no link|removed/i.test(String(l.after)) ? 'rc-mut' : 'rc-new'}">${esc(l.after)}</td>
-      <td><span class="rc-tag ${changeTag}">${esc(l.change)}</span>${l.is_lead ? ' <span class="rc-sev crit">lead</span>' : ''}</td>
-      <td class="n">${l.on_cp ? '<span class="rc-d up">Yes</span>' : '<span class="rc-mut">No</span>'}</td></tr>`;
-  }).join('');
-  const head = `<tr><th colspan="2" class="rc-grouphd">Predecessor (drives)</th><th colspan="2" class="rc-grouphd">Successor (driven)</th><th>Link Before</th><th>Link After</th><th>Change</th><th class="n">On CP?</th></tr>
-    <tr><th>ID</th><th>Name</th><th>ID</th><th>Name</th><th></th><th></th><th></th><th></th></tr>`;
-  return regTableCard('Logic / relationship changed <span class="rc-n">each row is one link — predecessor drives successor</span>', '',
-    head, rows, '“On CP?” triages the logic changes to the few that moved the finish; new leads (negative lags) are flagged.');
 }
 
 function regConstraint(r) {
@@ -764,8 +833,10 @@ function regCost(r) {
 }
 
 // Register filter wiring: the Include added & removed toggle shows/hides added/removed
-// rows (Duration/Milestone/Cost), and the code selects filter rows by the value they
-// carry (WBS at minimum). Rows lacking a code are left visible — never filtered blindly.
+// Duration rows, and each code select filters rows by the matching value they carry
+// (Discipline / Building / WBS). A row lacking that code value is left visible — never
+// filtered out blindly — so a partially-coded schedule still reads honestly.
+const REG_DIM_ATTR = { Discipline: 'disc', Building: 'bldg', WBS: 'wbs' };
 function wireRegister(body) {
   const inc = body.querySelector('#rc-inc-addrem');
   const selects = [...body.querySelectorAll('.rc-fsel[data-regcode]')];
@@ -773,14 +844,18 @@ function wireRegister(body) {
   if (!rows.length && !inc) return;
   const apply = () => {
     const showAddRem = !!(inc && inc.classList.contains('on'));
-    const wbsSel = selects.find(s => s.dataset.regcode === 'WBS');
-    const wbsVal = wbsSel ? wbsSel.value : '';
     rows.forEach(tr => {
       let show = true;
       if (!showAddRem && tr.classList.contains('rc-addrem')) show = false;
-      if (show && wbsVal) {
-        const w = tr.dataset.wbs;
-        if (w != null && w !== '' && w !== wbsVal) show = false;
+      if (show) {
+        for (const s of selects) {
+          const val = s.value;
+          if (!val) continue;
+          const attr = REG_DIM_ATTR[s.dataset.regcode];
+          if (!attr) continue;
+          const rowVal = tr.dataset[attr];
+          if (rowVal != null && rowVal !== '' && rowVal !== val) { show = false; break; }
+        }
       }
       tr.hidden = !show;
     });
@@ -790,7 +865,16 @@ function wireRegister(body) {
   apply();
 }
 
-// ══ 5 · Cost & Resources ═══════════════════════════════════════════════════════
+// ══ 5 · Milestones, Constraints & Calendars ════════════════════════════════════
+// The date-driver change tables, moved out of the Change Register (comment 5). Rendered
+// exactly as they were; no filtering here, so the register-row classes stay inert.
+
+function mccView(r) {
+  return secmark('5', 'Milestones, Constraints & Calendars', 'the date-driver changes, moved out of the Change Register')
+    + regMilestone(r) + regConstraint(r) + regCalendar(r);
+}
+
+// ══ 6 · Cost & Resources ═══════════════════════════════════════════════════════
 
 function scurveSvg(curves, rev0finish) {
   const vm = curves.value_monthly || [];
@@ -883,8 +967,11 @@ function manpowerSvg(curves) {
 
 function costView(r) {
   const curves = r.curves || {};
-  if (!curves.cost_available && !curves.resource_available) {
-    return secmark('5', 'Cost & Resources', 'S-curve, value tables, budget by discipline, manpower histogram')
+  const rc = r.resource_changes || {};
+  const hasCostTbl = !!(rc.cost_available || (rc.activity_cost_changes && rc.activity_cost_changes.length));
+  const hasResTbl = !!(rc.resource_available || (rc.assignment_changes && rc.assignment_changes.length));
+  if (!curves.cost_available && !curves.resource_available && !hasCostTbl && !hasResTbl) {
+    return secmark('6', 'Cost & Resources', 'S-curve, value tables, budget by discipline, manpower histogram, cost &amp; resource changes')
       + `<div class="rc-card"><h3>Cost &amp; resources <span class="rc-n">optional</span></h3>${noData('Neither revision carries cost or resource loading — this section is reported as not applicable rather than "no change".')}</div>`;
   }
 
@@ -947,11 +1034,12 @@ function costView(r) {
           <tbody>${tradeRows}${totRow}</tbody></table></div>` : noData('No man-hours-by-trade breakdown available.')}</div>`
     : `<div class="rc-card"><h3>Manpower histogram</h3>${noData('No resource loading — manpower histogram not applicable.')}</div>`;
 
-  return secmark('5', 'Cost & Resources', 'S-curve, value tables, budget by discipline, manpower histogram')
-    + scurve + `<div class="rc-split">${valTable}${bdCard}</div>` + manCard;
+  return secmark('6', 'Cost & Resources', 'S-curve, value tables, budget by discipline, manpower histogram, cost & resource changes')
+    + scurve + `<div class="rc-split">${valTable}${bdCard}</div>` + manCard
+    + regCost(r) + regResource(r);
 }
 
-// ══ 6 · Scope & Structure ══════════════════════════════════════════════════════
+// ══ 7 · Scope & Structure ══════════════════════════════════════════════════════
 
 function wbsColumn(nodes, side) {
   if (!nodes || !nodes.length) return noData('No WBS structure available for this revision.');
@@ -989,20 +1077,21 @@ function scopeView(r) {
     ${ds.length ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th>WBS</th><th>Start (before → after)</th><th>Finish (before → after)</th><th class="n">Shift</th></tr></thead><tbody>${dsRows}</tbody></table></div>`
                 : noData('No material date shifts detected.')}</div>`;
 
-  return secmark('6', 'Scope & Structure', '— WBS in Primavera colour-grouping + largest date shifts')
+  return secmark('7', 'Scope & Structure', '— WBS in Primavera colour-grouping + largest date shifts')
     + wbsCard + dsCard;
 }
 
 // ── Report (PDF) — invoked by the ⬇ PDF button (global preview picker) ─────────
 
 // The Report-Contents sections the Baseline Revision PDF can print (tool-wide picker
-// standard). Keys + order mirror the six on-screen sub-tabs; a section is offered as
+// standard). Keys + order mirror the seven on-screen sub-tabs; a section is offered as
 // empty (disabled "no data" pick) when its underlying data is absent.
 export const REVCOMPARE_SECTIONS = [
   { key: 'summary',  label: 'Executive Summary' },
   { key: 'findings', label: 'Key Findings' },
   { key: 'critical', label: 'Critical Path & Float' },
   { key: 'register', label: 'Change Register' },
+  { key: 'mcc',      label: 'Milestones, Constraints & Calendars' },
   { key: 'cost',     label: 'Cost & Resources' },
   { key: 'scope',    label: 'Scope & Structure' },
 ];
@@ -1021,17 +1110,22 @@ export async function openRevcompareReport() {
   const q = r.quality || {};
   const cp = r.critical_path || {};
   const wv = r.wbs_view || {};
+  const rc = r.resource_changes || {};
   const has = {
+    // Key Findings = the slip bridge + the Logic & Sequence Changes chart.
     findings: !!((r.slip && r.slip.contributions && r.slip.contributions.length)
-      || (r.sequence_rollup && r.sequence_rollup.length) || (r.findings && r.findings.length)),
+      || (r.logic_register && r.logic_register.length)),
     critical: !!((cp.rev0 && cp.rev0.length) || (cp.rev1 && cp.rev1.length) || (q.float_bands && q.float_bands.length)),
-    register: !!((r.duration_table && r.duration_table.length) || (r.logic_register && r.logic_register.length)
-      || (r.milestones && r.milestones.some(m => m.kind !== 'unchanged'))
+    // Change Register = Duration changes only now.
+    register: !!(r.duration_table && r.duration_table.length),
+    // Milestones, Constraints & Calendars = the date-driver tables moved out of the register.
+    mcc: !!((r.milestones && r.milestones.some(m => m.kind !== 'unchanged'))
       || (r.constraint_changes && r.constraint_changes.length)
-      || (r.calendar_changes && (((r.calendar_changes.reassignments || []).length) || ((r.calendar_changes.calendars || []).length)))
-      || (((r.resource_changes || {}).assignment_changes || []).length)
-      || (((r.resource_changes || {}).activity_cost_changes || []).length)),
-    cost: !!(c.cost_available || c.resource_available),
+      || (r.calendar_changes && (((r.calendar_changes.reassignments || []).length) || ((r.calendar_changes.calendars || []).length)))),
+    // Cost & Resources = curves + the Cost/Resource change tables moved in from the register.
+    cost: !!(c.cost_available || c.resource_available
+      || rc.cost_available || rc.resource_available
+      || ((rc.assignment_changes || []).length) || ((rc.activity_cost_changes || []).length)),
     scope: !!((wv.rev0 && wv.rev0.length) || (wv.rev1 && wv.rev1.length) || (r.date_shifts && r.date_shifts.length)),
   };
   const sections = REVCOMPARE_SECTIONS.map(s => ({ ...s, empty: (s.key in has) ? !has[s.key] : false }));

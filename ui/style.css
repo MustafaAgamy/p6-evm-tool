@@ -2809,6 +2809,35 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-callout.warn { background: var(--warning-bg); color: var(--warning); border-color: var(--warning); }
 .rc-callout.warn b { color: var(--warning); }
 
+/* Key Findings — slip "how to read" note + contribution breakdown list */
+.rc-howto { background: var(--accent-soft); color: var(--accent-dark); border-radius: 10px; padding: 9px 12px; font-size: 12px; line-height: 1.5; margin-top: 10px; }
+.rc-howto b { color: var(--accent-dark); }
+.rc-contribs { margin-top: 6px; }
+.rc-contrib { display: grid; grid-template-columns: 14px 150px 56px 1fr; gap: 9px; align-items: center; font-size: 12px; padding: 6px 0; border-top: 1px solid var(--hair); }
+.rc-cswatch { width: 13px; height: 13px; border-radius: 3px; }
+.rc-ccause { font-weight: 700; }
+.rc-cwd { font-weight: 800; text-align: right; }
+.rc-cmean { color: var(--muted); font-size: 11px; line-height: 1.45; }
+
+/* Key Findings — Logic & Sequence Changes chart */
+.rc-fblbl { font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-right: 2px; }
+.rc-loghd { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: #fff; border-radius: 7px; padding: 6px 11px; margin: 14px 0 8px; }
+.rc-loghd-ct { margin-left: auto; font-weight: 700; background: rgba(255,255,255,.85); color: #12314f; border-radius: 5px; padding: 1px 8px; font-size: 10.5px; }
+.rc-rel { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; background: var(--card-bg); }
+.rc-reltop { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+.rc-cpbadge { font-size: 9px; font-weight: 800; color: var(--danger); background: var(--danger-bg); border: 1px solid var(--danger); border-radius: 5px; padding: 0 6px; }
+.rc-relchain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 3px 0; }
+.rc-rlab { font-size: 9.5px; font-weight: 800; text-transform: uppercase; color: var(--muted); width: 44px; flex-shrink: 0; }
+.rc-rlab.r1 { color: var(--accent); }
+.rc-rnode { border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600; background: var(--card-bg); }
+.rc-rid { color: var(--muted); font-weight: 500; font-size: 9.5px; display: block; }
+.rc-rlink { display: inline-flex; flex-direction: column; align-items: center; color: var(--muted); font-size: 9px; font-weight: 800; min-width: 56px; }
+.rc-rlt { background: var(--bg); border-radius: 4px; padding: 0 5px; margin-bottom: 1px; white-space: nowrap; }
+.rc-rarw { color: var(--muted); font-weight: 800; }
+.rc-rlink.changed { color: var(--warning); } .rc-rlink.changed .rc-rlt { background: var(--warning-bg); }
+.rc-rlink.removed { color: var(--danger); } .rc-rlink.removed .rc-rlt { background: var(--danger-bg); text-decoration: line-through; }
+.rc-rlink.added { color: var(--success); } .rc-rlink.added .rc-rlt { background: var(--success-bg); }
+
 /* Primavera WBS colour-grouping — level tokens (redefined per appearance below) */
 :root, :root[data-appearance="light"] { --rc-l1:#1f4e79; --rc-l2:#2e6da4; --rc-l3:#4a86c5; --rc-l4:#6fa0d0; --rc-l-ink:#ffffff; }
 :root[data-appearance="dark"]     { --rc-l1:#274b70; --rc-l2:#356194; --rc-l3:#4a7bb5; --rc-l4:#6094cc; --rc-l-ink:#f2f7ff; }

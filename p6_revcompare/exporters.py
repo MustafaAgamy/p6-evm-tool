@@ -1,9 +1,10 @@
 """Consultant-grade report for the Baseline Revision Comparison (redesigned).
 
 Renders the report dict (from ``compare.build_report_from_data``) into a single
-professional document laid out as the six approved sections — Executive Summary,
-Key Findings, Critical Path & Float, Change Register, Cost & Resources and
-Scope & Structure. It matches ``mockups/baseline-revision-FULL-report-concept.html``.
+professional document laid out as the seven approved sections — Executive Summary,
+Key Findings, Critical Path & Float, Change Register, Milestones/Constraints/Calendars,
+Cost & Resources and Scope & Structure. It matches
+``mockups/baseline-revision-interactive-concept.html``.
 
 Every colour is read from the shared ``--rpt-*`` report theme tokens
 (``report_theme``) so the on-screen preview and the exported PDF look identical
@@ -94,6 +95,16 @@ def _tbl(head_html, body_rows, cls=''):
     body = body_rows if isinstance(body_rows, str) else ''.join(body_rows)
     return (f'<div class="tbl-wrap"><table class="{cls}"><thead>{head_html}</thead>'
             f'<tbody>{body}</tbody></table></div>')
+
+
+# Slip-bridge cause colours — a CSS-var per index, paired with the matching track class in _CSS
+# so the bar fill and the breakdown swatch always share a colour. Tokens only, never hard-coded.
+_BRIDGE_COLORS = ['var(--rpt-good)', 'var(--rpt-bad)', 'var(--rpt-series-3)',
+                  'var(--rpt-series-4)', 'var(--rpt-series-1)', 'var(--rpt-series-5)']
+_BRIDGE_TRACK = ['fa', 'fr', 'f-s3', 'f-s4', 'f-s1', 'f-s5']
+# Group colours for the logic-changes chart — one per activity-code value, rotating.
+_GROUP_COLORS = ['var(--rpt-series-1)', 'var(--rpt-series-2)', 'var(--rpt-series-3)',
+                 'var(--rpt-series-4)', 'var(--rpt-series-5)', 'var(--rpt-series-6)', 'var(--rpt-accent)']
 
 
 # ══ 1 · EXECUTIVE SUMMARY ══════════════════════════════════════════════════════
@@ -257,67 +268,107 @@ def _slip_bridge(report):
                      _muted('No finish-slip attribution available (finish unchanged or no driving-path change).'))
     mx = max([abs(c.get('wd') or 0) for c in contrib] + [1])
     rows = ''
-    palette = ['fa', 'fr', 'f-s3', 'f-s4', 'f-s1', 'f-s5']
     for i, c in enumerate(contrib):
         wd = c.get('wd') or 0
         w = round(abs(wd) / mx * 100)
-        cls = palette[i % len(palette)]
+        cls = _BRIDGE_TRACK[i % len(_BRIDGE_TRACK)]
         rows += (f'<div class="bridge"><div class="brl">{_e(c.get("cause"))}</div>'
                  f'<div class="track"><div class="{cls}" style="width:{w}%"></div></div>'
-                 f'<div class="v">{_e(_sgn(wd, " wd"))}</div>'
-                 f'<div class="brd mut">{_e(c.get("detail") or "")}</div></div>')
+                 f'<div class="v">{_e(_sgn(wd, " wd"))}</div></div>')
     tot = (f'<div class="bridge total"><div class="brl">Total finish move</div>'
-           f'<div class="track"></div><div class="v">{_e(_sgn(total, " wd"))}</div>'
-           f'<div class="brd mut">Rev.00 {_e(slip.get("rev0_finish") or "—")} → Rev.01 {_e(slip.get("rev1_finish") or "—")}</div></div>')
-    note = ('<div class="callout">Each contribution attributes part of the finish move along the driving path. '
-            'Neutral — this attributes the slip, it does not judge the revision.</div>')
-    return _card('What drove the finish move', 'finish-slip bridge · neutral attribution', rows + tot + note)
+           f'<div class="track"></div><div class="v">{_e(_sgn(total, " wd"))}</div></div>')
+    howto = ('<div class="howto"><b>How to read it —</b> each row is a <b>cause</b>; the bar length is the '
+             '<b>working days it added</b> to the finish. Bigger bar = bigger driver. The tool only '
+             '<b>attributes</b> the move along the Rev.01 driving chain; it never says the change is wrong.</div>')
+    # Contribution breakdown — one line per contribution: colour swatch · cause · +N d · meaning.
+    breakdown = '<div class="contribs">'
+    for i, c in enumerate(contrib):
+        col = _BRIDGE_COLORS[i % len(_BRIDGE_COLORS)]
+        breakdown += (f'<div class="contrib"><span class="sw" style="background:{col}"></span>'
+                      f'<span class="cause">{_e(c.get("cause"))}</span>'
+                      f'<span class="wd">{_e(_sgn(c.get("wd") or 0, " d"))}</span>'
+                      f'<span class="mean">{_e(c.get("detail") or "")}</span></div>')
+    breakdown += '</div>'
+    foot = (f'<div class="foot">Rev.00 {_e(slip.get("rev0_finish") or "—")} → '
+            f'Rev.01 {_e(slip.get("rev1_finish") or "—")}. Neutral — this attributes the slip, it does not judge the revision.</div>')
+    return _card('What drove the finish move', 'finish-slip bridge · neutral attribution',
+                 rows + tot + howto + breakdown + foot)
 
 
-def _sequence_rollup(report):
-    groups = report.get('sequence_rollup') or []
-    if not groups:
-        return _card('Re-sequenced activities', 'grouped by WBS / zone',
-                     _muted('No execution-order reversals detected from the logic.'))
-    out = []
-    total = sum(g.get('count', 0) for g in groups)
-    for g in groups:
-        out.append(f'<div class="grouplab">{_e(g.get("group"))} — {g.get("count", 0)} activity change(s)</div>')
-        for it in (g.get('items') or []):
-            out.append(f'<div class="seqitem"><b>{_e(it.get("a_name"))}</b> re-sequenced relative to '
-                       f'<b>{_e(it.get("b_name"))}</b> <span class="dirtag">{_e(it.get("direction"))}</span></div>')
-            c0 = it.get('chain0') or []
-            c1 = it.get('chain1') or []
-            if c0:
-                out.append('<div class="clab">Rev.00 order</div><div class="chain ind">'
-                           + '<span class="arw">→</span>'.join(f'<span class="node">{_e(x)}</span>' for x in c0) + '</div>')
-            if c1:
-                out.append('<div class="clab r1">Rev.01 order</div><div class="chain ind">'
-                           + '<span class="arw">→</span>'.join(f'<span class="node">{_e(x)}</span>' for x in c1) + '</div>')
-    return _card('Re-sequenced activities', f'{total} detected · grouped by WBS / zone', ''.join(out))
+def _pick_logic_dim(report, rows):
+    """Choose a grouping dimension for the logic chart: the first ``codes.dimensions`` value
+    that actually tags at least one changed relationship, then ``'WBS'``, else ``None``
+    (rows carry no activity codes → render ungrouped)."""
+    dims = ((report.get('codes') or {}).get('dimensions')) or []
+    for d in list(dims) + ['WBS']:
+        if any((r.get('codes') or {}).get(d) for r in rows):
+            return d
+    return None
 
 
-_SEV_CLS = {'crit': 'bad', 'hi': 'warn', 'med': 'accent', 'low': 'muted'}
-_SEV_LBL = {'crit': 'Critical', 'hi': 'High', 'med': 'Review', 'low': 'Info'}
+def _link_class(change):
+    return {'Link added': 'added', 'Link removed': 'removed'}.get(change, 'changed')
 
 
-def _findings_list(report):
-    fs = report.get('findings') or []
-    if not fs:
-        return _card('Key findings', 'material changes', _muted('No material changes detected between the two revisions.'))
-    out = []
-    for f in fs:
-        sc = _SEV_CLS.get(f.get('severity'), 'muted')
-        out.append(f'''<div class="find {sc}">
-          <div class="ft">{_e(f.get('title'))} <span class="tag {sc}">{_e(_SEV_LBL.get(f.get('severity'), f.get('severity')))}</span></div>
-          <div class="fb">{_e(f.get('body'))}</div>
-          <div class="flow"><span>Change detected</span><b>→</b><span>{_e(f.get('flow_impact') or 'Potential schedule impact')}</span><b>→</b><span>Planning review</span></div>
-        </div>''')
-    return _card('Key findings', 'material changes', ''.join(out))
+def _tag_class(change):
+    return {'Link added': 'add', 'Link removed': 'rem'}.get(change, 'chg')
+
+
+def _rel_card(r):
+    """One changed relationship as a Rev.00 → Rev.01 mini-diagram (pred —[link]→ succ),
+    the changed link highlighted (amber = type/lag, green = added, red = removed)."""
+    cls = _link_class(r.get('change'))
+    tag = _tag_class(r.get('change'))
+    cp = '<span class="cpbadge">on critical path</span>' if r.get('on_cp') else ''
+    lead = ' <span class="tag rem">lead</span>' if r.get('is_lead') else ''
+    pn, pi = _e(r.get('pred_name')), _e(r.get('pred_id'))
+    sn, si = _e(r.get('succ_name')), _e(r.get('succ_id'))
+    before, after = _e(r.get('before')), _e(r.get('after'))
+    return (
+        f'<div class="rel"><div class="reltop"><span class="tag {tag}">{_e(r.get("change"))}</span>{cp}{lead}</div>'
+        f'<div class="chain"><span class="rlab">Rev.00</span>'
+        f'<span class="node">{pn}<span class="id">{pi}</span></span>'
+        f'<span class="link"><span class="lt">{before}</span></span><span class="arw">→</span>'
+        f'<span class="node">{sn}<span class="id">{si}</span></span></div>'
+        f'<div class="chain"><span class="rlab r1">Rev.01</span>'
+        f'<span class="node">{pn}<span class="id">{pi}</span></span>'
+        f'<span class="link {cls}"><span class="lt">{after}</span></span><span class="arw">→</span>'
+        f'<span class="node">{sn}<span class="id">{si}</span></span></div></div>')
+
+
+def _logic_changes(report):
+    """Logic & Sequence Changes — a compact print form of the interactive chart. Every changed
+    relationship (report.logic_register) drawn Rev.00 → Rev.01, grouped by an activity-code
+    dimension. Replaces the old sequence roll-up and the standalone logic table."""
+    rows = report.get('logic_register') or []
+    if not rows:
+        return _card('Logic & sequence changes', 'grouped by activity code',
+                     _muted('No relationship / logic changes on matched activities.'))
+    dim = _pick_logic_dim(report, rows)
+    groups, order = {}, []
+    for r in rows:
+        g = ((r.get('codes') or {}).get(dim) if dim else None) or '(uncoded)'
+        if g not in groups:
+            groups[g] = []
+            order.append(g)
+        groups[g].append(r)
+    sub = f'grouped by {_e(dim)}' if dim else 'ungrouped (no activity codes)'
+    intro = ('<div class="sec">Every changed predecessor→successor link, drawn Rev.00 → Rev.01. '
+             + (f'Grouped by {_e(dim)}; links on the critical path are badged.' if dim
+                else 'Links on the critical path are badged.') + '</div>')
+    out = [intro]
+    for gi, g in enumerate(order):
+        rs = groups[g]
+        col = _GROUP_COLORS[gi % len(_GROUP_COLORS)]
+        out.append(f'<div class="grouphd" style="border-left-color:{col}">'
+                   f'<span class="gsw" style="background:{col}"></span>{_e(g)}'
+                   f'<span class="ct">{len(rs)} change{"s" if len(rs) != 1 else ""}</span></div>')
+        out.extend(_rel_card(r) for r in rs)
+    return _card('Logic & sequence changes', sub, ''.join(out))
 
 
 def _sec_findings(report):
-    return _slip_bridge(report) + _sequence_rollup(report) + _findings_list(report)
+    return _slip_bridge(report) + _logic_changes(report)
 
 
 # ══ 3 · CRITICAL PATH & FLOAT ══════════════════════════════════════════════════
@@ -453,35 +504,6 @@ def _reg_milestones(report):
     return _card('Milestone changed', '', _tbl(head, rows))
 
 
-def _reg_logic(report):
-    reg = report.get('logic_register') or []
-    if not reg:
-        return _card('Logic / relationship changed', 'each row is one link — predecessor drives successor',
-                     _muted('No relationship/logic changes on matched activities.'))
-    chg_tag = {'Type changed': 'chg', 'Lag changed': 'chg', 'Link added': 'add', 'Link removed': 'rem'}
-    rows = ''
-    for r in reg:
-        ct = r.get('change')
-        cp = ('<span class="d up">Yes</span>' if r.get('on_cp') else '<span class="mut">No</span>')
-        after = r.get('after')
-        after_cls = 'mut' if str(after).startswith('—') else 'new'
-        lead = ' <span class="tag rem">lead</span>' if r.get('is_lead') else ''
-        rows += (f'<tr><td class="mono">{_e(r.get("pred_id"))}</td><td class="bord">{_e(r.get("pred_name"))}</td>'
-                 f'<td class="mono">{_e(r.get("succ_id"))}</td><td class="bord">{_e(r.get("succ_name"))}</td>'
-                 f'<td>{_e(r.get("before"))}</td><td class="{after_cls}">{_e(after)}</td>'
-                 f'<td><span class="tag {chg_tag.get(ct, "chg")}">{_e(ct)}</span>{lead}</td>'
-                 f'<td class="n">{cp}</td></tr>')
-    head = ('<tr><th colspan="2" class="bord">Predecessor (drives)</th>'
-            '<th colspan="2" class="bord">Successor (driven)</th>'
-            '<th>Link Before</th><th>Link After</th><th>Change</th><th class="n">On CP?</th></tr>'
-            '<tr><th>ID</th><th class="bord">Name</th><th>ID</th><th class="bord">Name</th>'
-            '<th></th><th></th><th></th><th></th></tr>')
-    body = _tbl(head, rows)
-    foot = ('<div class="foot">“On CP?” triages the logic changes to the few that moved the finish; '
-            'new leads (negative lags) are flagged.</div>')
-    return _card('Logic / relationship changed', 'each row is one link — predecessor drives successor', body + foot)
-
-
 def _reg_constraints(report):
     cons = report.get('constraint_changes') or []
     if not cons:
@@ -578,14 +600,21 @@ def _reg_cost(report):
 
 
 def _sec_register(report):
-    filt = ('<div class="card filterbar"><b>Change Register</b> — one table per change type · '
-            'separate Activity ID / Name columns · Before → After → Variance. '
-            '<span class="foot" style="margin:0">Added/removed activities are inventoried in the Executive Summary.</span></div>')
-    return (filt + _reg_duration(report) + _reg_milestones(report) + _reg_logic(report)
-            + _reg_constraints(report) + _reg_calendars(report) + _reg_resources(report) + _reg_cost(report))
+    filt = ('<div class="card filterbar"><b>Change Register</b> — activity-duration changes only · '
+            'separate Activity ID / Name columns · Before → After → Variance, with calendar &amp; float context. '
+            '<span class="foot" style="margin:0">Logic changes are in <b>Key Findings</b>; milestones, '
+            'constraints &amp; calendars have their own section; cost &amp; resource changes are in '
+            '<b>Cost &amp; Resources</b>. Added / removed activities are inventoried in the Executive Summary.</span></div>')
+    return filt + _reg_duration(report)
 
 
-# ══ 5 · COST & RESOURCES ═══════════════════════════════════════════════════════
+# ══ 5 · MILESTONES, CONSTRAINTS & CALENDARS ════════════════════════════════════
+
+def _sec_mcc(report):
+    return _reg_milestones(report) + _reg_constraints(report) + _reg_calendars(report)
+
+
+# ══ 6 · COST & RESOURCES ═══════════════════════════════════════════════════════
 
 def _scurve_svg(report):
     c = report.get('curves') or {}
@@ -758,10 +787,11 @@ def _sec_cost(report):
     scurve = _card('Planned value of work', 'monthly bars + cumulative curves · Rev.00 vs Rev.01', _scurve_svg(report))
     return (scurve
             + '<div class="split">' + _value_tables(report) + _budget_by_dim(report) + '</div>'
-            + _manpower(report))
+            + _manpower(report)
+            + _reg_cost(report) + _reg_resources(report))
 
 
-# ══ 6 · SCOPE & STRUCTURE ══════════════════════════════════════════════════════
+# ══ 7 · SCOPE & STRUCTURE ══════════════════════════════════════════════════════
 
 def _wbs_view(report):
     wv = report.get('wbs_view') or {}
@@ -836,19 +866,20 @@ def _header(report, meta):
 # canonical section order: key, number, title, subtitle, builder, page-break-before
 _SECTIONS = [
     ('summary',  1, 'Executive Summary',      '', _sec_summary, False),
-    ('findings', 2, 'Key Findings',           'what drove the slip, and the re-sequencing', _sec_findings, True),
+    ('findings', 2, 'Key Findings',           'what drove the slip + logic & sequence changes by activity code', _sec_findings, True),
     ('critical', 3, 'Critical Path & Float',  'driving chain, entered/left, float-band shift, negative float', _sec_critical, True),
-    ('register', 4, 'Change Register',        'one table per change type · separate ID / Name columns', _sec_register, True),
-    ('cost',     5, 'Cost & Resources',       'S-curve, value tables, budget by discipline, manpower', _sec_cost, True),
-    ('scope',    6, 'Scope & Structure',      'WBS in Primavera colour-grouping + largest date shifts', _sec_scope, True),
+    ('register', 4, 'Change Register',        'activity-duration changes only · separate ID / Name columns', _sec_register, True),
+    ('mcc',      5, 'Milestones, Constraints & Calendars', 'the date-driver changes, moved out of the register', _sec_mcc, True),
+    ('cost',     6, 'Cost & Resources',       'S-curve, value, budget, manpower + cost & resource changes', _sec_cost, True),
+    ('scope',    7, 'Scope & Structure',      'WBS in Primavera colour-grouping + largest date shifts', _sec_scope, True),
 ]
 
 
 def render_html(report, meta=None, sections=None, theme='light'):
-    """Render the full six-section report.
+    """Render the full seven-section report.
 
-    ``sections`` gates which of the six canonical keys are emitted:
-      * ``None``  → all six (default)
+    ``sections`` gates which of the seven canonical keys are emitted:
+      * ``None``  → all seven (default)
       * ``[]``    → header only (picker cleared everything)
       * a list of keys → only those, in canonical order.
     Each section is wrapped in ``<section data-sec="KEY">``.
@@ -966,6 +997,28 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .node .ntf { font-weight: 400; color: var(--rpt-muted); font-size: 9px; }
 .arw { color: var(--rpt-muted); font-weight: 800; }
 .clab { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--rpt-muted); margin-top: 8px; } .clab.r1 { color: var(--rpt-accent); }
+/* slip-bridge how-to + contribution breakdown */
+.howto { background: var(--rpt-accent-soft); color: var(--rpt-ink); border-radius: 10px; padding: 9px 12px; font-size: 11px; margin-top: 10px; } .howto b { color: var(--rpt-accent); }
+.contribs { margin-top: 8px; }
+.contrib { display: grid; grid-template-columns: 13px 150px 58px 1fr; gap: 8px; align-items: center; font-size: 11px; padding: 5px 0; border-top: 1px dashed var(--rpt-hair); }
+.contrib .sw { width: 12px; height: 12px; border-radius: 3px; }
+.contrib .cause { font-weight: 700; color: var(--rpt-ink-soft); }
+.contrib .wd { font-weight: 800; text-align: right; }
+.contrib .mean { color: var(--rpt-muted); font-size: 10.5px; }
+/* logic & sequence changes chart (findings) */
+.grouphd { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 800; color: var(--rpt-ink); background: var(--rpt-surface-2); border: 1px solid var(--rpt-edge); border-left: 5px solid var(--rpt-accent); border-radius: 6px; padding: 6px 11px; margin: 12px 0 7px; page-break-after: avoid; }
+.grouphd .gsw { width: 10px; height: 10px; border-radius: 3px; }
+.grouphd .ct { margin-left: auto; font-weight: 700; background: var(--rpt-surface); color: var(--rpt-ink-soft); border-radius: 5px; padding: 1px 8px; font-size: 10px; }
+.rel { border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 8px 11px; margin-bottom: 7px; page-break-inside: avoid; }
+.reltop { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.cpbadge { font-size: 8.5px; font-weight: 800; color: var(--rpt-bad); background: var(--rpt-bad-bg); border: 1px solid var(--rpt-bad); border-radius: 5px; padding: 0 6px; }
+.rlab { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--rpt-muted); width: 42px; display: inline-block; } .rlab.r1 { color: var(--rpt-accent); }
+.node .id { color: var(--rpt-muted); font-weight: 500; font-size: 9px; display: block; }
+.link { display: inline-flex; align-items: center; color: var(--rpt-muted); font-size: 9.5px; font-weight: 800; }
+.link .lt { background: var(--rpt-surface-2); border-radius: 4px; padding: 1px 6px; }
+.link.changed { color: var(--rpt-warn); } .link.changed .lt { background: var(--rpt-warn-bg); }
+.link.removed { color: var(--rpt-bad); } .link.removed .lt { background: var(--rpt-bad-bg); text-decoration: line-through; }
+.link.added { color: var(--rpt-good); } .link.added .lt { background: var(--rpt-good-bg); }
 /* WBS Primavera bands (theme-safe: coloured left edge per level, ink text) */
 .p6band { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-weight: 700; color: var(--rpt-ink); background: var(--rpt-surface-2); border-left: 5px solid var(--rpt-series-1); border-radius: 4px; margin: 3px 0; font-size: 11.5px; }
 .p6-l1 { border-left-color: var(--rpt-series-1); } .p6-l2 { border-left-color: var(--rpt-series-5); } .p6-l3 { border-left-color: var(--rpt-accent); } .p6-l4 { border-left-color: var(--rpt-series-4); }

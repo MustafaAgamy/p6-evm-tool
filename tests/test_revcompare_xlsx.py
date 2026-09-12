@@ -10,7 +10,8 @@ from p6_evm.xlsx_writer import write_sections_xlsx
 
 _EXPECTED_SHEETS = [
     'Executive Summary', 'Key Findings', 'Critical Path & Float',
-    'Change Register', 'Cost & Resources', 'Scope & Structure',
+    'Change Register', 'Milestones, Constr. & Cals',
+    'Cost & Resources', 'Scope & Structure',
 ]
 
 
@@ -130,9 +131,9 @@ def _open_sheets(path):
     return names, wb, sheets
 
 
-def test_full_report_produces_six_section_sheets(tmp_path):
+def test_full_report_produces_seven_section_sheets(tmp_path):
     sheets = revcompare_excel(_report())
-    assert [s['name'] for s in sheets] == _EXPECTED_SHEETS   # the six redesigned sections
+    assert [s['name'] for s in sheets] == _EXPECTED_SHEETS   # the seven redesigned sections
     for s in sheets:
         assert s['blocks'] and all('headers' in b and 'rows' in b for b in s['blocks'])
 
@@ -142,7 +143,7 @@ def test_full_report_produces_six_section_sheets(tmp_path):
 
     names, wb, xml = _open_sheets(str(p))
     assert '[Content_Types].xml' in names and 'xl/workbook.xml' in names
-    assert len(xml) == 6                                   # one worksheet per section
+    assert len(xml) == 7                                   # one worksheet per section
     for body in xml.values():
         ET.fromstring(body)                                # every worksheet is well-formed XML
 
@@ -165,7 +166,7 @@ def test_empty_report_never_crashes(tmp_path):
     write_sections_xlsx(str(p), sheets)
     assert p.exists()
     names, wb, xml = _open_sheets(str(p))
-    assert len(xml) == 6
+    assert len(xml) == 7
     for body in xml.values():
         ET.fromstring(body)
     all_xml = '\n'.join(xml.values())
