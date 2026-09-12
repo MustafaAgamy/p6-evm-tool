@@ -7,6 +7,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [v2.6.0] - 2026-09-13
+
+### Added — Dangling Activities: Resolve & Correct
+- **The Dangling Activities check can now fix the logic, not just flag it.** Each dangling finding shows a concrete fix — change a wrong-type link to a real driver (Finish-to-Finish / Start-to-Start → **Finish-to-Start**, or the valid alternative) — with **Apply** (per activity) and **Apply all recommended fixes**, plus a per-finding drawer to pick the link, type, lag and a reason. Where an activity has **no predecessor or no successor at all**, it's marked **Needs Planner Review** — the tool never invents a link.
+- **Apply re-checks with the same detection engine** and moves a finding to **Resolved** only when the activity is genuinely no longer dangling. **Download Corrected Schedule** writes the accepted changes into a copy of your file in the **same format (XER / XML)** — actuals, %-complete and dates are never touched; open it in P6 and press **F9**.
+- **Contract-milestone guard.** A fix that would push your contractual **completion milestone** past its date is held back with **"Changing this could exceeds the contractual milestone"** — it is not applied and never written to the corrected file. (The tool is offline, so the impact is an estimate from its built-in forward-pass.)
+- **The score updates live as you solve.** The Dangling score gauge and KPI tiles, the **Dangling tab** score, and the **Summary** roll-up all rise automatically as findings resolve (a "Preview" note reminds you nothing is written to P6 until you Download), and each Apply shows exactly which relationship was changed and to which type.
+- **New "Dangling Type" column** (Dangling Start / Dangling Finish / both) beside each activity in the results.
+
 ### Changed
 - **The per-user data folder is now `.controlyx`** (Windows `%APPDATA%\.controlyx`, Mac/Linux `~/.controlyx`). Your existing data — recent projects, settings, cached schedules, knowledge base, database — is **migrated automatically on first run** from the previous `Controlyx` folder (and the older `P6EVMTool` / `.p6evmtool` folders), so nothing is lost.
 
