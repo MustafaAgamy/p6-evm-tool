@@ -237,6 +237,99 @@ def test_oos_corrected_file_requires_applied(test_server, tmp_path):
     assert out['ok'] is False
 
 
+# ── POST /api/dangling/* (Dangling — Resolve & Correct) ────────────────────
+
+# A100 --FF--> A200 --FS--> A300 : A200's start is dangling (only an FF predecessor). Changing
+# A100→A200 from FF to FS clears it.
+_DNG_XML = (
+    '<?xml version="1.0"?>\n'
+    '<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
+    '  <Project><ObjectId>1</ObjectId><Id>PJ</Id><Name>P</Name>'
+    '<DataDate>2026-02-01T00:00:00</DataDate>\n'
+    '    <WBS><ObjectId>10</ObjectId><Name>Works</Name><ParentObjectId></ParentObjectId></WBS>\n'
+    '    <Activity><ObjectId>1001</ObjectId><Id>A100</Id><Name>Alpha</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status><WBSObjectId>10</WBSObjectId>'
+    '<CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Activity><ObjectId>1002</ObjectId><Id>A200</Id><Name>Bravo</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status><WBSObjectId>10</WBSObjectId>'
+    '<CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Activity><ObjectId>1003</ObjectId><Id>A300</Id><Name>Charlie</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status><WBSObjectId>10</WBSObjectId>'
+    '<CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Relationship><PredecessorActivityObjectId>1001</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>1002</SuccessorActivityObjectId><Type>Finish to Finish</Type>'
+    '<Lag>0</Lag></Relationship>\n'
+    '    <Relationship><PredecessorActivityObjectId>1002</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>1003</SuccessorActivityObjectId><Type>Finish to Start</Type>'
+    '<Lag>0</Lag></Relationship>\n'
+    '  </Project>\n</APIBusinessObjects>\n'
+)
+
+
+def _dng_accepted(test_server, path, **override):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': path})
+    dng = parsed['result']['audit_modules']['modules']['dangling']
+    f = next(x for x in dng['findings'] if x['activity_id'] == 'A200')
+    fx = f['start_fix']
+    op = {'finding_id': f['finding_id'], 'activity_id': f['activity_id'], 'side': 'start',
+          'action': 'change', 'pred_id': fx['target_id'], 'succ_id': f['activity_id'],
+          'new_type': 'FS', 'new_lag_days': fx['current_lag_days']}
+    op.update(override)
+    return f['finding_id'], op
+
+
+def test_dangling_validate_resolves_after_accepting_change(test_server, tmp_path):
+    p = tmp_path / 'dng.xml'; p.write_text(_DNG_XML, encoding='utf-8')
+    fid, op = _dng_accepted(test_server, str(p))
+    _, out = _post_json(test_server, '/api/dangling/validate', {'xml_path': str(p), 'accepted': [op]})
+    assert out['ok'] is True
+    assert fid in out['resolved']
+    assert all(x['activity_id'] != 'A200' for x in out['findings'])
+
+
+def test_dangling_validate_missing_file_errors(test_server):
+    _, out = _post_json(test_server, '/api/dangling/validate',
+                        {'xml_path': '/nope/x.xml', 'accepted': []})
+    assert out['ok'] is False and 'Re-import' in out['error']
+
+
+def test_dangling_corrected_file_written(test_server, tmp_path):
+    from p6_evm.parser import parse_file
+    p = tmp_path / 'dng.xml'; p.write_text(_DNG_XML, encoding='utf-8')
+    _fid, op = _dng_accepted(test_server, str(p))
+    out_path = tmp_path / 'dng_corrected.xml'
+    _, out = _post_json(test_server, '/api/dangling/corrected-file',
+                        {'xml_path': str(p), 'output_path': str(out_path), 'accepted': [op]})
+    assert out['ok'] is True and out['applied'] >= 1
+    assert out_path.exists()
+    assert all(r['type'] != 'FF' for r in parse_file(str(out_path)).relationships)
+
+
+def test_dangling_corrected_file_requires_applied(test_server, tmp_path):
+    p = tmp_path / 'dng.xml'; p.write_text(_DNG_XML, encoding='utf-8')
+    out_path = tmp_path / 'x.xml'
+    _, out = _post_json(test_server, '/api/dangling/corrected-file',
+                        {'xml_path': str(p), 'output_path': str(out_path), 'accepted': []})
+    assert out['ok'] is False
+
+
+def test_health_recompute_rolls_up_module_scores(test_server):
+    # The live roll-up used to update the Dangling tab + Summary after in-memory fixes: same weighted
+    # engine as import. dangling=100 (w15) + float=80 (w15) → renormalised 50/50 → 100*.5 + 80*.5 = 90.
+    modules = {
+        'dangling': {'module': 'dangling', 'name': 'Dangling Activities', 'score': 100, 'kpis': {}, 'findings': []},
+        'float': {'module': 'float', 'name': 'Float Analysis', 'score': 0, 'kpis': {}, 'findings': [],
+                  'mgmt': {'float_health': 80, 'stats': {'total': 5}}},
+    }
+    _, out = _post_json(test_server, '/api/health/recompute', {'modules': modules})
+    assert out['ok'] is True
+    assert out['health']['score'] == 90.0
+    # raising the Dangling score raises the roll-up
+    modules['dangling']['score'] = 60
+    _, out2 = _post_json(test_server, '/api/health/recompute', {'modules': modules})
+    assert out2['health']['score'] < 90.0
+
+
 def test_oos_excel_export_unchanged_after_apply_all(test_server, tmp_path):
     """req 01 (regression): the Out-of-Sequence 'Export to Excel' reads the STORED snapshot
     from the DB, while 'Apply all recommended fixes' re-validates in memory only (writes
