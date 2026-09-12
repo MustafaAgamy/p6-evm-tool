@@ -36,6 +36,36 @@ def cost_by_wbs(activities, bac_by_activity, wbs):
     return {'total': round(total, 2), 'rows': rows}
 
 
+def value_by_code(activities, bac_by_activity, dim):
+    """Share of budget grouped by an activity-code dimension value (e.g. the
+    Type-of-Works / discipline code picked for the Contract Value section).
+
+    Returns ``{'total', 'rows': [{'name', 'amount', 'pct'}]}`` sorted by amount desc,
+    or ``None`` when the dimension is absent / carries no cost (caller falls back to the
+    WBS-branch split).
+    """
+    if not dim:
+        return None
+    totals = {}
+    for act in activities:
+        cost = bac_by_activity.get(act.get('object_id'), 0.0) or 0.0
+        if cost <= 0:
+            continue
+        val = (act.get('activity_codes') or {}).get(dim)
+        if not val:
+            continue
+        totals[val] = totals.get(val, 0.0) + cost
+    total = sum(totals.values())
+    if total <= 0:
+        return None
+    rows = [
+        {'name': name, 'amount': round(amount, 2),
+         'pct': round(100 * amount / total, 1) if total else 0.0}
+        for name, amount in sorted(totals.items(), key=lambda kv: -kv[1])
+    ]
+    return {'total': round(total, 2), 'rows': rows}
+
+
 def branch_stats(activities, bac_by_activity, wbs):
     """Per major-branch ``{name, count, cost, pct}`` for the annotated WBS org-chart,
     in WBS branch order. Generic across any project."""

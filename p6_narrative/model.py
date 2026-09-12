@@ -14,7 +14,7 @@ PROVENANCE = ('auto', 'calendar', 'drafted', 'fill')
 
 
 class Section:
-    def __init__(self, number, title, kind, provenance,
+    def __init__(self, number, title, kind, provenance='auto',
                  payload=None, note=None, editable=False):
         assert provenance in PROVENANCE, provenance
         self.number = number

@@ -1,219 +1,124 @@
-"""SLICE D — Word Section-5 (Project Calendars & Holidays) renderer.
+"""Word Section-8 (Project Calendars & Holidays) renderer — redesigned.
 
-Draws the LIVE *P6 Calendar Audit* feature's five pieces into a python-docx
-``Document`` from the SLICE A calendar payload (the widened Calendar-Audit
-passthrough carried on the narrative's calendar section), EXCLUDING the Baseline
-Start / Baseline Finish dates (those are cover meta, not Section-5 content and were
-already dropped from the dashboard block by the builder):
+Draws the four approved sub-blocks of §8 straight from the calendar section payload
+emitted by :func:`p6_narrative.report.build_report` (which mirrors the P6 Calendar
+Audit and already dropped the Shutdown-Periods / Baseline-Start / Baseline-Finish
+fields from its dashboard):
 
-    5.1)  Dashboard tiles      — a compact borderless label/value grid
-    5.2)  Monthly histogram    — a NATIVE, editable stacked working(green)/non-working
-                                 (red) per-month column chart (a real Word chart object,
-                                 not a rasterised image); falls back to a monthly stats
-                                 table (Month | Working | Non-working | Holidays | Hours)
-                                 only if the native chart cannot be built
-    5.3)  National holidays     — Date | Weekday | Reason
-    5.4)  Working hours         — Profile | Hours | Hours/Day | Days/Week | Note
-    5.5)  Comparison & usage    — Calendar | Hrs/Day | Days/Week | Non-working ahead |
-                                 Default?  followed by  Calendar | Activities | % | Role
+    x.1  Executive Dashboard   — KPI tiles (WITHOUT a Shutdown-Periods tile)
+    x.2  Calendar Timeline     — one NATIVE stacked histogram PER assigned calendar
+                                 (net-working days green + non-working days red, the
+                                 net-working-days value labelled on each bar), the
+                                 window running from the data date to baseline completion
+    x.3  Holidays              — a Date | Description table (no Days, no Weekday column)
+    x.4  Working Hours Profile — one card per calendar's primary hours pattern
 
-The module consumes B's template furniture (``docx_template``) and the native-chart
-builder (``docx_native.add_bar_chart_stacked``); it re-uses the shared numbered
-sub-heading + styled-table helpers so the section matches the rest of the report.
-Every block is guarded on the presence of its payload key, so a partial calendar
-payload renders whatever it has and never raises.
+Payload shape (``report._calendars``)::
+
+    {view:'calendars',
+     header:{calendar_count, activity_count},
+     dashboard:{…tiles, no shutdown…},
+     calendars:[{name, activity_count, months:[label,…],
+                 net_working_days:[int,…], nonworking_days:[int,…]}],
+     holidays:[{date, description}],
+     hours_profiles:[{name, hours, sub}]}
+
+The composite builders (tiles / data_table / sub-headings) are reused from
+:mod:`p6_narrative.docx_writer` (imported lazily so the two modules never form an import
+cycle); the histogram is the native chart from :mod:`p6_narrative.docx_native`. Every
+block is guarded on the presence of its payload key, so a partial calendar payload
+renders whatever it has and never raises.
 """
-import html as _h
-import math
-import re
+from p6_narrative import docx_native
 
-from docx.shared import Pt
-
-from p6_narrative import docx_native, docx_template
-
-
-# ── local helpers ─────────────────────────────────────────────────────────────
-def _esc(x):
-    return _h.escape('' if x is None else str(x))
-
-
-def _num(x):
-    return '' if x is None else str(x)
-
-
-def _days_per_week(sub):
-    """Pull the numeric days/week out of an hours-profile ``sub`` string
-    (e.g. '5 days/week' -> '5'); pass the string through if no number is found."""
-    m = re.search(r'(\d+(?:\.\d+)?)', str(sub or ''))
-    return m.group(1) if m else _num(sub)
-
-
-# Dashboard tiles — the LIVE Calendar Audit labels, EXCLUDING Baseline Start/Finish.
-# (label, dashboard-key, format)  format: None | 'date' | 'hrs'
+# Dashboard KPI tiles — the LIVE Calendar Audit labels, EXCLUDING Shutdown Periods
+# (and the date / baseline fields the producer already stripped).
+#   (label, dashboard-key, format)  format: None | 'hrs'
 _DASH_TILES = [
     ('Total Calendar Days', 'total_calendar_days', None),
     ('Working Days', 'total_working_days', None),
     ('Non-Working Days', 'total_nonworking_days', None),
     ('Holidays', 'total_holidays', None),
-    ('Exceptions', 'total_exceptions', None),
-    ('Shutdown Periods', 'shutdown_periods', None),
-    ('Avg Working Days / Month', 'avg_working_days_per_month', None),
-    ('Avg Working Hours / Day', 'avg_working_hours_per_day', 'hrs'),
-    ('Data Date', 'data_date', 'date'),
-    ('Forecast Finish', 'project_finish', 'date'),
+    ('Avg Work Days / Month', 'avg_working_days_per_month', None),
+    ('Avg Work Hours / Day', 'avg_working_hours_per_day', 'hrs'),
 ]
 
 
-# ── 5.1) dashboard tiles ───────────────────────────────────────────────────────
-def _dashboard_tiles(document, dash):
-    pairs = []
+def render_calendar(document, payload, chrome=None, number=8):
+    """Render Section-``number`` (Project Calendars & Holidays) into ``document`` from the
+    calendar ``payload``. ``chrome`` is accepted for signature stability and ignored (the
+    histogram is a native Word chart — no browser needed). The four sub-blocks are
+    numbered ``number.1 … number.4`` (the caller places the parent heading)."""
+    from p6_narrative import docx_writer as W   # lazy → no import cycle
+
+    p = payload or {}
+    header = p.get('header') or {}
+
+    cc = header.get('calendar_count')
+    ac = header.get('activity_count')
+    if cc is not None or ac is not None:
+        bits = []
+        if cc is not None:
+            bits.append('%s calendars assigned to activities' % cc)
+        if ac is not None:
+            bits.append('%s activities' % W._count(ac))
+        W.para(document, ' · '.join(bits), size=11, color=W.GREY, after=4)
+
+    # x.1) Executive Dashboard — KPI tiles (no Shutdown Periods)
+    dash = p.get('dashboard') or {}
+    tile_items = []
     for label, key, fmt in _DASH_TILES:
         v = dash.get(key)
         if v is None or v == '':
             continue
-        if fmt == 'date':
-            v = docx_template.full_date(v)
-        elif fmt == 'hrs':
-            v = '%s hrs' % v
-        pairs.append((label, str(v)))
-    if not pairs:
-        return None
+        v = '%s hrs' % v if fmt == 'hrs' else str(v)
+        tile_items.append((label, v))
+    if tile_items:
+        W._subhead(document, '%s.1' % number, 'Executive Dashboard')
+        W.tiles(document, tile_items, per_row=3, big_size=15, fill='F2F5F8',
+                border='D7E0EA', height=42)
 
-    per_row = 2                                   # two label/value tiles per row
-    nrows = math.ceil(len(pairs) / per_row)
-    table = document.add_table(rows=nrows, cols=per_row * 2)
-    table.autofit = True
-    for idx, (label, val) in enumerate(pairs):
-        r, base = divmod(idx, per_row)
-        c = base * 2
-        lab_cell = table.rows[r].cells[c]
-        val_cell = table.rows[r].cells[c + 1]
-        lr = lab_cell.paragraphs[0].add_run(label)
-        docx_template._set_run_font(lr, 'Calibri', size=8.5, color=docx_template.GREY)
-        vr = val_cell.paragraphs[0].add_run(val)
-        docx_template._set_run_font(vr, 'Calibri', size=10.5, bold=True,
-                                    color=docx_template.NAVY)
-    return table
+    # x.2) Calendar Timeline — one native stacked histogram per assigned calendar
+    calendars = p.get('calendars') or []
+    if calendars:
+        W._subhead(document, '%s.2' % number,
+                   'Calendar Timeline — net working days per month, per calendar '
+                   '(from data date)')
+        for cal in calendars:
+            name = cal.get('name') or '—'
+            acnt = cal.get('activity_count')
+            title = name if acnt in (None, '') else '%s — %s activities' % (name, W._count(acnt))
+            W.para(document, title, size=10.5, bold=True, color=W.SUBNAVY,
+                   before=6, after=2, font=W.CAL)
+            months = cal.get('months') or []
+            working = cal.get('net_working_days') or []
+            nonworking = cal.get('nonworking_days') or []
+            if months and docx_native.add_calendar_hist(
+                    document, months, working, nonworking) is None:
+                # native chart unavailable → an editable monthly table fallback
+                W.data_table(document, ['Month', 'Working', 'Non-working'],
+                             [[m, w, nw] for m, w, nw in
+                              zip(months, working, nonworking)],
+                             widths=[2.3, 2.3, 2.3])
 
+    # x.3) Holidays — Date | Description only
+    holidays = p.get('holidays') or []
+    if holidays:
+        W._subhead(document, '%s.3' % number, 'Holidays')
+        rows = [[h.get('date') or '', h.get('description') or ''] for h in holidays]
+        W.data_table(document, ['Date', 'Description'], rows, widths=[1.8, 5.1])
 
-# ── 5.2) monthly histogram (SVG → PNG) with table fallback ─────────────────────
-def _monthly_total(m):
-    """Total days in the month row (calendar days), from its per-day list when
-    present, else working + (holidays/exceptions) as a floor."""
-    days = m.get('days') or []
-    if days:
-        return len(days)
-    wd = m.get('working_days', 0) or 0
-    return wd + max(m.get('holidays', 0) or 0, m.get('exceptions', 0) or 0)
-
-
-def _monthly_table(document, months):
-    rows = []
-    for m in months:
-        total = _monthly_total(m)
-        wd = m.get('working_days', 0) or 0
-        nwd = max(total - wd, 0)
-        rows.append([m.get('label'), wd, nwd,
-                     m.get('holidays', 0), m.get('working_hours', 0)])
-    return docx_template.styled_table(
-        document, ['Month', 'Working', 'Non-working', 'Holidays', 'Hours'], rows)
-
-
-def _monthly(document, months, chrome):
-    """NATIVE stacked working(green)/non-working(red) per-month column chart — a real,
-    editable Word chart object, NOT a rasterised SVG. Falls back to the monthly stats
-    table only if the native chart cannot be built. ``chrome`` is now unused (kept for
-    signature stability with the caller)."""
-    months = months or []
-    cats = [m.get('label') or '' for m in months]
-    working = [m.get('working_days', 0) or 0 for m in months]
-    nonworking = [max(_monthly_total(m) - (m.get('working_days', 0) or 0), 0)
-                  for m in months]
-    drawing = docx_native.add_bar_chart_stacked(
-        document, cats,
-        [{'name': 'Working days', 'values': working, 'color': '22C55E'},
-         {'name': 'Non-working days', 'values': nonworking, 'color': 'EF4444'}],
-        'Working / non-working days by month')
-    if drawing is None:
-        _monthly_table(document, months)
-
-
-# ── 5.3) national holidays ─────────────────────────────────────────────────────
-def _holidays(document, rows):
-    hr = [[docx_template.full_date(h.get('date')) or h.get('display'),
-           h.get('weekday'), h.get('reason') or ''] for h in rows]
-    return docx_template.styled_table(document, ['Date', 'Weekday', 'Reason'], hr)
-
-
-# ── 5.4) working hours ─────────────────────────────────────────────────────────
-def _hours(document, profiles):
-    rows = [[p.get('name'), p.get('hours'), p.get('hours_per_day'),
-             _days_per_week(p.get('sub')), p.get('sub') or ''] for p in profiles]
-    return docx_template.styled_table(
-        document, ['Profile', 'Hours', 'Hours/Day', 'Days/Week', 'Note'], rows)
-
-
-# ── 5.5) comparison + usage ────────────────────────────────────────────────────
-def _comparison(document, rows):
-    cr = [[r.get('name'), r.get('hours_per_day'), r.get('days_per_week'),
-           r.get('exceptions'), 'Yes' if r.get('is_default') else 'No'] for r in rows]
-    return docx_template.styled_table(
-        document, ['Calendar', 'Hours/Day', 'Days/Week', 'Non-working ahead',
-                   'Default?'], cr)
-
-
-def _usage(document, rows):
-    ur = [[r.get('name'), r.get('activities'), '%s%%' % _num(r.get('pct')),
-           r.get('role')] for r in rows]
-    return docx_template.styled_table(
-        document, ['Calendar', 'Activities', '%', 'Role'], ur)
-
-
-# ── entry point ────────────────────────────────────────────────────────────────
-def render_calendar(document, payload, chrome, number=5):
-    """Render Section-``number`` (Project Calendars & Holidays) into ``document`` from
-    the SLICE A calendar ``payload``. ``chrome`` is a Chrome path for chart rasterising
-    (None → the monthly histogram falls back to a stats table). The five sub-blocks are
-    numbered ``number.1 … number.5`` so they follow the ACTUAL parent section number
-    (the caller places the parent heading)."""
-    p = payload or {}
-
-    # x.1) Dashboard tiles
-    dash = p.get('dashboard')
-    if dash:
-        docx_template.subheading(document, docx_template.format_number((number, 1)),
-                                 'Calendar dashboard')
-        _dashboard_tiles(document, dash)
-
-    # x.2) Monthly histogram (or fallback table)
-    monthly = p.get('monthly')
-    if monthly:
-        docx_template.subheading(document, docx_template.format_number((number, 2)),
-                                 'Working / non-working days by month')
-        _monthly(document, monthly, chrome)
-
-    # x.3) National holidays
-    holiday_dates = p.get('holiday_dates')
-    if holiday_dates:
-        docx_template.subheading(document, docx_template.format_number((number, 3)),
-                                 'National holidays')
-        _holidays(document, holiday_dates)
-
-    # x.4) Working hours
-    hours_profiles = p.get('hours_profiles')
-    if hours_profiles:
-        docx_template.subheading(document, docx_template.format_number((number, 4)),
-                                 'Working hours')
-        _hours(document, hours_profiles)
-
-    # x.5) Comparison + usage
-    comparison = p.get('comparison')
-    usage = p.get('usage')
-    if comparison or usage:
-        docx_template.subheading(document, docx_template.format_number((number, 5)),
-                                 'Calendar comparison & usage')
-        if comparison:
-            _comparison(document, comparison)
-        if usage:
-            _usage(document, usage)
+    # x.4) Working Hours Profile — one card per calendar's primary hours pattern
+    hours = p.get('hours_profiles') or []
+    if hours:
+        W._subhead(document, '%s.4' % number, 'Working Hours Profile')
+        items = []
+        for hp in hours:
+            name = hp.get('name') or '—'
+            val = hp.get('sub') or hp.get('hours') or ''
+            if hp.get('hours') and hp.get('sub'):
+                name = '%s · %s' % (name, hp.get('hours'))
+            items.append((name, str(val)))
+        W.tiles(document, items, per_row=min(len(items), 4) or 1, big_size=13,
+                fill='F2F5F8', border='D7E0EA', height=44, numcolor=W.SUBNAVY)
     return document

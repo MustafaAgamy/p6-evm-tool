@@ -1,914 +1,611 @@
-"""Render the Baseline Narrative Report (a :class:`NarrativeDoc` dict) to HTML.
+"""Render the redesigned Baseline Narrative Report (a :class:`NarrativeDoc` dict) to HTML.
 
-Used both for the on-screen tab and as the source for the PDF export (Chrome →
-PDF via :func:`page_html`). One renderer, one visual spec, so Preview == PDF.
+Used both for the on-screen tab and as the source for the PDF export (Chrome → PDF
+via :func:`page_html`). ONE renderer, ONE visual spec — the approved design is captured
+pixel-for-pixel in ``mockups/narrative_full.html`` and this module reproduces it exactly:
 
-This renderer draws STRAIGHT FROM THE DOC MODEL — every number, name, tree node,
-sequence step and edge is taken as-is from the payload; nothing is re-derived here.
-The producer (:mod:`p6_narrative.report`) now emits the FULL professional section
-set. The section KINDS handled here, and their payload shapes, are:
+  * A4 portrait pages, each framed by a double 1px border (``.b1`` outside ``.b2``).
+  * Page furniture on every page: a 3-logo header band (``.rhead``) and a centred
+    page-number footer (``.rfoot``). Front matter (cover + table of contents) is
+    unnumbered; body page-numbering starts at Section 1.
+  * Body font Times New Roman 12; section headings navy ``#1F4E79`` Calibri Light.
+  * All charts are native HTML/CSS (never pictures): horizontal value bars, stacked
+    green/red calendar histograms, box org-charts, two-per-row code tables.
 
-  overview   {paragraphs:[str], breakdown:[{world,count}], total, worldlist}   (v5)
-  keyvals    {rows:[{k,v}]}
-  ms_table   {columns, rows:[[name, date_str], …]}                             (v5)
-  timeline   {items:[{label, date, milestone?}]}
-  value      {total, rows:[{name, cost, pct}]}
-  scope      {intro, stats:[{v, l}], and EITHER
-                trades:[{trade, activity_count, areas:[
-                    {area, elements:[str], activity_count, sentence} |
-                    {areas, members:[str], same_as, sentence}]}]   # per-trade x area prose
-                OR blocks:[{discipline, activity_count, cost, paragraph,
-                            packages:[str]}]}                       # discipline fallback
-  table      {columns, rows:[[…]]}  ·  or calendars view (SLICE A widened):
-             {view:'calendars', calendars:[{name,working_days,shift,activities}],
-              holidays:[{range,name,days}],                        # legacy (flat fallback)
-              dashboard:{…tiles…}, monthly:[{label,working_days,working_hours,…}],
-              holiday_dates:[{date,display,weekday,reason}], hours_profiles:[…],
-              comparison:[{name,hours_per_day,days_per_week,activities,exceptions}],
-              usage:[{name,role,activities,pct}]}
-  wbs_tree   {worlds:[{name, layout:'tree'|'columns', root:node}]}             (v5)
-             node = {name, children:[node,…], more?:bool}
-  codes      {tables:[{dimension, rows:[{code, description}]}]}
-  idanatomy  {segments:[{value, label}], id}
-  seq        {worlds:[{world, fronts:[{title, sequence:[str], instances:[str],
-                              activities:[{id,name,wbs}]}]}]}                   (v5, editable)
-  interfaces {macro:[world,…], notes:[str], edges:[[a,b], …]}                   (v5)
-  prose      {paragraphs:[str], bullets?:[str]}
-  costbars   {rows:[{name, pct}]}
-  cashflow   {points:[{pct}]}
-  image      {image: dataURL}
+This renderer draws STRAIGHT FROM THE DOC MODEL — every number, name, row, tree node
+and bar comes as-is from the section payload; nothing is re-derived here. The producer
+(:mod:`p6_narrative.report`) emits exactly the ten approved sections (renumbered 1..N):
 
-── Shared formatting spec (NARRATIVE_RECONCILIATION.md §B) ────────────────────
-A4 portrait, ~2 cm margins, one font family (Segoe UI / Calibri), navy numbered
-H1 section headings + H2 sub-headings, tables with a navy header row + thin
-borders + zebra rows. See ``_CSS`` and the print notes below.
+  1  overview     {paragraphs:[str,str], breakdown:[{world,count}], total}
+  2  image        {image:dataURL, caption?}                      (omitted when no layout)
+  3  keyvals      {rows:[{k,v}]}
+  4  ms_table     {columns, rows:[[name, date_str], …]}          (Major Milestones)
+  5  ms_table     {columns, rows:[[name, date_str], …]}          (Key Dates)
+  6  value_bars   {total, unit?, rows:[{name, amount, pct}]}
+  7  scope        {disciplines:[{name, pct, cost?}],
+                   sections:[{discipline, buildings:[{name, elements:[str]}]}]}
+  8  table        {view:'calendars', header:{calendar_count, activity_count},
+                   dashboard:{…tiles, no shutdown…},
+                   calendars:[{name, monthly:[{label, working_days, nonworking_days}], …}],
+                   holidays:[{date, description}], hours_profiles:[{name, hours, sub}]}
+  9  wbs_tree     {overview:{name, children:[{name}]},
+                   branches:[{name, columns:[[l2, [[l3, [l4,…]], …]], …], depth}]}
+ 10  codes        {tables:[{dimension, rows:[{code, description}]}]}
 
-── Per-page furniture (issues #2/#4/#5) ──────────────────────────────────────
-The document body is wrapped in a single ``<table class="n-doc">`` whose
-``<thead>`` (logo/title band) and ``<tfoot>`` (footer band) Chrome REPEATS on
-every printed page and reserves space for — so nothing overlaps. A separate
-``position:fixed; inset:0`` ``.n-frame`` element draws the page border: fixed
-boxes are repainted inside the page area on every Chrome-printed page, so the
-frame appears on every page and can never overflow onto the next one, even when
-a section straddles a page break. Page numbers: Chrome does not expose
-``counter(page)`` to normal/fixed elements (only to ``@page`` margin boxes, which
-Chrome does not render), so the footer carries a clearly-marked ``[[PAGE]]`` /
-``[[PAGES]]`` placeholder the caller's Chrome print step can fill (or overlay via
-``displayHeaderFooter`` + a ``footerTemplate`` — the ``@page`` margin leaves room).
-
-Editable prose (overview paragraphs, scope paragraphs, any ``editable`` section)
-carries ``data-section`` / ``data-field`` / ``data-editable`` hooks; sequence
-packages keep ``.fl-box`` and front titles keep ``.fr-title`` so a later UI layer
-can wire inline editing. No JS is emitted.
+``meta`` carries the page furniture: project_name, location, contract_type,
+contract_value, data_date, revision, logos{owner,consultant,contractor}.
 """
 import html as _h
+
+_ARROW = '➢'         # ➢ building bullet
+_CHECK = '✓'         # ✓ element bullet
+_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 
 def _esc(x):
     return _h.escape('' if x is None else str(x))
 
 
-def _money(v):
+def _num(v):
+    """Group-format an integer-ish value ('2,507'); pass through anything else."""
     try:
-        return f'{float(v):,.0f}'
+        return format(int(round(float(v))), ',')
     except (TypeError, ValueError):
         return _esc(v)
 
 
-# ── WBS nodes (v5) ────────────────────────────────────────────────────────────
-def _topdown_node(node, depth=0):
-    """Small WBS: a centred top-down org-chart node (CSS ``.tree`` connectors).
+def _fmt_full(v, cur=''):
+    try:
+        return '%s%s' % (cur, format(float(v), ',.0f'))
+    except (TypeError, ValueError):
+        return _esc(v)
 
-    Renders the EXACT P6 hierarchy at full depth; a node's children sit under IT,
-    so no false parent/sibling relationship is ever implied. ``more`` → muted chip.
-    """
-    name = _esc(node.get('name'))
-    if node.get('more'):
-        return '<div class="wt-box wt-more">%s</div>' % name
-    cls = 'wt-root' if depth == 0 else ('wt-l1' if depth == 1 else 'wt-n')
-    out = '<div class="wt-box %s">%s</div>' % (cls, name)
-    kids = node.get('children') or []
-    if kids:
-        lis = ''.join('<li>%s</li>' % _topdown_node(k, depth + 1) for k in kids)
-        out += '<ul>%s</ul>' % lis
+
+def _fmt_abbrev(v, cur=''):
+    """Compact money: 72,500,000 → 'USD 72.5M', trailing zeros stripped."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return _esc(v)
+    a = abs(f)
+    if a >= 1e9:
+        s = ('%.2f' % (f / 1e9)).rstrip('0').rstrip('.') + 'B'
+    elif a >= 1e6:
+        s = ('%.2f' % (f / 1e6)).rstrip('0').rstrip('.') + 'M'
+    elif a >= 1e3:
+        s = ('%.1f' % (f / 1e3)).rstrip('0').rstrip('.') + 'K'
+    else:
+        s = format(f, ',.0f')
+    return '%s%s' % (cur, s)
+
+
+def _fmt_pct(p):
+    try:
+        f = float(p)
+    except (TypeError, ValueError):
+        return _esc(p)
+    return ('%d' % f) if f == int(f) else ('%.1f' % f)
+
+
+def _currency_prefix(meta, payload=None):
+    """Best-available currency token ('USD ') for the money labels, or ''."""
+    for src in (payload or {}, meta or {}):
+        for key in ('currency', 'unit'):
+            tok = str(src.get(key) or '').strip().split(' ')[0] if src.get(key) else ''
+            if tok and tok.isalpha() and len(tok) <= 4:
+                return tok.upper() + ' '
+    return ''
+
+
+# ── page furniture ────────────────────────────────────────────────────────────
+def _rhead(meta):
+    """The repeating 3-logo header band. Real logo data-URLs when present, else the
+    dashed placeholder boxes from the approved mockup."""
+    logos = (meta or {}).get('logos') or {}
+    cells = ''
+    for key, label in (('owner', 'OWNER'), ('consultant', 'CONSULTANT'),
+                       ('contractor', 'CONTRACTOR')):
+        src = logos.get(key)
+        if src:
+            inner = '<img class="lgimg" src="%s" alt="%s logo">' % (_esc(src), _esc(key))
+        else:
+            inner = '<div class="box">%s<br>logo</div>' % label
+        cells += '<div class="lg">%s</div>' % inner
+    return '<div class="rhead">%s</div>' % cells
+
+
+def _page(meta, body, footer=''):
+    return ('<div class="page"><div class="b1"><div class="b2">%s%s'
+            '<div class="rfoot">%s</div></div></div></div>'
+            % (_rhead(meta), body, _esc(footer)))
+
+
+# ── shared horizontal bar chart (§6 value + §7 disciplines) ───────────────────
+def _bars(rows, name_key, value_fn):
+    if not rows:
+        return '<p class="note">No cost loading in the file.</p>'
+    maxp = max((float(r.get('pct') or 0) for r in rows), default=0) or 1.0
+    out = ''
+    for r in rows:
+        pct = float(r.get('pct') or 0)
+        width = max(pct / maxp * 100.0, 0.0)
+        label = value_fn(r)
+        pct_over_fill = width >= 99.5
+        pcls = ' style="color:#dbe6f2"' if pct_over_fill else ''
+        out += ('<div class="bar"><div class="lab">%s</div>'
+                '<div class="track"><div class="fill" style="width:%.4g%%">%s</div>'
+                '<div class="pct"%s>%s%%</div></div></div>'
+                % (_esc(r.get(name_key)), width, _esc(label), pcls, _fmt_pct(pct)))
     return out
 
 
-def _indented_node(node, depth=1):
-    """Large WBS: one compact indented column entry (CSS ``.it-list`` guides).
-
-    Full depth, exact parent→child via the nested ``<ul>`` guides. ``more`` → muted.
-    """
-    name = _esc(node.get('name'))
-    if node.get('more'):
-        return '<span class="it-box it-more">%s</span>' % name
-    cls = 'it-l1' if depth == 1 else 'it-n'
-    out = '<span class="it-box %s">%s</span>' % (cls, name)
-    kids = node.get('children') or []
-    if kids:
-        lis = ''
-        for k in kids:
-            if k.get('more'):
-                lis += '<li class="it-more">%s</li>' % _esc(k.get('name'))
-            else:
-                lis += '<li>%s</li>' % _indented_node(k, depth + 1)
-        out += '<ul class="it-list">%s</ul>' % lis
-    return out
-
-
-# ── flow chart (package sequence / macro flow) ───────────────────────────────
-def _flow(seq):
-    if not seq:
-        return '<span class="muted">— derived from schedule logic —</span>'
-    boxes = ' <span class="fl-arr">▶</span> '.join(
-        '<span class="fl-box">%s</span>' % _esc(s) for s in seq)
-    return '<div class="flow">%s</div>' % boxes
-
-
-# ── overview (v5) ─────────────────────────────────────────────────────────────
-def _overview(p, number):
+# ── §1 Project Overview ───────────────────────────────────────────────────────
+def _overview(p, number, title, meta, cur):
     paras = ''.join(
         '<p data-section="%s" data-field="paragraphs.%d" data-editable="1">%s</p>'
         % (_esc(number), i, _esc(t)) for i, t in enumerate(p.get('paragraphs') or []))
     breakdown = p.get('breakdown') or []
-    cards = ''.join(
-        '<div class="stat"><div class="stat-n">%s</div><div class="stat-l">%s</div></div>'
-        % (_esc(b.get('count')), _esc(b.get('world'))) for b in breakdown)
-    return ('%s'
-            '<div class="subh">Baseline composition</div>'
-            '<div class="stats">%s</div>'
-            '<div class="total">Total: <b>%s</b> baseline activities across %d major scopes.</div>'
-            % (paras, cards, _esc(p.get('total')), len(breakdown)))
+    tiles = ''.join(
+        '<div class="tile"><div class="n">%s</div><div class="l">%s</div></div>'
+        % (_num(b.get('count')), _esc(b.get('world'))) for b in breakdown)
+    total = ('<p style="margin-top:12px;font-size:12.5px">Total: '
+             '<b style="color:#1F4E79">%s</b> baseline activities across %d major scopes.</p>'
+             % (_num(p.get('total')), len(breakdown)))
+    return ('%s<div class="subblue">Baseline composition</div>'
+            '<div class="tiles">%s</div>%s' % (paras, tiles, total))
 
 
-# ── milestones (v5) ───────────────────────────────────────────────────────────
-def _ms_table(p, number):
+# ── §2 Project Layout ─────────────────────────────────────────────────────────
+def _image(p, number, title, meta, cur):
+    img = p.get('image')
+    cap = p.get('caption') or 'Project general layout'
+    if img:
+        fig = ('<img src="%s" alt="%s" style="max-width:100%%;display:block;margin:0 auto;'
+               'border:1px solid #b9c6d3;border-radius:6px">' % (_esc(img), _esc(cap)))
+    else:
+        fig = ('<div style="border:1px solid #b9c6d3;background:#f4f7fa;height:150px;'
+               'display:flex;align-items:center;justify-content:center;color:#7a8794;'
+               'font-style:italic;font-size:13px">[ site layout drawing ]</div>')
+    return ('%s<div style="text-align:center;font-size:10.5px;color:#5a5f66;'
+            'font-style:italic;margin-top:5px">Figure 1 &mdash; %s</div>' % (fig, _esc(cap)))
+
+
+# ── §3 Project Brief ──────────────────────────────────────────────────────────
+def _keyvals(p, number, title, meta, cur):
+    rows = ''.join('<tr><td class="k">%s</td><td>%s</td></tr>'
+                   % (_esc(r.get('k')), _esc(r.get('v'))) for r in (p.get('rows') or []))
+    if not rows:
+        rows = '<tr><td colspan="2" class="note">&mdash;</td></tr>'
+    return ('<p>The key contractual and programme data for the project, as recorded in '
+            'the baseline schedule.</p><table class="kv">%s</table>' % rows)
+
+
+# ── §4 / §5 milestone + key-date tables ───────────────────────────────────────
+def _ms_table(p, number, title, meta, cur):
+    is_keydates = 'key date' in (title or '').lower()
+    intro = ('All Start and Finish milestones defined in the baseline schedule, in '
+             'chronological order.' if is_keydates else
+             'The major milestones defined in the baseline schedule (Start and Finish), '
+             'in chronological order.')
     cols = p.get('columns') or ['Milestone', 'Date']
-    head = ''.join('<th>%s</th>' % _esc(c) for c in cols)
+    head = '<tr>%s</tr>' % ''.join(
+        '<th%s>%s</th>' % (' style="width:34%"' if i else '', _esc(c))
+        for i, c in enumerate(cols))
     rows = p.get('rows') or []
-    body = ''.join('<tr><td>%s</td><td class="ms-d">%s</td></tr>'
+    body = ''.join('<tr><td>%s</td><td>%s</td></tr>'
                    % (_esc(r[0] if len(r) > 0 else ''), _esc(r[1] if len(r) > 1 else ''))
                    for r in rows)
     if not body:
-        body = ('<tr><td colspan="%d" class="muted">no finish milestones defined</td></tr>'
+        body = ('<tr><td colspan="%d" class="note">No Start/Finish milestones defined.</td></tr>'
                 % max(len(cols), 1))
-    return ('<p class="lead">Key completion and control milestones from the baseline.</p>'
-            '<table class="n-t ms-table"><thead><tr>%s</tr></thead><tbody>%s</tbody></table>'
-            % (head, body))
+    return '<p>%s</p><table class="dt">%s%s</table>' % (intro, head, body)
 
 
-# ── WBS — ADAPTIVE (v5) ───────────────────────────────────────────────────────
-def _wbs_tree(p, number):
-    overview = p.get('overview')
-    branches = p.get('branches') or p.get('worlds') or []
-    parts = []
-    if overview:                                         # (a) overview org-chart of major branches
-        parts.append('<div class="subh">Project breakdown</div>'
-                     '<div class="tree"><ul><li>%s</li></ul></div>' % _topdown_node(overview, 0))
-    for w in branches:                                   # (b) each major branch, down to level 4
-        root = w.get('root') or {}
-        if w.get('layout') == 'columns':                 # large → compact multi-column tree
-            cols = ''.join('<div class="wbs-col">%s</div>' % _indented_node(c, 1)
-                           for c in (root.get('children') or []))
-            parts.append('<div class="wbs-lg"><div class="wt-box wt-root">%s</div>'
-                         '<div class="wbs-cols">%s</div></div>'
-                         % (_esc(root.get('name') or w.get('name')), cols))
-        else:                                            # small → centred top-down tree
-            parts.append('<div class="tree"><ul><li>%s</li></ul></div>' % _topdown_node(root, 0))
-    return ('<p class="lead">The actual P6 breakdown — an overview of the major branches, then '
-            'each major branch expanded to level 4. Small branches render as a centered tree; '
-            'large branches as a compact multi-column tree. Structure only; the execution order '
-            'is in the Sequence of Work section.</p>%s' % ''.join(parts))
+# ── §6 Contract Value ─────────────────────────────────────────────────────────
+def _value_bars(p, number, title, meta, cur):
+    cur = _currency_prefix(meta, p) or cur
+    banner = ('<div class="banner"><span class="l">Total Contract Value</span>'
+              '<span class="v">%s</span></div>' % _fmt_full(p.get('total'), cur))
+    bars = _bars(p.get('rows') or [], 'name', lambda r: _fmt_abbrev(r.get('amount'), cur))
+    return ('<p>The contract value and its distribution by type of work (the discipline '
+            'activity code), from cost loading.</p>%s%s' % (banner, bars))
 
 
-# ── Sequence of Work (v5) ─────────────────────────────────────────────────────
-def _seq(p, number):
-    blocks = []
-    for w in p.get('worlds') or []:
-        fronts = []
-        for f in w.get('fronts') or []:
-            insts = f.get('instances') or []
-            applies = ''
-            if len(insts) >= 2:
-                shown = ' · '.join(_esc(i) for i in insts[:14])
-                if len(insts) > 14:
-                    shown += ' <span class="muted">+%d more</span>' % (len(insts) - 14)
-                applies = '<div class="fr-meta">Applies to: %s</div>' % shown
-            acts = ''.join('<tr><td class="mono">%s</td><td>%s</td><td class="muted">%s</td></tr>'
-                           % (_esc(a.get('id')), _esc(a.get('name')), _esc(a.get('wbs')))
-                           for a in (f.get('activities') or []))
-            fronts.append(
-                '<div class="front" data-section="%s" data-editable="1">'
-                '<div class="fr-title">%s</div>%s%s'
-                '<details><summary>P6 activities</summary>'
-                '<table class="n-t"><thead><tr><th>ID</th><th>Activity</th><th>WBS</th></tr></thead>'
-                '<tbody>%s</tbody></table></details></div>'
-                % (_esc(number), _esc(f.get('title') or 'front'),
-                   _flow(f.get('sequence') or []), applies, acts))
-        blocks.append('<h2 class="subh2">%s</h2>%s' % (_esc(w.get('world')), ''.join(fronts)))
-    return ('<p class="lead">How each scope is executed, at the major work-package level. The '
-            'sequence is derived from the schedule’s own logic; the underlying P6 '
-            'activities are available on demand under each block.</p>'
-            '%s' % ''.join(blocks))
-
-
-# ── Interfaces & Dependencies (v5) ────────────────────────────────────────────
-def _interfaces(p, number):
-    macro = ' <span class="fl-arr">▶</span> '.join(
-        '<span class="fl-box world">%s</span>' % _esc(x) for x in (p.get('macro') or []))
-    notes = ''.join('<li>%s</li>' % _esc(n) for n in (p.get('notes') or []))
-    edges = ''.join('<li><b>%s</b> <span class="fl-arr">▶</span> <b>%s</b></li>'
-                    % (_esc(e[0] if len(e) > 0 else ''), _esc(e[1] if len(e) > 1 else ''))
-                    for e in (p.get('edges') or []))
-    if not edges:
-        edges = '<li class="muted">no strong cross-front dependencies detected</li>'
-    return ('<p class="lead">How the major scopes interact and hand off to each other.</p>'
-            '<div class="subh">Macro execution flow</div><div class="flow">%s</div>'
-            '<ul class="notes">%s</ul>'
-            '<div class="subh">Key building / front dependencies</div>'
-            '<ul class="edges">%s</ul>' % (macro, notes, edges))
-
-
-# ── prose (restored) ──────────────────────────────────────────────────────────
-def _prose(p, number):
-    out = ''.join('<p>%s</p>' % _esc(t) for t in (p.get('paragraphs') or []))
-    if p.get('bullets'):
-        out += '<ul class="bn-bul">%s</ul>' % ''.join('<li>%s</li>' % _esc(b)
-                                                      for b in p['bullets'])
-    return out or '<p class="bn-empty">—</p>'
-
-
-# ── keyvals (restored) ────────────────────────────────────────────────────────
-def _keyvals(p, number):
-    rows = ''.join('<tr><td class="bn-k">%s</td><td>%s</td></tr>'
-                   % (_esc(r.get('k')), _esc(r.get('v'))) for r in (p.get('rows') or []))
-    if not rows:
-        rows = '<tr><td colspan="2" class="bn-empty">—</td></tr>'
-    return '<div class="bn-tw"><table class="n-t bn-t">%s</table></div>' % rows
-
-
-# ── table (restored) ──────────────────────────────────────────────────────────
-def _table(p, number):
-    cols = ''.join('<th>%s</th>' % _esc(c) for c in (p.get('columns') or []))
-    body = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % _esc(c) for c in row)
-                   for row in (p.get('rows') or []))
-    if not body:
-        body = ('<tr><td colspan="%d" class="bn-empty">—</td></tr>'
-                % max(len(p.get('columns') or []), 1))
-    head = '<thead><tr>%s</tr></thead>' % cols if cols else ''
-    return '<div class="bn-tw"><table class="n-t bn-t">%s<tbody>%s</tbody></table></div>' % (head, body)
-
-
-# ── calendars view (restored — dispatched from kind 'table') ──────────────────
-_DASH_TILES = [
-    ('total_calendar_days', 'Calendar days'),
-    ('total_working_days', 'Working days'),
-    ('total_nonworking_days', 'Non-working days'),
-    ('total_holidays', 'Holiday days'),
-    ('shutdown_periods', 'Shutdown periods'),
-    ('avg_working_days_per_month', 'Avg working days/mo'),
-    ('avg_working_hours_per_day', 'Avg working hrs/day'),
-]
-
-
-def _cal_flat(p):
-    """Legacy flat render — assigned-calendar list + named holidays/shutdowns."""
-    crows = ''.join(
-        '<tr><td>%s</td><td>%s</td><td>%s</td><td class="bn-num">%s</td></tr>'
-        % (_esc(c.get('name')), _esc(c.get('working_days')), _esc(c.get('shift')),
-           _esc(c.get('activities'))) for c in (p.get('calendars') or []))
-    cal = ('<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Calendar</th>'
-           '<th>Working days</th><th>Shift</th><th>Assigned</th></tr></thead>'
-           '<tbody>%s</tbody></table></div>' % crows)
-    hols = p.get('holidays') or []
-    if hols:
-        hrows = ''.join(
-            '<tr><td>%s</td><td>%s</td><td class="bn-num">%s</td></tr>'
-            % (_esc(h.get('range')), _esc(h.get('name')), _esc(h.get('days'))) for h in hols)
-        cal += ('<div class="bn-cap">Holidays &amp; shutdowns (named in Calendar Audit):</div>'
-                '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>When</th><th>Name</th>'
-                '<th>Days</th></tr></thead><tbody>%s</tbody></table></div>' % hrows)
-    return cal
-
-
-def _cal_dashboard(dash):
-    tiles = ''
-    for key, lbl in _DASH_TILES:
-        v = dash.get(key)
-        if v is None:
-            continue
-        tiles += ('<div class="bn-statc"><div class="bn-statv">%s</div>'
-                  '<div class="bn-statl">%s</div></div>' % (_esc(v), _esc(lbl)))
-    if not tiles:
-        return ''
-    return ('<div class="bn-statwrap"><div class="bn-stath">Calendar at a glance</div>'
-            '<div class="bn-stats">%s</div></div>' % tiles)
-
-
-def _cal_monthly(months):
-    rows = ''.join(
-        '<tr><td>%s</td><td class="bn-num">%s</td><td class="bn-num">%s</td>'
-        '<td class="bn-num">%s</td><td>%s</td></tr>'
-        % (_esc(m.get('label')), _esc(m.get('working_days')), _esc(m.get('working_hours')),
-           _esc(m.get('exceptions', 0)), _esc(m.get('flag') or '')) for m in months)
-    return ('<div class="bn-cap">Working / non-working days by month (primary calendar):</div>'
-            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Month</th>'
-            '<th>Working days</th><th>Working hrs</th><th>Exceptions</th><th>Note</th></tr>'
-            '</thead><tbody>%s</tbody></table></div>' % rows)
-
-
-def _cal_holiday_dates(rows):
-    hr = ''.join(
-        '<tr><td>%s</td><td>%s</td><td>%s</td></tr>'
-        % (_esc(h.get('display') or h.get('date')), _esc(h.get('weekday')),
-           _esc(h.get('reason') or '')) for h in rows)
-    return ('<div class="bn-cap">Dated holidays (primary calendar):</div>'
-            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Date</th>'
-            '<th>Weekday</th><th>Name</th></tr></thead><tbody>%s</tbody></table></div>' % hr)
-
-
-def _cal_hours(profiles):
-    pr = ''.join(
-        '<tr><td>%s</td><td>%s</td><td class="bn-num">%s</td><td>%s</td></tr>'
-        % (_esc(pf.get('name')), _esc(pf.get('hours')), _esc(pf.get('hours_per_day')),
-           _esc(pf.get('sub') or '')) for pf in profiles)
-    return ('<div class="bn-cap">Working-hours profile:</div>'
-            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Pattern</th>'
-            '<th>Hours</th><th>Hrs/day</th><th>Week</th></tr></thead>'
-            '<tbody>%s</tbody></table></div>' % pr)
-
-
-def _cal_comparison(rows):
-    cr = ''.join(
-        '<tr><td>%s</td><td class="bn-num">%s</td><td class="bn-num">%s</td>'
-        '<td class="bn-num">%s</td><td class="bn-num">%s</td></tr>'
-        % (_esc(r.get('name')), _esc(r.get('hours_per_day')), _esc(r.get('days_per_week')),
-           _esc(r.get('activities')), _esc(r.get('exceptions'))) for r in rows)
-    return ('<div class="bn-cap">Calendar comparison:</div>'
-            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Calendar</th>'
-            '<th>Hrs/day</th><th>Days/week</th><th>Activities</th><th>Exceptions</th></tr>'
-            '</thead><tbody>%s</tbody></table></div>' % cr)
-
-
-def _cal_usage(rows):
-    ur = ''.join(
-        '<tr><td>%s</td><td>%s</td><td class="bn-num">%s</td><td class="bn-num">%s%%</td></tr>'
-        % (_esc(r.get('name')), _esc(r.get('role')), _esc(r.get('activities')),
-           _esc(r.get('pct'))) for r in rows)
-    return ('<div class="bn-cap">Calendar usage:</div>'
-            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Calendar</th>'
-            '<th>Role</th><th>Activities</th><th>Share</th></tr></thead>'
-            '<tbody>%s</tbody></table></div>' % ur)
-
-
-def _calendars(p, number):
-    # SLICE A rich render when the widened payload is present; otherwise the flat render.
-    rich_keys = ('dashboard', 'monthly', 'holiday_dates', 'hours_profiles',
-                 'comparison', 'usage')
-    if not any(p.get(k) for k in rich_keys):
-        return _cal_flat(p)
-
-    out = ''
-    if p.get('dashboard'):
-        out += _cal_dashboard(p['dashboard'])
-    # assigned-calendar list stays useful as the header table
-    if p.get('calendars'):
-        out += _cal_flat({'calendars': p['calendars']})
-    if p.get('comparison'):
-        out += _cal_comparison(p['comparison'])
-    if p.get('usage'):
-        out += _cal_usage(p['usage'])
-    if p.get('hours_profiles'):
-        out += _cal_hours(p['hours_profiles'])
-    if p.get('monthly'):
-        out += _cal_monthly(p['monthly'])
-    if p.get('holiday_dates'):
-        out += _cal_holiday_dates(p['holiday_dates'])
+# ── §7 Scope of Work ──────────────────────────────────────────────────────────
+def _scope(p, number, title, meta, cur):
+    cur = _currency_prefix(meta, p) or cur
+    disciplines = p.get('disciplines') or []
+    bars = _bars(disciplines, 'name',
+                 lambda r: _fmt_abbrev(r.get('cost'), cur) if r.get('cost') else '')
+    out = ('<p>The scope is summarised by discipline (share of contract value), then set '
+           'out per building and element, read from the activity codes.</p>'
+           '<div class="subblue">Scope by discipline &mdash; share of contract value</div>%s'
+           % bars)
+    for i, sec in enumerate(p.get('sections') or [], 1):
+        disc = sec.get('discipline') or 'Works'
+        out += ('<div class="subctr" data-section="%s" data-editable="1">%s.%d&nbsp;&nbsp;'
+                'Detailed %s Scope of Work includes:&mdash;</div>'
+                % (_esc(number), _esc(number), i, _esc(disc)))
+        for b in sec.get('buildings') or []:
+            out += ('<div class="arw"><span class="a">%s</span> %s</div>'
+                    % (_ARROW, _esc(b.get('name'))))
+            for el in b.get('elements') or []:
+                out += ('<div class="chk"><span class="c">%s</span> %s</div>'
+                        % (_CHECK, _esc(el)))
     return out
 
 
-# ── codes (restored) ──────────────────────────────────────────────────────────
-def _codes(p, number):
-    # Comment 9 — minimize: one compact reference table (Code type / Code / Description)
-    # instead of a separate framed table per dimension.
-    tables = p.get('tables') or []
-    if not tables:
-        return '<p class="bn-empty">No activity codes in the file.</p>'
-    body = ''
-    for t in tables:
-        rows = t.get('rows') or []
-        for i, r in enumerate(rows):
-            grp = _esc(t.get('dimension')) if i == 0 else ''
-            body += ('<tr><td class="bn-k">%s</td><td class="bn-code">%s</td><td>%s</td></tr>'
-                     % (grp, _esc(r.get('code')), _esc(r.get('description'))))
-    return ('<p class="lead">The activity-code dictionary, compacted into one reference table.</p>'
-            '<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Code type</th>'
-            '<th>Code</th><th>Description</th></tr></thead><tbody>%s</tbody></table></div>' % body)
+# ── §8 Project Calendars & Holidays ───────────────────────────────────────────
+_DASH_TILES = [
+    ('total_calendar_days', 'Total Calendar Days'),
+    ('total_working_days', 'Working Days'),
+    ('total_nonworking_days', 'Non-Working Days'),
+    ('total_holidays', 'Holidays'),
+    ('avg_working_days_per_month', 'Avg Work Days / Month'),
+    ('avg_working_hours_per_day', 'Avg Work Hours / Day'),
+]
 
 
-# ── costbars (restored) ───────────────────────────────────────────────────────
-def _costbars(p, number):
-    rows = ''
-    for r in (p.get('rows') or []):
-        pct = r.get('pct') or 0
-        rows += ('<div class="bn-bar"><span class="bn-bn">%s</span>'
-                 '<span class="bn-track"><span class="bn-fill" style="width:%s%%"></span></span>'
-                 '<span class="bn-bv">%s%%</span></div>'
-                 % (_esc(r.get('name')), pct, pct))
-    return '<div class="bn-bars">%s</div>' % (rows or '<p class="bn-empty">—</p>')
+def _cal_months(cal):
+    """Normalise one calendar's monthly working/non-working series."""
+    months = cal.get('monthly')
+    if months:
+        return [{'label': m.get('label'),
+                 'working': int(m.get('working_days') or 0),
+                 'nonworking': int(m.get('nonworking_days') or 0)} for m in months]
+    wd = cal.get('net_working_days') or []
+    nwd = cal.get('nonworking_days') or []
+    labels = cal.get('months') or _MONTHS
+    out = []
+    for i, w in enumerate(wd):
+        out.append({'label': labels[i] if i < len(labels) else '',
+                    'working': int(w or 0),
+                    'nonworking': int(nwd[i]) if i < len(nwd) else 0})
+    return out
 
 
-# ── cashflow (restored) ───────────────────────────────────────────────────────
-def _cashflow(p, number):
-    # Monthly cash-flow BAR chart (Ibrahim's comment 12 — bars, not an S-curve).
-    months = p.get('monthly') or []
+def _cal_hist(cal):
+    months = _cal_months(cal)
     if not months:
-        return '<p class="bn-empty">No cost loading in the file.</p>'
-    n = len(months)
-    bw = 30 if n <= 16 else max(12, int(520 / n))
-    gap = max(6, int(bw * 0.4))
-    left, top, plot_h = 20, 24, 180
-    base_y = top + plot_h
-    W = left + 16 + n * (bw + gap)
-    H = base_y + 46
-    max_cost = max((m.get('cost') or 0) for m in months) or 1
-    show_every = 1 if n <= 13 else (2 if n <= 26 else 3)
-    bars = ''
-    for i, m in enumerate(months):
-        x = left + i * (bw + gap) + gap / 2
-        hgt = plot_h * (m.get('cost') or 0) / max_cost
-        bars += '<rect x="%.0f" y="%.0f" width="%d" height="%.0f" rx="2" fill="#2E75B6"/>' % (
-            x, base_y - hgt, bw, max(hgt, 0))
-        if i % show_every == 0:
-            lx = x + bw / 2
-            bars += ('<text x="%.0f" y="%.0f" text-anchor="end" font-size="8.5" fill="#5b6472" '
-                     'transform="rotate(-40 %.0f %.0f)">%s</text>'
-                     % (lx, base_y + 12, lx, base_y + 12, _esc(m.get('label'))))
-    return ('<div class="bn-tw"><svg viewBox="0 0 %d %d" style="width:100%%;min-width:%dpx;height:auto">'
-            '<text x="%d" y="%d" font-size="11" font-weight="700" fill="#1F4E79">Planned cost per month</text>'
-            '<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#c9d6de" stroke-width="1"/>%s</svg></div>'
-            % (W, H, min(W, 720), left, top - 8, left, base_y, W - 16, base_y, bars))
+        return ''
+    maxtot = max((m['working'] + m['nonworking'] for m in months), default=0) or 1
+    HH = 34.0
+    cols = ''
+    for m in months:
+        w, nw = m['working'], m['nonworking']
+        gh = HH * w / maxtot
+        rh = HH * nw / maxtot
+        cols += ('<div class="col"><div class="v">%d</div>'
+                 '<div class="bstack">'
+                 '<div class="rseg" style="height:%.1fpx"></div>'
+                 '<div class="gseg" style="height:%.1fpx"></div></div>'
+                 '<div class="m">%s</div></div>'
+                 % (w, rh, gh, _esc(m['label'])))
+    name = cal.get('name') or '—'
+    acts = cal.get('activity_count')
+    meta_txt = ' &mdash; %s activities' % _num(acts) if acts else ''
+    return ('<div class="calname">%s%s</div><div class="hist">%s</div>'
+            % (_esc(name), meta_txt, cols))
 
 
-# ── scope (restored — editable prose) ─────────────────────────────────────────
-def _scope(p, number):
-    out = ''
-    stats = p.get('stats') or []
-    if stats:
-        cards = ''.join('<div class="bn-statc"><div class="bn-statv">%s</div>'
-                        '<div class="bn-statl">%s</div></div>'
-                        % (_esc(s.get('v')), _esc(s.get('l'))) for s in stats)
-        out += ('<div class="bn-statwrap"><div class="bn-stath">Project scope at a glance</div>'
-                '<div class="bn-stats">%s</div></div>' % cards)
-    if p.get('intro'):
-        out += ('<p data-section="%s" data-field="scope.intro" data-editable="1">%s</p>'
-                % (_esc(number), _esc(p.get('intro'))))
-    # Primary: brief per-trade x per-area prose ("… works consist of: …", with
-    # repeated areas collapsed to "same scope as …").
-    if p.get('trades') is not None:
-        for t in p.get('trades') or []:
-            title = t.get('trade') or 'Works'
-            cnt = t.get('activity_count')
-            meta = ('<span class="bn-discm">%s activities</span>' % _esc(cnt)) if cnt else ''
-            out += '<div class="bn-disc"><div class="bn-disch">%s%s</div>' % (_esc(title), meta)
-            for a in t.get('areas') or []:
-                cls = 'bn-scopep bn-sameas' if a.get('same_as') else 'bn-scopep'
-                out += '<p class="%s">%s</p>' % (cls, _esc(a.get('sentence')))
-            out += '</div>'
-        return out or '<p class="bn-empty">—</p>'
-    for i, b in enumerate(p.get('blocks') or []):
-        bullets = ''.join('<li><b>%s</b></li>' % _esc(x) for x in (b.get('packages') or []))
-        cost = ''
-        if b.get('cost'):
-            try:
-                cost = ' · %s' % _money(b.get('cost'))
-            except (TypeError, ValueError):
-                cost = ''
-        out += ('<div class="bn-disc"><div class="bn-disch">%s'
-                '<span class="bn-discm">%s activities%s</span></div>'
-                '<p data-section="%s" data-field="scope.block.%d" data-editable="1">%s</p>%s</div>'
-                % (_esc(b.get('discipline')), _esc(b.get('activity_count', 0)), _esc(cost),
-                   _esc(number), i, _esc(b.get('paragraph', '')),
-                   ('<ul class="bn-scopeul">%s</ul>' % bullets) if bullets else ''))
-    return out or '<p class="bn-empty">—</p>'
+def _calendars(p, number, title, meta, cur):
+    header = p.get('header') or {}
+    ccount = header.get('calendar_count')
+    acount = header.get('activity_count')
+    lead = ('<p style="font-size:11px;color:#5a6672">%s calendars assigned to activities '
+            '&middot; %s activities.</p>' % (_num(ccount), _num(acount)))
+
+    # 8.1 dashboard tiles (no shutdown-periods tile)
+    dash = p.get('dashboard') or {}
+    tiles = [(lbl, dash.get(key)) for key, lbl in _DASH_TILES if dash.get(key) is not None]
+    trows = ''
+    for i in range(0, len(tiles), 4):
+        cells = ''.join('<div class="tile stat"><div class="n">%s</div>'
+                        '<div class="l">%s</div></div>' % (_num(v), _esc(lbl))
+                        for lbl, v in tiles[i:i + 4])
+        style = ' style="margin-top:8px"' if i else ''
+        trows += '<div class="tiles"%s>%s</div>' % (style, cells)
+    dash_block = '<div class="sub">8.1 &middot; Executive Dashboard</div>%s' % trows if trows else ''
+
+    # 8.2 one stacked histogram per assigned calendar
+    hists = ''.join(_cal_hist(c) for c in (p.get('calendars') or []))
+    hist_block = ''
+    if hists:
+        legend = ('<div class="callegend"><span><i style="background:#1f7a3d"></i>Working days'
+                  '</span><span><i style="background:#b23030"></i>Non-working days</span></div>')
+        hist_block = ('<div class="sub">8.2 &middot; Calendar Timeline '
+                      '<span style="font-weight:400;font-size:9.5px;color:#8a93a0;'
+                      'text-transform:none;letter-spacing:0">&mdash; working vs non-working '
+                      'days per month, for each calendar (from data date)</span></div>'
+                      '%s%s' % (legend, hists))
+
+    # 8.3 holidays (Date | Description only)
+    hols = p.get('holidays') or []
+    hol_block = ''
+    if hols:
+        hrows = ''.join('<tr><td>%s</td><td>%s</td></tr>'
+                        % (_esc(h.get('date')), _esc(h.get('description'))) for h in hols)
+        hol_block = ('<div class="sub">8.3 &middot; Holidays</div>'
+                     '<table class="dt"><tr><th style="width:26%%">Date</th>'
+                     '<th>Description</th></tr>%s</table>' % hrows)
+
+    # 8.4 working-hours profile cards
+    profs = p.get('hours_profiles') or []
+    prof_block = ''
+    if profs:
+        cards = ''
+        for pf in profs:
+            sub = pf.get('sub') or pf.get('name') or ''
+            cards += ('<div class="tile stat"><div class="n" style="font-size:13px">%s</div>'
+                      '<div class="l">%s</div></div>' % (_esc(pf.get('hours')), _esc(sub)))
+        prof_block = ('<div class="sub">8.4 &middot; Working Hours Profile</div>'
+                      '<div class="tiles">%s</div>' % cards)
+
+    return lead + dash_block + hist_block + hol_block + prof_block
 
 
-# ── image (restored) ──────────────────────────────────────────────────────────
-def _image(p, number):
-    img = p.get('image')
-    if img:
-        return ('<div class="bn-tw"><img src="%s" alt="Project layout" '
-                'style="max-width:100%%;border:1px solid var(--line);border-radius:8px"/></div>'
-                % _esc(img))
-    return '<p class="bn-empty">No layout image provided.</p>'
+# ── §9 Work Breakdown Structure ───────────────────────────────────────────────
+def _wbs_tree(p, number, title, meta, cur):
+    intro = ('<p>The project WBS is presented as an organisation chart, then each major '
+             'branch is expanded &mdash; to Level 4 where a branch&rsquo;s Level-4 nodes '
+             'are 4 or fewer, otherwise to Level 3.</p>')
+    overview = p.get('overview') or {}
+    boxes = ''.join('<div class="ocbox">%s</div>' % _esc(c.get('name'))
+                    for c in (overview.get('children') or []))
+    ov_block = ('<div class="sub">%s.1 &middot; WBS Overview</div>'
+                '<div class="oc"><div class="ocroot">%s</div>'
+                '<div class="ocbranch">%s</div></div>'
+                % (_esc(number), _esc(overview.get('name')), boxes))
+
+    branch_blocks = ''
+    for i, br in enumerate(p.get('branches') or [], 1):
+        cols = ''
+        for col in br.get('columns') or []:
+            l2name = col[0] if len(col) > 0 else ''
+            l3list = col[1] if len(col) > 1 else []
+            inner = '<div class="l2">%s</div>' % _esc(l2name)
+            for l3 in l3list:
+                l3name = l3[0] if len(l3) > 0 else ''
+                l4names = l3[1] if len(l3) > 1 else []
+                inner += '<div class="l3">%s</div>' % _esc(l3name)
+                if l4names:
+                    chips = ' '.join('<span class="l4">%s</span>' % _esc(x) for x in l4names)
+                    inner += '<div style="text-align:center">%s</div>' % chips
+            cols += '<div class="occol">%s</div>' % inner
+        branch_blocks += ('<div class="sub">%s.%d &middot; %s &mdash; breakdown</div>'
+                          '<div class="oc"><div class="ocroot">%s</div></div>'
+                          '<div class="occols">%s</div>'
+                          % (_esc(number), i + 1, _esc(br.get('name')),
+                             _esc(br.get('name')), cols))
+    return intro + ov_block + branch_blocks
 
 
-# ── timeline (restored) ───────────────────────────────────────────────────────
-def _timeline(p, number):
-    items = p.get('items') or []
-    if not items:
-        return '<p class="bn-empty">No key dates in the file.</p>'
-    n = len(items)
-    W, H, y = max(130 * n, 400), 150, 75
-    x0, x1 = 30, W - 30
-    step = (x1 - x0) / max(n - 1, 1)
-    body = '<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#3487ae" stroke-width="2"/>' % (x0, y, x1, y)
-    for i, it in enumerate(items):
-        x = x0 + i * step
-        up = (i % 2 == 0)
-        col = '#3487ae' if it.get('milestone') else '#c98a2b'
-        lab = (it.get('label') or '')[:18]
-        body += ('<circle cx="%.0f" cy="%d" r="5.5" fill="%s"/>'
-                 '<text x="%.0f" y="%d" text-anchor="middle" font-size="9.5" fill="#1a1d21">%s</text>'
-                 '<text x="%.0f" y="%d" text-anchor="middle" font-size="9" fill="#8a9099">%s</text>'
-                 % (x, y, col, x, (y - 14 if up else y + 26), _esc(lab),
-                    x, (y - 28 if up else y + 40), _esc(it.get('date'))))
-    return ('<div class="bn-tw"><svg viewBox="0 0 %d %d" style="width:100%%;'
-            'min-width:%dpx;height:auto">%s</svg></div>'
-            % (int(W), H, min(int(W), 740), body))
-
-
-# ── value (restored — donut + table) ──────────────────────────────────────────
-def _value(p, number):
-    import math
-    rows = p.get('rows') or []
-    if not rows:
-        return '<p class="bn-empty">No cost loading in the file.</p>'
-    palette = ['#1f5fa8', '#c98a2b', '#7a5aa6', '#4b9d6e', '#a35d5d', '#5a8fb0']
-    circ = 2 * math.pi * 42
-    off, segs = 0.0, ''
-    for i, r in enumerate(rows):
-        seg = circ * (r.get('pct') or 0) / 100.0
-        segs += ('<circle cx="90" cy="90" r="42" fill="none" stroke="%s" stroke-width="24" '
-                 'stroke-dasharray="%.1f %.1f" stroke-dashoffset="%.1f"/>'
-                 % (palette[i % len(palette)], seg, circ - seg, -off))
-        off += seg
-    donut = ('<svg viewBox="0 0 180 180" style="width:168px;height:auto"><g transform="rotate(-90 90 90)">%s</g>'
-             '<text x="90" y="86" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1d21">%s</text>'
-             '<text x="90" y="102" text-anchor="middle" font-size="9" fill="#8a9099">total</text></svg>'
-             % (segs, _money(p.get('total'))))
-    trows = ''.join('<tr><td>%s</td><td class="bn-num">%s</td><td class="bn-num">%s%%</td></tr>'
-                    % (_esc(r.get('name')), _money(r.get('cost')), _esc(r.get('pct')))
-                    for r in rows)
-    tbl = ('<div class="bn-tw"><table class="n-t bn-t"><thead><tr><th>Branch</th><th>Cost</th>'
-           '<th>%%</th></tr></thead><tbody>%s</tbody></table></div>' % trows)
-    return ('<div class="bn-value">%s<div style="display:grid;place-items:center">%s</div></div>'
-            % (tbl, donut))
-
-
-# ── idanatomy (restored) ──────────────────────────────────────────────────────
-def _idanatomy(p, number):
-    # Comment 10 — the reference "decode grid": a token row (grey) over a meaning row,
-    # one column per ID segment, with a worked example above it.
-    segs = p.get('segments') or []
-    if not segs:
-        return '<p class="bn-empty">No decodable activity IDs in the file.</p>'
-    toks = ''.join(
-        '<td style="background:#aeaaaa;color:#12303d;font-family:Consolas,monospace;'
-        'font-weight:700;text-align:center;padding:7px 11px;border:1px solid #9a9a9a">%s</td>'
-        % _esc(s.get('value')) for s in segs)
-    means = ''.join(
-        '<td style="text-align:center;padding:6px 11px;border:1px solid #d7dde5;'
-        'font-size:9.5pt;color:#334155">%s</td>' % _esc(s.get('label')) for s in segs)
-    idp = p.get('id')
-    lead = (('<p class="lead">Each activity ID decodes into ordered segments — the token '
-             'row (grey) sits above its plain-language meaning. Worked example: '
-             '<code>%s</code></p>' % _esc(idp)) if idp else '')
-    return ('%s<div class="bn-tw"><table style="border-collapse:collapse;width:auto">'
-            '<tr>%s</tr><tr>%s</tr></table></div>' % (lead, toks, means))
+# ── §10 Activity Codes ────────────────────────────────────────────────────────
+def _codes(p, number, title, meta, cur):
+    tables = [t for t in (p.get('tables') or []) if t.get('rows')]
+    if not tables:
+        return ('<p>The baseline uses the following activity-code structures.</p>'
+                '<p class="note">No activity codes in the file.</p>')
+    out = ('<p>The baseline uses the following activity-code structures. Each code and its '
+           'values is listed below.</p>')
+    # two tables per row
+    for i in range(0, len(tables), 2):
+        pair = tables[i:i + 2]
+        cells = ''
+        for j, t in enumerate(pair):
+            rows = ''.join('<tr><td class="cv">%s</td><td>%s</td></tr>'
+                           % (_esc(r.get('code')), _esc(r.get('description')))
+                           for r in (t.get('rows') or []))
+            cells += ('<div><div class="ct">%d &middot; %s</div>'
+                      '<table class="codetbl"><tr><th style="width:40%%">Code Value</th>'
+                      '<th>Description</th></tr>%s</table></div>'
+                      % (i + j + 1, _esc(t.get('dimension')), rows))
+        out += '<div class="codes">%s</div>' % cells
+    return out
 
 
 _RENDER = {
-    # v5 kinds
-    'overview': _overview, 'ms_table': _ms_table, 'wbs_tree': _wbs_tree,
-    'seq': _seq, 'interfaces': _interfaces,
-    # restored kinds
-    'prose': _prose, 'keyvals': _keyvals, 'table': _table, 'codes': _codes,
-    'costbars': _costbars, 'cashflow': _cashflow, 'scope': _scope, 'image': _image,
-    'timeline': _timeline, 'value': _value, 'idanatomy': _idanatomy,
+    'overview': _overview,
+    'image': _image,
+    'keyvals': _keyvals,
+    'ms_table': _ms_table,
+    'value_bars': _value_bars,
+    'scope': _scope,
+    'wbs_tree': _wbs_tree,
+    'codes': _codes,
 }
 
 
-def _heading(number, title):
-    return '<h1 class="sec-h"><span class="num">%s</span> %s</h1>' % (_esc(number), _esc(title))
-
-
-def _section(s, seq_style=None):
-    number = s.get('number', '')
-    title = s.get('title', '')
+def _section_body(s, meta, cur):
     kind = s.get('kind', '')
     payload = s.get('payload') or {}
-    if kind == 'table' and payload.get('view') == 'calendars':      # calendars come through as 'table'
-        body = _calendars(payload, number)
-    else:
-        render = _RENDER.get(kind)
-        body = render(payload, number) if render else ''
-    edit = ' data-editable="1"' if s.get('editable') else ''
-    return ('<section class="sec" data-section="%s"%s>%s%s</section>'
-            % (_esc(number), edit, _heading(number, title), body))
+    number = s.get('number', '')
+    title = s.get('title', '')
+    if kind == 'table' and payload.get('view') == 'calendars':
+        return _calendars(payload, number, title, meta, cur)
+    render = _RENDER.get(kind)
+    if not render:
+        return ''
+    return render(payload, number, title, meta, cur)
 
 
-def _header_band(meta, project):
-    """Repeating (thead) band — the three party logos when present, else a title band."""
-    logos = (meta or {}).get('logos') or {}
-    if logos:
-        cells = ''
-        for k in ('owner', 'consultant', 'contractor'):
-            src = logos.get(k)
-            cells += ('<td class="n-logocell">%s</td>'
-                      % (('<img src="%s" alt="%s logo"/>' % (_esc(src), _esc(k))) if src else ''))
-        return '<div class="n-head n-head-logos"><table class="n-logos"><tr>%s</tr></table></div>' % cells
-    return ('<div class="n-head n-head-title">'
-            '<span class="n-head-kicker">Baseline Schedule — Narrative Report</span>'
-            '<span class="n-head-proj">%s</span></div>' % project)
+def _section_page(s, meta, cur, footer):
+    number = s.get('number', '')
+    title = s.get('title', '')
+    head = '<h1 class="sec">%s) %s</h1>' % (_esc(number), _esc(title))
+    body = _section_body(s, meta, cur)
+    return _page(meta, head + body, footer)
 
 
-def _footer_band(project):
-    """Repeating (tfoot) branding band. The live 'Page X of Y' is rendered by the CSS
-    ``@page`` bottom-centre counter (this Chrome DOES honour @page margin-box counters),
-    so no placeholder is needed here."""
-    return ('<div class="n-foot">'
-            '<span class="n-foot-l">%s · Narrative Report</span>'
-            '<span class="n-foot-c">prepared from the P6 baseline</span>'
-            '<span class="n-foot-r">Baseline Schedule</span>'
-            '</div>' % project)
-
-
-def _cover(meta, project):
-    """In-flow cover block — shown once at the top of page one."""
-    parties = []
-    for k, lbl in (('owner', 'Owner'), ('consultant', 'Consultant'), ('contractor', 'Contractor')):
-        if meta.get(k):
-            parties.append('%s: %s' % (lbl, _esc(meta[k])))
-    meta_line = ' · '.join(parties)
+# ── cover + table of contents ─────────────────────────────────────────────────
+def _cover(meta):
+    project = _esc(meta.get('project_name') or 'Project')
+    lines = ('<div style="font-family:Calibri,sans-serif;color:#1F4E79;font-weight:700;'
+             'font-size:22px">BASELINE</div>'
+             '<div style="font-family:Calibri,sans-serif;color:#1F4E79;font-weight:700;'
+             'font-size:30px;margin-top:4px">NARRATIVE REPORT</div>'
+             '<div style="font-size:20px;margin-top:26px">%s</div>' % project)
+    loc = meta.get('location')
+    if loc:
+        lines += ('<div style="font-size:14px;color:#8a95a1;margin-top:6px">%s</div>'
+                  % _esc(loc))
     dd = meta.get('data_date')
+    rev = meta.get('revision')
+    sub = ''
     if dd:
-        meta_line += ('%sBaseline data date: %s'
-                      % (' · ' if meta_line else '', _esc(dd)))
-    return ('<div class="cover">'
-            '<div class="cover-kicker">Baseline Schedule — Narrative Report</div>'
-            '<div class="cover-title">%s</div>'
-            '%s</div>'
-            % (project, ('<div class="cover-meta">%s</div>' % meta_line) if meta_line else ''))
+        sub = 'Data date: %s' % _esc(dd)
+    if rev:
+        sub += ('%sRev. %s' % ('&nbsp;&nbsp;&middot;&nbsp;&nbsp;' if sub else '', _esc(rev)))
+    if sub:
+        lines += ('<div style="font-size:12px;color:#8a95a1;margin-top:16px">%s</div>' % sub)
+    body = '<div style="margin-top:60mm" class="cover-t">%s</div>' % lines
+    return _page(meta, body, '')
 
 
+_TOC_GROUPS = [
+    ('PROJECT DEFINITION', ('Project Overview', 'Project Layout', 'Project Brief')),
+    ('BASELINE TARGETS', ('Major Milestones', 'Key Dates', 'Contract Value')),
+    ('SCOPE & STRUCTURE', ('Scope of Work', 'Project Calendars & Holidays',
+                           'Work Breakdown Structure', 'Activity Codes')),
+]
+
+
+def _toc(meta, paged):
+    """``paged`` = [(section, page_number), …] in body order."""
+    grp_hdr = ('<div style="font-family:Calibri,sans-serif;font-size:11px;color:#8a95a1;'
+               'font-weight:700;letter-spacing:.06em;margin:16px 0 5px;border-bottom:'
+               '1px solid #e2e8ef;padding-bottom:3px">%s</div>')
+    item = ('<div class="toc-i" style="display:flex;font-size:13px;padding:5px 0">'
+            '<span style="color:#1F4E79;font-weight:700;width:34px">%s)</span>'
+            '<span>%s</span><span style="flex:1;border-bottom:1.4px dotted #9aa4b0;'
+            'margin:0 8px;transform:translateY(-4px)"></span><span>%s</span></div>')
+    by_title = {s.get('title'): (s, pg) for s, pg in paged}
+    used = set()
+    out = ''
+    for label, titles in _TOC_GROUPS:
+        rows = ''
+        for t in titles:
+            if t in by_title:
+                s, pg = by_title[t]
+                used.add(t)
+                rows += item % (_esc(s.get('number')), _esc(s.get('title')), pg)
+        if rows:
+            out += (grp_hdr % _h.escape(label)) + rows
+    # any section not covered by a named group (defensive) → an "OTHER" trailer
+    extra = ''
+    for s, pg in paged:
+        if s.get('title') not in used:
+            extra += item % (_esc(s.get('number')), _esc(s.get('title')), pg)
+    if extra:
+        out += (grp_hdr % 'OTHER') + extra
+    body = ('<div style="text-align:center;font-family:\'Calibri Light\',Calibri,sans-serif;'
+            'color:#1F4E79;font-weight:700;font-size:24px;margin-bottom:6px">'
+            'Table of Contents</div>'
+            '<div style="height:2px;width:120px;background:#1F4E79;margin:0 auto 22px"></div>'
+            '%s' % out)
+    return _page(meta, body, '')
+
+
+# ── public API ────────────────────────────────────────────────────────────────
 def render_narrative_html(doc, seq_style=None):
     """Render the narrative ``doc`` (dict) to a self-contained HTML string.
 
     ``seq_style`` is accepted for signature compatibility with the export path; the
-    current report has a single sequence layout (the package flow), so it is unused.
+    redesigned report has a single fixed layout, so it is unused.
     """
     doc = doc or {}
     meta = doc.get('meta') or {}
-    project = _esc(meta.get('project_name') or 'Project')
-    inner = ''.join(_section(s, seq_style) for s in (doc.get('sections') or []))
-    # One table wraps the whole body: Chrome repeats <thead>/<tfoot> on every printed
-    # page AND reserves their height, so the running header/footer never overlap content.
-    body_table = ('<table class="n-doc">'
-                  '<thead><tr><td class="n-head-cell">%s</td></tr></thead>'
-                  '<tbody><tr><td class="n-main">%s%s</td></tr></tbody>'
-                  '<tfoot><tr><td class="n-foot-cell">%s</td></tr></tfoot>'
-                  '</table>'
-                  % (_header_band(meta, project), _cover(meta, project), inner,
-                     _footer_band(project)))
-    page = ('<div class="n-page">'
-            '<div class="n-frame" aria-hidden="true"></div>'  # fixed → repeats + frames every printed page
-            '%s</div>' % body_table)
-    return '<style>%s</style>%s' % (_CSS, page)
+    cur = _currency_prefix(meta)
+    sections = [s for s in (doc.get('sections') or []) if s]
+    paged = [(s, i) for i, s in enumerate(sections, 1)]     # body page numbering from 1
+
+    pages = [_cover(meta), _toc(meta, paged)]
+    for s, pg in paged:
+        pages.append(_section_page(s, meta, cur, pg))
+    return '<style>%s</style>%s' % (_CSS, ''.join(pages))
 
 
 def page_html(doc):
     """Full standalone HTML page (Chrome → PDF source)."""
-    return ('<!doctype html><html><head><meta charset="utf-8">'
-            '<style>html,body{margin:0;padding:0;background:#fff}</style></head><body>'
+    return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            '<title>Baseline Narrative Report</title></head><body>'
             + render_narrative_html(doc) + '</body></html>')
 
 
-# ── Shared formatting spec (§B): A4 portrait · ~2 cm margins · one font family ·
-#    navy numbered H1 + H2 · navy-header/zebra/thin-border tables · page frame +
-#    running header/footer on every page. ────────────────────────────────────
+# ── the approved visual spec (mockups/narrative_full.html), verbatim + the native
+#    stacked-histogram / logo-image additions the live payload needs. ───────────
 _CSS = """
-:root{
-  --navy:#1f3b63;      /* headings, header rows, badges, frame */
-  --navy2:#2a4d7a;
-  --ink:#1f2733;       /* body text */
-  --mut:#6b7480;       /* secondary text */
-  --line:#d7dde5;      /* thin borders */
-  --accent:#1f5fa8;    /* links / flow chips */
-  --accent2:#2c7a4b;
-  --band:#f4f6f9;      /* light fills */
-  --zebra:#f6f8fb;     /* table zebra */
-  --chip:#eef3f8;
-  --paper:#fff;
-}
-*{box-sizing:border-box}
-html,body{margin:0}
-body{background:#e9ecf1;color:var(--ink);
-  font-family:"Segoe UI",Calibri,"Helvetica Neue",Arial,sans-serif;
-  font-size:10.5pt;line-height:1.5;padding:24px;}
-
-/* ── the "paper" (screen) ── */
-.n-page{position:relative;max-width:900px;margin:0 auto;background:var(--paper);
-  border:1.6px solid var(--navy);box-shadow:0 3px 22px rgba(0,0,0,.14);}
-.n-page::before{content:"";position:absolute;inset:6px;border:1px solid var(--line);
-  pointer-events:none;z-index:2;}
-.n-frame{display:none;}                       /* print-only page frame (see @media print) */
-
-/* ── the wrapping table: thead=header band, tfoot=footer band (repeat per page) ── */
-.n-doc{width:100%;border-collapse:collapse;table-layout:fixed;}
-.n-doc>thead,.n-doc>tfoot{display:table-header-group;}   /* header/footer groups */
-.n-doc>tfoot{display:table-footer-group;}
-.n-head-cell{padding:16px 42px 0;}
-.n-main{padding:6px 42px 8px;vertical-align:top;}
-.n-foot-cell{padding:0 42px 14px;}
-
-/* ── running header band ── */
-.n-head{border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:4px;}
-.n-head-logos .n-logos{width:100%;border-collapse:collapse;table-layout:fixed;}
-.n-head-logos .n-logocell{width:33.33%;text-align:center;vertical-align:middle;padding:2px 8px;}
-.n-head-logos .n-logocell img{max-height:46px;max-width:160px;object-fit:contain;}
-.n-head-title{display:flex;align-items:baseline;justify-content:space-between;gap:14px;}
-.n-head-kicker{letter-spacing:.12em;text-transform:uppercase;font-size:8.5pt;color:var(--navy);font-weight:700;}
-.n-head-proj{font-size:10pt;font-weight:600;color:var(--mut);text-align:right;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-
-/* ── running footer band ── */
-.n-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;
-  border-top:1px solid var(--line);padding-top:8px;color:var(--mut);font-size:8.5pt;}
-.n-foot-c{flex:1;text-align:center;}
-.n-foot-r{white-space:nowrap;}
-.n-pph{color:var(--mut);font-style:italic;}   /* clearly-marked page-number placeholder */
-
-/* ── cover (page 1, in flow) ── */
-.cover{border-bottom:3px double var(--navy);padding:8px 0 18px;margin-bottom:6px;}
-.cover-kicker{letter-spacing:.16em;text-transform:uppercase;font-size:8.5pt;color:var(--accent);font-weight:700;}
-.cover-title{font-size:26pt;font-weight:800;margin:6px 0 4px;letter-spacing:-.01em;color:var(--navy);line-height:1.1;}
-.cover-meta{font-size:9.5pt;color:var(--mut);}
-
-/* ── section headings (H1) + sub-headings (H2) ── */
-.sec{margin:0;}
-.sec-h{font-size:15pt;font-weight:800;color:var(--navy);margin:24px 0 10px;
-  border-bottom:1px solid var(--line);padding-bottom:6px;break-after:avoid;line-height:1.25;}
-.sec-h .num{display:inline-block;background:var(--navy);color:#fff;border-radius:5px;
-  padding:1px 9px;margin-right:9px;font-size:12pt;font-weight:700;}
-.subh{font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.05em;
-  color:var(--mut);margin:16px 0 7px;break-after:avoid;}
-.subh2{font-size:12pt;font-weight:700;color:var(--navy2);margin:18px 0 6px;break-after:avoid;}
-h4{font-size:10.5pt;color:var(--navy);margin:0 0 6px;}
-p{margin:9px 0;}
-.lead{color:var(--mut);font-size:10pt;margin:2px 0 12px;}
-.muted,.bn-empty{color:var(--mut);}
-.bn-empty{font-style:italic;}
-
-/* ── tables (navy header · thin borders · zebra) ── */
-.n-t{border-collapse:collapse;width:100%;margin:6px 0;font-size:9.5pt;}
-.n-t thead th,.n-t th{background:var(--navy);color:#fff;text-align:left;font-weight:600;
-  padding:7px 12px;border:1px solid var(--navy);font-size:9pt;}
-.n-t td{padding:6px 12px;border:1px solid var(--line);vertical-align:top;}
-.n-t tbody tr:nth-child(even) td{background:var(--zebra);}
-.bn-tw{overflow-x:auto;margin:6px 0;}
-.bn-k{color:var(--navy2);font-weight:600;white-space:nowrap;width:210px;}
-.bn-num{text-align:right;font-variant-numeric:tabular-nums;}
-.bn-code{font-family:Consolas,"Cascadia Code",monospace;font-size:9pt;color:var(--navy2);white-space:nowrap;}
-.bn-cap{font-size:9pt;color:var(--mut);margin:10px 0 4px;}
-.bn-bul{margin:4px 0 8px;padding-left:20px;}
-
-/* milestones */
-.ms-table .ms-d{color:var(--navy2);font-weight:600;white-space:nowrap;width:200px;}
-
-/* overview stat cards */
-.stats{display:flex;gap:12px;flex-wrap:wrap;}
-.stat{flex:1;min-width:130px;background:var(--band);border:1px solid var(--line);border-radius:10px;
-  padding:12px 16px;text-align:center;break-inside:avoid;}
-.stat-n{font-size:20pt;font-weight:800;color:var(--navy);}
-.stat-l{font-weight:600;font-size:10pt;color:var(--ink);}
-.total{margin-top:12px;}
-
-/* WBS — small: centred top-down org-chart (fits the page, no horizontal scroll) */
-.tree{padding:22px 8px;margin:12px 0;background:var(--band);border:1px solid var(--line);border-radius:10px;break-inside:avoid;}
-.tree ul{display:flex;flex-wrap:wrap;justify-content:center;padding-top:22px;position:relative;margin:0;list-style:none;}
-.tree li{list-style:none;text-align:center;position:relative;padding:22px 10px 0;}
-.tree li::before,.tree li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:22px;border-top:2px solid #b7c1cf;}
-.tree li::after{right:auto;left:50%;border-left:2px solid #b7c1cf;}
-.tree li:only-child::before,.tree li:only-child::after{display:none;}
-.tree li:first-child::before,.tree li:last-child::after{border:0;}
-.tree li:last-child::before{border-right:2px solid #b7c1cf;}
-.tree ul ul::before{content:"";position:absolute;top:0;left:50%;border-left:2px solid #b7c1cf;width:0;height:22px;}
-.tree>li{padding-top:0;}
-.wt-box{display:inline-block;border-radius:8px;padding:6px 13px;font-size:9.5pt;font-weight:600;}
-.wt-root{background:var(--navy);color:#fff;font-size:10.5pt;}
-.wt-l1{background:#fff;border:1.5px solid var(--navy);color:var(--navy);}
-.wt-n{background:#fff;border:1px solid var(--line);color:var(--ink);font-weight:500;}
-.wt-more{background:transparent;color:var(--mut);font-style:italic;font-weight:500;border:1px dashed var(--line);}
-
-/* WBS — large: compact multi-column indented tree (wraps, never scrolls) */
-.wbs-lg{padding:18px 16px;margin:12px 0;background:var(--band);border:1px solid var(--line);border-radius:10px;}
-.wbs-lg .wt-root{display:block;width:max-content;max-width:100%;margin:0 auto 16px;text-align:center;}
-.wbs-cols{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;}
-.wbs-col{flex:1 1 240px;min-width:210px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:11px 14px;break-inside:avoid;}
-.it-box{font-size:9.5pt;}
-.it-l1{font-weight:700;color:var(--navy);}
-.it-n{color:var(--ink);font-weight:500;}
-.it-list{list-style:none;margin:5px 0 0;padding-left:15px;position:relative;}
-.it-list li{position:relative;padding:3px 0;}
-.it-list li::before{content:"";position:absolute;left:-9px;top:0;height:13px;width:9px;border-left:1.5px solid #b7c1cf;border-bottom:1.5px solid #b7c1cf;}
-.it-list li::after{content:"";position:absolute;left:-9px;top:13px;bottom:0;border-left:1.5px solid #b7c1cf;}
-.it-list li:last-child::after{display:none;}
-.it-more{color:var(--mut);font-style:italic;font-size:8.5pt;padding:3px 0;}
-
-/* flow / sequence */
-.flow{display:flex;flex-wrap:wrap;align-items:center;gap:5px;background:var(--band);
-  border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin:6px 0;}
-.fl-box{background:var(--chip);border:1px solid #bcd0e6;color:var(--accent);border-radius:7px;
-  padding:3px 11px;font-weight:600;font-size:9.5pt;white-space:nowrap;text-transform:capitalize;}
-.fl-box.world{background:#e7f2ea;border-color:#b6d8c2;color:var(--accent2);}
-.fl-arr{color:var(--mut);font-size:8.5pt;}
-.notes{margin:8px 0;padding-left:20px;}
-.notes li{margin:5px 0;}
-.edges{margin:4px 0;padding-left:20px;}
-.edges li{margin:3px 0;}
-.front{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:10px 0;background:#fff;break-inside:avoid;}
-.fr-title{font-weight:700;font-size:10.5pt;text-transform:capitalize;margin-bottom:6px;color:var(--navy2);}
-.fr-meta{color:var(--mut);font-size:9pt;margin:6px 0 0;}
-details{margin-top:8px;}
-summary{cursor:pointer;color:var(--accent);font-size:9pt;}
-.mono{font-family:Consolas,ui-monospace,monospace;color:var(--mut);white-space:nowrap;}
-
-/* codes */
-.bn-codes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;}
-.bn-codecard{break-inside:avoid;}
-
-/* cost bars */
-.bn-bars{display:flex;flex-direction:column;gap:8px;}
-.bn-bar{display:grid;grid-template-columns:170px 1fr 56px;gap:11px;align-items:center;font-size:10pt;}
-.bn-bn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.bn-track{height:13px;background:#e7ebf1;border-radius:4px;overflow:hidden;}
-.bn-fill{display:block;height:100%;background:var(--accent);border-radius:4px;}
-.bn-bv{text-align:right;font-variant-numeric:tabular-nums;color:var(--navy2);}
-
-/* cash flow svg */
-.bn-svg{width:100%;min-width:520px;height:auto;}
-.bn-axis{stroke:var(--line);stroke-width:1;}
-.bn-area{fill:#e7f0f5;}
-.bn-line{fill:none;stroke:var(--accent);stroke-width:2.5;}
-.bn-dot{fill:var(--accent);}
-.bn-axl{fill:var(--mut);font-size:11px;}
-
-/* scope */
-.bn-statwrap{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:6px 0 12px;}
-.bn-stath{background:#e7f0f5;color:var(--navy);font-weight:600;font-size:9pt;padding:6px 13px;}
-.bn-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px;padding:12px;}
-.bn-statc{background:var(--band);border-radius:8px;padding:9px 11px;break-inside:avoid;}
-.bn-statv{font-size:15pt;font-weight:700;color:var(--navy);}
-.bn-statl{font-size:8.5pt;color:var(--navy2);}
-.bn-disc{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;
-  padding:11px 14px;margin:9px 0;break-inside:avoid;}
-.bn-disch{font-size:11pt;font-weight:700;display:flex;justify-content:space-between;gap:8px;
-  align-items:center;margin-bottom:5px;color:var(--navy2);}
-.bn-discm{font-family:Consolas,monospace;font-size:8.5pt;color:var(--mut);font-weight:400;}
-.bn-disc p{margin:0 0 8px;}
-.bn-scopeul{margin:6px 0 2px;padding-left:22px;}
-.bn-scopeul li{font-size:10pt;margin:3px 0;}
-.bn-scopeul li b{font-weight:600;}
-.bn-scopep{margin:5px 0;font-size:10pt;line-height:1.45;}
-.bn-sameas{color:var(--mut);font-style:italic;}
-
-/* value donut */
-.bn-value{display:grid;grid-template-columns:1fr 190px;gap:14px;align-items:center;}
-@media(max-width:600px){.bn-value{grid-template-columns:1fr;}}
-
-/* id anatomy */
-.bn-cap-inline{font-size:8.5pt;color:var(--mut);margin:7px 0 0;}
-.bn-cap-inline code{font-family:Consolas,monospace;color:var(--navy2);background:#e7f0f5;padding:1px 6px;border-radius:4px;}
-
-/* editable affordance (no JS) */
-[data-editable]{outline:1px dashed transparent;}
-
-/* ── PRINT: A4 · ~2 cm margins · repeating page frame + header/footer ── */
-@media print{
-  /* ~2 cm effective text margin = 14 mm @page margin + 6 mm cell padding.
-     The 14 mm @page margin defines the page area; the fixed .n-frame is
-     inset:0 within it, so the border sits at ~1.4 cm on EVERY page and is
-     repainted per page — it can never overflow onto the next page. */
-  @page{size:A4 portrait;margin:14mm;
-    @bottom-center{content:"Page " counter(page) " of " counter(pages);
-      font:8.5pt "Segoe UI",Calibri,sans-serif;color:#5a6472;}}
-  html,body{background:#fff;padding:0;}
-  .n-page{max-width:none;margin:0;border:0;box-shadow:none;background:#fff;}
-  .n-page::before{display:none;}
-  .n-frame{display:block;position:fixed;top:0;left:0;right:0;bottom:0;
-    border:1.4pt solid var(--navy);pointer-events:none;z-index:0;}
-  .n-frame::after{content:"";position:absolute;top:3pt;left:3pt;right:3pt;bottom:3pt;
-    border:.5pt solid var(--navy);}
-  /* text/tables sit ~6 mm inside the frame */
-  .n-head-cell{padding:5mm 6mm 0;}
-  .n-main{padding:2mm 6mm 3mm;}
-  .n-foot-cell{padding:0 6mm 3mm;}
-  .cover-title{font-size:24pt;}
-  /* stop wide SVG/table min-widths spilling past the frame */
-  .bn-svg,.n-t,.bn-t{min-width:0;}
-  .bn-tw{overflow:visible;}
-  tr,.stat,.front,.bn-disc,.bn-statc,.bn-codecard,.wbs-col{break-inside:avoid;}
-  .sec-h,.subh,.subh2{break-after:avoid;}
-}
+@page { size: A4 portrait; margin: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Times New Roman', Georgia, serif; color: #1a1d21; background:#8a9099; }
+.page { width: 210mm; min-height: 297mm; background:#fff; margin: 0 auto; page-break-after: always; padding: 9mm; }
+.b1 { border: 1px solid #000; min-height: 279mm; padding: 2.2mm; }
+.b2 { border: 1px solid #000; min-height: 274mm; padding: 8mm 9mm; position: relative; }
+.rhead { display:flex; border-bottom: 1.2px solid #cbd8e2; padding-bottom: 7px; margin-bottom: 14px; }
+.rhead .lg { flex:1; text-align:center; padding: 0 5px; display:flex; align-items:center; justify-content:center; }
+.rhead .box { border:1px dashed #c2ccd6; color:#aab4bf; font-size:9px; padding:11px 3px; background:#fafcfe; font-family:Calibri,sans-serif; width:100%; }
+.rhead .lgimg { max-height:46px; max-width:100%; object-fit:contain; }
+.rfoot { position:absolute; left:9mm; right:9mm; bottom:5mm; text-align:center; color:#8a95a1; font-size:10px; font-family:Calibri,sans-serif; }
+h1.sec { font-family:'Calibri Light',Calibri,sans-serif; color:#1F4E79; font-weight:700; font-size:20px; margin:2px 0 12px; }
+p { font-size:13px; line-height:1.55; margin:0 0 11px; }
+.note { color:#9aa4b0; font-size:10.5px; font-style:italic; margin-top:10px; }
+.sub { font-family:Calibri,sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#17457a; border-bottom:1px solid #dbe1e8; padding-bottom:4px; margin:16px 0 12px; font-weight:700; }
+.subblue { font-family:Calibri,sans-serif; font-size:11px; font-weight:700; color:#1F4E79; text-transform:uppercase; letter-spacing:.03em; margin:6px 0 8px; }
+table { border-collapse: collapse; }
+.kv { width:100%; font-size:12px; }
+.kv td { border:1px solid #cbd8e2; padding:7px 11px; }
+.kv td.k { width:36%; background:#eef3f9; color:#1F4E79; font-weight:700; }
+.dt { width:100%; font-size:12px; }
+.dt th { background:#26517d; color:#fff; text-align:left; padding:6px 9px; font-size:10.5px; font-family:Calibri,sans-serif; }
+.dt td { border:1px solid #dbe3ec; padding:6px 9px; }
+.dt tr:nth-child(even) td { background:#f7f9fb; }
+.r { text-align:right; }
+.tiles { display:flex; gap:8px; }
+.tile { flex:1; border:1px solid #b9d1ea; background:#DEEAF6; border-radius:7px; padding:9px 6px; text-align:center; }
+.tile.stat { background:#f2f5f8; border-color:#d7e0ea; }
+.tile .n { font-size:18px; font-weight:800; color:#1F4E79; font-family:Calibri,sans-serif; }
+.tile .l { font-size:9px; color:#4a5560; margin-top:2px; font-family:Calibri,sans-serif; }
+.bar { display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+.bar .lab { width:130px; text-align:right; font-size:12px; font-weight:700; color:#14324f; }
+.bar .track { flex:1; position:relative; background:#eef2f6; border-radius:4px; height:24px; }
+.bar .fill { position:absolute; left:0; top:0; bottom:0; background:#1F4E79; border-radius:4px; display:flex; align-items:center; padding-left:9px; color:#fff; font-size:10.5px; font-weight:700; font-family:Calibri,sans-serif; white-space:nowrap; }
+.bar .pct { position:absolute; right:8px; top:0; bottom:0; display:flex; align-items:center; font-size:10.5px; font-weight:700; color:#5a6672; font-family:Calibri,sans-serif; }
+.banner { display:flex; justify-content:space-between; align-items:center; background:#1F4E79; color:#fff; border-radius:6px; padding:9px 14px; margin-bottom:12px; font-family:Calibri,sans-serif; }
+.banner .l { font-size:11px; letter-spacing:.03em; text-transform:uppercase; }
+.banner .v { font-size:18px; font-weight:800; }
+.subctr { text-align:center; font-weight:700; font-size:13px; color:#14324f; text-decoration:underline; margin:14px 0 9px; }
+.arw { font-size:13px; font-weight:700; margin:0 0 3px; }
+.arw .a { color:#1F4E79; }
+.chk { margin:0 0 1px; padding-left:24px; font-size:12.5px; }
+.chk .c { color:#1f7a3d; }
+.callegend { display:flex; gap:14px; flex-wrap:wrap; margin:4px 0 10px; font-size:9.5px; color:#5b6472; font-family:Calibri,sans-serif; }
+.callegend span { display:inline-flex; align-items:center; gap:4px; }
+.callegend i { width:10px; height:10px; border-radius:2px; display:inline-block; }
+.calname { font-size:11px; font-weight:700; color:#17457a; margin:6px 0 3px; font-family:Calibri,sans-serif; }
+.hist { display:flex; align-items:flex-end; gap:7px; margin:2px 0 5px; padding:0 2px 3px; border-bottom:1px solid #e2e8ef; }
+.hist .col { flex:1; text-align:center; }
+.hist .v { font-size:9.5px; color:#17457a; font-weight:700; font-family:Calibri,sans-serif; }
+.hist .bstack { display:flex; flex-direction:column; justify-content:flex-end; margin-top:3px; }
+.hist .gseg { background:#1f7a3d; border-radius:0 0 3px 3px; }
+.hist .rseg { background:#b23030; border-radius:3px 3px 0 0; }
+.hist .m { font-size:8.5px; color:#8a95a1; margin-top:3px; font-family:Calibri,sans-serif; }
+.oc { text-align:center; }
+.ocroot { display:inline-block; background:#1F4E79; color:#fff; font-weight:700; font-size:11px; padding:7px 18px; border-radius:6px; font-family:Calibri,sans-serif; }
+.ocbranch { display:flex; justify-content:center; flex-wrap:wrap; gap:6px; margin-top:14px; }
+.ocbox { flex:1; min-width:90px; max-width:110px; background:#DEEAF6; border:1px solid #9cbcdd; border-radius:6px; padding:7px 4px; font-size:9px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; }
+.occols { display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:12px; }
+.occol { flex:1; min-width:120px; }
+.l2 { background:#bcd3ea; border:1px solid #9cbcdd; border-radius:6px; padding:6px; font-size:10px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; }
+.l3 { background:#e6eef7; border:1px solid #cdddef; border-radius:5px; padding:5px; font-size:9.5px; font-weight:600; color:#1f4e79; margin-top:8px; font-family:Calibri,sans-serif; }
+.l4 { background:#fff; border:1px solid #d3ddea; border-radius:4px; padding:3px 5px; font-size:8.5px; color:#33414d; margin-top:5px; display:inline-block; font-family:Calibri,sans-serif; }
+.codes { display:flex; gap:16px; margin-bottom:12px; }
+.codes > div { flex:1; }
+.ct { font-size:12px; font-weight:700; margin:0 0 5px; }
+.codetbl { width:100%; font-size:11px; border-collapse:collapse; }
+.codetbl th { background:#dbe5f1; border:1px solid #9fb2c8; padding:4px 7px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; font-size:10px; }
+.codetbl td { border:1px solid #b9c6d3; padding:3px 8px; }
+.codetbl td.cv { text-align:center; font-weight:600; }
+.cover-t { text-align:center; }
+@media print { body { background:#fff; } }
 """

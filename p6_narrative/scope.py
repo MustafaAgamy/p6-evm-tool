@@ -236,6 +236,93 @@ def scope_blocks(activities, wbs, code_types=None, bac_by_activity=None, discipl
     return blocks
 
 
+_BUILDING_CAP = 10
+_ELEMENTS_PER_BUILDING = 16
+
+
+def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup=None):
+    """Reshaped Scope of Work for the redesigned narrative (§7).
+
+    Returns ``{'disciplines': [...], 'sections': [...]}`` where
+
+      * ``disciplines`` = ``[{name, pct, cost}]`` — a %-by-cost split for the top
+        horizontal bar chart, grouped by the setup-picked Type-of-Works code
+        (``setup['tow_code_scope']``), falling back to a discipline code hint, then to
+        the top-level WBS branch.
+      * ``sections``    = ``[{discipline, buildings:[{name, elements:[str]}]}]`` — one
+        block per discipline; buildings come from the setup Building code
+        (``setup['building_code']``, WBS work-package fallback) and elements from that
+        discipline's Element/System code (``setup['element_codes'][discipline]``, then a
+        global element hint, then the activity names).
+
+    Pure logic, generic across any file — no client names hardcoded. Always returns a
+    usable structure (never ``None``) so §7 renders even on code-less files.
+    """
+    setup = setup or {}
+    bac = bac_by_activity or {}
+    used = set()
+    tow_dim = setup.get('tow_code_scope') or _pick_dim(code_types, _TRADE_HINTS, used)
+    if not tow_dim:
+        tow_dim = pick_discipline_dim(code_types)
+    if tow_dim:
+        used.add(tow_dim)
+    bld_dim = setup.get('building_code') or _pick_dim(code_types, _AREA_HINTS, used)
+    if bld_dim:
+        used.add(bld_dim)
+    elem_map = setup.get('element_codes') or {}
+    global_elem = _pick_dim(code_types, _ELEMENT_HINTS, used)
+
+    def code(act, dim):
+        return (act.get('activity_codes') or {}).get(dim) if dim else None
+
+    def cost_of(acts):
+        return sum(bac.get(a.get('object_id'), 0.0) or 0.0 for a in acts)
+
+    work = [a for a in activities if a.get('task_type') not in _NON_WORK]
+
+    groups = OrderedDict()
+    for act in work:
+        disc = code(act, tow_dim) or top_wbs_name(act.get('wbs_id'), wbs) or 'General'
+        groups.setdefault(disc, []).append(act)
+
+    total_cost = cost_of(work)
+    ordered = sorted(groups,
+                     key=lambda d: (-cost_of(groups[d]), _trade_rank(d), _first_index(groups, d)))
+
+    disciplines = []
+    for disc in ordered:
+        acts = groups[disc]
+        cost = round(cost_of(acts), 2)
+        if total_cost > 0:
+            pct = round(100 * cost / total_cost, 1)
+        else:
+            pct = round(100 * len(acts) / len(work), 1) if work else 0.0
+        disciplines.append({'name': disc, 'pct': pct, 'cost': cost})
+
+    sections = []
+    for disc in ordered:
+        acts = groups[disc]
+        edim = elem_map.get(disc) or global_elem
+        buildings = OrderedDict()
+        for a in acts:
+            bld = code(a, bld_dim) or (wbs.get(a.get('wbs_id')) or {}).get('name') or 'General'
+            buildings.setdefault(bld, []).append(a)
+        ordered_builds = sorted(
+            buildings, key=lambda b: min(_start_key(x.get('planned_start')) for x in buildings[b]))
+        blist = []
+        for bld in ordered_builds[:_BUILDING_CAP]:
+            elements, seen = [], set()
+            for a in sorted(buildings[bld], key=lambda x: _start_key(x.get('planned_start'))):
+                el = code(a, edim) or a.get('name') or 'General'
+                if el and el not in seen:
+                    seen.add(el)
+                    elements.append(el)
+            blist.append({'name': bld, 'elements': elements[:_ELEMENTS_PER_BUILDING]})
+        sections.append({'discipline': disc, 'buildings': blist})
+
+    return {'disciplines': disciplines, 'sections': sections}
+
+
 def _describe(discipline, packages, count):
     if not packages:
         return f"The {discipline} scope comprises {count} scheduled activities."

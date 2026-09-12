@@ -657,3 +657,195 @@ def add_process(document, steps):
                               _emu(width_px), _emu(height_px))
     except Exception:                       # pragma: no cover - never crash the export
         return None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SLICE C — NATIVE charts + org-charts for the redesigned 10-section narrative.
+# Ported verbatim from the approved standalone builder (build_narrative_v2.py):
+#   • add_hbar          — horizontal bar chart (§6 Contract Value, §7 discipline %)
+#   • add_calendar_hist — stacked green/red histogram with net-working-day labels (§8.2)
+#   • add_org_flat      — horizontal root→branches org-chart WITH connectors (§9.1)
+#   • add_org_cols      — horizontal per-branch org-chart, L2→L3(→L4) WITH connectors (§9.2)
+# Every one is native/editable (a real c:chartSpace or a wpg:wgp shape group — never a
+# picture) and None-safe: any bad input / internal error returns None, never raises.
+# ══════════════════════════════════════════════════════════════════════════════
+def add_hbar(document, categories, values, title, color='1F4E79', name='Series'):
+    """Native horizontal BAR chart (``barDir='bar'``) — the editable Word twin of the
+    HTML horizontal-bar list. Returns the drawing element, or ``None`` on bad input."""
+    if document is None or not categories or values is None:
+        return None
+    cats = list(categories)
+    vals = [_num(v) for v in values]
+    if not cats or len(cats) != len(vals) or any(v is None for v in vals):
+        return None
+    col = _hex(color, '1F4E79')
+
+    def build(rid):
+        dpts = ''.join(
+            f'<c:dPt><c:idx val="{i}"/><c:invertIfNegative val="0"/><c:bubble3D val="0"/>'
+            f'<c:spPr><a:solidFill><a:srgbClr val="{col}"/></a:solidFill></c:spPr></c:dPt>'
+            for i in range(len(vals)))
+        ser = (f'<c:ser><c:idx val="0"/><c:order val="0"/>{_tx_ref(name, "B")}'
+               f'<c:spPr><a:solidFill><a:srgbClr val="{col}"/></a:solidFill></c:spPr>'
+               f'<c:dLbls><c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>'
+               f'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>'
+               f'{dpts}{_cat_ref(cats)}{_val_ref(vals, "B")}</c:ser>')
+        return (
+            f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<c:chartSpace {_C_NS}><c:chart>{_title_el(title)}<c:plotArea><c:layout/>'
+            f'<c:barChart><c:barDir val="bar"/><c:grouping val="clustered"/>'
+            f'<c:varyColors val="0"/>{ser}<c:gapWidth val="60"/>'
+            f'<c:axId val="111"/><c:axId val="222"/></c:barChart>'
+            f'<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="maxMin"/></c:scaling>'
+            f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="222"/></c:catAx>'
+            f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
+            f'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="111"/></c:valAx>'
+            f'</c:plotArea><c:plotVisOnly val="1"/></c:chart>{_external_data(rid)}'
+            f'</c:chartSpace>')
+
+    return _inject(document, build, cats, [(name, vals)])
+
+
+def add_calendar_hist(document, categories, working, nonworking,
+                      title='Working / non-working days by month'):
+    """Native STACKED histogram: net-working days (green, bottom) + non-working days
+    (red, top), with the net-working-days value labelled on each bar (§8.2). Returns
+    the drawing element, or ``None`` on bad input."""
+    if document is None or not categories:
+        return None
+    cats = list(categories)
+    wk = [_num(v) for v in (working or [])]
+    nw = [_num(v) for v in (nonworking or [])]
+    if (len(wk) != len(cats) or len(nw) != len(cats)
+            or any(v is None for v in wk) or any(v is None for v in nw)):
+        return None
+
+    def ser(idx, nm, vals, colr, letter, labels):
+        dpts = ''.join(f'<c:dPt><c:idx val="{j}"/><c:invertIfNegative val="0"/>'
+                       f'<c:bubble3D val="0"/><c:spPr><a:solidFill>'
+                       f'<a:srgbClr val="{colr}"/></a:solidFill></c:spPr></c:dPt>'
+                       for j in range(len(vals)))
+        dl = ('<c:dLbls><c:numFmt formatCode="0" sourceLinked="0"/>'
+              '<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'
+              '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr b="1" sz="800"/></a:pPr>'
+              '<a:endParaRPr lang="en-US"/></a:p></c:txPr><c:dLblPos val="inEnd"/>'
+              '<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>'
+              '<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>'
+              if labels else '')
+        return (f'<c:ser><c:idx val="{idx}"/><c:order val="{idx}"/>{_tx_ref(nm, letter)}'
+                f'<c:spPr><a:solidFill><a:srgbClr val="{colr}"/></a:solidFill></c:spPr>'
+                f'{dl}{dpts}{_cat_ref(cats)}{_val_ref(vals, letter)}</c:ser>')
+
+    def build(rid):
+        s = (ser(0, 'Working days', wk, '22C55E', 'B', True) +
+             ser(1, 'Non-working days', nw, 'EF4444', 'C', False))
+        return (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                f'<c:chartSpace {_C_NS}><c:chart>{_title_el(title)}'
+                f'<c:plotArea><c:layout/><c:barChart><c:barDir val="col"/>'
+                f'<c:grouping val="stacked"/><c:varyColors val="0"/>{s}'
+                f'<c:gapWidth val="55"/><c:overlap val="100"/>'
+                f'<c:axId val="111"/><c:axId val="222"/></c:barChart>'
+                f'<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
+                f'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222"/></c:catAx>'
+                f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
+                f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111"/></c:valAx>'
+                f'</c:plotArea><c:plotVisOnly val="1"/></c:chart>{_external_data(rid)}</c:chartSpace>')
+
+    return _inject(document, build, cats,
+                   [('Working days', wk), ('Non-working days', nw)])
+
+
+def add_org_flat(document, root_name, branches, total_w=560):
+    """Horizontal org-chart: a root box on top, the branch boxes in a row beneath, joined
+    by elbow connector lines (§9.1). Native/editable shapes. ``branches`` is a list of
+    branch names. Returns the drawing element, or ``None`` on bad input."""
+    if document is None or not branches:
+        return None
+    try:
+        names = [('' if b is None else str(b)) for b in branches]
+        n = len(names)
+        GAP = 6
+        BW = max(1, (total_w - (n - 1) * GAP) // n)
+        RW, RH, BH = 152, 32, 46
+        rowW = n * BW + (n - 1) * GAP
+        cnt = [_next_id(document)]
+        base = cnt[0]
+        cnt[0] += 1
+        sh = ''
+        rx = (rowW - RW) // 2
+        sh += _wps_box(cnt, 'root', _emu(rx), _emu(0), _emu(RW), _emu(RH),
+                       '1F4E79', '1F4E79', 'FFFFFF', str(root_name or 'Project'), sz=11)
+        busY = RH + 14
+        brY = busY + 14
+        sh += _wps_line(cnt, _emu(rowW // 2), _emu(RH), 0, _emu(busY - RH), '9FB4C6')
+        bx = [i * (BW + GAP) for i in range(n)]
+        ctr = [x + BW // 2 for x in bx]
+        if n > 1:
+            sh += _wps_line(cnt, _emu(ctr[0]), _emu(busY), _emu(ctr[-1] - ctr[0]), 0, '9FB4C6')
+        for i, nm in enumerate(names):
+            sh += _wps_line(cnt, _emu(ctr[i]), _emu(busY), 0, _emu(brY - busY), '9FB4C6')
+            sh += _wps_box(cnt, nm, _emu(bx[i]), _emu(brY), _emu(BW), _emu(BH),
+                           'DEEAF6', '9CBCDD', '14324F', nm, sz=8)
+        return _group_drawing(document, sh, base, _emu(rowW), _emu(brY + BH))
+    except Exception:                       # pragma: no cover - never crash the export
+        return None
+
+
+def add_org_cols(document, root_name, columns, total_w=560):
+    """Horizontal org-chart with depth (§9.2): a root box, its Level-2 boxes in a row,
+    and under each L2 its L3 (and L4) boxes stacked in that column — elbow connectors
+    throughout. ``columns`` = ``[[l2name, [[l3name, [l4name, …]], …]], …]``. Native /
+    editable shapes. Returns the drawing element, or ``None`` on bad input."""
+    if document is None or not columns:
+        return None
+    try:
+        cols = list(columns)
+        n = len(cols)
+        GAP = 14
+        CW = max(1, (total_w - (n - 1) * GAP) // n)
+        RW, RH, L2H, L3H, L4H, V = 152, 30, 24, 22, 20, 9
+        rowW = n * CW + (n - 1) * GAP
+        cnt = [_next_id(document)]
+        base = cnt[0]
+        cnt[0] += 1
+        sh = ''
+        rx = (rowW - RW) // 2
+        sh += _wps_box(cnt, 'root', _emu(rx), _emu(0), _emu(RW), _emu(RH),
+                       '1F4E79', '1F4E79', 'FFFFFF', str(root_name or 'Project'), sz=10)
+        busY = RH + 12
+        l2Y = busY + 12
+        sh += _wps_line(cnt, _emu(rowW // 2), _emu(RH), 0, _emu(busY - RH), '9FB4C6')
+        colx = [i * (CW + GAP) for i in range(n)]
+        ctr = [x + CW // 2 for x in colx]
+        if n > 1:
+            sh += _wps_line(cnt, _emu(ctr[0]), _emu(busY), _emu(ctr[-1] - ctr[0]), 0, '9FB4C6')
+        maxH = 0
+        for i, col in enumerate(cols):
+            l2 = str((col[0] if col else '') or '')
+            l3s = (col[1] if len(col) > 1 else []) or []
+            cx = ctr[i]
+            sh += _wps_line(cnt, _emu(cx), _emu(busY), 0, _emu(l2Y - busY), '9FB4C6')
+            sh += _wps_box(cnt, l2, _emu(colx[i]), _emu(l2Y), _emu(CW), _emu(L2H),
+                           'BCD3EA', '9CBCDD', '14324F', l2, sz=9)
+            y = l2Y + L2H + V
+            for entry in l3s:
+                l3 = str((entry[0] if entry else '') or '')
+                l4s = (entry[1] if len(entry) > 1 else []) or []
+                sh += _wps_line(cnt, _emu(cx), _emu(y - V), 0, _emu(V), 'C2D2E2')
+                sh += _wps_box(cnt, l3, _emu(colx[i] + 10), _emu(y), _emu(CW - 20), _emu(L3H),
+                               'E6EEF7', 'CDDDEF', '1F4E79', l3, sz=8)
+                y += L3H
+                if l4s:
+                    y += 6
+                    lw = max(1, (CW - 34) // len(l4s))
+                    lx0 = colx[i] + 17
+                    for j, l4 in enumerate(l4s):
+                        sh += _wps_box(cnt, str(l4 or ''), _emu(lx0 + j * (lw + 3)), _emu(y),
+                                       _emu(lw), _emu(L4H), 'FFFFFF', 'D3DDEA', '33414D',
+                                       str(l4 or ''), sz=7)
+                    y += L4H
+                y += 8
+            maxH = max(maxH, y)
+        return _group_drawing(document, sh, base, _emu(rowW), _emu(maxH))
+    except Exception:                       # pragma: no cover - never crash the export
+        return None

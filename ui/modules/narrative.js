@@ -441,12 +441,19 @@ function fileToDataUrl(file) {
 }
 function setupFormHtml() {
   const s = getSetup();
+  const attr = v => String(v == null ? '' : v).replace(/"/g, '&quot;');
   const party = (key, label) => `
     <div class="bn-party">
       <label>${label}</label>
-      <input type="text" data-k="${key}" placeholder="${label} name" value="${(s[key] || '').replace(/"/g, '&quot;')}"/>
+      <input type="text" data-k="${key}" placeholder="${label} name" value="${attr(s[key])}"/>
       <label class="bn-file">${s[key + '_logo'] ? '✓ logo' : '＋ logo'}<input type="file" accept="image/*" data-logo="${key}_logo"></label>
     </div>`;
+  // Free-text before-run inputs P6 doesn't hold. `data-k` is picked up verbatim by
+  // wireSetupForm, so each posts under the exact setup key the model reads
+  // (location, contract_type, contract_value → §3 Project Brief / §6 total banner).
+  const field = (key, label, ph) => `
+    <div class="bn-fld"><label>${label}</label>
+      <input type="text" data-k="${key}" placeholder="${ph}" value="${attr(s[key])}"></div>`;
   return `
     <style>
       .bn-setup{border:1px dashed #3487ae;border-radius:12px;padding:14px 16px;margin:0 auto 16px;max-width:900px;background:var(--surface-2,#fff)}
@@ -458,6 +465,9 @@ function setupFormHtml() {
       .bn-party input[type=text]{width:100%;box-sizing:border-box;padding:6px 9px;border:1px solid var(--border,#dadee4);border-radius:6px;font:inherit;font-size:12.5px;margin-bottom:7px;background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21)}
       .bn-file{display:inline-block;font-size:12px;border:1px solid #3487ae;color:#3487ae;border-radius:6px;padding:5px 11px;cursor:pointer}
       .bn-file input{display:none}
+      .bn-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+      .bn-fld>label{font-size:11px;font-weight:600;color:var(--text-secondary,#565c64);display:block;margin-bottom:6px}
+      .bn-fld input{width:100%;box-sizing:border-box;padding:6px 9px;border:1px solid var(--border,#dadee4);border-radius:6px;font:inherit;font-size:12.5px;background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21)}
       #bn-setup-gen{margin-top:12px;font:inherit;font-size:13px;font-weight:600;background:#265f7e;color:#fff;border:none;border-radius:7px;padding:8px 18px;cursor:pointer}
       .bn-layout{display:flex;gap:18px;align-items:flex-start}
       .bn-contents{flex:0 0 220px}
@@ -468,6 +478,14 @@ function setupFormHtml() {
       .bn-seltitle a{font-size:11px;font-weight:500;color:#3487ae;cursor:pointer;text-decoration:underline}
       .bn-chk{display:block;font-size:12px;color:var(--text-primary,#1a1d21);padding:2px 0;cursor:pointer}
       .bn-chk input{margin-right:6px}
+      .bn-codegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+      .bn-codecol{border:1px solid var(--border,#dadee4);border-radius:9px;padding:9px 11px}
+      .bn-elgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-top:6px}
+      .bn-elrow{display:flex;align-items:center;gap:8px}
+      .bn-elrow>label{flex:0 0 42%;font-size:12px;color:var(--text-primary,#1a1d21);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .bn-code{padding:5px 8px;border:1px solid var(--border,#dadee4);border-radius:6px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21)}
+      .bn-codecol .bn-code{width:100%;box-sizing:border-box;margin-top:5px}
+      .bn-elrow .bn-code{flex:1;min-width:0}
     </style>
     <div class="bn-setup">
       <h4>Project setup — parties, logos &amp; layout</h4>
@@ -477,6 +495,13 @@ function setupFormHtml() {
         <div class="bn-party"><label>Project layout</label>
           <label class="bn-file">${s.layout ? '✓ layout image' : '＋ layout image'}<input type="file" accept="image/*" data-logo="layout"></label>
         </div>
+      </div>
+      <h4 style="margin:14px 0 3px">Contract details</h4>
+      <div class="hint">P6 doesn't hold these — enter them before generating. Contract value pre-fills from the schedule's cost loading.</div>
+      <div class="bn-details">
+        ${field('location', 'Project Location', 'e.g. Riyadh, Saudi Arabia')}
+        ${field('contract_type', 'Contract Type', 'e.g. Lump-Sum')}
+        ${field('contract_value', 'Contract Value', 'from cost loading')}
       </div>
       <div id="bn-select" class="bn-select"></div>
       <button id="bn-setup-gen">Generate narrative</button>
@@ -490,24 +515,111 @@ function _esc(x) {
   return String(x == null ? '' : x).replace(/[&<>"]/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
+// The §7 discipline names (from the generated Scope section's payload) — the keys the
+// model's `element_codes` map is looked up by, so the per-discipline element selectors
+// rebuild to match whatever the current type-of-work code produced.
+function scopeDisciplines() {
+  const secs = (state.narrativeDoc && state.narrativeDoc.sections) || [];
+  const scope = secs.find(x => x && x.kind === 'scope');
+  const list = (scope && scope.payload && scope.payload.disciplines) || [];
+  return list.map(d => d && d.name).filter(Boolean);
+}
+
+// Pre-fill the Contract Value text field from the cost-loading sum the server surfaces on
+// meta.contract_value — only when the planner hasn't set one (never clobbers a typed value
+// or a deliberate clear). The field posts under the `contract_value` key the model reads.
+function prefillContractValue(meta) {
+  const inp = document.querySelector('.bn-setup input[data-k="contract_value"]');
+  if (!inp) return;
+  const cv = meta && meta.contract_value;
+  if (cv == null || cv === '') return;
+  const num = Math.round(Number(cv));
+  if (!isFinite(num)) return;
+  const str = String(num);
+  inp.placeholder = str;
+  const s = getSetup();
+  if (!inp.value && s.contract_value == null) {
+    inp.value = str;
+    s.contract_value = str;
+    saveSetup();
+  }
+}
+
 function renderSelection() {
   const box = document.getElementById('bn-select');
   if (!box) return;
   const meta = (state.narrativeDoc && state.narrativeDoc.meta) || {};
   const ms = meta.milestone_choices || [];
   const kd = meta.key_date_choices || [];
-  if (!ms.length && !kd.length) { box.innerHTML = ''; return; }
+  const codes = meta.code_choices || [];        // activity-code STRUCTURES in the file
+  const disciplines = scopeDisciplines();
+  prefillContractValue(meta);
+  if (!ms.length && !kd.length && !codes.length && !disciplines.length) { box.innerHTML = ''; return; }
   const s = getSetup();
+
+  // ── §6 / §7 code-structure pickers (options = the file's code TYPES) ──────────
+  // Empty value ('') = auto-detect, which the model reads as "no override" and falls
+  // back to its built-in hint matching. Keys map 1:1 to what the model reads:
+  //   tow_code (§6), tow_code_scope + building_code + element_codes[disc] (§7).
+  const codeSelect = (key, chosen) => {
+    const opts = ['<option value="">Auto-detect</option>'].concat(
+      codes.map(c => `<option value="${_esc(c)}"${chosen === c ? ' selected' : ''}>${_esc(c)}</option>`));
+    return `<select class="bn-code" data-code="${_esc(key)}">${opts.join('')}</select>`;
+  };
+  const elemMap = (s.element_codes && typeof s.element_codes === 'object') ? s.element_codes : {};
+  let codeHtml = '';
+  if (codes.length) {
+    const codeCol = (label, key) =>
+      `<div class="bn-codecol"><div class="bn-seltitle">${label}</div>${codeSelect(key, s[key] || '')}</div>`;
+    codeHtml =
+      '<h4 style="margin:14px 0 3px">Code structures used in the report</h4>' +
+      '<div class="hint">Pick the activity-code structures for the value split (§6) and the scope (§7). Auto-detect uses the best match in the file.</div>' +
+      '<div class="bn-codegrid">' +
+        codeCol('§6 Contract value — type of work', 'tow_code') +
+        codeCol('§7 Scope — type of work', 'tow_code_scope') +
+        codeCol('§7 Scope — building / area', 'building_code') +
+      '</div>';
+    if (disciplines.length) {
+      const rows = disciplines.map(d =>
+        `<div class="bn-elrow"><label title="${_esc(d)}">${_esc(d)}</label>${codeSelect('elem::' + d, elemMap[d] || '')}</div>`).join('');
+      codeHtml += '<div class="bn-seltitle" style="margin-top:12px">§7 Element / System code per discipline</div>' +
+                  `<div class="bn-elgrid">${rows}</div>`;
+    }
+  }
+
+  // ── §4 / §5 include checklists (unchanged behaviour) ─────────────────────────
   const col = (title, items, key) => {
     const sel = Array.isArray(s[key]) ? new Set(s[key]) : null;    // null = all included
     const rows = items.map(label =>
       `<label class="bn-chk"><input type="checkbox" data-sel="${key}" value="${_esc(label)}"${(!sel || sel.has(label)) ? ' checked' : ''}> ${_esc(label)}</label>`).join('');
     return `<div class="bn-selcol"><div class="bn-seltitle">${title} — <a data-all="${key}">all</a> · <a data-none="${key}">none</a></div>${rows || '<span class="hint">none in the file</span>'}</div>`;
   };
-  box.innerHTML =
-    '<h4 style="margin:14px 0 3px">Choose what to include</h4>' +
-    '<div class="hint">Tick the Major Milestones and Key Dates to show, then Generate. All included by default.</div>' +
-    `<div class="bn-selgrid">${col('Major Milestones', ms, 'milestone_keys')}${col('Key Dates', kd, 'key_date_keys')}</div>`;
+  let selHtml = '';
+  if (ms.length || kd.length) {
+    selHtml =
+      '<h4 style="margin:14px 0 3px">Choose what to include</h4>' +
+      '<div class="hint">Tick the Major Milestones and Key Dates to show, then Generate. All included by default.</div>' +
+      `<div class="bn-selgrid">${col('Major Milestones', ms, 'milestone_keys')}${col('Key Dates', kd, 'key_date_keys')}</div>`;
+  }
+
+  box.innerHTML = codeHtml + selHtml;
+
+  // Wire the code selects → setup keys (element codes into the per-discipline map).
+  box.querySelectorAll('select[data-code]').forEach(sel => sel.addEventListener('change', () => {
+    const key = sel.dataset.code;
+    if (key.indexOf('elem::') === 0) {
+      const disc = key.slice(6);
+      const m = (s.element_codes && typeof s.element_codes === 'object') ? s.element_codes : {};
+      if (sel.value) m[disc] = sel.value; else delete m[disc];
+      s.element_codes = m;
+    } else if (sel.value) {
+      s[key] = sel.value;
+    } else {
+      delete s[key];
+    }
+    saveSetup();
+  }));
+
   const collect = key => Array.from(box.querySelectorAll(`input[data-sel="${key}"]`))
     .filter(c => c.checked).map(c => c.value);
   box.querySelectorAll('input[data-sel]').forEach(c => c.addEventListener('change', () => {

@@ -38,9 +38,10 @@ _NAVY_FILL = '1F4E79'   # navy table-header background (hex, no '#')
 _ZEBRA_FILL = 'F2F6F8'  # alternating body-row background
 _BORDER_CLR = '000000'  # page-frame colour (black double rule)
 
-_BODY_FONT = 'Calibri'
-_HEAD_FONT = 'Calibri Light'
-_BODY_PT = 11
+_BODY_FONT = 'Times New Roman'   # report body — approved spec (was Calibri)
+_HEAD_FONT = 'Calibri Light'     # navy section headings
+_TILE_FONT = 'Calibri'           # tiles / banner / chart-adjacent labels
+_BODY_PT = 12
 _TABLE_PT = 9.5
 
 
@@ -148,11 +149,11 @@ def add_page_border(section):
 
 # ── header ────────────────────────────────────────────────────────────────────
 def add_header(document, meta):
-    """Repeating page header: a 1x3 table of the three party logos
-    (owner / consultant / contractor) FOLLOWED BY a centred title band
-    (project name + the quoted document title). Both are always present.
+    """Repeating page header — the THREE party logo cells ONLY (owner / consultant /
+    contractor), with a thin rule beneath. No title / kicker band (approved spec).
 
-    Missing logos leave their cell empty rather than dropping the column."""
+    A missing logo leaves its cell empty rather than dropping the column, so the three
+    equal cells always hold their positions."""
     meta = meta or {}
     section = document.sections[0]
     header = section.header
@@ -160,6 +161,7 @@ def add_header(document, meta):
 
     logos = meta.get('logos') or {}
     table = header.add_table(rows=1, cols=3, width=Inches(6.9))
+    table.alignment = WD_ALIGN_PARAGRAPH.CENTER
     table.autofit = True
     for i, key in enumerate(('owner', 'consultant', 'contractor')):
         cell = table.rows[0].cells[i]
@@ -172,15 +174,15 @@ def add_header(document, meta):
             except Exception:
                 pass  # missing / bad logo → empty cell, column kept
 
-    band = header.add_paragraph()
-    band.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    name = str(meta.get('project_name') or 'Project')
-    _set_run_font(band.add_run(name), _HEAD_FONT, size=10.5, bold=True, color=NAVY)
-    doc_title = meta.get('document_title') or meta.get('doc_title')
-    if doc_title:
-        _set_run_font(band.add_run('   —   '), _BODY_FONT, size=9, color=GREY)
-        _set_run_font(band.add_run('"%s"' % doc_title), _BODY_FONT, size=9,
-                      italic=True, color=GREY)
+    # thin rule under the logo band (matches the approved header)
+    rule = header.add_paragraph()
+    pPr = rule._p.get_or_add_pPr()
+    pbdr = OxmlElement('w:pBdr')
+    bot = OxmlElement('w:bottom')
+    bot.set(qn('w:val'), 'single'); bot.set(qn('w:sz'), '6')
+    bot.set(qn('w:space'), '1'); bot.set(qn('w:color'), 'C9D6DE')
+    pbdr.append(bot)
+    pPr.append(pbdr)
     return header
 
 
@@ -194,42 +196,50 @@ def add_footer(section):
     para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     _page_field_run(para)
     for run in para.runs:
-        _set_run_font(run, _BODY_FONT, size=9, color=GREY)
+        _set_run_font(run, _TILE_FONT, size=9, color=GREY)
     return footer
 
 
 # ── cover ─────────────────────────────────────────────────────────────────────
 def add_cover(document, meta):
-    """Title page: project name (large Calibri Light), a location line, the quoted
-    document title and a 'REV. <revision>' line, then a page break. Blank/None fields
-    are skipped so the cover degrades gracefully."""
+    """Title page (approved look): a navy 'BASELINE / NARRATIVE REPORT' kicker, the
+    project name, a location line, then a 'Data date: … · Rev. NN' line, then a page
+    break. Blank / None fields are skipped so the cover degrades gracefully."""
     meta = meta or {}
-    for _ in range(5):
+    for _ in range(4):
         document.add_paragraph()
 
+    k1 = document.add_paragraph()
+    k1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _set_run_font(k1.add_run('BASELINE'), _TILE_FONT, size=20, bold=True, color=NAVY)
+    k2 = document.add_paragraph()
+    k2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _set_run_font(k2.add_run('NARRATIVE REPORT'), _TILE_FONT, size=26, bold=True, color=NAVY)
+
+    document.add_paragraph()
     name_p = document.add_paragraph()
     name_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     _set_run_font(name_p.add_run(str(meta.get('project_name') or 'Project')),
-                  _HEAD_FONT, size=30, bold=True, color=INK)
+                  _BODY_FONT, size=18, color=INK)
 
     location = meta.get('location')
     if location:
         loc_p = document.add_paragraph()
         loc_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        _set_run_font(loc_p.add_run(str(location)), _BODY_FONT, size=12, color=GREY)
+        _set_run_font(loc_p.add_run(str(location)), _BODY_FONT, size=13, color=GREY)
 
-    doc_title = meta.get('document_title') or meta.get('doc_title')
-    if doc_title:
-        dt_p = document.add_paragraph()
-        dt_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        _set_run_font(dt_p.add_run('"%s"' % doc_title), _HEAD_FONT, size=16, color=NAVY)
-
-    revision = meta.get('revision')
-    if revision not in (None, ''):
-        rev_p = document.add_paragraph()
-        rev_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        _set_run_font(rev_p.add_run('REV. %s' % revision), _BODY_FONT, size=12,
-                      bold=True, color=INK)
+    bits = []
+    dd = meta.get('data_date')
+    if dd:
+        bits.append('Data date: %s' % dd)
+    rev = meta.get('revision')
+    if rev not in (None, ''):
+        bits.append('Rev. %s' % rev)
+    if bits:
+        meta_p = document.add_paragraph()
+        meta_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        _set_run_font(meta_p.add_run('     ·     '.join(bits)),
+                      _BODY_FONT, size=12, color=GREY)
 
     document.add_page_break()
 
