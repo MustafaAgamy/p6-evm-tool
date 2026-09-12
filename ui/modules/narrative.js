@@ -337,27 +337,37 @@ function mountContents(host) {
 }
 
 // Reflect the Report-Contents selection in the on-screen paper: hide de-selected sections,
-// re-order the selected ones, and renumber their heading chips so Preview == PDF == Print.
+// re-order the selected ones, and renumber their headings so Preview == PDF == Print.
+// The report renders one A4 `.page` per section (after the cover + TOC front-matter pages),
+// so selection operates on whole section pages, never on loose blocks inside one page.
 function applySelection(host) {
   if (!registry) return;
   const selected = registry.getSelectedIds();
   const sel = new Set(selected);
-  const page = host.querySelector('.page') || host;
-  // Reorder ANCHOR: the footer is the last child of `.page`, so append-to-page would drop
-  // sections after it. Insert before the footer instead so it always stays at the bottom.
-  const foot = page.querySelector(':scope > .foot');
-  host.querySelectorAll('section.sec').forEach(el => {
-    el.style.display = sel.has(el.getAttribute('data-section')) ? '' : 'none';
+  // Map every section number → its enclosing `.page`.
+  const pageByNum = new Map();
+  host.querySelectorAll('section.sec').forEach(secEl => {
+    const num = secEl.getAttribute('data-section');
+    const pg = secEl.closest('.page');
+    if (pg) pageByNum.set(num, pg);
   });
+  // Hide / show each section's whole page (border, header and footer included).
+  pageByNum.forEach((pg, num) => { pg.style.display = sel.has(num) ? '' : 'none'; });
+  // Reorder the selected section pages into the chosen order, anchored after the last
+  // front-matter page (cover / TOC — any `.page` that has no section block).
+  const allPages = [...host.querySelectorAll('.page')];
+  const frontPages = allPages.filter(pg => !pg.querySelector('section.sec'));
+  let anchor = frontPages[frontPages.length - 1] || null;
+  const parent = (anchor && anchor.parentNode) || (allPages[0] && allPages[0].parentNode) || host;
   selected.forEach((num, idx) => {
-    const el = sectionEl(host, num);
-    if (!el) return;
-    if (foot && foot.parentNode === page) page.insertBefore(el, foot);   // keep footer last
-    else page.appendChild(el);                                           // reorder to the selected order
-    // Renumber the on-screen heading chip. Cover both the v5 header (`h2 .num`) and the
-    // recovered header markup (a `.bn-n` chip beside the h2) so numbering stays 1..k.
-    const chip = el.querySelector('h2 .num, .bn-n');
-    if (chip) chip.textContent = String(idx + 1);
+    const pg = pageByNum.get(num);
+    if (!pg) return;
+    const nextTo = anchor ? anchor.nextSibling : parent.firstChild;
+    if (nextTo !== pg) parent.insertBefore(pg, nextTo);
+    anchor = pg;
+    // Renumber the on-screen heading ("N) Title") so numbering stays 1..k after reorder.
+    const h = pg.querySelector('h1.sec');
+    if (h) h.textContent = h.textContent.replace(/^\s*[^)]*\)/, String(idx + 1) + ')');
   });
 }
 
@@ -366,12 +376,16 @@ function cssAttr(v) { return String(v).replace(/"/g, '\\"'); }
 // ── export (Word / PDF) — respects the edits and the Report-Contents selection ──
 function exportDoc() {
   const doc = JSON.parse(JSON.stringify(serializeDoc()));
-  if (registry) {
-    const order = registry.getSelectedIds();
-    const keep = new Set(order);
-    doc.sections = doc.sections
-      .filter(s => keep.has(s.number))
-      .sort((a, b) => order.indexOf(a.number) - order.indexOf(b.number));
+  const all = Array.isArray(doc.sections) ? doc.sections : [];
+  const order = registry ? registry.getSelectedIds() : [];
+  // Safety net: only apply the selection when it actually resolves to sections that
+  // exist in the document. If the registry is unavailable, empty, or its ids don't
+  // match (e.g. a renderer/UI structure change), export the full document rather than
+  // silently blank it — a blank report is never the intended output.
+  const keep = new Set(order);
+  const filtered = all.filter(s => keep.has(s.number));
+  if (filtered.length) {
+    doc.sections = filtered.sort((a, b) => order.indexOf(a.number) - order.indexOf(b.number));
   }
   return doc;
 }

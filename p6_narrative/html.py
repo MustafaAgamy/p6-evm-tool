@@ -435,7 +435,12 @@ def _section_page(s, meta, cur, footer):
     title = s.get('title', '')
     head = '<h1 class="sec">%s) %s</h1>' % (_esc(number), _esc(title))
     body = _section_body(s, meta, cur)
-    return _page(meta, head + body, footer)
+    # Wrap the heading + body in an addressable section block so the interactive
+    # layer (Report-Contents selection, in-place prose editing, reorder/hide) can
+    # target each section by its number. Purely semantic — no visual change.
+    inner = ('<section class="sec" data-section="%s">%s%s</section>'
+             % (_esc(number), head, body))
+    return _page(meta, inner, footer)
 
 
 # ── cover + table of contents ─────────────────────────────────────────────────
