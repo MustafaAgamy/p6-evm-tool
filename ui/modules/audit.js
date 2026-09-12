@@ -1110,6 +1110,45 @@ function _dngUpdateHero(out) {
   _dngRenderHero();
 }
 
+// Update the Dangling module tab score AND the Summary roll-up score in the rail, so they track the
+// live (previewed) state — not just the big gauge. The roll-up is recomputed server-side (same engine
+// as import) from a COPY of the modules with the fresh Dangling swapped in; the stored Dangling module
+// is left untouched so navigating back to it never loses the review/preview state.
+async function _dngRefreshRollup(out) {
+  if (!out || out.score == null) return;
+  const am = state.currentModules;
+  const dm = am && am.modules && am.modules.dangling;
+  if (dm) {
+    const freshDng = Object.assign({}, dm,
+      { score: out.score, grade: out.grade, pct: out.pct, kpis: out.kpis, findings: out.findings });
+    const modulesCopy = Object.assign({}, am.modules, { dangling: freshDng });
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/health/recompute`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modules: modulesCopy }),
+      });
+      const r = await resp.json();
+      if (r.ok && r.health) am.health = r.health;
+    } catch (e) { /* leave the Summary score as-is if the recompute can't be reached */ }
+  }
+  _dngUpdateRail(out);
+}
+
+function _dngUpdateRail(out) {
+  const am = state.currentModules;
+  const tab = document.querySelector('.module-tab[data-module="dangling"]');
+  if (tab && out && out.score != null) {
+    const sc = tab.querySelector('.mt-score'); if (sc) sc.textContent = out.score;
+    const dot = tab.querySelector('.mt-dot'); if (dot) dot.className = `mt-dot ${gradeClass(out.grade)}`;
+  }
+  const health = am && am.health;
+  const st = document.querySelector('.module-tab.mt-summary');
+  if (st && health) {
+    const sc = st.querySelector('.mt-score'); if (sc) sc.textContent = (health.score == null ? '—' : health.score);
+    const dot = st.querySelector('.mt-dot'); if (dot) dot.className = `mt-dot ${scoreColor(health.score == null ? 0 : health.score)}`;
+  }
+}
+
 // Every accepted op across all applied activities, for re-validation and the corrected-file export.
 function _dngAppliedOps() {
   const ops = [];
@@ -1423,6 +1462,7 @@ async function _dngApply(fid) {
     _dngReconcileBlocked(out.blocked, submitted);
     _dngUpdateHero(out);
     renderDngReview();
+    _dngRefreshRollup(out);          // live-update the Dangling tab + Summary roll-up scores
     if (_dng.blocked.has(fid)) {
       _dngDlNote(DNG_BLOCK_MSG + ' — this fix was not applied.', true);
       _dngToast(`${f.activity_id}: ${DNG_BLOCK_MSG} — not applied.`, 'err');
@@ -1470,6 +1510,7 @@ async function _dngApplyAll() {
     _dngReconcileBlocked(out.blocked, submitted);
     _dngUpdateHero(out);
     renderDngReview();
+    _dngRefreshRollup(out);          // live-update the Dangling tab + Summary roll-up scores
     const stillActs = new Set(_dng.fresh.map(f => f.activity_id));
     const resolved = touched.filter(id => !stillActs.has(id)).length;
     const blockedN = (out.blocked || []).length;
@@ -1494,7 +1535,7 @@ async function _dngReopen(fid) {
   const f = _dng.all.find(x => x.finding_id === fid);
   if (f) delete _dng.applied[f.activity_id];
   _dng.blocked.delete(fid);                       // reopening clears any stale block flag on it
-  try { const out = await _dngValidate(); if (out.ok) { _dng.fresh = out.findings || []; _dngUpdateHero(out); } } catch (e) { /* keep local state */ }
+  try { const out = await _dngValidate(); if (out.ok) { _dng.fresh = out.findings || []; _dngUpdateHero(out); _dngRefreshRollup(out); } } catch (e) { /* keep local state */ }
   renderDngReview();
 }
 

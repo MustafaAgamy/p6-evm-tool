@@ -313,6 +313,23 @@ def test_dangling_corrected_file_requires_applied(test_server, tmp_path):
     assert out['ok'] is False
 
 
+def test_health_recompute_rolls_up_module_scores(test_server):
+    # The live roll-up used to update the Dangling tab + Summary after in-memory fixes: same weighted
+    # engine as import. dangling=100 (w15) + float=80 (w15) → renormalised 50/50 → 100*.5 + 80*.5 = 90.
+    modules = {
+        'dangling': {'module': 'dangling', 'name': 'Dangling Activities', 'score': 100, 'kpis': {}, 'findings': []},
+        'float': {'module': 'float', 'name': 'Float Analysis', 'score': 0, 'kpis': {}, 'findings': [],
+                  'mgmt': {'float_health': 80, 'stats': {'total': 5}}},
+    }
+    _, out = _post_json(test_server, '/api/health/recompute', {'modules': modules})
+    assert out['ok'] is True
+    assert out['health']['score'] == 90.0
+    # raising the Dangling score raises the roll-up
+    modules['dangling']['score'] = 60
+    _, out2 = _post_json(test_server, '/api/health/recompute', {'modules': modules})
+    assert out2['health']['score'] < 90.0
+
+
 def test_oos_excel_export_unchanged_after_apply_all(test_server, tmp_path):
     """req 01 (regression): the Out-of-Sequence 'Export to Excel' reads the STORED snapshot
     from the DB, while 'Apply all recommended fixes' re-validates in memory only (writes

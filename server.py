@@ -70,6 +70,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_dangling_validate(body)
         elif self.path == '/api/dangling/corrected-file':
             self._handle_dangling_corrected(body)
+        elif self.path == '/api/health/recompute':
+            self._handle_health_recompute(body)
         elif self.path == '/api/revcompare':
             self._handle_revcompare(body)
         elif self.path == '/api/revcompare/report':
@@ -1816,6 +1818,19 @@ class Handler(BaseHTTPRequestHandler):
             res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path),
                                   completion=body.get('completion'))
             self._json(200, {'ok': True, 'applied': res['applied'], 'out_path': res['out_path']})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/health/recompute ─────────────────────────────────────────────
+    def _handle_health_recompute(self, body):
+        """Recompute the Schedule Health roll-up from the client's CURRENT modules (with any in-memory
+        Dangling fixes previewed in), so the Dangling module tab score AND the Summary roll-up update
+        live as findings resolve — using the same weighted engine as import (single source of truth)."""
+        modules = body.get('modules') or {}
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.health import schedule_health
+            self._json(200, {'ok': True, 'health': schedule_health(modules)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
