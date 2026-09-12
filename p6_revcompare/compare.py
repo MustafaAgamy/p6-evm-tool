@@ -110,6 +110,8 @@ def _cp_chain(data, crit_codes, entered, left):
         nodes.append({
             'code': code, 'name': a.get('name') or code,
             'tf': a.get('total_float_days'),
+            'start': _short(a.get('planned_start')),
+            'finish': _short(_forecast_finish(a)),
             'is_ms': a.get('task_type') in _MS,
             'state': st,
         })
@@ -156,19 +158,33 @@ def _finish_ms_by_code(data):
     return out
 
 
+_MS_CONTRACT_HINTS = ('completion', 'handover', 'sectional', 'practical', 'substantial',
+                      'contract', 'commencement', 'possession', 'milestone date', 'access',
+                      'taking over', 'occupation')
+
+
+def _ms_type(name):
+    """Best-effort milestone type for the Type column — 'Contract' when the name reads like a
+    contractual key date, else 'Internal'. Name-based heuristic (P6 carries no such flag); a
+    planner can reclassify. Neutral label, not a judgement."""
+    n = (name or '').lower()
+    return 'Contract' if any(h in n for h in _MS_CONTRACT_HINTS) else 'Internal'
+
+
 def _compare_milestones(rev0, rev1, cal):
     m0, m1 = _finish_ms_by_code(rev0), _finish_ms_by_code(rev1)
     rows = []
     for code in sorted(set(m0) | set(m1)):
         a0, a1 = m0.get(code), m1.get(code)
         name = (a1 or a0).get('name') or code
+        base = {'id': code, 'type': _ms_type(name)}
         f0, f1 = (_forecast_finish(a0) if a0 else None), (_forecast_finish(a1) if a1 else None)
         if a0 and not a1:
-            rows.append({'name': name, 'rev0': _long(f0), 'rev1': None,
+            rows.append({**base, 'name': name, 'rev0': _long(f0), 'rev1': None,
                          'change': None, 'kind': 'removed', 'change_days': None})
             continue
         if a1 and not a0:
-            rows.append({'name': name, 'rev0': None, 'rev1': _long(f1),
+            rows.append({**base, 'name': name, 'rev0': None, 'rev1': _long(f1),
                          'change': None, 'kind': 'new', 'change_days': None})
             continue
         slip = _wd_between(cal, _d0(f0), _d0(f1)) if (f0 and f1) else None
@@ -180,7 +196,7 @@ def _compare_milestones(rev0, rev1, cal):
             kind = 'advanced'
         else:
             kind = 'unchanged'
-        rows.append({'name': name, 'rev0': _long(f0), 'rev1': _long(f1),
+        rows.append({**base, 'name': name, 'rev0': _long(f0), 'rev1': _long(f1),
                      'change': slip, 'kind': kind, 'change_days': slip})
     # governing / biggest movers first
     rows.sort(key=lambda r: (r['kind'] == 'unchanged', -abs(r.get('change_days') or 0)))
@@ -257,6 +273,52 @@ def _crit_label(tf):
 
 # ── the report ───────────────────────────────────────────────────────────────
 
+def _bottom_line(summary, finish_shift, gov1, resource_changes, quality):
+    """One neutral sentence summarising the revision — never a verdict."""
+    parts = []
+    if finish_shift is not None and finish_shift != 0:
+        word = 'later' if finish_shift > 0 else 'earlier'
+        parts.append(f"Rev.01 finishes {abs(finish_shift)} working days {word}"
+                     + (f" ({_short(gov1)})" if gov1 else ''))
+    else:
+        parts.append("Rev.01 keeps the same governing finish")
+    net = summary.get('net', 0)
+    parts.append(f"{'+' if net >= 0 else ''}{net} net activities")
+    bd = ((resource_changes or {}).get('total_budget') or {}).get('delta')
+    if bd:
+        parts.append(f"{'+' if bd > 0 else ''}{bd:,} budget")
+    nf = ((quality or {}).get('negative_float') or {}).get('rev1') or 0
+    tail = f" {nf} activities now carry negative float." if nf else ''
+    return ', '.join(parts) + '.' + tail + ' Flagged for planning review, not marked wrong.'
+
+
+def _redesign_sections(rev0, rev1, rev1c, matched, match, cal, cp, crit1,
+                       sequences, wbs_changes, gov0, gov1):
+    """The new redesigned-report dimensions (each engine module is guarded so a single
+    failure degrades that section to empty rather than breaking the whole comparison)."""
+    from p6_revcompare import (codes as _codes, quality as _quality, curves as _curves,
+                               slip as _slip, logicreg as _logicreg, dates as _dates,
+                               wbsview as _wbsview)
+    out = {}
+
+    def _safe(key, fn, default):
+        try:
+            out[key] = fn()
+        except Exception:
+            out[key] = default
+
+    _safe('codes', lambda: _codes.build_codes(rev0, rev1, match), None)
+    _safe('quality', lambda: _quality.build_quality(rev0, rev1c, matched, cal), None)
+    _safe('curves', lambda: _curves.build_curves(rev0, rev1c, matched, match, cal, gov0), None)
+    _safe('slip', lambda: _slip.build_slip(rev0, rev1c, matched, match, cp, cal, gov0, gov1), None)
+    _safe('logic_register', lambda: _logicreg.build_logic_register(matched, crit1), [])
+    _safe('date_shifts', lambda: _dates.build_date_shifts(match, rev0, rev1c, cal), [])
+    _safe('duration_table', lambda: _dates.build_duration_table(match, rev0, rev1c, cal), [])
+    _safe('wbs_view', lambda: _wbsview.build_wbs_view(rev0, rev1c, wbs_changes), None)
+    _safe('sequence_rollup', lambda: _wbsview.build_sequence_rollup(sequences, matched), [])
+    return out
+
+
 def build_report(rev0_path, rev1_path, config=None, options=None):
     from p6_evm.parser import parse_file
     rev0 = parse_file(rev0_path)
@@ -290,6 +352,8 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
     entered, left = (crit1 - crit0), (crit0 - crit1)
     len0, len1 = _path_length_wd(rev0), _path_length_wd(rev1c)
     cp_len_change = (len1 - len0) if (len0 is not None and len1 is not None) else None
+    from p6_critpath.paths import _governing_finish_ms as _gov_ms
+    _gm0, _gm1 = _gov_ms(rev0), _gov_ms(rev1c)
     cp = {
         'rev0': _cp_chain(rev0, crit0, set(), set()),
         'rev1': _cp_chain(rev1c, crit1, entered, left),
@@ -298,6 +362,9 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
         'left': [{'code': c, 'name': (matched.baseline_by_code.get(c) or {}).get('name') or c}
                  for c in sorted(left)],
         'length_change_wd': cp_len_change,
+        'rev0_len': len0, 'rev1_len': len1,
+        'rev0_tf_finish': (_gm0.get('total_float_days') if _gm0 else None),
+        'rev1_tf_finish': (_gm1.get('total_float_days') if _gm1 else None),
     }
 
     # ── sequence ───────────────────────────────────────────────────────────────
@@ -337,7 +404,9 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
     gov0, gov1 = _governing_finish(rev0), _governing_finish(rev1c)
     finish_shift = None
     if gov0 and gov1:
-        finish_shift = (_d0(gov1) - _d0(gov0)).days
+        # WORKING days (same basis as the milestone table + slip bridge) so the report never
+        # shows two different "finish moved N days" figures.
+        finish_shift = _wd_between(cal, _d0(gov0), _d0(gov1))
     summary = {
         'activities0': len(rev0.activities), 'activities1': len(rev1.activities),
         'net': len(rev1.activities) - len(rev0.activities),
@@ -364,6 +433,11 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
     findings = _findings(register, sequences, milestones, cp)
     narrative = _narrative(summary, finish_shift, sequences, milestones)
 
+    # ── redesigned-report dimensions (additive, guarded) ─────────────────────────
+    redesign = _redesign_sections(rev0, rev1, rev1c, matched, match, cal, cp, crit1,
+                                  sequences, wbs_changes, gov0, gov1)
+    bottom_line = _bottom_line(summary, finish_shift, gov1, resource_changes, redesign.get('quality'))
+
     return {
         'rev0': {'file': None, 'activities': len(rev0.activities),
                  'data_date': _short((rev0.project or {}).get('data_date')),
@@ -377,6 +451,8 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
         'float_movement': floats, 'milestones': milestones, 'narrative': narrative,
         'wbs_changes': wbs_changes, 'calendar_changes': calendar_changes,
         'constraint_changes': constraint_changes, 'resource_changes': resource_changes,
+        'bottom_line': bottom_line,
+        **redesign,
     }
 
 

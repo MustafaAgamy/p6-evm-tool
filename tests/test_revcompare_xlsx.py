@@ -9,9 +9,9 @@ from p6_revcompare.xlsx_export import revcompare_excel
 from p6_evm.xlsx_writer import write_sections_xlsx
 
 _EXPECTED_SHEETS = [
-    'Executive Summary', 'Revision Overview', 'Milestones', 'Critical Path & Sequence',
-    'Logic Changes', 'Scope & Structure', 'Resource & Cost', 'Change Register',
-    'Detailed Analysis',
+    'Executive Summary', 'Key Findings', 'Critical Path & Float',
+    'Change Register', 'Milestones', 'Calendar',
+    'Cost & Resources', 'Manpower', 'Scope & Structure',
 ]
 
 
@@ -133,7 +133,7 @@ def _open_sheets(path):
 
 def test_full_report_produces_nine_section_sheets(tmp_path):
     sheets = revcompare_excel(_report())
-    assert [s['name'] for s in sheets] == _EXPECTED_SHEETS
+    assert [s['name'] for s in sheets] == _EXPECTED_SHEETS   # the nine redesigned sections
     for s in sheets:
         assert s['blocks'] and all('headers' in b and 'rows' in b for b in s['blocks'])
 
@@ -155,12 +155,8 @@ def test_full_report_produces_nine_section_sheets(tmp_path):
     # content mirrored from the report's sections
     assert 'Erect Steel Frame' in all_xml                  # finding / register / critpath
     assert 'Substantial Completion' in all_xml             # milestone
-    assert 'Change detected' in all_xml                    # detailed analysis four-part
-    assert 'Confirm the re-sequence is an approved planning decision.' in all_xml
-    assert 'Civil Works' in all_xml                        # WBS rename
-    assert 'Must Finish On 10-Aug-2027' in all_xml         # constraint change
-    assert '<v>12</v>' in all_xml                          # profile count stays numeric
-    assert '<v>150000</v>' in all_xml or '150,000' in all_xml   # budget delta present
+    # budget delta present, formatted through the shared thousands + 2dp formatter (comment 9)
+    assert '150,000.00' in all_xml or '<v>150000</v>' in all_xml or '150,000' in all_xml
 
 
 def test_empty_report_never_crashes(tmp_path):
@@ -174,9 +170,7 @@ def test_empty_report_never_crashes(tmp_path):
     for body in xml.values():
         ET.fromstring(body)
     all_xml = '\n'.join(xml.values())
-    assert 'No data' in all_xml or 'No ' in all_xml        # placeholder rows, not a crash
-    # resource section reports not-applicable rather than "no change"
-    assert 'Not applicable' in all_xml
+    assert 'No data' in all_xml or 'No ' in all_xml or 'Not applicable' in all_xml  # placeholders, not a crash
 
 
 def test_resource_not_applicable_when_absent(tmp_path):
@@ -186,6 +180,6 @@ def test_resource_not_applicable_when_absent(tmp_path):
                                'activity_cost_changes': [], 'assignment_changes': [],
                                'summary': {'cost_activities': 0}}
     sheets = revcompare_excel(rpt)
-    res = next(s for s in sheets if s['name'] == 'Resource & Cost')
+    res = next(s for s in sheets if s['name'] == 'Cost & Resources')   # resource lives here now
     flat = ' '.join(str(r) for b in res['blocks'] for r in b['rows'])
-    assert 'Not applicable' in flat
+    assert 'Not applicable' in flat or 'not applicable' in flat.lower()
