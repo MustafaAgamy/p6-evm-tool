@@ -270,14 +270,29 @@ function monthLabel(str) {
   if (isNaN(d.getTime())) return null;
   return d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
 }
-// Thin an axis label list down to ~6 readable ticks.
-function thinLabels(months) {
-  const n = months.length;
-  if (!n) return [];
-  const step = Math.max(1, Math.ceil(n / 6));
-  const out = [];
-  months.forEach((m, i) => { if (i % step === 0 || i === n - 1) out.push({ i, m }); });
-  return out;
+// Wrap a label into a multi-line <text> (tspans) so long SVG labels don't collide with
+// their neighbours. `max` = chars/line budget (from the available column width). Escapes
+// each line. Returns one <text> element anchored at (x, y).
+function wrapSvgText(text, x, y, opts = {}) {
+  const { max = 14, lh = 10, maxLines = 3, anchor = 'middle', size = 9, fill = 'var(--muted)', weight = null } = opts;
+  const words = String(text || '').split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if (!cur) { cur = w; }
+    else if ((cur + ' ' + w).length <= max) { cur += ' ' + w; }
+    else { lines.push(cur); cur = w; if (lines.length >= maxLines) break; }
+  }
+  if (cur && lines.length < maxLines) lines.push(cur);
+  if (!lines.length) lines.push('');
+  // If content overflowed the line budget, ellipsise the last kept line.
+  const consumed = lines.join(' ').length;
+  if (consumed < String(text || '').replace(/\s+/g, ' ').trim().length) {
+    lines[lines.length - 1] = lines[lines.length - 1].replace(/.{0,1}$/, '…');
+  }
+  const tspans = lines.map((ln, i) =>
+    `<tspan x="${x}" dy="${i === 0 ? 0 : lh}">${escapeHtml(ln)}</tspan>`).join('');
+  return `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="${anchor}"${weight ? ` font-weight="${weight}"` : ''}>${tspans}</text>`;
 }
 
 // Deterministic theme-token colour for a code value (by first-seen order). No hardcoded
@@ -288,35 +303,72 @@ function tokenColor(value, order) {
   return i < 0 ? 'var(--accent)' : `var(${CHART_TOKENS[i % CHART_TOKENS.length]})`;
 }
 
-// Vertical histogram with a data label above every bar (comments 1, 3, 8, 10, 11).
-// items: [{ label, v, color }]. opts.money → compact money labels; else integer counts.
-// Scrolls horizontally inside .rc-chartwrap; SVG uses theme tokens only.
+// By-code bar chart — HORIZONTAL bars so category names never collide (see the approved
+// chart-fix mockup). items: [{ label, v, color }]. opts.money → compact money labels;
+// opts.suffix (e.g. '%') → appended to integer counts. Each category name sits on its own
+// line (right-aligned, truncated with a title=fullname tooltip); the value sits at the end
+// of its bar (inside when the bar is wide, just after it otherwise); the list scrolls when
+// there are many categories. Colours resolve through theme tokens only.
 function barsSvg(items, opts = {}) {
   if (!items || !items.length) return noData(opts.emptyMsg || 'No data to chart.');
-  const w = Math.max(560, items.length * 74), h = 234, L = 46, B = 42, T = 28;
-  const pw = w - L - 16, ph = h - T - B, step = pw / items.length, bw = Math.min(40, step * 0.6);
   const mx = Math.max(1, ...items.map(i => Math.abs(i.v || 0)));
-  let s = '';
-  items.forEach((it, i) => {
-    const x = L + i * step + step / 2;
-    const bh = Math.abs(it.v || 0) / mx * ph, y = T + ph - bh;
-    const label = opts.money ? fmtMoney(it.v) : fmtInt(it.v) + (opts.suffix || '');
-    s += `<rect x="${(x - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, bh).toFixed(1)}" rx="3" fill="${it.color || 'var(--accent)'}"/>`;
-    s += `<text x="${x.toFixed(1)}" y="${(y - 6).toFixed(1)}" font-size="10" font-weight="700" fill="var(--ink-soft)" text-anchor="middle">${escapeHtml(label)}</text>`;
-    s += `<text x="${x.toFixed(1)}" y="${(T + ph + 15).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="middle">${escapeHtml(String(it.label ?? ''))}</text>`;
-  });
-  return `<div class="rc-chartwrap"><svg viewBox="0 0 ${w} ${h}" class="rc-svg" style="min-width:${w}px" role="img" aria-label="Bar chart">
-    <line x1="${L}" y1="${T + ph}" x2="${w - 16}" y2="${T + ph}" stroke="var(--border)"/>${s}</svg></div>`;
+  const rows = items.map(it => {
+    const v = it.v || 0;
+    const w = Math.max(2, Math.abs(v) / mx * 100);
+    const label = opts.money ? fmtMoney(v) : fmtInt(v) + (opts.suffix || '');
+    const name = escapeHtml(String(it.label ?? ''));
+    const inside = w > 20;
+    const valStyle = inside
+      ? `left:calc(${w.toFixed(2)}% - 6px);transform:translateX(-100%)`
+      : `left:calc(${w.toFixed(2)}% + 6px)`;
+    return `<div class="rc-hrow">
+        <div class="rc-hlbl" title="${name}">${name}</div>
+        <div class="rc-htrack"><div class="rc-hfill" style="width:${w.toFixed(2)}%;background:${it.color || 'var(--accent)'}"></div><div class="${inside ? 'rc-hval in' : 'rc-hval'}" style="${valStyle}">${escapeHtml(label)}</div></div>
+      </div>`;
+  }).join('');
+  return `<div class="rc-hbars" role="img" aria-label="Bar chart">${rows}</div>`;
 }
 
 // Distinct code values for a dimension across a set of rows carrying a `.codes` map.
 function codeValues(rows, dim) {
   return [...new Set((rows || []).map(x => (x.codes || {})[dim]).filter(v => v != null && v !== ''))];
 }
-// Small chip-row builder (dimension picker + value picker share this look).
-function chipRow(labelHtml, items, cur, attr) {
-  return labelHtml + items.map(v =>
-    `<button class="rc-fchip ${v === cur ? 'on' : ''}" data-${attr}="${escapeHtml(String(v))}">${esc(v)}</button>`).join('');
+// One-control filter — a "Dimension ▾" dropdown plus (optionally) an "Activity code ▾"
+// dropdown, replacing the old walls of dimension/value chips (see the approved chart-fix
+// mockup). Real files carry ~24 dimensions and long values, which two compact <select>s
+// handle cleanly. `spec`:
+//   dims       — [dimension names]
+//   state      — the rcFilters.<x> object ({dim, val} or, for money, {dim})
+//   valuesFor  — (dim) => [distinct values]; omit to show only the Dimension dropdown
+//   onChange   — () => redraw the chart / count / list from the updated state
+//   dimLabel / valLabel — dropdown labels
+// Selecting still updates the view live AND feeds the PDF filters (state is rcFilters.<x>).
+function filterControl(host, spec) {
+  if (!host) return;
+  const { dims, state: fs, valuesFor, onChange, dimLabel = 'Dimension', valLabel = 'Activity code' } = spec;
+  if (!dims || !dims.length) { host.innerHTML = ''; return; }
+  if (!fs.dim || !dims.includes(fs.dim)) { fs.dim = dims[0]; if (valuesFor) fs.val = 'All'; }
+  const draw = () => {
+    let vals = null;
+    if (valuesFor) {
+      vals = ['All', ...valuesFor(fs.dim)];
+      if (!vals.includes(fs.val)) fs.val = 'All';
+    }
+    const opt = (v, sel) => `<option value="${escapeHtml(String(v))}"${sel ? ' selected' : ''}>${esc(v)}</option>`;
+    const dimSel = `<div class="rc-fld"><label>${escapeHtml(dimLabel)}</label>`
+      + `<select class="rc-fsel" data-role="dim">${dims.map(d => opt(d, d === fs.dim)).join('')}</select></div>`;
+    const valSel = valuesFor
+      ? `<div class="rc-fld"><label>${escapeHtml(valLabel)}</label>`
+        + `<select class="rc-fsel" data-role="val">${vals.map(v => opt(v, v === fs.val)).join('')}</select></div>`
+      : '';
+    host.innerHTML = `<div class="rc-fbar">${dimSel}${valSel}</div>`;
+    const dimEl = host.querySelector('[data-role="dim"]');
+    dimEl.addEventListener('change', () => { fs.dim = dimEl.value; if (valuesFor) fs.val = 'All'; draw(); onChange(); });
+    const valEl = host.querySelector('[data-role="val"]');
+    if (valEl) valEl.addEventListener('change', () => { fs.val = valEl.value; onChange(); });
+  };
+  draw();
+  onChange();
 }
 
 // ══ 1 · Executive Summary ══════════════════════════════════════════════════════
@@ -418,8 +470,7 @@ function scopeAnalysisCard(r) {
   return `<div class="rc-card"><h3>Scope change — analysis by activity code
       <span class="rc-n">click a code to filter</span> <span class="rc-pdfnote">🔵 reflects in PDF</span></h3>
     <div class="rc-sec">How many activities were added / removed, by activity code — pick a dimension, then a code value; the count, chart and list update</div>
-    <div class="rc-filters" id="rc-scope-dim"></div>
-    <div class="rc-filters" id="rc-scope-vals"></div>
+    <div id="rc-scope-filter"></div>
     <div id="rc-scope-chart"></div>
     <div id="rc-scope-tbl" style="margin-top:10px"></div></div>`;
 }
@@ -460,37 +511,19 @@ function renderScopeChart(body) {
       <tbody>${list || `<tr><td colspan="5" class="rc-mut">None for this code.</td></tr>`}</tbody></table></div>`;
 }
 
-function renderScopeVals(body) {
-  const host = body.querySelector('#rc-scope-vals');
-  if (!host) return;
-  const r = state.revcompareReport || {};
-  const codes = r.codes || {};
-  const all = [...(codes.added || []), ...(codes.removed || [])];
-  const vals = ['All', ...codeValues(all, rcFilters.scope.dim)];
-  host.innerHTML = chipRow('<b class="rc-fblbl">Activity code:</b>', vals, rcFilters.scope.val, 'scopeval');
-  host.querySelectorAll('[data-scopeval]').forEach(c => c.addEventListener('click', () => {
-    rcFilters.scope.val = c.dataset.scopeval;
-    renderScopeVals(body);
-    renderScopeChart(body);
-  }));
-}
-
 function wireSummary(body) {
-  const dimHost = body.querySelector('#rc-scope-dim');
-  if (!dimHost) return;
+  const host = body.querySelector('#rc-scope-filter');
+  if (!host) return;
   const r = state.revcompareReport || {};
   const dims = scopeDims(r);
   if (!dims.length) return;
-  dimHost.innerHTML = chipRow('<b class="rc-fblbl">Dimension:</b>', dims, rcFilters.scope.dim, 'scopedim');
-  dimHost.querySelectorAll('[data-scopedim]').forEach(c => c.addEventListener('click', () => {
-    dimHost.querySelectorAll('[data-scopedim]').forEach(x => x.classList.toggle('on', x === c));
-    rcFilters.scope.dim = c.dataset.scopedim;
-    rcFilters.scope.val = 'All';
-    renderScopeVals(body);
-    renderScopeChart(body);
-  }));
-  renderScopeVals(body);
-  renderScopeChart(body);
+  const all = [...((r.codes || {}).added || []), ...((r.codes || {}).removed || [])];
+  filterControl(host, {
+    dims,
+    state: rcFilters.scope,
+    valuesFor: (dim) => codeValues(all, dim),
+    onChange: () => renderScopeChart(body),
+  });
 }
 
 // ══ 2 · Key Findings ═════════════════════════════════════════════════════════
@@ -515,6 +548,8 @@ function slipWaterfall(slip) {
   const bw = Math.min(66, colStep * 0.55);
   const xc = (i) => leftPad + (i + 1) * colStep;
 
+  // Chars/line budget for wrapped cause labels, from the per-column spacing (~5.5px/char).
+  const causeMax = Math.max(8, Math.floor(colStep / 5.5));
   let cum = 0, bars = '', conns = '', labels = '';
   cs.forEach((c, i) => {
     const before = cum; cum += (c.wd || 0); const after = cum;
@@ -523,7 +558,7 @@ function slipWaterfall(slip) {
     const cx = xc(i), col = slipColor(i);
     bars += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${col}"/>`;
     labels += `<text x="${cx.toFixed(1)}" y="${(y - 6).toFixed(1)}" font-size="11" fill="var(--ink-soft)" text-anchor="middle" font-weight="700">${num(c.wd || 0, true)}</text>`;
-    labels += `<text x="${cx.toFixed(1)}" y="${(base + 18).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="middle">${escapeHtml(String(c.cause || ''))}</text>`;
+    labels += wrapSvgText(c.cause || '', cx.toFixed(1), (base + 16).toFixed(1), { max: causeMax, size: 9, maxLines: 3 });
     if (i > 0) {
       const py = base - before * scale;
       conns += `<line x1="${(xc(i - 1) + bw / 2).toFixed(1)}" y1="${py.toFixed(1)}" x2="${(cx - bw / 2).toFixed(1)}" y2="${py.toFixed(1)}"/>`;
@@ -533,13 +568,13 @@ function slipWaterfall(slip) {
   const th = Math.max(1, Math.abs(total) * scale);
   bars += `<rect x="${(tx - bw / 2).toFixed(1)}" y="${(base - th).toFixed(1)}" width="${bw.toFixed(1)}" height="${th.toFixed(1)}" rx="2" fill="var(--danger)" opacity=".9"/>`;
   labels += `<text x="${tx.toFixed(1)}" y="${(base - th - 6).toFixed(1)}" font-size="12" fill="var(--danger)" text-anchor="middle" font-weight="800">${num(total, true)}</text>`;
-  labels += `<text x="${tx.toFixed(1)}" y="${(base + 18).toFixed(1)}" font-size="9" fill="var(--ink-soft)" text-anchor="middle" font-weight="700">Rev.01 · ${esc(slip.rev1_finish)}</text>`;
+  labels += wrapSvgText(`Rev.01 · ${slip.rev1_finish || ''}`, tx.toFixed(1), (base + 16).toFixed(1), { max: Math.max(8, Math.floor(colStep / 5.5)), size: 9, maxLines: 2, fill: 'var(--ink-soft)', weight: 700 });
 
-  return `<svg viewBox="0 0 ${W} 235" class="rc-svg" style="min-width:720px" role="img" aria-label="Finish-slip attribution waterfall">
+  return `<svg viewBox="0 0 ${W} 268" class="rc-svg" style="min-width:720px" role="img" aria-label="Finish-slip attribution waterfall">
     <line x1="${leftPad}" y1="${base}" x2="${W - rightPad + 40}" y2="${base}" stroke="var(--border)"/>
     <line x1="${leftPad}" y1="${base - 5}" x2="${leftPad}" y2="${base + 5}" stroke="var(--muted)"/>
-    <text x="${leftPad}" y="${base + 18}" font-size="9" fill="var(--muted)" text-anchor="middle">Rev.00 finish</text>
-    <text x="${leftPad}" y="${base + 30}" font-size="9" fill="var(--muted)" text-anchor="middle">${esc(slip.rev0_finish)}</text>
+    <text x="${leftPad}" y="${base + 16}" font-size="9" fill="var(--muted)" text-anchor="middle">Rev.00 finish</text>
+    <text x="${leftPad}" y="${base + 28}" font-size="9" fill="var(--muted)" text-anchor="middle">${esc(slip.rev0_finish)}</text>
     <g stroke="var(--border)" stroke-dasharray="3 3">${conns}</g>
     ${bars}${labels}
   </svg>`;
@@ -567,8 +602,7 @@ function findingsView(r) {
   const logicCard = `<div class="rc-card"><h3>Logic &amp; Sequence Changes
       <span class="rc-n">each box shows the full WBS path — like the Critical Path Analyzer</span> <span class="rc-pdfnote">🔵 reflects in PDF</span></h3>
     <div class="rc-sec">Bigger boxes, side by side, with big arrows — pick a dimension, then a code to filter</div>
-    <div class="rc-filters" id="rc-logic-dim"></div>
-    <div class="rc-filters" id="rc-logic-vals"></div>
+    <div id="rc-logic-filter"></div>
     <div id="rc-logic-chart" class="rc-chartwrap"></div></div>`;
 
   return secmark('2', 'Key Findings') + slipCard + logicCard;
@@ -645,36 +679,19 @@ function renderLogicChart(body) {
   }).join('');
 }
 
-function renderLogicVals(body) {
-  const host = body.querySelector('#rc-logic-vals');
-  if (!host) return;
-  const r = state.revcompareReport || {};
-  const vals = ['All', ...codeValues(r.logic_register, rcFilters.logic.dim)];
-  host.innerHTML = chipRow('<b class="rc-fblbl">Activity code:</b>', vals, rcFilters.logic.val || 'All', 'logicval');
-  host.querySelectorAll('[data-logicval]').forEach(c => c.addEventListener('click', () => {
-    rcFilters.logic.val = c.dataset.logicval;
-    renderLogicVals(body);
-    renderLogicChart(body);
-  }));
-}
-
 function wireFindings(body) {
-  const dimHost = body.querySelector('#rc-logic-dim');
-  if (!dimHost) return;
+  const host = body.querySelector('#rc-logic-filter');
+  if (!host) return;
   const r = state.revcompareReport || {};
   const dims = logicDims(r);
   if (!dims.length) { const chart = body.querySelector('#rc-logic-chart'); if (chart) chart.innerHTML = noData('No activity-code dimensions available to group the logic changes.'); return; }
-  if (!rcFilters.logic.dim || !dims.includes(rcFilters.logic.dim)) { rcFilters.logic.dim = dims[0]; rcFilters.logic.val = 'All'; }
-  dimHost.innerHTML = chipRow('<b class="rc-fblbl">Group by:</b>', dims, rcFilters.logic.dim, 'logicdim');
-  dimHost.querySelectorAll('[data-logicdim]').forEach(c => c.addEventListener('click', () => {
-    dimHost.querySelectorAll('[data-logicdim]').forEach(x => x.classList.toggle('on', x === c));
-    rcFilters.logic.dim = c.dataset.logicdim;
-    rcFilters.logic.val = 'All';
-    renderLogicVals(body);
-    renderLogicChart(body);
-  }));
-  renderLogicVals(body);
-  renderLogicChart(body);
+  filterControl(host, {
+    dims,
+    state: rcFilters.logic,
+    dimLabel: 'Group by',
+    valuesFor: (dim) => codeValues(r.logic_register, dim),
+    onChange: () => renderLogicChart(body),
+  });
 }
 
 // ══ 3 · Critical Path & Float ══════════════════════════════════════════════════
@@ -773,13 +790,12 @@ function registerView(r) {
   }
   const dims = durationDims(r);
   const analysis = dims.length
-    ? `<div class="rc-card"><h3>Duration-change analysis <span class="rc-n">by activity code</span></h3>
-        <div class="rc-sec">Average duration change (%) by code — pick a dimension</div>
-        <div class="rc-filters" id="rc-dur-dim"></div>
+    ? `<div class="rc-card"><h3>Duration-change analysis <span class="rc-n">by activity code</span> <span class="rc-pdfnote">🔵 reflects in PDF</span></h3>
+        <div class="rc-sec">Average duration change (%) by code — pick a dimension, then (optionally) an activity code; the chart and the table below both update</div>
+        <div id="rc-dur-filter"></div>
         <div id="rc-dur-chart"></div></div>`
     : '';
   const tableCard = `<div class="rc-card"><h3>Duration changed <span class="rc-n">working days · filter by activity code</span></h3>
-      ${dims.length ? '<div class="rc-filters" id="rc-dur-vals"></div>' : ''}
       <div id="rc-dur-tbl"></div></div>`;
   return secmark('4', 'Change Register', 'activity-duration changes only · separate ID / Name columns · filter by activity code')
     + analysis + tableCard;
@@ -814,54 +830,44 @@ function renderDurTable(body) {
   const body_ = filtered.map(d => {
     const bNum = typeof d.before === 'number', aNum = typeof d.after === 'number';
     const v = (bNum && aNum) ? d.after - d.before : (typeof d.variance === 'number' ? d.variance : null);
-    const pct = (bNum && aNum && d.before) ? Math.round((d.after - d.before) / d.before * 100) : null;
+    // Prefer the engine-supplied % (report.duration_table[].pct); fall back to a local calc.
+    const pct = (typeof d.pct === 'number') ? d.pct
+      : ((bNum && aNum && d.before) ? Math.round((d.after - d.before) / d.before * 100) : null);
+    // A > ±200% swing (engine flag, or |pct| > 200) usually means the activity type /
+    // relationship type changed — flag it neutrally for justification, never as "wrong".
+    const big = (d.big_variance === true) || (typeof pct === 'number' && Math.abs(pct) > 200);
+    const note = big
+      ? `<span class="rc-tag warn" title="A > ±200% swing usually means the activity type or relationship type changed — it warrants a justification. Not a judgement that the change is wrong.">⚠ needs justification</span>`
+      : '<span class="rc-mut">—</span>';
     return `<tr><td class="rc-aid">${esc(d.id)}</td><td>${esc(d.name)}</td><td class="rc-mut">${esc(d.wbs)}</td>
       <td class="n">${bNum ? d.before + ' d' : esc(d.before)}</td>
       <td class="n rc-new">${aNum ? d.after + ' d' : esc(d.after)}</td>
       <td class="n">${v != null ? `<span class="rc-d ${v > 0 ? 'up' : v < 0 ? 'down' : 'zero'}">${v > 0 ? '+' : ''}${v} d</span>` : (d.before == null || d.after == null ? '<span class="rc-tag add">Added</span>' : '—')}</td>
-      <td class="n">${pct != null ? `<span class="rc-d ${pct > 0 ? 'up' : pct < 0 ? 'down' : 'zero'}">${pct > 0 ? '+' : ''}${pct}%</span>` : '—'}</td></tr>`;
+      <td class="n">${pct != null ? `<span class="rc-d ${pct > 0 ? 'up' : pct < 0 ? 'down' : 'zero'}">${pct > 0 ? '+' : ''}${pct}%</span>` : '—'}</td>
+      <td>${note}</td></tr>`;
   }).join('');
   host.innerHTML = `<div class="rc-tblscroll"><table class="rc-t">
-    <thead><tr><th>Activity ID</th><th>Activity Name</th><th>WBS</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th><th class="n">% change</th></tr></thead>
-    <tbody>${body_ || '<tr><td colspan="7" class="rc-mut">No duration changes for this code.</td></tr>'}</tbody></table></div>`;
-}
-
-function renderDurVals(body) {
-  const host = body.querySelector('#rc-dur-vals');
-  if (!host) return;
-  const r = state.revcompareReport || {};
-  const vals = ['All', ...codeValues(r.duration_table, rcFilters.duration.dim)];
-  host.innerHTML = chipRow('<b class="rc-fblbl">Filter:</b>', vals, rcFilters.duration.val, 'durval');
-  host.querySelectorAll('[data-durval]').forEach(c => c.addEventListener('click', () => {
-    rcFilters.duration.val = c.dataset.durval;
-    renderDurVals(body);
-    renderDurTable(body);
-  }));
+    <thead><tr><th>Activity ID</th><th>Activity Name</th><th>WBS</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th><th class="n">% change</th><th>Note</th></tr></thead>
+    <tbody>${body_ || '<tr><td colspan="8" class="rc-mut">No duration changes for this code.</td></tr>'}</tbody></table></div>`;
 }
 
 function wireRegister(body) {
   const r = state.revcompareReport || {};
   const dims = durationDims(r);
-  const dimHost = body.querySelector('#rc-dur-dim');
-  if (dims.length) {
-    if (!rcFilters.duration.dim || !dims.includes(rcFilters.duration.dim)) { rcFilters.duration.dim = dims[0]; rcFilters.duration.val = 'All'; }
-    if (dimHost) {
-      dimHost.innerHTML = chipRow('<b class="rc-fblbl">Dimension:</b>', dims, rcFilters.duration.dim, 'durdim');
-      dimHost.querySelectorAll('[data-durdim]').forEach(c => c.addEventListener('click', () => {
-        dimHost.querySelectorAll('[data-durdim]').forEach(x => x.classList.toggle('on', x === c));
-        rcFilters.duration.dim = c.dataset.durdim;
-        rcFilters.duration.val = 'All';
-        renderDurChart(body);
-        renderDurVals(body);
-        renderDurTable(body);
-      }));
-    }
-    renderDurChart(body);
-    renderDurVals(body);
+  const host = body.querySelector('#rc-dur-filter');
+  if (dims.length && host) {
+    // One control drives both the by-code chart and the filtered duration table.
+    filterControl(host, {
+      dims,
+      state: rcFilters.duration,
+      valuesFor: (dim) => codeValues(r.duration_table, dim),
+      onChange: () => { renderDurChart(body); renderDurTable(body); },
+    });
   } else {
     rcFilters.duration.dim = null; rcFilters.duration.val = 'All';
+    renderDurChart(body);
+    renderDurTable(body);
   }
-  renderDurTable(body);
 }
 
 // ══ 5 · Milestones (comment 5 — Activity ID + Type columns) ═════════════════════
@@ -988,11 +994,16 @@ function scurveSvg(curves, rev0finish) {
     origLine = `<line x1="${x.toFixed(1)}" y1="${plotT}" x2="${x.toFixed(1)}" y2="${plotB}" stroke="var(--danger)" stroke-dasharray="4 3"/>
       <text x="${(x + 4).toFixed(1)}" y="${plotT + 12}" font-size="9" fill="var(--danger)">orig finish ${esc(rev0finish)}</text>`;
   }
-  const xlabels = thinLabels(months).map(({ i, m }) => {
+  // Month labels: angled (~-40°) and thinned (every 2nd when crowded) so they never run
+  // together; the last month is always kept.
+  const showEvery = n > 10 ? 2 : 1;
+  const xlabels = months.map((m, i) => {
+    if (i % showEvery !== 0 && i !== n - 1) return '';
     const cx = plotL + (i + 0.5) * colW;
-    return `<text x="${cx.toFixed(1)}" y="${plotB + 14}" font-size="8" fill="var(--muted)" text-anchor="middle">${escapeHtml(String(m))}</text>`;
+    const ly = plotB + 12;
+    return `<text x="${cx.toFixed(1)}" y="${ly}" font-size="9" fill="var(--muted)" text-anchor="end" transform="rotate(-40 ${cx.toFixed(1)} ${ly})">${escapeHtml(String(m))}</text>`;
   }).join('');
-  return `<div class="rc-chartwrap"><svg viewBox="0 0 ${W} 280" class="rc-svg" style="min-width:${W}px" role="img" aria-label="Planned value chart">
+  return `<div class="rc-chartwrap"><svg viewBox="0 0 ${W} 300" class="rc-svg" style="min-width:${W}px" role="img" aria-label="Planned value chart">
     <line x1="${plotL}" y1="${plotB}" x2="${plotR}" y2="${plotB}" stroke="var(--border)"/>
     <line x1="${plotL}" y1="${plotT}" x2="${plotL}" y2="${plotB}" stroke="var(--border)"/>
     ${bars}
@@ -1030,7 +1041,7 @@ function costView(r) {
   const mdims = moneyDims(curves);
   const moneyCard = mdims.length
     ? `<div class="rc-card"><h3>Where the money moved <span class="rc-n">by activity code</span> <span class="rc-pdfnote">🔵 reflects in PDF</span></h3>
-        <div class="rc-filters" id="rc-money-dim"></div>
+        <div id="rc-money-filter"></div>
         <div id="rc-money-chart"></div>
         <div id="rc-money-tbl" style="margin-top:8px"></div></div>`
     : `<div class="rc-card"><h3>Where the money moved</h3>${noData('No budget-by-code breakdown available.')}</div>`;
@@ -1092,19 +1103,18 @@ function renderMoneyChart(body) {
 }
 
 function wireCost(body) {
-  const dimHost = body.querySelector('#rc-money-dim');
-  if (!dimHost) return;
+  const host = body.querySelector('#rc-money-filter');
+  if (!host) return;
   const r = state.revcompareReport || {};
   const dims = moneyDims(r.curves || {});
   if (!dims.length) return;
-  if (!rcFilters.money.dim || !dims.includes(rcFilters.money.dim)) rcFilters.money.dim = dims[0];
-  dimHost.innerHTML = chipRow('<b class="rc-fblbl">By:</b>', dims, rcFilters.money.dim, 'moneydim');
-  dimHost.querySelectorAll('[data-moneydim]').forEach(c => c.addEventListener('click', () => {
-    dimHost.querySelectorAll('[data-moneydim]').forEach(x => x.classList.toggle('on', x === c));
-    rcFilters.money.dim = c.dataset.moneydim;
-    renderMoneyChart(body);
-  }));
-  renderMoneyChart(body);
+  // Money filter is dimension-only (no per-value pick) — one Dimension dropdown.
+  filterControl(host, {
+    dims,
+    state: rcFilters.money,
+    dimLabel: 'By',
+    onChange: () => renderMoneyChart(body),
+  });
 }
 
 // ══ 8 · Manpower (comment 11 — combo: stacked-by-trade histogram + total line) ══
@@ -1120,9 +1130,10 @@ function manpowerView(r) {
   // Monthly totals across all trades.
   const total = months.map((_, i) => trades.reduce((s, t) => s + ((t.monthly || [])[i] || 0), 0));
   const n = months.length;
-  const W = Math.max(760, n * 68), h = 288, L = 48, B = 44, T = 32;
+  const W = Math.max(760, n * 68), h = 304, L = 48, B = 56, T = 32;
   const pw = W - L - 16, ph = h - T - B, step = pw / n, bw = Math.min(40, step * 0.62);
   const mx = Math.max(1, ...total);
+  const showEvery = n > 10 ? 2 : 1;
   let s = '';
   months.forEach((mo, i) => {
     let y = T + ph;
@@ -1136,7 +1147,11 @@ function manpowerView(r) {
     // Monthly total label above the stacked bar (comment 11).
     const topY = T + ph - total[i] / mx * ph;
     if (total[i] > 0) s += `<text x="${x.toFixed(1)}" y="${(topY - 6).toFixed(1)}" font-size="10" font-weight="800" fill="var(--ink-soft)" text-anchor="middle">${escapeHtml(fmtInt(total[i]))}</text>`;
-    s += `<text x="${x.toFixed(1)}" y="${(T + ph + 14).toFixed(1)}" font-size="8" fill="var(--muted)" text-anchor="middle">${escapeHtml(String(mo))}</text>`;
+    // Month labels angled (~-40°) and thinned (every 2nd when crowded); last always kept.
+    if (i % showEvery === 0 || i === n - 1) {
+      const ly = T + ph + 13;
+      s += `<text x="${x.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="end" transform="rotate(-40 ${x.toFixed(1)} ${ly.toFixed(1)})">${escapeHtml(String(mo))}</text>`;
+    }
   });
   // Total-headcount line across the stacked tops.
   s += `<polyline points="${months.map((_, i) => `${(L + i * step + step / 2).toFixed(1)},${(T + ph - total[i] / mx * ph).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--danger)" stroke-width="2.4"/>`;

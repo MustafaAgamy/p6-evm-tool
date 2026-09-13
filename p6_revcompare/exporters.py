@@ -200,35 +200,45 @@ def _resolve_dim(filters, key, dims):
     return dim, val
 
 
-def _bars_svg(items, min_w=560):
-    """Vertical histogram with a data label ABOVE each bar (comments 1, 3, 8, 10).
+def _filter_heading(dim, val=None):
+    """The planner's current selection, printed as a heading (the PDF is static, so the on-screen
+    Dimension ▾ / Activity code ▾ dropdowns become a read-only 'Dimension: … · Activity code: …'
+    line). ``val=None`` prints the dimension only (e.g. the money-moved chart, which has no value
+    selector). Tokens only."""
+    parts = [f'<span><span class="fk">Dimension</span> '
+             f'<span class="fv">{_e(dim) if dim else "—"}</span></span>']
+    if val is not None:
+        parts.append(f'<span><span class="fk">Activity code</span> '
+                     f'<span class="fv">{_e(val)}</span></span>')
+    return '<div class="filterhead">' + ''.join(parts) + '</div>'
 
-    ``items``: [{label (x-axis), vlabel (above bar), mag (bar height driver, may be < 0),
-    color}]. Bars grow up from the axis; height ∝ |mag| / max|mag|. Tokens only."""
+
+def _hbars(items):
+    """HORIZONTAL bar chart used for every by-code chart (scope added / duration %-change /
+    money variance). Each category name sits on its OWN line, right-aligned and truncated with a
+    ``title`` tooltip; the value sits at the bar end. Category names can therefore never collide
+    no matter how long or how many, and the value stays tied to its bar. Tokens only.
+
+    ``items``: [{label, vlabel, mag (may be < 0), color}]. Bar width ∝ |mag| / max|mag|."""
     if not items:
         return ''
-    n = len(items)
-    w = max(min_w, n * 70)
-    h, L, B, T = 230, 46, 40, 26
-    pw, ph = w - L - 16, h - T - B
-    step = pw / n
-    bw = min(38, step * 0.6)
     mx = max([abs(it.get('mag') or 0) for it in items] + [1])
-    base = T + ph
-    s = ''
-    for i, it in enumerate(items):
-        x = L + i * step + step / 2
-        bh = abs(it.get('mag') or 0) / mx * ph
-        y = base - bh
+    rows = ''
+    for it in items:
+        mag = it.get('mag') or 0
+        w = max(2.0, abs(mag) / mx * 100.0)
         col = it.get('color') or 'var(--rpt-accent)'
-        s += f'<rect x="{x - bw / 2:.1f}" y="{y:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="3" fill="{col}"/>'
-        s += (f'<text x="{x:.1f}" y="{y - 6:.1f}" font-size="10" font-weight="700" '
-              f'fill="var(--rpt-ink-soft)" text-anchor="middle">{_e(it.get("vlabel", ""))}</text>')
-        s += (f'<text x="{x:.1f}" y="{base + 14:.1f}" font-size="9" fill="var(--rpt-muted)" '
-              f'text-anchor="middle">{_e(it.get("label", ""))}</text>')
-    return (f'<div class="chartwrap"><svg viewBox="0 0 {w} {h}" style="height:230px;min-width:{w}px">'
-            f'<line x1="{L}" y1="{base}" x2="{w - 16}" y2="{base}" stroke="var(--rpt-chart-axis)"/>'
-            f'{s}</svg></div>')
+        name = _e(it.get('label', ''))
+        vlabel = _e(it.get('vlabel', ''))
+        # value inside the bar (right-aligned) when the bar is wide enough, else just past its end
+        if w > 22:
+            vstyle = f'left:calc({w:.1f}% - 6px);transform:translateX(-100%);color:var(--rpt-accent-ink)'
+        else:
+            vstyle = f'left:calc({w:.1f}% + 6px);color:var(--rpt-ink-soft)'
+        rows += (f'<div class="hrow"><div class="hlbl" title="{name}">{name}</div>'
+                 f'<div class="htrack"><div class="hfill" style="width:{w:.1f}%;background:{col}"></div>'
+                 f'<div class="hval" style="{vstyle}">{vlabel}</div></div></div>')
+    return f'<div class="hbars">{rows}</div>'
 
 
 # Slip-bridge cause colours — a CSS-var per index, paired with the matching track class in _CSS.
@@ -343,7 +353,7 @@ def _scope_analysis(report, filters):
             cnt = sum(1 for r in added if ((r.get('codes') or {}).get(dim) or '(uncoded)') == cv)
             items.append({'label': cv, 'vlabel': _num(cnt), 'mag': cnt, 'color': _series_color(i)})
         chart = (f'<div class="chartlab">ADDED ACTIVITIES BY {_e(str(dim).upper())}</div>'
-                 + _bars_svg(items))
+                 + _hbars(items))
     else:
         chart = _muted('No activity-code breakdown available for scope changes.')
 
@@ -373,7 +383,8 @@ def _scope_analysis(report, filters):
         rows = '<tr><td colspan="5" class="mut">None for this selection.</td></tr>'
     head = (f'<tr><th>Activity ID</th><th>Activity Name</th><th>Change</th>'
             f'<th>WBS</th><th>{_e(col_lbl)}</th></tr>')
-    body = intro + chart + callout + '<div style="margin-top:8px"></div>' + _tbl(head, rows)
+    body = (_filter_heading(dim, val) + intro + chart + callout
+            + '<div style="margin-top:8px"></div>' + _tbl(head, rows))
     return _card('Scope change', 'analysis by activity code', body)
 
 
@@ -494,7 +505,7 @@ def _logic_changes(report, filters):
                      f'<span class="gsw" style="background:{col}"></span>{_e(g)}'
                      f'<span class="ct">{len(rs)} change{"s" if len(rs) != 1 else ""}</span></div>')
         inner.extend(_logic_box(r) for r in rs)
-    body = intro + '<div class="chartwrap">' + ''.join(inner) + '</div>'
+    body = _filter_heading(dim, val) + intro + '<div class="chartwrap">' + ''.join(inner) + '</div>'
     return _card('Logic & sequence changes', sub, body)
 
 
@@ -603,7 +614,7 @@ def _duration_analysis(report, filters, dim):
         avg = round(sum(vals) / len(vals)) if vals else 0
         items.append({'label': cv, 'vlabel': f'{avg}%', 'mag': avg, 'color': _series_color(i)})
     return (f'<div class="chartlab">AVG DURATION CHANGE (%) BY {_e(str(dim).upper())}</div>'
-            + _bars_svg(items))
+            + _hbars(items))
 
 
 def _reg_duration(report, filters):
@@ -631,32 +642,43 @@ def _reg_duration(report, filters):
         before, after, var = r.get('before'), r.get('after'), r.get('variance')
         b_txt = f'{_num(before)} d' if isinstance(before, (int, float)) and not isinstance(before, bool) else _e(before)
         a_txt = f'{_num(after)} d' if isinstance(after, (int, float)) and not isinstance(after, bool) else _e(after)
+        note_cell = '<span class="mut">—</span>'
         if before == '—':
             var_cell, pct_cell = '<span class="tag add">Added</span>', '<span class="mut">—</span>'
         elif after == '—':
             var_cell, pct_cell = '<span class="tag rem">Removed</span>', '<span class="mut">—</span>'
         else:
             var_cell = _dcell(var, ' d')
-            base = _money_num(before)
-            if base and var is not None:
-                p = round(var / base * 100)
-                pcls = 'up' if p > 0 else 'down' if p < 0 else 'zero'
-                pct_cell = f'<span class="d {pcls}">{"+" if p > 0 else ""}{p}%</span>'
+            # prefer the engine's own % (report.duration_table[].pct); fall back for older payloads
+            ep = r.get('pct')
+            if ep is None:
+                base = _money_num(before)
+                ep = round(var / base * 100) if base and var is not None else None
+            if ep is not None:
+                pcls = 'up' if ep > 0 else 'down' if ep < 0 else 'zero'
+                pct_cell = f'<span class="d {pcls}">{"+" if ep > 0 else ""}{round(ep)}%</span>'
             else:
                 pct_cell = '<span class="mut">—</span>'
+            # comment C — flag a > ±200% swing for justification (neutral; never says it is wrong)
+            if r.get('big_variance'):
+                note_cell = ('<span class="tag warn">⚠ needs justification</span>'
+                             '<div class="notehint">&gt; ±200% swing — usually the activity type / '
+                             'relationship type changed; confirm the basis.</div>')
         rows += (f'<tr><td class="mono">{_e(r.get("id"))}</td><td>{_e(r.get("name"))}</td>'
                  f'<td class="mut">{_e(r.get("wbs") or "—")}</td>'
                  f'<td class="n">{b_txt}</td><td class="n new">{a_txt}</td>'
-                 f'<td class="n">{var_cell}</td><td class="n">{pct_cell}</td></tr>')
+                 f'<td class="n">{var_cell}</td><td class="n">{pct_cell}</td>'
+                 f'<td>{note_cell}</td></tr>')
     if not rows:
-        rows = '<tr><td colspan="7" class="mut">None for this activity code.</td></tr>'
+        rows = '<tr><td colspan="8" class="mut">None for this activity code.</td></tr>'
     head = ('<tr><th>Activity ID</th><th>Activity Name</th><th>WBS</th><th class="n">Before</th>'
-            '<th class="n">After</th><th class="n">Variance</th><th class="n">% change</th></tr>')
+            '<th class="n">After</th><th class="n">Variance</th><th class="n">% change</th>'
+            '<th>Note</th></tr>')
     note = ''
     if val != 'All':
         note = f' · filtered to {val}'
     table = _card('Duration changed', f'working days{note}', _tbl(head, rows))
-    return analysis + table
+    return _filter_heading(dim, val) + analysis + table
 
 
 def _sec_register(report, filters=None):
@@ -776,11 +798,14 @@ def _scurve_svg(report):
         return _muted('Neither revision carries cost loading — the planned-value chart is not applicable.')
     n = len(months)
     W, H = 860, 290
-    left, right, top, bot = 52, 30, 30, 40
+    left, right, top, bot = 52, 30, 30, 48
     plot_w = W - left - right
     plot_h = H - top - bot
     step = plot_w / max(n, 1)
     bw = min(14, step / 3)
+    # thin labels to every 2nd month when the columns get crowded (keeps value + month labels
+    # from touching their neighbours); month labels are angled so they never run together
+    thin = 2 if step < 34 else 1
     max_m = max([max(m.get('rev0', 0) or 0, m.get('rev1', 0) or 0) for m in vm] + [1])
     cum_mx = max([(x.get('rev0', 0) or 0) for x in vc] + [(x.get('rev1', 0) or 0) for x in vc] + [1])
     baseY = top + plot_h
@@ -793,8 +818,8 @@ def _scurve_svg(report):
         h1 = v1 / max_m * plot_h
         bars.append(f'<rect x="{x - bw - 1:.1f}" y="{baseY - h0:.1f}" width="{bw:.1f}" height="{h0:.1f}" fill="var(--rpt-hair-strong)"/>')
         bars.append(f'<rect x="{x + 1:.1f}" y="{baseY - h1:.1f}" width="{bw:.1f}" height="{h1:.1f}" fill="var(--rpt-accent)" opacity="0.9"/>')
-        # comment 8 — value label above the (revised) bar
-        if v1:
+        # comment 8 — value label above the (revised) bar; thinned so labels never touch
+        if v1 and i % thin == 0:
             bars.append(f'<text x="{x + 1 + bw / 2:.1f}" y="{baseY - h1 - 4:.1f}" font-size="8" '
                         f'font-weight="700" fill="var(--rpt-ink-soft)" text-anchor="middle">{_e(_money_label(v1))}</text>')
 
@@ -819,10 +844,11 @@ def _scurve_svg(report):
                      f'<text x="{ox + 4:.1f}" y="{top + 12}" font-size="9" fill="var(--rpt-bad)">orig finish</text>')
 
     labels = ''
-    steplbl = max(1, n // 8)
-    for i in range(0, n, steplbl):
+    for i in range(0, n, thin):
         x = left + i * step + step / 2
-        labels += f'<text x="{x:.1f}" y="{baseY + 14}" font-size="8" fill="var(--rpt-muted)" text-anchor="middle">{_e(months[i])}</text>'
+        ly = baseY + 12
+        labels += (f'<text x="{x:.1f}" y="{ly:.1f}" font-size="8" fill="var(--rpt-muted)" '
+                   f'text-anchor="end" transform="rotate(-40 {x:.1f} {ly:.1f})">{_e(months[i])}</text>')
 
     svg = (f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;min-width:640px">'
            f'<line x1="{left}" y1="{baseY}" x2="{W - right}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
@@ -858,14 +884,14 @@ def _money_moved(report, filters):
         var = r.get('var') or 0
         col = 'var(--rpt-accent)' if var >= 0 else 'var(--rpt-hair-strong)'
         items.append({'label': r.get('category'), 'vlabel': _money_label(var), 'mag': var, 'color': col})
-    chart = (f'<div class="chartlab">BUDGET VARIANCE BY {_e(str(dim).upper())}</div>' + _bars_svg(items))
+    chart = (f'<div class="chartlab">BUDGET VARIANCE BY {_e(str(dim).upper())}</div>' + _hbars(items))
     rows = ''
     for r in rows_data:
         rows += (f'<tr><td>{_e(r.get("category"))}</td><td class="n">{_money(r.get("rev0"))}</td>'
                  f'<td class="n new">{_money(r.get("rev1"))}</td>'
                  f'<td class="n">{_money_delta(r.get("var"))}</td></tr>')
     head = f'<tr><th>{_e(dim)}</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr>'
-    body = ('<div class="sec">Planned budget total cost by activity code, Rev.00 → Rev.01.</div>'
+    body = (_filter_heading(dim) + '<div class="sec">Planned budget total cost by activity code, Rev.00 → Rev.01.</div>'
             + chart + '<div style="margin-top:8px"></div>' + _tbl(head, rows))
     return _card('Where the money moved', f'by {_e(dim)}', body)
 
@@ -940,11 +966,13 @@ def _sec_manpower(report, filters=None):
                         for t in trades), 1) for i in range(n)]
     mx = max(totals + [1])
     W, H = 860, 290
-    left, top, bot = 52, 30, 40
+    left, top, bot = 52, 30, 48
     plot_w, plot_h = W - left - 30, H - top - bot
     step = plot_w / max(n, 1)
     bw = min(40, step * 0.62)
     baseY = top + plot_h
+    # thin labels to every 2nd month when crowded so total + month labels never touch; bars stay
+    thin = 2 if step < 34 else 1
 
     seg = ''
     for i in range(n):
@@ -958,12 +986,14 @@ def _sec_manpower(report, filters=None):
             if sh > 0:
                 seg += (f'<rect x="{x - bw / 2:.1f}" y="{y:.1f}" width="{bw:.1f}" height="{sh:.1f}" '
                         f'fill="{_series_color(ti)}"/>')
-        # monthly total label above the stacked bar
-        ty = baseY - totals[i] / mx * plot_h - 6
-        seg += (f'<text x="{x:.1f}" y="{ty:.1f}" font-size="9" font-weight="800" '
-                f'fill="var(--rpt-ink-soft)" text-anchor="middle">{_num(totals[i])}</text>')
-        seg += (f'<text x="{x:.1f}" y="{baseY + 14:.1f}" font-size="8" fill="var(--rpt-muted)" '
-                f'text-anchor="middle">{_e(months[i])}</text>')
+        if i % thin == 0:
+            # monthly total label above the stacked bar (its own bar, non-colliding)
+            ty = baseY - totals[i] / mx * plot_h - 6
+            seg += (f'<text x="{x:.1f}" y="{ty:.1f}" font-size="9" font-weight="800" '
+                    f'fill="var(--rpt-ink-soft)" text-anchor="middle">{_num(totals[i])}</text>')
+            ly = baseY + 12
+            seg += (f'<text x="{x:.1f}" y="{ly:.1f}" font-size="8" fill="var(--rpt-muted)" '
+                    f'text-anchor="end" transform="rotate(-40 {x:.1f} {ly:.1f})">{_e(months[i])}</text>')
 
     pts = ' '.join(f'{left + i * step + step / 2:.1f},{baseY - totals[i] / mx * plot_h:.1f}' for i in range(n))
     line = f'<polyline points="{pts}" fill="none" stroke="var(--rpt-bad)" stroke-width="2.4"/>'
@@ -1128,6 +1158,18 @@ h3 { margin: 0 0 8px; font-size: 13px; color: var(--rpt-ink); } h3 .n { font-siz
 .bottomline b { color: var(--rpt-accent); }
 .chartwrap { overflow-x: auto; }
 .chartlab { font-size: 11px; font-weight: 800; color: var(--rpt-muted); margin-bottom: 4px; letter-spacing: .03em; }
+/* one-control selection heading (the on-screen Dimension ▾ / Activity code ▾ dropdowns, printed static) */
+.filterhead { display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: baseline; font-size: 11px; color: var(--rpt-muted); background: var(--rpt-surface-2); border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 8px 12px; margin-bottom: 10px; }
+.filterhead .fk { font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.filterhead .fv { color: var(--rpt-ink); font-weight: 700; }
+/* horizontal by-code bars — one name per line, value at bar end, no label collisions ever */
+.hbars { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+.hrow { display: grid; grid-template-columns: 210px 1fr; gap: 12px; align-items: center; }
+.hlbl { font-size: 11.5px; font-weight: 600; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--rpt-ink-soft); }
+.htrack { position: relative; background: var(--rpt-surface-2); border-radius: 6px; height: 24px; display: flex; align-items: center; }
+.hfill { height: 100%; border-radius: 6px; min-width: 2px; }
+.hval { position: absolute; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+.notehint { font-size: 10px; color: var(--rpt-muted); margin-top: 2px; }
 /* tables */
 .tbl-wrap { border: 1px solid var(--rpt-edge); border-radius: 10px; overflow: hidden; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 11px; }

@@ -342,19 +342,34 @@ def _critical_blocks(report):
 
 # ── 4 · register — Change Register (DURATION changed only) ───────────────────────
 
+def _pct_display(d):
+    """% duration change for a duration row — prefer the report-supplied ``pct`` (the engine's
+    own value), falling back to the before/variance derivation for older payloads."""
+    p = d.get('pct')
+    if isinstance(p, (int, float)) and not isinstance(p, bool):
+        return _sgn(round(p), '%')
+    return _pct_change(d.get('before'), d.get('variance'))
+
+
 def _register_blocks(report):
     # Only the Duration changed table lives in the register now — Calendar / TF-After columns
     # removed (comment 3); a % change column added; milestone / calendar to their own sheets,
-    # logic to Key Findings, cost / resource to Cost & Resources.
+    # logic to Key Findings, cost / resource to Cost & Resources. A neutral "Note" column flags
+    # a >±200% swing for justification (usually the activity/relationship type changed) — never
+    # calls the change wrong.
     dur = [[_txt(d.get('id')), _txt(d.get('name')), _txt(d.get('wbs'), '—'),
             _num(d.get('before')), _num(d.get('after')), _num(d.get('variance')),
-            _pct_change(d.get('before'), d.get('variance'))]
+            _pct_display(d),
+            'Needs justification (>±200%)' if d.get('big_variance') else '']
            for d in (report.get('duration_table') or [])]
     return [{'title': 'Duration changed — working days',
              'note': 'Every activity whose planned duration moved. Filter by activity code on screen '
-                     '(Discipline / Building / WBS); % change is the variance over the Rev.00 duration.',
-             'headers': ['Activity ID', 'Activity Name', 'WBS', 'Before', 'After', 'Variance', '% change'],
-             'rows': _rows_or_none(dur, 7, 'No duration changes on matched activities.')}]
+                     '(Discipline / Building / WBS); % change is the variance over the Rev.00 duration. '
+                     'A >±200% swing is flagged for justification — usually the activity type or '
+                     'relationship type changed, not an error.',
+             'headers': ['Activity ID', 'Activity Name', 'WBS', 'Before', 'After', 'Variance',
+                         '% change', 'Note'],
+             'rows': _rows_or_none(dur, 8, 'No duration changes on matched activities.')}]
 
 
 # ── 5 · ms — Milestones ──────────────────────────────────────────────────────────
@@ -607,7 +622,7 @@ def revcompare_excel(report):
         {'name': 'Critical Path & Float', 'blocks': _critical_blocks(report),
          'col_widths': {0: 6, 1: 16, 2: 32, 3: 14, 4: 22}},
         {'name': 'Change Register', 'blocks': _register_blocks(report),
-         'col_widths': {0: 18, 1: 30, 2: 24, 3: 12, 4: 12, 5: 12, 6: 12}},
+         'col_widths': {0: 18, 1: 30, 2: 24, 3: 12, 4: 12, 5: 12, 6: 12, 7: 26}},
         {'name': 'Milestones', 'blocks': _ms_blocks(report),
          'col_widths': {0: 16, 1: 32, 2: 14, 3: 20, 4: 20, 5: 16}},
         {'name': 'Calendar', 'blocks': _cal_blocks(report),
