@@ -155,23 +155,27 @@ function render() {
 }
 
 function cardHeader(pb, ov) {
-  const pills = (ov.primary_systems || []).slice(0, 8).map(s =>
-    `<div class="kbp-bpill"><div class="n">${escapeHtml(shortName(s.name))} <span class="ct">PRIMARY</span></div><div class="d">${escapeHtml(s.discipline_label || '')}</div></div>`).join('');
+  const cur = pb.curated;
+  const comps = cur ? cur.components : (ov.primary_systems || []).map(s => ({ name: shortName(s.name), desc: s.discipline_label, primary: true }));
+  const pills = comps.slice(0, 8).map(c =>
+    `<div class="kbp-bpill"><div class="n">${escapeHtml(c.name)}${c.primary ? ' <span class="ct">PRIMARY</span>' : ''}</div><div class="d">${escapeHtml(c.desc || '')}</div></div>`).join('');
   const nPrim = (ov.primary_systems || []).length;
+  const ctx = (cur && cur.context) ? cur.context : `${nPrim} primary disciplines`;
+  const brief = (cur && cur.brief) ? cur.brief : (ov.notes || '');
   return `<div class="kbp-card kbp-pad">
     <div class="kbp-ihead"><div>
       <div class="t">${escapeHtml(pb.name)}</div>
-      <div class="c">${escapeHtml(pb.sector_label || '')} · ${nPrim} primary disciplines</div></div>
+      <div class="c">${escapeHtml(pb.sector_label || '')} · ${escapeHtml(ctx)}</div></div>
       <span class="kbp-mode">▣ Project knowledge</span></div>
-    ${ov.notes ? `<div class="kbp-brief">${escapeHtml(ov.notes)}</div>` : ''}
+    ${brief ? `<div class="kbp-brief">${escapeHtml(brief)}</div>` : ''}
     <div class="kbp-l" style="margin-top:14px">Main components / disciplines</div>
     <div class="kbp-band">${pills || '<span class="kbp-muted">—</span>'}</div>
   </div>`;
 }
 
 function cardOverviewSeq(pb) {
-  const phases = (pb.sequence || {}).phases || [];
-  const flow = phases.map((p, i) => `<div class="kbp-seqstep ${i === phases.length - 1 ? 'hold' : ''}"><div class="sn">Phase ${i + 1}</div><div class="st">${escapeHtml(p.name)}</div></div>`).join('');
+  const names = (pb.curated && pb.curated.overview_phases) ? pb.curated.overview_phases : ((pb.sequence || {}).phases || []).map(p => p.name);
+  const flow = names.map((n, i) => `<div class="kbp-seqstep ${i === names.length - 1 ? 'hold' : ''}"><div class="sn">Phase ${i + 1}</div><div class="st">${escapeHtml(n)}</div></div>`).join('');
   return `<div class="kbp-card kbp-pad">
     <div class="kbp-ch"><h3>Sequence of work — overview</h3><span class="m">how this type is built, at a glance · logic order, not dates</span></div>
     <div class="kbp-seqflow">${flow || '<span class="kbp-muted">—</span>'}</div>
@@ -181,8 +185,9 @@ function cardOverviewSeq(pb) {
 
 function cardWbs(pb) {
   const wbs = pb.wbs || {}, bl = pb.baseline || {};
-  const rows = (wbs.branches || []).map(b => `<div class="kbp-wbsrow"><span class="kbp-wc">${escapeHtml(b.code)}</span><span class="kbp-wn">${escapeHtml(b.name || '')}</span></div>`).join('');
-  const tag = wbs.source === 'curated' ? '<span class="kbp-tag">Curated standard</span>' : '<span class="kbp-tag">Composed from systems</span>';
+  const branches = (pb.curated && pb.curated.wbs) ? pb.curated.wbs : (wbs.branches || []);
+  const rows = branches.map(b => `<div class="kbp-wbsrow"><span class="kbp-wc">${escapeHtml(b.code)}</span><span class="kbp-wn">${escapeHtml(b.name || '')}</span></div>`).join('');
+  const tag = (pb.curated || wbs.source === 'curated') ? '<span class="kbp-tag">Curated standard</span>' : '<span class="kbp-tag">Composed from systems</span>';
   const dl = bl.available ? `<button class="kbp-btn" data-act="baseline" data-type="${escapeHtml(bl.type || '')}">⭳ Download baseline (P6 XML)</button>` : '';
   return `<div class="kbp-card kbp-pad">
     <div class="kbp-ch"><h3>Suggested WBS</h3><span class="m">${tag}</span></div>
@@ -192,7 +197,24 @@ function cardWbs(pb) {
   </div>`;
 }
 
+function curatedTradeSeq(trades) {
+  const allow = FOCUS[_focus];
+  const shown = allow ? trades.filter(t => allow.includes(t.disc)) : trades;
+  const cardFor = (t) => {
+    const gi = (typeof t.hold === 'number') ? t.hold : -1;
+    const chain = (t.steps || []).map((s, i) => `${i ? '<span class="op">→</span>' : ''}<span class="chip ${i === gi ? 'hold' : ''}">${i === gi ? '⚑ ' : ''}${escapeHtml(s)}</span>`).join('');
+    return `<div class="kbp-ccard"><div class="kbp-cch"><span class="nm"><span class="kbp-cdot" style="background:${discColor(t.disc || t.name)}"></span>${escapeHtml(t.name)}</span><span class="kbp-st kbp-good">● Curated</span></div>
+      <div class="kbp-cbody"><div class="kbp-chain">${chain}</div></div></div>`;
+  };
+  return `<div class="kbp-card kbp-pad kbp-smart">
+    <div class="kbp-ch"><h3>Suggested sequence of work — by discipline / trade</h3><span class="m">the typical order each trade builds in</span></div>
+    ${shown.map(cardFor).join('') || '<div class="kbp-muted">No trades match this filter.</div>'}
+    <div class="kbp-formula">⚑ marks a typical hold point — that step usually completes before the next trade can start. Sequences are typical references from the construction knowledge base — adapt to your methodology, access &amp; packaging. Never a check or score of your schedule.</div>
+  </div>`;
+}
+
 function cardTradeSeq(pb) {
+  if (pb.curated && pb.curated.trades) return curatedTradeSeq(pb.curated.trades);
   const trades = groupTrades((pb.sequence || {}).detail);
   const allow = FOCUS[_focus];
   const shown = allow ? trades.filter(t => allow.includes(t.discipline)) : trades;
@@ -231,7 +253,7 @@ function rail(pb, ov) {
     <div class="kbp-rc"><h4>◪ Project context</h4>
       <div class="kbp-rrow"><span>Sector</span><b>${escapeHtml(pb.sector_label || '')}</b></div>
       <div class="kbp-rrow"><span>Primary disciplines</span><b>${(ov.primary_systems || []).length}</b></div>
-      <div class="kbp-rrow"><span>WBS branches</span><b>${(pb.wbs && pb.wbs.branches || []).length}</b></div>
+      <div class="kbp-rrow"><span>WBS branches</span><b>${((pb.curated && pb.curated.wbs) || (pb.wbs && pb.wbs.branches) || []).length}</b></div>
       <div class="kbp-rrow"><span>Baseline file</span><b>${bl.available ? 'Available (P6 XML)' : 'Not available'}</b></div></div>
     <div class="kbp-rc"><h4>✓ Evidence &amp; confidence</h4>
       <div class="kbp-rrow"><span>Source</span><span class="kbp-st kbp-good">● Curated reference</span></div>

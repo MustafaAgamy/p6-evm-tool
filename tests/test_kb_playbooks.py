@@ -48,6 +48,20 @@ def test_unknown_archetype_returns_none():
     assert playbooks.playbook('does_not_exist') is None
 
 
+def test_data_center_uses_curated_content():
+    pb = playbooks.playbook('data_center')
+    assert pb.get('is_curated') is True and pb.get('curated')
+    cur = pb['curated']
+    assert [t['name'] for t in cur['trades']][:2] == ['Civil / Structural', 'Electrical Power']
+    assert len(cur['wbs']) == 12 and len(cur['components']) == 6
+    assert cur['trades'][1]['steps'][0] == 'Long-lead procurement'
+
+
+def test_uncurated_type_has_no_curated_block():
+    pb = playbooks.playbook('villa')
+    assert pb is not None and not pb.get('curated')
+
+
 def test_every_archetype_builds_a_playbook():
     """No archetype should crash the assembly (they vary in coverage)."""
     for aid in load_archetypes():

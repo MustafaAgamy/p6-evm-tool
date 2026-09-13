@@ -12,10 +12,38 @@ Deterministic, offline, stdlib-only. Honest coverage using the 5-state status
 vocabulary from :mod:`p6_kb.reference`; a thin/absent area reads as
 ``not_assessed``/``insufficient_evidence``, never as approval.
 """
+import json
+import os
 import re
+
+from utils import app_data_dir, resource_path
 
 from . import kb, reference
 from .patterns import load_archetypes, load_system_patterns
+
+_PLAYBOOKS_SUBDIR = os.path.join('knowledge_base', 'playbooks')
+
+
+def load_curated(archetype):
+    """Curated, hand-authored playbook content for a project type, or ``None``.
+
+    Read from ``knowledge_base/playbooks/<archetype>.json`` (bundled default with
+    an optional per-user overlay that wins). When present, the UI renders this
+    verbatim — clean components, overview phases, WBS and per-trade sequences —
+    instead of the content derived from the system patterns. Curated where we
+    have authored it; derived elsewhere; never fabricated."""
+    if not archetype:
+        return None
+    for base in (os.path.join(app_data_dir(), _PLAYBOOKS_SUBDIR), resource_path(_PLAYBOOKS_SUBDIR)):
+        path = os.path.join(base, f'{archetype}.json')
+        try:
+            with open(path, encoding='utf-8') as fh:
+                data = json.load(fh)
+                if isinstance(data, dict) and data.get('trades'):
+                    return data
+        except (OSError, ValueError):
+            continue
+    return None
 
 # ── sector taxonomy: fold the inconsistent raw categories into ~8 sectors ──
 SECTORS = [
@@ -372,6 +400,8 @@ def playbook(archetype_id, patterns=None, archetypes=None, kb_entries=None):
         'name': a.get('name'),
         'sector': sector,
         'sector_label': SECTOR_LABEL.get(sector),
+        'curated': load_curated(archetype_id),
+        'is_curated': bool(load_curated(archetype_id)),
         'overview': {
             'notes': a.get('notes') or '',
             'driver': _first_sentence(a.get('notes')),
