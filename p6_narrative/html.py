@@ -357,8 +357,8 @@ def _calendars(p, number, title, meta, cur):
                   '</span><span><i style="background:#b23030"></i>Non-working days</span></div>')
         hist_block = ('<div class="sub">%s.2 &middot; Calendar Timeline '
                       '<span style="font-weight:400;font-size:9.5px;color:#8a93a0;'
-                      'text-transform:none;letter-spacing:0">&mdash; working vs non-working '
-                      'days per month, for each calendar (from data date)</span></div>'
+                      'text-transform:none;letter-spacing:0">&mdash; net working vs non-working '
+                      'days per month, per calendar, across the baseline schedule</span></div>'
                       '%s%s' % (_esc(number), legend, hists))
 
     # 8.3 holidays (Date | Description only)
@@ -396,6 +396,7 @@ def _wbs_tree(p, number, title, meta, cur):
                     for c in (overview.get('children') or []))
     ov_block = ('<div class="sub">%s.1 &middot; WBS Overview</div>'
                 '<div class="oc"><div class="ocroot">%s</div>'
+                '<div class="octrunk"></div>'
                 '<div class="ocbranch">%s</div></div>'
                 % (_esc(number), _esc(overview.get('name')), boxes))
 
@@ -415,8 +416,9 @@ def _wbs_tree(p, number, title, meta, cur):
                     inner += '<div style="text-align:center">%s</div>' % chips
             cols += '<div class="occol">%s</div>' % inner
         branch_blocks += ('<div class="sub">%s.%d &middot; %s &mdash; breakdown</div>'
-                          '<div class="oc"><div class="ocroot">%s</div></div>'
-                          '<div class="occols">%s</div>'
+                          '<div class="oc"><div class="ocroot">%s</div>'
+                          '<div class="octrunk"></div>'
+                          '<div class="occols">%s</div></div>'
                           % (_esc(number), i + 1, _esc(br.get('name')),
                              _esc(br.get('name')), cols))
     return intro + ov_block + branch_blocks
@@ -639,10 +641,13 @@ table { border-collapse: collapse; }
 .hist .m { font-size:8.5px; color:#8a95a1; margin-top:3px; font-family:Calibri,sans-serif; }
 .oc { text-align:center; }
 .ocroot { display:inline-block; background:#1F4E79; color:#fff; font-weight:700; font-size:11px; padding:7px 18px; border-radius:6px; font-family:Calibri,sans-serif; }
-.ocbranch { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin-top:14px; }
-.ocbox { flex:0 0 120px; width:120px; min-height:52px; display:flex; align-items:center; justify-content:center; text-align:center; background:#DEEAF6; border:1px solid #9cbcdd; border-radius:6px; padding:6px 6px; font-size:9.5px; line-height:1.25; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; overflow-wrap:anywhere; word-break:break-word; }
-.occols { display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:12px; }
-.occol { flex:1; min-width:120px; }
+.octrunk { width:2px; height:12px; background:#9cbcdd; margin:0 auto; }
+.ocbranch { display:inline-flex; justify-content:center; flex-wrap:wrap; gap:12px 14px; border-top:2px solid #9cbcdd; padding-top:14px; }
+.ocbox { position:relative; flex:0 0 120px; width:120px; min-height:52px; display:flex; align-items:center; justify-content:center; text-align:center; background:#DEEAF6; border:1px solid #9cbcdd; border-radius:6px; padding:6px 6px; font-size:9.5px; line-height:1.25; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; overflow-wrap:anywhere; word-break:break-word; }
+.ocbox::before { content:""; position:absolute; top:-14px; left:calc(50% - 1px); width:2px; height:14px; background:#9cbcdd; }
+.occols { display:inline-flex; justify-content:center; flex-wrap:wrap; gap:12px 14px; border-top:2px solid #9cbcdd; padding-top:14px; text-align:left; }
+.occol { position:relative; flex:0 1 160px; min-width:130px; }
+.occol::before { content:""; position:absolute; top:-14px; left:calc(50% - 1px); width:2px; height:14px; background:#9cbcdd; }
 .l2 { background:#bcd3ea; border:1px solid #9cbcdd; border-radius:6px; padding:6px; font-size:10px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; }
 .l3 { background:#e6eef7; border:1px solid #cdddef; border-radius:5px; padding:5px; font-size:9.5px; font-weight:600; color:#1f4e79; margin-top:8px; font-family:Calibri,sans-serif; }
 .l4 { background:#fff; border:1px solid #d3ddea; border-radius:4px; padding:3px 5px; font-size:8.5px; color:#33414d; margin-top:5px; display:inline-block; font-family:Calibri,sans-serif; }

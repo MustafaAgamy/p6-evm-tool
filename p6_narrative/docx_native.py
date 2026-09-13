@@ -386,6 +386,12 @@ _EMU_PER_PX = 9525                          # 96-dpi pixel → EMU
 # per-depth WBS palette + chevron palette — match docx_charts (sans the leading '#')
 _WBS_PALETTE_HEX = ['1F4E79', '2E75B6', '4472C4', '5B9BD5', 'DEEAF6']
 _WBS_ACCENT = '2E75B6'
+_WBS_LINE = '1F4E79'                        # dark navy org-chart connector (Ibrahim: the
+#                                             WBS bracket lines must be clearly visible)
+_LINE_EMU = 12700                           # ~1pt connector thickness. A connector MUST have
+#   a non-zero extent in BOTH axes: Word silently drops any shape whose bounding box is
+#   zero-width or zero-height, which is why the old zero-extent prst="line" connectors never
+#   appeared (the boxes, with real extents, did) — see _wps_line.
 _SEQ_PALETTE_HEX = ['1F4E79', '2E75B6', '4472C4', '5B9BD5', '41719C', '8FAADC']
 
 # namespaces the grouped-shape drawing needs (declared on the <w:drawing> root)
@@ -447,15 +453,35 @@ def _wps_box(counter, name, x, y, w, h, fill, line, tcol, text, sz=17, prst='rou
         f'tIns="4572" bIns="4572"><a:normAutofit/></wps:bodyPr></wps:wsp>')
 
 
-def _wps_line(counter, x, y, cx, cy, color):
-    """One straight line-connector shape (an elbow segment)."""
+def _wps_line(counter, x, y, cx, cy, color, thick=_LINE_EMU):
+    """One straight org-chart connector segment, drawn as a THIN FILLED RECTANGLE.
+
+    ``(x, y)`` is the segment's start, ``(cx, cy)`` its signed run in EMU; for an
+    axis-aligned org-chart bracket exactly one of ``cx``/``cy`` is 0.
+
+    A ``prst="line"`` shape whose bounding box is zero-width (``cx=0``, a vertical drop)
+    or zero-height (``cy=0``, a horizontal bus) is silently NOT rendered by Microsoft
+    Word — which is why the old connectors vanished while the boxes (real extents on both
+    axes) stayed. A thin filled ``rect`` given a small non-zero thickness on the collapsed
+    axis renders reliably, looks identical to a hairline connector, and is still a native,
+    click-to-edit Word shape (no picture)."""
     sid = counter[0]
     counter[0] += 1
+    x0, y0, w, h = int(x), int(y), int(cx), int(cy)
+    if w < 0:                               # normalise to a top-left origin
+        x0 += w; w = -w
+    if h < 0:
+        y0 += h; h = -h
+    if w == 0:                              # vertical segment → widen it, keep it centred
+        w = thick; x0 -= thick // 2
+    if h == 0:                              # horizontal segment → thicken it, keep centred
+        h = thick; y0 -= thick // 2
     return (
         f'<wps:wsp><wps:cNvPr id="{sid}" name="Connector {sid}"/><wps:cNvSpPr/>'
-        f'<wps:spPr><a:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm>'
-        f'<a:prstGeom prst="line"><a:avLst/></a:prstGeom>'
-        f'<a:ln w="9525"><a:solidFill><a:srgbClr val="{color}"/></a:solidFill></a:ln>'
+        f'<wps:spPr><a:xfrm><a:off x="{x0}" y="{y0}"/><a:ext cx="{w}" cy="{h}"/></a:xfrm>'
+        f'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
+        f'<a:solidFill><a:srgbClr val="{color}"/></a:solidFill>'
+        f'<a:ln><a:noFill/></a:ln>'
         f'</wps:spPr><wps:bodyPr/></wps:wsp>')
 
 
@@ -517,11 +543,11 @@ def _org_vertical(document, root):
         gx = x_of(depth) + INDENT / 2.0
         top = y_of(n) + BOX_H
         last_cy = y_of(kids[-1]) + BOX_H / 2.0
-        shapes.append(_wps_line(counter, _emu(gx), _emu(top), 0, _emu(last_cy - top), _WBS_ACCENT))
+        shapes.append(_wps_line(counter, _emu(gx), _emu(top), 0, _emu(last_cy - top), _WBS_LINE))
         for k in kids:
             cy = y_of(k) + BOX_H / 2.0
             shapes.append(_wps_line(counter, _emu(gx), _emu(cy),
-                                    _emu(x_of(depth + 1) - gx), 0, _WBS_ACCENT))
+                                    _emu(x_of(depth + 1) - gx), 0, _WBS_LINE))
     for n, depth in seq:
         fill = _WBS_PALETTE_HEX[min(depth, len(_WBS_PALETTE_HEX) - 1)]
         tcol = '12303D' if depth >= len(_WBS_PALETTE_HEX) - 1 else 'FFFFFF'
@@ -585,12 +611,12 @@ def add_org_chart(document, root_node):
                 mid = by(n) + BOX_H + (Y_STEP - BOX_H) / 2.0
                 bottom = by(n) + BOX_H
                 shapes.append(_wps_line(counter, _emu(pcx), _emu(bottom),
-                                        0, _emu(mid - bottom), _WBS_ACCENT))
+                                        0, _emu(mid - bottom), _WBS_LINE))
                 x_l, x_r = sorted((pcx, kcx))
                 shapes.append(_wps_line(counter, _emu(x_l), _emu(mid),
-                                        _emu(x_r - x_l), 0, _WBS_ACCENT))
+                                        _emu(x_r - x_l), 0, _WBS_LINE))
                 shapes.append(_wps_line(counter, _emu(kcx), _emu(mid),
-                                        0, _emu(by(k) - mid), _WBS_ACCENT))
+                                        0, _emu(by(k) - mid), _WBS_LINE))
         # boxes
         for n in nodes:
             depth = int(n['_y'])
@@ -839,14 +865,14 @@ def add_org_flat(document, root_name, branches, total_w=660):
         sh += _wps_box(cnt, 'root', _emu(0), _emu(0), _emu(grid_w), _emu(RH),
                        '1F4E79', '1F4E79', 'FFFFFF', str(root_name or 'Project'), sz=11)
         busY = RH + bus_gap
-        sh += _wps_line(cnt, _emu(grid_w // 2), _emu(RH), 0, _emu(busY - RH), '9FB4C6')
+        sh += _wps_line(cnt, _emu(grid_w // 2), _emu(RH), 0, _emu(busY - RH), _WBS_LINE)
         # connect the root bus to the first row of boxes
         k0, xoff0 = row_geom(0)
         ctr0 = [xoff0 + c * (BW + GAP) + BW // 2 for c in range(k0)]
         if k0 > 1:
-            sh += _wps_line(cnt, _emu(ctr0[0]), _emu(busY), _emu(ctr0[-1] - ctr0[0]), 0, '9FB4C6')
+            sh += _wps_line(cnt, _emu(ctr0[0]), _emu(busY), _emu(ctr0[-1] - ctr0[0]), 0, _WBS_LINE)
         for c in range(k0):
-            sh += _wps_line(cnt, _emu(ctr0[c]), _emu(busY), 0, _emu(grid_y - busY), '9FB4C6')
+            sh += _wps_line(cnt, _emu(ctr0[c]), _emu(busY), 0, _emu(grid_y - busY), _WBS_LINE)
         for i, nm in enumerate(names):
             r, c = divmod(i, per_row)
             _, xoff = row_geom(r)
@@ -910,7 +936,7 @@ def add_org_cols(document, root_name, columns, total_w=660):
         sh += _wps_box(cnt, 'root', _emu(0), _emu(0), _emu(grid_w), _emu(RH),
                        '1F4E79', '1F4E79', 'FFFFFF', str(root_name or 'Project'), sz=11)
         busY = RH + bus_gap
-        sh += _wps_line(cnt, _emu(grid_w // 2), _emu(RH), 0, _emu(busY - RH), '9FB4C6')
+        sh += _wps_line(cnt, _emu(grid_w // 2), _emu(RH), 0, _emu(busY - RH), _WBS_LINE)
 
         y0 = grid_y
         for r in range(rows):
@@ -921,9 +947,9 @@ def add_org_cols(document, root_name, columns, total_w=660):
             if r == 0:                              # bus + drops from the root to row 1
                 if k > 1:
                     sh += _wps_line(cnt, _emu(ctr[0]), _emu(busY),
-                                    _emu(ctr[-1] - ctr[0]), 0, '9FB4C6')
+                                    _emu(ctr[-1] - ctr[0]), 0, _WBS_LINE)
                 for c in range(k):
-                    sh += _wps_line(cnt, _emu(ctr[c]), _emu(busY), 0, _emu(y0 - busY), '9FB4C6')
+                    sh += _wps_line(cnt, _emu(ctr[c]), _emu(busY), 0, _emu(y0 - busY), _WBS_LINE)
             for c in range(k):
                 cx0 = xoff + c * (CW + GAP)
                 ccx = cx0 + CW // 2
@@ -931,7 +957,7 @@ def add_org_cols(document, root_name, columns, total_w=660):
                 for bi, (lvl, txt) in enumerate(group[c]):
                     fill, line, tcol = LVL.get(lvl, LVL['l3'])
                     if bi > 0:                      # connector down from the box above
-                        sh += _wps_line(cnt, _emu(ccx), _emu(y - VGAP), 0, _emu(VGAP), 'C2D2E2')
+                        sh += _wps_line(cnt, _emu(ccx), _emu(y - VGAP), 0, _emu(VGAP), _WBS_LINE)
                     sh += _wps_box(cnt, txt, _emu(cx0), _emu(y), _emu(CW), _emu(BH),
                                    fill, line, tcol, txt, sz=9)
                     y += BH + VGAP

@@ -309,7 +309,10 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
     # 6.1 — discipline split (share of contract value)
     groups = OrderedDict()
     for act in work:
-        disc = code(act, disc_dim) or top_wbs_name(act.get('wbs_id'), wbs) or 'General'
+        # Activities that carry the discipline code group by it; those that don't fall into a
+        # single honest "Other (uncoded)" bucket — never a project/WBS name masquerading as a
+        # discipline (keeps §6.1 and §5's split clean and consistent).
+        disc = code(act, disc_dim) or 'Unclassified'
         groups.setdefault(disc, []).append(act)
     ordered = sorted(groups,
                      key=lambda d: (-cost_of(groups[d]), _trade_rank(d), _first_index(groups, d)))

@@ -390,11 +390,14 @@ function exportDoc() {
   return doc;
 }
 
+const NARRATIVE_BTN_IDS = { docx: 'narrative-word-btn', pdf: 'narrative-pdf-btn', html: 'narrative-html-btn' };
+const NARRATIVE_OK_LABELS = { docx: '✓ Word saved', pdf: '✓ PDF saved', html: '✓ HTML saved' };
+
 async function exportNarrative(kind) {
   if (!state.narrativeDoc) { showError('Generate the narrative first.'); return; }
-  const btn = document.getElementById(kind === 'docx' ? 'narrative-word-btn' : 'narrative-pdf-btn');
+  const btn = document.getElementById(NARRATIVE_BTN_IDS[kind] || 'narrative-pdf-btn');
   const label = btn ? btn.textContent : '';
-  const ext = kind === 'docx' ? 'docx' : 'pdf';
+  const ext = kind;
   const proj = (state.narrativeDoc.meta && state.narrativeDoc.meta.project_name) || 'Project';
   const safe = proj.replace(/[^\w.-]+/g, '_').slice(0, 60);
   try {
@@ -407,7 +410,7 @@ async function exportNarrative(kind) {
     });
     const data = await resp.json();
     if (!data.ok) showError(`Export failed: ${data.error}`);
-    else if (btn) btn.textContent = kind === 'docx' ? '✓ Word saved' : '✓ PDF saved';
+    else if (btn) btn.textContent = NARRATIVE_OK_LABELS[kind] || '✓ Saved';
   } catch {
     showError('Export failed. Check the output path and try again.');
   } finally {
@@ -674,6 +677,17 @@ export function renderNarrativePanel() {
     const p = document.getElementById('narrative-pdf-btn');
     if (w) w.addEventListener('click', () => exportNarrative('docx'));
     if (p) p.addEventListener('click', () => exportNarrative('pdf'));
+    // Export HTML — the same self-contained HTML the PDF export builds, without
+    // the Chrome print step. Injected beside the Word/PDF buttons.
+    let h = document.getElementById('narrative-html-btn');
+    if (!h && p && p.parentNode) {
+      h = document.createElement('button');
+      h.className = 'btn-secondary';
+      h.id = 'narrative-html-btn';
+      h.textContent = 'Export HTML';
+      p.parentNode.insertBefore(h, p.nextSibling);
+    }
+    if (h) h.addEventListener('click', () => exportNarrative('html'));
     _wired = true;
   }
   state.narrativeSetup = null;

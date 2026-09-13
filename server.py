@@ -90,6 +90,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_narrative_docx(body)
         elif self.path == '/api/narrative/pdf':
             self._handle_narrative_pdf(body)
+        elif self.path == '/api/narrative/html':
+            self._handle_narrative_html(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -490,6 +492,27 @@ class Handler(BaseHTTPRequestHandler):
                 f'file:///{html_path.replace(os.sep, "/")}',
             ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
             os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/html ───────────────────────────────────────────────
+    def _handle_narrative_html(self, body):
+        """Write the (edited) narrative as a self-contained HTML file — the same
+        HTML the PDF export builds, minus the Chrome print step. page_html returns
+        a full <!doctype html> document with inline CSS + data-URI logos, so the
+        single file needs no external assets."""
+        doc_dict = body.get('doc')
+        output_path = body.get('output_path')
+        if not doc_dict or not output_path:
+            self._json(200, {'ok': False, 'error': 'Missing document or output path'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_narrative.builder import apply_edits
+            from p6_narrative.html import page_html
+            with open(os.path.abspath(output_path), 'w', encoding='utf-8') as f:
+                f.write(page_html(apply_edits(doc_dict, body.get('edits'))))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
