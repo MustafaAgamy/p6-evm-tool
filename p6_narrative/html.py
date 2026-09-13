@@ -22,8 +22,11 @@ and bar comes as-is from the section payload; nothing is re-derived here. The pr
   4  ms_table     {columns, rows:[[name, date_str], …]}          (Major Milestones)
   5  ms_table     {columns, rows:[[name, date_str], …]}          (Key Dates)
   6  value_bars   {total, unit?, rows:[{name, amount, pct}]}
-  7  scope        {disciplines:[{name, pct, cost?}],
-                   sections:[{discipline, buildings:[{name, elements:[str]}]}]}
+  7  scope        {total, unit?, cascade, narrative,
+                   disciplines:[{name, cost, pct}],                       (6.1  pct of total)
+                   discipline_details:[{discipline, cost, pct,
+                       worktypes:[{name, cost, pct}]}],                   (6.2… pct within it)
+                   drill:{building, discipline, cost, worktypes:[…]}|None}(final drill-down)
   8  table        {view:'calendars', header:{calendar_count, activity_count},
                    dashboard:{…tiles, no shutdown…},
                    calendars:[{name, monthly:[{label, working_days, nonworking_days}], …}],
@@ -131,12 +134,20 @@ def _bars(rows, name_key, value_fn):
         pct = float(r.get('pct') or 0)
         width = max(pct / maxp * 100.0, 0.0)
         label = value_fn(r)
+        # Wide bars carry the value inside the fill (white); short bars would clip it, so the
+        # value sits just to the RIGHT of the fill in dark text (readable on the light track).
+        if width >= 30:
+            fill = '<div class="fill" style="width:%.4g%%">%s</div>' % (width, _esc(label))
+        else:
+            fill = ('<div class="fill" style="width:%.4g%%"></div>'
+                    '<span class="val" style="left:calc(%.4g%% + 8px)">%s</span>'
+                    % (width, width, _esc(label)))
         pct_over_fill = width >= 99.5
         pcls = ' style="color:#dbe6f2"' if pct_over_fill else ''
         out += ('<div class="bar"><div class="lab">%s</div>'
-                '<div class="track"><div class="fill" style="width:%.4g%%">%s</div>'
+                '<div class="track">%s'
                 '<div class="pct"%s>%s%%</div></div></div>'
-                % (_esc(r.get(name_key)), width, _esc(label), pcls, _fmt_pct(pct)))
+                % (_esc(r.get(name_key)), fill, pcls, _fmt_pct(pct)))
     return out
 
 
@@ -214,27 +225,54 @@ def _value_bars(p, number, title, meta, cur):
             'activity code), from cost loading.</p>%s%s' % (banner, bars))
 
 
-# ── §7 Scope of Work ──────────────────────────────────────────────────────────
+# ── §6 Scope of Work (by discipline → work type, weighted by cost loading) ──────
 def _scope(p, number, title, meta, cur):
     cur = _currency_prefix(meta, p) or cur
-    disciplines = p.get('disciplines') or []
-    bars = _bars(disciplines, 'name',
-                 lambda r: _fmt_abbrev(r.get('cost'), cur) if r.get('cost') else '')
-    out = ('<p>The scope is summarised by discipline (share of contract value), then set '
-           'out per building and element, read from the activity codes.</p>'
-           '<div class="subblue">Scope by discipline &mdash; share of contract value</div>%s'
-           % bars)
-    for i, sec in enumerate(p.get('sections') or [], 1):
-        disc = sec.get('discipline') or 'Works'
-        out += ('<div class="subctr" data-section="%s" data-editable="1">%s.%d&nbsp;&nbsp;'
-                'Detailed %s Scope of Work includes:&mdash;</div>'
-                % (_esc(number), _esc(number), i, _esc(disc)))
-        for b in sec.get('buildings') or []:
-            out += ('<div class="arw"><span class="a">%s</span> %s</div>'
-                    % (_ARROW, _esc(b.get('name'))))
-            for el in b.get('elements') or []:
-                out += ('<div class="chk"><span class="c">%s</span> %s</div>'
-                        % (_CHECK, _esc(el)))
+
+    def _cost_label(r):
+        """Bar label = the exact cost (the % is shown separately by ``_bars``)."""
+        c = r.get('cost')
+        return _fmt_full(c, cur) if c else ''
+
+    def _subhead(k, name, tail):
+        return ('<div class="sub">%s.%d &middot; %s '
+                '<span style="font-weight:400;font-size:9.5px;color:#8a93a0;'
+                'text-transform:none;letter-spacing:0">&mdash; %s</span></div>'
+                % (_esc(number), k, _esc(name), tail))
+
+    out = ('<p>The scope is analysed from the activity codes, weighted by the cost '
+           'loading of each activity.</p>')
+
+    # {number}.1 — scope by discipline (bar length by % share of contract value)
+    out += (_subhead(1, 'Scope by discipline', 'share of contract value')
+            + _bars(p.get('disciplines') or [], 'name', _cost_label))
+
+    # editable auto-narrative callout (navy left-rule box)
+    narrative = p.get('narrative')
+    if narrative:
+        out += ('<p data-section="%s" data-field="narrative" data-editable="1" '
+                'style="border-left:3px solid #1F4E79;background:#f2f6fb;'
+                'padding:9px 13px;margin:12px 0;border-radius:0 5px 5px 0;'
+                'text-align:justify">%s</p>' % (_esc(number), _esc(narrative)))
+
+    # {number}.k — per-discipline breakdown by work type (bar length by % within it)
+    k = 2
+    for det in p.get('discipline_details') or []:
+        disc = det.get('discipline') or 'Works'
+        out += (_subhead(k, disc, 'breakdown by work type')
+                + _bars(det.get('worktypes') or [], 'name', _cost_label))
+        k += 1
+
+    # {number}.k — optional drill-down (e.g. Silo 1 → Civil elements)
+    drill = p.get('drill')
+    if drill:
+        name = 'Drill-down &mdash; %s (%s)' % (_esc(drill.get('building')),
+                                               _esc(drill.get('discipline')))
+        out += ('<div class="sub">%s.%d &middot; %s</div>%s'
+                % (_esc(number), k, name,
+                   _bars(drill.get('worktypes') or [], 'name', _cost_label)))
+        k += 1
+
     return out
 
 
@@ -579,6 +617,7 @@ table { border-collapse: collapse; }
 .bar .track { flex:1; position:relative; background:#eef2f6; border-radius:4px; height:24px; }
 .bar .fill { position:absolute; left:0; top:0; bottom:0; background:#1F4E79; border-radius:4px; display:flex; align-items:center; padding-left:9px; color:#fff; font-size:10.5px; font-weight:700; font-family:Calibri,sans-serif; white-space:nowrap; }
 .bar .pct { position:absolute; right:8px; top:0; bottom:0; display:flex; align-items:center; font-size:10.5px; font-weight:700; color:#5a6672; font-family:Calibri,sans-serif; }
+.bar .val { position:absolute; top:0; bottom:0; display:flex; align-items:center; font-size:10.5px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; white-space:nowrap; }
 .banner { display:flex; justify-content:space-between; align-items:center; background:#1F4E79; color:#fff; border-radius:6px; padding:9px 14px; margin-bottom:12px; font-family:Calibri,sans-serif; }
 .banner .l { font-size:11px; letter-spacing:.03em; text-transform:uppercase; }
 .banner .v { font-size:18px; font-weight:800; }

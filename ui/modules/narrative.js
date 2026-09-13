@@ -586,19 +586,16 @@ function renderSelection() {
     const codeCol = (label, key) =>
       `<div class="bn-codecol"><div class="bn-seltitle">${label}</div>${codeSelect(key, s[key] || '')}</div>`;
     codeHtml =
-      '<h4 style="margin:14px 0 3px">Code structures used in the report</h4>' +
-      '<div class="hint">Pick the activity-code structures for the value split (§6) and the scope (§7). Auto-detect uses the best match in the file.</div>' +
+      '<h4 style="margin:14px 0 3px">Scope analysis — activity codes</h4>' +
+      '<div class="hint">The Scope of Work is analysed from the activity codes, weighted by cost. ' +
+      'Pick which code drives each cascade level (Discipline → Building/Area → Work type); ' +
+      'the same discipline code splits the Contract Value. Auto-detect uses the best match in the file.</div>' +
       '<div class="bn-codegrid">' +
-        codeCol('§6 Contract value — type of work', 'tow_code') +
-        codeCol('§7 Scope — type of work', 'tow_code_scope') +
-        codeCol('§7 Scope — building / area', 'building_code') +
+        codeCol('Contract value — type of work', 'tow_code') +
+        codeCol('Scope — discipline (type of work)', 'tow_code_scope') +
+        codeCol('Scope — building / area', 'building_code') +
+        codeCol('Scope — work type', 'worktype_code') +
       '</div>';
-    if (disciplines.length) {
-      const rows = disciplines.map(d =>
-        `<div class="bn-elrow"><label title="${_esc(d)}">${_esc(d)}</label>${codeSelect('elem::' + d, elemMap[d] || '')}</div>`).join('');
-      codeHtml += '<div class="bn-seltitle" style="margin-top:12px">§7 Element / System code per discipline</div>' +
-                  `<div class="bn-elgrid">${rows}</div>`;
-    }
   }
 
   // ── §4 / §5 include checklists (unchanged behaviour) ─────────────────────────

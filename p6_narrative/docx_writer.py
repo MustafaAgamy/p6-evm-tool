@@ -67,8 +67,8 @@ _LEADS = {
                  'in chronological order.',
     'Contract Value': 'The contract value and its distribution by type of work '
                       '(discipline activity code), from cost loading.',
-    'Scope of Work': 'The scope is summarised by discipline (share of contract value), '
-                     'then set out per building and element, read from the activity codes.',
+    'Scope of Work': 'The scope is analysed from the activity codes, weighted by cost '
+                     'loading.',
     'Work Breakdown Structure': 'The project WBS is presented as an organisation chart, '
                                 'then each major branch is expanded — to Level 4 where a '
                                 'branch’s Level-4 nodes are 4 or fewer, otherwise to Level 3.',
@@ -295,23 +295,6 @@ def banner(document, left_text, right_text):
     return ban
 
 
-def _arrow(document, text):
-    p = document.add_paragraph()
-    p.paragraph_format.space_after = Pt(2)
-    run(p, '➢ ', size=12, bold=True, color=NAVY)
-    run(p, text, size=12, bold=True)
-    return p
-
-
-def _check(document, text, indent=0.5):
-    p = document.add_paragraph()
-    p.paragraph_format.left_indent = Inches(indent)
-    p.paragraph_format.space_after = Pt(1)
-    run(p, '✓ ', size=12, color=GREEN)
-    run(p, text, size=12)
-    return p
-
-
 def _code_table(cell, title, rows):
     """One small 'Code Value | Description' table inside ``cell``."""
     run(cell.paragraphs[0], title, size=12, bold=True)
@@ -416,31 +399,72 @@ def _render_value_bars(document, p, number, note):
                     for r in rows], widths=[3.7, 2.0, 1.2], aligns=[None, 'r', 'r'])
 
 
-# ── §7 Scope of Work ──────────────────────────────────────────────────────────
+# ── §6 Scope of Work ──────────────────────────────────────────────────────────
+def _scope_lbl(name, pct):
+    """Category label carrying the % — 'Pile Works - Main Silos (57.6%)'. A native bar
+    shows only one number as its data-label (the cost), so the % rides in the label so
+    BOTH figures are visible."""
+    name = '—' if name is None else str(name)
+    return name if pct is None else '%s (%s%%)' % (name, pct)
+
+
+def _scope_bars(document, items, unit, first_col):
+    """One native/editable HORIZONTAL bar chart from a list of {name, pct, cost} items:
+    bar length + '#,##0' data-label carry the cost, the % rides in the category label.
+    Falls back to an editable cost/share table if the native chart can't be built."""
+    items = [it for it in (items or []) if it]
+    if not items:
+        _muted(document, 'No cost-loaded items are available for this breakdown.')
+        return
+    cats = [_scope_lbl(it.get('name'), it.get('pct')) for it in items]
+    vals = [it.get('cost') for it in items]
+    if docx_native.add_hbar(document, cats, vals, '', color='1F4E79',
+                            name=unit or 'Value', num_fmt='#,##0') is None:
+        data_table(document, [first_col, 'Amount' + (' (%s)' % unit if unit else ''),
+                              'Share %'],
+                   [[it.get('name'), _money(it.get('cost')),
+                     ('%s%%' % it.get('pct')) if it.get('pct') is not None else '']
+                    for it in items],
+                   widths=[3.7, 2.0, 1.2], aligns=[None, 'r', 'r'])
+
+
 def _render_scope(document, p, number, note):
+    unit = p.get('unit')
+    # 6.1 — share of contract value by discipline (bar length = cost = % share)
     disciplines = p.get('disciplines') or []
+    _subhead(document, '%s.1' % number, 'Scope by discipline — share of contract value')
     if disciplines:
-        para(document, 'Scope by discipline — share of contract value', size=10.5,
-             bold=True, color=NAVY, before=2, after=6, font=CAL)
-        cats = [str(d.get('name', '')) for d in disciplines]
-        vals = [d.get('pct') for d in disciplines]
-        if docx_native.add_hbar(document, cats, vals, 'Share of contract value (%)',
-                                color='2E75B6', name='% of value') is None:
-            data_table(document, ['Discipline', 'Share %'],
-                       [[d.get('name'), '%s%%' % d.get('pct')] for d in disciplines],
-                       widths=[4.6, 2.3], aligns=[None, 'r'])
-    sections = p.get('sections') or []
-    for i, sec in enumerate(sections, 1):
-        disc = sec.get('discipline') or 'Discipline'
-        hp = document.add_paragraph()
-        hp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        hp.paragraph_format.space_before = Pt(10)
-        run(hp, '%s.%d  Detailed %s Scope of Work includes:—' % (number, i, disc),
-            size=13, bold=True, color=DKNAVY, underline=True)
-        for b in sec.get('buildings') or []:
-            _arrow(document, b.get('name') or '—')
-            for el in b.get('elements') or []:
-                _check(document, el)
+        _scope_bars(document, disciplines, unit, first_col='Discipline')
+    else:
+        _muted(document, 'No cost-loaded activity codes are available to analyse the scope.')
+
+    # editable, justified narrative prose (the auto-summary sentence)
+    narrative = p.get('narrative')
+    if narrative:
+        para(document, narrative, align=WD_ALIGN_PARAGRAPH.JUSTIFY, before=8, after=8)
+
+    k = 2
+    # 6.2… — one work-type breakdown per discipline (usually just Civil Works)
+    for det in (p.get('discipline_details') or []):
+        if not det:
+            continue
+        wts = det.get('worktypes') or []
+        if not wts:
+            continue
+        disc = det.get('discipline') or 'Discipline'
+        _subhead(document, '%s.%d' % (number, k), '%s — breakdown by work type' % disc)
+        _scope_bars(document, wts, unit, first_col='Work type')
+        k += 1
+
+    # 6.k — optional drill-down (e.g. Silo 1 → Civil elements)
+    drill = p.get('drill')
+    if drill and (drill.get('worktypes')):
+        bld = drill.get('building') or '—'
+        disc = drill.get('discipline')
+        title = 'Drill-down — %s%s' % (bld, (' (%s)' % disc) if disc else '')
+        _subhead(document, '%s.%d' % (number, k), title)
+        _scope_bars(document, drill.get('worktypes') or [], unit, first_col='Work type')
+        k += 1
 
 
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────

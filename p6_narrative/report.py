@@ -227,13 +227,33 @@ def _ms_section(number, title, all_ms, selected, note):
 def _contract_value(data, setup):
     acts = list(data.activities.values())
     bac = data.bac_by_activity or {}
-    result = value_by_code(acts, bac, setup.get('tow_code'))
-    if not result:                                     # fallback: split by WBS branch
+    # Distribute the contract value by the same discipline (Type-of-Works) code that §6 uses,
+    # so §5's "distribution by type of work" and §6.1's discipline split stay consistent.
+    from p6_narrative.scope import _pick_dim, _TRADE_HINTS
+    from p6_narrative.sequence import pick_discipline_dim
+    disc_dim = (setup.get('tow_code') or setup.get('tow_code_scope')
+                or _pick_dim(data.activity_code_types, _TRADE_HINTS, set())
+                or pick_discipline_dim(data.activity_code_types))
+    full_total = round(sum(v or 0.0 for v in bac.values()), 2)
+    result = value_by_code(acts, bac, disc_dim)
+    if result:
+        # Keep the TOTAL at the full contract value and take every share against it, so the
+        # banner stays exact and the bars sum to 100% — with any cost that carries no discipline
+        # code shown honestly as an "Unclassified" remainder.
+        rows = [{'name': r['name'], 'amount': r['amount'],
+                 'pct': round(100 * r['amount'] / full_total, 1) if full_total else 0.0}
+                for r in result['rows']]
+        remainder = round(full_total - sum(r['amount'] for r in rows), 2)
+        if full_total > 0 and remainder > 0.001 * full_total:
+            rows.append({'name': 'Unclassified', 'amount': remainder,
+                         'pct': round(100 * remainder / full_total, 1)})
+        total = full_total
+    else:                                              # fallback: split by WBS branch
         by_wbs = cost_by_wbs(acts, bac, data.wbs)
-        result = {'total': by_wbs['total'],
-                  'rows': [{'name': r['name'], 'amount': r['cost'], 'pct': r['pct']}
-                           for r in by_wbs['rows']]}
-    payload = {'total': result['total'], 'rows': result['rows']}
+        total = by_wbs['total']
+        rows = [{'name': r['name'], 'amount': r['cost'], 'pct': r['pct']}
+                for r in by_wbs['rows']]
+    payload = {'total': total, 'rows': rows}
     if setup.get('value_unit'):
         payload['unit'] = setup['value_unit']
     return Section('6', 'Contract Value', 'value_bars', 'auto', payload=payload,
@@ -245,10 +265,11 @@ def _contract_value(data, setup):
 def _scope(data, setup):
     payload = scope_sections(list(data.activities.values()), data.wbs,
                              bac_by_activity=data.bac_by_activity,
-                             code_types=data.activity_code_types, setup=setup)
+                             code_types=data.activity_code_types, setup=setup or {},
+                             currency=(setup or {}).get('currency') or '')
     return Section('7', 'Scope of Work', 'scope', 'auto', payload=payload, editable=True,
-                   note='Share of contract value by discipline, then the detailed scope per '
-                        'building and element — edit freely.')
+                   note='Share of contract value by discipline, then the detailed cost-weighted '
+                        'breakdown by work type — driven by the activity codes.')
 
 
 # ── §8 Project Calendars & Holidays ───────────────────────────────────────────

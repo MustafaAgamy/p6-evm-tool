@@ -26,11 +26,15 @@ _NON_WORK = {'StartMilestone', 'FinishMilestone', 'LOE', 'WBSSummary'}
 
 # Code-dimension pickers for the per-trade x per-area prose. Substring hints, matched
 # case-insensitively against whatever the file happens to call its dimensions.
-_TRADE_HINTS = ('discipline', 'trade', 'craft')
+_TRADE_HINTS = ('type of works', 'type of work', 'discipline', 'trade', 'craft')
 _AREA_HINTS = ('area', 'building', 'zone', 'location', 'unit', 'facility',
                'block', 'sector', 'silo', 'structure', 'system')
 _ELEMENT_HINTS = ('type of work', 'work type', 'worktype', 'element', 'scope',
                   'work package', 'activity type', 'work')
+# The work-type cascade level (§6 per-discipline breakdown): more specific than the
+# discipline code — e.g. "Type of Civil Work" (Pile Works / Elevated Raft / Columns).
+_WORKTYPE_HINTS = ('type of civil work', 'type of work', 'work type', 'element',
+                   'activity name', 'structure', 'work')
 # Trade display order (Ibrahim): Civil, Mechanical, Steel, EQP, Cable, then the rest.
 _TRADE_ORDER = (('civil',), ('mechanical', 'mech'), ('steel',),
                 ('eqp', 'equipment'), ('cable', 'electric'))
@@ -50,12 +54,13 @@ def _start_key(dt):
 
 
 def _pick_dim(code_types, hints, used):
-    for dim in code_types or []:
-        if dim in used:
-            continue
-        low = (dim or '').lower()
-        if any(h in low for h in hints):
-            return dim
+    # Hints are tried in priority order (a more specific hint wins): e.g. "type of works"
+    # must match a "Type of Works" code before the generic "trade" matches "Trade Design".
+    avail = [d for d in (code_types or []) if d not in used]
+    for h in hints:
+        for dim in avail:
+            if h in (dim or '').lower():
+                return dim
     return None
 
 
@@ -240,37 +245,43 @@ _BUILDING_CAP = 10
 _ELEMENTS_PER_BUILDING = 16
 
 
-def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup=None):
-    """Reshaped Scope of Work for the redesigned narrative (§7).
+def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup=None,
+                   currency=''):
+    """Activity-code-driven, cost-weighted Scope of Work (§6).
 
-    Returns ``{'disciplines': [...], 'sections': [...]}`` where
+    The planner picks — before running — which activity code drives each cascade level:
+      * ``setup['tow_code_scope']`` → the *discipline* code (Type of Works)
+      * ``setup['building_code']``  → the *building / area* code (Silos Area Name, …)
+      * ``setup['worktype_code']``  → the *work-type* code (Type of Civil Work, …)
+    Each is best-effort auto-detected from the code-type names when the planner leaves it
+    unset. Every level is grouped and weighted by **cost loading** (share of contract value).
 
-      * ``disciplines`` = ``[{name, pct, cost}]`` — a %-by-cost split for the top
-        horizontal bar chart, grouped by the setup-picked Type-of-Works code
-        (``setup['tow_code_scope']``), falling back to a discipline code hint, then to
-        the top-level WBS branch.
-      * ``sections``    = ``[{discipline, buildings:[{name, elements:[str]}]}]`` — one
-        block per discipline; buildings come from the setup Building code
-        (``setup['building_code']``, WBS work-package fallback) and elements from that
-        discipline's Element/System code (``setup['element_codes'][discipline]``, then a
-        global element hint, then the activity names).
+    Returns::
 
-    Pure logic, generic across any file — no client names hardcoded. Always returns a
-    usable structure (never ``None``) so §7 renders even on code-less files.
+        {'total', 'unit', 'cascade': {discipline, building, worktype},
+         'narrative': str,
+         'disciplines':        [{name, cost, pct}],                 # 6.1  (pct of total)
+         'discipline_details': [{discipline, cost, pct,             # 6.2… per discipline
+                                 worktypes: [{name, cost, pct}]}],  #      (pct within discipline)
+         'drill': {building, discipline, cost,                      # last: a building example
+                   worktypes: [{name, cost, pct}]} | None}
+
+    Pure logic, generic across any P6 coding scheme — no project names hardcoded. Always
+    returns a usable structure (never ``None``) so §6 renders even on code-less files.
     """
     setup = setup or {}
     bac = bac_by_activity or {}
     used = set()
-    tow_dim = setup.get('tow_code_scope') or _pick_dim(code_types, _TRADE_HINTS, used)
-    if not tow_dim:
-        tow_dim = pick_discipline_dim(code_types)
-    if tow_dim:
-        used.add(tow_dim)
+    disc_dim = setup.get('tow_code_scope') or _pick_dim(code_types, _TRADE_HINTS, used) \
+        or pick_discipline_dim(code_types)
+    if disc_dim:
+        used.add(disc_dim)
     bld_dim = setup.get('building_code') or _pick_dim(code_types, _AREA_HINTS, used)
     if bld_dim:
         used.add(bld_dim)
-    elem_map = setup.get('element_codes') or {}
-    global_elem = _pick_dim(code_types, _ELEMENT_HINTS, used)
+    wt_dim = setup.get('worktype_code') or _pick_dim(code_types, _WORKTYPE_HINTS, used)
+    if wt_dim:
+        used.add(wt_dim)
 
     def code(act, dim):
         return (act.get('activity_codes') or {}).get(dim) if dim else None
@@ -278,49 +289,119 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
     def cost_of(acts):
         return sum(bac.get(a.get('object_id'), 0.0) or 0.0 for a in acts)
 
-    work = [a for a in activities if a.get('task_type') not in _NON_WORK]
+    def split(acts, dim, base):
+        """Cost-weighted [{name, cost, pct}] for a code ``dim`` over ``acts`` — only the
+        activities that carry the code, ordered by cost, pct against ``base``."""
+        grp = OrderedDict()
+        for a in acts:
+            v = code(a, dim)
+            if v is None or v == '':
+                continue
+            grp.setdefault(v, []).append(a)
+        rows = [{'name': v, 'cost': round(cost_of(g), 2),
+                 'pct': round(100 * cost_of(g) / base, 1) if base > 0 else 0.0}
+                for v, g in grp.items()]
+        return sorted(rows, key=lambda r: -r['cost'])
 
+    work = [a for a in activities if a.get('task_type') not in _NON_WORK]
+    total_cost = cost_of(work)
+
+    # 6.1 — discipline split (share of contract value)
     groups = OrderedDict()
     for act in work:
-        disc = code(act, tow_dim) or top_wbs_name(act.get('wbs_id'), wbs) or 'General'
+        disc = code(act, disc_dim) or top_wbs_name(act.get('wbs_id'), wbs) or 'General'
         groups.setdefault(disc, []).append(act)
-
-    total_cost = cost_of(work)
     ordered = sorted(groups,
                      key=lambda d: (-cost_of(groups[d]), _trade_rank(d), _first_index(groups, d)))
-
     disciplines = []
     for disc in ordered:
-        acts = groups[disc]
-        cost = round(cost_of(acts), 2)
+        cost = round(cost_of(groups[disc]), 2)
         if total_cost > 0:
             pct = round(100 * cost / total_cost, 1)
         else:
-            pct = round(100 * len(acts) / len(work), 1) if work else 0.0
+            pct = round(100 * len(groups[disc]) / len(work), 1) if work else 0.0
         disciplines.append({'name': disc, 'pct': pct, 'cost': cost})
 
-    sections = []
+    # 6.2… — per-discipline breakdown by work type (only where the work-type code
+    # meaningfully splits that discipline: ≥2 values covering the bulk of its cost)
+    discipline_details = []
     for disc in ordered:
         acts = groups[disc]
-        edim = elem_map.get(disc) or global_elem
-        buildings = OrderedDict()
-        for a in acts:
-            bld = code(a, bld_dim) or (wbs.get(a.get('wbs_id')) or {}).get('name') or 'General'
-            buildings.setdefault(bld, []).append(a)
-        ordered_builds = sorted(
-            buildings, key=lambda b: min(_start_key(x.get('planned_start')) for x in buildings[b]))
-        blist = []
-        for bld in ordered_builds[:_BUILDING_CAP]:
-            elements, seen = [], set()
-            for a in sorted(buildings[bld], key=lambda x: _start_key(x.get('planned_start'))):
-                el = code(a, edim) or a.get('name') or 'General'
-                if el and el not in seen:
-                    seen.add(el)
-                    elements.append(el)
-            blist.append({'name': bld, 'elements': elements[:_ELEMENTS_PER_BUILDING]})
-        sections.append({'discipline': disc, 'buildings': blist})
+        dcost = cost_of(acts)
+        rows = split(acts, wt_dim, dcost)
+        covered = sum(r['cost'] for r in rows)
+        if len(rows) >= 2 and (dcost <= 0 or covered >= 0.4 * dcost):
+            discipline_details.append({
+                'discipline': disc, 'cost': round(dcost, 2),
+                'pct': round(100 * dcost / total_cost, 1) if total_cost > 0 else 0.0,
+                'worktypes': rows[:12]})
 
-    return {'disciplines': disciplines, 'sections': sections}
+    # last — a drill-down example: the top building of the top detailed discipline,
+    # broken down by work type (the "Silo 1 → Civil elements" cascade)
+    drill = None
+    if discipline_details and bld_dim:
+        focus = discipline_details[0]['discipline']
+        facts = groups[focus]
+        b_rows = split(facts, bld_dim, cost_of(facts))
+        if b_rows:
+            top_b = b_rows[0]['name']
+            b_acts = [a for a in facts if code(a, bld_dim) == top_b]
+            wt_rows = split(b_acts, wt_dim, cost_of(b_acts))
+            if wt_rows:
+                drill = {'building': top_b, 'discipline': focus,
+                         'cost': round(cost_of(b_acts), 2), 'worktypes': wt_rows[:12]}
+
+    payload = {
+        'total': round(total_cost, 2),
+        'cascade': {'discipline': disc_dim, 'building': bld_dim, 'worktype': wt_dim},
+        'disciplines': disciplines,
+        'discipline_details': discipline_details,
+        'drill': drill,
+    }
+    if currency:
+        payload['unit'] = currency
+    payload['narrative'] = _scope_narrative(payload, currency)
+    return payload
+
+
+def _money(v, currency=''):
+    try:
+        s = '{:,.0f}'.format(float(v))
+    except (TypeError, ValueError):
+        return ''
+    return ('%s %s' % (currency, s)) if currency else s
+
+
+def _scope_narrative(payload, currency=''):
+    """A plain-language paragraph generated from the cost-weighted split — so §6 explains
+    the scope, not just charts it."""
+    disc = payload.get('disciplines') or []
+    if not disc:
+        return 'The scope could not be split by activity code — no cost-loaded codes were found.'
+    total = payload.get('total') or 0
+    lead = disc[0]
+    parts = ['The scope, valued at %s, is delivered predominantly as %s (%s%%)'
+             % (_money(total, currency), lead['name'], _fmt_pct(lead['pct']))]
+    rest = disc[1:5]
+    if rest:
+        tail = ', '.join('%s (%s%%)' % (d['name'], _fmt_pct(d['pct'])) for d in rest)
+        parts.append(', supported by %s' % tail)
+    sent = ''.join(parts) + '.'
+    det = payload.get('discipline_details') or []
+    if det and det[0].get('worktypes'):
+        wt = det[0]['worktypes']
+        top = ', '.join('%s (%s%%)' % (w['name'], _fmt_pct(w['pct'])) for w in wt[:3])
+        sent += (' Within %s, the work is dominated by %s.'
+                 % (det[0]['discipline'], top))
+    return sent
+
+
+def _fmt_pct(v):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return '0'
+    return str(int(f)) if f == int(f) else ('%.1f' % f)
 
 
 def _describe(discipline, packages, count):
