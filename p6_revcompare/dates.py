@@ -170,6 +170,10 @@ def build_duration_table(match, rev0, rev1, cal, min_change=0.5):
             'tf_after': _tf_after(a1),
             'calendar_flag': bool(variance < 0 and cal_changed),
             'codes': _codes_of(a1 or a0),
+            # percent duration change + a >±200% flag: such a large swing (>3× or <1/3) usually
+            # means the activity type / relationship type changed and needs a justification.
+            'pct': (round(variance / before * 100) if before else None),
+            'big_variance': bool(before and abs(variance / before * 100) > 200),
         })
     rows.sort(key=lambda r: -abs(r['variance']))
 
