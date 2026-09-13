@@ -107,7 +107,7 @@ function drawBuilder(host, templates) {
   document.getElementById('sr-name').addEventListener('input', e => { S.name = e.target.value; });
   document.getElementById('sr-appear').appendChild(buildAppearancePicker({ current: getSavedMode(), compact: true }));
   document.getElementById('sr-preview').addEventListener('click', doPreview);
-  document.getElementById('sr-word').addEventListener('click', () => doExport('doc'));
+  document.getElementById('sr-word').addEventListener('click', () => doExport('docx'));
   document.getElementById('sr-excel').addEventListener('click', () => doExport('xlsx'));
   document.getElementById('sr-pdf').addEventListener('click', () => doExport('pdf'));
   document.getElementById('sr-save-tpl').addEventListener('click', doSaveTemplate);
@@ -274,7 +274,8 @@ async function saveFile(ext, mode) {
   const safe = (S.name || 'special-report').replace(/[^\w\- ]+/g, '').trim() || 'special-report';
   const out = await window.pywebview.api.choose_save_path(`${safe}.${ext}`, ext);
   if (!out) return false;
-  const route = ext === 'doc' ? 'api/special/doc'
+  const route = ext === 'docx' ? 'api/special/docx'
+    : ext === 'doc' ? 'api/special/doc'
     : ext === 'xlsx' ? 'api/special/excel' : 'api/special/pdf';
   const res = await api(route, reqBody({ theme: mode, output_path: out }));
   if (!res.ok) { showError(res.error || 'Export failed.'); return false; }

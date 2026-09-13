@@ -9,9 +9,7 @@
 
 import sys
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules
-
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 block_cipher = None
 
@@ -33,6 +31,9 @@ datas = [
                                           # runtime by the report renderers (which run after
                                           # sys.path.insert(resource_path('.'))); ship as root
                                           # data so `import report_theme` resolves in the bundle.
+    # python-docx ships a default template + XML schema under docx/templates/*;
+    # Document() fails at runtime without them, so collect the package data.
+    *collect_data_files('docx'),
 ]
 
 # ── Hidden imports pywebview / webview2 needs ──────────────────────────────
@@ -73,6 +74,11 @@ hiddenimports = [
     # (mirrors the p6_audit fix; a missing provider would show an empty catalog).
     'p6_special',
     *collect_submodules('p6_special'),
+    # Word .docx export (python-docx) — imported deferred inside the export handler,
+    # so force docx + its lxml backend to ship (template data collected in `datas`).
+    'docx',
+    *collect_submodules('docx'),
+    *collect_submodules('lxml'),
 ]
 
 # Collect EVERY submodule of the in-tree packages so nothing loaded via a deferred /

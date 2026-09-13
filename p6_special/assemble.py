@@ -64,6 +64,17 @@ def build_word(project_id=None, item_ids=None, report_name='Special Report', mod
                                            mode=mode, letterhead=letterhead)
 
 
+def docx(path, project_id=None, item_ids=None, report_name='Special Report', meta=None,
+         letterhead=None, inputs=None, snapshot_id=None):
+    """Write a real Word ``.docx`` report to ``path`` (the Baseline-Narrative house
+    style, native python-docx — cover, contents, navy tables, real bars). Appearance
+    mode does not apply to the native Word document, so it takes no ``mode``."""
+    ctx = _ctx(project_id, snapshot_id, inputs)
+    rendered = registry.render(ctx, item_ids or [])
+    from p6_special import docx_report
+    docx_report.build_docx(path, report_name, _meta(ctx, meta), rendered, letterhead=letterhead)
+
+
 def excel(path, project_id=None, item_ids=None, report_name='Special Report', meta=None,
           inputs=None, snapshot_id=None):
     """Write the picked results to an .xlsx workbook at ``path`` — the DATA behind the
