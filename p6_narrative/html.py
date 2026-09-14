@@ -44,6 +44,10 @@ _ARROW = '➢'         # ➢ building bullet
 _CHECK = '✓'         # ✓ element bullet
 _MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+# Shared discipline / type-of-work colour ramp (navy → pale blue → grey), cycled if
+# a chart has more segments than colours. Used by the §5 doughnut and §6.1 comp bar so
+# the same discipline reads in the same colour across both sections.
+_RAMP = ['1F4E79', '2E75B6', '5B9BD5', '8AB4DE', 'B3CFE8', 'D6E4F0', '9AA4B0']
 
 
 def _esc(x):
@@ -151,6 +155,59 @@ def _bars(rows, name_key, value_fn):
     return out
 
 
+# ── native doughnut (§5 Contract Value) ───────────────────────────────────────
+def _doughnut(rows, cap, center_big, value_fn):
+    """A native CSS conic-gradient ring (each row a colour-ramp segment sized by its
+    ``pct``) with the grouped total in the centre hole, beside a swatch legend
+    (colour · name · amount · pct). Fully editable — no image."""
+    rows = [r for r in rows if r]
+    if not rows:
+        return '<p class="note">No cost loading in the file.</p>'
+    total_pct = sum(float(r.get('pct') or 0) for r in rows) or 100.0
+    stops, legend, acc = [], '', 0.0
+    for i, r in enumerate(rows):
+        col = _RAMP[i % len(_RAMP)]
+        acc += float(r.get('pct') or 0) / total_pct * 100.0
+        start = acc - float(r.get('pct') or 0) / total_pct * 100.0
+        # last segment snaps to 100% so the ring closes with no seam
+        end = 100.0 if i == len(rows) - 1 else acc
+        stops.append('#%s %.4g%% %.4g%%' % (col, start, end))
+        legend += ('<div class="dl-row"><span class="dl-sw" style="background:#%s"></span>'
+                   '<span class="dl-name">%s</span><span class="dl-amt">%s</span>'
+                   '<span class="dl-pct">%s%%</span></div>'
+                   % (col, _esc(r.get('name')), _esc(value_fn(r)), _fmt_pct(r.get('pct'))))
+    ring = ('<div class="dnut" style="background:conic-gradient(%s)">'
+            '<div class="dnut-hole"><div class="dnut-cap">%s</div>'
+            '<div class="dnut-tot">%s</div></div></div>'
+            % (', '.join(stops), _esc(cap), _esc(center_big)))
+    return '<div class="dnutwrap">%s<div class="dnut-legend">%s</div></div>' % (ring, legend)
+
+
+# ── native 100% composition bar (§6.1 scope by discipline) ────────────────────
+def _compbar(rows):
+    """A single 100%-wide bar split into one colour-ramp segment per discipline
+    (segment width = its share of contract value); the dominant segment carries an
+    inline name+pct label, followed by a one-line swatch legend. Fully editable."""
+    rows = [r for r in rows if r]
+    if not rows:
+        return '<p class="note">No cost loading in the file.</p>'
+    total_pct = sum(float(r.get('pct') or 0) for r in rows) or 100.0
+    dom = max(range(len(rows)), key=lambda i: float(rows[i].get('pct') or 0))
+    segs, legend = '', []
+    for i, r in enumerate(rows):
+        col = _RAMP[i % len(_RAMP)]
+        width = float(r.get('pct') or 0) / total_pct * 100.0
+        inner = ''
+        if i == dom and width >= 12:      # only the dominant slice is wide enough to label
+            inner = '%s %s%%' % (_esc(r.get('name')), _fmt_pct(r.get('pct')))
+        segs += ('<div class="compseg" style="width:%.4g%%;background:#%s">%s</div>'
+                 % (width, col, inner))
+        legend.append('<span class="cl-i"><i style="background:#%s"></i>%s %s%%</span>'
+                      % (col, _esc(r.get('name')), _fmt_pct(r.get('pct'))))
+    return ('<div class="compbar">%s</div><div class="complegend">%s</div>'
+            % (segs, ' &middot; '.join(legend)))
+
+
 # ── §1 Project Overview ───────────────────────────────────────────────────────
 def _overview(p, number, title, meta, cur):
     paras = ''.join(
@@ -216,23 +273,22 @@ def _ms_table(p, number, title, meta, cur):
 # ── §6 Contract Value ─────────────────────────────────────────────────────────
 def _value_bars(p, number, title, meta, cur):
     cur = _currency_prefix(meta, p) or cur
+    total = p.get('total')
     banner = ('<div class="banner"><span class="l">Total Contract Value</span>'
-              '<span class="v">%s</span></div>' % _fmt_full(p.get('total'), cur))
-    # Bar labels carry the EXACT contract amount (grouped, no rounding to millions),
-    # so a bar reads identically to the banner total — matches the Word _money() label.
-    bars = _bars(p.get('rows') or [], 'name', lambda r: _fmt_full(r.get('amount'), cur))
+              '<span class="v">%s</span></div>' % _fmt_full(total, cur))
+    # A doughnut of the value distribution by type of work: the grouped total sits in the
+    # centre hole (currency in the small cap), each type is a colour-ramp segment, and the
+    # legend carries the EXACT contract amount per type (grouped, matches the banner total).
+    cap = ('TOTAL (%s)' % cur.strip()) if cur.strip() else 'TOTAL'
+    dnut = _doughnut(p.get('rows') or [], cap, _num(total),
+                     lambda r: _fmt_full(r.get('amount'), cur))
     return ('<p>The contract value and its distribution by type of work (the discipline '
-            'activity code), from cost loading.</p>%s%s' % (banner, bars))
+            'activity code), from cost loading.</p>%s%s' % (banner, dnut))
 
 
 # ── §6 Scope of Work (6.1 discipline shares + narrative, 6.2 by area/structure) ─
 def _scope(p, number, title, meta, cur):
     cur = _currency_prefix(meta, p) or cur
-
-    def _cost_label(r):
-        """Bar label = the exact cost (the % is shown separately by ``_bars``)."""
-        c = r.get('cost')
-        return _fmt_full(c, cur) if c else ''
 
     def _subhead(k, name, tail):
         return ('<div class="sub">%s.%d &middot; %s '
@@ -243,9 +299,9 @@ def _scope(p, number, title, meta, cur):
     out = ('<p>The scope is analysed by cross-filtering the picked activity codes '
            '(Type of Work, Building / Area, and work type).</p>')
 
-    # {number}.1 — scope overview: discipline share-of-contract-value bars + narrative
+    # {number}.1 — scope overview: 100% composition bar of discipline shares + narrative
     out += (_subhead(1, 'Scope overview', 'by discipline')
-            + _bars(p.get('disciplines') or [], 'name', _cost_label))
+            + _compbar(p.get('disciplines') or []))
 
     # editable auto-narrative callout (navy left-rule box)
     narrative = p.get('narrative')
@@ -638,6 +694,22 @@ table { border-collapse: collapse; }
 .bar .fill { position:absolute; left:0; top:0; bottom:0; background:#1F4E79; border-radius:4px; display:flex; align-items:center; padding-left:9px; color:#fff; font-size:10.5px; font-weight:700; font-family:Calibri,sans-serif; white-space:nowrap; }
 .bar .pct { position:absolute; right:8px; top:0; bottom:0; display:flex; align-items:center; font-size:10.5px; font-weight:700; color:#5a6672; font-family:Calibri,sans-serif; }
 .bar .val { position:absolute; top:0; bottom:0; display:flex; align-items:center; font-size:10.5px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; white-space:nowrap; }
+.dnutwrap { display:flex; align-items:center; gap:24px; margin:8px 0 4px; }
+.dnut { position:relative; width:168px; height:168px; border-radius:50%; flex:0 0 auto; }
+.dnut-hole { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:104px; height:104px; background:#fff; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 0 0 1px #e2e8ef inset; }
+.dnut-cap { font-family:Calibri,sans-serif; font-size:9px; letter-spacing:.05em; color:#8a95a1; text-transform:uppercase; }
+.dnut-tot { font-family:Calibri,sans-serif; font-size:15px; font-weight:800; color:#1F4E79; margin-top:2px; }
+.dnut-legend { flex:1; min-width:0; }
+.dl-row { display:flex; align-items:center; font-size:11px; padding:3px 0; border-bottom:1px solid #eef2f6; }
+.dl-sw { width:11px; height:11px; border-radius:2px; flex:0 0 auto; margin-right:8px; }
+.dl-name { flex:1; color:#14324f; font-weight:700; }
+.dl-amt { color:#5a6672; font-family:Calibri,sans-serif; font-size:10.5px; margin:0 12px; white-space:nowrap; }
+.dl-pct { width:44px; text-align:right; font-family:Calibri,sans-serif; font-weight:700; color:#1F4E79; }
+.compbar { display:flex; height:30px; border-radius:6px; overflow:hidden; border:1px solid #cbd8e2; margin:4px 0 8px; }
+.compseg { display:flex; align-items:center; justify-content:center; color:#fff; font-family:Calibri,sans-serif; font-size:10.5px; font-weight:700; white-space:nowrap; overflow:hidden; min-width:0; text-shadow:0 1px 1px rgba(0,0,0,.35); }
+.complegend { font-size:10px; color:#5b6472; font-family:Calibri,sans-serif; line-height:1.9; }
+.complegend .cl-i { display:inline-flex; align-items:center; gap:4px; }
+.complegend .cl-i i { width:10px; height:10px; border-radius:2px; display:inline-block; }
 .banner { display:flex; justify-content:space-between; align-items:center; background:#1F4E79; color:#fff; border-radius:6px; padding:9px 14px; margin-bottom:12px; font-family:Calibri,sans-serif; }
 .banner .l { font-size:11px; letter-spacing:.03em; text-transform:uppercase; }
 .banner .v { font-size:18px; font-weight:800; }

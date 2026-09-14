@@ -53,6 +53,11 @@ _CY = 3240000
 # doughnut palette (matches docx_charts._DONUT_PALETTE, sans the leading '#')
 _PIE_PALETTE = ['1F5FA8', 'C98A2B', '7A5AA6', '4B9D6E', 'A35D5D', '5A8FB0']
 
+# discipline colour ramp (Ibrahim-approved, in order; cycles if more slices/segments).
+# Used per-point on the §5 contract-value doughnut and the §6.1 scope composition bar so
+# both charts read from one consistent navy→light-blue ramp.
+_DISCIPLINE_RAMP = ['1F4E79', '2E75B6', '5B9BD5', '8AB4DE', 'B3CFE8', 'D6E4F0', '9AA4B0']
+
 _C_NS = ('xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" '
          'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
          'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"')
@@ -751,6 +756,104 @@ def add_hbar(document, categories, values, title, color='1F4E79', name='Series',
             f'</c:chartSpace>')
 
     return _inject(document, build, cats, [(name, vals)])
+
+
+def add_doughnut(document, categories, values, title=None, num_fmt='#,##0'):
+    """Native DOUGHNUT chart — the editable Word twin of the §5 contract-value donut.
+
+    One slice per category (type of work), each ramp-coloured via a per-point ``<c:dPt>``
+    solidFill (the discipline ramp, cycling). A right-hand ``c:legend`` names every type,
+    and each slice carries a data label with its amount (``num_fmt``) and percentage share
+    — so the reader sees each type with its amount + %. ``c:holeSize`` 55.
+
+    Native / editable (a real ``c:doughnutChart`` part — never a picture) and None-safe:
+    a missing document, empty / mismatched data or any non-numeric value returns ``None``
+    and never raises. Returns the drawing element on success."""
+    if document is None or not categories or not values:
+        return None
+    cats = list(categories)
+    vals = [_num(v) for v in values]
+    if len(cats) != len(vals) or any(v is None for v in vals):
+        return None
+    ramp = _DISCIPLINE_RAMP
+    lbl_fmt = (f'<c:numFmt formatCode="{_xesc(num_fmt)}" sourceLinked="0"/>'
+               if num_fmt else '')
+    name = title or 'Value'
+
+    def build(rid):
+        # one ramp-coloured point per slice (cycles through the ramp for >7 slices)
+        dpts = ''.join(
+            f'<c:dPt><c:idx val="{i}"/><c:bubble3D val="0"/><c:spPr><a:solidFill>'
+            f'<a:srgbClr val="{ramp[i % len(ramp)]}"/></a:solidFill></c:spPr></c:dPt>'
+            for i in range(len(vals)))
+        # per-slice label: amount (num_fmt) + percentage share
+        dlbls = (f'<c:dLbls>{lbl_fmt}<c:showLegendKey val="0"/><c:showVal val="1"/>'
+                 f'<c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="1"/>'
+                 f'<c:showBubbleSize val="0"/></c:dLbls>')
+        ser = (f'<c:ser><c:idx val="0"/><c:order val="0"/>{_tx_ref(name, "B")}'
+               f'{dpts}{dlbls}{_cat_ref(cats)}{_val_ref(vals, "B")}</c:ser>')
+        legend = '<c:legend><c:legendPos val="r"/><c:overlay val="0"/></c:legend>'
+        return (
+            f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<c:chartSpace {_C_NS}><c:chart>{_title_el(title)}<c:plotArea><c:layout/>'
+            f'<c:doughnutChart><c:varyColors val="1"/>{ser}'
+            f'<c:firstSliceAng val="0"/><c:holeSize val="55"/></c:doughnutChart>'
+            f'</c:plotArea>{legend}<c:plotVisOnly val="1"/></c:chart>'
+            f'{_external_data(rid)}</c:chartSpace>')
+
+    return _inject(document, build, cats, [(name, vals)])
+
+
+def add_composition_bar(document, labels, values, title=None):
+    """Native 100 %-STACKED single horizontal COMPOSITION BAR — the editable Word twin of
+    the §6.1 "scope by discipline" bar: ONE bar split into one ramp-coloured segment per
+    discipline, each segment sized to that discipline's share of the total value.
+
+    Built as a ``c:barChart`` with ``c:barDir='bar'`` and ``c:grouping='percentStacked'``
+    over ONE category and ONE ``c:ser`` PER label (each series a single value = that
+    discipline's cost, ramp-coloured). ``percentStacked`` then normalises the series so the
+    single bar fills 100 %, split proportionally. A bottom ``c:legend`` names each segment;
+    both axes are hidden so only the composed bar shows.
+
+    Native / editable (a real ``c:barChart`` part — never a picture) and None-safe: a
+    missing document, empty / mismatched data or any non-numeric value returns ``None``
+    and never raises. Returns the drawing element on success."""
+    if document is None or not labels or not values:
+        return None
+    labs = [('' if l is None else str(l)) for l in labels]
+    vals = [_num(v) for v in values]
+    if len(labs) != len(vals) or any(v is None for v in vals):
+        return None
+    ramp = _DISCIPLINE_RAMP
+    cat = ['Share']                             # a single category → a single bar
+
+    def build(rid):
+        sers = ''
+        for i, (nm, v) in enumerate(zip(labs, vals)):
+            col = ramp[i % len(ramp)]
+            letter = _col_letter(i)
+            dpt = (f'<c:dPt><c:idx val="0"/><c:invertIfNegative val="0"/>'
+                   f'<c:bubble3D val="0"/><c:spPr><a:solidFill>'
+                   f'<a:srgbClr val="{col}"/></a:solidFill></c:spPr></c:dPt>')
+            sers += (f'<c:ser><c:idx val="{i}"/><c:order val="{i}"/>{_tx_ref(nm, letter)}'
+                     f'<c:spPr><a:solidFill><a:srgbClr val="{col}"/></a:solidFill></c:spPr>'
+                     f'{dpt}{_cat_ref(cat)}{_val_ref([v], letter)}</c:ser>')
+        legend = '<c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>'
+        return (
+            f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<c:chartSpace {_C_NS}><c:chart>{_title_el(title)}<c:plotArea><c:layout/>'
+            f'<c:barChart><c:barDir val="bar"/><c:grouping val="percentStacked"/>'
+            f'<c:varyColors val="0"/>{sers}<c:gapWidth val="40"/><c:overlap val="100"/>'
+            f'<c:axId val="111"/><c:axId val="222"/></c:barChart>'
+            f'<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
+            f'<c:delete val="1"/><c:axPos val="l"/><c:crossAx val="222"/></c:catAx>'
+            f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
+            f'<c:delete val="1"/><c:axPos val="b"/>'
+            f'<c:numFmt formatCode="0%" sourceLinked="0"/><c:crossAx val="111"/></c:valAx>'
+            f'</c:plotArea>{legend}<c:plotVisOnly val="1"/></c:chart>'
+            f'{_external_data(rid)}</c:chartSpace>')
+
+    return _inject(document, build, cat, list(zip(labs, ([v] for v in vals))))
 
 
 def add_calendar_hist(document, categories, working, nonworking,

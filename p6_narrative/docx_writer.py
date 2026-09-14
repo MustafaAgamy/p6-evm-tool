@@ -390,9 +390,10 @@ def _render_value_bars(document, p, number, note):
         return
     cats = [str(r.get('name', '')) for r in rows]
     vals = [r.get('amount') for r in rows]
-    title = 'Contract value by type of work' + (' (%s)' % unit if unit else '')
-    if docx_native.add_hbar(document, cats, vals, title, color='1F4E79',
-                            name=unit or 'Value', num_fmt='#,##0') is None:
+    # §5 — a DOUGHNUT of the value distribution by type of work (each slice ramp-coloured,
+    # a legend of types, per-slice amount + % labels). Keep the banner above; on any chart
+    # failure fall back to the editable value table so the amounts are never lost.
+    if docx_native.add_doughnut(document, cats, vals, num_fmt='#,##0') is None:
         # native chart unavailable → an editable value table as a graceful fallback
         data_table(document, ['Type of work', 'Amount', 'Share %'],
                    [[r.get('name'), _money(r.get('amount')), '%s%%' % r.get('pct')]
@@ -400,32 +401,31 @@ def _render_value_bars(document, p, number, note):
 
 
 # ── §6 Scope of Work ──────────────────────────────────────────────────────────
-def _scope_lbl(name, pct):
-    """Category label carrying the % — 'Pile Works - Main Silos (57.6%)'. A native bar
-    shows only one number as its data-label (the cost), so the % rides in the label so
-    BOTH figures are visible."""
-    name = '—' if name is None else str(name)
-    return name if pct is None else '%s (%s%%)' % (name, pct)
-
-
-def _scope_bars(document, items, unit, first_col):
-    """One native/editable HORIZONTAL bar chart from a list of {name, pct, cost} items:
-    bar length + '#,##0' data-label carry the cost, the % rides in the category label.
-    Falls back to an editable cost/share table if the native chart can't be built."""
+def _scope_composition(document, items, unit):
+    """§6.1 — a single 100 %-stacked horizontal COMPOSITION BAR split into one ramp-coloured
+    segment per discipline (segment size = that discipline's share of value), with a legend
+    of discipline names and a percentage label line beneath ("Civil 93.9% · …"). Falls back
+    to an editable cost/share table if the native chart can't be built."""
     items = [it for it in (items or []) if it]
     if not items:
         _muted(document, 'No cost-loaded items are available for this breakdown.')
         return
-    cats = [_scope_lbl(it.get('name'), it.get('pct')) for it in items]
-    vals = [it.get('cost') for it in items]
-    if docx_native.add_hbar(document, cats, vals, '', color='1F4E79',
-                            name=unit or 'Value', num_fmt='#,##0') is None:
-        data_table(document, [first_col, 'Amount' + (' (%s)' % unit if unit else ''),
+    names = [str(it.get('name') or '—') for it in items]
+    costs = [it.get('cost') for it in items]
+    if docx_native.add_composition_bar(document, names, costs) is None:
+        data_table(document, ['Discipline', 'Amount' + (' (%s)' % unit if unit else ''),
                               'Share %'],
                    [[it.get('name'), _money(it.get('cost')),
                      ('%s%%' % it.get('pct')) if it.get('pct') is not None else '']
                     for it in items],
                    widths=[3.7, 2.0, 1.2], aligns=[None, 'r', 'r'])
+        return
+    # percentage label line beneath the composed bar (the approved "Civil 93.9% · …")
+    parts = ['%s %s%%' % (it.get('name') or '—', it.get('pct'))
+             for it in items if it.get('pct') is not None]
+    if parts:
+        para(document, '  ·  '.join(parts), size=10, color=BODYNAVY,
+             align=WD_ALIGN_PARAGRAPH.CENTER, before=4, after=2)
 
 
 def _render_scope(document, p, number, note):
@@ -442,11 +442,12 @@ def _render_scope(document, p, number, note):
          '(Type of Work, Building / Area, and work type).',
          align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
 
-    # {number}.1 — scope overview by discipline (bar length = cost = % share of value)
+    # {number}.1 — scope overview by discipline (a single 100%-stacked COMPOSITION BAR:
+    # one ramp-coloured segment per discipline, sized to its % share of value)
     disciplines = p.get('disciplines') or []
     _subhead(document, '%s.1' % number, 'Scope overview — by discipline')
     if disciplines:
-        _scope_bars(document, disciplines, unit, first_col='Discipline')
+        _scope_composition(document, disciplines, unit)
     else:
         _muted(document, 'No cost-loaded activity codes are available to analyse the scope.')
 
