@@ -2819,10 +2819,15 @@ def _find_chrome():
 
 
 def make_server():
-    # Run migration from legacy history.json if it exists
-    legacy = os.path.join(exe_dir(), 'history.json')
-    if os.path.exists(legacy):
-        db.migrate_history_json(legacy)
-
-    db.init_db()
+    # Migrate legacy history and initialise the DB. A corrupt or locked database
+    # must never stop the app from opening — persistence degrades gracefully but
+    # the Knowledge Base and analysis screens (which don't need the DB) still work.
+    try:
+        legacy = os.path.join(exe_dir(), 'history.json')
+        if os.path.exists(legacy):
+            db.migrate_history_json(legacy)
+        db.init_db()
+    except Exception as exc:
+        print(f'[db] initialisation failed, continuing without persistence: {exc}',
+              file=sys.stderr)
     return HTTPServer(('127.0.0.1', 0), Handler)
