@@ -97,10 +97,15 @@ _LAG_XML = (
 
 
 def _xlsx_row_count(path):
-    """Count <row r="..."> elements in the first (only) sheet — header + data rows."""
+    """Count the table rows (header + data) in the first sheet, ignoring the report
+    header/context block the shared writer now prepends. The neutral table-header row is
+    the first cell carrying style s="10"; count rows from there down."""
     import zipfile
     with zipfile.ZipFile(path) as z:
         xml = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
+    idx = xml.find('s="10"')
+    if idx != -1:
+        xml = xml[xml.rfind('<row r="', 0, idx):]         # drop the meta block above the header
     return xml.count('<row r="')
 
 
