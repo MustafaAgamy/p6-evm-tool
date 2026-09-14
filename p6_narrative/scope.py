@@ -354,12 +354,64 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
                 drill = {'building': top_b, 'discipline': focus,
                          'cost': round(cost_of(b_acts), 2), 'worktypes': wt_rows[:12]}
 
+    # 6.2 — SCOPE BY AREA / STRUCTURE (Ibrahim's cross-filter): for each building/area,
+    # describe what it comprises — its disciplines (Type of Work) and, under each, the
+    # work types (Type of Civil Work). Areas that share the SAME discipline+work-type
+    # signature are GROUPED into one described entry (e.g. "Silos 1–10").
+    areas = []
+    if bld_dim:
+        area_map = OrderedDict()
+        for act in work:
+            area = code(act, bld_dim)
+            if not area:
+                continue
+            area_map.setdefault(area, []).append(act)
+
+        def _area_profile(acts):
+            dmap = OrderedDict()
+            for a in acts:
+                disc = code(a, disc_dim)
+                if not disc:                    # skip the uncoded remainder — keep the
+                    continue                    # per-area description to real disciplines only
+                e = dmap.setdefault(disc, {'cost': 0.0, 'wts': OrderedDict()})
+                e['cost'] += bac.get(a.get('object_id'), 0.0) or 0.0
+                wt = code(a, wt_dim)
+                if wt:
+                    e['wts'][wt] = True
+            return [{'name': d, 'worktypes': list(v['wts'].keys())}
+                    for d, v in sorted(dmap.items(), key=lambda kv: -kv[1]['cost'])]
+
+        gmap = OrderedDict()
+        for area, acts in area_map.items():
+            profile = _area_profile(acts)
+            sig = tuple((d['name'], tuple(d['worktypes'])) for d in profile)
+            g = gmap.setdefault(sig, {'names': [], 'costs': [], 'profile': profile})
+            g['names'].append(area)
+            g['costs'].append(round(cost_of(acts), 2))
+        for g in gmap.values():
+            names, costs = g['names'], g['costs']
+            group_cost = round(sum(costs), 2)
+            each = len(names) > 1 and len(set(costs)) == 1
+            shown = round(costs[0], 2) if each else group_cost
+            areas.append({
+                'names': names, 'label': _area_label(names), 'count': len(names),
+                'cost': shown, 'each': each, '_grp': group_cost,
+                'pct': round(100 * shown / total_cost, 1) if total_cost > 0 else 0.0,
+                'disciplines': g['profile'],
+            })
+        areas.sort(key=lambda a: -a['_grp'])
+        for a in areas:
+            a.pop('_grp', None)
+        areas = [a for a in areas if a.get('cost', 0) > 0]     # drop non-working / zero-cost areas
+
     payload = {
         'total': round(total_cost, 2),
         'cascade': {'discipline': disc_dim, 'building': bld_dim, 'worktype': wt_dim},
         'disciplines': disciplines,
         'discipline_details': discipline_details,
         'drill': drill,
+        'areas': areas,
+        'area_count': sum(a['count'] for a in areas),
     }
     if currency:
         payload['unit'] = currency
@@ -373,6 +425,25 @@ def _money(v, currency=''):
     except (TypeError, ValueError):
         return ''
     return ('%s %s' % (currency, s)) if currency else s
+
+
+def _area_label(names):
+    """A compact display label for a group of areas that share the same scope signature:
+    a contiguous "Prefix a–b" range when they are numbered (Silo 1..Silo 10 → "Silos 1–10"),
+    else a short comma list."""
+    import re
+    if len(names) == 1:
+        return names[0]
+    ms = [re.match(r'^(.*?)(\d+)\s*$', n) for n in names]
+    if all(ms) and len({m.group(1).strip() for m in ms}) == 1:
+        nums = sorted(int(m.group(2)) for m in ms)
+        if nums == list(range(nums[0], nums[-1] + 1)):
+            pre = ms[0].group(1).strip()
+            pre = pre + ('' if pre.endswith('s') else 's')     # Silo → Silos
+            return '%s %d–%d' % (pre, nums[0], nums[-1])
+    if len(names) <= 3:
+        return ', '.join(names)
+    return '%s, %s … (+%d more)' % (names[0], names[1], len(names) - 2)
 
 
 def _scope_narrative(payload, currency=''):
@@ -390,12 +461,12 @@ def _scope_narrative(payload, currency=''):
         tail = ', '.join('%s (%s%%)' % (d['name'], _fmt_pct(d['pct'])) for d in rest)
         parts.append(', supported by %s' % tail)
     sent = ''.join(parts) + '.'
-    det = payload.get('discipline_details') or []
-    if det and det[0].get('worktypes'):
-        wt = det[0]['worktypes']
-        top = ', '.join('%s (%s%%)' % (w['name'], _fmt_pct(w['pct'])) for w in wt[:3])
-        sent += (' Within %s, the work is dominated by %s.'
-                 % (det[0]['discipline'], top))
+    areas = payload.get('areas') or []
+    n = payload.get('area_count') or 0
+    if n:
+        egs = ', '.join(a['label'] for a in areas[:3])
+        sent += (' It is delivered across %d areas and structures%s.'
+                 % (n, ' (%s, …)' % egs if egs else ''))
     return sent
 
 

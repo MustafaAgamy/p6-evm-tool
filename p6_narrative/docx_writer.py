@@ -430,41 +430,70 @@ def _scope_bars(document, items, unit, first_col):
 
 def _render_scope(document, p, number, note):
     unit = p.get('unit')
-    # 6.1 — share of contract value by discipline (bar length = cost = % share)
+
+    def _cur(v):
+        """Money with the currency prefix — 'EGP 794,684,896' (matches the narrative)."""
+        m = _money(v)
+        return ('%s %s' % (unit, m)) if (unit and m) else m
+
+    # intro — the scope is derived by cross-filtering the picked activity codes
+    para(document,
+         'The scope is analysed by cross-filtering the picked activity codes '
+         '(Type of Work, Building / Area, and work type).',
+         align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+
+    # {number}.1 — scope overview by discipline (bar length = cost = % share of value)
     disciplines = p.get('disciplines') or []
-    _subhead(document, '%s.1' % number, 'Scope by discipline — share of contract value')
+    _subhead(document, '%s.1' % number, 'Scope overview — by discipline')
     if disciplines:
         _scope_bars(document, disciplines, unit, first_col='Discipline')
     else:
         _muted(document, 'No cost-loaded activity codes are available to analyse the scope.')
 
-    # editable, justified narrative prose (the auto-summary sentence)
+    # editable, justified narrative prose (the auto-summary callout)
     narrative = p.get('narrative')
     if narrative:
         para(document, narrative, align=WD_ALIGN_PARAGRAPH.JUSTIFY, before=8, after=8)
 
-    k = 2
-    # 6.2… — one work-type breakdown per discipline (usually just Civil Works)
-    for det in (p.get('discipline_details') or []):
-        if not det:
-            continue
-        wts = det.get('worktypes') or []
-        if not wts:
-            continue
-        disc = det.get('discipline') or 'Discipline'
-        _subhead(document, '%s.%d' % (number, k), '%s — breakdown by work type' % disc)
-        _scope_bars(document, wts, unit, first_col='Work type')
-        k += 1
-
-    # 6.k — optional drill-down (e.g. Silo 1 → Civil elements)
-    drill = p.get('drill')
-    if drill and (drill.get('worktypes')):
-        bld = drill.get('building') or '—'
-        disc = drill.get('discipline')
-        title = 'Drill-down — %s%s' % (bld, (' (%s)' % disc) if disc else '')
-        _subhead(document, '%s.%d' % (number, k), title)
-        _scope_bars(document, drill.get('worktypes') or [], unit, first_col='Work type')
-        k += 1
+    # {number}.2 — scope by area / structure: one described block per area, no charts
+    _subhead(document, '%s.2' % number, 'Scope by area / structure')
+    areas = [a for a in (p.get('areas') or []) if a]
+    if not areas:
+        _muted(document, 'No building- or area-level breakdown is available for this scope.')
+        return
+    for a in areas:
+        label = a.get('label') or '—'
+        count = a.get('count') or 1
+        each = bool(a.get('each'))
+        pct = a.get('pct')
+        # quantity suffix: 'each' when priced per unit, '· N areas' when several are grouped
+        if each:
+            qty = ' each'
+        elif count and int(count) > 1:
+            qty = ' · %s areas' % _count(count)
+        else:
+            qty = ''
+        pct_txt = (' (%s%%)' % pct) if pct is not None else ''
+        # ➢ heading line — bold navy, carries label + cost + quantity + share
+        ph = para(document, before=9, after=2)
+        run(ph, '➢ %s — %s%s%s' % (label, _cur(a.get('cost')), qty, pct_txt),
+            bold=True, color=NAVY)
+        # per-discipline lines — bold name, then ✓-prefixed work types inline
+        for disc in (a.get('disciplines') or []):
+            if not disc:
+                continue
+            name = disc.get('name') or 'Works'
+            wts = [w for w in (disc.get('worktypes') or []) if w]
+            dp = para(document, before=0, after=2)
+            dp.paragraph_format.left_indent = Inches(0.28)
+            run(dp, name, bold=True, color=DKNAVY)
+            if wts:
+                run(dp, ':  ')
+                for i, wt in enumerate(wts):
+                    if i:
+                        run(dp, '  ·  ', color=GREY)
+                    run(dp, '✓ ', bold=True, color=GREEN)
+                    run(dp, wt)
 
 
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────

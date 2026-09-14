@@ -225,7 +225,7 @@ def _value_bars(p, number, title, meta, cur):
             'activity code), from cost loading.</p>%s%s' % (banner, bars))
 
 
-# ── §6 Scope of Work (by discipline → work type, weighted by cost loading) ──────
+# ── §6 Scope of Work (6.1 discipline shares + narrative, 6.2 by area/structure) ─
 def _scope(p, number, title, meta, cur):
     cur = _currency_prefix(meta, p) or cur
 
@@ -240,11 +240,11 @@ def _scope(p, number, title, meta, cur):
                 'text-transform:none;letter-spacing:0">&mdash; %s</span></div>'
                 % (_esc(number), k, _esc(name), tail))
 
-    out = ('<p>The scope is analysed from the activity codes, weighted by the cost '
-           'loading of each activity.</p>')
+    out = ('<p>The scope is analysed by cross-filtering the picked activity codes '
+           '(Type of Work, Building / Area, and work type).</p>')
 
-    # {number}.1 — scope by discipline (bar length by % share of contract value)
-    out += (_subhead(1, 'Scope by discipline', 'share of contract value')
+    # {number}.1 — scope overview: discipline share-of-contract-value bars + narrative
+    out += (_subhead(1, 'Scope overview', 'by discipline')
             + _bars(p.get('disciplines') or [], 'name', _cost_label))
 
     # editable auto-narrative callout (navy left-rule box)
@@ -255,23 +255,37 @@ def _scope(p, number, title, meta, cur):
                 'padding:9px 13px;margin:12px 0;border-radius:0 5px 5px 0;'
                 'text-align:justify">%s</p>' % (_esc(number), _esc(narrative)))
 
-    # {number}.k — per-discipline breakdown by work type (bar length by % within it)
-    k = 2
-    for det in p.get('discipline_details') or []:
-        disc = det.get('discipline') or 'Works'
-        out += (_subhead(k, disc, 'breakdown by work type')
-                + _bars(det.get('worktypes') or [], 'name', _cost_label))
-        k += 1
-
-    # {number}.k — optional drill-down (e.g. Silo 1 → Civil elements)
-    drill = p.get('drill')
-    if drill:
-        name = 'Drill-down &mdash; %s (%s)' % (_esc(drill.get('building')),
-                                               _esc(drill.get('discipline')))
-        out += ('<div class="sub">%s.%d &middot; %s</div>%s'
-                % (_esc(number), k, name,
-                   _bars(drill.get('worktypes') or [], 'name', _cost_label)))
-        k += 1
+    # {number}.2 — scope by area / structure (already grouped by scope.py; render in order)
+    out += _subhead(2, 'Scope by area / structure',
+                    'each building / structure with its disciplines and work types')
+    areas = p.get('areas') or []
+    if not areas:
+        out += '<p class="note">No building / area breakdown available.</p>'
+    for a in areas:
+        try:
+            count = int(a.get('count') or 1)
+        except (TypeError, ValueError):
+            count = 1
+        if a.get('each'):
+            qty = ' each'
+        elif count > 1:
+            qty = ' &middot; %d areas' % count
+        else:
+            qty = ''
+        # ➢ area heading — label — money[ each|· N areas] (pct%)
+        out += ('<p class="arw"><span class="a">%s</span> %s &mdash; %s%s (%s%%)</p>'
+                % (_ARROW, _esc(a.get('label')), _fmt_full(a.get('cost'), cur),
+                   qty, _fmt_pct(a.get('pct'))))
+        # per-discipline lines: bold name, ✓-prefixed work types when present
+        for disc in (a.get('disciplines') or []):
+            name_html = '<b>%s</b>' % _esc(disc.get('name'))
+            wts = disc.get('worktypes') or []
+            if wts:
+                items = ' &middot; '.join(
+                    '<span class="c">%s</span> %s' % (_CHECK, _esc(w)) for w in wts)
+                out += '<p class="chk">%s: %s</p>' % (name_html, items)
+            else:
+                out += '<p class="chk">%s</p>' % name_html
 
     return out
 
