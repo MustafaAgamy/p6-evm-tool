@@ -758,13 +758,19 @@ def add_calendar_hist(document, categories, working, nonworking,
     """Native STACKED histogram: net-working days (green, bottom) + non-working days
     (red, top), matching the on-screen / PDF colours (working #1F7A3D, non-working
     #B23030). A bottom two-item LEGEND names the colours ("Working days" /
-    "Non-working days"), and the NET-WORKING-DAYS total is labelled ABOVE each month's
-    stacked column (§8.2). Returns the drawing element, or ``None`` on bad input.
+    "Non-working days"), and the NET-WORKING-DAYS total is labelled CLEARLY ABOVE each
+    month's stacked column, in the white space over the bar (§8.2). Returns the drawing
+    element, or ``None`` on bad input.
 
-    The top-of-bar total is carried by a third, invisible zero-height series stacked on
-    top: it adds no height, is hidden from the legend, and shows the working-days figure
-    as a custom label at the very top of each column (the on-screen ".v" number above
-    the bar). Colours mirror ``html.py`` (._cal_hist / .callegend)."""
+    The top-of-bar total is carried by a third, invisible (``noFill``) series stacked on
+    top of the two coloured ones. It is given a small, uniform HEIGHT (``head_h`` ≈ 22 %
+    of the tallest column) so it reserves a band of empty space above every coloured
+    stack; the value axis is then capped just above that band (an explicit ``c:max`` ≈
+    1.22× the tallest total) so the headroom is guaranteed for every column regardless of
+    auto-scaling. The net-working-days figure is shown as a custom, centred label of that
+    invisible band (``dLblPos="ctr"``) — so it floats in the white space above the bar,
+    never overlapping the green/red segments. The band is hidden from the legend. Colours
+    mirror ``html.py`` (._cal_hist / .callegend)."""
     if document is None or not categories:
         return None
     cats = list(categories)
@@ -773,7 +779,15 @@ def add_calendar_hist(document, categories, working, nonworking,
     if (len(wk) != len(cats) or len(nw) != len(cats)
             or any(v is None for v in wk) or any(v is None for v in nw)):
         return None
-    zeros = [0 for _ in cats]
+    # Headroom band: an invisible top segment (uniform height) that opens white space
+    # ABOVE every coloured stack for the label to sit in, plus an explicit value-axis max
+    # so that space is always present. head_h ≈ 22 % of the tallest total (min 1); the
+    # centred label then floats ~11 % of the tallest total above each column's top.
+    totals = [wk[j] + nw[j] for j in range(len(cats))]
+    max_total = max(totals) if totals else 0
+    head_h = max(1, int(round(max_total * 0.22)))
+    head = [head_h for _ in cats]              # invisible top-band series values
+    axis_max = max_total + head_h              # value-axis cap → guaranteed headroom
     GREEN, RED, LABEL = '1F7A3D', 'B23030', '17457A'   # match html gseg / rseg / .v
 
     def seg(idx, nm, vals, colr, letter):
@@ -787,24 +801,26 @@ def add_calendar_hist(document, categories, working, nonworking,
                 f'{dpts}{_cat_ref(cats)}{_val_ref(vals, letter)}</c:ser>')
 
     def topper(idx, letter):
-        """Invisible zero-height top series carrying the net-working-days number ABOVE
-        each column, via a per-point custom label."""
+        """Invisible top band (uniform ``head`` height, ``noFill``) carrying the
+        net-working-days number in the white space ABOVE each column. The label is
+        CENTRED in the band (``dLblPos="ctr"``) so it floats clearly over the coloured
+        stack — never inside/overlapping the green/red segments."""
         dlbls = ''.join(
             f'<c:dLbl><c:idx val="{j}"/>'
             f'<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p>'
             f'<a:pPr><a:defRPr b="1" sz="800"><a:solidFill><a:srgbClr val="{LABEL}"/></a:solidFill></a:defRPr></a:pPr>'
             f'<a:r><a:rPr lang="en-US" b="1" sz="800"><a:solidFill><a:srgbClr val="{LABEL}"/></a:solidFill></a:rPr>'
             f'<a:t>{int(round(wk[j]))}</a:t></a:r></a:p></c:rich></c:tx>'
-            f'<c:dLblPos val="inEnd"/>'
+            f'<c:dLblPos val="ctr"/>'
             f'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>'
             f'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbl>'
             for j in range(len(cats)))
-        dl = (f'<c:dLbls>{dlbls}<c:dLblPos val="inEnd"/>'
+        dl = (f'<c:dLbls>{dlbls}<c:dLblPos val="ctr"/>'
               f'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>'
               f'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>')
         return (f'<c:ser><c:idx val="{idx}"/><c:order val="{idx}"/>{_tx_ref("Net working days", letter)}'
                 f'<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'
-                f'{dl}{_cat_ref(cats)}{_val_ref(zeros, letter)}</c:ser>')
+                f'{dl}{_cat_ref(cats)}{_val_ref(head, letter)}</c:ser>')
 
     def build(rid):
         s = (seg(0, 'Working days', wk, GREEN, 'B') +
@@ -822,14 +838,16 @@ def add_calendar_hist(document, categories, working, nonworking,
                 f'<c:axId val="111"/><c:axId val="222"/></c:barChart>'
                 f'<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
                 f'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222"/></c:catAx>'
-                f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
+                f'<c:valAx><c:axId val="222"/>'
+                f'<c:scaling><c:orientation val="minMax"/>'
+                f'<c:max val="{_vstr(axis_max)}"/><c:min val="0"/></c:scaling>'
                 f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111"/></c:valAx>'
                 f'</c:plotArea>{legend}<c:plotVisOnly val="1"/></c:chart>'
                 f'{_external_data(rid)}</c:chartSpace>')
 
     return _inject(document, build, cats,
                    [('Working days', wk), ('Non-working days', nw),
-                    ('Net working days', zeros)])
+                    ('Net working days', head)])
 
 
 def add_org_flat(document, root_name, branches, total_w=660):
