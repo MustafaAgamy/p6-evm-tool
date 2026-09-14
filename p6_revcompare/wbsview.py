@@ -21,6 +21,46 @@ shape rather than an exception.
 from p6_evm.parser import full_wbs_path
 
 
+# ── cost rolled up onto the WBS (Cost Changes tab, built like Scope & Structure) ─
+
+def _rolled_cost(data):
+    """{full_wbs_path: rolled-up planned cost} — each node = sum of the budget (bac) of every
+    activity in its subtree. Keyed by path so nodes match across revisions (ObjectIds differ)."""
+    wbs = getattr(data, 'wbs', None) or {}
+    bac = getattr(data, 'bac_by_activity', None) or {}
+    rolled = {}
+    for oid, act in (getattr(data, 'activities', None) or {}).items():
+        v = bac.get(oid) or 0.0
+        if not v:
+            continue
+        cur, guard = act.get('wbs_id'), 0
+        while cur and guard < 60:
+            guard += 1
+            node = wbs.get(cur)
+            if not node:
+                break
+            rolled[full_wbs_path(cur, wbs)] = rolled.get(full_wbs_path(cur, wbs), 0.0) + v
+            cur = node.get('parent_object_id')
+    return rolled
+
+
+def build_cost_by_wbs(rev0, rev1):
+    """[{level, name, rev0, rev1, variance}] — planned cost per WBS branch, pre-order, for the
+    Cost Changes tab. Nodes carrying no cost in either revision are dropped. Empty when the
+    revisions carry no cost loading."""
+    c0, c1 = _rolled_cost(rev0), _rolled_cost(rev1)
+    if not c0 and not c1:
+        return []
+    nodes = _wbs_nodes(rev1) or _wbs_nodes(rev0)
+    out = []
+    for n in nodes:
+        r0, r1 = round(c0.get(n['path'], 0.0)), round(c1.get(n['path'], 0.0))
+        if not r0 and not r1:
+            continue
+        out.append({'level': n['depth'], 'name': n['name'], 'rev0': r0, 'rev1': r1, 'variance': r1 - r0})
+    return out
+
+
 # ── WBS hierarchy flattening ─────────────────────────────────────────────────
 
 def _wbs_nodes(data):

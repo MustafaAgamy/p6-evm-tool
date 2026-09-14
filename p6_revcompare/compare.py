@@ -316,6 +316,7 @@ def _redesign_sections(rev0, rev1, rev1c, matched, match, cal, cp, crit1,
     _safe('duration_table', lambda: _dates.build_duration_table(match, rev0, rev1c, cal), [])
     _safe('wbs_view', lambda: _wbsview.build_wbs_view(rev0, rev1c, wbs_changes), None)
     _safe('sequence_rollup', lambda: _wbsview.build_sequence_rollup(sequences, matched), [])
+    _safe('cost_by_wbs', lambda: _wbsview.build_cost_by_wbs(rev0, rev1c), [])
     return out
 
 

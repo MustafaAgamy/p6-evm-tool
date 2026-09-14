@@ -88,10 +88,33 @@ def diff_wbs(rev0, rev1, moved_pairs=()):
 # ── Calendars ────────────────────────────────────────────────────────────────
 
 def _workdays_per_week(cal):
+    """Working days per week — robust for 24h / continuous calendars. Prefer the actual
+    working-interval days (a 7×24 calendar has intervals on all 7 days); fall back to
+    7 − non-working. A 0 from an all-non-working set is almost always a continuous calendar
+    defined via intervals/exceptions, so treat it as 7 rather than the illogical 0."""
+    if cal is None:
+        return None
+    wi = getattr(cal, 'work_intervals', None) or {}
+    if wi:
+        n = sum(1 for ivs in wi.values() if ivs)
+        if n:
+            return n
     nw = getattr(cal, 'nonworking_days', None)
     if nw is None:
         return None
-    return 7 - len(nw)
+    d = 7 - len(nw)
+    return d if d > 0 else 7
+
+
+def _cal_pattern(cal):
+    """A plain working pattern for display: {days, hours, hpw} (days/week, hours/day,
+    hours/week). None when the calendar is absent."""
+    if cal is None:
+        return None
+    days = _workdays_per_week(cal)
+    hours = getattr(cal, 'day_hours', None)
+    hpw = round(days * hours) if (days is not None and hours is not None) else None
+    return {'days': days, 'hours': hours, 'hpw': hpw}
 
 
 def _cal_by_name(data):
@@ -154,7 +177,28 @@ def diff_calendars(rev0, rev1, matched):
             'count': len(codes), 'codes': sorted(codes),
         })
     reassignments.sort(key=lambda r: -r['count'])
-    return {'calendars': cals, 'reassignments': reassignments}
+
+    # Clean per-calendar working-pattern view (comment: present calendars simply/clearly).
+    def _usage(data):
+        out = {}
+        cals = getattr(data, 'calendars', None) or {}
+        idname = {cid: getattr(c, 'name', None) for cid, c in cals.items()}
+        for a in (getattr(data, 'activities', None) or {}).values():
+            n = idname.get(a.get('calendar_id'))
+            if n:
+                out[n] = out.get(n, 0) + 1
+        return out
+    u0, u1 = _usage(rev0), _usage(rev1)
+    patterns = []
+    for name in sorted(set(c0) | set(c1)):
+        a, b = c0.get(name), c1.get(name)
+        p0, p1 = _cal_pattern(a), _cal_pattern(b)
+        change = ('removed' if (a and not b) else 'added' if (b and not a)
+                  else 'modified' if p0 != p1 else 'unchanged')
+        patterns.append({'name': name, 'rev0': p0, 'rev1': p1,
+                         'activities': (u1.get(name) or u0.get(name) or 0), 'change': change})
+
+    return {'calendars': cals, 'reassignments': reassignments, 'patterns': patterns}
 
 
 # ── Constraints ──────────────────────────────────────────────────────────────
