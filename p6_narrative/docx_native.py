@@ -966,3 +966,118 @@ def add_org_cols(document, root_name, columns, total_w=660):
         return _group_drawing(document, sh, base, _emu(grid_w), _emu(total_h))
     except Exception:                       # pragma: no cover - never crash the export
         return None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SLICE D — NATIVE, EDITABLE top-down INDENTED WBS box-tree (§9, approved redesign)
+# ══════════════════════════════════════════════════════════════════════════════
+# The approved §9 look is the classic "tree view": a top-to-bottom flow where every
+# node is a box on its own row, indented one step to the RIGHT of its parent, and each
+# parent joined to its children by a visible ELBOW — a single vertical line down the
+# gutter plus a short horizontal stub into every child's left edge (the last child's
+# stub is where the vertical line stops, so no line trails past it). Boxes are colour-
+# coded by WBS level so depth reads at a glance. Drawn with the SAME reliable native
+# primitives as the org-charts above — ``_wps_box`` for every node, ``_wps_line`` for
+# every connector segment (thin filled rects, so zero-extent axes still render) — wrapped
+# in one ``_group_drawing`` sized to the whole tree. NEVER a picture; None-safe.
+#
+# Per-level (fill, border, text) — matches the PDF: lv0 navy #1F4E79 + white text,
+# lv1 #BCD3EA, lv2 #DEEAF6, lv3 #E6EEF7, lv4 white with a light border.
+_WBS_TREE_LEVELS = [
+    ('1F4E79', '1F4E79', 'FFFFFF'),         # lv0 — project root (navy, white text)
+    ('BCD3EA', '9CBCDD', '14324F'),         # lv1 — major WBS branch (blue)
+    ('DEEAF6', 'B8CFE8', '14324F'),         # lv2 — Level-2 (light blue)
+    ('E6EEF7', 'CDDDEF', '1F4E79'),         # lv3 — Level-3
+    ('FFFFFF', 'D3DDEA', '33414D'),         # lv4 — Level-4 (white, light border)
+]
+
+# tree geometry (px; converted to EMU via _emu). Uniform box width/height; each depth
+# indented one INDENT; rows stepped by ROW_H (a small gap between boxes). The gutter for a
+# parent's elbow sits GUTTER px right of the parent's left edge, LEFT of the child boxes
+# (which start one INDENT right of the parent), so the vertical line never crosses a box.
+_TREE_PAD, _TREE_INDENT, _TREE_ROW_H = 10, 28, 30
+_TREE_BOX_W, _TREE_BOX_H, _TREE_GUTTER = 388, 24, 12
+
+
+def add_wbs_tree(document, nodes):
+    """Native TOP-DOWN INDENTED WBS box-tree with elbow connectors (§9 redesign).
+
+    ``nodes`` is a list of ROOT node dicts, each ``{'name', 'level', 'children': [...]}``
+    (nested). A depth-first walk puts each node on its own ROW in document order
+    (``y = PAD + row*ROW_H``); its column is its WBS level (``x = PAD + (level-base)*INDENT``,
+    so the shallowest node sits flush-left while colour still tracks the true level). Every
+    parent with children gets an elbow: one vertical line down the gutter from just below the
+    parent to the last child's vertical centre, plus a horizontal stub from that gutter into
+    each child's left edge. Boxes are filled by level (navy root → blue → light-blue → white).
+
+    Returns the drawing element, or ``None`` on a missing document / empty tree / any
+    internal error (the caller then falls back to an editable table)."""
+    if document is None or not nodes:
+        return None
+    try:
+        seq = []                            # ordered list of node records (DFS / document order)
+
+        def dfs(n):
+            try:
+                lvl = int(n.get('level'))
+            except (TypeError, ValueError):
+                lvl = 0
+            rec = {'node': n, 'level': lvl, 'row': len(seq)}
+            seq.append(rec)
+            for k in (n.get('children') or []):
+                dfs(k)
+
+        for root in nodes:
+            if root:
+                dfs(root)
+        if not seq:
+            return None
+
+        base = min(r['level'] for r in seq)
+        max_depth = max(r['level'] - base for r in seq)
+        rec_by_id = {id(r['node']): r for r in seq}
+
+        def x_of(level):
+            return _TREE_PAD + (level - base) * _TREE_INDENT
+
+        def y_of(row):
+            return _TREE_PAD + row * _TREE_ROW_H
+
+        counter = [_next_id(document)]
+        base_id = counter[0]
+        counter[0] += 1                     # reserve base_id for the group frame's docPr
+
+        shapes = []
+        # elbow connectors FIRST so the boxes paint over them
+        for rec in seq:
+            kids = rec['node'].get('children') or []
+            child_recs = [rec_by_id[id(k)] for k in kids if id(k) in rec_by_id]
+            if not child_recs:
+                continue
+            gutter_x = x_of(rec['level']) + _TREE_GUTTER
+            parent_bottom = y_of(rec['row']) + _TREE_BOX_H
+            last_center = y_of(child_recs[-1]['row']) + _TREE_BOX_H / 2.0
+            # vertical line: just below the parent → last child's vertical centre
+            shapes.append(_wps_line(counter, _emu(gutter_x), _emu(parent_bottom),
+                                    0, _emu(last_center - parent_bottom), _WBS_LINE))
+            # horizontal stub into each child's left edge
+            for cr in child_recs:
+                cy = y_of(cr['row']) + _TREE_BOX_H / 2.0
+                shapes.append(_wps_line(counter, _emu(gutter_x), _emu(cy),
+                                        _emu(x_of(cr['level']) - gutter_x), 0, _WBS_LINE))
+        # boxes (colour-coded by level)
+        for rec in seq:
+            lvl = rec['level']
+            # colour tracks the ABSOLUTE WBS level (lv0 navy … lv4 white), clamped
+            fill, border, tcol = _WBS_TREE_LEVELS[min(max(lvl, 0), len(_WBS_TREE_LEVELS) - 1)]
+            nm = rec['node'].get('name') or ''
+            shapes.append(_wps_box(
+                counter, nm, _emu(x_of(lvl)), _emu(y_of(rec['row'])),
+                _emu(_TREE_BOX_W), _emu(_TREE_BOX_H), fill, border, tcol, nm, sz=10))
+
+        total_w = _TREE_PAD + max_depth * _TREE_INDENT + _TREE_BOX_W + _TREE_PAD
+        total_h = _TREE_PAD + (len(seq) - 1) * _TREE_ROW_H + _TREE_BOX_H + _TREE_PAD
+        return _group_drawing(document, ''.join(shapes), base_id,
+                              _emu(total_w), _emu(total_h))
+    except Exception:                       # pragma: no cover - never crash the export
+        return None

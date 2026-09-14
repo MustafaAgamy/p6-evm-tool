@@ -481,21 +481,88 @@ def _render_table(document, p, number, note):
 
 
 # ── §9 Work Breakdown Structure ───────────────────────────────────────────────
+def _wbs_overview_nodes(overview):
+    """x.1 node tree: lv0 project root → lv1 major-WBS children (for add_wbs_tree)."""
+    return {'name': overview.get('name'), 'level': 0,
+            'children': [{'name': c.get('name'), 'level': 1, 'children': []}
+                         for c in (overview.get('children') or [])]}
+
+
+def _wbs_branch_nodes(br):
+    """x.n node tree: lv1 branch root → lv2 columns → lv3 → lv4 (from the payload columns).
+
+    Payload column shape: ``[l2name, [[l3name, [l4name, …]], …]]``."""
+    def l3_node(entry):
+        l3name = entry[0] if entry else ''
+        l4names = entry[1] if len(entry) > 1 else []
+        return {'name': l3name, 'level': 3,
+                'children': [{'name': x, 'level': 4, 'children': []}
+                             for x in (l4names or [])]}
+
+    def col_node(col):
+        l2name = col[0] if col else ''
+        l3list = col[1] if len(col) > 1 else []
+        return {'name': l2name, 'level': 2,
+                'children': [l3_node(e) for e in (l3list or [])]}
+
+    return {'name': br.get('name'), 'level': 1,
+            'children': [col_node(c) for c in (br.get('columns') or [])]}
+
+
+def _wbs_fallback_table(document, root):
+    """Graceful editable fallback when the native tree can't be built: the same WBS as an
+    indented, level-shaded single-column table (still fully editable in Word)."""
+    flat = []
+
+    def walk(n):
+        try:
+            lvl = int(n.get('level'))
+        except (TypeError, ValueError):
+            lvl = 0
+        flat.append((lvl, n.get('name') or ''))
+        for k in (n.get('children') or []):
+            walk(k)
+
+    walk(root)
+    if not flat:
+        _muted(document, 'No work breakdown structure is defined in the file.')
+        return
+    base = min(l for l, _ in flat)
+    fills = {0: NAVY_HEX, 1: 'BCD3EA', 2: 'DEEAF6', 3: 'E6EEF7', 4: 'FFFFFF'}
+    t = document.add_table(rows=0, cols=1)
+    t.style = 'Table Grid'
+    t.autofit = False
+    for lvl, name in flat:
+        rr = t.add_row()
+        _row_h(rr, 18, exact=False)
+        c = rr.cells[0]
+        _set_w(c, 6.9); _no_space(c)
+        c.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        _shade(c, fills.get(min(max(lvl, 0), 4), 'FFFFFF'))
+        pp = c.paragraphs[0]
+        pp.paragraph_format.left_indent = Inches(0.22 * max(lvl - base, 0))
+        run(pp, name, size=11, bold=(lvl <= 1),
+            color=(WHITE if lvl == 0 else DKNAVY))
+    return t
+
+
 def _render_wbs_tree(document, p, number, note):
     overview = p.get('overview') or {}
     branches = p.get('branches') or []
     if not (overview or branches):
         _muted(document, 'No work breakdown structure is defined in the file.')
         return
-    if overview:
+    if overview and (overview.get('name') or overview.get('children')):
         _subhead(document, '%s.1' % number, 'WBS Overview')
-        names = [c.get('name') for c in (overview.get('children') or [])]
-        if names:
-            docx_native.add_org_flat(document, overview.get('name'), names)
+        root = _wbs_overview_nodes(overview)
+        if docx_native.add_wbs_tree(document, [root]) is None:
+            _wbs_fallback_table(document, root)
     for i, br in enumerate(branches):
         _subhead(document, '%s.%d' % (number, i + 2),
                  '%s — breakdown' % (br.get('name') or '—'))
-        docx_native.add_org_cols(document, br.get('name'), br.get('columns') or [])
+        root = _wbs_branch_nodes(br)
+        if docx_native.add_wbs_tree(document, [root]) is None:
+            _wbs_fallback_table(document, root)
 
 
 # ── §10 Activity Codes ────────────────────────────────────────────────────────

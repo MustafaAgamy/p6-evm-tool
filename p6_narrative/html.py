@@ -388,39 +388,43 @@ def _calendars(p, number, title, meta, cur):
 
 # ── §9 Work Breakdown Structure ───────────────────────────────────────────────
 def _wbs_tree(p, number, title, meta, cur):
-    intro = ('<p>The project WBS is presented as an organisation chart, then each major '
-             'branch is expanded &mdash; to Level 4 where a branch&rsquo;s Level-4 nodes '
-             'are 4 or fewer, otherwise to Level 3.</p>')
-    overview = p.get('overview') or {}
-    boxes = ''.join('<div class="ocbox">%s</div>' % _esc(c.get('name'))
-                    for c in (overview.get('children') or []))
-    ov_block = ('<div class="sub">%s.1 &middot; WBS Overview</div>'
-                '<div class="oc"><div class="ocroot">%s</div>'
-                '<div class="octrunk"></div>'
-                '<div class="ocbranch">%s</div></div>'
-                % (_esc(number), _esc(overview.get('name')), boxes))
+    intro = ('<p>The project WBS is presented below as an indented hierarchical tree &mdash; '
+             'the project root at the top, each major branch beneath it, then every branch '
+             'expanded to its full depth (to Level 4 where a branch reaches it, otherwise to '
+             'Level 3). Each parent is joined to its children by connector lines.</p>')
 
+    def _node(node, level):
+        # A node is either a bare name (a leaf) or a [name, [children...]] pair.
+        # Emits: <li><span class="bx lvN">NAME</span>[<ul>…child LIs…</ul>]</li>
+        if isinstance(node, (list, tuple)):
+            name = node[0] if len(node) > 0 else ''
+            children = node[1] if len(node) > 1 else []
+        else:
+            name, children = node, []
+        li = '<li><span class="bx lv%d">%s</span>' % (level, _esc(name))
+        if children:
+            li += '<ul>%s</ul>' % ''.join(_node(c, level + 1) for c in children)
+        return li + '</li>'
+
+    # number.1 · WBS Overview — project root (lv0) → each major branch (lv1)
+    overview = p.get('overview') or {}
+    ov_children = ''.join(_node(c.get('name'), 1)
+                          for c in (overview.get('children') or []))
+    ov_tree = ('<div class="wt"><ul><li><span class="bx lv0">%s</span>'
+               '<ul>%s</ul></li></ul></div>'
+               % (_esc(overview.get('name')), ov_children))
+    ov_block = ('<div class="sub">%s.1 &middot; WBS Overview</div>%s'
+                % (_esc(number), ov_tree))
+
+    # number.n · <branch> — breakdown — branch (lv1) → L2 → L3 → L4
     branch_blocks = ''
     for i, br in enumerate(p.get('branches') or [], 1):
-        cols = ''
-        for col in br.get('columns') or []:
-            l2name = col[0] if len(col) > 0 else ''
-            l3list = col[1] if len(col) > 1 else []
-            inner = '<div class="l2">%s</div>' % _esc(l2name)
-            for l3 in l3list:
-                l3name = l3[0] if len(l3) > 0 else ''
-                l4names = l3[1] if len(l3) > 1 else []
-                inner += '<div class="l3">%s</div>' % _esc(l3name)
-                if l4names:
-                    chips = ' '.join('<span class="l4">%s</span>' % _esc(x) for x in l4names)
-                    inner += '<div style="text-align:center">%s</div>' % chips
-            cols += '<div class="occol">%s</div>' % inner
-        branch_blocks += ('<div class="sub">%s.%d &middot; %s &mdash; breakdown</div>'
-                          '<div class="oc"><div class="ocroot">%s</div>'
-                          '<div class="octrunk"></div>'
-                          '<div class="occols">%s</div></div>'
-                          % (_esc(number), i + 1, _esc(br.get('name')),
-                             _esc(br.get('name')), cols))
+        cols = ''.join(_node(col, 2) for col in (br.get('columns') or []))
+        tree = ('<div class="wt"><ul><li><span class="bx lv1">%s</span>'
+                '<ul>%s</ul></li></ul></div>'
+                % (_esc(br.get('name')), cols))
+        branch_blocks += ('<div class="sub">%s.%d &middot; %s &mdash; breakdown</div>%s'
+                          % (_esc(number), i + 1, _esc(br.get('name')), tree))
     return intro + ov_block + branch_blocks
 
 
@@ -639,18 +643,18 @@ table { border-collapse: collapse; }
 .hist .gseg { background:#1f7a3d; border-radius:0 0 3px 3px; }
 .hist .rseg { background:#b23030; border-radius:3px 3px 0 0; }
 .hist .m { font-size:8.5px; color:#8a95a1; margin-top:3px; font-family:Calibri,sans-serif; }
-.oc { text-align:center; }
-.ocroot { display:inline-block; background:#1F4E79; color:#fff; font-weight:700; font-size:11px; padding:7px 18px; border-radius:6px; font-family:Calibri,sans-serif; }
-.octrunk { width:2px; height:12px; background:#9cbcdd; margin:0 auto; }
-.ocbranch { display:inline-flex; justify-content:center; flex-wrap:wrap; gap:12px 14px; border-top:2px solid #9cbcdd; padding-top:14px; }
-.ocbox { position:relative; flex:0 0 120px; width:120px; min-height:52px; display:flex; align-items:center; justify-content:center; text-align:center; background:#DEEAF6; border:1px solid #9cbcdd; border-radius:6px; padding:6px 6px; font-size:9.5px; line-height:1.25; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; overflow-wrap:anywhere; word-break:break-word; }
-.ocbox::before { content:""; position:absolute; top:-14px; left:calc(50% - 1px); width:2px; height:14px; background:#9cbcdd; }
-.occols { display:inline-flex; justify-content:center; flex-wrap:wrap; gap:12px 14px; border-top:2px solid #9cbcdd; padding-top:14px; text-align:left; }
-.occol { position:relative; flex:0 1 160px; min-width:130px; }
-.occol::before { content:""; position:absolute; top:-14px; left:calc(50% - 1px); width:2px; height:14px; background:#9cbcdd; }
-.l2 { background:#bcd3ea; border:1px solid #9cbcdd; border-radius:6px; padding:6px; font-size:10px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; }
-.l3 { background:#e6eef7; border:1px solid #cdddef; border-radius:5px; padding:5px; font-size:9.5px; font-weight:600; color:#1f4e79; margin-top:8px; font-family:Calibri,sans-serif; }
-.l4 { background:#fff; border:1px solid #d3ddea; border-radius:4px; padding:3px 5px; font-size:8.5px; color:#33414d; margin-top:5px; display:inline-block; font-family:Calibri,sans-serif; }
+.wt ul{list-style:none;margin:0;padding-left:22px;}
+.wt>ul{padding-left:0;}
+.wt li{position:relative;padding:4px 0;}
+.wt ul li::before{content:"";position:absolute;top:16px;left:-12px;width:12px;border-top:1.5px solid #9cbcdd;}
+.wt ul li::after{content:"";position:absolute;top:0;left:-12px;height:100%;border-left:1.5px solid #9cbcdd;}
+.wt ul li:last-child::after{height:16px;}
+.wt .bx{display:inline-block;font-family:Calibri,sans-serif;font-weight:700;border-radius:5px;padding:5px 11px;font-size:10.5px;line-height:1.2;border:1px solid #9cbcdd;}
+.wt .lv0{background:#1F4E79;color:#fff;border-color:#1F4E79;font-size:11.5px;padding:6px 14px;}
+.wt .lv1{background:#BCD3EA;color:#12324d;}
+.wt .lv2{background:#DEEAF6;color:#14324f;}
+.wt .lv3{background:#eef4fb;color:#1f4e79;font-weight:600;}
+.wt .lv4{background:#fff;color:#33414d;font-weight:400;border-color:#d3ddea;font-size:9.5px;}
 .codes { display:flex; gap:16px; margin-bottom:12px; }
 .codes > div { flex:1; }
 .ct { font-size:12px; font-weight:700; margin:0 0 5px; }
