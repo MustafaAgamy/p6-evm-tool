@@ -5,7 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
-## [Unreleased]
+## [v2.6.1] - 2026-09-14
 
 ### Fixed
 - **Importing a file — or returning to the import screen — now clears every Library page from underneath it.** Previously, importing a P6 file while viewing **Knowledge Base** (or Recent Projects / Productivity & Resources) left that page showing beneath the import/results screen. The import and results screens now always appear on their own, whatever page you were on before.
