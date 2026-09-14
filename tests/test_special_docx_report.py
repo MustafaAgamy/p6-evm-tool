@@ -111,10 +111,12 @@ def test_build_docx_writes_valid_docx(tmp_path):
     # findings severity values are title-cased
     assert 'High' in cell_texts and 'Low' in cell_texts
 
-    # the html section's inner <td> '1' appears in a reconstructed table
+    # the html section's inner <td> '1' appears in a reconstructed table (chrome=None
+    # here, so the html section falls back to native text/table extraction)
     assert '1' in cell_texts
-    # and its <h3> became a subheading paragraph
-    assert any(p.strip() == 'Cat' for p in paras)
+    # the section's OWN leading heading is stripped (FIX 3) — 'Cat' is NOT re-emitted
+    # under the Studio's '5 Detailed section' heading
+    assert not any(p.strip() == 'Cat' for p in paras)
 
 
 def test_docx_has_navy_page_border_and_header_part(tmp_path):
@@ -218,3 +220,101 @@ def test_group_and_segbar_and_line_and_status(tmp_path):
     # line trend point table + status header table
     assert 'Point' in cell_texts and 'SPI' in cell_texts
     assert 'Area' in cell_texts and 'Schedule' in cell_texts
+
+
+# ── FIX 1 — contents page carries live page numbers (bookmarks + PAGEREF) ──────
+def test_contents_has_pageref_page_numbers_and_bookmarks(tmp_path):
+    """Each contents entry ends with a live PAGEREF field pointing at a section-heading
+    bookmark, and the settings part asks Word to refresh fields on open."""
+    out = tmp_path / 'toc.docx'
+    build_docx(out, 'Weekly', _meta(), _rendered(), letterhead=_letterhead())
+
+    with zipfile.ZipFile(out) as z:
+        document_xml = z.read('word/document.xml').decode('utf-8')
+        settings_xml = z.read('word/settings.xml').decode('utf-8')
+
+    # PAGEREF fields exist in the contents list (one per selected item)
+    assert 'PAGEREF' in document_xml
+    assert document_xml.count('PAGEREF') >= len(_rendered())
+    # bookmarks wrap the numbered section headings (sec1 … secN)
+    assert 'w:bookmarkStart' in document_xml
+    assert 'w:bookmarkEnd' in document_xml
+    for i in range(1, len(_rendered()) + 1):
+        assert ('sec%d' % i) in document_xml
+    # Word refreshes fields (the page numbers) on open
+    assert 'w:updateFields' in settings_xml
+
+
+# ── FIX 3 — every numbered section names its source feature ────────────────────
+def test_each_section_has_feature_caption(tmp_path):
+    """Directly under each numbered section heading sits a caption naming the feature
+    the result came from (matching the contents-page feature tag)."""
+    out = tmp_path / 'cap.docx'
+    build_docx(out, 'Weekly', _meta(), _rendered(), letterhead=_letterhead())
+    paras = [p.text.strip() for p in docx.Document(str(out)).paragraphs]
+
+    def _caption_after(head, cap):
+        for i, t in enumerate(paras):
+            if t == head:
+                for t2 in paras[i + 1:]:
+                    if t2:                      # first non-empty paragraph after heading
+                        return t2 == cap
+        return False
+
+    assert _caption_after('1 By category', 'EVM Report')
+    assert _caption_after('4 Open findings', 'Schedule Audit')
+    assert _caption_after('5 Detailed section', 'Schedule Audit')
+
+
+# ── FIX 3 — a reused section's own leading heading is stripped ─────────────────
+def test_html_section_leading_heading_is_stripped(tmp_path):
+    """A reused 'html' section whose fragment opens with its own heading has that
+    heading removed, so the Studio's numbered heading is not followed by a duplicate
+    title — while the section's body table still comes through (chrome=None fallback)."""
+    rendered = [
+        {'id': 'r', 'title': 'Executive dashboard', 'feature': 'calendar',
+         'feature_title': 'Calendar & Weather', 'ctype': 'html',
+         'payload': {'kind': 'html', 'css': '.srf-calendar h2{color:navy}',
+                     'html': '<div class="srf-calendar">'
+                             '<h2>1 - Execution Dashboard</h2>'
+                             '<table><tr><th>Metric</th></tr>'
+                             '<tr><td>innercell</td></tr></table></div>'}},
+    ]
+    out = tmp_path / 'strip.docx'
+    build_docx(out, 'Weekly', _meta(), rendered, letterhead=_letterhead())
+    document = docx.Document(str(out))
+    paras = [p.text.strip() for p in document.paragraphs]
+    cell_texts = _all_table_cell_texts(document)
+
+    # Studio heading present, section's own duplicate heading gone
+    assert any(p == '1 Executive dashboard' for p in paras)
+    assert not any('Execution Dashboard' in p for p in paras)
+    # body survives the strip
+    assert 'innercell' in cell_texts
+
+
+# ── FIX 2 — with no chrome, html sections fall back to text/table extraction ───
+def test_html_falls_back_to_extraction_without_chrome(tmp_path):
+    """With ``chrome=None`` there is no image; the reused html section is reconstructed
+    as native docx tables so its cell text still appears (no crash)."""
+    rendered = [
+        {'id': 'r', 'title': 'Detailed', 'feature': 'audit',
+         'feature_title': 'Schedule Audit', 'ctype': 'html',
+         'payload': {'kind': 'html', 'css': '.srf-audit td{padding:2px}',
+                     'html': '<div class="srf-audit"><table>'
+                             '<tr><th>Head</th></tr><tr><td>innercell</td></tr>'
+                             '</table></div>'}},
+    ]
+    out = tmp_path / 'fallback.docx'
+    build_docx(out, 'Weekly', _meta(), rendered, letterhead=_letterhead(), chrome=None)
+    assert zipfile.is_zipfile(out)
+    cell_texts = _all_table_cell_texts(docx.Document(str(out)))
+    assert 'innercell' in cell_texts
+
+
+def test_rasterize_section_returns_none_without_chrome():
+    """The rasteriser cleanly returns None when no chrome is given, or the path is
+    missing — so the caller always has a safe fallback (never an exception)."""
+    from p6_special.docx_report import _rasterize_section
+    assert _rasterize_section('<p>x</p>', '.x{}', 'light', None) is None
+    assert _rasterize_section('<p>x</p>', '.x{}', 'light', 'C:/nope/chrome-does-not-exist.exe') is None

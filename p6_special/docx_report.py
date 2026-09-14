@@ -26,12 +26,16 @@ writes a valid document (cover + empty contents).
 """
 import base64
 import io
+import os
+import re
+import subprocess
+import tempfile
 from datetime import datetime
 from html.parser import HTMLParser
 
 from docx import Document
 from docx.enum.table import WD_ALIGN_VERTICAL
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT, WD_TAB_LEADER
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Emu, Inches, Pt, RGBColor
@@ -124,6 +128,54 @@ def _page_field_run(paragraph):
     for el in (begin, instr, sep, placeholder, end):
         r.append(el)
     return run
+
+
+def _add_bookmark(paragraph, name, bid):
+    """Wrap a paragraph's whole content in a Word bookmark (``w:bookmarkStart`` right
+    after the paragraph properties, ``w:bookmarkEnd`` at the very end) so a PAGEREF
+    field elsewhere can resolve to this paragraph's page. ``bid`` is a per-document
+    unique integer id; ``name`` is the referenced bookmark name (e.g. 'sec1')."""
+    p = paragraph._p
+    start = OxmlElement('w:bookmarkStart')
+    start.set(qn('w:id'), str(bid))
+    start.set(qn('w:name'), name)
+    end = OxmlElement('w:bookmarkEnd')
+    end.set(qn('w:id'), str(bid))
+    pPr = p.find(qn('w:pPr'))
+    if pPr is not None:
+        pPr.addnext(start)
+    else:
+        p.insert(0, start)
+    p.append(end)
+    return paragraph
+
+
+def _pageref_field(paragraph, bookmark_name):
+    """Append a live Word ``PAGEREF <name> \\h`` field (begin + instrText + separate +
+    cached '1' + end) so Word fills in the real page number of that bookmark on open.
+    Returns the run holding the field (style it via ``_set_run_font``)."""
+    run = paragraph.add_run()
+    r = run._r
+    begin = OxmlElement('w:fldChar'); begin.set(qn('w:fldCharType'), 'begin')
+    instr = OxmlElement('w:instrText')
+    instr.set(qn('xml:space'), 'preserve'); instr.text = ' PAGEREF %s \\h ' % bookmark_name
+    sep = OxmlElement('w:fldChar'); sep.set(qn('w:fldCharType'), 'separate')
+    placeholder = OxmlElement('w:t'); placeholder.text = '1'
+    end = OxmlElement('w:fldChar'); end.set(qn('w:fldCharType'), 'end')
+    for el in (begin, instr, sep, placeholder, end):
+        r.append(el)
+    return run
+
+
+def _set_update_fields(document):
+    """Set ``<w:updateFields w:val="true"/>`` in word/settings.xml so Word refreshes
+    all fields (the contents-page PAGEREF numbers) when the document is opened."""
+    settings = document.settings.element
+    for old in settings.findall(qn('w:updateFields')):
+        settings.remove(old)
+    upd = OxmlElement('w:updateFields')
+    upd.set(qn('w:val'), 'true')
+    settings.insert(0, upd)
 
 
 def _no_table_borders(table):
@@ -430,6 +482,16 @@ def _caption(document, text):
     return p
 
 
+def _feature_caption(document, text):
+    """A small italic muted caption sitting directly under a numbered section heading,
+    naming the FEATURE the result came from (matches the contents-page feature tag)."""
+    p = document.add_paragraph()
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(4)
+    _set_run_font(p.add_run(str(text or '')), _BODY_FONT, size=9, italic=True, color=GREY)
+    return p
+
+
 def _small_head(document, text):
     """A small bold navy label above a group of bars (a bars row label)."""
     p = document.add_paragraph()
@@ -694,9 +756,9 @@ def _render_note(document, pl):
                   size=_BODY_PT, italic=True, color=INK_SOFT)
 
 
-def _render_group(document, pl):
+def _render_group(document, pl, chrome=None, mode='light'):
     for b in (pl.get('blocks') or []):
-        _render_block(document, b)
+        _render_block(document, b, chrome=chrome, mode=mode)
 
 
 # ── html reconstruction (best-effort, never crashes) ──────────────────────────
@@ -798,8 +860,80 @@ class _HtmlExtract(HTMLParser):
         self.ops.append(('table', headers, body))
 
 
-def _render_html(document, pl):
-    markup = pl.get('html') or ''
+# A leading heading in a reused fragment (optionally behind the ``.srf-*`` wrapper
+# div(s)) — either an ``<hN>…</hN>`` or a "N - Title" line rendered as a heading/div.
+_LEAD_HEADING_RE = re.compile(
+    r'^(\s*(?:<div\b[^>]*>\s*)*)'          # keep any leading wrapper div(s) (e.g. .srf-*)
+    r'<(h[1-6])\b[^>]*>.*?</\2>\s*',       # …then drop the FIRST heading element
+    re.I | re.S)
+
+
+def _strip_leading_heading(markup):
+    """Remove a reused section's OWN leading heading (its top ``<h1>…<h6>``, possibly
+    nested inside the ``.srf-*`` wrapper div) so the Studio's numbered section heading
+    ('2  Executive dashboard') is not immediately followed by the section's own
+    duplicate title ('1 - Execution Dashboard'). The wrapper div(s) are preserved so
+    the fragment stays balanced; if there is no leading heading the markup is returned
+    unchanged."""
+    if not markup:
+        return markup
+    m = _LEAD_HEADING_RE.match(markup)
+    if m:
+        return m.group(1) + markup[m.end():]
+    return markup
+
+
+def _rasterize_section(fragment_html, css, mode, chrome):
+    """Render a reused feature-report section to a PNG (so Word == PDF) via headless
+    Chrome. Writes a standalone HTML file (theme tokens + the section's scoped CSS +
+    the fragment) and screenshots it at 2x on a fixed 920px-wide white canvas.
+    ``--headless=new`` captures the FULL content height, not just the viewport.
+    Returns the PNG bytes, or ``None`` on any failure/timeout (and when no ``chrome``
+    is supplied) so the caller can fall back to text/table extraction."""
+    if not chrome:
+        return None
+    try:
+        import report_theme
+        theme = report_theme.theme_style_tag(mode)
+    except Exception:
+        theme = ''
+    htmlpath = png = None
+    try:
+        doc = (
+            '<html><head><meta charset="utf-8"><style>'
+            + theme + (css or '')
+            + ' body{margin:0;background:#fff;width:920px}'
+            + '</style></head><body>' + (fragment_html or '') + '</body></html>'
+        )
+        fd, htmlpath = tempfile.mkstemp(suffix='.html')
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(doc)
+        fd2, png = tempfile.mkstemp(suffix='.png')
+        os.close(fd2)
+        subprocess.run(
+            [chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
+             '--force-device-scale-factor=2', '--default-background-color=FFFFFFFF',
+             '--window-size=920,1400', f'--screenshot={png}',
+             f'file:///{htmlpath.replace(os.sep, "/")}'],
+            check=True, capture_output=True, timeout=40)
+        with open(png, 'rb') as f:
+            data = f.read()
+        return data or None
+    except Exception:
+        return None
+    finally:
+        for p in (htmlpath, png):
+            try:
+                if p and os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
+
+
+def _render_html_extract(document, markup):
+    """Fallback for a reused ``html`` section when no image could be produced: pull the
+    fragment's tables / headings / paragraphs out with ``_HtmlExtract`` and rebuild them
+    as native docx (real tables, subheadings, body paragraphs)."""
     ops = []
     try:
         ex = _HtmlExtract()
@@ -826,6 +960,25 @@ def _render_html(document, pl):
             continue
 
 
+def _render_html(document, pl, chrome=None, mode='light'):
+    """A reused feature-report section. First strip the section's OWN leading heading
+    (FIX 3) so it does not duplicate the Studio's numbered heading. Then, when a
+    ``chrome`` executable is available, render the actual section to an IMAGE and embed
+    it so Word matches the PDF (FIX 2); otherwise (or on any rasterisation failure) fall
+    back to the native text/table extraction so tests without Chrome still get content."""
+    markup = _strip_leading_heading(str(pl.get('html') or ''))
+    css = pl.get('css') or ''
+    if chrome:
+        try:
+            png = _rasterize_section(markup, css, mode, chrome)
+            if png:
+                document.add_picture(io.BytesIO(png), width=Inches(6.3))
+                return
+        except Exception:
+            pass
+    _render_html_extract(document, markup)
+
+
 _BLOCK = {
     'table': _render_table, 'kpi_group': _render_kpi_group, 'bars': _render_bars,
     'segbar': _render_segbar, 'findings': _render_findings, 'keyvals': _render_keyvals,
@@ -834,19 +987,25 @@ _BLOCK = {
 }
 
 
-def _render_block(document, block):
+def _render_block(document, block, chrome=None, mode='light'):
     """Dispatch one payload block to its docx renderer. no_data / unknown / empty are
-    skipped; any renderer error is swallowed so one bad block never fails the report."""
+    skipped; any renderer error is swallowed so one bad block never fails the report.
+    ``html`` and ``group`` are threaded ``chrome`` / ``mode`` (an html section may be
+    rasterised; a group may hold html blocks)."""
     if not isinstance(block, dict):
         return
     kind = block.get('kind')
     if kind in (None, 'no_data', 'empty'):
         return
-    fn = _BLOCK.get(kind)
-    if fn is None:
-        return
     try:
-        fn(document, block)
+        if kind == 'html':
+            _render_html(document, block, chrome=chrome, mode=mode)
+        elif kind == 'group':
+            _render_group(document, block, chrome=chrome, mode=mode)
+        else:
+            fn = _BLOCK.get(kind)
+            if fn is not None:
+                fn(document, block)
     except Exception:
         pass
 
@@ -934,7 +1093,9 @@ def add_cover(document, report_name, meta, letterhead):
 
 def _add_contents(document, rendered):
     """The contents page (page 2): a navy 'Contents' heading + a numbered list in pick
-    order — ``N   <title>   <feature_title faint>``. Ends with a page break."""
+    order — ``N   <title>   <feature_title faint> …… <page#>``. Each entry ends with a
+    right-aligned dot-leader tab and a live ``PAGEREF sec<i>`` field that Word fills in
+    with the real page of the matching section heading bookmark. Ends with a page break."""
     heading(document, '', 'Contents', level=1)
     if not rendered:
         _caption(document, 'No results selected.')
@@ -944,31 +1105,42 @@ def _add_contents(document, rendered):
         item = item or {}
         p = document.add_paragraph()
         p.paragraph_format.space_after = Pt(3)
+        # right tab stop with a dot leader at the right text margin (A4 - 2×1.8cm = 17.4cm)
+        p.paragraph_format.tab_stops.add_tab_stop(Cm(17.4), WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS)
         _set_run_font(p.add_run('%d   ' % i), _BODY_FONT, size=11, bold=True, color=NAVY)
         _set_run_font(p.add_run(str(item.get('title') or ('Section %d' % i))),
                       _BODY_FONT, size=11, color=INK)
         src = item.get('feature_title') or item.get('feature')
         if src:
             _set_run_font(p.add_run('   %s' % src), _BODY_FONT, size=9, color=GREY)
+        p.add_run().add_tab()
+        ref = _pageref_field(p, 'sec%d' % i)
+        _set_run_font(ref, _BODY_FONT, size=11, color=INK)
     document.add_page_break()
 
 
 # ── entry point ───────────────────────────────────────────────────────────────
-def build_docx(path, report_name, meta, rendered, letterhead=None):
+def build_docx(path, report_name, meta, rendered, letterhead=None, chrome=None, mode='light'):
     """Write a real ``.docx`` report to ``path`` and return the path.
 
     ``report_name`` is the cover title; ``meta`` = ``{project_name, data_date}``;
     ``rendered`` = ``registry.render(...)`` output (pick order); ``letterhead`` may carry
     ``kicker`` / ``company`` / ``prepared_by`` and logo srcs (data URLs -> ``_img_bytes``;
-    a missing logo -> empty slot). Structure: cover (page 1) · contents (page 2) ·
-    numbered navy sections (page 3+). Every section is rendered defensively — a
-    malformed/empty item is skipped, never fatal; ``rendered=[]`` still writes a valid
-    document (cover + empty-contents notice)."""
+    a missing logo -> empty slot). ``chrome`` (absolute path to a Chrome/Chromium exe,
+    supplied by the server) rasterises reused feature-report ``html`` sections to an
+    image so Word matches the PDF; when ``None`` those sections fall back to native
+    text/table extraction. ``mode`` is the appearance-mode used to theme those
+    rasterised sections. Structure: cover (page 1) · contents (page 2, with live
+    PAGEREF page numbers) · numbered navy sections (page 3+), each carrying a bookmark
+    the contents page references and a feature caption naming its source feature. Every
+    section is rendered defensively — a malformed/empty item is skipped, never fatal;
+    ``rendered=[]`` still writes a valid document (cover + empty-contents notice)."""
     meta = meta or {}
     letterhead = letterhead or {}
     rendered = list(rendered or [])
 
     document = Document()
+    _set_update_fields(document)
     section = document.sections[0]
     apply_page_geometry(section)
     add_page_border(section)
@@ -988,8 +1160,12 @@ def build_docx(path, report_name, meta, rendered, letterhead=None):
     for i, item in enumerate(rendered, 1):
         try:
             item = item or {}
-            heading(document, str(i), item.get('title') or ('Section %d' % i), level=1)
-            _render_block(document, item.get('payload') or {})
+            h = heading(document, str(i), item.get('title') or ('Section %d' % i), level=1)
+            _add_bookmark(h, 'sec%d' % i, i)
+            src = item.get('feature_title') or item.get('feature')
+            if src:
+                _feature_caption(document, src)
+            _render_block(document, item.get('payload') or {}, chrome=chrome, mode=mode)
         except Exception:
             continue
 

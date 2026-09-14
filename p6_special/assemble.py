@@ -65,14 +65,21 @@ def build_word(project_id=None, item_ids=None, report_name='Special Report', mod
 
 
 def docx(path, project_id=None, item_ids=None, report_name='Special Report', meta=None,
-         letterhead=None, inputs=None, snapshot_id=None):
+         letterhead=None, inputs=None, snapshot_id=None, chrome=None, mode='light'):
     """Write a real Word ``.docx`` report to ``path`` (the Baseline-Narrative house
-    style, native python-docx — cover, contents, navy tables, real bars). Appearance
-    mode does not apply to the native Word document, so it takes no ``mode``."""
-    ctx = _ctx(project_id, snapshot_id, inputs)
+    style, native python-docx — cover, contents with live page numbers, navy tables,
+    real bars). ``chrome`` (an absolute path to a Chrome/Chromium executable, supplied
+    by the server) lets reused feature-report ``html`` sections be rasterised to an
+    image so the Word file matches the PDF; without it they fall back to native
+    text/table extraction. ``mode`` is the appearance mode used to theme those
+    rasterised sections (it does not otherwise style the native Word furniture)."""
+    import report_theme
+    mode = report_theme.normalize(mode)
+    ctx = _ctx(project_id, snapshot_id, inputs, mode=mode)
     rendered = registry.render(ctx, item_ids or [])
     from p6_special import docx_report
-    docx_report.build_docx(path, report_name, _meta(ctx, meta), rendered, letterhead=letterhead)
+    docx_report.build_docx(path, report_name, _meta(ctx, meta), rendered,
+                           letterhead=letterhead, chrome=chrome, mode=mode)
 
 
 def excel(path, project_id=None, item_ids=None, report_name='Special Report', meta=None,

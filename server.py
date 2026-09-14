@@ -358,11 +358,20 @@ class Handler(BaseHTTPRequestHandler):
                 return
             sys.path.insert(0, resource_path('.'))
             from p6_special import assemble
+            # Reused feature sections are chart-heavy HTML; the .docx rasterises them
+            # to an image via Chrome (headless) so Word matches the PDF exactly. A
+            # missing Chrome must NOT fail the export — pass None and let docx_report
+            # fall back to text/table extraction.
+            try:
+                chrome = _find_chrome()
+            except Exception:
+                chrome = None
             assemble.docx(
                 os.path.abspath(output_path), self._special_pid(body),
                 body.get('item_ids') or [], body.get('report_name') or 'Special Report',
                 meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
-                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
+                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
+                chrome=chrome, mode=report_theme.normalize(body.get('theme')))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
