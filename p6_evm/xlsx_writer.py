@@ -36,32 +36,51 @@ _ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 # amber fill, top-aligned + wrapped) · 3 Severity=Critical (red) · 4 Severity=High (amber) ·
 # 5 Severity=Medium/other (grey) · 6 wrap-top, no fill (multi-line rich cells such as the
 # Baseline Predecessors list). The severity fills match the on-screen badge colours.
+# Report-clarity styles (added for the tool-wide export standard): 7 section title (bold 13 blue) ·
+# 8 report/header-block title (bold 15 navy) · 9 context sub-line / section note (sz 10 grey) ·
+# 10 neutral section/table header row (bold navy on light-blue fill) — replaces the amber header.
 _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<fonts count="6">
+<fonts count="10">
 <font><sz val="11"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><color rgb="FF92400E"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><color rgb="FFC02626"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><color rgb="FFB45309"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><color rgb="FF41506A"/><name val="Calibri"/></font>
+<font><b/><sz val="15"/><color rgb="FF0F2749"/><name val="Calibri"/></font>
+<font><sz val="10"/><color rgb="FF5C6A80"/><name val="Calibri"/></font>
+<font><b/><sz val="13"/><color rgb="FF12467A"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FF20375A"/><name val="Calibri"/></font>
 </fonts>
-<fills count="6"><fill><patternFill patternType="none"/></fill>
+<fills count="7"><fill><patternFill patternType="none"/></fill>
 <fill><patternFill patternType="gray125"/></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/></patternFill></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFFADDDD"/></patternFill></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFFBECCF"/></patternFill></fill>
-<fill><patternFill patternType="solid"><fgColor rgb="FFEEF1F6"/></patternFill></fill></fills>
+<fill><patternFill patternType="solid"><fgColor rgb="FFEEF1F6"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFEAF0F9"/></patternFill></fill></fills>
 <borders count="1"><border/></borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="7"><xf/><xf fontId="1" applyFont="1"/>
+<cellXfs count="11"><xf/><xf fontId="1" applyFont="1"/>
 <xf fontId="2" fillId="2" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
 <xf fontId="3" fillId="3" applyFont="1" applyFill="1"/>
 <xf fontId="4" fillId="4" applyFont="1" applyFill="1"/>
 <xf fontId="5" fillId="5" applyFont="1" applyFill="1"/>
 <xf applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf fontId="8" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf fontId="6" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf fontId="7" applyFont="1"/>
+<xf fontId="9" fillId="6" applyFont="1" applyFill="1"/>
 </cellXfs>
 </styleSheet>'''
+
+# Report-clarity styles (added to _STYLES above): section title · report/header-block title ·
+# context sub-line (also used for section notes) · neutral section/table header row.
+_TITLE_STYLE = 7
+_RPTTITLE_STYLE = 8
+_CONTEXT_STYLE = 9
+_SECHDR_STYLE = 10
 
 _HIGHLIGHT_STYLE = 2                                    # driving-relationship highlight xf
 _WRAP_STYLE = 6                                         # wrap-top, no fill (multi-line rich cells)
@@ -157,7 +176,58 @@ def _cell(col, row, value, style=None):
             f'<t xml:space="preserve">{escape(str(value))}</t></is></c>')
 
 
-def _sheet(headers, rows, highlight_cols=None, severity_col=None, legend=None):
+def _text_len(v):
+    """Rough display length of a cell value (widest line for multi-line / RichText)."""
+    if isinstance(v, RichText):
+        s = ''.join(str(run.get('t', '')) for run in v.runs)
+    elif isinstance(v, bool):
+        s = str(v)
+    elif isinstance(v, float):
+        s = f'{v:g}'
+    else:
+        s = str(v)
+    return max((len(line) for line in s.split('\n')), default=0)
+
+
+def _auto_col_widths(matrix, min_w=9, max_w=60, pad=2):
+    """Column widths sized to the longest cell in each column, clamped to [min_w, max_w].
+    `matrix` is an iterable of rows (each a list of cell values); None cells are skipped."""
+    w = {}
+    for row in matrix:
+        for c, v in enumerate(row):
+            if v is None:
+                continue
+            n = _text_len(v) + pad
+            if n > w.get(c, 0):
+                w[c] = n
+    return {c: max(min_w, min(max_w, n)) for c, n in w.items()}
+
+
+def _meta_block_cells(meta, start_row=1):
+    """The report header/context block placed at the top of the first sheet.
+
+    meta = {'app'?: 'Controlyx', 'title': 'Schedule Health Review',
+            'context'?: [('Project', '…'), ('Data date', '…'), ('Generated', '…')]}
+    Returns (cells{(r,c):(value,style)}, next_free_row). The title reads
+    "<app> — <title>"; context prints as one grey line, "Label: value · …".
+    The caller supplies `app` (from utils.APP_NAME) so branding stays in one place.
+    """
+    cells = {}
+    r = start_row
+    title = meta.get('title') or 'Report'
+    app = meta.get('app')
+    cells[(r, 0)] = (f'{app} — {title}' if app else title, _RPTTITLE_STYLE)
+    r += 1
+    ctx = [(k, v) for k, v in (meta.get('context') or []) if v not in (None, '')]
+    if ctx:
+        cells[(r, 0)] = ('   ·   '.join(f'{k}: {v}' for k, v in ctx), _CONTEXT_STYLE)
+        r += 1
+    r += 1                                                  # blank spacer before the content
+    return cells, r
+
+
+def _sheet(headers, rows, highlight_cols=None, severity_col=None, legend=None,
+           meta=None, col_widths=None):
     """A flat table sheet: bold frozen header row + autofilter (over the data only).
       * ``highlight_cols`` — 0-based column indices whose data cells get the amber highlight
         (the driving relationship).
@@ -168,19 +238,26 @@ def _sheet(headers, rows, highlight_cols=None, severity_col=None, legend=None):
     """
     hi = set(highlight_cols or ())
     n_cols = max(len(headers), 1)
-    last = f'{_col(n_cols - 1)}{len(rows) + 1}'
-    out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-           '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
-           '<sheetViews><sheetView workbookViewId="0">'
-           '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>'
-           '</sheetView></sheetViews>',
-           '<sheetData>']
-    out.append('<row r="1">')
-    for c, h in enumerate(headers):
-        out.append(_cell(c, 1, h, style=1))
-    out.append('</row>')
-    for i, row in enumerate(rows, start=2):
-        out.append(f'<row r="{i}">')
+    # Optional report header/context block sits above the table; the header row follows it.
+    by_row = {}
+    hdr_row = 1
+    if meta:
+        mcells, hdr_row = _meta_block_cells(meta, start_row=1)
+        for (rr, cc), (v, s) in mcells.items():
+            by_row.setdefault(rr, {})[cc] = (v, s)
+    last_data_row = hdr_row + len(rows)
+    last = f'{_col(n_cols - 1)}{last_data_row}'
+    if col_widths is None:
+        col_widths = _auto_col_widths([headers] + list(rows))
+    cols_xml = ''
+    if col_widths:
+        cols_xml = ('<cols>' + ''.join(
+            f'<col min="{c + 1}" max="{c + 1}" width="{w}" customWidth="1"/>'
+            for c, w in sorted(col_widths.items())) + '</cols>')
+    # header row (neutral navy-on-light-blue) then data rows
+    by_row[hdr_row] = {c: (h, _SECHDR_STYLE) for c, h in enumerate(headers)}
+    for i, row in enumerate(rows, start=hdr_row + 1):
+        rc = {}
         for c, v in enumerate(row):
             if severity_col is not None and c == severity_col:
                 st = _SEV_STYLE.get(str(v), _SEV_STYLE['Medium'])
@@ -188,25 +265,46 @@ def _sheet(headers, rows, highlight_cols=None, severity_col=None, legend=None):
                 st = _HIGHLIGHT_STYLE
             else:
                 st = None
-            out.append(_cell(c, i, v, style=st))
-        out.append('</row>')
+            rc[c] = (v, st)
+        by_row[i] = rc
     if legend:
-        r = len(rows) + 3                                  # a blank row, then the legend
-        out.append(f'<row r="{r}">{_cell(0, r, "Severity legend", style=1)}</row>')
+        r = last_data_row + 2                              # a blank row, then the legend
+        by_row[r] = {0: ('Severity legend', _SECHDR_STYLE)}
         for label, desc in legend:
             r += 1
-            out.append(f'<row r="{r}">'
-                       f'{_cell(0, r, label, style=_SEV_STYLE.get(label, _SEV_STYLE["Medium"]))}'
-                       f'{_cell(1, r, desc, style=0)}</row>')
+            by_row[r] = {0: (label, _SEV_STYLE.get(label, _SEV_STYLE['Medium'])),
+                         1: (desc, None)}
+    out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+           '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+           '<sheetViews><sheetView workbookViewId="0">'
+           f'<pane ySplit="{hdr_row}" topLeftCell="A{hdr_row + 1}" '
+           'activePane="bottomLeft" state="frozen"/>'
+           '</sheetView></sheetViews>',
+           cols_xml,
+           '<sheetData>']
+    for r in sorted(by_row):
+        out.append(f'<row r="{r}">')
+        for c in sorted(by_row[r]):
+            v, s = by_row[r][c]
+            out.append(_cell(c, r, v, style=s))
+        out.append('</row>')
     out.append('</sheetData>')
-    out.append(f'<autoFilter ref="A1:{last}"/>')           # filter the data only, not the legend
+    out.append(f'<autoFilter ref="A{hdr_row}:{last}"/>')   # filter the data only, not the legend
     out.append('</worksheet>')
     return ''.join(out)
 
 
 def _cells_sheet(cells, col_widths=None, row_heights=None):
-    """A free-placed sheet from {(row, col): (value, style)} — for the grid."""
+    """A free-placed sheet from {(row, col): (value, style)} — for the grid.
+    When `col_widths` is None the columns are auto-sized to their longest cell."""
     row_heights = row_heights or {}
+    if col_widths is None:
+        w = {}
+        for (r, c), (v, s) in cells.items():
+            n = _text_len(v) + 2
+            if n > w.get(c, 0):
+                w[c] = n
+        col_widths = {c: max(9, min(60, n)) for c, n in w.items()}
     cols_xml = ''
     if col_widths:
         cols_xml = ('<cols>' + ''.join(
@@ -272,7 +370,8 @@ def _write_book(path, sheets, styles_xml):
             z.writestr(f'xl/worksheets/sheet{i}.xml', sheet_xml)
 
 
-def write_xlsx(path, sheet_name, headers, rows, highlight_cols=None, severity_col=None, legend=None):
+def write_xlsx(path, sheet_name, headers, rows, highlight_cols=None, severity_col=None,
+               legend=None, meta=None, col_widths=None):
     """Write a single-sheet flat table to `path`.
 
     headers: list[str]. rows: list of lists of str|int|float.
@@ -280,21 +379,30 @@ def write_xlsx(path, sheet_name, headers, rows, highlight_cols=None, severity_co
     highlight_cols: optional 0-based column indices whose data cells get the amber highlight style.
     severity_col: optional column index colour-coded by value (Critical/High/Medium).
     legend: optional [(severity_value, description), …] rendered as a colour key below the table.
+    meta: optional report header/context block at the top ({'app','title','context'}); see
+          _meta_block_cells. col_widths: optional {col: width}; auto-sized when omitted.
     """
-    _write_book(path, [(sheet_name, _sheet(headers, rows, highlight_cols, severity_col, legend))], _STYLES)
+    _write_book(path, [(sheet_name, _sheet(headers, rows, highlight_cols, severity_col,
+                                           legend, meta=meta, col_widths=col_widths))], _STYLES)
 
 
-def write_sections_xlsx(path, sheets, col_widths=None):
+def write_sections_xlsx(path, sheets, col_widths=None, meta=None):
     """Write a styled multi-sheet workbook that MIRRORS a feature's on-screen / PDF report.
 
     This is the shared standard every feature's Excel export should use so the workbook
     reflects the report's sections (titled tables), matching the screen/PDF layout rather
     than dumping one flat table.
 
-    sheets: list of {'name': str, 'blocks': [{'title', 'headers', 'rows', 'note'?}], 'col_widths'?}
+    sheets: list of {'name': str, 'blocks': [{'title','headers','rows','note'?,
+                     'severity_col'?,'highlight_cols'?}], 'col_widths'?, 'legend'?}
       - each sheet becomes one worksheet whose titled tables are stacked top-to-bottom
         (via _stacked_sheet), sheet names sanitised + de-duplicated.
-    col_widths: default column-width map applied to any sheet that doesn't set its own.
+      - a block may set severity_col / highlight_cols for colour-coding; a sheet may set
+        a legend colour key.
+    col_widths: default column-width map applied to any sheet that doesn't set its own
+        (auto-sized when neither is given).
+    meta: optional report header/context block ({'app','title','context'}) rendered at the
+        top of the FIRST section sheet — the workbook opens self-explaining.
 
     Numbers render as numeric cells; a `note` line prints under a block's title. Reuse the
     severity colours / RichText from write_xlsx where a table needs them (build the sheet
@@ -302,12 +410,16 @@ def write_sections_xlsx(path, sheets, col_widths=None):
     """
     used = set()
     book = []
+    meta_left = meta
     for sh in sheets:
         nm = _uniq(_safe_sheet_name(sh.get('name') or 'Report'), used)
         if 'xml' in sh:                       # caller pre-built a styled sheet (severity/RichText)
             book.append((nm, sh['xml']))
         else:
-            book.append((nm, _stacked_sheet(sh['blocks'], col_widths=sh.get('col_widths') or col_widths)))
+            book.append((nm, _stacked_sheet(sh['blocks'],
+                                            col_widths=sh.get('col_widths') or col_widths,
+                                            meta=meta_left, legend=sh.get('legend'))))
+            meta_left = None                  # header block on the first section sheet only
     _write_book(path, book, _STYLES)
 
 
@@ -375,24 +487,56 @@ def _timeline_sheet_xml(months, cal_name, subtitle):
                         row_heights=row_heights)
 
 
-def _stacked_sheet(blocks, col_widths=None):
-    """Several titled tables stacked on one sheet: [{title, headers, rows, note?}]."""
+def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None):
+    """Several titled tables stacked on one sheet.
+
+    blocks: [{title, headers, rows, note?, severity_col?, highlight_cols?}]
+      - title  → section-title style (bold blue)
+      - note   → grey context line under the title
+      - headers→ neutral header row (bold navy on light-blue) — NOT the amber highlight
+      - severity_col / highlight_cols → per-block colour-coding, same as the flat table
+    meta:   optional report header/context block at the very top (see _meta_block_cells).
+    legend: optional [(severity_value, description), …] colour key at the bottom.
+    Columns auto-size to the widest header/data cell unless `col_widths` is given.
+    """
     cells = {}
     r = 1
+    if meta:
+        cells, r = _meta_block_cells(meta, start_row=1)
+    width_matrix = []                                      # headers + data only (not titles/notes)
     for blk in blocks:
-        cells[(r, 0)] = (blk['title'], 9)
+        cells[(r, 0)] = (blk['title'], _TITLE_STYLE)
         r += 1
         if blk.get('note'):
-            cells[(r, 0)] = (blk['note'], 0)
+            cells[(r, 0)] = (blk['note'], _CONTEXT_STYLE)
             r += 1
         for c, h in enumerate(blk['headers']):
-            cells[(r, c)] = (h, 2)
+            cells[(r, c)] = (h, _SECHDR_STYLE)
+        width_matrix.append(blk['headers'])
         r += 1
+        sc = blk.get('severity_col')
+        hi = set(blk.get('highlight_cols') or ())
         for row in blk['rows']:
             for c, v in enumerate(row):
-                cells[(r, c)] = (v, 0)
+                if sc is not None and c == sc:
+                    st = _SEV_STYLE.get(str(v), _SEV_STYLE['Medium'])
+                elif c in hi:
+                    st = _HIGHLIGHT_STYLE
+                else:
+                    st = None
+                cells[(r, c)] = (v, st)
+            width_matrix.append(row)
             r += 1
         r += 1      # gap between tables
+    if legend:
+        cells[(r, 0)] = ('Severity legend', _SECHDR_STYLE)
+        r += 1
+        for label, desc in legend:
+            cells[(r, 0)] = (label, _SEV_STYLE.get(label, _SEV_STYLE['Medium']))
+            cells[(r, 1)] = (desc, None)
+            r += 1
+    if col_widths is None:
+        col_widths = _auto_col_widths(width_matrix)
     return _cells_sheet(cells, col_widths=col_widths)
 
 
