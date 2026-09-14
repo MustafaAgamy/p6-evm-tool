@@ -11,7 +11,7 @@ from p6_evm.xlsx_writer import write_sections_xlsx
 _EXPECTED_SHEETS = [
     'Executive Summary', 'Key Findings', 'Critical Path & Float',
     'Change Register', 'Milestones', 'Calendar',
-    'Cost & Resources', 'Manpower', 'Scope & Structure',
+    'Cost & Resources', 'Cost Changes', 'Manpower', 'Scope & Structure',
 ]
 
 
@@ -101,7 +101,17 @@ def _report():
         'calendar_changes': {
             'calendars': [{'name': '6-Day Week', 'change': 'added', 'detail': 'new calendar'}],
             'reassignments': [{'from': '5-Day', 'to': '6-Day Week', 'from_wd': 5, 'to_wd': 6, 'count': 6}],
+            'patterns': [
+                {'name': '5-Day', 'rev0': {'days': 5, 'hours': 8, 'hpw': 40},
+                 'rev1': {'days': 5, 'hours': 8, 'hpw': 40}, 'activities': 60, 'change': 'unchanged'},
+                {'name': '6-Day Week', 'rev0': None, 'rev1': {'days': 6, 'hours': 9, 'hpw': 54},
+                 'activities': 6, 'change': 'added'},
+            ],
         },
+        'cost_by_wbs': [
+            {'level': 0, 'name': 'Project A', 'rev0': 1000000, 'rev1': 1150000, 'variance': 150000},
+            {'level': 1, 'name': 'Structures', 'rev0': 400000, 'rev1': 460000, 'variance': 60000},
+        ],
         'constraint_changes': [
             {'activity_id': 'A400', 'name': 'Commissioning', 'kind': 'added', 'hard': True,
              'rev0': '—', 'rev1': 'Must Finish On 10-Aug-2027'},
@@ -131,9 +141,9 @@ def _open_sheets(path):
     return names, wb, sheets
 
 
-def test_full_report_produces_nine_section_sheets(tmp_path):
+def test_full_report_produces_ten_section_sheets(tmp_path):
     sheets = revcompare_excel(_report())
-    assert [s['name'] for s in sheets] == _EXPECTED_SHEETS   # the nine redesigned sections
+    assert [s['name'] for s in sheets] == _EXPECTED_SHEETS   # the ten redesigned sections
     for s in sheets:
         assert s['blocks'] and all('headers' in b and 'rows' in b for b in s['blocks'])
 
@@ -143,7 +153,7 @@ def test_full_report_produces_nine_section_sheets(tmp_path):
 
     names, wb, xml = _open_sheets(str(p))
     assert '[Content_Types].xml' in names and 'xl/workbook.xml' in names
-    assert len(xml) == 9                                   # one worksheet per section
+    assert len(xml) == 10                                  # one worksheet per section
     for body in xml.values():
         ET.fromstring(body)                                # every worksheet is well-formed XML
 
@@ -166,7 +176,7 @@ def test_empty_report_never_crashes(tmp_path):
     write_sections_xlsx(str(p), sheets)
     assert p.exists()
     names, wb, xml = _open_sheets(str(p))
-    assert len(xml) == 9
+    assert len(xml) == 10
     for body in xml.values():
         ET.fromstring(body)
     all_xml = '\n'.join(xml.values())

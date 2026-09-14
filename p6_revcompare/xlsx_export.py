@@ -17,11 +17,13 @@ prototype ``mockups/baseline-revision-interactive-v2.html`` / ``ui/modules/revco
                 total-float band shift · negative-float register)
     register  → Change Register      (DURATION changed only — no Calendar / TF-After columns;
                 Before → After → Variance → % change, filterable by activity code)
-    ms        → Milestones           (Activity ID + Type + Before → After → Variance)
-    cal       → Calendar             (per-calendar working-days-per-week before → after +
-                calendar-definition changes)
-    cost      → Cost & Resources     (planned-value S-curve · budget by activity code · Cost
-                changed · Resource changed)
+    ms        → Milestones           (Activity ID + Before → After → Variance — no Type column)
+    cal       → Calendar             (one row per calendar: Rev.00 pattern · Rev.01 pattern ·
+                activities + the per-activity reassignment summary)
+    cost      → Cost & Resources     (planned-value S-curve · budget by activity code ·
+                Resource changed)
+    costchg   → Cost Changes         (cost rolled up the WBS structure — money variance per
+                branch — + the itemised per-activity cost table)
     manpower  → Manpower             (man-hours by trade totals Rev.00 vs Rev.01 + the monthly
                 man-hours-by-trade matrix behind the stacked combo chart)
     scope     → Scope & Structure    (WBS comparison Rev.00 / Rev.01 · largest date shifts)
@@ -375,8 +377,9 @@ def _register_blocks(report):
 # ── 5 · ms — Milestones ──────────────────────────────────────────────────────────
 
 def _ms_blocks(report):
-    """Milestone changes as their own sheet — with Activity ID + Type columns (comment 5).
-    Lists only actual changes (matches the PDF / screen), never unchanged milestones."""
+    """Milestone changes as their own sheet — Activity ID + Before → After → Variance (the Type
+    column is removed, change 4). Lists only actual changes (matches the PDF / screen), never
+    unchanged milestones."""
     ms = []
     for m in (report.get('milestones') or []):
         cd = m.get('change_days')
@@ -391,59 +394,67 @@ def _ms_blocks(report):
             change = _sgn(cd, ' d')
         else:
             change = _KIND_LABEL.get(kind, _txt(kind))
-        ms.append([_txt(m.get('id'), '—'), _txt(m.get('name')), _txt(m.get('type'), '—'),
+        ms.append([_txt(m.get('id'), '—'), _txt(m.get('name')),
                    _txt(m.get('rev0'), '—'), _txt(m.get('rev1'), '—'), change])
-    return [{'title': 'Milestone changed — Activity ID · Type · Before → After',
+    return [{'title': 'Milestone changed — Activity ID · Before → After',
              'note': 'Finish milestones whose date moved, plus milestones added / removed between the '
-                     'revisions. Type (Contract / Internal) is a neutral, name-based classification.',
-             'headers': ['Activity ID', 'Milestone', 'Type', 'Before', 'After', 'Variance'],
-             'rows': _rows_or_none(ms, 6, 'No finish-milestone changes between the revisions.')}]
+                     'revisions.',
+             'headers': ['Activity ID', 'Milestone', 'Before', 'After', 'Variance'],
+             'rows': _rows_or_none(ms, 5, 'No finish-milestone changes between the revisions.')}]
 
 
 # ── 6 · cal — Calendar ───────────────────────────────────────────────────────────
 
+def _pattern_str(p):
+    """A calendar working pattern for display: "N d/wk · H h/day · HPW h/wk" (change 5).
+    Em-dash when the calendar is absent in that revision."""
+    if not p:
+        return '—'
+    days, hours, hpw = p.get('days'), p.get('hours'), p.get('hpw')
+    parts = []
+    parts.append(f"{_num(days)} d/wk")
+    parts.append(f"{_num(hours)} h/day")
+    parts.append(f"{_num(hpw)} h/wk")
+    return ' · '.join(parts)
+
+
 def _cal_blocks(report):
-    """Calendar changes as their own sheet — the working-days-per-week before → after view
-    (comment 7). The Constraint table is gone entirely (comment 6)."""
+    """Calendar changes as their own sheet — one row per calendar with its Rev.00 / Rev.01
+    working pattern (change 5), plus the per-activity reassignment summary. The Constraint
+    table is gone entirely."""
     cc = report.get('calendar_changes') or {}
 
-    # Working days per week before → after, from the per-activity reassignment groups.
+    # One row per calendar: name · Rev.00 pattern · Rev.01 pattern · activities.
+    patt = [[_txt(p.get('name')), _pattern_str(p.get('rev0')), _pattern_str(p.get('rev1')),
+             _num(p.get('activities'))] for p in (cc.get('patterns') or [])]
+    blocks = [{'title': 'Calendars — Rev.00 → Rev.01 working pattern',
+               'note': 'One row per calendar: its working pattern (days/week · hours/day · hours/week) '
+                       'in each revision, and how many activities use it.',
+               'headers': ['Calendar', 'Rev.00 pattern', 'Rev.01 pattern', 'Activities'],
+               'rows': _rows_or_none(patt, 4, 'No calendars found.')}]
+
+    # Reassignment summary — activities that switched from one calendar to another.
     reassign = []
     for g in (cc.get('reassignments') or []):
         fw, tw = g.get('from_wd'), g.get('to_wd')
         change = _sgn(tw - fw, ' d/wk') if isinstance(fw, (int, float)) and isinstance(tw, (int, float)) else '—'
         reassign.append([_txt(g.get('from')), _txt(g.get('to')),
                          _num(fw), _num(tw), change, _num(g.get('count'))])
-    blocks = [{'title': 'Working days per week — Rev.00 → Rev.01 (activities reassigned)',
-               'note': 'A calendar switched to a longer week shortens durations on paper without changing the '
-                       'work — a paper acceleration to confirm. Days/week before → after per reassignment group.',
-               'headers': ['From calendar', 'To calendar', 'Days/week before', 'Days/week after',
-                           'Days/week change', 'Activities'],
-               'rows': _rows_or_none(reassign, 6, 'No calendar assignment changes.')}]
-
-    caldef = [[_txt(c.get('name')), _txt(c.get('change')), _txt(c.get('detail'))]
-              for c in (cc.get('calendars') or [])]
-    blocks.append({'title': 'Calendar definition changes',
-                   'headers': ['Calendar', 'Change', 'Detail'],
-                   'rows': _rows_or_none(caldef, 3, 'No calendar-level changes.')})
+    blocks.append({'title': 'Working days per week — Rev.00 → Rev.01 (activities reassigned)',
+                   'note': 'A calendar switched to a longer week shortens durations on paper without changing the '
+                           'work — a paper acceleration to confirm. Days/week before → after per reassignment group.',
+                   'headers': ['From calendar', 'To calendar', 'Days/week before', 'Days/week after',
+                               'Days/week change', 'Activities'],
+                   'rows': _rows_or_none(reassign, 6, 'No calendar assignment changes.')})
     return blocks
 
 
 # ── 7 · cost — Cost & Resources ──────────────────────────────────────────────────
 
-def _cost_moved_blocks(report):
-    """The Cost changed + Resource changed tables (moved in from the old Change Register)."""
+def _resource_moved_blocks(report):
+    """The Resource changed table (moved in from the old Change Register). The Cost changed
+    table now lives in its own Cost Changes sheet (change 6)."""
     rc = report.get('resource_changes') or {}
-
-    # Cost changed — per-activity budget + total (money formatted, comment 9)
-    cost = []
-    for c in (rc.get('activity_cost_changes') or []):
-        cost.append([_txt(c.get('code')), _txt(c.get('name')), _money(c.get('rev0')),
-                     _money(c.get('rev1')), _money_sgn(c.get('delta'))])
-    tb = rc.get('total_budget') or {}
-    if rc.get('cost_available'):
-        cost.append(['—', 'Total budget', _money(tb.get('rev0')), _money(tb.get('rev1')),
-                     _money_sgn(tb.get('delta'))])
 
     # Resource changed — assignments
     asg = [[_txt(a.get('code')), _txt(a.get('name')), _txt(a.get('resource')),
@@ -451,10 +462,6 @@ def _cost_moved_blocks(report):
             _txt(a.get('rev1'), '—')] for a in (rc.get('assignment_changes') or [])]
 
     return [
-        {'title': 'Cost changed — budget total cost',
-         'note': 'Informational — a cost change is not itself a schedule impact.',
-         'headers': ['Activity ID', 'Activity Name', 'Before', 'After', 'Variance'],
-         'rows': _rows_or_none(cost, 5, 'No per-activity budget changes.')},
         {'title': 'Resource changed — assignment before / after',
          'headers': ['Activity ID', 'Activity Name', 'Resource', 'Change', 'Before', 'After'],
          'rows': _rows_or_none(asg, 6, 'No resource-assignment changes.')},
@@ -504,8 +511,46 @@ def _cost_blocks(report):
                        'headers': ['Dimension', 'Before', 'After', 'Variance'],
                        'rows': [['No budget breakdown available.', '', '', '']]})
 
-    # Cost changed + Resource changed — moved in from the old Change Register.
-    blocks.extend(_cost_moved_blocks(report))
+    # Resource changed — moved in from the old Change Register. (Cost changed now has its own
+    # Cost Changes sheet, change 6.)
+    blocks.extend(_resource_moved_blocks(report))
+    return blocks
+
+
+# ── 7b · costchg — Cost Changes ──────────────────────────────────────────────────
+
+def _costchg_blocks(report):
+    """The new Cost Changes sheet (change 6b) — the money variance rolled up the WBS structure
+    (``cost_by_wbs``, indented by level like Scope & Structure), plus the itemised per-activity
+    cost table underneath."""
+    rc = report.get('resource_changes') or {}
+
+    # Cost by WBS branch — indented by level, one money variance per branch.
+    wbs = []
+    for n in (report.get('cost_by_wbs') or []):
+        lvl = n.get('level')
+        indent = '   ' * (lvl if isinstance(lvl, int) else 0)
+        wbs.append([_num(lvl), f"{indent}{_txt(n.get('name'))}", _money(n.get('rev0')),
+                    _money(n.get('rev1')), _money_sgn(n.get('variance'))])
+    blocks = [{'title': 'Cost by WBS — where the money moved',
+               'note': 'Planned cost rolled up the WBS hierarchy; one money variance per branch. '
+                       'Informational — a cost change is not itself a schedule impact.',
+               'headers': ['Level', 'WBS branch', 'Rev.00', 'Rev.01', 'Variance'],
+               'rows': _rows_or_none(wbs, 5, 'No cost loading in either revision.')}]
+
+    # Itemised per-activity cost table + total budget.
+    cost = []
+    for c in (rc.get('activity_cost_changes') or []):
+        cost.append([_txt(c.get('code')), _txt(c.get('name')), _money(c.get('rev0')),
+                     _money(c.get('rev1')), _money_sgn(c.get('delta'))])
+    tb = rc.get('total_budget') or {}
+    if rc.get('cost_available'):
+        cost.append(['—', 'Total budget', _money(tb.get('rev0')), _money(tb.get('rev1')),
+                     _money_sgn(tb.get('delta'))])
+    blocks.append({'title': 'Cost changed — budget total cost',
+                   'note': 'Informational — a cost change is not itself a schedule impact.',
+                   'headers': ['Activity ID', 'Activity Name', 'Before', 'After', 'Variance'],
+                   'rows': _rows_or_none(cost, 5, 'No per-activity budget changes.')})
     return blocks
 
 
@@ -610,9 +655,9 @@ def _scope_blocks(report):
 
 def revcompare_excel(report):
     """Return the ``sheets`` list for ``write_sections_xlsx`` — one worksheet per canonical
-    report section (summary · findings · critical · register · ms · cal · cost · manpower ·
-    scope), mirroring the nine redesigned on-screen tabs, the PDF's gated sections and the
-    report-contents picker (same section keys throughout)."""
+    report section (summary · findings · critical · register · ms · cal · cost · costchg ·
+    manpower · scope), mirroring the ten redesigned on-screen tabs, the PDF's gated sections
+    and the report-contents picker (same section keys throughout)."""
     report = report or {}
     return [
         {'name': 'Executive Summary', 'blocks': _summary_blocks(report),
@@ -624,11 +669,13 @@ def revcompare_excel(report):
         {'name': 'Change Register', 'blocks': _register_blocks(report),
          'col_widths': {0: 18, 1: 30, 2: 24, 3: 12, 4: 12, 5: 12, 6: 12, 7: 26}},
         {'name': 'Milestones', 'blocks': _ms_blocks(report),
-         'col_widths': {0: 16, 1: 32, 2: 14, 3: 20, 4: 20, 5: 16}},
+         'col_widths': {0: 16, 1: 32, 2: 20, 3: 20, 4: 16}},
         {'name': 'Calendar', 'blocks': _cal_blocks(report),
-         'col_widths': {0: 24, 1: 24, 2: 16, 3: 16, 4: 16, 5: 12}},
+         'col_widths': {0: 24, 1: 26, 2: 26, 3: 12, 4: 16, 5: 16}},
         {'name': 'Cost & Resources', 'blocks': _cost_blocks(report),
          'col_widths': {0: 20, 1: 24, 2: 18, 3: 16, 4: 16, 5: 16, 6: 16}},
+        {'name': 'Cost Changes', 'blocks': _costchg_blocks(report),
+         'col_widths': {0: 8, 1: 40, 2: 18, 3: 18, 4: 18}},
         {'name': 'Manpower', 'blocks': _manpower_blocks(report),
          'col_widths': {0: 16, 1: 22, 2: 16, 3: 16, 4: 16, 5: 14}},
         {'name': 'Scope & Structure', 'blocks': _scope_blocks(report),
