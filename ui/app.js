@@ -332,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (cmd === 'load-another'){ loadAnother(); loadHistory(); setCrumb('home'); }
     else if (cmd === 'nav-toggle')  toggleNav();
     else if (cmd === 'recent')      { exitDatabase(); showRecent(); setCrumb('recent'); markNav('recent'); }
-    else if (cmd === 'kb')          { exitRecent(); showDatabase(); setCrumb('kb'); markNav('kb'); }
+    else if (cmd === 'kb')          { exitRecent(); exitDatabase(); showPlaybooks(); setCrumb('kb'); markNav('kb'); }
     else if (cmd === 'showchooser') { if (state.currentResult) { document.getElementById('results-section').classList.remove('hidden'); showChooser(); } }
     else if (cmd === 'help-start')    openHelp('getting-started');
     else if (cmd === 'help-features') openHelp('feature-guide');
