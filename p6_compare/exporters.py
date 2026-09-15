@@ -74,6 +74,202 @@ def logic_excel(report):
     return _LOGIC_HEADERS, rows
 
 
+# ── Excel: the full report as titled sections (mirrors render_html) ──────────
+# The flat logic_excel above is one broken-promise table (driving-logic changes only).
+# logic_excel_sections returns the shared write_sections_xlsx `sheets` structure so the
+# workbook mirrors every section the screen / PDF shows: the Summary / KPIs, the driving
+# logic & lag change table, the duration & remaining change table, and — when the
+# before/after impact ran — the impact (but-for) delay, forecast completion, per-milestone
+# before/after and the consultant recommendation.
+
+# Self-explaining headers for the driving logic table — the on-screen short labels
+# ("pred rel") spelled out, with units, so the standalone workbook needs no legend.
+_LOGIC_SECTION_HEADERS = [
+    '#', 'Activity ID', 'Activity name', 'Change',
+    'Baseline predecessor ID', 'Baseline predecessor relationship (type + lag, days)', 'Baseline predecessor name',
+    'Baseline successor ID', 'Baseline successor relationship (type + lag, days)', 'Baseline successor name',
+    'Update predecessor ID', 'Update predecessor relationship (type + lag, days)', 'Update predecessor name',
+    'Update successor ID', 'Update successor relationship (type + lag, days)', 'Update successor name',
+]
+
+# The two columns carrying the CHANGED relationship value (shown red/bold on screen via
+# the `.chg` class) → amber highlight in Excel, so the change stands out the same way.
+_LOGIC_CHANGED_COLS = [11, 14]
+
+_DURATION_SECTION_HEADERS = [
+    'Activity ID', 'Activity name',
+    'Baseline original duration (days)', 'Update original duration (days)',
+    'Remaining duration (days)', 'Remaining − baseline original (days)',
+    'Status', 'Impact on finish',
+]
+
+
+def _blank(v):
+    return '' if v is None else v
+
+
+def _logic_section_rows(report):
+    """The driving-logic table rows for the sections export — identical flattening to
+    logic_excel (serial # + baseline/update pred/succ links joined one per cell)."""
+    rows = []
+    for i, r in enumerate((report.get('logic', {}) or {}).get('rows', []), start=1):
+        rows.append([
+            i, r.get('activity_id', ''), r.get('activity_name', ''), r.get('change_label', ''),
+            _links_str(r.get('baseline_preds'), 'id'), _links_str(r.get('baseline_preds'), 'rel'), _links_str(r.get('baseline_preds'), 'name'),
+            _links_str(r.get('baseline_succs'), 'id'), _links_str(r.get('baseline_succs'), 'rel'), _links_str(r.get('baseline_succs'), 'name'),
+            _links_str(r.get('update_preds'), 'id'), _links_str(r.get('update_preds'), 'rel'), _links_str(r.get('update_preds'), 'name'),
+            _links_str(r.get('update_succs'), 'id'), _links_str(r.get('update_succs'), 'rel'), _links_str(r.get('update_succs'), 'name'),
+        ])
+    return rows
+
+
+def logic_excel_sections(report, impact=None):
+    """Return the `sheets` list for write_sections_xlsx, mirroring the on-screen / PDF
+    Consultant Review report:
+
+      * Summary        — the KPI tiles (changed activities, finishes, data date, delay,
+                         but-for / manufactured) + the change-type breakdown.
+      * Driving Logic Changes — the full driving-logic & lag change table.
+      * Duration Changes      — the duration & remaining change table (only if present).
+      * Impact (But-For)      — only when `impact` is supplied: reported vs but-for delay,
+                         manufactured days, forecast completion, per-milestone before/after
+                         and the consultant recommendation.
+
+    Every section is guarded with .get so a partial report never raises, and only
+    sections whose data exists are emitted. The flat logic_excel is left intact.
+    """
+    report = report or {}
+    dash = report.get('dashboard', {}) or {}
+    sheets = []
+
+    # ── Summary / KPIs ───────────────────────────────────────────────────
+    kpi_rows = []
+
+    def _kpi(label, value):
+        if value is not None and value != '':
+            kpi_rows.append([label, value])
+
+    _kpi('Changed activities', dash.get('changed_activities'))
+    _kpi('— with driving logic / lag changes', dash.get('logic_changed'))
+    _kpi('— with duration-only changes', dash.get('duration_only'))
+    _kpi('Baseline finish', report.get('baseline_finish'))
+    _kpi('Update finish', report.get('update_finish'))
+    _kpi('Data date', report.get('data_date'))
+    _kpi('Delay vs baseline (working days, + = behind)', dash.get('delay_working_days'))
+    _kpi('But-for delay (working days)', dash.get('butfor_delay_working_days'))
+    _kpi('Manufactured delay (working days)', dash.get('manufactured_working_days'))
+    _kpi('But-for forecast finish', dash.get('butfor_finish'))
+
+    summary_blocks = []
+    if kpi_rows:
+        note = report.get('project_name') or ''
+        if report.get('baseline_file') or report.get('update_file'):
+            note = (note + f" · baseline {report.get('baseline_file') or '—'} "
+                    f"vs {report.get('update_file') or '—'}").strip(' ·')
+        summary_blocks.append({
+            'title': 'Summary — Baseline vs Current Update',
+            'note': note or None,
+            'headers': ['Metric', 'Value'],
+            'rows': kpi_rows,
+        })
+    items = [it for it in (report.get('change_summary', {}) or {}).get('items', [])
+             if (it.get('count') or 0) > 0]
+    if items:
+        summary_blocks.append({
+            'title': 'Change summary — by type',
+            'headers': ['Change type', 'Activities'],
+            'rows': [[it.get('label', it.get('kind', '')), it.get('count', 0)] for it in items],
+        })
+    if summary_blocks:
+        sheets.append({'name': 'Summary', 'blocks': summary_blocks})
+
+    # ── Driving Logic & Lag Changes ──────────────────────────────────────
+    logic_rows = _logic_section_rows(report)
+    if logic_rows:
+        logic_note = (f"{dash.get('logic_changed', len(logic_rows))} activities with driving-logic / lag "
+                      f"changes of the {dash.get('changed_activities', len(logic_rows))} total changed "
+                      f"({dash.get('duration_only', 0)} changed in duration only). "
+                      "Highlighted cells are the changed relationship values.")
+    else:
+        logic_note = 'No driving relationship or lag changes vs the baseline.'
+    sheets.append({'name': 'Driving Logic Changes', 'blocks': [{
+        'title': 'Driving logic & lag changes vs baseline',
+        'note': logic_note,
+        'headers': _LOGIC_SECTION_HEADERS,
+        'rows': logic_rows,
+        'highlight_cols': _LOGIC_CHANGED_COLS,
+    }]})
+
+    # ── Duration & Remaining Changes (only if present) ───────────────────
+    dur_rows = (report.get('durations', {}) or {}).get('rows', [])
+    if dur_rows:
+        rows = [[
+            r.get('activity_id', ''), r.get('activity_name', ''),
+            _blank(r.get('baseline_orig_days')), _blank(r.get('update_orig_days')),
+            _blank(r.get('remaining_days')), _blank(r.get('remaining_minus_baseline_days')),
+            r.get('status', ''), _impact_word(r.get('impact')),
+        ] for r in dur_rows]
+        sheets.append({'name': 'Duration Changes', 'blocks': [{
+            'title': 'Duration & remaining changes vs baseline',
+            'note': ('Remaining − baseline original: positive = more work left than the baseline allowed. '
+                     'Impact on finish — Direct (on the critical path), Potential (near-critical), '
+                     'Float absorbs, or — (the export carries no float for that activity).'),
+            'headers': _DURATION_SECTION_HEADERS,
+            'rows': rows,
+        }]})
+
+    # ── Impact (But-For) — only when the before/after impact ran ─────────
+    if impact:
+        impact_blocks = []
+        delay_rows = []
+        for label, key in (('Reported delay (as submitted)', 'delay_after'),
+                           ('But-for delay (baseline logic)', 'delay_before'),
+                           ('Manufactured', 'manufactured_days')):
+            v = impact.get(key)
+            if v is not None:
+                delay_rows.append([label, v])
+        if delay_rows:
+            impact_blocks.append({
+                'title': 'Impact — reported vs but-for delay',
+                'headers': ['Measure', 'Working days'],
+                'rows': delay_rows,
+            })
+        fc = impact.get('forecast', {}) or {}
+        fc_rows = []
+        for label, key in (('Baseline', 'baseline'), ('Reported (update)', 'after'),
+                           ('But-for (corrected)', 'before')):
+            v = fc.get(key)
+            if v is not None:
+                fc_rows.append([label, v])
+        if fc_rows:
+            impact_blocks.append({
+                'title': 'Forecast completion',
+                'headers': ['Schedule', 'Forecast completion date'],
+                'rows': fc_rows,
+            })
+        ms = impact.get('milestones') or []
+        if ms:
+            impact_blocks.append({
+                'title': 'Per-milestone finish — baseline / but-for / reported',
+                'headers': ['Milestone ID', 'Milestone', 'Baseline finish',
+                            'But-for finish (corrected)', 'Reported finish (update)'],
+                'rows': [[m.get('activity_id', ''), m.get('name', ''),
+                          _blank(m.get('baseline_finish')), _blank(m.get('before_finish')),
+                          _blank(m.get('after_finish'))] for m in ms],
+            })
+        reco = impact.get('recommendation')
+        if reco:
+            impact_blocks.append({
+                'title': 'Consultant recommendation',
+                'headers': ['Recommendation'],
+                'rows': [[reco]],
+            })
+        if impact_blocks:
+            sheets.append({'name': 'Impact (But-For)', 'blocks': impact_blocks})
+
+    return sheets
+
+
 # ── PDF: HTML → Chrome ──────────────────────────────────────────────────────
 
 def _scurve_svg(sc):

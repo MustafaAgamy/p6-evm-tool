@@ -348,6 +348,96 @@ def test_render_html_and_excel_smoke():
     assert any(r[0] == 'Activity count' for r in rows)
 
 
+def test_report_excel_sections_mirrors_report():
+    """report_excel_sections mirrors the on-screen sections as titled blocks with full,
+    unit-bearing headers, and the shared writer turns them into a real .xlsx."""
+    from p6_evm.xlsx_writer import write_sections_xlsx
+    from p6_update.exporters import report_excel, report_excel_sections
+    wbs = [(100, 'Proj', ''), (200, 'Silo 1', 100), (301, 'Soil Replacement', 200)]
+    acts = [
+        (20, 'S1', 'Soil a', 0.5, '2025-03-02', '2025-06-01', 320, 301, {'Discipline': 'Civil'}),
+        (21, 'S2', 'Soil b', 0.3, '2025-03-02', '2025-06-01', 320, 301, {'Discipline': 'Civil'}),
+    ]
+    rels = [(20, 999)]
+    ms = [(999, 'MS', 'Project completion', '2025-06-01', 200)]
+    data, metrics = _parse_and_compute(_xml('2025-04-01', acts, rels, wbs, ms))
+    report = build_report_from_data(data, metrics)
+    report['file'] = 'test.xml'
+
+    # the legacy flat exporter is untouched and still returns (headers, rows)
+    headers, rows = report_excel(report)
+    assert headers[0] == 'Section' and rows
+
+    sheets = report_excel_sections(report)
+    names = [sh['name'] for sh in sheets]
+    # each expected on-screen section became its own sheet (cost-loaded fixture → all present)
+    for expected in ('Time Status', 'By Activity Code', 'Driving Path',
+                     'Activity Counts', 'Scope Weight'):
+        assert expected in names, names
+    # every sheet is a valid contract sheet with at least one titled block
+    for sh in sheets:
+        assert len(sh['name']) <= 31
+        assert sh['blocks']
+        for blk in sh['blocks']:
+            assert blk['title'] and blk['headers'] and 'rows' in blk
+
+    # Section 1 · Time Status — Executive Read block + the progress table with unit headers
+    ts_sheet = next(sh for sh in sheets if sh['name'] == 'Time Status')
+    ts_titles = [b['title'] for b in ts_sheet['blocks']]
+    assert any('Executive Read' in t for t in ts_titles)
+    prog = next(b for b in ts_sheet['blocks'] if 'Progress vs Baseline' in b['title'])
+    measures = [r[0] for r in prog['rows']]
+    assert 'Earned / actual progress' in measures and 'Baseline finish' in measures
+    # the earned % renders as a readable percent string, not a bare float
+    earned = next(r for r in prog['rows'] if r[0] == 'Earned / actual progress')
+    assert earned[1].endswith('%')
+
+    # Section 2 headers carry the units the flat table lacked
+    code_sheet = next(sh for sh in sheets if sh['name'] == 'By Activity Code')
+    code_hdrs = code_sheet['blocks'][0]['headers']
+    assert 'Planned % (vs baseline)' in code_hdrs and 'Activities (count)' in code_hdrs
+
+    # Section 3 driving path spells its delay unit out and rolls up to a WBS box
+    dp_sheet = next(sh for sh in sheets if sh['name'] == 'Driving Path')
+    wf = next(b for b in dp_sheet['blocks'] if 'Work Fronts' in b['title'])
+    assert 'Delay (working days)' in wf['headers']
+    assert any('Soil Replacement' in (r[0] or '') for r in wf['rows'])
+
+    # Section 5 scope keeps BAC numeric and weight as a percent string
+    sc_sheet = next(sh for sh in sheets if sh['name'] == 'Scope Weight')
+    sc_blk = sc_sheet['blocks'][0]
+    assert any('Budget at Completion (BAC, cost)' in h for h in sc_blk['headers'])
+    civ = next(r for r in sc_blk['rows'] if r[0] == 'Civil')
+    assert isinstance(civ[2], (int, float))   # BAC numeric
+    assert civ[1].endswith('%')               # weight percent string
+
+    # the shared writer produces a non-empty workbook from the sheets
+    import tempfile as _tf
+    with _tf.NamedTemporaryFile(suffix='.xlsx', delete=False) as f:
+        out = f.name
+    try:
+        write_sections_xlsx(out, sheets)
+        assert os.path.getsize(out) > 0
+    finally:
+        os.unlink(out)
+
+
+def test_report_excel_sections_empty_report_is_safe():
+    """An empty report still yields one valid 'No data' sheet (never raises)."""
+    from p6_evm.xlsx_writer import write_sections_xlsx
+    from p6_update.exporters import report_excel_sections
+    sheets = report_excel_sections({})
+    assert len(sheets) == 1 and sheets[0]['blocks']
+    import tempfile as _tf
+    with _tf.NamedTemporaryFile(suffix='.xlsx', delete=False) as f:
+        out = f.name
+    try:
+        write_sections_xlsx(out, sheets)
+        assert os.path.getsize(out) > 0
+    finally:
+        os.unlink(out)
+
+
 def test_render_html_theme():
     import report_theme
     from p6_update.exporters import render_html
