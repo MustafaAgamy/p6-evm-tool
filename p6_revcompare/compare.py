@@ -173,9 +173,39 @@ def _ms_type(name):
 
 def _compare_milestones(rev0, rev1, cal):
     m0, m1 = _finish_ms_by_code(rev0), _finish_ms_by_code(rev1)
+
+    # Reconcile an ID-ONLY change: a milestone present under one code in Rev.00 and a DIFFERENT
+    # code in Rev.01 but with the SAME name is the same milestone re-coded (the fuzzy matcher
+    # missed it) — collapse the false removed+added pair into one 'idchange' row.
+    def _norm(a):
+        return ' '.join((a.get('name') or '').lower().split())
+    removed_codes, new_codes = set(m0) - set(m1), set(m1) - set(m0)
+    new_by_name = {}
+    for c in new_codes:
+        new_by_name.setdefault(_norm(m1[c]), c)
+    idchg, consumed_new = {}, set()
+    for rc in removed_codes:
+        nm = _norm(m0[rc])
+        nc = new_by_name.get(nm)
+        if nm and nc and nc not in consumed_new:
+            idchg[rc] = nc
+            consumed_new.add(nc)
+
     rows = []
     for code in sorted(set(m0) | set(m1)):
+        if code in consumed_new:            # the Rev.01 side of an ID change — shown on the Rev.00 code
+            continue
         a0, a1 = m0.get(code), m1.get(code)
+        if code in idchg:                   # same milestone, only the Activity ID changed
+            nc = idchg[code]
+            a1 = m1.get(nc)
+            f0, f1 = _forecast_finish(a0), _forecast_finish(a1)
+            slip = _wd_between(cal, _d0(f0), _d0(f1)) if (f0 and f1) else None
+            rows.append({'id': f'{code} → {nc}', 'type': _ms_type(a1.get('name') or a0.get('name') or code),
+                         'name': a1.get('name') or a0.get('name') or code,
+                         'rev0': _long(f0), 'rev1': _long(f1),
+                         'change': slip, 'kind': 'idchange', 'change_days': slip})
+            continue
         name = (a1 or a0).get('name') or code
         base = {'id': code, 'type': _ms_type(name)}
         f0, f1 = (_forecast_finish(a0) if a0 else None), (_forecast_finish(a1) if a1 else None)
