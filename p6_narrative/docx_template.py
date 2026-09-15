@@ -267,6 +267,22 @@ def add_toc(document):
     return para
 
 
+def enable_update_fields(document):
+    """Set ``<w:updateFields w:val="true"/>`` in ``settings.xml`` so Word refreshes every field
+    (the TOC especially) with REAL page numbers the moment the document is opened — no
+    right-click / F9 needed. Idempotent."""
+    try:
+        settings = document.settings.element
+    except Exception:                       # pragma: no cover - defensive
+        return None
+    for existing in settings.findall(qn('w:updateFields')):
+        settings.remove(existing)
+    uf = OxmlElement('w:updateFields')
+    uf.set(qn('w:val'), 'true')
+    settings.append(uf)
+    return uf
+
+
 # ── base styles ───────────────────────────────────────────────────────────────
 def apply_base_styles(document):
     """Normal = Calibri 11pt ink; Heading 1/2/3 = Calibri Light bold navy at

@@ -53,10 +53,28 @@ _CY = 3240000
 # doughnut palette (matches docx_charts._DONUT_PALETTE, sans the leading '#')
 _PIE_PALETTE = ['1F5FA8', 'C98A2B', '7A5AA6', '4B9D6E', 'A35D5D', '5A8FB0']
 
-# discipline colour ramp (Ibrahim-approved, in order; cycles if more slices/segments).
-# Used per-point on the §5 contract-value doughnut and the §6.1 scope composition bar so
-# both charts read from one consistent navy→light-blue ramp.
-_DISCIPLINE_RAMP = ['1F4E79', '2E75B6', '5B9BD5', '8AB4DE', 'B3CFE8', 'D6E4F0', '9AA4B0']
+# DISTINCT discipline colour ramp — MIRRORS ``html.py`` (``_RAMP`` / ``_GREY``) EXACTLY so a
+# discipline reads as the SAME colour across the §6 Contract-Value doughnut (add_doughnut) and
+# the §7.1 scope composition bar (add_composition_bar), matching the on-screen / PDF report.
+# Any discipline literally named "Unclassified" / "Other" is forced to grey regardless of its
+# position in the list. ``ramp_colors(names)`` is the single source both charts (and the Word
+# legend table in ``docx_writer``) draw from, so swatch == slice == segment colour.
+_DISCIPLINE_RAMP = ['1F4E79', '2E9E5B', 'E8A33D', '7A5AA6', 'C0504D', '4BACC6', 'B07AA1']
+_DISCIPLINE_GREY = '9AA4B0'
+
+
+def ramp_color(name, i):
+    """The distinct ramp colour for a discipline at position ``i`` — grey when it is
+    literally named "Unclassified" / "Other" (mirrors ``html.py._disc_color``)."""
+    if str(name or '').strip().lower() in ('unclassified', 'other'):
+        return _DISCIPLINE_GREY
+    return _DISCIPLINE_RAMP[i % len(_DISCIPLINE_RAMP)]
+
+
+def ramp_colors(names):
+    """The per-name distinct-ramp colour list (grey for Unclassified/Other). The Word legend
+    table reuses this so its swatches match the doughnut slices exactly."""
+    return [ramp_color(n, i) for i, n in enumerate(names or [])]
 
 _C_NS = ('xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" '
          'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
@@ -91,6 +109,18 @@ def _hex(color, fallback):
     if len(c) == 6 and all(ch in '0123456789abcdefABCDEF' for ch in c):
         return c.upper()
     return fallback
+
+
+def _contrast(hex6):
+    """A readable label colour ('FFFFFF' on dark fills, '1A1D21' on light fills) for text
+    drawn ON a coloured segment/box — perceptual-luminance threshold."""
+    c = _hex(hex6, '1F4E79')
+    try:
+        r, g, b = int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+    except ValueError:
+        return 'FFFFFF'
+    lum = 0.299 * r + 0.587 * g + 0.114 * b
+    return '1A1D21' if lum > 150 else 'FFFFFF'
 
 
 def _title_el(title):
@@ -759,12 +789,15 @@ def add_hbar(document, categories, values, title, color='1F4E79', name='Series',
 
 
 def add_doughnut(document, categories, values, title=None, num_fmt='#,##0'):
-    """Native DOUGHNUT chart — the editable Word twin of the §5 contract-value donut.
+    """Native DOUGHNUT chart — the editable Word twin of the §6 contract-value donut.
 
-    One slice per category (type of work), each ramp-coloured via a per-point ``<c:dPt>``
-    solidFill (the discipline ramp, cycling). A right-hand ``c:legend`` names every type,
-    and each slice carries a data label with its amount (``num_fmt``) and percentage share
-    — so the reader sees each type with its amount + %. ``c:holeSize`` 55.
+    One slice per category (type of work), each coloured from the DISTINCT discipline ramp
+    (``ramp_colors`` — grey for Unclassified/Other) so a discipline reads the same colour here
+    and on the §7.1 composition bar. **No on-slice data labels and no built-in chart legend**
+    (C02: the crowded, overlapping amount labels such as "860544241.1" are removed): the reader
+    reads each type, its amount and its share from the clean side legend/table that
+    ``docx_writer`` renders alongside this doughnut (its swatches reuse ``ramp_colors`` so they
+    match the slices exactly). ``c:holeSize`` 55.
 
     Native / editable (a real ``c:doughnutChart`` part — never a picture) and None-safe:
     a missing document, empty / mismatched data or any non-numeric value returns ``None``
@@ -775,30 +808,25 @@ def add_doughnut(document, categories, values, title=None, num_fmt='#,##0'):
     vals = [_num(v) for v in values]
     if len(cats) != len(vals) or any(v is None for v in vals):
         return None
-    ramp = _DISCIPLINE_RAMP
-    lbl_fmt = (f'<c:numFmt formatCode="{_xesc(num_fmt)}" sourceLinked="0"/>'
-               if num_fmt else '')
+    palette = ramp_colors(cats)                 # distinct ramp; grey for Unclassified/Other
     name = title or 'Value'
 
     def build(rid):
-        # one ramp-coloured point per slice (cycles through the ramp for >7 slices)
+        # one distinct-ramp point per slice (matches the legend-table swatches)
         dpts = ''.join(
             f'<c:dPt><c:idx val="{i}"/><c:bubble3D val="0"/><c:spPr><a:solidFill>'
-            f'<a:srgbClr val="{ramp[i % len(ramp)]}"/></a:solidFill></c:spPr></c:dPt>'
+            f'<a:srgbClr val="{palette[i]}"/></a:solidFill></c:spPr></c:dPt>'
             for i in range(len(vals)))
-        # per-slice label: amount (num_fmt) + percentage share
-        dlbls = (f'<c:dLbls>{lbl_fmt}<c:showLegendKey val="0"/><c:showVal val="1"/>'
-                 f'<c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="1"/>'
-                 f'<c:showBubbleSize val="0"/></c:dLbls>')
+        # NO <c:dLbls> — on-slice amount/percentage labels removed (C02)
         ser = (f'<c:ser><c:idx val="0"/><c:order val="0"/>{_tx_ref(name, "B")}'
-               f'{dpts}{dlbls}{_cat_ref(cats)}{_val_ref(vals, "B")}</c:ser>')
-        legend = '<c:legend><c:legendPos val="r"/><c:overlay val="0"/></c:legend>'
+               f'{dpts}{_cat_ref(cats)}{_val_ref(vals, "B")}</c:ser>')
+        # NO <c:legend> — replaced by the clean side legend/table in docx_writer
         return (
             f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             f'<c:chartSpace {_C_NS}><c:chart>{_title_el(title)}<c:plotArea><c:layout/>'
             f'<c:doughnutChart><c:varyColors val="1"/>{ser}'
             f'<c:firstSliceAng val="0"/><c:holeSize val="55"/></c:doughnutChart>'
-            f'</c:plotArea>{legend}<c:plotVisOnly val="1"/></c:chart>'
+            f'</c:plotArea><c:plotVisOnly val="1"/></c:chart>'
             f'{_external_data(rid)}</c:chartSpace>')
 
     return _inject(document, build, cats, [(name, vals)])
@@ -824,20 +852,44 @@ def add_composition_bar(document, labels, values, title=None):
     vals = [_num(v) for v in values]
     if len(labs) != len(vals) or any(v is None for v in vals):
         return None
-    ramp = _DISCIPLINE_RAMP
+    palette = ramp_colors(labs)                 # distinct ramp; grey for Unclassified/Other
     cat = ['Share']                             # a single category → a single bar
+    grand = sum(v for v in vals if v) or 0.0
+    _LBL_MIN = 6.0                              # only label a segment wide enough to hold "%"
 
     def build(rid):
         sers = ''
         for i, (nm, v) in enumerate(zip(labs, vals)):
-            col = ramp[i % len(ramp)]
+            col = palette[i]
             letter = _col_letter(i)
             dpt = (f'<c:dPt><c:idx val="0"/><c:invertIfNegative val="0"/>'
                    f'<c:bubble3D val="0"/><c:spPr><a:solidFill>'
                    f'<a:srgbClr val="{col}"/></a:solidFill></c:spPr></c:dPt>')
+            # C03a — a % label CENTRED on this segment, but only when the segment is wide
+            # enough to hold it (share ≥ _LBL_MIN%); smaller segments stay in the legend /
+            # the "Civil 93.9% · …" line beneath. Label colour contrasts the segment fill.
+            pct = (100.0 * v / grand) if grand else 0.0
+            dlbls = ''
+            if pct >= _LBL_MIN:
+                tcol = _contrast(col)
+                txt = _xesc('%g%%' % round(pct, 1))
+                dlbls = (
+                    f'<c:dLbls><c:dLbl><c:idx val="0"/>'
+                    f'<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p>'
+                    f'<a:pPr><a:defRPr b="1" sz="900"><a:solidFill>'
+                    f'<a:srgbClr val="{tcol}"/></a:solidFill></a:defRPr></a:pPr>'
+                    f'<a:r><a:rPr lang="en-US" b="1" sz="900"><a:solidFill>'
+                    f'<a:srgbClr val="{tcol}"/></a:solidFill></a:rPr>'
+                    f'<a:t>{txt}</a:t></a:r></a:p></c:rich></c:tx>'
+                    f'<c:dLblPos val="ctr"/><c:showLegendKey val="0"/><c:showVal val="0"/>'
+                    f'<c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/>'
+                    f'<c:showBubbleSize val="0"/></c:dLbl>'
+                    f'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>'
+                    f'<c:showSerName val="0"/><c:showPercent val="0"/>'
+                    f'<c:showBubbleSize val="0"/></c:dLbls>')
             sers += (f'<c:ser><c:idx val="{i}"/><c:order val="{i}"/>{_tx_ref(nm, letter)}'
                      f'<c:spPr><a:solidFill><a:srgbClr val="{col}"/></a:solidFill></c:spPr>'
-                     f'{dpt}{_cat_ref(cat)}{_val_ref([v], letter)}</c:ser>')
+                     f'{dpt}{dlbls}{_cat_ref(cat)}{_val_ref([v], letter)}</c:ser>')
         legend = '<c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>'
         return (
             f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -1112,27 +1164,171 @@ _WBS_TREE_LEVELS = [
     ('FFFFFF', 'D3DDEA', '33414D'),         # lv4 — Level-4 (white, light border)
 ]
 
-# tree geometry (px; converted to EMU via _emu). Uniform box width/height; each depth
-# indented one INDENT; rows stepped by ROW_H (a small gap between boxes). The gutter for a
-# parent's elbow sits GUTTER px right of the parent's left edge, LEFT of the child boxes
+# VERTICAL (indented) tree geometry (px; converted to EMU via _emu). Uniform box width/height;
+# each depth indented one INDENT; rows stepped by ROW_H (a small gap between boxes). The gutter
+# for a parent's elbow sits GUTTER px right of the parent's left edge, LEFT of the child boxes
 # (which start one INDENT right of the parent), so the vertical line never crosses a box.
 _TREE_PAD, _TREE_INDENT, _TREE_ROW_H = 10, 28, 30
 _TREE_BOX_W, _TREE_BOX_H, _TREE_GUTTER = 388, 24, 12
 
+# HORIZONTAL (left→right) branch geometry — a small, short-labelled branch lays its children in
+# a COLUMN to the RIGHT of the parent: one depth per COL_W, one leaf per ROW_H, uniform box.
+_HTREE_PAD, _HTREE_COL_W, _HTREE_ROW_H = 10, 170, 40
+_HTREE_BOX_W, _HTREE_BOX_H = 140, 32
+
+# adaptive-orientation thresholds — a single-root tree draws HORIZONTAL only when it is small
+# AND short-labelled AND shallow; otherwise (many children / long labels / deeper) it draws as
+# the VERTICAL indented tree so no label is clipped (Ibrahim's approved rule).
+_H_MAX_NODES, _H_MAX_LABEL, _H_MAX_DEPTH = 10, 24, 3
+
+
+def _wbs_vertical(document, seq, base, max_depth):
+    """VERTICAL indented WBS tree (the approved overview / big-branch layout): every node on its
+    own ROW, indented by ``level - base``, joined to its children by one gutter ELBOW (a single
+    vertical line down the gutter plus a horizontal stub into each child's left edge). ``seq`` is
+    the DFS record list (``{'node','level','row'}``). Returns the drawing element or ``None``."""
+    rec_by_id = {id(r['node']): r for r in seq}
+
+    def x_of(level):
+        return _TREE_PAD + (level - base) * _TREE_INDENT
+
+    def y_of(row):
+        return _TREE_PAD + row * _TREE_ROW_H
+
+    counter = [_next_id(document)]
+    base_id = counter[0]
+    counter[0] += 1                     # reserve base_id for the group frame's docPr
+
+    shapes = []
+    # elbow connectors FIRST so the boxes paint over them — one per real parent→children link
+    for rec in seq:
+        kids = rec['node'].get('children') or []
+        child_recs = [rec_by_id[id(k)] for k in kids if id(k) in rec_by_id]
+        if not child_recs:
+            continue
+        gutter_x = x_of(rec['level']) + _TREE_GUTTER
+        parent_bottom = y_of(rec['row']) + _TREE_BOX_H
+        last_center = y_of(child_recs[-1]['row']) + _TREE_BOX_H / 2.0
+        # vertical line: just below the parent → last child's vertical centre
+        shapes.append(_wps_line(counter, _emu(gutter_x), _emu(parent_bottom),
+                                0, _emu(last_center - parent_bottom), _WBS_LINE))
+        # horizontal stub into each child's left edge
+        for cr in child_recs:
+            cy = y_of(cr['row']) + _TREE_BOX_H / 2.0
+            shapes.append(_wps_line(counter, _emu(gutter_x), _emu(cy),
+                                    _emu(x_of(cr['level']) - gutter_x), 0, _WBS_LINE))
+    # boxes (colour-coded by ABSOLUTE WBS level: lv0 navy … lv4 white, clamped)
+    for rec in seq:
+        lvl = rec['level']
+        fill, border, tcol = _WBS_TREE_LEVELS[min(max(lvl, 0), len(_WBS_TREE_LEVELS) - 1)]
+        nm = rec['node'].get('name') or ''
+        shapes.append(_wps_box(
+            counter, nm, _emu(x_of(lvl)), _emu(y_of(rec['row'])),
+            _emu(_TREE_BOX_W), _emu(_TREE_BOX_H), fill, border, tcol, nm, sz=10))
+
+    total_w = _TREE_PAD + max_depth * _TREE_INDENT + _TREE_BOX_W + _TREE_PAD
+    total_h = _TREE_PAD + (len(seq) - 1) * _TREE_ROW_H + _TREE_BOX_H + _TREE_PAD
+    return _group_drawing(document, ''.join(shapes), base_id, _emu(total_w), _emu(total_h))
+
+
+def _wbs_horizontal(document, root):
+    """HORIZONTAL (left→right) WBS tree for a small, short-labelled branch: the parent sits on
+    the LEFT and its children are stacked in a COLUMN to the RIGHT; each child expands the same
+    way further right. Tidy-tree layout — ``x = PAD + depth*COL_W``; a leaf takes the next
+    ROW_H slot, a parent centres on the Y span of its children.
+
+    One clean orthogonal ELBOW per parent (no diagonal / duplicate / decorative lines): a short
+    horizontal from the parent's right edge to a vertical BUS that spans the children's centres,
+    then a horizontal STUB from the bus into each child's left edge. The canvas grows to fit
+    every box so nothing overlaps or truncates. Returns the drawing element or ``None``."""
+    pad, colw, rowh = _HTREE_PAD, _HTREE_COL_W, _HTREE_ROW_H
+    bw, bh = _HTREE_BOX_W, _HTREE_BOX_H
+    pos = {}                                    # id(node) -> (x, y_top)
+    order = []                                  # [(node, depth, level), …] in DFS order
+    leaf_y = [pad]                              # next free leaf Y slot (mutable)
+
+    def layout(n, depth):
+        try:
+            lvl = int(n.get('level'))
+        except (TypeError, ValueError):
+            lvl = depth
+        order.append((n, depth, lvl))
+        x = pad + depth * colw
+        kids = [k for k in (n.get('children') or []) if k]
+        if not kids:
+            y = leaf_y[0]
+            leaf_y[0] += rowh
+        else:
+            for k in kids:
+                layout(k, depth + 1)
+            ys = [pos[id(k)][1] for k in kids]
+            y = (min(ys) + max(ys)) / 2.0       # parent centres on its children's Y span
+        pos[id(n)] = (x, y)
+
+    layout(root, 0)
+    if not order:
+        return None
+    max_x = max(x for x, _ in pos.values())
+    max_y = max(y for _, y in pos.values())
+    total_w = max_x + bw + pad
+    total_h = max_y + bh + pad
+
+    counter = [_next_id(document)]
+    base_id = counter[0]
+    counter[0] += 1
+    shapes = []
+    # elbow connectors FIRST (boxes paint over them) — one set per real parent→children link
+    for n, depth, lvl in order:
+        kids = [k for k in (n.get('children') or []) if k and id(k) in pos]
+        if not kids:
+            continue
+        px, py = pos[id(n)]
+        parent_right = px + bw
+        child_left = pos[id(kids[0])][0]        # = pad + (depth+1)*colw
+        bus_x = parent_right + (child_left - parent_right) / 2.0
+        parent_cy = py + bh / 2.0
+        cys = [pos[id(k)][1] + bh / 2.0 for k in kids]
+        # 1) short horizontal from the parent's right edge to the bus (lands on the bus centre)
+        shapes.append(_wps_line(counter, _emu(parent_right), _emu(parent_cy),
+                                _emu(bus_x - parent_right), 0, _WBS_LINE))
+        # 2) vertical bus across the children's centres (omitted for a single child)
+        if len(kids) >= 2:
+            shapes.append(_wps_line(counter, _emu(bus_x), _emu(min(cys)),
+                                    0, _emu(max(cys) - min(cys)), _WBS_LINE))
+        # 3) a horizontal stub from the bus into each child's left edge
+        for k in kids:
+            kx, _ky = pos[id(k)]
+            cy = _ky + bh / 2.0
+            shapes.append(_wps_line(counter, _emu(bus_x), _emu(cy),
+                                    _emu(kx - bus_x), 0, _WBS_LINE))
+    # boxes (colour-coded by ABSOLUTE WBS level: lv0 navy … lv4 white, clamped)
+    for n, depth, lvl in order:
+        x, y = pos[id(n)]
+        fill, border, tcol = _WBS_TREE_LEVELS[min(max(lvl, 0), len(_WBS_TREE_LEVELS) - 1)]
+        nm = n.get('name') or ''
+        shapes.append(_wps_box(counter, nm, _emu(x), _emu(y), _emu(bw), _emu(bh),
+                               fill, border, tcol, nm, sz=9))
+    return _group_drawing(document, ''.join(shapes), base_id, _emu(total_w), _emu(total_h))
+
 
 def add_wbs_tree(document, nodes):
-    """Native TOP-DOWN INDENTED WBS box-tree with elbow connectors (§9 redesign).
+    """Native, editable WBS box-tree with clean orthogonal ELBOW connectors (§9 redesign),
+    ADAPTIVE per branch:
 
-    ``nodes`` is a list of ROOT node dicts, each ``{'name', 'level', 'children': [...]}``
-    (nested). A depth-first walk puts each node on its own ROW in document order
-    (``y = PAD + row*ROW_H``); its column is its WBS level (``x = PAD + (level-base)*INDENT``,
-    so the shallowest node sits flush-left while colour still tracks the true level). Every
-    parent with children gets an elbow: one vertical line down the gutter from just below the
-    parent to the last child's vertical centre, plus a horizontal stub from that gutter into
-    each child's left edge. Boxes are filled by level (navy root → blue → light-blue → white).
+      • a SMALL, SHORT-LABELLED, SHALLOW single-root branch draws HORIZONTAL (left→right) — the
+        parent on the left, its children stacked in a column to the right (``_wbs_horizontal``);
+      • anything with MANY children, LONG labels or more DEPTH draws as the VERTICAL indented
+        tree so no label is clipped (``_wbs_vertical``). The §9.1 overview (root → 10 long-named
+        majors) therefore stays vertical; a compact branch (e.g. "Phase I Design") goes
+        horizontal. The choice is DYNAMIC — computed from node count / label length / depth,
+        never hard-coded.
 
-    Returns the drawing element, or ``None`` on a missing document / empty tree / any
-    internal error (the caller then falls back to an editable table)."""
+    ``nodes`` is a list of ROOT node dicts, each ``{'name', 'level', 'children': [...]}``.
+    Every connector is one real parent→child elbow (no diagonal, duplicate or decorative
+    lines); boxes are colour-coded by WBS level (navy → blue → light-blue → white); the group is
+    sized to fit every box so nothing overlaps or truncates. Native shapes only (``_wps_box`` +
+    ``_wps_line`` — never a picture). Returns the drawing element, or ``None`` on a missing
+    document / empty tree / any internal error (the caller falls back to an editable table)."""
     if document is None or not nodes:
         return None
     try:
@@ -1146,59 +1342,32 @@ def add_wbs_tree(document, nodes):
             rec = {'node': n, 'level': lvl, 'row': len(seq)}
             seq.append(rec)
             for k in (n.get('children') or []):
-                dfs(k)
+                if k:
+                    dfs(k)
 
-        for root in nodes:
-            if root:
-                dfs(root)
+        roots = [r for r in nodes if r]
+        for root in roots:
+            dfs(root)
         if not seq:
             return None
 
         base = min(r['level'] for r in seq)
         max_depth = max(r['level'] - base for r in seq)
-        rec_by_id = {id(r['node']): r for r in seq}
 
-        def x_of(level):
-            return _TREE_PAD + (level - base) * _TREE_INDENT
+        # Adaptive orientation (single-root trees only — the writer passes one root per call).
+        # Horizontal iff small AND short-labelled AND shallow; else the vertical indented tree.
+        if len(roots) == 1:
+            node_count = len(seq)
+            max_label = max((len(r['node'].get('name') or '') for r in seq), default=0)
+            if (node_count <= _H_MAX_NODES and max_label <= _H_MAX_LABEL
+                    and max_depth <= _H_MAX_DEPTH):
+                try:
+                    drawing = _wbs_horizontal(document, roots[0])
+                except Exception:           # pragma: no cover - fall back to vertical
+                    drawing = None
+                if drawing is not None:
+                    return drawing
 
-        def y_of(row):
-            return _TREE_PAD + row * _TREE_ROW_H
-
-        counter = [_next_id(document)]
-        base_id = counter[0]
-        counter[0] += 1                     # reserve base_id for the group frame's docPr
-
-        shapes = []
-        # elbow connectors FIRST so the boxes paint over them
-        for rec in seq:
-            kids = rec['node'].get('children') or []
-            child_recs = [rec_by_id[id(k)] for k in kids if id(k) in rec_by_id]
-            if not child_recs:
-                continue
-            gutter_x = x_of(rec['level']) + _TREE_GUTTER
-            parent_bottom = y_of(rec['row']) + _TREE_BOX_H
-            last_center = y_of(child_recs[-1]['row']) + _TREE_BOX_H / 2.0
-            # vertical line: just below the parent → last child's vertical centre
-            shapes.append(_wps_line(counter, _emu(gutter_x), _emu(parent_bottom),
-                                    0, _emu(last_center - parent_bottom), _WBS_LINE))
-            # horizontal stub into each child's left edge
-            for cr in child_recs:
-                cy = y_of(cr['row']) + _TREE_BOX_H / 2.0
-                shapes.append(_wps_line(counter, _emu(gutter_x), _emu(cy),
-                                        _emu(x_of(cr['level']) - gutter_x), 0, _WBS_LINE))
-        # boxes (colour-coded by level)
-        for rec in seq:
-            lvl = rec['level']
-            # colour tracks the ABSOLUTE WBS level (lv0 navy … lv4 white), clamped
-            fill, border, tcol = _WBS_TREE_LEVELS[min(max(lvl, 0), len(_WBS_TREE_LEVELS) - 1)]
-            nm = rec['node'].get('name') or ''
-            shapes.append(_wps_box(
-                counter, nm, _emu(x_of(lvl)), _emu(y_of(rec['row'])),
-                _emu(_TREE_BOX_W), _emu(_TREE_BOX_H), fill, border, tcol, nm, sz=10))
-
-        total_w = _TREE_PAD + max_depth * _TREE_INDENT + _TREE_BOX_W + _TREE_PAD
-        total_h = _TREE_PAD + (len(seq) - 1) * _TREE_ROW_H + _TREE_BOX_H + _TREE_PAD
-        return _group_drawing(document, ''.join(shapes), base_id,
-                              _emu(total_w), _emu(total_h))
+        return _wbs_vertical(document, seq, base, max_depth)
     except Exception:                       # pragma: no cover - never crash the export
         return None

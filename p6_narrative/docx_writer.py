@@ -341,16 +341,43 @@ def _render_overview(document, p, number, note):
 
 
 # ── §2 Project Layout ─────────────────────────────────────────────────────────
+def _placeholder_box(document, text):
+    """A clean, framed single-cell box holding centred muted placeholder text — used when no
+    layout drawing was attached, so §2 shows a tidy prompt instead of a broken figure."""
+    t = document.add_table(rows=1, cols=1)
+    t.autofit = False
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _row_h(t.rows[0], 84, exact=False)
+    c = t.rows[0].cells[0]
+    _set_w(c, 6.6)
+    _shade(c, 'F4F7FB')
+    _cell_borders(c, color='C9D6E4', sz='6')
+    c.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    pp = c.paragraphs[0]
+    pp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pp.paragraph_format.space_before = Pt(2)
+    pp.paragraph_format.space_after = Pt(2)
+    run(pp, text, size=11, italic=True, color=GREY)
+    return t
+
+
 def _render_image(document, p, number, note):
     img = docx_template._img_bytes(p.get('image'))
     if not img:
-        _muted(document, 'No layout image provided.')
+        # C01a — no drawing attached: show the payload placeholder text in a clean framed box
+        # (never a broken figure). TOC still lists §2 because the section always renders.
+        placeholder = (p.get('placeholder')
+                       or 'No project layout drawing was attached. Add one in the report '
+                          'setup (Project Layout) to show the general arrangement here.')
+        _placeholder_box(document, placeholder)
         return
     try:
         document.add_picture(img, width=Inches(6.6))
         document.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
     except Exception:
-        _muted(document, '[project layout image]')
+        # a bad/undecodable image → the framed placeholder box, never a broken figure
+        _placeholder_box(document, p.get('placeholder')
+                         or 'The attached project layout drawing could not be displayed.')
         return
     para(document, 'Figure 1 — %s' % (p.get('caption') or 'Project general layout'),
          size=10, italic=True, color=GREY, align=WD_ALIGN_PARAGRAPH.CENTER, before=4)
@@ -376,6 +403,47 @@ def _render_ms_table(document, p, number, note):
 
 
 # ── §6 Contract Value ─────────────────────────────────────────────────────────
+def _value_legend(document, rows, colors, unit):
+    """C02 — the clean value legend/table beside the doughnut: a colour SWATCH (matching the
+    slice), the type of work, its amount (#,##0) and its share %. Reuses ``docx_native``'s
+    distinct-ramp colours so swatch == slice. Doubles as the graceful fallback (name + amount +
+    share) when the native doughnut can't be drawn."""
+    hdr = ['', 'Type of work', 'Amount' + (' (%s)' % unit if unit else ''), 'Share %']
+    widths = [0.32, 3.5, 2.05, 1.03]
+    t = document.add_table(rows=1, cols=4)
+    t.style = 'Table Grid'
+    t.autofit = False
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    hr = t.rows[0]
+    _row_h(hr, 20)
+    for i, h in enumerate(hdr):
+        c = hr.cells[i]
+        _shade(c, '26517D'); _no_space(c)
+        c.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        _set_w(c, widths[i])
+        pp = c.paragraphs[0]
+        if i >= 2:
+            pp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        run(pp, h, font=CAL, size=10, bold=True, color=WHITE)
+    for i, r in enumerate(rows):
+        rr = t.add_row()
+        _row_h(rr, 19)
+        sw, nm, am, sh = rr.cells
+        for cc in rr.cells:
+            _no_space(cc)
+            cc.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        _set_w(sw, widths[0]); _set_w(nm, widths[1])
+        _set_w(am, widths[2]); _set_w(sh, widths[3])
+        _shade(sw, colors[i] if i < len(colors) else NAVY_HEX)   # colour swatch == slice
+        run(nm.paragraphs[0], r.get('name'), size=11)
+        pa = am.paragraphs[0]; pa.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        run(pa, _money(r.get('amount')), size=11)
+        ps = sh.paragraphs[0]; ps.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        pct = r.get('pct')
+        run(ps, ('%s%%' % pct) if pct is not None else '', size=11)
+    return t
+
+
 def _render_value_bars(document, p, number, note):
     total = p.get('total')
     unit = p.get('unit')
@@ -390,14 +458,13 @@ def _render_value_bars(document, p, number, note):
         return
     cats = [str(r.get('name', '')) for r in rows]
     vals = [r.get('amount') for r in rows]
-    # §5 — a DOUGHNUT of the value distribution by type of work (each slice ramp-coloured,
-    # a legend of types, per-slice amount + % labels). Keep the banner above; on any chart
-    # failure fall back to the editable value table so the amounts are never lost.
-    if docx_native.add_doughnut(document, cats, vals, num_fmt='#,##0') is None:
-        # native chart unavailable → an editable value table as a graceful fallback
-        data_table(document, ['Type of work', 'Amount', 'Share %'],
-                   [[r.get('name'), _money(r.get('amount')), '%s%%' % r.get('pct')]
-                    for r in rows], widths=[3.7, 2.0, 1.2], aligns=[None, 'r', 'r'])
+    # §6 — a DOUGHNUT of the value distribution by type of work (distinct-ramp slices, NO
+    # crowded on-slice amount labels). Below it a clean value legend/table (C02): swatch +
+    # type + amount (#,##0) + share%. The legend also stands in as the editable fallback if
+    # the native chart can't be drawn, so the amounts are never lost.
+    docx_native.add_doughnut(document, cats, vals, num_fmt='#,##0')
+    para(document, '', after=2)
+    _value_legend(document, rows, docx_native.ramp_colors(cats), unit)
 
 
 # ── §6 Scope of Work ──────────────────────────────────────────────────────────
@@ -479,22 +546,21 @@ def _render_scope(document, p, number, note):
         ph = para(document, before=9, after=2)
         run(ph, '➢ %s — %s%s%s' % (label, _cur(a.get('cost')), qty, pct_txt),
             bold=True, color=NAVY)
-        # per-discipline lines — bold name, then ✓-prefixed work types inline
+        # per-discipline: bold discipline NAME on its own line, then each work type on its OWN
+        # line with a • bullet (C03c — a vertical bullet list, not the old inline "· ✓ …" run)
         for disc in (a.get('disciplines') or []):
             if not disc:
                 continue
             name = disc.get('name') or 'Works'
             wts = [w for w in (disc.get('worktypes') or []) if w]
-            dp = para(document, before=0, after=2)
+            dp = para(document, before=3, after=1)
             dp.paragraph_format.left_indent = Inches(0.28)
             run(dp, name, bold=True, color=DKNAVY)
-            if wts:
-                run(dp, ':  ')
-                for i, wt in enumerate(wts):
-                    if i:
-                        run(dp, '  ·  ', color=GREY)
-                    run(dp, '✓ ', bold=True, color=GREEN)
-                    run(dp, wt)
+            for wt in wts:
+                wp = para(document, before=0, after=1)
+                wp.paragraph_format.left_indent = Inches(0.54)
+                run(wp, '•  ', bold=True, color=GREEN)
+                run(wp, wt)
 
 
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────
@@ -715,8 +781,37 @@ def _toc_group_header(document, label):
     return p
 
 
+def _bookmark_para(para, name, bid):
+    """Anchor a bookmark at a heading paragraph so a TOC PAGEREF can resolve its REAL page."""
+    p = para._p
+    start = OxmlElement('w:bookmarkStart')
+    start.set(qn('w:id'), str(bid)); start.set(qn('w:name'), name)
+    end = OxmlElement('w:bookmarkEnd'); end.set(qn('w:id'), str(bid))
+    pPr = p.find(qn('w:pPr'))
+    if pPr is not None:
+        pPr.addnext(start)
+    else:
+        p.insert(0, start)
+    p.append(end)
+
+
+def _toc_pageref(p, bookmark, fallback):
+    """A right-aligned PAGEREF field to ``bookmark`` — shows the section's REAL page once Word
+    refreshes fields on open (enable_update_fields), with ``fallback`` (the ordinal) cached
+    so the row is never blank before that refresh."""
+    def _fld(t):
+        rr = p.add_run(); fc = OxmlElement('w:fldChar'); fc.set(qn('w:fldCharType'), t)
+        rr._r.append(fc)
+    _fld('begin')
+    rr = p.add_run(); it = OxmlElement('w:instrText'); it.set(qn('xml:space'), 'preserve')
+    it.text = ' PAGEREF %s \\h ' % bookmark; rr._r.append(it)
+    _fld('separate')
+    run(p, str(fallback), size=12, color=NAVY)
+    _fld('end')
+
+
 def _toc_row(document, number, title, page):
-    """One TOC line: 'N)  Title' … <dotted leader> … page/ordinal, right-aligned."""
+    """One TOC line: 'N)  Title' … <dotted leader> … REAL page (PAGEREF field, ordinal fallback)."""
     p = document.add_paragraph()
     p.paragraph_format.space_before = Pt(2)
     p.paragraph_format.space_after = Pt(2)
@@ -725,7 +820,7 @@ def _toc_row(document, number, title, page):
     run(p, '%s)  ' % number, size=12, bold=True, color=NAVY)
     run(p, '' if title is None else str(title), size=12)
     run(p, '\t', size=12)
-    run(p, str(page), size=12, color=NAVY)
+    _toc_pageref(p, '_sec_%s' % number, page)
     return p
 
 
@@ -800,12 +895,15 @@ def write_docx(doc, output_path, chrome=None):
             number = int(section.get('number'))
         except (TypeError, ValueError):
             number = idx
-        docx_template.heading(document, docx_template.format_number((number,)),
-                              section.get('title', ''))
+        hp = docx_template.heading(document, docx_template.format_number((number,)),
+                                   section.get('title', ''))
+        _bookmark_para(hp, '_sec_%s' % number, 900 + number)   # PAGEREF target for the TOC
         _render(document, section, number)
         if idx < len(sections):
             document.add_page_break()
 
+    # Real TOC page numbers: refresh all fields (the TOC PAGEREFs) with the true page on open.
+    docx_template.enable_update_fields(document)
     # Final safety pass: guarantee every drawing object has a document-wide unique id
     # (header logos vs. body charts/org-charts) so Word never "repairs" the file on open.
     _dedupe_drawing_ids(document)
