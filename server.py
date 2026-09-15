@@ -471,7 +471,14 @@ class Handler(BaseHTTPRequestHandler):
     # ── /api/narrative/pdf ────────────────────────────────────────────────
     def _handle_narrative_pdf(self, body):
         """Render the (edited) narrative to PDF via Chrome headless — same pipeline
-        as the other reports, so the PDF reflects the user's on-screen edits."""
+        as the other reports, so the PDF reflects the user's on-screen edits.
+
+        TWO-PASS so the Table of Contents can carry the sections' real physical page
+        numbers (a section that overflows onto a later sheet still lists the page you
+        turn to): pass-1 renders with ordinal TOC numbers, PyMuPDF then locates every
+        section heading in that PDF to build a page-map, and pass-2 re-renders the TOC
+        with those real pages. If PyMuPDF is unavailable or no heading can be located,
+        the pass-1 PDF (ordinal TOC) is kept — no failure, just the earlier behaviour."""
         doc_dict = body.get('doc')
         output_path = body.get('output_path', '')
         if not doc_dict or not output_path:
@@ -482,16 +489,49 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_narrative.builder import apply_edits
             from p6_narrative.html import page_html
-            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
-                tmp.write(page_html(apply_edits(doc_dict, body.get('edits'))))
-                html_path = tmp.name
+            edited = apply_edits(doc_dict, body.get('edits'))
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
-            os.unlink(html_path)
+            out = os.path.abspath(output_path)
+
+            def _render_pdf(html_str, out_pdf):
+                with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
+                                                 encoding='utf-8') as tmp:
+                    tmp.write(html_str)
+                    html_path = tmp.name
+                try:
+                    subprocess.run([
+                        chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                        f'--print-to-pdf={out_pdf}', '--no-pdf-header-footer',
+                        f'file:///{html_path.replace(os.sep, "/")}',
+                    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        timeout=180)
+                finally:
+                    try:
+                        os.unlink(html_path)
+                    except OSError:
+                        pass
+
+            # pass 1 — ordinal TOC, into a temp PDF used only for measuring page numbers
+            pass1 = out + '.pass1.pdf'
+            _render_pdf(page_html(edited), pass1)
+
+            page_map = None
+            try:
+                page_map = _narrative_page_map(pass1, edited.get('sections') or [])
+            except Exception:
+                page_map = None
+
+            if page_map:
+                # pass 2 — TOC stamped with real physical pages
+                _render_pdf(page_html(edited, page_map=page_map), out)
+                try:
+                    os.unlink(pass1)
+                except OSError:
+                    pass
+            else:
+                # keep the pass-1 PDF (ordinal TOC) as the deliverable
+                os.replace(pass1, out)
+
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1189,6 +1229,43 @@ def _chrome_candidates():
         pass
     seen = set()
     return [c for c in out if not (c in seen or seen.add(c))]
+
+
+def _narrative_page_map(pdf_path, sections):
+    """Second half of the Baseline-Narrative two-pass PDF export: open the pass-1 PDF
+    with PyMuPDF and locate each section's real physical page by its ``"N) Title"``
+    heading text, returning ``{section_number: physical_page}`` (1-based) for the TOC.
+
+    Front matter (cover + Table of Contents) is skipped so a section title that also
+    appears in the TOC never yields a false match. Headings are matched in body order
+    with a forward pointer (every section starts on its own sheet), and whitespace is
+    normalised so a wrapped or re-spaced heading still matches. Returns ``None`` if
+    nothing could be located (caller then keeps the pass-1 ordinals)."""
+    import pymupdf
+    pdf = pymupdf.open(pdf_path)
+    try:
+        texts = [' '.join((pdf[i].get_text() or '').split()) for i in range(pdf.page_count)]
+    finally:
+        pdf.close()
+    start = 0
+    for i, t in enumerate(texts):                       # first body page = after the TOC
+        if 'Table of Contents' in t:
+            start = i + 1
+    page_map, ptr = {}, start
+    for s in sections or []:
+        if not s:
+            continue
+        num = str(s.get('number'))
+        heading = ' '.join(('%s) %s' % (num, s.get('title') or '')).split())
+        if not heading:
+            continue
+        found = next((i for i in range(ptr, len(texts)) if heading in texts[i]), None)
+        if found is None:                               # relax: anywhere in the body
+            found = next((i for i in range(start, len(texts)) if heading in texts[i]), None)
+        if found is not None:
+            page_map[num] = found + 1                    # 1-based physical page
+            ptr = found + 1
+    return page_map or None
 
 
 _CHROME_PATH = None  # resolved once per process (the probe costs ~0.3s)

@@ -152,13 +152,15 @@ def _overview(ctx, r):
 
 # ── §2 Project Layout ─────────────────────────────────────────────────────────
 def _layout(setup):
+    # Always present so the report is a consistent 10 sections (Ibrahim): show the uploaded
+    # drawing when provided, else a clear placeholder prompting one to be attached in setup.
     img = setup.get('layout')
-    if not img:
-        return None
-    return Section('2', 'Project Layout', 'image', 'auto',
-                   payload={'image': img, 'caption': 'Project general layout'},
-                   note='Uploaded in the report setup; the section is skipped when no drawing '
-                        'is provided.')
+    payload = {'image': img, 'caption': 'Project general layout'} if img else {
+        'image': None,
+        'placeholder': 'No project layout drawing was attached. Add one in the report '
+                       'setup (Project Layout) to show the general arrangement here.'}
+    return Section('2', 'Project Layout', 'image', 'auto', payload=payload,
+                   note='The uploaded general-arrangement drawing; attach it in the report setup.')
 
 
 # ── §3 Project Brief ──────────────────────────────────────────────────────────

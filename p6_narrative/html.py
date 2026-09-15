@@ -44,10 +44,22 @@ _ARROW = '➢'         # ➢ building bullet
 _CHECK = '✓'         # ✓ element bullet
 _MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-# Shared discipline / type-of-work colour ramp (navy → pale blue → grey), cycled if
-# a chart has more segments than colours. Used by the §5 doughnut and §6.1 comp bar so
-# the same discipline reads in the same colour across both sections.
-_RAMP = ['1F4E79', '2E75B6', '5B9BD5', '8AB4DE', 'B3CFE8', 'D6E4F0', '9AA4B0']
+# Shared DISTINCT discipline colour ramp — each discipline reads in its own hue (navy,
+# green, amber, purple, red, teal, mauve), cycled if a chart has more segments than
+# colours. Used by BOTH the §6 Contract-Value doughnut and the §7.1 composition bar so a
+# discipline is the SAME colour in both sections. Any discipline literally named
+# "Unclassified" / "Other" is forced to grey regardless of its position in the list.
+_RAMP = ['1F4E79', '2E9E5B', 'E8A33D', '7A5AA6', 'C0504D', '4BACC6', 'B07AA1']
+_GREY = '9AA4B0'
+
+
+def _disc_color(name, i):
+    """Colour for a discipline / type-of-work segment: grey for Unclassified / Other,
+    otherwise the distinct ramp indexed by its order in the list (so the same discipline
+    keeps the same colour across the §6 doughnut and the §7.1 composition bar)."""
+    if str(name or '').strip().lower() in ('unclassified', 'other'):
+        return _GREY
+    return _RAMP[i % len(_RAMP)]
 
 
 def _esc(x):
@@ -166,7 +178,7 @@ def _doughnut(rows, cap, center_big, value_fn):
     total_pct = sum(float(r.get('pct') or 0) for r in rows) or 100.0
     stops, legend, acc = [], '', 0.0
     for i, r in enumerate(rows):
-        col = _RAMP[i % len(_RAMP)]
+        col = _disc_color(r.get('name'), i)
         acc += float(r.get('pct') or 0) / total_pct * 100.0
         start = acc - float(r.get('pct') or 0) / total_pct * 100.0
         # last segment snaps to 100% so the ring closes with no seam
@@ -185,21 +197,27 @@ def _doughnut(rows, cap, center_big, value_fn):
 
 # ── native 100% composition bar (§6.1 scope by discipline) ────────────────────
 def _compbar(rows):
-    """A single 100%-wide bar split into one colour-ramp segment per discipline
-    (segment width = its share of contract value); the dominant segment carries an
-    inline name+pct label, followed by a one-line swatch legend. Fully editable."""
+    """A single 100%-wide bar split into one DISTINCT-colour segment per discipline
+    (segment width = its share of contract value). Each segment carries its own on-bar
+    label where it is wide enough — a wide (dominant) segment shows name + pct, a
+    medium one shows the pct alone, and slivers too small to hold text stay in the
+    one-line swatch legend below. Fully editable (no picture)."""
     rows = [r for r in rows if r]
     if not rows:
         return '<p class="note">No cost loading in the file.</p>'
     total_pct = sum(float(r.get('pct') or 0) for r in rows) or 100.0
-    dom = max(range(len(rows)), key=lambda i: float(rows[i].get('pct') or 0))
     segs, legend = '', []
     for i, r in enumerate(rows):
-        col = _RAMP[i % len(_RAMP)]
+        col = _disc_color(r.get('name'), i)
         width = float(r.get('pct') or 0) / total_pct * 100.0
-        inner = ''
-        if i == dom and width >= 12:      # only the dominant slice is wide enough to label
+        # label every segment that can physically hold text: name+pct when it is wide,
+        # just the pct when it is only medium-wide, nothing when it is a sliver.
+        if width >= 20:
             inner = '%s %s%%' % (_esc(r.get('name')), _fmt_pct(r.get('pct')))
+        elif width >= 6:
+            inner = '%s%%' % _fmt_pct(r.get('pct'))
+        else:
+            inner = ''
         segs += ('<div class="compseg" style="width:%.4g%%;background:#%s">%s</div>'
                  % (width, col, inner))
         legend.append('<span class="cl-i"><i style="background:#%s"></i>%s %s%%</span>'
@@ -229,14 +247,19 @@ def _image(p, number, title, meta, cur):
     img = p.get('image')
     cap = p.get('caption') or 'Project general layout'
     if img:
+        # a real layout drawing → figure + caption
         fig = ('<img src="%s" alt="%s" style="max-width:100%%;display:block;margin:0 auto;'
                'border:1px solid #b9c6d3;border-radius:6px">' % (_esc(img), _esc(cap)))
-    else:
-        fig = ('<div style="border:1px solid #b9c6d3;background:#f4f7fa;height:150px;'
-               'display:flex;align-items:center;justify-content:center;color:#7a8794;'
-               'font-style:italic;font-size:13px">[ site layout drawing ]</div>')
-    return ('%s<div style="text-align:center;font-size:10.5px;color:#5a5f66;'
-            'font-style:italic;margin-top:5px">Figure 1 &mdash; %s</div>' % (fig, _esc(cap)))
+        return ('%s<div style="text-align:center;font-size:10.5px;color:#5a5f66;'
+                'font-style:italic;margin-top:5px">Figure 1 &mdash; %s</div>'
+                % (fig, _esc(cap)))
+    # no drawing attached → a clean framed placeholder box (dashed, soft) carrying the
+    # payload's own guidance text — never a broken / empty figure.
+    ph = (p.get('placeholder')
+          or 'No project layout drawing was attached. Add one in the report setup to '
+             'show the project general arrangement here.')
+    return ('<div class="ph-box"><div class="ph-ico">&#128506;</div>'
+            '<div class="ph-txt">%s</div></div>' % _esc(ph))
 
 
 # ── §3 Project Brief ──────────────────────────────────────────────────────────
@@ -332,16 +355,12 @@ def _scope(p, number, title, meta, cur):
         out += ('<p class="arw"><span class="a">%s</span> %s &mdash; %s%s (%s%%)</p>'
                 % (_ARROW, _esc(a.get('label')), _fmt_full(a.get('cost'), cur),
                    qty, _fmt_pct(a.get('pct'))))
-        # per-discipline lines: bold name, ✓-prefixed work types when present
+        # per-discipline block: bold discipline name on its own line, then each work
+        # type as its own bullet ("• …") on its own line beneath it (never an inline run).
         for disc in (a.get('disciplines') or []):
-            name_html = '<b>%s</b>' % _esc(disc.get('name'))
-            wts = disc.get('worktypes') or []
-            if wts:
-                items = ' &middot; '.join(
-                    '<span class="c">%s</span> %s' % (_CHECK, _esc(w)) for w in wts)
-                out += '<p class="chk">%s: %s</p>' % (name_html, items)
-            else:
-                out += '<p class="chk">%s</p>' % name_html
+            out += '<p class="disc-name">%s</p>' % _esc(disc.get('name'))
+            for w in (disc.get('worktypes') or []):
+                out += '<p class="wt-item"><span class="wt-b">&bull;</span> %s</p>' % _esc(w)
 
     return out
 
@@ -457,45 +476,161 @@ def _calendars(p, number, title, meta, cur):
 
 
 # ── §9 Work Breakdown Structure ───────────────────────────────────────────────
-def _wbs_tree(p, number, title, meta, cur):
-    intro = ('<p>The project WBS is presented below as an indented hierarchical tree &mdash; '
-             'the project root at the top, each major branch beneath it, then every branch '
-             'expanded to its full depth (to Level 4 where a branch reaches it, otherwise to '
-             'Level 3). Each parent is joined to its children by connector lines.</p>')
+# Per-level box palette (navy → blue), shared by the vertical CSS tree (.wt .lvN)
+# and the horizontal inline-SVG tree: (fill, text, border), hex without '#'.
+_WBS_LV = {
+    0: ('1F4E79', 'ffffff', '1F4E79'),
+    1: ('BCD3EA', '12324d', '9cbcdd'),
+    2: ('DEEAF6', '14324f', '9cbcdd'),
+    3: ('eef4fb', '1f4e79', '9cbcdd'),
+    4: ('ffffff', '33414d', 'd3ddea'),
+}
 
-    def _node(node, level):
-        # A node is either a bare name (a leaf) or a [name, [children...]] pair.
-        # Emits: <li><span class="bx lvN">NAME</span>[<ul>…child LIs…</ul>]</li>
-        if isinstance(node, (list, tuple)):
-            name = node[0] if len(node) > 0 else ''
-            children = node[1] if len(node) > 1 else []
+
+def _wbs_split(node):
+    """A WBS node is either a bare name (a leaf) or a ``[name, [children…]]`` pair."""
+    if isinstance(node, (list, tuple)):
+        return (node[0] if len(node) > 0 else ''), (node[1] if len(node) > 1 else [])
+    return node, []
+
+
+def _wbs_norm(node, level):
+    """Normalise a raw payload node into ``{name, level, children:[…]}`` (pre-order)."""
+    name, kids = _wbs_split(node)
+    return {'name': name, 'level': level,
+            'children': [_wbs_norm(k, level + 1) for k in (kids or [])]}
+
+
+def _wbs_metrics(root):
+    """(node_count, max_label_len, level_span) for a normalised subtree — the three
+    signals the adaptive orientation is chosen from (never hard-coded)."""
+    cnt = ml = mlev = 0
+    stack = [root]
+    while stack:
+        n = stack.pop()
+        cnt += 1
+        ml = max(ml, len(str(n['name'] or '')))
+        mlev = max(mlev, n['level'])
+        stack.extend(n['children'])
+    return cnt, ml, (mlev - root['level'] + 1)
+
+
+def _wbs_use_horizontal(root):
+    """HORIZONTAL (compact left→right org-chart) only when the branch is small AND
+    short-labelled AND shallow — otherwise VERTICAL indented stack, so a long label
+    is never clipped and a wide branch never overflows the page."""
+    cnt, ml, levels = _wbs_metrics(root)
+    return cnt > 1 and cnt <= 10 and ml <= 24 and levels <= 3
+
+
+def _wbs_vtree(root):
+    """The VERTICAL indented tree (kept from the approved design) — nested ``<ul>``/
+    ``<li>`` rendered by the ``.wt`` CSS (orthogonal elbow connectors via ::before/
+    ::after). Level colours come from the ``.wt .lvN`` classes."""
+    def _li(n):
+        inner = '<span class="bx lv%d">%s</span>' % (min(n['level'], 4), _esc(n['name']))
+        if n['children']:
+            inner += '<ul>%s</ul>' % ''.join('<li>%s</li>' % _li(c) for c in n['children'])
+        return inner
+    return '<div class="wt"><ul><li>%s</li></ul></div>' % _li(root)
+
+
+def _wbs_svg(root):
+    """The HORIZONTAL left→right tidy tree, drawn as an inline SVG we compute so the
+    layout + connectors are exact and never overlap or clip.
+
+    Layout math (tidy tree): x = depth*COL_W (depth from the branch root = 0); each
+    leaf takes the next Y slot; a parent's Y = the midpoint of its children's Y span.
+    Connector per parent: from the parent's right edge a short horizontal segment to a
+    vertical BUS line (spanning first→last child centre-Y), then a horizontal STUB from
+    the bus to each child's left edge — one clean orthogonal elbow per real link, no
+    diagonals, siblings aligned. The canvas grows to fit every box."""
+    ROW_H, BOX_H = 30.0, 23.0
+    CHAR_W, PAD_X, GAP_X, MARGIN = 6.2, 22.0, 26.0, 6.0
+    _, maxlen, _ = _wbs_metrics(root)
+    BOX_W = min(max(maxlen * CHAR_W + PAD_X, 64.0), 176.0)
+    COL_W = BOX_W + GAP_X
+    root_level = root['level']
+    cursor = [MARGIN + BOX_H / 2.0]
+
+    def _assign(n):
+        n['_x'] = MARGIN + (n['level'] - root_level) * COL_W        # left edge
+        if n['children']:
+            for c in n['children']:
+                _assign(c)
+            n['_y'] = (n['children'][0]['_y'] + n['children'][-1]['_y']) / 2.0
         else:
-            name, children = node, []
-        li = '<li><span class="bx lv%d">%s</span>' % (level, _esc(name))
-        if children:
-            li += '<ul>%s</ul>' % ''.join(_node(c, level + 1) for c in children)
-        return li + '</li>'
+            n['_y'] = cursor[0]
+            cursor[0] += ROW_H
+    _assign(root)
 
-    # number.1 · WBS Overview — project root (lv0) → each major branch (lv1)
+    nodes, elbows, maxx, maxy = [], [], [0.0], [0.0]
+
+    def _walk(n):
+        nodes.append(n)
+        maxx[0] = max(maxx[0], n['_x'] + BOX_W)
+        maxy[0] = max(maxy[0], n['_y'] + BOX_H / 2.0)
+        if n['children']:
+            bus_x = n['_x'] + BOX_W + GAP_X / 2.0
+            ys = [c['_y'] for c in n['children']]
+            d = 'M%.1f,%.1f H%.1f' % (n['_x'] + BOX_W, n['_y'], bus_x)
+            if len(ys) > 1:
+                d += ' M%.1f,%.1f V%.1f' % (bus_x, min(ys), max(ys))
+            for c in n['children']:
+                d += ' M%.1f,%.1f H%.1f' % (bus_x, c['_y'], c['_x'])
+            elbows.append(d)
+            for c in n['children']:
+                _walk(c)
+    _walk(root)
+
+    W, H = maxx[0] + MARGIN, maxy[0] + MARGIN
+    paths = ''.join('<path d="%s" fill="none" stroke="#9cbcdd" stroke-width="1.5" '
+                    'stroke-linecap="square"/>' % d for d in elbows)
+    boxes = ''
+    for n in nodes:
+        fill, txt, brd = _WBS_LV[min(n['level'], 4)]
+        boxes += ('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="5" fill="#%s" '
+                  'stroke="#%s" stroke-width="1"/>'
+                  '<text x="%.1f" y="%.1f" text-anchor="middle" dominant-baseline="central" '
+                  'font-family="Calibri,Arial,sans-serif" font-size="10.5" font-weight="700" '
+                  'fill="#%s">%s</text>'
+                  % (n['_x'], n['_y'] - BOX_H / 2.0, BOX_W, BOX_H, fill, brd,
+                     n['_x'] + BOX_W / 2.0, n['_y'], txt, _esc(n['name'])))
+    return ('<div class="wsvg"><svg viewBox="0 0 %.1f %.1f" width="%.1f" height="%.1f" '
+            'xmlns="http://www.w3.org/2000/svg" style="max-width:100%%;height:auto" '
+            'font-family="Calibri,Arial,sans-serif">%s%s</svg></div>' % (W, H, W, H, paths, boxes))
+
+
+def _wbs_tree(p, number, title, meta, cur):
+    intro = ('<p>The project WBS is presented below as a hierarchical tree &mdash; the '
+             'project root, each major branch, then every branch expanded to its full depth. '
+             'The layout adapts per branch: a small, short-labelled branch is drawn as a '
+             'compact left-to-right org-chart (parent on the left, its children stacked in a '
+             'column to the right, joined by clean orthogonal connectors), while a branch '
+             'with many children or long labels keeps the vertical indented stack so no '
+             'label is ever clipped.</p>')
+
+    def _block(root, sub):
+        tree = _wbs_svg(root) if _wbs_use_horizontal(root) else _wbs_vtree(root)
+        return '<div class="sub">%s</div>%s' % (sub, tree)
+
+    # number.1 · WBS Overview — project root (lv0) → each major branch (lv1). Always
+    # VERTICAL (10 long-named majors would clip or overflow horizontally).
     overview = p.get('overview') or {}
-    ov_children = ''.join(_node(c.get('name'), 1)
-                          for c in (overview.get('children') or []))
-    ov_tree = ('<div class="wt"><ul><li><span class="bx lv0">%s</span>'
-               '<ul>%s</ul></li></ul></div>'
-               % (_esc(overview.get('name')), ov_children))
-    ov_block = ('<div class="sub">%s.1 &middot; WBS Overview</div>%s'
-                % (_esc(number), ov_tree))
+    ov_root = {'name': overview.get('name'), 'level': 0,
+               'children': [{'name': c.get('name'), 'level': 1, 'children': []}
+                            for c in (overview.get('children') or [])]}
+    out = intro + '<div class="sub">%s.1 &middot; WBS Overview</div>%s' % (
+        _esc(number), _wbs_vtree(ov_root))
 
-    # number.n · <branch> — breakdown — branch (lv1) → L2 → L3 → L4
-    branch_blocks = ''
+    # number.n · <branch> — breakdown — branch root (lv1) → L2 → L3 → L4, orientation
+    # chosen per branch.
     for i, br in enumerate(p.get('branches') or [], 1):
-        cols = ''.join(_node(col, 2) for col in (br.get('columns') or []))
-        tree = ('<div class="wt"><ul><li><span class="bx lv1">%s</span>'
-                '<ul>%s</ul></li></ul></div>'
-                % (_esc(br.get('name')), cols))
-        branch_blocks += ('<div class="sub">%s.%d &middot; %s &mdash; breakdown</div>%s'
-                          % (_esc(number), i + 1, _esc(br.get('name')), tree))
-    return intro + ov_block + branch_blocks
+        root = {'name': br.get('name'), 'level': 1,
+                'children': [_wbs_norm(c, 2) for c in (br.get('columns') or [])]}
+        out += _block(root, '%s.%d &middot; %s &mdash; breakdown'
+                      % (_esc(number), i + 1, _esc(br.get('name'))))
+    return out
 
 
 # ── §10 Activity Codes ────────────────────────────────────────────────────────
@@ -593,8 +728,13 @@ _TOC_GROUPS = [
 ]
 
 
-def _toc(meta, paged):
-    """``paged`` = [(section, page_number), …] in body order."""
+def _toc(meta, paged, page_map=None):
+    """``paged`` = [(section, page_number), …] in body order.
+
+    ``page_map`` (optional) maps a section's number → its real physical page in the
+    exported PDF (found by the two-pass export). When supplied, the TOC prints those
+    real page numbers instead of the section ordinal — so a section that overflowed
+    onto a later sheet still lists the page you actually turn to."""
     grp_hdr = ('<div style="font-family:Calibri,sans-serif;font-size:11px;color:#8a95a1;'
                'font-weight:700;letter-spacing:.06em;margin:16px 0 5px;border-bottom:'
                '1px solid #e2e8ef;padding-bottom:3px">%s</div>')
@@ -602,6 +742,14 @@ def _toc(meta, paged):
             '<span style="color:#1F4E79;font-weight:700;width:34px">%s)</span>'
             '<span>%s</span><span style="flex:1;border-bottom:1.4px dotted #9aa4b0;'
             'margin:0 8px;transform:translateY(-4px)"></span><span>%s</span></div>')
+
+    def _pg(s, pg):
+        if page_map:
+            v = page_map.get(str(s.get('number')))
+            if v:
+                return v
+        return pg
+
     by_title = {s.get('title'): (s, pg) for s, pg in paged}
     used = set()
     out = ''
@@ -611,14 +759,14 @@ def _toc(meta, paged):
             if t in by_title:
                 s, pg = by_title[t]
                 used.add(t)
-                rows += item % (_esc(s.get('number')), _esc(s.get('title')), pg)
+                rows += item % (_esc(s.get('number')), _esc(s.get('title')), _pg(s, pg))
         if rows:
             out += (grp_hdr % _h.escape(label)) + rows
     # any section not covered by a named group (defensive) → an "OTHER" trailer
     extra = ''
     for s, pg in paged:
         if s.get('title') not in used:
-            extra += item % (_esc(s.get('number')), _esc(s.get('title')), pg)
+            extra += item % (_esc(s.get('number')), _esc(s.get('title')), _pg(s, pg))
     if extra:
         out += (grp_hdr % 'OTHER') + extra
     body = ('<div style="text-align:center;font-family:\'Calibri Light\',Calibri,sans-serif;'
@@ -630,29 +778,32 @@ def _toc(meta, paged):
 
 
 # ── public API ────────────────────────────────────────────────────────────────
-def render_narrative_html(doc, seq_style=None):
+def render_narrative_html(doc, seq_style=None, page_map=None):
     """Render the narrative ``doc`` (dict) to a self-contained HTML string.
 
     ``seq_style`` is accepted for signature compatibility with the export path; the
-    redesigned report has a single fixed layout, so it is unused.
-    """
+    redesigned report has a single fixed layout, so it is unused. ``page_map`` (optional)
+    maps a section number → its real physical page in the exported PDF; when supplied the
+    Table of Contents prints those real page numbers instead of the section ordinal (the
+    two-pass PDF export in ``server.py`` fills it on the second pass)."""
     doc = doc or {}
     meta = doc.get('meta') or {}
     cur = _currency_prefix(meta)
     sections = [s for s in (doc.get('sections') or []) if s]
     paged = [(s, i) for i, s in enumerate(sections, 1)]     # body page numbering from 1
 
-    pages = [_cover(meta), _toc(meta, paged)]
+    pages = [_cover(meta), _toc(meta, paged, page_map)]
     for s, pg in paged:
         pages.append(_section_page(s, meta, cur, pg))
     return '<style>%s</style>%s' % (_CSS, ''.join(pages))
 
 
-def page_html(doc):
-    """Full standalone HTML page (Chrome → PDF source)."""
+def page_html(doc, page_map=None):
+    """Full standalone HTML page (Chrome → PDF source). ``page_map`` is threaded to the
+    TOC so the two-pass export can stamp real physical page numbers on the second pass."""
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<title>Baseline Narrative Report</title></head><body>'
-            + render_narrative_html(doc) + '</body></html>')
+            + render_narrative_html(doc, page_map=page_map) + '</body></html>')
 
 
 # ── the approved visual spec (mockups/narrative_full.html), verbatim + the native
@@ -672,6 +823,9 @@ body { margin: 0; font-family: 'Times New Roman', Georgia, serif; color: #1a1d21
 h1.sec { font-family:'Calibri Light',Calibri,sans-serif; color:#1F4E79; font-weight:700; font-size:20px; margin:2px 0 12px; }
 p { font-size:13px; line-height:1.55; margin:0 0 11px; }
 .note { color:#9aa4b0; font-size:10.5px; font-style:italic; margin-top:10px; }
+.ph-box { border:1.5px dashed #b9c6d3; background:#f7fafd; border-radius:8px; padding:34px 26px; text-align:center; margin:12px 0; }
+.ph-ico { font-size:34px; line-height:1; margin-bottom:10px; color:#9fb2c8; font-family:'Segoe UI Emoji',Calibri,sans-serif; }
+.ph-txt { font-size:12.5px; color:#5a6672; max-width:74%; margin:0 auto; line-height:1.6; font-family:'Times New Roman',Georgia,serif; }
 .sub { font-family:Calibri,sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#17457a; border-bottom:1px solid #dbe1e8; padding-bottom:4px; margin:16px 0 12px; font-weight:700; }
 .subblue { font-family:Calibri,sans-serif; font-size:11px; font-weight:700; color:#1F4E79; text-transform:uppercase; letter-spacing:.03em; margin:6px 0 8px; }
 table { border-collapse: collapse; }
@@ -718,6 +872,9 @@ table { border-collapse: collapse; }
 .arw .a { color:#1F4E79; }
 .chk { margin:0 0 1px; padding-left:24px; font-size:12.5px; }
 .chk .c { color:#1f7a3d; }
+.disc-name { font-size:12.5px; font-weight:700; color:#14324f; margin:6px 0 2px; padding-left:22px; }
+.wt-item { font-size:12px; color:#33414d; margin:0 0 1px; padding-left:36px; line-height:1.45; }
+.wt-item .wt-b { color:#1F4E79; font-weight:700; }
 .callegend { display:flex; gap:14px; flex-wrap:wrap; margin:4px 0 10px; font-size:9.5px; color:#5b6472; font-family:Calibri,sans-serif; }
 .callegend span { display:inline-flex; align-items:center; gap:4px; }
 .callegend i { width:10px; height:10px; border-radius:2px; display:inline-block; }
@@ -741,6 +898,8 @@ table { border-collapse: collapse; }
 .wt .lv2{background:#DEEAF6;color:#14324f;}
 .wt .lv3{background:#eef4fb;color:#1f4e79;font-weight:600;}
 .wt .lv4{background:#fff;color:#33414d;font-weight:400;border-color:#d3ddea;font-size:9.5px;}
+.wsvg{margin:6px 0 14px;}
+.wsvg svg{display:block;}
 .codes { display:flex; gap:16px; margin-bottom:12px; }
 .codes > div { flex:1; }
 .ct { font-size:12px; font-weight:700; margin:0 0 5px; }
