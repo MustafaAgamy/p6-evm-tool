@@ -820,7 +820,9 @@ body { margin: 0; font-family: 'Times New Roman', Georgia, serif; color: #1a1d21
 .rhead .box { border:1px dashed #c2ccd6; color:#aab4bf; font-size:9px; padding:11px 3px; background:#fafcfe; font-family:Calibri,sans-serif; width:100%; }
 .rhead .lgimg { max-height:46px; max-width:100%; object-fit:contain; }
 .rfoot { position:absolute; left:9mm; right:9mm; bottom:5mm; text-align:center; color:#8a95a1; font-size:10px; font-family:Calibri,sans-serif; }
-h1.sec { font-family:'Calibri Light',Calibri,sans-serif; color:#1F4E79; font-weight:700; font-size:20px; margin:2px 0 12px; }
+h1.sec { font-family:'Calibri Light',Calibri,sans-serif; color:#1F4E79; font-weight:700; font-size:20px; margin:2px 0 12px; break-after:avoid; page-break-after:avoid; }
+.sub, .subblue, .subctr { break-after:avoid; page-break-after:avoid; }
+h1.sec + *, .sub + *, .subblue + *, .subctr + * { break-before:avoid; page-break-before:avoid; }
 p { font-size:13px; line-height:1.55; margin:0 0 11px; }
 .note { color:#9aa4b0; font-size:10.5px; font-style:italic; margin-top:10px; }
 .ph-box { border:1.5px dashed #b9c6d3; background:#f7fafd; border-radius:8px; padding:34px 26px; text-align:center; margin:12px 0; }

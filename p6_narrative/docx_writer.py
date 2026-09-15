@@ -168,6 +168,7 @@ def _subhead(document, num, title, size=12):
     p = document.add_paragraph()
     p.paragraph_format.space_before = Pt(12)
     p.paragraph_format.space_after = Pt(7)
+    p.paragraph_format.keep_with_next = True   # heading never orphaned from its content
     run(p, ('%s  %s' % (num, title)).strip().upper(), font=CAL, size=size,
         bold=True, color=SUBNAVY)
     pPr = p._p.get_or_add_pPr()

@@ -333,6 +333,7 @@ def heading(document, number_label, title, level=1):
     para = document.add_heading('', level=level)
     text = ('%s %s' % (number_label or '', title or '')).strip()
     _set_run_font(para.add_run(text), _HEAD_FONT, size=size, bold=True, color=NAVY)
+    para.paragraph_format.keep_with_next = True   # heading stays with its content (no orphan)
     return para
 
 
