@@ -1014,10 +1014,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_update.exporters import report_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = report_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Update Analysis', headers, rows)
+            from p6_update.exporters import report_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), report_excel_sections(report),
+                                meta=_excel_meta('Update Analysis', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1410,8 +1410,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_critpath.exporters import to_excel
-            to_excel(report, output_path)
+            from p6_critpath.exporters import critpath_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), critpath_excel_sections(report),
+                                meta=_excel_meta('Critical Path Analyzer', report,
+                                                 snapshot_id=body.get('snapshot_id')))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1787,10 +1790,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_kb.exporters import findings_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = findings_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Constructability Findings', headers, rows)
+            from p6_kb.exporters import findings_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), findings_excel_sections(report),
+                                meta=_excel_meta('Constructability Review', report,
+                                                 snapshot_id=body.get('snapshot_id')))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2078,10 +2082,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_compare.exporters import logic_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = logic_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Driving Logic Changes', headers, rows)
+            from p6_compare.exporters import logic_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            impact = body.get('impact')
+            write_sections_xlsx(os.path.abspath(output_path), logic_excel_sections(report, impact),
+                                meta=_excel_meta('Consultant Review', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

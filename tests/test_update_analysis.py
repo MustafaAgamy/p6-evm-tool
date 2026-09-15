@@ -428,6 +428,9 @@ def test_report_excel_sections_empty_report_is_safe():
     from p6_update.exporters import report_excel_sections
     sheets = report_excel_sections({})
     assert len(sheets) == 1 and sheets[0]['blocks']
+    # the fallback actually fires (not a Time Status sheet full of em-dashes)
+    assert sheets[0]['name'] == 'Update Analysis'
+    assert sheets[0]['blocks'][0]['rows'][0][0] == 'No data'
     import tempfile as _tf
     with _tf.NamedTemporaryFile(suffix='.xlsx', delete=False) as f:
         out = f.name

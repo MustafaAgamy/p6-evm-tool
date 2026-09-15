@@ -469,6 +469,13 @@ def report_excel_sections(report):
     scope = report.get('scope', {}) or {}
 
     sheets = []
+    # Is there any real time-status content? (An empty / no-baseline report has none —
+    # then every section below is skipped and the "No data" fallback at the end fires,
+    # instead of a Time Status sheet full of em-dashes.)
+    has_time = bool(report.get('conclusion')) or any(
+        ts.get(k) is not None for k in
+        ('elapsed_pct', 'planned_pct', 'actual_pct', 'behind_plan', 'behind_clock',
+         'pv', 'ev', 'cost_variance'))
 
     # ── Sheet 1 · Executive read + Section 1 Time Status ────────────────────
     blocks = [{
@@ -518,7 +525,8 @@ def report_excel_sections(report):
                 ['Variance (EV minus PV)', _cost(ts.get('cost_variance'))],
             ],
         })
-    sheets.append({'name': 'Time Status', 'blocks': blocks})
+    if has_time:
+        sheets.append({'name': 'Time Status', 'blocks': blocks})
 
     # ── Sheet 2 · Section 2 Planned vs Actual by activity code ──────────────
     code_blocks = []

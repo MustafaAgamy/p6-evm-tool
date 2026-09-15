@@ -287,7 +287,9 @@ async function exportReport(kind, btn) {
     const url = kind === 'pdf' ? '/api/constructability/report' : '/api/constructability/excel';
     const resp = await fetch(`http://localhost:${state.serverPort}${url}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: rep, output_path: path }),
+      // snapshot_id lets the Excel header name the project + data date (the
+      // constructability report dict itself carries neither).
+      body: JSON.stringify({ report: rep, output_path: path, snapshot_id: state.currentSnapshotId }),
     });
     const data = await resp.json();
     if (!data.ok) showError(data.error || 'Export failed.');
