@@ -174,22 +174,34 @@ def _ms_type(name):
 def _compare_milestones(rev0, rev1, cal):
     m0, m1 = _finish_ms_by_code(rev0), _finish_ms_by_code(rev1)
 
-    # Reconcile an ID-ONLY change: a milestone present under one code in Rev.00 and a DIFFERENT
-    # code in Rev.01 but with the SAME name is the same milestone re-coded (the fuzzy matcher
-    # missed it) — collapse the false removed+added pair into one 'idchange' row.
+    # Reconcile an ID change: a milestone present under one code in Rev.00 and a DIFFERENT code in
+    # Rev.01 but with the SAME or a SIMILAR name is the same milestone re-coded (the fuzzy matcher
+    # missed it) — collapse the false removed+added pair into one 'idchange' row so the report
+    # never shows duplicated milestones. Names are matched on a similarity ratio (with a substring
+    # boost), best-match greedy, so "Project Completion Phase I" ≈ "Project Completion — Phase I Scope".
+    import difflib
+
     def _norm(a):
         return ' '.join((a.get('name') or '').lower().split())
     removed_codes, new_codes = set(m0) - set(m1), set(m1) - set(m0)
-    new_by_name = {}
-    for c in new_codes:
-        new_by_name.setdefault(_norm(m1[c]), c)
+    new_norm = {c: _norm(m1[c]) for c in new_codes}
     idchg, consumed_new = {}, set()
-    for rc in removed_codes:
-        nm = _norm(m0[rc])
-        nc = new_by_name.get(nm)
-        if nm and nc and nc not in consumed_new:
-            idchg[rc] = nc
-            consumed_new.add(nc)
+    for rc in sorted(removed_codes):
+        rn = _norm(m0[rc])
+        if not rn:
+            continue
+        best, best_r = None, 0.0
+        for nc, nn in new_norm.items():
+            if nc in consumed_new or not nn:
+                continue
+            r = difflib.SequenceMatcher(None, rn, nn).ratio()
+            if rn in nn or nn in rn:          # one name fully contained in the other
+                r = max(r, 0.92)
+            if r > best_r:
+                best, best_r = nc, r
+        if best and best_r >= 0.82:
+            idchg[rc] = best
+            consumed_new.add(best)
 
     rows = []
     for code in sorted(set(m0) | set(m1)):
