@@ -318,3 +318,35 @@ def test_rasterize_section_returns_none_without_chrome():
     from p6_special.docx_report import _rasterize_section
     assert _rasterize_section('<p>x</p>', '.x{}', 'light', None) is None
     assert _rasterize_section('<p>x</p>', '.x{}', 'light', 'C:/nope/chrome-does-not-exist.exe') is None
+
+
+def test_section_doc_does_not_nest_style_tags():
+    """Regression: the theme block (a full ``<style>…</style>`` element) must NOT be
+    nested inside another ``<style>``. Nesting let the theme's ``</style>`` close the
+    block early, spilling the section's scoped CSS onto the page as visible text —
+    which the rasteriser then screenshotted (Word showed a wall of CSS instead of the
+    chart). The generated page must be well-formed: the scoped selector lives inside a
+    style block in the head, never in the visible body, and no <style> opens while
+    another is still open."""
+    from p6_special.docx_report import _section_doc
+    css = ".srf-weather h2{color:var(--rpt-accent)} .srf-weather td{padding:2px}"
+    frag = '<div class="srf-weather"><table><tr><td>cell</td></tr></table></div>'
+    doc = _section_doc(frag, css, 'light')
+    head, _, body = doc.partition('</head>')
+    assert '.srf-weather' in head          # the scoped CSS made it into a style block
+    assert '.srf-weather h2' not in body   # ... and did NOT leak into the visible body
+    # no <style> opens while another is still open (no nesting)
+    depth = 0
+    i = 0
+    low = doc.lower()
+    while i < len(low):
+        if low.startswith('<style', i):
+            depth += 1
+            assert depth == 1, 'nested <style> — theme tag was wrapped again'
+            i += 6
+        elif low.startswith('</style>', i):
+            depth -= 1
+            i += 8
+        else:
+            i += 1
+    assert depth == 0

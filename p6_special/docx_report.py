@@ -883,6 +883,31 @@ def _strip_leading_heading(markup):
     return markup
 
 
+def _section_doc(fragment_html, css, mode):
+    """Build the standalone HTML page that ``_rasterize_section`` screenshots.
+
+    ``report_theme.theme_style_tag(mode)`` returns a COMPLETE ``<style>…</style>``
+    element, so it must stand on its own in the head. Nesting it inside another
+    ``<style>`` lets its closing ``</style>`` end the block early, spilling the
+    section's scoped CSS onto the page as visible text (which then gets
+    screenshotted — the exact defect that shipped once). The scoped section CSS +
+    body sizing therefore go in a SEPARATE ``<style>`` after the theme tag.
+    Extracted as its own function purely so the structure is unit-testable
+    without launching a browser."""
+    try:
+        import report_theme
+        theme = report_theme.theme_style_tag(mode)
+    except Exception:
+        theme = ''
+    return (
+        '<html><head><meta charset="utf-8">'
+        + theme
+        + '<style>' + (css or '')
+        + ' body{margin:0;background:#fff;width:920px}</style>'
+        + '</head><body>' + (fragment_html or '') + '</body></html>'
+    )
+
+
 def _rasterize_section(fragment_html, css, mode, chrome):
     """Render a reused feature-report section to a PNG (so Word == PDF) via headless
     Chrome. Writes a standalone HTML file (theme tokens + the section's scoped CSS +
@@ -892,19 +917,9 @@ def _rasterize_section(fragment_html, css, mode, chrome):
     is supplied) so the caller can fall back to text/table extraction."""
     if not chrome:
         return None
-    try:
-        import report_theme
-        theme = report_theme.theme_style_tag(mode)
-    except Exception:
-        theme = ''
     htmlpath = png = None
     try:
-        doc = (
-            '<html><head><meta charset="utf-8"><style>'
-            + theme + (css or '')
-            + ' body{margin:0;background:#fff;width:920px}'
-            + '</style></head><body>' + (fragment_html or '') + '</body></html>'
-        )
+        doc = _section_doc(fragment_html, css, mode)
         fd, htmlpath = tempfile.mkstemp(suffix='.html')
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(doc)
