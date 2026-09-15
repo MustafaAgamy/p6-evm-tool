@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Revision — Full Report Redesign (mockup v2)</title>
+<style>
+:root{
+  --bg:#eef2f7; --card-bg:#ffffff; --border:#e2e8f0; --hair:#eef1f6;
+  --text:#1e293b; --ink-soft:#41506a; --muted:#64748b;
+  --accent:#2563eb; --accent-dark:#1d4ed8; --accent-soft:#dbe6ff;
+  --danger:#c02626; --danger-bg:#fadddd; --success:#15803d; --success-bg:#dcf3e4;
+  --warning:#b45309; --warning-bg:#fbeccf; --row-hover:rgba(0,0,0,.03);
+  --chart-1:#3b6fa8; --chart-2:#7ba63c; --chart-3:#c0764a; --chart-4:#6b5bbd; --chart-5:#2f9c9c; --chart-6:#b8497f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif;}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 22px 70px;}
+h1{font-size:22px;margin:0 0 3px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 16px;max-width:920px}
+.note-strip{background:var(--accent-soft);color:var(--accent-dark);border-radius:10px;padding:9px 13px;font-size:12px;margin-bottom:14px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px;position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:5;border-bottom:1px solid var(--border)}
+.tab{font-size:12px;font-weight:700;padding:7px 12px;border-radius:9px;background:var(--card-bg);border:1px solid var(--border);color:var(--ink-soft);text-decoration:none}
+.tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.secmark{display:flex;align-items:center;gap:10px;margin:28px 0 12px}
+.secmark .n{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#fff;background:var(--accent);border-radius:6px;padding:4px 9px}
+.secmark h2{font-size:17px;margin:0}.secmark .sub{font-size:12px;color:var(--muted)}
+.card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:16px 17px;margin-bottom:14px;}
+.card h3{margin:0 0 3px;font-size:14.5px;}.card h3 .n{font-size:11px;font-weight:600;color:var(--muted);margin-left:6px}
+.sec{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}.split3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:800;padding:8px 9px;border-bottom:1px solid var(--border);background:var(--bg)}
+td{padding:8px 9px;border-bottom:1px solid var(--hair);vertical-align:middle}
+td.n,th.n{text-align:right}tr:hover td{background:var(--row-hover)}
+.mut{color:var(--muted)}.new{color:var(--text);font-weight:600}.mono{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--ink-soft)}
+.tbl-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;overflow-x:auto}
+.d{font-weight:700}.d.up{color:var(--danger)}.d.down{color:var(--success)}.d.zero{color:var(--muted)}
+.tag{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:.02em;white-space:nowrap}
+.tag.add{background:var(--success-bg);color:var(--success)}.tag.rem{background:var(--danger-bg);color:var(--danger)}
+.tag.chg{background:var(--warning-bg);color:var(--warning)}.tag.civil{background:var(--accent-soft);color:var(--chart-1)}
+.tag.mep{background:var(--accent-soft);color:var(--chart-5)}.tag.arch{background:var(--accent-soft);color:var(--chart-4)}.tag.struct{background:var(--warning-bg);color:var(--chart-3)}
+.newbadge{font-size:9px;font-weight:800;color:var(--success);background:var(--success-bg);border:1px solid var(--success);border-radius:5px;padding:0 5px;margin-left:6px}
+.rembadge{font-size:9px;font-weight:800;color:var(--danger);background:var(--danger-bg);border:1px solid var(--danger);border-radius:5px;padding:0 5px;margin-left:6px}
+.snap{display:grid;grid-template-columns:1fr auto 1fr}
+.snapcol{padding:2px 16px}.snapcol.r0{border-left:3px solid var(--muted)}.snapcol.r1{border-left:3px solid var(--accent)}
+.snaptag{font-size:11px;font-weight:800;color:var(--muted);margin-bottom:6px}.snapcol.r1 .snaptag{color:var(--accent)}
+.snapfile{font-weight:700;font-size:12px;margin-bottom:8px}
+.kv{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px dashed var(--hair)}.kv .k{color:var(--muted)}.kv .v{font-weight:600}.kv .v.hot{color:var(--danger)}
+.snapmid{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 14px;min-width:110px;text-align:center}
+.snapmid .big{font-size:22px;font-weight:800;color:var(--danger)}.snapmid .l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:4px}
+.led{display:grid;grid-template-columns:1fr auto auto auto;gap:0 18px;align-items:center}
+.led>div{padding:9px 0;border-top:1px solid var(--hair)}.led .h{border-top:0;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:800}
+.led .lbl{font-weight:600}.led .r{text-align:right}
+.bar{display:grid;grid-template-columns:110px 1fr 46px;gap:9px;align-items:center;font-size:12px;padding:3px 0}
+.bar .track{background:var(--bg);border-radius:5px;height:14px;overflow:hidden;display:flex}
+.bar .fa{background:var(--success);height:100%}.bar .fr{background:var(--danger);height:100%}.bar .v{text-align:right;font-weight:700}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:8px}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:4px}
+.filters{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.fchip{font-size:11px;font-weight:700;padding:5px 11px;border-radius:8px;background:var(--card-bg);border:1px solid var(--border);color:var(--ink-soft)}
+.fchip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.fsel{font-size:11px;padding:5px 9px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--ink-soft)}
+.callout{border-radius:10px;padding:9px 12px;font-size:11.5px;background:var(--accent-soft);color:var(--accent-dark);margin-top:8px}
+.wbscrumb{font-size:10.5px;color:var(--muted);margin:2px 0 8px}.wbscrumb b{color:var(--accent)}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:5px 0}
+.node{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:600;background:var(--card-bg)}
+.node.moved{border-color:var(--warning);background:var(--warning-bg);color:var(--warning)}
+.node.crit{border-color:var(--danger);background:var(--danger-bg);color:var(--danger)}
+.node.enter{border-color:var(--success);background:var(--success-bg);color:var(--success)}
+.arw{color:var(--muted);font-weight:800}
+.clab{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:8px}.clab.r1{color:var(--accent)}
+.foot{font-size:11px;color:var(--muted);margin-top:8px}
+/* Primavera-style WBS colour grouping */
+.p6{font-size:12px}
+.p6band{display:flex;align-items:center;gap:8px;padding:5px 10px;font-weight:700;color:#fff;border-radius:4px;margin:3px 0}
+.p6-l1{background:#1f4e79}.p6-l2{background:#2e6da4}.p6-l3{background:#5b9bd5}.p6-l4{background:#9dc3e6;color:#12314f}.p6-l5{background:#dbe7f4;color:#12314f}
+.p6band.added{outline:2px solid var(--success)}.p6band.removed{outline:2px solid var(--danger);opacity:.75;text-decoration:line-through}
+.p6band.moved{outline:2px solid var(--warning)}
+.p6badge{font-size:8.5px;font-weight:800;padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.85);color:#12314f;margin-left:auto}
+.p6act{font-size:11px;color:var(--ink-soft);padding:2px 10px 2px 22px}
+.scombowrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Baseline Revision — full report redesign <span style="font-size:13px;color:var(--muted);font-weight:400">(v2)</span></h1>
+  <p class="lead">Rebuilt with your four corrections. This mockup shows the <b>whole report</b>, top to bottom — the same sections the live feature produces, reorganised to your notes.</p>
+  <div class="note-strip"><b>Applied:</b> ① Activity ID &amp; Activity Name are now <b>separate columns</b> everywhere &nbsp;·&nbsp; ② WBS compare uses <b>Primavera colour-grouping</b> (a distinct colour per level) &nbsp;·&nbsp; ③ the <b>full report</b> is shown (incl. Critical Path &amp; Logic) &nbsp;·&nbsp; ④ S-curve is a <b>histogram + % curve</b> combo with <b>monthly &amp; cumulative value tables</b>.</p>
+
+  <div class="tabs">
+    <a class="tab on">Executive Summary</a><a class="tab">Key Findings</a><a class="tab">Critical Path</a><a class="tab">Change Register</a><a class="tab">Cost &amp; S-curve</a><a class="tab">Scope &amp; Structure</a>
+  </div>
+
+  <!-- 1 EXEC SUMMARY -->
+  <div class="secmark"><span class="n">1</span><h2>Executive Summary</h2><span class="sub">— comparison ledger + activity-code breakdown</span></div>
+  <div class="card">
+    <h3>Revision snapshot <span class="n">Rev.00 → Rev.01</span></h3>
+    <div class="snap">
+      <div class="snapcol r0"><div class="snaptag">Rev.00 · Original</div><div class="snapfile">Project_Baseline_Rev00.xer</div>
+        <div class="kv"><span class="k">Data date</span><span class="v">01 Mar 2025</span></div><div class="kv"><span class="k">Governing finish</span><span class="v">19 Dec 2026</span></div><div class="kv"><span class="k">Activities</span><span class="v">1,240</span></div></div>
+      <div class="snapmid"><div class="big">+47d</div><div class="l">Finish slip</div></div>
+      <div class="snapcol r1"><div class="snaptag">Rev.01 · Revised</div><div class="snapfile">Project_Baseline_Rev01.xer</div>
+        <div class="kv"><span class="k">Data date</span><span class="v">01 Mar 2025</span></div><div class="kv"><span class="k">Governing finish</span><span class="v hot">04 Feb 2027</span></div><div class="kv"><span class="k">Activities</span><span class="v">1,258</span></div></div>
+    </div>
+  </div>
+  <div class="split">
+    <div class="card"><h3>Comparison ledger</h3>
+      <div class="led">
+        <div class="h">Measure</div><div class="h r">Rev.00</div><div class="h r">Rev.01</div><div class="h r">Change</div>
+        <div class="lbl">Total activities</div><div class="r mut">1,240</div><div class="r new">1,258</div><div class="r"><span class="d up">+18</span></div>
+        <div class="lbl">Logic &amp; relationships changed</div><div class="r mut" style="grid-column:2/4;text-align:center">+34 added · −21 removed · 7 type · 3 lag</div><div class="r"><span class="d">65</span></div>
+        <div class="lbl">Critical-path activities in / out</div><div class="r mut">4 in</div><div class="r new">1 out</div><div class="r"><span class="d up">CP +47 d</span></div>
+      </div>
+    </div>
+    <div class="card"><h3>Scope change <span class="n">added &amp; removed, by activity code</span></h3>
+      <div class="filters"><span class="fchip on">By Discipline</span><span class="fchip">By Building</span><span class="fchip">By WBS</span></div>
+      <div class="bar"><div>Civil</div><div class="track"><div class="fa" style="width:46%"></div><div class="fr" style="width:12%"></div></div><div class="v">8 / 2</div></div>
+      <div class="bar"><div>MEP</div><div class="track"><div class="fa" style="width:30%"></div></div><div class="v">5 / 0</div></div>
+      <div class="bar"><div>Architectural</div><div class="track"><div class="fa" style="width:18%"></div><div class="fr" style="width:24%"></div></div><div class="v">3 / 4</div></div>
+      <div class="bar"><div>Structural</div><div class="track"><div class="fa" style="width:12%"></div></div><div class="v">2 / 0</div></div>
+      <div class="legend"><span><b style="background:var(--success)"></b>Added (18)</span><span><b style="background:var(--danger)"></b>Removed (6)</span></div>
+    </div>
+  </div>
+  <div class="card"><h3>Added &amp; removed activities <span class="n">separate ID / Name columns · address from activity codes</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th>Change</th><th>Building</th><th>WBS (under)</th><th>Scope</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A4400</td><td>MEP Risers — Core B</td><td><span class="tag add">Added</span></td><td>Building B</td><td>B › Superstructure › Core</td><td><span class="tag mep">MEP</span></td></tr>
+        <tr><td class="mono">A5120</td><td>Façade Unitised Panels L5</td><td><span class="tag add">Added</span></td><td>Building A</td><td>A › Envelope › Level 5</td><td><span class="tag arch">Architectural</span></td></tr>
+        <tr><td class="mono">A1980</td><td>Temporary Dewatering</td><td><span class="tag rem">Removed</span></td><td>Building A</td><td>A › Substructure › Enabling</td><td><span class="tag civil">Civil</span></td></tr>
+        <tr><td class="mono">A3300</td><td>Blockwork L3 (re-packaged)</td><td><span class="tag rem">Removed</span></td><td>Building A</td><td>A › Fit-out › Level 3</td><td><span class="tag arch">Architectural</span></td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout"><b>Read from activity codes.</b> Each added / removed activity is placed by its Building &amp; Discipline codes and its WBS branch — so you see <b>where</b> scope entered or left the programme.</div>
+  </div>
+
+  <!-- 2 KEY FINDINGS -->
+  <div class="secmark"><span class="n">2</span><h2>Key Findings</h2><span class="sub">— sequence changes clarified, with WBS context</span></div>
+  <div class="card"><h3>Sequence change — clarified <span class="n">Critical Path Analyzer concept</span></h3>
+    <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-weight:700">Column Works — Storey 2 <span style="font-weight:600;color:var(--muted);font-size:11px">· A2-COL-02</span></div>
+      <div class="wbscrumb">Building A › <b>Superstructure</b> › Storey 2 › Columns</div>
+      <div class="clab">Rev.00 — planned order</div>
+      <div class="chain"><span class="node">Slab — Storey 1</span><span class="arw">→</span><span class="node moved">Column Works — Storey 1</span><span class="arw">→</span><span class="node">Slab — Storey 2</span><span class="arw">→</span><span class="node moved">Column Works — Storey 2</span></div>
+      <div class="clab r1">Rev.01 — revised order</div>
+      <div class="chain"><span class="node">Slab — Storey 1</span><span class="arw">→</span><span class="node">Slab — Storey 2</span><span class="arw">→</span><span class="node moved">Column Works — Storey 1</span><span class="arw">→</span><span class="node moved">Column Works — Storey 2</span></div>
+      <div class="callout" style="background:var(--warning-bg);color:var(--warning)"><b>Change detected → potential impact → planning review.</b> Columns now follow both slabs instead of interleaving storey-by-storey — a method change on the critical path. Flagged for review, not marked wrong.</div>
+    </div>
+  </div>
+
+  <!-- 3 CRITICAL PATH (full report) -->
+  <div class="secmark"><span class="n">3</span><h2>Critical Path comparison</h2><span class="sub">— driving chain Rev.00 vs Rev.01 (part of the full report)</span></div>
+  <div class="card"><h3>Driving chain <span class="n">Rev.01 critical path is +47 working days longer</span></h3>
+    <div class="clab">Rev.00 — ends 19 Dec 2026</div>
+    <div class="chain"><span class="node">Excavation</span><span class="arw">→</span><span class="node">Piling</span><span class="arw">→</span><span class="node">Raft</span><span class="arw">→</span><span class="node crit">Columns S1–S8</span><span class="arw">→</span><span class="node">Practical Completion</span></div>
+    <div class="clab r1">Rev.01 — ends 04 Feb 2027</div>
+    <div class="chain"><span class="node">Excavation</span><span class="arw">→</span><span class="node">Piling</span><span class="arw">→</span><span class="node enter">Raft Waterproofing</span><span class="arw">→</span><span class="node crit">Columns S1–S8</span><span class="arw">→</span><span class="node enter">MEP Risers — Core B</span><span class="arw">→</span><span class="node">Practical Completion</span></div>
+    <div class="legend"><span><b style="background:var(--success)"></b>Entered critical path (4)</span><span><b style="background:var(--danger)"></b>Critical in both</span><span>Left critical path (1): Temp Dewatering</span></div>
+  </div>
+
+  <!-- 4 CHANGE REGISTER -->
+  <div class="secmark"><span class="n">4</span><h2>Change Register — redesigned</h2><span class="sub">— one table per change type · separate ID / Name columns · Before → After → Variance</span></div>
+  <div class="card" style="background:#f8fafc">
+    <div class="filters"><b style="font-size:12px">Filter by activity code:</b>
+      <select class="fsel"><option>Discipline — All</option><option>Civil</option><option>MEP</option><option>Architectural</option></select>
+      <select class="fsel"><option>Building — All</option><option>Building A</option><option>Building B</option></select>
+      <select class="fsel"><option>WBS — All</option></select>
+      <span class="fchip on">Include added &amp; removed ✓</span></div>
+    <div class="foot">The filter and the <b>include added &amp; removed</b> default apply to every table below.</div>
+  </div>
+
+  <div class="card"><h3>Duration changed <span class="n">working days</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th>WBS</th><th class="n">Duration Before</th><th class="n">Duration After</th><th class="n">Variance</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A2-COL-02</td><td>Column Works — Storey 2</td><td class="mut">A › Superstructure</td><td class="n">20 d</td><td class="n new">28 d</td><td class="n"><span class="d up">+8 d</span></td></tr>
+        <tr><td class="mono">A1105</td><td>Blinding — Zone B</td><td class="mut">A › Substructure</td><td class="n">10 d</td><td class="n new">6 d</td><td class="n"><span class="d down">−4 d</span></td></tr>
+        <tr><td class="mono">A4400</td><td>MEP Risers — Core B <span class="newbadge">NEW</span></td><td class="mut">B › Superstructure</td><td class="n mut">—</td><td class="n new">55 d</td><td class="n"><span class="tag add">Added</span></td></tr>
+        <tr><td class="mono">A1980</td><td>Temporary Dewatering <span class="rembadge">REMOVED</span></td><td class="mut">A › Substructure</td><td class="n">25 d</td><td class="n mut">—</td><td class="n"><span class="tag rem">Removed</span></td></tr>
+      </tbody>
+    </table></div>
+    <div class="foot">Includes added (Before = —) and removed (After = —) by default. Filterable by activity code.</div>
+  </div>
+
+  <div class="card"><h3>Milestone changed <span class="n">finish milestones</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Milestone Before</th><th class="n">Milestone After</th><th class="n">Variance</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">MS-PC</td><td>Practical Completion</td><td class="n">19 Dec 2026</td><td class="n new">04 Feb 2027</td><td class="n"><span class="d up">+47 d</span></td></tr>
+        <tr><td class="mono">MS-B-TO</td><td>Building B — Topping Out</td><td class="n">12 Aug 2026</td><td class="n new">05 Aug 2026</td><td class="n"><span class="d down">−7 d</span></td></tr>
+        <tr><td class="mono">MS-POD</td><td>Sectional Handover — Podium <span class="newbadge">NEW</span></td><td class="n mut">—</td><td class="n new">30 Nov 2026</td><td class="n"><span class="tag add">Added</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="card"><h3>Logic / relationship changed <span class="n">each row is one link — predecessor drives successor</span></h3>
+    <div class="sec">Spelled out in full: which activity drives which, the link type and lag <b>before</b> and <b>after</b>, and what changed. No ← / → arrows to decode.</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th colspan="2" style="border-right:1px solid var(--border)">Predecessor (drives)</th><th colspan="2" style="border-right:1px solid var(--border)">Successor (driven)</th><th>Link Before</th><th>Link After</th><th>Change</th></tr>
+             <tr><th>ID</th><th style="border-right:1px solid var(--border)">Name</th><th>ID</th><th style="border-right:1px solid var(--border)">Name</th><th></th><th></th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A2050</td><td style="border-right:1px solid var(--hair)">Steel Procurement</td><td class="mono">A2075</td><td style="border-right:1px solid var(--hair)">Steel Erection</td><td>Finish-to-Start (FS) &middot; +0 d</td><td class="new">Start-to-Start (SS) &middot; +0 d</td><td><span class="tag chg">Type changed</span></td></tr>
+        <tr><td class="mono">A1362</td><td style="border-right:1px solid var(--hair)">Raft Waterproofing</td><td class="mono">A1300</td><td style="border-right:1px solid var(--hair)">Raft Pour — Zone B</td><td class="mut">— no link</td><td class="new">Finish-to-Start (FS) &middot; +2 d</td><td><span class="tag add">Link added</span></td></tr>
+        <tr><td class="mono">A3200</td><td style="border-right:1px solid var(--hair)">Slab L3</td><td class="mono">A3300</td><td style="border-right:1px solid var(--hair)">Blockwork L3</td><td>Finish-to-Start (FS) &middot; +0 d</td><td class="mut">— link removed</td><td><span class="tag rem">Link removed</span></td></tr>
+        <tr><td class="mono">A2075</td><td style="border-right:1px solid var(--hair)">Steel Erection</td><td class="mono">A2090</td><td style="border-right:1px solid var(--hair)">Deck Pour</td><td>Finish-to-Start (FS) &middot; +5 d</td><td class="new">Finish-to-Start (FS) &middot; +0 d</td><td><span class="tag chg">Lag changed</span></td></tr>
+      </tbody>
+    </table></div>
+    <div class="foot">Predecessor and Successor each keep their own ID and Name columns; the <b>Link</b> columns carry the relationship type (Finish-to-Start / Start-to-Start / …) and its lag, before vs after.</div>
+  </div>
+
+  <div class="card"><h3>Resource <span class="n">assignment before / after</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th>Resource ID</th><th>Resource Name</th><th class="n">Assigned Before</th><th class="n">Assigned After</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A1300</td><td>Raft Pour — Zone B</td><td class="mono">R-TC07</td><td>Tower Crane TC-7</td><td class="n mut">— <span class="tag rem">removed</span> Crawler 50T</td><td class="n new"><span class="tag add">added</span> TC-7</td></tr>
+        <tr><td class="mono">A2-COL-02</td><td>Column Works — Storey 2</td><td class="mono">R-STF</td><td>Labour — Steelfixers</td><td class="n">8 crew</td><td class="n new">12 crew</td></tr>
+      </tbody>
+    </table></div>
+    <div class="foot">A swapped resource reads on one line (removed → added), never two rows.</div>
+  </div>
+
+  <div class="card"><h3>Cost <span class="n">budget total cost</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Budget Total Cost Before</th><th class="n">Budget Total Cost After</th><th class="n">Variance</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A2-COL-02</td><td>Column Works — Storey 2</td><td class="n">420,000</td><td class="n new">505,000</td><td class="n"><span class="d up">+85,000</span></td></tr>
+        <tr><td class="mono">A4400</td><td>MEP Risers — Core B <span class="newbadge">NEW</span></td><td class="n mut">—</td><td class="n new">310,000</td><td class="n"><span class="tag add">Added</span></td></tr>
+        <tr><td style="font-weight:800" colspan="2">Total budget</td><td class="n" style="font-weight:800">18,420,000</td><td class="n" style="font-weight:800">19,060,000</td><td class="n"><span class="d up" style="font-weight:800">+640,000</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- 5 COST & S-CURVE -->
+  <div class="secmark"><span class="n">5</span><h2>Cost &amp; S-curve comparison</h2><span class="sub">— histogram of monthly value + cumulative % curve, with value tables</span></div>
+  <div class="card"><h3>Planned value of work <span class="n">Rev.00 vs Rev.01 · monthly bars + cumulative % curves</span></h3>
+    <div class="sec">Bars = value of work each month; lines = cumulative % complete-by-value. Both revisions overlaid so the shift in spend is visible.</div>
+    <div class="scombowrap"><svg viewBox="0 0 860 300" style="width:100%;height:auto;min-width:680px">
+      <!-- axes -->
+      <line x1="52" y1="250" x2="830" y2="250" stroke="var(--border)"/>
+      <line x1="52" y1="20" x2="52" y2="250" stroke="var(--border)"/>
+      <line x1="830" y1="20" x2="830" y2="250" stroke="var(--border)"/>
+      <text x="6" y="26" font-size="9" fill="var(--muted)">value/mo</text>
+      <text x="836" y="26" font-size="9" fill="var(--accent)">100%</text><text x="836" y="250" font-size="9" fill="var(--accent)">0%</text>
+      <!-- monthly bars: 10 periods, Rev.00 (grey) + Rev.01 (blue) side by side -->
+      <g>
+        <!-- p1 --><rect x="66"  y="222" width="14" height="28" fill="#c7d0dc"/><rect x="82"  y="226" width="14" height="24" fill="var(--accent)" opacity=".85"/>
+        <!-- p2 --><rect x="142" y="205" width="14" height="45" fill="#c7d0dc"/><rect x="158" y="212" width="14" height="38" fill="var(--accent)" opacity=".85"/>
+        <!-- p3 --><rect x="218" y="180" width="14" height="70" fill="#c7d0dc"/><rect x="234" y="192" width="14" height="58" fill="var(--accent)" opacity=".85"/>
+        <!-- p4 --><rect x="294" y="150" width="14" height="100" fill="#c7d0dc"/><rect x="310" y="165" width="14" height="85" fill="var(--accent)" opacity=".85"/>
+        <!-- p5 --><rect x="370" y="120" width="14" height="130" fill="#c7d0dc"/><rect x="386" y="135" width="14" height="115" fill="var(--accent)" opacity=".85"/>
+        <!-- p6 --><rect x="446" y="130" width="14" height="120" fill="#c7d0dc"/><rect x="462" y="120" width="14" height="130" fill="var(--accent)" opacity=".85"/>
+        <!-- p7 --><rect x="522" y="150" width="14" height="100" fill="#c7d0dc"/><rect x="538" y="128" width="14" height="122" fill="var(--accent)" opacity=".85"/>
+        <!-- p8 --><rect x="598" y="180" width="14" height="70" fill="#c7d0dc"/><rect x="614" y="150" width="14" height="100" fill="var(--accent)" opacity=".85"/>
+        <!-- p9 --><rect x="674" y="210" width="14" height="40" fill="#c7d0dc"/><rect x="690" y="185" width="14" height="65" fill="var(--accent)" opacity=".85"/>
+        <!-- p10 --><rect x="750" y="234" width="14" height="16" fill="#c7d0dc"/><rect x="766" y="210" width="14" height="40" fill="var(--accent)" opacity=".85"/>
+      </g>
+      <!-- cumulative % curves -->
+      <path d="M59,244 C160,232 300,175 400,120 C520,66 700,34 823,26" fill="none" stroke="var(--muted)" stroke-width="2.2"/>
+      <path d="M59,246 C170,238 320,196 430,140 C560,82 720,40 823,26" fill="none" stroke="var(--accent)" stroke-width="2.6"/>
+      <!-- month labels -->
+      <g font-size="8" fill="var(--muted)">
+        <text x="70" y="264">M1</text><text x="146" y="264">M3</text><text x="222" y="264">M5</text><text x="298" y="264">M7</text><text x="374" y="264">M9</text><text x="450" y="264">M11</text><text x="526" y="264">M13</text><text x="602" y="264">M15</text><text x="678" y="264">M17</text><text x="754" y="264">M19</text>
+      </g>
+    </svg></div>
+    <div class="legend"><span><b style="background:#c7d0dc"></b>Rev.00 value / month</span><span><b style="background:var(--accent)"></b>Rev.01 value / month</span><span><b style="background:var(--muted)"></b>Rev.00 cumulative %</span><span><b style="background:var(--accent)"></b>Rev.01 cumulative %</span></div>
+  </div>
+
+  <div class="split">
+    <div class="card"><h3>Monthly planned value <span class="n">per period</span></h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Month</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Variance</th></tr></thead>
+        <tbody>
+          <tr><td>Mar 2025</td><td class="n">0.28 M</td><td class="n new">0.24 M</td><td class="n"><span class="d down">−0.04</span></td></tr>
+          <tr><td>Apr 2025</td><td class="n">0.45 M</td><td class="n new">0.38 M</td><td class="n"><span class="d down">−0.07</span></td></tr>
+          <tr><td>…</td><td class="n mut">…</td><td class="n mut">…</td><td class="n mut">…</td></tr>
+          <tr><td>Dec 2026</td><td class="n">0.70 M</td><td class="n new">1.00 M</td><td class="n"><span class="d up">+0.30</span></td></tr>
+          <tr><td>Feb 2027</td><td class="n mut">—</td><td class="n new">0.40 M</td><td class="n"><span class="d up">+0.40</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card"><h3>Cumulative planned value <span class="n">to date</span></h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Month</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Variance</th></tr></thead>
+        <tbody>
+          <tr><td>Mar 2025</td><td class="n">0.28 M</td><td class="n new">0.24 M</td><td class="n"><span class="d down">−0.04</span></td></tr>
+          <tr><td>Apr 2025</td><td class="n">0.73 M</td><td class="n new">0.62 M</td><td class="n"><span class="d down">−0.11</span></td></tr>
+          <tr><td>…</td><td class="n mut">…</td><td class="n mut">…</td><td class="n mut">…</td></tr>
+          <tr><td>Dec 2026</td><td class="n">18.42 M</td><td class="n new">18.66 M</td><td class="n"><span class="d up">+0.24</span></td></tr>
+          <tr><td>Feb 2027</td><td class="n">18.42 M</td><td class="n new">19.06 M</td><td class="n"><span class="d up">+0.64</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="foot" style="margin:-4px 0 14px">Both value tables (monthly &amp; cumulative, Before / After / Variance) and the combo chart are included in the exported PDF report.</div>
+
+  <!-- 6 SCOPE & STRUCTURE -->
+  <div class="secmark"><span class="n">6</span><h2>Scope &amp; Structure</h2><span class="sub">— WBS compared in Primavera colour-grouping style</span></div>
+  <div class="card"><h3>WBS comparison <span class="n">Primavera-style colour grouping · a distinct colour per level</span></h3>
+    <div class="sec">Each WBS level has its own colour band nested under the one above — the way P6 groups. Added branches are outlined green, removed red, moved amber (with where they went).</div>
+    <div class="split">
+      <div><div class="clab">Rev.00 — original WBS</div>
+        <div class="p6">
+          <div class="p6band p6-l1">Project — Two-Tower Development</div>
+          <div class="p6band p6-l2" style="margin-left:14px">Building A</div>
+          <div class="p6band p6-l3" style="margin-left:28px">Substructure</div>
+          <div class="p6band p6-l4 removed" style="margin-left:42px">Enabling / Dewatering <span class="p6badge">removed</span></div>
+          <div class="p6band p6-l4" style="margin-left:42px">Piling &amp; Raft</div>
+          <div class="p6band p6-l3" style="margin-left:28px">Superstructure</div>
+          <div class="p6band p6-l3 moved" style="margin-left:28px">Fit-out › Level 3 Blockwork <span class="p6badge">moved →</span></div>
+          <div class="p6band p6-l2" style="margin-left:14px">Building B</div>
+          <div class="p6band p6-l3" style="margin-left:28px">Superstructure</div>
+        </div>
+      </div>
+      <div><div class="clab r1">Rev.01 — revised WBS</div>
+        <div class="p6">
+          <div class="p6band p6-l1">Project — Two-Tower Development</div>
+          <div class="p6band p6-l2" style="margin-left:14px">Building A</div>
+          <div class="p6band p6-l3" style="margin-left:28px">Substructure</div>
+          <div class="p6band p6-l4" style="margin-left:42px">Piling &amp; Raft</div>
+          <div class="p6band p6-l3" style="margin-left:28px">Superstructure</div>
+          <div class="p6band p6-l3" style="margin-left:28px">Envelope</div>
+          <div class="p6band p6-l4 moved" style="margin-left:42px">Level 3 Blockwork <span class="p6badge">← moved here</span></div>
+          <div class="p6band p6-l2" style="margin-left:14px">Building B</div>
+          <div class="p6band p6-l3" style="margin-left:28px">Superstructure</div>
+          <div class="p6band p6-l4 added" style="margin-left:42px">Core › MEP Risers <span class="p6badge">added</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="legend"><span><b style="background:#1f4e79"></b>Level 1</span><span><b style="background:#2e6da4"></b>Level 2</span><span><b style="background:#5b9bd5"></b>Level 3</span><span><b style="background:#9dc3e6"></b>Level 4</span><span><b style="outline:2px solid var(--success);background:transparent"></b>added</span><span><b style="outline:2px solid var(--danger);background:transparent"></b>removed</span><span><b style="outline:2px solid var(--warning);background:transparent"></b>moved</span></div>
+    <div class="callout">Summary: <b>1 branch added</b>, <b>1 removed</b>, <b>1 moved</b> (Level 3 Blockwork: Fit-out → Envelope), <b>18 activities</b> re-parented between WBS.</div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -51,13 +51,13 @@ def test_revcompare_report_sections_picker_gates_output(test_server, xml_path):
     rep = r['report']
 
     subset = _post(test_server, '/api/revcompare/report',
-                   {'report': rep, 'meta': {}, 'preview': True, 'sections': ['summary', 'overview']})
+                   {'report': rep, 'meta': {}, 'preview': True, 'sections': ['summary', 'findings']})
     assert subset['ok'] is True
-    assert 'data-sec="summary"' in subset['html'] and 'data-sec="overview"' in subset['html']
-    assert 'data-sec="milestones"' not in subset['html'] and 'data-sec="critpath"' not in subset['html']
+    assert 'data-sec="summary"' in subset['html'] and 'data-sec="findings"' in subset['html']
+    assert 'data-sec="critical"' not in subset['html'] and 'data-sec="register"' not in subset['html']
 
     full = _post(test_server, '/api/revcompare/report', {'report': rep, 'meta': {}, 'preview': True})
-    assert 'data-sec="summary"' in full['html'] and 'data-sec="milestones"' in full['html']
+    assert 'data-sec="summary"' in full['html'] and 'data-sec="scope"' in full['html']
 
     cleared = _post(test_server, '/api/revcompare/report',
                     {'report': rep, 'meta': {}, 'preview': True, 'sections': []})
