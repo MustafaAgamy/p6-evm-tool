@@ -397,8 +397,14 @@ def render_section(index, item, C):
     it renders identically in the screen preview, the Chrome PDF and Word."""
     navy = C.navy
     body = render_payload(item.get('payload'), C)
+    # Invisible per-section marker so a two-pass PDF render can find which printed page
+    # this section lands on (PyMuPDF searches the text layer for SECPGMARK-<index>-) and
+    # write real page numbers into the contents. 1px transparent text — no visual effect.
+    marker = (f'<span style="font-size:1px;line-height:0;color:transparent">'
+              f'SECPGMARK-{index}-</span>')
     return (
         f'<div class="sr-sec" style="margin:0 0 22px;page-break-inside:avoid">'
+        f'{marker}'
         f'<table class="sr-sec-h" cellpadding="0" cellspacing="0" width="100%" '
         f'style="border-collapse:collapse;margin-bottom:10px;border-bottom:2px solid {navy}"><tr>'
         f'<td valign="middle" style="width:1%;white-space:nowrap;padding:0 0 8px 0">'
@@ -486,18 +492,22 @@ def _cover(report_name, meta, letterhead, C):
     )
 
 
-def _toc(rendered, C):
+def _toc(rendered, C, page_numbers=None):
     """The separate contents page: a navy heading, then numbered rows in pick order
-    — number · title · faint source-feature tag · nominal page number. Breaks to
-    its own page in print and Word."""
+    — number · title · faint source-feature tag · page number. Breaks to its own page.
+
+    ``page_numbers`` maps the 1-based section index to its REAL printed page (found by
+    a two-pass PDF render); when absent, a nominal ``i + 2`` (cover 1, contents 2, first
+    section 3) is used as a rough fallback — correct only if every section is one page."""
     navy = C.navy
     dot = C('rpt-hair-strong')
+    page_numbers = page_numbers or {}
     rows = []
     for i, item in enumerate(rendered, 1):
         src = item.get('feature_title') or item.get('feature') or ''
         src_html = (f' <span style="font-size:10px;color:{C("rpt-muted")};font-weight:400">{_esc(src)}</span>'
                     if src else '')
-        page_no = i + 2   # nominal: cover = 1, contents = 2, first section = 3
+        page_no = page_numbers.get(i) or page_numbers.get(str(i)) or (i + 2)
         rows.append(
             f'<tr>'
             f'<td valign="top" style="width:26px;font-size:12.5px;font-weight:800;color:{navy};padding:8px 0;border-bottom:1px dotted {dot}">{i}</td>'
@@ -506,7 +516,7 @@ def _toc(rendered, C):
             f'</tr>'
         )
     return (
-        f'<div class="sr-toc" style="page-break-after:always;padding-bottom:6px">'
+        f'<div class="sr-toc" style="padding-bottom:6px">'
         f'<div class="sr-sec-h" style="font-size:16px;font-weight:800;color:{navy};'
         f'border-bottom:2px solid {navy};padding-bottom:8px;margin-bottom:8px">Table of contents</div>'
         f'<table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse">{"".join(rows)}</table></div>'
@@ -582,7 +592,7 @@ def _feature_css_head(rendered, mode):
     return report_theme.theme_style_tag(mode) + '<style>' + '\n'.join(blocks) + '</style>'
 
 
-def document_parts(report_name, meta, rendered, mode='light', letterhead=None):
+def document_parts(report_name, meta, rendered, mode='light', letterhead=None, page_numbers=None):
     """Shared assembly used by both the HTML/PDF and the Word wrappers, so the
     two never diverge. Returns ``{colors, css, head_extra, body, title}`` — plus
     the additive ``cover`` and ``inner`` pieces the HTML/PDF shell places into the
@@ -592,7 +602,7 @@ def document_parts(report_name, meta, rendered, mode='light', letterhead=None):
     report_name = report_name or 'Special Report'
     cover = _cover(report_name, meta, letterhead, C)
     if rendered:
-        toc = _toc(rendered, C)
+        toc = _toc(rendered, C, page_numbers=page_numbers)
         sections = ''.join(render_section(i, item, C) for i, item in enumerate(rendered, 1))
     else:
         toc = ''
@@ -648,6 +658,9 @@ html,body{background:@PAPER;padding:0;}
 .sr-foot-cell{padding:0 6mm 4mm;}
 tr{break-inside:avoid;}
 .sr-sec-h{break-after:avoid;}
+/* contents + first section each begin on a fresh page — the break is on the sheet,
+   never inside a layout table (which would spill a phantom blank page). */
+.sr-body-sheet{break-before:page;}
 }
 """
 
@@ -662,7 +675,7 @@ def _shell_css(C):
     return out
 
 
-def build_document(report_name, meta, rendered, mode='light', letterhead=None):
+def build_document(report_name, meta, rendered, mode='light', letterhead=None, page_numbers=None):
     """Assemble the full themed HTML document in the Baseline-Narrative house style
     (A4 portrait · double navy page frame · running header/footer · separate cover
     and contents pages · numbered navy sections). Used for the screen preview and
@@ -675,7 +688,8 @@ def build_document(report_name, meta, rendered, mode='light', letterhead=None):
     CSS is injected first, the shell stylesheet last so it wins on shared elements.
     The Word wrapper does NOT use this shell — it shares only ``document_parts``.
     """
-    parts = document_parts(report_name, meta, rendered, mode=mode, letterhead=letterhead)
+    parts = document_parts(report_name, meta, rendered, mode=mode, letterhead=letterhead,
+                           page_numbers=page_numbers)
     C = parts['colors']
     header = _running_header(meta, letterhead, C)
     footer = _running_footer(meta, C)
@@ -697,7 +711,10 @@ def build_document(report_name, meta, rendered, mode='light', letterhead=None):
     # inline page-break-after on the cover/contents keeps them separate pages in print.
     cover_sheet = f'<div class="sr-page sr-sheet sr-cover-sheet">{parts["cover"]}</div>'
     toc_sheet = _sheet(parts['toc'], ' sr-toc-sheet') if parts['toc'] else ''
-    body_sheet = _sheet(parts['sections'])
+    # The sections start on their OWN page via a break-before on the sheet itself
+    # (a page-break placed INSIDE the contents/cover layout table would force that
+    # table to spill an empty row onto a second page — the phantom blank page bug).
+    body_sheet = _sheet(parts['sections'], ' sr-body-sheet')
     page = (f'<div class="sr-frame" aria-hidden="true"></div>'
             f'{cover_sheet}{toc_sheet}{body_sheet}')
     return (

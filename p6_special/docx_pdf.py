@@ -53,16 +53,10 @@ def _html_to_pdf(html, chrome, pdf_path):
                 pass
 
 
-def build_docx_from_pdf(path, html, chrome):
-    """Render ``html`` to a PDF via ``chrome`` and write ``path`` as a ``.docx`` whose
-    every page is a full-bleed image of the matching PDF page (A4, zero margins).
-
-    Raises on any failure (missing chrome, missing PyMuPDF, Chrome/print error) so the
-    caller can fall back to the native Word builder. Returns ``str(path)`` on success.
-    """
-    if not chrome:
-        raise RuntimeError('chrome executable required for the PDF-exact Word export')
-
+def pdf_to_docx(docx_path, pdf_path):
+    """Write ``docx_path`` as a ``.docx`` whose every page is a full-bleed image of the
+    matching page of ``pdf_path`` (A4, zero margins). Raises on failure (missing PyMuPDF,
+    empty/unreadable PDF) so the caller can fall back. Returns ``str(docx_path)``."""
     try:                       # PyMuPDF — raises ImportError if not bundled; caller falls back
         import pymupdf as fitz  # 1.24+ package name
     except ImportError:
@@ -70,57 +64,66 @@ def build_docx_from_pdf(path, html, chrome):
     from docx import Document
     from docx.shared import Mm, Pt
 
+    pdf = fitz.open(pdf_path)
+    try:
+        if pdf.page_count == 0:
+            raise RuntimeError('empty PDF — nothing to rasterise')
+
+        document = Document()
+        section = document.sections[0]
+        # A4, no margins — the image is the page.
+        section.page_width = Mm(_A4_W_MM)
+        section.page_height = Mm(_A4_H_MM)
+        section.left_margin = section.right_margin = Mm(0)
+        section.top_margin = section.bottom_margin = Mm(0)
+        section.header_distance = Mm(0)
+        section.footer_distance = Mm(0)
+
+        zoom = _DPI / 72.0
+        matrix = fitz.Matrix(zoom, zoom)
+        # Full page width, minus a 2mm safety margin so the image (A4 aspect) plus the
+        # paragraph's own leading never tips onto a blank following page. The PDF's
+        # frame is inset from the edge, so this sliver of white margin is invisible.
+        img_w = Mm(_A4_W_MM - 2.0)
+
+        for i, page in enumerate(pdf):
+            pix = page.get_pixmap(matrix=matrix, alpha=False)
+            png = pix.tobytes('png')
+            p = document.add_paragraph()
+            pf = p.paragraph_format
+            pf.space_before = Pt(0)
+            pf.space_after = Pt(0)
+            # Single/auto line spacing (float, lineRule="auto") — the line box GROWS to
+            # contain the tall inline image. NEVER use an exact Length (e.g. Pt(1)) here:
+            # Word honours "Exactly" literally and clips the image to that height, so the
+            # page comes out blank. (Caught in review 2026-09-15.)
+            pf.line_spacing = 1.0
+            if i > 0:
+                pf.page_break_before = True   # each page image on its own page
+            p.add_run().add_picture(io.BytesIO(png), width=img_w)
+
+        document.save(str(docx_path))
+    finally:
+        pdf.close()
+    return str(docx_path)
+
+
+def build_docx_from_pdf(path, html, chrome):
+    """Render ``html`` to a PDF via ``chrome`` (single pass) and rasterise it into
+    ``path``. Kept for the fallback / test path; the main export renders a two-pass PDF
+    (correct contents page numbers) via :mod:`p6_special.pdf_render` and calls
+    :func:`pdf_to_docx` directly. Raises on any failure so the caller can fall back."""
+    if not chrome:
+        raise RuntimeError('chrome executable required for the PDF-exact Word export')
     pdf_path = None
     try:
         fd, pdf_path = tempfile.mkstemp(suffix='.pdf')
         os.close(fd)
         _html_to_pdf(html, chrome, pdf_path)
-
-        pdf = fitz.open(pdf_path)
-        try:
-            if pdf.page_count == 0:
-                raise RuntimeError('Chrome produced an empty PDF')
-
-            document = Document()
-            section = document.sections[0]
-            # A4, no margins — the image is the page.
-            section.page_width = Mm(_A4_W_MM)
-            section.page_height = Mm(_A4_H_MM)
-            section.left_margin = section.right_margin = Mm(0)
-            section.top_margin = section.bottom_margin = Mm(0)
-            section.header_distance = Mm(0)
-            section.footer_distance = Mm(0)
-
-            zoom = _DPI / 72.0
-            matrix = fitz.Matrix(zoom, zoom)
-            # Full page width, minus a 2mm safety margin so the image (A4 aspect) plus the
-            # paragraph's own leading never tips onto a blank following page. The PDF's
-            # frame is inset from the edge, so this sliver of white margin is invisible.
-            img_w = Mm(_A4_W_MM - 2.0)
-
-            for i, page in enumerate(pdf):
-                pix = page.get_pixmap(matrix=matrix, alpha=False)
-                png = pix.tobytes('png')
-                p = document.add_paragraph()
-                pf = p.paragraph_format
-                pf.space_before = Pt(0)
-                pf.space_after = Pt(0)
-                # Single/auto line spacing (float, lineRule="auto") — the line box GROWS to
-                # contain the tall inline image. NEVER use an exact Length (e.g. Pt(1)) here:
-                # Word honours "Exactly" literally and clips the image to that height, so the
-                # page comes out blank. (Caught in review 2026-09-15.)
-                pf.line_spacing = 1.0
-                if i > 0:
-                    pf.page_break_before = True   # each page image on its own page
-                p.add_run().add_picture(io.BytesIO(png), width=img_w)
-
-            document.save(str(path))
-        finally:
-            pdf.close()
+        return pdf_to_docx(path, pdf_path)
     finally:
         if pdf_path and os.path.exists(pdf_path):
             try:
                 os.remove(pdf_path)
             except OSError:
                 pass
-    return str(path)

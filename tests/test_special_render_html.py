@@ -65,10 +65,39 @@ def test_cover_and_contents_each_break_to_own_page():
     html = build_document('Weekly Report', _meta(), _rendered(), 'light', letterhead=_letterhead())
     # cover sits OUTSIDE (before) the wrapping table so the running header skips it
     assert html.index('class="sr-cover"') < html.index('class="sr-doc"')
-    assert html.count('page-break-after:always') >= 2      # cover + contents each break
+    # cover breaks after itself (it is a plain div — a break there is clean); the
+    # sections start on a fresh page via a break-before on the sheet, NOT a break inside
+    # the contents table (which would spill a phantom blank page). Contents therefore
+    # ends up alone on its own page between the two.
+    assert 'page-break-after:always' in html               # cover break
+    assert 'sr-body-sheet' in html and 'break-before:page' in html  # sections start a new page
     assert 'Table of contents' in html
     assert 'Weekly Report' in html                          # cover report name
     assert 'EVM Report' in html                             # source-feature tag kept in contents
+
+
+def test_sections_carry_page_markers_and_contents_uses_real_pages():
+    """Each section embeds an invisible SECPGMARK-<i>- marker (so a two-pass PDF render
+    can find its real page), and when ``page_numbers`` is supplied the contents shows
+    those real pages, not the nominal ``i + 2`` guess."""
+    rendered = _rendered()
+    # nominal (no page_numbers): section 2 would read page 4 (i+2)
+    nominal = build_document('R', _meta(), rendered, 'light')
+    assert 'SECPGMARK-1-' in nominal and 'SECPGMARK-2-' in nominal
+    # supplied real pages: section 2 is actually on page 9 -> must override the nominal 4
+    html = build_document('R', _meta(), rendered, 'light', page_numbers={1: 3, 2: 9})
+    assert '>9</td>' in html            # real page shown in the contents cell
+    assert '>4</td>' not in html        # the nominal i+2 for section 2 is gone
+
+
+def test_no_page_break_inside_the_contents_table():
+    """The break that starts the sections must be on the sheet (sr-body-sheet /
+    break-before:page), never a page-break-after inside the contents layout table —
+    that spilled a phantom blank page (fixed 2026-09-15)."""
+    html = build_document('R', _meta(), _rendered(), 'light')
+    toc_start = html.index('Table of contents')
+    toc_end = html.index('sr-body-sheet')
+    assert 'page-break-after:always' not in html[toc_start:toc_end]
 
 
 def test_numbered_navy_section_badge_and_order():

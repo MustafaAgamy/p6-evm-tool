@@ -83,13 +83,25 @@ def docx(path, project_id=None, item_ids=None, report_name='Special Report', met
     ctx = _ctx(project_id, snapshot_id, inputs, mode=mode)
     rendered = registry.render(ctx, item_ids or [])
 
-    # Preferred path: Word == PDF, page for page.
+    # Preferred path: Word == PDF, page for page. Render the SAME two-pass PDF the PDF
+    # export produces (correct contents page numbers) and rasterise each page into the
+    # .docx, so Word and PDF are byte-identical in layout.
     if chrome:
+        tmp_pdf = None
         try:
-            from p6_special import docx_pdf
-            html = render_html.build_document(report_name, _meta(ctx, meta), rendered,
-                                              mode=mode, letterhead=letterhead)
-            docx_pdf.build_docx_from_pdf(path, html, chrome)
+            import os
+            import tempfile
+            from p6_special import pdf_render, docx_pdf
+
+            def _build(page_numbers):
+                return render_html.build_document(report_name, _meta(ctx, meta), rendered,
+                                                  mode=mode, letterhead=letterhead,
+                                                  page_numbers=page_numbers)
+
+            fd, tmp_pdf = tempfile.mkstemp(suffix='.pdf')
+            os.close(fd)
+            pdf_render.render_document_pdf(tmp_pdf, _build, chrome)
+            docx_pdf.pdf_to_docx(path, tmp_pdf)
             return
         except Exception:
             # The native builder below is a DIFFERENT-looking (editable, best-effort)
@@ -99,10 +111,38 @@ def docx(path, project_id=None, item_ids=None, report_name='Special Report', met
             # a quiet format switch (CI never runs the exe, and the handler returns ok).
             import traceback
             traceback.print_exc()
+        finally:
+            if tmp_pdf and os.path.exists(tmp_pdf):
+                try:
+                    os.remove(tmp_pdf)
+                except OSError:
+                    pass
 
     from p6_special import docx_report
     docx_report.build_docx(path, report_name, _meta(ctx, meta), rendered,
                            letterhead=letterhead, chrome=chrome, mode=mode)
+
+
+def render_pdf(pdf_path, project_id=None, item_ids=None, report_name='Special Report',
+               mode='light', meta=None, letterhead=None, inputs=None, snapshot_id=None,
+               chrome=None):
+    """Render the Special Report to a PDF at ``pdf_path`` with correct contents-page
+    numbers via a two-pass render (see :mod:`p6_special.pdf_render`). ``chrome`` is
+    required. Returns ``pdf_path``."""
+    if not chrome:
+        raise RuntimeError('chrome executable required to render the PDF')
+    import report_theme
+    mode = report_theme.normalize(mode)
+    ctx = _ctx(project_id, snapshot_id, inputs, mode=mode)
+    rendered = registry.render(ctx, item_ids or [])
+    from p6_special import pdf_render
+
+    def _build(page_numbers):
+        return render_html.build_document(report_name, _meta(ctx, meta), rendered,
+                                          mode=mode, letterhead=letterhead,
+                                          page_numbers=page_numbers)
+
+    return pdf_render.render_document_pdf(pdf_path, _build, chrome)
 
 
 def excel(path, project_id=None, item_ids=None, report_name='Special Report', meta=None,

@@ -310,18 +310,17 @@ class Handler(BaseHTTPRequestHandler):
             if not output_path:
                 self._json(200, {'ok': False, 'error': 'No output path.'})
                 return
-            html = self._special_html(body)
-            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
-                                             encoding='utf-8') as tmp:
-                tmp.write(html)
-                html_path = tmp.name
-            chrome = _find_chrome()
-            out = os.path.abspath(output_path)
-            subprocess.run([chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                            f'--print-to-pdf={out}', '--no-pdf-header-footer',
-                            f'file:///{html_path.replace(os.sep, "/")}'],
-                           check=True, capture_output=True)
-            os.unlink(html_path)
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            import report_theme
+            # Two-pass render so the contents page shows REAL page numbers.
+            assemble.render_pdf(
+                os.path.abspath(output_path), self._special_pid(body),
+                body.get('item_ids') or [], body.get('report_name') or 'Special Report',
+                mode=report_theme.normalize(body.get('theme')),
+                meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
+                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
+                chrome=_find_chrome())
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
