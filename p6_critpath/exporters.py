@@ -542,70 +542,196 @@ def render_html(report, sections=None, milestone_ids=None, theme='light'):
 
 
 # ── Excel ────────────────────────────────────────────────────────────────────
+#
+# The workbook MIRRORS the on-screen / PDF Critical Path Analyzer through the shared,
+# dependency-free writer (p6_evm.xlsx_writer.write_sections_xlsx) — one sheet per section
+# of the report's tables (Census · Milestones · Driving path · Float migration), with
+# self-explaining headers WITH UNITS and the driving path's criticality colour-coded to
+# match the on-screen badges (critical = red, near-critical = amber) via a severity column
+# and a legend. The SERVER supplies the standard "<app> — Critical Path Analyzer / Project
+# / Data date / Generated" header block through `meta`; this module never builds it (per the
+# tool-wide export standard). No openpyxl — keeps the PyInstaller bundle small.
 
-def to_excel(report, path):
-    from openpyxl import Workbook
-    from openpyxl.styles import Font
+_ROLE_FINISH = {'baseline': 'Baseline finish', 'previous': 'Previous finish',
+                'current': 'Current finish'}
+_STATE_LABEL = {'new': 'New on path', 'left': 'Left path', 'done': 'Complete', 'stayed': 'On path'}
+# Criticality colour = census/screen semantics: total float ≤ 0 → red (Critical),
+# 0 < TF < 10 wd → amber (near-critical, the shared writer's 'High'), else grey.
+_CRIT_LEGEND = [('Critical', 'On the critical path — total float 0 working days or less'),
+                ('High', 'Near-critical — 0 < total float < 10 working days'),
+                ('Low', 'Has spare float — not on or near the critical path')]
 
-    wb = Workbook()
-    bold = Font(bold=True)
+
+def _pct_cell(v):
+    """A percentage as a string ('62.0%'), matching the on-screen census; em dash when
+    unknown. (The writer keeps bare numbers numeric, so a percentage must be a string to
+    read as one.)"""
+    return '—' if v is None else f'{v}%'
+
+
+def _pct_round(v):
+    """A whole-percent string ('62%') for the driving-path boxes, matching the box grid."""
+    return '—' if v is None else f'{round(v)}%'
+
+
+def _num_cell(v):
+    """Keep a number numeric (so figures stay computable); em dash when unknown."""
+    return '—' if v is None else v
+
+
+def _crit_severity(driver_tf):
+    """A work front's own total float → the shared severity word whose colour matches the
+    on-screen critical (red) / near-critical (amber) badge. Same thresholds as the census
+    (schedule_census) and the milestone fronts (milestones_table)."""
+    if driver_tf is None:
+        return ''
+    if driver_tf <= 0:
+        return 'Critical'
+    if driver_tf < 10:
+        return 'High'               # near-critical (0 < TF < 10 wd) — amber, like the screen
+    return 'Low'                    # has float — grey
+
+
+def _census_block(report):
+    """The Critical & near-critical census — one measure per row, one column per loaded
+    schedule (mirrors the on-screen census table). The crammed 'count · %' cells become
+    two clearly-labelled rows apiece."""
     roles = report.get('roles', [])
     c = report.get('census', {})
 
-    ws = wb.active
-    ws.title = 'Census'
-    ws.append(['Measure'] + [_ROLE_LABEL[r] for r in roles])
-    for cell in ws[1]:
-        cell.font = bold
+    def vals(fn):
+        return [fn(c.get(r, {}) or {}) for r in roles]
 
-    def crow(label, key, pct=None):
-        row = [label]
-        for r in roles:
-            o = c.get(r, {})
-            if pct is None:
-                row.append(o.get(key))
-            else:
-                row.append(f"{o.get(key)} ({o.get(pct)}%)" if o.get(key) is not None else None)
-        ws.append(row)
+    rows = [
+        ['Total activities counted'] + vals(lambda o: _num_cell(o.get('total_activities'))),
+        ['Critical activities — count (total float ≤ 0)'] + vals(lambda o: _num_cell(o.get('critical'))),
+        ['Critical activities — % of counted'] + vals(lambda o: _pct_cell(o.get('critical_pct'))),
+        ['Near-critical — count (0 < total float < 10 wd)'] + vals(lambda o: _num_cell(o.get('near'))),
+        ['Near-critical — % of counted'] + vals(lambda o: _pct_cell(o.get('near_pct'))),
+        ['Critical path length — remaining (working days)'] + vals(lambda o: _num_cell(o.get('path_length_wd'))),
+        ['Total float at finish milestone (working days)'] + vals(lambda o: _num_cell(o.get('total_float_wd'))),
+        ['CPLI — Critical Path Length Index'] + vals(lambda o: _num_cell(o.get('cpli'))),
+    ]
+    dd = ' · '.join(f'{_ROLE_LABEL[r]} {c.get(r, {}).get("data_date")}'
+                    for r in roles if c.get(r, {}).get('data_date'))
+    note = 'Counts cover scheduled activities (milestones excluded).'
+    if dd:
+        note += f' Data dates — {dd}.'
+    if any((c.get(r, {}) or {}).get('critical_source') == 'path' for r in roles):
+        note += (' One or more schedules carry no activity float; for those the critical count is '
+                 'the activities on the longest path to completion (not total float ≤ 0).')
+    return {'title': 'Critical & near-critical census', 'note': note,
+            'headers': ['Measure'] + [_ROLE_LABEL[r] for r in roles], 'rows': rows}
 
-    crow('Total activities', 'total_activities')
-    crow('Critical activities', 'critical', 'critical_pct')
-    crow('Near-critical', 'near', 'near_pct')
-    crow('Critical path length (wd)', 'path_length_wd')
-    crow('Total float · finish (wd)', 'total_float_wd')
-    crow('CPLI', 'cpli')
 
-    wm = wb.create_sheet('Milestones')
-    wm.append(['Milestone', 'Governing'] + [_ROLE_LABEL[r] for r in roles]
-              + ['vs Baseline (d)', 'This period (d)', 'CPLI', 'Crit fronts', 'Near fronts'])
-    for cell in wm[1]:
-        cell.font = bold
+def _milestones_block(report):
+    """Every finish milestone: each schedule's forecast finish, slip vs baseline / this
+    period, milestone CPLI, and the count of critical / near-critical work fronts on its
+    driving path (mirrors the on-screen milestone table)."""
+    roles = report.get('roles', [])
+    has_prev = 'previous' in roles
+    headers = ['Milestone', 'Governing (drives completion)']
+    headers += [_ROLE_FINISH[r] for r in roles]
+    headers += ['Slip vs baseline (days, + = behind plan)']
+    if has_prev:
+        headers += ['Slip this period (days, + = behind)']
+    headers += ['Milestone CPLI', 'Critical fronts on path (count)', 'Near-critical fronts on path (count)']
+
+    rows = []
     for m in report.get('milestones', []):
         f = m.get('finishes', {})
-        wm.append([m.get('name'), 'Yes' if m.get('is_governing') else ''] + [f.get(r) for r in roles]
-                  + [m.get('var_vs_baseline_d'), m.get('var_this_period_d'), m.get('cpli'),
-                     m.get('crit_fronts'), m.get('near_fronts')])
+        row = [m.get('name'), 'Yes' if m.get('is_governing') else '']
+        row += [f.get(r) or '—' for r in roles]
+        row += [_num_cell(m.get('var_vs_baseline_d'))]
+        if has_prev:
+            row += [_num_cell(m.get('var_this_period_d'))]
+        row += [_num_cell(m.get('cpli')), _num_cell(m.get('crit_fronts')), _num_cell(m.get('near_fronts'))]
+        rows.append(row)
+    if not rows:
+        rows = [['No finish milestones found.'] + [''] * (len(headers) - 1)]
+    return {'title': 'Every milestone · finish comparison & path health',
+            'note': 'One row per finish milestone. Slip is the current forecast finish against the '
+                    'baseline / previous finish; positive means later than plan.',
+            'headers': headers, 'rows': rows}
 
-    wp = wb.create_sheet('Driving path (current)')
-    wp.append(['Work front', 'State', 'Actual %', 'Exp finish', 'Slip (d)', 'Float now (wd)'])
-    for cell in wp[1]:
-        cell.font = bold
-    cur_lane = next((l for l in report.get('lanes', []) if l.get('role') == 'current'), None)
-    if cur_lane:
-        for b in cur_lane.get('boxes', []):
-            wp.append([b.get('name'), b.get('state'), round(b.get('pct') or 0), b.get('exp_finish'),
-                       b.get('slip_days'), b.get('driver_tf') if b.get('state') == 'left' else None])
 
-    mig = report.get('float_migration')
-    if mig:
-        wf = wb.create_sheet('Float migration')
-        wf.append(['Move', 'Count'])
-        wf['A1'].font = bold
-        wf['B1'].font = bold
-        cc = mig.get('counts', {})
-        for lbl, key in [('Near → Critical', 'near_to_crit'), ('Safe → near', 'safe_to_near'),
-                         ('Critical → recovered', 'crit_to_recovered'), ('Held critical', 'held_crit')]:
-            wf.append([lbl, cc.get(key, 0)])
+def _driving_path_sheet(report):
+    """The current update's driving path to the governing milestone (as the current Excel
+    exported), enriched to the on-screen box detail and with each front's criticality
+    colour-coded. `severity_col` targets the Criticality column; the sheet carries the
+    colour legend."""
+    cur = next((l for l in report.get('lanes', []) if l.get('role') == 'current'), None)
+    gov = next((m for m in report.get('milestones', []) if m.get('is_governing')), None)
+    gov_name = gov.get('name') if gov else None
+    headers = ['Work front', 'Path / WBS', 'Change on critical path', 'Planned % complete',
+               'Actual % complete', 'Baseline finish', 'Expected finish',
+               'Slip vs baseline (days, + = behind plan)', 'Total float now (working days)', 'Criticality']
+    rows = []
+    for b in (cur.get('boxes', []) if cur else []):
+        rows.append([
+            b.get('name'), b.get('crumb') or '—',
+            _STATE_LABEL.get(b.get('state', 'stayed'), 'On path'),
+            _pct_round(b.get('planned')), _pct_round(b.get('pct')),
+            b.get('bl_finish') or '—', b.get('exp_finish') or '—',
+            _num_cell(b.get('slip_days')), _num_cell(b.get('driver_tf')),
+            _crit_severity(b.get('driver_tf')),
+        ])
+    if not rows:
+        rows = [['No governing critical path was found in these schedules.'] + [''] * (len(headers) - 1)]
+    note = (f"Work fronts on the current update's critical path to {gov_name}." if gov_name
+            else "Work fronts on the current update's critical path to the governing milestone.")
+    note += ' "New on path" fronts are the reroute — the headline risk of the report.'
+    return {'name': 'Driving path (current)', 'legend': _CRIT_LEGEND,
+            'blocks': [{'title': 'Driving path — current update', 'note': note,
+                        'headers': headers, 'rows': rows,
+                        'severity_col': headers.index('Criticality')}]}
 
-    wb.save(path)
+
+def _migration_block(report):
+    """How activities moved between float bands from the comparison base (previous, else
+    baseline) to the current update (mirrors the on-screen float-migration bands)."""
+    cc = (report.get('float_migration') or {}).get('counts', {}) or {}
+    base = 'the previous update' if report.get('float_migration_base') == 'previous' else 'the baseline'
+    rows = [
+        ['Near-critical → CRITICAL', _num_cell(cc.get('near_to_crit', 0)), 'Lost all float — worsened'],
+        ['Safe → near-critical', _num_cell(cc.get('safe_to_near', 0)), 'Float eroding'],
+        ['Critical → recovered', _num_cell(cc.get('crit_to_recovered', 0)), 'Gained float — improved'],
+        ['Held critical', _num_cell(cc.get('held_crit', 0)), 'Stayed critical — unchanged'],
+    ]
+    toward = (cc.get('near_to_crit', 0) or 0) + (cc.get('safe_to_near', 0) or 0)
+    return {'title': 'Float migration',
+            'note': f'{toward} activities lost float toward the critical path vs {base}. '
+                    'Matched by activity ID.',
+            'headers': ['Float band move (matched by activity ID)', 'Activities (count)', 'Effect'],
+            'rows': rows}
+
+
+def critpath_excel_sections(report):
+    """(the report dict the client holds) → the `sheets` list for write_sections_xlsx.
+
+    One sheet per section of the on-screen / PDF report's tables — Census, Milestones,
+    Driving path (current), and Float migration (only when a base schedule is loaded, as
+    the report shows it). Headers are self-explaining with units; numbers stay numeric,
+    percentages and dates are strings; the driving path's criticality is colour-coded
+    (critical = red, near-critical = amber) via a severity column + legend. Never raises on
+    empty data (placeholder rows are used instead). The server passes `meta` for the header
+    block; do not build one here."""
+    report = report or {}
+    sheets = [
+        {'name': 'Census', 'blocks': [_census_block(report)]},
+        {'name': 'Milestones', 'blocks': [_milestones_block(report)]},
+        _driving_path_sheet(report),
+    ]
+    if report.get('float_migration'):
+        sheets.append({'name': 'Float migration', 'blocks': [_migration_block(report)]})
+    return sheets
+
+
+def to_excel(report, path):
+    """Backwards-compatible entry point (kept so existing callers keep working): write the
+    workbook via the shared dependency-free writer. Content comes from
+    critpath_excel_sections(); the standard report header block is added by the server via
+    `meta` — a direct/CLI call here still gets a valid, self-explaining workbook."""
+    from p6_evm.xlsx_writer import write_sections_xlsx
+    write_sections_xlsx(path, critpath_excel_sections(report))
     return path

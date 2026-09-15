@@ -63,6 +63,146 @@ def findings_excel(report):
     return _HEADERS, rows
 
 
+# ── Excel: section-structured mirror of the review (shared write_sections_xlsx) ──
+# Constructability is REFERENCE-FIRST: the workbook carries NO /100 score, grade or
+# pass/fail verdict — its headline is neutral (counts per finding type + detection
+# status + standard-scope coverage). Each finding type that has data becomes its own
+# clearly-titled sheet with self-explaining headers; the illogical sheet colour-codes a
+# severity column (critical-path impact) with a legend. Mirrors the same three finding
+# types the flat `findings_excel` above carries.
+
+# The KB records an illogical link's impact as either 'Critical' (on the critical path)
+# or 'Near-critical'. Map onto the standard severity vocabulary the shared writer colours
+# (Critical=red, High=amber, Medium=grey) so the column matches the tool-wide badges; the
+# original meaning is preserved in the sheet legend.
+_ILLOGICAL_SEV = {'critical': 'Critical', 'near-critical': 'High', 'near critical': 'High'}
+_SEV_LEGEND_DESC = {'Critical': 'On the critical path',
+                    'High': 'Near-critical path',
+                    'Medium': 'Lower / non-critical impact',
+                    'Low': 'Minor impact'}
+_SEV_ORDER = ('Critical', 'High', 'Medium', 'Low')
+
+
+def _impact_to_severity(impact):
+    return _ILLOGICAL_SEV.get((impact or '').strip().lower(), 'Medium')
+
+
+def _confidence_text(report):
+    """The detection status the review shows — 'Type chosen manually' when forced, else
+    the confidence level with its keyword-hit count. Honest match status, never a verdict."""
+    c = report.get('confidence') or {}
+    if c.get('forced'):
+        return 'Type chosen manually'
+    if not c:
+        return ''
+    return f"{c.get('level', '')} ({c.get('hits', 0)}/{c.get('signatures', 0)} keyword matches)".strip()
+
+
+def findings_excel_sections(report):
+    """Section-structured Excel mirror of the Constructability review, for the shared
+    ``write_sections_xlsx`` contract. Takes the same ``report`` dict as ``findings_excel``.
+
+    Returns the ``sheets`` list:
+      * a neutral **Summary** sheet — counts per finding type, detection status and
+        standard-scope coverage. No score, grade or verdict (reference-first mandate);
+      * then ONE sheet per finding type that has data — Illogical Relationships (with a
+        colour-coded critical-path Severity column + legend), Missing Activities and
+        Missing WBS Branches — each with full, self-explaining headers.
+
+    The SERVER adds the "<app> — <title> / Project / Data date / Generated" header block;
+    do not build one here. ``findings_excel`` is kept intact for existing callers/tests."""
+    illogical = report.get('illogical') or []
+    missing = report.get('missing') or []
+    missing_wbs = report.get('missing_wbs') or []
+    dash = report.get('dashboard') or {}
+
+    # ── neutral headline sheet: counts + detection status + coverage (no score) ──
+    summary_rows = [['Project type (detected)', report.get('project_type') or 'Unrecognised']]
+    conf = _confidence_text(report)
+    if conf:
+        summary_rows.append(['Detection confidence', conf])
+    if dash.get('coverage') is not None:
+        summary_rows.append(['Standard-scope coverage (% of standard activities present)',
+                             f"{dash.get('coverage')}%"])
+    if dash.get('total_activities') is not None:
+        summary_rows.append(['Activities reviewed', dash.get('total_activities')])
+    if dash.get('total_relationships') is not None:
+        summary_rows.append(['Relationships reviewed', dash.get('total_relationships')])
+
+    sheets = [{'name': 'Summary', 'blocks': [
+        {'title': 'Review Summary', 'headers': ['Item', 'Value'], 'rows': summary_rows,
+         'note': 'Reference-based review against the Construction Knowledge Base — counts '
+                 'and standard-scope coverage only, not a pass/fail score.'},
+        {'title': 'Findings by Type', 'headers': ['Finding type', 'Count'],
+         'rows': [['Illogical relationships', len(illogical)],
+                  ['Missing activities (vs standard)', len(missing)],
+                  ['Missing WBS branches (vs standard)', len(missing_wbs)]]},
+    ]}]
+
+    # ── Illogical relationships — severity-coloured, mirrors the on-screen table ──
+    if illogical:
+        rank = {'Critical': 0, 'Near-critical': 1}
+        ordered = sorted(illogical, key=lambda r: rank.get(r.get('impact'), 2))
+        rows, present = [], set()
+        for i, r in enumerate(ordered, 1):
+            sev = _impact_to_severity(r.get('impact'))
+            present.add(sev)
+            rows.append([i, r.get('activity_id', ''), r.get('activity_name', ''),
+                         r.get('wbs_path', ''),
+                         _links(r.get('current_preds')), _links(r.get('current_succs')),
+                         r.get('why', ''),
+                         _links(r.get('suggested_preds')), _links(r.get('suggested_succs')),
+                         sev])
+        sheets.append({
+            'name': 'Illogical Relationships',
+            'blocks': [{
+                'title': 'Illogical Relationships (vs the standard sequence)',
+                'note': "Existing links flagged against the detected type's standard logic. "
+                        'Severity is the critical-path impact (see legend). Advisory only.',
+                'headers': ['#', 'Activity ID', 'Activity', 'WBS path',
+                            'Current predecessors', 'Current successors', "Why it's illogical",
+                            'Suggested predecessors', 'Suggested successors',
+                            'Severity (critical-path impact)'],
+                'rows': rows, 'severity_col': 9,
+            }],
+            'legend': [(s, _SEV_LEGEND_DESC[s]) for s in _SEV_ORDER if s in present],
+        })
+
+    # ── Missing activities ──
+    if missing:
+        rows = [[m.get('suggested_id', ''), m.get('name', ''),
+                 (m.get('wbs') or '') + (' (new WBS branch)' if m.get('new_wbs') else ''),
+                 _links(m.get('preds')), _links(m.get('succs')),
+                 m.get('why', ''), m.get('basis', '')] for m in missing]
+        sheets.append({
+            'name': 'Missing Activities',
+            'blocks': [{
+                'title': 'Missing Activities (expected against the standard)',
+                'note': 'Activities the standard normally includes that were not found in '
+                        'the schedule. Suggested IDs/links are advisory — review before adding.',
+                'headers': ['Suggested ID', 'Activity', 'Where it belongs (WBS)',
+                            'Suggested predecessor(s)', 'Suggested successor(s)',
+                            "Why it's normally needed", 'Basis'],
+                'rows': rows,
+            }],
+        })
+
+    # ── Missing WBS branches ──
+    if missing_wbs:
+        sheets.append({
+            'name': 'Missing WBS Branches',
+            'blocks': [{
+                'title': 'Missing WBS Branches (expected against the standard)',
+                'note': 'Standard WBS branches for the detected type that are absent from '
+                        'the schedule.',
+                'headers': ['WBS branch', "Why it's normally needed"],
+                'rows': [[w.get('name', ''), w.get('why', '')] for w in missing_wbs],
+            }],
+        })
+
+    return sheets
+
+
 # ── PDF: HTML → Chrome ──────────────────────────────────────────────────────
 
 def _band_legend(score):

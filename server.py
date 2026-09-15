@@ -10,6 +10,76 @@ import db
 import report_theme
 
 
+def _fmt_meta_date(v):
+    """Render a date-ish value ('2026-02-09', a datetime, or an already-human string)
+    as '09 Feb 2026'; pass anything unparseable through unchanged."""
+    if v in (None, ''):
+        return None
+    if isinstance(v, (datetime, date)):
+        return v.strftime('%d %b %Y')
+    s = str(v).strip()
+    try:
+        return datetime.fromisoformat(s.replace('Z', '+00:00')).strftime('%d %b %Y')
+    except ValueError:
+        pass
+    for fmt in ('%Y-%m-%d', '%d %b %Y', '%d-%b-%Y', '%m/%d/%Y', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(s, fmt).strftime('%d %b %Y')
+        except ValueError:
+            continue
+    return s
+
+
+def _excel_meta(title, src=None, snapshot_id=None, **extra):
+    """The uniform Excel header/context block passed to the shared writer.
+
+    Every export opens self-explaining: "<APP_NAME> — <title>" over a grey context
+    line of Project · Data date · [extras] · Generated. Project/data-date are pulled
+    from whatever common keys the feature's report/result dict uses (a nested ``meta``
+    dict is also consulted); when they're absent and `snapshot_id` is given, they're
+    looked up from the DB so even DB-read exports name their project. Anything still
+    missing is simply omitted. `extra` keyword pairs (e.g. baseline='Rev 3',
+    period='Aug → Sep') are inserted before Generated.
+    """
+    src = src or {}
+    meta = src.get('meta') if isinstance(src.get('meta'), dict) else {}
+
+    def pick(*keys):
+        for k in keys:
+            for d in (src, meta):
+                v = d.get(k)
+                if v not in (None, ''):
+                    return v
+        return None
+
+    project = pick('project', 'project_name', 'projectName', 'project_title')
+    data_date = pick('data_date', 'dataDate', 'data_date_str', 'date')
+    if snapshot_id is not None and (not project or not data_date):
+        try:
+            with db.get_conn() as conn:
+                row = conn.execute(
+                    '''SELECT p.name AS project_name, s.data_date AS data_date
+                       FROM snapshots s JOIN projects p ON p.id = s.project_id
+                       WHERE s.id = ?''', (snapshot_id,)).fetchone()
+            if row:
+                project = project or row['project_name']
+                data_date = data_date or row['data_date']
+        except Exception:
+            pass                                          # a missing project name is non-fatal
+
+    ctx = []
+    if project:
+        ctx.append(('Project', str(project)))
+    dd = _fmt_meta_date(data_date)
+    if dd:
+        ctx.append(('Data date', dd))
+    for k, v in extra.items():
+        if v not in (None, ''):
+            ctx.append((k.replace('_', ' ').capitalize(), str(v)))
+    ctx.append(('Generated', datetime.now().strftime('%d %b %Y')))
+    return {'app': APP_NAME, 'title': title, 'context': ctx}
+
+
 def _prodintel_excel_sections(r):
     """Build (name, headers, rows) sheets from a Productivity Intelligence result."""
     ctx = r.get('context') or {}
@@ -495,7 +565,8 @@ class Handler(BaseHTTPRequestHandler):
             if not r or r.get('found') is False:
                 self._json(200, {'ok': False, 'error': 'No validated reference for this selection.'})
                 return
-            write_sections_xlsx(os.path.abspath(output_path), _prodintel_excel_sections(r))
+            write_sections_xlsx(os.path.abspath(output_path), _prodintel_excel_sections(r),
+                                meta=_excel_meta('Productivity & Resource Intelligence', r))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -943,10 +1014,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_update.exporters import report_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = report_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Update Analysis', headers, rows)
+            from p6_update.exporters import report_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), report_excel_sections(report),
+                                meta=_excel_meta('Update Analysis', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -962,7 +1033,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.evm_excel import evm_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
-            write_sections_xlsx(os.path.abspath(output_path), evm_excel(report))
+            write_sections_xlsx(os.path.abspath(output_path), evm_excel(report),
+                                meta=_excel_meta('Earned Value Report', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -979,7 +1051,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_revcompare.xlsx_export import revcompare_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
-            write_sections_xlsx(os.path.abspath(output_path), revcompare_excel(report))
+            write_sections_xlsx(os.path.abspath(output_path), revcompare_excel(report),
+                                meta=_excel_meta('Baseline Revision Comparison', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1010,7 +1083,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
                 return
             report = build_copilot(result, weather)
-            write_sections_xlsx(os.path.abspath(output_path), copilot_excel(report))
+            write_sections_xlsx(os.path.abspath(output_path), copilot_excel(report),
+                                meta=_excel_meta('AI Copilot · Time Impact Analysis', result))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1028,7 +1102,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.dashboard_excel import dashboard_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
             sheets = dashboard_excel(dashboard)
-            write_sections_xlsx(os.path.abspath(output_path), sheets)
+            write_sections_xlsx(os.path.abspath(output_path), sheets,
+                                meta=_excel_meta('Professional Dashboard', dashboard))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1080,7 +1155,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
                 return
             sheets = narrative_excel({'narrative': build_narrative(result), 'result': result})
-            write_sections_xlsx(os.path.abspath(output_path), sheets)
+            write_sections_xlsx(os.path.abspath(output_path), sheets,
+                                meta=_excel_meta('Baseline Narrative', result))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1097,7 +1173,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.overview_excel import overview_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
             sheets = overview_excel(report)
-            write_sections_xlsx(os.path.abspath(output_path), sheets)
+            write_sections_xlsx(os.path.abspath(output_path), sheets,
+                                meta=_excel_meta('Project Overview', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1113,7 +1190,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.wbs_excel import wbs_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
-            write_sections_xlsx(os.path.abspath(output_path), wbs_excel(report))
+            write_sections_xlsx(os.path.abspath(output_path), wbs_excel(report),
+                                meta=_excel_meta('WBS Summary', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1130,7 +1208,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.schedule_excel import schedule_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
-            write_sections_xlsx(os.path.abspath(output_path), schedule_excel(result))
+            write_sections_xlsx(os.path.abspath(output_path), schedule_excel(result),
+                                meta=_excel_meta('Schedule (Gantt)', result))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1331,8 +1410,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_critpath.exporters import to_excel
-            to_excel(report, output_path)
+            from p6_critpath.exporters import critpath_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), critpath_excel_sections(report),
+                                meta=_excel_meta('Critical Path Analyzer', report,
+                                                 snapshot_id=body.get('snapshot_id')))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1708,10 +1790,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_kb.exporters import findings_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = findings_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Constructability Findings', headers, rows)
+            from p6_kb.exporters import findings_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), findings_excel_sections(report),
+                                meta=_excel_meta('Constructability Review', report,
+                                                 snapshot_id=body.get('snapshot_id')))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1999,10 +2082,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_compare.exporters import logic_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = logic_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Driving Logic Changes', headers, rows)
+            from p6_compare.exporters import logic_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            impact = body.get('impact')
+            write_sections_xlsx(os.path.abspath(output_path), logic_excel_sections(report, impact),
+                                meta=_excel_meta('Consultant Review', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2136,7 +2220,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_period.exporters import report_excel
             from p6_evm.xlsx_writer import write_xlsx
             headers, rows = report_excel(report, trend)
-            write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows)
+            write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows,
+                       meta=_excel_meta('Update vs Update — Windows Analysis', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2296,7 +2381,9 @@ class Handler(BaseHTTPRequestHandler):
             sev_col, legend = excel_severity_meta(m, headers)
             write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31],
                        headers, rows, highlight_cols=excel_highlight_cols(headers),
-                       severity_col=sev_col, legend=legend)
+                       severity_col=sev_col, legend=legend,
+                       meta=_excel_meta(m.get('name') or 'Schedule Health Review',
+                                        m, snapshot_id=snapshot_id))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

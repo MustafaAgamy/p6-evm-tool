@@ -1,7 +1,10 @@
 """Consultant Review exporters — logic_excel (flattened change table) and render_html
 (landscape consultant PDF page, with or without the before/after impact)."""
+import zipfile
+
 import report_theme
-from p6_compare.exporters import render_html, logic_excel
+from p6_compare.exporters import render_html, logic_excel, logic_excel_sections
+from p6_evm.xlsx_writer import write_sections_xlsx
 
 
 def _report():
@@ -165,3 +168,81 @@ def test_render_html_sections_omits_dashboard_and_charts_independently():
     assert 'How the logic was changed' not in h            # charts omitted
     assert 'Driving logic &amp; lag changes vs baseline' not in h
     assert 'Impact — reported vs but-for delay' not in h   # the separate impact section omitted
+
+
+# ── logic_excel_sections — the standardised multi-section Excel export ─────────
+
+def _xml(path):
+    """Concatenate every .xml part of the workbook so section titles / values can be
+    asserted regardless of which sheet or shared part they landed in."""
+    with zipfile.ZipFile(str(path)) as z:
+        return ' '.join(z.read(n).decode('utf-8') for n in z.namelist() if n.endswith('.xml'))
+
+
+def test_logic_excel_sections_mirrors_full_report_with_impact(tmp_path):
+    report = _report()
+    report['project_name'] = 'Riyadh Metro'
+    report['dashboard']['delay_working_days'] = 13
+    report['change_summary']['items'] = [
+        {'kind': 'lag', 'label': 'driving lag changed', 'count': 2, 'group': 'logic'},
+        {'kind': 'extended', 'label': 'duration extended', 'count': 1, 'group': 'duration'},
+    ]
+    sheets = logic_excel_sections(report, _impact())
+
+    # One sheet per report section, in report order.
+    assert [s['name'] for s in sheets] == [
+        'Summary', 'Driving Logic Changes', 'Duration Changes', 'Impact (But-For)']
+
+    out = tmp_path / 'consultant_review.xlsx'
+    write_sections_xlsx(str(out), sheets)
+    assert out.exists() and out.stat().st_size > 0
+
+    xml = _xml(out)
+    # Section titles are present.
+    assert 'Summary — Baseline vs Current Update' in xml
+    assert 'Driving logic' in xml and 'changes vs baseline' in xml
+    assert 'Duration &amp; remaining changes vs baseline' in xml
+    assert 'Impact — reported vs but-for delay' in xml
+    assert 'Forecast completion' in xml
+    assert 'Per-milestone finish' in xml
+    assert 'Consultant recommendation' in xml
+    # Self-explaining headers with units (the cryptic on-screen labels spelled out).
+    assert 'Baseline predecessor relationship (type + lag, days)' in xml
+    assert 'Baseline original duration (days)' in xml
+    # Key values from every section mirror the report/impact.
+    assert 'Riyadh Metro' in xml                     # summary context note
+    assert '<v>13</v>' in xml                         # delay working days (numeric)
+    assert 'A1120' in xml and 'FS+10' in xml          # driving-logic row + changed rel
+    assert '<v>12</v>' in xml and '<v>18</v>' in xml  # duration baseline/update orig (numeric)
+    assert '<v>14</v>' in xml                         # manufactured days (numeric)
+    assert 'M900' in xml and 'Handover' in xml        # per-milestone before/after
+    assert 'reported delay is 18 working days' in xml # recommendation prose
+
+
+def test_logic_excel_sections_without_impact_omits_impact_sheet(tmp_path):
+    sheets = logic_excel_sections(_report())          # no impact supplied
+    names = [s['name'] for s in sheets]
+    assert 'Impact (But-For)' not in names
+    assert names == ['Summary', 'Driving Logic Changes', 'Duration Changes']
+    out = tmp_path / 'no_impact.xlsx'
+    write_sections_xlsx(str(out), sheets)
+    xml = _xml(out)
+    assert out.exists() and out.stat().st_size > 0
+    assert 'Impact — reported vs but-for delay' not in xml
+    assert 'Consultant recommendation' not in xml
+    assert 'Driving logic' in xml                     # core section still there
+
+
+def test_logic_excel_sections_omits_duration_when_absent():
+    report = _report()
+    report['durations'] = {'rows': []}                # no duration changes
+    names = [s['name'] for s in logic_excel_sections(report)]
+    assert 'Duration Changes' not in names
+    assert names == ['Summary', 'Driving Logic Changes']
+
+
+def test_logic_excel_left_intact():
+    # The flat exporter still returns (headers, rows) — other callers depend on it.
+    headers, rows = logic_excel(_report())
+    assert headers[0] == '#' and len(headers) == 16
+    assert rows[0][1] == 'A1120'

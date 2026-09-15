@@ -533,7 +533,9 @@ export async function exportCompareExcel() {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/excel`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, output_path: outputPath }),
+        // send the impact too (same as the PDF export) so the Excel carries the
+        // But-For sections whenever the before/after impact is on screen.
+        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
