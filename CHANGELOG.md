@@ -5,7 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
-## [Unreleased]
+## [v2.6.2] - 2026-09-15
 
 ### Changed — Excel exports are clearer across the whole tool
 - **Every Excel export now opens self-explaining.** A header block at the top of the first sheet names the tool, the feature, your **project**, the **data date**, and when the file was generated — so a workbook you send on stands on its own, without the screen next to it.
