@@ -370,7 +370,8 @@ class Handler(BaseHTTPRequestHandler):
                 body.get('item_ids') or [], body.get('report_name') or 'Special Report',
                 meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
                 inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
-                chrome=chrome, mode=report_theme.normalize(body.get('theme')))
+                chrome=chrome, mode=report_theme.normalize(body.get('theme')),
+                editable=bool(body.get('editable')))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

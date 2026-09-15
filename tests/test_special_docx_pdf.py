@@ -31,7 +31,6 @@ def test_assemble_docx_falls_back_to_native_without_chrome(temp_db, xml_path):
     from p6_special import assemble
     registry.clear_providers()
     pid = _seed(xml_path)
-    out = tmp_path = None
     import tempfile, os
     fd, out = tempfile.mkstemp(suffix='.docx'); os.close(fd)
     try:
@@ -40,6 +39,30 @@ def test_assemble_docx_falls_back_to_native_without_chrome(temp_db, xml_path):
         assert zipfile.is_zipfile(out)
         with zipfile.ZipFile(out) as z:
             assert 'word/document.xml' in z.namelist()
+    finally:
+        try:
+            os.remove(out)
+        except OSError:
+            pass
+
+
+def test_assemble_docx_editable_makes_native_editable_tables(temp_db, xml_path):
+    """``editable=True`` uses the native builder — a category table comes through as a
+    REAL, editable Word table (``w:tbl``), not a page image — so the user can edit it."""
+    from p6_special import assemble
+    registry.clear_providers()
+    pid = _seed(xml_path)
+    import tempfile, os
+    fd, out = tempfile.mkstemp(suffix='.docx'); os.close(fd)
+    try:
+        # editable path skips the image-based render even when chrome would be present
+        assemble.docx(out, pid, ['evm:category_table'], report_name='Editable',
+                      meta={}, chrome=None, mode='light', editable=True)
+        assert zipfile.is_zipfile(out)
+        with zipfile.ZipFile(out) as z:
+            doc = z.read('word/document.xml').decode('utf-8')
+        assert '<w:tbl>' in doc                      # a real editable Word table
+        assert 'PAGEREF' in doc                       # live contents page numbers
     finally:
         try:
             os.remove(out)

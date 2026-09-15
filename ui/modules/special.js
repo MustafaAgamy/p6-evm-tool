@@ -91,7 +91,8 @@ function drawBuilder(host, templates) {
           <button class="btn-secondary" id="sr-save-tpl">💾 Save as template</button>
           <span class="sr-appear" id="sr-appear"></span>
           <button class="btn-secondary" id="sr-preview">👁 Preview</button>
-          <button class="btn-secondary" id="sr-word">⬇ Word</button>
+          <button class="btn-secondary" id="sr-word" title="Word file that looks exactly like the PDF (pages are images, not editable)">⬇ Word (exact)</button>
+          <button class="btn-secondary" id="sr-word-edit" title="Editable Word — real tables and text you can change, styled to match the PDF as closely as Word allows">⬇ Word (editable)</button>
           <button class="btn-secondary" id="sr-excel">⬇ Excel</button>
           <button class="btn-primary" id="sr-pdf">⬇ PDF</button>
         </div>
@@ -108,6 +109,7 @@ function drawBuilder(host, templates) {
   document.getElementById('sr-appear').appendChild(buildAppearancePicker({ current: getSavedMode(), compact: true }));
   document.getElementById('sr-preview').addEventListener('click', doPreview);
   document.getElementById('sr-word').addEventListener('click', () => doExport('docx'));
+  document.getElementById('sr-word-edit').addEventListener('click', () => doExport('docx', { editable: true }));
   document.getElementById('sr-excel').addEventListener('click', () => doExport('xlsx'));
   document.getElementById('sr-pdf').addEventListener('click', () => doExport('pdf'));
   document.getElementById('sr-save-tpl').addEventListener('click', doSaveTemplate);
@@ -265,19 +267,22 @@ async function doPreview() {
   });
 }
 
-async function doExport(ext) {
+async function doExport(ext, opts) {
   if (!S.selected.length) { showError('Pick at least one result first.'); return; }
-  await saveFile(ext, getSavedMode());
+  await saveFile(ext, getSavedMode(), opts || {});
 }
 
-async function saveFile(ext, mode) {
+async function saveFile(ext, mode, opts = {}) {
   const safe = (S.name || 'special-report').replace(/[^\w\- ]+/g, '').trim() || 'special-report';
-  const out = await window.pywebview.api.choose_save_path(`${safe}.${ext}`, ext);
+  // the editable Word is a separate file from the exact copy — name it distinctly so
+  // exporting both doesn't silently overwrite one with the other.
+  const base = (ext === 'docx' && opts.editable) ? `${safe} (editable)` : safe;
+  const out = await window.pywebview.api.choose_save_path(`${base}.${ext}`, ext);
   if (!out) return false;
   const route = ext === 'docx' ? 'api/special/docx'
     : ext === 'doc' ? 'api/special/doc'
     : ext === 'xlsx' ? 'api/special/excel' : 'api/special/pdf';
-  const res = await api(route, reqBody({ theme: mode, output_path: out }));
+  const res = await api(route, reqBody({ theme: mode, output_path: out, editable: !!opts.editable }));
   if (!res.ok) { showError(res.error || 'Export failed.'); return false; }
   return true;
 }

@@ -355,6 +355,9 @@ def heading(document, number_label, title, level=1):
     para = document.add_heading('', level=level)
     text = ('%s %s' % (number_label or '', title or '')).strip()
     _set_run_font(para.add_run(text), _HEAD_FONT, size=size, bold=True, color=NAVY)
+    # Keep the heading with what follows so a section title is never stranded alone at
+    # the bottom of a page while its content flows to the next (the "coordination" bug).
+    para.paragraph_format.keep_with_next = True
     return para
 
 
@@ -488,6 +491,8 @@ def _feature_caption(document, text):
     p = document.add_paragraph()
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(4)
+    # keep the source-feature caption with the section body beneath it, too
+    p.paragraph_format.keep_with_next = True
     _set_run_font(p.add_run(str(text or '')), _BODY_FONT, size=9, italic=True, color=GREY)
     return p
 

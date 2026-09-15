@@ -65,23 +65,36 @@ def build_word(project_id=None, item_ids=None, report_name='Special Report', mod
 
 
 def docx(path, project_id=None, item_ids=None, report_name='Special Report', meta=None,
-         letterhead=None, inputs=None, snapshot_id=None, chrome=None, mode='light'):
-    """Write a Word ``.docx`` report to ``path`` that is a pixel-exact copy of the PDF.
+         letterhead=None, inputs=None, snapshot_id=None, chrome=None, mode='light',
+         editable=False):
+    """Write a Word ``.docx`` report to ``path``. Two flavours (Ibrahim keeps both):
 
-    The Word file must match the PDF *exactly* (Ibrahim's standing requirement), so —
-    when ``chrome`` (an absolute path to a Chrome/Chromium executable, supplied by the
-    server) and PyMuPDF are both available — we render the SAME HTML the PDF uses, print
-    it to a PDF with the SAME Chrome flags, and drop each PDF page into the document as a
-    full-page image (see :mod:`p6_special.docx_pdf`). That makes page layout, contents
-    page numbers, and every table's styling identical to the PDF by construction.
+    * ``editable=False`` (default) — a PIXEL-EXACT copy of the PDF: render the SAME HTML
+      the PDF uses, print it to a PDF with the SAME Chrome flags, and drop each PDF page
+      in as a full-page image (:mod:`p6_special.docx_pdf`). Page layout, contents page
+      numbers and every table's styling are identical to the PDF by construction, but the
+      content is images (not editable). Needs ``chrome`` + PyMuPDF.
 
-    If Chrome or PyMuPDF is unavailable (or the PDF render fails), we fall back to the
-    native python-docx builder (:mod:`p6_special.docx_report`) — an editable, best-effort
-    match — so the export never hard-fails. ``mode`` is the appearance mode."""
+    * ``editable=True`` — the native python-docx builder (:mod:`p6_special.docx_report`):
+      real, editable tables and text styled to match the PDF as closely as Word allows
+      (numbered navy sections, contents page, navy tables; chart-heavy reused sections
+      stay as images because they are graphics). Contents page numbers are live Word
+      PAGEREF fields (refresh with Ctrl+A then F9 if Word does not update them on open).
+
+    If the exact path is requested but Chrome/PyMuPDF is unavailable (or the render
+    fails), we fall back to the native builder so the export never hard-fails.
+    ``mode`` is the appearance mode."""
     import report_theme
     mode = report_theme.normalize(mode)
     ctx = _ctx(project_id, snapshot_id, inputs, mode=mode)
     rendered = registry.render(ctx, item_ids or [])
+
+    # Editable flavour: go straight to the native builder (skip the image-based path).
+    if editable:
+        from p6_special import docx_report
+        docx_report.build_docx(path, report_name, _meta(ctx, meta), rendered,
+                               letterhead=letterhead, chrome=chrome, mode=mode)
+        return
 
     # Preferred path: Word == PDF, page for page. Render the SAME two-pass PDF the PDF
     # export produces (correct contents page numbers) and rasterise each page into the
