@@ -17,6 +17,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   - **Constructability** splits its finding types into separate titled sheets with a neutral headline (counts and coverage — no score/verdict), instead of cramming everything into one table.
   - **Critical Path** now uses the same standard workbook as the rest of the tool (Census, Milestones, Driving path, Float migration) with the critical/near-critical rows coloured.
 - **Bad Weather export fixes:** columns are sized correctly per table, and dates read as "09 Feb 2026" instead of raw computer dates.
+- **Calendar Audit and Bad Weather now open with the same header block** as every other export (tool · feature · project · data date · generated), so those two workbooks match the rest of the tool.
 
 ## [v2.6.1] - 2026-09-14
 

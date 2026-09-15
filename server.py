@@ -2717,7 +2717,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_calendar_xlsx
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
-            write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather)
+            write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather,
+                                meta=_excel_meta('Calendar Audit', snapshot_id=snapshot_id))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2742,7 +2743,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.xlsx_writer import write_weather_xlsx
-            write_weather_xlsx(os.path.abspath(output_path), ca, weather)
+            write_weather_xlsx(os.path.abspath(output_path), ca, weather,
+                               meta=_excel_meta('Bad Weather', snapshot_id=snapshot_id))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
