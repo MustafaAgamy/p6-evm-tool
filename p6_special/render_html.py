@@ -661,6 +661,9 @@ tr{break-inside:avoid;}
 /* contents + first section each begin on a fresh page — the break is on the sheet,
    never inside a layout table (which would spill a phantom blank page). */
 .sr-body-sheet{break-before:page;}
+/* the footer's "page numbers appear on the printed copy" hint is screen-only — the
+   printed copy already shows the live @page "Page X of Y" counter. */
+.sr-pph{display:none;}
 }
 """
 
