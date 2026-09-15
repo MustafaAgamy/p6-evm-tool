@@ -92,11 +92,13 @@ _SEV_STYLE = {'Critical': 3, 'High': 4, 'Medium': 5, 'Low': 5}   # Severity valu
 #          6 shutdown · 7 special · 8 day-of-week header · 9 title
 _CAL_STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<fonts count="4">
+<fonts count="6">
 <font><sz val="11"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
 <font><b/><sz val="14"/><name val="Calibri"/></font>
+<font><b/><sz val="15"/><color rgb="FF0F2749"/><name val="Calibri"/></font>
+<font><sz val="10"/><color rgb="FF5C6A80"/><name val="Calibri"/></font>
 </fonts>
 <fills count="9">
 <fill><patternFill patternType="none"/></fill>
@@ -114,7 +116,7 @@ _CAL_STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <border><left style="thin"><color rgb="FFD0D7DE"/></left><right style="thin"><color rgb="FFD0D7DE"/></right><top style="thin"><color rgb="FFD0D7DE"/></top><bottom style="thin"><color rgb="FFD0D7DE"/></bottom></border>
 </borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="11">
+<cellXfs count="13">
 <xf/>
 <xf fontId="1" applyFont="1"/>
 <xf fontId="2" fillId="7" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>
@@ -126,8 +128,12 @@ _CAL_STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xf fontId="1" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
 <xf fontId="3" applyFont="1"/>
 <xf fontId="0" fillId="8" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="4" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf fontId="5" applyFont="1"/>
 </cellXfs>
 </styleSheet>'''
+_CAL_RPTTITLE = 11                    # report-block title (bold 15 navy) — matches _RPTTITLE_STYLE
+_CAL_CONTEXT = 12                     # report-block context sub-line (sz 10 grey)
 
 _STATUS_STYLE = {'work': 3, 'weekend': 4, 'holiday': 5, 'shutdown': 6, 'special': 7}
 _LEGEND = [('Working', 3), ('Weekend', 4), ('Holiday', 5), ('Shutdown', 6), ('Special hours', 7)]
@@ -458,16 +464,38 @@ def _uniq(name, used):
     return out
 
 
-def _timeline_sheet_xml(months, cal_name, subtitle):
+def _cal_header_lines(meta):
+    """The report header/context block for the calendar-family workbooks, as
+    [(text, style)] rows using the _CAL_STYLES report-title / context styles.
+    Mirrors _meta_block_cells but for the calendar stylesheet. [] when no meta."""
+    if not meta:
+        return []
+    title = meta.get('title') or 'Report'
+    app = meta.get('app')
+    lines = [(f'{app} — {title}' if app else title, _CAL_RPTTITLE)]
+    ctx = [(k, v) for k, v in (meta.get('context') or []) if v not in (None, '')]
+    if ctx:
+        lines.append(('   ·   '.join(f'{k}: {v}' for k, v in ctx), _CAL_CONTEXT))
+    return lines
+
+
+def _timeline_sheet_xml(months, cal_name, subtitle, header_lines=None):
     """One calendar's coloured month grid — with the holiday/shutdown name inside the
-    day cell (#05) — followed by its Monthly Statistics table."""
-    cells = {(1, 0): (f'Calendar Timeline — {cal_name}', 9)}
+    day cell (#05) — followed by its Monthly Statistics table. `header_lines` (only on the
+    workbook's first sheet) prepends the standard report header/context block."""
+    cells = {}
+    off = 0
+    if header_lines:
+        for i, (txt, st) in enumerate(header_lines, start=1):
+            cells[(i, 0)] = (txt, st)
+        off = len(header_lines) + 1                        # header rows + a blank spacer
+    cells[(1 + off, 0)] = (f'Calendar Timeline — {cal_name}', 9)
     if subtitle:
-        cells[(2, 0)] = (subtitle, 0)
+        cells[(2 + off, 0)] = (subtitle, 0)
     for i, (lab, st) in enumerate(_LEGEND):
-        cells[(4, i)] = (lab, st)
+        cells[(4 + off, i)] = (lab, st)
     row_heights = {}
-    r = 6
+    r = 6 + off
     for m in months:
         cells[(r, 0)] = (f'{m.get("label", "")} — {m.get("working_days", 0)} working days', 1)
         r += 1
@@ -561,10 +589,11 @@ def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None,
     return _cells_sheet(cells, col_widths=col_widths)
 
 
-def write_calendar_xlsx(path, ca, weather=None):
+def write_calendar_xlsx(path, ca, weather=None, meta=None):
     """Write the full Calendar Audit workbook (#04/#05/#08): one coloured timeline sheet
     per assigned calendar (names inside the day cells) + Exceptions, Comparison, Usage and
-    (when present) Weather sheets — every table in the report."""
+    (when present) Weather sheets — every table in the report. `meta` prepends the standard
+    report header/context block to the first sheet (same as every other export)."""
     by_cal = ca.get('by_calendar') or {}
     primary = ca.get('primary_calendar_id')
     assigned = ca.get('assigned_calendars') or []
@@ -572,14 +601,16 @@ def write_calendar_xlsx(path, ca, weather=None):
     hidden = proj.get('hidden_months') or 0
     subtitle = (f'Timeline from data date {proj.get("timeline_start") or "start"} to finish'
                 + (f' · {hidden} earlier month(s) hidden' if hidden else ''))
+    hdr = _cal_header_lines(meta)                          # header block, first sheet only
 
     sheets, used = [], set()
-    for c in assigned:
+    for i, c in enumerate(assigned):
         months = (by_cal.get(c['object_id'], {}) or {}).get('monthly_stats', [])
         name = _uniq(_safe_sheet_name(c['name']), used)
-        sheets.append((name, _timeline_sheet_xml(months, c['name'], subtitle)))
+        sheets.append((name, _timeline_sheet_xml(months, c['name'], subtitle,
+                                                 header_lines=hdr if i == 0 else None)))
     if not sheets:      # no assigned calendars — still emit an (empty) timeline sheet
-        sheets.append(('Timeline', _timeline_sheet_xml([], 'Calendar', subtitle)))
+        sheets.append(('Timeline', _timeline_sheet_xml([], 'Calendar', subtitle, header_lines=hdr)))
 
     exc = (by_cal.get(primary, {}) or {}).get('exceptions', {}) or {}
     exc_blocks = [
@@ -641,16 +672,23 @@ def write_calendar_xlsx(path, ca, weather=None):
     _write_book(path, sheets, _CAL_STYLES)
 
 
-def _wx_grid_sheet_xml(months, cal_name, bad_by_date, subtitle):
+def _wx_grid_sheet_xml(months, cal_name, bad_by_date, subtitle, header_lines=None):
     """A month grid for the weather's construction calendar — working / non-working days —
-    with the BAD-WEATHER days overlaid in amber (bad_by_date: 'YYYY-MM-DD' -> condition text)."""
-    cells = {(1, 0): (f'Bad-Weather Calendar — {cal_name}', 9)}
+    with the BAD-WEATHER days overlaid in amber (bad_by_date: 'YYYY-MM-DD' -> condition text).
+    `header_lines` prepends the standard report header/context block (first sheet only)."""
+    cells = {}
+    off = 0
+    if header_lines:
+        for i, (txt, st) in enumerate(header_lines, start=1):
+            cells[(i, 0)] = (txt, st)
+        off = len(header_lines) + 1
+    cells[(1 + off, 0)] = (f'Bad-Weather Calendar — {cal_name}', 9)
     if subtitle:
-        cells[(2, 0)] = (subtitle, 0)
+        cells[(2 + off, 0)] = (subtitle, 0)
     for i, (lab, st) in enumerate(_WX_LEGEND):
-        cells[(4, i)] = (lab, st)
+        cells[(4 + off, i)] = (lab, st)
     row_heights = {}
-    r = 6
+    r = 6 + off
     for m in months:
         cells[(r, 0)] = (m.get('label', ''), 1)
         r += 1
@@ -681,11 +719,11 @@ def _wx_grid_sheet_xml(months, cal_name, bad_by_date, subtitle):
     return _cells_sheet(cells, col_widths={i: 15 for i in range(7)}, row_heights=row_heights)
 
 
-def write_weather_xlsx(path, ca, weather):
+def write_weather_xlsx(path, ca, weather, meta=None):
     """Bad Weather workbook: a construction-calendar month grid with the bad-weather days
     highlighted amber (same concept as the P6 Calendar grid), then the weather tables —
     Upcoming Bad-Weather Days (with a serial #), Causes by weather type, Milestone impact,
-    Recovery."""
+    Recovery. `meta` prepends the standard report header/context block to the first sheet."""
     w = weather or {}
     by_cal = ca.get('by_calendar') or {}
     assigned = ca.get('assigned_calendars') or []
@@ -702,7 +740,8 @@ def write_weather_xlsx(path, ca, weather):
     bad_by_date = {str(d.get('date', ''))[:10]: d.get('condition', '')
                    for d in w.get('bad_days', []) if d.get('date')}
 
-    sheets = [('Bad-Weather Calendar', _wx_grid_sheet_xml(months, ref_name, bad_by_date, subtitle))]
+    sheets = [('Bad-Weather Calendar', _wx_grid_sheet_xml(months, ref_name, bad_by_date, subtitle,
+                                                          header_lines=_cal_header_lines(meta)))]
 
     def _acts(d):
         names = d.get('activities') or []
