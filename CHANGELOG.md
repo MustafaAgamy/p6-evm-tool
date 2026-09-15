@@ -5,6 +5,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+
+### Changed — Excel exports are clearer across the whole tool
+- **Every Excel export now opens self-explaining.** A header block at the top of the first sheet names the tool, the feature, your **project**, the **data date**, and when the file was generated — so a workbook you send on stands on its own, without the screen next to it.
+- **Titled sections instead of one bare grid.** Each export mirrors the sections you see on screen as its own clearly-titled table, columns are widened to fit their content (no more cut-off text), percentages read as "45.7%", and dates as "09 Feb 2026".
+- **Severity is coloured to match the screen** (Critical / High / Medium), with a small legend, wherever a feature shows it.
+- **Four exports were rebuilt where they were unclear or incomplete:**
+  - **Consultant Review** now exports the whole review — the summary, the driving-logic changes, the duration changes, and the before/after (but-for) impact with the per-milestone comparison and the recommendation — not just the logic table.
+  - **Update Analysis** now carries context and full column names with units (it was a bare grid of cryptic numbers), laid out as Time Status, By Activity Code, Driving Path, Activity Counts and Scope Weight.
+  - **Constructability** splits its finding types into separate titled sheets with a neutral headline (counts and coverage — no score/verdict), instead of cramming everything into one table.
+  - **Critical Path** now uses the same standard workbook as the rest of the tool (Census, Milestones, Driving path, Float migration) with the critical/near-critical rows coloured.
+- **Bad Weather export fixes:** columns are sized correctly per table, and dates read as "09 Feb 2026" instead of raw computer dates.
+
 ## [v2.6.1] - 2026-09-14
 
 ### Fixed
