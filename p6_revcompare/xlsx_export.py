@@ -353,16 +353,28 @@ def _pct_display(d):
     return _pct_change(d.get('before'), d.get('variance'))
 
 
+def _dur_note(d):
+    """Neutral Note cell for a duration row: an ADDED activity (Rev.00 before is the em-dash
+    placeholder) is tagged "New activity" so the reader knows the row is a new activity, not a
+    duration change (change 3); a >±200% swing is flagged for justification. Both can show."""
+    parts = []
+    if d.get('before') == '—':
+        parts.append('New activity')
+    if d.get('big_variance'):
+        parts.append('Needs justification (>±200%)')
+    return ' · '.join(parts)
+
+
 def _register_blocks(report):
     # Only the Duration changed table lives in the register now — Calendar / TF-After columns
     # removed (comment 3); a % change column added; milestone / calendar to their own sheets,
     # logic to Key Findings, cost / resource to Cost & Resources. A neutral "Note" column flags
-    # a >±200% swing for justification (usually the activity/relationship type changed) — never
-    # calls the change wrong.
+    # a >±200% swing for justification (usually the activity/relationship type changed) and tags
+    # a newly ADDED activity — never calls the change wrong.
     dur = [[_txt(d.get('id')), _txt(d.get('name')), _txt(d.get('wbs'), '—'),
             _num(d.get('before')), _num(d.get('after')), _num(d.get('variance')),
             _pct_display(d),
-            'Needs justification (>±200%)' if d.get('big_variance') else '']
+            _dur_note(d)]
            for d in (report.get('duration_table') or [])]
     return [{'title': 'Duration changed — working days',
              'note': 'Every activity whose planned duration moved. Filter by activity code on screen '
@@ -526,19 +538,91 @@ def _cost_blocks(report):
 
 # ── 7b · resource — Resources ─────────────────────────────────────────────────────
 
+def _res_kind(kind, var):
+    """Kind tag for a by-resource row: Added / Removed straight from the trade kind, otherwise
+    Increased / Decreased from the man-hour variance sign (change 7)."""
+    if kind == 'added':
+        return 'Added'
+    if kind == 'removed':
+        return 'Removed'
+    if isinstance(var, (int, float)) and not isinstance(var, bool):
+        if var > 0:
+            return 'Increased'
+        if var < 0:
+            return 'Decreased'
+    return 'Changed'
+
+
 def _resource_blocks(report):
-    """The Resource-changed assignment table on its own sheet (change 5) — moved out of Cost &
-    Resources."""
+    """Resource-by-resource comparison sheet (change 7) — one row per resource / trade: budgeted
+    man-hours Before → After (from ``curves.manhours_by_trade``), the Variance, an Added / Removed
+    / Increased / Decreased tag, and the activities it is assigned to (from ``assignment_changes``
+    grouped by resource). The raw per-activity assignment list is kept below as detail."""
     rc = report.get('resource_changes') or {}
-    asg = [[_txt(a.get('code')), _txt(a.get('name')), _txt(a.get('resource')),
-            _ASG_KIND.get(a.get('kind'), _txt(a.get('kind'))), _txt(a.get('rev0'), '—'),
-            _txt(a.get('rev1'), '—')] for a in (rc.get('assignment_changes') or [])]
-    return [
-        {'title': 'Resource changed — assignment before / after',
-         'note': 'Resource assignments added, removed, or changed in units / rate between the revisions.',
-         'headers': ['Activity ID', 'Activity Name', 'Resource', 'Change', 'Before', 'After'],
-         'rows': _rows_or_none(asg, 6, 'No resource-assignment changes.')},
-    ]
+    c = report.get('curves') or {}
+    trade = c.get('manhours_by_trade') or []
+    asg = rc.get('assignment_changes') or []
+
+    # Group assignment changes by resource -> the activities it is assigned to.
+    by_res = {}
+    order = []
+    for a in asg:
+        res = _txt(a.get('resource'))
+        if res not in by_res:
+            by_res[res] = []
+            order.append(res)
+        by_res[res].append(a)
+
+    def assigned_to(res_name):
+        items = by_res.get(res_name) or []
+        if not items:
+            return '—'
+        labels = [lbl for a in items for lbl in [_txt(a.get('name')) or _txt(a.get('code'))] if lbl]
+        n = len(items)
+        head = f"{n} activity" if n == 1 else f"{n} activities"
+        if labels:
+            shown = ', '.join(labels[:3]) + (', …' if len(labels) > 3 else '')
+            return f"{head} — {shown}"
+        return head
+
+    rows = []
+    seen = set()
+    for t in trade:
+        name = _txt(t.get('name'))
+        seen.add(name)
+        rows.append([name, _money(t.get('rev0')), _money(t.get('rev1')),
+                     _money_sgn(t.get('var')), _res_kind(t.get('kind'), t.get('var')),
+                     assigned_to(name)])
+    # Resources that changed assignment but carry no man-hour trade row — still shown so the
+    # comparison covers every resource type, with man-hours left as em-dashes.
+    for res_name in order:
+        if res_name in seen:
+            continue
+        kinds = {a.get('kind') for a in by_res[res_name]}
+        if kinds == {'added'}:
+            k = 'Added'
+        elif kinds == {'removed'}:
+            k = 'Removed'
+        else:
+            k = 'Changed'
+        rows.append([res_name, '—', '—', '—', k, assigned_to(res_name)])
+
+    blocks = [{'title': 'Resource comparison — by resource / trade (Rev.00 → Rev.01)',
+               'note': 'One row per resource: budgeted man-hours before → after, the variance, whether it '
+                       'was added / removed / increased / decreased, and the activities it is assigned to.',
+               'headers': ['Resource', 'Man-hrs Before', 'After', 'Variance', 'Kind', 'Assigned to'],
+               'rows': _rows_or_none(rows, 6, 'No resource changes between the revisions.')}]
+
+    # Per-activity assignment detail — the individual changes behind the by-resource view above.
+    detail = [[_txt(a.get('code')), _txt(a.get('name')), _txt(a.get('resource')),
+               _ASG_KIND.get(a.get('kind'), _txt(a.get('kind'))), _txt(a.get('rev0'), '—'),
+               _txt(a.get('rev1'), '—')] for a in asg]
+    blocks.append({'title': 'Per-activity assignment detail',
+                   'note': 'The individual assignment changes (added / removed / units / rate) behind the '
+                           'by-resource comparison above.',
+                   'headers': ['Activity ID', 'Activity Name', 'Resource', 'Change', 'Before', 'After'],
+                   'rows': _rows_or_none(detail, 6, 'No resource-assignment changes.')})
+    return blocks
 
 
 # ── 8 · manpower — Manpower ──────────────────────────────────────────────────────
@@ -662,7 +746,7 @@ def revcompare_excel(report):
         {'name': 'Cost & Resources', 'blocks': _cost_blocks(report),
          'col_widths': {0: 20, 1: 24, 2: 18, 3: 16, 4: 16, 5: 16, 6: 16}},
         {'name': 'Resources', 'blocks': _resource_blocks(report),
-         'col_widths': {0: 16, 1: 24, 2: 20, 3: 16, 4: 16, 5: 16}},
+         'col_widths': {0: 24, 1: 16, 2: 16, 3: 16, 4: 14, 5: 44}},
         {'name': 'Manpower', 'blocks': _manpower_blocks(report),
          'col_widths': {0: 16, 1: 22, 2: 16, 3: 16, 4: 16, 5: 14}},
         {'name': 'Scope & Structure', 'blocks': _scope_blocks(report),

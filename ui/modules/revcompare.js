@@ -687,12 +687,13 @@ function crumbSegs(l, wbsKey) {
   return segs.length ? segs : ['(no WBS)'];
 }
 
-// A single compact "lane" (Critical-Path-Analyzer style, comment 2): a header (change tag +
-// on-CP + a WBS/context sub-label) then a one-row chain predecessor → link → successor. Each
-// node carries the activity name, its WBS breadcrumb "@ seg @ seg" and the id; the link shows
-// the relationship before (struck) → after (highlighted), or '✕' for a removed link. No big
-// two-row boxes, no vertical scrolling.
-function logicLane(l) {
+// A single compact "lane" (Critical-Path-Analyzer style, comment 2): a numbered header
+// (#N + change tag + on-CP / context sub-label), an explicit "Before: … → After: …" link line,
+// then a one-row chain predecessor → link → successor. Each node carries the activity name,
+// its WBS breadcrumb "@ seg @ seg" and the id; the chain link is a single arrow (or '✕' for a
+// removed link) — the wording of the change lives in the explicit line above. Lanes sit in a
+// responsive grid (2-up on a normal window, 1-up when narrow); nothing scrolls sideways.
+function logicLane(l, idx) {
   const change = String(l.change || '');
   const kind = /added/i.test(change) ? 'added' : /removed/i.test(change) ? 'removed' : 'changed';
   const tag = kind === 'added' ? 'add' : kind === 'removed' ? 'rem' : 'chg';
@@ -706,19 +707,19 @@ function logicLane(l) {
   const cnode = (name, id, segs, crit) =>
     `<div class="rc-cnode${crit ? ' crit' : ''}"><div class="rc-cn" title="${esc(name)}">${esc(name)}</div>`
     + `<div class="rc-cw">@ ${segs.map(esc).join(' @ ')}</div><div class="rc-cid">${esc(id)}</div></div>`;
-  let link;
-  if (kind === 'removed') {
-    link = `<div class="rc-clink">${l.before ? `<span class="rc-l0">${esc(l.before)}</span>` : ''}<span class="rc-ar2 rem">✕</span></div>`;
-  } else if (kind === 'added') {
-    link = `<div class="rc-clink"><span class="rc-l1 add">${esc(l.after)}</span><span class="rc-ar2 add">→</span></div>`;
-  } else {
-    const before = l.before ? `<span class="rc-l0">${esc(l.before)}</span>` : '';
-    const after = l.after ? `<span class="rc-l1">${esc(l.after)}</span>` : '';
-    link = `<div class="rc-clink">${before}${after}<span class="rc-ar2 chg">→</span></div>`;
-  }
+  // Show the relationship BEFORE and AFTER as two chains, so the change is a visible comparison
+  // (Rev.00 link → Rev.01 link) — not just a text line. The link widget carries the type+lag.
+  const chain = linkHtml =>
+    `<div class="rc-chain2">${cnode(l.pred_name, l.pred_id, pSegs, false)}${linkHtml}${cnode(l.succ_name, l.succ_id, sSegs, !!l.on_cp)}</div>`;
+  const linkW = (label, cls, arrow) =>
+    `<div class="rc-clink"><span class="rc-clt ${cls}">${label}</span><span class="rc-ar2 ${cls}">${arrow}</span></div>`;
+  const beforeLink = kind === 'added' ? linkW('no link', 'none', '⋯') : linkW(esc(l.before), '', '→');
+  const afterLink = kind === 'removed' ? linkW('removed', 'rem', '✕')
+    : linkW(esc(l.after), kind === 'added' ? 'add' : 'chg', '→');
   return `<div class="rc-lane">
-      <div class="rc-lanehdr"><span class="rc-lanetag ${tag}">${esc(l.change)}</span>${sub ? `<span class="rc-lanesub">${sub}</span>` : ''}</div>
-      <div class="rc-chain2">${cnode(l.pred_name, l.pred_id, pSegs, false)}${link}${cnode(l.succ_name, l.succ_id, sSegs, !!l.on_cp)}</div>
+      <div class="rc-lanehdr"><span class="rc-lanenum">#${idx}</span><span class="rc-lanetag ${tag}">${esc(l.change)}</span>${sub ? `<span class="rc-lanesub">${sub}</span>` : ''}</div>
+      <div class="rc-rev2lab">Rev.00 — before</div>${chain(beforeLink)}
+      <div class="rc-rev2lab r1">Rev.01 — after</div>${chain(afterLink)}
     </div>`;
 }
 
@@ -731,7 +732,7 @@ function renderLogicChart(body) {
   if (!all.length) { host.innerHTML = noData('No relationship changes to chart.'); return; }
   const rows = all.filter(l => val === 'All' || ((l.codes || {})[dim]) === val);
   if (!rows.length) { host.innerHTML = noData('No relationship changes for this code.'); return; }
-  host.innerHTML = `<div class="rc-lanes">${rows.map(logicLane).join('')}</div>`;
+  host.innerHTML = `<div class="rc-lanes">${rows.map((l, i) => logicLane(l, i + 1)).join('')}</div>`;
 }
 
 function wireFindings(body) {
@@ -890,10 +891,14 @@ function renderDurTable(body) {
     // A > ±200% swing (engine flag, or |pct| > 200) usually means the activity type /
     // relationship type changed — flag it neutrally for justification, never as "wrong".
     const big = (d.big_variance === true) || (typeof pct === 'number' && Math.abs(pct) > 200);
-    const note = big
-      ? `<span class="rc-tag warn" title="A > ±200% swing usually means the activity type or relationship type changed — it warrants a justification. Not a judgement that the change is wrong.">⚠ needs justification</span>`
-      : '<span class="rc-mut">—</span>';
-    return `<tr><td class="rc-aid">${esc(d.id)}</td><td>${esc(d.name)}</td><td class="rc-mut">${esc(d.wbs)}</td>
+    // ADDED activity rows carry no "before" duration (before === '—') — flag them as new work.
+    const isAdded = d.before === '—' || d.before == null;
+    const note = isAdded
+      ? '<span class="rc-tag add" title="This activity is new in Rev.01 — it has no Rev.00 duration to compare against.">New activity</span>'
+      : big
+        ? `<span class="rc-tag warn" title="A > ±200% swing usually means the activity type or relationship type changed — it warrants a justification. Not a judgement that the change is wrong.">⚠ needs justification</span>`
+        : '<span class="rc-mut">—</span>';
+    return `<tr><td class="rc-aid">${esc(d.id)}</td><td>${esc(d.name)}${isAdded ? '<span class="rc-tag add" style="margin-left:6px">New activity</span>' : ''}</td><td class="rc-mut">${esc(d.wbs)}</td>
       <td class="n">${bNum ? d.before + ' d' : esc(d.before)}</td>
       <td class="n rc-new">${aNum ? d.after + ' d' : esc(d.after)}</td>
       <td class="n">${v != null ? `<span class="rc-d ${v > 0 ? 'up' : v < 0 ? 'down' : 'zero'}">${v > 0 ? '+' : ''}${v} d</span>` : (d.before == null || d.after == null ? '<span class="rc-tag add">Added</span>' : '—')}</td>
@@ -1016,7 +1021,7 @@ function calendarView(r) {
 
 // Planned-value chart — monthly Rev.01 bars with a value LABEL above each (comment 8),
 // plus the Rev.00/Rev.01 cumulative curves. Value labels use the compact money formatter.
-function scurveSvg(curves, rev0finish) {
+function scurveSvg(curves, rev0finish, rev1finish) {
   const vm = curves.value_monthly || [];
   const vc = curves.value_cumulative || [];
   const months = curves.months || vm.map(x => x.month);
@@ -1070,13 +1075,27 @@ function scurveSvg(curves, rev0finish) {
     const ly = plotB + 12;
     return `<text x="${cx.toFixed(1)}" y="${ly}" font-size="8.5" fill="var(--muted)" text-anchor="end" transform="rotate(-42 ${cx.toFixed(1)} ${ly})">${escapeHtml(String(m))}</text>`;
   }).join('');
+  // Completion-date label at the END of the Rev.01 cumulative curve (comment 5) — e.g.
+  // "09 Feb 2027" pinned just past the final cumulative point, with a small marker dot.
+  let finishLabel = '';
+  if (rev1finish && n) {
+    const lastM = months[n - 1];
+    const endX = plotL + (n - 1 + 0.5) * colW;
+    const endVal = cumByMonth[lastM] ? (cumByMonth[lastM].rev1 || 0) : 0;
+    const endY = plotB - (endVal / maxCum) * (plotB - plotT);
+    const tx = Math.min(endX + 6, W - 4);
+    const anchor = endX + 90 > W ? 'end' : 'start';
+    finishLabel = `<circle cx="${endX.toFixed(1)}" cy="${endY.toFixed(1)}" r="3.2" fill="var(--accent-dark)"/>`
+      + `<text x="${(anchor === 'end' ? endX - 6 : tx).toFixed(1)}" y="${(endY - 7).toFixed(1)}" font-size="10" font-weight="800" fill="var(--accent-dark)" text-anchor="${anchor}">${esc(rev1finish)}</text>`
+      + `<text x="${(anchor === 'end' ? endX - 6 : tx).toFixed(1)}" y="${(endY + 5).toFixed(1)}" font-size="8" fill="var(--muted)" text-anchor="${anchor}">Rev.01 finish</text>`;
+  }
   return `<div class="rc-chartwrap"><svg viewBox="0 0 ${W} 300" class="rc-svg" style="min-width:${W}px" role="img" aria-label="Planned value chart">
     <line x1="${plotL}" y1="${plotB}" x2="${plotR}" y2="${plotB}" stroke="var(--border)"/>
     <line x1="${plotL}" y1="${plotT}" x2="${plotL}" y2="${plotB}" stroke="var(--border)"/>
     ${bars}
     ${line('rev0', 'var(--muted)', 2.2)}
     ${line('rev1', 'var(--accent-dark)', 2.6)}
-    ${origLine}${xlabels}
+    ${origLine}${xlabels}${finishLabel}
   </svg></div>`;
 }
 
@@ -1104,7 +1123,7 @@ function costView(r) {
   // Planned value of work — value labels above each bar, clear of the cumulative curve (comment 4).
   const scurve = curves.cost_available
     ? `<div class="rc-card"><h3>Planned value of work <span class="rc-n">monthly value (label above each bar) + cumulative</span></h3>
-        ${scurveSvg(curves, r.rev0 && r.rev0.finish)}
+        ${scurveSvg(curves, r.rev0 && r.rev0.finish, r.rev1 && r.rev1.finish)}
         <div class="rc-legend"><span><i style="background:var(--accent)"></i>Rev.01 value/mo</span><span><i class="rc-line" style="background:var(--muted)"></i>Rev.00 cumulative</span><span><i class="rc-line" style="background:var(--accent-dark)"></i>Rev.01 cumulative</span></div>
         ${Number(curves.value_after_orig_finish) > 0 ? `<div class="rc-callout warn"><b>${fmtNum(curves.value_after_orig_finish)} of planned value now falls after the original finish (${esc(r.rev0 && r.rev0.finish)})</b> — potential extended-works exposure (prolongation, prelims, plant hire). Surfaced for review.</div>` : ''}
       </div>`
@@ -1121,12 +1140,24 @@ function costView(r) {
   // Itemised activity-level cost table — returns to Cost & Resources (comment 6). The by-WBS
   // roll-up (report.cost_by_wbs) is no longer rendered anywhere.
   const pick = (row, keys) => { for (const k of keys) { if (row[k] != null && row[k] !== '') return row[k]; } return null; };
+  // Rows are resource_changes.activity_cost_changes: rev0/rev1 are pre-formatted money
+  // STRINGS and delta carries the variance (comment 6) — read them directly, never coerce
+  // to Number (that produced the previously-blank Before/After/Variance columns).
   const costRows = costChanges.slice(0, 40).map(c => {
     const id = pick(c, ['code', 'activity_id', 'id']), name = pick(c, ['name', 'activity_name']);
-    const b = typeof c.rev0 === 'number' ? c.rev0 : null, a = typeof c.rev1 === 'number' ? c.rev1 : null;
-    return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}${(b == null || a == null) ? '<span class="rc-tag add" style="margin-left:6px">NEW</span>' : ''}</td>
-      <td class="n rc-mut">${b != null ? fmtNum(b) : '—'}</td><td class="n rc-new">${a != null ? fmtNum(a) : '—'}</td>
-      <td class="n">${(b != null && a != null) ? `<span class="rc-d ${a - b >= 0 ? 'up' : 'down'}">${a - b >= 0 ? '+' : ''}${fmtNum(a - b)}</span>` : '<span class="rc-tag add">Added</span>'}</td></tr>`;
+    const before = pick(c, ['rev0']), after = pick(c, ['rev1']), delta = c.delta;
+    const isNew = before == null || before === '—';
+    let varCell;
+    if (typeof delta === 'number') {
+      varCell = `<span class="rc-d ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'zero'}">${delta > 0 ? '+' : ''}${fmtNum(delta)}</span>`;
+    } else if (delta != null && delta !== '') {
+      varCell = `<span class="rc-d">${esc(delta)}</span>`;
+    } else {
+      varCell = '—';
+    }
+    return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}${isNew ? '<span class="rc-tag add" style="margin-left:6px">NEW</span>' : ''}</td>
+      <td class="n rc-mut">${before != null ? esc(before) : '—'}</td><td class="n rc-new">${after != null ? esc(after) : '—'}</td>
+      <td class="n">${varCell}</td></tr>`;
   }).join('');
   const costTblCard = hasCostTbl
     ? `<div class="rc-card"><h3>Cost changed <span class="rc-n">activity-level · budget total cost · variance</span></h3>
@@ -1139,25 +1170,82 @@ function costView(r) {
 
 // ══ 8 · Resources (comment 5 — resource-changed table on its own tab) ═══════════
 
+// Resource-by-resource comparison (comment 7). Leads with ONE row per resource / trade —
+// man-hours Before → After (from curves.manhours_by_trade rev0/rev1/var), a neutral kind tag
+// (Added / Removed / Increased / Decreased) and "Assigned to" (distinct activities that
+// resource touches, grouped from resource_changes.assignment_changes). The raw per-activity
+// assignment list follows as supporting detail rather than leading the section.
+function resourceKindMeta(kind, before, after) {
+  let k = String(kind || '').toLowerCase();
+  if (!k || k === 'changed') {
+    const b = Number(before) || 0, a = Number(after) || 0;
+    k = (b === 0 && a > 0) ? 'added' : (a === 0 && b > 0) ? 'removed'
+      : a > b ? 'increased' : a < b ? 'decreased' : 'unchanged';
+  }
+  const map = {
+    added: ['add', 'Added'], removed: ['rem', 'Removed'],
+    increased: ['chg', 'Increased'], decreased: ['chg', 'Decreased'],
+    unchanged: ['', 'Unchanged'],
+  };
+  return map[k] || ['chg', String(kind || 'Changed')];
+}
+
 function resourceView(r) {
   const rc = r.resource_changes || {};
-  const hasResTbl = !!(rc.resource_available || (rc.assignment_changes && rc.assignment_changes.length));
+  const curves = r.curves || {};
+  const byTrade = curves.manhours_by_trade || [];
+  const assign = rc.assignment_changes || [];
+  const hasResTbl = !!(rc.resource_available || byTrade.length || assign.length);
   if (!hasResTbl) {
-    return secmark('8', 'Resources', 'resource assignment changes')
+    return secmark('8', 'Resources', 'resource-by-resource comparison')
       + `<div class="rc-card"><h3>Resources <span class="rc-n">optional</span></h3>${noData('Neither revision carries resource assignments — this section is reported as not applicable rather than "no change".')}</div>`;
   }
   const pick = (row, keys) => { for (const k of keys) { if (row[k] != null && row[k] !== '') return row[k]; } return null; };
-  const resRows = (rc.assignment_changes || []).map(a => {
+
+  // "Assigned to" — distinct activities per resource, grouped from the assignment changes.
+  const assignedBy = {};
+  assign.forEach(a => {
+    const key = a.resource || a.resource_name || a.resource_id;
+    if (key == null || key === '') return;
+    if (!assignedBy[key]) assignedBy[key] = new Set();
+    const act = pick(a, ['code', 'activity_id', 'id', 'name']);
+    if (act != null && act !== '') assignedBy[key].add(String(act));
+  });
+
+  // Lead card — resource-by-resource man-hour comparison.
+  const byRows = byTrade.map(t => {
+    const name = t.name || t.trade || t.resource || t.resource_id || '—';
+    const b = t.rev0, a = t.rev1;
+    const v = (t.var != null) ? t.var : ((Number(a) || 0) - (Number(b) || 0));
+    const [kTag, kLabel] = resourceKindMeta(t.kind, b, a);
+    const key = t.name || t.resource || t.resource_id;
+    const cnt = (key != null && assignedBy[key]) ? assignedBy[key].size : 0;
+    const vNum = typeof v === 'number' ? v : Number(v);
+    return `<tr><td>${esc(name)}${t.resource_id ? ` <span class="rc-mut">${esc(t.resource_id)}</span>` : ''}</td>
+      <td class="n rc-mut">${b != null ? fmtInt(b) : '—'}</td>
+      <td class="n rc-new">${a != null ? fmtInt(a) : '—'}</td>
+      <td class="n">${isFinite(vNum) ? `<span class="rc-d ${vNum > 0 ? 'up' : vNum < 0 ? 'down' : 'zero'}">${vNum > 0 ? '+' : ''}${fmtInt(vNum)}</span>` : '—'}</td>
+      <td>${typeTag(kTag, kLabel)}</td>
+      <td class="rc-mut">${cnt ? `${fmtInt(cnt)} activit${cnt === 1 ? 'y' : 'ies'}` : '—'}</td></tr>`;
+  }).join('');
+  const byCard = `<div class="rc-card"><h3>Resource comparison <span class="rc-n">man-hours by resource · Rev.00 → Rev.01</span></h3>
+      <div class="rc-sec">One row per resource / trade — planned man-hours before and after, the variance, a neutral change tag, and how many activities it is assigned to</div>
+      ${byRows ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Resource</th><th class="n">Before (mh)</th><th class="n">After (mh)</th><th class="n">Variance</th><th>Change</th><th>Assigned to</th></tr></thead><tbody>${byRows}</tbody></table></div>` : noData('No resource man-hour totals available to compare.')}</div>`;
+
+  // Supporting detail — the raw per-activity assignment changes (kept below the lead card).
+  const resRows = assign.map(a => {
     const id = pick(a, ['activity_id', 'code', 'id']), name = pick(a, ['activity_name', 'name']);
-    const kindTag = { added: 'add', removed: 'rem' }[a.kind] || 'chg';
-    const kindLabel = { added: 'Added', removed: 'Removed', units: 'Units', rate: 'Rate' }[a.kind] || a.kind || 'Changed';
+    const [kTag, kLabel] = resourceKindMeta(a.kind, a.rev0, a.rev1);
     return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}</td>
       <td class="rc-aid">${esc(a.resource_id)}</td><td>${esc(a.resource || a.resource_name)}</td>
-      <td class="n rc-mut">${esc(a.rev0)}</td><td class="n rc-new">${esc(a.rev1)}</td><td>${typeTag(kindTag, kindLabel)}</td></tr>`;
+      <td class="n rc-mut">${esc(a.rev0)}</td><td class="n rc-new">${esc(a.rev1)}</td><td>${typeTag(kTag, kLabel)}</td></tr>`;
   }).join('');
-  const resCard = `<div class="rc-card"><h3>Resource changed <span class="rc-n">assignment before / after</span></h3>
-      ${resRows ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th>Resource ID</th><th>Resource Name</th><th class="n">Before</th><th class="n">After</th><th>Change</th></tr></thead><tbody>${resRows}</tbody></table></div>` : noData('No resource assignment changes.')}</div>`;
-  return secmark('8', 'Resources', 'resource assignment changes') + resCard;
+  const detailCard = assign.length
+    ? `<div class="rc-card"><h3>Assignment detail <span class="rc-n">per-activity assignment before / after</span></h3>
+        <div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th>Resource ID</th><th>Resource Name</th><th class="n">Before</th><th class="n">After</th><th>Change</th></tr></thead><tbody>${resRows}</tbody></table></div></div>`
+    : '';
+
+  return secmark('8', 'Resources', 'resource-by-resource comparison') + byCard + detailCard;
 }
 
 function renderMoneyChart(body) {

@@ -378,9 +378,11 @@ def _scope_analysis(report, filters):
 
     dims = _dims_present(codes.get('dimensions'), all_rows)
     dim, val = _resolve_dim(filters, 'scope', dims)
+    # Change 1 — the selected activity-code value is carried once by the static selection heading
+    # (_filter_heading) and the counts callout below; do not restate it here (no redundant listing).
     intro = ('<div class="sec">How many activities were added / removed, by activity code. '
-             + (f'Grouped by <b>{_e(dim)}</b>' if dim else 'No activity-code dimension available')
-             + (f'; showing the <b>{_e(val)}</b> selection.' if val != 'All' else '.') + '</div>')
+             + (f'Grouped by <b>{_e(dim)}</b>.' if dim else 'No activity-code dimension available.')
+             + '</div>')
 
     if dim:
         # Donut of the % of ADDED activities by the selected dimension, from codes.scope_by_code —
@@ -547,88 +549,74 @@ def _cnode(name, wbs, aid, crit=False):
             f'<div class="cid">{_e(aid)}</div></div>')
 
 
-def _clink(l, kind):
-    """The link change between the two lane nodes: before struck-through → after highlighted; a
-    removed link collapses to '✕'; an added link shows only the after value."""
-    before = _e(l.get('before'))
-    after = _e(l.get('after'))
-    if kind == 'removed':
-        return (f'<div class="clink"><span class="l0">{before}</span>'
-                f'<span class="ar rem">✕</span></div>')
-    if kind == 'added':
-        return (f'<div class="clink"><span class="l1 add">{after}</span>'
-                f'<span class="ar add">→</span></div>')
-    return (f'<div class="clink"><span class="l0">{before}</span>'
-            f'<span class="l1">{after}</span><span class="ar">→</span></div>')
+def _clink2(label, cls, arrow):
+    """The relationship-link widget inside a before/after chain: the link value (or a status
+    word) stacked above its arrow. ``cls`` tints it (none / add / rem / chg); a removed link's
+    arrow is '✕', an added link's before is a muted 'no link'."""
+    return (f'<div class="clink2"><span class="clt {cls}">{_e(label)}</span>'
+            f'<span class="ar2 {cls}">{arrow}</span></div>')
 
 
-def _logic_lane(l):
-    """A single compact CPA-style lane row for one changed relationship (comment 2): a header
-    (change tag + on-CP + WBS context) then a one-row pred → link → succ chain; no big boxes,
-    no vertical scroll."""
+def _chain2(l, link_html):
+    """One predecessor → link → successor chain row (the successor marked critical when the
+    relationship is on the critical path). Each node carries its WBS breadcrumb inside."""
+    p = _cnode(l.get('pred_name'), l.get('pred_wbs'), l.get('pred_id'), crit=False)
+    s = _cnode(l.get('succ_name'), l.get('succ_wbs'), l.get('succ_id'), crit=bool(l.get('on_cp')))
+    return f'<div class="chain2">{p}{link_html}{s}</div>'
+
+
+def _logic_lane(l, idx):
+    """A single numbered lane for one changed relationship (change 2): a header (#N + change tag
+    + on-CP / context) then the relationship as TWO chains — Rev.00 (before) and Rev.01 (after) —
+    so the change reads as a direct comparison. Each node carries its WBS breadcrumb; a removed
+    link's after reads 'removed ✕', an added link's before reads 'no link'. Mirrors the screen."""
     change = str(l.get('change') or '')
     low = change.lower()
     kind = 'added' if 'added' in low else 'removed' if 'removed' in low else 'changed'
     tagcls = 'add' if kind == 'added' else 'rem' if kind == 'removed' else 'chg'
-    on_cp = bool(l.get('on_cp'))
-    ctx = _wbs_ctx(l.get('succ_wbs') or l.get('pred_wbs'))
     bits = []
-    if on_cp:
+    if l.get('on_cp'):
         bits.append('on critical path')
-    if ctx:
-        bits.append(ctx)
     if l.get('is_lead'):
         bits.append('lead')
+    ctx = _wbs_ctx(l.get('succ_wbs') or l.get('pred_wbs'))
+    if ctx:
+        bits.append(ctx)
     sub = ' · '.join(bits)
-    p = _cnode(l.get('pred_name'), l.get('pred_wbs'), l.get('pred_id'), crit=False)
-    s = _cnode(l.get('succ_name'), l.get('succ_wbs'), l.get('succ_id'), crit=on_cp)
+    subhtml = f'<span class="lanesub">{sub}</span>' if sub else ''
+    before_link = (_clink2('no link', 'none', '⋯') if kind == 'added'
+                   else _clink2(l.get('before'), '', '→'))
+    after_link = (_clink2('removed', 'rem', '✕') if kind == 'removed'
+                  else _clink2(l.get('after'), 'add' if kind == 'added' else 'chg', '→'))
     return (f'<div class="lane"><div class="lanehdr">'
-            f'<span class="lanetag {tagcls}">{_e(change)}</span>'
-            f'<span class="lanesub">{sub}</span></div>'
-            f'<div class="chain lanechain">{p}{_clink(l, kind)}{s}</div></div>')
+            f'<span class="lanenum">#{idx}</span>'
+            f'<span class="lanetag {tagcls}">{_e(change)}</span>{subhtml}</div>'
+            f'<div class="rev2lab">Rev.00 — before</div>{_chain2(l, before_link)}'
+            f'<div class="rev2lab r1">Rev.01 — after</div>{_chain2(l, after_link)}</div>')
 
 
 def _logic_changes(report, filters):
-    """Comment 2 — Logic & Sequence Changes as BIG side-by-side before→after boxes with the
-    full WBS breadcrumb inside each. Group-by + activity-code filter reflect ``filters.logic``;
-    the whole chart is wrapped in an overflow-x:auto container so the boxes never trim."""
+    """Change 2 — Logic & Sequence Changes: every changed predecessor → successor link as a
+    numbered lane laid out in a 2-up grid (no overflow scroll), each shown as two chains —
+    Rev.00 (before) and Rev.01 (after) — with the WBS breadcrumb inside every node. Mirrors the
+    on-screen view exactly. The activity-code filter (``filters.logic``) selects which changes
+    appear; the current selection prints as a static heading."""
     rows = report.get('logic_register') or []
     if not rows:
-        return _card('Logic & sequence changes', 'grouped by activity code',
+        return _card('Logic & sequence changes', 'before → after · by activity code',
                      _muted('No relationship / logic changes on matched activities.'))
     dims = _dims_present((report.get('codes') or {}).get('dimensions'), rows)
     dim, val = _resolve_dim(filters, 'logic', dims)
     frows = [r for r in rows if val == 'All' or (dim and (r.get('codes') or {}).get(dim) == val)]
     if not frows:
-        return _card('Logic & sequence changes',
-                     f'grouped by {_e(dim)}' if dim else 'ungrouped',
-                     _muted('No relationship changes for this filter.'))
-
-    groups, order = {}, []
-    for r in frows:
-        g = ((r.get('codes') or {}).get(dim) if dim else None) or '(uncoded)'
-        if g not in groups:
-            groups[g] = []
-            order.append(g)
-        groups[g].append(r)
-
-    sub = f'grouped by {_e(dim)}' if dim else 'ungrouped (no activity codes)'
-    intro = ('<div class="sec">Every changed predecessor → successor link as a compact '
-             'Critical-Path-Analyzer lane — one row each, the WBS breadcrumb inside every node, '
-             'the link before (struck-through) → after (highlighted). '
-             + (f'Grouped by {_e(dim)}' if dim else 'Ungrouped')
-             + (f'; showing <b>{_e(val)}</b>.' if val != 'All' else '; links on the critical path are marked.')
-             + '</div>')
-    inner = []
-    for gi, g in enumerate(order):
-        rs = groups[g]
-        col = _series_color(gi)
-        inner.append(f'<div class="grouphd" style="border-left-color:{col}">'
-                     f'<span class="gsw" style="background:{col}"></span>{_e(g)}'
-                     f'<span class="ct">{len(rs)} change{"s" if len(rs) != 1 else ""}</span></div>')
-        inner.extend(_logic_lane(r) for r in rs)
-    body = _filter_heading(dim, val) + intro + ''.join(inner)
-    return _card('Logic & sequence changes', sub, body)
+        return _card('Logic & sequence changes', 'before → after · by activity code',
+                     _filter_heading(dim, val) + _muted('No relationship changes for this filter.'))
+    intro = ('<div class="sec">Each changed predecessor → successor link shown twice — '
+             'Rev.00 (before) and Rev.01 (after) — with the WBS breadcrumb inside every node, so '
+             'the change reads as a direct comparison. Links on the critical path are marked.</div>')
+    lanes = ''.join(_logic_lane(r, i + 1) for i, r in enumerate(frows))
+    body = _filter_heading(dim, val) + intro + f'<div class="lanes">{lanes}</div>'
+    return _card('Logic & sequence changes', 'before → after · by activity code', body)
 
 
 def _sec_findings(report, filters=None):
@@ -765,8 +753,13 @@ def _reg_duration(report, filters):
         b_txt = f'{_num(before)} d' if isinstance(before, (int, float)) and not isinstance(before, bool) else _e(before)
         a_txt = f'{_num(after)} d' if isinstance(after, (int, float)) and not isinstance(after, bool) else _e(after)
         note_cell = '<span class="mut">—</span>'
+        name_tag = ''
         if before == '—':
+            # Change 3 — an added activity carries no Rev.00 duration to compare against; flag it
+            # as new work in both the Name cell and the Note cell (mirrors the screen).
             var_cell, pct_cell = '<span class="tag add">Added</span>', '<span class="mut">—</span>'
+            note_cell = '<span class="tag add">New activity</span>'
+            name_tag = ' <span class="tag add">New activity</span>'
         elif after == '—':
             var_cell, pct_cell = '<span class="tag rem">Removed</span>', '<span class="mut">—</span>'
         else:
@@ -786,7 +779,7 @@ def _reg_duration(report, filters):
                 note_cell = ('<span class="tag warn">⚠ needs justification</span>'
                              '<div class="notehint">&gt; ±200% swing — usually the activity type / '
                              'relationship type changed; confirm the basis.</div>')
-        rows += (f'<tr><td class="mono">{_e(r.get("id"))}</td><td>{_e(r.get("name"))}</td>'
+        rows += (f'<tr><td class="mono">{_e(r.get("id"))}</td><td>{_e(r.get("name"))}{name_tag}</td>'
                  f'<td class="mut">{_e(r.get("wbs") or "—")}</td>'
                  f'<td class="n">{b_txt}</td><td class="n new">{a_txt}</td>'
                  f'<td class="n">{var_cell}</td><td class="n">{pct_cell}</td>'
@@ -965,13 +958,23 @@ def _scurve_svg(report):
         labels += (f'<text x="{x:.1f}" y="{ly:.1f}" font-size="8" fill="var(--rpt-muted)" '
                    f'text-anchor="end" transform="rotate(-40 {x:.1f} {ly:.1f})">{_e(months[i])}</text>')
 
+    # comment 5 — mark the completion date at the END of the Rev.01 cumulative curve.
+    r1fin = (report.get('rev1') or {}).get('finish')
+    finish_marker = ''
+    if r1fin and vc:
+        fx = left + (n - 1) * step + step / 2
+        fy = baseY - (vc[-1].get('rev1', 0) or 0) / cum_mx * plot_h
+        finish_marker = (f'<circle cx="{fx:.1f}" cy="{fy:.1f}" r="3" fill="var(--rpt-accent)"/>'
+                         f'<text x="{fx - 5:.1f}" y="{fy - 6:.1f}" font-size="9" font-weight="700" '
+                         f'fill="var(--rpt-accent)" text-anchor="end">Completion {_e(r1fin)}</text>')
+
     svg = (f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;min-width:640px">'
            f'<line x1="{left}" y1="{baseY}" x2="{W - right}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
            f'<line x1="{left}" y1="{top}" x2="{left}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
            + ''.join(bars)
            + line(cum_mx, 'rev0', 'var(--rpt-muted)', '2.2')
            + line(cum_mx, 'rev1', 'var(--rpt-accent)', '2.6')
-           + orig_line + labels + '</svg>')
+           + orig_line + labels + finish_marker + '</svg>')
     legend = ('<div class="legend"><span><b class="sw-r0"></b>Rev.00 value/mo</span>'
               '<span><b class="sw-r1"></b>Rev.01 value/mo</span>'
               '<span><b class="sw-muted"></b>Rev.00 cum</span>'
@@ -1040,19 +1043,50 @@ def _reg_cost(report):
 
 
 def _reg_resources(report):
+    """Comment 7 — a by-RESOURCE comparison: one row per resource/trade with its Before → After
+    man-hours, the variance, a change tag, and what it is assigned to — so the planner compares
+    every resource across the two revisions at a glance (not a raw per-activity assignment list)."""
     rc = report.get('resource_changes') or {}
+    curves = report.get('curves') or {}
+    mbt = curves.get('manhours_by_trade') or []
     ac = rc.get('assignment_changes') or []
-    if not ac:
-        return _card('Resource changed', 'assignment before / after',
-                     _muted('No resource assignment changes (or no resource loading in either revision).'))
-    _kl = {'added': 'Added', 'removed': 'Removed', 'units': 'Units changed', 'rate': 'Rate changed'}
-    rows = ''
+    if not mbt and not ac:
+        return _card('Resources — before vs after', 'compare each resource across the two revisions',
+                     _muted('Neither revision carries resource loading — reported as not applicable.'))
+    # activities assigned per resource, from the per-activity assignment changes
+    assigned = {}
     for a in ac:
-        rows += (f'<tr><td class="mono">{_e(a.get("code"))}</td><td>{_e(a.get("resource"))}</td>'
-                 f'<td><span class="tag chg">{_e(_kl.get(a.get("kind"), a.get("kind")))}</span></td>'
-                 f'<td class="mut">{_e(a.get("rev0") or "—")}</td><td class="new">{_e(a.get("rev1") or "—")}</td></tr>')
-    head = ('<tr><th>Activity ID</th><th>Resource</th><th>Change</th><th class="n">Before</th><th class="n">After</th></tr>')
-    return _card('Resource changed', 'assignment before / after · one line per swap', _tbl(head, rows))
+        assigned.setdefault(a.get('resource'), []).append(a.get('code'))
+
+    def _kind(t):
+        r0, r1, v = t.get('rev0'), t.get('rev1'), (t.get('var') or 0)
+        if not r0 and r1:
+            return 'Added'
+        if r0 and not r1:
+            return 'Removed'
+        return 'Increased' if v > 0 else 'Decreased' if v < 0 else 'Unchanged'
+
+    rows, seen = '', set()
+    for t in sorted(mbt, key=lambda x: -abs(x.get('var') or 0)):
+        name = t.get('name') or t.get('resource_id') or '—'
+        seen.add(name)
+        acts = assigned.get(name) or []
+        assigned_to = f'{len(acts)} activit{"y" if len(acts) == 1 else "ies"}' if acts else '—'
+        rows += (f'<tr><td>{_e(name)}</td><td class="n">{_money(t.get("rev0"))}</td>'
+                 f'<td class="n new">{_money(t.get("rev1"))}</td><td class="n">{_money_delta(t.get("var"))}</td>'
+                 f'<td><span class="tag chg">{_e(_kind(t))}</span></td><td class="mut">{_e(assigned_to)}</td></tr>')
+    # resources that changed assignment but carry no man-hour total
+    for res, acts in sorted(assigned.items(), key=lambda kv: -len(kv[1])):
+        if res in seen or not res:
+            continue
+        _n = len(acts)
+        rows += (f'<tr><td>{_e(res)}</td><td class="n mut">—</td><td class="n mut">—</td><td class="n mut">—</td>'
+                 f'<td><span class="tag chg">Re-assigned</span></td>'
+                 f'<td class="mut">{_n} activit{"y" if _n == 1 else "ies"}</td></tr>')
+    head = ('<tr><th>Resource</th><th class="n">Before (mh)</th><th class="n">After (mh)</th>'
+            '<th class="n">Variance</th><th>Change</th><th>Assigned to</th></tr>')
+    return _card('Resources — before vs after', 'compare each resource/trade across the two revisions',
+                 _tbl(head, rows))
 
 
 def _sec_cost(report, filters=None):

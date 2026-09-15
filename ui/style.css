@@ -2912,26 +2912,34 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-legend i.rc-l3 { background: var(--rc-l3); } .rc-legend i.rc-l4 { background: var(--rc-l4); }
 
 /* ── Key Findings — Critical-Path-Analyzer lanes (comment 2) ─────────────── */
-/* One compact single-row lane per changed relationship — no vertical scrolling, no
-   big two-row boxes. Wide chains scroll only inside their own lane. */
-.rc-lanes { display: flex; flex-direction: column; gap: 9px; }
+/* One compact numbered lane per changed relationship, laid out BESIDE each other in a
+   responsive grid (2-up on a normal window, 1-up when narrow). No lane scrolls sideways:
+   the pred → link → succ chain fits the cell width, nodes flex-shrink and truncate. */
+.rc-lanes { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; align-items: start; }
 .rc-lane { border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; background: var(--card-bg); }
 .rc-lanehdr { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 12px; flex-wrap: wrap; }
+.rc-lanenum { font-size: 11px; font-weight: 800; color: var(--muted); flex: 0 0 auto; }
 .rc-lanetag { font-size: 9.5px; font-weight: 800; padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-dark); letter-spacing: .02em; }
 .rc-lanetag.add { background: var(--success-bg); color: var(--success); }
 .rc-lanetag.chg { background: var(--warning-bg); color: var(--warning); }
 .rc-lanetag.rem { background: var(--danger-bg); color: var(--danger); }
 .rc-lanesub { color: var(--muted); font-size: 11px; }
-/* Consistent one-row lane (comment 2): fixed node width + no-wrap, the chain scrolls
-   sideways when needed, and long activity names truncate with an ellipsis (title=fullname)
-   so every lane is the same height and the successor never drops to a second line. */
-.rc-chain2 { display: flex; align-items: stretch; gap: 0; flex-wrap: nowrap; overflow-x: auto; }
-.rc-cnode { border: 1px solid var(--border); border-radius: 9px; padding: 7px 12px; background: var(--card-bg); width: 230px; flex: 0 0 230px; }
+/* Explicit "Before: … → After: …" link-change line (comment 2d). */
+.rc-clchange { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 7px; font-size: 11px; margin-bottom: 8px; }
+.rc-cl-b { color: var(--muted); }
+.rc-cl-b.rc-cl-none { font-style: italic; }
+.rc-cl-arw { color: var(--muted); font-weight: 800; }
+.rc-cl-a { color: var(--ink-soft); font-weight: 700; }
+.rc-cl-a.add { color: var(--success); }
+.rc-cl-a.rem { color: var(--danger); }
+/* Chain fits the cell — nodes flex-shrink and truncate (title=fullname); no sideways scroll. */
+.rc-chain2 { display: flex; align-items: stretch; gap: 0; flex-wrap: nowrap; }
+.rc-cnode { border: 1px solid var(--border); border-radius: 9px; padding: 7px 10px; background: var(--card-bg); flex: 1 1 0; min-width: 0; }
 .rc-cnode.crit { border-color: var(--danger); background: var(--danger-bg); }
 .rc-cnode .rc-cn { font-weight: 700; font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rc-cnode .rc-cw { font-size: 9.5px; color: var(--accent-dark); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rc-cnode .rc-cid { font-size: 9px; color: var(--muted); margin-top: 1px; }
-.rc-clink { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 10px; flex: 0 0 78px; color: var(--muted); }
+.rc-clink { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 6px; flex: 0 0 40px; color: var(--muted); }
 .rc-clink .rc-l0 { font-size: 9px; text-decoration: line-through; color: var(--danger); }
 .rc-clink .rc-l1 { font-size: 10px; font-weight: 800; color: var(--warning); }
 .rc-clink .rc-l1.add { color: var(--success); }
@@ -2939,6 +2947,15 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-clink .rc-ar2.add { color: var(--success); }
 .rc-clink .rc-ar2.chg { color: var(--warning); }
 .rc-clink .rc-ar2.rem { color: var(--danger); }
+/* two-chain before/after comparison + link-type label */
+.rc-clink { flex: 0 0 72px; }
+.rc-clink .rc-clt { font-size: 9px; font-weight: 700; text-align: center; line-height: 1.15; }
+.rc-clink .rc-clt.none { color: var(--muted); font-style: italic; }
+.rc-clink .rc-clt.rem { color: var(--danger); text-decoration: line-through; }
+.rc-clink .rc-clt.add { color: var(--success); }
+.rc-clink .rc-clt.chg { color: var(--warning); }
+.rc-rev2lab { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 7px 0 2px; }
+.rc-rev2lab.r1 { color: var(--accent); }
 
 /* ── Calendar — working-pattern table per calendar (comment 5) ───────────── */
 .rc-caltbl { margin-top: 4px; }
