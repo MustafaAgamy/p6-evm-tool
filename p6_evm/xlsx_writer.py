@@ -189,6 +189,21 @@ def _text_len(v):
     return max((len(line) for line in s.split('\n')), default=0)
 
 
+def _human_date(v):
+    """ISO 'YYYY-MM-DD' (optionally with a time part) → '09 Feb 2026'; anything else unchanged."""
+    if not v:
+        return v
+    s = str(v)
+    if (len(s) >= 10 and s[4] == '-' and s[7] == '-'
+            and s[:4].isdigit() and s[5:7].isdigit() and s[8:10].isdigit()):
+        try:
+            from datetime import date as _date
+            return _date(int(s[:4]), int(s[5:7]), int(s[8:10])).strftime('%d %b %Y')
+        except ValueError:
+            return v
+    return v
+
+
 def _auto_col_widths(matrix, min_w=9, max_w=60, pad=2):
     """Column widths sized to the longest cell in each column, clamped to [min_w, max_w].
     `matrix` is an iterable of rows (each a list of cell values); None cells are skipped."""
@@ -227,7 +242,7 @@ def _meta_block_cells(meta, start_row=1):
 
 
 def _sheet(headers, rows, highlight_cols=None, severity_col=None, legend=None,
-           meta=None, col_widths=None):
+           meta=None, col_widths=None, header_style=_SECHDR_STYLE):
     """A flat table sheet: bold frozen header row + autofilter (over the data only).
       * ``highlight_cols`` — 0-based column indices whose data cells get the amber highlight
         (the driving relationship).
@@ -254,8 +269,8 @@ def _sheet(headers, rows, highlight_cols=None, severity_col=None, legend=None,
         cols_xml = ('<cols>' + ''.join(
             f'<col min="{c + 1}" max="{c + 1}" width="{w}" customWidth="1"/>'
             for c, w in sorted(col_widths.items())) + '</cols>')
-    # header row (neutral navy-on-light-blue) then data rows
-    by_row[hdr_row] = {c: (h, _SECHDR_STYLE) for c, h in enumerate(headers)}
+    # header row (neutral navy-on-light-blue by default) then data rows
+    by_row[hdr_row] = {c: (h, header_style) for c, h in enumerate(headers)}
     for i, row in enumerate(rows, start=hdr_row + 1):
         rc = {}
         for c, v in enumerate(row):
@@ -487,8 +502,14 @@ def _timeline_sheet_xml(months, cal_name, subtitle):
                         row_heights=row_heights)
 
 
-def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None):
+def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None,
+                   title_style=_TITLE_STYLE, note_style=_CONTEXT_STYLE, header_style=_SECHDR_STYLE):
     """Several titled tables stacked on one sheet.
+
+    ``title_style`` / ``note_style`` / ``header_style`` default to the report-clarity
+    styles (for the _STYLES workbook); the calendar/weather workbooks pass their own
+    _CAL_STYLES-appropriate ids so the shared layout renders correctly under either
+    stylesheet.
 
     blocks: [{title, headers, rows, note?, severity_col?, highlight_cols?}]
       - title  → section-title style (bold blue)
@@ -505,13 +526,13 @@ def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None):
         cells, r = _meta_block_cells(meta, start_row=1)
     width_matrix = []                                      # headers + data only (not titles/notes)
     for blk in blocks:
-        cells[(r, 0)] = (blk['title'], _TITLE_STYLE)
+        cells[(r, 0)] = (blk['title'], title_style)
         r += 1
         if blk.get('note'):
-            cells[(r, 0)] = (blk['note'], _CONTEXT_STYLE)
+            cells[(r, 0)] = (blk['note'], note_style)
             r += 1
         for c, h in enumerate(blk['headers']):
-            cells[(r, c)] = (h, _SECHDR_STYLE)
+            cells[(r, c)] = (h, header_style)
         width_matrix.append(blk['headers'])
         r += 1
         sc = blk.get('severity_col')
@@ -573,18 +594,20 @@ def write_calendar_xlsx(path, ca, weather=None):
                    ('[added] ' if s.get('source') == 'manual' else '') + (s.get('reason') or '')]
                   for s in exc.get('shutdowns', [])]},
     ]
-    sheets.append(('Exceptions', _stacked_sheet(exc_blocks, col_widths={0: 26, 3: 22})))
+    sheets.append(('Exceptions', _stacked_sheet(exc_blocks, col_widths={0: 26, 3: 22},
+                                                 title_style=9, note_style=0, header_style=2)))
 
     comp = ca.get('comparison', [])
     sheets.append(('Comparison', _sheet(
         ['Calendar', 'Hours/Day', 'Days/Week', 'Non-Working Days'],
-        [[c['name'], c['hours_per_day'], c['days_per_week'], c.get('nonworking_days', 0)] for c in comp])))
+        [[c['name'], c['hours_per_day'], c['days_per_week'], c.get('nonworking_days', 0)] for c in comp],
+        header_style=2)))
 
     usage = ca.get('usage', [])
     sheets.append(('Usage', _sheet(
         ['Calendar', 'Activities', '% of Activities', 'Role'],
         [[u['name'], u['activities'], ('—' if u['role'] == 'Unused' else f"{u['pct']}%"), u['role']]
-         for u in usage])))
+         for u in usage], header_style=2)))
 
     if weather:
         w = weather
@@ -599,19 +622,21 @@ def write_calendar_xlsx(path, ca, weather=None):
              'rows': [[m.get('label', ''), m.get('count', 0)] for m in w.get('monthly', [])]},
             {'title': 'Upcoming Bad-Weather Days', 'headers':
                 ['Date', 'Day', 'Why it is a lost day (measured)', 'Confidence', 'Affected work (by WBS)'],
-             'rows': [[d['date'], d.get('day_name', ''), d.get('condition', ''),
+             'rows': [[_human_date(d['date']), d.get('day_name', ''), d.get('condition', ''),
                        ('Forecast' if d.get('confidence') == 'forecast' else 'Expected'), _acts(d)]
                       for d in w.get('bad_days', [])]},
             {'title': 'Impact on Milestone Completion', 'headers':
                 ['Milestone', 'Planned', 'Bad days before', 'Already in calendar', 'Net delay', 'Weather-adjusted'],
-             'rows': [[m['name'], m['planned'], m['bad_days_before'], m['already_allowed'],
-                       f"+{m['net_delay']} d", m['adjusted']] for m in w.get('milestones', [])]},
+             'rows': [[m['name'], _human_date(m['planned']), m['bad_days_before'], m['already_allowed'],
+                       f"+{m['net_delay']} d", _human_date(m['adjusted'])] for m in w.get('milestones', [])]},
             {'title': 'Recovery Recommendations', 'headers':
                 ['Period / milestone', 'Days', 'Longer days', 'Extra working days', 'Add shift'],
              'rows': [[r['period'], r['days'], r['option_longer_days'],
                        r['option_extra_days'], r['option_shift']] for r in w.get('recovery', [])]},
         ]
-        sheets.append(('Weather', _stacked_sheet(wx_blocks, col_widths={0: 22, 2: 40, 4: 30})))
+        # auto column widths — the blocks have different column layouts, so a single fixed
+        # width map (the old per-block bug) mis-sized them; auto sizes each column to fit.
+        sheets.append(('Weather', _stacked_sheet(wx_blocks, title_style=9, note_style=0, header_style=2)))
 
     _write_book(path, sheets, _CAL_STYLES)
 
@@ -696,19 +721,20 @@ def write_weather_xlsx(path, ca, weather):
     wx_blocks = [
         {'title': 'Upcoming Bad-Weather Days', 'headers':
             ['#', 'Date', 'Day', 'Why it is a lost day (measured)', 'Confidence', 'Affected work (by WBS)'],
-         'rows': [[i, d['date'], d.get('day_name', ''), d.get('condition', ''),
+         'rows': [[i, _human_date(d['date']), d.get('day_name', ''), d.get('condition', ''),
                    ('Forecast' if d.get('confidence') == 'forecast' else 'Expected'), _acts(d)]
                   for i, d in enumerate(w.get('bad_days', []), 1)]},
         {'title': "What's Causing the Lost Days — by Weather Type",
          'headers': ['Weather type', 'Days', '% of bad-weather days'], 'rows': cause_rows},
         {'title': 'Impact on Milestone Completion', 'headers':
             ['Milestone', 'Planned', 'Bad days before', 'Already in calendar', 'Net delay', 'Weather-adjusted'],
-         'rows': [[m['name'], m['planned'], m['bad_days_before'], m['already_allowed'],
-                   f"+{m['net_delay']} d", m['adjusted']] for m in w.get('milestones', [])]},
+         'rows': [[m['name'], _human_date(m['planned']), m['bad_days_before'], m['already_allowed'],
+                   f"+{m['net_delay']} d", _human_date(m['adjusted'])] for m in w.get('milestones', [])]},
         {'title': 'Recovery Recommendations', 'headers':
             ['Period / milestone', 'Days', 'Longer days', 'Extra working days', 'Add shift'],
          'rows': [[r['period'], r['days'], r['option_longer_days'],
                    r['option_extra_days'], r['option_shift']] for r in w.get('recovery', [])]},
     ]
-    sheets.append(('Weather Detail', _stacked_sheet(wx_blocks, col_widths={0: 5, 1: 14, 3: 40, 5: 30})))
+    # auto widths — heterogeneous blocks (the old fixed map mis-sized them; that was the bug)
+    sheets.append(('Weather Detail', _stacked_sheet(wx_blocks, title_style=9, note_style=0, header_style=2)))
     _write_book(path, sheets, _CAL_STYLES)
