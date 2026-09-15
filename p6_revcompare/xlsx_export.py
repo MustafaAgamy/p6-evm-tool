@@ -4,7 +4,7 @@ Turns the report dict the client already holds (from ``compare.build_report_from
 / ``/api/revcompare``) into the ``sheets`` structure consumed by the shared
 ``p6_evm.xlsx_writer.write_sections_xlsx`` — one worksheet per canonical report section,
 each a stack of titled tables that MIRROR the on-screen tabs, the PDF ``data-sec`` sections
-and the report-contents picker (same nine section keys throughout — the approved interactive
+and the report-contents picker (same ten section keys throughout — the approved interactive
 prototype ``mockups/baseline-revision-interactive-v2.html`` / ``ui/modules/revcompare.js``
 ``RC_TABS`` / ``p6_revcompare/exporters.py`` ``render_html``):
 
@@ -21,9 +21,8 @@ prototype ``mockups/baseline-revision-interactive-v2.html`` / ``ui/modules/revco
     cal       → Calendar             (one row per calendar: Rev.00 pattern · Rev.01 pattern ·
                 activities + the per-activity reassignment summary)
     cost      → Cost & Resources     (planned-value S-curve · budget by activity code ·
-                Resource changed)
-    costchg   → Cost Changes         (cost rolled up the WBS structure — money variance per
-                branch — + the itemised per-activity cost table)
+                the itemised Cost changed table)
+    resource  → Resources            (the Resource-changed assignment table — moved out of Cost)
     manpower  → Manpower             (man-hours by trade totals Rev.00 vs Rev.01 + the monthly
                 man-hours-by-trade matrix behind the stacked combo chart)
     scope     → Scope & Structure    (WBS comparison Rev.00 / Rev.01 · largest date shifts)
@@ -43,7 +42,7 @@ throughout: change detected, not judged.
 # severity code (as stored on register rows / findings) -> on-screen badge label
 _SEV_LABEL = {'crit': 'Critical', 'hi': 'High', 'med': 'Review', 'low': 'Info'}
 _KIND_LABEL = {'delayed': 'Delayed', 'advanced': 'Advanced', 'unchanged': 'Unchanged',
-               'new': 'New', 'removed': 'Removed'}
+               'new': 'New', 'removed': 'Removed', 'idchange': 'ID changed'}
 _ASG_KIND = {'added': 'Added', 'removed': 'Removed', 'units': 'Units changed', 'rate': 'Rate changed'}
 
 
@@ -195,15 +194,16 @@ def _summary_blocks(report):
                        'headers': ['Category', 'Added', 'Removed'],
                        'rows': [['No activity-code scope changes.', '', '']]})
 
-    # Itemised added / removed — Building column removed (comment 1); a discipline/scope code
-    # column is kept so the list still reads as an activity-code analysis.
+    # Itemised added / removed — the trailing dimension-value column ("Main WBS") is dropped
+    # (change 1) and the full-path column keeps only its "WBS Path" header; the WBS field
+    # already carries the full path.
     itemised = ([[_txt(a.get('id')), _txt(a.get('name')), 'Added',
-                  _txt(a.get('wbs'), '—'), _txt(a.get('scope'), '—')] for a in (codes.get('added') or [])]
+                  _txt(a.get('wbs'), '—')] for a in (codes.get('added') or [])]
                 + [[_txt(a.get('id')), _txt(a.get('name')), 'Removed',
-                    _txt(a.get('wbs'), '—'), _txt(a.get('scope'), '—')] for a in (codes.get('removed') or [])])
+                    _txt(a.get('wbs'), '—')] for a in (codes.get('removed') or [])])
     blocks.append({'title': 'Scope changes — activities added / removed',
-                   'headers': ['Activity ID', 'Activity Name', 'Change', 'WBS (under)', 'Discipline / Scope'],
-                   'rows': _rows_or_none(itemised, 5, 'No activities added or removed.')})
+                   'headers': ['Activity ID', 'Activity Name', 'Change', 'WBS Path'],
+                   'rows': _rows_or_none(itemised, 4, 'No activities added or removed.')})
 
     recoded = [[_txt(c.get('id')), _txt(c.get('name')), _txt(c.get('code_type')),
                 _txt(c.get('before'), '—'), _txt(c.get('after'), '—')] for c in (codes.get('recoded') or [])]
@@ -390,6 +390,11 @@ def _ms_blocks(report):
             change = 'Added'
         elif kind == 'removed':
             change = 'Removed'
+        elif kind == 'idchange':
+            # The engine folds the removed+added duplicate into one row (id "OLD → NEW",
+            # both dates carried); a neutral "ID changed" tag, plus the day shift if the
+            # engine measured one.
+            change = f"ID changed ({_sgn(cd, ' d')})" if cd is not None else 'ID changed'
         elif cd is not None:
             change = _sgn(cd, ' d')
         else:
@@ -451,21 +456,23 @@ def _cal_blocks(report):
 
 # ── 7 · cost — Cost & Resources ──────────────────────────────────────────────────
 
-def _resource_moved_blocks(report):
-    """The Resource changed table (moved in from the old Change Register). The Cost changed
-    table now lives in its own Cost Changes sheet (change 6)."""
+def _itemised_cost_blocks(report):
+    """The itemised per-activity Cost changed table + total budget — returned to Cost &
+    Resources (change 6); the by-WBS roll-up sheet is gone (``cost_by_wbs`` stays in the
+    engine but is no longer rendered)."""
     rc = report.get('resource_changes') or {}
-
-    # Resource changed — assignments
-    asg = [[_txt(a.get('code')), _txt(a.get('name')), _txt(a.get('resource')),
-            _ASG_KIND.get(a.get('kind'), _txt(a.get('kind'))), _txt(a.get('rev0'), '—'),
-            _txt(a.get('rev1'), '—')] for a in (rc.get('assignment_changes') or [])]
-
-    return [
-        {'title': 'Resource changed — assignment before / after',
-         'headers': ['Activity ID', 'Activity Name', 'Resource', 'Change', 'Before', 'After'],
-         'rows': _rows_or_none(asg, 6, 'No resource-assignment changes.')},
-    ]
+    cost = []
+    for c in (rc.get('activity_cost_changes') or []):
+        cost.append([_txt(c.get('code')), _txt(c.get('name')), _money(c.get('rev0')),
+                     _money(c.get('rev1')), _money_sgn(c.get('delta'))])
+    tb = rc.get('total_budget') or {}
+    if rc.get('cost_available'):
+        cost.append(['—', 'Total budget', _money(tb.get('rev0')), _money(tb.get('rev1')),
+                     _money_sgn(tb.get('delta'))])
+    return [{'title': 'Cost changed — budget total cost',
+             'note': 'Informational — a cost change is not itself a schedule impact.',
+             'headers': ['Activity ID', 'Activity Name', 'Before', 'After', 'Variance'],
+             'rows': _rows_or_none(cost, 5, 'No per-activity budget changes.')}]
 
 
 def _cost_blocks(report):
@@ -511,47 +518,27 @@ def _cost_blocks(report):
                        'headers': ['Dimension', 'Before', 'After', 'Variance'],
                        'rows': [['No budget breakdown available.', '', '', '']]})
 
-    # Resource changed — moved in from the old Change Register. (Cost changed now has its own
-    # Cost Changes sheet, change 6.)
-    blocks.extend(_resource_moved_blocks(report))
+    # Itemised Cost changed table — returned to Cost & Resources (change 6). The by-WBS
+    # roll-up sheet is removed; the Resource-changed table now has its own Resources sheet.
+    blocks.extend(_itemised_cost_blocks(report))
     return blocks
 
 
-# ── 7b · costchg — Cost Changes ──────────────────────────────────────────────────
+# ── 7b · resource — Resources ─────────────────────────────────────────────────────
 
-def _costchg_blocks(report):
-    """The new Cost Changes sheet (change 6b) — the money variance rolled up the WBS structure
-    (``cost_by_wbs``, indented by level like Scope & Structure), plus the itemised per-activity
-    cost table underneath."""
+def _resource_blocks(report):
+    """The Resource-changed assignment table on its own sheet (change 5) — moved out of Cost &
+    Resources."""
     rc = report.get('resource_changes') or {}
-
-    # Cost by WBS branch — indented by level, one money variance per branch.
-    wbs = []
-    for n in (report.get('cost_by_wbs') or []):
-        lvl = n.get('level')
-        indent = '   ' * (lvl if isinstance(lvl, int) else 0)
-        wbs.append([_num(lvl), f"{indent}{_txt(n.get('name'))}", _money(n.get('rev0')),
-                    _money(n.get('rev1')), _money_sgn(n.get('variance'))])
-    blocks = [{'title': 'Cost by WBS — where the money moved',
-               'note': 'Planned cost rolled up the WBS hierarchy; one money variance per branch. '
-                       'Informational — a cost change is not itself a schedule impact.',
-               'headers': ['Level', 'WBS branch', 'Rev.00', 'Rev.01', 'Variance'],
-               'rows': _rows_or_none(wbs, 5, 'No cost loading in either revision.')}]
-
-    # Itemised per-activity cost table + total budget.
-    cost = []
-    for c in (rc.get('activity_cost_changes') or []):
-        cost.append([_txt(c.get('code')), _txt(c.get('name')), _money(c.get('rev0')),
-                     _money(c.get('rev1')), _money_sgn(c.get('delta'))])
-    tb = rc.get('total_budget') or {}
-    if rc.get('cost_available'):
-        cost.append(['—', 'Total budget', _money(tb.get('rev0')), _money(tb.get('rev1')),
-                     _money_sgn(tb.get('delta'))])
-    blocks.append({'title': 'Cost changed — budget total cost',
-                   'note': 'Informational — a cost change is not itself a schedule impact.',
-                   'headers': ['Activity ID', 'Activity Name', 'Before', 'After', 'Variance'],
-                   'rows': _rows_or_none(cost, 5, 'No per-activity budget changes.')})
-    return blocks
+    asg = [[_txt(a.get('code')), _txt(a.get('name')), _txt(a.get('resource')),
+            _ASG_KIND.get(a.get('kind'), _txt(a.get('kind'))), _txt(a.get('rev0'), '—'),
+            _txt(a.get('rev1'), '—')] for a in (rc.get('assignment_changes') or [])]
+    return [
+        {'title': 'Resource changed — assignment before / after',
+         'note': 'Resource assignments added, removed, or changed in units / rate between the revisions.',
+         'headers': ['Activity ID', 'Activity Name', 'Resource', 'Change', 'Before', 'After'],
+         'rows': _rows_or_none(asg, 6, 'No resource-assignment changes.')},
+    ]
 
 
 # ── 8 · manpower — Manpower ──────────────────────────────────────────────────────
@@ -655,7 +642,7 @@ def _scope_blocks(report):
 
 def revcompare_excel(report):
     """Return the ``sheets`` list for ``write_sections_xlsx`` — one worksheet per canonical
-    report section (summary · findings · critical · register · ms · cal · cost · costchg ·
+    report section (summary · findings · critical · register · ms · cal · cost · resource ·
     manpower · scope), mirroring the ten redesigned on-screen tabs, the PDF's gated sections
     and the report-contents picker (same section keys throughout)."""
     report = report or {}
@@ -674,8 +661,8 @@ def revcompare_excel(report):
          'col_widths': {0: 24, 1: 26, 2: 26, 3: 12, 4: 16, 5: 16}},
         {'name': 'Cost & Resources', 'blocks': _cost_blocks(report),
          'col_widths': {0: 20, 1: 24, 2: 18, 3: 16, 4: 16, 5: 16, 6: 16}},
-        {'name': 'Cost Changes', 'blocks': _costchg_blocks(report),
-         'col_widths': {0: 8, 1: 40, 2: 18, 3: 18, 4: 18}},
+        {'name': 'Resources', 'blocks': _resource_blocks(report),
+         'col_widths': {0: 16, 1: 24, 2: 20, 3: 16, 4: 16, 5: 16}},
         {'name': 'Manpower', 'blocks': _manpower_blocks(report),
          'col_widths': {0: 16, 1: 22, 2: 16, 3: 16, 4: 16, 5: 14}},
         {'name': 'Scope & Structure', 'blocks': _scope_blocks(report),

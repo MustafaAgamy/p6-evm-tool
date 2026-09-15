@@ -1,8 +1,8 @@
 // Baseline Revision Comparison — compare two approved baseline revisions (Rev.00 vs
 // Rev.01) from a planning/consultant perspective. Workflow: assign both revisions →
-// Run Comparison → review results across NINE sub-tabs (Executive Summary · Key Findings ·
+// Run Comparison → review results across TEN sub-tabs (Executive Summary · Key Findings ·
 // Critical Path & Float · Change Register [duration] · Milestones · Calendar ·
-// Cost & Resources · Manpower · Scope & Structure). Neutral by design: Change detected →
+// Cost & Resources · Resources · Manpower · Scope & Structure). Neutral by design: Change detected →
 // Potential impact → Planning review, never an automatic verdict. Nothing runs until Run
 // is pressed. The scope / logic / duration / money activity-code selections carry into the
 // PDF (a `filters` object flows client → server → render_html).
@@ -16,12 +16,12 @@ import { revealAndRun } from './featurereveal.js';
 import { exportRevcompareExcel } from './api.js';
 
 // Ten sub-tabs — the same keys are used for the PDF `data-sec` sections, the Excel
-// sheets and the report-contents picker. `costchg` (Cost Changes) sits after `cost`.
+// sheets and the report-contents picker. `resource` (Resources) sits after `cost`.
 const RC_TABS = [
   ['summary', 'Executive Summary'], ['findings', 'Key Findings'],
   ['critical', 'Critical Path & Float'], ['register', 'Change Register'],
   ['ms', 'Milestones'], ['cal', 'Calendar'],
-  ['cost', 'Cost & Resources'], ['costchg', 'Cost Changes'],
+  ['cost', 'Cost & Resources'], ['resource', 'Resources'],
   ['manpower', 'Manpower'], ['scope', 'Scope & Structure'],
 ];
 
@@ -178,7 +178,7 @@ function renderResults(body) {
   const view = ({
     summary: summaryView, findings: findingsView, critical: criticalView,
     register: registerView, ms: milestonesView, cal: calendarView,
-    cost: costView, costchg: costchgView, manpower: manpowerView, scope: scopeView,
+    cost: costView, resource: resourceView, manpower: manpowerView, scope: scopeView,
   }[tab] || summaryView)(r);
   body.innerHTML = `
     <div class="rc-bar">
@@ -327,6 +327,40 @@ function barsSvg(items, opts = {}) {
       </div>`;
   }).join('');
   return `<div class="rc-hbars" role="img" aria-label="Bar chart">${rows}</div>`;
+}
+
+// Donut / pie chart with a centre total and a percentage legend (Scope §1). items:
+// [{ label, v, color }] — each slice is v / Σv of the ring. A single 100% category draws a
+// full ring; the legend lists every value with its share. Colours resolve through theme
+// tokens only. opts.centerLabel — the word under the centre count (default 'Added').
+function donutSvg(items, opts = {}) {
+  const clean = (items || []).filter(x => (x.v || 0) > 0);
+  if (!clean.length) return noData(opts.emptyMsg || 'No added activities to chart for this dimension.');
+  const tot = clean.reduce((a, x) => a + (x.v || 0), 0);
+  const cx = 100, cy = 100, R = 78, RI = 46;
+  let a0 = -Math.PI / 2, arcs = '', hole = '';
+  if (clean.length === 1) {
+    // One category = 100% → a full ring (an arc from/to the same point draws nothing).
+    arcs = `<circle cx="${cx}" cy="${cy}" r="${((R + RI) / 2).toFixed(1)}" fill="none" stroke="${clean[0].color || 'var(--accent)'}" stroke-width="${(R - RI).toFixed(1)}"/>`;
+  } else {
+    clean.forEach(it => {
+      const a1 = a0 + (it.v || 0) / tot * 2 * Math.PI;
+      const x0 = cx + R * Math.cos(a0), y0 = cy + R * Math.sin(a0);
+      const x1 = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
+      const large = (a1 - a0) > Math.PI ? 1 : 0;
+      arcs += `<path d="M${cx},${cy} L${x0.toFixed(1)},${y0.toFixed(1)} A${R},${R} 0 ${large} 1 ${x1.toFixed(1)},${y1.toFixed(1)} Z" fill="${it.color || 'var(--accent)'}"/>`;
+      a0 = a1;
+    });
+    hole = `<circle cx="${cx}" cy="${cy}" r="${RI}" fill="var(--card-bg)"/>`;
+  }
+  const center = `<text x="${cx}" y="${cy - 4}" font-size="11" fill="var(--muted)" text-anchor="middle">${escapeHtml(opts.centerLabel || 'Added')}</text>`
+    + `<text x="${cx}" y="${cy + 13}" font-size="15" font-weight="800" fill="var(--text)" text-anchor="middle">${fmtInt(tot)}</text>`;
+  const svg = `<svg viewBox="0 0 200 200" class="rc-donut" role="img" aria-label="Share of added activities by activity code">${arcs}${hole}${center}</svg>`;
+  const legend = `<div class="rc-pleg">${clean.map(it =>
+    `<div class="rc-plegrow"><span class="rc-plegsw" style="background:${it.color || 'var(--accent)'}"></span>`
+    + `<span class="rc-plegnm" title="${escapeHtml(String(it.label ?? ''))}">${esc(it.label)}</span>`
+    + `<span class="rc-plegpct">${Math.round((it.v || 0) / tot * 100)}%</span></div>`).join('')}</div>`;
+  return `<div class="rc-piewrap">${svg}${legend}</div>`;
 }
 
 // Distinct code values for a dimension across a set of rows carrying a `.codes` map.
@@ -494,30 +528,25 @@ function renderScopeChart(body) {
   const added = (codes.added || []).map(x => ({ ...x, k: 'Added' }));
   const removed = (codes.removed || []).map(x => ({ ...x, k: 'Removed' }));
   const all = [...added, ...removed];
-  // Chart: added activities per value of the selected dimension.
-  const vals = [...new Set(all.map(x => (x.codes || {})[dim]).filter(v => v != null && v !== ''))];
-  const items = vals.map(v => ({
-    label: v,
-    v: added.filter(x => (x.codes || {})[dim] === v).length,
-    color: tokenColor(v, vals),
-  }));
-  host.innerHTML = `<div class="rc-sec" style="margin-bottom:4px">Added activities by ${escapeHtml(dim)}</div>` + barsSvg(items, { emptyMsg: 'No added activities to chart for this dimension.' });
-  // Itemised list filtered by the selected value — no Building column (comment 1).
+  // Donut: % of ADDED activities by each value of the selected dimension — from the engine's
+  // codes.scope_by_code[dim] (added counts per value). Re-slices on every selector change.
+  const sbc = (codes.scope_by_code || {})[dim] || [];
+  const order = sbc.map(x => x.category);
+  const items = sbc.map(x => ({ label: x.category, v: x.added || 0, color: tokenColor(x.category, order) }));
+  host.innerHTML = `<div class="rc-sec" style="margin-bottom:4px">Share of added activities by ${escapeHtml(dim)}</div>`
+    + donutSvg(items, { centerLabel: 'Added', emptyMsg: 'No added activities to chart for this dimension.' });
+  // Itemised list filtered by the selected value — no trailing dimension column; the WBS
+  // column shows the full path and is labelled "WBS Path" (comment 1).
   const rows = all.filter(x => val === 'All' || (x.codes || {})[dim] === val);
   const addedN = rows.filter(x => x.k === 'Added').length, removedN = rows.filter(x => x.k === 'Removed').length;
-  const dimCol = dim === 'WBS' ? 'Discipline' : dim;
-  const dimColHdr = dim === 'WBS' ? (scopeDims(r).includes('Discipline') ? 'Discipline' : dim) : dim;
-  const cellDim = (x) => dim === 'WBS'
-    ? esc((x.codes || {}).Discipline || x.scope)
-    : esc((x.codes || {})[dim]);
   const list = rows.map(x => `<tr>
       <td class="rc-aid">${esc(x.id)}</td><td>${esc(x.name)}</td>
       <td><span class="rc-tag ${x.k === 'Added' ? 'add' : 'rem'}">${x.k}</span></td>
-      <td class="rc-mut">${esc(x.wbs)}</td><td>${cellDim(x)}</td></tr>`).join('');
+      <td class="rc-mut">${esc(x.wbs)}</td></tr>`).join('');
   tbl.innerHTML = `<div class="rc-callout">Showing <b>${esc(val)}</b>: <b>${fmtInt(addedN)} added</b> · <b>${fmtInt(removedN)} removed</b>.</div>
     <div class="rc-tblscroll" style="margin-top:8px"><table class="rc-t">
-      <thead><tr><th>Activity ID</th><th>Activity Name</th><th>Change</th><th>WBS</th><th>${escapeHtml(dimColHdr)}</th></tr></thead>
-      <tbody>${list || `<tr><td colspan="5" class="rc-mut">None for this code.</td></tr>`}</tbody></table></div>`;
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th>Change</th><th>WBS Path</th></tr></thead>
+      <tbody>${list || `<tr><td colspan="4" class="rc-mut">None for this code.</td></tr>`}</tbody></table></div>`;
 }
 
 function wireSummary(body) {
@@ -675,7 +704,7 @@ function logicLane(l) {
   if (ctx) subParts.push(ctx);
   const sub = subParts.join(' · ');
   const cnode = (name, id, segs, crit) =>
-    `<div class="rc-cnode${crit ? ' crit' : ''}"><div class="rc-cn">${esc(name)}</div>`
+    `<div class="rc-cnode${crit ? ' crit' : ''}"><div class="rc-cn" title="${esc(name)}">${esc(name)}</div>`
     + `<div class="rc-cw">@ ${segs.map(esc).join(' @ ')}</div><div class="rc-cid">${esc(id)}</div></div>`;
   let link;
   if (kind === 'removed') {
@@ -901,9 +930,19 @@ function milestonesView(r) {
   const rows = (r.milestones || []).filter(m => m.kind !== 'unchanged').map(m => {
     const id = m.id != null ? m.id : (m.activity_id != null ? m.activity_id : m.code);
     const name = m.name || m.activity_name || id;
-    const varCell = m.change_days != null
-      ? deltaCell(`${m.change_days > 0 ? '+' : ''}${m.change_days} d`)
-      : (m.kind === 'new' ? '<span class="rc-tag add">Added</span>' : m.kind === 'removed' ? '<span class="rc-tag rem">Removed</span>' : '—');
+    // An ID-only change (engine kind 'idchange') is one reconciled row: id "OLD → NEW", both
+    // dates, a neutral "ID changed" tag, and the +N d slip only when change_days is set.
+    let varCell;
+    if (m.kind === 'idchange') {
+      const slip = (m.change_days != null && m.change_days !== 0)
+        ? ' ' + deltaCell(`${m.change_days > 0 ? '+' : ''}${m.change_days} d`) : '';
+      varCell = `<span class="rc-tag idchange">ID changed</span>${slip}`;
+    } else if (m.change_days != null) {
+      varCell = deltaCell(`${m.change_days > 0 ? '+' : ''}${m.change_days} d`);
+    } else {
+      varCell = m.kind === 'new' ? '<span class="rc-tag add">Added</span>'
+        : m.kind === 'removed' ? '<span class="rc-tag rem">Removed</span>' : '—';
+    }
     return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}${(m.kind === 'new') ? '<span class="rc-tag add" style="margin-left:6px">NEW</span>' : ''}</td>
       <td class="n rc-mut">${esc(m.rev0)}</td><td class="n rc-new">${esc(m.rev1)}</td><td class="n">${varCell}</td></tr>`;
   }).join('');
@@ -990,16 +1029,24 @@ function scurveSvg(curves, rev0finish) {
   const byMonth0 = {}, byMonth1 = {};
   vm.forEach(x => { byMonth0[x.month] = x.rev0 || 0; byMonth1[x.month] = x.rev1 || 0; });
   const maxMonthly = Math.max(1, ...vm.map(x => Math.max(x.rev0 || 0, x.rev1 || 0)));
+  // Cumulative lookup first — the value label must clear whichever is higher, the bar top or
+  // the cumulative curve at that month, so late months (bar low, curve high) aren't clipped.
+  const cumByMonth = {}; vc.forEach(x => { cumByMonth[x.month] = x; });
+  const maxCum = Math.max(1, ...vc.map(x => Math.max(x.rev0 || 0, x.rev1 || 0)));
   let bars = '';
   months.forEach((m, i) => {
     const cx = plotL + (i + 0.5) * colW;
     const v1 = byMonth1[m] || 0;
     const h1 = (v1 / maxMonthly) * (plotB - plotT), y1 = plotB - h1;
     bars += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y1.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, h1).toFixed(1)}" rx="2" fill="var(--accent)" opacity=".85"/>`;
-    if (v1 > 0) bars += `<text x="${cx.toFixed(1)}" y="${(y1 - 5).toFixed(1)}" font-size="9" font-weight="700" fill="var(--ink-soft)" text-anchor="middle">${escapeHtml(fmtMoney(v1))}</text>`;
+    if (v1 > 0) {
+      const cm = cumByMonth[m] || {};
+      const cumMax = Math.max(cm.rev0 || 0, cm.rev1 || 0);
+      const curveY = plotB - (cumMax / maxCum) * (plotB - plotT);
+      const labelY = Math.min(y1, curveY) - 6;   // above the higher of (bar top, curve point)
+      bars += `<text x="${cx.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9" font-weight="700" fill="var(--ink-soft)" text-anchor="middle">${escapeHtml(fmtMoney(v1))}</text>`;
+    }
   });
-  const cumByMonth = {}; vc.forEach(x => { cumByMonth[x.month] = x; });
-  const maxCum = Math.max(1, ...vc.map(x => Math.max(x.rev0 || 0, x.rev1 || 0)));
   const line = (key, stroke, sw) => {
     const pts = months.map((m, i) => {
       const cx = plotL + (i + 0.5) * colW;
@@ -1046,14 +1093,15 @@ function moneyValues(curves, dim) {
 function costView(r) {
   const curves = r.curves || {};
   const rc = r.resource_changes || {};
-  const hasCostTbl = !!(rc.cost_available || (rc.activity_cost_changes && rc.activity_cost_changes.length));
-  const hasResTbl = !!(rc.resource_available || (rc.assignment_changes && rc.assignment_changes.length));
-  if (!curves.cost_available && !curves.resource_available && !hasCostTbl && !hasResTbl) {
-    return secmark('7', 'Cost & Resources', 'planned value, where the money moved, cost & resource changes')
-      + `<div class="rc-card"><h3>Cost &amp; resources <span class="rc-n">optional</span></h3>${noData('Neither revision carries cost or resource loading — this section is reported as not applicable rather than "no change".')}</div>`;
+  const costChanges = rc.activity_cost_changes || [];
+  const hasCostTbl = !!(rc.cost_available || costChanges.length);
+  const mdims = moneyDims(curves);
+  if (!curves.cost_available && !hasCostTbl && !mdims.length) {
+    return secmark('7', 'Cost & Resources', 'planned value, where the money moved, cost changes')
+      + `<div class="rc-card"><h3>Cost &amp; resources <span class="rc-n">optional</span></h3>${noData('Neither revision carries cost loading — this section is reported as not applicable rather than "no change".')}</div>`;
   }
 
-  // Planned value of work — value labels above each bar (comment 8).
+  // Planned value of work — value labels above each bar, clear of the cumulative curve (comment 4).
   const scurve = curves.cost_available
     ? `<div class="rc-card"><h3>Planned value of work <span class="rc-n">monthly value (label above each bar) + cumulative</span></h3>
         ${scurveSvg(curves, r.rev0 && r.rev0.finish)}
@@ -1062,8 +1110,7 @@ function costView(r) {
       </div>`
     : `<div class="rc-card"><h3>Planned value of work</h3>${noData('No cost loading — planned-value chart not applicable.')}</div>`;
 
-  // Where the money moved — activity-code selector + variance bar chart (comment 10).
-  const mdims = moneyDims(curves);
+  // Where the money moved — activity-code selector + variance bar chart.
   const moneyCard = mdims.length
     ? `<div class="rc-card"><h3>Where the money moved <span class="rc-n">by activity code</span> <span class="rc-pdfnote">🔵 reflects in PDF</span></h3>
         <div id="rc-money-filter"></div>
@@ -1071,10 +1118,34 @@ function costView(r) {
         <div id="rc-money-tbl" style="margin-top:8px"></div></div>`
     : `<div class="rc-card"><h3>Where the money moved</h3>${noData('No budget-by-code breakdown available.')}</div>`;
 
-  // NOTE: the "Cost changed" table now lives in its own "Cost Changes" tab (costchgView) —
-  // Cost & Resources keeps the planned-value curve, where-the-money-moved and resources.
+  // Itemised activity-level cost table — returns to Cost & Resources (comment 6). The by-WBS
+  // roll-up (report.cost_by_wbs) is no longer rendered anywhere.
+  const pick = (row, keys) => { for (const k of keys) { if (row[k] != null && row[k] !== '') return row[k]; } return null; };
+  const costRows = costChanges.slice(0, 40).map(c => {
+    const id = pick(c, ['code', 'activity_id', 'id']), name = pick(c, ['name', 'activity_name']);
+    const b = typeof c.rev0 === 'number' ? c.rev0 : null, a = typeof c.rev1 === 'number' ? c.rev1 : null;
+    return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}${(b == null || a == null) ? '<span class="rc-tag add" style="margin-left:6px">NEW</span>' : ''}</td>
+      <td class="n rc-mut">${b != null ? fmtNum(b) : '—'}</td><td class="n rc-new">${a != null ? fmtNum(a) : '—'}</td>
+      <td class="n">${(b != null && a != null) ? `<span class="rc-d ${a - b >= 0 ? 'up' : 'down'}">${a - b >= 0 ? '+' : ''}${fmtNum(a - b)}</span>` : '<span class="rc-tag add">Added</span>'}</td></tr>`;
+  }).join('');
+  const costTblCard = hasCostTbl
+    ? `<div class="rc-card"><h3>Cost changed <span class="rc-n">activity-level · budget total cost · variance</span></h3>
+        ${costRows ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr></thead><tbody>${costRows}</tbody></table></div>` : noData('No activity-level cost changes.')}</div>`
+    : '';
 
-  // Resource changed table.
+  return secmark('7', 'Cost & Resources', 'planned value, where the money moved, cost changes')
+    + scurve + moneyCard + costTblCard;
+}
+
+// ══ 8 · Resources (comment 5 — resource-changed table on its own tab) ═══════════
+
+function resourceView(r) {
+  const rc = r.resource_changes || {};
+  const hasResTbl = !!(rc.resource_available || (rc.assignment_changes && rc.assignment_changes.length));
+  if (!hasResTbl) {
+    return secmark('8', 'Resources', 'resource assignment changes')
+      + `<div class="rc-card"><h3>Resources <span class="rc-n">optional</span></h3>${noData('Neither revision carries resource assignments — this section is reported as not applicable rather than "no change".')}</div>`;
+  }
   const pick = (row, keys) => { for (const k of keys) { if (row[k] != null && row[k] !== '') return row[k]; } return null; };
   const resRows = (rc.assignment_changes || []).map(a => {
     const id = pick(a, ['activity_id', 'code', 'id']), name = pick(a, ['activity_name', 'name']);
@@ -1084,64 +1155,9 @@ function costView(r) {
       <td class="rc-aid">${esc(a.resource_id)}</td><td>${esc(a.resource || a.resource_name)}</td>
       <td class="n rc-mut">${esc(a.rev0)}</td><td class="n rc-new">${esc(a.rev1)}</td><td>${typeTag(kindTag, kindLabel)}</td></tr>`;
   }).join('');
-  const resCard = hasResTbl
-    ? `<div class="rc-card"><h3>Resource changed <span class="rc-n">assignment before / after</span></h3>
-        ${resRows ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th>Resource ID</th><th>Resource Name</th><th class="n">Before</th><th class="n">After</th><th>Change</th></tr></thead><tbody>${resRows}</tbody></table></div>` : noData('No resource assignment changes.')}</div>`
-    : '';
-
-  return secmark('7', 'Cost & Resources', 'planned value, where the money moved, resource changes')
-    + scurve + moneyCard + resCard;
-}
-
-// ══ 8 · Cost Changes (comment 6b — cost changed on the WBS structure) ═══════════
-
-// Presented like Scope & Structure: report.cost_by_wbs = [{level, name, rev0, rev1, variance}]
-// rendered as indented, colour-per-level bands with a money variance per branch, plus the
-// itemised activity-level cost table underneath.
-function costchgView(r) {
-  const rc = r.resource_changes || {};
-  const cbw = r.cost_by_wbs || [];
-  const costChanges = rc.activity_cost_changes || [];
-  const hasCostTbl = !!(rc.cost_available || costChanges.length);
-  if (!cbw.length && !hasCostTbl) {
-    return secmark('8', 'Cost Changes', 'where the budget moved, on the WBS structure')
-      + `<div class="rc-card"><h3>Cost changes <span class="rc-n">optional</span></h3>${noData('Neither revision carries cost loading — cost changes reported as not applicable rather than "no change".')}</div>`;
-  }
-
-  // Cost change by WBS — indented level-coloured bands (engine level is 0-based depth).
-  const bands = cbw.map(nd => {
-    const lvl = Math.min(Math.max((parseInt(nd.level, 10) || 0) + 1, 1), 5);
-    const v = typeof nd.variance === 'number' ? nd.variance : ((nd.rev1 || 0) - (nd.rev0 || 0));
-    const vcls = v > 0 ? 'up' : v < 0 ? 'down' : 'zero';
-    return `<div class="rc-wband" style="margin-left:${(lvl - 1) * 16}px">
-        <div class="rc-wbname rc-l${lvl}">${esc(nd.name)}</div>
-        <div class="rc-wbnum rc-mut">${fmtNum(nd.rev0)}</div>
-        <div class="rc-wbnum rc-new">${fmtNum(nd.rev1)}</div>
-        <div class="rc-wbnum"><span class="rc-d ${vcls}">${v > 0 ? '+' : ''}${fmtNum(v)}</span></div>
-      </div>`;
-  }).join('');
-  const wbsCard = cbw.length
-    ? `<div class="rc-card"><h3>Cost change by WBS <span class="rc-n">where the budget moved, on the work-breakdown structure</span></h3>
-        <div class="rc-sec">Cost presented on the WBS — a colour per level — with the money variance on each branch, like the Scope &amp; Structure view</div>
-        <div class="rc-wband rc-wbhdr"><div>WBS branch</div><div class="rc-wbnum">Rev.00</div><div class="rc-wbnum">Rev.01</div><div class="rc-wbnum">Variance</div></div>
-        ${bands}</div>`
-    : `<div class="rc-card"><h3>Cost change by WBS</h3>${noData('No WBS-level cost roll-up available.')}</div>`;
-
-  // Itemised activity-level cost table (thousands + 2 decimals).
-  const pick = (row, keys) => { for (const k of keys) { if (row[k] != null && row[k] !== '') return row[k]; } return null; };
-  const costRows = costChanges.slice(0, 40).map(c => {
-    const id = pick(c, ['code', 'activity_id', 'id']), name = pick(c, ['name', 'activity_name']);
-    const b = typeof c.rev0 === 'number' ? c.rev0 : null, a = typeof c.rev1 === 'number' ? c.rev1 : null;
-    return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}${(b == null || a == null) ? '<span class="rc-tag add" style="margin-left:6px">NEW</span>' : ''}</td>
-      <td class="n rc-mut">${b != null ? fmtNum(b) : '—'}</td><td class="n rc-new">${a != null ? fmtNum(a) : '—'}</td>
-      <td class="n">${(b != null && a != null) ? `<span class="rc-d ${a - b >= 0 ? 'up' : 'down'}">${a - b >= 0 ? '+' : ''}${fmtNum(a - b)}</span>` : '<span class="rc-tag add">Added</span>'}</td></tr>`;
-  }).join('');
-  const tblCard = hasCostTbl
-    ? `<div class="rc-card"><h3>Cost changed <span class="rc-n">activity-level · budget total cost · variance</span></h3>
-        ${costRows ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr></thead><tbody>${costRows}</tbody></table></div>` : noData('No activity-level cost changes.')}</div>`
-    : '';
-
-  return secmark('8', 'Cost Changes', 'where the budget moved, on the WBS structure') + wbsCard + tblCard;
+  const resCard = `<div class="rc-card"><h3>Resource changed <span class="rc-n">assignment before / after</span></h3>
+      ${resRows ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th>Resource ID</th><th>Resource Name</th><th class="n">Before</th><th class="n">After</th><th>Change</th></tr></thead><tbody>${resRows}</tbody></table></div>` : noData('No resource assignment changes.')}</div>`;
+  return secmark('8', 'Resources', 'resource assignment changes') + resCard;
 }
 
 function renderMoneyChart(body) {
@@ -1292,7 +1308,7 @@ export const REVCOMPARE_SECTIONS = [
   { key: 'ms',       label: 'Milestones' },
   { key: 'cal',      label: 'Calendar' },
   { key: 'cost',     label: 'Cost & Resources' },
-  { key: 'costchg',  label: 'Cost Changes' },
+  { key: 'resource', label: 'Resources' },
   { key: 'manpower', label: 'Manpower' },
   { key: 'scope',    label: 'Scope & Structure' },
 ];
@@ -1320,9 +1336,9 @@ export async function openRevcompareReport() {
     register: !!(r.duration_table && r.duration_table.length),
     ms: !!(r.milestones && r.milestones.some(m => m.kind !== 'unchanged')),
     cal: !!(((cc.patterns || []).length) || ((cc.reassignments || []).length) || ((cc.calendars || []).length)),
-    cost: !!(c.cost_available || c.resource_available || rc.resource_available
-      || ((rc.assignment_changes || []).length)),
-    costchg: !!(((r.cost_by_wbs || []).length) || rc.cost_available || ((rc.activity_cost_changes || []).length)),
+    cost: !!(c.cost_available || rc.cost_available || ((rc.activity_cost_changes || []).length)
+      || Object.keys(c.budget_by_dim || {}).length),
+    resource: !!(rc.resource_available || ((rc.assignment_changes || []).length)),
     manpower: !!(c.resource_available && (c.manpower_by_trade || []).length),
     scope: !!((wv.rev0 && wv.rev0.length) || (wv.rev1 && wv.rev1.length) || (r.date_shifts && r.date_shifts.length)),
   };

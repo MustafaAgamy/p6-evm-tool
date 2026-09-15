@@ -3,8 +3,8 @@
 Renders the report dict (from ``compare.build_report_from_data``) into a single
 professional document laid out as the TEN approved sections — Executive Summary,
 Key Findings, Critical Path & Float, Change Register (Duration only), Milestones,
-Calendar, Cost & Resources, Cost Changes, Manpower and Scope & Structure. It matches
-the approved concept ``mockups/baseline-revision-round6-concept.html`` in layout
+Calendar, Cost & Resources, Resource, Manpower and Scope & Structure. It matches
+the approved concept ``mockups/baseline-revision-round7-concept.html`` in layout
 and behaviour.
 
 Every colour is read from the shared ``--rpt-*`` report theme tokens
@@ -240,6 +240,47 @@ def _hbars(items):
     return f'<div class="hbars">{rows}</div>'
 
 
+def _donut(items, note=''):
+    """A compact inline-SVG donut of a share breakdown (used for % of ADDED activities by the
+    selected activity-code dimension). ``items``: [{label, value, color}]; each slice is a fraction
+    of the total, the ring centre shows the total count, and a legend lists each slice's percentage.
+    Tokens only; returns '' when there is nothing to show."""
+    vals = [(it, max(float(it.get('value') or 0), 0.0)) for it in (items or [])]
+    total = sum(v for _it, v in vals)
+    if total <= 0:
+        return ''
+    import math
+    R, sw, cx, cy = 44, 20, 60, 60
+    circ = 2 * math.pi * R
+    segs, off = [], 0.0
+    for it, v in vals:
+        if v <= 0:
+            continue
+        dash = (v / total) * circ
+        col = it.get('color') or 'var(--rpt-accent)'
+        segs.append(f'<circle cx="{cx}" cy="{cy}" r="{R}" fill="none" stroke="{col}" '
+                    f'stroke-width="{sw}" stroke-dasharray="{dash:.2f} {circ - dash:.2f}" '
+                    f'stroke-dashoffset="{-off:.2f}" transform="rotate(-90 {cx} {cy})"/>')
+        off += dash
+    svg = (f'<svg viewBox="0 0 120 120" width="118" height="118" role="img">'
+           + ''.join(segs)
+           + f'<text x="{cx}" y="{cy - 1}" text-anchor="middle" font-size="21" font-weight="800" '
+             f'fill="var(--rpt-ink)">{int(round(total))}</text>'
+           + f'<text x="{cx}" y="{cy + 15}" text-anchor="middle" font-size="8" '
+             f'fill="var(--rpt-muted)">added</text></svg>')
+    leg = ''
+    for it, v in vals:
+        if v <= 0:
+            continue
+        pct = round(v / total * 100)
+        name = _e(it.get('label', ''))
+        leg += (f'<div class="dleg"><span class="dsw" style="background:{it.get("color") or "var(--rpt-accent)"}"></span>'
+                f'<span class="dlbl" title="{name}">{name}</span>'
+                f'<span class="dpct">{pct}%</span></div>')
+    n = f'<div class="chartlab">{_e(note)}</div>' if note else ''
+    return f'{n}<div class="donutwrap"><div class="donut">{svg}</div><div class="dlegs">{leg}</div></div>'
+
+
 # Slip-bridge cause colours — a CSS-var per index, paired with the matching track class in _CSS.
 _BRIDGE_COLORS = ['var(--rpt-good)', 'var(--rpt-bad)', 'var(--rpt-series-3)',
                   'var(--rpt-series-4)', 'var(--rpt-series-1)', 'var(--rpt-series-5)']
@@ -342,6 +383,12 @@ def _scope_analysis(report, filters):
              + (f'; showing the <b>{_e(val)}</b> selection.' if val != 'All' else '.') + '</div>')
 
     if dim:
+        # Donut of the % of ADDED activities by the selected dimension, from codes.scope_by_code —
+        # re-slices whenever the single Activity-Code selector changes the dimension.
+        sbc = (codes.get('scope_by_code') or {}).get(dim) or []
+        ditems = [{'label': r.get('category'), 'value': r.get('added') or 0, 'color': _series_color(i)}
+                  for i, r in enumerate(sbc) if (r.get('added') or 0) > 0]
+        donut = _donut(ditems, note=f'% OF ADDED ACTIVITIES BY {_e(str(dim).upper())}')
         vals = []
         for r in all_rows:
             cv = (r.get('codes') or {}).get(dim) or '(uncoded)'
@@ -351,7 +398,8 @@ def _scope_analysis(report, filters):
         for i, cv in enumerate(vals):
             cnt = sum(1 for r in added if ((r.get('codes') or {}).get(dim) or '(uncoded)') == cv)
             items.append({'label': cv, 'vlabel': _num(cnt), 'mag': cnt, 'color': _series_color(i)})
-        chart = (f'<div class="chartlab">ADDED ACTIVITIES BY {_e(str(dim).upper())}</div>'
+        chart = (donut
+                 + f'<div class="chartlab">ADDED ACTIVITIES BY {_e(str(dim).upper())}</div>'
                  + _hbars(items))
     else:
         chart = _muted('No activity-code breakdown available for scope changes.')
@@ -365,23 +413,16 @@ def _scope_analysis(report, filters):
     callout = (f'<div class="callout">Showing <b>{_e(val)}</b>: <b>{n_add} added</b> · '
                f'<b>{n_rem} removed</b>.</div>')
 
-    col_lbl = 'Discipline / code' if dim == 'WBS' else (dim or 'Code')
     rows = ''
     for r in frows:
-        cv = (r.get('codes') or {}).get(dim) if dim else None
-        if dim == 'WBS':
-            # avoid repeating WBS in both columns — show any other code value
-            other = next((v for k, v in (r.get('codes') or {}).items() if k != 'WBS' and v), None)
-            cv = other
         tag = 'add' if r['k'] == 'Added' else 'rem'
         rows += (f'<tr><td class="mono">{_e(r.get("id"))}</td><td>{_e(r.get("name"))}</td>'
                  f'<td><span class="tag {tag}">{_e(r["k"])}</span></td>'
-                 f'<td class="mut">{_e(r.get("wbs") or "—")}</td>'
-                 f'<td>{_e(cv or "—")}</td></tr>')
+                 f'<td class="mut">{_e(r.get("wbs") or "—")}</td></tr>')
     if not rows:
-        rows = '<tr><td colspan="5" class="mut">None for this selection.</td></tr>'
-    head = (f'<tr><th>Activity ID</th><th>Activity Name</th><th>Change</th>'
-            f'<th>WBS</th><th>{_e(col_lbl)}</th></tr>')
+        rows = '<tr><td colspan="4" class="mut">None for this selection.</td></tr>'
+    head = ('<tr><th>Activity ID</th><th>Activity Name</th><th>Change</th>'
+            '<th>WBS Path</th></tr>')
     body = (_filter_heading(dim, val) + intro + chart + callout
             + '<div style="margin-top:8px"></div>' + _tbl(head, rows))
     return _card('Scope change', 'analysis by activity code', body)
@@ -500,7 +541,8 @@ def _wbs_ctx(wbs):
 def _cnode(name, wbs, aid, crit=False):
     """One activity node in a lane chain: name · WBS breadcrumb · Activity ID."""
     cls = 'cnode crit' if crit else 'cnode'
-    return (f'<div class="{cls}"><div class="cn">{_e(name)}</div>'
+    nm = _e(name)
+    return (f'<div class="{cls}"><div class="cn" title="{nm}">{nm}</div>'
             f'<div class="cw">{_crumb_txt(wbs)}</div>'
             f'<div class="cid">{_e(aid)}</div></div>')
 
@@ -543,7 +585,7 @@ def _logic_lane(l):
     return (f'<div class="lane"><div class="lanehdr">'
             f'<span class="lanetag {tagcls}">{_e(change)}</span>'
             f'<span class="lanesub">{sub}</span></div>'
-            f'<div class="chain">{p}{_clink(l, kind)}{s}</div></div>')
+            f'<div class="chain lanechain">{p}{_clink(l, kind)}{s}</div></div>')
 
 
 def _logic_changes(report, filters):
@@ -769,7 +811,8 @@ def _sec_register(report, filters=None):
 
 def _sec_ms(report, filters=None):
     """Comment 4 — milestone table: Activity ID, Name, Before, After, Variance (the Type column
-    was removed)."""
+    was removed). A kind 'idchange' row is a milestone re-coded (id 'OLD → NEW', both dates); it is
+    shown as a normal row with a neutral 'ID changed' tag plus its slip, if any."""
     ms = [m for m in (report.get('milestones') or []) if m.get('kind') != 'unchanged']
     if not ms:
         return _card('Milestone changed', 'moves by activity', _muted('No milestone changes.'))
@@ -777,7 +820,11 @@ def _sec_ms(report, filters=None):
     rows = ''
     for m in ms:
         kind = m.get('kind')
-        if kind in ('new', 'removed'):
+        if kind == 'idchange':
+            cd = m.get('change_days')
+            slip = (' ' + _dcell(cd, ' d')) if isinstance(cd, (int, float)) and not isinstance(cd, bool) else ''
+            var_cell = f'<span class="tag muted">ID changed</span>{slip}'
+        elif kind in ('new', 'removed'):
             var_cell = f'<span class="tag {tagcls.get(kind, "chg")}">{_e(kind.capitalize())}</span>'
         else:
             var_cell = _dcell(m.get('change_days'), ' d')
@@ -878,9 +925,17 @@ def _scurve_svg(report):
         h1 = v1 / max_m * plot_h
         bars.append(f'<rect x="{x - bw - 1:.1f}" y="{baseY - h0:.1f}" width="{bw:.1f}" height="{h0:.1f}" fill="var(--rpt-hair-strong)"/>')
         bars.append(f'<rect x="{x + 1:.1f}" y="{baseY - h1:.1f}" width="{bw:.1f}" height="{h1:.1f}" fill="var(--rpt-accent)" opacity="0.9"/>')
-        # comment 8 — value label above the (revised) bar; thinned so labels never touch
+        # comment 8 / change 4 — value label sits ABOVE the higher of (bar top, cumulative-curve
+        # point) at this month, with a small gap, so it never hides under the cumulative line;
+        # thinned so labels never touch. Top padding keeps it in frame.
         if v1 and i % thin == 0:
-            bars.append(f'<text x="{x + 1 + bw / 2:.1f}" y="{baseY - h1 - 4:.1f}" font-size="8" '
+            bar_top = baseY - h1
+            top_pt = bar_top
+            if i < len(vc):
+                cy0 = baseY - (vc[i].get('rev0', 0) or 0) / cum_mx * plot_h
+                cy1 = baseY - (vc[i].get('rev1', 0) or 0) / cum_mx * plot_h
+                top_pt = min(bar_top, cy0, cy1)
+            bars.append(f'<text x="{x + 1 + bw / 2:.1f}" y="{top_pt - 5:.1f}" font-size="8" '
                         f'font-weight="700" fill="var(--rpt-ink-soft)" text-anchor="middle">{_e(_money_label(v1))}</text>')
 
     def line(mx, key, stroke, sw):
@@ -1001,45 +1056,21 @@ def _reg_resources(report):
 
 
 def _sec_cost(report, filters=None):
-    """Comment 6b — Cost & Resources keeps the planned-value curve, where-the-money-moved and the
-    resource-changed table; the activity-level Cost-changed table moves to its own 'costchg' section."""
+    """Change 6 — Cost & Resources keeps the planned-value curve, where-the-money-moved and the
+    itemised activity-level Cost-changed table (returned here). The Resource-changed table now
+    lives in its own 'resource' section; the by-WBS Cost Changes tab was removed."""
     scurve = _card('Planned value of work', 'monthly value (label above each bar) + cumulative curves',
                    _scurve_svg(report))
     return (scurve
             + _money_moved(report, filters)
-            + _reg_resources(report))
+            + _reg_cost(report))
 
 
-# ══ 7b · COST CHANGES ══════════════════════════════════════════════════════════
+# ══ 7b · RESOURCE ══════════════════════════════════════════════════════════════
 
-def _cost_by_wbs(report):
-    """Comment 6b — cost change presented on the WBS structure (like Scope & Structure): indented
-    colour-per-level bands carrying the money variance on each branch."""
-    nodes = report.get('cost_by_wbs') or []
-    if not nodes:
-        return _card('Cost change by WBS', 'where the budget moved · on the WBS',
-                     _muted('Neither revision carries cost loading — no WBS cost breakdown.'))
-    intro = ('<div class="sec">Cost change on the work-breakdown structure — a colour per level, the '
-             'money variance on each branch, like the Scope &amp; Structure view.</div>')
-    head = ('<div class="cband cbhd"><div>WBS branch</div><div class="n">Rev.00</div>'
-            '<div class="n">Rev.01</div><div class="n">Variance</div></div>')
-    rows = ''
-    for nd in nodes:
-        lvl = min(int(nd.get('level', 0)), 3) + 1
-        indent = int(nd.get('level', 0)) * 16
-        rows += (f'<div class="cband"><div class="nm cb-l{lvl}" style="margin-left:{indent}px">'
-                 f'{_e(nd.get("name"))}</div>'
-                 f'<div class="n">{_money(nd.get("rev0"))}</div>'
-                 f'<div class="n">{_money(nd.get("rev1"))}</div>'
-                 f'<div class="n">{_money_delta(nd.get("variance"))}</div></div>')
-    legend = ('<div class="legend"><span><b class="sw-l1"></b>L1</span><span><b class="sw-l2"></b>L2</span>'
-              '<span><b class="sw-l3"></b>L3</span><span><b class="sw-l4"></b>L4+</span></div>')
-    return _card('Cost change by WBS', 'where the budget moved · on the WBS',
-                 intro + head + rows + legend)
-
-
-def _sec_costchg(report, filters=None):
-    return _cost_by_wbs(report) + _reg_cost(report)
+def _sec_resource(report, filters=None):
+    """Change 5 — the Resource-changed table on its own, moved out of Cost & Resources."""
+    return _reg_resources(report)
 
 
 # ══ 8 · MANPOWER ═══════════════════════════════════════════════════════════════
@@ -1185,8 +1216,8 @@ _SECTIONS = [
     ('register', 4,  'Change Register',        'activity-duration changes only · code filter + duration-change analysis', _sec_register, True),
     ('ms',       5,  'Milestones',             'milestone moves by activity', _sec_ms, True),
     ('cal',      6,  'Calendar',               'working pattern per calendar, before → after', _sec_cal, True),
-    ('cost',     7,  'Cost & Resources',       'planned-value curve, where the money moved, resource changes', _sec_cost, True),
-    ('costchg',  8,  'Cost Changes',           'cost change on the WBS structure + itemised activity cost changes', _sec_costchg, True),
+    ('cost',     7,  'Cost & Resources',       'planned-value curve, where the money moved, itemised cost changes', _sec_cost, True),
+    ('resource', 8,  'Resource',               'resource assignment changes before → after', _sec_resource, True),
     ('manpower', 9,  'Manpower',               'monthly histogram stacked by trade with total-headcount line', _sec_manpower, True),
     ('scope',    10, 'Scope & Structure',      'WBS in Primavera colour-grouping + largest date shifts', _sec_scope, True),
 ]
@@ -1263,6 +1294,14 @@ h3 { margin: 0 0 8px; font-size: 13px; color: var(--rpt-ink); } h3 .n { font-siz
 .htrack { position: relative; background: var(--rpt-surface-2); border-radius: 6px; height: 24px; display: flex; align-items: center; }
 .hfill { height: 100%; border-radius: 6px; min-width: 2px; }
 .hval { position: absolute; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+/* scope donut — % of added activities by the selected dimension (change 1) */
+.donutwrap { display: flex; align-items: center; gap: 18px; margin: 4px 0 12px; flex-wrap: wrap; }
+.donut { flex: 0 0 auto; }
+.dlegs { display: flex; flex-direction: column; gap: 5px; min-width: 180px; }
+.dleg { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--rpt-ink-soft); }
+.dsw { width: 11px; height: 11px; border-radius: 3px; flex: 0 0 auto; }
+.dlbl { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dpct { font-weight: 800; color: var(--rpt-ink); }
 .notehint { font-size: 10px; color: var(--rpt-muted); margin-top: 2px; }
 /* tables */
 .tbl-wrap { border: 1px solid var(--rpt-edge); border-radius: 10px; overflow: hidden; overflow-x: auto; }
@@ -1350,12 +1389,14 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .lanetag.rem { background: var(--rpt-bad-bg); color: var(--rpt-bad); }
 .lanetag.chg { background: var(--rpt-warn-bg); color: var(--rpt-warn); }
 .lanesub { color: var(--rpt-muted); font-size: 11px; }
-.cnode { border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 7px 12px; background: var(--rpt-surface); min-width: 150px; }
+/* logic lane chain — one aligned row: fixed-width nodes, no wrap, long names truncate (change 2) */
+.chain.lanechain { flex-wrap: nowrap; overflow-x: auto; align-items: center; }
+.cnode { border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 7px 12px; background: var(--rpt-surface); flex: 0 0 230px; width: 230px; max-width: 230px; overflow: hidden; }
 .cnode.crit { border-color: var(--rpt-bad); background: var(--rpt-bad-bg); }
-.cnode .cn { font-weight: 700; font-size: 12px; color: var(--rpt-ink); }
-.cnode .cw { font-size: 9.5px; color: var(--rpt-accent); margin-top: 2px; word-break: break-word; }
-.cnode .cid { font-size: 9px; color: var(--rpt-muted); margin-top: 2px; }
-.clink { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 10px; min-width: 64px; color: var(--rpt-muted); }
+.cnode .cn { font-weight: 700; font-size: 12px; color: var(--rpt-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cnode .cw { font-size: 9.5px; color: var(--rpt-accent); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cnode .cid { font-size: 9px; color: var(--rpt-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clink { display: flex; flex: 0 0 auto; flex-direction: column; justify-content: center; align-items: center; padding: 0 10px; min-width: 64px; color: var(--rpt-muted); }
 .clink .l0 { font-size: 9px; text-decoration: line-through; color: var(--rpt-bad); }
 .clink .l1 { font-size: 10px; font-weight: 800; color: var(--rpt-warn); } .clink .l1.add { color: var(--rpt-good); }
 .clink .ar { font-size: 20px; line-height: 1; } .clink .ar.rem { color: var(--rpt-bad); } .clink .ar.add { color: var(--rpt-good); }

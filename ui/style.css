@@ -2752,6 +2752,15 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-hval.in { color: var(--rc-l-ink); }
 @media (max-width: 640px) { .rc-hrow { grid-template-columns: 120px 1fr; } }
 
+/* Scope donut + percentage legend (comment 1) — % of added activities by the selected code */
+.rc-piewrap { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.rc-donut { width: 190px; height: 190px; flex: 0 0 auto; }
+.rc-pleg { display: flex; flex-direction: column; gap: 6px; font-size: 12px; min-width: 220px; }
+.rc-plegrow { display: flex; align-items: center; gap: 8px; }
+.rc-plegsw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
+.rc-plegnm { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft); }
+.rc-plegpct { font-weight: 800; min-width: 44px; text-align: right; color: var(--text); }
+
 /* Neutral "needs justification" flag (duration > ±200% swing) */
 .rc-tag.warn { background: var(--warning-bg); color: var(--warning); }
 /* WBS breadcrumb above an expanded sequence item */
@@ -2913,13 +2922,16 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-lanetag.chg { background: var(--warning-bg); color: var(--warning); }
 .rc-lanetag.rem { background: var(--danger-bg); color: var(--danger); }
 .rc-lanesub { color: var(--muted); font-size: 11px; }
-.rc-chain2 { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
-.rc-cnode { border: 1px solid var(--border); border-radius: 9px; padding: 7px 12px; background: var(--card-bg); min-width: 150px; }
+/* Consistent one-row lane (comment 2): fixed node width + no-wrap, the chain scrolls
+   sideways when needed, and long activity names truncate with an ellipsis (title=fullname)
+   so every lane is the same height and the successor never drops to a second line. */
+.rc-chain2 { display: flex; align-items: stretch; gap: 0; flex-wrap: nowrap; overflow-x: auto; }
+.rc-cnode { border: 1px solid var(--border); border-radius: 9px; padding: 7px 12px; background: var(--card-bg); width: 230px; flex: 0 0 230px; }
 .rc-cnode.crit { border-color: var(--danger); background: var(--danger-bg); }
-.rc-cnode .rc-cn { font-weight: 700; font-size: 12px; color: var(--text); }
-.rc-cnode .rc-cw { font-size: 9.5px; color: var(--accent-dark); margin-top: 2px; }
+.rc-cnode .rc-cn { font-weight: 700; font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-cnode .rc-cw { font-size: 9.5px; color: var(--accent-dark); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rc-cnode .rc-cid { font-size: 9px; color: var(--muted); margin-top: 1px; }
-.rc-clink { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 10px; min-width: 64px; color: var(--muted); }
+.rc-clink { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 10px; flex: 0 0 78px; color: var(--muted); }
 .rc-clink .rc-l0 { font-size: 9px; text-decoration: line-through; color: var(--danger); }
 .rc-clink .rc-l1 { font-size: 10px; font-weight: 800; color: var(--warning); }
 .rc-clink .rc-l1.add { color: var(--success); }

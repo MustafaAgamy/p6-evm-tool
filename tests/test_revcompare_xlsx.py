@@ -11,7 +11,7 @@ from p6_evm.xlsx_writer import write_sections_xlsx
 _EXPECTED_SHEETS = [
     'Executive Summary', 'Key Findings', 'Critical Path & Float',
     'Change Register', 'Milestones', 'Calendar',
-    'Cost & Resources', 'Cost Changes', 'Manpower', 'Scope & Structure',
+    'Cost & Resources', 'Resources', 'Manpower', 'Scope & Structure',
 ]
 
 
@@ -56,6 +56,8 @@ def _report():
              'change': 0, 'kind': 'unchanged', 'change_days': 0},
             {'name': 'New Handover MS', 'rev0': None, 'rev1': '20-Aug-2027',
              'change': None, 'kind': 'new', 'change_days': None},
+            {'id': 'MS900 → MS950', 'name': 'Testing & Commissioning', 'rev0': '01-Jul-2027',
+             'rev1': '05-Jul-2027', 'change': 4, 'kind': 'idchange', 'change_days': 4},
         ],
         'critical_path': {
             'rev0': [{'code': 'A100', 'name': 'Site Handover', 'tf': 0.0, 'is_ms': False, 'state': ''},
@@ -165,6 +167,8 @@ def test_full_report_produces_ten_section_sheets(tmp_path):
     # content mirrored from the report's sections
     assert 'Erect Steel Frame' in all_xml                  # finding / register / critpath
     assert 'Substantial Completion' in all_xml             # milestone
+    assert 'MS900 → MS950' in all_xml.replace('&gt;', '>').replace('&amp;', '&')  # idchange id "OLD → NEW"
+    assert 'ID changed' in all_xml                          # idchange neutral tag (change 3)
     # budget delta present, formatted through the shared thousands + 2dp formatter (comment 9)
     assert '150,000.00' in all_xml or '<v>150000</v>' in all_xml or '150,000' in all_xml
 
