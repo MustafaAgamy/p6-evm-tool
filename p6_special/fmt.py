@@ -13,8 +13,13 @@ def pct01(x, dp=1):
     return DASH if x is None else f'{x * 100:.{dp}f}%'
 
 
-def signed_pct01(x, dp=1):
-    return DASH if x is None else f'{x * 100:+.{dp}f}%'
+def signed_pct01(x, dp=1, glyph=False):
+    """Signed percent from a 0..1 fraction. ``glyph=True`` uses the true minus sign
+    (U+2212) instead of the ASCII hyphen, to match the on-screen read-outs."""
+    if x is None:
+        return DASH
+    s = f'{x * 100:+.{dp}f}%'
+    return s.replace('-', '−') if glyph else s
 
 
 def pct100(x, dp=1):
@@ -48,3 +53,16 @@ def days(x):
         return DASH
     n = int(round(x))
     return f'{n} day' + ('' if n == 1 else 's')
+
+
+def working_days(x, signed=False):
+    """Working-days figure, matching the schedule features' on-screen wording
+    ('N working days'). ``signed=True`` prepends '+'/'−' (U+2212) by sign — used by
+    the delay tiles, where the value can be negative (ahead of baseline)."""
+    if x is None:
+        return DASH
+    n = int(round(x))
+    if signed:
+        sign = '−' if n < 0 else '+'
+        return f'{sign}{abs(n)} working days'
+    return f'{n} working days'

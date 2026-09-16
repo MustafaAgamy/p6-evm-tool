@@ -144,7 +144,7 @@ def test_headline_kpis_carry_spark_and_delta_with_two_snapshots(temp_db, xml_pat
     spi = items['evm:spi'].produce(ctx)['items'][0]
     assert spi['spark'] == [0.50, 0.58]
     assert spi['delta'] == '+0.08'
-    assert spi['value'] == '0.58'  # existing value/tone untouched
+    assert spi['value'] == '58%'  # SPI shown as a whole-number percent (screen parity)
 
 
 def test_headline_kpis_no_spark_or_delta_with_one_snapshot(temp_db, xml_path):
@@ -152,4 +152,4 @@ def test_headline_kpis_no_spark_or_delta_with_one_snapshot(temp_db, xml_path):
     spi = _items(ctx)['evm:spi'].produce(ctx)['items'][0]
     assert spi['spark'] is None
     assert spi['delta'] is None
-    assert spi['value'] == '0.60'  # unchanged headline
+    assert spi['value'] == '60%'  # SPI shown as a whole-number percent (screen parity)

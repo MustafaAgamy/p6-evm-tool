@@ -61,9 +61,13 @@ def _var_tone(v):
 
 
 def _ratio_tone(x):
+    # Mirror the EVM screen's SPI/CPI status bands (evm.js spiStatus): green at/above
+    # target, amber in the 0.95–1.0 "slightly behind" band, red below.
     if x is None:
         return 'neutral'
-    return 'good' if x >= 1 else 'bad'
+    if x >= 1:
+        return 'good'
+    return 'warn' if x >= 0.95 else 'bad'
 
 
 def _num(x):
@@ -118,7 +122,7 @@ def _trend_ready(key):
 # ── atomic KPI producers ─────────────────────────────────────────────────────
 def _kpi_planned(ctx):
     e = ctx.evm or {}
-    return P.kpi_group([P.kpi('Planned %', fmt.pct01(e.get('overall_planned_pct')),
+    return P.kpi_group([P.kpi('Planned %', fmt.pct01(e.get('overall_planned_pct'), dp=2),
                               sub='where the plan says we should be', tone='accent',
                               spark=_spark(ctx, 'overall_planned_pct', scale=100.0),
                               delta=_delta(ctx, 'overall_planned_pct',
@@ -128,7 +132,7 @@ def _kpi_planned(ctx):
 
 def _kpi_actual(ctx):
     e = ctx.evm or {}
-    return P.kpi_group([P.kpi('Actual %', fmt.pct01(e.get('overall_actual_pct')),
+    return P.kpi_group([P.kpi('Actual %', fmt.pct01(e.get('overall_actual_pct'), dp=2),
                               sub='where the project actually is', tone='neutral',
                               spark=_spark(ctx, 'overall_actual_pct', scale=100.0),
                               delta=_delta(ctx, 'overall_actual_pct',
@@ -140,13 +144,14 @@ def _kpi_variance(ctx):
     e = ctx.evm or {}
     p, a = e.get('overall_planned_pct'), e.get('overall_actual_pct')
     v = (a - p) if (p is not None and a is not None) else None
-    return P.kpi_group([P.kpi('Variance', fmt.signed_pct01(v),
-                              sub='actual minus planned', tone=_var_tone(v))])
+    sub = 'actual minus planned' if v is None else ('behind plan' if v < 0 else 'ahead of plan')
+    return P.kpi_group([P.kpi('Variance', fmt.signed_pct01(v, dp=2, glyph=True),
+                              sub=sub, tone=_var_tone(v))])
 
 
 def _kpi_spi(ctx):
     e = ctx.evm or {}
-    return P.kpi_group([P.kpi('SPI', fmt.ratio(e.get('spi')),
+    return P.kpi_group([P.kpi('SPI', fmt.pct01(e.get('spi'), dp=0),
                               sub='schedule performance index', tone=_ratio_tone(e.get('spi')),
                               spark=_spark(ctx, 'spi'),
                               delta=_delta(ctx, 'spi', lambda d: f'{d:+.2f}'),
@@ -155,7 +160,7 @@ def _kpi_spi(ctx):
 
 def _kpi_cpi(ctx):
     e = ctx.evm or {}
-    return P.kpi_group([P.kpi('CPI', fmt.ratio(e.get('cpi')),
+    return P.kpi_group([P.kpi('CPI', fmt.pct01(e.get('cpi'), dp=0),
                               sub='cost performance index', tone=_ratio_tone(e.get('cpi')),
                               spark=_spark(ctx, 'cpi'),
                               delta=_delta(ctx, 'cpi', lambda d: f'{d:+.2f}'),
@@ -164,25 +169,29 @@ def _kpi_cpi(ctx):
 
 def _kpi_pv(ctx):
     e = ctx.evm or {}
-    return P.kpi_group([P.kpi('Planned Value (PV)', fmt.money(e.get('pv')), tone='neutral')])
+    # Exact, comma-grouped (matches the EVM screen's egpExact tile — must equal P6 to
+    # the unit, not the abbreviated 'M'/'B' form).
+    return P.kpi_group([P.kpi('Planned Value (PV)', fmt.num(e.get('pv')), tone='neutral')])
 
 
 def _kpi_ev(ctx):
     e = ctx.evm or {}
-    return P.kpi_group([P.kpi('Earned Value (EV)', fmt.money(e.get('ev')), tone='accent')])
+    return P.kpi_group([P.kpi('Earned Value (EV)', fmt.num(e.get('ev')), tone='accent')])
 
 
 def _kpi_ac(ctx):
     e = ctx.evm or {}
-    return P.kpi_group([P.kpi('Actual Cost (AC)', fmt.money(e.get('ac')), tone='neutral')])
+    return P.kpi_group([P.kpi('Actual Cost (AC)', fmt.num(e.get('ac')), tone='neutral')])
 
 
 def _kpi_delay(ctx):
     e = ctx.evm or {}
     d = e.get('delay_days')
     tone = 'neutral' if d is None else ('good' if d <= 0 else 'bad')
-    return P.kpi_group([P.kpi('Finish Delay', fmt.days(d),
-                              sub='working days behind baseline finish', tone=tone,
+    # Match the EVM screen's Delay tile exactly: label 'Delay', value 'N days' (no
+    # singularising), no working-days sub-label.
+    val = fmt.DASH if d is None else f'{int(round(d))} days'
+    return P.kpi_group([P.kpi('Delay', val, tone=tone,
                               spark=_spark(ctx, 'delay_days'),
                               delta=_delta(ctx, 'delay_days', lambda x: f'{x:+.0f} d'),
                               delta_tone='neutral')])
@@ -194,58 +203,68 @@ def _paired(ctx):
     p, a = e.get('overall_planned_pct'), e.get('overall_actual_pct')
     if p is None and a is None:
         return P.NO_DATA
+    # Scale both bars to the larger of the two so the longer bar fills the track —
+    # exactly as the EVM screen (evm.js scale = max(planned, actual)) does.
+    amax = max((p or 0) * 100, (a or 0) * 100) or None
     return P.bars(
         rows=[{'label': 'Overall progress',
                'values': [(p or 0) * 100, (a or 0) * 100],
                'display': [fmt.pct01(p), fmt.pct01(a)]}],
         series=[{'label': 'Planned', 'tone': 'neutral'},
                 {'label': 'Actual', 'tone': 'accent'}],
+        axis_max=amax,
     )
 
 
 def _category_table(ctx):
+    """The EVM 'Category Weights & Overall Progress' table, matching the EVM screen
+    exactly: 6 weighted columns, zero-weight WBS rows skipped, an Overall total row.
+    Kept a native ``table`` payload (not a reused section) so it also charts in the
+    Dashboard view — one payload, both views."""
     e = ctx.evm or {}
     cats = e.get('categories') or {}
     if not cats:
         return P.NO_DATA
     rows = []
+    tot_pw = tot_wa = 0.0
     for name, c in cats.items():
-        w = c.get('weight')
-        p = c.get('planned_pct')
-        a = c.get('actual_pct')
-        v = (a - p) if (p is not None and a is not None) else None
-        if v is None:
-            status = ('—', 'neutral')
-        elif v >= 0:
-            status = ('On / ahead', 'good')
-        elif v >= -0.05:
-            status = ('Slightly behind', 'warn')
-        else:
-            status = ('Behind', 'bad')
-        rows.append([
-            name, fmt.pct01(w), fmt.pct01(p), fmt.pct01(a),
-            (fmt.signed_pct01(v), _var_tone(v)), status,
-        ])
+        w = c.get('weight') or 0
+        if not (w and w > 0):        # screen skips 0%-weight rows (Milestones / Key Dates)
+            continue
+        pp = c.get('planned_pct') or 0
+        ap = c.get('actual_pct') or 0
+        pw = w * pp * 100
+        wa = w * ap * 100
+        tot_pw += pw
+        tot_wa += wa
+        rows.append([name, f'{w * 100:.1f}%', f'{pp * 100:.1f}%', f'{ap * 100:.1f}%',
+                     f'{pw:.2f}%', f'{wa:.2f}%'])
+    if not rows:
+        return P.NO_DATA
+    rows.append(['Overall', '—', '—', '—', f'{tot_pw:.2f}%', f'{tot_wa:.2f}%'])
     return P.table(
-        columns=['Category', 'Weight', 'Planned %', 'Actual %', 'Variance', 'Status'],
+        columns=['WBS Category', 'Weight %', 'Planned %', 'Actual %',
+                 'Planned Weight %', 'Weighted Actual %'],
         rows=rows,
-        aligns=['l', 'r', 'r', 'r', 'r', 'l'],
+        aligns=['l', 'r', 'r', 'r', 'r', 'r'],
     )
 
 
 def _pv_ev_ac(ctx):
     e = ctx.evm or {}
-    pv, ev, ac = e.get('pv'), e.get('ev'), e.get('ac')
-    vals = [x for x in (pv, ev, ac) if isinstance(x, (int, float))]
+    pv, ev = e.get('pv'), e.get('ev')
+    vals = [x for x in (pv, ev) if isinstance(x, (int, float))]
     if not vals:
         return P.NO_DATA
-    amax = max(vals) * 1.05
+    # Mirror the EVM screen's "Planned Value vs Earned Value" chart: two bars (PV, EV)
+    # scaled to the larger of the two (max(pv,ev,1)) — Actual Cost is its own tile, not
+    # a third bar here, so the picked result matches the feature's chart.
+    amax = max((pv or 0), (ev or 0), 1)
     return P.bars(
-        rows=[{'label': 'Value', 'values': [pv or 0, ev or 0, ac or 0],
-               'display': [fmt.money(pv), fmt.money(ev), fmt.money(ac)]}],
-        series=[{'label': 'Planned Value', 'tone': 'neutral'},
-                {'label': 'Earned Value', 'tone': 'accent'},
-                {'label': 'Actual Cost', 'tone': 'warn'}],
+        rows=[{'label': 'Value', 'values': [pv or 0, ev or 0],
+               'display': [fmt.money(pv), fmt.money(ev)]}],
+        series=[{'label': 'Planned Value (PV)', 'tone': 'neutral'},
+                {'label': 'Earned Value (EV)', 'tone': 'accent'}],
         axis_max=amax)
 
 
@@ -364,7 +383,7 @@ def provide(ctx):
         Item('evm:ev', FEATURE, FEATURE_TITLE, 'Earned Value (EV)', 'kpi', _kpi_ev, A),
         Item('evm:ac', FEATURE, FEATURE_TITLE, 'Actual Cost (AC)', 'kpi', _kpi_ac, A),
         Item('evm:delay', FEATURE, FEATURE_TITLE, 'Delay in working days', 'kpi', _kpi_delay, A),
-        Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned / Earned / Actual value (chart)', 'chart', _pv_ev_ac, _value_ready),
+        Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned Value vs Earned Value (chart)', 'chart', _pv_ev_ac, _value_ready),
         Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'section',
              lambda c: FR.evm_gap_section(c) or P.NO_DATA, _gap_ready),
         Item('evm:trend_spi_cpi', FEATURE, FEATURE_TITLE, 'SPI / CPI trend', 'chart',

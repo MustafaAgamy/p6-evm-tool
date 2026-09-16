@@ -64,10 +64,10 @@ def _donut(elapsed, planned, actual):
         return f'{on:.1f} {c - on:.1f}'
     lab = f'{actual:.2f}%' if actual is not None else '—'
     return f'''<svg width="140" height="140" viewBox="0 0 150 150">
-      <circle cx="75" cy="75" r="58" fill="none" stroke="{report_theme.var('rpt-surface')}" stroke-width="18"/>
+      <circle cx="75" cy="75" r="58" fill="none" stroke="{report_theme.var('rpt-edge')}" stroke-width="18"/>
       <circle cx="75" cy="75" r="58" fill="none" stroke="{_ACT}" stroke-width="18" stroke-dasharray="{arc(58, elapsed)}" transform="rotate(-90 75 75)"/>
-      <circle cx="75" cy="75" r="40" fill="none" stroke="{report_theme.var('rpt-surface')}" stroke-width="10"/>
-      <circle cx="75" cy="75" r="40" fill="none" stroke="{report_theme.var('rpt-series-2')}" stroke-width="10" stroke-dasharray="{arc(40, actual)}" transform="rotate(-90 75 75)"/>
+      <circle cx="75" cy="75" r="40" fill="none" stroke="{report_theme.var('rpt-edge')}" stroke-width="10"/>
+      <circle cx="75" cy="75" r="40" fill="none" stroke="{report_theme.var('rpt-good')}" stroke-width="10" stroke-dasharray="{arc(40, actual)}" transform="rotate(-90 75 75)"/>
       <text x="75" y="70" text-anchor="middle" font-size="17" font-weight="700" fill="{report_theme.var('rpt-ink')}">{_e(lab)}</text>
       <text x="75" y="88" text-anchor="middle" font-size="10" fill="{report_theme.var('rpt-muted')}">earned</text>
     </svg>'''
@@ -203,22 +203,30 @@ def _scope_html(report, code_type=None):
     s = scope[ct]
     rows = s.get('rows', [])
     mx = max((r['weight_pct'] for r in rows), default=1) or 1
+    _bad = report_theme.var('rpt-bad')
     bars = []
-    for i, r in enumerate(rows[:15]):
+    for i, r in enumerate(rows[:12]):        # match the screen's 12-row cap (was 15)
         cls = ' top' if i == 0 else ''
-        pv = max(0, min(100, r.get('planned', 0)))
-        av = max(0, min(100, r.get('actual', 0)))
+        pl_v, ac_v = r.get('planned', 0), r.get('actual', 0)
+        pv = max(0, min(100, pl_v))
+        av = max(0, min(100, ac_v))
+        # Behind-plan flag: the screen appends a red '· −<gap>' when planned > actual.
+        flag = (f' · <span style="color:{_bad}">−{pl_v - ac_v:.1f}</span>'
+                if pl_v > ac_v else '')
         bars.append(f'<div class="wrow{cls}"><div class="wname">{_e(r["value"])}</div>'
                     f'<div class="wtrack"><div class="wfill" style="width:{r["weight_pct"] / mx * 100:.1f}%"></div></div>'
                     f'<div class="wpct">{r["weight_pct"]:.1f}%</div>'
                     f'<div class="wcost">{_num(r.get("bac"))}</div>'
                     f'<div class="wpa"><div class="wpa-t"><div class="wpa-pl" style="width:{pv:.1f}%"></div></div>'
                     f'<div class="wpa-t"><div class="wpa-ac" style="width:{av:.1f}%"></div></div></div>'
-                    f'<div class="wpanum">P {r.get("planned", 0):.1f}% · A {r.get("actual", 0):.1f}%</div></div>')
+                    f'<div class="wpanum">P {pl_v:.1f}% · A {ac_v:.1f}%{flag}</div></div>')
+    leg = (f'<div class="bc-leg"><span><i style="background:{report_theme.var("rpt-accent")}"></i>Weight</span>'
+           f'<span><i style="background:{_PLAN}"></i>Planned</span>'
+           f'<span><i style="background:{_ACT}"></i>Actual</span></div>')
     recs = ''.join(f'<p><span class="star">★</span> {_e(t)}</p>' for t in s.get('recommendation', []))
     rec = f'<div class="rec"><h4>◆ Recommendation — by weight</h4>{recs}</div>' if recs else ''
     return (f'<div class="scope-h">Weighting by <b>{_e(ct)}</b> · share of the cost-loaded scope</div>'
-            + ''.join(bars) + rec)
+            + ''.join(bars) + leg + rec)
 
 
 # ── Section 4 · Planned vs Actual by activity count ─────────────────────────
@@ -241,8 +249,8 @@ def _counts_html(report):
             f'<div class="cn-track"><div class="cn-pl" style="width:{pn / mx * 100:.1f}%"></div><span>Planned {pn}</span></div>'
             f'<div class="cn-track"><div class="cn-ac" style="width:{an / mx * 100:.1f}%"></div><span>Actual {an}</span></div>'
             f'</div></div>')
-    total = (f'<div class="cn-total">Construction / execution activities: <b>{c.get("total", 0)}</b> '
-             f'(planned baseline dates on <b>{c.get("planned_total", 0)}</b>)</div>')
+    total = (f'<div class="cn-total">Activities: <b>{c.get("total", 0)}</b> '
+             f'(baseline dates on <b>{c.get("planned_total", 0)}</b>)</div>')
     leg = (f'<div class="bc-leg"><span><i style="background:{_PLAN}"></i>Planned (count)</span>'
            f'<span><i style="background:{_ACT}"></i>Actual (count)</span></div>')
     return total + '<div class="cn">' + ''.join(body) + '</div>' + leg

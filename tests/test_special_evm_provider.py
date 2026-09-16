@@ -26,25 +26,28 @@ def test_planned_kpi_scaled_to_percent(temp_db, xml_path):
     ctx = SpecialContext(_seed(xml_path))
     pl = _items(ctx)['evm:planned_pct'].produce(ctx)
     assert pl['kind'] == 'kpi_group'
-    assert pl['items'][0]['value'] == '61.4%'
+    # 2 decimals, matching the EVM screen's slicer/dashboard read-out.
+    assert pl['items'][0]['value'] == '61.40%'
 
 
 def test_actual_kpi(temp_db, xml_path):
     ctx = SpecialContext(_seed(xml_path))
-    assert _items(ctx)['evm:actual_pct'].produce(ctx)['items'][0]['value'] == '40.4%'
+    assert _items(ctx)['evm:actual_pct'].produce(ctx)['items'][0]['value'] == '40.40%'
 
 
 def test_variance_signed_and_bad_tone(temp_db, xml_path):
     ctx = SpecialContext(_seed(xml_path))
     v = _items(ctx)['evm:variance'].produce(ctx)['items'][0]
-    assert v['value'] == '-21.0%'
+    # 2 decimals + true minus glyph (U+2212), matching the screen.
+    assert v['value'] == '−21.00%'
     assert v['tone'] == 'bad'
 
 
-def test_spi_ratio_and_tone(temp_db, xml_path):
+def test_spi_as_percent_and_tone(temp_db, xml_path):
     ctx = SpecialContext(_seed(xml_path))
     s = _items(ctx)['evm:spi'].produce(ctx)['items'][0]
-    assert s['value'] == '0.60'
+    # The EVM screen shows SPI as a whole-number percentage, not a ratio.
+    assert s['value'] == '60%'
     assert s['tone'] == 'bad'
 
 
