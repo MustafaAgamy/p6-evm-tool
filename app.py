@@ -34,10 +34,12 @@ class Api:
     def choose_save_path(self, default_name='report.pdf', file_type='pdf'):
         """Open native save dialog; returns absolute path string or None.
 
-        file_type ∈ {'pdf', 'xlsx', 'xml', 'xer', 'json'} chooses the dialog filter.
+        file_type ∈ {'pdf', 'docx', 'doc', 'xlsx', 'xml', 'xer', 'json'} chooses the
+        dialog filter (unknown types fall back to All Files).
         """
         types = {
             'pdf':  ('PDF Files (*.pdf)',),
+            'docx': ('Word Files (*.docx)',),
             'doc':  ('Word Files (*.doc)',),
             'xlsx': ('Excel Files (*.xlsx)',),
             'xml':  ('P6 XML Files (*.xml)',),

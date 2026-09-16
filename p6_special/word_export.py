@@ -203,10 +203,20 @@ def build_word_document(report_name, meta, rendered, mode='light', letterhead=No
     # Word ignores var()/color-mix; resolve them to hex so reused feature sections
     # stay themed (the Special Report's own payloads are already concrete hex).
     head_extra = _resolve_theme_colors(parts.get('head_extra', ''), mode)
-    # Word ignores CSS `page-break-after` on a div, so force the cover, contents and
-    # sections onto separate pages with an explicit Word page-break element.
+    # Word ignores CSS page-break / keep-with-next on a <div> or <table>, so the
+    # heading-table's break-after:avoid (which keeps the PDF's flow tidy) is inert in
+    # Word — a section title could otherwise orphan at a page bottom. The ONLY
+    # break Word's .doc HTML engine honours is this explicit page-break element, so we
+    # use it to (a) split cover / contents / body and (b) start EVERY numbered result
+    # on its own page — guaranteeing a result's title is never separated from its
+    # content (the BINDING page-coordination standard, within Word-HTML limits).
     brk = '<br clear="all" style="page-break-before:always;mso-break-type:page-break">'
-    cover, toc, sections = parts.get('cover', ''), parts.get('toc', ''), parts.get('sections', '')
+    cover, toc = parts.get('cover', ''), parts.get('toc', '')
+    section_list = parts.get('section_list') or []
+    if section_list:
+        sections = brk.join(section_list)          # each result starts on a fresh page
+    else:
+        sections = parts.get('sections', '')       # empty-selection notice
     raw_body = cover + (brk + toc if toc else '') + (brk + sections if sections else '')
     body = _resolve_theme_colors(raw_body, mode)
     page_css = _page_setup_css(navy, muted, zebra)

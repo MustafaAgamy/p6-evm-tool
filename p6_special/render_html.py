@@ -618,16 +618,18 @@ def document_parts(report_name, meta, rendered, mode='light', letterhead=None, p
     C = _Colors(mode)
     report_name = report_name or 'Special Report'
     cover = _cover(report_name, meta, letterhead, C)
+    section_list = []
     if rendered:
         toc = _toc(rendered, C, page_numbers=page_numbers, page_field=page_field)
-        sections = ''.join(render_section(i, item, C) for i, item in enumerate(rendered, 1))
+        section_list = [render_section(i, item, C) for i, item in enumerate(rendered, 1)]
+        sections = ''.join(section_list)
     else:
         toc = ''
         sections = _empty_notice(C)
     inner = toc + sections
     return {'colors': C, 'css': _base_css(C), 'head_extra': _feature_css_head(rendered, mode),
             'body': cover + inner, 'title': report_name, 'cover': cover, 'inner': inner,
-            'toc': toc, 'sections': sections}
+            'toc': toc, 'sections': sections, 'section_list': section_list}
 
 
 # ── the Baseline-Narrative shell stylesheet (HTML/PDF only) ───────────────────
