@@ -1,0 +1,152 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.hvac.piping.chw_pipe_small",
+  "discipline": "MEP",
+  "work_type": "HVAC",
+  "system": "Chilled Water Piping",
+  "item": "Chilled-Water Piping — Small Bore (≤50 mm)",
+  "aliases": [
+    "chw pipe small",
+    "chilled water small bore",
+    "chw ≤50mm"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Small-bore black-steel chilled-water pipe (up to DN50, threaded or socket-welded) is measured per running metre. It decomposes into pipe run installation (cut, joint, erect, hydrotest prep) and pipe supports/hangers, which are a distinct fabrication+fixing operation.",
+  "assumptions": [
+    "Black steel Sch40, DN15–DN50, threaded or socket-welded",
+    "Fittings/valves handled within run allowance",
+    "Normal access up to ~5 m",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Insulation (separate item)",
+    "Valves/strainers as loose supply",
+    "Hydrostatic testing & flushing (commissioning)",
+    "Painting/wrapping",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "pipe_install",
+      "name": "Pipe installation (cut / joint / erect)",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.5,
+        "low": 0.4,
+        "likely": 0.5,
+        "high": 0.7,
+        "output_per_day": 32,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Fitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Threading machine / portable welder",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Pipe stands & hand tools",
+          "basis": "utilization",
+          "value": 0.05,
+          "unit": "h/m"
+        }
+      ],
+      "material": [
+        {
+          "name": "Black steel pipe Sch40 (incl. waste)",
+          "qty_per_unit": 1,
+          "unit": "m/m"
+        },
+        {
+          "name": "Fittings / couplings allowance",
+          "qty_per_unit": 0.2,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf MEP norm — small-bore black steel CHW pipe, threaded/socket-weld",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "DN15–DN50 black steel — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "supports",
+      "name": "Pipe supports & hangers",
+      "unit": "no",
+      "qty_per_primary": 0.4,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.6,
+        "likely": 0.8,
+        "high": 1.1,
+        "output_per_day": 20,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Drill / anchor gun",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Clevis/clamp + rod + anchor set",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf MEP norm — small-bore pipe support at ~2.5 m spacing",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "standard clevis/clamp hangers, ≤50 mm — validate with your XER to promote"
+      }
+    }
+  ]
+}

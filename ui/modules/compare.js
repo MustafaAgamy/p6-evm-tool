@@ -9,6 +9,7 @@ import { showError, clearError } from './render.js';
 import { escapeHtml }        from './format.js';
 import { getSavedMode }      from './appearance.js';
 import { showReportPreview } from './preview.js';
+import { revealAndRun }      from './featurereveal.js';
 
 // The report-appearance mode chosen in this panel's PDF preview modal — remembered
 // across sessions via appearance.js, shared with every other report preview flow.
@@ -532,7 +533,9 @@ export async function exportCompareExcel() {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/excel`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, output_path: outputPath }),
+        // send the impact too (same as the PDF export) so the Excel carries the
+        // But-For sections whenever the before/after impact is on screen.
+        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
@@ -817,23 +820,27 @@ export async function runConsultantReview() {
   }
   clearError();
   const body = document.getElementById('compare-body');
-  if (body) body.innerHTML = '<div class="cmp-loading">Comparing against the baseline…</div>';
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        baseline_path: path,
-        update_path: state.currentXmlPath,
-        cached_path: state.currentCachedPath,
-      }),
-    });
-    const data = await resp.json();
-    if (!data.ok) { showError(data.error || 'Comparison failed.'); _renderComparePrompt(); return; }
-    state.compareReport = data.report;
-    state.compareImpact = null;          // a fresh comparison clears any prior before/after
-    renderCompareReport(data.report);
-  } catch {
-    showError('Could not reach the local server. Try restarting the app.');
-    _renderComparePrompt();
-  }
+  // Branded feature-open presentation (Loading → 100%) plays over the panel, then the
+  // comparison computes + renders — same experience as every other feature.
+  revealAndRun(body, 'Consultant Review', async () => {
+    if (body) body.innerHTML = '<div class="cmp-loading">Comparing against the baseline…</div>';
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/compare`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseline_path: path,
+          update_path: state.currentXmlPath,
+          cached_path: state.currentCachedPath,
+        }),
+      });
+      const data = await resp.json();
+      if (!data.ok) { showError(data.error || 'Comparison failed.'); _renderComparePrompt(); return; }
+      state.compareReport = data.report;
+      state.compareImpact = null;          // a fresh comparison clears any prior before/after
+      renderCompareReport(data.report);
+    } catch {
+      showError('Could not reach the local server. Try restarting the app.');
+      _renderComparePrompt();
+    }
+  });
 }

@@ -1,0 +1,115 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.stone.marble_granite",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Stone/Marble",
+  "item": "Marble/Granite Flooring & Cladding",
+  "aliases": [
+    "marble",
+    "granite",
+    "stone flooring",
+    "marble cladding",
+    "natural stone"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Natural marble/granite slabs to floors and wall cladding, including handling of heavy pieces, precise setting-out, mortar/epoxy bedding and final polish; a skilled single-fixing operation measured per m2.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Slabs cut to size, 20 mm thick",
+    "Cement bed with slurry/epoxy dots",
+    "Final honing/polish included"
+  ],
+  "exclusions": [
+    "Slab supply cutting/fabrication",
+    "Anchored/ventilated cladding systems",
+    "Restoration/repolishing of existing",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "stone_fixing",
+      "name": "Marble/granite fixing & polishing",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 2,
+        "low": 1.6,
+        "likely": 2,
+        "high": 2.6,
+        "output_per_day": 12,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Marble Mason",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Marble edge/floor polisher",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Stone cutter (site)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Suction lifter",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Marble/granite slabs",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Cement bedding mortar",
+          "qty_per_unit": 0.03,
+          "unit": "m3/m2"
+        },
+        {
+          "name": "Epoxy/adhesive & sealant",
+          "qty_per_unit": 0.6,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — marble/granite laying & polishing",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "20 mm natural stone floors and low-level cladding on mortar bed — validate with your XER to promote"
+      }
+    }
+  ]
+}

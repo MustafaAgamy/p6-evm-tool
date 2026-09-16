@@ -5,6 +5,60 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [v2.6.2] - 2026-09-15
+
+### Changed — Excel exports are clearer across the whole tool
+- **Every Excel export now opens self-explaining.** A header block at the top of the first sheet names the tool, the feature, your **project**, the **data date**, and when the file was generated — so a workbook you send on stands on its own, without the screen next to it.
+- **Titled sections instead of one bare grid.** Each export mirrors the sections you see on screen as its own clearly-titled table, columns are widened to fit their content (no more cut-off text), percentages read as "45.7%", and dates as "09 Feb 2026".
+- **Severity is coloured to match the screen** (Critical / High / Medium), with a small legend, wherever a feature shows it.
+- **Four exports were rebuilt where they were unclear or incomplete:**
+  - **Consultant Review** now exports the whole review — the summary, the driving-logic changes, the duration changes, and the before/after (but-for) impact with the per-milestone comparison and the recommendation — not just the logic table.
+  - **Update Analysis** now carries context and full column names with units (it was a bare grid of cryptic numbers), laid out as Time Status, By Activity Code, Driving Path, Activity Counts and Scope Weight.
+  - **Constructability** splits its finding types into separate titled sheets with a neutral headline (counts and coverage — no score/verdict), instead of cramming everything into one table.
+  - **Critical Path** now uses the same standard workbook as the rest of the tool (Census, Milestones, Driving path, Float migration) with the critical/near-critical rows coloured.
+- **Bad Weather export fixes:** columns are sized correctly per table, and dates read as "09 Feb 2026" instead of raw computer dates.
+- **Calendar Audit and Bad Weather now open with the same header block** as every other export (tool · feature · project · data date · generated), so those two workbooks match the rest of the tool.
+
+## [v2.6.1] - 2026-09-14
+
+### Fixed
+- **Importing a file — or returning to the import screen — now clears every Library page from underneath it.** Previously, importing a P6 file while viewing **Knowledge Base** (or Recent Projects / Productivity & Resources) left that page showing beneath the import/results screen. The import and results screens now always appear on their own, whatever page you were on before.
+
+## [v2.6.0] - 2026-09-13
+
+### Added — Dangling Activities: Resolve & Correct
+- **The Dangling Activities check can now fix the logic, not just flag it.** Each dangling finding shows a concrete fix — change a wrong-type link to a real driver (Finish-to-Finish / Start-to-Start → **Finish-to-Start**, or the valid alternative) — with **Apply** (per activity) and **Apply all recommended fixes**, plus a per-finding drawer to pick the link, type, lag and a reason. Where an activity has **no predecessor or no successor at all**, it's marked **Needs Planner Review** — the tool never invents a link.
+- **Apply re-checks with the same detection engine** and moves a finding to **Resolved** only when the activity is genuinely no longer dangling. **Download Corrected Schedule** writes the accepted changes into a copy of your file in the **same format (XER / XML)** — actuals, %-complete and dates are never touched; open it in P6 and press **F9**.
+- **Contract-milestone guard.** A fix that would push your contractual **completion milestone** past its date is held back with **"Changing this could exceeds the contractual milestone"** — it is not applied and never written to the corrected file. (The tool is offline, so the impact is an estimate from its built-in forward-pass.)
+- **The score updates live as you solve.** The Dangling score gauge and KPI tiles, the **Dangling tab** score, and the **Summary** roll-up all rise automatically as findings resolve (a "Preview" note reminds you nothing is written to P6 until you Download), and each Apply shows exactly which relationship was changed and to which type.
+- **New "Dangling Type" column** (Dangling Start / Dangling Finish / both) beside each activity in the results.
+
+### Changed
+- **The per-user data folder is now `.controlyx`** (Windows `%APPDATA%\.controlyx`, Mac/Linux `~/.controlyx`). Your existing data — recent projects, settings, cached schedules, knowledge base, database — is **migrated automatically on first run** from the previous `Controlyx` folder (and the older `P6EVMTool` / `.p6evmtool` folders), so nothing is lost.
+
+### Fixed
+- **The app opens straight into the loading presentation** — no more black/blank screen for a moment on launch. The window background now matches the splash, and the branded loading screen ("Starting local server…") appears the instant the window opens and runs ~11 seconds before revealing the app.
+- **Once loading reaches 100%, the app and every feature's results now appear instantly.** The startup splash's slow blurry fade-out is replaced by a quick crisp reveal, and a feature's Run now holds the bar at 100% until its results have actually finished computing, then reveals them immediately — so there's no lag or blank moment after 100%. Applies to every feature (current, in-progress and future) via the shared reveal.
+
+## [v2.5.2] - 2026-09-07
+
+### Changed
+- **Every feature now plays the same branded "run" presentation** (the Loading → 100% reveal) when you start it. The multi-file features — **Baseline Revision, Consultant Review, Update vs Update, Critical Path, and Bad Weather** — previously ran without it; they now show the same reveal as every other feature. Built on one shared helper (`revealAndRun`) so it's the default for future features too.
+
+## [v2.5.1] - 2026-09-07
+
+### Changed
+- **The WBS report's PDF picker is now fully per-section** — its Report Contents selector (File ▸ Print) offers **WBS overview** and **WBS summary table** as separate, individually-selectable sections (it previously exposed a single combined item).
+
+## [v2.5.0] - 2026-09-07
+
+### Added — Excel export for every feature
+- **Every feature now exports its report to Excel (.xlsx)**, matching the on-screen / PDF layout (styled titled-section tables, not a flat data dump). New Excel exports: **Earned Value, Baseline Revision, AI Copilot · TIA, Professional Dashboard, Special Report, Baseline Narrative, Overview, WBS, and Schedule (Gantt)** — joining the ones that already had it (Schedule Health, Out of Sequence, Lag Report, Calendar Audit, Bad Weather, Consultant Review, Update vs Update, Update Analysis, Critical Path, Constructability). Each has an in-panel **Export to Excel** button and works from **File ▸ Export to Excel**; the workbook mirrors that report's sections.
+- Built on one shared workbook writer (`write_sections_xlsx`), so Excel export is now the **standard for every future feature** too.
+
+### Changed
+- **Baseline Revision** now shows visible **PDF** and **Excel** buttons in its results panel — previously its report was only reachable from the File menu.
+
 ## [v2.4.1] - 2026-09-07
 
 ### Added

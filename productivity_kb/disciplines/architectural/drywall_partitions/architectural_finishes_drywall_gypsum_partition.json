@@ -1,0 +1,239 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.drywall.gypsum_partition",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Drywall/Partitions",
+  "item": "Gypsum Board Partition",
+  "aliases": [
+    "gypsum partition",
+    "drywall partition",
+    "plasterboard wall",
+    "gyproc partition",
+    "metal stud partition"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Metal-stud gypsum board partition is a multi-trade assembly: light-gauge steel framing, single-layer board both faces with cavity insulation, then jointing/taping to a paint-ready finish. Decomposed into framing, boarding and finishing, each measured per m2 of partition.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "70-100 mm studs at 600 mm c/c",
+    "12.5 mm board one layer each face",
+    "Mineral-wool cavity insulation",
+    "Height up to 3.6 m"
+  ],
+  "exclusions": [
+    "Shaft-wall/fire-rated multi-layer systems",
+    "Painting/decoration",
+    "Access panels and openings framing premium",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "metal_framing",
+      "name": "Metal stud & track framing",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.36,
+        "low": 0.3,
+        "likely": 0.36,
+        "high": 0.45,
+        "output_per_day": 45,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Drywall Installer",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Screw gun",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Chop saw / snips",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Laser level",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Steel studs & track",
+          "qty_per_unit": 3,
+          "unit": "m/m2"
+        },
+        {
+          "name": "Fixings & anchors",
+          "qty_per_unit": 8,
+          "unit": "no/m2"
+        },
+        {
+          "name": "Mineral wool insulation",
+          "qty_per_unit": 1,
+          "unit": "m2/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — metal-stud partition framing",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "70-100 mm stud framing at 600 mm c/c — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "board_fixing",
+      "name": "Gypsum board fixing (both faces)",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.4,
+        "low": 0.32,
+        "likely": 0.4,
+        "high": 0.5,
+        "output_per_day": 40,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Drywall Installer",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Screw gun",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Board lifter/trolley",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Gypsum board 12.5 mm",
+          "qty_per_unit": 2.1,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Drywall screws",
+          "qty_per_unit": 28,
+          "unit": "no/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — plasterboard fixing both faces",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "single-layer board each face — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "jointing_finishing",
+      "name": "Jointing, taping & finishing",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.32,
+        "low": 0.25,
+        "likely": 0.32,
+        "high": 0.42,
+        "output_per_day": 50,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Drywall Finisher",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Jointing tools/knives",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Sander",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Joint compound",
+          "qty_per_unit": 0.6,
+          "unit": "kg/m2"
+        },
+        {
+          "name": "Joint tape",
+          "qty_per_unit": 1.2,
+          "unit": "m/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — drywall jointing to level-4 finish",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "paint-ready taped and jointed finish — validate with your XER to promote"
+      }
+    }
+  ]
+}

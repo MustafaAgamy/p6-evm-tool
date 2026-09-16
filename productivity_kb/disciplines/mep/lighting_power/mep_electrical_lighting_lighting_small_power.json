@@ -1,0 +1,223 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.lighting.lighting_small_power",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Lighting & Power",
+  "item": "Lighting & Small Power",
+  "aliases": [
+    "lighting",
+    "small power",
+    "luminaire install",
+    "wiring accessories",
+    "point wiring",
+    "light fixtures",
+    "sockets and switches"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Data Center"
+  ],
+  "primary_unit": "point",
+  "why": "Second-fix wiring of lighting and small-power points, device/luminaire install and testing; measured per wiring point (lighting or socket outlet).",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Conduit/containment first-fix complete",
+    "One point = one lighting or small-power outlet",
+    "Blended luminaire and accessory mix"
+  ],
+  "exclusions": [
+    "Containment / conduit first fix",
+    "DB installation & terminations",
+    "Feature / high-bay lighting requiring cranage",
+    "Emergency lighting central battery systems"
+  ],
+  "components": [
+    {
+      "component_id": "point_wiring",
+      "name": "Point wiring (final circuit to point)",
+      "unit": "point",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 1.14,
+        "low": 0.8,
+        "likely": 1.14,
+        "high": 1.8,
+        "output_per_day": 14,
+        "output_unit": "points/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Draw tape / rods",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Power tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Wiring cable (1.5/2.5mm²)",
+          "qty_per_unit": 14,
+          "unit": "m/point"
+        },
+        {
+          "name": "Wire connectors / terminals",
+          "qty_per_unit": 2,
+          "unit": "no/point"
+        },
+        {
+          "name": "Insulation tape",
+          "qty_per_unit": 0.1,
+          "unit": "roll/point"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — lighting/small power point wiring",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "final circuit wiring per point after first fix — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "device_install",
+      "name": "Luminaire / accessory install & connect",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.5,
+        "likely": 0.8,
+        "high": 1.5,
+        "output_per_day": 20,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Access ladder / platform",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Power tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Fixings / mounting hardware",
+          "qty_per_unit": 2,
+          "unit": "no/no"
+        },
+        {
+          "name": "Flex / connectors",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — luminaire/wiring accessory install",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "standard luminaires, switches and socket outlets — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "testing",
+      "name": "Testing, labelling and commissioning of points",
+      "unit": "point",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.27,
+        "low": 0.15,
+        "likely": 0.27,
+        "high": 0.4,
+        "output_per_day": 60,
+        "output_unit": "points/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Multifunction installation tester",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Labels / ferrules",
+          "qty_per_unit": 1,
+          "unit": "set/point"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — point testing and labelling",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "continuity/insulation test and labelling per point — validate with your XER to promote"
+      }
+    }
+  ]
+}

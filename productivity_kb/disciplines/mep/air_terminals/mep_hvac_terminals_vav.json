@@ -1,0 +1,90 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.hvac.terminals.vav",
+  "discipline": "MEP",
+  "work_type": "HVAC",
+  "system": "Air Terminals",
+  "item": "VAV Box Installation",
+  "aliases": [
+    "vav",
+    "vav box",
+    "variable air volume box"
+  ],
+  "project_types": [
+    "Commercial",
+    "Hospital",
+    "Airport",
+    "Industrial"
+  ],
+  "primary_unit": "no",
+  "why": "VAV terminal box installation is a per-unit hang-and-connect operation (offload, hang/level, connect inlet duct and downstream collar, leave control stub) by a small mechanical crew.",
+  "assumptions": [
+    "Single-duct pressure-independent VAV, typical size",
+    "Hangers included; duct connections to box collars included",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Controls/actuator wiring & commissioning",
+    "Ductwork runs (ductwork item)",
+    "Reheat coil piping (piping item)",
+    "Testing & balancing (T&B item)"
+  ],
+  "components": [
+    {
+      "component_id": "vav_install",
+      "name": "VAV box hang & connect",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 4,
+        "low": 3,
+        "likely": 4,
+        "high": 6,
+        "output_per_day": 4,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile scaffold / ladder",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Drill / hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Hangers + flexible connectors",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf HVAC norm — single-duct VAV box set and connect",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "typical single-duct VAV terminal — validate with your XER to promote"
+      }
+    }
+  ]
+}

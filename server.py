@@ -10,6 +10,154 @@ import db
 import report_theme
 
 
+def _fmt_meta_date(v):
+    """Render a date-ish value ('2026-02-09', a datetime, or an already-human string)
+    as '09 Feb 2026'; pass anything unparseable through unchanged."""
+    if v in (None, ''):
+        return None
+    if isinstance(v, (datetime, date)):
+        return v.strftime('%d %b %Y')
+    s = str(v).strip()
+    try:
+        return datetime.fromisoformat(s.replace('Z', '+00:00')).strftime('%d %b %Y')
+    except ValueError:
+        pass
+    for fmt in ('%Y-%m-%d', '%d %b %Y', '%d-%b-%Y', '%m/%d/%Y', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(s, fmt).strftime('%d %b %Y')
+        except ValueError:
+            continue
+    return s
+
+
+def _excel_meta(title, src=None, snapshot_id=None, **extra):
+    """The uniform Excel header/context block passed to the shared writer.
+
+    Every export opens self-explaining: "<APP_NAME> — <title>" over a grey context
+    line of Project · Data date · [extras] · Generated. Project/data-date are pulled
+    from whatever common keys the feature's report/result dict uses (a nested ``meta``
+    dict is also consulted); when they're absent and `snapshot_id` is given, they're
+    looked up from the DB so even DB-read exports name their project. Anything still
+    missing is simply omitted. `extra` keyword pairs (e.g. baseline='Rev 3',
+    period='Aug → Sep') are inserted before Generated.
+    """
+    src = src or {}
+    meta = src.get('meta') if isinstance(src.get('meta'), dict) else {}
+
+    def pick(*keys):
+        for k in keys:
+            for d in (src, meta):
+                v = d.get(k)
+                if v not in (None, ''):
+                    return v
+        return None
+
+    project = pick('project', 'project_name', 'projectName', 'project_title')
+    data_date = pick('data_date', 'dataDate', 'data_date_str', 'date')
+    if snapshot_id is not None and (not project or not data_date):
+        try:
+            with db.get_conn() as conn:
+                row = conn.execute(
+                    '''SELECT p.name AS project_name, s.data_date AS data_date
+                       FROM snapshots s JOIN projects p ON p.id = s.project_id
+                       WHERE s.id = ?''', (snapshot_id,)).fetchone()
+            if row:
+                project = project or row['project_name']
+                data_date = data_date or row['data_date']
+        except Exception:
+            pass                                          # a missing project name is non-fatal
+
+    ctx = []
+    if project:
+        ctx.append(('Project', str(project)))
+    dd = _fmt_meta_date(data_date)
+    if dd:
+        ctx.append(('Data date', dd))
+    for k, v in extra.items():
+        if v not in (None, ''):
+            ctx.append((k.replace('_', ' ').capitalize(), str(v)))
+    ctx.append(('Generated', datetime.now().strftime('%d %b %Y')))
+    return {'app': APP_NAME, 'title': title, 'context': ctx}
+
+
+def _prodintel_excel_sections(r):
+    """Build (name, headers, rows) sheets from a Productivity Intelligence result."""
+    ctx = r.get('context') or {}
+    hasq = r.get('has_quantity')
+    roll = r.get('rollup') or {}
+    comps = r.get('components') or []
+    shift = ctx.get('shift_hours') or 8
+    dash = lambda x: x if x is not None else '—'
+
+    summ = [['Item', r.get('item')], ['Discipline', r.get('discipline')], ['System', r.get('system')],
+            ['Project type', ctx.get('Project type')], ['Location', ctx.get('Location')],
+            ['Methodology', ctx.get('Methodology')], ['Shift (hr/day)', shift]]
+    if hasq:
+        summ += [['Quantity', '%s %s' % (r.get('quantity'), r.get('primary_unit') or '')],
+                 ['Total man-hours', roll.get('total_mh')],
+                 ['Estimated duration (days)', roll.get('duration_days')],
+                 ['Controlling component', roll.get('controlling_component')],
+                 ['Blended rate (MH/%s)' % (r.get('primary_unit') or ''), roll.get('blended_mh_per_primary')]]
+    summ += [['Overall confidence', r.get('overall_confidence')]]
+
+    prod_h = ['Work component', 'Unit', 'Productivity rate (MH/unit)', 'Output/day', 'Crew', 'Quantity', 'Man-hours']
+    prod_r = []
+    for c in comps:
+        rate = c.get('rate') or {}
+        crew = ', '.join('%sx %s' % (g.get('count'), g.get('trade')) for g in (c.get('gang') or []))
+        prod_r.append([c.get('name'), c.get('unit'), dash(rate.get('mh_per_unit')),
+                       ('%s %s' % (rate.get('output_per_day'), rate.get('output_unit') or '')) if rate.get('output_per_day') else '—',
+                       crew or '—', dash(c.get('component_qty')) if hasq else '—',
+                       dash(c.get('man_hours')) if hasq else '—'])
+
+    labour, equip, material = {}, {}, {}
+    for c in comps:
+        if not c.get('rate'):
+            continue
+        n = c.get('n_gangs') or 1
+        gp = c.get('gang_persons') or 0
+        for g in (c.get('gang') or []):
+            cur = labour.setdefault(g.get('trade'), {'persons': 0, 'mh': 0.0})
+            cur['persons'] += (g.get('count') or 0) * n
+            if hasq and c.get('man_hours') and gp:
+                cur['mh'] += c['man_hours'] * (g.get('count') or 0) / gp
+        for e in (c.get('equipment') or []):
+            if e.get('name') not in equip:
+                hrs = round(c['duration_days'] * shift) if (hasq and c.get('duration_days')) else None
+                equip[e.get('name')] = 'shared' if 'shar' in (e.get('name') or '').lower() else (hrs if hrs is not None else '—')
+        for m in (c.get('material') or []):
+            q = (c.get('component_qty') or 0) * m['qty_per_unit'] if (hasq and c.get('component_qty') and m.get('qty_per_unit') is not None) else None
+            cur = material.setdefault(m.get('name'), {'unit': m.get('unit'), 'qty': 0.0, 'known': False})
+            if q is not None:
+                cur['qty'] += q
+                cur['known'] = True
+
+    res_r = []
+    for t, v in labour.items():
+        res_r.append(['Labour', t, v['persons'], 'persons' + (' · %d MH' % round(v['mh']) if v['mh'] else '')])
+    for name, val in equip.items():
+        res_r.append(['Equipment', name, val, 'h' if isinstance(val, (int, float)) else ''])
+    for name, val in material.items():
+        res_r.append(['Material', name, (round(val['qty']) if val['known'] else '—'), (val['unit'] or '').split('/')[0]])
+
+    sections = [('Summary', ['Field', 'Value'], summ),
+                ('Productivity', prod_h, prod_r),
+                ('Resources', ['Category', 'Resource', 'Amount', 'Unit'], res_r)]
+    if hasq:
+        p6_r = []
+        for t, v in labour.items():
+            p6_r.append([t, 'Labor', '%d MH' % round(v['mh']), '%d h/d' % (v['persons'] * shift)])
+        for name, val in equip.items():
+            p6_r.append([name, 'Nonlabor', ('shared' if val == 'shared' else ('%s h' % val if isinstance(val, (int, float)) else '—')), 'per method'])
+        for name, val in material.items():
+            if val['known']:
+                p6_r.append([name, 'Material', '%s %s' % (round(val['qty']), (val['unit'] or '').split('/')[0]), '—'])
+        if p6_r:
+            sections.append(('Assign in P6', ['Resource', 'P6 type', 'Budgeted units', 'Units/time'], p6_r))
+    # shape into the shared write_sections_xlsx contract: one sheet per section, one titled block each
+    return [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
+
+
 class _Encoder(json.JSONEncoder):
     """Handle datetime/date objects that metrics.py returns in data_date."""
     def default(self, obj):
@@ -42,6 +190,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_knowledge_get()
         elif self.path == '/api/database':
             self._handle_database_list()
+        elif self.path == '/api/prodintel/tree':
+            self._handle_prodintel_tree()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -66,6 +216,16 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_oos_validate(body)
         elif self.path == '/api/oos/corrected-file':
             self._handle_oos_corrected(body)
+        elif self.path == '/api/prodintel/query':
+            self._handle_prodintel_query(body)
+        elif self.path == '/api/prodintel/excel':
+            self._handle_prodintel_excel(body)
+        elif self.path == '/api/dangling/validate':
+            self._handle_dangling_validate(body)
+        elif self.path == '/api/dangling/corrected-file':
+            self._handle_dangling_corrected(body)
+        elif self.path == '/api/health/recompute':
+            self._handle_health_recompute(body)
         elif self.path == '/api/revcompare':
             self._handle_revcompare(body)
         elif self.path == '/api/revcompare/report':
@@ -94,6 +254,24 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_scope(body)
         elif self.path == '/api/update/excel':
             self._handle_update_excel(body)
+        elif self.path == '/api/evm/excel':
+            self._handle_evm_excel(body)
+        elif self.path == '/api/revcompare/excel':
+            self._handle_revcompare_excel(body)
+        elif self.path == '/api/copilot/excel':
+            self._handle_copilot_excel(body)
+        elif self.path == '/api/dash/excel':
+            self._handle_dash_excel(body)
+        elif self.path == '/api/special/excel':
+            self._handle_special_excel(body)
+        elif self.path == '/api/narrative/excel':
+            self._handle_narrative_excel(body)
+        elif self.path == '/api/overview/excel':
+            self._handle_overview_excel(body)
+        elif self.path == '/api/wbs/excel':
+            self._handle_wbs_excel(body)
+        elif self.path == '/api/schedule/excel':
+            self._handle_schedule_excel(body)
         elif self.path == '/api/update/report':
             self._handle_update_report(body)
         elif self.path == '/api/narrative':
@@ -473,6 +651,48 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(body)
+
+    # ── /api/prodintel — Productivity & Resource Intelligence ──────────
+    def _handle_prodintel_tree(self):
+        try:
+            import p6_prodintel
+            self._json(200, {'ok': True, 'tree': p6_prodintel.build_tree()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodintel_query(self, body):
+        try:
+            import p6_prodintel
+            res = p6_prodintel.query(
+                body.get('item_id'),
+                context=body.get('context') or {},
+                quantity=body.get('quantity'),
+                component_quantities=body.get('component_quantities') or {},
+            )
+            self._json(200, {'ok': True, 'result': res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodintel_excel(self, body):
+        """Export the current Productivity result to .xlsx — one sheet per report section."""
+        try:
+            import p6_prodintel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            r = p6_prodintel.query(body.get('item_id'), context=body.get('context') or {},
+                                   quantity=body.get('quantity'),
+                                   component_quantities=body.get('component_quantities') or {})
+            if not r or r.get('found') is False:
+                self._json(200, {'ok': False, 'error': 'No validated reference for this selection.'})
+                return
+            write_sections_xlsx(os.path.abspath(output_path), _prodintel_excel_sections(r),
+                                meta=_excel_meta('Productivity & Resource Intelligence', r))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/parse ─────────────────────────────────────────────────────────
     def _handle_parse(self, body):
@@ -917,10 +1137,202 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_update.exporters import report_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = report_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Update Analysis', headers, rows)
+            from p6_update.exporters import report_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), report_excel_sections(report),
+                                meta=_excel_meta('Update Analysis', report))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_evm_excel(self, body):
+        """Export the Earned Value report to .xlsx from the report the client holds."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.evm_excel import evm_excel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), evm_excel(report),
+                                meta=_excel_meta('Earned Value Report', report))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_revcompare_excel(self, body):
+        """Export the Baseline Revision Comparison to .xlsx from the report the client
+        already holds (no re-parse). Mirrors the PDF's sections as stacked titled tables."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_revcompare.xlsx_export import revcompare_excel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), revcompare_excel(report),
+                                meta=_excel_meta('Baseline Revision Comparison', report))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_copilot_excel(self, body):
+        """Export the AI Copilot · TIA report to .xlsx from the result the client
+        holds. Rebuilds the same deterministic copilot report the screen showed
+        (build_copilot, reusing the saved weather estimate), then mirrors its
+        sections into the workbook via the shared sections writer."""
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            from p6_evm.copilot import build_copilot
+            from p6_evm.copilot_exporters import copilot_excel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            result = body.get('result')
+            weather = None
+            snap = body.get('snapshot_id')
+            if snap is not None:
+                pid = db.snapshot_project_id(snap)
+                if pid is not None:
+                    weather = (db.get_project_settings(pid) or {}).get('last_weather')
+                    if not result:
+                        result = db.get_project_result(pid)
+            if not result:
+                self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
+                return
+            report = build_copilot(result, weather)
+            write_sections_xlsx(os.path.abspath(output_path), copilot_excel(report),
+                                meta=_excel_meta('AI Copilot · Time Impact Analysis', result))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_dash_excel(self, body):
+        """Export the Professional Dashboard read-model the client holds to .xlsx.
+        DB read path — the client posts the /api/dashboard dict; nothing re-parsed here."""
+        dashboard = body.get('dashboard') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.dashboard_excel import dashboard_excel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            sheets = dashboard_excel(dashboard)
+            write_sections_xlsx(os.path.abspath(output_path), sheets,
+                                meta=_excel_meta('Professional Dashboard', dashboard))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_excel(self, body):
+        """Export the Special Report to .xlsx — the same selected/ordered sections
+        as the PDF/Word, mirrored as sheets/blocks. Same body as /api/special/pdf."""
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            sys.path.insert(0, resource_path('.'))
+            from p6_special.excel_export import build_excel
+            import report_theme
+            build_excel(
+                project_id=self._special_pid(body), item_ids=body.get('item_ids') or [],
+                report_name=body.get('report_name') or 'Special Report',
+                mode=report_theme.normalize(body.get('theme')),
+                meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
+                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
+                output_path=os.path.abspath(output_path))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_narrative_excel(self, body):
+        """Export the Baseline Narrative to .xlsx. DB is the read path: rebuild the
+        narrative from the stored result for the snapshot (falling back to the
+        client-supplied result), then mirror its sections into a workbook."""
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.narrative import build_narrative
+            from p6_evm.narrative_excel import narrative_excel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            result = None
+            snap = body.get('snapshot_id')
+            if snap is not None:
+                pid = db.snapshot_project_id(snap)
+                if pid is not None:
+                    result = db.get_project_result(pid)
+            if result is None:
+                result = body.get('result')
+            if not result:
+                self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
+                return
+            sheets = narrative_excel({'narrative': build_narrative(result), 'result': result})
+            write_sections_xlsx(os.path.abspath(output_path), sheets,
+                                meta=_excel_meta('Baseline Narrative', result))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_overview_excel(self, body):
+        """Export the Project Overview to .xlsx from the parse result the client holds."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.overview_excel import overview_excel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            sheets = overview_excel(report)
+            write_sections_xlsx(os.path.abspath(output_path), sheets,
+                                meta=_excel_meta('Project Overview', report))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_wbs_excel(self, body):
+        """Export the Project ▸ WBS summary to .xlsx from the report the client holds."""
+        report = body.get('report') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.wbs_excel import wbs_excel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), wbs_excel(report),
+                                meta=_excel_meta('WBS Summary', report))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_schedule_excel(self, body):
+        """Export the Schedule (Gantt) view to .xlsx from the parse result the client
+        holds. No XML re-parse — the slim `activities` list is already in the result."""
+        result = body.get('result') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.schedule_excel import schedule_excel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), schedule_excel(result),
+                                meta=_excel_meta('Schedule (Gantt)', result))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1121,8 +1533,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_critpath.exporters import to_excel
-            to_excel(report, output_path)
+            from p6_critpath.exporters import critpath_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), critpath_excel_sections(report),
+                                meta=_excel_meta('Critical Path Analyzer', report,
+                                                 snapshot_id=body.get('snapshot_id')))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1498,10 +1913,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_kb.exporters import findings_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = findings_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Constructability Findings', headers, rows)
+            from p6_kb.exporters import findings_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), findings_excel_sections(report),
+                                meta=_excel_meta('Constructability Review', report,
+                                                 snapshot_id=body.get('snapshot_id')))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1689,6 +2105,66 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/dangling/validate ────────────────────────────────────────────
+    def _handle_dangling_validate(self, body):
+        """Dangling — re-validate after the planner applies relationship-type fixes. Re-parses the
+        imported schedule, applies the accepted fixes to an in-memory copy, re-runs the SAME dangling
+        engine, and reports the fresh findings + which activities are now genuinely no longer
+        dangling. Nothing is written to disk."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        accepted = body.get('accepted') or []
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.dangling_resolve import revalidate_from_path
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            res = revalidate_from_path(resolved, config, accepted, completion=body.get('completion'))
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/dangling/corrected-file ──────────────────────────────────────
+    def _handle_dangling_corrected(self, body):
+        """Dangling — write the corrected schedule (accepted relationship-type fixes only) to a
+        separate file in the same format as the import (P6 XML or XER). Actuals and dates are never
+        touched; open in P6 → F9. The user's original file is not modified."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        output_path = body.get('output_path', '')
+        accepted = body.get('accepted') or []
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        if not accepted:
+            self._json(200, {'ok': False, 'error': 'No fixes have been applied yet.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.dangling_resolve import write_corrected
+            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path),
+                                  completion=body.get('completion'))
+            self._json(200, {'ok': True, 'applied': res['applied'], 'out_path': res['out_path']})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/health/recompute ─────────────────────────────────────────────
+    def _handle_health_recompute(self, body):
+        """Recompute the Schedule Health roll-up from the client's CURRENT modules (with any in-memory
+        Dangling fixes previewed in), so the Dangling module tab score AND the Summary roll-up update
+        live as findings resolve — using the same weighted engine as import (single source of truth)."""
+        modules = body.get('modules') or {}
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.health import schedule_health
+            self._json(200, {'ok': True, 'health': schedule_health(modules)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/compare/before-after ─────────────────────────────────────────
     def _handle_before_after(self, body):
         """Consultant Review — the but-for impact. Given the baseline, the update, and
@@ -1729,10 +2205,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_compare.exporters import logic_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = logic_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Driving Logic Changes', headers, rows)
+            from p6_compare.exporters import logic_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            impact = body.get('impact')
+            write_sections_xlsx(os.path.abspath(output_path), logic_excel_sections(report, impact),
+                                meta=_excel_meta('Consultant Review', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1866,7 +2343,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_period.exporters import report_excel
             from p6_evm.xlsx_writer import write_xlsx
             headers, rows = report_excel(report, trend)
-            write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows)
+            write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows,
+                       meta=_excel_meta('Update vs Update — Windows Analysis', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2026,7 +2504,9 @@ class Handler(BaseHTTPRequestHandler):
             sev_col, legend = excel_severity_meta(m, headers)
             write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31],
                        headers, rows, highlight_cols=excel_highlight_cols(headers),
-                       severity_col=sev_col, legend=legend)
+                       severity_col=sev_col, legend=legend,
+                       meta=_excel_meta(m.get('name') or 'Schedule Health Review',
+                                        m, snapshot_id=snapshot_id))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2360,7 +2840,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_calendar_xlsx
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
-            write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather)
+            write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather,
+                                meta=_excel_meta('Calendar Audit', snapshot_id=snapshot_id))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2385,7 +2866,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.xlsx_writer import write_weather_xlsx
-            write_weather_xlsx(os.path.abspath(output_path), ca, weather)
+            write_weather_xlsx(os.path.abspath(output_path), ca, weather,
+                               meta=_excel_meta('Bad Weather', snapshot_id=snapshot_id))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

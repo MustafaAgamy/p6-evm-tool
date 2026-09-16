@@ -117,6 +117,31 @@ def test_workbook_has_a_sheet_per_calendar_plus_report_tables(tmp_path):
     _all_wellformed(p)
 
 
+def test_meta_header_block_on_first_sheet(tmp_path):
+    """The standard report header/context block (app — feature / Project / Data date /
+    Generated) is prepended to the first sheet, matching every other export."""
+    meta = {'app': 'Controlyx', 'title': 'Calendar Audit',
+            'context': [('Project', 'Metro Pkg 3'), ('Data date', '09 Feb 2026'),
+                        ('Generated', '15 Sep 2026')]}
+    p = tmp_path / 'cal.xlsx'
+    write_calendar_xlsx(str(p), _ca(), weather=_weather(), meta=meta)
+    with zipfile.ZipFile(p) as z:
+        s1 = z.read('xl/worksheets/sheet1.xml').decode()
+    assert 'Controlyx — Calendar Audit' in s1          # report title (style 11)
+    assert 'Metro Pkg 3' in s1 and 'Data date: 09 Feb 2026' in s1   # context line (style 12)
+    assert 's="11"' in s1 and 's="12"' in s1               # the two new report-block styles
+    assert 'Calendar Timeline' in s1                        # the per-calendar title still follows
+    _all_wellformed(p)
+    # weather workbook carries the same block
+    from p6_evm.xlsx_writer import write_weather_xlsx
+    pw = tmp_path / 'wx.xlsx'
+    write_weather_xlsx(str(pw), _ca(), _weather(),
+                       meta={'app': 'Controlyx', 'title': 'Bad Weather', 'context': []})
+    with zipfile.ZipFile(pw) as z:
+        assert 'Controlyx — Bad Weather' in z.read('xl/worksheets/sheet1.xml').decode()
+    _all_wellformed(pw)
+
+
 def test_named_holiday_shows_inside_the_day_cell(tmp_path):
     p = tmp_path / 'cal.xlsx'
     write_calendar_xlsx(str(p), _ca())

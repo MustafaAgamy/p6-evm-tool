@@ -1,0 +1,169 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.substructure.piling.driven_precast_piles",
+  "discipline": "Civil",
+  "work_type": "Substructure",
+  "system": "Piling",
+  "item": "Driven Precast Concrete Piles",
+  "aliases": [
+    "driven piles",
+    "precast piles",
+    "driven precast concrete piles",
+    "displacement piles"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Driven precast piling splits into the manufactured pile section (a supplied precast RC product, material-dominant with handling) and the driving operation (rig plus hammer, output measured in metres driven per day). Keeping the pile supply separate lets planners swap supplier rates without disturbing the driving productivity.",
+  "assumptions": [
+    "Precast RC pile sections supplied to site",
+    "Single 8 hr/day shift",
+    "Hydraulic or diesel drop hammer",
+    "Normal driving resistance / set achieved at design depth",
+    "Splices as required between sections"
+  ],
+  "exclusions": [
+    "Pile manufacture where cast off-site (priced in supply rate)",
+    "Pre-boring / obstruction removal",
+    "Dynamic / static load testing",
+    "Pile head trimming and disposal",
+    "Abnormal driving refusal and re-drive"
+  ],
+  "components": [
+    {
+      "component_id": "driving",
+      "name": "Pitching & driving",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.27,
+        "low": 0.2,
+        "likely": 0.27,
+        "high": 0.45,
+        "output_per_day": 120,
+        "output_unit": "m/rig·day"
+      },
+      "gang": [
+        {
+          "trade": "Piling Rig Operator",
+          "count": 1
+        },
+        {
+          "trade": "Banksman / Helper",
+          "count": 2
+        },
+        {
+          "trade": "Foreman / Oiler",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Crawler crane / piling rig with leader",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Hydraulic / diesel hammer",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Service crane",
+          "basis": "utilization",
+          "value": 0.3,
+          "unit": "h/m"
+        }
+      ],
+      "material": [
+        {
+          "name": "Splice plates / welding consumables",
+          "qty_per_unit": 0.3,
+          "unit": "kg/m"
+        },
+        {
+          "name": "Driving cap / dolly cushion (amortized)",
+          "qty_per_unit": 0.02,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — precast pile driving production",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "driven precast RC piles in medium ground — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "pile_supply",
+      "name": "Precast RC pile section — supply & handling",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.12,
+        "low": 0.08,
+        "likely": 0.12,
+        "high": 0.2,
+        "output_per_day": 200,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Rigger",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane (offloading)",
+          "basis": "utilization",
+          "value": 0.2,
+          "unit": "h/m"
+        }
+      ],
+      "material": [
+        {
+          "name": "Precast RC pile section (supplied)",
+          "qty_per_unit": 1,
+          "unit": "m/m"
+        },
+        {
+          "name": "Pile shoe / rock point (amortized)",
+          "qty_per_unit": 0.03,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry norm — precast pile supply, offloading and stacking (material-dominant)",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "factory-supplied precast RC pile sections — validate with your XER to promote"
+      }
+    }
+  ]
+}

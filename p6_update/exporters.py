@@ -413,3 +413,219 @@ def report_excel(report):
         for t in s.get('recommendation', []):
             rows.append(['Scope recommendation', '', t, '', '', '', '', ''])
     return _HEADERS, rows
+
+
+# ── Excel (standard): sheets mirroring the on-screen sections ────────────────
+# The tool-wide Excel standard — one titled block per report section, full self-explaining
+# headers WITH UNITS, readable %/date strings — consumed by
+# p6_evm.xlsx_writer.write_sections_xlsx. `report_excel` (the flat table above) is kept
+# intact for any caller that still wants it. This feature colours progress green/red
+# (behind vs ahead), not the Critical/High/Medium/Low badge system the shared writer's
+# `severity_col` colours, so no severity column is used — that would misrepresent the
+# report; the sign of each variance/delay carries the same meaning in words instead.
+
+
+def _xdate(iso):
+    """ISO date → '09 Feb 2026' (the tool-wide Excel date standard)."""
+    if not iso:
+        return '—'
+    try:
+        return datetime.strptime(str(iso)[:10], '%Y-%m-%d').strftime('%d %b %Y')
+    except Exception:
+        return str(iso)
+
+
+def _pcts(v, dec=1):
+    """A percent value already on the 0–100 scale → '61.42%' / '33.7%'; '—' when absent."""
+    return f'{v:.{dec}f}%' if isinstance(v, (int, float)) and not isinstance(v, bool) else '—'
+
+
+def _pts(v, dec=2):
+    """A signed points figure (a difference, not a percentage) → '+13.20' / '-5.00'."""
+    return f'{v:+.{dec}f}' if isinstance(v, (int, float)) and not isinstance(v, bool) else '—'
+
+
+def _days(v):
+    """Working-days delay → '+5 d' (later) / '-3 d' (earlier) / '0 d'; '—' when absent."""
+    if v is None:
+        return '—'
+    try:
+        return f'+{v} d' if v > 0 else f'{v} d'
+    except Exception:
+        return str(v)
+
+
+def _cost(v):
+    """Numeric cost cell (header carries the 'cost' meaning); '—' when absent."""
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else '—'
+
+
+def report_excel_sections(report):
+    """Return the `sheets` structure for `write_sections_xlsx`, mirroring the on-screen /
+    PDF Update-Analysis report: the Executive read, then Sections 1–5 as clearly-titled
+    tables with full, unit-bearing headers and readable %/date formatting.
+
+    Only sections whose data exists are emitted. `report_excel` (the legacy flat table) is
+    left untouched. The server passes the header/context block itself via `meta=` — these
+    sheets start with the first real section, per the shared contract.
+    """
+    report = report or {}
+    ts = report.get('time_status', {}) or {}
+    by = report.get('by_code', {}) or {}
+    cp = report.get('critical_path', {}) or {}
+    counts = report.get('counts', {}) or {}
+    scope = report.get('scope', {}) or {}
+
+    sheets = []
+    # Is there any real time-status content? (An empty / no-baseline report has none —
+    # then every section below is skipped and the "No data" fallback at the end fires,
+    # instead of a Time Status sheet full of em-dashes.)
+    has_time = bool(report.get('conclusion')) or any(
+        ts.get(k) is not None for k in
+        ('elapsed_pct', 'planned_pct', 'actual_pct', 'behind_plan', 'behind_clock',
+         'pv', 'ev', 'cost_variance'))
+
+    # ── Sheet 1 · Executive read + Section 1 Time Status ────────────────────
+    blocks = [{
+        'title': 'Executive Read',
+        'headers': ["Planner's summary"],
+        'rows': [[report.get('conclusion') or '—']],
+    }]
+
+    if ts.get('exceeded_days'):
+        elapsed_txt = f'100% (baseline finish exceeded by {ts["exceeded_days"]} days)'
+    elif ts.get('elapsed_pct') is not None:
+        elapsed_txt = _pcts(ts.get('elapsed_pct'), 1)
+    else:
+        elapsed_txt = '—'
+    prog_rows = [
+        ['Baseline time elapsed', elapsed_txt,
+         'Calendar days from baseline start to the data date, over the driving-path span'],
+        ['Planned progress by data date', _pcts(ts.get('planned_pct'), 2),
+         'Planned Value / budget (cost-based, over cost-loaded activities)'],
+        ['Earned / actual progress', _pcts(ts.get('actual_pct'), 2),
+         'Earned Value / budget'],
+    ]
+    if ts.get('behind_plan') is not None:
+        prog_rows.append(['Behind plan (percentage points)', _pts(ts.get('behind_plan')),
+                          'Planned % minus Actual % (positive = behind plan)'])
+    if ts.get('behind_clock') is not None:
+        prog_rows.append(['Behind clock (percentage points)', _pts(ts.get('behind_clock')),
+                          'Time-elapsed % minus Actual % (positive = less work done than time spent)'])
+    prog_rows += [
+        ['Baseline start', _xdate(ts.get('baseline_start')), ''],
+        ['Baseline finish', _xdate(ts.get('baseline_finish')), ''],
+        ['Data date', _xdate(ts.get('data_date') or report.get('data_date')), ''],
+    ]
+    blocks.append({
+        'title': '1 - Time Status - Progress vs Baseline Clock',
+        'headers': ['Measure', 'Value', 'What it means'],
+        'rows': prog_rows,
+    })
+
+    if any(ts.get(k) is not None for k in ('pv', 'ev', 'cost_variance')):
+        blocks.append({
+            'title': '1 - Time Status - Cost (Earned Value)',
+            'headers': ['Measure', 'Amount (project cost)'],
+            'rows': [
+                ['Planned Value (PV)', _cost(ts.get('pv'))],
+                ['Earned Value (EV)', _cost(ts.get('ev'))],
+                ['Variance (EV minus PV)', _cost(ts.get('cost_variance'))],
+            ],
+        })
+    if has_time:
+        sheets.append({'name': 'Time Status', 'blocks': blocks})
+
+    # ── Sheet 2 · Section 2 Planned vs Actual by activity code ──────────────
+    code_blocks = []
+    for t, rows in by.items():
+        if not rows:
+            continue
+        code_blocks.append({
+            'title': f'2 - Planned vs Actual - by {t}',
+            'note': 'Cumulative planned vs actual %, cost-weighted; worst gap first.',
+            'headers': [str(t), 'Planned % (vs baseline)', 'Actual % (complete)',
+                        'Variance (pts, actual minus planned)', 'Activities (count)'],
+            'rows': [[r.get('value', ''), _pcts(r.get('planned'), 1), _pcts(r.get('actual'), 1),
+                      _pts(r.get('variance'), 1), r.get('activity_count', 0)] for r in rows],
+        })
+    if code_blocks:
+        sheets.append({'name': 'By Activity Code', 'blocks': code_blocks})
+
+    # ── Sheet 3 · Section 3 Driving Path Analyzer ───────────────────────────
+    charts = cp.get('charts') or []
+    if charts:
+        dp_blocks = []
+        for chart in charts:
+            ms = chart.get('milestone', {}) or {}
+            sm = chart.get('start_milestone') or {}
+            note = cp.get('headline') or ''
+            if sm.get('name'):
+                note = ((note + ' ') if note else '') + \
+                    f'Path released by start milestone "{sm.get("name")}" on {_xdate(sm.get("date"))}.'
+            dp_blocks.append({
+                'title': f'3 - Driving Path - Governing Milestone: {ms.get("name", "")}',
+                'note': note,
+                'headers': ['Governing completion milestone', 'Baseline Finish',
+                            'Expected Finish', 'Delay (working days)'],
+                'rows': [[ms.get('name', ''), _xdate(ms.get('baseline_finish')),
+                          _xdate(ms.get('expected_finish')), _days(ms.get('slip_days'))]],
+            })
+            boxes = chart.get('boxes') or []
+            dp_blocks.append({
+                'title': 'Work Fronts on the Driving Path (in path order)',
+                'headers': ['Work Front', 'Above (WBS path)', 'Type',
+                            'Planned % (vs baseline)', 'Actual % (complete)',
+                            'Baseline Finish', 'Expected Finish', 'Delay (working days)'],
+                'rows': [[b.get('name', ''), b.get('crumb', ''),
+                          ('WBS rollup' if b.get('source') == 'wbs' else 'Activity (no cost in WBS)'),
+                          _pcts(b.get('planned'), 1), _pcts(b.get('pct'), 1),
+                          _xdate(b.get('bl_finish')), _xdate(b.get('exp_finish')),
+                          _days(b.get('slip_days'))] for b in boxes],
+            })
+        sheets.append({'name': 'Driving Path', 'blocks': dp_blocks})
+
+    # ── Sheet 4 · Section 4 Planned vs Actual by activity count ─────────────
+    if counts and counts.get('total'):
+        note = (f'Construction / execution activities: {counts.get("total", 0)} '
+                f'(baseline dates on {counts.get("planned_total", 0)}).')
+        sheets.append({'name': 'Activity Counts', 'blocks': [{
+            'title': '4 - Planned vs Actual - by activity count',
+            'note': note,
+            'headers': ['Status', 'Planned (count)', 'Actual (count)'],
+            'rows': [
+                ['Completed', counts.get('planned_completed', 0), counts.get('actual_completed', 0)],
+                ['In Progress', counts.get('planned_in_progress', 0), counts.get('actual_in_progress', 0)],
+                ['Not Started', counts.get('planned_not_started', 0), counts.get('actual_not_started', 0)],
+            ],
+        }]})
+
+    # ── Sheet 5 · Section 5 Scope Weight & Recommendation ───────────────────
+    dflt = report.get('scope_default')
+    s = scope.get(dflt) if dflt in scope else (next(iter(scope.values())) if scope else None)
+    if s and s.get('rows'):
+        ct = s.get('code_type', 'Scope')
+        scope_blocks = [{
+            'title': f'5 - Scope Weight - by {ct}',
+            'note': "Each value's share of the cost-loaded scope (baseline budget), heaviest first.",
+            'headers': [str(ct), 'Weight (% of cost scope)', 'Budget at Completion (BAC, cost)',
+                        'Planned % (vs baseline)', 'Actual % (complete)'],
+            'rows': [[r.get('value', ''), _pcts(r.get('weight_pct'), 1), _cost(r.get('bac')),
+                      _pcts(r.get('planned'), 1), _pcts(r.get('actual'), 1)] for r in s['rows']],
+        }]
+        recs = s.get('recommendation') or []
+        if recs:
+            scope_blocks.append({
+                'title': '5 - Recommendation - by weight',
+                'headers': ['Recommendation'],
+                'rows': [[t] for t in recs],
+            })
+        sheets.append({'name': 'Scope Weight', 'blocks': scope_blocks})
+
+    if not sheets:
+        sheets = [{'name': 'Update Analysis', 'blocks': [{
+            'title': 'Update Analysis',
+            'headers': ['Metric', 'Value'],
+            'rows': [['No data', 'Run Update Analysis on a schedule with a baseline first.']],
+        }]}]
+    return sheets

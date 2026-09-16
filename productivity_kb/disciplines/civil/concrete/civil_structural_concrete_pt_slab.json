@@ -1,0 +1,324 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.structural.concrete.pt_slab",
+  "discipline": "Civil",
+  "work_type": "Structural",
+  "system": "Concrete",
+  "item": "Post-Tensioned Slab (bonded/unbonded)",
+  "aliases": [
+    "PT slab",
+    "post-tensioned slab",
+    "prestressed slab",
+    "PT flat slab"
+  ],
+  "project_types": [
+    "Commercial",
+    "Airport",
+    "Infrastructure",
+    "Hospital",
+    "Industrial",
+    "Marine/Port",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "A post-tensioned slab carries a specialist prestressing trade (tendon layout, profiling, stressing and grouting) in addition to reduced passive rebar, thinner section and normal formwork/concrete; the PT operation must be its own component because its crew, plant (jacks) and materials (strand/anchorages) are entirely different from ordinary steel fixing.",
+  "assumptions": [
+    "Slab ~200–240 mm (≈0.22 m3/m2), thinner than RC equivalent",
+    "Single 8 hr/day shift",
+    "Specialist PT subcontractor crew",
+    "Bonded system with ducts + grout (or unbonded mono-strand)",
+    "Stressing at ~75% GUTS after strength gain"
+  ],
+  "exclusions": [
+    "Abnormal congestion",
+    "Rework/re-stressing",
+    "PT design and specialist supervision fees",
+    "Early-age monitoring/instrumentation"
+  ],
+  "components": [
+    {
+      "component_id": "formwork",
+      "name": "Soffit formwork, shoring & edge (stressing pockets)",
+      "unit": "m2",
+      "qty_per_primary": 4.8,
+      "default_gangs": 5,
+      "rate": {
+        "mh_per_unit": 1.33,
+        "low": 1.1,
+        "likely": 1.33,
+        "high": 1.6,
+        "output_per_day": 12,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Tower/floor crane (shared)",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Table/flying form set",
+          "basis": "utilization",
+          "value": 0.4,
+          "unit": "table-use/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Film-faced plywood",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Sawn timber bearers",
+          "qty_per_unit": 0.011,
+          "unit": "m3/m2"
+        },
+        {
+          "name": "Form release oil",
+          "qty_per_unit": 0.03,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — PT slab soffit (thinner section, edge pockets)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "repetitive PT floors with table forms — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "Passive RFT / steel fixing",
+      "unit": "ton",
+      "qty_per_primary": 0.07,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 17.8,
+        "low": 15.5,
+        "likely": 17.8,
+        "high": 20,
+        "output_per_day": 0.9,
+        "output_unit": "t/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bar bending machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Bar cutting machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Reinforcement bar (B500B / Gr60)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Tie wire",
+          "qty_per_unit": 11,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Bar chairs/spacers",
+          "qty_per_unit": 30,
+          "unit": "no/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — reduced passive steel in PT slabs (~50–80 kg/m3)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "PT slabs with bonded/unbonded tendons — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "post_tensioning",
+      "name": "PT tendons — layout, profiling, stressing & grouting",
+      "unit": "ton",
+      "qty_per_primary": 0.023,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 53,
+        "low": 45,
+        "likely": 53,
+        "high": 62,
+        "output_per_day": 0.45,
+        "output_unit": "t-strand/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "PT Technician",
+          "count": 1
+        },
+        {
+          "trade": "PT Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hydraulic stressing jack + pump",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Grout mixer/pump (bonded)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Tower/floor crane (shared)",
+          "basis": "utilization",
+          "value": 3,
+          "unit": "h/t"
+        }
+      ],
+      "material": [
+        {
+          "name": "7-wire prestressing strand (15.2 mm)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Anchorages (live/dead) + wedges",
+          "qty_per_unit": 55,
+          "unit": "set/t"
+        },
+        {
+          "name": "Corrugated duct (bonded)",
+          "qty_per_unit": 900,
+          "unit": "m/t"
+        },
+        {
+          "name": "Cementitious grout",
+          "qty_per_unit": 350,
+          "unit": "kg/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — specialist PT install + stress + grout per tonne of strand",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "slab post-tensioning, bonded or unbonded — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Concrete placing, compaction & finishing",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.96,
+        "low": 0.8,
+        "likely": 0.96,
+        "high": 1.2,
+        "output_per_day": 50,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Ganger/Foreman",
+          "count": 1
+        },
+        {
+          "trade": "Vibrator Operator",
+          "count": 2
+        },
+        {
+          "trade": "Concrete Finisher",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete pump (boom, shared)",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Poker vibrator",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        },
+        {
+          "name": "Ride-on power float",
+          "basis": "utilization",
+          "value": 0.1,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete C40/50",
+          "qty_per_unit": 1.04,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Curing compound",
+          "qty_per_unit": 0.25,
+          "unit": "L/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry norm — higher-grade PT slab pour, careful compaction round tendons",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "pumped high-strength ready-mix — validate with your XER to promote"
+      }
+    }
+  ]
+}

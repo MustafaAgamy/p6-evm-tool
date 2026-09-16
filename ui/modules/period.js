@@ -8,6 +8,7 @@ import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
+import { revealAndRun } from './featurereveal.js';
 
 let _shownReport = null;   // the report currently on screen (exports read this)
 let _shownTrend = null;    // the milestone trend currently on screen (carried into the PDF)
@@ -112,23 +113,26 @@ async function choosePrev() {
 }
 
 async function _runCompare() {
+  const body = document.getElementById('period-body');
   const rep = document.getElementById('per-report');
-  if (rep) rep.innerHTML = `<div class="cmp-loading">Comparing the two updates…</div>`;
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/period/compare`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ..._prev,
-        update_path: state.currentXmlPath,
-        cached_path: state.currentCachedPath,
-      }),
-    });
-    const data = await resp.json();
-    if (!data.ok) { if (rep) rep.innerHTML = `<div class="cmp-warn">${escapeHtml(data.error || 'Comparison failed.')}</div>`; return; }
-    renderPeriodReport(data.report);
-  } catch {
-    if (rep) rep.innerHTML = `<div class="cmp-warn">Could not reach the local server to run the comparison.</div>`;
-  }
+  revealAndRun(body, 'Update vs Update', async () => {
+    if (rep) rep.innerHTML = `<div class="cmp-loading">Comparing the two updates…</div>`;
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/period/compare`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ..._prev,
+          update_path: state.currentXmlPath,
+          cached_path: state.currentCachedPath,
+        }),
+      });
+      const data = await resp.json();
+      if (!data.ok) { if (rep) rep.innerHTML = `<div class="cmp-warn">${escapeHtml(data.error || 'Comparison failed.')}</div>`; return; }
+      renderPeriodReport(data.report);
+    } catch {
+      if (rep) rep.innerHTML = `<div class="cmp-warn">Could not reach the local server to run the comparison.</div>`;
+    }
+  });
 }
 
 // ── Report render ───────────────────────────────────────────────────────────

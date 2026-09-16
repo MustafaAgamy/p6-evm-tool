@@ -1,0 +1,161 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "piping.fabrication.spool.ss_spool_fab",
+  "discipline": "Piping",
+  "work_type": "Fabrication",
+  "system": "Piping Spools",
+  "item": "Process Pipe Spool Fabrication - Stainless Steel (shop)",
+  "aliases": [
+    "ss spool fab",
+    "stainless spool fabrication",
+    "alloy spool shop",
+    "TIG spool fabrication"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "dia-inch",
+  "why": "Stainless and alloy spool fabrication runs materially slower than carbon steel due to full GTAW/TIG passes, back-purging and cleanliness control; it needs its own norm so planners do not undersize welder crews on alloy scopes.",
+  "assumptions": [
+    "Controlled shop conditions with positioners",
+    "Single 8 hr/day shift",
+    "Full GTAW (TIG) or GTAW root + FCAW fill",
+    "Back-purge required on root passes",
+    "dia-inch = pipe nominal diameter (in) per butt weld"
+  ],
+  "exclusions": [
+    "Carbon steel (see CS item)",
+    "Field welding and erection",
+    "NDT / PMI",
+    "Pickling & passivation",
+    "Rework and repair welds"
+  ],
+  "components": [
+    {
+      "component_id": "fitup",
+      "name": "Cutting / beveling / fit-up & assembly (SS)",
+      "unit": "dia-inch",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.9,
+        "low": 0.7,
+        "likely": 0.9,
+        "high": 1.2,
+        "output_per_day": 17.8,
+        "output_unit": "dia-inch/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Fitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "SS cutting/beveling machine (dedicated)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "SS-only grinder",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "SS cutting & grinding discs",
+          "qty_per_unit": 0.08,
+          "unit": "disc/dia-inch"
+        },
+        {
+          "name": "Fit-up consumables (tacks, clamps)",
+          "qty_per_unit": 0.02,
+          "unit": "set/dia-inch"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - SS spool cutting, beveling and fit-up",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "304/316 SS, NPS 2-24, contamination-controlled — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "welding_shop_ss",
+      "name": "Shop welding (GTAW/TIG, back-purged)",
+      "unit": "dia-inch",
+      "qty_per_primary": 1.0,
+      "default_gangs": 5,
+      "rate": {
+        "mh_per_unit": 2.2,
+        "low": 1.8,
+        "likely": 2.2,
+        "high": 2.8,
+        "output_per_day": 7.3,
+        "output_unit": "dia-inch/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "TIG Welder",
+          "count": 1
+        },
+        {
+          "trade": "Welder Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "TIG welding machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Purge dams & gas manifold",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "SS filler (ER308L / ER316L)",
+          "qty_per_unit": 0.15,
+          "unit": "kg/dia-inch"
+        },
+        {
+          "name": "Argon (shield + purge)",
+          "qty_per_unit": 0.6,
+          "unit": "m3/dia-inch"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - SS TIG butt welding per diameter-inch",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Full GTAW, 304/316 SS, NPS 2-24 — validate with your XER to promote"
+      }
+    }
+  ]
+}

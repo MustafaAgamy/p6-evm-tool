@@ -112,6 +112,7 @@ export function buildSiteCriteria(siteType, t) {
 import { escapeHtml } from './format.js';
 import { state } from './state.js';
 import { geocodePlace, reverseGeocode, computeWeather, saveCalendarSettings } from './api.js';
+import { revealAndRun } from './featurereveal.js';
 
 const DEFAULT_THRESHOLDS = { rain_mm: 5, temp_max_c: 42, wind_kmh: null, dust: true };
 
@@ -977,22 +978,26 @@ function _wireWeather() {
 async function _runWeather(btn, statusEl) {
   if (!_pendingLoc) return;
   if (btn) btn.disabled = true;
-  if (statusEl) statusEl.textContent = 'Calculating weather…';
-  try {
-    const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name, _thresholds, _siteType);
-    if (resp.ok) {
-      _weather = resp.weather;
-      _pendingLoc = resp.location || _pendingLoc;
-      if (resp.weather && resp.weather.thresholds) _thresholds = resp.weather.thresholds;
-      if (resp.offline && statusEl) statusEl.textContent = 'No weather data (offline) — location saved.';
-      _renderWeatherBody();
-    } else if (statusEl) {
-      statusEl.textContent = resp.error || 'Weather failed.'; if (btn) btn.disabled = false;
+  // Branded feature-open presentation (Loading → 100%) plays over the panel, then the
+  // weather estimate computes + renders — same experience as every other feature.
+  revealAndRun(document.getElementById('weather-body'), 'Bad Weather', async () => {
+    if (statusEl) statusEl.textContent = 'Calculating weather…';
+    try {
+      const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name, _thresholds, _siteType);
+      if (resp.ok) {
+        _weather = resp.weather;
+        _pendingLoc = resp.location || _pendingLoc;
+        if (resp.weather && resp.weather.thresholds) _thresholds = resp.weather.thresholds;
+        if (resp.offline && statusEl) statusEl.textContent = 'No weather data (offline) — location saved.';
+        _renderWeatherBody();
+      } else if (statusEl) {
+        statusEl.textContent = resp.error || 'Weather failed.'; if (btn) btn.disabled = false;
+      }
+    } catch {
+      if (statusEl) statusEl.textContent = 'Weather failed (offline?).';
+      if (btn) btn.disabled = false;
     }
-  } catch {
-    if (statusEl) statusEl.textContent = 'Weather failed (offline?).';
-    if (btn) btn.disabled = false;
-  }
+  });
 }
 
 function _wireShutdowns() {

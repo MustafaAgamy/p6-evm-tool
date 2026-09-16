@@ -51,6 +51,11 @@ export function playFeatureReveal(host, opts) {
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   injectCss();
 
+  const gate = opts.gate;                    // optional promise; hold the overlay open until it settles (results rendered)
+  let gateReady = !gate;
+  if (gate) Promise.resolve(gate).then(() => { gateReady = true; }, () => { gateReady = true; });
+  const HOLD = 0.995;                        // fill the bar to ~100% then wait for the gate before lifting
+
   const prevPos = getComputedStyle(host).position;
   if (prevPos === 'static') host.style.position = 'relative';
 
@@ -119,20 +124,52 @@ export function playFeatureReveal(host, opts) {
     }, 190);
   }
 
-  if (reduce) { render(1); fireOnce(); setTimeout(finish, 120); return; }
+  if (reduce) {
+    render(1);
+    if (gate) { Promise.resolve(gate).then(finish, finish); }   // still wait for results, then reveal (no animation)
+    else { fireOnce(); setTimeout(finish, 120); }
+    return;
+  }
   render(0);
   function step(ts) {
     if (finished) return;
+    if (!ov.isConnected) { finished = true; if (raf) cancelAnimationFrame(raf); return; }  // work already replaced the host content
     if (start == null) start = ts;
-    const t = (ts - start) / DUR;
+    let t = (ts - start) / DUR;
+    if (gate) {
+      // Gated Run (async compute): fill the bar to ~100% (HOLD) then WAIT for the results
+      // to finish rendering underneath (the gate). The overlay only lifts once results are
+      // ready, so the instant the bar reads 100% the results appear — never a blank/lag.
+      if (!gateReady) t = Math.min(t, HOLD);
+      render(t);
+      if (gateReady && t >= 1) { setTimeout(finish, 80); return; }   // hold a beat at 100%, then reveal
+      raf = requestAnimationFrame(step); return;
+    }
     render(t);
-    // Render the results UNDER the overlay a touch before the bar completes, so the moment
-    // it hits 100% the overlay lifts to reveal ready results — no wait after 100% (issue #05).
+    // Single-input Run (result already computed; onDone renders synchronously): render a
+    // touch before the bar completes so 100% reveals ready content.
     if (t >= 0.62) fireOnce();
     if (t < 1) raf = requestAnimationFrame(step); else finish();
   }
   raf = requestAnimationFrame(step);
-  setTimeout(() => { if (!finished) finish(); }, DUR + 900);   // safety cap (throttled rAF)
+  setTimeout(() => { if (!finished) finish(); }, DUR + (gate ? 20000 : 900));   // safety cap (throttled rAF / slow compute)
+}
+
+// Shared "run a feature" presentation — THE default for every feature's Run action.
+// Plays the branded feature-open reveal over `host`, then runs `work` (which computes +
+// renders the results; may be async). Every feature — single-input (via the shared Run
+// gate) and self-gating (its own Run button) — routes its Run through this so the
+// "Loading → 100%" presentation is consistent everywhere. New features: call this.
+export function revealAndRun(host, title, work, opts) {
+  opts = opts || {};
+  // Start the work IMMEDIATELY so the compute + render overlaps the whole presentation
+  // (results render UNDER the overlay as they arrive). The overlay is held open until the
+  // work settles, so the bar reaches 100% exactly when the results are ready, then lifts to
+  // show them instantly — never a blank/lag after 100%. The default for every feature's Run.
+  let settle;
+  const gate = new Promise((res) => { settle = res; });
+  Promise.resolve().then(work).catch(() => {}).finally(() => { try { settle(); } catch (e) {} });
+  playFeatureReveal(host, { title, iconPath: opts.iconPath, durationMs: opts.durationMs, gate });
 }
 
 export default playFeatureReveal;

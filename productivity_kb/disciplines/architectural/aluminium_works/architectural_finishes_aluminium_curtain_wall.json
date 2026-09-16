@@ -1,0 +1,182 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.aluminium.curtain_wall",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Aluminium Works",
+  "item": "Aluminium Curtain Wall (Stick System)",
+  "aliases": [
+    "curtain wall",
+    "aluminium curtain wall",
+    "glazed facade",
+    "stick system glazing",
+    "facade system"
+  ],
+  "project_types": [
+    "Commercial",
+    "Hospital",
+    "Airport",
+    "Infrastructure",
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port"
+  ],
+  "primary_unit": "m2",
+  "why": "Stick-system aluminium curtain wall is a multi-trade facade assembly: erect and anchor the mullion/transom grid to slab brackets, then install glass/spandrel panels with gaskets and weather seal. Decomposed into framing and glazing per m2 of facade.",
+  "assumptions": [
+    "Single 8 hr/day shift",
+    "Stick system erected floor by floor",
+    "Facade access via scaffold/mast climber/hoist",
+    "Slab embeds/brackets pre-set",
+    "Factory-fabricated profiles and IGUs"
+  ],
+  "exclusions": [
+    "Facade design/fabrication",
+    "Structural bracket embeds in slab",
+    "Structural silicone glazing (SSG) premium",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "cw_framing",
+      "name": "Mullion/transom framing erection",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 2,
+        "low": 1.6,
+        "likely": 2,
+        "high": 2.6,
+        "output_per_day": 8,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Aluminium Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cordless drill/driver",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Facade access (scaffold/mast climber, shared)",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Material hoist (shared)",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Aluminium mullion/transom profiles",
+          "qty_per_unit": 2.5,
+          "unit": "m/m2"
+        },
+        {
+          "name": "Brackets & anchors",
+          "qty_per_unit": 1.5,
+          "unit": "no/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — curtain wall stick framing",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "stick-system mullion/transom grid erection — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "cw_glazing",
+      "name": "Glazing & weather sealing",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 1.6,
+        "low": 1.3,
+        "likely": 1.6,
+        "high": 2,
+        "output_per_day": 10,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Glazier",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Glass suction lifter",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Sealant gun",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Facade access (shared)",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Insulated glass unit / spandrel",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Gaskets & pressure plates",
+          "qty_per_unit": 2.5,
+          "unit": "m/m2"
+        },
+        {
+          "name": "Weather silicone",
+          "qty_per_unit": 0.2,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — curtain wall glazing & sealing",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "captured (pressure-plate) glazing of IGUs — validate with your XER to promote"
+      }
+    }
+  ]
+}

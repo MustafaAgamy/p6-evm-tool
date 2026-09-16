@@ -1,0 +1,239 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.structural.concrete.shear_core_wall",
+  "discipline": "Civil",
+  "work_type": "Structural",
+  "system": "Concrete",
+  "item": "Shear / Core Walls (conventional gang-form)",
+  "aliases": [
+    "shear wall",
+    "core wall",
+    "lift/stair core",
+    "RC wall",
+    "structural wall"
+  ],
+  "project_types": [
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Industrial",
+    "Infrastructure",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Walls are formed on two faces (double the contact area per m3), and steel is placed as vertical/horizontal mats plus links, so formwork and reinforcement each drive a distinct crew; conventional gang-forms are lifted floor by floor, which this decomposition captures separately from the pour.",
+  "assumptions": [
+    "Wall thickness ~250 mm (formwork ≈8 m2/m3)",
+    "Conventional crane-handled gang/panel forms",
+    "Single 8 hr/day shift",
+    "Two curtains of reinforcement + links/ties",
+    "Pumped concrete, ~3 m lift height"
+  ],
+  "exclusions": [
+    "Abnormal congestion at coupling beams/openings",
+    "Rework",
+    "Jump-form/slip-form cores (separate item)",
+    "Embedded plates/large penetrations beyond allowance"
+  ],
+  "components": [
+    {
+      "component_id": "formwork",
+      "name": "Wall formwork (two faces) & alignment",
+      "unit": "m2",
+      "qty_per_primary": 8.0,
+      "default_gangs": 5,
+      "rate": {
+        "mh_per_unit": 1.45,
+        "low": 1.2,
+        "likely": 1.45,
+        "high": 1.75,
+        "output_per_day": 11,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Tower/mobile crane (shared)",
+          "basis": "utilization",
+          "value": 0.18,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Wall gang/panel form set + push-pull props",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "panel-use/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Film-faced plywood / panel liner",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Form tie rods + cones",
+          "qty_per_unit": 1.5,
+          "unit": "no/m2"
+        },
+        {
+          "name": "Form release oil",
+          "qty_per_unit": 0.03,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — crane-handled wall gang-form",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "conventional panel/gang forms, ~3 m lifts — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "RFT / steel fixing (two curtains + ties)",
+      "unit": "ton",
+      "qty_per_primary": 0.12,
+      "default_gangs": 4,
+      "rate": {
+        "mh_per_unit": 17.8,
+        "low": 15.5,
+        "likely": 17.8,
+        "high": 20,
+        "output_per_day": 0.9,
+        "output_unit": "t/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bar bending machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Bar cutting machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Reinforcement bar (B500B / Gr60)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Tie wire",
+          "qty_per_unit": 11,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Wall spacers/ties",
+          "qty_per_unit": 25,
+          "unit": "no/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — wall two-curtain steel fixing",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "shear/core walls ~90–150 kg/m3 — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Concrete placing & compaction",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.33,
+        "low": 1.1,
+        "likely": 1.33,
+        "high": 1.6,
+        "output_per_day": 30,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Ganger/Foreman",
+          "count": 1
+        },
+        {
+          "trade": "Vibrator Operator",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete pump (boom, shared)",
+          "basis": "utilization",
+          "value": 0.2,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Poker vibrator",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete C30/37",
+          "qty_per_unit": 1.04,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Curing compound",
+          "qty_per_unit": 0.2,
+          "unit": "L/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — wall pour in lifts, careful compaction",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "pumped ready-mix, ~3 m lifts — validate with your XER to promote"
+      }
+    }
+  ]
+}

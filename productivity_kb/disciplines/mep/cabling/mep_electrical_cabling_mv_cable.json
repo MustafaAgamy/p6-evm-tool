@@ -1,0 +1,125 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.cabling.mv_cable",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Cabling",
+  "item": "MV Cable Pulling & Laying",
+  "aliases": [
+    "mv cable",
+    "medium voltage cable",
+    "hv cable pulling",
+    "11kv cable",
+    "33kv cable"
+  ],
+  "project_types": [
+    "Industrial",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Data Center",
+    "Commercial"
+  ],
+  "primary_unit": "m",
+  "why": "Pulling heavy MV cable on tray or in ducts with controlled tension and bending radius; slower and more resource-intensive than LV.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Single MV cable per run, e.g. 3C or single-core",
+    "Bending radius and pulling tension controlled",
+    "Ducts/tray pre-installed"
+  ],
+  "exclusions": [
+    "Terminations / jointing (separate item)",
+    "Duct bank / trench civils",
+    "Testing (VLF/megger)",
+    "Drum transport to site"
+  ],
+  "components": [
+    {
+      "component_id": "laying",
+      "name": "MV cable pulling with tension control",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.4,
+        "low": 0.3,
+        "likely": 0.4,
+        "high": 0.65,
+        "output_per_day": 120,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 4
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cable pulling winch",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Drum trailer / stand",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Cable rollers & bends",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Two-way radios",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "MV cable",
+          "qty_per_unit": 1.03,
+          "unit": "m/m"
+        },
+        {
+          "name": "Cable cleat (single/trefoil)",
+          "qty_per_unit": 0.5,
+          "unit": "no/m"
+        },
+        {
+          "name": "Pulling lubricant",
+          "qty_per_unit": 0.02,
+          "unit": "L/m"
+        },
+        {
+          "name": "Cable marker / tag",
+          "qty_per_unit": 0.1,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — MV cable pulling and laying",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "11kV/33kV cable on tray or in ducts, controlled pull — validate with your XER to promote"
+      }
+    }
+  ]
+}

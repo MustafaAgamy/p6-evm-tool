@@ -1,0 +1,101 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "electrical.testing_commissioning.energisation.equipment_energisation",
+  "discipline": "Electrical",
+  "work_type": "Testing & Commissioning",
+  "system": "Electrical Testing",
+  "item": "Electrical Energisation",
+  "aliases": [
+    "energisation",
+    "energization",
+    "charging switchgear",
+    "live-up",
+    "first charge"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "point",
+  "why": "Controlled first energisation of a feeder/panel/transformer under strict switching and safety procedures; a per-feeder activity paced by permits, isolations and sequencing rather than raw quantity.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Pre-energisation tests passed",
+    "Switching program and permits approved"
+  ],
+  "exclusions": [
+    "Pre-energisation testing (separate)",
+    "Utility/authority approvals lead time",
+    "Fault rectification after trip"
+  ],
+  "components": [
+    {
+      "component_id": "energisation",
+      "name": "Feeder / panel energisation (with switching & safety)",
+      "unit": "point",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 4,
+        "low": 3,
+        "likely": 4,
+        "high": 6,
+        "output_per_day": 6,
+        "output_unit": "point/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Engineer",
+          "count": 1
+        },
+        {
+          "trade": "Authorised HV/LV Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Safety / Switching Officer",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "HV/LV PPE & switching kit",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Phasing / test instrument",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Permit / switching records & tags",
+          "qty_per_unit": 1,
+          "unit": "no/point"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry standard norm — controlled energisation per feeder/panel",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "LV/MV feeders, panels and transformers — validate with your XER to promote"
+      }
+    }
+  ]
+}

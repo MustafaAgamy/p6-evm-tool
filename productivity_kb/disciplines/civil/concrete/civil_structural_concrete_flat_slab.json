@@ -1,0 +1,247 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.structural.concrete.flat_slab",
+  "discipline": "Civil",
+  "work_type": "Structural",
+  "system": "Concrete",
+  "item": "Flat Slab / Flat Plate (with drop panels)",
+  "aliases": [
+    "flat slab",
+    "flat plate",
+    "column-head slab",
+    "drop-panel slab"
+  ],
+  "project_types": [
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Industrial",
+    "Airport",
+    "Infrastructure",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "A flat slab spans directly onto columns with no downstand beams, so its soffit is a large continuous formwork field but the reinforcement is heavier around the columns (punching-shear zones); estimating trades separately captures the higher steel ratio and the fast, repetitive table-form soffit.",
+  "assumptions": [
+    "Normal access, floor crane available",
+    "Single 8 hr/day shift",
+    "Slab ~220–300 mm (≈0.25 m3/m2)",
+    "Table/flying forms feasible on repetitive floors",
+    "Punching-shear reinforcement/studs included in the steel ratio"
+  ],
+  "exclusions": [
+    "Abnormal congestion",
+    "Rework",
+    "Post-tensioning (see PT slab item)",
+    "Column heads/capitals modelled beyond the drop-panel allowance"
+  ],
+  "components": [
+    {
+      "component_id": "formwork",
+      "name": "Soffit formwork, shoring & drop panels",
+      "unit": "m2",
+      "qty_per_primary": 4.2,
+      "default_gangs": 5,
+      "rate": {
+        "mh_per_unit": 1.23,
+        "low": 1.05,
+        "likely": 1.23,
+        "high": 1.5,
+        "output_per_day": 13,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Tower/floor crane (shared)",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Table/flying form set",
+          "basis": "utilization",
+          "value": 0.4,
+          "unit": "table-use/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Film-faced plywood",
+          "qty_per_unit": 1.05,
+          "unit": "m2/m2"
+        },
+        {
+          "name": "Sawn timber bearers/joists",
+          "qty_per_unit": 0.011,
+          "unit": "m3/m2"
+        },
+        {
+          "name": "Form release oil",
+          "qty_per_unit": 0.03,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — flat slab soffit (fast repetitive field)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "table/flying forms on repetitive typical floors — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "reinforcement",
+      "name": "RFT / steel fixing (incl. punching-shear zones)",
+      "unit": "ton",
+      "qty_per_primary": 0.14,
+      "default_gangs": 4,
+      "rate": {
+        "mh_per_unit": 17.8,
+        "low": 15.5,
+        "likely": 17.8,
+        "high": 20,
+        "output_per_day": 0.9,
+        "output_unit": "t/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 1
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bar bending machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Bar cutting machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Reinforcement bar (B500B / Gr60)",
+          "qty_per_unit": 1000,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Tie wire",
+          "qty_per_unit": 11,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Shear studs / links (allowance)",
+          "qty_per_unit": 20,
+          "unit": "no/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — flat slab steel (heavier column strips)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "flat slabs/plates ~120–150 kg/m3 — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Concrete placing, compaction & finishing",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.87,
+        "low": 0.7,
+        "likely": 0.87,
+        "high": 1.1,
+        "output_per_day": 55,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Ganger/Foreman",
+          "count": 1
+        },
+        {
+          "trade": "Vibrator Operator",
+          "count": 2
+        },
+        {
+          "trade": "Concrete Finisher",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete pump (boom, shared)",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Poker vibrator",
+          "basis": "count",
+          "value": 2,
+          "unit": "no"
+        },
+        {
+          "name": "Ride-on power float",
+          "basis": "utilization",
+          "value": 0.1,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete C30/37",
+          "qty_per_unit": 1.04,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Curing compound",
+          "qty_per_unit": 0.25,
+          "unit": "L/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — large continuous flat-slab pour",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "pumped ready-mix, large uninterrupted bays — validate with your XER to promote"
+      }
+    }
+  ]
+}

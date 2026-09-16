@@ -1,0 +1,95 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.earthworks.backfilling",
+  "discipline": "Civil",
+  "work_type": "Earthworks",
+  "system": "Earthworks",
+  "item": "Backfilling & Compaction",
+  "aliases": [
+    "backfill",
+    "backfilling",
+    "compaction"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Standard Egypt productivity norm for backfilling & compaction, refined by validated project evidence over time.",
+  "assumptions": [
+    "Normal site access",
+    "Standard working conditions",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Abnormal congestion",
+    "Rework / rectification",
+    "Exceptional or restricted access",
+    "Night / shift premiums"
+  ],
+  "components": [
+    {
+      "component_id": "backfill",
+      "name": "Backfilling & compaction",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.12,
+        "low": 0.09,
+        "likely": 0.12,
+        "high": 0.18,
+        "output_per_day": 250,
+        "output_unit": "m3/day (per crew)"
+      },
+      "gang": [
+        {
+          "trade": "Compactor operator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Roller / compactor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Loader",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Imported fill",
+          "qty_per_unit": 1.0,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt / industry standard norm — backfilling & compaction",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "normal access & conditions — validate with your XER to promote"
+      }
+    }
+  ]
+}
