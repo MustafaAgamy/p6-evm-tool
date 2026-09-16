@@ -28,6 +28,7 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path.startswith('/ui/'):
             ext = self.path.rsplit('.', 1)[-1]
             mime = {'css': 'text/css', 'js': 'application/javascript',
+                    'html': 'text/html',
                     'png': 'image/png', 'svg': 'image/svg+xml', 'ico': 'image/x-icon',
                     'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif',
                     'webp': 'image/webp'}.get(ext, 'text/plain')
@@ -166,6 +167,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_constructability(body)
         elif self.path == '/api/kb/starter-xml':
             self._handle_kb_starter_xml(body)
+        elif self.path == '/api/kb/starter-xer':
+            self._handle_kb_starter_xer(body)
         elif self.path == '/api/kb/playbook':
             self._handle_kb_playbook(body)
         elif self.path == '/api/kb/learned-file':
@@ -1373,6 +1376,32 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': f'Unknown project type: {forced_type}'})
                 return
             res = write_starter_xml(entry, os.path.abspath(output_path))
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_starter_xer(self, body):
+        """Write a project-type's suggested WBS as an importable P6 **XER** starter
+        schedule (WBS tree + a works activity per branch + start/finish milestones,
+        chained Finish-to-Start). Built from the curated WBS so the file matches the
+        screen; a reference skeleton, nothing from a real schedule."""
+        archetype = body.get('type', '')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.playbooks import playbook
+            from p6_kb.starter_xer import write_starter_xer
+            pb = playbook(archetype)
+            if not pb:
+                self._json(200, {'ok': False, 'error': f'Unknown project type: {archetype}'})
+                return
+            cur = pb.get('curated') or {}
+            wbs_rows = cur.get('wbs') or [{'code': b.get('code'), 'name': b.get('name'), 'level': 1}
+                                          for b in ((pb.get('wbs') or {}).get('branches') or [])]
+            res = write_starter_xer(pb.get('name') or archetype, wbs_rows, os.path.abspath(output_path))
             self._json(200, {'ok': True, **res})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

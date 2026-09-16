@@ -1,47 +1,121 @@
 {
   "archetype": "data_center",
-  "context": "commissioning-led · redundancy & resilience",
-  "brief": "Redundancy-and-resilience project type: the electrical power path (utility → generator → UPS → PDU) and mechanical cooling (chilled water, CRAC/CRAH) are co-dominant, tied together by BMS/EPMS. Commissioning is the defining discipline — formal Level 1–5 with load-bank and an integrated systems test (IST) / failure-mode proving that owns the back end. Fire (VESDA + clean agent) and structured-cabling containment are first-class.",
+  "schema": 2,
+  "context": "commissioning-led · redundancy & resilience (Tier III–IV)",
+  "brief": {
+    "intro": "New to this project type? A data centre is a building whose real product is uninterrupted power and cooling for rows of IT servers. Unlike a normal building, the structure is the easy part — the cost, the risk and the programme live in the electrical and mechanical systems and in proving they never fail. Your schedule stands or falls on two things: getting long-lead equipment on site, and passing a final commissioning test.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, the earth (grounding) grid, underground services, equipment-yard bases." },
+      { "name": "Structure & shell", "desc": "Foundations, frame, roof and envelope — getting the building weather-tight." },
+      { "name": "Electrical power chain", "desc": "Utility intake + backup path: MV switchgear, transformers, standby generators, UPS, LV distribution, busway/PDU to the racks." },
+      { "name": "Mechanical cooling", "desc": "Chilled-water plant (chillers, pumps, pipework) + room units (CRAC/CRAH) with hot/cold-aisle containment." },
+      { "name": "Fire & life safety", "desc": "Very-early smoke detection (VESDA) + clean-agent suppression that won't damage electronics." },
+      { "name": "ELV / ICT", "desc": "Containment & structured cabling, monitoring (DCIM), CCTV, access control." },
+      { "name": "BMS / EPMS", "desc": "The \"brain\" that monitors and controls power and cooling." },
+      { "name": "White-space fit-out", "desc": "Raised floors, containment, and the final rack power & cooling." },
+      { "name": "Testing & commissioning", "desc": "The biggest schedule risk — a formal Level 1–5 process ending in an integrated systems test." }
+    ],
+    "glossary": [
+      { "term": "UPS", "plain": "battery backup that carries the load for the seconds until the generators start." },
+      { "term": "Standby generator", "plain": "diesel power for a longer utility outage." },
+      { "term": "PDU / busway", "plain": "how power is distributed to the server racks." },
+      { "term": "CRAC / CRAH", "plain": "the air-conditioning units that cool the server hall." },
+      { "term": "White space", "plain": "the secure server hall itself; kept clean and access-controlled." },
+      { "term": "Containment", "plain": "separating hot & cold air so cooling is efficient." },
+      { "term": "N+1 / 2N · Tier III–IV", "plain": "how much redundant capacity is required so no single failure stops the load." },
+      { "term": "Commissioning L1–L5 · IST", "plain": "staged testing ending in an Integrated Systems Test proving the facility rides through a power failure." }
+    ],
+    "must_get_right": [
+      "It's procurement-led — order the long-lead equipment first; its delivery dates drive the critical path.",
+      "The structure is not the critical path — energisation and commissioning are.",
+      "Protect the integrated test — leave real time and contingency at the end; re-tests are common."
+    ]
+  },
   "components": [
-    { "name": "Electrical Power", "desc": "HV · transformers · gen · UPS · PDU", "disc": "Electrical", "primary": true },
-    { "name": "Mechanical Cooling", "desc": "Chilled water · CRAC/CRAH · pumps", "disc": "Mechanical", "primary": true },
-    { "name": "BMS / EPMS", "desc": "Controls & integration", "disc": "Instrumentation", "primary": true },
+    { "name": "Electrical Power", "desc": "MV/LV · transformers · gen · UPS · PDU", "disc": "Electrical", "primary": true },
+    { "name": "Mechanical Cooling", "desc": "Chilled water · CRAC/CRAH · containment", "disc": "Mechanical", "primary": true },
+    { "name": "BMS / EPMS", "desc": "Controls · power & environment monitoring", "disc": "Instrumentation", "primary": true },
     { "name": "Fire & Life Safety", "desc": "VESDA · clean agent · alarm", "disc": "Fire Protection", "primary": false },
-    { "name": "Structured Cabling", "desc": "Containment · ELV", "disc": "Extra-Low Voltage", "primary": false },
-    { "name": "Commissioning", "desc": "L1–L5 · IST", "disc": "Commissioning", "primary": true }
+    { "name": "Structured Cabling / ELV", "desc": "Containment · DCIM · CCTV · access", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "Commissioning", "desc": "L1–L5 · IST · failure-mode", "disc": "Commissioning", "primary": true }
   ],
-  "overview_phases": [
-    "Eng & Procurement", "Enabling & Civil", "Foundations", "Structure",
-    "Equipment Set", "Bulk MEP", "Testing / Pre-comm", "Commissioning & IST"
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Chilled-water plant — chillers, primary/secondary pumps", "CRAC / CRAH & hot/cold-aisle containment", "Pipework, valves, BMS-controlled dampers", "Clean-agent fire suppression (white space)"] },
+    { "discipline": "Electrical", "items": ["MV/LV switchgear & transformers", "Standby generators + bulk fuel", "UPS + battery / flywheel", "PDU / busway to racks · earthing & lightning"] },
+    { "discipline": "Plumbing / Public Health", "items": ["Make-up & condenser water", "Domestic water & drainage", "Leak-detection under raised floor"] },
+    { "discipline": "ELV / ICT · Fire · BMS", "items": ["Structured cabling · DCIM · CCTV · access control", "VESDA aspirating fire detection", "BMS / EPMS — environment & power monitoring"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Substructure", "Superstructure", "MEP rough-in", "Power & cooling", "Integration", "Commissioning"],
+  "sequence_chart": {
+    "phases": ["Enable", "Substr.", "Structure", "Rough-in", "Plant set", "Terminate", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 42, "label": "Earthworks → slab → frame", "holds": [14] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["mep", "electrical"], "start": 14, "width": 72, "label": "Containment → set gen/UPS → PDU → prove", "holds": [56, 82] },
+      { "trade": "Mechanical", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 28, "width": 58, "label": "Pipework → set chillers → balance", "holds": [56] },
+      { "trade": "ELV / Fire / BMS", "disc": "Extra-Low Voltage", "kind": ["mep", "elv", "fire", "bms"], "start": 42, "width": 44, "label": "Containment → devices → integrate", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 72, "width": 28, "label": "L1→L5 · IST", "holds": [88] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site clearance & earthworks", "Earth grid & duct banks", "Foundations & pile caps", "Ground slab & plinths", "Superstructure frame & decks", "Roof & weather-tight"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["mep", "electrical"], "holds": [1, 3, 6], "steps": ["Long-lead procurement — switchgear, transformers, gensets, UPS", "Earth grid & duct banks", "Containment routes & cable pull", "Set transformers / generators / UPS", "Terminate PDU / busway", "Point-to-point & insulation testing", "Load-bank power-path proving", "Utility-failure test"] },
+    { "name": "Mechanical Cooling", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [2, 4], "steps": ["Plant procurement — chillers, CRAC/CRAH, pumps", "Plantroom pipework & containment", "Set chillers & pumps", "CRAC/CRAH & hot/cold-aisle containment", "Flush, fill & pressure test", "Balance & capacity / N+1 test"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["mep", "fire"], "holds": [2], "steps": ["VESDA & detection rough-in", "Clean-agent pipework", "Room-integrity test", "Cause-and-effect / discharge test"] },
+    { "name": "Structured Cabling / ELV", "disc": "Extra-Low Voltage", "kind": ["mep", "elv"], "holds": [], "steps": ["Containment routes", "Cable pull & dress", "Continuity / loop test", "Labelling & certification"] },
+    { "name": "BMS / EPMS", "disc": "Instrumentation", "kind": ["mep", "bms"], "holds": [2], "steps": ["Field devices & sensors", "I/O wiring", "Point-to-point verification", "Integration & staging test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [4], "steps": ["L1 factory acceptance", "L2 site acceptance", "L3 pre-functional", "L4 functional per system", "L5 Integrated Systems Test (IST)", "Reliability run → handover"] }
   ],
   "wbs": [
-    { "code": "WBS01", "name": "Project Management & Preliminaries" },
-    { "code": "WBS02", "name": "Enabling & Earthworks" },
-    { "code": "WBS03", "name": "Substructure & Foundations" },
-    { "code": "WBS04", "name": "Superstructure & Structural Steel" },
-    { "code": "WBS05", "name": "Building Envelope & Architecture" },
-    { "code": "WBS06", "name": "Electrical Power Path" },
-    { "code": "WBS07", "name": "Mechanical Cooling" },
-    { "code": "WBS08", "name": "Fire & Life Safety" },
-    { "code": "WBS09", "name": "Structured Cabling & Containment" },
-    { "code": "WBS10", "name": "BMS / EPMS Integration" },
-    { "code": "WBS11", "name": "Testing & Commissioning (L1–L5 · IST)" },
-    { "code": "WBS12", "name": "Handover & Close-out" }
+    { "code": "DC", "name": "Data Centre — Project", "level": 1 },
+    { "code": "DC.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "DC.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "DC.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "DC.02.20", "name": "Substructure", "level": 3 },
+    { "code": "DC.02.20.10", "name": "Foundations & pile caps", "level": 4 },
+    { "code": "DC.02.20.20", "name": "Ground slab & earth grid", "level": 4 },
+    { "code": "DC.02.20.20.10", "name": "Earth grid", "level": 5 },
+    { "code": "DC.02.20.20.10.10", "name": "Install & test earth grid", "level": 6 },
+    { "code": "DC.03", "name": "Superstructure", "level": 2 },
+    { "code": "DC.04", "name": "Building Envelope", "level": 2 },
+    { "code": "DC.05", "name": "Mechanical — Cooling", "level": 2 },
+    { "code": "DC.05.10", "name": "Chilled-water plant", "level": 3 },
+    { "code": "DC.05.10.10", "name": "Chillers — set & align", "level": 4 },
+    { "code": "DC.05.10.20", "name": "Pumps & pipework · flush/fill", "level": 4 },
+    { "code": "DC.05.20", "name": "CRAC/CRAH & containment", "level": 3 },
+    { "code": "DC.06", "name": "Electrical — Power", "level": 2 },
+    { "code": "DC.06.10", "name": "MV/LV distribution", "level": 3 },
+    { "code": "DC.06.20", "name": "Standby generation", "level": 3 },
+    { "code": "DC.06.30", "name": "UPS & batteries", "level": 3 },
+    { "code": "DC.06.30.10", "name": "UPS modules — set & connect", "level": 4 },
+    { "code": "DC.06.30.10.10", "name": "Point-to-point & load-bank test", "level": 5 },
+    { "code": "DC.06.40", "name": "PDU / busway to racks", "level": 3 },
+    { "code": "DC.07", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "DC.08", "name": "ELV / ICT", "level": 2 },
+    { "code": "DC.09", "name": "BMS / EPMS Integration", "level": 2 },
+    { "code": "DC.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "DC.10.10", "name": "L1 Factory acceptance", "level": 3 },
+    { "code": "DC.10.20", "name": "L2/L3 Pre-functional & functional", "level": 3 },
+    { "code": "DC.10.40", "name": "L4 Integrated Systems Test (IST)", "level": 3 },
+    { "code": "DC.10.50", "name": "L5 Reliability run & handover", "level": 3 }
   ],
-  "trades": [
-    { "name": "Civil / Structural", "disc": "Structural", "hold": 2,
-      "steps": ["Site enabling & earthworks", "Duct banks & underground", "Equipment-yard bases & bunds", "Fuel-tank containment", "Superstructure / steel", "Raised access floor"] },
-    { "name": "Electrical Power", "disc": "Electrical", "hold": 1,
-      "steps": ["Long-lead procurement", "Earth grid & duct banks", "Set transformers / gen / UPS", "Containment & cable pull", "Terminate PDU", "Point-to-point", "Load-bank power-path proving"] },
-    { "name": "Mechanical Cooling", "disc": "Mechanical", "hold": 5,
-      "steps": ["Chiller / CRAC procurement", "Plantroom steel & plinths", "Set chillers / CRAC / pumps", "Chilled-water pipe & valves", "Ducting", "Flush & pressure test", "Capacity / N+1 test"] },
-    { "name": "Fire & Life Safety", "disc": "Fire Protection", "hold": 2,
-      "steps": ["Detection & VESDA rough-in", "Clean-agent pipework", "Room-integrity test", "Discharge / cause-and-effect"] },
-    { "name": "Structured Cabling / ELV", "disc": "Extra-Low Voltage", "hold": -1,
-      "steps": ["Containment route", "Cable pull & dress", "Loop / continuity", "Labelling & test"] },
-    { "name": "BMS / EPMS", "disc": "Instrumentation", "hold": 3,
-      "steps": ["Field devices", "I/O wiring", "Point-to-point verification", "Integrated staging test"] },
-    { "name": "Commissioning", "disc": "Commissioning", "hold": 4,
-      "steps": ["L1 factory acceptance", "L2 site acceptance", "L3 pre-functional", "L4 functional / system", "L5 Integrated Systems Test (IST)", "Reliability run → handover"] }
-  ]
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structure run a 6-day week; MEP fit-out moves to two shifts at peak to protect the critical path; commissioning runs a 7-day calendar. A weather allowance is embedded in the civil calendar for the wet season." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs procurement → earth grid → power-path set & terminate → energisation → integrated systems test → handover. Cooling is scheduled to be available ahead of first energisation so load-bank and IST can proceed. The structure is not on the critical path once the equipment yard and white space are weather-tight." },
+      { "heading": "Key assumptions", "body": "Design is frozen and authority approvals obtained per phase gate; the white space is clean and secure before equipment is set; a single mobilisation; and the client free-issues no equipment. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["MV switchgear", "28–40 weeks", "Before power-path set"], ["Standby generators", "30–45 weeks", "Before energisation"], ["UPS + batteries", "24–32 weeks", "Before load-bank test"], ["Chillers / CRAC", "26–36 weeks", "Before cooling proving"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy lifts (transformers, gensets, chillers) require crane windows and clear laydown; white-space works need clean, dust-controlled conditions and access control. Skilled commissioning resources are shared across systems and are a resource constraint late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-lead slippage, single-points-of-failure at energisation, and IST re-test loops. Schedule contingency is held immediately before the L4 IST and before handover rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
 }

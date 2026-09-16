@@ -52,9 +52,38 @@ def test_data_center_uses_curated_content():
     pb = playbooks.playbook('data_center')
     assert pb.get('is_curated') is True and pb.get('curated')
     cur = pb['curated']
+    assert cur.get('schema') == 2
     assert [t['name'] for t in cur['trades']][:2] == ['Civil / Structural', 'Electrical Power']
-    assert len(cur['wbs']) == 12 and len(cur['components']) == 6
-    assert cur['trades'][1]['steps'][0] == 'Long-lead procurement'
+    assert len(cur['components']) == 6 and len(cur['trades']) == 7
+    assert cur['trades'][1]['steps'][0].startswith('Long-lead procurement')
+
+
+def test_data_center_schema2_sections_present():
+    """The 6-part playbook: scope-teaching brief, MEP, sequence chart, deep WBS, Basis of Planning."""
+    cur = playbooks.playbook('data_center')['curated']
+    b = cur['brief']
+    assert isinstance(b, dict) and b['intro'] and b['scope'] and b['glossary'] and b['must_get_right']
+    assert len(cur['mep_systems']) == 4 and all(m['discipline'] and m['items'] for m in cur['mep_systems'])
+    assert cur['sequence_chart']['lanes'] and all(t.get('kind') for t in cur['trades'])
+    assert max(w['level'] for w in cur['wbs']) >= 6           # P6 tree goes past level 5
+    bop = cur['basis_of_planning']
+    assert bop['sections'] and any('table' in s for s in bop['sections'])
+
+
+def test_starter_xer_round_trips_and_matches_curated_wbs(tmp_path):
+    """The baseline XER imports through the tool's own parser and its WBS == the screen WBS."""
+    from p6_kb.starter_xer import write_starter_xer
+    from p6_evm.xer import parse_xer, read_xer_tables
+    pb = playbooks.playbook('data_center')
+    out = str(tmp_path / 'dc.xer')
+    write_starter_xer(pb['name'], pb['curated']['wbs'], out)
+    tabs = read_xer_tables(out)
+    assert len(tabs['PROJWBS']) == len(pb['curated']['wbs'])
+    assert sum(1 for w in tabs['PROJWBS'] if w['proj_node_flag'] == 'Y') == 1
+    assert not [w for w in tabs['PROJWBS'] if w['proj_node_flag'] != 'Y' and not w['parent_wbs_id']]
+    data = parse_xer(out)
+    assert len(data.wbs) == len(pb['curated']['wbs'])
+    assert data.activities and data.relationships
 
 
 def test_uncurated_type_has_no_curated_block():
