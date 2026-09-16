@@ -503,6 +503,17 @@ function setupFormHtml() {
       .bn-code{padding:5px 8px;border:1px solid var(--border,#dadee4);border-radius:6px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21)}
       .bn-codecol .bn-code{width:100%;box-sizing:border-box;margin-top:5px}
       .bn-elrow .bn-code{flex:1;min-width:0}
+      .bn-scopelist{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+      .bn-scoperow{display:flex;align-items:center;gap:10px;border:1px solid var(--border,#dadee4);border-radius:8px;padding:7px 10px;background:var(--surface-2,#fff)}
+      .bn-lvl{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:#1F4E79;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+      .bn-scopename{flex:1;font-size:13px;font-weight:600;color:var(--text-primary,#1a1d21);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .bn-scopeacts{flex:0 0 auto;display:flex;gap:4px}
+      .bn-mv{width:26px;height:26px;border:1px solid var(--border,#dadee4);border-radius:6px;background:var(--surface,#f6f8fb);color:#265f7e;font-size:11px;cursor:pointer;line-height:1;padding:0}
+      .bn-mv:hover:not(:disabled){background:#e6eef6;border-color:#1F4E79}
+      .bn-mv:disabled{opacity:.35;cursor:default}
+      .bn-mv[data-mv="rm"]{color:#b3402f}
+      .bn-scopeadd{margin-top:2px;padding:6px 9px;border:1px dashed #7aa3c7;border-radius:7px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:#1F4E79;cursor:pointer}
+      .bn-scopepath{margin-top:8px;font-size:11.5px;color:#4a5560;background:#f2f6fb;border-left:3px solid #1F4E79;border-radius:0 5px 5px 0;padding:6px 10px}
     </style>
     <div class="bn-setup">
       <h4>Project setup — parties, logos &amp; layout</h4>
@@ -574,31 +585,46 @@ function renderSelection() {
   if (!ms.length && !kd.length && !codes.length && !disciplines.length) { box.innerHTML = ''; return; }
   const s = getSetup();
 
-  // ── §6 / §7 code-structure pickers (options = the file's code TYPES) ──────────
-  // Empty value ('') = auto-detect, which the model reads as "no override" and falls
-  // back to its built-in hint matching. Keys map 1:1 to what the model reads:
-  //   tow_code (§6), tow_code_scope + building_code + element_codes[disc] (§7).
-  const codeSelect = (key, chosen) => {
-    const opts = ['<option value="">Auto-detect</option>'].concat(
-      codes.map(c => `<option value="${_esc(c)}"${chosen === c ? ' selected' : ''}>${_esc(c)}</option>`));
-    return `<select class="bn-code" data-code="${_esc(key)}">${opts.join('')}</select>`;
-  };
-  const elemMap = (s.element_codes && typeof s.element_codes === 'object') ? s.element_codes : {};
+  // ── Scope analysis — FLEXIBLE ordered activity-code picker (§6 + §7) ───────────
+  // The planner picks ANY NUMBER of the file's activity codes, IN ORDER. The 1st code is
+  // the top level of the breakdown and drives the §6 Contract Value split; each code added
+  // below nests one level deeper, cost-weighted. Stored as s.scope_codes (ordered array);
+  // empty = auto-detect (server falls back to its built-in hint matching).
+  let scopeCodes;
+  const rawScope = Array.isArray(s.scope_codes) ? s.scope_codes : null;
+  if (rawScope === null) {                       // first open → seed the picker from auto-detect
+    scopeCodes = (meta.scope_codes_auto || []).filter(c => codes.includes(c));
+    s.scope_codes = scopeCodes.slice(); saveSetup();
+  } else {
+    scopeCodes = rawScope.filter(c => codes.includes(c));
+    if (!scopeCodes.length && rawScope.length) { // stale picks from another file → re-seed
+      scopeCodes = (meta.scope_codes_auto || []).filter(c => codes.includes(c));
+      s.scope_codes = scopeCodes.slice(); saveSetup();
+    }
+  }
   let codeHtml = '';
   if (codes.length) {
-    const codeCol = (label, key) =>
-      `<div class="bn-codecol"><div class="bn-seltitle">${label}</div>${codeSelect(key, s[key] || '')}</div>`;
+    const rows = scopeCodes.map((c, i) =>
+      `<div class="bn-scoperow"><span class="bn-lvl">${i + 1}</span>` +
+      `<span class="bn-scopename">${_esc(c)}</span><span class="bn-scopeacts">` +
+      `<button type="button" class="bn-mv" data-mv="up" data-i="${i}" title="Move up"${i === 0 ? ' disabled' : ''}>&#9650;</button>` +
+      `<button type="button" class="bn-mv" data-mv="down" data-i="${i}" title="Move down"${i === scopeCodes.length - 1 ? ' disabled' : ''}>&#9660;</button>` +
+      `<button type="button" class="bn-mv" data-mv="rm" data-i="${i}" title="Remove">&#10005;</button>` +
+      '</span></div>').join('');
+    const remaining = codes.filter(c => !scopeCodes.includes(c));
+    const addOpts = ['<option value="">+ Add an activity code…</option>']
+      .concat(remaining.map(c => `<option value="${_esc(c)}">${_esc(c)}</option>`)).join('');
     codeHtml =
       '<h4 style="margin:14px 0 3px">Scope analysis — activity codes</h4>' +
-      '<div class="hint">The Scope of Work is analysed from the activity codes, weighted by cost. ' +
-      'Pick which code drives each cascade level (Discipline → Building/Area → Work type); ' +
-      'the same discipline code splits the Contract Value. Auto-detect uses the best match in the file.</div>' +
-      '<div class="bn-codegrid">' +
-        codeCol('Contract value — type of work', 'tow_code') +
-        codeCol('Scope — discipline (type of work)', 'tow_code_scope') +
-        codeCol('Scope — building / area', 'building_code') +
-        codeCol('Scope — work type', 'worktype_code') +
-      '</div>';
+      '<div class="hint">Choose which activity codes to analyse the Scope of Work by, <b>in order</b>. ' +
+      'The 1st code is the top level of the breakdown and splits the Contract Value; each code you add ' +
+      'below drills one level deeper, weighted by cost. Pick as many as you like — reorder with the ' +
+      'arrows, remove with ✕. Leave empty to auto-detect a sensible breakdown.</div>' +
+      `<div class="bn-scopelist">${rows ||
+        '<div class="hint" style="padding:6px 2px">No codes picked — the report will auto-detect the breakdown.</div>'}</div>` +
+      (remaining.length ? `<select class="bn-scopeadd">${addOpts}</select>` : '') +
+      (scopeCodes.length
+        ? `<div class="bn-scopepath"><b>Cascade:</b> ${scopeCodes.map(_esc).join(' &rarr; ')}</div>` : '');
   }
 
   // ── §4 / §5 include checklists (unchanged behaviour) ─────────────────────────
@@ -618,21 +644,20 @@ function renderSelection() {
 
   box.innerHTML = codeHtml + selHtml;
 
-  // Wire the code selects → setup keys (element codes into the per-discipline map).
-  box.querySelectorAll('select[data-code]').forEach(sel => sel.addEventListener('change', () => {
-    const key = sel.dataset.code;
-    if (key.indexOf('elem::') === 0) {
-      const disc = key.slice(6);
-      const m = (s.element_codes && typeof s.element_codes === 'object') ? s.element_codes : {};
-      if (sel.value) m[disc] = sel.value; else delete m[disc];
-      s.element_codes = m;
-    } else if (sel.value) {
-      s[key] = sel.value;
-    } else {
-      delete s[key];
-    }
-    saveSetup();
+  // Wire the flexible scope-code picker (reorder / remove / add) → s.scope_codes (ordered).
+  const reScope = () => { s.scope_codes = scopeCodes.slice(); saveSetup(); renderSelection(); };
+  box.querySelectorAll('.bn-mv').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.i, mv = b.dataset.mv;
+    if (mv === 'rm') scopeCodes.splice(i, 1);
+    else if (mv === 'up' && i > 0) [scopeCodes[i - 1], scopeCodes[i]] = [scopeCodes[i], scopeCodes[i - 1]];
+    else if (mv === 'down' && i < scopeCodes.length - 1)
+      [scopeCodes[i + 1], scopeCodes[i]] = [scopeCodes[i], scopeCodes[i + 1]];
+    reScope();
   }));
+  const addSel = box.querySelector('.bn-scopeadd');
+  if (addSel) addSel.addEventListener('change', () => {
+    if (addSel.value && !scopeCodes.includes(addSel.value)) { scopeCodes.push(addSel.value); reScope(); }
+  });
 
   const collect = key => Array.from(box.querySelectorAll(`input[data-sel="${key}"]`))
     .filter(c => c.checked).map(c => c.value);

@@ -231,11 +231,17 @@ def _contract_value(data, setup):
     bac = data.bac_by_activity or {}
     # Distribute the contract value by the same discipline (Type-of-Works) code that §6 uses,
     # so §5's "distribution by type of work" and §6.1's discipline split stay consistent.
-    from p6_narrative.scope import _pick_dim, _TRADE_HINTS
-    from p6_narrative.sequence import pick_discipline_dim
-    disc_dim = (setup.get('tow_code') or setup.get('tow_code_scope')
-                or _pick_dim(data.activity_code_types, _TRADE_HINTS, set())
-                or pick_discipline_dim(data.activity_code_types))
+    from p6_narrative.scope import default_scope_codes
+    scope_codes = [c for c in (setup.get('scope_codes') or [])
+                   if c and c in (data.activity_code_types or [])]
+    # Resolve the discipline dimension through the SAME path §7.1 uses (scope.default_scope_codes),
+    # so the Contract Value split and the §7.1 discipline chart can never split by different codes:
+    # the planner's 1st picked code, else the auto-detected level-1 code.
+    if scope_codes:
+        disc_dim = scope_codes[0]
+    else:
+        auto = default_scope_codes(data.activity_code_types, setup)
+        disc_dim = auto[0] if auto else None
     full_total = round(sum(v or 0.0 for v in bac.values()), 2)
     result = value_by_code(acts, bac, disc_dim)
     if result:
@@ -472,6 +478,9 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
     meta['milestone_choices'] = list(ms_names)
     meta['key_date_choices'] = list(ms_names)
     meta['code_choices'] = list(data.activity_code_types or [])
+    # the sensible auto-detected ordered scope cascade → the UI pre-populates the picker with it
+    from p6_narrative.scope import default_scope_codes
+    meta['scope_codes_auto'] = default_scope_codes(data.activity_code_types, setup)
 
     for i, s in enumerate(ordered, 1):
         s.number = str(i)

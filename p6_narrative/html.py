@@ -22,11 +22,10 @@ and bar comes as-is from the section payload; nothing is re-derived here. The pr
   4  ms_table     {columns, rows:[[name, date_str], …]}          (Major Milestones)
   5  ms_table     {columns, rows:[[name, date_str], …]}          (Key Dates)
   6  value_bars   {total, unit?, rows:[{name, amount, pct}]}
-  7  scope        {total, unit?, cascade, narrative,
-                   disciplines:[{name, cost, pct}],                       (6.1  pct of total)
-                   discipline_details:[{discipline, cost, pct,
-                       worktypes:[{name, cost, pct}]}],                   (6.2… pct within it)
-                   drill:{building, discipline, cost, worktypes:[…]}|None}(final drill-down)
+  7  scope        {total, unit?, codes:[names in order], narrative,
+                   disciplines:[{name, cost, pct}],                       (7.1  pct of total)
+                   cascade:[{name, cost, pct, count?, each?, children?:[…]}]} (7.2 N-level tree;
+                       pct = share of PARENT; leaf = no children; identical siblings grouped)
   8  table        {view:'calendars', header:{calendar_count, activity_count},
                    dashboard:{…tiles, no shutdown…},
                    calendars:[{name, monthly:[{label, working_days, nonworking_days}], …}],
@@ -310,6 +309,37 @@ def _value_bars(p, number, title, meta, cur):
 
 
 # ── §6 Scope of Work (6.1 discipline shares + narrative, 6.2 by area/structure) ─
+_CASC_MARK = ['➢', '▸', '–', '·']   # ➢ ▸ – ·  (by depth)
+
+
+def _casc_html(nodes, cur, depth):
+    """Render a scope cascade tree recursively: each non-leaf node is a heading line
+    (marker by depth, name — cost at level 0, '· N grouped' when merged, pct%); each leaf
+    (no children) is a '• name' bullet. Indented by depth."""
+    out = ''
+    for n in (nodes or []):
+        kids = n.get('children') or []
+        indent = depth * 16
+        cnt = n.get('count')
+        qty = (' &middot; %d grouped' % cnt) if (cnt and cnt > 1) else ''
+        if not kids:
+            out += ('<p class="wt-item" style="margin-left:%dpx"><span class="wt-b">&bull;</span> %s</p>'
+                    % (indent, _esc(n.get('name'))))
+            continue
+        mk = _CASC_MARK[min(depth, len(_CASC_MARK) - 1)]
+        money = (' &mdash; %s' % _fmt_full(n.get('cost'), cur)) if depth == 0 else ''
+        pct = n.get('pct')
+        pct_txt = (' (%s%%)' % _fmt_pct(pct)) if pct is not None else ''
+        color = '#1F4E79' if depth == 0 else '#14324f'
+        fs = 12.5 if depth == 0 else 11
+        out += ('<p style="margin:%s 0 3px %dpx;font-family:Calibri,sans-serif;font-weight:700;'
+                'color:%s;font-size:%gpx">%s&nbsp;%s%s%s%s</p>'
+                % ('7px' if depth == 0 else '3px', indent, color, fs, mk,
+                   _esc(n.get('name')), money, qty, pct_txt))
+        out += _casc_html(kids, cur, depth + 1)
+    return out
+
+
 def _scope(p, number, title, meta, cur):
     cur = _currency_prefix(meta, p) or cur
 
@@ -319,8 +349,10 @@ def _scope(p, number, title, meta, cur):
                 'text-transform:none;letter-spacing:0">&mdash; %s</span></div>'
                 % (_esc(number), k, _esc(name), tail))
 
-    out = ('<p>The scope is analysed by cross-filtering the picked activity codes '
-           '(Type of Work, Building / Area, and work type).</p>')
+    codes = p.get('codes') or []
+    codes_txt = (' &rarr; '.join(_esc(c) for c in codes)) if codes else 'the picked activity codes'
+    out = ('<p>The scope is analysed by cross-filtering the picked activity codes, '
+           'cost-weighted: %s.</p>' % codes_txt)
 
     # {number}.1 — scope overview: 100% composition bar of discipline shares + narrative
     out += (_subhead(1, 'Scope overview', 'by discipline')
@@ -334,34 +366,15 @@ def _scope(p, number, title, meta, cur):
                 'padding:9px 13px;margin:12px 0;border-radius:0 5px 5px 0;'
                 'text-align:justify">%s</p>' % (_esc(number), _esc(narrative)))
 
-    # {number}.2 — scope by area / structure (already grouped by scope.py; render in order)
-    out += _subhead(2, 'Scope by area / structure',
-                    'each building / structure with its disciplines and work types')
-    areas = p.get('areas') or []
-    if not areas:
-        out += '<p class="note">No building / area breakdown available.</p>'
-    for a in areas:
-        try:
-            count = int(a.get('count') or 1)
-        except (TypeError, ValueError):
-            count = 1
-        if a.get('each'):
-            qty = ' each'
-        elif count > 1:
-            qty = ' &middot; %d areas' % count
-        else:
-            qty = ''
-        # ➢ area heading — label — money[ each|· N areas] (pct%)
-        out += ('<p class="arw"><span class="a">%s</span> %s &mdash; %s%s (%s%%)</p>'
-                % (_ARROW, _esc(a.get('label')), _fmt_full(a.get('cost'), cur),
-                   qty, _fmt_pct(a.get('pct'))))
-        # per-discipline block: bold discipline name on its own line, then each work
-        # type as its own bullet ("• …") on its own line beneath it (never an inline run).
-        for disc in (a.get('disciplines') or []):
-            out += '<p class="disc-name">%s</p>' % _esc(disc.get('name'))
-            for w in (disc.get('worktypes') or []):
-                out += '<p class="wt-item"><span class="wt-b">&bull;</span> %s</p>' % _esc(w)
-
+    # {number}.2 — the N-level cross-filtered cascade the planner picked (rendered recursively:
+    # ➢/▸/– heading per non-leaf level, "• …" bullet per deepest leaf, indented by depth)
+    out += _subhead(2, 'Detailed scope by activity codes',
+                    'cross-filtered through the picked codes, cost-weighted')
+    cascade = p.get('cascade') or []
+    if not cascade:
+        out += '<p class="note">No activity-code breakdown available.</p>'
+    else:
+        out += _casc_html(cascade, cur, 0)
     return out
 
 

@@ -246,9 +246,15 @@ def add_cover(document, meta):
 
 # ── table of contents ─────────────────────────────────────────────────────────
 def add_toc(document):
-    """A 'Table of Contents' heading plus a real, updatable Word TOC field, then a
-    page break. The field shows a placeholder until the reader updates it in Word."""
-    heading(document, '', 'Table of Contents', level=1)
+    """A 'Table of Contents' title plus a real, updatable Word TOC field, then a page break.
+
+    Word fills the field with the true page number of every section on open (see
+    ``enable_update_fields``). The title is a plain styled paragraph — deliberately NOT a
+    Heading — so the ``TOC \\o "1-3"`` field never lists itself, and the ten Heading-1 section
+    titles are exactly what appears."""
+    title = document.add_paragraph()                 # NOT a Heading style → excluded from the TOC
+    title.paragraph_format.space_after = Pt(8)
+    _set_run_font(title.add_run('Table of Contents'), _HEAD_FONT, size=16, bold=True, color=NAVY)
 
     para = document.add_paragraph()
     run = para.add_run()

@@ -53,9 +53,12 @@ def test_writes_editable_tables_on_a_rich_schedule(tmp_path):
 
 
 def test_cover_toc_and_numbered_headings_present(tmp_path):
-    """The SLICE-B furniture lands: the cover carries the project name, a STATIC,
-    already-populated Table of Contents is written out (no live Word field / no
-    'right-click to update' placeholder), and section headings are numbered like '1)'."""
+    """The furniture lands: the cover carries the project name, a REAL native Word TOC
+    field is written (so Word fills in the true page number of every section on open —
+    the static PAGEREF approach resolved to 'page 1' on the planner's Word), the
+    'Table of Contents' title is NOT itself a Heading (so the field never self-lists),
+    and each section heading is Heading 1 and numbered like '1)'."""
+    from docx.oxml.ns import qn
     doc = build_report(F.matrix_epc(4)).to_dict()
     project = doc['meta'].get('project_name')
     assert project
@@ -67,19 +70,25 @@ def test_cover_toc_and_numbered_headings_present(tmp_path):
     text = '\n'.join(p.text for p in reopened.paragraphs)
     assert project in text
 
-    # a STATIC Table of Contents is present — titled, with real section rows, and with
-    # NO live-field placeholder ('Right-click to update field') anywhere.
+    # a native, updatable Word TOC field is present, and Word is told to refresh fields on open
     assert 'Table of Contents' in text
-    assert 'right-click to update' not in text.lower()
-    titles = [s.get('title') for s in doc['sections'] if s]
-    toc_rows = [p.text for p in reopened.paragraphs if re.match(r'^\d+\)\s', p.text.strip())]
-    # each real section title is written out as a static TOC row (title also reappears as
-    # the numbered body heading, so it must occur at least twice in the numbered lines)
-    for t in titles:
-        assert sum(t in row for row in toc_rows) >= 2, 'section %r missing from static TOC' % t
+    instr = [t.text for t in reopened.element.iter(qn('w:instrText')) if t.text and 'TOC' in t.text]
+    assert instr, 'expected a native Word TOC field (w:instrText containing "TOC")'
+    uf = reopened.settings.element.findall(qn('w:updateFields'))
+    assert any(e.get(qn('w:val')) == 'true' for e in uf), 'updateFields must be true'
 
-    # at least one heading run begins with a section number + ')', e.g. '1) Project…'
-    assert any(re.match(r'^\d+\)\s', p.text) for p in reopened.paragraphs), \
+    # the 'Table of Contents' title must NOT be a Heading (else the TOC lists itself)
+    toc_titles = [p for p in reopened.paragraphs if (p.text or '').strip() == 'Table of Contents']
+    assert toc_titles and all(not (p.style and p.style.name.startswith('Heading'))
+                              for p in toc_titles)
+
+    # every section title lands as a Heading-1 body heading, numbered like '1)'
+    titles = [s.get('title') for s in doc['sections'] if s]
+    h1 = [p.text for p in reopened.paragraphs if p.style and p.style.name == 'Heading 1']
+    assert len(h1) == len(titles), 'each section should be one Heading-1 (all 10 in the TOC)'
+    for t in titles:
+        assert any(t in row for row in h1), 'section %r missing as a Heading-1' % t
+    assert any(re.match(r'^\d+\)\s', row) for row in h1), \
         'expected a numbered section heading like "1) ..."'
 
 

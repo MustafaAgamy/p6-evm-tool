@@ -496,6 +496,48 @@ def _scope_composition(document, items, unit):
              align=WD_ALIGN_PARAGRAPH.CENTER, before=4, after=2)
 
 
+_CASC_MARK = ['➢', '▸', '–', '·']   # by depth, mirrors html _CASC_MARK
+
+
+def _pct(v):
+    """Percentage text with no trailing '.0' on whole numbers — mirrors html _fmt_pct so the
+    Word cascade shows '67%' / '100%' exactly like the PDF/screen twin (not '67.0%')."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return ''
+    return '%d' % f if f == int(f) else '%.1f' % f
+
+
+def _render_cascade(document, nodes, cur_fn, depth):
+    """Native Word render of the scope cascade tree (mirrors html _casc_html):
+    each non-leaf node is a marker heading (➢/▸/– by depth, name — pct%, cost at
+    level 0, '· N grouped' when several siblings were merged); each leaf (no children)
+    is a '•' bullet. Indented by depth so the planner reads it as a nested breakdown."""
+    for n in (nodes or []):
+        kids = [k for k in (n.get('children') or []) if k]
+        cnt = n.get('count')
+        qty = (' · %s grouped' % _count(cnt)) if (cnt and int(cnt) > 1) else ''
+        if not kids:
+            # deepest leaf — a bold-green bullet, one indent step past its parent heading
+            wp = para(document, before=0, after=1)
+            wp.paragraph_format.left_indent = Inches(0.28 * depth + 0.26)
+            run(wp, '•  ', bold=True, color=GREEN)
+            run(wp, n.get('name') or '—')
+            continue
+        mk = _CASC_MARK[min(depth, len(_CASC_MARK) - 1)]
+        pct = n.get('pct')
+        pct_txt = (' (%s%%)' % _pct(pct)) if pct is not None else ''
+        money = (' — %s' % cur_fn(n.get('cost'))) if depth == 0 else ''
+        hp = para(document, before=(9 if depth == 0 else 3), after=2)
+        if depth > 0:
+            hp.paragraph_format.left_indent = Inches(0.28 * depth)
+        run(hp, '%s %s%s%s%s' % (mk, n.get('name') or '—', money, qty, pct_txt),
+            bold=True, size=(12 if depth == 0 else 11),
+            color=(NAVY if depth == 0 else DKNAVY))
+        _render_cascade(document, kids, cur_fn, depth + 1)
+
+
 def _render_scope(document, p, number, note):
     unit = p.get('unit')
 
@@ -504,10 +546,12 @@ def _render_scope(document, p, number, note):
         m = _money(v)
         return ('%s %s' % (unit, m)) if (unit and m) else m
 
-    # intro — the scope is derived by cross-filtering the picked activity codes
+    # intro — the scope is derived by cross-filtering the picked activity codes (in order)
+    codes = p.get('codes') or []
+    codes_txt = ' → '.join(codes) if codes else 'the picked activity codes'
     para(document,
-         'The scope is analysed by cross-filtering the picked activity codes '
-         '(Type of Work, Building / Area, and work type).',
+         'The scope is analysed by cross-filtering the picked activity codes, cost-weighted: '
+         '%s.' % codes_txt,
          align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
 
     # {number}.1 — scope overview by discipline (a single 100%-stacked COMPOSITION BAR:
@@ -524,44 +568,14 @@ def _render_scope(document, p, number, note):
     if narrative:
         para(document, narrative, align=WD_ALIGN_PARAGRAPH.JUSTIFY, before=8, after=8)
 
-    # {number}.2 — scope by area / structure: one described block per area, no charts
-    _subhead(document, '%s.2' % number, 'Scope by area / structure')
-    areas = [a for a in (p.get('areas') or []) if a]
-    if not areas:
-        _muted(document, 'No building- or area-level breakdown is available for this scope.')
+    # {number}.2 — the N-level cross-filtered cascade the planner picked (rendered recursively:
+    # ➢/▸/– heading per non-leaf level, '•' bullet per deepest leaf, indented by depth)
+    _subhead(document, '%s.2' % number, 'Detailed scope by activity codes')
+    cascade = [n for n in (p.get('cascade') or []) if n]
+    if not cascade:
+        _muted(document, 'No activity-code breakdown is available for this scope.')
         return
-    for a in areas:
-        label = a.get('label') or '—'
-        count = a.get('count') or 1
-        each = bool(a.get('each'))
-        pct = a.get('pct')
-        # quantity suffix: 'each' when priced per unit, '· N areas' when several are grouped
-        if each:
-            qty = ' each'
-        elif count and int(count) > 1:
-            qty = ' · %s areas' % _count(count)
-        else:
-            qty = ''
-        pct_txt = (' (%s%%)' % pct) if pct is not None else ''
-        # ➢ heading line — bold navy, carries label + cost + quantity + share
-        ph = para(document, before=9, after=2)
-        run(ph, '➢ %s — %s%s%s' % (label, _cur(a.get('cost')), qty, pct_txt),
-            bold=True, color=NAVY)
-        # per-discipline: bold discipline NAME on its own line, then each work type on its OWN
-        # line with a • bullet (C03c — a vertical bullet list, not the old inline "· ✓ …" run)
-        for disc in (a.get('disciplines') or []):
-            if not disc:
-                continue
-            name = disc.get('name') or 'Works'
-            wts = [w for w in (disc.get('worktypes') or []) if w]
-            dp = para(document, before=3, after=1)
-            dp.paragraph_format.left_indent = Inches(0.28)
-            run(dp, name, bold=True, color=DKNAVY)
-            for wt in wts:
-                wp = para(document, before=0, after=1)
-                wp.paragraph_format.left_indent = Inches(0.54)
-                run(wp, '•  ', bold=True, color=GREEN)
-                run(wp, wt)
+    _render_cascade(document, cascade, _cur, 0)
 
 
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────
@@ -888,8 +902,10 @@ def write_docx(doc, output_path, chrome=None):
     docx_template.add_cover(document, meta)
 
     sections = [s for s in (doc.get('sections') or []) if s]
-    # A STATIC, already-populated TOC (not a live Word field) on its own page.
-    _static_toc(document, sections)
+    # A real, native Word TOC field on its own page: Word fills in the TRUE page number of
+    # every one of the ten Heading-1 sections when it updates fields on open (the PAGEREF
+    # approach cached ordinals that resolved to "page 1" on the planner's Word — this does not).
+    docx_template.add_toc(document)
 
     for idx, section in enumerate(sections, 1):
         try:
