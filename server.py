@@ -274,8 +274,6 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_schedule_excel(body)
         elif self.path == '/api/update/report':
             self._handle_update_report(body)
-        elif self.path == '/api/dashboard':
-            self._handle_dashboard(body)
         elif self.path == '/api/narrative':
             self._handle_narrative(body)
         elif self.path == '/api/copilot':
@@ -352,10 +350,22 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_special_catalog(body)
         elif self.path == '/api/special/render':
             self._handle_special_render(body)
+        elif self.path == '/api/special/tiles':
+            self._handle_special_tiles(body)
+        elif self.path == '/api/special/dash-report':
+            self._handle_special_dash_report(body)
+        elif self.path == '/api/special/layout/load':
+            self._handle_special_layout_load(body)
+        elif self.path == '/api/special/layout/save':
+            self._handle_special_layout_save(body)
         elif self.path == '/api/special/pdf':
             self._handle_special_pdf(body)
         elif self.path == '/api/special/doc':
             self._handle_special_doc(body)
+        elif self.path == '/api/special/docx':
+            self._handle_special_docx(body)
+        elif self.path == '/api/special/excel':
+            self._handle_special_excel(body)
         elif self.path == '/api/special/templates/list':
             self._handle_special_templates_list(body)
         elif self.path == '/api/special/templates/save':
@@ -407,13 +417,56 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
-    def _handle_special_pdf(self, body):
+    def _handle_special_tiles(self, body):
         try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            res = assemble.tiles(self._special_pid(body), body.get('item_ids') or [],
+                                 inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
+                                 mode=body.get('theme') or 'light')
+            self._json(200, {'ok': True, 'tiles': res['tiles'], 'meta': res['meta'],
+                             'theme_css': res.get('theme_css', '')})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_layout_load(self, body):
+        """The saved Studio dashboard layout (order/sizes/titles/letterhead) for a
+        project, or null. Stored per project in project_settings['studio_layout']."""
+        try:
+            pid = self._special_pid(body)
+            layout = db.get_project_settings(pid).get('studio_layout') if pid else None
+            self._json(200, {'ok': True, 'layout': layout})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_layout_save(self, body):
+        try:
+            pid = self._special_pid(body)
+            if not pid:
+                self._json(200, {'ok': False, 'error': 'No project loaded.'})
+                return
+            db.save_project_settings(pid, {'studio_layout': body.get('layout') or {}})
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_dash_report(self, body):
+        """Dashboard-view PDF / preview: wrap the client's rendered .pd-* board
+        HTML with the app stylesheet at the chosen appearance mode (screen==PDF)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import dash_render
+            import report_theme
+            mode = report_theme.normalize(body.get('theme'))
+            html = dash_render.build_dashboard_html(
+                body.get('html') or '', mode=mode, title=body.get('title') or 'Dashboard')
+            if body.get('preview'):
+                self._json(200, {'ok': True, 'html': html})
+                return
             output_path = body.get('output_path')
             if not output_path:
                 self._json(200, {'ok': False, 'error': 'No output path.'})
                 return
-            html = self._special_html(body)
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
                                              encoding='utf-8') as tmp:
                 tmp.write(html)
@@ -425,6 +478,27 @@ class Handler(BaseHTTPRequestHandler):
                             f'file:///{html_path.replace(os.sep, "/")}'],
                            check=True, capture_output=True)
             os.unlink(html_path)
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_pdf(self, body):
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            import report_theme
+            # Two-pass render so the contents page shows REAL page numbers.
+            assemble.render_pdf(
+                os.path.abspath(output_path), self._special_pid(body),
+                body.get('item_ids') or [], body.get('report_name') or 'Special Report',
+                mode=report_theme.normalize(body.get('theme')),
+                meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
+                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
+                chrome=_find_chrome())
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -446,6 +520,55 @@ class Handler(BaseHTTPRequestHandler):
                 meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
                 inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
             save_word_document(html, os.path.abspath(output_path))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_docx(self, body):
+        """Export the picked Studio results to a REAL Word .docx (python-docx) in the
+        narrative house style — double page frame, logo header, page-number footer,
+        navy cover + tables, bars drawn as bars — matching the PDF as Word allows."""
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            # Reused feature sections are chart-heavy HTML; the .docx rasterises them
+            # to an image via Chrome (headless) so Word matches the PDF exactly. A
+            # missing Chrome must NOT fail the export — pass None and let docx_report
+            # fall back to text/table extraction.
+            try:
+                chrome = _find_chrome()
+            except Exception:
+                chrome = None
+            assemble.docx(
+                os.path.abspath(output_path), self._special_pid(body),
+                body.get('item_ids') or [], body.get('report_name') or 'Special Report',
+                meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
+                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
+                chrome=chrome, mode=report_theme.normalize(body.get('theme')),
+                editable=bool(body.get('editable')))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_excel(self, body):
+        """Export the picked Studio results to .xlsx (a Contents sheet + one data
+        sheet per result) — the numbers behind the Document/Dashboard."""
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            assemble.excel(
+                os.path.abspath(output_path), self._special_pid(body),
+                body.get('item_ids') or [], body.get('report_name') or 'Special Report',
+                meta=body.get('meta') or {}, inputs=body.get('inputs') or {},
+                snapshot_id=body.get('snapshot_id'))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -3010,16 +3133,6 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
                 return
             self._json(200, {'ok': True, **build_narrative(result)})
-        except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
-
-    def _handle_dashboard(self, body):
-        """Professional Dashboard read-model: the portfolio (latest snapshot per
-        project) + the active project's snapshot trend. DB-only, no re-parse."""
-        try:
-            snap = body.get('snapshot_id')
-            data = db.get_dashboard(active_snapshot_id=snap)
-            self._json(200, {'ok': True, **data})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

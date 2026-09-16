@@ -6,6 +6,7 @@ import { state } from './state.js';
 import { getSavedMode, buildAppearancePicker } from './appearance.js';
 import { showReportPreview } from './preview.js';
 import { showError } from './render.js';
+import { renderStudioDashboard } from './studio_dash.js';
 
 const S = {
   catalog: [],          // [{feature, feature_title, items:[{id,title,ctype,availability,requires}]}]
@@ -13,6 +14,7 @@ const S = {
   name: '',
   inputs: {},           // {role: path}
   templateId: null,
+  view: 'document',     // 'document' | 'dashboard' — the two Reporting Studio views of ONE selection
 };
 
 function api(path, body) {
@@ -62,6 +64,14 @@ function itemById(id) {
 
 function drawBuilder(host, templates) {
   host.innerHTML = `
+    <div class="studio-switchbar">
+      <div class="studio-switch">
+        <button type="button" id="sv-doc" class="${S.view === 'document' ? 'on' : ''}">▤ Document</button>
+        <button type="button" id="sv-dash" class="${S.view === 'dashboard' ? 'on' : ''}">▦ Dashboard</button>
+      </div>
+      <span class="studio-switch-hint">One selection — viewed two ways.</span>
+    </div>
+    <div id="sr-document"${S.view === 'dashboard' ? ' style="display:none"' : ''}>
     <div class="sr-tplbar" id="sr-tplbar"></div>
     <div class="sr-grid">
       <div class="sr-col">
@@ -81,12 +91,14 @@ function drawBuilder(host, templates) {
           <button class="btn-secondary" id="sr-save-tpl">💾 Save as template</button>
           <span class="sr-appear" id="sr-appear"></span>
           <button class="btn-secondary" id="sr-preview">👁 Preview</button>
-          <button class="btn-secondary" id="sr-word">⬇ Word</button>
-          <button class="btn-secondary" id="sr-xls">⬇ Excel</button>
+          <button class="btn-secondary" id="sr-word" title="Word (.docx) — opens with a double-click and is an exact copy of the PDF (every page identical)">⬇ Word</button>
+          <button class="btn-secondary" id="sr-excel">⬇ Excel</button>
           <button class="btn-primary" id="sr-pdf">⬇ PDF</button>
         </div>
       </div>
-    </div>`;
+    </div>
+    </div>
+    <div id="sr-dashboard"${S.view === 'document' ? ' style="display:none"' : ''}></div>`;
 
   drawTemplates(templates);
   drawCatalog();
@@ -95,10 +107,41 @@ function drawBuilder(host, templates) {
   document.getElementById('sr-name').addEventListener('input', e => { S.name = e.target.value; });
   document.getElementById('sr-appear').appendChild(buildAppearancePicker({ current: getSavedMode(), compact: true }));
   document.getElementById('sr-preview').addEventListener('click', doPreview);
-  document.getElementById('sr-word').addEventListener('click', () => doExport('doc'));
-  document.getElementById('sr-xls').addEventListener('click', () => doExport('xlsx'));
+  document.getElementById('sr-word').addEventListener('click', () => doExport('docx'));
+  document.getElementById('sr-excel').addEventListener('click', () => doExport('xlsx'));
   document.getElementById('sr-pdf').addEventListener('click', () => doExport('pdf'));
   document.getElementById('sr-save-tpl').addEventListener('click', doSaveTemplate);
+
+  document.getElementById('sv-doc').addEventListener('click', () => setView('document'));
+  document.getElementById('sv-dash').addEventListener('click', () => setView('dashboard'));
+  if (S.view === 'dashboard') mountDashboard();
+}
+
+// ── Document ⇄ Dashboard: the same selection, two views ──────────────────────
+function setView(v) {
+  if (S.view === v) return;
+  S.view = v;
+  const doc = document.getElementById('sr-document');
+  const dash = document.getElementById('sr-dashboard');
+  if (doc) doc.style.display = v === 'document' ? '' : 'none';
+  if (dash) dash.style.display = v === 'dashboard' ? '' : 'none';
+  const bd = document.getElementById('sv-doc'), bh = document.getElementById('sv-dash');
+  if (bd) bd.classList.toggle('on', v === 'document');
+  if (bh) bh.classList.toggle('on', v === 'dashboard');
+  if (v === 'dashboard') mountDashboard();
+}
+
+// Render the .pd-* dashboard board from the CURRENT selection (re-render each
+// time we enter Dashboard so it always reflects the latest picks).
+function mountDashboard() {
+  const host = document.getElementById('sr-dashboard');
+  if (!host) return;
+  renderStudioDashboard(host, {
+    itemIds: S.selected,
+    inputs: S.inputs,
+    snapshotId: state.currentSnapshotId,
+    mode: getSavedMode(),
+  });
 }
 
 function drawTemplates(templates) {
@@ -222,17 +265,22 @@ async function doPreview() {
   });
 }
 
-async function doExport(ext) {
+async function doExport(ext, opts) {
   if (!S.selected.length) { showError('Pick at least one result first.'); return; }
-  await saveFile(ext, getSavedMode());
+  await saveFile(ext, getSavedMode(), opts || {});
 }
 
-async function saveFile(ext, mode) {
+async function saveFile(ext, mode, opts = {}) {
   const safe = (S.name || 'special-report').replace(/[^\w\- ]+/g, '').trim() || 'special-report';
-  const out = await window.pywebview.api.choose_save_path(`${safe}.${ext}`, ext);
+  // the editable Word is a separate file from the exact copy — name it distinctly so
+  // exporting both doesn't silently overwrite one with the other.
+  const base = opts.editable ? `${safe} (editable)` : safe;
+  const out = await window.pywebview.api.choose_save_path(`${base}.${ext}`, ext);
   if (!out) return false;
-  const route = ext === 'doc' ? 'api/special/doc' : ext === 'xlsx' ? 'api/special/excel' : 'api/special/pdf';
-  const res = await api(route, reqBody({ theme: mode, output_path: out }));
+  const route = ext === 'docx' ? 'api/special/docx'
+    : ext === 'doc' ? 'api/special/doc'
+    : ext === 'xlsx' ? 'api/special/excel' : 'api/special/pdf';
+  const res = await api(route, reqBody({ theme: mode, output_path: out, editable: !!opts.editable }));
   if (!res.ok) { showError(res.error || 'Export failed.'); return false; }
   return true;
 }

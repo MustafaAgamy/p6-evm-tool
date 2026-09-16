@@ -158,7 +158,10 @@ def test_calendar_weather_gated_without_estimate(temp_db, xml_path):
     ctx = SpecialContext(_seed(xml_path))          # calendar saved, no weather estimate
     cal = {g['feature']: g for g in registry.catalog(ctx)}['calendar']['items']
     avail = {i['id']: i['availability'] for i in cal}
-    assert avail['calendar:weather'] == 'no_data'
+    # The Bad-Weather sub-sections (rendered via feature='weather') are gated no_data
+    # without a weather estimate — never a 'ready' item that renders empty.
+    assert avail['calendar:wx_dashboard'] == 'no_data'
+    assert avail['calendar:wx_timeline'] == 'no_data'
     ready_ids = [i['id'] for i in cal if i['availability'] == 'ready']
     for r in registry.render(ctx, ready_ids):
         assert r['payload']['kind'] != 'no_data', r['id']

@@ -70,6 +70,15 @@ class SpecialContext:
     def snapshots(self):
         return self.memo('snapshots', lambda: db.get_project_snapshots(self.project_id))
 
+    def snapshots_trend(self):
+        """The ordered per-snapshot rows (oldest→newest) for trend charts.
+
+        A clearly-named passthrough to the memoized :pyattr:`snapshots` property so
+        trend providers read their intent — no extra query or maths, the rows are
+        the stored per-update EVM numbers exactly as the DB holds them.
+        """
+        return self.snapshots
+
     @property
     def project_name(self):
         return (self.evm or {}).get('project_name') or 'Project'

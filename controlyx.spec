@@ -9,9 +9,7 @@
 
 import sys
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules
-
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files, collect_dynamic_libs
 
 block_cipher = None
 
@@ -35,6 +33,14 @@ datas = [
                                           # runtime by the report renderers (which run after
                                           # sys.path.insert(resource_path('.'))); ship as root
                                           # data so `import report_theme` resolves in the bundle.
+    # python-docx ships a default template + XML schema under docx/templates/*;
+    # Document() fails at runtime without them, so collect the package data.
+    *collect_data_files('docx'),
+    # PyMuPDF (fitz/pymupdf) turns the Special Report PDF into per-page images for
+    # the PDF-exact Word export (p6_special/docx_pdf). It ships a compiled MuPDF
+    # extension + data; collect both so `import pymupdf` works in the bundle
+    # (its dynamic libs are added to `binaries` below).
+    *collect_data_files('pymupdf'),
 ]
 
 # ── Hidden imports pywebview / webview2 needs ──────────────────────────────
@@ -75,6 +81,16 @@ hiddenimports = [
     # (mirrors the p6_audit fix; a missing provider would show an empty catalog).
     'p6_special',
     *collect_submodules('p6_special'),
+    # Word .docx export (python-docx) — imported deferred inside the export handler,
+    # so force docx + its lxml backend to ship (template data collected in `datas`).
+    'docx',
+    *collect_submodules('docx'),
+    *collect_submodules('lxml'),
+    # PyMuPDF — the PDF-exact Word export (p6_special/docx_pdf) imports it deferred as
+    # `pymupdf` (falling back to `fitz`); force both names + submodules to ship.
+    'pymupdf',
+    'fitz',
+    *collect_submodules('pymupdf'),
     # Productivity & Resource Intelligence — server.py imports p6_prodintel lazily in-function,
     # which PyInstaller's graph misses; force the package + submodules to ship.
     'p6_prodintel',
@@ -82,6 +98,14 @@ hiddenimports = [
     'p6_prodintel.engine',
     *collect_submodules('p6_prodintel'),
 ]
+
+# PyMuPDF ships a compiled MuPDF extension (_mupdf / libmupdf) — collect its dynamic
+# libraries as binaries so `import pymupdf` doesn't fail at runtime in the bundle.
+binaries = []
+try:
+    binaries += collect_dynamic_libs('pymupdf')
+except Exception:
+    pass
 
 # Collect EVERY submodule of the in-tree packages so nothing loaded via a deferred /
 # in-function import (server.py loads p6_report and several p6_kb modules lazily) is
@@ -97,7 +121,7 @@ for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodi
 a = Analysis(
     ['app.py'],
     pathex=[],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

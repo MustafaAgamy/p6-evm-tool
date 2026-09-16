@@ -23,27 +23,30 @@ def _review(ctx):
     return ctx.memo('kb_review', build)
 
 
-def _tone(x):
+def _risk_tone(x):
+    # Evidence Risk bands (p6_kb.scoring EVIDENCE_BANDS / the on-screen colours): higher
+    # score = lower risk. Low Risk >=80 (green), Moderate >=60 (amber), else higher risk.
     if x is None:
         return 'neutral'
-    return 'good' if x >= 80 else ('warn' if x >= 50 else 'bad')
+    return 'good' if x >= 80 else ('warn' if x >= 60 else 'bad')
 
 
 def _score(ctx):
     r = _review(ctx)
-    s = (r or {}).get('score')
-    if not s:
+    # Match the on-screen headline: the v2 evidence-based Constructability Risk Score
+    # (NOT the legacy 45/45/10 KB rubric score, which the screen deliberately hides).
+    v2 = (r or {}).get('v2_score')
+    if not isinstance(v2, dict) or v2.get('overall') is None:
         return P.NO_DATA
-    overall = s.get('overall') if isinstance(s, dict) else s
-    band = (s.get('band_label') if isinstance(s, dict) else None) or (r.get('verdict') or {}).get('title')
-    return P.kpi_group([P.kpi('Constructability score',
-                              f'{fmt.num(overall)}/100' if overall is not None else '—',
-                              sub=band, tone=_tone(overall))])
+    overall = v2.get('overall')
+    return P.kpi_group([P.kpi('Constructability Risk Score',
+                              f'{fmt.num(overall)}/100',
+                              sub=v2.get('band_label'), tone=_risk_tone(overall))])
 
 
 def provide(ctx):
     return [
-        Item('construct:score', FEATURE, FEATURE_TITLE, 'Constructability score', 'score', _score, _ready),
+        Item('construct:score', FEATURE, FEATURE_TITLE, 'Constructability Risk Score', 'score', _score, _ready),
         Item('construct:report', FEATURE, FEATURE_TITLE, 'Full Constructability report', 'section',
-             lambda ctx: FR.kb_full_report(ctx) or P.NO_DATA, _ready),
+             lambda ctx: FR.kb_v2_report(ctx) or P.NO_DATA, _ready),
     ]
