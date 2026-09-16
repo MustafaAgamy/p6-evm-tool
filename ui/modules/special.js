@@ -92,7 +92,7 @@ function drawBuilder(host, templates) {
           <span class="sr-appear" id="sr-appear"></span>
           <button class="btn-secondary" id="sr-preview">👁 Preview</button>
           <button class="btn-secondary" id="sr-word" title="Word file that looks exactly like the PDF (pages are images, not editable)">⬇ Word (exact)</button>
-          <button class="btn-secondary" id="sr-word-edit" title="Editable Word — real tables and text you can change, styled to match the PDF as closely as Word allows">⬇ Word (editable)</button>
+          <button class="btn-secondary" id="sr-word-edit" title="Editable Word — real tables and text built from the same content as the PDF, so it matches; opens with a 'Compatibility Mode' label (cosmetic)">⬇ Word (editable)</button>
           <button class="btn-secondary" id="sr-excel">⬇ Excel</button>
           <button class="btn-primary" id="sr-pdf">⬇ PDF</button>
         </div>
@@ -109,7 +109,7 @@ function drawBuilder(host, templates) {
   document.getElementById('sr-appear').appendChild(buildAppearancePicker({ current: getSavedMode(), compact: true }));
   document.getElementById('sr-preview').addEventListener('click', doPreview);
   document.getElementById('sr-word').addEventListener('click', () => doExport('docx'));
-  document.getElementById('sr-word-edit').addEventListener('click', () => doExport('docx', { editable: true }));
+  document.getElementById('sr-word-edit').addEventListener('click', () => doExport('doc', { editable: true }));
   document.getElementById('sr-excel').addEventListener('click', () => doExport('xlsx'));
   document.getElementById('sr-pdf').addEventListener('click', () => doExport('pdf'));
   document.getElementById('sr-save-tpl').addEventListener('click', doSaveTemplate);
@@ -276,7 +276,7 @@ async function saveFile(ext, mode, opts = {}) {
   const safe = (S.name || 'special-report').replace(/[^\w\- ]+/g, '').trim() || 'special-report';
   // the editable Word is a separate file from the exact copy — name it distinctly so
   // exporting both doesn't silently overwrite one with the other.
-  const base = (ext === 'docx' && opts.editable) ? `${safe} (editable)` : safe;
+  const base = opts.editable ? `${safe} (editable)` : safe;
   const out = await window.pywebview.api.choose_save_path(`${base}.${ext}`, ext);
   if (!out) return false;
   const route = ext === 'docx' ? 'api/special/docx'

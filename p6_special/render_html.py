@@ -402,11 +402,17 @@ def render_section(index, item, C):
     # write real page numbers into the contents. 1px transparent text — no visual effect.
     marker = (f'<span style="font-size:1px;line-height:0;color:transparent">'
               f'SECPGMARK-{index}-</span>')
+    # A Word bookmark target so the Word (.doc) contents page can point a PAGEREF field
+    # here for the real page number. Harmless in the screen/PDF path (an empty anchor).
+    anchor = f'<a name="_sec{index}"></a>'
     return (
         f'<div class="sr-sec" style="margin:0 0 22px;page-break-inside:avoid">'
-        f'{marker}'
+        f'{marker}{anchor}'
+        # keep the heading with its content — no orphaned section title (BINDING
+        # page-coordination standard): break-after:avoid + Word keep-with-next.
         f'<table class="sr-sec-h" cellpadding="0" cellspacing="0" width="100%" '
-        f'style="border-collapse:collapse;margin-bottom:10px;border-bottom:2px solid {navy}"><tr>'
+        f'style="border-collapse:collapse;margin-bottom:10px;border-bottom:2px solid {navy};'
+        f'page-break-after:avoid;break-after:avoid;mso-pagination:keep-with-next"><tr>'
         f'<td valign="middle" style="width:1%;white-space:nowrap;padding:0 0 8px 0">'
         f'<span class="sr-num" style="display:inline-block;background:{navy};color:#ffffff;'
         f'border-radius:5px;padding:2px 10px;font-size:14px;font-weight:700">{index}</span></td>'
@@ -492,13 +498,18 @@ def _cover(report_name, meta, letterhead, C):
     )
 
 
-def _toc(rendered, C, page_numbers=None):
+def _toc(rendered, C, page_numbers=None, page_field=False):
     """The separate contents page: a navy heading, then numbered rows in pick order
     — number · title · faint source-feature tag · page number. Breaks to its own page.
 
     ``page_numbers`` maps the 1-based section index to its REAL printed page (found by
     a two-pass PDF render); when absent, a nominal ``i + 2`` (cover 1, contents 2, first
-    section 3) is used as a rough fallback — correct only if every section is one page."""
+    section 3) is used as a rough fallback — correct only if every section is one page.
+
+    ``page_field`` (Word .doc only): emit a live Word ``PAGEREF _sec<i>`` field for each
+    page number, so Word computes the TRUE page of that section's bookmark on open / F9
+    (Word paginates its own way, so a static number would be wrong). The nominal number
+    is the cached value shown until fields refresh."""
     navy = C.navy
     dot = C('rpt-hair-strong')
     page_numbers = page_numbers or {}
@@ -508,11 +519,16 @@ def _toc(rendered, C, page_numbers=None):
         src_html = (f' <span style="font-size:10px;color:{C("rpt-muted")};font-weight:400">{_esc(src)}</span>'
                     if src else '')
         page_no = page_numbers.get(i) or page_numbers.get(str(i)) or (i + 2)
+        if page_field:
+            # Word field: the number is recomputed from the _sec<i> bookmark on open/F9.
+            page_cell = (f'<span style="mso-field-code:\' PAGEREF _sec{i} \\\\h \'">{page_no}</span>')
+        else:
+            page_cell = str(page_no)
         rows.append(
             f'<tr>'
             f'<td valign="top" style="width:26px;font-size:12.5px;font-weight:800;color:{navy};padding:8px 0;border-bottom:1px dotted {dot}">{i}</td>'
             f'<td style="font-size:12.5px;font-weight:700;color:{C("rpt-ink")};padding:8px 6px;border-bottom:1px dotted {dot}">{_esc(item.get("title"))}{src_html}</td>'
-            f'<td align="right" valign="top" style="font-size:12px;color:{C("rpt-muted")};padding:8px 0;border-bottom:1px dotted {dot}">{page_no}</td>'
+            f'<td align="right" valign="top" style="font-size:12px;color:{C("rpt-muted")};padding:8px 0;border-bottom:1px dotted {dot}">{page_cell}</td>'
             f'</tr>'
         )
     return (
@@ -592,7 +608,8 @@ def _feature_css_head(rendered, mode):
     return report_theme.theme_style_tag(mode) + '<style>' + '\n'.join(blocks) + '</style>'
 
 
-def document_parts(report_name, meta, rendered, mode='light', letterhead=None, page_numbers=None):
+def document_parts(report_name, meta, rendered, mode='light', letterhead=None, page_numbers=None,
+                   page_field=False):
     """Shared assembly used by both the HTML/PDF and the Word wrappers, so the
     two never diverge. Returns ``{colors, css, head_extra, body, title}`` — plus
     the additive ``cover`` and ``inner`` pieces the HTML/PDF shell places into the
@@ -602,7 +619,7 @@ def document_parts(report_name, meta, rendered, mode='light', letterhead=None, p
     report_name = report_name or 'Special Report'
     cover = _cover(report_name, meta, letterhead, C)
     if rendered:
-        toc = _toc(rendered, C, page_numbers=page_numbers)
+        toc = _toc(rendered, C, page_numbers=page_numbers, page_field=page_field)
         sections = ''.join(render_section(i, item, C) for i, item in enumerate(rendered, 1))
     else:
         toc = ''

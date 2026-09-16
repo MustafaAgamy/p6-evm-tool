@@ -193,7 +193,8 @@ def build_word_document(report_name, meta, rendered, mode='light', letterhead=No
     border on every page, a running header (3 logos + project) and a page-number
     footer, plus the navy-header zebra table look — as far as Office-Word HTML allows.
     """
-    parts = document_parts(report_name, meta, rendered, mode=mode, letterhead=letterhead)
+    parts = document_parts(report_name, meta, rendered, mode=mode, letterhead=letterhead,
+                           page_field=True)
     C = parts['colors']
     navy = getattr(C, 'navy', _WORD_NAVY)
     muted = C('rpt-muted') if callable(C) else '#6b7688'
@@ -220,7 +221,8 @@ def build_word_document(report_name, meta, rendered, mode='light', letterhead=No
         '<meta name="Generator" content="Microsoft Word 15">'
         f'<title>{title}</title>'
         '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View>'
-        '<w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->'
+        '<w:Zoom>100</w:Zoom><w:UpdateFieldsOnOpen/>'  # refresh the contents PAGEREF numbers on open
+        '<w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->'
         f'{head_extra}<style>{parts["css"]} {page_css}</style></head>'
         f'<body><div class="WordSection1">{body}{header}{footer}</div></body></html>'
     )
