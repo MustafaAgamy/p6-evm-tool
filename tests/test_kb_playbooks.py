@@ -86,9 +86,26 @@ def test_starter_xer_round_trips_and_matches_curated_wbs(tmp_path):
     assert data.activities and data.relationships
 
 
-def test_uncurated_type_has_no_curated_block():
+def test_derived_fallback_when_no_curated_file():
+    """The whole library is curated now, but the derived fallback must still work:
+    load_curated returns None for a type with no file, and playbook() always
+    provides the derived overview/sequence/wbs regardless of curation."""
+    assert playbooks.load_curated('a_type_with_no_curated_file') is None
     pb = playbooks.playbook('villa')
-    assert pb is not None and not pb.get('curated')
+    assert pb is not None and pb['sequence']['steps'] and pb['wbs']['branches'] is not None
+
+
+def test_whole_library_is_curated_and_renders():
+    """Every archetype now has a valid schema-2 curated playbook."""
+    curated = 0
+    for aid in load_archetypes():
+        pb = playbooks.playbook(aid)
+        assert pb is not None and pb['sequence']['steps']
+        cur = pb.get('curated')
+        if cur:
+            curated += 1
+            assert cur.get('trades') and cur.get('wbs') and cur.get('brief')
+    assert curated == len(load_archetypes())          # all types authored
 
 
 def test_every_archetype_builds_a_playbook():

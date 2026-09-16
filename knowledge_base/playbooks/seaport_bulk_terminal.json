@@ -1,0 +1,122 @@
+{
+  "archetype": "seaport_bulk_terminal",
+  "schema": 2,
+  "context": "material-handling led (dry bulk) or tank/piping led (liquid bulk) · marine civil is the enabler",
+  "brief": {
+    "intro": "New to this project type? A bulk terminal moves cargo that is not packed in containers — either dry bulk (coal, ore, grain) or liquid bulk (fuel, chemicals) — between a ship and onshore storage. Dry bulk terminals are built around a conveyor chain: stacker/reclaimer, transfer towers and a ship-loader or unloader moving material to and from stockpiles. Liquid bulk terminals are built around a tank farm connected to the jetty by process piping, pumps and loading arms. Both share the same marine civil (jetty or quay) and the same instrumentation/SCADA-led control philosophy, but the equipment that actually moves the product — not the marine structure — is what drives the schedule.",
+    "scope": [
+      { "name": "Marine civil", "desc": "Jetty or quay construction and the berth the vessel moors against." },
+      { "name": "Stockyard / tank farm civil", "desc": "Stacking pads and drainage for dry bulk, or tank foundations and bunding for liquid bulk." },
+      { "name": "Conveyor trestle / pipe rack", "desc": "The structural supports carrying conveyors or the pipe rack between jetty and shore facilities." },
+      { "name": "Material handling equipment (dry bulk)", "desc": "Conveyors, stacker/reclaimer and ship-loader/unloader that move bulk material." },
+      { "name": "Tank farm & process piping (liquid bulk)", "desc": "Storage tanks, pipeline, pumps and loading arms that transfer liquid product." },
+      { "name": "Electrical power", "desc": "Substations and motor control centres (MCCs) driving conveyors, pumps and equipment." },
+      { "name": "Instrumentation & SCADA", "desc": "Weightometers, level and flow instrumentation, and the control system operators run the terminal from." },
+      { "name": "Dust suppression / fire & safety", "desc": "Dust extraction and explosion venting for dry bulk, or fire-foam and vapour recovery for liquid bulk." },
+      { "name": "Testing & commissioning", "desc": "Conveyor/stacker run-in and interlock proving, or pump/loading-arm and pipeline testing." }
+    ],
+    "glossary": [
+      { "term": "Stacker / reclaimer", "plain": "the machine that piles bulk material into a stockpile and later reclaims it onto a conveyor." },
+      { "term": "Ship-loader / unloader", "plain": "the crane-like machine that loads or unloads bulk cargo directly to or from the ship." },
+      { "term": "Transfer tower", "plain": "the structure where one conveyor hands material to the next, changing direction." },
+      { "term": "Weightometer", "plain": "a belt scale that measures material flow rate for stock control." },
+      { "term": "Bunding", "plain": "a containment wall built around tanks to hold a spill." },
+      { "term": "Loading arm", "plain": "the articulated pipe connecting the jetty pipeline to a tanker for liquid transfer." },
+      { "term": "Dust explosion venting / suppression", "plain": "safety systems that prevent or vent a dust explosion in enclosed handling areas such as grain or coal." },
+      { "term": "SCADA", "plain": "the control system operators use to run and monitor the whole terminal remotely." }
+    ],
+    "must_get_right": [
+      "The material-handling chain (conveyors/stacker-reclaimer, or pumps/piping) is the schedule driver, not the marine jetty — sequence its procurement first.",
+      "Dry bulk needs dust-explosion protection proven before any load-out trial; liquid bulk needs pipeline hydrotest and fire-foam proven before product is introduced — do not skip either to save time.",
+      "The marine civil (jetty/berth) and the conveyor trestle or pipe rack must be coordinated early — the structural interface is fixed once piled.",
+      "SCADA and weightometer or flow-meter calibration are commercial (custody transfer) measurements — leave real time for calibration and acceptance, not just a functional test."
+    ]
+  },
+  "components": [
+    { "name": "Marine Civil", "desc": "Jetty/quay, berth, trestle foundations", "disc": "Civil", "primary": false },
+    { "name": "Material Handling", "desc": "Conveyors, stacker/reclaimer, ship-loader (dry bulk)", "disc": "Mechanical", "primary": true },
+    { "name": "Tank Farm & Process Piping", "desc": "Storage tanks, pipeline, pumps, loading arms (liquid bulk)", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power", "desc": "Substations, MCCs for conveyors/pumps", "disc": "Electrical", "primary": true },
+    { "name": "Instrumentation & SCADA", "desc": "Weightometers, level/flow, control system", "disc": "Instrumentation", "primary": true },
+    { "name": "Dust / Fire Protection", "desc": "Dust suppression & explosion venting, or fire-foam", "disc": "Fire Protection", "primary": false },
+    { "name": "Commissioning", "desc": "Run-in, interlocks, loading trials", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical — Material Handling / Process", "items": ["Conveyors, stacker/reclaimer & ship-loader drives (dry bulk)", "Tank farm, process piping, pumps & loading arms (liquid bulk)", "Dust suppression / extraction systems"] },
+    { "discipline": "Electrical & Instrumentation", "items": ["MCCs & VFDs for conveyor/pump drives", "Weightometers, level & flow instrumentation", "SCADA / terminal control system", "Earthing & bonding (static/explosion protection)"] },
+    { "discipline": "Fire & Safety", "items": ["Dust-explosion venting & suppression (dry bulk)", "Fire-foam / vapour-recovery systems (liquid bulk)", "Yard & jetty firefighting network"] }
+  ],
+  "overview_phases": ["Marine Civil & Jetty", "Stockyard / Tank Farm Civil", "Conveyor Trestle or Pipe Rack", "Equipment Erection", "Electrical & Instrumentation", "Dust / Fire Protection Install", "Commissioning & Load-out Trial"],
+  "sequence_chart": {
+    "phases": ["Civil", "Trestle/Rack", "Equip.", "Power/Instr.", "Safety", "Comm."],
+    "lanes": [
+      { "trade": "Marine & Stockyard Civil", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 36, "label": "Jetty/quay → stockyard or tank-farm civil", "holds": [16] },
+      { "trade": "Conveyor Trestle / Pipe Rack", "disc": "Civil", "kind": ["civil"], "start": 18, "width": 30, "label": "Trestle/rack foundations → steelwork", "holds": [32] },
+      { "trade": "Material Handling / Process Equipment", "disc": "Mechanical", "kind": ["mechanical"], "start": 32, "width": 46, "label": "Conveyors/stacker-reclaimer or tanks/piping → set & align", "holds": [56] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["electrical"], "start": 44, "width": 40, "label": "MCC/VFD → weightometer/flow instrumentation → SCADA", "holds": [68] },
+      { "trade": "Dust / Fire Protection", "disc": "Fire Protection", "kind": ["fire"], "start": 56, "width": 26, "label": "Suppression/venting or foam system install", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Run-in → interlocks → load-out trial", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Marine Civil", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Jetty/quay piling & deck", "Approach trestle construction (where applicable)", "Berth fendering & bollards", "Dredging (where required)", "Marine structure survey & handover"] },
+    { "name": "Stockyard / Tank Farm Civil", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site grading & compaction", "Stockyard pavement & drainage (dry bulk)", "Tank foundations & bunding (liquid bulk)", "Bund liner integrity testing", "Transfer-tower & silo foundations"] },
+    { "name": "Conveyor Trestle / Pipe Rack", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Long-lead procurement — structural steel", "Trestle or pipe-rack foundations", "Steelwork erection", "Walkway & cable-tray supports", "Corrosion protection & coating"] },
+    { "name": "Material Handling Equipment (Dry Bulk)", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 3], "steps": ["Long-lead procurement — conveyors, stacker/reclaimer, ship-loader", "Conveyor structure & belting install", "Stacker/reclaimer & ship-loader erection", "Chute, skirting & transfer-point set", "No-load belt run & tracking", "Interlock & sequencing test"] },
+    { "name": "Tank Farm & Process Piping (Liquid Bulk)", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 3], "steps": ["Long-lead procurement — tanks, pumps, loading arms", "Tank erection & hydrotest", "Process piping & pipe-rack install", "Pump & loading-arm set", "Flush, hydrotest & reinstate", "Vapour-recovery & metering tie-in"] },
+    { "name": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Long-lead procurement — MCC, VFDs, instrumentation", "Duct banks & cable pull", "Set MCC / switchgear", "Weightometer / level / flow instrumentation install", "SCADA integration & point-to-point", "Load test & calibration"] },
+    { "name": "Dust & Fire Protection", "disc": "Fire Protection", "kind": ["fire"], "holds": [3], "steps": ["Long-lead procurement — suppression/foam system equipment", "Dust suppression / extraction install (dry bulk)", "Explosion venting & isolation devices", "Fire-foam / vapour-recovery system (liquid bulk)", "Functional & cause-and-effect test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [4], "steps": ["Mechanical run-in & no-load trial", "Interlock & sequencing proving", "Weightometer / flow-meter calibration (custody transfer)", "Dust-explosion or fire-foam proving test", "First load-out / ship-loading trial", "Handover to terminal operations"] }
+  ],
+  "wbs": [
+    { "code": "BT", "name": "Bulk Terminal — Project", "level": 1 },
+    { "code": "BT.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "BT.02", "name": "Marine Civil Works", "level": 2 },
+    { "code": "BT.02.10", "name": "Jetty / quay piling & deck", "level": 3 },
+    { "code": "BT.02.20", "name": "Fendering & bollards", "level": 3 },
+    { "code": "BT.03", "name": "Stockyard / Tank Farm Civil", "level": 2 },
+    { "code": "BT.03.10", "name": "Stockyard pavement & drainage", "level": 3 },
+    { "code": "BT.03.20", "name": "Tank foundations & bunding", "level": 3 },
+    { "code": "BT.04", "name": "Conveyor Trestle / Pipe Rack", "level": 2 },
+    { "code": "BT.04.10", "name": "Trestle / rack foundations", "level": 3 },
+    { "code": "BT.04.20", "name": "Steelwork erection", "level": 3 },
+    { "code": "BT.05", "name": "Material Handling Equipment (Dry Bulk)", "level": 2 },
+    { "code": "BT.05.10", "name": "Conveyor structure & belting", "level": 3 },
+    { "code": "BT.05.20", "name": "Stacker/reclaimer & ship-loader erection", "level": 3 },
+    { "code": "BT.05.20.10", "name": "No-load belt run & tracking", "level": 4 },
+    { "code": "BT.06", "name": "Tank Farm & Process Piping (Liquid Bulk)", "level": 2 },
+    { "code": "BT.06.10", "name": "Tank erection & hydrotest", "level": 3 },
+    { "code": "BT.06.20", "name": "Process piping & loading-arm set", "level": 3 },
+    { "code": "BT.06.20.10", "name": "Flush, hydrotest & reinstate", "level": 4 },
+    { "code": "BT.07", "name": "Electrical & Instrumentation", "level": 2 },
+    { "code": "BT.07.10", "name": "MCC / switchgear & duct banks", "level": 3 },
+    { "code": "BT.07.20", "name": "Weightometer / level / flow instrumentation", "level": 3 },
+    { "code": "BT.07.30", "name": "SCADA integration", "level": 3 },
+    { "code": "BT.08", "name": "Dust & Fire Protection", "level": 2 },
+    { "code": "BT.09", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "BT.09.10", "name": "Mechanical run-in & interlock proving", "level": 3 },
+    { "code": "BT.09.20", "name": "Weightometer / flow-meter calibration", "level": 3 },
+    { "code": "BT.09.30", "name": "First load-out / ship-loading trial", "level": 3 },
+    { "code": "BT.09.40", "name": "Handover to operations", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are tied to the equipment train or berth section; the network is calculated (F9) with total float kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Marine civil works are weather and tide dependent; equipment erection runs a standard 6-day week; commissioning moves to a 7-day calendar to cover the load-out trial window, which is usually tied to a real vessel call." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs marine civil/trestle or tank-farm civil → material-handling equipment or tank/piping erection → electrical & instrumentation → dust/fire protection proving → load-out trial. In dry-bulk mode the driver is conveyor/stacker-reclaimer procurement and belt commissioning; in liquid-bulk mode it is tank hydrotest and pipeline reinstatement — name the applicable one explicitly." },
+      { "heading": "Key assumptions", "body": "Design is frozen and a single mobilisation is assumed; the berth or jetty is available to the equipment-erection schedule as planned; and product introduction (first cargo) is scheduled against a confirmed vessel call, not an assumed date." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led — the following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Stacker/reclaimer & ship-loader (dry bulk)", "40–60 weeks", "Before trestle/rail handover"], ["Belt conveyors & drive packages", "20–30 weeks", "Before structure install"], ["Storage tanks — shop or field-erected (liquid bulk)", "24–40 weeks", "Before tank-farm erection"], ["Pumps & loading arms (liquid bulk)", "20–30 weeks", "Before piping tie-in"], ["MCC / VFD & instrumentation", "16–24 weeks", "Before electrical set"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Marine plant access is tide and weather dependent; heavy-lift windows are needed for the stacker/reclaimer or large tanks; dust- or hazardous-area works require permits and specialist crews; the final load-out trial is constrained by vessel-call scheduling." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: equipment delivery slippage, dust-explosion or fire-system re-test loops, tank hydrotest/settlement time, and vessel-call availability for the trial. Schedule contingency is held immediately before commissioning and before the load-out trial rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for equipment erection and commissioning — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

@@ -1,0 +1,120 @@
+{
+  "archetype": "district_cooling_plant",
+  "schema": 2,
+  "context": "central-plant & distribution-network led · two-stage commissioning",
+  "brief": {
+    "intro": "New to this project type? A district cooling plant is a centralised chiller plant that produces chilled water and pumps it through a buried underground pipe network to many separate buildings, instead of each building having its own chillers. The programme has two very different halves that must be coordinated: the plant itself (chillers, pumps, pipework and sometimes a thermal energy storage tank) and the distribution network — kilometres of insulated buried pipe reaching each connected building's energy transfer station. Long-lead chillers and large pumps, plus the sheer length of the underground network, are what drive the schedule, not the plant building's structure. Commissioning is two-stage: the plant is proven first as a standalone system, then the network is proven building by building as each energy transfer station is connected and brought online.",
+    "scope": [
+      { "name": "Site & civil works", "desc": "Plant building foundations, network trenching route, and road/utility crossings." },
+      { "name": "Plant building structure", "desc": "Chiller hall, pump hall and electrical rooms — the structural shell housing the plant." },
+      { "name": "Chiller plant", "desc": "Centrifugal or absorption chillers with primary & secondary chilled-water pumps." },
+      { "name": "Thermal energy storage (TES)", "desc": "Chilled-water storage tank with charge/discharge piping and controls, where included." },
+      { "name": "Distribution network", "desc": "Buried pre-insulated chilled-water supply and return pipework across the site or district." },
+      { "name": "Energy transfer stations (ETS)", "desc": "Building-side heat exchangers and metering connecting each customer to the network." },
+      { "name": "Electrical & switchgear", "desc": "MV/LV power distribution for chillers, pumps and plant auxiliaries." },
+      { "name": "BMS / plant control", "desc": "Chiller sequencing, pump staging, network pressure/flow control and the ETS interface." },
+      { "name": "Testing & commissioning", "desc": "Plant start-up, network hydraulic/pressure testing, TES charge/discharge proving and ETS connection commissioning." }
+    ],
+    "glossary": [
+      { "term": "Chiller", "plain": "the machine that cools water using a refrigeration cycle." },
+      { "term": "TES (thermal energy storage)", "plain": "a large tank of chilled water that lets the plant run chillers off-peak and discharge cooling at peak demand." },
+      { "term": "ETS (energy transfer station)", "plain": "the equipment room at each connected building where network chilled water exchanges cooling with the building's own system." },
+      { "term": "Primary / secondary pumping", "plain": "primary pumps move water through the chillers; secondary pumps push it out into the distribution network." },
+      { "term": "Ton-hour / cooling capacity", "plain": "the unit used to size the chillers and the thermal storage tank." },
+      { "term": "Direct connect vs indirect", "plain": "whether a building's system is physically joined to the network, or kept separate by a heat exchanger at the ETS." },
+      { "term": "Pre-insulated pipe", "plain": "factory-insulated buried pipe used for the distribution network to limit heat gain in the ground." }
+    ],
+    "must_get_right": [
+      "Treat the plant and the distribution network as two schedules that must be integrated, not one — network length and the number of ETS connections often outlast the plant build.",
+      "Chillers and large pumps are long-lead and procurement-led — order early; their delivery gates plant start-up.",
+      "The network is commissioned building by building as each ETS is connected — sequence and prioritise connections against the customer occupancy programme, don't leave them all to the end.",
+      "Protect the two-stage commissioning (plant proving, then network/ETS proving) — a rushed plant proving shows up later as network-wide problems."
+    ]
+  },
+  "components": [
+    { "name": "Chiller Plant", "desc": "Chillers · primary/secondary pumping", "disc": "Mechanical", "primary": true },
+    { "name": "Thermal Energy Storage (TES)", "desc": "Chilled-water tank · charge/discharge piping", "disc": "Mechanical", "primary": true },
+    { "name": "Distribution Network", "desc": "Buried pre-insulated supply/return pipework", "disc": "Mechanical", "primary": true },
+    { "name": "Energy Transfer Stations (ETS)", "desc": "Heat exchangers · metering · building interface", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical & Switchgear", "desc": "MV/LV power · MCC · VFDs", "disc": "Electrical", "primary": false },
+    { "name": "BMS / Plant Control", "desc": "Sequencing · network control · ETS interface", "disc": "Instrumentation", "primary": false },
+    { "name": "Plant Building Structure", "desc": "Chiller hall · pump hall · electrical rooms", "disc": "Civil", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Chillers — set, align & refrigerant charge", "Primary/secondary pumping & pipework", "Thermal energy storage tank & charge/discharge piping", "Flush, fill & pressure test (plant + network)"] },
+    { "discipline": "Electrical", "items": ["MV/LV switchgear & chiller power", "Pump VFDs & motor control centres", "Earthing & lightning protection"] },
+    { "discipline": "Distribution Network", "items": ["Pre-insulated buried pipe installation", "Pipe-route crossings (roads/utilities)", "Energy transfer station (ETS) installation", "Network leak-detection cabling"] },
+    { "discipline": "BMS / Controls", "items": ["Chiller sequencing & plant optimisation control", "Network pressure/flow & differential control", "ETS metering & billing interface"] }
+  ],
+  "overview_phases": ["Site Civil & Plant Foundations", "Plant Structure", "Chiller & TES Installation", "Distribution Network Trenching & Pipe-laying", "Energy Transfer Station Connections", "Electrical & BMS Integration", "Testing & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Civil", "Structure", "Plant MEP", "Network", "ETS", "BMS", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 34, "label": "Plant foundations → structure → network trenching", "holds": [16] },
+      { "trade": "Chiller Plant & TES", "disc": "Mechanical", "kind": ["mechanical"], "start": 24, "width": 42, "label": "Chillers → TES → pumps → flush/fill", "holds": [50] },
+      { "trade": "Distribution Network", "disc": "Mechanical", "kind": ["civil", "mechanical"], "start": 20, "width": 56, "label": "Trench → lay pre-insulated pipe → ETS connect", "holds": [40, 68] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 30, "width": 30, "label": "Switchgear → MCC → power to plant", "holds": [55] },
+      { "trade": "BMS / Controls", "disc": "Instrumentation", "kind": ["bms"], "start": 46, "width": 32, "label": "Field devices → sequencing → ETS interface", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 74, "width": 26, "label": "Plant proving → network hydraulic test → ETS-by-ETS commissioning", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Plant building foundations", "Structural frame & envelope", "Network trench excavation", "Pipe-route crossings & reinstatement"] },
+    { "name": "Chiller Plant", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 5], "steps": ["Chiller procurement & delivery", "Rig & set chillers", "Refrigerant charge & alignment", "Primary pump installation", "Flush, fill & pressure test", "Capacity & staging test"] },
+    { "name": "Thermal Energy Storage (TES)", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["TES tank erection", "Diffuser & stratification internals", "Charge/discharge piping tie-in", "Charge/discharge cycle proving"] },
+    { "name": "Distribution Network", "disc": "Mechanical", "kind": ["civil", "mechanical"], "holds": [3], "steps": ["Pre-insulated pipe delivery & stringing", "Trench bedding & pipe-laying", "Joint welding/fusion & jointing", "Hydrostatic pressure test", "Backfill & reinstatement"] },
+    { "name": "Energy Transfer Stations (ETS)", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["ETS equipment delivery & set", "Heat exchanger & valve installation", "Metering & BMS point wiring", "Connection to live network & proving"] },
+    { "name": "Electrical", "disc": "Electrical", "kind": ["electrical"], "holds": [2], "steps": ["MV/LV switchgear installation", "Motor control centres & VFDs", "Cable termination & power-up", "Point-to-point & insulation test"] },
+    { "name": "BMS / Plant Control", "disc": "Instrumentation", "kind": ["bms"], "holds": [2], "steps": ["Field device & sensor installation", "Chiller/pump sequencing logic", "Network pressure/flow control loop", "ETS metering interface", "Integration & staging test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 3], "steps": ["Plant standalone proving", "Network hydraulic & pressure test", "TES charge/discharge test", "ETS-by-ETS connection & handover", "Performance / reliability run"] }
+  ],
+  "wbs": [
+    { "code": "DCP", "name": "District Cooling Plant — Project", "level": 1 },
+    { "code": "DCP.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "DCP.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "DCP.02.10", "name": "Plant Building Foundations", "level": 3 },
+    { "code": "DCP.02.20", "name": "Distribution Network Trenching", "level": 3 },
+    { "code": "DCP.03", "name": "Plant Building Structure", "level": 2 },
+    { "code": "DCP.04", "name": "Mechanical — Chiller Plant", "level": 2 },
+    { "code": "DCP.04.10", "name": "Chillers — Set & Commission", "level": 3 },
+    { "code": "DCP.04.20", "name": "Primary/Secondary Pumping & Pipework", "level": 3 },
+    { "code": "DCP.04.20.10", "name": "Flush, fill & pressure test", "level": 4 },
+    { "code": "DCP.05", "name": "Thermal Energy Storage (TES)", "level": 2 },
+    { "code": "DCP.05.10", "name": "TES Tank & Internals", "level": 3 },
+    { "code": "DCP.05.20", "name": "Charge/Discharge Piping", "level": 3 },
+    { "code": "DCP.06", "name": "Distribution Network", "level": 2 },
+    { "code": "DCP.06.10", "name": "Pipe-laying & Jointing", "level": 3 },
+    { "code": "DCP.06.20", "name": "Hydrostatic Pressure Testing", "level": 3 },
+    { "code": "DCP.07", "name": "Energy Transfer Stations (ETS)", "level": 2 },
+    { "code": "DCP.07.10", "name": "ETS Installation", "level": 3 },
+    { "code": "DCP.07.20", "name": "ETS Connection & Proving", "level": 3 },
+    { "code": "DCP.08", "name": "Electrical — Power & Switchgear", "level": 2 },
+    { "code": "DCP.09", "name": "BMS / Plant Control", "level": 2 },
+    { "code": "DCP.09.10", "name": "Sequencing & Network Control Logic", "level": 3 },
+    { "code": "DCP.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "DCP.10.10", "name": "Plant Standalone Proving", "level": 3 },
+    { "code": "DCP.10.20", "name": "Network Hydraulic Test", "level": 3 },
+    { "code": "DCP.10.30", "name": "TES Charge/Discharge Test", "level": 3 },
+    { "code": "DCP.10.40", "name": "ETS-by-ETS Commissioning & Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The distribution network is modelled as repeatable pipe segments and ETS connections rather than one lump activity, so trenching production rate and connection sequencing are both visible in the logic." },
+      { "heading": "Calendars & working time", "body": "Network trenching runs an extended calendar where road/utility crossings require traffic management or night work; plant MEP installation runs a standard shift; commissioning moves to a 7-day calendar toward plant energisation and network handover." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs chiller/TES procurement → plant structure → chiller set & pipework, in parallel with network trenching and pipe-laying → plant standalone proving → network hydraulic test → ETS connections staged against customer building occupancy → performance run. The plant and the network are effectively two coordinated critical paths, and the network is often the longer of the two." },
+      { "heading": "Key assumptions", "body": "Way-leaves and road-crossing permits are secured ahead of trenching; each customer building's readiness for ETS connection matches the network's arrival at that building; TES is included per the approved design; and chiller selection is frozen before plant civil works begin. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Centrifugal chillers", "30–45 weeks", "Before plant pipework tie-in"], ["Thermal energy storage tank/internals", "20–30 weeks", "Before charge/discharge proving"], ["Pre-insulated distribution pipe", "12–20 weeks", "Before trench pipe-laying start"], ["MV switchgear", "20–30 weeks", "Before plant power-up"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Road and utility crossings need traffic management and third-party approvals that can gate trenching progress; trenching production rate is a resource constraint across a long, linear network; chiller and TES heavy lifts need crane access into the plant building before roof closure." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-lead chiller/pipe slippage, way-leave or road-crossing permit delay, customer building readiness mismatch at ETS connection, and hydrostatic test failures on long pipe runs. Schedule contingency is held before the network hydrostatic test and before the first ETS connection rather than spread thinly across pipe segments." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones — plant proving, first ETS connection, full network commissioned) and Level 2 (summary by network zone) to the client; controlled at Level 3; expanded to Level 4–5 lookahead per pipe segment/ETS for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

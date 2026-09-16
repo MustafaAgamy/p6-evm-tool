@@ -1,0 +1,127 @@
+{
+  "archetype": "highrise_residential",
+  "schema": 2,
+  "context": "core jumpform · vertical MEP spine & life-safety dominate",
+  "brief": {
+    "intro": "High-rise residential — ground plus ten storeys and above — is where vertical coordination stops being a secondary concern and becomes as important as the finishing programme itself. A slipformed or jumpformed concrete core leads the structure upward, typical floors follow a tight repeating cycle, and a full vertical MEP spine — wet and dry fire-fighting risers, domestic water risers, electrical risers, fire-alarm zoning, smoke control and lift shafts — must be built, tested and closed in step with that cycle. Finishing runs several floors behind structure in a continuous rolling wave rather than floor-by-floor stops, because with dozens of floors there is no time to wait: any trade that falls behind the wave is very expensive to recover. Life-safety commissioning — fire pumps, sprinkler flow tests, smoke-control interlocks with the lifts, fire-alarm cause-and-effect — is a genuine engineering exercise here, not a paperwork step, and it gates occupancy floor-band by floor-band.",
+    "scope": [
+      { "name": "Enabling & substructure", "desc": "Deep foundations/piling where required, basement or podium structure." },
+      { "name": "Core", "desc": "Jump/climb/slip-form concrete core leading the structure upward." },
+      { "name": "Superstructure", "desc": "Typical-floor slab cycle (flat slab or post-tensioned), including any transfer structure." },
+      { "name": "Envelope", "desc": "Curtain wall/cladding, windows and waterproofing." },
+      { "name": "Vertical MEP spine", "desc": "Fire, water and electrical risers with floor-by-floor testing." },
+      { "name": "MEP first fix & wet-area waterproofing", "desc": "In-unit conduit, pipework, stub-ups and fire-alarm devices; wet-area tanking." },
+      { "name": "Internal finishes", "desc": "Rolling-wave finishing running a fixed number of floors behind structure." },
+      { "name": "MEP second fix & fire-alarm zoning", "desc": "Fittings, devices and fire-alarm zoning/cause-and-effect verification." },
+      { "name": "Vertical transportation & smoke control", "desc": "Lift installation, equipping and the lift/smoke-control interface." },
+      { "name": "Roof plant, testing & phased handover", "desc": "Roof plant & water tanks, life-safety commissioning, unit snagging, floor-band handover." }
+    ],
+    "glossary": [
+      { "term": "Jumpform / climbform / slipform", "plain": "formwork systems that climb the core ahead of the typical floors, so the core is always several floors above the slab being cast." },
+      { "term": "Rolling wave", "plain": "a finishing sequence that runs continuously a fixed number of floors behind structure, rather than stopping floor by floor." },
+      { "term": "Wet riser / dry riser", "plain": "permanently water-filled vs empty fire-fighting pipes firefighters connect pumps or hoses to on each floor." },
+      { "term": "Fire-alarm zoning", "plain": "grouping detection and sounders by floor or compartment so an alarm can be located precisely." },
+      { "term": "Smoke control", "plain": "pressurisation or extract systems, often linked to lift homing, that keep escape routes clear of smoke in a fire." },
+      { "term": "Transfer structure", "plain": "a heavy beam or slab that changes the column grid between a wider podium and the tower above." },
+      { "term": "BMS-lite", "plain": "a light building-management layer monitoring common-area plant, lifts and life-safety status, short of a full industrial BMS." },
+      { "term": "Phased / floor-band handover", "plain": "releasing completed groups of floors to the owner before the whole tower is finished." }
+    ],
+    "must_get_right": [
+      "Keep the core jumpform lead consistent — if it slows or speeds unevenly, every typical floor and every riser section behind it re-sequences.",
+      "Treat the vertical MEP spine (fire, water, electrical risers) as a structural-grade schedule driver, not an MEP afterthought — floor-by-floor testing must be built into the floor cycle, not squeezed after.",
+      "Run finishing as a genuine rolling wave a fixed number of floors behind structure — never let it try to catch up to the core.",
+      "Protect life-safety commissioning (fire pump, sprinkler flow, smoke control, fire-alarm cause-and-effect) with real float — it gates occupancy and re-tests are common."
+    ]
+  },
+  "components": [
+    { "name": "Core & Superstructure", "desc": "Jump/climb-form core · typical-floor slab cycle", "disc": "Civil", "primary": true },
+    { "name": "Vertical MEP — Risers", "desc": "Fire, water & electrical risers · floor testing", "disc": "Plumbing", "primary": true },
+    { "name": "Fire Protection & Life Safety", "desc": "Wet/dry risers · sprinklers · smoke control", "disc": "Fire Protection", "primary": true },
+    { "name": "Architectural Finishes", "desc": "Rolling-wave finishing", "disc": "Architectural", "primary": true },
+    { "name": "Electrical & Lighting", "desc": "Distribution · riser · metering", "disc": "Electrical", "primary": true },
+    { "name": "Vertical Transportation", "desc": "Lifts · smoke-control interface", "disc": "Mechanical", "primary": true },
+    { "name": "BMS-lite / ELV", "desc": "Common-area & life-safety monitoring", "disc": "Extra-Low Voltage", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["HVAC — split or VRF per unit; central AHU for common areas", "Chilled-water provisions for common/amenity areas (where provided)", "Lift machine room cooling", "Roof-plant equipment"] },
+    { "discipline": "Electrical", "items": ["LV distribution & per-unit metering (electrical riser)", "Standby generator for life-safety loads (fire pump, lifts, emergency lighting)", "Common-area & car-park lighting/power", "Lightning protection & earthing"] },
+    { "discipline": "Plumbing / Drainage", "items": ["Domestic water risers — floor-by-floor pressure test", "Roof water tanks & booster pump sets", "Soil, waste & vent stacks"] },
+    { "discipline": "Fire / ELV / BMS-lite", "items": ["Wet/dry fire risers & sprinkler network", "Fire pump room & jockey pump", "Fire-alarm detection, sounders & zoning", "Smoke-control / stair-pressurisation interlocked with lifts", "BMS-lite — common-area, lift & life-safety monitoring"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Core Jumpform Lead", "Typical-Floor Superstructure", "Envelope", "Vertical MEP Spine & Riser Testing", "Rolling-Wave Finishing", "Vertical Transportation & Smoke Control", "Life-Safety Commissioning & Phased Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Core/Structure", "Envelope", "Riser", "Finishes", "2nd Fix", "Comm."],
+    "lanes": [
+      { "trade": "Core & Structure", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 44, "label": "Substructure → jumpform core lead → typical-floor cycle", "holds": [16] },
+      { "trade": "Vertical MEP — Risers", "disc": "Plumbing", "kind": ["mechanical"], "start": 16, "width": 42, "label": "Fire/water/electrical riser install → floor-by-floor test", "holds": [40] },
+      { "trade": "Electrical & ELV/BMS", "disc": "Electrical", "kind": ["electrical", "elv", "bms"], "start": 22, "width": 46, "label": "Containment → first fix → second fix → test", "holds": [48, 80] },
+      { "trade": "Fire Protection & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "start": 30, "width": 48, "label": "Riser/sprinkler → zoning → smoke-control interlock → cause-effect", "holds": [58, 78] },
+      { "trade": "Rolling-Wave Finishing", "disc": "Architectural", "kind": ["civil"], "start": 40, "width": 42, "label": "Wet-area tanking → screed/tiling → paint, several floors behind core", "holds": [] },
+      { "trade": "Commissioning & Handover", "disc": "Commissioning", "kind": ["comm"], "start": 82, "width": 18, "label": "Life-safety test → snagging → phased handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Core & Structure", "disc": "Civil", "kind": ["civil"], "holds": [1, 2], "steps": ["Enabling works & substructure (incl. deep foundations where required)", "Core — jump/climb/slip-form lead", "Typical-floor formwork, rebar & pour cycle", "Transfer structure (podium-to-tower, where present)", "Envelope — curtain wall/cladding & windows", "External waterproofing"] },
+    { "name": "Vertical MEP — Risers", "disc": "Plumbing", "kind": ["mechanical"], "holds": [3, 4], "steps": ["Riser sleeves & builder's work in core", "Fire riser (wet/dry) installation per floor", "Domestic water & electrical riser installation per floor", "Floor-by-floor pressure/function test", "Riser closure & fire-stopping"] },
+    { "name": "Plumbing & Sanitary", "disc": "Plumbing", "kind": ["mechanical"], "holds": [3], "steps": ["First-fix pipework & stub-ups", "Sanitary fixture set", "Second-fix & connection", "Flush, flow & leak test per unit"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Containment & conduit first fix", "Electrical riser cable pull", "Distribution boards & metering", "Device & fitting second fix", "Circuit testing & certification"] },
+    { "name": "Fire Protection & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [4, 6], "steps": ["Fire pump room & jockey pump installation", "Wet/dry riser & sprinkler pipework per floor", "Detector, sounder & panel first fix", "Fire-alarm zoning verification", "Sprinkler flow & riser pressure test", "Smoke-control / stair-pressurisation interlock test", "Cause-and-effect & integrated fire test"] },
+    { "name": "Vertical Transportation & Smoke Control", "disc": "Mechanical", "kind": ["mechanical", "fire"], "holds": [3, 4], "steps": ["Lift shaft handover", "Rail & equipment installation", "Car & door fit-out", "Lift homing / smoke-control interface test", "Load & safety test"] },
+    { "name": "BMS-lite / ELV", "disc": "Extra-Low Voltage", "kind": ["elv", "bms"], "holds": [2], "steps": ["Containment routes", "Data, intercom & access-control cabling", "BMS-lite points — common areas, lifts & life-safety status", "Testing & certification"] },
+    { "name": "Rolling-Wave Finishing & Handover", "disc": "Architectural", "kind": ["civil", "comm"], "holds": [3, 5], "steps": ["Wet-area tanking & flood test", "Plaster, screed & tiling", "Paint & joinery", "Snagging walkthrough", "De-snag & touch-up", "Phased floor-band handover"] }
+  ],
+  "wbs": [
+    { "code": "HRR", "name": "High-Rise Residential — Project", "level": 1 },
+    { "code": "HRR.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "HRR.02", "name": "Site & Substructure", "level": 2 },
+    { "code": "HRR.02.10", "name": "Enabling works & deep foundations", "level": 3 },
+    { "code": "HRR.02.20", "name": "Basement / podium structure", "level": 3 },
+    { "code": "HRR.03", "name": "Core & Superstructure", "level": 2 },
+    { "code": "HRR.03.10", "name": "Core — jump/climb-form lead", "level": 3 },
+    { "code": "HRR.03.20", "name": "Typical floors", "level": 3 },
+    { "code": "HRR.03.20.10", "name": "Formwork, rebar & pour cycle", "level": 4 },
+    { "code": "HRR.03.30", "name": "Transfer structure (podium-to-tower)", "level": 3 },
+    { "code": "HRR.04", "name": "Envelope", "level": 2 },
+    { "code": "HRR.04.10", "name": "Curtain wall / cladding", "level": 3 },
+    { "code": "HRR.04.20", "name": "Waterproofing", "level": 3 },
+    { "code": "HRR.05", "name": "Mechanical — Vertical MEP & Plumbing", "level": 2 },
+    { "code": "HRR.05.10", "name": "Fire & water risers", "level": 3 },
+    { "code": "HRR.05.10.10", "name": "Floor-by-floor pressure test", "level": 4 },
+    { "code": "HRR.05.20", "name": "Sanitary fixtures & second fix", "level": 3 },
+    { "code": "HRR.06", "name": "Electrical", "level": 2 },
+    { "code": "HRR.06.10", "name": "Electrical riser & containment", "level": 3 },
+    { "code": "HRR.06.20", "name": "Distribution boards, second fix & testing", "level": 3 },
+    { "code": "HRR.07", "name": "Fire Protection & Life Safety", "level": 2 },
+    { "code": "HRR.07.10", "name": "Fire pump room & risers", "level": 3 },
+    { "code": "HRR.07.20", "name": "Detection, zoning & sprinkler test", "level": 3 },
+    { "code": "HRR.07.20.10", "name": "Fire-alarm zoning verification", "level": 4 },
+    { "code": "HRR.07.20.10.10", "name": "Zone-by-zone sign-off", "level": 5 },
+    { "code": "HRR.07.30", "name": "Smoke-control & cause-and-effect test", "level": 3 },
+    { "code": "HRR.08", "name": "Vertical Transportation", "level": 2 },
+    { "code": "HRR.08.10", "name": "Lift installation & smoke-control interface", "level": 3 },
+    { "code": "HRR.09", "name": "BMS-lite / ELV", "level": 2 },
+    { "code": "HRR.10", "name": "Internal Finishes — Rolling Wave", "level": 2 },
+    { "code": "HRR.10.10", "name": "Wet & dry-area finishing — tanking, tiling, plaster, paint", "level": 3 },
+    { "code": "HRR.11", "name": "Testing, Snagging & Phased Handover", "level": 2 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Core and structure run a 6-day calendar, with a night shift on the core cycle where needed to protect the climb rate. MEP and finishing trades move to two shifts at peak to hold the rolling-wave offset behind structure. Life-safety commissioning runs on a focused daytime calendar to allow controlled access." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs core jumpform lead → typical-floor cycle → vertical MEP riser installation & floor-by-floor testing → rolling-wave finishing (held a fixed floor-offset behind) → life-safety commissioning (fire pump, sprinkler flow, smoke control, cause-and-effect) → phased floor-band handover. The core's climb rate is usually the true pacing driver for the whole tower; once it is fixed, every other front is scheduled as an offset behind it." },
+      { "heading": "Key assumptions", "body": "Design and a sample/mock-up floor are approved before rollout; riser and fire subcontractors are mobilised in step with the core climb rate; the structural engineer signs off the transfer structure before load-out above proceeds; a single mobilisation; phased handover aligned with fire-safety compartmentation by floor-band." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule tracks the following as milestones because their delivery gates a specific front:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Passenger lifts (multiple cars)", "20–30 weeks", "Before shaft handover to fit-out"], ["Fire pump set & controllers", "12–18 weeks", "Before riser commissioning"], ["Curtain wall / unitised cladding system", "16–24 weeks", "Before envelope closure"], ["Standby generator (life-safety loads)", "16–24 weeks", "Before life-safety commissioning"], ["Water tanks & booster pump sets", "8–14 weeks", "Before roof-plant handover"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Multiple tower cranes and hoists are shared across structure, cladding and MEP delivery; the core climb-form crew works ahead and restricts access to the top floors; riser and finishing crews queue behind the structural front; life-safety commissioning needs controlled, low-occupancy access; noise/hours limits and public-safety exclusion zones apply around a tall site." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: core climb-rate slippage compounding through every trade behind it, riser testing failures found late after enclosure, and life-safety re-test loops (sprinkler flow, smoke-control interlocks). Contingency is held at the riser-to-finishing transition and before life-safety commissioning/handover, not spread across floors." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (floor-band summary) to the client; controlled at Level 3 (floor-by-floor); expanded to Level 4–5 lookahead by unit/trade for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

@@ -1,0 +1,125 @@
+{
+  "archetype": "mall_retail",
+  "schema": 2,
+  "context": "life-safety led · integrated smoke-control test + base-build/tenant fit-out interface govern the programme",
+  "brief": {
+    "intro": "New to this project type? A shopping mall or retail centre is a large, open public building wrapped around a network of leasable tenant units, built by the developer as a \"base-build\" shell that individual tenants then fit out separately. The programme is driven less by the structure itself than by two things: the integrated life-safety system — smoke control, fire, public-address voice evacuation and lift-homing all have to work together as one proven system before the mall can open — and the recurring handover boundary between base-build and tenant fit-out, repeated for every unit and food-court outlet. Long structural spans and atria also mean the steel frame and central mechanical plant are on the critical path early, well before finishes begin.",
+    "scope": [
+      { "name": "Enabling & substructure", "desc": "Earthworks, piling/foundations and basement or service-yard construction." },
+      { "name": "Structural steel & superstructure", "desc": "Long-span steel frame, floor slabs and atrium structure that create the mall's open volumes." },
+      { "name": "Building envelope", "desc": "Cladding, roofing, glazing and waterproofing to get the shell weather-tight." },
+      { "name": "Mechanical — central plant & HVAC", "desc": "Chillers, AHUs and chilled-water distribution serving the mall's common areas." },
+      { "name": "Electrical power & lighting", "desc": "MV/LV distribution, standby generation and lighting for common areas, mall and car park." },
+      { "name": "Fire protection & life safety", "desc": "Sprinklers, smoke control/extraction and the fire alarm & voice-evacuation system." },
+      { "name": "Vertical transport", "desc": "Escalators, travelators and lifts serving mall levels and atria." },
+      { "name": "ELV / security & BMS", "desc": "CCTV, access control, the PA system and the building management system that ties everything together." },
+      { "name": "Mall common-area finishes", "desc": "Flooring/stone, ceilings, signage and wayfinding in the public areas." },
+      { "name": "Tenant fit-out interface & handover", "desc": "Base-build handover packages issued per unit and coordination with tenants, anchors and food-court operators." }
+    ],
+    "glossary": [
+      { "term": "Base-build", "plain": "the landlord's shell-and-core work, handed over to tenants who then fit out their own units." },
+      { "term": "Tenant fit-out", "plain": "the work a retail tenant does inside their leased unit after base-build handover." },
+      { "term": "Anchor tenant", "plain": "a large store — department store, supermarket, cinema — that often has its own dedicated structural/MEP interface." },
+      { "term": "Voice evacuation", "plain": "a PA-based fire alarm system that gives spoken evacuation instructions to specific zones." },
+      { "term": "Smoke control / extraction", "plain": "fans and dampers that clear smoke from atria and malls so people can escape safely." },
+      { "term": "Lift homing", "plain": "lifts automatically return to a safe floor and are taken out of normal service during a fire alarm." },
+      { "term": "Atrium", "plain": "a tall open volume, often multi-storey, inside the mall that needs special smoke-control design." },
+      { "term": "Cause-and-effect (C&E) matrix", "plain": "the document defining exactly which fire/life-safety devices trigger which other systems." }
+    ],
+    "must_get_right": [
+      "The integrated life-safety cause-and-effect test (smoke control + fire + voice evacuation + lift homing) is the real finish line, not the last fire-alarm point — protect real time for it and for re-tests.",
+      "Base-build must be substantially finished and formally handed over before tenant fit-out can start in each unit — track this as a milestone per unit, not an assumption.",
+      "Vertical transport has long procurement lead times and needs early shaft/pit readiness — sequence the structure around it, not the other way round.",
+      "Anchor tenants and food-court units often carry bespoke structural/MEP interfaces — coordinate these early; they are not \"just another shop\"."
+    ]
+  },
+  "components": [
+    { "name": "Structural Steel & Superstructure", "desc": "Long-span frame · floor slabs · atrium structure", "disc": "Structural", "primary": true },
+    { "name": "Mechanical — Central Plant & HVAC", "desc": "Chillers · AHUs · common-area air distribution", "disc": "Mechanical", "primary": true },
+    { "name": "Fire Protection & Life Safety", "desc": "Sprinklers · smoke control · voice evacuation", "disc": "Fire Protection", "primary": true },
+    { "name": "Vertical Transport", "desc": "Escalators · travelators · lifts", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power & Lighting", "desc": "MV/LV · standby generation · mall & common-area lighting", "disc": "Electrical", "primary": false },
+    { "name": "ELV / Security / BMS", "desc": "CCTV · access control · building management", "disc": "Extra-Low Voltage", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Chillers & central chilled-water plant", "AHUs / FCUs & mall common-area air distribution", "Smoke-control & extraction fans, dampers", "Escalators, travelators & lifts"] },
+    { "discipline": "Electrical", "items": ["MV/LV switchgear, transformers & standby generation", "Mall & car-park lighting, emergency lighting", "Tenant sub-metering & distribution boards", "Car-park & external area power"] },
+    { "discipline": "Plumbing", "items": ["Domestic water & sanitary drainage to common areas & food court", "Grease traps & kitchen-exhaust interfaces (food court/anchor)", "Storm drainage & roof outlets"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire alarm & voice-evacuation PA system", "Sprinklers & fire pumps", "CCTV, access control & mall security", "BMS integration — HVAC, fire, lifts, lighting"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Structural Steel & Superstructure", "Envelope & Waterproofing", "MEP Rough-in & Central Plant", "Vertical Transport Installation", "Fire & Life-Safety Integration", "Base-Build Finishes & Handover", "Tenant Fit-Out & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Envelope", "Rough-in", "Plant/VT", "Life-Safety", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 38, "label": "Piling → substructure → steel frame → slabs & atrium", "holds": [16] },
+      { "trade": "Mechanical — Central Plant & HVAC", "disc": "Mechanical", "kind": ["mechanical"], "start": 22, "width": 55, "label": "Containment → set plant → AHUs → balance mall-wide", "holds": [58] },
+      { "trade": "Electrical — Power & Lighting", "disc": "Electrical", "kind": ["electrical"], "start": 24, "width": 58, "label": "Containment → switchgear/gen → lighting → energise", "holds": [60, 82] },
+      { "trade": "Vertical Transport", "disc": "Mechanical", "kind": ["mechanical"], "start": 40, "width": 32, "label": "Shaft/pit ready → install escalators/lifts → load test", "holds": [70] },
+      { "trade": "Fire / ELV / BMS", "disc": "Fire Protection", "kind": ["fire", "elv", "bms"], "start": 46, "width": 40, "label": "Devices → C&E wiring → integrated life-safety test", "holds": [84] },
+      { "trade": "Base-Build Handover / Tenant Interface", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Base-build sign-off → phased tenant handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2, 5], "steps": ["Piling & foundations", "Basement / service yard structure", "Structural steel erection — frame & atrium", "Floor slabs & metal decking", "Roof structure & envelope", "Waterproofing & glazing"] },
+    { "name": "Mechanical — Central Plant & HVAC", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 5], "steps": ["Long-lead procurement — chillers, AHUs, escalators/lifts", "Plantroom pipework & ductwork containment", "Set chillers, pumps & AHUs", "Install FCUs & diffusers to common areas", "Smoke-control fans & dampers", "Flush, balance & commission air/water systems"] },
+    { "name": "Vertical Transport", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 4], "steps": ["Procure escalators, travelators & lifts (long lead)", "Shaft & pit civil readiness", "Install & align equipment", "Load & safety testing", "Lift-homing integration with fire system"] },
+    { "name": "Electrical Power & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Containment routes & cable pull", "Set switchgear, transformers & standby generators", "Mall, common-area & car-park lighting", "Tenant distribution boards & sub-metering", "Energise & test"] },
+    { "name": "Fire Protection & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [4], "steps": ["Sprinkler & fire-pump installation", "Fire/smoke detection devices & cabling", "Voice-evacuation PA system", "Cause-and-effect (C&E) wiring & programming", "Integrated smoke-control & life-safety test"] },
+    { "name": "ELV / Security / BMS", "disc": "Extra-Low Voltage", "kind": ["elv", "bms"], "holds": [3], "steps": ["Containment & structured cabling", "CCTV & access control devices", "BMS field devices & controllers", "Integration & staging test", "Security operations centre (SOC) handover"] },
+    { "name": "Base-Build & Tenant Fit-Out Interface", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 3], "steps": ["Base-build punch-list & common-area finishes", "Integrated life-safety cause-and-effect test", "Base-build sign-off / occupancy readiness", "Tenant handover packages issued per unit", "Tenant fit-out coordination & final integration test"] }
+  ],
+  "wbs": [
+    { "code": "MALL", "name": "Shopping Mall / Retail Center — Project", "level": 1 },
+    { "code": "MALL.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "MALL.02", "name": "Enabling & Substructure", "level": 2 },
+    { "code": "MALL.02.10", "name": "Earthworks & piling", "level": 3 },
+    { "code": "MALL.02.20", "name": "Basement / service yard", "level": 3 },
+    { "code": "MALL.03", "name": "Structural Steel & Superstructure", "level": 2 },
+    { "code": "MALL.03.10", "name": "Steel frame erection", "level": 3 },
+    { "code": "MALL.03.20", "name": "Floor slabs & atrium structure", "level": 3 },
+    { "code": "MALL.04", "name": "Building Envelope", "level": 2 },
+    { "code": "MALL.04.10", "name": "Cladding & glazing", "level": 3 },
+    { "code": "MALL.04.20", "name": "Roofing & waterproofing", "level": 3 },
+    { "code": "MALL.05", "name": "Mechanical — Central Plant & HVAC", "level": 2 },
+    { "code": "MALL.05.10", "name": "Chilled-water plant", "level": 3 },
+    { "code": "MALL.05.10.10", "name": "Chillers & pumps — set & commission", "level": 4 },
+    { "code": "MALL.05.20", "name": "AHU / FCU distribution", "level": 3 },
+    { "code": "MALL.05.30", "name": "Smoke-control & extraction", "level": 3 },
+    { "code": "MALL.06", "name": "Electrical — Power & Lighting", "level": 2 },
+    { "code": "MALL.06.10", "name": "MV/LV distribution, standby generation & tenant distribution", "level": 3 },
+    { "code": "MALL.06.20", "name": "Mall & common-area lighting", "level": 3 },
+    { "code": "MALL.07", "name": "Vertical Transport", "level": 2 },
+    { "code": "MALL.07.10", "name": "Escalators & travelators", "level": 3 },
+    { "code": "MALL.07.20", "name": "Lifts", "level": 3 },
+    { "code": "MALL.07.20.10", "name": "Lift-homing integration & load test", "level": 4 },
+    { "code": "MALL.08", "name": "Fire Protection & Life Safety", "level": 2 },
+    { "code": "MALL.08.10", "name": "Sprinklers & fire pumps", "level": 3 },
+    { "code": "MALL.08.20", "name": "Fire alarm & voice evacuation", "level": 3 },
+    { "code": "MALL.08.20.10", "name": "Cause-and-effect (C&E) programming", "level": 4 },
+    { "code": "MALL.09", "name": "ELV / Security / BMS", "level": 2 },
+    { "code": "MALL.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "MALL.10.10", "name": "Integrated life-safety test", "level": 3 },
+    { "code": "MALL.10.20", "name": "Base-build sign-off & handover", "level": 3 },
+    { "code": "MALL.11", "name": "Tenant Fit-Out Interface", "level": 2 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Car-park, mall common areas and each tenant unit are tracked as separate zones so base-build and fit-out progress can be reported independently." },
+      { "heading": "Calendars & working time", "body": "Structural steel and envelope run a 6-day week; MEP fit-out and finishes move to extended hours ahead of the life-safety test; tenant fit-out runs on its own calendar in parallel once base-build handover packages are issued per unit or zone." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs structural steel/envelope (weather-tight) → central-plant & vertical-transport installation → fire/life-safety device wiring → integrated smoke-control & voice-evacuation cause-and-effect test → base-build sign-off → phased tenant handover. The integrated life-safety test, not the last finish, is the true schedule gate to opening." },
+      { "heading": "Key assumptions", "body": "Design is frozen, the tenant lease/fit-out guide is finalised, anchor-tenant interfaces are agreed early, and authority approvals are obtained per phase gate. A single mobilisation is assumed." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led for vertical transport and central plant. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Escalators / travelators", "24–36 weeks", "Before shaft/pit closure & floor finishes"], ["Lifts", "20–30 weeks", "Before shaft closure"], ["Chillers / AHUs", "20–30 weeks", "Before plantroom close-in"], ["Fire alarm / voice-evacuation & PA system", "16–24 weeks", "Before life-safety integration test"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Sites are often congested and urban; crane and heavy-lift windows are needed for steel and plant. Phased handover to multiple tenants competes for access late in the programme, and skilled commissioning resources are shared across systems near the life-safety test." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: anchor-tenant design changes, integrated life-safety re-test loops, and tenant fit-out coordination delays. Schedule contingency is held before the integrated life-safety test and before base-build handover, rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead per zone/unit for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

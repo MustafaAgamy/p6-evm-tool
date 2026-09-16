@@ -1,0 +1,125 @@
+{
+  "archetype": "pulp_paper",
+  "schema": 2,
+  "context": "rotating-equipment-led · chemical recovery cycle drives wet-end start-up",
+  "brief": {
+    "intro": "A pulp & paper mill turns wood chips or pulp into paper: chemical or mechanical pulping, chemical recovery, then forming, pressing, drying and winding on a paper machine. The programme is dominated by heavy rotating equipment — digesters, refiners and the paper machine's long roll train — set on precision foundations, plus steam/condensate and chemical recovery (black-liquor) systems that must be proven before the wet end can run. Because a paper machine runs at high speed with tight alignment tolerances, mechanical completion of the roll train and drive train is its own discipline, distinct from ordinary piping and electrical work. The critical path runs through long-lead process equipment — digesters, headbox, dryer cans, recovery boiler — into precision alignment, steam-up and the first reel, with the chemical recovery cycle (recovery boiler, evaporators, causticizing) forming a parallel, equally long chain. Both chains have to land together, or the later one dictates the start-up date.",
+    "scope": [
+      { "name": "Wood / fibre yard", "desc": "Chip or pulp receiving, storage and handling to the digester." },
+      { "name": "Pulping & chemical recovery", "desc": "Digesters, evaporators, recovery boiler and causticizing — the kraft cycle that gates chemical self-sufficiency." },
+      { "name": "Bleach plant", "desc": "Multi-stage bleaching to brightness specification (bleached grades only)." },
+      { "name": "Stock preparation", "desc": "Refining, blending and approach flow to the headbox." },
+      { "name": "Paper machine", "desc": "Forming, press, dryer, size press, calendar and reel — the core production asset." },
+      { "name": "Finishing & warehouse", "desc": "Winders, sheeters, wrapping and roll storage/dispatch." },
+      { "name": "Utilities & power island", "desc": "Boiler/turbine — often biomass or black-liquor cogeneration — plus water and effluent treatment." },
+      { "name": "Structural steel & buildings", "desc": "Machine hall, digester/recovery structures and tankage support." },
+      { "name": "Electrical & instrumentation", "desc": "MCC and drives, DCS, machine control system." },
+      { "name": "Testing & commissioning", "desc": "Mechanical run-in, steam-up, wet-end start-up, first reel and performance run." }
+    ],
+    "glossary": [
+      { "term": "Digester", "plain": "the vessel that cooks wood chips into pulp using chemicals and heat." },
+      { "term": "Black liquor / chemical recovery", "plain": "the spent cooking chemicals plus wood lignin, burned in a recovery boiler to regenerate chemicals and produce steam/power." },
+      { "term": "Headbox", "plain": "delivers the diluted pulp stock evenly across the moving wire to form the sheet." },
+      { "term": "Wet end / dry end", "plain": "the wet end forms and presses the wet sheet; the dry end dries, sizes, calendars and winds it." },
+      { "term": "Roll train / drive train", "plain": "the long chain of rotating rolls (press, dryer cans, calendar) driven and aligned to run in speed-sync." },
+      { "term": "Recovery boiler", "plain": "burns black liquor to recover cooking chemicals and generate steam — a pressure vessel with its own safety code." },
+      { "term": "Lime kiln / causticizing", "plain": "regenerates the active cooking chemical from recovered lime." },
+      { "term": "First reel / wet-end start-up", "plain": "the milestone when the machine first produces a continuous, saleable sheet." }
+    ],
+    "must_get_right": [
+      "Order and align the paper machine roll train early — precision alignment (not just power) determines run speed and quality, and it cannot be rushed at the end.",
+      "Sequence the chemical recovery cycle (recovery boiler, evaporators, causticizing) in parallel with the fibre line — mechanical completion of one without the other stalls chemical self-sufficiency and wet-end start-up.",
+      "Protect steam-up and mechanical run-in time before wet-end start-up — bearings, drives and dryer cans need supervised run-in under load before the first reel.",
+      "Treat recovery-boiler pressure-part work as code-inspected work with formal hold points, not as ordinary structural steel."
+    ]
+  },
+  "components": [
+    { "name": "Pulping & Recovery", "desc": "Digesters · evaporators · recovery boiler · causticizing", "disc": "Process", "primary": true },
+    { "name": "Paper Machine", "desc": "Forming · press · dryer · calendar · reel", "disc": "Mechanical", "primary": true },
+    { "name": "Stock Preparation", "desc": "Refining · blending · approach flow", "disc": "Process", "primary": false },
+    { "name": "Material Handling", "desc": "Wood yard, chip & roll conveying", "disc": "Conveying", "primary": false },
+    { "name": "Utilities & Power Island", "desc": "Boiler/turbine cogeneration · water & effluent treatment", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical & Drives", "desc": "MCC · VFD drives · machine control system", "disc": "Electrical", "primary": false },
+    { "name": "Commissioning", "desc": "Run-in · steam-up · wet-end start-up · first reel", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Process piping — steam, chemical, stock lines", "Rotating equipment — pumps, refiners, fans", "Paper-machine drive train", "Insulation / lagging for steam & process lines"] },
+    { "discipline": "Electrical", "items": ["MV/LV distribution", "VFD drives per machine section", "Cogeneration interconnection", "Motor control centres (MCC)"] },
+    { "discipline": "Utilities / Plumbing", "items": ["Fresh & process water treatment", "Effluent / wastewater treatment", "Compressed air distribution"] },
+    { "discipline": "ELV / Instrumentation / DCS", "items": ["DCS / machine control system", "Fire detection & suppression", "Quality sensors — basis weight, moisture, consistency"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Structural Steel & Buildings", "Process Equipment Set", "Piping & Recovery Cycle", "Paper Machine Install", "Electrical & Controls", "Commissioning & Start-up"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Equip. Set", "Piping", "PM Install", "Electrical", "Start-up"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 38, "label": "Earthworks → foundations → machine-hall steel", "holds": [14] },
+      { "trade": "Process Equipment", "disc": "Process", "kind": ["mechanical"], "start": 16, "width": 50, "label": "Set digesters/recovery → PM roll train → align", "holds": [40, 66] },
+      { "trade": "Process & Utility Piping", "disc": "Mechanical", "kind": ["mechanical"], "start": 30, "width": 44, "label": "Steam/chemical lines → recovery-cycle piping → test", "holds": [56] },
+      { "trade": "Electrical & Drives", "disc": "Electrical", "kind": ["electrical"], "start": 44, "width": 36, "label": "MCC/VFD → machine control system → terminate", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 74, "width": 26, "label": "Run-in → steam-up → wet-end start-up → first reel", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site clearance & earthworks", "Foundations (heavy equipment & digester bases)", "Machine-hall & recovery-building structural steel erection", "Roofing & cladding", "Tankage foundations & bunding"] },
+    { "name": "Pulping & Chemical Recovery", "disc": "Process", "kind": ["mechanical"], "holds": [0, 2], "steps": ["Long-lead procurement — digester, recovery boiler, evaporators", "Set digester(s) & bleach-plant vessels", "Set recovery boiler (pressure-part code inspection)", "Set evaporators & causticizing/lime kiln", "Chemical & steam piping tie-ins", "Hydrotest & chemical-cycle proving"] },
+    { "name": "Paper Machine", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 4, 6], "steps": ["Long-lead procurement — headbox, wire/press/dryer sections, reel", "Set & align roll train — press, dryer cans, calendar", "Install headbox & wire section", "Dryer-can steam/condensate piping", "Drive-train coupling & speed-sync alignment", "Mechanical run-in (no load)", "Steam-up & wet-end start-up", "First reel & speed trial"] },
+    { "name": "Utilities & Power Island", "disc": "Mechanical", "kind": ["mechanical", "electrical"], "holds": [0, 4], "steps": ["Boiler/turbine (cogeneration) procurement & set", "Water treatment plant installation", "Effluent treatment plant installation", "Compressed air & steam distribution", "Utility commissioning ahead of PM start-up"] },
+    { "name": "Electrical & Drives", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 3], "steps": ["MV/LV switchgear & transformers", "VFD drive installation per machine section", "Containment & cable pull", "Point-to-point & motor-rotation checks", "Machine control system integration"] },
+    { "name": "Instrumentation & DCS", "disc": "Instrumentation", "kind": ["elv"], "holds": [2, 3], "steps": ["Field instruments — basis weight, moisture, consistency", "I/O wiring & loop check", "DCS / machine control system configuration", "Point-to-point verification", "Integration & sequence testing"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [3, 4], "steps": ["Mechanical run-in under no load", "Steam-up & pressure-part proving", "Chemical recovery cycle start-up", "Wet-end start-up", "First reel", "Performance/trial run to speed & quality spec", "Handover"] }
+  ],
+  "wbs": [
+    { "code": "PPM", "name": "Pulp & Paper Mill — Project", "level": 1 },
+    { "code": "PPM.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "PPM.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "PPM.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "PPM.02.20", "name": "Foundations — Process & Machine", "level": 3 },
+    { "code": "PPM.02.20.10", "name": "Digester / recovery foundations", "level": 4 },
+    { "code": "PPM.02.20.20", "name": "Paper machine foundations", "level": 4 },
+    { "code": "PPM.03", "name": "Structural Steel & Buildings", "level": 2 },
+    { "code": "PPM.03.10", "name": "Machine hall structure", "level": 3 },
+    { "code": "PPM.03.20", "name": "Recovery / pulping building structure", "level": 3 },
+    { "code": "PPM.04", "name": "Pulping & Chemical Recovery", "level": 2 },
+    { "code": "PPM.04.10", "name": "Digesters & fibre line", "level": 3 },
+    { "code": "PPM.04.20", "name": "Chemical recovery — evaporators & recovery boiler", "level": 3 },
+    { "code": "PPM.04.20.10", "name": "Recovery boiler — set & pressure-part test", "level": 4 },
+    { "code": "PPM.04.30", "name": "Causticizing & lime kiln", "level": 3 },
+    { "code": "PPM.05", "name": "Bleach Plant", "level": 2 },
+    { "code": "PPM.06", "name": "Stock Preparation & Approach Flow", "level": 2 },
+    { "code": "PPM.07", "name": "Paper Machine", "level": 2 },
+    { "code": "PPM.07.10", "name": "Forming & press section", "level": 3 },
+    { "code": "PPM.07.20", "name": "Dryer section & size press", "level": 3 },
+    { "code": "PPM.07.30", "name": "Calendar & reel", "level": 3 },
+    { "code": "PPM.07.30.10", "name": "Roll-train alignment & speed-sync", "level": 4 },
+    { "code": "PPM.08", "name": "Finishing & Warehouse", "level": 2 },
+    { "code": "PPM.09", "name": "Utilities & Power Island", "level": 2 },
+    { "code": "PPM.09.10", "name": "Boiler / turbine cogeneration", "level": 3 },
+    { "code": "PPM.09.20", "name": "Water & effluent treatment", "level": 3 },
+    { "code": "PPM.10", "name": "Electrical & Drives", "level": 2 },
+    { "code": "PPM.11", "name": "Instrumentation & DCS", "level": 2 },
+    { "code": "PPM.12", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "PPM.12.10", "name": "Mechanical run-in", "level": 3 },
+    { "code": "PPM.12.20", "name": "Steam-up & recovery-cycle start-up", "level": 3 },
+    { "code": "PPM.12.30", "name": "Wet-end start-up & first reel", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week; mechanical/piping erection around the digester, recovery boiler and paper machine moves to two shifts at peak to protect the critical path; commissioning (steam-up, run-in) runs a continuous 7-day calendar once started, since a partial shutdown mid-sequence is costly to recover from. A weather allowance is embedded in the civil calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "Two parallel driving chains converge at wet-end start-up: (1) the chemical recovery cycle — digester → evaporators → recovery boiler (pressure-part code inspection) → causticizing/lime kiln — which must reach chemical self-sufficiency before sustained production; and (2) the paper machine — foundations → roll-train set → precision alignment → drive coupling → steam-up → mechanical run-in. Whichever chain finishes later drives the first-reel date; both are tracked as co-critical, not sequential." },
+      { "heading": "Key assumptions", "body": "Design of process equipment — digester, recovery boiler, paper machine configuration — is frozen before ordering; a single mobilisation; existing fibre supply/wood-yard arrangements are in place; and no late change to basis weight or grade range that would alter the paper machine's forming/dryer configuration." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on two fronts — the recovery cycle and the paper machine. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Recovery boiler", "60–90 weeks", "Before pressure-part erection"], ["Paper machine roll train (press/dryer/calendar)", "50–75 weeks", "Before mechanical erection"], ["Digester(s)", "40–60 weeks", "Before pulping-line erection"], ["Evaporator train", "35–50 weeks", "Before recovery-cycle piping"], ["Large drive motors / VFDs", "20–30 weeks", "Before drive-train coupling"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy lifts — digester shells, recovery-boiler drum, dryer cans, headbox — require crane capacity and clear rigging access inside the machine hall, in some cases before the roof closes. Alignment work on the roll train needs a dust-controlled, temperature-stable environment. Skilled millwrights for precision alignment are a scarce, shared resource late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: recovery-boiler pressure-part inspection delays, roll-train misalignment discovered only at run-in, and chemical-recovery-cycle commissioning issues that push back wet-end start-up. Schedule contingency is held before mechanical run-in and before the first-reel milestone rather than spread across erection activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

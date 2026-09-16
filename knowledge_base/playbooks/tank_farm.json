@@ -1,0 +1,127 @@
+{
+  "archetype": "tank_farm",
+  "schema": 2,
+  "context": "tank erection & hydrotest-led · fire/foam protection is safety-critical",
+  "brief": {
+    "intro": "New to this project type? A tank farm (bulk liquid storage terminal) is a cluster of large field-erected storage tanks joined by transfer piping to a jetty, pipeline or truck-loading rack, all wrapped in fire protection. The building work is minimal — the real scope is welding steel tank shells plate by plate on a ring-beam foundation, then proving every weld holds before a drop of product goes in. Your schedule is driven by tank plate and roof-structure fabrication and delivery, the erect-then-test sequence for each tank (bottom → shell → roof → NDE → hydrotest → settlement survey), and the foam/deluge fire-protection system that must be proven before any tank is put into service.",
+    "scope": [
+      { "name": "Site & civil works", "desc": "Earthworks, tank ring-beam foundations, bund/secondary-containment walls and access/haul roads." },
+      { "name": "Tank fabrication & erection", "desc": "Bottom plate, shell courses and roof structure built up per API 650, tank by tank." },
+      { "name": "Welding, NDE & hydrotest", "desc": "Weld inspection, radiography and a water-fill hydrotest with settlement survey before any tank enters service." },
+      { "name": "Transfer piping & pipe racks", "desc": "Interconnecting process piping, manifolds and tie-ins to jetty, pipeline or truck-loading systems." },
+      { "name": "Rotating equipment", "desc": "Transfer and product pumps — set, aligned and run-in." },
+      { "name": "Fire protection", "desc": "Fixed foam and deluge systems, hydrants and monitors protecting each tank and the bund." },
+      { "name": "Electrical & cathodic protection", "desc": "Power distribution, earthing/bonding and cathodic protection against tank-shell corrosion." },
+      { "name": "Instrumentation & tank gauging", "desc": "Automatic tank gauging (ATG), independent overfill protection and temperature/pressure instruments." },
+      { "name": "Insulation & coating", "desc": "External corrosion coating and, on heated or refrigerated product tanks, insulation." },
+      { "name": "Testing, commissioning & handover", "desc": "Functional test of fire systems, first product-in and handover to operations." }
+    ],
+    "glossary": [
+      { "term": "API 650 / 653", "plain": "the design-and-construction (and later in-service inspection) code that governs how atmospheric storage tank shells are built." },
+      { "term": "Ring-beam foundation", "plain": "the reinforced-concrete ring the tank bottom sits on and is anchored to." },
+      { "term": "Shell course", "plain": "one ring of vertical steel plates welded together to make up the tank wall — tanks are built course by course, bottom to top." },
+      { "term": "Hydrotest", "plain": "filling the empty tank with water to prove the shell and every weld is leak-free before real product goes in." },
+      { "term": "Settlement survey", "plain": "a level survey that checks how much, and how evenly, a filled tank has sunk into its foundation." },
+      { "term": "Bund / secondary containment", "plain": "the walled, impervious area around a tank (or group of tanks) sized to hold a spill." },
+      { "term": "Foam / deluge system", "plain": "the fixed fire-fighting system that blankets a tank fire in foam or floods it with water." },
+      { "term": "Tank gauging (ATG) & overfill protection", "plain": "automatic level instruments, backed by an independent high-level trip, that stop a tank being overfilled." },
+      { "term": "Cathodic protection", "plain": "a low-voltage electrical system that stops the tank's buried or wetted steel corroding." }
+    ],
+    "must_get_right": [
+      "Sequence each tank bottom → shell → roof with weld NDE gates between courses — rework after roof closure is slow and expensive.",
+      "Hydrotest and settlement-survey every tank before its piping tie-in — a failed test after tie-in means cutting pipework back out.",
+      "Prove the foam/deluge fire system functional before any tank is commissioned into service — it is the safety gate, not an afterthought.",
+      "Keep the bund/secondary containment complete and tested ahead of first product-in — it is usually a regulatory precondition, not just good practice."
+    ]
+  },
+  "components": [
+    { "name": "Storage Tanks", "desc": "API 650 shells · bottom, shell & roof erection", "disc": "Mechanical", "primary": true },
+    { "name": "Transfer Piping & Pipe Racks", "desc": "Manifolds · tie-ins · hydrotest", "disc": "Piping", "primary": true },
+    { "name": "Rotating Equipment", "desc": "Transfer & product pumps · alignment", "disc": "Mechanical", "primary": false },
+    { "name": "Fire Protection", "desc": "Foam · deluge · hydrants & monitors", "disc": "Fire Protection", "primary": true },
+    { "name": "Electrical & Cathodic Protection", "desc": "Power · earthing · corrosion protection", "disc": "Electrical", "primary": false },
+    { "name": "Instrumentation & Gauging", "desc": "ATG · overfill protection · temp/pressure", "disc": "Instrumentation", "primary": true },
+    { "name": "Commissioning", "desc": "Hydrotest proving · fire-system test · product-in", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Process & Mechanical", "items": ["Storage tanks — bottom, shell & roof erection", "Transfer & product pumps — set, align & run-in", "Transfer piping, manifolds & pipe racks", "Insulation & external coating"] },
+    { "discipline": "Fire Protection", "items": ["Foam / deluge system to each tank & bund", "Fire-water ring main, hydrants & monitors", "Fire & gas detection"] },
+    { "discipline": "Electrical & Instrumentation", "items": ["Power distribution & area-classified (Ex) equipment", "Earthing, bonding & cathodic protection", "Automatic tank gauging (ATG) & overfill protection", "Temperature / pressure instrumentation"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Foundations & Bunding", "Tank Erection", "NDE, Hydrotest & Settlement", "Piping & Rotating Equipment", "Fire Protection & Electrical", "Instrumentation & Gauging", "Commissioning & Product-in"],
+  "sequence_chart": {
+    "phases": ["Enable", "Found.", "Erect", "Hydrotest", "Piping", "Fire/Elec", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Foundations & Bunding", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 34, "label": "Earthworks → ring-beam foundations → bund walls", "holds": [18] },
+      { "trade": "Tank Erection", "disc": "Mechanical", "kind": ["mechanical"], "start": 16, "width": 40, "label": "Bottom → shell courses → roof → NDE → hydrotest", "holds": [40, 54] },
+      { "trade": "Piping & Rotating Equipment", "disc": "Piping", "kind": ["mechanical"], "start": 46, "width": 34, "label": "Manifolds → tie-ins → pumps set & aligned", "holds": [68] },
+      { "trade": "Fire Protection", "disc": "Fire Protection", "kind": ["fire"], "start": 54, "width": 30, "label": "Ring main → foam/deluge → functional test", "holds": [80] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["electrical", "bms"], "start": 50, "width": 32, "label": "Earthing/CP → cabling → gauging & overfill protection", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 82, "width": 18, "label": "Fire-system proving → first product-in", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Foundations & Bunding", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Site clearance & earthworks", "Ring-beam foundation construction per tank", "Bund / secondary containment wall & floor", "Access roads & hardstand", "Underground firewater & drainage networks"] },
+    { "name": "Storage Tank Erection", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 4], "steps": ["Long-lead procurement — tank plate, roof structure & fittings", "Bottom-plate laying & welding", "Shell-course erection & welding, course by course", "Roof structure erection & closure", "Weld NDE / radiography", "Hydrotest — water fill & hold", "Settlement survey", "Dewater, clean & internal inspection"] },
+    { "name": "Transfer Piping & Pipe Racks", "disc": "Piping", "kind": ["mechanical"], "holds": [3], "steps": ["Pipe-rack & sleeper foundations", "Spool fabrication & field erection", "Manifold & tie-in welding", "Flushing & hydrotest", "Reinstatement & final bolt-up"] },
+    { "name": "Rotating Equipment", "disc": "Mechanical", "kind": ["mechanical"], "holds": [2], "steps": ["Pump procurement & delivery", "Set pumps on foundations & grout", "Align & couple", "Motor & control termination", "Run-in & vibration check"] },
+    { "name": "Fire Protection", "disc": "Fire Protection", "kind": ["fire"], "holds": [2], "steps": ["Firewater ring main & underground piping", "Foam/deluge skid installation per tank", "Hydrants, monitors & valve installation", "Ring-main flush & pressure test", "Foam/deluge functional discharge test"] },
+    { "name": "Electrical & Cathodic Protection", "disc": "Electrical", "kind": ["electrical"], "holds": [2], "steps": ["Earthing grid & duct banks", "Power distribution & area-classified (Ex) equipment install", "Cathodic-protection system installation", "Cable pull & termination", "Point-to-point & insulation-resistance testing", "Energisation"] },
+    { "name": "Instrumentation & Gauging", "disc": "Instrumentation", "kind": ["bms"], "holds": [2], "steps": ["Field instrument installation — level, temperature, pressure", "Automatic tank gauging (ATG) installation", "Independent overfill-protection system installation", "Loop check & calibration", "Integration to control room / SCADA"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2], "steps": ["Mechanical completion by tank/system", "Fire-system functional test — foam/deluge", "Overfill-protection proving test", "Cathodic-protection energisation check", "First product-in", "Performance monitoring → handover"] }
+  ],
+  "wbs": [
+    { "code": "TF", "name": "Tank Farm — Project", "level": 1 },
+    { "code": "TF.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "TF.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "TF.02.10", "name": "Earthworks & Access Roads", "level": 3 },
+    { "code": "TF.02.20", "name": "Bund / Secondary Containment", "level": 3 },
+    { "code": "TF.02.30", "name": "Tank Foundations", "level": 3 },
+    { "code": "TF.02.30.10", "name": "Ring-beam foundations", "level": 4 },
+    { "code": "TF.02.30.10.10", "name": "Foundation survey & sign-off", "level": 5 },
+    { "code": "TF.03", "name": "Storage Tanks", "level": 2 },
+    { "code": "TF.03.10", "name": "Tank 01", "level": 3 },
+    { "code": "TF.03.10.10", "name": "Bottom plate & shell erection", "level": 4 },
+    { "code": "TF.03.10.20", "name": "Roof structure & closure", "level": 4 },
+    { "code": "TF.03.10.30", "name": "NDE, hydrotest & settlement survey", "level": 4 },
+    { "code": "TF.03.10.30.10", "name": "Hydrotest — fill & hold", "level": 5 },
+    { "code": "TF.03.20", "name": "Tank 02", "level": 3 },
+    { "code": "TF.04", "name": "Transfer Piping & Pipe Racks", "level": 2 },
+    { "code": "TF.04.10", "name": "Pipe racks & sleepers", "level": 3 },
+    { "code": "TF.04.20", "name": "Manifolds & tie-ins", "level": 3 },
+    { "code": "TF.04.20.10", "name": "Flushing & hydrotest", "level": 4 },
+    { "code": "TF.05", "name": "Rotating Equipment", "level": 2 },
+    { "code": "TF.05.10", "name": "Pump set, align & run-in", "level": 3 },
+    { "code": "TF.06", "name": "Fire Protection", "level": 2 },
+    { "code": "TF.06.10", "name": "Firewater ring main", "level": 3 },
+    { "code": "TF.06.20", "name": "Foam / deluge systems", "level": 3 },
+    { "code": "TF.06.20.10", "name": "Functional discharge test", "level": 4 },
+    { "code": "TF.07", "name": "Electrical & Cathodic Protection", "level": 2 },
+    { "code": "TF.07.10", "name": "Power distribution & Ex-equipment", "level": 3 },
+    { "code": "TF.07.20", "name": "Cathodic protection system", "level": 3 },
+    { "code": "TF.08", "name": "Instrumentation & Gauging", "level": 2 },
+    { "code": "TF.08.10", "name": "ATG & overfill protection", "level": 3 },
+    { "code": "TF.09", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "TF.09.10", "name": "Fire-system proving & first product-in", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Each tank is broken out as its own activity string (foundation → erection → NDE → hydrotest) so tank-by-tank progress and float are visible separately." },
+      { "heading": "Calendars & working time", "body": "Civil and tank-erection work a 6-day week; hydrotest and settlement-survey activities carry fixed non-workable durations (water hold, settlement monitoring period) that cannot be compressed by adding resources. Fire-system testing and commissioning run a standard calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs ring-beam foundation → tank bottom/shell/roof erection → weld NDE → hydrotest & settlement survey → piping tie-in → fire-system proving → product-in. The largest-diameter or last-delivered tank in the farm typically governs, since the transfer piping and the fire ring main cannot be proven complete until every tank in the group is tied in." },
+      { "heading": "Key assumptions", "body": "Design is frozen and the tank layout/spacing approved per the applicable fire code; tank plate and roof-structure fabrication drawings are released for shop fabrication ahead of foundation completion; a single mobilisation; ring-beam foundations are load-tested/cured before tank erection starts. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is fabrication-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Tank plate & roof structure (shop-fabricated)", "10–18 weeks", "Before bottom-plate laying"], ["Transfer & product pumps", "14–22 weeks", "Before piping tie-in"], ["Foam concentrate & deluge valves/skids", "10–16 weeks", "Before fire-system installation"], ["Tank gauging & overfill-protection systems", "12–18 weeks", "Before instrumentation install"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy-lift cranes for roof structures and skilled, code-qualified tank welders are shared across tanks and are a resource constraint when several tanks erect in parallel; hot-work permits inside the bund are tightly controlled once adjacent tanks hold product." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: hydrotest/settlement-survey failure forcing repair and re-test, weld-repair rework discovered at NDE, and foam-system supply lead time. Schedule contingency is held immediately after each tank's hydrotest and again before the fire-system functional test, rather than spread thinly across erection activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client, by tank; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

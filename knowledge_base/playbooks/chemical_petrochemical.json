@@ -1,0 +1,124 @@
+{
+  "archetype": "chemical_petrochemical",
+  "schema": 2,
+  "context": "dense process piping & alloy metallurgy · utilities-first commissioning",
+  "brief": {
+    "intro": "New to this project type? A chemical, petrochemical or refinery complex looks like an oil & gas facility but is denser and slower: more process piping per square metre, more exotic alloy metallurgy (which takes far longer to fabricate and weld than carbon steel), and heavy insulation and heat-tracing scope. The defining planning rule is that utilities — steam, nitrogen, instrument air, cooling water — must be built and proven before any process unit can be commissioned; the utility block is the gating milestone the whole plant waits on. The programme ends with catalyst loading and a staged, utility-first start-up rather than a single switch-on.",
+    "scope": [
+      { "name": "Enabling & site civil works", "desc": "Grading, drainage, access roads and hazardous-area site preparation." },
+      { "name": "Tank farm & bunding", "desc": "Bunded tank-farm slabs with impervious liners for containment." },
+      { "name": "Heavy foundations", "desc": "Reactor/column pile caps, pipe-rack and interconnecting-corridor foundations, hardstand for modular/heavy-lift set." },
+      { "name": "Structural steel & pipe racks", "desc": "Pipe racks and interconnecting corridors between process units." },
+      { "name": "Static equipment", "desc": "Reactors, columns, vessels and tanks — heavy lifts, set and aligned." },
+      { "name": "Process piping — carbon steel & alloy", "desc": "Spool fabrication (including exotic-alloy metallurgy), field erection, welding/NDT and passivation." },
+      { "name": "Utilities block", "desc": "Steam generation, nitrogen & instrument air, and cooling water — built and proven first." },
+      { "name": "Electrical & instrumentation", "desc": "Power, hazardous-area equipment, and DCS/SIS control." },
+      { "name": "Effluent, neutralization & flare", "desc": "Compliance-critical systems for relief gas and process effluent." },
+      { "name": "Pre-commissioning & commissioning", "desc": "Utility-first sequencing, catalyst loading, staged start-up and performance-test run." }
+    ],
+    "glossary": [
+      { "term": "Alloy / exotic metallurgy", "plain": "special steel or nickel alloys resistant to corrosive chemicals — much slower to fabricate and weld than ordinary carbon steel." },
+      { "term": "Passivation", "plain": "a chemical treatment of alloy piping surfaces before service, to stop it corroding once the plant is running." },
+      { "term": "Catalyst loading", "plain": "filling a reactor with the catalyst material that actually drives the chemical reaction — a late, careful, largely irreversible step." },
+      { "term": "Utility block", "plain": "the \"first\" systems — steam, nitrogen, instrument air, cooling water — that every process unit needs running before it can be commissioned." },
+      { "term": "DCS / SIS", "plain": "Distributed Control System / Safety Instrumented System — the process-control brain and the safety shutdown brain." },
+      { "term": "Flare system", "plain": "safely burns off excess or relief gas — a compliance-critical safety system, not an optional extra." },
+      { "term": "Tightness test", "plain": "proving piping and equipment joints don't leak, before start-up." },
+      { "term": "Performance-test run", "plain": "a sustained run period proving the plant meets its guaranteed output and product quality." }
+    ],
+    "must_get_right": [
+      "Utilities (steam, nitrogen, instrument air, cooling water) commission first — the utility block is the gating milestone for every process unit; protect its completion date above all others.",
+      "Alloy / exotic-metallurgy piping has a much longer fabrication and welding lead time than carbon steel — track it separately and flag it early.",
+      "Effluent/neutralization and the flare system are compliance-critical, not finishing items — protect their completion dates like any safety system.",
+      "Catalyst loading and reactor conditioning are late, sequenced, largely irreversible steps — hold real contingency immediately ahead of them."
+    ]
+  },
+  "components": [
+    { "name": "Static Equipment", "desc": "Reactors · columns · vessels · tanks", "disc": "Mechanical", "primary": true },
+    { "name": "Process Piping (incl. Alloy)", "desc": "Carbon-steel & alloy spools · welding · passivation", "disc": "Piping", "primary": true },
+    { "name": "Rotating Equipment", "desc": "Pumps · compressors", "disc": "Mechanical", "primary": true },
+    { "name": "Utilities Block", "desc": "Steam · N2 · instrument air · cooling water", "disc": "Utilities", "primary": true },
+    { "name": "Electrical & Instrumentation", "desc": "Power · hazardous area · DCS/SIS", "disc": "Instrumentation", "primary": true },
+    { "name": "Insulation, Coating & Heat-Tracing", "desc": "Weatherization & process temperature control", "disc": "Mechanical", "primary": false },
+    { "name": "Commissioning", "desc": "Utility-first sequencing · catalyst loading · start-up", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Process & Mechanical", "items": ["Static equipment — reactors, columns, vessels, tanks", "Process piping — carbon-steel & alloy spool fabrication", "Rotating equipment — pumps, compressors", "Insulation, coating & heat-tracing"] },
+    { "discipline": "Utilities", "items": ["Steam generation & distribution", "Nitrogen (N2) & instrument air", "Cooling water system", "Effluent / neutralization network"] },
+    { "discipline": "Electrical & Instrumentation", "items": ["MV/LV power & hazardous-area equipment", "DCS/SIS field instruments & control valves", "Earthing & cable containment", "Loop checks & cause-effect testing"] },
+    { "discipline": "Fire, Safety & Flare", "items": ["Firewater ring main & deluge", "Fire & gas detection", "Flare system & relief piping"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Foundations & Tank Farm", "Structural Steel & Equipment Setting", "Process Piping & Alloy Spools", "Utilities Block", "Electrical & Instrumentation", "Pre-commissioning (Utility-first)", "Commissioning & Start-up"],
+  "sequence_chart": {
+    "phases": ["Enable", "Found.", "Set Equip.", "Piping", "Utilities", "E&I", "Start-up"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 32, "label": "Grading → tank-farm bunds → heavy foundations", "holds": [20] },
+      { "trade": "Static Equipment & Piping", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 18, "width": 46, "label": "Set reactors/columns → erect alloy & CS piping → tightness test", "holds": [40, 60] },
+      { "trade": "Utilities Block", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 30, "width": 30, "label": "Steam/N2/air/cooling water — build & prove first", "holds": [45] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["mep", "electrical", "bms"], "start": 40, "width": 40, "label": "Cable/instrument install → DCS/SIS integration → loop check", "holds": [70] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Utility-first pre-comm → catalyst load → start-up", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Site clearance & grading", "Tank-farm bunds & impervious liners", "Reactor/column pile caps & heavy foundations", "Pipe-rack & corridor foundations", "Hardstand for modular/heavy-lift set", "Underground effluent/neutralization network"] },
+    { "name": "Static Equipment", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [2], "steps": ["Long-lead procurement — reactors, columns, exchangers, tanks", "Receive & lay down heavy equipment (hardstand)", "Set static equipment on foundations", "Align internals & nozzles", "Mechanical completion check"] },
+    { "name": "Process Piping (incl. Alloy)", "disc": "Piping", "kind": ["mep", "mechanical"], "holds": [3], "steps": ["Carbon-steel & alloy spool fabrication (shop)", "Field erection & welding (incl. alloy NDT)", "Passivation of alloy piping", "Tightness / leak test", "Insulation, coating & heat-tracing"] },
+    { "name": "Utilities Block", "disc": "Utilities", "kind": ["mep", "mechanical"], "holds": [3, 4], "steps": ["Steam generation & distribution install", "Nitrogen & instrument-air system install", "Cooling-water system install", "Utility-block flush & prove", "Utility-first commissioning (ahead of process units)"] },
+    { "name": "Electrical & Hazardous Area", "disc": "Electrical", "kind": ["mep", "electrical"], "holds": [3], "steps": ["Earthing grid & duct banks", "Cable containment & hazardous-area equipment", "Power cable pull & MCC/switchgear set", "Point-to-point & insulation-resistance testing", "Energisation"] },
+    { "name": "DCS / SIS Control", "disc": "Instrumentation", "kind": ["mep", "bms"], "holds": [4], "steps": ["Field instruments & control valves", "Instrument cable/tubing", "Loop check", "DCS integration", "SIS/interlock cause-and-effect proving"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 4, 6], "steps": ["Subsystem mechanical completion", "Utility-first pre-commissioning", "Tightness test & passivation sign-off", "Catalyst loading & reactor conditioning", "DCS/SIS integration & interlock proving", "Staged plant start-up", "Performance-test-run → handover"] }
+  ],
+  "wbs": [
+    { "code": "CHM", "name": "Chemical / Petrochemical Complex — Project", "level": 1 },
+    { "code": "CHM.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "CHM.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "CHM.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "CHM.02.20", "name": "Tank Farm Bunds & Liners", "level": 3 },
+    { "code": "CHM.02.30", "name": "Reactor/Column & Equipment Foundations", "level": 3 },
+    { "code": "CHM.02.30.10", "name": "Heavy-lift hardstand & pile caps", "level": 4 },
+    { "code": "CHM.02.40", "name": "Pipe-rack & Corridor Foundations", "level": 3 },
+    { "code": "CHM.03", "name": "Structural Steel — Pipe Racks & Corridors", "level": 2 },
+    { "code": "CHM.04", "name": "Static Equipment", "level": 2 },
+    { "code": "CHM.04.10", "name": "Reactors & columns — set & align", "level": 3 },
+    { "code": "CHM.04.20", "name": "Vessels & tanks", "level": 3 },
+    { "code": "CHM.05", "name": "Process Piping", "level": 2 },
+    { "code": "CHM.05.10", "name": "Carbon-steel spool fabrication", "level": 3 },
+    { "code": "CHM.05.20", "name": "Alloy spool fabrication", "level": 3 },
+    { "code": "CHM.05.20.10", "name": "Alloy welding, NDT & passivation", "level": 4 },
+    { "code": "CHM.05.20.10.10", "name": "Alloy tightness test & sign-off", "level": 5 },
+    { "code": "CHM.05.30", "name": "Insulation, coating & heat-tracing", "level": 3 },
+    { "code": "CHM.06", "name": "Utilities Block", "level": 2 },
+    { "code": "CHM.06.10", "name": "Steam generation & distribution", "level": 3 },
+    { "code": "CHM.06.20", "name": "N2 & instrument air", "level": 3 },
+    { "code": "CHM.06.30", "name": "Cooling water system", "level": 3 },
+    { "code": "CHM.07", "name": "Electrical & Hazardous Area", "level": 2 },
+    { "code": "CHM.08", "name": "Instrumentation & Control (DCS/SIS)", "level": 2 },
+    { "code": "CHM.08.10", "name": "Field instruments & loop checks", "level": 3 },
+    { "code": "CHM.08.20", "name": "SIS interlock cause-and-effect", "level": 3 },
+    { "code": "CHM.09", "name": "Effluent, Neutralization & Flare", "level": 2 },
+    { "code": "CHM.10", "name": "Pre-commissioning & Commissioning", "level": 2 },
+    { "code": "CHM.10.10", "name": "Utility-first pre-commissioning", "level": 3 },
+    { "code": "CHM.10.20", "name": "Catalyst loading & reactor conditioning", "level": 3 },
+    { "code": "CHM.10.30", "name": "Staged start-up & performance test run", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week; alloy piping fabrication and welding run to a coded-welder resource calendar rather than simple shifts; commissioning runs a 7-day calendar once the utility-first sequence begins." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs long-lead procurement (reactors, columns, exchangers) → heavy foundations → static equipment set → alloy and carbon-steel piping fabrication and erection → the utilities block built and commissioned first → DCS/SIS integration → catalyst loading → staged start-up. Utility-block readiness is the single gating milestone every process unit waits on." },
+      { "heading": "Key assumptions", "body": "Design and hazardous-area classification are frozen; permits and authority approvals are obtained per phase gate; a single mobilisation; and metallurgy selections (alloy vs carbon steel) are finalised before spool fabrication starts. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led, with alloy items materially longer than their carbon-steel equivalents. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Reactors / columns (exotic-alloy clad)", "40–65 weeks", "Before piping tie-in"], ["Heat exchangers (alloy)", "30–45 weeks", "Before piping erection"], ["Alloy process piping & valves", "30–45 weeks", "Before tightness test"], ["Pumps & compressors", "24–36 weeks", "Before mechanical completion"], ["DCS/SIS control system", "28–36 weeks", "Before loop check"], ["Catalyst (first charge)", "16–26 weeks", "Before reactor conditioning"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy lifts (reactors, columns, exchangers) require crane windows and hardstand; alloy welding needs coded welders and NDT technicians who are typically in short supply and a resource constraint on the piping front; hazardous-area work runs under a hot-work/cold-work permit system." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: alloy piping slippage (fabrication and coded-welder availability), utility-block delay cascading into every downstream process unit, and the irreversible nature of catalyst loading. Schedule contingency is held immediately before utility-first commissioning and before catalyst loading rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

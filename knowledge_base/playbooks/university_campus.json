@@ -1,0 +1,122 @@
+{
+  "archetype": "university_campus",
+  "schema": 2,
+  "context": "campus-scale central utilities · phased building-by-building handover",
+  "brief": {
+    "intro": "New to this project type? A university campus is really several buildings — teaching blocks, laboratories, a library, residences — fed from one shared central utility plant for chilled water, power and data. Unlike a single school, the programme has two tiers: get the central plant and campus-wide distribution live first, then commission each building off it. Laboratories add a genuinely technical layer — fume extract, lab gases, specialist HVAC — that a normal teaching block doesn't need. Because the campus usually opens in phases rather than all at once, the schedule really is several linked but separately-paced sub-projects sharing one backbone, and the central plant is the thing that gates every one of them.",
+    "scope": [
+      { "name": "Enabling & site-wide civil works", "desc": "Earthworks, campus roads, site-wide drainage and utility corridors." },
+      { "name": "Central utility plant", "desc": "Chilled-water plant, standby power and the main incoming substation feeding the whole campus." },
+      { "name": "Campus-wide distribution", "desc": "Chilled-water ring main, HV/LV ring main and the data/telecom backbone between buildings." },
+      { "name": "Structure & envelope per building", "desc": "Foundations, frame, roof and envelope for each teaching, lab and residence block." },
+      { "name": "Building MEP fit-out", "desc": "HVAC, power and plumbing inside each block, tied into the campus mains." },
+      { "name": "Laboratory services", "desc": "Fume extract, lab gases, specialist HVAC and containment for science/engineering buildings." },
+      { "name": "Fire & life safety", "desc": "Detection, alarm and suppression per building under one campus-wide fire strategy." },
+      { "name": "ELV / security / IT backbone", "desc": "CCTV, access control, structured cabling and the data backbone linking every building." },
+      { "name": "External works & landscaping", "desc": "Quads, walkways, sports fields and parking." },
+      { "name": "Testing, commissioning & phased handover", "desc": "Central plant proving first, then building-by-building commissioning and occupancy." }
+    ],
+    "glossary": [
+      { "term": "Central utility plant", "plain": "the campus's own power/cooling \"power station\" that every building draws from." },
+      { "term": "Ring main", "plain": "a looped power or chilled-water main serving multiple buildings from one source." },
+      { "term": "Lab gases", "plain": "piped gases (compressed air, vacuum, specialist gases) serving science/engineering labs." },
+      { "term": "Fume extract", "plain": "ducted exhaust removing hazardous lab fumes from a fume cupboard." },
+      { "term": "IT/telecom backbone", "plain": "the campus-wide fibre network every building's data system plugs into." },
+      { "term": "Phased occupancy", "plain": "opening finished buildings one at a time rather than waiting for the whole campus." },
+      { "term": "BMS", "plain": "the controls system that manages plant and building services campus-wide." }
+    ],
+    "must_get_right": [
+      "The central plant must be live and proven before any building can be meaningfully commissioned off it — sequence it first, not last.",
+      "Laboratory services are a specialist scope (fume extract, gases) — don't treat a lab building like a generic teaching block.",
+      "Plan and contract for phased, building-by-building handover from day one — it drives the whole logic network, not just the finish line.",
+      "The campus IT/telecom backbone must land early enough for each building's fit-out to tie into it, not wait for it."
+    ]
+  },
+  "components": [
+    { "name": "Central Utility Plant", "desc": "Chillers · standby power · main substation", "disc": "Mechanical/Electrical", "primary": true },
+    { "name": "Campus Distribution", "desc": "HV/LV & chilled-water ring mains · data backbone", "disc": "Electrical", "primary": true },
+    { "name": "Building HVAC", "desc": "AHU/FCU fit-out per building", "disc": "Mechanical", "primary": true },
+    { "name": "Laboratory Services", "desc": "Fume extract · lab gases · specialist HVAC", "disc": "Mechanical", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Detection · alarm · suppression per building", "disc": "Fire Protection", "primary": false },
+    { "name": "ELV / IT Backbone", "desc": "CCTV · access control · campus fibre backbone", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "BMS", "desc": "Central plant & building controls integration", "disc": "Instrumentation", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Central chilled-water plant — chillers, primary/secondary pumps", "Campus chilled-water ring main", "Building AHUs / FCUs", "Laboratory fume extract & specialist HVAC"] },
+    { "discipline": "Electrical", "items": ["Main incoming substation & standby power", "Campus HV/LV ring main", "Building distribution & lighting"] },
+    { "discipline": "Plumbing / Public Health", "items": ["Domestic water & drainage per building", "Laboratory gases & specialist wet services"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire alarm & suppression per building", "Campus IT/telecom backbone", "CCTV / access control", "BMS — central plant & building integration"] }
+  ],
+  "overview_phases": ["Enabling & Site-wide Civil", "Central Utility Plant", "Campus Distribution", "Structure per Building", "Building MEP Fit-out", "Laboratory Services", "Commissioning & Phased Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Plant", "Distrib.", "Structure", "Fit-out", "Labs", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Earthworks → building frames (rolling)", "holds": [14] },
+      { "trade": "Central Plant & Electrical", "disc": "Electrical", "kind": ["mechanical", "electrical"], "start": 8, "width": 55, "label": "Substation → chillers/gen → ring mains → prove", "holds": [40, 70] },
+      { "trade": "Building HVAC", "disc": "Mechanical", "kind": ["mechanical"], "start": 30, "width": 48, "label": "Ductwork → AHUs → balance per building", "holds": [55] },
+      { "trade": "Laboratory Services", "disc": "Mechanical", "kind": ["mechanical"], "start": 45, "width": 35, "label": "Fume extract → gases → specialist HVAC → test", "holds": [65] },
+      { "trade": "ELV / IT Backbone", "disc": "Extra-Low Voltage", "kind": ["elv"], "start": 20, "width": 55, "label": "Backbone install → building tie-ins → test", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 70, "width": 28, "label": "Plant proving → building-by-building comm. → phased handover", "holds": [85] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Site-wide earthworks & roads", "Campus utility corridors & trenching", "Foundations per building", "Frame erection per building", "Roof & envelope per building", "External landscaping & quads"] },
+    { "name": "Central Utility Plant", "disc": "Mechanical/Electrical", "kind": ["mechanical", "electrical"], "holds": [1, 4], "steps": ["Long-lead procurement — chillers, switchgear, standby generators", "Plantroom civil & structural steel", "Set chillers / pumps / generators", "Campus ring-main installation", "Plant proving & load test"] },
+    { "name": "Building Electrical", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["Containment & 1st fix per building", "Panels & distribution", "Lighting 1st + 2nd fix", "Tie-in to campus ring main", "Testing & certification"] },
+    { "name": "Building HVAC", "disc": "Mechanical", "kind": ["mechanical"], "holds": [2], "steps": ["Ductwork & containment per building", "Set AHU / FCU units", "Tie-in to chilled-water ring main", "Controls & BMS tie-in per building", "Balance & commission"] },
+    { "name": "Laboratory Services", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["Fume-cupboard & extract ductwork", "Lab gas pipework & manifolds", "Specialist HVAC — containment / pressure cascade where needed", "Face-velocity & performance test", "Laboratory sign-off"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [3], "steps": ["Detection & alarm per building", "Suppression pipework", "Cause-and-effect programming", "Campus fire-strategy integration", "Authority sign-off"] },
+    { "name": "ELV / IT Backbone", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [], "steps": ["Campus backbone containment & fibre pull", "Building tie-in cabling", "CCTV & access control", "Structured cabling per building", "Testing & certification"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [0, 4], "steps": ["Central plant proving & load test", "Building-by-building functional test", "Laboratory services sign-off", "IT/telecom backbone proving", "Phased occupancy handover"] }
+  ],
+  "wbs": [
+    { "code": "UNI", "name": "University Campus — Project", "level": 1 },
+    { "code": "UNI.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "UNI.02", "name": "Site-wide Civil Works", "level": 2 },
+    { "code": "UNI.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "UNI.02.20", "name": "Campus Utility Corridors & Trenching", "level": 3 },
+    { "code": "UNI.03", "name": "Central Utility Plant", "level": 2 },
+    { "code": "UNI.03.10", "name": "Chilled-Water Plant", "level": 3 },
+    { "code": "UNI.03.10.10", "name": "Chillers & pumps — set & commission", "level": 4 },
+    { "code": "UNI.03.20", "name": "Main Substation & Standby Power", "level": 3 },
+    { "code": "UNI.04", "name": "Campus Distribution", "level": 2 },
+    { "code": "UNI.04.10", "name": "HV/LV Ring Main", "level": 3 },
+    { "code": "UNI.04.20", "name": "Chilled-Water Ring Main", "level": 3 },
+    { "code": "UNI.04.30", "name": "IT / Telecom Backbone", "level": 3 },
+    { "code": "UNI.05", "name": "Teaching Block — Structure & Envelope", "level": 2 },
+    { "code": "UNI.06", "name": "Laboratory Building — Structure & Envelope", "level": 2 },
+    { "code": "UNI.07", "name": "Building MEP — Mechanical", "level": 2 },
+    { "code": "UNI.07.10", "name": "HVAC Fit-out per Building", "level": 3 },
+    { "code": "UNI.08", "name": "Building MEP — Electrical", "level": 2 },
+    { "code": "UNI.09", "name": "Laboratory Services", "level": 2 },
+    { "code": "UNI.09.10", "name": "Fume Extract & Lab Gases", "level": 3 },
+    { "code": "UNI.09.10.10", "name": "Face-velocity & performance test", "level": 4 },
+    { "code": "UNI.10", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "UNI.11", "name": "ELV / Security / IT Fit-out", "level": 2 },
+    { "code": "UNI.12", "name": "External Works & Landscaping", "level": 2 },
+    { "code": "UNI.13", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "UNI.13.10", "name": "Central Plant Proving", "level": 3 },
+    { "code": "UNI.13.20", "name": "Building-by-Building Commissioning", "level": 3 },
+    { "code": "UNI.13.30", "name": "Phased Occupancy Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The campus is modelled as a central-plant sub-network feeding a series of per-building sub-networks, each with its own commissioning and handover milestone." },
+      { "heading": "Calendars & working time", "body": "Structure runs a standard single- or two-shift week; central plant and campus distribution run extended shifts to protect the network's gating milestone; commissioning runs extended hours ahead of each phased opening." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs central-plant procurement → substation/chiller set → campus ring mains energised → first building tie-in & commissioning → phased occupancy. Laboratory buildings carry their own sub-critical path through fume-extract and gas commissioning that must clear before lab occupancy, independent of teaching-block readiness." },
+      { "heading": "Key assumptions", "body": "Design freeze per building, phased occupancy dates agreed with the university client, the central plant sized and released for construction ahead of individual buildings, and free-issue lab equipment coordinated by others. Any change to the central-plant delivery date cascades into every building behind it." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is central-plant-led. The following are tracked as milestones because every building's commissioning depends on them:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Central chillers", "30–40 weeks", "Before plant proving"], ["MV switchgear & standby generators", "28–40 weeks", "Before substation energisation"], ["Lab fume cupboards & extract systems", "16–24 weeks", "Before laboratory fit-out"], ["Specialist lab gas systems", "14–20 weeks", "Before laboratory sign-off"], ["Structured cabling / backbone electronics", "10–14 weeks", "Before building tie-in"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Multiple buildings under construction concurrently compete for the same finishing trades; campus roads and laydown are shared across contractors. Once early phases open, later-phase work may need to sequence around a live, partially occupied campus." },
+      { "heading": "Risks, float & contingency", "body": "Central-plant slippage is the principal risk — it cascades into every building behind it, so contingency is held before plant energisation rather than spread across building fit-outs. Laboratory re-test loops (face-velocity, containment) and phased-handover slippage are tracked separately per building so one late block doesn't delay others." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (campus-wide milestones) and Level 2 (summary) to the client; controlled at Level 3 per building; expanded to Level 4–5 lookahead for laboratory and central-plant commissioning — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

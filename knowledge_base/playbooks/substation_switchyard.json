@@ -1,0 +1,119 @@
+{
+  "archetype": "substation_switchyard",
+  "schema": 2,
+  "context": "protection & energisation-led · staged testing proves the power apparatus",
+  "brief": {
+    "intro": "An electrical substation or switchyard transforms power between voltage levels and switches it safely along the grid. Its build is dominated by heavy power apparatus — transformers, switchgear — an extensive earthing/grounding grid, and a protection & control system that must be proven point-by-point before anything is energised. Unlike a typical building, structural and civil works exist mainly to support and enable the equipment: foundations, cable trenches and oil-containment bunds. The real programme risk sits in equipment delivery, earthing-grid verification, and a staged energisation sequence that only the grid/network operator can authorise. Air-insulated switchgear (AIS, open-air) and gas-insulated switchgear (GIS, compact and SF6-insulated) follow different erection logic, but both converge on the same commissioning backbone: protection relay testing, SCADA point-to-point, and staged energisation up to full load.",
+    "scope": [
+      { "name": "Earthworks & site preparation", "desc": "Grading, drainage, access roads and the yard surface (often stone/gravel) for step-touch potential control." },
+      { "name": "Earthing / grounding grid", "desc": "The buried copper grid bonding every structure and item of equipment to a common reference, tested for step-and-touch potential." },
+      { "name": "Foundations & structural steel", "desc": "Equipment plinths, gantries and structure steel for busbars and overhead-line entries." },
+      { "name": "Power transformers", "desc": "Main power transformers, their foundations, oil-containment bunds and cooling systems." },
+      { "name": "HV/MV switchgear (AIS or GIS)", "desc": "Circuit breakers, disconnectors and busbars — air-insulated outdoor or gas-insulated indoor." },
+      { "name": "Protection, control & SCADA", "desc": "Relay panels, control-building wiring and remote telemetry to the network control centre." },
+      { "name": "Cabling & containment", "desc": "Power and control cable trenches/ducts linking equipment to the control building." },
+      { "name": "Control building", "desc": "Houses protection/control panels, battery/DC systems and operator facilities." },
+      { "name": "Fire protection & auxiliary systems", "desc": "Transformer fire suppression/deluge, control-building HVAC, lighting." },
+      { "name": "Testing, staged energisation & commissioning", "desc": "Protection point-to-point, HV testing, earthing verification, staged energisation to the network." }
+    ],
+    "glossary": [
+      { "term": "AIS / GIS", "plain": "Air-Insulated Switchgear — open-air, bigger footprint — versus Gas-Insulated Switchgear — compact, SF6-insulated, usually indoors." },
+      { "term": "Earthing / grounding grid", "plain": "a buried copper mesh bonding everything to earth so a fault doesn't create a dangerous step-and-touch voltage." },
+      { "term": "Protection relay", "plain": "the device that detects a fault and trips the right breaker fast enough to protect equipment and the grid." },
+      { "term": "Point-to-point testing", "plain": "verifying every single control/protection wire goes from the right source to the right destination before anything is live." },
+      { "term": "Buchholz relay", "plain": "a transformer protection device that senses gas buildup or oil surges from an internal fault." },
+      { "term": "Staged energisation", "plain": "bringing the substation live in planned steps — no-load, then load — under utility/grid-operator authorisation, not all at once." },
+      { "term": "Step-and-touch potential", "plain": "the voltage a person could experience standing near or touching equipment during a fault; the earthing grid is designed and tested to keep it safe." }
+    ],
+    "must_get_right": [
+      "Prove the earthing grid — continuity plus step-and-touch potential test — before any equipment energisation; it's a safety prerequisite, not a formality.",
+      "Sequence protection-relay and SCADA point-to-point testing to finish before staged energisation — energising with unproven protection is a safety and asset risk.",
+      "Coordinate staged-energisation dates with the grid/network operator early — the final energisation steps are often on their schedule, not the contractor's, and can't be compressed.",
+      "Order transformers and GIS/AIS switchgear immediately — they are the longest-lead items and set the whole programme's finish date."
+    ]
+  },
+  "components": [
+    { "name": "Power Transformers", "desc": "Main transformers · bunds · cooling", "disc": "Electrical", "primary": true },
+    { "name": "HV/MV Switchgear", "desc": "AIS or GIS circuit breakers & busbars", "disc": "Electrical", "primary": true },
+    { "name": "Earthing / Grounding Grid", "desc": "Buried grid · step-touch proving", "disc": "Electrical", "primary": true },
+    { "name": "Protection, Control & SCADA", "desc": "Relay panels · telemetry to control centre", "disc": "Instrumentation", "primary": true },
+    { "name": "Control Building", "desc": "Panels · DC/battery systems", "disc": "Civil / Electrical", "primary": false },
+    { "name": "Cabling & Containment", "desc": "Power & control cable trenches/ducts", "disc": "Electrical", "primary": false },
+    { "name": "Commissioning", "desc": "Point-to-point · HV test · staged energisation", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical (Power Apparatus)", "items": ["Main power transformers & bunds", "HV/MV switchgear — AIS or GIS", "Earthing / grounding grid & lightning protection"] },
+    { "discipline": "Protection, Control & SCADA", "items": ["Relay panels & control wiring", "Control & protection cabling", "Remote telemetry / SCADA to network control centre"] },
+    { "discipline": "Auxiliary & Fire", "items": ["Transformer fire suppression / deluge", "Control-building HVAC", "Yard & security lighting"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Foundations & Structural Steel", "Earthing Grid Install", "Equipment Erection (Transformers/Switchgear)", "Cabling & Control Building", "Protection & SCADA Integration", "Testing & Staged Energisation"],
+  "sequence_chart": {
+    "phases": ["Enable", "Foundations", "Earthing", "Equip. Erect", "Cabling", "Protection", "Energise"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 34, "label": "Earthworks → foundations → gantry steel", "holds": [14] },
+      { "trade": "Earthing / Grounding", "disc": "Electrical", "kind": ["electrical"], "start": 8, "width": 26, "label": "Grid install → bonding → step-touch test", "holds": [30] },
+      { "trade": "Power Apparatus", "disc": "Electrical", "kind": ["electrical"], "start": 24, "width": 46, "label": "Set transformers/GIS-AIS → terminate → HV test", "holds": [54, 68] },
+      { "trade": "Protection, Control & SCADA", "disc": "Instrumentation", "kind": ["elv"], "start": 40, "width": 38, "label": "Panel wiring → point-to-point → SCADA integrate", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 72, "width": 28, "label": "HV test → staged energisation", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1, 4], "steps": ["Site clearance & earthworks", "Equipment & transformer foundations", "Gantry & structural steel erection", "Yard surfacing — stone/gravel for step-touch control", "Oil-containment bund construction"] },
+    { "name": "Earthing & Grounding", "disc": "Electrical", "kind": ["electrical"], "holds": [3, 4], "steps": ["Earthing-grid design verification", "Trenching & conductor laying", "Bonding to structures & equipment", "Continuity testing", "Step-and-touch potential test"] },
+    { "name": "Power Transformers", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 5], "steps": ["Long-lead procurement — main power transformers", "Transportation & offloading (heavy haul)", "Set on foundation & assemble bushings/radiators", "Oil filling & Buchholz-relay connection", "Electrical termination", "Factory/site acceptance & diagnostic testing"] },
+    { "name": "HV/MV Switchgear (AIS/GIS)", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 4], "steps": ["Long-lead procurement — switchgear/breakers", "Structure & busbar erection (AIS) or enclosure assembly (GIS)", "Circuit breaker & disconnector installation", "SF6 gas filling & pressure test (GIS)", "Primary injection & HV testing"] },
+    { "name": "Cabling & Containment", "disc": "Electrical", "kind": ["electrical", "elv"], "holds": [4], "steps": ["Cable route survey & marking", "Cable trench & duct installation", "Power-cable pulling & termination", "Control-cable pulling & termination", "Cable testing & certification"] },
+    { "name": "Protection, Control & SCADA", "disc": "Instrumentation", "kind": ["elv"], "holds": [2, 4], "steps": ["Relay-panel installation in control building", "Control & protection wiring", "Point-to-point verification", "SCADA / telemetry integration to network control centre", "Protection relay setting & testing"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2, 4], "steps": ["Earthing-grid step-touch proving", "Protection & SCADA point-to-point sign-off", "HV testing — insulation, primary injection", "Staged energisation — no-load", "Staged energisation — on load", "Performance monitoring & handover to operator"] }
+  ],
+  "wbs": [
+    { "code": "SUB", "name": "Electrical Substation / Switchyard — Project", "level": 1 },
+    { "code": "SUB.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "SUB.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "SUB.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "SUB.02.20", "name": "Foundations — Transformer & Switchgear", "level": 3 },
+    { "code": "SUB.02.20.10", "name": "Transformer foundations & bunds", "level": 4 },
+    { "code": "SUB.03", "name": "Structural Steel & Gantries", "level": 2 },
+    { "code": "SUB.04", "name": "Earthing & Grounding Grid", "level": 2 },
+    { "code": "SUB.04.10", "name": "Grid installation & bonding", "level": 3 },
+    { "code": "SUB.04.20", "name": "Step-and-touch potential testing", "level": 3 },
+    { "code": "SUB.05", "name": "Power Transformers", "level": 2 },
+    { "code": "SUB.05.10", "name": "Transformer set & assembly", "level": 3 },
+    { "code": "SUB.05.20", "name": "Oil filling & Buchholz commissioning", "level": 3 },
+    { "code": "SUB.06", "name": "HV/MV Switchgear", "level": 2 },
+    { "code": "SUB.06.10", "name": "AIS busbar & breaker erection", "level": 3 },
+    { "code": "SUB.06.20", "name": "GIS enclosure & gas filling", "level": 3 },
+    { "code": "SUB.06.20.10", "name": "SF6 pressure test", "level": 4 },
+    { "code": "SUB.07", "name": "Cabling & Containment", "level": 2 },
+    { "code": "SUB.08", "name": "Control Building", "level": 2 },
+    { "code": "SUB.08.10", "name": "Protection & control panels", "level": 3 },
+    { "code": "SUB.09", "name": "Protection, Control & SCADA", "level": 2 },
+    { "code": "SUB.09.10", "name": "Point-to-point verification", "level": 3 },
+    { "code": "SUB.09.20", "name": "SCADA / telemetry integration", "level": 3 },
+    { "code": "SUB.10", "name": "Fire Protection & Auxiliary Systems", "level": 2 },
+    { "code": "SUB.11", "name": "Testing & Staged Energisation", "level": 2 },
+    { "code": "SUB.11.10", "name": "HV testing — insulation / primary injection", "level": 3 },
+    { "code": "SUB.11.20", "name": "Staged energisation — no-load", "level": 3 },
+    { "code": "SUB.11.30", "name": "Staged energisation — on load & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week; earthing-grid installation and cable pulling move to two shifts at peak to protect the critical path; HV testing and staged energisation follow the network/grid operator's outage and switching windows, which may fall outside normal working calendars." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs transformer/switchgear procurement → foundations & earthing grid → equipment erection → cable termination → protection & SCADA point-to-point → HV testing → staged energisation (no-load, then on-load) authorised by the network operator. The earthing grid must be installed and step-touch tested before any equipment is energised, and protection relay setting/testing must be complete before HV testing begins." },
+      { "heading": "Key assumptions", "body": "Single-line diagram and protection philosophy are frozen before switchgear/relay ordering; a single mobilisation; the grid/network operator's outage windows for tie-ins and staged energisation are secured in advance; and no late change to voltage class or fault-level rating that would resize transformers or switchgear." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on the power apparatus. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Power transformers", "40–60 weeks", "Before foundation/set sequence"], ["GIS switchgear", "30–45 weeks", "Before enclosure erection"], ["AIS circuit breakers & disconnectors", "24–36 weeks", "Before structure erection"], ["Protection relay panels", "20–28 weeks", "Before control-building fit-out"], ["HV cable (power)", "16–24 weeks", "Before cable pulling"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Transformer delivery requires heavy-haul transport routes and crane/jacking capacity to set on foundation; earthing works need dry-season trenching to avoid groundwater interference with resistivity testing. Staged energisation is constrained by the network operator's switching/outage schedule, which is often the true limiting resource late in the programme, not site labour." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: transformer/GIS delivery slippage, earthing-grid step-touch test failures requiring rework, and staged-energisation dates slipping against the network operator's outage windows. Schedule contingency is held immediately before HV testing and before staged energisation rather than spread across erection activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

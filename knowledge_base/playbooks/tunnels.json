@@ -1,0 +1,121 @@
+{
+  "archetype": "tunnels",
+  "schema": 2,
+  "context": "life-safety systems (ventilation & fire) dominate the fit-out over the civil lining",
+  "brief": {
+    "intro": "A tunnel project bores or cuts a passage through ground for road, rail or utility use, and while the civil lining — TBM-bored, mined, or cut-and-cover — is the enabling structure, it is the life-safety fit-out that dominates the schedule and the commissioning risk for road and rail tunnels: ventilation, fire detection and suppression, and the tunnel SCADA/management system. The excavation method sets the pace of the civil works — TBM advance rate, mined-tunnel round length, or cut-and-cover bay sequence — but once the lining is complete the real complexity begins: jet-fan or longitudinal ventilation, fire detection wired to a deluge or suppression cause-and-effect matrix, emergency lighting and egress, and a tunnel management SCADA system that ties it all together. A utility tunnel is much lighter — often just lighting, power and drainage — so the fit-out scope must be read against what the tunnel actually carries. Your schedule stands or falls on the excavation advance rate, protecting portal and cross-passage interfaces, and leaving real commissioning time for the ventilation/fire cause-and-effect testing that road and rail tunnels cannot open without.",
+    "scope": [
+      { "name": "Site establishment & portal works", "desc": "Launch/reception shafts and portal structures at each end of the drive." },
+      { "name": "Excavation & lining", "desc": "TBM advance, mined tunnelling (drill & blast / NATM), or cut-and-cover construction." },
+      { "name": "Invert, drainage & tunnel floor", "desc": "Invert slab, drainage channel, and sump/pump chambers along the bore." },
+      { "name": "Cross-passages & niches", "desc": "Emergency cross-passages, cable/services niches and walkways." },
+      { "name": "Ventilation", "desc": "Jet fans or longitudinal/transverse ventilation system, ducts and dampers." },
+      { "name": "Fire life-safety", "desc": "Detection, deluge/suppression, and emergency lighting and egress signage." },
+      { "name": "Electrical & lighting", "desc": "Power distribution and normal & emergency lighting along the tunnel." },
+      { "name": "Tunnel SCADA & management systems", "desc": "CCTV, comms/radio coverage and an integrated tunnel management system (TMS)." },
+      { "name": "Drainage pumping", "desc": "Sump pumps and rising mains to the outfall." },
+      { "name": "Testing, commissioning & handover", "desc": "Ventilation mode tests, fire cause-and-effect, SCADA integration and handover to the operator." }
+    ],
+    "glossary": [
+      { "term": "TBM (tunnel boring machine)", "plain": "the machine that excavates and often lines the tunnel in one continuous advance." },
+      { "term": "NATM / mined tunnelling", "plain": "excavating in a sequence of rounds with ground support installed close behind the face." },
+      { "term": "Invert", "plain": "the tunnel's finished floor slab, cast after excavation." },
+      { "term": "Cross-passage", "plain": "a short connecting passage between twin tunnels used for emergency escape." },
+      { "term": "Jet fan", "plain": "a fan hung in the tunnel ceiling that pushes air along the tube for longitudinal ventilation." },
+      { "term": "Cause-and-effect (C&E)", "plain": "the tested logic linking a fire-detection signal to the exact fans, dampers and suppression that must respond." },
+      { "term": "Portal", "plain": "the tunnel's above-ground entrance/exit structure." },
+      { "term": "TMS (tunnel management system)", "plain": "the SCADA layer integrating ventilation, fire, lighting, CCTV and comms into one control-room view." }
+    ],
+    "must_get_right": [
+      "The excavation method sets the whole programme's pace — TBM advance rate, mined round length, or cut-and-cover bay cycle must be based on realistic productivity, not best-case.",
+      "Ventilation and fire life-safety are the real schedule risk for road/rail tunnels, not the lining — leave genuine time for cause-and-effect testing; regulators will not accept a token test.",
+      "Protect portal and cross-passage interfaces — they are where excavation, lining and the fit-out trades all compete for the same confined space.",
+      "A utility tunnel is a much lighter build than a road/rail tunnel — don't apply the same ventilation/fire commissioning weight where it doesn't belong."
+    ]
+  },
+  "components": [
+    { "name": "Excavation & Lining", "desc": "TBM / mined / cut-and-cover · segmental or sprayed lining", "disc": "Civil", "primary": true },
+    { "name": "Ventilation", "desc": "Jet fans · longitudinal/transverse system · ducts & dampers", "disc": "Mechanical", "primary": true },
+    { "name": "Fire Life-Safety", "desc": "Detection · deluge/suppression · cause-and-effect", "disc": "Fire Protection", "primary": true },
+    { "name": "Electrical & Lighting", "desc": "Power distribution · normal & emergency lighting", "disc": "Electrical", "primary": true },
+    { "name": "Tunnel SCADA / Management System", "desc": "CCTV · comms/radio · integrated TMS", "disc": "Instrumentation", "primary": true },
+    { "name": "Drainage & Pumping", "desc": "Invert drainage · sump/pump chambers · rising mains", "disc": "Civil", "primary": false },
+    { "name": "Cross-Passages & Egress", "desc": "Emergency cross-passages · walkways · egress signage", "disc": "Civil", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical — Ventilation", "items": ["Jet fans / longitudinal ventilation", "Transverse ventilation ducts & dampers", "Ventilation control & mode switching"] },
+    { "discipline": "Fire & Life Safety", "items": ["Linear heat / fire detection", "Deluge or fixed fire-fighting system", "Emergency lighting & egress signage"] },
+    { "discipline": "Electrical", "items": ["Power distribution & sub-stations along the tunnel", "Normal & emergency lighting circuits", "Earthing & bonding"] },
+    { "discipline": "ELV / SCADA / BMS", "items": ["CCTV & incident-detection cameras", "Radio / comms coverage", "Tunnel management system (TMS) / SCADA integration"] }
+  ],
+  "overview_phases": ["Portal & Site Establishment", "Excavation & Lining Advance", "Invert & Drainage", "Cross-Passages & Niches", "Ventilation & Fire Fit-out", "Electrical & SCADA Fit-out", "Testing & Commissioning", "Handover to Operator"],
+  "sequence_chart": {
+    "phases": ["Portal", "Excav.", "Invert", "Fit-out", "Vent/Fire", "SCADA", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Excavation & Lining", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 50, "label": "Portal → TBM/mined advance → invert → cross-passages", "holds": [30] },
+      { "trade": "Mechanical / Ventilation", "disc": "Mechanical", "kind": ["mechanical"], "start": 35, "width": 38, "label": "Duct/fan install → dampers → mode test", "holds": [60] },
+      { "trade": "Fire Life-Safety", "disc": "Fire Protection", "kind": ["fire"], "start": 42, "width": 36, "label": "Detection → deluge/suppression → cause-and-effect", "holds": [65] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 38, "width": 40, "label": "Power distribution → lighting → earthing", "holds": [] },
+      { "trade": "ELV / SCADA", "disc": "Instrumentation", "kind": ["elv", "bms"], "start": 50, "width": 32, "label": "CCTV/comms → TMS integration", "holds": [75] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 18, "label": "Ventilation mode test → C&E → handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Excavation & Lining", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Portal & shaft construction", "TBM launch / mined-tunnel start / cut-and-cover bay 1", "Excavation & lining advance", "Segment/lining grouting & waterproofing", "Invert slab construction", "Cross-passage & niche excavation"] },
+    { "name": "Drainage & Pumping", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Invert drainage channel", "Sump & pump-chamber construction", "Pump installation", "Rising main to outfall", "Flow / pump run-in test"] },
+    { "name": "Mechanical — Ventilation", "disc": "Mechanical", "kind": ["mechanical"], "holds": [4, 5], "steps": ["Ventilation equipment procurement — jet fans/AHU", "Duct & damper installation", "Jet-fan hanging & alignment", "Ventilation control panel & wiring", "Ventilation mode commissioning — normal, congestion, fire", "Smoke-control mode verification"] },
+    { "name": "Fire Life-Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [3, 4], "steps": ["Fire detection cable & sensor installation", "Deluge / fixed fire-fighting pipework", "Fire pump room & water supply", "Cause-and-effect programming", "Fire-detection-to-deluge functional test"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [5], "steps": ["Power distribution cabling & sub-stations", "Normal lighting installation", "Emergency lighting & egress signage", "Earthing & bonding continuity", "Switchgear termination", "Energisation & testing"] },
+    { "name": "ELV / SCADA / Tunnel Management System", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [4], "steps": ["CCTV & incident-detection camera installation", "Radio / comms leaky-feeder or antenna installation", "Field device & sensor wiring", "TMS / SCADA software configuration", "System integration test"] },
+    { "name": "Commissioning & Handover", "disc": "Commissioning", "kind": ["comm"], "holds": [1], "steps": ["Ventilation mode functional test", "Fire cause-and-effect integrated test", "Emergency lighting & egress verification", "Drainage-pump run-in", "Handover to operator"] }
+  ],
+  "wbs": [
+    { "code": "TN", "name": "Tunnels — Project", "level": 1 },
+    { "code": "TN.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "TN.02", "name": "Portal & Site Establishment", "level": 2 },
+    { "code": "TN.03", "name": "Excavation & Lining", "level": 2 },
+    { "code": "TN.03.10", "name": "TBM / Mined Advance", "level": 3 },
+    { "code": "TN.03.10.10", "name": "Segment / lining installation & grouting", "level": 4 },
+    { "code": "TN.03.20", "name": "Cut-and-Cover — where applicable", "level": 3 },
+    { "code": "TN.04", "name": "Invert & Drainage", "level": 2 },
+    { "code": "TN.04.10", "name": "Invert slab", "level": 3 },
+    { "code": "TN.04.20", "name": "Sump/pump chambers & rising mains", "level": 3 },
+    { "code": "TN.05", "name": "Cross-Passages & Niches", "level": 2 },
+    { "code": "TN.06", "name": "Ventilation", "level": 2 },
+    { "code": "TN.06.10", "name": "Duct & jet-fan installation", "level": 3 },
+    { "code": "TN.06.10.10", "name": "Ventilation mode commissioning", "level": 4 },
+    { "code": "TN.06.20", "name": "Ventilation controls", "level": 3 },
+    { "code": "TN.07", "name": "Fire Life-Safety", "level": 2 },
+    { "code": "TN.07.10", "name": "Detection & deluge/suppression", "level": 3 },
+    { "code": "TN.07.10.10", "name": "Cause-and-effect functional test", "level": 4 },
+    { "code": "TN.08", "name": "Electrical & Lighting", "level": 2 },
+    { "code": "TN.08.10", "name": "Power distribution", "level": 3 },
+    { "code": "TN.08.20", "name": "Normal & emergency lighting", "level": 3 },
+    { "code": "TN.09", "name": "ELV / SCADA / Tunnel Management System", "level": 2 },
+    { "code": "TN.09.10", "name": "CCTV & comms", "level": 3 },
+    { "code": "TN.09.20", "name": "TMS / SCADA integration", "level": 3 },
+    { "code": "TN.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "TN.10.10", "name": "Ventilation & fire integrated test", "level": 3 },
+    { "code": "TN.10.20", "name": "Handover to operator", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Excavation advance is modelled as a rate-based (metres/day or rings/day) repeating activity so the true bored or mined progress rate drives the tunnel-length duration, not an assumed generic rate." },
+      { "heading": "Calendars & working time", "body": "TBM or mined excavation typically runs a 24/7 or extended-shift calendar once launched, since stopping mid-advance is disruptive and costly. Fit-out trades — ventilation, fire, electrical, SCADA — run a standard calendar behind the excavation face; commissioning runs an extended calendar to protect test windows, often requiring possession or closure periods for rail or traffic tunnels." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs portal/shaft → excavation & lining advance (the rate-controlling activity) → invert → cross-passages → ventilation & fire fit-out → electrical & SCADA → integrated ventilation/fire commissioning → handover. Excavation advance rate is almost always the single biggest driver of overall duration; fit-out and commissioning follow the face at a set distance and become critical once excavation completes." },
+      { "heading": "Key assumptions", "body": "Ground conditions match the geotechnical baseline report — a differing ground condition is the classic tunnelling risk, not a planning input; design and life-safety strategy (ventilation/fire concept) are frozen before fit-out starts; a single TBM/excavation crew with no unplanned face stoppages; possession/closure windows for commissioning are secured in advance for live-corridor tunnels." },
+      { "heading": "Procurement & long-lead items", "body": "The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["TBM — if bored", "30–52 weeks design-to-delivery", "Before excavation launch"], ["Precast segmental lining units", "Ongoing production matched to advance rate", "Continuously, from excavation start"], ["Jet fans / ventilation equipment", "20–30 weeks", "Before ventilation fit-out"], ["Fire detection & deluge/suppression package", "16–24 weeks", "Before fire life-safety installation"], ["Tunnel management system (TMS) / SCADA platform", "20–30 weeks", "Before integration & commissioning"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Portal and shaft laydown areas are confined and shared by excavation spoil-removal, segment/lining delivery and, later, fit-out material access — spoil haulage and segment logistics are usually the binding constraint on advance rate. Fit-out trades work in a long, narrow, single-access corridor, so their sequencing along the tunnel length matters as much as the trade content itself." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: differing ground conditions slowing excavation advance, fit-out congestion in the confined tunnel bore, and a failed ventilation/fire cause-and-effect test forcing a re-test before regulatory sign-off. Schedule contingency is held on the excavation advance rate itself — a rate assumption, not a lump sum — and again before the integrated commissioning test." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client, by tunnel drive/section; controlled at Level 3, with excavation advance tracked as a rate-based repeating activity; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

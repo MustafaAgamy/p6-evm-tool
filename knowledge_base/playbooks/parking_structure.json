@@ -1,0 +1,122 @@
+{
+  "archetype": "parking_structure",
+  "schema": 2,
+  "context": "structure-led · deck waterproofing and smoke-control ventilation are the life-safety gate",
+  "brief": {
+    "intro": "A multi-storey car park is mostly a repetitive concrete structure — typically post-tensioned in-situ decks or precast double-tee units — built floor by floor on a fast, repeatable cycle. Because the building has no comfort-conditioned occupancy, MEP is sparse: the two systems that really matter are car-park ventilation (jet fans or ducted, to clear carbon monoxide and smoke) and deck waterproofing and drainage, both safety- and durability-critical rather than optional finishes. Fire detection and smoke-control commissioning is the life-safety gate that must pass before the structure opens to the public, proved by a cause-and-effect test that links detection directly to fan activation. Revenue and access systems — ANPR, barriers, payment — are added late and are commercial rather than life-safety, but still need clean power and network runs coordinated with the structure. Ramps, deck-to-deck movement joints and waterproofing detailing at every level are the recurring technical risk, far more than any single MEP system.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, retaining structures, external drainage." },
+      { "name": "Substructure & foundations", "desc": "Piling or pad footings, basement levels where present, tanking." },
+      { "name": "Superstructure", "desc": "Post-tensioned or precast deck structure, ramps, stair and lift cores." },
+      { "name": "Deck waterproofing & drainage", "desc": "Membrane, falls, movement joints, gullies and outlets at every level." },
+      { "name": "Fire & life safety", "desc": "Detection, suppression where required, and smoke-control ventilation." },
+      { "name": "Mechanical ventilation", "desc": "Jet-fan or ducted CO and smoke extraction system." },
+      { "name": "Electrical & lighting", "desc": "Power distribution, general and emergency lighting, power to plant." },
+      { "name": "ELV, security & revenue systems", "desc": "CCTV, access control, ANPR, barriers and payment." },
+      { "name": "Vertical transportation", "desc": "Stairs and lift(s) for pedestrian access between decks." },
+      { "name": "Testing & commissioning", "desc": "Ventilation cause-and-effect test, fire system sign-off, revenue-system go-live." }
+    ],
+    "glossary": [
+      { "term": "ANPR", "plain": "Automatic Number Plate Recognition — cameras that read plates for entry, exit or payment." },
+      { "term": "Jet fan", "plain": "a ceiling-mounted fan that pushes air across a deck to clear vehicle exhaust or smoke, instead of running ductwork everywhere." },
+      { "term": "Post-tensioned deck", "plain": "a concrete slab stressed with internal steel tendons after casting, giving long column-free spans with a thin slab." },
+      { "term": "Double-tee", "plain": "a precast concrete deck unit shaped like two T's side by side, craned into place to speed up erection." },
+      { "term": "Cause-and-effect test", "plain": "proving that a specific fire or smoke trigger causes the correct fan, damper and alarm response." },
+      { "term": "Movement joint", "plain": "a deliberate gap in the deck that lets concrete expand and contract without cracking the waterproofing." },
+      { "term": "CO extraction", "plain": "mechanical ventilation sized to keep carbon-monoxide levels safe from vehicle exhaust in an enclosed deck." }
+    ],
+    "must_get_right": [
+      "Waterproof and detail every deck-to-deck movement joint and drainage outlet — leaks here are the single most common defect on parking structures.",
+      "Fix the ventilation strategy (jet-fan versus ducted) early — it drives ceiling clearance, structural openings and the smoke cause-and-effect design.",
+      "Sequence the post-tensioning or precast erection cycle as the true driver of the programme — it is rarely revisited once a deck is stressed or grouted.",
+      "Keep revenue and ANPR systems off the life-safety critical path — commission fire and smoke-control first, then add ticketing and payment without blocking handover."
+    ]
+  },
+  "components": [
+    { "name": "Superstructure", "desc": "Post-tensioned / precast deck structure, ramps, cores", "disc": "Structural", "primary": true },
+    { "name": "Deck Waterproofing", "desc": "Membrane, falls, movement joints, drainage", "disc": "Civil", "primary": true },
+    { "name": "Ventilation & Smoke Control", "desc": "Jet-fan / ducted CO & smoke extraction", "disc": "Mechanical", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Detection · suppression · smoke cause-and-effect", "disc": "Fire Protection", "primary": true },
+    { "name": "Electrical & Lighting", "desc": "Power distribution · general & emergency lighting", "disc": "Electrical", "primary": false },
+    { "name": "ELV / Revenue Systems", "desc": "CCTV · access control · ANPR · payment", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "Commissioning", "desc": "Smoke test · fire sign-off · revenue go-live", "disc": "Commissioning", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Ventilation", "items": ["Jet-fan or ducted CO extraction system", "Smoke-control ventilation & fire-mode fan control", "Ramp and plant-room ventilation"] },
+    { "discipline": "Fire Protection", "items": ["Fire detection & alarm", "Sprinkler / hose-reel suppression (where required by code)", "Smoke damper & cause-and-effect controls"] },
+    { "discipline": "Electrical / ELV", "items": ["Power distribution, general & emergency lighting", "CCTV, access control & ANPR", "Barrier, payment & guidance-system cabling"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Foundations", "Deck Erection Cycle", "Waterproofing & Ramps", "MEP Rough-in & Ventilation", "Fire & Smoke-Control Commissioning", "Revenue Systems & Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Found.", "Decks", "W'proof", "Rough-in", "Vent/Fire", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Foundations → deck erection cycle → ramps", "holds": [10, 34] },
+      { "trade": "Waterproofing & Drainage", "disc": "Civil", "kind": ["civil"], "start": 28, "width": 26, "label": "Falls & membrane → movement joints → drain test", "holds": [52] },
+      { "trade": "Mechanical Ventilation", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 42, "width": 34, "label": "Ductwork/jet-fans → controls → smoke test", "holds": [70] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["mep", "electrical"], "start": 44, "width": 32, "label": "Distribution → lighting → emergency circuits", "holds": [] },
+      { "trade": "Fire & ELV / Security", "disc": "Fire Protection", "kind": ["mep", "fire", "elv"], "start": 54, "width": 32, "label": "Detection → cause-and-effect → ANPR/security", "holds": [80] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 84, "width": 16, "label": "Smoke test · fire sign-off · handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Enabling works & substructure", "Foundations & piling", "Post-tensioned / precast deck erection cycle", "Ramps, stair & lift cores", "Structural stressing / grouting sign-off"] },
+    { "name": "Waterproofing & Drainage", "disc": "Civil", "kind": ["civil"], "holds": [4], "steps": ["Deck falls & screed to drainage points", "Membrane application", "Movement joint installation", "Drainage outlets & gullies", "Flood / ponding test"] },
+    { "name": "Mechanical Ventilation", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [4], "steps": ["Jet-fan / ductwork procurement", "Fan & ductwork installation", "CO sensor & control wiring", "Smoke-control mode programming", "Airflow / cause-and-effect test"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["mep", "fire"], "holds": [3], "steps": ["Detection & alarm rough-in", "Suppression / hose reels (if required)", "Smoke damper & fan interface wiring", "Cause-and-effect commissioning test", "Fire authority sign-off"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["mep", "electrical"], "holds": [3], "steps": ["Containment & distribution", "General & emergency lighting", "Power to ventilation plant & barriers", "Testing & energisation", "Final circuit certification"] },
+    { "name": "ELV / Security & Revenue", "disc": "Extra-Low Voltage", "kind": ["mep", "elv"], "holds": [3], "steps": ["Containment & cabling", "CCTV & access control", "ANPR, barriers & payment system install", "Integration test with revenue system", "Handover to operations"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1], "steps": ["Smoke-control cause-and-effect test", "Fire alarm & suppression sign-off", "Revenue / ANPR go-live", "Punch-list / snagging", "Handover"] }
+  ],
+  "wbs": [
+    { "code": "PK", "name": "Parking Structure — Project", "level": 1 },
+    { "code": "PK.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "PK.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "PK.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "PK.02.20", "name": "Substructure & Foundations", "level": 3 },
+    { "code": "PK.02.20.10", "name": "Piling / pad footings", "level": 4 },
+    { "code": "PK.03", "name": "Superstructure", "level": 2 },
+    { "code": "PK.03.10", "name": "Post-tensioned / precast deck erection", "level": 3 },
+    { "code": "PK.03.10.10", "name": "Stressing & grouting sign-off", "level": 4 },
+    { "code": "PK.03.20", "name": "Ramps, stair & lift cores", "level": 3 },
+    { "code": "PK.04", "name": "Deck Waterproofing & Drainage", "level": 2 },
+    { "code": "PK.04.10", "name": "Membrane & falls", "level": 3 },
+    { "code": "PK.04.20", "name": "Movement joints & drainage outlets", "level": 3 },
+    { "code": "PK.05", "name": "Mechanical Ventilation", "level": 2 },
+    { "code": "PK.05.10", "name": "Jet-fan / ductwork installation", "level": 3 },
+    { "code": "PK.05.20", "name": "CO & smoke-control controls", "level": 3 },
+    { "code": "PK.06", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "PK.06.10", "name": "Detection & alarm", "level": 3 },
+    { "code": "PK.06.20", "name": "Suppression / hose reels", "level": 3 },
+    { "code": "PK.06.30", "name": "Smoke cause-and-effect commissioning", "level": 3 },
+    { "code": "PK.07", "name": "Electrical & Lighting", "level": 2 },
+    { "code": "PK.07.10", "name": "Distribution & general lighting", "level": 3 },
+    { "code": "PK.07.20", "name": "Emergency lighting & power to plant", "level": 3 },
+    { "code": "PK.08", "name": "ELV / Security", "level": 2 },
+    { "code": "PK.09", "name": "Revenue & Access Systems", "level": 2 },
+    { "code": "PK.09.10", "name": "ANPR, barriers & payment", "level": 3 },
+    { "code": "PK.10", "name": "Vertical Transportation", "level": 2 },
+    { "code": "PK.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "PK.11.10", "name": "Ventilation & smoke-control test", "level": 3 },
+    { "code": "PK.11.20", "name": "Handover & snagging", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "The structure runs a 6-day week matched to the deck erection and stressing cycle (typically a level per week); MEP and fire fit-out follow on a standard 5–6 day week, one or two levels behind; commissioning is aligned to the local authority's inspection and witness windows." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path is the repetitive post-tensioned or precast deck erection cycle — each bay stressed and grouted before the next level can load it — with waterproofing following each completed deck and ventilation/fire rough-in trailing structure by one to two levels. Smoke-control cause-and-effect commissioning is the life-safety gate before the revenue systems are added and the structure can open." },
+      { "heading": "Key assumptions", "body": "The ventilation strategy (jet-fan versus ducted) is frozen before ductwork and structural-opening coordination; a single mobilisation; precast supply, where used, is sequenced to match the erection rate; local-authority inspection windows are known in advance." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is structure-led; the following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Precast deck / double-tee units", "8–14 weeks", "Before erection sequence start"], ["Post-tensioning system & tendons", "6–10 weeks", "Before first deck stressing"], ["Jet-fan units & VSD control panels", "10–16 weeks", "Before ventilation installation"], ["ANPR cameras, barriers & payment kiosks", "8–12 weeks", "Before revenue fit-out"], ["Deck waterproofing membrane system", "4–8 weeks", "Before first deck waterproofing"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Crane and erection access for deck units; stressing crews are a specialist, limited resource that sets the erection pace; waterproofing needs dry weather windows to apply and cure; commissioning needs the fire authority inspector's availability." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: any slip in the deck erection rate cascades directly through every trailing trade; waterproofing defects found after handover are costly to rework; smoke cause-and-effect re-test loops are common. Contingency is held before life-safety commissioning and before public opening, not spread across the erection cycle." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

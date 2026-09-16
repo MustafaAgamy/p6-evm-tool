@@ -246,13 +246,16 @@ function curatedSequence(cur) {
   const pills = present.map(g => `<span class="kbp-fpill ${g.key === _focus ? 'on' : ''}" data-focus="${g.key}">${escapeHtml(g.label)}</span>`).join('');
   const g = groupOf(_focus);
 
-  const cols = `<div class="kbp-ccols"><div class="ch">Trade</div>${(chart.phases || []).map(p => `<div class="ch">${escapeHtml(p)}</div>`).join('')}</div>`;
+  const nph = (chart.phases || []).length || 7;                       // chart column count varies by type
+  const gcol = `grid-template-columns:150px repeat(${nph},1fr)`;
+  const glcol = `grid-template-columns:repeat(${nph},1fr)`;
+  const cols = `<div class="kbp-ccols" style="${gcol}"><div class="ch">Trade</div>${(chart.phases || []).map(p => `<div class="ch">${escapeHtml(p)}</div>`).join('')}</div>`;
   const gl = (chart.phases || []).map(() => '<i></i>').join('');
   const lanes = (chart.lanes || []).map(l => {
     const dim = _focus !== 'all' && !kindMatches(l.kind, g);
     const flags = (l.holds || []).map(h => `<span class="kbp-flag" style="left:${h}%">⚑</span>`).join('');
-    return `<div class="kbp-lane ${dim ? 'dim' : ''}"><div class="ln"><span class="kbp-cdot" style="background:${discColor(l.disc)}"></span>${escapeHtml(l.trade)}</div>
-      <div class="track"><div class="kbp-gl">${gl}</div>
+    return `<div class="kbp-lane ${dim ? 'dim' : ''}" style="${gcol}"><div class="ln"><span class="kbp-cdot" style="background:${discColor(l.disc)}"></span>${escapeHtml(l.trade)}</div>
+      <div class="track"><div class="kbp-gl" style="${glcol}">${gl}</div>
         <div class="kbp-bar" style="left:${+l.start}%;width:${+l.width}%;background:${discColor(l.disc)}">${escapeHtml(l.label || '')}</div>${flags}</div></div>`;
   }).join('');
 

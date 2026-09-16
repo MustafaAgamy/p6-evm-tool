@@ -1,0 +1,123 @@
+{
+  "archetype": "lng_terminal",
+  "schema": 2,
+  "context": "cryogenic-process & safety-led · marine/jetty interface",
+  "brief": {
+    "intro": "New to this project type? An LNG terminal stores and handles liquefied natural gas at around minus 162°C, which makes it fundamentally a cryogenic process plant: large insulated storage tanks, cryogenic-rated piping and pumps, and — depending on the terminal — either liquefaction trains that cool gas into LNG or regasification trains that warm LNG back into gas for the grid, plus a marine jetty where ships load or unload. The programme is dominated by heavy process piping and pipe-spool fabrication, by the tanks themselves, and above all by fire & gas safety systems, because a cryogenic and highly flammable product demands an unusually safety-heavy commissioning process before any LNG is introduced. Civil works — tank foundations, the marine jetty and berth — are substantial but are enablers to the process systems, not the schedule driver in their own right. Commissioning is staged and deliberately slow: tanks and piping must be dried, inerted and then cooled down gradually before first LNG, and fire & gas / emergency shutdown systems must be proven before that cooldown is allowed to begin.",
+    "scope": [
+      { "name": "Site & marine civil works", "desc": "Tank foundations, process-area paving, marine works (jetty/berth), drainage and containment." },
+      { "name": "LNG storage tanks", "desc": "Full-containment or double-containment cryogenic tanks with insulation and instrumentation." },
+      { "name": "Process piping & pipe-spool fabrication", "desc": "Cryogenic and process-grade piping, much of it shop-fabricated as spools." },
+      { "name": "Liquefaction / regasification trains", "desc": "Compressors, heat exchangers, vaporizers and associated rotating and process equipment." },
+      { "name": "Marine jetty & loading arms", "desc": "Berth structure, LNG loading/unloading arms and the ship interface." },
+      { "name": "Fire & gas safety systems", "desc": "Fire & gas detection, deluge/foam firefighting and the emergency shutdown (ESD) system." },
+      { "name": "Electrical power", "desc": "Power distribution for process, utilities and hazardous-area equipment." },
+      { "name": "Instrumentation & control (DCS/SIS)", "desc": "Process control and safety-instrumented systems across the terminal." },
+      { "name": "Testing & commissioning", "desc": "Drying, inerting, controlled cooldown, and leak/pressure testing ahead of first LNG." }
+    ],
+    "glossary": [
+      { "term": "Cryogenic", "plain": "extremely cold — LNG is stored around minus 162°C, requiring special materials and insulation." },
+      { "term": "Full / double containment tank", "plain": "a tank design with an inner and outer wall so a leak is always contained." },
+      { "term": "Boil-off gas (BOG)", "plain": "the small amount of LNG that naturally evaporates and must be managed or recompressed." },
+      { "term": "Cooldown", "plain": "the slow, controlled chilling of tanks and piping from ambient temperature down to LNG temperature before first fill." },
+      { "term": "ESD (emergency shutdown system)", "plain": "the safety system that automatically isolates and shuts the plant down when it detects a hazard." },
+      { "term": "Loading arm", "plain": "the articulated pipe connection used to transfer LNG between ship and jetty." },
+      { "term": "Purge & inert", "plain": "removing air/oxygen from piping and tanks with nitrogen before introducing a flammable gas." },
+      { "term": "Mechanical completion", "plain": "the point a system is fully built and ready for pre-commissioning, before it is made live." }
+    ],
+    "must_get_right": [
+      "Fire & gas / ESD safety systems must be fully proven before cooldown or first LNG is allowed — never compress this stage to protect the schedule.",
+      "Cryogenic cooldown is a slow, physics-bound process, not a task you can crash — build the real duration into the baseline, not an optimistic guess.",
+      "Pipe-spool fabrication (cryogenic and process grade) is typically the long-lead, high-volume critical path — track fabrication and delivery by spool count, not as one lump activity.",
+      "The marine jetty and civil works are enablers to the process systems, not the driver — don't let civil 'looking busy' hide slippage in tanks, piping and safety systems."
+    ]
+  },
+  "components": [
+    { "name": "LNG Storage Tanks", "desc": "Full/double-containment cryogenic tanks", "disc": "Mechanical", "primary": true },
+    { "name": "Process Piping & Spool Fabrication", "desc": "Cryogenic & process-grade piping, shop-fabricated spools", "disc": "Mechanical", "primary": true },
+    { "name": "Liquefaction / Regasification Equipment", "desc": "Compressors · heat exchangers · vaporizers", "disc": "Mechanical", "primary": true },
+    { "name": "Fire & Gas / ESD Safety Systems", "desc": "Detection · deluge/foam · emergency shutdown", "disc": "Fire Protection", "primary": true },
+    { "name": "Marine Jetty & Loading Arms", "desc": "Berth structure · ship/shore interface", "disc": "Civil", "primary": false },
+    { "name": "Electrical Power", "desc": "Hazardous-area power · earthing · cathodic protection", "disc": "Electrical", "primary": false },
+    { "name": "Instrumentation & Control (DCS/SIS)", "desc": "Process control · safety-instrumented systems", "disc": "Instrumentation", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Process", "items": ["Cryogenic process piping & pipe-spool fabrication", "Liquefaction/regasification trains — compressors & heat exchangers", "Vaporizers & boil-off gas (BOG) compression", "Tank insulation & cryogenic valve installation"] },
+    { "discipline": "Electrical", "items": ["Hazardous-area (Ex-rated) power distribution", "Earthing & cathodic protection", "Emergency / standby power"] },
+    { "discipline": "Instrumentation & Safety", "items": ["Fire & gas detection network", "Deluge / foam firefighting systems", "Emergency shutdown (ESD) & safety-instrumented system (SIS)", "DCS process control integration"] },
+    { "discipline": "Utilities / Marine", "items": ["Nitrogen (purge/inert) supply system", "Loading arms & ship/shore interface", "Utility piping — instrument air, cooling water"] }
+  ],
+  "overview_phases": ["Site & Marine Civil Works", "Tank Construction", "Process Piping & Spool Installation", "Liquefaction/Regasification Equipment Set", "Fire & Gas / ESD Systems", "Electrical & Instrumentation", "Pre-commissioning & Drying/Inerting", "Cooldown & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Civil/Marine", "Tanks", "Piping", "Equip. Set", "F&G/ESD", "Precomm.", "Cooldown"],
+    "lanes": [
+      { "trade": "Civil / Marine", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 36, "label": "Tank foundations → jetty → paving", "holds": [18] },
+      { "trade": "LNG Tanks", "disc": "Mechanical", "kind": ["mechanical"], "start": 16, "width": 34, "label": "Tank erection → insulation → instrumentation", "holds": [30] },
+      { "trade": "Process Piping & Equipment", "disc": "Mechanical", "kind": ["mechanical"], "start": 26, "width": 48, "label": "Spool fab & install → equipment set → hydrotest", "holds": [50, 68] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["electrical"], "start": 40, "width": 34, "label": "Ex-rated power → DCS/SIS wiring → loop check", "holds": [60] },
+      { "trade": "Fire & Gas / ESD", "disc": "Fire Protection", "kind": ["fire"], "start": 50, "width": 28, "label": "Detection → deluge/foam → ESD cause-effect proving", "holds": [72] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 76, "width": 24, "label": "Dry → inert → cooldown → first-LNG readiness", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Site & Marine Civil Works", "disc": "Civil", "kind": ["civil"], "holds": [1, 2], "steps": ["Tank foundation & ring-wall construction", "Process-area paving & drainage", "Marine jetty piling & deck", "Berth fendering & mooring"] },
+    { "name": "LNG Storage Tanks", "disc": "Mechanical", "kind": ["civil", "mechanical"], "holds": [2, 4], "steps": ["Inner tank erection", "Outer containment construction", "Insulation (perlite/foam) installation", "Tank instrumentation & nozzles", "Tank pneumatic/hydrostatic test"] },
+    { "name": "Process Piping & Spool Fabrication", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 4], "steps": ["Shop spool fabrication (cryogenic & process grade)", "Spool delivery & field erection", "Welding, NDT & bolt-up", "Insulation & heat tracing", "Hydrostatic/pneumatic test"] },
+    { "name": "Liquefaction / Regasification Equipment", "disc": "Mechanical", "kind": ["mechanical"], "holds": [2], "steps": ["Equipment delivery & set (compressors, heat exchangers, vaporizers)", "Alignment & coupling", "Lube-oil flush & run-in", "No-load mechanical run test"] },
+    { "name": "Marine Jetty & Loading Arms", "disc": "Civil", "kind": ["civil", "mechanical"], "holds": [3], "steps": ["Loading-arm platform & structure", "Loading arm installation", "Ship/shore link & ESD interface", "Loading-arm functional test"] },
+    { "name": "Fire & Gas / ESD Safety Systems", "disc": "Fire Protection", "kind": ["fire"], "holds": [3], "steps": ["Fire & gas detector installation", "Deluge/foam system pipework & nozzles", "ESD logic solver & field devices", "Cause-and-effect / SIS proof test"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [2], "steps": ["Hazardous-area equipment installation", "Cable containment & Ex-rated cable pull", "Earthing & cathodic protection", "Point-to-point & insulation test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 3], "steps": ["Mechanical completion & punch-out by system", "Drying & nitrogen purge/inerting", "Leak & pressure test confirmation", "Controlled cryogenic cooldown", "First LNG introduction & performance run"] }
+  ],
+  "wbs": [
+    { "code": "LNG", "name": "LNG Terminal — Project", "level": 1 },
+    { "code": "LNG.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "LNG.02", "name": "Site & Marine Civil Works", "level": 2 },
+    { "code": "LNG.02.10", "name": "Tank Foundations & Ring-walls", "level": 3 },
+    { "code": "LNG.02.20", "name": "Marine Jetty & Berth", "level": 3 },
+    { "code": "LNG.03", "name": "LNG Storage Tanks", "level": 2 },
+    { "code": "LNG.03.10", "name": "Inner Tank & Outer Containment", "level": 3 },
+    { "code": "LNG.03.20", "name": "Insulation & Instrumentation", "level": 3 },
+    { "code": "LNG.03.20.10", "name": "Tank pneumatic/hydrostatic test", "level": 4 },
+    { "code": "LNG.04", "name": "Process Piping & Spool Fabrication", "level": 2 },
+    { "code": "LNG.04.10", "name": "Shop Spool Fabrication", "level": 3 },
+    { "code": "LNG.04.20", "name": "Field Erection, Welding & NDT", "level": 3 },
+    { "code": "LNG.04.20.10", "name": "Hydrostatic/pneumatic test", "level": 4 },
+    { "code": "LNG.05", "name": "Liquefaction / Regasification Equipment", "level": 2 },
+    { "code": "LNG.05.10", "name": "Equipment Set & Alignment", "level": 3 },
+    { "code": "LNG.05.20", "name": "Run-in & Mechanical Test", "level": 3 },
+    { "code": "LNG.06", "name": "Marine Loading Arms", "level": 2 },
+    { "code": "LNG.06.10", "name": "Loading Arm Installation & Functional Test", "level": 3 },
+    { "code": "LNG.07", "name": "Fire & Gas / ESD Safety Systems", "level": 2 },
+    { "code": "LNG.07.10", "name": "Fire & Gas Detection", "level": 3 },
+    { "code": "LNG.07.20", "name": "Deluge / Foam Firefighting", "level": 3 },
+    { "code": "LNG.07.30", "name": "ESD / SIS Cause-and-effect Proving", "level": 3 },
+    { "code": "LNG.08", "name": "Electrical Power", "level": 2 },
+    { "code": "LNG.09", "name": "Instrumentation & Control (DCS/SIS)", "level": 2 },
+    { "code": "LNG.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "LNG.10.10", "name": "Mechanical Completion & Punch-out", "level": 3 },
+    { "code": "LNG.10.20", "name": "Drying, Purge & Inerting", "level": 3 },
+    { "code": "LNG.10.30", "name": "Cryogenic Cooldown", "level": 3 },
+    { "code": "LNG.10.40", "name": "First LNG Introduction & Performance Run", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Mechanical completion is tracked by system and subsystem, as is standard for process plants, so pre-commissioning can start on completed systems while other systems are still under construction." },
+      { "heading": "Calendars & working time", "body": "Civil and marine works run a standard shift with tidal/weather windows for marine construction; piping and equipment installation move to extended shifts approaching mechanical completion. Once started, drying, inerting and cooldown run on a continuous (24-hour) calendar, since these are physically continuous processes that cannot be stopped and restarted without cost." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs tank/piping long-lead procurement → spool fabrication → tank and piping erection → equipment set → fire & gas/ESD proving → mechanical completion → drying/inerting → controlled cooldown → first LNG. Fire & gas/ESD proving is an explicit gate before cooldown is permitted to begin — cooldown cannot start until the safety system is proven." },
+      { "heading": "Key assumptions", "body": "Tank design is frozen early given its fabrication lead time; LNG carrier and berth compatibility is confirmed; there is a single defined point of first-cargo readiness; and no scope change is made to safety-critical systems after issue-for-construction. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["LNG tank containment system", "50–70 weeks", "Before tank erection start"], ["Cryogenic valves & piping material", "30–45 weeks", "Before spool fabrication"], ["Compressors / heat exchangers (liquefaction or regas train)", "40–60 weeks", "Before equipment set"], ["Loading arms", "30–40 weeks", "Before jetty mechanical completion"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Marine works are constrained by tide and weather windows; compressors and heat exchangers require heavy-lift access before the site becomes congested; specialist cryogenic welders and NDT technicians are a shared, constrained resource across spool fabrication; hazardous-area work requires formal permits and gas-freeing before hot work." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: cryogenic material and valve lead-time slippage, marine works weather delay, fire & gas/ESD proof-test rework loops, and spool fabrication quality rejects. Schedule contingency is held before the fire & gas/ESD proving gate and before first-LNG cooldown rather than spread thinly across individual systems." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones — mechanical completion, ESD proven, first LNG) and Level 2 (summary by system/train) to the client; controlled at Level 3; expanded to Level 4–5 lookahead per spool/system for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

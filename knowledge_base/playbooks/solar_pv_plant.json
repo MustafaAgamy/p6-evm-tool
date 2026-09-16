@@ -1,0 +1,124 @@
+{
+  "archetype": "solar_pv_plant",
+  "schema": 2,
+  "context": "procurement & repetition-led · grid-interconnection gated",
+  "brief": {
+    "intro": "New to this project type? A utility-scale solar PV plant is essentially a very large, repeating electrical installation spread across open land — rows of modules on fixed-tilt or tracking racks, wired into strings, converted from DC to AC by inverters, and collected into a substation that connects to the grid. Unlike a building, there is no single 'structure' to build — the programme is driven by procurement of modules, inverters and tracker steel, and by how fast repeatable installation crews can move block by block across the site. Civil works (grading, piling, roads, trenching) happen in parallel across a huge footprint rather than in one sequence, so the real coordination challenge is keeping electrical installation trains fed by civil, not waiting on it. The finish line is not a single test but a grid-code compliance process controlled by the utility, which is often outside the contractor's control and can dominate the tail of the schedule.",
+    "scope": [
+      { "name": "Site civil & access", "desc": "Grading, access roads, drainage and security fencing across the plant footprint." },
+      { "name": "Piling & racking/tracker foundations", "desc": "Driven or screw piles supporting the fixed-tilt or single-axis tracker racking system." },
+      { "name": "Racking / tracker installation", "desc": "Structural racking or motorised tracker rows that carry the modules." },
+      { "name": "Module installation & DC stringing", "desc": "PV panels mounted and wired in series into strings, terminated at combiner boxes." },
+      { "name": "Inverters", "desc": "Central or string inverters (skid-mounted or distributed) converting DC to AC." },
+      { "name": "MV collection network", "desc": "Underground or overhead medium-voltage cabling gathering power from inverter stations to the substation." },
+      { "name": "Substation & grid interconnection", "desc": "Step-up transformer, switchgear and the single point of connection to the grid." },
+      { "name": "SCADA / monitoring & controls", "desc": "Plant SCADA, weather stations and tracker control system." },
+      { "name": "Testing & commissioning", "desc": "String IV-curve testing, energisation and grid-code compliance verification." }
+    ],
+    "glossary": [
+      { "term": "String", "plain": "a series-connected chain of PV modules wired together." },
+      { "term": "Inverter (central vs string)", "plain": "the equipment that converts the panels' DC output into grid AC power." },
+      { "term": "Tracker (single-axis)", "plain": "a motorised structure that rotates panels through the day to follow the sun." },
+      { "term": "Combiner box", "plain": "where several DC strings are joined before going to the inverter." },
+      { "term": "MV collection network", "plain": "the medium-voltage cabling that gathers power from inverter stations to the substation." },
+      { "term": "IV-curve test", "plain": "an electrical test proving a string's current-voltage performance matches design." },
+      { "term": "Grid code compliance", "plain": "the utility's technical rules a plant must prove it meets before it is allowed to export power." }
+    ],
+    "must_get_right": [
+      "It's procurement and repetition-led — module, inverter and tracker delivery cadence, plus repeatable installation trains, set the pace, not one-off construction.",
+      "Civil (piling, roads, trenching) must run ahead of and alongside electrical across a huge footprint — don't let it become a serial dependency.",
+      "Grid interconnection and utility approvals are typically the true critical path — track them from day one; they sit outside the contractor's control.",
+      "Protect testing windows — string/IV-curve testing scales with panel count, so sequence it block by block behind installation, not as one lump at the end."
+    ]
+  },
+  "components": [
+    { "name": "Racking / Tracker Structures", "desc": "Fixed-tilt or single-axis tracker frames carrying the modules", "disc": "Structural", "primary": true },
+    { "name": "PV Modules & DC Stringing", "desc": "Panels, string wiring & combiner boxes", "disc": "Electrical", "primary": true },
+    { "name": "Inverters & Inverter Stations", "desc": "Central/string inverters · DC-AC conversion", "disc": "Electrical", "primary": true },
+    { "name": "MV Collection & Substation", "desc": "Collection cabling · transformer · switchgear · grid tie-in", "disc": "Electrical", "primary": true },
+    { "name": "Earthing & Lightning Protection", "desc": "Earth grid · bonding · surge protection", "disc": "Electrical", "primary": false },
+    { "name": "SCADA / Monitoring", "desc": "Weather stations · tracker control · plant SCADA", "disc": "Instrumentation", "primary": false },
+    { "name": "Site Civil & Access", "desc": "Grading · roads · drainage · fencing", "disc": "Civil", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical", "items": ["DC stringing & combiner boxes", "Central / string inverters & inverter stations", "MV collection cabling (underground/overhead) & ring main units", "Step-up transformer, switchgear & grid interconnection"] },
+    { "discipline": "Civil / Structural", "items": ["Piling & racking/tracker foundations", "Access roads, drainage & security fencing", "Cable trenching & duct banks"] },
+    { "discipline": "Instrumentation / Controls", "items": ["Plant SCADA & data acquisition", "Weather stations & irradiance sensors", "Tracker control system"] },
+    { "discipline": "Earthing / Fire", "items": ["Earthing grid & lightning protection", "Substation fire & gas detection"] }
+  ],
+  "overview_phases": ["Site Civil & Access", "Piling & Tracker/Racking", "Module Install & DC Stringing", "Inverters & MV Collection", "Substation & Grid Interconnection", "SCADA Integration", "Testing & Energisation"],
+  "sequence_chart": {
+    "phases": ["Civil", "Piling", "Racking", "Stringing", "MV/Sub", "SCADA", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 36, "label": "Grading → roads → piling", "holds": [16] },
+      { "trade": "Racking / Tracker", "disc": "Structural", "kind": ["civil"], "start": 20, "width": 28, "label": "Pile caps → erect racking/tracker", "holds": [22] },
+      { "trade": "Electrical — Modules & Inverters", "disc": "Electrical", "kind": ["electrical"], "start": 34, "width": 48, "label": "Modules → string → inverters → MV cabling", "holds": [58, 74] },
+      { "trade": "Substation & Grid", "disc": "Electrical", "kind": ["electrical"], "start": 62, "width": 26, "label": "Transformer → switchgear → grid tie-in", "holds": [82] },
+      { "trade": "SCADA / Controls", "disc": "Instrumentation", "kind": ["elv", "bms"], "start": 50, "width": 30, "label": "Weather stations → tracker control → SCADA", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "String test → energise → grid compliance", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Site Civil & Access", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Clearing, grading & drainage", "Access roads & security fencing", "Cable trench excavation & duct banks", "Reinstatement"] },
+    { "name": "Piling & Racking/Tracker", "disc": "Structural", "kind": ["civil"], "holds": [1], "steps": ["Pile driving / screw-pile installation & pull test", "Racking or tracker frame erection", "Torque-tube & drive-unit install (trackers)", "Module mounting rail fixing"] },
+    { "name": "Module Installation & DC Stringing", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Module unloading & staging", "Module mounting & clamping", "DC string wiring", "Combiner/recombiner box termination", "String IV-curve & insulation test"] },
+    { "name": "Inverters & Inverter Stations", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["Inverter skid/station set", "DC input termination", "LV/MV side termination", "Functional & no-load test"] },
+    { "name": "MV Collection & Substation", "disc": "Electrical", "kind": ["electrical"], "holds": [2, 4], "steps": ["MV cable pull & jointing", "Ring main unit installation", "Step-up transformer set", "Switchgear installation & protection setting", "Grid interconnection & synchronisation test"] },
+    { "name": "Earthing & Lightning Protection", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["Earth grid installation", "Equipotential bonding", "Lightning protection & surge arrestors", "Earth resistance test"] },
+    { "name": "SCADA / Controls", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [2], "steps": ["Weather station & sensor install", "Tracker control wiring", "SCADA server & comms", "Point-to-point verification", "Remote monitoring handover"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 2], "steps": ["Pre-energisation checks", "Inverter energisation block-by-block", "Grid-code compliance test", "Performance ratio verification", "Handover to O&M"] }
+  ],
+  "wbs": [
+    { "code": "SPV", "name": "Solar PV Plant — Project", "level": 1 },
+    { "code": "SPV.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "SPV.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "SPV.02.10", "name": "Clearing, Grading & Drainage", "level": 3 },
+    { "code": "SPV.02.20", "name": "Access Roads & Fencing", "level": 3 },
+    { "code": "SPV.02.30", "name": "Cable Trenching & Duct Banks", "level": 3 },
+    { "code": "SPV.03", "name": "Foundations & Structural Support", "level": 2 },
+    { "code": "SPV.03.10", "name": "Piling / Screw-pile Installation", "level": 3 },
+    { "code": "SPV.03.10.10", "name": "Pile pull-out test", "level": 4 },
+    { "code": "SPV.03.20", "name": "Racking / Tracker Erection", "level": 3 },
+    { "code": "SPV.04", "name": "PV Modules & DC System", "level": 2 },
+    { "code": "SPV.04.10", "name": "Module Installation", "level": 3 },
+    { "code": "SPV.04.20", "name": "DC String Wiring & Combiner Boxes", "level": 3 },
+    { "code": "SPV.04.20.10", "name": "String IV-curve testing", "level": 4 },
+    { "code": "SPV.05", "name": "Inverters", "level": 2 },
+    { "code": "SPV.05.10", "name": "Inverter Station Set & Termination", "level": 3 },
+    { "code": "SPV.06", "name": "MV Collection Network", "level": 2 },
+    { "code": "SPV.06.10", "name": "MV Cabling & Jointing", "level": 3 },
+    { "code": "SPV.06.20", "name": "Ring Main Units", "level": 3 },
+    { "code": "SPV.07", "name": "Substation & Grid Interconnection", "level": 2 },
+    { "code": "SPV.07.10", "name": "Step-up Transformer", "level": 3 },
+    { "code": "SPV.07.20", "name": "Switchgear & Protection", "level": 3 },
+    { "code": "SPV.07.20.10", "name": "Protection setting & synchronisation test", "level": 4 },
+    { "code": "SPV.08", "name": "Earthing & Lightning Protection", "level": 2 },
+    { "code": "SPV.09", "name": "SCADA / Monitoring & Controls", "level": 2 },
+    { "code": "SPV.09.10", "name": "Weather Stations & Tracker Control", "level": 3 },
+    { "code": "SPV.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "SPV.10.10", "name": "Pre-energisation Checks", "level": 3 },
+    { "code": "SPV.10.20", "name": "Block Energisation", "level": 3 },
+    { "code": "SPV.10.30", "name": "Grid-code Compliance Test", "level": 3 },
+    { "code": "SPV.10.40", "name": "Performance Ratio Verification & Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The install is modelled as repeatable blocks/zones rather than one continuous activity, since piling, racking, stringing and MV collection all progress as parallel installation trains across the site." },
+      { "heading": "Calendars & working time", "body": "Civil and racking installation run an extended single or two-shift calendar to match the electrical trains' pace; commissioning runs a 7-day calendar toward energisation. A heat/dust-storm allowance is embedded in the civil and installation calendars where applicable." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs module/inverter/tracker procurement → piling → racking erection → module install & DC stringing → MV collection → substation → grid interconnection & compliance testing. Civil works are not on the critical path once each block's piling is complete and racking can proceed; grid interconnection and utility approval usually govern the finish date." },
+      { "heading": "Key assumptions", "body": "Land is clear and handed over in workable blocks; geotechnical data confirms the piling method for the whole footprint; a single point of grid interconnection is agreed with the utility; and module/inverter selection is frozen before racking design is finalised. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["PV modules", "10–16 weeks", "Before stringing per block"], ["Single-axis trackers / racking", "12–20 weeks", "Before pile-cap set"], ["Central / string inverters", "16–24 weeks", "Before DC termination"], ["Step-up transformer", "30–45 weeks", "Before grid interconnection"], ["MV switchgear (ring main units)", "20–30 weeks", "Before collection network energisation"]] } },
+      { "heading": "Access, resource & site constraints", "body": "The large footprint supports multiple parallel installation fronts, but crew and equipment mobility between blocks is a real constraint; heavy lifts (transformer) need crane access and clear laydown; installation crews work extended daylight hours and dust/heat control measures apply." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: module or inverter delivery slippage, grid interconnection/utility approval delay, and piling refusal in poor ground. Schedule contingency is held before the grid-code compliance test and before COD rather than spread thinly across installation blocks." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary by block/zone) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for installation trains in the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

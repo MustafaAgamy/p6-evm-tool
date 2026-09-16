@@ -1,0 +1,126 @@
+{
+  "archetype": "rail_metro",
+  "schema": 2,
+  "context": "systems-integration led · signalling/CBTC & the trial-running safety-case own the back end; deep civil (tunnels, viaducts, station boxes) is the enabling backbone",
+  "brief": {
+    "intro": "A rail or metro transit system is not one building but a whole corridor — track, structures (tunnels, viaducts, at-grade formation) and stations — tied together by railway systems: traction power, signalling, telecoms and control. Unlike a building project, the civil works (tunnels, viaducts, trackbed) are the enabling backbone rather than the schedule driver once they are handed over section by section; what actually governs completion is the systems package and the safety-case process that must prove the whole line before a single passenger rides it. Traction power, energised in stages section by section, and signalling/train-control — interlocking, train detection, and on driverless lines CBTC — are first-class disciplines, not secondary MEP, because a line simply cannot run without them. Commissioning therefore runs as a long chain — system installation → subsystem testing → system integration testing → trial running and dynamic testing → the independent safety-case sign-off — and this back end typically consumes a large share of total programme duration. Civil works are usually handed over in sections to let systems installation start early on completed lengths, so the interface between civil completion and systems mobilisation, section by section, is itself a key planning discipline.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Compounds, access, utility diversions and early works ahead of the civil main works." },
+      { "name": "Civil structures", "desc": "Trackbed formation, tunnels (bored/cut-and-cover), viaducts, station boxes and cross-passages." },
+      { "name": "Trackform", "desc": "Ballasted or slab track, rail welding and alignment." },
+      { "name": "Traction power", "desc": "Substations, OHLE/third-rail, cabling and sectioning to energise the line in stages." },
+      { "name": "Signalling & train control", "desc": "Interlocking, train detection, and on automated lines CBTC — the system that actually lets trains run safely." },
+      { "name": "Telecoms & SCADA", "desc": "Radio/GSM-R, PA/PIS, and the SCADA/control-centre system that ties the whole line together." },
+      { "name": "Stations & platforms", "desc": "Platform structures, escalators/lifts, fare gates and public-area fit-out (station-box detail sits in a companion metro-station playbook)." },
+      { "name": "Tunnel ventilation & life safety", "desc": "Jet fans/ventilation shafts, fire/smoke detection, cause-and-effect systems for tunnel and station sections." },
+      { "name": "Earthing & bonding", "desc": "Traction return, stray-current protection and structure bonding along the whole alignment." },
+      { "name": "Testing & commissioning", "desc": "System-by-system testing, integration testing, trial running, dynamic testing and safety-case sign-off before passenger service." }
+    ],
+    "glossary": [
+      { "term": "OHLE / third rail", "plain": "the overhead wire or track-level rail that supplies traction power to trains." },
+      { "term": "CBTC", "plain": "Communications-Based Train Control — a signalling system that lets trains run closer together, sometimes driverless." },
+      { "term": "Interlocking", "plain": "the safety logic that stops conflicting train movements, e.g. two trains being routed onto the same track." },
+      { "term": "Trial running", "plain": "running trains on the completed line, without passengers, to prove reliability before service starts." },
+      { "term": "Safety case", "plain": "the formal evidence package that proves the whole system is safe enough for a regulator to approve passenger service." },
+      { "term": "Stray current", "plain": "traction current that leaks into the ground and can corrode buried metal structures if not controlled by bonding/earthing." },
+      { "term": "Sectioning", "plain": "energising traction power in defined sections so testing and construction can proceed safely on the de-energised sections." },
+      { "term": "SCADA / control centre", "plain": "the software and control room that monitors and operates power, signalling and station systems for the whole line." }
+    ],
+    "must_get_right": [
+      "Hand over civil sections progressively so systems installation can start early — waiting for 100% civil completion before systems mobilise is the single biggest cause of overrun.",
+      "Treat signalling/CBTC integration and the safety-case process as the true critical path, not the civil works — protect real time for it, not a punch-list allowance.",
+      "Sequence traction-power sectioning carefully — testing and construction crews need de-energised sections, so energisation staging must be planned, not improvised.",
+      "Plan trial running and dynamic testing as a distinct, lengthy phase with its own float — re-tests and regulator observation runs are normal, not exceptional."
+    ]
+  },
+  "components": [
+    { "name": "Civil Structures & Trackform", "desc": "Tunnels · viaducts · station boxes · ballasted/slab track", "disc": "Civil", "primary": true },
+    { "name": "Traction Power", "desc": "Substations · OHLE/third rail · sectioning", "disc": "Electrical", "primary": true },
+    { "name": "Signalling & Train Control", "desc": "Interlocking · train detection · CBTC", "disc": "Instrumentation", "primary": true },
+    { "name": "Telecoms & SCADA", "desc": "Radio/GSM-R · PA/PIS · control-centre integration", "disc": "Instrumentation", "primary": false },
+    { "name": "Tunnel Ventilation & Life Safety", "desc": "Jet fans · fire/smoke detection · cause-and-effect", "disc": "Mechanical", "primary": false },
+    { "name": "Earthing & Bonding", "desc": "Traction return · stray-current protection", "disc": "Electrical", "primary": false },
+    { "name": "Commissioning & Safety Case", "desc": "System integration · trial running · dynamic testing · sign-off", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical (Traction & Power)", "items": ["Substations & switchgear", "OHLE / third-rail & sectioning", "LV/aux power & lighting", "Earthing & bonding"] },
+    { "discipline": "Signalling & Train Control", "items": ["Interlocking & trackside cabinets", "Train detection", "CBTC (where applicable)", "Data build & configuration"] },
+    { "discipline": "Telecoms & SCADA", "items": ["Radio / GSM-R", "PA / PIS", "SCADA / control-centre integration", "Structured-cabling containment"] },
+    { "discipline": "Mechanical / Life Safety", "items": ["Tunnel ventilation (jet fans)", "Fire/smoke detection & cause-and-effect", "Station HVAC (where applicable)"] }
+  ],
+  "overview_phases": ["Enabling & Early Works", "Civil Structures (Tunnels/Viaducts/Station Boxes)", "Trackform", "Traction Power Install", "Signalling & Train Control Install", "Telecoms & SCADA Integration", "Tunnel Ventilation & Life Safety", "Testing, Trial Running & Safety Case"],
+  "sequence_chart": {
+    "phases": ["Enable", "Civil", "Track", "Power", "Signal", "Integrate", "Trial Run"],
+    "lanes": [
+      { "trade": "Civil / Structures", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 45, "label": "Tunnels/viaducts/station boxes → sectional handover", "holds": [20] },
+      { "trade": "Traction Power", "disc": "Electrical", "kind": ["electrical"], "start": 24, "width": 50, "label": "Substations → OHLE/third rail → sectioned energisation", "holds": [55, 78] },
+      { "trade": "Signalling & Train Control", "disc": "Instrumentation", "kind": ["elv", "bms"], "start": 34, "width": 48, "label": "Interlocking → CBTC → train-detection proving", "holds": [60] },
+      { "trade": "Telecoms & SCADA", "disc": "Instrumentation", "kind": ["elv"], "start": 44, "width": 40, "label": "Cabling → radio/PA/PIS → SCADA integration", "holds": [] },
+      { "trade": "Tunnel Ventilation & Life Safety", "disc": "Mechanical", "kind": ["mechanical", "fire"], "start": 40, "width": 36, "label": "Jet fans → detection → cause-and-effect test", "holds": [70] },
+      { "trade": "Commissioning / Trial Running", "disc": "Commissioning", "kind": ["comm"], "start": 74, "width": 26, "label": "System integration → trial running → safety case", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structures & Trackform", "disc": "Civil", "kind": ["civil"], "holds": [1, 6], "steps": ["Enabling works, compounds & utility diversions", "Tunnel excavation / cut-and-cover / TBM drive", "Viaduct piers & deck erection", "Station box civils", "Trackbed formation & drainage", "Ballasted or slab track lay & alignment", "Sectional handover to systems contractor"] },
+    { "name": "Traction Power", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 5], "steps": ["Long-lead procurement — substations, OHLE/third-rail equipment", "Substation civils & equipment set", "OHLE mast/catenary or third-rail installation", "Cabling & sectioning switchgear", "Point-to-point & insulation testing", "Staged sectional energisation", "Traction-power proving under load"] },
+    { "name": "Signalling & Train Control", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [0, 6], "steps": ["Long-lead procurement — interlocking, CBTC/train-control system", "Trackside cabinet & cable-route install", "Signal/point machine & detector installation", "Interlocking configuration & data build", "CBTC integration (where applicable)", "Train-detection & interlocking proving", "Signalling system integration test"] },
+    { "name": "Telecoms & SCADA", "disc": "Instrumentation", "kind": ["elv"], "holds": [3], "steps": ["Containment routes & cable pull", "Radio / GSM-R installation", "PA / PIS installation", "SCADA / control-centre configuration", "Integration & data-link testing"] },
+    { "name": "Tunnel Ventilation & Life Safety", "disc": "Mechanical", "kind": ["mechanical", "fire"], "holds": [3], "steps": ["Jet-fan / ventilation-shaft equipment install", "Fire & smoke detection rough-in", "Cause-and-effect programming", "Ventilation-mode functional test", "Fire/smoke cause-and-effect discharge test"] },
+    { "name": "Earthing & Bonding", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["Traction-return & structure bonding install", "Cross-bonding at structures & rail joints", "Stray-current monitoring installation", "Continuity & resistance testing", "Stray-current commissioning proving"] },
+    { "name": "Commissioning & Safety Case", "disc": "Commissioning", "kind": ["comm"], "holds": [3, 6], "steps": ["System-by-system installation testing", "Subsystem integration testing", "System integration testing (SIT) across all disciplines", "Trial running (no passengers)", "Dynamic testing at line speed", "Safety-case compilation & independent assessment", "Regulator sign-off → passenger service"] }
+  ],
+  "wbs": [
+    { "code": "RM", "name": "Rail / Metro Transit System — Project", "level": 1 },
+    { "code": "RM.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "RM.02", "name": "Enabling & Early Works", "level": 2 },
+    { "code": "RM.02.10", "name": "Compounds, access & utility diversions", "level": 3 },
+    { "code": "RM.03", "name": "Civil Structures", "level": 2 },
+    { "code": "RM.03.10", "name": "Tunnels (bored / cut-and-cover)", "level": 3 },
+    { "code": "RM.03.20", "name": "Viaducts", "level": 3 },
+    { "code": "RM.03.30", "name": "Station boxes", "level": 3 },
+    { "code": "RM.03.30.10", "name": "Cross-passages & ventilation shafts", "level": 4 },
+    { "code": "RM.04", "name": "Trackform", "level": 2 },
+    { "code": "RM.04.10", "name": "Trackbed formation & drainage", "level": 3 },
+    { "code": "RM.04.20", "name": "Ballasted / slab track lay & alignment", "level": 3 },
+    { "code": "RM.05", "name": "Traction Power", "level": 2 },
+    { "code": "RM.05.10", "name": "Substations", "level": 3 },
+    { "code": "RM.05.20", "name": "OHLE / third-rail installation", "level": 3 },
+    { "code": "RM.05.30", "name": "Sectioning & energisation", "level": 3 },
+    { "code": "RM.05.30.10", "name": "Sectional energisation proving", "level": 4 },
+    { "code": "RM.06", "name": "Signalling & Train Control", "level": 2 },
+    { "code": "RM.06.10", "name": "Interlocking & trackside equipment", "level": 3 },
+    { "code": "RM.06.20", "name": "CBTC integration (where applicable)", "level": 3 },
+    { "code": "RM.06.20.10", "name": "Train-detection & interlocking proving", "level": 4 },
+    { "code": "RM.07", "name": "Telecoms & SCADA", "level": 2 },
+    { "code": "RM.07.10", "name": "Radio / PA / PIS", "level": 3 },
+    { "code": "RM.07.20", "name": "Control-centre SCADA integration", "level": 3 },
+    { "code": "RM.08", "name": "Tunnel Ventilation & Life Safety", "level": 2 },
+    { "code": "RM.09", "name": "Earthing & Bonding", "level": 2 },
+    { "code": "RM.10", "name": "Stations & Platforms Fit-out", "level": 2 },
+    { "code": "RM.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "RM.11.10", "name": "System integration testing (SIT)", "level": 3 },
+    { "code": "RM.11.20", "name": "Trial running & dynamic testing", "level": 3 },
+    { "code": "RM.11.30", "name": "Safety-case sign-off", "level": 3 },
+    { "code": "RM.11.40", "name": "Regulator approval → passenger service", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress, usually broken into civil, systems and stations sub-networks that roll up to one master schedule. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil works (tunnelling, viaduct, station box) typically run continuous shift patterns driven by the construction method (TBM advance, jump-form cycle); systems installation runs possession-based access once track is handed over; testing and trial running run an extended calendar to make best use of scarce possession windows." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs civil handover (sectional) → trackform → traction-power sectioning & energisation → signalling/CBTC installation and data build → telecoms/SCADA integration → system integration testing → trial running & dynamic testing → safety-case sign-off. Once civil sections are handed over, signalling/CBTC integration and the trial-running/safety-case regime — not the remaining civil works — become the true driver of the completion date." },
+      { "heading": "Key assumptions", "body": "Civil sections are handed over progressively to a pre-agreed interface schedule; the systems supplier's design is frozen ahead of equipment procurement; possession windows for testing are secured with the infrastructure/track authority; a single systems-integration contractor coordinates all disciplines. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is systems-led at the back end. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Signalling / CBTC system (design, factory build & FAT)", "40–60 weeks", "Before trackside installation"], ["Traction-power substations & switchgear", "30–45 weeks", "Before power-path install"], ["Rolling stock (where in scope)", "50–80 weeks", "Before trial running"], ["OHLE / third-rail equipment package", "24–36 weeks", "Before traction-power install"], ["Platform screen doors / escalators / lifts", "24–32 weeks", "Before station fit-out"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Systems installation depends on possession windows on a live or partially-live corridor, which are limited and shared across trades; dynamic testing at line speed needs exclusive possession and is scheduled around traffic/operations constraints. Signalling and CBTC engineers are a specialised, scarce resource contested across the whole programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: civil-to-systems handover slippage, signalling/CBTC software and data-build delays, and safety-case observations that trigger re-testing. Schedule contingency is concentrated before system integration testing and before the safety-case submission rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client/authority; controlled at Level 3; expanded to Level 4–5 lookahead for site and testing teams — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

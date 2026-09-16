@@ -1,0 +1,122 @@
+{
+  "archetype": "dam_hydraulic",
+  "schema": 2,
+  "context": "mass-civil led · river diversion, placement rate & first-filling govern the programme",
+  "brief": {
+    "intro": "New to this project type? A dam is, at its core, a very large earth or concrete barrier built across a river, so the schedule is dominated by moving and placing huge volumes of fill or concrete, not by conventional building trades. The river itself is the first obstacle — it must be diverted around or through the works before any part of the dam body can be built in the riverbed. Once the foundation is proven sound and grouted watertight, the dam body rises in a steady, rate-driven placement operation, while a small but safety-critical package of gates, valves and monitoring instruments is built into it. The programme only truly finishes when the reservoir is filled for the first time under close instrumented watch.",
+    "scope": [
+      { "name": "Access & site establishment", "desc": "Haul roads, work areas, batching/RCC plants and quarry or borrow-area development for a usually remote site." },
+      { "name": "River diversion & care of water", "desc": "Cofferdams and a diversion channel or tunnel that keep the river out of the work area during construction." },
+      { "name": "Foundation excavation & grouting", "desc": "Excavation to sound rock, then consolidation and curtain grouting to make the foundation strong and watertight." },
+      { "name": "Dam body construction", "desc": "Zoned embankment fill (core/filter/shell) or roller-compacted/mass concrete, placed and compacted in a continuous production sequence to crest." },
+      { "name": "Spillway & outlet works", "desc": "The chute, stilling basin, intake tower and low-level outlet that safely pass flood water and control the reservoir." },
+      { "name": "Hydromechanical equipment", "desc": "Gates, stoplogs, trash racks, valves and their hoists — the moving parts that control water through the dam." },
+      { "name": "Electrical & power supply", "desc": "Control power for gates and valves, site electrical distribution and standby generation for flood operation." },
+      { "name": "Instrumentation & dam-safety monitoring", "desc": "Piezometers, seepage weirs, inclinometers and a SCADA system that watch the dam's behaviour for life." },
+      { "name": "Testing, first-filling & handover", "desc": "Functional testing of gates and valves, then a slow, monitored reservoir impoundment before handover to the operator." }
+    ],
+    "glossary": [
+      { "term": "Cofferdam", "plain": "a temporary wall that keeps the river out of the work area while the dam is built." },
+      { "term": "Diversion tunnel / channel", "plain": "a temporary passage that carries the river around the works during construction." },
+      { "term": "Grout curtain", "plain": "a wall of grout injected deep into the foundation rock that stops water seeping under the dam." },
+      { "term": "RCC — roller-compacted concrete", "plain": "a stiff, dry concrete placed and compacted in layers like fill, much faster than conventional concrete." },
+      { "term": "Spillway / stilling basin", "plain": "the structure that safely releases flood water, and the basin at its foot that dissipates the energy of falling water." },
+      { "term": "Piezometer", "plain": "an instrument buried in the dam that measures water pressure inside it — an early warning of trouble." },
+      { "term": "First-filling / impoundment", "plain": "the first, carefully monitored raising of the reservoir once the dam is complete." },
+      { "term": "Freeboard", "plain": "the height of the dam crest above the maximum reservoir level, kept as a safety margin." }
+    ],
+    "must_get_right": [
+      "River diversion and closure are fixed by hydrology and season — miss the window and the whole programme can slip a year.",
+      "Foundation grouting must be substantially complete before dam body fill or concrete can rise past it — a real physical dependency, not paperwork.",
+      "Fill/concrete placement rate (m³ per day) is the schedule engine — plan and track it like a production line, not a list of activities.",
+      "Protect real time for first-filling and its monitoring; it is a slow, instrumented process, not a switch-on."
+    ]
+  },
+  "components": [
+    { "name": "Dam Body (Fill / RCC)", "desc": "Embankment fill or roller-compacted / mass concrete to crest", "disc": "Civil / Structural", "primary": true },
+    { "name": "Foundation & Grouting", "desc": "Excavation to sound rock · consolidation & curtain grouting", "disc": "Geotechnical / Civil", "primary": true },
+    { "name": "Spillway & Outlet Works", "desc": "Chute · stilling basin · intake tower · low-level outlet", "disc": "Civil / Structural", "primary": true },
+    { "name": "Hydromechanical Equipment", "desc": "Gates · valves · hoists · trash racks", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical & Power Supply", "desc": "Gate/valve control power · site electrical · standby generation", "disc": "Electrical", "primary": false },
+    { "name": "Instrumentation & Dam Safety", "desc": "Piezometers · seepage weirs · SCADA monitoring", "disc": "Instrumentation", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Hydromechanical", "items": ["Radial / vertical-lift gates, stoplogs & trash racks", "Gate hoists & hydraulic power units", "Valves — outlet, bypass & scour"] },
+    { "discipline": "Electrical", "items": ["Gate & valve control power, MCC", "Site electrical distribution & lighting", "Standby generation for gate operation during flood"] },
+    { "discipline": "Instrumentation & Dam Safety", "items": ["Piezometers, seepage weirs & inclinometers", "SCADA / dam-safety monitoring system", "Survey monuments & automated data loggers"] }
+  ],
+  "overview_phases": ["Mobilization & Diversion", "Foundation Excavation & Grouting", "Dam Body Construction", "Spillway & Outlet Works", "Hydromechanical Installation", "Instrumentation & Electrical", "Testing & Commissioning", "First-Filling & Handover"],
+  "sequence_chart": {
+    "phases": ["Divert", "Found.", "Dam Body", "Spillway", "Hydromech.", "Instr./Elec.", "First-Fill"],
+    "lanes": [
+      { "trade": "Civil / Diversion & Foundation", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 26, "label": "Divert river → excavate & grout foundation", "holds": [26] },
+      { "trade": "Civil / Dam Body", "disc": "Civil", "kind": ["civil"], "start": 20, "width": 55, "label": "Zoned fill or RCC lift-by-lift to crest", "holds": [50, 75] },
+      { "trade": "Hydromechanical", "disc": "Mechanical", "kind": ["mechanical"], "start": 48, "width": 28, "label": "Set gates/valves/hoists → align → test", "holds": [76] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["electrical", "elv"], "start": 54, "width": 30, "label": "Control power → embed sensors → SCADA integrate", "holds": [84] },
+      { "trade": "Commissioning & First-Filling", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Functional test → impound → monitor", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil — Diversion & Foundation", "disc": "Civil", "kind": ["civil"], "holds": [1, 3], "steps": ["Access roads & site establishment", "Divert river — cofferdams & diversion channel/tunnel", "Excavate foundation to sound rock", "Foundation treatment — consolidation & curtain grouting", "Foundation acceptance / dental concrete"] },
+    { "name": "Civil — Dam Body", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Batching plant & fill/RCC trial section", "Place zoned embankment fill (core/filter/shell) or RCC in lifts", "Instrumentation embedment during placement", "Crest & parapet works", "Slope protection / riprap"] },
+    { "name": "Civil — Spillway & Outlet Works", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Spillway chute excavation & concrete", "Stilling basin & energy dissipator", "Intake tower / low-level outlet structure", "Approach & tailrace channel", "Gate embedments & guides installation"] },
+    { "name": "Hydromechanical", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 5], "steps": ["Procure gates, valves, hoists, trash racks (long lead)", "Install gate guides & embedded parts (tied to concrete pours)", "Erect gates/stoplogs & hoist structures", "Install hydraulic power units & valves", "Dry (no-water) operational test", "Wet commissioning under head"] },
+    { "name": "Electrical & Power Supply", "disc": "Electrical", "kind": ["electrical"], "holds": [4], "steps": ["Site electrical distribution & standby generation", "Gate/valve control power & MCC", "Cable routes & earthing", "Switchgear installation & testing", "Energise & prove control power"] },
+    { "name": "Instrumentation & Dam Safety", "disc": "Instrumentation", "kind": ["elv"], "holds": [3], "steps": ["Embed piezometers/strain gauges during fill/concrete placement", "Install seepage weirs & inclinometers", "Survey monuments & automated data loggers", "SCADA / dam-safety monitoring system integration", "Baseline readings before first-filling"] },
+    { "name": "Commissioning & First-Filling", "disc": "Commissioning", "kind": ["comm"], "holds": [2, 4], "steps": ["Functional test of gates, valves & hoists", "Pre-filling inspection & instrumentation baseline", "Reservoir first-filling — staged, monitored rise", "Monitor dam behaviour through first filling", "Handover to operations"] }
+  ],
+  "wbs": [
+    { "code": "DAM", "name": "Dam & Hydraulic Structure — Project", "level": 1 },
+    { "code": "DAM.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "DAM.02", "name": "Site & River Works", "level": 2 },
+    { "code": "DAM.02.10", "name": "Access & Site Establishment", "level": 3 },
+    { "code": "DAM.02.20", "name": "River Diversion", "level": 3 },
+    { "code": "DAM.02.20.10", "name": "Cofferdams", "level": 4 },
+    { "code": "DAM.02.20.20", "name": "Diversion channel / tunnel", "level": 4 },
+    { "code": "DAM.03", "name": "Foundation", "level": 2 },
+    { "code": "DAM.03.10", "name": "Foundation Excavation", "level": 3 },
+    { "code": "DAM.03.20", "name": "Foundation Grouting", "level": 3 },
+    { "code": "DAM.03.20.10", "name": "Consolidation grouting", "level": 4 },
+    { "code": "DAM.03.20.20", "name": "Curtain grouting", "level": 4 },
+    { "code": "DAM.03.20.20.10", "name": "Grout curtain — verification holes", "level": 5 },
+    { "code": "DAM.04", "name": "Dam Body", "level": 2 },
+    { "code": "DAM.04.10", "name": "Embankment fill / RCC placement", "level": 3 },
+    { "code": "DAM.04.10.10", "name": "Zoning — core / filter / shell (or RCC lifts)", "level": 4 },
+    { "code": "DAM.04.10.10.10", "name": "Instrumentation embedment during placement", "level": 5 },
+    { "code": "DAM.05", "name": "Spillway & Outlet Works", "level": 2 },
+    { "code": "DAM.05.10", "name": "Spillway chute & stilling basin", "level": 3 },
+    { "code": "DAM.05.20", "name": "Intake tower & low-level outlet", "level": 3 },
+    { "code": "DAM.06", "name": "Hydromechanical Equipment", "level": 2 },
+    { "code": "DAM.06.10", "name": "Gates & trash racks", "level": 3 },
+    { "code": "DAM.06.10.10", "name": "Gate procurement (long-lead)", "level": 4 },
+    { "code": "DAM.06.10.20", "name": "Gate installation & alignment", "level": 4 },
+    { "code": "DAM.06.20", "name": "Valves & hoists", "level": 3 },
+    { "code": "DAM.07", "name": "Electrical & Power Supply", "level": 2 },
+    { "code": "DAM.08", "name": "Instrumentation & Dam Safety", "level": 2 },
+    { "code": "DAM.08.10", "name": "Monitoring instruments — piezometers/seepage/inclinometers", "level": 3 },
+    { "code": "DAM.08.20", "name": "SCADA / dam-safety monitoring integration", "level": 3 },
+    { "code": "DAM.09", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "DAM.09.10", "name": "Functional / dry testing", "level": 3 },
+    { "code": "DAM.09.20", "name": "First-filling & monitoring", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Fill/RCC placement is tracked as a production quantity (m³ placed per period) against a planned placement curve, not as a simple activity list. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Excavation, grouting and placement typically run extended hours or a 6-day week to maximise the placement season; concrete/RCC placement is temperature- and weather-sensitive (no placement above/below set limits, no fill placement in heavy rain), so a seasonal calendar allowance is embedded. Hydromechanical erection and commissioning run a conventional 6-day calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs river diversion (a fixed seasonal window) → foundation excavation & grouting acceptance → dam body fill/RCC placement (rate-driven, climbing to crest) → gate/valve installation at the embedded openings → electrical & instrumentation integration → functional testing → reservoir first-filling. Spillway readiness must precede any significant reservoir rise so flood water can always be passed safely." },
+      { "heading": "Key assumptions", "body": "Hydrology and flood-design data are accepted as final; borrow areas and quarry sources are approved and accessible; a single mobilisation; and foundation conditions are within the geotechnical baseline report. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led for the hydromechanical package. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Radial / vertical-lift gates", "30–48 weeks", "Before gate-guide concrete pours"], ["Gate hoists & hydraulic power units", "24–36 weeks", "Before gate installation"], ["Large valves (outlet / scour)", "20–32 weeks", "Before outlet works completion"], ["Standby generators / control power", "16–24 weeks", "Before hydromechanical commissioning"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Dam sites are typically remote, with limited access roads and a single haul-road constraint on plant movement. The placement operation needs a dedicated fleet (excavators, compactors, RCC batching/paving plant) sized to hold the planned placement rate, and river flow/flood-season windows restrict diversion and in-river works to defined periods." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: flood events exceeding diversion capacity, foundation conditions worse than the geotechnical baseline (extra excavation/grouting), placement-rate slippage against the planned curve, and slow or interrupted first-filling due to instrumentation trends. Schedule contingency is held around the diversion-closure window and immediately before first-filling, rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for placement crews and the hydromechanical package — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

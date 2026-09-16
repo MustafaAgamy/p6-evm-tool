@@ -1,0 +1,120 @@
+{
+  "archetype": "mosque_religious",
+  "schema": 2,
+  "context": "finishing & acoustics-led · large-volume prayer-hall comfort",
+  "brief": {
+    "intro": "New to this project type? A mosque (or similar single-volume worship building) is a finishing-led project, not a plant-led one — the MEP scope is comparatively simple, but the programme lives and dies on the quality and lead time of stone, joinery, and dome/minaret construction, and on getting the acoustics right in one large uninterrupted prayer hall. Two functional systems matter more than their size suggests: the public-address/acoustic system, which must be tuned for clear speech across the whole hall, and the ablution (wudu) facilities, which see continuous heavy use. Because ceremonial finishes — marble, calligraphy, carved joinery, dome cladding — are bespoke and slow to fabricate, they, not the MEP, are usually what determines the real critical path.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, access, boundary walls, external services connection." },
+      { "name": "Structure & envelope", "desc": "Foundations, frame, dome/minaret structure, roof and envelope weather-tightness." },
+      { "name": "Ablution (wudu) facilities", "desc": "Dedicated wash areas, drainage, water heating and ventilation." },
+      { "name": "Mechanical (HVAC)", "desc": "Large-volume prayer-hall comfort cooling/heating and ventilation." },
+      { "name": "Electrical power & lighting", "desc": "Power distribution and feature + general lighting for the prayer hall and minaret." },
+      { "name": "Fire & life safety", "desc": "Detection, alarm, suppression and evacuation for a large-occupancy assembly space." },
+      { "name": "Public-address & acoustic systems", "desc": "Speech reinforcement and acoustic treatment tuned to the prayer hall." },
+      { "name": "Architectural finishes", "desc": "Stone/marble flooring and cladding, carved joinery (mihrab, minbar), calligraphy, carpet." },
+      { "name": "Dome & minaret works", "desc": "Specialist structure, cladding and finishing of the signature elements." },
+      { "name": "Testing, commissioning & handover", "desc": "MEP testing, PA/acoustic tuning, finishes snagging, handover." }
+    ],
+    "glossary": [
+      { "term": "Wudu / ablution area", "plain": "the dedicated wash facility used before prayer." },
+      { "term": "Mihrab", "plain": "the niche marking the direction of prayer — a focal, high-finish architectural feature." },
+      { "term": "Minbar", "plain": "the pulpit, typically bespoke joinery or stone." },
+      { "term": "PA / acoustic tuning", "plain": "adjusting the sound system and hall acoustics so speech carries clearly to every worshipper." },
+      { "term": "Dome / minaret", "plain": "the signature structural and finishing elements, often built by specialist subcontractors." },
+      { "term": "Calligraphy / ornamental finishing", "plain": "bespoke decorative work — carved, painted or applied — that is slow and skill-dependent." }
+    ],
+    "must_get_right": [
+      "Bespoke finishes (stone, joinery, dome cladding, calligraphy) are usually the true critical path — order and fabricate them early, don't treat them as a finishing-stage afterthought.",
+      "PA/acoustic tuning in the prayer hall needs real time at the end of the programme — it is commissioned, not just installed.",
+      "Ablution facilities see continuous heavy use — get the plumbing and drainage design right and test it thoroughly before handover.",
+      "The large uninterrupted prayer-hall volume constrains HVAC and access sequencing — plan around it rather than treating it like a normal room."
+    ]
+  },
+  "components": [
+    { "name": "Architectural Finishes & Stone", "desc": "Marble/stone flooring, cladding, joinery", "disc": "Architectural", "primary": true },
+    { "name": "HVAC — Prayer Hall Comfort", "desc": "Large-volume ventilation & cooling/heating", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power & Lighting", "desc": "Distribution · general & feature lighting", "disc": "Electrical", "primary": true },
+    { "name": "Ablution & Plumbing", "desc": "Wudu wash points · drainage · hot water", "disc": "Public Health", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Detection · alarm · evacuation, large occupancy", "disc": "Fire Protection", "primary": false },
+    { "name": "Public Address / Acoustic", "desc": "Speech reinforcement · acoustic tuning", "disc": "Extra-Low Voltage", "primary": true },
+    { "name": "Dome / Minaret Structure & Cladding", "desc": "Specialist structure & finishing", "disc": "Structural", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Prayer-hall AHU / split systems", "Ablution area ventilation", "Hot water for ablution"] },
+    { "discipline": "Electrical", "items": ["LV distribution & panels", "General & feature lighting — hall, dome, minaret", "Standby / emergency lighting"] },
+    { "discipline": "Plumbing / Public Health", "items": ["Ablution wash points & drainage", "Domestic water", "Sanitary facilities"] },
+    { "discipline": "ELV / Fire / PA", "items": ["Fire alarm & detection", "Public-address & acoustic system", "CCTV / access control", "Structured cabling"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Substructure", "Superstructure, Dome & Minaret", "MEP Rough-in", "Architectural Finishes & Cladding", "Ablution Fit-out", "Testing & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Enable", "Substr.", "Structure", "Rough-in", "Finishes", "Ablution", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Earthworks → slab → frame → dome/minaret", "holds": [16] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 22, "width": 50, "label": "Containment → 1st fix → feature lighting → test", "holds": [55] },
+      { "trade": "Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "start": 26, "width": 42, "label": "Ductwork → set units → balance prayer hall", "holds": [55] },
+      { "trade": "Finishes / Stone / Joinery", "disc": "Architectural", "kind": ["civil"], "start": 40, "width": 48, "label": "Stone & cladding procurement → install → mihrab/minbar → calligraphy", "holds": [60] },
+      { "trade": "ELV / Public Address", "disc": "Extra-Low Voltage", "kind": ["elv"], "start": 45, "width": 40, "label": "Containment → speakers → acoustic tuning", "holds": [75] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "MEP test → PA tuning → snagging → handover", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [3], "steps": ["Site clearance & earthworks", "Foundations & substructure", "Frame erection", "Dome & minaret structure", "Roof & envelope weather-tight"] },
+    { "name": "Electrical Power & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["Containment & 1st fix", "Panels & distribution", "General lighting 1st + 2nd fix", "Feature lighting — hall / dome / minaret", "Testing & certification"] },
+    { "name": "HVAC / Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 4], "steps": ["Ductwork & containment for prayer hall", "Set AHU / split units", "Ablution-area ventilation & hot water", "Controls & thermostat set-up", "Balance & commission for large-volume comfort"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [3], "steps": ["Detection & alarm rough-in", "Suppression pipework", "Cause-and-effect programming", "Evacuation strategy for large-occupancy hall", "Authority sign-off"] },
+    { "name": "Public Address / Acoustic", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [4], "steps": ["Containment & speaker cable pull", "Speaker & amplifier installation", "Acoustic treatment install", "Zone control & signal routing", "PA / acoustic tuning across the hall"] },
+    { "name": "Architectural Finishes", "disc": "Architectural", "kind": ["civil"], "holds": [0, 2], "steps": ["Stone / marble procurement & fabrication", "Floor & wall cladding install", "Mihrab & minbar joinery", "Calligraphy & ornamental finishing", "Carpet & final decoration"] },
+    { "name": "Ablution & Plumbing", "disc": "Public Health", "kind": ["mechanical"], "holds": [4], "steps": ["Wash-point & drainage rough-in", "Water heating installation", "Pressure test & leak check", "Fixture set & finish", "Flow & drainage test"] },
+    { "name": "Testing & Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2], "steps": ["MEP systems testing", "Life-safety systems sign-off", "PA / acoustic tuning & sign-off", "Finishes snagging & de-snagging", "Handover"] }
+  ],
+  "wbs": [
+    { "code": "MSQ", "name": "Mosque / Religious Building — Project", "level": 1 },
+    { "code": "MSQ.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "MSQ.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "MSQ.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "MSQ.02.20", "name": "Substructure", "level": 3 },
+    { "code": "MSQ.03", "name": "Superstructure", "level": 2 },
+    { "code": "MSQ.03.10", "name": "Prayer Hall Frame & Roof", "level": 3 },
+    { "code": "MSQ.03.20", "name": "Dome & Minaret Structure", "level": 3 },
+    { "code": "MSQ.03.20.10", "name": "Dome cladding & finishing", "level": 4 },
+    { "code": "MSQ.04", "name": "Mechanical — HVAC & Ablution", "level": 2 },
+    { "code": "MSQ.04.10", "name": "Prayer Hall HVAC", "level": 3 },
+    { "code": "MSQ.04.20", "name": "Ablution Plumbing & Ventilation", "level": 3 },
+    { "code": "MSQ.05", "name": "Electrical — Power & Lighting", "level": 2 },
+    { "code": "MSQ.05.10", "name": "General & Feature Lighting", "level": 3 },
+    { "code": "MSQ.06", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "MSQ.07", "name": "ELV / Public Address & Acoustic", "level": 2 },
+    { "code": "MSQ.07.10", "name": "Acoustic Tuning — Prayer Hall", "level": 3 },
+    { "code": "MSQ.08", "name": "Architectural Finishes", "level": 2 },
+    { "code": "MSQ.08.10", "name": "Stone / Marble Flooring & Cladding", "level": 3 },
+    { "code": "MSQ.08.20", "name": "Mihrab & Minbar Joinery", "level": 3 },
+    { "code": "MSQ.08.30", "name": "Calligraphy & Ornamental Finishing", "level": 3 },
+    { "code": "MSQ.09", "name": "Ablution Facilities Fit-out", "level": 2 },
+    { "code": "MSQ.10", "name": "External Works & Boundary", "level": 2 },
+    { "code": "MSQ.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "MSQ.11.10", "name": "MEP Systems Testing", "level": 3 },
+    { "code": "MSQ.11.20", "name": "PA / Acoustic Tuning & Sign-off", "level": 3 },
+    { "code": "MSQ.11.30", "name": "Snagging & Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Specialist stone, joinery and dome/minaret cladding packages are tracked as discrete sub-networks feeding final handover rather than folded into a generic finishes activity." },
+      { "heading": "Calendars & working time", "body": "Structure and MEP rough-in run a standard single-shift week. Specialist stone, joinery and dome trades often run on a fabrication-then-install calendar dictated by workshop lead time rather than by site productivity." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path typically runs stone/cladding & dome-minaret procurement (long fabrication lead) → structure weather-tight → architectural finishes & mihrab/minbar joinery install → PA/acoustic tuning → snagging → handover. MEP is rarely the constraint once the hall is weather-tight; bespoke finishing packages usually are." },
+      { "heading": "Key assumptions", "body": "Design — including calligraphy and ornamental detailing — is frozen before fabrication release; a single finishes contractor or tightly coordinated specialists deliver the ceremonial finishes; authority approvals for assembly occupancy are obtained per phase." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is finishing-led. The following bespoke packages are tracked as milestones because they gate the finishing sequence:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Stone / marble fabrication", "12–20 weeks", "Before floor & wall cladding install"], ["Dome cladding & structure", "16–24 weeks", "Before roof close-out"], ["Bespoke joinery — mihrab / minbar", "14–20 weeks", "Before finishes fit-out"], ["Public-address / acoustic system", "8–12 weeks", "Before acoustic tuning"], ["Carpet — custom prayer-hall pattern", "10–14 weeks", "Before handover"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Specialist stone, joinery and dome-cladding trades are scarce and often shared across few available crews. The large single-volume hall constrains scaffold and access sequencing for ceiling and dome work; acoustic tuning needs a quiet, substantially finished hall to be meaningful." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks are bespoke-finish fabrication slippage and design changes to ornamental detailing late in the programme. Schedule contingency is held before finishes install and before PA/acoustic tuning rather than spread across MEP activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for finishing and specialist trades — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

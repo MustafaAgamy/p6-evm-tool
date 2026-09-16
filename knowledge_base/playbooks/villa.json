@@ -1,0 +1,125 @@
+{
+  "archetype": "villa",
+  "schema": 2,
+  "context": "premium finishing & material lead-times · finishing-to-MEP interface",
+  "brief": {
+    "intro": "New to this project type? A villa is a detached, high-spec house where the schedule is dominated not by structure or building systems but by the finishing trades and the materials behind them. The shell — foundations, blockwork or frame, roof — goes up quickly and is rarely the risk; what drives the programme is the chain from wet-area waterproofing through stone or marble tiling, painting and bespoke joinery, each of which depends on a material or a craftsman that can be slow to secure. Pools and landscaping are common on this type, and their waterproofing and plant work run alongside, and sometimes gate, the main house finishes. Because everything is bespoke and visible, quality control and snagging take longer than on a standard house, and the last mile — joinery fit, fixtures and detailed snagging — is where villa programmes most often slip.",
+    "scope": [
+      { "name": "Enabling & foundations", "desc": "Earthworks and foundations for the villa footprint." },
+      { "name": "Structure & shell", "desc": "Blockwork/frame, floor slabs, roof structure and a weather-tight envelope." },
+      { "name": "External envelope", "desc": "External cladding/stone substrate, roof waterproofing and façade." },
+      { "name": "MEP first fix", "desc": "Plumbing, electrical and HVAC rough-in, coordinated with the finishing and lighting design." },
+      { "name": "Wet-area & pool waterproofing", "desc": "Bathroom/kitchen tanking and pool shell waterproofing, leak tested before finishes proceed." },
+      { "name": "Stone/marble & tiling", "desc": "Premium floor and wall finishes to living areas and wet areas." },
+      { "name": "MEP second fix", "desc": "Sanitary fixtures, lighting scenes, AC units and smart-home devices." },
+      { "name": "Bespoke joinery & fit-out", "desc": "Kitchens, wardrobes, staircases and feature millwork." },
+      { "name": "Landscape & pool", "desc": "Hardscape, softscape and pool plant & finishes." },
+      { "name": "Detailed snagging & handover", "desc": "Quality-focused inspection given the visible, bespoke finish." }
+    ],
+    "glossary": [
+      { "term": "Wet area", "plain": "a bathroom, kitchen or pool zone requiring tanking (waterproofing) before finishing." },
+      { "term": "Lead time", "plain": "how far ahead a bespoke material or fitting — stone, joinery — must be ordered to arrive on time." },
+      { "term": "Snagging", "plain": "the defect-fixing inspection before handover — more intensive on a villa given the bespoke finish." },
+      { "term": "Mock-up / sample approval", "plain": "a trial panel or piece approved by the client before the full run of a finish is ordered." },
+      { "term": "Scene lighting", "plain": "pre-programmed lighting settings, common in high-spec villas." },
+      { "term": "Millwork", "plain": "custom-built joinery such as staircases, panelling and feature cabinetry." }
+    ],
+    "must_get_right": [
+      "Order long-lead bespoke items — stone, joinery, specialist fixtures — against the finishing programme, not against the move-in date; these are usually the true critical path, not the structure.",
+      "Protect the wet-area and pool waterproofing test before tiling starts — a failed test discovered late can undo weeks of finished work built around it.",
+      "Sequence the finishing-to-MEP interface deliberately — lighting scenes, smart-home wiring and fixture positions must be resolved before ceilings and walls close, not after.",
+      "Budget real time for detailed snagging — bespoke, highly visible finishes generate more defects and more rework cycles than a standard house."
+    ]
+  },
+  "components": [
+    { "name": "Structure & Shell", "desc": "Foundations · blockwork/frame · roof", "disc": "Structural", "primary": true },
+    { "name": "External Envelope", "desc": "Cladding/stone substrate · roof & façade waterproofing", "disc": "Architectural", "primary": true },
+    { "name": "Premium Finishes", "desc": "Stone/marble tiling · paint · bespoke joinery", "disc": "Architectural", "primary": true },
+    { "name": "MEP First & Second Fix", "desc": "Plumbing · electrical · HVAC · lighting scenes", "disc": "Mechanical/Electrical/Plumbing", "primary": true },
+    { "name": "Sanitary & Fixtures", "desc": "Premium sanitaryware & fittings", "disc": "Plumbing", "primary": false },
+    { "name": "Pool & Landscape", "desc": "Pool shell/plant · hardscape · softscape", "disc": "Civil / Landscape", "primary": false },
+    { "name": "ELV / Smart Home", "desc": "Lighting scenes · security · AV/data", "disc": "ELV", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Ducted/VRF or split AC per zone", "Kitchen & bathroom extract", "Pool plant — filtration, heating, where applicable"] },
+    { "discipline": "Electrical", "items": ["Distribution & lighting circuits", "Lighting-scene / smart-home control wiring", "Standby power (where specified)"] },
+    { "discipline": "Plumbing", "items": ["Domestic water & drainage", "Wet-area & pool waterproofing (tanking)", "Irrigation network"] },
+    { "discipline": "ELV / Security", "items": ["CCTV & access control", "Data/AV wiring", "Intercom / video entry"] }
+  ],
+  "overview_phases": ["Enabling & Foundations", "Structure & Shell", "Envelope & Roof", "MEP First Fix", "Wet-Area & Pool Waterproofing", "Stone & Tiling", "MEP Second Fix & Joinery", "Landscape & Detailed Snagging"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Envelope", "1st Fix", "Waterproof", "Finishes", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structure", "disc": "Structural", "kind": ["civil"], "start": 0, "width": 32, "label": "Foundations → shell → roof", "holds": [14] },
+      { "trade": "Envelope & Waterproofing", "disc": "Architectural", "kind": ["civil"], "start": 20, "width": 28, "label": "Roof waterproof → cladding/stone substrate", "holds": [] },
+      { "trade": "MEP First & Second Fix", "disc": "Mechanical/Electrical/Plumbing", "kind": ["mechanical", "electrical"], "start": 28, "width": 42, "label": "First fix → wet-area/pool tanking → second fix", "holds": [52] },
+      { "trade": "Premium Finishes & Joinery", "disc": "Architectural", "kind": ["civil"], "start": 50, "width": 36, "label": "Stone/tile → paint → bespoke joinery", "holds": [70] },
+      { "trade": "Pool & Landscape", "disc": "Civil", "kind": ["civil", "mechanical"], "start": 46, "width": 34, "label": "Pool shell → plant → hardscape/softscape", "holds": [] },
+      { "trade": "Snagging & Handover", "disc": "Architectural", "kind": ["comm"], "start": 84, "width": 16, "label": "Detailed snag → de-snag → handover", "holds": [94] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structure", "disc": "Structural", "kind": ["civil"], "holds": [1, 4], "steps": ["Foundations & footings", "Blockwork/frame shell", "Floor slabs", "Roof structure", "Roof waterproofing", "External cladding/stone substrate"] },
+    { "name": "Plumbing", "disc": "Plumbing", "kind": ["mechanical"], "holds": [1, 3], "steps": ["Domestic water & drainage first fix", "Wet-area & pool shell tanking", "Leak & pressure test", "Premium sanitary fixture second fix", "Final flow & pressure check"] },
+    { "name": "Electrical & Smart Home", "disc": "Electrical", "kind": ["electrical", "elv"], "holds": [0, 3], "steps": ["Containment & wiring first fix", "Lighting-scene & smart-home control wiring", "Distribution board & circuit testing", "Fixtures, switches & scene-controller second fix", "Smart-home commissioning & scene programming"] },
+    { "name": "HVAC", "disc": "Mechanical", "kind": ["mechanical"], "holds": [], "steps": ["Ductwork/pipework first fix", "Indoor/outdoor unit set", "Refrigerant charge & pressure test", "Balance, commission & test", "Handover with O&M instructions"] },
+    { "name": "Premium Finishes & Joinery", "disc": "Architectural", "kind": ["civil"], "holds": [1, 3], "steps": ["Plaster & internal walls", "Stone/marble floor & wall tiling", "Paint", "Bespoke joinery — kitchen, wardrobes, staircase, millwork", "Detailed quality inspection"] },
+    { "name": "Pool & Landscape", "disc": "Civil", "kind": ["civil", "mechanical"], "holds": [0], "steps": ["Pool shell structure & waterproofing", "Pool plant — filtration, heating, circulation", "Hardscape (driveways, paving)", "Softscape & irrigation", "Pool commissioning & water balance test"] },
+    { "name": "ELV / Security", "disc": "ELV", "kind": ["elv"], "holds": [], "steps": ["CCTV & access-control containment", "Data/AV wiring", "Device install", "Integration test", "System handover & user training"] },
+    { "name": "Testing & Handover", "disc": "Architectural", "kind": ["comm"], "holds": [1], "steps": ["MEP testing & certification", "Detailed snagging", "De-snag", "Handover pack preparation", "Client handover"] }
+  ],
+  "wbs": [
+    { "code": "VLA", "name": "Villa — Project", "level": 1 },
+    { "code": "VLA.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "VLA.02", "name": "Enabling & Foundations", "level": 2 },
+    { "code": "VLA.02.10", "name": "Earthworks", "level": 3 },
+    { "code": "VLA.02.20", "name": "Foundations & footings", "level": 3 },
+    { "code": "VLA.03", "name": "Structure & Shell", "level": 2 },
+    { "code": "VLA.03.10", "name": "Blockwork / frame", "level": 3 },
+    { "code": "VLA.03.20", "name": "Floor slabs", "level": 3 },
+    { "code": "VLA.03.30", "name": "Roof structure", "level": 3 },
+    { "code": "VLA.04", "name": "External Envelope", "level": 2 },
+    { "code": "VLA.04.10", "name": "Roof waterproofing", "level": 3 },
+    { "code": "VLA.04.20", "name": "Cladding / stone substrate", "level": 3 },
+    { "code": "VLA.05", "name": "Plumbing & Drainage", "level": 2 },
+    { "code": "VLA.05.10", "name": "First fix", "level": 3 },
+    { "code": "VLA.05.20", "name": "Wet-area & pool tanking", "level": 3 },
+    { "code": "VLA.05.20.10", "name": "Leak & pressure test", "level": 4 },
+    { "code": "VLA.05.30", "name": "Second fix — premium fixtures", "level": 3 },
+    { "code": "VLA.06", "name": "Electrical & Smart Home", "level": 2 },
+    { "code": "VLA.06.10", "name": "First fix & scene wiring", "level": 3 },
+    { "code": "VLA.06.20", "name": "Second fix — fixtures & controllers", "level": 3 },
+    { "code": "VLA.07", "name": "HVAC", "level": 2 },
+    { "code": "VLA.08", "name": "Premium Finishes & Joinery", "level": 2 },
+    { "code": "VLA.08.10", "name": "Stone / marble tiling", "level": 3 },
+    { "code": "VLA.08.20", "name": "Paint", "level": 3 },
+    { "code": "VLA.08.30", "name": "Bespoke joinery & millwork", "level": 3 },
+    { "code": "VLA.09", "name": "Pool & Landscape", "level": 2 },
+    { "code": "VLA.09.10", "name": "Pool shell & plant", "level": 3 },
+    { "code": "VLA.09.20", "name": "Hardscape & softscape", "level": 3 },
+    { "code": "VLA.10", "name": "ELV / Security", "level": 2 },
+    { "code": "VLA.11", "name": "Testing, Snagging & Handover", "level": 2 },
+    { "code": "VLA.11.10", "name": "Detailed snagging", "level": 3 },
+    { "code": "VLA.11.20", "name": "Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Given its schedule weight, the finishing sequence is modelled activity-by-activity rather than as a single summary bar." },
+      { "heading": "Calendars & working time", "body": "Standard 6-day working week; waterproofing curing and test durations are held as real non-working time. Specialist stone-fixing and joinery crews sometimes move to an extended single shift near handover to protect the finish date." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs structure & envelope → wet-area/pool waterproofing & test → stone/tiling → bespoke joinery → detailed snagging → handover. Lighting-scene and smart-home wiring for MEP first fix must close out before ceilings and walls finish, or rework follows." },
+      { "heading": "Key assumptions", "body": "Interior design and material selections frozen before finishing procurement; sample/mock-up approvals obtained before bulk material order; a single client decision-maker for variations." },
+      { "heading": "Procurement & long-lead items", "body": "Bespoke, imported and specialist items dominate the villa's long-lead list and typically set the true critical path:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Imported stone / marble", "10–18 weeks", "Before tiling start"], ["Bespoke joinery — kitchen, wardrobes, staircase", "10–16 weeks", "Before joinery fix"], ["Premium sanitaryware & fittings", "6–10 weeks", "Before second fix"], ["Pool plant equipment", "8–12 weeks", "Before pool commissioning"], ["Smart-home / AV control system", "6–10 weeks", "Before second fix"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Specialist stone-fixing and joinery crews are scarce and shared across projects; site access for large stone/joinery deliveries needs planning; pool works run alongside main house finishing and compete for the same access route." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: late material or sample approval, a wet-area or pool waterproofing test failure discovered after finishes are in place, and joinery rework from tolerance mismatches. Contingency is held before stone/tiling start and before detailed snagging." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4 for finishing-trade sequencing on site — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

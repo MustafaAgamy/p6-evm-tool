@@ -1,0 +1,124 @@
+{
+  "archetype": "airport_airside",
+  "schema": 2,
+  "context": "pavement-led · airfield ground lighting (AGL) & navaids under live-airport possession windows",
+  "brief": {
+    "intro": "New to this project type? Airside works build the pavement aircraft actually move on — runway, taxiway and apron — plus a small, specialised electrical scope: airfield ground lighting (AGL), the power supplies that feed it, and navigation aids. Most of the schedule is earthworks and pavement, not building MEP. What makes it different from a road is that almost every activity near a live or partially-live airfield only happens inside a granted possession — a fixed block of hours or a night when air traffic control lets you onto that surface. Pavement strength and curing time are physical constraints you cannot compress; possession availability is the operational constraint you plan around.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Clearance, setting out, and coordination with airport operations before any physical work starts." },
+      { "name": "Earthworks & subgrade", "desc": "Cut/fill to formation level and subgrade compaction/proof-rolling under the pavement." },
+      { "name": "Airfield drainage", "desc": "French drains, interceptors and attenuation carrying surface water off the paved area." },
+      { "name": "Pavement", "desc": "Base and sub-base courses, then the PQC (rigid concrete) or asphalt surface courses for runway, taxiway and apron." },
+      { "name": "Airfield Ground Lighting (AGL)", "desc": "In-pavement and elevated edge/centreline fixtures wired in specialist series circuits." },
+      { "name": "Primary electrical power", "desc": "Constant-current regulators (CCR), duct banks and substations feeding the AGL circuits." },
+      { "name": "Navaids & met systems", "desc": "Civil and cable interfaces for navigation aids (ILS/PAPI) and meteorological sensors." },
+      { "name": "Fuel hydrant system", "desc": "Underground hydrant pit network for aircraft refuelling, where the scope includes it." },
+      { "name": "Markings & signage", "desc": "Pavement markings and taxiway/runway guidance signage." },
+      { "name": "Testing & commissioning", "desc": "AGL photometric checks, CCR energisation, and the calibration flight check that proves the system to a live aircraft." }
+    ],
+    "glossary": [
+      { "term": "AGL", "plain": "airfield ground lighting — the runway/taxiway edge and centreline lights that guide pilots." },
+      { "term": "CCR", "plain": "constant-current regulator — a specialist power supply feeding AGL lights in a series circuit, not a normal LV panel." },
+      { "term": "PQC", "plain": "pavement quality concrete — the rigid concrete pavement used on runways and aprons." },
+      { "term": "Formation level", "plain": "the finished subgrade level the pavement structure is built on." },
+      { "term": "NOTAM", "plain": "a notice that restricts or describes airside conditions, governing when and where work can happen." },
+      { "term": "Possession / closure window", "plain": "the fixed time slot — often a night — when a contractor is allowed onto a live runway or taxiway to work." },
+      { "term": "PAPI / ILS", "plain": "visual and radio landing-aid systems pilots use on approach." },
+      { "term": "Hydrant pit", "plain": "the underground refuelling connection point on the apron." }
+    ],
+    "must_get_right": [
+      "It is a possession-led programme — the real driver is how many hours or nights of live-surface access you are granted, not labour or plant availability.",
+      "Pavement strength and curing time are fixed by the concrete or asphalt mix design — do not compress them; they gate every trade that follows on that panel or section.",
+      "AGL and CCR power are a specialist series-circuit system, not conventional LV wiring — book the specialist subcontractor and the calibration flight check early.",
+      "Coordinate every trench, duct and pit with airport operations — nothing crosses an active surface without an approved possession."
+    ]
+  },
+  "components": [
+    { "name": "Pavement Structure", "desc": "Subgrade, sub-base, PQC/asphalt surface courses", "disc": "Civil", "primary": true },
+    { "name": "Airfield Ground Lighting (AGL)", "desc": "In-pavement & elevated fixtures, series circuits", "disc": "Electrical", "primary": true },
+    { "name": "Primary Electrical Power", "desc": "Constant-current regulators, duct banks, substations", "disc": "Electrical", "primary": true },
+    { "name": "Navaids & Met Systems", "desc": "ILS/PAPI civil & cable interface, met sensors", "disc": "Instrumentation", "primary": false },
+    { "name": "Airfield Drainage", "desc": "French drains, interceptors, attenuation", "disc": "Civil", "primary": false },
+    { "name": "Fuel Hydrant System", "desc": "Hydrant pit network, pressure test", "disc": "Mechanical", "primary": false },
+    { "name": "Commissioning", "desc": "Photometric survey, CCR energisation, flight check", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical — AGL & Power", "items": ["Constant-current regulators (CCR) & series circuits", "In-pavement & elevated AGL fixtures", "Duct banks, base cans & pull-pits", "Earthing & bonding continuity"] },
+    { "discipline": "Instrumentation / Navaids", "items": ["ILS/PAPI civil & cable interface", "Met sensors & wind-sock", "SCADA / airfield lighting control system"] },
+    { "discipline": "Drainage & Utility Piping", "items": ["Airfield French drains & interceptors", "Attenuation structure & outfall", "Fuel hydrant pit network (where applicable)"] }
+  ],
+  "overview_phases": ["Enabling & Earthworks", "Subgrade & Drainage", "Pavement — Base & Sub-base", "Pavement — PQC/Asphalt Courses", "AGL & Duct Banks", "Power & Navaids", "Markings & Signage", "Testing & Flight Check"],
+  "sequence_chart": {
+    "phases": ["Enable", "Subgrade", "Base", "Pave", "Duct/AGL", "Power", "Check"],
+    "lanes": [
+      { "trade": "Earthworks & Subgrade", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 30, "label": "Clear → cut/fill → proof-roll", "holds": [10] },
+      { "trade": "Drainage & Hydrant", "disc": "Civil", "kind": ["civil", "mechanical"], "start": 16, "width": 36, "label": "Trenching → pipework → pressure test", "holds": [40] },
+      { "trade": "Pavement", "disc": "Civil", "kind": ["civil"], "start": 22, "width": 46, "label": "Base/sub-base → PQC or asphalt courses → cure", "holds": [40, 60] },
+      { "trade": "Electrical — AGL & CCR", "disc": "Electrical", "kind": ["electrical"], "start": 38, "width": 42, "label": "Duct banks → base cans → fixtures → CCR terminate", "holds": [66] },
+      { "trade": "Navaids / SCADA", "disc": "Instrumentation", "kind": ["elv", "bms"], "start": 50, "width": 30, "label": "Cable interface → SCADA/control integration", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 82, "width": 18, "label": "Photometric → CCR energise → flight check", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Earthworks & Subgrade", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site clearance & setting out", "Cut/fill to formation level", "Subgrade compaction & proof-rolling", "Geotextile / capping layer", "Formation-level survey & sign-off"] },
+    { "name": "Airfield Drainage", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Trenching & pipe-bedding", "French drain / interceptor install", "Attenuation structure & outfall connection", "Manhole, chamber & headwall construction", "Backfill & reinstatement"] },
+    { "name": "Pavement", "disc": "Civil", "kind": ["civil"], "holds": [2, 4], "steps": ["Sub-base placement & compaction", "Base course placement", "PQC pour / asphalt paving by panel or lift", "Joint sealing & curing", "Surface regularity & strength testing"] },
+    { "name": "Electrical — AGL & Power", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Long-lead procurement — CCR, fixtures, cable", "Duct banks & base cans in-pavement", "Cable pull & fixture set", "Terminate series circuits to CCR", "Insulation & loop resistance testing", "Photometric alignment"] },
+    { "name": "Navaids & Instrumentation", "disc": "Instrumentation", "kind": ["elv"], "holds": [3], "steps": ["Navaid civil interface handover to specialist installer", "Cable interface & conduit to navaid locations", "Met sensor & wind-sock install", "SCADA / airfield lighting control system integration", "Point-to-point verification"] },
+    { "name": "Fuel Hydrant System", "disc": "Mechanical", "kind": ["mechanical"], "holds": [2], "steps": ["Long-lead procurement — hydrant valves & pit hardware", "Hydrant pit & pipework install", "Pressure test & flushing", "Fuel-quality proving", "Hydrant valve commissioning"] },
+    { "name": "Markings & Signage", "disc": "Civil", "kind": ["civil"], "holds": [], "steps": ["Marking material procurement & mock-up approval", "Pavement marking layout & paint", "Taxiway/runway signage install", "Signage illumination & power connection check", "Retroreflectivity check"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [4], "steps": ["CCR energisation & circuit proving", "Photometric survey", "Earthing & bonding continuity test", "Navaid/met-system integration check", "Flight check (calibration aircraft)", "Handover to airport operations"] }
+  ],
+  "wbs": [
+    { "code": "AAS", "name": "Airport Airside — Project", "level": 1 },
+    { "code": "AAS.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "AAS.02", "name": "Enabling & Earthworks", "level": 2 },
+    { "code": "AAS.02.10", "name": "Site clearance & setting out", "level": 3 },
+    { "code": "AAS.02.20", "name": "Cut/fill to formation level", "level": 3 },
+    { "code": "AAS.02.30", "name": "Subgrade compaction & proof-roll", "level": 3 },
+    { "code": "AAS.03", "name": "Airfield Drainage", "level": 2 },
+    { "code": "AAS.03.10", "name": "Trenching & pipe-bedding", "level": 3 },
+    { "code": "AAS.03.20", "name": "Interceptors & attenuation", "level": 3 },
+    { "code": "AAS.04", "name": "Pavement", "level": 2 },
+    { "code": "AAS.04.10", "name": "Sub-base & base courses", "level": 3 },
+    { "code": "AAS.04.20", "name": "PQC / asphalt surface courses", "level": 3 },
+    { "code": "AAS.04.20.10", "name": "Runway pavement", "level": 4 },
+    { "code": "AAS.04.20.20", "name": "Taxiway pavement", "level": 4 },
+    { "code": "AAS.04.20.30", "name": "Apron pavement", "level": 4 },
+    { "code": "AAS.05", "name": "Electrical — AGL & Power", "level": 2 },
+    { "code": "AAS.05.10", "name": "Duct banks & base cans", "level": 3 },
+    { "code": "AAS.05.20", "name": "AGL fixtures & series circuits", "level": 3 },
+    { "code": "AAS.05.30", "name": "Constant-current regulators (CCR)", "level": 3 },
+    { "code": "AAS.05.30.10", "name": "CCR set & terminate", "level": 4 },
+    { "code": "AAS.06", "name": "Navaids & Instrumentation", "level": 2 },
+    { "code": "AAS.06.10", "name": "Cable interface to navaid locations", "level": 3 },
+    { "code": "AAS.06.20", "name": "SCADA / lighting control integration", "level": 3 },
+    { "code": "AAS.07", "name": "Fuel Hydrant System", "level": 2 },
+    { "code": "AAS.08", "name": "Markings & Signage", "level": 2 },
+    { "code": "AAS.09", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "AAS.09.10", "name": "CCR energisation & circuit proving", "level": 3 },
+    { "code": "AAS.09.20", "name": "Photometric survey", "level": 3 },
+    { "code": "AAS.09.30", "name": "Flight check", "level": 3 },
+    { "code": "AAS.09.40", "name": "Handover to airport operations", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are tied to pavement panel or section numbers so progress can be tracked by area; the network is calculated (F9) with total float kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Earthworks and pavement construction run extended daytime shifts on unrestricted areas. Duct-bank, AGL and any tie-in work on or near a live surface runs only within approved night possession windows governed by NOTAM — a separate possession calendar drives those activities, not a standard working week." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs subgrade → pavement base/sub-base → PQC or asphalt surface course (curing time fixed by mix design) → duct banks & AGL fixture install → CCR terminate & energise → photometric survey → flight check → handover. Possession-window availability for airside tie-ins is usually the real constraint on progress, not resourcing." },
+      { "heading": "Key assumptions", "body": "Phasing is agreed with airport operations in advance; a single mobilisation; no live-traffic diversions beyond the agreed plan; and the pavement mix design is frozen before production paving starts." },
+      { "heading": "Key quantities & possession windows", "body": "The programme is sized by pavement area and possession windows rather than by long-lead equipment; AGL fixtures and CCR units are the only meaningfully long-lead procurement and are noted here alongside the possession-critical quantities.", "table": { "columns": ["Item / Window", "Typical range", "Governs"], "rows": [["Runway pavement pour panel", "300–600 m² per night pour", "Paving crew size & possession length"], ["Taxiway/runway closure possession", "6–10 hours per night window", "Duct-bank, AGL and tie-in work rate"], ["PQC cure-to-load strength", "7–28 days, mix dependent", "When a poured panel can carry traffic or plant"], ["AGL fixtures / CCR units — procurement", "14–24 weeks lead time", "Order date vs. energisation milestone"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Airside access requires escort and security clearance and is coordinated with live air traffic control; specialist paving and AGL subcontractors are scarce and often shared across phases; plant movements are restricted to designated haul roads and crossing points." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: possession windows lost to weather or airport operations, pavement not reaching load-bearing strength in time for the next lift, and calibration-flight aircraft availability. Schedule contingency is held immediately before the flight check and before final handover." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by pavement section; expanded to Level 4–5 lookahead for night possessions — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

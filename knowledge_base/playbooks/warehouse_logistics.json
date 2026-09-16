@@ -1,0 +1,126 @@
+{
+  "archetype": "warehouse_logistics",
+  "schema": 2,
+  "context": "fit-out-led · superflat slab, ESFR fire and material-handling integration drive the programme",
+  "brief": {
+    "intro": "A warehouse or distribution centre is essentially a very large, tall steel shed built around two things: a floor flat enough for narrow-aisle forklifts or automated storage/retrieval systems, and a fire-suppression system sized for what will be stored inside it. The building envelope goes up fast — portal-frame steel, metal roof and cladding — so the schedule quickly shifts to the fit-out: the floor slab, racking, conveyors/ASRS and the ESFR sprinkler system that protects the stored goods. Unlike an office building, comfort HVAC is minor; the real drivers are structural-steel lead time, the superflat floor pour, and the fire-engineering approval that fixes what class of sprinkler the racking needs. Material-handling equipment — conveyors, sortation, ASRS — and dock equipment are usually supplied and installed by a specialist subcontractor on a separate track that has to be integrated late in the programme. Because racking height and storage commodity class drive the fire design, a late change to the racking layout is a major schedule risk, not a minor one.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, yard pavement sub-base, utilities, stormwater attenuation." },
+      { "name": "Foundations", "desc": "Isolated pad footings for the portal-frame columns and ground beams." },
+      { "name": "Structural steel frame", "desc": "Portal frames, roof purlins & wall girts, mezzanine steel where required." },
+      { "name": "Building envelope", "desc": "Metal roof sheeting & insulation, wall cladding, rooflights, dock canopies — getting weather-tight." },
+      { "name": "Superflat floor slab", "desc": "Laser-screeded slab-on-grade to FM2/FM3 tolerance for VNA racking or ASRS." },
+      { "name": "Fire protection", "desc": "ESFR / in-rack sprinklers sized to commodity class, fire pumps, on-site water storage." },
+      { "name": "Electrical & lighting", "desc": "High-bay lighting and power distribution to racking, chargers and dock equipment." },
+      { "name": "Racking & material handling", "desc": "Pallet racking, conveyors, sortation and ASRS integration." },
+      { "name": "Dock & yard equipment", "desc": "Dock levelers, shelters and doors; yard pavement and trailer parking." },
+      { "name": "Testing & commissioning", "desc": "Fire system test, MHE/ASRS run-in and WMS go-live." }
+    ],
+    "glossary": [
+      { "term": "ESFR sprinklers", "plain": "Early Suppression Fast Response heads — powerful sprinklers that put out a rack fire without needing sprinklers inside the racking itself." },
+      { "term": "Superflat floor (FM2/FM3)", "plain": "a floor poured dead flat and level so very-narrow-aisle trucks or robots can run safely at speed." },
+      { "term": "VNA (very narrow aisle)", "plain": "narrow racking aisles serviced by guided forklifts — needs the superflat floor to work safely." },
+      { "term": "ASRS", "plain": "Automated Storage & Retrieval System — robotic cranes or shuttles that store and retrieve pallets without a driver." },
+      { "term": "Dock leveler", "plain": "a hydraulic ramp that bridges the gap between the warehouse floor and a parked trailer bed." },
+      { "term": "WMS", "plain": "Warehouse Management System — the software that tells forklifts, conveyors or robots what to move and where." },
+      { "term": "Portal frame", "plain": "the steel-frame typology (column plus pitched rafter) most warehouses are built from." },
+      { "term": "Commodity class", "plain": "how a fire engineer rates what will be stored — cartons, plastics, aerosols — which sets the sprinkler design." }
+    ],
+    "must_get_right": [
+      "Fix the racking layout and commodity class before finalising the fire (ESFR) design — a late change reopens the fire engineering and re-drives sprinkler spacing and pump sizing.",
+      "Protect the superflat floor pour — it needs a dry, protected slab-on-grade sequence and cannot be revisited once racking is set on it.",
+      "Track MHE, conveyors and ASRS as a separate specialist scope with its own long lead time, feeding into commissioning rather than assumed as part of the base build.",
+      "Sequence dock equipment and yard pavement to be ready with structural completion — trucks need the yard before goods-in testing can start."
+    ]
+  },
+  "components": [
+    { "name": "Structural Steel Frame", "desc": "Portal frames · purlins · mezzanine steel", "disc": "Structural", "primary": true },
+    { "name": "Building Envelope", "desc": "Roof & wall cladding · rooflights · dock canopies", "disc": "Architectural", "primary": true },
+    { "name": "Floor Slab", "desc": "Superflat slab-on-grade · FM2/FM3 tolerance", "disc": "Civil", "primary": true },
+    { "name": "Fire Protection", "desc": "ESFR / in-rack sprinklers · pumps · water tank", "disc": "Fire Protection", "primary": true },
+    { "name": "Racking & Material Handling", "desc": "Pallet racking · conveyors · sortation · ASRS", "disc": "MHE", "primary": true },
+    { "name": "Electrical & Lighting", "desc": "High-bay lighting · power distribution", "disc": "Electrical", "primary": false },
+    { "name": "Dock & Yard", "desc": "Levelers · dock doors · yard pavement", "disc": "Civil", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Fire Protection", "items": ["ESFR / in-rack sprinkler heads sized to commodity class", "Fire pumps & on-site water storage tank", "Fire alarm, detection & smoke/heat vents"] },
+    { "discipline": "Electrical", "items": ["High-bay LED lighting & lighting controls", "Power distribution to dock levelers, chargers & racking equipment", "Standby generator for life-safety loads"] },
+    { "discipline": "Mechanical / HVAC", "items": ["Smoke/heat roof vents & natural ventilation", "Minor comfort HVAC to office / mezzanine areas only", "Dock-area ventilation"] },
+    { "discipline": "ELV / Security / Controls", "items": ["CCTV & access control — building and yard", "Structured cabling for WMS / network", "BMS-lite — fire & power monitoring"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Foundations", "Structural Steel", "Envelope", "Floor Slab", "Fire & MEP Rough-in", "Racking & MHE Fit-out", "Testing & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Enable", "Found.", "Steel", "Envelope", "Slab", "Fit-out", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 46, "label": "Earthworks → foundations → superflat slab", "holds": [12, 34] },
+      { "trade": "Structural Steel & Envelope", "disc": "Structural", "kind": ["civil"], "start": 14, "width": 38, "label": "Portal frame erect → roof & cladding → weathertight", "holds": [40] },
+      { "trade": "Fire Protection", "disc": "Fire Protection", "kind": ["mep", "fire"], "start": 38, "width": 46, "label": "Mains & pumps → ESFR heads → flow test", "holds": [70] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["mep", "electrical"], "start": 40, "width": 40, "label": "Distribution → high-bay lighting → energise", "holds": [] },
+      { "trade": "Racking & MHE", "disc": "MHE", "kind": ["mep", "mechanical"], "start": 56, "width": 34, "label": "Racking → conveyors/ASRS → WMS link", "holds": [74] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 82, "width": 18, "label": "Fire test · MHE run-in · handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [3], "steps": ["Site clearance & earthworks", "Yard sub-base, drainage & stormwater attenuation", "Foundations — pad footings & ground beams", "Superflat floor slab — laser-screed pour to FM2/FM3", "Yard pavement, trailer parking & landscaping"] },
+    { "name": "Structural Steel", "disc": "Structural", "kind": ["civil"], "holds": [2], "steps": ["Steel fabrication & delivery (long-lead)", "Column & baseplate setting", "Portal frame erection", "Purlins, roof & wall girts", "Mezzanine steel (if applicable)"] },
+    { "name": "Building Envelope", "disc": "Architectural", "kind": ["civil"], "holds": [4], "steps": ["Roof sheeting & insulation", "Wall cladding", "Rooflights & smoke vents", "Dock canopies, doors & weather seals", "Weathertight sign-off"] },
+    { "name": "Fire Protection", "disc": "Fire Protection", "kind": ["mep", "fire"], "holds": [0, 5], "steps": ["Fire engineering — commodity class & sprinkler design freeze", "Fire main, pumps & on-site water storage tank", "Sprinkler containment & pipe installation", "ESFR / in-rack head installation (coordinated with racking)", "Flow & pressure test", "Fire alarm & detection commissioning"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["mep", "electrical"], "holds": [4], "steps": ["Containment & cable routes", "Main & sub-distribution boards", "High-bay LED lighting & controls", "Power to dock equipment & racking chargers", "Testing & energisation"] },
+    { "name": "Racking & Material Handling", "disc": "MHE", "kind": ["mep", "mechanical"], "holds": [0, 5], "steps": ["Racking layout freeze (drives fire design)", "Racking supply & installation", "Conveyor / sortation installation", "ASRS / robotics installation (where applicable)", "WMS integration & controls commissioning", "No-load then loaded run-in"] },
+    { "name": "ELV / Security", "disc": "Extra-Low Voltage", "kind": ["mep", "elv"], "holds": [3], "steps": ["Containment & structured cabling", "CCTV & access control — building and yard", "Data/network cabling for WMS", "Point-to-point testing", "Handover to IT / security"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [4], "steps": ["Fire system integrated test", "MHE / ASRS loaded run-in", "WMS go-live", "Punch-list / snagging close-out", "Practical completion & handover"] }
+  ],
+  "wbs": [
+    { "code": "WH", "name": "Warehouse / Distribution Centre — Project", "level": 1 },
+    { "code": "WH.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "WH.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "WH.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "WH.02.20", "name": "Foundations — pad footings & ground beams", "level": 3 },
+    { "code": "WH.02.30", "name": "Yard Pavement & Trailer Parking", "level": 3 },
+    { "code": "WH.03", "name": "Structural Steel Frame", "level": 2 },
+    { "code": "WH.03.10", "name": "Portal frame erection", "level": 3 },
+    { "code": "WH.03.20", "name": "Purlins, girts & mezzanine steel", "level": 3 },
+    { "code": "WH.04", "name": "Building Envelope", "level": 2 },
+    { "code": "WH.04.10", "name": "Roof sheeting & insulation", "level": 3 },
+    { "code": "WH.04.20", "name": "Wall cladding & dock canopies", "level": 3 },
+    { "code": "WH.05", "name": "Floor Slab", "level": 2 },
+    { "code": "WH.05.10", "name": "Superflat slab-on-grade", "level": 3 },
+    { "code": "WH.05.10.10", "name": "Laser-screed pour & FM tolerance survey", "level": 4 },
+    { "code": "WH.06", "name": "Fire Protection", "level": 2 },
+    { "code": "WH.06.10", "name": "Fire main, pumps & water storage", "level": 3 },
+    { "code": "WH.06.20", "name": "ESFR / in-rack sprinkler installation", "level": 3 },
+    { "code": "WH.06.20.10", "name": "Coordination with racking layout", "level": 4 },
+    { "code": "WH.07", "name": "Electrical & Lighting", "level": 2 },
+    { "code": "WH.07.10", "name": "High-bay lighting & power distribution", "level": 3 },
+    { "code": "WH.08", "name": "ELV / Security / Data", "level": 2 },
+    { "code": "WH.09", "name": "Racking & Material Handling", "level": 2 },
+    { "code": "WH.09.10", "name": "Pallet racking installation", "level": 3 },
+    { "code": "WH.09.20", "name": "Conveyors, sortation & ASRS", "level": 3 },
+    { "code": "WH.09.20.10", "name": "WMS integration & controls", "level": 4 },
+    { "code": "WH.10", "name": "Dock & Yard Equipment", "level": 2 },
+    { "code": "WH.10.10", "name": "Dock levelers, seals & doors", "level": 3 },
+    { "code": "WH.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "WH.11.10", "name": "Fire system integrated test", "level": 3 },
+    { "code": "WH.11.20", "name": "MHE run-in & WMS go-live", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week to protect the weathertight date; the superflat slab pour runs on a continuous-pour calendar once started and cannot be interrupted mid-bay; racking and MHE installation follows the specialist subcontractor's own calendar, typically two shifts near go-live." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs structural steel fabrication & erection → weathertight envelope → superflat floor slab → racking layout freeze & fire-engineering sign-off → ESFR installation → MHE/ASRS installation → WMS integration → commissioning. Structural steel is rarely critical once fabricated — it erects quickly — but the floor slab and the fire-engineering freeze that gates ESFR installation usually are." },
+      { "heading": "Key assumptions", "body": "Design is frozen and the racking layout finalised before the fire-engineering submission; a single mobilisation; the client's MHE/WMS supplier integrates against an agreed interface schedule; no free-issue equipment assumed unless stated." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is fit-out-led once the shell is up. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Structural steel — fabrication & delivery", "10–16 weeks", "Before frame erection"], ["ESFR sprinkler heads & fire pump package", "8–14 weeks", "Before sprinkler final fix"], ["Pallet racking system", "10–16 weeks", "Before racking installation start"], ["Conveyor / sortation / ASRS system", "16–28 weeks", "Before MHE installation"], ["Dock levelers & loading doors", "6–10 weeks", "Before dock fit-out"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Crane and laydown access for steel erection; the floor-slab pour needs a large continuous-pour crew and a weather-protected, dust-free sequence; racking and MHE installation need a clean, secure, access-controlled area; commissioning of ASRS needs power and controls ready ahead of the mechanical trades." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: a late racking-layout change reopening the fire-engineering design, structural-steel delivery delay, floor-flatness rework, and MHE/ASRS commissioning re-test loops. Schedule contingency is held before MHE go-live and before WMS integration rather than spread across the fit-out." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

@@ -1,0 +1,124 @@
+{
+  "archetype": "utilities_network",
+  "schema": 2,
+  "context": "linear & networked · trenching production rate, crossings & live tie-in govern the programme",
+  "brief": {
+    "intro": "New to this project type? A utilities distribution network project lays buried pipes and cables — water, power, gas or telecom — along a route or across a site or municipality, rather than building a single structure. Progress is measured along the alignment by chainage, not by floors or rooms, and the real driver of the programme is production rate: metres of trench excavated, pipe or cable laid, and backfilled per day, repeated the whole way along. The trickiest part isn't the open trench itself — it's crossing existing roads, rail lines, rivers or other buried utilities, and the final live tie-in and switchover into the operating network, which is usually a short, tightly permitted window that cannot simply be rescheduled.",
+    "scope": [
+      { "name": "Route survey, utility mapping & permits", "desc": "Locating existing buried services and obtaining way-leaves and road-opening permits before any digging." },
+      { "name": "Trenching & excavation", "desc": "Open-cut excavation along the alignment, or trenchless methods where open-cut isn't possible." },
+      { "name": "Pipe / cable laying", "desc": "Bedding, laying and jointing the pipe or cable to specification." },
+      { "name": "Crossings & special works", "desc": "Road, rail and river crossings by thrust-bore, directional drill or slab, where the route can't be open-cut." },
+      { "name": "Chambers & appurtenances", "desc": "Valve chambers, manholes, draw-pits and meter pits built along the route." },
+      { "name": "Backfill & reinstatement", "desc": "Compaction and surface reinstatement to match the original road, footpath or landscaping." },
+      { "name": "Earthing & cathodic protection", "desc": "Bonding along the route and, for steel pipelines, corrosion protection systems." },
+      { "name": "Testing & commissioning", "desc": "Pressure and disinfection testing for pipe, or HV/LV testing and energisation for cable." },
+      { "name": "SCADA / telemetry & metering", "desc": "Instrumentation that lets the network operator monitor and control the new network remotely." },
+      { "name": "Live tie-ins & switchover", "desc": "Physically connecting the new network into the existing, operating network — the highest-risk step in the programme." }
+    ],
+    "glossary": [
+      { "term": "Chainage", "plain": "distance measured along the route from a fixed start point — how progress is tracked." },
+      { "term": "Thrust boring / directional drilling", "plain": "trenchless methods that install pipe or cable under a road, rail line or river without open-cutting it." },
+      { "term": "Way-leave", "plain": "permission from a landowner or authority to run services through or under their land." },
+      { "term": "Tie-in", "plain": "the physical connection of the new pipe or cable into the existing live network." },
+      { "term": "Switchover", "plain": "the moment supply is transferred from the old network (or no network) to the new one." },
+      { "term": "Disinfection & flushing", "plain": "cleaning a new water main before it's allowed to carry drinking water." },
+      { "term": "Cathodic protection", "plain": "a system that stops buried steel pipe from corroding electrochemically." },
+      { "term": "Duct bank", "plain": "a group of buried conduits, usually in a concrete envelope, carrying multiple cables together." },
+      { "term": "Reinstatement", "plain": "restoring the surface — road, footpath or verge — to its original condition after the trench is closed." }
+    ],
+    "must_get_right": [
+      "Production rate (metres per day of trench, lay and backfill) is the schedule engine — plan and track it like a production line, chainage by chainage.",
+      "Crossings (road, rail, river) and interfaces with other buried utilities are the real schedule risk — locate and sequence them early, not as an afterthought.",
+      "Protect a real, permitted window for the live tie-in and switchover — it is often the only time supply can be interrupted, and re-scheduling it costs weeks.",
+      "Road-opening and way-leave permits sit on the critical path just as much as the physical work — track them as milestones, not admin."
+    ]
+  },
+  "components": [
+    { "name": "Trenching & Earthworks", "desc": "Open-cut excavation, bedding & backfill along the route", "disc": "Civil", "primary": true },
+    { "name": "Utility Piping", "desc": "Water / gas / sewer mains — laying, jointing & testing", "disc": "Mechanical", "primary": true },
+    { "name": "Crossings & Special Works", "desc": "Thrust-bore, directional-drill & slab crossings", "disc": "Civil", "primary": false },
+    { "name": "Chambers & Appurtenances", "desc": "Valve chambers, manholes, draw-pits & meter pits", "disc": "Civil", "primary": false },
+    { "name": "Electrical & Cabling Network", "desc": "HV/LV cable network, duct banks & substations", "disc": "Electrical", "primary": true },
+    { "name": "Instrumentation / SCADA", "desc": "Metering, telemetry & network SCADA integration", "disc": "Instrumentation", "primary": false },
+    { "name": "Tie-ins & Switchover", "desc": "Connection into the live network & handover", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Utility Piping", "items": ["Water / gas / sewer trunk & distribution mains", "Bedding, jointing & pressure testing", "Valve chambers, air valves & scour points"] },
+    { "discipline": "Electrical & Cabling Network", "items": ["HV/LV cable network & duct banks", "Substation / kiosk & switchgear", "Earthing & bonding along the route"] },
+    { "discipline": "Instrumentation / ELV", "items": ["SCADA / telemetry & metering", "Fibre / data ducting & cabling", "Cathodic protection (steel pipelines)"] }
+  ],
+  "overview_phases": ["Survey, Utility Mapping & Permits", "Mobilization & Site Establishment", "Trenching & Crossings", "Pipe / Cable Laying", "Chambers & Appurtenances", "Backfill & Reinstatement", "Testing & Commissioning", "Tie-in & Switchover"],
+  "sequence_chart": {
+    "phases": ["Survey/Permit", "Trench", "Lay", "Crossings", "Chambers", "Test", "Tie-in"],
+    "lanes": [
+      { "trade": "Civil — Trenching & Reinstatement", "disc": "Civil", "kind": ["civil"], "start": 6, "width": 58, "label": "Trench → bed → backfill → reinstate, chainage by chainage", "holds": [58] },
+      { "trade": "Utility Piping", "disc": "Mechanical", "kind": ["mechanical"], "start": 18, "width": 50, "label": "Lay → joint → pressure test → disinfect", "holds": [62] },
+      { "trade": "Electrical / Cabling", "disc": "Electrical", "kind": ["electrical"], "start": 18, "width": 50, "label": "Duct/cable pull → terminate → HV/LV test", "holds": [62] },
+      { "trade": "Crossings & Special Works", "disc": "Civil", "kind": ["civil"], "start": 12, "width": 22, "label": "Thrust-bore / directional-drill crossings", "holds": [] },
+      { "trade": "Instrumentation / SCADA", "disc": "Instrumentation", "kind": ["elv"], "start": 54, "width": 24, "label": "Meter/SCADA install → integrate", "holds": [76] },
+      { "trade": "Commissioning & Tie-in", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Test → live tie-in → switchover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil — Trenching & Reinstatement", "disc": "Civil", "kind": ["civil"], "holds": [1, 4], "steps": ["Locate existing services & pothole", "Open-cut trench excavation", "Bedding & pipe/cable support", "Backfill & compaction", "Surface reinstatement (road/footpath/landscape)"] },
+    { "name": "Crossings & Special Works", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Survey crossing point & obtain permit", "Thrust-bore / directional-drill or slab crossing", "Casing pipe / duct installation", "Testing of crossing installation", "Reinstate crossing surface"] },
+    { "name": "Utility Piping", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 3], "steps": ["Procure pipe, fittings & valves", "String, lay & joint pipe", "Install valve chambers, air valves & scour points", "Pressure test", "Disinfection & flushing (water)", "Connect to chambers & appurtenances"] },
+    { "name": "Electrical & Cabling Network", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 4], "steps": ["Procure cable, duct & switchgear (long lead for HV)", "Install duct banks & draw-pits", "Cable pull & jointing", "Terminate at substation / kiosk", "HV/LV testing & energisation"] },
+    { "name": "Instrumentation / SCADA / Telecom", "disc": "Instrumentation", "kind": ["elv"], "holds": [2], "steps": ["Install meters & field instruments", "Fibre / data cabling", "SCADA / telemetry integration", "Point-to-point & loop verification", "Commissioning handover to network operator"] },
+    { "name": "Earthing & Cathodic Protection", "disc": "Electrical", "kind": ["electrical"], "holds": [2], "steps": ["Earthing grid & bonding along route", "Cathodic protection anodes & test posts (steel pipelines)", "Continuity testing", "Protection-potential survey", "Commission & handover records"] },
+    { "name": "Commissioning & Tie-in", "disc": "Commissioning", "kind": ["comm"], "holds": [2], "steps": ["Pre-commissioning checks & as-built survey", "Coordinate shutdown / tie-in window with operator", "Live tie-in & switchover", "Post-switchover monitoring", "Handover to operations"] }
+  ],
+  "wbs": [
+    { "code": "UTN", "name": "Utilities Distribution Network — Project", "level": 1 },
+    { "code": "UTN.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "UTN.02", "name": "Survey, Utility Mapping & Permits", "level": 2 },
+    { "code": "UTN.02.10", "name": "Existing utility survey & potholing", "level": 3 },
+    { "code": "UTN.02.20", "name": "Way-leaves & road-opening permits", "level": 3 },
+    { "code": "UTN.03", "name": "Civil — Trenching & Reinstatement", "level": 2 },
+    { "code": "UTN.03.10", "name": "Trench excavation", "level": 3 },
+    { "code": "UTN.03.20", "name": "Bedding & backfill", "level": 3 },
+    { "code": "UTN.03.30", "name": "Surface reinstatement", "level": 3 },
+    { "code": "UTN.04", "name": "Crossings & Special Works", "level": 2 },
+    { "code": "UTN.04.10", "name": "Road / rail crossings", "level": 3 },
+    { "code": "UTN.04.10.10", "name": "Thrust-bore / directional-drill", "level": 4 },
+    { "code": "UTN.04.20", "name": "River / watercourse crossings", "level": 3 },
+    { "code": "UTN.05", "name": "Utility Piping", "level": 2 },
+    { "code": "UTN.05.10", "name": "Pipe laying & jointing", "level": 3 },
+    { "code": "UTN.05.20", "name": "Valve chambers & appurtenances", "level": 3 },
+    { "code": "UTN.05.30", "name": "Pressure testing & disinfection", "level": 3 },
+    { "code": "UTN.06", "name": "Electrical & Cabling Network", "level": 2 },
+    { "code": "UTN.06.10", "name": "Duct banks & draw-pits", "level": 3 },
+    { "code": "UTN.06.20", "name": "Cable pull & jointing", "level": 3 },
+    { "code": "UTN.06.20.10", "name": "HV cable testing", "level": 4 },
+    { "code": "UTN.06.30", "name": "Substations / kiosks", "level": 3 },
+    { "code": "UTN.07", "name": "Earthing & Cathodic Protection", "level": 2 },
+    { "code": "UTN.08", "name": "Instrumentation / SCADA / Telecom", "level": 2 },
+    { "code": "UTN.08.10", "name": "Metering", "level": 3 },
+    { "code": "UTN.08.20", "name": "SCADA / telemetry integration", "level": 3 },
+    { "code": "UTN.09", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "UTN.09.10", "name": "Pre-commissioning & as-built survey", "level": 3 },
+    { "code": "UTN.09.20", "name": "Live tie-in & switchover", "level": 3 },
+    { "code": "UTN.09.20.10", "name": "Post-switchover monitoring", "level": 4 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by route chainage so production progress (metres trenched, laid, tested) is visible section by section, not just as a task list." },
+      { "heading": "Calendars & working time", "body": "Trenching and laying run extended daytime hours; traffic-management restrictions may limit night or weekend working in public roads. Live tie-ins and switchovers are typically scheduled as an isolated night or weekend shutdown window agreed in advance with the network operator, on its own calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path repeats chainage by chainage: permits/way-leaves → trench → lay/joint → test → tie-in/switchover. Crossings (road, rail, river) and interfaces with existing utilities are the schedule-critical pinch points along the route, and the final live tie-in is typically the last and most constrained activity in the whole programme." },
+      { "heading": "Key assumptions", "body": "The route is free of undisclosed utility clashes beyond what the survey found; permits and way-leaves are granted on the assumed programme; a single mobilisation; and the network operator provides the tie-in/shutdown window on the date assumed." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule tracks the following as milestones because they drive sections of the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["HV switchgear / substation equipment", "20–32 weeks", "Before duct bank & termination works"], ["Large-diameter pipe / fittings", "12–20 weeks", "Before the pipe-laying front reaches that section"], ["MV/LV cable (bulk reels)", "10–16 weeks", "Before cable-pull operations"], ["SCADA / telemetry / metering equipment", "12–18 weeks", "Before instrumentation & integration"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Work in live streets requires traffic management and road-opening permits, and crews must operate near existing, often undocumented, services. Trenching plant and crews are the production-rate resource and are sized to the target metres-per-day; crossings are further constrained by rail possessions or river low-flow seasons." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: undisclosed existing services causing clashes or damage, permit delays, adverse ground conditions (rock, high water table), and tie-in window slippage. Schedule contingency is held around crossings and immediately before the live tie-in/switchover, rather than spread thinly across the route." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by route section; expanded to Level 4–5 lookahead for trenching crews — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

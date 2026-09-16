@@ -1,0 +1,118 @@
+{
+  "archetype": "townhouse",
+  "schema": 2,
+  "context": "attached low-rise unit · party-wall & shared-services coordination",
+  "brief": {
+    "intro": "New to this project type? A townhouse is a low-rise dwelling built in a row, sharing at least one party wall with its neighbour. The building itself is simple — two or three storeys, straightforward structure — so the programme is dominated by the finishing trade sequence rather than by engineering complexity. What makes a townhouse different from a standalone house is coordination along the terrace: party-wall structure, fire/acoustic separation and shared services routes must be resolved before finishing can proceed unit by unit. Units are usually built and released as a rolling row rather than one at a time, so a delay in one unit's blockwork or waterproofing can hold up its neighbour sharing the same wall or roofline. As with any residential type, wet areas — bathrooms and kitchens — set the pace: nothing progresses past them until waterproofing is tested and released.",
+    "scope": [
+      { "name": "Enabling & foundations", "desc": "Earthworks and foundations for the terrace row, including party-wall footings." },
+      { "name": "Structure & party walls", "desc": "Blockwork/frame, party-wall fire & acoustic separation, floor slabs and roof structure per unit." },
+      { "name": "Roof & external envelope", "desc": "Roof waterproofing, external render/cladding and terrace/balcony waterproofing." },
+      { "name": "MEP first fix", "desc": "Plumbing, electrical and light HVAC rough-in through walls and slab, coordinated across the party wall." },
+      { "name": "Wet-area waterproofing", "desc": "Bathroom/kitchen tanking and leak testing before tiling can start." },
+      { "name": "Screed & tiling", "desc": "Floor screed and wall/floor tiling to wet areas and living spaces." },
+      { "name": "MEP second fix", "desc": "Sanitary fixtures, switches/sockets, light fittings and AC units." },
+      { "name": "Painting & joinery", "desc": "Internal paint, doors, wardrobes and kitchen units." },
+      { "name": "Snagging & handover", "desc": "Per-unit inspection and handover, typically staggered along the row." }
+    ],
+    "glossary": [
+      { "term": "Party wall", "plain": "the shared wall between two attached units, carrying fire & acoustic separation requirements." },
+      { "term": "First fix / second fix", "plain": "MEP work done before finishes (pipes/cables in walls) versus after (fixtures, switches, taps)." },
+      { "term": "Wet area", "plain": "a bathroom or kitchen zone requiring waterproofing (tanking) before tiling." },
+      { "term": "Snagging", "plain": "the defect-fixing inspection carried out before handover." },
+      { "term": "Terrace / row", "plain": "the line of attached units built and released together." },
+      { "term": "Screed", "plain": "the levelling layer laid under floor tiles." }
+    ],
+    "must_get_right": [
+      "Resolve party-wall separation (fire & acoustic) before either side's finishing starts — it's a shared interface, not one contractor's problem.",
+      "Protect the wet-area waterproofing test — nothing downstream (tiling, second fix) should start until it's tested and released.",
+      "Plan the row as a rolling wave, not independent units — a stuck unit can block its neighbour's shared wall or roofline.",
+      "Coordinate shared services routes that cross the party line — risers, roof drainage — early, before both sides close up."
+    ]
+  },
+  "components": [
+    { "name": "Structure & Party Walls", "desc": "Blockwork/frame · party-wall fire & acoustic separation", "disc": "Structural", "primary": true },
+    { "name": "Envelope & Waterproofing", "desc": "Roof · external render/cladding · balcony waterproofing", "disc": "Architectural", "primary": true },
+    { "name": "Plumbing & Drainage", "desc": "Domestic water · drainage · wet-area tanking", "disc": "Plumbing", "primary": true },
+    { "name": "Electrical", "desc": "Distribution · lighting · power first & second fix", "disc": "Electrical", "primary": true },
+    { "name": "Internal Finishes", "desc": "Screed · tiling · paint · joinery", "disc": "Architectural", "primary": true },
+    { "name": "HVAC", "desc": "Split or light ducted AC per unit", "disc": "Mechanical", "primary": false },
+    { "name": "ELV / Data", "desc": "TV/data points, intercom", "disc": "ELV", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Split or light ducted AC per unit", "Kitchen & bathroom extract", "Water heater per unit"] },
+    { "discipline": "Electrical", "items": ["Per-unit distribution board & wiring", "Lighting & socket circuits", "Shared meter room / riser (where applicable)"] },
+    { "discipline": "Plumbing", "items": ["Domestic water & drainage per unit", "Wet-area waterproofing (tanking)", "Roof & balcony drainage across the party line"] },
+    { "discipline": "ELV", "items": ["Data/TV/intercom points", "Video door entry (where specified)", "Structured cabling containment"] }
+  ],
+  "overview_phases": ["Enabling & Foundations", "Structure & Party Walls", "Envelope & Roof", "MEP First Fix", "Wet-Area Waterproofing", "Screed & Tiling", "MEP Second Fix & Finishes", "Snagging & Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Envelope", "1st Fix", "Wet Areas", "Finishes", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structure", "disc": "Structural", "kind": ["civil"], "start": 0, "width": 34, "label": "Foundations → party walls → slab → roof", "holds": [16] },
+      { "trade": "Envelope & Waterproofing", "disc": "Architectural", "kind": ["civil"], "start": 22, "width": 26, "label": "Roof waterproof → render/cladding", "holds": [] },
+      { "trade": "Plumbing & Electrical", "disc": "Mechanical/Electrical", "kind": ["mechanical", "electrical"], "start": 30, "width": 40, "label": "First fix → wet-area tanking → second fix", "holds": [52] },
+      { "trade": "Internal Finishes", "disc": "Architectural", "kind": ["civil"], "start": 52, "width": 34, "label": "Screed → tile → paint → joinery", "holds": [] },
+      { "trade": "Snagging & Handover", "disc": "Architectural", "kind": ["comm"], "start": 84, "width": 16, "label": "Snag → de-snag → handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structure", "disc": "Structural", "kind": ["civil"], "holds": [1, 4], "steps": ["Foundations & footings per unit", "Party-wall blockwork & fire/acoustic separation", "Floor slabs", "Roof structure", "Roof waterproofing", "External render/cladding substrate"] },
+    { "name": "Plumbing", "disc": "Plumbing", "kind": ["mechanical"], "holds": [1, 3], "steps": ["Domestic water & drainage first fix", "Wet-area tanking (bathroom/kitchen)", "Leak & flow test", "Sanitary fixture second fix", "Final flow & pressure check"] },
+    { "name": "Electrical", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 3], "steps": ["Containment & wiring first fix", "Distribution board install", "Circuit testing", "Switches, sockets & light fittings second fix", "Final circuit certification"] },
+    { "name": "HVAC", "disc": "Mechanical", "kind": ["mechanical"], "holds": [], "steps": ["Pipework/ductwork first fix", "Indoor/outdoor unit set", "Refrigerant charge & pressure test", "Commission & test", "Handover to owner with O&M instructions"] },
+    { "name": "Internal Finishes", "disc": "Architectural", "kind": ["civil"], "holds": [2], "steps": ["Plaster & internal walls", "Screed", "Floor & wall tiling", "Paint", "Joinery — doors, wardrobes, kitchen units"] },
+    { "name": "Envelope & External Works", "disc": "Architectural", "kind": ["civil"], "holds": [], "steps": ["External render/cladding", "Balcony/terrace waterproofing", "External paint", "Driveway & entrance finishes", "External snagging"] },
+    { "name": "Testing & Handover", "disc": "Architectural", "kind": ["comm"], "holds": [2], "steps": ["MEP testing & certification", "Unit snagging", "De-snag", "Handover pack preparation", "Handover per unit / row"] }
+  ],
+  "wbs": [
+    { "code": "TH", "name": "Townhouse — Project", "level": 1 },
+    { "code": "TH.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "TH.02", "name": "Enabling & Foundations", "level": 2 },
+    { "code": "TH.02.10", "name": "Earthworks", "level": 3 },
+    { "code": "TH.02.20", "name": "Foundations & footings", "level": 3 },
+    { "code": "TH.03", "name": "Structure", "level": 2 },
+    { "code": "TH.03.10", "name": "Party-wall blockwork", "level": 3 },
+    { "code": "TH.03.20", "name": "Floor slabs", "level": 3 },
+    { "code": "TH.03.30", "name": "Roof structure", "level": 3 },
+    { "code": "TH.04", "name": "Envelope & Waterproofing", "level": 2 },
+    { "code": "TH.04.10", "name": "Roof waterproofing", "level": 3 },
+    { "code": "TH.04.20", "name": "External render & cladding", "level": 3 },
+    { "code": "TH.05", "name": "Plumbing & Drainage", "level": 2 },
+    { "code": "TH.05.10", "name": "First fix", "level": 3 },
+    { "code": "TH.05.20", "name": "Wet-area tanking", "level": 3 },
+    { "code": "TH.05.20.10", "name": "Leak & flow test", "level": 4 },
+    { "code": "TH.05.30", "name": "Second fix — sanitary fixtures", "level": 3 },
+    { "code": "TH.06", "name": "Electrical", "level": 2 },
+    { "code": "TH.06.10", "name": "First fix", "level": 3 },
+    { "code": "TH.06.20", "name": "Second fix", "level": 3 },
+    { "code": "TH.07", "name": "HVAC", "level": 2 },
+    { "code": "TH.08", "name": "Internal Finishes", "level": 2 },
+    { "code": "TH.08.10", "name": "Screed & tiling", "level": 3 },
+    { "code": "TH.08.20", "name": "Paint & joinery", "level": 3 },
+    { "code": "TH.09", "name": "Testing, Snagging & Handover", "level": 2 },
+    { "code": "TH.09.10", "name": "MEP testing & certification", "level": 3 },
+    { "code": "TH.09.20", "name": "Snagging & de-snag", "level": 3 },
+    { "code": "TH.09.30", "name": "Row handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. A typical-unit fragnet is built once and repeated along the terrace with a rolling offset between units." },
+      { "heading": "Calendars & working time", "body": "Standard 6-day working week. Wet-area waterproofing curing and test time is built into the calendar as real non-working duration — it is never compressed to protect a date." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs structure & party-wall closure → roof waterproofing → MEP first fix → wet-area tanking & test → tiling → second fix → snagging → handover. Because units share a wall and roofline, the row's slowest unit sets the pace for its neighbours either side." },
+      { "heading": "Key assumptions", "body": "Design and finishes schedule frozen per unit type before release; party-wall design resolved before either side starts blockwork; a single continuous mobilisation along the row." },
+      { "heading": "Procurement & long-lead items", "body": "The following are tracked because they gate finishing activities across multiple units:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Aluminium doors & windows", "6–10 weeks", "Before glazing / second fix"], ["Kitchen & wardrobe joinery", "6–10 weeks", "Before joinery fix"], ["Sanitary fixtures & fittings", "4–6 weeks", "Before second fix"], ["Roof waterproofing membrane system", "3–5 weeks", "Before roof works"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Shared scaffolding and access along the terrace; limited laydown space between units; finishing-trade crews shared across the row are the main resource constraint on the wave rate." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: party-wall interface rework, wet-area test failures pushing tiling, and weather delaying external render. Contingency is held ahead of wet-area testing and before row handover rather than spread across individual units." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (row/phase handover milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to per-unit Level 4 for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

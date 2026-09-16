@@ -1,0 +1,122 @@
+{
+  "archetype": "bridges",
+  "schema": 2,
+  "context": "foundations-to-deck sequence · bearings & structural monitoring drive commissioning",
+  "brief": {
+    "intro": "A bridge or viaduct project builds a spanning structure across an obstacle — a valley, river, road or rail line — so the substructure (foundations and piers) and the superstructure (deck) dominate the programme, not building-style MEP. The critical sequence is foundations → piers → deck erection, and the erection method — balanced cantilever, incremental launch, precast segmental, or falsework-supported cast-in-place — sets a very different rate of progress for each project. Bearings and expansion joints, though structural items, are commissioning-critical: they are supplied, set and load-tested almost like mechanical equipment before the structure is accepted. Systems scope is light — feature/navigation lighting, structural-health monitoring and lightning protection/earthing — so your schedule stands or falls on the foundation and pier construction rate, the chosen deck-erection method's cycle time, and protecting the load-test and bearing-acceptance activities near the end.",
+    "scope": [
+      { "name": "Site investigation & access", "desc": "Temporary works, cofferdams, haul roads and marine/river access where a crossing requires it." },
+      { "name": "Foundations", "desc": "Piling, pile caps and footings, including marine piling for river or coastal crossings." },
+      { "name": "Substructure", "desc": "Piers, pier caps and abutments carrying the deck." },
+      { "name": "Deck superstructure", "desc": "Erection by the chosen method — balanced cantilever, incremental launch, precast-segmental, falsework cast-in-place, or steel girder launch." },
+      { "name": "Post-tensioning / stressing", "desc": "Steel tendons stressed inside a concrete box-girder or segmental deck once cast." },
+      { "name": "Bearings & expansion joints", "desc": "Supplied, set and load-tested — structural items treated almost as commissioned equipment." },
+      { "name": "Deck furniture", "desc": "Parapets, drainage, waterproofing and running surface." },
+      { "name": "Approach works", "desc": "Embankments and transition slabs tying the bridge into the road or rail alignment." },
+      { "name": "Structural monitoring & lighting", "desc": "Structural-health-monitoring sensors, lightning protection and feature/navigation lighting." },
+      { "name": "Testing, load-proving & handover", "desc": "Static/dynamic load test, monitoring baseline and handover to the asset owner." }
+    ],
+    "glossary": [
+      { "term": "Pier cap", "plain": "the concrete head atop a pier that the deck bears on." },
+      { "term": "Balanced cantilever", "plain": "a deck-erection method building symmetrically out from each pier so the structure balances itself as it grows." },
+      { "term": "Incremental launch", "plain": "casting deck segments behind an abutment and pushing (launching) the whole deck forward over the piers." },
+      { "term": "Post-tensioning", "plain": "steel tendons stressed inside the concrete deck after casting to carry the span's loads." },
+      { "term": "Bearing", "plain": "the device between pier and deck that lets the deck move — expand, contract, rotate — without cracking." },
+      { "term": "Expansion joint", "plain": "the gap and seal at deck ends or movement points that absorbs thermal movement." },
+      { "term": "Falsework", "plain": "temporary structural support holding the deck formwork until the concrete gains strength." },
+      { "term": "SHM (structural health monitoring)", "plain": "sensors that watch the structure's movement and strain over its life." }
+    ],
+    "must_get_right": [
+      "The deck-erection method decides the whole programme rhythm — its cycle time (per segment, per push, per span) must be nailed down before the baseline is built, not assumed generic.",
+      "Foundations and piers are almost always the true critical path — the deck can't start until the piers it lands on are complete and cured.",
+      "Bearings and expansion joints are structural but commissioning-critical — protect real time for supply, setting and load-test/acceptance near the end.",
+      "Approach embankments and transition slabs must tie in cleanly with the deck ends — a mismatch here delays the whole corridor handover, not just the bridge."
+    ]
+  },
+  "components": [
+    { "name": "Foundations & Substructure", "desc": "Piling · pile caps · piers · abutments", "disc": "Structural", "primary": true },
+    { "name": "Deck Superstructure", "desc": "Erection method · segments/spans · post-tensioning", "disc": "Structural", "primary": true },
+    { "name": "Bearings & Expansion Joints", "desc": "Supply · set · load-test · acceptance", "disc": "Structural", "primary": true },
+    { "name": "Deck Furniture & Waterproofing", "desc": "Parapets · drainage · waterproofing · surfacing", "disc": "Civil", "primary": false },
+    { "name": "Structural Health Monitoring", "desc": "Sensors · movement & strain baseline", "disc": "Instrumentation", "primary": true },
+    { "name": "Lighting & Lightning Protection", "desc": "Feature/navigation lighting · earthing", "disc": "Electrical", "primary": false },
+    { "name": "Approach Works", "desc": "Embankments · transition slabs", "disc": "Civil", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical / Lighting", "items": ["Feature & navigation lighting", "Lightning protection & earthing continuity", "Power feed to monitoring cabinets"] },
+    { "discipline": "Structural Monitoring", "items": ["SHM sensor installation — strain, tilt, displacement", "Data logger & comms integration", "Baseline reading & calibration"] }
+  ],
+  "overview_phases": ["Investigation & Access", "Foundations", "Substructure — Piers/Abutments", "Deck Erection", "Post-Tensioning & Stressing", "Deck Furniture & Waterproofing", "Monitoring & Lighting", "Load Test & Handover"],
+  "sequence_chart": {
+    "phases": ["Access", "Foundns", "Piers", "Deck", "Stress", "Furniture", "Test"],
+    "lanes": [
+      { "trade": "Civil / Foundations & Piers", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 46, "label": "Access → piling → pile caps → piers/abutments", "holds": [20] },
+      { "trade": "Structural / Deck Erection", "disc": "Structural", "kind": ["civil"], "start": 30, "width": 44, "label": "Erection method → segments/spans → post-tension", "holds": [45, 65] },
+      { "trade": "Bearings & Deck Furniture", "disc": "Structural", "kind": ["civil"], "start": 55, "width": 32, "label": "Set bearings → parapets → waterproofing → surfacing", "holds": [65] },
+      { "trade": "Electrical / Monitoring", "disc": "Electrical", "kind": ["electrical"], "start": 60, "width": 26, "label": "SHM sensors → lighting → earthing", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 82, "width": 16, "label": "Load test → monitoring baseline → handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Foundations", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Site investigation & temporary access", "Cofferdam / marine piling platform — where required", "Pile installation", "Pile caps & footings", "Foundation survey & sign-off"] },
+    { "name": "Substructure — Piers & Abutments", "disc": "Structural", "kind": ["civil"], "holds": [1], "steps": ["Pier & abutment formwork", "Reinforcement & concrete pour", "Pier cap construction", "Curing & strength verification", "Bearing-shelf preparation"] },
+    { "name": "Deck Superstructure", "disc": "Structural", "kind": ["civil"], "holds": [2, 4], "steps": ["Erection-method setup — falsework / launching nose / segment yard", "Segment or span casting/fabrication", "Segment erection or incremental-launch cycle", "Continuity stitch pours", "Post-tensioning & stressing", "Deck survey & camber check"] },
+    { "name": "Bearings & Expansion Joints", "disc": "Structural", "kind": ["civil"], "holds": [3], "steps": ["Bearing procurement & delivery", "Bearing setting & alignment", "Expansion-joint installation", "Load-test & movement verification", "Acceptance & sign-off"] },
+    { "name": "Deck Furniture & Waterproofing", "disc": "Civil", "kind": ["civil"], "holds": [], "steps": ["Deck waterproofing membrane", "Parapet & barrier installation", "Deck drainage & scuppers", "Surfacing — asphalt/concrete wearing course", "Line marking"] },
+    { "name": "Structural Monitoring & Lighting", "disc": "Instrumentation", "kind": ["electrical"], "holds": [0, 3], "steps": ["SHM sensor installation", "Cabling & data-logger integration", "Feature/navigation lighting installation", "Lightning protection & earthing continuity", "Baseline reading & calibration"] },
+    { "name": "Commissioning & Load Test", "disc": "Commissioning", "kind": ["comm"], "holds": [1], "steps": ["Structural survey verification", "Static load test", "Dynamic load test — where required", "SHM baseline & alarm-threshold setup", "Handover to asset owner"] }
+  ],
+  "wbs": [
+    { "code": "BR", "name": "Bridges & Viaducts — Project", "level": 1 },
+    { "code": "BR.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "BR.02", "name": "Site Investigation & Temporary Access", "level": 2 },
+    { "code": "BR.03", "name": "Foundations", "level": 2 },
+    { "code": "BR.03.10", "name": "Piling", "level": 3 },
+    { "code": "BR.03.10.10", "name": "Pile installation & testing", "level": 4 },
+    { "code": "BR.03.20", "name": "Pile caps & footings", "level": 3 },
+    { "code": "BR.04", "name": "Substructure — Piers & Abutments", "level": 2 },
+    { "code": "BR.04.10", "name": "Pier construction", "level": 3 },
+    { "code": "BR.04.20", "name": "Abutment construction", "level": 3 },
+    { "code": "BR.04.30", "name": "Pier caps & bearing shelves", "level": 3 },
+    { "code": "BR.05", "name": "Deck Superstructure", "level": 2 },
+    { "code": "BR.05.10", "name": "Erection method setup", "level": 3 },
+    { "code": "BR.05.20", "name": "Segment / span construction", "level": 3 },
+    { "code": "BR.05.20.10", "name": "Segment erection / incremental launch", "level": 4 },
+    { "code": "BR.05.30", "name": "Post-tensioning & stressing", "level": 3 },
+    { "code": "BR.05.30.10", "name": "Stressing & grouting", "level": 4 },
+    { "code": "BR.06", "name": "Bearings & Expansion Joints", "level": 2 },
+    { "code": "BR.06.10", "name": "Bearing setting & alignment", "level": 3 },
+    { "code": "BR.06.20", "name": "Expansion joint installation", "level": 3 },
+    { "code": "BR.07", "name": "Deck Furniture & Waterproofing", "level": 2 },
+    { "code": "BR.07.10", "name": "Waterproofing & drainage", "level": 3 },
+    { "code": "BR.07.20", "name": "Parapets, surfacing & line marking", "level": 3 },
+    { "code": "BR.08", "name": "Approach Works", "level": 2 },
+    { "code": "BR.08.10", "name": "Embankments & transition slabs", "level": 3 },
+    { "code": "BR.09", "name": "Structural Monitoring & Lighting", "level": 2 },
+    { "code": "BR.09.10", "name": "SHM sensors & data logging", "level": 3 },
+    { "code": "BR.09.20", "name": "Feature/navigation lighting & earthing", "level": 3 },
+    { "code": "BR.10", "name": "Testing, Load Test & Handover", "level": 2 },
+    { "code": "BR.10.10", "name": "Static & dynamic load test", "level": 3 },
+    { "code": "BR.10.20", "name": "Handover to asset owner", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The deck-erection method — balanced cantilever, incremental launch, segmental, or falsework cast-in-place — is modelled as a repeating cycle fragnet so its true cycle time drives the deck duration, not an assumed generic rate." },
+      { "heading": "Calendars & working time", "body": "Foundation and substructure works run a standard 6-day calendar; marine or river piling is tide- and season-restricted where applicable. Deck-erection cycles run on a fixed cycle-time calendar — days per segment, push, or span — so the crew and plant are resourced consistently." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs foundations → piers/abutments → deck erection (by the governing method) → post-tensioning → bearings set → deck furniture/waterproofing → load test → handover. Piers must reach design strength before the deck lands on them; bearings and expansion joints, though structural, sit on the critical path into the final load test." },
+      { "heading": "Key assumptions", "body": "Design and approvals, including the erection-method statement, are frozen before substructure starts; ground conditions match the geotechnical baseline report; temporary works — falsework, launching nose, segment yard — are available when needed; a single mobilisation. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Bearings — elastomeric / pot / spherical", "16–24 weeks", "Before pier-cap bearing-shelf works complete"], ["Expansion joints", "12–20 weeks", "Before deck-furniture works"], ["Post-tensioning tendons & anchorages", "10–16 weeks", "Before first stressing operation"], ["Precast segments (if segmental) / launching nose (if launched)", "20–30 weeks design-to-first-unit", "Before erection start"], ["Structural steel girders — if steel deck", "20–32 weeks", "Before girder-launch/erection"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Crane and launching-gantry / segment-lifter capacity governs the deck-erection rate; access over the obstacle being crossed — river, live road, rail possession windows — restricts working hours and lift windows. Specialist stressing and bearing-setting crews are a shared, limited resource across the industry." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: ground conditions differing from the geotechnical baseline at pile or pier locations, erection-method productivity running below the planned cycle time, and load-test non-conformance requiring rework. Schedule contingency is held around the foundation-to-pier handoff and before the final load test, rather than spread across the repeating deck cycle." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client, by structure/span; controlled at Level 3, with the deck-erection cycle tracked as a repeating fragnet; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

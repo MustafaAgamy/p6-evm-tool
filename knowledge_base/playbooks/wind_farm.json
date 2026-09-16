@@ -1,0 +1,121 @@
+{
+  "archetype": "wind_farm",
+  "schema": 2,
+  "context": "heavy-lift & procurement-led · turbine-by-turbine mechanical completion",
+  "brief": {
+    "intro": "New to this project type? An onshore wind farm is a series of individually-built turbine positions — each with its own deep foundation, tower, nacelle and blades — tied together by underground medium-voltage cabling into a collection substation that exports to the grid. The programme is not one continuous build; it is dozens of near-identical, repeatable turbine-erection cycles running in a rolling sequence across the site, gated by very large mobile cranes and by turbine component delivery. Access roads and crane hardstands must be built and proven for bearing capacity well ahead of each erection, because a turbine crane cannot mobilise onto unready ground. The true finish line is not the mechanical completion of one turbine but grid-code compliance and power-curve verification across the whole array, which depends on the grid operator and cannot be rushed.",
+    "scope": [
+      { "name": "Site civil & access roads", "desc": "Heavy-haul access roads, turbine hardstands and laydown areas built to support crane and blade-transport loads." },
+      { "name": "Turbine foundations", "desc": "Large reinforced-concrete gravity or piled foundations sized for overturning moment, one per turbine." },
+      { "name": "Turbine erection", "desc": "Tower sections, nacelle and blades lifted and bolted into place by heavy mobile or crawler cranes." },
+      { "name": "Inter-array (collection) cabling", "desc": "Underground medium-voltage cabling linking each turbine to the collection substation." },
+      { "name": "Collection substation & grid interconnection", "desc": "Step-up transformers, switchgear and the single point of grid connection." },
+      { "name": "Earthing & lightning protection", "desc": "Turbine and array earthing grid plus tower lightning-protection down-conductors." },
+      { "name": "SCADA & turbine control", "desc": "Plant SCADA, turbine controllers, curtailment logic and met-mast integration." },
+      { "name": "Testing & commissioning", "desc": "Mechanical completion per turbine, electrical energisation, grid-code compliance and power-curve verification." }
+    ],
+    "glossary": [
+      { "term": "Nacelle", "plain": "the housing atop the tower that holds the generator and gearbox." },
+      { "term": "Hub & blades", "plain": "the rotor assembly bolted onto the nacelle." },
+      { "term": "Crawler / main crane", "plain": "the very large crane that lifts the tower, nacelle and blades into place." },
+      { "term": "Hardstand", "plain": "a levelled, load-bearing pad the erection crane sits on at each turbine position." },
+      { "term": "Inter-array cabling", "plain": "the underground medium-voltage cable network linking turbines to the substation." },
+      { "term": "Met mast", "plain": "an instrumented mast that measures wind speed and direction for control and performance verification." },
+      { "term": "Power-curve test", "plain": "a measured check that each turbine's output versus wind speed matches its guaranteed performance." },
+      { "term": "Grid code compliance", "plain": "the technical rules the grid operator requires before allowing the farm to export power." }
+    ],
+    "must_get_right": [
+      "It's heavy-lift and weather-led — crane mobilisation and blade lifts are wind-speed limited; a crane-day lost to weather is rarely recoverable on the same turbine.",
+      "Roads and hardstands must be proven for bearing capacity ahead of every erection — a late or under-built access road stops the whole erection train.",
+      "Foundation cure time is a real, non-negotiable duration — concrete strength gates tower erection, not just calendar days.",
+      "Grid interconnection and power-curve verification, not the last turbine's mechanical completion, are the true finish line — track them as a separate critical path."
+    ]
+  },
+  "components": [
+    { "name": "Turbine Foundations", "desc": "Gravity or piled bases sized for overturning moment", "disc": "Civil", "primary": true },
+    { "name": "Turbine Erection", "desc": "Tower · nacelle · hub & blade lift and bolt-up", "disc": "Mechanical", "primary": true },
+    { "name": "Inter-array Collection Cabling", "desc": "Underground MV cabling between turbines and substation", "disc": "Electrical", "primary": true },
+    { "name": "Collection Substation & Grid Tie-in", "desc": "Transformer · switchgear · grid interconnection", "disc": "Electrical", "primary": true },
+    { "name": "Earthing & Lightning Protection", "desc": "Turbine earth ring · array earth grid · surge protection", "disc": "Electrical", "primary": false },
+    { "name": "SCADA / Turbine Control", "desc": "Met mast · turbine controllers · curtailment logic", "disc": "Instrumentation", "primary": false },
+    { "name": "Access Roads & Hardstands", "desc": "Heavy-haul roads · crane hardstands · laydown", "disc": "Civil", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical", "items": ["Inter-array (collection) MV cabling & jointing", "Collection substation — transformers & switchgear", "Turbine tower earthing & lightning protection", "Grid interconnection & metering"] },
+    { "discipline": "Mechanical", "items": ["Turbine tower, nacelle & blade erection", "Gearbox / drivetrain & yaw system commissioning (OEM-supervised)", "Hydraulic & pitch system functional test"] },
+    { "discipline": "Civil / Structural", "items": ["Turbine foundations (gravity or piled)", "Access roads & crane hardstands", "Cable trenching & reinstatement"] },
+    { "discipline": "Instrumentation / Controls", "items": ["Turbine SCADA & controllers", "Met mast instrumentation", "Curtailment & grid-code control logic"] }
+  ],
+  "overview_phases": ["Site Civil & Access Roads", "Turbine Foundations", "Turbine Erection", "Inter-array Cabling", "Collection Substation & Grid Tie-in", "SCADA Integration", "Testing & Power-curve Verification"],
+  "sequence_chart": {
+    "phases": ["Civil", "Foundations", "Erection", "Cabling", "Substation", "SCADA", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Access", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 32, "label": "Roads → hardstands → foundations", "holds": [18] },
+      { "trade": "Turbine Erection", "disc": "Mechanical", "kind": ["mechanical"], "start": 24, "width": 40, "label": "Tower → nacelle → blades, turbine by turbine", "holds": [42] },
+      { "trade": "Electrical Collection", "disc": "Electrical", "kind": ["electrical"], "start": 36, "width": 40, "label": "Trench → cable pull → substation set", "holds": [58, 72] },
+      { "trade": "SCADA / Controls", "disc": "Instrumentation", "kind": ["elv", "bms"], "start": 55, "width": 25, "label": "Met mast → controllers → SCADA integration", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 76, "width": 24, "label": "Mechanical completion → energise → power-curve test", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Site Civil & Access Roads", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Route survey & geotechnical investigation", "Heavy-haul access road construction", "Crane hardstand & laydown construction", "Bearing-capacity proof-rolling"] },
+    { "name": "Turbine Foundations", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Excavation & piling (if required)", "Rebar cage & anchor-ring set", "Mass concrete pour", "Cure & strength verification"] },
+    { "name": "Turbine Erection", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 4], "steps": ["Crane mobilisation to hardstand", "Tower section lift & bolt-up", "Nacelle lift & set", "Hub & blade lift/assembly", "Torque verification & mechanical completion"] },
+    { "name": "Inter-array Collection Cabling", "disc": "Electrical", "kind": ["electrical"], "holds": [1], "steps": ["Trench excavation", "MV cable pull & jointing", "Turbine termination", "Cable test & reinstatement"] },
+    { "name": "Collection Substation & Grid Tie-in", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["Substation civil & equipment set", "Transformer & switchgear installation", "Protection setting", "Grid interconnection & synchronisation test"] },
+    { "name": "Earthing & Lightning Protection", "disc": "Electrical", "kind": ["electrical"], "holds": [2], "steps": ["Turbine earth ring installation", "Down-conductor termination", "Array earth-grid bonding", "Earth resistance test"] },
+    { "name": "SCADA & Turbine Control", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [1], "steps": ["Met mast installation & calibration", "Turbine controller commissioning (OEM)", "SCADA server & comms integration", "Curtailment logic verification"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 3], "steps": ["Per-turbine mechanical completion sign-off", "Electrical energisation", "Grid-code compliance test", "Power-curve verification", "Reliability run & handover"] }
+  ],
+  "wbs": [
+    { "code": "WF", "name": "Wind Farm — Project", "level": 1 },
+    { "code": "WF.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "WF.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "WF.02.10", "name": "Access Roads & Hardstands", "level": 3 },
+    { "code": "WF.02.20", "name": "Site Drainage & Laydown Areas", "level": 3 },
+    { "code": "WF.03", "name": "Turbine Foundations", "level": 2 },
+    { "code": "WF.03.10", "name": "Excavation & Piling", "level": 3 },
+    { "code": "WF.03.20", "name": "Rebar, Anchor Ring & Concrete Pour", "level": 3 },
+    { "code": "WF.03.20.10", "name": "Cure & strength verification", "level": 4 },
+    { "code": "WF.04", "name": "Turbine Erection", "level": 2 },
+    { "code": "WF.04.10", "name": "Tower Erection", "level": 3 },
+    { "code": "WF.04.20", "name": "Nacelle & Drivetrain Set", "level": 3 },
+    { "code": "WF.04.30", "name": "Hub & Blade Assembly", "level": 3 },
+    { "code": "WF.04.30.10", "name": "Torque verification & mechanical completion", "level": 4 },
+    { "code": "WF.05", "name": "Inter-array Collection Cabling", "level": 2 },
+    { "code": "WF.05.10", "name": "Trenching & Cable Pull", "level": 3 },
+    { "code": "WF.05.20", "name": "Termination & Cable Testing", "level": 3 },
+    { "code": "WF.06", "name": "Collection Substation & Grid Interconnection", "level": 2 },
+    { "code": "WF.06.10", "name": "Transformer & Switchgear Installation", "level": 3 },
+    { "code": "WF.06.20", "name": "Protection Setting & Synchronisation", "level": 3 },
+    { "code": "WF.07", "name": "Earthing & Lightning Protection", "level": 2 },
+    { "code": "WF.08", "name": "SCADA & Turbine Control", "level": 2 },
+    { "code": "WF.08.10", "name": "Met Mast Installation", "level": 3 },
+    { "code": "WF.08.20", "name": "Turbine Controller Commissioning", "level": 3 },
+    { "code": "WF.09", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "WF.09.10", "name": "Mechanical Completion Sign-off", "level": 3 },
+    { "code": "WF.09.20", "name": "Electrical Energisation", "level": 3 },
+    { "code": "WF.09.30", "name": "Grid-code Compliance Test", "level": 3 },
+    { "code": "WF.09.40", "name": "Power-curve Verification & Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The turbine-by-turbine erection cycle is modelled as a repeating (linear) sequence, turbine 1 through turbine n, so crane travel and foundation cure between positions are visible in the logic, not hidden inside one lump activity." },
+      { "heading": "Calendars & working time", "body": "Civil works run a standard or extended single-shift calendar; the turbine erection calendar is gated by the crane manufacturer's wind-speed limits for tower, nacelle and blade lifts, so planned productivity assumes a realistic number of workable crane-days per month for the region. Commissioning runs a 7-day calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs access road → foundation → cure → turbine erection → inter-array cabling → collection substation → grid interconnection → power-curve test. Foundation cure is a hard, non-crashable duration; crane mobilisation and travel time between turbine positions is itself a logic driver, not free time." },
+      { "heading": "Key assumptions", "body": "A single main erection crane (or a stated number of crane sets) is assigned per erection front; turbine component supply matches the planned erection rate; land access, easements and abnormal-load transport permits are secured before mobilisation; and wind resource/met data is finalised before controls tuning. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Turbine sets (tower/nacelle/blades)", "40–60 weeks", "Before erection sequence start"], ["Main crawler crane mobilisation", "8–12 weeks notice", "Before first turbine erection"], ["Collection substation transformer", "30–45 weeks", "Before grid interconnection"], ["MV switchgear (collection substation)", "20–30 weeks", "Before collection network energisation"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Sites are often remote with limited road infrastructure, so abnormal-load transport permits for tower sections and blades must be secured well ahead of delivery; a specialist erection crew and main crane are typically shared across the whole array and are a hard resource constraint; wet-season ground bearing can restrict access to hardstands and trenching fronts." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: crane weather downtime, abnormal-load transport delay, grid interconnection/utility delay, and adverse ground conditions at foundations. Schedule contingency is held around the erection weather window and before the grid-code compliance test rather than spread thinly across individual turbines." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones — first turbine erected, last turbine erected, commercial operation date) and Level 2 (summary by turbine group) to the client; controlled at Level 3; expanded to Level 4–5 per-turbine lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

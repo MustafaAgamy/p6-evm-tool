@@ -55,6 +55,7 @@ SECTORS = [
     ('residential', 'Residential'),
     ('transport_marine', 'Transport & Marine'),
     ('critical', 'Critical Facilities'),
+    ('urban', 'Urban & Landscape'),
 ]
 SECTOR_LABEL = dict(SECTORS)
 
@@ -69,6 +70,7 @@ _SECTOR_BY_ID = {
     'water_wastewater': 'water', 'desalination_plant': 'water',
     'pumping_station': 'water', 'dam_hydraulic': 'water',
     'data_center': 'critical', 'hospital_healthcare': 'critical',
+    'landscape': 'urban', 'new_city_master_development': 'urban',
     'commercial_highrise': 'buildings', 'mall_retail': 'buildings',
     'hotel_hospitality': 'buildings', 'school_education': 'buildings',
     'university_campus': 'buildings', 'mosque_religious': 'buildings',

@@ -1,0 +1,125 @@
+{
+  "archetype": "glass_plant",
+  "schema": 2,
+  "context": "furnace-led · refractory heat-up & combustion drive the schedule",
+  "brief": {
+    "intro": "A glass plant is built around one long-lead centrepiece — the melting furnace — which is built from refractory brick and must be heated up on a slow, controlled curve, often several weeks long, before any glass is made. Everything else — batch house, forming line (float bath or IS machines), annealing lehr, cutting/packing — is scheduled to be mechanically ready by the time furnace heat-up finishes, because once heat-up starts it cannot be paused or rushed without damaging the refractory. That inverts the usual building logic: the furnace refractory build and its controlled heat-up own the critical path, and the fuel/oxygen combustion system's commissioning is a hard gate before heat-up can even begin. Flat glass (float process, using a tin bath) and container glass (IS forming machines) share the same furnace-led logic but diverge downstream at the forming line.",
+    "scope": [
+      { "name": "Batch house & raw material handling", "desc": "Silos, weighing, mixing and batch delivery to the furnace charger." },
+      { "name": "Furnace & refractory", "desc": "The melting tank, refractory brick build, and its controlled multi-week heat-up curve." },
+      { "name": "Combustion & fuel/oxygen systems", "desc": "Gas or oxy-fuel burners, regenerators or recuperators, combustion air/fuel trains." },
+      { "name": "Forming line", "desc": "Float bath (tin bath) for flat glass, or IS (individual section) machines for containers." },
+      { "name": "Annealing lehr", "desc": "Controlled cooling of formed glass to relieve internal stress." },
+      { "name": "Cutting, inspection & packing", "desc": "Cut-to-size/coating lines or ware handling, defect inspection and palletizing." },
+      { "name": "Utilities", "desc": "Compressed air, cooling water, electrical power and batch-house dust collection." },
+      { "name": "Structural steel & buildings", "desc": "Furnace hall, forming/lehr building and batch-house structure." },
+      { "name": "Electrical & instrumentation", "desc": "MCC, furnace combustion controls, process instrumentation." },
+      { "name": "Testing & commissioning", "desc": "Furnace heat-up, combustion proving, forming-line and lehr start-up to first saleable product." }
+    ],
+    "glossary": [
+      { "term": "Refractory", "plain": "the specialist heat-resistant brick lining that holds the molten glass and the furnace's heat." },
+      { "term": "Furnace heat-up / curing", "plain": "the slow, controlled temperature ramp — often weeks — that dries and cures new refractory before molten glass is introduced." },
+      { "term": "Float bath (tin bath)", "plain": "a bath of molten tin on which molten glass floats and spreads into a flat, uniform ribbon (flat glass only)." },
+      { "term": "IS machine", "plain": "Individual Section machine — the multi-station forming machine that blows or presses container glass into bottles and jars." },
+      { "term": "Lehr", "plain": "the long annealing oven that cools formed glass slowly and evenly so it doesn't crack from internal stress." },
+      { "term": "Regenerator / recuperator", "plain": "heat-recovery chambers that reuse furnace exhaust heat to preheat combustion air, key to furnace efficiency." },
+      { "term": "Batch house", "plain": "where raw materials — sand, soda ash, limestone, cullet — are weighed, mixed and fed to the furnace." },
+      { "term": "Cullet", "plain": "recycled broken glass added to the batch to lower the melting energy needed." }
+    ],
+    "must_get_right": [
+      "Protect furnace refractory heat-up as an unrippable, uninterruptible activity — once started it runs on its own physics-driven curve and cannot be compressed or paused.",
+      "Have the forming line, lehr and downstream systems mechanically complete and cold-tested before heat-up finishes — there is no float between 'furnace ready' and 'glass flowing'.",
+      "Treat combustion (fuel/oxygen) system commissioning as a hard prerequisite gate, not a parallel task — heat-up cannot start until it is proven safe.",
+      "Sequence batch house and cullet handling to be ready ahead of first charge — an underfed furnace during heat-up or early production risks refractory damage."
+    ]
+  },
+  "components": [
+    { "name": "Furnace & Refractory", "desc": "Melting tank · refractory build · heat-up curve", "disc": "Process", "primary": true },
+    { "name": "Combustion Systems", "desc": "Fuel/oxygen trains · regenerators/recuperators", "disc": "Mechanical", "primary": true },
+    { "name": "Forming Line", "desc": "Float bath / IS machines", "disc": "Mechanical", "primary": true },
+    { "name": "Annealing Lehr", "desc": "Controlled cooling to relieve stress", "disc": "Mechanical", "primary": false },
+    { "name": "Batch House", "desc": "Raw material storage, weighing & mixing", "disc": "Process", "primary": false },
+    { "name": "Electrical & Controls", "desc": "Combustion controls · MCC · process instrumentation", "disc": "Electrical", "primary": false },
+    { "name": "Commissioning", "desc": "Heat-up · combustion proving · first product", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Fuel-gas / oxygen combustion trains", "Regenerator / recuperator dampers & ductwork", "Cooling-water systems", "Compressed air for forming & controls"] },
+    { "discipline": "Electrical", "items": ["Furnace combustion control panels & MCC", "Forming-line drives", "Batch-house motors & dust-collection power"] },
+    { "discipline": "Process Utilities", "items": ["Batch / cullet handling & dust collection", "Furnace cooling air & water", "Forming-line lubrication & cooling"] },
+    { "discipline": "Instrumentation / Controls", "items": ["Furnace temperature & pressure monitoring", "Combustion control system", "Forming-line & lehr process control"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Structural Steel & Buildings", "Batch House & Utilities", "Furnace Construction", "Combustion Commissioning", "Furnace Heat-up", "Forming Line & Lehr", "Product Start-up"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Batch Hse", "Furnace Build", "Combustion", "Heat-up", "Start-up"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 36, "label": "Earthworks → foundations → furnace-hall steel", "holds": [14] },
+      { "trade": "Furnace & Refractory", "disc": "Process", "kind": ["mechanical"], "start": 18, "width": 40, "label": "Steel shell → refractory build → heat-up curve", "holds": [40, 70] },
+      { "trade": "Combustion Systems", "disc": "Mechanical", "kind": ["mechanical"], "start": 30, "width": 30, "label": "Fuel/oxygen trains → regenerators → proving", "holds": [52] },
+      { "trade": "Forming Line & Lehr", "disc": "Mechanical", "kind": ["mechanical"], "start": 46, "width": 38, "label": "Float bath/IS set → lehr → dry commission", "holds": [] },
+      { "trade": "Batch House", "disc": "Process", "kind": ["civil", "mechanical"], "start": 10, "width": 30, "label": "Silos → weighing/mixing → feed proving", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 70, "width": 30, "label": "Heat-up → combustion proving → first product", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site clearance & earthworks", "Furnace & forming-line foundations", "Furnace hall & batch-house structural steel", "Roofing & cladding", "Cullet / batch-yard hardstand"] },
+    { "name": "Furnace & Refractory", "disc": "Process", "kind": ["mechanical"], "holds": [1, 5], "steps": ["Long-lead procurement — furnace steel shell & refractory brick", "Furnace steel-shell erection", "Refractory brick build — crown, walls, throat", "Regenerator / recuperator chamber build", "Dry-out & pre-heat curve", "Controlled heat-up to operating temperature"] },
+    { "name": "Combustion Systems", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3, 4], "steps": ["Fuel-gas & oxygen skid procurement", "Combustion piping & burner installation", "Safety / interlock (flame-safeguard) wiring", "Cold commissioning & leak test", "Combustion proving trial (pre heat-up)"] },
+    { "name": "Batch House", "disc": "Process", "kind": ["civil", "mechanical"], "holds": [4], "steps": ["Silo & structure erection", "Weighing & mixing equipment installation", "Batch conveying & cullet handling", "Dust collection system", "Cold-feed proving"] },
+    { "name": "Forming Line", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 4], "steps": ["Float bath / IS-machine long-lead procurement", "Tin bath or IS-machine set & align", "Forming-line drives & controls", "Dry (no-glass) mechanical run", "Hot commissioning with first glass flow"] },
+    { "name": "Annealing Lehr", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3, 4], "steps": ["Lehr structure & conveyor installation", "Insulation & cladding", "Burner / heating-zone installation", "Temperature-zone control commissioning", "Hot commissioning with product"] },
+    { "name": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["electrical", "elv"], "holds": [2], "steps": ["MCC & power distribution", "Containment & cable pull", "Furnace / combustion control-panel installation", "Field instrumentation & loop check", "Process control system integration"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 3], "steps": ["Combustion system proving", "Furnace dry-out & heat-up supervision", "Forming-line & lehr hot commissioning", "First product to spec", "Ramp to rated pull rate", "Handover"] }
+  ],
+  "wbs": [
+    { "code": "GLP", "name": "Glass Manufacturing Plant — Project", "level": 1 },
+    { "code": "GLP.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "GLP.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "GLP.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "GLP.02.20", "name": "Foundations — Furnace & Forming Line", "level": 3 },
+    { "code": "GLP.02.20.10", "name": "Furnace foundation", "level": 4 },
+    { "code": "GLP.03", "name": "Structural Steel & Buildings", "level": 2 },
+    { "code": "GLP.03.10", "name": "Furnace hall structure", "level": 3 },
+    { "code": "GLP.03.20", "name": "Batch house structure", "level": 3 },
+    { "code": "GLP.04", "name": "Batch House", "level": 2 },
+    { "code": "GLP.04.10", "name": "Silos & storage", "level": 3 },
+    { "code": "GLP.04.20", "name": "Weighing, mixing & cullet handling", "level": 3 },
+    { "code": "GLP.05", "name": "Furnace & Refractory", "level": 2 },
+    { "code": "GLP.05.10", "name": "Furnace steel shell", "level": 3 },
+    { "code": "GLP.05.20", "name": "Refractory build", "level": 3 },
+    { "code": "GLP.05.20.10", "name": "Crown & wall refractory", "level": 4 },
+    { "code": "GLP.05.30", "name": "Regenerators / recuperators", "level": 3 },
+    { "code": "GLP.06", "name": "Combustion Systems", "level": 2 },
+    { "code": "GLP.06.10", "name": "Fuel gas & oxygen trains", "level": 3 },
+    { "code": "GLP.06.20", "name": "Burner & flame-safeguard install", "level": 3 },
+    { "code": "GLP.07", "name": "Forming Line", "level": 2 },
+    { "code": "GLP.07.10", "name": "Float bath / IS machine set", "level": 3 },
+    { "code": "GLP.08", "name": "Annealing Lehr", "level": 2 },
+    { "code": "GLP.09", "name": "Cutting / Finishing & Packing", "level": 2 },
+    { "code": "GLP.10", "name": "Electrical & Instrumentation", "level": 2 },
+    { "code": "GLP.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "GLP.11.10", "name": "Combustion proving", "level": 3 },
+    { "code": "GLP.11.20", "name": "Furnace heat-up", "level": 3 },
+    { "code": "GLP.11.30", "name": "Forming line & lehr hot commissioning", "level": 3 },
+    { "code": "GLP.11.40", "name": "First product & ramp-up", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week; refractory build works a controlled single shift with strict QA hold points — each brick course is inspected before proceeding; furnace heat-up runs a continuous 24-hour calendar for its full multi-week duration once started, since it cannot be paused." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs furnace steel-shell erection → refractory build → dry-out/pre-heat → controlled heat-up → first glass flow → forming-line/lehr hot commissioning → first product to spec. Combustion-system proving is a hard prerequisite gate before heat-up can begin. The forming line and lehr are scheduled to be mechanically complete and cold-commissioned before heat-up finishes, since there is no float once the furnace reaches temperature." },
+      { "heading": "Key assumptions", "body": "Furnace design — tonnage, fuel type, regenerator vs recuperator — is frozen before refractory ordering; a qualified refractory contractor is engaged for the full build; batch and cullet supply is secured ahead of first charge; and no late change to glass composition or colour that would alter the refractory specification." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is furnace-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Furnace refractory (full set)", "30–50 weeks", "Before refractory build start"], ["Furnace steel shell & structural", "20–30 weeks", "Before shell erection"], ["Float bath / IS forming machines", "35–55 weeks", "Before forming-line erection"], ["Regenerator/recuperator checker brick", "25–35 weeks", "Before regenerator build"], ["Combustion — burners, fuel/oxygen skids", "20–28 weeks", "Before combustion commissioning"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Refractory bricklaying needs a dry, dust-controlled, weather-protected enclosure and specialist refractory masons — a scarce, often mobilised-in resource. Heavy lifts — furnace shell sections, tin-bath components — require crane windows before the hall roof closes. Heat-up requires the area secured and non-essential trades cleared for safety." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: refractory QA issues discovered only during heat-up (requiring a costly re-build), combustion-system commissioning delays blocking heat-up start, and forming-line readiness slipping past the heat-up finish date. Contingency is held before heat-up start and before first-product ramp-up rather than spread across erection activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

@@ -1,0 +1,125 @@
+{
+  "archetype": "manufacturing_plant",
+  "schema": 2,
+  "context": "equipment-fit-out led · floor flatness & clean utilities gate a fast, repeatable line install",
+  "brief": {
+    "intro": "A light or discrete manufacturing plant assembles or packages products on production lines built from off-the-shelf and semi-custom machines, conveyors and AGVs, rather than heavy custom process equipment. Unlike a heavy industrial factory, the machines are lighter and mostly bolt to a flat floor instead of needing isolated foundations, so the building shell can go up fast and the real programme driver becomes a flat, tolerance-checked floor slab and clean utilities ready in time for the machine vendors. HVAC is more than comfort cooling here — in pharma, food or electronics variants it becomes environmental control or full cleanroom qualification, and that qualification chain can dominate the back end of the schedule. The line itself is commissioned as a system: machines are proven individually (SAT), then integrated with conveyors/AGVs, then dry-run without product, before a loaded production ramp-up. Because machine installation often follows shortly after building handover, planners need to coordinate the building contractor's finish date directly with the machine vendors' install windows.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, yard paving, loading-dock civils." },
+      { "name": "Structure & shell", "desc": "Frame, envelope and roofing — weather-tight fast so floor and fit-out can start." },
+      { "name": "Floor & floor flatness", "desc": "Power-floated production slab finished to a flatness (F-number) tolerance for AGVs and machine alignment." },
+      { "name": "Utilities to point of use", "desc": "Electrical power, compressed air, process water, exhaust — terminated at each machine location." },
+      { "name": "HVAC & environmental control", "desc": "Comfort/process HVAC, or cleanroom-grade filtration and pressure cascades where applicable." },
+      { "name": "Machines & production lines", "desc": "Procurement, delivery, set and align of packaged/skid production equipment." },
+      { "name": "Material handling", "desc": "Conveyors, AGVs and palletisers linking stations into a line." },
+      { "name": "Controls & data", "desc": "PLC/SCADA field devices and MES/data integration." },
+      { "name": "Fire, life safety & ELV", "desc": "Detection, suppression, structured cabling, access/security." },
+      { "name": "Testing & commissioning", "desc": "Machine SAT, line integration, dry run, then loaded production ramp." }
+    ],
+    "glossary": [
+      { "term": "SAT", "plain": "Site Acceptance Test — proving a machine works correctly after it is installed." },
+      { "term": "AGV", "plain": "automated guided vehicle — a driverless cart that moves parts or material between stations." },
+      { "term": "Floor flatness / F-number", "plain": "how flat and level the floor is, checked against a number so AGVs and machines run true." },
+      { "term": "Cleanroom IQ/OQ/PQ", "plain": "the staged proof — Installation, Operational, Performance Qualification — that a controlled space works and stays in spec." },
+      { "term": "Dry run", "plain": "running the line without real product to prove the mechanics before committing material." },
+      { "term": "MES", "plain": "the software layer that tracks production and talks to the machine controllers (PLCs)." },
+      { "term": "Environmental control", "plain": "HVAC held to tighter temperature, humidity or particulate limits than ordinary comfort cooling." }
+    ],
+    "must_get_right": [
+      "Floor flatness and utility point-of-use readiness are gating conditions for machine install — verify them before, not after, vendors mobilise.",
+      "Coordinate building handover directly with the machine vendors' installation windows; a late shell pushes the whole line.",
+      "If the process needs cleanroom or tight environmental control, plan the IQ/OQ/PQ qualification chain as its own schedule phase, not a punch-list item.",
+      "Commission line-by-line — SAT each machine, then integrate, then dry-run — before any loaded ramp-up."
+    ]
+  },
+  "components": [
+    { "name": "Production Equipment & Lines", "desc": "Packaged/skid machines · assembly & packaging equipment", "disc": "Mechanical", "primary": true },
+    { "name": "Material Handling", "desc": "Conveyors · AGVs · palletisers", "disc": "Mechanical", "primary": true },
+    { "name": "HVAC / Environmental Control", "desc": "Comfort or process HVAC · cleanroom filtration where applicable", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power & Utilities", "desc": "LV distribution · MCC · compressed air · process water", "disc": "Electrical", "primary": true },
+    { "name": "Instrumentation & Controls", "desc": "PLC/SCADA · MES data integration", "disc": "Instrumentation", "primary": false },
+    { "name": "Fire & Life Safety / ELV", "desc": "Detection · suppression · structured cabling · access control", "disc": "Fire Protection", "primary": false },
+    { "name": "Commissioning", "desc": "Machine SAT · line integration · dry run · ramp-up", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Production equipment — set & align", "Conveyors / AGVs / palletisers", "Compressed air & process-water piping", "HVAC / cleanroom air handling where applicable"] },
+    { "discipline": "Electrical", "items": ["LV distribution & motor control centres", "Motor control & VSDs", "Lighting & earthing", "Standby power where required"] },
+    { "discipline": "Plumbing / Public Health", "items": ["Process water & drainage", "Domestic water", "Floor / trench drains"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Structured cabling & MES data network", "Fire detection & suppression", "Access control / CCTV", "BMS / environmental monitoring (cleanroom variant)"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Structure & Shell", "Floor & Utilities Rough-in", "Envelope Close-in", "Equipment Install", "Controls Integration", "Commissioning & Ramp-up"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Floor/MEP", "Envelope", "Equip. Set", "Integrate", "Ramp-up"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 38, "label": "Earthworks → slab & flatness → frame/envelope", "holds": [14] },
+      { "trade": "Electrical & Utilities", "disc": "Electrical", "kind": ["electrical"], "start": 20, "width": 55, "label": "Distribution → MCC → terminate to machines", "holds": [40] },
+      { "trade": "Mechanical / HVAC", "disc": "Mechanical", "kind": ["mechanical"], "start": 26, "width": 50, "label": "Utility piping → HVAC set → balance/qualify", "holds": [50] },
+      { "trade": "Production Equipment & Handling", "disc": "Mechanical", "kind": ["mechanical"], "start": 40, "width": 46, "label": "Set machines → conveyors/AGVs → SAT", "holds": [60, 80] },
+      { "trade": "ELV / Controls / Fire", "disc": "Extra-Low Voltage", "kind": ["elv", "fire", "bms"], "start": 48, "width": 38, "label": "Cabling → PLC/MES → fire devices", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 76, "width": 24, "label": "Dry run → loaded ramp-up", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Site clearance & earthworks", "Foundations & equipment plinths", "Power-floated production slab (flatness spec)", "Structural frame & roof", "Envelope close-in & weather-tight"] },
+    { "name": "Electrical Power & Utilities", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Long-lead procurement — switchgear, MCC, transformers", "Containment routes & cable pull", "Set switchgear / MCC", "Terminate power to machines & handling", "Point-to-point & insulation testing", "Energise & prove utilities before line start"] },
+    { "name": "Mechanical / HVAC", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["Utility piping — compressed air, process water", "HVAC / cleanroom air-handling install", "Ductwork & filtration", "Balance & (where applicable) IQ/OQ/PQ qualification"] },
+    { "name": "Production Equipment", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 4], "steps": ["Long-lead procurement — packaged machines / lines", "Floor-flatness verification & anchor points", "Set & align equipment", "Utility connections at each machine", "Site Acceptance Test (SAT) per machine"] },
+    { "name": "Material Handling", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["Conveyor / AGV guideway install", "Install conveyors / AGVs / palletisers", "Drives & interlocked guarding", "No-load / dry run & tracking test"] },
+    { "name": "Instrumentation & Controls", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [4], "steps": ["Structured cabling & data network", "Field devices & sensors", "PLC / SCADA configuration", "Interlock & sequence testing", "MES integration"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [2], "steps": ["Detection & alarm rough-in", "Suppression system install", "Cause-and-effect test", "Fire system handover"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [3, 4], "steps": ["Machine SAT witnessed on site", "Utility & environmental-control readiness proving", "Line / cell integration test", "Dry run (no product)", "Loaded production ramp-up & line-speed proving", "Reliability run → handover"] }
+  ],
+  "wbs": [
+    { "code": "MP", "name": "Manufacturing Plant — Project", "level": 1 },
+    { "code": "MP.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "MP.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "MP.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "MP.02.20", "name": "Substructure & Production Floor", "level": 3 },
+    { "code": "MP.02.20.10", "name": "Foundations & equipment plinths", "level": 4 },
+    { "code": "MP.02.20.20", "name": "Power-floated slab & flatness verification", "level": 4 },
+    { "code": "MP.03", "name": "Structural Frame & Envelope", "level": 2 },
+    { "code": "MP.04", "name": "Utilities & Electrical Power", "level": 2 },
+    { "code": "MP.04.10", "name": "MV/LV distribution & MCC", "level": 3 },
+    { "code": "MP.04.20", "name": "Compressed air & process-water piping", "level": 3 },
+    { "code": "MP.04.20.10", "name": "Point-of-use terminations", "level": 4 },
+    { "code": "MP.05", "name": "HVAC & Environmental Control", "level": 2 },
+    { "code": "MP.05.10", "name": "Comfort / process HVAC", "level": 3 },
+    { "code": "MP.05.20", "name": "Cleanroom air handling & filtration (where applicable)", "level": 3 },
+    { "code": "MP.05.20.10", "name": "IQ/OQ/PQ qualification", "level": 4 },
+    { "code": "MP.06", "name": "Production Equipment & Lines", "level": 2 },
+    { "code": "MP.06.10", "name": "Equipment procurement & delivery", "level": 3 },
+    { "code": "MP.06.20", "name": "Set, align & connect", "level": 3 },
+    { "code": "MP.06.20.10", "name": "Machine SAT", "level": 4 },
+    { "code": "MP.07", "name": "Material Handling", "level": 2 },
+    { "code": "MP.07.10", "name": "Conveyors / AGVs / palletisers", "level": 3 },
+    { "code": "MP.07.10.10", "name": "Install & dry-run", "level": 4 },
+    { "code": "MP.08", "name": "Instrumentation & Controls", "level": 2 },
+    { "code": "MP.08.10", "name": "PLC/SCADA, interlocks & MES", "level": 3 },
+    { "code": "MP.09", "name": "Fire & Life Safety / ELV", "level": 2 },
+    { "code": "MP.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "MP.10.10", "name": "Line / cell integration", "level": 3 },
+    { "code": "MP.10.20", "name": "Dry run", "level": 3 },
+    { "code": "MP.10.30", "name": "Loaded ramp-up", "level": 3 },
+    { "code": "MP.10.40", "name": "Reliability run & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural trades run a standard 6-day week; production-equipment install and utility termination move to two shifts as machine vendors mobilise together; commissioning runs an extended calendar once machine SAT begins, aligned with vendor-technician availability." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs structure/envelope close-in → production-floor flatness verification → utilities to point of use → equipment delivery & set → machine SAT → line/cell integration → dry run → loaded ramp-up. Where the process needs cleanroom or tight environmental control, HVAC qualification (IQ/OQ/PQ) runs in parallel with equipment set and must complete before the dry run." },
+      { "heading": "Key assumptions", "body": "Design and machine-vendor layout drawings are frozen ahead of floor and utility rough-in; the client free-issues no equipment; a single mobilisation; utilities (grid power, water, gas where applicable) are available to the site boundary by the date assumed. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is equipment-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Production machines / packaged lines", "16–28 weeks", "Before equipment set"], ["Conveyors / AGVs / palletisers", "12–20 weeks", "Before material-handling install"], ["MV/LV switchgear & MCC", "14–22 weeks", "Before power distribution"], ["Cleanroom air-handling units (where applicable)", "18–26 weeks", "Before HVAC qualification start"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Machine-vendor technicians mobilise in a compressed window once the floor and utilities are ready, so laydown and crane/forklift access for offloading are a site constraint; floor-flatness rework, if triggered, displaces every following trade." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: floor-flatness non-conformance discovered late, machine or steel-package delivery slippage, and cleanroom/HVAC qualification failures forcing a re-test. Schedule contingency is held before line integration and before the loaded ramp-up rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

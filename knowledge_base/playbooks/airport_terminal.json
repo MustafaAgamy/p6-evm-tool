@@ -1,0 +1,127 @@
+{
+  "archetype": "airport_terminal",
+  "schema": 2,
+  "context": "baggage-handling & security-led · large-volume HVAC under a long-span roof",
+  "brief": {
+    "intro": "New to this project type? An airport passenger terminal is a large-span public building whose real complexity is not the shell but the systems that move bags and people safely and quickly: the Baggage Handling System (BHS), security screening, and large-volume air conditioning. The structure — piled foundations and a long-span roof with no internal columns — is a big, visible package, but it is not what makes the programme hard. Your schedule stands or falls on getting the BHS and security systems designed, procured and integrated in time, and on the terminal opening in coordinated zones (a pier or level at a time) rather than as one single date.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, piling mobilisation, apron-tie-in grading, landside road interface." },
+      { "name": "Structure & long-span roof", "desc": "Piled foundations, steel or concrete frame, and the wide-span roof trusses that keep the halls column-free." },
+      { "name": "Building envelope", "desc": "Curtain wall, roof cladding and glazing — getting the terminal weather-tight." },
+      { "name": "Baggage Handling System (BHS)", "desc": "Conveyors, sortation, and inline explosive-detection screening (EDS) moving bags from check-in to aircraft." },
+      { "name": "Security & access control", "desc": "Screening checkpoints, CCTV, access control and the landside/airside boundary." },
+      { "name": "Mechanical — HVAC & chilled water", "desc": "Large-volume air handling for departure/arrival halls, chilled-water plant, and smoke-control fans." },
+      { "name": "Electrical power & lighting", "desc": "Incoming substations, standby generation, and terminal, retail and apron-facing lighting." },
+      { "name": "Fire & life safety", "desc": "Fire alarm, sprinkler/wet risers, voice evacuation and the smoke-control system that protects large open halls." },
+      { "name": "Passenger ELV / IT systems", "desc": "Flight information display (FIDS), public address, wayfinding, and structured cabling/data." },
+      { "name": "Interior fit-out & finishes", "desc": "Flooring, ceilings, check-in and retail counters — the last layer before opening." }
+    ],
+    "glossary": [
+      { "term": "BHS", "plain": "baggage handling system — the conveyor network that sorts bags from check-in to the aircraft." },
+      { "term": "EDS", "plain": "explosive detection system — the screening machines bags pass through inside the BHS." },
+      { "term": "FIDS", "plain": "the arrival/departure screens showing flight information." },
+      { "term": "Apron", "plain": "the paved area where aircraft park and are serviced." },
+      { "term": "Passenger boarding bridge (PBB)", "plain": "the walkway that connects the terminal to the aircraft door." },
+      { "term": "Landside / airside", "plain": "landside is the public area before security; airside is the secure zone after screening." },
+      { "term": "Smoke control / voice evacuation", "plain": "systems that clear smoke and guide passengers safely out of large open halls in a fire." },
+      { "term": "Long-span roof", "plain": "a wide-span structure with no internal columns, covering large open halls." }
+    ],
+    "must_get_right": [
+      "The BHS and security screening systems drive the fit-out programme — order and commission them early; they are the true critical path, not the shell.",
+      "Protect the landside/airside boundary — security & access control must be tested and locked down before any phased opening.",
+      "Large-volume HVAC and smoke control need the roof and envelope fully weather-tight before ductwork balancing and life-safety testing can start.",
+      "A terminal opens pier-by-pier or level-by-level, not on one date — break the schedule into handover zones from day one."
+    ]
+  },
+  "components": [
+    { "name": "Baggage Handling System (BHS)", "desc": "Conveyors · sortation · EDS screening", "disc": "Conveying", "primary": true },
+    { "name": "Security & Access Control", "desc": "Screening checkpoints · CCTV · access control", "disc": "Extra-Low Voltage", "primary": true },
+    { "name": "Mechanical — HVAC & Chilled Water", "desc": "Large-volume AHUs · chillers · smoke control", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power", "desc": "Substations · standby generation · terminal lighting", "disc": "Electrical", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Fire alarm · sprinkler/wet riser · voice evacuation", "disc": "Fire Protection", "primary": true },
+    { "name": "Passenger ELV / IT Systems", "desc": "FIDS · PA · wayfinding · structured cabling", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "BMS", "desc": "Central monitoring & control integration", "disc": "Instrumentation", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Large-volume AHUs for departure/arrival halls", "Chilled-water plant — chillers, primary/secondary pumps", "Smoke-control & stair-pressurisation fans", "Zone/VAV controls for check-in and gate areas"] },
+    { "discipline": "Electrical", "items": ["Incoming HV substations & standby generation", "Terminal, retail-tenant and apron-facing lighting", "Power distribution to BHS and security systems", "Earthing & lightning protection for the long-span roof"] },
+    { "discipline": "Plumbing", "items": ["Domestic water & drainage", "Long-span roof drainage (syphonic)", "Public toilet blocks at high fixture counts"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["BHS controls & PLC integration", "Security screening & access-control network", "FIDS / PA / wayfinding", "Fire alarm, voice evacuation & smoke-control cause-and-effect", "BMS integration"] }
+  ],
+  "overview_phases": ["Enabling & Piling", "Structure & Long-Span Roof", "Envelope & Weather-tight", "MEP Rough-in", "BHS & Security Install", "Fit-out & Finishes", "Systems Integration", "Commissioning & Phased Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Envelope", "Rough-in", "BHS/Sec.", "Integrate", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 38, "label": "Piling → frame → long-span roof", "holds": [12] },
+      { "trade": "Mechanical — HVAC/CHW", "disc": "Mechanical", "kind": ["mechanical"], "start": 24, "width": 50, "label": "Ductwork → AHU/chiller set → balance", "holds": [50] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 20, "width": 60, "label": "Containment → substation/gen set → distribution → prove", "holds": [48, 78] },
+      { "trade": "Baggage Handling System", "disc": "Conveying", "kind": ["mechanical", "elv"], "start": 36, "width": 46, "label": "Conveyor install → sortation/EDS → controls integration", "holds": [66] },
+      { "trade": "Security / Fire / BMS", "disc": "Extra-Low Voltage", "kind": ["elv", "fire", "bms"], "start": 40, "width": 42, "label": "Containment → devices → integrate", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "System tests → integrated test → phased handover", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Piling & ground slab", "Foundations & core walls", "Long-span roof steel erection", "Roof deck & waterproofing", "Envelope — curtain wall & cladding", "Apron-side hardstand & tie-in"] },
+    { "name": "Mechanical — HVAC & Chilled Water", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1, 4], "steps": ["Plant procurement — chillers, AHUs, smoke fans", "Plantroom pipework & ductwork risers", "Set chillers & AHUs", "Ductwork distribution to halls & piers", "Flush, fill & pressure test", "Balance & smoke-control mode test"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 3, 5], "steps": ["Long-lead procurement — substations, gensets, switchgear", "Containment routes & cable pull", "Set substations / standby generators", "Terminate distribution boards & tenant feeds", "Point-to-point & insulation testing", "Load test & changeover proving"] },
+    { "name": "Baggage Handling System (BHS)", "disc": "Conveying", "kind": ["mechanical", "elv"], "holds": [1, 4], "steps": ["Design freeze & long-lead procurement — conveyors, sortation, EDS", "Steelwork supports & conveyor install", "Sortation & screening (EDS) machine set", "Controls & PLC integration", "No-load conveyor run & tracking", "Throughput / bag-load trial"] },
+    { "name": "Security & Access Control", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [3], "steps": ["Containment & cabling to checkpoints", "Screening equipment & access-control hardware install", "Perimeter & landside/airside boundary control install", "Head-end & network integration", "Access-control & CCTV commissioning"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [2], "steps": ["Fire alarm & detection rough-in", "Sprinkler / wet-riser install", "Voice-evacuation speaker install", "Fire alarm panel & zone programming", "Smoke-control & cause-and-effect test"] },
+    { "name": "Passenger ELV / BMS", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [], "steps": ["FIDS / PA / wayfinding install", "Structured cabling & data", "BMS field devices & sensors", "BMS point-to-point & integration", "Systems staging test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [3], "steps": ["System-by-system functional test", "Integrated fire/life-safety cause-and-effect test", "BHS throughput / bag-load acceptance", "Security & access-control acceptance", "Operational readiness trials", "Phased zone handover"] }
+  ],
+  "wbs": [
+    { "code": "APT", "name": "Airport Passenger Terminal — Project", "level": 1 },
+    { "code": "APT.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "APT.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "APT.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "APT.02.20", "name": "Piling & Substructure", "level": 3 },
+    { "code": "APT.02.20.10", "name": "Piling & pile caps", "level": 4 },
+    { "code": "APT.02.20.20", "name": "Ground slab", "level": 4 },
+    { "code": "APT.03", "name": "Superstructure & Long-Span Roof", "level": 2 },
+    { "code": "APT.03.10", "name": "Steel frame erection", "level": 3 },
+    { "code": "APT.03.20", "name": "Long-span roof trusses & deck", "level": 3 },
+    { "code": "APT.03.20.10", "name": "Roof waterproofing", "level": 4 },
+    { "code": "APT.04", "name": "Building Envelope", "level": 2 },
+    { "code": "APT.05", "name": "Mechanical — HVAC & Chilled Water", "level": 2 },
+    { "code": "APT.05.10", "name": "Chilled-water plant", "level": 3 },
+    { "code": "APT.05.20", "name": "Air-handling & ductwork distribution", "level": 3 },
+    { "code": "APT.05.20.10", "name": "AHU set & connect", "level": 4 },
+    { "code": "APT.06", "name": "Electrical Power", "level": 2 },
+    { "code": "APT.06.10", "name": "Substations & standby generation", "level": 3 },
+    { "code": "APT.06.20", "name": "Distribution & tenant feeds", "level": 3 },
+    { "code": "APT.07", "name": "Baggage Handling System (BHS)", "level": 2 },
+    { "code": "APT.07.10", "name": "Conveyor & sortation install", "level": 3 },
+    { "code": "APT.07.20", "name": "Screening (EDS) integration", "level": 3 },
+    { "code": "APT.07.20.10", "name": "Controls & PLC integration", "level": 4 },
+    { "code": "APT.07.20.10.10", "name": "No-load run & throughput trial", "level": 5 },
+    { "code": "APT.08", "name": "Security & Access Control", "level": 2 },
+    { "code": "APT.09", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "APT.10", "name": "Passenger ELV / IT Systems", "level": 2 },
+    { "code": "APT.11", "name": "BMS Integration", "level": 2 },
+    { "code": "APT.12", "name": "Interior Fit-out & Finishes", "level": 2 },
+    { "code": "APT.13", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "APT.13.10", "name": "System & integrated life-safety tests", "level": 3 },
+    { "code": "APT.13.20", "name": "Phased zone handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual and phased-opening milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Structure and envelope run a 6-day week; MEP and BHS fit-out move to two shifts at peak to protect the opening date; any works within live apron or landside operating areas are restricted to approved airport-authority access windows." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs BHS/security long-lead procurement → structure & roof weather-tight → BHS and security install → controls integration → integrated fire/life-safety and BHS throughput testing → phased zone handover. The long-span roof erection and the BHS procurement-to-install chain are the two activities most likely to control the finish date — name both explicitly when reviewing progress." },
+      { "heading": "Key assumptions", "body": "Design is frozen and authority approvals obtained per phase gate; the terminal opens in coordinated zones (pier or level) rather than as a single date; a single mobilisation; and the client free-issues no equipment. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on two fronts — the BHS/security systems and the long-span roof steel. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["BHS conveyors, sortation & EDS screening", "40–60 weeks", "Before steelwork supports handover"], ["Long-span roof structural steel", "24–36 weeks", "Before roof erection start"], ["Standby generators & HV switchgear", "28–40 weeks", "Before substation set"], ["Chillers / large-volume AHUs", "26–36 weeks", "Before cooling proving"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Apron-side works are coordinated with live or phased airport operations; laydown for BHS and long-span steel is constrained by the building footprint; specialist BHS and security-integration subcontractors are scarce and often shared across zones." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: BHS commissioning re-test loops, security-systems integration slippage, and weather risk to long-span roof erection. Schedule contingency is held immediately before the integrated fire/life-safety test and before each zone's phased handover rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

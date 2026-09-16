@@ -1,0 +1,123 @@
+{
+  "archetype": "infrastructure",
+  "schema": 2,
+  "context": "civil-dominant · linear progress by chainage, span or kilometre",
+  "brief": {
+    "intro": "Linear and civil infrastructure covers roads, bridges, pipelines and port/marine works — projects that stretch along a corridor or across a site rather than rising as a single building. The scope is dominated by earthworks, pavement or trackbed formation, and either structures (bridges, piers, quay walls) or buried/at-grade networks (pipelines, drainage, cabling); mechanical and electrical systems are a lighter overlay, such as lighting, ITS/SCADA, cathodic protection or pump stations. Because the work is linear, progress is usually measured and reported per kilometre, per span or per chainage rather than as one building percent-complete, and the programme is paced by how fast the earthworks or structural fronts can advance and by the quantities they must move or place. Commissioning here means proof-and-acceptance testing — load tests, hydrotests, survey verification — and handover to the operating authority, not a plant start-up. Access, right-of-way, existing-utility diversions and permitting or possession windows are frequently the real schedule constraint, more than the physical construction itself.",
+    "scope": [
+      { "name": "Enabling works & utility diversions", "desc": "Access tracks, temporary works, environmental controls, and diverting any existing utilities in the corridor." },
+      { "name": "Earthworks & formation", "desc": "Cut/fill, subgrade preparation, embankments and ground improvement along the alignment." },
+      { "name": "Structures", "desc": "Bridges, culverts, pump-station or plant-room civils, and quay/jetty/marine structures on the route." },
+      { "name": "Pavement / trackform / pipeline laying", "desc": "Asphalt or concrete pavement, buried pipeline trenching and jointing, or trackbed — as applicable to the asset." },
+      { "name": "Drainage & buried services", "desc": "Culverts, attenuation, cable/pipe crossings, duct banks and chambers." },
+      { "name": "Structural / mechanical elements", "desc": "Bridge bearings and expansion joints, gates, or pipeline valves and fittings." },
+      { "name": "Electrical power & lighting", "desc": "Feeders, substations/kiosks, road/area/navigation lighting and earthing." },
+      { "name": "Instrumentation, ITS / SCADA & cathodic protection", "desc": "Traffic systems, telemetry and corrosion-protection systems specific to the asset type." },
+      { "name": "Testing & proof acceptance", "desc": "Load testing, hydrotest/pigging, survey verification and functional proving of drainage and pump stations." },
+      { "name": "Handover to operator", "desc": "As-built documentation, regulatory acceptance and operator training/handover." }
+    ],
+    "glossary": [
+      { "term": "Chainage", "plain": "distance measured along the route from a fixed starting point — the standard way progress and location are reported on linear works." },
+      { "term": "Formation", "plain": "the prepared ground surface a pavement, trackbed or structure is built on, after cut/fill and compaction." },
+      { "term": "Hydrotest", "plain": "pressure-testing a pipeline with water to prove it holds pressure and has no leaks before it carries product." },
+      { "term": "Pigging", "plain": "running a device ('pig') through a pipeline to clean it, inspect it, or separate batches of product." },
+      { "term": "Cathodic protection", "plain": "an electrical system that prevents buried steel pipelines or marine steel structures from corroding." },
+      { "term": "ITS", "plain": "Intelligent Transport Systems — traffic signals, variable message signs, tolling and the SCADA/comms tying them together." },
+      { "term": "Possession window", "plain": "a fixed period (e.g. a rail or lane closure) during which a linear asset can be worked on — often the real schedule constraint." },
+      { "term": "Proof / load test", "plain": "a physical test (loading a bridge, pressurising a pipe) that demonstrates a structure or system performs as designed before acceptance." }
+    ],
+    "must_get_right": [
+      "Progress is per chainage, kilometre or span, not percent-of-building — track and report it that way, and plan the front(s) of advance against realistic plant/crew output rates.",
+      "Existing-utility diversions, permits and possession/closure windows are frequently the true critical path — sequence around them, don't assume the physical works are the constraint.",
+      "The final proof/acceptance test (load test, hydrotest, survey) is a hard gate to handover — protect real time for it and expect conditional re-tests.",
+      "MEP here is a lighter overlay, not the driver — don't over-schedule it at the expense of the earthworks/structures front(s) that actually pace the job."
+    ]
+  },
+  "components": [
+    { "name": "Earthworks & Formation", "desc": "Cut/fill · subgrade · embankments", "disc": "Civil", "primary": true },
+    { "name": "Structures", "desc": "Bridges / piers / culverts / quay civils", "disc": "Structural", "primary": true },
+    { "name": "Pavement / Pipeline / Trackform", "desc": "Surfacing, or buried pipeline laying", "disc": "Civil", "primary": true },
+    { "name": "Drainage & Buried Services", "desc": "Culverts · duct banks · crossings", "disc": "Civil", "primary": false },
+    { "name": "Electrical & Lighting", "desc": "Feeders · road/area lighting · earthing", "disc": "Electrical", "primary": false },
+    { "name": "Instrumentation / ITS / SCADA", "desc": "Traffic systems, telemetry, cathodic protection", "disc": "Instrumentation", "primary": false },
+    { "name": "Testing & Handover", "desc": "Load test · hydrotest · operator handover", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Civil / Drainage", "items": ["Earthworks & subgrade preparation", "Pavement/formation layers or structure foundations", "Drainage, culverts & attenuation", "Reinstatement & landscaping"] },
+    { "discipline": "Electrical & Lighting", "items": ["HV/LV power feeders & duct banks", "Road / area / navigation lighting", "Earthing & bonding", "Standby power for pump stations / M&E rooms"] },
+    { "discipline": "Instrumentation / ITS / SCADA", "items": ["Traffic signals & ITS systems (roads), or SCADA/telemetry (pipelines/ports)", "CCTV & tolling", "Cathodic protection (pipelines/marine steel)", "Pump-station controls"] }
+  ],
+  "overview_phases": ["Enabling & Utility Diversions", "Earthworks & Formation", "Structures", "Pavement / Pipeline / Trackform", "Drainage & Buried Services", "Electrical & ITS/SCADA", "Testing & Proof Acceptance", "Handover to Operator"],
+  "sequence_chart": {
+    "phases": ["Enable", "Earthworks", "Structures", "Surface/Lay", "Buried Svcs", "E & ITS", "Accept"],
+    "lanes": [
+      { "trade": "Civil / Earthworks", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 55, "label": "Clear → earthworks → formation → structures", "holds": [30] },
+      { "trade": "Structures", "disc": "Civil", "kind": ["civil"], "start": 15, "width": 45, "label": "Foundations → piers/quay → deck/structure complete", "holds": [45] },
+      { "trade": "Pavement / Pipeline", "disc": "Civil", "kind": ["civil"], "start": 40, "width": 35, "label": "Surfacing or pipe-lay → jointing → reinstatement", "holds": [65] },
+      { "trade": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "start": 45, "width": 35, "label": "Duct banks → feeders → lighting energised", "holds": [72] },
+      { "trade": "Instrumentation / ITS / SCADA", "disc": "Instrumentation", "kind": ["elv", "electrical"], "start": 50, "width": 30, "label": "Controls-wiring → ITS/SCADA → cathodic protection", "holds": [] },
+      { "trade": "Testing & Acceptance", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Load test / hydrotest → survey → operator handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Earthworks", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Site clearance & utility diversions", "Cut/fill earthworks & ground improvement", "Subgrade & formation preparation", "Embankments & slope works", "Temporary drainage & erosion control"] },
+    { "name": "Structures", "disc": "Structural", "kind": ["civil"], "holds": [2], "steps": ["Foundations & piling", "Piers / abutments / quay walls", "Deck / superstructure erection", "Bearings & expansion joints, or gate/valve chambers", "Waterproofing & structural finishes"] },
+    { "name": "Pavement / Pipeline / Trackform", "disc": "Civil", "kind": ["civil"], "holds": [3], "steps": ["Sub-base & base-course layers, or pipe stringing & bedding", "Pavement surfacing / trackform laying, or pipe welding & jointing", "Line-marking & road furniture, or coating & wrapping", "Hydrotest / pigging (pipeline) or compaction testing (pavement)", "Reinstatement & final surface"] },
+    { "name": "Drainage & Buried Services", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Culverts & cross-drainage", "Attenuation / interceptors", "Duct banks & chambers", "Cable/pipe crossings", "Backfill & reinstatement"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 5], "steps": ["Long-lead procurement — feeders, substations/kiosks, lighting columns", "Duct bank & trench cable pull", "Substation / kiosk installation", "Lighting column erection & connection", "Earthing & bonding continuity test", "Feeder energisation"] },
+    { "name": "Instrumentation / ITS / SCADA / Cathodic Protection", "disc": "Instrumentation", "kind": ["elv"], "holds": [4], "steps": ["Field instrumentation & controls-wiring", "ITS/traffic-signal or SCADA/telemetry cabinets", "Cathodic-protection rectifiers & test stations (pipelines/marine)", "Communications & fibre backbone", "Integration & functional test"] },
+    { "name": "Testing & Handover", "disc": "Commissioning", "kind": ["comm"], "holds": [0, 1, 5], "steps": ["Structural load / proof testing", "Pipeline hydrotest, pigging & cathodic-protection energisation", "Survey verification & as-built reconciliation", "Drainage / pump-station functional proving", "Regulatory / operator acceptance inspection", "Handover to operating authority"] }
+  ],
+  "wbs": [
+    { "code": "INF", "name": "Linear / Civil Infrastructure — Project", "level": 1 },
+    { "code": "INF.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "INF.02", "name": "Enabling Works & Utility Diversions", "level": 2 },
+    { "code": "INF.03", "name": "Earthworks & Formation", "level": 2 },
+    { "code": "INF.03.10", "name": "Cut/fill & ground improvement", "level": 3 },
+    { "code": "INF.03.20", "name": "Subgrade & formation preparation", "level": 3 },
+    { "code": "INF.04", "name": "Structures", "level": 2 },
+    { "code": "INF.04.10", "name": "Foundations & piling", "level": 3 },
+    { "code": "INF.04.20", "name": "Piers / Abutments / Quay Walls", "level": 3 },
+    { "code": "INF.04.20.10", "name": "Deck / superstructure erection", "level": 4 },
+    { "code": "INF.04.20.10.10", "name": "Bearings & expansion joints", "level": 5 },
+    { "code": "INF.05", "name": "Pavement / Pipeline / Trackform", "level": 2 },
+    { "code": "INF.05.10", "name": "Sub-base & base-course, or pipe stringing & bedding", "level": 3 },
+    { "code": "INF.05.20", "name": "Surfacing / trackform, or welding & jointing", "level": 3 },
+    { "code": "INF.05.20.10", "name": "Hydrotest / pigging or compaction testing", "level": 4 },
+    { "code": "INF.06", "name": "Drainage & Buried Services", "level": 2 },
+    { "code": "INF.06.10", "name": "Culverts & cross-drainage", "level": 3 },
+    { "code": "INF.06.20", "name": "Duct banks & chambers", "level": 3 },
+    { "code": "INF.07", "name": "Electrical & Lighting", "level": 2 },
+    { "code": "INF.07.10", "name": "Substations / kiosks & feeders", "level": 3 },
+    { "code": "INF.07.20", "name": "Lighting installation", "level": 3 },
+    { "code": "INF.07.20.10", "name": "Earthing, bonding & energisation", "level": 4 },
+    { "code": "INF.08", "name": "Instrumentation / ITS / SCADA", "level": 2 },
+    { "code": "INF.08.10", "name": "ITS / traffic or SCADA / telemetry cabinets", "level": 3 },
+    { "code": "INF.08.20", "name": "Cathodic protection", "level": 3 },
+    { "code": "INF.09", "name": "Testing & Proof Acceptance", "level": 2 },
+    { "code": "INF.09.10", "name": "Structural load / proof testing", "level": 3 },
+    { "code": "INF.09.20", "name": "Pipeline hydrotest, pigging & CP energisation", "level": 3 },
+    { "code": "INF.09.30", "name": "Survey verification & as-built reconciliation", "level": 3 },
+    { "code": "INF.10", "name": "Handover to Operator", "level": 2 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. For linear works, activities are typically chainage-banded (per kilometre, per span, per section) rather than purely per-trade, so quantity and productivity rates drive durations. The network is calculated (F9) with no artificial constraints beyond contractual and possession-window milestones; total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Earthworks and pavement typically run a 6-day, weather-sensitive calendar with a wet-season allowance embedded; structures follow a pour/lift cycle calendar; pipeline welding and jointing follows the crew-spread's calendar; testing and commissioning are scheduled against possession or closure windows rather than a fixed weekly calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path typically runs utility diversion / possession → earthworks and formation advance, paced by cut/fill haul and plant output → structures (bridges, piers, quay) on the critical alignment → pavement, trackform or pipe-lay following a fixed distance behind → final proof/acceptance testing → handover. On multi-span or multi-kilometre works, the critical path usually sits on the slowest-advancing front rather than on any single activity." },
+      { "heading": "Key assumptions", "body": "Right-of-way and land access are secured; utility diversions are complete ahead of the earthworks front; design is frozen per section; plant spreads mobilise once and work continuously along the alignment without remobilisation." },
+      { "heading": "Procurement & long-lead items", "body": "Long-lead items are fewer than on a plant project, but possession/closure windows are an equally hard constraint. Both are tracked as milestones:", "table": { "columns": ["Item / constraint", "Typical range", "Needed by"], "rows": [["Line pipe, valves & fittings", "12–24 weeks", "Before pipe-lay front"], ["Precast girders / bridge bearings", "14–22 weeks", "Before deck erection"], ["Hydromechanical gates (where applicable)", "20–30 weeks", "Before structure closure"], ["Rail / road / marine possession windows", "Fixed, scheduled in advance", "Aligned to the structures & tie-in front"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Right-of-way, existing-utility crossings, and possession or closure windows (rail, road, marine tidal) are frequently the true constraint on when work can proceed. Plant-spread mobilisation over a long corridor, and environmental or seasonal restrictions (wet season, marine tidal windows), further limit the working front." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: variable ground conditions, utility-diversion delays, possession-window slippage, and re-test loops on hydrotest or load test. Schedule contingency is held before final proof/acceptance testing, before handover, and at structure crossings or tie-in points rather than spread thinly along the alignment." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary, by section/chainage) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

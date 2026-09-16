@@ -1,0 +1,124 @@
+{
+  "archetype": "commercial_highrise",
+  "schema": 2,
+  "context": "core & riser-led · vertical transport & life-safety commissioning",
+  "brief": {
+    "intro": "A commercial high-rise or mixed-use tower is defined by its vertical concrete or steel core, which climbs floor by floor ahead of the surrounding structure, and by the MEP risers and lifts that run through it to serve every level above. Unlike a low-rise building, the programme is governed by the speed of the core-and-floor cycle — how many floors per week the structure can climb — because every trade behind it (risers, envelope, fit-out) is paced by that front. Vertical transportation (lifts and escalators) must be installed in step with the core, since it is needed both for construction hoisting and for the building's final life-safety system. That life-safety system — fire detection, sprinklers, smoke control and stair pressurisation working together as one integrated cause-and-effect test — is usually what decides the handover date, not the structure itself.",
+    "scope": [
+      { "name": "Enabling & substructure", "desc": "Shoring, basement excavation, piling/raft foundations and waterproofing." },
+      { "name": "Core & superstructure", "desc": "Jump-form or slip-form core climb with a repeating floor-by-floor structural cycle (columns, slabs, decking)." },
+      { "name": "Building envelope / facade", "desc": "Curtain wall or cladding system following the structural cycle up the building." },
+      { "name": "Vertical MEP risers", "desc": "Power, water, drainage and HVAC ductwork/pipework distributed through dedicated shafts, floor to floor." },
+      { "name": "Mechanical — HVAC & chilled water", "desc": "Central plant (chillers, cooling towers) plus floor-by-floor AHU/FCU distribution." },
+      { "name": "Electrical power & lighting", "desc": "Incoming substation, LV distribution, standby generator, floor panels and lighting." },
+      { "name": "Fire protection & life safety", "desc": "Sprinklers, standpipes, fire alarm, smoke control and stair pressurisation." },
+      { "name": "Vertical transportation", "desc": "Lift and escalator installation, following the core with a floor-by-floor shaft handover." },
+      { "name": "ELV / BMS", "desc": "Structured cabling, security, and the building management system tying HVAC, power and fire together." },
+      { "name": "Testing, commissioning & occupancy handover", "desc": "Floor-by-floor system proving, the integrated fire/life-safety matrix test, and the base-build to fit-out interface." }
+    ],
+    "glossary": [
+      { "term": "Core", "plain": "the central concrete or steel structure (lift shafts, stairs, risers) that climbs ahead of the floor slabs and anchors the whole building." },
+      { "term": "Jump-form / slip-form", "plain": "fast-climbing formwork systems used to build the core continuously, floor by floor." },
+      { "term": "Riser", "plain": "a vertical shaft carrying power, water, drainage or air from the plant rooms to every floor." },
+      { "term": "Stair pressurisation", "plain": "fans that push air into stairwells during a fire so smoke cannot enter the escape route." },
+      { "term": "Cause-and-effect (fire) matrix", "plain": "the rulebook proving that each fire event (e.g. a smoke detector on floor 12) triggers exactly the right response — alarms, dampers, lift recall, smoke fans — building-wide." },
+      { "term": "Base build vs fit-out", "plain": "the landlord's core-and-shell work versus the tenant's own interior fit-out, usually built by different teams on different schedules." },
+      { "term": "Occupancy certificate", "plain": "the regulatory sign-off, usually gated by the integrated fire/life-safety test, that allows people to occupy the building." }
+    ],
+    "must_get_right": [
+      "The core-and-floor cycle sets the pace for everything behind it — track floors-per-week, not just overall percent complete.",
+      "Vertical risers must be coordinated and installed as the core climbs; a missed riser sleeve or shaft opening is far more expensive to fix later than to plan for.",
+      "The integrated fire/life-safety cause-and-effect test is the real gate to occupancy — protect time and contingency for it, and expect re-tests.",
+      "Keep the base-build and tenant fit-out schedules clearly separated but coordinated at the interface (risers, floor loading, shaft access)."
+    ]
+  },
+  "components": [
+    { "name": "Structural Core & Frame", "desc": "Climbing core · floor cycle · steel/concrete frame", "disc": "Structural", "primary": true },
+    { "name": "Vertical MEP Risers", "desc": "Power / water / drainage / HVAC shafts, floor to floor", "disc": "Multi-MEP", "primary": true },
+    { "name": "HVAC & Chilled Water", "desc": "Central plant · AHU/FCU · cooling towers", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power", "desc": "Substation · LV distribution · standby generator", "disc": "Electrical", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Sprinklers · alarm · smoke control · stair pressurisation", "disc": "Fire Protection", "primary": true },
+    { "name": "Vertical Transportation", "desc": "Lifts · escalators", "disc": "Conveying", "primary": false },
+    { "name": "Commissioning", "desc": "Floor-by-floor proving · integrated fire matrix", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Central chiller plant & cooling towers", "AHUs & floor-by-floor ductwork", "FCUs / VAV boxes per floor", "Smoke-extract & stair-pressurisation fans"] },
+    { "discipline": "Electrical", "items": ["Incoming HV/LV substation & switchgear", "Standby generator", "Floor distribution boards & busway riser", "Lighting & small power per floor"] },
+    { "discipline": "Plumbing", "items": ["Domestic water riser & booster pumps", "Sanitary drainage & vent risers", "Rainwater / stormwater drainage", "Fire standpipe & sprinkler water supply"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire alarm & voice-evacuation", "Structured cabling & security/access control", "BMS integrating HVAC, power & fire floor-by-floor", "Lift monitoring & CCTV"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Core & Superstructure", "Envelope / Facade", "Vertical MEP Risers & Floor Fit-out", "Central Plant & Power", "Vertical Transportation", "Integration & Testing", "Occupancy Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Core", "Envelope", "Risers", "Plant", "Integrate", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 38, "label": "Excavation → core climb → floor cycle", "holds": [10] },
+      { "trade": "Mechanical (HVAC)", "disc": "Mechanical", "kind": ["mechanical"], "start": 22, "width": 55, "label": "Central plant → floor ductwork → balance", "holds": [58, 84] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 20, "width": 60, "label": "Substation → riser → floor boards → prove", "holds": [55, 82] },
+      { "trade": "Fire / ELV / BMS", "disc": "Fire, ELV, Instrumentation", "kind": ["fire", "elv", "bms"], "start": 35, "width": 50, "label": "Standpipe → devices → cause-effect matrix", "holds": [86] },
+      { "trade": "Vertical Transportation", "disc": "Conveying", "kind": ["mechanical"], "start": 45, "width": 40, "label": "Shaft handover → install → load test", "holds": [70] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Floor proving → integrated fire matrix", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Excavation, shoring & piling", "Substructure & basement", "Core climb (jump-form) ahead of floors", "Floor-by-floor slab & frame cycle", "Envelope / curtain-wall follow-up", "Roof & rooftop plant deck"] },
+    { "name": "HVAC & Chilled Water", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 5, 6], "steps": ["Long-lead procurement — chillers, cooling towers, AHUs", "Central plantroom pipework", "Set chillers & cooling towers", "Floor-by-floor ductwork & riser connection", "AHU/FCU installation per floor", "Test, adjust & balance (TAB) per floor", "Building-wide capacity & balance proving"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 5], "steps": ["Long-lead procurement — switchgear, generator, busway", "Incoming substation & main switchboard", "Riser busway installation floor-by-floor", "Floor distribution boards & containment", "Point-to-point & insulation testing", "Standby generator set & changeover test"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [4, 5], "steps": ["Standpipe & sprinkler riser installation", "Floor-by-floor sprinkler & detection rough-in", "Smoke-control & stair-pressurisation fan install", "Cause-and-effect fire matrix programming", "Integrated fire/life-safety test", "Fire authority inspection & sign-off"] },
+    { "name": "Vertical Transportation", "disc": "Conveying", "kind": ["mechanical"], "holds": [3, 4], "steps": ["Shaft handover from structure", "Guide rail & equipment installation", "Car & controller commissioning", "Load testing & safety certification", "Lift recall & fire-interface integration"] },
+    { "name": "ELV / BMS", "disc": "Extra-Low Voltage", "kind": ["elv", "bms"], "holds": [3, 4], "steps": ["Containment & structured cabling", "Security/access control & CCTV devices", "BMS field devices per floor", "Integration & floor-by-floor point-to-point", "Device testing & commissioning handover"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2, 4], "steps": ["Floor-by-floor system functional testing", "Central plant capacity proving", "Integrated fire/life-safety cause-and-effect test", "Base-build to fit-out interface handover", "Occupancy certificate inspection"] }
+  ],
+  "wbs": [
+    { "code": "CHR", "name": "Commercial High-Rise — Project", "level": 1 },
+    { "code": "CHR.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "CHR.02", "name": "Site & Enabling Works", "level": 2 },
+    { "code": "CHR.02.10", "name": "Excavation, shoring & piling", "level": 3 },
+    { "code": "CHR.03", "name": "Substructure & Basement", "level": 2 },
+    { "code": "CHR.04", "name": "Core & Superstructure", "level": 2 },
+    { "code": "CHR.04.10", "name": "Core climb (jump-form)", "level": 3 },
+    { "code": "CHR.04.20", "name": "Typical floor structural cycle", "level": 3 },
+    { "code": "CHR.04.20.10", "name": "Floor slab & frame", "level": 4 },
+    { "code": "CHR.05", "name": "Building Envelope / Facade", "level": 2 },
+    { "code": "CHR.06", "name": "Mechanical — HVAC & Chilled Water", "level": 2 },
+    { "code": "CHR.06.10", "name": "Central plant (chillers / cooling towers)", "level": 3 },
+    { "code": "CHR.06.20", "name": "Floor-by-floor ductwork & AHU/FCU", "level": 3 },
+    { "code": "CHR.06.20.10", "name": "Riser connection per floor", "level": 4 },
+    { "code": "CHR.06.20.10.10", "name": "Test, adjust & balance per floor", "level": 5 },
+    { "code": "CHR.07", "name": "Electrical — Power", "level": 2 },
+    { "code": "CHR.07.10", "name": "Substation & main switchboard", "level": 3 },
+    { "code": "CHR.07.20", "name": "Riser busway & floor distribution", "level": 3 },
+    { "code": "CHR.07.30", "name": "Standby generation", "level": 3 },
+    { "code": "CHR.08", "name": "Plumbing", "level": 2 },
+    { "code": "CHR.09", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "CHR.09.10", "name": "Standpipe & sprinkler risers", "level": 3 },
+    { "code": "CHR.09.20", "name": "Smoke control & stair pressurisation", "level": 3 },
+    { "code": "CHR.09.20.10", "name": "Cause-and-effect fire matrix", "level": 4 },
+    { "code": "CHR.09.20.10.10", "name": "Integrated fire/life-safety test", "level": 5 },
+    { "code": "CHR.10", "name": "Vertical Transportation (Lifts / Escalators)", "level": 2 },
+    { "code": "CHR.10.10", "name": "Lift installation & load testing", "level": 3 },
+    { "code": "CHR.11", "name": "ELV / BMS Integration", "level": 2 },
+    { "code": "CHR.12", "name": "Testing, Commissioning & Handover", "level": 2 },
+    { "code": "CHR.12.10", "name": "Floor-by-floor system proving", "level": 3 },
+    { "code": "CHR.12.20", "name": "Occupancy certificate inspection", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The floor-by-floor structural and MEP cycles are typically modelled with a repeating 'typical floor' duration rather than fully discrete activities per level. The network is calculated (F9) with no artificial constraints beyond contractual milestones; total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Core climb often runs a continuous or 6-day cycle to hold its pace; typical-floor MEP and envelope trades run 6-day, moving to two shifts where needed to keep pace with the core; commissioning runs against inspection and authority availability. A weather allowance is embedded for facade and high-level work." },
+      { "heading": "Sequencing logic & critical path", "body": "The core climb sets the pace: the critical path typically runs core-and-floor cycle → riser installation following a fixed number of floors behind → floor MEP fit-out → integrated fire/life-safety test → occupancy certificate. Vertical transportation (lifts) installation must keep pace with the core since it is needed both for construction hoisting and for the final life-safety interface." },
+      { "heading": "Key assumptions", "body": "Facade design is frozen per typical floor; a single, sustained core-climb rate is maintained; tenant fit-out is excluded from the base-build baseline and interfaces at defined handover points; one lift contractor is mobilised early enough to follow the core." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is core-cycle-led but still procurement-sensitive. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Chillers / cooling towers", "20–30 weeks", "Before central-plant set"], ["Switchgear / transformers / generator", "24–36 weeks", "Before substation energisation"], ["Curtain-wall / facade system", "20–28 weeks", "Before envelope follow-up on each floor"], ["Lifts / escalators", "30–40 weeks", "Before shaft handover from structure"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Tower-crane capacity and hoisting sequence govern material delivery to height; congested city-centre sites often have limited laydown; riser-shaft access must be coordinated across multiple trades working simultaneously; vertical hoist capacity is shared and a common late-stage constraint." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: core-climb rate slippage, which cascades to every floor behind it; re-test loops on the fire cause-and-effect matrix; facade lead-time slippage. Schedule contingency is held before the integrated fire/life-safety test and before the occupancy inspection, rather than spread thinly across floors." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

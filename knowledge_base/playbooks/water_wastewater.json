@@ -1,0 +1,119 @@
+{
+  "archetype": "water_wastewater",
+  "schema": 2,
+  "context": "civil-heavy watertight structures · two-stage (clean-water then biological) commissioning",
+  "brief": {
+    "intro": "New to this project type? A water or wastewater treatment plant is civil-heavy in a way most other industrial types are not: the watertight concrete tanks, basins and clarifiers, and the buried inlet/outlet pipework, are themselves the enabling long-lead scope — not just a foundation for the mechanical fit-out. Pumps, blowers, mixers and dosing skids are the mechanical/process core, and instrumentation ties it together through SCADA/PLC. The defining planning rule is that commissioning runs in two stages: clean-water functional testing first, then dirty-water/biological seeding against a regulatory discharge consent — a back-loaded, compliance-gated finish where the biological process itself needs real, non-compressible time to establish.",
+    "scope": [
+      { "name": "Enabling & site civil works", "desc": "Grading, drainage, dewatering and access roads." },
+      { "name": "Water-retaining concrete structures", "desc": "Tanks, basins and clarifiers — reinforced, poured, cured and proven watertight." },
+      { "name": "Buried process pipelines", "desc": "Inlet/outlet and interconnecting pipelines between structures." },
+      { "name": "Pump stations", "desc": "Wet-well / dry-well structures housing the lift pumps." },
+      { "name": "Mechanical & process equipment", "desc": "Pumps, blowers, mixers, screens, grit removal and sludge handling." },
+      { "name": "Chemical dosing & treatment trains", "desc": "Dosing skids and, where present, membrane/UV/RO trains." },
+      { "name": "Electrical & MCC", "desc": "Power distribution and motor control centres." },
+      { "name": "Instrumentation & SCADA/PLC", "desc": "Field instruments and the control/telemetry system." },
+      { "name": "Clean-water commissioning", "desc": "Running pumps, valves and dosing on plain water before the real process starts." },
+      { "name": "Biological commissioning & consent compliance", "desc": "Biological seeding, dirty-water commissioning and regulator sign-off against the discharge consent." }
+    ],
+    "glossary": [
+      { "term": "Watertightness test", "plain": "proving a concrete tank or basin doesn't leak before it's put into service." },
+      { "term": "Wet well / dry well", "plain": "the wet well holds incoming flow; the dry well houses the pumps that lift it, kept dry and separate." },
+      { "term": "Clean-water commissioning", "plain": "running pumps, valves and dosing systems on plain water before real sewage or process water is introduced." },
+      { "term": "Biological seeding", "plain": "introducing the bacteria culture that actually does the treatment work, and giving it time to establish." },
+      { "term": "Discharge consent", "plain": "the regulator's permit setting the water-quality limits the plant must meet before treated water can be released." },
+      { "term": "SCADA / PLC", "plain": "the control system and its logic controllers that run pumps, valves, dosing and alarms automatically." },
+      { "term": "Membrane / UV / RO train", "plain": "advanced treatment stages — filtration membranes, ultraviolet disinfection, or reverse osmosis — each needing its own performance verification." }
+    ],
+    "must_get_right": [
+      "Watertight concrete basins and buried pipework are the true long-lead, enabling scope — protect their concrete cure and watertightness-test time, not just the mechanical fit-out that follows.",
+      "Commissioning is two-stage — clean-water first, then dirty-water/biological seeding — never collapse them into one step, and hold real time for biological seeding to establish before consent testing.",
+      "The discharge-consent compliance test, not mechanical completion, is the true finish line — build in time for sampling and regulator sign-off.",
+      "Sequence civil (watertightness proven) before mechanical fit-out (pumps/blowers/dosing) inside every tank or basin."
+    ]
+  },
+  "components": [
+    { "name": "Water-Retaining Concrete Structures", "desc": "Tanks · basins · clarifiers", "disc": "Civil", "primary": true },
+    { "name": "Pumps, Blowers & Mixers", "desc": "Mechanical / process core", "disc": "Mechanical", "primary": true },
+    { "name": "Process & Dosing / Treatment Trains", "desc": "Chemical dosing · membrane/UV/RO", "disc": "Process", "primary": true },
+    { "name": "Buried Process Pipelines", "desc": "Inlet/outlet · interconnecting", "disc": "Civil", "primary": false },
+    { "name": "Electrical & MCC", "desc": "Power distribution · motor control", "disc": "Electrical", "primary": false },
+    { "name": "Instrumentation & SCADA/PLC", "desc": "Field instruments · control · telemetry", "disc": "Instrumentation", "primary": true },
+    { "name": "Commissioning", "desc": "Clean-water → biological seeding → consent", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Process & Mechanical", "items": ["Pumps, blowers & mixers", "Screens, grit removal & sludge handling", "Chemical dosing skids", "Membrane / UV / RO treatment trains"] },
+    { "discipline": "Civil & Piping", "items": ["Water-retaining concrete tanks, basins & clarifiers", "Buried inlet/outlet & interconnecting pipelines", "Wet-well / dry-well structures", "Chemical dosing bunds & containment"] },
+    { "discipline": "Electrical", "items": ["MCC & power distribution", "Standby generator (where required)", "Earthing & cable containment"] },
+    { "discipline": "Instrumentation & Control", "items": ["Field instruments — level, flow, dissolved oxygen", "SCADA/PLC — control & telemetry", "Loop checks & alarm testing"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Water-Retaining Structures", "Buried Pipelines", "Mechanical & Process Install", "Electrical & Instrumentation", "Clean-Water Commissioning", "Biological Seeding", "Consent Compliance & Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structures", "Pipelines", "Mech/Process", "E&I", "Clean-Water", "Consent"],
+    "lanes": [
+      { "trade": "Civil — Water-Retaining Structures", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Excavate → reinforce → pour → watertightness test", "holds": [26] },
+      { "trade": "Buried Pipelines", "disc": "Civil", "kind": ["civil"], "start": 14, "width": 30, "label": "Trench → lay → pressure test → backfill", "holds": [30] },
+      { "trade": "Mechanical / Process", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 30, "width": 40, "label": "Set pumps/blowers/mixers → dosing skids → membrane/UV/RO", "holds": [52] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["mep", "electrical", "bms"], "start": 40, "width": 38, "label": "MCC → cabling → SCADA/PLC → loop check", "holds": [64] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 70, "width": 30, "label": "Clean-water run → biological seeding → consent sampling", "holds": [80, 96] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural — Water-Retaining Structures", "disc": "Civil", "kind": ["civil"], "holds": [4], "steps": ["Excavation & dewatering", "Reinforcement & formwork", "Concrete pour — tanks, basins, clarifiers", "Curing & joint sealing", "Watertightness (leak) test", "Wet-well / dry-well fit-out"] },
+    { "name": "Buried Pipelines", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Trench excavation & bedding", "Pipe laying — inlet/outlet & interconnecting", "Pressure / leak test", "Backfill & reinstatement"] },
+    { "name": "Mechanical / Process Equipment", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [1, 5], "steps": ["Long-lead procurement — pumps, blowers, mixers, screens", "Set pumps, blowers & mixers", "Install screens, grit removal & sludge handling", "Install chemical dosing skids", "Install membrane / UV / RO trains", "Clean-water functional run"] },
+    { "name": "Electrical & MCC", "disc": "Electrical", "kind": ["mep", "electrical"], "holds": [3], "steps": ["Earthing & cable containment", "MCC install & power cable pull", "Point-to-point & insulation-resistance testing", "Energisation"] },
+    { "name": "Instrumentation & SCADA/PLC", "disc": "Instrumentation", "kind": ["mep", "bms"], "holds": [1], "steps": ["Field instruments — level, flow, dissolved oxygen", "SCADA/PLC installation & configuration", "Loop checks & alarm testing", "Telemetry integration"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 3, 6], "steps": ["Water-retaining-structure watertightness sign-off", "Clean-water functional run — pumps, blowers, valves, dosing", "Biological seeding & establishment period", "Dirty-water commissioning against discharge consent", "SCADA/PLC loop checks & telemetry integration", "Membrane/UV/RO performance verification", "Compliance sampling & regulator sign-off"] }
+  ],
+  "wbs": [
+    { "code": "WWT", "name": "Water / Wastewater Treatment Plant — Project", "level": 1 },
+    { "code": "WWT.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "WWT.02", "name": "Enabling & Site Civil Works", "level": 2 },
+    { "code": "WWT.03", "name": "Water-Retaining Concrete Structures", "level": 2 },
+    { "code": "WWT.03.10", "name": "Inlet works & screening chamber", "level": 3 },
+    { "code": "WWT.03.20", "name": "Aeration / process basins", "level": 3 },
+    { "code": "WWT.03.30", "name": "Clarifiers", "level": 3 },
+    { "code": "WWT.03.30.10", "name": "Reinforcement, pour & cure", "level": 4 },
+    { "code": "WWT.03.30.20", "name": "Watertightness (leak) test", "level": 4 },
+    { "code": "WWT.03.30.20.10", "name": "Watertightness sign-off", "level": 5 },
+    { "code": "WWT.04", "name": "Buried Process Pipelines", "level": 2 },
+    { "code": "WWT.04.10", "name": "Inlet/outlet pipelines", "level": 3 },
+    { "code": "WWT.04.20", "name": "Interconnecting process pipelines", "level": 3 },
+    { "code": "WWT.05", "name": "Pump Stations — Wet Well / Dry Well", "level": 2 },
+    { "code": "WWT.06", "name": "Mechanical & Process Equipment", "level": 2 },
+    { "code": "WWT.06.10", "name": "Pumps, blowers & mixers", "level": 3 },
+    { "code": "WWT.06.20", "name": "Screens, grit removal & sludge handling", "level": 3 },
+    { "code": "WWT.06.30", "name": "Chemical dosing skids", "level": 3 },
+    { "code": "WWT.06.40", "name": "Membrane / UV / RO treatment trains", "level": 3 },
+    { "code": "WWT.07", "name": "Electrical & MCC", "level": 2 },
+    { "code": "WWT.08", "name": "Instrumentation & SCADA/PLC", "level": 2 },
+    { "code": "WWT.08.10", "name": "Field instruments", "level": 3 },
+    { "code": "WWT.08.20", "name": "SCADA/PLC configuration & telemetry", "level": 3 },
+    { "code": "WWT.09", "name": "Commissioning — Clean-Water", "level": 2 },
+    { "code": "WWT.10", "name": "Commissioning — Biological Seeding & Consent", "level": 2 },
+    { "code": "WWT.10.10", "name": "Biological seeding & establishment", "level": 3 },
+    { "code": "WWT.10.20", "name": "Dirty-water commissioning to consent", "level": 3 },
+    { "code": "WWT.10.30", "name": "Compliance sampling & regulator sign-off", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil concrete pours are sequenced around curing time rather than a simple days-per-week rate; mechanical and electrical fit-out run a single-shift 6-day week; the commissioning phase extends over several weeks to allow biological seeding to establish before consent sampling begins." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs water-retaining structure concrete → cure → watertightness test → mechanical/process fit-out → electrical & SCADA → clean-water commissioning → biological seeding → consent compliance sampling → handover. The biological seeding/establishment period is a fixed, non-compressible duration and is the true schedule driver at the back end." },
+      { "heading": "Key assumptions", "body": "Design is frozen; geotechnical and groundwater conditions are as reported (dewatering allowed for); the discharge-consent limits are agreed with the regulator ahead of commissioning; and a single mobilisation. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule carries genuine procurement long-leads alongside the civil scope. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Large pumps & blowers", "20–30 weeks", "Before mechanical install"], ["Membrane / UV / RO treatment skids", "24–36 weeks", "Before clean-water commissioning"], ["MCC & switchgear", "20–28 weeks", "Before energisation"], ["SCADA/PLC control system", "18–26 weeks", "Before loop check"], ["Chemical dosing skids", "16–24 weeks", "Before clean-water commissioning"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Dewatering is often required during excavation and concrete works; wet-well/dry-well and confined-space entry needs permitted access; large blowers and tanks require crane access; and tie-ins to an existing sewer network, watercourse or operating plant are coordinated with the operator/regulator in advance." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: watertightness-test failures and rework, biological-seeding delays (temperature- and loading-dependent), consent-sampling re-test loops, and groundwater/dewatering risk during civil works. Schedule contingency is held immediately before biological seeding and before consent compliance testing rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

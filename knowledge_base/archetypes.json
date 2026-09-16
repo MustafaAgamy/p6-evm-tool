@@ -44,7 +44,7 @@
     "firewater ring and deluge functional test",
     "SIS/ESD loop and cause-effect proving before first feed"
    ],
-   "notes": "Piping-dominant EPC. Spool fabrication + rotating equipment + tanks/vessels are the schedule drivers; commissioning is system/subsystem-based (mechanical completion → loop → start-up), not area-based. Insulation/coating and heat-tracing sit on the critical path to weatherization. Hazardous-area electrical and firewater/deluge are safety-critical and gate start-up."
+   "notes": "Piping-dominant EPC. Spool fabrication + rotating equipment + tanks/vessels are the schedule drivers; commissioning is system/subsystem-based (mechanical completion \u2192 loop \u2192 start-up), not area-based. Insulation/coating and heat-tracing sit on the critical path to weatherization. Hazardous-area electrical and firewater/deluge are safety-critical and gate start-up."
   },
   {
    "archetype": "chemical_petrochemical",
@@ -83,14 +83,14 @@
     "hardstand for modular/heavy-lift set"
    ],
    "commissioning_focus": [
-    "subsystem mechanical completion → loop check → pre-commissioning",
+    "subsystem mechanical completion \u2192 loop check \u2192 pre-commissioning",
     "catalyst loading and reactor conditioning",
     "utility-first sequence (steam, N2, instrument air, cooling water) before process",
     "tightness/leak test and passivation of alloy piping",
     "distributed control system (DCS/SIS) integration and interlock proving",
     "staged plant start-up and performance-test-run"
    ],
-   "notes": "Like oil & gas but denser process piping, more alloy/exotic metallurgy driving spool fab lead times, and heavy insulation/heat-tracing scope. Utilities (steam, cooling water, instrument air, N2) must be commissioned first — utility-block readiness is the gating milestone. Effluent/neutralization and flare systems are compliance-critical."
+   "notes": "Like oil & gas but denser process piping, more alloy/exotic metallurgy driving spool fab lead times, and heavy insulation/heat-tracing scope. Utilities (steam, cooling water, instrument air, N2) must be commissioned first \u2014 utility-block readiness is the gating milestone. Effluent/neutralization and flare systems are compliance-critical."
   },
   {
    "archetype": "power_utility_plant",
@@ -133,9 +133,9 @@
     "high-voltage energization, protection and synchronization to grid",
     "cooling-water and BOP system flushing",
     "DCS/excitation/governor integration",
-    "first fire → first sync → reliability/performance run"
+    "first fire \u2192 first sync \u2192 reliability/performance run"
    ],
-   "notes": "Rotating machinery (turbine-generator) and high-voltage electrical dominate. The earthing grid and HV protection/energization are first-class, not secondary MEP. Commissioning is a long, tightly-sequenced chain (steam blow → first fire → sync → reliability run) that owns the back end of the schedule. Applies to gas, steam, combined-cycle and large renewables/BESS interconnection."
+   "notes": "Rotating machinery (turbine-generator) and high-voltage electrical dominate. The earthing grid and HV protection/energization are first-class, not secondary MEP. Commissioning is a long, tightly-sequenced chain (steam blow \u2192 first fire \u2192 sync \u2192 reliability run) that owns the back end of the schedule. Applies to gas, steam, combined-cycle and large renewables/BESS interconnection."
   },
   {
    "archetype": "water_wastewater",
@@ -220,10 +220,10 @@
     "utility readiness (power, compressed air, cooling, steam) before line energization",
     "individual machine/skid FAT-to-SAT and dry runs",
     "conveyor and material-handling line integration and interlocks",
-    "production-line integrated run and no-load → loaded ramp-up",
+    "production-line integrated run and no-load \u2192 loaded ramp-up",
     "MES/PLC integration and line-speed proving"
    ],
-   "notes": "First-class industrial archetype: mixed process + discrete equipment tied together by conveying/material-handling and packaged skids. Structural steel (portal frames, mezzanines, crane rails) and heavy machine foundations are enablers on the critical path. Commissioning is line/cell-based with a no-load → loaded production ramp; utilities must land first. Sits between pure process plants and light manufacturing."
+   "notes": "First-class industrial archetype: mixed process + discrete equipment tied together by conveying/material-handling and packaged skids. Structural steel (portal frames, mezzanines, crane rails) and heavy machine foundations are enablers on the critical path. Commissioning is line/cell-based with a no-load \u2192 loaded production ramp; utilities must land first. Sits between pure process plants and light manufacturing."
   },
   {
    "archetype": "manufacturing_plant",
@@ -303,7 +303,7 @@
     "elevator/bucket and diverter interlock and sequencing test",
     "dust-extraction and explosion-venting/suppression functional test",
     "level, load-cell and weighbridge calibration",
-    "no-load → loaded bulk-flow trial and throughput verification"
+    "no-load \u2192 loaded bulk-flow trial and throughput verification"
    ],
    "notes": "Bulk-handling archetype dominated by conveying, silos/tanks as storage vessels, and structural steel galleries/towers. No process piping to speak of; instrumentation centres on level/weight/flow. Dust explosion protection (venting/suppression) and earthing are safety-critical. Deep silo foundations are the long-lead civil enabler. Commissioning is a bulk-flow throughput trial, not a chemical start-up."
   },
@@ -345,7 +345,7 @@
     "tunnel ventilation and life-safety (fire/smoke) system proving",
     "trial running, dynamic testing and system-integration/safety-case sign-off"
    ],
-   "notes": "Systems archetype where power (traction/aux), signalling (instrumentation), cabling containment and earthing/bonding dominate over process/mechanical scope. Conveying appears as escalators/lifts. Commissioning is dominated by signalling integration and a long trial-running / safety-case regime — the true schedule and risk driver. Deep civil (tunnels, station boxes, viaducts) is the enabling backbone."
+   "notes": "Systems archetype where power (traction/aux), signalling (instrumentation), cabling containment and earthing/bonding dominate over process/mechanical scope. Conveying appears as escalators/lifts. Commissioning is dominated by signalling integration and a long trial-running / safety-case regime \u2014 the true schedule and risk driver. Deep civil (tunnels, station boxes, viaducts) is the enabling backbone."
   },
   {
    "archetype": "data_center",
@@ -382,13 +382,13 @@
     "screening/security-perimeter civils"
    ],
    "commissioning_focus": [
-    "Level 1–5 commissioning (factory → site → integrated systems test)",
-    "utility → generator → UPS → PDU power-path proving with load banks",
+    "Level 1\u20135 commissioning (factory \u2192 site \u2192 integrated systems test)",
+    "utility \u2192 generator \u2192 UPS \u2192 PDU power-path proving with load banks",
     "chilled-water and CRAC/CRAH cooling capacity and redundancy (N+1) test",
     "integrated systems test (IST) with black-building / failure-mode pull-the-plug",
     "BMS/EPMS integration, VESDA and clean-agent fire suppression proving"
    ],
-   "notes": "Redundancy-and-resilience archetype: electrical power path (utility/gen/UPS/PDU) plus mechanical cooling (chilled water, CRAC/CRAH) are co-dominant, tied together by BMS/EPMS. Commissioning is the defining discipline — formal Level 1–5 with load-bank and integrated systems test / failure-mode proving that owns the back end. Fire (VESDA + clean agent) and structured cabling containment are first-class."
+   "notes": "Redundancy-and-resilience archetype: electrical power path (utility/gen/UPS/PDU) plus mechanical cooling (chilled water, CRAC/CRAH) are co-dominant, tied together by BMS/EPMS. Commissioning is the defining discipline \u2014 formal Level 1\u20135 with load-bank and integrated systems test / failure-mode proving that owns the back end. Fire (VESDA + clean agent) and structured cabling containment are first-class."
   },
   {
    "archetype": "hospital_healthcare",
@@ -548,8 +548,8 @@
     "snagging_and_de_snagging",
     "unit_handover_pack"
    ],
-   "finishing_sequence_note": "Structure/blockwork → MEP first fix in walls & slab → plaster/board & waterproofing to wet areas → screed/tiling → second fix MEP → paint → joinery & sanitary fixtures → snagging → handover. Wet areas (bath/kitchen) gate the tiling and fixture chain.",
-   "notes": "Baseline residential template — apply when the schedule does not distinguish rise/typology. Finishing + light MEP first/second fix dominate the critical review; heavy plant/industrial systems are absent."
+   "finishing_sequence_note": "Structure/blockwork \u2192 MEP first fix in walls & slab \u2192 plaster/board & waterproofing to wet areas \u2192 screed/tiling \u2192 second fix MEP \u2192 paint \u2192 joinery & sanitary fixtures \u2192 snagging \u2192 handover. Wet areas (bath/kitchen) gate the tiling and fixture chain.",
+   "notes": "Baseline residential template \u2014 apply when the schedule does not distinguish rise/typology. Finishing + light MEP first/second fix dominate the critical review; heavy plant/industrial systems are absent."
   },
   {
    "archetype": "apartment_building",
@@ -589,8 +589,8 @@
     "fire_alarm_loop_verification",
     "unit_by_unit_snagging_and_handover"
    ],
-   "finishing_sequence_note": "Repetitive typical-floor cycle: unit blockwork → MEP first fix → wet-area waterproofing → screed & tiling → second fix → paint → joinery/sanitary → per-unit snag. Common cores (corridors, lobbies, risers) run as a parallel finishing front feeding vertical MEP.",
-   "notes": "Multi-unit repetition is the planning signature — typical-floor productivity and unit-to-unit handover cadence drive the programme. Risers and common-area MEP interface with every unit stack."
+   "finishing_sequence_note": "Repetitive typical-floor cycle: unit blockwork \u2192 MEP first fix \u2192 wet-area waterproofing \u2192 screed & tiling \u2192 second fix \u2192 paint \u2192 joinery/sanitary \u2192 per-unit snag. Common cores (corridors, lobbies, risers) run as a parallel finishing front feeding vertical MEP.",
+   "notes": "Multi-unit repetition is the planning signature \u2014 typical-floor productivity and unit-to-unit handover cadence drive the programme. Risers and common-area MEP interface with every unit stack."
   },
   {
    "archetype": "lowrise_residential",
@@ -626,7 +626,7 @@
     "lighting_and_socket_testing",
     "snagging_and_handover"
    ],
-   "finishing_sequence_note": "Short vertical run, finishing-dominant: blockwork → MEP first fix → wet-area waterproofing → plaster → screed/tiling → second fix → paint → joinery & fixtures → snag. Roof waterproofing and external render gate weather-tightness.",
+   "finishing_sequence_note": "Short vertical run, finishing-dominant: blockwork \u2192 MEP first fix \u2192 wet-area waterproofing \u2192 plaster \u2192 screed/tiling \u2192 second fix \u2192 paint \u2192 joinery & fixtures \u2192 snag. Roof waterproofing and external render gate weather-tightness.",
    "notes": "Simpler, finishing-led with minimal vertical MEP coordination. No fire-fighting risers or lifts typically; commissioning is light and unit/floor-based."
   },
   {
@@ -667,8 +667,8 @@
     "common_area_and_lift_lobby_testing",
     "phased_unit_handover"
    ],
-   "finishing_sequence_note": "Typical-floor repetition with an emerging vertical MEP spine: floor cycle feeds unit finishing (first fix → waterproofing → tiling → second fix → paint → joinery/fixtures) while cores, risers and stairs carry building-wide services. Fire alarm coverage becomes a coordinated floor-by-floor activity.",
-   "notes": "Transition band — finishing still dominates but vertical services (risers, fire alarm, lift-lobby MEP) start driving coordination. Life-safety commissioning appears but remains lighter than high-rise."
+   "finishing_sequence_note": "Typical-floor repetition with an emerging vertical MEP spine: floor cycle feeds unit finishing (first fix \u2192 waterproofing \u2192 tiling \u2192 second fix \u2192 paint \u2192 joinery/fixtures) while cores, risers and stairs carry building-wide services. Fire alarm coverage becomes a coordinated floor-by-floor activity.",
+   "notes": "Transition band \u2014 finishing still dominates but vertical services (risers, fire alarm, lift-lobby MEP) start driving coordination. Life-safety commissioning appears but remains lighter than high-rise."
   },
   {
    "archetype": "highrise_residential",
@@ -711,8 +711,8 @@
     "lift_and_smoke_control_interface",
     "bms_light_integration_and_phased_unit_handover"
    ],
-   "finishing_sequence_note": "Core/jumpform leads, typical-floor finishing follows several floors below in a rolling wave. Vertical MEP spine (wet/dry risers, pump rooms, roof tanks, lift shafts) must be sequenced with the floor cycle; each unit still runs the first-fix→waterproofing→tiling→second-fix→fixtures chain, but building-wide life-safety and vertical transport gate handover.",
-   "notes": "Vertical MEP coordination dominates alongside finishing. Adds fire fighting (risers/sprinklers/pumps), fire alarm zoning, lifts, roof plant, and BMS-lite. Finishing is high-volume/repetitive but no longer the sole critical path — vertical services and life-safety commissioning share it."
+   "finishing_sequence_note": "Core/jumpform leads, typical-floor finishing follows several floors below in a rolling wave. Vertical MEP spine (wet/dry risers, pump rooms, roof tanks, lift shafts) must be sequenced with the floor cycle; each unit still runs the first-fix\u2192waterproofing\u2192tiling\u2192second-fix\u2192fixtures chain, but building-wide life-safety and vertical transport gate handover.",
+   "notes": "Vertical MEP coordination dominates alongside finishing. Adds fire fighting (risers/sprinklers/pumps), fire alarm zoning, lifts, roof plant, and BMS-lite. Finishing is high-volume/repetitive but no longer the sole critical path \u2014 vertical services and life-safety commissioning share it."
   },
   {
    "archetype": "residential_compound",
@@ -788,8 +788,8 @@
     "lighting_and_socket_testing",
     "unit_snagging_and_handover"
    ],
-   "finishing_sequence_note": "Attached low-rise unit, finishing-dominant: blockwork → MEP first fix → wet-area waterproofing → plaster → tiling → second fix → paint → joinery & fixtures → snag. Party-wall interface and shared services coordination with the adjacent unit is the only added complexity.",
-   "notes": "Essentially a villa in an attached row — simple, finishing-led, minimal commissioning. Repeats across a terrace; party-wall and shared-services coordination distinguish it from the standalone villa."
+   "finishing_sequence_note": "Attached low-rise unit, finishing-dominant: blockwork \u2192 MEP first fix \u2192 wet-area waterproofing \u2192 plaster \u2192 tiling \u2192 second fix \u2192 paint \u2192 joinery & fixtures \u2192 snag. Party-wall interface and shared services coordination with the adjacent unit is the only added complexity.",
+   "notes": "Essentially a villa in an attached row \u2014 simple, finishing-led, minimal commissioning. Repeats across a terrace; party-wall and shared-services coordination distinguish it from the standalone villa."
   },
   {
    "archetype": "villa",
@@ -825,8 +825,8 @@
     "lighting_scene_and_socket_testing",
     "detailed_snagging_and_handover"
    ],
-   "finishing_sequence_note": "High-spec finishing dominates the entire back half of the programme: blockwork → MEP first fix → wet-area/pool waterproofing → plaster → marble/stone tiling → second fix → paint → bespoke joinery → premium sanitary fixtures → intensive snagging. Stone/marble lead times and joinery quality gate handover.",
-   "notes": "Finishing-dominant with premium materials (marble, stone, bespoke joinery) — the review focus is the finishing-to-MEP interface and material lead times, not plant. Minimal industrial/commissioning content; often includes pool and landscape interfaces."
+   "finishing_sequence_note": "High-spec finishing dominates the entire back half of the programme: blockwork \u2192 MEP first fix \u2192 wet-area/pool waterproofing \u2192 plaster \u2192 marble/stone tiling \u2192 second fix \u2192 paint \u2192 bespoke joinery \u2192 premium sanitary fixtures \u2192 intensive snagging. Stone/marble lead times and joinery quality gate handover.",
+   "notes": "Finishing-dominant with premium materials (marble, stone, bespoke joinery) \u2014 the review focus is the finishing-to-MEP interface and material lead times, not plant. Minimal industrial/commissioning content; often includes pool and landscape interfaces."
   },
   {
    "archetype": "standalone_house",
@@ -861,8 +861,8 @@
     "lighting_and_socket_testing",
     "snagging_and_handover"
    ],
-   "finishing_sequence_note": "Simplest residential form: blockwork → MEP first fix → wet-area waterproofing → plaster → screed/tiling → second fix → paint → joinery & fixtures → snag. Roof waterproofing and external render gate weather-tightness before internal finishing accelerates.",
-   "notes": "Baseline single-dwelling template — finishing-led, minimal MEP coordination, light per-house commissioning. Use for detached houses without villa-grade material or pool/landscape complexity."
+   "finishing_sequence_note": "Simplest residential form: blockwork \u2192 MEP first fix \u2192 wet-area waterproofing \u2192 plaster \u2192 screed/tiling \u2192 second fix \u2192 paint \u2192 joinery & fixtures \u2192 snag. Roof waterproofing and external render gate weather-tightness before internal finishing accelerates.",
+   "notes": "Baseline single-dwelling template \u2014 finishing-led, minimal MEP coordination, light per-house commissioning. Use for detached houses without villa-grade material or pool/landscape complexity."
   },
   {
    "archetype": "mixed_use_residential",
@@ -905,7 +905,7 @@
     "lift_and_smoke_control_interface",
     "bms_integration_and_phased_zoned_handover"
    ],
-   "finishing_sequence_note": "Two finishing regimes: retail/podium shell-and-core (often left as landlord shell) and the residential tower typical-floor finishing wave above. Vertical services must stay continuous through the transfer/podium level; residential units run the standard first-fix→waterproofing→tiling→second-fix→fixtures chain while podium and cores demand coordinated life-safety and MEP segregation.",
+   "finishing_sequence_note": "Two finishing regimes: retail/podium shell-and-core (often left as landlord shell) and the residential tower typical-floor finishing wave above. Vertical services must stay continuous through the transfer/podium level; residential units run the standard first-fix\u2192waterproofing\u2192tiling\u2192second-fix\u2192fixtures chain while podium and cores demand coordinated life-safety and MEP segregation.",
    "notes": "Combines high-rise residential vertical MEP with a retail/podium interface. Review focus is the residential-to-commercial services segregation, transfer-level MEP continuity, and phased zoned handover (retail vs residential). Heaviest commissioning of the residential set due to shared life-safety and metering separation."
   },
   {
@@ -2186,6 +2186,61 @@
    ],
    "applicability": "Applies to municipal/industrial waste incineration and energy-recovery plants with combustion grate, boiler, steam turbine and flue-gas treatment.",
    "notes": "Combustion/boiler and turbine islands with waste and ash handling are the cores; waste bunker and heavy foundations are the civil interfaces, and flue-gas treatment commissioning is emissions-critical."
+  },
+  {
+   "archetype": "landscape",
+   "name": "Landscape (Hardscape & Softscape)",
+   "category": "landscape",
+   "primary_systems": [
+    "civil_interface",
+    "utility_piping",
+    "lighting",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "plumbing",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "site grading, levels and drainage",
+    "irrigation and utility mains",
+    "hardscape sub-base and edge restraints"
+   ],
+   "commissioning_focus": [
+    "irrigation system pressure test and coverage",
+    "water-feature and pump commissioning",
+    "planting establishment / maintenance period"
+   ],
+   "applicability": "Applies to external works: soft landscape (planting, lawns, irrigation) and hard landscape (paving, walls, features, site furniture) with site drainage and lighting.",
+   "notes": "Hard- and soft-scape external works: earthworks and grading, drainage and irrigation, hardscape (paving, walls, water features), planting and site electrical/lighting. Low MEP; finishing- and establishment-driven, weather-sensitive."
+  },
+  {
+   "archetype": "new_city_master_development",
+   "name": "New City / Master Development",
+   "category": "urban_development",
+   "primary_systems": [
+    "civil_interface",
+    "utilities",
+    "utility_piping",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "structural_steel",
+    "architectural_finishing",
+    "hvac"
+   ],
+   "civil_interfaces": [
+    "mass earthworks and site grading",
+    "trunk infrastructure corridors (roads, utilities)",
+    "district boundaries and construction phasing"
+   ],
+   "commissioning_focus": [
+    "trunk utility energisation and network testing",
+    "district / parcel handover",
+    "infrastructure-to-building integration"
+   ],
+   "applicability": "Applies to large phased urban developments and new cities (master-planned communities): trunk infrastructure plus districts of buildings, landmarks and public realm delivered in phases.",
+   "notes": "Master-development / new-city programme: phased mass earthworks and trunk infrastructure (roads, power, water, drainage, telecom) then districts of buildings, landmarks and landscape. Program-of-works scale, infrastructure-led and phased over years."
   }
  ]
 }

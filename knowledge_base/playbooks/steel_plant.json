@@ -1,0 +1,126 @@
+{
+  "archetype": "steel_plant",
+  "schema": 2,
+  "context": "heavy foundations & crane structure · hot commissioning on live process media",
+  "brief": {
+    "intro": "New to this project type? A steel plant (steelworks) converts scrap or hot metal into finished steel through three linked stages: melting/refining in a furnace or converter, continuous casting into semi-finished shapes, and rolling into final product. Unlike a normal industrial building, the structure exists to carry molten metal safely — foundations for the furnace, caster and mill stands are enormous, and overhead cranes that move ladles of liquid steel must be operating before the process equipment inside them can even be set. Your schedule is won or lost on three things: sequencing crane readiness ahead of heavy internals, respecting the fixed-duration refractory dry-out cure, and proving the plant cold (mechanically) before it is proven hot (with real heat and metal).",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, underground services, laydown for abnormal-load deliveries." },
+      { "name": "Heavy equipment foundations", "desc": "Furnace/converter pit, caster foundation, mill-stand foundations, ladle & tundish car foundations." },
+      { "name": "Structural steel & building envelope", "desc": "Portal-frame melt-shop and mill bays, crane-rail-supporting columns, roofing/cladding." },
+      { "name": "Melting & refining", "desc": "Electric arc furnace (EAF) or basic oxygen furnace (BOF), ladle furnace, refractory lining and its dry-out/heat-up curing." },
+      { "name": "Continuous casting", "desc": "Caster machine, ladle turret, tundish car, mould and spray-cooling — casts liquid steel into billets, blooms or slabs." },
+      { "name": "Rolling mill", "desc": "Hot/cold mill stands, roll-line, coilers and shears — reduces cast product to final section or coil." },
+      { "name": "Overhead cranes", "desc": "Ladle and charging cranes on crane rails — must be commissioned ahead of the heavy internals they will install and later operate." },
+      { "name": "Process media systems", "desc": "Fuel gas, oxygen/nitrogen/argon, direct & indirect cooling water — live utilities the furnace and mill depend on." },
+      { "name": "Electrical power & drives", "desc": "MV substations, furnace/electrode transformers, large mill motor drives and VFDs." },
+      { "name": "Testing & commissioning", "desc": "Cold (mechanical) commissioning, refractory heat-up, then hot commissioning — first melt, first cast, first roll." }
+    ],
+    "glossary": [
+      { "term": "EAF / BOF", "plain": "electric arc furnace / basic oxygen furnace — the vessel that melts scrap or hot metal into liquid steel." },
+      { "term": "Continuous caster", "plain": "casts liquid steel into semi-finished shapes (billets, blooms or slabs) in one continuous strand." },
+      { "term": "Ladle / tundish", "plain": "refractory-lined vessels that carry and meter molten steel between the furnace and the caster." },
+      { "term": "Refractory", "plain": "heat-resistant brick or castable lining that protects steel vessels from molten metal — installed then cured (dried and heated) before use." },
+      { "term": "Cold vs hot commissioning", "plain": "cold = proving the equipment mechanically with no heat or metal; hot = the real thing, with actual molten steel live." },
+      { "term": "Roll-line / mill stand", "plain": "the rolling equipment that reduces cast steel to its final rolled shape or coil." },
+      { "term": "Crane rail / gantry", "plain": "the rails and structure supporting overhead cranes that handle ladles and coils above the process floor." },
+      { "term": "Process media", "plain": "the fuel gas, oxygen, nitrogen/argon and cooling water that the furnace and mill consume while running." }
+    ],
+    "must_get_right": [
+      "Sequence overhead cranes and structural steel ahead of heavy-equipment set — the crane has to be operating before the furnace shell, ladle turret or mill stands it will install can go in.",
+      "Refractory dry-out/heat-up is a fixed-duration cure set by the refractory supplier's curve — build it into the critical path as real duration, never compress or resequence it.",
+      "Cold (mechanical) commissioning must be fully proven system-by-system before molten metal is introduced — treat the cold-to-hot gate as hard, not a formality.",
+      "Process media (fuel gas, oxygen, cooling water) must be live and proven before hot commissioning starts — it is a hard predecessor, not parallel scope."
+    ]
+  },
+  "components": [
+    { "name": "Melting & Refining", "desc": "EAF/BOF · ladle furnace · refractory · electrodes", "disc": "Process", "primary": true },
+    { "name": "Continuous Casting", "desc": "Caster · ladle turret · tundish · mould", "disc": "Process", "primary": true },
+    { "name": "Rolling Mill", "disc": "Process", "desc": "Hot/cold mill stands · roll-line · coilers", "primary": true },
+    { "name": "Overhead Cranes & Structural Steel", "desc": "Ladle/charging cranes · crane rails · bay steel", "disc": "Structural", "primary": true },
+    { "name": "Process Media", "desc": "Fuel gas · oxygen/nitrogen/argon · cooling water", "disc": "Mechanical", "primary": false },
+    { "name": "Electrical Power & Drives", "desc": "MV substations · furnace/mill transformers · VFDs", "disc": "Electrical", "primary": true },
+    { "name": "Dust Extraction & Water Treatment", "desc": "Baghouse/ESP fume extraction · scale pit · cooling tower", "disc": "Environmental", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Process Media", "items": ["Fuel gas (natural gas / coke oven gas) piping", "Oxygen, nitrogen & argon systems", "Direct & indirect cooling-water circuits", "Compressed air & instrument air"] },
+    { "discipline": "Electrical", "items": ["MV switchgear & furnace/electrode transformers", "Mill motor drives & VFDs", "Crane power & festoon systems", "Earthing & lightning protection"] },
+    { "discipline": "Instrumentation & Controls", "items": ["Level 2 process automation (weigh feeders, level/temperature sensors)", "Pyrometers & metallurgical sensors", "Weighing & metering", "SCADA / HMI"] },
+    { "discipline": "ELV / Fire / Safety", "items": ["Gas detection (fuel gas / CO)", "Fire detection in electrical & control rooms", "Emergency shutdown (ESD) systems"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Heavy Foundations", "Structural Steel & Envelope", "Equipment Installation", "Media Systems & Electrical", "Refractory Dry-out", "Cold Commissioning", "Hot Commissioning & Ramp-up"],
+  "sequence_chart": {
+    "phases": ["Enable", "Foundations", "Structure", "Equip. Set", "Media/Elec.", "Cold Comm.", "Hot Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Earthworks → heavy foundations → crane-rail steel", "holds": [14] },
+      { "trade": "Mechanical / Process Equipment", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 28, "width": 50, "label": "Set furnace/caster/mill → align → pipe media", "holds": [40, 62] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["mep", "electrical"], "start": 35, "width": 45, "label": "Substations → drives → terminate → energise", "holds": [60] },
+      { "trade": "ELV / Instrumentation", "disc": "Instrumentation", "kind": ["mep", "elv"], "start": 45, "width": 35, "label": "Field devices → Level 2 control → integrate", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Cold comm → refractory heat-up → hot comm → ramp-up", "holds": [88] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1, 4], "steps": ["Site clearance & earthworks", "Heavy-equipment foundations & pits (furnace, caster, mill stands)", "Crane-rail-supporting columns & foundations", "Structural steel erection (melt-shop & mill bays)", "Roof & cladding — weather-tight"] },
+    { "name": "Melting & Refining Equipment", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [1, 3], "steps": ["Long-lead procurement — furnace shell, electrodes, transformer", "Foundation set-out & pit backfill", "Furnace/converter shell erection & alignment", "Refractory lining installation", "Electrode / oxygen-lance system installation", "Cold (mechanical) test", "Refractory dry-out & heat-up cure"] },
+    { "name": "Continuous Casting", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [1, 4], "steps": ["Caster machine procurement & delivery", "Foundation set & segment alignment", "Ladle turret & tundish car installation", "Mould & spray-cooling system installation", "Cold roll-through (dummy bar) test", "Hot trial cast"] },
+    { "name": "Rolling Mill & Roll-line", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [1, 4], "steps": ["Mill-stand procurement & delivery", "Foundation & baseplate set", "Stand erection & roll-line alignment", "Coiler & shear installation", "Roll-change system commissioning", "Cold roll-through test", "Hot rolling trial"] },
+    { "name": "Overhead Cranes", "disc": "Structural", "kind": ["mep", "mechanical", "civil"], "holds": [2], "steps": ["Crane-rail installation & alignment survey", "Crane girder & bridge erection", "Hoist/trolley commissioning", "Load test & certification — operating ahead of internals set"] },
+    { "name": "Electrical Power & Drives", "disc": "Electrical", "kind": ["mep", "electrical"], "holds": [1, 4, 6], "steps": ["MV switchgear & transformer procurement", "Substation & cable-route installation", "Furnace-transformer & electrode-arm-drive set", "Mill motor & VFD installation", "Termination & point-to-point testing", "Energisation & no-load run", "Load test under production"] },
+    { "name": "Process Media (Gas / Oxygen / Water)", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [2], "steps": ["Pipe routing & pipe-rack installation", "Fuel gas / oxygen / nitrogen line installation & leak test", "Cooling-water circuit installation & flush", "Media proving prior to hot commissioning"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2], "steps": ["Cold (mechanical) commissioning per system", "Process-media systems proving", "Refractory heat-up curing", "Hot commissioning — first melt, first cast, first roll", "Production ramp-up & performance trial"] }
+  ],
+  "wbs": [
+    { "code": "STL", "name": "Steel Plant — Project", "level": 1 },
+    { "code": "STL.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "STL.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "STL.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "STL.02.20", "name": "Heavy Equipment Foundations", "level": 3 },
+    { "code": "STL.02.20.10", "name": "Furnace / Converter Foundation & Pit", "level": 4 },
+    { "code": "STL.03", "name": "Structural Steel & Building Envelope", "level": 2 },
+    { "code": "STL.03.10", "name": "Melt Shop & Mill Bay Steel, Crane Rails", "level": 3 },
+    { "code": "STL.04", "name": "Melting & Refining (Furnace / Converter)", "level": 2 },
+    { "code": "STL.04.10", "name": "Furnace / Converter Erection", "level": 3 },
+    { "code": "STL.04.20", "name": "Refractory Installation", "level": 3 },
+    { "code": "STL.04.20.10", "name": "Refractory Dry-out & Heat-up", "level": 4 },
+    { "code": "STL.04.20.10.10", "name": "Heat-up Curing Schedule (staged ramp)", "level": 5 },
+    { "code": "STL.04.20.10.10.10", "name": "Refractory Integrity Check & Release to Hot Comm.", "level": 6 },
+    { "code": "STL.05", "name": "Continuous Casting", "level": 2 },
+    { "code": "STL.05.10", "name": "Caster Machine Erection", "level": 3 },
+    { "code": "STL.05.20", "name": "Ladle & Tundish Systems", "level": 3 },
+    { "code": "STL.06", "name": "Rolling Mill", "level": 2 },
+    { "code": "STL.06.10", "name": "Mill Stand Erection & Alignment", "level": 3 },
+    { "code": "STL.06.20", "name": "Coilers & Shears", "level": 3 },
+    { "code": "STL.07", "name": "Overhead Cranes", "level": 2 },
+    { "code": "STL.07.10", "name": "Crane Rail Installation, Erection & Load Test", "level": 3 },
+    { "code": "STL.08", "name": "Electrical Power & Drives", "level": 2 },
+    { "code": "STL.08.10", "name": "MV Substations & Transformers", "level": 3 },
+    { "code": "STL.08.20", "name": "Mill & Furnace Drives", "level": 3 },
+    { "code": "STL.09", "name": "Process Media Systems", "level": 2 },
+    { "code": "STL.09.10", "name": "Fuel Gas / Oxygen / Nitrogen", "level": 3 },
+    { "code": "STL.09.20", "name": "Cooling Water Circuits", "level": 3 },
+    { "code": "STL.10", "name": "Dust Extraction & Water Treatment", "level": 2 },
+    { "code": "STL.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "STL.11.10", "name": "Cold Commissioning", "level": 3 },
+    { "code": "STL.11.20", "name": "Hot Commissioning & Ramp-up", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Heavy-lift and crane-availability constraints are carried as activity codes rather than hard date constraints, so the network stays float-driven." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day single-shift week; equipment erection and media works move to two shifts where needed to protect the critical path. Refractory dry-out runs a continuous 24/7 calendar dictated by the refractory manufacturer's fixed heat-up curve — it cannot be compressed by adding resources. Hot commissioning runs 24/7 once initiated." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs heavy foundations → crane rails & structural steel → furnace/converter & caster erection → refractory installation & dry-out (fixed-duration cure) → process-media proving → cold commissioning → hot commissioning → production ramp-up. Overhead cranes are an early-network gate, not a late one: the crane must be operating before the furnace shell, ladle turret or mill stands it will install can go in." },
+      { "heading": "Key assumptions", "body": "Design is frozen and vendor drawings issued before foundation design is finalised; overhead cranes are commissioned ahead of heavy-internals installation; the refractory supplier's dry-out curve is followed exactly, never compressed; utility tie-ins (gas, power, water) are available by the media-proving milestone." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on the melting, casting and rolling equipment. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Furnace / converter shell & electrode system", "40–60 weeks", "Before heavy-foundation backfill / erection window"], ["Continuous caster machine", "45–65 weeks", "Before caster-foundation close-out"], ["Rolling mill stands & drive motors", "40–55 weeks", "Before mill-bay steel complete"], ["MV transformers (furnace & mill)", "30–45 weeks", "Before electrical termination"], ["Overhead cranes (ladle / charging)", "30–40 weeks", "Before internals set"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy lifts (furnace shell, caster segments, mill stands) need crane capacity and clear laydown before the permanent cranes are commissioned — a temporary heavy-lift crane is typically mobilised early. Refractory bricklayers and specialist mechanical-alignment crews are a constrained, specialist resource. Hot commissioning needs the full multi-discipline team on site simultaneously." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-lead equipment slippage, refractory dry-out schedule slip (curing issues can force a re-cure), and a failed first-melt/first-cast hot-commissioning attempt requiring rework before a second trial. Schedule contingency is held immediately before refractory dry-out start and before hot commissioning, not spread thinly across the network." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for equipment erection and refractory works — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

@@ -1,0 +1,126 @@
+{
+  "archetype": "apartment_building",
+  "schema": 2,
+  "context": "typical-floor repetition · unit-to-unit finishing cadence",
+  "brief": {
+    "intro": "An apartment building is a multi-unit residential building — typically five to fifteen storeys — where every unit above the ground floor repeats the same layout, served by shared cores (stairs, lifts) and vertical risers running the full height. Unlike a single house, the planning problem is not one complex build but the same build repeated many times: the programme lives or dies on how fast and how consistently the typical-floor cycle runs, and on how smoothly the finishing trades move from unit to unit behind it. Structure is usually straightforward reinforced concrete, so the schedule risk sits in coordinating many trades through the same shafts and in keeping the finishing wave from stalling on any one floor. A well-run apartment building schedule reads like a production line: steady floor cycle time, then a disciplined trade train — waterproofing, tiling, second-fix MEP, snagging — moving continuously upward.",
+    "scope": [
+      { "name": "Enabling & substructure", "desc": "Earthworks, foundations, podium / ground slab." },
+      { "name": "Superstructure", "desc": "Repetitive typical-floor RC frame/slab cycle plus core walls, stairs and lift shafts." },
+      { "name": "Envelope", "desc": "External walls, windows, waterproofing and external render/cladding." },
+      { "name": "MEP first fix", "desc": "In-wall/in-slab conduit, riser sleeves and plumbing stub-ups before wet trades close in." },
+      { "name": "Waterproofing & wet areas", "desc": "Bathroom, kitchen and balcony tanking substrate, tested before tiling." },
+      { "name": "Internal finishes", "desc": "Plaster, screed, tiling and paint moving unit to unit." },
+      { "name": "MEP second fix", "desc": "Fittings, devices, sanitary fixtures and panels after finishes are in." },
+      { "name": "Vertical transportation", "desc": "Passenger lift installation, equipping and testing." },
+      { "name": "Common areas & external works", "desc": "Lobbies, corridors, car park, landscaping." },
+      { "name": "Snagging & handover", "desc": "Unit-by-unit inspection, defect closeout, handover pack." }
+    ],
+    "glossary": [
+      { "term": "Typical floor", "plain": "a repeated floor plate with the same layout, formwork table and MEP routing as the one below it." },
+      { "term": "First fix / second fix", "plain": "rough-in wiring, pipework and conduit before finishes, versus fittings, devices and fixtures after." },
+      { "term": "Riser", "plain": "a vertical shaft carrying plumbing, electrical and data from roof to ground through every floor." },
+      { "term": "Wet area", "plain": "a bathroom, kitchen or balcony zone that must be waterproofed (tanked) and tested before tiling." },
+      { "term": "Cycle time", "plain": "the number of working days to complete one typical floor structurally; it sets the pace for every trade behind it." },
+      { "term": "Snagging", "plain": "the unit-by-unit defect walk-through and closeout before handover." },
+      { "term": "Shell & core vs fit-out", "plain": "the base building structure and shared services, versus the finished, livable unit interior." }
+    ],
+    "must_get_right": [
+      "Lock the typical-floor cycle time early — it sets the pace for every trade behind it.",
+      "Protect the riser/shaft sequence — once a floor's risers are cast in, no unit above can finish without a clear, tested stack.",
+      "Waterproof wet areas and test before tiling — this is the single biggest source of rework and handover defects.",
+      "Plan finishing as a moving wave, not a floor-by-floor stop — trades should flow continuously unit to unit."
+    ]
+  },
+  "components": [
+    { "name": "Structure & Superstructure", "desc": "RC frame, cores & typical-floor cycle", "disc": "Civil", "primary": true },
+    { "name": "Architectural Finishes", "desc": "Waterproofing · screed/tiling · paint", "disc": "Architectural", "primary": true },
+    { "name": "Plumbing & Drainage", "desc": "Risers · sanitary fixtures · stacks", "disc": "Plumbing", "primary": true },
+    { "name": "Electrical & Lighting", "desc": "Distribution · metering · common areas", "disc": "Electrical", "primary": true },
+    { "name": "Fire Protection & Alarm", "desc": "Detection · wet riser/sprinkler", "disc": "Fire Protection", "primary": false },
+    { "name": "Vertical Transportation", "desc": "Passenger lifts", "disc": "Mechanical", "primary": false },
+    { "name": "ELV / Low Current", "desc": "Data/intercom · access control · CCTV", "disc": "Extra-Low Voltage", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["HVAC — split or VRF systems per unit", "Common-area & car-park ventilation", "Passenger lift machine cooling (where required)"] },
+    { "discipline": "Electrical", "items": ["LV distribution & per-unit metering", "Common-area & car-park lighting/power", "Lift power supply & standby (if generator provided)"] },
+    { "discipline": "Plumbing / Drainage", "items": ["Domestic cold/hot water risers", "Soil, waste & vent stacks", "Sanitary fixtures & fittings"] },
+    { "discipline": "Fire / ELV", "items": ["Fire alarm detection & sounders", "Wet riser / sprinkler (where code requires)", "Structured cabling, video intercom & access control", "CCTV — common areas"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Typical-Floor Superstructure", "Envelope & Waterproofing", "MEP First Fix", "Internal Finishes", "MEP Second Fix", "Common Areas & External Works", "Snagging & Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Envelope", "1st Fix", "Finishes", "2nd Fix", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Substructure → typical-floor cycle → envelope", "holds": [14] },
+      { "trade": "Plumbing & Mechanical", "disc": "Plumbing", "kind": ["mechanical"], "start": 16, "width": 46, "label": "Riser sleeves → first fix → pressure test → second fix", "holds": [40, 74] },
+      { "trade": "Electrical & ELV", "disc": "Electrical", "kind": ["electrical", "elv"], "start": 18, "width": 48, "label": "Containment → first fix → second fix → test", "holds": [42, 76] },
+      { "trade": "Fire Protection", "disc": "Fire Protection", "kind": ["fire"], "start": 26, "width": 40, "label": "Detection first fix → riser/sprinkler → cause-effect test", "holds": [62] },
+      { "trade": "Interior Finishes", "disc": "Architectural", "kind": ["civil"], "start": 34, "width": 42, "label": "Wet-area tanking → screed/tiling → paint", "holds": [] },
+      { "trade": "Commissioning & Handover", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Testing → snagging → handover", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2, 3], "steps": ["Enabling works & substructure", "Podium / ground-slab", "Typical-floor formwork, rebar & pour cycle", "Core walls & stair/lift shafts", "Envelope walls & windows", "External waterproofing & render/cladding"] },
+    { "name": "Waterproofing & Wet Areas", "disc": "Architectural", "kind": ["civil"], "holds": [1, 2], "steps": ["Substrate screed to falls", "Wet-area tanking — bathrooms, kitchens, balconies", "Flood test & sign-off", "Protection board before tiling"] },
+    { "name": "Plumbing & Drainage", "disc": "Plumbing", "kind": ["mechanical"], "holds": [2, 5], "steps": ["Riser sleeves & builder's work", "First-fix pipework & stub-ups", "Pressure test risers per floor", "Sanitary fixture set", "Second-fix & connection", "Flush, flow & leak test per unit"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [2, 4], "steps": ["Containment & conduit first fix", "Riser cable pull", "Distribution boards & metering", "Device & fitting second fix", "Circuit testing & certification", "Common-area lighting & power"] },
+    { "name": "Fire Protection & Alarm", "disc": "Fire Protection", "kind": ["fire"], "holds": [3], "steps": ["Detector & sounder first fix", "Wet riser / sprinkler pipework (where required)", "Panel & zone wiring", "Cause-and-effect & alarm test"] },
+    { "name": "ELV / Low Current", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [], "steps": ["Containment routes", "Data, intercom & access-control cabling", "Device termination", "Testing & certification"] },
+    { "name": "Vertical Transportation", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["Lift shaft handover", "Rail & equipment installation", "Car & door fit-out", "Load & safety test"] },
+    { "name": "Finishing & Handover", "disc": "Architectural", "kind": ["civil", "comm"], "holds": [3, 5], "steps": ["Plaster & internal walls", "Screed & tiling", "Paint & joinery", "Snagging walkthrough", "De-snag & touch-up", "Unit handover pack"] }
+  ],
+  "wbs": [
+    { "code": "APT", "name": "Apartment Building — Project", "level": 1 },
+    { "code": "APT.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "APT.02", "name": "Site & Substructure", "level": 2 },
+    { "code": "APT.02.10", "name": "Enabling works & earthworks", "level": 3 },
+    { "code": "APT.02.20", "name": "Foundations & ground slab", "level": 3 },
+    { "code": "APT.03", "name": "Superstructure", "level": 2 },
+    { "code": "APT.03.10", "name": "Core walls & shafts", "level": 3 },
+    { "code": "APT.03.20", "name": "Typical floors — formwork, rebar & pour cycle", "level": 3 },
+    { "code": "APT.03.20.10", "name": "Cycle-time benchmark floor", "level": 4 },
+    { "code": "APT.04", "name": "Envelope", "level": 2 },
+    { "code": "APT.04.10", "name": "External walls & windows", "level": 3 },
+    { "code": "APT.04.20", "name": "Waterproofing & render/cladding", "level": 3 },
+    { "code": "APT.05", "name": "Mechanical — Plumbing & Drainage", "level": 2 },
+    { "code": "APT.05.10", "name": "Riser installation", "level": 3 },
+    { "code": "APT.05.10.10", "name": "Pressure test — per floor", "level": 4 },
+    { "code": "APT.05.20", "name": "Sanitary fixtures & second fix", "level": 3 },
+    { "code": "APT.06", "name": "Electrical", "level": 2 },
+    { "code": "APT.06.10", "name": "Containment & first fix", "level": 3 },
+    { "code": "APT.06.20", "name": "Distribution boards & metering", "level": 3 },
+    { "code": "APT.06.30", "name": "Second fix & circuit testing", "level": 3 },
+    { "code": "APT.06.30.10", "name": "Circuit testing", "level": 4 },
+    { "code": "APT.06.30.10.10", "name": "Certification & sign-off", "level": 5 },
+    { "code": "APT.07", "name": "Fire Protection & Alarm", "level": 2 },
+    { "code": "APT.07.10", "name": "Detection & alarm", "level": 3 },
+    { "code": "APT.07.20", "name": "Wet riser / sprinkler", "level": 3 },
+    { "code": "APT.08", "name": "ELV / Low Current", "level": 2 },
+    { "code": "APT.09", "name": "Vertical Transportation", "level": 2 },
+    { "code": "APT.10", "name": "Internal Finishes", "level": 2 },
+    { "code": "APT.10.10", "name": "Wet areas — tanking & flood test", "level": 3 },
+    { "code": "APT.10.20", "name": "Dry areas — plaster, screed, tiling, paint", "level": 3 },
+    { "code": "APT.11", "name": "Common Areas & External Works", "level": 2 },
+    { "code": "APT.12", "name": "Testing, Snagging & Handover", "level": 2 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Structure and civil run a 6-day working calendar. Finishing and MEP trades may move to an extended day or a second shift at peak to protect the handover date. A weather allowance is embedded in the civil calendar where relevant." },
+      { "heading": "Sequencing logic & critical path", "body": "The typical-floor structural cycle sets the earliest date each floor's finishing can start. Once structure has run several floors ahead of finishing, the true driving path transfers to the internal finishing sequence — wet-area waterproofing → screed/tiling → second-fix MEP → snagging — which is usually the real critical path from that point to handover, not the structural cycle itself." },
+      { "heading": "Key assumptions", "body": "Design is frozen per typical floor before the cycle starts; a sample/mock-up unit is inspected and approved before the layout is repeated; a single mobilisation; and handover proceeds in floor-bands aligned with sales or occupancy readiness. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The following items are tracked as milestones because their delivery gates a specific trade front:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Passenger lifts", "16–24 weeks", "Before shaft handover to fit-out"], ["Aluminium/uPVC windows & doors", "10–16 weeks", "Before envelope closure"], ["LV switchgear / transformer (on-site substation)", "12–20 weeks", "Before energisation"], ["Fire pump set", "10–14 weeks", "Before wet-riser commissioning"], ["Kitchen & bathroom fit-out sets", "8–12 weeks", "Before second fix"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Tower crane and material-hoist time is shared across structure, envelope and MEP deliveries; riser sequencing restricts trade order within a floor; unit access must be coordinated with the sales/handover team as floor-bands complete; noise and working-hour limits often apply near occupied neighbours." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: floor-cycle slippage compounding across the tower, wet-area waterproofing failures forcing rework, and lift delivery delay blocking upper-floor fit-out access. Contingency is held at the structure-to-finishing transition and before final handover rather than spread thinly across floors." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (phase/floor-band summary) to the client; controlled at Level 3 (floor-by-floor); expanded to Level 4–5 lookahead by unit/trade for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}
