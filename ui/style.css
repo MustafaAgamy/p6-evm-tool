@@ -2915,7 +2915,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 /* One compact numbered lane per changed relationship, laid out BESIDE each other in a
    responsive grid (2-up on a normal window, 1-up when narrow). No lane scrolls sideways:
    the pred → link → succ chain fits the cell width, nodes flex-shrink and truncate. */
-.rc-lanes { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; align-items: start; }
+.rc-lanes { display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); gap: 10px; align-items: start; }
 .rc-lane { border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; background: var(--card-bg); }
 .rc-lanehdr { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 12px; flex-wrap: wrap; }
 .rc-lanenum { font-size: 11px; font-weight: 800; color: var(--muted); flex: 0 0 auto; }
@@ -2936,8 +2936,8 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-chain2 { display: flex; align-items: stretch; gap: 0; flex-wrap: nowrap; }
 .rc-cnode { border: 1px solid var(--border); border-radius: 9px; padding: 7px 10px; background: var(--card-bg); flex: 1 1 0; min-width: 0; }
 .rc-cnode.crit { border-color: var(--danger); background: var(--danger-bg); }
-.rc-cnode .rc-cn { font-weight: 700; font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rc-cnode .rc-cw { font-size: 9.5px; color: var(--accent-dark); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-cnode .rc-cn { font-weight: 700; font-size: 12px; color: var(--text); white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+.rc-cnode .rc-cw { font-size: 9.5px; color: var(--accent-dark); margin-top: 2px; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
 .rc-cnode .rc-cid { font-size: 9px; color: var(--muted); margin-top: 1px; }
 .rc-clink { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 6px; flex: 0 0 40px; color: var(--muted); }
 .rc-clink .rc-l0 { font-size: 9px; text-decoration: line-through; color: var(--danger); }

@@ -382,35 +382,20 @@ function codeValues(rows, dim) {
 //   label      — the control's field label (default "Activity code")
 function groupedFilterControl(host, spec) {
   if (!host) return;
-  const { dims, state: fs, valuesFor, onChange, label = 'Activity code' } = spec;
+  const { dims, state: fs, onChange, label = 'Activity code' } = spec;
   if (!dims || !dims.length) { host.innerHTML = ''; onChange(); return; }
-  const firstDim = dims[0];
-  // Normalise: an absent / stale dimension resets to the first dimension's default breakdown.
-  if (!fs.dim || !dims.includes(fs.dim)) { fs.dim = firstDim; fs.val = 'All'; }
-  const isAll = !fs.val || fs.val === 'All';
-  const groups = dims.map(d => {
-    const vals = valuesFor(d) || [];
-    if (!vals.length) return '';
-    const opts = vals.map(v => {
-      const sel = (!isAll && d === fs.dim && v === fs.val) ? ' selected' : '';
-      return `<option value="${escapeHtml(String(v))}"${sel}>${esc(v)}</option>`;
-    }).join('');
-    return `<optgroup label="${escapeHtml(String(d))}">${opts}</optgroup>`;
-  }).join('');
+  // A FLAT list of the activity codes themselves (the dimensions) — the user picks one code and
+  // the chart / pie breaks down by it. No nested values, no grouping (comment: "the user picks
+  // only the activity code itself"). The selection lives in rcFilters.<x> as {dim, val:'All'}
+  // (val stays 'All' so the section shows the full breakdown for that code) and still feeds the PDF.
+  if (!fs.dim || !dims.includes(fs.dim)) { fs.dim = dims[0]; }
+  fs.val = 'All';
+  const opts = dims.map(d =>
+    `<option value="${escapeHtml(String(d))}"${d === fs.dim ? ' selected' : ''}>${esc(d)}</option>`).join('');
   host.innerHTML = `<div class="rc-fbar"><div class="rc-fld"><label>${escapeHtml(label)}</label>`
-    + `<select class="rc-fsel rc-fsel-grouped">`
-    + `<option value="__all"${isAll ? ' selected' : ''}>All activity codes</option>${groups}</select></div></div>`;
+    + `<select class="rc-fsel">${opts}</select></div></div>`;
   const sel = host.querySelector('select');
-  sel.addEventListener('change', () => {
-    const opt = sel.options[sel.selectedIndex];
-    if (!opt || opt.value === '__all') { fs.dim = firstDim; fs.val = 'All'; }
-    else {
-      const og = opt.parentElement;
-      fs.dim = (og && og.label) ? og.label : firstDim;
-      fs.val = opt.value;
-    }
-    onChange();
-  });
+  sel.addEventListener('change', () => { fs.dim = sel.value; fs.val = 'All'; onChange(); });
   onChange();
 }
 
