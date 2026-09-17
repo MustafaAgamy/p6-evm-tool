@@ -463,24 +463,57 @@ def _render_value_bars(document, p, number, note):
     # crowded on-slice amount labels). Below it a clean value legend/table (C02): swatch +
     # type + amount (#,##0) + share%. The legend also stands in as the editable fallback if
     # the native chart can't be drawn, so the amounts are never lost.
-    docx_native.add_doughnut(document, cats, vals, num_fmt='#,##0')
+    pcts = [r.get('pct') for r in rows]
+    docx_native.add_doughnut(document, cats, vals, num_fmt='#,##0', unit=unit,
+                             pcts=pcts, total=total)
     para(document, '', after=2)
     _value_legend(document, rows, docx_native.ramp_colors(cats), unit)
 
 
 # ── §6 Scope of Work ──────────────────────────────────────────────────────────
+def _swatch_legend(document, rows, colors):
+    """A compact, borderless SWATCH legend beneath the §6.1 composition bar — the Word twin of
+    html ``_chart_legend``: a colour swatch matching the segment, the discipline name (bold)
+    and its share %. ``colors`` is the ``docx_native.ramp_colors`` list (index-aligned to
+    ``rows``), so swatch == segment == doughnut slice."""
+    rows = [r for r in (rows or []) if r]
+    if not rows:
+        return None
+    widths = [0.30, 4.6, 1.0]
+    t = document.add_table(rows=0, cols=3)      # no 'Table Grid' style → borderless legend
+    t.autofit = False
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for i, r in enumerate(rows):
+        rr = t.add_row()
+        _row_h(rr, 17)
+        sw, nm, sh = rr.cells
+        for cc in rr.cells:
+            _no_space(cc)
+            cc.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        _set_w(sw, widths[0]); _set_w(nm, widths[1]); _set_w(sh, widths[2])
+        _shade(sw, colors[i] if i < len(colors) else NAVY_HEX)   # swatch == segment colour
+        run(nm.paragraphs[0], r.get('name') or '—', size=11, bold=True, color=DKNAVY)
+        ps = sh.paragraphs[0]; ps.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        pct = r.get('pct')
+        run(ps, ('%s%%' % _pct(pct)) if pct is not None else '', size=11, color=NAVY)
+    return t
+
+
 def _scope_composition(document, items, unit):
-    """§6.1 — a single 100 %-stacked horizontal COMPOSITION BAR split into one ramp-coloured
-    segment per discipline (segment size = that discipline's share of value), with a legend
-    of discipline names and a percentage label line beneath ("Civil 93.9% · …"). Falls back
-    to an editable cost/share table if the native chart can't be built."""
+    """§6.1 — a single 100 %-STACKED horizontal COMPOSITION BAR split into one ramp-coloured
+    segment per discipline (segment size = that discipline's share of value). The % sits ON
+    the bar now (inside wide / medium segments, spread above thin ones), so the old redundant
+    "Civil 93.9% · …" pct line is removed; a swatch legend beneath instead names each
+    discipline with its share % (Word twin of the SVG ``_chart_legend``). Falls back to an
+    editable cost / share table if the native chart can't be built."""
     items = [it for it in (items or []) if it]
     if not items:
         _muted(document, 'No cost-loaded items are available for this breakdown.')
         return
     names = [str(it.get('name') or '—') for it in items]
     costs = [it.get('cost') for it in items]
-    if docx_native.add_composition_bar(document, names, costs) is None:
+    pcts = [it.get('pct') for it in items]
+    if docx_native.add_composition_bar(document, names, costs, pcts=pcts) is None:
         data_table(document, ['Discipline', 'Amount' + (' (%s)' % unit if unit else ''),
                               'Share %'],
                    [[it.get('name'), _money(it.get('cost')),
@@ -488,12 +521,10 @@ def _scope_composition(document, items, unit):
                     for it in items],
                    widths=[3.7, 2.0, 1.2], aligns=[None, 'r', 'r'])
         return
-    # percentage label line beneath the composed bar (the approved "Civil 93.9% · …")
-    parts = ['%s %s%%' % (it.get('name') or '—', it.get('pct'))
-             for it in items if it.get('pct') is not None]
-    if parts:
-        para(document, '  ·  '.join(parts), size=10, color=BODYNAVY,
-             align=WD_ALIGN_PARAGRAPH.CENTER, before=4, after=2)
+    # swatch legend beneath the composed bar (name + share %); the percentages already sit ON
+    # the bar, so no separate pct line is printed.
+    para(document, '', after=2)
+    _swatch_legend(document, items, docx_native.ramp_colors(names))
 
 
 _CASC_MARK = ['➢', '▸', '–', '·']   # by depth, mirrors html _CASC_MARK

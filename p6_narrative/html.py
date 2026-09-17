@@ -38,6 +38,7 @@ and bar comes as-is from the section payload; nothing is re-derived here. The pr
 contract_value, data_date, revision, logos{owner,consultant,contractor}.
 """
 import html as _h
+import math
 
 _ARROW = '➢'         # ➢ building bullet
 _CHECK = '✓'         # ✓ element bullet
@@ -63,6 +64,12 @@ def _disc_color(name, i):
 
 def _esc(x):
     return _h.escape('' if x is None else str(x))
+
+
+def _clip(s, n):
+    """Trim a label to n chars with an ellipsis (keeps on-chart text from overrunning)."""
+    s = '' if s is None else str(s)
+    return s if len(s) <= n else s[:n - 1] + '…'
 
 
 def _num(v):
@@ -166,63 +173,153 @@ def _bars(rows, name_key, value_fn):
     return out
 
 
-# ── native doughnut (§5 Contract Value) ───────────────────────────────────────
+# ── shared SVG chart primitives (doughnut + composition bar) ──────────────────
+def _polar(cx, cy, r, deg):
+    """Point on a circle, angle in degrees measured CLOCKWISE from 12 o'clock."""
+    t = math.radians(deg - 90.0)
+    return (cx + r * math.cos(t), cy + r * math.sin(t))
+
+
+def _arc_path(cx, cy, R, ri, a0, a1):
+    """SVG path 'd' for an annular sector (doughnut slice) from a0 to a1 (deg, clockwise
+    from top). Outer arc a0→a1, inner arc a1→a0."""
+    large = 1 if (a1 - a0) > 180 else 0
+    ox0, oy0 = _polar(cx, cy, R, a0)
+    ox1, oy1 = _polar(cx, cy, R, a1)
+    ix1, iy1 = _polar(cx, cy, ri, a1)
+    ix0, iy0 = _polar(cx, cy, ri, a0)
+    return ('M %.2f %.2f A %.2f %.2f 0 %d 1 %.2f %.2f L %.2f %.2f A %.2f %.2f 0 %d 0 %.2f %.2f Z'
+            % (ox0, oy0, R, R, large, ox1, oy1, ix1, iy1, ri, ri, large, ix0, iy0))
+
+
+def _chart_legend(rows, value_fn):
+    """A wrapping swatch legend under a chart: colour · bold name · muted value."""
+    items = ''
+    for i, r in enumerate(rows):
+        items += ('<span style="display:inline-flex;align-items:center;gap:6px">'
+                  '<i style="width:11px;height:11px;border-radius:3px;background:#%s;'
+                  'display:inline-block;flex:0 0 auto"></i><b>%s</b>'
+                  '<span style="color:#5a6672">&nbsp;%s</span></span>'
+                  % (_disc_color(r.get('name'), i), _esc(r.get('name')), _esc(value_fn(r))))
+    return ('<div style="display:flex;flex-wrap:wrap;gap:5px 18px;margin-top:9px;'
+            'font-family:Calibri,sans-serif;font-size:11px;color:#33404d">%s</div>' % items)
+
+
+# ── SVG doughnut (§6 Contract Value) ──────────────────────────────────────────
 def _doughnut(rows, cap, center_big, value_fn):
-    """A native CSS conic-gradient ring (each row a colour-ramp segment sized by its
-    ``pct``) with the grouped total in the centre hole, beside a swatch legend
-    (colour · name · amount · pct). Fully editable — no image."""
+    """An SVG doughnut of the value distribution by type of work: the dominant slice is
+    labelled DIRECTLY on the ring (no leader), each small slice gets an external % + a
+    leader arrow (Excel-style) laddered on the right, and the grouped total sits in the
+    centre hole. A wrapping amount legend follows. Crisp vector for PDF/screen; the Word
+    twin (``docx_native.add_doughnut``) draws the identical layout as native editable
+    shapes, so §6 reads the same in Word, PDF and HTML."""
     rows = [r for r in rows if r]
     if not rows:
         return '<p class="note">No cost loading in the file.</p>'
     total_pct = sum(float(r.get('pct') or 0) for r in rows) or 100.0
-    stops, legend, acc = [], '', 0.0
+    W, H, cx, cy, R, ri = 760, 330, 205, 165, 124, 73
+    body, smalls, acc = '', [], 0.0
     for i, r in enumerate(rows):
         col = _disc_color(r.get('name'), i)
-        acc += float(r.get('pct') or 0) / total_pct * 100.0
-        start = acc - float(r.get('pct') or 0) / total_pct * 100.0
-        # last segment snaps to 100% so the ring closes with no seam
-        end = 100.0 if i == len(rows) - 1 else acc
-        stops.append('#%s %.4g%% %.4g%%' % (col, start, end))
-        legend += ('<div class="dl-row"><span class="dl-sw" style="background:#%s"></span>'
-                   '<span class="dl-name">%s</span><span class="dl-amt">%s</span>'
-                   '<span class="dl-pct">%s%%</span></div>'
-                   % (col, _esc(r.get('name')), _esc(value_fn(r)), _fmt_pct(r.get('pct'))))
-    ring = ('<div class="dnut" style="background:conic-gradient(%s)">'
-            '<div class="dnut-hole"><div class="dnut-cap">%s</div>'
-            '<div class="dnut-tot">%s</div></div></div>'
-            % (', '.join(stops), _esc(cap), _esc(center_big)))
-    return '<div class="dnutwrap">%s<div class="dnut-legend">%s</div></div>' % (ring, legend)
-
-
-# ── native 100% composition bar (§6.1 scope by discipline) ────────────────────
-def _compbar(rows):
-    """A single 100%-wide bar split into one DISTINCT-colour segment per discipline
-    (segment width = its share of contract value). Each segment carries its own on-bar
-    label where it is wide enough — a wide (dominant) segment shows name + pct, a
-    medium one shows the pct alone, and slivers too small to hold text stay in the
-    one-line swatch legend below. Fully editable (no picture)."""
-    rows = [r for r in rows if r]
-    if not rows:
-        return '<p class="note">No cost loading in the file.</p>'
-    total_pct = sum(float(r.get('pct') or 0) for r in rows) or 100.0
-    segs, legend = '', []
-    for i, r in enumerate(rows):
-        col = _disc_color(r.get('name'), i)
-        width = float(r.get('pct') or 0) / total_pct * 100.0
-        # label every segment that can physically hold text: name+pct when it is wide,
-        # just the pct when it is only medium-wide, nothing when it is a sliver.
-        if width >= 20:
-            inner = '%s %s%%' % (_esc(r.get('name')), _fmt_pct(r.get('pct')))
-        elif width >= 6:
-            inner = '%s%%' % _fmt_pct(r.get('pct'))
+        p = float(r.get('pct') or 0)
+        a0 = acc / total_pct * 360.0
+        a1 = (acc + p) / total_pct * 360.0
+        acc += p
+        mid = (a0 + a1) / 2.0
+        body += ('<path d="%s" fill="#%s" stroke="#fff" stroke-width="2"/>'
+                 % (_arc_path(cx, cy, R, ri, a0, a1), col))
+        if p >= 15:                                    # dominant slice → label ON the ring
+            lx, ly = _polar(cx, cy, (R + ri) / 2.0, mid)
+            body += ('<text x="%.1f" y="%.1f" text-anchor="middle" fill="#fff" '
+                     'font-family="Calibri,sans-serif" font-size="15" font-weight="700">%s</text>'
+                     '<text x="%.1f" y="%.1f" text-anchor="middle" fill="#fff" '
+                     'font-family="Calibri,sans-serif" font-size="17" font-weight="700">%s%%</text>'
+                     % (lx, ly - 5, _esc(_clip(r.get('name'), 18)), lx, ly + 15, _fmt_pct(p)))
         else:
-            inner = ''
-        segs += ('<div class="compseg" style="width:%.4g%%;background:#%s">%s</div>'
-                 % (width, col, inner))
-        legend.append('<span class="cl-i"><i style="background:#%s"></i>%s %s%%</span>'
-                      % (col, _esc(r.get('name')), _fmt_pct(r.get('pct'))))
-    return ('<div class="compbar">%s</div><div class="complegend">%s</div>'
-            % (segs, ' &middot; '.join(legend)))
+            smalls.append((r, col, mid))
+    # centre hole — cap + grouped total
+    body += ('<circle cx="%d" cy="%d" r="%d" fill="#fff"/>'
+             '<text x="%d" y="%d" text-anchor="middle" fill="#8a93a0" '
+             'font-family="Calibri,sans-serif" font-size="10.5" font-weight="700">%s</text>'
+             '<text x="%d" y="%d" text-anchor="middle" fill="#1F4E79" '
+             'font-family="Calibri,sans-serif" font-size="16" font-weight="700">%s</text>'
+             % (cx, cy, ri - 1, cx, cy - 9, _esc(cap), cx, cy + 14, _esc(center_big)))
+    # external label ladder on the right for the small slices (Excel-style leader arrows)
+    if smalls:
+        chan_x, txt_x, top = W - 236, W - 236 + 14, 46
+        gap = min(50.0, (H - top - 14) / max(len(smalls) - 1, 1))
+        for j, (r, col, mid) in enumerate(smalls):
+            ly = top + j * gap
+            px, py = _polar(cx, cy, R, mid)
+            sx, sy = _polar(cx, cy, R + 14, mid)
+            body += ('<path d="M %.1f %.1f L %.1f %.1f L %d %.1f L %d %.1f" fill="none" '
+                     'stroke="#9aa4ad" stroke-width="1.3"/>'
+                     '<circle cx="%.1f" cy="%.1f" r="2.6" fill="#%s"/>'
+                     '<rect x="%d" y="%.1f" width="8" height="8" rx="2" fill="#%s"/>'
+                     '<text x="%d" y="%.1f" fill="#33404d" font-family="Calibri,sans-serif" '
+                     'font-size="13" dominant-baseline="middle">'
+                     '<tspan font-weight="700" fill="#1a1d21">%s </tspan>'
+                     '<tspan font-weight="700" fill="#%s">%s%%</tspan></text>'
+                     % (px, py, sx, sy, chan_x, ly, txt_x - 4, ly, px, py, col,
+                        txt_x - 4, ly - 10, col, txt_x + 9, ly,
+                        _esc(_clip(r.get('name'), 16)), col, _fmt_pct(r.get('pct'))))
+    svg = ('<svg viewBox="0 0 %d %d" style="width:100%%;max-width:%dpx;display:block;'
+           'margin:2px auto">%s</svg>' % (W, H, W, body))
+    return svg + _chart_legend(rows, value_fn)
+
+
+# ── SVG 100% composition bar (§7.1 scope by discipline) ───────────────────────
+def _compbar(rows):
+    """An SVG 100% composition bar: one distinct-colour segment per discipline (width = its
+    share of contract value). A wide segment carries its label inside; a medium one shows
+    the pct inside; a segment too thin for text gets its % spread across the top with an
+    angled leader down to the segment (so the small shares never collide). A swatch legend
+    follows. Crisp vector for PDF/screen; the Word twin (``docx_native.add_composition_bar``)
+    draws the identical layout as native editable shapes."""
+    rows = [r for r in rows if r]
+    if not rows:
+        return '<p class="note">No cost loading in the file.</p>'
+    total_pct = sum(float(r.get('pct') or 0) for r in rows) or 100.0
+    W, H, x0, y0, bh = 760, 104, 8, 60, 40
+    bw, n = W - 2 * x0, len(rows)
+    body = '<rect x="%d" y="%d" width="%d" height="%d" rx="6" fill="#eef1f5"/>' % (x0, y0, bw, bh)
+    smalls, acc = [], 0.0
+    for i, r in enumerate(rows):
+        col = _disc_color(r.get('name'), i)
+        p = float(r.get('pct') or 0)
+        w = p / total_pct * bw
+        x = x0 + acc / total_pct * bw
+        acc += p
+        rx = 6 if (i == 0 or i == n - 1) else 0
+        body += ('<rect x="%.2f" y="%d" width="%.2f" height="%d" rx="%d" fill="#%s" '
+                 'stroke="#fff" stroke-width="1"/>' % (x, y0, max(w, 0.8), bh, rx, col))
+        if w >= 150:                                   # wide → name + pct inside (white)
+            body += ('<text x="%.2f" y="%d" text-anchor="middle" dominant-baseline="middle" '
+                     'fill="#fff" font-family="Calibri,sans-serif" font-size="15" '
+                     'font-weight="700">%s %s%%</text>'
+                     % (x + w / 2.0, y0 + bh // 2 + 1, _esc(_clip(r.get('name'), 22)), _fmt_pct(p)))
+        elif w >= 34:                                  # medium → pct only inside (white)
+            body += ('<text x="%.2f" y="%d" text-anchor="middle" dominant-baseline="middle" '
+                     'fill="#fff" font-family="Calibri,sans-serif" font-size="12" '
+                     'font-weight="700">%s%%</text>' % (x + w / 2.0, y0 + bh // 2 + 1, _fmt_pct(p)))
+        else:                                          # thin → external spread label + leader
+            smalls.append((r, col, x + w / 2.0))
+    if smalls:
+        # spread just the % (segment colour identifies the discipline; the legend below carries
+        # the names) — pct-only keeps the crowded small shares from overlapping each other.
+        sx0, sx1, lab_y, m = x0 + bw * 0.34, W - 30, 18, len(smalls)
+        for j, (r, col, seg_cx) in enumerate(smalls):
+            lx = (sx0 + (sx1 - sx0) * j / (m - 1)) if m > 1 else (sx0 + sx1) / 2.0
+            body += ('<path d="M %.1f %d L %.1f %d L %.1f %d" fill="none" stroke="#%s" '
+                     'stroke-width="1.2"/>'
+                     '<text x="%.1f" y="%d" text-anchor="middle" fill="#%s" '
+                     'font-family="Calibri,sans-serif" font-size="12" font-weight="700" '
+                     'dominant-baseline="middle">%s%%</text>'
+                     % (lx, lab_y + 6, lx, lab_y + 16, seg_cx, y0 - 2, col,
+                        lx, lab_y, col, _fmt_pct(r.get('pct'))))
+    svg = ('<svg viewBox="0 0 %d %d" style="width:100%%;max-width:%dpx;display:block;'
+           'margin:4px auto">%s</svg>' % (W, H, W, body))
+    return svg + _chart_legend(rows, lambda r: '%s%%' % _fmt_pct(r.get('pct')))
 
 
 # ── §1 Project Overview ───────────────────────────────────────────────────────

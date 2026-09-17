@@ -94,14 +94,26 @@ _MONTHS = [
 ]
 
 
-# ── value: native doughnut + the cost table beneath ───────────────────────────
-def test_value_is_native_doughnut_plus_table(tmp_path):
+# ── value: native GROUPED-SHAPE doughnut (not a c:chart) + the legend table beneath ──
+def test_value_is_native_doughnut_group_plus_table(tmp_path):
+    # §6 now renders the contract-value doughnut as an editable wpg:wgp group of real Word
+    # shapes (annular custGeom sectors + text boxes + leader polylines + a centre-hole
+    # ellipse) — NOT a c:doughnutChart and never a picture — with the amount legend table
+    # beneath (the Word twin of html._doughnut). Uses the current _render_value_bars API.
+    payload = {'total': 100.0, 'unit': 'EGP', 'rows': [
+        {'name': 'Civil', 'amount': 56.0, 'pct': 56.0},
+        {'name': 'Mechanical', 'amount': 28.0, 'pct': 28.0},
+        {'name': 'Electrical', 'amount': 16.0, 'pct': 16.0},
+    ]}
     doc = Document()
-    W._render_value(doc, _VALUE, _sub(doc), None, None)
+    W._render_value_bars(doc, payload, 6, None)
     out = _save_reopen(doc, tmp_path)
-    xml = _chart_xml(out)
-    assert '<c:doughnutChart>' in xml, 'value donut is not a native doughnut chart'
-    # the cost table is kept beneath the chart (PDF shows both)
+    body = _read(out, 'word/document.xml')
+    assert 'wpg:wgp' in body and 'wps:wsp' in body, 'value donut is not a grouped shape'
+    assert 'a:custGeom' in body, 'doughnut slices are not custom-geometry annular sectors'
+    assert '<c:doughnutChart' not in body, 'the donut must no longer be a native c:chart'
+    assert _chart_xml(out).count('c:doughnutChart') == 0
+    # the amount legend/table is kept beneath the doughnut (PDF shows both)
     assert len(Document(out).tables) >= 1
     _no_raster(out)
 

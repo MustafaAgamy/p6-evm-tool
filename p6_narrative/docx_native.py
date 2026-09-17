@@ -25,6 +25,7 @@ document, empty data, mismatched lengths or non-numeric values return ``None``
 and never raise, so a single bad chart can never take down the report.
 """
 import io
+import math
 import re
 
 from docx.oxml import parse_xml
@@ -520,25 +521,51 @@ def _wps_line(counter, x, y, cx, cy, color, thick=_LINE_EMU):
         f'</wps:spPr><wps:bodyPr/></wps:wsp>')
 
 
-def _group_drawing(document, shapes_xml, base_id, w_emu, h_emu):
-    """Wrap the shape XML in a ``wpg:wgp`` group inside an inline ``<w:drawing>``,
-    append it to a fresh run, and return the drawing element."""
+# Max on-page width for a grouped drawing (18.4 cm — fits the report's 18.6 cm text column;
+# 1 cm = 360000 EMU). A group wider than this is scaled DOWN uniformly (outer ``ext`` < child
+# ``chExt``) so the whole drawing — shapes AND their text — shrinks to fit, keeping the exact
+# proportions of the approved SVG instead of overflowing the page like a fixed-size drawing.
+_MAX_GROUP_W_EMU = 6624000
+
+
+def _group_drawing(document, shapes_xml, base_id, w_emu, h_emu,
+                   disp_w_emu=None, disp_h_emu=None):
+    """Wrap the shape XML in a ``wpg:wgp`` group inside an inline ``<w:drawing>``, append it to
+    a fresh run, and return the drawing element.
+
+    ``w_emu`` / ``h_emu`` are the child coordinate extent (the space the shape coordinates live
+    in). ``disp_w_emu`` / ``disp_h_emu`` (optional) are the group's size on the page; when they
+    differ from the child extent Word scales every child — geometry and text alike — by
+    ext/chExt, so the drawing shrinks to fit while keeping its proportions. Default (None) =
+    render 1:1."""
+    dw = int(disp_w_emu) if disp_w_emu else int(w_emu)
+    dh = int(disp_h_emu) if disp_h_emu else int(h_emu)
     drawing = parse_xml(
         f'<w:drawing {_DRAW_NS}>'
         f'<wp:inline distT="0" distB="0" distL="0" distR="0">'
-        f'<wp:extent cx="{w_emu}" cy="{h_emu}"/>'
+        f'<wp:extent cx="{dw}" cy="{dh}"/>'
         f'<wp:effectExtent l="0" t="0" r="0" b="0"/>'
         f'<wp:docPr id="{base_id}" name="Diagram {base_id}"/>'
         f'<wp:cNvGraphicFramePr/>'
         f'<a:graphic><a:graphicData uri="{_WPG_URI}">'
         f'<wpg:wgp><wpg:cNvGrpSpPr/>'
-        f'<wpg:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{w_emu}" cy="{h_emu}"/>'
-        f'<a:chOff x="0" y="0"/><a:chExt cx="{w_emu}" cy="{h_emu}"/></a:xfrm></wpg:grpSpPr>'
+        f'<wpg:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{dw}" cy="{dh}"/>'
+        f'<a:chOff x="0" y="0"/><a:chExt cx="{int(w_emu)}" cy="{int(h_emu)}"/></a:xfrm>'
+        f'</wpg:grpSpPr>'
         f'{shapes_xml}</wpg:wgp></a:graphicData></a:graphic>'
         f'</wp:inline></w:drawing>')
     run = document.add_paragraph().add_run()
     run._r.append(drawing)
     return drawing
+
+
+def _fit_display(w_emu, h_emu):
+    """(disp_w, disp_h) EMU scaled uniformly so the group is at most ``_MAX_GROUP_W_EMU`` wide
+    (keeps the SVG aspect ratio; never enlarges)."""
+    if w_emu <= _MAX_GROUP_W_EMU:
+        return w_emu, h_emu
+    scale = _MAX_GROUP_W_EMU / float(w_emu)
+    return int(round(w_emu * scale)), int(round(h_emu * scale))
 
 
 def _org_vertical(document, root):
@@ -788,124 +815,389 @@ def add_hbar(document, categories, values, title, color='1F4E79', name='Series',
     return _inject(document, build, cats, [(name, vals)])
 
 
-def add_doughnut(document, categories, values, title=None, num_fmt='#,##0'):
-    """Native DOUGHNUT chart — the editable Word twin of the §6 contract-value donut.
+# ══════════════════════════════════════════════════════════════════════════════
+# SLICE E — NATIVE, EDITABLE §6 doughnut + §7.1 composition bar as GROUPED SHAPES
+# ══════════════════════════════════════════════════════════════════════════════
+# The §6 Contract-Value doughnut and the §7.1 scope composition bar are the two charts
+# whose APPROVED look lives in ``html.py`` (``_doughnut`` / ``_compbar``) as hand-built
+# SVGs. To keep "all formats match Word/PDF/HTML", their Word twins below REPLICATE that
+# SVG geometry EXACTLY — pixel-for-pixel, converted px→EMU — drawn as a ``wpg:wgp`` group
+# of real ``wps:wsp`` shapes (annular ``a:custGeom`` sectors, ``a:custGeom`` leader
+# polylines, ``prstGeom`` ellipses / roundRects, and transparent text boxes). NEVER a
+# ``c:chart`` object and NEVER a rasterised picture — the reader can click, drag, restyle,
+# recolour and edit the text of every slice, segment and label. Both are None-safe: any
+# bad / empty / mismatched / zero-total input returns ``None`` and the writer falls back to
+# its editable table / legend.
+#
+# Angle convention (annular sectors): ``html._polar`` measures degrees CLOCKWISE from 12
+# o'clock; DrawingML measures CLOCKWISE from +x (3 o'clock, because y points down) in
+# 60000ths of a degree, so DrawingML angle = (svg_angle − 90). ``a:arcTo`` derives the arc
+# centre as currentPoint − (wR·cos stAng, hR·sin stAng); we therefore move the pen to the
+# arc's exact start point first and set stAng to that point's angle, so the centre lands on
+# (cx, cy). A single 100 % slice would be a degenerate 360° arc, so it is drawn instead as a
+# full disc ellipse (the white centre hole then makes it read as a ring). Each custGeom /
+# text shape spans the WHOLE canvas coordinate frame (off 0,0; ext W×H; path space = W×H
+# EMU), so path/point coordinates are absolute canvas EMU and need no per-shape bbox maths.
 
-    One slice per category (type of work), each coloured from the DISTINCT discipline ramp
-    (``ramp_colors`` — grey for Unclassified/Other) so a discipline reads the same colour here
-    and on the §7.1 composition bar. **No on-slice data labels and no built-in chart legend**
-    (C02: the crowded, overlapping amount labels such as "860544241.1" are removed): the reader
-    reads each type, its amount and its share from the clean side legend/table that
-    ``docx_writer`` renders alongside this doughnut (its swatches reuse ``ramp_colors`` so they
-    match the slices exactly). ``c:holeSize`` 55.
+def _pt(cx, cy, r, deg):
+    """Point on a circle, angle in degrees CLOCKWISE from 12 o'clock (mirrors html._polar)."""
+    t = math.radians(deg - 90.0)
+    return (cx + r * math.cos(t), cy + r * math.sin(t))
 
-    Native / editable (a real ``c:doughnutChart`` part — never a picture) and None-safe:
-    a missing document, empty / mismatched data or any non-numeric value returns ``None``
-    and never raises. Returns the drawing element on success."""
+
+def _hp(px):
+    """SVG px font-size → Word half-points (px · 0.75 pt/px · 2)."""
+    return int(round(px * 1.5))
+
+
+def _pct_str(p):
+    """Percent text with no trailing '.0' on whole numbers (mirrors html._fmt_pct)."""
+    try:
+        f = float(p)
+    except (TypeError, ValueError):
+        return ''
+    return ('%d' % f) if f == int(f) else ('%.1f' % f)
+
+
+def _est_w(text, fs_px):
+    """A generous one-line width estimate (px) so a centred text box never wraps to 2 lines."""
+    return len(str(text)) * fs_px * 0.62 + 10.0
+
+
+def _roundadj(radius_px, dim_px):
+    """roundRect corner-radius adjustment guide (radius as a fraction of the box's side)."""
+    try:
+        val = int(round(min(max(radius_px / float(dim_px), 0.0), 0.5) * 100000))
+    except (TypeError, ValueError, ZeroDivisionError):
+        val = 0
+    return '<a:gd name="adj" fmla="val %d"/>' % val
+
+
+def _custgeom_shape(sid, name, path_inner, w_emu, h_emu, fill_hex=None,
+                    fill_mode='norm', line_hex=None, line_emu=0):
+    """One wps:wsp custom-geometry shape spanning the whole canvas (off 0,0; ext w×h; path
+    coord space = w×h EMU, so path coordinates are absolute canvas EMU). Filled sector
+    (``fill_hex`` set, ``fill_mode='norm'``) or stroked-only polyline (``fill_hex`` None,
+    ``fill_mode='none'``)."""
+    fill = (f'<a:solidFill><a:srgbClr val="{fill_hex}"/></a:solidFill>'
+            if fill_hex else '<a:noFill/>')
+    if line_hex:
+        ln = (f'<a:ln w="{int(line_emu)}"><a:solidFill><a:srgbClr val="{line_hex}"/>'
+              f'</a:solidFill></a:ln>')
+    else:
+        ln = '<a:ln><a:noFill/></a:ln>'
+    return (
+        f'<wps:wsp><wps:cNvPr id="{sid}" name="{_xesc(name) or ("S%d" % sid)}"/>'
+        f'<wps:cNvSpPr/><wps:spPr><a:xfrm><a:off x="0" y="0"/>'
+        f'<a:ext cx="{int(w_emu)}" cy="{int(h_emu)}"/></a:xfrm>'
+        f'<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/>'
+        f'<a:rect l="0" t="0" r="{int(w_emu)}" b="{int(h_emu)}"/>'
+        f'<a:pathLst><a:path w="{int(w_emu)}" h="{int(h_emu)}" fill="{fill_mode}">'
+        f'{path_inner}</a:path></a:pathLst></a:custGeom>'
+        f'{fill}{ln}</wps:spPr><wps:bodyPr/></wps:wsp>')
+
+
+def _prst_shape(sid, name, x, y, w, h, prst, fill_hex, line_hex=None,
+                line_emu=9525, adj=''):
+    """One wps:wsp preset-geometry shape (ellipse / rect / roundRect) at an absolute EMU
+    bounding box — the doughnut centre hole, small dots and swatches, the composition-bar
+    track and segments."""
+    fill = (f'<a:solidFill><a:srgbClr val="{fill_hex}"/></a:solidFill>'
+            if fill_hex else '<a:noFill/>')
+    ln = (f'<a:ln w="{int(line_emu)}"><a:solidFill><a:srgbClr val="{line_hex}"/>'
+          f'</a:solidFill></a:ln>' if line_hex else '<a:ln><a:noFill/></a:ln>')
+    return (
+        f'<wps:wsp><wps:cNvPr id="{sid}" name="{_xesc(name) or ("S%d" % sid)}"/>'
+        f'<wps:cNvSpPr/><wps:spPr><a:xfrm><a:off x="{int(x)}" y="{int(y)}"/>'
+        f'<a:ext cx="{int(w)}" cy="{int(h)}"/></a:xfrm>'
+        f'<a:prstGeom prst="{prst}"><a:avLst>{adj}</a:avLst></a:prstGeom>'
+        f'{fill}{ln}</wps:spPr><wps:bodyPr/></wps:wsp>')
+
+
+def _text_shape(sid, name, x, y, w, h, runs, jc='center', anchor='ctr', wrap='square'):
+    """One transparent, borderless text box (no fill, no line) holding a single paragraph of
+    runs, vertically centred (``anchor='ctr'``). ``runs`` = [(text, sz_halfpt, bold, hex), …].
+    Calibri, to match the SVG labels."""
+    rtxt = ''
+    for text, szhp, bold, col in runs:
+        b = '<w:b/>' if bold else ''
+        rtxt += (f'<w:r><w:rPr>{b}<w:color w:val="{col}"/>'
+                 f'<w:sz w:val="{szhp}"/><w:szCs w:val="{szhp}"/>'
+                 f'<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/></w:rPr>'
+                 f'<w:t xml:space="preserve">{_xesc(text)}</w:t></w:r>')
+    return (
+        f'<wps:wsp><wps:cNvPr id="{sid}" name="{_xesc(name) or ("T%d" % sid)}"/>'
+        f'<wps:cNvSpPr/><wps:spPr><a:xfrm><a:off x="{int(x)}" y="{int(y)}"/>'
+        f'<a:ext cx="{int(w)}" cy="{int(h)}"/></a:xfrm>'
+        f'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
+        f'<a:noFill/><a:ln><a:noFill/></a:ln></wps:spPr>'
+        f'<wps:txbx><w:txbxContent><w:p><w:pPr>'
+        f'<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>'
+        f'<w:jc w:val="{jc}"/></w:pPr>{rtxt}</w:p></w:txbxContent></wps:txbx>'
+        f'<wps:bodyPr rot="0" wrap="{wrap}" anchor="{anchor}" '
+        f'lIns="0" tIns="0" rIns="0" bIns="0"><a:noAutofit/></wps:bodyPr></wps:wsp>')
+
+
+def _center_text(sid, name, cxp, cyp, wp, hp, runs, jc='center'):
+    """A text box CENTRED on report point (cxp, cyp) px — for on-ring / in-bar / centre-hole
+    labels; (cxp, cyp) is the SVG text's visual centre."""
+    return _text_shape(sid, name, _emu(cxp - wp / 2.0), _emu(cyp - hp / 2.0),
+                       _emu(wp), _emu(hp), runs, jc=jc)
+
+
+def _left_text(sid, name, lxp, cyp, wp, hp, runs):
+    """A left-aligned text box whose LEFT edge is at lxp and whose text is vertically centred
+    on cyp (px) — for the doughnut external leader labels."""
+    return _text_shape(sid, name, _emu(lxp), _emu(cyp - hp / 2.0),
+                       _emu(wp), _emu(hp), runs, jc='left', wrap='none')
+
+
+def _annular_sector(sid, name, cx, cy, R, ri, a0, a1, w_emu, h_emu, fill_hex):
+    """One doughnut slice as an annular custGeom sector (outer arc a0→a1, line in, inner arc
+    a1→a0, close). Angles are SVG degrees (clockwise from 12 o'clock). A full 100 % slice is
+    drawn as a disc ellipse (the centre hole rings it) to avoid a degenerate 360° arc."""
+    sweep = a1 - a0
+    if sweep >= 359.999:
+        return _prst_shape(sid, name, _emu(cx - R), _emu(cy - R), _emu(2 * R), _emu(2 * R),
+                           'ellipse', fill_hex, line_hex='FFFFFF', line_emu=_emu(2))
+    ox0, oy0 = _pt(cx, cy, R, a0)
+    ix1, iy1 = _pt(cx, cy, ri, a1)
+    st_out = int(round((a0 - 90.0) * 60000))
+    sw = int(round(sweep * 60000))
+    st_in = int(round((a1 - 90.0) * 60000))
+    path = (f'<a:moveTo><a:pt x="{_emu(ox0)}" y="{_emu(oy0)}"/></a:moveTo>'
+            f'<a:arcTo wR="{_emu(R)}" hR="{_emu(R)}" stAng="{st_out}" swAng="{sw}"/>'
+            f'<a:lnTo><a:pt x="{_emu(ix1)}" y="{_emu(iy1)}"/></a:lnTo>'
+            f'<a:arcTo wR="{_emu(ri)}" hR="{_emu(ri)}" stAng="{st_in}" swAng="{-sw}"/>'
+            f'<a:close/>')
+    return _custgeom_shape(sid, name, path, w_emu, h_emu, fill_hex=fill_hex,
+                           fill_mode='norm', line_hex='FFFFFF', line_emu=_emu(2))
+
+
+def _polyline(sid, name, pts, w_emu, h_emu, color_hex, width_emu):
+    """A multi-segment leader (moveTo + lnTo per point) as a stroked, no-fill custGeom.
+    ``pts`` = [(x, y), …] in report px on the whole-canvas coordinate frame."""
+    d = f'<a:moveTo><a:pt x="{_emu(pts[0][0])}" y="{_emu(pts[0][1])}"/></a:moveTo>'
+    for (x, y) in pts[1:]:
+        d += f'<a:lnTo><a:pt x="{_emu(x)}" y="{_emu(y)}"/></a:lnTo>'
+    return _custgeom_shape(sid, name, d, w_emu, h_emu, fill_hex=None,
+                           fill_mode='none', line_hex=color_hex, line_emu=width_emu)
+
+
+def add_doughnut(document, categories, values, title=None, num_fmt='#,##0', unit='',
+                 pcts=None, total=None):
+    """Native, EDITABLE §6 Contract-Value DOUGHNUT — a ``wpg:wgp`` group of real Word shapes
+    (annular custGeom sectors + text boxes + leader polylines + a centre-hole ellipse), the
+    pixel twin of ``html._doughnut``. NOT a ``c:chart`` and never a picture.
+
+    Geometry mirrors ``html._doughnut`` EXACTLY (W=760, H=330, cx=205, cy=165, R=124, ri=73):
+    the dominant slice (share ≥ 15 %) is labelled ON the ring (name over pct, white, at the
+    centroid radius); each small slice gets an external right-hand ladder (a coloured dot at
+    the ring outer point, a #9aa4ad leader, an 8×8 swatch and a "Name pct%" label); the grouped
+    total sits in the white centre hole under a "TOTAL (unit)" cap. Slice colours come from
+    ``ramp_colors`` (grey for Unclassified / Other), so a discipline reads the SAME colour here,
+    on the §7.1 composition bar and in the PDF / screen. The amount legend/table is drawn
+    SEPARATELY by ``docx_writer`` (its swatches reuse ``ramp_colors``). ``unit`` is the currency
+    code for the centre cap; ``num_fmt`` is kept for signature compatibility (unused).
+
+    None-safe: a missing document, empty / mismatched / non-numeric / zero-total data returns
+    ``None`` and never raises. Returns the drawing element on success."""
     if document is None or not categories or not values:
         return None
     cats = list(categories)
     vals = [_num(v) for v in values]
     if len(cats) != len(vals) or any(v is None for v in vals):
         return None
-    palette = ramp_colors(cats)                 # distinct ramp; grey for Unclassified/Other
-    name = title or 'Value'
+    val_total = sum(vals)
+    if val_total <= 0:
+        return None
+    # Mirror html._doughnut EXACTLY: drive the slice angles, labels and the dominant/external
+    # split from the payload's per-row pct (already rounded), and put the payload TOTAL in the
+    # centre — so Word == PDF == HTML (and the centre never disagrees with the §6 banner). Fall
+    # back to deriving both from the amounts only when the caller supplies neither.
+    pf = [_num(pp) for pp in (pcts or [])]
+    share = (pf if (len(pf) == len(cats) and all(p is not None for p in pf) and sum(pf) > 0)
+             else [v / val_total * 100.0 for v in vals])
+    total_share = sum(share) or 100.0
+    ctotal = _num(total)
+    if ctotal is None:
+        ctotal = val_total
+    try:
+        W, H, cx, cy, R, ri = 760.0, 330.0, 205.0, 165.0, 124.0, 73.0
+        w_emu, h_emu = _emu(W), _emu(H)
+        palette = ramp_colors(cats)
+        counter = [_next_id(document)]
+        base_id = counter[0]
+        counter[0] += 1
 
-    def build(rid):
-        # one distinct-ramp point per slice (matches the legend-table swatches)
-        dpts = ''.join(
-            f'<c:dPt><c:idx val="{i}"/><c:bubble3D val="0"/><c:spPr><a:solidFill>'
-            f'<a:srgbClr val="{palette[i]}"/></a:solidFill></c:spPr></c:dPt>'
-            for i in range(len(vals)))
-        # NO <c:dLbls> — on-slice amount/percentage labels removed (C02)
-        ser = (f'<c:ser><c:idx val="0"/><c:order val="0"/>{_tx_ref(name, "B")}'
-               f'{dpts}{_cat_ref(cats)}{_val_ref(vals, "B")}</c:ser>')
-        # NO <c:legend> — replaced by the clean side legend/table in docx_writer
-        return (
-            f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            f'<c:chartSpace {_C_NS}><c:chart>{_title_el(title)}<c:plotArea><c:layout/>'
-            f'<c:doughnutChart><c:varyColors val="1"/>{ser}'
-            f'<c:firstSliceAng val="0"/><c:holeSize val="55"/></c:doughnutChart>'
-            f'</c:plotArea><c:plotVisOnly val="1"/></c:chart>'
-            f'{_external_data(rid)}</c:chartSpace>')
+        def nid():
+            v = counter[0]
+            counter[0] += 1
+            return v
 
-    return _inject(document, build, cats, [(name, vals)])
+        sectors, ring_labels, smalls = [], [], []
+        acc = 0.0
+        for i, p in enumerate(share):
+            col = palette[i]
+            a0 = acc / total_share * 360.0
+            a1 = (acc + p) / total_share * 360.0
+            acc += p
+            mid = (a0 + a1) / 2.0
+            sectors.append(_annular_sector(nid(), cats[i], cx, cy, R, ri, a0, a1,
+                                           w_emu, h_emu, col))
+            if p >= 15.0:                        # dominant slice → label ON the ring
+                lx, ly = _pt(cx, cy, (R + ri) / 2.0, mid)
+                nm = _clip(cats[i], 18)
+                ring_labels.append(_center_text(
+                    nid(), 'ring-name', lx, ly - 5 - 15 * 0.34,
+                    _est_w(nm, 15), 15 * 1.8, [(nm, _hp(15), True, 'FFFFFF')]))
+                ptxt = '%s%%' % _pct_str(p)
+                ring_labels.append(_center_text(
+                    nid(), 'ring-pct', lx, ly + 15 - 17 * 0.34,
+                    _est_w(ptxt, 17), 17 * 1.8, [(ptxt, _hp(17), True, 'FFFFFF')]))
+            else:
+                smalls.append((i, col, mid, p))
+
+        # centre hole (white disc) + "TOTAL (unit)" cap + grouped total (painted over the ring)
+        hole = _prst_shape(nid(), 'hole', _emu(cx - (ri - 1)), _emu(cy - (ri - 1)),
+                           _emu(2 * (ri - 1)), _emu(2 * (ri - 1)), 'ellipse', 'FFFFFF')
+        u = (unit or '').strip()
+        cap = ('TOTAL (%s)' % u) if u else 'TOTAL'
+        centre_cap = _center_text(nid(), 'cap', cx, cy - 9 - 10.5 * 0.34,
+                                  _est_w(cap, 10.5), 10.5 * 1.8,
+                                  [(cap, _hp(10.5), True, '8A93A0')])
+        big = '{:,.0f}'.format(ctotal)
+        centre_total = _center_text(nid(), 'total', cx, cy + 14 - 16 * 0.34,
+                                    _est_w(big, 16), 16 * 1.8,
+                                    [(big, _hp(16), True, '1F4E79')])
+
+        # external right-hand ladder for the small slices (leader + dot + swatch + label)
+        ladder = []
+        if smalls:
+            chan_x = W - 236.0                   # 524
+            txt_x = chan_x + 14.0                # 538
+            top = 46.0
+            gap = min(50.0, (H - top - 14.0) / max(len(smalls) - 1, 1))
+            for j, (i, col, mid, p) in enumerate(smalls):
+                ly = top + j * gap
+                px, py = _pt(cx, cy, R, mid)
+                sx, sy = _pt(cx, cy, R + 14.0, mid)
+                ladder.append(_polyline(nid(), 'leader',
+                              [(px, py), (sx, sy), (chan_x, ly), (txt_x - 4.0, ly)],
+                              w_emu, h_emu, '9AA4AD', _emu(1.3)))
+                ladder.append(_prst_shape(nid(), 'dot', _emu(px - 2.6), _emu(py - 2.6),
+                              _emu(5.2), _emu(5.2), 'ellipse', col))
+                ladder.append(_prst_shape(nid(), 'swatch', _emu(txt_x - 4.0), _emu(ly - 10.0),
+                              _emu(8), _emu(8), 'roundRect', col, adj=_roundadj(2, 8)))
+                nm = _clip(cats[i], 16)
+                ptxt = '%s%%' % _pct_str(p)
+                runs = [(nm + ' ', _hp(13), True, '1A1D21'), (ptxt, _hp(13), True, col)]
+                ladder.append(_left_text(nid(), 'leader-label', txt_x + 9.0, ly,
+                              _est_w(nm + '  ' + ptxt, 13), 13 * 1.8, runs))
+
+        shapes = ''.join(sectors + ring_labels
+                         + [hole, centre_cap, centre_total] + ladder)
+        disp_w, disp_h = _fit_display(w_emu, h_emu)
+        return _group_drawing(document, shapes, base_id, w_emu, h_emu, disp_w, disp_h)
+    except Exception:                            # pragma: no cover - never crash the export
+        return None
 
 
-def add_composition_bar(document, labels, values, title=None):
-    """Native 100 %-STACKED single horizontal COMPOSITION BAR — the editable Word twin of
-    the §6.1 "scope by discipline" bar: ONE bar split into one ramp-coloured segment per
-    discipline, each segment sized to that discipline's share of the total value.
+def add_composition_bar(document, labels, values, title=None, pcts=None):
+    """Native, EDITABLE §7.1 scope COMPOSITION BAR — a ``wpg:wgp`` group of real Word shapes
+    (a rounded track + one rounded / plain segment per discipline + in-bar white labels +
+    external leader polylines with % labels), the pixel twin of ``html._compbar``. NOT a
+    ``c:chart`` and never a picture.
 
-    Built as a ``c:barChart`` with ``c:barDir='bar'`` and ``c:grouping='percentStacked'``
-    over ONE category and ONE ``c:ser`` PER label (each series a single value = that
-    discipline's cost, ramp-coloured). ``percentStacked`` then normalises the series so the
-    single bar fills 100 %, split proportionally. A bottom ``c:legend`` names each segment;
-    both axes are hidden so only the composed bar shows.
+    Geometry mirrors ``html._compbar`` EXACTLY (W=760, H=104, x0=8, y0=60, bh=40, bw=744):
+    each segment's width is its share of the total value; a wide segment (≥ 150 px) carries
+    "Name pct%" inside (white), a medium one (≥ 34 px) carries "pct%" inside (white), and a
+    thin one gets its % spread across the top with an angled leader down to the segment (so
+    small shares never collide). Segment colours come from ``ramp_colors`` (grey for
+    Unclassified / Other), so they match the §6 doughnut, the swatch legend ``docx_writer``
+    draws beneath, and the PDF / screen.
 
-    Native / editable (a real ``c:barChart`` part — never a picture) and None-safe: a
-    missing document, empty / mismatched data or any non-numeric value returns ``None``
-    and never raises. Returns the drawing element on success."""
+    None-safe: a missing document, empty / mismatched / non-numeric / zero-total data returns
+    ``None`` (the writer then falls back to its editable cost / share table). Returns the
+    drawing element on success."""
     if document is None or not labels or not values:
         return None
     labs = [('' if l is None else str(l)) for l in labels]
     vals = [_num(v) for v in values]
     if len(labs) != len(vals) or any(v is None for v in vals):
         return None
-    palette = ramp_colors(labs)                 # distinct ramp; grey for Unclassified/Other
-    cat = ['Share']                             # a single category → a single bar
-    grand = sum(v for v in vals if v) or 0.0
-    _LBL_MIN = 6.0                              # only label a segment wide enough to hold "%"
+    val_total = sum(vals)
+    if val_total <= 0:
+        return None
+    # Mirror html._compbar: segment widths, labels and the in/out thresholds all run off the
+    # payload's rounded pct, so the bar matches the SVG and the swatch legend beneath it exactly
+    # (no "75.0%" vs "75%" drift). Derive from amounts only when the caller supplies no pcts.
+    pf = [_num(pp) for pp in (pcts or [])]
+    share = (pf if (len(pf) == len(labs) and all(p is not None for p in pf) and sum(pf) > 0)
+             else [v / val_total * 100.0 for v in vals])
+    total_share = sum(share) or 100.0
+    try:
+        W, H, x0, y0, bh = 760.0, 104.0, 8.0, 60.0, 40.0
+        bw = W - 2 * x0                          # 744
+        n = len(labs)
+        w_emu, h_emu = _emu(W), _emu(H)
+        palette = ramp_colors(labs)
+        counter = [_next_id(document)]
+        base_id = counter[0]
+        counter[0] += 1
 
-    def build(rid):
-        sers = ''
-        for i, (nm, v) in enumerate(zip(labs, vals)):
+        def nid():
+            v = counter[0]
+            counter[0] += 1
+            return v
+
+        # rounded background track (paints first; segments paint over it)
+        shapes = [_prst_shape(nid(), 'track', _emu(x0), _emu(y0), _emu(bw), _emu(bh),
+                              'roundRect', 'EEF1F5', adj=_roundadj(6, bh))]
+        inside, smalls = [], []
+        cy_lab = y0 + bh / 2.0 + 1.0             # 81 (SVG dominant-baseline middle → centre)
+        acc = 0.0
+        for i, p in enumerate(share):
             col = palette[i]
-            letter = _col_letter(i)
-            dpt = (f'<c:dPt><c:idx val="0"/><c:invertIfNegative val="0"/>'
-                   f'<c:bubble3D val="0"/><c:spPr><a:solidFill>'
-                   f'<a:srgbClr val="{col}"/></a:solidFill></c:spPr></c:dPt>')
-            # C03a — a % label CENTRED on this segment, but only when the segment is wide
-            # enough to hold it (share ≥ _LBL_MIN%); smaller segments stay in the legend /
-            # the "Civil 93.9% · …" line beneath. Label colour contrasts the segment fill.
-            pct = (100.0 * v / grand) if grand else 0.0
-            dlbls = ''
-            if pct >= _LBL_MIN:
-                tcol = _contrast(col)
-                txt = _xesc('%g%%' % round(pct, 1))
-                dlbls = (
-                    f'<c:dLbls><c:dLbl><c:idx val="0"/>'
-                    f'<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p>'
-                    f'<a:pPr><a:defRPr b="1" sz="900"><a:solidFill>'
-                    f'<a:srgbClr val="{tcol}"/></a:solidFill></a:defRPr></a:pPr>'
-                    f'<a:r><a:rPr lang="en-US" b="1" sz="900"><a:solidFill>'
-                    f'<a:srgbClr val="{tcol}"/></a:solidFill></a:rPr>'
-                    f'<a:t>{txt}</a:t></a:r></a:p></c:rich></c:tx>'
-                    f'<c:dLblPos val="ctr"/><c:showLegendKey val="0"/><c:showVal val="0"/>'
-                    f'<c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/>'
-                    f'<c:showBubbleSize val="0"/></c:dLbl>'
-                    f'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>'
-                    f'<c:showSerName val="0"/><c:showPercent val="0"/>'
-                    f'<c:showBubbleSize val="0"/></c:dLbls>')
-            sers += (f'<c:ser><c:idx val="{i}"/><c:order val="{i}"/>{_tx_ref(nm, letter)}'
-                     f'<c:spPr><a:solidFill><a:srgbClr val="{col}"/></a:solidFill></c:spPr>'
-                     f'{dpt}{dlbls}{_cat_ref(cat)}{_val_ref([v], letter)}</c:ser>')
-        legend = '<c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>'
-        return (
-            f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            f'<c:chartSpace {_C_NS}><c:chart>{_title_el(title)}<c:plotArea><c:layout/>'
-            f'<c:barChart><c:barDir val="bar"/><c:grouping val="percentStacked"/>'
-            f'<c:varyColors val="0"/>{sers}<c:gapWidth val="40"/><c:overlap val="100"/>'
-            f'<c:axId val="111"/><c:axId val="222"/></c:barChart>'
-            f'<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
-            f'<c:delete val="1"/><c:axPos val="l"/><c:crossAx val="222"/></c:catAx>'
-            f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
-            f'<c:delete val="1"/><c:axPos val="b"/>'
-            f'<c:numFmt formatCode="0%" sourceLinked="0"/><c:crossAx val="111"/></c:valAx>'
-            f'</c:plotArea>{legend}<c:plotVisOnly val="1"/></c:chart>'
-            f'{_external_data(rid)}</c:chartSpace>')
+            w = p / total_share * bw
+            x = x0 + acc / total_share * bw
+            acc += p
+            rounded = (i == 0 or i == n - 1)     # first / last segment carry rx=6 corners
+            shapes.append(_prst_shape(
+                nid(), labs[i], _emu(x), _emu(y0), _emu(max(w, 0.8)), _emu(bh),
+                'roundRect' if rounded else 'rect', col, line_hex='FFFFFF',
+                line_emu=_emu(1), adj=(_roundadj(6, bh) if rounded else '')))
+            if w >= 150.0:                        # wide → name + pct inside (white)
+                txt = '%s %s%%' % (_clip(labs[i], 22), _pct_str(p))
+                inside.append(_center_text(nid(), 'seg-label', x + w / 2.0, cy_lab,
+                              _est_w(txt, 15), 15 * 1.8, [(txt, _hp(15), True, 'FFFFFF')]))
+            elif w >= 34.0:                       # medium → pct only inside (white)
+                txt = '%s%%' % _pct_str(p)
+                inside.append(_center_text(nid(), 'seg-pct', x + w / 2.0, cy_lab,
+                              _est_w(txt, 12), 12 * 1.8, [(txt, _hp(12), True, 'FFFFFF')]))
+            else:                                 # thin → external spread % + leader
+                smalls.append((col, x + w / 2.0, p))
 
-    return _inject(document, build, cat, list(zip(labs, ([v] for v in vals))))
+        leaders = []
+        if smalls:
+            sx0 = x0 + bw * 0.34                  # 260.96
+            sx1 = W - 30.0                        # 730
+            lab_y = 18.0
+            m = len(smalls)
+            for j, (col, seg_cx, p) in enumerate(smalls):
+                lx = (sx0 + (sx1 - sx0) * j / (m - 1)) if m > 1 else (sx0 + sx1) / 2.0
+                leaders.append(_polyline(nid(), 'leader',
+                               [(lx, lab_y + 6.0), (lx, lab_y + 16.0), (seg_cx, y0 - 2.0)],
+                               w_emu, h_emu, col, _emu(1.2)))
+                txt = '%s%%' % _pct_str(p)
+                leaders.append(_center_text(nid(), 'spread-pct', lx, lab_y,
+                               _est_w(txt, 12), 12 * 1.8, [(txt, _hp(12), True, col)]))
+
+        disp_w, disp_h = _fit_display(w_emu, h_emu)
+        return _group_drawing(document, ''.join(shapes + inside + leaders),
+                              base_id, w_emu, h_emu, disp_w, disp_h)
+    except Exception:                            # pragma: no cover - never crash the export
+        return None
 
 
 def add_calendar_hist(document, categories, working, nonworking,
