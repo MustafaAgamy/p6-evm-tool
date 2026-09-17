@@ -117,6 +117,29 @@ def _cal_pattern(cal):
     return {'days': days, 'hours': hours, 'hpw': hpw}
 
 
+_DOW = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+_DOW_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+
+def _dow_grid(cal):
+    """Mon→Sun working/non-working grid for a calendar: [{day, working}] × 7 (None if absent).
+    A day is working when it carries work intervals, else when it's not in nonworking_days."""
+    if cal is None:
+        return None
+    wi = getattr(cal, 'work_intervals', None) or {}
+    nw = getattr(cal, 'nonworking_days', None)
+    grid = []
+    for full, ab in zip(_DOW, _DOW_ABBR):
+        if wi:
+            working = bool(wi.get(full))
+        elif nw is not None:
+            working = full not in nw
+        else:
+            working = None
+        grid.append({'day': ab, 'working': working})
+    return grid
+
+
 def _cal_by_name(data):
     out = {}
     for cal in (getattr(data, 'calendars', None) or {}).values():
@@ -193,9 +216,15 @@ def diff_calendars(rev0, rev1, matched):
     for name in sorted(set(c0) | set(c1)):
         a, b = c0.get(name), c1.get(name)
         p0, p1 = _cal_pattern(a), _cal_pattern(b)
+        g0, g1 = _dow_grid(a), _dow_grid(b)
+        # days whose working/non-working state flipped between the revisions (highlight these)
+        changed = []
+        if g0 and g1:
+            changed = [g1[i]['day'] for i in range(7) if g0[i]['working'] != g1[i]['working']]
         change = ('removed' if (a and not b) else 'added' if (b and not a)
-                  else 'modified' if p0 != p1 else 'unchanged')
+                  else 'modified' if (p0 != p1 or changed) else 'unchanged')
         patterns.append({'name': name, 'rev0': p0, 'rev1': p1,
+                         'rev0_grid': g0, 'rev1_grid': g1, 'changed_days': changed,
                          'activities': (u1.get(name) or u0.get(name) or 0), 'change': change})
 
     return {'calendars': cals, 'reassignments': reassignments, 'patterns': patterns}

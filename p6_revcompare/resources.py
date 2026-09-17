@@ -57,11 +57,16 @@ def diff_resources(rev0, rev1, matched):
         for code in matched.matched_codes:
             v0, v1 = c0.get(code, 0.0), c1.get(code, 0.0)
             if abs(v1 - v0) > _COST_TOL:
-                a1 = matched.update_by_code.get(code) or {}
+                a1 = matched.update_by_code.get(code) or matched.baseline_by_code.get(code) or {}
+                codes = dict(a1.get('activity_codes') or {})
+                wp = a1.get('wbs_path')
+                if wp:
+                    codes['WBS'] = wp.split(' > ', 1)[0].strip() or wp
                 activity_cost_changes.append({
                     'code': code, 'name': a1.get('name') or code,
                     'rev0': _fmt_money(v0), 'rev1': _fmt_money(v1),
-                    'delta': round(v1 - v0),
+                    'rev0_num': round(v0), 'rev1_num': round(v1),
+                    'delta': round(v1 - v0), 'codes': codes,
                 })
         activity_cost_changes.sort(key=lambda r: -abs(r['delta']))
 

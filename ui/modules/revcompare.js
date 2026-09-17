@@ -35,12 +35,14 @@ const rcFilters = {
   logic:    { dim: null, val: 'All' },
   duration: { dim: null, val: 'All' },
   money:    { dim: null, val: 'All' },
+  cost:     { dim: null, val: 'All' },
 };
 function resetFilters() {
   rcFilters.scope = { dim: null, val: 'All' };
   rcFilters.logic = { dim: null, val: 'All' };
   rcFilters.duration = { dim: null, val: 'All' };
   rcFilters.money = { dim: null, val: 'All' };
+  rcFilters.cost = { dim: null, val: 'All' };
 }
 // The filters object sent to the PDF renderer. Each part is omitted when no dimension is
 // active; a val of 'All' (or absent) means "no filter" on the server side.
@@ -50,6 +52,7 @@ function buildFilters() {
   if (rcFilters.logic.dim) f.logic = { dim: rcFilters.logic.dim, val: rcFilters.logic.val };
   if (rcFilters.duration.dim) f.duration = { dim: rcFilters.duration.dim, val: rcFilters.duration.val };
   if (rcFilters.money.dim) f.money = { dim: rcFilters.money.dim };
+  if (rcFilters.cost.dim) f.cost = { dim: rcFilters.cost.dim };
   return f;
 }
 
@@ -678,7 +681,7 @@ function crumbSegs(l, wbsKey) {
 // its WBS breadcrumb "@ seg @ seg" and the id; the chain link is a single arrow (or '✕' for a
 // removed link) — the wording of the change lives in the explicit line above. Lanes sit in a
 // responsive grid (2-up on a normal window, 1-up when narrow); nothing scrolls sideways.
-function logicLane(l, idx) {
+function logicLane(l, idx, addedBySucc = {}) {
   const change = String(l.change || '');
   const kind = /added/i.test(change) ? 'added' : /removed/i.test(change) ? 'removed' : 'changed';
   const tag = kind === 'added' ? 'add' : kind === 'removed' ? 'rem' : 'chg';
@@ -698,13 +701,21 @@ function logicLane(l, idx) {
     `<div class="rc-chain2">${cnode(l.pred_name, l.pred_id, pSegs, false)}${linkHtml}${cnode(l.succ_name, l.succ_id, sSegs, !!l.on_cp)}</div>`;
   const linkW = (label, cls, arrow) =>
     `<div class="rc-clink"><span class="rc-clt ${cls}">${label}</span><span class="rc-ar2 ${cls}">${arrow}</span></div>`;
-  const beforeLink = kind === 'added' ? linkW('no link', 'none', '⋯') : linkW(esc(l.before), '', '→');
-  const afterLink = kind === 'removed' ? linkW('removed', 'rem', '✕')
+  const beforeLink = kind === 'added' ? linkW('not linked in Rev.00', 'none', '⋯') : linkW(esc(l.before), '', '→');
+  const afterLink = kind === 'removed' ? linkW('link removed', 'rem', '✕')
     : linkW(esc(l.after), kind === 'added' ? 'add' : 'chg', '→');
+  // For a REMOVED link, clarify what replaced it: any NEW predecessor the successor gained in Rev.01.
+  let replBlock = '';
+  if (kind === 'removed') {
+    const repl = (addedBySucc[l.succ_id] || []).filter(a => a.pred_id !== l.pred_id);
+    replBlock = repl.length
+      ? `<div class="rc-lrepl">↳ ${esc(l.succ_name)} is now driven instead by ${repl.map(a => `<b>${esc(a.pred_name)}</b> (${esc(a.after)})`).join(', ')}.</div>`
+      : `<div class="rc-lrepl mut">↳ ${esc(l.succ_name)} lost this predecessor with no replacement link added — it may now be an open end.</div>`;
+  }
   return `<div class="rc-lane">
       <div class="rc-lanehdr"><span class="rc-lanenum">#${idx}</span><span class="rc-lanetag ${tag}">${esc(l.change)}</span>${sub ? `<span class="rc-lanesub">${sub}</span>` : ''}</div>
       <div class="rc-rev2lab">Rev.00 — before</div>${chain(beforeLink)}
-      <div class="rc-rev2lab r1">Rev.01 — after</div>${chain(afterLink)}
+      <div class="rc-rev2lab r1">Rev.01 — after</div>${chain(afterLink)}${replBlock}
     </div>`;
 }
 
@@ -717,7 +728,10 @@ function renderLogicChart(body) {
   if (!all.length) { host.innerHTML = noData('No relationship changes to chart.'); return; }
   const rows = all.filter(l => val === 'All' || ((l.codes || {})[dim]) === val);
   if (!rows.length) { host.innerHTML = noData('No relationship changes for this code.'); return; }
-  host.innerHTML = `<div class="rc-lanes">${rows.map((l, i) => logicLane(l, i + 1)).join('')}</div>`;
+  // Map each successor to the NEW predecessor links it gained, so a removed link can name its replacement.
+  const addedBySucc = {};
+  all.forEach(l => { if (/added/i.test(l.change || '')) (addedBySucc[l.succ_id] = addedBySucc[l.succ_id] || []).push(l); });
+  host.innerHTML = `<div class="rc-lanes">${rows.map((l, i) => logicLane(l, i + 1, addedBySucc)).join('')}</div>`;
 }
 
 function wireFindings(body) {
@@ -962,17 +976,33 @@ function calendarView(r) {
 
   // One row per calendar: name · Rev.00 pattern · Rev.01 pattern · activities. The engine's
   // patterns fix the old 24-hour-calendar 0-days bug — we just render them.
+  // A Mon→Sun working/non-working grid for one revision, changed days ringed (comment 2).
+  const dayGrid = (grid, changedSet, lab, r1) => {
+    if (!grid || !grid.length) return '';
+    const cells = grid.map(g => {
+      const st = g.working ? 'on' : 'off';
+      const chg = changedSet.has(g.day) ? ' chg' : '';
+      return `<span class="rc-dow ${st}${chg}" title="${esc(g.day)}: ${g.working ? 'working' : 'non-working'}">${esc(g.day[0])}</span>`;
+    }).join('');
+    return `<div class="rc-dowrow"><span class="rc-dowlab ${r1 ? 'r1' : ''}">${esc(lab)}</span>${cells}</div>`;
+  };
   const rows = patterns.map(p => {
     const p0 = fmtPattern(p.rev0), p1 = fmtPattern(p.rev1);
     const changed = p.change && p.change !== 'unchanged';
     if (p.rev0 && p.rev1 && p.rev0.hpw != null && p.rev1.hpw != null && p.rev1.hpw > p.rev0.hpw) paperAccel = true;
     const sub = p.change === 'added' ? 'calendar added' : p.change === 'removed' ? 'calendar removed' : '';
-    return `<div class="rc-calrow">
+    const chSet = new Set(p.changed_days || []);
+    const gridBlock = (p.rev0_grid || p.rev1_grid)
+      ? `<div class="rc-dowgrid">${dayGrid(p.rev0_grid, chSet, 'Rev.00')}${dayGrid(p.rev1_grid, chSet, 'Rev.01', true)}`
+        + (chSet.size ? `<div class="rc-dowchg">Changed: <b>${[...chSet].map(esc).join(', ')}</b> now ${(p.rev1_grid || []).find(g => chSet.has(g.day) && !g.working) ? 'non-working' : 'working'}</div>` : '')
+        + `</div>`
+      : '';
+    return `<div class="rc-calblk"><div class="rc-calrow">
         <div class="rc-calname">${esc(p.name)}${sub ? `<span class="rc-cals">${esc(sub)}</span>` : ''}</div>
         <div>${p0 ? `<span class="rc-pattern">${escapeHtml(p0)}</span>` : '<span class="rc-mut">—</span>'}</div>
         <div>${p1 ? `<span class="rc-pattern${changed ? ' r1' : ''}">${escapeHtml(p1)}</span>` : '<span class="rc-mut">—</span>'}</div>
         <div class="rc-calact">${fmtInt(p.activities || 0)}</div>
-      </div>`;
+      </div>${gridBlock}</div>`;
   }).join('');
   const table = patterns.length
     ? `<div class="rc-caltbl">
@@ -1013,7 +1043,7 @@ function scurveSvg(curves, rev0finish, rev1finish) {
   const n = months.length;
   if (!n || !vm.length) return noData('No planned-value spread available.');
   // Extra top padding (plotT) so the tallest bar's value label is never clipped (comment 6a).
-  const W = Math.max(760, n * 60), plotL = 52, plotR = W - 30, plotT = 46, plotB = 250;
+  const W = Math.max(760, n * 62), plotL = 56, plotR = W - 108, plotT = 46, plotB = 250;
   const colW = (plotR - plotL) / n;
   const bw = Math.min(26, colW * 0.5);
   const byMonth0 = {}, byMonth1 = {};
@@ -1027,13 +1057,12 @@ function scurveSvg(curves, rev0finish, rev1finish) {
   months.forEach((m, i) => {
     const cx = plotL + (i + 0.5) * colW;
     const v1 = byMonth1[m] || 0;
-    const h1 = (v1 / maxMonthly) * (plotB - plotT), y1 = plotB - h1;
-    bars += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y1.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, h1).toFixed(1)}" rx="2" fill="var(--accent)" opacity=".85"/>`;
+    // A non-zero month always draws a visible bar (min height) so the earliest small months
+    // aren't invisible (comment: histogram not shown).
+    const h1 = v1 > 0 ? Math.max(3, (v1 / maxMonthly) * (plotB - plotT)) : 0, y1 = plotB - h1;
+    bars += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y1.toFixed(1)}" width="${bw.toFixed(1)}" height="${h1.toFixed(1)}" rx="2" fill="var(--accent)" opacity=".85"/>`;
     if (v1 > 0) {
-      const cm = cumByMonth[m] || {};
-      const cumMax = Math.max(cm.rev0 || 0, cm.rev1 || 0);
-      const curveY = plotB - (cumMax / maxCum) * (plotB - plotT);
-      const labelY = Math.min(y1, curveY) - 6;   // above the higher of (bar top, curve point)
+      const labelY = y1 - 6;   // value sits DIRECTLY above its own bar (comment 3), not lifted to the curve
       bars += `<text x="${cx.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9" font-weight="700" fill="var(--ink-soft)" text-anchor="middle">${escapeHtml(fmtMoney(v1))}</text>`;
     }
   });
@@ -1068,11 +1097,11 @@ function scurveSvg(curves, rev0finish, rev1finish) {
     const endX = plotL + (n - 1 + 0.5) * colW;
     const endVal = cumByMonth[lastM] ? (cumByMonth[lastM].rev1 || 0) : 0;
     const endY = plotB - (endVal / maxCum) * (plotB - plotT);
-    const tx = Math.min(endX + 6, W - 4);
-    const anchor = endX + 90 > W ? 'end' : 'start';
+    // The right margin (plotR = W-108) leaves room for the completion label past the curve end.
+    const tx = endX + 8;
     finishLabel = `<circle cx="${endX.toFixed(1)}" cy="${endY.toFixed(1)}" r="3.2" fill="var(--accent-dark)"/>`
-      + `<text x="${(anchor === 'end' ? endX - 6 : tx).toFixed(1)}" y="${(endY - 7).toFixed(1)}" font-size="10" font-weight="800" fill="var(--accent-dark)" text-anchor="${anchor}">${esc(rev1finish)}</text>`
-      + `<text x="${(anchor === 'end' ? endX - 6 : tx).toFixed(1)}" y="${(endY + 5).toFixed(1)}" font-size="8" fill="var(--muted)" text-anchor="${anchor}">Rev.01 finish</text>`;
+      + `<text x="${tx.toFixed(1)}" y="${(endY - 7).toFixed(1)}" font-size="10" font-weight="800" fill="var(--accent-dark)" text-anchor="start">${esc(rev1finish)}</text>`
+      + `<text x="${tx.toFixed(1)}" y="${(endY + 5).toFixed(1)}" font-size="8" fill="var(--muted)" text-anchor="start">Rev.01 finish</text>`;
   }
   return `<div class="rc-chartwrap"><svg viewBox="0 0 ${W} 300" class="rc-svg" style="min-width:${W}px" role="img" aria-label="Planned value chart">
     <line x1="${plotL}" y1="${plotB}" x2="${plotR}" y2="${plotB}" stroke="var(--border)"/>
@@ -1144,9 +1173,20 @@ function costView(r) {
       <td class="n rc-mut">${before != null ? esc(before) : '—'}</td><td class="n rc-new">${after != null ? esc(after) : '—'}</td>
       <td class="n">${varCell}</td></tr>`;
   }).join('');
+  // Total row (comment 4) — sum of the changed activities' before/after/variance.
+  const sum0 = costChanges.reduce((s, c) => s + (c.rev0_num || 0), 0);
+  const sum1 = costChanges.reduce((s, c) => s + (c.rev1_num || 0), 0);
+  const sumD = costChanges.reduce((s, c) => s + (typeof c.delta === 'number' ? c.delta : 0), 0);
+  const totalRow = costChanges.length
+    ? `<tr class="rc-costtot"><td colspan="2"><b>Total — changed activities</b></td><td class="n">${fmtNum(sum0)}</td><td class="n">${fmtNum(sum1)}</td><td class="n"><span class="rc-d ${sumD > 0 ? 'up' : sumD < 0 ? 'down' : 'zero'}">${sumD > 0 ? '+' : ''}${fmtNum(sumD)}</span></td></tr>`
+    : '';
+  // Activity-code filter + pie (comment 4) — only when the cost changes carry codes.
+  const cdims = [...new Set(costChanges.flatMap(c => Object.keys(c.codes || {})))];
+  const costFilterPie = cdims.length ? `<div id="rc-cost-filter"></div><div id="rc-cost-pie"></div>` : '';
   const costTblCard = hasCostTbl
-    ? `<div class="rc-card"><h3>Cost changed <span class="rc-n">activity-level · budget total cost · variance</span></h3>
-        ${costRows ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr></thead><tbody>${costRows}</tbody></table></div>` : noData('No activity-level cost changes.')}</div>`
+    ? `<div class="rc-card"><h3>Cost changed <span class="rc-n">activity-level · budget total cost · variance</span> ${cdims.length ? '<span class="rc-pdfnote">🔵 reflects in PDF</span>' : ''}</h3>
+        ${costFilterPie}
+        ${costRows ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr></thead><tbody>${costRows}${totalRow}</tbody></table></div>` : noData('No activity-level cost changes.')}</div>`
     : '';
 
   return secmark('7', 'Cost & Resources', 'planned value, where the money moved, cost changes')
@@ -1258,18 +1298,37 @@ function renderMoneyChart(body) {
     <tbody>${trows || '<tr><td colspan="4" class="rc-mut">No data.</td></tr>'}</tbody></table></div>`;
 }
 
+// Cost-changed pie (comment 4) — share of the total budget variance by the selected activity code.
+function renderCostPie(body) {
+  const chart = body.querySelector('#rc-cost-pie');
+  if (!chart) return;
+  const cc = ((state.revcompareReport || {}).resource_changes || {}).activity_cost_changes || [];
+  const dim = rcFilters.cost.dim;
+  const byVal = {};
+  cc.forEach(c => { const v = (c.codes || {})[dim]; if (v == null || v === '') return; byVal[v] = (byVal[v] || 0) + Math.abs(typeof c.delta === 'number' ? c.delta : 0); });
+  const items = Object.entries(byVal).map(([k, v]) => ({ label: k, v })).filter(x => x.v > 0);
+  chart.innerHTML = `<div class="rc-sec" style="margin-bottom:4px">Cost variance by ${escapeHtml(String(dim))} <span class="rc-mut">— share of the total change</span></div>`
+    + donutSvg(items, { centerLabel: 'Δ cost', emptyMsg: 'No coded cost changes for this dimension.' });
+}
+
 function wireCost(body) {
-  const host = body.querySelector('#rc-money-filter');
-  if (!host) return;
   const r = state.revcompareReport || {};
-  const dims = moneyDims(r.curves || {});
-  if (!dims.length) return;
-  groupedFilterControl(host, {
-    dims,
-    state: rcFilters.money,
-    valuesFor: (dim) => moneyValues(r.curves || {}, dim),
-    onChange: () => renderMoneyChart(body),
-  });
+  const host = body.querySelector('#rc-money-filter');
+  if (host) {
+    const dims = moneyDims(r.curves || {});
+    if (dims.length) groupedFilterControl(host, {
+      dims, state: rcFilters.money,
+      valuesFor: (dim) => moneyValues(r.curves || {}, dim),
+      onChange: () => renderMoneyChart(body),
+    });
+  }
+  // Cost-changed activity-code filter + pie.
+  const chost = body.querySelector('#rc-cost-filter');
+  if (chost) {
+    const cc = (r.resource_changes || {}).activity_cost_changes || [];
+    const cdims = [...new Set(cc.flatMap(c => Object.keys(c.codes || {})))];
+    if (cdims.length) groupedFilterControl(chost, { dims: cdims, state: rcFilters.cost, onChange: () => renderCostPie(body) });
+  }
 }
 
 // ══ 9 · Manpower (comment 11 — combo: stacked-by-trade histogram + total line) ══

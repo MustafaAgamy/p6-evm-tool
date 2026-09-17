@@ -2924,6 +2924,8 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-lanetag.chg { background: var(--warning-bg); color: var(--warning); }
 .rc-lanetag.rem { background: var(--danger-bg); color: var(--danger); }
 .rc-lanesub { color: var(--muted); font-size: 11px; }
+.rc-lrepl { font-size: 11px; color: var(--ink-soft); margin-top: 7px; padding: 6px 9px; background: var(--bg); border-radius: 7px; }
+.rc-lrepl.mut { color: var(--muted); }
 /* Explicit "Before: … → After: …" link-change line (comment 2d). */
 .rc-clchange { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 7px; font-size: 11px; margin-bottom: 8px; }
 .rc-cl-b { color: var(--muted); }
@@ -2965,6 +2967,18 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-calname .rc-cals { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
 .rc-pattern { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 4px 9px; border-radius: 7px; background: var(--bg); color: var(--ink-soft); }
 .rc-pattern.r1 { background: var(--accent-soft); color: var(--accent-dark); }
+.rc-calblk { border-top: 1px solid var(--hair); }
+.rc-calblk .rc-calrow { border-top: none; }
+.rc-dowgrid { padding: 2px 0 10px 190px; }
+@media (max-width: 640px) { .rc-dowgrid { padding-left: 0; } }
+.rc-dowrow { display: flex; align-items: center; gap: 5px; margin-top: 4px; }
+.rc-dowlab { font-size: 9.5px; font-weight: 800; color: var(--muted); width: 46px; text-transform: uppercase; }
+.rc-dowlab.r1 { color: var(--accent-dark); }
+.rc-dow { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 22px; border-radius: 5px; font-size: 10px; font-weight: 700; border: 1px solid var(--border); }
+.rc-dow.on { background: var(--accent-soft); color: var(--accent-dark); }
+.rc-dow.off { background: var(--bg); color: var(--muted); }
+.rc-dow.chg { outline: 2px solid var(--warning); outline-offset: 0; box-shadow: 0 0 0 1px var(--warning); }
+.rc-dowchg { font-size: 10.5px; color: var(--warning); margin-top: 5px; }
 .rc-calact { text-align: right; font-weight: 600; }
 .rc-callist { margin: 0; padding-left: 20px; font-size: 12px; line-height: 1.7; }
 .rc-callist b { color: var(--ink-soft); }
@@ -3084,3 +3098,5 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .cp-ins.cp-low  { border-left-color: var(--success); } .cp-ins.cp-low .cp-ins-sev { color: var(--success); }
 .cp-ai { border: 1px dashed var(--border); border-radius: 12px; padding: 14px 16px; }
 .cp-ai-note { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+
+.rc-costtot td { border-top: 2px solid var(--border); font-weight: 800; background: var(--bg); }
