@@ -16,6 +16,7 @@ import json
 import urllib.request
 import urllib.error
 from datetime import date, datetime, timedelta
+from utils import APP_NAME
 
 # Ibrahim's stop-work rule (tunable per project in the app): a day is a lost
 # construction day when it is dusty OR rainy OR hot (>= 42 C). Wind is OFF by
@@ -585,7 +586,7 @@ _DAILY_VARS = 'precipitation_sum,temperature_2m_max,wind_speed_10m_max'
 
 
 def _get_json(url, timeout=20):
-    req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
+    req = urllib.request.Request(url, headers={'User-Agent': f'{APP_NAME}-CalendarAudit/1.0'})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode())
 

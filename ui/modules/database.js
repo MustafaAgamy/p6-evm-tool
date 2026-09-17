@@ -158,7 +158,7 @@ function referenceStandard(std) {
   return `
     <div class="kb-callout">${learned
       ? `Learned from <b>${std.imports || 0} of your own imported ${type} schedules</b> — the recurring activities, typical durations and WBS your projects actually use. Private &amp; local.`
-      : `This is the <b>reference standard</b> for a ${type}. When you import a schedule, nPace auto-detects the type and checks its logic, activities and WBS against what's below.`}</div>
+      : `This is the <b>reference standard</b> for a ${type}. When you import a schedule, ${window.__APP_NAME__ || 'Controlyx'} auto-detects the type and checks its logic, activities and WBS against what's below.`}</div>
 
     ${learned ? '' : `<div class="kb-sec"><h3>Detected by <span class="n">${(std.signatures || []).length} keywords</span></h3>
       <div class="kb-chips">${chips((std.signatures || []).slice(0, 18), 'k')}</div></div>`}

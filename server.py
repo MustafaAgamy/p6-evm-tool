@@ -169,6 +169,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_starter_xml(body)
         elif self.path == '/api/kb/starter-xer':
             self._handle_kb_starter_xer(body)
+        elif self.path == '/api/kb/excel':
+            self._handle_kb_excel(body)
         elif self.path == '/api/kb/playbook':
             self._handle_kb_playbook(body)
         elif self.path == '/api/kb/learned-file':
@@ -1380,6 +1382,68 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    def _handle_kb_excel(self, body):
+        """Export a project type's playbook as a multi-sheet .xlsx mirroring the
+        on-screen sections (brief & scope, MEP, sequence by trade, WBS, Basis of
+        Planning) via the shared write_sections_xlsx standard."""
+        archetype = body.get('type') or body.get('archetype') or ''
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.playbooks import playbook
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            pb = playbook(archetype)
+            if not pb:
+                self._json(200, {'ok': False, 'error': f'Unknown project type: {archetype}'})
+                return
+            cur = pb.get('curated') or {}
+            b = cur.get('brief') if isinstance(cur.get('brief'), dict) else {}
+            overview_blocks = []
+            if b.get('intro'):
+                overview_blocks.append({'title': 'Project brief', 'headers': ['Overview'], 'rows': [[b['intro']]]})
+            if b.get('scope'):
+                overview_blocks.append({'title': 'Scope of works', 'headers': ['Item', 'Detail'],
+                                        'rows': [[s.get('name'), s.get('desc')] for s in b['scope']]})
+            if b.get('glossary'):
+                overview_blocks.append({'title': 'Key terms — in plain words', 'headers': ['Term', 'Plain meaning'],
+                                        'rows': [[g.get('term'), g.get('plain')] for g in b['glossary']]})
+            if b.get('must_get_right'):
+                overview_blocks.append({'title': 'What you must get right', 'headers': ['Point'],
+                                        'rows': [[m] for m in b['must_get_right']]})
+            if cur.get('components'):
+                overview_blocks.append({'title': 'Main components', 'headers': ['Component', 'Detail', 'Primary'],
+                                        'rows': [[c.get('name'), c.get('desc'), 'Yes' if c.get('primary') else ''] for c in cur['components']]})
+            if cur.get('mep_systems'):
+                mep = [[m.get('discipline'), it] for m in cur['mep_systems'] for it in (m.get('items') or [])]
+                overview_blocks.append({'title': 'MEP systems', 'headers': ['Discipline', 'System'], 'rows': mep})
+            sheets = [{'name': 'Brief & Scope', 'blocks': overview_blocks or [{'title': 'Project', 'headers': ['Name'], 'rows': [[pb.get('name')]]}]}]
+            if cur.get('trades'):
+                seq = [[t.get('name'), i + 1, s, 'hold' if i in (t.get('holds') or []) else '']
+                       for t in cur['trades'] for i, s in enumerate(t.get('steps') or [])]
+                sheets.append({'name': 'Sequence by trade', 'blocks': [{'title': 'Typical sequence of work',
+                              'headers': ['Trade', 'Step', 'Activity', 'Hold'], 'rows': seq}]})
+            if cur.get('wbs'):
+                sheets.append({'name': 'WBS', 'blocks': [{'title': 'Suggested WBS (Primavera P6)',
+                              'headers': ['WBS Code', 'WBS Name', 'Level'],
+                              'rows': [[w.get('code'), w.get('name'), w.get('level')] for w in cur['wbs']]}]})
+            bop = cur.get('basis_of_planning') or {}
+            if bop.get('sections'):
+                blocks = [{'title': 'Basis of Planning — ' + (bop.get('standard') or 'AACE 38R-06'),
+                           'headers': ['Section', 'Content'],
+                           'rows': [[s.get('heading'), s.get('body')] for s in bop['sections']]}]
+                for s in bop['sections']:
+                    tbl = s.get('table')
+                    if tbl and tbl.get('rows'):
+                        blocks.append({'title': s.get('heading'), 'headers': tbl.get('columns') or [], 'rows': tbl['rows']})
+                sheets.append({'name': 'Basis of Planning', 'blocks': blocks})
+            write_sections_xlsx(os.path.abspath(output_path), sheets)
+            self._json(200, {'ok': True, 'path': output_path, 'sheets': len(sheets)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     def _handle_kb_starter_xer(self, body):
         """Write a project-type's suggested WBS as an importable P6 **XER** starter
         schedule (WBS tree + a works activity per branch + start/finish milestones,
@@ -2540,7 +2604,7 @@ class Handler(BaseHTTPRequestHandler):
             if lat is not None and lon is not None:
                 url = 'https://nominatim.openstreetmap.org/reverse?' + urllib.parse.urlencode(
                     {'lat': lat, 'lon': lon, 'format': 'json', 'zoom': 13})
-                req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
+                req = urllib.request.Request(url, headers={'User-Agent': f'{APP_NAME}-CalendarAudit/1.0'})
                 with urllib.request.urlopen(req, timeout=15) as r:
                     data = json.loads(r.read().decode())
                 name = data.get('display_name') or f'{float(lat):.4f}, {float(lon):.4f}'
@@ -2552,7 +2616,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             url = 'https://nominatim.openstreetmap.org/search?' + urllib.parse.urlencode(
                 {'q': q, 'format': 'json', 'limit': 5})
-            req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
+            req = urllib.request.Request(url, headers={'User-Agent': f'{APP_NAME}-CalendarAudit/1.0'})
             with urllib.request.urlopen(req, timeout=15) as r:
                 data = json.loads(r.read().decode())
             results = [{'name': x.get('display_name'), 'lat': float(x['lat']), 'lon': float(x['lon'])}

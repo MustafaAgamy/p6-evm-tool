@@ -9,6 +9,7 @@
 import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
+import { printView }  from './printview.js';
 
 let _lib = null, _pb = null, _sector = null, _flat = [], _focus = 'all';
 const host = () => document.getElementById('kb-playbooks-section');
@@ -426,12 +427,65 @@ function wire() {
     if (a === 'browse') { const ov = document.getElementById('kbp-ov'); ov.innerHTML = browseModal(); ov.classList.remove('kbp-hide'); }
     else if (a === 'closebrowse') document.getElementById('kbp-ov')?.classList.add('kbp-hide');
     else if (a === 'export') { e.stopPropagation(); menu?.classList.toggle('on'); }
-    else if (a === 'exp-pdf') { menu?.classList.remove('on'); try { window.print(); } catch {} }
-    else if (a === 'exp-xls') { menu?.classList.remove('on'); showError('Excel export for the Knowledge Base is planned for a later version.'); }
+    else if (a === 'exp-pdf') { menu?.classList.remove('on'); exportPdf(); }
+    else if (a === 'exp-xls') { menu?.classList.remove('on'); exportExcel(); }
     else if (a === 'copywbs') copyWbs(act);
     else if (a === 'baseline') downloadBaseline(act.dataset.type);
   };
   document.addEventListener('click', () => document.getElementById('kbp-expmenu')?.classList.remove('on'));
+}
+
+// ── Export: build clean report sections from the playbook, then PDF / Excel ──
+function playbookSections(pb) {
+  const cur = pb.curated || {}, e = escapeHtml, secs = [];
+  const b = cur.brief;
+  if (b && typeof b === 'object') {
+    let h = `<p>${e(b.intro || '')}</p>`;
+    if ((b.scope || []).length) h += `<h3 style="margin:12px 0 4px">Scope of works</h3><ul>${b.scope.map(s => `<li><b>${e(s.name)}</b> — ${e(s.desc || '')}</li>`).join('')}</ul>`;
+    if ((b.glossary || []).length) h += `<h3 style="margin:12px 0 4px">Key terms — in plain words</h3><ul>${b.glossary.map(g => `<li><b>${e(g.term)}</b> — ${e(g.plain)}</li>`).join('')}</ul>`;
+    if ((b.must_get_right || []).length) h += `<h3 style="margin:12px 0 4px">What you must get right</h3><ul>${b.must_get_right.map(m => `<li>${e(m)}</li>`).join('')}</ul>`;
+    if ((cur.components || []).length) h += `<h3 style="margin:12px 0 4px">Main components</h3><ul>${cur.components.map(c => `<li><b>${e(c.name)}</b> — ${e(c.desc || '')}${c.primary ? ' <i>(primary)</i>' : ''}</li>`).join('')}</ul>`;
+    secs.push({ key: 'brief', label: 'Project brief & scope', html: h });
+  } else {
+    const t = (pb.overview || {}).notes || '';
+    if (t) secs.push({ key: 'brief', label: 'Project brief', html: `<p>${e(t)}</p>` });
+  }
+  if ((cur.mep_systems || []).length)
+    secs.push({ key: 'mep', label: 'MEP systems', html: cur.mep_systems.map(m => `<h3 style="margin:10px 0 4px">${e(m.discipline)}</h3><ul>${(m.items || []).map(i => `<li>${e(i)}</li>`).join('')}</ul>`).join('') });
+  const trades = cur.trades;
+  if ((trades || []).length)
+    secs.push({ key: 'sequence', label: 'Sequence of work — by trade', html: trades.map(t => { const hd = t.holds || []; return `<h3 style="margin:10px 0 4px">${e(t.name)}</h3><ol>${(t.steps || []).map((s, i) => `<li>${e(s)}${hd.includes(i) ? ' <b>⚑ hold point</b>' : ''}</li>`).join('')}</ol>`; }).join('') });
+  const wbs = cur.wbs;
+  if ((wbs || []).length) {
+    const rows = wbs.map(w => `<tr><td style="font-family:monospace;color:#4338ca">${e(w.code)}</td><td style="padding-left:${((w.level || 1) - 1) * 14}px">${e(w.name)}</td><td style="text-align:center">${w.level}</td></tr>`).join('');
+    secs.push({ key: 'wbs', label: 'Suggested WBS (Primavera P6)', html: `<table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;font-size:12px;width:100%"><thead><tr><th align="left">WBS Code</th><th align="left">WBS Name</th><th>Level</th></tr></thead><tbody>${rows}</tbody></table>` });
+  }
+  const bop = cur.basis_of_planning;
+  if (bop && (bop.sections || []).length)
+    secs.push({ key: 'bop', label: `Basis of Planning — ${e(bop.standard || 'AACE 38R-06')}`, html: bop.sections.map((s, i) => {
+      let t = `<h3 style="margin:12px 0 3px">${i + 1}. ${e(s.heading)}</h3><p>${e(s.body || '')}</p>`;
+      if (s.table && (s.table.rows || []).length) t += `<table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;font-size:12px;margin-top:4px"><thead><tr>${(s.table.columns || []).map(c => `<th align="left">${e(c)}</th>`).join('')}</tr></thead><tbody>${s.table.rows.map(r => `<tr>${r.map(c => `<td>${e(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      return t;
+    }).join('') });
+  return secs;
+}
+function exportPdf() {
+  if (!_pb) { showError('Open a project type first.'); return; }
+  const secs = playbookSections(_pb);
+  if (!secs.length) { showError('Nothing to export for this project type yet.'); return; }
+  printView({ module: 'kb', title: _pb.name, subtitle: `${_pb.sector_label || ''} · Construction Project Knowledge`, sections: secs });
+}
+async function exportExcel() {
+  if (!_pb) { showError('Open a project type first.'); return; }
+  const slug = (_pb.archetype || 'playbook').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+  let path = null;
+  try { path = await window.pywebview.api.choose_save_path(`${slug}_knowledge.xlsx`, 'xlsx'); }
+  catch { showError('Could not open the save dialog.'); return; }
+  if (!path) return;
+  try {
+    const d = await api('/api/kb/excel', { archetype: _pb.archetype, output_path: path });
+    if (!d.ok) showError(d.error || 'Could not create the Excel file.');
+  } catch { showError('Could not reach the local server. Try restarting the app.'); }
 }
 
 function copyWbs(btn) {
