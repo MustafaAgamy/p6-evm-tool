@@ -86,6 +86,23 @@ def test_starter_xer_round_trips_and_matches_curated_wbs(tmp_path):
     assert data.activities and data.relationships
 
 
+def test_detailed_xer_is_1000_plus_activities_and_round_trips(tmp_path):
+    """The detailed baseline XER expands to 1000+ activities and still imports
+    through the tool's own P6 parser with its WBS matching the screen."""
+    from p6_kb.starter_xer import write_detailed_xer
+    from p6_evm.xer import parse_xer, read_xer_tables
+    pb = playbooks.playbook('data_center')
+    out = str(tmp_path / 'dc_detailed.xer')
+    res = write_detailed_xer(pb['name'], pb['curated'], out)
+    assert res['activities'] >= 1000 and res['zones'] >= 4
+    tabs = read_xer_tables(out)
+    assert tabs.get('TASKACTV') and tabs.get('ACTVCODE')      # zone activity codes present
+    data = parse_xer(out)
+    assert len(data.activities) == res['activities']
+    assert len(data.wbs) == len(pb['curated']['wbs'])         # screen == file
+    assert data.relationships
+
+
 def test_derived_fallback_when_no_curated_file():
     """The whole library is curated now, but the derived fallback must still work:
     load_curated returns None for a type with no file, and playbook() always

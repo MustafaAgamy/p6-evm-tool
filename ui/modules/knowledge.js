@@ -316,7 +316,7 @@ function cardWbs(pb) {
   const wbs = pb.wbs || {}, bl = pb.baseline || {};
   const cur = pb.curated && pb.curated.wbs;
   const xer = (pb.curated && pb.curated.baseline && pb.curated.baseline.xer) || bl.available;
-  const dl = xer ? `<button class="kbp-btn" data-act="baseline" data-type="${escapeHtml(pb.archetype || '')}">⭳ Download baseline (XER)</button>` : '';
+  const dl = xer ? `<button class="kbp-btn" data-act="baseline" data-detail="1" data-type="${escapeHtml(pb.archetype || '')}">⭳ Detailed baseline (XER · 1000+ activities)</button><button class="kbp-btn" data-act="baseline" data-type="${escapeHtml(pb.archetype || '')}">⭳ Skeleton (XER)</button>` : '';
   const copy = `<button class="kbp-btn" data-act="copywbs">⧉ Copy for P6</button><button class="kbp-btn" data-act="exp-xls">⭳ Export WBS (Excel)</button>`;
 
   if (cur && cur.length) {
@@ -430,7 +430,7 @@ function wire() {
     else if (a === 'exp-pdf') { menu?.classList.remove('on'); exportPdf(); }
     else if (a === 'exp-xls') { menu?.classList.remove('on'); exportExcel(); }
     else if (a === 'copywbs') copyWbs(act);
-    else if (a === 'baseline') downloadBaseline(act.dataset.type);
+    else if (a === 'baseline') downloadBaseline(act.dataset.type, act.dataset.detail === '1');
   };
   document.addEventListener('click', () => document.getElementById('kbp-expmenu')?.classList.remove('on'));
 }
@@ -497,15 +497,15 @@ function copyWbs(btn) {
   try { navigator.clipboard.writeText(text); } catch {}
   const t = btn.innerHTML; btn.innerHTML = '✓ Copied'; setTimeout(() => { btn.innerHTML = t; }, 1400);
 }
-async function downloadBaseline(type) {
+async function downloadBaseline(type, detailed) {
   if (!type) return;
   const slug = type.replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
   let path = null;
-  try { path = await window.pywebview.api.choose_save_path(`${slug}_baseline.xer`, 'xer'); }
+  try { path = await window.pywebview.api.choose_save_path(`${slug}_${detailed ? 'detailed_baseline' : 'baseline'}.xer`, 'xer'); }
   catch { showError('Could not open the save dialog.'); return; }
   if (!path) return;
   try {
-    const d = await api('/api/kb/starter-xer', { type, output_path: path });
+    const d = await api(detailed ? '/api/kb/detailed-xer' : '/api/kb/starter-xer', { type, output_path: path });
     if (!d.ok) showError(d.error || 'Could not generate the baseline file.');
   } catch { showError('Could not reach the local server. Try restarting the app.'); }
 }

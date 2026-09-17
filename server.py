@@ -169,6 +169,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_starter_xml(body)
         elif self.path == '/api/kb/starter-xer':
             self._handle_kb_starter_xer(body)
+        elif self.path == '/api/kb/detailed-xer':
+            self._handle_kb_detailed_xer(body)
         elif self.path == '/api/kb/excel':
             self._handle_kb_excel(body)
         elif self.path == '/api/kb/playbook':
@@ -1378,6 +1380,30 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': f'Unknown project type: {forced_type}'})
                 return
             res = write_starter_xml(entry, os.path.abspath(output_path))
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_kb_detailed_xer(self, body):
+        """Write a project-type's DETAILED baseline as an importable P6 XER — the
+        curated WBS expanded across execution zones/levels into a full ~1000+
+        activity schedule (procurement + per-zone trade steps + commissioning,
+        with FS/SS logic and Zone activity codes). A reference programme skeleton
+        to flesh out; nothing from a real schedule."""
+        archetype = body.get('type', '')
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_kb.playbooks import playbook
+            from p6_kb.starter_xer import write_detailed_xer
+            pb = playbook(archetype)
+            if not pb or not pb.get('curated'):
+                self._json(200, {'ok': False, 'error': f'No detailed schedule for: {archetype}'})
+                return
+            res = write_detailed_xer(pb.get('name') or archetype, pb['curated'], os.path.abspath(output_path))
             self._json(200, {'ok': True, **res})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
