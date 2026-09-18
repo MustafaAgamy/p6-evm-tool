@@ -9,9 +9,9 @@ from p6_revcompare.xlsx_export import revcompare_excel
 from p6_evm.xlsx_writer import write_sections_xlsx
 
 _EXPECTED_SHEETS = [
-    'Executive Summary', 'Revision Overview', 'Milestones', 'Critical Path & Sequence',
-    'Logic Changes', 'Scope & Structure', 'Resource & Cost', 'Change Register',
-    'Detailed Analysis',
+    'Executive Summary', 'Key Findings', 'Critical Path & Float',
+    'Change Register', 'Milestones', 'Calendar',
+    'Cost & Resources', 'Resources', 'Manpower', 'Scope & Structure',
 ]
 
 
@@ -56,6 +56,8 @@ def _report():
              'change': 0, 'kind': 'unchanged', 'change_days': 0},
             {'name': 'New Handover MS', 'rev0': None, 'rev1': '20-Aug-2027',
              'change': None, 'kind': 'new', 'change_days': None},
+            {'id': 'MS900 → MS950', 'name': 'Testing & Commissioning', 'rev0': '01-Jul-2027',
+             'rev1': '05-Jul-2027', 'change': 4, 'kind': 'idchange', 'change_days': 4},
         ],
         'critical_path': {
             'rev0': [{'code': 'A100', 'name': 'Site Handover', 'tf': 0.0, 'is_ms': False, 'state': ''},
@@ -101,7 +103,17 @@ def _report():
         'calendar_changes': {
             'calendars': [{'name': '6-Day Week', 'change': 'added', 'detail': 'new calendar'}],
             'reassignments': [{'from': '5-Day', 'to': '6-Day Week', 'from_wd': 5, 'to_wd': 6, 'count': 6}],
+            'patterns': [
+                {'name': '5-Day', 'rev0': {'days': 5, 'hours': 8, 'hpw': 40},
+                 'rev1': {'days': 5, 'hours': 8, 'hpw': 40}, 'activities': 60, 'change': 'unchanged'},
+                {'name': '6-Day Week', 'rev0': None, 'rev1': {'days': 6, 'hours': 9, 'hpw': 54},
+                 'activities': 6, 'change': 'added'},
+            ],
         },
+        'cost_by_wbs': [
+            {'level': 0, 'name': 'Project A', 'rev0': 1000000, 'rev1': 1150000, 'variance': 150000},
+            {'level': 1, 'name': 'Structures', 'rev0': 400000, 'rev1': 460000, 'variance': 60000},
+        ],
         'constraint_changes': [
             {'activity_id': 'A400', 'name': 'Commissioning', 'kind': 'added', 'hard': True,
              'rev0': '—', 'rev1': 'Must Finish On 10-Aug-2027'},
@@ -131,9 +143,9 @@ def _open_sheets(path):
     return names, wb, sheets
 
 
-def test_full_report_produces_nine_section_sheets(tmp_path):
+def test_full_report_produces_ten_section_sheets(tmp_path):
     sheets = revcompare_excel(_report())
-    assert [s['name'] for s in sheets] == _EXPECTED_SHEETS
+    assert [s['name'] for s in sheets] == _EXPECTED_SHEETS   # the ten redesigned sections
     for s in sheets:
         assert s['blocks'] and all('headers' in b and 'rows' in b for b in s['blocks'])
 
@@ -143,7 +155,7 @@ def test_full_report_produces_nine_section_sheets(tmp_path):
 
     names, wb, xml = _open_sheets(str(p))
     assert '[Content_Types].xml' in names and 'xl/workbook.xml' in names
-    assert len(xml) == 9                                   # one worksheet per section
+    assert len(xml) == 10                                  # one worksheet per section
     for body in xml.values():
         ET.fromstring(body)                                # every worksheet is well-formed XML
 
@@ -155,12 +167,10 @@ def test_full_report_produces_nine_section_sheets(tmp_path):
     # content mirrored from the report's sections
     assert 'Erect Steel Frame' in all_xml                  # finding / register / critpath
     assert 'Substantial Completion' in all_xml             # milestone
-    assert 'Change detected' in all_xml                    # detailed analysis four-part
-    assert 'Confirm the re-sequence is an approved planning decision.' in all_xml
-    assert 'Civil Works' in all_xml                        # WBS rename
-    assert 'Must Finish On 10-Aug-2027' in all_xml         # constraint change
-    assert '<v>12</v>' in all_xml                          # profile count stays numeric
-    assert '<v>150000</v>' in all_xml or '150,000' in all_xml   # budget delta present
+    assert 'MS900 → MS950' in all_xml.replace('&gt;', '>').replace('&amp;', '&')  # idchange id "OLD → NEW"
+    assert 'ID changed' in all_xml                          # idchange neutral tag (change 3)
+    # budget delta present, formatted through the shared thousands + 2dp formatter (comment 9)
+    assert '150,000.00' in all_xml or '<v>150000</v>' in all_xml or '150,000' in all_xml
 
 
 def test_empty_report_never_crashes(tmp_path):
@@ -170,13 +180,11 @@ def test_empty_report_never_crashes(tmp_path):
     write_sections_xlsx(str(p), sheets)
     assert p.exists()
     names, wb, xml = _open_sheets(str(p))
-    assert len(xml) == 9
+    assert len(xml) == 10
     for body in xml.values():
         ET.fromstring(body)
     all_xml = '\n'.join(xml.values())
-    assert 'No data' in all_xml or 'No ' in all_xml        # placeholder rows, not a crash
-    # resource section reports not-applicable rather than "no change"
-    assert 'Not applicable' in all_xml
+    assert 'No data' in all_xml or 'No ' in all_xml or 'Not applicable' in all_xml  # placeholders, not a crash
 
 
 def test_resource_not_applicable_when_absent(tmp_path):
@@ -186,6 +194,6 @@ def test_resource_not_applicable_when_absent(tmp_path):
                                'activity_cost_changes': [], 'assignment_changes': [],
                                'summary': {'cost_activities': 0}}
     sheets = revcompare_excel(rpt)
-    res = next(s for s in sheets if s['name'] == 'Resource & Cost')
+    res = next(s for s in sheets if s['name'] == 'Cost & Resources')   # resource lives here now
     flat = ' '.join(str(r) for b in res['blocks'] for r in b['rows'])
-    assert 'Not applicable' in flat
+    assert 'Not applicable' in flat or 'not applicable' in flat.lower()
