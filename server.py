@@ -276,6 +276,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_report(body)
         elif self.path == '/api/narrative':
             self._handle_narrative(body)
+        elif self.path == '/api/narrative/docx':
+            self._handle_narrative_docx(body)
+        elif self.path == '/api/narrative/pdf':
+            self._handle_narrative_pdf(body)
+        elif self.path == '/api/narrative/html':
+            self._handle_narrative_html(body)
         elif self.path == '/api/copilot':
             self._handle_copilot(body)
         elif self.path == '/api/report/html':
@@ -3115,24 +3121,137 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/narrative ────────────────────────────────────────────────────
     def _handle_narrative(self, body):
-        """Baseline Narrative: a deterministic status narrative built from the
-        already-computed result. Prefers the DB result for the given snapshot
-        (the read path); falls back to the client-supplied result."""
+        """Baseline Narrative — assemble the Basis-of-Schedule document from the
+        parsed baseline. Re-parses, pulls the Calendar feature's report and the full
+        activity-code catalog, and returns the document model + rendered HTML. A thin
+        assembler over the existing engines — recomputes no number. No `records`."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
         try:
-            from p6_evm.narrative import build_narrative
-            result = None
-            snap = body.get('snapshot_id')
-            if snap is not None:
-                pid = db.snapshot_project_id(snap)
-                if pid is not None:
-                    result = db.get_project_result(pid)
-            if result is None:
-                result = body.get('result')
-            if not result:
-                self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
-                return
-            self._json(200, {'ok': True, **build_narrative(result)})
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_narrative.report import build_report
+            from p6_narrative.html import render_narrative_html
+            data = parse_file(resolved)
+
+            # v5 Narrative Report — driven by the Schedule-Intelligence front detector.
+            # A read-only study of the baseline; recomputes no EVM number.
+            doc = build_report(data, path=resolved, setup=body.get('setup'))
+            doc_dict = doc.to_dict()
+            self._json(200, {'ok': True, 'doc': doc_dict,
+                             'html': render_narrative_html(doc_dict), 'counts': doc.counts()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/docx ───────────────────────────────────────────────
+    def _handle_narrative_docx(self, body):
+        """Write the (possibly user-edited) narrative to an editable Word file. The
+        client holds the document and applies in-app prose edits, so no re-parse."""
+        doc_dict = body.get('doc')
+        output_path = body.get('output_path', '')
+        if not doc_dict or not output_path:
+            self._json(200, {'ok': False, 'error': 'Missing document or output path'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_narrative.builder import apply_edits
+            from p6_narrative.docx_writer import write_docx
+            write_docx(apply_edits(doc_dict, body.get('edits')), os.path.abspath(output_path),
+                       chrome=_find_chrome())
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/pdf ────────────────────────────────────────────────
+    def _handle_narrative_pdf(self, body):
+        """Render the (edited) narrative to PDF via Chrome headless — same pipeline
+        as the other reports, so the PDF reflects the user's on-screen edits.
+
+        TWO-PASS so the Table of Contents can carry the sections' real physical page
+        numbers (a section that overflows onto a later sheet still lists the page you
+        turn to): pass-1 renders with ordinal TOC numbers, PyMuPDF then locates every
+        section heading in that PDF to build a page-map, and pass-2 re-renders the TOC
+        with those real pages. If PyMuPDF is unavailable or no heading can be located,
+        the pass-1 PDF (ordinal TOC) is kept — no failure, just the earlier behaviour."""
+        doc_dict = body.get('doc')
+        output_path = body.get('output_path', '')
+        if not doc_dict or not output_path:
+            self._json(200, {'ok': False, 'error': 'Missing document or output path'})
+            return
+        try:
+            import subprocess, tempfile
+            sys.path.insert(0, resource_path('.'))
+            from p6_narrative.builder import apply_edits
+            from p6_narrative.html import page_html
+            edited = apply_edits(doc_dict, body.get('edits'))
+            chrome = _find_chrome()
+            out = os.path.abspath(output_path)
+
+            def _render_pdf(html_str, out_pdf):
+                with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
+                                                 encoding='utf-8') as tmp:
+                    tmp.write(html_str)
+                    html_path = tmp.name
+                try:
+                    subprocess.run([
+                        chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                        f'--print-to-pdf={out_pdf}', '--no-pdf-header-footer',
+                        f'file:///{html_path.replace(os.sep, "/")}',
+                    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        timeout=180)
+                finally:
+                    try:
+                        os.unlink(html_path)
+                    except OSError:
+                        pass
+
+            # pass 1 — ordinal TOC, into a temp PDF used only for measuring page numbers
+            pass1 = out + '.pass1.pdf'
+            _render_pdf(page_html(edited), pass1)
+
+            page_map = None
+            try:
+                page_map = _narrative_page_map(pass1, edited.get('sections') or [])
+            except Exception:
+                page_map = None
+
+            if page_map:
+                # pass 2 — TOC stamped with real physical pages
+                _render_pdf(page_html(edited, page_map=page_map), out)
+                try:
+                    os.unlink(pass1)
+                except OSError:
+                    pass
+            else:
+                # keep the pass-1 PDF (ordinal TOC) as the deliverable
+                os.replace(pass1, out)
+
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/html ───────────────────────────────────────────────
+    def _handle_narrative_html(self, body):
+        """Write the (edited) narrative as a self-contained HTML file — the same
+        HTML the PDF export builds, minus the Chrome print step. page_html returns
+        a full <!doctype html> document with inline CSS + data-URI logos, so the
+        single file needs no external assets."""
+        doc_dict = body.get('doc')
+        output_path = body.get('output_path')
+        if not doc_dict or not output_path:
+            self._json(200, {'ok': False, 'error': 'Missing document or output path'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_narrative.builder import apply_edits
+            from p6_narrative.html import page_html
+            with open(os.path.abspath(output_path), 'w', encoding='utf-8') as f:
+                f.write(page_html(apply_edits(doc_dict, body.get('edits'))))
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
@@ -3178,6 +3297,43 @@ def _find_chrome():
         'No Chrome/Chromium found. Install Google Chrome or run: '
         'pip install playwright && playwright install chromium'
     )
+
+
+def _narrative_page_map(pdf_path, sections):
+    """Second half of the Baseline-Narrative two-pass PDF export: open the pass-1 PDF
+    with PyMuPDF and locate each section's real physical page by its ``"N) Title"``
+    heading text, returning ``{section_number: physical_page}`` (1-based) for the TOC.
+
+    Front matter (cover + Table of Contents) is skipped so a section title that also
+    appears in the TOC never yields a false match. Headings are matched in body order
+    with a forward pointer (every section starts on its own sheet), and whitespace is
+    normalised so a wrapped or re-spaced heading still matches. Returns ``None`` if
+    nothing could be located (caller then keeps the pass-1 ordinals)."""
+    import pymupdf
+    pdf = pymupdf.open(pdf_path)
+    try:
+        texts = [' '.join((pdf[i].get_text() or '').split()) for i in range(pdf.page_count)]
+    finally:
+        pdf.close()
+    start = 0
+    for i, t in enumerate(texts):                       # first body page = after the TOC
+        if 'Table of Contents' in t:
+            start = i + 1
+    page_map, ptr = {}, start
+    for s in sections or []:
+        if not s:
+            continue
+        num = str(s.get('number'))
+        heading = ' '.join(('%s) %s' % (num, s.get('title') or '')).split())
+        if not heading:
+            continue
+        found = next((i for i in range(ptr, len(texts)) if heading in texts[i]), None)
+        if found is None:                               # relax: anywhere in the body
+            found = next((i for i in range(start, len(texts)) if heading in texts[i]), None)
+        if found is not None:
+            page_map[num] = found + 1                    # 1-based physical page
+            ptr = found + 1
+    return page_map or None
 
 
 def make_server():
