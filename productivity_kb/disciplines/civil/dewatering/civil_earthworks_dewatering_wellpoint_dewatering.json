@@ -1,0 +1,94 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.earthworks.dewatering.wellpoint_dewatering",
+  "discipline": "Civil",
+  "work_type": "Earthworks",
+  "system": "Dewatering",
+  "item": "Well-Point Dewatering (operation)",
+  "aliases": [
+    "dewatering",
+    "well point dewatering",
+    "wellpoint system",
+    "groundwater control"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "day",
+  "why": "Duration-based labour for running and attending a well-point / sump dewatering system while excavation and construction proceed below the water table. Priced per system-day of operation.",
+  "assumptions": [
+    "One dewatering system (well-point header/sumps) per day",
+    "Single 8 hr/day shift attendance; pumps may run 24 h with periodic checks",
+    "Attendant covers the running system plus fuel/level checks",
+    "Moderate groundwater inflow"
+  ],
+  "exclusions": [
+    "Well-point / sump installation & jetting",
+    "Pump & generator supply/rental cost",
+    "Fuel",
+    "Discharge permits and treatment",
+    "High-inflow deep-well systems"
+  ],
+  "components": [
+    {
+      "component_id": "operate_dewatering",
+      "name": "System operation & attendance",
+      "unit": "day",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 4,
+        "low": 3,
+        "likely": 4,
+        "high": 6,
+        "output_per_day": 2,
+        "output_unit": "system-day/attendant·day"
+      },
+      "gang": [
+        {
+          "trade": "Pump Attendant",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Well-point pump set",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Standby generator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Diesel fuel",
+          "qty_per_unit": 40,
+          "unit": "L/day"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — well-point dewatering attendance per system-day",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Moderate-inflow well-point/sump system, per day of operation — validate with your XER to promote"
+      }
+    }
+  ]
+}

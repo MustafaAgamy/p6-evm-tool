@@ -246,7 +246,7 @@ function renderBar(result) {
       <div class="evm-bartrack"><div class="evm-barfill" style="width:${(100 * v / mx).toFixed(1)}%;background:${color}"></div></div>
       <div class="evm-barval">${egp(v)}</div></div>`;
   document.getElementById('evm-bar').innerHTML =
-    row('Planned Value (PV)', pv, '#3b6fa8') + row('Earned Value (EV)', ev, '#8bb648');
+    row('Planned Value (PV)', pv, 'var(--chart-1)') + row('Earned Value (EV)', ev, 'var(--chart-2)');
 }
 
 function renderCats(result) {
@@ -368,7 +368,7 @@ function renderGap() {
   const mx = Math.max(..._gap.groups.map(g => Math.abs(g.gap)), 1);
   const bars = _gap.groups.slice(0, 12).map(g =>
     `<div class="evm-barrow"><div class="evm-barlabel">${escapeHtml(g.code)}</div>
-      <div class="evm-bartrack"><div class="evm-barfill" style="width:${(100 * Math.abs(g.gap) / mx).toFixed(1)}%;background:${g.gap < 0 ? '#5aa86f' : '#c0764a'}"></div></div>
+      <div class="evm-bartrack"><div class="evm-barfill" style="width:${(100 * Math.abs(g.gap) / mx).toFixed(1)}%;background:${g.gap < 0 ? 'var(--chart-2)' : 'var(--chart-3)'}"></div></div>
       <div class="evm-barval">${gapText(g.gap, egp)} · ${g.pct_of_gap.toFixed(1)}%</div></div>`).join('');
   box.innerHTML = `<p class="evm-note">Total gap (PV − EV) = ${gapText(_gap.total_gap, egp)} EGP</p>${bars}`;
 }

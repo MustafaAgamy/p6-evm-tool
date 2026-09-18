@@ -3,6 +3,7 @@
 Renders from the module result's `mgmt` block; the detailed activity table and
 the score/grade badge are gone.
 """
+import report_theme
 from p6_audit.float_report import render_float_report
 
 META = {'project_name': 'Alstom', 'data_date': '12-Oct-2025',
@@ -96,3 +97,23 @@ def test_empty_float_data_shows_no_data_notice():
     h = render_float_report({'module': 'float', 'name': 'Float Analysis', 'mgmt': {'stats': {'total': 0}}}, META)
     assert 'assessable total float' in h.lower()
     assert 'Float Health' not in h
+
+
+def test_dark_theme_injects_palette():
+    h = render_float_report(_m(), META, theme='dark')
+    assert 'data-rpt-theme="dark"' in h
+    assert report_theme.THEMES['dark']['rpt-accent'] in h            # '#5b9bff'
+
+
+def test_default_theme_is_light_full_doc():
+    h = render_float_report(_m(), META)
+    assert h.strip().startswith('<!DOCTYPE html>')
+    assert '</html>' in h
+    assert 'data-rpt-theme="light"' in h
+
+
+def test_notice_path_also_honours_dark_theme():
+    # The 'no data' notice page builds its own <head> — must not be missed.
+    h = render_float_report({'module': 'float', 'name': 'Float Analysis'}, META, theme='dark')
+    assert 'data-rpt-theme="dark"' in h
+    assert report_theme.THEMES['dark']['rpt-accent'] in h

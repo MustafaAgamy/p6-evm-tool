@@ -1,13 +1,16 @@
-# P6 EVM Tool
+<p align="center">
+  <img src="ui/brand/controlyx-lockup.png" alt="Controlyx — Project Control Intelligence Platform" width="620">
+</p>
 
-Computes Delay, Planned/Earned Value, SPI, CPI, and category-level Planned% / Actual%
-from a Primavera P6 Professional XML export, and generates a one-page PDF weekly report.
+**Controlyx** is a Primavera P6 **project-controls** desktop app (and CLI) for project controls
+engineers. It computes Delay, Planned/Earned Value, SPI, CPI, and category-level Planned% /
+Actual% from a P6 Professional XML/XER export, and generates a one-page PDF weekly report.
 
 Two ways to use it:
 
 | Mode | Best for |
 |------|----------|
-| **Desktop app** (`.exe`) | Planning engineers — double-click, no setup |
+| **Desktop app** (`.exe`) | Project controls engineers — double-click, no setup |
 | **CLI** | Power users / scripting / CI |
 
 ---
@@ -16,7 +19,7 @@ Two ways to use it:
 
 ### Option A — Download the `.exe`
 
-Download `P6EVMTool.exe` from [Releases](../../releases) and double-click it.
+Download `Controlyx.exe` from [Releases](../../releases) and double-click it.
 No Python, no installation required. Chrome must be installed for PDF export.
 
 ### Option B — Run from source
@@ -30,8 +33,8 @@ python app.py
 
 ```powershell
 pip install pyinstaller
-pyinstaller p6evm.spec
-# Output: dist\P6EVMTool.exe
+pyinstaller controlyx.spec
+# Output: dist\Controlyx.exe
 ```
 
 ### Using the app
@@ -104,11 +107,11 @@ The app stores data locally — nothing is sent to any server.
 
 | What | Where |
 |------|-------|
-| Project metrics DB | `%APPDATA%\P6EVMTool\p6evm.db` |
-| Cached XML copies | `%APPDATA%\P6EVMTool\schedules\` |
+| Project metrics DB | `%APPDATA%\Controlyx\controlyx.db` |
+| Cached XML copies | `%APPDATA%\Controlyx\schedules\` |
 
 Each Windows user account has its own isolated folder. Cached XMLs are capped at 20 files;
-older ones are deleted automatically. To clear all app data, delete the `P6EVMTool` folder
+older ones are deleted automatically. To clear all app data, delete the `Controlyx` folder
 from `%APPDATA%`.
 
 ---
@@ -131,4 +134,4 @@ Progress Photos require data outside the P6 export and are out of scope.
 | Numbers look off | Check `config.json` `wbs_match` strings match your project's WBS names |
 | CPI shows ≈ 1 always | P6 has AutoComputeActuals enabled — AC is derived from PV, not real cost data |
 | Recent project won't open | Original file was deleted and no cached copy exists — re-import the file |
-| Want to reset all history | Delete `%APPDATA%\P6EVMTool\` folder |
+| Want to reset all history | Delete `%APPDATA%\Controlyx\` folder |

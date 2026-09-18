@@ -137,6 +137,29 @@ def test_diff_durations_flags_extended_and_not_burning():
     assert 'impact' in rows['A1250']   # each duration row now carries a finish-impact
 
 
+def test_diff_durations_drops_zero_baseline_rows():
+    # An activity with no baseline duration (0) that gains a real duration in the update isn't
+    # a meaningful "extension from 0" (0-duration placeholders, milestones-turned-tasks) — drop it.
+    base = _dur_sched({'A1250': (96, 96), 'NEW1': (0, 0)})
+    upd = _dur_sched({'A1250': (144, 120), 'NEW1': (120, 120)})
+    res = diff_durations(MatchedSchedules(base, upd))
+    assert {r['activity_id'] for r in res['rows']} == {'A1250'}          # NEW1 dropped
+    assert all(r['baseline_orig_days'] > 0 for r in res['rows'])
+
+
+def test_impact_float_derived_from_dates_when_export_omits_it():
+    from p6_compare.diff import _impact_float_days
+    from p6_evm.calendars import Calendar
+    from datetime import datetime
+    data = ScheduleData(); data.calendars = {'c': Calendar('c', 'Std')}
+    assert _impact_float_days(data, {'total_float_days': -3}) == -3        # stored float wins
+    derived = _impact_float_days(data, {'total_float_days': None, 'calendar_id': 'c',
+                                        'remaining_early_start': datetime(2026, 1, 5),
+                                        'remaining_late_start': datetime(2026, 1, 12)})
+    assert derived is not None and derived > 0                             # filled from late/early dates
+    assert _impact_float_days(data, {'total_float_days': None}) is None    # nothing to derive from
+
+
 def test_dur_impact_by_float():
     assert _dur_impact(-2) == 'Direct'      # critical — the extra time pushes the finish
     assert _dur_impact(0) == 'Direct'

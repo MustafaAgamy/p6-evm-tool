@@ -1,0 +1,101 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "piping.qaqc.ndt.radiography",
+  "discipline": "Piping",
+  "work_type": "QA/QC",
+  "system": "NDT",
+  "item": "NDT - Radiography / Weld Inspection",
+  "aliases": [
+    "ndt",
+    "rt",
+    "radiography",
+    "weld inspection",
+    "non destructive testing"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "dia-inch",
+  "why": "NDT (predominantly radiography, plus PT/MT/UT) is normed against the inspected weld volume in dia-inch; only the tested percentage of welds is metered, so it stands apart from the welding norm and drives inspection-crew and source logistics.",
+  "assumptions": [
+    "Radiography-dominant scope with some surface/UT",
+    "Single 8 hr/day shift (RT often night-shift, same output)",
+    "Inspected dia-inch = welds actually shot, not total welds",
+    "Source and film/DR available on site",
+    "dia-inch = pipe nominal diameter (in) per inspected weld"
+  ],
+  "exclusions": [
+    "Percentage of welds tested (project spec - a quantity input, not a rate)",
+    "Interpretation/reporting engineering hours",
+    "Repair NDT (re-shoots)",
+    "PWHT and hardness surveys",
+    "Exclusion zone / permit standby time"
+  ],
+  "components": [
+    {
+      "component_id": "rt",
+      "name": "Radiographic / NDT inspection & film",
+      "unit": "dia-inch",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.35,
+        "low": 0.25,
+        "likely": 0.35,
+        "high": 0.55,
+        "output_per_day": 45.7,
+        "output_unit": "dia-inch/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "NDT Technician",
+          "count": 1
+        },
+        {
+          "trade": "NDT Assistant",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Gamma/X-ray source & crawler",
+          "basis": "utilization",
+          "value": 0.2,
+          "unit": "h/dia-inch"
+        },
+        {
+          "name": "Film processor or DR panel",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Film & chemicals (or DR consumables)",
+          "qty_per_unit": 0.05,
+          "unit": "set/dia-inch"
+        },
+        {
+          "name": "Penetrant / developer (surface NDT)",
+          "qty_per_unit": 0.02,
+          "unit": "set/dia-inch"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - RT-dominant weld inspection per diameter-inch",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Butt-weld radiography, NPS 2-24, spec % tested applied as quantity — validate with your XER to promote"
+      }
+    }
+  ]
+}

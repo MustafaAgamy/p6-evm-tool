@@ -168,6 +168,48 @@ def test_write_restores_link_via_clone_when_template_exists(tmp_path):
     assert added['type'] == 'FF' and added['lag_hours'] == 8.0
 
 
+def _dup_code_update_xml(tmp_path):
+    """An update export that carries every activity TWICE (two ObjectIds per code), as
+    some real P6 XML exports do. A050→A100 exists as BOTH 1001→1002 and 2001→2002."""
+    content = textwrap.dedent('''\
+    <?xml version="1.0"?>
+    <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
+      <Project>
+        <ObjectId>1</ObjectId><Id>P1</Id><Name>Proj</Name>
+        <Activity><ObjectId>1001</ObjectId><Id>A050</Id><Name>Clearance</Name><Type>Task Dependent</Type></Activity>
+        <Activity><ObjectId>1002</ObjectId><Id>A100</Id><Name>Excavate</Name><Type>Task Dependent</Type></Activity>
+        <Activity><ObjectId>2001</ObjectId><Id>A050</Id><Name>Clearance</Name><Type>Task Dependent</Type></Activity>
+        <Activity><ObjectId>2002</ObjectId><Id>A100</Id><Name>Excavate</Name><Type>Task Dependent</Type></Activity>
+        <Relationship><ObjectId>9001</ObjectId><PredecessorActivityObjectId>1001</PredecessorActivityObjectId><SuccessorActivityObjectId>1002</SuccessorActivityObjectId><Type>Finish to Start</Type><Lag>80</Lag></Relationship>
+        <Relationship><ObjectId>9002</ObjectId><PredecessorActivityObjectId>2001</PredecessorActivityObjectId><SuccessorActivityObjectId>2002</SuccessorActivityObjectId><Type>Finish to Start</Type><Lag>80</Lag></Relationship>
+      </Project>
+    </APIBusinessObjects>
+    ''')
+    p = tmp_path / "dup.xml"
+    p.write_text(content, encoding='utf-8')
+    return str(p)
+
+
+def test_write_removes_all_copies_of_a_link_under_duplicate_codes(tmp_path):
+    # Regression for the MAFI but-for loop: the update carried every activity twice, so
+    # keying a link by the LAST code→OID removed only one copy — the surviving stray edge
+    # closed a cycle P6 reported as a loop. remove_rel must delete EVERY copy.
+    src = _dup_code_update_xml(tmp_path)
+    out = str(tmp_path / "c.xml")
+    res = write_corrected_xml(src, [{'kind': 'remove_rel', 'pred_code': 'A050', 'succ_code': 'A100'}], out)
+    assert res['applied'] == 1
+    assert parse_file(out).relationships == []          # BOTH 1001→1002 and 2001→2002 gone
+
+
+def test_write_reverts_all_copies_of_a_changed_link_under_duplicate_codes(tmp_path):
+    src = _dup_code_update_xml(tmp_path)                 # both copies FS+80h
+    out = str(tmp_path / "c.xml")
+    write_corrected_xml(src, [{'kind': 'set_rel', 'pred_code': 'A050', 'succ_code': 'A100',
+                               'type': 'FS', 'lag_hours': 0.0}], out)
+    lags = sorted(r['lag_hours'] for r in parse_file(out).relationships)
+    assert lags == [0.0, 0.0]                            # every copy reverted, not just one
+
+
 def test_write_reverts_duration_leaves_progress(tmp_path):
     src = _update_xml(tmp_path, planned='144', remaining='120')
     out = str(tmp_path / "c.xml")

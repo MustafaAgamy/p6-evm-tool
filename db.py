@@ -1,6 +1,6 @@
 """
-All SQLite database operations for P6 EVM Tool.
-DB lives at %APPDATA%/P6EVMTool/p6evm.db — one per OS user.
+All SQLite database operations for Controlyx.
+DB lives at %APPDATA%/Controlyx/controlyx.db — one per OS user.
 """
 
 import sqlite3
@@ -17,7 +17,24 @@ MAX_CACHED_XML = 20  # oldest cached XML files deleted beyond this
 # ── Connection ─────────────────────────────────────────────────────────────
 
 def _db_path():
-    return os.path.join(app_data_dir(), 'p6evm.db')
+    """Path to the SQLite DB, migrating the legacy 'p6evm.db' file to the
+    branded 'controlyx.db' in place (WAL sidecars moved too). If the rename
+    fails, the existing DB is read where it is so no history is lost."""
+    d = app_data_dir()
+    new = os.path.join(d, 'controlyx.db')
+    legacy = os.path.join(d, 'p6evm.db')
+    if not os.path.exists(new) and os.path.exists(legacy):
+        try:
+            os.rename(legacy, new)
+        except OSError:
+            return legacy
+        for suffix in ('-wal', '-shm'):
+            try:
+                if os.path.exists(legacy + suffix):
+                    os.rename(legacy + suffix, new + suffix)
+            except OSError:
+                pass
+    return new
 
 def get_conn():
     conn = sqlite3.connect(_db_path())
@@ -126,6 +143,7 @@ def init_db():
                 kpis_json         TEXT,
                 wbs_summary_json  TEXT,
                 findings_json     TEXT,
+                mgmt_json         TEXT,
                 PRIMARY KEY (snapshot_id, module)
             );
             CREATE INDEX IF NOT EXISTS idx_audit_modules_snapshot
@@ -150,7 +168,25 @@ def init_db():
                 project_id    INTEGER PRIMARY KEY REFERENCES projects(id),
                 settings_json TEXT
             );
+
+            -- Milestone finishes per snapshot, extracted once for the Update-vs-Update
+            -- milestone trend (slip chart). A single '__none__' row marks a snapshot as
+            -- scanned when it has no milestones, so it is never re-parsed.
+            CREATE TABLE IF NOT EXISTS snapshot_milestones (
+                snapshot_id INTEGER NOT NULL REFERENCES snapshots(id),
+                activity_id TEXT NOT NULL,
+                name        TEXT,
+                task_type   TEXT,
+                finish_date TEXT,
+                PRIMARY KEY (snapshot_id, activity_id)
+            );
         ''')
+        # Migrations for databases that predate a column (SQLite ADD COLUMN is cheap
+        # and safe). Float's management-dashboard block (`mgmt`) was never persisted,
+        # so its PDF/tab could not rebuild on a re-open.
+        _audit_cols = {r['name'] for r in conn.execute('PRAGMA table_info(audit_modules)')}
+        if 'mgmt_json' not in _audit_cols:
+            conn.execute('ALTER TABLE audit_modules ADD COLUMN mgmt_json TEXT')
 
 
 # ── File helpers ───────────────────────────────────────────────────────────
@@ -379,6 +415,7 @@ def insert_audit_modules(snapshot_id, modules_result):
             _json.dumps(m.get('kpis', {})),
             _json.dumps(m.get('wbs_summary', [])),
             _json.dumps(m.get('findings', [])),
+            _json.dumps(m['mgmt']) if m.get('mgmt') is not None else None,
         ))
     if not rows:
         return
@@ -386,8 +423,8 @@ def insert_audit_modules(snapshot_id, modules_result):
         conn.executemany(
             '''INSERT OR REPLACE INTO audit_modules
                (snapshot_id, module, seq, name, score, grade, pct,
-                kpis_json, wbs_summary_json, findings_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                kpis_json, wbs_summary_json, findings_json, mgmt_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
             rows
         )
 
@@ -470,8 +507,38 @@ def save_project_settings(project_id, patch):
     return settings
 
 
+def get_contract_milestones(project_id):
+    """The contract milestones the user entered for this project: [{'name','date'}].
+    Held per project so they persist across re-imports (Milestone Check, gate B)."""
+    return get_project_settings(project_id).get('contract_milestones') or []
+
+
+def save_contract_milestones(project_id, milestones):
+    """Persist the user's contract milestones for this project."""
+    save_project_settings(project_id, {'contract_milestones': milestones or []})
+    return milestones or []
+
+
+def get_snapshot_xml_path(snapshot_id):
+    """Best available XML path for a snapshot (original, cached fallback) — for the
+    routes that must re-parse (Milestone Check re-evaluation)."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT original_path, cached_path FROM snapshots WHERE id = ?',
+                           (snapshot_id,)).fetchone()
+    if not row:
+        return None
+    return resolve_xml_path(row['original_path'], row['cached_path'])
+
+
 def get_audit_modules_for_snapshot(snapshot_id):
-    """Reconstruct {'modules': {...}, 'module_order': [...]} or None."""
+    """Reconstruct {'modules': {...}, 'module_order': [...], 'health': {...}} or None.
+
+    The roll-up is re-derived from the stored module scores rather than stored
+    itself: it is pure arithmetic over numbers we already keep, and re-deriving it
+    means a re-opened project reflects the current weights instead of the ones in
+    force on the day it was imported. No XML is touched.
+    """
+    from p6_audit.health import schedule_health
     with get_conn() as conn:
         rows = conn.execute(
             'SELECT * FROM audit_modules WHERE snapshot_id = ? ORDER BY seq ASC',
@@ -483,7 +550,7 @@ def get_audit_modules_for_snapshot(snapshot_id):
     order = []
     for r in rows:
         order.append(r['module'])
-        modules[r['module']] = {
+        mod = {
             'module':      r['module'],
             'name':        r['name'],
             'score':       r['score'],
@@ -493,7 +560,30 @@ def get_audit_modules_for_snapshot(snapshot_id):
             'wbs_summary': _json.loads(r['wbs_summary_json'] or '[]'),
             'findings':    _json.loads(r['findings_json'] or '[]'),
         }
-    return {'modules': modules, 'module_order': order}
+        if r['mgmt_json']:
+            mod['mgmt'] = _json.loads(r['mgmt_json'])
+        modules[r['module']] = mod
+    # Attach the normalized presentation (the same single source the UI/PDF/Excel
+    # render from) so a re-opened project renders identically to a fresh import.
+    from p6_audit.presentation import build_presentation
+    for m in modules.values():
+        m['presentation'] = build_presentation(m)
+    # Milestone Check (gate B) on re-open: rename + pre-fill the saved contract
+    # milestones and mark it needs_input, so the user re-confirms (and the tool
+    # re-evaluates against this baseline) before the review shows.
+    hard = modules.get('hard_constraints')
+    if hard is not None:
+        try:
+            from p6_audit.milestone_check import NAME as _MC_NAME
+            pid = get_project_id_for_snapshot(snapshot_id)
+            hard['name'] = _MC_NAME
+            hard['contract_milestones'] = get_contract_milestones(pid) if pid else []
+            hard['milestones'] = []
+            hard['needs_input'] = True
+        except Exception:
+            pass
+    return {'modules': modules, 'module_order': order,
+            'health': schedule_health(modules)}
 
 
 # ── Queries ────────────────────────────────────────────────────────────────
@@ -643,6 +733,69 @@ def get_project_snapshots(project_id):
             (project_id,)
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_prev_snapshot(snapshot_id):
+    """The snapshot immediately before `snapshot_id` for the same project (by data
+    date, then import time) — used by Update vs Update to auto-suggest last period.
+    Returns {id, data_date, original_path, cached_path} or None."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            'SELECT project_id, data_date, imported_at FROM snapshots WHERE id = ?',
+            (snapshot_id,)
+        ).fetchone()
+        if not cur:
+            return None
+        row = conn.execute(
+            '''SELECT id, data_date, original_path, cached_path
+               FROM snapshots
+               WHERE project_id = ?
+                 AND (data_date < ? OR (data_date = ? AND imported_at < ?))
+               ORDER BY data_date DESC, imported_at DESC
+               LIMIT 1''',
+            (cur['project_id'], cur['data_date'], cur['data_date'], cur['imported_at'])
+        ).fetchone()
+        return dict(row) if row else None
+
+def snapshot_project_id(snapshot_id):
+    """project_id owning a snapshot (or None)."""
+    with get_conn() as conn:
+        r = conn.execute('SELECT project_id FROM snapshots WHERE id = ?', (snapshot_id,)).fetchone()
+        return r['project_id'] if r else None
+
+def get_project_snapshot_files(project_id):
+    """[{id, data_date, original_path, cached_path}] for a project, oldest first —
+    used by the milestone trend to walk every stored update."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            '''SELECT id, data_date, original_path, cached_path
+               FROM snapshots WHERE project_id = ?
+               ORDER BY data_date ASC, imported_at ASC''',
+            (project_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+def cache_snapshot_milestones(snapshot_id, milestones):
+    """Store extracted milestone finishes for a snapshot (idempotent). `milestones` is a
+    list of {activity_id, name, task_type, finish_date}. An empty list writes a single
+    '__none__' sentinel so the snapshot is marked scanned and never re-parsed."""
+    rows = milestones or [{'activity_id': '__none__', 'name': None, 'task_type': None, 'finish_date': None}]
+    with get_conn() as conn:
+        conn.execute('DELETE FROM snapshot_milestones WHERE snapshot_id = ?', (snapshot_id,))
+        conn.executemany(
+            '''INSERT OR REPLACE INTO snapshot_milestones
+               (snapshot_id, activity_id, name, task_type, finish_date) VALUES (?,?,?,?,?)''',
+            [(snapshot_id, m['activity_id'], m.get('name'), m.get('task_type'), m.get('finish_date'))
+             for m in rows])
+
+def get_snapshot_milestones(snapshot_id):
+    """(scanned, rows). scanned=True once extraction has been cached (even if the
+    snapshot had no milestones); rows excludes the '__none__' sentinel."""
+    with get_conn() as conn:
+        raw = [dict(r) for r in conn.execute(
+            '''SELECT activity_id, name, task_type, finish_date
+               FROM snapshot_milestones WHERE snapshot_id = ?''', (snapshot_id,)).fetchall()]
+    return (len(raw) > 0), [r for r in raw if r['activity_id'] != '__none__']
 
 def resolve_xml_path(original_path, cached_path):
     """Return the best available XML path: original first, cached fallback."""

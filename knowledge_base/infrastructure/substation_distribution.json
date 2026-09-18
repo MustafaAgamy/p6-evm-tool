@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "MV Distribution Substation",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["distribution substation", "distribution", "11kv", "33kv", "66kv", "ring main", "rmu",
+                 "distribution transformer", "feeder pillar", "package substation", "unit substation", "lv panel", "mv"],
+  "wbs": [
+    {"name": "Civil Works", "keywords": ["civil", "foundation", "building", "kiosk", "plinth", "trench"]},
+    {"name": "Earthing", "keywords": ["earthing", "earth", "grounding", "bonding"]},
+    {"name": "MV Switchgear / RMU", "keywords": ["mv switchgear", "ring main", "rmu", "switchgear", "breaker"]},
+    {"name": "Distribution Transformers", "keywords": ["distribution transformer", "transformer"]},
+    {"name": "LV Panels & Feeders", "keywords": ["lv panel", "feeder pillar", "feeder", "distribution board"]},
+    {"name": "Cabling & Terminations", "keywords": ["cabling", "cable", "termination", "jointing"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "sat", "pre-commission"]},
+    {"name": "Energization & Handover", "keywords": ["energ", "charging", "handover", "take over"]}
+  ],
+  "activities": [
+    {"name": "Earthing Installation & Test", "keywords": ["earthing", "earth", "grounding"], "wbs": "Earthing",
+     "typical_pred": "Civil Works", "typical_succ": "Switchgear Installation", "duration_days": 10,
+     "why": "The earth system must be installed and tested before energization for safety — often omitted on distribution jobs."},
+    {"name": "MV Switchgear / RMU Installation", "keywords": ["mv switchgear", "ring main", "rmu", "switchgear"], "wbs": "MV Switchgear / RMU",
+     "typical_pred": "Civil Works", "typical_succ": "Cable Termination", "duration_days": 12,
+     "why": "The ring main unit / MV switchgear is the core distribution asset, installed onto completed civil works."},
+    {"name": "Cable Jointing & Termination", "keywords": ["termination", "jointing", "cable joint"], "wbs": "Cabling & Terminations",
+     "typical_pred": "MV Switchgear / RMU Installation", "typical_succ": "Testing & Commissioning", "duration_days": 12,
+     "why": "MV cable jointing/terminations are specialist tasks that gate commissioning and are easy to under-plan."},
+    {"name": "SAT / Pre-Energization Test", "keywords": ["sat", "pre-energization", "test"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Cable Jointing & Termination", "typical_succ": "Energization", "duration_days": 8,
+     "why": "A SAT and insulation/pressure tests prove the substation before energization."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["civil", "foundation", "kiosk", "plinth"], "after_keywords": ["switchgear", "rmu", "transformer", "install"],
+     "reason": "Switchgear and transformers install onto completed civil works.",
+     "impact": "Critical"},
+    {"before_keywords": ["earthing", "earth", "grounding"], "after_keywords": ["energ", "energization", "charging"],
+     "reason": "Energization must follow a tested earthing system.",
+     "impact": "Critical"},
+    {"before_keywords": ["termination", "jointing", "sat", "test"], "after_keywords": ["energ", "energization", "charging"],
+     "reason": "Energization follows cable termination and pre-energization testing.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Civil Complete", "Earthing Tested", "Switchgear Installed", "SAT Complete", "Energization"],
+  "common_issues": ["Earthing omitted or untested", "Cable jointing/termination under-planned",
+                    "Energization before SAT", "Transformer delivery not reflected"]
+}

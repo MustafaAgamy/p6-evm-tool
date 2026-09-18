@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "AIS Substation (Air-Insulated)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["ais", "air insulated", "air-insulated", "outdoor switchyard", "switchyard", "gantry", "disconnector",
+                 "isolator", "busbar", "clearance", "transformer", "circuit breaker", "substation", "kv"],
+  "wbs": [
+    {"name": "Civil & Switchyard Levelling", "keywords": ["civil", "foundation", "switchyard", "levelling", "grading", "trench"]},
+    {"name": "Steel Gantries & Support Structures", "keywords": ["gantry", "steel structure", "support", "tower", "equipment support"]},
+    {"name": "Earthing Grid", "keywords": ["earthing", "earth grid", "grounding", "bonding"]},
+    {"name": "Primary Equipment (Outdoor)", "keywords": ["transformer", "circuit breaker", "disconnector", "isolator", "busbar", "ct", "vt"]},
+    {"name": "Control Building & Protection", "keywords": ["control building", "protection", "relay", "scada", "panel"]},
+    {"name": "Cabling & Interconnection", "keywords": ["cabling", "cable", "interconnection", "stringing"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "sat", "pre-commission"]},
+    {"name": "Energization & Handover", "keywords": ["energ", "charging", "handover", "take over"]}
+  ],
+  "activities": [
+    {"name": "Earthing Grid Installation & Test", "keywords": ["earthing", "earth grid", "grounding"], "wbs": "Earthing Grid",
+     "typical_pred": "Switchyard Levelling", "typical_succ": "Gantry Erection", "duration_days": 20,
+     "why": "The buried earth grid must be laid and tested before the switchyard is built over it — safety-critical and easily deferred."},
+    {"name": "Gantry & Equipment Support Erection", "keywords": ["gantry", "equipment support", "steel structure"], "wbs": "Steel Gantries & Support Structures",
+     "typical_pred": "Civil Foundations", "typical_succ": "Primary Equipment Installation", "duration_days": 30,
+     "why": "Outdoor AIS relies on steel gantries and supports for busbars and equipment, erected after foundations."},
+    {"name": "Busbar Stringing & Clearances", "keywords": ["busbar", "stringing", "clearance", "conductor"], "wbs": "Primary Equipment (Outdoor)",
+     "typical_pred": "Primary Equipment Installation", "typical_succ": "Site Acceptance Test (SAT)", "duration_days": 20,
+     "why": "Air-insulated busbars depend on electrical clearances; stringing and clearance checks are specific to AIS."},
+    {"name": "Site Acceptance Test (SAT)", "keywords": ["sat", "site acceptance"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Protection Commissioning", "typical_succ": "Energization", "duration_days": 15,
+     "why": "A SAT proves the whole substation before energization."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["earthing", "earth grid", "grounding"], "after_keywords": ["gantry", "equipment", "install", "energ"],
+     "reason": "The earth grid is installed and tested before structures and equipment are built over it.",
+     "impact": "Critical"},
+    {"before_keywords": ["civil", "foundation"], "after_keywords": ["gantry", "transformer", "equipment install"],
+     "reason": "Gantries and primary equipment install onto completed civil foundations.",
+     "impact": "Critical"},
+    {"before_keywords": ["sat", "site acceptance", "protection", "earthing"], "after_keywords": ["energ", "energization", "charging"],
+     "reason": "Energization must follow SAT, protection commissioning and a tested earthing system.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Earth Grid Tested", "Gantries Erected", "Equipment Installed", "SAT Complete", "Energization"],
+  "common_issues": ["Earth grid installed late (after structures)", "Busbar clearances not verified",
+                    "Energization before SAT / protection commissioning", "No transformer FAT"]
+}

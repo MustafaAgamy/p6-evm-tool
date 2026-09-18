@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "Traction / Railway Substation",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["traction", "traction substation", "traction plant", "tss", "railway substation", "rectifier", "25kv", "2x25kv",
+                 "750v", "1500v", "autotransformer", "rail return", "stray current", "feeder", "catenary", "ocs", "third rail", "scada"],
+  "wbs": [
+    {"name": "Civil Works", "keywords": ["civil", "foundation", "building", "trench", "cable route"]},
+    {"name": "Earthing & Bonding (Rail Return)", "keywords": ["earthing", "bonding", "rail return", "grounding", "stray current"]},
+    {"name": "Incoming HV & Transformers", "keywords": ["incoming", "hv", "transformer", "traction transformer", "switchgear"]},
+    {"name": "Rectifier / Traction Plant", "keywords": ["rectifier", "traction plant", "autotransformer", "converter"]},
+    {"name": "DC / AC Switchgear & Feeders", "keywords": ["switchgear", "feeder", "dc switchgear", "feeder cable", "cabling"]},
+    {"name": "SCADA & Protection", "keywords": ["scada", "protection", "relay", "control", "remote"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "sat", "integration"]},
+    {"name": "Energization & Interface to OCS", "keywords": ["energ", "charging", "ocs", "catenary", "third rail", "handover"]}
+  ],
+  "activities": [
+    {"name": "Rectifier / Traction Transformer Installation", "keywords": ["rectifier", "traction transformer", "autotransformer"], "wbs": "Rectifier / Traction Plant",
+     "typical_pred": "Incoming HV Switchgear", "typical_succ": "Traction Plant Commissioning", "duration_days": 30,
+     "why": "The rectifier (DC systems) or autotransformer (2x25kV AC) is the traction-specific long-lead heart of the substation."},
+    {"name": "Rail Return / Stray-Current Bonding", "keywords": ["rail return", "stray current", "bonding", "earthing"], "wbs": "Earthing & Bonding (Rail Return)",
+     "typical_pred": "Civil Works", "typical_succ": "Traction Plant Commissioning", "duration_days": 20,
+     "why": "Traction earthing/return and stray-current control are safety-critical and specific to railway substations — often forgotten."},
+    {"name": "OCS / Third-Rail Interface Test", "keywords": ["ocs", "catenary", "third rail", "interface", "feeder test"], "wbs": "Energization & Interface to OCS",
+     "typical_pred": "Traction Plant Commissioning", "typical_succ": "Energization", "duration_days": 15,
+     "why": "The substation feeds the overhead catenary or third rail; the interface must be tested before line energization."},
+    {"name": "System Integration Test / SAT", "keywords": ["integration test", "sat", "site acceptance"], "wbs": "Testing & Commissioning",
+     "typical_pred": "SCADA & Protection Commissioning", "typical_succ": "Energization", "duration_days": 15,
+     "why": "Integration with SCADA and protection is proven before the traction supply is energized."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["civil", "foundation"], "after_keywords": ["rectifier", "transformer", "equipment install"],
+     "reason": "Traction plant installs onto completed civil works.",
+     "impact": "Critical"},
+    {"before_keywords": ["rail return", "stray current", "bonding", "earthing"], "after_keywords": ["energ", "energization", "traction supply"],
+     "reason": "Traction energization must follow rail-return earthing and stray-current bonding for safety.",
+     "impact": "Critical"},
+    {"before_keywords": ["integration test", "sat", "protection", "ocs"], "after_keywords": ["energ", "energization", "charging"],
+     "reason": "Energization follows integration/SAT, protection commissioning and the OCS/third-rail interface test.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Civil Complete", "Traction Plant Installed", "Rail Return Bonded", "SAT Complete", "Energization"],
+  "common_issues": ["Missing rail-return / stray-current scope", "OCS/third-rail interface not tested before energization",
+                    "Rectifier/autotransformer lead time not reflected", "Energization before integration/SAT"]
+}

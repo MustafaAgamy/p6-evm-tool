@@ -131,7 +131,14 @@ def _classify_exceptions(cal, start, finish, reasons, manual):
                and cal.exception_intervals[added_sorted[j + 1]] == sig):
             j += 1
         s, e = d0, added_sorted[j]
-        hrs = sum(em - sm for sm, em in sig) / 60.0
+        special_minutes = sum(em - sm for sm, em in sig)
+        # Ibrahim's rule (#03): ignore trivial differences from the standard working day.
+        # P6 stores work times to the minute, so a sub-5-minute change is rounding noise,
+        # not a real "reduced hours" period — don't clutter the report with it.
+        if abs(special_minutes - _standard_minutes(cal, d0)) < 5:
+            i = j + 1
+            continue
+        hrs = special_minutes / 60.0
         first = sig[0]
         special.append({'start': _iso(s), 'end': _iso(e), 'days': (e - s).days + 1,
                         'hours': _hhmm(first[0]) + '–' + _hhmm(sig[-1][1]),
@@ -143,11 +150,53 @@ def _classify_exceptions(cal, start, finish, reasons, manual):
     for ms in manual:
         shutdowns.append(ms)
 
-    return {'holidays': holidays, 'special': special, 'shutdowns': shutdowns}
+    return {'holidays': holidays, 'special': special, 'shutdowns': shutdowns,
+            'holiday_dates': _holiday_dates(holidays)}
+
+
+def _holiday_dates(holidays):
+    """§3 Calendar Non-working days — expand each holiday RUN into individual dates, each
+    carrying its weekday name. Reuses the run's block key + stored reason so the existing
+    shutdown_reasons plumbing edits the (editable) description. HOLIDAYS ONLY — shutdowns and
+    reduced/special-hours days are deliberately excluded."""
+    out = []
+    for grp in holidays:
+        s, e = _to_date(grp['start']), _to_date(grp['end'])
+        d = s
+        while d and e and d <= e:
+            out.append({'date': _iso(d), 'weekday': DOW_NAMES[d.weekday()],
+                        'reason': grp.get('reason', ''), 'key': grp.get('key', '')})
+            d += timedelta(days=1)
+    return out
 
 
 def _hhmm(minutes):
     return f'{minutes // 60:02d}:{minutes % 60:02d}'
+
+
+def _standard_minutes(cal, d):
+    """The calendar's normal working minutes for the weekday of `d` — the reference a
+    reduced/special day is compared against (#03). Falls back to the flat day hours."""
+    ivs = cal.work_intervals.get(DOW_NAMES[d.weekday()])
+    if ivs:
+        return sum(em - sm for sm, em in ivs)
+    return int(round(cal.day_hours * 60))
+
+
+def _exception_date_names(exc):
+    """{date: user-typed name} for holidays/shutdowns that carry a stored reason — used
+    to print the name inside the timeline day cell and Excel (#05)."""
+    names = {}
+    for grp in list(exc.get('holidays', [])) + list(exc.get('shutdowns', [])):
+        nm = (grp.get('reason') or '').strip()
+        if not nm:
+            continue
+        s, e = _to_date(grp['start']), _to_date(grp['end'])
+        d = s
+        while d and e and d <= e:
+            names[d] = nm
+            d += timedelta(days=1)
+    return names
 
 
 def _normalise_manual(manual_raw):
@@ -208,7 +257,8 @@ def _day_status(cal, d, shutdown_dates):
 
 # ── per-calendar monthly build ───────────────────────────────────────────────
 
-def _months_for_calendar(cal, start, finish, shutdown_dates):
+def _months_for_calendar(cal, start, finish, shutdown_dates, date_names=None):
+    date_names = date_names or {}
     months = []
     for y, m in _month_iter(start, finish):
         m_first = max(date(y, m, 1), start)
@@ -217,7 +267,11 @@ def _months_for_calendar(cal, start, finish, shutdown_dates):
         d = m_first
         while d <= m_last:
             st = _day_status(cal, d, shutdown_dates)
-            days.append({'d': d.day, 'status': st})
+            cell = {'d': d.day, 'status': st}
+            nm = date_names.get(d)
+            if nm:
+                cell['name'] = nm
+            days.append(cell)
             if st == 'work' or st == 'special':
                 wd += 1
                 hours += cal.day_working_hours(d)
@@ -236,8 +290,8 @@ def _months_for_calendar(cal, start, finish, shutdown_dates):
         months.append({
             'label': f'{_MONTH_ABBR[m]} {y}', 'year': y, 'month': m,
             'first_weekday': m_first.weekday(),  # Mon=0
-            'working_days': wd, 'holidays': hol, 'exceptions': exc,
-            'working_hours': round(hours, 1), 'flag': flag, 'days': days,
+            'working_days': wd, 'nonworking_days': len(days) - wd, 'holidays': hol,
+            'exceptions': exc, 'working_hours': round(hours, 1), 'flag': flag, 'days': days,
         })
     return months
 
@@ -256,8 +310,12 @@ def _calendar_totals(cal, start, finish):
     return wd, nwd, round(hours, 1)
 
 
-def _hours_profiles(cal):
-    """Distinct working-hour patterns: the standard week + any special blocks."""
+def _hours_profiles(cal, notes=None):
+    """Distinct working-hour patterns: the standard week + any special blocks. Each profile
+    also carries a stable `key` (its hours string; a duplicate is suffixed with its index) and
+    a planner-typed `note` — a justification for a reduced-hours period, restored from
+    `notes` (settings['hours_notes']). Mirrors how shutdown reasons persist."""
+    notes = notes or {}
     profiles = []
     # Standard: pick the most common intraday interval across the week, else flat hours.
     week_sigs = {}
@@ -276,6 +334,17 @@ def _hours_profiles(cal):
         profiles.append({'name': 'Normal', 'hours': f'{cal.day_hours:g} hrs/day',
                          'hours_per_day': cal.day_hours,
                          'sub': f'{cal.days_per_week()} days/week'})
+    # Stable per-profile key = the hours string; a repeat gets an index suffix so each card
+    # keeps its own note. Restore the saved note (default '') onto every profile.
+    seen = {}
+    for p in profiles:
+        base = p['hours']
+        n = seen.get(base, 0)
+        seen[base] = n + 1
+        key = base if n == 0 else f'{base}#{n}'
+        p['key'] = key
+        p['note'] = notes.get(key, '')
+        p['days_per_week'] = cal.days_per_week()   # §4 table column (mirror of the 'sub' text)
     return profiles
 
 
@@ -285,6 +354,7 @@ def calendar_audit(data, config=None, settings=None):
     settings = settings or {}
     reasons = settings.get('shutdown_reasons', {}) or {}
     manual = _normalise_manual(settings.get('manual_shutdowns', []))
+    hours_notes = settings.get('hours_notes', {}) or {}
 
     cals = data.calendars
     cstart, cfinish = _project_window(data)      # current schedule window (fallback)
@@ -297,6 +367,18 @@ def calendar_audit(data, config=None, settings=None):
     # Ibrahim's rule: the calendar runs from Baseline Start to Baseline Finish, shown in
     # FULL months — so a baseline finishing 09 Feb still shows the whole of February.
     finish = _month_last_day(fin_exact.year, fin_exact.month)
+
+    # Ibrahim's rule: the whole Calendar Audit is forward-looking — everything runs from the
+    # DATA DATE to finish (the past is actualised). The timeline, the per-month stats, the
+    # Calendar-Statistics tiles AND the exception lists (holidays / reduced-hours / shutdowns)
+    # all start at the data date; nothing before it is shown. If the data date is outside the
+    # window, nothing is hidden.
+    dd = _to_date(data.project.get('data_date'))
+    display_start = start
+    hidden_months = 0
+    if dd and start < dd <= finish:
+        display_start = dd
+        hidden_months = sum(1 for _ in _month_iter(start, dd)) - 1
 
     # Usage counts
     usage_count = {}
@@ -319,16 +401,17 @@ def calendar_audit(data, config=None, settings=None):
     for cid in assigned_ids:
         cal = cals[cid]
         is_primary = (cid == primary_id)
-        exc = _classify_exceptions(cal, start, finish, reasons,
+        exc = _classify_exceptions(cal, display_start, finish, reasons,
                                    manual if is_primary else [])
         shut_dates = _shutdown_dates(exc)
-        months = _months_for_calendar(cal, start, finish, shut_dates)
-        wd, nwd, hours = _calendar_totals(cal, start, finish)
+        months = _months_for_calendar(cal, display_start, finish, shut_dates,
+                                      _exception_date_names(exc))
+        wd, nwd, hours = _calendar_totals(cal, display_start, finish)
         by_calendar[cid] = {
             'object_id': cid, 'name': cal.name,
             'monthly_stats': months,
             'exceptions': exc,
-            'hours_profiles': _hours_profiles(cal),
+            'hours_profiles': _hours_profiles(cal, hours_notes),
             'totals': {'working_days': wd, 'nonworking_days': nwd, 'working_hours': hours},
         }
 
@@ -338,13 +421,18 @@ def calendar_audit(data, config=None, settings=None):
     prim_totals = by_calendar.get(primary_id, {}).get(
         'totals', {'working_days': 0, 'nonworking_days': 0, 'working_hours': 0.0})
 
-    total_calendar_days = (finish - start).days + 1
-    n_months = sum(1 for _ in _month_iter(start, finish)) or 1
+    total_calendar_days = (finish - display_start).days + 1
+    n_months = sum(1 for _ in _month_iter(display_start, finish)) or 1
     total_holidays = sum(h['days'] for h in prim_exc['holidays'])
     total_exc_days = (total_holidays
                       + sum(s['days'] for s in prim_exc['shutdowns'])
                       + sum(s['days'] for s in prim_exc['special']))
     wd = prim_totals['working_days']
+
+    # §1 Execution Dashboard — the primary calendar's standard working hours (e.g. "08:00–16:00"),
+    # read by both the screen and the PDF as the "Normal hours" tile.
+    prim_profiles = by_calendar.get(primary_id, {}).get('hours_profiles', [])
+    normal_hours = prim_profiles[0]['hours'] if prim_profiles else ''
 
     dashboard = {
         'project_start': _iso(cstart or start),
@@ -352,7 +440,7 @@ def calendar_audit(data, config=None, settings=None):
         'data_date': _iso(_to_date(data.project.get('data_date'))),
         'baseline_start': _iso(bstart),
         'baseline_finish': _iso(bfinish),
-        'window_start': _iso(start),
+        'window_start': _iso(display_start),
         'window_finish': _iso(finish),
         'total_calendar_days': total_calendar_days,
         'total_working_days': wd,
@@ -362,6 +450,7 @@ def calendar_audit(data, config=None, settings=None):
         'shutdown_periods': len(prim_exc['shutdowns']),
         'avg_working_days_per_month': round(wd / n_months, 1),
         'avg_working_hours_per_day': round(prim_totals['working_hours'] / wd, 1) if wd else 0.0,
+        'normal_hours': normal_hours,
     }
 
     usage = _usage(cals, usage_count, total_assigned)
@@ -369,12 +458,13 @@ def calendar_audit(data, config=None, settings=None):
     return {
         'dashboard': dashboard,
         'project': {'start': _iso(start), 'finish': _iso(finish),
-                    'baseline_start': _iso(bstart), 'baseline_finish': _iso(bfinish)},
+                    'baseline_start': _iso(bstart), 'baseline_finish': _iso(bfinish),
+                    'timeline_start': _iso(display_start), 'hidden_months': hidden_months},
         'primary_calendar_id': primary_id,
         'assigned_calendars': _assigned_list(cals, usage_count, assigned_ids, start, finish),
         'by_calendar': by_calendar,
         'exceptions': prim_exc,
-        'comparison': _comparison(cals, usage_count, assigned_ids, start, finish),
+        'comparison': _comparison(cals, usage_count, assigned_ids, display_start, finish),
         'usage': usage,
         'conflicts': conflicts,
         'conclusion': _conclusion(dashboard, prim_exc, usage, conflicts, primary_id, cals),
@@ -414,11 +504,6 @@ def _conclusion(dashboard, exc, usage, conflicts, primary_id, cals):
     return bullets
 
 
-def _exception_day_count(cal, start, finish):
-    return (len([d for d in cal.holidays if start <= d <= finish])
-            + len([d for d in cal.exception_intervals if start <= d <= finish]))
-
-
 def _assigned_list(cals, usage_count, assigned_ids, start, finish):
     out = []
     for cid in sorted(assigned_ids, key=lambda c: -usage_count.get(c, 0)):
@@ -432,13 +517,17 @@ def _assigned_list(cals, usage_count, assigned_ids, start, finish):
 
 
 def _comparison(cals, usage_count, assigned_ids, start, finish):
+    """Per-calendar comparison. Ibrahim's changes: no Activities column (those live in
+    Usage, #09); the last column counts the non-working days that are still AHEAD — from
+    the data date to finish (weekends + holidays + shutdowns). Elapsed past days are
+    excluded, so `start` here is the data-date window start, not the baseline start."""
     rows = []
     for cid in sorted(assigned_ids, key=lambda c: -usage_count.get(c, 0)):
         cal = cals[cid]
+        _wd, nwd, _hours = _calendar_totals(cal, start, finish)
         rows.append({'name': cal.name, 'hours_per_day': cal.day_hours,
                      'days_per_week': cal.days_per_week(),
-                     'activities': usage_count.get(cid, 0),
-                     'exceptions': _exception_day_count(cal, start, finish),
+                     'nonworking_days': nwd,
                      'is_default': cal.is_default})
     return rows
 

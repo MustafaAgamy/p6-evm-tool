@@ -1,0 +1,889 @@
+// Reporting Studio — Dashboard view (Slice 1, view-only).
+//
+// One selection in the builder feeds both outputs; this module draws the merged
+// visual "Dashboard view" in the APPROVED Professional Dashboard `.pd-*` one-pager
+// style. It computes nothing: it POSTs the picked item ids to /api/special/tiles
+// and renders the per-item "tiles" the server returns.
+//
+// The pure helpers below return HTML strings and never touch document/window, so
+// they are unit-testable in plain node (see tests/js/test_studio_dash.js). Only
+// renderStudioDashboard() reaches the DOM / the local server.
+//
+// This slice is VIEW-ONLY: no edit mode, no catalog, no export buttons — those
+// arrive in a later slice.
+
+import { state } from './state.js';
+import { escapeHtml } from './format.js';
+import { showReportPreview } from './preview.js';
+import { getSavedMode } from './appearance.js';
+
+export { escapeHtml };
+
+// last rendered board (so Export can rebuild it) + a tiny POST helper.
+// `layout` is the per-project saved layout (order/sizes/titles/header) or null.
+let _last = { tiles: [], meta: {}, layout: null, snapshotId: null };
+
+// ── edit-mode module state (view-only by default → today's behavior everywhere) ─
+let _editing = false;        // true only while the user is in edit mode
+let _headerActive = false;   // true once the letterhead header is in use (else omit on save)
+let _dragId = null;          // id of the grid panel currently being dragged
+
+const SIZES = ['s', 'm', 'l', 'xl'];   // logo + title/subtitle size steps
+function nextSize(s) { const i = SIZES.indexOf(s); return SIZES[(i < 0 ? 1 : i + 1) % SIZES.length]; }
+const cycleWidth = w => (w === 2 ? 1 : 2);                  // narrow ↔ wide
+const cycleHeight = h => (h === 0 ? 1 : (h === 1 ? 2 : 0)); // compact → normal → tall → compact
+
+function post(path, body) {
+  return fetch(`http://localhost:${state.serverPort}/${path}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  }).then(r => r.json());
+}
+
+// ── tone / severity mapping ──────────────────────────────────────────────────
+// semantic tone -> a `.pd-*` colour class (colours resolve to app appearance tokens)
+export function toneClass(tone) {
+  return { good: 'pd-good', warn: 'pd-warn', bad: 'pd-bad', accent: 'pd-accent' }[tone] || 'pd-neutral';
+}
+
+// finding severity -> the dot's colour class (the dot paints from currentColor)
+export function sevClass(sev) {
+  return { high: 'pd-bad', medium: 'pd-warn', low: 'pd-neutral', info: 'pd-accent' }[sev] || 'pd-neutral';
+}
+
+// tone -> a concrete theme token, for a filled segment/bar background
+function toneToken(tone, i) {
+  const m = { good: 'var(--success)', warn: 'var(--warning)', bad: 'var(--danger)', accent: 'var(--accent)' };
+  return m[tone] || `var(--chart-${((i || 0) % 6) + 1})`;
+}
+
+// table cell alignment (l|r|c) -> inline text-align, or '' for the default (left)
+function alignStyle(a) {
+  const m = { l: 'left', r: 'right', c: 'center' };
+  return m[a] ? ` style="text-align:${m[a]}"` : '';
+}
+
+function naHtml() { return '<div class="pd-na">No data available.</div>'; }
+
+// ── RAG rail + redundant letter (accessible: colour is never the only channel) ─
+function railClass(tone) { return { good: 'rail-good', warn: 'rail-warn', bad: 'rail-bad' }[tone] || ''; }
+export function ragLetter(tone) { return { good: 'G', warn: 'A', bad: 'R' }[tone] || ''; }
+function ragBadge(tone) {
+  const l = ragLetter(tone);
+  return l ? `<span class="rag ${{ good: 'good', warn: 'warn', bad: 'bad' }[tone]}">${l}</span>` : '';
+}
+
+// axis-less mini line drawn under a KPI value (neutral colour until a change
+// threshold is confirmed — see payloads.kpi delta_tone).
+export function sparkHtml(points) {
+  const p = (points || []).map(Number).filter(v => !Number.isNaN(v));
+  if (p.length < 2) return '';
+  const W = 92, H = 20, mn = Math.min(...p), mx = Math.max(...p), rng = (mx - mn) || 1;
+  const x = i => 2 + (W - 4) * (i / (p.length - 1));
+  const y = v => H - 3 - (H - 6) * ((v - mn) / rng);
+  const pts = p.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
+    `<polyline points="${pts}" fill="none" stroke="var(--muted)" stroke-width="1.5"/></svg>`;
+}
+
+// multi-series line chart (trends across the weekly updates); null points = gaps.
+function lineHtml(data) {
+  const series = data.series || [];
+  const n = series.reduce((m, s) => Math.max(m, (s.points || []).length), 0);
+  if (n < 2) return naHtml();
+  const W = 300, H = 140, padL = 28, padR = 8, padT = 10, padB = 22;
+  const vals = series.flatMap(s => (s.points || []).filter(v => v != null).map(Number));
+  let ymax = data.y_max || (vals.length ? Math.max(...vals) : 1) || 1;
+  if (data.ref && data.ref.value != null) ymax = Math.max(ymax, Number(data.ref.value));
+  ymax = ymax * 1.08 || 1;
+  const x = i => padL + (W - padL - padR) * (n === 1 ? 0 : i / (n - 1));
+  const y = v => (H - padB) - (H - padB - padT) * (Number(v) / ymax);
+  const axes = `<line x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}" stroke="var(--border)"/>` +
+    `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB}" stroke="var(--border)"/>`;
+  let ref = '';
+  if (data.ref && data.ref.value != null) {
+    const ry = y(data.ref.value);
+    ref = `<line x1="${padL}" y1="${ry.toFixed(1)}" x2="${W - padR}" y2="${ry.toFixed(1)}" stroke="var(--muted)" stroke-dasharray="4 4"/>` +
+      `<text x="${W - padR}" y="${(ry - 3).toFixed(1)}" font-size="7" fill="var(--muted)" text-anchor="end">${escapeHtml(data.ref.label || '')}</text>`;
+  }
+  const lines = series.map((s, si) => {
+    const pts = (s.points || []).map((v, i) => v == null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`).filter(Boolean).join(' ');
+    return pts ? `<polyline points="${pts}" fill="none" stroke="${toneToken(s.tone, si)}" stroke-width="2" stroke-linejoin="round"/>` : '';
+  }).join('');
+  const leg = series.map((s, si) => `<span><i style="background:${toneToken(s.tone, si)}"></i>${escapeHtml(s.label)}</span>`).join('');
+  let out = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${axes}${ref}${lines}</svg>` +
+    `<div class="pd-legend">${leg}</div>`;
+  if (data.note) out += `<div class="pd-note">${escapeHtml(data.note)}</div>`;
+  return out;
+}
+
+// discipline-gap variance row: bar to actual, tick at planned, shortfall shaded.
+function varianceBarsHtml(data) {
+  const rows = data.rows || [];
+  if (!rows.length) return naHtml();
+  const axisMax = data.axis_max;
+  const clamp = v => Math.max(0, Math.min(100, v));
+  const scale = v => clamp(axisMax ? (Number(v) / axisMax * 100) : Number(v));
+  let out = rows.map(row => {
+    const actual = scale((row.values || [])[0] || 0);
+    const target = row.target != null ? scale(row.target) : null;
+    const disp = (row.display && row.display[0] != null) ? row.display[0] : ((row.values || [])[0]);
+    const fill = toneToken(row.tone, 0);
+    const short = (target != null && target > actual)
+      ? `<div class="pd-fl-short" style="left:${actual.toFixed(1)}%;width:${(target - actual).toFixed(1)}%"></div>` : '';
+    const tick = target != null ? `<div class="pd-tick" style="left:${target.toFixed(1)}%"></div>` : '';
+    return `<div class="pd-bar"><div class="pd-bl">${escapeHtml(row.label)}</div>` +
+      `<div class="pd-trk"><div class="pd-fl" style="width:${actual.toFixed(1)}%;background:${fill}"></div>${short}${tick}</div>` +
+      `<div class="pd-bv ${toneClass(row.tone)}">${escapeHtml(disp)}</div></div>`;
+  }).join('');
+  out += `<div class="pd-legend"><span>bar = actual</span><span>│ tick = planned</span><span>▨ shortfall</span></div>`;
+  if (data.note) out += `<div class="pd-note">${escapeHtml(data.note)}</div>`;
+  return out;
+}
+
+// ── table → chart (generic, charts-only dashboard) ──────────────────────────────
+// The dashboard shows every result as a chart. A `table` payload becomes a chart:
+// the FIRST column is the row label; every OTHER column whose cells are mostly
+// numeric becomes a grouped horizontal bar (one bar per numeric column, coloured
+// by column order). A genuinely all-text table (a register) can't be charted, so
+// we fall back to an honest row-count note — never a crash. The full table always
+// stays available in the Document view.
+
+// The visible text of a cell — cells may be a bare value or a [text, tone] pair.
+function cellText(cell) {
+  const t = Array.isArray(cell) ? cell[0] : cell;
+  return t == null ? '' : String(t);
+}
+
+// Parse a cell to a number, tolerating %, thousands separators, currency and units.
+// Handles [text, tone] cells (uses cell[0]) and accounting negatives "(1,234)".
+function parseNum(cell) {
+  let v = Array.isArray(cell) ? cell[0] : cell;
+  if (v == null) return NaN;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : NaN;
+  const raw = String(v).trim().replace(/−/g, '-');
+  if (!/\d/.test(raw)) return NaN;                     // no digit at all → not a number
+  // A real numeric cell is an optional currency symbol/code, then the number (with
+  // thousands ',', decimals, accounting parens), then an optional %/magnitude/unit.
+  // An ID or code like "A100", "WBS-12" or "FS" has a letter FUSED to its digits and
+  // is rejected here, so a register never charts as meaningless bars.
+  if (!/^[$€£¥₹]?\s*(?:[A-Za-z]{2,4}\s+)?\(?[-+]?[\d,]+(?:\.\d+)?\)?\s*(?:%|[KMBkmb]|bn|d|days?|wd|hrs?|h)?\s*$/.test(raw)) {
+    return NaN;
+  }
+  let s = raw.replace(/[\s,%$€£¥₹]/g, '');              // strip %, thousands, currency, spaces
+  if (/^\(.*\)$/.test(s)) s = '-' + s.slice(1, -1);    // (1,234) accounting negative → -1234
+  s = s.replace(/[A-Za-z]+$/, '').replace(/^[A-Za-z]+/, '');   // drop a currency code / unit token
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function tableChartHtml(data) {
+  const cols = data.columns || [];
+  const rows = data.rows || [];
+  if (!cols.length && !rows.length) return naHtml();
+  const badge = `<div class="pd-note pd-conv">table → chart</div>`;
+  // A column (skip col 0 = labels) is numeric when most of its cells parse as numbers.
+  const numCols = [];
+  for (let c = 1; c < cols.length; c++) {
+    let seen = 0, num = 0;
+    for (const r of rows) {
+      if (!r || r[c] == null) continue;
+      seen++;
+      if (!Number.isNaN(parseNum(r[c]))) num++;
+    }
+    if (seen && num >= 1 && num * 2 >= seen) numCols.push(c);   // at least half numeric
+  }
+  // No numeric column (or no rows) → honest fallback; keep it a tile, never crash.
+  if (!numCols.length || !rows.length) {
+    const n = rows.length;
+    return `<div class="pd-na">${n} row${n === 1 ? '' : 's'} — see the Document for the table.</div>` + badge;
+  }
+  // Percent scale (0..100) only when a numeric column reads as a percent and every value fits.
+  const pctLike = numCols.some(c =>
+    String(cols[c] || '').includes('%') || rows.some(r => r && cellText(r[c]).includes('%')));
+  const allVals = [];
+  for (const r of rows) for (const c of numCols) {
+    const v = parseNum(r && r[c]);
+    if (!Number.isNaN(v)) allVals.push(v);
+  }
+  const maxV = allVals.length ? Math.max(...allVals) : 0;
+  const allUnder100 = allVals.every(v => v <= 100);
+  const axisMax = (pctLike && allUnder100) ? 100 : (maxV > 0 ? maxV : 1);
+  const clamp = v => Math.max(0, Math.min(100, v));
+  const multi = numCols.length > 1;
+  let out = '';
+  for (const r of rows) {
+    const label = cellText(r && r[0]);
+    numCols.forEach((c, k) => {
+      const raw = r && r[c];
+      const v = parseNum(raw);
+      const pct = Number.isNaN(v) ? 0 : clamp(v / axisMax * 100);
+      const shown = cellText(raw);
+      const barLabel = multi ? `${label} · ${cols[c]}` : label;
+      const color = `var(--chart-${(k % 6) + 1})`;
+      out += `<div class="pd-bar"><div class="pd-bl">${escapeHtml(barLabel)}</div>` +
+        `<div class="pd-trk"><div class="pd-fl" style="width:${pct.toFixed(1)}%;background:${color}"></div></div>` +
+        `<div class="pd-bv">${escapeHtml(shown)}</div></div>`;
+    });
+  }
+  out += `<div class="pd-legend">${numCols.map((c, k) =>
+    `<span><i style="background:var(--chart-${(k % 6) + 1})"></i>${escapeHtml(cols[c])}</span>`).join('')}</div>`;
+  return out + badge;
+}
+
+// ── findings → severity donut (generic) ─────────────────────────────────────────
+// A findings LIST becomes a donut of counts by severity, with the total in the
+// centre and a legend naming each present severity + its count. Buckets/colours use
+// the tone→token semantics (high=bad, medium=warn, low=neutral, info=accent).
+const SEV_META = [
+  { key: 'high',   label: 'Critical', token: 'var(--danger)' },
+  { key: 'medium', label: 'Review',   token: 'var(--warning)' },
+  { key: 'low',    label: 'Low',      token: 'var(--muted)' },
+  { key: 'info',   label: 'Info',     token: 'var(--accent)' },
+];
+function findingsChartHtml(data) {
+  const items = data.items || [];
+  if (!items.length) return `<div class="pd-na">${escapeHtml(data.empty || 'No findings.')}</div>`;
+  const counts = {};
+  for (const it of items) {
+    const s = SEV_META.some(m => m.key === it.severity) ? it.severity : 'info';
+    counts[s] = (counts[s] || 0) + 1;
+  }
+  const total = items.length;
+  const buckets = SEV_META.filter(m => counts[m.key]);   // only present severities, ring/legend order
+  // r = 15.9155 → circumference ≈ 100, so a dash length reads as a percentage.
+  const R = 15.9155;
+  let acc = 0;
+  const ring = buckets.map(m => {
+    const len = counts[m.key] / total * 100;
+    const seg = `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${m.token}" stroke-width="6" ` +
+      `stroke-dasharray="${len.toFixed(2)} ${(100 - len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" ` +
+      `transform="rotate(-90 21 21)"></circle>`;
+    acc += len;
+    return seg;
+  }).join('');
+  const svg = `<svg class="pd-donut" width="120" height="120" viewBox="0 0 42 42" role="img">` +
+    `<circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--border)" stroke-width="6"></circle>` +
+    ring +
+    `<text x="21" y="21.5" text-anchor="middle" font-size="8" font-weight="800" fill="var(--text)">${total}</text>` +
+    `<text x="21" y="27" text-anchor="middle" font-size="3.4" fill="var(--muted)">findings</text>` +
+    `</svg>`;
+  const legend = `<div class="pd-legend">${buckets.map(m =>
+    `<span><i style="background:${m.token}"></i>${escapeHtml(m.label)} ${counts[m.key]}</span>`).join('')}</div>`;
+  return `<div class="pd-donut-wrap">${svg}${legend}</div><div class="pd-note pd-conv">list → chart</div>`;
+}
+
+// informational freshness chip on the letterhead — days since the data date.
+// Neutral by design (no staleness threshold is invented here).
+function freshChip(dataDate) {
+  if (!dataDate) return '';
+  const d = new Date(String(dataDate).slice(0, 10) + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return '';
+  const days = Math.max(0, Math.round((Date.now() - d.getTime()) / 86400000));
+  const txt = days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'} ago`;
+  return `<span class="pd-fresh">· ${txt}</span>`;
+}
+
+// The default (auto) subtitle line — kept in one place so edit mode can pre-fill
+// an editable header with the very text the auto letterhead would have shown.
+function autoSubtitle(meta) {
+  meta = meta || {};
+  let sub = 'Weekly Management Dashboard';
+  if (meta.data_date) sub += ' · Data date ' + String(meta.data_date).slice(0, 10);
+  if (meta.activity_count) sub += ' · ' + meta.activity_count + ' activities';
+  return sub;
+}
+
+// A default editable header derived from meta (used when a fresh board enters edit
+// mode). Mirrors the auto letterhead's text so nothing appears to change on entry.
+function defaultHeader(meta) {
+  meta = meta || {};
+  return {
+    title: meta.project_name || '', subtitle: autoSubtitle(meta),
+    title_size: 'm', sub_size: 'm', title_bold: true, sub_bold: false,
+    logos_left: [], logos_right: [],
+  };
+}
+
+// ── letterhead ────────────────────────────────────────────────────────────────
+// `header` (optional) turns the auto letterhead into a user-controlled one; when
+// absent → today's exact output. `editing` (optional) adds the inline controls.
+export function letterheadHtml(meta, header, editing = false) {
+  meta = meta || {};
+  if (!header) {
+    // View-only default — byte-identical to the original slice.
+    const sub = autoSubtitle(meta);
+    return `<div class="pd-letterhead">` +
+      `<div class="pd-logo-slot">LOGO</div>` +
+      `<div class="pd-ttl">` +
+        `<div class="pd-h-title pd-b">${escapeHtml(meta.project_name || '')}</div>` +
+        `<div class="pd-h-sub">${escapeHtml(sub)}${freshChip(meta.data_date)}</div>` +
+      `</div>` +
+      `<div class="pd-logo-slot">LOGO</div>` +
+    `</div>`;
+  }
+  const h = header;
+  const tsz = s => `tsz-${s || 'm'}`;
+  const logoGroup = side => {
+    const arr = h['logos_' + side] || [];
+    const items = arr.map((lg, i) =>
+      `<span class="pd-logo-wrap" data-side="${side}" data-i="${i}">` +
+        `<img class="pd-logo sz-${lg.size || 'm'}" src="${lg.src}" alt="">` +
+        (editing ? `<span class="pd-logo-tools">` +
+          `<button type="button" class="pd-logo-btn" data-act="size" title="Resize">⤢</button>` +
+          `<button type="button" class="pd-logo-btn" data-act="rm" title="Remove">✕</button></span>` : '') +
+      `</span>`).join('');
+    const add = editing ? `<button type="button" class="pd-addlogo" data-side="${side}">＋ Logo</button>` : '';
+    return `<div class="pd-logos pd-logos-${side}">${items}${add}</div>`;
+  };
+  const ce = editing ? ' contenteditable="true"' : '';
+  const titleCls = `pd-h-title ${tsz(h.title_size)}${h.title_bold ? ' pd-b' : ''}`;
+  const subCls = `pd-h-sub ${tsz(h.sub_size)}${h.sub_bold ? ' pd-b' : ''}`;
+  const controls = editing ? `<div class="pd-textsizes">` +
+    `Title <button type="button" class="pd-tsz" data-t="title" title="Cycle title size">A⇄</button>` +
+    `<button type="button" class="pd-tsz ${h.title_bold ? 'on' : ''}" data-b="title" title="Bold title"><b>B</b></button>` +
+    ` · Subtitle <button type="button" class="pd-tsz" data-t="sub" title="Cycle subtitle size">A⇄</button>` +
+    `<button type="button" class="pd-tsz ${h.sub_bold ? 'on' : ''}" data-b="sub" title="Bold subtitle"><b>B</b></button></div>` : '';
+  return `<div class="pd-letterhead">` +
+    logoGroup('left') +
+    `<div class="pd-ttl">` +
+      `<div class="${titleCls}" id="pd-h-title"${ce}>${escapeHtml(h.title || '')}</div>` +
+      `<div class="${subCls}" id="pd-h-sub"${ce}>${escapeHtml(h.subtitle || '')}</div>` +
+      controls +
+    `</div>` +
+    logoGroup('right') +
+  `</div>`;
+}
+
+// ── tile body (per kind) ──────────────────────────────────────────────────────
+// Shared by panels and by group blocks. Data semantics mirror p6_special/render_html.py.
+export function tileBodyHtml(kind, data) {
+  data = data || {};
+  switch (kind) {
+    case 'kpis': {
+      // Normally flattened into the KPI row at board level; this is a fallback.
+      const items = data.items || [];
+      if (!items.length) return naHtml();
+      return items.map(it =>
+        `<div class="pd-kv ${toneClass(it.tone)}">${escapeHtml(it.value)}</div>` +
+        `<div class="pd-note">${escapeHtml(it.sub || it.label || '')}</div>`
+      ).join('');
+    }
+    // Dashboard is charts-only: a table result is charted (grouped bars) instead
+    // of rendered as a <table>. The full table stays in the Document view.
+    case 'table': return tableChartHtml(data);
+    case 'line': return lineHtml(data);
+    case 'bars': {
+      if (data.style === 'variance') return varianceBarsHtml(data);
+      const series = data.series || [];
+      const rows = data.rows || [];
+      if (!series.length || !rows.length) return naHtml();
+      const axisMax = data.axis_max;
+      const multi = series.length > 1;
+      const clamp = v => Math.max(0, Math.min(100, v));
+      let out = '';
+      for (const row of rows) {
+        const values = row.values || [];
+        const display = row.display || null;
+        series.forEach((s, i) => {
+          const v = Number(values[i] || 0);
+          const pct = clamp(axisMax ? (v / axisMax * 100) : v);
+          const shown = (display && display[i] != null) ? display[i] : v;
+          const label = multi ? `${row.label} · ${s.label}` : row.label;
+          const color = `var(--chart-${(i % 6) + 1})`;
+          out += `<div class="pd-bar"><div class="pd-bl">${escapeHtml(label)}</div>` +
+            `<div class="pd-trk"><div class="pd-fl" style="width:${pct.toFixed(1)}%;background:${color}"></div></div>` +
+            `<div class="pd-bv">${escapeHtml(shown)}</div></div>`;
+        });
+      }
+      if (multi) {
+        out += `<div class="pd-legend">${series.map((s, i) =>
+          `<span><i style="background:var(--chart-${(i % 6) + 1})"></i>${escapeHtml(s.label)}</span>`).join('')}</div>`;
+      }
+      if (data.note) out += `<div class="pd-note">${escapeHtml(data.note)}</div>`;
+      return out;
+    }
+    case 'segbar': {
+      const segs = (data.segments || []).filter(s => Number(s.value || 0) > 0);
+      if (!segs.length) return naHtml();
+      const total = segs.reduce((a, s) => a + Number(s.value || 0), 0) || 1;
+      const parts = segs.map((s, i) => {
+        const pct = 100 * Number(s.value || 0) / total;
+        const color = toneToken(s.tone, i);
+        return `<div class="pd-seg-part" style="width:${pct.toFixed(1)}%;background:${color}" title="${escapeHtml(s.label)}">` +
+          `${escapeHtml(s.label)} ${escapeHtml(s.value)}</div>`;
+      }).join('');
+      const legend = segs.map((s, i) =>
+        `<span><i style="background:${toneToken(s.tone, i)}"></i>${escapeHtml(s.label)} ${escapeHtml(s.value)}</span>`).join('');
+      let out = `<div class="pd-seg">${parts}</div><div class="pd-legend">${legend}</div>`;
+      if (data.note) out += `<div class="pd-note">${escapeHtml(data.note)}</div>`;
+      return out;
+    }
+    // Charts-only: a findings list is charted as a severity donut (counts by
+    // severity), not a text list. Empty → the honest empty message.
+    case 'findings': return findingsChartHtml(data);
+    case 'keyvals': {
+      const pairs = data.pairs || [];
+      if (!pairs.length) return naHtml();
+      return `<div class="pd-stats">${pairs.map(p => {
+        const label = Array.isArray(p) ? p[0] : '';
+        const value = Array.isArray(p) ? p[1] : '';
+        return `<div><div class="pd-stat-l">${escapeHtml(label)}</div><div class="pd-stat-v">${escapeHtml(value)}</div></div>`;
+      }).join('')}</div>`;
+    }
+    case 'text': {
+      const paras = data.paragraphs || [];
+      if (!paras.length) return naHtml();
+      return `<div class="pd-usertext">${paras.map(p => `<p>${escapeHtml(p)}</p>`).join('')}</div>`;
+    }
+    case 'note': {
+      // render_html.py treats an 'info' tone as the accent tone.
+      const tone = data.tone === 'info' ? 'accent' : data.tone;
+      return `<div class="pd-note ${toneClass(tone)}">${escapeHtml(data.message)}</div>`;
+    }
+    case 'group': {
+      const blocks = data.blocks || [];
+      if (!blocks.length) return naHtml();
+      return blocks.map(b => tileBodyHtml(b.kind, b.data)).join('<div class="pd-gap"></div>');
+    }
+    case 'html':
+      // A feature's OWN report section, reused verbatim. Its scoped stylesheet
+      // (data.css) + the report-theme tokens are injected once at board level.
+      return data.html ? `<div class="pd-reused">${data.html}</div>` : naHtml();
+    case 'no_data':
+    default:
+      return naHtml();
+  }
+}
+
+// ── KPI tile ──────────────────────────────────────────────────────────────────
+export function kpiTileHtml(item) {
+  item = item || {};
+  const rail = railClass(item.tone);
+  const delta = item.delta ? `<span class="pd-trend ${toneClass(item.delta_tone)}">${escapeHtml(item.delta)}</span>` : '';
+  return `<div class="pd-kpi${rail ? ' ' + rail : ''}">${ragBadge(item.tone)}` +
+    `<div class="pd-k-head">${escapeHtml(item.label)}</div>` +
+    `<div class="pd-k-body"><div class="pd-kv ${toneClass(item.tone)}">${escapeHtml(item.value)}${delta}</div>` +
+    `${sparkHtml(item.spark)}<div class="pd-note">${escapeHtml(item.sub || '')}</div></div></div>`;
+}
+
+// A panel's RAG tone (for the accent rail) is taken ONLY from a status a provider
+// already set — worst finding severity, or a note's tone — never invented here.
+function panelTone(tile) {
+  const d = tile.data || {};
+  if (tile.kind === 'findings') {
+    const sev = (d.items || []).map(i => i.severity);
+    if (sev.includes('high')) return 'bad';
+    if (sev.includes('medium')) return 'warn';
+    return '';
+  }
+  if (tile.kind === 'note') {
+    const t = d.tone === 'info' ? 'accent' : d.tone;
+    return { good: 'good', warn: 'warn', bad: 'bad' }[t] || '';
+  }
+  return '';
+}
+
+// the per-panel edit controls (no "remove" — that lives in the Document builder).
+function ctlBtns(id) {
+  const d = `data-id="${escapeHtml(id)}"`;
+  return `<button type="button" class="pd-cbtn" data-act="up" ${d} title="Move up">↑</button>` +
+    `<button type="button" class="pd-cbtn" data-act="down" ${d} title="Move down">↓</button>` +
+    `<button type="button" class="pd-cbtn" data-act="width" ${d} title="Toggle width (narrow / wide)">⇔</button>` +
+    `<button type="button" class="pd-cbtn" data-act="height" ${d} title="Toggle height (compact / normal / tall)">⇕</button>`;
+}
+
+// ── panel ─────────────────────────────────────────────────────────────────────
+// `opts` (optional) = { size:{w,h}, title, editing }. With no opts → today's exact
+// view-mode output (width still honours tile.shape, heights are not applied).
+export function panelHtml(tile, opts) {
+  tile = tile || {};
+  opts = opts || {};
+  const editing = !!opts.editing;
+  const size = opts.size || null;
+  const w = size ? size.w : ((tile.shape && tile.shape.w) || 1);
+  const span = w === 2 ? ' span2' : '';
+  let hcls = '';
+  if (size) {                             // heights come only from an explicit layout size
+    if (size.h === 2) hcls = ' pd-tall';
+    else if (size.h === 0) hcls = ' pd-compact';
+  }
+  const title = (opts.title != null) ? opts.title : tile.title;
+  const tone = panelTone(tile);
+  const rail = railClass(tone);
+  const id = tile.id;
+  const attrs = editing ? `${id != null ? ` data-id="${escapeHtml(id)}"` : ''} draggable="true"` : '';
+  let head;
+  if (editing) {
+    head = `<div class="pd-p-head"><span class="pd-grip" title="Drag to move">⠿</span>` +
+      `<span class="pd-p-title" contenteditable="true"${id != null ? ` data-id="${escapeHtml(id)}"` : ''}>${escapeHtml(title)}</span>` +
+      `<span class="pd-ctl">${ctlBtns(id)}</span></div>`;
+  } else {
+    head = `<div class="pd-p-head">${escapeHtml(title)}</div>`;
+  }
+  return `<div class="pd-panel${span}${hcls}${rail ? ' ' + rail : ''}"${attrs}>${ragBadge(tone)}` +
+    head +
+    `<div class="pd-p-body">${tileBodyHtml(tile.kind, tile.data || {})}</div></div>`;
+}
+
+// ── executive status header (full-width band; rendered above the KPI row) ──────
+export function statusHeaderHtml(data) {
+  data = data || {};
+  const chips = (data.domains || []).map(dm => {
+    const cls = { good: 'good', warn: 'warn', bad: 'bad' }[dm.tone] || 'grey';
+    const letter = ragLetter(dm.tone) || '–';
+    return `<div class="pd-chip ${cls}"><span class="cl">${letter}</span>` +
+      `<div><div class="cn">${escapeHtml(dm.domain)}</div><div class="cv">${escapeHtml(dm.headline)}</div></div></div>`;
+  }).join('');
+  const v = data.verdict;
+  let head;
+  if (v) {
+    head = `<div><div class="pd-verdict-lab ${toneClass(v.tone)}">${escapeHtml(v.label)}${ragBadge(v.tone)}</div>` +
+      (v.note ? `<div class="pd-verdict-note">${escapeHtml(v.note)}</div>` : '') + `</div>`;
+  } else {
+    // Honest: no single verdict until its rule is set — show each area's own status.
+    head = `<div><div class="pd-verdict-lab">Status by area</div>` +
+      `<div class="pd-verdict-note">Each area shows its own status; the single overall verdict is set up separately.</div></div>`;
+  }
+  const rail = v ? railClass(v.tone) : '';
+  return `<div class="pd-exec${rail ? ' ' + rail : ''}">${head}<div class="pd-chips">${chips}</div></div>`;
+}
+
+// the GRID panels are every tile that is NOT flattened into the KPI row and NOT a
+// full-width status band — edit controls (reorder/resize/title) apply ONLY here.
+function gridPanels(tiles) {
+  return (tiles || []).filter(t => t && t.kind !== 'status_header' && t.kind !== 'kpis');
+}
+// order panels by `order` (ids not listed keep their order, appended; unknown ids skipped)
+function orderPanels(panels, order) {
+  if (!Array.isArray(order) || !order.length) return panels.slice();
+  const byId = new Map(panels.map(p => [p.id, p]));
+  const seen = new Set();
+  const out = [];
+  for (const id of order) if (byId.has(id)) { out.push(byId.get(id)); seen.add(id); }
+  for (const p of panels) if (!seen.has(p.id)) out.push(p);
+  return out;
+}
+
+// ── whole board (one-pager sheet) ─────────────────────────────────────────────
+// `layout` (optional) = { order, sizes, titles, header }. With no layout → today's
+// exact output. `editing` (optional) defaults to the module flag (false in tests).
+export function boardHtml(tiles, meta, layout, editing) {
+  tiles = tiles || [];
+  editing = editing == null ? _editing : editing;
+  layout = layout || null;
+  const sizes = (layout && layout.sizes) || {};
+  const titles = (layout && layout.titles) || {};
+  const header = (layout && layout.header) || null;
+  let inner;
+  if (!tiles.length) {
+    inner = `<div class="pd-empty-state">Pick results in the builder, then switch to Dashboard to see them here.</div>`;
+  } else {
+    const headers = [];
+    const kpiItems = [];
+    for (const t of tiles) {
+      if (t.kind === 'status_header') headers.push(t);
+      else if (t.kind === 'kpis') {
+        for (const it of ((t.data && t.data.items) || [])) kpiItems.push(it);
+      }
+    }
+    const panels = orderPanels(gridPanels(tiles), layout && layout.order);
+    const head = headers.map(t => statusHeaderHtml(t.data)).join('');
+    const kpirow = kpiItems.length ? `<div class="pd-kpirow">${kpiItems.map(kpiTileHtml).join('')}</div>` : '';
+    const grid = panels.length ? `<div class="pd-grid">${panels.map(t => {
+      const o = { editing };
+      if (sizes[t.id]) o.size = sizes[t.id];
+      if (titles[t.id] != null) o.title = titles[t.id];
+      return panelHtml(t, o);
+    }).join('')}</div>` : '';
+    inner = `${letterheadHtml(meta, header, editing)}${head}${kpirow}${grid}`;
+  }
+  // Reused feature-report sections (kind 'html') carry their own scoped CSS; inject
+  // it once, with the report-theme tokens those sections use, so they render styled.
+  // Reused feature-report sections (kind 'html') carry their OWN CSS, already
+  // scoped to `.srf-<feature>` AND including the report-theme tokens for the mode
+  // (reuse.scope_css scopes `:root`). So it is self-contained — inject it once.
+  const seen = new Set();
+  const sectionCss = (tiles || []).filter(t => t.kind === 'html' && t.data && t.data.css)
+    .map(t => t.data.css).filter(c => (seen.has(c) ? false : seen.add(c))).join('\n');
+  const styleBlock = sectionCss ? `<style>${sectionCss}\n.pd-reused{overflow-x:auto}</style>` : '';
+  const mode = editing ? 'Edit mode — rename, reorder, resize' : 'View mode';
+  const editBtn = `<button type="button" class="btn-primary" data-dash="edit">${editing ? '✓ Done' : '⚙ Edit'}</button>`;
+  return `<div class="studio-dash-wrap${editing ? ' editing' : ''}">${styleBlock}` +
+    `<div class="pd-toolbar"><span class="pd-mode">${mode}</span>` +
+    `<span class="pd-actions"><button type="button" class="btn-secondary" data-dash="pdf">⬇ PDF</button>` +
+    `<button type="button" class="btn-secondary" data-dash="excel">⬇ Excel</button>${editBtn}</span></div>` +
+    `<div class="pd-sheet">${inner}</div>` +
+  `</div>`;
+}
+
+// Export the current board as a PDF that matches the screen across all 6 looks.
+// Always rendered in view mode (editing=false) so the saved layout — order, sizes,
+// titles and the letterhead header — is reflected, with no editing chrome leaking in.
+// Export the picked results as an .xlsx (the data behind the charts) — the same
+// workbook the Document's Excel button produces.
+async function exportDashExcel() {
+  const ids = (_last.tiles || []).map(t => t.id).filter(Boolean);
+  if (!ids.length) return;
+  const name = (_last.meta && _last.meta.project_name) || 'Reporting Studio';
+  const safe = name.replace(/[^\w\- ]+/g, '').trim() || 'reporting-studio';
+  let out = null;
+  try { out = await window.pywebview.api.choose_save_path(`${safe}.xlsx`, 'xlsx'); } catch { /* dialog unavailable */ }
+  if (!out) return;
+  await post('api/special/excel', {
+    snapshot_id: _last.snapshotId ?? state.currentSnapshotId,
+    item_ids: ids, report_name: name, meta: _last.meta || {}, output_path: out,
+  });
+}
+
+// Export the current board as a PDF that matches the screen across all 6 looks.
+// Always rendered in view mode (editing=false) so the saved layout — order, sizes,
+// titles and the letterhead header — is reflected, with no editing chrome leaking in.
+async function exportDashPdf() {
+  const title = (_last.meta && _last.meta.project_name) || 'Dashboard';
+  const board = () => boardHtml(_last.tiles, _last.meta, _last.layout, false);
+  const first = await post('api/special/dash-report', { html: board(), theme: getSavedMode(), preview: true, title });
+  if (!first || !first.ok) return;
+  showReportPreview({
+    title: `${title} — Dashboard`, subtitle: 'Dashboard', html: first.html, initialMode: getSavedMode(),
+    onThemeChange: async (m) => {
+      const r = await post('api/special/dash-report', { html: board(), theme: m, preview: true, title });
+      return r && r.ok ? r.html : '';
+    },
+    onSave: async (m) => {
+      const out = await window.pywebview.api.choose_save_path('dashboard.pdf', 'pdf');
+      if (!out) return false;
+      const r = await post('api/special/dash-report', { html: board(), theme: m, output_path: out, title });
+      return !!(r && r.ok);
+    },
+  });
+}
+
+// ── layout load / normalize ────────────────────────────────────────────────────
+function normalizeHeader(h) {
+  h = Object.assign({ title: '', subtitle: '', title_size: 'm', sub_size: 'm',
+                      title_bold: true, sub_bold: false, logos_left: [], logos_right: [] }, h || {});
+  if (!Array.isArray(h.logos_left)) h.logos_left = [];
+  if (!Array.isArray(h.logos_right)) h.logos_right = [];
+  return h;
+}
+function normalizeLayout(layout) {
+  if (!layout || typeof layout !== 'object') return null;
+  const out = {
+    order: Array.isArray(layout.order) ? layout.order.slice() : [],
+    sizes: (layout.sizes && typeof layout.sizes === 'object') ? layout.sizes : {},
+    titles: (layout.titles && typeof layout.titles === 'object') ? layout.titles : {},
+  };
+  if (layout.header && typeof layout.header === 'object') out.header = normalizeHeader(layout.header);
+  return out;
+}
+
+// Build a fully-editable working layout when entering edit mode. Missing pieces are
+// filled from the current tiles/meta; the header is only marked "active" (persisted)
+// if a saved header already existed — a fresh, untouched header stays out of the save.
+function ensureEditableLayout(layout, tiles, meta) {
+  const panels = orderPanels(gridPanels(tiles), layout && layout.order);
+  _headerActive = !!(layout && layout.header);
+  return {
+    order: panels.map(p => p.id),
+    sizes: Object.assign({}, (layout && layout.sizes) || {}),
+    titles: Object.assign({}, (layout && layout.titles) || {}),
+    header: (layout && layout.header)
+      ? Object.assign(defaultHeader(meta), layout.header)
+      : defaultHeader(meta),
+  };
+}
+
+// The layout to persist: order always; sizes/titles only when non-empty; the header
+// only when it has actually been put to use (else a fresh board keeps its auto letterhead).
+function currentLayout() {
+  const L = _last.layout || {};
+  const out = { order: (L.order || []).slice() };
+  if (L.sizes && Object.keys(L.sizes).length) out.sizes = L.sizes;
+  if (L.titles && Object.keys(L.titles).length) out.titles = L.titles;
+  if (_headerActive && L.header) out.header = L.header;
+  return out;
+}
+
+async function saveLayout() {
+  const snapshotId = _last.snapshotId ?? state.currentSnapshotId;
+  const layout = currentLayout();
+  _last.layout = layout;   // adopt the saved shape (header dropped if untouched → auto letterhead)
+  try { await post('api/special/layout/save', { snapshot_id: snapshotId, layout }); }
+  catch { /* non-fatal — the board still shows the edits until reload */ }
+}
+
+// ── size / order mutators (operate on the in-memory layout) ─────────────────────
+function sizeOf(id) {
+  const s = _last.layout.sizes[id];
+  if (s && typeof s === 'object') return { w: s.w || 1, h: (s.h == null ? 1 : s.h) };
+  return { w: 1, h: 1 };
+}
+function movePanel(id, dir) {
+  const arr = _last.layout.order;
+  const i = arr.indexOf(id), j = i + dir;
+  if (i < 0 || j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+}
+function dropReorder(fromId, toId, after) {
+  const arr = _last.layout.order;
+  const fi = arr.indexOf(fromId);
+  if (fi < 0) return;
+  arr.splice(fi, 1);
+  const ti = arr.indexOf(toId);
+  if (ti < 0) { arr.splice(fi, 0, fromId); return; }
+  arr.splice(ti + (after ? 1 : 0), 0, fromId);
+}
+
+// ── file → dataURL (logos) ──────────────────────────────────────────────────────
+function pickFileAsDataUrl(cb) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+  inp.addEventListener('change', () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => cb(rd.result);
+    rd.readAsDataURL(f);
+  });
+  document.body.appendChild(inp); inp.click(); setTimeout(() => inp.remove(), 1000);
+}
+function pickLogo(host, side) {
+  pickFileAsDataUrl(url => {
+    const key = 'logos_' + side, L = _last.layout;
+    (L.header[key] = L.header[key] || []).push({ src: url, size: 'm' });
+    _headerActive = true;
+    renderBoardInto(host);
+  });
+}
+
+// ── drag-reorder of grid panels ─────────────────────────────────────────────────
+function wireDrag(host, el) {
+  el.addEventListener('dragstart', e => {
+    _dragId = el.dataset.id; el.classList.add('pd-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', el.dataset.id); } catch { /* ignore */ }
+  });
+  el.addEventListener('dragend', () => {
+    el.classList.remove('pd-dragging');
+    host.querySelectorAll('.pd-dropover').forEach(n => n.classList.remove('pd-dropover'));
+  });
+  el.addEventListener('dragover', e => {
+    if (_dragId && _dragId !== el.dataset.id) { e.preventDefault(); el.classList.add('pd-dropover'); }
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('pd-dropover'));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); el.classList.remove('pd-dropover');
+    const from = _dragId, to = el.dataset.id; _dragId = null;
+    if (!from || from === to) return;
+    const rect = el.getBoundingClientRect();
+    const after = (e.clientX - rect.left) > rect.width / 2;
+    dropReorder(from, to, after);
+    renderBoardInto(host);
+  });
+}
+
+// ── wire every edit control after an editing-mode render ────────────────────────
+function wireEditing(host) {
+  const L = _last.layout;
+  if (!L) return;
+  // letterhead: title / subtitle text
+  const tEl = host.querySelector('#pd-h-title');
+  if (tEl) tEl.addEventListener('blur', e => { L.header.title = e.target.textContent.trim(); _headerActive = true; });
+  const sEl = host.querySelector('#pd-h-sub');
+  if (sEl) sEl.addEventListener('blur', e => { L.header.subtitle = e.target.textContent.trim(); _headerActive = true; });
+  // letterhead: logos (add / resize / remove)
+  host.querySelectorAll('.pd-addlogo').forEach(b => b.addEventListener('click', () => pickLogo(host, b.dataset.side)));
+  host.querySelectorAll('.pd-logo-wrap .pd-logo-btn').forEach(b => b.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const wrap = b.closest('.pd-logo-wrap'), side = wrap.dataset.side, i = +wrap.dataset.i;
+    const arr = L.header['logos_' + side] || [];
+    if (b.dataset.act === 'rm') arr.splice(i, 1);
+    else if (arr[i]) arr[i].size = nextSize(arr[i].size || 'm');
+    _headerActive = true;
+    renderBoardInto(host);
+  }));
+  // letterhead: title/subtitle size + bold
+  host.querySelectorAll('.pd-tsz[data-t]').forEach(b => b.addEventListener('click', () => {
+    const key = b.dataset.t === 'title' ? 'title_size' : 'sub_size';
+    L.header[key] = nextSize(L.header[key] || 'm'); _headerActive = true; renderBoardInto(host);
+  }));
+  host.querySelectorAll('.pd-tsz[data-b]').forEach(b => b.addEventListener('click', () => {
+    const key = b.dataset.b === 'title' ? 'title_bold' : 'sub_bold';
+    L.header[key] = !L.header[key]; _headerActive = true; renderBoardInto(host);
+  }));
+  // grid panels: up / down / width / height
+  host.querySelectorAll('.pd-grid .pd-ctl .pd-cbtn').forEach(b => b.addEventListener('click', () => {
+    const act = b.dataset.act, id = b.dataset.id;
+    if (act === 'up') movePanel(id, -1);
+    else if (act === 'down') movePanel(id, 1);
+    else if (act === 'width') { const sh = sizeOf(id); L.sizes[id] = { w: cycleWidth(sh.w), h: sh.h }; }
+    else if (act === 'height') { const sh = sizeOf(id); L.sizes[id] = { w: sh.w, h: cycleHeight(sh.h) }; }
+    renderBoardInto(host);
+  }));
+  // grid panels: title override
+  host.querySelectorAll('.pd-grid .pd-p-title[contenteditable="true"][data-id]').forEach(t =>
+    t.addEventListener('blur', e => {
+      const v = e.target.textContent.trim(), id = e.target.dataset.id;
+      if (v) L.titles[id] = v; else delete L.titles[id];
+    }));
+  // grid panels: drag-reorder
+  host.querySelectorAll('.pd-grid .pd-panel[data-id]').forEach(el => wireDrag(host, el));
+}
+
+// render (or re-render) the board into `host` and (re)wire its buttons
+function renderBoardInto(host) {
+  host.innerHTML = boardHtml(_last.tiles, _last.meta, _last.layout, _editing);
+  const pdfBtn = host.querySelector('[data-dash="pdf"]');
+  if (pdfBtn) pdfBtn.addEventListener('click', exportDashPdf);
+  const xlsBtn = host.querySelector('[data-dash="excel"]');
+  if (xlsBtn) xlsBtn.addEventListener('click', exportDashExcel);
+  const editBtn = host.querySelector('[data-dash="edit"]');
+  if (editBtn) editBtn.addEventListener('click', () => toggleEdit(host));
+  if (_editing) wireEditing(host);
+}
+
+// Edit ↔ Done. Entering builds a working layout; leaving saves the current one.
+async function toggleEdit(host) {
+  if (_editing) {
+    _editing = false;
+    await saveLayout();
+  } else {
+    _last.layout = ensureEditableLayout(_last.layout, _last.tiles, _last.meta);
+    _editing = true;
+  }
+  renderBoardInto(host);
+}
+
+// ── DOM entry (not unit-tested) ───────────────────────────────────────────────
+// opts: { itemIds, inputs, snapshotId, mode }
+export async function renderStudioDashboard(host, opts) {
+  if (!host) return;
+  opts = opts || {};
+  _editing = false;            // always mount in view mode
+  _headerActive = false;
+  const snapshotId = opts.snapshotId ?? state.currentSnapshotId;
+  host.innerHTML = `<div class="pd-loading">Building your dashboard…</div>`;
+  try {
+    const res = await post('api/special/tiles', {
+      snapshot_id: snapshotId,
+      item_ids: opts.itemIds || [],
+      inputs: opts.inputs || {},
+      theme: opts.mode || getSavedMode(),
+    });
+    if (!res || !res.ok) {
+      host.innerHTML = `<div class="pd-na">${escapeHtml((res && res.error) || 'Could not build the dashboard.')}</div>`;
+      return;
+    }
+    // Saved per-project layout (order/sizes/titles/header). A failed load → no layout.
+    let layout = null;
+    try {
+      const lay = await post('api/special/layout/load', { snapshot_id: snapshotId });
+      if (lay && lay.ok && lay.layout) layout = normalizeLayout(lay.layout);
+    } catch { /* treat as no layout */ }
+    _last = { tiles: res.tiles || [], meta: res.meta || {}, layout, snapshotId };
+    renderBoardInto(host);
+  } catch {
+    host.innerHTML = `<div class="pd-na">Could not reach the local server. Try restarting the app.</div>`;
+  }
+}

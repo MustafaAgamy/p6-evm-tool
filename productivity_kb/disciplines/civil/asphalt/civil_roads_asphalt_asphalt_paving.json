@@ -1,0 +1,206 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.roads.asphalt.asphalt_paving",
+  "discipline": "Civil",
+  "work_type": "Roads",
+  "system": "Asphalt",
+  "item": "Asphalt Paving (binder + wearing course)",
+  "aliases": [
+    "asphalt",
+    "asphalt paving",
+    "blacktop",
+    "bituminous surfacing",
+    "AC paving"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Airport",
+    "Marine/Port",
+    "Power Plant",
+    "Oil & Gas"
+  ],
+  "primary_unit": "m2",
+  "why": "Machine laying of hot-mix asphalt in two lifts — a binder (base) course and a wearing (surface) course — by a paver-and-roller train, priced per m2 of finished carriageway. Decomposed by lift because thickness, mix and finish differ.",
+  "assumptions": [
+    "Hot-mix asphalt supplied from plant",
+    "Paver-laid over prepared/primed base",
+    "Binder course ~60 mm, wearing course ~40 mm compacted",
+    "Mix density ~2.35 t/m3",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Asphalt plant/mix production",
+    "Road base and prime coat of base (base course separate)",
+    "Long-haul of hot mix",
+    "Line marking",
+    "Cold-weather/night constraints"
+  ],
+  "components": [
+    {
+      "component_id": "binder_course",
+      "name": "Binder (base) course laying",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.0256,
+        "low": 0.02,
+        "likely": 0.0256,
+        "high": 0.035,
+        "output_per_day": 2500,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Paver Operator",
+          "count": 1
+        },
+        {
+          "trade": "Screed Operator",
+          "count": 1
+        },
+        {
+          "trade": "Roller Operator",
+          "count": 2
+        },
+        {
+          "trade": "Raker/Labourer",
+          "count": 4
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Asphalt paver",
+          "basis": "utilization",
+          "value": 0.0032,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Tandem steel roller",
+          "basis": "utilization",
+          "value": 0.0032,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Pneumatic tyre roller",
+          "basis": "utilization",
+          "value": 0.0032,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Bitumen distributor (prime/tack)",
+          "basis": "utilization",
+          "value": 0.001,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Asphalt binder mix (60 mm)",
+          "qty_per_unit": 0.141,
+          "unit": "t/m2"
+        },
+        {
+          "name": "Prime coat (cutback/emulsion)",
+          "qty_per_unit": 0.001,
+          "unit": "t/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — paver-laid binder course, standard paving train",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Carriageway binder course ~60 mm, paver-laid — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "wearing_course",
+      "name": "Wearing (surface) course laying",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.0291,
+        "low": 0.022,
+        "likely": 0.0291,
+        "high": 0.04,
+        "output_per_day": 2200,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Paver Operator",
+          "count": 1
+        },
+        {
+          "trade": "Screed Operator",
+          "count": 1
+        },
+        {
+          "trade": "Roller Operator",
+          "count": 2
+        },
+        {
+          "trade": "Raker/Labourer",
+          "count": 4
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Asphalt paver",
+          "basis": "utilization",
+          "value": 0.0036,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Tandem steel roller",
+          "basis": "utilization",
+          "value": 0.0036,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Pneumatic tyre roller",
+          "basis": "utilization",
+          "value": 0.0036,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Bitumen distributor (tack)",
+          "basis": "utilization",
+          "value": 0.001,
+          "unit": "h/m2"
+        }
+      ],
+      "material": [
+        {
+          "name": "Asphalt wearing mix (40 mm)",
+          "qty_per_unit": 0.094,
+          "unit": "t/m2"
+        },
+        {
+          "name": "Tack coat (emulsion)",
+          "qty_per_unit": 0.0004,
+          "unit": "t/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — paver-laid wearing course, finish tolerance",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Carriageway wearing course ~40 mm, paver-laid — validate with your XER to promote"
+      }
+    }
+  ]
+}

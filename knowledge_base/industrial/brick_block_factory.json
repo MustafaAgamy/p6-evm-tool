@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Brick & Block Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["brick", "block", "aac", "autoclaved aerated", "concrete block", "clay brick", "block machine",
+                 "vibropress", "autoclave", "tunnel kiln", "extruder", "curing chamber", "cubing", "green brick"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Raw Material & Batching", "keywords": ["batching", "raw material", "silo", "sand", "cement", "clay prep", "lime"]},
+    {"name": "Forming (Block Machine / Extruder)", "keywords": ["block machine", "vibropress", "extruder", "moulding", "forming", "casting"]},
+    {"name": "Curing / Autoclave / Kiln", "keywords": ["curing chamber", "autoclave", "tunnel kiln", "drying", "steam"]},
+    {"name": "Handling & Cubing", "keywords": ["cubing", "handling", "stacking", "packaging", "strapping"]},
+    {"name": "Utilities", "keywords": ["utilities", "power", "boiler", "steam", "electrical"]},
+    {"name": "Testing & Commissioning", "keywords": ["commission", "trial production", "test"]}
+  ],
+  "activities": [
+    {"name": "Autoclave / Tunnel Kiln Installation", "keywords": ["autoclave", "tunnel kiln", "kiln"], "wbs": "Curing / Autoclave / Kiln",
+     "typical_pred": "Forming Machine Installation", "typical_succ": "Curing Commissioning", "duration_days": 35,
+     "why": "AAC autoclaves and clay tunnel kilns are the long-lead pressure/thermal vessels that set the production cycle."},
+    {"name": "Batching Plant Commissioning", "keywords": ["batching", "batch plant", "mixer"], "wbs": "Raw Material & Batching",
+     "typical_pred": "Silo Erection", "typical_succ": "Forming Commissioning", "duration_days": 15,
+     "why": "Block/brick forming cannot begin until the batching plant feeding the machine is commissioned."},
+    {"name": "Steam / Boiler System", "keywords": ["boiler", "steam", "curing steam"], "wbs": "Utilities",
+     "typical_pred": "Building Weathertight", "typical_succ": "Curing Commissioning", "duration_days": 20,
+     "why": "Autoclaving and accelerated curing need a steam/boiler supply that is often left off the plan."},
+    {"name": "Trial Production / First Batch", "keywords": ["trial production", "first batch", "sample"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Forming Commissioning", "typical_succ": "Handover", "duration_days": 10,
+     "why": "A trial run proves green strength, curing and dimensional tolerance before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["forming", "block machine", "extruder", "moulding"], "after_keywords": ["curing", "autoclave", "kiln"],
+     "reason": "Formed green units are cured/autoclaved/fired after forming, never before.",
+     "impact": "Critical"},
+    {"before_keywords": ["batching", "batch plant", "silo"], "after_keywords": ["forming", "production", "first batch"],
+     "reason": "Forming/production cannot start before the batching plant that supplies it is commissioned.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["boiler", "steam"], "after_keywords": ["autoclave commission", "curing commission", "commission"],
+     "reason": "Autoclave/curing commissioning follows the steam/boiler supply being live.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Autoclave / Kiln Installed", "Batching Plant Commissioned", "Trial Production / Handover"],
+  "common_issues": ["Curing before forming line ready", "Missing steam/boiler scope for autoclave",
+                    "Forming before batching plant commissioned", "No trial-production phase"]
+}

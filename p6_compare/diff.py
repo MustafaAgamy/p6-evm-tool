@@ -6,6 +6,7 @@ activities whose driving relationship or lag changed, with each side's links
 annotated for the report table.
 """
 from p6_compare.driving import driving_predecessors, driving_successors
+from p6_evm.calendars import float_working_days
 
 
 # ── Bridge: graph -> per-code driving-link map ─────────────────────────────
@@ -112,6 +113,20 @@ def _dur_impact(float_days):
     return 'None'
 
 
+def _impact_float_days(data, act):
+    """Total float in working days for the impact judgement: P6's stored value when present,
+    else derived from the activity's own remaining early/late start (so 'impact on finish'
+    isn't blank whenever the export still carried the late dates)."""
+    tf = act.get('total_float_days')
+    if tf is not None:
+        return tf
+    cal = (getattr(data, 'calendars', {}) or {}).get(act.get('calendar_id'))
+    es, ls = act.get('remaining_early_start'), act.get('remaining_late_start')
+    if cal and es and ls:
+        return float_working_days(cal, es, ls)
+    return None
+
+
 def diff_durations(matched, tol_days=0.05):
     """Original duration baseline vs update, and remaining vs the baseline allowance, with
     each change's impact on the project finish (from the update activity's P6 float).
@@ -130,6 +145,10 @@ def diff_durations(matched, tol_days=0.05):
         base_orig = round((base.get('planned_duration') or 0.0) / b_dh, 1)
         upd_orig = round((upd.get('planned_duration') or 0.0) / u_dh, 1)
         remaining = round((upd.get('remaining_duration') or 0.0) / u_dh, 1)
+        # No baseline duration to compare against (0-duration baseline placeholders, or
+        # milestones that became tasks) — "extended from 0" isn't a meaningful change, drop it.
+        if base_orig <= tol_days:
+            continue
         if upd_orig - base_orig > tol_days:
             status = 'extended'
         elif remaining - base_orig > tol_days:
@@ -146,7 +165,7 @@ def diff_durations(matched, tol_days=0.05):
             'remaining_minus_baseline_days': round(remaining - base_orig, 1),
             'over_baseline': (remaining - base_orig) > tol_days,
             'status': status,
-            'impact': _dur_impact(upd.get('total_float_days')),
+            'impact': _dur_impact(_impact_float_days(matched.update, upd)),
         })
     rows.sort(key=lambda r: -r['remaining_minus_baseline_days'])
     return {'rows': rows, 'counts': counts}

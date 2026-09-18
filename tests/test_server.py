@@ -68,6 +68,69 @@ def _write_pair(tmp_path):
     return str(b), str(u)
 
 
+# A schedule with two lag relationships off the same predecessor, so the on-screen
+# filter (lag_visible_keys) has something real to narrow: rel_key 'A100|A200|FS'
+# (7 wd) and 'A100|A300|FS' (4 wd) — see p6_audit/modules/lag_lead.py's rel_key.
+_LAG_XML = (
+    '<?xml version="1.0"?>\n'
+    '<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
+    '  <Project><ObjectId>1</ObjectId><Id>PJ</Id><Name>P</Name>'
+    '<DataDate>2026-02-01T00:00:00</DataDate>\n'
+    '    <WBS><ObjectId>10</ObjectId><Name>Construction Works</Name><ParentObjectId></ParentObjectId></WBS>\n'
+    '    <Activity><ObjectId>1001</ObjectId><Id>A100</Id><Name>Cure slab</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status>'
+    '<WBSObjectId>10</WBSObjectId><CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Activity><ObjectId>1002</ObjectId><Id>A200</Id><Name>Strike formwork</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status>'
+    '<WBSObjectId>10</WBSObjectId><CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Activity><ObjectId>1003</ObjectId><Id>A300</Id><Name>Test slab</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status>'
+    '<WBSObjectId>10</WBSObjectId><CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Relationship><PredecessorActivityObjectId>1001</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>1002</SuccessorActivityObjectId><Type>Finish to Start</Type>'
+    '<Lag>56</Lag></Relationship>\n'
+    '    <Relationship><PredecessorActivityObjectId>1001</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>1003</SuccessorActivityObjectId><Type>Finish to Start</Type>'
+    '<Lag>32</Lag></Relationship>\n'
+    '  </Project>\n</APIBusinessObjects>\n'
+)
+
+
+def _xlsx_row_count(path):
+    """Count the table rows (header + data) in the first sheet, ignoring the report
+    header/context block the shared writer now prepends. The neutral table-header row is
+    the first cell carrying style s="10"; count rows from there down."""
+    import zipfile
+    with zipfile.ZipFile(path) as z:
+        xml = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
+    idx = xml.find('s="10"')
+    if idx != -1:
+        xml = xml[xml.rfind('<row r="', 0, idx):]         # drop the meta block above the header
+    return xml.count('<row r="')
+
+
+def _xlsx_sheet_text(path):
+    """Raw XML of the first worksheet. write_xlsx uses inline strings, so a cell value
+    like an Activity ID ('A200') is stored verbatim and findable by substring."""
+    import zipfile
+    with zipfile.ZipFile(path) as z:
+        return z.read('xl/worksheets/sheet1.xml').decode('utf-8')
+
+
+def _xlsx_all_text(path):
+    """Shared-string + sheet text of an xlsx, for substring assertions (cell text may live
+    in sharedStrings.xml or be written inline into the sheet — search both)."""
+    import zipfile
+    parts = []
+    with zipfile.ZipFile(path) as z:
+        for name in ('xl/sharedStrings.xml', 'xl/worksheets/sheet1.xml'):
+            try:
+                parts.append(z.read(name).decode('utf-8'))
+            except KeyError:
+                pass
+    return '\n'.join(parts)
+
+
 def test_compare_missing_files_returns_error(test_server):
     _, data = _post_json(test_server, '/api/compare',
                          {'baseline_path': 'nope.xer', 'update_path': 'nope.xml'})
@@ -90,7 +153,234 @@ def test_compare_detects_lag_change_across_xer_and_xml(test_server, tmp_path):
     assert dur['A100']['baseline_orig_days'] == 10.0 and dur['A100']['update_orig_days'] == 15.0
 
 
+def test_compare_report_pdf_route_runs_without_reschedule(test_server, tmp_path, monkeypatch):
+    """Regression: _handle_compare_report used tempfile/subprocess without importing them,
+    so the Consultant Review PDF always failed with a NameError — regardless of any
+    reschedule. Mock Chrome so the full route (tempfile → subprocess) runs end to end."""
+    import server
+    ran = {}
+    monkeypatch.setattr(server, '_find_chrome', lambda: 'chrome-stub')
+    monkeypatch.setattr(server.subprocess, 'run', lambda *a, **k: ran.update(ok=True))
+    out = str(tmp_path / 'consultant_review.pdf')
+    report = {'baseline_file': 'b.xer', 'update_file': 'u.xml',
+              'dashboard': {'changed_activities': 0, 'logic_changed': 0, 'duration_only': 0,
+                            'finish_slip_days': None},
+              'change_summary': {'items': []}, 'logic': {'rows': []}, 'durations': {'rows': []}}
+    _, data = _post_json(test_server, '/api/compare/report',
+                         {'report': report, 'impact': None, 'output_path': out})
+    assert data['ok'] is True and ran.get('ok')     # route completed — no NameError, no reschedule needed
+
+
 # ── GET / ─────────────────────────────────────────────────────────────────
+
+# ── POST /api/oos/* (Out-of-Sequence — Resolve & Correct) ──────────────────
+
+_OOS_XML = (
+    '<?xml version="1.0"?>\n'
+    '<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
+    '  <Project><ObjectId>1</ObjectId><Id>PJ</Id><Name>P</Name>'
+    '<DataDate>2026-02-01T00:00:00</DataDate>\n'
+    '    <WBS><ObjectId>10</ObjectId><Name>Construction Works</Name><ParentObjectId></ParentObjectId></WBS>\n'
+    '    <Activity><ObjectId>1001</ObjectId><Id>A100</Id><Name>Fabricate</Name>'
+    '<Type>Task Dependent</Type><Status>In Progress</Status><WBSObjectId>10</WBSObjectId>'
+    '<CalendarObjectId></CalendarObjectId><PercentComplete>50</PercentComplete>'
+    '<ActualStartDate>2026-01-05T08:00:00</ActualStartDate></Activity>\n'
+    '    <Activity><ObjectId>1002</ObjectId><Id>A200</Id><Name>Erect</Name>'
+    '<Type>Task Dependent</Type><Status>In Progress</Status><WBSObjectId>10</WBSObjectId>'
+    '<CalendarObjectId></CalendarObjectId><PercentComplete>20</PercentComplete>'
+    '<ActualStartDate>2026-01-12T08:00:00</ActualStartDate></Activity>\n'
+    '    <Relationship><PredecessorActivityObjectId>1001</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>1002</SuccessorActivityObjectId><Type>Finish to Start</Type>'
+    '<Lag>0</Lag></Relationship>\n'
+    '  </Project>\n</APIBusinessObjects>\n'
+)
+
+
+def _oos_accepted(test_server, path, **override):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': path})
+    oos = parsed['result']['audit_modules']['modules']['out_of_sequence']
+    f = next(x for x in oos['findings'] if x['activity_id'] == 'A200')
+    r = f['resolution']
+    op = {'finding_id': f['finding_id'], 'pred_id': f['pred_id'], 'succ_id': f['activity_id'],
+          'action': r['action'], 'new_type': r['new_type'],
+          'new_lag_days': r['new_lag_days'], 'new_pred_id': r['new_pred_id']}
+    op.update(override)
+    return f['finding_id'], op
+
+
+def test_oos_validate_resolves_after_accepting_change(test_server, tmp_path):
+    p = tmp_path / 'oos.xml'; p.write_text(_OOS_XML, encoding='utf-8')
+    fid, op = _oos_accepted(test_server, str(p))
+    _, out = _post_json(test_server, '/api/oos/validate', {'xml_path': str(p), 'accepted': [op]})
+    assert out['ok'] is True
+    assert fid in out['resolved']
+
+
+def test_oos_validate_missing_file_errors(test_server):
+    _, out = _post_json(test_server, '/api/oos/validate',
+                        {'xml_path': '/nope/x.xml', 'accepted': []})
+    assert out['ok'] is False and 'Re-import' in out['error']
+
+
+def test_oos_corrected_file_written(test_server, tmp_path):
+    from p6_evm.parser import parse_file
+    p = tmp_path / 'oos.xml'; p.write_text(_OOS_XML, encoding='utf-8')
+    _fid, op = _oos_accepted(test_server, str(p))
+    out_path = tmp_path / 'oos_corrected.xml'
+    _, out = _post_json(test_server, '/api/oos/corrected-file',
+                        {'xml_path': str(p), 'output_path': str(out_path), 'accepted': [op]})
+    assert out['ok'] is True and out['applied'] >= 1
+    assert out_path.exists()
+    assert parse_file(str(out_path)).relationships[0]['type'] == 'SS'
+
+
+def test_oos_corrected_file_requires_applied(test_server, tmp_path):
+    p = tmp_path / 'oos.xml'; p.write_text(_OOS_XML, encoding='utf-8')
+    out_path = tmp_path / 'x.xml'
+    _, out = _post_json(test_server, '/api/oos/corrected-file',
+                        {'xml_path': str(p), 'output_path': str(out_path), 'accepted': []})
+    assert out['ok'] is False
+
+
+# ── POST /api/dangling/* (Dangling — Resolve & Correct) ────────────────────
+
+# A100 --FF--> A200 --FS--> A300 : A200's start is dangling (only an FF predecessor). Changing
+# A100→A200 from FF to FS clears it.
+_DNG_XML = (
+    '<?xml version="1.0"?>\n'
+    '<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
+    '  <Project><ObjectId>1</ObjectId><Id>PJ</Id><Name>P</Name>'
+    '<DataDate>2026-02-01T00:00:00</DataDate>\n'
+    '    <WBS><ObjectId>10</ObjectId><Name>Works</Name><ParentObjectId></ParentObjectId></WBS>\n'
+    '    <Activity><ObjectId>1001</ObjectId><Id>A100</Id><Name>Alpha</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status><WBSObjectId>10</WBSObjectId>'
+    '<CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Activity><ObjectId>1002</ObjectId><Id>A200</Id><Name>Bravo</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status><WBSObjectId>10</WBSObjectId>'
+    '<CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Activity><ObjectId>1003</ObjectId><Id>A300</Id><Name>Charlie</Name>'
+    '<Type>Task Dependent</Type><Status>Not Started</Status><WBSObjectId>10</WBSObjectId>'
+    '<CalendarObjectId></CalendarObjectId></Activity>\n'
+    '    <Relationship><PredecessorActivityObjectId>1001</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>1002</SuccessorActivityObjectId><Type>Finish to Finish</Type>'
+    '<Lag>0</Lag></Relationship>\n'
+    '    <Relationship><PredecessorActivityObjectId>1002</PredecessorActivityObjectId>'
+    '<SuccessorActivityObjectId>1003</SuccessorActivityObjectId><Type>Finish to Start</Type>'
+    '<Lag>0</Lag></Relationship>\n'
+    '  </Project>\n</APIBusinessObjects>\n'
+)
+
+
+def _dng_accepted(test_server, path, **override):
+    _, parsed = _post_json(test_server, '/api/parse', {'path': path})
+    dng = parsed['result']['audit_modules']['modules']['dangling']
+    f = next(x for x in dng['findings'] if x['activity_id'] == 'A200')
+    fx = f['start_fix']
+    op = {'finding_id': f['finding_id'], 'activity_id': f['activity_id'], 'side': 'start',
+          'action': 'change', 'pred_id': fx['target_id'], 'succ_id': f['activity_id'],
+          'new_type': 'FS', 'new_lag_days': fx['current_lag_days']}
+    op.update(override)
+    return f['finding_id'], op
+
+
+def test_dangling_validate_resolves_after_accepting_change(test_server, tmp_path):
+    p = tmp_path / 'dng.xml'; p.write_text(_DNG_XML, encoding='utf-8')
+    fid, op = _dng_accepted(test_server, str(p))
+    _, out = _post_json(test_server, '/api/dangling/validate', {'xml_path': str(p), 'accepted': [op]})
+    assert out['ok'] is True
+    assert fid in out['resolved']
+    assert all(x['activity_id'] != 'A200' for x in out['findings'])
+
+
+def test_dangling_validate_missing_file_errors(test_server):
+    _, out = _post_json(test_server, '/api/dangling/validate',
+                        {'xml_path': '/nope/x.xml', 'accepted': []})
+    assert out['ok'] is False and 'Re-import' in out['error']
+
+
+def test_dangling_corrected_file_written(test_server, tmp_path):
+    from p6_evm.parser import parse_file
+    p = tmp_path / 'dng.xml'; p.write_text(_DNG_XML, encoding='utf-8')
+    _fid, op = _dng_accepted(test_server, str(p))
+    out_path = tmp_path / 'dng_corrected.xml'
+    _, out = _post_json(test_server, '/api/dangling/corrected-file',
+                        {'xml_path': str(p), 'output_path': str(out_path), 'accepted': [op]})
+    assert out['ok'] is True and out['applied'] >= 1
+    assert out_path.exists()
+    assert all(r['type'] != 'FF' for r in parse_file(str(out_path)).relationships)
+
+
+def test_dangling_corrected_file_requires_applied(test_server, tmp_path):
+    p = tmp_path / 'dng.xml'; p.write_text(_DNG_XML, encoding='utf-8')
+    out_path = tmp_path / 'x.xml'
+    _, out = _post_json(test_server, '/api/dangling/corrected-file',
+                        {'xml_path': str(p), 'output_path': str(out_path), 'accepted': []})
+    assert out['ok'] is False
+
+
+def test_health_recompute_rolls_up_module_scores(test_server):
+    # The live roll-up used to update the Dangling tab + Summary after in-memory fixes: same weighted
+    # engine as import. dangling=100 (w15) + float=80 (w15) → renormalised 50/50 → 100*.5 + 80*.5 = 90.
+    modules = {
+        'dangling': {'module': 'dangling', 'name': 'Dangling Activities', 'score': 100, 'kpis': {}, 'findings': []},
+        'float': {'module': 'float', 'name': 'Float Analysis', 'score': 0, 'kpis': {}, 'findings': [],
+                  'mgmt': {'float_health': 80, 'stats': {'total': 5}}},
+    }
+    _, out = _post_json(test_server, '/api/health/recompute', {'modules': modules})
+    assert out['ok'] is True
+    assert out['health']['score'] == 90.0
+    # raising the Dangling score raises the roll-up
+    modules['dangling']['score'] = 60
+    _, out2 = _post_json(test_server, '/api/health/recompute', {'modules': modules})
+    assert out2['health']['score'] < 90.0
+
+
+def test_oos_excel_export_unchanged_after_apply_all(test_server, tmp_path):
+    """req 01 (regression): the Out-of-Sequence 'Export to Excel' reads the STORED snapshot
+    from the DB, while 'Apply all recommended fixes' re-validates in memory only (writes
+    nothing to the DB). So applying every fix must NEVER empty or shrink the export — a
+    silently-empty export would be a serious defect for a planner who trusts the register.
+
+    This is the strongest, least-mocked proof: it drives the real /api/parse, /api/oos/validate
+    (the endpoint the 'Apply all' button calls) and /api/export/excel handlers end to end.
+    It FAILS the moment a future change makes the export depend on the applied/resolved state."""
+    p = tmp_path / 'oos.xml'; p.write_text(_OOS_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(p)})
+    sid = parsed['snapshot_id']
+    oos = parsed['result']['audit_modules']['modules']['out_of_sequence']
+    n_findings = len(oos['findings'])
+    assert n_findings >= 1                                   # the fixture carries a real OOS finding (A200)
+
+    # Export BEFORE apply-all — the baseline the planner would download.
+    out_before = str(tmp_path / 'oos_before.xlsx')
+    _, d_before = _post_json(test_server, '/api/export/excel',
+                             {'snapshot_id': sid, 'module': 'out_of_sequence', 'output_path': out_before})
+    assert d_before['ok'] is True
+    rows_before = _xlsx_row_count(out_before)
+    assert 'A200' in _xlsx_sheet_text(out_before)
+
+    # Apply ALL recommended fixes — build an accepted op for every finding, then hit the real
+    # /api/oos/validate endpoint (what _oosApplyAll POSTs). This resolves the finding in memory.
+    def _op_for(f):
+        r = f['resolution']
+        return {'finding_id': f['finding_id'], 'pred_id': f['pred_id'], 'succ_id': f['activity_id'],
+                'action': r['action'], 'new_type': r['new_type'],
+                'new_lag_days': r['new_lag_days'], 'new_pred_id': r['new_pred_id']}
+    accepted_all = [_op_for(f) for f in oos['findings']]
+    _, val = _post_json(test_server, '/api/oos/validate',
+                        {'xml_path': str(p), 'accepted': accepted_all})
+    assert val['ok'] is True
+    assert set(val['resolved']) == {f['finding_id'] for f in oos['findings']}   # apply-all really cleared them
+    assert val['findings'] == []                                                 # nothing left out of sequence
+
+    # Export AFTER apply-all — must be identical: same row count, still shows A200.
+    out_after = str(tmp_path / 'oos_after.xlsx')
+    _, d_after = _post_json(test_server, '/api/export/excel',
+                            {'snapshot_id': sid, 'module': 'out_of_sequence', 'output_path': out_after})
+    assert d_after['ok'] is True
+    assert _xlsx_row_count(out_after) == rows_before        # NOT reduced or emptied by apply-all
+    assert 'A200' in _xlsx_sheet_text(out_after)            # every OOS finding still exported
+
 
 def test_index_returns_200(test_server):
     status, ct, _ = _get(test_server, '/')
@@ -226,12 +516,49 @@ def test_parse_returns_modules_and_snapshot(test_server, xml_path):
     assert data['ok'] is True
     assert 'snapshot_id' in data and isinstance(data['snapshot_id'], int)
     am = data['result']['audit_modules']
-    assert set(am['modules'].keys()) == {'dangling', 'float', 'out_of_sequence'}
-    assert am['module_order'] == ['dangling', 'float', 'out_of_sequence']
+    assert set(am['modules'].keys()) == {
+        'dangling', 'float', 'out_of_sequence', 'lag_lead',
+        'open_ends', 'relationship_types', 'hard_constraints', 'high_duration',
+        'leads', 'negative_float', 'whole_day', 'circular', 'cpli'}
+    assert am['module_order'] == [
+        'dangling', 'float', 'out_of_sequence', 'lag_lead',
+        'open_ends', 'relationship_types', 'hard_constraints', 'high_duration',
+        'leads', 'negative_float', 'whole_day', 'circular', 'cpli']
     # minimal.xml has two unlinked activities -> dangling module finds them
     assert am['modules']['dangling']['kpis']['total_dangling'] >= 1
     # each module carries its own isolated score/grade
     assert 'score' in am['modules']['float'] and 'grade' in am['modules']['float']
+
+
+def test_lag_justification_round_trip(test_server, tmp_path):
+    """Save a Lag & Lead justification, then re-import the same file and confirm it is
+    merged back from project settings — the persistence path a re-open depends on."""
+    p = tmp_path / 'lag.xml'
+    p.write_text(_UPDATE_XML, encoding='utf-8')   # carries A050 --FS Lag 80h (=10wd)--> A100
+
+    _, d1 = _post_json(test_server, '/api/parse', {'path': str(p), 'overrides_path': None})
+    sid = d1['snapshot_id']
+    lag = d1['result']['audit_modules']['modules']['lag_lead']
+    assert lag['kpis']['lagged_count'] == 1
+    f0 = lag['findings'][0]
+    assert f0['justification'] == ''
+    rel_key = f0['rel_key']
+    assert rel_key == 'A050|A100|FS'
+
+    _, d2 = _post_json(test_server, '/api/lag/justification',
+                       {'snapshot_id': sid, 'rel_key': rel_key, 'text': 'Cure + strike per MS-07'})
+    assert d2['ok'] is True
+    assert d2['lag_justifications'][rel_key] == 'Cure + strike per MS-07'
+
+    # Re-import the same file → the saved reason is merged into the fresh register.
+    _, d3 = _post_json(test_server, '/api/parse', {'path': str(p), 'overrides_path': None})
+    lag3 = d3['result']['audit_modules']['modules']['lag_lead']
+    assert lag3['findings'][0]['justification'] == 'Cure + strike per MS-07'
+
+    # Blanking the text clears the stored reason.
+    _, d4 = _post_json(test_server, '/api/lag/justification',
+                       {'snapshot_id': sid, 'rel_key': rel_key, 'text': '   '})
+    assert rel_key not in d4['lag_justifications']
 
 
 def test_parse_returns_calendar_audit(test_server, xml_path):
@@ -250,7 +577,7 @@ def test_calendar_report_preview_returns_html(test_server, xml_path):
                          {'snapshot_id': sid, 'preview': True, 'meta': {'project_name': 'X'}})
     assert data['ok'] is True
     assert '<!DOCTYPE html>' in data['html']
-    assert 'Executive Dashboard' in data['html']
+    assert 'Execution Dashboard' in data['html']
 
 
 def test_calendar_excel_writes_file(test_server, xml_path, tmp_path):
@@ -320,6 +647,117 @@ def test_export_excel_unknown_module_fails(test_server, xml_path, tmp_path):
 def test_export_excel_missing_output_path(test_server):
     _, data = _post_json(test_server, '/api/export/excel', {'snapshot_id': 1, 'module': 'float'})
     assert data['ok'] is False
+
+
+# ── Lag Report on-screen filter honoured by exports ─────────────────────────
+
+def test_export_excel_lag_lead_honours_visible_keys_filter(test_server, tmp_path):
+    xml = tmp_path / 'lag.xml'
+    xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+
+    out_all = str(tmp_path / 'lag_all.xlsx')
+    _, data_all = _post_json(test_server, '/api/export/excel',
+                             {'snapshot_id': sid, 'module': 'lag_lead', 'output_path': out_all})
+    assert data_all['ok'] is True
+    assert _xlsx_row_count(out_all) == 3          # header + 2 findings, unfiltered
+
+    out_f = str(tmp_path / 'lag_filtered.xlsx')
+    _, data_f = _post_json(test_server, '/api/export/excel',
+                           {'snapshot_id': sid, 'module': 'lag_lead', 'output_path': out_f,
+                            'lag_visible_keys': ['A100|A200|FS']})
+    assert data_f['ok'] is True
+    assert _xlsx_row_count(out_f) == 2            # header + 1 filtered finding
+
+
+def test_export_excel_lag_lead_null_visible_keys_exports_everything(test_server, tmp_path):
+    xml = tmp_path / 'lag.xml'
+    xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+    out = str(tmp_path / 'lag.xlsx')
+    _, data = _post_json(test_server, '/api/export/excel',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'output_path': out,
+                          'lag_visible_keys': None})
+    assert data['ok'] is True
+    assert _xlsx_row_count(out) == 3              # absent/null filter -> unfiltered, as before
+
+
+def test_export_excel_non_lag_module_ignores_lag_filter_keys(test_server, xml_path, tmp_path):
+    """lag_visible_keys is meaningless for any module other than lag_lead — must be a no-op."""
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml_path)})
+    sid = parsed['snapshot_id']
+    out = str(tmp_path / 'dangling.xlsx')
+    _, data = _post_json(test_server, '/api/export/excel',
+                         {'snapshot_id': sid, 'module': 'dangling', 'output_path': out,
+                          'lag_visible_keys': []})
+    assert data['ok'] is True
+    import os
+    assert os.path.exists(out)
+
+
+def test_module_report_preview_lag_lead_honours_filter_and_caption(test_server, tmp_path):
+    xml = tmp_path / 'lag.xml'
+    xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+    caption = 'Filtered — showing 1 of 2 lags'
+    _, data = _post_json(test_server, '/api/report/module',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'preview': True,
+                          'meta': {'project_name': 'P'},
+                          'lag_visible_keys': ['A100|A200|FS'], 'lag_filter_caption': caption})
+    assert data['ok'] is True
+    html = data['html']
+    assert caption in html
+    assert html.count('<tr><td class="num">') == 1            # register narrowed to the visible finding
+    assert '<b>2</b> lags across the schedule' in html         # summary/charts stayed whole-schedule
+
+
+def test_module_report_preview_lag_lead_no_filter_shows_all_no_caption(test_server, tmp_path):
+    xml = tmp_path / 'lag.xml'
+    xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+    _, data = _post_json(test_server, '/api/report/module',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'preview': True,
+                          'meta': {'project_name': 'P'}})
+    assert data['ok'] is True
+    html = data['html']
+    assert 'class="lagfilter"' not in html
+    assert html.count('<tr><td class="num">') == 2             # both findings, unfiltered
+
+
+def test_module_report_lag_lead_prints_on_screen_justifications(test_server, tmp_path):
+    # The planner's typed/saved justification must reach the exported register. It rides in the
+    # request (lag_justifications) because the DB module carries none — they're merged onto the
+    # module only on parse / project-load, not in the export handler that re-reads from the DB.
+    xml = tmp_path / 'lag.xml'; xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+    # baseline: nothing sent -> the register cell is blank (this is the bug being fixed)
+    _, base = _post_json(test_server, '/api/report/module',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'preview': True,
+                          'meta': {'project_name': 'P'}})
+    assert base['ok'] is True and 'CURE 28 DAYS' not in base['html']
+    # with the on-screen text sent -> it prints in the register
+    _, data = _post_json(test_server, '/api/report/module',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'preview': True,
+                          'meta': {'project_name': 'P'},
+                          'lag_justifications': {'A100|A200|FS': 'CURE 28 DAYS'}})
+    assert data['ok'] is True and 'CURE 28 DAYS' in data['html']
+
+
+def test_export_excel_lag_lead_includes_on_screen_justifications(test_server, tmp_path):
+    xml = tmp_path / 'lag.xml'; xml.write_text(_LAG_XML, encoding='utf-8')
+    _, parsed = _post_json(test_server, '/api/parse', {'path': str(xml)})
+    sid = parsed['snapshot_id']
+    out = str(tmp_path / 'lag_just.xlsx')
+    _, data = _post_json(test_server, '/api/export/excel',
+                         {'snapshot_id': sid, 'module': 'lag_lead', 'output_path': out,
+                          'lag_justifications': {'A100|A200|FS': 'CURE 28 DAYS'}})
+    assert data['ok'] is True
+    assert 'CURE 28 DAYS' in _xlsx_all_text(out)
 
 
 def test_gap_route_reparses(test_server, xml_path):

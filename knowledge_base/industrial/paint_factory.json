@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Paint & Coatings Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["paint", "coating", "resin", "pigment", "solvent", "disperser", "bead mill", "let-down", "tinting",
+                 "filling line", "tank farm", "atex", "explosion proof", "solvent recovery"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Raw Material & Tank Farm", "keywords": ["tank farm", "raw material", "storage tank", "bunding", "solvent storage"]},
+    {"name": "Dispersion & Grinding", "keywords": ["disperser", "dispersion", "bead mill", "grinding", "high speed"]},
+    {"name": "Let-down & Mixing", "keywords": ["let-down", "let down", "mixing", "blending", "tinting"]},
+    {"name": "Filling & Packaging", "keywords": ["filling", "filling line", "packaging", "canning"]},
+    {"name": "Solvent Recovery & Safety (ATEX)", "keywords": ["atex", "explosion proof", "solvent recovery", "fire suppression", "flameproof"]},
+    {"name": "Testing & Commissioning", "keywords": ["commission", "trial batch", "qc lab", "test"]}
+  ],
+  "activities": [
+    {"name": "ATEX / Explosion-Proof & Fire Suppression", "keywords": ["atex", "explosion proof", "fire suppression", "flameproof"], "wbs": "Solvent Recovery & Safety (ATEX)",
+     "typical_pred": "Building Weathertight", "typical_succ": "Plant Commissioning", "duration_days": 30,
+     "why": "Solvent-based paint areas are explosive atmospheres; ATEX-rated systems and suppression must be in place before commissioning."},
+    {"name": "Tank Farm & Bunding", "keywords": ["tank farm", "bunding", "storage tank", "solvent storage"], "wbs": "Raw Material & Tank Farm",
+     "typical_pred": "Foundations", "typical_succ": "Process Piping Tie-in", "duration_days": 25,
+     "why": "Bulk resin/solvent tanks with secondary containment (bunds) feed the process and are an environmental requirement."},
+    {"name": "Solvent Recovery / Effluent System", "keywords": ["solvent recovery", "effluent", "vapour recovery"], "wbs": "Solvent Recovery & Safety (ATEX)",
+     "typical_pred": "Building Weathertight", "typical_succ": "Plant Commissioning", "duration_days": 20,
+     "why": "Solvent vapour/effluent recovery is a permit condition frequently omitted from the schedule."},
+    {"name": "Trial Batch / QC Lab", "keywords": ["trial batch", "qc lab", "first batch"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Plant Commissioning", "typical_succ": "Handover", "duration_days": 12,
+     "why": "A trial batch proves colour, viscosity and fineness against spec before production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["atex", "explosion proof", "fire suppression", "solvent recovery"], "after_keywords": ["commission", "trial batch", "production"],
+     "reason": "Commissioning of solvent areas may not precede ATEX protection and fire/solvent-vapour safety systems.",
+     "impact": "Critical"},
+    {"before_keywords": ["tank farm", "bunding", "storage tank"], "after_keywords": ["process piping", "tie-in", "dispersion"],
+     "reason": "Process piping ties into the tank farm, so the tanks and bunds come first.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["disperser", "dispersion", "grinding"], "after_keywords": ["let-down", "mixing", "filling"],
+     "reason": "Pigment dispersion/grinding precedes let-down, mixing and filling in the process line.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Tank Farm Complete", "ATEX / Safety Systems Live", "Trial Batch / Handover"],
+  "common_issues": ["Commissioning before ATEX / fire suppression", "Missing solvent-recovery / effluent scope",
+                    "No secondary containment (bunding) on tank farm", "No trial-batch / QC phase"]
+}

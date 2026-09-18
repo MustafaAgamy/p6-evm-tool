@@ -1,8 +1,8 @@
 import { state }                                   from './state.js';
 import { fmtEGP, fmtDate, kpiColor, escapeHtml }  from './format.js';
-import { renderAudit, renderOosPanel, showChooser } from './audit.js';
+import { renderAudit, renderOosPanel, renderLagPanel, showChooser } from './audit.js';
 import { renderEvm }                                from './evm.js';
-import { renderCalendar }                           from './calendar.js';
+import { renderCalendar, renderWeatherView }        from './calendar.js';
 
 const KPI_TOOLTIPS = {
   'Finish Delay':  'Days behind schedule — positive = late, negative = ahead',
@@ -13,11 +13,39 @@ const KPI_TOOLTIPS = {
   'CPI':           'Cost Performance Index: Earned Value ÷ Actual Cost',
 };
 
+// Menu-bar schedule-health light. Dim/neutral before import; lit + labelled once a
+// schedule is loaded. Colour reuses the tested SPI buckets (kpiColor(...,'index'):
+// <0.85 red · <1.0 amber · else green) and the delay-sign convention — a late
+// forecast finish (delay > 0) never shows green. Tooltip carries the actual numbers.
+export function updateStatusLight(result) {
+  const el = document.getElementById('status-light');
+  if (!el) return;
+  const spi   = result ? result.spi : null;
+  const delay = result ? result.delay_days : null;
+  let cls, label, tip;
+  if (!result || spi == null) {
+    cls = 'neutral';
+    label = 'No schedule';
+    tip = 'No schedule imported yet — import a P6 file to see its status';
+  } else {
+    const rank = { green: 0, amber: 1, red: 2 };
+    const spiCls = kpiColor(spi, 'index').replace('color-', '');   // red | amber | green
+    let c = (spiCls in rank) ? spiCls : 'amber';
+    if (delay != null && delay > 0 && rank[c] < rank.amber) c = 'amber';  // late finish → at least At Risk
+    cls = c;
+    label = c === 'green' ? 'On Track' : c === 'amber' ? 'At Risk' : 'Behind';
+    const dtxt = delay == null ? '' : delay > 0 ? ` · ${delay}d behind` : delay < 0 ? ` · ${-delay}d ahead` : ' · on time';
+    tip = `${label} — SPI ${spi.toFixed(2)}${dtxt}`;
+  }
+  el.className = `shl ${cls}`;
+  el.dataset.tooltip = tip;
+  const txt = el.querySelector('.shl-txt');
+  if (txt) txt.textContent = label;
+}
+
 export function setLoading(active) {
-  document.getElementById('browse-btn').classList.toggle('hidden', active);
-  document.getElementById('browse-spinner').classList.toggle('hidden', !active);
-  document.getElementById('xer-btn').classList.toggle('hidden', active);
-  document.getElementById('xer-spinner').classList.toggle('hidden', !active);
+  document.getElementById('browse-btn')?.classList.toggle('hidden', active);
+  document.getElementById('browse-spinner')?.classList.toggle('hidden', !active);
   if (active) {
     document.getElementById('topbar-sub').textContent = 'Parsing…';
   } else if (!state.currentResult) {
@@ -34,12 +62,25 @@ export function clearError() {
   document.getElementById('error-banner').classList.add('hidden');
 }
 
+// Every left-sidebar standalone/library page (Recent Projects, Knowledge Base + its
+// Database, Productivity & Resources) must NEVER trail the import screen or a feature's
+// results. Hide them all whenever we enter the import screen or render results — so no
+// matter which page the user was on before, nothing shows underneath.
+export function hideStandalonePages() {
+  ['recent-section', 'kb-section', 'kb-database-section', 'prodintel-section'].forEach((id) =>
+    document.getElementById(id)?.classList.add('hidden'));
+}
+
 export function loadAnother() {
   document.getElementById('results-section').classList.add('hidden');
+  document.getElementById('import-section')?.classList.remove('hidden');  // Aurora+ landing back
   document.getElementById('topbar-sub').textContent = 'Home · Import';
-  // Back to the import screen: Home highlighted, Audit shield cleared.
-  document.getElementById('sb-home-btn').classList.add('active');
-  document.getElementById('sb-audit-btn').classList.remove('active');
+  document.getElementById('feature-gate')?.classList.add('hidden');       // clear any open Run gate
+  hideStandalonePages();   // #06: back to import shows ONLY the import screen — no Recent/KB/Productivity page trailing
+  if (state.ranFeatures && typeof state.ranFeatures.clear === 'function') state.ranFeatures.clear();
+  // Back to the import screen: clear any active module in the navigator (Aurora+ shell).
+  document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n =>
+    n.classList.toggle('on', n.dataset.nav === 'home'));
   state.currentResult      = null;
   state.currentXmlPath     = null;
   state.currentCachedPath  = null;
@@ -51,6 +92,7 @@ export function loadAnother() {
   state.aiReferenceName    = null;
   state.constructReport    = null;
   state.constructForcedType = null;
+  updateStatusLight(null);   // back to import → status light returns to "No schedule"
 }
 
 export function renderResults(result, filePath, { previousImport = null } = {}) {
@@ -72,18 +114,24 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
     `${filename}  ·  Data date: ${dataDate}  ·  ${actCount} activities  ·  ${calCount} calendars${prevNote}`;
   document.getElementById('topbar-sub').textContent = `${filename} · ${dataDate}`;
 
-  renderEvm(result);
-  renderAudit(result.audit_modules);
-  renderOosPanel(result.audit_modules);   // Out of Sequence — its own top-level panel
-  renderCalendar(result.calendar_audit);  // Calendar Audit — its own top-level panel
-  showChooser();   // do NOT auto-open EVM — let the user pick a view
+  // Issues #3/#4: importing must NOT run or display any feature's analysis — only the
+  // "Choose a feature to analyze" prompt. Each feature computes and renders on its own
+  // explicit Run (see app.js openView/runFeature).
+  if (state.ranFeatures && typeof state.ranFeatures.clear === 'function') state.ranFeatures.clear();
+  showChooser();   // "Choose a feature to analyze" — the user picks; nothing auto-runs
 
-
+  hideStandalonePages();   // importing while on a Library page (KB/Recent/Productivity) must not leave it trailing
+  document.getElementById('import-section')?.classList.add('hidden');   // Aurora+: landing gives way to results
   document.getElementById('results-section').classList.remove('hidden');
+  updateStatusLight(result);   // light up the menu-bar schedule-health light (covers import + open-recent)
 }
 
 export function renderHistory(history) {
   const tbody = document.getElementById('recent-tbody');
+  const totalEl = document.getElementById('recent-total');
+  if (totalEl) totalEl.textContent = history.length
+    ? `${history.length} project${history.length === 1 ? '' : 's'}`
+    : 'none yet';
   if (!history.length) {
     tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No recent projects — import a P6 XML file to get started.</td></tr>';
     return;
@@ -116,12 +164,12 @@ export function renderHistory(history) {
               data-path="${escapeHtml(h.path)}"
               data-cached="${escapeHtml(h.cached_path)}"
               data-project-id="${escapeHtml(h.project_id)}"
-              data-tooltip="Re-open this schedule"
+              title="Re-open this schedule"
             >Open</button>
             <button
               class="delete-btn"
               data-project-id="${escapeHtml(h.project_id)}"
-              data-tooltip="Remove all history for this project"
+              title="Remove all history for this project"
               aria-label="Delete project"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

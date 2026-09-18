@@ -7,6 +7,25 @@
 import { state }             from './state.js';
 import { showError, clearError } from './render.js';
 import { escapeHtml }        from './format.js';
+import { getSavedMode }      from './appearance.js';
+import { showReportPreview } from './preview.js';
+import { revealAndRun }      from './featurereveal.js';
+
+// The report-appearance mode chosen in this panel's PDF preview modal — remembered
+// across sessions via appearance.js, shared with every other report preview flow.
+let _cmpTheme = getSavedMode();
+
+// ── Report Contents — the sections the Consultant Review PDF can print. Shown as the
+// in-preview "Report contents" picker (shared showReportPreview component), matching every
+// other module's report picker (Calendar Audit, EVM, Schedule Health Review…). Keys mirror
+// p6_compare/exporters.py render_html()'s `inc()` gate — see COMPARE_SECTIONS there.
+export const COMPARE_SECTIONS = [
+  { key: 'dashboard', label: 'Executive dashboard — KPIs' },
+  { key: 'charts',    label: 'Executive dashboard — charts' },
+  { key: 'logic',     label: 'Driving logic & lag changes vs baseline' },
+  { key: 'duration',  label: 'Duration & remaining changes vs baseline' },
+  { key: 'impact',    label: 'Impact & consultant recommendation (but-for)' },
+];
 
 // ── Pure helpers (unit-tested in tests/js/test_compare.js) ────────────────
 
@@ -65,6 +84,177 @@ function _kpi(label, val) {
          `<div class="v">${escapeHtml(String(val))}</div></div>`;
 }
 
+// Dashboard reconciliation: the "changed activities" total splits into the driving-logic
+// subset and the duration-only remainder, which sum back to the total exactly. Pure and
+// unit-tested so the dashboard tile and the table heading can never drift apart.
+export function changedBreakdown(dash) {
+  const d = dash || {};
+  return {
+    total: d.changed_activities ?? 0,
+    logic: d.logic_changed ?? 0,
+    duration: d.duration_only ?? 0,
+  };
+}
+
+// ── Executive-dashboard charts — pure data helpers (unit-tested) ────────────
+
+// Ranked bars for "how the logic was changed": the logic-group change-summary items,
+// biggest first, each with a width % relative to the largest. Duration items dropped.
+export function changeTypeBars(items) {
+  const logic = (items || []).filter(it => it && it.group === 'logic' && (it.count || 0) > 0);
+  logic.sort((a, b) => (b.count || 0) - (a.count || 0));
+  const max = logic.length ? (logic[0].count || 1) : 1;
+  return logic.map(it => ({
+    label: it.label || it.kind || '',
+    count: it.count || 0,
+    pct: Math.round((it.count || 0) / max * 100),
+  }));
+}
+
+// Finish-slip headline: signed days → magnitude + direction word. Positive = later.
+export function slipInfo(days) {
+  if (days == null) return { value: null, word: 'no finish date', dir: 'none' };
+  if (days > 0) return { value: days, word: days === 1 ? 'day later' : 'days later', dir: 'late' };
+  if (days < 0) return { value: -days, word: days === -1 ? 'day earlier' : 'days earlier', dir: 'early' };
+  return { value: 0, word: 'on the baseline finish', dir: 'ontime' };
+}
+
+// Two-segment donut fractions (logic vs duration-only), guarding a zero total.
+export function donutSegments(logic, duration) {
+  const l = Math.max(0, logic || 0), d = Math.max(0, duration || 0), t = l + d;
+  return t ? { logicFrac: l / t, durationFrac: d / t } : { logicFrac: 0, durationFrac: 0 };
+}
+
+// ── Chart rendering (DOM) ───────────────────────────────────────────────────
+
+const _DONUT_C = 326.726;   // circumference of the r=52 donut ring
+
+function _chartBars(report) {
+  const bars = changeTypeBars((report.change_summary || {}).items);
+  if (!bars.length) return '<p class="cmp-empty">No driving-logic or lag changes to chart.</p>';
+  return `<div class="cmp-bars">${bars.map(b => `
+    <div class="cmp-bar-row">
+      <div class="cmp-bar-label" title="${escapeHtml(b.label)}">${escapeHtml(b.label)}</div>
+      <div class="cmp-bar-track"><div class="cmp-bar-fill" style="width:${b.pct}%"></div></div>
+      <div class="cmp-bar-val">${escapeHtml(String(b.count))}</div>
+    </div>`).join('')}</div>`;
+}
+
+// But-for summary from the instant no-F9 estimate: how many of the reported delay's working
+// days the flagged edits manufactured (reported − but-for). Pure, unit-tested.
+export function butForSummary(dash) {
+  const d = dash || {};
+  const rep = d.delay_working_days, bf = d.butfor_delay_working_days, mfd = d.manufactured_working_days;
+  if (bf == null || mfd == null) return null;
+  let verdict;
+  if (mfd > 0) verdict = `${mfd} of the ${rep} working days were manufactured — reverting the flagged changes pulls the finish in to ${d.butfor_finish || '—'}.`;
+  else if (mfd === 0) verdict = `Reverting the flagged changes doesn't move the finish — the ${rep}-working-day delay is genuine, not manufactured.`;
+  else verdict = 'Reverting the flagged changes does not reduce the delay.';
+  return { reported: rep, butfor: bf, manufactured: mfd, verdict };
+}
+
+function _butForNote(report) {
+  const s = butForSummary(report.dashboard);
+  if (!s) return '';
+  const cls = s.manufactured > 0 ? 'cmp-mfd-hot' : 'cmp-mfd-ok';
+  return `<div class="cmp-butfor ${cls}">
+      <b>But-for delay: ${escapeHtml(String(s.butfor))} wd</b> &nbsp;·&nbsp; <b>${escapeHtml(String(s.manufactured))} manufactured</b>
+      <div class="mut">${escapeHtml(s.verdict)} <b>Instant estimate</b> — the tool schedules it, no F9; F9 the corrected file below to lock P6's exact date.</div>
+    </div>`;
+}
+
+function _chartSlip(report) {
+  // The honest delay = finish-date variance vs baseline in WORKING days (no F9 needed).
+  const s = slipInfo((report.dashboard || {}).delay_working_days);
+  const cls = { late: 'cmp-slip-late', early: 'cmp-slip-early', ontime: 'cmp-slip-flat', none: 'cmp-slip-flat' }[s.dir];
+  const num = s.value == null ? '—' : `${s.dir === 'late' ? '+' : s.dir === 'early' ? '−' : ''}${s.value}`;
+  const cap = { late: 'working days behind<br>the baseline finish',
+                early: 'working days ahead of<br>the baseline finish',
+                ontime: 'on the baseline finish', none: 'no finish date' }[s.dir];
+  const dd = report.data_date || '—', bf = report.baseline_finish || '—', uf = report.update_finish || '—';
+  const slipLine = (s.dir === 'late' || s.dir === 'early')
+    ? `<line x1="150" y1="30" x2="268" y2="30" stroke="${s.dir === 'late' ? 'var(--danger)' : 'var(--success)'}" stroke-width="6" stroke-linecap="round"/>`
+    : '';
+  return `
+    <div class="cmp-slip-head"><span class="cmp-slip-num ${cls}">${escapeHtml(num)}</span>
+      <span class="cmp-slip-cap">${cap}</span></div>
+    <svg viewBox="0 0 300 64" width="100%" role="img" aria-label="Delay: baseline finish versus update finish, ${escapeHtml(s.word)}">
+      <line x1="14" y1="30" x2="286" y2="30" stroke="var(--border)" stroke-width="2" stroke-linecap="round"/>
+      ${slipLine}
+      <circle cx="36" cy="30" r="4.5" fill="var(--muted)"/>
+      <text x="36" y="48" text-anchor="middle" style="font-size:8.5px;fill:var(--muted)">Data date</text>
+      <text x="36" y="59" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:var(--text)">${escapeHtml(dd)}</text>
+      <circle cx="150" cy="30" r="5.5" fill="var(--card-bg)" stroke="var(--accent)" stroke-width="3"/>
+      <text x="150" y="15" text-anchor="middle" style="font-size:8.5px;fill:var(--muted)">Baseline</text>
+      <text x="150" y="48" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:var(--text)">${escapeHtml(bf)}</text>
+      <circle cx="268" cy="30" r="5.5" fill="var(--danger)"/>
+      <text x="268" y="15" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:var(--danger)">Update</text>
+      <text x="268" y="48" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:var(--text)">${escapeHtml(uf)}</text>
+    </svg>`;
+}
+
+function _chartDonut(report) {
+  const b = changedBreakdown(report.dashboard);
+  const seg = donutSegments(b.logic, b.duration);
+  const gap = (seg.logicFrac > 0 && seg.durationFrac > 0) ? 2 : 0;
+  const la = Math.max(0, seg.logicFrac * _DONUT_C - gap), da = Math.max(0, seg.durationFrac * _DONUT_C - gap);
+  const pct = f => Math.round(f * 100);
+  return `
+    <div class="cmp-donut-wrap">
+      <svg viewBox="0 0 130 130" width="108" height="108" role="img" aria-label="${escapeHtml(String(b.total))} changed: ${escapeHtml(String(b.logic))} logic or lag, ${escapeHtml(String(b.duration))} duration only">
+        <circle cx="65" cy="65" r="52" fill="none" stroke="var(--border)" stroke-width="20"/>
+        <circle cx="65" cy="65" r="52" fill="none" stroke="var(--accent)" stroke-width="20"
+                stroke-dasharray="${la.toFixed(1)} ${(_DONUT_C - la).toFixed(1)}" transform="rotate(-90 65 65)"/>
+        <circle cx="65" cy="65" r="52" fill="none" stroke="var(--chart-3)" stroke-width="20"
+                stroke-dasharray="${da.toFixed(1)} ${(_DONUT_C - da).toFixed(1)}" stroke-dashoffset="${(-seg.logicFrac * _DONUT_C).toFixed(1)}" transform="rotate(-90 65 65)"/>
+        <text x="65" y="61" text-anchor="middle" style="font-size:20px;font-weight:800;fill:var(--text)">${escapeHtml(String(b.total))}</text>
+        <text x="65" y="78" text-anchor="middle" style="font-size:9px;fill:var(--muted)">changed</text>
+      </svg>
+      <div class="cmp-donut-legend">
+        <div><i style="background:var(--accent)"></i><b>${escapeHtml(String(b.logic))}</b> logic / lag <span class="mut">(${pct(seg.logicFrac)}%)</span></div>
+        <div><i style="background:var(--chart-3)"></i><b>${escapeHtml(String(b.duration))}</b> duration only <span class="mut">(${pct(seg.durationFrac)}%)</span></div>
+      </div>
+    </div>`;
+}
+
+function _chartsSection(report) {
+  const total = changedBreakdown(report.dashboard).total;
+  return `
+    <div class="cmp-charts">
+      <div class="cmp-chart">
+        <div class="cmp-chart-t">How the logic was changed</div>
+        <div class="cmp-chart-s">Every driving-logic / lag change, by type — the fingerprint of what changed.</div>
+        ${_chartBars(report)}
+      </div>
+      <div class="cmp-chart">
+        <div class="cmp-chart-t">Delay vs baseline</div>
+        <div class="cmp-chart-s">Finish date vs baseline, in working days — the honest delay, straight away (no F9).</div>
+        ${_chartSlip(report)}
+        ${_butForNote(report)}
+      </div>
+      <div class="cmp-chart">
+        <div class="cmp-chart-t">Changed activities</div>
+        <div class="cmp-chart-s">The ${escapeHtml(String(total))} split by what changed.</div>
+        ${_chartDonut(report)}
+      </div>
+    </div>`;
+}
+
+function _changedKpi(dash) {
+  const b = changedBreakdown(dash);
+  return `<div class="kpi cmp-kpi-changed"><div class="k">Changed activities</div>` +
+         `<div class="v">${escapeHtml(String(b.total))}</div>` +
+         `<div class="cmp-kpi-brk"><span><b>${escapeHtml(String(b.logic))}</b>logic / lag</span>` +
+         `<span><b>${escapeHtml(String(b.duration))}</b>duration</span></div></div>`;
+}
+
+function _reconHtml(dash) {
+  const b = changedBreakdown(dash);
+  return `<b>${escapeHtml(String(b.total))}</b> activities changed vs baseline = ` +
+         `<b>${escapeHtml(String(b.logic))}</b> with driving-logic / lag changes + ` +
+         `<b>${escapeHtml(String(b.duration))}</b> with duration changes only.`;
+}
+
 function _durStatus(status) {
   const map = {
     extended: ['cmp-st-ext', 'Duration extended'],
@@ -78,23 +268,33 @@ function _logicTable(rows) {
   if (!rows || !rows.length) {
     return '<p class="cmp-empty">No driving relationship or lag changes vs the baseline.</p>';
   }
-  const body = rows.map(r => `
+  const body = rows.map((r, i) => `
     <tr>
+      <td class="cmp-sn">${i + 1}</td>
       <td class="mono">${escapeHtml(r.activity_id)}</td>
       <td>${escapeHtml(r.activity_name)}</td>
       <td><span class="cmp-tag">${escapeHtml(r.change_label)}</span></td>
-      <td class="sepL">${cellStack(r.baseline_preds, 'id')}</td><td>${cellStack(r.baseline_preds, 'rel')}</td><td>${cellStack(r.baseline_preds, 'name')}</td>
-      <td>${cellStack(r.baseline_succs, 'id')}</td><td>${cellStack(r.baseline_succs, 'rel')}</td><td>${cellStack(r.baseline_succs, 'name')}</td>
-      <td class="sepU">${cellStack(r.update_preds, 'id')}</td><td>${cellStack(r.update_preds, 'rel')}</td><td>${cellStack(r.update_preds, 'name')}</td>
-      <td>${cellStack(r.update_succs, 'id')}</td><td>${cellStack(r.update_succs, 'rel')}</td><td>${cellStack(r.update_succs, 'name')}</td>
+      <td class="sepL mono">${cellStack(r.baseline_preds, 'id')}</td><td class="cmp-rel">${cellStack(r.baseline_preds, 'rel')}</td><td class="cmp-nm">${cellStack(r.baseline_preds, 'name')}</td>
+      <td class="mono">${cellStack(r.baseline_succs, 'id')}</td><td class="cmp-rel">${cellStack(r.baseline_succs, 'rel')}</td><td class="cmp-nm">${cellStack(r.baseline_succs, 'name')}</td>
+      <td class="sepU mono">${cellStack(r.update_preds, 'id')}</td><td class="cmp-rel">${cellStack(r.update_preds, 'rel')}</td><td class="cmp-nm">${cellStack(r.update_preds, 'name')}</td>
+      <td class="mono">${cellStack(r.update_succs, 'id')}</td><td class="cmp-rel">${cellStack(r.update_succs, 'rel')}</td><td class="cmp-nm">${cellStack(r.update_succs, 'name')}</td>
     </tr>`).join('');
-  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-log">
+  return `<div class="tblwrap cmp-logwrap"><table class="audit-table cmp-log">
+    <colgroup>
+      <col class="c-sn"><col class="c-aid"><col class="c-anm"><col class="c-chg">
+      <col class="c-id"><col class="c-rel"><col class="c-nm">
+      <col class="c-id"><col class="c-rel"><col class="c-nm">
+      <col class="c-id"><col class="c-rel"><col class="c-nm">
+      <col class="c-id"><col class="c-rel"><col class="c-nm">
+    </colgroup>
     <thead>
-      <tr><th rowspan="2">Activity ID</th><th rowspan="2">Activity name</th><th rowspan="2">Change</th>
+      <tr><th rowspan="3">#</th><th rowspan="3">Activity ID</th><th rowspan="3">Activity name</th><th rowspan="3">Change</th>
         <th colspan="6" class="cmp-gh-base">Baseline — driving links</th>
         <th colspan="6" class="cmp-gh-upd">Update — driving links</th></tr>
-      <tr><th class="sepL">Pred. ID</th><th>Pred. rel</th><th>Pred. name</th><th>Succ. ID</th><th>Succ. rel</th><th>Succ. name</th>
-        <th class="sepU">Pred. ID</th><th>Pred. rel</th><th>Pred. name</th><th>Succ. ID</th><th>Succ. rel</th><th>Succ. name</th></tr>
+      <tr><th colspan="3" class="sepL cmp-gh-base">Predecessor</th><th colspan="3" class="cmp-gh-base">Successor</th>
+        <th colspan="3" class="sepU cmp-gh-upd">Predecessor</th><th colspan="3" class="cmp-gh-upd">Successor</th></tr>
+      <tr><th class="sepL">Pred. ID</th><th>Rel</th><th>Pred. name</th><th>Succ. ID</th><th>Rel</th><th>Succ. name</th>
+        <th class="sepU">Pred. ID</th><th>Rel</th><th>Pred. name</th><th>Succ. ID</th><th>Rel</th><th>Succ. name</th></tr>
     </thead>
     <tbody>${body}</tbody></table></div>
     <div class="cmp-foot">Every predecessor and successor relationship is read straight from the files. <b>▶ bold</b> = the driving link (date-derived; may be absent on completed activities). Red = changed vs baseline · green = added · struck = removed.</div>`;
@@ -104,17 +304,36 @@ function _durationTable(rows) {
   if (!rows || !rows.length) {
     return '<p class="cmp-empty">No duration or remaining changes vs the baseline.</p>';
   }
-  const body = rows.map(r => `<tr>
+  const body = rows.map(r => {
+    return `<tr>
     <td class="mono">${escapeHtml(r.activity_id)}</td><td>${escapeHtml(r.activity_name)}</td>
     <td class="num mut">${r.baseline_orig_days} d</td>
     <td class="num">${r.status === 'extended' ? `<span class="cmp-pill cmp-chg">${r.update_orig_days} d</span>` : `${r.update_orig_days} d`}</td>
     <td class="num">${r.remaining_days} d</td>
     <td class="num ${r.over_baseline ? 'cmp-over' : ''}">${signedDays(r.remaining_minus_baseline_days)}</td>
     <td>${_durStatus(r.status)}</td>
-    <td>${_durImpact(r.impact)}</td></tr>`).join('');
+    <td>${_durImpact(r.impact)}</td></tr>`;
+  }).join('');
   return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
     <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Baseline orig.</th><th class="num">Update orig.</th><th class="num">Remaining</th><th class="num">Rem − baseline</th><th>Status</th><th>Impact on finish</th></tr></thead>
-    <tbody>${body}</tbody></table></div>`;
+    <tbody>${body}</tbody></table></div>
+    ${_durationLegend()}`;
+}
+
+// Plain-language key for the duration table's columns and the impact-on-finish values.
+function _durationLegend() {
+  return `<div class="cmp-legend">
+    <div class="cmp-legend-l"><b>Columns —</b>
+      <b>Baseline orig.</b> original duration in the baseline ·
+      <b>Update orig.</b> original duration now ·
+      <b>Remaining</b> duration still left at the data date ·
+      <b>Rem − baseline</b> remaining minus the baseline original (positive = more work left than the baseline ever allowed).</div>
+    <div class="cmp-legend-l"><b>Impact on finish —</b>
+      <span class="cmp-imp cmp-imp-direct">Direct</span> on the critical path, pushes the finish ·
+      <span class="cmp-imp cmp-imp-pot">Potential</span> near-critical (≤ 10 working-days float) ·
+      <span class="cmp-imp cmp-imp-none">Float absorbs</span> enough float to swallow it ·
+      <span class="cmp-imp">—</span> the P6 export carries no float value for this activity, so it can't be judged.</div>
+  </div>`;
 }
 
 // Impact of a duration change on the project finish, from the activity's P6 float.
@@ -166,20 +385,23 @@ export function renderCompareReport(report) {
   body.innerHTML = `
     ${_fileBar(report)}
     <div class="cmp-exports">
+      <button class="btn-secondary" id="cmp-preview-pdf">Preview PDF</button>
       <button class="btn-secondary" id="cmp-export-pdf">Export PDF</button>
       <button class="btn-secondary" id="cmp-export-xlsx">Export Excel</button>
     </div>
     ${mismatch}
     <div class="mod-sec">Executive dashboard</div>
     <div class="cmp-kpis">
-      ${_kpi('Changed activities', dash.changed_activities ?? 0)}
+      ${_changedKpi(dash)}
       ${_kpi('Baseline finish', report.baseline_finish || '—')}
       ${_kpi('Update finish', report.update_finish || '—')}
       ${_kpi('Data date', report.data_date || '—')}
     </div>
+    <div class="cmp-recon">${_reconHtml(dash)}</div>
+    ${_chartsSection(report)}
     <div class="mod-sec">Driving logic &amp; lag changes vs baseline</div>
     <div class="cmp-chgsum">
-      <div class="cmp-chgsum-t">Total changed activities: <b>${logic.summary.changed_activities ?? 0}</b></div>
+      <div class="cmp-chgsum-t">Activities with driving-logic / lag changes: <b>${dash.logic_changed ?? logic.summary.changed_activities ?? 0}</b><span class="cmp-chgsum-sub"> — of the ${dash.changed_activities ?? 0} total changed (the other ${dash.duration_only ?? 0} changed in duration only)</span></div>
       <div class="cmp-pills">${summaryPills(cs.items)}</div>
     </div>
     ${_logicTable(logic.rows)}
@@ -188,7 +410,9 @@ export function renderCompareReport(report) {
     <div class="mod-sec">Corrected but-for XML</div>
     ${_correctedSection(report)}`;
   const chg = document.getElementById('cmp-change-baseline');
-  if (chg) chg.addEventListener('click', chooseBaselineAndCompare);
+  if (chg) chg.addEventListener('click', chooseBaseline);   // assign-only → user re-runs explicitly
+  const eprev = document.getElementById('cmp-preview-pdf');
+  if (eprev) eprev.addEventListener('click', previewComparePdf);
   const epdf = document.getElementById('cmp-export-pdf');
   if (epdf) epdf.addEventListener('click', exportComparePdf);
   const exls = document.getElementById('cmp-export-xlsx');
@@ -211,6 +435,76 @@ async function _withBtn(id, idle, fn) {
   finally { if (btn) { btn.disabled = false; btn.textContent = idle; } }
 }
 
+// Print preview: render the exact PDF HTML (server preview=true) via the shared
+// showReportPreview component, so the report can be reviewed — with a "Report contents"
+// picker to choose which sections print — before saving. Works both before and after the
+// corrected file is loaded (the Impact section shows as selectable once it is; "no data"
+// and disabled beforehand, same as every other module's picker). Preview = PDF = Print:
+// every tick re-renders from the same /api/compare/report route with the same sections,
+// and Save posts that exact selection.
+const _CMP_STORAGE_KEY = 'p6_report_sections_compare';
+
+export async function previewComparePdf() {
+  const report = _shownReportOrWarn();
+  if (!report) return;
+  const impact = state.compareImpact || _shownImpact || null;
+  const btn = document.getElementById('cmp-preview-pdf');
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+  const sections = COMPARE_SECTIONS.map(s => ({ ...s, empty: s.key === 'impact' && !impact }));
+  let selected = sections.filter(s => !s.empty).map(s => s.key);
+  try {
+    const saved = JSON.parse(localStorage.getItem(_CMP_STORAGE_KEY) || 'null');
+    if (Array.isArray(saved)) selected = saved.filter(k => sections.some(s => s.key === k && !s.empty));
+  } catch { /* default: every non-empty section */ }
+  // `report`/`impact` are the exact payload the preview was opened with (captured here, not
+  // re-read from state) — every re-render (ticking a section, changing appearance) reuses
+  // them so the preview never drifts even if a background re-import clears state.compare*.
+  const fetchPreview = async (keys, theme) => {
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report, impact, preview: true, sections: keys || null, theme: theme || _cmpTheme }),
+      });
+      const data = await resp.json();
+      return (data.ok && data.html) ? data.html : null;
+    } catch { return null; }
+  };
+  try {
+    const html = await fetchPreview(selected, _cmpTheme);
+    if (btn) { btn.disabled = false; btn.textContent = 'Preview PDF'; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
+    showReportPreview({
+      title: 'Print preview — Consultant Review', subtitle: report.update_file || '', html,
+      sections, selected, storageKey: _CMP_STORAGE_KEY, initialMode: _cmpTheme,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => { _cmpTheme = theme; return fetchPreview(keys, theme); },
+      onSave: (mode, keys) => _saveComparePdf(report, impact, mode, keys),
+    });
+  } catch {
+    showError('Could not reach the local server to build the preview.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Preview PDF'; }
+  }
+}
+
+// Save as PDF from the preview modal — picks a path, then posts the SAME report/impact
+// payload and ticked sections the preview iframe is currently showing.
+async function _saveComparePdf(report, impact, mode, keys) {
+  const outputPath = await window.pywebview.api.choose_save_path('consultant_review.pdf', 'pdf');
+  if (!outputPath) return false;
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report, impact, output_path: outputPath, theme: mode, sections: keys || null }),
+    });
+    const data = await resp.json();
+    if (!data.ok) { showError(`PDF export failed: ${data.error || 'unknown error'}`); return false; }
+    return true;
+  } catch {
+    showError('Could not reach the local server to export the PDF.');
+    return false;
+  }
+}
+
 export async function exportComparePdf() {
   const report = _shownReportOrWarn();
   if (!report) return;
@@ -220,7 +514,7 @@ export async function exportComparePdf() {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath }),
+        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath, theme: _cmpTheme }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
@@ -239,7 +533,9 @@ export async function exportCompareExcel() {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/compare/excel`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, output_path: outputPath }),
+        // send the impact too (same as the PDF export) so the Excel carries the
+        // But-For sections whenever the before/after impact is on screen.
+        body: JSON.stringify({ report, impact: state.compareImpact || _shownImpact || null, output_path: outputPath }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
@@ -315,7 +611,7 @@ function _impactTile(label, val, hot) {
 function _scurveSvg(sc) {
   const periods = sc.periods || [];
   if (periods.length < 2) return '<p class="cmp-empty">Not enough dated activities to draw the S-curve.</p>';
-  const x0 = 45, x1 = 600, y0 = 180, y1 = 20, n = periods.length;
+  const x0 = 50, x1 = 604, y0 = 250, y1 = 40, n = periods.length;   // taller plot, more headroom
   const xAt = i => x0 + (x1 - x0) * (i / (n - 1));
   const yAt = p => y0 - (y0 - y1) * (Math.max(0, Math.min(100, p || 0)) / 100);
   const poly = (arr, color, dash) => {
@@ -323,20 +619,40 @@ function _scurveSvg(sc) {
     const pts = arr.map((p, i) => `${xAt(i).toFixed(1)},${yAt(p).toFixed(1)}`).join(' ');
     return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linejoin="round"/>`;
   };
-  const step = Math.max(1, Math.round(n / 6));
+  // Y gridlines + labels at 0/25/50/75/100 (more readable spacing)
+  let ygrid = '';
+  for (const p of [0, 25, 50, 75, 100]) {
+    const y = yAt(p);
+    ygrid += `<line x1="${x0}" y1="${y.toFixed(1)}" x2="${x1}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="${p === 0 ? 1 : 0.5}"${p === 0 ? '' : ' stroke-dasharray="2 4"'}/>`;
+    ygrid += `<text x="${x0 - 7}" y="${(y + 3).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font-size:9px">${p}%</text>`;
+  }
+  const step = Math.max(1, Math.round(n / 8));   // ~8 well-spaced date labels
   let xlabels = '';
   for (let i = 0; i < n; i += step) {
-    xlabels += `<text x="${xAt(i).toFixed(1)}" y="198" text-anchor="middle" style="fill:var(--muted);font-size:10px">${escapeHtml(periods[i])}</text>`;
+    xlabels += `<text x="${xAt(i).toFixed(1)}" y="${y0 + 17}" text-anchor="middle" style="fill:var(--muted);font-size:9px">${escapeHtml(periods[i])}</text>`;
   }
-  return `<svg viewBox="0 0 620 214" width="100%" role="img" aria-label="S-curve comparing baseline, before-changes and after-changes cumulative progress over time">
-    <line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="var(--border)" stroke-width="1"/>
+  // Finish markers — baseline & update finishes, staggered on two rows and edge-aware so the
+  // labels never overlap even when the two finishes sit close together.
+  const m = sc.markers || {};
+  const bx = m.baseline_idx != null ? xAt(m.baseline_idx) : null;
+  const ux = m.update_idx != null ? xAt(m.update_idx) : null;
+  const anch = x => (x > x1 - 78 ? 'end' : (x < x0 + 78 ? 'start' : 'middle'));
+  let marks = '';
+  if (bx != null && ux != null && ux > bx) {
+    marks += `<rect x="${bx.toFixed(1)}" y="${y1}" width="${(ux - bx).toFixed(1)}" height="${y0 - y1}" fill="rgba(226,75,74,.09)"/>`;
+    marks += `<text x="${((bx + ux) / 2).toFixed(1)}" y="${(y1 + 13).toFixed(1)}" text-anchor="middle" style="fill:var(--danger);font-size:9px;font-weight:700">◄ slip ►</text>`;
+  }
+  if (bx != null) marks += `<line x1="${bx.toFixed(1)}" y1="${y1}" x2="${bx.toFixed(1)}" y2="${y0}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 2"/>` +
+    `<text x="${bx.toFixed(1)}" y="${(y1 - 16).toFixed(1)}" text-anchor="${anch(bx)}" style="fill:var(--muted);font-size:9px;font-weight:700">Baseline ${escapeHtml(m.baseline_label || '')}</text>`;
+  if (ux != null) marks += `<line x1="${ux.toFixed(1)}" y1="${y1}" x2="${ux.toFixed(1)}" y2="${y0}" stroke="var(--danger)" stroke-width="1" stroke-dasharray="3 2"/>` +
+    `<text x="${ux.toFixed(1)}" y="${(y1 - 5).toFixed(1)}" text-anchor="${anch(ux)}" style="fill:var(--danger);font-size:9px;font-weight:700">Update ${escapeHtml(m.update_label || '')}</text>`;
+  return `<svg viewBox="0 0 620 278" width="100%" role="img" aria-label="S-curve: baseline plan vs update, with the finish of each marked and the slip between them shaded">
+    ${ygrid}
+    ${marks}
     <line x1="${x0}" y1="${y1}" x2="${x0}" y2="${y0}" stroke="var(--border)" stroke-width="1"/>
-    <text x="${x0 - 6}" y="${y1 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">100%</text>
-    <text x="${x0 - 6}" y="${(y0 + y1) / 2 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">50%</text>
-    <text x="${x0 - 6}" y="${y0 + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">0%</text>
-    ${poly(sc.baseline, '#888781', '4 3')}
-    ${poly(sc.after, '#e24b4a')}
-    ${poly(sc.before, '#2a78d6')}
+    ${poly(sc.baseline, 'var(--muted)', '4 3')}
+    ${poly(sc.after, 'var(--danger)')}
+    ${poly(sc.before, 'var(--accent)')}
     ${xlabels}
   </svg>`;
 }
@@ -347,12 +663,12 @@ function _scurveSection(sc) {
     <div class="mod-sec">S-curve — baseline vs reported vs but-for</div>
     <div class="cmp-scurve-card">
       <div class="cmp-scurve-legend">
-        <span><i style="background:#888781"></i>Baseline plan</span>
-        <span><i style="background:#e24b4a"></i>Reported (update)</span>
-        <span><i style="background:#2a78d6"></i>But-for (corrected)</span>
+        <span><i style="background:var(--muted)"></i>Baseline plan</span>
+        <span><i style="background:var(--danger)"></i>Reported (update)</span>
+        <span><i style="background:var(--accent)"></i>But-for (corrected)</span>
       </div>
       ${_scurveSvg(sc)}
-      <div class="cmp-scurve-note">Planned progress profile from each schedule's activity dates &amp; durations — the gap between reported and but-for is the manufactured slip. The exact delay is in the numbers above.</div>
+      <div class="cmp-scurve-note">Each curve reaches 100% at that schedule's finish — the dashed lines mark the <b>baseline finish</b> and the <b>update finish</b>, and the shaded band between them is the <b>slip</b>. The but-for curve shows where the finish would sit with the flagged changes reverted; the exact delay is in the numbers above.</div>
     </div>`;
 }
 
@@ -442,45 +758,89 @@ export function renderComparePanel() {
   const body = document.getElementById('compare-body');
   if (!body) return;
   if (state.compareReport) { renderCompareReport(state.compareReport); return; }
+  _renderComparePrompt();
+}
+
+// The assign-inputs prompt: pick a baseline (assign only), then click Run to compare.
+// The review NEVER runs off the file pick — only off the explicit Run button below.
+function _renderComparePrompt() {
+  const body = document.getElementById('compare-body');
+  if (!body) return;
   const updName = (state.currentXmlPath || '').split(/[\\/]/).pop() || '—';
+  const ready   = !!(state.compareBaselinePath && state.compareBaselineName);
+  const status  = ready
+    ? `<span style="font-size:13px">Baseline: <b>${escapeHtml(state.compareBaselineName)}</b>` +
+      `<span style="color:var(--success);font-weight:700;margin-left:6px">✓ ready</span></span>`
+    : `<span class="mut" style="font-size:13px">No baseline chosen yet.</span>`;
   body.innerHTML = `
     <div class="cmp-prompt">
       <div class="cmp-prompt-t">Compare against the approved baseline</div>
       <div class="cmp-prompt-d">Current update: <b>${escapeHtml(updName)}</b>. Choose the baseline programme (XER or XML) to compare it against — the tool shows what changed and, next, the corrected file that gives the right delay.</div>
-      <button class="btn-primary" id="cmp-choose-baseline">Choose baseline file</button>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <button class="btn-secondary" id="cmp-choose-baseline">${ready ? 'Change baseline file' : 'Choose baseline file'}</button>
+        ${status}
+      </div>
+      <button class="btn-primary" id="cmp-run-review"${ready ? '' : ' disabled'}>Run Consultant Review</button>
     </div>`;
-  const btn = document.getElementById('cmp-choose-baseline');
-  if (btn) btn.addEventListener('click', chooseBaselineAndCompare);
+  const choose = document.getElementById('cmp-choose-baseline');
+  if (choose) choose.addEventListener('click', chooseBaseline);
+  const run = document.getElementById('cmp-run-review');
+  if (run) run.addEventListener('click', runConsultantReview);
 }
 
-export async function chooseBaselineAndCompare() {
+// Assign the baseline only — store its path/name, show it as "ready", enable Run.
+// Does NOT POST /api/compare; changing the baseline discards any on-screen report so
+// re-entry lands back on the assign→Run prompt with the new file queued.
+export async function chooseBaseline() {
   if (!state.currentXmlPath && !state.currentCachedPath) {
     showError('Open a schedule first, then compare it against a baseline.');
     return;
   }
   const path = await window.pywebview.api.choose_file();
-  if (!path) return;
+  if (!path) return;   // cancelled — keep any previously-assigned baseline
+  clearError();
+  state.compareBaselinePath = path;                      // full path — request + corrected-XML writer need it
+  state.compareBaselineName = path.split(/[\\/]/).pop(); // filename shown as "ready"
+  state.compareReport = null;   // a changed baseline invalidates any prior comparison…
+  state.compareImpact = null;   // …and its before/after impact
+  _renderComparePrompt();       // reflect the assigned file + enable Run (no comparison yet)
+}
+
+// The explicit run: fires the comparison off the assigned baseline. This is the ONLY
+// path that POSTs /api/compare and renders results.
+export async function runConsultantReview() {
+  if (!state.currentXmlPath && !state.currentCachedPath) {
+    showError('Open a schedule first, then compare it against a baseline.');
+    return;
+  }
+  const path = state.compareBaselinePath;
+  if (!path || !state.compareBaselineName) {
+    showError('Choose a baseline programme file first, then run the review.');
+    return;
+  }
   clearError();
   const body = document.getElementById('compare-body');
-  if (body) body.innerHTML = '<div class="cmp-loading">Comparing against the baseline…</div>';
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/compare`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        baseline_path: path,
-        update_path: state.currentXmlPath,
-        cached_path: state.currentCachedPath,
-      }),
-    });
-    const data = await resp.json();
-    if (!data.ok) { showError(data.error || 'Comparison failed.'); renderComparePanel(); return; }
-    state.compareReport = data.report;
-    state.compareImpact = null;          // a fresh comparison clears any prior before/after
-    state.compareBaselineName = path.split(/[\\/]/).pop();
-    state.compareBaselinePath = path;   // full path — the corrected-XML writer needs it
-    renderCompareReport(data.report);
-  } catch {
-    showError('Could not reach the local server. Try restarting the app.');
-    renderComparePanel();
-  }
+  // Branded feature-open presentation (Loading → 100%) plays over the panel, then the
+  // comparison computes + renders — same experience as every other feature.
+  revealAndRun(body, 'Consultant Review', async () => {
+    if (body) body.innerHTML = '<div class="cmp-loading">Comparing against the baseline…</div>';
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/compare`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseline_path: path,
+          update_path: state.currentXmlPath,
+          cached_path: state.currentCachedPath,
+        }),
+      });
+      const data = await resp.json();
+      if (!data.ok) { showError(data.error || 'Comparison failed.'); _renderComparePrompt(); return; }
+      state.compareReport = data.report;
+      state.compareImpact = null;          // a fresh comparison clears any prior before/after
+      renderCompareReport(data.report);
+    } catch {
+      showError('Could not reach the local server. Try restarting the app.');
+      _renderComparePrompt();
+    }
+  });
 }

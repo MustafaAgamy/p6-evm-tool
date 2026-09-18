@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Ready-Mix Batching Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["ready-mix", "ready mix", "readymix", "batching plant", "batch plant", "aggregate bin", "cement silo",
+                 "weigh batcher", "twin shaft mixer", "admixture", "transit mixer", "washout", "control cabin"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "access road", "earthwork"]},
+    {"name": "Plant & Silo Foundations", "keywords": ["foundation", "raft", "plinth", "silo foundation"]},
+    {"name": "Aggregate Bins & Conveyors", "keywords": ["aggregate", "bin", "hopper", "conveyor", "belt"]},
+    {"name": "Cement Silos & Screw Feeders", "keywords": ["cement silo", "silo", "screw", "filter", "feeder"]},
+    {"name": "Mixing Plant Erection", "keywords": ["mixer", "twin shaft", "mixing", "plant erection", "weigh batcher"]},
+    {"name": "Water & Admixture System", "keywords": ["water", "admixture", "dosing", "tank"]},
+    {"name": "Control, Electrical & Cabin", "keywords": ["control", "electrical", "cabin", "automation", "plc"]},
+    {"name": "Testing & Commissioning", "keywords": ["calibration", "commission", "trial batch", "test"]}
+  ],
+  "activities": [
+    {"name": "Cement Silo Erection & Dust Filters", "keywords": ["cement silo", "silo erection", "dust filter"], "wbs": "Cement Silos & Screw Feeders",
+     "typical_pred": "Silo Foundations", "typical_succ": "Screw Feeder Connection", "duration_days": 15,
+     "why": "Cement silos with their dust filters are erected on their foundations before the screw feeders can connect to the mixer."},
+    {"name": "Weigh Batcher Calibration", "keywords": ["calibration", "weigh batcher", "load cell"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Mixing Plant Erection", "typical_succ": "Trial Batch", "duration_days": 5,
+     "why": "Aggregate, cement, water and admixture weigh systems must be calibrated before any batch is trusted."},
+    {"name": "Washout / Recycling System", "keywords": ["washout", "recycling", "reclaimer", "settling"], "wbs": "Water & Admixture System",
+     "typical_pred": "Mixing Plant Erection", "typical_succ": "Trial Batch", "duration_days": 10,
+     "why": "Concrete washout/recycling and settling pits are an environmental requirement often left out of the plan."},
+    {"name": "Trial Batch / Mix Design Verification", "keywords": ["trial batch", "mix design", "first batch"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Weigh Batcher Calibration", "typical_succ": "Handover", "duration_days": 5,
+     "why": "A trial batch verifies mix design, slump and cycle time before the plant goes live."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["foundation", "plinth", "raft"], "after_keywords": ["plant erection", "silo erection", "mixer install"],
+     "reason": "Plant and silo erection follow their foundations, never before.",
+     "impact": "Critical"},
+    {"before_keywords": ["calibration", "weigh batcher", "load cell"], "after_keywords": ["trial batch", "first batch", "production"],
+     "reason": "Trial batching follows weigh-system calibration — an uncalibrated plant cannot be proven.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["cement silo", "screw", "conveyor"], "after_keywords": ["commission", "trial batch"],
+     "reason": "Commissioning follows the silos, screw feeders and conveyors being mechanically connected.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Foundations Complete", "Silos Erected", "Plant Commissioned", "Trial Batch / Handover"],
+  "common_issues": ["Plant erection scheduled before foundations", "Missing washout / recycling system",
+                    "Trial batch before weigh-batcher calibration", "No dust-filter scope on cement silos"]
+}

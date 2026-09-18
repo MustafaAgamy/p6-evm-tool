@@ -1,0 +1,47 @@
+{
+  "category": "Industrial",
+  "type": "Battery / Gigafactory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["battery", "gigafactory", "lithium", "li-ion", "battery cell", "cell assembly", "electrode",
+                 "electrode coating", "calendering", "slitting", "cell winding", "formation", "cell aging",
+                 "dry room", "module assembly", "pack assembly", "dew point", "nmp"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Dry Rooms & HVAC", "keywords": ["dry room", "dehumidification", "hvac", "cleanroom", "dew point"]},
+    {"name": "Electrode Line (Mixing / Coating / Calendering)", "keywords": ["electrode", "mixing", "coating", "calendering", "slitting"]},
+    {"name": "Cell Assembly", "keywords": ["cell assembly", "winding", "stacking", "filling", "sealing"]},
+    {"name": "Formation & Aging", "keywords": ["formation", "aging", "ageing", "cycling", "grading"]},
+    {"name": "Module / Pack Assembly", "keywords": ["module", "pack", "bms", "assembly"]},
+    {"name": "Utilities & Commissioning", "keywords": ["utilities", "solvent recovery", "nmp", "dry air", "commission", "test"]}
+  ],
+  "activities": [
+    {"name": "Dry Room & Dehumidification", "keywords": ["dry room", "dehumidification", "dew point"], "wbs": "Dry Rooms & HVAC",
+     "typical_pred": "Building Weathertight", "typical_succ": "Cell Assembly Commissioning", "duration_days": 60,
+     "why": "Li-ion cell assembly must run at an ultra-low dew point; the dry rooms are long-lead and gate all downstream commissioning."},
+    {"name": "Solvent Recovery (NMP) System", "keywords": ["solvent recovery", "nmp", "vapour recovery"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Building Weathertight", "typical_succ": "Electrode Line Commissioning", "duration_days": 40,
+     "why": "Electrode coating uses NMP solvent that must be recovered; this environmental system is often under-planned."},
+    {"name": "Coating Line Installation", "keywords": ["coating", "coater", "electrode line"], "wbs": "Electrode Line (Mixing / Coating / Calendering)",
+     "typical_pred": "Building Weathertight", "typical_succ": "Electrode Line Commissioning", "duration_days": 55,
+     "why": "The electrode coating line is a precision long-lead machine at the head of the cell process."},
+    {"name": "Trial Cells / Formation", "keywords": ["trial cell", "formation", "first cell", "trial production"], "wbs": "Formation & Aging",
+     "typical_pred": "Cell Assembly Commissioning", "typical_succ": "Handover", "duration_days": 25,
+     "why": "Formation and aging of trial cells prove capacity and safety before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["dry room", "dehumidification", "dew point"], "after_keywords": ["cell assembly", "assembly commission", "commission"],
+     "reason": "Cell-assembly commissioning cannot precede the dry rooms reaching their target dew point.",
+     "impact": "Critical"},
+    {"before_keywords": ["coating", "electrode", "calendering"], "after_keywords": ["cell assembly", "winding", "stacking"],
+     "reason": "Electrode manufacture precedes cell assembly in the process line.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["solvent recovery", "nmp"], "after_keywords": ["electrode commission", "coating commission", "production"],
+     "reason": "Electrode-line commissioning follows the NMP solvent-recovery system being live.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Dry Rooms at Dew Point", "Lines Commissioned", "Trial Cells / Handover"],
+  "common_issues": ["Cell assembly commissioned before dry rooms ready", "Missing NMP solvent-recovery scope",
+                    "Coating line under-planned as long-lead", "No formation / trial-cell phase"]
+}

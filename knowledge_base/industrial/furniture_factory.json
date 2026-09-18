@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Furniture Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["furniture", "woodworking", "beam saw", "panel saw", "edge banding", "edgebander", "cnc router",
+                 "drilling", "assembly", "spray booth", "lacquer", "finishing", "upholstery", "dust extraction"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Panel Cutting", "keywords": ["panel saw", "beam saw", "cutting", "nesting"]},
+    {"name": "Edge Banding & Drilling (CNC)", "keywords": ["edge banding", "edgebander", "drilling", "cnc router", "boring"]},
+    {"name": "Assembly", "keywords": ["assembly", "clamping", "fitting"]},
+    {"name": "Finishing (Spray / Lacquer)", "keywords": ["spray booth", "lacquer", "finishing", "painting", "curing oven"]},
+    {"name": "Dust Extraction & Utilities", "keywords": ["dust extraction", "aspiration", "compressed air", "utilities", "fire suppression"]},
+    {"name": "Testing & Commissioning", "keywords": ["commission", "trial production", "test"]}
+  ],
+  "activities": [
+    {"name": "Dust Extraction & Fire Suppression", "keywords": ["dust extraction", "aspiration", "fire suppression", "spark"], "wbs": "Dust Extraction & Utilities",
+     "typical_pred": "Building Weathertight", "typical_succ": "Line Commissioning", "duration_days": 25,
+     "why": "Wood dust is an explosion/fire hazard; central extraction and suppression must be in place before any machine runs."},
+    {"name": "Spray Booth & Finishing Line", "keywords": ["spray booth", "lacquer", "finishing line", "curing oven"], "wbs": "Finishing (Spray / Lacquer)",
+     "typical_pred": "Building Weathertight", "typical_succ": "Line Commissioning", "duration_days": 30,
+     "why": "The spray/lacquer finishing line (with its extraction and curing) is a specialist long-lead area often under-planned."},
+    {"name": "Compressed Air System", "keywords": ["compressed air", "compressor"], "wbs": "Dust Extraction & Utilities",
+     "typical_pred": "Building Weathertight", "typical_succ": "Line Commissioning", "duration_days": 15,
+     "why": "CNC machines, edgebanders and clamps all run on compressed air, a shared utility easily left off the plan."},
+    {"name": "Trial Production / First Batch", "keywords": ["trial production", "first batch", "sample"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Line Commissioning", "typical_succ": "Handover", "duration_days": 10,
+     "why": "A trial run proves cutting accuracy, edge quality and finish before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["dust extraction", "aspiration", "fire suppression"], "after_keywords": ["commission", "line commission", "trial production"],
+     "reason": "Machines may not be commissioned before central dust extraction and fire/spark suppression are in place.",
+     "impact": "Critical"},
+    {"before_keywords": ["panel saw", "beam saw", "cutting"], "after_keywords": ["edge banding", "edgebander", "drilling"],
+     "reason": "Panels are cut before edge banding and drilling in the process line.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["compressed air", "compressor", "utilities"], "after_keywords": ["commission", "line commission"],
+     "reason": "Line commissioning follows the compressed-air and utilities being live.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Dust Extraction Live", "Lines Commissioned", "Trial Production / Handover"],
+  "common_issues": ["Machine commissioning before dust extraction live", "Missing spray-booth / finishing scope",
+                    "No compressed-air system planned", "No trial-production phase"]
+}

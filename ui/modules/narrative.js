@@ -725,3 +725,9 @@ export function renderNarrativePanel() {
   }
   fetchAndRender();
 }
+
+// Aurora+ shell entry points — the shell opens the narrative view via renderNarrative()
+// and drives File ▸ Print via narrativePrint(); our report has its own Word/PDF/HTML
+// toolbar buttons, so narrativePrint returns null (nothing for the shell's PDF flow).
+export function renderNarrative() { return renderNarrativePanel(); }
+export function narrativePrint() { return null; }

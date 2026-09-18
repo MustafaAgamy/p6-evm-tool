@@ -2,6 +2,9 @@ import { state }                                                  from './state.
 import { setLoading, showError, clearError, renderResults, renderHistory } from './render.js';
 import { evmInputs }                                             from './evm.js';
 import { showReportPreview }                                     from './preview.js';
+import { getSavedMode }                                          from './appearance.js';
+import { CAL_SECTIONS, WEATHER_SECTIONS }                        from './calendar.js';
+import { lagExportFilter }                                       from './audit.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -45,10 +48,12 @@ export async function loadHistory() {
 }
 
 class ButtonState {
+  // el may be null when a report action is triggered from the global File menu
+  // (the per-module buttons were removed) — every method no-ops without an element.
   constructor(el, idleText) { this.el = el; this.idleText = idleText; }
-  loading(text)               { this.el.disabled = true;  this.el.textContent = text; }
-  reset()                     { this.el.disabled = false; this.el.textContent = this.idleText; }
-  success(text, delay = 2500) { this.el.textContent = text; setTimeout(() => this.reset(), delay); }
+  loading(text)               { if (this.el) { this.el.disabled = true;  this.el.textContent = text; } }
+  reset()                     { if (this.el) { this.el.disabled = false; this.el.textContent = this.idleText; } }
+  success(text, delay = 2500) { if (this.el) { this.el.textContent = text; setTimeout(() => this.reset(), delay); } }
 }
 
 export async function loadProject(projectId, filePath, cachedPath) {
@@ -99,10 +104,17 @@ export async function exportExcel(btnId = 'excel-btn') {
   try {
     const outputPath = await window.pywebview.api.choose_save_path(`${state.currentModule}_findings.xlsx`, 'xlsx');
     if (!outputPath) { btn.reset(); return; }
+    const excelBody = { snapshot_id: state.currentSnapshotId, module: state.currentModule, output_path: outputPath };
+    if (state.currentModule === 'lag_lead') {
+      const { visible_keys, caption, justifications } = lagExportFilter();
+      if (Array.isArray(visible_keys)) excelBody.lag_visible_keys = visible_keys;
+      if (caption) excelBody.lag_filter_caption = caption;
+      if (justifications && Object.keys(justifications).length) excelBody.lag_justifications = justifications;
+    }
     const data = await apiFetch('api/export/excel', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, module: state.currentModule, output_path: outputPath }),
+      body:    JSON.stringify(excelBody),
     });
     if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
     else          { btn.success('✓ Excel Saved'); }
@@ -117,19 +129,75 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   const _el = document.getElementById(btnId);
   const btn = new ButtonState(_el, _el ? _el.textContent : 'Generate PDF');
   btn.loading('Preparing preview…');
-  const reqBody = { snapshot_id: state.currentSnapshotId, module: state.currentModule, meta: moduleMeta() };
-  try {
-    // Preview first — render the report HTML and show it fitted before writing any PDF.
+  const module = state.currentModule;
+  const reqBody = { snapshot_id: state.currentSnapshotId, module, meta: moduleMeta() };
+
+  // Lag Report: mirror the on-screen AutoFilter/search state into the PDF so the
+  // preview and the saved file match what the planner is actually looking at.
+  if (module === 'lag_lead') {
+    const { visible_keys, caption, justifications } = lagExportFilter();
+    if (Array.isArray(visible_keys)) reqBody.lag_visible_keys = visible_keys;
+    if (caption) reqBody.lag_filter_caption = caption;
+    if (justifications && Object.keys(justifications).length) reqBody.lag_justifications = justifications;
+  }
+
+  // Summary PDF: send the health the screen is CURRENTLY showing so the PDF matches
+  // exactly (incl. a Milestone Check the user just entered), plus the completion float
+  // (from the CPLI module) for the headline stat.
+  if (module === '__summary__' && state.currentModules) {
+    reqBody.health = state.currentModules.health || null;
+    const ck = ((state.currentModules.modules || {}).cpli || {}).kpis || {};
+    reqBody.completion_float = ck.project_total_float_days;
+  }
+
+  // Report-content selector — the sections this check exposes + the remembered choice.
+  // Fully generic: ANY module that carries a presentation.sections list gets the picker,
+  // so every current and future feature inherits it automatically.
+  const mod = (state.currentModules && state.currentModules.modules && state.currentModules.modules[module]) || {};
+  let sections;
+  if (module === '__summary__') {
+    // The Summary is the roll-up, not a module, so it carries no presentation —
+    // give it its own component registry so it inherits the picker like every check.
+    const sh = (state.currentModules && state.currentModules.health) || {};
+    const noAreas = !(((sh.problem_areas || {}).areas) || []).length;
+    const noFixes = !((sh.fix_first) || []).length;
+    sections = [
+      { key: 'overview',    label: 'Overall score & verdict',       empty: false },
+      { key: 'checks',      label: 'Checks status (donut)',         empty: false },
+      { key: 'headline',    label: 'Headline stats',                empty: false },
+      { key: 'composition', label: 'Sub-feature scores × weights',  empty: false },
+      { key: 'problems',    label: 'Where the problems are',        empty: noAreas },
+      { key: 'fixes',       label: 'Fix these first',               empty: noFixes },
+      { key: 'conclusion',  label: 'Conclusion',                    empty: false },
+    ];
+  } else {
+    const useSelector = mod.presentation && Array.isArray(mod.presentation.sections);
+    sections = useSelector ? mod.presentation.sections : null;
+  }
+  const storageKey = `p6_report_sections_${module}`;
+  let selected = sections ? sections.filter(s => !s.empty).map(s => s.key) : null;
+  if (sections) { try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default */ } }
+
+  const mode = getSavedMode();                        // the saved appearance mode (one of the 6)
+  const fetchPreview = async (keys, theme) => {
     const data = await apiFetch('api/report/module', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || undefined, theme: theme || mode }),
     });
+    return (data.ok && data.html) ? data.html : null;
+  };
+
+  try {
+    const html = await fetchPreview(selected, mode);
     btn.reset();
-    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
-      title: 'Audit report preview', subtitle: state.currentModule, html: data.html,
-      onSave: () => _savePdf('api/report/module', reqBody, `${state.currentModule}_report.pdf`, 'pdf'),
+      title: 'Report — Schedule Health Review', subtitle: mod.name || module, html,
+      sections, selected, storageKey, initialMode: mode,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: (m, keys) => _savePdf('api/report/module', { ...reqBody, theme: m, sections: keys }, `${module}_report.pdf`, 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');
@@ -196,6 +264,26 @@ export async function exportCalendarExcel() {
   }
 }
 
+export async function exportWeatherExcel() {
+  if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('weather-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('bad_weather.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/export/weather_excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
 // ── Calendar Audit — weather / location / settings ────────────────────────
 export async function geocodePlace(q) {
   try {
@@ -206,12 +294,23 @@ export async function geocodePlace(q) {
   } catch { return { ok: false, error: 'offline' }; }
 }
 
-export async function computeWeather(lat, lon, placeName) {
+// Reverse-geocode a dropped/dragged pin → a friendly place name.
+export async function reverseGeocode(lat, lon) {
+  try {
+    return await apiFetch('api/geocode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lon }),
+    });
+  } catch { return { ok: false, error: 'offline' }; }
+}
+
+export async function computeWeather(lat, lon, placeName, thresholds, siteType) {
   return apiFetch('api/weather', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       snapshot_id: state.currentSnapshotId, xml_path: state.currentXmlPath,
       cached_path: state.currentCachedPath, lat, lon, place_name: placeName,
+      thresholds: thresholds || null, site_type: siteType || null,
     }),
   });
 }
@@ -230,18 +329,33 @@ export async function generateCalendarPdf() {
   if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
   const btn = new ButtonState(document.getElementById('cal-pdf-btn'), 'Generate Calendar Audit PDF');
   btn.loading('Preparing preview…');
-  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta() };
-  try {
+  // The in-preview "Report contents" picker toggles sections LIVE: every tick re-renders the
+  // iframe from the server (same route + sections list), and the Save honours the ticks — so
+  // Preview = PDF = Print. Mirrors the module/EVM report flow (local fetchPreview + onRerender).
+  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), feature: 'calendar' };
+  const mode = getSavedMode();
+  const sections = CAL_SECTIONS.map(([key, label]) => ({ key, label }));
+  const storageKey = 'p6_report_sections_calendar';
+  let selected = sections.map(s => s.key);
+  try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default: all */ }
+  const fetchPreview = async (keys, theme) => {
     const data = await apiFetch('api/report/calendar', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || null, theme: theme || mode }),
     });
+    return (data.ok && data.html) ? data.html : null;
+  };
+  try {
+    const html = await fetchPreview(selected, mode);
     btn.reset();
-    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
-      title: 'Calendar Audit preview', subtitle: reqBody.meta.source_file, html: data.html,
-      onSave: () => _savePdf('api/report/calendar', reqBody, 'Calendar_Audit.pdf', 'pdf'),
+      title: 'P6 Calendar Audit preview', subtitle: reqBody.meta.source_file, html, initialMode: mode,
+      sections, selected, storageKey,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'P6_Calendar_Audit.pdf', 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');
@@ -249,26 +363,318 @@ export async function generateCalendarPdf() {
   }
 }
 
+// Feature 2 — Bad Weather effect on Forecast Finish PDF (weather-only report).
+export async function generateWeatherPdf() {
+  if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('weather-pdf-btn'), 'Generate Bad-Weather PDF');
+  btn.loading('Preparing preview…');
+  // Live "Report contents" picker: every tick re-renders the iframe from the server (same
+  // route + sections list) and the Save honours the ticks — Preview = PDF = Print. Same
+  // fetchPreview + onRerender pattern as the module/EVM report flow.
+  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), feature: 'weather' };
+  const mode = getSavedMode();
+  const sections = WEATHER_SECTIONS.map(([key, label]) => ({ key, label }));
+  const storageKey = 'p6_report_sections_weather';
+  let selected = sections.map(s => s.key);
+  try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default: all */ }
+  const fetchPreview = async (keys, theme) => {
+    const data = await apiFetch('api/report/calendar', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || null, theme: theme || mode }),
+    });
+    return (data.ok && data.html) ? data.html : null;
+  };
+  try {
+    const html = await fetchPreview(selected, mode);
+    btn.reset();
+    if (!html) { showError('Preview failed — please retry.'); return; }
+    showReportPreview({
+      title: 'Bad Weather report preview', subtitle: reqBody.meta.source_file, html, initialMode: mode,
+      sections, selected, storageKey,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'Bad_Weather_Forecast.pdf', 'pdf'),
+    });
+  } catch {
+    showError('Preview failed. Check the schedule and try again.');
+    btn.reset();
+  }
+}
+
+// EVM report sections — the Printing Selection picker, same generic mechanism the
+// module reports use (keys match render_evm_report()'s gate). Engineering / PV-EV
+// Gap are data-driven add-ons shown when present, so they aren't user-toggled here.
+const EVM_SECTIONS = [
+  { key: 'progress',  label: 'Project progress — planned vs actual' },
+  { key: 'dashboard', label: 'Executive dashboard (KPIs)' },
+  { key: 'value',     label: 'Planned Value vs Earned Value' },
+  { key: 'category',  label: 'Category weights & overall progress' },
+];
+
 export async function generatePdf() {
   if (!state.currentXmlPath && !state.currentCachedPath) return;
   const btn = new ButtonState(document.getElementById('pdf-btn'), 'Generate EVM PDF');
   btn.loading('Preparing preview…');
   const reqBody = _evmReportBody();
-  try {
-    // Preview first — render the report HTML and show it fitted before writing any PDF.
+  const mode = getSavedMode();
+  const storageKey = 'p6_report_sections_evm';
+  let selected = EVM_SECTIONS.map(s => s.key);
+  try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (Array.isArray(saved)) selected = saved; } catch { /* default: all */ }
+  const fetchPreview = async (keys, theme) => {
     const data = await apiFetch('api/report/evm', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...reqBody, preview: true }),
+      body:    JSON.stringify({ ...reqBody, preview: true, sections: keys || undefined, theme: theme || mode }),
     });
+    return (data.ok && data.html) ? data.html : null;
+  };
+  try {
+    // Preview first — render the report HTML and show it (with the section picker)
+    // before writing any PDF.
+    const html = await fetchPreview(selected, mode);
     btn.reset();
-    if (!data.ok || !data.html) { showError(`Preview failed: ${data.error || 'no content'}`); return; }
+    if (!html) { showError('Preview failed — please retry.'); return; }
     showReportPreview({
-      title: 'EVM report preview', subtitle: reqBody.meta.source_file, html: data.html,
-      onSave: () => _savePdf('api/report/evm', reqBody, 'EVM_report.pdf', 'pdf'),
+      title: 'EVM report preview', subtitle: reqBody.meta.source_file, html,
+      sections: EVM_SECTIONS, selected, storageKey, initialMode: mode,
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => fetchPreview(keys, theme),
+      onSave: (m, keys) => _savePdf('api/report/evm', { ...reqBody, theme: m, sections: keys }, 'EVM_report.pdf', 'pdf'),
     });
   } catch {
     showError('Preview failed. Check the schedule and try again.');
+    btn.reset();
+  }
+}
+
+// ── Per-feature Excel exports ─────────────────────────────────────────────────
+// Each mirrors the feature's report/screen into a .xlsx via its /api/<id>/excel
+// route (server rebuilds/presents the held result → shared write_sections_xlsx).
+// Same exportCalendarExcel/exportWeatherExcel pattern: gate on state, drive the
+// in-panel button via ButtonState, choose_save_path, POST, success/error.
+// (Special Report has no function here by design — special.js owns its own
+//  saveFile('xlsx') using the builder's selection state, which api.js can't see.)
+
+// Earned Value (evm) — packs the held result + live inputs (weights, actual cost,
+// PV-EV gap, engineering) + meta into the report the server mirrors to sheets.
+export async function exportEvmExcel() {
+  if (!state.currentResult) { showError('Open a schedule and Earned Value first.'); return; }
+  const btn = new ButtonState(document.getElementById('evm-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('EVM_results.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const r = state.currentResult;
+    const inputs = evmInputs();                 // {weights, actualCost, gap}
+    let engineering = null;
+    if (r.engineering_e1 && r.engineering_e1.length) {
+      const ex = r.e1_extras || {};
+      engineering = { mode: 'E1', rows: r.engineering_e1, overall: ex.overall, by_trade: ex.by_trade, gaps: ex.gaps };
+    } else if (r.engineering_p6 && r.engineering_p6.length) {
+      engineering = { mode: 'P6', rows: r.engineering_p6 };
+    }
+    const report = {
+      result: r,
+      weights: inputs.weights,
+      actual_cost: inputs.actualCost,
+      gap: inputs.gap || null,
+      engineering,
+      meta: {
+        project_name: r.project_name || 'Schedule',
+        data_date: (r.data_date || '').slice(0, 10),
+        report_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        source_file: (state.currentXmlPath || '').split(/[\\/]/).pop(),
+        baseline_finish: r.baseline_finish, expected_finish: r.expected_finish,
+      },
+    };
+    const data = await apiFetch('api/evm/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ report, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Baseline Revision (revcompare) — posts the held comparison report; raw fetch +
+// inline button toggle (verbatim from the feature spec) since it runs on user-
+// assigned files, not the currently-imported schedule.
+export async function exportRevcompareExcel() {
+  const r = state.revcompareReport;
+  if (!r) { showError('Run the comparison first, then export.'); return; }
+  const outputPath = await window.pywebview.api.choose_save_path('Baseline_Revision_Comparison.xlsx', 'xlsx');
+  if (!outputPath) return;
+  const btn = document.getElementById('rc-export-xlsx');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/revcompare/excel`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report: r, output_path: outputPath }),
+    });
+    const data = await resp.json();
+    if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
+  } catch {
+    showError('Could not reach the local server to export the Excel.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Export Excel'; }
+  }
+}
+
+// AI Copilot · TIA (copilot) — server rebuilds the deterministic copilot report
+// from the held result (reusing the saved weather estimate), so no snapshot needed.
+export async function exportCopilotExcel() {
+  if (!state.currentResult) { showError('Import a P6 schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('cp-export-xlsx'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('ai_copilot_tia.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/copilot/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId || null,
+                                result: state.currentResult, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Professional Dashboard (dash) — re-fetches the /api/dashboard read-model (DB
+// read path, no re-parse), then posts that same dict for the workbook.
+export async function exportDashboardExcel() {
+  const btn = new ButtonState(document.getElementById('dash-export-xlsx'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    // Same source the screen renders — DB read path, no re-parse.
+    const dash = await apiFetch('api/dashboard', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId || null }),
+    });
+    if (!dash || !dash.ok) {
+      showError(`Excel export failed: ${(dash && dash.error) || 'no dashboard data'}`); btn.reset(); return;
+    }
+    const outputPath = await window.pywebview.api.choose_save_path('professional_dashboard.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/dash/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ dashboard: dash, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Baseline Narrative (narrative) — server rebuilds the section-keyed narrative
+// from the DB result (falling back to the held result) and mirrors it to a sheet.
+export async function exportNarrativeExcel() {
+  if (!state.currentResult) { showError('Open a schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('narr-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('baseline_narrative.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/narrative/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId || null, result: state.currentResult, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Project ▸ Overview (overview) — mirrors the on-screen summary/KPIs/category
+// tables from the held result + meta.
+export async function exportOverviewExcel() {
+  if (!state.currentResult) { showError('Import a P6 schedule first.'); return; }
+  const btn = new ButtonState(document.getElementById('ov-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('project_overview.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/overview/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ report: { result: state.currentResult, meta: moduleMeta() }, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Project ▸ WBS (wbs) — posts the held pre-order WBS tree + selectable main
+// branches (guarded: re-opened-from-DB projects may lack wbs_summary).
+export async function exportWbsExcel() {
+  const r = state.currentResult;
+  if (!r || !(r.wbs_summary && r.wbs_summary.length)) {
+    showError('Open the WBS view first — re-import the schedule if it shows no WBS breakdown.');
+    return;
+  }
+  const btn = new ButtonState(document.getElementById('wbs-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('wbs_summary.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const report = {
+      wbs_summary: r.wbs_summary,
+      wbs_main:    r.wbs_main,
+      project_name: r.project_name,
+      data_date:   r.data_date,
+    };
+    const data = await apiFetch('api/wbs/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ report, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
+    btn.reset();
+  }
+}
+
+// Schedule (Gantt) (schedule) — posts the held slim per-activity list; the
+// exporter groups it by top-level WBS exactly like the on-screen Gantt.
+export async function exportScheduleExcel() {
+  const r = state.currentResult;
+  if (!r || !(r.activities && r.activities.length)) {
+    showError('Open Schedule (Gantt) with an imported schedule first.'); return;
+  }
+  const btn = new ButtonState(document.getElementById('sched-excel-btn'), 'Export to Excel');
+  btn.loading('Exporting…');
+  try {
+    const outputPath = await window.pywebview.api.choose_save_path('schedule_gantt.xlsx', 'xlsx');
+    if (!outputPath) { btn.reset(); return; }
+    const data = await apiFetch('api/schedule/excel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ result: r, output_path: outputPath }),
+    });
+    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
+    else          { btn.success('✓ Excel Saved'); }
+  } catch {
+    showError('Excel export failed. Check the output path and try again.');
     btn.reset();
   }
 }

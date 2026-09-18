@@ -1,0 +1,372 @@
+{
+ "system": "hvac",
+ "discipline": "MECH",
+ "name": "HVAC Air-Side (AHU / FCU / Ductwork / VAV) Installation, Balancing & Commissioning",
+ "aliases": [
+  "air handling",
+  "AHU",
+  "air handler",
+  "FCU",
+  "fan coil unit",
+  "ductwork",
+  "supply/return air",
+  "VAV",
+  "variable air volume",
+  "air distribution",
+  "diffusers and grilles",
+  "ductwork erection",
+  "air-side HVAC",
+  "ventilation",
+  "AC ducting",
+  "duct risers",
+  "terminal units",
+  "air balancing",
+  "TAB"
+ ],
+ "zones": [
+  "plant room / AHU room",
+  "roof plant deck",
+  "ceiling void / interstitial space",
+  "vertical duct riser shaft",
+  "occupied space (diffuser/grille level)",
+  "fresh-air louvre / intake plenum"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "AHU plant-room slab / housekeeping plinths poured and cured",
+    "duct riser shaft openings and floor sleeves formed",
+    "fresh-air / exhaust louvre openings left in facade",
+    "structural support steel / Unistrut inserts and cast-in anchors set",
+    "plant-room walls and roof watertight (dry, weatherproofed space for AHU)"
+   ],
+   "note": "Air-side is enabled by civil, not built by it — foundations, plinths, wall openings and slab penetrations must precede any setting."
+  },
+  {
+   "stage": "delivery_setting",
+   "activities": [
+    "AHU / large FCU delivered, rigged and set on vibration isolators / plinth",
+    "roof or plant-room access and lifting path confirmed for the AHU footprint",
+    "unit anchored, level checked, drain pan positioned"
+   ],
+   "note": "AHUs are set early because they are large and drive the duct main routing; heavy lift must precede surrounding trades closing the space."
+  },
+  {
+   "stage": "support_installation",
+   "activities": [
+    "duct hangers, brackets, trapeze supports and seismic restraints installed to layout",
+    "riser supports and floor penetration frames fixed"
+   ],
+   "note": "Supports precede duct erection; hanging duct off finished supports, not vice-versa."
+  },
+  {
+   "stage": "rough_in_erection",
+   "activities": [
+    "main duct runs, risers and branch ductwork erected and joined",
+    "VAV / terminal boxes hung and connected into supply mains",
+    "FCUs hung and connected to supply/return duct or plenum",
+    "fire/smoke dampers set in rated wall/floor penetrations",
+    "flexible connections to fans/AHU fitted"
+   ],
+   "note": "Erect mains first, then branches, then terminal units; fire dampers coordinated with rated-barrier construction."
+  },
+  {
+   "stage": "accessory_fit_out",
+   "activities": [
+    "volume control dampers, access doors, turning vanes fitted",
+    "diffusers, grilles and registers set (often after ceiling grid)",
+    "duct-mounted sensors, actuators and control dampers mounted"
+   ],
+   "note": "Terminal grilles/diffusers usually follow ceiling installation; interface with architectural ceilings."
+  },
+  {
+   "stage": "duct_leakage_test",
+   "activities": [
+    "ductwork sectionalised and leakage (pressure) tested per class before concealment",
+    "witnessed leakage test on high-pressure supply mains"
+   ],
+   "note": "Leakage test MUST occur before ceilings close and before insulation covers seams."
+  },
+  {
+   "stage": "insulation_cladding",
+   "activities": [
+    "thermal/acoustic duct insulation applied",
+    "vapour barrier and cladding on external / plant-room duct"
+   ],
+   "note": "Insulation follows a passed leakage test — never insulate an untested seam."
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "AHU / FCU / VAV power feeds terminated",
+    "control wiring to actuators, sensors, VFDs landed",
+    "VFD / starter connected and meggered"
+   ],
+   "note": "Requires containment + cable pulling complete; feeds from the electrical system must be live-ready."
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "fan rotation / direction check, bearing and belt check",
+    "static leak and damper stroke checks",
+    "filter installation, coil clean",
+    "point-to-point control I/O verification with BMS"
+   ],
+   "note": "Motor solo-run and control point checks precede any air movement for balancing."
+  },
+  {
+   "stage": "air_balancing_tab",
+   "activities": [
+    "Testing, Adjusting & Balancing (TAB): measure and set supply/return/exhaust airflow at every terminal",
+    "set fan speed / VFD reference, adjust volume dampers and VAV min/max",
+    "record airflow, static pressure, fan curve, sound where specified"
+   ],
+   "note": "TAB requires the FULL air path complete and stable: all ceilings/diffusers in, filters clean, BMS driving dampers; a partial system cannot be balanced."
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "integrated functional test with BMS: occupancy, setpoint, economizer, night setback",
+    "smoke/fire damper trip and fan interlock test with fire alarm",
+    "cause-and-effect / integrated systems test",
+    "performance verification against design airflow and temperature"
+   ],
+   "note": "Final commissioning integrates the chilled-water side, BMS and fire alarm; it is the last stage and depends on every upstream system being live."
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "AHU plant-room plinth / slab poured and cured",
+   "after": "AHU set and anchored",
+   "reason": "The unit cannot be placed and levelled until its foundation plinth exists and has gained strength.",
+   "strength": "strong"
+  },
+  {
+   "before": "Duct supports / hangers installed",
+   "after": "Ductwork erected",
+   "reason": "Ductwork is hung from supports; erecting duct before its supports are fixed is not physically possible.",
+   "strength": "strong"
+  },
+  {
+   "before": "Main duct runs erected",
+   "after": "Branch ducts and terminal (VAV/FCU) connections",
+   "reason": "Branches and terminal units tap off the main; the trunk defines routing and must exist first.",
+   "strength": "strong"
+  },
+  {
+   "before": "Ductwork leakage / pressure test passed",
+   "after": "Duct insulation and cladding applied",
+   "reason": "Insulation conceals joints; testing after insulating means tearing off insulation to find leaks.",
+   "strength": "strong"
+  },
+  {
+   "before": "Ductwork leakage / pressure test passed",
+   "after": "Ceiling / drywall closure over the duct route",
+   "reason": "Concealed duct must be proven leak-tight before it is covered by ceilings.",
+   "strength": "strong"
+  },
+  {
+   "before": "Ceiling grid installed",
+   "after": "Diffusers / grilles / registers set",
+   "reason": "Terminal air devices are supported by and coordinated with the finished ceiling.",
+   "strength": "moderate"
+  },
+  {
+   "before": "Fire/smoke damper installed and rated barrier built",
+   "after": "Duct penetration fire-stopping and inspection",
+   "reason": "Dampers must be set within the rated wall/floor before the penetration is sealed and inspected.",
+   "strength": "strong"
+  },
+  {
+   "before": "AHU/fan power and control wiring terminated",
+   "after": "Fan solo run / rotation check",
+   "reason": "A motor cannot be energised for direction check until its feeder and controls are landed and meggered.",
+   "strength": "strong"
+  },
+  {
+   "before": "All diffusers, dampers and filters installed; BMS driving the system",
+   "after": "Air balancing (TAB)",
+   "reason": "Airflow can only be measured and set on a complete, stable air path — a partial system gives meaningless readings.",
+   "strength": "strong"
+  },
+  {
+   "before": "Air balancing (TAB) complete",
+   "after": "Integrated / functional commissioning",
+   "reason": "Functional performance and control sequences are verified against balanced design airflows, so balancing must finish first.",
+   "strength": "strong"
+  },
+  {
+   "before": "Filters installed and coils cleaned",
+   "after": "Fan run for balancing",
+   "reason": "Running a fan without filters fouls coils and gives false static-pressure and airflow readings.",
+   "strength": "moderate"
+  },
+  {
+   "before": "Chilled-water coil connected and CHW available",
+   "after": "Integrated air-side commissioning (temperature performance)",
+   "reason": "Supply-air temperature and coil capacity can only be verified once cooling medium is flowing.",
+   "strength": "strong"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "requirement": "AHU plinths, plant-room slab, duct riser shaft openings, facade louvre openings and cast-in support anchors must be complete before AHU setting and duct erection.",
+   "strength": "strong"
+  },
+  {
+   "with": "structural_steel",
+   "type": "enabler",
+   "phase": "support_installation",
+   "requirement": "Support steel, inserts and trapeze anchorage for duct mains and risers must be available before ductwork is hung.",
+   "strength": "moderate"
+  },
+  {
+   "with": "chilled_water",
+   "type": "requires",
+   "phase": "commissioning",
+   "requirement": "AHU/FCU cooling coils require CHW piping connected, flushed and flow available before air-side temperature performance can be commissioned; air balancing (TAB) is typically coordinated with water balancing.",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "type": "requires",
+   "phase": "ei_connection",
+   "requirement": "AHU/fan/VAV motors and VFDs require permanent (or commissioning) power feeds terminated and energised before solo run and balancing.",
+   "strength": "strong"
+  },
+  {
+   "with": "containment_cabling",
+   "type": "requires",
+   "phase": "ei_connection",
+   "requirement": "Power and control cabling to units requires cable tray/containment installed and cables pulled and terminated first.",
+   "strength": "strong"
+  },
+  {
+   "with": "bms",
+   "type": "requires",
+   "phase": "air_balancing_tab",
+   "requirement": "VAV/damper/actuator/sensor control points must be wired to and verified by the BMS (point-to-point) so the BMS can drive dampers during balancing and functional commissioning.",
+   "strength": "strong"
+  },
+  {
+   "with": "fire_alarm",
+   "type": "requires",
+   "phase": "commissioning",
+   "requirement": "Fire/smoke dampers and fan shutdown interlocks require fire-alarm cause-and-effect live to test damper trip and fan stop.",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "type": "requires",
+   "phase": "pre_commissioning",
+   "requirement": "Duct/space temperature, pressure and airflow sensors must be installed and calibrated before control loops and balancing can be validated.",
+   "strength": "moderate"
+  },
+  {
+   "with": "insulation_coating",
+   "type": "provides",
+   "phase": "insulation_cladding",
+   "requirement": "Thermal/acoustic duct insulation is applied only after the duct leakage test passes; insulation must not precede testing.",
+   "strength": "strong"
+  },
+  {
+   "with": "fire_fighting",
+   "type": "coordination",
+   "phase": "rough_in_erection",
+   "requirement": "Ceiling-void congestion is shared with sprinkler mains; duct routing and support must be coordinated with fire-fighting pipe to avoid clashes.",
+   "strength": "weak"
+  }
+ ],
+ "testing_requirements": [
+  "Ductwork air-leakage (pressure) test to specified duct pressure class, witnessed, before concealment and insulation",
+  "Fan/motor insulation resistance (megger) test before energisation",
+  "Fan rotation / direction and vibration check on solo run",
+  "Damper and actuator stroke / end-position verification",
+  "BMS point-to-point (I/O) verification for all air-side sensors, actuators and VFDs",
+  "Testing, Adjusting & Balancing (TAB) report: measured vs design airflow at every terminal, fan static, VFD reference",
+  "Fire/smoke damper trip test and fan-shutdown interlock with fire alarm",
+  "Filter installation verification and coil cleanliness check",
+  "Integrated functional / cause-and-effect test of control sequences (economizer, setpoint, night setback)",
+  "Sound-level and space-condition (temperature/humidity) performance verification where specified"
+ ],
+ "commissioning_dependencies": [
+  "Permanent (or temporary commissioning) power energised to all fans/AHUs/VFDs",
+  "Chilled water available, flushed and balanced to the cooling coils",
+  "BMS live with verified control points driving dampers, VFDs and valves",
+  "Fire alarm cause-and-effect live for damper/fan interlocks",
+  "All terminal devices (diffusers/grilles/dampers) installed and ceilings closed so the air path is complete",
+  "Filters installed, coils clean, access doors sealed",
+  "Duct leakage test passed on all concealed sections",
+  "TAB (air balancing) completed and accepted before integrated performance testing"
+ ],
+ "work_packages": [
+  {
+   "wp": "AHU/FCU setting and anchoring",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Ductwork support installation",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Duct erection (mains, risers, branches)",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Terminal units (VAV/FCU) and air devices",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Fire/smoke damper install and fire-stopping",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "interfaces with passive fire and fire alarm"
+  },
+  {
+   "wp": "Duct leakage testing",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Duct insulation and cladding",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Air-side power and control termination",
+   "discipline": "electrical",
+   "interface": true,
+   "note": "interfaces with electrical_power, containment_cabling, bms"
+  },
+  {
+   "wp": "Air balancing (TAB)",
+   "discipline": "commissioning",
+   "interface": true,
+   "note": "interfaces with chilled_water balancing and bms"
+  },
+  {
+   "wp": "Integrated air-side commissioning",
+   "discipline": "commissioning",
+   "interface": true,
+   "note": "interfaces with bms, chilled_water, fire_alarm"
+  }
+ ],
+ "typical_exceptions": [
+  "Small split/DX FCU packages may skip duct leakage testing where there is little or no ductwork.",
+  "Roof-mounted package units combine AHU setting and E&I on a factory skid, collapsing the setting and rough-in stages.",
+  "In fast-track fit-outs diffusers are sometimes set into an open ceiling before final grid, reversing the usual ceiling-first order.",
+  "Constant-volume systems have no VAV boxes, so terminal-box connection stages do not apply.",
+  "Displacement/plenum-return designs have no return ductwork, so return-side erection and balancing are reduced."
+ ],
+ "evidence": "Air balancing (TAB) is scheduled before, or without, the full air path being complete — no diffusers/ceilings in place, filters missing, or the BMS not yet driving dampers — so the balanced airflows cannot be valid; likewise duct insulation or ceiling closure precedes the witnessed duct leakage test.",
+ "status": "curated",
+ "source": "system_pattern"
+}

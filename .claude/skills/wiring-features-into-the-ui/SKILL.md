@@ -1,6 +1,6 @@
 ---
 name: wiring-features-into-the-ui
-description: Use when planning, implementing, or marking done any user-facing feature in the P6 EVM Tool (new import source, button, panel, KPI, view) — before writing the plan and before claiming the feature works. Symptoms you are about to violate this: "coming soon" placeholder, "the UI is a later phase", "the backend/parser is done", a feature that only a test or CLI can reach.
+description: Use when planning, implementing, or marking done any user-facing feature in Controlyx (new import source, button, panel, KPI, view) — before writing the plan and before claiming the feature works. Symptoms you are about to violate this: "coming soon" placeholder, "the UI is a later phase", "the backend/parser is done", a feature that only a test or CLI can reach.
 ---
 
 # Wiring Features Into the UI
@@ -21,8 +21,18 @@ Every user-facing feature plan MUST include a UI task, and that task is not comp
 2. **Consistent** — it reuses the existing component pattern (same classes, same wiring path), not a one-off.
 3. **Stateful** — loading, success, and error states are handled the same way siblings handle them.
 4. **Verified** — you confirmed it renders and works, not just that the backend returns data.
+5. **Printable** — if the feature shows report-like output, it prints from the menu bar (**File ▸ Print / Export to PDF**) with the **Printing Selection picker** to choose which parts go in the PDF. Standing rule: *every feature prints from the menu bar with a section picker* — no per-module print button, no view that silently has no print.
 
 No shipping a feature behind a disabled/"Coming soon" element that you are actually delivering this cycle. Placeholders are for work that genuinely is not being built yet — never for the thing you just built.
+
+## Reference: making a view printable (the standing print rule)
+
+A view prints through the **shared** path — never a bespoke per-view PDF button:
+
+- **Analysis modules** (EVM, Schedule Health, …) register a hidden report button in `REPORT_BTN` (`ui/app.js`); File ▸ Print clicks it, opening that module's `showReportPreview` (Preview + Printing Selection).
+- **Screen views** (Overview, WBS, Dashboard, Baseline Narrative, Weather → Forecast, AI Copilot · TIA) export a **print-sections provider** — `let _print = null; export function <name>Print(){ return _print; }` — that returns `[{key, label, html}]` for the current render (reset it to `null` on the guard/error paths). Register the view in **`PRINT_VIEW`** (`ui/app.js`) with `{ module, title, get }`; `runReport('pdf')` falls through to the shared **`printView()`** (`ui/modules/printview.js`), which composes a self-contained document (app stylesheet inlined, light theme, only the ticked sections) and posts it to **`POST /api/report/html`** (headless-Chrome → PDF). The section picker, Preview == PDF == Print, and localStorage-remembered selection all come for free.
+
+A new screen view therefore needs **only** its `_print` provider + one `PRINT_VIEW` line. `tests/test_print_wiring.py` locks this in.
 
 ## When To Use
 
@@ -89,6 +99,7 @@ Before marking a user-facing feature complete:
 1. The trigger exists in `ui/` and is enabled.
 2. It follows the sibling pattern (classes, ids, button+spinner).
 3. Loading / success / error states are wired.
-4. You launched the app (or the build) and **watched the feature work end-to-end** — picked the file, saw it parse, saw the result render.
+4. If it shows report-like output, **File ▸ Print / Export to PDF opens the Preview with the section picker** for it (via `REPORT_BTN` or a `PRINT_VIEW` print-sections provider) — you opened it and saw the picker.
+5. You launched the app (or the build) and **watched the feature work end-to-end** — picked the file, saw it parse, saw the result render.
 
 Evidence before assertion: "it works" requires having seen it work in the UI, not in a test.

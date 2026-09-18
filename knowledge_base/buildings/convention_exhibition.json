@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Convention & Exhibition Centre",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["convention", "exhibition", "congress", "conference centre", "conference center", "exhibition hall",
+                 "long span", "long-span", "column free", "ballroom", "auditorium", "audio visual", "rigging", "space frame"],
+  "wbs": [
+    {"name": "Enabling & Substructure", "keywords": ["enabling", "excavation", "foundation", "piling", "substructure"]},
+    {"name": "Superstructure & Long-Span Roof", "keywords": ["superstructure", "long span", "long-span", "space frame", "roof truss", "steel roof", "column free"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "facade", "curtain wall", "roof", "weathertight"]},
+    {"name": "MEP & Large-Hall Services", "keywords": ["mep", "hvac", "electrical", "smoke ventilation", "large hall", "power distribution"]},
+    {"name": "AV, IT & Rigging", "keywords": ["av", "audio visual", "it", "rigging", "stage", "lighting"]},
+    {"name": "Fit-out & Finishes", "keywords": ["fit-out", "finishes", "ballroom", "auditorium", "seating", "partition"]},
+    {"name": "Testing & Commissioning", "keywords": ["test", "commission", "integrated", "life safety"]},
+    {"name": "Handover & Opening", "keywords": ["handover", "opening", "occupation", "event ready"]}
+  ],
+  "activities": [
+    {"name": "Long-Span Roof Erection & Closure", "keywords": ["long span", "long-span", "space frame", "roof truss", "roof erection"], "wbs": "Superstructure & Long-Span Roof",
+     "typical_pred": "Superstructure", "typical_succ": "Envelope", "duration_days": 60,
+     "why": "The column-free long-span roof is the defining structural challenge and gates envelope and interior works."},
+    {"name": "Smoke Ventilation / Large-Hall Life Safety", "keywords": ["smoke ventilation", "smoke extract", "life safety", "large hall"], "wbs": "MEP & Large-Hall Services",
+     "typical_pred": "MEP First Fix", "typical_succ": "Integrated Life-Safety Test", "duration_days": 25,
+     "why": "Large assembly halls need engineered smoke ventilation for occupancy — a specialist system often under-planned."},
+    {"name": "AV / Rigging Infrastructure", "keywords": ["av", "rigging", "audio visual", "stage lighting"], "wbs": "AV, IT & Rigging",
+     "typical_pred": "Roof Closure", "typical_succ": "Fit-out & Finishes", "duration_days": 30,
+     "why": "Rigging points and AV backbone are fixed to the roof structure and must precede final fit-out."},
+    {"name": "Integrated Life-Safety / Occupancy Test", "keywords": ["integrated", "life safety test", "occupancy", "fire"], "wbs": "Testing & Commissioning",
+     "typical_pred": "MEP Commissioning", "typical_succ": "Opening", "duration_days": 15,
+     "why": "An integrated life-safety test for the large occupancy is required before the centre can open."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["superstructure", "long span", "roof erection", "roof closure"], "after_keywords": ["envelope", "facade", "fit-out", "av", "rigging"],
+     "reason": "Envelope, AV/rigging and interior works follow the long-span roof being erected and closed.",
+     "impact": "Critical"},
+    {"before_keywords": ["mep", "first fix", "install"], "after_keywords": ["commission", "life safety test", "integrated"],
+     "reason": "Commissioning and life-safety testing follow MEP installation.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["life safety", "commission", "integrated"], "after_keywords": ["opening", "occupation", "event ready"],
+     "reason": "Opening/occupation must follow the integrated life-safety test.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Long-Span Roof Closed", "Building Weathertight", "MEP Complete", "Life-Safety Test", "Opening"],
+  "common_issues": ["Envelope/fit-out started before roof closure", "Smoke-ventilation / life-safety under-planned",
+                    "AV & rigging not coordinated with roof structure", "Opening before integrated life-safety test"]
+}

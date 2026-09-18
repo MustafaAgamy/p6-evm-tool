@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Textile Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["textile", "spinning", "weaving", "loom", "dyeing", "dye house", "finishing", "blow room",
+                 "carding", "ring frame", "warping", "sizing", "knitting", "humidification", "effluent"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "HVAC & Humidification", "keywords": ["hvac", "humidification", "air washer", "climate", "ventilation"]},
+    {"name": "Spinning (Blow room to Ring Frame)", "keywords": ["spinning", "blow room", "carding", "draw frame", "ring frame", "roving"]},
+    {"name": "Weaving / Knitting", "keywords": ["weaving", "loom", "warping", "sizing", "knitting"]},
+    {"name": "Dyeing & Finishing", "keywords": ["dyeing", "dye house", "finishing", "stenter", "printing"]},
+    {"name": "Effluent Treatment (ETP)", "keywords": ["effluent", "etp", "wastewater", "treatment"]},
+    {"name": "Utilities & Commissioning", "keywords": ["utilities", "boiler", "steam", "power", "commission"]}
+  ],
+  "activities": [
+    {"name": "HVAC / Humidification Plant", "keywords": ["humidification", "hvac", "air washer", "climate"], "wbs": "HVAC & Humidification",
+     "typical_pred": "Building Weathertight", "typical_succ": "Spinning Commissioning", "duration_days": 30,
+     "why": "Spinning and weaving need tightly-controlled humidity; the humidification plant must run before machines are commissioned."},
+    {"name": "Effluent Treatment Plant (ETP)", "keywords": ["effluent", "etp", "wastewater"], "wbs": "Effluent Treatment (ETP)",
+     "typical_pred": "Building Weathertight", "typical_succ": "Dye House Operation", "duration_days": 40,
+     "why": "The dye house cannot legally discharge until the effluent treatment plant is live — often a permit condition."},
+    {"name": "Boiler / Steam System", "keywords": ["boiler", "steam", "thermic fluid"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Building Weathertight", "typical_succ": "Dyeing Commissioning", "duration_days": 25,
+     "why": "Dyeing and finishing depend on a steam/boiler supply that is frequently omitted from the plan."},
+    {"name": "Trial Production / First Fabric", "keywords": ["trial production", "first fabric", "sample run"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Dyeing Commissioning", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A trial run proves yarn count, fabric quality and shade before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["humidification", "hvac", "air washer"], "after_keywords": ["spinning commission", "weaving commission", "commission"],
+     "reason": "Spinning/weaving commissioning follows the humidification plant being live — climate control is a prerequisite.",
+     "impact": "Critical"},
+    {"before_keywords": ["effluent", "etp", "wastewater"], "after_keywords": ["dye", "dyeing operation", "dye house"],
+     "reason": "Dye-house operation cannot start before the effluent treatment plant is live.",
+     "impact": "Critical"},
+    {"before_keywords": ["boiler", "steam"], "after_keywords": ["dyeing commission", "finishing commission", "commission"],
+     "reason": "Dyeing/finishing commissioning follows the steam/boiler supply being live.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Humidification Live", "ETP Commissioned", "First Fabric / Handover"],
+  "common_issues": ["Machine commissioning before humidification live", "Missing ETP scope for dye house",
+                    "No boiler/steam supply planned", "No trial-production phase"]
+}

@@ -1,0 +1,293 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.firefighting.gas_suppression.clean_agent",
+  "discipline": "MEP",
+  "work_type": "Fire Fighting",
+  "system": "Gas Suppression",
+  "item": "Clean-Agent Gas Suppression System",
+  "aliases": [
+    "fm200 system",
+    "novec 1230",
+    "clean agent suppression",
+    "gas flooding system",
+    "gaseous fire suppression"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Oil & Gas",
+    "Airport",
+    "Power Plant",
+    "Infrastructure"
+  ],
+  "primary_unit": "no",
+  "why": "Clean-agent (FM200 / NOVEC 1230) total-flooding system for a protected zone — cylinder bank, seamless discharge pipework and nozzles, detection/control integration, then discharge and room-integrity (door-fan) commissioning. Priced per protected system/zone.",
+  "assumptions": [
+    "One protected zone / cylinder bank per unit",
+    "Room construction and dampers by others",
+    "Seamless schedule-40/80 discharge pipe",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Room sealing / passive fire protection to achieve integrity",
+    "Agent gas supply / filling",
+    "HVAC damper interlocks (Mechanical scope)",
+    "Structural support of large cylinder banks beyond standard straps"
+  ],
+  "components": [
+    {
+      "component_id": "cylinder_bank",
+      "name": "Cylinder bank, brackets & actuators install",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 20,
+        "low": 15,
+        "likely": 20,
+        "high": 28,
+        "output_per_day": 0.8,
+        "output_unit": "system/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Fire Suppression Technician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cylinder weighing scale",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Hand tools / drill",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Cylinder straps / brackets",
+          "qty_per_unit": 1,
+          "unit": "set/system"
+        },
+        {
+          "name": "Solenoid / pneumatic actuators",
+          "qty_per_unit": 1,
+          "unit": "set/system"
+        },
+        {
+          "name": "Anchor bolts",
+          "qty_per_unit": 6,
+          "unit": "no/system"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — clean-agent cylinder bank install",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "single-zone FM200 / NOVEC cylinder bank — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "discharge_pipework",
+      "name": "Discharge pipework & nozzles",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 32,
+        "low": 24,
+        "likely": 32,
+        "high": 44,
+        "output_per_day": 0.5,
+        "output_unit": "system/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipefitter",
+          "count": 1
+        },
+        {
+          "trade": "Pipefitter Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pipe threading machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Torque wrench",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Seamless steel pipe & fittings",
+          "qty_per_unit": 1,
+          "unit": "set/system"
+        },
+        {
+          "name": "Discharge nozzles",
+          "qty_per_unit": 4,
+          "unit": "no/system"
+        },
+        {
+          "name": "Hangers / supports",
+          "qty_per_unit": 1,
+          "unit": "set/system"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — clean-agent discharge network",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "flow-calculated discharge pipework to nozzles for one zone — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "detection_control",
+      "name": "Detection & control panel wiring / integration",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 32,
+        "low": 24,
+        "likely": 32,
+        "high": 44,
+        "output_per_day": 0.5,
+        "output_unit": "system/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Fire Alarm Technician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cable tools / multimeter",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Cross-zoned detectors",
+          "qty_per_unit": 4,
+          "unit": "no/system"
+        },
+        {
+          "name": "Suppression control panel & release",
+          "qty_per_unit": 1,
+          "unit": "no/system"
+        },
+        {
+          "name": "Detection / release cable & devices (allowance)",
+          "qty_per_unit": 1,
+          "unit": "set/system"
+        },
+        {
+          "name": "Warning signage & sounders/strobes",
+          "qty_per_unit": 1,
+          "unit": "set/system"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — suppression detection & release integration",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "cross-zoned detection with dedicated releasing panel — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "commission_test",
+      "name": "Commissioning & room-integrity (door-fan) test",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 26.7,
+        "low": 20,
+        "likely": 26.7,
+        "high": 36,
+        "output_per_day": 0.6,
+        "output_unit": "system/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Engineer",
+          "count": 1
+        },
+        {
+          "trade": "Fire Suppression Technician",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Door-fan integrity test kit",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Cause-and-effect test tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Consumables (allowance)",
+          "qty_per_unit": 1,
+          "unit": "set/system"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — suppression cause-and-effect + integrity test",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "functional discharge simulation and room-integrity verification — validate with your XER to promote"
+      }
+    }
+  ]
+}

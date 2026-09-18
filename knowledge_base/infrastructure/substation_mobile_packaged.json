@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "Mobile / Packaged Substation (E-House)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["mobile substation", "packaged substation", "package substation", "e-house", "ehouse", "skid",
+                 "containerized", "containerised", "unit substation", "plug and play", "factory assembled", "prefabricated",
+                 "mobile", "packaged", "substation", "positioning", "interconnection", "plinth", "factory acceptance"],
+  "wbs": [
+    {"name": "Factory Build & FAT", "keywords": ["factory build", "fat", "factory acceptance", "assembly", "prefabrication"]},
+    {"name": "Site Civil & Plinth", "keywords": ["civil", "plinth", "foundation", "pad", "hardstanding"]},
+    {"name": "Earthing", "keywords": ["earthing", "earth", "grounding", "bonding"]},
+    {"name": "Delivery, Positioning & Setting", "keywords": ["delivery", "transport", "positioning", "crane", "setting", "offloading"]},
+    {"name": "Interconnection & Cabling", "keywords": ["interconnection", "cabling", "cable", "termination", "hook-up", "tie-in"]},
+    {"name": "Site Testing & Commissioning", "keywords": ["test", "commission", "sat", "site test"]},
+    {"name": "Energization & Handover", "keywords": ["energ", "charging", "handover", "take over"]}
+  ],
+  "activities": [
+    {"name": "Factory Acceptance Test (FAT) of E-House", "keywords": ["fat", "factory acceptance", "e-house", "packaged"], "wbs": "Factory Build & FAT",
+     "typical_pred": "Factory Assembly", "typical_succ": "Delivery to Site", "duration_days": 10,
+     "why": "The whole substation is built and FAT-tested in the factory; a thorough FAT is the key advantage and must precede shipping."},
+    {"name": "Plinth / Foundation Ready", "keywords": ["plinth", "foundation", "pad", "hardstanding"], "wbs": "Site Civil & Plinth",
+     "typical_pred": "Site Enabling", "typical_succ": "Positioning & Setting", "duration_days": 15,
+     "why": "The pre-built unit lands on a ready plinth; if the foundation slips, the delivery advantage is lost."},
+    {"name": "Delivery, Positioning & Setting", "keywords": ["delivery", "positioning", "setting", "crane", "offloading"], "wbs": "Delivery, Positioning & Setting",
+     "typical_pred": "Plinth / Foundation Ready", "typical_succ": "Interconnection & Cabling", "duration_days": 5,
+     "why": "Craning and setting the packaged unit onto its plinth is a short but sequence-critical operation."},
+    {"name": "Site SAT / Energization", "keywords": ["sat", "site test", "energization"], "wbs": "Site Testing & Commissioning",
+     "typical_pred": "Interconnection & Cabling", "typical_succ": "Handover", "duration_days": 8,
+     "why": "Because most testing was done at FAT, site work is mainly interconnection and a confirmatory SAT before energization."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["fat", "factory acceptance", "factory build"], "after_keywords": ["delivery", "shipping", "positioning"],
+     "reason": "The packaged unit is FAT-tested in the factory before it is shipped to site.",
+     "impact": "Critical"},
+    {"before_keywords": ["plinth", "foundation", "pad"], "after_keywords": ["positioning", "setting", "delivery"],
+     "reason": "The unit is set onto a completed plinth; the foundation must be ready before positioning.",
+     "impact": "Critical"},
+    {"before_keywords": ["earthing", "interconnection", "sat", "cabling"], "after_keywords": ["energ", "energization", "charging"],
+     "reason": "Energization follows earthing, interconnection and a confirmatory site SAT.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["FAT Complete", "Plinth Ready", "Unit Positioned", "Site SAT Complete", "Energization"],
+  "common_issues": ["Delivery before FAT complete", "Plinth not ready when unit arrives",
+                    "Interconnection/earthing under-planned", "Energization before site SAT"]
+}

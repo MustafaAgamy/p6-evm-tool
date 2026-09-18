@@ -1,6 +1,6 @@
 import threading
 import webview
-from utils import resource_path
+from utils import resource_path, APP_TITLE
 
 
 class Api:
@@ -21,16 +21,30 @@ class Api:
         )
         return list(result) if result else []
 
+    def choose_open_path(self, file_type='json'):
+        """Open native file picker filtered by type; returns a path or None. Used for
+        importing a Constructability knowledge file (.json)."""
+        types = {
+            'json': ('Knowledge Files (*.json)', 'All Files (*.*)'),
+            'xml':  ('P6 XML Files (*.xml)',),
+        }.get(file_type, ('All Files (*.*)',))
+        result = webview.windows[0].create_file_dialog(webview.OPEN_DIALOG, file_types=types)
+        return result[0] if result else None
+
     def choose_save_path(self, default_name='report.pdf', file_type='pdf'):
         """Open native save dialog; returns absolute path string or None.
 
-        file_type ∈ {'pdf', 'xlsx', 'xml', 'docx'} chooses the dialog filter.
+        file_type ∈ {'pdf', 'docx', 'doc', 'xlsx', 'xml', 'xer', 'json'} chooses the
+        dialog filter (unknown types fall back to All Files).
         """
         types = {
             'pdf':  ('PDF Files (*.pdf)',),
+            'docx': ('Word Files (*.docx)',),
+            'doc':  ('Word Files (*.doc)',),
             'xlsx': ('Excel Files (*.xlsx)',),
             'xml':  ('P6 XML Files (*.xml)',),
-            'docx': ('Word Files (*.docx)',),
+            'xer':  ('P6 XER Files (*.xer)',),
+            'json': ('JSON Files (*.json)',),
         }.get(file_type, ('All Files (*.*)',))
         result = webview.windows[0].create_file_dialog(
             webview.SAVE_DIALOG,
@@ -38,6 +52,11 @@ class Api:
             save_filename=default_name
         )
         return result[0] if result else None
+
+    def quit(self):
+        """Close the application window (File ▸ Exit)."""
+        for w in list(webview.windows):
+            w.destroy()
 
 
 if __name__ == '__main__':
@@ -51,11 +70,13 @@ if __name__ == '__main__':
 
     api = Api()
     webview.create_window(
-        'P6 EVM Tool',
+        APP_TITLE,
         f'http://localhost:{port}/',
         js_api=api,
         width=1100,
-        height=720,
+        height=720,          # restore-down size (window opens maximized)
         min_size=(800, 550),
+        maximized=True,       # open maximized by default, not the small default window
+        background_color='#06090f',  # match the startup splash so the window never flashes black on cold-start
     )
     webview.start()

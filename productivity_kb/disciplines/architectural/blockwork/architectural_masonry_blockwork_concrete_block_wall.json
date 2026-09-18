@@ -1,0 +1,104 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.masonry.blockwork.concrete_block_wall",
+  "discipline": "Architectural",
+  "work_type": "Masonry",
+  "system": "Blockwork",
+  "item": "Concrete Block Wall",
+  "aliases": [
+    "blockwork",
+    "hollow block wall",
+    "cmu wall",
+    "block partition"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Hollow/solid concrete block walling is the default infill and partition system in Egypt/Gulf construction; measured per net m2 of wall face it is a single masonry operation (lay + point) though it consumes blocks and mortar.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "200 mm nominal block, standard mortar joints",
+    "Wall height up to 3.5 m with light scaffolding",
+    "Mortar batched on site"
+  ],
+  "exclusions": [
+    "Plaster/render",
+    "Lintels and RC bond beams",
+    "Reinforced/grouted cores",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "block_laying",
+      "name": "Block laying (masonry)",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 1.2,
+        "low": 1,
+        "likely": 1.2,
+        "high": 1.5,
+        "output_per_day": 20,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mason",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mortar mixer (shared)",
+          "basis": "utilization",
+          "value": 0.02,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Mobile scaffold",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Concrete block (400x200)",
+          "qty_per_unit": 12.5,
+          "unit": "no/m2"
+        },
+        {
+          "name": "Cement/sand mortar",
+          "qty_per_unit": 0.02,
+          "unit": "m3/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — 200 mm block wall laying",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "conventional hollow/solid block walls up to 3.5 m — validate with your XER to promote"
+      }
+    }
+  ]
+}

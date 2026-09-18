@@ -1,0 +1,191 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controlyx · Knowledge Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{--app:#eef1f7;--panel:#fff;--panel2:#f5f8fc;--panel3:#eef2f8;--line:#e4e9f1;--hair:#eef2f7;--ink:#141f36;--ink2:#45536b;--muted:#69768c;--faint:#9aa6b6;
+--brand:#3457d5;--brand2:#2643a8;--soft:#e7ecfb;--nav:#0e1626;--nav2:#0a111e;--navink:#c4cfe2;--navdim:#6b7897;--navon:#1a2740;--navline:#1c2740;
+--cur:#2563eb;--curbg:#e3ecfe;--lrn:#7c3aed;--lrnbg:#efe9fe;--ok:#12805c;--okbg:#dcf1e8;--warn:#b7791f;--warnbg:#f7ecd6;--crit:#c23a3a;--badbg:#fbe4e2;
+--sh:0 1px 2px rgba(16,28,54,.05),0 10px 28px -16px rgba(16,28,54,.26);--shlg:0 30px 70px -34px rgba(12,22,48,.45);--fs:"Plus Jakarta Sans",system-ui,sans-serif;--fm:"IBM Plex Mono",monospace}
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{background:var(--app);color:var(--ink);font-family:var(--fs);font-size:14px}
+.shell{display:flex;flex-direction:column;height:100vh}
+.menubar{height:38px;flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:2px;padding:0 12px}
+.mk{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--brand),#7c5cff);display:grid;place-items:center;margin-right:8px}.mk svg{width:14px;height:14px}
+.bn{font-weight:800;font-size:14px;letter-spacing:-.02em;margin-right:16px}.menu{padding:5px 11px;border-radius:7px;font-size:13px;color:var(--ink2);font-weight:500}.menu:hover{background:var(--panel2)}
+.mb-right{margin-left:auto;display:flex;gap:6px}.wd{width:11px;height:11px;border-radius:50%}.wd.r{background:#e0655a}.wd.y{background:#e0b23f}.wd.g{background:#4fb06a}
+.app{flex:1;display:grid;grid-template-columns:230px 1fr;min-height:0}
+.side{background:linear-gradient(180deg,var(--nav),var(--nav2));color:var(--navink);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.navh{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--navdim);padding:13px 16px 7px;font-weight:600}
+.tree{flex:1;overflow:auto;padding:2px 8px 12px}.tgrp{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--navdim);padding:13px 10px 4px;font-weight:600}
+.tnode{width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border:0;background:transparent;color:var(--navink);border-radius:8px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:500;text-align:left;position:relative}
+.tnode:hover{background:rgba(255,255,255,.05)}.tnode.on{background:var(--navon);color:#fff;font-weight:600}.tnode.on::before{content:"";position:absolute;left:-8px;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--brand)}
+.tnode.root{font-weight:700;color:#fff}.tnode .i{width:17px;height:17px;display:grid;place-items:center;color:var(--navdim);flex-shrink:0}.tnode.on .i{color:#8fb0ff}.tnode .i svg{width:16px;height:16px}.tnode .l{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acct{border-top:1px solid var(--navline);padding:11px 14px;display:flex;align-items:center;gap:9px}.acct .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#7c5cff)}.acct b{font-size:12px;color:#fff;display:block;line-height:1.1}.acct span{font-size:10px;color:var(--navdim)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{height:54px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 18px}
+.tt{display:flex;flex-direction:column}.tt .cr{font-size:10.5px;color:var(--muted);font-family:var(--fm)}.tt b{font-size:15px}
+.seg{margin-left:auto;display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:12.5px;padding:6px 13px;border-radius:7px;cursor:pointer;font-family:inherit}.seg button.on{background:var(--panel);color:var(--ink);box-shadow:var(--sh)}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#7c5cff)}
+.work{flex:1;overflow:auto;padding:18px 20px}
+.hd{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px}
+.hd .fi{width:46px;height:46px;border-radius:12px;background:var(--lrnbg);color:var(--lrn);display:grid;place-items:center;flex-shrink:0}.hd .fi svg{width:24px;height:24px}
+.hd h2{font-size:20px;margin:0}.hd p{margin:4px 0 0;color:var(--ink2);font-size:13px;max-width:82ch}
+.stats{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 12px;text-align:center;box-shadow:var(--sh)}.stat b{font-size:17px;display:block}.stat span{font-size:9.5px;color:var(--muted);font-family:var(--fm);text-transform:uppercase;letter-spacing:.04em}
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.search{flex:1;max-width:320px;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 11px;color:var(--muted);font-size:12.5px}.search svg{width:14px;height:14px}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:8px 13px;font-weight:600;font-size:12.5px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink2);font-family:inherit}.btn:hover{border-color:var(--brand);color:var(--brand)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 8px 20px -10px rgba(52,87,213,.7)}.btn svg{width:14px;height:14px}
+.legend{margin-left:auto;display:flex;gap:14px;font-size:11.5px;color:var(--ink2)}.legend span{display:inline-flex;align-items:center;gap:6px}.dot{width:10px;height:10px;border-radius:50%}.dot.cur{background:var(--cur)}.dot.lrn{background:var(--lrn)}
+.grid{display:grid;grid-template-columns:236px 1fr;gap:14px;align-items:start}
+.types{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);overflow:hidden}
+.tyh{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;padding:11px 13px 7px}
+.ty{width:100%;display:flex;align-items:center;gap:9px;padding:9px 13px;border:0;border-top:1px solid var(--hair);background:transparent;cursor:pointer;font:inherit;font-size:12.5px;text-align:left;color:var(--ink)}
+.ty:hover{background:var(--panel2)}.ty.on{background:var(--soft);color:var(--brand);font-weight:600}
+.ty .tyi{width:16px;color:var(--muted)}.ty.on .tyi{color:var(--brand)}.ty .tyn{flex:1}
+.ty .lb{font-family:var(--fm);font-size:9px;font-weight:600;padding:1px 6px;border-radius:7px;background:var(--lrnbg);color:var(--lrn)}
+.detail{display:flex;flex-direction:column;gap:12px}
+.callout{background:linear-gradient(120deg,#eef2fe,#f4effe);border:1px solid #dee3fb;border-radius:12px;padding:12px 15px;font-size:12.5px;color:var(--ink2);line-height:1.5}.callout b{color:var(--ink)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);padding:14px 16px}
+.card h3{font-size:13.5px;margin:0 0 3px;display:flex;align-items:center;gap:9px}.card h3 .n{font-family:var(--fm);font-size:10px;color:var(--muted);font-weight:500}
+.kbadge{font-family:var(--fm);font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:7px;display:inline-flex;align-items:center;gap:5px}.kbadge.cur{background:var(--curbg);color:var(--cur)}.kbadge.lrn{background:var(--lrnbg);color:var(--lrn)}
+.kbadge svg{width:11px;height:11px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chip{font-family:var(--fm);font-size:11px;color:var(--ink2);background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px 9px}
+.rules{margin-top:9px;display:flex;flex-direction:column;gap:7px}
+.rule{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}
+.rule .rn{width:20px;height:20px;border-radius:6px;background:var(--curbg);color:var(--cur);display:grid;place-items:center;font-family:var(--fm);font-size:10px;font-weight:700;flex-shrink:0}
+.rule b{color:var(--ink)}.rule .basis{font-size:10.5px;color:var(--muted);font-family:var(--fm);display:block;margin-top:2px}
+table.t{width:100%;border-collapse:collapse;font-size:12px;margin-top:9px}
+table.t th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}
+table.t td{padding:8px 10px;border-bottom:1px solid var(--hair)}table.t th.n,table.t td.n{text-align:right;font-family:var(--fm)}
+.pill{font-family:var(--fm);font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px}.pill.y{background:var(--okbg);color:var(--ok)}.pill.n{background:var(--badbg);color:var(--crit)}
+.note{font-size:11px;color:var(--muted);font-family:var(--fm);margin-top:9px;line-height:1.5}
+.exrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:9px}.ex{flex:1;min-width:200px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--panel2);font-size:12px}.ex b{display:block}.ex span{font-size:10.5px;color:var(--muted);font-family:var(--fm)}.ex .go{color:var(--brand);font-weight:600;font-size:11px;margin-top:6px;display:inline-block}
+.powers{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--lrn);border-radius:12px;box-shadow:var(--sh);padding:14px 16px;margin-top:14px}
+.powers h3{margin:0 0 4px;font-size:13.5px}.powers p{font-size:12.5px;color:var(--ink2);margin:0 0 10px;line-height:1.5}
+.finding{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--panel2);font-size:12.5px}
+.finding .ft{font-weight:700;color:var(--ink)}.finding .cite{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+/* constructability view */
+.cxbar{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:11px;box-shadow:var(--sh);padding:11px 14px;margin-bottom:12px;flex-wrap:wrap}
+.cxbar .ki{font-size:12.5px;color:var(--ink2)}.cxbar .kv{font-family:var(--fm);font-size:12px;color:var(--lrn);font-weight:600}
+.cxnote{font-size:11.5px;color:var(--muted);font-family:var(--fm)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px;box-shadow:var(--sh)}.kpi .k{font-size:11px;color:var(--muted);font-weight:600}.kpi .v{font-size:26px;font-weight:800;margin-top:5px}.kpi .v.warn{color:var(--warn)}.kpi .v.crit{color:var(--crit)}
+.hide{display:none}
+</style></head>
+<body>
+<div class="shell">
+  <div class="menubar">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M4 19V5M4 15l5-5 4 3 7-8"/></svg></span><span class="bn">Controlyx</span>
+    <div class="menu">File</div><div class="menu">Project</div><div class="menu">View</div><div class="menu">Analysis</div><div class="menu">Tools</div><div class="menu">Help</div>
+    <div class="mb-right"><span class="wd r"></span><span class="wd y"></span><span class="wd g"></span></div>
+  </div>
+  <div class="app">
+    <aside class="side">
+      <div class="navh">Project Navigator</div>
+      <nav class="tree">
+        <button class="tnode root"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span><span class="l">East Port Said Terminal</span></button>
+        <div class="tgrp">Analysis</div>
+        <button class="tnode" id="nv-cx"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg></span><span class="l">Constructability</span></button>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h5l3-8 4 16 3-8h3"/></svg></span><span class="l">Out of Sequence</span></button>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 15l5-5 4 3 7-8"/></svg></span><span class="l">Earned Value</span></button>
+        <div class="tgrp">Library</div>
+        <button class="tnode on" id="nv-kb"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5"/><path d="M3 12a9 3 0 0018 0"/></svg></span><span class="l">Knowledge Base</span></button>
+        <button class="tnode"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/></svg></span><span class="l">Recent Projects</span></button>
+      </nav>
+      <div class="acct"><span class="av"></span><div><b>I. Gebril</b><span>Planning Manager</span></div></div>
+    </aside>
+    <div class="main">
+      <div class="top">
+        <div class="tt"><span class="cr" id="crumb">Library ▸ Knowledge Base</span><b id="ttl">Knowledge Library</b></div>
+        <div class="seg"><button class="on" data-view="kb">Knowledge Library</button><button data-view="cx">In Constructability Review</button></div>
+        <span class="avatar"></span>
+      </div>
+      <div class="work" id="work"></div>
+    </div>
+  </div>
+</div>
+<script>
+const shield='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>';
+const spark='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.4L18 9l-4.2 1.6L12 15l-1.8-4.4L6 9z"/></svg>';
+function kbView(){return `
+  <div class="hd"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5"/><path d="M3 12a9 3 0 0018 0"/></svg></div>
+    <div><h2>Knowledge Library</h2><p>Supporting knowledge for the <b>Constructability Review</b> — a curated reference standard for each project type, plus patterns learned from the schedules you add. Offline &amp; local; it corroborates findings but never creates one on its own.</p></div>
+    <div class="stats"><div class="stat"><b>6</b><span>Project types</span></div><div class="stat"><b>128</b><span>Curated rules</span></div><div class="stat"><b>47</b><span>Learned patterns</span></div><div class="stat"><b>6</b><span>Projects taught</span></div></div></div>
+  <div class="bar">
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Filter project types &amp; patterns…</div>
+    <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add Project XER</button>
+    <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg>Export Knowledge</button>
+    <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3M8 7l4-4 4 4M4 21h16"/></svg>Import Knowledge</button>
+    <div class="legend"><span><span class="dot cur"></span>Curated · built-in standard</span><span><span class="dot lrn"></span>Learned · from your projects</span></div>
+  </div>
+  <div class="grid">
+    <div class="types">
+      <div class="tyh">Project types</div>
+      ${[['Marine &amp; Ports',6,true],['Buildings &amp; Structures',3],['Roads &amp; Bridges',2],['Oil &amp; Gas',1],['Power &amp; Utilities',0],['Water &amp; Wastewater',0]].map(([n,c,on])=>`<button class="ty ${on?'on':''}"><span class="tyi"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 21V9l6-4 6 4v12"/></svg></span><span class="tyn">${n}</span>${c?`<span class="lb">${c} learned</span>`:''}</button>`).join('')}
+    </div>
+    <div class="detail">
+      <div class="callout"><b>Marine &amp; Ports — reference standard.</b> When you import a schedule, Controlyx auto-detects the type and checks its logic, activities and WBS against the curated standard below, then corroborates with what your own projects have taught it.</div>
+
+      <div class="card"><h3><span class="kbadge cur">${shield}Curated</span> Reference standard <span class="n">built-in · maintained by Controlyx</span></h3>
+        <div class="chips"><span class="chip">Detected by 14 keywords: quay, berth, dredg, shiploader…</span><span class="chip">Standard WBS · 9 branches</span><span class="chip">Standard activities · 62 key / often-missing</span></div>
+        <div class="rules">
+          <div class="rule"><span class="rn">1</span><div><b>Dredging precedes quay-wall works in the same berth.</b><span class="basis">Marine works standard · GAO/DCMA logic-quality basis</span></div></div>
+          <div class="rule"><span class="rn">2</span><div><b>Precast beam erection follows quay capping (FS, no overlap).</b><span class="basis">Structural sequence · reference standard</span></div></div>
+          <div class="rule"><span class="rn">3</span><div><b>Shiploader erection completes before commissioning &amp; load test.</b><span class="basis">Commissioning readiness · reference standard</span></div></div>
+        </div>
+      </div>
+
+      <div class="card"><h3><span class="kbadge lrn">${spark}Learned</span> From your projects <span class="n">advisory · kept separate from curated</span></h3>
+        <table class="t"><thead><tr><th>Commonly-seen activity (learned)</th><th>Seen in</th><th class="n">Avg duration</th><th>In curated standard?</th></tr></thead><tbody>
+          <tr><td>Conveyor gallery cladding after gallery steel (SS +10d)</td><td>4 of 6 projects</td><td class="n">28 d</td><td><span class="pill n">New pattern</span></td></tr>
+          <tr><td>Bollard install overlaps quay capping (SS +1d)</td><td>3 of 6 projects</td><td class="n">12 d</td><td><span class="pill y">Refines rule 2</span></td></tr>
+          <tr><td>Temporary access trestle before piling</td><td>5 of 6 projects</td><td class="n">45 d</td><td><span class="pill n">Often-missing</span></td></tr>
+        </tbody></table>
+        <div class="note">Advisory · reflects only projects imported on this PC · never changes a finding. &nbsp; <span style="color:var(--brand);font-weight:600">⬇ Download learned standard</span></div>
+      </div>
+
+      <div class="card"><h3>Example baselines <span class="n">generated · to preview what a review checks</span></h3>
+        <div class="exrow"><div class="ex"><b>Clean baseline</b><span>fully-logical marine terminal · 0 issues</span><span class="go">Open example ›</span></div><div class="ex"><b>Baseline with issues</b><span>seeded logic gaps &amp; missing activities</span><span class="go">Open example ›</span></div></div>
+      </div>
+
+      <div class="card"><h3>Your schedules <span class="n">Marine &amp; Ports · projects you added</span></h3>
+        <table class="t"><thead><tr><th>Project (XER)</th><th class="n">Activities</th><th>Added</th><th class="n">Patterns</th><th></th></tr></thead><tbody>
+          <tr><td>East Port Said Terminal</td><td class="n">1,284</td><td>12 Aug 2026</td><td class="n">18</td><td><span style="color:var(--brand);font-weight:600;font-size:11px">View ·  Remove</span></td></tr>
+          <tr><td>Sokhna Grain Berth</td><td class="n">940</td><td>30 Jul 2026</td><td class="n">12</td><td><span style="color:var(--brand);font-weight:600;font-size:11px">View ·  Remove</span></td></tr>
+          <tr><td>Damietta Quay Ext.</td><td class="n">1,110</td><td>02 Jul 2026</td><td class="n">17</td><td><span style="color:var(--brand);font-weight:600;font-size:11px">View ·  Remove</span></td></tr>
+        </tbody></table>
+      </div>
+
+      <div class="powers"><h3>How this powers the Constructability Review</h3>
+        <p>Running a Constructability Review checks every activity against this library — <b class="cur" style="color:var(--cur)">curated rules</b> flag standards violations, <b style="color:var(--lrn)">learned patterns</b> flag deviations from how your projects actually build. Each finding cites the exact rule or pattern; knowledge is corroboration only.</p>
+        <div class="finding"><div class="ft">Missing predecessor — Quay capping (CT-1120) has no link to Dredging Berth 3.</div>
+          <div class="cite"><span class="kbadge cur">${shield}Curated rule 1 · Dredging precedes quay works</span><span class="kbadge lrn">${spark}Learned · trestle-before-piling, 5/6 projects</span></div>
+        </div>
+        <div style="margin-top:10px"><button class="btn" data-view="cx">Open in Constructability Review ›</button></div>
+      </div>
+    </div>
+  </div>`;}
+function cxView(){return `
+  <div class="hd"><div class="fi" style="background:#dcfce7;color:#0d9488"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg></div>
+    <div><h2>Constructability Review</h2><p>Rule + Knowledge-Base check — offline, no AI, no cost. Findings come from the schedule's own logic; the Knowledge Library corroborates them.</p></div></div>
+  <div class="cxbar"><span class="ki">Engine <span class="kv">Rule + Knowledge Base · offline</span></span><span class="ki">Knowledge <span class="kv">✦ Standard + your 6 schedules</span></span><button class="btn" data-view="kb" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5"/></svg>Manage Knowledge Base</button></div>
+  <div class="kpis"><div class="kpi"><div class="k">Score</div><div class="v warn">74</div></div><div class="kpi"><div class="k">Illogical logic</div><div class="v">9</div></div><div class="kpi"><div class="k">Missing activities</div><div class="v crit">6</div></div><div class="kpi"><div class="k">Knowledge support</div><div class="v" style="color:var(--lrn)">11</div></div></div>
+  <div class="card"><h3>Findings <span class="n">each cites the curated rule / learned pattern that supports it</span></h3>
+    <table class="t"><thead><tr><th>Finding</th><th>Activity</th><th>Type</th><th>Knowledge support</th></tr></thead><tbody>
+      <tr><td>Missing predecessor to dredging</td><td>CT-1120 Quay capping</td><td>Missing logic</td><td><span class="kbadge cur">${shield}Curated rule 1</span></td></tr>
+      <tr><td>Beam erection overlaps capping</td><td>CT-1420 Precast beams</td><td>Illogical logic</td><td><span class="kbadge cur">${shield}Curated rule 2</span></td></tr>
+      <tr><td>No access trestle before piling</td><td>WBS Marine ▸ Quay</td><td>Missing activity</td><td><span class="kbadge lrn">${spark}Learned · 5/6 projects</span></td></tr>
+      <tr><td>Gallery cladding starts too early</td><td>CT-2255 Cladding</td><td>Advisory</td><td><span class="kbadge lrn">${spark}Learned · SS+10d</span></td></tr>
+    </tbody></table>
+    <div class="note">Every finding is raised solely from the current XER's own schedule logic; supporting knowledge is corroboration only · never changes a finding. Manage the library from <b style="color:var(--brand)">📚 Manage Knowledge Base</b> or the navigator's <b style="color:var(--brand)">Knowledge Base</b>.</div>
+  </div>`;}
+const work=document.getElementById('work');
+function show(v){document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  document.getElementById('ttl').textContent=v==='kb'?'Knowledge Library':'Constructability Review';
+  document.getElementById('crumb').textContent=v==='kb'?'Library ▸ Knowledge Base':'Analysis ▸ Constructability';
+  document.getElementById('nv-kb').classList.toggle('on',v==='kb');document.getElementById('nv-cx').classList.toggle('on',v==='cx');
+  work.innerHTML=v==='kb'?kbView():cxView();}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-view]');if(t){show(t.dataset.view);return;}
+  if(e.target.closest('#nv-kb'))show('kb');if(e.target.closest('#nv-cx'))show('cx');});
+show('kb');
+</script></body></html>

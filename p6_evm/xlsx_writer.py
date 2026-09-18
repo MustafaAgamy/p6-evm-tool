@@ -1,38 +1,146 @@
-"""Minimal dependency-free .xlsx writer (inline strings). Enough for a flat
-findings table with a bold, frozen header row and an autofilter."""
+"""Minimal dependency-free .xlsx writer (inline strings).
+
+Two entry points:
+  * write_xlsx(path, sheet, headers, rows) — a flat table with a bold, frozen
+    header row and an autofilter (findings/stats exports).
+  * write_calendar_xlsx(path, months, cal_name, subtitle) — the Calendar Audit:
+    a coloured month-by-month timeline grid (matching the PDF) on one sheet, and
+    the Monthly Statistics table on a second sheet.
+No third-party deps (openpyxl) — keeps the PyInstaller bundle small.
+"""
 import zipfile
 from xml.sax.saxutils import escape
 
-_CONTENT_TYPES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-<Default Extension="xml" ContentType="application/xml"/>
-<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
-</Types>'''
+
+class RichText:
+    """A multi-run cell value: one inline string whose individual runs can each be
+    bold and/or coloured. Used so a single line of a multi-line cell (e.g. the driving
+    predecessor inside the Baseline Predecessors cell) stands out — the closest Excel
+    can do to the on-screen highlighted row.
+
+    ``runs`` is a list of dicts, one per run:
+        {'t': text, 'b': bool, 'color': 'FFRRGGBB' or None}
+    A run with neither bold nor colour is emitted as a plain run (no run-properties).
+    """
+
+    def __init__(self, runs):
+        self.runs = runs
+
 
 _ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
 </Relationships>'''
 
-_WB_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-</Relationships>'''
-
-# cellXfs: index 0 = default, index 1 = bold (fontId 1) for the header row.
+# Flat-table styles (xf indices): 0 default · 1 bold (header) · 2 driving highlight (bold brown on
+# amber fill, top-aligned + wrapped) · 3 Severity=Critical (red) · 4 Severity=High (amber) ·
+# 5 Severity=Medium/other (grey) · 6 wrap-top, no fill (multi-line rich cells such as the
+# Baseline Predecessors list). The severity fills match the on-screen badge colours.
+# Report-clarity styles (added for the tool-wide export standard): 7 section title (bold 13 blue) ·
+# 8 report/header-block title (bold 15 navy) · 9 context sub-line / section note (sz 10 grey) ·
+# 10 neutral section/table header row (bold navy on light-blue fill) — replaces the amber header.
 _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>
-<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>
-<fills count="1"><fill><patternFill patternType="none"/></fill></fills>
+<fonts count="10">
+<font><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FF92400E"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FFC02626"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FFB45309"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FF41506A"/><name val="Calibri"/></font>
+<font><b/><sz val="15"/><color rgb="FF0F2749"/><name val="Calibri"/></font>
+<font><sz val="10"/><color rgb="FF5C6A80"/><name val="Calibri"/></font>
+<font><b/><sz val="13"/><color rgb="FF12467A"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FF20375A"/><name val="Calibri"/></font>
+</fonts>
+<fills count="7"><fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFADDDD"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFBECCF"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFEEF1F6"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFEAF0F9"/></patternFill></fill></fills>
 <borders count="1"><border/></borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="2"><xf/><xf fontId="1" applyFont="1"/></cellXfs>
+<cellXfs count="11"><xf/><xf fontId="1" applyFont="1"/>
+<xf fontId="2" fillId="2" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf fontId="3" fillId="3" applyFont="1" applyFill="1"/>
+<xf fontId="4" fillId="4" applyFont="1" applyFill="1"/>
+<xf fontId="5" fillId="5" applyFont="1" applyFill="1"/>
+<xf applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf fontId="8" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf fontId="6" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf fontId="7" applyFont="1"/>
+<xf fontId="9" fillId="6" applyFont="1" applyFill="1"/>
+</cellXfs>
 </styleSheet>'''
+
+# Report-clarity styles (added to _STYLES above): section title · report/header-block title ·
+# context sub-line (also used for section notes) · neutral section/table header row.
+_TITLE_STYLE = 7
+_RPTTITLE_STYLE = 8
+_CONTEXT_STYLE = 9
+_SECHDR_STYLE = 10
+
+_HIGHLIGHT_STYLE = 2                                    # driving-relationship highlight xf
+_WRAP_STYLE = 6                                         # wrap-top, no fill (multi-line rich cells)
+_SEV_STYLE = {'Critical': 3, 'High': 4, 'Medium': 5, 'Low': 5}   # Severity value → xf
+
+# Calendar styles — fills tinted to match the PDF timeline legend.
+#   fills: 0 none · 1 gray125(reserved) · 2 work · 3 weekend · 4 holiday · 5 shutdown · 6 special · 7 header
+#   xfs:   0 default · 1 bold · 2 header(white on blue) · 3 work · 4 weekend · 5 holiday
+#          6 shutdown · 7 special · 8 day-of-week header · 9 title
+_CAL_STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="6">
+<font><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+<font><b/><sz val="14"/><name val="Calibri"/></font>
+<font><b/><sz val="15"/><color rgb="FF0F2749"/><name val="Calibri"/></font>
+<font><sz val="10"/><color rgb="FF5C6A80"/><name val="Calibri"/></font>
+</fonts>
+<fills count="9">
+<fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFDCFCE7"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFEE2E2"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF26517D"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFBECCF"/></patternFill></fill>
+</fills>
+<borders count="2">
+<border/>
+<border><left style="thin"><color rgb="FFD0D7DE"/></left><right style="thin"><color rgb="FFD0D7DE"/></right><top style="thin"><color rgb="FFD0D7DE"/></top><bottom style="thin"><color rgb="FFD0D7DE"/></bottom></border>
+</borders>
+<cellStyleXfs count="1"><xf/></cellStyleXfs>
+<cellXfs count="13">
+<xf/>
+<xf fontId="1" applyFont="1"/>
+<xf fontId="2" fillId="7" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+<xf fontId="0" fillId="2" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="0" fillId="4" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="0" fillId="5" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="0" fillId="6" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="1" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+<xf fontId="3" applyFont="1"/>
+<xf fontId="0" fillId="8" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="4" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf fontId="5" applyFont="1"/>
+</cellXfs>
+</styleSheet>'''
+_CAL_RPTTITLE = 11                    # report-block title (bold 15 navy) — matches _RPTTITLE_STYLE
+_CAL_CONTEXT = 12                     # report-block context sub-line (sz 10 grey)
+
+_STATUS_STYLE = {'work': 3, 'weekend': 4, 'holiday': 5, 'shutdown': 6, 'special': 7}
+_LEGEND = [('Working', 3), ('Weekend', 4), ('Holiday', 5), ('Shutdown', 6), ('Special hours', 7)]
+# Bad Weather grid: two-category calendar (working / non-working) + the amber bad-weather overlay.
+WX_BAD_STYLE = 10                     # amber fill (bad-weather day) — style index 10
+_WX_LEGEND = [('Working', 3), ('Non-working', 4), ('Bad-weather day', WX_BAD_STYLE)]
+_DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 
 def _col(idx):
@@ -47,6 +155,24 @@ def _col(idx):
 
 def _cell(col, row, value, style=None):
     ref = f'{_col(col)}{row}'
+    if isinstance(value, RichText):
+        # An inline string of several runs; each run may carry bold/colour run-properties
+        # so one line of a multi-line cell stands out. Rich cells wrap by default (so the
+        # multiple lines actually show) unless the caller supplied an explicit style.
+        if style is None:
+            style = _WRAP_STYLE
+        s_attr = f' s="{style}"' if style else ''
+        parts = []
+        for run in value.runs:
+            props = ''
+            if run.get('b'):
+                props += '<b/>'
+            if run.get('color'):
+                props += f'<color rgb="{run["color"]}"/>'
+            rpr = f'<rPr>{props}<sz val="11"/><rFont val="Calibri"/></rPr>' if props else ''
+            parts.append(f'<r>{rpr}<t xml:space="preserve">'
+                         f'{escape(str(run.get("t", "")))}</t></r>')
+        return f'<c r="{ref}"{s_attr} t="inlineStr"><is>{"".join(parts)}</is></c>'
     s_attr = f' s="{style}"' if style else ''
     if isinstance(value, bool):
         value = str(value)
@@ -56,47 +182,598 @@ def _cell(col, row, value, style=None):
             f'<t xml:space="preserve">{escape(str(value))}</t></is></c>')
 
 
-def _workbook(sheet_name):
-    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
-            ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            f'<sheets><sheet name="{escape(sheet_name)}" sheetId="1" r:id="rId1"/></sheets></workbook>')
+def _text_len(v):
+    """Rough display length of a cell value (widest line for multi-line / RichText)."""
+    if isinstance(v, RichText):
+        s = ''.join(str(run.get('t', '')) for run in v.runs)
+    elif isinstance(v, bool):
+        s = str(v)
+    elif isinstance(v, float):
+        s = f'{v:g}'
+    else:
+        s = str(v)
+    return max((len(line) for line in s.split('\n')), default=0)
 
 
-def _sheet(headers, rows):
+def _human_date(v):
+    """ISO 'YYYY-MM-DD' (optionally with a time part) → '09 Feb 2026'; anything else unchanged."""
+    if not v:
+        return v
+    s = str(v)
+    if (len(s) >= 10 and s[4] == '-' and s[7] == '-'
+            and s[:4].isdigit() and s[5:7].isdigit() and s[8:10].isdigit()):
+        try:
+            from datetime import date as _date
+            return _date(int(s[:4]), int(s[5:7]), int(s[8:10])).strftime('%d %b %Y')
+        except ValueError:
+            return v
+    return v
+
+
+def _auto_col_widths(matrix, min_w=9, max_w=60, pad=2):
+    """Column widths sized to the longest cell in each column, clamped to [min_w, max_w].
+    `matrix` is an iterable of rows (each a list of cell values); None cells are skipped."""
+    w = {}
+    for row in matrix:
+        for c, v in enumerate(row):
+            if v is None:
+                continue
+            n = _text_len(v) + pad
+            if n > w.get(c, 0):
+                w[c] = n
+    return {c: max(min_w, min(max_w, n)) for c, n in w.items()}
+
+
+def _meta_block_cells(meta, start_row=1):
+    """The report header/context block placed at the top of the first sheet.
+
+    meta = {'app'?: 'Controlyx', 'title': 'Schedule Health Review',
+            'context'?: [('Project', '…'), ('Data date', '…'), ('Generated', '…')]}
+    Returns (cells{(r,c):(value,style)}, next_free_row). The title reads
+    "<app> — <title>"; context prints as one grey line, "Label: value · …".
+    The caller supplies `app` (from utils.APP_NAME) so branding stays in one place.
+    """
+    cells = {}
+    r = start_row
+    title = meta.get('title') or 'Report'
+    app = meta.get('app')
+    cells[(r, 0)] = (f'{app} — {title}' if app else title, _RPTTITLE_STYLE)
+    r += 1
+    ctx = [(k, v) for k, v in (meta.get('context') or []) if v not in (None, '')]
+    if ctx:
+        cells[(r, 0)] = ('   ·   '.join(f'{k}: {v}' for k, v in ctx), _CONTEXT_STYLE)
+        r += 1
+    r += 1                                                  # blank spacer before the content
+    return cells, r
+
+
+def _sheet(headers, rows, highlight_cols=None, severity_col=None, legend=None,
+           meta=None, col_widths=None, header_style=_SECHDR_STYLE):
+    """A flat table sheet: bold frozen header row + autofilter (over the data only).
+      * ``highlight_cols`` — 0-based column indices whose data cells get the amber highlight
+        (the driving relationship).
+      * ``severity_col`` — a column index whose data cells are colour-coded by value
+        (Critical=red, High=amber, Medium/Low=grey), matching the on-screen badges.
+      * ``legend`` — optional [(severity_value, description), …] rendered as a small colour key
+        a couple of rows below the table.
+    """
+    hi = set(highlight_cols or ())
     n_cols = max(len(headers), 1)
-    last = f'{_col(n_cols - 1)}{len(rows) + 1}'
+    # Optional report header/context block sits above the table; the header row follows it.
+    by_row = {}
+    hdr_row = 1
+    if meta:
+        mcells, hdr_row = _meta_block_cells(meta, start_row=1)
+        for (rr, cc), (v, s) in mcells.items():
+            by_row.setdefault(rr, {})[cc] = (v, s)
+    last_data_row = hdr_row + len(rows)
+    last = f'{_col(n_cols - 1)}{last_data_row}'
+    if col_widths is None:
+        col_widths = _auto_col_widths([headers] + list(rows))
+    cols_xml = ''
+    if col_widths:
+        cols_xml = ('<cols>' + ''.join(
+            f'<col min="{c + 1}" max="{c + 1}" width="{w}" customWidth="1"/>'
+            for c, w in sorted(col_widths.items())) + '</cols>')
+    # header row (neutral navy-on-light-blue by default) then data rows
+    by_row[hdr_row] = {c: (h, header_style) for c, h in enumerate(headers)}
+    for i, row in enumerate(rows, start=hdr_row + 1):
+        rc = {}
+        for c, v in enumerate(row):
+            if severity_col is not None and c == severity_col:
+                st = _SEV_STYLE.get(str(v), _SEV_STYLE['Medium'])
+            elif c in hi:
+                st = _HIGHLIGHT_STYLE
+            else:
+                st = None
+            rc[c] = (v, st)
+        by_row[i] = rc
+    if legend:
+        r = last_data_row + 2                              # a blank row, then the legend
+        by_row[r] = {0: ('Severity legend', _SECHDR_STYLE)}
+        for label, desc in legend:
+            r += 1
+            by_row[r] = {0: (label, _SEV_STYLE.get(label, _SEV_STYLE['Medium'])),
+                         1: (desc, None)}
     out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
            '<sheetViews><sheetView workbookViewId="0">'
-           '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>'
+           f'<pane ySplit="{hdr_row}" topLeftCell="A{hdr_row + 1}" '
+           'activePane="bottomLeft" state="frozen"/>'
            '</sheetView></sheetViews>',
+           cols_xml,
            '<sheetData>']
-    out.append('<row r="1">')
-    for c, h in enumerate(headers):
-        out.append(_cell(c, 1, h, style=1))
-    out.append('</row>')
-    for i, row in enumerate(rows, start=2):
-        out.append(f'<row r="{i}">')
-        for c, v in enumerate(row):
-            out.append(_cell(c, i, v))
+    for r in sorted(by_row):
+        out.append(f'<row r="{r}">')
+        for c in sorted(by_row[r]):
+            v, s = by_row[r][c]
+            out.append(_cell(c, r, v, style=s))
         out.append('</row>')
     out.append('</sheetData>')
-    out.append(f'<autoFilter ref="A1:{last}"/>')
+    out.append(f'<autoFilter ref="A{hdr_row}:{last}"/>')   # filter the data only, not the legend
     out.append('</worksheet>')
     return ''.join(out)
 
 
-def write_xlsx(path, sheet_name, headers, rows):
-    """Write a single-sheet .xlsx to `path`.
+def _cells_sheet(cells, col_widths=None, row_heights=None):
+    """A free-placed sheet from {(row, col): (value, style)} — for the grid.
+    When `col_widths` is None the columns are auto-sized to their longest cell."""
+    row_heights = row_heights or {}
+    if col_widths is None:
+        w = {}
+        for (r, c), (v, s) in cells.items():
+            n = _text_len(v) + 2
+            if n > w.get(c, 0):
+                w[c] = n
+        col_widths = {c: max(9, min(60, n)) for c, n in w.items()}
+    cols_xml = ''
+    if col_widths:
+        cols_xml = ('<cols>' + ''.join(
+            f'<col min="{c + 1}" max="{c + 1}" width="{w}" customWidth="1"/>'
+            for c, w in sorted(col_widths.items())) + '</cols>')
+    by_row = {}
+    for (r, c), (v, s) in cells.items():
+        by_row.setdefault(r, {})[c] = (v, s)
+    out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+           '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+           cols_xml, '<sheetData>']
+    for r in sorted(by_row):
+        h = row_heights.get(r)
+        attr = f' ht="{h}" customHeight="1"' if h else ''
+        out.append(f'<row r="{r}"{attr}>')
+        for c in sorted(by_row[r]):
+            v, s = by_row[r][c]
+            out.append(_cell(c, r, v, style=s))
+        out.append('</row>')
+    out.append('</sheetData></worksheet>')
+    return ''.join(out)
+
+
+def _write_book(path, sheets, styles_xml):
+    """Write a workbook of one or more (name, sheet_xml) sheets sharing styles_xml."""
+    n = len(sheets)
+    ct = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
+          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>',
+          '<Default Extension="xml" ContentType="application/xml"/>',
+          '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
+          '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>']
+    for i in range(1, n + 1):
+        ct.append(f'<Override PartName="/xl/worksheets/sheet{i}.xml" '
+                  'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>')
+    ct.append('</Types>')
+
+    rels = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">']
+    for i in range(1, n + 1):
+        rels.append(f'<Relationship Id="rId{i}" '
+                    'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+                    f'Target="worksheets/sheet{i}.xml"/>')
+    rels.append(f'<Relationship Id="rId{n + 1}" '
+                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" '
+                'Target="styles.xml"/>')
+    rels.append('</Relationships>')
+
+    sheets_xml = ''.join(f'<sheet name="{escape(name)}" sheetId="{i}" r:id="rId{i}"/>'
+                         for i, (name, _) in enumerate(sheets, 1))
+    workbook = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+                ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                f'<sheets>{sheets_xml}</sheets></workbook>')
+
+    with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr('[Content_Types].xml', ''.join(ct))
+        z.writestr('_rels/.rels', _ROOT_RELS)
+        z.writestr('xl/workbook.xml', workbook)
+        z.writestr('xl/_rels/workbook.xml.rels', ''.join(rels))
+        z.writestr('xl/styles.xml', styles_xml)
+        for i, (_name, sheet_xml) in enumerate(sheets, 1):
+            z.writestr(f'xl/worksheets/sheet{i}.xml', sheet_xml)
+
+
+def write_xlsx(path, sheet_name, headers, rows, highlight_cols=None, severity_col=None,
+               legend=None, meta=None, col_widths=None):
+    """Write a single-sheet flat table to `path`.
 
     headers: list[str]. rows: list of lists of str|int|float.
     Numbers become numeric cells; everything else an XML-escaped inline string.
+    highlight_cols: optional 0-based column indices whose data cells get the amber highlight style.
+    severity_col: optional column index colour-coded by value (Critical/High/Medium).
+    legend: optional [(severity_value, description), …] rendered as a colour key below the table.
+    meta: optional report header/context block at the top ({'app','title','context'}); see
+          _meta_block_cells. col_widths: optional {col: width}; auto-sized when omitted.
     """
-    with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as z:
-        z.writestr('[Content_Types].xml', _CONTENT_TYPES)
-        z.writestr('_rels/.rels', _ROOT_RELS)
-        z.writestr('xl/workbook.xml', _workbook(sheet_name))
-        z.writestr('xl/_rels/workbook.xml.rels', _WB_RELS)
-        z.writestr('xl/styles.xml', _STYLES)
-        z.writestr('xl/worksheets/sheet1.xml', _sheet(headers, rows))
+    _write_book(path, [(sheet_name, _sheet(headers, rows, highlight_cols, severity_col,
+                                           legend, meta=meta, col_widths=col_widths))], _STYLES)
+
+
+def write_sections_xlsx(path, sheets, col_widths=None, meta=None):
+    """Write a styled multi-sheet workbook that MIRRORS a feature's on-screen / PDF report.
+
+    This is the shared standard every feature's Excel export should use so the workbook
+    reflects the report's sections (titled tables), matching the screen/PDF layout rather
+    than dumping one flat table.
+
+    sheets: list of {'name': str, 'blocks': [{'title','headers','rows','note'?,
+                     'severity_col'?,'highlight_cols'?}], 'col_widths'?, 'legend'?}
+      - each sheet becomes one worksheet whose titled tables are stacked top-to-bottom
+        (via _stacked_sheet), sheet names sanitised + de-duplicated.
+      - a block may set severity_col / highlight_cols for colour-coding; a sheet may set
+        a legend colour key.
+    col_widths: default column-width map applied to any sheet that doesn't set its own
+        (auto-sized when neither is given).
+    meta: optional report header/context block ({'app','title','context'}) rendered at the
+        top of the FIRST section sheet — the workbook opens self-explaining.
+
+    Numbers render as numeric cells; a `note` line prints under a block's title. Reuse the
+    severity colours / RichText from write_xlsx where a table needs them (build the sheet
+    with _sheet/_cells_sheet directly and pass it in via `sheets=[{'name','xml'}]`).
+    """
+    used = set()
+    book = []
+    meta_left = meta
+    for sh in sheets:
+        nm = _uniq(_safe_sheet_name(sh.get('name') or 'Report'), used)
+        if 'xml' in sh:                       # caller pre-built a styled sheet (severity/RichText)
+            book.append((nm, sh['xml']))
+        else:
+            book.append((nm, _stacked_sheet(sh['blocks'],
+                                            col_widths=sh.get('col_widths') or col_widths,
+                                            meta=meta_left, legend=sh.get('legend'))))
+            meta_left = None                  # header block on the first section sheet only
+    _write_book(path, book, _STYLES)
+
+
+_BAD_SHEET_CHARS = set('[]:*?/\\')
+
+
+def _safe_sheet_name(name):
+    """Excel sheet names: ≤ 31 chars, none of []:*?/\\ (illegal chars → '-')."""
+    s = str(name or '')
+    for ch in _BAD_SHEET_CHARS:
+        s = s.replace(ch, '-')
+    return (s.strip() or 'Calendar')[:28]
+
+
+def _uniq(name, used):
+    base, out, i = name, name, 2
+    while out.lower() in used:
+        out = f'{base[:25]} {i}'
+        i += 1
+    used.add(out.lower())
+    return out
+
+
+def _cal_header_lines(meta):
+    """The report header/context block for the calendar-family workbooks, as
+    [(text, style)] rows using the _CAL_STYLES report-title / context styles.
+    Mirrors _meta_block_cells but for the calendar stylesheet. [] when no meta."""
+    if not meta:
+        return []
+    title = meta.get('title') or 'Report'
+    app = meta.get('app')
+    lines = [(f'{app} — {title}' if app else title, _CAL_RPTTITLE)]
+    ctx = [(k, v) for k, v in (meta.get('context') or []) if v not in (None, '')]
+    if ctx:
+        lines.append(('   ·   '.join(f'{k}: {v}' for k, v in ctx), _CAL_CONTEXT))
+    return lines
+
+
+def _timeline_sheet_xml(months, cal_name, subtitle, header_lines=None):
+    """One calendar's coloured month grid — with the holiday/shutdown name inside the
+    day cell (#05) — followed by its Monthly Statistics table. `header_lines` (only on the
+    workbook's first sheet) prepends the standard report header/context block."""
+    cells = {}
+    off = 0
+    if header_lines:
+        for i, (txt, st) in enumerate(header_lines, start=1):
+            cells[(i, 0)] = (txt, st)
+        off = len(header_lines) + 1                        # header rows + a blank spacer
+    cells[(1 + off, 0)] = (f'Calendar Timeline — {cal_name}', 9)
+    if subtitle:
+        cells[(2 + off, 0)] = (subtitle, 0)
+    for i, (lab, st) in enumerate(_LEGEND):
+        cells[(4 + off, i)] = (lab, st)
+    row_heights = {}
+    r = 6 + off
+    for m in months:
+        cells[(r, 0)] = (f'{m.get("label", "")} — {m.get("working_days", 0)} working days', 1)
+        r += 1
+        for c, d in enumerate(_DOW):
+            cells[(r, c)] = (d, 8)
+        r += 1
+        pad = ((m.get('first_weekday', 0) % 7) + 7) % 7
+        idx = pad
+        for day in m.get('days', []):
+            rr, cc = r + idx // 7, idx % 7
+            nm = day.get('name')
+            cells[(rr, cc)] = ((f'{day["d"]}\n{nm}' if nm else day['d']),
+                               _STATUS_STYLE.get(day['status'], 3))
+            if nm:
+                row_heights[rr] = 30
+            idx += 1
+        r += max(1, (idx + 6) // 7) + 1     # weeks used + a blank row
+
+    r += 1
+    cells[(r, 0)] = ('Monthly Statistics', 9)
+    r += 1
+    for c, h in enumerate(['Month', 'Working Days', 'Non-Working Days', 'Holidays',
+                           'Exceptions', 'Working Hours']):
+        cells[(r, c)] = (h, 2)
+    r += 1
+    for m in months:
+        for c, v in enumerate([m['label'], m['working_days'], m.get('nonworking_days', 0),
+                               m['holidays'], m['exceptions'], m['working_hours']]):
+            cells[(r, c)] = (v, 0)
+        r += 1
+    return _cells_sheet(cells, col_widths={0: 15, 1: 15, 2: 15, 3: 15, 4: 15, 5: 15, 6: 15},
+                        row_heights=row_heights)
+
+
+def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None,
+                   title_style=_TITLE_STYLE, note_style=_CONTEXT_STYLE, header_style=_SECHDR_STYLE):
+    """Several titled tables stacked on one sheet.
+
+    ``title_style`` / ``note_style`` / ``header_style`` default to the report-clarity
+    styles (for the _STYLES workbook); the calendar/weather workbooks pass their own
+    _CAL_STYLES-appropriate ids so the shared layout renders correctly under either
+    stylesheet.
+
+    blocks: [{title, headers, rows, note?, severity_col?, highlight_cols?}]
+      - title  → section-title style (bold blue)
+      - note   → grey context line under the title
+      - headers→ neutral header row (bold navy on light-blue) — NOT the amber highlight
+      - severity_col / highlight_cols → per-block colour-coding, same as the flat table
+    meta:   optional report header/context block at the very top (see _meta_block_cells).
+    legend: optional [(severity_value, description), …] colour key at the bottom.
+    Columns auto-size to the widest header/data cell unless `col_widths` is given.
+    """
+    cells = {}
+    r = 1
+    if meta:
+        cells, r = _meta_block_cells(meta, start_row=1)
+    width_matrix = []                                      # headers + data only (not titles/notes)
+    for blk in blocks:
+        cells[(r, 0)] = (blk['title'], title_style)
+        r += 1
+        if blk.get('note'):
+            cells[(r, 0)] = (blk['note'], note_style)
+            r += 1
+        for c, h in enumerate(blk['headers']):
+            cells[(r, c)] = (h, header_style)
+        width_matrix.append(blk['headers'])
+        r += 1
+        sc = blk.get('severity_col')
+        hi = set(blk.get('highlight_cols') or ())
+        for row in blk['rows']:
+            for c, v in enumerate(row):
+                if sc is not None and c == sc:
+                    st = _SEV_STYLE.get(str(v), _SEV_STYLE['Medium'])
+                elif c in hi:
+                    st = _HIGHLIGHT_STYLE
+                else:
+                    st = None
+                cells[(r, c)] = (v, st)
+            width_matrix.append(row)
+            r += 1
+        r += 1      # gap between tables
+    if legend:
+        cells[(r, 0)] = ('Severity legend', _SECHDR_STYLE)
+        r += 1
+        for label, desc in legend:
+            cells[(r, 0)] = (label, _SEV_STYLE.get(label, _SEV_STYLE['Medium']))
+            cells[(r, 1)] = (desc, None)
+            r += 1
+    if col_widths is None:
+        col_widths = _auto_col_widths(width_matrix)
+    return _cells_sheet(cells, col_widths=col_widths)
+
+
+def write_calendar_xlsx(path, ca, weather=None, meta=None):
+    """Write the full Calendar Audit workbook (#04/#05/#08): one coloured timeline sheet
+    per assigned calendar (names inside the day cells) + Exceptions, Comparison, Usage and
+    (when present) Weather sheets — every table in the report. `meta` prepends the standard
+    report header/context block to the first sheet (same as every other export)."""
+    by_cal = ca.get('by_calendar') or {}
+    primary = ca.get('primary_calendar_id')
+    assigned = ca.get('assigned_calendars') or []
+    proj = ca.get('project', {}) or {}
+    hidden = proj.get('hidden_months') or 0
+    subtitle = (f'Timeline from data date {proj.get("timeline_start") or "start"} to finish'
+                + (f' · {hidden} earlier month(s) hidden' if hidden else ''))
+    hdr = _cal_header_lines(meta)                          # header block, first sheet only
+
+    sheets, used = [], set()
+    for i, c in enumerate(assigned):
+        months = (by_cal.get(c['object_id'], {}) or {}).get('monthly_stats', [])
+        name = _uniq(_safe_sheet_name(c['name']), used)
+        sheets.append((name, _timeline_sheet_xml(months, c['name'], subtitle,
+                                                 header_lines=hdr if i == 0 else None)))
+    if not sheets:      # no assigned calendars — still emit an (empty) timeline sheet
+        sheets.append(('Timeline', _timeline_sheet_xml([], 'Calendar', subtitle, header_lines=hdr)))
+
+    exc = (by_cal.get(primary, {}) or {}).get('exceptions', {}) or {}
+    exc_blocks = [
+        {'title': 'Holidays & Vacations', 'headers': ['Date', 'Days', 'Description'],
+         'rows': [[h['description'], h['days'], h.get('reason') or ''] for h in exc.get('holidays', [])]},
+        {'title': 'Reduced / Special Working Hours', 'headers': ['Date', 'Days', 'Hours', 'Description'],
+         'note': 'Differences under 5 minutes from the standard day are ignored.',
+         'rows': [[s['description'], s['days'], s.get('hours') or '', s.get('reason') or '']
+                  for s in exc.get('special', [])]},
+        {'title': 'Shutdowns', 'headers': ['Date', 'Days', 'Reason'],
+         'rows': [[s['description'], s['days'],
+                   ('[added] ' if s.get('source') == 'manual' else '') + (s.get('reason') or '')]
+                  for s in exc.get('shutdowns', [])]},
+    ]
+    sheets.append(('Exceptions', _stacked_sheet(exc_blocks, col_widths={0: 26, 3: 22},
+                                                 title_style=9, note_style=0, header_style=2)))
+
+    comp = ca.get('comparison', [])
+    sheets.append(('Comparison', _sheet(
+        ['Calendar', 'Hours/Day', 'Days/Week', 'Non-Working Days'],
+        [[c['name'], c['hours_per_day'], c['days_per_week'], c.get('nonworking_days', 0)] for c in comp],
+        header_style=2)))
+
+    usage = ca.get('usage', [])
+    sheets.append(('Usage', _sheet(
+        ['Calendar', 'Activities', '% of Activities', 'Role'],
+        [[u['name'], u['activities'], ('—' if u['role'] == 'Unused' else f"{u['pct']}%"), u['role']]
+         for u in usage], header_style=2)))
+
+    if weather:
+        w = weather
+        def _acts(d):
+            names = d.get('activities') or []
+            extra = (d.get('activities_count', len(names)) - len(names))
+            if not names:
+                return d.get('effect', '')
+            return ', '.join(names) + (f' (+{extra} more)' if extra > 0 else '')
+        wx_blocks = [
+            {'title': 'Bad-Weather Days by Month', 'headers': ['Month', 'Bad-weather days'],
+             'rows': [[m.get('label', ''), m.get('count', 0)] for m in w.get('monthly', [])]},
+            {'title': 'Upcoming Bad-Weather Days', 'headers':
+                ['Date', 'Day', 'Why it is a lost day (measured)', 'Confidence', 'Affected work (by WBS)'],
+             'rows': [[_human_date(d['date']), d.get('day_name', ''), d.get('condition', ''),
+                       ('Forecast' if d.get('confidence') == 'forecast' else 'Expected'), _acts(d)]
+                      for d in w.get('bad_days', [])]},
+            {'title': 'Impact on Milestone Completion', 'headers':
+                ['Milestone', 'Planned', 'Bad days before', 'Already in calendar', 'Net delay', 'Weather-adjusted'],
+             'rows': [[m['name'], _human_date(m['planned']), m['bad_days_before'], m['already_allowed'],
+                       f"+{m['net_delay']} d", _human_date(m['adjusted'])] for m in w.get('milestones', [])]},
+            {'title': 'Recovery Recommendations', 'headers':
+                ['Period / milestone', 'Days', 'Longer days', 'Extra working days', 'Add shift'],
+             'rows': [[r['period'], r['days'], r['option_longer_days'],
+                       r['option_extra_days'], r['option_shift']] for r in w.get('recovery', [])]},
+        ]
+        # auto column widths — the blocks have different column layouts, so a single fixed
+        # width map (the old per-block bug) mis-sized them; auto sizes each column to fit.
+        sheets.append(('Weather', _stacked_sheet(wx_blocks, title_style=9, note_style=0, header_style=2)))
+
+    _write_book(path, sheets, _CAL_STYLES)
+
+
+def _wx_grid_sheet_xml(months, cal_name, bad_by_date, subtitle, header_lines=None):
+    """A month grid for the weather's construction calendar — working / non-working days —
+    with the BAD-WEATHER days overlaid in amber (bad_by_date: 'YYYY-MM-DD' -> condition text).
+    `header_lines` prepends the standard report header/context block (first sheet only)."""
+    cells = {}
+    off = 0
+    if header_lines:
+        for i, (txt, st) in enumerate(header_lines, start=1):
+            cells[(i, 0)] = (txt, st)
+        off = len(header_lines) + 1
+    cells[(1 + off, 0)] = (f'Bad-Weather Calendar — {cal_name}', 9)
+    if subtitle:
+        cells[(2 + off, 0)] = (subtitle, 0)
+    for i, (lab, st) in enumerate(_WX_LEGEND):
+        cells[(4 + off, i)] = (lab, st)
+    row_heights = {}
+    r = 6 + off
+    for m in months:
+        cells[(r, 0)] = (m.get('label', ''), 1)
+        r += 1
+        for c, d in enumerate(_DOW):
+            cells[(r, c)] = (d, 8)
+        r += 1
+        pad = ((m.get('first_weekday', 0) % 7) + 7) % 7
+        idx = pad
+        y, mo = m.get('year'), m.get('month')
+        for day in m.get('days', []):
+            rr, cc = r + idx // 7, idx % 7
+            dnum = day['d']
+            iso = f'{y:04d}-{mo:02d}-{dnum:02d}' if y and mo else None
+            if iso in bad_by_date:                       # bad-weather day → amber (wins over status)
+                cond = bad_by_date[iso]
+                cells[(rr, cc)] = ((f'{dnum}\n{cond}' if cond else dnum), WX_BAD_STYLE)
+                if cond:
+                    row_heights[rr] = 30
+            elif day['status'] == 'work':
+                cells[(rr, cc)] = (dnum, _STATUS_STYLE['work'])
+            else:                                        # weekend / holiday / shutdown → one "Non-working"
+                nm = day.get('name')
+                cells[(rr, cc)] = ((f'{dnum}\n{nm}' if nm else dnum), _STATUS_STYLE['weekend'])
+                if nm:
+                    row_heights[rr] = 30
+            idx += 1
+        r += max(1, (idx + 6) // 7) + 1     # weeks used + a blank row
+    return _cells_sheet(cells, col_widths={i: 15 for i in range(7)}, row_heights=row_heights)
+
+
+def write_weather_xlsx(path, ca, weather, meta=None):
+    """Bad Weather workbook: a construction-calendar month grid with the bad-weather days
+    highlighted amber (same concept as the P6 Calendar grid), then the weather tables —
+    Upcoming Bad-Weather Days (with a serial #), Causes by weather type, Milestone impact,
+    Recovery. `meta` prepends the standard report header/context block to the first sheet."""
+    w = weather or {}
+    by_cal = ca.get('by_calendar') or {}
+    assigned = ca.get('assigned_calendars') or []
+    proj = ca.get('project', {}) or {}
+    hidden = proj.get('hidden_months') or 0
+    subtitle = (f'Weather window from data date {proj.get("timeline_start") or "start"} to finish'
+                + (f' · {hidden} earlier month(s) hidden' if hidden else ''))
+    # Reference construction calendar = the assigned calendar with the most activities (matches
+    # how the weather engine picks its dominant calendar); fall back to primary / first.
+    ref = max(assigned, key=lambda c: c.get('activity_count', 0)) if assigned else None
+    ref_id = ref['object_id'] if ref else ca.get('primary_calendar_id')
+    ref_name = ref['name'] if ref else 'Calendar'
+    months = (by_cal.get(ref_id, {}) or {}).get('monthly_stats', [])
+    bad_by_date = {str(d.get('date', ''))[:10]: d.get('condition', '')
+                   for d in w.get('bad_days', []) if d.get('date')}
+
+    sheets = [('Bad-Weather Calendar', _wx_grid_sheet_xml(months, ref_name, bad_by_date, subtitle,
+                                                          header_lines=_cal_header_lines(meta)))]
+
+    def _acts(d):
+        names = d.get('activities') or []
+        extra = (d.get('activities_count', len(names)) - len(names))
+        if not names:
+            return d.get('effect', '')
+        return ', '.join(names) + (f' (+{extra} more)' if extra > 0 else '')
+    total = w.get('expected_bad_days_total', 0) or 0
+    cause_rows = []
+    for c in (w.get('by_cause') or []):
+        off = bool(c.get('off'))
+        cnt = 0 if off else (c.get('count', 0) or 0)
+        pct = (round(cnt / total * 100) if (total and not off) else 0)
+        cause_rows.append([c.get('label', ''), 'off' if off else cnt,
+                           '' if off else (f'{pct}%' if total else '')])
+    wx_blocks = [
+        {'title': 'Upcoming Bad-Weather Days', 'headers':
+            ['#', 'Date', 'Day', 'Why it is a lost day (measured)', 'Confidence', 'Affected work (by WBS)'],
+         'rows': [[i, _human_date(d['date']), d.get('day_name', ''), d.get('condition', ''),
+                   ('Forecast' if d.get('confidence') == 'forecast' else 'Expected'), _acts(d)]
+                  for i, d in enumerate(w.get('bad_days', []), 1)]},
+        {'title': "What's Causing the Lost Days — by Weather Type",
+         'headers': ['Weather type', 'Days', '% of bad-weather days'], 'rows': cause_rows},
+        {'title': 'Impact on Milestone Completion', 'headers':
+            ['Milestone', 'Planned', 'Bad days before', 'Already in calendar', 'Net delay', 'Weather-adjusted'],
+         'rows': [[m['name'], _human_date(m['planned']), m['bad_days_before'], m['already_allowed'],
+                   f"+{m['net_delay']} d", _human_date(m['adjusted'])] for m in w.get('milestones', [])]},
+        {'title': 'Recovery Recommendations', 'headers':
+            ['Period / milestone', 'Days', 'Longer days', 'Extra working days', 'Add shift'],
+         'rows': [[r['period'], r['days'], r['option_longer_days'],
+                   r['option_extra_days'], r['option_shift']] for r in w.get('recovery', [])]},
+    ]
+    # auto widths — heterogeneous blocks (the old fixed map mis-sized them; that was the bug)
+    sheets.append(('Weather Detail', _stacked_sheet(wx_blocks, title_style=9, note_style=0, header_style=2)))
+    _write_book(path, sheets, _CAL_STYLES)

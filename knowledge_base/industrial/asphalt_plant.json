@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Asphalt / Hot-Mix Plant",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["asphalt", "hot mix", "hot-mix", "hma", "bitumen", "cold feed", "dryer drum", "burner", "hot bins",
+                 "mixing tower", "baghouse", "bitumen tank", "filler silo", "mineral filler"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "access road", "earthwork"]},
+    {"name": "Foundations", "keywords": ["foundation", "raft", "plinth", "footing"]},
+    {"name": "Cold Feed Bins & Conveyors", "keywords": ["cold feed", "bin", "hopper", "conveyor", "belt"]},
+    {"name": "Dryer Drum & Burner", "keywords": ["dryer drum", "drum", "burner", "combustion"]},
+    {"name": "Mixing Tower & Screens", "keywords": ["mixing tower", "hot bins", "screen", "pugmill", "mixer", "weigh"]},
+    {"name": "Bitumen Storage & Heating", "keywords": ["bitumen", "tank", "thermal oil", "heating", "hot oil"]},
+    {"name": "Baghouse (Dust Collection)", "keywords": ["baghouse", "bag house", "dust", "filter", "emission"]},
+    {"name": "Testing & Commissioning", "keywords": ["calibration", "commission", "trial mix", "test"]}
+  ],
+  "activities": [
+    {"name": "Baghouse / Dust Collection Installation", "keywords": ["baghouse", "bag house", "dust filter", "emission"], "wbs": "Baghouse (Dust Collection)",
+     "typical_pred": "Dryer Drum Erection", "typical_succ": "Plant Commissioning", "duration_days": 20,
+     "why": "The baghouse controls stack emissions and is an environmental-permit condition before the plant may be fired."},
+    {"name": "Bitumen Tank Heating (Thermal Oil)", "keywords": ["bitumen tank", "thermal oil", "hot oil", "tank heating"], "wbs": "Bitumen Storage & Heating",
+     "typical_pred": "Bitumen Tank Erection", "typical_succ": "Plant Commissioning", "duration_days": 15,
+     "why": "Bitumen must be kept molten by a thermal-oil heating loop; without it the mix plant cannot run."},
+    {"name": "Mineral Filler / Reclaimed Filler System", "keywords": ["mineral filler", "filler silo", "baghouse fines"], "wbs": "Mixing Tower & Screens",
+     "typical_pred": "Mixing Tower Erection", "typical_succ": "Plant Commissioning", "duration_days": 10,
+     "why": "Filler dosing (imported and reclaimed fines) is part of the mix and is often omitted from the plan."},
+    {"name": "Trial Mix / Job-Mix Formula Verification", "keywords": ["trial mix", "job mix", "first mix"], "wbs": "Testing & Commissioning",
+     "typical_pred": "Plant Commissioning", "typical_succ": "Handover", "duration_days": 5,
+     "why": "A trial mix proves gradation, binder content and temperature before production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["baghouse", "dust filter", "emission"], "after_keywords": ["commission", "firing", "trial mix", "production"],
+     "reason": "The plant may not be fired or commissioned before dust-collection (baghouse) is installed — an emissions requirement.",
+     "impact": "Critical"},
+    {"before_keywords": ["bitumen tank", "thermal oil", "tank heating"], "after_keywords": ["mix commission", "commission", "trial mix"],
+     "reason": "Mix commissioning follows bitumen tank heating being live — cold bitumen cannot be pumped or mixed.",
+     "impact": "Critical"},
+    {"before_keywords": ["foundation", "plinth"], "after_keywords": ["tower erection", "drum erection", "plant erection"],
+     "reason": "Drum and tower erection follow their foundations.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Foundations Complete", "Baghouse Installed", "Bitumen Heating Live", "Trial Mix / Handover"],
+  "common_issues": ["Firing / commissioning before baghouse installed", "Missing bitumen thermal-oil heating scope",
+                    "No mineral-filler system", "Trial mix scheduled before commissioning"]
+}

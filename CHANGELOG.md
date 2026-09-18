@@ -5,7 +5,278 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
-## [Unreleased]
+## [v2.6.2] - 2026-09-15
+
+### Changed — Excel exports are clearer across the whole tool
+- **Every Excel export now opens self-explaining.** A header block at the top of the first sheet names the tool, the feature, your **project**, the **data date**, and when the file was generated — so a workbook you send on stands on its own, without the screen next to it.
+- **Titled sections instead of one bare grid.** Each export mirrors the sections you see on screen as its own clearly-titled table, columns are widened to fit their content (no more cut-off text), percentages read as "45.7%", and dates as "09 Feb 2026".
+- **Severity is coloured to match the screen** (Critical / High / Medium), with a small legend, wherever a feature shows it.
+- **Four exports were rebuilt where they were unclear or incomplete:**
+  - **Consultant Review** now exports the whole review — the summary, the driving-logic changes, the duration changes, and the before/after (but-for) impact with the per-milestone comparison and the recommendation — not just the logic table.
+  - **Update Analysis** now carries context and full column names with units (it was a bare grid of cryptic numbers), laid out as Time Status, By Activity Code, Driving Path, Activity Counts and Scope Weight.
+  - **Constructability** splits its finding types into separate titled sheets with a neutral headline (counts and coverage — no score/verdict), instead of cramming everything into one table.
+  - **Critical Path** now uses the same standard workbook as the rest of the tool (Census, Milestones, Driving path, Float migration) with the critical/near-critical rows coloured.
+- **Bad Weather export fixes:** columns are sized correctly per table, and dates read as "09 Feb 2026" instead of raw computer dates.
+- **Calendar Audit and Bad Weather now open with the same header block** as every other export (tool · feature · project · data date · generated), so those two workbooks match the rest of the tool.
+
+## [v2.6.1] - 2026-09-14
+
+### Fixed
+- **Importing a file — or returning to the import screen — now clears every Library page from underneath it.** Previously, importing a P6 file while viewing **Knowledge Base** (or Recent Projects / Productivity & Resources) left that page showing beneath the import/results screen. The import and results screens now always appear on their own, whatever page you were on before.
+
+## [v2.6.0] - 2026-09-13
+
+### Added — Dangling Activities: Resolve & Correct
+- **The Dangling Activities check can now fix the logic, not just flag it.** Each dangling finding shows a concrete fix — change a wrong-type link to a real driver (Finish-to-Finish / Start-to-Start → **Finish-to-Start**, or the valid alternative) — with **Apply** (per activity) and **Apply all recommended fixes**, plus a per-finding drawer to pick the link, type, lag and a reason. Where an activity has **no predecessor or no successor at all**, it's marked **Needs Planner Review** — the tool never invents a link.
+- **Apply re-checks with the same detection engine** and moves a finding to **Resolved** only when the activity is genuinely no longer dangling. **Download Corrected Schedule** writes the accepted changes into a copy of your file in the **same format (XER / XML)** — actuals, %-complete and dates are never touched; open it in P6 and press **F9**.
+- **Contract-milestone guard.** A fix that would push your contractual **completion milestone** past its date is held back with **"Changing this could exceeds the contractual milestone"** — it is not applied and never written to the corrected file. (The tool is offline, so the impact is an estimate from its built-in forward-pass.)
+- **The score updates live as you solve.** The Dangling score gauge and KPI tiles, the **Dangling tab** score, and the **Summary** roll-up all rise automatically as findings resolve (a "Preview" note reminds you nothing is written to P6 until you Download), and each Apply shows exactly which relationship was changed and to which type.
+- **New "Dangling Type" column** (Dangling Start / Dangling Finish / both) beside each activity in the results.
+
+### Changed
+- **The per-user data folder is now `.controlyx`** (Windows `%APPDATA%\.controlyx`, Mac/Linux `~/.controlyx`). Your existing data — recent projects, settings, cached schedules, knowledge base, database — is **migrated automatically on first run** from the previous `Controlyx` folder (and the older `P6EVMTool` / `.p6evmtool` folders), so nothing is lost.
+
+### Fixed
+- **The app opens straight into the loading presentation** — no more black/blank screen for a moment on launch. The window background now matches the splash, and the branded loading screen ("Starting local server…") appears the instant the window opens and runs ~11 seconds before revealing the app.
+- **Once loading reaches 100%, the app and every feature's results now appear instantly.** The startup splash's slow blurry fade-out is replaced by a quick crisp reveal, and a feature's Run now holds the bar at 100% until its results have actually finished computing, then reveals them immediately — so there's no lag or blank moment after 100%. Applies to every feature (current, in-progress and future) via the shared reveal.
+
+## [v2.5.2] - 2026-09-07
+
+### Changed
+- **Every feature now plays the same branded "run" presentation** (the Loading → 100% reveal) when you start it. The multi-file features — **Baseline Revision, Consultant Review, Update vs Update, Critical Path, and Bad Weather** — previously ran without it; they now show the same reveal as every other feature. Built on one shared helper (`revealAndRun`) so it's the default for future features too.
+
+## [v2.5.1] - 2026-09-07
+
+### Changed
+- **The WBS report's PDF picker is now fully per-section** — its Report Contents selector (File ▸ Print) offers **WBS overview** and **WBS summary table** as separate, individually-selectable sections (it previously exposed a single combined item).
+
+## [v2.5.0] - 2026-09-07
+
+### Added — Excel export for every feature
+- **Every feature now exports its report to Excel (.xlsx)**, matching the on-screen / PDF layout (styled titled-section tables, not a flat data dump). New Excel exports: **Earned Value, Baseline Revision, AI Copilot · TIA, Professional Dashboard, Special Report, Baseline Narrative, Overview, WBS, and Schedule (Gantt)** — joining the ones that already had it (Schedule Health, Out of Sequence, Lag Report, Calendar Audit, Bad Weather, Consultant Review, Update vs Update, Update Analysis, Critical Path, Constructability). Each has an in-panel **Export to Excel** button and works from **File ▸ Export to Excel**; the workbook mirrors that report's sections.
+- Built on one shared workbook writer (`write_sections_xlsx`), so Excel export is now the **standard for every future feature** too.
+
+### Changed
+- **Baseline Revision** now shows visible **PDF** and **Excel** buttons in its results panel — previously its report was only reachable from the File menu.
+
+## [v2.4.1] - 2026-09-07
+
+### Added
+- **Ctrl+B shows / hides the Project Navigator** (the left sidebar) — the same toggle as View ▸ Show / hide navigator and the ☰ button. Listed automatically in Help ▸ Keyboard Shortcuts.
+
+## [v2.4.0] - 2026-09-07
+
+### Added — More keyboard shortcuts
+- **Ctrl+E exports the current report to Excel** (alongside Ctrl+P / Ctrl+S for PDF).
+- **Ctrl+D now cycles through all six appearance modes** (Light → Dark → Midnight → Sepia → High-contrast → Blueprint, then round again), instead of only toggling light/dark.
+- **Ctrl+/ opens the Help Center** (the standard "show shortcuts/help" combo; F1 can't be used because the app window's WebView reserves it as the system Help key).
+- The **Help ▸ Keyboard Shortcuts** list is now generated from a single shortcut registry, so it always matches the shortcuts that actually work — add or change a shortcut and it appears in the list automatically, with no separate edit.
+
+### Fixed
+- **Keyboard shortcuts now actually fire.** They were doing nothing because the app window could open — or come back from a file dialog — with keyboard focus outside the page, so key presses never reached it. The app now claims keyboard focus on startup, when the splash lifts, and whenever the window is re-focused, and listens for shortcuts at the window level so they work regardless of which part of the screen has focus.
+- **The feature-open animation no longer reveals the results before the progress bar reaches 100%.** The loading overlay is now fully opaque, so results stay hidden until the bar completes and then appear instantly.
+
+### Changed
+- Help ▸ Contact & Support now states the team responds **within 2 days**.
+
+## [v2.3.0] - 2026-09-07
+
+### Added — Branded startup splash & feature-open reveal
+- **A ~13-second Controlyx 2026 startup splash** plays when the app opens: a schedule builds, a glowing critical path rises, and it resolves into the Controlyx 2026 mark and the **"Project Control Intelligence Platform"** wordmark (with a small **"for Primavera P6 · XER & XML"** line) before lifting away to reveal the app. The splash plays in full and never blocks a slow start. This is now a single opening sequence — it replaces the earlier separate logo splash.
+- **Opening a feature plays a short branded reveal** — pressing **Run** plays a brief animation (an accent scan sweeping the schedule and critical path, with the feature's name and a progress bar); the results appear the **instant the bar reaches 100%**, with no wait afterwards.
+- Both respect the system "reduce motion" accessibility setting.
+
+### Added — In-app Help Center
+- The **Help** menu opens a Help Center with **Getting Started** (how the tool works), a **Feature Guide** that lists every feature and the inputs it needs (with live search), **Keyboard Shortcuts**, **What's New**, **Contact & Support**, and **About**. Contact & Support carries the developer's contact details and the technical-support contact; About credits the tool's developer. It follows the active appearance mode.
+
+### Added — Change the imported file
+- Imported the wrong file? A **"Change file"** button on the file bar lets you pick a different P6 XER/XML and swap it in place — no need to start over.
+
+### Changed — Menus & navigation
+- The **Analysis** menu is now a grouped, cascading **"Choose a module"** that mirrors the Project Navigator — each group (Project Overview, Schedule Quality, Progress & Performance, Compare & Claims, Calendars & Weather, Reports & Dashboards) fans out to its features, so you can open any module straight from the menu bar.
+- The **Project Navigator now starts hidden** on launch for a cleaner first view; the ☰ button shows or hides it, and its scrollbar now matches the dark sidebar.
+- The import prompt now reads **"Pick a P6 file (XER or XML)"**.
+
+### Added — Schedule-health status light
+- The three unlabelled colour dots at the top-right of the menu bar are now a **schedule-health status light**. Before you import anything it sits quietly as a grey **"No schedule"**; once a schedule is loaded it lights up as **On Track** (green), **At Risk** (amber), or **Behind** (red), read from the schedule's SPI — SPI ≥ 1.00 is On Track, 0.85–0.99 is At Risk, below 0.85 is Behind — and it never shows green while the forecast finish is late (a positive delay forces at least At Risk). Hovering shows the actual SPI and how many days ahead/behind. The colours follow the active appearance mode.
+
+### Changed — App window & import copy
+- **The app now opens maximised** instead of the small default window.
+- The import screen's sub-line now spells out the order: *"Nothing is analysed until you import a Primavera P6 file, then pick a module and run it."*
+
+### Fixed
+- **Keyboard shortcuts now work** — Ctrl+O (import), Ctrl+Enter (Run), Ctrl+P / Ctrl+S (export PDF), Ctrl+F (feature guide), Esc (close menus).
+- **Back to the import screen shows only the import screen** — the Recent Projects and Knowledge Base pages no longer trail beneath it.
+- The startup splash now **plays in full** — the Skip option was removed so the opening presentation always shows.
+
+## [v2.2.0] - 2026-09-06
+
+### Changed — Explicit "choose a feature → Run" workflow
+- **Importing a schedule no longer runs or shows any analysis.** After import you get a clear **"Choose a feature to analyze"** prompt with the workflow spelled out (Import → Choose feature → Run → Results). You pick a feature from the Project Navigator and the feature screen shows exactly the inputs it needs **inline** — there is no separate "inputs" step — and only when you press **Run** does that one feature compute. Nothing runs automatically after import, and there is no "Run All".
+- **Every feature states its required inputs up front** — a single schedule, or a second file where the analysis needs one (Consultant Review → a baseline; Baseline Revision → Rev.00 + Rev.01; Update vs Update → a previous update; Critical Path → baseline / previous; Bad Weather → a location). **Consultant Review** and **Update vs Update** no longer start the instant you pick a file — you assign the file, then press **Run**.
+- **Change inputs** — the feature screen shows a secondary **Change inputs** button beside Run, to reassign the schedule/file without restarting the workflow.
+- Re-opening a feature you have already run this session jumps straight back to its results.
+
+### Changed — Project Navigator reorganised by planning workflow
+- The left **Project Navigator** is regrouped around how a planner works — **set up → validate → track → compare → report** — instead of the old generic Project / Analysis / Reports buckets:
+  - **Project Overview** — Overview · WBS · Schedule (Gantt)
+  - **Schedule Quality** — Schedule Health · Baseline Narrative · Lag Report
+  - **Progress & Performance** — Earned Value · Out of Sequence · Update Analysis · Critical Path
+  - **Compare & Claims** — Update vs Update · Consultant Review · Baseline Revision · AI Copilot · TIA
+  - **Calendars & Weather** — P6 Calendar Audit · Bad Weather
+  - **Reports & Dashboards** — Professional Dashboard · Special Report
+  - **Library** — Knowledge Base · Constructability · Recent Projects
+- **No duplicated access points** — every feature appears in exactly one place. Constructability sits under Knowledge Base (it reviews the schedule against that knowledge base). The **Weather → Forecast** entry was removed from the navigator.
+
+### Added — Schedule (Gantt) view
+- The **Schedule (Gantt)** view is now reachable from the Project Navigator — a time-scaled bar chart of the activities grouped by WBS, with % complete, critical-path highlighting, month gridlines and a data-date line. (The view existed but had no way in.)
+
+### Fixed — Scrolling, and a functional cleanup of the on-screen controls
+- **The main workspace scrolls again.** Reports, tables and results that run past the bottom of the window can now be scrolled — consistently across every feature.
+- **Removed dead and misleading controls** after a full audit of every button, menu item and control: retired `Tools ▸ Settings` and the redundant `Project` menu (their actions live elsewhere), made `File ▸ Exit` actually close the app, renamed the mislabelled `File ▸ Load another file` to the honest **"Back to import screen"**, and dropped a decorative profile avatar and other non-working affordances. Removed a large block of unreachable dead code behind the scenes.
+- **Two real bugs fixed** — clicking a bar on the P6 Calendar Audit comparison chart no longer produces a stray empty legend, and the AI Copilot note now points to the correct place to add your Anthropic API key.
+
+## [v2.1.0] - 2026-09-04
+
+### Added — Baseline Revision Comparison (Rev.00 vs Rev.01)
+- **New "Baseline Revision Comparison" analysis** — compare two approved baseline revisions (e.g. Baseline Rev.00 vs Rev.01) from a planning/consultant perspective and see what changed and whether it materially affected the planned execution strategy, logic, sequence, critical path, milestones, scope or duration. It is an analytical review, **not** a raw file diff, and stays neutral and evidence-based: every finding reads **Change detected → Potential impact → Planning review**, never an automatic "wrong/bad" verdict.
+- **Explicit workflow** — Select feature → **assign both revisions** (Rev.00 Original, Rev.01 Revised) → **Run Comparison** → review results. Nothing is analysed until Run is pressed; assigning a file never triggers the comparison on its own. Uses the global File ▸ Print / Export to PDF — no duplicate import/export/print buttons inside the feature.
+- **Activity matching beyond the Activity ID** — activities are reconciled on the evidence (name, WBS, activity codes, dates, duration, surrounding logic), so an activity that kept its work but changed ID reads as an **identity change**, not a false "removed + added".
+- **Results** — an Executive Summary (KPIs, change profile by planning category, ranked material findings), a **Critical Path & Sequence** view (Rev.00 vs Rev.01 driving chains with activities entering/leaving the critical path, logic-based **sequence-change detection**, and float/criticality movement), a **Scope & Structure** view (**WBS** branches added/removed/renamed and activities moved, **calendar** reassignments and workweek/holiday changes, and primary **constraint** changes), a **Milestone Comparison** (delayed/advanced/new/removed), and a filterable **Change Register** whose rows expand to a full Rev.00 ⇄ Rev.01 side-by-side plus a four-part planning analysis (Change detected · Why it matters · Potential impact · Planning review). Severity reflects **schedule impact** (material vs minor), never a judgement that a change is wrong.
+- **WBS / calendar / constraint comparison** — WBS structure diff (added/removed/renamed branches, work packages, activities moved between WBS), calendar comparison (per-activity reassignments grouped e.g. "N activities moved 6-day → 7-day", plus calendar-level workweek/holiday/hours changes), and primary-constraint comparison (added/removed/type/date, hard constraints flagged) — all classified into the change profile and register.
+- **Resource & cost comparison** (conditional on the export carrying it) — total budget change, per-activity budget-cost changes, and resource-assignment changes (resources added/removed, budgeted units and rate changes). Presented as **informational** — a cost or resource change is never counted as a material schedule impact. Backed by a small **additive** parser extension (new `ScheduleData.resources` / `assignments_by_activity`, populated from P6-XML `ResourceAssignment` and XER `TASKRSRC`/`RSRC`); the existing per-activity cost sums (`bac_by_activity` / `ac_by_activity`) and all EVM math are unchanged.
+- **Consultant-grade report** — Executive Summary, Revision Overview, Milestone Comparison, Critical Path Comparison, Major Sequence Changes, Major Logic Changes, WBS/Calendar/Constraint Changes, Resource & Cost Comparison and the Change Register assemble into one professional PDF, rendered through the shared report framework so all six appearance modes and the on-screen preview match the printed output.
+- Isolated `p6_revcompare/` package built on the existing diff (`p6_compare`) and critical-path (`p6_critpath`) primitives with a new neutral, progress-free interpretation layer; new `/api/revcompare` and `/api/revcompare/report` routes. The only `p6_evm` change is the additive resource/assignment capture above; EVM and metrics are untouched. _Two minor P6-XML data gaps remain (they only limit specific sub-cases, and primary constraints / total float are covered): free float is often absent from XML exports (present in XER), and secondary constraints are not parsed._
+
+## [v2.0.0] - 2026-09-01
+### Changed — Rebranded to **Controlyx** (edition **2026**)
+- The product is now **Controlyx**, shown as **Controlyx 2026**. Rebranded across the window title, in-app header and HTML title, the CLI banner, the README/CLAUDE docs, the built executable (**`Controlyx.exe`**), the PyInstaller spec (**`controlyx.spec`**), and the GitHub Actions build artifact + release asset.
+- **Existing installs keep their data.** The per-user data folder (`%APPDATA%\P6EVMTool` → `%APPDATA%\Controlyx`) and the database (`p6evm.db` → `controlyx.db`) are renamed and **migrated automatically on first run**; if the rename can't complete it safely falls back to the old location so nothing is lost.
+- **Intentionally unchanged** (renaming these would break imports or discard user settings — technical identifiers, not branding): the `p6_evm` Python package and the UI `localStorage` keys (`p6_evm_theme`, `p6evm_w_*`, `p6evm_ac_*`). The user-facing name now lives in one place — `APP_NAME` / `APP_EDITION` / `APP_TITLE` in `utils.py`.
+
+### Added — Brand identity (app icon, logo lockup, in-app splash)
+- **App icon** — a project-control-intelligence mark (amber "C" ring + EVM S-curve + intelligence spark), embedded into `Controlyx.exe`.
+- **Logo lockup** in PNG **and** SVG (light / dark / stacked) pairing the mark with the **"Project Control Intelligence Platform"** tagline — used in the README header and an in-app launch splash, and available for report/doc headers.
+- **In-app launch splash** (fades out, reduced-motion aware) and a rebranded sidebar mark.
+
+### Added — Special Report (compose your own cross-feature report)
+- **New "Special Report" analysis** — build your own report by picking the exact **detailed results** you want from any feature: each figure on its own (Planned %, Actual %, SPI, the category table, audit scores & findings, "Planned vs Actual activities", …) **plus each feature's own full report sections with their real tables and charts**. Order and number them, name the report, and export to **Word or PDF that look identical** — in all **six appearance modes**. Prints as a proper document: cover page → table of contents → numbered sections.
+- **It runs the features for you** — single-file results come straight from the imported schedule; results that need a second file (Critical Path / Consultant Review → a **baseline XER**; Update-vs-Update → a **previous update**) highlight what's missing with an **Attach** button, then compute on the spot — you never open the feature's own tab.
+- **Saved report templates** per project (re-run the same report next week on the new update), and **new features appear in the list automatically** (auto-discovery registry, like the Professional Dashboard).
+- Isolated `p6_special/` package + `/api/special/*` routes; **EVM untouched**. Word matches the PDF because both render one HTML with every colour resolved to concrete hex.
+
+### Added — Schedule Health Review (score a baseline's logic health)
+- **New "Schedule Health Review" analysis** — scores a **baseline's** logic health against the **DCMA 14-point** checks as weighted sub-features — **Milestones & Constraints · Critical Path / CPLI · Float · Dangling · Whole-day durations · Leads & Negative Float · Open Ends · Relationship Types · High Duration** (circular logic is a pass/fail gate) — rolled into one weighted **Schedule Health %**.
+- **Summary dashboard** — an overall health gauge with a plain-language verdict, a **Pass / Review / Critical** split, each check's score × weight worst-first, where the problems concentrate, and a **"fix these first"** list; plus a **detail view per check** (including the CPLI driving-path timeline).
+- PDF export with the Report Contents selector. Scoring layer on top of the existing audit; EVM untouched.
+
+### Added — Report Appearance Modes (six looks, screen + every report)
+- **Six appearance looks** — **Light** (default), **Dark**, **Midnight**, **Sepia**, **High-contrast** and **Blueprint** — chosen from one **Appearance** control in the toolbar. Your choice themes the **whole app screen and every report preview, PDF and Word export**, and is remembered. It changes only the look — never a number, date or word.
+- Built as one shared colour layer, so **every current report and every future feature gets all six looks for free** (the Critical Path Analyzer PDF and the Constructability print-preview included).
+
+### Added — Report Contents selector (Preview = PDF = Print, everywhere)
+- **Every report's Print Preview now lets you choose exactly what goes in it** — tick/untick individual tables and charts, reorder them, Select / Clear All, and it remembers your choice per report. **What you see in the preview is exactly what prints and what the PDF contains** (Preview = PDF = Print), from one shared framework used across all modules.
+
+### Changed — Recent Projects moved to its own page
+- The **Recent Projects** list is now its **own left-sidebar page** (like the Knowledge Base and Construction Database) instead of trailing the bottom of the Home reports — so it never appears under a module's report again. Same list, just relocated; open a project to jump straight to its results.
+
+## [v1.3.0] - 2026-08-23
+### Added — Critical Path Analyzer (new module)
+- **New "Critical Path Analyzer" sidebar section** — compares the critical path across **2–3 schedules** (two updates · update-vs-baseline · both + baseline; you can swap any of the three, including the current update). It answers *how the critical path moved and what it does to completion*.
+- **Execution dashboard** — a Critical Path Health verdict with a **CPLI** gauge (and the formula spelled out), KPI tiles (CPLI · path length · % critical · near-critical, each Current vs Previous with the variance), and three charts (critical/near by schedule · CPLI trend · milestone slip vs baseline).
+- **Driving path, schedule by schedule** — the governing (and every) finish milestone's driving path drawn as **WBS work-front boxes** (Planned % · Actual % · baseline finish · expected finish · slip / total float, titled by the work-front WBS with its full ancestry `@Phase C @Silos Civil Works`), with the **new critical path highlighted** — NEW ON PATH (the reroute) · LEFT PATH · stayed · complete.
+- **Critical & near-critical census** (count + % per schedule, with the plain-difference variance to one decimal), **every-milestone finish comparison**, **float migration**, and an auto **recommendation**.
+- **PDF + Excel** export with the Report Contents selector and a milestone-path picker. New `p6_critpath/`; **EVM untouched**. Critical = TF ≤ 0; near-critical = 0 < TF < 10 wd; critical path length = remaining working days (data date → expected finish); CPLI = (remaining length + total float) ÷ remaining length.
+
+### Added — Update Analysis (one update vs its baseline)
+- **New "Update Analysis" sidebar section** — a single-file read of one update against the baseline embedded in it: a **Time Status** donut, **Planned vs Actual by activity code**, the governing milestone's **driving path** as WBS work-front boxes, **activity counts** (planned vs actual) and **scope weight**. House-style landscape PDF + Excel with the Report Contents selector. New `p6_update/`; EVM untouched.
+
+### Added — Lag Report
+- **New standalone Lag Report** — a register of every relationship lag/lead in the schedule, with a justification column and PDF/Excel export.
+
+### Changed — Consultant Review refinements
+- The Consultant Review (baseline-vs-update forensic delay) gained table refinements, dashboard charts, a manager-oriented PDF, **date-based and instant (no-F9) but-for delay**, and an S-curve.
+
+### Changed — Executive-read dates
+- Report dates now render in the executive-friendly **`09-Feb.2027`** format.
+
+### Added — Construction Database (downloadable schedules + contribute-to-learn)
+- **New "Construction Database" sidebar section** — a local library of P6 schedules grouped by project type (EPS tree). For every type you can **download a ready-made baseline**: a **clean** reference (scores ~100) or one carrying **typical gaps** (a few illogical links + missing activities) so you can import it, open the Constructability review and watch it flag them. Generated as P6 XML — import & F9.
+- **Add your own schedules** — a **➕ Add to Database** button on the Constructability review files your imported schedule under its detected type; it joins that type's library *and* feeds the "Learned from your projects" engine, so the tool's knowledge grows from your real projects. **Local & private** — nothing leaves the PC. A shared cross-company database remains a future edition.
+- Isolated `p6_kb/database.py` + `p6_kb/examples.py`; `GET /api/database`, `POST /api/database/{add,example,download}`; EVM/audit untouched.
+
+### Added — Construction Knowledge Base greatly expanded (now covers most project types)
+- The Constructability Knowledge Base now ships **88 project sub-types** across Buildings, Infrastructure, Industrial, Energy and Landscape — every one **selectable in the sub-type picker** and reviewable **offline at no cost**. All are **starter drafts** for a planning engineer to curate.
+- **New factory types:** MDF / wood panel, reinforcement (rebar), precast concrete, ready-mix batching plant, asphalt / hot-mix, ceramic & tile, brick & block, gypsum board, pipe (steel & HDPE), cable & wire, textile, plastics / injection-moulding, paint & coatings, sugar, tyre & rubber, battery / gigafactory, furniture — joining the existing glass, cement, steel, aluminium, automotive, food & beverage, pharmaceutical, pulp & paper, fertilizer and semiconductor plants.
+- **New electrical substation types:** AIS (air-insulated), GIS (gas-insulated), HVDC converter station, traction / railway, MV distribution and mobile / packaged (e-house) — alongside the general power substation.
+- **Other new types:** prison / correctional, laboratory / R&D, convention & exhibition centre (Buildings); road / highway tunnel, district cooling, telecommunications / fibre network (Infrastructure); concentrated solar power (CSP) and EV-charging infrastructure (Energy).
+- Engine, UI and server unchanged — the Knowledge Base is glob-loaded data, so new types are picked up automatically and bundled into the `.exe`.
+
+### Added — Knowledge Base library (browse the standards as a P6-style EPS)
+- **New "Knowledge Base" sidebar section** — browse all project-type standards as an **EPS tree** (category folders → project types). Each type opens to its reference **baseline** standard: detection keywords, standard WBS, key/often-missing activities (with typical predecessor→successor, durations and the *why*), construction logic rules, milestones and common issues. Offline, no schedule needed.
+- **Review a schedule against a type** — one click runs the Constructability review for that exact type on the currently-open schedule.
+- **Export as a P6 starter baseline** — turn a standard into a **P6 XML schedule skeleton** (WBS + activities + durations + Finish-to-Start logic, sequenced to satisfy the standard's own rules) that you import into Primavera P6 as a new project and F9. Validated by round-tripping through the tool's own parser.
+
+### Added — Constructability Review: Execution-Readiness Dashboard + PDF/Excel
+- **Execution-Readiness dashboard** at the top of the review: a plain-language **readiness verdict**, the score as a **gauge with the four-band legend** (Ready 85+ · Minor 70–84 · Significant 50–69 · Major 0–49) and a marker at the score, **readiness-by-dimension** bars (logic / completeness / structure), **KPI tiles** (illogical %, missing %, missing WBS, critical-path, scope coverage), an **issues-by-WBS-phase** breakdown, a **severity split**, and **ranked priority fixes** ("tackle these first").
+- **Smart touches:** a **detection-confidence** indicator (how strongly the schedule matched the type, honest about the draft KB), and a **"what-if" projected score** — how high the schedule would score once the flagged logic is corrected.
+- **Export to PDF and Excel** — the whole review (dashboard + illogical / missing / WBS tables) as a print-ready PDF, and every finding flattened into one filterable Excel sheet.
+- **Knowledge Base +2 industrial standards** — *Local Fabrication & Equipment Installation* (new: fab yard → material receipt → steel/spool fabrication → coating → equipment erection & alignment → piping/E&I hook-up → pre-commissioning), and *Steel Structures* strengthened with the erection works (base-plate grouting, primary/secondary erection, decking). KB now **89 types**.
+
+### Added — Learns from your own projects (private, offline)
+- **The tool now quietly learns from every schedule you import** — per project type it accumulates which activities and WBS branches recur across *your own* imports, and their typical durations. Fully **local and private**: nothing leaves your PC, deduped by file so re-imports never inflate it, and always marked **"learned"** and kept separate from the curated standards.
+- **"Learned from your projects" panel** in the Constructability review — the activities that commonly recur in your schedules of that type, each with how often (e.g. 6 of 7 imports), average duration, and whether it's in the current schedule (missing ones flagged *"consider adding"*), plus the WBS branches your projects usually have.
+- **Learned types in the Knowledge Base library** — a *"Learned from your projects"* group at the top of the EPS tree; open a learned type to read what the tool learned and **export** it as a P6 starter baseline or **download** it as a standard file.
+- Three clearly-badged knowledge sources — **Curated** (built-in), **Learned** (your imports, this PC), and **Shared** (anonymised, pooled across users — a future version).
+### Added — Calendar Timeline & Audit + Weather Impact
+- **New "📅 Calendar Audit" analysis** — reads the P6 working calendars and shows, without opening Primavera: an executive dashboard (key dates + calendar statistics), a month-by-month **timeline**, monthly statistics, pop-open month calendars, exceptions grouped into **Holidays / Reduced-hours / Shutdowns** (a run of 5+ non-working P6 days = a shutdown; you can add your own and rename any block), a working-hours profile, calendar comparison & usage, a conflicts summary and an auto conclusion. **PDF + Excel** export. Isolated `p6_calendar` package; **no EVM number touched**.
+- **Weather Impact (estimate)** — set the **project location on a map** and the tool estimates the **bad-weather days**, **milestone slip**, a **weather-adjusted finish** and **recovery options** for the remaining construction path. Free **Open-Meteo** data (live ~16-day forecast + historical climate + air-quality for dust), no key. Clearly an **estimate**, kept separate from the exact P6 Delay; offline-safe.
+- **Editable stop-work limits** — a construction day counts as lost when any of your limits is met (rain ≥ 5 mm, heat ≥ 42 °C, wind off by default, dust on); each flagged day shows the **measured value vs your limit**, and days already off (weekend / holiday / shutdown) are never double-counted.
+
+### Added — Calendar & Weather refinements (from testing)
+- **Timeline starts at the data date** — the month strip (and its statistics + pop-open calendars) now begins at the P6 data date instead of the baseline start, hiding the already-actualised past; the headline totals still cover the whole project, and the number of hidden months is shown.
+- **Pick the exact site on the map** — the location picker is now an **interactive map**: click, or drag the pin, to drop the project location precisely, with the coordinates and nearest place name read back. Still free OpenStreetMap, no key. (Search stays as a quick way to fly there first.)
+- **Excel now includes the coloured calendar timeline** — the month-by-month grid (working / weekend / holiday / shutdown / special) is written above the monthly-statistics table, matching the PDF.
+- **Weather source explained in the app** — the Weather Impact section now spells out how the estimate is built (the three Open-Meteo feeds, forecast vs expected) and exactly **what counts as a bad-weather day**.
+- **What's driving the lost days** — a breakdown of the flagged days by cause (heat / dust / rain / wind), plus an **auto weather conclusion** paragraph that reads the numbers, names the main driver and points at the recommended action.
+
+### Added — Calendar report, round 2 (from testing build #103)
+- **Map centres reliably, and taps drop the pin** — fixed the map mis-sizing (pin at the edge) when the Calendar tab opens, **and** fixed clicking a point doing nothing: a real trackpad/touch tap moves a few pixels, which Leaflet treated as a pan, so no pin dropped. The pin now drops on any tap (mouse or touch) and the coordinates update immediately; a real pan still just pans.
+- **Name your holidays & shutdowns, shown inside the day cell** — the exception Description is editable per project; the name you type now appears **inside that day's box** in the timeline (on screen and in Excel), same colour.
+- **Excel exports the whole report** — a coloured timeline **for every assigned calendar** (names inside the cells) plus Monthly Statistics, Holidays & Exceptions, Shutdowns, Comparison, Usage and the Weather tables — each on its own sheet.
+- **Bad-weather days name the activities they hit** — the Upcoming Bad-Weather Days table now lists the construction activities planned on each lost day (or says none is scheduled).
+- **Monthly bad-weather histogram in the PDF** — the "When the risk falls" bars (bad-weather days per month) now print in the Weather section of the PDF too, not only on screen; the monthly counts are also written to the Excel Weather sheet.
+- **Print only the sections you want** — a section picker on the Calendar Audit lets you choose which of the 10 sections go into the PDF.
+- **Reduced-hours noise removed** — a "reduced hours" period within 5 minutes of the standard working day (P6 minute-rounding) is no longer reported; the Working-Hours Profile now explains how it differs from reduced hours.
+- **Calendar Comparison reworked** — the Activities column is gone (counts live in Usage) and the last column now counts the **non-working days still ahead** (from the data date to finish), with the period stated.
+- **Clearer tables** — plain-language legends for the Calendar Usage roles (Default / Non-default / Unused) and the Milestone Impact columns (Net = Before − Already in calendar).
+
+## [v1.2.1] - 2026-08-13
+### Added — Update vs Update: choose how the critical path is presented
+- **Critical-path style picker** — the critical-path comparison can now be shown three ways, and you choose which: **Connected chain** (blocks end-to-end; one row when the route is unchanged — the default), **Date-axis timeline** (the finish-driving route on a real calendar, WAS over NOW, so you watch the finish slide), and **Compact table** (Was vs Now as text rows — the most print-dense). All three are drawn from the **same** data (route, dates, divergence, slip), so every figure is identical — only the drawing changes.
+- **The choice carries into the PDF.** Pick a style on the on-screen card or in the Export-PDF preview; the exported report uses exactly that style (and the grouping you set), and your choice is remembered for next time.
+
+## [v1.2.0] - 2026-08-13
+### Added — Update vs Update (Windows Analysis)
+- **New "Update vs Update" analysis** — the sibling of Consultant Review, but the reference is **last period**, not the baseline. Give it the current update and the previous one (auto-suggested from your import history, or pick a file); it shows *what moved this period*. Its own tab, in the same module style.
+- **Progress measured against last period's forecast** — the dashboard leads with what you actually earned this period vs what the **previous update itself forecast** for it (e.g. *41% where you said 43%*), labelled **"forecast achievement"** (not SPI — that's reserved for the plan), plus the forecast-finish slip and the cumulative-delay change.
+- **Progress by activity — % complete this period** — every activity whose % moved between the two updates (Activity ID · name · previous % · current % · signed variance), biggest gain first; any activity whose % went **backwards** is flagged as a data-integrity check.
+- **Critical-path movement in this window** — the critical / near-critical (float ≤ 10 wd) activities whose finish slipped or that **newly entered the critical path**, with the driver (progress shortfall / logic changed / duration extended).
+- **What moved this period** — finished / started / slipped / stalled / re-sequenced counts; "re-sequenced" reuses the logic/lag engine measured against last period.
+- **Period S-curve** — actual to date vs the previous update's own forecast line; the gap at the data date is this period's shortfall.
+- **Milestone finish trend (slip chart)** — each key milestone's forecast finish plotted across **every** update you've imported (rising = slipping), backfilled from stored schedules so it's populated from day one.
+- **SPI, Delay & % Complete comparison strips** — the dashboard leads with three **Previous → Current → Variance** strips, each labelled with its **cutoff (data) date**: Overall % Complete, **SPI** (Earned ÷ Planned) and **Delay vs baseline**. SPI and Delay are the same figures the EVM tab shows at each cutoff. Sign rule: the arrow follows the number, the colour follows good/bad (SPI ▲ = better, Delay ▲ = worse).
+- **Cutoff dates** stated at the top of the dashboard (previous vs current data date).
+- **Activity-code slicer** on the Progress-by-activity table — pick a code type (Discipline / Area / Phase — whatever your schedule carries) and a value to see just those activities' current vs previous % complete.
+- **Two conclusions** — an *Executive conclusion* for the period and a new *Project conclusion & outlook* for where the whole project stands.
+- **Executive conclusion + PDF + Excel.** The Excel mirrors the PDF (one sheet: Progress-by-activity then Critical-path-movement sections under a project/cutoff header). Isolated `p6_period` engine; **EVM calculation untouched** and every figure (actual %, SPI, delay, finish) reuses what the EVM tab already computes.
+- **Management-grade report (planning-manager enhancement).** The PDF/preview is now a two-audience report: **Page 1 — Execution Dashboard** for management (a status verdict banner, a four-card scorecard — % Complete, SPI, Delay and **Forecast finish, each Previous → Current** — a **Recovery outlook** projecting the landing date and the rate needed to hold the baseline, key facts incl. **schedule adherence**, the S-curve and a recommendation), and **Page 2 — planner detail** (progress, critical-path movement, a **next-period watch list** of near-critical work, what-moved, milestone trend, project conclusion). The recovery/adherence/watch figures are indicative planning projections, clearly flagged (not a P6 reschedule).
+- **Export previews first.** Export PDF now opens a **preview** of the exact report before you choose where to save.
+- **Right way round.** The two updates are ordered by **data date** — earlier = Previous, later = Current — regardless of load order.
+- **Activity-code columns in Excel.** Every activity table in the Excel export (progress, critical-path, watch list) appends one column per activity code (Discipline / Area / Phase / …) so you can filter or pivot by any code; the on-screen progress table keeps its code slicer. PDF numeric columns now align under their headers.
+- **Critical-path comparison, rebuilt for clarity (from testing).** The finish-driving route now reads as one **connected chain** of blocks — each labelled with the months it spans — led by a plain-English conclusion. When the route is **unchanged** you see a **single row**; only when it **reroutes** do two aligned rows appear (shared start in blue, the **new route in red**, the dropped route in grey), with the **total finish slip** called out. Replaces the earlier WBS "boxes" and an interim date-axis timeline (both read as too abstract / left floating gaps on real data). It reads your schedule's own WBS so it works for any construction type, and you can still regroup by any WBS level or activity code. Screen **and** PDF. Per-segment day-splits are deliberately not shown — attributing a slip to single activities needs a full P6 time-impact analysis, which this report does not do.
+- **Exported PDF respects the activity-code filter (fix, from testing).** When you pick an activity code and export the report, every activity table now shows **only that code** — previously the PDF showed all activities regardless of the on-screen filter.
+
 ### Fixed — Consultant Review (from real-project testing)
 - **Baseline finish** now shows when the baseline is a XER — it falls back to the latest activity finish (the XER reader stores no project finish, so it was blank).
 - **Driving successor changes** are now highlighted in the change table; previously only the predecessor side was checked.
@@ -51,6 +322,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Guarded the round-trip** — the "load rescheduled file" step now checks what you loaded and warns if it's the current update (nothing reverted) or a corrected file you haven't F9'd yet (finish unchanged). The screen also spells out the two ways to use the corrected file: **read the delay straight from P6** after F9 (no re-export), or re-export and load it back for the full before/after report.
 
 ---
+
+### Added — Weather Impact (Calendar Audit)
+- **Weather Impact layer** — set the **project location on an interactive map** and the tool estimates **bad-weather days**, the **milestone slip** they cause, a **weather-adjusted finish** and recovery options. Construction-only, from the free Open-Meteo service; clearly an **estimate**, kept separate from the exact P6 Delay, and offline-safe once fetched. Added to the Calendar Audit's **PDF + Excel** export.
 
 ## [v1.1.0] - 2026-08-08
 ### Added — EVM Results V2 (consultant report)

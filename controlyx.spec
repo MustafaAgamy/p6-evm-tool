@@ -1,0 +1,181 @@
+# -*- mode: python ; coding: utf-8 -*-
+#
+# PyInstaller spec for Controlyx
+#
+# Build with:
+#   pyinstaller controlyx.spec
+#
+# Output: dist\Controlyx.exe  (single self-contained executable)
+
+import sys
+from pathlib import Path
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files, collect_dynamic_libs
+
+block_cipher = None
+
+# ── Data files bundled into the .exe ──────────────────────────────────────
+datas = [
+    ('ui',             'ui'),             # HTML / CSS / JS
+    ('p6_evm',         'p6_evm'),         # Python package
+    ('p6_audit',       'p6_audit'),       # Schedule-audit engine (Dangling/Float/OOS/Lag) — bundle
+                                          # the whole package like p6_evm, so every submodule
+                                          # (e.g. modules/lag_lead.py) ships even though server.py
+                                          # only imports it deferred inside handlers.
+    ('p6_special',     'p6_special'),     # Special Report — cross-feature report builder. Its
+                                          # registry auto-discovers provider modules dynamically,
+                                          # which PyInstaller's graph can miss, so ship the whole
+                                          # package (see collect_submodules below).
+    ('config.json',    '.'),              # Config at root of bundle
+    ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
+    ('p6_prodintel',   'p6_prodintel'),   # Productivity & Resource Intelligence engine
+    ('productivity_kb', 'productivity_kb'),# Productivity norm KB (component-based JSON data)
+    ('p6_narrative',   'p6_narrative'),    # Baseline Narrative Report — Basis-of-Schedule
+                                          # document builder (Word/PDF/HTML). server.py imports
+                                          # it deferred inside the /api/narrative handlers, so
+                                          # ship the whole package (see collect_submodules below).
+    ('p6_calendar',    'p6_calendar'),     # Calendar Audit engine — imported deferred by both
+                                          # server.py and p6_narrative/report.py (calendar_audit);
+                                          # PyInstaller's graph misses in-function imports, so bundle.
+    ('report_theme.py', '.'),             # Shared report appearance themes — imported at
+                                          # runtime by the report renderers (which run after
+                                          # sys.path.insert(resource_path('.'))); ship as root
+                                          # data so `import report_theme` resolves in the bundle.
+    # python-docx ships a default template + XML schema under docx/templates/*;
+    # Document() fails at runtime without them, so collect the package data.
+    *collect_data_files('docx'),
+    # PyMuPDF (fitz/pymupdf) turns the Special Report PDF into per-page images for
+    # the PDF-exact Word export (p6_special/docx_pdf). It ships a compiled MuPDF
+    # extension + data; collect both so `import pymupdf` works in the bundle
+    # (its dynamic libs are added to `binaries` below).
+    *collect_data_files('pymupdf'),
+]
+
+# ── Hidden imports pywebview / webview2 needs ──────────────────────────────
+hiddenimports = [
+    # pywebview backends (Windows ships EdgeChromium / CEF)
+    'webview',
+    'webview.platforms.winforms',
+    'webview.platforms.cef',
+    'webview.platforms.edgechromium',
+    'clr',           # pythonnet — needed by pywebview WinForms backend
+    # stdlib used at runtime that PyInstaller sometimes misses
+    'http.server',
+    'email.mime.text',
+    'xml.etree.ElementTree',
+    # EVM v2: E1 Log Excel reader
+    'openpyxl',
+    'et_xmlfile',
+    # EVM v2 + audit engine packages (collected via import graph, listed for safety)
+    'p6_audit',
+    # server.py imports p6_audit only via deferred (in-function) imports, which PyInstaller's
+    # graph can miss — force every submodule (engine, report, exporters, modules/lag_lead, …).
+    *collect_submodules('p6_audit'),
+    'p6_evm.e1_log',
+    'p6_evm.gap',
+    'p6_evm.evm_report',
+    'p6_evm.engineering_p6',
+    # Constructability engine (rule-based + knowledge base)
+    'p6_kb',
+    'p6_kb.review',
+    'p6_kb.kb',
+    'p6_kb.detect',
+    'p6_kb.model',
+    'p6_kb.scoring',
+    # Shared report appearance themes (imported by every report renderer)
+    'report_theme',
+    # Special Report — registry + context + renderer + all built-in providers.
+    # discover() uses importlib dynamically, so force every submodule to ship
+    # (mirrors the p6_audit fix; a missing provider would show an empty catalog).
+    'p6_special',
+    *collect_submodules('p6_special'),
+    # Word .docx export (python-docx) — imported deferred inside the export handler,
+    # so force docx + its lxml backend to ship (template data collected in `datas`).
+    'docx',
+    *collect_submodules('docx'),
+    *collect_submodules('lxml'),
+    # PyMuPDF — the PDF-exact Word export (p6_special/docx_pdf) imports it deferred as
+    # `pymupdf` (falling back to `fitz`); force both names + submodules to ship.
+    'pymupdf',
+    'fitz',
+    *collect_submodules('pymupdf'),
+    # Productivity & Resource Intelligence — server.py imports p6_prodintel lazily in-function,
+    # which PyInstaller's graph misses; force the package + submodules to ship.
+    'p6_prodintel',
+    'p6_prodintel.kb',
+    'p6_prodintel.engine',
+    *collect_submodules('p6_prodintel'),
+    # Baseline Narrative Report — server.py imports p6_narrative lazily in-function
+    # (/api/narrative[/docx|/pdf|/html]); force the package + submodules to ship so
+    # the report builder, docx/html/chart renderers and the intel layer all bundle.
+    'p6_narrative',
+    *collect_submodules('p6_narrative'),
+    # Calendar Audit engine — used deferred by server.py and by p6_narrative/report.py
+    # (p6_calendar.audit.calendar_audit); force the package + submodules to ship.
+    'p6_calendar',
+    *collect_submodules('p6_calendar'),
+]
+
+# PyMuPDF ships a compiled MuPDF extension (_mupdf / libmupdf) — collect its dynamic
+# libraries as binaries so `import pymupdf` doesn't fail at runtime in the bundle.
+binaries = []
+try:
+    binaries += collect_dynamic_libs('pymupdf')
+except Exception:
+    pass
+
+# Collect EVERY submodule of the in-tree packages so nothing loaded via a deferred /
+# in-function import (server.py loads p6_report and several p6_kb modules lazily) is
+# dropped from the .exe — this bit us before (an empty catalog / missing feature that
+# only showed on the built exe, never in dev or tests). p6_report registers the
+# Global Print-Preview features on import, so its submodules must ship.
+for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare', 'p6_narrative', 'p6_calendar'):
+    try:
+        hiddenimports += collect_submodules(_pkg)
+    except Exception:
+        pass
+
+a = Analysis(
+    ['app.py'],
+    pathex=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[
+        # Exclude unused heavy packages to keep exe smaller
+        'matplotlib', 'numpy', 'pandas', 'scipy', 'PIL',
+        'tkinter', '_tkinter',
+        'PyQt5', 'PyQt6', 'wx',
+    ],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
+    name='Controlyx',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,          # no console window — pure GUI app
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='ui/icon.ico',     # Controlyx app icon (multi-size .ico, 16–256px)
+)

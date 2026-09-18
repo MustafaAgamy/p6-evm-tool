@@ -1,0 +1,279 @@
+{
+ "system": "instrumentation",
+ "discipline": "INSTR",
+ "name": "Field Instrumentation & Loop Checking — calibrate, terminate, then loop-check to the control system",
+ "aliases": [
+  "field instruments",
+  "instrumentation",
+  "C&I",
+  "transmitters",
+  "gauges",
+  "process instruments",
+  "control valves",
+  "actuators",
+  "impulse tubing",
+  "instrument tubing",
+  "loop check",
+  "calibration",
+  "RTD",
+  "thermocouple",
+  "flow/level/pressure elements"
+ ],
+ "zones": [
+  "process areas",
+  "skids",
+  "plant rooms",
+  "field junction boxes",
+  "marshalling/rack room"
+ ],
+ "sequence": [
+  {
+   "stage": "mechanical_readiness",
+   "activities": [
+    "process piping/equipment installed with tapping points, thermowells and stubs",
+    "root/isolation valves welded in",
+    "line flushing/cleanliness at tapping points"
+   ],
+   "note": "Interfaces piping/process_equipment — instruments need their process connections in first."
+  },
+  {
+   "stage": "instrument_installation",
+   "activities": [
+    "mount field instruments on stands/brackets/process connections",
+    "install control valves, actuators and in-line flow elements"
+   ]
+  },
+  {
+   "stage": "tubing_impulse",
+   "activities": [
+    "run impulse/pneumatic/hydraulic tubing and manifolds",
+    "instrument-air supply tubing to actuators",
+    "leak-tight tube fittings"
+   ]
+  },
+  {
+   "stage": "cabling_termination",
+   "activities": [
+    "pull instrument cable on segregated containment",
+    "home runs to junction boxes and marshalling",
+    "terminate and gland",
+    "IS barriers and screen/drain earthing"
+   ],
+   "note": "Interfaces containment; segregation from power required."
+  },
+  {
+   "stage": "pre_loop_checks",
+   "activities": [
+    "continuity and insulation resistance",
+    "point-to-point wiring verification field-JB-marshalling-I/O"
+   ]
+  },
+  {
+   "stage": "calibration",
+   "activities": [
+    "bench/field multi-point calibration of transmitters and instruments",
+    "control-valve stroke and positioner calibration",
+    "range configuration"
+   ],
+   "note": "Calibrate before looping."
+  },
+  {
+   "stage": "loop_check",
+   "activities": [
+    "end-to-end loop test field device to marshalling to I/O to DCS/PLC/BMS graphic",
+    "signal injection/simulation and indication verification",
+    "valve stroke from the control system"
+   ]
+  },
+  {
+   "stage": "functional_testing",
+   "activities": [
+    "interlocks, trips and sequence logic",
+    "alarm/trip setpoint verification"
+   ]
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "instrument air available and dried",
+    "loops energized",
+    "final tuning prep"
+   ]
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "live process",
+    "PID loop tuning",
+    "setpoint and control-narrative validation"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "piping/equipment with tapping points and thermowells ready",
+   "after": "field-instrument installation",
+   "reason": "instruments mount on process connections that must exist first",
+   "strength": "strong"
+  },
+  {
+   "before": "instruments installed",
+   "after": "impulse/instrument tubing",
+   "reason": "tubing connects the mounted instrument to its process tap and air supply",
+   "strength": "strong"
+  },
+  {
+   "before": "instrument containment complete",
+   "after": "instrument cable pulling",
+   "reason": "signal cable needs its segregated route installed first",
+   "strength": "strong"
+  },
+  {
+   "before": "cable termination complete",
+   "after": "continuity/insulation and point-to-point check",
+   "reason": "wiring checks need both ends terminated",
+   "strength": "strong"
+  },
+  {
+   "before": "instrument calibration complete",
+   "after": "loop check",
+   "reason": "a loop is verified with a calibrated device, not the reverse",
+   "strength": "strong"
+  },
+  {
+   "before": "control system I/O and graphics live",
+   "after": "loop check to the graphic",
+   "reason": "the loop terminates at a DCS/PLC point that must be live and mapped",
+   "strength": "strong"
+  },
+  {
+   "before": "clean dry instrument air available",
+   "after": "control-valve stroke/actuator test",
+   "reason": "pneumatic actuators cannot stroke without instrument air",
+   "strength": "strong"
+  },
+  {
+   "before": "loop check complete",
+   "after": "functional/interlock testing",
+   "reason": "interlocks are proven only once the constituent loops read true",
+   "strength": "strong"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "piping",
+   "requirement": "instrument installation requires tapping points, thermowells and root valves in the pipework",
+   "type": "requires",
+   "phase": "instrument_installation",
+   "strength": "strong"
+  },
+  {
+   "with": "process_equipment",
+   "requirement": "equipment must be mechanically complete and flushed so tappings are clean before instruments connect",
+   "type": "requires",
+   "phase": "mechanical_readiness",
+   "strength": "strong"
+  },
+  {
+   "with": "containment_cabling",
+   "requirement": "instrument cable requires segregated tray/conduit at spec separation from power",
+   "type": "requires",
+   "phase": "cabling_termination",
+   "strength": "strong"
+  },
+  {
+   "with": "bms",
+   "requirement": "loop checks require the DCS/PLC/BMS I/O live with database and graphics built",
+   "type": "requires",
+   "phase": "loop_check",
+   "strength": "strong"
+  },
+  {
+   "with": "utilities",
+   "requirement": "control-valve/actuator commissioning requires clean dry instrument air of verified quality",
+   "type": "requires",
+   "phase": "pre_commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "requirement": "instrument power supplies (UPS/24VDC) available before loop energization",
+   "type": "requires",
+   "phase": "pre_loop_checks",
+   "strength": "strong"
+  },
+  {
+   "with": "earthing",
+   "requirement": "instrument screen/drain and IS earth referenced correctly",
+   "type": "requires",
+   "phase": "cabling_termination",
+   "strength": "moderate"
+  },
+  {
+   "with": "fire_alarm",
+   "requirement": "field gas/flame detection loops interface with the detection and shutdown logic",
+   "type": "coordinate",
+   "phase": "functional_testing",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Multi-point instrument calibration with certificates",
+  "Tubing pressure/leak test (instrument air and impulse lines)",
+  "Cable continuity and insulation resistance",
+  "Cold and hot loop checks field-to-DCS",
+  "Control-valve stroke and fail-action test",
+  "Interlock/trip and alarm-setpoint verification (I/O to logic)",
+  "Instrument-air quality (dewpoint, oil, particulate)"
+ ],
+ "commissioning_dependencies": [
+  "Control system (DCS/PLC/BMS) live with database and graphics",
+  "Instrument air available, dried and quality-tested",
+  "Instrument power (UPS/24VDC) available",
+  "Calibration complete with certificates",
+  "Piping/equipment mechanically complete and flushed",
+  "Approved loop folders / loop-check sheets"
+ ],
+ "typical_exceptions": [
+  "Skid/packaged units arrive pre-instrumented and FAT'd — only interconnecting loops checked on site",
+  "Smart/HART instruments configured over comms, reducing physical calibration scope"
+ ],
+ "work_packages": [
+  {
+   "wp": "Field-instrument install",
+   "discipline": "instrumentation",
+   "interface": false
+  },
+  {
+   "wp": "Instrument tubing",
+   "discipline": "instrumentation",
+   "interface": false
+  },
+  {
+   "wp": "Instrument cabling",
+   "discipline": "instrumentation",
+   "interface": true,
+   "note": "shares/segregates containment"
+  },
+  {
+   "wp": "Calibration",
+   "discipline": "instrumentation",
+   "interface": false
+  },
+  {
+   "wp": "Loop checking",
+   "discipline": "instrumentation",
+   "interface": true,
+   "note": "requires control system live"
+  },
+  {
+   "wp": "Control valves",
+   "discipline": "instrumentation",
+   "interface": true,
+   "note": "needs instrument air"
+  }
+ ],
+ "evidence": "Loop checks were scheduled before the control-system I/O and graphics were live, control-valve stroke tests were planned before clean dry instrument air was available, and several instruments were sequenced to be looped before calibration.",
+ "status": "curated",
+ "source": "system_pattern"
+}

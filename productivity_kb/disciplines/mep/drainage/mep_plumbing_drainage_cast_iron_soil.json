@@ -1,0 +1,163 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.plumbing.drainage.cast_iron_soil",
+  "discipline": "MEP",
+  "work_type": "Plumbing",
+  "system": "Drainage",
+  "item": "Cast Iron Soil / Waste Piping",
+  "aliases": [
+    "cast iron drainage",
+    "ci soil pipe",
+    "no-hub cast iron",
+    "acoustic cast iron"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Cast iron (EPDM no-hub couplings) is specified for acoustic performance, fire rating and durability in high-rise, hospitals and premium buildings; heavy material needing a larger handling gang.",
+  "assumptions": [
+    "Representative bore 100-150 mm",
+    "No-hub / push-fit EPDM couplings",
+    "Heavier handling gang for lifting and supports",
+    "Normal access, single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Excavation and bedding",
+    "Below-ground thrust support",
+    "Chases and making good",
+    "Abnormal congestion"
+  ],
+  "components": [
+    {
+      "component_id": "install",
+      "name": "Cast iron pipe install (no-hub couplings, incl. fittings & heavy brackets)",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 2,
+        "low": 1.6,
+        "likely": 2,
+        "high": 2.6,
+        "output_per_day": 12,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 2
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Snap / chain pipe cutter",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Torque wrench (couplings)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Chain block (large dia lifting)",
+          "basis": "utilization",
+          "value": 0.1,
+          "unit": "h/m"
+        }
+      ],
+      "material": [
+        {
+          "name": "Cast iron pipe",
+          "qty_per_unit": 1.02,
+          "unit": "m/m"
+        },
+        {
+          "name": "No-hub couplings / collars",
+          "qty_per_unit": 0.4,
+          "unit": "no/m"
+        },
+        {
+          "name": "Heavy-duty brackets",
+          "qty_per_unit": 0.7,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — no-hub cast iron soil/waste",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "100-150 mm cast iron above-ground drainage — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "drainage_test",
+      "name": "Drainage test (water / air)",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.13,
+        "low": 0.1,
+        "likely": 0.13,
+        "high": 0.2,
+        "output_per_day": 120,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Drain test plugs + air kit",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Test plugs (allowance)",
+          "qty_per_unit": 0.02,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — gravity drainage testing",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "water/air test per metre of cast iron drainage — validate with your XER to promote"
+      }
+    }
+  ]
+}

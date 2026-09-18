@@ -1,0 +1,211 @@
+{
+ "system": "lighting",
+ "discipline": "ELEC",
+ "name": "Lighting & Emergency Lighting — wire to complete circuits, then fit, test and program",
+ "aliases": [
+  "lighting",
+  "luminaires",
+  "light fittings",
+  "fixtures",
+  "emergency lighting",
+  "exit signs",
+  "lighting control",
+  "DALI",
+  "occupancy sensors",
+  "daylight harvesting",
+  "lighting circuits"
+ ],
+ "zones": [
+  "all occupied areas",
+  "plant rooms",
+  "external areas",
+  "escape routes"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "ceiling grid and architectural set-out",
+    "structural fixing points and wall boxes",
+    "coordination of fitting positions"
+   ],
+   "note": "Fitting positions depend on ceiling/architectural coordination."
+  },
+  {
+   "stage": "containment_wiring",
+   "activities": [
+    "conduit/tray/trunking for lighting circuits",
+    "cable pulling to fitting and switch/sensor positions",
+    "back boxes"
+   ]
+  },
+  {
+   "stage": "first_fix",
+   "activities": [
+    "rough-in wiring and junction boxes",
+    "drops to fitting positions",
+    "wiring to switches and sensors"
+   ]
+  },
+  {
+   "stage": "fitting_installation",
+   "activities": [
+    "mount and connect luminaires",
+    "install emergency luminaires and exit signs",
+    "install occupancy/daylight sensors and DALI/addressable drivers"
+   ],
+   "note": "Final fix follows ceiling closure and decoration."
+  },
+  {
+   "stage": "circuit_termination",
+   "activities": [
+    "terminate at DB / lighting control panel",
+    "earth luminaires",
+    "address DALI/control devices"
+   ]
+  },
+  {
+   "stage": "testing",
+   "activities": [
+    "insulation resistance and polarity",
+    "functional switching and control response",
+    "emergency-lighting discharge/duration test",
+    "illuminance (lux) survey"
+   ]
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "lighting-control programming: scenes, sensors, daylight harvesting",
+    "central battery system test if applicable",
+    "integration to BMS"
+   ]
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "ceiling grid/architectural coordination complete",
+   "after": "luminaire installation",
+   "reason": "fittings need coordinated, completed ceiling positions and fixings",
+   "strength": "strong"
+  },
+  {
+   "before": "containment and first-fix wiring complete",
+   "after": "fitting installation",
+   "reason": "luminaires connect to the roughed-in wiring at each position",
+   "strength": "strong"
+  },
+  {
+   "before": "lighting DB energized",
+   "after": "functional and lux testing",
+   "reason": "lights cannot be switched or measured without a live board",
+   "strength": "strong"
+  },
+  {
+   "before": "emergency luminaires installed, terminated and charged",
+   "after": "emergency-lighting discharge test",
+   "reason": "the duration test requires installed fittings with fully charged batteries",
+   "strength": "strong"
+  },
+  {
+   "before": "controls installed and addressed",
+   "after": "DALI/scene programming",
+   "reason": "programming needs the addressable devices physically present and commissioned",
+   "strength": "strong"
+  },
+  {
+   "before": "ceilings closed and decorated",
+   "after": "final-fix luminaires",
+   "reason": "final fittings go in after finishes to avoid damage/rework",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "electrical_power",
+   "requirement": "lighting circuits are fed from a DB; testing requires that board energized",
+   "type": "requires",
+   "phase": "testing",
+   "strength": "strong"
+  },
+  {
+   "with": "containment_cabling",
+   "requirement": "lighting wiring runs on installed containment/conduit",
+   "type": "requires",
+   "phase": "containment_wiring",
+   "strength": "strong"
+  },
+  {
+   "with": "civil_interface",
+   "requirement": "ceiling/architectural coordination sets fitting positions",
+   "type": "requires",
+   "phase": "fitting_installation",
+   "strength": "strong"
+  },
+  {
+   "with": "bms",
+   "requirement": "lighting-control and occupancy integration to the BMS",
+   "type": "coordinate",
+   "phase": "commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "earthing",
+   "requirement": "luminaires and metal fittings earthed",
+   "type": "requires",
+   "phase": "circuit_termination",
+   "strength": "moderate"
+  },
+  {
+   "with": "fire_alarm",
+   "requirement": "escape-route and emergency-lighting coordination with the evacuation strategy",
+   "type": "coordinate",
+   "phase": "commissioning",
+   "strength": "weak"
+  }
+ ],
+ "testing_requirements": [
+  "Insulation resistance and polarity of lighting circuits",
+  "Functional switching and control response",
+  "Emergency-lighting 1h/3h discharge/duration test",
+  "Illuminance (lux) survey vs design",
+  "DALI/controls scene and sensor commissioning",
+  "Central battery system test (if applicable)"
+ ],
+ "commissioning_dependencies": [
+  "Lighting DB/panel energized",
+  "Ceilings/architectural finishes ready for final fix",
+  "Lighting-control system programmed",
+  "Emergency-lighting batteries given required charge period before discharge test"
+ ],
+ "typical_exceptions": [
+  "Exposed-services areas (no ceiling) mount fittings on containment/structure — different final-fix sequence",
+  "Self-contained emergency packs vs central-battery systems test differently"
+ ],
+ "work_packages": [
+  {
+   "wp": "Lighting wiring",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Luminaire install",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Emergency lighting",
+   "discipline": "electrical",
+   "interface": false
+  },
+  {
+   "wp": "Lighting controls",
+   "discipline": "electrical",
+   "interface": true,
+   "note": "BMS integration interface"
+  }
+ ],
+ "evidence": "Luminaires were terminated and slated for lux testing before the feeding lighting board was energized, and the emergency-lighting discharge test was booked before the batteries had their required charge period.",
+ "status": "curated",
+ "source": "system_pattern"
+}

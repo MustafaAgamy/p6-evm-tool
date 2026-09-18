@@ -1,8 +1,10 @@
 // Pure helpers for the AI Constructability Review view — no DOM, no imports,
 // so they're unit-testable under plain Node (tests/js/test_aireview.js).
 
+// Returns a themeable CSS colour (a --var) for a score band, so the gauge/marker follow the
+// active appearance mode. green=Ready, amber=Minor, orange=Significant, red=Major.
 export function bandHex(band) {
-  return { green: '#16a34a', amber: '#d97706', orange: '#ea580c', red: '#dc2626' }[band] || '#94a3b8';
+  return { green: 'var(--success)', amber: 'var(--warning)', orange: 'var(--chart-3)', red: 'var(--danger)' }[band] || 'var(--muted)';
 }
 
 export function kindClass(kind) {

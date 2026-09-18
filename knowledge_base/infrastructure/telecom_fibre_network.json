@@ -1,0 +1,46 @@
+{
+  "category": "Infrastructure",
+  "type": "Telecommunications / Fibre Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["telecom", "fibre", "fiber", "ftth", "fttx", "duct", "ducting", "manhole", "handhole", "splicing",
+                 "olt", "odf", "backbone", "trenching", "blowing", "otdr", "tower", "data centre node"],
+  "wbs": [
+    {"name": "Survey & Permits", "keywords": ["survey", "permit", "wayleave", "route", "design"]},
+    {"name": "Civil (Trenching / Ducting)", "keywords": ["trenching", "trench", "duct", "ducting", "directional drilling", "reinstatement"]},
+    {"name": "Chambers (Manholes / Handholes)", "keywords": ["manhole", "handhole", "chamber", "joint box"]},
+    {"name": "Cable Pulling / Blowing", "keywords": ["cable pulling", "blowing", "fibre cable", "backbone", "drop cable"]},
+    {"name": "Splicing & Termination", "keywords": ["splicing", "splice", "odf", "termination", "patch"]},
+    {"name": "Active Equipment (OLT / Nodes)", "keywords": ["olt", "active equipment", "node", "cabinet", "power"]},
+    {"name": "Testing (OTDR) & Acceptance", "keywords": ["otdr", "test", "acceptance", "loss test", "commission"]},
+    {"name": "Service Activation & Handover", "keywords": ["activation", "service", "handover", "go live"]}
+  ],
+  "activities": [
+    {"name": "Duct Route & Chambers Complete", "keywords": ["duct", "ducting", "chamber", "manhole"], "wbs": "Civil (Trenching / Ducting)",
+     "typical_pred": "Survey & Permits", "typical_succ": "Cable Pulling / Blowing", "duration_days": 40,
+     "why": "The duct and chamber civil route is the pacing scope; permits and reinstatement often govern the programme."},
+    {"name": "Fibre Splicing & OTDR Testing", "keywords": ["splicing", "splice", "otdr", "loss test"], "wbs": "Splicing & Termination",
+     "typical_pred": "Cable Pulling / Blowing", "typical_succ": "Service Activation", "duration_days": 25,
+     "why": "Every fibre is spliced and OTDR-tested end-to-end; test evidence is required before activation."},
+    {"name": "OLT / Active Node Installation", "keywords": ["olt", "active node", "cabinet", "power"], "wbs": "Active Equipment (OLT / Nodes)",
+     "typical_pred": "Chamber / Node Civil", "typical_succ": "Service Activation", "duration_days": 20,
+     "why": "Active equipment and its power/cooling at the nodes are needed before service can be lit."},
+    {"name": "Service Activation / Go-Live Test", "keywords": ["activation", "go live", "acceptance"], "wbs": "Service Activation & Handover",
+     "typical_pred": "Fibre Splicing & OTDR Testing", "typical_succ": "Handover", "duration_days": 10,
+     "why": "End-to-end service activation proves the link before handover to operations."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["duct", "ducting", "trench", "chamber", "manhole"], "after_keywords": ["cable pulling", "blowing", "fibre cable"],
+     "reason": "Fibre is pulled/blown after the ducts and chambers are in place.",
+     "impact": "Critical"},
+    {"before_keywords": ["cable pulling", "blowing", "splicing"], "after_keywords": ["otdr", "loss test", "activation"],
+     "reason": "OTDR testing and activation follow cable installation and splicing.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["splicing", "otdr", "olt", "active"], "after_keywords": ["activation", "go live", "handover"],
+     "reason": "Service activation follows splicing/testing and active-equipment installation.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Permits Secured", "Duct Route Complete", "Fibre Spliced & Tested", "Service Activated", "Handover"],
+  "common_issues": ["Cable pulling before ducts/chambers ready", "OTDR test evidence not planned",
+                    "Active-equipment power at nodes overlooked", "Activation before end-to-end testing"]
+}

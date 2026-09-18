@@ -2,123 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>P6 EVM Tool</title>
+  <title>Controlyx 2026</title>
   <link rel="stylesheet" href="/ui/style.css">
-  <script>(function(){var t=localStorage.getItem('p6_evm_theme')||'light';if(t==='light')document.documentElement.classList.add('light');}());</script>
+  <script>(function(){try{var ok=['light','dark','midnight','sepia','contrast','blueprint'];var m=localStorage.getItem('p6_report_appearance');if(ok.indexOf(m)<0){var l=localStorage.getItem('p6_evm_theme');m=(l==='light'||l==='dark')?l:'light';}document.documentElement.setAttribute('data-appearance',m);}catch(e){document.documentElement.setAttribute('data-appearance','light');}}());</script>
+  <style>
+    /* Immediate dark cover — prevents any flash of the app before the single
+       animated startup splash (ui/modules/boot.js) paints; boot.js removes it. */
+    #brand-splash{position:fixed;inset:0;z-index:2000;background:#06090f;}
+  </style>
 </head>
 <body>
+<div id="brand-splash"></div>
 <div class="app">
 
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="sb-logo">P</div>
-    <nav class="sb-nav">
-      <button class="sb-item active" id="sb-home-btn" title="Home">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-      </button>
-      <button class="sb-item" id="sb-audit-btn" title="Schedule Audit">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          <path d="M9 12l2 2 4-4"/>
-        </svg>
-      </button>
-      <button class="sb-item disabled" title="Reports (coming soon)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="20" x2="18" y2="10"/>
-          <line x1="12" y1="20" x2="12" y2="4"/>
-          <line x1="6" y1="20" x2="6" y2="14"/>
-        </svg>
-      </button>
-      <button class="sb-item disabled" title="Settings (coming soon)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-        </svg>
-      </button>
-    </nav>
-    <div class="sb-avatar"></div>
+  <!-- MENU BAR — the single home for global commands (File · View · Analysis · Tools · Help) -->
+  <div class="menubar" id="menubar">
+    <span class="mb-mark">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 15l5-5 4 3 7-8"/></svg>
+    </span>
+    <span class="mb-brand" id="app-title">Controlyx 2026</span>
+    <div class="menu" data-menu="file">File</div>
+    <div class="menu" data-menu="view">View</div>
+    <div class="menu" data-menu="analysis">Analysis</div>
+    <div class="menu" data-menu="tools">Tools</div>
+    <div class="menu" data-menu="help">Help</div>
+    <div class="mb-right">
+      <span class="shl neutral" id="status-light" data-tooltip="No schedule imported yet — import a P6 file to see its status">
+        <span class="shl-dot"></span><span class="shl-txt">No schedule</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="appmain navhidden">
+
+  <!-- PROJECT NAVIGATOR — collapsible; where you are (navigation / context), not a command surface -->
+  <aside class="side" id="side">
+    <div class="navh"><span>Project Navigator</span><button class="navx" id="nav-collapse" title="Hide navigator">‹‹</button></div>
+    <nav class="tree" id="nav-tree"></nav>
+    <div class="acct"><span class="acct-av"></span><div class="acct-who"><b id="acct-name">Planner</b><span>Controlyx 2026</span></div></div>
   </aside>
 
   <!-- Main -->
   <div class="main">
     <header class="topbar">
+      <button class="nav-toggle" id="nav-toggle" title="Show / hide navigator" aria-label="Show or hide navigator">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
       <div class="tb-left">
-        <span class="tb-title">P6 EVM Tool</span>
+        <span class="tb-crumb" id="topbar-crumb">Home</span>
         <span class="tb-sub" id="topbar-sub">Home · Import</span>
       </div>
       <div class="tb-right">
-        <button class="theme-toggle" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
-          <!-- Moon: shown in dark mode -->
-          <svg class="theme-icon icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-          <!-- Sun: shown in light mode -->
-          <svg class="theme-icon icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/>
-            <line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-        </button>
-        <div class="tb-avatar"></div>
+        <label class="tb-appearance" title="Appearance — one look for the whole tool: the app screen AND every report Print Preview and exported PDF. Choose Light, Dark, Midnight, Sepia, High-contrast or Blueprint.">
+          <span class="tb-appearance-lb">Appearance</span>
+          <select id="report-appearance" aria-label="Appearance mode"></select>
+        </label>
       </div>
     </header>
 
     <main class="content" id="drop-target">
 
-      <!-- Import section -->
-      <section class="import-section">
-        <div class="section-label">Import Schedule</div>
-        <div class="import-cards">
-
-          <div class="import-card">
-            <div class="card-icon" style="background:#22c55e">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-            </div>
-            <div class="card-name">Import XML</div>
-            <div class="card-sub">P6 XML Export</div>
-            <button class="card-btn" id="browse-btn">Browse File</button>
-            <div class="spinner hidden" id="browse-spinner"></div>
+      <!-- Import / empty state — Aurora+ landing (drop-zone + guided steps) -->
+      <section class="import-section" id="import-section">
+        <div class="aurora-empty" id="drop-strip">
+          <div class="ae-ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg></div>
+          <h1 class="ae-title">Import a P6 schedule to begin</h1>
+          <p class="ae-sub">Controlyx reads a Primavera P6 file — an XER or XML export. Nothing is analysed until you import a Primavera P6 file, then pick a module and run it.</p>
+          <button class="ae-drop" id="browse-btn">
+            <span class="ae-dz"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg></span>
+            <b>Pick a P6 file (XER or XML) — or drag it here</b>
+            <span class="ae-hint">Import lives once, under <b>File ▸ Import</b> · P6 XML or XER</span>
+          </button>
+          <div class="spinner hidden" id="browse-spinner"></div>
+          <div class="ae-steps">
+            <div class="ae-step"><span class="ae-n">1</span>Import a P6 file</div>
+            <span class="ae-arrow">→</span>
+            <div class="ae-step"><span class="ae-n">2</span>Pick a module</div>
+            <span class="ae-arrow">→</span>
+            <div class="ae-step"><span class="ae-n">3</span>Run, then see the results</div>
           </div>
-
-          <div class="import-card">
-            <div class="card-icon" style="background:#0ea5e9">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-            </div>
-            <div class="card-name">Import XER</div>
-            <div class="card-sub">P6 XER Export</div>
-            <button class="card-btn" id="xer-btn">Browse File</button>
-            <div class="spinner hidden" id="xer-spinner"></div>
-          </div>
-
-          <div class="import-card disabled">
-            <div class="card-icon" style="background:#475569">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <path d="M3 9h18M9 21V9"/>
-              </svg>
-            </div>
-            <div class="card-name">Import Excel</div>
-            <div class="card-sub">Coming soon</div>
-          </div>
-
-        </div>
-        <div class="drop-strip" id="drop-strip">
-          📎 Drag &amp; drop your P6 XML or XER file anywhere to import
         </div>
       </section>
 
@@ -130,95 +92,52 @@
 
       <!-- Results section (hidden until a file is parsed) -->
       <section class="results-section hidden" id="results-section">
-        <div class="file-info-bar" id="file-info-bar"></div>
+        <div class="file-info-row">
+          <div class="file-info-bar" id="file-info-bar"></div>
+          <button class="change-file-btn" id="change-file-btn" type="button" title="Imported the wrong file? Load a different P6 XER or XML.">↻ Change file</button>
+        </div>
 
-        <!-- Choose which analysis to view (EVM is not auto-generated) -->
+        <!-- After import: the Project Navigator (left) is the feature selector. Nothing runs
+             until the user chooses a feature and presses its Run button (issues #3/#4). -->
         <div class="analysis-chooser" id="analysis-chooser">
-          <div class="section-label">Choose what to view for this schedule</div>
-          <div class="chooser-cards">
-            <button class="chooser-card" data-view="evm">
-              <div class="cc-icon evm">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-                </svg>
-              </div>
-              <div class="cc-title">EVM Results</div>
-              <div class="cc-sub">Planned vs Earned Value, SPI, CPI, Finish Delay, category progress</div>
-            </button>
-            <button class="chooser-card" data-view="audit">
-              <div class="cc-icon audit">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>
-                </svg>
-              </div>
-              <div class="cc-title">Schedule Audit</div>
-              <div class="cc-sub">Dangling Activities &amp; Float Analysis — isolated module reports</div>
-            </button>
-            <button class="chooser-card" data-view="oos">
-              <div class="cc-icon oos">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 12h5l3-8 4 16 3-8h3"/>
-                </svg>
-              </div>
-              <div class="cc-title">Out of Sequence</div>
-              <div class="cc-sub">Activities progressing ahead of their logic — consultant review report</div>
-            </button>
-            <button class="chooser-card" data-view="calendar">
-              <div class="cc-icon calendar">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
-                  <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-              </div>
-              <div class="cc-title">Calendar Audit</div>
-              <div class="cc-sub">Project calendar timeline, holidays, shutdowns, working-hour changes</div>
-            </button>
-            <button class="chooser-card" data-view="construct">
-              <div class="cc-icon" style="background:linear-gradient(135deg,#0d9488,#14b8a6)">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/>
-                </svg>
-              </div>
-              <div class="cc-title">Constructability Review</div>
-              <div class="cc-sub">Rule + knowledge-base check — illogical logic, missing activities &amp; WBS, with a score · offline</div>
-            </button>
-            <button class="chooser-card" data-view="compare">
-              <div class="cc-icon" style="background:#8b5cf6">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M7 8l-4 4 4 4"/><path d="M17 8l4 4-4 4"/><line x1="14" y1="4" x2="10" y2="20"/>
-                </svg>
-              </div>
-              <div class="cc-title">Consultant Review</div>
-              <div class="cc-sub">Baseline vs current update — driving logic, lag &amp; duration changes and the right delay</div>
-            </button>
-            <button class="chooser-card" data-view="narrative">
-              <div class="cc-icon" style="background:linear-gradient(135deg,#265f7e,#3487ae)">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M4 4v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6a2 2 0 0 0-2 2z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/>
-                </svg>
-              </div>
-              <div class="cc-title">Baseline Narrative</div>
-              <div class="cc-sub">Auto-writes the Basis-of-Schedule document from your baseline — brief, WBS, codes, calendars, sequence charts, cash flow · Word &amp; PDF</div>
-            </button>
+          <div class="chooser-prompt">
+            <div class="cp-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h5l3-8 4 16 3-8h3"/></svg>
+            </div>
+            <div class="cp-title">Choose a feature to analyze</div>
+            <div class="cp-sub">Pick a feature from the <b>Project Navigator</b> on the left. It will show the inputs it needs — then press <b>Run</b>. Only the feature you choose runs; nothing is analysed automatically.</div>
+            <div class="cp-flow" aria-hidden="true">
+              <span class="cp-step done">Import</span><span class="cp-arrow">→</span>
+              <span class="cp-step now">Choose feature</span><span class="cp-arrow">→</span>
+              <span class="cp-step">Run</span><span class="cp-arrow">→</span>
+              <span class="cp-step">Results</span>
+            </div>
           </div>
         </div>
 
         <div id="analysis-views" class="hidden">
-        <div class="view-tabs">
+        <!-- Feature launch gate (issues #3/#4): required inputs + Run, shown before a feature computes. -->
+        <div class="feature-gate hidden" id="feature-gate"></div>
+        <div class="view-tabs" hidden aria-hidden="true">
           <button class="view-tab active" id="tab-evm" data-view="evm">EVM Results</button>
-          <button class="view-tab" id="tab-audit" data-view="audit">Schedule Audit</button>
+          <button class="view-tab" id="tab-audit" data-view="audit">Schedule Health Review</button>
           <button class="view-tab" id="tab-oos" data-view="oos">Out of Sequence</button>
-          <button class="view-tab" id="tab-calendar" data-view="calendar">📅 Calendar Audit</button>
+          <button class="view-tab" id="tab-calendar" data-view="calendar">📅 P6 Calendar Audit</button>
+          <button class="view-tab" id="tab-weather" data-view="weather">🌦 Bad Weather</button>
           <button class="view-tab" id="tab-construct" data-view="construct">🧠 Constructability</button>
           <button class="view-tab" id="tab-compare" data-view="compare">Consultant Review</button>
-          <button class="view-tab" id="tab-narrative" data-view="narrative">📄 Baseline Narrative</button>
+          <button class="view-tab" id="tab-revcompare" data-view="revcompare">Baseline Revision Comparison</button>
+          <button class="view-tab" id="tab-lag" data-view="lag">Lag Report</button>
+          <button class="view-tab" id="tab-period" data-view="period">Update vs Update</button>
+          <button class="view-tab" id="tab-critpath" data-view="critpath">Critical Path Analyzer</button>
+          <button class="view-tab" id="tab-update" data-view="update">Update Analysis</button>
+          <button class="view-tab" id="tab-special" data-view="special">📄 Reporting Studio</button>
           <button class="view-change" id="btn-change-analysis" title="Back to analysis choice">⟲ Change</button>
         </div>
 
         <div class="view-panel" id="evm-panel">
           <div id="evm-body"></div>
           <div class="action-buttons">
-            <button class="btn-secondary" id="load-another-btn">Load Another File</button>
             <button class="btn-primary" id="pdf-btn">Generate EVM PDF</button>
           </div>
         </div>
@@ -250,6 +169,14 @@
           </div>
         </div>
 
+        <div class="view-panel hidden" id="weather-panel">
+          <div id="weather-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="weather-excel-btn">Export to Excel</button>
+            <button class="btn-primary" id="weather-pdf-btn">Generate Bad-Weather PDF</button>
+          </div>
+        </div>
+
         <div class="view-panel hidden" id="construct-panel">
           <div id="construct-body"></div>
         </div>
@@ -258,19 +185,60 @@
           <div id="compare-body"></div>
         </div>
 
+        <div class="view-panel hidden" id="revcompare-panel">
+          <div id="revcompare-body"></div>
+        </div>
+
+        <div class="view-panel hidden" id="lag-panel">
+          <div id="lag-body"></div>
+          <div class="action-buttons">
+            <button class="btn-secondary" id="lag-excel-btn">Export to Excel</button>
+            <button class="btn-primary" id="lag-pdf-btn">Generate Lag Report PDF</button>
+          </div>
+        </div>
+
+        <div class="view-panel hidden" id="period-panel">
+          <div id="period-body"></div>
+        </div>
+
+        <div class="view-panel hidden" id="critpath-panel">
+          <div id="critpath-body"></div>
+        </div>
+        <div class="view-panel hidden" id="update-panel">
+          <div id="update-body"></div>
+        </div>
+        <div class="view-panel hidden" id="special-panel">
+          <div id="special-body"></div>
+        </div>
         <div class="view-panel hidden" id="narrative-panel">
           <div id="narrative-body"></div>
-          <div class="action-buttons">
-            <button class="btn-secondary" id="narrative-word-btn">Export Word</button>
-            <button class="btn-primary" id="narrative-pdf-btn">Export PDF</button>
-          </div>
+      <div class="bn-exportbar" style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn-secondary" id="narrative-word-btn">Export Word</button>
+        <button class="btn-primary" id="narrative-pdf-btn">Export PDF</button>
+      </div>
+        </div>
+        <div class="view-panel hidden" id="copilot-panel">
+          <div id="copilot-body"></div>
+        </div>
+        <div class="view-panel hidden" id="overview-panel">
+          <div id="overview-body"></div>
+        </div>
+        <div class="view-panel hidden" id="wbs-panel">
+          <div id="wbs-body"></div>
+        </div>
+        <div class="view-panel hidden" id="schedule-panel">
+          <div id="schedule-body"></div>
         </div>
         </div><!-- /analysis-views -->
       </section>
 
-      <!-- Recent projects -->
-      <section class="recent-section">
-        <div class="section-label">Recent Projects</div>
+      <!-- Recent projects — its own sidebar page, hidden until opened (Decision 010) -->
+      <section class="recent-section hidden" id="recent-section">
+        <div class="kb-head">
+          <div class="section-label">Recent Projects</div>
+          <div class="kb-subtitle">Every schedule you've imported — most recent first. Open one to jump straight back in,
+            or remove its history. <span class="kb-eps-badge">Local &amp; private · <span id="recent-total">…</span></span></div>
+        </div>
         <div class="recent-table-wrap">
           <table class="recent-table">
             <thead>
@@ -288,10 +256,45 @@
         </div>
       </section>
 
+      <!-- Knowledge Base — one place for knowledge projects + reference standards + baselines -->
+      <section class="kb-section hidden" id="kb-database-section">
+        <div class="kb-head">
+          <div class="section-label">Knowledge Base</div>
+          <div class="kb-subtitle">Your knowledge projects — real schedules that grow the tool's supporting intelligence
+            (sequencing patterns, provenance). Add a project explicitly; analysis imports are never added automatically.
+            <span class="kb-eps-badge">Local &amp; private · <span id="db-total">…</span></span></div>
+        </div>
+
+        <div class="kbp-toolbar">
+          <span class="kbp-count" id="kbp-count">Knowledge Base…</span>
+          <button class="btn-primary" id="kbp-addxer">＋ Add Project XER</button>
+          <button class="btn-secondary" id="kbp-export">⬇ Export Knowledge</button>
+          <button class="btn-secondary" id="kbp-import">⬆ Import Knowledge</button>
+          <span class="kbp-note">Supporting knowledge only · generalized &amp; project-agnostic · never creates a finding</span>
+        </div>
+        <div class="kbp-tablewrap"><table class="kbp-table" id="kbp-table"></table></div>
+
+        <div class="kb-subhead">Project types <span class="n">reference standard · example baselines · your schedules</span></div>
+        <div class="kb-grid">
+          <aside class="kb-eps">
+            <input class="kb-search" id="db-search" placeholder="🔍  Filter project types…" aria-label="Filter project types">
+            <p class="kb-hint">Each type opens to its <b>reference standard</b>, <b>generated examples</b>, and any <b>schedules you've added</b>. Nothing leaves your PC.</p>
+            <div id="db-tree"></div>
+          </aside>
+          <main class="kb-detailwrap"><div id="db-detail"></div></main>
+        </div>
+      </section>
+
     </main>
   </div>
+  </div><!-- /appmain -->
 </div>
+<!-- Menu dropdowns are rendered into here by app.js -->
+<div id="menu-layer"></div>
 <div id="g-tooltip"></div>
 <script type="module" src="/ui/app.js"></script>
+<!-- The startup splash is now the single animated boot sequence (ui/modules/boot.js),
+     which removes the #brand-splash cover on its first frame. -->
+
 </body>
 </html>

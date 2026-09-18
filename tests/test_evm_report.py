@@ -112,3 +112,35 @@ def test_report_gap_section_optional():
     assert 'Piles Works' in html
     # without gap → no section
     assert 'PV vs EV Gap Analysis' not in render_evm_report(_result(), META)
+
+
+def test_report_default_theme_is_light():
+    html = render_evm_report(_result(), META)
+    assert '<html' in html.lower() and '</html>' in html.lower()
+    assert 'data-rpt-theme="light"' in html
+
+
+def test_report_dark_theme_injects_palette():
+    import report_theme
+    html = render_evm_report(_result(), META, theme='dark')
+    assert 'data-rpt-theme="dark"' in html
+    assert report_theme.THEMES['dark']['rpt-accent'] in html  # #5b9bff
+
+
+def test_report_sections_none_is_full_report():
+    # Default (no Printing Selection) renders the whole report — unchanged behaviour.
+    full = render_evm_report(_result(), META)
+    assert full == render_evm_report(_result(), META, sections=None)
+    assert '<h2 class="sec">Executive Dashboard</h2>' in full
+    assert '<h2 class="sec">Planned Value vs Earned Value</h2>' in full
+    assert '<h2 class="sec">Category Weights' in full
+    assert 'Planned vs Actual</h2>' in full  # Project Progress heading
+
+
+def test_report_sections_filter_limits_blocks():
+    # Printing Selection: only the chosen core sections render.
+    only_dash = render_evm_report(_result(), META, sections=['dashboard'])
+    assert '<h2 class="sec">Executive Dashboard</h2>' in only_dash
+    assert '<h2 class="sec">Planned Value vs Earned Value</h2>' not in only_dash
+    assert '<h2 class="sec">Category Weights' not in only_dash
+    assert 'Planned vs Actual</h2>' not in only_dash

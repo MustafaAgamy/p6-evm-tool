@@ -1,0 +1,287 @@
+{
+ "system": "utilities",
+ "discipline": "MECH",
+ "name": "Plant Utilities & Auxiliary Media (Air, Water, Steam, Fuel, Inert Gas)",
+ "aliases": [
+  "compressed air",
+  "instrument air",
+  "plant air / service air",
+  "cooling water",
+  "process water",
+  "raw water",
+  "demineralised water / demin",
+  "potable water for process",
+  "steam and condensate",
+  "fuel gas / fuel oil / diesel supply",
+  "nitrogen / inert gas",
+  "utility distribution headers",
+  "balance of plant utilities"
+ ],
+ "zones": [
+  "compressor house / air compressor & dryer skid",
+  "cooling water pump house & cooling tower / chiller plant",
+  "water treatment / demin / RO plant",
+  "boiler house & steam distribution",
+  "fuel storage, forwarding & metering",
+  "nitrogen generation / bottle bank / vaporiser",
+  "utility pipe-rack corridors & battery-limit tie-ins",
+  "instrument air receivers & drop legs to field"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "compressor/pump/skid foundations and plinths",
+    "cooling tower basin, water treatment and tank foundations",
+    "utility pipe-rack foundations and rack steel readiness",
+    "trenches for buried cooling/raw water lines, bunds for fuel"
+   ],
+   "note": "Civil enters as enabler only: skid plinths, rack foundations, tank/basin civils and trenches."
+  },
+  {
+   "stage": "delivery_setting",
+   "activities": [
+    "set air compressors, dryers and receivers",
+    "set cooling water pumps, cooling tower / chiller modules",
+    "set demin/RO trains, boilers and fuel forwarding skids",
+    "set nitrogen generation / vaporiser package"
+   ]
+  },
+  {
+   "stage": "pipe_erection",
+   "activities": [
+    "erect utility headers on pipe-racks (air, CW, steam, fuel, N2)",
+    "run branch tie-ins to each consumer battery limit",
+    "install isolation, PSVs, traps, strainers and drop legs",
+    "install insulation/tracing on steam, condensate and cold lines"
+   ]
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "power to compressor, pump and package motors",
+    "terminate field instruments (pressure, flow, level, conductivity)",
+    "connect package control panels / PLC to plant control (BMS/DCS)"
+   ]
+  },
+  {
+   "stage": "flushing_cleaning",
+   "activities": [
+    "flush/blow-through water lines; air-blow/dry-out air & gas lines",
+    "chemical clean / passivation of demin and boiler circuits",
+    "condensate line clean-out before steam admission"
+   ]
+  },
+  {
+   "stage": "pressure_testing",
+   "activities": [
+    "hydrostatic test of water and condensate systems",
+    "pneumatic test of compressed-air, instrument-air and nitrogen lines",
+    "steam line pressure test and controlled warm-up / boil-out"
+   ],
+   "note": "Gas and air headers are pneumatically (not hydro) tested to avoid trapped water in instrument-air; steam lines require staged warm-up."
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "compressor no-load run, dryer dew-point set-up",
+    "cooling water fill, vent, circulate and treat",
+    "boiler light-off preparation, fuel system leak/purge check",
+    "nitrogen generator purity ramp and receiver charge"
+   ]
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "establish instrument-air header at pressure and dew point (first utility live)",
+    "establish cooling water circulation at design flow/temperature",
+    "raise steam and stabilise distribution / trap operation",
+    "prove fuel forwarding pressure/flow to consumers",
+    "prove nitrogen purity and supply pressure for purging/blanketing"
+   ]
+  }
+ ],
+ "work_packages": [
+  {
+   "wp": "Utility skid & package foundations",
+   "discipline": "civil_interface",
+   "interface": true
+  },
+  {
+   "wp": "Compressed / instrument air package",
+   "discipline": "mechanical_equipment"
+  },
+  {
+   "wp": "Cooling & process water system",
+   "discipline": "mechanical"
+  },
+  {
+   "wp": "Water treatment / demin plant",
+   "discipline": "process_equipment"
+  },
+  {
+   "wp": "Steam & condensate system",
+   "discipline": "piping"
+  },
+  {
+   "wp": "Fuel storage & forwarding",
+   "discipline": "mechanical",
+   "interface": true
+  },
+  {
+   "wp": "Nitrogen / inert gas generation",
+   "discipline": "process_equipment"
+  },
+  {
+   "wp": "Utility header distribution on pipe-racks",
+   "discipline": "piping",
+   "interface": true,
+   "note": "Feeds every downstream system"
+  },
+  {
+   "wp": "Utility power, instruments & controls",
+   "discipline": "electrical_power",
+   "interface": true
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "Utility skid / compressor foundations",
+   "after": "Set utility packages on plinths",
+   "reason": "Rotating utility packages are grouted to plinths that must be cast and cured first.",
+   "strength": "strong"
+  },
+  {
+   "before": "Utility pipe-rack steel erected",
+   "after": "Erect utility headers (air / water / steam / fuel / N2)",
+   "reason": "Headers are supported off the rack; the rack must exist before pipe is hung on it.",
+   "strength": "strong"
+  },
+  {
+   "before": "Utility header & branch erection complete",
+   "after": "Flush / blow-through and pressure test the utility line",
+   "reason": "A line can only be cleaned and pressure-tested once it is fully erected and isolatable.",
+   "strength": "strong"
+  },
+  {
+   "before": "Flush / clean utility line",
+   "after": "Pressure test utility line",
+   "reason": "Debris must be removed before the line is pressurised, or valves, PSVs and instruments foul.",
+   "strength": "strong"
+  },
+  {
+   "before": "Instrument-air system commissioned (air available at pressure & dew point)",
+   "after": "Loop-check / stroke pneumatic control valves on any system",
+   "reason": "Pneumatic actuators and positioners cannot stroke until clean, dry instrument air is available.",
+   "strength": "strong"
+  },
+  {
+   "before": "Cooling water circulation established",
+   "after": "Run heat-generating equipment (compressors, chillers, process) under load",
+   "reason": "Equipment that rejects heat cannot run on load without its cooling medium flowing.",
+   "strength": "strong"
+  },
+  {
+   "before": "Demin water / boiler feed available and chemistry in spec",
+   "after": "Boiler light-off and steam raising",
+   "reason": "A boiler cannot be fired without feedwater of the correct chemistry, or it scales and trips.",
+   "strength": "strong"
+  },
+  {
+   "before": "Nitrogen supply proven at purity",
+   "after": "Purge / inert hydrocarbon or oxygen-sensitive systems",
+   "reason": "Purging and blanketing require the inert gas to be available at the specified purity first.",
+   "strength": "strong"
+  },
+  {
+   "before": "Steam line warm-up / boil-out",
+   "after": "Admit steam to consumers",
+   "reason": "Cold steam lines must be warmed and drained of condensate before load, or water hammer damages piping.",
+   "strength": "moderate"
+  },
+  {
+   "before": "Fuel system leak / purge check",
+   "after": "First fire of any fuel-burning equipment",
+   "reason": "A fuel train must be proven leak-tight and purged before ignition for safety.",
+   "strength": "strong"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "electrical_power",
+   "type": "requires",
+   "requirement": "Permanent power to compressor, pump and package motors before any utility can be run and made available.",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "instrumentation",
+   "type": "provides",
+   "requirement": "Instrument air must be commissioned first because it enables loop-checking / valve stroking across every other system.",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "process_equipment",
+   "type": "provides",
+   "requirement": "Cooling water, air, steam, fuel and nitrogen must be available before process equipment can be commissioned or run on load.",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "civil_interface",
+   "type": "requires",
+   "requirement": "Skid foundations, pipe-rack foundations, tank/basin civils and bunds complete before setting packages and erecting headers.",
+   "phase": "construction",
+   "strength": "strong"
+  },
+  {
+   "with": "piping",
+   "type": "requires",
+   "requirement": "Utility header and consumer tie-in piping erected and tested before the utility is declared available.",
+   "phase": "pre_commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "bms",
+   "type": "provides",
+   "requirement": "Utility header pressures, temperatures and status published to plant control for downstream commissioning dependency checks.",
+   "phase": "commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "insulation_coating",
+   "type": "requires",
+   "requirement": "Steam, condensate and hot/cold utility lines insulated (and traced where required) before sustained operation.",
+   "phase": "pre_commissioning",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Hydrostatic test of water, condensate and cooling systems",
+  "Pneumatic test of compressed-air, instrument-air and nitrogen headers",
+  "Steam line pressure test plus controlled warm-up / boil-out",
+  "Instrument-air dew-point / dryer performance verification",
+  "Cooling water flow balance and chemistry establishment",
+  "Demin / boiler feed water conductivity and chemistry in specification",
+  "Nitrogen purity (ppm O2) verification at delivery point",
+  "Fuel system leak test and purge / inerting verification before first fire"
+ ],
+ "commissioning_dependencies": [
+  "Permanent power to utility rotating equipment and packages",
+  "Utility distribution piping erected, cleaned and pressure-tested",
+  "Instrument air established first as the enabler for control valves plant-wide",
+  "Water source (raw / treated) available to fill circuits",
+  "Package control panels integrated with plant control (BMS/DCS)",
+  "System punch clearance permitting energisation and pressurisation"
+ ],
+ "typical_exceptions": [
+  "Instrument-air and nitrogen headers are pneumatically tested, never hydro-tested, to keep them dry",
+  "A site with utility-supplied medium (e.g. district steam, municipal water) may omit on-site generation but still needs distribution tie-in and test",
+  "Nitrogen may be bottle-bank/vaporiser supplied on small plants instead of an on-site generator",
+  "Closed-loop cooling with chillers replaces open cooling towers on some plants, changing the fill/treatment steps"
+ ],
+ "evidence": "A downstream system (process equipment, control-valve loop checks, boiler firing) is scheduled to commission before its enabling utility — instrument air, cooling water, demin water, fuel or nitrogen — is itself erected, tested and made available.",
+ "status": "curated",
+ "source": "system_pattern"
+}

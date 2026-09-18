@@ -1,0 +1,276 @@
+{
+ "system": "fire_fighting",
+ "discipline": "MECH",
+ "name": "Fire Fighting / Fixed Firewater System",
+ "aliases": [
+  "fire water",
+  "firewater",
+  "fire protection",
+  "wet/dry sprinkler",
+  "deluge system",
+  "fire hydrant network",
+  "standpipe and riser",
+  "fire pump house",
+  "jockey/duty/standby pumps",
+  "hydrant and monitor network",
+  "foam/water spray",
+  "gaseous suppression tie-in"
+ ],
+ "zones": [
+  "pump house / fire pump room",
+  "firewater storage tank / reservoir",
+  "underground ring main / buried mains",
+  "riser shafts / standpipes",
+  "sprinkler/deluge coverage areas",
+  "hydrant and monitor field network",
+  "foam room / foam concentrate skid",
+  "fire suppression for electrical & process risk rooms"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "pump house slab / plinths and equipment foundations",
+    "firewater tank foundation or reservoir civil works",
+    "underground mains trenching, thrust blocks and bedding",
+    "sleeves, penetrations and fire-rated openings through structure",
+    "riser shaft readiness and floor penetrations"
+   ],
+   "note": "Civil enters only as enabler: foundations, buried-main trenches, sleeves and shaft openings must be ready before firewater equipment/pipe sets."
+  },
+  {
+   "stage": "delivery_setting",
+   "activities": [
+    "set fire pumps (electric duty, diesel standby, jockey) on plinths",
+    "install firewater tank / connect suction",
+    "erect riser standpipes and sectional isolation valves"
+   ]
+  },
+  {
+   "stage": "pipe_erection",
+   "activities": [
+    "lay and joint underground ring main / hydrant loop",
+    "erect above-ground distribution, risers and branch mains",
+    "install sprinkler/deluge heads, spray nozzles and hydrants/monitors",
+    "install hangers, supports, seismic bracing and flushing connections"
+   ]
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "power to pump controllers and jockey pump",
+    "wire pump status, running and low-pressure signals to fire alarm/BMS",
+    "flow switch, tamper switch and pressure switch terminations",
+    "deluge/preaction release solenoid and detection interconnection"
+   ]
+  },
+  {
+   "stage": "flushing_cleaning",
+   "activities": [
+    "flush underground mains and distribution to remove debris",
+    "verify no blockage at heads/hydrants before pressurisation"
+   ],
+   "note": "Flushing before hydrostatic test is mandatory; skipping it causes blocked heads and failed acceptance."
+  },
+  {
+   "stage": "hydrostatic_test",
+   "activities": [
+    "hydrostatic pressure test of underground mains (extended hold)",
+    "hydrostatic test of above-ground piping and risers",
+    "witnessed pressure hold and leak/joint acceptance"
+   ]
+  },
+  {
+   "stage": "inspection",
+   "activities": [
+    "walk-down of head coverage, spacing and obstruction",
+    "punch list clearance for the system"
+   ]
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "pump no-load / churn test, alignment and rotation check",
+    "diesel engine dry run, fuel and battery checks",
+    "controller sequence and set-point configuration"
+   ]
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "full-flow pump performance test against curve (churn/rated/peak)",
+    "auto-start on pressure drop, jockey/duty/standby cascade test",
+    "deluge/preaction functional release with detection",
+    "hydrant/monitor flow and pressure verification",
+    "cause-and-effect with fire alarm and integrated shutdown"
+   ]
+  }
+ ],
+ "work_packages": [
+  {
+   "wp": "Pump house civil & equipment foundations",
+   "discipline": "civil_interface",
+   "interface": true,
+   "note": "Enabler for pump setting"
+  },
+  {
+   "wp": "Firewater tank / reservoir",
+   "discipline": "mechanical"
+  },
+  {
+   "wp": "Underground ring main & hydrant loop",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "Coincides with civil trenching/backfill"
+  },
+  {
+   "wp": "Fire pump set installation (duty/standby/jockey)",
+   "discipline": "rotating_equipment"
+  },
+  {
+   "wp": "Above-ground distribution, risers & branches",
+   "discipline": "piping"
+  },
+  {
+   "wp": "Sprinkler/deluge heads, nozzles, hydrants & monitors",
+   "discipline": "mechanical"
+  },
+  {
+   "wp": "Pump controllers, power & detection interconnect",
+   "discipline": "electrical_power",
+   "interface": true,
+   "note": "Ties to fire_alarm/BMS"
+  },
+  {
+   "wp": "Flushing, hydrostatic testing & commissioning",
+   "discipline": "mechanical"
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "Underground firewater mains trenching & bedding (civil)",
+   "after": "Lay & joint underground ring main",
+   "reason": "Buried pipe cannot be laid until the trench is excavated, bedded and thrust blocks are cast.",
+   "strength": "strong"
+  },
+  {
+   "before": "Pump house foundations / plinths",
+   "after": "Set fire pumps on plinths",
+   "reason": "Pumps are grouted to their plinths; the foundation must exist and cure first.",
+   "strength": "strong"
+  },
+  {
+   "before": "Firewater piping erection complete (mains + risers)",
+   "after": "Flush firewater system",
+   "reason": "You can only flush a piping run once it is fully erected and connected end to end.",
+   "strength": "strong"
+  },
+  {
+   "before": "Flush firewater mains & distribution",
+   "after": "Hydrostatic pressure test firewater system",
+   "reason": "Flushing must remove construction debris before pressurisation, or heads and valves foul and the test fails.",
+   "strength": "strong"
+  },
+  {
+   "before": "Hydrostatic test accepted",
+   "after": "Fire pump full-flow performance / functional commissioning",
+   "reason": "The distribution must prove leak-tight and pressure-holding before pumps run at rated flow into it.",
+   "strength": "strong"
+  },
+  {
+   "before": "Install sprinkler/deluge heads & hydrants",
+   "after": "Hydrostatic pressure test",
+   "reason": "All terminal devices must be fitted so the whole system is tested at once as installed.",
+   "strength": "moderate"
+  },
+  {
+   "before": "Fire pump controller power & termination",
+   "after": "Pump auto-start / cascade commissioning",
+   "reason": "Controllers must be powered and signal-terminated before automatic start logic can be proven.",
+   "strength": "strong"
+  },
+  {
+   "before": "Fire pump full-flow performance test",
+   "after": "Cause-and-effect / integrated fire test with fire alarm",
+   "reason": "Integrated cause-and-effect assumes the firewater supply is already proven to deliver rated flow and pressure.",
+   "strength": "moderate"
+  },
+  {
+   "before": "Sleeves & fire-rated penetrations set (civil)",
+   "after": "Erect risers through shafts/floors",
+   "reason": "Vertical piping routes through pre-formed penetrations; forming them after erection means re-work.",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "electrical_power",
+   "type": "requires",
+   "requirement": "Permanent (or commissioning) power to the electric fire-pump controller and jockey pump before any pump run test.",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "fire_alarm",
+   "type": "requires",
+   "requirement": "Fire alarm / detection panel live and addressed before deluge/preaction release and cause-and-effect testing.",
+   "phase": "commissioning",
+   "strength": "strong"
+  },
+  {
+   "with": "civil_interface",
+   "type": "requires",
+   "requirement": "Pump-house foundations, buried-main trenches, thrust blocks and structural penetrations complete before setting equipment and laying mains.",
+   "phase": "construction",
+   "strength": "strong"
+  },
+  {
+   "with": "utilities",
+   "type": "requires",
+   "requirement": "Firewater tank filled from a raw/utility water source before flushing and hydrostatic test.",
+   "phase": "pre_commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "bms",
+   "type": "provides",
+   "requirement": "Pump running/fault and low-pressure status signals published to BMS/fire graphics.",
+   "phase": "commissioning",
+   "strength": "moderate"
+  },
+  {
+   "with": "structural_steel",
+   "type": "requires",
+   "requirement": "Pipe-rack / support steel and seismic bracing in place before above-ground distribution is hung.",
+   "phase": "construction",
+   "strength": "moderate"
+  }
+ ],
+ "testing_requirements": [
+  "Flushing of underground mains and distribution before pressure test",
+  "Hydrostatic pressure test of underground mains at elevated pressure with extended hold",
+  "Hydrostatic pressure test of above-ground piping and risers with witnessed hold",
+  "Fire pump performance test across churn, rated and 150% (peak) flow points against the pump curve",
+  "Automatic start on pressure drop and duty/standby/jockey cascade sequence test",
+  "Deluge/preaction functional release verification with detection",
+  "Hydrant and monitor flow/residual-pressure verification",
+  "Diesel-driven pump run, fuel autonomy and battery/start reliability check"
+ ],
+ "commissioning_dependencies": [
+  "Permanent or temporary commissioning power to pump controllers",
+  "Fire alarm & detection panel live for release and cause-and-effect",
+  "Firewater tank filled from a water source",
+  "Piping mechanically complete, flushed and hydro-tested",
+  "System punch list cleared to a level that permits energisation",
+  "Instrument/pressure switch and flow-switch loops calibrated"
+ ],
+ "typical_exceptions": [
+  "Small dry-pipe or pre-action zones may hydro-test with air/nitrogen rather than water",
+  "Gaseous/clean-agent suppression rooms follow their own cylinder discharge test path, not water hydrostatic",
+  "Where a public/utility firewater supply exists, an on-site pump set and tank may be reduced or omitted",
+  "Foam systems add a concentrate proportioning test not present on plain water systems"
+ ],
+ "evidence": "Fire-pump performance and cause-and-effect commissioning are scheduled before the firewater mains are flushed and hydrostatically tested, or before pump power / fire-alarm detection is live — a physically impossible order for firewater acceptance.",
+ "status": "curated",
+ "source": "system_pattern"
+}

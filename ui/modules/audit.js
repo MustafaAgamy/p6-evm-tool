@@ -47,6 +47,62 @@ export function uniqueValues(findings, key) {
   return [...new Set(findings.map(f => f[key]).filter(Boolean))].sort();
 }
 
+// ── Out-of-Sequence Resolve & Correct — pure helpers (unit-tested) ─────────
+
+export function oosLagLabel(lag) {
+  const l = Math.round((lag || 0) * 10) / 10;
+  if (!l) return '';
+  return `(${l > 0 ? '+' : '−'}${Math.abs(l)}d)`;
+}
+
+// 'SS(+3d)' / 'FS' — compact relationship + lag label.
+export function oosRelLabel(rel, lag) {
+  if (!rel) return '';
+  const s = oosLagLabel(lag);
+  return s ? `${rel}${s}` : rel;
+}
+
+// The default accepted correction for a finding (the recommended action, editable later).
+export function oosDefaultOp(f) {
+  const r = f.resolution || {};
+  return {
+    finding_id: f.finding_id,
+    pred_id: f.pred_id || '',
+    succ_id: f.activity_id || '',
+    action: r.action || 'remove',
+    new_type: r.new_type || null,
+    new_lag_days: (r.new_lag_days === undefined ? null : r.new_lag_days),
+    new_pred_id: r.new_pred_id || '',
+    reason: '',
+  };
+}
+
+// A one-line human summary of an accepted op, for the Resolved view.
+export function oosOpSummary(op) {
+  const a = (op.action || '').toLowerCase();
+  if (a === 'remove') return `Removed link ${op.pred_id} → ${op.succ_id}`;
+  if (a === 'replace') return `Replaced predecessor → ${op.new_pred_id} (${oosRelLabel(op.new_type, op.new_lag_days)})`;
+  if (a === 'add') return `Added ${op.new_pred_id || op.pred_id} → ${op.succ_id} (${oosRelLabel(op.new_type, op.new_lag_days)})`;
+  return `Changed ${op.pred_id} → ${op.succ_id} to ${oosRelLabel(op.new_type, op.new_lag_days)}`;
+}
+
+// True when a finding carries a recommended, applicable correction (change / remove / re-tie) on
+// either tie — so "Apply all recommended fixes" will act on it. A finding that only needs planner
+// review (no auto-applicable op on either tie) returns false and is left open by "Apply all".
+export function oosHasFix(f) {
+  const acts = (r) => !!r && (r.action === 'change' || r.action === 'remove' || r.action === 'replace');
+  return acts(f.pred_resolution || f.resolution) || (!!f.succ_id && acts(f.succ_resolution));
+}
+
+// Honest outcome of a bulk apply: of the findings an op was applied to (touchedIds), how many
+// actually CLEARED — i.e. are absent from the post-validation open set (freshAfter) — vs were applied
+// but are still out of sequence. Never counts a still-open finding as resolved.
+export function oosBulkOutcome(touchedIds, freshAfter) {
+  const open = new Set((freshAfter || []).map(f => f.finding_id));
+  const resolved = (touchedIds || []).filter(id => !open.has(id)).length;
+  return { applied: (touchedIds || []).length, resolved, notCleared: (touchedIds || []).length - resolved };
+}
+
 // ── DOM rendering + wiring (browser only) ─────────────────────────────────
 
 import { state } from './state.js';
@@ -63,29 +119,47 @@ export function switchView(view) {
   document.getElementById('audit-panel').classList.toggle('hidden', view !== 'audit');
   document.getElementById('oos-panel').classList.toggle('hidden', view !== 'oos');
   document.getElementById('calendar-panel').classList.toggle('hidden', view !== 'calendar');
+  document.getElementById('weather-panel').classList.toggle('hidden', view !== 'weather');
   document.getElementById('construct-panel').classList.toggle('hidden', view !== 'construct');
   document.getElementById('compare-panel').classList.toggle('hidden', view !== 'compare');
-  document.getElementById('narrative-panel').classList.toggle('hidden', view !== 'narrative');
+  document.getElementById('revcompare-panel')?.classList.toggle('hidden', view !== 'revcompare');
+  document.getElementById('lag-panel').classList.toggle('hidden', view !== 'lag');
+  document.getElementById('period-panel').classList.toggle('hidden', view !== 'period');
+  document.getElementById('critpath-panel').classList.toggle('hidden', view !== 'critpath');
+  document.getElementById('update-panel').classList.toggle('hidden', view !== 'update');
+  document.getElementById('special-panel').classList.toggle('hidden', view !== 'special');
+  document.getElementById('narrative-panel')?.classList.toggle('hidden', view !== 'narrative');
+  document.getElementById('copilot-panel')?.classList.toggle('hidden', view !== 'copilot');
+  document.getElementById('overview-panel')?.classList.toggle('hidden', view !== 'overview');
+  document.getElementById('wbs-panel')?.classList.toggle('hidden', view !== 'wbs');
+  document.getElementById('schedule-panel')?.classList.toggle('hidden', view !== 'schedule');
   document.getElementById('tab-evm').classList.toggle('active', view === 'evm');
   document.getElementById('tab-audit').classList.toggle('active', view === 'audit');
   document.getElementById('tab-oos').classList.toggle('active', view === 'oos');
   document.getElementById('tab-calendar').classList.toggle('active', view === 'calendar');
+  document.getElementById('tab-weather').classList.toggle('active', view === 'weather');
   document.getElementById('tab-construct').classList.toggle('active', view === 'construct');
   document.getElementById('tab-compare').classList.toggle('active', view === 'compare');
-  document.getElementById('tab-narrative').classList.toggle('active', view === 'narrative');
-  // Keep exactly one sidebar item highlighted: shield on the Audit view, Home otherwise.
-  document.getElementById('sb-audit-btn').classList.toggle('active', view === 'audit');
-  document.getElementById('sb-home-btn').classList.toggle('active', view !== 'audit');
-  // Out of Sequence exports reuse the module export path with a fixed module id.
+  document.getElementById('tab-revcompare')?.classList.toggle('active', view === 'revcompare');
+  document.getElementById('tab-lag').classList.toggle('active', view === 'lag');
+  document.getElementById('tab-period').classList.toggle('active', view === 'period');
+  document.getElementById('tab-critpath').classList.toggle('active', view === 'critpath');
+  document.getElementById('tab-update').classList.toggle('active', view === 'update');
+  document.getElementById('tab-special').classList.toggle('active', view === 'special');
+  // Highlight the active module in the Project Navigator (Aurora+ shell).
+  document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n =>
+    n.classList.toggle('on', n.dataset.nav === view));
+  // Out of Sequence and Lag Report are top-level views but reuse the module export path
+  // (PDF/Excel) with a fixed module id.
   if (view === 'oos') state.currentModule = 'out_of_sequence';
+  if (view === 'lag') state.currentModule = 'lag_lead';
 }
 
 // Show the "EVM vs Schedule Audit" choice; hide both analysis views until picked.
 export function showChooser() {
   document.getElementById('analysis-chooser').classList.remove('hidden');
   document.getElementById('analysis-views').classList.add('hidden');
-  document.getElementById('sb-audit-btn').classList.remove('active');
-  document.getElementById('sb-home-btn').classList.add('active');
+  document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n => n.classList.remove('on'));
 }
 
 export function shortWbs(path, n = 3) {
@@ -99,7 +173,21 @@ export function gradeClass(grade) {
            'Needs Attention': 'g-need', 'Critical': 'g-crit' }[grade] || 'g-need';
 }
 
-// Render the isolated-modules audit view: a module selector + one module's report.
+// Rail order for the Schedule Health Review checks. The diagnostic checks come
+// first (the user reviews the individual schedule issues), and Summary sits at
+// the very END as the executive roll-up / conclusion. Out of Sequence and Lag
+// Report are separate top-level features, not tabs here.
+const SHR_RAIL_ORDER = ['dangling', 'open_ends', 'leads', 'negative_float',
+  'relationship_types', 'whole_day', 'hard_constraints', 'high_duration',
+  'cpli', 'float', 'circular'];
+const SUMMARY_KEY = '__summary__';
+
+// The tab score shows the module's own score; CPLI can be "not computed" (null).
+export function tabScore(m) {
+  return (m.score === null || m.score === undefined) ? '—' : m.score;
+}
+
+// Render the Schedule Health Review: a Summary dashboard + one tab per check.
 export function renderAudit(auditModules) {
   state.currentModules = auditModules || null;
   const body = document.getElementById('audit-body');
@@ -107,14 +195,32 @@ export function renderAudit(auditModules) {
   // Always rebuild a fresh #module-body so repeated renders never hit a
   // container that a prior "no audit" render replaced.
   body.innerHTML = '<div id="module-body"></div>';
-  // Out of Sequence is shown as its own top-level feature, not a Schedule Audit tab.
-  const order = ((auditModules && auditModules.module_order) || []).filter(k => k !== 'out_of_sequence');
-  if (!order.length) {
+  const present = ((auditModules && auditModules.module_order) || [])
+    .filter(k => k !== 'out_of_sequence' && k !== 'lag_lead');
+  if (!present.length) {
     tabs.innerHTML = '';
     document.getElementById('module-body').innerHTML =
-      '<p style="color:var(--muted);font-size:13px">No audit available for this schedule.</p>';
+      '<p style="color:var(--muted);font-size:13px">No Schedule Health Review available for this schedule.</p>';
     return;
   }
+  // Locked order first, then anything unexpected appended so nothing is dropped.
+  const order = SHR_RAIL_ORDER.filter(k => present.includes(k))
+    .concat(present.filter(k => !SHR_RAIL_ORDER.includes(k)));
+
+  // Gate B — nothing in the review shows until the contract milestones are entered.
+  const mcGate = auditModules.modules.hard_constraints;
+  if (mcGate && mcGate.needs_input) {
+    tabs.innerHTML = '';
+    return renderMilestoneGate(auditModules);
+  }
+
+  const health = (auditModules && auditModules.health) || null;
+  // Summary is the executive roll-up — placed LAST, after the diagnostic checks.
+  const summaryTab = health
+    ? `<button class="module-tab mt-summary" data-module="${SUMMARY_KEY}">
+         <span class="mt-dot ${scoreColor(health.score ?? 0)}"></span>Summary
+         <span class="mt-score">${health.score ?? '—'}</span></button>`
+    : '';
   tabs.innerHTML = order.map(key => {
     const m = auditModules.modules[key];
     // Float shows its DCMA Float Health score + colour (no word-grade); others keep the grade dot.
@@ -127,41 +233,119 @@ export function renderAudit(auditModules) {
     }
     return `<button class="module-tab" data-module="${escapeHtml(key)}">
       <span class="mt-dot ${gradeClass(m.grade)}"></span>${escapeHtml(m.name)}
-      <span class="mt-score">${m.score}</span></button>`;
-  }).join('');
+      <span class="mt-score">${tabScore(m)}</span></button>`;
+  }).join('') + summaryTab;
   tabs.querySelectorAll('.module-tab').forEach(btn =>
     btn.addEventListener('click', () => selectModule(btn.dataset.module)));
+  // Land on the first diagnostic check; the user reaches Summary at the end.
   selectModule(order[0]);
 }
 
 export function selectModule(key) {
   const am = state.currentModules;
-  if (!am || !am.modules[key]) return;
-  state.currentModule = key;
+  if (!am) return;
   document.querySelectorAll('.module-tab').forEach(b =>
     b.classList.toggle('active', b.dataset.module === key));
   _filters = { severity: '', check: '', wbs: '', query: '', area: '' };
+  if (key === SUMMARY_KEY) {
+    state.currentModule = SUMMARY_KEY;
+    return renderSummary(am.health || null, am);
+  }
+  if (!am.modules[key]) return;
+  state.currentModule = key;
   renderModuleBody(am.modules[key]);
 }
 
-function kpiTiles(m) {
-  const k = m.kpis || {};
-  const tiles = m.module === 'dangling'
-    ? [['Total Activities', (k.total_activities || 0).toLocaleString()],
-       ['Total Dangling', k.total_dangling || 0],
-       ['Dangling %', `${k.dangling_pct ?? 0}%`],
-       ['Dangling Start', k.start_dangling || 0],
-       ['Dangling Finish', k.finish_dangling || 0],
-       ['Dangling Start + Dangling Finish', k.both_dangling || 0]]
-    : [['Total Activities', (k.total_activities || 0).toLocaleString()],
-       ['Above Threshold', k.above_threshold || 0],
-       ['Float %', `${k.float_pct ?? 0}%`],
-       ['Max Float', `${k.max_float ?? 0} d`],
-       ['Average Float', `${k.avg_float ?? 0} d`],
-       ['Threshold', `${k.threshold ?? 44} d`]];
-  return tiles.map(([lab, val]) =>
-    `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(val)}</div></div>`).join('');
+// ── Small formatting + table-cell helpers (shared by every check view) ────
+const num = v => (Number(v) || 0).toLocaleString();
+const pctv = v => `${v ?? 0}%`;
+const dnum = v => (v === null || v === undefined) ? '—' : `${v} d`;
+const isoDate = v => v ? String(v).slice(0, 10) : '—';
+const MON3 = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtDate = v => {                       // ISO or already-nice → 9-Feb-2027
+  if (!v) return '—';
+  const p = String(v).slice(0, 10).split('-');
+  return (p.length === 3 && +p[1]) ? `${+p[2]}-${MON3[+p[1]]}-${p[0]}` : String(v);
+};
+const td = v => `<td>${escapeHtml(v ?? '')}</td>`;
+const tdNum = v => `<td class="num">${escapeHtml(String(v ?? ''))}</td>`;
+const tdMono = v => `<td class="mono">${escapeHtml(v ?? '')}</td>`;
+const tdMut = v => `<td class="mut">${escapeHtml(v ?? '')}</td>`;
+const tdWbs = p => `<td title="${escapeHtml(p ?? '')}">${escapeHtml(shortWbs(p))}</td>`;
+const tdSev = s => `<td><span class="sevtag ${severityClass(s)}">${escapeHtml(s ?? '')}</span></td>`;
+
+// Pass / Review / Critical → colour + dot class (the roll-up's status semantics).
+export function statusColor(status) {
+  return { Pass: 'var(--success)', Review: 'var(--warning)', Critical: 'var(--danger)' }[status] || 'var(--muted)';
 }
+export function statusDot(status) {
+  return { Pass: 'd-g', Review: 'd-a', Critical: 'd-c' }[status] || 'd-n';
+}
+export function verdictClass(verdict) {
+  if (verdict === 'Ready to submit') return 'v-good';
+  if (verdict === 'Acceptable to submit') return 'v-warn';   // 80–90: meets the standard
+  return 'v-bad';   // Not ready / Blocked / Not computed
+}
+
+// The reusable gauge (120px ring + centred score). `score` may be null.
+function gaugeHtml(score, label = '/ 100') {
+  const C = 326.7;
+  const shown = (score === null || score === undefined) ? '—' : score;
+  return `<div class="gauge">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="12"/>
+        <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                stroke-dasharray="${C}" stroke-dashoffset="${gaugeDashoffset(score || 0, C)}"
+                transform="rotate(-90 60 60)" class="gauge-arc ${scoreColor(score || 0)}"/>
+      </svg>
+      <div class="gauge-num"><b>${shown}</b><span>${escapeHtml(label)}</span></div>
+    </div>`;
+}
+
+// Render one normalized presentation cell — mirrors report.py _pcell so the
+// screen, the PDF and Excel draw identical cells from the one source.
+function cellHtml(cell) {
+  if (cell.badge) return `<td><span class="sevtag ${cell.badge}">${escapeHtml(cell.text)}</span></td>`;
+  const cls = cell.cls ? ` class="${cell.cls}"` : '';
+  const title = cell.title ? ` title="${escapeHtml(cell.title)}"` : '';
+  return `<td${cls}${title}>${escapeHtml(cell.text)}</td>`;
+}
+
+function presentationTiles(p) {
+  return (p.tiles || []).map(t =>
+    `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div><div class="v">${escapeHtml(t.value)}</div></div>`).join('');
+}
+
+// "How this score is calculated" — the transparent scoring legend every check
+// shows (formula + this schedule's derivation + bands + the DCMA benchmark, which
+// is deliberately kept separate from the 0-100 score).
+function scoringLegendHtml(s) {
+  if (!s) return '';
+  const parts = [
+    `<div class="sl-t">How this score is calculated</div>`,
+    `<div class="sl-r"><b>Formula:</b> ${escapeHtml(s.formula)}</div>`,
+    `<div class="sl-r"><b>This schedule:</b> ${escapeHtml(s.derivation)}</div>`,
+  ];
+  if (s.bands) parts.push(`<div class="sl-r"><b>Score bands:</b> ${escapeHtml(s.bands)}</div>`);
+  if (s.benchmark) parts.push(`<div class="sl-r sl-bench"><b>Benchmark:</b> ${escapeHtml(s.benchmark)}</div>`);
+  return `<div class="shr-legend score-legend">${parts.join('')}</div>`;
+}
+
+// "What the severity levels mean" — the criteria straight from the rule engine, so
+// the user knows why a finding is Critical/High/Medium/Low (not just its colour).
+function severityLegendHtml(sev) {
+  if (!sev || !(sev.levels || []).length) return '';
+  const rows = sev.levels.map(l =>
+    `<div class="sl2-row"><span class="sevtag ${severityClass(l.level)}">${escapeHtml(l.level)}</span>` +
+    `<span>${escapeHtml(l.criteria)}</span></div>`).join('');
+  const basis = sev.basis ? `<div class="sl-r sl-bench">${escapeHtml(sev.basis)}</div>` : '';
+  return `<div class="shr-legend sev-legend"><div class="sl-t">What the severity levels mean</div>` +
+    `<div class="sl2">${rows}</div>${basis}</div>`;
+}
+
+// Per-check KPI tiles + table columns now live in ONE place — p6_audit/presentation.py
+// (build_presentation) — and arrive on each module as `m.presentation`, so the screen,
+// the PDF and Excel render identical tiles/columns/cells (see cellHtml/presentationTiles).
 
 function wbsSummaryHtml(m) {
   const ws = m.wbs_summary || [];
@@ -184,10 +368,6 @@ function wbsSummaryHtml(m) {
 export function oosPillClass(kind) {
   if (kind === 'same' || kind === 'na') return kind;
   return kind === 'remove' ? 'remove' : 'change';
-}
-
-function oosSug(text, kind) {
-  return `<span class="oos-pill ${oosPillClass(kind)}">${escapeHtml(text || '')}</span>`;
 }
 
 export function oosCritLabel(c) {
@@ -232,31 +412,6 @@ export function renderOutOfSequence(m) {
       <td class="num">${r.pct}%</td><td class="num">${r.critical_oos || 0}</td>
       <td class="num">${r.near_critical_oos || 0}</td></tr>`).join('');
 
-  const logRows = findings.map((f, i) => `
-    <tr><td class="num">${i + 1}</td><td class="mono">${escapeHtml(f.activity_id)}</td>
-      <td>${escapeHtml(f.activity_name)}</td>
-      <td title="${escapeHtml(f.wbs_path)}">${escapeHtml(shortWbs(f.wbs_path))}</td>
-      <td>${escapeHtml(f.current_pred_rel)}</td>
-      <td class="mut">${escapeHtml(f.current_pred_activity)}</td>
-      <td>${escapeHtml(f.current_succ_rel)}</td>
-      <td class="mut">${escapeHtml(f.current_succ_activity)}</td>
-      <td class="mut">${cutoff}</td>
-      <td>${oosSug(f.suggested_predecessor, f.suggested_predecessor_kind)}</td>
-      <td>${oosSug(f.suggested_successor, f.suggested_successor_kind)}</td>
-      <td class="mut">${escapeHtml(f.root_cause)}</td>
-      <td class="mut">${escapeHtml(f.planning_review_comment)}</td>
-      <td>${oosCrit(f.criticality)}</td></tr>`).join('');
-
-  const logTable = findings.length ? `
-    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table oos-log"><thead><tr>
-      <th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th>
-      <th>Current Pred. Rel.</th><th>Current Predecessor Activity</th>
-      <th>Current Succ. Rel.</th><th>Current Successor Activity</th><th>Cutoff Date</th>
-      <th>Suggested Predecessor</th><th>Suggested Successor</th>
-      <th>Root Cause</th><th>Planning Review Comment</th><th>Criticality</th>
-    </tr></thead><tbody>${logRows}</tbody></table></div>`
-    : `<p style="color:var(--muted);font-size:13px">No out-of-sequence activities — schedule progress is consistent with the network logic.</p>`;
-
   const conclusion = k.executive_conclusion ? `
     <div class="mod-sec">Executive Conclusion</div>
     <div class="oos-concl">${escapeHtml(k.executive_conclusion)}</div>` : '';
@@ -289,10 +444,10 @@ export function renderOutOfSequence(m) {
         mapped on the approved band curve (0%→100 · 2%→90 · 5%→75 · 8%→50 · 20%→0).
         This schedule: <b>${m.pct}% → ${escapeHtml(m.grade || '')} → ${m.score} / 100</b>.</div>
       <div class="bands">
-        <span><i class="dot" style="background:#2e8b57"></i>Excellent ≤ 2%</span>
-        <span><i class="dot" style="background:#c9a227"></i>Acceptable 2–5%</span>
-        <span><i class="dot" style="background:#e07b1a"></i>Needs Attention 5–8%</span>
-        <span><i class="dot" style="background:#c0392b"></i>Critical &gt; 8%</span>
+        <span><i class="dot" style="background:var(--success)"></i>Excellent ≤ 2%</span>
+        <span><i class="dot" style="background:var(--chart-2)"></i>Acceptable 2–5%</span>
+        <span><i class="dot" style="background:var(--warning)"></i>Needs Attention 5–8%</span>
+        <span><i class="dot" style="background:var(--danger)"></i>Critical &gt; 8%</span>
       </div>
     </div>
     <div class="oos-stdref"><b>Standard Reference:</b> Based on the <b>DCMA 14-Point Schedule Assessment</b>
@@ -307,8 +462,8 @@ export function renderOutOfSequence(m) {
       <th class="num">%</th><th class="num">Critical OOS</th><th class="num">Near-Critical OOS</th></tr></thead>
       <tbody>${distRows}</tbody></table></div>
 
-    <div class="mod-sec">Out-of-Sequence Review Log</div>
-    ${logTable}
+    <div class="mod-sec">Out-of-Sequence Review &amp; Resolve</div>
+    <div id="oos-review"></div>
 
     <div class="mod-sec">Critical Path Impact Assessment</div>
     <div class="oos-cpi">
@@ -326,10 +481,506 @@ export function renderOutOfSequence(m) {
     <div style="font-size:11px;color:var(--muted);margin-top:6px">Classification only — the module does not predict a number of delay days.</div>
 
     ${conclusion}`;
+
+  _oosInit(m);
+}
+
+// ── Out-of-Sequence Resolve & Correct — LOG (Baseline vs After Modification) ──
+// Server-truth model: `all` = original findings; `fresh` = findings after the applied corrections
+// (from re-validation); `applied[fid]` = {finding, ops, reason}. A finding is Resolved when it is
+// in `all` but no longer in `fresh`. Preserved while the same schedule is open; reset on a new import.
+let _oos = { sig: null, all: [], fresh: [], applied: {}, view: 'open', dataDate: '' };
+
+function _oosSig(m) {
+  const f = (m.findings || [])[0] || {};
+  return `${(m.kpis || {}).data_date || ''}|${(m.findings || []).length}|${f.finding_id || ''}`;
+}
+
+let _oosEscBound = false;
+
+function _oosInit(m) {
+  if (!_oosEscBound) {
+    _oosEscBound = true;
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && _oos.fullscreen) { _oos.fullscreen = false; renderOosReview(); }
+    });
+  }
+  // The panel was (re)rendered fresh in #oos-body — clear any stray full-screen overlay a prior
+  // session left attached to <body>, and exit full screen.
+  Array.from(document.body.children).forEach(c => { if (c.id === 'oos-review') c.remove(); });
+  document.body.classList.remove('oos-fs-body');
+  const sig = _oosSig(m);
+  if (sig !== _oos.sig) {
+    _oos = { sig, all: (m.findings || []).slice(), fresh: (m.findings || []).slice(),
+             applied: {}, view: 'open', dataDate: (m.kpis || {}).data_date || '',
+             near: (m.kpis || {}).near_critical_days || 10, fullscreen: false };
+  } else {
+    _oos.dataDate = (m.kpis || {}).data_date || '';
+    _oos.near = (m.kpis || {}).near_critical_days || 10;
+    _oos.fullscreen = false;
+  }
+  _oos._home = null;
+  renderOosReview();
+}
+
+// Every accepted correction across all applied rows (predecessor + successor ties), for
+// re-validation and the corrected-file export.
+function _oosAppliedOps() {
+  const ops = [];
+  Object.values(_oos.applied).forEach(a => (a.ops || []).forEach(o => ops.push(o)));
+  return ops;
+}
+
+// Build the predecessor + successor tie corrections for a finding. An op is produced only for a
+// genuine change/remove — either the engine's auto recommendation, OR a manual decision the planner
+// picked in the drawer (a 'manual'/'review'/'nochange' tie yields no op, so it stays unresolved).
+function _oosBuildOps(f) {
+  return [
+    _oosOpFor(f, 'pred', f.pred_id, f.activity_id, f.pred_resolution || f.resolution),
+    f.succ_id ? _oosOpFor(f, 'succ', f.activity_id, f.succ_id, f.succ_resolution) : null,
+  ].filter(Boolean);
+}
+
+function _oosOpFor(f, side, predCode, succCode, res) {
+  res = res || {};
+  const get = (field) => document.querySelector(
+    `[data-oosfield="${field}"][data-fid="${f.finding_id}"][data-side="${side}"]`);
+  let action = res.action, newType = res.new_type, newLag = res.new_lag_days, newPred = res.new_pred_id || '';
+  const aEl = get('action'); if (aEl) action = aEl.value;        // the drawer (planner) overrides
+  const tEl = get('new_type'); if (tEl) newType = tEl.value;
+  const lEl = get('new_lag_days'); if (lEl && lEl.value !== '') newLag = parseFloat(lEl.value);
+  const pEl = get('new_pred_id'); if (pEl && pEl.value.trim()) newPred = pEl.value.trim();
+  // 'replace' = remove the offending tie + add a new predecessor (the commencement for a completed
+  // activity). manual / review / nochange → no op (stays unresolved).
+  if (action !== 'change' && action !== 'remove' && action !== 'replace') return null;
+  if (action === 'remove') { newType = null; newLag = null; }
+  return { finding_id: f.finding_id, pred_id: predCode, succ_id: succCode,
+           action, new_type: newType, new_lag_days: newLag,
+           new_pred_id: (action === 'replace' ? newPred : '') };
+}
+
+function _oosCurRel(rel, lag) {
+  const s = oosRelLabel(rel, lag);
+  return s ? `<span class="oos-relb">${escapeHtml(s)}</span>` : '';
+}
+
+// Severity badge (Critical / High / Medium) — his LOG's "Severity" column.
+function _oosSevCell(f) {
+  const s = f.severity || 'Medium';
+  const cls = s === 'Critical' ? 'crit' : (s === 'High' ? 'high' : 'med');
+  const crit = f.criticality && f.criticality !== '' ? ` <span class="oos-critnote">(${escapeHtml(f.criticality)})</span>` : '';
+  return `<span class="oos-sevb ${cls}">${escapeHtml(s)}</span>${crit}`;
+}
+
+// The 'After Modification' relationship cell: "No change", the "OLD → NEW" transition, or a flag.
+function _oosAfterCell(label) {
+  if (!label || label === 'No change') return `<span class="oos-nochg">No change</span>`;
+  if (label === 'Needs Planner Review' || label === 'Planner review') return `<span class="oos-relb rev">⚠ Needs Planner Review</span>`;
+  // A replace ("… → Removed; + <pred> FS(0)") is a positive fix (re-tied), not a bare removal.
+  const cls = /;\s*\+/.test(label) ? 'sg' : (/Removed/.test(label) ? 'rem' : 'sg');
+  return `<span class="oos-relb ${cls}">${escapeHtml(label)}</span>`;
+}
+
+function renderOosReview() {
+  const host = document.getElementById('oos-review');
+  if (!host) return;
+  const freshIds = new Set(_oos.fresh.map(f => f.finding_id));
+  const openF = _oos.fresh;
+  const resolvedF = _oos.all.filter(f => !freshIds.has(f.finding_id));
+  const dd = escapeHtml(_oos.dataDate || '');
+  const anyOps = _oosAppliedOps().length > 0;
+
+  const toolbar = `
+    <div class="oos-toolbar">
+      <div class="oos-tabs">
+        <button class="oos-tab ${_oos.view === 'open' ? 'active' : ''}" data-oosact="view" data-view="open">Open <span class="cnt">${openF.length}</span></button>
+        <button class="oos-tab ${_oos.view === 'resolved' ? 'active' : ''}" data-oosact="view" data-view="resolved">Resolved <span class="cnt">${resolvedF.length}</span></button>
+      </div>
+      <button class="oos-fs" data-oosact="fullscreen" title="Show the full table using the whole window">${_oos.fullscreen ? '✕ Exit full screen' : '⛶ Full screen'}</button>
+      <div style="flex:1"></div>
+      <div style="text-align:right">
+        <button class="oos-dl" data-oosact="download" ${anyOps ? '' : 'disabled'}>⬇ Download Corrected Schedule</button>
+        <div class="oos-dlnote">${anyOps
+          ? `${resolvedF.length} finding(s) resolved · exports the same format you imported (XER / XML) — open in P6 and F9.`
+          : `Apply at least one correction to enable. Exports the same format you imported (XER / XML).`}</div>
+      </div>
+    </div>`;
+
+  host.innerHTML = toolbar + _oosLogTable(_oos.view === 'open' ? openF : resolvedF, dd, _oos.view === 'resolved');
+  // Full-screen: move the overlay to <body> so it escapes any transformed/contained ancestor
+  // (those trap position:fixed) and truly fills the window; restore it to its home on exit.
+  if (_oos.fullscreen) {
+    if (!_oos._home) _oos._home = { parent: host.parentElement, next: host.nextElementSibling };
+    if (host.parentElement !== document.body) document.body.appendChild(host);
+    host.classList.add('oos-fs-on');
+    document.body.classList.add('oos-fs-body');
+  } else {
+    if (_oos._home && host.parentElement === document.body) {
+      const { parent, next } = _oos._home;
+      if (next && next.parentElement === parent) parent.insertBefore(host, next);
+      else parent.appendChild(host);
+    }
+    _oos._home = null;
+    host.classList.remove('oos-fs-on');
+    document.body.classList.remove('oos-fs-body');
+  }
+  _oosWire();
+}
+
+// Valid alternatives in the drawer, CLICKABLE — click to pre-fill the edit form with that fix.
+function _oosAltPicks(r, fid, side) {
+  const alts = (r && r.alternatives) || [];
+  if (!alts.length) return '';
+  const pills = alts.map(a =>
+    `<span class="oos-altpill pick" data-oosact="pickalt" data-fid="${escapeHtml(fid)}" data-side="${side}" `
+    + `data-type="${escapeHtml(a.new_type || '')}" data-lag="${a.new_lag_days == null ? 0 : a.new_lag_days}">`
+    + `${escapeHtml(a.label || '')}</span>`).join('');
+  return `<div class="oos-alts"><span class="oos-altlbl">Alternatives (click to use):</span> ${pills}</div>`;
+}
+
+function _oosResCell(f, resolved) {
+  if (resolved) {
+    const a = _oos.applied[f.finding_id];
+    if (!a) {
+      // Cleared as a side-effect of another row's correction — no own op to re-open.
+      return `<span class="oos-resolved">✓ Resolved</span><div class="oos-appliednote">via a linked correction</div>`;
+    }
+    const note = a.reason ? `<div class="oos-appliednote">${escapeHtml(a.reason)}</div>` : '';
+    return `<span class="oos-resolved">✓ Resolved</span>${note}`
+      + `<button class="oos-mini" data-oosact="reopen" data-fid="${escapeHtml(f.finding_id)}">Re-open</button>`;
+  }
+  const pr = f.pred_resolution || f.resolution || {};
+  const actionable = _oosBuildOps(f).length > 0;
+  const predManual = (pr.action === 'manual' || !pr.applicable);
+  let btn;
+  if (actionable) {
+    btn = `<button class="oos-mini apply" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply</button>`;
+  } else if (predManual) {
+    btn = `<button class="oos-mini review" disabled title="No automatic relationship correction resolves this — open ▾ to review or make a manual decision">⚠ Needs Planner Review</button>`;
+  } else {
+    btn = `<button class="oos-mini data" disabled>No change</button>`;
+  }
+  const applied = _oos.applied[f.finding_id];
+  const stale = applied ? `<div class="oos-stale">Applied — didn't fully clear; edit &amp; retry.</div>` : '';
+  return `<div class="oos-rowbtns">${btn}<button class="oos-caret" data-oosact="details" data-fid="${escapeHtml(f.finding_id)}">▾</button></div>${stale}`;
+}
+
+function _oosLogRow(f, i, dd, resolved) {
+  const succName = f.succ_name || (f.succ_id ? '' : 'No successor');
+  // Baseline shows ALL predecessor/successor ties (driving one flagged), so the planner sees the
+  // full context — not only the driving tie. The After columns carry the before→after transition
+  // for the affected tie; predecessor/successor NAMES are in the Baseline lists (unchanged by a fix).
+  const predList = f.all_predecessors || (f.pred_id ? [{ id: f.pred_id, name: f.pred_name, label: f.pred_baseline_label, affected: true }] : []);
+  const succList = f.all_successors || (f.succ_id ? [{ id: f.succ_id, name: f.succ_name, label: f.succ_baseline_label, affected: (f.succ_after_label && f.succ_after_label !== 'No change' && f.succ_after_label !== '—') }] : []);
+  const remainNote = (f.pred_resolution && f.pred_resolution.action === 'remove' && typeof f.remaining_preds === 'number')
+    ? `<div class="oos-remain">Remaining predecessors: ${f.remaining_preds}</div>` : '';
+  return `
+    <tr class="oos-frow" data-fid="${escapeHtml(f.finding_id)}">
+      <td class="oos-num">${i + 1}</td>
+      <td class="id mono">${escapeHtml(f.activity_id)}</td>
+      <td class="nm actnm">${escapeHtml(f.activity_name)}</td>
+      <td class="bl rellist">${_oosRelListCell(predList, 'No predecessor')}</td>
+      <td class="bl rellist">${_oosRelListCell(succList, 'No successor')}</td>
+      <td class="dd mono mut">${dd}</td>
+      <td class="am rel">${_oosAfterCell(f.pred_after_label)}${remainNote}</td>
+      <td class="am rel">${_oosAfterCell(f.succ_after_label)}</td>
+      <td class="sev">${_oosSevCell(f)}</td>
+      <td class="oos-rescell">${_oosResCell(f, resolved)}</td>
+    </tr>
+    <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="10">${_oosDrawer(f)}</td></tr>`;
+}
+
+// A Baseline cell listing every predecessor/successor tie, the driving one flagged + listed first.
+function _oosRelListCell(list, emptyLabel) {
+  if (!list || !list.length) return `<span class="oos-nochg">${escapeHtml(emptyLabel)}</span>`;
+  return list.map(p => {
+    const badge = p.affected ? `<span class="oos-affbadge">Driving</span>` : '';
+    return `<div class="oos-relrow${p.affected ? ' aff' : ''}">`
+      + `<span class="mono relid">${escapeHtml(p.id || '')}</span> <span class="oos-relb">${escapeHtml(p.label || '')}</span> ${badge}`
+      + `<div class="nm">${escapeHtml(p.name || '')}</div></div>`;
+  }).join('');
+}
+
+function _oosLogTable(rows, dd, resolved) {
+  if (!rows.length) {
+    return `<div class="oos-empty">${resolved
+      ? 'Nothing resolved yet. Apply a correction from the Open tab.'
+      : 'No open findings — every out-of-sequence condition has been resolved. 🎉'}</div>`;
+  }
+  const body = rows.map((f, i) => _oosLogRow(f, i, dd, resolved)).join('');
+  // "Apply all" sits BELOW the table (the planner reviews the results first, then applies) — shown
+  // only in the Open view and only when at least one open finding has a recommended fix to apply.
+  const applyAllBar = (!resolved && rows.some(oosHasFix)) ? `
+    <div class="oos-applyall">
+      <button class="oos-applyall-btn" data-oosact="applyall">⚡ Apply all recommended fixes</button>
+      <span class="oos-applyall-hint">Review the results above, then apply every finding that has a recommended fix in one step — no need to Apply each activity. Findings that need planner review stay open.</span>
+    </div>` : '';
+  return `
+    <div class="oos-sevlegend"><span class="oos-sevlegend-t">Severity</span>
+      <span class="oos-sevb crit">Critical</span> on the critical path (total float ≤ 0)
+      <span class="oos-sevb high">High</span> near-critical (0 &lt; total float ≤ ${_oos.near} working days)
+      <span class="oos-sevb med">Medium</span> has float — not near-critical</div>
+    <div class="tblwrap oos-tblwrap"><table class="audit-table oos-logx">
+      <caption class="oos-cap">Out Of Sequence Activity</caption>
+      <thead>
+        <tr class="oos-grp">
+          <th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>
+          <th class="bl" colspan="2">Baseline relationships</th>
+          <th rowspan="2">Data Date</th>
+          <th class="am" colspan="2">After Modification</th>
+          <th rowspan="2">Severity</th><th rowspan="2">Resolution</th>
+        </tr>
+        <tr class="oos-sub">
+          <th class="bl">Predecessors</th><th class="bl">Successors</th>
+          <th class="am">Predecessor tie</th><th class="am">Successor tie</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody></table></div>
+    ${applyAllBar}
+    <div class="oos-flowhint">The engine corrects each tie to match actual execution, preserving as much logic as possible: it <b>changes the relationship type/lag</b> to the one that fits the real overlap (SS/FF, lag from the logic); if no type fits but the activity keeps other valid predecessors (or is 100% complete), it <b>removes / re-ties the driving link</b> (valid logic remains); only when removal would leave an in-progress activity with <b>no predecessor</b> is it flagged <b>Needs Planner Review</b> (unresolved). "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>`;
+}
+
+// One editable block per tie (predecessor / successor) inside the drawer.
+function _oosTieBlock(f, side, res, tieLabel) {
+  const head = `<div class="oos-tielbl">${escapeHtml(tieLabel)}</div>`;
+  if (!res || !res.action || res.action === 'nochange') {
+    return `<div class="oos-tieblk">${head}<div class="oos-tieok">No change — this tie already matches the actual execution.</div></div>`;
+  }
+  const isManual = (res.action === 'manual' || !res.applicable);
+  const types = ['FS', 'SS', 'FF', 'SF'];
+  const curType = res.new_type || 'FS';
+  const typeOpts = types.map(t => `<option value="${t}" ${t === curType ? 'selected' : ''}>${t}</option>`).join('');
+  // For a planner-review tie, the engine makes NO automatic change: default the editor to a
+  // "leave for review" no-op and let the planner CHOOSE to remove or change if they decide to.
+  const isReplace = res.action === 'replace';
+  const actionList = isManual
+    ? [['review', 'Needs planner review (leave open)'], ['remove', 'Remove relationship'], ['replace', 'Replace predecessor'], ['change', 'Change relationship type / lag']]
+    : isReplace
+      ? [['replace', 'Replace predecessor'], ['change', 'Change relationship type / lag'], ['remove', 'Remove relationship']]
+      : [['change', 'Change relationship type / lag'], ['remove', 'Remove relationship'], ['replace', 'Replace predecessor']];
+  const defAction = isManual ? 'review' : res.action;
+  const actOpts = actionList.map(([v, l]) => `<option value="${v}" ${v === defAction ? 'selected' : ''}>${l}</option>`).join('');
+  const lag = (res.new_lag_days == null) ? 0 : res.new_lag_days;
+  const recBlock = isManual
+    ? `<div class="oos-tierev">⚠ ${escapeHtml(res.reasoning || 'No automatic correction — needs planner review.')}</div>`
+    : `<div class="oos-rec ${res.action === 'remove' ? 'remove' : 'change'}"><div class="rt">${escapeHtml(res.action_text || '')}</div>${res.reasoning ? `<div class="rw">${escapeHtml(res.reasoning)}</div>` : ''}${_oosAltPicks(res, f.finding_id, side)}</div>`;
+  return `<div class="oos-tieblk">${head}
+    ${recBlock}
+    <div class="oos-editrow">
+      <label>${isManual ? 'Planner decision' : 'Action'}</label><select data-oosfield="action" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${actOpts}</select>
+      <span class="oos-editgrp" data-grp="newpred"${isReplace ? '' : ' style="display:none"'}><label>New predecessor ID</label><input type="text" data-oosfield="new_pred_id" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" value="${escapeHtml(res.new_pred_id || '')}"></span>
+      <span class="oos-editgrp" data-grp="type"><label>Type</label><select data-oosfield="new_type" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${typeOpts}</select></span>
+      <span class="oos-editgrp" data-grp="lag"><label>Lag</label><input type="number" step="0.5" data-oosfield="new_lag_days" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" value="${lag}"> d</span>
+    </div>
+  </div>`;
+}
+
+function _oosDrawer(f) {
+  const pr = f.pred_resolution || f.resolution;
+  const sr = f.succ_resolution;
+  const succChain = f.succ_id
+    ? ` ${_oosCurRel(f.current_succ_rel, f.current_succ_lag)} → <span class="mono">${escapeHtml(f.succ_id)}</span>` : '';
+  // Always offer Apply — for a planner-review finding the planner may CHOOSE to remove/change here
+  // (their decision); if nothing is chosen, _oosApply shows a hint rather than applying.
+  const applyBtn = `<button class="oos-btn primary" data-oosact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply correction</button>`;
+  return `<div class="oos-draw">
+    <h4>Resolve this finding</h4>
+    <div class="oos-qa">
+      <div class="oos-qcard"><div class="lbl">What is wrong?</div><div class="val">${escapeHtml(f.root_cause || '')}</div></div>
+      <div class="oos-qcard"><div class="lbl">Baseline logic</div><div class="val"><span class="mono">${escapeHtml(f.pred_id || '')}</span> ${_oosCurRel(f.current_pred_rel, f.current_pred_lag)} → <span class="mono">${escapeHtml(f.activity_id)}</span>${succChain}</div></div>
+    </div>
+    ${_oosTieBlock(f, 'pred', pr, `Predecessor tie — ${f.pred_id || ''} ${f.pred_name || ''} → ${f.activity_id} ${f.activity_name || ''}`)}
+    ${f.succ_id ? _oosTieBlock(f, 'succ', sr, `Successor tie — ${f.activity_id} ${f.activity_name || ''} → ${f.succ_id} ${f.succ_name || ''}`) : ''}
+    <div class="oos-editrow soft"><label>Reason (kept with the correction)</label><input type="text" class="oos-reason" data-oosfield="reason" data-fid="${escapeHtml(f.finding_id)}" placeholder="e.g. approval overlaps submittal in the field"></div>
+    <div class="oos-drawbtns">${applyBtn}<button class="oos-btn" data-oosact="details" data-fid="${escapeHtml(f.finding_id)}">Close</button></div>
+  </div>`;
+}
+
+function _oosDlNote(text, isErr) {
+  const el = document.querySelector('#oos-review .oos-dlnote');
+  if (el) { el.textContent = text; el.style.color = isErr ? 'var(--danger)' : ''; }
+}
+
+async function _oosValidate() {
+  const resp = await fetch(`http://localhost:${state.serverPort}/api/oos/validate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+      accepted: _oosAppliedOps(),
+    }),
+  });
+  return resp.json();
+}
+
+async function _oosApply(fid) {
+  const f = (_oos.fresh.find(x => x.finding_id === fid) || _oos.all.find(x => x.finding_id === fid));
+  if (!f) return;
+  const ops = _oosBuildOps(f);
+  if (!ops.length) {
+    _oosDlNote('This finding needs planner review — pick a decision (Remove, or change the relationship type/lag) in the details drawer before applying.', true);
+    return;
+  }
+  const rEl = document.querySelector(`[data-oosfield="reason"][data-fid="${fid}"]`);
+  _oos.applied[fid] = { finding: f, ops, reason: rEl ? rEl.value.trim() : '' };
+  _oosDlNote('Re-validating…');
+  try {
+    const out = await _oosValidate();
+    if (!out.ok) { delete _oos.applied[fid]; _oosDlNote(out.error || 'Validation failed.', true); renderOosReview(); return; }
+    _oos.fresh = out.findings || [];
+    renderOosReview();
+  } catch (e) {
+    delete _oos.applied[fid];                        // roll back so a failed Apply leaves no phantom op
+    _oosDlNote('Could not reach the analysis engine.', true);
+    renderOosReview();
+  }
+}
+
+// Bulk-apply: apply every OPEN finding that has a recommended fix in a single re-validation, so the
+// planner needn't click Apply on each activity. Findings that need planner review (no auto op) are
+// skipped and stay open. Any per-finding edits made in a drawer are respected (_oosBuildOps reads them).
+async function _oosApplyAll() {
+  if (_oos._applying) return;                            // ignore re-entrant clicks while a bulk apply is in flight
+  const candidates = _oos.fresh.map(f => ({ f, ops: _oosBuildOps(f) })).filter(c => c.ops.length);
+  const applicable = candidates.length;
+  if (!applicable) {
+    _oosDlNote('None of the open findings have a recommended fix — the remaining ones need planner review. Open a finding to decide it.', true);
+    return;
+  }
+  // No window.confirm gate — native JS dialogs are unreliable in the packaged WebView2 (they can return
+  // falsy and silently cancel the whole bulk apply). Applying is reversible (nothing is written to the
+  // P6 file until Download Corrected Schedule); the outcome is reported in the note below.
+  const prev = {}, touched = [];
+  candidates.forEach(({ f, ops }) => {
+    prev[f.finding_id] = _oos.applied[f.finding_id];     // snapshot (may be undefined) for a clean rollback
+    const reason = (_oos.applied[f.finding_id] || {}).reason || '';   // keep a reason from a prior individual Apply
+    _oos.applied[f.finding_id] = { finding: f, ops, reason };
+    touched.push(f.finding_id);
+  });
+  const rollback = () => touched.forEach(id => {
+    if (prev[id] === undefined) delete _oos.applied[id]; else _oos.applied[id] = prev[id];
+  });
+  _oos._applying = true;
+  _oosDlNote('Applying all recommended corrections…');
+  try {
+    const out = await _oosValidate();
+    if (!out.ok) { rollback(); _oosDlNote(out.error || 'Validation failed.', true); renderOosReview(); return; }
+    _oos.fresh = out.findings || [];
+    renderOosReview();
+    const outcome = oosBulkOutcome(touched, _oos.fresh);          // honest: count what actually cleared
+    const stillReview = (_oos.fresh || []).length - outcome.notCleared;   // untouched, still open (review / data)
+    _oosDlNote(`Applied ${outcome.applied} correction${outcome.applied === 1 ? '' : 's'} — ${outcome.resolved} moved to Resolved.`
+      + (outcome.notCleared ? ` ${outcome.notCleared} applied but still out of sequence (check the actual dates in P6).` : '')
+      + (stillReview ? ` ${stillReview} still need review.` : ''));
+  } catch (e) {
+    rollback();
+    _oosDlNote('Could not reach the analysis engine.', true);
+    renderOosReview();
+  } finally {
+    _oos._applying = false;
+  }
+}
+
+async function _oosReopen(fid) {
+  delete _oos.applied[fid];
+  try {
+    const out = await _oosValidate();
+    if (out.ok) _oos.fresh = out.findings || [];
+  } catch (e) { /* keep local state */ }
+  renderOosReview();
+}
+
+async function _oosDownload() {
+  const applied = _oosAppliedOps();
+  if (!applied.length) return;
+  const base = (state.currentXmlPath || 'schedule').split(/[\\/]/).pop();
+  const dot = base.lastIndexOf('.');
+  const ext = dot > 0 ? base.slice(dot + 1).toLowerCase() : 'xml';
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const suggested = `${stem}_corrected.${ext === 'xer' ? 'xer' : 'xml'}`;
+  let outputPath;
+  try {
+    outputPath = await window.pywebview.api.choose_save_path(suggested, ext === 'xer' ? 'xer' : 'xml');
+  } catch (e) { outputPath = null; }
+  if (!outputPath) return;
+  _oosDlNote('Writing corrected schedule…');
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/oos/corrected-file`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+        output_path: outputPath, accepted: applied,
+      }),
+    });
+    const out = await resp.json();
+    _oosDlNote(out.ok
+      ? `Saved — ${out.applied} correction(s) written. Open it in P6 and press F9.`
+      : (out.error || 'Could not write the corrected file.'), !out.ok);
+  } catch (e) {
+    _oosDlNote('Could not write the corrected file.', true);
+  }
+}
+
+// Show/hide the Type + Lag inputs for one tie's editor based on its Action select.
+function _oosEditVisibility(fid, side) {
+  const aEl = document.querySelector(`[data-oosfield="action"][data-fid="${fid}"][data-side="${side}"]`);
+  if (!aEl) return;
+  const act = aEl.value;
+  const blk = aEl.closest('.oos-tieblk');
+  if (!blk) return;
+  const hideTypeLag = (act === 'remove' || act === 'review');   // nothing to set for remove / review
+  blk.querySelectorAll('.oos-editgrp').forEach(el => {
+    const grp = el.getAttribute('data-grp');
+    let show;
+    if (grp === 'newpred') show = (act === 'replace');           // new predecessor only for replace
+    else if (grp === 'type' || grp === 'lag') show = !hideTypeLag;
+    else show = true;
+    el.style.display = show ? '' : 'none';
+  });
+}
+
+function _oosWire() {
+  const host = document.getElementById('oos-review');
+  if (!host) return;
+  host.onclick = (e) => {
+    const t = e.target.closest('[data-oosact]');
+    if (!t) return;
+    const act = t.getAttribute('data-oosact');
+    const fid = t.getAttribute('data-fid');
+    if (act === 'view') { _oos.view = t.getAttribute('data-view'); renderOosReview(); }
+    else if (act === 'details') {
+      const dr = document.getElementById(`oosdr-${fid}`);
+      if (dr) {
+        dr.classList.toggle('open');
+        if (dr.classList.contains('open')) { _oosEditVisibility(fid, 'pred'); _oosEditVisibility(fid, 'succ'); }
+      }
+    }
+    else if (act === 'apply') { _oosApply(fid); }
+    else if (act === 'applyall') { _oosApplyAll(); }
+    else if (act === 'reopen') { _oosReopen(fid); }
+    else if (act === 'fullscreen') { _oos.fullscreen = !_oos.fullscreen; renderOosReview(); }
+    else if (act === 'download') { _oosDownload(); }
+    else if (act === 'pickalt') {
+      // Click a valid alternative → pre-fill that tie's editor with the alternative type + lag.
+      const side = t.getAttribute('data-side');
+      const sel = (field) => document.querySelector(`[data-oosfield="${field}"][data-fid="${fid}"][data-side="${side}"]`);
+      const aEl = sel('action'); if (aEl) aEl.value = 'change';
+      const tEl = sel('new_type'); if (tEl) tEl.value = t.getAttribute('data-type');
+      const lEl = sel('new_lag_days'); if (lEl) lEl.value = t.getAttribute('data-lag');
+      _oosEditVisibility(fid, side);
+    }
+  };
+  host.onchange = (e) => {
+    const el = e.target.closest('[data-oosfield="action"]');
+    if (el) _oosEditVisibility(el.getAttribute('data-fid'), el.getAttribute('data-side'));
+  };
 }
 
 // Out of Sequence is a top-level feature (its own panel), not a Schedule Audit module tab.
 export function renderOosPanel(auditModules) {
+  // Store the full audit module set so the shared PDF picker (generateModulePdf reads
+  // state.currentModules.modules[module].presentation.sections) works when this top-level
+  // view is opened directly — without it, currentModules is null/stale and no picker shows.
+  state.currentModules = auditModules || null;
   const body = document.getElementById('oos-body');
   if (!body) return;
   const m = auditModules && auditModules.modules && auditModules.modules.out_of_sequence;
@@ -340,35 +991,757 @@ export function renderOosPanel(auditModules) {
   renderOutOfSequence(m);
 }
 
+// ── Dangling Activities — Resolve & Correct ──────────────────────────────────
+// Same flow as Out-of-Sequence: accept/edit a fix per finding → re-check with the SAME dangling
+// engine → download a corrected P6 file (XER/XML). The only applyable fix is a relationship-TYPE
+// change on a link that already exists; a side with no link at all is "Needs Planner Review".
+
+const DNG_TYPE_NAME = { FS: 'Finish-to-Start', SS: 'Start-to-Start', FF: 'Finish-to-Finish', SF: 'Start-to-Finish' };
+function _dngTypeName(t) { return DNG_TYPE_NAME[t] || t; }
+
+// Shown when a fix is held back because it would push the contractual completion milestone past its
+// date (offline forward-pass estimate). Ibrahim's exact wording.
+const DNG_BLOCK_MSG = 'Changing this could exceeds the contractual milestone';
+
+// The default accepted op for one dangling side (the recommended type change), or null when that
+// side is not an applyable change (already driven, or Needs Planner Review). Pure — unit-tested.
+export function dngDefaultOp(f, side) {
+  const fx = side === 'start' ? f.start_fix : f.finish_fix;
+  if (!fx || fx.kind !== 'change') return null;
+  const op = {
+    finding_id: f.finding_id, activity_id: f.activity_id, side, action: 'change',
+    new_type: fx.recommended_type, new_lag_days: fx.current_lag_days || 0,
+  };
+  if (side === 'start') { op.pred_id = fx.target_id; op.succ_id = f.activity_id; }
+  else { op.pred_id = f.activity_id; op.succ_id = fx.target_id; }
+  return op;
+}
+
+// True when a finding carries at least one applyable type-change fix (start and/or finish).
+export function dngHasFix(f) {
+  return !!((f.start_fix && f.start_fix.kind === 'change') || (f.finish_fix && f.finish_fix.kind === 'change'));
+}
+
+// Resolved = original findings whose ACTIVITY no longer appears dangling after re-validation. Fixing
+// one side of a both-sided finding changes its finding_id but the activity stays dangling, so keying
+// on activity_id (not finding_id) is the honest test. Pure — unit-tested.
+export function dngResolvedActs(all, fresh) {
+  const still = new Set((fresh || []).map(f => f.activity_id));
+  return (all || []).filter(f => !still.has(f.activity_id)).map(f => f.activity_id);
+}
+
+// Merge previously-applied ops with newly-built ops for ONE activity, keyed by side. Overlaying by
+// side means a later apply never drops the OTHER side's already-applied fix — the bug where applying
+// the finish side of a partly-fixed activity wiped the earlier start fix. A side the current finding
+// still exposes as fixable but that produced no new op = the planner chose "leave for review", so any
+// prior op on that side is dropped (their explicit decision). Pure — unit-tested.
+export function dngMergeOps(prevOps, newOps, exposedSides) {
+  const bySide = {};
+  (prevOps || []).forEach(o => { if (o && o.side) bySide[o.side] = o; });
+  (newOps || []).forEach(o => { if (o && o.side) bySide[o.side] = o; });
+  (exposedSides || []).forEach(side => {
+    if (!(newOps || []).some(o => o.side === side)) delete bySide[side];
+  });
+  return Object.values(bySide);
+}
+
+// The contractual completion milestone to guard against — the matched entered milestone with the
+// LATEST contract date (the final contractual date = project completion). Returns {activity_id,
+// contract_date} for the server's offline forward-pass guard, or null when none was entered/matched
+// (then no guard applies). Pure — unit-tested.
+export function dngCompletionMilestone(milestones) {
+  const matched = (milestones || []).filter(m => m && m.matched_activity_id && m.contract_date);
+  if (!matched.length) return null;
+  const ms = d => { const t = Date.parse(String(d).replace(/-/g, ' ')); return isNaN(t) ? 0 : t; };
+  let best = matched[0];
+  matched.forEach(m => { if (ms(m.contract_date) > ms(best.contract_date)) best = m; });
+  return { activity_id: best.matched_activity_id, contract_date: best.contract_date };
+}
+
+// Plain-language summary of what an Apply changed, e.g. "P → D from Finish-to-Finish to
+// Finish-to-Start". Reads the old type from the finding's fix. Pure — unit-tested.
+export function dngChangeSummary(f, ops) {
+  return (ops || []).map(o => {
+    const fx = o.side === 'start' ? (f.start_fix || {}) : (f.finish_fix || {});
+    const oldT = DNG_TYPE_NAME[fx.current_type] || fx.current_type || '?';
+    const newT = DNG_TYPE_NAME[o.new_type] || o.new_type || '?';
+    return `${o.pred_id} → ${o.succ_id} from ${oldT} to ${newT}`;
+  }).join('; ');
+}
+
+let _dng = { sig: null, all: [], fresh: [], applied: {}, blocked: new Set(), view: 'open', dataDate: '', fullscreen: false };
+
+function _dngSig(m) {
+  const f = (m.findings || [])[0] || {};
+  return `${(m.kpis || {}).data_date || ''}|${(m.findings || []).length}|${f.finding_id || ''}`;
+}
+
+let _dngEscBound = false;
+function _dngInit(m) {
+  if (!_dngEscBound) {
+    _dngEscBound = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && _dng.fullscreen) { _dng.fullscreen = false; renderDngReview(); }
+    });
+  }
+  // A fresh #dng-review was just written into #module-body — clear any stray full-screen overlay a
+  // prior render left parked on <body>.
+  Array.from(document.body.children).forEach(c => { if (c.id === 'dng-review') c.remove(); });
+  document.body.classList.remove('dng-fs-body');
+  const sig = _dngSig(m);
+  if (sig !== _dng.sig) {
+    _dng = { sig, all: (m.findings || []).slice(), fresh: (m.findings || []).slice(),
+             applied: {}, blocked: new Set(), view: 'open',
+             dataDate: (m.kpis || {}).data_date || '', fullscreen: false,
+             name: m.name || 'Dangling Activities',
+             hero: { name: m.name || 'Dangling Activities', score: m.score, grade: m.grade,
+                     presentation: m.presentation || {}, applied: 0 } };
+  }
+  _dng._home = null;
+  renderDngReview();
+}
+
+// Repaint the execution-dashboard hero from a fresh revalidate result (score rises as fixes resolve).
+function _dngUpdateHero(out) {
+  if (!out || out.presentation == null) return;
+  _dng.hero = { name: _dng.name, score: out.score, grade: out.grade,
+                presentation: out.presentation, applied: Object.keys(_dng.applied).length };
+  _dngRenderHero();
+}
+
+// Update the Dangling module tab score AND the Summary roll-up score in the rail, so they track the
+// live (previewed) state — not just the big gauge. The roll-up is recomputed server-side (same engine
+// as import) from a COPY of the modules with the fresh Dangling swapped in; the stored Dangling module
+// is left untouched so navigating back to it never loses the review/preview state.
+async function _dngRefreshRollup(out) {
+  if (!out || out.score == null) return;
+  const am = state.currentModules;
+  const dm = am && am.modules && am.modules.dangling;
+  if (dm) {
+    const freshDng = Object.assign({}, dm,
+      { score: out.score, grade: out.grade, pct: out.pct, kpis: out.kpis, findings: out.findings });
+    const modulesCopy = Object.assign({}, am.modules, { dangling: freshDng });
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/health/recompute`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modules: modulesCopy }),
+      });
+      const r = await resp.json();
+      if (r.ok && r.health) am.health = r.health;
+    } catch (e) { /* leave the Summary score as-is if the recompute can't be reached */ }
+  }
+  _dngUpdateRail(out);
+}
+
+function _dngUpdateRail(out) {
+  const am = state.currentModules;
+  const tab = document.querySelector('.module-tab[data-module="dangling"]');
+  if (tab && out && out.score != null) {
+    const sc = tab.querySelector('.mt-score'); if (sc) sc.textContent = out.score;
+    const dot = tab.querySelector('.mt-dot'); if (dot) dot.className = `mt-dot ${gradeClass(out.grade)}`;
+  }
+  const health = am && am.health;
+  const st = document.querySelector('.module-tab.mt-summary');
+  if (st && health) {
+    const sc = st.querySelector('.mt-score'); if (sc) sc.textContent = (health.score == null ? '—' : health.score);
+    const dot = st.querySelector('.mt-dot'); if (dot) dot.className = `mt-dot ${scoreColor(health.score == null ? 0 : health.score)}`;
+  }
+}
+
+// Every accepted op across all applied activities, for re-validation and the corrected-file export.
+function _dngAppliedOps() {
+  const ops = [];
+  Object.values(_dng.applied).forEach(a => (a.ops || []).forEach(o => ops.push(o)));
+  return ops;
+}
+
+// The start + finish ops for one finding, honouring any per-side edits made in its drawer.
+function _dngBuildOps(f) {
+  return ['start', 'finish'].map(side => _dngOpFor(f, side)).filter(Boolean);
+}
+function _dngOpFor(f, side) {
+  const base = dngDefaultOp(f, side);
+  if (!base) return null;
+  const sel = (field) => document.querySelector(`[data-dngfield="${field}"][data-fid="${f.finding_id}"][data-side="${side}"]`);
+  const aEl = sel('action');
+  if (aEl && aEl.value === 'review') return null;           // planner chose to leave this side open
+  const tgtEl = sel('target'), tEl = sel('new_type'), lEl = sel('new_lag_days');
+  if (tgtEl && tgtEl.value) { if (side === 'start') base.pred_id = tgtEl.value; else base.succ_id = tgtEl.value; }
+  if (tEl && tEl.value) base.new_type = tEl.value;
+  if (lEl && lEl.value !== '') { const v = parseFloat(lEl.value); base.new_lag_days = isNaN(v) ? 0 : v; }
+  return base;
+}
+
+function _dngSevCell(f) {
+  const s = f.severity || 'Medium';
+  const cls = { Critical: 'crit', High: 'high', Medium: 'med', Low: 'low' }[s] || 'med';
+  return `<span class="dng-sevb ${cls}">${escapeHtml(s)}</span>`;
+}
+
+function _dngRelListCell(ties, emptyLabel) {
+  if (!ties || !ties.length) return `<span class="dng-none">${escapeHtml(emptyLabel)}</span>`;
+  return ties.map(t => `<div class="dng-relrow"><span class="mono relid">${escapeHtml(t.id)}</span> `
+    + `<span class="dng-reltype">${escapeHtml(t.type)}</span><div class="dng-relnm">${escapeHtml(t.name || '')}</div></div>`).join('');
+}
+
+// Is this side dangling? Prefer the enrichment boolean; fall back to the logic_issue text so a
+// pre-enrichment snapshot (findings cached in the DB before this feature) never renders a dangling
+// side as a false "OK — already driven".
+function _dngSideDangling(f, side) {
+  const b = side === 'start' ? f.start_dangling : f.finish_dangling;
+  if (b != null) return b;
+  return (side === 'start' ? /Start/ : /Finish/).test(f.logic_issue || '');
+}
+
+function _dngFixCell(f, side) {
+  if (!_dngSideDangling(f, side)) return `<span class="dng-fix ok">OK — already driven</span>`;
+  const fx = side === 'start' ? f.start_fix : f.finish_fix;
+  if (!fx || fx.kind === 'review') return `<span class="dng-fix review">⚠ Needs Planner Review</span>`;
+  return `<span class="dng-fix change">Change ${escapeHtml(fx.target_id)} `
+    + `<span class="arw">${escapeHtml(fx.current_type)} →</span> ${escapeHtml(_dngTypeName(fx.recommended_type))}</span>`;
+}
+
+function _dngResCell(f, resolved) {
+  if (resolved) {
+    const a = _dng.applied[f.activity_id];
+    const note = a && a.reason ? `<div class="dng-appliednote">${escapeHtml(a.reason)}</div>` : '';
+    return `<span class="dng-resolved">✓ Resolved</span>${note}`
+      + `<button class="dng-mini" data-dngact="reopen" data-fid="${escapeHtml(f.finding_id)}">Re-open</button>`;
+  }
+  // Held back by the contract-milestone guard — applying it would push completion past the contract
+  // date (offline forward-pass estimate). Ibrahim's rule: don't solve it, show the message.
+  if (_dng.blocked && _dng.blocked.has(f.finding_id)) {
+    return `<div class="dng-blockedwrap">`
+      + `<div class="dng-blocked" title="Estimated with the in-tool forward-pass (no F9): applying this fix would push the project completion milestone past its contractual date.">⚠ ${escapeHtml(DNG_BLOCK_MSG)}</div>`
+      + `<button class="dng-caret" data-dngact="details" data-fid="${escapeHtml(f.finding_id)}" title="Open to inspect the links or try a different type/lag">▾</button></div>`;
+  }
+  if (!dngHasFix(f)) {
+    return `<button class="dng-review-btn" disabled title="No link exists to re-type — decide the logic in P6">⚠ Needs Planner Review</button>`;
+  }
+  return `<div class="dng-rowbtns"><button class="dng-mini apply" data-dngact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply</button>`
+    + `<button class="dng-caret" data-dngact="details" data-fid="${escapeHtml(f.finding_id)}">▾</button></div>`;
+}
+
+function _dngTieBlock(f, side, fx) {
+  const sideLabel = side === 'start' ? 'Start driver (predecessor)' : 'Finish driver (successor)';
+  const types = ['FS', 'SS', 'FF', 'SF'];
+  const typeOpts = types.map(t => `<option value="${t}" ${t === fx.recommended_type ? 'selected' : ''}>${t} — ${_dngTypeName(t)}</option>`).join('');
+  const cands = fx.candidates || [];
+  const targetPicker = cands.length > 1
+    ? `<span class="dng-editgrp"><label>Link to change</label><select data-dngfield="target" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">`
+      + cands.map(c => `<option value="${escapeHtml(c.id)}" data-lag="${c.lag_days == null ? 0 : c.lag_days}" ${c.id === fx.target_id ? 'selected' : ''}>${escapeHtml(c.id)} ${escapeHtml(c.name || '')} (${escapeHtml(c.type)})</option>`).join('')
+      + `</select></span>`
+    : '';
+  const alts = [fx.recommended_type, fx.alt_type].filter(Boolean).map(t =>
+    `<span class="dng-altpill ${t === fx.recommended_type ? 'sel' : ''}" data-dngact="pickalt" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" data-type="${t}">${_dngTypeName(t)}</span>`).join('');
+  const lag = fx.current_lag_days == null ? 0 : fx.current_lag_days;
+  return `<div class="dng-tieblk">
+    <div class="dng-tielbl">${escapeHtml(sideLabel)} — <span class="mono">${escapeHtml(fx.target_id)}</span> ${escapeHtml(fx.target_name || '')} <span class="dng-reltype">${escapeHtml(fx.current_type)}</span></div>
+    <div class="dng-rec"><div class="rt">Change the ${side === 'start' ? 'predecessor' : 'successor'} link to a real driver so the ${side} is controlled.</div>
+      <div class="alts">Use type: ${alts}</div></div>
+    <div class="dng-editrow">
+      <span class="dng-editgrp"><label>Action</label><select data-dngfield="action" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}"><option value="change">Change relationship type</option><option value="review">Leave for planner review (keep open)</option></select></span>
+      ${targetPicker}
+      <span class="dng-editgrp" data-grp="type"><label>Type</label><select data-dngfield="new_type" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}">${typeOpts}</select></span>
+      <span class="dng-editgrp" data-grp="lag"><label>Lag</label><input type="number" step="0.5" data-dngfield="new_lag_days" data-fid="${escapeHtml(f.finding_id)}" data-side="${side}" value="${lag}"> d</span>
+    </div>
+  </div>`;
+}
+
+function _dngDrawer(f) {
+  const blocks = [];
+  if (f.start_dangling && f.start_fix && f.start_fix.kind === 'change') blocks.push(_dngTieBlock(f, 'start', f.start_fix));
+  if (f.finish_dangling && f.finish_fix && f.finish_fix.kind === 'change') blocks.push(_dngTieBlock(f, 'finish', f.finish_fix));
+  const anyReview = (f.start_dangling && f.start_fix && f.start_fix.kind === 'review')
+    || (f.finish_dangling && f.finish_fix && f.finish_fix.kind === 'review');
+  const reviewNote = anyReview
+    ? `<div class="dng-revnote">⚠ One side has no link to re-type — that side needs planner review and will stay open. Add the missing logic in P6.</div>` : '';
+  return `<div class="dng-draw">
+    <h4>Resolve this finding — <span class="mono">${escapeHtml(f.activity_id)}</span> ${escapeHtml(f.activity_name || '')}</h4>
+    ${blocks.join('')}
+    ${reviewNote}
+    <div class="dng-editrow soft"><label>Reason (kept with the fix)</label><input type="text" class="dng-reason" data-dngfield="reason" data-fid="${escapeHtml(f.finding_id)}" placeholder="e.g. testing cannot finish before risers are installed"></div>
+    <div class="dng-drawbtns"><button class="dng-btn primary" data-dngact="apply" data-fid="${escapeHtml(f.finding_id)}">Apply fix</button><button class="dng-btn" data-dngact="details" data-fid="${escapeHtml(f.finding_id)}">Close</button></div>
+  </div>`;
+}
+
+function _dngRow(f, i, dd, resolved) {
+  const issueCls = (f.logic_issue || '').includes('+') ? 'both' : 'one';
+  const drawer = resolved ? '' :
+    `<tr class="dng-drawer" id="dngdr-${escapeHtml(f.finding_id)}"><td colspan="11">${_dngDrawer(f)}</td></tr>`;
+  return `<tr class="dng-frow" data-fid="${escapeHtml(f.finding_id)}">
+      <td class="num">${i + 1}</td>
+      <td class="mono">${escapeHtml(f.activity_id)}</td>
+      <td class="actnm">${escapeHtml(f.activity_name || '')}</td>
+      <td><span class="dng-issue ${issueCls}">${escapeHtml(f.logic_issue || '')}</span></td>
+      <td class="dng-rel">${_dngRelListCell(f.pred_ties, 'No predecessor')}</td>
+      <td class="dng-rel">${_dngRelListCell(f.succ_ties, 'No successor')}</td>
+      <td class="mono mut">${dd}</td>
+      <td>${_dngFixCell(f, 'start')}</td>
+      <td>${_dngFixCell(f, 'finish')}</td>
+      <td>${_dngSevCell(f)}</td>
+      <td class="dng-rescell">${_dngResCell(f, resolved)}</td>
+    </tr>${drawer}`;
+}
+
+function _dngTable(rows, dd, resolved) {
+  if (!rows.length) {
+    return `<div class="dng-empty">${resolved
+      ? 'Nothing resolved yet. Apply a fix from the Open tab.'
+      : 'No open dangling findings — every activity is driven on both ends. 🎉'}</div>`;
+  }
+  const body = rows.map((f, i) => _dngRow(f, i, dd, resolved)).join('');
+  const applyAllBar = (!resolved && rows.some(dngHasFix)) ? `
+    <div class="dng-applyall">
+      <button class="dng-applyall-btn" data-dngact="applyall">⚡ Apply all recommended fixes</button>
+      <span class="dng-applyall-hint">Applies every finding that has a type-change fix in one step — no need to Apply each activity. Findings that need planner review stay open.</span>
+    </div>` : '';
+  return `
+    <div class="dng-sevlegend"><span class="dng-sevlegend-t">Severity</span>
+      <span class="dng-sevb crit">Critical</span> on the critical path
+      <span class="dng-sevb high">High</span> both ends dangling
+      <span class="dng-sevb med">Medium</span> one end dangling</div>
+    <div class="tblwrap dng-tblwrap"><table class="audit-table dng-logx">
+      <thead>
+        <tr class="dng-grp">
+          <th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity Name</th>
+          <th rowspan="2">Dangling Type</th>
+          <th class="dng-gcol" colspan="2">Current logic</th>
+          <th rowspan="2">Data Date</th>
+          <th class="dng-gcol" colspan="2">Suggested fix</th>
+          <th rowspan="2">Severity</th><th rowspan="2">Resolution</th>
+        </tr>
+        <tr class="dng-sub">
+          <th class="dng-gcol">Predecessors</th><th>Successors</th>
+          <th class="dng-gcol">Start side (predecessor)</th><th>Finish side (successor)</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody></table></div>
+    ${applyAllBar}
+    <div class="dng-flowhint">The tool only proposes a <b>relationship-type change on a link that already exists</b>
+      (Finish-to-Finish / Start-to-Start → Finish-to-Start, or the valid alternative). Where an activity has
+      <b>no predecessor or no successor at all</b>, there is nothing to re-type, so it is flagged
+      <b>Needs Planner Review</b> and left open — the tool never invents a link. <b>Apply</b> re-runs the same
+      dangling test and moves the finding to Resolved only if it is genuinely no longer dangling.
+      <b>Download Corrected Schedule</b> writes the accepted changes into a copy of your file (same XER / XML) —
+      actuals, %-complete and dates are never touched.</div>`;
+}
+
+function renderDngReview() {
+  const host = document.getElementById('dng-review');
+  if (!host) return;
+  const stillActs = new Set(_dng.fresh.map(f => f.activity_id));
+  const openF = _dng.fresh;
+  const resolvedF = _dng.all.filter(f => !stillActs.has(f.activity_id));
+  const dd = escapeHtml(_dng.dataDate || '');
+  const anyOps = _dngAppliedOps().length > 0;
+
+  const toolbar = `
+    <div class="dng-toolbar">
+      <div class="dng-tabs">
+        <button class="dng-tab ${_dng.view === 'open' ? 'active' : ''}" data-dngact="view" data-view="open">Open <span class="cnt">${openF.length}</span></button>
+        <button class="dng-tab ${_dng.view === 'resolved' ? 'active' : ''}" data-dngact="view" data-view="resolved">Resolved <span class="cnt">${resolvedF.length}</span></button>
+      </div>
+      <button class="dng-fs" data-dngact="fullscreen" title="Show the full table using the whole window">${_dng.fullscreen ? '✕ Exit full screen' : '⛶ Full screen'}</button>
+      <div class="dng-dlwrap">
+        <button class="dng-dl" data-dngact="download" ${anyOps ? '' : 'disabled'}>⬇ Download Corrected Schedule</button>
+        <div class="dng-dlnote">${anyOps
+          ? `${resolvedF.length} finding(s) resolved · exports the same format you imported (XER / XML) — open in P6 and F9.`
+          : 'Apply at least one fix to enable. Exports the same format you imported (XER / XML).'}</div>
+      </div>
+    </div>`;
+
+  host.innerHTML = toolbar + _dngTable(_dng.view === 'open' ? openF : resolvedF, dd, _dng.view === 'resolved');
+
+  if (_dng.fullscreen) {
+    if (!_dng._home) _dng._home = { parent: host.parentElement, next: host.nextElementSibling };
+    if (host.parentElement !== document.body) document.body.appendChild(host);
+    host.classList.add('dng-fs-on');
+    document.body.classList.add('dng-fs-body');
+  } else {
+    if (_dng._home && host.parentElement === document.body) {
+      const { parent, next } = _dng._home;
+      if (next && next.parentElement === parent) parent.insertBefore(host, next); else parent.appendChild(host);
+    }
+    _dng._home = null;
+    host.classList.remove('dng-fs-on');
+    document.body.classList.remove('dng-fs-body');
+  }
+  _dngRenderHero();     // keep the execution dashboard (score + tiles) in sync with the current state
+  _dngWire();
+}
+
+function _dngDlNote(text, isErr) {
+  const el = document.querySelector('#dng-review .dng-dlnote');
+  if (el) { el.textContent = text; el.style.color = isErr ? 'var(--danger)' : ''; }
+}
+
+// A prominent, self-clearing toast — the Apply feedback must be visible no matter how far down the
+// table (or in full screen) the clicked row is, so an applied fix never "seems like nothing happened".
+let _dngToastTimer = null;
+function _dngToast(msg, kind) {
+  let el = document.getElementById('dng-toast');
+  if (!el) { el = document.createElement('div'); el.id = 'dng-toast'; document.body.appendChild(el); }
+  el.className = 'dng-toast ' + (kind || '');
+  el.textContent = msg;
+  // reflow so the transition re-runs on repeated toasts
+  void el.offsetWidth;
+  el.classList.add('show');
+  if (_dngToastTimer) clearTimeout(_dngToastTimer);
+  _dngToastTimer = setTimeout(() => { el.classList.remove('show'); }, 6000);
+}
+
+// The contractual completion milestone the planner entered (from the Milestone Check module), so the
+// server can guard a fix that would push completion past its contract date. null when none entered.
+function _dngCompletion() {
+  const mc = state.currentModules && state.currentModules.modules && state.currentModules.modules.hard_constraints;
+  return mc ? dngCompletionMilestone(mc.milestones) : null;
+}
+
+// Reconcile the milestone-guard result: remember which findings were blocked and drop them from the
+// applied set (a blocked fix was never applied — it must not be counted, re-sent, or downloaded).
+function _dngReconcileBlocked(blockedIds, submittedFindingIds) {
+  const nowBlocked = new Set(blockedIds || []);
+  // Persist the blocked flag: a finding's verdict is per-finding vs the ORIGINAL schedule (independent
+  // of other applied fixes), so once known to exceed the milestone it STAYS flagged — a single Apply is
+  // never silently inert; the row keeps its red "would exceed the milestone" reason. Clear it only for a
+  // finding that was just submitted and came back NOT blocked (the planner re-typed it so it now fits).
+  nowBlocked.forEach(id => _dng.blocked.add(id));
+  (submittedFindingIds || []).forEach(id => { if (!nowBlocked.has(id)) _dng.blocked.delete(id); });
+  Object.keys(_dng.applied).forEach(actId => {
+    const entry = _dng.applied[actId];
+    if ((entry.ops || []).some(o => nowBlocked.has(o.finding_id))) delete _dng.applied[actId];
+  });
+}
+
+async function _dngValidate() {
+  const resp = await fetch(`http://localhost:${state.serverPort}/api/dangling/validate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+      accepted: _dngAppliedOps(), completion: _dngCompletion(),
+    }),
+  });
+  return resp.json();
+}
+
+// Set the applied entry for an activity, merging by side so a partly-fixed activity never loses the
+// other side's earlier fix. Returns true if the activity now has at least one applied op.
+function _dngSetApplied(activityId, finding, newOps, reason) {
+  const prev = _dng.applied[activityId];
+  const exposed = [];
+  if (finding.start_fix && finding.start_fix.kind === 'change') exposed.push('start');
+  if (finding.finish_fix && finding.finish_fix.kind === 'change') exposed.push('finish');
+  const ops = dngMergeOps(prev && prev.ops, newOps, exposed);
+  if (!ops.length) { delete _dng.applied[activityId]; return false; }
+  _dng.applied[activityId] = { finding, ops, reason: reason || (prev && prev.reason) || '' };
+  return true;
+}
+
+async function _dngApply(fid) {
+  const f = _dng.fresh.find(x => x.finding_id === fid) || _dng.all.find(x => x.finding_id === fid);
+  if (!f) return;
+  const ops = _dngBuildOps(f);
+  const prev = _dng.applied[f.activity_id];                       // snapshot for a clean rollback
+  const rEl = document.querySelector(`[data-dngfield="reason"][data-fid="${fid}"]`);
+  _dngSetApplied(f.activity_id, f, ops, rEl ? rEl.value.trim() : '');
+  if (!_dng.applied[f.activity_id]) {
+    const msg = 'This finding needs planner review — no link exists to re-type. Add the missing logic in P6.';
+    _dngDlNote(msg, true);
+    _dngToast(`${f.activity_id}: needs planner review — nothing to re-type here. Add the logic in P6.`, 'err');
+    return;
+  }
+  const restore = () => { if (prev === undefined) delete _dng.applied[f.activity_id]; else _dng.applied[f.activity_id] = prev; };
+  const submitted = new Set(_dngAppliedOps().map(o => o.finding_id));
+  _dngDlNote('Re-validating…');
+  try {
+    const out = await _dngValidate();
+    if (!out.ok) { restore(); _dngDlNote(out.error || 'Validation failed.', true); _dngToast(out.error || 'Validation failed — the fix was not applied.', 'err'); renderDngReview(); return; }
+    _dng.fresh = out.findings || [];
+    _dngReconcileBlocked(out.blocked, submitted);
+    _dngUpdateHero(out);
+    renderDngReview();
+    _dngRefreshRollup(out);          // live-update the Dangling tab + Summary roll-up scores
+    if (_dng.blocked.has(fid)) {
+      _dngDlNote(DNG_BLOCK_MSG + ' — this fix was not applied.', true);
+      _dngToast(`${f.activity_id}: ${DNG_BLOCK_MSG} — not applied.`, 'err');
+    } else {
+      const summary = dngChangeSummary(f, ops);
+      const stillOpen = (_dng.fresh || []).some(x => x.activity_id === f.activity_id);
+      _dngToast(stillOpen
+        ? `Applied ${f.activity_id} — changed ${summary}. Still dangling on the other side.`
+        : `✓ ${f.activity_id} resolved — changed ${summary}.`, 'ok');
+    }
+  } catch (e) {
+    restore();
+    _dngDlNote('Could not reach the analysis engine.', true);
+    _dngToast('Could not reach the analysis engine — the fix was not applied.', 'err');
+    renderDngReview();
+  }
+}
+
+async function _dngApplyAll() {
+  if (_dng._applying) return;
+  const candidates = _dng.fresh.map(f => ({ f, ops: _dngBuildOps(f) })).filter(c => c.ops.length);
+  const applicable = candidates.length;
+  if (!applicable) {
+    _dngDlNote('None of the open findings have a type-change fix — the rest need planner review (no link to re-type).', true);
+    return;
+  }
+  // No window.confirm gate — native JS dialogs are unreliable in the packaged WebView2 (they can
+  // return falsy and silently cancel), and applying is reversible: nothing is written to the P6 file
+  // until Download Corrected Schedule. The outcome is reported in a toast below.
+  const prev = {}, touched = [];
+  candidates.forEach(({ f, ops }) => {
+    prev[f.activity_id] = _dng.applied[f.activity_id];
+    const reason = (_dng.applied[f.activity_id] || {}).reason || '';
+    _dngSetApplied(f.activity_id, f, ops, reason);              // merge by side — never drop a prior fix
+    touched.push(f.activity_id);
+  });
+  const rollback = () => touched.forEach(id => { if (prev[id] === undefined) delete _dng.applied[id]; else _dng.applied[id] = prev[id]; });
+  const submitted = new Set(_dngAppliedOps().map(o => o.finding_id));
+  _dng._applying = true;
+  _dngDlNote('Applying all recommended fixes…');
+  try {
+    const out = await _dngValidate();
+    if (!out.ok) { rollback(); _dngDlNote(out.error || 'Validation failed.', true); _dngToast(out.error || 'Validation failed — no fixes were applied.', 'err'); renderDngReview(); return; }
+    _dng.fresh = out.findings || [];
+    _dngReconcileBlocked(out.blocked, submitted);
+    _dngUpdateHero(out);
+    renderDngReview();
+    _dngRefreshRollup(out);          // live-update the Dangling tab + Summary roll-up scores
+    const stillActs = new Set(_dng.fresh.map(f => f.activity_id));
+    const resolved = touched.filter(id => !stillActs.has(id)).length;
+    const blockedN = (out.blocked || []).length;
+    const applied = touched.length - blockedN;
+    const notCleared = applied - resolved;
+    const summary = `Applied ${applied} fix${applied === 1 ? '' : 'es'} — ${resolved} moved to Resolved.`
+      + (blockedN ? ` ${blockedN} held back — would exceed the contractual completion milestone.` : '')
+      + (notCleared > 0 ? ` ${notCleared} still dangling on another side — open the row to fix it.` : '');
+    _dngDlNote(summary);
+    _dngToast(summary, blockedN && !resolved ? 'err' : 'ok');
+  } catch (e) {
+    rollback();
+    _dngDlNote('Could not reach the analysis engine.', true);
+    _dngToast('Could not reach the analysis engine — no fixes were applied.', 'err');
+    renderDngReview();
+  } finally {
+    _dng._applying = false;
+  }
+}
+
+async function _dngReopen(fid) {
+  const f = _dng.all.find(x => x.finding_id === fid);
+  if (f) delete _dng.applied[f.activity_id];
+  _dng.blocked.delete(fid);                       // reopening clears any stale block flag on it
+  try { const out = await _dngValidate(); if (out.ok) { _dng.fresh = out.findings || []; _dngUpdateHero(out); _dngRefreshRollup(out); } } catch (e) { /* keep local state */ }
+  renderDngReview();
+}
+
+async function _dngDownload() {
+  const applied = _dngAppliedOps();
+  if (!applied.length) return;
+  const base = (state.currentXmlPath || 'schedule').split(/[\\/]/).pop();
+  const dot = base.lastIndexOf('.');
+  const ext = dot > 0 ? base.slice(dot + 1).toLowerCase() : 'xml';
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const suggested = `${stem}_dangling_corrected.${ext === 'xer' ? 'xer' : 'xml'}`;
+  let outputPath;
+  try { outputPath = await window.pywebview.api.choose_save_path(suggested, ext === 'xer' ? 'xer' : 'xml'); } catch (e) { outputPath = null; }
+  if (!outputPath) return;
+  _dngDlNote('Writing corrected schedule…');
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/dangling/corrected-file`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+        output_path: outputPath, accepted: applied, completion: _dngCompletion(),
+      }),
+    });
+    const out = await resp.json();
+    _dngDlNote(out.ok
+      ? `Saved — ${out.applied} change(s) written. Open it in P6 and press F9.`
+      : (out.error || 'Could not write the corrected file.'), !out.ok);
+  } catch (e) {
+    _dngDlNote('Could not write the corrected file.', true);
+  }
+}
+
+function _dngEditVisibility(fid, side) {
+  const aEl = document.querySelector(`[data-dngfield="action"][data-fid="${fid}"][data-side="${side}"]`);
+  if (!aEl) return;
+  const review = aEl.value === 'review';
+  const blk = aEl.closest('.dng-tieblk');
+  if (!blk) return;
+  blk.querySelectorAll('.dng-editgrp[data-grp]').forEach(el => { el.style.display = review ? 'none' : ''; });
+}
+
+function _dngWire() {
+  const host = document.getElementById('dng-review');
+  if (!host) return;
+  host.onclick = (e) => {
+    const t = e.target.closest('[data-dngact]');
+    if (!t) return;
+    const act = t.getAttribute('data-dngact');
+    const fid = t.getAttribute('data-fid');
+    if (act === 'view') { _dng.view = t.getAttribute('data-view'); renderDngReview(); }
+    else if (act === 'details') {
+      const dr = document.getElementById(`dngdr-${fid}`);
+      if (dr) {
+        dr.classList.toggle('open');
+        if (dr.classList.contains('open')) { _dngEditVisibility(fid, 'start'); _dngEditVisibility(fid, 'finish'); }
+      }
+    }
+    else if (act === 'apply') { _dngApply(fid); }
+    else if (act === 'applyall') { _dngApplyAll(); }
+    else if (act === 'reopen') { _dngReopen(fid); }
+    else if (act === 'fullscreen') { _dng.fullscreen = !_dng.fullscreen; renderDngReview(); }
+    else if (act === 'download') { _dngDownload(); }
+    else if (act === 'pickalt') {
+      const side = t.getAttribute('data-side');
+      const sel = (field) => document.querySelector(`[data-dngfield="${field}"][data-fid="${fid}"][data-side="${side}"]`);
+      const aEl = sel('action'); if (aEl) aEl.value = 'change';
+      const tEl = sel('new_type'); if (tEl) tEl.value = t.getAttribute('data-type');
+      _dngEditVisibility(fid, side);
+      const blk = t.closest('.dng-tieblk'); if (blk) blk.querySelectorAll('.dng-altpill').forEach(p => p.classList.toggle('sel', p === t));
+    }
+  };
+  host.onchange = (e) => {
+    const el = e.target.closest('[data-dngfield="action"]');
+    if (el) { _dngEditVisibility(el.getAttribute('data-fid'), el.getAttribute('data-side')); return; }
+    // Switching the target link updates the lag input to that link's own lag, so a non-zero lag from
+    // a different candidate is never written for the newly-picked relationship.
+    const tg = e.target.closest('[data-dngfield="target"]');
+    if (tg) {
+      const opt = tg.selectedOptions && tg.selectedOptions[0];
+      const lag = opt && opt.getAttribute('data-lag');
+      if (lag != null) {
+        const lEl = document.querySelector(`[data-dngfield="new_lag_days"][data-fid="${tg.getAttribute('data-fid')}"][data-side="${tg.getAttribute('data-side')}"]`);
+        if (lEl) lEl.value = lag;
+      }
+    }
+  };
+}
+
+// The execution dashboard (score gauge + KPI tiles + scoring legend). Rendered into #dng-hero and
+// REPAINTED after every Apply so the score visibly rises and the KPI tiles update as findings resolve.
+function _dngRenderHero() {
+  const host = document.getElementById('dng-hero');
+  if (!host) return;
+  const h = _dng.hero || {};
+  const p = h.presentation || {};
+  const preview = h.applied > 0
+    ? `<div class="coverage dng-preview">Preview — reflects ${h.applied} applied fix${h.applied === 1 ? '' : 'es'}; click Download to write them to P6.</div>`
+    : '';
+  host.innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(h.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(h.grade)}">${escapeHtml(h.grade || '')}</div>
+          <div class="coverage">${escapeHtml(h.name || '')} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(p.verdict || '')}</div>
+          ${preview}
+        </div>
+      </div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
+    </div>
+    ${scoringLegendHtml(p.scoring)}`;
+}
+
+// Dangling module view: execution-dashboard hero (#dng-hero, live-updated) + the Resolve & Correct table.
+function renderDangling(m) {
+  const body = document.getElementById('module-body');
+  body.innerHTML = `
+    <div id="dng-hero"></div>
+    <div class="mod-sec">Dangling Review &amp; Resolve <span class="mod-sub">— accept a fix, re-check, and download a corrected P6 file</span></div>
+    <div id="dng-review"></div>`;
+  _dngInit(m);
+}
+
 function renderModuleBody(m) {
   if (m.module === 'float') return renderFloatModule(m);
-  const C = 326.7;
-  const verdict = m.module === 'dangling'
-    ? `${m.pct}% of activities have broken start/finish logic.`
-    : `${m.pct}% of activities carry total float above the threshold.`;
+  if (m.module === 'circular') return renderCircularModule(m);
+  if (m.module === 'cpli') return renderCpliModule(m);
+  if (m.module === 'hard_constraints') return renderMilestoneCheck(m);
+  if (m.module === 'whole_day') return renderWholeDay(m);
+  if (m.module === 'dangling') return renderDangling(m);
+  return renderStandardModule(m);
+}
+
+// Whole-day Durations — evidence view. Each flagged activity shows the calendar and
+// hours/day it sits on and WHY the duration is a decimal (calendar-driven, a part-hours
+// entry, or not determinable), expanding to Finding / Evidence / Root cause / Impact /
+// Recommendation — so the user sees where the decimal comes from, not just a score.
+function wdCauseClass(c) {
+  return { cal: 'wd-cal', entry: 'wd-entry', nd: 'wd-nd' }[c] || 'wd-nd';
+}
+function renderWholeDay(m) {
+  const p = m.presentation || {};
+  const rows = (m.findings || []).map(f => {
+    const nl = (k, v) => `<div class="ms-nl"><div class="mk">${escapeHtml(k)}</div><div class="mv">${escapeHtml(v || '')}</div></div>`;
+    return `<div class="wd-row">
+      <div class="wd-top">
+        <div class="wd-id mono">${escapeHtml(f.activity_id)}</div>
+        <div class="wd-nm" title="${escapeHtml(f.activity_name)}">${escapeHtml(f.activity_name)}</div>
+        <div class="wd-dur"><b>${escapeHtml(String(f.original_days))} d</b> → ${escapeHtml(String(f.rounds_to))} d</div>
+        <div class="wd-cal" title="${escapeHtml(f.calendar)}">${escapeHtml(f.calendar)}${f.day_hours ? ' · ' + escapeHtml(String(f.day_hours)) + 'h' : ''}</div>
+        <div class="wd-cause ${wdCauseClass(f.cause)}">${escapeHtml(f.cause_label)}</div>
+        <div class="wd-chev">›</div>
+      </div>
+      <div class="wd-det">
+        ${nl('Finding', `Duration is ${f.original_days} working days — not a whole day.`)}
+        ${nl('Evidence', f.evidence)}${nl('Root cause', f.root_cause)}${nl('Impact', f.impact)}
+        <div class="ms-nl"><div class="mk">Recommendation</div><div class="mv rec">${escapeHtml(f.recommendation || '')}</div></div>
+      </div>
+    </div>`;
+  }).join('') || '<p style="color:var(--muted);font-size:13px">No decimal durations — every activity is a whole number of days.</p>';
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(p.verdict || '')}</div>
+        </div>
+      </div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
+    </div>
+    ${scoringLegendHtml(p.scoring)}
+    <div class="wd-legend2">
+      <span><i class="dot wd-cal"></i>Calendar hrs/day — likely contributing</span>
+      <span><i class="dot wd-entry"></i>Part-hours entry — not the calendar</span>
+      <span><i class="dot wd-nd"></i>Cause not determinable</span>
+    </div>
+    <div class="mod-sec">Decimal durations <span class="mod-sub">— where each comes from, and why (click a row)</span></div>
+    <div class="wd-rows">${rows}</div>`;
+  document.querySelectorAll('#module-body .wd-top').forEach(t =>
+    t.addEventListener('click', () => t.parentNode.classList.toggle('open')));
+}
+
+// Standard check view: gauge hero + KPI tiles + filterable findings table,
+// driven entirely by the module's spec so every check reads the same way.
+function renderStandardModule(m) {
+  const p = m.presentation || {};
   const body = document.getElementById('module-body');
   body.innerHTML = `
     <div class="audit-hero">
       <div class="score-card">
-        <div class="gauge">
-          <svg width="120" height="120" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="12"/>
-            <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
-                    stroke-dasharray="${C}" stroke-dashoffset="${gaugeDashoffset(m.score, C)}"
-                    transform="rotate(-90 60 60)" class="gauge-arc ${scoreColor(m.score)}"/>
-          </svg>
-          <div class="gauge-num"><b>${m.score ?? '—'}</b><span>/ 100</span></div>
-        </div>
+        ${gaugeHtml(m.score)}
         <div class="score-meta">
           <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
-          <div class="coverage">${escapeHtml(m.name)} — Module Score</div>
-          <div class="coverage">${escapeHtml(verdict)}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(p.verdict || '')}</div>
         </div>
       </div>
-      <div class="kpi-tiles">${kpiTiles(m)}</div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
     </div>
+    ${scoringLegendHtml(p.scoring)}
     ${wbsSummaryHtml(m)}
     <div class="mod-sec">Detailed Findings</div>
+    ${(m.findings && m.findings.length) ? severityLegendHtml(p.severity) : ''}
     <div class="filters">
       ${renderSevChips(m.findings)}
       <input class="searchbox" id="f-search" placeholder="🔍  Search activity ID or name…">
@@ -386,6 +1759,436 @@ function renderModuleBody(m) {
       syncChips(); renderRows();
     }));
   renderRows();
+}
+
+// Circular Logic — the F9 gate. Loops block P6's calculation, so this reads as a
+// gate banner (clear / blocking) with each loop's closing chain, not a table.
+function renderCircularModule(m) {
+  const k = m.kpis || {};
+  const clear = (k.loops || 0) === 0;
+  const banner = clear
+    ? `<div class="shr-banner ok"><b>F9 clear — no circular logic.</b> P6 can calculate this schedule.</div>`
+    : `<div class="shr-banner bad"><b>Blocking — a circular loop stops P6 from calculating (F9).</b> Break one link in each loop below, then re-run.</div>`;
+  const tiles = [['Total Activities', num(k.total_activities)], ['Loops', k.loops || 0],
+    ['Activities in Loops', k.activities_in_loops || 0], ['Longest Loop', k.longest_loop || 0], ['Circular %', pctv(k.circular_pct)]];
+  const loopsHtml = (m.findings || []).map(f => {
+    const chain = (f.chain || []).map((n, i) =>
+      `${i ? '<span class="shr-arrow">→</span>' : ''}<span class="shr-node" title="${escapeHtml(n.name)}">${escapeHtml(n.id)}</span>`).join('');
+    return `<div class="shr-loop">
+      <div class="shr-loop-h">Loop ${f.loop_index} <span>· ${f.activity_count} activities</span></div>
+      <div class="shr-chain">${chain}</div>
+      <div class="shr-loop-rec">${escapeHtml(f.recommendation || '')}</div></div>`;
+  }).join('');
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — F9 Gate</div>
+          <div class="coverage">${clear ? 'No loops — the network calculates.' : `${k.loops} loop${k.loops === 1 ? '' : 's'} block F9.`}</div>
+        </div>
+      </div>
+      <div class="kpi-tiles">${tiles.map(([lab, val]) => `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
+    </div>
+    ${banner}
+    ${clear ? '' : `<div class="mod-sec">Loops to break</div><div class="shr-loops">${loopsHtml}</div>`}`;
+}
+
+// Critical Path / CPLI — DCMA Point 13. Gauge = CPLI %, a baseline-rule badge,
+// and the driving path shown as a compact timeline + table. May be "not computed".
+function renderCpliModule(m) {
+  const k = m.kpis || {};
+  const computable = k.computable !== false && k.critical_pct != null;   // density computable
+  const ratioComputable = k.cpli != null;                                // CPLI ratio (context)
+  const ratioPct = ratioComputable ? (k.cpli_pct != null ? k.cpli_pct : Math.round(k.cpli * 100)) : null;
+  const ruleBadge = k.baseline_rule_met
+    ? `<span class="shr-rule ok">Baseline rule met — total float ≥ 0</span>`
+    : `<span class="shr-rule bad">Negative float — re-plan (baseline must be ≥ 0)</span>`;
+  const fmTile = k.finish_date ? fmtDate(k.finish_date) : (k.finish_milestone_id || '—');
+  const tiles = [
+    ['Critical %', k.critical_pct == null ? '—' : `${k.critical_pct}%`],
+    ['Critical Activities', k.critical_count == null ? '—' : Number(k.critical_count).toLocaleString()],
+    ['CPLI', ratioComputable ? `${ratioPct}%` : '—'],
+    ['Completion Total Float', dnum(k.project_total_float_days)],
+    ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
+    ['Finish Milestone', fmTile],
+  ];
+  const verdict = computable
+    ? `${k.critical_pct}% of activities are on the critical path → score ${m.score}. Fewer critical activities = a less fragile schedule.`
+    : 'Critical-path density not computable — no task-dependent activities to assess.';
+
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score, computable ? '/ 100' : 'n/a')}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(computable ? (m.grade || '') : 'Not computed')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(verdict)}</div>
+          ${ratioComputable ? `<div style="margin-top:8px">${ruleBadge}</div>` : ''}
+        </div>
+      </div>
+      <div class="kpi-tiles">${tiles.map(([lab, val]) => `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
+    </div>
+    <div class="shr-legend">
+      <b>How it's scored.</b> The score is the <b>critical-path density</b> — the share of task-dependent activities on the critical path. A schedule with many critical activities is fragile (small slips ripple), so fewer critical = a higher score.
+      <div style="margin-top:5px">Band: ≤ 25% → 100 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 75 · &gt; 40% → 60.</div>
+      <div style="margin-top:5px">Grade of the score: 100 = Excellent · 90 = Acceptable · below 90 (85 / 75 / 60) = Critical.</div>
+    </div>
+    <div class="shr-legend">
+      <b>Context — CPLI ratio &amp; baseline rule (not the score).</b> CPLI = (CPL + TF) ÷ CPL = <b>${ratioComputable ? `${ratioPct}%` : '—'}</b> — DCMA 14-Point, Point 13 (target ≥ 95%). Completion total float = <b>${dnum(k.project_total_float_days)}</b>.
+    </div>
+    <div class="mod-sec">Driving path <span class="mod-sub">— the activities P6 flags critical, in sequence</span></div>
+    ${cpliGantt(m.findings || [], m.kpis || {})}`;
+}
+
+// Driving-path Gantt: one row per critical activity — Activity ID · Name · Start ·
+// Finish · Duration and a time-based bar on a shared month axis. Red = critical
+// (the driving path); blue = near-critical (carries float). Every activity is
+// reachable — the body scrolls, nothing is hidden behind a "+N more" (works at
+// 1,500+). Replaces the old timeline AND the separate table (one view now).
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function cpliGantt(findings, kpis) {
+  const dated = (findings || []).filter(f => f.start && f.finish);
+  if (!dated.length) {
+    return '<p style="color:var(--muted);font-size:13px">No dated critical activities to plot.</p>';
+  }
+  const t = d => new Date(d + 'T00:00:00').getTime();
+  const lo = Math.min(...dated.map(f => t(f.start)));
+  const hi = Math.max(...dated.map(f => t(f.finish)));
+  const span = Math.max(1, hi - lo);
+  const posOf = ms => Math.max(0, Math.min(100, 100 * (ms - lo) / span));
+  const totalMonths = Math.max(1, Math.round((hi - lo) / (86400000 * 30.44)));
+  const monthPct = 100 / totalMonths;                      // gridline + label spacing
+  const step = Math.max(1, Math.ceil(totalMonths / 11));   // ~11 labels max
+
+  const ticks = [];
+  const first = new Date(lo);
+  for (let mk = new Date(first.getFullYear(), first.getMonth(), 1); mk.getTime() <= hi; mk.setMonth(mk.getMonth() + step)) {
+    const p = 100 * (mk.getTime() - lo) / span;
+    if (p >= -1 && p <= 101) {
+      ticks.push(`<span class="cg-m" style="left:${Math.max(0, Math.min(100, p))}%">${MONTHS[mk.getMonth()]} ${String(mk.getFullYear()).slice(2)}</span>`);
+    }
+  }
+  // Data-date (amber) + finish (green) markers, as agreed.
+  const ddIso = (kpis || {}).data_date;
+  const ddPos = ddIso ? posOf(t(ddIso)) : 0;
+  const markers = `<span class="cg-mk dd" style="left:${ddPos}%" title="Data date"></span>` +
+                  `<span class="cg-mk fn" style="left:100%" title="Completion"></span>`;
+
+  const rows = dated.map(f => {
+    const x = posOf(t(f.start));
+    const w = Math.max(0.5, 100 * (t(f.finish) - t(f.start)) / span);
+    const crit = (f.total_float_days ?? 0) <= 0;    // red = critical; blue = near-critical (has float)
+    const isMs = f.is_milestone === true;   // only genuine P6 milestones get a diamond, never a short Task
+    const dur = f.duration_days == null ? '—' : `${f.duration_days} wd`;
+    const bar = isMs
+      ? `<span class="cg-ms" style="left:${x}%"></span>`
+      : `<i class="${crit ? 'crit' : ''}" style="left:${x}%;width:${Math.min(w, 100 - x)}%"></i>`;
+    return `<div class="cg-row" data-q="${escapeHtml((f.activity_id + ' ' + (f.activity_name || '')).toLowerCase())}">
+      <div class="cg-c cg-id">${escapeHtml(f.activity_id)}</div>
+      <div class="cg-c cg-nm" title="${escapeHtml(f.activity_name)}">${escapeHtml(f.activity_name)}</div>
+      <div class="cg-c cg-dt">${escapeHtml(isoDate(f.start))}</div>
+      <div class="cg-c cg-dt">${escapeHtml(isoDate(f.finish))}</div>
+      <div class="cg-c cg-du">${escapeHtml(dur)}</div>
+      <div class="cg-track">${bar}</div>
+    </div>`;
+  }).join('');
+
+  // Search wiring runs after this HTML is placed into #module-body.
+  setTimeout(() => {
+    const s = document.getElementById('cg-search');
+    if (!s) return;
+    s.addEventListener('input', e => {
+      const q = e.target.value.trim().toLowerCase();
+      let shown = 0;
+      document.querySelectorAll('#cg-body .cg-row').forEach(r => {
+        const hit = !q || (r.dataset.q || '').includes(q);
+        r.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      const cnt = document.getElementById('cg-cnt');
+      if (cnt) cnt.textContent = q ? `${shown.toLocaleString()} of ${dated.length.toLocaleString()} shown`
+                                   : `${dated.length.toLocaleString()} critical activities · all shown (scroll)`;
+    });
+  }, 0);
+
+  return `
+    <div class="cg-tools">
+      <input class="cg-search" id="cg-search" placeholder="🔍  Search activity ID or name…">
+      <span class="cg-cnt" id="cg-cnt">${dated.length.toLocaleString()} critical activities · all shown (scroll)</span>
+      <span class="cg-leg"><i class="sw r"></i>Critical <i class="sw b"></i>Near-critical <i class="sw dd"></i>Data date <i class="sw fn"></i>Finish</span>
+    </div>
+    <div class="cg-wrap" style="--m:${monthPct}%">
+      <div class="cg-axis"><div class="cg-c">ID</div><div class="cg-c">Activity</div><div class="cg-c">Start</div>
+        <div class="cg-c">Finish</div><div class="cg-c cg-du">Dur</div>
+        <div class="cg-axtrack">${ticks.join('')}${markers}</div></div>
+      <div class="cg-body" id="cg-body">${rows}</div>
+    </div>`;
+}
+
+// ── Milestone Check (gate B) — contract milestones vs the baseline ─────────
+function msDatalist(baseline) {
+  return `<datalist id="ms-baseline">${(baseline || []).map(b =>
+    `<option value="${escapeHtml(b.name)}">${escapeHtml(b.activity_id)}${b.finish ? ' · ' + escapeHtml(b.finish) : ''}</option>`).join('')}</datalist>`;
+}
+function msRowHtml(name = '', date = '') {
+  return `<div class="ms-row">
+    <input class="ms-name" list="ms-baseline" placeholder="Contract milestone (e.g. Mechanical Completion)" value="${escapeHtml(name)}">
+    <input class="ms-date" type="date" value="${escapeHtml(date)}">
+    <button class="ms-del" title="Remove">✕</button>
+  </div>`;
+}
+
+// The gate screen shown before ANY check results (gate B). Pre-filled from the saved
+// contract milestones when re-opening a project.
+function renderMilestoneGate(am) {
+  const mc = am.modules.hard_constraints || {};
+  const baseline = mc.baseline_milestones || [];
+  const saved = mc.contract_milestones || [];
+  const body = document.getElementById('audit-body');
+  body.innerHTML = `
+    <div class="ms-gate">
+      <div class="ms-gate-h">Step 1 · Enter your contract milestones</div>
+      <div class="ms-gate-sub">The Schedule Health Review runs after you enter the project completion milestone (and any other contractual milestones). Each is matched to a real activity in this baseline — <b>${baseline.length}</b> milestone activit${baseline.length === 1 ? 'y' : 'ies'} found in the file (start typing to pick one).</div>
+      ${msDatalist(baseline)}
+      <div id="ms-rows"></div>
+      <div class="ms-gate-actions">
+        <button class="btn-secondary" id="ms-add">+ Add milestone</button>
+        <button class="btn-primary" id="ms-run">Run Schedule Health Review ▸</button>
+      </div>
+      <div class="ms-gate-hint" id="ms-hint">Nothing is assessed until a milestone is matched — the tool never invents one.</div>
+    </div>`;
+  const rows = document.getElementById('ms-rows');
+  const add = (n = '', d = '') => rows.insertAdjacentHTML('beforeend', msRowHtml(n, d));
+  if (saved.length) saved.forEach(s => add(s.name, s.date)); else add();
+  rows.addEventListener('click', e => {
+    if (!e.target.classList.contains('ms-del')) return;
+    const r = e.target.closest('.ms-row');
+    if (rows.children.length > 1) r.remove();
+    else { r.querySelector('.ms-name').value = ''; r.querySelector('.ms-date').value = ''; }
+  });
+  document.getElementById('ms-add').addEventListener('click', () => add());
+  document.getElementById('ms-run').addEventListener('click', () => submitMilestones(am));
+}
+
+function collectMilestones() {
+  return [...document.querySelectorAll('#ms-rows .ms-row')].map(r => ({
+    name: r.querySelector('.ms-name').value.trim(),
+    date: r.querySelector('.ms-date').value.trim(),
+  })).filter(m => m.name && m.date);
+}
+
+async function submitMilestones(am) {
+  const milestones = collectMilestones();
+  const hint = document.getElementById('ms-hint');
+  if (!milestones.length) { hint.textContent = 'Enter at least one milestone name and its contract date.'; return; }
+  const runBtn = document.getElementById('ms-run');
+  runBtn.disabled = true; runBtn.textContent = 'Evaluating…';
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/milestones/save`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, milestones }),
+    }).then(r => r.json());
+    if (resp.ok && resp.milestone_module) {
+      am.modules.hard_constraints = resp.milestone_module;   // now carries the evals; needs_input=false
+      if (resp.health) am.health = resp.health;              // keep the roll-up (donut/counts) in sync
+      renderAudit(am);                                        // un-gated
+      selectModule('hard_constraints');                      // land on the Milestone Check
+    } else {
+      hint.textContent = resp.error || 'Could not evaluate the milestones — please retry.';
+      runBtn.disabled = false; runBtn.textContent = 'Run Schedule Health Review ▸';
+    }
+  } catch (e) {
+    hint.textContent = 'Server error — please retry.';
+    runBtn.disabled = false; runBtn.textContent = 'Run Schedule Health Review ▸';
+  }
+}
+
+function msStatusClass(s) {
+  return { 'Masked': 'st-mask', 'Late': 'st-late', 'On track': 'st-ok', 'Unmatched': 'st-un' }[s] || 'st-un';
+}
+function msCard(e) {
+  const variance = e.variance_days == null ? '—'
+    : (e.variance_days > 0 ? `+${e.variance_days} wd late` : `${Math.abs(e.variance_days)} wd on/early`);
+  const facts = [
+    ['Contract date', e.contract_date || '—'],
+    ['Matched activity', e.matched_activity_id ? `${e.matched_activity_id} · ${e.matched_activity_name || ''}` : '— none —'],
+    ['Scheduled finish', e.scheduled_finish || '—'],
+    ['Variance', variance],
+    ['Total float', dnum(e.total_float_days)],
+    ['On driving path', e.on_driving_path == null ? '—' : (e.on_driving_path ? 'Yes' : 'No')],
+  ].map(([k, v]) => `<div class="ms-fact"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`).join('');
+  const nl = (k, v) => `<div class="ms-nl"><div class="mk">${escapeHtml(k)}</div><div class="mv">${escapeHtml(v || '')}</div></div>`;
+  return `<div class="ms-card">
+    <div class="ms-ct"><div class="ms-cn">${escapeHtml(e.contract_name)}</div><div class="ms-st ${msStatusClass(e.status)}">${escapeHtml(e.status)}</div></div>
+    <div class="ms-facts">${facts}</div>
+    <div class="ms-narr">${nl('Finding', e.finding)}${nl('Evidence', e.evidence)}${nl('Root cause', e.root_cause)}${nl('Impact', e.impact)}${nl('Recommendation', e.recommendation)}</div>
+  </div>`;
+}
+
+// Hard-constraint findings (the merge) — rendered directly from the module findings.
+function hardConstraintsTable(m) {
+  const findings = m.findings || [];
+  if (!findings.length) return '<p style="color:var(--muted);font-size:13px">No hard constraints in this baseline.</p>';
+  const rows = findings.map((f, i) =>
+    `<tr>${tdNum(i + 1)}${tdMono(f.activity_id)}${td(f.activity_name)}${tdWbs(f.wbs_path)}${td(f.constraint_type)}${tdMut(isoDate(f.constraint_date))}${tdSev(f.severity)}${tdMut(f.recommendation)}</tr>`).join('');
+  return `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table"><thead><tr>
+    <th>#</th><th>Activity ID</th><th>Activity Name</th><th>WBS Path</th><th>Constraint Type</th><th>Constraint Date</th><th>Severity</th><th>Recommendation</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// The Milestone Check detail view: contract-milestone verdict cards (evidence-first)
+// then the hard-constraint findings underneath.
+function renderMilestoneCheck(m) {
+  const p = m.presentation || {};
+  const evals = m.milestones || [];
+  const counts = m.milestone_counts || {};
+  const cards = evals.map(msCard).join('')
+    || '<p style="color:var(--muted);font-size:13px">No contract milestones entered yet — use “Edit contract milestones”.</p>';
+  document.getElementById('module-body').innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(m.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
+          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
+          <div class="coverage">${['Masked', 'Late', 'On track', 'Unmatched'].filter(s => counts[s]).map(s => `${counts[s]} ${s.toLowerCase()}`).join(' · ') || 'No milestones matched'}</div>
+          <div style="margin-top:8px"><button class="btn-secondary" id="ms-edit">Edit contract milestones</button></div>
+        </div>
+      </div>
+      <div class="kpi-tiles">${presentationTiles(p)}</div>
+    </div>
+    <div class="mod-sec">Contract milestones <span class="mod-sub">— entered by you, matched to the baseline</span></div>
+    <div class="ms-cards">${cards}</div>
+    ${scoringLegendHtml(p.scoring)}`;
+  const eb = document.getElementById('ms-edit');
+  if (eb) eb.addEventListener('click', () => renderMilestoneGate(state.currentModules));
+}
+
+// The Summary dashboard — the weighted Schedule Health roll-up, rendered from the
+// `health` payload (score, verdict, checks-status, composition, problem areas, fixes).
+function renderSummary(health, am) {
+  const body = document.getElementById('module-body');
+  if (!health) {
+    body.innerHTML = '<p style="color:var(--muted);font-size:13px">No Summary available for this schedule.</p>';
+    return;
+  }
+  const score = health.score, grade = health.grade || '', verdict = health.verdict || '', statement = health.statement || '';
+  const counts = health.counts || {};
+  const subs = health.sub_features || [];
+  const gate = health.gate || {};
+  const gateClear = !gate.blocking;
+  const total = health.total_count || subs.length || 1;
+  const p = counts.Pass || 0, r = counts.Review || 0, c = counts.Critical || 0, n = counts['Not computed'] || 0;
+  const a1 = 100 * p / total, a2 = a1 + 100 * r / total, a3 = a2 + 100 * c / total;
+  const donutGrad = `conic-gradient(var(--success) 0 ${a1}%, var(--warning) ${a1}% ${a2}%, var(--danger) ${a2}% ${a3}%, var(--muted) ${a3}% 100%)`;
+  const cpliK = (am && am.modules && am.modules.cpli && am.modules.cpli.kpis) || {};
+  const compFloat = cpliK.project_total_float_days;
+
+  const tone = s => (s == null ? '' : s >= 85 ? 'shr-green' : s >= 60 ? 'shr-amber' : 'shr-red');
+
+  const compRows = subs.map(s => {
+    const barW = s.score == null ? 0 : Math.max(0, Math.min(100, s.score));
+    const etag = (s.modules || []).some(k => k === 'dangling' || k === 'float') ? '<span class="shr-etag">existing</span>' : '';
+    const prov = s.provisional ? '<span class="shr-prov">provisional</span>' : '';
+    // Highlight the sub-features the user must review (below the 80% standard).
+    const needsReview = s.status === 'Review' || s.status === 'Critical';
+    const reviewTag = needsReview
+      ? `<span class="shr-review ${s.status === 'Critical' ? 'crit' : ''}">${s.status === 'Critical' ? 'needs review' : 'review'}</span>` : '';
+    return `<div class="shr-crow${needsReview ? ' needs-review' : ''}">
+      <div class="shr-nm"><span class="dot ${statusDot(s.status)}"></span>${escapeHtml(s.name)} ${etag}${prov}${reviewTag}</div>
+      <div class="shr-bar"><i style="width:${barW}%;background:${statusColor(s.status)}"></i></div>
+      <div class="shr-sc">${s.score == null ? '—' : s.score + '%'}</div>
+      <div class="shr-wt">${s.weight}</div>
+      <div class="shr-pt">${s.points == null ? '—' : s.points}</div>
+    </div>`;
+  }).join('');
+  const gateRow = `<div class="shr-crow">
+      <div class="shr-nm"><span class="dot ${gateClear ? 'd-g' : 'd-c'}"></span>Circular logic <span class="shr-gate ${gateClear ? 'ok' : 'bad'}">gate · ${gateClear ? 'clear' : 'blocking'}</span></div>
+      <div class="shr-bar"><i style="width:${gateClear ? 100 : 0}%;background:${gateClear ? 'var(--success)' : 'var(--danger)'}"></i></div>
+      <div class="shr-sc">—</div><div class="shr-wt">—</div><div class="shr-pt">—</div>
+    </div>`;
+
+  const areas = (health.problem_areas || {}).areas || [];
+  const paMax = Math.max(1, ...areas.map(a => a.pct || 0));
+  const paRows = areas.slice(0, 6).map((a, i) => `
+    <div class="shr-wb"><div class="l" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
+      <div class="shr-wbt"><i style="width:${Math.round(100 * (a.pct || 0) / paMax)}%;background:${i === 0 ? 'var(--danger)' : i < 3 ? 'var(--warning)' : 'var(--accent)'}"></i></div>
+      <div class="c">${a.pct}%</div></div>`).join('') || '<div class="shr-empty">No findings to place — the logic is clean.</div>';
+
+  const fixRows = (health.fix_first || []).map((f, i) => `
+    <div class="shr-fix"><div class="rk">${i + 1}</div>
+      <div><b>${escapeHtml(f.name)} ${f.score}%</b> <span class="sub">(wt ${f.weight})</span>
+        <div class="sub">${escapeHtml(f.recommendation || '')}</div></div>
+      <span class="shr-lift">+~${f.lift}</span></div>`).join('') || '<div class="shr-empty">Every check is at target — nothing to fix first.</div>';
+
+  body.innerHTML = `
+    <div class="shr-dash">
+      <div class="shr-top">
+        <div class="card shr-gaugecard">
+          ${gaugeHtml(score, `/ 100 · ${grade}`)}
+          <div class="shr-gmeta">
+            <div class="shr-verdict ${verdictClass(verdict)}">${escapeHtml(verdict)}</div>
+            <div class="shr-gl">Overall <b>Schedule Health</b> — the weighted roll-up of every sub-feature.<br>${escapeHtml(statement)}</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="shr-ct">Checks status <span class="r">${total} sub-features</span></div>
+          <div class="shr-donutwrap">
+            <div class="shr-donut" style="background:${donutGrad}"><div class="dh"><b>${p}</b><span>of ${total} pass</span></div></div>
+            <div class="shr-dleg">
+              <div class="dl"><span class="sw" style="background:var(--success)"></span>Pass <b>${p}</b></div>
+              <div class="dl"><span class="sw" style="background:var(--warning)"></span>Review <b>${r}</b></div>
+              <div class="dl"><span class="sw" style="background:var(--danger)"></span>Critical <b>${c}</b></div>
+              ${n ? `<div class="dl"><span class="sw" style="background:var(--muted)"></span>Not computed <b>${n}</b></div>` : ''}
+              <div class="dl"><span class="sw" style="background:${gateClear ? 'var(--success)' : 'var(--danger)'}"></span>Circular gate <b>${gateClear ? 'clear' : 'blocking'}</b></div>
+            </div>
+          </div>
+          <div class="shr-bands">
+            <div class="lab">How status is decided — each check's score against the per-check bands</div>
+            <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass ≥ 95</div></div>
+            <div class="note">A check below 95 needs review; below 90 is critical. Per-check targets adjust where DCMA differs — e.g. FS ≥ 90%. The overall baseline is submit-ready at ≥ 80%.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="shr-ct">Headline</div>
+          <div class="shr-statcol">
+            <div class="stat"><div class="sv ${tone(score)}">${score ?? '—'}<span>/100</span></div><div class="sk">Baseline health score</div></div>
+            <div class="stat"><div class="sv ${c ? 'shr-red' : 'shr-green'}">${c}</div><div class="sk">Critical sub-features</div></div>
+            <div class="stat"><div class="sv ${compFloat == null ? '' : compFloat < 0 ? 'shr-red' : 'shr-green'}">${compFloat == null ? '—' : compFloat + ' d'}</div><div class="sk">Completion total float (rule ≥ 0)</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shr-comp">
+        <div class="shr-ct">Sub-feature scores × your weights <span class="r">worst first</span></div>
+        <div class="shr-chead"><span>Sub-feature</span><span>Score</span><span>Score</span><span>Wt</span><span>Pts</span></div>
+        ${compRows}
+        ${gateRow}
+        <div class="shr-comptot"><div class="tl">Overall Schedule Health</div><div class="tw">${health.weight_covered ?? 100}</div><div class="tv ${tone(score)}">${score ?? '—'}</div></div>
+      </div>
+
+      <div class="shr-grid2">
+        <div class="card">
+          <div class="shr-ct">Where the problems are <span class="r">defect share by discipline</span></div>
+          ${paRows}
+        </div>
+        <div class="card">
+          <div class="shr-ct">Fix these first <span class="r">biggest lift</span></div>
+          ${fixRows}
+        </div>
+      </div>
+
+      <div class="card shr-concl">
+        <div class="shr-ct">Conclusion</div>
+        <p>${escapeHtml(statement)}</p>
+      </div>
+    </div>`;
 }
 
 // ── Float Analysis management dashboard (V2 redesign) ─────────────────────
@@ -468,19 +2271,17 @@ function renderFloatModule(m) {
         </div>
         <div class="fh-drivers">
           ${fhDriver(`High Float > ${thr} WD — construction`,
-                     `DCMA target < ${fhFmt(high.target ?? 5)}% · penalty maxes at ${fhFmt(high.max_pct ?? 20)}%`,
-                     high.pct ?? 0, high.max_pct ?? 20, high.penalty ?? 0, 'var(--danger)')}
-          ${fhDriver('Negative Float — whole schedule',
-                     `DCMA target ${fhFmt(neg.target ?? 0)}% · penalty maxes at ${fhFmt(neg.max_pct ?? 5)}%`,
-                     neg.pct ?? 0, neg.max_pct ?? 5, neg.penalty ?? 0, 'var(--warning)')}
+                     'the score driver — 100 − this %',
+                     high.pct ?? 0, 25, high.penalty ?? 0, 'var(--danger)')}
+          <div class="fh-note">Score = 100 − the construction High-Float defect above.</div>
         </div>
       </div>
     </div>
     <div class="scorelegend">
-      <div class="sl-title">How the Float Health score is calculated <span>— anchored to the DCMA 14-Point float targets</span></div>
-      <div class="sl-formula">Float Health = 100 − High-Float penalty − Negative-Float penalty</div>
-      <div class="sl-row"><b>High Float</b> — construction activities with total float &gt; ${thr} WD · <span class="sl-t">DCMA target &lt; ${fhFmt(high.target ?? 5)}%</span> · penalty 0 at ≤ ${fhFmt(high.target ?? 5)}%, rising to −${high.max_penalty ?? 60} at ${fhFmt(high.max_pct ?? 20)}%.</div>
-      <div class="sl-row"><b>Negative Float</b> — activities with total float &lt; 0 (whole schedule) · <span class="sl-t">DCMA target ${fhFmt(neg.target ?? 0)}%</span> · penalty 0 at ${fhFmt(neg.target ?? 0)}%, rising to −${neg.max_penalty ?? 40} at ${fhFmt(neg.max_pct ?? 5)}%.</div>
+      <div class="sl-title">How the Float Health score is calculated <span>— Schedule Health Review linear model</span></div>
+      <div class="sl-formula">Float Health = 100 − construction excess-float defect%</div>
+      <div class="sl-row"><b>Defect%</b> = construction activities with total float &gt; ${thr} WD ÷ all construction activities. Each 1% of defect costs 1 point — here ${fhFmt(high.pct ?? 0)}% → <b>${score}</b>.</div>
+      <div class="sl-row sl-ref"><b>DCMA reference — not the score.</b> DCMA Metric 5 benchmark: at least ${fhFmt(high.dcma_within_pct ?? 95)}% of activities within the float threshold (high float &lt; ${fhFmt(high.dcma_max_pct ?? 5)}%). Shown for reference; it does not set the score.</div>
       <div class="sl-colours"><span><i class="g"></i>Green ≥ 85</span><span><i class="a"></i>Amber 60–84</span><span><i class="r"></i>Red &lt; 60</span></div>
     </div>
     <div class="mod-sec">Schedule Statistics <span class="mod-sub">— whole schedule</span></div>
@@ -516,40 +2317,551 @@ function renderRows() {
   const key = state.currentModule;
   const tbody = document.getElementById('audit-tbody');
   const thead = document.getElementById('find-head');
-  if (!am || !key || !tbody) return;
+  if (!am || !key || !tbody || !am.modules[key]) return;
   const m = am.modules[key];
-  const rows = filterFindings(m.findings, { severity: _filters.severity, query: _filters.query });
-
-  const cols = m.module === 'dangling'
-    ? ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Severity', 'Logic Issue', 'Predecessor(s)', 'Successor(s)', 'Suggested Logic Fix', 'Suggested Logic Fix 2']
-    : ['#', 'Activity ID', 'Activity Name', 'WBS Path', 'Total Float', 'Threshold', 'Impact', 'Status', 'Severity', 'Recommendation'];
-  thead.innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>`;
-
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:20px">No findings match.</td></tr>`;
+  const p = m.presentation || {};
+  const cols = p.columns || [];
+  const prows = p.rows || [];
+  thead.innerHTML = `<tr><th>#</th>${cols.map(c =>
+    c.align === 'num' ? `<th class="num">${escapeHtml(c.label)}</th>` : `<th>${escapeHtml(c.label)}</th>`).join('')}</tr>`;
+  // Filter by the raw finding; render the PARALLEL presentation row (same index),
+  // so the on-screen table shows the exact cells the PDF and Excel do.
+  const sev = _filters.severity, q = (_filters.query || '').trim().toLowerCase();
+  const visible = [];
+  (m.findings || []).forEach((f, idx) => {
+    if (sev && f.severity !== sev) return;
+    if (q && !`${f.activity_id || ''} ${f.activity_name || ''}`.toLowerCase().includes(q)) return;
+    if (prows[idx]) visible.push(prows[idx]);
+  });
+  if (!visible.length) {
+    tbody.innerHTML = `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:var(--muted);padding:20px">No findings match.</td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map((f, i) => {
-    const wbs = `<td title="${escapeHtml(f.wbs_path)}">${escapeHtml(shortWbs(f.wbs_path))}</td>`;
-    const sev = `<td><span class="sevtag ${severityClass(f.severity)}">${escapeHtml(f.severity)}</span></td>`;
-    if (m.module === 'dangling') {
-      return `<tr><td class="num">${i + 1}</td>
-        <td class="mono">${escapeHtml(f.activity_id)}</td>
-        <td>${escapeHtml(f.activity_name)}</td>${wbs}${sev}
-        <td>${escapeHtml(f.logic_issue)}</td>
-        <td class="mut">${escapeHtml(f.predecessors)}</td>
-        <td class="mut">${escapeHtml(f.successors)}</td>
-        <td>${escapeHtml(f.suggested_fix)}</td>
-        <td class="mut">${escapeHtml(f.suggested_fix_2)}</td></tr>`;
+  tbody.innerHTML = visible.map((row, i) =>
+    `<tr><td class="num">${i + 1}</td>${row.map(cellHtml).join('')}</tr>`).join('');
+}
+
+// ── Lag Report — Excel-style column filters (pure helpers, unit-tested) ────
+// A column filter is the SET of allowed values for that column. Quick-pick lag-size
+// buttons work by MAGNITUDE (|lag_days|) except "Long", which is a straight value >
+// threshold — a lead is never "long". "All" (and an unrecognised pick) returns everything.
+export function lagQuickPickValues(values, pick, customThreshold) {
+  const v = values || [];
+  switch (pick) {
+    case 'ge2':   return v.filter(n => Math.abs(n) >= 2);
+    case 'ge5':   return v.filter(n => Math.abs(n) >= 5);
+    case 'long':  return v.filter(n => n > 14);
+    case 'leads': return v.filter(n => n < 0);
+    case 'custom': {
+      const t = Number(customThreshold);
+      return Number.isFinite(t) ? v.filter(n => Math.abs(n) >= t) : v.slice();
     }
-    const impact = f.impact != null ? `${f.impact}×` : '—';
-    return `<tr><td class="num">${i + 1}</td>
+    default: return v.slice();   // 'all'
+  }
+}
+
+// When every distinct value in a column is selected, that is equivalent to no filter
+// at all — normalize to null so "is this column filtered?" is a plain truthy check.
+export function normalizeColumnFilter(selected, allValues) {
+  if (!selected) return null;
+  const sel = new Set(selected);
+  if (sel.size >= (allValues || []).length) return null;
+  return sel;
+}
+
+export function matchesColumnFilter(value, allowedSet) {
+  return !allowedSet || allowedSet.has(value);
+}
+
+// One entry per filterable Lag Report column: how to read its raw value off a finding.
+// The Pred. Relationship column filters by relationship TYPE (rel_type: FS/SS/FF/SF),
+// not the full "FS+21" label.
+export const LAG_FILTER_COLUMNS = [
+  { key: 'activity_id',   label: 'Activity ID',        type: 'text',    valueOf: f => f.activity_id || '' },
+  { key: 'activity_name', label: 'Activity Name',      type: 'text',    valueOf: f => f.activity_name || '' },
+  { key: 'lag_days',      label: 'Lag (wd)',           type: 'number',  valueOf: f => Number(f.lag_days) || 0 },
+  { key: 'pred_rel_type', label: 'Pred. Relationship', type: 'reltype', valueOf: f => f.rel_type || '' },
+  { key: 'pred_name',     label: 'Pred. Name',         type: 'text',    valueOf: f => f.pred_name || '' },
+];
+
+// Every active column filter combines with AND, plus the existing global search box
+// (activity id / name / predecessor name).
+export function filterLagFindings(findings, { query = '', cols = {} } = {}) {
+  const q = (query || '').trim().toLowerCase();
+  return (findings || []).filter(f => {
+    for (const col of LAG_FILTER_COLUMNS) {
+      const allowed = cols[col.key];
+      if (allowed && !matchesColumnFilter(col.valueOf(f), allowed)) return false;
+    }
+    if (q) {
+      const hay = `${f.activity_id || ''} ${f.activity_name || ''} ${f.pred_name || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+export function sortLagFindings(findings, sortKey, dir) {
+  const col = LAG_FILTER_COLUMNS.find(c => c.key === sortKey);
+  if (!col) return findings;
+  const mul = dir === 'desc' ? -1 : 1;
+  return [...findings].sort((a, b) => {
+    const av = col.valueOf(a), bv = col.valueOf(b);
+    if (col.type === 'number') return mul * (av - bv);
+    return mul * String(av).localeCompare(String(bv));
+  });
+}
+
+// ── Lag Report — standalone report (charts + register + editable justification) ──
+
+// _lagFilter.cols maps a LAG_FILTER_COLUMNS key → Set of allowed values (absent/null =
+// column not filtered). _lagFilter.quickPick tracks which Lag (wd) quick-pick button (if
+// any) produced the current lag_days filter — used for the button highlight and the export
+// caption; a manual checkbox edit clears it to null ("custom", no caption suffix).
+let _lagFilter = { query: '', cols: {}, quickPick: 'all', customThreshold: null, sort: null };
+let _lagModule = null;    // module data behind the currently-rendered register (for lagExportFilter)
+let _lagPopover = null;   // { col, allValues, selected: Set, search } for the ONE open filter popover
+
+function lagBar(pct) {
+  const w = Math.max(0, Math.min(100, Math.round(pct || 0)));
+  return `<div class="lag-dbar"><i style="width:${w}%"></i></div>`;
+}
+
+function lagRelHtml(rel, isLead, isLong) {
+  const cls = isLead ? 'rel-lead' : (isLong ? 'rel-long' : '');
+  return `<span class="mono ${cls}">${escapeHtml(rel || '—')}</span>`;
+}
+
+function lagFlagChips(f) {
+  // Only the Lead flag sits beside the relationship. Long and Critical/Near were
+  // removed as redundant clutter — the Lag (wd) column already colours long/lead,
+  // and criticality isn't needed inline (Ibrahim, 2026-09-06).
+  return f.is_lead ? '<span class="lag-chip lead">Lead</span>' : '';
+}
+
+// Lag (wd) cell — the SAME emphasis the relationship cell uses (red lead, amber long),
+// right-aligned/monospace with a real minus sign for a lead.
+function lagDaysCell(f) {
+  const n = Number(f.lag_days) || 0;
+  const cls = f.is_lead ? 'rel-lead' : (f.is_long ? 'rel-long' : '');
+  const shown = n < 0 ? `−${Math.abs(n)}` : String(n);
+  return `<td class="num mono ${cls}">${escapeHtml(shown)}</td>`;
+}
+
+// Save one justification to the server (per project). Raw fetch keeps audit.js free of an
+// api.js import cycle; a failed save is silent — the typed text stays in the in-memory copy.
+async function saveLagJustification(relKey, text) {
+  if (!state.currentSnapshotId) return;
+  try {
+    await fetch(`http://localhost:${state.serverPort}/api/lag/justification`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, rel_key: relKey, text }),
+    });
+  } catch { /* offline / server down — keep the local edit, retry on next blur */ }
+}
+
+function lagRowsFiltered(m) {
+  let rows = filterLagFindings(m.findings || [], _lagFilter);
+  if (_lagFilter.sort) rows = sortLagFindings(rows, _lagFilter.sort.key, _lagFilter.sort.dir);
+  return rows;
+}
+
+function updateLagCountLine(m, shownCount) {
+  const el = document.getElementById('lag-count');
+  if (!el) return;
+  const total = (m.findings || []).length;
+  el.innerHTML = (shownCount === total)
+    ? `Showing <b>${total.toLocaleString()}</b> of ${total.toLocaleString()}`
+    : `Showing <b>${shownCount.toLocaleString()}</b> of ${total.toLocaleString()} <span class="lag-filtered-tag">· filtered</span>`;
+}
+
+function renderLagRows(m) {
+  const tbody = document.getElementById('lag-tbody');
+  if (!tbody) return;
+  const rows = lagRowsFiltered(m);
+  updateLagCountLine(m, rows.length);
+  if (!rows.length) {
+    const empty = !(m.findings || []).length
+      ? 'No lags or leads in this schedule — every relationship drives directly.'
+      : 'No lags match the current filters.';
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">${empty}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((f, i) => `
+    <tr>
+      <td class="num">${i + 1}</td>
       <td class="mono">${escapeHtml(f.activity_id)}</td>
-      <td>${escapeHtml(f.activity_name)}</td>${wbs}
-      <td class="num">${escapeHtml(f.total_float_days)} d</td>
-      <td class="num">${escapeHtml(f.threshold)} d</td>
-      <td class="num">${impact}</td>
-      <td>${escapeHtml(f.status)}</td>${sev}
-      <td class="mut">${escapeHtml(f.recommendation)}</td></tr>`;
-  }).join('');
+      <td>${escapeHtml(f.activity_name)}</td>
+      ${lagDaysCell(f)}
+      <td class="lag-relcell">${lagRelHtml(f.pred_rel, f.is_lead, f.is_long)} ${lagFlagChips(f)}</td>
+      <td class="mut">${escapeHtml(f.pred_name)}</td>
+      <td><span class="mono">${escapeHtml(f.succ_rel || '—')}</span></td>
+      <td class="mut">${escapeHtml(f.succ_name || '—')}</td>
+      <td><textarea class="lag-just" data-relkey="${escapeHtml(f.rel_key)}" rows="1" placeholder="Add reason…">${escapeHtml(f.justification || '')}</textarea></td>
+    </tr>`).join('');
+
+  // Auto-grow each justification box to fit ALL the text the planner types — no hidden
+  // overflow, the full sentence is always visible (wrap handled by the textarea + CSS).
+  const autosize = ta => { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; };
+  tbody.querySelectorAll('.lag-just').forEach(ta => {
+    const relKey = ta.dataset.relkey;
+    const sync = () => { const f = (m.findings || []).find(x => x.rel_key === relKey); if (f) f.justification = ta.value; };
+    autosize(ta);
+    ta.addEventListener('input', () => { sync(); autosize(ta); });
+    ta.addEventListener('change', () => { sync(); saveLagJustification(relKey, ta.value); });
+  });
+}
+
+// ── Lag Report — header filter popover (Excel-style AutoFilter) ────────────
+
+function lagColDef(key) { return LAG_FILTER_COLUMNS.find(c => c.key === key); }
+
+function lagDistinctValues(findings, col) {
+  const seen = new Set();
+  const out = [];
+  (findings || []).forEach(f => {
+    const v = col.valueOf(f);
+    if (v === null || v === undefined) return;
+    if (col.type !== 'number' && v === '') return;
+    if (!seen.has(v)) { seen.add(v); out.push(v); }
+  });
+  return col.type === 'number' ? out.sort((a, b) => a - b) : out.sort((a, b) => String(a).localeCompare(String(b)));
+}
+
+function lagValueLabel(col, v) {
+  if (col.type === 'number') { const n = Number(v) || 0; return n < 0 ? `−${Math.abs(n)}` : String(n); }
+  return String(v);
+}
+
+function lagHeaderCell(label, colKey, cls = '') {
+  return `<th class="${cls}"><span class="lag-th-wrap">${escapeHtml(label)}` +
+    `<button type="button" class="lag-fbtn" data-col="${colKey}" title="Filter ${escapeHtml(label)}">&#9662;</button></span></th>`;
+}
+
+function closeLagFilterPopover() {
+  const el = document.getElementById('lag-fpop');
+  if (el) el.remove();
+  document.removeEventListener('mousedown', lagPopoverOutsideHandler, true);
+  _lagPopover = null;
+}
+
+function lagPopoverOutsideHandler(e) {
+  const pop = document.getElementById('lag-fpop');
+  if (pop && !pop.contains(e.target) && !e.target.closest('.lag-fbtn')) closeLagFilterPopover();
+}
+
+function updateLagFilterButtons() {
+  document.querySelectorAll('.lag-fbtn').forEach(btn =>
+    btn.classList.toggle('on', !!_lagFilter.cols[btn.dataset.col]));
+}
+
+function lagPopoverHtml(col) {
+  const qp = col.type === 'number' ? `
+    <div class="lag-fpop-qh">Number filters — lag size</div>
+    <div class="lag-fpop-qrow">
+      <button type="button" class="lag-qp" data-pick="all">All</button>
+      <button type="button" class="lag-qp" data-pick="ge2">&ge; 2 wd</button>
+      <button type="button" class="lag-qp" data-pick="ge5">&ge; 5 wd</button>
+      <button type="button" class="lag-qp" data-pick="long">Long &gt; 14</button>
+      <button type="button" class="lag-qp" data-pick="leads">Leads</button>
+    </div>
+    <div class="lag-fpop-custom">
+      <span>or &ge;</span><input type="number" class="lag-qcustom" min="0" placeholder="N">
+      <span>wd</span><button type="button" class="lag-qgo">Go</button>
+    </div>
+    <div class="lag-fpop-sep"></div>` : '';
+  const search = col.type !== 'reltype'
+    ? `<input class="lag-fpop-search" placeholder="Search values…">` : '';
+  return `
+    <div class="lag-fpop-sort">
+      <button type="button" class="lag-fsort" data-dir="asc">Sort A&rarr;Z</button>
+      <button type="button" class="lag-fsort" data-dir="desc">Sort Z&rarr;A</button>
+    </div>
+    ${qp}
+    ${search}
+    <label class="lag-fpop-all"><input type="checkbox" class="lag-fpop-allcb"> (Select all)</label>
+    <div class="lag-fpop-list"></div>
+    <div class="lag-fpop-foot">
+      <button type="button" class="lag-fclear">Clear</button>
+      <button type="button" class="lag-fapply">Apply</button>
+    </div>`;
+}
+
+function renderLagPopoverList() {
+  if (!_lagPopover) return;
+  const list = document.querySelector('#lag-fpop .lag-fpop-list');
+  if (!list) return;
+  const { allValues, selected, search } = _lagPopover;
+  const col = lagColDef(_lagPopover.col);
+  const q = (search || '').trim().toLowerCase();
+  const shown = allValues.filter(v => !q || lagValueLabel(col, v).toLowerCase().includes(q));
+  list.innerHTML = shown.length ? shown.map(v => {
+    const idx = allValues.indexOf(v);
+    return `<label class="lag-fpop-item"><input type="checkbox" class="lag-fpop-item-cb" data-idx="${idx}" ${selected.has(v) ? 'checked' : ''}> ${escapeHtml(lagValueLabel(col, v))}</label>`;
+  }).join('') : '<div class="lag-fpop-empty">No values</div>';
+  const allCb = document.querySelector('#lag-fpop .lag-fpop-allcb');
+  if (allCb) allCb.checked = shown.length > 0 && shown.every(v => selected.has(v));
+  list.querySelectorAll('.lag-fpop-item-cb').forEach(cb => cb.addEventListener('change', () => {
+    const v = allValues[Number(cb.dataset.idx)];
+    if (cb.checked) selected.add(v); else selected.delete(v);
+    if (allCb) allCb.checked = shown.every(x => selected.has(x));
+  }));
+}
+
+function applyLagQuickPick(pick, customThreshold, m) {
+  if (!_lagPopover) return;
+  const matched = lagQuickPickValues(_lagPopover.allValues, pick, customThreshold);
+  _lagPopover.selected = new Set(matched);
+  _lagFilter.cols.lag_days = normalizeColumnFilter(matched, _lagPopover.allValues);
+  _lagFilter.quickPick = pick;
+  _lagFilter.customThreshold = pick === 'custom' ? customThreshold : null;
+  renderLagPopoverList();
+  const pop = document.getElementById('lag-fpop');
+  if (pop) pop.querySelectorAll('.lag-qp').forEach(b => b.classList.toggle('on', b.dataset.pick === pick));
+  updateLagFilterButtons();
+  renderLagRows(m);
+}
+
+function wireLagPopover(col, m) {
+  renderLagPopoverList();
+  const pop = document.getElementById('lag-fpop');
+  if (!pop) return;
+
+  pop.querySelectorAll('.lag-fsort').forEach(btn => btn.addEventListener('click', () => {
+    _lagFilter.sort = { key: col.key, dir: btn.dataset.dir };
+    closeLagFilterPopover();
+    renderLagRows(m);
+  }));
+
+  const searchInput = pop.querySelector('.lag-fpop-search');
+  if (searchInput) searchInput.addEventListener('input', e => {
+    _lagPopover.search = e.target.value;
+    renderLagPopoverList();
+  });
+
+  const allCb = pop.querySelector('.lag-fpop-allcb');
+  if (allCb) allCb.addEventListener('change', () => {
+    const q = (_lagPopover.search || '').trim().toLowerCase();
+    const shown = _lagPopover.allValues.filter(v => !q || lagValueLabel(col, v).toLowerCase().includes(q));
+    shown.forEach(v => { if (allCb.checked) _lagPopover.selected.add(v); else _lagPopover.selected.delete(v); });
+    renderLagPopoverList();
+  });
+
+  if (col.type === 'number') {
+    pop.querySelectorAll('.lag-qp').forEach(btn => btn.addEventListener('click', () =>
+      applyLagQuickPick(btn.dataset.pick, null, m)));
+    const goBtn = pop.querySelector('.lag-qgo');
+    const customInput = pop.querySelector('.lag-qcustom');
+    if (goBtn) goBtn.addEventListener('click', () => {
+      const n = Number(customInput.value);
+      if (customInput.value.trim() !== '' && Number.isFinite(n)) applyLagQuickPick('custom', n, m);
+    });
+  }
+
+  pop.querySelector('.lag-fclear').addEventListener('click', () => {
+    delete _lagFilter.cols[col.key];
+    if (col.key === 'lag_days') { _lagFilter.quickPick = 'all'; _lagFilter.customThreshold = null; }
+    closeLagFilterPopover();
+    updateLagFilterButtons();
+    renderLagRows(m);
+  });
+
+  pop.querySelector('.lag-fapply').addEventListener('click', () => {
+    _lagFilter.cols[col.key] = normalizeColumnFilter([..._lagPopover.selected], _lagPopover.allValues);
+    if (col.key === 'lag_days') { _lagFilter.quickPick = null; _lagFilter.customThreshold = null; }
+    closeLagFilterPopover();
+    updateLagFilterButtons();
+    renderLagRows(m);
+  });
+}
+
+function openLagFilterPopover(key, btn, m) {
+  closeLagFilterPopover();
+  const col = lagColDef(key);
+  if (!col) return;
+  const allValues = lagDistinctValues(m.findings || [], col);
+  const current = _lagFilter.cols[key];
+  const selected = new Set(current ? [...current] : allValues);
+  _lagPopover = { col: key, allValues, selected, search: '' };
+
+  const rect = btn.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.className = 'lag-fpop';
+  pop.id = 'lag-fpop';
+  pop.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 276))}px`;
+  pop.style.top = `${rect.bottom + 5}px`;
+  pop.innerHTML = lagPopoverHtml(col);
+  document.body.appendChild(pop);
+  wireLagPopover(col, m);
+  if (col.type === 'number') {
+    pop.querySelectorAll('.lag-qp').forEach(b => b.classList.toggle('on', b.dataset.pick === _lagFilter.quickPick));
+  }
+  document.addEventListener('mousedown', lagPopoverOutsideHandler, true);
+}
+
+function clearAllLagFilters(m) {
+  _lagFilter = { query: '', cols: {}, quickPick: 'all', customThreshold: null, sort: null };
+  const search = document.getElementById('lag-search');
+  if (search) search.value = '';
+  closeLagFilterPopover();
+  updateLagFilterButtons();
+  renderLagRows(m);
+}
+
+// Lag makeup donut: normal (grey) · long positive (amber) · leads (red). Centre = to-justify count.
+function lagDonut(k) {
+  const normal = k.normal_count || 0, longp = k.long_positive_count || 0, leads = k.leads_count || 0;
+  const total = normal + longp + leads;
+  const need = k.need_justification_count ?? (longp + leads);
+  const thr = k.long_threshold_days || 14;
+  const C = 251.33;
+  let off = 0;
+  const seg = (val, color) => {
+    if (!val || !total) return '';
+    const len = C * val / total;
+    const s = `<circle cx="50" cy="50" r="40" fill="none" stroke="${color}" stroke-width="15" ` +
+      `stroke-dasharray="${len.toFixed(1)} ${C}" stroke-dashoffset="${(-off).toFixed(1)}"/>`;
+    off += len; return s;
+  };
+  return `<div class="lag-donut">
+    <svg width="90" height="90" viewBox="0 0 100 100" aria-hidden="true">
+      <g transform="rotate(-90 50 50)">${seg(normal, 'var(--muted)')}${seg(longp, 'var(--warning)')}${seg(leads, 'var(--danger)')}</g>
+      <text x="50" y="48" text-anchor="middle" font-size="18" font-weight="800" fill="currentColor">${need}</text>
+      <text x="50" y="62" text-anchor="middle" font-size="8" fill="var(--muted)">to justify</text>
+    </svg>
+    <div class="lag-leg">
+      <div><span class="ld-dot" style="background:var(--muted)"></span>Normal &le;${thr} wd <b>${normal}</b></div>
+      <div><span class="ld-dot" style="background:var(--warning)"></span>Long &gt;${thr} wd <b>${longp}</b></div>
+      <div><span class="ld-dot" style="background:var(--danger)"></span>Leads <b>${leads}</b></div>
+      <div><span class="ld-dot" style="background:var(--accent)"></span>On critical path <b>${k.critical_count || 0}</b></div>
+    </div>
+  </div>`;
+}
+
+// Lag Report — a standalone top-level report (register of all project lags + charts), not a
+// Schedule Audit tab. Renders into #lag-body. No verdict/score — that's the separate scoring feature.
+export function renderLagPanel(auditModules) {
+  // Store the full audit module set so the shared PDF picker (generateModulePdf reads
+  // state.currentModules.modules[module].presentation.sections) works when the Lag Report
+  // is opened directly — without it, currentModules is null/stale and no picker shows.
+  state.currentModules = auditModules || null;
+  const body = document.getElementById('lag-body');
+  if (!body) return;
+  const m = auditModules && auditModules.modules && auditModules.modules.lag_lead;
+  closeLagFilterPopover();
+  if (!m) {
+    _lagModule = null;
+    body.innerHTML = '<p style="color:var(--muted);font-size:13px">No lag report for this schedule.</p>';
+    return;
+  }
+  const k = m.kpis || {};
+  const byType = k.by_type || [];
+  const ws = m.wbs_summary || [];
+  const typeMax = Math.max(1, ...byType.map(t => t.count || 0));
+  const wbsMax = Math.max(1, ...ws.map(r => r.lagged || 0));
+  const thr = k.long_threshold_days || 14;
+  _lagFilter = { query: '', cols: {}, quickPick: 'all', customThreshold: null, sort: null };
+  _lagModule = m;
+
+  const typeRows = byType.map(t =>
+    `<div class="lag-drow"><span class="lag-dk">${escapeHtml(t.type)}</span>` +
+    `${lagBar(100 * (t.count || 0) / typeMax)}<span class="lag-dv">${t.count} · ${t.pct}%</span></div>`).join('')
+    || '<div style="color:var(--muted);font-size:12px">No lags to distribute.</div>';
+  const wbsRows = ws.slice(0, 10).map(r =>
+    `<div class="lag-wrow"><div class="lag-wname">${escapeHtml(r.wbs)}</div>` +
+    `<div class="lag-wline">${lagBar(100 * (r.lagged || 0) / wbsMax)}<span class="lag-dv">${r.lagged} · ${r.pct}%</span></div></div>`).join('')
+    || '<div style="color:var(--muted);font-size:12px">No lags to distribute.</div>';
+
+  const total = k.lagged_count || 0;
+  const need = k.need_justification_count ?? ((k.leads_count || 0) + (k.long_positive_count || 0));
+
+  body.innerHTML = `
+    <div class="lag-rpt-head">
+      <div class="lag-rpt-title">Lag report</div>
+      <div class="lag-rpt-meta"><b>${total.toLocaleString()}</b> lags across the schedule · ` +
+        `<b>${need}</b> need a justification (lag over ${thr} working days, or a lead) · listed worst first</div>
+    </div>
+
+    <div class="lag-charts">
+      <div class="lag-panel"><div class="lag-ph">Lags by relationship type</div>${typeRows}</div>
+      <div class="lag-panel"><div class="lag-ph">Lags by WBS area</div>${wbsRows}</div>
+      <div class="lag-panel"><div class="lag-ph">Lag makeup</div>${lagDonut(k)}</div>
+    </div>
+
+    <div class="lag-hint">Every relationship carrying a lag or a lead is listed. The <b class="lag-hl">highlighted</b> ones &mdash; lag over ${thr} working days, or a lead &mdash; are the ones to explain: <b>type a reason in the Justification column</b>. It saves with the project and prints into the PDF and Excel.</div>
+
+    <div class="filters">
+      <input class="searchbox" id="lag-search" placeholder="🔍  Search activity ID, name or predecessor…">
+      <button type="button" class="lag-clearall" id="lag-clearall">Clear all filters</button>
+    </div>
+    <div class="lag-count" id="lag-count"></div>
+    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table lag-table"><thead><tr>
+      <th>#</th>
+      ${lagHeaderCell('Activity ID', 'activity_id')}
+      ${lagHeaderCell('Activity Name', 'activity_name')}
+      ${lagHeaderCell('Lag (wd)', 'lag_days', 'num')}
+      ${lagHeaderCell('Pred. Relationship', 'pred_rel_type')}
+      ${lagHeaderCell('Pred. Name', 'pred_name')}
+      <th>Succ. Relationship</th><th>Succ. Name</th>
+      <th class="lag-jcol"><span class="lag-jhdr">Justification<span class="lag-fontsize" title="Justification text size">` +
+        `<button type="button" id="lag-fs-dec" aria-label="Smaller justification text">A&minus;</button>` +
+        `<button type="button" id="lag-fs-inc" aria-label="Larger justification text">A+</button></span></span></th>
+    </tr></thead><tbody id="lag-tbody"></tbody></table></div>`;
+
+  // Justification text size (per-user, screen only) — A− / A+ scale the justification boxes so
+  // the planner can read/write long reasons at a comfortable size; remembered across sessions.
+  const LAG_FS_MIN = 10, LAG_FS_MAX = 22, LAG_FS_DEF = 12;
+  const clampFs = px => Math.min(LAG_FS_MAX, Math.max(LAG_FS_MIN, px));
+  const applyJustFs = px => {
+    body.style.setProperty('--lag-just-fs', `${px}px`);
+    body.querySelectorAll('.lag-just').forEach(ta => { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; });
+  };
+  let justFs = LAG_FS_DEF;
+  try { const v = parseInt(localStorage.getItem('p6_lag_just_fs'), 10); if (Number.isFinite(v)) justFs = clampFs(v); } catch { /* default */ }
+  body.style.setProperty('--lag-just-fs', `${justFs}px`);   // set before rows render so autosize is correct
+  const setJustFs = px => { justFs = clampFs(px); try { localStorage.setItem('p6_lag_just_fs', String(justFs)); } catch { /* ignore */ } applyJustFs(justFs); };
+  document.getElementById('lag-fs-dec').addEventListener('click', () => setJustFs(justFs - 1));
+  document.getElementById('lag-fs-inc').addEventListener('click', () => setJustFs(justFs + 1));
+
+  document.getElementById('lag-search').addEventListener('input', e => {
+    _lagFilter.query = e.target.value; renderLagRows(m);
+  });
+  document.getElementById('lag-clearall').addEventListener('click', () => clearAllLagFilters(m));
+  document.querySelectorAll('.lag-fbtn').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const key = btn.dataset.col;
+    if (_lagPopover && _lagPopover.col === key) { closeLagFilterPopover(); return; }
+    openLagFilterPopover(key, btn, m);
+  }));
+  renderLagRows(m);
+}
+
+// Export-filter hook — shared by Excel + PDF exports (see ui/modules/api.js). Reflects the
+// CURRENT on-screen filter/search state of the register: which rel_keys are visible, plus a
+// short caption describing why. null/'' when nothing is filtered (export the full register).
+export function lagExportFilter() {
+  const m = _lagModule;
+  if (!m) return { visible_keys: null, caption: '', justifications: null };
+  const all = m.findings || [];
+  // The on-screen justifications, keyed by rel_key — the register's textarea `input` handler
+  // keeps f.justification fresh, so this is exactly what the planner is looking at. Sent with
+  // every export so the PDF/Excel print what's on screen (typed OR previously saved), instead
+  // of the DB copy which the export handlers load without the per-project justification merge.
+  const justifications = {};
+  all.forEach(f => { if (f.rel_key) justifications[f.rel_key] = f.justification || ''; });
+  const active = (_lagFilter.query || '').trim() !== '' ||
+    Object.values(_lagFilter.cols || {}).some(s => s != null);
+  if (!active) return { visible_keys: null, caption: '', justifications };
+  const rows = lagRowsFiltered(m);
+  const keys = rows.map(f => f.rel_key);
+  let caption = `Filtered — showing ${rows.length.toLocaleString()} of ${all.length.toLocaleString()} lags`;
+  if (_lagFilter.cols.lag_days && _lagFilter.quickPick && _lagFilter.quickPick !== 'all') {
+    const suffix = {
+      ge2: 'lag ≥ 2 wd', ge5: 'lag ≥ 5 wd',
+      long: 'long lags (> 14 wd)', leads: 'leads only',
+      custom: `lag ≥ ${_lagFilter.customThreshold} wd`,
+    }[_lagFilter.quickPick];
+    if (suffix) caption += ` · ${suffix}`;
+  }
+  return { visible_keys: keys, caption, justifications };
 }

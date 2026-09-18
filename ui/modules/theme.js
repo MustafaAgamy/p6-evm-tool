@@ -1,9 +1,8 @@
-export function initTheme() {
-  const saved = localStorage.getItem('p6_evm_theme') || 'light';
-  if (saved === 'light') document.documentElement.classList.add('light');
-}
+// The app's on-screen appearance is the unified six-mode system (see appearance.js): Light,
+// Dark, Midnight, Sepia, High-contrast, Blueprint. The same saved mode themes the app screen
+// AND every report preview/PDF. On load, paint the whole app in the saved mode.
+import { getSavedMode, applyAppMode } from './appearance.js';
 
-export function toggleTheme() {
-  const isLight = document.documentElement.classList.toggle('light');
-  localStorage.setItem('p6_evm_theme', isLight ? 'light' : 'dark');
+export function initTheme() {
+  applyAppMode(getSavedMode());
 }

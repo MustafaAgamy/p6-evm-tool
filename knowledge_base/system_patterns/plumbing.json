@@ -1,0 +1,404 @@
+{
+ "system": "plumbing",
+ "discipline": "MECH",
+ "name": "Plumbing & Drainage (Domestic Water, Soil/Waste/Vent, Storm) Installation, Flushing, Testing & Disinfection",
+ "aliases": [
+  "plumbing",
+  "domestic water",
+  "potable water",
+  "cold water",
+  "hot water",
+  "DHW",
+  "water supply piping",
+  "sanitary",
+  "soil and waste",
+  "SWV",
+  "drainage",
+  "above-ground drainage",
+  "below-ground drainage",
+  "storm/rainwater",
+  "roof drains",
+  "sanitary fixtures",
+  "sanitaryware",
+  "risers and stacks",
+  "booster pumps",
+  "water tanks",
+  "hot water calorifier",
+  "gravity drainage",
+  "traps and vents"
+ ],
+ "zones": [
+  "below-slab / underground drainage",
+  "plant room (pumps, tanks, calorifiers)",
+  "vertical riser / stack shaft",
+  "ceiling void horizontal branches",
+  "wet-wall / duct behind fixtures",
+  "roof (vents, rainwater outlets, tank room)",
+  "wet areas / toilet cores / kitchens"
+ ],
+ "sequence": [
+  {
+   "stage": "civil_interface",
+   "activities": [
+    "below-ground drainage trenches excavated to gradient",
+    "underslab drainage laid, bedded and connected to manholes before slab pour",
+    "floor/wall sleeves and puddle flanges cast in for risers and penetrations",
+    "tank room slab / plinth and bund poured",
+    "builder's openings for stacks and rainwater pipes formed",
+    "wet-area floor falls and waterproofing tanking coordinated"
+   ],
+   "note": "Below-ground drainage is captive to civil sequencing — it must be laid, tested and inspected before the slab is poured over it; sleeves and puddle flanges must be cast in, not cut later."
+  },
+  {
+   "stage": "underground_drainage",
+   "activities": [
+    "gravity drainage runs laid to gradient with correct falls",
+    "connection to manholes / inspection chambers / septic or municipal",
+    "bedding and surround before backfill"
+   ],
+   "note": "Falls/gradient are critical for gravity drainage; laid and tested before cover."
+  },
+  {
+   "stage": "underground_test_inspect",
+   "activities": [
+    "air/water (hydrostatic) test of underground drainage",
+    "CCTV / visual inspection of gradient and joints before backfill",
+    "sign-off before slab pour or backfill"
+   ],
+   "note": "Drainage test and inspection MUST precede backfill/slab — a buried untested run is uninspectable later."
+  },
+  {
+   "stage": "rough_in_risers_stacks",
+   "activities": [
+    "soil/waste/vent stacks erected in risers with supports and fire-collars",
+    "storm/rainwater downpipes erected",
+    "domestic cold/hot water risers erected with supports",
+    "branch drainage and water branches roughed into wet walls and ceiling voids",
+    "fire-stopping collars at rated floor penetrations"
+   ],
+   "note": "Vertical stacks and risers first, then horizontal branches; drainage graded, water pipe supported and sloped for drain-down."
+  },
+  {
+   "stage": "plant_equipment_set",
+   "activities": [
+    "water storage tanks set in tank room",
+    "booster / transfer pump sets set and aligned on plinths",
+    "hot water calorifiers / heaters / plate heat exchangers set",
+    "pressure vessels and dosing set"
+   ],
+   "note": "Plant is set on cured plinths; pump sets follow rotating-equipment practice (alignment before piped connection)."
+  },
+  {
+   "stage": "pressure_testing",
+   "activities": [
+    "hydrostatic pressure test of domestic cold and hot water piping by section, witnessed",
+    "hold and inspect for leaks before concealment",
+    "air/water test of above-ground soil and waste (or gravity fill test on stacks)"
+   ],
+   "note": "Pressure/leak test BEFORE ceilings close, wet walls are boarded, and before insulation."
+  },
+  {
+   "stage": "flushing_cleaning",
+   "activities": [
+    "flush domestic water system to remove debris, swarf and flux",
+    "clear strainers and check for cleanliness"
+   ],
+   "note": "Flushing requires the pressure test passed and the distribution complete to fixtures/outlets."
+  },
+  {
+   "stage": "disinfection_chlorination",
+   "activities": [
+    "chlorinate / disinfect the potable water system to standard",
+    "dwell, then flush to residual and normal levels",
+    "take water samples for bacteriological (potability) test"
+   ],
+   "note": "Disinfection follows flushing and precedes handover of a potable system; sampling proves potability."
+  },
+  {
+   "stage": "insulation",
+   "activities": [
+    "hot water and cold water (anti-condensation) pipe insulation",
+    "trace-heating where specified for DHW / freeze protection",
+    "fire-rated wrap where required"
+   ],
+   "note": "Insulation follows a passed pressure test; concealed pipe insulated after testing."
+  },
+  {
+   "stage": "fixture_install",
+   "activities": [
+    "sanitary fixtures set: WCs, basins, sinks, urinals, showers",
+    "traps, connectors, angle valves and flush mechanisms fitted",
+    "floor gullies, roof drains and cleanouts finalised",
+    "tap/mixer and appliance connections made"
+   ],
+   "note": "Fixtures follow tiling/wet-wall finishes and ceiling completion; the last wet trade in a finished space."
+  },
+  {
+   "stage": "ei_connection",
+   "activities": [
+    "booster pump, calorifier, trace-heating and water-heater power feeds terminated",
+    "level switches, flow, temperature sensors and controls wired",
+    "leak-detection and BMS points landed"
+   ],
+   "note": "Pump/heater plant requires power and controls; requires containment + cabling complete."
+  },
+  {
+   "stage": "pre_commissioning",
+   "activities": [
+    "pump solo run, rotation, alignment and duty/standby check",
+    "tank fill, float/level switch and overflow verification",
+    "calorifier / water-heater setpoint and safety (T&P valve) checks",
+    "BMS point verification for plant"
+   ],
+   "note": "Pump and heater plant proven before full-flow commissioning; safety devices verified first."
+  },
+  {
+   "stage": "commissioning",
+   "activities": [
+    "set booster pump duty pressure and duty/standby/alternation sequence",
+    "verify flow and pressure at the most remote/highest fixtures",
+    "hot water circulation temperature and dead-leg / anti-legionella verification",
+    "drainage flow / discharge and trap-seal retention test with fixtures live",
+    "integrated controls test with BMS (levels, leak, temperature)"
+   ],
+   "note": "Final commissioning proves pressure and hot-water temperature at the worst-case fixture and drainage performance with fixtures connected; depends on live power, filled tanks, disinfected potable water and BMS."
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "Underground drainage laid, tested and inspected",
+   "after": "Slab pour / backfill over drainage",
+   "reason": "Buried drainage cannot be inspected or corrected after the slab is poured; test and sign-off must precede cover.",
+   "strength": "strong"
+  },
+  {
+   "before": "Drainage laid to correct falls / gradient",
+   "after": "Drainage air/water test",
+   "reason": "A gravity run must be complete and correctly graded before it can hold a test and be inspected.",
+   "strength": "strong"
+  },
+  {
+   "before": "Soil/waste/vent stacks and water risers erected",
+   "after": "Horizontal branch connections in ceiling voids / wet walls",
+   "reason": "Branches tie into the vertical stacks and risers, which must exist and be supported first.",
+   "strength": "strong"
+  },
+  {
+   "before": "Domestic water piping pressure test passed",
+   "after": "Pipe insulation and wet-wall / ceiling closure",
+   "reason": "Concealing or insulating pipe before a leak test forces demolition to reach a later leak.",
+   "strength": "strong"
+  },
+  {
+   "before": "Domestic water pressure test passed",
+   "after": "System flushing",
+   "reason": "Flushing an un-proven system risks leaks under flow; prove integrity before running water through it.",
+   "strength": "strong"
+  },
+  {
+   "before": "System flushed",
+   "after": "Disinfection / chlorination and bacteriological sampling",
+   "reason": "Debris and biofilm must be flushed out before disinfection, otherwise the potability sample can fail.",
+   "strength": "strong"
+  },
+  {
+   "before": "Wet-wall finishes / tiling and ceilings complete",
+   "after": "Sanitary fixture installation",
+   "reason": "Fixtures are set against finished walls/floors and are the last wet trade; installing before finishes causes rework and damage.",
+   "strength": "strong"
+  },
+  {
+   "before": "Fire-rated floor/wall penetrations sleeved",
+   "after": "Stack/riser fire-collar and fire-stopping",
+   "reason": "Rated penetrations for combustible drainage stacks require intumescent collars fitted before the barrier is signed off.",
+   "strength": "strong"
+  },
+  {
+   "before": "Booster pump power and controls terminated and meggered",
+   "after": "Pump solo run",
+   "reason": "A pump motor cannot be run for rotation/duty check until its feeder and protection are connected and insulation-tested.",
+   "strength": "strong"
+  },
+  {
+   "before": "Tanks filled and disinfected; pumps running",
+   "after": "Booster pressure and remote-fixture flow commissioning",
+   "reason": "Duty pressure and worst-case fixture flow can only be set with a filled, disinfected system and pumps operating.",
+   "strength": "strong"
+  },
+  {
+   "before": "Sanitary fixtures installed and connected",
+   "after": "Drainage discharge / trap-seal retention test",
+   "reason": "Trap-seal loss and drainage performance are tested by discharging the actual fixtures, which must be connected first.",
+   "strength": "moderate"
+  },
+  {
+   "before": "Hot water generation and circulation running",
+   "after": "Anti-legionella / dead-leg temperature verification",
+   "reason": "Circulation return temperatures and dead-leg temperatures can only be proven once DHW is generated and circulating.",
+   "strength": "moderate"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "civil_interface",
+   "type": "enabler",
+   "phase": "civil_interface",
+   "requirement": "Underslab drainage trenches, cast-in sleeves and puddle flanges, tank-room plinths/bunds, wet-area falls and waterproofing must be ready before underground drainage, riser erection and plant setting.",
+   "strength": "strong"
+  },
+  {
+   "with": "utilities",
+   "type": "requires",
+   "phase": "commissioning",
+   "requirement": "Incoming mains water supply and connection to municipal/site sewer and storm networks must be live to fill, flush and commission the system.",
+   "strength": "strong"
+  },
+  {
+   "with": "electrical_power",
+   "type": "requires",
+   "phase": "ei_connection",
+   "requirement": "Booster pumps, water heaters/calorifiers and trace-heating require power feeders energised before pre-commissioning and commissioning.",
+   "strength": "strong"
+  },
+  {
+   "with": "containment_cabling",
+   "type": "requires",
+   "phase": "ei_connection",
+   "requirement": "Power and control cabling to plumbing plant requires containment installed and cables pulled and terminated first.",
+   "strength": "moderate"
+  },
+  {
+   "with": "bms",
+   "type": "requires",
+   "phase": "commissioning",
+   "requirement": "Tank levels, leak detection, DHW temperature and pump status points must be BMS-verified for integrated control and alarms.",
+   "strength": "moderate"
+  },
+  {
+   "with": "rotating_equipment",
+   "type": "coordination",
+   "phase": "plant_equipment_set",
+   "requirement": "Booster/transfer pump sets follow rotating-equipment practice: alignment and grouting before piped connection.",
+   "strength": "moderate"
+  },
+  {
+   "with": "insulation_coating",
+   "type": "provides",
+   "phase": "insulation",
+   "requirement": "Hot/cold water pipe insulation is applied only after the pressure test passes.",
+   "strength": "strong"
+  },
+  {
+   "with": "fire_fighting",
+   "type": "coordination",
+   "phase": "rough_in_risers_stacks",
+   "requirement": "Wet-riser / plumbing risers and sprinkler pipe often share shafts and ceiling voids; routing and penetrations must be coordinated to avoid clashes and duplicated fire-stopping.",
+   "strength": "weak"
+  },
+  {
+   "with": "instrumentation",
+   "type": "requires",
+   "phase": "pre_commissioning",
+   "requirement": "Level switches, flow and temperature sensors, and leak-detection must be installed and verified before plant pre-commissioning.",
+   "strength": "moderate"
+  },
+  {
+   "with": "structural_steel",
+   "type": "enabler",
+   "phase": "rough_in_risers_stacks",
+   "requirement": "Riser and stack supports rely on structural inserts/steel and shaft framing being available.",
+   "strength": "weak"
+  }
+ ],
+ "testing_requirements": [
+  "Underground drainage air/water test and CCTV / visual inspection before backfill or slab pour",
+  "Above-ground soil/waste/vent air (or water) test",
+  "Hydrostatic pressure test of domestic cold and hot water piping by section, witnessed, before concealment",
+  "System flushing and cleanliness check",
+  "Disinfection / chlorination of potable system with bacteriological (potability) sample pass",
+  "Pump-motor insulation resistance (megger) test before energisation",
+  "Booster pump duty/standby/alternation and duty-pressure functional test",
+  "Flow and pressure verification at the most remote / highest fixture",
+  "Hot water circulation temperature and anti-legionella / dead-leg verification",
+  "Drainage discharge and trap-seal retention test with fixtures connected",
+  "Tank overflow, float/level switch and leak-detection verification"
+ ],
+ "commissioning_dependencies": [
+  "Incoming water main and sewer/storm connections live",
+  "Permanent (or commissioning) power to booster pumps, water heaters and trace-heating",
+  "Tanks filled; potable system flushed and disinfected with a passed potability sample",
+  "Domestic water piping pressure-tested and drainage tested/inspected before concealment/backfill",
+  "Sanitary fixtures installed (after finishes) so drainage and worst-case fixture flow can be tested",
+  "BMS/controls live for tank levels, leak detection and DHW temperature",
+  "Instrumentation and safety devices (T&P valves, level switches) installed and verified",
+  "Below-ground drainage signed off before slab pour (captive to civil sequence)"
+ ],
+ "work_packages": [
+  {
+   "wp": "Underground / below-slab drainage",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "captive to civil slab sequence"
+  },
+  {
+   "wp": "Soil/waste/vent and rainwater stacks and branches",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Domestic water risers and branches",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Plant setting (tanks, booster pumps, calorifiers)",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "interfaces with civil bases and rotating_equipment"
+  },
+  {
+   "wp": "Pressure and drainage testing",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Flushing and disinfection",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "interfaces with utilities"
+  },
+  {
+   "wp": "Pipe insulation / trace heating",
+   "discipline": "mechanical",
+   "interface": false
+  },
+  {
+   "wp": "Sanitary fixture installation",
+   "discipline": "mechanical",
+   "interface": true,
+   "note": "follows architectural finishes"
+  },
+  {
+   "wp": "Plumbing plant power and control termination",
+   "discipline": "electrical",
+   "interface": true,
+   "note": "interfaces with electrical_power, containment_cabling, bms"
+  },
+  {
+   "wp": "Plumbing commissioning",
+   "discipline": "commissioning",
+   "interface": true,
+   "note": "interfaces with utilities, electrical_power, bms"
+  }
+ ],
+ "typical_exceptions": [
+  "Gravity-fed systems from a high-level storage tank omit booster pumps, dropping the pump alignment and duty-pressure stages.",
+  "Instantaneous / point-of-use water heaters replace central calorifiers, removing DHW circulation and dead-leg stages.",
+  "Rainwater/storm-only scopes have no potable disinfection or fixture stages.",
+  "Small tenant fit-outs connect to existing base-build risers, so riser erection and plant setting do not apply.",
+  "Where drainage is pumped (below sewer level), a packaged lifting/sump station adds an electrical and float-control commissioning step to an otherwise gravity system."
+ ],
+ "evidence": "Below-ground drainage is scheduled to be covered by the slab before its air/water test and inspection, potable disinfection/sampling is scheduled before flushing (or before the system is complete to outlets), pipe is insulated or wet walls are closed before the witnessed pressure test, or booster-pressure/fixture-flow commissioning is set before tanks are filled and the system disinfected.",
+ "status": "curated",
+ "source": "system_pattern"
+}

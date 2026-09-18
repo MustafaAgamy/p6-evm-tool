@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Reinforcement (Rebar) Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["rebar", "reinforcement", "cut and bend", "cut & bend", "decoiler", "straightening", "stirrup",
+                 "welded mesh", "mesh welding", "shear line", "bar bending", "bundling", "steel coil", "overhead crane"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Foundations", "keywords": ["foundation", "raft", "footing", "slab", "pile cap"]},
+    {"name": "Structural Steel & Shed Building", "keywords": ["steel", "shed", "building", "structure", "erection", "cladding", "roofing"]},
+    {"name": "Overhead / Gantry Crane", "keywords": ["overhead crane", "gantry", "eot crane", "crane rail"]},
+    {"name": "Raw Material Storage Yard", "keywords": ["storage", "yard", "coil", "bar stock", "raw material"]},
+    {"name": "Cut & Bend Line", "keywords": ["cut and bend", "cut & bend", "shear line", "bar bending", "decoiler", "straightening"]},
+    {"name": "Welded Mesh Line", "keywords": ["welded mesh", "mesh welding", "mesh line"]},
+    {"name": "Utilities & Commissioning", "keywords": ["utilities", "power", "compressed air", "electrical", "commission", "test"]}
+  ],
+  "activities": [
+    {"name": "Overhead / Gantry Crane Installation & Load Test", "keywords": ["overhead crane", "gantry", "eot crane", "load test"], "wbs": "Overhead / Gantry Crane",
+     "typical_pred": "Shed Building Structure", "typical_succ": "Cut & Bend Line Installation", "duration_days": 20,
+     "why": "All coil and bar handling depends on the crane; it is installed and load-tested before the lines are positioned."},
+    {"name": "Decoiler / Straightening Line Installation", "keywords": ["decoiler", "straightening", "de-coiler"], "wbs": "Cut & Bend Line",
+     "typical_pred": "Overhead / Gantry Crane Installation & Load Test", "typical_succ": "Cut & Bend Commissioning", "duration_days": 20,
+     "why": "Coil is straightened before cutting/bending; the decoiler is a long-lead line often omitted from the schedule."},
+    {"name": "Welded Mesh Line Commissioning", "keywords": ["welded mesh", "mesh welding", "mesh line"], "wbs": "Welded Mesh Line",
+     "typical_pred": "Utilities Connection", "typical_succ": "Trial Production", "duration_days": 15,
+     "why": "The mesh-welding line needs full power and compressed air before it can be commissioned."},
+    {"name": "Trial Production / First Bundle", "keywords": ["trial production", "first bundle", "sample", "test production"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Cut & Bend Commissioning", "typical_succ": "Handover", "duration_days": 10,
+     "why": "A trial run proves cutting accuracy, bend angles and tagging before taking over."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["shed", "building", "structure", "roofing"], "after_keywords": ["crane install", "overhead crane", "gantry"],
+     "reason": "The overhead crane is installed onto the completed shed structure, not before it.",
+     "impact": "Critical"},
+    {"before_keywords": ["overhead crane", "gantry", "load test"], "after_keywords": ["cut and bend", "line install", "machine install", "decoiler"],
+     "reason": "Machine lines are positioned with the overhead crane, so the crane must be installed and load-tested first.",
+     "impact": "Critical"},
+    {"before_keywords": ["power", "utilities", "compressed air"], "after_keywords": ["commission", "trial production", "mesh"],
+     "reason": "Line commissioning and trial production follow the utilities (power and compressed air) being live.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Shed Weathertight", "Crane Load-Tested", "Lines Commissioned", "First Bundle / Handover"],
+  "common_issues": ["Machine lines positioned before crane load test", "Missing decoiler / straightening scope",
+                    "Commissioning before utilities live", "No trial-production phase"]
+}

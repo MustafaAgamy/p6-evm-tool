@@ -1,0 +1,46 @@
+{
+  "category": "Buildings",
+  "type": "Laboratory / R&D Facility",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["laboratory", "lab", "r&d", "research", "cleanroom", "clean room", "fume hood", "fume cupboard",
+                 "lab gas", "containment", "bsl", "hvac", "validation", "vibration", "casework"],
+  "wbs": [
+    {"name": "Enabling & Substructure", "keywords": ["enabling", "excavation", "foundation", "piling", "substructure"]},
+    {"name": "Superstructure", "keywords": ["superstructure", "frame", "slab", "structure", "low vibration"]},
+    {"name": "Building Envelope", "keywords": ["envelope", "facade", "roof", "weathertight"]},
+    {"name": "Specialised MEP & Cleanrooms", "keywords": ["mep", "hvac", "cleanroom", "clean room", "fume hood", "lab gas", "containment", "hepa"]},
+    {"name": "Lab Casework & Equipment", "keywords": ["casework", "bench", "lab equipment", "fume cupboard", "install"]},
+    {"name": "Fit-out & Finishes", "keywords": ["fit-out", "finishes", "partition", "epoxy floor", "ceiling"]},
+    {"name": "Testing, Commissioning & Validation", "keywords": ["test", "commission", "validation", "certification", "qualification"]},
+    {"name": "Handover & Occupation", "keywords": ["handover", "occupation", "accreditation"]}
+  ],
+  "activities": [
+    {"name": "Lab Gas & Specialist Services Install", "keywords": ["lab gas", "specialist gas", "process gas", "vacuum"], "wbs": "Specialised MEP & Cleanrooms",
+     "typical_pred": "MEP First Fix", "typical_succ": "Validation", "duration_days": 25,
+     "why": "Laboratory gases and specialist services need installation and certification before use — a common omission."},
+    {"name": "Fume Hood / Containment Installation & Test", "keywords": ["fume hood", "fume cupboard", "containment", "face velocity"], "wbs": "Lab Casework & Equipment",
+     "typical_pred": "Room Finishes", "typical_succ": "HVAC Validation", "duration_days": 20,
+     "why": "Fume hoods and containment depend on room airflow balancing and face-velocity testing to work safely."},
+    {"name": "Cleanroom / HVAC Validation", "keywords": ["cleanroom", "validation", "hepa", "pressure cascade", "particle count"], "wbs": "Testing, Commissioning & Validation",
+     "typical_pred": "HVAC Commissioning", "typical_succ": "Handover", "duration_days": 20,
+     "why": "Cleanroom classification and pressure cascades must be validated before the lab can operate."},
+    {"name": "Equipment Qualification (IQ/OQ)", "keywords": ["qualification", "iq", "oq", "equipment commission"], "wbs": "Testing, Commissioning & Validation",
+     "typical_pred": "Lab Casework & Equipment", "typical_succ": "Handover", "duration_days": 15,
+     "why": "Installed lab equipment must be qualified (IQ/OQ) before research operations begin."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["mep", "first fix", "install"], "after_keywords": ["commission", "validation", "qualification"],
+     "reason": "Commissioning, validation and qualification follow installation of the systems concerned.",
+     "impact": "Critical"},
+    {"before_keywords": ["finishes", "fit-out", "epoxy"], "after_keywords": ["casework", "lab equipment", "fume hood"],
+     "reason": "Casework, fume hoods and equipment install into finished, serviced rooms — not before.",
+     "impact": "Near-critical"},
+    {"before_keywords": ["validation", "qualification", "commission"], "after_keywords": ["handover", "occupation"],
+     "reason": "Occupation must follow cleanroom validation and equipment qualification.",
+     "impact": "Critical"}
+  ],
+  "milestones": ["Building Weathertight", "MEP Complete", "Cleanroom Validated", "Equipment Qualified", "Handover"],
+  "common_issues": ["Missing lab-gas certification", "Fume-hood/containment not airflow-tested",
+                    "No cleanroom validation phase", "Occupation before equipment qualification"]
+}

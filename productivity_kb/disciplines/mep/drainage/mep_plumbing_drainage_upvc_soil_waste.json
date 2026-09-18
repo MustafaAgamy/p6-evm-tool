@@ -1,0 +1,162 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.plumbing.drainage.upvc_soil_waste",
+  "discipline": "MEP",
+  "work_type": "Plumbing",
+  "system": "Drainage",
+  "item": "UPVC Soil / Waste / Drainage Piping",
+  "aliases": [
+    "upvc drainage",
+    "pvc soil pipe",
+    "waste pipe upvc",
+    "gravity drainage upvc"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "UPVC solvent-weld / push-fit is the standard above-ground and below-ground gravity drainage material; light, fast, single-operation install plus a drainage test.",
+  "assumptions": [
+    "Representative bore 50-160 mm mixed",
+    "Solvent-weld / push-fit joints, gravity fall",
+    "Normal access, single 8 hr/day shift",
+    "Fittings, gradient brackets included"
+  ],
+  "exclusions": [
+    "Excavation and bedding for below-ground runs",
+    "Insulation / acoustic lagging",
+    "Chases and making good",
+    "Abnormal congestion"
+  ],
+  "components": [
+    {
+      "component_id": "install",
+      "name": "UPVC pipe install (solvent weld / push-fit, incl. fittings & brackets)",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.73,
+        "low": 0.55,
+        "likely": 0.73,
+        "high": 1,
+        "output_per_day": 22,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pipe saw / cutter",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Hand tools set",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "UPVC pipe",
+          "qty_per_unit": 1.03,
+          "unit": "m/m"
+        },
+        {
+          "name": "UPVC fittings (bends/branches)",
+          "qty_per_unit": 0.3,
+          "unit": "no/m"
+        },
+        {
+          "name": "Solvent cement",
+          "qty_per_unit": 0.03,
+          "unit": "L/m"
+        },
+        {
+          "name": "Pipe brackets / clips",
+          "qty_per_unit": 0.5,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — above-ground UPVC gravity drainage",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "50-160 mm UPVC soil/waste on normal access — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "drainage_test",
+      "name": "Drainage test (water / air / smoke)",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.11,
+        "low": 0.09,
+        "likely": 0.11,
+        "high": 0.18,
+        "output_per_day": 140,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Plumber",
+          "count": 1
+        },
+        {
+          "trade": "Plumber Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Drain test plugs + smoke/air kit",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Test plugs (allowance)",
+          "qty_per_unit": 0.02,
+          "unit": "no/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf standard norm — gravity drainage testing",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "water/air/smoke test per metre of installed drainage — validate with your XER to promote"
+      }
+    }
+  ]
+}

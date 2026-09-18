@@ -1,0 +1,46 @@
+{
+  "category": "Industrial",
+  "type": "Ceramic & Tile Factory",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": ["ceramic", "porcelain", "tile", "roller kiln", "kiln", "spray dryer", "ball mill", "body preparation",
+                 "glazing line", "press", "biscuit", "sorting", "polishing", "engobe"],
+  "wbs": [
+    {"name": "Site & Enabling Works", "keywords": ["site", "enabling", "clearance", "earthwork", "piling"]},
+    {"name": "Building & Structure", "keywords": ["building", "structure", "steel", "frame", "cladding", "roofing"]},
+    {"name": "Body Preparation (Mills / Spray Dryer)", "keywords": ["ball mill", "spray dryer", "body preparation", "slip", "silo"]},
+    {"name": "Pressing & Drying", "keywords": ["press", "hydraulic press", "dryer", "drying"]},
+    {"name": "Glazing Line", "keywords": ["glazing", "glaze", "engobe", "digital printing", "decoration"]},
+    {"name": "Kiln (Roller Kiln)", "keywords": ["kiln", "roller kiln", "firing", "refractory"]},
+    {"name": "Sorting, Polishing & Packaging", "keywords": ["sorting", "grading", "polishing", "packaging", "rectification"]},
+    {"name": "Utilities & Commissioning", "keywords": ["gas", "utilities", "thermal", "electrical", "commission"]}
+  ],
+  "activities": [
+    {"name": "Roller Kiln Installation & Refractory", "keywords": ["kiln", "roller kiln", "refractory"], "wbs": "Kiln (Roller Kiln)",
+     "typical_pred": "Glazing Line Installation", "typical_succ": "Kiln Firing / Heat-up", "duration_days": 60,
+     "why": "The roller kiln is the long-lead heart of the line; its refractory and alignment govern the whole schedule."},
+    {"name": "Spray Dryer Installation", "keywords": ["spray dryer", "atomizer"], "wbs": "Body Preparation (Mills / Spray Dryer)",
+     "typical_pred": "Ball Mill Installation", "typical_succ": "Press Commissioning", "duration_days": 35,
+     "why": "The spray dryer turns slip into press-ready powder; it is a tall long-lead unit often under-planned."},
+    {"name": "Gas / Thermal Supply to Kiln", "keywords": ["gas supply", "thermal", "burner", "gas line"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Roller Kiln Installation & Refractory", "typical_succ": "Kiln Firing / Heat-up", "duration_days": 20,
+     "why": "The kiln cannot be fired until its gas/thermal supply and burners are connected and tested."},
+    {"name": "Trial Firing / First Tile", "keywords": ["trial firing", "first tile", "trial production"], "wbs": "Utilities & Commissioning",
+     "typical_pred": "Kiln Firing / Heat-up", "typical_succ": "Handover", "duration_days": 15,
+     "why": "A trial firing proves body/glaze/kiln curve and tile quality before series production."}
+  ],
+  "logic_rules": [
+    {"before_keywords": ["kiln", "roller kiln", "refractory"], "after_keywords": ["firing", "heat-up", "trial firing", "first tile"],
+     "reason": "Kiln firing/heat-up follows kiln installation and refractory cure, never before.",
+     "impact": "Critical"},
+    {"before_keywords": ["gas supply", "thermal", "burner"], "after_keywords": ["firing", "kiln commission", "commission"],
+     "reason": "The kiln can only be fired once its gas/thermal supply is connected and tested.",
+     "impact": "Critical"},
+    {"before_keywords": ["glazing", "glaze", "press"], "after_keywords": ["kiln", "firing"],
+     "reason": "Pressing and glazing precede kiln firing in the tile process line.",
+     "impact": "Near-critical"}
+  ],
+  "milestones": ["Building Weathertight", "Kiln Installed", "Gas Supply Live", "Trial Firing / Handover"],
+  "common_issues": ["Kiln firing before refractory cure", "Missing gas/thermal supply scope",
+                    "Spray dryer under-planned as long-lead", "No trial-firing / first-tile phase"]
+}

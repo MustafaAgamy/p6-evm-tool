@@ -11,7 +11,7 @@ import db
 # ── Schema ─────────────────────────────────────────────────────────────────
 
 def test_init_db_creates_tables(temp_db):
-    conn = sqlite3.connect(temp_db / 'p6evm.db')
+    conn = sqlite3.connect(temp_db / 'controlyx.db')
     tables = {r[0] for r in conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table'"
     ).fetchall()}
@@ -97,7 +97,7 @@ def test_insert_category_metrics(temp_db):
             'bac': 1000, 'ac': 800, 'activity_count': 2, 'overridden': False,
         }
     })
-    conn = sqlite3.connect(temp_db / 'p6evm.db')
+    conn = sqlite3.connect(temp_db / 'controlyx.db')
     count = conn.execute('SELECT COUNT(*) FROM category_metrics').fetchone()[0]
     conn.close()
     assert count == 1
@@ -165,7 +165,7 @@ def test_delete_project_cascades_to_all_child_tables(temp_db):
                          'bac': 1000, 'ac': 800, 'activity_count': 2, 'overridden': False}
     })
     db.delete_project(pid)
-    conn = sqlite3.connect(temp_db / 'p6evm.db')
+    conn = sqlite3.connect(temp_db / 'controlyx.db')
     assert conn.execute('SELECT COUNT(*) FROM projects').fetchone()[0] == 0
     assert conn.execute('SELECT COUNT(*) FROM snapshots').fetchone()[0] == 0
     assert conn.execute('SELECT COUNT(*) FROM metrics').fetchone()[0] == 0
@@ -356,7 +356,7 @@ def test_delete_project_clears_audit_tables(temp_db):
     sid = db.insert_snapshot(pid, '2024-07-01', '/p.xml', '/c.xml', 'h', 5, 1)
     db.insert_audit(sid, _audit_result(), total_review_areas=5)
     db.delete_project(pid)
-    conn = sqlite3.connect(temp_db / 'p6evm.db')
+    conn = sqlite3.connect(temp_db / 'controlyx.db')
     assert conn.execute('SELECT COUNT(*) FROM audit_findings').fetchone()[0] == 0
     assert conn.execute('SELECT COUNT(*) FROM audit_scores').fetchone()[0] == 0
     conn.close()
@@ -430,6 +430,6 @@ def test_delete_project_clears_audit_modules(temp_db):
     sid = db.insert_snapshot(pid, '2024-07-01', '/p.xml', '/c.xml', 'h', 5, 1)
     db.insert_audit_modules(sid, _modules_result())
     db.delete_project(pid)
-    conn = sqlite3.connect(temp_db / 'p6evm.db')
+    conn = sqlite3.connect(temp_db / 'controlyx.db')
     assert conn.execute('SELECT COUNT(*) FROM audit_modules').fetchone()[0] == 0
     conn.close()

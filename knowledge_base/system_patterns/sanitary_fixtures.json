@@ -1,0 +1,219 @@
+{
+ "system": "sanitary_fixtures",
+ "discipline": "FINISHES",
+ "name": "Sanitary Ware & Second-Fix Fixtures (Bathroom, Kitchen, Accessories)",
+ "aliases": [
+  "sanitaryware",
+  "WC",
+  "toilet",
+  "basin",
+  "wash-hand basin",
+  "vanity",
+  "shower",
+  "bathtub",
+  "bidet",
+  "urinal",
+  "mixers",
+  "taps",
+  "shower valves",
+  "wastes",
+  "traps",
+  "bathroom accessories",
+  "towel rails",
+  "mirrors",
+  "toilet-roll holders",
+  "grab rails",
+  "kitchen sink",
+  "appliances (final connect)",
+  "second-fix plumbing",
+  "final fix"
+ ],
+ "zones": [
+  "bathrooms / WCs / ensuites",
+  "shower rooms / wet rooms",
+  "kitchens (sink/appliance connect)",
+  "laundries / utility",
+  "accessible / DDA bathrooms",
+  "public / staff washrooms"
+ ],
+ "sequence": [
+  {
+   "stage": "S1 - Confirm finishes complete (ENABLER)",
+   "activities": [
+    "wall/floor tiling and waterproofing signed",
+    "final wall finishes/paint complete",
+    "joinery vanities set"
+   ],
+   "note": "Sanitary fixtures mount onto finished, tanked, tiled surfaces; installing before finishes damages the tile plane and traps leaks."
+  },
+  {
+   "stage": "S2 - Confirm MEP first-fix positions",
+   "activities": [
+    "verify concealed water supply, drainage stub-outs and cistern carriers are set to fixture centrelines",
+    "confirm concealed valves / in-wall frames installed at first fix"
+   ],
+   "note": "Concealed carriers, cistern frames and pipe positions are a first-fix hold that must match the fixture setting-out; mismatch means re-tiling."
+  },
+  {
+   "stage": "S3 - Mount sanitary ware & fixtures",
+   "activities": [
+    "set WCs, basins, baths, showers, urinals",
+    "fix mixers, spouts, shower valves, wastes and traps",
+    "install accessories, mirrors, grab/towel rails into blocking/tile fixings"
+   ],
+   "note": "Wall-hung WCs and grab rails require the concealed frame/blocking placed at first fix; anchors into tanked walls use sealed details."
+  },
+  {
+   "stage": "S4 - Connect & MEP second-fix termination",
+   "activities": [
+    "connect supplies and wastes",
+    "fit appliances (kitchen) and final electrical connections to fixtures",
+    "fit isolation/service valves"
+   ],
+   "note": "This is the architecture-MEP second-fix handshake: fixtures meet terminated, energised services."
+  },
+  {
+   "stage": "S5 - MEP testing & commissioning (HOLD-POINT)",
+   "activities": [
+    "pressure-test supplies",
+    "fill/drain and leak test at each fixture",
+    "flush/disinfection of domestic water",
+    "flow, temperature and TMV commissioning"
+   ],
+   "note": "Testing follows final connection; a fixture is only complete once its services are tested and commissioned; final sign-off cannot precede MEP testing."
+  },
+  {
+   "stage": "S6 - Seal, snag & protect",
+   "activities": [
+    "silicone/mastic perimeter seals to fixtures",
+    "snag and adjust",
+    "protect for handover"
+   ],
+   "note": "Perimeter silicone is applied after fixtures are set and tested, completing the wet seal."
+  }
+ ],
+ "typical_relationships": [
+  {
+   "before": "tiling / wall finishes / waterproofing complete & signed",
+   "after": "sanitary fixture mounting",
+   "reason": "fixtures fix onto finished tanked/tiled surfaces; mounting first damages finishes and breaches the waterproofing envelope",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "MEP first-fix carriers, valves & pipe positions set",
+   "after": "fixture installation",
+   "reason": "wall-hung frames, concealed valves and supply/waste positions must match fixture centrelines fixed at first fix; a mismatch forces demolition of finished tile",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "fixtures installed & connected",
+   "after": "MEP testing/commissioning",
+   "reason": "pressure, leak, flush/disinfection and TMV commissioning happen after final connection; the fixture must be present to be tested",
+   "strength": "strong",
+   "rel": "FS"
+  },
+  {
+   "before": "MEP testing/commissioning complete",
+   "after": "final fixture sign-off & perimeter seal",
+   "reason": "a fixture is only accepted once its services are tested; sealing and closing out before test hides leaks",
+   "strength": "strong",
+   "rel": "FF"
+  },
+  {
+   "before": "joinery vanities / carcasses set",
+   "after": "basin & tap mounting into them",
+   "reason": "counter basins and mixers seat into the vanity; the carcass must exist first",
+   "strength": "moderate",
+   "rel": "FS"
+  },
+  {
+   "before": "concealed blocking/frames at first fix",
+   "after": "grab rails / wall-hung WC / heavy accessories",
+   "reason": "load-bearing accessories need concealed structural fixing placed during wall build",
+   "strength": "strong",
+   "rel": "FS"
+  }
+ ],
+ "interfaces": [
+  {
+   "with": "MEP - plumbing first fix",
+   "requirement": "concealed cistern carriers/in-wall frames, supply and drainage stub-outs and concealed valves set to fixture centrelines before tiling - so second-fix fixtures land exactly (critical first-fix handshake)",
+   "phase": "first fix",
+   "strength": "strong",
+   "type": "hold-point"
+  },
+  {
+   "with": "MEP - plumbing/electrical second fix & testing",
+   "requirement": "fixtures connected to terminated services, then pressure/leak/flush/disinfection and TMV commissioning completed and signed before final acceptance (final fixtures after MEP testing done)",
+   "phase": "second fix / test",
+   "strength": "strong",
+   "type": "handshake"
+  },
+  {
+   "with": "Waterproofing",
+   "requirement": "anchors and penetrations into tanked wet-area substrates use approved sealed details; membrane integrity preserved around fixtures",
+   "phase": "second fix",
+   "strength": "strong",
+   "type": "protection-constraint"
+  },
+  {
+   "with": "Floor & wall tiling",
+   "requirement": "tiling complete and set-out to fixture centrelines before mounting; cuts around wastes/valves finished",
+   "phase": "finish",
+   "strength": "strong",
+   "type": "predecessor-enabler"
+  },
+  {
+   "with": "Joinery (vanities/kitchens)",
+   "requirement": "cabinetry and worktops set before counter basins, sinks, taps and appliance final connect",
+   "phase": "second fix",
+   "strength": "moderate",
+   "type": "sequence"
+  }
+ ],
+ "commissioning_dependencies": [
+  "domestic water pressure test passed",
+  "flushing and chlorination/disinfection certificate",
+  "TMV / thermostatic and flow-rate commissioning",
+  "drainage leak/flow test at each fixture",
+  "accessible-fixture compliance verified"
+ ],
+ "testing_requirements": [
+  "fixture-by-fixture leak test (supply + waste)",
+  "water pressure / hold test",
+  "flow rate and temperature / TMV setting",
+  "disinfection / potability sample",
+  "grab-rail / wall-hung WC load / pull test"
+ ],
+ "typical_exceptions": [
+  "prefabricated bathroom pods arrive with sanitaryware pre-fitted and pre-tested - site scope becomes riser connection only",
+  "concealed-cistern (in-wall) systems shift more work to first fix than close-coupled WCs",
+  "touchless/smart fixtures add electrical and controls second-fix and commissioning",
+  "commercial washroom IPS/duct panels integrate carriers and access panels, widening the MEP interface"
+ ],
+ "work_packages": [
+  {
+   "wp": "Sanitary ware install",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "after tiling; onto first-fix carriers"
+  },
+  {
+   "wp": "Mixers, valves & accessories",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "second fix + blocking"
+  },
+  {
+   "wp": "Final connect & seal",
+   "discipline": "FINISHES",
+   "interface": true,
+   "note": "gated by MEP testing/commissioning"
+  }
+ ],
+ "evidence": "Sanitary fixtures are the terminal second-fix finishing trade, bracketed by two hard MEP gates: first-fix carriers/positions set to centrelines before tiling, and pressure/flush/TMV commissioning before final acceptance. Fixtures-onto-finished-tanked-surface and load-bearing-accessory blocking are universals. Generalized across residential and commercial washrooms; no project-specific data.",
+ "status": "curated",
+ "source": "system_pattern"
+}

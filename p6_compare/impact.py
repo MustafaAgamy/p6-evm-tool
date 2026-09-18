@@ -5,12 +5,14 @@ compares three schedules — the baseline, the current update (**after** the cha
 and the rescheduled corrected file (**before** the changes) — and shows how much of
 the reported delay was manufactured by editing the logic, lags and durations.
 
-The delay is P6's own finish-milestone float via ``metrics.compute`` — the exact
-same number the EVM tab shows — so nothing here re-derives a date. P6 did the
-scheduling; the corrected file is what it scheduled.
+The delay is the finish-date variance vs the baseline, in working days — read from P6's
+own scheduled finish dates (the update's, and the corrected file's after F9). It is the
+honest delay even when the schedule carries no finish deadline (there the finish-milestone
+float reads 0 and never reveals the slip). P6 still did the scheduling; the corrected
+file's finish is what it scheduled.
 
-Convention (matches the EVM tab): ``delay_days`` is **positive when behind**, so
-``manufactured = delay_after - delay_before`` is positive when the edits added delay.
+Convention: ``delay_days`` is **positive when behind**, so ``manufactured = delay_after -
+delay_before`` is positive when the edits added delay.
 """
 from p6_compare.model import MatchedSchedules
 from p6_compare.scurve import three_way_scurve
@@ -138,23 +140,37 @@ def check_corrected_file(baseline, update, corrected):
     return None
 
 
-def _delay(data, config):
-    """Finish-milestone delay via metrics.compute — identical to the EVM tab. None on failure."""
-    from p6_evm.metrics import compute
-    try:
-        return compute(data, config or {'categories': []}).get('delay_days')
-    except Exception:
+def _finish_delay_wd(reference, data):
+    """Working days ``data``'s finish is later than the ``reference`` (baseline) finish — the
+    date-based 'Delay vs baseline'. Positive = behind. Reads P6's own finish DATE (reliable),
+    not the finish-milestone float (which reads 0 when the schedule carries no finish deadline,
+    so it never revealed the delay). Uses the finish driver's calendar; calendar days if none."""
+    ref_fin, fin = _project_finish(reference), _project_finish(data)
+    if not (ref_fin and fin):
         return None
+    driver = max((a for a in getattr(data, 'activities', {}).values() if a.get('planned_finish')),
+                 key=lambda a: a['planned_finish'], default=None)
+    cal = (getattr(data, 'calendars', {}) or {}).get(driver.get('calendar_id')) if driver else None
+    if cal is None:
+        return (fin - ref_fin).days
+    try:
+        from p6_evm.calendars import signed_working_days
+        return round(signed_working_days(cal, ref_fin, fin))
+    except Exception:
+        return (fin - ref_fin).days
 
 
 def before_after_from_paths(baseline_path, update_path, corrected_path, config=None):
-    """Route entry: parse the three files, compute both delays with metrics.compute,
-    and assemble the before/after impact."""
+    """Route entry: parse the three files and assemble the before/after impact. Both delays are
+    date-based — the finish-date variance vs baseline in working days — so the reported delay is
+    honest even with no finish deadline, and the but-for reads the rescheduled corrected file's
+    own finish date (after F9 in P6), not the broken float."""
     from p6_evm.parser import parse_file
     baseline = parse_file(baseline_path)
     update = parse_file(update_path)
     corrected = parse_file(corrected_path)
     result = before_after(baseline, update, corrected,
-                          _delay(update, config), _delay(corrected, config))
+                          _finish_delay_wd(baseline, update),      # reported delay (as submitted)
+                          _finish_delay_wd(baseline, corrected))   # but-for delay (baseline logic, F9'd)
     result['warning'] = check_corrected_file(baseline, update, corrected)
     return result
