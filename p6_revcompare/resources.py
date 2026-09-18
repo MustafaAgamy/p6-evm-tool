@@ -35,12 +35,61 @@ def _assign_by_code(data):
             key = a.get('resource_name') or a.get('resource_id')
             if not key:
                 continue
-            slot = out.setdefault(code, {}).setdefault(key, {'units': 0.0, 'cost': 0.0, 'rate': a.get('rate'), 'name': key})
+            slot = out.setdefault(code, {}).setdefault(key, {
+                'units': 0.0, 'cost': 0.0, 'rate': a.get('rate'), 'name': key,
+                'id': a.get('resource_id'), 'type': a.get('resource_type')})
             slot['units'] += a.get('budget_units') or 0.0
             slot['cost'] += a.get('budget_cost') or 0.0
             if slot['rate'] is None:
                 slot['rate'] = a.get('rate')
+            if not slot.get('id'):
+                slot['id'] = a.get('resource_id')
+            if not slot.get('type'):
+                slot['type'] = a.get('resource_type')
     return out
+
+
+def _resource_totals(a0, a1):
+    """Per-resource before/after roll-up (units summed across all activities, activity count,
+    type, and a neutral change kind) — drives the #6 before/after 'resource comparison' bars,
+    summary chips and enhanced table. `a0`/`a1` are the `_assign_by_code` maps for each rev."""
+    def roll(amap):
+        agg = {}
+        for code, res in amap.items():
+            for key, slot in res.items():
+                g = agg.setdefault(key, {'units': 0.0, 'acts': set(),
+                                         'id': slot.get('id'), 'type': slot.get('type')})
+                g['units'] += slot.get('units') or 0.0
+                g['acts'].add(code)
+                if not g.get('id'):
+                    g['id'] = slot.get('id')
+                if not g.get('type'):
+                    g['type'] = slot.get('type')
+        return agg
+    g0, g1 = roll(a0), roll(a1)
+    rows = []
+    for key in sorted(set(g0) | set(g1)):
+        s0, s1 = g0.get(key), g1.get(key)
+        u0 = round(s0['units'], 1) if s0 else 0.0
+        u1 = round(s1['units'], 1) if s1 else 0.0
+        acts = len((s1 or s0)['acts'])
+        if u0 and not u1:
+            kind = 'removed'
+        elif u1 and not u0:
+            kind = 'added'
+        elif abs(u1 - u0) > 0.5:
+            kind = 'increased' if u1 > u0 else 'decreased'
+        else:
+            kind = 'unchanged'
+        meta = s1 or s0
+        rows.append({
+            'id': meta.get('id') or '', 'name': str(key), 'type': meta.get('type') or '',
+            'rev0': u0, 'rev1': u1, 'var': round(u1 - u0, 1),
+            'activities': acts, 'kind': kind,
+        })
+    # Biggest movers first; unchanged rows sink to the bottom.
+    rows.sort(key=lambda r: (r['kind'] == 'unchanged', -abs(r['var']), -max(r['rev0'], r['rev1'])))
+    return rows
 
 
 def _fmt_money(v):
@@ -93,16 +142,23 @@ def diff_resources(rev0, rev1, matched):
                     elif _rate(s0) != _rate(s1) and (s0.get('rate') is not None or s1.get('rate') is not None):
                         assignment_changes.append(_arow(code, name, 'rate', key, _rate(s0), _rate(s1)))
 
+    resource_totals = _resource_totals(a0, a1) if resource_available else []
+    tot_added = sum(1 for r in resource_totals if r['kind'] == 'added')
+    tot_removed = sum(1 for r in resource_totals if r['kind'] == 'removed')
+    tot_resized = sum(1 for r in resource_totals if r['kind'] in ('increased', 'decreased'))
+
     return {
         'cost_available': cost_available,
         'resource_available': resource_available,
         'total_budget': {'rev0': round(total0), 'rev1': round(total1), 'delta': round(total1 - total0)},
         'activity_cost_changes': activity_cost_changes,
         'assignment_changes': assignment_changes,
+        'resource_totals': resource_totals,
         'summary': {
             'cost_activities': len(activity_cost_changes),
             'resources_added': res_added, 'resources_removed': res_removed,
             'units_changed': units_changed, 'total_delta': round(total1 - total0),
+            'res_added': tot_added, 'res_removed': tot_removed, 'res_resized': tot_resized,
         },
     }
 

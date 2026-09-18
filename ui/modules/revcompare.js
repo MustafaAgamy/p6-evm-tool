@@ -1209,68 +1209,103 @@ function resourceKindMeta(kind, before, after) {
   }
   const map = {
     added: ['add', 'Added'], removed: ['rem', 'Removed'],
-    increased: ['chg', 'Increased'], decreased: ['chg', 'Decreased'],
+    increased: ['chg', 'Increased'], decreased: ['chg', 'Reduced'],
     unchanged: ['', 'Unchanged'],
   };
   return map[k] || ['chg', String(kind || 'Changed')];
 }
 
+// Compact man-hours label (42,000 → "42k") for the horizontal before/after bars.
+function fmtK(x) {
+  const n = Number(x) || 0, a = Math.abs(n);
+  if (a >= 1000) return `${n < 0 ? '-' : ''}${Math.round(a / 1000)}k`;
+  return fmtInt(n);
+}
+
+// One before/after horizontal row — Rev.00 bar over Rev.01 bar, variance chip, optional
+// Added/Removed/Increased/Reduced tag. Shared by the manpower resource-mix and resource
+// comparison views (comments 5 & 6). `mx` is the shared scale across all rows.
+function baBar(name, v0, v1, mx, opts = {}) {
+  const a = Number(v0) || 0, b = Number(v1) || 0, v = b - a;
+  const added = a === 0 && b > 0, removed = b === 0 && a > 0;
+  const wa = mx > 0 ? Math.max(a / mx * 100, a > 0 ? 2 : 0) : 0;
+  const wb = mx > 0 ? Math.max(b / mx * 100, b > 0 ? 2 : 0) : 0;
+  const fmt = opts.fmt || fmtInt;
+  let tag = '';
+  if (opts.tag) {
+    tag = added ? '<span class="rc-rchip add sm">Added</span>'
+      : removed ? '<span class="rc-rchip rem sm">Removed</span>'
+      : v > 0 ? '<span class="rc-rchip chg sm">Increased</span>'
+      : v < 0 ? '<span class="rc-rchip chg sm">Reduced</span>'
+      : '<span class="rc-rchip sm">Unchanged</span>';
+  }
+  return `<div class="rc-hrow2"><div class="rc-hlbl">${esc(name)}</div>
+    <div class="rc-ba"><div class="rc-babars">
+      <div class="rc-hseg b0${removed ? ' rem' : ''}" style="width:${wa.toFixed(1)}%">${a ? fmt(a) : ''}</div>
+      <div class="rc-hseg b1${added ? ' add' : ''}" style="width:${wb.toFixed(1)}%">${b ? fmt(b) : ''}</div>
+    </div><span class="rc-hvar ${v >= 0 ? 'up' : 'down'}">${v >= 0 ? '+' : ''}${fmt(v)}</span>${tag}</div></div>`;
+}
+
 function resourceView(r) {
   const rc = r.resource_changes || {};
   const curves = r.curves || {};
+  const totals = rc.resource_totals || [];
   const byTrade = curves.manhours_by_trade || [];
   const assign = rc.assignment_changes || [];
-  const hasResTbl = !!(rc.resource_available || byTrade.length || assign.length);
-  if (!hasResTbl) {
-    return secmark('8', 'Resources', 'resource-by-resource comparison')
+  const hasRes = !!(rc.resource_available || totals.length || byTrade.length || assign.length);
+  if (!hasRes) {
+    return secmark('8', 'Resources', 'before vs after, at a glance')
       + `<div class="rc-card"><h3>Resources <span class="rc-n">optional</span></h3>${noData('Neither revision carries resource assignments — this section is reported as not applicable rather than "no change".')}</div>`;
   }
-  const pick = (row, keys) => { for (const k of keys) { if (row[k] != null && row[k] !== '') return row[k]; } return null; };
 
-  // "Assigned to" — distinct activities per resource, grouped from the assignment changes.
-  const assignedBy = {};
-  assign.forEach(a => {
-    const key = a.resource || a.resource_name || a.resource_id;
-    if (key == null || key === '') return;
-    if (!assignedBy[key]) assignedBy[key] = new Set();
-    const act = pick(a, ['code', 'activity_id', 'id', 'name']);
-    if (act != null && act !== '') assignedBy[key].add(String(act));
-  });
+  // Summary chips — how many resources were added / removed / re-sized.
+  const sm = rc.summary || {};
+  const nAdd = sm.res_added != null ? sm.res_added : totals.filter(t => t.kind === 'added').length;
+  const nRem = sm.res_removed != null ? sm.res_removed : totals.filter(t => t.kind === 'removed').length;
+  const nChg = sm.res_resized != null ? sm.res_resized : totals.filter(t => t.kind === 'increased' || t.kind === 'decreased').length;
+  const chips = `<div class="rc-rsum"><span class="rc-rchip add">${fmtInt(nAdd)} added</span>`
+    + `<span class="rc-rchip rem">${fmtInt(nRem)} removed</span>`
+    + `<span class="rc-rchip chg">${fmtInt(nChg)} re-sized</span></div>`;
 
-  // Lead card — resource-by-resource man-hour comparison.
-  const byRows = byTrade.map(t => {
-    const name = t.name || t.trade || t.resource || t.resource_id || '—';
-    const b = t.rev0, a = t.rev1;
-    const v = (t.var != null) ? t.var : ((Number(a) || 0) - (Number(b) || 0));
-    const [kTag, kLabel] = resourceKindMeta(t.kind, b, a);
-    const key = t.name || t.resource || t.resource_id;
-    const cnt = (key != null && assignedBy[key]) ? assignedBy[key].size : 0;
-    const vNum = typeof v === 'number' ? v : Number(v);
-    return `<tr><td>${esc(name)}${t.resource_id ? ` <span class="rc-mut">${esc(t.resource_id)}</span>` : ''}</td>
-      <td class="n rc-mut">${b != null ? fmtInt(b) : '—'}</td>
-      <td class="n rc-new">${a != null ? fmtInt(a) : '—'}</td>
-      <td class="n">${isFinite(vNum) ? `<span class="rc-d ${vNum > 0 ? 'up' : vNum < 0 ? 'down' : 'zero'}">${vNum > 0 ? '+' : ''}${fmtInt(vNum)}</span>` : '—'}</td>
-      <td>${typeTag(kTag, kLabel)}</td>
-      <td class="rc-mut">${cnt ? `${fmtInt(cnt)} activit${cnt === 1 ? 'y' : 'ies'}` : '—'}</td></tr>`;
+  // Before/after comparison bars — assigned units per resource, biggest movers first.
+  const mx = Math.max(1, ...totals.flatMap(t => [Number(t.rev0) || 0, Number(t.rev1) || 0]));
+  const bars = totals.map(t => baBar(t.name, t.rev0, t.rev1, mx, { tag: true, fmt: fmtInt })).join('');
+  const legend = `<div class="rc-legend">
+      <span><i style="background:var(--rc-b0)"></i>Rev.00 units</span>
+      <span><i style="background:var(--accent)"></i>Rev.01 units</span>
+      <span><i style="background:var(--success)"></i>Added</span>
+      <span><i style="background:var(--danger)"></i>Removed</span></div>`;
+  const compCard = `<div class="rc-card"><h3>Resource comparison <span class="rc-n">assigned units before vs after, per resource</span></h3>
+      <div class="rc-sec">Every resource, Rev.00 vs Rev.01, sorted by the biggest change — <b class="rc-add">Added</b> (new in Rev.01, 0 → N), <b class="rc-rem">Removed</b> (gone in Rev.01, N → 0), and re-sized are all called out.</div>
+      ${chips}
+      ${bars ? `<div class="rc-hbars">${bars}</div>${legend}` : noData('No resource assignments to compare.')}</div>`;
+
+  // Enhanced detail table — grouped by resource (not scattered per activity).
+  const tblRows = totals.map(t => {
+    const [kTag, kLabel] = resourceKindMeta(t.kind, t.rev0, t.rev1);
+    const v = Number(t.var != null ? t.var : (t.rev1 - t.rev0)) || 0;
+    return `<tr><td class="rc-aid">${esc(t.id || '—')}</td><td>${esc(t.name)}</td><td class="rc-mut">${esc(t.type || '—')}</td>
+      <td class="n rc-mut">${t.rev0 ? fmtInt(t.rev0) : '—'}</td><td class="n rc-new">${t.rev1 ? fmtInt(t.rev1) : '—'}</td>
+      <td class="n"><span class="rc-d ${v > 0 ? 'up' : v < 0 ? 'down' : 'zero'}">${v > 0 ? '+' : ''}${fmtInt(v)}</span></td>
+      <td class="n rc-mut">${fmtInt(t.activities || 0)}</td><td>${typeTag(kTag, kLabel)}</td></tr>`;
   }).join('');
-  const byCard = `<div class="rc-card"><h3>Resource comparison <span class="rc-n">man-hours by resource · Rev.00 → Rev.01</span></h3>
-      <div class="rc-sec">One row per resource / trade — planned man-hours before and after, the variance, a neutral change tag, and how many activities it is assigned to</div>
-      ${byRows ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Resource</th><th class="n">Before (mh)</th><th class="n">After (mh)</th><th class="n">Variance</th><th>Change</th><th>Assigned to</th></tr></thead><tbody>${byRows}</tbody></table></div>` : noData('No resource man-hour totals available to compare.')}</div>`;
+  const tblCard = totals.length ? `<div class="rc-card"><h3>Resource changes — detail <span class="rc-n">grouped by resource</span></h3>
+      <div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Resource ID</th><th>Resource</th><th>Type</th><th class="n">Rev.00 (units)</th><th class="n">Rev.01 (units)</th><th class="n">Variance</th><th class="n">Activities</th><th>Change</th></tr></thead><tbody>${tblRows}</tbody></table></div>
+      <div class="rc-callout">Units before/after, variance, how many activities each resource is on, and a clear Added / Removed / Increased / Reduced tag — one row per resource rather than scattered per activity.</div></div>` : '';
 
-  // Supporting detail — the raw per-activity assignment changes (kept below the lead card).
-  const resRows = assign.map(a => {
+  // Per-activity assignment changes kept as an expandable supporting detail.
+  const pick = (row, keys) => { for (const k of keys) { if (row[k] != null && row[k] !== '') return row[k]; } return null; };
+  const asgRows = assign.map(a => {
     const id = pick(a, ['activity_id', 'code', 'id']), name = pick(a, ['activity_name', 'name']);
     const [kTag, kLabel] = resourceKindMeta(a.kind, a.rev0, a.rev1);
     return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}</td>
       <td class="rc-aid">${esc(a.resource_id)}</td><td>${esc(a.resource || a.resource_name)}</td>
       <td class="n rc-mut">${esc(a.rev0)}</td><td class="n rc-new">${esc(a.rev1)}</td><td>${typeTag(kTag, kLabel)}</td></tr>`;
   }).join('');
-  const detailCard = assign.length
-    ? `<div class="rc-card"><h3>Assignment detail <span class="rc-n">per-activity assignment before / after</span></h3>
-        <div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th>Resource ID</th><th>Resource Name</th><th class="n">Before</th><th class="n">After</th><th>Change</th></tr></thead><tbody>${resRows}</tbody></table></div></div>`
-    : '';
+  const asgCard = assign.length ? `<div class="rc-card"><details class="rc-details"><summary>Per-activity assignment detail <span class="rc-n">${assign.length} change${assign.length === 1 ? '' : 's'}</span></summary>
+      <div class="rc-tblscroll" style="margin-top:10px"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th>Resource ID</th><th>Resource</th><th class="n">Before</th><th class="n">After</th><th>Change</th></tr></thead><tbody>${asgRows}</tbody></table></div></details></div>` : '';
 
-  return secmark('8', 'Resources', 'resource-by-resource comparison') + byCard + detailCard;
+  return secmark('8', 'Resources', 'before vs after, at a glance') + compCard + tblCard + asgCard;
 }
 
 function renderMoneyChart(body) {
@@ -1306,7 +1341,9 @@ function renderCostPie(body) {
   const dim = rcFilters.cost.dim;
   const byVal = {};
   cc.forEach(c => { const v = (c.codes || {})[dim]; if (v == null || v === '') return; byVal[v] = (byVal[v] || 0) + Math.abs(typeof c.delta === 'number' ? c.delta : 0); });
-  const items = Object.entries(byVal).map(([k, v]) => ({ label: k, v })).filter(x => x.v > 0);
+  // One distinct colour per code value, so each pie slice + legend swatch is readable (like the scope donut).
+  const order = Object.keys(byVal);
+  const items = Object.entries(byVal).map(([k, v]) => ({ label: k, v, color: tokenColor(k, order) })).filter(x => x.v > 0);
   chart.innerHTML = `<div class="rc-sec" style="margin-bottom:4px">Cost variance by ${escapeHtml(String(dim))} <span class="rc-mut">— share of the total change</span></div>`
     + donutSvg(items, { centerLabel: 'Δ cost', emptyMsg: 'No coded cost changes for this dimension.' });
 }
@@ -1337,52 +1374,74 @@ function manpowerView(r) {
   const curves = r.curves || {};
   const trades = curves.manpower_by_trade || [];
   const months = curves.months || [];
+  const mix = curves.manhours_by_trade || [];
   if (!curves.resource_available || !trades.length || !months.length) {
-    return secmark('9', 'Manpower', 'monthly man-hours, stacked by trade')
+    return secmark('9', 'Manpower', 'people on site per month')
       + `<div class="rc-card"><h3>Manpower histogram</h3>${noData('Neither revision carries resource (man-hour) loading — manpower histogram not applicable.')}</div>`;
   }
-  // Monthly totals across all trades.
+  // Rev.01 monthly totals (stacked bars) + Rev.00 monthly totals (dashed overlay).
   const total = months.map((_, i) => trades.reduce((s, t) => s + ((t.monthly || [])[i] || 0), 0));
+  const r0map = {};
+  (curves.manpower_monthly || []).forEach(m => { r0map[m.month] = m.rev0; });
+  const rev0tot = months.map(mo => Number(r0map[mo]) || 0);
   const n = months.length;
   const W = Math.max(760, n * 68), h = 304, L = 48, B = 56, T = 32;
   const pw = W - L - 16, ph = h - T - B, step = pw / n, bw = Math.min(40, step * 0.62);
-  const mx = Math.max(1, ...total);
+  const mx = Math.max(1, ...total, ...rev0tot);
   const showEvery = n > 10 ? 2 : 1;
+  const order = trades.map(z => z.trade);
   let s = '';
   months.forEach((mo, i) => {
     let y = T + ph;
     const x = L + i * step + step / 2;
-    trades.forEach((t, ti) => {
+    trades.forEach((t) => {
       const val = (t.monthly || [])[i] || 0;
       const segH = val / mx * ph;
       y -= segH;
-      if (segH > 0) s += `<rect x="${(x - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${segH.toFixed(1)}" fill="${tokenColor(t.trade, trades.map(z => z.trade))}"/>`;
+      if (segH > 0) s += `<rect x="${(x - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${segH.toFixed(1)}" fill="${tokenColor(t.trade, order)}"/>`;
     });
-    // Monthly total label above the stacked bar (comment 11).
+    // Rev.01 monthly total directly above the stacked bar.
     const topY = T + ph - total[i] / mx * ph;
     if (total[i] > 0) s += `<text x="${x.toFixed(1)}" y="${(topY - 6).toFixed(1)}" font-size="10" font-weight="800" fill="var(--ink-soft)" text-anchor="middle">${escapeHtml(fmtInt(total[i]))}</text>`;
-    // Month labels angled (~-40°) and thinned (every 2nd when crowded); last always kept.
     if (i % showEvery === 0 || i === n - 1) {
       const ly = T + ph + 13;
       s += `<text x="${x.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="end" transform="rotate(-40 ${x.toFixed(1)} ${ly.toFixed(1)})">${escapeHtml(String(mo))}</text>`;
     }
   });
-  // Total-headcount line across the stacked tops.
-  s += `<polyline points="${months.map((_, i) => `${(L + i * step + step / 2).toFixed(1)},${(T + ph - total[i] / mx * ph).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--danger)" stroke-width="2.4"/>`;
+  // Rev.00 total dashed line for a direct before/after read.
+  if (rev0tot.some(v => v > 0)) {
+    s += `<polyline points="${months.map((_, i) => `${(L + i * step + step / 2).toFixed(1)},${(T + ph - rev0tot[i] / mx * ph).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-dasharray="5 3"/>`;
+  }
 
-  const legend = trades.map(t => `<span><i style="background:${tokenColor(t.trade, trades.map(z => z.trade))}"></i>${esc(t.trade)}</span>`).join('')
-    + '<span><i class="rc-line" style="background:var(--danger)"></i>Total headcount</span>';
-  const peakVal = Math.max(0, ...total);
-  const peakMonth = months[total.indexOf(peakVal)];
-  const totalsByTrade = trades.map(t => `${esc(t.trade)} <b>${fmtInt(t.total)}</b>`).join(' · ');
+  const legend = trades.map(t => `<span><i style="background:${tokenColor(t.trade, order)}"></i>${esc(t.trade)}</span>`).join('')
+    + '<span><i class="rc-line" style="background:var(--muted)"></i>Rev.00 total (line)</span>';
 
-  const card = `<div class="rc-card"><h3>Manpower histogram — combo by trade <span class="rc-n">total above each month · line = total headcount</span></h3>
-    <div class="rc-sec">Monthly planned man-hours, stacked by trade — Rev.01</div>
+  const peak = curves.peak || {};
+  const total0 = (curves.manhours_total || {});
+  const pct = total0.pct;
+  const kpis = `<div class="rc-kpis k3">
+      <div class="rc-kpi"><div class="rc-k">Rev.00 peak on site</div><div class="rc-v">${fmtInt(peak.rev0 || 0)}</div><div class="rc-dd">${peak.rev0_month ? 'in ' + esc(peak.rev0_month) : ''}</div></div>
+      <div class="rc-kpi"><div class="rc-k">Rev.01 peak on site</div><div class="rc-v ${(peak.rev1 || 0) > (peak.rev0 || 0) ? 'crit' : ''}">${fmtInt(peak.rev1 || 0)}</div><div class="rc-dd">${peak.rev1_month ? 'in ' + esc(peak.rev1_month) : ''}</div></div>
+      <div class="rc-kpi"><div class="rc-k">Total man-hours</div><div class="rc-v ${pct == null ? '' : pct > 0 ? 'crit' : pct < 0 ? 'add' : ''}">${pct == null ? '—' : (pct > 0 ? '+' : '') + fmtNum(pct, 1) + '%'}</div><div class="rc-dd">Rev.00 → Rev.01</div></div></div>`;
+
+  const chartCard = `<div class="rc-card"><h3>Manpower on site per month <span class="rc-n">stacked by trade · Rev.00 total overlaid · peak labelled</span></h3>
+    ${kpis}
+    <div class="rc-sec">Each bar = the <b>total people on site that month</b> (all trades stacked); the number above it is that month's total; the grey dashed line is Rev.00's total for a direct before/after read; "peak on site" is the busiest month.</div>
     <div class="rc-chartwrap"><svg viewBox="0 0 ${W} ${h}" class="rc-svg" style="min-width:${W}px" role="img" aria-label="Manpower combo chart">
       <line x1="${L}" y1="${T + ph}" x2="${W - 16}" y2="${T + ph}" stroke="var(--border)"/>${s}</svg></div>
-    <div class="rc-legend">${legend}</div>
-    <div class="rc-callout">Peak <b>${fmtInt(peakVal)}</b>${peakMonth ? ` in ${esc(peakMonth)}` : ''}. Totals by trade: ${totalsByTrade} man-hours.</div></div>`;
-  return secmark('9', 'Manpower', 'monthly man-hours, stacked by trade') + card;
+    <div class="rc-legend">${legend}</div></div>`;
+
+  // Resource mix — total man-hours by trade, Rev.00 vs Rev.01.
+  let mixCard = '';
+  if (mix.length) {
+    const mmx = Math.max(1, ...mix.flatMap(t => [Number(t.rev0) || 0, Number(t.rev1) || 0]));
+    const mixBars = mix.map(t => baBar(t.name || t.trade || t.resource_id, t.rev0, t.rev1, mmx, { fmt: fmtK })).join('');
+    mixCard = `<div class="rc-card"><h3>Resource mix — total man-hours by trade <span class="rc-n">Rev.00 → Rev.01</span></h3>
+      <div class="rc-sec">The overall shift in the labour mix — which trades grew or shrank between the two baselines.</div>
+      <div class="rc-hbars">${mixBars}</div>
+      <div class="rc-legend"><span><i style="background:var(--rc-b0)"></i>Rev.00 man-hours</span><span><i style="background:var(--accent)"></i>Rev.01 man-hours</span></div></div>`;
+  }
+  return secmark('9', 'Manpower', 'people on site per month') + chartCard + mixCard;
 }
 
 // ══ 10 · Scope & Structure ═════════════════════════════════════════════════════

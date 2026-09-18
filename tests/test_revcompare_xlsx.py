@@ -169,8 +169,10 @@ def test_full_report_produces_ten_section_sheets(tmp_path):
     assert 'Substantial Completion' in all_xml             # milestone
     assert 'MS900 → MS950' in all_xml.replace('&gt;', '>').replace('&amp;', '&')  # idchange id "OLD → NEW"
     assert 'ID changed' in all_xml                          # idchange neutral tag (change 3)
-    # budget delta present, formatted through the shared thousands + 2dp formatter (comment 9)
-    assert '150,000.00' in all_xml or '<v>150000</v>' in all_xml or '150,000' in all_xml
+    # budget figures present, formatted through the shared thousands + 2dp formatter (comment 9)
+    assert '260,000.00' in all_xml or '<v>260000</v>' in all_xml or '260,000' in all_xml
+    # cost-changed total sums the CHANGED activities (matching screen + pie), not the whole budget (comment 4)
+    assert 'Total — changed activities' in all_xml or 'Total &#8212; changed activities' in all_xml
 
 
 def test_empty_report_never_crashes(tmp_path):

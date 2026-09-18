@@ -259,17 +259,36 @@ def _findings_blocks(report):
     dims = _logic_dims(report)
     lg_headers = list(dims) + ['Predecessor ID', 'Predecessor Name', 'Successor ID',
                                'Successor Name', 'Link Before', 'Link After', 'Change',
-                               'On CP?', 'Lead?']
+                               'Replacement predecessor', 'On CP?', 'Lead?']
+    # Map each successor to the NEW predecessor links it gained, so a removed link names its
+    # replacement (comment 1) — mirrors the screen/PDF.
+    reg = report.get('logic_register') or []
+    added_by_succ = {}
+    for r in reg:
+        if 'added' in str(r.get('change') or '').lower():
+            added_by_succ.setdefault(r.get('succ_id'), []).append(r)
     lg = []
-    for r in (report.get('logic_register') or []):
+    for r in reg:
         rc = r.get('codes') or {}
+        change = str(r.get('change') or '')
+        low = change.lower()
+        # Comment 1 — spell out "not linked in Rev.00" / "link removed" rather than a bare dash.
+        before_txt = 'not linked in Rev.00' if 'added' in low else _txt(r.get('before'), '—')
+        after_txt = 'link removed' if 'removed' in low else _txt(r.get('after'), '—')
+        repl_txt = '—'
+        if 'removed' in low:
+            repl = [a for a in added_by_succ.get(r.get('succ_id'), []) if a.get('pred_id') != r.get('pred_id')]
+            repl_txt = ('; '.join(f"{_txt(a.get('pred_name'))} ({_txt(a.get('after'))})" for a in repl)
+                        if repl else 'open end — no replacement link added')
         lg.append([_txt(rc.get(d), '—') for d in dims]
                   + [_txt(r.get('pred_id')), _txt(r.get('pred_name')), _txt(r.get('succ_id')),
-                     _txt(r.get('succ_name')), _txt(r.get('before'), '—'), _txt(r.get('after'), '—'),
-                     _txt(r.get('change')), _onoff(r.get('on_cp')), _flag(r.get('is_lead'), 'Lead')])
+                     _txt(r.get('succ_name')), before_txt, after_txt,
+                     _txt(r.get('change')), repl_txt, _onoff(r.get('on_cp')), _flag(r.get('is_lead'), 'Lead')])
     blocks.append({'title': 'Logic & Sequence Changes — every changed relationship (by activity code)',
                    'note': 'Before → After per predecessor→successor link, grouped/filterable by activity code; '
-                           '"On CP?" flags links touching the revised critical path, leads (negative lags) flagged.',
+                           'an added link reads "not linked in Rev.00", a removed link reads "link removed" and '
+                           'names its replacement predecessor; "On CP?" flags links touching the revised critical '
+                           'path, leads (negative lags) flagged.',
                    'headers': lg_headers,
                    'rows': _rows_or_none(lg, len(lg_headers),
                                          'No relationship / logic changes on matched activities.')})
@@ -463,6 +482,34 @@ def _cal_blocks(report):
                    'headers': ['From calendar', 'To calendar', 'Days/week before', 'Days/week after',
                                'Days/week change', 'Activities'],
                    'rows': _rows_or_none(reassign, 6, 'No calendar assignment changes.')})
+
+    # Mon→Sun working / non-working day grid, Rev.00 vs Rev.01, changed days flagged (comment 2).
+    grid_rows = []
+    for p in (cc.get('patterns') or []):
+        g0, g1 = p.get('rev0_grid'), p.get('rev1_grid')
+        if not (g0 or g1):
+            continue
+        changed = set(p.get('changed_days') or [])
+
+        def state_cells(grid):
+            return ['Work' if d.get('working') else 'Off' for d in (grid or [])]
+        # Spell out the direction of the flip (now non-working / working), like the screen & PDF.
+        if changed:
+            becomes_nw = any((not d.get('working')) and d.get('day') in changed for d in (g1 or []))
+            chg_txt = f"{', '.join(changed)} now {'non-working' if becomes_nw else 'working'}"
+        else:
+            chg_txt = '—'
+        if g0:
+            grid_rows.append([_txt(p.get('name')), 'Rev.00'] + state_cells(g0) + [chg_txt])
+        if g1:
+            grid_rows.append([_txt(p.get('name')), 'Rev.01'] + state_cells(g1) + [chg_txt])
+    if grid_rows:
+        blocks.append({'title': 'Calendar working-day grid — Mon→Sun (Rev.00 vs Rev.01)',
+                       'note': 'Each calendar\'s Mon→Sun working (Work) / non-working (Off) pattern before and '
+                               'after; the "Changed days" column lists any day whose working state flipped.',
+                       'headers': ['Calendar', 'Revision', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
+                                   'Changed days'],
+                       'rows': grid_rows})
     return blocks
 
 
@@ -473,14 +520,28 @@ def _itemised_cost_blocks(report):
     Resources (change 6); the by-WBS roll-up sheet is gone (``cost_by_wbs`` stays in the
     engine but is no longer rendered)."""
     rc = report.get('resource_changes') or {}
+    changes = rc.get('activity_cost_changes') or []
     cost = []
-    for c in (rc.get('activity_cost_changes') or []):
+    for c in changes:
         cost.append([_txt(c.get('code')), _txt(c.get('name')), _money(c.get('rev0')),
                      _money(c.get('rev1')), _money_sgn(c.get('delta'))])
-    tb = rc.get('total_budget') or {}
-    if rc.get('cost_available'):
-        cost.append(['—', 'Total budget', _money(tb.get('rev0')), _money(tb.get('rev1')),
-                     _money_sgn(tb.get('delta'))])
+    # Total of the CHANGED activities (comment 4) — the sum of the rows above, matching the screen
+    # and the variance pie's Δ (not the whole-project budget). Prefer the raw *_num ints; fall back
+    # to parsing the formatted rev0/rev1 (which may be money strings or plain numbers).
+    def _cnum(c, num_key, str_key):
+        v = c.get(num_key)
+        if v is None:
+            v = c.get(str_key)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            return float(v)
+        try:
+            return float(str(v).replace(',', '').replace('%', '').strip() or 0)
+        except (ValueError, TypeError):
+            return 0.0
+    if rc.get('cost_available') and changes:
+        s0 = sum(_cnum(c, 'rev0_num', 'rev0') for c in changes)
+        s1 = sum(_cnum(c, 'rev1_num', 'rev1') for c in changes)
+        cost.append(['—', 'Total — changed activities', _money(s0), _money(s1), _money_sgn(s1 - s0)])
     return [{'title': 'Cost changed — budget total cost',
              'note': 'Informational — a cost change is not itself a schedule impact.',
              'headers': ['Activity ID', 'Activity Name', 'Before', 'After', 'Variance'],
@@ -530,6 +591,33 @@ def _cost_blocks(report):
                        'headers': ['Dimension', 'Before', 'After', 'Variance'],
                        'rows': [['No budget breakdown available.', '', '', '']]})
 
+    # Cost variance share by activity code (comment 4 — the on-screen pie in tabular form): for
+    # each code dimension present on the changed activities, the share of the total |Δ cost|.
+    cc = rc.get('activity_cost_changes') or []
+    dims_present = []
+    for x in cc:
+        for k in (x.get('codes') or {}):
+            if k not in dims_present:
+                dims_present.append(k)
+    for dim in dims_present:
+        by_val = {}
+        for x in cc:
+            v = (x.get('codes') or {}).get(dim)
+            if v in (None, ''):
+                continue
+            by_val[v] = by_val.get(v, 0) + abs(x.get('delta') or 0)
+        tot = sum(by_val.values())
+        if tot <= 0:
+            continue
+        share = [[_txt(k), _money(v), f"{round(v / tot * 100)}%"]
+                 for k, v in sorted(by_val.items(), key=lambda kv: -kv[1])]
+        share.append(['Total', _money(tot), '100%'])
+        blocks.append({'title': f'Cost variance share by {dim}',
+                       'note': 'Share of the total cost change carried by each activity-code value '
+                               '(the on-screen pie) — |variance| per code value.',
+                       'headers': [dim, 'Cost variance (|Δ|)', 'Share'],
+                       'rows': share})
+
     # Itemised Cost changed table — returned to Cost & Resources (change 6). The by-WBS
     # roll-up sheet is removed; the Resource-changed table now has its own Resources sheet.
     blocks.extend(_itemised_cost_blocks(report))
@@ -538,80 +626,41 @@ def _cost_blocks(report):
 
 # ── 7b · resource — Resources ─────────────────────────────────────────────────────
 
-def _res_kind(kind, var):
-    """Kind tag for a by-resource row: Added / Removed straight from the trade kind, otherwise
-    Increased / Decreased from the man-hour variance sign (change 7)."""
-    if kind == 'added':
-        return 'Added'
-    if kind == 'removed':
-        return 'Removed'
-    if isinstance(var, (int, float)) and not isinstance(var, bool):
-        if var > 0:
-            return 'Increased'
-        if var < 0:
-            return 'Decreased'
-    return 'Changed'
+_RES_KIND_LABEL = {'added': 'Added', 'removed': 'Removed', 'increased': 'Increased',
+                   'decreased': 'Reduced', 'unchanged': 'Unchanged'}
 
 
 def _resource_blocks(report):
-    """Resource-by-resource comparison sheet (change 7) — one row per resource / trade: budgeted
-    man-hours Before → After (from ``curves.manhours_by_trade``), the Variance, an Added / Removed
-    / Increased / Decreased tag, and the activities it is assigned to (from ``assignment_changes``
-    grouped by resource). The raw per-activity assignment list is kept below as detail."""
+    """Resources — before vs after, at a glance (comments 5 & 6). The lead table is one row per
+    resource from ``resource_changes.resource_totals``: id · type · assigned units Before → After ·
+    variance · activities · Added / Removed / Increased / Reduced tag, with the added/removed/re-
+    sized summary in the note. The raw per-activity assignment list is kept below as detail."""
     rc = report.get('resource_changes') or {}
-    c = report.get('curves') or {}
-    trade = c.get('manhours_by_trade') or []
+    totals = rc.get('resource_totals') or []
     asg = rc.get('assignment_changes') or []
 
-    # Group assignment changes by resource -> the activities it is assigned to.
-    by_res = {}
-    order = []
-    for a in asg:
-        res = _txt(a.get('resource'))
-        if res not in by_res:
-            by_res[res] = []
-            order.append(res)
-        by_res[res].append(a)
-
-    def assigned_to(res_name):
-        items = by_res.get(res_name) or []
-        if not items:
-            return '—'
-        labels = [lbl for a in items for lbl in [_txt(a.get('name')) or _txt(a.get('code'))] if lbl]
-        n = len(items)
-        head = f"{n} activity" if n == 1 else f"{n} activities"
-        if labels:
-            shown = ', '.join(labels[:3]) + (', …' if len(labels) > 3 else '')
-            return f"{head} — {shown}"
-        return head
-
     rows = []
-    seen = set()
-    for t in trade:
-        name = _txt(t.get('name'))
-        seen.add(name)
-        rows.append([name, _money(t.get('rev0')), _money(t.get('rev1')),
-                     _money_sgn(t.get('var')), _res_kind(t.get('kind'), t.get('var')),
-                     assigned_to(name)])
-    # Resources that changed assignment but carry no man-hour trade row — still shown so the
-    # comparison covers every resource type, with man-hours left as em-dashes.
-    for res_name in order:
-        if res_name in seen:
-            continue
-        kinds = {a.get('kind') for a in by_res[res_name]}
-        if kinds == {'added'}:
-            k = 'Added'
-        elif kinds == {'removed'}:
-            k = 'Removed'
-        else:
-            k = 'Changed'
-        rows.append([res_name, '—', '—', '—', k, assigned_to(res_name)])
+    for t in totals:
+        v = t.get('var')
+        if v is None:
+            v = (t.get('rev1') or 0) - (t.get('rev0') or 0)
+        rows.append([_txt(t.get('id'), '—'), _txt(t.get('name')), _txt(t.get('type'), '—'),
+                     _num(t.get('rev0'), '—') if t.get('rev0') else '—',
+                     _num(t.get('rev1'), '—') if t.get('rev1') else '—',
+                     _sgn(v), _num(t.get('activities'), '0'),
+                     _RES_KIND_LABEL.get(t.get('kind'), _txt(t.get('kind')))])
 
-    blocks = [{'title': 'Resource comparison — by resource / trade (Rev.00 → Rev.01)',
-               'note': 'One row per resource: budgeted man-hours before → after, the variance, whether it '
-                       'was added / removed / increased / decreased, and the activities it is assigned to.',
-               'headers': ['Resource', 'Man-hrs Before', 'After', 'Variance', 'Kind', 'Assigned to'],
-               'rows': _rows_or_none(rows, 6, 'No resource changes between the revisions.')}]
+    sm = rc.get('summary') or {}
+    n_add = sm.get('res_added', sum(1 for t in totals if t.get('kind') == 'added'))
+    n_rem = sm.get('res_removed', sum(1 for t in totals if t.get('kind') == 'removed'))
+    n_chg = sm.get('res_resized', sum(1 for t in totals if t.get('kind') in ('increased', 'decreased')))
+    summary_note = (f'{n_add} added · {n_rem} removed · {n_chg} re-sized. One row per resource — assigned '
+                    'units before → after, variance, activities it is on, and a clear change tag.')
+    blocks = [{'title': 'Resource comparison — before vs after, per resource (Rev.00 → Rev.01)',
+               'note': summary_note,
+               'headers': ['Resource ID', 'Resource', 'Type', 'Rev.00 (units)', 'Rev.01 (units)',
+                           'Variance', 'Activities', 'Change'],
+               'rows': _rows_or_none(rows, 8, 'No resource changes between the revisions.')}]
 
     # Per-activity assignment detail — the individual changes behind the by-resource view above.
     detail = [[_txt(a.get('code')), _txt(a.get('name')), _txt(a.get('resource')),
@@ -641,6 +690,21 @@ def _manpower_blocks(report):
                  'note': 'Neither revision carries resource man-hours — reported as not applicable.',
                  'headers': ['Manpower'], 'rows': [['Not applicable']]}]
 
+    # Peak-on-site KPIs (comment 5) — busiest month before/after and the total man-hours change.
+    peak = c.get('peak') or {}
+    mt0 = c.get('manhours_total') or {}
+    pct = mt0.get('pct')
+    kpi_rows = [
+        ['Rev.00 peak on site', _num(int(round(peak.get('rev0') or 0))), _txt(peak.get('rev0_month'), '—')],
+        ['Rev.01 peak on site', _num(int(round(peak.get('rev1') or 0))), _txt(peak.get('rev1_month'), '—')],
+        ['Total man-hours change',
+         (f"{_sgn(round(pct, 1), '%')}" if isinstance(pct, (int, float)) else '—'), 'Rev.00 → Rev.01'],
+    ]
+    blocks_pre = [{'title': 'Manpower on site — peak & total',
+                   'note': 'Peak people on site (busiest month) in each revision and the total man-hours change.',
+                   'headers': ['Metric', 'Value', 'When / basis'],
+                   'rows': kpi_rows}]
+
     # Man-hours by trade — Rev.00 vs Rev.01 totals (money/value formatted, comment 9)
     trows = [[_txt(t.get('resource_id')), _txt(t.get('name')), _money(t.get('rev0')),
               _money(t.get('rev1')), _money_sgn(t.get('var')),
@@ -653,9 +717,9 @@ def _manpower_blocks(report):
         var = mt.get('var')
         trows.append(['—', 'Total man-hours', _money(mt.get('rev0')), _money(mt.get('rev1')),
                       (f"{_money_sgn(var)}{pct_s}" if var is not None else _money(var)), ''])
-    blocks = [{'title': 'Man-hours by trade — Rev.00 vs Rev.01',
-               'note': 'Planned budgeted resource units (man-hours) per trade. The line on the combo chart is '
-                       'the monthly total headcount.',
+    blocks = blocks_pre + [{'title': 'Resource mix — man-hours by trade (Rev.00 vs Rev.01)',
+               'note': 'Planned budgeted resource units (man-hours) per trade — the overall labour-mix shift. '
+                       'The dashed line on the combo chart is Rev.00\'s monthly total.',
                'headers': ['Resource ID', 'Trade', 'Man-hrs Before', 'After', 'Variance', 'Change'],
                'rows': _rows_or_none(trows, 6, 'No resource man-hours available.')}]
 

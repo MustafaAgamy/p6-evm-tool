@@ -91,6 +91,17 @@ def _money_label(v):
     return f'{sign}{body}'
 
 
+def _month_label(date_str):
+    """'19 Dec 2026' → 'Mon YYYY' ('Dec 2026') to index a finish date against the month axis;
+    returns '' when it cannot be parsed. Mirrors the screen's monthLabel."""
+    if not date_str:
+        return ''
+    parts = str(date_str).split()
+    if len(parts) >= 3:
+        return f'{parts[1]} {parts[2]}'
+    return ''
+
+
 def _sgn(v, unit=''):
     """Signed value with a leading + for positives; '—' for None."""
     if v is None:
@@ -240,10 +251,11 @@ def _hbars(items):
     return f'<div class="hbars">{rows}</div>'
 
 
-def _donut(items, note=''):
-    """A compact inline-SVG donut of a share breakdown (used for % of ADDED activities by the
-    selected activity-code dimension). ``items``: [{label, value, color}]; each slice is a fraction
-    of the total, the ring centre shows the total count, and a legend lists each slice's percentage.
+def _donut(items, note='', center='added'):
+    """A compact inline-SVG donut of a share breakdown (used for % of ADDED activities, and the
+    cost-variance share, by the selected activity-code dimension). ``items``: [{label, value,
+    color}]; each slice is a fraction of the total, the ring centre shows the total count, and a
+    legend lists each slice's percentage. ``center`` is the small label under the ring total.
     Tokens only; returns '' when there is nothing to show."""
     vals = [(it, max(float(it.get('value') or 0), 0.0)) for it in (items or [])]
     total = sum(v for _it, v in vals)
@@ -267,7 +279,7 @@ def _donut(items, note=''):
            + f'<text x="{cx}" y="{cy - 1}" text-anchor="middle" font-size="21" font-weight="800" '
              f'fill="var(--rpt-ink)">{int(round(total))}</text>'
            + f'<text x="{cx}" y="{cy + 15}" text-anchor="middle" font-size="8" '
-             f'fill="var(--rpt-muted)">added</text></svg>')
+             f'fill="var(--rpt-muted)">{_e(center)}</text></svg>')
     leg = ''
     for it, v in vals:
         if v <= 0:
@@ -565,11 +577,14 @@ def _chain2(l, link_html):
     return f'<div class="chain2">{p}{link_html}{s}</div>'
 
 
-def _logic_lane(l, idx):
+def _logic_lane(l, idx, added_by_succ=None):
     """A single numbered lane for one changed relationship (change 2): a header (#N + change tag
     + on-CP / context) then the relationship as TWO chains — Rev.00 (before) and Rev.01 (after) —
     so the change reads as a direct comparison. Each node carries its WBS breadcrumb; a removed
-    link's after reads 'removed ✕', an added link's before reads 'no link'. Mirrors the screen."""
+    link's after reads 'link removed ✕', an added link's before reads 'not linked in Rev.00'
+    (comment 1). For a removed link the replacement predecessor (if any) is spelled out. Mirrors
+    the screen."""
+    added_by_succ = added_by_succ or {}
     change = str(l.get('change') or '')
     low = change.lower()
     kind = 'added' if 'added' in low else 'removed' if 'removed' in low else 'changed'
@@ -584,15 +599,25 @@ def _logic_lane(l, idx):
         bits.append(ctx)
     sub = ' · '.join(bits)
     subhtml = f'<span class="lanesub">{sub}</span>' if sub else ''
-    before_link = (_clink2('no link', 'none', '⋯') if kind == 'added'
+    before_link = (_clink2('not linked in Rev.00', 'none', '⋯') if kind == 'added'
                    else _clink2(l.get('before'), '', '→'))
-    after_link = (_clink2('removed', 'rem', '✕') if kind == 'removed'
+    after_link = (_clink2('link removed', 'rem', '✕') if kind == 'removed'
                   else _clink2(l.get('after'), 'add' if kind == 'added' else 'chg', '→'))
+    # For a REMOVED link, clarify the replacement — any NEW predecessor the successor gained.
+    repl_html = ''
+    if kind == 'removed':
+        repl = [a for a in added_by_succ.get(l.get('succ_id'), []) if a.get('pred_id') != l.get('pred_id')]
+        if repl:
+            names = ', '.join(f'<b>{_e(a.get("pred_name"))}</b> ({_e(a.get("after"))})' for a in repl)
+            repl_html = f'<div class="lrepl">↳ {_e(l.get("succ_name"))} is now driven instead by {names}.</div>'
+        else:
+            repl_html = (f'<div class="lrepl mut">↳ {_e(l.get("succ_name"))} lost this predecessor with no '
+                         f'replacement link added — it may now be an open end.</div>')
     return (f'<div class="lane"><div class="lanehdr">'
             f'<span class="lanenum">#{idx}</span>'
             f'<span class="lanetag {tagcls}">{_e(change)}</span>{subhtml}</div>'
             f'<div class="rev2lab">Rev.00 — before</div>{_chain2(l, before_link)}'
-            f'<div class="rev2lab r1">Rev.01 — after</div>{_chain2(l, after_link)}</div>')
+            f'<div class="rev2lab r1">Rev.01 — after</div>{_chain2(l, after_link)}{repl_html}</div>')
 
 
 def _logic_changes(report, filters):
@@ -613,8 +638,14 @@ def _logic_changes(report, filters):
                      _filter_heading(dim, val) + _muted('No relationship changes for this filter.'))
     intro = ('<div class="sec">Each changed predecessor → successor link shown twice — '
              'Rev.00 (before) and Rev.01 (after) — with the WBS breadcrumb inside every node, so '
-             'the change reads as a direct comparison. Links on the critical path are marked.</div>')
-    lanes = ''.join(_logic_lane(r, i + 1) for i, r in enumerate(frows))
+             'the change reads as a direct comparison. Links on the critical path are marked; a '
+             'removed link names the new predecessor that replaced it.</div>')
+    # Map each successor to the NEW predecessor links it gained, so a removed link names its replacement.
+    added_by_succ = {}
+    for r in rows:
+        if 'added' in str(r.get('change') or '').lower():
+            added_by_succ.setdefault(r.get('succ_id'), []).append(r)
+    lanes = ''.join(_logic_lane(r, i + 1, added_by_succ) for i, r in enumerate(frows))
     body = _filter_heading(dim, val) + intro + f'<div class="lanes">{lanes}</div>'
     return _card('Logic & sequence changes', 'before → after · by activity code', body)
 
@@ -842,6 +873,34 @@ def _cal_pat_txt(p):
             f'{_num(hpw) if hpw is not None else "—"} h/wk')
 
 
+def _dow_grid_row(grid, changed_set, lab, r1=False):
+    """One Mon→Sun working/non-working strip for a revision, changed days highlighted (comment 2)."""
+    if not grid:
+        return ''
+    cells = ''
+    for g in grid:
+        st = 'on' if g.get('working') else 'off'
+        chg = ' chg' if g.get('day') in changed_set else ''
+        day = str(g.get('day') or '')
+        cells += f'<span class="dow {st}{chg}">{_e(day[:1])}</span>'
+    return f'<div class="dowrow"><span class="dowlab{" r1" if r1 else ""}">{_e(lab)}</span>{cells}</div>'
+
+
+def _dow_grid_block(p):
+    """The before/after day grid for one calendar pattern, with a changed-days note (comment 2)."""
+    g0, g1 = p.get('rev0_grid'), p.get('rev1_grid')
+    if not (g0 or g1):
+        return ''
+    changed = set(p.get('changed_days') or [])
+    note = ''
+    if changed:
+        becomes_nw = any((not g.get('working')) and g.get('day') in changed for g in (g1 or []))
+        note = (f'<div class="dowchg">Changed: <b>{_e(", ".join(changed))}</b> now '
+                f'{"non-working" if becomes_nw else "working"}</div>')
+    return (f'<div class="dowgrid">{_dow_grid_row(g0, changed, "Rev.00")}'
+            f'{_dow_grid_row(g1, changed, "Rev.01", r1=True)}{note}</div>')
+
+
 def _sec_cal(report, filters=None):
     """Comment 5 — Calendar presented clearly from ``calendar_changes.patterns``: one row per
     calendar (name · Rev.00 pattern · Rev.01 pattern · activities). The 24-hour-calendar 0-days
@@ -854,7 +913,9 @@ def _sec_cal(report, filters=None):
                      _muted('No calendar reassignments or definition changes.'))
 
     intro = ('<div class="sec">Each calendar shown as a plain working pattern — days/week · '
-             'hours/day · hours/week — before and after. A 24-hour calendar reads 7 days.</div>')
+             'hours/day · hours/week — before and after, plus a Mon→Sun working / non-working '
+             'grid with any day whose state changed highlighted (comment 2). A 24-hour calendar '
+             'reads 7 days.</div>')
     head = ('<div class="calrow calhd"><div>Calendar</div><div>Rev.00 pattern</div>'
             '<div>Rev.01 pattern</div><div class="ract">Activities</div></div>')
     rows = ''
@@ -863,10 +924,11 @@ def _sec_cal(report, filters=None):
         r0, r1 = p.get('rev0'), p.get('rev1')
         chg = p.get('change')
         chg_lbl = (f'<span class="s"> · {_e(chg)}</span>' if chg and chg != 'unchanged' else '')
-        rows += (f'<div class="calrow"><div class="calname">{_e(p.get("name"))}{chg_lbl}</div>'
-                 f'<div><span class="pattern">{_cal_pat_txt(r0)}</span></div>'
-                 f'<div><span class="pattern r1">{_cal_pat_txt(r1)}</span></div>'
-                 f'<div class="ract">{_num(p.get("activities"))}</div></div>')
+        row = (f'<div class="calrow"><div class="calname">{_e(p.get("name"))}{chg_lbl}</div>'
+               f'<div><span class="pattern">{_cal_pat_txt(r0)}</span></div>'
+               f'<div><span class="pattern r1">{_cal_pat_txt(r1)}</span></div>'
+               f'<div class="ract">{_num(p.get("activities"))}</div></div>')
+        rows += f'<div class="calblk">{row}{_dow_grid_block(p)}</div>'
         if r0 and r1 and (r1.get('hpw') or 0) > (r0.get('hpw') or 0):
             longer.append((p.get('name'), r0, r1, p.get('activities')))
     body = intro + head + rows
@@ -897,8 +959,10 @@ def _scurve_svg(report):
         return _muted('Neither revision carries cost loading — the planned-value chart is not applicable.')
     n = len(months)
     W, H = 860, 300
-    # comment 6a — extra top padding so the tallest bar's value label is never clipped
-    left, right, top, bot = 52, 30, 46, 52
+    # comment 6a — extra top padding so the tallest bar's value label is never clipped; a wide
+    # right margin (comment 3) leaves room for the Rev.01 completion label past the curve end so
+    # it is never trimmed off screen.
+    left, right, top, bot = 52, 112, 46, 56
     plot_w = W - left - right
     plot_h = H - top - bot
     step = plot_w / max(n, 1)
@@ -914,21 +978,16 @@ def _scurve_svg(report):
     for i, m in enumerate(vm):
         x = left + i * step + step / 2
         v0, v1 = m.get('rev0', 0) or 0, m.get('rev1', 0) or 0
-        h0 = v0 / max_m * plot_h
-        h1 = v1 / max_m * plot_h
+        # comment 3 — a non-zero month always draws a visible bar (min height) so the earliest
+        # small months (the "first histogram not shown") are never invisible.
+        h0 = max(2.0, v0 / max_m * plot_h) if v0 > 0 else 0.0
+        h1 = max(2.0, v1 / max_m * plot_h) if v1 > 0 else 0.0
         bars.append(f'<rect x="{x - bw - 1:.1f}" y="{baseY - h0:.1f}" width="{bw:.1f}" height="{h0:.1f}" fill="var(--rpt-hair-strong)"/>')
         bars.append(f'<rect x="{x + 1:.1f}" y="{baseY - h1:.1f}" width="{bw:.1f}" height="{h1:.1f}" fill="var(--rpt-accent)" opacity="0.9"/>')
-        # comment 8 / change 4 — value label sits ABOVE the higher of (bar top, cumulative-curve
-        # point) at this month, with a small gap, so it never hides under the cumulative line;
-        # thinned so labels never touch. Top padding keeps it in frame.
+        # comment 3 — value label sits DIRECTLY above its own histogram bar (not lifted to the
+        # cumulative curve); thinned so labels never touch. Top padding keeps it in frame.
         if v1 and i % thin == 0:
-            bar_top = baseY - h1
-            top_pt = bar_top
-            if i < len(vc):
-                cy0 = baseY - (vc[i].get('rev0', 0) or 0) / cum_mx * plot_h
-                cy1 = baseY - (vc[i].get('rev1', 0) or 0) / cum_mx * plot_h
-                top_pt = min(bar_top, cy0, cy1)
-            bars.append(f'<text x="{x + 1 + bw / 2:.1f}" y="{top_pt - 5:.1f}" font-size="8" '
+            bars.append(f'<text x="{x + 1 + bw / 2:.1f}" y="{baseY - h1 - 5:.1f}" font-size="8" '
                         f'font-weight="700" fill="var(--rpt-ink-soft)" text-anchor="middle">{_e(_money_label(v1))}</text>')
 
     def line(mx, key, stroke, sw):
@@ -941,15 +1000,15 @@ def _scurve_svg(report):
             pts.append(f'{px:.1f},{py:.1f}')
         return f'<polyline points="{" ".join(pts)}" fill="none" stroke="{stroke}" stroke-width="{sw}"/>'
 
-    orig_idx = None
-    for i, m in enumerate(vm):
-        if (m.get('rev0', 0) or 0) > 0:
-            orig_idx = i
+    # comment 3 — the ORIGINAL (Rev.00) completion date, drawn at its month on the axis when it
+    # falls within the value spread, labelled with the date so both finishes read clearly.
+    r0fin = (report.get('rev0') or {}).get('finish')
     orig_line = ''
-    if orig_idx is not None:
-        ox = left + orig_idx * step + step / 2
+    o_idx = months.index(_month_label(r0fin)) if _month_label(r0fin) in months else None
+    if o_idx is not None:
+        ox = left + o_idx * step + step / 2
         orig_line = (f'<line x1="{ox:.1f}" y1="{top}" x2="{ox:.1f}" y2="{baseY}" stroke="var(--rpt-bad)" stroke-dasharray="4 3"/>'
-                     f'<text x="{ox + 4:.1f}" y="{top + 12}" font-size="9" fill="var(--rpt-bad)">orig finish</text>')
+                     f'<text x="{ox + 4:.1f}" y="{top + 12}" font-size="9" fill="var(--rpt-bad)">orig finish {_e(r0fin)}</text>')
 
     labels = ''
     for i in range(0, n):        # comment 6a — a month label under EVERY bar
@@ -958,15 +1017,19 @@ def _scurve_svg(report):
         labels += (f'<text x="{x:.1f}" y="{ly:.1f}" font-size="8" fill="var(--rpt-muted)" '
                    f'text-anchor="end" transform="rotate(-40 {x:.1f} {ly:.1f})">{_e(months[i])}</text>')
 
-    # comment 5 — mark the completion date at the END of the Rev.01 cumulative curve.
+    # comment 3/5 — the Rev.01 completion date at the END of the cumulative curve, anchored to the
+    # right (into the wide margin) so it is never trimmed.
     r1fin = (report.get('rev1') or {}).get('finish')
     finish_marker = ''
     if r1fin and vc:
         fx = left + (n - 1) * step + step / 2
         fy = baseY - (vc[-1].get('rev1', 0) or 0) / cum_mx * plot_h
-        finish_marker = (f'<circle cx="{fx:.1f}" cy="{fy:.1f}" r="3" fill="var(--rpt-accent)"/>'
-                         f'<text x="{fx - 5:.1f}" y="{fy - 6:.1f}" font-size="9" font-weight="700" '
-                         f'fill="var(--rpt-accent)" text-anchor="end">Completion {_e(r1fin)}</text>')
+        tx = fx + 8
+        finish_marker = (f'<circle cx="{fx:.1f}" cy="{fy:.1f}" r="3.2" fill="var(--rpt-accent)"/>'
+                         f'<text x="{tx:.1f}" y="{fy - 7:.1f}" font-size="9.5" font-weight="800" '
+                         f'fill="var(--rpt-accent)" text-anchor="start">{_e(r1fin)}</text>'
+                         f'<text x="{tx:.1f}" y="{fy + 5:.1f}" font-size="8" '
+                         f'fill="var(--rpt-muted)" text-anchor="start">Rev.01 finish</text>')
 
     svg = (f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;min-width:640px">'
            f'<line x1="{left}" y1="{baseY}" x2="{W - right}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
@@ -1014,14 +1077,44 @@ def _money_moved(report, filters):
     return _card('Where the money moved', f'by {_e(dim)}', body)
 
 
-def _reg_cost(report):
+def _cost_pie(cc, dim):
+    """Comment 4 — share of the total cost variance by the selected activity-code dimension
+    (|Δ| per code value), as a donut. Returns '' when the dimension has no coded changes."""
+    if not dim:
+        return ''
+    by_val = {}
+    for c in cc:
+        v = (c.get('codes') or {}).get(dim)
+        if v in (None, ''):
+            continue
+        by_val[v] = by_val.get(v, 0) + abs(c.get('delta') or 0)
+    items = [{'label': k, 'value': v, 'color': _series_color(i)}
+             for i, (k, v) in enumerate(sorted(by_val.items(), key=lambda kv: -kv[1])) if v > 0]
+    if not items:
+        return ''
+    return _donut(items, note=f'COST VARIANCE BY {_e(str(dim).upper())} — SHARE OF THE TOTAL CHANGE',
+                  center='Δ cost')
+
+
+def _reg_cost(report, filters=None):
     rc = report.get('resource_changes') or {}
     if not rc.get('cost_available'):
         return _card('Cost changed', 'budget total cost · variance',
                      _muted('Neither revision carries cost loading — reported as not applicable.'))
     cc = rc.get('activity_cost_changes') or []
-    rows = ''
+    # Comment 4 — activity-code filter: the selected dimension prints as a static heading and drives
+    # the variance-share pie; a specific value narrows the table to that code.
+    cdims = []
     for c in cc:
+        for k in (c.get('codes') or {}):
+            if k not in cdims:
+                cdims.append(k)
+    dim, val = _filt(filters, 'cost')
+    if dim not in cdims:
+        dim = cdims[0] if cdims else None
+    shown = [c for c in cc if val in (None, '', 'All') or (dim and (c.get('codes') or {}).get(dim) == val)]
+    rows = ''
+    for c in shown:
         delta = c.get('delta')
         base = _money_num(c.get('rev0'))
         var_cell = _money_delta(delta)
@@ -1030,63 +1123,100 @@ def _reg_cost(report):
         rows += (f'<tr><td class="mono">{_e(c.get("code"))}</td><td>{_e(c.get("name"))}</td>'
                  f'<td class="n">{_money(c.get("rev0"))}</td><td class="n new">{_money(c.get("rev1"))}</td>'
                  f'<td class="n">{var_cell}</td><td class="n mut">{_e(pct)}</td></tr>')
-    tb = rc.get('total_budget') or {}
-    d = tb.get('delta') or 0
-    base = tb.get('rev0') or 0
-    tpct = (f'{"+" if d > 0 else ""}{round(d / base * 100, 1)}%' if base else '—')
-    rows += (f'<tr class="totrow"><td colspan="2">Total budget</td>'
-             f'<td class="n">{_money(tb.get("rev0"))}</td><td class="n">{_money(tb.get("rev1"))}</td>'
+    # Total row — the before/after variance across the SHOWN changed activities (comment 4). This
+    # sums the itemised rows (matching the screen and the pie's Δ), NOT the whole-project budget.
+    sum0 = sum(_money_num(c.get('rev0')) or 0 for c in shown)
+    sum1 = sum(_money_num(c.get('rev1')) or 0 for c in shown)
+    tot_label = 'Total — changed activities' if val in (None, '', 'All') else f'Total — {_e(val)}'
+    d = sum1 - sum0
+    tpct = (f'{"+" if d > 0 else ""}{round(d / sum0 * 100, 1)}%' if sum0 else '—')
+    rows += (f'<tr class="totrow"><td colspan="2">{tot_label}</td>'
+             f'<td class="n">{_money(sum0)}</td><td class="n">{_money(sum1)}</td>'
              f'<td class="n">{_money_delta(d)}</td><td class="n">{_e(tpct)}</td></tr>')
     head = ('<tr><th>Activity ID</th><th>Activity Name</th><th class="n">Before</th><th class="n">After</th>'
             '<th class="n">Variance</th><th class="n">%</th></tr>')
-    return _card('Cost changed', 'budget total cost · variance % · subtotals', _tbl(head, rows))
+    pie = _cost_pie(cc, dim)
+    body = _filter_heading(dim, val) + pie + _tbl(head, rows)
+    return _card('Cost changed', 'budget total cost · variance % · filter · pie · total', body)
+
+
+_RES_TAG = {'added': ('add', 'Added'), 'removed': ('rem', 'Removed'),
+            'increased': ('chg', 'Increased'), 'decreased': ('chg', 'Reduced'),
+            'unchanged': ('muted', 'Unchanged')}
+
+
+def _ba_bars(rows, fmt):
+    """Before/after horizontal bars — Rev.00 over Rev.01 per resource, biggest movers first, with
+    Added (green) / Removed (red) called out and the variance at the end (comments 5 & 6). ``rows``:
+    [{name, rev0, rev1, kind}]. ``fmt``: value formatter."""
+    if not rows:
+        return ''
+    mx = max([max(r.get('rev0', 0) or 0, r.get('rev1', 0) or 0) for r in rows] + [1])
+    out = ''
+    for r in rows:
+        a, b = r.get('rev0', 0) or 0, r.get('rev1', 0) or 0
+        v = b - a
+        added, removed = (a == 0 and b > 0), (b == 0 and a > 0)
+        wa = max(a / mx * 100, 2 if a > 0 else 0)
+        wb = max(b / mx * 100, 2 if b > 0 else 0)
+        b0cls = ' rem' if removed else ''
+        b1cls = ' add' if added else ''
+        vcls = 'up' if v >= 0 else 'down'
+        out += (f'<div class="barow"><div class="balbl" title="{_e(r.get("name"))}">{_e(r.get("name"))}</div>'
+                f'<div class="baw"><div class="babars">'
+                f'<div class="baseg b0{b0cls}" style="width:{wa:.1f}%">{_e(fmt(a)) if a else ""}</div>'
+                f'<div class="baseg b1{b1cls}" style="width:{wb:.1f}%">{_e(fmt(b)) if b else ""}</div></div>'
+                f'<span class="bavar {vcls}">{"+" if v >= 0 else ""}{_e(fmt(v))}</span></div></div>')
+    return f'<div class="babarlist">{out}</div>'
 
 
 def _reg_resources(report):
-    """Comment 7 — a by-RESOURCE comparison: one row per resource/trade with its Before → After
-    man-hours, the variance, a change tag, and what it is assigned to — so the planner compares
-    every resource across the two revisions at a glance (not a raw per-activity assignment list)."""
+    """Comments 5 & 6 — before vs after, at a glance: summary chips (added / removed / re-sized),
+    a before/after bar per resource with Added/Removed highlighted, then an enhanced grouped table
+    (id · type · units before/after · variance · activities · change). Mirrors the screen."""
     rc = report.get('resource_changes') or {}
-    curves = report.get('curves') or {}
-    mbt = curves.get('manhours_by_trade') or []
+    totals = rc.get('resource_totals') or []
     ac = rc.get('assignment_changes') or []
-    if not mbt and not ac:
+    if not totals and not ac:
         return _card('Resources — before vs after', 'compare each resource across the two revisions',
                      _muted('Neither revision carries resource loading — reported as not applicable.'))
-    # activities assigned per resource, from the per-activity assignment changes
-    assigned = {}
-    for a in ac:
-        assigned.setdefault(a.get('resource'), []).append(a.get('code'))
 
-    def _kind(t):
-        r0, r1, v = t.get('rev0'), t.get('rev1'), (t.get('var') or 0)
-        if not r0 and r1:
-            return 'Added'
-        if r0 and not r1:
-            return 'Removed'
-        return 'Increased' if v > 0 else 'Decreased' if v < 0 else 'Unchanged'
+    sm = rc.get('summary') or {}
+    n_add = sm.get('res_added', sum(1 for t in totals if t.get('kind') == 'added'))
+    n_rem = sm.get('res_removed', sum(1 for t in totals if t.get('kind') == 'removed'))
+    n_chg = sm.get('res_resized', sum(1 for t in totals if t.get('kind') in ('increased', 'decreased')))
+    chips = (f'<div class="rsum"><span class="rchip add">{n_add} added</span>'
+             f'<span class="rchip rem">{n_rem} removed</span>'
+             f'<span class="rchip chg">{n_chg} re-sized</span></div>')
 
-    rows, seen = '', set()
-    for t in sorted(mbt, key=lambda x: -abs(x.get('var') or 0)):
-        name = t.get('name') or t.get('resource_id') or '—'
-        seen.add(name)
-        acts = assigned.get(name) or []
-        assigned_to = f'{len(acts)} activit{"y" if len(acts) == 1 else "ies"}' if acts else '—'
-        rows += (f'<tr><td>{_e(name)}</td><td class="n">{_money(t.get("rev0"))}</td>'
-                 f'<td class="n new">{_money(t.get("rev1"))}</td><td class="n">{_money_delta(t.get("var"))}</td>'
-                 f'<td><span class="tag chg">{_e(_kind(t))}</span></td><td class="mut">{_e(assigned_to)}</td></tr>')
-    # resources that changed assignment but carry no man-hour total
-    for res, acts in sorted(assigned.items(), key=lambda kv: -len(kv[1])):
-        if res in seen or not res:
-            continue
-        _n = len(acts)
-        rows += (f'<tr><td>{_e(res)}</td><td class="n mut">—</td><td class="n mut">—</td><td class="n mut">—</td>'
-                 f'<td><span class="tag chg">Re-assigned</span></td>'
-                 f'<td class="mut">{_n} activit{"y" if _n == 1 else "ies"}</td></tr>')
-    head = ('<tr><th>Resource</th><th class="n">Before (mh)</th><th class="n">After (mh)</th>'
-            '<th class="n">Variance</th><th>Change</th><th>Assigned to</th></tr>')
-    return _card('Resources — before vs after', 'compare each resource/trade across the two revisions',
-                 _tbl(head, rows))
+    def _ufmt(x):
+        return f'{int(round(x)):,}'
+    bars = _ba_bars(totals, _ufmt)
+    legend = ('<div class="legend"><span><b class="sw-r0"></b>Rev.00 units</span>'
+              '<span><b class="sw-r1"></b>Rev.01 units</span>'
+              '<span><b class="sw-good"></b>Added</span><span><b class="sw-bad"></b>Removed</span></div>')
+
+    rows = ''
+    for t in totals:
+        v = t.get('var')
+        if v is None:
+            v = (t.get('rev1') or 0) - (t.get('rev0') or 0)
+        tcls, tlbl = _RES_TAG.get(t.get('kind'), ('chg', str(t.get('kind') or 'Changed')))
+        vcls = 'up' if v > 0 else 'down' if v < 0 else 'zero'
+        rows += (f'<tr><td class="mono">{_e(t.get("id") or "—")}</td><td>{_e(t.get("name"))}</td>'
+                 f'<td class="mut">{_e(t.get("type") or "—")}</td>'
+                 f'<td class="n">{_ufmt(t.get("rev0")) if t.get("rev0") else "—"}</td>'
+                 f'<td class="n new">{_ufmt(t.get("rev1")) if t.get("rev1") else "—"}</td>'
+                 f'<td class="n"><span class="d {vcls}">{"+" if v > 0 else ""}{_ufmt(v)}</span></td>'
+                 f'<td class="n mut">{int(t.get("activities") or 0)}</td>'
+                 f'<td><span class="tag {tcls}">{_e(tlbl)}</span></td></tr>')
+    head = ('<tr><th>Resource ID</th><th>Resource</th><th>Type</th><th class="n">Rev.00 (units)</th>'
+            '<th class="n">Rev.01 (units)</th><th class="n">Variance</th><th class="n">Activities</th><th>Change</th></tr>')
+    intro = ('<div class="sec">Every resource, Rev.00 vs Rev.01, sorted by the biggest change — '
+             '<b style="color:var(--rpt-good)">Added</b> (new in Rev.01, 0 → N), '
+             '<b style="color:var(--rpt-bad)">Removed</b> (gone in Rev.01, N → 0), and re-sized are all called out.</div>')
+    body = intro + chips + (bars + legend if bars else '') + '<div style="margin-top:10px"></div>' + _tbl(head, rows)
+    return _card('Resources — before vs after', 'summary · before/after bars · grouped table', body)
 
 
 def _sec_cost(report, filters=None):
@@ -1097,7 +1227,7 @@ def _sec_cost(report, filters=None):
                    _scurve_svg(report))
     return (scurve
             + _money_moved(report, filters)
-            + _reg_cost(report))
+            + _reg_cost(report, filters))
 
 
 # ══ 7b · RESOURCE ══════════════════════════════════════════════════════════════
@@ -1110,19 +1240,22 @@ def _sec_resource(report, filters=None):
 # ══ 8 · MANPOWER ═══════════════════════════════════════════════════════════════
 
 def _sec_manpower(report, filters=None):
-    """Comment 11 — Manpower as a COMBO chart: monthly histogram STACKED by trade, the monthly
-    TOTAL label above each bar, a total-headcount line, and a legend of the trades. Comment 12 —
-    no tables below the histogram; the combo chart carries it."""
+    """Comment 5 — Manpower on site per month: monthly histogram STACKED by trade (Rev.01), the
+    monthly TOTAL label above each bar, the Rev.00 total overlaid as a grey dashed line for a
+    direct before/after read, peak-on-site KPIs, and a resource-mix (man-hours by trade) card."""
     c = report.get('curves') or {}
     months = c.get('months') or []
     trades = c.get('manpower_by_trade') or []
     if not months or not trades:
-        return _card('Manpower', 'monthly histogram stacked by trade',
+        return _card('Manpower', 'people on site per month',
                      _muted('Neither revision carries resource units — manpower is not applicable.'))
     n = len(months)
     totals = [round(sum((t.get('monthly') or [0] * n)[i] if i < len(t.get('monthly') or []) else 0
                         for t in trades), 1) for i in range(n)]
-    mx = max(totals + [1])
+    # Rev.00 monthly totals (the dashed overlay), aligned to the month axis by label.
+    r0_by_month = {m.get('month'): (m.get('rev0') or 0) for m in (c.get('manpower_monthly') or [])}
+    rev0tot = [r0_by_month.get(mo, 0) for mo in months]
+    mx = max(totals + rev0tot + [1])
     W, H = 860, 290
     left, top, bot = 52, 30, 48
     plot_w, plot_h = W - left - 30, H - top - bot
@@ -1145,31 +1278,67 @@ def _sec_manpower(report, filters=None):
                 seg += (f'<rect x="{x - bw / 2:.1f}" y="{y:.1f}" width="{bw:.1f}" height="{sh:.1f}" '
                         f'fill="{_series_color(ti)}"/>')
         if i % thin == 0:
-            # monthly total label above the stacked bar (its own bar, non-colliding)
+            # monthly total label above the stacked bar (its own bar, non-colliding); whole
+            # people, matching the screen (no noisy decimals).
             ty = baseY - totals[i] / mx * plot_h - 6
             seg += (f'<text x="{x:.1f}" y="{ty:.1f}" font-size="9" font-weight="800" '
-                    f'fill="var(--rpt-ink-soft)" text-anchor="middle">{_num(totals[i])}</text>')
+                    f'fill="var(--rpt-ink-soft)" text-anchor="middle">{int(round(totals[i])):,}</text>')
             ly = baseY + 12
             seg += (f'<text x="{x:.1f}" y="{ly:.1f}" font-size="8" fill="var(--rpt-muted)" '
                     f'text-anchor="end" transform="rotate(-40 {x:.1f} {ly:.1f})">{_e(months[i])}</text>')
 
-    pts = ' '.join(f'{left + i * step + step / 2:.1f},{baseY - totals[i] / mx * plot_h:.1f}' for i in range(n))
-    line = f'<polyline points="{pts}" fill="none" stroke="var(--rpt-bad)" stroke-width="2.4"/>'
+    # Rev.00 total drawn as a grey dashed line (before/after read).
+    line = ''
+    if any(v > 0 for v in rev0tot):
+        pts = ' '.join(f'{left + i * step + step / 2:.1f},{baseY - rev0tot[i] / mx * plot_h:.1f}' for i in range(n))
+        line = f'<polyline points="{pts}" fill="none" stroke="var(--rpt-muted)" stroke-width="2.2" stroke-dasharray="5 3"/>'
     svg = (f'<div class="chartwrap"><svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;min-width:640px">'
            f'<line x1="{left}" y1="{baseY}" x2="{W - 30}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
            f'{seg}{line}</svg></div>')
     legend = ('<div class="legend">'
               + ''.join(f'<span><b style="background:{_series_color(ti)}"></b>{_e(t.get("trade"))}</span>'
                         for ti, t in enumerate(trades))
-              + '<span><b style="background:var(--rpt-bad)"></b>Total headcount</span></div>')
-    peak_v = max(totals) if totals else 0
-    peak_m = months[totals.index(peak_v)] if totals and peak_v else '—'
-    by_trade = ' · '.join(f'{_e(t.get("trade"))} {_num(t.get("total"))}' for t in trades)
-    callout = (f'<div class="callout">Peak monthly total <b>{_num(peak_v)}</b> in {_e(peak_m)}. '
-               f'Planned man-hours by trade: {by_trade}.</div>')
-    return _card('Manpower histogram — combo by trade',
-                 'monthly total above each bar · line = total headcount',
-                 svg + legend + callout)
+              + '<span><b style="background:var(--rpt-muted)"></b>Rev.00 total (line)</span></div>')
+
+    # Peak-on-site KPIs + total man-hours change (comment 5).
+    peak = c.get('peak') or {}
+    mh = c.get('manhours_total') or {}
+    pct = mh.get('pct')
+    pct_txt = '—' if pct is None else f'{"+" if pct > 0 else ""}{pct:.1f}%'
+    pct_cls = ' hot' if (pct or 0) > 0 else ''
+    p0 = int(round(peak.get('rev0') or 0))
+    p1 = int(round(peak.get('rev1') or 0))
+    kpis = (
+        '<div class="mpk">'
+        f'<div class="mpkc"><div class="mpkk">Rev.00 peak on site</div><div class="mpkv">{p0:,}</div>'
+        f'<div class="mpks">{_e("in " + peak.get("rev0_month")) if peak.get("rev0_month") else ""}</div></div>'
+        f'<div class="mpkc"><div class="mpkk">Rev.01 peak on site</div><div class="mpkv{" hot" if p1 > p0 else ""}">{p1:,}</div>'
+        f'<div class="mpks">{_e("in " + peak.get("rev1_month")) if peak.get("rev1_month") else ""}</div></div>'
+        f'<div class="mpkc"><div class="mpkk">Total man-hours</div><div class="mpkv{pct_cls}">{pct_txt}</div>'
+        f'<div class="mpks">Rev.00 → Rev.01</div></div></div>')
+    note = ('<div class="sec">Each bar = the total people on site that month (all trades stacked); the '
+            'number above it is that month\'s total; the grey dashed line is Rev.00\'s total for a '
+            'direct before/after read; "peak on site" is the busiest month.</div>')
+    chart_card = _card('Manpower on site per month',
+                       'stacked by trade · Rev.00 total overlaid · peak labelled',
+                       kpis + note + svg + legend)
+
+    # Resource mix — total man-hours by trade, Rev.00 → Rev.01.
+    mix = c.get('manhours_by_trade') or []
+    mix_card = ''
+    if mix:
+        def _mhfmt(x):
+            x = x or 0
+            return f'{round(x / 1000)}k' if abs(x) >= 1000 else f'{int(round(x)):,}'
+        mrows = [{'name': t.get('name') or t.get('resource_id'), 'rev0': t.get('rev0'),
+                  'rev1': t.get('rev1'), 'kind': t.get('kind')} for t in mix]
+        mbars = _ba_bars(mrows, _mhfmt)
+        mlegend = ('<div class="legend"><span><b class="sw-r0"></b>Rev.00 man-hours</span>'
+                   '<span><b class="sw-r1"></b>Rev.01 man-hours</span></div>')
+        mix_card = _card('Resource mix — total man-hours by trade', 'Rev.00 → Rev.01',
+                         '<div class="sec">The overall shift in the labour mix — which trades grew or '
+                         'shrank between the two baselines.</div>' + mbars + mlegend)
+    return chart_card + mix_card
 
 
 # ══ 9 · SCOPE & STRUCTURE ══════════════════════════════════════════════════════
@@ -1384,6 +1553,41 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .calrow .ract { text-align: right; font-weight: 700; }
 .pattern { display: inline-block; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 7px; background: var(--rpt-surface-2); color: var(--rpt-ink); }
 .pattern.r1 { background: var(--rpt-accent-soft); color: var(--rpt-accent); }
+/* calendar day grid (comment 2) — Mon→Sun working/non-working before/after, changed days ringed */
+.calblk { page-break-inside: avoid; }
+.dowgrid { padding: 2px 0 8px 192px; }
+.dowrow { display: flex; align-items: center; gap: 5px; margin-top: 4px; }
+.dowlab { font-size: 9px; font-weight: 800; color: var(--rpt-muted); width: 46px; text-transform: uppercase; }
+.dowlab.r1 { color: var(--rpt-accent); }
+.dow { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 21px; border-radius: 5px; font-size: 10px; font-weight: 700; border: 1px solid var(--rpt-edge); }
+.dow.on { background: var(--rpt-accent-soft); color: var(--rpt-accent); }
+.dow.off { background: var(--rpt-surface-2); color: var(--rpt-muted); }
+.dow.chg { outline: 2px solid var(--rpt-warn); box-shadow: 0 0 0 1px var(--rpt-warn); }
+.dowchg { font-size: 10.5px; color: var(--rpt-warn); margin-top: 5px; }
+/* manpower KPIs (comment 5) */
+.mpk { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 2px 0 10px; }
+.mpkc { border: 1px solid var(--rpt-edge); border-radius: 10px; padding: 9px 11px; background: var(--rpt-surface); }
+.mpkk { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--rpt-muted); }
+.mpkv { font-size: 20px; font-weight: 800; margin-top: 4px; line-height: 1; } .mpkv.hot { color: var(--rpt-bad); }
+.mpks { font-size: 10px; color: var(--rpt-muted); margin-top: 4px; }
+/* resource summary chips + before/after bars (comments 5 & 6) */
+.rsum { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 10px; }
+.rchip { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rpt-edge); color: var(--rpt-ink-soft); }
+.rchip.add { background: var(--rpt-good-bg); color: var(--rpt-good); border-color: var(--rpt-good); }
+.rchip.rem { background: var(--rpt-bad-bg); color: var(--rpt-bad); border-color: var(--rpt-bad); }
+.rchip.chg { background: var(--rpt-warn-bg); color: var(--rpt-warn); border-color: var(--rpt-warn); }
+.babarlist { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+.barow { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: center; }
+.balbl { font-size: 11px; font-weight: 600; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--rpt-ink-soft); }
+.baw { display: flex; align-items: center; gap: 10px; }
+.babars { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.baseg { height: 14px; border-radius: 4px; min-width: 2px; display: flex; align-items: center; padding: 0 6px; font-size: 9px; font-weight: 800; color: #fff; box-sizing: border-box; white-space: nowrap; }
+.baseg.b0 { background: var(--rpt-hair-strong); color: var(--rpt-ink-soft); }
+.baseg.b1 { background: var(--rpt-accent); }
+.baseg.b0.rem { background: var(--rpt-bad); color: #fff; }
+.baseg.b1.add { background: var(--rpt-good); }
+.bavar { font-size: 11px; font-weight: 800; white-space: nowrap; flex-shrink: 0; }
+.bavar.up { color: var(--rpt-bad); } .bavar.down { color: var(--rpt-good); }
 /* legends + swatches */
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 10.5px; color: var(--rpt-muted); margin-top: 9px; }
 .legend b { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin-right: 4px; }
@@ -1423,6 +1627,8 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .lanetag.rem { background: var(--rpt-bad-bg); color: var(--rpt-bad); }
 .lanetag.chg { background: var(--rpt-warn-bg); color: var(--rpt-warn); }
 .lanesub { color: var(--rpt-muted); font-size: 11px; }
+.lrepl { margin-top: 7px; font-size: 11px; color: var(--rpt-ink-soft); background: var(--rpt-surface-2); border-radius: 7px; padding: 5px 9px; }
+.lrepl b { color: var(--rpt-ink); } .lrepl.mut { color: var(--rpt-muted); }
 /* logic lane chain — one aligned row: fixed-width nodes, no wrap, long names truncate (change 2) */
 .chain.lanechain { flex-wrap: nowrap; overflow-x: auto; align-items: center; }
 .cnode { border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 7px 12px; background: var(--rpt-surface); flex: 0 0 230px; width: 230px; max-width: 230px; overflow: hidden; }

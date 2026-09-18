@@ -29,6 +29,22 @@ def parse_float(s, default=0.0):
     return float(s)
 
 
+def _res_type_label(raw):
+    """Human resource-type label from P6's ResourceType field. P6 uses Labor / Nonlabor /
+    Material; return a plain word (Labour / Equipment / Material) or None when absent so the
+    UI shows an honest '—' rather than a fabricated type."""
+    if not raw:
+        return None
+    r = str(raw).strip().lower()
+    if r.startswith('labor') or r.startswith('labour'):
+        return 'Labour'
+    if r.startswith('nonlabor') or r.startswith('non-labor') or r.startswith('nonlabour'):
+        return 'Equipment'
+    if r.startswith('material'):
+        return 'Material'
+    return str(raw).strip()
+
+
 class ScheduleData:
     def __init__(self):
         self.calendars = {}
@@ -44,9 +60,9 @@ class ScheduleData:
         # Resource-loading detail (additive; populated only when the export carries it — a bare
         # XER/XML has none). Used by the optional Baseline Revision resource/cost comparison;
         # never read by EVM/metrics, which keep using bac_by_activity / ac_by_activity.
-        self.resources = {}                # resource id -> {'name'}
+        self.resources = {}                # resource id -> {'name', 'type'}
         self.assignments_by_activity = {}  # activity ObjectId -> [{resource_id, resource_name,
-                                           #   budget_units, actual_units, budget_cost, rate}]
+                                           #   resource_type, budget_units, actual_units, budget_cost, rate}]
 
 
 def full_wbs_path(wbs_id, wbs_map):
@@ -282,7 +298,8 @@ def parse_file(path) -> ScheduleData:
     for res_el in root.iter(tag('Resource')):
         rid = text(res_el, 'ObjectId')
         if rid:
-            data.resources[rid] = {'name': text(res_el, 'Name') or text(res_el, 'Id') or rid}
+            data.resources[rid] = {'name': text(res_el, 'Name') or text(res_el, 'Id') or rid,
+                                   'type': _res_type_label(text(res_el, 'ResourceType'))}
 
     for ra_el in project_el.findall(tag('ResourceAssignment')):
         activity_id = text(ra_el, 'ActivityObjectId')
@@ -297,6 +314,7 @@ def parse_file(path) -> ScheduleData:
         data.assignments_by_activity.setdefault(activity_id, []).append({
             'resource_id': rid,
             'resource_name': (data.resources.get(rid) or {}).get('name'),
+            'resource_type': (data.resources.get(rid) or {}).get('type'),
             'budget_units': parse_float(text(ra_el, 'PlannedUnits')),
             'actual_units': parse_float(text(ra_el, 'ActualUnits')),
             'budget_cost': planned_cost,
