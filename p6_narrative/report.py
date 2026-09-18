@@ -405,6 +405,25 @@ def _codes(data, code_catalog):
                    note='One Code Value | Description table per code structure, laid two per row.')
 
 
+# ── §11 Sequence of Work ──────────────────────────────────────────────────────
+def _sequence(data, setup):
+    """Dependency-derived sequence-of-work charts. The planner picks (before running) one or
+    more analyses — each 1 or 2 activity codes — in ``setup['sequence_codes']``; each yields a
+    chevron flow (single code) or one grouped chevron flow per building (two codes), ordered
+    by the baseline logic. Mirrors ``_scope`` — emits DATA only; both renderers draw the
+    chevrons. Defaults to a sensible general + per-building pair when nothing is picked."""
+    from p6_narrative import seqflow
+    payload = seqflow.sequence_analyses(
+        list(data.activities.values()), data.wbs,
+        getattr(data, 'relationships', []) or [],
+        code_types=data.activity_code_types,
+        analyses=(setup or {}).get('sequence_codes'),
+        setup=setup or {})
+    return Section('11', 'Sequence of Work', 'sequence', 'auto', payload=payload, editable=True,
+                   note='Execution sequence of work, read from the baseline dependency logic — a '
+                        'chevron flow per picked analysis; identical building sequences are grouped.')
+
+
 # ── assembly ──────────────────────────────────────────────────────────────────
 def build_report(data, path=None, meta=None, setup=None, **_ignored):
     """Assemble the redesigned Baseline Narrative Report as a :class:`NarrativeDoc` of the
@@ -471,6 +490,7 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
         _calendars(cal, activity_count),
         _wbs(ctx),
         _codes(data, cat),
+        _sequence(data, setup),
     ]
     ordered = [s for s in ordered if s is not None]
 

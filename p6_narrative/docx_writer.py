@@ -609,6 +609,73 @@ def _render_scope(document, p, number, note):
     _render_cascade(document, cascade, _cur, 0)
 
 
+# ── §11 Sequence of Work ──────────────────────────────────────────────────────
+def _names_sentence(names):
+    names = [str(n) for n in names if n]
+    if not names:
+        return ''
+    if len(names) == 1:
+        return names[0]
+    return ', '.join(names[:-1]) + ' and ' + names[-1]
+
+
+def _render_sequence(document, p, number, note):
+    """Native Word §11 — one sub-section per picked analysis: its title, the narrative, then a
+    native chevron flow (a home-plate + chevrons drawing, never a picture) for a single-code
+    sequence, or one labelled flow per grouped building. Mirrors the HTML/PDF twin
+    (``html._seqflow``); None-safe with an editable text fallback if a drawing can't be built."""
+    analyses = (p or {}).get('analyses') or []
+    if not analyses:
+        _muted(document, 'No sequence-of-work analysis could be derived from the schedule.')
+        return
+    para(document,
+         'The execution sequence of work is read directly from the schedule’s own dependency '
+         'logic — the links between the activities — rather than assumed. Each analysis below '
+         'sequences one or two activity codes; where several structures share the same sequence '
+         'they are shown once rather than duplicated.',
+         align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+
+    for i, a in enumerate(analyses, 1):
+        _subhead(document, '%s.%d' % (number, i), a.get('title') or ('Analysis %d' % i))
+        narr = a.get('narrative')
+        if narr:
+            para(document, narr, align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=6)
+
+        if a.get('kind') == 'single':
+            steps = [s.get('name') for s in (a.get('steps') or [])]
+            if not steps:
+                _muted(document, 'No ordered sequence could be derived for this code.')
+                continue
+            if docx_native.add_chevron_flow(document, steps) is None:
+                para(document, ' → '.join(str(s) for s in steps), after=6)   # editable fallback
+        else:
+            groups = a.get('groups') or []
+            if not groups:
+                _muted(document, 'No grouped sequence could be derived for these codes.')
+            for g in groups:
+                # bold navy building label line, kept with its chevron flow
+                lbl = document.add_paragraph()
+                lbl.paragraph_format.space_before = Pt(6)
+                lbl.paragraph_format.space_after = Pt(2)
+                lbl.paragraph_format.keep_with_next = True
+                cnt = g.get('count') or 0
+                suffix = (' (×%d)' % cnt) if cnt > 1 else ''
+                run(lbl, '➢  %s%s' % (g.get('label') or '—', suffix),
+                    size=12, bold=True, color=NAVY)
+                steps = [s.get('name') for s in (g.get('steps') or [])]
+                if docx_native.add_chevron_flow(document, steps) is None:
+                    para(document, ' → '.join(str(s) for s in steps), after=4)
+            nc = a.get('no_code')
+            if nc:
+                codes = a.get('codes') or []
+                scode = codes[1] if len(codes) > 1 else 'this code'
+                para(document,
+                     '%s carry no %s coding and are delivered under other scopes rather than '
+                     'the sequence above.' % (_names_sentence(nc), scode),
+                     size=11, italic=True, color=GREY, before=2, after=4,
+                     align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+
+
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────
 def _render_table(document, p, number, note):
     if p.get('view') == 'calendars':
@@ -737,6 +804,7 @@ _RENDER = {
     'table': _render_table,
     'wbs_tree': _render_wbs_tree,
     'codes': _render_codes,
+    'sequence': _render_sequence,
 }
 
 

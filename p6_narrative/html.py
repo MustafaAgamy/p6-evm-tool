@@ -475,6 +475,123 @@ def _scope(p, number, title, meta, cur):
     return out
 
 
+# ── §11 Sequence of Work (dependency-derived chevron flows) ────────────────────
+# The same blue ramp the native Word chevrons use (docx_native._SEQ_PALETTE_HEX), so the
+# screen, PDF and Word chevrons read identically.
+_SEQ_COLORS = ['1F4E79', '2E75B6', '4472C4', '5B9BD5', '41719C', '8FAADC']
+
+
+def _wrap_label(text, width=19, lines=2):
+    """Word-wrap a chevron label into at most ``lines`` lines of about ``width`` chars,
+    the last line ellipsised when it still overflows — the SVG twin of the Word box's
+    ``wrap="square"`` + auto-fit, so long names read on two lines instead of clipping."""
+    words = str(text or '').split()
+    out, cur = [], ''
+    for w in words:
+        if not cur:
+            cur = w
+        elif len(cur) + 1 + len(w) <= width:
+            cur += ' ' + w
+        else:
+            out.append(cur)
+            cur = w
+            if len(out) == lines:
+                break
+    if cur and len(out) < lines:
+        out.append(cur)
+    if not out:
+        return ['']
+    # anything that did not fit → ellipsis on the last shown line
+    shown = ' '.join(out)
+    if len(shown) < len(str(text or '').strip()):
+        last = out[-1]
+        out[-1] = (last[:width - 1].rstrip() + '…') if len(last) >= width - 1 else last + '…'
+    return out
+
+
+def _chevrons(labels):
+    """An SVG chevron flow: a home-plate first step then chevrons, blue ramp, white labels
+    (wrapped to two lines). Scales to the text column (viewBox) like the doughnut / comp-bar,
+    so a wide flow shrinks to fit rather than overflowing — mirrors the Word ``_fit_display``."""
+    labels = [str(x) for x in labels if x is not None and str(x).strip() != '']
+    if not labels:
+        return ''
+    BW, BH, GAP, PAD, notch = 150, 54, 6, 4, 15
+    n = len(labels)
+    W = PAD * 2 + n * BW + (n - 1) * GAP
+    H = PAD * 2 + BH
+    body = ''
+    for i, lbl in enumerate(labels):
+        x = PAD + i * (BW + GAP)
+        y = PAD
+        col = _SEQ_COLORS[i % len(_SEQ_COLORS)]
+        if i == 0:                                     # home plate — flat left, pointed right
+            pts = '%d,%d %d,%d %.1f,%.1f %d,%d %d,%d' % (
+                x, y, x + BW - notch, y, x + BW, y + BH / 2.0, x + BW - notch, y + BH, x, y + BH)
+            cx = x + (BW - notch) / 2.0
+        else:                                          # chevron — pointed both sides
+            pts = '%d,%d %d,%d %.1f,%.1f %d,%d %d,%d %.1f,%.1f' % (
+                x, y, x + BW - notch, y, x + BW, y + BH / 2.0, x + BW - notch, y + BH,
+                x, y + BH, x + notch, y + BH / 2.0)
+            cx = x + notch + (BW - notch) / 2.0
+        body += ('<polygon points="%s" fill="#%s" stroke="#fff" stroke-width="1.5"/>'
+                 % (pts, col))
+        lines = _wrap_label(lbl)
+        lh = 13.0
+        cy0 = y + BH / 2.0 - (len(lines) - 1) * lh / 2.0
+        for j, ln in enumerate(lines):
+            body += ('<text x="%.1f" y="%.1f" text-anchor="middle" dominant-baseline="middle" '
+                     'fill="#fff" font-family="Calibri,sans-serif" font-size="11.5" '
+                     'font-weight="700">%s</text>' % (cx, cy0 + j * lh, _esc(ln)))
+    return ('<div class="seqflow"><svg viewBox="0 0 %d %d" style="width:100%%;max-width:%dpx;'
+            'display:block">%s</svg></div>' % (W, H, W, body))
+
+
+def _seqflow(p, number, title, meta, cur):
+    analyses = (p or {}).get('analyses') or []
+    if not analyses:
+        return ('<p class="note">No sequence-of-work analysis could be derived from the '
+                'schedule.</p>')
+    out = ('<p>The execution sequence of work is read directly from the schedule’s own '
+           'dependency logic — the links between the activities — rather than assumed. Each '
+           'analysis below sequences one or two activity codes; where several structures share '
+           'the same sequence they are shown once rather than duplicated.</p>')
+    for i, a in enumerate(analyses, 1):
+        atitle = a.get('title') or ('Analysis %d' % i)
+        out += ('<div class="sub">%s.%d &middot; %s</div>' % (_esc(number), i, _esc(atitle)))
+        narr = a.get('narrative')
+        if narr:
+            out += ('<p style="border-left:3px solid #1F4E79;background:#f2f6fb;'
+                    'padding:9px 13px;margin:12px 0;border-radius:0 5px 5px 0;'
+                    'text-align:justify">%s</p>' % _esc(narr))
+        if a.get('kind') == 'single':
+            steps = a.get('steps') or []
+            if steps:
+                out += _chevrons([s.get('name') for s in steps])
+            else:
+                out += '<p class="note">No ordered sequence could be derived for this code.</p>'
+        else:
+            groups = a.get('groups') or []
+            if not groups:
+                out += ('<p class="note">No grouped sequence could be derived for these '
+                        'codes.</p>')
+            for g in groups:
+                cnt = g.get('count') or 0
+                suffix = (' (&times;%d)' % cnt) if cnt > 1 else ''
+                out += ('<p class="seq-glabel">&#10146;&nbsp;%s%s</p>'
+                        % (_esc(g.get('label')), suffix))
+                out += _chevrons([s.get('name') for s in (g.get('steps') or [])])
+            nc = a.get('no_code')
+            if nc:
+                codes = a.get('codes') or ['', '']
+                scode = codes[1] if len(codes) > 1 else 'this code'
+                names = ', '.join(_esc(x) for x in nc[:-1])
+                names = (names + ' and ' + _esc(nc[-1])) if len(nc) > 1 else _esc(nc[0])
+                out += ('<p class="note">%s carry no %s coding and are delivered under other '
+                        'scopes rather than the sequence above.</p>' % (names, _esc(scode)))
+    return out
+
+
 # ── §8 Project Calendars & Holidays ───────────────────────────────────────────
 _DASH_TILES = [
     ('total_calendar_days', 'Total Calendar Days'),
@@ -776,6 +893,7 @@ _RENDER = {
     'scope': _scope,
     'wbs_tree': _wbs_tree,
     'codes': _codes,
+    'sequence': _seqflow,
 }
 
 
@@ -834,7 +952,8 @@ _TOC_GROUPS = [
     ('PROJECT DEFINITION', ('Project Overview', 'Project Layout', 'Project Brief')),
     ('BASELINE TARGETS', ('Major Milestones', 'Key Dates', 'Contract Value')),
     ('SCOPE & STRUCTURE', ('Scope of Work', 'Project Calendars & Holidays',
-                           'Work Breakdown Structure', 'Activity Codes')),
+                           'Work Breakdown Structure', 'Activity Codes',
+                           'Sequence of Work')),
 ]
 
 
@@ -976,6 +1095,9 @@ table { border-collapse: collapse; }
 .complegend { font-size:10px; color:#5b6472; font-family:Calibri,sans-serif; line-height:1.9; }
 .complegend .cl-i { display:inline-flex; align-items:center; gap:4px; }
 .complegend .cl-i i { width:10px; height:10px; border-radius:2px; display:inline-block; }
+.seqflow { margin:3px 0 12px; break-inside:avoid; page-break-inside:avoid; }
+.seq-glabel { font-family:Calibri,sans-serif; font-weight:700; color:#1F4E79; font-size:12.5px; margin:11px 0 3px; break-after:avoid; page-break-after:avoid; }
+.seq-glabel + .seqflow { break-before:avoid; page-break-before:avoid; }
 .banner { display:flex; justify-content:space-between; align-items:center; background:#1F4E79; color:#fff; border-radius:6px; padding:9px 14px; margin-bottom:12px; font-family:Calibri,sans-serif; }
 .banner .l { font-size:11px; letter-spacing:.03em; text-transform:uppercase; }
 .banner .v { font-size:18px; font-weight:800; }

@@ -514,6 +514,13 @@ function setupFormHtml() {
       .bn-mv[data-mv="rm"]{color:#b3402f}
       .bn-scopeadd{margin-top:2px;padding:6px 9px;border:1px dashed #7aa3c7;border-radius:7px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:#1F4E79;cursor:pointer}
       .bn-scopepath{margin-top:8px;font-size:11.5px;color:#4a5560;background:#f2f6fb;border-left:3px solid #1F4E79;border-radius:0 5px 5px 0;padding:6px 10px}
+      .bn-seqlist{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+      .bn-seqrow{display:flex;align-items:center;gap:8px;border:1px solid var(--border,#dadee4);border-radius:8px;padding:7px 10px;background:var(--surface-2,#fff)}
+      .bn-seqsel{flex:1;min-width:0;padding:5px 8px;border:1px solid var(--border,#dadee4);border-radius:6px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21)}
+      .bn-seqarrow{flex:0 0 auto;color:#1F4E79;font-weight:700}
+      .bn-seqmv{width:26px;height:26px;border:1px solid var(--border,#dadee4);border-radius:6px;background:var(--surface,#f6f8fb);font-size:11px;cursor:pointer;line-height:1;padding:0;flex:0 0 auto;color:#b3402f}
+      .bn-seqmv:hover{background:#f6e6e6;border-color:#b3402f}
+      .bn-seqadd{margin-top:2px;padding:6px 9px;border:1px dashed #7aa3c7;border-radius:7px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:#1F4E79;cursor:pointer}
     </style>
     <div class="bn-setup">
       <h4>Project setup — parties, logos &amp; layout</h4>
@@ -627,6 +634,55 @@ function renderSelection() {
         ? `<div class="bn-scopepath"><b>Cascade:</b> ${scopeCodes.map(_esc).join(' &rarr; ')}</div>` : '');
   }
 
+  // ── Sequence of Work — flexible 1-or-2 activity-code sequence analyses (§11) ────
+  // Each analysis is ONE code (a general execution sequence) or TWO codes — a group-by code
+  // and a work-type code — for a per-building sequence (identical buildings grouped). The order
+  // is read from the schedule's dependency logic. Stored as s.sequence_codes = [{codes:[a]|[a,b]}].
+  const cleanSeq = a => {
+    const cc = (a && Array.isArray(a.codes) ? a.codes : []).filter(c => codes.includes(c));
+    const dedup = [];
+    cc.forEach(c => { if (!dedup.includes(c)) dedup.push(c); });
+    return dedup.slice(0, 2);
+  };
+  const seedSeq = () => {
+    const auto = (meta.scope_codes_auto || []).filter(c => codes.includes(c));
+    const seeded = [];
+    if (auto[0]) seeded.push({ codes: [auto[0]] });              // general sequence
+    if (auto.length >= 3) seeded.push({ codes: [auto[1], auto[2]] }); // per-building pair
+    return seeded;
+  };
+  let seqAnalyses;
+  const rawSeq = Array.isArray(s.sequence_codes) ? s.sequence_codes : null;
+  if (rawSeq === null) {                          // first open → seed from the auto cascade
+    seqAnalyses = seedSeq();
+    s.sequence_codes = seqAnalyses.map(a => ({ codes: a.codes.slice() })); saveSetup();
+  } else {
+    seqAnalyses = rawSeq.map(a => ({ codes: cleanSeq(a) })).filter(a => a.codes.length);
+  }
+  let seqHtml = '';
+  if (codes.length) {
+    const opt = (sel, placeholder) =>
+      [`<option value="">${placeholder}</option>`].concat(
+        codes.map(c => `<option value="${_esc(c)}"${c === sel ? ' selected' : ''}>${_esc(c)}</option>`)
+      ).join('');
+    const rows = seqAnalyses.map((a, i) =>
+      `<div class="bn-seqrow"><span class="bn-lvl">${i + 1}</span>` +
+      `<select class="bn-seqsel" data-i="${i}" data-slot="0" title="Primary activity code (required)">${opt(a.codes[0] || '', '— pick a code —')}</select>` +
+      `<span class="bn-seqarrow">&rarr;</span>` +
+      `<select class="bn-seqsel" data-i="${i}" data-slot="1" title="Group-by second code (optional)">${opt(a.codes[1] || '', '— none (single) —')}</select>` +
+      `<button type="button" class="bn-seqmv" data-seqrm="${i}" title="Remove">&#10005;</button>` +
+      '</div>').join('');
+    seqHtml =
+      '<h4 style="margin:16px 0 3px">Sequence of Work — activity codes</h4>' +
+      '<div class="hint">Add one or more <b>sequence analyses</b> for §11. Pick <b>one</b> code for a ' +
+      'general execution sequence, or add a <b>second</b> code to sequence each building/group by ' +
+      'that code (identical buildings are grouped, e.g. “Silos 1–10”). The order of work is read ' +
+      'from the schedule’s dependency logic. Leave empty to auto-detect.</div>' +
+      `<div class="bn-seqlist">${rows ||
+        '<div class="hint" style="padding:6px 2px">No analyses — §11 will auto-detect a sensible sequence.</div>'}</div>` +
+      '<button type="button" class="bn-seqadd">+ Add sequence analysis</button>';
+  }
+
   // ── §4 / §5 include checklists (unchanged behaviour) ─────────────────────────
   const col = (title, items, key) => {
     const sel = Array.isArray(s[key]) ? new Set(s[key]) : null;    // null = all included
@@ -642,7 +698,36 @@ function renderSelection() {
       `<div class="bn-selgrid">${col('Major Milestones', ms, 'milestone_keys')}${col('Key Dates', kd, 'key_date_keys')}</div>`;
   }
 
-  box.innerHTML = codeHtml + selHtml;
+  box.innerHTML = codeHtml + seqHtml + selHtml;
+
+  // Wire the §11 sequence-analyses picker → s.sequence_codes ([{codes:[a]|[a,b]}]).
+  const reSeq = () => {
+    s.sequence_codes = seqAnalyses.map(a => ({ codes: a.codes.filter(Boolean).slice(0, 2) }));
+    saveSetup(); renderSelection();
+  };
+  box.querySelectorAll('.bn-seqsel').forEach(sel => sel.addEventListener('change', () => {
+    const i = +sel.dataset.i, slot = +sel.dataset.slot;
+    if (!seqAnalyses[i]) return;
+    const cc = seqAnalyses[i].codes.slice();
+    if (slot === 0) {
+      if (!sel.value) { seqAnalyses.splice(i, 1); reSeq(); return; }   // primary cleared → drop
+      seqAnalyses[i].codes = [sel.value].concat(cc[1] && cc[1] !== sel.value ? [cc[1]] : []);
+    } else {
+      const first = cc[0];
+      if (!first) { reSeq(); return; }
+      seqAnalyses[i].codes = sel.value && sel.value !== first ? [first, sel.value] : [first];
+    }
+    reSeq();
+  }));
+  box.querySelectorAll('[data-seqrm]').forEach(b => b.addEventListener('click', () => {
+    seqAnalyses.splice(+b.dataset.seqrm, 1); reSeq();
+  }));
+  const seqAdd = box.querySelector('.bn-seqadd');
+  if (seqAdd) seqAdd.addEventListener('click', () => {
+    const auto = (meta.scope_codes_auto || []).filter(c => codes.includes(c));
+    seqAnalyses.push({ codes: [auto[0] || codes[0]] });
+    reSeq();
+  });
 
   // Wire the flexible scope-code picker (reorder / remove / add) → s.scope_codes (ordered).
   const reScope = () => { s.scope_codes = scopeCodes.slice(); saveSetup(); renderSelection(); };

@@ -761,6 +761,46 @@ def add_process(document, steps):
         return None
 
 
+def add_chevron_flow(document, labels, palette=None):
+    """Native HORIZONTAL chevron flow for §11 Sequence of Work — a home-plate first step
+    then chevrons, in the blue sequence palette, white centred labels.
+
+    Unlike :func:`add_process` (which flips a long row to a vertical stack), this keeps every
+    step on ONE horizontal line and page-fits the whole group with :func:`_fit_display`, so a
+    wide sequence shrinks uniformly to the text column while keeping the approved look. Reuses
+    the very same shapes as ``add_process`` (``_wps_box`` home-plate / chevron), so it is a
+    real editable Word drawing — never a picture. Returns the drawing element, or ``None`` on a
+    missing document / empty labels / any internal error."""
+    if document is None or not labels:
+        return None
+    clean = [str(x) for x in labels if x is not None and str(x).strip() != '']
+    if not clean:
+        return None
+    try:
+        pal = palette or _SEQ_PALETTE_HEX
+        BW, BH, GAP, top = 150, 56, 6, 8
+        n = len(clean)
+        width_px = n * (BW + GAP) - GAP + 4
+        height_px = top + BH + 8
+        counter = [_next_id(document)]
+        base_id = counter[0]
+        counter[0] += 1
+        shapes = []
+        for i, lbl in enumerate(clean):
+            x = i * (BW + GAP)
+            col = pal[i % len(pal)]
+            prst = 'homePlate' if i == 0 else 'chevron'
+            # cap at 38 to match html._chevrons' two-line (_wrap_label 19×2) budget, so the
+            # Word chevron shows the SAME label text as the SVG (the box wraps + autofits it).
+            shapes.append(_wps_box(counter, lbl, _emu(x), _emu(top), _emu(BW), _emu(BH),
+                                   col, None, 'FFFFFF', _clip(lbl, 38), sz=10, prst=prst))
+        dw, dh = _fit_display(_emu(width_px), _emu(height_px))
+        return _group_drawing(document, ''.join(shapes), base_id,
+                              _emu(width_px), _emu(height_px), dw, dh)
+    except Exception:                       # pragma: no cover - never crash the export
+        return None
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SLICE C — NATIVE charts + org-charts for the redesigned 10-section narrative.
 # Ported verbatim from the approved standalone builder (build_narrative_v2.py):
