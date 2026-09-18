@@ -1,0 +1,123 @@
+{
+  "archetype": "sports_academy",
+  "schema": 2,
+  "context": "mixed sports-civil & building programme · pitches, halls and accommodation run as parallel fronts",
+  "brief": {
+    "intro": "A sports academy or training facility is really several different projects running side by side: outdoor pitches with their sub-base and drainage, one or more indoor halls (and sometimes a pool), and standard accommodation/admin buildings for athletes and staff. Unlike a single building, there is no one chain that owns the whole site — pitch construction, indoor-hall structure and MEP, and accommodation fit-out can all run in parallel once each area's civil works are ready, so the programme is really a coordination exercise between several independent, medium-complexity work-fronts rather than one long sequence. The two things that most often surprise a first-time planner are how long pitch sub-base, drainage and grow-in take before a pitch can be certified for play, and how much the pool and specialist gym plant behave like a small industrial commissioning job inside an otherwise ordinary building.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, site drainage, utility diversions and connections." },
+      { "name": "Outdoor pitch sub-base & drainage", "desc": "Engineered sub-base and drainage layers, plus irrigation, under each pitch." },
+      { "name": "Pitch surface & grow-in / certification", "desc": "Turf laying (natural or synthetic) followed by grow-in or install, then certification testing." },
+      { "name": "Indoor hall structure", "desc": "Structural frame, cladding and roof for the indoor training hall(s)." },
+      { "name": "Accommodation & admin buildings", "desc": "Structure, envelope and fit-out for athlete accommodation and admin space." },
+      { "name": "MEP — halls & accommodation", "desc": "HVAC, electrical, plumbing and lighting to the indoor buildings." },
+      { "name": "Pool / aquatics facility", "desc": "Tank construction, filtration/dosing/heating plant and water-treatment commissioning." },
+      { "name": "Gym / specialist training equipment", "desc": "Procurement and installation of gym and sport-specific training equipment." },
+      { "name": "External works & landscaping", "desc": "Hardscape, floodlighting, fencing and site landscaping." },
+      { "name": "Testing & commissioning", "desc": "Pitch certification, building MEP commissioning, pool/gym plant proving and handover." }
+    ],
+    "glossary": [
+      { "term": "Sub-base / rootzone", "plain": "the engineered layers under a pitch that carry drainage and support turf growth." },
+      { "term": "Grow-in period", "plain": "the weeks a new natural-turf pitch needs to establish roots before it can be played on." },
+      { "term": "Pitch certification", "plain": "formal testing (e.g. ball roll, shock absorption) proving a pitch meets the governing body's standard." },
+      { "term": "Synthetic (3G) turf", "plain": "an artificial playing surface, an alternative to natural grass with a shorter, more predictable install-and-certify time." },
+      { "term": "Floodlighting", "plain": "the pitch/field lighting system, often photometrically tested before certification." },
+      { "term": "Pool plant", "plain": "the filtration, dosing and heating equipment that keeps pool water safe and warm — similar in principle to a small mechanical plant room." },
+      { "term": "Air / water balancing", "plain": "adjusting HVAC airflow or pool water circulation so each space or system gets its design flow." }
+    ],
+    "must_get_right": [
+      "Start pitch sub-base and drainage early and protect the grow-in period — natural turf needs real weeks to establish before certification, and that clock cannot be compressed by adding labour.",
+      "Treat pitches, indoor halls and accommodation as parallel work-fronts, not one sequence — plan and resource them separately, sharing only site-wide enabling works and access, so a delay on one does not need to delay the others.",
+      "Pool and specialist gym plant need their own small commissioning sequence — water treatment, filtration and heating plant behave like industrial equipment and need proving and balancing before use, not just installation.",
+      "Decide natural vs synthetic turf early — it changes both the construction sequence and the programme risk (grow-in weather-dependency vs a more predictable install-and-certify timeline)."
+    ]
+  },
+  "components": [
+    { "name": "Outdoor Pitches", "desc": "Sub-base, drainage & turf (natural/synthetic)", "disc": "Civil / Landscape", "primary": true },
+    { "name": "Indoor Hall(s)", "desc": "Structure · cladding · roof", "disc": "Structural", "primary": true },
+    { "name": "Accommodation & Admin Buildings", "desc": "Structure · envelope · fit-out", "disc": "Architectural", "primary": false },
+    { "name": "MEP — Halls & Accommodation", "desc": "HVAC · electrical · plumbing · lighting", "disc": "Mechanical/Electrical", "primary": true },
+    { "name": "Pool / Aquatics Plant", "desc": "Tanks · filtration · water treatment", "disc": "Mechanical", "primary": false },
+    { "name": "Gym / Specialist Training Equipment", "desc": "Fit-out & equipment install", "disc": "Fit-out", "primary": false },
+    { "name": "Testing & Commissioning", "desc": "Pitch certification · pool/gym commissioning", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["HVAC to indoor halls & accommodation", "Pool filtration, dosing & heating plant", "Irrigation systems (pitches)"] },
+    { "discipline": "Electrical", "items": ["Power distribution to buildings & pitches", "Floodlighting (pitches & external)", "Standby power (where required)"] },
+    { "discipline": "Plumbing / Public Health", "items": ["Domestic water & drainage", "Pool water make-up & backwash", "Irrigation water supply"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire alarm & detection", "CCTV & access control", "BMS — light integration for plant monitoring"] }
+  ],
+  "overview_phases": ["Enabling & Site Works", "Pitch Sub-base & Drainage", "Structure — Halls & Accommodation", "Envelope & MEP Rough-in", "Pitch Surface & Grow-in", "Pool & Gym Fit-out", "Testing & Certification", "Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Sub-base", "Structure", "Rough-in", "Grow-in", "Fit-out", "Certify"],
+    "lanes": [
+      { "trade": "Civil / Pitches", "disc": "Civil / Landscape", "kind": ["civil"], "start": 0, "width": 46, "label": "Earthworks → pitch sub-base & drainage → turf → grow-in", "holds": [40] },
+      { "trade": "Structure — Halls & Accommodation", "disc": "Structural", "kind": ["civil"], "start": 10, "width": 34, "label": "Foundations → frame → envelope", "holds": [30] },
+      { "trade": "MEP — Halls & Accommodation", "disc": "Mechanical/Electrical", "kind": ["mechanical", "electrical"], "start": 34, "width": 40, "label": "Rough-in → set plant → terminate → balance", "holds": [58] },
+      { "trade": "Pool / Aquatics", "disc": "Mechanical", "kind": ["mechanical"], "start": 44, "width": 30, "label": "Tank/plant install → water treatment → balance & test", "holds": [66] },
+      { "trade": "Testing & Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 76, "width": 24, "label": "Pitch certification → pool/gym proving → handover", "holds": [88] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Pitches", "disc": "Civil / Landscape", "kind": ["civil"], "holds": [1, 4], "steps": ["Site clearance & earthworks", "Pitch sub-base & drainage layers", "Irrigation installation", "Turf laying (natural) or synthetic surface install", "Grow-in / establishment period", "Floodlighting install & photometric test"] },
+    { "name": "Structure — Halls & Accommodation", "disc": "Structural", "kind": ["civil"], "holds": [2], "steps": ["Foundations", "Ground-floor slab", "Structural frame / steel", "Roof & envelope — halls", "Accommodation building envelope"] },
+    { "name": "MEP — Halls & Accommodation", "disc": "Mechanical/Electrical", "kind": ["mechanical", "electrical"], "holds": [2, 4], "steps": ["First-fix containment & ductwork", "Lighting & small-power first-fix", "Plant set — AHUs, boilers/chillers", "Second-fix & terminations", "Testing & air/water balancing"] },
+    { "name": "Pool / Aquatics Plant", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["Pool tank construction / lining", "Plant room — filtration, dosing, heating install", "Pump & dosing equipment set & align", "Pipework flush & fill", "Water-treatment commissioning & balance"] },
+    { "name": "Gym / Specialist Training Equipment", "disc": "Fit-out", "kind": ["mechanical"], "holds": [], "steps": ["Equipment procurement", "Site preparation — flooring & anchors", "Delivery & installation", "Calibration & safety check", "Function test & handover"] },
+    { "name": "Fire & ELV", "disc": "Fire Protection / ELV", "kind": ["fire", "elv"], "holds": [], "steps": ["Containment & cable routing", "Fire alarm & detection install", "CCTV & access control install", "Integration with BMS", "Cause-and-effect / system test"] },
+    { "name": "Testing & Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [4], "steps": ["Pitch certification testing (ball roll, shock absorption, etc.)", "Building MEP commissioning & balancing", "Fire & life-safety system test", "Pool/gym plant proving", "Snagging & handover"] }
+  ],
+  "wbs": [
+    { "code": "SA", "name": "Sports Academy — Project", "level": 1 },
+    { "code": "SA.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "SA.02", "name": "Enabling & Site Works", "level": 2 },
+    { "code": "SA.03", "name": "Outdoor Pitches", "level": 2 },
+    { "code": "SA.03.10", "name": "Sub-base & drainage", "level": 3 },
+    { "code": "SA.03.20", "name": "Irrigation", "level": 3 },
+    { "code": "SA.03.30", "name": "Turf / surface installation", "level": 3 },
+    { "code": "SA.03.30.10", "name": "Grow-in / establishment", "level": 4 },
+    { "code": "SA.03.30.10.10", "name": "Pitch certification testing", "level": 5 },
+    { "code": "SA.03.40", "name": "Floodlighting", "level": 3 },
+    { "code": "SA.04", "name": "Indoor Hall(s) — Structure", "level": 2 },
+    { "code": "SA.04.10", "name": "Foundations", "level": 3 },
+    { "code": "SA.04.20", "name": "Frame & envelope", "level": 3 },
+    { "code": "SA.05", "name": "Accommodation & Admin Buildings", "level": 2 },
+    { "code": "SA.05.10", "name": "Structure & envelope", "level": 3 },
+    { "code": "SA.05.20", "name": "Internal fit-out", "level": 3 },
+    { "code": "SA.06", "name": "MEP — Halls & Accommodation", "level": 2 },
+    { "code": "SA.06.10", "name": "First-fix & containment", "level": 3 },
+    { "code": "SA.06.20", "name": "Plant set (AHU/boiler/chiller)", "level": 3 },
+    { "code": "SA.06.30", "name": "Second-fix & balancing", "level": 3 },
+    { "code": "SA.07", "name": "Pool / Aquatics Facility", "level": 2 },
+    { "code": "SA.07.10", "name": "Tank construction", "level": 3 },
+    { "code": "SA.07.20", "name": "Plant room — filtration/dosing/heating", "level": 3 },
+    { "code": "SA.07.20.10", "name": "Water-treatment commissioning", "level": 4 },
+    { "code": "SA.08", "name": "Gym / Specialist Training Equipment", "level": 2 },
+    { "code": "SA.09", "name": "Fire & ELV Systems", "level": 2 },
+    { "code": "SA.10", "name": "External Works & Landscaping", "level": 2 },
+    { "code": "SA.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "SA.11.10", "name": "Building MEP commissioning", "level": 3 },
+    { "code": "SA.11.20", "name": "Pool/gym plant proving", "level": 3 },
+    { "code": "SA.11.30", "name": "Snagging & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural work runs a 6-day week; pitch grow-in follows a calendar period, not a working-day duration, and is weather- and season-dependent (turf establishment is slower in cold or wet periods); indoor MEP and pool commissioning run standard single-shift working." },
+      { "heading": "Sequencing logic & critical path", "body": "Pitch sub-base, drainage, turf and grow-in typically form the longest single chain and often govern overall completion where natural turf is chosen; indoor-hall structure, MEP and pool/gym fit-out run as parallel fronts that only need to finish before their own building's handover. Where synthetic turf is used, the pitch chain shortens and the critical path can shift to pool/gym commissioning or accommodation fit-out instead." },
+      { "heading": "Key assumptions", "body": "Pitch type (natural vs synthetic) and specification are decided before sub-base construction starts; design for halls, pool and accommodation is frozen ahead of each front's start; each work-front (pitches, halls, accommodation) has its own dedicated crew so none compete for the same resource; weather allowances are built into the pitch and external-works calendars." },
+      { "heading": "Procurement & long-lead items", "body": "The following items are tracked as milestones where they apply to the chosen scope:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Synthetic turf system (if selected)", "10–16 weeks", "Before surface installation"], ["Pool filtration & dosing plant", "12–20 weeks", "Before plant-room install"], ["Floodlighting masts & luminaires", "8–14 weeks", "Before pitch certification"], ["AHU / chiller plant (indoor halls)", "14–22 weeks", "Before MEP rough-in complete"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Pitch construction needs continuous, unobstructed access for sub-base and turf-laying plant and is highly weather-sensitive; the pool and gym fit-out need a clean, secure area late in the programme; specialist resources (turf contractor, pool-plant commissioning engineers) are shared across few crews and should be booked against a fixed window, not left open-ended." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: turf grow-in extension in poor weather/season, pool/gym plant commissioning slippage, and interface clashes where parallel fronts share site access or utilities. Contingency is held at the end of the pitch grow-in period and before pool/gym commissioning rather than spread across the parallel building fronts." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

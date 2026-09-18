@@ -1,0 +1,121 @@
+{
+  "archetype": "fire_station",
+  "schema": 2,
+  "context": "operational-readiness-led · turnout/alerting systems & apparatus-bay fit-out set the pace",
+  "brief": {
+    "intro": "New to this project type? A fire or civil-defence station is mostly a straightforward low-rise building — apparatus bays for the trucks, a drill tower, dormitories, admin and training space — but its acceptance criteria are operational, not just architectural. The turnout/alerting system has to get crews suited and rolling within seconds of a call, vehicle-exhaust extraction has to protect health inside the bays, and standby power has to change over automatically so the station never goes dark mid-response. The building shell is rarely the constraint; the heavy-duty apparatus-bay slab/drainage/exhaust fit-out and the specialist alerting-system commissioning are.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, yard drainage and drill-tower foundations." },
+      { "name": "Structure & apparatus bays", "desc": "Structural frame, heavy-duty bay slab designed for repeated vehicle loading, and dormitory/admin floors." },
+      { "name": "Envelope & apparatus-bay doors", "desc": "Roof, walls and fast-acting apparatus-bay doors sized for the turnout time target." },
+      { "name": "Electrical power", "desc": "Normal and standby distribution with an automatic transfer switch (ATS) changeover." },
+      { "name": "HVAC & vehicle-exhaust extraction", "desc": "Ventilation and comfort cooling, plus a captured hose-reel/rail system removing diesel exhaust from the bays." },
+      { "name": "Plumbing", "desc": "Domestic water and drainage, including an oil/water interceptor for bay wash-down." },
+      { "name": "Fire & life safety", "desc": "Fire alarm and sprinkler protection for the building itself, not the operational firefighting scope." },
+      { "name": "Alerting / turnout systems", "desc": "Station alerting (tones, lighting, PA) tied to the dispatch centre, and locker/route layout designed around turnout time." },
+      { "name": "Testing & commissioning", "desc": "Alerting-system proving, vehicle-exhaust test, standby-power changeover test and drill-tower proving." }
+    ],
+    "glossary": [
+      { "term": "Apparatus bay", "plain": "the garage where fire trucks/appliances are parked, ready to roll." },
+      { "term": "Turnout", "plain": "the sequence from alarm to truck leaving the bay — the whole station design is built around cutting this time." },
+      { "term": "Alerting system", "plain": "the tone/light/PA system that wakes and directs crew the instant a call comes in, tied to the dispatch centre." },
+      { "term": "Vehicle-exhaust extraction", "plain": "a captured hose-reel/rail system that removes diesel exhaust from the bay instead of venting it into the building." },
+      { "term": "Drill tower", "plain": "a purpose-built training structure for rope, ladder and rescue drills." },
+      { "term": "Standby-power changeover (ATS)", "plain": "the automatic transfer switch to generator power so the station never loses power mid-response." },
+      { "term": "Turnout gear / locker sequencing", "plain": "the layout of gear lockers and routes designed to minimise the seconds firefighters take to suit up." }
+    ],
+    "must_get_right": [
+      "The alerting/turnout system, not the building shell, is the true acceptance test — protect real commissioning time for it.",
+      "Apparatus-bay slab, drainage and vehicle-exhaust extraction are heavy-duty, specialist fit-out items — don't schedule the bay as a generic garage.",
+      "Prove the standby-power changeover live, under load, before handover — a station that goes dark mid-response has failed its core purpose."
+    ]
+  },
+  "components": [
+    { "name": "Structure & Apparatus Bays", "desc": "Frame · heavy-duty bay slab · fast-acting doors", "disc": "Structural", "primary": true },
+    { "name": "Electrical Power", "desc": "Normal + standby distribution · generator changeover", "disc": "Electrical", "primary": true },
+    { "name": "HVAC", "desc": "Ventilation · dormitory/admin comfort cooling", "disc": "Mechanical", "primary": false },
+    { "name": "Vehicle-Exhaust Extraction", "desc": "Captured hose-reel/rail exhaust system", "disc": "Mechanical", "primary": true },
+    { "name": "Alerting / Turnout Systems", "desc": "Station alerting · dispatch tie-in", "disc": "Extra-Low Voltage", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Alarm · sprinkler for the building itself", "disc": "Fire Protection", "primary": false },
+    { "name": "Commissioning", "desc": "Alerting test · exhaust test · changeover test", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["HVAC ventilation & dormitory/admin comfort cooling", "Vehicle-exhaust extraction — hose-reel/rail capture system", "Compressed-air system for bay tools/equipment"] },
+    { "discipline": "Electrical", "items": ["Normal power distribution", "Standby generator & automatic transfer switch (ATS)", "Emergency & bay lighting", "Earthing & bonding"] },
+    { "discipline": "Plumbing / Public Health", "items": ["Domestic water & drainage", "Oil/water interceptor — bay wash-down drainage", "Hose-reel wash-down points"] },
+    { "discipline": "ELV / ICT · Fire · BMS", "items": ["Alerting / turnout system — tones, strobes, PA, dispatch tie-in", "Fire alarm & sprinkler (building life-safety)", "CCTV & access control", "Structured cabling / dispatch comms"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Substructure", "Superstructure & Apparatus Bays", "Envelope", "MEP Rough-in", "Alerting & Systems Fit-out", "Testing & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Bays", "Rough-in", "Systems", "Fit-out", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Structural", "kind": ["civil"], "start": 0, "width": 45, "label": "Earthworks → apparatus-bay slab → frame", "holds": [18] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 20, "width": 55, "label": "Containment → standby genset/ATS → distribution → terminate", "holds": [45, 72] },
+      { "trade": "Mechanical — HVAC & Exhaust", "disc": "Mechanical", "kind": ["mechanical"], "start": 28, "width": 48, "label": "Ductwork → exhaust rail → set units → balance", "holds": [50] },
+      { "trade": "Alerting / ELV", "disc": "Extra-Low Voltage", "kind": ["elv"], "start": 45, "width": 40, "label": "Containment → alerting devices → dispatch tie-in", "holds": [68] },
+      { "trade": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "start": 50, "width": 30, "label": "Alarm/sprinkler rough-in → test", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Alerting proving → exhaust & changeover test", "holds": [88] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Structural", "kind": ["civil"], "holds": [2, 5], "steps": ["Site clearance & earthworks", "Drill-tower foundations", "Foundations & apparatus-bay slab (heavy-duty)", "Structural frame & dormitory/admin floors", "Roof & envelope — weather-tight", "Fast-acting apparatus-bay door installation"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Containment & cable routes", "Standby generator & ATS procurement/install", "Normal & emergency power distribution", "Bay & yard lighting", "Load-bank & changeover test"] },
+    { "name": "Mechanical — HVAC & Vehicle-Exhaust", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1], "steps": ["Ductwork & diffuser rough-in", "Vehicle-exhaust hose-reel/rail installation", "Set AHUs / exhaust fans", "Compressed-air system installation", "Balancing & functional test"] },
+    { "name": "Plumbing", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1], "steps": ["Domestic water & drainage rough-in", "Oil/water interceptor installation", "Wash-down hose-reel points", "Domestic hot-water system installation", "Fixture set & test"] },
+    { "name": "Alerting / Turnout Systems", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [1, 4], "steps": ["Containment routes to bays & dormitories", "Alerting devices — tones, strobes, PA", "Dispatch-centre tie-in", "Point-to-point & loop test", "Live turnout-drill proving"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [1], "steps": ["Fire alarm detection rough-in", "Sprinkler system installation", "Fire pump & riser installation", "Cause-and-effect & discharge test", "Alarm panel integration & sign-off"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [0, 2], "steps": ["Alerting/turnout-system proving", "Vehicle-exhaust extraction test", "Standby-power changeover test (live, under load)", "Drill-tower proving", "Punch-list & handover"] }
+  ],
+  "wbs": [
+    { "code": "FS", "name": "Fire Station — Project", "level": 1 },
+    { "code": "FS.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "FS.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "FS.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "FS.02.20", "name": "Drill-Tower Foundations", "level": 3 },
+    { "code": "FS.03", "name": "Substructure", "level": 2 },
+    { "code": "FS.03.10", "name": "Foundations & Apparatus-Bay Slab", "level": 3 },
+    { "code": "FS.04", "name": "Superstructure", "level": 2 },
+    { "code": "FS.04.10", "name": "Structural Frame", "level": 3 },
+    { "code": "FS.04.20", "name": "Dormitory & Admin Floors", "level": 3 },
+    { "code": "FS.05", "name": "Building Envelope", "level": 2 },
+    { "code": "FS.05.10", "name": "Apparatus-Bay Doors (Fast-Acting)", "level": 3 },
+    { "code": "FS.06", "name": "Mechanical — HVAC & Exhaust", "level": 2 },
+    { "code": "FS.06.10", "name": "HVAC Rough-in & Equipment", "level": 3 },
+    { "code": "FS.06.20", "name": "Vehicle-Exhaust Extraction", "level": 3 },
+    { "code": "FS.06.20.10", "name": "Hose-Reel/Rail Install & Test", "level": 4 },
+    { "code": "FS.07", "name": "Plumbing", "level": 2 },
+    { "code": "FS.07.10", "name": "Domestic Water & Drainage", "level": 3 },
+    { "code": "FS.07.20", "name": "Oil/Water Interceptor", "level": 3 },
+    { "code": "FS.08", "name": "Electrical — Power", "level": 2 },
+    { "code": "FS.08.10", "name": "Standby Generation & ATS", "level": 3 },
+    { "code": "FS.08.10.10", "name": "Load-Bank & Changeover Test", "level": 4 },
+    { "code": "FS.08.20", "name": "Distribution & Bay Lighting", "level": 3 },
+    { "code": "FS.09", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "FS.10", "name": "Alerting / Turnout Systems", "level": 2 },
+    { "code": "FS.10.10", "name": "Alerting Devices & Dispatch Tie-in", "level": 3 },
+    { "code": "FS.10.20", "name": "Live Turnout-Drill Proving", "level": 3 },
+    { "code": "FS.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "FS.11.10", "name": "Vehicle-Exhaust & Changeover Test", "level": 3 },
+    { "code": "FS.11.20", "name": "Drill-Tower Proving & Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structure run a standard 6-day calendar; the apparatus-bay slab and heavy-duty finishes follow standard concrete cure/finish durations; alerting-system commissioning and the live turnout drill are scheduled on the same shift pattern the station will actually operate under." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs apparatus-bay slab & structure → vehicle-exhaust & bay fit-out → alerting-system rough-in → dispatch-centre tie-in → live turnout-drill proving → standby-power changeover test → handover. The dormitory/admin fit-out is rarely on the critical path." },
+      { "heading": "Key assumptions", "body": "Design is frozen and authority approvals (building and fire/civil-defence operational approval) obtained per phase gate; the dispatch centre and its interface protocol are confirmed before alerting-system design is finalised; a single mobilisation. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is driven by a small number of specialist procurement items. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Fast-acting apparatus-bay doors", "10–16 weeks", "Before envelope closure"], ["Standby generator & ATS", "16–26 weeks", "Before energisation"], ["Vehicle-exhaust extraction system", "8–14 weeks", "Before bay fit-out"], ["Alerting / turnout system hardware", "10–18 weeks", "Before dispatch tie-in"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Apparatus-bay slab and door installation require clear yard access and coordinated concrete/steel deliveries; alerting-system and dispatch-tie-in commissioning depend on a scarce, specialist integrator resource; if the existing station remains operational during works, phased handover of bays is a major sequencing constraint." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: dispatch-centre interface delays, alerting-system integration debugging, and re-tests of the standby-power changeover under load. Schedule contingency is held immediately before the live turnout-drill proving and again before final handover, rather than spread thinly across the network." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

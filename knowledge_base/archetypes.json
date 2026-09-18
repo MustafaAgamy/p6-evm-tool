@@ -2241,6 +2241,414 @@
    ],
    "applicability": "Applies to large phased urban developments and new cities (master-planned communities): trunk infrastructure plus districts of buildings, landmarks and public realm delivered in phases.",
    "notes": "Master-development / new-city programme: phased mass earthworks and trunk infrastructure (roads, power, water, drainage, telecom) then districts of buildings, landmarks and landscape. Program-of-works scale, infrastructure-led and phased over years."
+  },
+  {
+   "archetype": "office_fitout",
+   "name": "Office / Commercial Interior Fit-out",
+   "category": "building_vertical",
+   "primary_systems": [
+    "architectural_finishing",
+    "joinery_fitout",
+    "hvac",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "floor_tiling_stone",
+    "containment_cabling",
+    "fire_fighting",
+    "bms"
+   ],
+   "civil_interfaces": [
+    "landlord shell and core handover, floor loading and riser provisions"
+   ],
+   "commissioning_focus": [
+    "MEP testing and balancing",
+    "BMS and lighting-control integration",
+    "fire alarm cause-and-effect"
+   ],
+   "applicability": "Applies to office / commercial interior fit-out projects.",
+   "notes": "Interior fit-out of office/commercial space: partitions, ceilings, raised floors, finishes, FF and E and MEP fit-out within an existing shell and core. Finishing- and MEP-led, fast-track, snagging-heavy."
+  },
+  {
+   "archetype": "fuel_service_station",
+   "name": "Fuel / Service Station",
+   "category": "building_vertical",
+   "primary_systems": [
+    "civil_interface",
+    "tanks_vessels",
+    "process_piping",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "architectural_finishing",
+    "fire_fighting",
+    "plumbing"
+   ],
+   "civil_interfaces": [
+    "underground tank excavation and containment, forecourt slab and falls"
+   ],
+   "commissioning_focus": [
+    "tank tightness and calibration",
+    "dispenser and pipework commissioning",
+    "vapour-recovery and leak-detection test"
+   ],
+   "applicability": "Applies to fuel / service station projects.",
+   "notes": "Petrol / service station: underground fuel tanks, forecourt and canopy, dispensers, interceptor and a retail shop. Tank and dispenser commissioning-led; environmental containment is critical."
+  },
+  {
+   "archetype": "telecom_tower",
+   "name": "Telecom Tower / Mast",
+   "category": "utility_infrastructure",
+   "primary_systems": [
+    "civil_interface",
+    "structural_steel",
+    "earthing",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "containment_cabling",
+    "instrumentation"
+   ],
+   "civil_interfaces": [
+    "tower foundations and earth mat, access road"
+   ],
+   "commissioning_focus": [
+    "structural and plumbness survey",
+    "earthing and lightning test",
+    "antenna, RF and feeder commissioning"
+   ],
+   "applicability": "Applies to telecom tower / mast projects.",
+   "notes": "Telecom tower / mast: foundations and earth mat, steel lattice or monopole, equipment shelter, power and antennas/feeders. Small but earthing- and RF-commissioning-led; access and weather-driven."
+  },
+  {
+   "archetype": "laboratory",
+   "name": "Laboratory / Research Facility",
+   "category": "building_vertical",
+   "primary_systems": [
+    "hvac",
+    "electrical_power",
+    "process_piping",
+    "bms"
+   ],
+   "secondary_systems": [
+    "plumbing",
+    "fire_fighting",
+    "architectural_finishing",
+    "containment_cabling"
+   ],
+   "civil_interfaces": [
+    "plant-deck and heavy-equipment structural provisions"
+   ],
+   "commissioning_focus": [
+    "specialist HVAC and pressure-cascade validation",
+    "lab-gas and fume-extraction commissioning",
+    "containment / cleanroom certification"
+   ],
+   "applicability": "Applies to laboratory / research facility projects.",
+   "notes": "Laboratory / research facility: controlled environments, fume cupboards and extraction, lab gases, specialist HVAC and often cleanrooms. Validation- and commissioning-led like a light version of a pharma plant."
+  },
+  {
+   "archetype": "correctional_facility",
+   "name": "Prison / Correctional Facility",
+   "category": "building_vertical",
+   "primary_systems": [
+    "structural_steel",
+    "architectural_finishing",
+    "electrical_power",
+    "containment_cabling"
+   ],
+   "secondary_systems": [
+    "hvac",
+    "plumbing",
+    "fire_fighting"
+   ],
+   "civil_interfaces": [
+    "secure perimeter, foundations and precast cell provisions"
+   ],
+   "commissioning_focus": [
+    "security and detention ELV commissioning",
+    "door-control and PSIM integration",
+    "life-safety and lockdown test"
+   ],
+   "applicability": "Applies to prison / correctional facility projects.",
+   "notes": "Prison / correctional facility: secure perimeter and buildings, precast/robust cells, and heavy security ELV (CCTV, access, detention door control, PSIM). Security-systems-commissioning-led."
+  },
+  {
+   "archetype": "fire_station",
+   "name": "Fire / Civil Defence Station",
+   "category": "building_vertical",
+   "primary_systems": [
+    "structural_steel",
+    "architectural_finishing",
+    "electrical_power",
+    "hvac"
+   ],
+   "secondary_systems": [
+    "plumbing",
+    "fire_fighting",
+    "containment_cabling"
+   ],
+   "civil_interfaces": [
+    "apparatus-bay slab and drainage, drill-tower foundations"
+   ],
+   "commissioning_focus": [
+    "alerting / turnout-system commissioning",
+    "apparatus-bay and vehicle-exhaust test",
+    "standby-power changeover"
+   ],
+   "applicability": "Applies to fire / civil defence station projects.",
+   "notes": "Fire / civil-defence station: apparatus bays, drill tower, dormitories and admin, with turnout/alerting systems and vehicle-exhaust extraction. A standard building with specialist operational systems."
+  },
+  {
+   "archetype": "bus_depot",
+   "name": "Bus Depot / Transport Hub",
+   "category": "transport_infrastructure",
+   "primary_systems": [
+    "civil_interface",
+    "structural_steel",
+    "electrical_power",
+    "utility_piping"
+   ],
+   "secondary_systems": [
+    "hvac",
+    "fire_fighting",
+    "containment_cabling"
+   ],
+   "civil_interfaces": [
+    "bus-circulation pavement and drainage, fueling/charging foundations"
+   ],
+   "commissioning_focus": [
+    "workshop equipment commissioning",
+    "fueling / EV-charging commissioning",
+    "wash and drainage-interceptor test"
+   ],
+   "applicability": "Applies to bus depot / transport hub projects.",
+   "notes": "Bus depot / transport hub: large paved circulation and parking, maintenance workshops, fueling or EV-charging, wash and admin. Civil-pavement and MEP-workshop-led."
+  },
+  {
+   "archetype": "marina",
+   "name": "Marina / Waterfront Development",
+   "category": "marine_ports",
+   "primary_systems": [
+    "civil_interface",
+    "electrical_power",
+    "utility_piping",
+    "lighting"
+   ],
+   "secondary_systems": [
+    "fire_fighting",
+    "plumbing"
+   ],
+   "civil_interfaces": [
+    "breakwater, quay wall and dredging, pontoon anchoring"
+   ],
+   "commissioning_focus": [
+    "pontoon and mooring load test",
+    "shore power and water pedestal commissioning",
+    "fuel and pump-out commissioning"
+   ],
+   "applicability": "Applies to marina / waterfront development projects.",
+   "notes": "Marina / waterfront: breakwater and dredging, quay walls, floating pontoons and berths, shore power/water pedestals and a small building. Marine-civil-led and weather/tide-sensitive."
+  },
+  {
+   "archetype": "exhibition_convention",
+   "name": "Exhibition / Convention Centre",
+   "category": "building_vertical",
+   "primary_systems": [
+    "structural_steel",
+    "architectural_finishing",
+    "hvac",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "containment_cabling",
+    "fire_fighting"
+   ],
+   "civil_interfaces": [
+    "long-span roof and column-free hall foundations"
+   ],
+   "commissioning_focus": [
+    "large-volume HVAC balancing",
+    "AV / ELV and rigging commissioning",
+    "smoke-control and life-safety test"
+   ],
+   "applicability": "Applies to exhibition / convention centre projects.",
+   "notes": "Exhibition / convention centre: column-free long-span halls, large-volume HVAC, heavy AV/ELV and rigging, and back-of-house. Long-span-structure and large-systems-led."
+  },
+  {
+   "archetype": "cinema_theatre",
+   "name": "Cinema / Theatre / Performing Arts",
+   "category": "building_vertical",
+   "primary_systems": [
+    "structural_steel",
+    "architectural_finishing",
+    "hvac",
+    "electrical_power"
+   ],
+   "secondary_systems": [
+    "containment_cabling",
+    "fire_fighting"
+   ],
+   "civil_interfaces": [
+    "raked-seating and fly-tower structural provisions"
+   ],
+   "commissioning_focus": [
+    "acoustic and AV commissioning",
+    "stage / rigging and lighting commissioning",
+    "life-safety and evacuation test"
+   ],
+   "applicability": "Applies to cinema / theatre / performing arts projects.",
+   "notes": "Cinema / theatre / performing-arts: auditoria with raked seating, acoustic finishes, stage machinery and heavy AV/lighting. Acoustic and AV/stage-commissioning-led fit-out."
+  },
+  {
+   "archetype": "theme_park",
+   "name": "Theme Park / Entertainment Complex",
+   "category": "building_vertical",
+   "primary_systems": [
+    "civil_interface",
+    "structural_steel",
+    "electrical_power",
+    "utility_piping"
+   ],
+   "secondary_systems": [
+    "containment_cabling",
+    "fire_fighting"
+   ],
+   "civil_interfaces": [
+    "ride foundations, extensive site infrastructure and water features"
+   ],
+   "commissioning_focus": [
+    "ride safety commissioning and certification",
+    "show / AV and control-system integration",
+    "site utilities and water-feature commissioning"
+   ],
+   "applicability": "Applies to theme park / entertainment complex projects.",
+   "notes": "Theme park / entertainment complex: rides and themed structures, extensive site infrastructure, F and B and retail, delivered in phases. Ride-safety-commissioning-led and heavily phased."
+  },
+  {
+   "archetype": "clinic_primary_care",
+   "name": "Clinic / Primary Healthcare Centre",
+   "category": "critical_facility",
+   "primary_systems": [
+    "hvac",
+    "electrical_power",
+    "plumbing",
+    "architectural_finishing"
+   ],
+   "secondary_systems": [
+    "fire_fighting",
+    "containment_cabling"
+   ],
+   "civil_interfaces": [
+    "imaging-room shielding and plant provisions"
+   ],
+   "commissioning_focus": [
+    "clinical HVAC and infection-control validation",
+    "medical-gas (limited) and imaging commissioning",
+    "life-safety and clinical handover"
+   ],
+   "applicability": "Applies to clinic / primary healthcare centre projects.",
+   "notes": "Clinic / primary healthcare centre: consulting and treatment rooms, minor imaging, limited medical gas and infection-control HVAC. A smaller, faster healthcare build than a full hospital but still validation-led."
+  },
+  {
+   "archetype": "automated_warehouse",
+   "name": "Automated High-Bay Warehouse",
+   "category": "industrial_bulk_handling",
+   "primary_systems": [
+    "structural_steel",
+    "conveying",
+    "electrical_power",
+    "containment_cabling"
+   ],
+   "secondary_systems": [
+    "fire_fighting",
+    "hvac"
+   ],
+   "civil_interfaces": [
+    "high-bay slab flatness/tolerance and rack-clad structural interface"
+   ],
+   "commissioning_focus": [
+    "ASRS and conveyor commissioning",
+    "WMS / controls integration and throughput test",
+    "ESFR fire-suppression commissioning"
+   ],
+   "applicability": "Applies to automated high-bay warehouse projects.",
+   "notes": "Automated high-bay warehouse: super-flat slab, rack-clad or high-bay steel, automated storage/retrieval (ASRS) and conveyors under a WMS. Automation-commissioning-led; slab tolerance is critical."
+  },
+  {
+   "archetype": "gas_processing_plant",
+   "name": "Gas Processing Plant",
+   "category": "industrial_process",
+   "primary_systems": [
+    "process_equipment",
+    "process_piping",
+    "rotating_equipment",
+    "instrumentation"
+   ],
+   "secondary_systems": [
+    "tanks_vessels",
+    "electrical_power",
+    "fire_fighting"
+   ],
+   "civil_interfaces": [
+    "heavy equipment foundations, pipe-rack and flare foundations"
+   ],
+   "commissioning_focus": [
+    "process pre-commissioning (purge/dry-out)",
+    "rotating-equipment and compressor commissioning",
+    "integrated process start-up and performance test"
+   ],
+   "applicability": "Applies to gas processing plant projects.",
+   "notes": "Gas processing plant: separation, compression, dehydration and treatment trains with heavy rotating equipment and extensive process piping. Procurement- and hot-commissioning-led like other process plants."
+  },
+  {
+   "archetype": "monorail_apm",
+   "name": "Monorail / Automated People Mover",
+   "category": "infrastructure_transit",
+   "primary_systems": [
+    "civil_interface",
+    "structural_steel",
+    "electrical_power",
+    "instrumentation"
+   ],
+   "secondary_systems": [
+    "containment_cabling"
+   ],
+   "civil_interfaces": [
+    "elevated guideway piers and station foundations"
+   ],
+   "commissioning_focus": [
+    "traction-power and third-rail commissioning",
+    "signalling / ATC and control-system integration",
+    "dynamic testing and safety certification"
+   ],
+   "applicability": "Applies to monorail / automated people mover projects.",
+   "notes": "Monorail / automated people mover: elevated guideway, stations, traction power and driverless signalling/ATC. Systems-integration- and safety-certification-led; guideway civils front the programme."
+  },
+  {
+   "archetype": "sports_academy",
+   "name": "Sports Academy / Training Facility",
+   "category": "building_vertical",
+   "primary_systems": [
+    "civil_interface",
+    "structural_steel",
+    "architectural_finishing",
+    "hvac"
+   ],
+   "secondary_systems": [
+    "electrical_power",
+    "plumbing"
+   ],
+   "civil_interfaces": [
+    "pitch sub-base and drainage, indoor-hall foundations"
+   ],
+   "commissioning_focus": [
+    "pitch and surface certification",
+    "indoor-hall MEP and lighting commissioning",
+    "pool / gym facility commissioning"
+   ],
+   "applicability": "Applies to sports academy / training facility projects.",
+   "notes": "Sports academy / training facility: outdoor pitches, indoor halls and gyms, and accommodation/admin. A mix of sports-civil (pitches, drainage) and standard building work."
   }
  ]
 }

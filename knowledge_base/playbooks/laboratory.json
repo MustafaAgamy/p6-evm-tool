@@ -1,0 +1,120 @@
+{
+  "archetype": "laboratory",
+  "schema": 2,
+  "context": "validation- & commissioning-led · controlled environments · light pharma-style rigor",
+  "brief": {
+    "intro": "A laboratory or research facility is a building whose real product is a controlled, contamination-free environment for scientific work — every space is defined by what it must keep in or out: fume extraction, a specific pressure regime, lab gases, or particulate control in a cleanroom. New to this type? It looks like an office or light-industrial building on the outside, but inside it behaves like a light version of a pharmaceutical plant: HVAC is specialist and zoned (pressure cascades between rooms), fume cupboards and lab-gas systems are safety-critical, and nothing is handed over on a fit-out-style snag list alone — spaces are validated and certified (room pressure, air changes, containment) before use. The programme is driven by long-lead specialist equipment (fume cupboards, gas manifolds, cleanroom panels) and by a validation/commissioning tail that cannot be compressed without risking a failed certification.",
+    "scope": [
+      { "name": "Enabling & structure", "desc": "Foundations, frame and plant-deck provisions for heavy rooftop/plant equipment." },
+      { "name": "Building envelope", "desc": "Façade, roofing and a weather-tight envelope." },
+      { "name": "Specialist HVAC", "desc": "Pressure-cascade air handling, fume-cupboard extract and dedicated exhaust risers." },
+      { "name": "Lab gases & process piping", "desc": "Gas manifolds (nitrogen, CO2, vacuum, compressed air) and specialist process piping to benches." },
+      { "name": "Electrical & controls", "desc": "Power, standby/UPS for critical equipment and BMS." },
+      { "name": "Plumbing & drainage", "desc": "Lab sinks, acid-neutralisation drainage and RO/DI water where required." },
+      { "name": "Fire & life safety", "desc": "Fire suppression compatible with lab hazards, plus alarm and detection." },
+      { "name": "Cleanroom / containment fit-out", "desc": "Wall/ceiling/floor panel systems and airlocks, where applicable." },
+      { "name": "Architectural finishes & fit-out", "desc": "Lab casework, fume-cupboard installation and joinery." },
+      { "name": "Validation, testing & commissioning", "desc": "Pressure-cascade balancing, IQ/OQ/PQ-style validation, certification and handover." }
+    ],
+    "glossary": [
+      { "term": "Fume cupboard", "plain": "a ventilated enclosure that extracts hazardous fumes away from the researcher." },
+      { "term": "Pressure cascade", "plain": "a sequence of rooms held at different, controlled air pressures so air (and contamination) flows the right way — usually from clean to less-clean." },
+      { "term": "Lab gases", "plain": "piped gases (nitrogen, compressed air, vacuum, CO2, etc.) supplied to benches from a central manifold." },
+      { "term": "Air changes per hour (ACH)", "plain": "how many times the room's air volume is replaced per hour — a key HVAC design and validation number for labs." },
+      { "term": "IQ / OQ / PQ", "plain": "Installation, Operational and Performance Qualification — staged validation proving equipment is installed correctly, operates correctly, and performs correctly under real conditions." },
+      { "term": "RO / DI water", "plain": "reverse-osmosis / deionised water — purified water supplied to certain lab benches." },
+      { "term": "Cleanroom classification", "plain": "a rating (e.g. an ISO Class) of how few airborne particles a room is certified to contain." }
+    ],
+    "must_get_right": [
+      "Order fume cupboards, gas manifolds and specialist HVAC equipment against validated lead times, not the general fit-out programme — these are long-lead and safety-critical.",
+      "Freeze HVAC and pressure-cascade design before ceilings and walls close — retrofitting a pressure regime after finishes are in is disruptive and slow.",
+      "Do not compress the validation/commissioning tail — pressure-cascade balancing and certification are tested conditions, not a snag list, and a failed test means re-balancing, not just a fix.",
+      "Coordinate lab-gas and fume-extraction routing with the structural plant-deck design early — heavy rooftop plant and riser space are structural decisions, not late additions."
+    ]
+  },
+  "components": [
+    { "name": "Specialist HVAC", "desc": "Pressure-cascade AHUs · fume extract · dedicated risers", "disc": "Mechanical", "primary": true },
+    { "name": "Lab Gases & Process Piping", "desc": "Gas manifolds · specialist process piping", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical & BMS", "desc": "Power · standby/UPS · controls", "disc": "Electrical / BMS", "primary": true },
+    { "name": "Plumbing & Drainage", "desc": "Lab sinks · acid-neutralisation drainage · RO/DI water", "disc": "Plumbing", "primary": false },
+    { "name": "Fire & Life Safety", "desc": "Suppression compatible with lab hazards · alarm", "disc": "Fire Protection", "primary": false },
+    { "name": "Cleanroom / Containment Fit-out", "desc": "Panel systems · airlocks (where applicable)", "disc": "Architectural", "primary": false },
+    { "name": "Casework & Fit-out", "desc": "Fume-cupboard install · lab casework · joinery", "disc": "Architectural", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Pressure-cascade air handling units & dedicated exhaust risers", "Fume-cupboard extract & make-up air", "Lab-gas manifolds — nitrogen, compressed air, vacuum, CO2", "Specialist process piping to benches"] },
+    { "discipline": "Electrical", "items": ["Power distribution & standby/UPS for critical equipment", "Lighting & controls", "Earthing & essential-supply changeover"] },
+    { "discipline": "Plumbing", "items": ["Lab sinks & acid-neutralisation drainage", "RO / DI water supply where specified", "Domestic water & general drainage"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire suppression compatible with lab hazards & detection", "BMS — pressure-cascade & environmental monitoring", "Access control & structured cabling"] }
+  ],
+  "overview_phases": ["Enabling & structure", "Building envelope", "MEP rough-in", "Specialist HVAC & lab gases", "Cleanroom / containment fit-out", "Casework & finishes", "Validation & commissioning", "Certification & handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Envelope", "Rough-in", "Specialist fit", "Validate", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Structural", "kind": ["civil"], "start": 0, "width": 34, "label": "Foundations → frame → plant-deck", "holds": [16] },
+      { "trade": "Mechanical (HVAC & Lab Gases)", "disc": "Mechanical", "kind": ["mechanical"], "start": 24, "width": 52, "label": "Ductwork/piping → AHUs → fume cupboards → gas manifolds", "holds": [55, 72] },
+      { "trade": "Electrical & BMS", "disc": "Electrical", "kind": ["bms"], "start": 30, "width": 46, "label": "Containment → power → controls → integrate", "holds": [64] },
+      { "trade": "Plumbing", "disc": "Plumbing", "kind": ["mechanical"], "start": 34, "width": 34, "label": "Lab sinks → neutralisation drainage → RO/DI", "holds": [] },
+      { "trade": "Fire & ELV", "disc": "Fire Protection", "kind": ["fire", "elv"], "start": 42, "width": 34, "label": "Suppression → detection → structured cabling", "holds": [] },
+      { "trade": "Validation & Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Balance cascade → IQ/OQ/PQ → certify", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Structural", "kind": ["civil"], "holds": [1], "steps": ["Foundations & frame", "Plant-deck & heavy-equipment structural provisions", "Roof & weather-tight envelope", "Riser & shaft openings", "Floor flatness & finishes prep"] },
+    { "name": "Mechanical (HVAC & Lab Gases)", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 4, 6], "steps": ["Long-lead procurement — AHUs, fume cupboards, gas manifolds", "Ductwork & dedicated exhaust risers", "Pipework — lab gases & process piping", "Set air-handling units", "Fume-cupboard install & connect", "Gas manifold install & leak test", "Pressure-cascade balancing"] },
+    { "name": "Electrical & BMS", "disc": "Electrical", "kind": ["electrical", "bms"], "holds": [2, 5], "steps": ["Containment & cable pull", "Power distribution & standby/UPS", "BMS field devices & pressure sensors", "Point-to-point verification", "Integration & environmental-monitoring staging test", "Energise & function test"] },
+    { "name": "Plumbing", "disc": "Plumbing", "kind": ["mechanical"], "holds": [1], "steps": ["Domestic water & drainage first fix", "Acid-neutralisation drainage system", "RO/DI water supply where specified", "Lab-sink second fix", "Flow & leak test"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [1], "steps": ["Detection & alarm rough-in", "Suppression system compatible with lab hazards", "Cause-and-effect test", "Integration with BMS", "Fire-authority sign-off"] },
+    { "name": "Cleanroom / Containment Fit-out", "disc": "Architectural", "kind": ["civil"], "holds": [], "steps": ["Wall/ceiling/floor panel systems", "Airlocks & pass-throughs (where applicable)", "Sealant & finish integrity check", "Particulate/cleanliness test", "Snag & certify finish"] },
+    { "name": "Casework & Fit-out", "disc": "Architectural", "kind": ["civil"], "holds": [1], "steps": ["Lab casework & benches", "Fume-cupboard builder's work-in", "Joinery & general fit-out", "Signage & labelling", "Snagging"] },
+    { "name": "Validation & Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 3], "steps": ["Pre-functional checks by system", "Pressure-cascade & air-change (ACH) balancing", "IQ — installation qualification", "OQ — operational qualification", "PQ — performance qualification", "Certification & handover"] }
+  ],
+  "wbs": [
+    { "code": "LAB", "name": "Laboratory — Project", "level": 1 },
+    { "code": "LAB.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "LAB.02", "name": "Enabling & Structure", "level": 2 },
+    { "code": "LAB.02.10", "name": "Foundations & frame", "level": 3 },
+    { "code": "LAB.02.20", "name": "Plant-deck & structural provisions", "level": 3 },
+    { "code": "LAB.03", "name": "Building Envelope", "level": 2 },
+    { "code": "LAB.04", "name": "Mechanical — HVAC & Lab Gases", "level": 2 },
+    { "code": "LAB.04.10", "name": "Pressure-cascade AHUs & risers", "level": 3 },
+    { "code": "LAB.04.20", "name": "Fume cupboards", "level": 3 },
+    { "code": "LAB.04.20.10", "name": "Fume-cupboard install & connect", "level": 4 },
+    { "code": "LAB.04.30", "name": "Lab-gas manifolds", "level": 3 },
+    { "code": "LAB.05", "name": "Electrical & BMS", "level": 2 },
+    { "code": "LAB.05.10", "name": "Power distribution & standby/UPS", "level": 3 },
+    { "code": "LAB.05.20", "name": "BMS — pressure & environmental monitoring", "level": 3 },
+    { "code": "LAB.06", "name": "Plumbing & Drainage", "level": 2 },
+    { "code": "LAB.06.10", "name": "Acid-neutralisation drainage", "level": 3 },
+    { "code": "LAB.06.20", "name": "RO / DI water", "level": 3 },
+    { "code": "LAB.07", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "LAB.08", "name": "Cleanroom / Containment Fit-out", "level": 2 },
+    { "code": "LAB.09", "name": "Casework & Architectural Fit-out", "level": 2 },
+    { "code": "LAB.09.10", "name": "Lab casework & benches", "level": 3 },
+    { "code": "LAB.09.20", "name": "Joinery & finishes", "level": 3 },
+    { "code": "LAB.10", "name": "Validation, Testing & Commissioning", "level": 2 },
+    { "code": "LAB.10.10", "name": "Pressure-cascade & ACH balancing", "level": 3 },
+    { "code": "LAB.10.20", "name": "IQ / OQ / PQ validation", "level": 3 },
+    { "code": "LAB.10.30", "name": "Certification & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress; calculated by F9 with total float kept ≥ 0 in the baseline. Validation activities (IQ/OQ/PQ) are modelled as discrete, sequential activities, not folded into a single commissioning bar." },
+      { "heading": "Calendars & working time", "body": "Structure and envelope run a standard 6-day week; specialist HVAC and lab-gas installation often move to a controlled, reduced-dust calendar once cleanroom/containment fit-out starts; validation runs on a calendar built around equipment/room availability rather than a fixed duration." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs long-lead HVAC/fume-cupboard/gas-manifold procurement → structural plant-deck → ductwork/piping rough-in → specialist fit-out → pressure-cascade balancing → IQ/OQ/PQ validation → certification → handover. The building shell is rarely the constraint once weather-tight; validation is the true schedule risk." },
+      { "heading": "Key assumptions", "body": "The room-by-room pressure regime and air-change requirements are frozen before ductwork rough-in; specialist equipment (fume cupboards, gas manifolds) is ordered against a fixed design; a single validation authority/consultant is engaged for IQ/OQ/PQ sign-off." },
+      { "heading": "Procurement & long-lead items", "body": "Specialist HVAC and containment equipment are tracked as milestones and typically drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Fume cupboards", "12–20 weeks", "Before mechanical rough-in"], ["Lab-gas manifolds & panels", "10–16 weeks", "Before gas pipework connection"], ["Pressure-cascade AHUs", "16–24 weeks", "Before ductwork terminate"], ["Cleanroom panel systems (where applicable)", "8–14 weeks", "Before containment fit-out"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy rooftop/plant-deck equipment needs a crane window and confirmed structural capacity before it is ordered; cleanroom/containment fit-out needs clean, dust-controlled site conditions; validation specialists are a shared, scarce resource across the industry and should be booked well ahead." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-lead HVAC/fume-cupboard slippage, a failed pressure-cascade balance or IQ/OQ/PQ test requiring re-work, and late freezing of the room-pressure design forcing ductwork rework. Contingency is held before validation start and before certification." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1–2 to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the specialist-fit-out and validation phases — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

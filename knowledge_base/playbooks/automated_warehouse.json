@@ -1,0 +1,124 @@
+{
+  "archetype": "automated_warehouse",
+  "schema": 2,
+  "context": "automation-commissioning-led · super-flat slab drives everything above it",
+  "brief": {
+    "intro": "An automated high-bay warehouse looks like a simple steel shed from outside, but the building exists to serve a machine: the automated storage and retrieval system (ASRS) that moves pallets or totes in and out of very tall racking around the clock, with no forklifts. The real programme driver is not the envelope — it is getting a dead-flat concrete floor down first, because ASRS cranes run on rails to tolerances an ordinary industrial slab cannot hold. From there, the automation contractor needs a clean, exclusive floor to erect racking, install cranes and conveyors, and commission the controls software that drives them. A late slab, or a floor still open to other trades, pushes the whole automation-commissioning window — and that window, not the roof, is what actually sets opening day.",
+    "scope": [
+      { "name": "Enabling & earthworks", "desc": "Site clearance, sub-base preparation, piling where required." },
+      { "name": "Super-flat slab & foundations", "desc": "Laser-screeded slab to a defined-movement-area tolerance, plus rack-post and crane-rail foundations." },
+      { "name": "Structural steel / rack-clad structure", "desc": "Portal frame, or a rack-supported (rack-clad) structure where the racking itself carries the roof." },
+      { "name": "Building envelope", "desc": "Cladding, roofing, dock doors, insulation — getting the shell weather-tight." },
+      { "name": "Electrical power & containment", "desc": "Power distribution to cranes and conveyors, containment and cable routes through the high-bay." },
+      { "name": "Fire protection (ESFR)", "desc": "In-rack and ceiling early-suppression fast-response sprinklers sized for storage height and commodity class." },
+      { "name": "HVAC & building services", "desc": "Warehouse ventilation/smoke-venting, plus office and mezzanine HVAC." },
+      { "name": "Automation install (ASRS & conveyors)", "desc": "Racking, storage/retrieval cranes or shuttles, conveyors and sortation equipment." },
+      { "name": "Controls & WMS integration", "desc": "PLC/WCS controls wired into the warehouse management system that decides where every load goes." },
+      { "name": "Testing & commissioning", "desc": "Equipment run-in, controls integration, a loaded throughput/duty test, fire-suppression sign-off and handover." }
+    ],
+    "glossary": [
+      { "term": "ASRS", "plain": "automated cranes or shuttles that store and retrieve pallets or totes without a person driving." },
+      { "term": "Rack-clad (rack-supported) structure", "plain": "the storage racking is itself the building's structural frame, carrying the roof and cladding." },
+      { "term": "WMS", "plain": "the software that decides what goes where in the warehouse and instructs the automation." },
+      { "term": "WCS / PLC", "plain": "the control layer that turns WMS orders into physical crane and conveyor moves." },
+      { "term": "ESFR sprinklers", "plain": "early-suppression fast-response fire sprinklers sized for tall, dense storage." },
+      { "term": "Defined movement area (DMA) floor tolerance", "plain": "an extra-flat floor spec that ASRS rail-cranes need in order to run smoothly." },
+      { "term": "Duty / throughput test", "plain": "running the automation continuously at target load and speed to prove it holds up in service." }
+    ],
+    "must_get_right": [
+      "Slab flatness is a procurement and programme decision, not a QA line item — the tolerance and laser-screed method must be locked before the floor is poured, because reworking a high-bay slab after racking starts is close to impossible.",
+      "Hand the slab over clean and exclusive — automation subcontractors cannot install racking or lay crane rails on a floor still carrying other trades' traffic or protection boards.",
+      "ESFR fire suppression is height- and commodity-specific and sits inside the commissioning chain, not before racking exists — it cannot be finally tested until the racking it protects is in place.",
+      "Reserve real time for controls integration and a duty/throughput test — racking and equipment being physically in place is not the same as the automation working reliably at target speed."
+    ]
+  },
+  "components": [
+    { "name": "Structural Steel / Rack-Clad Structure", "desc": "Portal frame or rack-supported high-bay", "disc": "Structural", "primary": true },
+    { "name": "Super-Flat Slab & Foundations", "desc": "Laser-screeded slab · rack-post foundations", "disc": "Civil", "primary": true },
+    { "name": "Automated Storage & Retrieval (ASRS)", "desc": "Cranes/shuttles · racking · conveyors", "disc": "Automation", "primary": true },
+    { "name": "Controls & WMS Integration", "desc": "PLC/WCS · warehouse management system", "disc": "Controls", "primary": true },
+    { "name": "Electrical Power & Containment", "desc": "Power to cranes/conveyors · cable routes", "disc": "Electrical", "primary": false },
+    { "name": "Fire Protection (ESFR)", "desc": "In-rack & ceiling sprinklers sized to storage height", "disc": "Fire Protection", "primary": false },
+    { "name": "HVAC & Building Services", "desc": "Warehouse ventilation · office/mezzanine HVAC", "disc": "Mechanical", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Warehouse ventilation / smoke venting", "Office & mezzanine HVAC", "Dock leveller / door heaters (cold-storage variant)"] },
+    { "discipline": "Electrical", "items": ["Power distribution to cranes, conveyors, sortation", "Containment & cable routes through racking aisles", "High-bay & pick-face task lighting", "Standby/UPS for controls & safety systems"] },
+    { "discipline": "Fire & Life Safety", "items": ["ESFR in-rack & ceiling sprinklers", "Fire alarm & smoke detection", "Emergency lighting & egress"] },
+    { "discipline": "ELV / Automation Controls", "items": ["ASRS crane/shuttle controls network", "Conveyor & sortation controls", "WCS-to-WMS interface", "CCTV & access control"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Super-flat Slab", "Structural Steel", "Envelope", "Automation Install", "Controls Integration", "Commissioning"],
+  "sequence_chart": {
+    "phases": ["Enable", "Slab", "Structure", "Envelope", "Install", "Integrate", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Earthworks → super-flat slab → steel frame", "holds": [14] },
+      { "trade": "Electrical & Controls", "disc": "Electrical", "kind": ["electrical", "elv"], "start": 40, "width": 46, "label": "Power & containment → controls network → WMS interface", "holds": [58] },
+      { "trade": "Automation (ASRS/Conveyors)", "disc": "Mechanical", "kind": ["mechanical", "elv"], "start": 46, "width": 40, "label": "Racking → cranes/conveyors → duty test", "holds": [72] },
+      { "trade": "Fire Protection (ESFR)", "disc": "Fire Protection", "kind": ["fire"], "start": 50, "width": 28, "label": "In-rack/ceiling sprinklers → test", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Duty/throughput test → handover", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site clearance & earthworks", "Piling / sub-base preparation", "Super-flat slab — laser screed to DMA tolerance", "Rack-post & crane-rail foundations", "Portal frame / rack-clad structure erection", "Roof & cladding — weather-tight"] },
+    { "name": "Electrical Power & Containment", "disc": "Electrical", "kind": ["electrical"], "holds": [2], "steps": ["Incoming power & distribution design", "Containment routes through racking bays", "Cable pull to crane rails & conveyor drives", "High-bay & pick-face task lighting", "Point-to-point & insulation testing"] },
+    { "name": "ASRS & Material Handling", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3, 5], "steps": ["Equipment procurement — cranes/shuttles, conveyors, sortation", "Racking erection to structural tolerance", "Crane rail install & alignment", "Conveyor & sortation mechanical install", "No-load run-in per aisle", "Loaded run & throughput trial"] },
+    { "name": "Controls & WMS Integration", "disc": "Controls / ELV", "kind": ["elv", "bms"], "holds": [2, 4], "steps": ["PLC / WCS panel install & wiring", "Field device & sensor wiring", "Point-to-point verification per aisle", "WCS-to-WMS interface build & test", "Integrated controls staging test"] },
+    { "name": "Fire Protection (ESFR)", "disc": "Fire Protection", "kind": ["fire"], "holds": [3], "steps": ["In-rack sprinkler rough-in as racking rises", "Ceiling ESFR heads & mains", "Fire pump & water supply proving", "Hydraulic test & flush", "Cause-and-effect / discharge test"] },
+    { "name": "HVAC & Building Services", "disc": "Mechanical", "kind": ["mechanical"], "holds": [], "steps": ["Warehouse ventilation & smoke-venting install", "Office/mezzanine AHU & ductwork", "Diffusers & grilles — high-bay & offices", "Testing, adjusting & balancing (TAB)", "Controls handover"] },
+    { "name": "Testing & Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [3], "steps": ["Individual system FAT/SAT (crane, conveyor, sortation)", "Integrated controls staging", "No-load duty test", "Loaded throughput / soak test", "Fire suppression sign-off", "Reliability run → handover"] }
+  ],
+  "wbs": [
+    { "code": "AW", "name": "Automated High-Bay Warehouse — Project", "level": 1 },
+    { "code": "AW.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "AW.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "AW.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "AW.02.20", "name": "Super-Flat Slab & Foundations", "level": 3 },
+    { "code": "AW.02.20.10", "name": "Rack-post & crane-rail foundations", "level": 4 },
+    { "code": "AW.02.20.20", "name": "Slab — laser-screed to DMA tolerance", "level": 4 },
+    { "code": "AW.02.20.20.10", "name": "Floor flatness survey & sign-off", "level": 5 },
+    { "code": "AW.02.20.20.10.10", "name": "FM-2/DMA tolerance verification", "level": 6 },
+    { "code": "AW.03", "name": "Structural Steel / Rack-Clad Structure", "level": 2 },
+    { "code": "AW.04", "name": "Building Envelope", "level": 2 },
+    { "code": "AW.05", "name": "Electrical Power & Containment", "level": 2 },
+    { "code": "AW.05.10", "name": "Power distribution & containment", "level": 3 },
+    { "code": "AW.05.20", "name": "Lighting — high-bay & task", "level": 3 },
+    { "code": "AW.06", "name": "Fire Protection (ESFR)", "level": 2 },
+    { "code": "AW.06.10", "name": "In-rack sprinklers", "level": 3 },
+    { "code": "AW.06.20", "name": "Ceiling ESFR mains & heads", "level": 3 },
+    { "code": "AW.07", "name": "HVAC & Building Services", "level": 2 },
+    { "code": "AW.08", "name": "Automated Storage & Retrieval (ASRS)", "level": 2 },
+    { "code": "AW.08.10", "name": "Racking erection", "level": 3 },
+    { "code": "AW.08.20", "name": "Crane / shuttle install", "level": 3 },
+    { "code": "AW.08.20.10", "name": "Crane rail alignment", "level": 4 },
+    { "code": "AW.08.30", "name": "Conveyors & sortation", "level": 3 },
+    { "code": "AW.09", "name": "Controls & WMS Integration", "level": 2 },
+    { "code": "AW.09.10", "name": "PLC / WCS install", "level": 3 },
+    { "code": "AW.09.20", "name": "WCS-to-WMS interface", "level": 3 },
+    { "code": "AW.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "AW.10.10", "name": "Equipment FAT/SAT", "level": 3 },
+    { "code": "AW.10.20", "name": "Controls staging & integration", "level": 3 },
+    { "code": "AW.10.30", "name": "Duty / throughput test", "level": 3 },
+    { "code": "AW.10.40", "name": "Fire suppression sign-off", "level": 3 },
+    { "code": "AW.10.50", "name": "Reliability run & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week; the super-flat slab pour is scheduled as a continuous, weather-protected pour with no interruption once started; automation install and controls commissioning move to two shifts at peak to protect the throughput-test date." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs slab-tolerance sign-off → racking erection → crane/shuttle install & rail alignment → controls integration → duty/throughput test → handover. Structural steel and envelope are not on the critical path once the slab is handed over clean; automation install cannot start on a floor still open to other trades." },
+      { "heading": "Key assumptions", "body": "Rack layout, aisle widths and throughput targets are frozen before the slab is poured; the automation subcontractor's setting-out information is available in time to place rack-post foundations; a single, unobstructed mobilisation for automation plant; no change to storage height or commodity class after ESFR is designed." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on the automation equipment — tracked as milestones that drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["ASRS cranes / shuttles", "20–32 weeks", "Before racking complete"], ["Conveyors & sortation equipment", "16–24 weeks", "Before controls integration"], ["High-bay racking", "14–20 weeks", "Before slab handover"], ["ESFR sprinkler heads & valves", "10–16 weeks", "Before racking rises past first tier"]] } },
+      { "heading": "Access, resource & site constraints", "body": "The slab pour needs a large, uninterrupted weather window and a dedicated laser-screed crew; racking and automation installation need exclusive, clean access to the high-bay with no other trades working overhead; commissioning technicians for controls/WMS are a shared, specialist resource late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: slab-flatness rework, automation-equipment delivery slippage, and controls/WMS integration re-work loops. Contingency is held immediately before the duty/throughput test and before handover, not spread across early civil activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

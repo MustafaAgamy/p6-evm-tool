@@ -1,0 +1,120 @@
+{
+  "archetype": "bus_depot",
+  "schema": 2,
+  "context": "civil-pavement-led · workshop & fuelling/EV-charging systems overlay the paved yard",
+  "brief": {
+    "intro": "New to this project type? A bus depot or transport hub is fundamentally a large paved yard for bus circulation, parking and washing, with a smaller building block — maintenance workshops, fuelling or EV-charging infrastructure, and admin — sitting inside it. Progress is measured across two very different fronts at once: hectares of heavy-duty pavement and drainage across the yard, and a workshop/systems fit-out with real MEP content (workshop pits and lifts, fuelling or EV-charging equipment, wash-bay water recycling). Its acceptance test is entirely operational — a bus has to be able to fuel or charge, wash and be serviced end-to-end before handover, not just look complete.",
+    "scope": [
+      { "name": "Enabling & earthworks", "desc": "Site clearance, bulk earthworks and subgrade preparation across the yard." },
+      { "name": "Bus-circulation pavement & drainage", "desc": "Heavy-duty pavement designed for repeated bus loading, plus yard drainage and oil/water interceptors." },
+      { "name": "Workshop & maintenance building", "desc": "Structure, workshop bays and in-ground or hydraulic service pits/lifts." },
+      { "name": "Admin & driver-welfare building", "desc": "Offices, canteen and driver facilities." },
+      { "name": "Fuelling or EV-charging infrastructure", "desc": "Fuel tanks/dispensers, or EV-charger foundations and a high-capacity power feed." },
+      { "name": "Electrical power", "desc": "Normal distribution plus the high-capacity supply that fuelling or EV-charging equipment needs." },
+      { "name": "Mechanical / HVAC", "desc": "Workshop fume extraction and admin comfort cooling." },
+      { "name": "Bus-wash facility", "desc": "Wash bay with water-recycling and filtration to reduce fresh-water use." },
+      { "name": "Fire protection & fuel safety systems", "desc": "Fire-fighting for fuel storage and workshop suppression systems." },
+      { "name": "Testing & commissioning", "desc": "Workshop equipment, fuelling/EV-charging, and wash & drainage-interceptor commissioning." }
+    ],
+    "glossary": [
+      { "term": "Bus-circulation pavement", "plain": "the heavy-duty paved yard designed for repeated bus loading, not ordinary car-park pavement." },
+      { "term": "Oil/water interceptor", "plain": "a drainage chamber that traps fuel/oil before yard water reaches the storm system." },
+      { "term": "Workshop pit / lift", "plain": "an in-ground or hydraulic platform letting mechanics work underneath a bus." },
+      { "term": "EV charger foundation & power feed", "plain": "the civil base and the high-capacity electrical supply a bus charger needs — often larger than the rest of the depot's normal load." },
+      { "term": "Fuel dispenser / bulk tank", "plain": "the pumps and underground or aboveground storage used for diesel or CNG refuelling." },
+      { "term": "Bus-wash water recycling", "plain": "reclaiming and filtering wash water for reuse instead of continuous fresh-water use." },
+      { "term": "Depot management system", "plain": "software that schedules which bay, charger or pump each bus uses." }
+    ],
+    "must_get_right": [
+      "The paved yard (circulation, parking, drainage) is the largest-quantity item on the job — get the pavement design and interceptor drainage right before workshop and systems fit-out compete for the same space.",
+      "Fuelling or EV-charging infrastructure usually needs a much larger utility/power feed than the rest of the depot combined — start that utility application early; it can dominate the critical path.",
+      "Treat operational commissioning (a bus actually fuels or charges, washes and is serviced end-to-end) as the real acceptance test, not practical completion of the buildings."
+    ]
+  },
+  "components": [
+    { "name": "Bus-Circulation Pavement & Drainage", "desc": "Heavy-duty pavement · yard drainage · interceptors", "disc": "Civil", "primary": true },
+    { "name": "Workshop & Maintenance Building", "desc": "Structure · workshop bays · pits/lifts", "disc": "Structural", "primary": true },
+    { "name": "Fuelling / EV-Charging Infrastructure", "desc": "Tanks/dispensers or chargers · foundations · power feed", "disc": "Electrical", "primary": true },
+    { "name": "Electrical Power", "desc": "Normal + high-capacity supply for charging/fuel systems", "disc": "Electrical", "primary": true },
+    { "name": "Mechanical / HVAC", "desc": "Workshop fume extraction · admin comfort cooling", "disc": "Mechanical", "primary": false },
+    { "name": "Bus-Wash Facility", "desc": "Wash bay · water recycling & filtration", "disc": "Mechanical", "primary": false },
+    { "name": "Fire & Fuel Safety Systems", "desc": "Fuel-storage fire-fighting · workshop suppression", "disc": "Fire Protection", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Workshop fume/exhaust extraction", "Admin/workshop HVAC & comfort cooling", "Bus-wash water-recycling & filtration", "Compressed-air system for workshop tools"] },
+    { "discipline": "Electrical", "items": ["Normal power distribution", "High-capacity feed for EV-charging or fuel-system pumps", "Yard & workshop lighting", "Earthing & bonding"] },
+    { "discipline": "Utility Piping", "items": ["Fuel dispensing pipework & bulk storage (diesel/CNG)", "Yard drainage & oil/water interceptors", "Domestic water & drainage"] },
+    { "discipline": "ELV / ICT · Fire · BMS", "items": ["CCTV & access control across the yard", "Fire alarm & fuel-storage fire-fighting", "Depot management system tie-in", "Structured cabling"] }
+  ],
+  "overview_phases": ["Enabling & Earthworks", "Bus-Circulation Pavement & Drainage", "Workshop & Admin Structure", "Envelope & Fit-out", "MEP Rough-in", "Fuelling/EV-Charging Install", "Systems Integration", "Testing & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Earthwks", "Pavement", "Structure", "Rough-in", "Fuel/EV", "Systems", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Pavement & Drainage", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 65, "label": "Earthworks → subgrade → pavement → drainage/interceptors", "holds": [35] },
+      { "trade": "Structure / Workshop & Admin", "disc": "Structural", "kind": ["civil"], "start": 15, "width": 40, "label": "Foundations → frame → envelope", "holds": [] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 35, "width": 50, "label": "Containment → high-capacity feed → distribution → terminate", "holds": [60, 80] },
+      { "trade": "Mechanical / Utility Piping", "disc": "Mechanical", "kind": ["mechanical"], "start": 40, "width": 42, "label": "Fuel pipework/tanks or charger install → wash-water system", "holds": [65] },
+      { "trade": "Fire & Fuel Safety", "disc": "Fire Protection", "kind": ["fire"], "start": 55, "width": 28, "label": "Fire-fighting rough-in → fuel-system interlock test", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Workshop/fuelling/EV-charging → wash-interceptor test", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Earthworks & Pavement", "disc": "Civil", "kind": ["civil"], "holds": [2, 3], "steps": ["Site clearance & bulk earthworks", "Subgrade preparation & compaction", "Bus-circulation pavement construction (sub-base/base/surfacing)", "Yard drainage & oil/water interceptors", "Line marking & bus-stop/bay marking"] },
+    { "name": "Structure — Workshop & Admin", "disc": "Structural", "kind": ["civil"], "holds": [1], "steps": ["Foundations & pile caps", "Structural frame — workshop & admin blocks", "Workshop pit / lift civil provisions", "Roof & envelope — weather-tight", "Internal partitions & admin finishes"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Containment & cable routes", "High-capacity utility feed for EV-charging/fuel systems", "Normal power distribution", "Yard & workshop lighting", "Load testing & energisation"] },
+    { "name": "Mechanical & Utility Piping", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 2], "steps": ["Fuel dispensing pipework & bulk storage installation (or EV-charger equipment set)", "Workshop fume/exhaust extraction", "Bus-wash bay & water-recycling system", "Compressed-air system installation", "Flush, fill & functional test"] },
+    { "name": "Fire & Fuel Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [2], "steps": ["Fire alarm detection rough-in", "Fire pump & hydrant installation", "Fuel-storage fire-fighting system installation", "Workshop suppression system", "Cause-and-effect & discharge test"] },
+    { "name": "ELV / Depot Systems", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [3], "steps": ["CCTV & access-control containment routes", "CCTV camera & access-control device installation", "Structured cabling", "Depot management system tie-in", "Point-to-point & functional test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 2], "steps": ["Workshop equipment commissioning", "Fuelling / EV-charging commissioning", "Bus-wash & drainage-interceptor test", "Depot management system integration test", "Handover to operator"] }
+  ],
+  "wbs": [
+    { "code": "BD", "name": "Bus Depot — Project", "level": 1 },
+    { "code": "BD.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "BD.02", "name": "Site & Earthworks", "level": 2 },
+    { "code": "BD.02.10", "name": "Site Clearance & Bulk Earthworks", "level": 3 },
+    { "code": "BD.02.20", "name": "Subgrade Preparation", "level": 3 },
+    { "code": "BD.03", "name": "Bus-Circulation Pavement & Drainage", "level": 2 },
+    { "code": "BD.03.10", "name": "Pavement Construction", "level": 3 },
+    { "code": "BD.03.20", "name": "Yard Drainage & Interceptors", "level": 3 },
+    { "code": "BD.03.20.10", "name": "Oil/Water Interceptor Install", "level": 4 },
+    { "code": "BD.04", "name": "Workshop & Admin Structure", "level": 2 },
+    { "code": "BD.04.10", "name": "Foundations & Frame", "level": 3 },
+    { "code": "BD.04.20", "name": "Workshop Pits/Lifts", "level": 3 },
+    { "code": "BD.05", "name": "Building Envelope", "level": 2 },
+    { "code": "BD.06", "name": "Mechanical — Workshop & Utility Piping", "level": 2 },
+    { "code": "BD.06.10", "name": "Fume Extraction & HVAC", "level": 3 },
+    { "code": "BD.06.20", "name": "Bus-Wash & Water Recycling", "level": 3 },
+    { "code": "BD.07", "name": "Fuelling / EV-Charging Infrastructure", "level": 2 },
+    { "code": "BD.07.10", "name": "Tanks/Dispensers or Charger Equipment", "level": 3 },
+    { "code": "BD.07.20", "name": "High-Capacity Power Feed", "level": 3 },
+    { "code": "BD.08", "name": "Electrical — Power", "level": 2 },
+    { "code": "BD.08.10", "name": "Distribution & Lighting", "level": 3 },
+    { "code": "BD.09", "name": "Fire & Fuel Safety", "level": 2 },
+    { "code": "BD.10", "name": "ELV / Depot Systems", "level": 2 },
+    { "code": "BD.10.10", "name": "CCTV & Access Control", "level": 3 },
+    { "code": "BD.10.20", "name": "Depot Management System", "level": 3 },
+    { "code": "BD.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "BD.11.10", "name": "Workshop & Fuelling/EV-Charging Commissioning", "level": 3 },
+    { "code": "BD.11.20", "name": "Wash & Drainage-Interceptor Test", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are coded by yard zone/chainage so pavement progress is tracked by area alongside the building-block activities. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Earthworks and pavement run an extended, weather-dependent calendar (asphalt paving further restricted by minimum ambient/surface temperature); workshop and admin structure/MEP run a standard calendar; fuelling/EV-charging installation and commissioning follows the utility provider's own outage/connection windows." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path usually runs the high-capacity utility feed application/approval (for EV-charging or bulk fuel supply) in parallel with bulk earthworks and pavement, converging at fuelling/EV-charging equipment installation → systems integration → operational commissioning → handover. Workshop and admin structure typically have float relative to the pavement and utility-feed fronts." },
+      { "heading": "Key assumptions", "body": "Design and approvals are frozen per zone; the utility company has confirmed capacity and connection date for the high-capacity feed; borrow/spoil arrangements are secured for bulk earthworks; a single mobilisation; if the depot is operational during works, phased handover of yard zones is coordinated with operations. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is driven by the fuelling/EV-charging supply chain and the utility feed. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["EV charger units / transformer upgrade (or fuel tanks & dispensers)", "20–36 weeks", "Before equipment installation"], ["High-capacity utility supply — approval & connection", "16–30 weeks", "Before charger/fuel-system energisation"], ["Workshop lifts / pits equipment", "10–16 weeks", "Before workshop fit-out"], ["Bus-wash water-recycling plant", "8–14 weeks", "Before wash-bay commissioning"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Haul-road access and asphalt-plant capacity govern pavement pace; the utility company's own programme for the high-capacity feed is a hard external constraint; if buses continue to operate from the depot during works, phased lane and bay closures limit which zones can be worked at once." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: delay to the high-capacity utility feed, weather stopping earthworks or paving, and fuel-system/EV-charging permitting delays. Schedule contingency is held around the utility-feed milestone and again ahead of operational commissioning, rather than spread thinly across the network." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

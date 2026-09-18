@@ -1,0 +1,125 @@
+{
+  "archetype": "theme_park",
+  "schema": 2,
+  "context": "ride-safety-commissioning-led · phased delivery across an extensive, master-planned site",
+  "brief": {
+    "intro": "New to this project type? A theme park or entertainment complex is less a single building and more a small city: extensive site-wide infrastructure — roads, drainage, utilities, water features — threading between dozens of individually procured rides, themed structures, and food & beverage or retail buildings, usually delivered in phases so parts of the park can open while others are still under construction. Each ride is really its own specialist project: supplied, and often installed and commissioned, by its own manufacturer under structural and electrical/control interfaces the main contractor has to provide at exactly the right time. The programme's real discipline is phased-zone delivery and ride-by-ride interface management, not one continuous build. And the finish line for every ride is not construction completion but a formal ride-safety commissioning and independent inspection-authority certification — that regulatory gate, not the last coat of paint, decides when a zone can actually open to the public.",
+    "scope": [
+      { "name": "Enabling & site-wide infrastructure", "desc": "Earthworks, roads, drainage, utilities and water features threading across the whole site." },
+      { "name": "Ride foundations & structural interfaces", "desc": "Foundations and structural tie-ins for each ride package, sized and positioned to the manufacturer's specification." },
+      { "name": "Themed structures & show sets", "desc": "The decorative architecture and scenery built around each ride or attraction to create its theme." },
+      { "name": "F&B / retail buildings", "desc": "Restaurants, kiosks and shops distributed through the park." },
+      { "name": "Back-of-house support buildings", "desc": "Maintenance, storage and staff facilities, usually built early to support later ride installation." },
+      { "name": "Electrical power distribution", "desc": "Site-wide substations and MV/LV distribution, plus each ride's dedicated power and control interface." },
+      { "name": "Mechanical — water features & utilities", "desc": "Pumping, filtration and treatment plant serving water rides, fountains and other water features." },
+      { "name": "Fire & life safety across the site", "desc": "Site-wide fire-water network, alarm and suppression across themed structures and back-of-house buildings." },
+      { "name": "Ride installation & OEM commissioning", "desc": "Manufacturer-led delivery, installation and functional testing of each ride package." },
+      { "name": "Testing, ride-safety certification & phased handover", "desc": "Independent safety-authority inspection and a zone-by-zone public-opening readiness process." }
+    ],
+    "glossary": [
+      { "term": "Ride package", "plain": "a ride bought as a complete system from a specialist manufacturer, including its own structure, control system and installation/commissioning team." },
+      { "term": "OEM commissioning", "plain": "the ride manufacturer's own testing and sign-off process, coordinated with — but separate from — the main contractor's schedule." },
+      { "term": "Themed structure / show set", "plain": "the decorative architecture and scenery built around a ride or attraction to create its theme." },
+      { "term": "Phased opening / zone", "plain": "a defined area of the park handed over and opened to the public while other zones are still under construction." },
+      { "term": "Ride-safety certification", "plain": "formal inspection and sign-off by an independent safety authority before a ride can carry the public." },
+      { "term": "Show-control system", "plain": "the centralised control network synchronising ride motion, audio, lighting and effects." },
+      { "term": "Back-of-house (BOH)", "plain": "the maintenance, storage and staff areas supporting park operations, usually built early to support later ride install." }
+    ],
+    "must_get_right": [
+      "Each ride is effectively its own sub-project supplied and commissioned by a specialist OEM — build their delivery/installation/commissioning windows into the master schedule as named interfaces, not generic activities.",
+      "Ride-safety certification by an independent inspection authority, not construction completion, is the real gate to opening — protect real time for it and for re-inspections.",
+      "Site-wide infrastructure (roads, utilities, drainage) must be substantially complete ahead of each phase/zone, because later zones depend on it — sequence phases around infrastructure readiness, not the reverse.",
+      "Themed structures and show sets are often on the critical path to a ride's opening just as much as the ride itself — coordinate their finishing with ride installation, not after it."
+    ]
+  },
+  "components": [
+    { "name": "Site-Wide Infrastructure", "desc": "Roads · drainage · utilities · water features", "disc": "Civil", "primary": true },
+    { "name": "Ride Foundations & Structural Interfaces", "desc": "Per-ride foundations and structural tie-ins", "disc": "Structural", "primary": true },
+    { "name": "Electrical Power Distribution", "desc": "Site-wide substations · ride-specific power & control", "disc": "Electrical", "primary": true },
+    { "name": "Themed Structures & Show Sets", "desc": "Decorative architecture and scenery per attraction", "disc": "Architectural", "primary": false },
+    { "name": "Water Features & Specialty Systems", "desc": "Pumping, filtration & water-ride plant", "disc": "Mechanical", "primary": false },
+    { "name": "Fire & Life Safety", "desc": "Site-wide fire-water network · alarm · suppression", "disc": "Fire Protection", "primary": false },
+    { "name": "Ride Installation & OEM Commissioning", "desc": "Manufacturer-led install, alignment & sign-off", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Water-feature & water-ride pumping, filtration and treatment plant", "Ride hydraulic / pneumatic systems (OEM-supplied)", "Back-of-house HVAC for maintenance & F&B buildings"] },
+    { "discipline": "Electrical", "items": ["Site-wide MV/LV distribution & substations", "Ride-specific power supplies & control-panel interfaces", "Site, pathway & feature lighting"] },
+    { "discipline": "Plumbing / Utilities", "items": ["Site-wide potable water, drainage & irrigation networks", "F&B / retail building wet services", "Water-feature make-up and treatment systems"] },
+    { "discipline": "ELV / Fire / Show Control", "items": ["Fire alarm & suppression across themed structures and back-of-house buildings", "Show-control network — ride/audio/lighting/effects synchronisation", "CCTV, access control & guest-flow systems"] }
+  ],
+  "overview_phases": ["Enabling & Site-Wide Infrastructure", "Ride Foundations & Structural Interfaces", "Themed Structures & F&B/Retail Shells", "MEP Rough-in & Water Features", "Ride Installation (OEM)", "Fire & Life-Safety Integration", "Ride Commissioning & Certification", "Phased Zone Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Foundations", "Structures", "Rough-in", "Ride Install", "Life-Safety", "Cert."],
+    "lanes": [
+      { "trade": "Civil / Site Infrastructure & Structures", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 42, "label": "Earthworks → roads/drainage/utilities → ride foundations → themed structures & F&B shells", "holds": [20] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 20, "width": 55, "label": "Substations → site distribution → ride power interfaces → energise", "holds": [58, 80] },
+      { "trade": "Mechanical / Water Features", "disc": "Mechanical", "kind": ["mechanical"], "start": 26, "width": 45, "label": "Pumping/filtration plant → water-feature pipework → balance", "holds": [60] },
+      { "trade": "Ride Installation (OEM)", "disc": "Mechanical", "kind": ["mechanical"], "start": 46, "width": 34, "label": "Ride delivery → OEM install → alignment → load test", "holds": [70] },
+      { "trade": "Fire / ELV / Show Control", "disc": "Fire Protection", "kind": ["fire", "elv"], "start": 50, "width": 34, "label": "Devices → show-control network → integrate", "holds": [78] },
+      { "trade": "Commissioning & Certification", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "OEM commissioning → safety-authority certification → opening", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Site Infrastructure & Structures", "disc": "Civil", "kind": ["civil"], "holds": [2, 4], "steps": ["Site-wide earthworks, roads & drainage", "Utilities & duct-bank distribution across the site", "Ride & structural foundations (per package)", "Themed structures & show-set steelwork/finishes", "F&B / retail building shells", "Back-of-house support buildings"] },
+    { "name": "Electrical Power Distribution", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Site-wide MV/LV substations & distribution", "Containment routes across zones", "Ride-specific power supplies & control-panel interfaces", "Site, pathway & feature lighting", "Energise & test per zone"] },
+    { "name": "Mechanical / Water Features", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 3], "steps": ["Long-lead procurement — pumps, filtration & water-treatment plant", "Water-feature and water-ride pipework", "Set pumps & filtration plant", "Back-of-house HVAC install", "Flush, balance & commission water systems"] },
+    { "name": "Ride Installation (OEM)", "disc": "Mechanical", "kind": ["mechanical", "comm"], "holds": [0, 3], "steps": ["Ride procurement & manufacturer contract award (long-lead)", "Ride delivery & OEM installation team mobilisation", "Structural & electrical interface tie-in", "Ride alignment, mechanical test & no-load run", "OEM functional & load testing"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [2], "steps": ["Fire alarm & suppression rough-in across themed structures & back-of-house", "Fire-hydrant & site-wide fire-water network", "Cause-and-effect programming", "Site-wide fire system integration test", "Fire-authority inspection & sign-off"] },
+    { "name": "ELV / Show Control", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [2, 4], "steps": ["Structured cabling & show-control network backbone", "Guest Wi-Fi / connectivity backbone installation", "CCTV, access control & guest-flow systems", "Show-control programming — ride/audio/lighting/effects sync", "Integration testing with ride control systems"] },
+    { "name": "Ride Commissioning & Certification", "disc": "Commissioning", "kind": ["comm"], "holds": [2], "steps": ["OEM ride commissioning & manufacturer sign-off", "Independent ride-safety authority inspection", "Site-wide life-safety & show-control integration test", "Phased zone handover & public-opening readiness", "Punch-list closeout & final documentation handover"] }
+  ],
+  "wbs": [
+    { "code": "TPK", "name": "Theme Park / Entertainment Complex — Project", "level": 1 },
+    { "code": "TPK.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "TPK.02", "name": "Site-Wide Infrastructure", "level": 2 },
+    { "code": "TPK.02.10", "name": "Earthworks, Roads & Drainage", "level": 3 },
+    { "code": "TPK.02.20", "name": "Site-Wide Utilities & Duct Banks", "level": 3 },
+    { "code": "TPK.03", "name": "Ride Foundations & Structural Interfaces", "level": 2 },
+    { "code": "TPK.03.10", "name": "Ride Package Foundations (per attraction)", "level": 3 },
+    { "code": "TPK.04", "name": "Themed Structures & Show Sets", "level": 2 },
+    { "code": "TPK.05", "name": "F&B / Retail Buildings", "level": 2 },
+    { "code": "TPK.06", "name": "Back-of-House Support Buildings", "level": 2 },
+    { "code": "TPK.07", "name": "Electrical — Power Distribution", "level": 2 },
+    { "code": "TPK.07.10", "name": "Site-Wide Substations & MV/LV Distribution", "level": 3 },
+    { "code": "TPK.07.20", "name": "Ride-Specific Power & Control Interfaces", "level": 3 },
+    { "code": "TPK.07.30", "name": "Site, Pathway & Feature Lighting", "level": 3 },
+    { "code": "TPK.08", "name": "Mechanical — Water Features & Utilities", "level": 2 },
+    { "code": "TPK.08.10", "name": "Pumping, Filtration & Water Treatment Plant", "level": 3 },
+    { "code": "TPK.08.20", "name": "Water Feature / Water Ride Pipework", "level": 3 },
+    { "code": "TPK.09", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "TPK.09.10", "name": "Site-Wide Fire-Water Network", "level": 3 },
+    { "code": "TPK.09.20", "name": "Fire Alarm & Suppression", "level": 3 },
+    { "code": "TPK.10", "name": "ELV / Show Control", "level": 2 },
+    { "code": "TPK.10.10", "name": "Show-Control Network & Programming", "level": 3 },
+    { "code": "TPK.11", "name": "Ride Installation (OEM)", "level": 2 },
+    { "code": "TPK.11.10", "name": "Ride Delivery & OEM Install (per package)", "level": 3 },
+    { "code": "TPK.11.10.10", "name": "Structural & electrical interface tie-in", "level": 4 },
+    { "code": "TPK.11.20", "name": "Ride Alignment & No-Load Test", "level": 3 },
+    { "code": "TPK.12", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "TPK.12.10", "name": "OEM Ride Commissioning & Sign-off", "level": 3 },
+    { "code": "TPK.12.20", "name": "Independent Ride-Safety Certification", "level": 3 },
+    { "code": "TPK.12.30", "name": "Site-Wide Integration Test", "level": 3 },
+    { "code": "TPK.13", "name": "Phased Zone Handover", "level": 2 },
+    { "code": "TPK.13.10", "name": "Zone-by-Zone Public-Opening Readiness", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Each ride package and each phased opening zone is modelled as its own sub-network so ride-by-ride and zone-by-zone progress can be reported independently of the site-wide programme." },
+      { "heading": "Calendars & working time", "body": "Site-wide civil and infrastructure works run a 6-day week; ride installation follows each OEM's own crew calendar, often overlapping and competing for crane/access windows; commissioning and certification run against the availability of the independent ride-safety inspection authority rather than a fixed calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs site-wide infrastructure & ride foundations → themed structures/F&B shells in parallel → MEP rough-in & water features → ride OEM installation → fire/life-safety & show-control integration → OEM ride commissioning → independent ride-safety certification → phased zone handover. A slipping ride delivery cascades directly into its zone's opening date." },
+      { "heading": "Key assumptions", "body": "Ride manufacturer contracts are awarded early enough to meet each OEM's installation window; phased zone boundaries are agreed and site logistics support live construction adjacent to already-open zones; themed-structure design is frozen ahead of ride interface finalisation; mobilisation is phased to match zone sequencing." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is ride-procurement-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Major thrill-ride packages", "52–78 weeks", "Before ride foundation close-out"], ["Family / flat-ride packages", "26–40 weeks", "Before ride foundation close-out"], ["Show-control system & AV/effects package", "20–30 weeks", "Before show-control integration"], ["Water-feature pumping / filtration plant", "16–24 weeks", "Before water-feature commissioning"], ["Structural steel for themed structures", "20–30 weeks", "Before show-set finishing"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Construction proceeds in phases adjacent to live, publicly-open park zones, requiring public-safety segregation hoarding and restricted delivery routes. Multiple ride-manufacturer OEM installation teams compete for the same crane and access windows, and specialist show-control and ride-safety commissioning engineers are shared and scarce late in each phase." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: ride-manufacturer delivery slippage cascading into a whole zone's opening date, ride-safety authority inspection scheduling outside the contractor's control, and interface changes between ride-OEM design and structural/electrical provisions. Schedule contingency is held before OEM commissioning and before ride-safety certification for each zone, rather than spread across trades." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones per phase/zone opening date) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead per ride package and per building — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

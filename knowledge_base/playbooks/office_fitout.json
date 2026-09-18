@@ -1,0 +1,126 @@
+{
+  "archetype": "office_fitout",
+  "schema": 2,
+  "context": "fast-track finishing & MEP-led · shell-and-core interface · snagging-heavy",
+  "brief": {
+    "intro": "An office or commercial interior fit-out builds inside a shell your client doesn't own the structure of — the landlord has already delivered the base building (structure, façade, core, lifts and risers), and your scope is everything inside it: partitions, ceilings, raised floor, finishes, MEP terminal units and furniture. New to this type? The programme is not driven by construction difficulty but by two things — how fast a frozen interior design turns into ordered long-lead furniture and joinery, and how much the landlord's approval process (technical review, permits, work-hour restrictions in an occupied building) adds to the front end. Fit-outs are almost always fast-track and compressed against a lease or move-in date, so the finishing-to-MEP interface must be resolved early rather than discovered as clashes later. Because the space is fully visible and often sits beside occupied neighbours, quality control and snagging carry more weight per square metre than on a new building shell.",
+    "scope": [
+      { "name": "Landlord interface & permits", "desc": "Shell & core handover survey, landlord technical approval (NOC) process, site logistics in an occupied building." },
+      { "name": "Strip-out & demolition", "desc": "Removing any existing fit-out and exposing the shell for the new layout." },
+      { "name": "Partitions & ceilings", "desc": "Drywall/glazed partitions and a suspended ceiling grid and tiles to the new layout." },
+      { "name": "Raised access floor & floor finishes", "desc": "Pedestal raised floor, carpet tile/vinyl and wall finishes." },
+      { "name": "MEP fit-out", "desc": "HVAC terminal units, electrical containment and power, tied into base-building risers and plant capacity." },
+      { "name": "Fire & life safety integration", "desc": "Sprinkler head relocation and fire alarm devices tied into the base-building system." },
+      { "name": "ELV / ICT", "desc": "Structured cabling, comms room, access control and AV." },
+      { "name": "Joinery & FF&E", "desc": "Reception, pantry, custom joinery and furniture install." },
+      { "name": "Testing, balancing & commissioning", "desc": "MEP testing and balancing to the new zoning." },
+      { "name": "Snagging & landlord sign-off", "desc": "De-snag and practical completion / handover to the tenant." }
+    ],
+    "glossary": [
+      { "term": "Shell & core", "plain": "the base building the landlord hands over — structure, façade, lifts and riser capacity, but no interior fit-out." },
+      { "term": "CAT A / CAT B", "plain": "CAT A is the landlord's baseline fit-out (ceiling grid, raised floor, basic MEP); CAT B is the tenant's full fit-out — partitions, finishes, furniture — which is this project." },
+      { "term": "NOC", "plain": "\"No Objection Certificate\" — the landlord's written approval needed before certain works, especially MEP tie-ins, can proceed." },
+      { "term": "VAV / FCU", "plain": "variable-air-volume box / fan-coil unit — the terminal unit in the ceiling that delivers conditioned air to a zone." },
+      { "term": "Raised access floor (RAF)", "plain": "a floor built on pedestals above the structural slab, so power and data cabling run underneath it." },
+      { "term": "Base-building system", "plain": "the landlord's building-wide system (fire alarm, BMS, risers) that the fit-out taps into rather than replaces." },
+      { "term": "Snagging / de-snag", "plain": "recording, then closing out, defects before handover." },
+      { "term": "Practical completion", "plain": "the point the space is handed over fit for occupation, snag list notwithstanding." }
+    ],
+    "must_get_right": [
+      "Confirm the shell & core handover condition and the landlord's approval (NOC) process before design freeze — waiting on landlord sign-off, not construction, is the classic early delay.",
+      "Size the MEP fit-out against base-building capacity (chilled water, power, floor loading, riser space) before ordering — exceeding it forces a redesign mid-programme.",
+      "Order long-lead furniture, joinery and specialist finishes against a frozen design, not the move-in date — late design changes are the single biggest schedule risk on a fit-out.",
+      "Protect real time for MEP testing/balancing and snagging at the end — fast-track programmes compress this first, and it shows at handover."
+    ]
+  },
+  "components": [
+    { "name": "Partitions & Ceilings", "desc": "Drywall/glazed partitions · suspended ceiling grid", "disc": "Architectural", "primary": true },
+    { "name": "Mechanical (HVAC Fit-out)", "desc": "VAV/FCU terminal units tied to base-building plant", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical & Lighting", "desc": "Power, containment, lighting & controls", "disc": "Electrical", "primary": true },
+    { "name": "Raised Floor & Finishes", "desc": "RAF · carpet/vinyl · wall finishes", "disc": "Architectural", "primary": false },
+    { "name": "Fire & Life Safety", "desc": "Sprinkler relocation · alarm devices tied to base-building", "disc": "Fire Protection", "primary": false },
+    { "name": "ELV / ICT", "desc": "Structured cabling · access control · AV", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "Joinery & FF&E", "desc": "Reception · pantry · custom joinery · furniture", "disc": "Joinery", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["VAV boxes / FCUs tied into base-building chilled water or VRF", "Ductwork distribution & diffusers to the new layout", "Testing, adjusting & balancing (TAB) to new zoning"] },
+    { "discipline": "Electrical", "items": ["Small power & lighting containment to the new layout", "Lighting fixtures & controls — occupancy/daylight sensing", "Distribution boards tied into base-building supply", "Comms-room / UPS power where required"] },
+    { "discipline": "Fire / ELV / BMS", "items": ["Sprinkler head relocation to the new ceiling layout", "Fire alarm devices tied into the base-building system & cause-and-effect update", "Structured cabling, access control & CCTV", "AV and meeting-room technology"] }
+  ],
+  "overview_phases": ["Landlord approvals & strip-out", "Partitions & ceilings", "MEP first fix", "Raised floor & finishes", "MEP second fix & devices", "Joinery & FF&E install", "Testing & balancing", "Snagging & handover"],
+  "sequence_chart": {
+    "phases": ["Approve", "Strip-out", "Partitions", "1st Fix", "Finishes", "2nd Fix", "Snag"],
+    "lanes": [
+      { "trade": "Partitions & Ceilings", "disc": "Architectural", "kind": ["civil"], "start": 8, "width": 38, "label": "Strip-out → partitions → ceiling grid", "holds": [20] },
+      { "trade": "Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "start": 20, "width": 48, "label": "Ductwork → VAV/FCU set → balance", "holds": [55] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 24, "width": 52, "label": "Containment → devices → energise", "holds": [60] },
+      { "trade": "Fire & ELV", "disc": "Extra-Low Voltage", "kind": ["elv", "fire"], "start": 38, "width": 42, "label": "Cabling → sprinkler/alarm devices → integrate", "holds": [] },
+      { "trade": "Joinery & FF&E", "disc": "Joinery", "kind": ["civil"], "start": 55, "width": 30, "label": "Custom joinery → furniture install", "holds": [78] },
+      { "trade": "Testing & Snagging", "disc": "Commissioning", "kind": ["comm"], "start": 82, "width": 18, "label": "TAB → snag → de-snag → handover", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Landlord Interface & Strip-out", "disc": "Architectural", "kind": ["civil"], "holds": [1], "steps": ["Shell & core handover survey", "Landlord technical approval (NOC) submission", "Hoarding & protection of common areas", "Strip-out of existing fit-out", "Site logistics setup in an occupied building"] },
+    { "name": "Partitions & Ceilings", "disc": "Architectural", "kind": ["civil"], "holds": [2], "steps": ["Setting-out to approved design", "Drywall / glazed partition framing", "Suspended ceiling grid", "Ceiling tiles & bulkheads", "Paint & wall finishes"] },
+    { "name": "Mechanical (HVAC Fit-out)", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 4], "steps": ["Long-lead VAV/FCU & diffuser procurement", "Tie-in to base-building chilled water/VRF riser", "Ductwork distribution to new layout", "Diffusers & grilles to ceiling design", "Testing, adjusting & balancing (TAB)"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 3], "steps": ["Long-lead switchgear/lighting procurement", "Containment & cable pull to new layout", "Distribution board tie-in to base-building supply", "Lighting fixtures & control devices", "Testing & energisation"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [2], "steps": ["Sprinkler head relocation to new ceiling layout", "Fire alarm devices tied to base-building system", "Cause-and-effect matrix update", "Integration test with base-building fire panel", "Landlord fire engineer sign-off"] },
+    { "name": "ELV / ICT", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [], "steps": ["Structured cabling & comms room fit-out", "Access control & CCTV devices", "AV / meeting-room technology install", "Testing & integration", "Handover with as-built documentation"] },
+    { "name": "Joinery & FF&E", "disc": "Joinery", "kind": ["civil"], "holds": [1], "steps": ["Bespoke joinery fabrication (reception, pantry)", "Joinery install & fit", "Furniture delivery & install", "Signage & branding install", "Snag joinery finish"] },
+    { "name": "Testing & Handover", "disc": "Commissioning", "kind": ["comm"], "holds": [1], "steps": ["MEP testing & balancing (TAB)", "Fire alarm cause-and-effect integration test", "Snagging inspection", "De-snag", "Landlord sign-off & practical completion"] }
+  ],
+  "wbs": [
+    { "code": "OFT", "name": "Office Fit-out — Project", "level": 1 },
+    { "code": "OFT.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "OFT.02", "name": "Landlord Interface & Approvals", "level": 2 },
+    { "code": "OFT.02.10", "name": "Shell & core handover survey", "level": 3 },
+    { "code": "OFT.02.20", "name": "Landlord technical approval (NOC)", "level": 3 },
+    { "code": "OFT.03", "name": "Strip-out & Site Enabling", "level": 2 },
+    { "code": "OFT.04", "name": "Partitions & Ceilings", "level": 2 },
+    { "code": "OFT.04.10", "name": "Partition framing", "level": 3 },
+    { "code": "OFT.04.20", "name": "Suspended ceiling grid & tiles", "level": 3 },
+    { "code": "OFT.05", "name": "Raised Floor & Finishes", "level": 2 },
+    { "code": "OFT.05.10", "name": "Raised access floor", "level": 3 },
+    { "code": "OFT.05.20", "name": "Floor & wall finishes", "level": 3 },
+    { "code": "OFT.06", "name": "Mechanical — HVAC Fit-out", "level": 2 },
+    { "code": "OFT.06.10", "name": "Tie-in to base-building plant", "level": 3 },
+    { "code": "OFT.06.20", "name": "Ductwork & terminal units", "level": 3 },
+    { "code": "OFT.06.20.10", "name": "VAV/FCU set & connect", "level": 4 },
+    { "code": "OFT.06.30", "name": "Testing, adjusting & balancing", "level": 3 },
+    { "code": "OFT.07", "name": "Electrical & Lighting", "level": 2 },
+    { "code": "OFT.07.10", "name": "Containment & power", "level": 3 },
+    { "code": "OFT.07.20", "name": "Lighting & controls", "level": 3 },
+    { "code": "OFT.08", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "OFT.08.10", "name": "Sprinkler relocation", "level": 3 },
+    { "code": "OFT.08.20", "name": "Fire alarm integration", "level": 3 },
+    { "code": "OFT.09", "name": "ELV / ICT", "level": 2 },
+    { "code": "OFT.09.10", "name": "Structured cabling & comms room", "level": 3 },
+    { "code": "OFT.09.20", "name": "Access control, CCTV & AV", "level": 3 },
+    { "code": "OFT.10", "name": "Joinery & FF&E", "level": 2 },
+    { "code": "OFT.10.10", "name": "Bespoke joinery", "level": 3 },
+    { "code": "OFT.10.20", "name": "Furniture & signage install", "level": 3 },
+    { "code": "OFT.11", "name": "Testing, Snagging & Handover", "level": 2 },
+    { "code": "OFT.11.10", "name": "Snagging & de-snag", "level": 3 },
+    { "code": "OFT.11.20", "name": "Landlord sign-off & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Because the programme is short and fast-track, activities are often modelled in days rather than weeks, and the network is calculated (F9) with total float kept ≥ 0 against the lease/move-in date." },
+      { "heading": "Calendars & working time", "body": "Works typically run within the landlord's permitted hours for an occupied building — often extended evening or weekend shifts for noisy trades (demolition, drilling) — with a separate after-hours calendar for base-building tie-ins and lift/riser access." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs design freeze & landlord NOC → strip-out → partitions/ceilings → MEP first fix → floor & wall finishes → MEP second fix & devices → joinery/FF&E → testing & balancing → snagging → landlord sign-off. Structure is absent from this type; the true drivers are design-freeze timing, landlord approvals and long-lead furniture/joinery." },
+      { "heading": "Key assumptions", "body": "Interior design and finishes are frozen before ordering long-lead furniture and joinery; the base-building shell, risers and plant capacity are as surveyed at handover; landlord technical approvals are granted within a stated review period; a single tenant decision-maker handles variations." },
+      { "heading": "Procurement & long-lead items", "body": "Long-lead furniture, joinery and specialist fixtures are tracked as milestones and typically set the true critical path on a fit-out:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Bespoke joinery (reception, pantry, millwork)", "8–14 weeks", "Before joinery fix"], ["Office furniture & workstations", "6–12 weeks", "Before FF&E install"], ["Specialist lighting fixtures", "6–10 weeks", "Before ceiling close-up"], ["Access control / security system", "4–8 weeks", "Before ELV second fix"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Work in an occupied or multi-tenant building constrains hours, lift use, material deliveries and noisy trades; loading-dock and freight-lift bookings are shared with other tenants and must be programmed early. Landlord technical review adds a fixed lead time ahead of MEP tie-ins." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: late design freeze delaying long-lead orders, a landlord approval or tie-in permit slipping the start of MEP works, and clashes discovered late between ceiling services and the finishing design. Contingency is held before furniture/joinery delivery and before snagging." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1–2 to the tenant/landlord; controlled at Level 3; expanded to Level 4 for daily trade sequencing on a compressed, fast-track programme — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

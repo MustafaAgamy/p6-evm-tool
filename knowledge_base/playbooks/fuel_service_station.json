@@ -1,0 +1,119 @@
+{
+  "archetype": "fuel_service_station",
+  "schema": 2,
+  "context": "tank & dispenser commissioning-led · environmental containment critical",
+  "brief": {
+    "intro": "A fuel or service station is a small building wrapped around a much bigger buried risk: underground storage tanks holding petrol or diesel, feeding dispensers under a canopy. New to this type? The schedule is not about the retail shop or canopy structure — it is about safely installing, testing and certifying the tanks, pipework and vapour-recovery/leak-detection systems that prevent fuel escaping into the ground and the air. Environmental and fire-authority approvals gate almost every stage, from tank delivery to first fuel-in. The retail building and canopy can be built in parallel, but the station cannot open until the fuel system has passed its tightness and calibration tests.",
+    "scope": [
+      { "name": "Site enabling & environmental controls", "desc": "Spill containment during excavation and groundwater monitoring where required." },
+      { "name": "Tank pit excavation & installation", "desc": "Deep excavation, tank bedding, and setting and anchoring the underground storage tanks (USTs)." },
+      { "name": "Tank pit backfill & containment", "desc": "Secondary containment, interstitial monitoring and compacted backfill around the tanks." },
+      { "name": "Fuel pipework & dispensers", "desc": "Product piping, vapour-recovery piping and dispenser islands." },
+      { "name": "Forecourt & canopy", "desc": "Canopy structure and forecourt slab with falls to the interceptor and spill containment." },
+      { "name": "Retail building & shop fit-out", "desc": "The associated convenience store or kiosk." },
+      { "name": "Fire protection", "desc": "Fire suppression at the dispensers and hydrants/extinguishers where required." },
+      { "name": "Electrical & fuel-management systems", "desc": "Power to dispensers and canopy, point-of-sale, and tank-gauging/leak-detection electronics." },
+      { "name": "Testing, calibration & tightness testing", "desc": "Tank/pipework tightness test, dispenser calibration and vapour-recovery test." },
+      { "name": "Environmental sign-off & commissioning", "desc": "Fire-authority and environmental-authority approval, then first fuel-in." }
+    ],
+    "glossary": [
+      { "term": "UST", "plain": "underground storage tank — the buried tank holding the fuel." },
+      { "term": "Tightness test", "plain": "a pressure/vacuum test proving the tank and pipework have no leaks before fuel is introduced." },
+      { "term": "Interstitial monitoring", "plain": "sensors in the space between a tank's inner and outer wall that detect a leak before it reaches the ground." },
+      { "term": "Vapour recovery", "plain": "piping and equipment that capture fuel vapour during delivery and dispensing instead of releasing it to air." },
+      { "term": "Forecourt", "plain": "the paved area under the canopy where vehicles fuel up." },
+      { "term": "Interceptor", "plain": "an underground chamber that separates fuel/oil from surface water before it drains away." },
+      { "term": "Calibration", "plain": "proving a dispenser measures and charges for the exact volume of fuel delivered." },
+      { "term": "Secondary containment", "plain": "an outer barrier — a double-wall tank or a lined pit — that catches any leak from the primary tank or pipe." }
+    ],
+    "must_get_right": [
+      "Treat the tank pit and pipework as the critical path, not the retail building — nothing opens until the fuel system passes its tightness test and gets fire/environmental sign-off.",
+      "Secure environmental and fire-authority approvals early — tank delivery, backfill and first fuel-in are usually each gated by a separate inspection or permit.",
+      "Never backfill or cover pipework before the tightness test is witnessed and passed — a failure discovered after backfill means re-excavation.",
+      "Coordinate the interceptor and forecourt falls with the paving programme — retrofitting drainage after the slab is poured is expensive and slow."
+    ]
+  },
+  "components": [
+    { "name": "Underground Storage Tanks", "desc": "USTs · secondary containment · interstitial monitoring", "disc": "Civil / Mechanical", "primary": true },
+    { "name": "Fuel Pipework & Dispensers", "desc": "Product & vapour-recovery piping · dispenser islands", "disc": "Mechanical", "primary": true },
+    { "name": "Forecourt & Canopy", "desc": "Canopy structure · forecourt slab & falls", "disc": "Structural", "primary": true },
+    { "name": "Electrical & Fuel Management", "desc": "Dispenser power · tank gauging/leak detection · POS", "disc": "Electrical", "primary": true },
+    { "name": "Fire Protection", "desc": "Dispenser fire suppression · hydrants", "disc": "Fire Protection", "primary": false },
+    { "name": "Retail Building", "desc": "Convenience store / kiosk fit-out", "disc": "Architectural", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Underground storage tanks & product piping", "Vapour-recovery piping & equipment", "Dispensers & submersible pumps", "Interceptor & forecourt drainage"] },
+    { "discipline": "Electrical", "items": ["Dispenser & canopy power", "Tank-gauging / automatic tank-monitoring system", "Point-of-sale & forecourt controller", "Earthing & hazardous-area (ATEX) wiring"] },
+    { "discipline": "Fire Protection", "items": ["Dispenser fire-suppression system", "Hydrants / extinguishers to code", "Emergency shut-off (ESD) stations"] }
+  ],
+  "overview_phases": ["Site enabling & permits", "Tank pit excavation", "Tank install & containment", "Backfill & forecourt structure", "Pipework & dispensers", "Retail building fit-out", "Testing & calibration", "Commissioning & first fuel-in"],
+  "sequence_chart": {
+    "phases": ["Enable", "Excavate", "Tanks", "Pipework", "Forecourt", "Test", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 46, "label": "Excavate → tank pit → backfill → forecourt slab", "holds": [22] },
+      { "trade": "Tanks & Pipework", "disc": "Mechanical", "kind": ["mechanical"], "start": 16, "width": 44, "label": "Set tanks → containment → pipework → dispensers", "holds": [40, 55] },
+      { "trade": "Electrical & Fuel Management", "disc": "Electrical", "kind": ["electrical"], "start": 34, "width": 38, "label": "Power → tank gauging → POS → energise", "holds": [60] },
+      { "trade": "Fire Protection", "disc": "Fire Protection", "kind": ["fire"], "start": 46, "width": 28, "label": "Suppression & hydrants → devices", "holds": [] },
+      { "trade": "Retail Building", "disc": "Architectural", "kind": ["civil"], "start": 30, "width": 40, "label": "Shell → fit-out → shop finishes", "holds": [] },
+      { "trade": "Testing & Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 74, "width": 26, "label": "Tightness test → calibration → sign-off → fuel-in", "holds": [88] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1, 4], "steps": ["Site enabling & spill-containment setup", "Tank pit excavation & shoring", "Tank bedding & anchoring", "Forecourt slab with falls to interceptor", "Canopy structure erection"] },
+    { "name": "Tanks & Pipework", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 4], "steps": ["Long-lead tank & dispenser procurement", "Set & anchor underground storage tanks", "Secondary containment & interstitial monitoring install", "Product & vapour-recovery pipework", "Dispenser island install", "Pipework tightness / pressure test"] },
+    { "name": "Electrical & Fuel Management", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["Hazardous-area (ATEX) cabling & earthing", "Dispenser & canopy power", "Tank-gauging / leak-detection system install", "Point-of-sale & forecourt controller", "Energise & function test"] },
+    { "name": "Fire Protection", "disc": "Fire Protection", "kind": ["fire"], "holds": [2], "steps": ["Fire-suppression pipework & devices at dispensers", "Hydrants / extinguishers to code", "Emergency shut-off (ESD) station install", "Cause-and-effect / discharge test", "Fire-authority inspection"] },
+    { "name": "Retail Building", "disc": "Architectural", "kind": ["civil"], "holds": [], "steps": ["Shell & envelope", "MEP first fix", "Finishes & shopfront", "Fixtures & fit-out", "Snagging"] },
+    { "name": "Testing & Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [0, 3], "steps": ["Tank & pipework tightness test", "Vapour-recovery system test", "Dispenser calibration", "Environmental & fire-authority sign-off", "First fuel-in & handover"] }
+  ],
+  "wbs": [
+    { "code": "FSS", "name": "Fuel / Service Station — Project", "level": 1 },
+    { "code": "FSS.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "FSS.02", "name": "Site Enabling & Environmental Controls", "level": 2 },
+    { "code": "FSS.03", "name": "Tank Pit & Substructure", "level": 2 },
+    { "code": "FSS.03.10", "name": "Tank pit excavation & shoring", "level": 3 },
+    { "code": "FSS.03.20", "name": "Tank bedding & backfill", "level": 3 },
+    { "code": "FSS.04", "name": "Underground Storage Tanks", "level": 2 },
+    { "code": "FSS.04.10", "name": "Tank set & anchoring", "level": 3 },
+    { "code": "FSS.04.20", "name": "Secondary containment & monitoring", "level": 3 },
+    { "code": "FSS.04.20.10", "name": "Interstitial monitoring install", "level": 4 },
+    { "code": "FSS.05", "name": "Fuel Pipework & Dispensers", "level": 2 },
+    { "code": "FSS.05.10", "name": "Product piping", "level": 3 },
+    { "code": "FSS.05.20", "name": "Vapour-recovery piping", "level": 3 },
+    { "code": "FSS.05.30", "name": "Dispenser islands", "level": 3 },
+    { "code": "FSS.06", "name": "Forecourt & Canopy", "level": 2 },
+    { "code": "FSS.06.10", "name": "Forecourt slab & falls", "level": 3 },
+    { "code": "FSS.06.20", "name": "Canopy structure", "level": 3 },
+    { "code": "FSS.07", "name": "Electrical & Fuel Management", "level": 2 },
+    { "code": "FSS.07.10", "name": "Hazardous-area wiring & earthing", "level": 3 },
+    { "code": "FSS.07.20", "name": "Tank gauging & POS", "level": 3 },
+    { "code": "FSS.08", "name": "Fire Protection", "level": 2 },
+    { "code": "FSS.09", "name": "Retail Building", "level": 2 },
+    { "code": "FSS.09.10", "name": "Shell & MEP fit-out", "level": 3 },
+    { "code": "FSS.09.20", "name": "Shop finishes & fixtures", "level": 3 },
+    { "code": "FSS.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "FSS.10.10", "name": "Tank & pipework tightness test", "level": 3 },
+    { "code": "FSS.10.20", "name": "Dispenser calibration", "level": 3 },
+    { "code": "FSS.10.30", "name": "Environmental & fire-authority sign-off", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network in Primavera P6, developed to a Level 3 control schedule with retained-logic progress; calculated by F9 with total float kept ≥ 0 in the baseline. Given the compact scope, the tank/pipework sequence is modelled activity-by-activity rather than as a single summary bar." },
+      { "heading": "Calendars & working time", "body": "Civil and tank works run a standard 6-day week; testing (tightness test, calibration) is scheduled around inspector availability and may hold the calendar for a witnessed test rather than a fixed duration." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs tank-pit excavation → tank set & containment → backfill → pipework → dispenser install → tightness test → calibration → environmental/fire-authority sign-off → first fuel-in. The retail building and canopy run in parallel and rarely govern the finish date." },
+      { "heading": "Key assumptions", "body": "Environmental and fire-authority permits are obtained per phase gate (excavation, tank delivery, first fuel-in); groundwater and ground conditions are as per the site investigation; a single fuel supplier delivers to a confirmed programme." },
+      { "heading": "Procurement & long-lead items", "body": "Tanks and dispensing equipment are tracked as milestones and typically drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Underground storage tanks (double-wall)", "12–20 weeks", "Before tank-pit backfill"], ["Dispensers & submersible pumps", "10–16 weeks", "Before pipework connection"], ["Tank-gauging / leak-detection system", "8–12 weeks", "Before electrical terminate"], ["Canopy structure (fabricated)", "8–14 weeks", "Before forecourt paving"]] } },
+      { "heading": "Access, resource & site constraints", "body": "The tank pit needs a large, clear excavation and crane access for tank set; if the station stays open to traffic during works, phased excavation and temporary access are needed. Hazardous-area (ATEX) certified trades are a resource constraint for the electrical and pipework scope." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: a failed tightness test discovered after backfill, groundwater or contaminated-ground conditions differing from the site investigation, and permit delays gating tank delivery or first fuel-in. Contingency is held before backfill and before the tightness test." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1–2 to the client; controlled at Level 3; expanded to Level 4 for tank-pit and pipework sequencing on site — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

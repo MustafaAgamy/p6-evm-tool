@@ -1,0 +1,120 @@
+{
+  "archetype": "clinic_primary_care",
+  "schema": 2,
+  "context": "validation-led, smaller & faster than a hospital · clinical HVAC and limited medical gas gate handover",
+  "brief": {
+    "intro": "New to this project type? A clinic or primary healthcare centre is a much smaller, faster relative of a hospital — mostly consulting and treatment rooms rather than operating theatres — but it shares a hospital's core discipline: the mechanical and electrical systems have to be fit for clinical use and formally validated before any patient can be seen, not just functionally tested like an office fit-out. Infection-control HVAC (filtered, often single-pass air to treatment rooms), a limited medical-gas supply (oxygen and vacuum outlets rather than a full hospital manifold system) and a shielded room for minor imaging (X-ray) are the specialist scope that drives the back end of the programme, even though the building itself is simple and low-rise. Because the scope is smaller, the programme runs faster than a hospital's — but the validation-and-inspection sequence at the end, commissioning then regulatory sign-off then clinical handover, is the same discipline in miniature, and it is still the real finish line, not the last piece of joinery.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, foundations and temporary access, often on a small infill site." },
+      { "name": "Structure & shell", "desc": "Frame, floor slabs and envelope for a simple, usually low-rise building." },
+      { "name": "Architectural fit-out", "desc": "Consulting and treatment rooms, waiting areas and staff facilities." },
+      { "name": "Imaging-room shielding & plant provisions", "desc": "Lead-lined shielding and structural/plant provisions for a minor X-ray or imaging unit, where included." },
+      { "name": "Mechanical — HVAC & infection control", "desc": "Air handling with filtered, often single-pass ventilation to treatment rooms." },
+      { "name": "Plumbing & limited medical gas", "desc": "Domestic water and drainage, plus oxygen and vacuum outlets fed from a compact cylinder manifold." },
+      { "name": "Electrical power & essential supply", "desc": "Normal distribution plus a smaller-scale standby generator or UPS for essential clinical loads and refrigeration." },
+      { "name": "Fire & life safety", "desc": "Alarm and suppression sized for a low-rise clinic building." },
+      { "name": "ELV / access control & light patient-call", "desc": "Structured cabling, CCTV, access control and a light nurse/patient-call system." },
+      { "name": "Testing, commissioning & clinical handover", "desc": "System validation, health-authority inspection and a clinical walkthrough before patients are seen." }
+    ],
+    "glossary": [
+      { "term": "Medical gas (limited)", "plain": "oxygen and vacuum outlets to treatment rooms, fed from a compact cylinder manifold rather than a full hospital bulk plant." },
+      { "term": "Infection-control ventilation", "plain": "filtered, often single-pass air to treatment rooms that limits cross-contamination between patients." },
+      { "term": "Shielded room", "plain": "a lead-lined room built for a minor X-ray or imaging unit." },
+      { "term": "Essential power", "plain": "a smaller-scale backup supply — generator or UPS — keeping critical clinical loads and refrigeration (vaccines, medicines) running through a mains failure." },
+      { "term": "Clinical handover", "plain": "a formal sign-off and walkthrough with clinical staff before patients are seen, distinct from ordinary construction completion." },
+      { "term": "Consulting / treatment room", "plain": "the basic clinical unit of a primary-care building, each with its own power, data and, where needed, limited medical-gas outlets." }
+    ],
+    "must_get_right": [
+      "Infection-control HVAC and the limited medical-gas supply need formal validation and certification, not just a functional test, before any clinical occupancy.",
+      "Where an imaging room is included, coordinate its lead-lined shielding with the structure early — retrofitting shielding afterwards is expensive and disruptive.",
+      "Essential power for clinical refrigeration (vaccines, medicines) and life-safety loads must be proven with a mains-fail test, sized to this building's much smaller scale than a hospital.",
+      "Keep the validation → regulatory inspection → clinical handover sequence on the schedule as named milestones; it is faster than a hospital's but not optional."
+    ]
+  },
+  "components": [
+    { "name": "HVAC & Infection-Control Ventilation", "desc": "Filtered / single-pass air to treatment rooms", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power & Essential Supply", "desc": "Normal distribution · small-scale standby power", "disc": "Electrical", "primary": true },
+    { "name": "Plumbing & Limited Medical Gas", "desc": "Domestic water/drainage · O2 & vacuum outlets", "disc": "Plumbing", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Alarm & suppression sized for a low-rise clinic", "disc": "Fire Protection", "primary": false },
+    { "name": "Architectural Fit-out & Imaging Shielding", "desc": "Treatment rooms · lead-lined imaging room", "disc": "Architectural", "primary": false },
+    { "name": "Commissioning & Clinical Validation", "desc": "System testing · health-authority inspection · clinical sign-off", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["AHUs & ductwork with infection-control (filtered / single-pass) zoning to treatment rooms", "Split / packaged cooling for consulting and waiting areas", "Exhaust for treatment-room and minor-procedure extraction"] },
+    { "discipline": "Electrical", "items": ["LV distribution & switchgear", "Small-scale standby generator or UPS for essential/clinical loads", "General, clinical-task and emergency lighting"] },
+    { "discipline": "Plumbing / Medical Gas", "items": ["Domestic hot & cold water, drainage", "Limited medical gas — oxygen & vacuum outlets from a compact manifold", "Clinical hand-wash stations"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire alarm & sprinklers sized for a low-rise clinic", "Access control & light nurse-call / patient-call system", "Structured cabling, CCTV & data", "Light BMS for HVAC and essential-power monitoring"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Structure & Envelope", "Architectural Fit-out & Imaging Shielding", "MEP Rough-in", "Infection-Control HVAC & Medical Gas", "Fire & Life-Safety Integration", "Commissioning & Clinical Validation"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Fit-out", "Rough-in", "Specialist", "Integrate", "Clinical"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 28, "label": "Earthworks → foundations → frame → envelope", "holds": [12] },
+      { "trade": "Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "start": 20, "width": 48, "label": "Ductwork → AHUs → infection-control zoning → balance", "holds": [50] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 22, "width": 50, "label": "Containment → distribution → essential power → prove", "holds": [52, 78] },
+      { "trade": "Plumbing / Medical Gas", "disc": "Plumbing", "kind": ["mechanical"], "start": 28, "width": 42, "label": "Pipework → manifold → terminal units → purity test", "holds": [74] },
+      { "trade": "Fire / ELV / BMS", "disc": "Fire Protection", "kind": ["fire", "elv", "bms"], "start": 38, "width": 40, "label": "Devices → cause-and-effect → integrate", "holds": [] },
+      { "trade": "Clinical Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 76, "width": 24, "label": "Validation → health-authority inspection → clinical sign-off", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [3], "steps": ["Site clearance & enabling works", "Foundations & substructure", "Superstructure frame & floor slabs", "Roof & envelope — weather-tight", "Imaging-room sub-floor & structural provisions"] },
+    { "name": "HVAC & Infection-Control Ventilation", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 4], "steps": ["Procurement — AHUs / packaged units, filtration", "Ductwork & containment rough-in", "Set AHUs / packaged cooling units", "Infection-control (filtered / single-pass) zoning to treatment rooms", "Balance & prove airflow"] },
+    { "name": "Electrical Power & Essential Supply", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 4], "steps": ["Procurement — switchgear, standby generator/UPS", "Containment routes & cable pull", "Set standby generator/UPS", "Terminate normal & essential distribution boards", "Essential-power changeover (mains-fail) test"] },
+    { "name": "Plumbing & Limited Medical Gas", "disc": "Plumbing", "kind": ["mechanical"], "holds": [2, 4], "steps": ["Domestic water & drainage rough-in", "Medical-gas manifold & terminal-unit pipework", "Pressure & leak testing", "Purity & cross-connection testing", "Formal limited medical-gas certification"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [4], "steps": ["Sprinkler & fire-alarm rough-in", "Fire-alarm devices & emergency/egress lighting installation", "Cause-and-effect wiring & programming", "Fire system functional test", "Fire authority inspection & sign-off"] },
+    { "name": "ELV / Access Control / Light BMS", "disc": "Extra-Low Voltage", "kind": ["elv", "bms"], "holds": [], "steps": ["Structured cabling & containment", "Access control & patient-call devices", "CCTV & data", "BMS field devices & light integration", "Integration & functional test"] },
+    { "name": "Commissioning & Clinical Validation", "disc": "Commissioning", "kind": ["comm"], "holds": [2, 4], "steps": ["System-by-system functional testing", "Integrated systems test (power, HVAC, medical gas, fire)", "Health-authority / regulatory inspection", "Clinical validation walkthrough with staff", "Clinical handover"] }
+  ],
+  "wbs": [
+    { "code": "CLN", "name": "Clinic / Primary Healthcare Centre — Project", "level": 1 },
+    { "code": "CLN.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "CLN.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "CLN.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "CLN.02.20", "name": "Substructure & Foundations", "level": 3 },
+    { "code": "CLN.03", "name": "Superstructure", "level": 2 },
+    { "code": "CLN.04", "name": "Building Envelope", "level": 2 },
+    { "code": "CLN.05", "name": "Architectural Fit-out", "level": 2 },
+    { "code": "CLN.05.10", "name": "Consulting & Treatment Rooms", "level": 3 },
+    { "code": "CLN.05.20", "name": "Imaging Room & Shielding", "level": 3 },
+    { "code": "CLN.05.20.10", "name": "Shielding integrity check", "level": 4 },
+    { "code": "CLN.06", "name": "Mechanical — HVAC", "level": 2 },
+    { "code": "CLN.06.10", "name": "AHU / Packaged Plant", "level": 3 },
+    { "code": "CLN.06.20", "name": "Infection-Control Ventilation Zoning", "level": 3 },
+    { "code": "CLN.06.20.10", "name": "Airflow balance & validation", "level": 4 },
+    { "code": "CLN.07", "name": "Plumbing & Medical Gas", "level": 2 },
+    { "code": "CLN.07.10", "name": "Domestic Water & Drainage", "level": 3 },
+    { "code": "CLN.07.20", "name": "Limited Medical Gas (O2 / Vacuum)", "level": 3 },
+    { "code": "CLN.07.20.10", "name": "Purity & certification test", "level": 4 },
+    { "code": "CLN.08", "name": "Electrical — Power", "level": 2 },
+    { "code": "CLN.08.10", "name": "Normal LV Distribution", "level": 3 },
+    { "code": "CLN.08.20", "name": "Standby Generator / UPS (Essential Power)", "level": 3 },
+    { "code": "CLN.09", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "CLN.09.10", "name": "Fire Alarm & Sprinklers", "level": 3 },
+    { "code": "CLN.10", "name": "ELV / Access Control / Light BMS", "level": 2 },
+    { "code": "CLN.10.10", "name": "Structured Cabling, CCTV & Access Control", "level": 3 },
+    { "code": "CLN.11", "name": "Testing, Commissioning & Clinical Handover", "level": 2 },
+    { "code": "CLN.11.10", "name": "Integrated Systems Test", "level": 3 },
+    { "code": "CLN.11.20", "name": "Health-Authority Inspection & Clinical Sign-off", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual and regulatory-inspection milestones." },
+      { "heading": "Calendars & working time", "body": "Structure and shell run a standard 6-day week; MEP fit-out and specialist-room works may move to extended hours to protect the programme; commissioning and clinical validation run against the availability of the health-authority inspector rather than a fixed calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs structural weather-tightness → MEP first/second fix → imaging-room shielding and infection-control HVAC fit-out → essential power and limited medical-gas installation & certification → integrated systems test → health-authority inspection → clinical handover. The building shell is rarely the constraint; the specialist-system validation and certification chain owns the back end." },
+      { "heading": "Key assumptions", "body": "Design and room-data sheets are frozen per clinical room before rough-in; authority approvals are obtained per phase gate; a single mobilisation; the site is a new-build or a vacant renovation with no live clinical operations to work around." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is validation-led but still procurement-sensitive. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Packaged AHU / cooling units", "10–16 weeks", "Before HVAC rough-in"], ["Small-scale standby generator / UPS", "12–20 weeks", "Before essential-power proving"], ["Limited medical-gas manifold & alarm panel", "8–14 weeks", "Before medical-gas pipework"], ["Owner-furnished imaging equipment (X-ray)", "12–20 weeks", "Before imaging-room fit-out completion"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Clinics are often built on small infill or urban sites with limited laydown and delivery access. Specialist medical-gas and infection-control commissioning technicians are scarce and shared across several projects, and are a resource constraint late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: medical-gas re-certification loops, health-authority inspection scheduling delays outside the contractor's control, and owner-furnished imaging-equipment delivery slippage. Schedule contingency is held immediately before the integrated systems test and before the health-authority inspection, rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}
