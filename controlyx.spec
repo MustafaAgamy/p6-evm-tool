@@ -29,6 +29,13 @@ datas = [
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
     ('p6_prodintel',   'p6_prodintel'),   # Productivity & Resource Intelligence engine
     ('productivity_kb', 'productivity_kb'),# Productivity norm KB (component-based JSON data)
+    ('p6_narrative',   'p6_narrative'),    # Baseline Narrative Report — Basis-of-Schedule
+                                          # document builder (Word/PDF/HTML). server.py imports
+                                          # it deferred inside the /api/narrative handlers, so
+                                          # ship the whole package (see collect_submodules below).
+    ('p6_calendar',    'p6_calendar'),     # Calendar Audit engine — imported deferred by both
+                                          # server.py and p6_narrative/report.py (calendar_audit);
+                                          # PyInstaller's graph misses in-function imports, so bundle.
     ('report_theme.py', '.'),             # Shared report appearance themes — imported at
                                           # runtime by the report renderers (which run after
                                           # sys.path.insert(resource_path('.'))); ship as root
@@ -97,6 +104,15 @@ hiddenimports = [
     'p6_prodintel.kb',
     'p6_prodintel.engine',
     *collect_submodules('p6_prodintel'),
+    # Baseline Narrative Report — server.py imports p6_narrative lazily in-function
+    # (/api/narrative[/docx|/pdf|/html]); force the package + submodules to ship so
+    # the report builder, docx/html/chart renderers and the intel layer all bundle.
+    'p6_narrative',
+    *collect_submodules('p6_narrative'),
+    # Calendar Audit engine — used deferred by server.py and by p6_narrative/report.py
+    # (p6_calendar.audit.calendar_audit); force the package + submodules to ship.
+    'p6_calendar',
+    *collect_submodules('p6_calendar'),
 ]
 
 # PyMuPDF ships a compiled MuPDF extension (_mupdf / libmupdf) — collect its dynamic
@@ -112,7 +128,7 @@ except Exception:
 # dropped from the .exe — this bit us before (an empty catalog / missing feature that
 # only showed on the built exe, never in dev or tests). p6_report registers the
 # Global Print-Preview features on import, so its submodules must ship.
-for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare'):
+for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare', 'p6_narrative', 'p6_calendar'):
     try:
         hiddenimports += collect_submodules(_pkg)
     except Exception:
