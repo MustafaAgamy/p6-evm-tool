@@ -728,6 +728,86 @@ def _render_sequence(document, p, number, note):
                      align=WD_ALIGN_PARAGRAPH.JUSTIFY)
 
 
+# ── §12 Activity IDs ──────────────────────────────────────────────────────────
+def _actid_breakdown_table(document, cols):
+    """A 2-row breakdown: role-coloured CODE cells over plain MEANING cells (one col/segment).
+    Ported from the approved mock (``breakdown_table``)."""
+    from p6_narrative.actids import ROLE_HEX
+    cols = list(cols or [])
+    n = len(cols) or 1
+    t = document.add_table(rows=2, cols=n)
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t.autofit = False
+    w = 7.0 / n
+    for ci, col in enumerate(cols):
+        code, mean, role = col.get('code'), col.get('meaning'), col.get('role')
+        c0 = t.rows[0].cells[ci]; c1 = t.rows[1].cells[ci]
+        for c in (c0, c1):
+            _set_w(c, w); _cell_borders(c, color='9DB2C6'); _no_space(c)
+        _shade(c0, ROLE_HEX.get(role, ROLE_HEX['other']))
+        p0 = c0.paragraphs[0]; p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(p0, code, size=10, bold=True, color=WHITE, font=CAL)
+        p1 = c1.paragraphs[0]; p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(p1, mean, size=9.5, color=DKNAVY)
+    _keep_table_together(t, header=True)
+    return t
+
+
+def _render_activity_ids(document, p, number, note):
+    """Native Word §12 — the intro, then 12.1 the colour-coded ID anatomy (role-shaded breakdown
+    table + a role legend), then one breakdown block per ID type: the sample-ID box, the
+    role-shaded code/meaning table and a green ✓ note. Mirrors the HTML/PDF twin (``html._actids``)
+    and the approved mock. None-safe — a missing payload renders a short muted line."""
+    from p6_narrative.actids import ROLE_HEX, ROLE_NAME, ANATOMY_INTRO, INTRO
+    p = p or {}
+    anatomy = p.get('anatomy')
+    blocks = p.get('blocks') or []
+    if not (anatomy or blocks):
+        _muted(document, 'No structured Activity IDs could be read from the schedule.')
+        return
+
+    para(document, p.get('intro') or INTRO, align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+
+    # ── 12.1 How to read an Activity ID (the colour-coded anatomy + role legend) ──
+    _subhead(document, '%s.1' % number, 'How to read an Activity ID')
+    para(document, ANATOMY_INTRO, align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=6)
+    if anatomy and anatomy.get('cols'):
+        ex = para(document, 'Example:  %s' % anatomy.get('sample'), size=11, bold=True,
+                  color=NAVY, before=2, after=3, font=CAL)
+        ex.paragraph_format.keep_with_next = True       # example line stays with its table
+        _actid_breakdown_table(document, anatomy.get('cols'))
+        # role legend (coloured ■ chips)
+        lp = document.add_paragraph()
+        lp.paragraph_format.space_before = Pt(6)
+        lp.paragraph_format.space_after = Pt(2)
+        for role in ('stage', 'work', 'area', 'serial'):
+            r = lp.add_run('  ■ ')
+            r.font.size = Pt(11)
+            r.font.color.rgb = RGBColor.from_string(ROLE_HEX[role])
+            run(lp, ROLE_NAME[role] + '    ', size=10, color=BODYNAVY)
+    else:
+        _muted(document, 'No representative Activity ID could be derived for the anatomy.')
+
+    # ── 12.2 … per-ID-type breakdown blocks (block index starts at 2, as the mock does) ──
+    for bi, blk in enumerate(blocks, start=2):
+        _subhead(document, '%s.%d' % (number, bi), '%s ID' % (blk.get('title') or '—'))
+        # sample-ID box (1-cell bordered table, centred)
+        bt = document.add_table(rows=1, cols=1)
+        bt.alignment = WD_TABLE_ALIGNMENT.CENTER
+        bt.autofit = False
+        bc = bt.rows[0].cells[0]
+        _set_w(bc, 2.6); _cell_borders(bc, color='1F4E79', sz='8'); _no_space(bc)
+        _shade(bc, 'EEF3F9')
+        bp = bc.paragraphs[0]; bp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(bp, blk.get('sample'), size=12, bold=True, color=NAVY, font=CAL)
+        _keep_table_together(bt, header=False)
+        gap = para(document, '', after=2)
+        gap.paragraph_format.keep_with_next = True      # box stays with its breakdown table
+        _actid_breakdown_table(document, blk.get('cols'))
+        para(document, '✓  %s  (%s activities)' % (blk.get('note') or '', _count(blk.get('count'))),
+             size=10, italic=True, color=GREEN, before=3, after=8)
+
+
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────
 def _render_table(document, p, number, note):
     if p.get('view') == 'calendars':
@@ -858,6 +938,7 @@ _RENDER = {
     'wbs_tree': _render_wbs_tree,
     'codes': _render_codes,
     'sequence': _render_sequence,
+    'activity_ids': _render_activity_ids,
 }
 
 

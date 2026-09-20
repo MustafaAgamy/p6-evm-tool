@@ -860,6 +860,62 @@ def _codes(p, number, title, meta, cur):
     return out
 
 
+# ── §12 Activity IDs ──────────────────────────────────────────────────────────
+def _actid_count(v):
+    try:
+        return '{:,}'.format(int(v))
+    except (TypeError, ValueError):
+        return '' if v is None else str(v)
+
+
+def _actids(p, number, title, meta, cur):
+    """Screen/PDF twin of the native Word §12 (``docx_writer._render_activity_ids``): the intro,
+    then 12.1 the colour-coded ID anatomy (role-shaded breakdown table + role legend), then one
+    breakdown block per ID type — the sample-ID box, the role-shaded code/meaning table and a
+    green ✓ note. Colours = the same role hex as Word. None-safe."""
+    from p6_narrative.actids import ROLE_HEX, ROLE_NAME, ANATOMY_INTRO, INTRO
+    p = p or {}
+    anatomy = p.get('anatomy')
+    blocks = p.get('blocks') or []
+    if not (anatomy or blocks):
+        return '<p class="note">No structured Activity IDs could be read from the schedule.</p>'
+
+    def _table(cols):
+        cols = list(cols or [])
+        codes = ''.join(
+            '<td class="acode" style="background:#%s">%s</td>'
+            % (ROLE_HEX.get(c.get('role'), ROLE_HEX['other']), _esc(c.get('code')))
+            for c in cols)
+        means = ''.join('<td class="amean">%s</td>' % _esc(c.get('meaning')) for c in cols)
+        return '<table class="actidtbl"><tr>%s</tr><tr>%s</tr></table>' % (codes, means)
+
+    out = '<p>%s</p>' % _esc(p.get('intro') or INTRO)
+
+    # 12.1 — how to read an Activity ID (the colour-coded anatomy + role legend)
+    out += '<div class="sub">%s.1 &middot; How to read an Activity ID</div>' % _esc(number)
+    out += '<p>%s</p>' % _esc(ANATOMY_INTRO)
+    if anatomy and anatomy.get('cols'):
+        out += ('<div class="actidblk"><p class="actidex">Example:&nbsp; %s</p>%s'
+                % (_esc(anatomy.get('sample')), _table(anatomy.get('cols'))))
+        chips = ''.join(
+            '<span class="actidchip" style="background:#%s"></span>'
+            '<span class="actidlbl">%s</span>' % (ROLE_HEX[r], _esc(ROLE_NAME[r]))
+            for r in ('stage', 'work', 'area', 'serial'))
+        out += '<div class="actidlegend">%s</div></div>' % chips
+    else:
+        out += '<p class="note">No representative Activity ID could be derived for the anatomy.</p>'
+
+    # 12.2 … — one breakdown block per ID type (block index starts at 2, as the mock does)
+    for bi, blk in enumerate(blocks, start=2):
+        out += ('<div class="sub">%s.%d &middot; %s ID</div>'
+                % (_esc(number), bi, _esc(blk.get('title') or '—')))
+        out += ('<div class="actidblk"><div class="actidbox">%s</div>%s'
+                '<div class="actidnote">&#10003;&nbsp; %s&nbsp; (%s activities)</div></div>'
+                % (_esc(blk.get('sample')), _table(blk.get('cols')),
+                   _esc(blk.get('note') or ''), _actid_count(blk.get('count'))))
+    return out
+
+
 _RENDER = {
     'overview': _overview,
     'image': _image,
@@ -870,6 +926,7 @@ _RENDER = {
     'wbs_tree': _wbs_tree,
     'codes': _codes,
     'sequence': _seqflow,
+    'activity_ids': _actids,
 }
 
 
@@ -929,7 +986,7 @@ _TOC_GROUPS = [
     ('BASELINE TARGETS', ('Major Milestones', 'Key Dates', 'Contract Value')),
     ('SCOPE & STRUCTURE', ('Scope of Work', 'Project Calendars & Holidays',
                            'Work Breakdown Structure', 'Activity Codes',
-                           'Sequence of Work')),
+                           'Sequence of Work', 'Activity IDs')),
 ]
 
 
@@ -1120,5 +1177,17 @@ table { border-collapse: collapse; }
 .codetbl td { border:1px solid #b9c6d3; padding:3px 8px; }
 .codetbl td.cv { text-align:center; font-weight:600; }
 .cover-t { text-align:center; }
+/* §12 Activity IDs — role-coloured anatomy + per-type breakdown (twins the native Word §12) */
+.actidblk { break-inside:avoid; page-break-inside:avoid; }
+.actidtbl { border-collapse:collapse; table-layout:fixed; width:100%; margin:6px 0 4px; break-inside:avoid; page-break-inside:avoid; }
+.actidtbl td { border:1px solid #9DB2C6; text-align:center; padding:5px 7px; vertical-align:middle; word-wrap:break-word; overflow-wrap:break-word; }
+.actidtbl td.acode { color:#fff; font-weight:700; font-family:Calibri,sans-serif; font-size:11px; }
+.actidtbl td.amean { color:#14324f; font-size:9.5px; line-height:1.3; }
+.actidex { font-family:Calibri,sans-serif; font-weight:700; color:#1F4E79; font-size:12px; margin:6px 0 3px; }
+.actidbox { display:table; margin:6px auto 4px; border:1.4px solid #1F4E79; background:#EEF3F9; color:#1F4E79; font-family:Calibri,sans-serif; font-weight:700; font-size:13px; padding:6px 18px; text-align:center; break-inside:avoid; page-break-inside:avoid; }
+.actidlegend { margin:8px 0 6px; }
+.actidchip { display:inline-block; width:11px; height:11px; margin:0 5px 0 8px; vertical-align:middle; border-radius:2px; }
+.actidlbl { font-size:11px; color:#4A5560; margin-right:6px; vertical-align:middle; }
+.actidnote { color:#1F7A3D; font-style:italic; font-size:11px; margin:4px 0 12px; }
 @media print { body { background:#fff; } }
 """
