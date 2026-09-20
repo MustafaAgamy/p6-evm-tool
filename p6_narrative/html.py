@@ -265,7 +265,7 @@ def _doughnut(rows, cap, center_big, value_fn):
                         _esc(_clip(r.get('name'), 16)), col, _fmt_pct(r.get('pct'))))
     svg = ('<svg viewBox="0 0 %d %d" style="width:100%%;max-width:%dpx;display:block;'
            'margin:2px auto">%s</svg>' % (W, H, W, body))
-    return svg + _chart_legend(rows, value_fn)
+    return '<div class="dnutfig">%s%s</div>' % (svg, _chart_legend(rows, value_fn))
 
 
 # ── SVG 100% composition bar (§7.1 scope by discipline) ───────────────────────
@@ -319,7 +319,8 @@ def _compbar(rows):
                         lx, lab_y, col, _fmt_pct(r.get('pct'))))
     svg = ('<svg viewBox="0 0 %d %d" style="width:100%%;max-width:%dpx;display:block;'
            'margin:4px auto">%s</svg>' % (W, H, W, body))
-    return svg + _chart_legend(rows, lambda r: '%s%%' % _fmt_pct(r.get('pct')))
+    return ('<div class="compfig">%s%s</div>'
+            % (svg, _chart_legend(rows, lambda r: '%s%%' % _fmt_pct(r.get('pct')))))
 
 
 # ── §1 Project Overview ───────────────────────────────────────────────────────
@@ -481,69 +482,43 @@ def _scope(p, number, title, meta, cur):
 _SEQ_COLORS = ['1F4E79', '2E75B6', '4472C4', '5B9BD5', '41719C', '8FAADC']
 
 
-def _wrap_label(text, width=19, lines=2):
-    """Word-wrap a chevron label into at most ``lines`` lines of about ``width`` chars,
-    the last line ellipsised when it still overflows — the SVG twin of the Word box's
-    ``wrap="square"`` + auto-fit, so long names read on two lines instead of clipping."""
-    words = str(text or '').split()
-    out, cur = [], ''
-    for w in words:
-        if not cur:
-            cur = w
-        elif len(cur) + 1 + len(w) <= width:
-            cur += ' ' + w
-        else:
-            out.append(cur)
-            cur = w
-            if len(out) == lines:
-                break
-    if cur and len(out) < lines:
-        out.append(cur)
-    if not out:
-        return ['']
-    # anything that did not fit → ellipsis on the last shown line
-    shown = ' '.join(out)
-    if len(shown) < len(str(text or '').strip()):
-        last = out[-1]
-        out[-1] = (last[:width - 1].rstrip() + '…') if len(last) >= width - 1 else last + '…'
-    return out
-
-
 def _chevrons(labels):
-    """An SVG chevron flow: a home-plate first step then chevrons, blue ramp, white labels
-    (wrapped to two lines). Scales to the text column (viewBox) like the doughnut / comp-bar,
-    so a wide flow shrinks to fit rather than overflowing — mirrors the Word ``_fit_display``."""
-    labels = [str(x) for x in labels if x is not None and str(x).strip() != '']
-    if not labels:
+    """An SVG chevron flow laid out by :func:`p6_narrative.util.chevron_layout`: a home-plate
+    first step then chevrons, blue ramp, white bold labels — word-wrapped (and the font shrunk
+    when needed) so text is NEVER truncated, and flowing onto MULTIPLE ROWS when one row would
+    exceed the text column. The native Word twin (``docx_native.add_chevron_flow``) draws the
+    SAME layout, so screen, PDF and Word read identically."""
+    from p6_narrative.util import chevron_layout
+    lay = chevron_layout(labels)
+    rows = lay['rows']
+    if not rows:
         return ''
-    BW, BH, GAP, PAD, notch = 150, 54, 6, 4, 15
-    n = len(labels)
-    W = PAD * 2 + n * BW + (n - 1) * GAP
-    H = PAD * 2 + BH
+    W, H, notch = lay['width'], lay['height'], 14
     body = ''
-    for i, lbl in enumerate(labels):
-        x = PAD + i * (BW + GAP)
-        y = PAD
-        col = _SEQ_COLORS[i % len(_SEQ_COLORS)]
-        if i == 0:                                     # home plate — flat left, pointed right
-            pts = '%d,%d %d,%d %.1f,%.1f %d,%d %d,%d' % (
-                x, y, x + BW - notch, y, x + BW, y + BH / 2.0, x + BW - notch, y + BH, x, y + BH)
-            cx = x + (BW - notch) / 2.0
-        else:                                          # chevron — pointed both sides
-            pts = '%d,%d %d,%d %.1f,%.1f %d,%d %d,%d %.1f,%.1f' % (
-                x, y, x + BW - notch, y, x + BW, y + BH / 2.0, x + BW - notch, y + BH,
-                x, y + BH, x + notch, y + BH / 2.0)
-            cx = x + notch + (BW - notch) / 2.0
-        body += ('<polygon points="%s" fill="#%s" stroke="#fff" stroke-width="1.5"/>'
-                 % (pts, col))
-        lines = _wrap_label(lbl)
-        lh = 13.0
-        cy0 = y + BH / 2.0 - (len(lines) - 1) * lh / 2.0
-        for j, ln in enumerate(lines):
-            body += ('<text x="%.1f" y="%.1f" text-anchor="middle" dominant-baseline="middle" '
-                     'fill="#fff" font-family="Calibri,sans-serif" font-size="11.5" '
-                     'font-weight="700">%s</text>' % (cx, cy0 + j * lh, _esc(ln)))
-    return ('<div class="seqflow"><svg viewBox="0 0 %d %d" style="width:100%%;max-width:%dpx;'
+    for row in rows:
+        for it in row:
+            x, y, w, h = it['x'], it['y'], it['w'], it['h']
+            col = _SEQ_COLORS[it['i'] % len(_SEQ_COLORS)]
+            if it['kind'] == 'home':                   # home plate — flat left, pointed right
+                pts = '%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f' % (
+                    x, y, x + w - notch, y, x + w, y + h / 2.0, x + w - notch, y + h, x, y + h)
+                cx = x + (w - notch) / 2.0
+            else:                                      # chevron — pointed both sides
+                pts = '%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f' % (
+                    x, y, x + w - notch, y, x + w, y + h / 2.0, x + w - notch, y + h,
+                    x, y + h, x + notch, y + h / 2.0)
+                cx = x + notch + (w - notch) / 2.0
+            body += ('<polygon points="%s" fill="#%s" stroke="#fff" stroke-width="1.5"/>'
+                     % (pts, col))
+            lines, fs = it['lines'], it['font_px']
+            lh = fs * 1.25
+            cy0 = y + h / 2.0 - (len(lines) - 1) * lh / 2.0
+            for j, ln in enumerate(lines):
+                body += ('<text x="%.1f" y="%.1f" text-anchor="middle" '
+                         'dominant-baseline="middle" fill="#fff" font-family="Calibri,sans-serif" '
+                         'font-size="%.1f" font-weight="700">%s</text>'
+                         % (cx, cy0 + j * lh, fs, _esc(ln)))
+    return ('<div class="seqflow"><svg viewBox="0 0 %.1f %.1f" style="width:100%%;max-width:%.0fpx;'
             'display:block">%s</svg></div>' % (W, H, W, body))
 
 
@@ -641,7 +616,8 @@ def _cal_hist(cal):
     name = cal.get('name') or '—'
     acts = cal.get('activity_count')
     meta_txt = ' &mdash; %s activities' % _num(acts) if acts else ''
-    return ('<div class="calname">%s%s</div><div class="hist">%s</div>'
+    return ('<div class="calfig"><div class="calname">%s%s</div>'
+            '<div class="hist">%s</div></div>'
             % (_esc(name), meta_txt, cols))
 
 
@@ -1060,10 +1036,10 @@ p { font-size:13px; line-height:1.55; margin:0 0 11px; }
 .sub { font-family:Calibri,sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#17457a; border-bottom:1px solid #dbe1e8; padding-bottom:4px; margin:16px 0 12px; font-weight:700; }
 .subblue { font-family:Calibri,sans-serif; font-size:11px; font-weight:700; color:#1F4E79; text-transform:uppercase; letter-spacing:.03em; margin:6px 0 8px; }
 table { border-collapse: collapse; }
-.kv { width:100%; font-size:12px; }
+.kv { width:100%; font-size:12px; break-inside:avoid; page-break-inside:avoid; }
 .kv td { border:1px solid #cbd8e2; padding:7px 11px; }
 .kv td.k { width:36%; background:#eef3f9; color:#1F4E79; font-weight:700; }
-.dt { width:100%; font-size:12px; }
+.dt { width:100%; font-size:12px; break-inside:avoid; page-break-inside:avoid; }
 .dt th { background:#26517d; color:#fff; text-align:left; padding:6px 9px; font-size:10.5px; font-family:Calibri,sans-serif; }
 .dt td { border:1px solid #dbe3ec; padding:6px 9px; }
 .dt tr:nth-child(even) td { background:#f7f9fb; }
@@ -1096,6 +1072,7 @@ table { border-collapse: collapse; }
 .complegend .cl-i { display:inline-flex; align-items:center; gap:4px; }
 .complegend .cl-i i { width:10px; height:10px; border-radius:2px; display:inline-block; }
 .seqflow { margin:3px 0 12px; break-inside:avoid; page-break-inside:avoid; }
+.dnutfig, .compfig, .calfig { break-inside:avoid; page-break-inside:avoid; }
 .seq-glabel { font-family:Calibri,sans-serif; font-weight:700; color:#1F4E79; font-size:12.5px; margin:11px 0 3px; break-after:avoid; page-break-after:avoid; }
 .seq-glabel + .seqflow { break-before:avoid; page-break-before:avoid; }
 .banner { display:flex; justify-content:space-between; align-items:center; background:#1F4E79; color:#fff; border-radius:6px; padding:9px 14px; margin-bottom:12px; font-family:Calibri,sans-serif; }
@@ -1132,12 +1109,13 @@ table { border-collapse: collapse; }
 .wt .lv2{background:#DEEAF6;color:#14324f;}
 .wt .lv3{background:#eef4fb;color:#1f4e79;font-weight:600;}
 .wt .lv4{background:#fff;color:#33414d;font-weight:400;border-color:#d3ddea;font-size:9.5px;}
-.wsvg{margin:6px 0 14px;}
+.wt{break-inside:avoid;page-break-inside:avoid;}
+.wsvg{margin:6px 0 14px;break-inside:avoid;page-break-inside:avoid;}
 .wsvg svg{display:block;}
 .codes { display:flex; gap:16px; margin-bottom:12px; }
 .codes > div { flex:1; }
 .ct { font-size:12px; font-weight:700; margin:0 0 5px; }
-.codetbl { width:100%; font-size:11px; border-collapse:collapse; }
+.codetbl { width:100%; font-size:11px; border-collapse:collapse; break-inside:avoid; page-break-inside:avoid; }
 .codetbl th { background:#dbe5f1; border:1px solid #9fb2c8; padding:4px 7px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; font-size:10px; }
 .codetbl td { border:1px solid #b9c6d3; padding:3px 8px; }
 .codetbl td.cv { text-align:center; font-weight:600; }
