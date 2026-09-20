@@ -19,9 +19,9 @@ def _sched(acts, bac=None, asg=None):
     return d
 
 
-def _asg(rid, name, units, cost, rate=None, rtype=None):
-    return {'resource_id': rid, 'resource_name': name, 'budget_units': units, 'budget_cost': cost,
-            'rate': rate, 'resource_type': rtype}
+def _asg(rid, name, units, cost, rate=None, rtype=None, rcode=None):
+    return {'resource_id': rid, 'resource_code': rcode, 'resource_name': name,
+            'budget_units': units, 'budget_cost': cost, 'rate': rate, 'resource_type': rtype}
 
 
 def test_not_available_when_no_cost_or_resources():
@@ -121,6 +121,21 @@ def test_cost_reconciliation_reconciles_with_fractional_costs():
     assert rec['changed']['rev0'] + rec['unchanged']['rev0'] + rec['removed']['rev0'] == tot['rev0']
     # every cell is an integer (per-activity rounded), so the table ties out exactly
     assert all(isinstance(b['rev0'], int) and isinstance(b['rev1'], int) for b in d['cost_reconciliation'])
+
+
+def test_resource_totals_display_p6_code_not_objectid():
+    """The table's Resource ID must be P6's human Resource Id (code), not the internal ObjectId;
+    it falls back to the ObjectId only when the export carries no code."""
+    r0 = _sched([_act('A1', 'x')],
+                asg={'A1': [_asg('4521', 'Steelfixers', 100, 10000, rcode='LAB-STF'),
+                            _asg('4899', 'Crane', 5, 5000)]})   # Crane has no P6 code
+    r1 = _sched([_act('A1', 'x')],
+                asg={'A1': [_asg('4521', 'Steelfixers', 150, 15000, rcode='LAB-STF'),
+                            _asg('4899', 'Crane', 5, 5000)]})
+    d = diff_resources(r0, r1, MatchedSchedules(r0, r1))
+    by_name = {t['name']: t for t in d['resource_totals']}
+    assert by_name['Steelfixers']['id'] == 'LAB-STF'      # P6 code, not '4521'
+    assert by_name['Crane']['id'] == '4899'               # fallback to ObjectId when no code
 
 
 def test_resource_totals_empty_without_assignments():

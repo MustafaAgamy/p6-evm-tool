@@ -388,10 +388,12 @@ def _units_by_resource(data):
             if not key:
                 continue
             slot = out.setdefault(key, {'name': a.get('resource_name') or a.get('resource_id') or key,
-                                        'units': 0.0})
+                                        'code': a.get('resource_code'), 'units': 0.0})
             slot['units'] += a.get('budget_units') or 0.0
             if not slot['name']:
                 slot['name'] = a.get('resource_name') or key
+            if not slot.get('code'):
+                slot['code'] = a.get('resource_code')
     return out
 
 
@@ -408,8 +410,11 @@ def _manhours_by_trade(rev0, rev1):
             kind = 'added'
         else:
             kind = 'changed'
-        name = (s1 or s0)['name']
-        rows.append({'resource_id': str(key), 'name': name, 'rev0': u0, 'rev1': u1,
+        meta = s1 or s0
+        name = meta['name']
+        # Display the P6 human Resource Id (code) when present, not the internal ObjectId key.
+        rid = meta.get('code') or str(key)
+        rows.append({'resource_id': rid, 'name': name, 'rev0': u0, 'rev1': u1,
                      'var': round(u1 - u0, 1), 'kind': kind})
     rows.sort(key=lambda r: -max(r['rev0'], r['rev1']))
     return rows
