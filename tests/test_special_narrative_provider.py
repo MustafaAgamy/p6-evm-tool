@@ -28,6 +28,30 @@ def _items(ctx):
     return {i.id: i for i in narrative.provide(ctx)}
 
 
+def _text_block(pl):
+    """The underlying text payload of a section item, whether it came back as a bare
+    ``text`` payload (neutral section) or wrapped in a ``group`` with a verdict note
+    (non-neutral section)."""
+    if pl.get('kind') == 'text':
+        return pl
+    if pl.get('kind') == 'group':
+        for b in pl.get('blocks') or []:
+            if b.get('kind') == 'text':
+                return b
+    return None
+
+
+def _verdict_note(pl):
+    """The ``Verdict: …`` note payload from a section item, or None when the section
+    is neutral (a bare text payload with no verdict)."""
+    if pl.get('kind') != 'group':
+        return None
+    for b in pl.get('blocks') or []:
+        if b.get('kind') == 'note':
+            return b
+    return None
+
+
 # ── shape: every item produces a payload dict without raising ─────────────────
 def test_every_item_produces_a_payload_dict(temp_db, xml_path):
     ctx = SpecialContext(_seed(xml_path))
@@ -53,13 +77,30 @@ def test_status_is_keyvals_mirroring_the_header(temp_db, xml_path):
     assert pairs['Status'] == 'Action needed'
 
 
-def test_sections_are_text_payloads_with_paragraphs(temp_db, xml_path):
+def test_status_carries_the_excel_header_figure_block(temp_db, xml_path):
+    """The status item surfaces the same figure block narrative_excel._header_block
+    shows — SPI, CPI, planned/actual complete and delay — read straight from
+    ctx.evm (SPI/CPI 2 dp, complete % whole, delay bare int)."""
+    ctx = SpecialContext(_seed(xml_path))
+    pairs = dict(_items(ctx)['narrative:status'].produce(ctx)['pairs'])
+    assert pairs['SPI · Schedule'] == '0.60'           # fmt.ratio(0.6)
+    assert pairs['CPI · Cost'] == '0.86'               # fmt.ratio(0.857)
+    assert pairs['Planned complete (%)'] == '61'       # round(0.614*100)
+    assert pairs['Actual complete (%)'] == '40'        # round(0.404*100)
+    assert pairs['Delay (days)'] == '5'                # bare int, unit in the label
+
+
+def test_sections_carry_paragraphs(temp_db, xml_path):
+    """Every section item carries its prose — as a bare ``text`` payload (neutral
+    section) or as a ``group`` wrapping the text plus a verdict note."""
     ctx = SpecialContext(_seed(xml_path))
     items = _items(ctx)
     for key in ('summary', 'schedule', 'cost', 'areas', 'outlook'):
         pl = items[f'narrative:{key}'].produce(ctx)
-        assert pl['kind'] == 'text'
-        assert pl['paragraphs'] and all(isinstance(p, str) and p for p in pl['paragraphs'])
+        assert pl['kind'] in ('text', 'group')
+        tb = _text_block(pl)
+        assert tb and tb['paragraphs']
+        assert all(isinstance(p, str) and p for p in tb['paragraphs'])
 
 
 def test_section_text_matches_build_narrative(temp_db, xml_path):
@@ -71,7 +112,34 @@ def test_section_text_matches_build_narrative(temp_db, xml_path):
     secs = {s['key']: s for s in build_narrative(result)['sections']}
     for key in ('summary', 'schedule', 'cost', 'areas', 'outlook'):
         pl = _items(ctx)[f'narrative:{key}'].produce(ctx)
-        assert pl['paragraphs'] == secs[key]['paragraphs']
+        assert _text_block(pl)['paragraphs'] == secs[key]['paragraphs']
+
+
+def test_nonneutral_sections_carry_matching_verdict_note(temp_db, xml_path):
+    """Gap (b): each section's build_narrative tone is surfaced. A non-neutral tone
+    (good/warn/bad) adds a coloured 'Verdict: <word>' note (word from the provider's
+    _TONE_WORD map, note tone == the section tone); a neutral section stays plain
+    text with no verdict. Expectations are derived from build_narrative itself, so
+    the test tracks the source of truth rather than a fixed seed outcome."""
+    from p6_evm.narrative import build_narrative
+    ctx = SpecialContext(_seed(xml_path))
+    secs = {s['key']: s for s in build_narrative(ctx.evm)['sections']}
+    saw_nonneutral = False
+    for key in ('summary', 'schedule', 'cost', 'areas', 'outlook'):
+        pl = _items(ctx)[f'narrative:{key}'].produce(ctx)
+        tone = secs[key]['tone']
+        note = _verdict_note(pl)
+        if tone and tone != 'neutral':
+            saw_nonneutral = True
+            assert note is not None, key
+            assert note['tone'] == tone
+            assert note['message'] == f'Verdict: {narrative._TONE_WORD[tone]}'
+        else:
+            assert note is None, key             # neutral → no false verdict
+            assert pl['kind'] == 'text'
+    # 'areas' is always neutral in build_narrative; the seed drives the rest non-neutral.
+    assert secs['areas']['tone'] == 'neutral'
+    assert saw_nonneutral
 
 
 def test_item_title_equals_section_heading(temp_db, xml_path):

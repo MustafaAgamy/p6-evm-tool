@@ -70,6 +70,30 @@ def _section(ctx, key):
     return None
 
 
+# ── figure formatters — mirror p6_evm.narrative_excel._header_block exactly ─────
+def _num(v):
+    try:
+        return None if v is None else float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _whole_pct(frac):
+    """Stored 0–1 fraction → whole-percent string ('0.614' → '61'); None → DASH.
+    Mirrors narrative_excel._pct_whole (its numeric cell) as a display string."""
+    n = _num(frac)
+    return fmt.DASH if n is None else f'{round(n * 100)}'
+
+
+def _delay_txt(v):
+    """Delay in days as narrative_excel shows it — the bare int (can be negative /
+    ahead), '—' when absent. The label carries the '(days)' unit."""
+    try:
+        return fmt.DASH if v is None else f'{int(v)}'
+    except (TypeError, ValueError):
+        return fmt.DASH
+
+
 # ── availability ──────────────────────────────────────────────────────────────
 def _ready(ctx):
     """'ready' only when there is a stored result to narrate (ctx.evm present) —
@@ -81,8 +105,11 @@ def _ready(ctx):
 
 # ── producers ─────────────────────────────────────────────────────────────────
 def _status(ctx):
-    """The header chip row: project · data date · overall status word — a
-    keyvals mirror of narrative.js's ``ov-chips``."""
+    """The header block: the chip row (project · data date · overall status word)
+    plus the figures the feature's OWN header shows — SPI, CPI, planned/actual
+    complete and delay. A keyvals mirror of narrative.js's ``ov-chips`` extended
+    with the figure block of ``p6_evm.narrative_excel._header_block``, read
+    straight from ``ctx.evm`` (the same fields the Excel header uses)."""
     narr = _narr(ctx)
     if not narr:
         return P.NO_DATA
@@ -95,6 +122,13 @@ def _status(ctx):
         ('Project', e.get('project_name') or 'Project'),
         ('Data date', date_txt),
         ('Status', word),
+        # The figures the narrative is written from — the same block the Excel
+        # header carries (SPI/CPI 2 dp, complete % whole, delay in days).
+        ('SPI · Schedule', fmt.ratio(e.get('spi'))),
+        ('CPI · Cost', fmt.ratio(e.get('cpi'))),
+        ('Planned complete (%)', _whole_pct(e.get('overall_planned_pct'))),
+        ('Actual complete (%)', _whole_pct(e.get('overall_actual_pct'))),
+        ('Delay (days)', _delay_txt(e.get('delay_days'))),
     ])
 
 
@@ -106,7 +140,17 @@ def _make_section_producer(key):
         paras = sec.get('paragraphs') or []
         if not paras:
             return P.NO_DATA
-        return P.text(paras)
+        body = P.text(paras)
+        # Surface the section's own tone from build_narrative — the same per-section
+        # verdict the Excel export shows (narrative_excel._section_block): when the
+        # tone is non-neutral, append a small coloured 'Verdict: <word>' note using
+        # this provider's _TONE_WORD map (the section tones good/warn/bad map straight
+        # onto the note tones). Neutral sections stay plain text (no false verdict).
+        tone = sec.get('tone')
+        word = _TONE_WORD.get(tone) if (tone and tone != 'neutral') else None
+        if not word:
+            return body
+        return P.group([body, P.note(f'Verdict: {word}', tone=tone)])
     return _produce
 
 

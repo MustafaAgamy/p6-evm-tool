@@ -115,8 +115,11 @@ def test_twofile_needs_input_without_attachment(temp_db, xml_path):
 def test_twofile_ready_with_attachment(temp_db, xml_path):
     registry.clear_providers()
     pid = _seed(xml_path)
-    # attach the fixture as a stand-in baseline + previous → features turn ready + auto-run
-    ctx = SpecialContext(pid, inputs={'baseline': str(xml_path), 'previous': str(xml_path)})
+    # attach the fixture as a stand-in baseline + previous + corrected → every two-/three-file
+    # item turns ready + auto-runs (the Consultant Review impact section needs the 3rd
+    # 'corrected' file, so it is attached here too).
+    ctx = SpecialContext(pid, inputs={'baseline': str(xml_path), 'previous': str(xml_path),
+                                      'corrected': str(xml_path)})
     groups = {g['feature']: g for g in registry.catalog(ctx)}
     for feat in ('critpath', 'compare', 'period'):
         assert all(i['availability'] == 'ready' for i in groups[feat]['items']), feat

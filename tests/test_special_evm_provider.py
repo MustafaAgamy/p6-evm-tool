@@ -117,3 +117,156 @@ def test_gap_no_data_when_stored_shape_is_wrong(temp_db, xml_path):
     db.save_evm_extras(sid, {'gap': [{'code': 'CIV'}]})
     ctx = SpecialContext(pid, snapshot_id=sid)
     assert _items(ctx)['evm:gap'].availability(ctx) == 'no_data'
+
+
+# ── Engineering Progress (atomic add-on section) ──────────────────────────────
+_E1_EXTRAS = {
+    'engineering_e1': [
+        {'trade': 'Civil', 'submittal_type': 'IFC', 'req': 10, 'planned': 8,
+         'submitted_rows': 7, 'approved_rows': 6, 'not_approved_rows': 1,
+         'under_review_rows': 0, 'planned_pct': 80, 'submitted_pct': 60, 'approved_pct': 60},
+        {'trade': 'Mechanical', 'submittal_type': 'Shop', 'req': 5, 'planned': 4,
+         'submitted_rows': 3, 'approved_rows': 2, 'not_approved_rows': 0,
+         'under_review_rows': 1, 'planned_pct': 80, 'submitted_pct': 60, 'approved_pct': 40},
+    ],
+    'engineering_overall': {
+        'design': {'req': 10, 'planned': 8, 'submitted_rows': 7, 'approved_rows': 6,
+                   'not_approved_rows': 1, 'under_review_rows': 0,
+                   'planned_pct': 80, 'submitted_pct': 60, 'approved_pct': 60},
+        'engineering': {'req': 5, 'planned': 4, 'submitted_rows': 3, 'approved_rows': 2,
+                        'not_approved_rows': 0, 'under_review_rows': 1,
+                        'planned_pct': 80, 'submitted_pct': 60, 'approved_pct': 40},
+    },
+    'engineering_by_trade': [
+        {'trade': 'Civil', 'req': 10, 'submitted_rows': 7, 'approved_rows': 6,
+         'not_approved_rows': 1, 'submitted_pct': 60, 'approved_pct': 60},
+        {'trade': 'Mechanical', 'req': 5, 'submitted_rows': 3, 'approved_rows': 2,
+         'not_approved_rows': 0, 'submitted_pct': 60, 'approved_pct': 40},
+    ],
+    'engineering_gaps': {
+        'design': [{'trade': 'Civil', 'planned': 8, 'approved': 6, 'gap': 2, 'pct_of_gap': 100.0}],
+        'engineering': [{'trade': 'Mechanical', 'planned': 4, 'approved': 2, 'gap': 2, 'pct_of_gap': 100.0}],
+    },
+}
+
+_P6_EXTRAS = {
+    'engineering_p6': [
+        {'trade': 'Civil', 'submittal_type': 'Concrete', 'req': 12, 'planned_sub': 10,
+         'actual_sub': 9, 'planned_appr': 8, 'actual_appr': 6,
+         'actual_sub_pct': 75, 'actual_appr_pct': 50},
+    ],
+}
+
+
+def test_engineering_no_data_when_absent(temp_db, xml_path):
+    """No E1/P6 rows stored → 'no_data' and a no_data payload (never a ready item
+    that renders an empty engineering section)."""
+    ctx = SpecialContext(_seed(xml_path))
+    item = _items(ctx)['evm:engineering']
+    assert item.availability(ctx) == 'no_data'
+    assert item.produce(ctx)['kind'] == 'no_data'
+
+
+def test_engineering_ready_e1_and_reuses_report_section(temp_db, xml_path):
+    pid = _seed(xml_path)
+    sid = db.get_latest_snapshot_id(pid)
+    db.save_evm_extras(sid, dict(_E1_EXTRAS))
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    item = _items(ctx)['evm:engineering']
+    assert item.availability(ctx) == 'ready'
+    pl = item.produce(ctx)
+    # Reuses the EVM Report's OWN Engineering Progress section (exact style).
+    assert pl['kind'] == 'html'
+    h = pl['html']
+    assert 'Engineering Progress' in h            # Section E heading
+    assert 'Totals by Trade' in h                 # Totals-by-trade sub-table
+    assert 'Engineering Gap' in h                 # Design + Shop gap tables
+    assert 'Overall — Design Drawings' in h       # E1 overall rows
+    assert 'Civil' in h and 'Mechanical' in h
+    assert 'Source: E1 Log' in h                  # E1 (not P6) note
+
+
+def test_engineering_only_the_addon_renders(temp_db, xml_path):
+    """sections=['engineering'] is a sentinel that suppresses every core section, so
+    the picked result is ONLY the engineering add-on — not the whole EVM report."""
+    pid = _seed(xml_path)
+    sid = db.get_latest_snapshot_id(pid)
+    db.save_evm_extras(sid, dict(_E1_EXTRAS))
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    h = _items(ctx)['evm:engineering'].produce(ctx)['html']
+    # None of the four core-section headings leak in.
+    assert 'Executive Dashboard' not in h
+    assert 'Category Weights' not in h
+    assert 'Planned Value vs Earned Value' not in h
+    assert 'Project Progress' not in h
+    # And the report banner / footer boilerplate is stripped.
+    assert 'Earned Value Management · Report' not in h
+    assert 'isolated from the Schedule Audit modules' not in h
+
+
+def test_engineering_ready_p6_mode(temp_db, xml_path):
+    pid = _seed(xml_path)
+    sid = db.get_latest_snapshot_id(pid)
+    db.save_evm_extras(sid, dict(_P6_EXTRAS))
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    item = _items(ctx)['evm:engineering']
+    assert item.availability(ctx) == 'ready'
+    pl = item.produce(ctx)
+    assert pl['kind'] == 'html'
+    assert 'Engineering Progress' in pl['html']
+    assert 'Source: P6' in pl['html']             # P6 (Mode B) note
+
+
+def test_engineering_no_data_when_rows_empty(temp_db, xml_path):
+    """An empty engineering_p6 list (the parse-time default) must NOT advertise
+    'ready' — availability complements produce, which renders nothing."""
+    pid = _seed(xml_path)
+    sid = db.get_latest_snapshot_id(pid)
+    db.save_evm_extras(sid, {'engineering_p6': [], 'engineering_e1': []})
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    item = _items(ctx)['evm:engineering']
+    assert item.availability(ctx) == 'no_data'
+    assert item.produce(ctx)['kind'] == 'no_data'
+
+
+# ── Finish-date KPIs (the EVM dashboard's two finish tiles, atomic) ───────────
+def test_finish_dates_no_data_when_absent(temp_db, xml_path):
+    ctx = SpecialContext(_seed(xml_path))
+    items = _items(ctx)
+    for iid in ('evm:baseline_finish', 'evm:expected_finish'):
+        assert items[iid].availability(ctx) == 'no_data'
+        assert items[iid].produce(ctx)['kind'] == 'no_data'
+
+
+def test_finish_dates_ready_and_formatted(temp_db, xml_path):
+    pid = _seed(xml_path)
+    sid = db.get_latest_snapshot_id(pid)
+    # Stored finish dates carry an ISO time tail; the tile drops it and formats as the
+    # EVM screen does — 'DD Mon YYYY'.
+    db.save_evm_extras(sid, {'baseline_finish': '2027-12-31T00:00:00',
+                             'expected_finish': '2028-03-15 00:00:00'})
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    items = _items(ctx)
+
+    bf = items['evm:baseline_finish']
+    assert bf.availability(ctx) == 'ready'
+    bkpi = bf.produce(ctx)
+    assert bkpi['kind'] == 'kpi_group'
+    assert bkpi['items'][0]['value'] == '31 Dec 2027'
+    assert bkpi['items'][0]['label'] == 'Baseline Finish'
+
+    ef = items['evm:expected_finish']
+    assert ef.availability(ctx) == 'ready'
+    assert ef.produce(ctx)['items'][0]['value'] == '15 Mar 2028'
+
+
+def test_finish_dates_no_data_when_only_the_other_present(temp_db, xml_path):
+    pid = _seed(xml_path)
+    sid = db.get_latest_snapshot_id(pid)
+    db.save_evm_extras(sid, {'baseline_finish': '2027-12-31T00:00:00'})
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    items = _items(ctx)
+    assert items['evm:baseline_finish'].availability(ctx) == 'ready'
+    # Expected finish absent → its own item stays honest.
+    assert items['evm:expected_finish'].availability(ctx) == 'no_data'
+    assert items['evm:expected_finish'].produce(ctx)['kind'] == 'no_data'
