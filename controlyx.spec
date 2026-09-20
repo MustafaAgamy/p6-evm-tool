@@ -29,6 +29,9 @@ datas = [
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
     ('p6_prodintel',   'p6_prodintel'),   # Productivity & Resource Intelligence engine
     ('productivity_kb', 'productivity_kb'),# Productivity norm KB (component-based JSON data)
+    ('p6_chat',        'p6_chat'),        # Offline AI Chat — package + bundled question
+                                          # library (p6_chat/data/questions.json, read via
+                                          # resource_path); loaded lazily in server.py handlers.
     ('report_theme.py', '.'),             # Shared report appearance themes — imported at
                                           # runtime by the report renderers (which run after
                                           # sys.path.insert(resource_path('.'))); ship as root
@@ -112,7 +115,7 @@ except Exception:
 # dropped from the .exe — this bit us before (an empty catalog / missing feature that
 # only showed on the built exe, never in dev or tests). p6_report registers the
 # Global Print-Preview features on import, so its submodules must ship.
-for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare'):
+for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare', 'p6_chat'):
     try:
         hiddenimports += collect_submodules(_pkg)
     except Exception:

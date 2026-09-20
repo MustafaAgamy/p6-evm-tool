@@ -192,6 +192,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_database_list()
         elif self.path == '/api/prodintel/tree':
             self._handle_prodintel_tree()
+        elif self.path == '/api/chat/library':
+            self._handle_chat_library()
+        elif self.path == '/api/chat/status':
+            self._handle_chat_status()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -376,6 +380,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_report_manifest(body)
         elif self.path == '/api/report/render':
             self._handle_report_render(body)
+        elif self.path == '/api/chat/ask':
+            self._handle_chat_ask(body)
+        elif self.path == '/api/chat/setup':
+            self._handle_chat_setup(body)
+        elif self.path == '/api/chat/settings':
+            self._handle_chat_settings(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -3112,6 +3122,68 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 has_key = False
             self._json(200, {'ok': True, 'has_key': has_key, **build_copilot(result, weather)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/chat/* — Offline AI Chat ────────────────────────────────────────
+    def _chat_result(self, body):
+        """Resolve the open project's computed result for grounding (DB read path,
+        falling back to a client-supplied result)."""
+        result = body.get('result')
+        snap = body.get('snapshot_id')
+        if not result and snap is not None:
+            pid = db.snapshot_project_id(snap)
+            if pid is not None:
+                result = db.get_project_result(pid)
+        return result
+
+    def _handle_chat_library(self):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, {'ok': True, **p6_chat.get_library()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_status(self):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, {'ok': True, 'brain': p6_chat.brain_status()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_ask(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            out = p6_chat.ask(body.get('question'), self._chat_result(body) or {},
+                              role=body.get('role'))
+            self._json(200, out)
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_setup(self, body):
+        """Kick off the one-time model download in the background and return at once;
+        the UI polls /api/chat/status and enables the chat when the brain is ready."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat, threading
+            threading.Thread(target=p6_chat.brain_setup, args=(body.get('model'),),
+                             daemon=True).start()
+            self._json(200, {'ok': True, 'started': True,
+                             'note': 'Downloading the AI brain — this can take several '
+                                     'minutes on first setup. It runs in the background; '
+                                     'the chat enables itself when it finishes.'})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_settings(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            s = p6_chat.save_brain_settings(base_url=body.get('base_url'), model=body.get('model'))
+            self._json(200, {'ok': True, 'settings': s, 'brain': p6_chat.brain_status()})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
