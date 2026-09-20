@@ -183,6 +183,46 @@ def _muted(document, text):
     return para(document, text, size=11, italic=True, color=GREY, after=4)
 
 
+# ── pagination control (keep logical blocks together across page breaks) ──────
+def _keep_table_together(table, header=True):
+    """Keep a table from splitting awkwardly across a page break.
+
+    (a) Every row gets ``w:cantSplit`` so a SINGLE row never breaks across two pages — inserted
+    at the front of ``w:trPr`` (its schema slot precedes ``w:trHeight`` set by ``_row_h``).
+    (b) When ``header`` and the table has a header row, the first row is marked ``w:tblHeader``
+    so it REPEATS at the top of each page the table spans.
+
+    A short table then stays whole (helped by ``keep_with_next`` on its preceding heading); a
+    long one splits cleanly with its header repeated. None-safe — never raises."""
+    try:
+        rows = list(table.rows)
+    except Exception:                       # pragma: no cover - defensive
+        return table
+    for ri, row in enumerate(rows):
+        try:
+            trPr = row._tr.get_or_add_trPr()
+            cant = OxmlElement('w:cantSplit')
+            cant.set(qn('w:val'), 'true')
+            trPr.insert(0, cant)            # cantSplit precedes trHeight in the CT_TrPr sequence
+            if header and ri == 0:
+                th = OxmlElement('w:tblHeader')
+                th.set(qn('w:val'), 'true')
+                trPr.append(th)             # tblHeader follows trHeight — safe to append last
+        except Exception:                   # pragma: no cover - defensive
+            continue
+    return table
+
+
+def _keep_last_with_next(document):
+    """Set ``keep_with_next`` on the document's last paragraph — used after a native drawing
+    (chart/diagram) so its paragraph is not separated from the caption/legend that follows."""
+    try:
+        if document.paragraphs:
+            document.paragraphs[-1].paragraph_format.keep_with_next = True
+    except Exception:                       # pragma: no cover - defensive
+        pass
+
+
 # ── composite builders (ported from build_narrative_v2.py) ────────────────────
 def tiles(document, items, per_row=None, big_size=17, label_size=8.5, fill=FILL_TILE,
           border='B9D1EA', numcolor=NAVY, height=44):
@@ -218,6 +258,7 @@ def tiles(document, items, per_row=None, big_size=17, label_size=8.5, fill=FILL_
                 p2.paragraph_format.space_after = Pt(2)
                 run(p2, lbl, font=CAL, size=label_size, color=BODYNAVY)
             idx += 1
+    _keep_table_together(outer, header=False)   # a tile row never splits across a page
     return outer
 
 
@@ -239,6 +280,7 @@ def kv_table(document, rows, label_w=2.5, val_w=4.4, h=21):
         _shade(lc, FILL_LABEL); _no_space(lc); _no_space(vc)
         run(lc.paragraphs[0], k, size=11.5, bold=True, color=NAVY)
         run(vc.paragraphs[0], v, size=11.5)
+    _keep_table_together(t, header=False)       # key/value rows have no repeating header
     return t
 
 
@@ -275,6 +317,7 @@ def data_table(document, headers, rows, widths=None, h=21, aligns=None):
             if aligns and aligns[ci] == 'r':
                 p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             run(p, val, size=11)
+    _keep_table_together(t, header=True)        # navy header repeats on any page break
     return t
 
 
@@ -293,6 +336,7 @@ def banner(document, left_text, right_text):
     pr = rc.paragraphs[0]
     pr.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     run(pr, right_text + '  ', font=CAL, size=15, bold=True, color=WHITE)
+    _keep_table_together(ban, header=False)     # the one-row banner stays whole
     return ban
 
 
@@ -322,6 +366,7 @@ def _code_table(cell, title, rows):
         p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run(p0, cv, size=10.5, bold=True)
         run(c1.paragraphs[0], desc, size=10.5)
+    _keep_table_together(t, header=True)        # 'Code Value | Description' header repeats
     return t
 
 
@@ -375,6 +420,7 @@ def _render_image(document, p, number, note):
     try:
         document.add_picture(img, width=Inches(6.6))
         document.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        document.paragraphs[-1].paragraph_format.keep_with_next = True  # figure stays with caption
     except Exception:
         # a bad/undecodable image → the framed placeholder box, never a broken figure
         _placeholder_box(document, p.get('placeholder')
@@ -442,6 +488,7 @@ def _value_legend(document, rows, colors, unit):
         ps = sh.paragraphs[0]; ps.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         pct = r.get('pct')
         run(ps, ('%s%%' % pct) if pct is not None else '', size=11)
+    _keep_table_together(t, header=True)        # navy header row repeats if it spans a page
     return t
 
 
@@ -466,7 +513,9 @@ def _render_value_bars(document, p, number, note):
     pcts = [r.get('pct') for r in rows]
     docx_native.add_doughnut(document, cats, vals, num_fmt='#,##0', unit=unit,
                              pcts=pcts, total=total)
-    para(document, '', after=2)
+    _keep_last_with_next(document)              # doughnut stays with its value legend
+    sp = para(document, '', after=2)
+    sp.paragraph_format.keep_with_next = True
     _value_legend(document, rows, docx_native.ramp_colors(cats), unit)
 
 
@@ -496,6 +545,7 @@ def _swatch_legend(document, rows, colors):
         ps = sh.paragraphs[0]; ps.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         pct = r.get('pct')
         run(ps, ('%s%%' % _pct(pct)) if pct is not None else '', size=11, color=NAVY)
+    _keep_table_together(t, header=False)       # borderless legend — no header row to repeat
     return t
 
 
@@ -523,7 +573,9 @@ def _scope_composition(document, items, unit):
         return
     # swatch legend beneath the composed bar (name + share %); the percentages already sit ON
     # the bar, so no separate pct line is printed.
-    para(document, '', after=2)
+    _keep_last_with_next(document)              # composition bar stays with its swatch legend
+    sp = para(document, '', after=2)
+    sp.paragraph_format.keep_with_next = True
     _swatch_legend(document, items, docx_native.ramp_colors(names))
 
 
@@ -609,6 +661,73 @@ def _render_scope(document, p, number, note):
     _render_cascade(document, cascade, _cur, 0)
 
 
+# ── §11 Sequence of Work ──────────────────────────────────────────────────────
+def _names_sentence(names):
+    names = [str(n) for n in names if n]
+    if not names:
+        return ''
+    if len(names) == 1:
+        return names[0]
+    return ', '.join(names[:-1]) + ' and ' + names[-1]
+
+
+def _render_sequence(document, p, number, note):
+    """Native Word §11 — one sub-section per picked analysis: its title, the narrative, then a
+    native chevron flow (a home-plate + chevrons drawing, never a picture) for a single-code
+    sequence, or one labelled flow per grouped building. Mirrors the HTML/PDF twin
+    (``html._seqflow``); None-safe with an editable text fallback if a drawing can't be built."""
+    analyses = (p or {}).get('analyses') or []
+    if not analyses:
+        _muted(document, 'No sequence-of-work analysis could be derived from the schedule.')
+        return
+    para(document,
+         'The execution sequence of work is read directly from the schedule’s own dependency '
+         'logic — the links between the activities — rather than assumed. Each analysis below '
+         'sequences one or two activity codes; where several structures share the same sequence '
+         'they are shown once rather than duplicated.',
+         align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+
+    for i, a in enumerate(analyses, 1):
+        _subhead(document, '%s.%d' % (number, i), a.get('title') or ('Analysis %d' % i))
+        narr = a.get('narrative')
+        if narr:
+            para(document, narr, align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=6)
+
+        if a.get('kind') == 'single':
+            steps = [s.get('name') for s in (a.get('steps') or [])]
+            if not steps:
+                _muted(document, 'No ordered sequence could be derived for this code.')
+                continue
+            if docx_native.add_chevron_flow(document, steps) is None:
+                para(document, ' → '.join(str(s) for s in steps), after=6)   # editable fallback
+        else:
+            groups = a.get('groups') or []
+            if not groups:
+                _muted(document, 'No grouped sequence could be derived for these codes.')
+            for g in groups:
+                # bold navy building label line, kept with its chevron flow
+                lbl = document.add_paragraph()
+                lbl.paragraph_format.space_before = Pt(6)
+                lbl.paragraph_format.space_after = Pt(2)
+                lbl.paragraph_format.keep_with_next = True
+                cnt = g.get('count') or 0
+                suffix = (' (×%d)' % cnt) if cnt > 1 else ''
+                run(lbl, '➢  %s%s' % (g.get('label') or '—', suffix),
+                    size=12, bold=True, color=NAVY)
+                steps = [s.get('name') for s in (g.get('steps') or [])]
+                if docx_native.add_chevron_flow(document, steps) is None:
+                    para(document, ' → '.join(str(s) for s in steps), after=4)
+            nc = a.get('no_code')
+            if nc:
+                codes = a.get('codes') or []
+                scode = codes[1] if len(codes) > 1 else 'this code'
+                para(document,
+                     '%s carry no %s coding and are delivered under other scopes rather than '
+                     'the sequence above.' % (_names_sentence(nc), scode),
+                     size=11, italic=True, color=GREY, before=2, after=4,
+                     align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+
+
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────
 def _render_table(document, p, number, note):
     if p.get('view') == 'calendars':
@@ -685,6 +804,7 @@ def _wbs_fallback_table(document, root):
         pp.paragraph_format.left_indent = Inches(0.22 * max(lvl - base, 0))
         run(pp, name, size=11, bold=(lvl <= 1),
             color=(WHITE if lvl == 0 else DKNAVY))
+    _keep_table_together(t, header=False)       # indented WBS rows — no repeating header
     return t
 
 
@@ -737,6 +857,7 @@ _RENDER = {
     'table': _render_table,
     'wbs_tree': _render_wbs_tree,
     'codes': _render_codes,
+    'sequence': _render_sequence,
 }
 
 
@@ -746,7 +867,8 @@ def _render(document, section, number):
     note = section.get('note')
     lead = _LEADS.get(section.get('title'))
     if lead and kind not in ('overview', 'image'):
-        para(document, lead, size=11, italic=True, color=GREY, after=8)
+        lp = para(document, lead, size=11, italic=True, color=GREY, after=8)
+        lp.paragraph_format.keep_with_next = True   # intro never orphans from its table/chart
     handler = _RENDER.get(kind)
     if handler is not None:
         handler(document, payload, number, note)

@@ -761,6 +761,55 @@ def add_process(document, steps):
         return None
 
 
+def add_chevron_flow(document, labels, palette=None):
+    """Native HORIZONTAL chevron flow for §11 Sequence of Work — a home-plate first step
+    then chevrons, in the blue sequence palette, white centred labels.
+
+    Layout comes from the SHARED :func:`p6_narrative.util.chevron_layout`, the very same helper
+    ``html._chevrons`` uses — so the Word flow and the SVG/PDF flow are identical: same labels,
+    same rows, same order, FULL text in both. Each shape is sized to its own wrapped text and
+    the whole flow wraps onto MULTIPLE ROWS when a row would exceed the text column, so a long
+    label is never truncated and a wide sequence never crushes every chevron into one page-wide
+    row. Reuses the same ``_wps_box`` home-plate / chevron shapes (``wrap="square"`` +
+    ``normAutofit``), so it is a real editable Word drawing — never a picture. Returns the
+    drawing element, or ``None`` on a missing document / empty labels / any internal error."""
+    if document is None or not labels:
+        return None
+    clean = [str(x) for x in labels if x is not None and str(x).strip() != '']
+    if not clean:
+        return None
+    try:
+        from p6_narrative.util import chevron_layout
+        pal = palette or _SEQ_PALETTE_HEX
+        lay = chevron_layout(clean)
+        rows = lay['rows']
+        if not rows:
+            return None
+        counter = [_next_id(document)]
+        base_id = counter[0]
+        counter[0] += 1
+        shapes = []
+        for row in rows:
+            for it in row:
+                col = pal[it['i'] % len(pal)]
+                prst = 'homePlate' if it['kind'] == 'home' else 'chevron'
+                # FULL label (never _clip'd) — the box wraps + normAutofit-fits it; sz is the
+                # layout's per-shape font converted px→pt (font_px·0.75), so the shrink the
+                # layout already chose is honoured 1:1 with the SVG.
+                sz = max(int(round(it['font_px'] * 0.75)), 1)
+                shapes.append(_wps_box(
+                    counter, it['label'], _emu(it['x']), _emu(it['y']),
+                    _emu(it['w']), _emu(it['h']), col, None, 'FFFFFF',
+                    it['label'], sz=sz, prst=prst))
+        w_emu, h_emu = _emu(lay['width']), _emu(lay['height'])
+        # The layout already fits max_width_px; _fit_display is a no-op unless the group still
+        # exceeds the page (safety), so multiple rows keep their real size rather than crushing.
+        dw, dh = _fit_display(w_emu, h_emu)
+        return _group_drawing(document, ''.join(shapes), base_id, w_emu, h_emu, dw, dh)
+    except Exception:                       # pragma: no cover - never crash the export
+        return None
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SLICE C — NATIVE charts + org-charts for the redesigned 10-section narrative.
 # Ported verbatim from the approved standalone builder (build_narrative_v2.py):

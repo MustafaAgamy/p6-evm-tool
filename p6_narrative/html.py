@@ -265,7 +265,7 @@ def _doughnut(rows, cap, center_big, value_fn):
                         _esc(_clip(r.get('name'), 16)), col, _fmt_pct(r.get('pct'))))
     svg = ('<svg viewBox="0 0 %d %d" style="width:100%%;max-width:%dpx;display:block;'
            'margin:2px auto">%s</svg>' % (W, H, W, body))
-    return svg + _chart_legend(rows, value_fn)
+    return '<div class="dnutfig">%s%s</div>' % (svg, _chart_legend(rows, value_fn))
 
 
 # ── SVG 100% composition bar (§7.1 scope by discipline) ───────────────────────
@@ -319,7 +319,8 @@ def _compbar(rows):
                         lx, lab_y, col, _fmt_pct(r.get('pct'))))
     svg = ('<svg viewBox="0 0 %d %d" style="width:100%%;max-width:%dpx;display:block;'
            'margin:4px auto">%s</svg>' % (W, H, W, body))
-    return svg + _chart_legend(rows, lambda r: '%s%%' % _fmt_pct(r.get('pct')))
+    return ('<div class="compfig">%s%s</div>'
+            % (svg, _chart_legend(rows, lambda r: '%s%%' % _fmt_pct(r.get('pct')))))
 
 
 # ── §1 Project Overview ───────────────────────────────────────────────────────
@@ -475,6 +476,97 @@ def _scope(p, number, title, meta, cur):
     return out
 
 
+# ── §11 Sequence of Work (dependency-derived chevron flows) ────────────────────
+# The same blue ramp the native Word chevrons use (docx_native._SEQ_PALETTE_HEX), so the
+# screen, PDF and Word chevrons read identically.
+_SEQ_COLORS = ['1F4E79', '2E75B6', '4472C4', '5B9BD5', '41719C', '8FAADC']
+
+
+def _chevrons(labels):
+    """An SVG chevron flow laid out by :func:`p6_narrative.util.chevron_layout`: a home-plate
+    first step then chevrons, blue ramp, white bold labels — word-wrapped (and the font shrunk
+    when needed) so text is NEVER truncated, and flowing onto MULTIPLE ROWS when one row would
+    exceed the text column. The native Word twin (``docx_native.add_chevron_flow``) draws the
+    SAME layout, so screen, PDF and Word read identically."""
+    from p6_narrative.util import chevron_layout
+    lay = chevron_layout(labels)
+    rows = lay['rows']
+    if not rows:
+        return ''
+    W, H, notch = lay['width'], lay['height'], 14
+    body = ''
+    for row in rows:
+        for it in row:
+            x, y, w, h = it['x'], it['y'], it['w'], it['h']
+            col = _SEQ_COLORS[it['i'] % len(_SEQ_COLORS)]
+            if it['kind'] == 'home':                   # home plate — flat left, pointed right
+                pts = '%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f' % (
+                    x, y, x + w - notch, y, x + w, y + h / 2.0, x + w - notch, y + h, x, y + h)
+                cx = x + (w - notch) / 2.0
+            else:                                      # chevron — pointed both sides
+                pts = '%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f' % (
+                    x, y, x + w - notch, y, x + w, y + h / 2.0, x + w - notch, y + h,
+                    x, y + h, x + notch, y + h / 2.0)
+                cx = x + notch + (w - notch) / 2.0
+            body += ('<polygon points="%s" fill="#%s" stroke="#fff" stroke-width="1.5"/>'
+                     % (pts, col))
+            lines, fs = it['lines'], it['font_px']
+            lh = fs * 1.25
+            cy0 = y + h / 2.0 - (len(lines) - 1) * lh / 2.0
+            for j, ln in enumerate(lines):
+                body += ('<text x="%.1f" y="%.1f" text-anchor="middle" '
+                         'dominant-baseline="middle" fill="#fff" font-family="Calibri,sans-serif" '
+                         'font-size="%.1f" font-weight="700">%s</text>'
+                         % (cx, cy0 + j * lh, fs, _esc(ln)))
+    return ('<div class="seqflow"><svg viewBox="0 0 %.1f %.1f" style="width:100%%;max-width:%.0fpx;'
+            'display:block">%s</svg></div>' % (W, H, W, body))
+
+
+def _seqflow(p, number, title, meta, cur):
+    analyses = (p or {}).get('analyses') or []
+    if not analyses:
+        return ('<p class="note">No sequence-of-work analysis could be derived from the '
+                'schedule.</p>')
+    out = ('<p>The execution sequence of work is read directly from the schedule’s own '
+           'dependency logic — the links between the activities — rather than assumed. Each '
+           'analysis below sequences one or two activity codes; where several structures share '
+           'the same sequence they are shown once rather than duplicated.</p>')
+    for i, a in enumerate(analyses, 1):
+        atitle = a.get('title') or ('Analysis %d' % i)
+        out += ('<div class="sub">%s.%d &middot; %s</div>' % (_esc(number), i, _esc(atitle)))
+        narr = a.get('narrative')
+        if narr:
+            out += ('<p style="border-left:3px solid #1F4E79;background:#f2f6fb;'
+                    'padding:9px 13px;margin:12px 0;border-radius:0 5px 5px 0;'
+                    'text-align:justify">%s</p>' % _esc(narr))
+        if a.get('kind') == 'single':
+            steps = a.get('steps') or []
+            if steps:
+                out += _chevrons([s.get('name') for s in steps])
+            else:
+                out += '<p class="note">No ordered sequence could be derived for this code.</p>'
+        else:
+            groups = a.get('groups') or []
+            if not groups:
+                out += ('<p class="note">No grouped sequence could be derived for these '
+                        'codes.</p>')
+            for g in groups:
+                cnt = g.get('count') or 0
+                suffix = (' (&times;%d)' % cnt) if cnt > 1 else ''
+                out += ('<p class="seq-glabel">&#10146;&nbsp;%s%s</p>'
+                        % (_esc(g.get('label')), suffix))
+                out += _chevrons([s.get('name') for s in (g.get('steps') or [])])
+            nc = a.get('no_code')
+            if nc:
+                codes = a.get('codes') or ['', '']
+                scode = codes[1] if len(codes) > 1 else 'this code'
+                names = ', '.join(_esc(x) for x in nc[:-1])
+                names = (names + ' and ' + _esc(nc[-1])) if len(nc) > 1 else _esc(nc[0])
+                out += ('<p class="note">%s carry no %s coding and are delivered under other '
+                        'scopes rather than the sequence above.</p>' % (names, _esc(scode)))
+    return out
+
+
 # ── §8 Project Calendars & Holidays ───────────────────────────────────────────
 _DASH_TILES = [
     ('total_calendar_days', 'Total Calendar Days'),
@@ -524,7 +616,8 @@ def _cal_hist(cal):
     name = cal.get('name') or '—'
     acts = cal.get('activity_count')
     meta_txt = ' &mdash; %s activities' % _num(acts) if acts else ''
-    return ('<div class="calname">%s%s</div><div class="hist">%s</div>'
+    return ('<div class="calfig"><div class="calname">%s%s</div>'
+            '<div class="hist">%s</div></div>'
             % (_esc(name), meta_txt, cols))
 
 
@@ -776,6 +869,7 @@ _RENDER = {
     'scope': _scope,
     'wbs_tree': _wbs_tree,
     'codes': _codes,
+    'sequence': _seqflow,
 }
 
 
@@ -834,7 +928,8 @@ _TOC_GROUPS = [
     ('PROJECT DEFINITION', ('Project Overview', 'Project Layout', 'Project Brief')),
     ('BASELINE TARGETS', ('Major Milestones', 'Key Dates', 'Contract Value')),
     ('SCOPE & STRUCTURE', ('Scope of Work', 'Project Calendars & Holidays',
-                           'Work Breakdown Structure', 'Activity Codes')),
+                           'Work Breakdown Structure', 'Activity Codes',
+                           'Sequence of Work')),
 ]
 
 
@@ -941,10 +1036,10 @@ p { font-size:13px; line-height:1.55; margin:0 0 11px; }
 .sub { font-family:Calibri,sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#17457a; border-bottom:1px solid #dbe1e8; padding-bottom:4px; margin:16px 0 12px; font-weight:700; }
 .subblue { font-family:Calibri,sans-serif; font-size:11px; font-weight:700; color:#1F4E79; text-transform:uppercase; letter-spacing:.03em; margin:6px 0 8px; }
 table { border-collapse: collapse; }
-.kv { width:100%; font-size:12px; }
+.kv { width:100%; font-size:12px; break-inside:avoid; page-break-inside:avoid; }
 .kv td { border:1px solid #cbd8e2; padding:7px 11px; }
 .kv td.k { width:36%; background:#eef3f9; color:#1F4E79; font-weight:700; }
-.dt { width:100%; font-size:12px; }
+.dt { width:100%; font-size:12px; break-inside:avoid; page-break-inside:avoid; }
 .dt th { background:#26517d; color:#fff; text-align:left; padding:6px 9px; font-size:10.5px; font-family:Calibri,sans-serif; }
 .dt td { border:1px solid #dbe3ec; padding:6px 9px; }
 .dt tr:nth-child(even) td { background:#f7f9fb; }
@@ -976,6 +1071,10 @@ table { border-collapse: collapse; }
 .complegend { font-size:10px; color:#5b6472; font-family:Calibri,sans-serif; line-height:1.9; }
 .complegend .cl-i { display:inline-flex; align-items:center; gap:4px; }
 .complegend .cl-i i { width:10px; height:10px; border-radius:2px; display:inline-block; }
+.seqflow { margin:3px 0 12px; break-inside:avoid; page-break-inside:avoid; }
+.dnutfig, .compfig, .calfig { break-inside:avoid; page-break-inside:avoid; }
+.seq-glabel { font-family:Calibri,sans-serif; font-weight:700; color:#1F4E79; font-size:12.5px; margin:11px 0 3px; break-after:avoid; page-break-after:avoid; }
+.seq-glabel + .seqflow { break-before:avoid; page-break-before:avoid; }
 .banner { display:flex; justify-content:space-between; align-items:center; background:#1F4E79; color:#fff; border-radius:6px; padding:9px 14px; margin-bottom:12px; font-family:Calibri,sans-serif; }
 .banner .l { font-size:11px; letter-spacing:.03em; text-transform:uppercase; }
 .banner .v { font-size:18px; font-weight:800; }
@@ -1010,12 +1109,13 @@ table { border-collapse: collapse; }
 .wt .lv2{background:#DEEAF6;color:#14324f;}
 .wt .lv3{background:#eef4fb;color:#1f4e79;font-weight:600;}
 .wt .lv4{background:#fff;color:#33414d;font-weight:400;border-color:#d3ddea;font-size:9.5px;}
-.wsvg{margin:6px 0 14px;}
+.wt{break-inside:avoid;page-break-inside:avoid;}
+.wsvg{margin:6px 0 14px;break-inside:avoid;page-break-inside:avoid;}
 .wsvg svg{display:block;}
 .codes { display:flex; gap:16px; margin-bottom:12px; }
 .codes > div { flex:1; }
 .ct { font-size:12px; font-weight:700; margin:0 0 5px; }
-.codetbl { width:100%; font-size:11px; border-collapse:collapse; }
+.codetbl { width:100%; font-size:11px; border-collapse:collapse; break-inside:avoid; page-break-inside:avoid; }
 .codetbl th { background:#dbe5f1; border:1px solid #9fb2c8; padding:4px 7px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; font-size:10px; }
 .codetbl td { border:1px solid #b9c6d3; padding:3px 8px; }
 .codetbl td.cv { text-align:center; font-weight:600; }
