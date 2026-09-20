@@ -70,8 +70,8 @@ def clear_providers():
 def load_builtins():
     """Register the built-in feature providers explicitly."""
     from p6_special.providers import (overview, evm, audit, calendar, update,
-                                       constructability, twofile, revcompare, narrative)
-    for mod in (overview, evm, audit, calendar, update, constructability, twofile,
+                                       twofile, revcompare, narrative)
+    for mod in (overview, evm, audit, calendar, update, twofile,
                 revcompare, narrative):
         fn = getattr(mod, 'provide', None)
         if callable(fn):

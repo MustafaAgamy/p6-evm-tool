@@ -51,9 +51,12 @@ def test_catalog_includes_every_feature(temp_db, xml_path):
     registry.clear_providers()
     ctx = SpecialContext(_seed(xml_path))
     features = {g['feature'] for g in registry.catalog(ctx)}
-    for f in ('evm', 'audit', 'calendar', 'update', 'constructability',
-              'critpath', 'compare', 'period'):
+    # Constructability was removed from the Studio (Ibrahim: no constructability review
+    # belongs in the Special Report). Every other feature must still be present.
+    for f in ('evm', 'audit', 'calendar', 'update',
+              'critpath', 'compare', 'period', 'revcompare', 'narrative'):
         assert f in features, f
+    assert 'constructability' not in features
 
 
 # ── audit (parse-free) ───────────────────────────────────────────────────────
@@ -86,15 +89,6 @@ def test_update_renders_via_registry(temp_db, xml_path):
     assert 'update:counts' in ids
     assert all(i['availability'] == 'ready' for i in groups['update']['items'])
     _payloads_ok(registry.render(ctx, ids))   # no raise even on the minimal fixture
-
-
-# ── constructability (recompute) ─────────────────────────────────────────────
-def test_constructability_renders(temp_db, xml_path):
-    registry.clear_providers()
-    ctx = SpecialContext(_seed(xml_path))
-    groups = {g['feature']: g for g in registry.catalog(ctx)}
-    ids = [i['id'] for i in groups['constructability']['items']]
-    _payloads_ok(registry.render(ctx, ids))
 
 
 # ── two-file features — needs_input / attach / auto-run ───────────────────────
