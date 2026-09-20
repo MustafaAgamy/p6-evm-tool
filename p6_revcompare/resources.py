@@ -119,6 +119,46 @@ def diff_resources(rev0, rev1, matched):
                 })
         activity_cost_changes.sort(key=lambda r: -abs(r['delta']))
 
+    # Cost reconciliation (comment: show where the rest of the budget sits — the changed-activity
+    # total is less than the whole budget). Partition every coded activity into disjoint buckets
+    # that sum back to the total budget: Changed (matched, cost moved) uses the SAME figures as the
+    # itemised table above; the remainder splits into Unchanged (both, same cost), New scope (Rev.01
+    # only) and Removed scope (Rev.00 only).
+    cost_reconciliation = []
+    if cost_available:
+        # Every bucket AND the total are summed from the SAME per-activity ROUNDED values, and the
+        # total row is the sum of the buckets (not a separately-rounded whole) — so the parts always
+        # tie to the whole even when per-activity costs are fractional (rate × units). "Changed" uses
+        # the same rounded figures as the itemised table / pie, so all three agree.
+        changed_codes = {r['code'] for r in activity_cost_changes}
+        ch0 = sum(r['rev0_num'] for r in activity_cost_changes)
+        ch1 = sum(r['rev1_num'] for r in activity_cost_changes)
+        un0 = un1 = add1 = rem0 = 0
+        for code in set(c0) | set(c1):
+            if code in changed_codes:
+                continue
+            v0, v1 = round(c0.get(code, 0.0)), round(c1.get(code, 0.0))
+            if code in c0 and code not in c1:
+                rem0 += v0
+            elif code in c1 and code not in c0:
+                add1 += v1
+            else:
+                un0 += v0
+                un1 += v1
+        tot0, tot1 = ch0 + un0 + rem0, ch1 + un1 + add1
+        cost_reconciliation = [
+            {'bucket': 'changed', 'label': 'Changed activities', 'note': 'matched, cost moved',
+             'rev0': ch0, 'rev1': ch1, 'delta': ch1 - ch0},
+            {'bucket': 'unchanged', 'label': 'Unchanged activities', 'note': 'matched, same cost',
+             'rev0': un0, 'rev1': un1, 'delta': un1 - un0},
+            {'bucket': 'added', 'label': 'New scope', 'note': 'added in Rev.01',
+             'rev0': 0, 'rev1': add1, 'delta': add1},
+            {'bucket': 'removed', 'label': 'Removed scope', 'note': 'only in Rev.00',
+             'rev0': rem0, 'rev1': 0, 'delta': -rem0},
+            {'bucket': 'total', 'label': 'Budget total', 'note': 'whole project',
+             'rev0': tot0, 'rev1': tot1, 'delta': tot1 - tot0},
+        ]
+
     a0, a1 = _assign_by_code(rev0), _assign_by_code(rev1)
     resource_available = bool(a0 or a1)
     assignment_changes = []
@@ -152,6 +192,7 @@ def diff_resources(rev0, rev1, matched):
         'resource_available': resource_available,
         'total_budget': {'rev0': round(total0), 'rev1': round(total1), 'delta': round(total1 - total0)},
         'activity_cost_changes': activity_cost_changes,
+        'cost_reconciliation': cost_reconciliation,
         'assignment_changes': assignment_changes,
         'resource_totals': resource_totals,
         'summary': {

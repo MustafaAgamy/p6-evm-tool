@@ -385,20 +385,41 @@ function codeValues(rows, dim) {
 //   label      — the control's field label (default "Activity code")
 function groupedFilterControl(host, spec) {
   if (!host) return;
-  const { dims, state: fs, onChange, label = 'Activity code' } = spec;
+  const { dims, state: fs, onChange, label = 'Activity code', withValues = false, valuesFor } = spec;
   if (!dims || !dims.length) { host.innerHTML = ''; onChange(); return; }
   // A FLAT list of the activity codes themselves (the dimensions) — the user picks one code and
   // the chart / pie breaks down by it. No nested values, no grouping (comment: "the user picks
-  // only the activity code itself"). The selection lives in rcFilters.<x> as {dim, val:'All'}
-  // (val stays 'All' so the section shows the full breakdown for that code) and still feeds the PDF.
-  if (!fs.dim || !dims.includes(fs.dim)) { fs.dim = dims[0]; }
-  fs.val = 'All';
-  const opts = dims.map(d =>
+  // only the activity code itself"). The selection lives in rcFilters.<x> as {dim, val}. For the
+  // money/cost breakdowns val stays 'All' (full breakdown feeds the PDF); when `withValues` is set
+  // (Executive Summary scope) a SECOND dropdown lets the planner drill to a specific code value so
+  // the added/removed list + counts update on selection (comment: click a specific code → updates).
+  if (!fs.dim || !dims.includes(fs.dim)) { fs.dim = dims[0]; fs.val = 'All'; }
+  const dimOpts = dims.map(d =>
     `<option value="${escapeHtml(String(d))}"${d === fs.dim ? ' selected' : ''}>${esc(d)}</option>`).join('');
-  host.innerHTML = `<div class="rc-fbar"><div class="rc-fld"><label>${escapeHtml(label)}</label>`
-    + `<select class="rc-fsel">${opts}</select></div></div>`;
-  const sel = host.querySelector('select');
-  sel.addEventListener('change', () => { fs.dim = sel.value; fs.val = 'All'; onChange(); });
+  if (!withValues) {
+    fs.val = 'All';
+    host.innerHTML = `<div class="rc-fbar"><div class="rc-fld"><label>${escapeHtml(label)}</label>`
+      + `<select class="rc-fsel rc-fdim">${dimOpts}</select></div></div>`;
+    const sel = host.querySelector('.rc-fdim');
+    sel.addEventListener('change', () => { fs.dim = sel.value; fs.val = 'All'; onChange(); });
+    onChange();
+    return;
+  }
+  // Two-level: dimension + value. Rebuild the value list whenever the dimension changes.
+  const valOptions = () => {
+    const vals = (valuesFor ? valuesFor(fs.dim) : []) || [];
+    if (!vals.includes(fs.val)) fs.val = 'All';
+    return ['All', ...vals].map(v =>
+      `<option value="${escapeHtml(String(v))}"${v === fs.val ? ' selected' : ''}>${v === 'All' ? 'All codes' : esc(v)}</option>`).join('');
+  };
+  const paint = () => {
+    host.innerHTML = `<div class="rc-fbar">`
+      + `<div class="rc-fld"><label>${escapeHtml(label)}</label><select class="rc-fsel rc-fdim">${dimOpts}</select></div>`
+      + `<div class="rc-fld"><label>Value</label><select class="rc-fsel rc-fval">${valOptions()}</select></div></div>`;
+    host.querySelector('.rc-fdim').addEventListener('change', (e) => { fs.dim = e.target.value; fs.val = 'All'; paint(); onChange(); });
+    host.querySelector('.rc-fval').addEventListener('change', (e) => { fs.val = e.target.value; onChange(); });
+  };
+  paint();
   onChange();
 }
 
@@ -547,6 +568,7 @@ function wireSummary(body) {
   groupedFilterControl(host, {
     dims,
     state: rcFilters.scope,
+    withValues: true,   // Exec Summary: drill to a specific code value → added/removed list updates (comment 1)
     valuesFor: (dim) => codeValues(all, dim),
     onChange: () => renderScopeChart(body),
   });
@@ -1022,13 +1044,39 @@ function calendarView(r) {
     }).join('');
     reassBlock = `<div class="rc-calreass"><div class="rc-sec" style="margin:12px 0 4px">Per-activity calendar reassignments <span class="rc-mut">(${fmtInt(totalReass)} total)</span></div><ul class="rc-callist">${items}</ul></div>`;
   }
+  // Specific calendar DATES whose working status flipped between revisions (comment 2 — e.g.
+  // 07 Jan 2026 non-working in Rev.00, working in Rev.01). A table of every changed date + a
+  // plain-language narrative. The engine diffs each calendar's actual holiday/exception dates.
+  const excRows = [];
+  const narrByCal = [];
+  patterns.forEach(p => {
+    const ex = p.date_exceptions || [];
+    if (!ex.length) return;
+    ex.forEach(e => {
+      excRows.push(`<tr><td>${esc(p.name)}</td><td class="rc-aid">${esc(e.date)}</td>
+        <td class="rc-mut">${esc(e.rev0)}</td><td class="rc-new">${esc(e.rev1)}</td>
+        <td><span class="rc-tag ${e.change === 'now working' ? 'add' : 'rem'}">${esc(e.change)}</span></td></tr>`);
+    });
+    const nowW = ex.filter(e => e.change === 'now working').map(e => e.date);
+    const nowN = ex.filter(e => e.change === 'now non-working').map(e => e.date);
+    const parts = [];
+    if (nowW.length) parts.push(`<b>${nowW.map(esc).join(', ')}</b> ${nowW.length === 1 ? 'was non-working in Rev.00 and is now a working day' : 'were non-working in Rev.00 and are now working days'} in Rev.01`);
+    if (nowN.length) parts.push(`<b>${nowN.map(esc).join(', ')}</b> ${nowN.length === 1 ? 'was a working day in Rev.00 and is now non-working' : 'were working days in Rev.00 and are now non-working'} in Rev.01`);
+    if (parts.length) narrByCal.push(`In the <b>${esc(p.name)}</b> calendar, ${parts.join('; ')}.`);
+  });
+  const excBlock = excRows.length
+    ? `<div class="rc-sec" style="margin:14px 0 4px"><b>Calendar exception dates</b> — specific dates that changed working status</div>
+       <div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Calendar</th><th>Date</th><th>Rev.00</th><th>Rev.01</th><th>Change</th></tr></thead><tbody>${excRows.join('')}</tbody></table></div>
+       <div class="rc-callout"><b>Calendar date changes:</b><ul class="rc-callist" style="margin:6px 0 0">${narrByCal.map(l => `<li>${l}</li>`).join('')}</ul></div>`
+    : '';
+
   const callout = paperAccel
     ? '<div class="rc-callout warn">A calendar moved to a longer working week (more hours/week) — durations shorten <b>on paper</b> without changing the work. A paper acceleration to confirm (approved basis vs inadvertent reassignment).</div>'
     : '';
 
   const card = `<div class="rc-card"><h3>Working pattern per calendar <span class="rc-n">Rev.00 → Rev.01</span></h3>
     <div class="rc-sec">Each calendar as a plain working pattern — days/week · hours/day · hours/week — before and after. A 24-hour calendar reads 7 d/wk · 24 h/day · 168 h/wk.</div>
-    ${table}${reassBlock}${callout}</div>`;
+    ${table}${excBlock}${reassBlock}${callout}</div>`;
   return secmark('6', 'Calendar', 'working pattern per calendar · per-activity reassignments') + card;
 }
 
@@ -1189,8 +1237,26 @@ function costView(r) {
         ${costRows ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr></thead><tbody>${costRows}${totalRow}</tbody></table></div>` : noData('No activity-level cost changes.')}</div>`
     : '';
 
+  // Cost reconciliation (comment 3) — where the rest of the budget sits: the changed-activity
+  // total is only part of the whole budget; account for every unit (changed + unchanged + new
+  // scope − removed scope = budget total), so "where does the remaining budget go" is answered.
+  const recon = rc.cost_reconciliation || [];
+  const reconCard = recon.length
+    ? `<div class="rc-card"><h3>Cost reconciliation <span class="rc-n">where the budget sits — changed vs the whole total</span></h3>
+        <div class="rc-sec">The changed-activity total is only part of the whole budget. This accounts for every unit — nothing is unexplained.</div>
+        <div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Bucket</th><th>What it is</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Variance</th></tr></thead><tbody>
+        ${recon.map(b => {
+          const d = typeof b.delta === 'number' ? b.delta : 0;
+          const isTot = b.bucket === 'total';
+          return `<tr class="${isTot ? 'rc-costtot' : ''}"><td>${isTot ? `<b>${esc(b.label)}</b>` : esc(b.label)}</td><td class="rc-mut">${esc(b.note)}</td>
+            <td class="n${isTot ? '' : ' rc-mut'}">${b.rev0 ? fmtNum(b.rev0) : '—'}</td><td class="n">${b.rev1 ? fmtNum(b.rev1) : '—'}</td>
+            <td class="n"><span class="rc-d ${d > 0 ? 'up' : d < 0 ? 'down' : 'zero'}">${d > 0 ? '+' : ''}${fmtNum(d)}</span></td></tr>`;
+        }).join('')}
+        </tbody></table></div></div>`
+    : '';
+
   return secmark('7', 'Cost & Resources', 'planned value, where the money moved, cost changes')
-    + scurve + moneyCard + costTblCard;
+    + scurve + moneyCard + costTblCard + reconCard;
 }
 
 // ══ 8 · Resources (comment 5 — resource-changed table on its own tab) ═══════════
@@ -1372,49 +1438,47 @@ function wireCost(body) {
 
 function manpowerView(r) {
   const curves = r.curves || {};
-  const trades = curves.manpower_by_trade || [];
   const months = curves.months || [];
   const mix = curves.manhours_by_trade || [];
-  if (!curves.resource_available || !trades.length || !months.length) {
+  if (!curves.resource_available || !months.length) {
     return secmark('9', 'Manpower', 'people on site per month')
       + `<div class="rc-card"><h3>Manpower histogram</h3>${noData('Neither revision carries resource (man-hour) loading — manpower histogram not applicable.')}</div>`;
   }
-  // Rev.01 monthly totals (stacked bars) + Rev.00 monthly totals (dashed overlay).
-  const total = months.map((_, i) => trades.reduce((s, t) => s + ((t.monthly || [])[i] || 0), 0));
-  const r0map = {};
-  (curves.manpower_monthly || []).forEach(m => { r0map[m.month] = m.rev0; });
+  // Comment 4 — two-colour GROUPED bars per month: Rev.00 (grey) vs Rev.01 (blue) side by side,
+  // with the difference (Rev.01 − Rev.00) labelled above each pair. This replaces the busy
+  // stacked-by-trade colours; the trade breakdown lives in the "resource mix" card below.
+  const mm = curves.manpower_monthly || [];
+  const r0map = {}, r1map = {};
+  mm.forEach(m => { r0map[m.month] = m.rev0; r1map[m.month] = m.rev1; });
   const rev0tot = months.map(mo => Number(r0map[mo]) || 0);
+  const rev1tot = months.map(mo => Number(r1map[mo]) || 0);
   const n = months.length;
-  const W = Math.max(760, n * 68), h = 304, L = 48, B = 56, T = 32;
-  const pw = W - L - 16, ph = h - T - B, step = pw / n, bw = Math.min(40, step * 0.62);
-  const mx = Math.max(1, ...total, ...rev0tot);
+  const W = Math.max(760, n * 70), h = 304, L = 48, B = 56, T = 40;
+  const pw = W - L - 16, ph = h - T - B, step = pw / n, bw = Math.min(20, step * 0.30);
+  const mx = Math.max(1, ...rev0tot, ...rev1tot);
   const showEvery = n > 10 ? 2 : 1;
-  const order = trades.map(z => z.trade);
   let s = '';
   months.forEach((mo, i) => {
-    let y = T + ph;
-    const x = L + i * step + step / 2;
-    trades.forEach((t) => {
-      const val = (t.monthly || [])[i] || 0;
-      const segH = val / mx * ph;
-      y -= segH;
-      if (segH > 0) s += `<rect x="${(x - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${segH.toFixed(1)}" fill="${tokenColor(t.trade, order)}"/>`;
-    });
-    // Rev.01 monthly total directly above the stacked bar.
-    const topY = T + ph - total[i] / mx * ph;
-    if (total[i] > 0) s += `<text x="${x.toFixed(1)}" y="${(topY - 6).toFixed(1)}" font-size="10" font-weight="800" fill="var(--ink-soft)" text-anchor="middle">${escapeHtml(fmtInt(total[i]))}</text>`;
+    const cx = L + i * step + step / 2;
+    const h0 = rev0tot[i] / mx * ph, h1 = rev1tot[i] / mx * ph;
+    const x0 = cx - bw - 2, x1 = cx + 2;
+    if (h0 > 0) s += `<rect x="${x0.toFixed(1)}" y="${(T + ph - h0).toFixed(1)}" width="${bw.toFixed(1)}" height="${h0.toFixed(1)}" rx="2" fill="var(--rc-b0)"/>`;
+    if (h1 > 0) s += `<rect x="${x1.toFixed(1)}" y="${(T + ph - h1).toFixed(1)}" width="${bw.toFixed(1)}" height="${h1.toFixed(1)}" rx="2" fill="var(--accent)"/>`;
+    const d = Math.round(rev1tot[i] - rev0tot[i]);
+    if (rev0tot[i] || rev1tot[i]) {
+      const col = d > 0 ? 'var(--danger)' : d < 0 ? 'var(--success)' : 'var(--muted)';
+      s += `<text x="${cx.toFixed(1)}" y="${(T + ph - Math.max(h0, h1) - 6).toFixed(1)}" font-size="10" font-weight="800" fill="${col}" text-anchor="middle">${d > 0 ? '+' : ''}${escapeHtml(fmtInt(d))}</text>`;
+    }
     if (i % showEvery === 0 || i === n - 1) {
       const ly = T + ph + 13;
-      s += `<text x="${x.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="end" transform="rotate(-40 ${x.toFixed(1)} ${ly.toFixed(1)})">${escapeHtml(String(mo))}</text>`;
+      s += `<text x="${cx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="end" transform="rotate(-40 ${cx.toFixed(1)} ${ly.toFixed(1)})">${escapeHtml(String(mo))}</text>`;
     }
   });
-  // Rev.00 total dashed line for a direct before/after read.
-  if (rev0tot.some(v => v > 0)) {
-    s += `<polyline points="${months.map((_, i) => `${(L + i * step + step / 2).toFixed(1)},${(T + ph - rev0tot[i] / mx * ph).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-dasharray="5 3"/>`;
-  }
 
-  const legend = trades.map(t => `<span><i style="background:${tokenColor(t.trade, order)}"></i>${esc(t.trade)}</span>`).join('')
-    + '<span><i class="rc-line" style="background:var(--muted)"></i>Rev.00 total (line)</span>';
+  const legend = '<span><i style="background:var(--rc-b0)"></i>Rev.00 on site</span>'
+    + '<span><i style="background:var(--accent)"></i>Rev.01 on site</span>'
+    + '<span style="color:var(--danger)">▲ more than Rev.00</span>'
+    + '<span style="color:var(--success)">▼ fewer than Rev.00</span>';
 
   const peak = curves.peak || {};
   const total0 = (curves.manhours_total || {});
@@ -1424,10 +1488,10 @@ function manpowerView(r) {
       <div class="rc-kpi"><div class="rc-k">Rev.01 peak on site</div><div class="rc-v ${(peak.rev1 || 0) > (peak.rev0 || 0) ? 'crit' : ''}">${fmtInt(peak.rev1 || 0)}</div><div class="rc-dd">${peak.rev1_month ? 'in ' + esc(peak.rev1_month) : ''}</div></div>
       <div class="rc-kpi"><div class="rc-k">Total man-hours</div><div class="rc-v ${pct == null ? '' : pct > 0 ? 'crit' : pct < 0 ? 'add' : ''}">${pct == null ? '—' : (pct > 0 ? '+' : '') + fmtNum(pct, 1) + '%'}</div><div class="rc-dd">Rev.00 → Rev.01</div></div></div>`;
 
-  const chartCard = `<div class="rc-card"><h3>Manpower on site per month <span class="rc-n">stacked by trade · Rev.00 total overlaid · peak labelled</span></h3>
+  const chartCard = `<div class="rc-card"><h3>Manpower on site per month <span class="rc-n">Rev.00 vs Rev.01 side by side · the difference labelled</span></h3>
     ${kpis}
-    <div class="rc-sec">Each bar = the <b>total people on site that month</b> (all trades stacked); the number above it is that month's total; the grey dashed line is Rev.00's total for a direct before/after read; "peak on site" is the busiest month.</div>
-    <div class="rc-chartwrap"><svg viewBox="0 0 ${W} ${h}" class="rc-svg" style="min-width:${W}px" role="img" aria-label="Manpower combo chart">
+    <div class="rc-sec">Each month shows <b>Rev.00 (grey)</b> and <b>Rev.01 (blue)</b> people on site side by side; the number above each pair is the <b>difference</b> (Rev.01 − Rev.00). "Peak on site" is the busiest month. The trade breakdown is the resource-mix chart below.</div>
+    <div class="rc-chartwrap"><svg viewBox="0 0 ${W} ${h}" class="rc-svg" style="min-width:${W}px" role="img" aria-label="Manpower Rev.00 vs Rev.01 chart">
       <line x1="${L}" y1="${T + ph}" x2="${W - 16}" y2="${T + ph}" stroke="var(--border)"/>${s}</svg></div>
     <div class="rc-legend">${legend}</div></div>`;
 

@@ -901,6 +901,41 @@ def _dow_grid_block(p):
             f'{_dow_grid_row(g1, changed, "Rev.01", r1=True)}{note}</div>')
 
 
+def _cal_narrative(patterns):
+    """Comment 2 (round 11) — specific calendar DATES whose working status flipped between the
+    revisions (e.g. 07 Jan 2026 non-working in Rev.00, working in Rev.01): a table of every changed
+    date + a plain-language narrative. Empty string when no calendar has a date exception change."""
+    rows = ''
+    lines = []
+    for p in patterns:
+        ex = p.get('date_exceptions') or []
+        if not ex:
+            continue
+        for e in ex:
+            tagcls = 'add' if e.get('change') == 'now working' else 'rem'
+            rows += (f'<tr><td>{_e(p.get("name"))}</td><td class="mono">{_e(e.get("date"))}</td>'
+                     f'<td class="mut">{_e(e.get("rev0"))}</td><td class="new">{_e(e.get("rev1"))}</td>'
+                     f'<td><span class="tag {tagcls}">{_e(e.get("change"))}</span></td></tr>')
+        now_w = [e.get('date') for e in ex if e.get('change') == 'now working']
+        now_n = [e.get('date') for e in ex if e.get('change') == 'now non-working']
+        parts = []
+        if now_w:
+            parts.append(f'<b>{_e(", ".join(now_w))}</b> {"was non-working" if len(now_w) == 1 else "were non-working"} '
+                         f'in Rev.00 and {"is now a working day" if len(now_w) == 1 else "are now working days"} in Rev.01')
+        if now_n:
+            parts.append(f'<b>{_e(", ".join(now_n))}</b> {"was a working day" if len(now_n) == 1 else "were working days"} '
+                         f'in Rev.00 and {"is now non-working" if len(now_n) == 1 else "are now non-working"} in Rev.01')
+        if parts:
+            lines.append(f'In the <b>{_e(p.get("name"))}</b> calendar, {"; ".join(parts)}.')
+    if not rows:
+        return ''
+    head = '<tr><th>Calendar</th><th>Date</th><th>Rev.00</th><th>Rev.01</th><th>Change</th></tr>'
+    narr = ('<div class="callout"><b>Calendar date changes:</b><ul style="margin:6px 0 0;padding-left:18px">'
+            + ''.join(f'<li>{l}</li>' for l in lines) + '</ul></div>')
+    return ('<div class="sec" style="margin-top:12px"><b>Calendar exception dates</b> — specific dates that changed '
+            'working status (Rev.00 → Rev.01)</div>' + _tbl(head, rows) + narr)
+
+
 def _sec_cal(report, filters=None):
     """Comment 5 — Calendar presented clearly from ``calendar_changes.patterns``: one row per
     calendar (name · Rev.00 pattern · Rev.01 pattern · activities). The 24-hour-calendar 0-days
@@ -931,7 +966,7 @@ def _sec_cal(report, filters=None):
         rows += f'<div class="calblk">{row}{_dow_grid_block(p)}</div>'
         if r0 and r1 and (r1.get('hpw') or 0) > (r0.get('hpw') or 0):
             longer.append((p.get('name'), r0, r1, p.get('activities')))
-    body = intro + head + rows
+    body = intro + head + rows + _cal_narrative(patterns)
 
     if reass:
         total_re = sum(g.get('count') or 0 for g in reass)
@@ -1140,6 +1175,30 @@ def _reg_cost(report, filters=None):
     return _card('Cost changed', 'budget total cost · variance % · filter · pie · total', body)
 
 
+def _cost_reconciliation(report):
+    """Comment 3 — where the rest of the budget sits: the changed-activity total is only part of
+    the whole budget; account for every unit (Changed + Unchanged + New scope − Removed scope =
+    Budget total) so the remaining budget is never unexplained."""
+    recon = (report.get('resource_changes') or {}).get('cost_reconciliation') or []
+    if not recon:
+        return ''
+    rows = ''
+    for b in recon:
+        is_tot = b.get('bucket') == 'total'
+        cls = ' class="totrow"' if is_tot else ''
+        name = f'<b>{_e(b.get("label"))}</b>' if is_tot else _e(b.get('label'))
+        rows += (f'<tr{cls}><td>{name}</td><td class="mut">{_e(b.get("note"))}</td>'
+                 f'<td class="n">{_money(b.get("rev0")) if b.get("rev0") else "—"}</td>'
+                 f'<td class="n">{_money(b.get("rev1")) if b.get("rev1") else "—"}</td>'
+                 f'<td class="n">{_money_delta(b.get("delta"))}</td></tr>')
+    head = ('<tr><th>Bucket</th><th>What it is</th><th class="n">Rev.00</th><th class="n">Rev.01</th>'
+            '<th class="n">Variance</th></tr>')
+    intro = ('<div class="sec">The changed-activity total is only part of the whole budget — this '
+             'accounts for every unit, so the remaining budget is never unexplained.</div>')
+    return _card('Cost reconciliation', 'where the budget sits — changed vs the whole total',
+                 intro + _tbl(head, rows))
+
+
 _RES_TAG = {'added': ('add', 'Added'), 'removed': ('rem', 'Removed'),
             'increased': ('chg', 'Increased'), 'decreased': ('chg', 'Reduced'),
             'unchanged': ('muted', 'Unchanged')}
@@ -1227,7 +1286,8 @@ def _sec_cost(report, filters=None):
                    _scurve_svg(report))
     return (scurve
             + _money_moved(report, filters)
-            + _reg_cost(report, filters))
+            + _reg_cost(report, filters)
+            + _cost_reconciliation(report))
 
 
 # ══ 7b · RESOURCE ══════════════════════════════════════════════════════════════
@@ -1240,65 +1300,55 @@ def _sec_resource(report, filters=None):
 # ══ 8 · MANPOWER ═══════════════════════════════════════════════════════════════
 
 def _sec_manpower(report, filters=None):
-    """Comment 5 — Manpower on site per month: monthly histogram STACKED by trade (Rev.01), the
-    monthly TOTAL label above each bar, the Rev.00 total overlaid as a grey dashed line for a
-    direct before/after read, peak-on-site KPIs, and a resource-mix (man-hours by trade) card."""
+    """Comment 4 (round 11) — Manpower on site per month as TWO-COLOUR grouped bars: Rev.00 (grey)
+    vs Rev.01 (blue) side by side each month, with the difference (Rev.01 − Rev.00) labelled above
+    each pair (no more busy stacked-trade colours). Plus peak-on-site KPIs and a resource-mix card."""
     c = report.get('curves') or {}
     months = c.get('months') or []
-    trades = c.get('manpower_by_trade') or []
-    if not months or not trades:
+    if not months or not c.get('resource_available'):
         return _card('Manpower', 'people on site per month',
                      _muted('Neither revision carries resource units — manpower is not applicable.'))
     n = len(months)
-    totals = [round(sum((t.get('monthly') or [0] * n)[i] if i < len(t.get('monthly') or []) else 0
-                        for t in trades), 1) for i in range(n)]
-    # Rev.00 monthly totals (the dashed overlay), aligned to the month axis by label.
     r0_by_month = {m.get('month'): (m.get('rev0') or 0) for m in (c.get('manpower_monthly') or [])}
+    r1_by_month = {m.get('month'): (m.get('rev1') or 0) for m in (c.get('manpower_monthly') or [])}
     rev0tot = [r0_by_month.get(mo, 0) for mo in months]
-    mx = max(totals + rev0tot + [1])
+    rev1tot = [r1_by_month.get(mo, 0) for mo in months]
+    mx = max(rev0tot + rev1tot + [1])
     W, H = 860, 290
-    left, top, bot = 52, 30, 48
+    left, top, bot = 52, 34, 52
     plot_w, plot_h = W - left - 30, H - top - bot
     step = plot_w / max(n, 1)
-    bw = min(40, step * 0.62)
+    bw = min(18, step * 0.30)
     baseY = top + plot_h
-    # thin labels to every 2nd month when crowded so total + month labels never touch; bars stay
     thin = 2 if step < 34 else 1
 
     seg = ''
     for i in range(n):
-        x = left + i * step + step / 2
-        y = baseY
-        for ti, t in enumerate(trades):
-            monthly = t.get('monthly') or []
-            v = monthly[i] if i < len(monthly) else 0
-            sh = (v or 0) / mx * plot_h
-            y -= sh
-            if sh > 0:
-                seg += (f'<rect x="{x - bw / 2:.1f}" y="{y:.1f}" width="{bw:.1f}" height="{sh:.1f}" '
-                        f'fill="{_series_color(ti)}"/>')
+        cx = left + i * step + step / 2
+        h0 = rev0tot[i] / mx * plot_h
+        h1 = rev1tot[i] / mx * plot_h
+        x0, x1 = cx - bw - 2, cx + 2
+        if h0 > 0:
+            seg += f'<rect x="{x0:.1f}" y="{baseY - h0:.1f}" width="{bw:.1f}" height="{h0:.1f}" rx="2" fill="var(--rpt-hair-strong)"/>'
+        if h1 > 0:
+            seg += f'<rect x="{x1:.1f}" y="{baseY - h1:.1f}" width="{bw:.1f}" height="{h1:.1f}" rx="2" fill="var(--rpt-accent)"/>'
+        d = int(round(rev1tot[i] - rev0tot[i]))
+        if rev0tot[i] or rev1tot[i]:
+            col = 'var(--rpt-bad)' if d > 0 else 'var(--rpt-good)' if d < 0 else 'var(--rpt-muted)'
+            seg += (f'<text x="{cx:.1f}" y="{baseY - max(h0, h1) - 6:.1f}" font-size="9" font-weight="800" '
+                    f'fill="{col}" text-anchor="middle">{"+" if d > 0 else ""}{d:,}</text>')
         if i % thin == 0:
-            # monthly total label above the stacked bar (its own bar, non-colliding); whole
-            # people, matching the screen (no noisy decimals).
-            ty = baseY - totals[i] / mx * plot_h - 6
-            seg += (f'<text x="{x:.1f}" y="{ty:.1f}" font-size="9" font-weight="800" '
-                    f'fill="var(--rpt-ink-soft)" text-anchor="middle">{int(round(totals[i])):,}</text>')
             ly = baseY + 12
-            seg += (f'<text x="{x:.1f}" y="{ly:.1f}" font-size="8" fill="var(--rpt-muted)" '
-                    f'text-anchor="end" transform="rotate(-40 {x:.1f} {ly:.1f})">{_e(months[i])}</text>')
+            seg += (f'<text x="{cx:.1f}" y="{ly:.1f}" font-size="8" fill="var(--rpt-muted)" '
+                    f'text-anchor="end" transform="rotate(-40 {cx:.1f} {ly:.1f})">{_e(months[i])}</text>')
 
-    # Rev.00 total drawn as a grey dashed line (before/after read).
-    line = ''
-    if any(v > 0 for v in rev0tot):
-        pts = ' '.join(f'{left + i * step + step / 2:.1f},{baseY - rev0tot[i] / mx * plot_h:.1f}' for i in range(n))
-        line = f'<polyline points="{pts}" fill="none" stroke="var(--rpt-muted)" stroke-width="2.2" stroke-dasharray="5 3"/>'
     svg = (f'<div class="chartwrap"><svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;min-width:640px">'
            f'<line x1="{left}" y1="{baseY}" x2="{W - 30}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
-           f'{seg}{line}</svg></div>')
-    legend = ('<div class="legend">'
-              + ''.join(f'<span><b style="background:{_series_color(ti)}"></b>{_e(t.get("trade"))}</span>'
-                        for ti, t in enumerate(trades))
-              + '<span><b style="background:var(--rpt-muted)"></b>Rev.00 total (line)</span></div>')
+           f'{seg}</svg></div>')
+    legend = ('<div class="legend"><span><b class="sw-r0"></b>Rev.00 on site</span>'
+              '<span><b class="sw-r1"></b>Rev.01 on site</span>'
+              '<span style="color:var(--rpt-bad)">▲ more than Rev.00</span>'
+              '<span style="color:var(--rpt-good)">▼ fewer than Rev.00</span></div>')
 
     # Peak-on-site KPIs + total man-hours change (comment 5).
     peak = c.get('peak') or {}
@@ -1316,11 +1366,11 @@ def _sec_manpower(report, filters=None):
         f'<div class="mpks">{_e("in " + peak.get("rev1_month")) if peak.get("rev1_month") else ""}</div></div>'
         f'<div class="mpkc"><div class="mpkk">Total man-hours</div><div class="mpkv{pct_cls}">{pct_txt}</div>'
         f'<div class="mpks">Rev.00 → Rev.01</div></div></div>')
-    note = ('<div class="sec">Each bar = the total people on site that month (all trades stacked); the '
-            'number above it is that month\'s total; the grey dashed line is Rev.00\'s total for a '
-            'direct before/after read; "peak on site" is the busiest month.</div>')
+    note = ('<div class="sec">Each month shows Rev.00 (grey) and Rev.01 (blue) people on site side by '
+            'side; the number above each pair is the difference (Rev.01 − Rev.00). "Peak on site" is '
+            'the busiest month. The trade breakdown is the resource-mix chart below.</div>')
     chart_card = _card('Manpower on site per month',
-                       'stacked by trade · Rev.00 total overlaid · peak labelled',
+                       'Rev.00 vs Rev.01 side by side · the difference labelled',
                        kpis + note + svg + legend)
 
     # Resource mix — total man-hours by trade, Rev.00 → Rev.01.

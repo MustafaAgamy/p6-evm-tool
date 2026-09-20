@@ -510,6 +510,21 @@ def _cal_blocks(report):
                        'headers': ['Calendar', 'Revision', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
                                    'Changed days'],
                        'rows': grid_rows})
+
+    # Specific calendar dates whose working status flipped between the revisions (comment 2).
+    exc_rows = []
+    for p in (cc.get('patterns') or []):
+        for e in (p.get('date_exceptions') or []):
+            exc_rows.append([_txt(p.get('name')), _txt(e.get('date')), _txt(e.get('rev0')),
+                             _txt(e.get('rev1')), _txt(e.get('change'))])
+    if exc_rows:
+        blocks.append({'title': 'Calendar exception dates — specific dates that changed working status '
+                                '(Rev.00 → Rev.01)',
+                       'note': 'A specific calendar date whose working status flipped between the revisions — '
+                               'e.g. a date that was non-working in Rev.00 and is a working day in Rev.01, or '
+                               'the reverse.',
+                       'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change'],
+                       'rows': exc_rows})
     return blocks
 
 
@@ -618,6 +633,23 @@ def _cost_blocks(report):
                        'headers': [dim, 'Cost variance (|Δ|)', 'Share'],
                        'rows': share})
 
+    # Cost reconciliation — where the budget sits (comment 3): the changed-activity total is only
+    # part of the whole budget; this accounts for every currency unit (Changed + Unchanged + New
+    # scope − Removed scope = Budget total). The final 'total' bucket is just another row.
+    recon = rc.get('cost_reconciliation') or []
+    if recon:
+        # A zero side (New scope has rev0=0, Removed scope has rev1=0) prints '—', matching screen/PDF.
+        recon_rows = [[_txt(b.get('label')), _txt(b.get('note')),
+                       _money(b.get('rev0')) if b.get('rev0') else '—',
+                       _money(b.get('rev1')) if b.get('rev1') else '—',
+                       _money_sgn(b.get('delta'))] for b in recon]
+        blocks.append({'title': 'Cost reconciliation — where the budget sits',
+                       'note': 'The changed-activity total is only part of the whole budget; this accounts for '
+                               'every currency unit — Changed + Unchanged + New scope − Removed scope = Budget '
+                               'total. Answers "where does the remaining budget go".',
+                       'headers': ['Bucket', 'What it is', 'Rev.00', 'Rev.01', 'Variance'],
+                       'rows': recon_rows})
+
     # Itemised Cost changed table — returned to Cost & Resources (change 6). The by-WBS
     # roll-up sheet is removed; the Resource-changed table now has its own Resources sheet.
     blocks.extend(_itemised_cost_blocks(report))
@@ -722,6 +754,21 @@ def _manpower_blocks(report):
                        'The dashed line on the combo chart is Rev.00\'s monthly total.',
                'headers': ['Resource ID', 'Trade', 'Man-hrs Before', 'After', 'Variance', 'Change'],
                'rows': _rows_or_none(trows, 6, 'No resource man-hours available.')}]
+
+    # People on site per month — Rev.00 vs Rev.01 (comment 4): the paired bars in the redesigned
+    # manpower chart. Monthly people-on-site totals in each revision and the signed difference.
+    manpower_monthly = c.get('manpower_monthly') or []
+    if manpower_monthly:
+        mm_rows = []
+        for m in manpower_monthly:
+            d = round((m.get('rev1') or 0) - (m.get('rev0') or 0))
+            mm_rows.append([_txt(m.get('month')), _num(round(m.get('rev0') or 0)),
+                            _num(round(m.get('rev1') or 0)), f"{'+' if d > 0 else ''}{d}"])
+        blocks.insert(1, {'title': 'People on site per month — Rev.00 vs Rev.01',
+                          'note': 'Monthly people-on-site totals in each revision and the difference — the '
+                                  'paired bars in the redesigned manpower chart.',
+                          'headers': ['Month', 'Rev.00', 'Rev.01', 'Difference'],
+                          'rows': mm_rows})
 
     # Monthly man-hours by trade — the matrix behind the stacked combo chart (Rev.01).
     if monthly_trade and months:

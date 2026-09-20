@@ -140,6 +140,55 @@ def _dow_grid(cal):
     return grid
 
 
+def _dow_working(cal, dow_full):
+    """Is `dow_full` (e.g. 'Monday') a working day in the calendar's weekly pattern?"""
+    wi = getattr(cal, 'work_intervals', None) or {}
+    if wi:
+        return bool(wi.get(dow_full))
+    nw = getattr(cal, 'nonworking_days', None)
+    if nw is not None:
+        return dow_full not in nw
+    return True
+
+
+def _date_working(cal, d):
+    """Effective working status of a specific calendar DATE: an explicit working exception wins,
+    then an explicit holiday (non-working), else the weekly day-of-week pattern."""
+    if d in (getattr(cal, 'added_work_days', None) or set()):
+        return True
+    if d in (getattr(cal, 'holidays', None) or set()):
+        return False
+    return _dow_working(cal, _DOW[d.weekday()])
+
+
+def _date_exceptions(a, b):
+    """Specific calendar DATES whose working status flipped between two revisions of one calendar
+    (comment: e.g. 7 Jan 2026 was non-working in Rev.00 and is working in Rev.01). Compares the
+    union of both revisions' explicit exception dates (holidays + working exceptions) and reports
+    every date that changed. Returns [{date, rev0, rev1, change}] sorted by date."""
+    if a is None or b is None:
+        return []
+    # Only real calendar dates (date/datetime) — some fixtures use a plain count proxy for holidays.
+    def _is_date(x):
+        return hasattr(x, 'weekday') and hasattr(x, 'strftime')
+    dates = set()
+    for cal in (a, b):
+        dates |= {d for d in (getattr(cal, 'holidays', None) or set()) if _is_date(d)}
+        dates |= {d for d in (getattr(cal, 'added_work_days', None) or set()) if _is_date(d)}
+    out = []
+    for d in sorted(dates):
+        w0, w1 = _date_working(a, d), _date_working(b, d)
+        if w0 == w1:
+            continue
+        out.append({
+            'date': d.strftime('%d %b %Y') if hasattr(d, 'strftime') else str(d),
+            'rev0': 'Working' if w0 else 'Non-working',
+            'rev1': 'Working' if w1 else 'Non-working',
+            'change': 'now working' if w1 else 'now non-working',
+        })
+    return out
+
+
 def _cal_by_name(data):
     out = {}
     for cal in (getattr(data, 'calendars', None) or {}).values():
@@ -221,10 +270,12 @@ def diff_calendars(rev0, rev1, matched):
         changed = []
         if g0 and g1:
             changed = [g1[i]['day'] for i in range(7) if g0[i]['working'] != g1[i]['working']]
+        date_exc = _date_exceptions(a, b) if (a and b) else []
         change = ('removed' if (a and not b) else 'added' if (b and not a)
-                  else 'modified' if (p0 != p1 or changed) else 'unchanged')
+                  else 'modified' if (p0 != p1 or changed or date_exc) else 'unchanged')
         patterns.append({'name': name, 'rev0': p0, 'rev1': p1,
                          'rev0_grid': g0, 'rev1_grid': g1, 'changed_days': changed,
+                         'date_exceptions': date_exc,
                          'activities': (u1.get(name) or u0.get(name) or 0), 'change': change})
 
     return {'calendars': cals, 'reassignments': reassignments, 'patterns': patterns}

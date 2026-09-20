@@ -1,5 +1,5 @@
 """Slice-2 WBS / calendar / constraint diffs (p6_revcompare.structure)."""
-from datetime import datetime
+from datetime import datetime, date
 
 from p6_evm.parser import ScheduleData
 from p6_evm.calendars import Calendar
@@ -72,6 +72,25 @@ def test_calendar_level_added_and_modified():
     names = {c['name']: c['change'] for c in d['calendars']}
     assert names.get('Shutdown') == 'added'
     assert names.get('6-Day') == 'modified'
+
+
+def test_calendar_date_exceptions_flip():
+    """A specific date that flips working status between revisions is reported (comment: e.g.
+    07 Jan 2026 non-working in Rev.00 → working in Rev.01)."""
+    c0 = Calendar(object_id='c1', name='6 Day', nonworking_days={'Friday'},
+                  holidays={date(2026, 1, 7)}, added_work_days=set(), day_hours=8.0,
+                  work_intervals={}, exception_intervals={})
+    c1 = Calendar(object_id='c1', name='6 Day', nonworking_days={'Friday'},
+                  holidays={date(2026, 9, 23)}, added_work_days=set(), day_hours=8.0,
+                  work_intervals={}, exception_intervals={})
+    rev0 = _sched([_act('A1', 'x', calid='c1')], cals=[c0])
+    rev1 = _sched([_act('A1', 'x', calid='c1')], cals=[c1])
+    d = diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))
+    pat = next(p for p in d['patterns'] if p['name'] == '6 Day')
+    ex = {e['date']: e for e in pat['date_exceptions']}
+    assert ex['07 Jan 2026']['change'] == 'now working'
+    assert ex['07 Jan 2026']['rev0'] == 'Non-working' and ex['07 Jan 2026']['rev1'] == 'Working'
+    assert ex['23 Sep 2026']['change'] == 'now non-working'
 
 
 def test_milestone_calendar_not_counted():
