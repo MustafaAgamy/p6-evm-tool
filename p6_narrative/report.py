@@ -424,6 +424,19 @@ def _sequence(data, setup):
                         'chevron flow per picked analysis; identical building sequences are grouped.')
 
 
+# ── §12 Activity IDs ──────────────────────────────────────────────────────────
+def _activity_ids(data):
+    """A colour-coded anatomy of the project's Activity-ID coding, then one breakdown per ID
+    type found in the schedule — fully generic (nothing project-specific is hardcoded). Mirrors
+    the other section builders: emits DATA only; both renderers draw straight from the payload."""
+    from p6_narrative import actids
+    payload = actids.activity_id_analysis(list(data.activities.values()),
+                                          data.activity_code_types)
+    return Section('12', 'Activity IDs', 'activity_ids', 'auto', payload=payload, editable=True,
+                   note='The ID types, segments and code lists are read directly from the '
+                        'schedule; the plain-language meanings are auto-suggested and editable.')
+
+
 # ── assembly ──────────────────────────────────────────────────────────────────
 def build_report(data, path=None, meta=None, setup=None, **_ignored):
     """Assemble the redesigned Baseline Narrative Report as a :class:`NarrativeDoc` of the
@@ -491,6 +504,7 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
         _wbs(ctx),
         _codes(data, cat),
         _sequence(data, setup),
+        _activity_ids(data),
     ]
     ordered = [s for s in ordered if s is not None]
 
