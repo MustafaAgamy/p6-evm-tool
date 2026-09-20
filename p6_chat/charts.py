@@ -85,7 +85,7 @@ def charts_for(question, result):
     q = (question or '').lower()
     out = []
     kpis = _kpis(result)
-    if kpis and _wants(q, r'perform|\bspi\b|\bcpi\b|stand|status|how are we|headline|behind|ahead|delay|late|progress|budget|cost|kpi|report|recover|risk|forecast|finish'):
+    if kpis and _wants(q, r'perform|\bspi\b|\bcpi\b|\bstand|status|how are we|headline|behind|ahead|delay|\blate\b|progress|budget|\bcost|\bkpi|report|recover|risk|forecast|finish'):
         out.append({'type': 'kpi', 'title': 'Headline KPIs (from your schedule)', 'items': kpis})
     bars = _discipline_bars(result)
     if bars and _wants(q, r'disciplin|categor|progress|where|driving|which wbs|breakdown|by area|behind|engineering|procurement|construction|scope'):

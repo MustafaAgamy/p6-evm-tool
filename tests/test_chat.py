@@ -72,9 +72,10 @@ def test_grounding_empty_result():
 # ── knowledge / prompt ────────────────────────────────────────────────────────
 def test_system_prompt_has_persona_and_tool_knowledge():
     sp = knowledge.system_prompt()
-    assert 'SENIOR PLANNING MANAGER' in sp
-    assert 'Baseline Revision Comparison' in sp        # feature knowledge present
-    assert 'indicators' in sp.lower()                  # claims rule
+    assert 'PROJECT-CONTROLS MANAGER' in sp             # expert persona
+    assert 'DETAILED' in sp                             # max-detail rule
+    assert 'Baseline Revision Comparison' in sp         # feature knowledge present
+    assert 'indicators' in sp.lower()                   # claims rule
 
 
 def test_build_prompt_contains_grounding_role_and_question():
@@ -117,7 +118,38 @@ def test_ask_empty_question():
 # ── llm status is offline-safe (engine not installed in the test env) ──────────
 def test_llm_status_offline_safe():
     st = llm.status()
-    assert st['ready'] is False and 'engine' in st and 'model' in st   # must not raise
+    assert st['ready'] is False                                        # must not raise
+    for k in ('engine', 'model', 'model_key', 'options'):
+        assert k in st
+    assert isinstance(st['options'], list) and len(st['options']) >= 2
+
+
+def test_model_choice_default_and_switch():
+    assert llm.get_model_key() in llm.MODELS
+    prev = llm.get_model_key()
+    try:
+        llm.set_model_key('fast')
+        assert llm.get_model_key() == 'fast' and llm.status()['model_key'] == 'fast'
+        llm.set_model_key('detailed')
+        assert llm.status()['model_key'] == 'detailed'
+    finally:
+        llm.set_model_key(prev)
+
+
+def test_answer_stream_fallback(monkeypatch):
+    monkeypatch.setattr(llm, 'status', lambda: {'ready': False, 'engine': False, 'model': False})
+    meta, gen = service.answer_stream('Why is the project delayed?', SAMPLE, role='pm')
+    assert meta['ok'] and meta['source'] == 'setup' and 'charts' in meta
+    text = ''.join(gen)
+    assert 'SPI' in text or 'brain' in text.lower()
+
+
+def test_answer_stream_uses_brain(monkeypatch):
+    monkeypatch.setattr(llm, 'status', lambda: {'ready': True, 'engine': True, 'model': True, 'model_name': 'X'})
+    monkeypatch.setattr(llm, 'generate_stream', lambda system, user, **k: iter(['Detailed ', 'grounded ', 'answer.']))
+    meta, gen = service.answer_stream('How are we performing?', SAMPLE, role='pd')
+    assert meta['source'] == 'brain' and any(c['type'] == 'kpi' for c in meta['charts'])
+    assert ''.join(gen) == 'Detailed grounded answer.'
 
 
 def test_public_api_surface():

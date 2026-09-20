@@ -17,6 +17,7 @@ from . import service, llm
 
 get_library = service.get_library
 ask = service.ask
+answer_stream = service.answer_stream
 
 
 def brain_status():
@@ -31,4 +32,4 @@ def save_brain_settings(base_url=None, model=None):
     return llm.save_settings(base_url=base_url, model=model)
 
 
-__all__ = ['get_library', 'ask', 'brain_status', 'brain_setup', 'save_brain_settings']
+__all__ = ['get_library', 'ask', 'answer_stream', 'brain_status', 'brain_setup', 'save_brain_settings']

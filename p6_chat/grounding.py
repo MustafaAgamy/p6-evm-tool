@@ -88,12 +88,22 @@ def build(result):
     if ev_bits:
         L.append('Earned value: ' + '; '.join(ev_bits))
 
-    # delay
+    # delay (sign-aware: positive = behind, negative = ahead)
     dl = result.get('delay_days')
     if dl is not None:
-        L.append('Delay: %s working days behind baseline finish '
-                 '(the tool\'s computed figure; exact F9 delay comes from '
-                 'Consultant Review / Critical Path).' % dl)
+        try:
+            dln = int(dl)
+        except (TypeError, ValueError):
+            dln = None
+        if dln is not None:
+            if dln > 0:
+                phrase = '%d working days behind baseline finish' % dln
+            elif dln < 0:
+                phrase = '%d working days ahead of baseline finish' % abs(dln)
+            else:
+                phrase = 'on the baseline finish (no delay)'
+            L.append("Delay: %s (the tool's computed figure; the exact F9 delay "
+                     "comes from Consultant Review / Critical Path)." % phrase)
 
     # per-category / discipline breakdown
     cats = result.get('categories') or {}

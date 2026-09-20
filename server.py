@@ -1,4 +1,4 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 import json
 import os
 import subprocess
@@ -3154,14 +3154,44 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': False, 'error': str(exc)})
 
     def _handle_chat_ask(self, body):
+        """Stream the answer as NDJSON: {"delta": "..."} lines while the local brain
+        writes, then a final {"done": true, ...meta} line with charts/source/brain.
+        Streaming keeps long, detailed answers usable (they appear as they're
+        written) even though generation runs locally on the CPU."""
         try:
             sys.path.insert(0, resource_path('.'))
             import p6_chat
-            out = p6_chat.ask(body.get('question'), self._chat_result(body) or {},
-                              role=body.get('role'))
-            self._json(200, out)
+            meta, gen = p6_chat.answer_stream(body.get('question'),
+                                              self._chat_result(body) or {},
+                                              role=body.get('role'))
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+            return
+        if not meta.get('ok'):
+            self._json(200, meta)
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/x-ndjson')
+        self.send_header('Cache-Control', 'no-cache')
+        self.end_headers()
+
+        def write(obj):
+            self.wfile.write((json.dumps(obj, cls=_Encoder) + '\n').encode())
+            self.wfile.flush()
+        try:
+            for delta in gen:
+                write({'delta': delta})
+        except Exception as exc:
+            try:
+                write({'delta': '\n\n_(stream error: %s)_' % exc})
+            except Exception:
+                return                                    # client gone — nothing to send
+        final = {'done': True}
+        final.update({k: v for k, v in meta.items() if k != 'ok'})
+        try:
+            write(final)
+        except Exception:
+            pass
 
     def _handle_chat_setup(self, body):
         """Kick off the one-time model download in the background and return at once;
@@ -3259,4 +3289,8 @@ def make_server():
         db.migrate_history_json(legacy)
 
     db.init_db()
-    return HTTPServer(('127.0.0.1', 0), Handler)
+    # Threaded so a long local-AI generation (the chat streams for minutes on a CPU)
+    # doesn't block every other request — the UI stays responsive during an answer.
+    srv = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    srv.daemon_threads = True
+    return srv

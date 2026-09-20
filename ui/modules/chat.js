@@ -128,6 +128,12 @@ function ensureCss() {
   .pchat-bar .ba{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.92}
   .pchat-bar .bv{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
   .pchat-barlegend{font-size:10.5px;color:var(--muted);margin-top:5px}
+  .pchat-stream{white-space:pre-wrap;color:var(--text);font-size:14px;line-height:1.6}
+  .pchat-models{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px}
+  .pchat-mchip{border:1px solid var(--border);background:var(--card-bg);border-radius:9px;padding:7px 11px;font-size:12.5px;cursor:pointer;color:var(--ink-soft);font-family:inherit;text-align:left}
+  .pchat-mchip:hover{border-color:var(--accent)}
+  .pchat-mchip.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+  .pchat-mchip .sz{display:block;font-size:10.5px;color:var(--muted)}
   [hidden]{display:none!important}
   `;
   document.head.appendChild(s);
@@ -221,61 +227,83 @@ function renderCharts(charts) {
   return wrap;
 }
 
-function streamAnswer(bodyEl, out) {
-  const think = bodyEl.querySelector('.pchat-think'); if (think) think.remove();
-  const ans = document.createElement('div');
-  ans.innerHTML = mdToHtml(out.answer || '');
-  bodyEl.appendChild(ans);
-  const words = []; wrapWords(ans, words);
-  const caret = document.createElement('span'); caret.className = 'pchat-caret';
-  let i = 0;
-  (function step() {
-    if (i >= words.length) {
-      caret.remove();
-      if (out.charts && out.charts.length) bodyEl.appendChild(renderCharts(out.charts));
-      // grounded / setup footer
-      const foot = document.createElement('div'); foot.className = 'pchat-foot';
-      if (out.source === 'brain') {
-        foot.innerHTML = `🔒 <span><b>Grounded</b> — answered on your PC from this project's analysis${out.brain && out.brain.model_name ? ' · ' + escapeHtml(out.brain.model_name) : ''}.</span>`;
-      } else if (out.needs_setup) {
-        foot.innerHTML = `<span>Set up the offline AI brain for full, detailed answers.</span>`;
-        const b = document.createElement('button'); b.className = 'pchat-btn'; b.style.marginLeft = '8px';
-        b.textContent = 'Set up the AI brain'; b.addEventListener('click', setupBrain);
-        foot.appendChild(b);
-      }
-      if (foot.textContent) bodyEl.appendChild(foot);
-      BUSY = false; setSendEnabled(true); scrollThread();
-      return;
-    }
-    const w = words[i++]; w.classList.add('on'); w.after(caret);
-    scrollThread();
-    setTimeout(step, 14 + Math.random() * 26);
-  })();
+function answerFooter(out) {
+  const foot = document.createElement('div'); foot.className = 'pchat-foot';
+  if (out.source === 'brain') {
+    foot.innerHTML = `🔒 <span><b>Grounded</b> — answered on your PC from this project's analysis${out.brain && out.brain.model_name ? ' · ' + escapeHtml(out.brain.model_name) : ''}.</span>`;
+  } else if (out.needs_setup) {
+    foot.innerHTML = `<span>Set up the offline AI brain for full, detailed answers.</span>`;
+    const b = document.createElement('button'); b.className = 'pchat-btn'; b.style.marginLeft = '8px';
+    b.textContent = 'Set up the AI brain'; b.addEventListener('click', setupBrain);
+    foot.appendChild(b);
+  }
+  return (foot.textContent || foot.querySelector('button')) ? foot : null;
 }
 
 function setSendEnabled(on) {
   const b = document.getElementById('pchat-send'); if (b) b.disabled = !on;
 }
 
+// Ask a question — streams the answer live (NDJSON) so long, detailed answers
+// appear as they're written, then renders charts + the grounded footer.
 async function ask(question) {
   if (BUSY || !question || !question.trim()) return;
   BUSY = true; setSendEnabled(false);
-  addUser(question.trim());
-  const bodyEl = addAiShell();
-  let out;
   try {
-    out = await postJSON('/api/chat/ask', {
-      question: question.trim(), role: ROLE === 'all' ? null : ROLE,
-      snapshot_id: state.currentSnapshotId || null, result: state.currentResult || null,
-    });
-  } catch (e) {
-    out = { ok: true, answer: 'Sorry — I couldn\'t reach the local engine just now. ' + String((e && e.message) || e), source: 'error' };
+    addUser(question.trim());
+    const bodyEl = addAiShell();
+    if (!bodyEl) return;
+    const think = bodyEl.querySelector('.pchat-think');
+    let ansEl = null, caret = null, raw = '', meta = null;
+    const ensureAns = () => {
+      if (ansEl) return;
+      if (think) think.remove();
+      ansEl = document.createElement('div'); ansEl.className = 'pchat-stream';
+      bodyEl.appendChild(ansEl);
+      caret = document.createElement('span'); caret.className = 'pchat-caret';
+    };
+    const paint = () => { ansEl.textContent = raw; ansEl.appendChild(caret); scrollThread(); };
+    try {
+      const resp = await fetch(api('/api/chat/ask'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: question.trim(), role: ROLE === 'all' ? null : ROLE,
+          snapshot_id: state.currentSnapshotId || null, result: state.currentResult || null }),
+      });
+      const ct = resp.headers.get('Content-Type') || '';
+      if (ct.indexOf('ndjson') < 0) {                    // a plain JSON (e.g. validation) reply
+        const j = await resp.json(); ensureAns();
+        raw = (j && (j.answer || j.error)) || 'Something went wrong.'; meta = j; paint();
+      } else {
+        const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = '';
+        for (;;) {
+          const { value, done } = await reader.read(); if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+            if (!line) continue;
+            let obj; try { obj = JSON.parse(line); } catch (_) { continue; }
+            if (obj.delta != null) { ensureAns(); raw += obj.delta; paint(); }
+            else if (obj.done) { meta = obj; }
+          }
+        }
+      }
+    } catch (e) {
+      ensureAns(); raw += (raw ? '\n\n' : '') + 'Sorry — the local engine was unreachable: ' + String((e && e.message) || e);
+    }
+    ensureAns();
+    if (caret) caret.remove();
+    ansEl.className = ''; ansEl.innerHTML = mdToHtml(raw);
+    const out = meta || {};
+    if (out.charts && out.charts.length) bodyEl.appendChild(renderCharts(out.charts));
+    const foot = answerFooter(out); if (foot) bodyEl.appendChild(foot);
+    if (out.brain) { BRAIN = out.brain; renderBrainPill(); }
+    scrollThread();
+  } catch (_) {
+    /* best-effort — the finally still frees the composer even if rendering threw */
+  } finally {
+    BUSY = false; setSendEnabled(true);
   }
-  if (!out || out.ok === false) {
-    out = { answer: 'Sorry — ' + ((out && out.error) || 'something went wrong.'), source: 'error' };
-  }
-  BRAIN = out.brain || BRAIN; renderBrainPill();
-  streamAnswer(bodyEl, out);
 }
 
 // ── brain status / setup ─────────────────────────────────────────────────────
@@ -293,6 +321,24 @@ function renderBrainPill() {
     if (BRAIN.downloading) note.textContent = 'Downloading the AI model… ' + (BRAIN.progress != null ? BRAIN.progress + '%' : '');
     else if (BRAIN.detail) note.textContent = BRAIN.detail;
   }
+  renderModels();
+}
+
+function renderModels() {
+  const el = document.getElementById('pchat-models');
+  if (!el || !BRAIN || !BRAIN.options) return;
+  const dis = BRAIN.downloading ? ' disabled' : '';
+  el.innerHTML = BRAIN.options.map((o) =>
+    `<button class="pchat-mchip ${o.key === BRAIN.model_key ? 'on' : ''}" data-model="${o.key}"${dis}>${escapeHtml(o.label)}<span class="sz">${escapeHtml(o.size)}${o.downloaded ? ' · downloaded' : ''}</span></button>`).join('');
+}
+
+async function selectModel(key) {
+  if (BRAIN && BRAIN.downloading) return;              // don't repoint the brain mid-download
+  try {
+    const d = await postJSON('/api/chat/settings', { model: key });
+    if (d && d.brain) BRAIN = d.brain;
+  } catch (_) { /* offline */ }
+  renderBrainPill();
 }
 
 async function refreshStatus() {
@@ -321,7 +367,9 @@ function setupCardHtml() {
   const b = BRAIN || {};
   return `<div class="pchat-setup" id="pchat-setup" ${b.ready ? 'hidden' : ''}>
     <h3>Switch on your offline AI brain (one-time)</h3>
-    <p>The chat answers with a real AI that runs entirely on your PC — no internet, no key, no cost, and <b>nothing to install</b>. It just needs a one-time model download (about 2&nbsp;GB), which it does right here. After that it works fully offline. Charts and a grounded snapshot of your schedule already work below.</p>
+    <p>The chat answers with a real AI that runs entirely on your PC — no internet, no key, no cost, and <b>nothing to install</b>. It just needs a one-time model download, which it does right here. After that it works fully offline. Charts and a grounded snapshot of your schedule already work below.</p>
+    <div class="pchat-rolelbl" style="text-align:left">Choose the AI brain — bigger is smarter &amp; more detailed, smaller is faster</div>
+    <div class="pchat-models" id="pchat-models"></div>
     <div class="row">
       <button class="pchat-btn" id="pchat-setup-btn">Download the AI brain now</button>
       <span class="pchat-pill" id="pchat-brainpill"><span class="dot"></span>checking…</span>
@@ -422,6 +470,7 @@ export async function renderChat() {
         host.querySelectorAll('#pchat-status .pchat-chip').forEach((c) => c.classList.toggle('on', c.dataset.s === SFILT));
         applyFilter(); return;
       }
+      const mc = e.target.closest('[data-model]'); if (mc) { selectModel(mc.dataset.model); return; }
       const setupBtn = e.target.closest('#pchat-setup-btn'); if (setupBtn) { setupBrain(); return; }
     });
     host.addEventListener('input', (e) => { if (e.target && e.target.id === 'pchat-search') applyFilter(); });
