@@ -1,25 +1,24 @@
-"""The offline AI brain manager.
+"""The offline AI brain — bundled, no separate install.
 
-The brain is a **local model server** the app talks to over localhost — an
-Ollama runtime (default) or any OpenAI-compatible local server. This keeps the
-tool itself small and adds no Python native dependency: the model is downloaded
-once (via the runtime) into the user's machine, then every answer is generated
-locally with no internet, no key and no cost.
+The AI engine (llama.cpp, via llama-cpp-python) ships *inside* the app, so there
+is nothing for the user to install. The only one-time step is a model download,
+which the app does itself on first use into the user's data folder
+(``%APPDATA%\\.controlyx\\ai\\models``). After that every answer is generated
+locally — no internet, no key, no cost.
 
-Everything here is guarded and offline-safe:
-* ``status()`` probes the local runtime (never the public internet) and reports
-  whether the engine is running and the model is present.
-* ``pull()`` asks the runtime to download the model — the one-time "set up the
-  brain" step.
-* ``generate()`` produces an answer locally; raises :class:`LlmNotReady` when the
-  brain isn't set up, so the service layer can fall back gracefully.
+Everything is guarded and offline-safe:
+* ``status()``  — is the engine present and the model downloaded?
+* ``setup()``   — download the model (blocking; run in a background thread; live
+  progress via the module ``_DL`` dict, surfaced by ``status()``).
+* ``generate()``— produce an answer locally; raises :class:`LlmNotReady` before the
+  model is downloaded so the service can fall back honestly.
 
-Only stdlib (urllib/json) is used, so this imports cleanly in dev and in the exe.
+If the bundled engine somehow fails to load, ``status().engine`` is False and the
+chat degrades to grounded snapshots rather than crashing.
 """
-import json
 import os
+import threading
 import urllib.request
-import urllib.error
 
 try:
     from utils import app_data_dir
@@ -29,10 +28,17 @@ except Exception:                                    # pragma: no cover - dev fa
         os.makedirs(p, exist_ok=True)
         return p
 
-# A small, capable instruct model that runs on a normal modern PC (CPU/8-16GB).
-DEFAULT_BASE_URL = 'http://127.0.0.1:11434'          # Ollama's local port
-DEFAULT_MODEL = 'qwen2.5:3b-instruct'
-_SETTINGS_NAME = 'chat_brain.json'
+# A small, capable instruct model that runs on a normal modern PC (CPU / 8-16 GB).
+MODEL_NAME = 'qwen2.5-3b-instruct-q4_k_m.gguf'
+MODEL_LABEL = 'Qwen2.5 3B Instruct (Q4)'
+MODEL_URL = ('https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/'
+             'qwen2.5-3b-instruct-q4_k_m.gguf?download=true')
+_MIN_MODEL_BYTES = 200_000_000                       # sanity floor (real file ~1.9 GB)
+
+_DL = {'active': False, 'pct': None, 'error': None, 'done': False}
+_DL_LOCK = threading.Lock()
+_LLM = None
+_LLM_LOCK = threading.Lock()
 
 
 class LlmError(RuntimeError):
@@ -40,146 +46,126 @@ class LlmError(RuntimeError):
 
 
 class LlmNotReady(LlmError):
-    """Raised by generate() when the brain isn't set up yet."""
+    """Raised by generate() before the model is downloaded."""
 
 
-# ── settings (base URL + model), stored per user ────────────────────────────
-def _settings_path():
-    return os.path.join(app_data_dir(), _SETTINGS_NAME)
+def _models_dir():
+    p = os.path.join(app_data_dir(), 'ai', 'models')
+    os.makedirs(p, exist_ok=True)
+    return p
 
 
-def get_settings():
-    s = {'base_url': DEFAULT_BASE_URL, 'model': DEFAULT_MODEL}
+def _model_path():
+    return os.path.join(_models_dir(), MODEL_NAME)
+
+
+def _model_ready():
     try:
-        with open(_settings_path(), encoding='utf-8') as f:
-            s.update({k: v for k, v in json.load(f).items() if v})
-    except Exception:
-        pass
-    return s
+        return os.path.getsize(_model_path()) > _MIN_MODEL_BYTES
+    except OSError:
+        return False
 
 
-def save_settings(base_url=None, model=None):
-    s = get_settings()
-    if base_url:
-        s['base_url'] = base_url.rstrip('/')
-    if model:
-        s['model'] = model
+def _engine_ok():
     try:
-        with open(_settings_path(), 'w', encoding='utf-8') as f:
-            json.dump(s, f)
+        import llama_cpp  # noqa: F401
+        return True
     except Exception:
-        pass
-    return s
-
-
-# ── tiny HTTP helpers (localhost only) ──────────────────────────────────────
-def _get(url, timeout):
-    req = urllib.request.Request(url, headers={'Accept': 'application/json'})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode('utf-8'))
-
-
-def _post(url, payload, timeout):
-    data = json.dumps(payload).encode('utf-8')
-    req = urllib.request.Request(url, data=data,
-                                 headers={'Content-Type': 'application/json'})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode('utf-8'))
-
-
-def _is_ollama(base):
-    return not base.rstrip('/').endswith('/v1')
+        return False
 
 
 # ── status ──────────────────────────────────────────────────────────────────
 def status():
-    """Probe the local runtime. Returns a dict the UI renders a setup card from:
-    {engine, model, ready, backend, base_url, model_name, models, detail}."""
-    s = get_settings()
-    base = s['base_url'].rstrip('/')
-    want = s['model']
-    out = {'engine': False, 'model': False, 'ready': False,
-           'backend': 'ollama' if _is_ollama(base) else 'openai',
-           'base_url': base, 'model_name': want, 'models': [], 'detail': ''}
-    try:
-        if _is_ollama(base):
-            tags = _get(base + '/api/tags', timeout=1.5)
-            names = [m.get('name') for m in (tags.get('models') or [])]
-        else:
-            data = _get(base + '/models', timeout=1.5)
-            names = [m.get('id') for m in (data.get('data') or [])]
-        out['engine'] = True
-        out['models'] = [n for n in names if n]
-        # match exact or by prefix (Ollama tags like 'qwen2.5:3b-instruct')
-        out['model'] = any(n == want or n.startswith(want.split(':')[0]) for n in out['models'] if n)
-        out['ready'] = out['engine'] and out['model']
-        if not out['model']:
-            out['detail'] = "Runtime is running but the model isn't downloaded yet."
-    except (urllib.error.URLError, OSError, ValueError, TimeoutError) as exc:
-        out['detail'] = ("No local AI runtime detected. Install one (Ollama) so the "
-                         "chat can run fully offline on your PC.")
-        out['error'] = str(exc)
+    eng = _engine_ok()
+    mdl = _model_ready()
+    out = {'engine': eng, 'model': mdl, 'ready': bool(eng and mdl),
+           'model_name': MODEL_LABEL, 'downloading': _DL['active'], 'progress': _DL['pct'],
+           'detail': ''}
+    if not eng:
+        out['detail'] = "The AI engine didn't load in this build — grounded snapshots still work."
+    elif _DL['active']:
+        out['detail'] = 'Downloading the AI model…%s' % (
+            (' %s%%' % _DL['pct']) if _DL['pct'] is not None else '')
+    elif not mdl:
+        out['detail'] = 'One-time model download needed (~2 GB); after that it runs fully offline.'
+    if _DL['error']:
+        out['error'] = _DL['error']
     return out
 
 
-# ── one-time model download ──────────────────────────────────────────────────
-def pull(model=None, timeout=3600):
-    """Ask the local runtime to download the model (the one-time brain setup).
-    Blocking; streams Ollama's progress and returns {ok, error}. Only reachable
-    when the runtime is installed."""
-    s = get_settings()
-    base = s['base_url'].rstrip('/')
-    model = model or s['model']
-    if not _is_ollama(base):
-        return {'ok': False, 'error': 'Automatic download is only supported via the '
-                                      'Ollama runtime; pull the model in your server.'}
+# ── one-time model download (blocking; call in a background thread) ───────────
+def setup(model=None):
+    with _DL_LOCK:
+        if _DL['active']:
+            return {'ok': True, 'started': True}
+        if _model_ready():
+            return {'ok': True, 'already': True}
+        if not _engine_ok():
+            return {'ok': False, 'error': 'The AI engine is not available in this build.'}
+        _DL.update({'active': True, 'pct': 0, 'error': None, 'done': False})
+    tmp = _model_path() + '.part'
     try:
-        data = json.dumps({'name': model, 'stream': False}).encode('utf-8')
-        req = urllib.request.Request(base + '/api/pull', data=data,
-                                     headers={'Content-Type': 'application/json'})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            last = {}
-            for line in r:                                   # NDJSON progress
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    last = json.loads(line.decode('utf-8'))
-                except ValueError:
-                    continue
-                if last.get('error'):
-                    return {'ok': False, 'error': last['error']}
-        save_settings(model=model)
+        req = urllib.request.Request(MODEL_URL, headers={'User-Agent': 'Controlyx'})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            total = int(r.headers.get('Content-Length') or 0)
+            got = 0
+            with open(tmp, 'wb') as f:
+                while True:
+                    chunk = r.read(1024 * 512)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    got += len(chunk)
+                    if total:
+                        _DL['pct'] = round(got / total * 100, 1)
+        os.replace(tmp, _model_path())
+        with _DL_LOCK:
+            _DL.update({'active': False, 'pct': 100, 'done': True})
         return {'ok': True}
-    except (urllib.error.URLError, OSError, TimeoutError) as exc:
+    except Exception as exc:
+        with _DL_LOCK:
+            _DL.update({'active': False, 'error': str(exc)})
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
         return {'ok': False, 'error': str(exc)}
 
 
-# ── generation (fully offline) ───────────────────────────────────────────────
-def generate(system, user, temperature=0.3, max_tokens=1100, timeout=180):
-    """Generate one answer locally. Raises LlmNotReady if the brain isn't set up."""
-    s = get_settings()
-    base = s['base_url'].rstrip('/')
-    model = s['model']
-    st = status()
-    if not st.get('ready'):
-        raise LlmNotReady(st.get('detail') or 'The offline AI brain is not set up yet.')
+# ── generation (fully offline, in-process) ───────────────────────────────────
+def _get_llm():
+    global _LLM
+    with _LLM_LOCK:
+        if _LLM is None:
+            from llama_cpp import Llama
+            _LLM = Llama(model_path=_model_path(), n_ctx=4096,
+                         n_threads=max(2, (os.cpu_count() or 4) - 1), verbose=False)
+        return _LLM
+
+
+def generate(system, user, temperature=0.3, max_tokens=900, timeout=None):
+    if not status().get('ready'):
+        raise LlmNotReady('The offline AI brain is not set up yet.')
     try:
-        if _is_ollama(base):
-            resp = _post(base + '/api/chat', {
-                'model': model, 'stream': False,
-                'options': {'temperature': temperature, 'num_predict': max_tokens},
-                'messages': [{'role': 'system', 'content': system},
-                             {'role': 'user', 'content': user}],
-            }, timeout=timeout)
-            return (resp.get('message') or {}).get('content', '').strip()
-        resp = _post(base + '/chat/completions', {
-            'model': model, 'temperature': temperature, 'max_tokens': max_tokens,
-            'messages': [{'role': 'system', 'content': system},
-                         {'role': 'user', 'content': user}],
-        }, timeout=timeout)
-        return (resp['choices'][0]['message']['content'] or '').strip()
+        r = _get_llm().create_chat_completion(
+            messages=[{'role': 'system', 'content': system},
+                      {'role': 'user', 'content': user}],
+            temperature=temperature, max_tokens=max_tokens)
+        return (r['choices'][0]['message']['content'] or '').strip()
     except LlmError:
         raise
-    except (urllib.error.URLError, OSError, TimeoutError, KeyError, ValueError) as exc:
+    except Exception as exc:
         raise LlmError('The local AI brain could not answer: %s' % exc)
+
+
+# ── API compatibility (the in-process brain has no server URL to configure) ──
+def get_settings():
+    return {'model': MODEL_LABEL, 'model_path': _model_path()}
+
+
+def save_settings(base_url=None, model=None):
+    return get_settings()
+
+
+def pull(model=None):
+    return setup(model)

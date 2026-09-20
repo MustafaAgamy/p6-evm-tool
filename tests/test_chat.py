@@ -6,7 +6,7 @@ and the service's brain / fallback branches (brain calls are stubbed so tests
 never touch a network or a model).
 """
 import p6_chat
-from p6_chat import library, grounding, knowledge, service, llm
+from p6_chat import library, grounding, knowledge, service, llm, charts
 
 
 SAMPLE = {
@@ -114,12 +114,44 @@ def test_ask_empty_question():
     assert out['ok'] is False
 
 
-# ── llm status is offline-safe (no server in test env) ─────────────────────────
+# ── llm status is offline-safe (engine not installed in the test env) ──────────
 def test_llm_status_offline_safe():
     st = llm.status()
-    assert st['ready'] is False and 'base_url' in st       # must not raise
+    assert st['ready'] is False and 'engine' in st and 'model' in st   # must not raise
 
 
 def test_public_api_surface():
     assert callable(p6_chat.get_library) and callable(p6_chat.ask)
     assert callable(p6_chat.brain_status) and callable(p6_chat.brain_setup)
+
+
+# ── charts (grounded, deterministic) ───────────────────────────────────────────
+def test_charts_kpi_for_status_question():
+    cs = charts.charts_for('How are we performing on SPI and CPI?', SAMPLE)
+    kpi = next((c for c in cs if c['type'] == 'kpi'), None)
+    assert kpi is not None
+    labels = [i['label'] for i in kpi['items']]
+    assert {'SPI', 'CPI', 'Progress', 'Delay'} <= set(labels)
+    delay = next(i for i in kpi['items'] if i['label'] == 'Delay')
+    assert delay['value'] == '+47 wd' and delay['tone'] == 'bad'
+
+
+def test_charts_bars_for_discipline_question():
+    cs = charts.charts_for('show me progress by discipline breakdown', SAMPLE)
+    bars = next((c for c in cs if c['type'] == 'bars'), None)
+    assert bars is not None
+    names = [r['name'] for r in bars['items']]
+    assert 'Marine & Jetty Works' in names
+    mj = next(r for r in bars['items'] if r['name'] == 'Marine & Jetty Works')
+    assert mj['planned'] == 70 and mj['actual'] == 45
+
+
+def test_charts_empty_without_result():
+    assert charts.charts_for('anything', {}) == []
+    assert charts.charts_for('what is the weather', SAMPLE) == []   # no matching intent
+
+
+def test_service_ask_attaches_grounded_charts(monkeypatch):
+    monkeypatch.setattr(llm, 'status', lambda: {'ready': False, 'engine': False, 'model': False})
+    out = service.ask('How are we performing (SPI/CPI)?', SAMPLE, role='pm')
+    assert 'charts' in out and any(c['type'] == 'kpi' for c in out['charts'])

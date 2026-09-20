@@ -44,6 +44,8 @@ datas = [
     # extension + data; collect both so `import pymupdf` works in the bundle
     # (its dynamic libs are added to `binaries` below).
     *collect_data_files('pymupdf'),
+    # llama-cpp-python bundled engine — ship its package data (the lib/ dir metadata).
+    *collect_data_files('llama_cpp'),
 ]
 
 # ── Hidden imports pywebview / webview2 needs ──────────────────────────────
@@ -100,6 +102,14 @@ hiddenimports = [
     'p6_prodintel.kb',
     'p6_prodintel.engine',
     *collect_submodules('p6_prodintel'),
+    # Offline AI Chat brain — bundle the llama-cpp-python engine, its numpy dependency,
+    # and the chat-template / cache deps it imports lazily, so the in-process brain
+    # works in the exe with only the model downloaded on first use.
+    'llama_cpp',
+    *collect_submodules('llama_cpp'),
+    'numpy',
+    'diskcache',
+    'jinja2',
 ]
 
 # PyMuPDF ships a compiled MuPDF extension (_mupdf / libmupdf) — collect its dynamic
@@ -107,6 +117,12 @@ hiddenimports = [
 binaries = []
 try:
     binaries += collect_dynamic_libs('pymupdf')
+except Exception:
+    pass
+# llama-cpp-python ships the compiled llama.cpp engine (llama.dll / ggml*.dll under
+# llama_cpp/lib) — collect its dynamic libs so the bundled brain loads in the exe.
+try:
+    binaries += collect_dynamic_libs('llama_cpp')
 except Exception:
     pass
 
@@ -132,7 +148,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         # Exclude unused heavy packages to keep exe smaller
-        'matplotlib', 'numpy', 'pandas', 'scipy', 'PIL',
+        'matplotlib', 'pandas', 'scipy', 'PIL',   # numpy kept — llama-cpp-python needs it
         'tkinter', '_tkinter',
         'PyQt5', 'PyQt6', 'wx',
     ],

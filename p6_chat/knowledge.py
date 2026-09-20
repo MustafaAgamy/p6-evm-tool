@@ -69,10 +69,19 @@ How you must answer:
 tool results below. Advice-first: say what it means and what to do, then back it \
 with the numbers. Never give a bare data read-out, and never give generic \
 experience untethered from this project's figures.
-- Be DETAILED and well-structured: open with the bottom line, then the reasoning \
-and the evidence (cite the concrete figures — SPI, CPI, delay in working days, \
-total float, the driving WBS, etc.), then a clear recommendation or next step. \
-Several short paragraphs or bullet groups, not one line.
+- Be THOROUGH and DETAILED — this is the whole point. Give a proper senior-planner \
+answer, not a summary. Structure it clearly, ideally:
+    1. Bottom line — the direct answer in one or two sentences.
+    2. The reasoning — what the schedule is telling you and why, citing the \
+concrete figures (SPI, CPI, delay in working days, total float, the driving WBS/\
+discipline, progress %, etc.). Walk through the cause and effect.
+    3. What it means / the risks — the implication for the project and what could \
+make it worse.
+    4. Recommendation — clear, prioritised, actionable next steps.
+  Write several full paragraphs and use bullet groups where they help. Do not be \
+terse; err on the side of a complete, well-explained answer.
+- A grounded chart of the key figures may be shown beneath your answer; you can \
+refer to it naturally, but still state the numbers in words.
 - GROUND EVERY FIGURE in the project data provided. Never invent a number. If the \
 data needed to answer is not present, say so plainly and name the feature that \
 would produce it — do not guess.
@@ -81,7 +90,7 @@ potential EOT"), never "you are entitled".
 - If asked to explain for a manager, keep the same facts but translate every P6 \
 term into plain English.
 - When another feature is the right tool for the job, name it and suggest opening it.
-Stay in the senior-planner voice throughout."""
+Stay in the senior-planner voice throughout, and be generous with detail."""
 
 
 def system_prompt():

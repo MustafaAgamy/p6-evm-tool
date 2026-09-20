@@ -112,6 +112,22 @@ function ensureCss() {
   .pchat-q .qt{flex:1;font-size:13px;color:var(--text)}
   .pchat-q .qg{display:block;color:var(--muted);font-size:11px;margin-top:1px}
   .pchat-nomatch{color:var(--muted);text-align:center;padding:18px 4px;font-size:13px}
+  .pchat-charts{display:flex;flex-direction:column;gap:12px;margin:8px 0 4px}
+  .pchat-chart{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg)}
+  .pchat-chart .ct{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:9px;text-transform:uppercase;letter-spacing:.3px}
+  .pchat-kpis{display:flex;gap:9px;flex-wrap:wrap}
+  .pchat-kpi{flex:1;min-width:92px;border:1px solid var(--border);border-radius:9px;padding:8px 10px;background:var(--card-bg)}
+  .pchat-kpi .k{font-size:11px;color:var(--muted)}
+  .pchat-kpi .v{font-size:19px;font-weight:800;line-height:1.15;color:var(--text)}
+  .pchat-kpi .h{font-size:10.5px;color:var(--muted)}
+  .pchat-kpi.good .v{color:#1f8a5b}.pchat-kpi.warn .v{color:#c98a1e}.pchat-kpi.bad .v{color:#c0392b}
+  .pchat-bar{display:grid;grid-template-columns:118px 1fr auto;gap:9px;align-items:center;margin:6px 0}
+  .pchat-bar .bn{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pchat-bar .bt{position:relative;height:15px;border-radius:5px;background:var(--hair);overflow:hidden}
+  .pchat-bar .bp{position:absolute;left:0;top:0;bottom:0;background:var(--accent-soft)}
+  .pchat-bar .ba{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.92}
+  .pchat-bar .bv{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pchat-barlegend{font-size:10.5px;color:var(--muted);margin-top:5px}
   [hidden]{display:none!important}
   `;
   document.head.appendChild(s);
@@ -174,6 +190,37 @@ function addAiShell() {
   return turn.querySelector('.pchat-body');
 }
 
+function renderCharts(charts) {
+  const wrap = document.createElement('div'); wrap.className = 'pchat-charts';
+  (charts || []).forEach((c) => {
+    const card = document.createElement('div'); card.className = 'pchat-chart';
+    card.innerHTML = `<div class="ct">${escapeHtml(c.title || '')}</div>`;
+    if (c.type === 'kpi') {
+      const row = document.createElement('div'); row.className = 'pchat-kpis';
+      (c.items || []).forEach((it) => {
+        const t = document.createElement('div'); t.className = 'pchat-kpi ' + (it.tone || '');
+        t.innerHTML = `<div class="k">${escapeHtml(it.label)}</div><div class="v">${escapeHtml(it.value)}</div><div class="h">${escapeHtml(it.hint || '')}</div>`;
+        row.appendChild(t);
+      });
+      card.appendChild(row);
+    } else if (c.type === 'bars') {
+      (c.items || []).forEach((it) => {
+        const pl = Math.max(0, Math.min(100, it.planned || 0));
+        const aa = Math.max(0, Math.min(100, it.actual || 0));
+        const b = document.createElement('div'); b.className = 'pchat-bar';
+        b.innerHTML = `<div class="bn" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</div>
+          <div class="bt"><div class="bp" style="width:${pl}%"></div><div class="ba" style="width:${aa}%"></div></div>
+          <div class="bv">${aa}% / ${pl}%</div>`;
+        card.appendChild(b);
+      });
+      const lg = document.createElement('div'); lg.className = 'pchat-barlegend'; lg.textContent = 'actual / planned';
+      card.appendChild(lg);
+    }
+    wrap.appendChild(card);
+  });
+  return wrap;
+}
+
 function streamAnswer(bodyEl, out) {
   const think = bodyEl.querySelector('.pchat-think'); if (think) think.remove();
   const ans = document.createElement('div');
@@ -185,6 +232,7 @@ function streamAnswer(bodyEl, out) {
   (function step() {
     if (i >= words.length) {
       caret.remove();
+      if (out.charts && out.charts.length) bodyEl.appendChild(renderCharts(out.charts));
       // grounded / setup footer
       const foot = document.createElement('div'); foot.className = 'pchat-foot';
       if (out.source === 'brain') {
@@ -240,6 +288,11 @@ function renderBrainPill() {
   });
   const setup = document.getElementById('pchat-setup');
   if (setup) setup.hidden = !!ready;
+  const note = document.getElementById('pchat-setup-note');
+  if (note && BRAIN) {
+    if (BRAIN.downloading) note.textContent = 'Downloading the AI model… ' + (BRAIN.progress != null ? BRAIN.progress + '%' : '');
+    else if (BRAIN.detail) note.textContent = BRAIN.detail;
+  }
 }
 
 async function refreshStatus() {
@@ -266,15 +319,14 @@ async function setupBrain() {
 
 function setupCardHtml() {
   const b = BRAIN || {};
-  const model = escapeHtml(b.model_name || 'a small local model');
   return `<div class="pchat-setup" id="pchat-setup" ${b.ready ? 'hidden' : ''}>
-    <h3>Set up your offline AI brain (one-time)</h3>
-    <p>The chat answers with a real AI that runs entirely on your PC — no internet, no key, no cost. It needs a one-time setup: a local AI runtime and a model download (${model}). After that it works fully offline.</p>
+    <h3>Switch on your offline AI brain (one-time)</h3>
+    <p>The chat answers with a real AI that runs entirely on your PC — no internet, no key, no cost, and <b>nothing to install</b>. It just needs a one-time model download (about 2&nbsp;GB), which it does right here. After that it works fully offline. Charts and a grounded snapshot of your schedule already work below.</p>
     <div class="row">
       <button class="pchat-btn" id="pchat-setup-btn">Download the AI brain now</button>
       <span class="pchat-pill" id="pchat-brainpill"><span class="dot"></span>checking…</span>
     </div>
-    <p id="pchat-setup-note" style="margin-top:9px;font-size:12px">${escapeHtml(b.detail || '')}${b.engine === false ? ' Install the free <b>Ollama</b> runtime first (ollama.com), then click Download.' : ''}</p>
+    <p id="pchat-setup-note" style="margin-top:9px;font-size:12px">${escapeHtml(b.detail || '')}</p>
   </div>`;
 }
 

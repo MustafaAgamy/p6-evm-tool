@@ -5,7 +5,7 @@ Flow: grounding (from the DB result) + tool knowledge + persona -> the local bra
 fall back honestly to a real snapshot read straight from the schedule plus a
 one-line pointer to set the brain up — never a canned or another project's answer.
 """
-from . import knowledge, grounding, library, llm
+from . import knowledge, grounding, library, llm, charts
 
 
 def _role_title(role):
@@ -43,28 +43,29 @@ def ask(question, result, role=None):
     role_title = _role_title(role)
     ground = grounding.build(result)
     has_ground = grounding.available(result)
+    ch = charts.charts_for(question, result)          # grounded charts, brain or not
 
-    # Brain ready → the real, detailed, grounded answer.
+    # Brain ready → the real, detailed, grounded answer (+ grounded charts).
     if brain.get('ready'):
         try:
             answer = llm.generate(knowledge.system_prompt(),
                                   knowledge.build_prompt(question, ground, role_title))
             if answer:
                 return {'ok': True, 'answer': answer, 'source': 'brain',
-                        'grounded': has_ground, 'brain': brain}
+                        'grounded': has_ground, 'brain': brain, 'charts': ch}
         except llm.LlmNotReady:
             pass
         except llm.LlmError as exc:
             return {'ok': True, 'answer': None, 'source': 'error',
-                    'error': str(exc), 'brain': brain}
+                    'error': str(exc), 'brain': brain, 'charts': ch}
 
-    # Brain not set up → honest fallback: real snapshot + a pointer to set it up.
+    # Brain not set up → honest fallback: real snapshot + charts + a pointer to set up.
     if has_ground:
         snap = _snapshot(result)
         lines = ["**Your offline AI brain isn't set up yet**, so I can't give the "
-                 "full, reasoned answer to that question. Set it up once (it then "
-                 "runs entirely on your PC — no internet, no cost) and I'll answer "
-                 "in depth, grounded in this schedule."]
+                 "full, reasoned answer to that question. It's a one-time download "
+                 "inside the app (about 2 GB) — nothing to install — after which it "
+                 "runs entirely on your PC, no internet, no cost."]
         if snap:
             lines.append("For now, here's what I can read straight from your "
                          "imported schedule:")
@@ -72,10 +73,10 @@ def ask(question, result, role=None):
         answer = "\n\n".join(lines)
     else:
         answer = ("Import a P6 schedule first — then I can read it and answer this "
-                  "in detail. (Your offline AI brain also needs a one-time setup to "
-                  "give the full reasoned answers.)")
+                  "in detail. (Your offline AI brain also needs a one-time model "
+                  "download to give the full reasoned answers.)")
     return {'ok': True, 'answer': answer, 'source': 'setup',
-            'grounded': has_ground, 'needs_setup': True, 'brain': brain}
+            'grounded': has_ground, 'needs_setup': True, 'brain': brain, 'charts': ch}
 
 
 def get_library():
