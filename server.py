@@ -386,6 +386,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_chat_setup(body)
         elif self.path == '/api/chat/settings':
             self._handle_chat_settings(body)
+        elif self.path == '/api/chat/dashboard':
+            self._handle_chat_dashboard(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -3214,6 +3216,24 @@ class Handler(BaseHTTPRequestHandler):
             import p6_chat
             s = p6_chat.save_brain_settings(base_url=body.get('base_url'), model=body.get('model'))
             self._json(200, {'ok': True, 'settings': s, 'brain': p6_chat.brain_status()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_dashboard(self, body):
+        """Build the in-chat professional dashboard. Re-parses the open snapshot's XML
+        (the report/PDF exception to the DB read path — the charts need the full
+        ScheduleData) and reuses the existing engines; every number is grounded."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+            snap = body.get('snapshot_id')
+            if not xml_path and snap is not None:
+                xml_path = db.get_snapshot_xml_path(snap)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then ask me to build the dashboard.'})
+                return
+            self._json(200, p6_chat.build_dashboard(xml_path=xml_path, snapshot_id=snap))
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

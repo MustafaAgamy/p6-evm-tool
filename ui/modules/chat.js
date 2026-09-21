@@ -134,6 +134,9 @@ function ensureCss() {
   .pchat-mchip:hover{border-color:var(--accent)}
   .pchat-mchip.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
   .pchat-mchip .sz{display:block;font-size:10.5px;color:var(--muted)}
+  .pchat-quick{display:flex;gap:8px;flex-wrap:wrap;margin-top:-2px}
+  .pchat-qbtn{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-dark);font-weight:650;font-size:12.5px;border-radius:999px;padding:7px 14px;cursor:pointer;font-family:inherit}
+  .pchat-qbtn:hover{background:var(--accent);color:#fff}
   [hidden]{display:none!important}
   `;
   document.head.appendChild(s);
@@ -227,6 +230,366 @@ function renderCharts(charts) {
   return wrap;
 }
 
+// ── professional dashboard (in-chat) ─────────────────────────────────────────
+// A self-contained "command board" with its own three visual FORMATS the planner
+// can switch between (Executive / Midnight / Blueprint). It has its own colour
+// system (independent of the app's appearance tokens) so it always looks like the
+// approved design; every number is grounded — built by /api/chat/dashboard from a
+// re-parse of the open schedule, never invented.
+function ensureDashCss() {
+  if (document.getElementById('pdash-css')) return;
+  const s = document.createElement('style');
+  s.id = 'pdash-css';
+  s.textContent = `
+  .pdash{
+    --ground:#eef1f6;--panel:#fff;--panel2:#f7f9fc;--line:#e3e8f0;--grid:#eaeef4;
+    --ink:#16202e;--ink2:#5a6b80;--mut:#8695a8;
+    --accent:#1f4e79;--accent2:#2f6fb8;--accentsoft:#dceaf6;
+    --good:#1f8a5b;--warn:#c17d16;--bad:#c0392b;
+    --s-plan:#2f6fb8;--s-earn:#1f8a5b;--s-fore:#c17d16;
+    --shadow:0 1px 2px rgba(16,32,55,.05),0 8px 24px rgba(16,32,55,.07);
+    background:var(--ground);color:var(--ink);border-radius:14px;padding:16px 16px 18px;
+    font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;transition:background .25s,color .25s}
+  .pdash[data-style="midnight"]{
+    --ground:#0a1120;--panel:#111b2e;--panel2:#0e1728;--line:#243247;--grid:#1b2740;
+    --ink:#eaf1fb;--ink2:#9fb2cd;--mut:#6b7d99;
+    --accent:#5b9bff;--accent2:#7fb2ff;--accentsoft:#16294a;
+    --good:#3fd18a;--warn:#e0a83a;--bad:#ff6b5e;
+    --s-plan:#5b9bff;--s-earn:#3fd18a;--s-fore:#e0a83a;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px rgba(0,0,0,.35)}
+  .pdash[data-style="blueprint"]{
+    --ground:#08213c;--panel:#0c2c50;--panel2:#0a2647;--line:#1e4a76;--grid:#123f68;
+    --ink:#eaf6ff;--ink2:#a9d0ec;--mut:#6c9cc2;
+    --accent:#57d2ff;--accent2:#8ae1ff;--accentsoft:#0e3a5f;
+    --good:#5be6c0;--warn:#ffcf6b;--bad:#ff8a7a;
+    --s-plan:#57d2ff;--s-earn:#5be6c0;--s-fore:#ffcf6b;
+    --shadow:0 1px 2px rgba(0,0,0,.35),0 12px 34px rgba(3,20,40,.5)}
+  .pdash *{box-sizing:border-box}
+  .pdash .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .pdash h1,.pdash h3{margin:0}
+  .pdash .dhead{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+  .pdash .lead{flex:1;min-width:220px}
+  .pdash .kick{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--accent2);font-weight:600}
+  .pdash h1{font-size:22px;font-weight:700;letter-spacing:-.4px;text-wrap:balance;color:var(--ink)}
+  .pdash .dmeta{color:var(--ink2);font-size:12px;margin-top:3px}
+  .pdash .dmeta b{color:var(--ink);font-weight:600}
+  .pdash .styleseg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+  .pdash .styleseg button{border:0;background:transparent;color:var(--ink2);font:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer}
+  .pdash .styleseg button.on{background:var(--accent);color:#fff}
+  .pdash[data-style="blueprint"] .styleseg button.on,.pdash[data-style="midnight"] .styleseg button.on{color:#04121f}
+  .pdash .health{display:flex;align-items:center;gap:16px;flex-wrap:wrap;border:1px solid var(--line);border-left:4px solid var(--mut);background:var(--panel);border-radius:12px;padding:13px 15px;box-shadow:var(--shadow);margin-bottom:13px}
+  .pdash .health.bad{border-left-color:var(--bad)}.pdash .health.warn{border-left-color:var(--warn)}.pdash .health.good{border-left-color:var(--good)}
+  .pdash .health .badge{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:12px;letter-spacing:.5px;color:#fff;background:var(--mut);padding:5px 11px;border-radius:999px;white-space:nowrap}
+  .pdash .health.bad .badge{background:var(--bad)}.pdash .health.warn .badge{background:var(--warn)}.pdash .health.good .badge{background:var(--good)}
+  .pdash .health .msg{flex:1;min-width:230px;font-size:13.5px;line-height:1.5;color:var(--ink)}
+  .pdash .health .msg b{font-weight:600}
+  .pdash .health .fin{text-align:right}
+  .pdash .health .fin .k{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+  .pdash .health .fin .v{font-size:16px;font-weight:700;color:var(--ink)}
+  .pdash .health .fin .v.bad{color:var(--bad)}.pdash .health .fin .v.good{color:var(--good)}
+  .pdash .dkpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:13px}
+  .pdash .dkpi{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 12px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .pdash .dkpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent2);opacity:0}
+  .pdash .dkpi.good::after{background:var(--good);opacity:1}.pdash .dkpi.warn::after{background:var(--warn);opacity:1}.pdash .dkpi.bad::after{background:var(--bad);opacity:1}
+  .pdash .dkpi .k{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .pdash .dkpi .v{font-size:21px;font-weight:700;line-height:1.15;margin-top:2px;color:var(--ink)}
+  .pdash .dkpi.good .v{color:var(--good)}.pdash .dkpi.warn .v{color:var(--warn)}.pdash .dkpi.bad .v{color:var(--bad)}
+  .pdash .dkpi .h{font-size:10.5px;color:var(--ink2);margin-top:1px}
+  .pdash .dgrid{display:grid;grid-template-columns:1.55fr 1fr;gap:12px}
+  .pdash .dcard{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 15px;box-shadow:var(--shadow)}
+  .pdash .dcard h3{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;color:var(--ink)}
+  .pdash .dcard .sub{font-size:11px;color:var(--mut);margin:2px 0 11px}
+  .pdash .tag{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;color:var(--accent2);background:var(--accentsoft);padding:2px 7px;border-radius:5px;letter-spacing:.3px}
+  .pdash .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10.5px;color:var(--ink2);margin-top:8px}
+  .pdash .legend i{display:inline-block;width:11px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+  .pdash svg .axt{fill:var(--mut);font-family:"IBM Plex Mono",monospace;font-size:9px}
+  .pdash svg .gl{stroke:var(--grid);stroke-width:1}
+  .pdash svg .plan-l{stroke:var(--s-plan);stroke-width:2;fill:none}
+  .pdash svg .plan-a{fill:var(--s-plan);opacity:.09}
+  .pdash svg .earn-l{stroke:var(--s-earn);stroke-width:2.5;fill:none}
+  .pdash svg .earn-a{fill:var(--s-earn);opacity:.12}
+  .pdash svg .fore-l{stroke:var(--s-fore);stroke-width:2;stroke-dasharray:5 4;fill:none}
+  .pdash svg .ddl{stroke:var(--ink2);stroke-width:1;stroke-dasharray:3 3}
+  .pdash svg .dot{fill:var(--panel);stroke-width:2.5}
+  .pdash .gauges{display:flex;gap:12px}
+  .pdash .gauge{flex:1;text-align:center}
+  .pdash .gauge .gl2{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .pdash .gauge .num{font-size:19px;font-weight:700;color:var(--ink)}
+  .pdash .gauge .num.good{color:var(--good)}.pdash .gauge .num.warn{color:var(--warn)}.pdash .gauge .num.bad{color:var(--bad)}
+  .pdash .tl{position:relative;height:22px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;margin:22px 0 6px}
+  .pdash .tl .fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+  .pdash .tl .mk{position:absolute;top:-19px;transform:translateX(-50%);font-size:9.5px;color:var(--ink2);white-space:nowrap;text-align:center}
+  .pdash .tl .mk::after{content:"";position:absolute;left:50%;top:17px;width:1px;height:14px;background:var(--line)}
+  .pdash .tl .now{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--bad)}
+  .pdash .tstat{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2);margin-top:12px}
+  .pdash .tstat b{color:var(--ink);font-weight:600}
+  .pdash .disc{display:flex;flex-direction:column;gap:9px;margin-top:4px}
+  .pdash .drow{display:grid;grid-template-columns:112px 1fr auto;gap:9px;align-items:center}
+  .pdash .dn{font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pdash .dtrack{position:relative;height:15px;border-radius:5px;background:var(--panel2);overflow:hidden}
+  .pdash .dtrack .pl{position:absolute;inset:0 auto 0 0;background:var(--accentsoft)}
+  .pdash .dtrack .ac{position:absolute;inset:0 auto 0 0;background:var(--accent2)}
+  .pdash .dvv{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink2);white-space:nowrap}
+  .pdash .gap{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+  .pdash .grow{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center}
+  .pdash .gn{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pdash .gtrack{position:relative;height:17px;background:var(--panel2);border-radius:5px}
+  .pdash .gbar{position:absolute;top:0;bottom:0;left:50%;background:var(--bad);border-radius:3px}
+  .pdash .gbar.ahead{background:var(--good)}
+  .pdash .gmid{position:absolute;top:-3px;bottom:-3px;left:50%;width:1px;background:var(--line)}
+  .pdash .gv{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;color:var(--bad);white-space:nowrap}
+  .pdash .gv.ahead{color:var(--good)}
+  .pdash .gaptot{display:flex;justify-content:space-between;align-items:center;margin-top:11px;padding-top:11px;border-top:1px dashed var(--line);font-size:12px;color:var(--ink2)}
+  .pdash .gaptot b{font-family:"IBM Plex Mono",monospace;font-size:15px;color:var(--bad);font-weight:600}
+  .pdash .gaptot b.good{color:var(--good)}
+  .pdash .dfoot{margin-top:14px;font-size:11px;color:var(--mut)}
+  .pdash .dfoot .off{color:var(--good);font-weight:600}
+  @media (max-width:820px){ .pdash .dkpis{grid-template-columns:repeat(3,1fr)} .pdash .dgrid{grid-template-columns:1fr} }
+  @media (max-width:480px){ .pdash .dkpis{grid-template-columns:repeat(2,1fr)} .pdash .drow{grid-template-columns:88px 1fr auto} .pdash .grow{grid-template-columns:120px 1fr auto} }
+  `;
+  document.head.appendChild(s);
+}
+
+// £M money magnitude (sign is applied by the caller).
+function money(v) { return '£' + Math.abs(Number(v) || 0).toFixed(1) + 'M'; }
+
+function dashScurveSvg(sc) {
+  const months = sc.months || [], plan = sc.plan || [], earn = sc.earn || [], fore = sc.fore || [];
+  const n = months.length;
+  if (n < 2) return '<div class="sub">Not enough dated activities to draw the value curve.</div>';
+  const W = 560, H = 210, L = 30, R = 12, T = 12, B = 26, iw = W - L - R, ih = H - T - B;
+  const x = (i) => L + iw * (i / (n - 1));
+  const y = (v) => T + ih * (1 - Math.max(0, Math.min(100, v)) / 100);
+  const line = (arr) => {
+    let d = '';
+    for (let i = 0; i < arr.length; i++) { if (arr[i] == null) continue; d += (d ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(arr[i]).toFixed(1); }
+    return d;
+  };
+  const area = (arr) => {
+    const pts = [];
+    for (let i = 0; i < arr.length; i++) { if (arr[i] != null) pts.push([x(i), y(arr[i])]); }
+    if (pts.length < 2) return '';
+    let d = 'M' + pts[0][0].toFixed(1) + ' ' + (T + ih) + 'L';
+    d += pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L');
+    return d + 'L' + pts[pts.length - 1][0].toFixed(1) + ' ' + (T + ih) + 'Z';
+  };
+  const lastIdx = (arr) => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return i; return -1; };
+  let grid = '';
+  for (let g = 0; g <= 100; g += 25) grid += `<line class="gl" x1="${L}" y1="${y(g)}" x2="${W - R}" y2="${y(g)}"/><text class="axt" x="${L - 4}" y="${y(g) + 3}" text-anchor="end">${g}</text>`;
+  // ~7 evenly-spaced x-labels, always including first, last and the data date
+  const ddi = (sc.dd_index == null ? -1 : sc.dd_index);
+  const ticks = new Set([0, n - 1]); if (ddi >= 0) ticks.add(ddi);
+  const step = Math.max(1, Math.round((n - 1) / 6));
+  for (let i = 0; i < n; i += step) ticks.add(i);
+  let xlab = '';
+  [...ticks].sort((a, b) => a - b).forEach((i) => { xlab += `<text class="axt" x="${x(i)}" y="${H - 8}" text-anchor="middle">${escapeHtml(String(months[i] || ''))}</text>`; });
+  let ddMark = '';
+  if (ddi >= 0) { const ddx = x(ddi); ddMark = `<line class="ddl" x1="${ddx}" y1="${T}" x2="${ddx}" y2="${T + ih}"/><text class="axt" x="${ddx + 3}" y="${T + 9}">data date</text>`; }
+  const ei = lastIdx(earn), pi = lastIdx(plan);
+  const earnDot = ei >= 0 ? `<circle class="dot" cx="${x(ei)}" cy="${y(earn[ei])}" r="4" style="stroke:var(--s-earn)"/>` : '';
+  const planDot = pi >= 0 ? `<circle class="dot" cx="${x(pi)}" cy="${y(plan[pi])}" r="4" style="stroke:var(--s-plan)"/>` : '';
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">${grid}${xlab}${ddMark}`
+    + `<path class="plan-a" d="${area(plan)}"/><path class="plan-l" d="${line(plan)}"/>`
+    + `<path class="earn-a" d="${area(earn)}"/><path class="fore-l" d="${line(fore)}"/>`
+    + `<path class="earn-l" d="${line(earn)}"/>${earnDot}${planDot}</svg>`;
+}
+
+function dashGaugesSvg(gauges) {
+  const MAXV = 1.5;
+  const arc = (cx, cy, r, a0, a1) => {
+    const p = (a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+    const s = p(a0), e = p(a1), large = (a1 - a0) > Math.PI ? 1 : 0;
+    return `M${s[0].toFixed(1)} ${s[1].toFixed(1)}A${r} ${r} 0 ${large} 1 ${e[0].toFixed(1)} ${e[1].toFixed(1)}`;
+  };
+  return (gauges || []).map((g) => {
+    const cx = 52, cy = 52, r = 40, a0 = Math.PI, a1 = Math.PI * 2;
+    const val = g.value == null ? 0 : g.value;
+    const frac = Math.max(0, Math.min(1, val / MAXV));
+    const av = a0 + (a1 - a0) * frac;
+    const col = g.tone === 'bad' ? 'var(--bad)' : g.tone === 'warn' ? 'var(--warn)' : 'var(--good)';
+    const ta = a0 + (a1 - a0) * (1 / MAXV);                 // the "1.0" target tick
+    const tick = `<line x1="${(cx + r * Math.cos(ta)).toFixed(1)}" y1="${(cy + r * Math.sin(ta)).toFixed(1)}" x2="${(cx + (r - 13) * Math.cos(ta)).toFixed(1)}" y2="${(cy + (r - 13) * Math.sin(ta)).toFixed(1)}" stroke="var(--ink2)" stroke-width="1.4"/>`;
+    return `<div class="gauge"><svg viewBox="0 0 104 66" width="100%" style="max-width:118px">`
+      + `<path d="${arc(cx, cy, r, a0, a1)}" fill="none" stroke="var(--grid)" stroke-width="9" stroke-linecap="round"/>`
+      + `<path d="${arc(cx, cy, r, a0, av)}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round"/>${tick}</svg>`
+      + `<div class="num ${g.tone || ''}">${g.value == null ? '—' : Number(g.value).toFixed(2)}</div><div class="gl2">${escapeHtml(g.label || '')}</div></div>`;
+  }).join('');
+}
+
+let DASH_SEQ = 0;
+function renderDashboard(p) {
+  const meta = p.meta || {}, health = p.health || {}, ts = p.time_status || {}, sc = p.scurve || {};
+  const wrap = document.createElement('div');
+  wrap.className = 'pchat-dashwrap';
+  const metaBits = [];
+  if (meta.data_date) metaBits.push(`Data date <b>${escapeHtml(meta.data_date)}</b>`);
+  if (meta.baseline_finish) metaBits.push(`Baseline finish <b>${escapeHtml(meta.baseline_finish)}</b>`);
+  if (meta.forecast_finish) metaBits.push(`Forecast <b>${escapeHtml(meta.forecast_finish)}</b>`);
+  metaBits.push(meta.cost_loaded ? 'Cost-loaded schedule' : 'Duration-weighted (not cost-loaded)');
+
+  const kpis = (p.kpis || []).map((k) =>
+    `<div class="dkpi ${k.t || ''}"><div class="k">${escapeHtml(k.k)}</div><div class="v">${escapeHtml(k.v)}</div><div class="h">${escapeHtml(k.h || '')}</div></div>`).join('');
+
+  const sv = health.schedule_variance_m;
+  const svCls = sv == null ? '' : (sv < 0 ? 'bad' : 'good');
+  const finBlock = sv == null ? '' :
+    `<div class="fin"><div class="k">Schedule variance</div><div class="v ${svCls}">${sv < 0 ? '−' : '+'}${money(sv)}</div></div>`;
+
+  // time bar positions (clamped)
+  const el = Math.max(0, Math.min(100, ts.elapsed_pct || 0));
+  const ea = Math.max(0, Math.min(100, ts.earned_pct || 0));
+
+  const disc = (p.disciplines || []).map((d) => {
+    const pl = Math.max(0, Math.min(100, d.planned || 0)), ac = Math.max(0, Math.min(100, d.actual || 0));
+    return `<div class="drow"><div class="dn" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>`
+      + `<div class="dtrack"><div class="pl" style="width:${pl}%"></div><div class="ac" style="width:${ac}%"></div></div>`
+      + `<div class="dvv">${Math.round(ac)} / ${Math.round(pl)}</div></div>`;
+  }).join('');
+
+  const grows = (p.gap_by_code && p.gap_by_code.rows) || [];
+  const gmax = grows.reduce((m, g) => Math.max(m, Math.abs(g.gap_m || 0)), 0) || 1;
+  const gapHtml = grows.map((g) => {
+    const v = g.gap_m || 0, ahead = v < 0, w = (Math.abs(v) / gmax * 48).toFixed(1);
+    // .gbar sets left:50% by default; the ahead bar must anchor its RIGHT edge at the
+    // centre and grow left, so clear the inherited left (left+right+width is over-constrained).
+    const st = ahead ? `left:auto;right:50%;width:${w}%` : `left:50%;width:${w}%`;
+    return `<div class="grow"><div class="gn" title="${escapeHtml(g.code)}">${escapeHtml(g.code)}</div>`
+      + `<div class="gtrack"><div class="gmid"></div><div class="gbar${ahead ? ' ahead' : ''}" style="${st}"></div></div>`
+      + `<div class="gv${ahead ? ' ahead' : ''}">${ahead ? '+' : '−'}${money(v)}</div></div>`;
+  }).join('');
+  const gtot = (p.gap_by_code && p.gap_by_code.total_m) || 0;
+
+  const styleId = 'pdash-seg-' + (++DASH_SEQ);
+  wrap.innerHTML = `
+  <div class="pdash" data-style="exec">
+    <div class="dhead">
+      <div class="lead">
+        <div class="kick">Professional Dashboard · generated from your P6 file</div>
+        <h1>${escapeHtml(meta.project || 'Project')} — Earned Value Command Board</h1>
+        <div class="dmeta">${metaBits.join(' · ')}</div>
+      </div>
+      <div class="styleseg" data-seg="${styleId}">
+        <button data-dstyle="exec" class="on">Executive</button>
+        <button data-dstyle="midnight">Midnight</button>
+        <button data-dstyle="blueprint">Blueprint</button>
+      </div>
+    </div>
+
+    <div class="health ${health.tone || ''}">
+      <span class="badge">${escapeHtml(health.verdict || '—')}${health.spi != null ? ' · SPI ' + Number(health.spi).toFixed(2) : ''}</span>
+      <div class="msg">${health.message ? mdInline(health.message) : ''}</div>
+      ${finBlock}
+    </div>
+
+    <div class="dkpis">${kpis}</div>
+
+    <div class="dgrid">
+      <div class="dcard">
+        <h3>Cost loading — value of work <span class="tag">S-CURVE</span></h3>
+        <div class="sub">Cumulative planned value vs earned value, with the expected curve to completion${meta.bac_m ? '. % of ' + money(meta.bac_m) + ' budget' : ''}.</div>
+        <div class="js-scurve">${dashScurveSvg(sc)}</div>
+        <div class="legend">
+          <span><i style="background:var(--s-plan)"></i>Planned value (baseline)</span>
+          <span><i style="background:var(--s-earn)"></i>Earned value (actual)</span>
+          <span><i style="background:var(--s-fore)"></i>Expected / forecast</span>
+        </div>
+      </div>
+
+      <div class="dcard">
+        <h3>Performance indices <span class="tag">EVM</span></h3>
+        <div class="sub">Schedule (SPI) and cost (CPI) efficiency — 1.00 is on plan.</div>
+        <div class="gauges">${dashGaugesSvg(p.gauges)}</div>
+        <h3 style="margin-top:16px">Time status</h3>
+        <div class="tl">
+          <div class="fill" style="width:${el}%"></div>
+          <div class="now" style="left:${el}%"></div>
+          <div class="mk" style="left:0%">Start${ts.start ? '<br>' + escapeHtml(ts.start) : ''}</div>
+          <div class="mk" style="left:${Math.max(6, Math.min(94, el))}%">Data date</div>
+          <div class="mk" style="left:100%">Finish${ts.finish ? '<br>' + escapeHtml(ts.finish) : ''}</div>
+        </div>
+        <div class="tstat"><span><b>${Math.round(el)}%</b> of duration elapsed</span><span><b>${Math.round(ea)}%</b> value earned</span></div>
+      </div>
+
+      <div class="dcard">
+        <h3>Planned vs actual — by discipline <span class="tag">PROGRESS</span></h3>
+        <div class="sub">Where the physical progress gap sits. Bars: planned (light) vs actual (solid), %.</div>
+        <div class="disc">${disc || '<div class="sub">No weighted disciplines found.</div>'}</div>
+        <div class="legend"><span><i style="background:var(--accentsoft)"></i>Planned %</span><span><i style="background:var(--accent2)"></i>Actual %</span></div>
+      </div>
+
+      <div class="dcard">
+        <h3>EV vs PV gap — by activity code <span class="tag">DRIVER</span></h3>
+        <div class="sub">${escapeHtml((p.gap_by_code && p.gap_by_code.label) || 'The schedule variance, decomposed to the activity codes driving it (planned − earned).')}</div>
+        <div class="gap">${gapHtml || '<div class="sub">No cost-loaded activity codes to decompose.</div>'}</div>
+        ${grows.length ? `<div class="gaptot"><span>Total schedule variance (PV − EV)</span><b class="${gtot <= 0 ? 'good' : ''}">${gtot > 0 ? '−' : '+'}${money(gtot)}</b></div>` : ''}
+      </div>
+    </div>
+
+    <div class="dfoot">Every figure is read from your imported schedule — <span class="off">offline · nothing invented</span>. Ask me to switch the format above, or open the Reporting Studio to add this to a formal report.</div>
+  </div>`;
+
+  // style switcher — delegated to this dashboard only (multiple can coexist in the thread)
+  const seg = wrap.querySelector('.styleseg');
+  const dash = wrap.querySelector('.pdash');
+  seg.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-dstyle]'); if (!b) return;
+    dash.setAttribute('data-style', b.dataset.dstyle);
+    seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+  });
+  return wrap;
+}
+
+// Ask the backend to build the grounded dashboard, then render it in the thread.
+async function askDashboard(question) {
+  if (BUSY) return;
+  BUSY = true; setSendEnabled(false);
+  try {
+    addUser(question);
+    const bodyEl = addAiShell();
+    if (!bodyEl) return;
+    const think = bodyEl.querySelector('.pchat-think');
+    if (think) think.innerHTML = '<span class="d"></span><span class="d"></span><span class="d"></span> Building your professional dashboard…';
+    let payload;
+    try {
+      payload = await postJSON('/api/chat/dashboard', {
+        snapshot_id: state.currentSnapshotId || null,
+        xml_path: state.currentXmlPath || '',
+        cached_path: state.currentCachedPath || null,
+      });
+    } catch (e) {
+      payload = { ok: false, error: 'The dashboard engine was unreachable: ' + String((e && e.message) || e) };
+    }
+    if (think) think.remove();
+    if (!payload || !payload.ok) {
+      const pe = document.createElement('div'); pe.className = 'pchat-stream';
+      pe.textContent = (payload && payload.error) || 'I could not build the dashboard from this schedule.';
+      bodyEl.appendChild(pe);
+    } else {
+      ensureDashCss();
+      bodyEl.appendChild(renderDashboard(payload));
+      const foot = document.createElement('div'); foot.className = 'pchat-foot';
+      foot.innerHTML = `🔒 <span><b>Grounded</b> — every figure computed on your PC from this schedule.</span>`;
+      bodyEl.appendChild(foot);
+    }
+    scrollThread();
+  } catch (_) {
+    /* best-effort — the finally still frees the composer even if rendering threw */
+  } finally {
+    BUSY = false; setSendEnabled(true);
+  }
+}
+
+// "create me a professional dashboard", "make a dashboard", "command board"…
+// Require a build/show verb next to the noun, OR the whole message being essentially just
+// the noun — so a real question that merely MENTIONS "dashboard" still gets answered normally
+// (it falls through to /api/chat/ask) instead of being hijacked into a canned dashboard build.
+function isDashboardIntent(q) {
+  const s = String(q || '');
+  const noun = '(?:dashboard|command\\s*board|command\\s*cent(?:er|re)|cockpit)';
+  return new RegExp('\\b(?:create|build|make|generate|show|give|open|produce|prepare|draw|need|want)\\b[\\s\\S]{0,40}\\b' + noun + '\\b', 'i').test(s)
+      || new RegExp('^\\s*(?:a|an|the|my|professional|project)?\\s*' + noun + '\\s*[.!?]*\\s*$', 'i').test(s);
+}
+
 function answerFooter(out) {
   const foot = document.createElement('div'); foot.className = 'pchat-foot';
   if (out.source === 'brain') {
@@ -248,6 +611,7 @@ function setSendEnabled(on) {
 // appear as they're written, then renders charts + the grounded footer.
 async function ask(question) {
   if (BUSY || !question || !question.trim()) return;
+  if (isDashboardIntent(question)) { return askDashboard(question.trim()); }
   BUSY = true; setSendEnabled(false);
   try {
     addUser(question.trim());
@@ -442,6 +806,9 @@ export async function renderChat() {
         <textarea id="pchat-input" rows="1" placeholder="Ask anything about your schedule…"></textarea>
         <button class="send" id="pchat-send" title="Send">↑</button>
       </div>
+      <div class="pchat-quick">
+        <button class="pchat-qbtn" data-dash="1">📊 Create a professional dashboard</button>
+      </div>
       <div class="pchat-lib">
         <div class="lh">📚 Question Library — <b id="pchat-total">…</b> questions a PM might ask</div>
         <div class="lsub">Click any question to answer it — grounded in your data + a planning manager's read.</div>
@@ -463,6 +830,7 @@ export async function renderChat() {
   if (!host._pchatWired) {
     host._pchatWired = true;
     host.addEventListener('click', (e) => {
+      const dq = e.target.closest('[data-dash]'); if (dq) { askDashboard('Create me a professional dashboard for this schedule.'); return; }
       const q = e.target.closest('.pchat-q'); if (q) { ask(q.dataset.q); return; }
       const rc = e.target.closest('[data-role]'); if (rc) { ROLE = rc.dataset.role; renderRoles(); applyFilter(); return; }
       const sc = e.target.closest('#pchat-status [data-s]'); if (sc) {
