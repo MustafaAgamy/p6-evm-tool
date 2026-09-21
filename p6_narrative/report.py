@@ -437,6 +437,27 @@ def _activity_ids(data):
                         'schedule; the plain-language meanings are auto-suggested and editable.')
 
 
+# ── §13 Resource Loading + §14 Material Resources ─────────────────────────────
+def _resource_loading(res):
+    """Manpower + equipment loading, shown as the NUMBER on site per month (men / machines),
+    derived generically from the baseline resource assignments — never raw budgeted units.
+    ``res`` is the shared :func:`p6_narrative.resload.resource_loading` result (or None)."""
+    payload = (res or {}).get('loading') or {'available': False}
+    return Section('13', 'Resource Loading', 'resload', 'auto', payload=payload,
+                   note='Manpower and equipment loading, read from the baseline resource '
+                        'assignments; budgeted hours are converted to the number on site.')
+
+
+def _material_resources(res):
+    """One monthly-quantity chart per material resource (top by total), each in its own unit;
+    quantities are never summed across mixed units. Unit-less "material" assignments are the
+    cost model and are reported as a note, not charted."""
+    payload = (res or {}).get('materials') or {'available': False}
+    return Section('14', 'Material Resources', 'materials', 'auto', payload=payload,
+                   note='Material resources loaded in the baseline — monthly quantity per '
+                        'material, each kept in its own unit of measure.')
+
+
 # ── assembly ──────────────────────────────────────────────────────────────────
 def build_report(data, path=None, meta=None, setup=None, **_ignored):
     """Assemble the redesigned Baseline Narrative Report as a :class:`NarrativeDoc` of the
@@ -490,6 +511,14 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
     all_ms = _all_milestones(ctx)
     ms_names = [name for _, name, _ in all_ms]
 
+    # §13/§14 resource loading (best-effort; graceful when the schedule carries no resources).
+    res = None
+    try:
+        from p6_narrative import resload
+        res = resload.resource_loading(data, path)
+    except Exception:
+        res = None
+
     ordered = [
         _overview(ctx, r),
         _layout(setup),
@@ -505,6 +534,8 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
         _codes(data, cat),
         _sequence(data, setup),
         _activity_ids(data),
+        _resource_loading(res),
+        _material_resources(res),
     ]
     ordered = [s for s in ordered if s is not None]
 

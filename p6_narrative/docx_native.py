@@ -275,10 +275,14 @@ def _inject(document, chart_xml_fn, cats, series):
 
 
 # ── public API ────────────────────────────────────────────────────────────────
-def add_bar_chart(document, categories, values, title, color='2E75B6', series_name=None):
+def add_bar_chart(document, categories, values, title, color='2E75B6', series_name=None,
+                  data_labels=False, num_fmt=None):
     """Native clustered COLUMN chart (cash flow, cost bars, calendar histogram).
 
-    Returns the drawing element on success, ``None`` on any bad input."""
+    ``data_labels`` draws each bar's value just above its top (``dLblPos='outEnd'``) — used by
+    the §13/§14 resource histograms so every bar carries its number. ``num_fmt`` (e.g.
+    ``'#,##0'``) sets that label's number format. Returns the drawing element on success,
+    ``None`` on any bad input."""
     if document is None or not categories or not values:
         return None
     cats = list(categories)
@@ -287,6 +291,12 @@ def add_bar_chart(document, categories, values, title, color='2E75B6', series_na
         return None
     col = _hex(color, '2E75B6')
     name = series_name or (title or 'Series 1')
+    lbl_fmt = (f'<c:numFmt formatCode="{_xesc(num_fmt)}" sourceLinked="0"/>'
+               if num_fmt else '')
+    dlbls = (f'<c:dLbls>{lbl_fmt}<c:dLblPos val="outEnd"/>'
+             f'<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>'
+             f'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>'
+             if data_labels else '')
 
     def build(rid):
         dpts = ''.join(
@@ -295,7 +305,7 @@ def add_bar_chart(document, categories, values, title, color='2E75B6', series_na
             for i in range(len(vals)))
         ser = (f'<c:ser><c:idx val="0"/><c:order val="0"/>{_tx_ref(name, "B")}'
                f'<c:spPr><a:solidFill><a:srgbClr val="{col}"/></a:solidFill></c:spPr>'
-               f'{dpts}{_cat_ref(cats)}{_val_ref(vals, "B")}</c:ser>')
+               f'{dpts}{dlbls}{_cat_ref(cats)}{_val_ref(vals, "B")}</c:ser>')
         return (
             f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             f'<c:chartSpace {_C_NS}><c:chart>{_title_el(title)}<c:plotArea><c:layout/>'

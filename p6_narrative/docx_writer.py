@@ -808,6 +808,89 @@ def _render_activity_ids(document, p, number, note):
              size=10, italic=True, color=GREEN, before=3, after=8)
 
 
+# ── §13 Resource Loading + §14 Material Resources ─────────────────────────────
+def _wn(v):
+    try:
+        return '{:,.0f}'.format(round(float(v or 0)))
+    except Exception:
+        return '0'
+
+
+def _render_resload(document, p, number, note):
+    """Native Word §13 — Manpower + Equipment as the number on site per month: a sub-section
+    each with a labelled native column histogram (value above every bar) and a per-resource
+    totals table. Mirrors the HTML/PDF twin (``html._resload``); None-safe with a data-table
+    fallback if a chart can't be built."""
+    p = p or {}
+    if not p.get('available'):
+        _muted(document, 'This schedule carries no manpower or equipment loading in its '
+                         'baseline resource assignments.')
+        return
+    para(document, p.get('intro') or '', align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+    for i, g in enumerate(p.get('groups') or [], 1):
+        _subhead(document, '%s.%d' % (number, i), g.get('title') or 'Resources')
+        cap = para(document,
+                   '%s Peak %s in %s (busiest single day %s); total budgeted %s %s across %s.'
+                   % (g.get('basis_note') or '', _wn(g.get('peak_val')), g.get('peak_label') or '',
+                      _wn(g.get('peak_day_val')), g.get('total_label') or '',
+                      g.get('total_unit') or '', g.get('window') or ''),
+                   size=10, italic=True, color=GREY, after=6, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+        cap.paragraph_format.keep_with_next = True
+        if docx_native.add_bar_chart(document, g.get('span'), g.get('values'),
+                                     g.get('unit_label') or g.get('title') or 'Loading',
+                                     color=g.get('color') or '1F4E79',
+                                     data_labels=True, num_fmt='#,##0') is None:
+            data_table(document, ['Month', g.get('unit_label') or 'Number'],
+                       [[mm, _wn(vv)] for mm, vv in
+                        zip(g.get('span') or [], g.get('values') or [])], aligns=['l', 'r'])
+        else:
+            _keep_last_with_next(document)
+        rows = g.get('rows') or []
+        if rows:
+            data_table(document, g.get('row_headers') or ['Resource', 'Total', 'Peak'],
+                       rows, aligns=['l', 'r', 'r'])
+
+
+def _render_materials(document, p, number, note):
+    """Native Word §14 — one labelled native column histogram per material resource (top by
+    total, each in its own unit), then a full totals table and the cost-model note. Never mixes
+    units. Mirrors the HTML/PDF twin (``html._materials``); None-safe chart fallback."""
+    p = p or {}
+    if not p.get('available'):
+        _muted(document, 'This schedule carries no unit-bearing material resources in its '
+                         'baseline.')
+        return
+    para(document, p.get('intro') or '', align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+    cap = ''
+    if (p.get('total_n') or 0) > (p.get('charted_n') or 0):
+        cap = ' (top %d of %d by total)' % (p.get('charted_n'), p.get('total_n'))
+    _subhead(document, '%s.1' % number, 'Monthly quantity per material%s' % cap)
+    for m in (p.get('charts') or []):
+        lbl = document.add_paragraph()
+        lbl.paragraph_format.space_before = Pt(6)
+        lbl.paragraph_format.space_after = Pt(2)
+        lbl.paragraph_format.keep_with_next = True
+        run(lbl, '%s — %s (total %s %s)' % (m.get('name') or '—', m.get('unit') or '',
+            _wn(m.get('total')), m.get('unit') or ''), size=11, bold=True, color=NAVY, font=CAL)
+        if docx_native.add_bar_chart(document, m.get('span'), m.get('values'),
+                                     '%s (%s)' % (m.get('name') or '', m.get('unit') or ''),
+                                     color=m.get('color') or 'E8A33D',
+                                     data_labels=True, num_fmt='#,##0') is None:
+            data_table(document, ['Month', m.get('unit') or 'Quantity'],
+                       [[mm, _wn(vv)] for mm, vv in
+                        zip(m.get('span') or [], m.get('values') or [])], aligns=['l', 'r'])
+        else:
+            _keep_last_with_next(document)
+    _subhead(document, '%s.2' % number, 'Material totals')
+    data_table(document, p.get('table_headers') or ['Material resource', 'Total quantity', 'Unit'],
+               p.get('table_rows') or [], aligns=['l', 'r', 'l'])
+    exc = p.get('excluded')
+    if exc:
+        _muted(document, '%s unit-less “material” assignments (total %s) are the cost model — '
+                         'the contract value — and are reported in the cost sections, not charted '
+                         'as physical quantities.' % (exc.get('n'), exc.get('total_label')))
+
+
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────
 def _render_table(document, p, number, note):
     if p.get('view') == 'calendars':
@@ -939,6 +1022,8 @@ _RENDER = {
     'codes': _render_codes,
     'sequence': _render_sequence,
     'activity_ids': _render_activity_ids,
+    'resload': _render_resload,
+    'materials': _render_materials,
 }
 
 
