@@ -112,6 +112,31 @@ def test_calendar_lists_shared_nonworking_dates():
     assert pat['nonworking_count'] == {'rev0': 2, 'rev1': 1}
 
 
+def test_calendar_same_name_compared_from_xer_clndr_blobs():
+    """End-to-end for XER: two SAME-NAMED calendars parsed from real clndr_data blobs with
+    different holiday dates are still compared by their non-working days (the name being unchanged
+    must not skip the comparison)."""
+    from p6_evm.clndr import parse_clndr_data, _EPOCH
+
+    def ser(y, m, d):
+        return (date(y, m, d) - _EPOCH).days
+    days = "(0||DaysOfWeek()(0||1())" + "".join(f"(0||{n}()(0||0(s|08:00|f|16:00)()))" for n in range(2, 8)) + ")"
+    blob0 = "(0||CalendarData()" + days + f"(0||Exceptions()(0||0(d|{ser(2026,1,7)}))(0||1(d|{ser(2026,12,25)})))" + ")"
+    blob1 = "(0||CalendarData()" + days + f"(0||Exceptions()(0||0(d|{ser(2026,12,25)}))(0||1(d|{ser(2026,9,23)})))" + ")"
+    cd0, cd1 = parse_clndr_data(blob0), parse_clndr_data(blob1)
+    c0 = Calendar(object_id='c1', name='6 Day Workweek', day_hours=8.0, **cd0)
+    c1 = Calendar(object_id='c1', name='6 Day Workweek', day_hours=8.0, **cd1)   # SAME name in both revisions
+    rev0 = _sched([_act('A1', 'x', calid='c1')], cals=[c0])
+    rev1 = _sched([_act('A1', 'x', calid='c1')], cals=[c1])
+    pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns']
+               if p['name'] == '6 Day Workweek')
+    ex = {e['date']: e for e in pat['date_exceptions']}
+    assert ex['07 Jan 2026']['change'] == 'now working'          # holiday removed → now a working day
+    assert ex['23 Sep 2026']['change'] == 'now non-working'      # holiday added
+    assert ex['25 Dec 2026']['change'] == 'unchanged'            # shared holiday still listed
+    assert pat['nonworking_count'] == {'rev0': 2, 'rev1': 2}
+
+
 def test_calendar_rename_still_compares_nonworking_dates():
     """A calendar renamed between revisions (its activities reassigned to the new name) is paired
     as a rename — its non-working dates are still compared, not lost as removed+added."""
