@@ -14,6 +14,7 @@ Copy this file's shape to add a provider for another feature:
 from p6_special import payloads as P
 from p6_special import fmt
 from p6_special import feature_reports as FR
+from p6_special import reuse
 from p6_special.registry import Item
 
 FEATURE = 'evm'
@@ -197,6 +198,44 @@ def _kpi_delay(ctx):
                               delta_tone='neutral')])
 
 
+# ── finish-date KPIs (the EVM dashboard's two finish tiles, atomic) ───────────
+def _fmt_date(v):
+    """Format as 'DD Mon YYYY' (e.g. '31 Dec 2027') to match the EVM screen's dashboard
+    finish tiles (fmtDate); falls back to the raw date if it can't be parsed."""
+    if not v:
+        return fmt.DASH
+    s = str(v).split('T')[0].split(' ')[0]
+    try:
+        from datetime import datetime
+        return datetime.strptime(s, '%Y-%m-%d').strftime('%d %b %Y')
+    except Exception:
+        return s
+
+
+def _kpi_baseline_finish(ctx):
+    v = (ctx.extras or {}).get('baseline_finish')
+    if not v:
+        return P.NO_DATA
+    return P.kpi_group([P.kpi('Baseline Finish', _fmt_date(v), tone='neutral')])
+
+
+def _kpi_expected_finish(ctx):
+    v = (ctx.extras or {}).get('expected_finish')
+    if not v:
+        return P.NO_DATA
+    return P.kpi_group([P.kpi('Expected Finish', _fmt_date(v), tone='neutral')])
+
+
+def _finish_ready(key):
+    """'ready' only when the extras carry that finish date — exactly when produce
+    returns a real tile (else NO_DATA), so availability complements produce."""
+    def _avail(ctx):
+        if not ctx.evm:
+            return 'needs_run'
+        return 'ready' if (ctx.extras or {}).get(key) else 'no_data'
+    return _avail
+
+
 # ── combined items ───────────────────────────────────────────────────────────
 def _paired(ctx):
     e = ctx.evm or {}
@@ -364,6 +403,63 @@ def _gap_ready(ctx):
     return 'ready' if (isinstance(gap, dict) and gap.get('groups')) else 'no_data'
 
 
+# ── engineering progress (atomic add-on section) ──────────────────────────────
+def _engineering_dict(ctx):
+    """Build render_evm_report's ``engineering`` argument from the stored extras —
+    EXACTLY as feature_reports.evm_full_report does: prefer the E1 rows (with their
+    aggregates: overall / by_trade / gaps), else the P6 drawings-by-trade rows.
+    None when neither is present, so the section never renders empty."""
+    ex = ctx.extras or {}
+    e1_rows = ex.get('engineering_e1')
+    p6_rows = ex.get('engineering_p6')
+    if e1_rows:
+        return {'mode': 'E1', 'rows': e1_rows,
+                'overall': ex.get('engineering_overall') or {},
+                'by_trade': ex.get('engineering_by_trade') or [],
+                'gaps': ex.get('engineering_gaps') or {}}
+    if p6_rows:
+        return {'mode': 'P6', 'rows': p6_rows}
+    return None
+
+
+def _engineering(ctx):
+    """The EVM Report's Engineering Progress add-on (Section E: engineering-by-trade
+    table with Overall Design/Shop rows, Totals by Trade, and the Design + Shop
+    Engineering-Gap tables), reused verbatim and ALONE.
+
+    Parse-free: the engineering section only formats the stored E1/P6 rows. Renders
+    the EVM report with ``sections=['engineering']`` — a sentinel that matches no core
+    section key (progress/dashboard/value/category), so those all suppress and ONLY
+    the always-on engineering add-on renders (mirroring how ``evm_gap_section`` passes
+    ``sections=['gap']``). Banner + footer are stripped so it drops into a Special
+    Report section cleanly, exactly like the reused gap section."""
+    eng = _engineering_dict(ctx)
+    if not eng:
+        return P.NO_DATA
+    def b():
+        from p6_evm.evm_report import render_evm_report
+        meta = {'project_name': ctx.project_name, 'data_date': ctx.data_date}
+        return render_evm_report(ctx.evm or {}, meta, engineering=eng,
+                                 sections=['engineering'], theme=ctx.mode)
+    html = ctx.memo(f'evm_eng:{ctx.mode}', b)
+    if not html:
+        return P.NO_DATA
+    return (FR._payload('evm', reuse.extract_styles(html),
+                        FR._strip_trailing_foot(FR._body_after_head(html)))
+            or P.NO_DATA)
+
+
+def _engineering_ready(ctx):
+    """'ready' only when the extras carry a non-empty E1 or P6 engineering row set —
+    exactly what makes ``produce`` render real content (``_engineering_section`` is
+    empty otherwise). Complements produce so it never advertises a ready item that
+    renders nothing."""
+    if not ctx.evm:
+        return 'needs_run'
+    ex = ctx.extras or {}
+    return 'ready' if (ex.get('engineering_e1') or ex.get('engineering_p6')) else 'no_data'
+
+
 def provide(ctx):
     A = _ready
     return [
@@ -383,9 +479,15 @@ def provide(ctx):
         Item('evm:ev', FEATURE, FEATURE_TITLE, 'Earned Value (EV)', 'kpi', _kpi_ev, A),
         Item('evm:ac', FEATURE, FEATURE_TITLE, 'Actual Cost (AC)', 'kpi', _kpi_ac, A),
         Item('evm:delay', FEATURE, FEATURE_TITLE, 'Delay in working days', 'kpi', _kpi_delay, A),
+        Item('evm:baseline_finish', FEATURE, FEATURE_TITLE, 'Baseline finish (date)', 'kpi',
+             _kpi_baseline_finish, _finish_ready('baseline_finish')),
+        Item('evm:expected_finish', FEATURE, FEATURE_TITLE, 'Expected finish (date)', 'kpi',
+             _kpi_expected_finish, _finish_ready('expected_finish')),
         Item('evm:pv_ev_ac', FEATURE, FEATURE_TITLE, 'Planned Value vs Earned Value (chart)', 'chart', _pv_ev_ac, _value_ready),
         Item('evm:gap', FEATURE, FEATURE_TITLE, 'PV − EV gap by activity code', 'section',
              lambda c: FR.evm_gap_section(c) or P.NO_DATA, _gap_ready),
+        Item('evm:engineering', FEATURE, FEATURE_TITLE,
+             'Engineering Progress — drawings by trade', 'section', _engineering, _engineering_ready),
         Item('evm:trend_spi_cpi', FEATURE, FEATURE_TITLE, 'SPI / CPI trend', 'chart',
              _trend_spi_cpi, _trend_ready('spi')),
         Item('evm:trend_delay', FEATURE, FEATURE_TITLE, 'Delay trend (days)', 'chart',
