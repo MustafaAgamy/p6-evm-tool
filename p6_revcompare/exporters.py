@@ -907,17 +907,26 @@ def _cal_narrative(patterns):
     date + a plain-language narrative. Empty string when no calendar has a date exception change."""
     rows = ''
     lines = []
+    any_flip = False
     for p in patterns:
         ex = p.get('date_exceptions') or []
         if not ex:
             continue
         for e in ex:
-            tagcls = 'add' if e.get('change') == 'now working' else 'rem'
+            chg = e.get('change')
+            if chg == 'now working':
+                cell = '<span class="tag add">now working</span>'
+            elif chg == 'now non-working':
+                cell = '<span class="tag rem">now non-working</span>'
+            else:
+                cell = '<span class="mut">same</span>'
             rows += (f'<tr><td>{_e(p.get("name"))}</td><td class="mono">{_e(e.get("date"))}</td>'
                      f'<td class="mut">{_e(e.get("rev0"))}</td><td class="new">{_e(e.get("rev1"))}</td>'
-                     f'<td><span class="tag {tagcls}">{_e(e.get("change"))}</span></td></tr>')
+                     f'<td>{cell}</td></tr>')
         now_w = [e.get('date') for e in ex if e.get('change') == 'now working']
         now_n = [e.get('date') for e in ex if e.get('change') == 'now non-working']
+        if now_w or now_n:
+            any_flip = True
         parts = []
         if now_w:
             parts.append(f'<b>{_e(", ".join(now_w))}</b> {"was non-working" if len(now_w) == 1 else "were non-working"} '
@@ -927,13 +936,30 @@ def _cal_narrative(patterns):
                          f'in Rev.00 and {"is now non-working" if len(now_n) == 1 else "are now non-working"} in Rev.01')
         if parts:
             lines.append(f'In the <b>{_e(p.get("name"))}</b> calendar, {"; ".join(parts)}.')
+    # Per-revision non-working-date counts (parity with the screen summary).
+    counts = []
+    for p in patterns:
+        nc = p.get('nonworking_count') or {}
+        if nc.get('rev0') is not None or nc.get('rev1') is not None:
+            counts.append(f'{_e(p.get("name"))}: {_num(nc.get("rev0") or 0)} non-working date(s) in Rev.00 · '
+                          f'{_num(nc.get("rev1") or 0)} in Rev.01')
+    count_txt = f' <span class="mut">({" · ".join(counts)})</span>' if counts else ''
+    hdr = ('<div class="sec" style="margin-top:12px"><b>Non-working exception dates</b> — every non-working '
+           f'date in either revision, changed dates highlighted (Rev.00 → Rev.01){count_txt}</div>')
     if not rows:
+        # No specific exception dates, but the calendars were still compared — say so (parity with screen).
+        if counts:
+            return hdr + ('<div class="callout">Neither revision defines any specific non-working exception dates '
+                          '(holidays) on its calendars — only the weekly working pattern applies.</div>')
         return ''
     head = '<tr><th>Calendar</th><th>Date</th><th>Rev.00</th><th>Rev.01</th><th>Change</th></tr>'
-    narr = ('<div class="callout"><b>Calendar date changes:</b><ul style="margin:6px 0 0;padding-left:18px">'
-            + ''.join(f'<li>{l}</li>' for l in lines) + '</ul></div>')
-    return ('<div class="sec" style="margin-top:12px"><b>Calendar exception dates</b> — specific dates that changed '
-            'working status (Rev.00 → Rev.01)</div>' + _tbl(head, rows) + narr)
+    if any_flip:
+        narr = ('<div class="callout"><b>Non-working date changes:</b><ul style="margin:6px 0 0;padding-left:18px">'
+                + ''.join(f'<li>{l}</li>' for l in lines) + '</ul></div>')
+    else:
+        narr = ('<div class="callout">The non-working exception dates are the <b>same</b> in both revisions '
+                '— no date was added or removed.</div>')
+    return hdr + _tbl(head, rows) + narr
 
 
 def _sec_cal(report, filters=None):
@@ -1128,7 +1154,7 @@ def _cost_pie(cc, dim):
     if not items:
         return ''
     return _donut(items, note=f'COST VARIANCE BY {_e(str(dim).upper())} — SHARE OF THE TOTAL CHANGE',
-                  center='Δ cost')
+                  center='|Δ| cost')
 
 
 def _reg_cost(report, filters=None):
@@ -1156,7 +1182,7 @@ def _reg_cost(report, filters=None):
         pct = (f'{"+" if delta > 0 else ""}{round(delta / base * 100)}%'
                if base and delta is not None else '—')
         rows += (f'<tr><td class="mono">{_e(c.get("code"))}</td><td>{_e(c.get("name"))}</td>'
-                 f'<td class="n">{_money(c.get("rev0"))}</td><td class="n new">{_money(c.get("rev1"))}</td>'
+                 f'<td class="n">{_money(c.get("rev0_num"))}</td><td class="n new">{_money(c.get("rev1_num"))}</td>'
                  f'<td class="n">{var_cell}</td><td class="n mut">{_e(pct)}</td></tr>')
     # Total row — the before/after variance across the SHOWN changed activities (comment 4). This
     # sums the itemised rows (matching the screen and the pie's Δ), NOT the whole-project budget.

@@ -765,6 +765,7 @@ function wireFindings(body) {
   groupedFilterControl(host, {
     dims,
     state: rcFilters.logic,
+    withValues: true,   // drill to a specific code value → the logic lanes filter live (comment 1)
     valuesFor: (dim) => codeValues(r.logic_register, dim),
     onChange: () => renderLogicChart(body),
   });
@@ -940,6 +941,7 @@ function wireRegister(body) {
     groupedFilterControl(host, {
       dims,
       state: rcFilters.duration,
+      withValues: true,   // drill to a specific code value → the duration table filters live (comment 2)
       valuesFor: (dim) => codeValues(r.duration_table, dim),
       onChange: () => { renderDurChart(body); renderDurTable(body); },
     });
@@ -1012,7 +1014,7 @@ function calendarView(r) {
     const p0 = fmtPattern(p.rev0), p1 = fmtPattern(p.rev1);
     const changed = p.change && p.change !== 'unchanged';
     if (p.rev0 && p.rev1 && p.rev0.hpw != null && p.rev1.hpw != null && p.rev1.hpw > p.rev0.hpw) paperAccel = true;
-    const sub = p.change === 'added' ? 'calendar added' : p.change === 'removed' ? 'calendar removed' : '';
+    const sub = p.change === 'renamed' ? `renamed → ${p.renamed_to}` : p.change === 'added' ? 'calendar added' : p.change === 'removed' ? 'calendar removed' : '';
     const chSet = new Set(p.changed_days || []);
     const gridBlock = (p.rev0_grid || p.rev1_grid)
       ? `<div class="rc-dowgrid">${dayGrid(p.rev0_grid, chSet, 'Rev.00')}${dayGrid(p.rev1_grid, chSet, 'Rev.01', true)}`
@@ -1044,18 +1046,26 @@ function calendarView(r) {
     }).join('');
     reassBlock = `<div class="rc-calreass"><div class="rc-sec" style="margin:12px 0 4px">Per-activity calendar reassignments <span class="rc-mut">(${fmtInt(totalReass)} total)</span></div><ul class="rc-callist">${items}</ul></div>`;
   }
-  // Specific calendar DATES whose working status flipped between revisions (comment 2 — e.g.
-  // 07 Jan 2026 non-working in Rev.00, working in Rev.01). A table of every changed date + a
-  // plain-language narrative. The engine diffs each calendar's actual holiday/exception dates.
+  // The specific NON-WORKING calendar DATES of BOTH revisions, compared (comment 3 — the
+  // comparison must include the dates of non-working days between the two revisions; changed
+  // dates highlighted, e.g. 07 Jan 2026 non-working in Rev.00 → working in Rev.01). The engine
+  // diffs each calendar's actual holiday/exception dates. Every non-working date is listed so
+  // the comparison is always visible, not only when a date flips.
   const excRows = [];
   const narrByCal = [];
+  let anyPattern = false, anyFlip = false;
   patterns.forEach(p => {
     const ex = p.date_exceptions || [];
+    const nw = p.nonworking_count || {};
+    if (nw.rev0 != null || nw.rev1 != null) anyPattern = true;
     if (!ex.length) return;
     ex.forEach(e => {
+      const tag = e.change === 'now working' ? 'add' : e.change === 'now non-working' ? 'rem' : '';
+      const label = e.change === 'unchanged' ? 'same' : e.change;
+      if (e.change !== 'unchanged') anyFlip = true;
       excRows.push(`<tr><td>${esc(p.name)}</td><td class="rc-aid">${esc(e.date)}</td>
-        <td class="rc-mut">${esc(e.rev0)}</td><td class="rc-new">${esc(e.rev1)}</td>
-        <td><span class="rc-tag ${e.change === 'now working' ? 'add' : 'rem'}">${esc(e.change)}</span></td></tr>`);
+        <td class="${e.rev0 === 'Non-working' ? 'rc-mut' : ''}">${esc(e.rev0)}</td><td class="${e.rev1 === 'Non-working' ? 'rc-new' : ''}">${esc(e.rev1)}</td>
+        <td>${tag ? `<span class="rc-tag ${tag}">${esc(label)}</span>` : `<span class="rc-mut">${esc(label)}</span>`}</td></tr>`);
     });
     const nowW = ex.filter(e => e.change === 'now working').map(e => e.date);
     const nowN = ex.filter(e => e.change === 'now non-working').map(e => e.date);
@@ -1064,11 +1074,18 @@ function calendarView(r) {
     if (nowN.length) parts.push(`<b>${nowN.map(esc).join(', ')}</b> ${nowN.length === 1 ? 'was a working day in Rev.00 and is now non-working' : 'were working days in Rev.00 and are now non-working'} in Rev.01`);
     if (parts.length) narrByCal.push(`In the <b>${esc(p.name)}</b> calendar, ${parts.join('; ')}.`);
   });
+  const nwSummary = patterns.filter(p => (p.nonworking_count || {}).rev0 != null || (p.nonworking_count || {}).rev1 != null)
+    .map(p => `<b>${esc(p.name)}</b>: ${fmtInt((p.nonworking_count || {}).rev0 || 0)} non-working date(s) in Rev.00 · ${fmtInt((p.nonworking_count || {}).rev1 || 0)} in Rev.01`).join(' &nbsp;·&nbsp; ');
+  const narr = anyFlip
+    ? `<div class="rc-callout"><b>Non-working date changes:</b><ul class="rc-callist" style="margin:6px 0 0">${narrByCal.map(l => `<li>${l}</li>`).join('')}</ul></div>`
+    : (excRows.length ? '<div class="rc-callout">The non-working exception dates are the <b>same</b> in both revisions — no date was added or removed.</div>' : '');
   const excBlock = excRows.length
-    ? `<div class="rc-sec" style="margin:14px 0 4px"><b>Calendar exception dates</b> — specific dates that changed working status</div>
+    ? `<div class="rc-sec" style="margin:14px 0 4px"><b>Non-working exception dates</b> — every non-working date in either revision, changed dates highlighted${nwSummary ? ` <span class="rc-mut">(${nwSummary})</span>` : ''}</div>
        <div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Calendar</th><th>Date</th><th>Rev.00</th><th>Rev.01</th><th>Change</th></tr></thead><tbody>${excRows.join('')}</tbody></table></div>
-       <div class="rc-callout"><b>Calendar date changes:</b><ul class="rc-callist" style="margin:6px 0 0">${narrByCal.map(l => `<li>${l}</li>`).join('')}</ul></div>`
-    : '';
+       ${narr}`
+    : (anyPattern
+       ? '<div class="rc-callout">Neither revision defines any specific non-working exception dates (holidays) on its calendars — only the weekly working pattern applies.</div>'
+       : '');
 
   const callout = paperAccel
     ? '<div class="rc-callout warn">A calendar moved to a longer working week (more hours/week) — durations shorten <b>on paper</b> without changing the work. A paper acceleration to confirm (approved basis vs inadvertent reassignment).</div>'
@@ -1077,7 +1094,7 @@ function calendarView(r) {
   const card = `<div class="rc-card"><h3>Working pattern per calendar <span class="rc-n">Rev.00 → Rev.01</span></h3>
     <div class="rc-sec">Each calendar as a plain working pattern — days/week · hours/day · hours/week — before and after. A 24-hour calendar reads 7 d/wk · 24 h/day · 168 h/wk.</div>
     ${table}${excBlock}${reassBlock}${callout}</div>`;
-  return secmark('6', 'Calendar', 'working pattern per calendar · per-activity reassignments') + card;
+  return secmark('6', 'Calendar', 'working pattern · non-working dates · per-activity reassignments') + card;
 }
 
 // ══ 7 · Cost & Resources (comments 8, 9, 10) ═══════════════════════════════════
@@ -1093,24 +1110,25 @@ function scurveSvg(curves, rev0finish, rev1finish) {
   // Extra top padding (plotT) so the tallest bar's value label is never clipped (comment 6a).
   const W = Math.max(760, n * 62), plotL = 56, plotR = W - 108, plotT = 46, plotB = 250;
   const colW = (plotR - plotL) / n;
-  const bw = Math.min(26, colW * 0.5);
+  const bw = Math.min(13, colW * 0.32);   // narrower — two grouped bars per month
   const byMonth0 = {}, byMonth1 = {};
   vm.forEach(x => { byMonth0[x.month] = x.rev0 || 0; byMonth1[x.month] = x.rev1 || 0; });
   const maxMonthly = Math.max(1, ...vm.map(x => Math.max(x.rev0 || 0, x.rev1 || 0)));
-  // Cumulative lookup first — the value label must clear whichever is higher, the bar top or
-  // the cumulative curve at that month, so late months (bar low, curve high) aren't clipped.
   const cumByMonth = {}; vc.forEach(x => { cumByMonth[x.month] = x; });
   const maxCum = Math.max(1, ...vc.map(x => Math.max(x.rev0 || 0, x.rev1 || 0)));
   let bars = '';
   months.forEach((m, i) => {
     const cx = plotL + (i + 0.5) * colW;
-    const v1 = byMonth1[m] || 0;
-    // A non-zero month always draws a visible bar (min height) so the earliest small months
-    // aren't invisible (comment: histogram not shown).
-    const h1 = v1 > 0 ? Math.max(3, (v1 / maxMonthly) * (plotB - plotT)) : 0, y1 = plotB - h1;
-    bars += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y1.toFixed(1)}" width="${bw.toFixed(1)}" height="${h1.toFixed(1)}" rx="2" fill="var(--accent)" opacity=".85"/>`;
-    if (v1 > 0) {
-      const labelY = y1 - 6;   // value sits DIRECTLY above its own bar (comment 3), not lifted to the curve
+    const v0 = byMonth0[m] || 0, v1 = byMonth1[m] || 0;
+    // BOTH the Rev.00 (before, grey) and Rev.01 (after, accent) monthly bars are drawn side by side
+    // (comment 3 — "the before histogram must be shown"); a non-zero month keeps a min height.
+    const h0 = v0 > 0 ? Math.max(3, (v0 / maxMonthly) * (plotB - plotT)) : 0;
+    const h1 = v1 > 0 ? Math.max(3, (v1 / maxMonthly) * (plotB - plotT)) : 0;
+    const x0 = cx - bw - 1, x1 = cx + 1;
+    if (h0 > 0) bars += `<rect x="${x0.toFixed(1)}" y="${(plotB - h0).toFixed(1)}" width="${bw.toFixed(1)}" height="${h0.toFixed(1)}" rx="2" fill="var(--rc-b0)"/>`;
+    if (h1 > 0) bars += `<rect x="${x1.toFixed(1)}" y="${(plotB - h1).toFixed(1)}" width="${bw.toFixed(1)}" height="${h1.toFixed(1)}" rx="2" fill="var(--accent)" opacity=".9"/>`;
+    if (v1 > 0 || v0 > 0) {
+      const labelY = plotB - Math.max(h0, h1) - 6;   // value (Rev.01) directly above the taller bar (comment 3)
       bars += `<text x="${cx.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9" font-weight="700" fill="var(--ink-soft)" text-anchor="middle">${escapeHtml(fmtMoney(v1))}</text>`;
     }
   });
@@ -1186,7 +1204,7 @@ function costView(r) {
   const scurve = curves.cost_available
     ? `<div class="rc-card"><h3>Planned value of work <span class="rc-n">monthly value (label above each bar) + cumulative</span></h3>
         ${scurveSvg(curves, r.rev0 && r.rev0.finish, r.rev1 && r.rev1.finish)}
-        <div class="rc-legend"><span><i style="background:var(--accent)"></i>Rev.01 value/mo</span><span><i class="rc-line" style="background:var(--muted)"></i>Rev.00 cumulative</span><span><i class="rc-line" style="background:var(--accent-dark)"></i>Rev.01 cumulative</span></div>
+        <div class="rc-legend"><span><i style="background:var(--rc-b0)"></i>Rev.00 value/mo</span><span><i style="background:var(--accent)"></i>Rev.01 value/mo</span><span><i class="rc-line" style="background:var(--muted)"></i>Rev.00 cumulative</span><span><i class="rc-line" style="background:var(--accent-dark)"></i>Rev.01 cumulative</span></div>
         ${Number(curves.value_after_orig_finish) > 0 ? `<div class="rc-callout warn"><b>${fmtNum(curves.value_after_orig_finish)} of planned value now falls after the original finish (${esc(r.rev0 && r.rev0.finish)})</b> — potential extended-works exposure (prolongation, prelims, plant hire). Surfaced for review.</div>` : ''}
       </div>`
     : `<div class="rc-card"><h3>Planned value of work</h3>${noData('No cost loading — planned-value chart not applicable.')}</div>`;
@@ -1205,10 +1223,15 @@ function costView(r) {
   // Rows are resource_changes.activity_cost_changes: rev0/rev1 are pre-formatted money
   // STRINGS and delta carries the variance (comment 6) — read them directly, never coerce
   // to Number (that produced the previously-blank Before/After/Variance columns).
-  const costRows = costChanges.slice(0, 40).map(c => {
+  // All changed activities (no row cap — the table scrolls; the Total must sum what is shown).
+  // Money is formatted from the NUMERIC rev0_num/rev1_num so every row and the Total read the same
+  // 2dp format (comment: itemised rows and the total disagreed on decimals).
+  const costRows = costChanges.map(c => {
     const id = pick(c, ['code', 'activity_id', 'id']), name = pick(c, ['name', 'activity_name']);
-    const before = pick(c, ['rev0']), after = pick(c, ['rev1']), delta = c.delta;
-    const isNew = before == null || before === '—';
+    const b0 = typeof c.rev0_num === 'number' ? c.rev0_num : null;
+    const a1 = typeof c.rev1_num === 'number' ? c.rev1_num : null;
+    const delta = c.delta;
+    const isNew = (b0 === 0 || b0 == null) && (a1 || 0) > 0;
     let varCell;
     if (typeof delta === 'number') {
       varCell = `<span class="rc-d ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'zero'}">${delta > 0 ? '+' : ''}${fmtNum(delta)}</span>`;
@@ -1218,13 +1241,14 @@ function costView(r) {
       varCell = '—';
     }
     return `<tr><td class="rc-aid">${esc(id)}</td><td>${esc(name)}${isNew ? '<span class="rc-tag add" style="margin-left:6px">NEW</span>' : ''}</td>
-      <td class="n rc-mut">${before != null ? esc(before) : '—'}</td><td class="n rc-new">${after != null ? esc(after) : '—'}</td>
+      <td class="n rc-mut">${b0 != null ? fmtNum(b0) : '—'}</td><td class="n rc-new">${a1 != null ? fmtNum(a1) : '—'}</td>
       <td class="n">${varCell}</td></tr>`;
   }).join('');
-  // Total row (comment 4) — sum of the changed activities' before/after/variance.
+  // Total row (comment 4) — sum of the changed activities; the Variance is After − Before so it
+  // always ties to the Before/After totals (not Σ per-row delta, which could drift).
   const sum0 = costChanges.reduce((s, c) => s + (c.rev0_num || 0), 0);
   const sum1 = costChanges.reduce((s, c) => s + (c.rev1_num || 0), 0);
-  const sumD = costChanges.reduce((s, c) => s + (typeof c.delta === 'number' ? c.delta : 0), 0);
+  const sumD = sum1 - sum0;
   const totalRow = costChanges.length
     ? `<tr class="rc-costtot"><td colspan="2"><b>Total — changed activities</b></td><td class="n">${fmtNum(sum0)}</td><td class="n">${fmtNum(sum1)}</td><td class="n"><span class="rc-d ${sumD > 0 ? 'up' : sumD < 0 ? 'down' : 'zero'}">${sumD > 0 ? '+' : ''}${fmtNum(sumD)}</span></td></tr>`
     : '';
@@ -1411,7 +1435,7 @@ function renderCostPie(body) {
   const order = Object.keys(byVal);
   const items = Object.entries(byVal).map(([k, v]) => ({ label: k, v, color: tokenColor(k, order) })).filter(x => x.v > 0);
   chart.innerHTML = `<div class="rc-sec" style="margin-bottom:4px">Cost variance by ${escapeHtml(String(dim))} <span class="rc-mut">— share of the total change</span></div>`
-    + donutSvg(items, { centerLabel: 'Δ cost', emptyMsg: 'No coded cost changes for this dimension.' });
+    + donutSvg(items, { centerLabel: '|Δ| cost', emptyMsg: 'No coded cost changes for this dimension.' });
 }
 
 function wireCost(body) {

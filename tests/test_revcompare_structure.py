@@ -93,6 +93,45 @@ def test_calendar_date_exceptions_flip():
     assert ex['23 Sep 2026']['change'] == 'now non-working'
 
 
+def test_calendar_lists_shared_nonworking_dates():
+    """The comparison lists EVERY non-working date of both revisions (not only the flips), so a
+    shared holiday appears as 'unchanged' and the per-revision counts are reported (comment 3)."""
+    shared = date(2026, 12, 25)
+    c0 = Calendar(object_id='c1', name='6 Day', nonworking_days={'Friday'},
+                  holidays={date(2026, 1, 7), shared}, added_work_days=set(), day_hours=8.0,
+                  work_intervals={}, exception_intervals={})
+    c1 = Calendar(object_id='c1', name='6 Day', nonworking_days={'Friday'},
+                  holidays={shared}, added_work_days=set(), day_hours=8.0,
+                  work_intervals={}, exception_intervals={})
+    rev0 = _sched([_act('A1', 'x', calid='c1')], cals=[c0])
+    rev1 = _sched([_act('A1', 'x', calid='c1')], cals=[c1])
+    pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns'] if p['name'] == '6 Day')
+    ex = {e['date']: e for e in pat['date_exceptions']}
+    assert ex['07 Jan 2026']['change'] == 'now working'          # removed holiday → now working
+    assert ex['25 Dec 2026']['change'] == 'unchanged'            # shared holiday still listed
+    assert pat['nonworking_count'] == {'rev0': 2, 'rev1': 1}
+
+
+def test_calendar_rename_still_compares_nonworking_dates():
+    """A calendar renamed between revisions (its activities reassigned to the new name) is paired
+    as a rename — its non-working dates are still compared, not lost as removed+added."""
+    c_old = Calendar(object_id='cOLD', name='Standard', nonworking_days={'Friday'},
+                     holidays={date(2026, 1, 7)}, added_work_days=set(), day_hours=8.0,
+                     work_intervals={}, exception_intervals={})
+    c_new = Calendar(object_id='cNEW', name='Site Standard', nonworking_days={'Friday'},
+                     holidays=set(), added_work_days=set(), day_hours=8.0,
+                     work_intervals={}, exception_intervals={})
+    rev0 = _sched([_act('A1', 'x', calid='cOLD')], cals=[c_old])
+    rev1 = _sched([_act('A1', 'x', calid='cNEW')], cals=[c_new])
+    d = diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))
+    pats = [p for p in d['patterns'] if p.get('renamed_to') == 'Site Standard']
+    assert len(pats) == 1 and pats[0]['name'] == 'Standard' and pats[0]['change'] == 'renamed'
+    ex = {e['date']: e for e in pats[0]['date_exceptions']}
+    assert ex['07 Jan 2026']['change'] == 'now working'      # date change survives the rename
+    # the rename is not also double-reported as a mass activity reassignment
+    assert all(not (r['from'] == 'Standard' and r['to'] == 'Site Standard') for r in d['reassignments'])
+
+
 def test_milestone_calendar_not_counted():
     cals = [_cal('c6', '6-Day', {'Sunday'}), _cal('c7', '7-Day', set())]
     rev0 = _sched([_act('M', 'PC', calid='c6', tt='FinishMilestone')], cals=cals)

@@ -511,20 +511,36 @@ def _cal_blocks(report):
                                    'Changed days'],
                        'rows': grid_rows})
 
-    # Specific calendar dates whose working status flipped between the revisions (comment 2).
+    # The specific NON-WORKING calendar dates of both revisions, compared (comment 3): every
+    # non-working date in either revision, with its status in each and whether it changed —
+    # 'same' when it is non-working in both, else 'now working' / 'now non-working'.
     exc_rows = []
+    counts = []
     for p in (cc.get('patterns') or []):
         for e in (p.get('date_exceptions') or []):
+            chg = e.get('change')
+            label = 'same' if chg == 'unchanged' else chg
             exc_rows.append([_txt(p.get('name')), _txt(e.get('date')), _txt(e.get('rev0')),
-                             _txt(e.get('rev1')), _txt(e.get('change'))])
+                             _txt(e.get('rev1')), _txt(label)])
+        nc = p.get('nonworking_count') or {}
+        if nc.get('rev0') is not None or nc.get('rev1') is not None:
+            counts.append(f"{p.get('name')}: {_num(nc.get('rev0') or 0)} non-working date(s) in Rev.00 · "
+                          f"{_num(nc.get('rev1') or 0)} in Rev.01")
+    count_note = (' Per-revision non-working dates — ' + ' · '.join(counts) + '.') if counts else ''
     if exc_rows:
-        blocks.append({'title': 'Calendar exception dates — specific dates that changed working status '
-                                '(Rev.00 → Rev.01)',
-                       'note': 'A specific calendar date whose working status flipped between the revisions — '
-                               'e.g. a date that was non-working in Rev.00 and is a working day in Rev.01, or '
-                               'the reverse.',
+        blocks.append({'title': 'Non-working exception dates — Rev.00 vs Rev.01',
+                       'note': 'Every specific non-working calendar date in either revision, with its status in '
+                               'each — a date that was non-working in Rev.00 and is a working day in Rev.01 (or the '
+                               'reverse) is flagged; "same" means non-working in both.' + count_note,
                        'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change'],
                        'rows': exc_rows})
+    elif counts:
+        # Calendars were compared but carry no specific exception dates (parity with screen/PDF).
+        blocks.append({'title': 'Non-working exception dates — Rev.00 vs Rev.01',
+                       'note': 'Neither revision defines any specific non-working exception dates (holidays) on its '
+                               'calendars — only the weekly working pattern applies.' + count_note,
+                       'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change'],
+                       'rows': [['No specific non-working exception dates', '', '', '', '']]})
     return blocks
 
 
@@ -538,8 +554,11 @@ def _itemised_cost_blocks(report):
     changes = rc.get('activity_cost_changes') or []
     cost = []
     for c in changes:
-        cost.append([_txt(c.get('code')), _txt(c.get('name')), _money(c.get('rev0')),
-                     _money(c.get('rev1')), _money_sgn(c.get('delta'))])
+        # Money from the numeric *_num fields so every row matches the Total's 2dp format (comment 4).
+        rev0 = c.get('rev0_num') if c.get('rev0_num') is not None else c.get('rev0')
+        rev1 = c.get('rev1_num') if c.get('rev1_num') is not None else c.get('rev1')
+        cost.append([_txt(c.get('code')), _txt(c.get('name')), _money(rev0),
+                     _money(rev1), _money_sgn(c.get('delta'))])
     # Total of the CHANGED activities (comment 4) — the sum of the rows above, matching the screen
     # and the variance pie's Δ (not the whole-project budget). Prefer the raw *_num ints; fall back
     # to parsing the formatted rev0/rev1 (which may be money strings or plain numbers).

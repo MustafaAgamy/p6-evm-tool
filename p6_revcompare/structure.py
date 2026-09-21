@@ -162,10 +162,12 @@ def _date_working(cal, d):
 
 
 def _date_exceptions(a, b):
-    """Specific calendar DATES whose working status flipped between two revisions of one calendar
-    (comment: e.g. 7 Jan 2026 was non-working in Rev.00 and is working in Rev.01). Compares the
-    union of both revisions' explicit exception dates (holidays + working exceptions) and reports
-    every date that changed. Returns [{date, rev0, rev1, change}] sorted by date."""
+    """Compare the specific NON-WORKING calendar dates of two revisions of one calendar (comment:
+    the comparison must include the dates of non-working days between the two revisions — e.g.
+    7 Jan 2026 non-working in Rev.00, working in Rev.01). Lists EVERY date that is a non-working
+    exception in either revision (so the dates are always shown, not only the ones that flipped),
+    each tagged with its status in both revisions and whether it changed. Returns
+    [{date, iso, rev0, rev1, change}] with changed dates first, then chronological."""
     if a is None or b is None:
         return []
     # Only real calendar dates (date/datetime) — some fixtures use a plain count proxy for holidays.
@@ -178,14 +180,18 @@ def _date_exceptions(a, b):
     out = []
     for d in sorted(dates):
         w0, w1 = _date_working(a, d), _date_working(b, d)
-        if w0 == w1:
-            continue
+        if w0 and w1:
+            continue   # working in both revisions → not a non-working day, skip
+        change = 'now working' if (not w0 and w1) else 'now non-working' if (w0 and not w1) else 'unchanged'
         out.append({
             'date': d.strftime('%d %b %Y') if hasattr(d, 'strftime') else str(d),
+            'iso': d.isoformat() if hasattr(d, 'isoformat') else str(d),
             'rev0': 'Working' if w0 else 'Non-working',
             'rev1': 'Working' if w1 else 'Non-working',
-            'change': 'now working' if w1 else 'now non-working',
+            'change': change,
         })
+    # Changed dates first (so a real difference is prominent), then chronological.
+    out.sort(key=lambda e: (e['change'] == 'unchanged', e['iso']))
     return out
 
 
@@ -205,9 +211,74 @@ def diff_calendars(rev0, rev1, matched):
     Returns {'calendars':[{name,change,detail}], 'reassignments':[{from,to,from_wd,to_wd,count,codes}]}.
     """
     c0, c1 = _cal_by_name(rev0), _cal_by_name(rev1)
+
+    # Per-calendar activity usage (drives the rename signal + the "activities" count).
+    def _usage(data):
+        out = {}
+        cals = getattr(data, 'calendars', None) or {}
+        idname = {cid: getattr(c, 'name', None) for cid, c in cals.items()}
+        for a in (getattr(data, 'activities', None) or {}).values():
+            n = idname.get(a.get('calendar_id'))
+            if n:
+                out[n] = out.get(n, 0) + 1
+        return out
+    u0, u1 = _usage(rev0), _usage(rev1)
+
+    # Per-activity reassignment groups (matched activities whose calendar name changed).
+    def cal_name(data, act):
+        cal = (getattr(data, 'calendars', None) or {}).get(act.get('calendar_id'))
+        return getattr(cal, 'name', None) if cal else None
+
+    groups = {}
+    for code in matched.matched_codes:
+        a0 = matched.baseline_by_code.get(code) or {}
+        a1 = matched.update_by_code.get(code) or {}
+        if a1.get('task_type') in _MS:          # a milestone's calendar has no duration effect
+            continue
+        n0, n1 = cal_name(rev0, a0), cal_name(rev1, a1)
+        if n0 and n1 and n0 != n1:
+            groups.setdefault((n0, n1), []).append(code)
+
+    # Calendar RENAME detection: a calendar whose name is only in Rev.00 paired with one only in
+    # Rev.01 when (nearly) all of the old calendar's activities were reassigned to the new one —
+    # i.e. it was renamed, not replaced. Uses the activity-usage signal (NOT holiday overlap, which
+    # is exactly what we are comparing), so a renamed calendar's non-working dates are still diffed
+    # rather than lost as an unrelated removed+added pair.
+    removed_names, added_names = set(c0) - set(c1), set(c1) - set(c0)
+    rename_map, used_new = {}, set()
+    for n0 in sorted(removed_names):
+        best, best_cnt = None, 0
+        for (g0, g1), codes in groups.items():
+            if g0 == n0 and g1 in added_names and g1 not in used_new and len(codes) > best_cnt:
+                best, best_cnt = g1, len(codes)
+        if best is not None and best_cnt >= max(1, round((u0.get(n0, 0)) * 0.6)):
+            rename_map[n0] = best
+            used_new.add(best)
+    renamed_to = set(rename_map.values())
+
+    reassignments = []
+    for (n0, n1), codes in groups.items():
+        if rename_map.get(n0) == n1:          # a rename is not a mass reassignment — don't double-report
+            continue
+        reassignments.append({
+            'from': n0, 'to': n1,
+            'from_wd': _workdays_per_week(c0.get(n0)) if c0.get(n0) else None,
+            'to_wd': _workdays_per_week(c1.get(n1)) if c1.get(n1) else None,
+            'count': len(codes), 'codes': sorted(codes),
+        })
+    reassignments.sort(key=lambda r: -r['count'])
+
+    # Calendar-level change list (rename collapses removed+added into one entry).
     cals = []
     for name in sorted(set(c0) | set(c1)):
-        a, b = c0.get(name), c1.get(name)
+        if name in renamed_to:
+            continue
+        rn = rename_map.get(name)
+        a = c0.get(name)
+        b = c1.get(rn) if rn else c1.get(name)
+        if rn:
+            cals.append({'name': f'{name} → {rn}', 'change': 'renamed', 'detail': f'Calendar renamed ({name} → {rn})'})
+            continue
         if a and not b:
             cals.append({'name': name, 'change': 'removed', 'detail': 'Calendar removed'})
             continue
@@ -226,57 +297,40 @@ def diff_calendars(rev0, rev1, matched):
         if det:
             cals.append({'name': name, 'change': 'modified', 'detail': '; '.join(det)})
 
-    # Per-activity reassignment (matched activities whose calendar name changed).
-    def cal_name(data, act):
-        cal = (getattr(data, 'calendars', None) or {}).get(act.get('calendar_id'))
-        return getattr(cal, 'name', None) if cal else None
+    # Per-calendar working-pattern + non-working-date comparison view.
+    def _nw_count(cal):
+        if cal is None:
+            return None
+        return sum(1 for d in (getattr(cal, 'holidays', None) or set()) if hasattr(d, 'weekday'))
 
-    groups = {}
-    for code in matched.matched_codes:
-        a0 = matched.baseline_by_code.get(code) or {}
-        a1 = matched.update_by_code.get(code) or {}
-        if a1.get('task_type') in _MS:          # a milestone's calendar has no duration effect
-            continue
-        n0, n1 = cal_name(rev0, a0), cal_name(rev1, a1)
-        if n0 and n1 and n0 != n1:
-            groups.setdefault((n0, n1), []).append(code)
-    reassignments = []
-    for (n0, n1), codes in groups.items():
-        reassignments.append({
-            'from': n0, 'to': n1,
-            'from_wd': _workdays_per_week(c0.get(n0)) if c0.get(n0) else None,
-            'to_wd': _workdays_per_week(c1.get(n1)) if c1.get(n1) else None,
-            'count': len(codes), 'codes': sorted(codes),
-        })
-    reassignments.sort(key=lambda r: -r['count'])
-
-    # Clean per-calendar working-pattern view (comment: present calendars simply/clearly).
-    def _usage(data):
-        out = {}
-        cals = getattr(data, 'calendars', None) or {}
-        idname = {cid: getattr(c, 'name', None) for cid, c in cals.items()}
-        for a in (getattr(data, 'activities', None) or {}).values():
-            n = idname.get(a.get('calendar_id'))
-            if n:
-                out[n] = out.get(n, 0) + 1
-        return out
-    u0, u1 = _usage(rev0), _usage(rev1)
     patterns = []
     for name in sorted(set(c0) | set(c1)):
-        a, b = c0.get(name), c1.get(name)
+        if name in renamed_to:               # rendered via its Rev.00-side rename row
+            continue
+        rn = rename_map.get(name)
+        a = c0.get(name)
+        b = c1.get(rn) if rn else c1.get(name)
         p0, p1 = _cal_pattern(a), _cal_pattern(b)
         g0, g1 = _dow_grid(a), _dow_grid(b)
-        # days whose working/non-working state flipped between the revisions (highlight these)
         changed = []
         if g0 and g1:
             changed = [g1[i]['day'] for i in range(7) if g0[i]['working'] != g1[i]['working']]
         date_exc = _date_exceptions(a, b) if (a and b) else []
-        change = ('removed' if (a and not b) else 'added' if (b and not a)
-                  else 'modified' if (p0 != p1 or changed or date_exc) else 'unchanged')
-        patterns.append({'name': name, 'rev0': p0, 'rev1': p1,
+        date_flips = [e for e in date_exc if e['change'] != 'unchanged']
+        # Counts tie to the same non-working-date table the reader sees (not a separate holiday tally).
+        if date_exc:
+            nw0 = sum(1 for e in date_exc if e['rev0'] == 'Non-working')
+            nw1 = sum(1 for e in date_exc if e['rev1'] == 'Non-working')
+        else:
+            nw0, nw1 = _nw_count(a), _nw_count(b)
+        change = ('renamed' if rn else 'removed' if (a and not b) else 'added' if (b and not a)
+                  else 'modified' if (p0 != p1 or changed or date_flips) else 'unchanged')
+        patterns.append({'name': name, 'renamed_to': rn, 'rev0': p0, 'rev1': p1,
                          'rev0_grid': g0, 'rev1_grid': g1, 'changed_days': changed,
                          'date_exceptions': date_exc,
-                         'activities': (u1.get(name) or u0.get(name) or 0), 'change': change})
+                         'nonworking_count': {'rev0': nw0, 'rev1': nw1},
+                         'activities': (u1.get(rn) if rn else u1.get(name)) or u0.get(name) or 0,
+                         'change': change})
 
     return {'calendars': cals, 'reassignments': reassignments, 'patterns': patterns}
 
