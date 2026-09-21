@@ -955,14 +955,15 @@ def _resload(p, number, title, meta, cur):
     for i, g in enumerate(p.get('groups') or [], 1):
         out.append('<div class="sub">%s.%d &middot; %s</div>'
                    % (_esc(number), i, _esc(g.get('title'))))
-        out.append('<p class="rescap">%s Peak %s in %s (busiest single day %s); total budgeted '
-                   '%s %s across %s.</p>'
+        # Callout + chart nested in ONE break-inside:avoid figure so the peak line never
+        # orphans from its histogram; `resload-fig` also keeps it with the totals table below.
+        out.append('<div class="calfig resload-fig">'
+                   '<p class="rescap">%s Peak %s in %s (busiest single day %s); total budgeted '
+                   '%s %s across %s.</p><div class="calname">%s</div>%s</div>'
                    % (_esc(g.get('basis_note') or ''), _esc(_wnum(g.get('peak_val'))),
                       _esc(g.get('peak_label')), _esc(_wnum(g.get('peak_day_val'))),
                       _esc(g.get('total_label')), _esc(g.get('total_unit')),
-                      _esc(g.get('window'))))
-        out.append('<div class="calfig"><div class="calname">%s</div>%s</div>'
-                   % (_esc(g.get('unit_label')),
+                      _esc(g.get('window')), _esc(g.get('unit_label')),
                       _res_hist(g.get('span'), g.get('values'), g.get('color'))))
         heads = g.get('row_headers') or ['Resource', 'Total', 'Peak']
         thead = '<tr>%s</tr>' % ''.join(
@@ -1259,6 +1260,7 @@ table { border-collapse: collapse; }
 .reshist .v { color:#17457a; }
 .dt th.num, .dt td.num { text-align:right; }
 .rescap { font-size:10px; color:#5b6472; margin:3px 0 9px; font-family:Calibri,sans-serif; }
+.resload-fig { break-after:avoid; page-break-after:avoid; }
 .wt ul{list-style:none;margin:0;padding-left:22px;}
 .wt>ul{padding-left:0;}
 .wt li{position:relative;padding:4px 0;}

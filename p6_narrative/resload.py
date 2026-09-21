@@ -151,6 +151,19 @@ def _fmt0(n):
         return '0'
 
 
+def _fmt_peak(n):
+    """Like :func:`_fmt0` but never floors a genuinely-loaded resource's peak to ``0`` — a
+    peak simultaneous count between 0 and 1 (e.g. two half-overlapping machines → 0.5) is
+    shown to one decimal instead of rounding to a self-contradictory '0'."""
+    try:
+        x = float(n or 0)
+    except Exception:
+        return '0'
+    if 0 < x < 1:
+        return '{:.1f}'.format(x)
+    return '{:,.0f}'.format(round(x))
+
+
 def _mlabel(y, m):
     return '%s-%02d' % (_MON[m - 1], y % 100)
 
@@ -314,17 +327,35 @@ def _spread(qty, ps, pf):
     return out
 
 
+def _excluded_costmodel(data, meta):
+    """Count the unit-less "material" assignments — the cost model (contract value) reported in
+    §14's note but never charted. Counted over ALL assignments (independent of whether the
+    activity carries dates), so the note's count/value is complete on any schedule."""
+    n, total = 0, 0.0
+    for _oid, alist in (getattr(data, 'assignments_by_activity', None) or {}).items():
+        for a in alist or []:
+            rm = meta.get(a.get('resource_id')) or {}
+            if rm.get('type') != 'RT_Mat' or rm.get('unit'):
+                continue                                # only unit-LESS material = cost model
+            try:
+                qty = float(a.get('budget_units') or 0)
+            except Exception:
+                qty = 0.0
+            if qty <= 0:
+                continue
+            n += 1
+            total += qty
+    return n, total
+
+
 def _materials(recs):
     monthly = defaultdict(lambda: defaultdict(float))   # (name, unit) -> {(y,m): qty}
     total = defaultdict(float)
-    excl_n, excl_total = 0, 0.0
     for r in recs:
         if r['rtype'] != 'RT_Mat':
             continue
         unit = r['unit']
-        if not unit:                                    # unit-less ⇒ cost-model, never charted
-            excl_n += 1
-            excl_total += r['qty']
+        if not unit:                                    # unit-less ⇒ cost-model (counted separately)
             continue
         key = (r['name'], unit)
         for k, v in _spread(r['qty'], r['ps'], r['pf']).items():
@@ -346,7 +377,7 @@ def _materials(recs):
             'peak_val': values[pi] if values else 0,
             'peak_label': _mfull(*span[pi]) if span else '',
         })
-    return mats, excl_n, excl_total
+    return mats
 
 
 # ── public entry ──────────────────────────────────────────────────────────────
@@ -397,7 +428,8 @@ def resource_loading(data, path=None):
         'groups': groups,
     }
 
-    mats, excl_n, excl_total = _materials(recs)
+    mats = _materials(recs)
+    excl_n, excl_total = _excluded_costmodel(data, rmeta)
     materials = {
         'available': bool(mats),
         'intro': ('The material resources loaded in the baseline, each shown as the quantity '
@@ -425,5 +457,5 @@ def _loading_group(key, title, unit_label, color, basis, p, total_col, peak_col,
                        else ('equipment-hours' if basis == 'hours' else 'plant units')),
         'window': p['window'],
         'row_headers': ['Resource', total_col, peak_col],
-        'rows': [[nm, _fmt0(tot), _fmt0(peak)] for nm, tot, peak in p['rows']],
+        'rows': [[nm, _fmt0(tot), _fmt_peak(peak)] for nm, tot, peak in p['rows']],
     }

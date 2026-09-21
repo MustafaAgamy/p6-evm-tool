@@ -872,15 +872,19 @@ def _render_materials(document, p, number, note):
         lbl.paragraph_format.keep_with_next = True
         run(lbl, '%s — %s (total %s %s)' % (m.get('name') or '—', m.get('unit') or '',
             _wn(m.get('total')), m.get('unit') or ''), size=11, bold=True, color=NAVY, font=CAL)
-        if docx_native.add_bar_chart(document, m.get('span'), m.get('values'),
-                                     '%s (%s)' % (m.get('name') or '', m.get('unit') or ''),
+        # No chart title — the material name is already on the bold label above (matches the
+        # title-less HTML histogram, so the name shows once, not twice).
+        if docx_native.add_bar_chart(document, m.get('span'), m.get('values'), '',
                                      color=m.get('color') or 'E8A33D',
                                      data_labels=True, num_fmt='#,##0') is None:
             data_table(document, ['Month', m.get('unit') or 'Quantity'],
                        [[mm, _wn(vv)] for mm, vv in
                         zip(m.get('span') or [], m.get('values') or [])], aligns=['l', 'r'])
         else:
-            _keep_last_with_next(document)
+            _keep_last_with_next(document)          # chart stays with its peak caption
+        para(document, 'Peak %s %s in %s.' % (_wn(m.get('peak_val')), m.get('unit') or '',
+             m.get('peak_label') or ''), size=10, italic=True, color=GREY, after=6,
+             align=WD_ALIGN_PARAGRAPH.JUSTIFY)     # peak caption — parity with HTML/PDF §14
     _subhead(document, '%s.2' % number, 'Material totals')
     data_table(document, p.get('table_headers') or ['Material resource', 'Total quantity', 'Unit'],
                p.get('table_rows') or [], aligns=['l', 'r', 'l'])
