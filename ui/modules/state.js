@@ -19,6 +19,7 @@ export const state = {
   constructForcedType: null, // user-overridden project sub-type, if any
   compareReport:     null,   // Consultant Review — last Baseline vs Update report dict
   compareBaselineName: null, // filename of the baseline chosen for the comparison
+  narrativeDoc:      null,   // Baseline Narrative — generated document model (for edits + export)
   revcompareReport:  null,   // Baseline Revision Comparison — last Rev.00 vs Rev.01 report dict
   revcompareRev0:    null,   // {path, name} assigned original baseline (Rev.00)
   revcompareRev1:    null,   // {path, name} assigned revised baseline (Rev.01)

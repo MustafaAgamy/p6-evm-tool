@@ -81,7 +81,7 @@ function drawBuilder(host, templates) {
           <button class="btn-secondary" id="sr-save-tpl">💾 Save as template</button>
           <span class="sr-appear" id="sr-appear"></span>
           <button class="btn-secondary" id="sr-preview">👁 Preview</button>
-          <button class="btn-secondary" id="sr-word" title="Word (.docx) — opens with a double-click and is an exact copy of the PDF (every page identical)">⬇ Word</button>
+          <button class="btn-secondary" id="sr-word" title="Editable Word — real editable tables and text built from the same content as the PDF, so it matches closely; opens with a one-time format prompt + a 'Compatibility Mode' label (cosmetic)">⬇ Word</button>
           <button class="btn-secondary" id="sr-excel">⬇ Excel</button>
           <button class="btn-primary" id="sr-pdf">⬇ PDF</button>
         </div>
@@ -95,7 +95,7 @@ function drawBuilder(host, templates) {
   document.getElementById('sr-name').addEventListener('input', e => { S.name = e.target.value; });
   document.getElementById('sr-appear').appendChild(buildAppearancePicker({ current: getSavedMode(), compact: true }));
   document.getElementById('sr-preview').addEventListener('click', doPreview);
-  document.getElementById('sr-word').addEventListener('click', () => doExport('docx'));
+  document.getElementById('sr-word').addEventListener('click', () => doExport('doc'));
   document.getElementById('sr-excel').addEventListener('click', () => doExport('xlsx'));
   document.getElementById('sr-pdf').addEventListener('click', () => doExport('pdf'));
   document.getElementById('sr-save-tpl').addEventListener('click', doSaveTemplate);
