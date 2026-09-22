@@ -963,7 +963,7 @@ def _resload(p, number, title, meta, cur):
                    % (_esc(g.get('basis_note') or ''), _esc(_wnum(g.get('peak_val'))),
                       _esc(g.get('peak_label')), _esc(_wnum(g.get('peak_day_val'))),
                       _esc(g.get('total_label')), _esc(g.get('total_unit')),
-                      _esc(g.get('window')), _esc(g.get('unit_label')),
+                      _esc(g.get('window')), _esc(g.get('chart_title') or g.get('unit_label')),
                       _res_hist(g.get('span'), g.get('values'), g.get('color'))))
         heads = g.get('row_headers') or ['Resource', 'Total', 'Peak']
         thead = '<tr>%s</tr>' % ''.join(
@@ -998,14 +998,14 @@ def _materials(p, number, title, meta, cur):
                       _res_hist(m.get('span'), m.get('values'), m.get('color')),
                       _esc(_wnum(m.get('peak_val'))), _esc(m.get('unit')),
                       _esc(m.get('peak_label'))))
-    heads = p.get('table_headers') or ['Material resource', 'Total quantity', 'Unit']
+    heads = p.get('table_headers') or ['Material resource', 'Unit', 'Total Quantity']
     thead = '<tr>%s</tr>' % ''.join(
-        '<th%s>%s</th>' % (' class="num"' if j == 1 else '', _esc(h))
+        '<th%s>%s</th>' % (' class="num"' if j == 2 else '', _esc(h))
         for j, h in enumerate(heads))
-    body = ''.join('<tr><td>%s</td><td class="num">%s</td><td>%s</td></tr>'
+    body = ''.join('<tr><td>%s</td><td>%s</td><td class="num">%s</td></tr>'
                    % (_esc(r[0] if len(r) > 0 else ''), _esc(r[1] if len(r) > 1 else ''),
                       _esc(r[2] if len(r) > 2 else '')) for r in (p.get('table_rows') or []))
-    out.append('<div class="sub">%s.2 &middot; Material totals</div>' % _esc(number))
+    out.append('<div class="sub">%s.2 &middot; Materials Major Quantities</div>' % _esc(number))
     out.append('<table class="dt">%s%s</table>' % (thead, body))
     exc = p.get('excluded')
     if exc:

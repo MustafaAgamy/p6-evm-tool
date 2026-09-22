@@ -837,7 +837,7 @@ def _render_resload(document, p, number, note):
                    size=10, italic=True, color=GREY, after=6, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
         cap.paragraph_format.keep_with_next = True
         if docx_native.add_bar_chart(document, g.get('span'), g.get('values'),
-                                     g.get('unit_label') or g.get('title') or 'Loading',
+                                     g.get('chart_title') or g.get('title') or 'Loading',
                                      color=g.get('color') or '1F4E79',
                                      data_labels=True, num_fmt='#,##0') is None:
             data_table(document, ['Month', g.get('unit_label') or 'Number'],
@@ -885,9 +885,9 @@ def _render_materials(document, p, number, note):
         para(document, 'Peak %s %s in %s.' % (_wn(m.get('peak_val')), m.get('unit') or '',
              m.get('peak_label') or ''), size=10, italic=True, color=GREY, after=6,
              align=WD_ALIGN_PARAGRAPH.JUSTIFY)     # peak caption — parity with HTML/PDF §14
-    _subhead(document, '%s.2' % number, 'Material totals')
-    data_table(document, p.get('table_headers') or ['Material resource', 'Total quantity', 'Unit'],
-               p.get('table_rows') or [], aligns=['l', 'r', 'l'])
+    _subhead(document, '%s.2' % number, 'Materials Major Quantities')
+    data_table(document, p.get('table_headers') or ['Material resource', 'Unit', 'Total Quantity'],
+               p.get('table_rows') or [], aligns=['l', 'l', 'r'])
     exc = p.get('excluded')
     if exc:
         _muted(document, '%s unit-less “material” assignments (total %s) are the cost model — '

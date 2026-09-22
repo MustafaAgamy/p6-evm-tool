@@ -22,9 +22,17 @@ does not keep, so they are read here straight from the file — isolated exactly
 and the affected section falls back to an honest no-data note.
 """
 import re
+import calendar as _cal
 from collections import defaultdict
-from datetime import timedelta
+from datetime import timedelta, date
 from xml.etree import ElementTree as ET
+
+try:
+    # Correctly counts a P6 24-hour calendar's working days (its midnight-to-midnight shift makes
+    # the raw ``is_working_day`` mark every day non-working). Display-only, never EVM math.
+    from p6_calendar.audit import _is_working_day_display as _wd_display
+except Exception:                               # pragma: no cover - defensive
+    _wd_display = None
 
 _ONE = timedelta(days=1)
 _MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -188,6 +196,36 @@ def _month_span(a, b):
     return out
 
 
+def _is_working(cal, d):
+    """True if ``d`` is a working day on calendar ``cal`` (None/error ⇒ treat as working).
+    Uses the display classifier so a 24-hour calendar is not read as all non-working."""
+    if cal is None:
+        return True
+    try:
+        if _wd_display is not None:
+            return bool(_wd_display(cal, d))
+        return bool(cal.is_working_day(d))
+    except Exception:
+        return True
+
+
+def _working_days_in_month(ref_cal, y, m, wstart, wend, active_days):
+    """Working days of month ``(y, m)`` that fall inside the project window ``[wstart, wend]`` —
+    the denominator for the sustained-crew figure (man-days ÷ working days = men on site). Uses
+    the group's dominant calendar; with no calendar, falls back to the days that carried work."""
+    n = 0
+    for dd in range(1, _cal.monthrange(y, m)[1] + 1):
+        d = date(y, m, dd)
+        if d < wstart or d > wend:
+            continue
+        if ref_cal is not None:
+            if _is_working(ref_cal, d):
+                n += 1
+        elif d in active_days:
+            n += 1
+    return n
+
+
 def _dur_hours(act, ps, pf):
     """Activity working-hours: P6 ``planned_duration`` (already in hours on both formats),
     falling back to inclusive calendar days × 8 when it is missing/zero."""
@@ -230,6 +268,7 @@ def _records(data, meta):
                 'unit': rm.get('unit'),
                 'qty': qty,
                 'ps': ps, 'pf': pf, 'dur_hr': dur_hr,
+                'cal': act.get('calendar_id'),
             })
     return recs
 
@@ -251,13 +290,18 @@ def _basis_for_equipment(recs):
     return 'count' if med < EQUIP_COUNT_THRESHOLD else 'hours'
 
 
-def _profile(recs, basis):
-    """Average number on site per month + per-resource totals. ``basis='hours'`` converts
-    ``crew = qty / working-hours``; ``basis='count'`` loads ``qty`` directly."""
+def _profile(recs, basis, calendars=None):
+    """The SUSTAINED crew on site per month + per-resource totals. Each assignment's crew
+    (``basis='hours'`` → ``qty / working-hours`` men; ``basis='count'`` → ``qty`` machines) is
+    loaded onto the activity's WORKING days (per its calendar); the monthly bar is that month's
+    man-days ÷ its working days = the men actually needed on site that month, NOT diluted by
+    idle/non-working days. Matches how P6 reports resource loading."""
+    calendars = calendars or {}
     daily = defaultdict(float)
     per_res_daily = defaultdict(lambda: defaultdict(float))
     sigma = defaultdict(float)
     names = {}
+    cal_freq = defaultdict(int)
     gmin = gmax = None
     for r in recs:
         ps, pf = r['ps'], r['pf']
@@ -268,6 +312,7 @@ def _profile(recs, basis):
             crew = r['qty']
         if crew <= 0:
             continue
+        cal = calendars.get(r.get('cal'))
         s, f = ps.date(), pf.date()
         if f < s:
             f = s
@@ -276,23 +321,28 @@ def _profile(recs, basis):
         rid = r['rid']
         names[rid] = r['name']
         sigma[rid] += r['qty']
+        cal_freq[r.get('cal')] += 1
         d = s
         while d <= f:
-            daily[d] += crew
-            per_res_daily[rid][d] += crew
+            if _is_working(cal, d):          # load only working days (P6 spreads over working time)
+                daily[d] += crew
+                per_res_daily[rid][d] += crew
             d += _ONE
     if gmin is None or not daily:
         return None
 
-    msum, mcnt = defaultdict(float), defaultdict(int)
-    d, end = gmin.date(), gmax.date()
-    while d <= end:
-        k = (d.year, d.month)
-        msum[k] += daily.get(d, 0.0)
-        mcnt[k] += 1
-        d += _ONE
-    span = sorted(msum.keys())
-    values = [round(msum[k] / mcnt[k], 2) for k in span]
+    # dominant calendar of the group drives the per-month working-day denominator
+    ref_cal = calendars.get(max(cal_freq, key=lambda k: cal_freq[k])) if cal_freq else None
+    wstart, wend = gmin.date(), gmax.date()
+
+    msum = defaultdict(float)
+    for d, v in daily.items():
+        msum[(d.year, d.month)] += v
+    span = _month_span((gmin.year, gmin.month), (gmax.year, gmax.month))
+    values = []
+    for k in span:
+        wd = _working_days_in_month(ref_cal, k[0], k[1], wstart, wend, daily)
+        values.append(round(msum.get(k, 0.0) / wd, 2) if wd else 0.0)
 
     pi = max(range(len(values)), key=lambda i: values[i])
     peak_day = max(daily, key=daily.get)
@@ -314,19 +364,6 @@ def _profile(recs, basis):
 
 
 # ── material monthly quantities ───────────────────────────────────────────────
-def _spread(qty, ps, pf):
-    s, f = ps.date(), pf.date()
-    if f < s:
-        f = s
-    total = (f - s).days + 1
-    out = defaultdict(float)
-    d = s
-    while d <= f:
-        out[(d.year, d.month)] += qty / total
-        d += _ONE
-    return out
-
-
 def _excluded_costmodel(data, meta):
     """Count the unit-less "material" assignments — the cost model (contract value) reported in
     §14's note but never charted. Counted over ALL assignments (independent of whether the
@@ -358,8 +395,9 @@ def _materials(recs):
         if not unit:                                    # unit-less ⇒ cost-model (counted separately)
             continue
         key = (r['name'], unit)
-        for k, v in _spread(r['qty'], r['ps'], r['pf']).items():
-            monthly[key][k] += v
+        # P6 places each material's full quantity in the month the activity STARTS (materials are
+        # point-loaded at the activity, not split across a month boundary) — matches P6 exactly.
+        monthly[key][(r['ps'].year, r['ps'].month)] += r['qty']
         total[key] += r['qty']
 
     mats = []
@@ -393,32 +431,34 @@ def resource_loading(data, path=None):
     equip = [r for r in recs if r['rtype'] == 'RT_Equip']
     # Resources with no readable type fall through to neither loading nor material charts.
 
+    cals = getattr(data, 'calendars', None) or {}
     groups = []
     if labor:
-        p = _profile(labor, 'hours')
+        p = _profile(labor, 'hours', cals)
         if p:
             groups.append(_loading_group(
-                'manpower', 'Manpower', 'No. of men (monthly average)', LABOR_HEX, 'hours', p,
-                'Total man-hours', 'Peak crew (men)',
-                'Budgeted man-hours are converted to men — crew = budgeted hours ÷ the '
-                'activity’s working hours — so each bar is the average number of men on site '
-                'that month, not a raw unit total.'))
+                'manpower', 'Manpower', 'Manpower histogram per month', 'No. of men',
+                LABOR_HEX, 'hours', p, 'Total man-hours', 'Peak crew',
+                'The men needed each month — the man-hours in the month ÷ that month’s working '
+                'hours (the sustained crew on site over the working days, not an idle-diluted '
+                'average). Budgeted man-hours total is listed per resource below.'))
     if equip:
         basis = _basis_for_equipment(equip)
-        p = _profile(equip, basis)
+        p = _profile(equip, basis, cals)
         if p:
             if basis == 'count':
                 note = ('Equipment is shown as the number of machines on site — the budgeted '
-                        'quantity is a plant count, not hours, so it is loaded directly.')
+                        'quantity is a plant count, not hours, so it is loaded directly over the '
+                        'working days.')
                 tcol = 'Total plant loaded'
             else:
-                note = ('Budgeted equipment-hours are converted to machines — count = budgeted '
-                        'hours ÷ the activity’s working hours — so each bar is the average '
-                        'number of machines on site that month.')
+                note = ('The machines needed each month — equipment-hours in the month ÷ that '
+                        'month’s working hours (the sustained plant on site over the working '
+                        'days).')
                 tcol = 'Total equipment-hours'
             groups.append(_loading_group(
-                'equipment', 'Equipment', 'No. of equipment (monthly average)', EQUIP_HEX,
-                basis, p, tcol, 'Peak no. on site', note))
+                'equipment', 'Equipment', 'Equipment histogram per month', 'No. of equipment',
+                EQUIP_HEX, basis, p, tcol, 'Peak no. on site', note))
 
     loading = {
         'available': bool(groups),
@@ -438,17 +478,18 @@ def resource_loading(data, path=None):
         'charts': [dict(m, color=MAT_HEX) for m in mats[:MAT_CHART_CAP]],
         'charted_n': min(len(mats), MAT_CHART_CAP),
         'total_n': len(mats),
-        'table_headers': ['Material resource', 'Total quantity', 'Unit'],
-        'table_rows': [[m['name'], _fmt0(m['total']), m['unit']] for m in mats],
+        'table_headers': ['Material resource', 'Unit', 'Total Quantity'],
+        'table_rows': [[m['name'], m['unit'], _fmt0(m['total'])] for m in mats],
         'excluded': ({'n': excl_n, 'total_label': _fmt0(excl_total)} if excl_n else None),
     }
     return {'loading': loading, 'materials': materials}
 
 
-def _loading_group(key, title, unit_label, color, basis, p, total_col, peak_col, basis_note):
+def _loading_group(key, title, chart_title, unit_label, color, basis, p, total_col, peak_col,
+                   basis_note):
     return {
-        'key': key, 'title': title, 'unit_label': unit_label, 'color': color, 'basis': basis,
-        'basis_note': basis_note,
+        'key': key, 'title': title, 'chart_title': chart_title, 'unit_label': unit_label,
+        'color': color, 'basis': basis, 'basis_note': basis_note,
         'span': p['span'], 'values': p['values'],
         'peak_val': p['peak_val'], 'peak_label': p['peak_label'],
         'peak_day_val': p['peak_day_val'], 'peak_day_label': p['peak_day_label'],
