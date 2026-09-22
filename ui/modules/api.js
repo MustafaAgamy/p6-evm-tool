@@ -525,29 +525,6 @@ export async function exportRevcompareExcel() {
   }
 }
 
-// AI Copilot · TIA (copilot) — server rebuilds the deterministic copilot report
-// from the held result (reusing the saved weather estimate), so no snapshot needed.
-export async function exportCopilotExcel() {
-  if (!state.currentResult) { showError('Import a P6 schedule first.'); return; }
-  const btn = new ButtonState(document.getElementById('cp-export-xlsx'), 'Export to Excel');
-  btn.loading('Exporting…');
-  try {
-    const outputPath = await window.pywebview.api.choose_save_path('ai_copilot_tia.xlsx', 'xlsx');
-    if (!outputPath) { btn.reset(); return; }
-    const data = await apiFetch('api/copilot/excel', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId || null,
-                                result: state.currentResult, output_path: outputPath }),
-    });
-    if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
-    else          { btn.success('✓ Excel Saved'); }
-  } catch {
-    showError('Excel export failed. Check the output path and try again.');
-    btn.reset();
-  }
-}
-
 // Professional Dashboard (dash) — re-fetches the /api/dashboard read-model (DB
 // read path, no re-parse), then posts that same dict for the workbook.
 export async function exportDashboardExcel() {

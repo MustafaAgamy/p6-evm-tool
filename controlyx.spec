@@ -39,6 +39,10 @@ datas = [
     ('p6_calendar',    'p6_calendar'),     # Calendar Audit engine — imported deferred by both
                                           # server.py and p6_narrative/report.py (calendar_audit);
                                           # PyInstaller's graph misses in-function imports, so bundle.
+    ('p6_copilot',     'p6_copilot'),      # AI Copilot expert engine — the chat's Copilot questions
+                                          # (p6_chat.copilot) import it deferred in-function; ship whole.
+    ('p6_claims',      'p6_claims'),       # TIA / claims engine (fragnet, scenarios, exact-impact) —
+                                          # used by the chat's what-if F9 path; deferred imports, bundle.
     ('report_theme.py', '.'),             # Shared report appearance themes — imported at
                                           # runtime by the report renderers (which run after
                                           # sys.path.insert(resource_path('.'))); ship as root
@@ -147,7 +151,7 @@ except Exception:
 # dropped from the .exe — this bit us before (an empty catalog / missing feature that
 # only showed on the built exe, never in dev or tests). p6_report registers the
 # Global Print-Preview features on import, so its submodules must ship.
-for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare', 'p6_chat', 'p6_narrative', 'p6_calendar'):
+for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare', 'p6_chat', 'p6_narrative', 'p6_calendar', 'p6_copilot', 'p6_claims'):
     try:
         hiddenimports += collect_submodules(_pkg)
     except Exception:

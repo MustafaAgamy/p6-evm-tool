@@ -179,6 +179,252 @@
       ]
     },
     {
+      "theme": "Expert Analysis — AI Copilot (offline & exact)",
+      "blurb": "A senior project-controls read, computed from your schedule — deterministic, offline, no AI model needed. Each answer cites the evidence.",
+      "questions": [
+        {
+          "q": "Why is the project delayed?",
+          "grounds": "Copilot assistant · to-date / performance / worst discipline",
+          "status": "today",
+          "cap": "assistant",
+          "qid": "why_delayed",
+          "mode": "management",
+          "roles": [
+            "Project Manager",
+            "Project Director",
+            "Construction Manager",
+            "Planning Manager"
+          ],
+          "role_keys": [
+            "pm",
+            "pd",
+            "cm",
+            "plmgr"
+          ]
+        },
+        {
+          "q": "Which part of the project is causing the delay?",
+          "grounds": "Copilot assistant · worst discipline by variance",
+          "status": "today",
+          "cap": "assistant",
+          "qid": "which_wbs",
+          "mode": "management",
+          "roles": [
+            "Project Manager",
+            "Project Director",
+            "Construction Manager",
+            "Planning Manager"
+          ],
+          "role_keys": [
+            "pm",
+            "pd",
+            "cm",
+            "plmgr"
+          ]
+        },
+        {
+          "q": "How healthy is the project overall?",
+          "grounds": "Copilot assistant · status, progress vs plan",
+          "status": "today",
+          "cap": "assistant",
+          "qid": "health",
+          "mode": "management",
+          "roles": [
+            "Project Manager",
+            "Project Director",
+            "Commercial / Cost Manager",
+            "Planning Manager"
+          ],
+          "role_keys": [
+            "pm",
+            "pd",
+            "commercial",
+            "plmgr"
+          ]
+        },
+        {
+          "q": "What are the biggest risks right now?",
+          "grounds": "Copilot assistant · slip, out-of-sequence, float",
+          "status": "today",
+          "cap": "assistant",
+          "qid": "risks",
+          "mode": "management",
+          "roles": [
+            "Project Manager",
+            "Project Director",
+            "Planning Manager",
+            "Construction Manager"
+          ],
+          "role_keys": [
+            "pm",
+            "pd",
+            "plmgr",
+            "cm"
+          ]
+        },
+        {
+          "q": "What are the top actions this week?",
+          "grounds": "Copilot assistant · recovery-first action list",
+          "status": "today",
+          "cap": "assistant",
+          "qid": "actions",
+          "mode": "management",
+          "roles": [
+            "Project Manager",
+            "Construction Manager",
+            "Planning Manager"
+          ],
+          "role_keys": [
+            "pm",
+            "cm",
+            "plmgr"
+          ]
+        },
+        {
+          "q": "What is driving the finish date?",
+          "grounds": "Copilot assistant · driving chain + float health",
+          "status": "today",
+          "cap": "assistant",
+          "qid": "critical_driver",
+          "mode": "planning",
+          "roles": [
+            "Planning Manager",
+            "Senior Planner",
+            "Technical Office Manager"
+          ],
+          "role_keys": [
+            "plmgr",
+            "planner",
+            "tom"
+          ]
+        },
+        {
+          "q": "What are the best recovery options?",
+          "grounds": "Copilot assistant · crash / re-sequence / extend time",
+          "status": "today",
+          "cap": "assistant",
+          "qid": "recovery",
+          "mode": "planning",
+          "roles": [
+            "Planning Manager",
+            "Senior Planner",
+            "Project Manager"
+          ],
+          "role_keys": [
+            "plmgr",
+            "planner",
+            "pm"
+          ]
+        },
+        {
+          "q": "Is there an EOT / claim case?",
+          "grounds": "Copilot assistant · honest indicators (never asserts entitlement)",
+          "status": "today",
+          "cap": "assistant",
+          "qid": "eot_likely",
+          "mode": "planning",
+          "roles": [
+            "Contracts & Claims Manager",
+            "Planning Manager",
+            "Commercial / Cost Manager",
+            "Project Director"
+          ],
+          "role_keys": [
+            "contracts",
+            "plmgr",
+            "commercial",
+            "pd"
+          ]
+        },
+        {
+          "q": "Which delay-analysis method fits?",
+          "grounds": "Copilot assistant · AACE 29R-03 + FIDIC 8.5/8.4",
+          "status": "today",
+          "cap": "assistant",
+          "qid": "delay_method",
+          "mode": "planning",
+          "roles": [
+            "Contracts & Claims Manager",
+            "Planning Manager",
+            "Senior Planner"
+          ],
+          "role_keys": [
+            "contracts",
+            "plmgr",
+            "planner"
+          ]
+        },
+        {
+          "q": "What does this project type usually need?",
+          "grounds": "Copilot assistant · Construction KB type read",
+          "status": "today",
+          "cap": "assistant",
+          "qid": "project_needs",
+          "mode": "planning",
+          "roles": [
+            "Planning Manager",
+            "Senior Planner",
+            "Technical Office Manager"
+          ],
+          "role_keys": [
+            "plmgr",
+            "planner",
+            "tom"
+          ]
+        },
+        {
+          "q": "Run a time impact analysis",
+          "grounds": "Copilot TIA · finish slip: to-date / performance / weather",
+          "status": "today",
+          "cap": "tia",
+          "roles": [
+            "Planning Manager",
+            "Senior Planner",
+            "Project Manager",
+            "Project Director"
+          ],
+          "role_keys": [
+            "plmgr",
+            "planner",
+            "pm",
+            "pd"
+          ]
+        },
+        {
+          "q": "Run a what-if scenario (delay, crash, add a crew…)",
+          "grounds": "Copilot what-if · instant estimate + exact via P6 F9",
+          "status": "today",
+          "cap": "whatif",
+          "roles": [
+            "Planning Manager",
+            "Senior Planner"
+          ],
+          "role_keys": [
+            "plmgr",
+            "planner"
+          ]
+        },
+        {
+          "q": "Give me a manager's briefing",
+          "grounds": "Copilot manager report · one-page exec briefing + S-curve",
+          "status": "today",
+          "cap": "report",
+          "roles": [
+            "Project Manager",
+            "Project Director",
+            "Planning Manager",
+            "Commercial / Cost Manager"
+          ],
+          "role_keys": [
+            "pm",
+            "pd",
+            "plmgr",
+            "commercial"
+          ]
+        }
+      ]
+    },
+    {
       "theme": "Delay — Root Cause & Forensics",
       "blurb": "How far behind, what's driving it, and whether the slip is real or manufactured.",
       "questions": [

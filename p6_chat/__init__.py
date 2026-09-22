@@ -15,6 +15,7 @@ result (the DB read path). No third-party dependency; the local model is reached
 over localhost via stdlib only.
 """
 from . import service, llm
+from . import copilot as copilot   # backend bridge to the AI-Copilot engines
 
 get_library = service.get_library
 ask = service.ask
@@ -44,4 +45,4 @@ def build_dashboard(xml_path=None, snapshot_id=None):
 
 
 __all__ = ['get_library', 'ask', 'answer_stream', 'brain_status', 'brain_setup',
-           'save_brain_settings', 'build_dashboard']
+           'save_brain_settings', 'build_dashboard', 'copilot']

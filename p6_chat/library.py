@@ -81,6 +81,11 @@ def library():
             'grounds': q.get('grounds'),
             'status': q.get('status'),
             'role_keys': q.get('role_keys', []),
+            # Copilot capability tags (present only on the expert-analysis questions): the UI
+            # routes a tagged question to the deterministic Copilot engine instead of the model.
+            'cap': q.get('cap'),
+            'qid': q.get('qid'),
+            'mode': q.get('mode'),
         } for q in t.get('questions', [])]
         themes.append({'theme': t.get('theme'), 'blurb': t.get('blurb', ''), 'questions': qs})
     return {
