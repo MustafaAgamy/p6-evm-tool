@@ -89,8 +89,10 @@ def test_calendar_date_exceptions_flip():
     pat = next(p for p in d['patterns'] if p['name'] == '6 Day')
     ex = {e['date']: e for e in pat['date_exceptions']}
     assert ex['07 Jan 2026']['change'] == 'now working'
-    assert ex['07 Jan 2026']['rev0'] == 'Non-working' and ex['07 Jan 2026']['rev1'] == 'Working'
+    # rev0/rev1 now report status-or-hours: a full working day reads its hours ('8h/day').
+    assert ex['07 Jan 2026']['rev0'] == 'Non-working' and ex['07 Jan 2026']['rev1'] == '8h/day'
     assert ex['23 Sep 2026']['change'] == 'now non-working'
+    assert ex['23 Sep 2026']['rev0'] == '8h/day' and ex['23 Sep 2026']['rev1'] == 'Non-working'
 
 
 def test_calendar_lists_shared_nonworking_dates():

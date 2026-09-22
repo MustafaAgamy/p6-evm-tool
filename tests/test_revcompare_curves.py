@@ -37,6 +37,31 @@ def _assign_sched(assigns, ps, pf, code='A1000'):
     return d
 
 
+def _coded_assign_sched(assigns, ps, pf, code='A1000'):
+    """assigns: list of (resource_id, resource_code, resource_name, units) — carries the P6 code."""
+    d = _sched([_act(code, 'Work', ps=ps, pf=pf)], [], D(2025, 1, 1))
+    d.assignments_by_activity = {'o0': [
+        {'resource_id': rid, 'resource_code': rcode, 'resource_name': rname,
+         'budget_units': u, 'budget_cost': 0.0, 'rate': None}
+        for rid, rcode, rname, u in assigns]}
+    return d
+
+
+def test_manhours_total_exact_sum_and_same_name_not_merged():
+    """P6-matching: total man-hours = the exact sum of the planned units (no loss/double-count),
+    and two resources that share a NAME but have distinct P6 codes stay as separate trade rows."""
+    rev0 = _coded_assign_sched([('4501', 'LAB-01', 'Steelfixers', 100.0),
+                                ('4507', 'LAB-07', 'Steelfixers', 40.0),
+                                ('9001', 'EQ-CR', 'Crane', 10.0)], D(2025, 1, 1), D(2025, 1, 31))
+    rev1 = _coded_assign_sched([('4501', 'LAB-01', 'Steelfixers', 120.0),
+                                ('4507', 'LAB-07', 'Steelfixers', 50.0),
+                                ('9001', 'EQ-CR', 'Crane', 10.0)], D(2025, 1, 1), D(2025, 1, 31))
+    c = _wire(rev0, rev1)
+    assert c['manhours_total']['rev0'] == 150.0 and c['manhours_total']['rev1'] == 180.0
+    steel = [t for t in c['manhours_by_trade'] if t['name'] == 'Steelfixers']
+    assert len(steel) == 2 and {t['resource_id'] for t in steel} == {'LAB-01', 'LAB-07'}
+
+
 # ── availability flags / no-data guard ─────────────────────────────────────────
 
 def test_no_data_flags_false_and_empty():

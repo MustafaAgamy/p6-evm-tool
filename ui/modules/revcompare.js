@@ -1060,7 +1060,8 @@ function calendarView(r) {
     if (nw.rev0 != null || nw.rev1 != null) anyPattern = true;
     if (!ex.length) return;
     ex.forEach(e => {
-      const tag = e.change === 'now working' ? 'add' : e.change === 'now non-working' ? 'rem' : '';
+      const isHours = /h →/.test(e.change);   // e.g. "6h → 8h"
+      const tag = e.change === 'now working' ? 'add' : e.change === 'now non-working' ? 'rem' : isHours ? 'chg' : '';
       const label = e.change === 'unchanged' ? 'same' : e.change;
       if (e.change !== 'unchanged') anyFlip = true;
       excRows.push(`<tr><td>${esc(p.name)}</td><td class="rc-aid">${esc(e.date)}</td>
@@ -1069,18 +1070,20 @@ function calendarView(r) {
     });
     const nowW = ex.filter(e => e.change === 'now working').map(e => e.date);
     const nowN = ex.filter(e => e.change === 'now non-working').map(e => e.date);
+    const hrs = ex.filter(e => /h →/.test(e.change));
     const parts = [];
     if (nowW.length) parts.push(`<b>${nowW.map(esc).join(', ')}</b> ${nowW.length === 1 ? 'was non-working in Rev.00 and is now a working day' : 'were non-working in Rev.00 and are now working days'} in Rev.01`);
     if (nowN.length) parts.push(`<b>${nowN.map(esc).join(', ')}</b> ${nowN.length === 1 ? 'was a working day in Rev.00 and is now non-working' : 'were working days in Rev.00 and are now non-working'} in Rev.01`);
+    hrs.forEach(e => parts.push(`<b>${esc(e.date)}</b> changed from ${esc(e.rev0)} to ${esc(e.rev1)}`));
     if (parts.length) narrByCal.push(`In the <b>${esc(p.name)}</b> calendar, ${parts.join('; ')}.`);
   });
   const nwSummary = patterns.filter(p => (p.nonworking_count || {}).rev0 != null || (p.nonworking_count || {}).rev1 != null)
     .map(p => `<b>${esc(p.name)}</b>: ${fmtInt((p.nonworking_count || {}).rev0 || 0)} non-working date(s) in Rev.00 · ${fmtInt((p.nonworking_count || {}).rev1 || 0)} in Rev.01`).join(' &nbsp;·&nbsp; ');
   const narr = anyFlip
-    ? `<div class="rc-callout"><b>Non-working date changes:</b><ul class="rc-callist" style="margin:6px 0 0">${narrByCal.map(l => `<li>${l}</li>`).join('')}</ul></div>`
-    : (excRows.length ? '<div class="rc-callout">The non-working exception dates are the <b>same</b> in both revisions — no date was added or removed.</div>' : '');
+    ? `<div class="rc-callout"><b>Calendar date changes:</b><ul class="rc-callist" style="margin:6px 0 0">${narrByCal.map(l => `<li>${l}</li>`).join('')}</ul></div>`
+    : (excRows.length ? '<div class="rc-callout">The calendar exception dates (non-working days and reduced-hours days) are the <b>same</b> in both revisions — none was added, removed or re-houred.</div>' : '');
   const excBlock = excRows.length
-    ? `<div class="rc-sec" style="margin:14px 0 4px"><b>Non-working exception dates</b> — every non-working date in either revision, changed dates highlighted${nwSummary ? ` <span class="rc-mut">(${nwSummary})</span>` : ''}</div>
+    ? `<div class="rc-sec" style="margin:14px 0 4px"><b>Calendar exception dates</b> — non-working days &amp; reduced-hours days in either revision, changes highlighted${nwSummary ? ` <span class="rc-mut">(${nwSummary})</span>` : ''}</div>
        <div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Calendar</th><th>Date</th><th>Rev.00</th><th>Rev.01</th><th>Change</th></tr></thead><tbody>${excRows.join('')}</tbody></table></div>
        ${narr}`
     : (anyPattern
@@ -1321,6 +1324,7 @@ function baBar(name, v0, v1, mx, opts = {}) {
   const wa = mx > 0 ? Math.max(a / mx * 100, a > 0 ? 2 : 0) : 0;
   const wb = mx > 0 ? Math.max(b / mx * 100, b > 0 ? 2 : 0) : 0;
   const fmt = opts.fmt || fmtInt;
+  const code = opts.code ? `<span class="rc-hcode">${esc(opts.code)}</span>` : '';
   let tag = '';
   if (opts.tag) {
     tag = added ? '<span class="rc-rchip add sm">Added</span>'
@@ -1329,10 +1333,16 @@ function baBar(name, v0, v1, mx, opts = {}) {
       : v < 0 ? '<span class="rc-rchip chg sm">Reduced</span>'
       : '<span class="rc-rchip sm">Unchanged</span>';
   }
-  return `<div class="rc-hrow2"><div class="rc-hlbl">${esc(name)}</div>
+  // Value label sits INSIDE the bar when it is wide enough, otherwise just past the bar end so it
+  // is never trimmed (comment: the number inside the bars is trimmed). Each bar is labelled
+  // Rev.00 / Rev.01 so a before/after pair never reads as duplicated work.
+  const val = (w, val, inside) => `<span class="rc-bval" style="${w > 26
+    ? `left:calc(${w.toFixed(1)}% - 6px);transform:translateX(-100%);color:${inside}`
+    : `left:calc(${w.toFixed(1)}% + 6px);color:var(--ink-soft)`}">${val ? fmt(val) : ''}</span>`;
+  return `<div class="rc-hrow2"><div class="rc-hlbl">${esc(name)}${code}</div>
     <div class="rc-ba"><div class="rc-babars">
-      <div class="rc-hseg b0${removed ? ' rem' : ''}" style="width:${wa.toFixed(1)}%">${a ? fmt(a) : ''}</div>
-      <div class="rc-hseg b1${added ? ' add' : ''}" style="width:${wb.toFixed(1)}%">${b ? fmt(b) : ''}</div>
+      <div class="rc-brow"><span class="rc-blab">Rev.00</span><div class="rc-btrack"><div class="rc-bfill b0${removed ? ' rem' : ''}" style="width:${wa.toFixed(1)}%"></div>${val(wa, a, 'var(--ink-soft)')}</div></div>
+      <div class="rc-brow"><span class="rc-blab r1">Rev.01</span><div class="rc-btrack"><div class="rc-bfill b1${added ? ' add' : ''}" style="width:${wb.toFixed(1)}%"></div>${val(wb, b, '#fff')}</div></div>
     </div><span class="rc-hvar ${v >= 0 ? 'up' : 'down'}">${v >= 0 ? '+' : ''}${fmt(v)}</span>${tag}</div></div>`;
 }
 
@@ -1359,7 +1369,7 @@ function resourceView(r) {
 
   // Before/after comparison bars — assigned units per resource, biggest movers first.
   const mx = Math.max(1, ...totals.flatMap(t => [Number(t.rev0) || 0, Number(t.rev1) || 0]));
-  const bars = totals.map(t => baBar(t.name, t.rev0, t.rev1, mx, { tag: true, fmt: fmtInt })).join('');
+  const bars = totals.map(t => baBar(t.name, t.rev0, t.rev1, mx, { tag: true, fmt: fmtInt, code: t.id })).join('');
   const legend = `<div class="rc-legend">
       <span><i style="background:var(--rc-b0)"></i>Rev.00 units</span>
       <span><i style="background:var(--accent)"></i>Rev.01 units</span>
@@ -1480,7 +1490,7 @@ function manpowerView(r) {
   const W = Math.max(760, n * 70), h = 304, L = 48, B = 56, T = 40;
   const pw = W - L - 16, ph = h - T - B, step = pw / n, bw = Math.min(20, step * 0.30);
   const mx = Math.max(1, ...rev0tot, ...rev1tot);
-  const showEvery = n > 10 ? 2 : 1;
+  const showEvery = 1;   // label EVERY month (comment: each month must be shown)
   let s = '';
   months.forEach((mo, i) => {
     const cx = L + i * step + step / 2;
@@ -1505,17 +1515,22 @@ function manpowerView(r) {
     + '<span style="color:var(--success)">▼ fewer than Rev.00</span>';
 
   const peak = curves.peak || {};
-  const total0 = (curves.manhours_total || {});
-  const pct = total0.pct;
+  const mt = (curves.manhours_total || {});
+  const pct = mt.pct;
+  // Total man-hours = the sum of P6 planned resource units, so each figure equals what P6 reports.
   const kpis = `<div class="rc-kpis k3">
-      <div class="rc-kpi"><div class="rc-k">Rev.00 peak on site</div><div class="rc-v">${fmtInt(peak.rev0 || 0)}</div><div class="rc-dd">${peak.rev0_month ? 'in ' + esc(peak.rev0_month) : ''}</div></div>
-      <div class="rc-kpi"><div class="rc-k">Rev.01 peak on site</div><div class="rc-v ${(peak.rev1 || 0) > (peak.rev0 || 0) ? 'crit' : ''}">${fmtInt(peak.rev1 || 0)}</div><div class="rc-dd">${peak.rev1_month ? 'in ' + esc(peak.rev1_month) : ''}</div></div>
-      <div class="rc-kpi"><div class="rc-k">Total man-hours</div><div class="rc-v ${pct == null ? '' : pct > 0 ? 'crit' : pct < 0 ? 'add' : ''}">${pct == null ? '—' : (pct > 0 ? '+' : '') + fmtNum(pct, 1) + '%'}</div><div class="rc-dd">Rev.00 → Rev.01</div></div></div>`;
+      <div class="rc-kpi"><div class="rc-k">Total man-hours · Rev.00</div><div class="rc-v">${fmtInt(mt.rev0 || 0)}</div><div class="rc-dd">from P6 planned units</div></div>
+      <div class="rc-kpi"><div class="rc-k">Total man-hours · Rev.01</div><div class="rc-v ${(mt.rev1 || 0) > (mt.rev0 || 0) ? 'crit' : ''}">${fmtInt(mt.rev1 || 0)}</div><div class="rc-dd">from P6 planned units</div></div>
+      <div class="rc-kpi"><div class="rc-k">Change</div><div class="rc-v ${pct == null ? '' : pct > 0 ? 'crit' : pct < 0 ? 'add' : ''}">${pct == null ? '—' : (pct > 0 ? '+' : '') + fmtNum(pct, 1) + '%'}</div><div class="rc-dd">Rev.00 → Rev.01</div></div></div>`;
 
+  const peakNote = (peak.rev0 || peak.rev1)
+    ? `<div class="rc-sec" style="margin-top:2px">Peak on site: <b>${fmtInt(peak.rev0 || 0)}</b>${peak.rev0_month ? ' in ' + esc(peak.rev0_month) : ''} (Rev.00) → <b>${fmtInt(peak.rev1 || 0)}</b>${peak.rev1_month ? ' in ' + esc(peak.rev1_month) : ''} (Rev.01).</div>`
+    : '';
   const chartCard = `<div class="rc-card"><h3>Manpower on site per month <span class="rc-n">Rev.00 vs Rev.01 side by side · the difference labelled</span></h3>
     ${kpis}
-    <div class="rc-sec">Each month shows <b>Rev.00 (grey)</b> and <b>Rev.01 (blue)</b> people on site side by side; the number above each pair is the <b>difference</b> (Rev.01 − Rev.00). "Peak on site" is the busiest month. The trade breakdown is the resource-mix chart below.</div>
-    <div class="rc-chartwrap"><svg viewBox="0 0 ${W} ${h}" class="rc-svg" style="min-width:${W}px" role="img" aria-label="Manpower Rev.00 vs Rev.01 chart">
+    <div class="rc-sec">Each month shows <b>Rev.00 (grey)</b> and <b>Rev.01 (blue)</b> people on site side by side; the number above each pair is the <b>difference</b> (Rev.01 − Rev.00). The total man-hours are the sum of P6 planned units, so they match P6. The trade breakdown is the resource-mix chart below.</div>
+    ${peakNote}
+    <div class="rc-chartwrap" style="overflow:visible"><svg viewBox="0 0 ${W} ${h}" class="rc-svg" style="width:100%;height:auto" role="img" aria-label="Manpower Rev.00 vs Rev.01 chart">
       <line x1="${L}" y1="${T + ph}" x2="${W - 16}" y2="${T + ph}" stroke="var(--border)"/>${s}</svg></div>
     <div class="rc-legend">${legend}</div></div>`;
 
@@ -1523,7 +1538,7 @@ function manpowerView(r) {
   let mixCard = '';
   if (mix.length) {
     const mmx = Math.max(1, ...mix.flatMap(t => [Number(t.rev0) || 0, Number(t.rev1) || 0]));
-    const mixBars = mix.map(t => baBar(t.name || t.trade || t.resource_id, t.rev0, t.rev1, mmx, { fmt: fmtK })).join('');
+    const mixBars = mix.map(t => baBar(t.name || t.trade || t.resource_id, t.rev0, t.rev1, mmx, { fmt: fmtK, code: t.resource_id })).join('');
     mixCard = `<div class="rc-card"><h3>Resource mix — total man-hours by trade <span class="rc-n">Rev.00 → Rev.01</span></h3>
       <div class="rc-sec">The overall shift in the labour mix — which trades grew or shrank between the two baselines.</div>
       <div class="rc-hbars">${mixBars}</div>

@@ -151,47 +151,90 @@ def _dow_working(cal, dow_full):
     return True
 
 
-def _date_working(cal, d):
-    """Effective working status of a specific calendar DATE: an explicit working exception wins,
-    then an explicit holiday (non-working), else the weekly day-of-week pattern."""
+def _interval_hours(ivs):
+    """Total working hours from a list of (start_min, end_min) intervals."""
+    return round(sum((em - sm) for sm, em in (ivs or []) if em is not None and sm is not None) / 60.0, 2)
+
+
+def _date_hours(cal, d):
+    """Effective working HOURS on a specific calendar DATE: an explicit exception's intervals win,
+    then a holiday (0), else the weekly day-of-week hours. This catches reduced-hours exception
+    days (e.g. a day dropped from 8h to 6h), not only full working/non-working flips."""
+    exc = getattr(cal, 'exception_intervals', None) or {}
+    if d in exc:
+        return _interval_hours(exc[d])
     if d in (getattr(cal, 'added_work_days', None) or set()):
-        return True
+        return getattr(cal, 'day_hours', None) or 0.0     # working exception, intervals not captured
     if d in (getattr(cal, 'holidays', None) or set()):
-        return False
-    return _dow_working(cal, _DOW[d.weekday()])
+        return 0.0
+    dow = _DOW[d.weekday()]
+    if _dow_working(cal, dow):
+        wi = (getattr(cal, 'work_intervals', None) or {}).get(dow)
+        return _interval_hours(wi) if wi else (getattr(cal, 'day_hours', None) or 0.0)
+    return 0.0
+
+
+def _date_working(cal, d):
+    """Whether a specific date has any working time (compat helper)."""
+    return _date_hours(cal, d) > 0
+
+
+def _hlabel(h):
+    """Status/hours label for a date in one revision: 'Non-working' or 'Nh/day'."""
+    if not h:
+        return 'Non-working'
+    return f'{h:g}h/day'
 
 
 def _date_exceptions(a, b):
-    """Compare the specific NON-WORKING calendar dates of two revisions of one calendar (comment:
-    the comparison must include the dates of non-working days between the two revisions — e.g.
-    7 Jan 2026 non-working in Rev.00, working in Rev.01). Lists EVERY date that is a non-working
-    exception in either revision (so the dates are always shown, not only the ones that flipped),
-    each tagged with its status in both revisions and whether it changed. Returns
-    [{date, iso, rev0, rev1, change}] with changed dates first, then chronological."""
+    """Compare the specific calendar exception DATES of two revisions of one calendar: every date
+    that is non-working in either revision OR whose working HOURS differ (e.g. a day reduced from
+    8h to 6h, or restored 6h → 8h). Consecutive dates with the same before/after are grouped into a
+    range (e.g. 01 Mar 2026 – 07 Mar 2026). Returns [{date, iso, rev0, rev1, change}] with changed
+    entries first, then chronological. rev0/rev1 read 'Non-working' or 'Nh/day'; change reads
+    'now working' / 'now non-working' / 'Ah → Bh' / 'unchanged'."""
     if a is None or b is None:
         return []
-    # Only real calendar dates (date/datetime) — some fixtures use a plain count proxy for holidays.
+
     def _is_date(x):
-        return hasattr(x, 'weekday') and hasattr(x, 'strftime')
+        return hasattr(x, 'weekday') and hasattr(x, 'strftime') and hasattr(x, 'toordinal')
     dates = set()
     for cal in (a, b):
-        dates |= {d for d in (getattr(cal, 'holidays', None) or set()) if _is_date(d)}
-        dates |= {d for d in (getattr(cal, 'added_work_days', None) or set()) if _is_date(d)}
-    out = []
+        for attr in ('holidays', 'added_work_days'):
+            dates |= {d for d in (getattr(cal, attr, None) or set()) if _is_date(d)}
+        dates |= {d for d in (getattr(cal, 'exception_intervals', None) or {}) if _is_date(d)}
+
+    # Per-date effective hours; keep dates that are non-working in one rev OR whose hours differ.
+    kept = []
     for d in sorted(dates):
-        w0, w1 = _date_working(a, d), _date_working(b, d)
-        if w0 and w1:
-            continue   # working in both revisions → not a non-working day, skip
-        change = 'now working' if (not w0 and w1) else 'now non-working' if (w0 and not w1) else 'unchanged'
-        out.append({
-            'date': d.strftime('%d %b %Y') if hasattr(d, 'strftime') else str(d),
-            'iso': d.isoformat() if hasattr(d, 'isoformat') else str(d),
-            'rev0': 'Working' if w0 else 'Non-working',
-            'rev1': 'Working' if w1 else 'Non-working',
-            'change': change,
-        })
-    # Changed dates first (so a real difference is prominent), then chronological.
-    out.sort(key=lambda e: (e['change'] == 'unchanged', e['iso']))
+        h0, h1 = _date_hours(a, d), _date_hours(b, d)
+        if (h0 == 0 or h1 == 0) or abs(h0 - h1) > 1e-6:
+            kept.append((d, h0, h1))
+
+    # Group consecutive calendar days that share the same (h0, h1) into a single range row.
+    groups = []
+    for d, h0, h1 in kept:
+        if groups and groups[-1]['h0'] == h0 and groups[-1]['h1'] == h1 and (d.toordinal() - groups[-1]['end'].toordinal()) == 1:
+            groups[-1]['end'] = d
+        else:
+            groups.append({'start': d, 'end': d, 'h0': h0, 'h1': h1})
+
+    out = []
+    for g in groups:
+        h0, h1 = g['h0'], g['h1']
+        if h0 == 0 and h1 == 0:
+            change = 'unchanged'
+        elif h0 == 0:
+            change = 'now working'
+        elif h1 == 0:
+            change = 'now non-working'
+        else:
+            change = f'{h0:g}h → {h1:g}h'
+        s, e = g['start'], g['end']
+        label = s.strftime('%d %b %Y') if s == e else f"{s.strftime('%d %b %Y')} – {e.strftime('%d %b %Y')}"
+        out.append({'date': label, 'iso': s.isoformat(),
+                    'rev0': _hlabel(h0), 'rev1': _hlabel(h1), 'change': change})
+    out.sort(key=lambda x: (x['change'] == 'unchanged', x['iso']))
     return out
 
 
@@ -317,12 +360,8 @@ def diff_calendars(rev0, rev1, matched):
             changed = [g1[i]['day'] for i in range(7) if g0[i]['working'] != g1[i]['working']]
         date_exc = _date_exceptions(a, b) if (a and b) else []
         date_flips = [e for e in date_exc if e['change'] != 'unchanged']
-        # Counts tie to the same non-working-date table the reader sees (not a separate holiday tally).
-        if date_exc:
-            nw0 = sum(1 for e in date_exc if e['rev0'] == 'Non-working')
-            nw1 = sum(1 for e in date_exc if e['rev1'] == 'Non-working')
-        else:
-            nw0, nw1 = _nw_count(a), _nw_count(b)
+        # Count of specific NON-WORKING exception dates (holidays) in each revision.
+        nw0, nw1 = _nw_count(a), _nw_count(b)
         change = ('renamed' if rn else 'removed' if (a and not b) else 'added' if (b and not a)
                   else 'modified' if (p0 != p1 or changed or date_flips) else 'unchanged')
         patterns.append({'name': name, 'renamed_to': rn, 'rev0': p0, 'rev1': p1,

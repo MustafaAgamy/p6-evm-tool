@@ -2755,18 +2755,22 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 /* Before/after horizontal comparison rows (comments 5 & 6) — Rev.00 bar over Rev.01 bar */
 :root { --rc-b0: #c7d0dc; }
 :root[data-appearance="dark"], :root[data-appearance="midnight"], :root[data-appearance="blueprint"] { --rc-b0: #445367; }
-.rc-hrow2 { display: grid; grid-template-columns: 200px 1fr; gap: 12px; align-items: center; }
+.rc-hrow2 { display: grid; grid-template-columns: 230px 1fr; gap: 12px; align-items: center; }
+.rc-hlbl .rc-hcode { display: block; font-weight: 400; color: var(--muted); font-size: 10.5px; }
 .rc-ba { display: flex; align-items: center; gap: 10px; }
-.rc-babars { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
-.rc-hseg { height: 15px; border-radius: 4px; min-width: 2px; display: flex; align-items: center; padding: 0 6px;
-  font-size: 10px; font-weight: 800; color: var(--rc-l-ink); box-sizing: border-box; white-space: nowrap; }
-.rc-hseg.b0 { background: var(--rc-b0); color: var(--ink-soft); }
-.rc-hseg.b1 { background: var(--accent); color: #fff; }
-.rc-hseg.b0.rem { background: var(--danger); color: #fff; }
-.rc-hseg.b1.add { background: var(--success); color: #fff; }
+.rc-babars { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+/* labelled Rev.00 / Rev.01 rows, value never trimmed (at bar end when short) */
+.rc-brow { display: flex; align-items: center; gap: 7px; }
+.rc-blab { font-size: 9px; font-weight: 800; color: var(--muted); width: 36px; text-align: right; flex: 0 0 auto; }
+.rc-blab.r1 { color: var(--accent-dark); }
+.rc-btrack { position: relative; flex: 1; background: var(--bg); border-radius: 5px; height: 16px; }
+.rc-bfill { height: 16px; border-radius: 5px; min-width: 3px; }
+.rc-bfill.b0 { background: var(--rc-b0); } .rc-bfill.b1 { background: var(--accent); }
+.rc-bfill.b0.rem { background: var(--danger); } .rc-bfill.b1.add { background: var(--success); }
+.rc-bval { position: absolute; top: 0; height: 16px; display: flex; align-items: center; font-size: 10px; font-weight: 800; white-space: nowrap; pointer-events: none; }
 .rc-hvar { font-size: 11.5px; font-weight: 800; white-space: nowrap; flex-shrink: 0; }
 .rc-hvar.up { color: var(--danger); } .rc-hvar.down { color: var(--success); }
-@media (max-width: 640px) { .rc-hrow2 { grid-template-columns: 110px 1fr; } }
+@media (max-width: 640px) { .rc-hrow2 { grid-template-columns: 120px 1fr; } }
 
 /* Resource summary chips + inline emphasis */
 .rc-rsum { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 12px; }

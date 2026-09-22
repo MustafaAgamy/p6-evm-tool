@@ -511,9 +511,9 @@ def _cal_blocks(report):
                                    'Changed days'],
                        'rows': grid_rows})
 
-    # The specific NON-WORKING calendar dates of both revisions, compared (comment 3): every
-    # non-working date in either revision, with its status in each and whether it changed —
-    # 'same' when it is non-working in both, else 'now working' / 'now non-working'.
+    # The specific calendar exception dates of both revisions, compared (comment 3): every
+    # non-working date AND every reduced-hours day in either revision, with its status/hours in
+    # each and whether it changed — 'same', 'now working', 'now non-working', or 'Ah → Bh'.
     exc_rows = []
     counts = []
     for p in (cc.get('patterns') or []):
@@ -528,15 +528,15 @@ def _cal_blocks(report):
                           f"{_num(nc.get('rev1') or 0)} in Rev.01")
     count_note = (' Per-revision non-working dates — ' + ' · '.join(counts) + '.') if counts else ''
     if exc_rows:
-        blocks.append({'title': 'Non-working exception dates — Rev.00 vs Rev.01',
-                       'note': 'Every specific non-working calendar date in either revision, with its status in '
-                               'each — a date that was non-working in Rev.00 and is a working day in Rev.01 (or the '
-                               'reverse) is flagged; "same" means non-working in both.' + count_note,
+        blocks.append({'title': 'Calendar exception dates — Rev.00 vs Rev.01',
+                       'note': 'Every specific non-working date AND every reduced-hours day in either revision, with '
+                               'its status/hours in each — a date that flipped working/non-working, or whose hours '
+                               'changed (e.g. 6h/day → 8h/day), is flagged; "same" means unchanged.' + count_note,
                        'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change'],
                        'rows': exc_rows})
     elif counts:
         # Calendars were compared but carry no specific exception dates (parity with screen/PDF).
-        blocks.append({'title': 'Non-working exception dates — Rev.00 vs Rev.01',
+        blocks.append({'title': 'Calendar exception dates — Rev.00 vs Rev.01',
                        'note': 'Neither revision defines any specific non-working exception dates (holidays) on its '
                                'calendars — only the weekly working pattern applies.' + count_note,
                        'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change'],
@@ -741,18 +741,27 @@ def _manpower_blocks(report):
                  'note': 'Neither revision carries resource man-hours — reported as not applicable.',
                  'headers': ['Manpower'], 'rows': [['Not applicable']]}]
 
-    # Peak-on-site KPIs (comment 5) — busiest month before/after and the total man-hours change.
+    # Total man-hours + peak-on-site KPIs (round-14 / comment 5) — total planned man-hours in
+    # each revision (from P6 planned units) and their % change, then the busiest month on site.
     peak = c.get('peak') or {}
     mt0 = c.get('manhours_total') or {}
     pct = mt0.get('pct')
+    mh0, mh1 = mt0.get('rev0'), mt0.get('rev1')
     kpi_rows = [
+        ['Total man-hours · Rev.00',
+         _num(round(mh0)) if isinstance(mh0, (int, float)) and not isinstance(mh0, bool) else '—',
+         'from P6 planned units'],
+        ['Total man-hours · Rev.01',
+         _num(round(mh1)) if isinstance(mh1, (int, float)) and not isinstance(mh1, bool) else '—',
+         'from P6 planned units'],
+        ['Change',
+         (f"{_sgn(round(pct, 1), '%')}" if isinstance(pct, (int, float)) else '—'), 'Rev.00 → Rev.01'],
         ['Rev.00 peak on site', _num(int(round(peak.get('rev0') or 0))), _txt(peak.get('rev0_month'), '—')],
         ['Rev.01 peak on site', _num(int(round(peak.get('rev1') or 0))), _txt(peak.get('rev1_month'), '—')],
-        ['Total man-hours change',
-         (f"{_sgn(round(pct, 1), '%')}" if isinstance(pct, (int, float)) else '—'), 'Rev.00 → Rev.01'],
     ]
-    blocks_pre = [{'title': 'Manpower on site — peak & total',
-                   'note': 'Peak people on site (busiest month) in each revision and the total man-hours change.',
+    blocks_pre = [{'title': 'Manpower on site — total man-hours & peak',
+                   'note': 'Total planned man-hours in each revision (from P6 planned units) and the % change, '
+                           'plus the peak people on site (busiest month) in each revision.',
                    'headers': ['Metric', 'Value', 'When / basis'],
                    'rows': kpi_rows}]
 

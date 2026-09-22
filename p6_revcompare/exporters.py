@@ -913,11 +913,13 @@ def _cal_narrative(patterns):
         if not ex:
             continue
         for e in ex:
-            chg = e.get('change')
+            chg = str(e.get('change') or '')
             if chg == 'now working':
                 cell = '<span class="tag add">now working</span>'
             elif chg == 'now non-working':
                 cell = '<span class="tag rem">now non-working</span>'
+            elif 'h →' in chg or 'h ->' in chg:      # "6h → 8h" reduced/restored hours
+                cell = f'<span class="tag chg">{_e(chg)}</span>'
             else:
                 cell = '<span class="mut">same</span>'
             rows += (f'<tr><td>{_e(p.get("name"))}</td><td class="mono">{_e(e.get("date"))}</td>'
@@ -925,7 +927,8 @@ def _cal_narrative(patterns):
                      f'<td>{cell}</td></tr>')
         now_w = [e.get('date') for e in ex if e.get('change') == 'now working']
         now_n = [e.get('date') for e in ex if e.get('change') == 'now non-working']
-        if now_w or now_n:
+        hrs = [e for e in ex if 'h →' in str(e.get('change') or '')]
+        if now_w or now_n or hrs:
             any_flip = True
         parts = []
         if now_w:
@@ -934,6 +937,8 @@ def _cal_narrative(patterns):
         if now_n:
             parts.append(f'<b>{_e(", ".join(now_n))}</b> {"was a working day" if len(now_n) == 1 else "were working days"} '
                          f'in Rev.00 and {"is now non-working" if len(now_n) == 1 else "are now non-working"} in Rev.01')
+        for e in hrs:
+            parts.append(f'<b>{_e(e.get("date"))}</b> changed from {_e(e.get("rev0"))} to {_e(e.get("rev1"))}')
         if parts:
             lines.append(f'In the <b>{_e(p.get("name"))}</b> calendar, {"; ".join(parts)}.')
     # Per-revision non-working-date counts (parity with the screen summary).
@@ -944,8 +949,8 @@ def _cal_narrative(patterns):
             counts.append(f'{_e(p.get("name"))}: {_num(nc.get("rev0") or 0)} non-working date(s) in Rev.00 · '
                           f'{_num(nc.get("rev1") or 0)} in Rev.01')
     count_txt = f' <span class="mut">({" · ".join(counts)})</span>' if counts else ''
-    hdr = ('<div class="sec" style="margin-top:12px"><b>Non-working exception dates</b> — every non-working '
-           f'date in either revision, changed dates highlighted (Rev.00 → Rev.01){count_txt}</div>')
+    hdr = ('<div class="sec" style="margin-top:12px"><b>Calendar exception dates</b> — non-working days &amp; '
+           f'reduced-hours days in either revision, changes highlighted (Rev.00 → Rev.01){count_txt}</div>')
     if not rows:
         # No specific exception dates, but the calendars were still compared — say so (parity with screen).
         if counts:
@@ -954,11 +959,11 @@ def _cal_narrative(patterns):
         return ''
     head = '<tr><th>Calendar</th><th>Date</th><th>Rev.00</th><th>Rev.01</th><th>Change</th></tr>'
     if any_flip:
-        narr = ('<div class="callout"><b>Non-working date changes:</b><ul style="margin:6px 0 0;padding-left:18px">'
+        narr = ('<div class="callout"><b>Calendar date changes:</b><ul style="margin:6px 0 0;padding-left:18px">'
                 + ''.join(f'<li>{l}</li>' for l in lines) + '</ul></div>')
     else:
-        narr = ('<div class="callout">The non-working exception dates are the <b>same</b> in both revisions '
-                '— no date was added or removed.</div>')
+        narr = ('<div class="callout">The calendar exception dates (non-working days and reduced-hours days) are the '
+                '<b>same</b> in both revisions — none was added, removed or re-houred.</div>')
     return hdr + _tbl(head, rows) + narr
 
 
@@ -1233,10 +1238,25 @@ _RES_TAG = {'added': ('add', 'Added'), 'removed': ('rem', 'Removed'),
 def _ba_bars(rows, fmt):
     """Before/after horizontal bars — Rev.00 over Rev.01 per resource, biggest movers first, with
     Added (green) / Removed (red) called out and the variance at the end (comments 5 & 6). ``rows``:
-    [{name, rev0, rev1, kind}]. ``fmt``: value formatter."""
+    [{name, rev0, rev1, kind, code?}]. ``fmt``: value formatter.
+
+    Round 14 — the value label is NEVER trimmed: it sits INSIDE the bar (right-aligned, light text)
+    when the bar is wide enough (> ~26%), otherwise just PAST the bar end (dark text). Each bar
+    carries a small Rev.00 / Rev.01 label to its left so a before/after pair never reads as
+    duplicated work, and a row's ``code`` (the P6 resource id) prints as a muted sub-line under the
+    resource name to disambiguate same-named resources."""
     if not rows:
         return ''
     mx = max([max(r.get('rev0', 0) or 0, r.get('rev1', 0) or 0) for r in rows] + [1])
+
+    def _val(w, x, ink):
+        # value inside the bar (right-aligned) when the bar is wide enough, else just past its end
+        if w > 26:
+            style = f'left:calc({w:.1f}% - 6px);transform:translateX(-100%);color:{ink}'
+        else:
+            style = f'left:calc({w:.1f}% + 6px);color:var(--rpt-ink-soft)'
+        return f'<span class="bval" style="{style}">{_e(fmt(x)) if x else ""}</span>'
+
     out = ''
     for r in rows:
         a, b = r.get('rev0', 0) or 0, r.get('rev1', 0) or 0
@@ -1247,10 +1267,18 @@ def _ba_bars(rows, fmt):
         b0cls = ' rem' if removed else ''
         b1cls = ' add' if added else ''
         vcls = 'up' if v >= 0 else 'down'
-        out += (f'<div class="barow"><div class="balbl" title="{_e(r.get("name"))}">{_e(r.get("name"))}</div>'
+        code = r.get('code')
+        code_html = f'<span class="bacode" title="{_e(code)}">{_e(code)}</span>' if code else ''
+        out += (f'<div class="barow"><div class="balbl">'
+                f'<span class="bnm" title="{_e(r.get("name"))}">{_e(r.get("name"))}</span>{code_html}</div>'
                 f'<div class="baw"><div class="babars">'
-                f'<div class="baseg b0{b0cls}" style="width:{wa:.1f}%">{_e(fmt(a)) if a else ""}</div>'
-                f'<div class="baseg b1{b1cls}" style="width:{wb:.1f}%">{_e(fmt(b)) if b else ""}</div></div>'
+                f'<div class="brow"><span class="blab">Rev.00</span><div class="btrack">'
+                f'<div class="baseg b0{b0cls}" style="width:{wa:.1f}%"></div>'
+                f'{_val(wa, a, "var(--rpt-ink-soft)")}</div></div>'
+                f'<div class="brow"><span class="blab r1">Rev.01</span><div class="btrack">'
+                f'<div class="baseg b1{b1cls}" style="width:{wb:.1f}%"></div>'
+                f'{_val(wb, b, "var(--rpt-accent-ink)")}</div></div>'
+                f'</div>'
                 f'<span class="bavar {vcls}">{"+" if v >= 0 else ""}{_e(fmt(v))}</span></div></div>')
     return f'<div class="babarlist">{out}</div>'
 
@@ -1276,7 +1304,11 @@ def _reg_resources(report):
 
     def _ufmt(x):
         return f'{int(round(x)):,}'
-    bars = _ba_bars(totals, _ufmt)
+    # Round 14 — carry each resource's P6 id as ``code`` so same-named resources (e.g. LAB-01 vs
+    # LAB-07 "Steelfixers") are told apart in the before/after bars.
+    bar_rows = [{'name': t.get('name'), 'rev0': t.get('rev0'), 'rev1': t.get('rev1'),
+                 'kind': t.get('kind'), 'code': t.get('id')} for t in totals]
+    bars = _ba_bars(bar_rows, _ufmt)
     legend = ('<div class="legend"><span><b class="sw-r0"></b>Rev.00 units</span>'
               '<span><b class="sw-r1"></b>Rev.01 units</span>'
               '<span><b class="sw-good"></b>Added</span><span><b class="sw-bad"></b>Removed</span></div>')
@@ -1346,7 +1378,7 @@ def _sec_manpower(report, filters=None):
     step = plot_w / max(n, 1)
     bw = min(18, step * 0.30)
     baseY = top + plot_h
-    thin = 2 if step < 34 else 1
+    thin = 1  # round 14 — label EVERY month (was thinned on tight axes)
 
     seg = ''
     for i in range(n):
@@ -1376,28 +1408,39 @@ def _sec_manpower(report, filters=None):
               '<span style="color:var(--rpt-bad)">▲ more than Rev.00</span>'
               '<span style="color:var(--rpt-good)">▼ fewer than Rev.00</span></div>')
 
-    # Peak-on-site KPIs + total man-hours change (comment 5).
+    # Total-man-hours KPIs (round 14) — the trio now reports total planned man-hours (the sum of P6
+    # planned units, so each figure equals what P6 reports), with peak-on-site kept as a note line.
     peak = c.get('peak') or {}
     mh = c.get('manhours_total') or {}
+    mh0 = int(round(mh.get('rev0') or 0))
+    mh1 = int(round(mh.get('rev1') or 0))
     pct = mh.get('pct')
     pct_txt = '—' if pct is None else f'{"+" if pct > 0 else ""}{pct:.1f}%'
     pct_cls = ' hot' if (pct or 0) > 0 else ''
-    p0 = int(round(peak.get('rev0') or 0))
-    p1 = int(round(peak.get('rev1') or 0))
     kpis = (
         '<div class="mpk">'
-        f'<div class="mpkc"><div class="mpkk">Rev.00 peak on site</div><div class="mpkv">{p0:,}</div>'
-        f'<div class="mpks">{_e("in " + peak.get("rev0_month")) if peak.get("rev0_month") else ""}</div></div>'
-        f'<div class="mpkc"><div class="mpkk">Rev.01 peak on site</div><div class="mpkv{" hot" if p1 > p0 else ""}">{p1:,}</div>'
-        f'<div class="mpks">{_e("in " + peak.get("rev1_month")) if peak.get("rev1_month") else ""}</div></div>'
-        f'<div class="mpkc"><div class="mpkk">Total man-hours</div><div class="mpkv{pct_cls}">{pct_txt}</div>'
+        f'<div class="mpkc"><div class="mpkk">Total man-hours · Rev.00</div><div class="mpkv">{mh0:,}</div>'
+        f'<div class="mpks">from P6 planned units</div></div>'
+        f'<div class="mpkc"><div class="mpkk">Total man-hours · Rev.01</div><div class="mpkv{" hot" if mh1 > mh0 else ""}">{mh1:,}</div>'
+        f'<div class="mpks">from P6 planned units</div></div>'
+        f'<div class="mpkc"><div class="mpkk">Change</div><div class="mpkv{pct_cls}">{pct_txt}</div>'
         f'<div class="mpks">Rev.00 → Rev.01</div></div></div>')
     note = ('<div class="sec">Each month shows Rev.00 (grey) and Rev.01 (blue) people on site side by '
-            'side; the number above each pair is the difference (Rev.01 − Rev.00). "Peak on site" is '
-            'the busiest month. The trade breakdown is the resource-mix chart below.</div>')
+            'side; the number above each pair is the difference (Rev.01 − Rev.00). The total man-hours '
+            'are the sum of P6 planned units, so they match P6. The trade breakdown is the resource-mix '
+            'chart below.</div>')
+    p0 = int(round(peak.get('rev0') or 0))
+    p1 = int(round(peak.get('rev1') or 0))
+    m0 = peak.get('rev0_month')
+    m1 = peak.get('rev1_month')
+    peaknote = ''
+    if peak.get('rev0') or peak.get('rev1'):
+        peaknote = (f'<div class="sec" style="margin-top:2px">Peak on site: <b>{p0:,}</b>'
+                    f'{_e(" in " + m0) if m0 else ""} (Rev.00) → <b>{p1:,}</b>'
+                    f'{_e(" in " + m1) if m1 else ""} (Rev.01).</div>')
     chart_card = _card('Manpower on site per month',
                        'Rev.00 vs Rev.01 side by side · the difference labelled',
-                       kpis + note + svg + legend)
+                       kpis + note + peaknote + svg + legend)
 
     # Resource mix — total man-hours by trade, Rev.00 → Rev.01.
     mix = c.get('manhours_by_trade') or []
@@ -1407,7 +1450,8 @@ def _sec_manpower(report, filters=None):
             x = x or 0
             return f'{round(x / 1000)}k' if abs(x) >= 1000 else f'{int(round(x)):,}'
         mrows = [{'name': t.get('name') or t.get('resource_id'), 'rev0': t.get('rev0'),
-                  'rev1': t.get('rev1'), 'kind': t.get('kind')} for t in mix]
+                  'rev1': t.get('rev1'), 'kind': t.get('kind'), 'code': t.get('resource_id')}
+                 for t in mix]
         mbars = _ba_bars(mrows, _mhfmt)
         mlegend = ('<div class="legend"><span><b class="sw-r0"></b>Rev.00 man-hours</span>'
                    '<span><b class="sw-r1"></b>Rev.01 man-hours</span></div>')
@@ -1654,14 +1698,21 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .rchip.chg { background: var(--rpt-warn-bg); color: var(--rpt-warn); border-color: var(--rpt-warn); }
 .babarlist { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
 .barow { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: center; }
-.balbl { font-size: 11px; font-weight: 600; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--rpt-ink-soft); }
+.balbl { font-size: 11px; font-weight: 600; text-align: right; color: var(--rpt-ink-soft); min-width: 0; }
+.balbl .bnm { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.balbl .bacode { display: block; font-size: 9px; font-weight: 700; color: var(--rpt-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .baw { display: flex; align-items: center; gap: 10px; }
 .babars { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
-.baseg { height: 14px; border-radius: 4px; min-width: 2px; display: flex; align-items: center; padding: 0 6px; font-size: 9px; font-weight: 800; color: #fff; box-sizing: border-box; white-space: nowrap; }
-.baseg.b0 { background: var(--rpt-hair-strong); color: var(--rpt-ink-soft); }
+.brow { display: flex; align-items: center; gap: 6px; }
+.blab { width: 30px; flex-shrink: 0; text-align: right; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--rpt-muted); }
+.blab.r1 { color: var(--rpt-accent); }
+.btrack { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; }
+.baseg { height: 14px; border-radius: 4px; min-width: 2px; box-sizing: border-box; }
+.baseg.b0 { background: var(--rpt-hair-strong); }
 .baseg.b1 { background: var(--rpt-accent); }
-.baseg.b0.rem { background: var(--rpt-bad); color: #fff; }
+.baseg.b0.rem { background: var(--rpt-bad); }
 .baseg.b1.add { background: var(--rpt-good); }
+.bval { position: absolute; font-size: 9px; font-weight: 800; white-space: nowrap; pointer-events: none; }
 .bavar { font-size: 11px; font-weight: 800; white-space: nowrap; flex-shrink: 0; }
 .bavar.up { color: var(--rpt-bad); } .bavar.down { color: var(--rpt-good); }
 /* legends + swatches */

@@ -32,14 +32,16 @@ def _assign_by_code(data):
         if not code:
             continue
         for a in amap.get(oid, []):
-            key = a.get('resource_name') or a.get('resource_id')
+            # Key by the P6 resource CODE (rsrc_short_name / XML Id) — stable across revisions AND
+            # unique, so two resources that merely share a name are NOT merged, and the same resource
+            # matches across Rev.00/Rev.01. Fall back to name then the internal id only when no code.
+            key = a.get('resource_code') or a.get('resource_name') or a.get('resource_id')
             if not key:
                 continue
-            # Displayed id is P6's human Resource Id (resource_code); fall back to the ObjectId only
-            # when the export carries no code, so the table matches what the planner sees in P6.
             disp_id = a.get('resource_code') or a.get('resource_id')
             slot = out.setdefault(code, {}).setdefault(key, {
-                'units': 0.0, 'cost': 0.0, 'rate': a.get('rate'), 'name': key,
+                'units': 0.0, 'cost': 0.0, 'rate': a.get('rate'),
+                'name': a.get('resource_name') or a.get('resource_code') or key,
                 'id': disp_id, 'type': a.get('resource_type')})
             slot['units'] += a.get('budget_units') or 0.0
             slot['cost'] += a.get('budget_cost') or 0.0
@@ -60,14 +62,13 @@ def _resource_totals(a0, a1):
         agg = {}
         for code, res in amap.items():
             for key, slot in res.items():
-                g = agg.setdefault(key, {'units': 0.0, 'acts': set(),
+                g = agg.setdefault(key, {'units': 0.0, 'acts': set(), 'name': slot.get('name'),
                                          'id': slot.get('id'), 'type': slot.get('type')})
                 g['units'] += slot.get('units') or 0.0
                 g['acts'].add(code)
-                if not g.get('id'):
-                    g['id'] = slot.get('id')
-                if not g.get('type'):
-                    g['type'] = slot.get('type')
+                for f in ('id', 'name', 'type'):
+                    if not g.get(f):
+                        g[f] = slot.get(f)
         return agg
     g0, g1 = roll(a0), roll(a1)
     rows = []
@@ -86,7 +87,7 @@ def _resource_totals(a0, a1):
             kind = 'unchanged'
         meta = s1 or s0
         rows.append({
-            'id': meta.get('id') or '', 'name': str(key), 'type': meta.get('type') or '',
+            'id': meta.get('id') or '', 'name': meta.get('name') or str(key), 'type': meta.get('type') or '',
             'rev0': u0, 'rev1': u1, 'var': round(u1 - u0, 1),
             'activities': acts, 'kind': kind,
         })
@@ -172,19 +173,21 @@ def diff_resources(rev0, rev1, matched):
             for key in sorted(set(r0) | set(r1)):
                 s0, s1 = r0.get(key), r1.get(key)
                 name = matched.update_by_code.get(code, {}).get('name') or code
-                rid = (s1 or s0).get('id') or ''   # P6 human Resource Id for the detail table
+                meta = s1 or s0
+                rname = meta.get('name') or key           # resource display NAME
+                rid = meta.get('id') or ''                 # P6 human Resource Id (code)
                 if s1 and not s0:
                     res_added += 1
-                    assignment_changes.append(_arow(code, name, 'added', key, '—', _units(s1), rid))
+                    assignment_changes.append(_arow(code, name, 'added', rname, '—', _units(s1), rid))
                 elif s0 and not s1:
                     res_removed += 1
-                    assignment_changes.append(_arow(code, name, 'removed', key, _units(s0), '—', rid))
+                    assignment_changes.append(_arow(code, name, 'removed', rname, _units(s0), '—', rid))
                 else:
                     if abs((s0['units'] or 0) - (s1['units'] or 0)) > 0.5:
                         units_changed += 1
-                        assignment_changes.append(_arow(code, name, 'units', key, _units(s0), _units(s1), rid))
+                        assignment_changes.append(_arow(code, name, 'units', rname, _units(s0), _units(s1), rid))
                     elif _rate(s0) != _rate(s1) and (s0.get('rate') is not None or s1.get('rate') is not None):
-                        assignment_changes.append(_arow(code, name, 'rate', key, _rate(s0), _rate(s1), rid))
+                        assignment_changes.append(_arow(code, name, 'rate', rname, _rate(s0), _rate(s1), rid))
 
     resource_totals = _resource_totals(a0, a1) if resource_available else []
     tot_added = sum(1 for r in resource_totals if r['kind'] == 'added')
