@@ -2826,6 +2826,29 @@
       "blurb": "Turning the analysis into the weekly/monthly story for the team, client and board.",
       "questions": [
         {
+          "q": "Create a professional dashboard",
+          "grounds": "In-chat EVM command board — time status, planned vs actual %, Earned Value vs Planned Value and the gap by activity code, SPI/CPI, and the cost-loading S-curve — all as charts.",
+          "status": "today",
+          "answer_sketch": "Builds a grounded one-page executive dashboard from the imported schedule, in three formats.",
+          "roles": [
+            "Project Manager",
+            "Planning Manager",
+            "Project Director",
+            "Technical Office Manager",
+            "Commercial / Cost Manager",
+            "Senior Planner"
+          ],
+          "role_keys": [
+            "pm",
+            "plmgr",
+            "pd",
+            "tom",
+            "commercial",
+            "planner"
+          ],
+          "answer_full": "Ask me to “create a professional dashboard” and I build a one-page Earned-Value command board straight from your imported P6 file: a health verdict with SPI, six KPI tiles (SPI, CPI, % complete, delay, earned value, planned value), the cost-loading S-curve (planned value vs earned value vs the forecast to completion), SPI/CPI gauges, a time-status bar, planned-vs-actual by discipline, and the EV-vs-PV gap broken down to the activity codes driving it. Every figure is computed from your schedule — nothing invented — and you can switch between three presentation formats (Executive, Midnight, Blueprint). It works offline and needs no AI model, because the dashboard is calculated, not written."
+        },
+        {
           "q": "Put together a one-page summary I can drop in front of the board.",
           "grounds": "Reporting Studio, EVM",
           "status": "today",

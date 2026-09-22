@@ -134,9 +134,6 @@ function ensureCss() {
   .pchat-mchip:hover{border-color:var(--accent)}
   .pchat-mchip.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
   .pchat-mchip .sz{display:block;font-size:10.5px;color:var(--muted)}
-  .pchat-quick{display:flex;gap:8px;flex-wrap:wrap;margin-top:-2px}
-  .pchat-qbtn{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-dark);font-weight:650;font-size:12.5px;border-radius:999px;padding:7px 14px;cursor:pointer;font-family:inherit}
-  .pchat-qbtn:hover{background:var(--accent);color:#fff}
   [hidden]{display:none!important}
   `;
   document.head.appendChild(s);
@@ -806,9 +803,6 @@ export async function renderChat() {
         <textarea id="pchat-input" rows="1" placeholder="Ask anything about your schedule…"></textarea>
         <button class="send" id="pchat-send" title="Send">↑</button>
       </div>
-      <div class="pchat-quick">
-        <button class="pchat-qbtn" data-dash="1">📊 Create a professional dashboard</button>
-      </div>
       <div class="pchat-lib">
         <div class="lh">📚 Question Library — <b id="pchat-total">…</b> questions a PM might ask</div>
         <div class="lsub">Click any question to answer it — grounded in your data + a planning manager's read.</div>
@@ -830,7 +824,6 @@ export async function renderChat() {
   if (!host._pchatWired) {
     host._pchatWired = true;
     host.addEventListener('click', (e) => {
-      const dq = e.target.closest('[data-dash]'); if (dq) { askDashboard('Create me a professional dashboard for this schedule.'); return; }
       const q = e.target.closest('.pchat-q'); if (q) { ask(q.dataset.q); return; }
       const rc = e.target.closest('[data-role]'); if (rc) { ROLE = rc.dataset.role; renderRoles(); applyFilter(); return; }
       const sc = e.target.closest('#pchat-status [data-s]'); if (sc) {

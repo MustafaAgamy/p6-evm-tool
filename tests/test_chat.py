@@ -28,11 +28,11 @@ SAMPLE = {
 def test_library_loads_full_catalogue():
     lib = library.library()
     total = sum(len(t['questions']) for t in lib['themes'])
-    assert total == 168
+    assert total == 169
     assert len(lib['themes']) == 16
     assert len(lib['roles']) == 8
-    assert lib['counts']['total'] == 168
-    assert lib['counts']['today'] + lib['counts']['in_progress'] + lib['counts']['gap'] == 168
+    assert lib['counts']['total'] == 169
+    assert lib['counts']['today'] + lib['counts']['in_progress'] + lib['counts']['gap'] == 169
 
 
 def test_library_roles_have_counts_and_no_answers_leak():
