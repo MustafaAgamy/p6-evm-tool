@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ['evm','Earned Value'], ['oos','Out of Sequence'], ['update','Update Analysis'], ['critpath','Critical Path'],
     ]},
     { group:'Compare & Claims', items:[
-      ['period','Update vs Update'], ['compare','Consultant Review'], ['revcompare','Baseline Revision','revcompare'], ['chat','AI Chat','ai'],
+      ['period','Update vs Update'], ['compare','Consultant Review'], ['revcompare','Baseline Revision','revcompare'],
     ]},
     { group:'Calendars & Weather', items:[
       ['calendar','P6 Calendar Audit','calendar'], ['weather','Bad Weather','weather'],
@@ -364,6 +364,20 @@ document.addEventListener('DOMContentLoaded', () => {
     openView(id); setCrumb(id); markNav(id);
     document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  // The AI Chat is a standalone assistant reached from the top menu bar — it opens with NO
+  // prior import (the planner sends the P6 file inside the chat), so it must NOT go through
+  // openFeatureById's "import a schedule first" gate.
+  function openChat() {
+    exitDatabase(); exitRecent(); exitProdIntel();
+    document.getElementById('import-section')?.classList.add('hidden');
+    document.getElementById('results-section')?.classList.remove('hidden');
+    document.getElementById('analysis-chooser')?.classList.add('hidden');
+    document.getElementById('analysis-views')?.classList.remove('hidden');
+    openView('chat'); setCrumb('chat');
+    document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  document.getElementById('mb-ai-chat')?.addEventListener('click', openChat);
 
   menubar.addEventListener('click', (e) => {
     const m = e.target.closest('.menu'); if (!m) return;

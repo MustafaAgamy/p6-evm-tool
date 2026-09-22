@@ -11,7 +11,8 @@
 // app's appearance tokens (--card-bg / --border / --text / --accent / --muted),
 // so it themes correctly in all six looks with no edits to style.css.
 import { state } from './state.js';
-import { escapeHtml } from './format.js';
+import { escapeHtml, fmtDate } from './format.js';
+import { importFile } from './api.js';
 
 let LIB = null;         // {themes, roles, gaps, counts}
 let BRAIN = null;       // brain status
@@ -87,6 +88,16 @@ function ensureCss() {
   .pchat-composer textarea{flex:1;border:0;outline:0;resize:none;background:transparent;color:var(--text);font:inherit;font-size:14px;max-height:120px;min-height:22px;padding:5px 0}
   .pchat-composer .send{flex:0 0 auto;width:34px;height:34px;border-radius:9px;border:0;background:var(--accent);color:#fff;font-size:16px;cursor:pointer}
   .pchat-composer .send:hover{background:var(--accent-dark)}.pchat-composer .send:disabled{opacity:.5;cursor:default}
+  .pchat-composer .attach{flex:0 0 auto;width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card-bg);color:var(--ink-soft);font-size:15px;cursor:pointer}
+  .pchat-composer .attach:hover{border-color:var(--accent);color:var(--accent)}
+  .pchat-dropcta{display:flex;flex-direction:column;align-items:center;gap:7px;padding:30px 18px}
+  .pchat-dropcta .pchat-cta-mk{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;color:#fff;font-size:22px;background:linear-gradient(135deg,var(--accent),#7c5cff);margin-bottom:2px}
+  .pchat-dropcta b{color:var(--text);font-size:15px}
+  .pchat-dropcta .pchat-cta-sub{font-size:12.5px;color:var(--muted)}
+  .pchat-dropcta .pchat-cta-btn{border:1px solid var(--accent);background:var(--accent);color:#fff;font-weight:700;font-size:13px;border-radius:10px;padding:9px 16px;cursor:pointer;font-family:inherit;margin-top:2px}
+  .pchat-dropcta .pchat-cta-btn:hover{background:var(--accent-dark)}
+  .pchat-dropcta .pchat-cta-note{font-size:11px;color:var(--muted);max-width:340px;line-height:1.5;margin-top:4px}
+  .pchat.dragging,.pchat-dragging .pchat-thread{outline:2px dashed var(--accent);outline-offset:3px;background:var(--accent-soft)}
 
   .pchat-lib{border:1px solid var(--border);background:var(--card-bg);border-radius:12px;padding:14px 16px}
   .pchat-lib .lh{font-size:13.5px;font-weight:750;color:var(--text);text-align:center}
@@ -194,6 +205,56 @@ function addAiShell() {
     <div class="pchat-think"><span class="d"></span><span class="d"></span><span class="d"></span> Reading your schedule…</div></div>`;
   t.appendChild(turn); scrollThread();
   return turn.querySelector('.pchat-body');
+}
+
+function addAiMessage(html) {
+  const t = thread(); if (!t) return;
+  const empty = t.querySelector('.pchat-empty'); if (empty) empty.remove();
+  const turn = document.createElement('div'); turn.className = 'pchat-turn';
+  turn.innerHTML = `<div class="pchat-av ai">✦</div><div class="pchat-body">
+    <div class="pchat-who">AI Chat</div><div class="pchat-stream"></div></div>`;
+  turn.querySelector('.pchat-stream').innerHTML = html;
+  t.appendChild(turn); scrollThread();
+}
+
+// Send a P6 file INSIDE the chat: reuse the app's parse+compute (importFile) but stay in the
+// chat and re-render it grounded — no separate "import first" step, no jump to the EVM panel.
+async function sendFile(path) {
+  if (!path || BUSY) return;
+  BUSY = true; setSendEnabled(false);
+  try {
+    const nm = String(path).split(/[\\/]/).pop();
+    const t = thread();
+    if (t) t.innerHTML = `<div class="pchat-empty"><div class="pchat-think"><span class="d"></span><span class="d"></span><span class="d"></span> Reading ${escapeHtml(nm)}…</div></div>`;
+    let data;
+    try { data = await importFile(path, { showSpinner: false, onLoaded: () => {} }); }
+    catch (e) { data = { ok: false, error: String((e && e.message) || e) }; }
+    if (!data || !data.ok) {
+      if (t) t.innerHTML = `<div class="pchat-empty">I couldn’t read that file. ${escapeHtml((data && data.error) || 'Send a .xer or .xml exported from Primavera P6.')}</div>`;
+      return;
+    }
+    await renderChat();                       // re-render grounded (thread + library + composer)
+    const r = data.result || {};
+    const bits = [];
+    if (r.data_date) { try { bits.push('data date ' + fmtDate(r.data_date)); } catch (_) { /* leave out */ } }
+    if (r.spi != null) bits.push('SPI ' + Number(r.spi).toFixed(2));
+    if (r.delay_days != null) bits.push((r.delay_days > 0 ? '+' : '') + r.delay_days + ' wd vs baseline');
+    addAiMessage(`✓ Loaded <b>${escapeHtml(nm)}</b>${bits.length ? ' — ' + escapeHtml(bits.join(' · ')) : ''}.<br>Ask me anything, or pick a question from the library below.`);
+  } finally {
+    BUSY = false; setSendEnabled(true);
+  }
+}
+
+// Open the native file picker and send the chosen P6 file (WebView2/pywebview).
+async function pickAndSend() {
+  try {
+    if (!(window.pywebview && window.pywebview.api && window.pywebview.api.choose_file)) {
+      addAiMessage('File picker isn’t available here — drag a <b>.xer</b>/<b>.xml</b> onto the chat instead.');
+      return;
+    }
+    const path = await window.pywebview.api.choose_file();
+    if (path) sendFile(path);
+  } catch (_) { /* cancelled / unavailable */ }
 }
 
 function renderCharts(charts) {
@@ -1224,11 +1285,18 @@ export async function renderChat() {
       </div>
       ${setupCardHtml()}
       <div class="pchat-thread" id="pchat-thread">
-        <div class="pchat-empty">${loaded
-          ? '<b>Ask me anything about this schedule.</b><br>Pick a question below (choose your job role to focus it), or type your own.'
-          : '<b>Import a P6 schedule first.</b><br>Then I can read it and answer — the library of questions is below.'}</div>
+        ${loaded
+          ? '<div class="pchat-empty"><b>Ask me anything about this schedule.</b><br>Pick a question below (choose your job role to focus it), or type your own.</div>'
+          : `<div class="pchat-empty pchat-dropcta">
+               <div class="pchat-cta-mk">✦</div>
+               <b>Send me your P6 schedule to analyse.</b>
+               <div class="pchat-cta-sub">Drag an <b>.xer</b> or <b>.xml</b> file anywhere here, or</div>
+               <button class="pchat-cta-btn" id="pchat-attach-cta">📎 Choose a P6 file…</button>
+               <div class="pchat-cta-note">Offline — nothing leaves your PC. No separate import needed; the question library below lights up once your file is in.</div>
+             </div>`}
       </div>
       <div class="pchat-composer">
+        <button class="attach" id="pchat-attach" title="Send a P6 file (.xer / .xml) to analyse">📎</button>
         <textarea id="pchat-input" rows="1" placeholder="Ask anything about your schedule…"></textarea>
         <button class="send" id="pchat-send" title="Send">↑</button>
       </div>
@@ -1253,6 +1321,7 @@ export async function renderChat() {
   if (!host._pchatWired) {
     host._pchatWired = true;
     host.addEventListener('click', (e) => {
+      const at = e.target.closest('#pchat-attach, #pchat-attach-cta'); if (at) { pickAndSend(); return; }
       const cop = e.target.closest('.pchat-q[data-cap]'); if (cop) { askCopilot(cop.dataset.cap, cop.dataset.qid, cop.dataset.mode, cop.dataset.q); return; }
       const q = e.target.closest('.pchat-q'); if (q) { ask(q.dataset.q); return; }
       const rc = e.target.closest('[data-role]'); if (rc) { ROLE = rc.dataset.role; renderRoles(); applyFilter(); return; }
@@ -1265,6 +1334,17 @@ export async function renderChat() {
       const setupBtn = e.target.closest('#pchat-setup-btn'); if (setupBtn) { setupBrain(); return; }
     });
     host.addEventListener('input', (e) => { if (e.target && e.target.id === 'pchat-search') applyFilter(); });
+    // Send a P6 file by dropping it anywhere on the chat (reuses the app's file.path drop).
+    host.addEventListener('dragover', (e) => { e.preventDefault(); host.classList.add('pchat-dragging'); });
+    host.addEventListener('dragleave', (e) => { if (!host.contains(e.relatedTarget)) host.classList.remove('pchat-dragging'); });
+    host.addEventListener('drop', (e) => {
+      e.preventDefault(); host.classList.remove('pchat-dragging');
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      if (!/\.(xer|xml)$/i.test(f.name || '')) { addAiMessage('Please send a <b>.xer</b> or <b>.xml</b> file exported from Primavera P6.'); return; }
+      if (f.path) sendFile(f.path);
+      else addAiMessage('The drop didn’t expose the file path here — use the <b>📎</b> button to choose the file instead.');
+    });
   }
   const input = document.getElementById('pchat-input');
   input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; });

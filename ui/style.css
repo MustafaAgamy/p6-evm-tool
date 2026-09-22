@@ -2366,7 +2366,17 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .mb-brand { font-weight: 800; font-size: 14px; letter-spacing: -0.02em; color: var(--text); margin-right: 16px; white-space: nowrap; }
 .menu { padding: 5px 11px; border-radius: 7px; font-size: 13px; color: var(--ink-soft); cursor: default; font-weight: 500; user-select: none; }
 .menu:hover, .menu.open { background: var(--accent-soft); color: var(--text); }
-.mb-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.mb-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+/* AI Chat launcher — prominent, always-available, top menu bar (not in the Project
+   Navigator): the offline assistant opens standalone and takes the P6 file inside the chat. */
+.mb-ai {
+  display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 700;
+  color: #fff; background: linear-gradient(135deg, var(--accent), #7c5cff); border: 0;
+  border-radius: 999px; padding: 5px 14px; cursor: pointer; box-shadow: 0 1px 2px rgba(16,32,55,.12);
+}
+.mb-ai:hover { filter: brightness(1.07); }
+.mb-ai:active { transform: translateY(.5px); }
+.mb-ai .mb-ai-mk { font-size: 13px; line-height: 1; }
 /* Schedule-health status light: dim/neutral before import, lit + labelled once a
    schedule is loaded. Colour reuses the app's RAG tokens so it matches all six
    appearance modes; the SPI/label logic lives in render.js updateStatusLight(). */

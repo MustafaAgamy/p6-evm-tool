@@ -1,5 +1,5 @@
 import { state }                                                  from './state.js';
-import { setLoading, showError, clearError, renderResults, renderHistory } from './render.js';
+import { setLoading, showError, clearError, renderResults, renderHistory, updateStatusLight } from './render.js';
 import { evmInputs }                                             from './evm.js';
 import { showReportPreview }                                     from './preview.js';
 import { getSavedMode }                                          from './appearance.js';
@@ -13,7 +13,7 @@ async function apiFetch(path, options) {
 }
 
 // showSpinner: show the browse-card spinner (true for Browse/drag-drop, false for history opens)
-export async function importFile(filePath, { showSpinner = true } = {}) {
+export async function importFile(filePath, { showSpinner = true, onLoaded = null } = {}) {
   clearError();
   if (showSpinner) setLoading(true);
   try {
@@ -22,15 +22,20 @@ export async function importFile(filePath, { showSpinner = true } = {}) {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ path: filePath, overrides_path: null }),
     });
-    if (!data.ok) { showError(data.error || 'Parse failed.'); return; }
+    if (!data.ok) { showError(data.error || 'Parse failed.'); return data; }
     state.currentResult      = data.result;
     state.currentXmlPath     = filePath;
     state.currentCachedPath  = data.cached_path || null;
     state.currentSnapshotId  = data.snapshot_id || null;
     state.compareReport      = null;   // a new schedule invalidates any prior comparison
     state.compareBaselineName = null;
-    renderResults(data.result, filePath, { previousImport: data.previous_import || null });
+    // `onLoaded` lets a caller (the AI Chat) reuse the whole parse+state+history path but
+    // stay in its own view — sending a P6 file inside the chat should NOT jump to the EVM
+    // results panel. It still lights the menu-bar status light so the app stays consistent.
+    if (onLoaded) { updateStatusLight(data.result); onLoaded(data); }
+    else { renderResults(data.result, filePath, { previousImport: data.previous_import || null }); }
     await loadHistory();
+    return data;
   } catch {
     showError('Could not reach the local server. Try restarting the app.');
   } finally {
