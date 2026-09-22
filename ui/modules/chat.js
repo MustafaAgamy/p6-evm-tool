@@ -587,6 +587,423 @@ function isDashboardIntent(q) {
       || new RegExp('^\\s*(?:a|an|the|my|professional|project)?\\s*' + noun + '\\s*[.!?]*\\s*$', 'i').test(s);
 }
 
+// ── Copilot "expert analysis" (in-chat) ──────────────────────────────────────
+// The library's expert questions are tagged with a capability (cap) that routes
+// them to the deterministic Copilot backend instead of the free-text /ask path.
+// Every answer is grounded — computed on the user's PC from the open schedule.
+// Colours read the app's appearance tokens so it themes with the rest of the app.
+function ensureCopilotCss() {
+  if (document.getElementById('pcp-css')) return;
+  const s = document.createElement('style');
+  s.id = 'pcp-css';
+  s.textContent = `
+  .pcp-card{border:1px solid var(--border);background:var(--card-bg);border-radius:12px;padding:14px 16px;color:var(--text);font-size:14px;line-height:1.6;display:flex;flex-direction:column;gap:11px}
+  .pcp-lead{font-size:15px;font-weight:750;color:var(--text)}
+  .pcp-lead b{color:var(--accent)}
+  .pcp-body{color:var(--text)}
+  .pcp-body p{margin:0 0 8px}.pcp-body p:last-child{margin:0}
+  .pcp-advice{border:1px solid var(--border);background:var(--hair);border-radius:10px;padding:10px 12px}
+  .pcp-advice h5{margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--accent)}
+  .pcp-advice ul{margin:0;padding-left:18px}.pcp-advice li{margin:3px 0}
+  .pcp-evi{display:flex;gap:7px;flex-wrap:wrap}
+  .pcp-chip{display:inline-flex;gap:5px;align-items:baseline;font-size:11.5px;border:1px solid var(--border);background:var(--accent-soft);color:var(--text);border-radius:999px;padding:4px 10px}
+  .pcp-chip b{color:var(--accent);font-weight:700}
+  .pcp-note{font-size:11.5px;color:var(--muted);font-style:italic}
+  .pcp-insights{margin:0;padding-left:18px;font-size:12.5px;color:var(--text)}.pcp-insights li{margin:3px 0}
+  .pcp-tia-head{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+  .pcp-tia-fin{flex:1;min-width:118px;border:1px solid var(--border);border-radius:9px;padding:8px 10px;background:var(--hair)}
+  .pcp-tia-fin .k{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  .pcp-tia-fin .v{display:block;font-size:15px;font-weight:750;color:var(--text)}
+  .pcp-tia-fin .s{display:block;font-size:11px;color:var(--muted)}
+  .pcp-tia-fin.worst .v{color:#c0392b}
+  .pcp-wf{display:flex;height:20px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--hair)}
+  .pcp-wf-seg{height:100%}
+  .pcp-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+  .pcp-legend i{display:inline-block;width:11px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+  .pcp-legend b{color:var(--text)}
+  .pcp-wi-note{font-size:12px;color:var(--muted)}
+  .pcp-wi-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .pcp-wi-field{display:flex;flex-direction:column;gap:4px;position:relative}
+  .pcp-wi-field>span{font-weight:700;letter-spacing:.3px;text-transform:uppercase;font-size:10px;color:var(--muted)}
+  .pcp-select,.pcp-input{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;outline:0}
+  .pcp-select:focus,.pcp-input:focus{border-color:var(--accent)}
+  .pcp-wi-act{min-width:220px;flex:1}.pcp-wi-act .pcp-input{width:100%}
+  .pcp-wi-days .pcp-input{width:92px}
+  .pcp-ta{position:absolute;top:100%;left:0;right:0;z-index:30;margin-top:3px;max-height:210px;overflow:auto;border:1px solid var(--border);background:var(--card-bg);border-radius:9px;box-shadow:0 8px 22px rgba(0,0,0,.14)}
+  .pcp-ta-item{padding:7px 10px;font-size:12.5px;color:var(--text);cursor:pointer}
+  .pcp-ta-item:hover{background:var(--hair)}
+  .pcp-ta-item b{color:var(--accent)}
+  .pcp-ta-ms{font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:0 4px;margin-left:4px}
+  .pcp-btn{border:1px solid var(--accent);background:var(--accent);color:#fff;font-weight:700;font-size:12.5px;border-radius:9px;padding:9px 14px;cursor:pointer;font-family:inherit}
+  .pcp-btn:hover{background:var(--accent-dark)}
+  .pcp-btn:disabled{opacity:.55;cursor:default}
+  .pcp-btn.ghost{background:transparent;color:var(--accent-dark);border-color:var(--border)}
+  .pcp-wi-result{border-top:1px dashed var(--border);padding-top:11px;display:flex;flex-direction:column;gap:8px}
+  .pcp-wi-impact{font-size:22px;font-weight:800;line-height:1.1}
+  .pcp-wi-impact.good{color:#1f8a5b}.pcp-wi-impact.bad{color:#c0392b}.pcp-wi-impact.mut{color:var(--muted)}
+  .pcp-wi-est{font-size:10.5px;font-weight:700;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:1px 6px;vertical-align:middle}
+  .pcp-wi-basis{font-size:12.5px;color:var(--muted)}
+  .pcp-wi-err{font-size:12.5px;color:#c0392b}
+  .pcp-wi-ok{font-size:12.5px;color:#1f8a5b;font-weight:700}
+  .pcp-wi-path{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--text);word-break:break-all;background:var(--hair);border-radius:6px;padding:5px 8px}
+  .pcp-wi-steps{margin:6px 0 0;padding-left:18px;font-size:12.5px;color:var(--text)}.pcp-wi-steps li{margin:3px 0}
+  .pcp-wi-exactfig{font-size:14px;color:var(--text)}.pcp-wi-exactfig b{font-size:18px}
+  .pcp-wi-exactfig b.good{color:#1f8a5b}.pcp-wi-exactfig b.bad{color:#c0392b}.pcp-wi-exactfig b.mut{color:var(--muted)}
+  .pcp-disc{border-top:1px dashed var(--border);padding-top:8px}
+  .pcp-disc-toggle{border:0;background:transparent;color:var(--accent-dark);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;padding:2px 0}
+  .pcp-disc-body{margin-top:8px;display:flex;flex-direction:column;gap:9px}
+  .pcp-disc-body .pcp-wi-exact{display:flex;flex-direction:column;gap:6px}
+  .pcp-report-note{font-size:12px;color:var(--muted)}
+  .pcp-report-frame{width:100%;min-height:560px;border:1px solid var(--border);border-radius:10px;background:#fff}
+  `;
+  document.head.appendChild(s);
+}
+
+// A slip figure like "+12 wd" / "−3 wd" (working days), with an em-dash when unknown.
+function wdLabel(v) {
+  if (v == null || v === '') return '—';
+  const n = Number(v);
+  if (isNaN(n)) return escapeHtml(String(v));
+  return (n > 0 ? '+' : '') + n + ' wd';
+}
+
+// assistant → a grounded answer card (headline + body + advice + evidence chips)
+function renderAssistant(a) {
+  a = a || {};
+  const wrap = document.createElement('div');
+  wrap.className = 'pcp-card';
+  let html = '';
+  if (a.headline) html += `<div class="pcp-lead">${mdInline(String(a.headline))}</div>`;
+  const body = Array.isArray(a.body) ? a.body : [];
+  if (body.length) html += `<div class="pcp-body">${body.map((p) => `<p>${mdInline(String(p))}</p>`).join('')}</div>`;
+  const advice = Array.isArray(a.advice) ? a.advice : [];
+  if (advice.length) html += `<div class="pcp-advice"><h5>What I'd do</h5><ul>${advice.map((x) => `<li>${mdInline(String(x))}</li>`).join('')}</ul></div>`;
+  const evidence = Array.isArray(a.evidence) ? a.evidence : [];
+  if (evidence.length) html += `<div class="pcp-evi">${evidence.map((e) => e && `<span class="pcp-chip" title="${escapeHtml((e.module) || '')}"><b>${escapeHtml((e.plain) || '')}:</b> ${escapeHtml(e.value == null ? '' : String(e.value))}</span>`).filter(Boolean).join('')}</div>`;
+  wrap.innerHTML = html || '<div class="pcp-body"><p>No analysis available for this question.</p></div>';
+  return wrap;
+}
+
+// tia → time-impact decomposition (baseline→likely/worst header + waterfall bar)
+function renderTia(tia, insights) {
+  tia = tia || {};
+  const wrap = document.createElement('div');
+  wrap.className = 'pcp-card';
+  const comps = Array.isArray(tia.components) ? tia.components : [];
+  const colorFor = (key) =>
+    key === 'to_date' ? 'var(--accent)' :
+    key === 'performance' ? '#c17d16' :
+    key === 'weather' ? '#2f9e8f' : 'var(--muted)';
+
+  let head = '<div class="pcp-tia-head">';
+  head += `<div class="pcp-tia-fin"><span class="k">Baseline finish</span><span class="v">${escapeHtml(tia.baseline_finish || '—')}</span></div>`;
+  head += `<div class="pcp-tia-fin"><span class="k">Likely finish</span><span class="v">${escapeHtml(tia.likely_finish || '—')}</span><span class="s">${escapeHtml(wdLabel(tia.likely_slip))} vs baseline</span></div>`;
+  if (tia.worst_finish != null && tia.worst_finish !== '')
+    head += `<div class="pcp-tia-fin worst"><span class="k">Worst case</span><span class="v">${escapeHtml(tia.worst_finish)}</span><span class="s">${escapeHtml(wdLabel(tia.worst_slip))} vs baseline</span></div>`;
+  head += '</div>';
+
+  const total = comps.reduce((sum, c) => sum + Math.abs(Number(c && c.days) || 0), 0) || 1;
+  const segs = comps.map((c) => {
+    c = c || {};
+    const w = (Math.abs(Number(c.days) || 0) / total * 100).toFixed(2);
+    const tip = (c.label || c.key || '') + ': ' + wdLabel(c.days) + (c.basis ? ' — ' + c.basis : '');
+    return `<div class="pcp-wf-seg" title="${escapeHtml(tip)}" style="width:${w}%;background:${colorFor(c.key)}"></div>`;
+  }).join('');
+  const wf = comps.length ? `<div class="pcp-wf">${segs}</div>` : '<div class="pcp-wi-note">No slip components to decompose.</div>';
+  const legend = comps.map((c) => {
+    c = c || {};
+    return `<span><i style="background:${colorFor(c.key)}"></i>${escapeHtml(c.label || c.key || '')} <b>${escapeHtml(wdLabel(c.days))}</b></span>`;
+  }).join('');
+
+  const ins = Array.isArray(insights) ? insights : [];
+  const insHtml = ins.length
+    ? `<ul class="pcp-insights">${ins.map((x) => `<li>${mdInline(String(x && x.text != null ? x.text : x))}</li>`).join('')}</ul>`
+    : '';
+
+  wrap.innerHTML =
+    '<div class="pcp-lead">Time impact — where the slip comes from</div>'
+    + head + wf
+    + (legend ? `<div class="pcp-legend">${legend}</div>` : '')
+    + insHtml
+    + `<div class="pcp-note">This is an estimate from the schedule — the exact figure is P6's own via the what-if F9 path.</div>`;
+  return wrap;
+}
+
+// whatif → an inline interactive lever/activity panel (no POST until "Estimate impact")
+function renderWhatif() {
+  const sid = state.currentSnapshotId || null;
+  const xml = state.currentXmlPath || '';
+  const cached = state.currentCachedPath || null;
+
+  const panel = document.createElement('div');
+  panel.className = 'pcp-card';
+  // NOTE: data-* keys here are deliberately NOT data-role/data-s/data-model — those
+  // collide with the chat-level delegated handler. Use data-wi + query within panel.
+  panel.innerHTML = `
+    <div class="pcp-lead">What-if — estimate the impact of a change</div>
+    <div class="pcp-wi-note">Pick a lever and (for most) an activity, and I'll estimate the finish-date impact from the schedule. For the exact number, generate a scenario file and run F9 in Primavera.</div>
+    <div class="pcp-wi-controls">
+      <label class="pcp-wi-field">
+        <span>Change</span>
+        <select class="pcp-select" data-wi="kind">
+          <option value="delay">Delay an activity</option>
+          <option value="shorten">Shorten / crash an activity</option>
+          <option value="add_crew">Add crew to an activity</option>
+          <option value="overtime">Work overtime on an activity</option>
+          <option value="remove_relationship">Remove a relationship</option>
+          <option value="six_day">Switch to a six-day week</option>
+        </select>
+      </label>
+      <label class="pcp-wi-field pcp-wi-act" data-wi="act-wrap">
+        <span>Activity</span>
+        <input class="pcp-input" data-wi="act" placeholder="Search by ID or name…" autocomplete="off">
+        <div class="pcp-ta" data-wi="ta" hidden></div>
+      </label>
+      <label class="pcp-wi-field pcp-wi-days" data-wi="days-wrap">
+        <span>Days</span>
+        <input class="pcp-input" data-wi="days" type="number" min="1" value="5">
+      </label>
+      <button class="pcp-btn" data-wi="est">Estimate impact</button>
+    </div>
+    <div class="pcp-wi-result" data-wi="result" hidden></div>
+    <div class="pcp-disc">
+      <button class="pcp-disc-toggle" data-wi="disc-toggle" aria-expanded="false">▸ Get the exact figure (Primavera F9)</button>
+      <div class="pcp-disc-body" data-wi="disc-body" hidden>
+        <p class="pcp-wi-note">Generate a scenario XML with this change applied, open it in Primavera P6, press F9 to reschedule, re-export, then load it back here for the exact figure.</p>
+        <div class="pcp-wi-controls">
+          <button class="pcp-btn ghost" data-wi="gen">Generate scenario file…</button>
+          <button class="pcp-btn ghost" data-wi="load">Load rescheduled file…</button>
+        </div>
+        <div class="pcp-wi-exact" data-wi="exact" hidden></div>
+      </div>
+    </div>`;
+
+  const q = (k) => panel.querySelector(`[data-wi="${k}"]`);
+  const kindSel = q('kind'), actWrap = q('act-wrap'), actInput = q('act'), ta = q('ta');
+  const daysWrap = q('days-wrap'), daysInput = q('days'), resultEl = q('result'), exactEl = q('exact');
+
+  let activities = null;   // cached activity list (fetched once)
+  let taList = [];         // currently-shown typeahead subset
+  let selectedAct = null;  // chosen {id,name,...}
+
+  const needsActivity = (k) => k !== 'six_day';
+  const needsDays = (k) => k === 'delay' || k === 'shorten';
+  const syncControls = () => {
+    const k = kindSel.value;
+    actWrap.hidden = !needsActivity(k);
+    daysWrap.hidden = !needsDays(k);
+    ta.hidden = true;
+  };
+  syncControls();
+  kindSel.addEventListener('change', syncControls);
+
+  const loadActivities = async () => {
+    if (activities) return activities;
+    try {
+      const r = await postJSON('/api/chat/copilot/activities', { snapshot_id: sid, xml_path: xml, cached_path: cached });
+      activities = (r && r.ok && Array.isArray(r.activities)) ? r.activities : [];
+    } catch (_) { activities = []; }
+    return activities;
+  };
+  const paintTa = () => {
+    if (!taList.length) { ta.hidden = true; ta.innerHTML = ''; return; }
+    ta.innerHTML = taList.map((a, i) =>
+      `<div class="pcp-ta-item" data-i="${i}"><b>${escapeHtml(a.id || '')}</b> ${escapeHtml(a.name || '')}${a.is_milestone ? '<span class="pcp-ta-ms">milestone</span>' : ''}</div>`).join('');
+    ta.hidden = false;
+  };
+  actInput.addEventListener('input', async () => {
+    selectedAct = null;
+    const list = await loadActivities();
+    const term = actInput.value.toLowerCase().trim();
+    if (!term) { taList = []; paintTa(); return; }
+    taList = list.filter((a) =>
+      String(a.id || '').toLowerCase().indexOf(term) >= 0 ||
+      String(a.name || '').toLowerCase().indexOf(term) >= 0).slice(0, 12);
+    paintTa();
+  });
+  ta.addEventListener('click', (e) => {
+    const it = e.target.closest('.pcp-ta-item'); if (!it) return;
+    const a = taList[Number(it.dataset.i)]; if (!a) return;
+    selectedAct = a;
+    actInput.value = (a.id ? a.id + ' — ' : '') + (a.name || '');
+    ta.hidden = true;
+  });
+  // Dismiss the typeahead on any click that isn't in the activity field (kept within
+  // the panel — the task forbids document-wide listeners).
+  panel.addEventListener('click', (e) => { if (!e.target.closest('.pcp-wi-act')) ta.hidden = true; });
+
+  const showResult = (r) => {
+    resultEl.hidden = false;
+    if (!r || !r.ok) {
+      resultEl.innerHTML = `<div class="pcp-wi-err">${escapeHtml((r && r.error) || 'Could not estimate this change.')}</div>`;
+      return;
+    }
+    const res = r.result || {};
+    const dir = res.direction || 'none';
+    const dcls = dir === 'earlier' ? 'good' : dir === 'later' ? 'bad' : 'mut';
+    const d = res.impact_days;
+    const impact = d == null ? '—' : (Number(d) > 0 ? '+' : '') + d + ' wd';
+    let adviceHtml = '';
+    if (Array.isArray(res.advice) && res.advice.length)
+      adviceHtml = `<div class="pcp-advice"><h5>What I'd do</h5><ul>${res.advice.map((x) => `<li>${mdInline(String(x))}</li>`).join('')}</ul></div>`;
+    else if (res.advice) adviceHtml = `<div class="pcp-wi-basis">${mdInline(String(res.advice))}</div>`;
+    resultEl.innerHTML =
+      `<div class="pcp-wi-impact ${dcls}">${escapeHtml(impact)}${res.estimate ? ' <span class="pcp-wi-est">estimate</span>' : ''}</div>`
+      + (res.headline ? `<div class="pcp-lead">${mdInline(String(res.headline))}</div>` : '')
+      + (res.basis ? `<div class="pcp-wi-basis">${mdInline(String(res.basis))}</div>` : '')
+      + adviceHtml;
+  };
+
+  q('est').addEventListener('click', async () => {
+    const k = kindSel.value;
+    if (needsActivity(k) && !selectedAct) { showResult({ ok: false, error: 'Choose an activity first.' }); return; }
+    const btn = q('est'); const old = btn.textContent; btn.disabled = true; btn.textContent = 'Estimating…';
+    let r;
+    try {
+      r = await postJSON('/api/chat/copilot/whatif', {
+        snapshot_id: sid, xml_path: xml, cached_path: cached,
+        kind: k, activity_id: selectedAct ? selectedAct.id : null,
+        days: needsDays(k) ? (Number(daysInput.value) || 0) : null,
+      });
+    } catch (_) { r = { ok: false, error: 'The what-if engine was unreachable.' }; }
+    btn.disabled = false; btn.textContent = old;
+    showResult(r);
+  });
+
+  const discToggle = q('disc-toggle'), discBody = q('disc-body');
+  discToggle.addEventListener('click', () => {
+    const opening = discBody.hidden;
+    discBody.hidden = !opening;
+    discToggle.setAttribute('aria-expanded', String(opening));
+    discToggle.textContent = (opening ? '▾' : '▸') + ' Get the exact figure (Primavera F9)';
+  });
+
+  const showExact = (html) => { exactEl.hidden = false; exactEl.innerHTML = html; };
+  const hasPy = (fn) => !!(window.pywebview && window.pywebview.api && typeof window.pywebview.api[fn] === 'function');
+
+  q('gen').addEventListener('click', async () => {
+    if (!hasPy('choose_save_path')) { showExact('<div class="pcp-wi-err">File dialogs are only available in the desktop app.</div>'); return; }
+    const k = kindSel.value;
+    if (needsActivity(k) && !selectedAct) { showExact('<div class="pcp-wi-err">Choose an activity first.</div>'); return; }
+    const btn = q('gen'); btn.disabled = true;
+    try {
+      const out = await window.pywebview.api.choose_save_path('scenario.xml', 'xml');
+      if (out) {
+        const r = await postJSON('/api/chat/copilot/scenario', {
+          snapshot_id: sid, xml_path: xml, cached_path: cached,
+          kind: k, activity_id: selectedAct ? selectedAct.id : null,
+          days: needsDays(k) ? (Number(daysInput.value) || 0) : null,
+          output_path: out,
+        });
+        if (r && r.ok) {
+          showExact(`<div class="pcp-wi-ok">Scenario saved${r.activity_name ? ' — ' + escapeHtml(r.activity_name) : ''}:</div>`
+            + `<div class="pcp-wi-path">${escapeHtml(r.output_path || out)}</div>`
+            + `<ol class="pcp-wi-steps"><li>Open <b>${escapeHtml(r.label || 'the scenario file')}</b> in Primavera P6.</li><li>Press <b>F9</b> to reschedule.</li><li>Re-export the schedule to XML.</li><li>Load it below for the exact figure.</li></ol>`);
+        } else {
+          showExact(`<div class="pcp-wi-err">${escapeHtml((r && r.error) || 'Could not write the scenario file.')}</div>`);
+        }
+      }
+    } catch (e) {
+      showExact(`<div class="pcp-wi-err">${escapeHtml('Could not create the scenario: ' + String((e && e.message) || e))}</div>`);
+    } finally { btn.disabled = false; }
+  });
+
+  q('load').addEventListener('click', async () => {
+    if (!hasPy('choose_file')) { showExact('<div class="pcp-wi-err">File dialogs are only available in the desktop app.</div>'); return; }
+    const btn = q('load'); btn.disabled = true;
+    try {
+      const f = await window.pywebview.api.choose_file();
+      if (f) {
+        const r = await postJSON('/api/chat/copilot/impact', { snapshot_id: sid, xml_path: xml, cached_path: cached, rescheduled_path: f });
+        if (r && r.ok) {
+          const im = r.impact || {};
+          const d = im.impact_days;
+          const dcls = d == null ? 'mut' : (Number(d) < 0 ? 'good' : Number(d) > 0 ? 'bad' : 'mut');
+          const fig = d == null ? '—' : (Number(d) > 0 ? '+' : '') + d + ' wd';
+          showExact(`<div class="pcp-wi-exactfig">Exact figure (Primavera F9): <b class="${dcls}">${escapeHtml(fig)}</b></div>`
+            + ((im.base_finish || im.impacted_finish) ? `<div class="pcp-wi-basis">${escapeHtml(im.base_finish || '?')} → ${escapeHtml(im.impacted_finish || '?')}</div>` : ''));
+        } else {
+          showExact(`<div class="pcp-wi-err">${escapeHtml((r && r.error) || 'Could not read the rescheduled file.')}</div>`);
+        }
+      }
+    } catch (e) {
+      showExact(`<div class="pcp-wi-err">${escapeHtml('Could not load the file: ' + String((e && e.message) || e))}</div>`);
+    } finally { btn.disabled = false; }
+  });
+
+  return panel;
+}
+
+// report → embed the returned one-page manager's briefing (full HTML) in an iframe
+function renderManagerReport(html) {
+  const wrap = document.createElement('div');
+  wrap.className = 'pcp-card';
+  const note = document.createElement('div');
+  note.className = 'pcp-report-note';
+  note.textContent = "One-page manager's briefing — export to PDF from the report.";
+  wrap.appendChild(note);
+  const frame = document.createElement('iframe');
+  frame.className = 'pcp-report-frame';
+  frame.srcdoc = String(html || '');
+  wrap.appendChild(frame);
+  return wrap;
+}
+
+// Route a tagged Copilot library question to its deterministic backend and render
+// the answer in the thread — mirrors askDashboard (BUSY guard + try/finally).
+async function askCopilot(cap, qid, mode, question) {
+  if (BUSY) return;
+  BUSY = true; setSendEnabled(false);
+  try {
+    addUser(question);
+    const bodyEl = addAiShell();
+    if (!bodyEl) return;
+    const think = bodyEl.querySelector('.pchat-think');
+    if (think) think.innerHTML = '<span class="d"></span><span class="d"></span><span class="d"></span> Analysing your schedule…';
+    ensureCopilotCss();
+    const sid = state.currentSnapshotId || null;
+    const xml = state.currentXmlPath || '';
+    const cached = state.currentCachedPath || null;
+
+    let resp;
+    try {
+      if (cap === 'assistant') {
+        resp = await postJSON('/api/chat/copilot/ask', { snapshot_id: sid, question_id: qid, mode: mode || 'management' });
+      } else if (cap === 'tia') {
+        resp = await postJSON('/api/chat/copilot/tia', { snapshot_id: sid });
+      } else if (cap === 'report') {
+        resp = await postJSON('/api/chat/copilot/report', { snapshot_id: sid, xml_path: xml, cached_path: cached, preview: true });
+      } else if (cap === 'whatif') {
+        resp = { ok: true };            // interactive — no immediate POST
+      } else {
+        resp = { ok: false, error: 'This analysis is not available.' };
+      }
+    } catch (e) {
+      resp = { ok: false, error: 'The Copilot engine was unreachable: ' + String((e && e.message) || e) };
+    }
+
+    if (think) think.remove();
+    if (!resp || !resp.ok) {
+      const pe = document.createElement('div'); pe.className = 'pchat-stream';
+      pe.textContent = (resp && resp.error) || 'I could not complete this analysis.';
+      bodyEl.appendChild(pe);
+    } else {
+      if (cap === 'assistant') bodyEl.appendChild(renderAssistant(resp.answer || {}));
+      else if (cap === 'tia') bodyEl.appendChild(renderTia(resp.tia || {}, resp.insights || []));
+      else if (cap === 'report') bodyEl.appendChild(renderManagerReport(resp.html || ''));
+      else if (cap === 'whatif') bodyEl.appendChild(renderWhatif());
+      const foot = document.createElement('div'); foot.className = 'pchat-foot';
+      foot.innerHTML = `🔒 <span><b>Grounded</b> — computed on your PC from this project.</span>`;
+      bodyEl.appendChild(foot);
+    }
+    scrollThread();
+  } catch (_) {
+    /* best-effort — the finally still frees the composer even if rendering threw */
+  } finally {
+    BUSY = false; setSendEnabled(true);
+  }
+}
+
 function answerFooter(out) {
   const foot = document.createElement('div'); foot.className = 'pchat-foot';
   if (out.source === 'brain') {
@@ -753,11 +1170,18 @@ function renderRoles() {
 function renderLibBody() {
   const el = document.getElementById('pchat-libbody'); if (!el) return;
   el.innerHTML = (LIB.themes || []).map((t) => {
-    const qs = (t.questions || []).map((q) =>
-      `<div class="pchat-q" data-q="${escapeHtml(q.q)}" data-status="${q.status}" data-roles="${(q.role_keys || []).join('|')}" data-text="${escapeHtml((q.q + ' ' + (q.grounds || '')).toLowerCase())}">
+    const qs = (t.questions || []).map((q) => {
+      // Copilot "expert analysis" questions carry a capability + question id + mode
+      // (library.js sets q.cap/q.qid/q.mode). Emit them only when present so the
+      // click handler can route them to the deterministic Copilot backend.
+      const cap = q.cap ? ` data-cap="${escapeHtml(q.cap)}"` : '';
+      const qid = q.qid ? ` data-qid="${escapeHtml(q.qid)}"` : '';
+      const mode = q.mode ? ` data-mode="${escapeHtml(q.mode)}"` : '';
+      return `<div class="pchat-q" data-q="${escapeHtml(q.q)}" data-status="${q.status}" data-roles="${(q.role_keys || []).join('|')}" data-text="${escapeHtml((q.q + ' ' + (q.grounds || '')).toLowerCase())}"${cap}${qid}${mode}>
         <span class="pchat-sdot ${sdotClass(q.status)}"></span>
         <span class="qt">${escapeHtml(q.q)}<span class="qg">${escapeHtml(q.grounds || '')}</span></span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     return `<div class="pchat-theme"><h4>${escapeHtml(t.theme)}</h4><div class="tb">${escapeHtml(t.blurb || '')}</div>${qs}</div>`;
   }).join('') + `<div class="pchat-nomatch" id="pchat-nomatch" hidden>No questions match your search.</div>`;
   applyFilter();
@@ -824,6 +1248,7 @@ export async function renderChat() {
   if (!host._pchatWired) {
     host._pchatWired = true;
     host.addEventListener('click', (e) => {
+      const cop = e.target.closest('.pchat-q[data-cap]'); if (cop) { askCopilot(cop.dataset.cap, cop.dataset.qid, cop.dataset.mode, cop.dataset.q); return; }
       const q = e.target.closest('.pchat-q'); if (q) { ask(q.dataset.q); return; }
       const rc = e.target.closest('[data-role]'); if (rc) { ROLE = rc.dataset.role; renderRoles(); applyFilter(); return; }
       const sc = e.target.closest('#pchat-status [data-s]'); if (sc) {

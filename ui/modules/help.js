@@ -51,7 +51,7 @@ const FEATURES = [
   { name: 'Update vs Update', what: 'Period over period', inputs: [{ t: 'this period', k: 'p6' }, { t: 'last period', k: 'extra' }], extra: true },
   { name: 'Consultant Review', what: 'Forensic but-for delay', inputs: [{ t: 'current update', k: 'p6' }, { t: 'baseline programme', k: 'extra' }], extra: true },
   { name: 'Baseline Revision', what: 'Compare two baselines', inputs: [{ t: 'Rev.00', k: 'p6' }, { t: 'Rev.01', k: 'extra' }], extra: true },
-  { name: 'AI Copilot · TIA', what: 'Time-impact insights (offline)', inputs: [{ t: '1 P6 schedule', k: 'p6' }, { t: 'API key for AI narrative', k: 'optional' }] },
+  { name: 'AI Chat', what: 'Offline assistant, time-impact, what-if & manager briefing', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
   { name: 'P6 Calendar Audit', what: 'Working-time & net days', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
   { name: 'Bad Weather', what: 'Stop-work impact', inputs: [{ t: '1 P6 schedule', k: 'p6' }, { t: 'project location', k: 'extra' }], extra: true },
   { name: 'Constructability', what: 'Buildability vs knowledge base', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },

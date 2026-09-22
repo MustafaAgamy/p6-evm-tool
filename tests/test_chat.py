@@ -28,11 +28,11 @@ SAMPLE = {
 def test_library_loads_full_catalogue():
     lib = library.library()
     total = sum(len(t['questions']) for t in lib['themes'])
-    assert total == 169
-    assert len(lib['themes']) == 16
+    assert total == 182
+    assert len(lib['themes']) == 17
     assert len(lib['roles']) == 8
-    assert lib['counts']['total'] == 169
-    assert lib['counts']['today'] + lib['counts']['in_progress'] + lib['counts']['gap'] == 169
+    assert lib['counts']['total'] == 182
+    assert lib['counts']['today'] + lib['counts']['in_progress'] + lib['counts']['gap'] == 182
 
 
 def test_library_roles_have_counts_and_no_answers_leak():
@@ -44,7 +44,9 @@ def test_library_roles_have_counts_and_no_answers_leak():
     for t in lib['themes']:
         for q in t['questions']:
             assert 'answer_full' not in q and 'answer_sketch' not in q
-            assert set(q) == {'q', 'grounds', 'status', 'role_keys'}
+            # safe payload only: the question, its grounding hint, status, roles, and the
+            # optional Copilot capability tags (cap/qid/mode) — never a bundled answer.
+            assert set(q) == {'q', 'grounds', 'status', 'role_keys', 'cap', 'qid', 'mode'}
 
 
 def test_library_find_exact_returns_bundled_answer():

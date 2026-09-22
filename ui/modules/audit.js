@@ -129,7 +129,6 @@ export function switchView(view) {
   document.getElementById('update-panel').classList.toggle('hidden', view !== 'update');
   document.getElementById('special-panel').classList.toggle('hidden', view !== 'special');
   document.getElementById('narrative-panel')?.classList.toggle('hidden', view !== 'narrative');
-  document.getElementById('copilot-panel')?.classList.toggle('hidden', view !== 'copilot');
   document.getElementById('chat-panel')?.classList.toggle('hidden', view !== 'chat');
   document.getElementById('overview-panel')?.classList.toggle('hidden', view !== 'overview');
   document.getElementById('wbs-panel')?.classList.toggle('hidden', view !== 'wbs');

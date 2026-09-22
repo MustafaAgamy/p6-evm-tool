@@ -386,6 +386,20 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_chat_settings(body)
         elif self.path == '/api/chat/dashboard':
             self._handle_chat_dashboard(body)
+        elif self.path == '/api/chat/copilot/ask':
+            self._handle_chat_copilot_ask(body)
+        elif self.path == '/api/chat/copilot/tia':
+            self._handle_chat_copilot_tia(body)
+        elif self.path == '/api/chat/copilot/activities':
+            self._handle_chat_copilot_activities(body)
+        elif self.path == '/api/chat/copilot/whatif':
+            self._handle_chat_copilot_whatif(body)
+        elif self.path == '/api/chat/copilot/scenario':
+            self._handle_chat_copilot_scenario(body)
+        elif self.path == '/api/chat/copilot/impact':
+            self._handle_chat_copilot_impact(body)
+        elif self.path == '/api/chat/copilot/report':
+            self._handle_chat_copilot_report(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -3167,6 +3181,111 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then ask me to build the dashboard.'})
                 return
             self._json(200, p6_chat.build_dashboard(xml_path=xml_path, snapshot_id=snap))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/chat/copilot/* — Offline AI Chat ▸ the AI Copilot engines ───────
+    def _chat_copilot_xml(self, body):
+        """Resolve the open snapshot's XML the same way _handle_chat_dashboard does
+        (original → cached → best-for-snapshot). Returns the path or None."""
+        xml_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        snap = body.get('snapshot_id')
+        if not xml_path and snap is not None:
+            xml_path = db.get_snapshot_xml_path(snap)
+        return xml_path
+
+    def _handle_chat_copilot_ask(self, body):
+        """Answer one Copilot question (repertoire button or free-typed) for the loaded
+        project, from the DB read path — never re-parses."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.copilot.ask(
+                body.get('snapshot_id'),
+                question_id=body.get('question_id'),
+                question_text=body.get('question_text'),
+                mode=body.get('mode', 'management')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_tia(self, body):
+        """Finish-slip decomposition + ranked insights for the loaded project (DB read path)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.copilot.tia(body.get('snapshot_id')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_activities(self, body):
+        """Activity picker list — re-parses the open snapshot's XML (the report exception)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then try again.'})
+                return
+            self._json(200, p6_chat.copilot.activities(xml_path))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_whatif(self, body):
+        """Instant offline what-if estimate — re-parses the open snapshot's XML."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then try again.'})
+                return
+            self._json(200, p6_chat.copilot.whatif(
+                xml_path, body.get('kind'),
+                activity_id=body.get('activity_id'), days=body.get('days')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_scenario(self, body):
+        """Write a what-if scenario programme for the planner to F9 — re-parses the XML."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then try again.'})
+                return
+            self._json(200, p6_chat.copilot.scenario(
+                xml_path, body.get('kind'),
+                activity_id=body.get('activity_id'), days=body.get('days'),
+                output_path=body.get('output_path', ''), label=body.get('label')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_impact(self, body):
+        """Read P6's exact TIA impact (base vs the F9-rescheduled file) — re-parses both."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Base schedule not found — re-import it and try again.'})
+                return
+            self._json(200, p6_chat.copilot.impact(xml_path, body.get('rescheduled_path', '')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_report(self, body):
+        """Build the Manager Report — preview HTML (default) or a written PDF. The XML is
+        resolved best-effort for the drivers/recovery enrichment (only used when behind)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.copilot.manager_report(
+                body.get('snapshot_id'),
+                xml_path=self._chat_copilot_xml(body),
+                preview=bool(body.get('preview')),
+                output_path=body.get('output_path', ''),
+                meta=body.get('meta')))
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
