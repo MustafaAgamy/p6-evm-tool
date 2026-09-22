@@ -965,13 +965,15 @@ def _resload(p, number, title, meta, cur):
                        '<div class="rescap">%s</div></div>'
                        % (_esc(ch.get('chart_title')),
                           _res_hist(ch.get('span'), ch.get('values'), ch.get('color')), peak))
-        heads = g.get('row_headers') or ['Resource', 'Total', 'Peak']
+        heads = g.get('row_headers') or ['Resource', 'Total']
         thead = '<tr>%s</tr>' % ''.join(
             '<th%s>%s</th>' % (' class="num"' if j else '', _esc(h))
             for j, h in enumerate(heads))
-        body = ''.join('<tr><td>%s</td><td class="num">%s</td><td class="num">%s</td></tr>'
-                       % (_esc(r[0] if len(r) > 0 else ''), _esc(r[1] if len(r) > 1 else ''),
-                          _esc(r[2] if len(r) > 2 else '')) for r in (g.get('rows') or []))
+        body = ''.join(
+            '<tr>%s</tr>' % ''.join(
+                '<td%s>%s</td>' % (' class="num"' if j else '', _esc(c))
+                for j, c in enumerate(r))
+            for r in (g.get('rows') or []))
         out.append('<table class="dt">%s%s</table>' % (thead, body))
     return ''.join(out)
 
@@ -1200,7 +1202,7 @@ table { border-collapse: collapse; }
 .kv td.k { width:36%; background:#eef3f9; color:#1F4E79; font-weight:700; }
 .dt { width:100%; font-size:12px; break-inside:avoid; page-break-inside:avoid; }
 .dt th { background:#26517d; color:#fff; text-align:center; vertical-align:middle; padding:6px 9px; font-size:10.5px; font-family:Calibri,sans-serif; overflow-wrap:anywhere; }
-.dt td { border:1px solid #dbe3ec; padding:6px 9px; text-align:center; vertical-align:middle; overflow-wrap:anywhere; word-break:break-word; }
+.dt td { border:1px solid #dbe3ec; padding:7px 9px; text-align:center; vertical-align:middle; overflow-wrap:anywhere; word-break:break-word; line-height:1.35; }
 .dt tr:nth-child(even) td { background:#f7f9fb; }
 .r { text-align:right; }
 .tiles { display:flex; gap:8px; }

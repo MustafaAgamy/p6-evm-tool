@@ -290,7 +290,7 @@ def data_table(document, headers, rows, widths=None, h=21, aligns=None):
     t.style = 'Table Grid'
     t.autofit = False
     hr = t.rows[0]
-    _row_h(hr, h)
+    _row_h(hr, h, exact=False)                        # AT_LEAST: grow to fit wrapped text
     for i, hd in enumerate(headers):
         c = hr.cells[i]
         _shade(c, '26517D'); _no_space(c)
@@ -302,7 +302,7 @@ def data_table(document, headers, rows, widths=None, h=21, aligns=None):
         run(p, hd, font=CAL, size=10, bold=True, color=WHITE)
     for ri, row_vals in enumerate(rows or []):
         rr = t.add_row()
-        _row_h(rr, h)
+        _row_h(rr, h, exact=False)                    # AT_LEAST: wrapped cells grow, never clip
         for ci, val in enumerate(row_vals):
             if ci >= len(rr.cells):
                 break

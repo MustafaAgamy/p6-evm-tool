@@ -224,9 +224,8 @@ def _working_days_in_month(cal, y, m, wstart, wend):
 
 
 def _wd_spread(qty, ps, pf, cal):
-    """Spread ``qty`` LINEARLY across the activity's working days (per its calendar) and bucket
-    by month — P6's standard resource-usage time distribution, so §13 man-hours and §14 material
-    quantities reproduce P6's Resource Usage Spreadsheet to the figure."""
+    """Spread ``qty`` LINEARLY across the activity's working days (per its calendar), bucketed by
+    month — P6's Resource Usage time distribution (verified against P6's monthly spreadsheet)."""
     s, f = ps.date(), pf.date()
     if f < s:
         f = s
@@ -236,7 +235,7 @@ def _wd_spread(qty, ps, pf, cal):
         if _is_working(cal, d):
             days.append((d.year, d.month))
         d += _ONE
-    if not days:                          # calendar marks nothing working — fall back to all days
+    if not days:                              # calendar marks nothing working — fall back to days
         d = s
         while d <= f:
             days.append((d.year, d.month))
@@ -248,15 +247,19 @@ def _wd_spread(qty, ps, pf, cal):
 
 
 def _units_profile(recs, calendars):
-    """Monthly BUDGETED UNITS via linear working-day spread, aggregated across a group's
-    assignments — the exact P6 Resource-Usage figure (man-hours for labour)."""
+    """Monthly BUDGETED UNITS via linear working-day spread (P6 Resource Usage), aggregated across
+    a group's assignments, plus each resource's budgeted total (man-hours for labour)."""
     calendars = calendars or {}
     monthly = defaultdict(float)
+    per_res = defaultdict(float)
+    names = {}
     gmin = gmax = None
     for r in recs:
         cal = calendars.get(r.get('cal'))
         for k, v in _wd_spread(r['qty'], r['ps'], r['pf'], cal).items():
             monthly[k] += v
+        per_res[r['rid']] += r['qty']
+        names[r['rid']] = r['name']
         gmin = r['ps'] if (gmin is None or r['ps'] < gmin) else gmin
         gmax = r['pf'] if (gmax is None or r['pf'] > gmax) else gmax
     if not monthly:
@@ -264,9 +267,13 @@ def _units_profile(recs, calendars):
     span = _month_span((gmin.year, gmin.month), (gmax.year, gmax.month))
     values = [round(monthly.get(k, 0.0), 1) for k in span]
     pi = max(range(len(values)), key=lambda i: values[i])
+    rows = [(names[rid], per_res[rid])
+            for rid in sorted(per_res, key=lambda x: per_res[x], reverse=True)]
     return {'span': [_mlabel(*k) for k in span], 'values': values,
             'peak_val': values[pi], 'peak_label': _mfull(*span[pi]),
-            'total': sum(r['qty'] for r in recs)}
+            'total': sum(r['qty'] for r in recs),
+            'window': '%s – %s' % (_mfull(gmin.year, gmin.month), _mfull(gmax.year, gmax.month)),
+            'rows': rows}
 
 
 def _dur_hours(act, ps, pf):
@@ -443,7 +450,7 @@ def _materials(recs, calendars):
             continue
         key = (r['name'], unit)
         # P6 spreads each quantity across the activity's WORKING days (its Resource Usage
-        # Spreadsheet distribution) — verified to match P6 to the figure.
+        # distribution — verified against P6's monthly spreadsheet).
         cal = calendars.get(r.get('cal'))
         for k, v in _wd_spread(r['qty'], r['ps'], r['pf'], cal).items():
             monthly[key][k] += v
@@ -483,10 +490,9 @@ def resource_loading(data, path=None):
     cals = getattr(data, 'calendars', None) or {}
     groups = []
     if labor:
-        num = _profile(labor, 'hours', cals)       # headcount (sustained crew, over working days)
-        hrs = _units_profile(labor, cals)          # man-hours (working-day spread = P6)
-        if num and hrs:
-            groups.append(_manpower_group(num, hrs))
+        hrs = _units_profile(labor, cals)          # man-hours per month (P6 working-day spread)
+        if hrs:
+            groups.append(_manpower_group(hrs))
     if equip:
         basis = _basis_for_equipment(equip)
         num = _profile(equip, basis, cals)
@@ -519,27 +525,22 @@ def resource_loading(data, path=None):
     return {'loading': loading, 'materials': materials}
 
 
-def _manpower_group(num, hrs):
-    """§13.1 Manpower — TWO histograms (man-hours per month = P6, and that converted to a
-    headcount) + the per-resource totals table."""
+def _manpower_group(hrs):
+    """§13.1 Manpower — the man-hours histogram (budgeted man-hours per month, spread over the
+    activity working days = P6 Resource Usage) + a per-resource man-hours totals table."""
     return {
         'key': 'manpower', 'title': 'Manpower',
         'basis_note': ('Read from the Labour resource assignments — budgeted man-hours spread '
-                       'across each activity’s working days (matching P6’s Resource Usage). '
-                       'Shown two ways: the man-hours per month, and that converted to a headcount '
-                       '(a month’s man-hours ÷ its working hours).'),
-        'window': num['window'],
+                       'across each activity’s working days (matching P6’s Resource Usage).'),
+        'window': hrs['window'],
         'charts': [
             {'chart_title': 'Manpower — man-hours per month', 'color': LABOR_HEX,
              'span': hrs['span'], 'values': hrs['values'],
              'peak_val': hrs['peak_val'], 'peak_label': hrs['peak_label'], 'peak_unit': 'man-hours'},
-            {'chart_title': 'Manpower — number per month', 'color': LABOR_HEX2,
-             'span': num['span'], 'values': num['values'],
-             'peak_val': num['peak_val'], 'peak_label': num['peak_label'], 'peak_unit': ''},
         ],
         'total_label': _fmt0(hrs['total']), 'total_unit': 'man-hours',
-        'row_headers': ['Resource', 'Total man-hours', 'Peak number'],
-        'rows': [[nm, _fmt0(tot), _fmt_peak(peak)] for nm, tot, peak in num['rows']],
+        'row_headers': ['Resource', 'Total man-hours'],
+        'rows': [[nm, _fmt0(tot)] for nm, tot in hrs['rows']],
     }
 
 
