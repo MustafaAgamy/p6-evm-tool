@@ -1,6 +1,7 @@
-"""The Studio dashboard layout (order/sizes/titles/letterhead) persists per
-project — the storage behind /api/special/layout/save + /load. It lives in
-project_settings['studio_layout'] (no schema change) and round-trips intact."""
+"""Per-project settings persist and shallow-merge — db.save_project_settings /
+get_project_settings. A nested blob round-trips intact, stays isolated per
+project, and a later save must not clobber unrelated keys (location, weather,
+etc. all share project_settings)."""
 import db
 
 
