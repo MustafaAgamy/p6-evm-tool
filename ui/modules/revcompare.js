@@ -1050,6 +1050,77 @@ function calAssigned(p, pi) {
   return `<div class="rc-assign"><div class="rc-assignh">${hdr} — by activity code ${sel} <span class="rc-mut">(${fmtInt(a.count)} activit${a.count === 1 ? 'y' : 'ies'} in ${rev})</span></div>${rows}${idsBlock}</div>`;
 }
 
+// Round-15 Option A — one plain-language BRIEF sentence per calendar (self-explaining for a
+// planner who did not build the baseline), built from the engine's counts.
+function calBrief(p, reassFrom) {
+  const name = esc(p.name);
+  const acts = p.activities || 0;
+  const byDim = (p.assigned || {}).by_dim || {};
+  const firstDim = Object.keys(byDim)[0];
+  const top = firstDim && (byDim[firstDim] || [])[0];
+  const usedBy = acts ? ` Used by ${fmtInt(acts)} activities${top ? `, mostly ${esc(top.value)}` : ''}.` : '';
+  if (p.change === 'removed') {
+    const dest = (reassFrom[p.name] || []).slice().sort((x, y) => (y.count || 0) - (x.count || 0))[0];
+    return `<b>${name}</b> — retired in Rev.01.${dest ? ` The ${fmtInt(dest.count)} activities that used it now run on <b>${esc(dest.to)}</b>.` : ` ${fmtInt(acts)} activities no longer carry this calendar.`}`;
+  }
+  if (p.change === 'added') {
+    const pat = fmtPattern(p.rev1);
+    const longer = p.rev1 && p.rev1.hpw != null && p.rev1.hpw >= 60 ? ' A longer working week shortens those durations on paper.' : '';
+    return `<b>${name}</b> — new${pat ? ` ${esc(pat)}` : ''} calendar, now used by ${fmtInt(acts)} activities.${longer}`;
+  }
+  const flips = (p.date_exceptions || []).filter(e => e.change !== 'unchanged');
+  const nowW = flips.filter(e => e.change === 'now working').length;
+  const nowN = flips.filter(e => e.change === 'now non-working').length;
+  const hrs = flips.filter(e => !String(e.change).startsWith('now')).length;
+  const bits = [];
+  if (nowW) bits.push(`<span class="rc-hl-g">${nowW} day${nowW > 1 ? 's' : ''} made working</span>`);
+  if (nowN) bits.push(`<span class="rc-hl-r">${nowN} day${nowN > 1 ? 's' : ''} made non-working</span>`);
+  if (hrs) bits.push(`<span class="rc-hl-a">${hrs} reduced-hours ${hrs > 1 ? 'periods' : 'period'} re-houred</span>`);
+  const weekChanged = fmtPattern(p.rev0) !== fmtPattern(p.rev1);
+  let lead;
+  if (bits.length) {
+    lead = (bits.length === 1 ? bits[0] : bits.slice(0, -1).join(', ') + ' and ' + bits.slice(-1)) + '.';
+    lead += weekChanged ? ' Working week also changed.' : ' Working week itself unchanged.';
+  } else if (weekChanged) {
+    lead = `working week changed ${esc(fmtPattern(p.rev0) || '—')} → ${esc(fmtPattern(p.rev1) || '—')}.`;
+  } else {
+    lead = 'no material change to the working calendar.';
+  }
+  return `<b>${name}</b> — ${lead}${usedBy}`;
+}
+
+// The P6-shaped ledger — Attribute | Rev.00 | Rev.01 | Change. Reads like Primavera's calendar
+// dialog: fixed working-pattern rows, then only the CHANGED exception dates, then one collapse
+// row proving the identical dates were compared. Every on-screen row is already a spreadsheet row.
+function calLedger(p) {
+  const r0 = p.rev0 || {}, r1 = p.rev1 || {};
+  const cell = (v, suf) => (v == null ? '—' : `${v}${suf || ''}`);
+  const wkChange = (a, b) => (a == null && b == null) ? '' : (a === b ? 'unchanged' : a == null ? 'added' : b == null ? 'removed' : 'changed');
+  const wkCls = c => c === 'unchanged' ? 'n' : c === 'removed' ? 'r' : c === 'added' ? 'g' : 'a';
+  const wkRow = (lbl, a, b, suf) => {
+    const c = wkChange(a, b);
+    return `<tr><td class="rc-lattr">${lbl}</td><td class="rc-lrev">${cell(a, suf)}</td><td class="rc-lrev">${cell(b, suf)}</td><td class="rc-lchg rc-chg-${wkCls(c)}">${c || '—'}</td></tr>`;
+  };
+  let rows = wkRow('Working days / week', r0.days, r1.days, ' d/wk')
+    + wkRow('Hours / day', r0.hours, r1.hours, ' h')
+    + wkRow('Hours / week', r0.hpw, r1.hpw, ' h');
+  const flips = (p.date_exceptions || []).filter(e => e.change !== 'unchanged');
+  const identical = (p.date_exceptions || []).filter(e => e.change === 'unchanged').length;
+  let exc = '';
+  if (flips.length) {
+    exc = `<tr class="rc-lband"><td colspan="4">Exception dates — changed only</td></tr>`
+      + flips.map(e => {
+        const c = e.change, cls = c === 'now working' ? 'g' : c === 'now non-working' ? 'r' : 'a';
+        const note = c === 'now working' ? 'made working' : c === 'now non-working' ? 'made non-working' : `hours ${esc(c)}`;
+        return `<tr><td class="rc-lattr"><span class="rc-dot ${cls}"></span>${esc(e.date)}</td><td class="rc-lrev">${esc(e.rev0)}</td><td class="rc-lrev">${esc(e.rev1)}</td><td class="rc-lchg rc-chg-${cls}">${note}</td></tr>`;
+      }).join('');
+  }
+  if (identical) {
+    exc += `<tr class="rc-lident"><td class="rc-lattr">+ ${fmtInt(identical)} other exception date${identical > 1 ? 's' : ''}</td><td class="rc-lrev">identical</td><td class="rc-lrev">identical</td><td class="rc-lchg">not listed</td></tr>`;
+  }
+  return `<table class="rc-ldg"><thead><tr><th class="rc-lattr">Attribute</th><th class="rc-lrev">Rev.00</th><th class="rc-lrev">Rev.01</th><th class="rc-lchg">Change</th></tr></thead><tbody>${rows}${exc}</tbody></table>`;
+}
+
 function calendarView(r) {
   const cc = r.calendar_changes || {};
   const patterns = cc.patterns || [];
@@ -1061,63 +1132,46 @@ function calendarView(r) {
   const reassFrom = {};
   reass.forEach(g => { (reassFrom[g.from] = reassFrom[g.from] || []).push(g); });
   let paperAccel = false;
-  const TAG = { modified: ['chg', 'modified'], renamed: ['ren', 'renamed'], added: ['add', 'added in Rev.01'], removed: ['rem', 'removed in Rev.01'], unchanged: ['none', 'no change'] };
+  const TAG = { modified: ['chg', 'modified'], renamed: ['ren', 'renamed'], added: ['add', 'added'], removed: ['rem', 'retired'] };
 
-  const cards = patterns.map((p, pi) => {
+  const changed = patterns.filter(p => p.change !== 'unchanged');
+  const unchanged = patterns.filter(p => p.change === 'unchanged');
+
+  // Section digest — the whole-section headline before any single calendar.
+  const nMod = patterns.filter(p => p.change === 'modified' || p.change === 'renamed').length;
+  const nAdd = patterns.filter(p => p.change === 'added').length;
+  const nRem = patterns.filter(p => p.change === 'removed').length;
+  const totFlips = patterns.reduce((s, p) => s + (p.date_exceptions || []).filter(e => e.change !== 'unchanged').length, 0);
+  const legend = '<span class="rc-legend"><span><i style="background:var(--success)"></i>made working</span><span><i style="background:var(--danger)"></i>made non-working</span><span><i style="background:var(--warning)"></i>hours changed</span></span>';
+  const digest = `<div class="rc-caldigest"><span><b>${nMod} modified · ${nAdd} added · ${nRem} retired · ${unchanged.length} unchanged</b> — ${totFlips} exception date${totFlips === 1 ? '' : 's'} changed.</span>${legend}</div>`;
+
+  const cards = changed.map((p, pi) => {
     const [tagcls, taglbl] = TAG[p.change] || ['chg', p.change || 'changed'];
-    const p0 = fmtPattern(p.rev0), p1 = fmtPattern(p.rev1);
     if (p.rev0 && p.rev1 && p.rev0.hpw != null && p.rev1.hpw != null && p.rev1.hpw > p.rev0.hpw) paperAccel = true;
-    if (p.change === 'unchanged') {
-      return `<div class="rc-calcard"><div class="rc-calplain"><span class="rc-caltag none">no change</span><b>${esc(p.name)}</b><span class="rc-mut">— identical working pattern and exception dates in both revisions${p.activities ? ` (used by ${fmtInt(p.activities)} activities)` : ''}</span></div>${calAssigned(p, pi)}</div>`;
-    }
     const nameHtml = p.change === 'renamed' ? `${esc(p.name)} <span class="rc-mut">→ ${esc(p.renamed_to)}</span>` : esc(p.name);
     const meta = p.activities ? `${fmtInt(p.activities)} activities` : '';
-    let weekRow = '';
-    if (p.change === 'added') weekRow = p1 ? `<div class="rc-patrow"><span class="rc-k">Working week</span><span class="rc-r1">${escapeHtml(p1)}</span></div>` : '';
-    else if (p.change === 'removed') weekRow = p0 ? `<div class="rc-patrow"><span class="rc-k">Working week</span><span class="rc-r0">${escapeHtml(p0)}</span></div>` : '';
-    else weekRow = `<div class="rc-patrow"><span class="rc-k">Working week</span><span class="rc-r0">${escapeHtml(p0 || '—')}</span><span class="rc-ar">→</span><span class="rc-r1">${escapeHtml(p1 || '—')}</span>${(p0 === p1) ? ' <span class="rc-mut">(unchanged)</span>' : ''}</div>`;
     let ctx = '';
     if (p.change === 'removed') {
       const dest = (reassFrom[p.name] || []).slice().sort((x, y) => (y.count || 0) - (x.count || 0))[0];
-      ctx = `<div class="rc-calctx">Retired in Rev.01.${dest ? ` The ${fmtInt(dest.count)} activities that used it now use <b>${esc(dest.to)}</b> — consolidated, no work left without a calendar.` : ''}</div>`;
+      ctx = `<div class="rc-calctx">Retired in Rev.01.${dest ? ` The ${fmtInt(dest.count)} activities that used it now use <b>${esc(dest.to)}</b> — consolidated, no work left without a calendar.` : ''} <span class="rc-flag">Flagged for review.</span></div>`;
     } else if (p.change === 'added') {
-      ctx = `<div class="rc-calctx">New in Rev.01 — now used by <b>${fmtInt(p.activities || 0)}</b> activities.</div>`;
-    }
-    const flips = (p.date_exceptions || []).filter(e => e.change !== 'unchanged');
-    const tl = (p.change !== 'added' && p.change !== 'removed') ? calTimeline(flips) : '';
-    const chgList = flips.map(e => {
-      const dot = e.change === 'now working' ? 'g' : e.change === 'now non-working' ? 'r' : 'a';
-      const desc = e.change === 'now working' ? 'was <b>non-working</b> in Rev.00 → now a <b>working day</b> in Rev.01'
-        : e.change === 'now non-working' ? 'was a <b>working day</b> in Rev.00 → now <b>non-working</b> in Rev.01'
-        : `hours changed <b>${esc(e.rev0)} → ${esc(e.rev1)}</b>`;
-      return `<div class="rc-chgline"><span class="rc-dot ${dot}"></span><span class="rc-dt">${esc(e.date)}</span><span class="rc-cdesc">${desc}</span></div>`;
-    }).join('');
-    const chgBlock = flips.length ? `<div class="rc-chglist">${chgList}</div>` : '';
-    const nowW = flips.filter(e => e.change === 'now working').length;
-    const nowN = flips.filter(e => e.change === 'now non-working').length;
-    const hrs = flips.filter(e => /h →/.test(e.change)).length;
-    const identical = (p.date_exceptions || []).filter(e => e.change === 'unchanged').length;
-    let summary = '';
-    if (nowW || nowN || hrs) {
-      const chips = [];
-      if (nowW) chips.push(`<span class="rc-chip g">${nowW} made working</span>`);
-      if (nowN) chips.push(`<span class="rc-chip r">${nowN} made non-working</span>`);
-      if (hrs) chips.push(`<span class="rc-chip a">${hrs} re-houred</span>`);
-      summary = `<div class="rc-calsummary"><b>What changed:</b> ${chips.join('')}${identical ? ` <span class="rc-mut">— ${identical} other exception date(s) identical in both revisions (not listed)</span>` : ''}</div>`;
-    } else if (p.change !== 'added' && p.change !== 'removed') {
-      summary = `<div class="rc-calsummary rc-mut">${identical ? `The ${identical} exception date(s) are identical in both revisions — ` : ''}working-pattern change only, no exception-date differences.</div>`;
+      const longer = p.rev1 && p.rev1.hpw != null && p.rev1.hpw >= 60;
+      ctx = `<div class="rc-calctx">New in Rev.01 — now used by <b>${fmtInt(p.activities || 0)}</b> activities.${longer ? ' A longer working week shortens those durations on paper.' : ''} <span class="rc-flag">Flagged for review.</span></div>`;
     }
     return `<div class="rc-calcard">
       <div class="rc-calhead"><span class="rc-calname">${nameHtml}</span><span class="rc-caltag ${tagcls}">${esc(taglbl)}</span><span class="rc-calmeta">${meta}</span></div>
-      ${weekRow}${ctx}${tl}${chgBlock}${summary}${calAssigned(p, pi)}</div>`;
+      <div class="rc-calbrief">${calBrief(p, reassFrom)}</div>
+      ${ctx}${calLedger(p)}${calAssigned(p, pi)}</div>`;
   }).join('');
 
-  const legend = '<div class="rc-legend"><span><i style="background:var(--success)"></i>became working</span><span><i style="background:var(--danger)"></i>became non-working</span><span><i style="background:var(--warning)"></i>hours changed</span></div>';
+  const unchangedLine = unchanged.length
+    ? `<div class="rc-calunchanged"><b>${unchanged.length} calendar${unchanged.length > 1 ? 's' : ''} unchanged</b> — ${unchanged.map(p => `${esc(p.name)}${p.activities ? ` (${fmtInt(p.activities)})` : ''}`).join(', ')}. Identical working pattern and non-working dates in both revisions.</div>`
+    : '';
   const callout = paperAccel
     ? '<div class="rc-callout warn">A calendar moved to a longer working week (more hours/week) — durations shorten <b>on paper</b> without changing the work. A paper acceleration to confirm.</div>'
     : '';
   return secmark('6', 'Calendar', 'working pattern · exception dates · assigned activities by code')
-    + `<div class="rc-card">${cards}${legend}${callout}</div>`;
+    + `<div class="rc-card">${digest}${cards}${unchangedLine}${callout}</div>`;
 }
 
 // ══ 7 · Cost & Resources (comments 8, 9, 10) ═══════════════════════════════════
@@ -1488,83 +1542,129 @@ function wireCost(body) {
   }
 }
 
-// ══ 9 · Manpower (comment 11 — combo: stacked-by-trade histogram + total line) ══
+// ══ 9 · Manpower (round 15 — LABOUR man-hours only, difference-first) ════════════
+// Man-hours = P6 Budgeted LABOUR Units. Equipment-hours and material quantities (m³/t) are a
+// different unit of measure and are reported separately, never summed into man-hours (summing
+// them made the total balloon into a cost-like 243M). The section LEADS with the difference
+// (Rev.01 − Rev.00); the two absolute totals are supporting context.
+
+// Per-trade exact figures — the numbers a planner reconciles to P6, kept as supporting detail.
+function mpTradeTable(rows) {
+  const tr = rows.map(t => `<tr><td class="rc-aid">${esc(t.resource_id || '—')}</td><td>${esc(t.name)}</td>
+      <td class="n rc-mut">${fmtInt(t.rev0 || 0)}</td><td class="n rc-new">${fmtInt(t.rev1 || 0)}</td>
+      <td class="n"><span class="rc-d ${t.v > 0 ? 'up' : t.v < 0 ? 'down' : 'zero'}">${t.v > 0 ? '+' : ''}${fmtInt(t.v)}</span></td></tr>`).join('');
+  return `<details class="rc-details" style="margin-top:10px"><summary>Per-trade man-hours — exact figures <span class="rc-n">${rows.length} labour resource${rows.length === 1 ? '' : 's'}</span></summary>
+    <div class="rc-tblscroll" style="margin-top:10px"><table class="rc-t"><thead><tr><th>Resource ID</th><th>Resource</th><th class="n">Rev.00 (mh)</th><th class="n">Rev.01 (mh)</th><th class="n">Change</th></tr></thead><tbody>${tr}</tbody></table></div></details>`;
+}
+
+// Equipment / material / untyped — shown honestly beside man-hours, never added in.
+function mpOtherResources(other) {
+  const label = { equipment: ['Equipment', 'equipment-hours'], material: ['Material', 'quantities (m³ / t / m²)'],
+    untyped: ['Untyped', 'units — no resource type in the P6 export'] };
+  const boxes = Object.entries(other).map(([k, v]) => {
+    const [nm, unit] = label[k] || [k, 'units'];
+    const dv = (v.var != null) ? v.var : ((v.rev1 || 0) - (v.rev0 || 0));
+    return `<div class="rc-obox"><div class="rc-k">${nm}</div><div class="rc-ov">${fmtInt(v.rev0 || 0)} → ${fmtInt(v.rev1 || 0)}</div>
+      <div class="rc-ou">${esc(unit)} · ${dv > 0 ? '+' : ''}${fmtInt(dv)}${v.n1 ? ` · ${fmtInt(v.n1)} assignments` : ''}</div></div>`;
+  }).join('');
+  const matWarn = other.material ? `<div class="rc-warn">Material quantities are shown as one figure because this export doesn't carry each resource's unit of measure — they can't be safely labelled per material (m³ vs t) or summed.</div>` : '';
+  const untypedWarn = other.untyped ? `<div class="rc-warn">${fmtInt(other.untyped.n1 || other.untyped.n0 || 0)} assignment(s) carry no resource type in the P6 export — excluded from man-hours (never guessed as labour). Populate the P6 resource dictionary to include them.</div>` : '';
+  return `<div class="rc-card"><h3>Other resources <span class="rc-n">reported separately · never added to man-hours</span></h3>
+    <div class="rc-sec">Equipment and material carry their own units of measure, so nothing is dropped from the comparison — but they do not belong in a man-hours total.</div>
+    <div class="rc-other">${boxes}</div>${matWarn}${untypedWarn}</div>`;
+}
 
 function manpowerView(r) {
   const curves = r.curves || {};
   const months = curves.months || [];
   const mix = curves.manhours_by_trade || [];
+  const mt = curves.manhours_total || {};
+  const other = curves.other_resources || {};
+  const hasOther = Object.keys(other).length > 0;
+
   if (!curves.resource_available || !months.length) {
-    return secmark('9', 'Manpower', 'people on site per month')
-      + `<div class="rc-card"><h3>Manpower histogram</h3>${noData('Neither revision carries resource (man-hour) loading — manpower histogram not applicable.')}</div>`;
+    return secmark('9', 'Manpower', 'labour man-hours, before vs after')
+      + `<div class="rc-card"><h3>Manpower</h3>${noData('Neither revision carries LABOUR resource loading — man-hours are reported as not applicable rather than "no change".' + (hasOther ? ' Equipment / material resources are listed below.' : ''))}</div>`
+      + (hasOther ? mpOtherResources(other) : '');
   }
-  // Comment 4 — two-colour GROUPED bars per month: Rev.00 (grey) vs Rev.01 (blue) side by side,
-  // with the difference (Rev.01 − Rev.00) labelled above each pair. This replaces the busy
-  // stacked-by-trade colours; the trade breakdown lives in the "resource mix" card below.
+
+  // ── Hero: the man-hours DIFFERENCE (Rev.01 − Rev.00), labour only ──
+  const v0 = mt.rev0 || 0, v1 = mt.rev1 || 0;
+  const diff = (mt.var != null) ? mt.var : (v1 - v0);
+  const pct = mt.pct;
+  const dcls = diff > 0 ? 'up' : diff < 0 ? 'down' : 'zero';
+  const pctTxt = (v0 === 0 && v1 > 0) ? 'new' : (pct == null ? '—' : (pct > 0 ? '+' : '') + fmtNum(pct, 1) + '%');
+  const line = diff === 0
+    ? `Rev.01 plans the <b>same</b> labour man-hours as Rev.00.`
+    : `Rev.01 plans <b>${fmtInt(Math.abs(diff))} ${diff > 0 ? 'more' : 'fewer'}</b> labour man-hours than Rev.00 — change detected; review the trade and monthly breakdown below.`;
+  const hero = `<div class="rc-card"><h3>Labour man-hours — Rev.00 → Rev.01 <span class="rc-n">the change is the headline</span></h3>
+    <div class="rc-mp-herorow">
+      <div class="rc-mp-big ${dcls}">${diff > 0 ? '+' : ''}${fmtInt(diff)}<div class="rc-mp-biglbl">labour man-hours change</div></div>
+      <div class="rc-mp-chips">
+        <div class="rc-mp-chip"><div class="rc-k">Labour · Rev.00</div><div class="rc-v soft">${fmtInt(v0)}</div></div>
+        <div class="rc-mp-arrow">→</div>
+        <div class="rc-mp-chip"><div class="rc-k">Labour · Rev.01</div><div class="rc-v soft">${fmtInt(v1)}</div></div>
+        <div class="rc-mp-chip"><div class="rc-k">Change</div><div class="rc-v ${dcls}">${pctTxt}</div></div>
+      </div>
+    </div>
+    <div class="rc-sec">${line}</div>
+    <div class="rc-cap"><b>Man-hours = sum of P6 Budgeted Labor Units</b> (resource type = Labour). Equipment and material are reported separately below and are <b>not</b> in this number, so it ties to P6's Labor Units total for each revision.</div>
+  </div>`;
+
+  // ── Monthly labour man-hours difference — signed bars around a zero line ──
   const mm = curves.manpower_monthly || [];
   const r0map = {}, r1map = {};
   mm.forEach(m => { r0map[m.month] = m.rev0; r1map[m.month] = m.rev1; });
-  const rev0tot = months.map(mo => Number(r0map[mo]) || 0);
-  const rev1tot = months.map(mo => Number(r1map[mo]) || 0);
+  const dm = months.map(mo => Math.round((Number(r1map[mo]) || 0) - (Number(r0map[mo]) || 0)));
   const n = months.length;
-  const W = Math.max(760, n * 70), h = 304, L = 48, B = 56, T = 40;
-  const pw = W - L - 16, ph = h - T - B, step = pw / n, bw = Math.min(20, step * 0.30);
-  const mx = Math.max(1, ...rev0tot, ...rev1tot);
-  const showEvery = 1;   // label EVERY month (comment: each month must be shown)
-  let s = '';
+  const W = Math.max(760, n * 54), h = 250, L = 44, Rp = 16, T = 20, B = 52;
+  const half = (h - T - B) / 2, midY = T + half;
+  const amx = Math.max(1, ...dm.map(Math.abs));
+  const step = (W - L - Rp) / n, bw = Math.min(22, step * 0.5);
+  let s = `<line x1="${L}" y1="${midY}" x2="${W - Rp}" y2="${midY}" stroke="var(--ink-soft)"/>`
+    + `<text x="${L - 6}" y="${midY + 3}" font-size="9" fill="var(--muted)" text-anchor="end">0</text>`;
   months.forEach((mo, i) => {
     const cx = L + i * step + step / 2;
-    const h0 = rev0tot[i] / mx * ph, h1 = rev1tot[i] / mx * ph;
-    const x0 = cx - bw - 2, x1 = cx + 2;
-    if (h0 > 0) s += `<rect x="${x0.toFixed(1)}" y="${(T + ph - h0).toFixed(1)}" width="${bw.toFixed(1)}" height="${h0.toFixed(1)}" rx="2" fill="var(--rc-b0)"/>`;
-    if (h1 > 0) s += `<rect x="${x1.toFixed(1)}" y="${(T + ph - h1).toFixed(1)}" width="${bw.toFixed(1)}" height="${h1.toFixed(1)}" rx="2" fill="var(--accent)"/>`;
-    const d = Math.round(rev1tot[i] - rev0tot[i]);
-    if (rev0tot[i] || rev1tot[i]) {
-      const col = d > 0 ? 'var(--danger)' : d < 0 ? 'var(--success)' : 'var(--muted)';
-      s += `<text x="${cx.toFixed(1)}" y="${(T + ph - Math.max(h0, h1) - 6).toFixed(1)}" font-size="10" font-weight="800" fill="${col}" text-anchor="middle">${d > 0 ? '+' : ''}${escapeHtml(fmtInt(d))}</text>`;
+    const bh = Math.abs(dm[i]) / amx * half * 0.92;
+    if (dm[i] !== 0) {
+      const up = dm[i] > 0;
+      s += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${(up ? midY - bh : midY).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, bh).toFixed(1)}" rx="2" fill="${up ? 'var(--rc-up)' : 'var(--rc-down)'}"/>`;
     }
-    if (i % showEvery === 0 || i === n - 1) {
-      const ly = T + ph + 13;
-      s += `<text x="${cx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="end" transform="rotate(-40 ${cx.toFixed(1)} ${ly.toFixed(1)})">${escapeHtml(String(mo))}</text>`;
-    }
+    const ly = h - B + 14;
+    s += `<text x="${cx.toFixed(1)}" y="${ly}" font-size="9" fill="var(--muted)" text-anchor="end" transform="rotate(-40 ${cx.toFixed(1)} ${ly})">${escapeHtml(String(mo))}</text>`;
   });
-
-  const legend = '<span><i style="background:var(--rc-b0)"></i>Rev.00 on site</span>'
-    + '<span><i style="background:var(--accent)"></i>Rev.01 on site</span>'
-    + '<span style="color:var(--danger)">▲ more than Rev.00</span>'
-    + '<span style="color:var(--success)">▼ fewer than Rev.00</span>';
-
   const peak = curves.peak || {};
-  const mt = (curves.manhours_total || {});
-  const pct = mt.pct;
-  // Total man-hours = the sum of P6 planned resource units, so each figure equals what P6 reports.
-  const kpis = `<div class="rc-kpis k3">
-      <div class="rc-kpi"><div class="rc-k">Total man-hours · Rev.00</div><div class="rc-v">${fmtInt(mt.rev0 || 0)}</div><div class="rc-dd">from P6 planned units</div></div>
-      <div class="rc-kpi"><div class="rc-k">Total man-hours · Rev.01</div><div class="rc-v ${(mt.rev1 || 0) > (mt.rev0 || 0) ? 'crit' : ''}">${fmtInt(mt.rev1 || 0)}</div><div class="rc-dd">from P6 planned units</div></div>
-      <div class="rc-kpi"><div class="rc-k">Change</div><div class="rc-v ${pct == null ? '' : pct > 0 ? 'crit' : pct < 0 ? 'add' : ''}">${pct == null ? '—' : (pct > 0 ? '+' : '') + fmtNum(pct, 1) + '%'}</div><div class="rc-dd">Rev.00 → Rev.01</div></div></div>`;
-
   const peakNote = (peak.rev0 || peak.rev1)
-    ? `<div class="rc-sec" style="margin-top:2px">Peak on site: <b>${fmtInt(peak.rev0 || 0)}</b>${peak.rev0_month ? ' in ' + esc(peak.rev0_month) : ''} (Rev.00) → <b>${fmtInt(peak.rev1 || 0)}</b>${peak.rev1_month ? ' in ' + esc(peak.rev1_month) : ''} (Rev.01).</div>`
+    ? `<div class="rc-sec" style="margin-top:2px">Peak labour: <b>${fmtInt(peak.rev0 || 0)}</b> mh/month${peak.rev0_month ? ' in ' + esc(peak.rev0_month) : ''} (Rev.00) → <b>${fmtInt(peak.rev1 || 0)}</b> mh/month${peak.rev1_month ? ' in ' + esc(peak.rev1_month) : ''} (Rev.01). Peak is man-hours per month, not headcount.</div>`
     : '';
-  const chartCard = `<div class="rc-card"><h3>Manpower on site per month <span class="rc-n">Rev.00 vs Rev.01 side by side · the difference labelled</span></h3>
-    ${kpis}
-    <div class="rc-sec">Each month shows <b>Rev.00 (grey)</b> and <b>Rev.01 (blue)</b> people on site side by side; the number above each pair is the <b>difference</b> (Rev.01 − Rev.00). The total man-hours are the sum of P6 planned units, so they match P6. The trade breakdown is the resource-mix chart below.</div>
+  const monthCard = `<div class="rc-card"><h3>Labour man-hours by month <span class="rc-n">the change, month by month (Rev.01 − Rev.00)</span></h3>
+    <div class="rc-sec">Bars above the line = more labour planned in Rev.01; below = fewer. Every month, labour only.</div>
     ${peakNote}
-    <div class="rc-chartwrap" style="overflow:visible"><svg viewBox="0 0 ${W} ${h}" class="rc-svg" style="width:100%;height:auto" role="img" aria-label="Manpower Rev.00 vs Rev.01 chart">
-      <line x1="${L}" y1="${T + ph}" x2="${W - 16}" y2="${T + ph}" stroke="var(--border)"/>${s}</svg></div>
-    <div class="rc-legend">${legend}</div></div>`;
+    <div class="rc-chartwrap" style="overflow:visible"><svg viewBox="0 0 ${W} ${h}" class="rc-svg" style="width:100%;height:auto" role="img" aria-label="Monthly labour man-hours difference">${s}</svg></div>
+    <div class="rc-legend"><span><i style="background:var(--rc-up)"></i>more than Rev.00</span><span><i style="background:var(--rc-down)"></i>fewer than Rev.00</span></div></div>`;
 
-  // Resource mix — total man-hours by trade, Rev.00 vs Rev.01.
-  let mixCard = '';
+  // ── Labour man-hours by trade — diverging delta bars (the change is drawn) ──
+  let tradeCard = '';
   if (mix.length) {
-    const mmx = Math.max(1, ...mix.flatMap(t => [Number(t.rev0) || 0, Number(t.rev1) || 0]));
-    const mixBars = mix.map(t => baBar(t.name || t.trade || t.resource_id, t.rev0, t.rev1, mmx, { fmt: fmtK, code: t.resource_id })).join('');
-    mixCard = `<div class="rc-card"><h3>Resource mix — total man-hours by trade <span class="rc-n">Rev.00 → Rev.01</span></h3>
-      <div class="rc-sec">The overall shift in the labour mix — which trades grew or shrank between the two baselines.</div>
-      <div class="rc-hbars">${mixBars}</div>
-      <div class="rc-legend"><span><i style="background:var(--rc-b0)"></i>Rev.00 man-hours</span><span><i style="background:var(--accent)"></i>Rev.01 man-hours</span></div></div>`;
+    const rows = mix.map(t => ({ ...t, v: (t.var != null) ? t.var : ((t.rev1 || 0) - (t.rev0 || 0)) }))
+      .sort((a, b) => Math.abs(b.v) - Math.abs(a.v));
+    const tmx = Math.max(1, ...rows.map(t => Math.abs(t.v)));
+    const bars = rows.map(t => {
+      const up = t.v > 0, w = Math.abs(t.v) / tmx * 50;
+      const fill = up ? `left:50%;background:var(--rc-up)` : `right:50%;background:var(--rc-down)`;
+      return `<div class="rc-trow"><div class="rc-tn">${esc(t.name)}${t.resource_id ? `<small>${esc(t.resource_id)}</small>` : ''}</div>
+        <div class="rc-tbar"><span class="rc-tmid"></span><span class="rc-tfill" style="${fill};width:${w.toFixed(1)}%"></span></div>
+        <div class="rc-tval ${up ? 'up' : t.v < 0 ? 'down' : 'zero'}">${t.v > 0 ? '+' : ''}${fmtInt(t.v)}</div></div>`;
+    }).join('');
+    tradeCard = `<div class="rc-card"><h3>Labour man-hours by trade <span class="rc-n">which trades grew or shrank (Rev.01 − Rev.00)</span></h3>
+      <div class="rc-sec">One row per labour resource, biggest change first — the same P6 Resource Id you see in Primavera. The <b>change</b> is drawn; before/after are in the table below.</div>
+      <div class="rc-tdiv">${bars}</div>
+      <div class="rc-legend"><span><i style="background:var(--rc-up)"></i>increased</span><span><i style="background:var(--rc-down)"></i>decreased</span><span>net across all labour trades: <b>${diff > 0 ? '+' : ''}${fmtInt(diff)} mh</b></span></div>
+      ${mpTradeTable(rows)}</div>`;
   }
-  return secmark('9', 'Manpower', 'people on site per month') + chartCard + mixCard;
+
+  return secmark('9', 'Manpower', 'labour man-hours, before vs after')
+    + hero + monthCard + tradeCard + (hasOther ? mpOtherResources(other) : '');
 }
 
 // ══ 10 · Scope & Structure ═════════════════════════════════════════════════════

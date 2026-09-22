@@ -28,38 +28,73 @@ def _budget_sched(bac, ps, pf, code='A1000', codes=None):
 
 
 def _assign_sched(assigns, ps, pf, code='A1000'):
-    """assigns: list of (resource_id, resource_name, units)."""
+    """assigns: list of (resource_id, resource_name, units[, resource_type]).
+    Man-hours = LABOUR only, so assignments default to resource_type 'Labour'."""
     d = _sched([_act(code, 'Work', ps=ps, pf=pf)], [], D(2025, 1, 1))
     d.assignments_by_activity = {'o0': [
-        {'resource_id': rid, 'resource_name': rname, 'budget_units': u,
-         'budget_cost': 0.0, 'rate': None}
-        for rid, rname, u in assigns]}
+        {'resource_id': a[0], 'resource_name': a[1], 'budget_units': a[2],
+         'resource_type': a[3] if len(a) > 3 else 'Labour', 'budget_cost': 0.0, 'rate': None}
+        for a in assigns]}
     return d
 
 
 def _coded_assign_sched(assigns, ps, pf, code='A1000'):
-    """assigns: list of (resource_id, resource_code, resource_name, units) — carries the P6 code."""
+    """assigns: list of (resource_id, resource_code, resource_name, units[, resource_type]) —
+    carries the P6 code; defaults to resource_type 'Labour'."""
     d = _sched([_act(code, 'Work', ps=ps, pf=pf)], [], D(2025, 1, 1))
     d.assignments_by_activity = {'o0': [
-        {'resource_id': rid, 'resource_code': rcode, 'resource_name': rname,
-         'budget_units': u, 'budget_cost': 0.0, 'rate': None}
-        for rid, rcode, rname, u in assigns]}
+        {'resource_id': a[0], 'resource_code': a[1], 'resource_name': a[2],
+         'budget_units': a[3], 'resource_type': a[4] if len(a) > 4 else 'Labour',
+         'budget_cost': 0.0, 'rate': None}
+        for a in assigns]}
     return d
 
 
 def test_manhours_total_exact_sum_and_same_name_not_merged():
-    """P6-matching: total man-hours = the exact sum of the planned units (no loss/double-count),
-    and two resources that share a NAME but have distinct P6 codes stay as separate trade rows."""
-    rev0 = _coded_assign_sched([('4501', 'LAB-01', 'Steelfixers', 100.0),
-                                ('4507', 'LAB-07', 'Steelfixers', 40.0),
-                                ('9001', 'EQ-CR', 'Crane', 10.0)], D(2025, 1, 1), D(2025, 1, 31))
-    rev1 = _coded_assign_sched([('4501', 'LAB-01', 'Steelfixers', 120.0),
-                                ('4507', 'LAB-07', 'Steelfixers', 50.0),
-                                ('9001', 'EQ-CR', 'Crane', 10.0)], D(2025, 1, 1), D(2025, 1, 31))
+    """P6-matching: LABOUR man-hours = the exact sum of the planned LABOUR units (no loss/double-
+    count); two resources that share a NAME but have distinct P6 codes stay as separate trade rows;
+    and the equipment (Crane) is excluded from man-hours entirely — it is a different unit."""
+    rev0 = _coded_assign_sched([('4501', 'LAB-01', 'Steelfixers', 100.0, 'Labour'),
+                                ('4507', 'LAB-07', 'Steelfixers', 40.0, 'Labour'),
+                                ('9001', 'EQ-CR', 'Crane', 10.0, 'Equipment')], D(2025, 1, 1), D(2025, 1, 31))
+    rev1 = _coded_assign_sched([('4501', 'LAB-01', 'Steelfixers', 120.0, 'Labour'),
+                                ('4507', 'LAB-07', 'Steelfixers', 50.0, 'Labour'),
+                                ('9001', 'EQ-CR', 'Crane', 10.0, 'Equipment')], D(2025, 1, 1), D(2025, 1, 31))
     c = _wire(rev0, rev1)
-    assert c['manhours_total']['rev0'] == 150.0 and c['manhours_total']['rev1'] == 180.0
+    # Labour only: 100+40 = 140, 120+50 = 170 — the crane's 10 units are NOT summed in.
+    assert c['manhours_total']['rev0'] == 140.0 and c['manhours_total']['rev1'] == 170.0
     steel = [t for t in c['manhours_by_trade'] if t['name'] == 'Steelfixers']
     assert len(steel) == 2 and {t['resource_id'] for t in steel} == {'LAB-01', 'LAB-07'}
+    assert all(t['name'] != 'Crane' for t in c['manhours_by_trade'])   # equipment not a trade
+    assert c['other_resources']['equipment'] == {'rev0': 10.0, 'rev1': 10.0, 'var': 0.0, 'n0': 1, 'n1': 1}
+
+
+def test_manhours_labour_only_excludes_equipment_and_material():
+    """Round-15: man-hours are LABOUR units only. Equipment-hours and material quantities are
+    reported in other_resources with their assignment counts, never folded into man-hours."""
+    rev0 = _assign_sched([('L1', 'Carpenter', 100.0, 'Labour'),
+                          ('E1', 'Excavator', 30.0, 'Equipment'),
+                          ('M1', 'Concrete', 5000.0, 'Material')], D(2025, 1, 1), D(2025, 1, 31))
+    rev1 = _assign_sched([('L1', 'Carpenter', 90.0, 'Labour'),
+                          ('E1', 'Excavator', 30.0, 'Equipment'),
+                          ('M1', 'Concrete', 4800.0, 'Material')], D(2025, 1, 1), D(2025, 1, 31))
+    c = _wire(rev0, rev1)
+    assert c['manhours_total'] == {'rev0': 100.0, 'rev1': 90.0, 'var': -10.0, 'pct': -10.0}
+    assert [t['name'] for t in c['manhours_by_trade']] == ['Carpenter']
+    assert c['other_resources']['equipment']['rev0'] == 30.0
+    assert c['other_resources']['material'] == {'rev0': 5000.0, 'rev1': 4800.0, 'var': -200.0, 'n0': 1, 'n1': 1}
+
+
+def test_untyped_assignment_excluded_from_manhours_and_surfaced():
+    """An assignment with no resource_type (P6 export omitted it) is NEVER guessed as labour — it
+    is excluded from man-hours and surfaced in other_resources['untyped']."""
+    rev0 = _assign_sched([('L1', 'Carpenter', 80.0, 'Labour'),
+                          ('U1', 'Mystery', 25.0, None)], D(2025, 1, 1), D(2025, 1, 31))
+    rev1 = _assign_sched([('L1', 'Carpenter', 80.0, 'Labour'),
+                          ('U1', 'Mystery', 25.0, None)], D(2025, 1, 1), D(2025, 1, 31))
+    c = _wire(rev0, rev1)
+    assert c['manhours_total']['rev0'] == 80.0
+    assert c['other_resources']['untyped']['rev0'] == 25.0 and c['other_resources']['untyped']['n0'] == 1
 
 
 # ── availability flags / no-data guard ─────────────────────────────────────────

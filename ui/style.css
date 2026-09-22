@@ -2753,8 +2753,38 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 @media (max-width: 640px) { .rc-hrow { grid-template-columns: 120px 1fr; } }
 
 /* Before/after horizontal comparison rows (comments 5 & 6) — Rev.00 bar over Rev.01 bar */
-:root { --rc-b0: #c7d0dc; }
-:root[data-appearance="dark"], :root[data-appearance="midnight"], :root[data-appearance="blueprint"] { --rc-b0: #445367; }
+:root { --rc-b0: #c7d0dc; --rc-up: var(--accent); --rc-down: #7a54d0; }
+:root[data-appearance="dark"], :root[data-appearance="midnight"], :root[data-appearance="blueprint"] { --rc-b0: #445367; --rc-down: #9d84e6; }
+
+/* ── Manpower (round 15) — difference-first, labour-only. Neutral directional colours:
+   blue = more labour in Rev.01, purple = fewer. Never good/bad. ── */
+.rc-mp-herorow { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; margin: 6px 0 4px; }
+.rc-mp-big { font-size: 50px; font-weight: 800; letter-spacing: -1.4px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--muted); }
+.rc-mp-big.up { color: var(--rc-up); } .rc-mp-big.down { color: var(--rc-down); } .rc-mp-big.zero { color: var(--muted); }
+.rc-mp-biglbl { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0; margin-top: 7px; }
+.rc-mp-chips { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rc-mp-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 8px 13px; min-width: 108px; }
+.rc-mp-chip .rc-k { font-size: 10.5px; color: var(--muted); font-weight: 700; }
+.rc-mp-chip .rc-v { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rc-mp-chip .rc-v.soft { color: var(--text-soft, var(--muted)); }
+.rc-mp-chip .rc-v.up { color: var(--rc-up); } .rc-mp-chip .rc-v.down { color: var(--rc-down); }
+.rc-mp-arrow { color: var(--muted); font-size: 20px; }
+.rc-cap { margin-top: 11px; font-size: 11.5px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; }
+.rc-trow { display: grid; grid-template-columns: 160px 1fr 92px; gap: 10px; align-items: center; margin: 6px 0; }
+.rc-tn { font-size: 12.5px; font-weight: 600; text-align: right; color: var(--text); }
+.rc-tn small { display: block; color: var(--muted); font-weight: 600; font-size: 10px; }
+.rc-tbar { position: relative; height: 22px; background: var(--bg); border-radius: 5px; }
+.rc-tmid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--border); }
+.rc-tfill { position: absolute; top: 3px; height: 16px; border-radius: 3px; }
+.rc-tval { font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rc-tval.up { color: var(--rc-up); } .rc-tval.down { color: var(--rc-down); } .rc-tval.zero { color: var(--muted); }
+.rc-tdiv { padding: 2px 2px 4px 0; }
+.rc-other { display: flex; gap: 12px; flex-wrap: wrap; }
+.rc-obox { flex: 1; min-width: 150px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 13px; background: var(--card-bg); }
+.rc-obox .rc-k { font-size: 10.5px; color: var(--muted); font-weight: 700; }
+.rc-obox .rc-ov { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rc-obox .rc-ou { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.rc-warn { margin-top: 10px; background: var(--warn-soft, rgba(200,128,26,.1)); border: 1px solid var(--warn-border, rgba(200,128,26,.3)); border-radius: 8px; padding: 9px 12px; font-size: 11.5px; color: var(--warn-text, #8a5a12); }
 .rc-hrow2 { display: grid; grid-template-columns: 230px 1fr; gap: 12px; align-items: center; }
 .rc-hlbl .rc-hcode { display: block; font-weight: 400; color: var(--muted); font-size: 10.5px; }
 .rc-ba { display: flex; align-items: center; gap: 10px; }
@@ -3010,6 +3040,25 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-patrow .rc-k { font-size: 10px; text-transform: uppercase; letter-spacing: .03em; font-weight: 800; color: var(--muted); }
 .rc-patrow .rc-r0 { color: var(--ink-soft); } .rc-patrow .rc-r1 { color: var(--accent-dark); font-weight: 700; } .rc-patrow .rc-ar { color: var(--muted); }
 .rc-calctx { font-size: 12.5px; color: var(--ink-soft); margin: 6px 0; } .rc-calctx b { color: var(--text); }
+.rc-calctx .rc-flag { color: var(--warning); font-weight: 700; }
+/* round-15 Option A — section digest, plain-language brief + P6-shaped ledger */
+.rc-caldigest { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; align-items: center;
+  font-size: 12.5px; color: var(--ink-soft); padding: 9px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; margin-bottom: 13px; }
+.rc-calbrief { font-size: 14px; line-height: 1.55; margin: 4px 0 4px; }
+.rc-hl-g { color: var(--success); font-weight: 700; } .rc-hl-r { color: var(--danger); font-weight: 700; } .rc-hl-a { color: var(--warning); font-weight: 700; }
+.rc-ldg { width: 100%; border-collapse: collapse; margin: 9px 0 4px; font-size: 13px; }
+.rc-ldg th { text-align: left; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 800; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.rc-ldg td { padding: 7px 10px; border-bottom: 1px solid var(--border-soft, var(--border)); vertical-align: middle; }
+.rc-ldg .rc-lattr { color: var(--ink-soft); font-weight: 600; width: 32%; }
+.rc-ldg .rc-lrev { text-align: center; width: 19%; font-variant-numeric: tabular-nums; }
+.rc-ldg .rc-lchg { text-align: right; width: 30%; }
+.rc-ldg .rc-dot { display: inline-block; margin-right: 7px; vertical-align: 1px; }
+.rc-ldg tr.rc-lband td { background: var(--bg); color: var(--ink-soft); font-weight: 800; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; padding: 6px 10px; }
+.rc-ldg tr.rc-lident td { color: var(--muted); font-style: italic; }
+.rc-chg-g { color: var(--success); font-weight: 700; } .rc-chg-r { color: var(--danger); font-weight: 700; }
+.rc-chg-a { color: var(--warning); font-weight: 700; } .rc-chg-n { color: var(--muted); }
+.rc-calunchanged { padding: 10px 14px; color: var(--muted); font-size: 12.5px; background: var(--bg); border: 1px dashed var(--border); border-radius: 9px; margin-top: 4px; }
+.rc-calunchanged b { color: var(--ink-soft); }
 /* timeline strip */
 .rc-tl { margin: 11px 0 6px; }
 .rc-tllab { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin-bottom: 3px; }

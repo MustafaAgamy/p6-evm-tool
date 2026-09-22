@@ -18,13 +18,15 @@ prototype ``mockups/baseline-revision-interactive-v2.html`` / ``ui/modules/revco
     register  → Change Register      (DURATION changed only — no Calendar / TF-After columns;
                 Before → After → Variance → % change, filterable by activity code)
     ms        → Milestones           (Activity ID + Before → After → Variance — no Type column)
-    cal       → Calendar             (one row per calendar: Rev.00 pattern · Rev.01 pattern ·
-                activities + the per-activity reassignment summary)
+    cal       → Calendar             (Option A — one row per calendar with a plain-language brief ·
+                Rev.00/Rev.01 working pattern · change kind · activities; then the CHANGED exception
+                dates; then assigned activities by activity code)
     cost      → Cost & Resources     (planned-value S-curve · budget by activity code ·
                 the itemised Cost changed table)
     resource  → Resources            (the Resource-changed assignment table — moved out of Cost)
-    manpower  → Manpower             (man-hours by trade totals Rev.00 vs Rev.01 + the monthly
-                man-hours-by-trade matrix behind the stacked combo chart)
+    manpower  → Manpower             (LABOUR-only, difference-first — the Rev.01 − Rev.00 labour
+                man-hours change, by trade and by month, then the other resources reported
+                separately and never summed into man-hours)
     scope     → Scope & Structure    (WBS comparison Rev.00 / Rev.01 · largest date shifts)
 
 The old combined "Milestones, Constraints & Calendars" sheet is split into separate
@@ -44,6 +46,10 @@ _SEV_LABEL = {'crit': 'Critical', 'hi': 'High', 'med': 'Review', 'low': 'Info'}
 _KIND_LABEL = {'delayed': 'Delayed', 'advanced': 'Advanced', 'unchanged': 'Unchanged',
                'new': 'New', 'removed': 'Removed', 'idchange': 'ID changed'}
 _ASG_KIND = {'added': 'Added', 'removed': 'Removed', 'units': 'Units changed', 'rate': 'Rate changed'}
+# calendar change kind -> on-screen card tag (round-15 Option A): modified / renamed / added /
+# retired (removed) / unchanged.
+_CAL_CHANGE_LABEL = {'modified': 'Modified', 'renamed': 'Renamed', 'added': 'Added',
+                     'removed': 'Retired', 'unchanged': 'Unchanged'}
 
 
 def _sev(code):
@@ -104,6 +110,34 @@ def _pct_change(before, variance):
             and isinstance(variance, (int, float)) and not isinstance(variance, bool)):
         return _sgn(round(variance / before * 100), '%')
     return '—'
+
+
+def _mh(v, dash='—'):
+    """Labour man-hours as a rounded integer (mirrors the on-screen fmtInt) — kept numeric so
+    Excel treats it as a number, not text."""
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, (int, float)):
+        return int(round(v))
+    return dash if v is None else v
+
+
+def _mh_sgn(v, dash='—'):
+    """Signed labour man-hours change as a rounded integer string: +3 / -528 / 0."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return dash if v is None else str(v)
+    return _sgn(int(round(v)))
+
+
+def _mh_pct(mh0, mh1, pct):
+    """The on-screen Change % for the man-hours headline: 'new' when Rev.00 is zero and Rev.01
+    has hours, '—' when undefined, else a signed one-decimal percent (mirrors manpowerView)."""
+    if (mh0 in (0, 0.0, None) and isinstance(mh1, (int, float)) and not isinstance(mh1, bool)
+            and mh1 > 0):
+        return 'new'
+    if not isinstance(pct, (int, float)) or isinstance(pct, bool):
+        return '—'
+    return f"{'+' if pct > 0 else ''}{pct:.1f}%"
 
 
 def _onoff(b):
@@ -454,62 +488,129 @@ def _pattern_str(p):
     return ' · '.join(parts)
 
 
-def _cal_blocks(report):
-    """Calendar changes as their own sheet — one row per calendar with its Rev.00 / Rev.01
-    working pattern (change 5), plus the per-activity reassignment summary. The Constraint
-    table is gone entirely."""
-    cc = report.get('calendar_changes') or {}
+def _fmt_pattern(p):
+    """Mirror of the on-screen fmtPattern — 'N d/wk · N h/day · N h/wk', or None when the
+    calendar is absent in that revision. Used inside the plain-language brief."""
+    if not p:
+        return None
+    parts = []
+    if p.get('days') is not None:
+        parts.append(f"{p.get('days')} d/wk")
+    if p.get('hours') is not None:
+        parts.append(f"{p.get('hours')} h/day")
+    if p.get('hpw') is not None:
+        parts.append(f"{p.get('hpw')} h/wk")
+    return ' · '.join(parts) if parts else None
 
-    # One row per calendar: name · Rev.00 pattern · Rev.01 pattern · activities.
-    patt = [[_txt(p.get('name')), _pattern_str(p.get('rev0')), _pattern_str(p.get('rev1')),
-             _num(p.get('activities'))] for p in (cc.get('patterns') or [])]
-    blocks = [{'title': 'Calendars — Rev.00 → Rev.01 working pattern',
-               'note': 'One row per calendar: its working pattern (days/week · hours/day · hours/week) '
-                       'in each revision, and how many activities use it.',
-               'headers': ['Calendar', 'Rev.00 pattern', 'Rev.01 pattern', 'Activities'],
-               'rows': _rows_or_none(patt, 4, 'No calendars found.')}]
 
-    # Reassignment summary — activities that switched from one calendar to another.
-    reassign = []
-    for g in (cc.get('reassignments') or []):
-        fw, tw = g.get('from_wd'), g.get('to_wd')
-        change = _sgn(tw - fw, ' d/wk') if isinstance(fw, (int, float)) and isinstance(tw, (int, float)) else '—'
-        reassign.append([_txt(g.get('from')), _txt(g.get('to')),
-                         _num(fw), _num(tw), change, _num(g.get('count'))])
-    blocks.append({'title': 'Working days per week — Rev.00 → Rev.01 (activities reassigned)',
-                   'note': 'A calendar switched to a longer week shortens durations on paper without changing the '
-                           'work — a paper acceleration to confirm. Days/week before → after per reassignment group.',
-                   'headers': ['From calendar', 'To calendar', 'Days/week before', 'Days/week after',
-                               'Days/week change', 'Activities'],
-                   'rows': _rows_or_none(reassign, 6, 'No calendar assignment changes.')})
+def _cal_brief_text(p, reass_from):
+    """Plain-text mirror of the on-screen calBrief — one self-explaining sentence per calendar
+    (the leading name is dropped; the Calendar column already names it). Same branches as the
+    screen: retired / added / modified-or-unchanged, all built from the engine's counts.
 
-    # Mon→Sun working / non-working day grid, Rev.00 vs Rev.01, changed days flagged (comment 2).
-    grid_rows = []
-    for p in (cc.get('patterns') or []):
-        g0, g1 = p.get('rev0_grid'), p.get('rev1_grid')
-        if not (g0 or g1):
-            continue
-        changed = set(p.get('changed_days') or [])
+    e.g. modified → "1 day made working, 1 day made non-working and 1 reduced-hours period
+    re-houred. Working week itself unchanged. Used by 88 activities, mostly Civil"; removed →
+    "Retired in Rev.01. The 12 activities that used it now run on 6 Day Workweek"; added → "New
+    7 d/wk · 10 h/day · 70 h/wk calendar, now used by 8 activities."."""
+    acts = p.get('activities') or 0
+    by_dim = (p.get('assigned') or {}).get('by_dim') or {}
+    first_dim = next(iter(by_dim), None)
+    top = (by_dim.get(first_dim) or [None])[0] if first_dim else None
+    used_by = ''
+    if acts:
+        used_by = f" Used by {acts:,} activities" + (f", mostly {top.get('value')}" if top else '') + '.'
 
-        def state_cells(grid):
-            return ['Work' if d.get('working') else 'Off' for d in (grid or [])]
-        # Spell out the direction of the flip (now non-working / working), like the screen & PDF.
-        if changed:
-            becomes_nw = any((not d.get('working')) and d.get('day') in changed for d in (g1 or []))
-            chg_txt = f"{', '.join(changed)} now {'non-working' if becomes_nw else 'working'}"
+    change = p.get('change')
+    if change == 'removed':
+        dests = sorted(reass_from.get(p.get('name')) or [], key=lambda g: -(g.get('count') or 0))
+        dest = dests[0] if dests else None
+        if dest:
+            tail = f" The {(dest.get('count') or 0):,} activities that used it now run on {dest.get('to')}."
         else:
-            chg_txt = '—'
-        if g0:
-            grid_rows.append([_txt(p.get('name')), 'Rev.00'] + state_cells(g0) + [chg_txt])
-        if g1:
-            grid_rows.append([_txt(p.get('name')), 'Rev.01'] + state_cells(g1) + [chg_txt])
-    if grid_rows:
-        blocks.append({'title': 'Calendar working-day grid — Mon→Sun (Rev.00 vs Rev.01)',
-                       'note': 'Each calendar\'s Mon→Sun working (Work) / non-working (Off) pattern before and '
-                               'after; the "Changed days" column lists any day whose working state flipped.',
-                       'headers': ['Calendar', 'Revision', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
-                                   'Changed days'],
-                       'rows': grid_rows})
+            tail = f" {acts:,} activities no longer carry this calendar."
+        return f"Retired in Rev.01.{tail}"
+    if change == 'added':
+        pat = _fmt_pattern(p.get('rev1'))
+        r1 = p.get('rev1') or {}
+        longer = (' A longer working week shortens those durations on paper.'
+                  if isinstance(r1.get('hpw'), (int, float)) and r1.get('hpw') >= 60 else '')
+        return f"New{(' ' + pat) if pat else ''} calendar, now used by {acts:,} activities.{longer}"
+
+    flips = [e for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged']
+    now_w = sum(1 for e in flips if e.get('change') == 'now working')
+    now_n = sum(1 for e in flips if e.get('change') == 'now non-working')
+    hrs = sum(1 for e in flips if not str(e.get('change') or '').startswith('now'))
+    bits = []
+    if now_w:
+        bits.append(f"{now_w} day{'s' if now_w > 1 else ''} made working")
+    if now_n:
+        bits.append(f"{now_n} day{'s' if now_n > 1 else ''} made non-working")
+    if hrs:
+        bits.append(f"{hrs} reduced-hours {'periods' if hrs > 1 else 'period'} re-houred")
+    week_changed = _fmt_pattern(p.get('rev0')) != _fmt_pattern(p.get('rev1'))
+    if bits:
+        lead = (bits[0] if len(bits) == 1 else ', '.join(bits[:-1]) + ' and ' + bits[-1]) + '.'
+        lead += ' Working week also changed.' if week_changed else ' Working week itself unchanged.'
+    elif week_changed:
+        lead = f"Working week changed {_fmt_pattern(p.get('rev0')) or '—'} → {_fmt_pattern(p.get('rev1')) or '—'}."
+    else:
+        lead = 'No material change to the working calendar.'
+    return f"{lead}{used_by}"
+
+
+def _cal_name(p):
+    """Calendar label for the ledger row — 'Old → New' when renamed, else the plain name."""
+    if p.get('change') == 'renamed' and p.get('renamed_to'):
+        return f"{_txt(p.get('name'))} → {_txt(p.get('renamed_to'))}"
+    return _txt(p.get('name'))
+
+
+def _cal_blocks(report):
+    """Calendar changes as their own sheet (round-15 Option A parity with calendarView) — one
+    row per calendar carrying a plain-language BRIEF, its Rev.00 / Rev.01 working pattern, the
+    change kind and activity count; then the CHANGED exception dates; then the assigned
+    activities by activity code. The Constraint / reassignment / Mon→Sun-grid tables are gone —
+    reassignments fold into each calendar's brief, exactly like the on-screen cards."""
+    cc = report.get('calendar_changes') or {}
+    patterns = cc.get('patterns') or []
+
+    # from-calendar -> its reassignment groups, so a retired calendar's brief can name where its
+    # activities went (mirrors the on-screen reassFrom map).
+    reass_from = {}
+    for g in (cc.get('reassignments') or []):
+        reass_from.setdefault(g.get('from'), []).append(g)
+
+    # Section digest headline — the same counts the on-screen card view leads with.
+    n_mod = sum(1 for p in patterns if p.get('change') in ('modified', 'renamed'))
+    n_add = sum(1 for p in patterns if p.get('change') == 'added')
+    n_rem = sum(1 for p in patterns if p.get('change') == 'removed')
+    n_unch = sum(1 for p in patterns if p.get('change') == 'unchanged')
+    tot_flips = sum(len([e for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged'])
+                    for p in patterns)
+    # Paper-acceleration caution — a changed calendar moving to a longer working week (same as
+    # the on-screen callout condition).
+    paper_accel = any(p.get('rev0') and p.get('rev1')
+                      and isinstance((p.get('rev1') or {}).get('hpw'), (int, float))
+                      and isinstance((p.get('rev0') or {}).get('hpw'), (int, float))
+                      and (p.get('rev1') or {}).get('hpw') > (p.get('rev0') or {}).get('hpw')
+                      for p in patterns if p.get('change') != 'unchanged')
+    digest = (f"{n_mod} modified · {n_add} added · {n_rem} retired · {n_unch} unchanged — "
+              f"{tot_flips} exception date{'' if tot_flips == 1 else 's'} changed. One row per calendar: "
+              "its change, working pattern (days/week · hours/day · hours/week) in each revision, activity "
+              "count, and a plain-language summary.")
+    if paper_accel:
+        digest += (' A calendar moved to a longer working week — durations shorten on paper without changing '
+                   'the work; a paper acceleration to confirm.')
+
+    # One row per calendar (changed and unchanged, like the card view): name · change · Rev.00
+    # pattern · Rev.01 pattern · activities · plain-language summary.
+    patt = [[_cal_name(p), _CAL_CHANGE_LABEL.get(p.get('change'), _txt(p.get('change'))),
+             _pattern_str(p.get('rev0')), _pattern_str(p.get('rev1')),
+             _num(p.get('activities')), _cal_brief_text(p, reass_from)] for p in patterns]
+    blocks = [{'title': 'Calendars — Rev.00 → Rev.01',
+               'note': digest,
+               'headers': ['Calendar', 'Change', 'Rev.00 pattern', 'Rev.01 pattern', 'Activities', 'Summary'],
+               'rows': _rows_or_none(patt, 6, 'No calendars found.')}]
 
     # The specific calendar exception dates that CHANGED between the revisions (round-14): only a
     # date whose working/non-working state flipped, or whose hours changed (e.g. 6h/day → 8h/day).
@@ -742,95 +843,117 @@ def _resource_blocks(report):
 
 # ── 8 · manpower — Manpower ──────────────────────────────────────────────────────
 
+def _other_resources_block(other):
+    """The 'Other resources' block (equipment / material / untyped) — reported beside man-hours,
+    NEVER summed into them. Mirrors the on-screen mpOtherResources boxes: each type's Rev.00 →
+    Rev.01, the change, its own unit of measure, and the assignment count."""
+    unit = {'equipment': 'equipment-hours', 'material': 'quantities (m³ / t / m²)',
+            'untyped': 'units — no resource type'}
+    name = {'equipment': 'Equipment', 'material': 'Material', 'untyped': 'Untyped'}
+    rows = []
+    for k in ('equipment', 'material', 'untyped'):
+        v = other.get(k)
+        if not v:
+            continue
+        dv = v.get('var')
+        if dv is None:
+            dv = (v.get('rev1') or 0) - (v.get('rev0') or 0)
+        assignments = v.get('n1') if v.get('n1') is not None else v.get('n0')
+        rows.append([name[k], _mh(v.get('rev0')), _mh(v.get('rev1')), _mh_sgn(dv),
+                     unit[k], _num(assignments, '0')])
+    return {'title': 'Other resources — reported separately (never added to man-hours)',
+            'note': 'Equipment and material carry their own units of measure — shown here beside labour so '
+                    'nothing is dropped from the comparison, but they do not belong in a man-hours total. '
+                    'Untyped assignments carry no resource type in the P6 export and are never guessed as labour.',
+            'headers': ['Type', 'Rev.00', 'Rev.01', 'Change', 'Unit', 'Assignments'],
+            'rows': rows}
+
+
 def _manpower_blocks(report):
-    """Manpower as its own sheet (comments 11/12) — the man-hours-by-trade totals and the
-    monthly man-hours-by-trade matrix that the stacked combo chart is drawn from. No tables
-    below beyond what the chart carries."""
+    """Manpower as its own sheet (round-15 Option A parity with manpowerView) — DIFFERENCE-FIRST
+    and LABOUR-ONLY. Man-hours = P6 Budgeted Labor Units; equipment and material carry a different
+    unit of measure and are reported separately, never summed in. The section leads with the
+    Rev.01 − Rev.00 labour man-hours difference, then the by-trade and by-month breakdowns, then
+    the honest 'other resources' block."""
     c = report.get('curves') or {}
     res_av = c.get('resource_available')
-    trade = c.get('manhours_by_trade') or []
-    monthly_trade = c.get('manpower_by_trade') or []
     months = c.get('months') or []
-    if not (res_av or trade or monthly_trade):
+    mt = c.get('manhours_total') or {}
+    trade = c.get('manhours_by_trade') or []
+    mm = c.get('manpower_monthly') or []
+    other = c.get('other_resources') or {}
+    has_labour = bool(res_av and months)
+    has_other = bool(other)
+
+    # Not-applicable fallback ONLY when there is neither labour nor other resources.
+    if not (has_labour or has_other):
         return [{'title': 'Manpower',
-                 'note': 'Neither revision carries resource man-hours — reported as not applicable.',
+                 'note': 'Neither revision carries labour man-hours or other resources — reported as not '
+                         'applicable rather than "no change".',
                  'headers': ['Manpower'], 'rows': [['Not applicable']]}]
 
-    # Total man-hours + peak-on-site KPIs (round-14 / comment 5) — total planned man-hours in
-    # each revision (from P6 planned units) and their % change, then the busiest month on site.
-    peak = c.get('peak') or {}
-    mt0 = c.get('manhours_total') or {}
-    pct = mt0.get('pct')
-    mh0, mh1 = mt0.get('rev0'), mt0.get('rev1')
-    kpi_rows = [
-        ['Total man-hours · Rev.00',
-         _num(round(mh0)) if isinstance(mh0, (int, float)) and not isinstance(mh0, bool) else '—',
-         'from P6 planned units'],
-        ['Total man-hours · Rev.01',
-         _num(round(mh1)) if isinstance(mh1, (int, float)) and not isinstance(mh1, bool) else '—',
-         'from P6 planned units'],
-        ['Change',
-         (f"{_sgn(round(pct, 1), '%')}" if isinstance(pct, (int, float)) else '—'), 'Rev.00 → Rev.01'],
-        ['Rev.00 peak on site', _num(int(round(peak.get('rev0') or 0))), _txt(peak.get('rev0_month'), '—')],
-        ['Rev.01 peak on site', _num(int(round(peak.get('rev1') or 0))), _txt(peak.get('rev1_month'), '—')],
+    blocks = []
+    if not has_labour:
+        # Labour absent but other resources present — say so honestly, then list the other resources
+        # (mirrors manpowerView showing the not-applicable card + mpOtherResources).
+        blocks.append({'title': 'Manpower',
+                       'note': 'Neither revision carries LABOUR resource loading — man-hours are reported as '
+                               'not applicable rather than "no change". Equipment / material resources are '
+                               'listed below.',
+                       'headers': ['Manpower'], 'rows': [['Not applicable']]})
+        blocks.append(_other_resources_block(other))
+        return blocks
+
+    # ── Block 1 — Labour man-hours difference (the headline) ──
+    mh0, mh1, var, pct = mt.get('rev0'), mt.get('rev1'), mt.get('var'), mt.get('pct')
+    if var is None and isinstance(mh0, (int, float)) and isinstance(mh1, (int, float)):
+        var = mh1 - mh0
+    total_rows = [
+        ['Labour man-hours · Rev.00', _mh(mh0), ''],
+        ['Labour man-hours · Rev.01', _mh(mh1), ''],
+        ['Difference — Rev.01 − Rev.00', _mh_sgn(var), _mh_pct(mh0, mh1, pct)],
     ]
-    blocks_pre = [{'title': 'Manpower on site — total man-hours & peak',
-                   'note': 'Total planned man-hours in each revision (from P6 planned units) and the % change, '
-                           'plus the peak people on site (busiest month) in each revision.',
-                   'headers': ['Metric', 'Value', 'When / basis'],
-                   'rows': kpi_rows}]
+    blocks.append({'title': 'Labour man-hours — Rev.00 → Rev.01',
+                   'note': 'Man-hours = P6 Budgeted Labor Units (Labour only); equipment & material excluded. '
+                           'The change (Rev.01 − Rev.00) is the headline; the two totals are supporting context.',
+                   'headers': ['Measure', 'Labour man-hours', 'Change %'],
+                   'rows': total_rows})
 
-    # Man-hours by trade — Rev.00 vs Rev.01 totals (money/value formatted, comment 9)
-    trows = [[_txt(t.get('resource_id')), _txt(t.get('name')), _money(t.get('rev0')),
-              _money(t.get('rev1')), _money_sgn(t.get('var')),
-              {'added': 'Added', 'removed': 'Removed', 'changed': 'Changed'}.get(t.get('kind'), _txt(t.get('kind')))]
-             for t in trade]
-    mt = c.get('manhours_total') or {}
-    if trade:
-        pct = mt.get('pct')
-        pct_s = f" ({_sgn(round(pct, 1), '%')})" if isinstance(pct, (int, float)) else ''
-        var = mt.get('var')
-        trows.append(['—', 'Total man-hours', _money(mt.get('rev0')), _money(mt.get('rev1')),
-                      (f"{_money_sgn(var)}{pct_s}" if var is not None else _money(var)), ''])
-    blocks = blocks_pre + [{'title': 'Resource mix — man-hours by trade (Rev.00 vs Rev.01)',
-               'note': 'Planned budgeted resource units (man-hours) per trade — the overall labour-mix shift. '
-                       'The dashed line on the combo chart is Rev.00\'s monthly total.',
-               'headers': ['Resource ID', 'Trade', 'Man-hrs Before', 'After', 'Variance', 'Change'],
-               'rows': _rows_or_none(trows, 6, 'No resource man-hours available.')}]
+    # ── Block 2 — Labour man-hours by trade, biggest change first ──
+    def _tvar(t):
+        v = t.get('var')
+        return v if v is not None else (t.get('rev1') or 0) - (t.get('rev0') or 0)
+    trows = [[_txt(t.get('resource_id'), '—'), _txt(t.get('name')), _mh(t.get('rev0')),
+              _mh(t.get('rev1')), _mh_sgn(_tvar(t))]
+             for t in sorted(trade, key=lambda t: -abs(_tvar(t) or 0))]
+    blocks.append({'title': 'Labour man-hours by trade — Rev.00 → Rev.01',
+                   'note': 'One row per labour resource (the same P6 Resource Id shown in Primavera), biggest '
+                           'change first. Equipment and material are excluded — see "Other resources" below.',
+                   'headers': ['Resource ID', 'Resource', 'Rev.00 (mh)', 'Rev.01 (mh)', 'Change'],
+                   'rows': _rows_or_none(trows, 5, 'No labour resources on either revision.')})
 
-    # People on site per month — Rev.00 vs Rev.01 (comment 4): the paired bars in the redesigned
-    # manpower chart. Monthly people-on-site totals in each revision and the signed difference.
-    manpower_monthly = c.get('manpower_monthly') or []
-    if manpower_monthly:
-        mm_rows = []
-        for m in manpower_monthly:
-            d = round((m.get('rev1') or 0) - (m.get('rev0') or 0))
-            mm_rows.append([_txt(m.get('month')), _num(round(m.get('rev0') or 0)),
-                            _num(round(m.get('rev1') or 0)), f"{'+' if d > 0 else ''}{d}"])
-        blocks.insert(1, {'title': 'People on site per month — Rev.00 vs Rev.01',
-                          'note': 'Monthly people-on-site totals in each revision and the difference — the '
-                                  'paired bars in the redesigned manpower chart.',
-                          'headers': ['Month', 'Rev.00', 'Rev.01', 'Difference'],
-                          'rows': mm_rows})
+    # ── Block 3 — Labour man-hours by month ──
+    mrows = []
+    for m in mm:
+        r0, r1 = m.get('rev0') or 0, m.get('rev1') or 0
+        mrows.append([_txt(m.get('month')), _mh(r0), _mh(r1), _sgn(int(round(r1 - r0)))])
+    peak = c.get('peak') or {}
+    peak_note = ''
+    if peak.get('rev0') or peak.get('rev1'):
+        peak_note = (f" Peak labour: {_mh(peak.get('rev0'))} mh/month"
+                     f"{(' in ' + peak.get('rev0_month')) if peak.get('rev0_month') else ''} (Rev.00) → "
+                     f"{_mh(peak.get('rev1'))} mh/month"
+                     f"{(' in ' + peak.get('rev1_month')) if peak.get('rev1_month') else ''} (Rev.01). "
+                     "Peak is man-hours per month, not headcount.")
+    blocks.append({'title': 'Labour man-hours by month',
+                   'note': 'Planned labour man-hours per calendar month in each revision, and the month-by-month '
+                           'change (Rev.01 − Rev.00).' + peak_note,
+                   'headers': ['Month', 'Rev.00 (mh)', 'Rev.01 (mh)', 'Change'],
+                   'rows': _rows_or_none(mrows, 4, 'No monthly labour man-hours available.')})
 
-    # Monthly man-hours by trade — the matrix behind the stacked combo chart (Rev.01).
-    if monthly_trade and months:
-        names = [_txt(t.get('trade')) for t in monthly_trade]
-        headers = ['Month'] + names + ['Monthly total']
-        rows = []
-        for i, mth in enumerate(months):
-            per = [(t.get('monthly') or [])[i] if i < len(t.get('monthly') or []) else 0.0
-                   for t in monthly_trade]
-            tot = sum(v for v in per if isinstance(v, (int, float)))
-            rows.append([_txt(mth)] + [_money(v) for v in per] + [_money(tot)])
-        # column of trade totals as a footer row
-        totals = [t.get('total') for t in monthly_trade]
-        grand = sum(v for v in totals if isinstance(v, (int, float)))
-        rows.append(['Total'] + [_money(v) for v in totals] + [_money(grand)])
-        blocks.append({'title': 'Man-hours by month, by trade — Rev.01 (stacked combo chart)',
-                       'note': 'Each month stacked by trade; the monthly total is the label above each bar.',
-                       'headers': headers,
-                       'rows': _rows_or_none(rows, len(headers), 'No monthly man-hours by trade available.')})
+    # ── Block 4 — Other resources (never added to man-hours) ──
+    if has_other:
+        blocks.append(_other_resources_block(other))
     return blocks
 
 
@@ -896,13 +1019,13 @@ def revcompare_excel(report):
         {'name': 'Milestones', 'blocks': _ms_blocks(report),
          'col_widths': {0: 16, 1: 32, 2: 20, 3: 20, 4: 16}},
         {'name': 'Calendar', 'blocks': _cal_blocks(report),
-         'col_widths': {0: 24, 1: 26, 2: 26, 3: 12, 4: 16, 5: 16}},
+         'col_widths': {0: 26, 1: 18, 2: 24, 3: 24, 4: 14, 5: 62}},
         {'name': 'Cost & Resources', 'blocks': _cost_blocks(report),
          'col_widths': {0: 20, 1: 24, 2: 18, 3: 16, 4: 16, 5: 16, 6: 16}},
         {'name': 'Resources', 'blocks': _resource_blocks(report),
          'col_widths': {0: 24, 1: 16, 2: 16, 3: 16, 4: 14, 5: 44}},
         {'name': 'Manpower', 'blocks': _manpower_blocks(report),
-         'col_widths': {0: 16, 1: 22, 2: 16, 3: 16, 4: 16, 5: 14}},
+         'col_widths': {0: 30, 1: 22, 2: 16, 3: 16, 4: 24, 5: 14}},
         {'name': 'Scope & Structure', 'blocks': _scope_blocks(report),
          'col_widths': {0: 8, 1: 40, 2: 16, 3: 28, 4: 28, 5: 12}},
     ]

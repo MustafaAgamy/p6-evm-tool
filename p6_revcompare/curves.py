@@ -125,11 +125,28 @@ def _actcal(data, act):
     return cals.get(act.get('calendar_id'))
 
 
-def _act_units(data, oid):
-    """Total budgeted resource units (man-hours) assigned to an activity."""
+# Man-hours = LABOUR resources only. A P6 assignment's budget_units is PlannedUnits in the
+# resource's own unit: for Labour it is man-hours, for Equipment it is equipment-hours, and for
+# Material it is a QUANTITY (m3, t, m2). Summing across types produces a meaningless aggregate
+# that reads like a cost figure, so every man-hours number filters to Labour and the other types
+# are reported separately (never added in) via _units_by_type / _other_resources.
+def _is_labour(a):
+    return a.get('resource_type') == 'Labour'
+
+
+def _asg_type(a):
+    t = a.get('resource_type')
+    return t if t in ('Labour', 'Equipment', 'Material') else 'Untyped'
+
+
+def _act_units(data, oid, labour_only=True):
+    """Total budgeted LABOUR units (man-hours) assigned to an activity. Equipment-hours and
+    material quantities are excluded by default — they are a different unit of measure."""
     amap = getattr(data, 'assignments_by_activity', None) or {}
     tot = 0.0
     for a in amap.get(oid, []) or []:
+        if labour_only and not _is_labour(a):
+            continue
         tot += a.get('budget_units') or 0.0
     return tot
 
@@ -139,11 +156,12 @@ def _total_bac(data):
     return sum(v or 0.0 for v in bac.values())
 
 
-def _total_units(data):
-    """Total budgeted resource units (man-hours) across the schedule — the real signal that
-    resource/manpower data is present (a cost-only assignment carries no units)."""
+def _total_units(data, labour_only=True):
+    """Total budgeted LABOUR units (man-hours) across the schedule — the signal that manpower
+    (labour) data is present. Equipment/material units are excluded (see _units_by_type)."""
     amap = getattr(data, 'assignments_by_activity', None) or {}
-    return sum((a.get('budget_units') or 0.0) for lst in amap.values() for a in (lst or []))
+    return sum((a.get('budget_units') or 0.0) for lst in amap.values() for a in (lst or [])
+               if not labour_only or _is_labour(a))
 
 
 def _span_days(calobj, s, f, after=None):
@@ -286,6 +304,8 @@ def build_curves(rev0, rev1, matched, match, cal, orig_finish):
         'manhours_total': _manhours_total(rev0, rev1),
         # Rev.01 monthly man-hours per trade — drives the stacked manpower combo chart.
         'manpower_by_trade': _manpower_by_trade_monthly(rev1, axis) if resource_available else [],
+        # Equipment / Material / Untyped totals — reported beside man-hours, never summed in.
+        'other_resources': _other_resources(rev0, rev1),
     }
 
 
@@ -297,6 +317,8 @@ def _manpower_by_trade_monthly(data, axis):
     per = {}
     for oid, act in acts.items():
         for asg in (amap.get(oid) or []):
+            if not _is_labour(asg):          # man-hours = labour only
+                continue
             u = asg.get('budget_units') or 0.0
             if not u:
                 continue
@@ -378,12 +400,15 @@ def _rollup(rev0, rev1, category_of):
 
 # ── man-hour totals per resource (trade) ────────────────────────────────────────
 
-def _units_by_resource(data):
-    """{resource key -> {'name', 'units'}} summed across every activity in the revision."""
+def _units_by_resource(data, labour_only=True):
+    """{resource key -> {'name', 'units', ...}} summed across every activity in the revision.
+    LABOUR resources only by default (man-hours); equipment/material carry different units."""
     amap = getattr(data, 'assignments_by_activity', None) or {}
     out = {}
     for assigns in amap.values():
         for a in assigns or []:
+            if labour_only and not _is_labour(a):
+                continue
             # Key by the P6 resource CODE first (stable across revisions + unique), so two resources
             # that only share a name are not merged and the same resource matches across revisions.
             key = a.get('resource_code') or a.get('resource_name') or a.get('resource_id')
@@ -391,7 +416,7 @@ def _units_by_resource(data):
                 continue
             slot = out.setdefault(key, {'name': a.get('resource_name') or a.get('resource_code') or key,
                                         'code': a.get('resource_code'), 'rid': a.get('resource_id'),
-                                        'units': 0.0})
+                                        'type': a.get('resource_type'), 'units': 0.0})
             slot['units'] += a.get('budget_units') or 0.0
             if not slot['name']:
                 slot['name'] = a.get('resource_name') or key
@@ -427,8 +452,41 @@ def _manhours_by_trade(rev0, rev1):
 
 
 def _manhours_total(rev0, rev1):
+    """Labour-only man-hours total per revision + the signed difference (the headline of the
+    manpower section). Reconciles to P6's Budgeted Labor Units total for each revision."""
     t0 = sum(s['units'] for s in _units_by_resource(rev0).values())
     t1 = sum(s['units'] for s in _units_by_resource(rev1).values())
     var = t1 - t0
     pct = round(var / t0 * 100, 1) if t0 else None
     return {'rev0': round(t0, 1), 'rev1': round(t1, 1), 'var': round(var, 1), 'pct': pct}
+
+
+def _units_by_type(data):
+    """{type: {'units', 'n'}} across ALL assignments, type in Labour/Equipment/Material/Untyped.
+    Each type carries its own unit of measure (labour man-hours, equipment-hours, material
+    quantities) and is NEVER summed with another — this backs the honest 'other resources' block
+    so nothing is silently dropped from the comparison."""
+    amap = getattr(data, 'assignments_by_activity', None) or {}
+    out = {}
+    for lst in amap.values():
+        for a in (lst or []):
+            slot = out.setdefault(_asg_type(a), {'units': 0.0, 'n': 0})
+            slot['units'] += a.get('budget_units') or 0.0
+            slot['n'] += 1
+    return out
+
+
+def _other_resources(rev0, rev1):
+    """Equipment / Material / Untyped budgeted-unit totals per revision — reported beside
+    man-hours, never added to them. Untyped is surfaced (not folded into labour) so a P6 export
+    that omits ResourceType is flagged rather than silently under- or over-counting man-hours."""
+    t0, t1 = _units_by_type(rev0), _units_by_type(rev1)
+    out = {}
+    for kind in ('Equipment', 'Material', 'Untyped'):
+        s0, s1 = t0.get(kind), t1.get(kind)
+        u0 = round(s0['units'], 1) if s0 else 0.0
+        u1 = round(s1['units'], 1) if s1 else 0.0
+        n0, n1 = (s0['n'] if s0 else 0), (s1['n'] if s1 else 0)
+        if u0 or u1 or n0 or n1:
+            out[kind.lower()] = {'rev0': u0, 'rev1': u1, 'var': round(u1 - u0, 1), 'n0': n0, 'n1': n1}
+    return out

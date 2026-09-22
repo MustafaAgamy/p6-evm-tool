@@ -114,6 +114,19 @@ def _sgn(v, unit=''):
     return f"{'+' if f > 0 else ''}{iv:,}{unit}" if isinstance(iv, int) else f"{'+' if f > 0 else ''}{iv}{unit}"
 
 
+def _mh(x):
+    """Whole man-hours / units, thousands-separated. 0 stays '0' (never '—') — a man-hours figure
+    of zero is real information, not missing data."""
+    return f'{int(round(x or 0)):,}'
+
+
+def _mhs(x):
+    """Signed whole man-hours: '+N' / '−N' / '0' with a real minus glyph — used for the neutral
+    difference-first manpower headline and deltas."""
+    xi = int(round(x or 0))
+    return ('+' if xi > 0 else '−' if xi < 0 else '') + f'{abs(xi):,}'
+
+
 def _dcell(v, unit=''):
     """A coloured delta span: +ve = up (adverse), −ve = down (relieved), 0 = muted."""
     if v is None or v == '':
@@ -1029,100 +1042,211 @@ def _cal_assigned_pdf(p):
             f'<span class="mut">({_num(a.get("count"))} activities in {rev})</span></div>{dims}{ids_html}</div>')
 
 
+def _fmtpat(p):
+    """Compact working pattern 'N d/wk · H h/day · HPW h/wk' — only the parts present (mirrors the
+    screen's fmtPattern). Returns '' when nothing is set."""
+    if not p:
+        return ''
+    parts = []
+    if p.get('days') is not None:
+        parts.append(f'{_num(p.get("days"))} d/wk')
+    if p.get('hours') is not None:
+        parts.append(f'{_num(p.get("hours"))} h/day')
+    if p.get('hpw') is not None:
+        parts.append(f'{_num(p.get("hpw"))} h/wk')
+    return ' · '.join(parts)
+
+
+def _cal_brief(p, reass_from):
+    """One plain-language BRIEF sentence per calendar (mirrors the screen's calBrief) — self-
+    explaining for a planner who did not build the baseline, built entirely from the engine's
+    counts. Neutral: it states what moved, never whether it is good or bad."""
+    name = f'<b>{_e(p.get("name"))}</b>'
+    acts = p.get('activities') or 0
+    by_dim = (p.get('assigned') or {}).get('by_dim') or {}
+    first_dim = next(iter(by_dim), None)
+    top = (by_dim.get(first_dim) or [{}])[0] if first_dim else None
+    used_by = ''
+    if acts:
+        mostly = f', mostly {_e(top.get("value"))}' if top and top.get('value') is not None else ''
+        used_by = f' Used by {_num(acts)} activities{mostly}.'
+    chg = p.get('change')
+    if chg == 'removed':
+        dest = sorted(reass_from.get(p.get('name'), []), key=lambda g: -(g.get('count') or 0))
+        dest = dest[0] if dest else None
+        tail = (f' The {_num(dest.get("count"))} activities that used it now run on <b>{_e(dest.get("to"))}</b>.'
+                if dest else f' {_num(acts)} activities no longer carry this calendar.')
+        return f'{name} — retired in Rev.01.{tail}'
+    if chg == 'added':
+        pat = _fmtpat(p.get('rev1'))
+        r1 = p.get('rev1') or {}
+        longer = (' A longer working week shortens those durations on paper.'
+                  if (r1.get('hpw') is not None and (r1.get('hpw') or 0) >= 60) else '')
+        return f'{name} — new{(" " + _e(pat)) if pat else ""} calendar, now used by {_num(acts)} activities.{longer}'
+    flips = [e for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged']
+    now_w = sum(1 for e in flips if e.get('change') == 'now working')
+    now_n = sum(1 for e in flips if e.get('change') == 'now non-working')
+    hrs = sum(1 for e in flips if not str(e.get('change') or '').startswith('now'))
+    bits = []
+    if now_w:
+        bits.append(f'<span class="rc-hl-g">{now_w} day{"s" if now_w > 1 else ""} made working</span>')
+    if now_n:
+        bits.append(f'<span class="rc-hl-r">{now_n} day{"s" if now_n > 1 else ""} made non-working</span>')
+    if hrs:
+        bits.append(f'<span class="rc-hl-a">{hrs} reduced-hours {"periods" if hrs > 1 else "period"} re-houred</span>')
+    week_changed = _fmtpat(p.get('rev0')) != _fmtpat(p.get('rev1'))
+    if bits:
+        lead = (bits[0] if len(bits) == 1 else ', '.join(bits[:-1]) + ' and ' + bits[-1]) + '.'
+        lead += ' Working week also changed.' if week_changed else ' Working week itself unchanged.'
+    elif week_changed:
+        lead = f'working week changed {_e(_fmtpat(p.get("rev0")) or "—")} &rarr; {_e(_fmtpat(p.get("rev1")) or "—")}.'
+    else:
+        lead = 'no material change to the working calendar.'
+    return f'{name} — {lead}{used_by}'
+
+
+def _cal_ledger(p):
+    """The P6-shaped ledger — Attribute | Rev.00 | Rev.01 | Change (mirrors the screen's calLedger):
+    fixed working-pattern rows, then ONLY the changed exception dates, then one collapse row that
+    proves the identical dates were compared. Added / removed calendars carry no exception list
+    (only-in-both), so those simply render the three working-pattern rows."""
+    r0 = p.get('rev0') or {}
+    r1 = p.get('rev1') or {}
+
+    def cell(v, suf=''):
+        return '—' if v is None else f'{_num(v)}{suf}'
+
+    def wk_change(a, b):
+        if a is None and b is None:
+            return ''
+        if a == b:
+            return 'unchanged'
+        if a is None:
+            return 'added'
+        if b is None:
+            return 'removed'
+        return 'changed'
+
+    def wk_cls(c):
+        return 'n' if c == 'unchanged' else 'r' if c == 'removed' else 'g' if c == 'added' else 'a'
+
+    def wk_row(lbl, a, b, suf=''):
+        c = wk_change(a, b)
+        return (f'<tr><td class="rc-lattr">{lbl}</td><td class="rc-lrev">{cell(a, suf)}</td>'
+                f'<td class="rc-lrev">{cell(b, suf)}</td>'
+                f'<td class="rc-lchg rc-chg-{wk_cls(c)}">{c or "—"}</td></tr>')
+
+    rows = (wk_row('Working days / week', r0.get('days'), r1.get('days'), ' d/wk')
+            + wk_row('Hours / day', r0.get('hours'), r1.get('hours'), ' h')
+            + wk_row('Hours / week', r0.get('hpw'), r1.get('hpw'), ' h'))
+    excs = p.get('date_exceptions') or []
+    flips = [e for e in excs if e.get('change') != 'unchanged']
+    identical = sum(1 for e in excs if e.get('change') == 'unchanged')
+    exc = ''
+    if flips:
+        exc += '<tr class="rc-lband"><td colspan="4">Exception dates — changed only</td></tr>'
+        for e in flips:
+            c = e.get('change')
+            cls = 'g' if c == 'now working' else 'r' if c == 'now non-working' else 'a'
+            note = ('made working' if c == 'now working'
+                    else 'made non-working' if c == 'now non-working'
+                    else f'hours {_e(c)}')
+            exc += (f'<tr><td class="rc-lattr"><span class="rc-dot {cls}"></span>{_e(e.get("date"))}</td>'
+                    f'<td class="rc-lrev">{_e(e.get("rev0"))}</td><td class="rc-lrev">{_e(e.get("rev1"))}</td>'
+                    f'<td class="rc-lchg rc-chg-{cls}">{note}</td></tr>')
+    if identical:
+        exc += (f'<tr class="rc-lident"><td class="rc-lattr">+ {_num(identical)} other exception '
+                f'date{"s" if identical > 1 else ""}</td><td class="rc-lrev">identical</td>'
+                f'<td class="rc-lrev">identical</td><td class="rc-lchg">not listed</td></tr>')
+    return (f'<table class="rc-ldg"><thead><tr><th class="rc-lattr">Attribute</th>'
+            f'<th class="rc-lrev">Rev.00</th><th class="rc-lrev">Rev.01</th>'
+            f'<th class="rc-lchg">Change</th></tr></thead><tbody>{rows}{exc}</tbody></table>')
+
+
 def _sec_cal(report, filters=None):
-    """Round-14 redesign — one CARD per calendar: the working-week change, a timeline strip showing
-    where the changed dates fall, only the real exception-date differences (non-working ⇄ working
-    and reduced/restored hours), and which activities use it by activity code. Identical dates are
-    summarised; renamed/added/removed calendars explain what happened to their activities."""
+    """Calendar — Option A (Brief + P6 ledger). A whole-section digest, then one block per CHANGED
+    calendar: a plain-language brief (self-explaining for a planner who did not build the baseline),
+    a P6-shaped Attribute|Rev.00|Rev.01|Change ledger (working pattern + only the changed exception
+    dates + a collapse row), and the assigned activities by activity code. Unchanged calendars fold
+    into a single line. Strictly neutral — change detected → potential impact → planning review,
+    never a verdict. Mirrors the screen's calendarView so screen == PDF == Excel."""
     cal = report.get('calendar_changes') or {}
     patterns = cal.get('patterns') or []
     reass = cal.get('reassignments') or []
     if not patterns:
-        return _card('Calendar', 'working pattern · exception dates · assigned activities',
+        return _card('Calendar', 'working pattern · exception dates · assigned activities by code',
                      _muted('No calendar definitions available for these revisions.'))
     reass_from = {}
     for g in reass:
         reass_from.setdefault(g.get('from'), []).append(g)
     tag = {'modified': ('chg', 'modified'), 'renamed': ('ren', 'renamed'),
-           'added': ('add', 'added in Rev.01'), 'removed': ('rem', 'removed in Rev.01'),
-           'unchanged': ('none', 'no change')}
-    longer, cards = [], ''
-    for p in patterns:
+           'added': ('add', 'added'), 'removed': ('rem', 'retired')}
+    changed = [p for p in patterns if p.get('change') != 'unchanged']
+    unchanged = [p for p in patterns if p.get('change') == 'unchanged']
+
+    # Section digest — the whole-section headline before any single calendar.
+    n_mod = sum(1 for p in patterns if p.get('change') in ('modified', 'renamed'))
+    n_add = sum(1 for p in patterns if p.get('change') == 'added')
+    n_rem = sum(1 for p in patterns if p.get('change') == 'removed')
+    tot_flips = sum(sum(1 for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged')
+                    for p in patterns)
+    legend = ('<span class="rc-callegend"><span><i class="g"></i>made working</span>'
+              '<span><i class="r"></i>made non-working</span>'
+              '<span><i class="a"></i>hours changed</span></span>')
+    digest = (f'<div class="rc-caldigest"><span><b>{n_mod} modified · {n_add} added · {n_rem} retired '
+              f'· {len(unchanged)} unchanged</b> — {tot_flips} exception date'
+              f'{"" if tot_flips == 1 else "s"} changed.</span>{legend}</div>')
+
+    paper_accel = False
+    cards = ''
+    for p in changed:
         chg = p.get('change')
         tagcls, taglbl = tag.get(chg, ('chg', chg or 'changed'))
         r0, r1 = p.get('rev0'), p.get('rev1')
-        p0, p1 = _cal_pat_txt(r0), _cal_pat_txt(r1)
-        if r0 and r1 and (r1.get('hpw') or 0) > (r0.get('hpw') or 0):
-            longer.append(p.get('name'))
-        acts = f' (used by {_num(p.get("activities"))} activities)' if p.get('activities') else ''
-        if chg == 'unchanged':
-            cards += (f'<div class="calcard2"><div class="calplain"><span class="caltag none">no change</span>'
-                      f'<b>{_e(p.get("name"))}</b> <span class="mut">— identical working pattern and exception '
-                      f'dates in both revisions{acts}</span></div>{_cal_assigned_pdf(p)}</div>')
-            continue
-        name_html = (f'{_e(p.get("name"))} <span class="mut">&rarr; {_e(p.get("renamed_to"))}</span>'
+        if (r0 and r1 and r0.get('hpw') is not None and r1.get('hpw') is not None
+                and (r1.get('hpw') or 0) > (r0.get('hpw') or 0)):
+            paper_accel = True
+        name_html = (f'{_e(p.get("name"))} <span class="rc-mut">&rarr; {_e(p.get("renamed_to"))}</span>'
                      if chg == 'renamed' else _e(p.get('name')))
         meta = f'{_num(p.get("activities"))} activities' if p.get('activities') else ''
-        if chg == 'added':
-            week = f'<div class="patrow"><span class="pk">Working week</span><span class="pr1">{p1}</span></div>' if p1 != '&mdash;' else ''
-        elif chg == 'removed':
-            week = f'<div class="patrow"><span class="pk">Working week</span><span class="pr0">{p0}</span></div>' if p0 != '&mdash;' else ''
-        else:
-            same = ' <span class="mut">(unchanged)</span>' if p0 == p1 else ''
-            week = (f'<div class="patrow"><span class="pk">Working week</span><span class="pr0">{p0}</span>'
-                    f'<span class="par">&rarr;</span><span class="pr1">{p1}</span>{same}</div>')
         ctx = ''
         if chg == 'removed':
             dest = sorted(reass_from.get(p.get('name'), []), key=lambda g: -(g.get('count') or 0))
             dest = dest[0] if dest else None
-            ctx = ('<div class="calctx">Retired in Rev.01.'
-                   + (f' The {_num(dest.get("count"))} activities that used it now use <b>{_e(dest.get("to"))}</b> '
-                      '&mdash; consolidated, no work left without a calendar.' if dest else '') + '</div>')
+            moved = (f' The {_num(dest.get("count"))} activities that used it now use '
+                     f'<b>{_e(dest.get("to"))}</b> — consolidated, no work left without a calendar.'
+                     if dest else '')
+            ctx = (f'<div class="rc-calctx">Retired in Rev.01.{moved} '
+                   '<span class="rc-flag">Flagged for review.</span></div>')
         elif chg == 'added':
-            ctx = f'<div class="calctx">New in Rev.01 &mdash; now used by <b>{_num(p.get("activities") or 0)}</b> activities.</div>'
-        flips = [e for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged']
-        tl = _cal_timeline_svg(flips) if chg not in ('added', 'removed') else ''
-        chg_lines = ''
-        for e in flips:
-            c = e.get('change')
-            dot = 'g' if c == 'now working' else 'r' if c == 'now non-working' else 'a'
-            if c == 'now working':
-                desc = 'was <b>non-working</b> in Rev.00 &rarr; now a <b>working day</b> in Rev.01'
-            elif c == 'now non-working':
-                desc = 'was a <b>working day</b> in Rev.00 &rarr; now <b>non-working</b> in Rev.01'
-            else:
-                desc = f'hours changed <b>{_e(e.get("rev0"))} &rarr; {_e(e.get("rev1"))}</b>'
-            chg_lines += (f'<div class="chgline"><span class="cdot {dot}"></span>'
-                          f'<span class="cdt">{_e(e.get("date"))}</span><span class="cdesc">{desc}</span></div>')
-        chg_block = f'<div class="chglist">{chg_lines}</div>' if chg_lines else ''
-        now_w = sum(1 for e in flips if e.get('change') == 'now working')
-        now_n = sum(1 for e in flips if e.get('change') == 'now non-working')
-        hrs = sum(1 for e in flips if 'h →' in str(e.get('change') or ''))
-        identical = sum(1 for e in (p.get('date_exceptions') or []) if e.get('change') == 'unchanged')
-        if now_w or now_n or hrs:
-            chips = ''
-            if now_w:
-                chips += f'<span class="cchip g">{now_w} made working</span>'
-            if now_n:
-                chips += f'<span class="cchip r">{now_n} made non-working</span>'
-            if hrs:
-                chips += f'<span class="cchip a">{hrs} re-houred</span>'
-            extra = (f' <span class="mut">&mdash; {identical} other exception date(s) identical in both '
-                     'revisions (not listed)</span>' if identical else '')
-            summary = f'<div class="calsum"><b>What changed:</b> {chips}{extra}</div>'
-        elif chg not in ('added', 'removed'):
-            note = f'The {identical} exception date(s) are identical in both revisions &mdash; ' if identical else ''
-            summary = f'<div class="calsum mut">{note}working-pattern change only, no exception-date differences.</div>'
-        else:
-            summary = ''
-        cards += (f'<div class="calcard2"><div class="calhd2"><span class="calnm">{name_html}</span>'
-                  f'<span class="caltag {tagcls}">{_e(taglbl)}</span><span class="calmeta">{meta}</span></div>'
-                  f'{week}{ctx}{tl}{chg_block}{summary}{_cal_assigned_pdf(p)}</div>')
-    body = cards
-    if longer:
-        body += ('<div class="callout warn">Longer working week on: ' + ', '.join(_e(n) for n in longer)
-                 + ' &mdash; durations shorten on paper without adding work. Confirm the basis.</div>')
-    return _card('Calendar', 'working pattern · exception dates · assigned activities by code', body)
+            r1d = r1 or {}
+            longer = (' A longer working week shortens those durations on paper.'
+                      if (r1d.get('hpw') is not None and (r1d.get('hpw') or 0) >= 60) else '')
+            ctx = (f'<div class="rc-calctx">New in Rev.01 — now used by '
+                   f'<b>{_num(p.get("activities") or 0)}</b> activities.{longer} '
+                   '<span class="rc-flag">Flagged for review.</span></div>')
+        cards += (f'<div class="rc-calcard">'
+                  f'<div class="rc-calhead"><span class="rc-calname">{name_html}</span>'
+                  f'<span class="rc-caltag {tagcls}">{_e(taglbl)}</span>'
+                  f'<span class="rc-calmeta">{meta}</span></div>'
+                  f'<div class="rc-calbrief">{_cal_brief(p, reass_from)}</div>'
+                  f'{ctx}{_cal_ledger(p)}{_cal_assigned_pdf(p)}</div>')
+
+    unchanged_line = ''
+    if unchanged:
+        parts = []
+        for p in unchanged:
+            a = f' ({_num(p.get("activities"))})' if p.get('activities') else ''
+            parts.append(f'{_e(p.get("name"))}{a}')
+        unchanged_line = (f'<div class="rc-calunchanged"><b>{len(unchanged)} calendar'
+                          f'{"s" if len(unchanged) > 1 else ""} unchanged</b> — {", ".join(parts)}. '
+                          'Identical working pattern and non-working dates in both revisions.</div>')
+
+    callout = ('<div class="callout warn">A calendar moved to a longer working week (more hours/week) '
+               '— durations shorten <b>on paper</b> without changing the work. A paper acceleration to '
+               'confirm.</div>') if paper_accel else ''
+    return _card('Calendar', 'working pattern · exception dates · assigned activities by code',
+                 digest + cards + unchanged_line + callout)
 
 
 def _scurve_svg(report):
@@ -1466,108 +1590,188 @@ def _sec_resource(report, filters=None):
 
 # ══ 8 · MANPOWER ═══════════════════════════════════════════════════════════════
 
+def _mp_other(other):
+    """Equipment / material / untyped resources — reported honestly beside man-hours, NEVER summed
+    into them (mirrors the screen's mpOtherResources). Each type carries its own unit of measure,
+    so nothing is dropped from the comparison, but none of it belongs in a labour man-hours total.
+    Renders even when labour resource loading is absent, as long as other resources exist."""
+    label = {'equipment': ('Equipment', 'equipment-hours'),
+             'material': ('Material', 'quantities (m³ / t / m²)'),
+             'untyped': ('Untyped', 'units — no resource type in the P6 export')}
+    boxes = ''
+    for k, v in other.items():
+        nm, unit = label.get(k, (k, 'units'))
+        dv = v.get('var') if v.get('var') is not None else ((v.get('rev1') or 0) - (v.get('rev0') or 0))
+        assigns = f' · {_mh(v.get("n1"))} assignments' if v.get('n1') else ''
+        boxes += (f'<div class="rc-obox"><div class="rc-k">{_e(nm)}</div>'
+                  f'<div class="rc-ov">{_mh(v.get("rev0"))} &rarr; {_mh(v.get("rev1"))}</div>'
+                  f'<div class="rc-ou">{_e(unit)} · {_mhs(dv)}{assigns}</div></div>')
+    mat_warn = ('<div class="rc-warn">Material quantities are shown as one figure because this export '
+                "doesn't carry each resource's unit of measure — they can't be safely labelled per "
+                'material (m³ vs t) or summed.</div>') if other.get('material') else ''
+    untyped_warn = ''
+    if other.get('untyped'):
+        ut = other.get('untyped') or {}
+        n_ut = ut.get('n1') or ut.get('n0') or 0
+        untyped_warn = (f'<div class="rc-warn">{_mh(n_ut)} assignment(s) carry no resource type in the '
+                        'P6 export — excluded from man-hours (never guessed as labour). Populate the P6 '
+                        'resource dictionary to include them.</div>')
+    body = ('<div class="sec">Equipment and material carry their own units of measure, so nothing is '
+            'dropped from the comparison — but they do not belong in a man-hours total.</div>'
+            f'<div class="rc-other">{boxes}</div>{mat_warn}{untyped_warn}')
+    return _card('Other resources', 'reported separately · never added to man-hours', body)
+
+
 def _sec_manpower(report, filters=None):
-    """Comment 4 (round 11) — Manpower on site per month as TWO-COLOUR grouped bars: Rev.00 (grey)
-    vs Rev.01 (blue) side by side each month, with the difference (Rev.01 − Rev.00) labelled above
-    each pair (no more busy stacked-trade colours). Plus peak-on-site KPIs and a resource-mix card."""
+    """Manpower — difference-first, LABOUR-only (mirrors the screen's manpowerView). Man-hours = the
+    sum of P6 Budgeted Labour Units; equipment-hours and material quantities carry their own units of
+    measure and are reported separately, NEVER summed in. The section LEADS with the signed man-hours
+    difference (Rev.01 − Rev.00); the two absolute totals are supporting context. Strictly neutral —
+    directional colour only (blue for +, violet for −), never good/bad. So screen == PDF == Excel."""
     c = report.get('curves') or {}
     months = c.get('months') or []
-    if not months or not c.get('resource_available'):
-        return _card('Manpower', 'people on site per month',
-                     _muted('Neither revision carries resource units — manpower is not applicable.'))
-    n = len(months)
-    r0_by_month = {m.get('month'): (m.get('rev0') or 0) for m in (c.get('manpower_monthly') or [])}
-    r1_by_month = {m.get('month'): (m.get('rev1') or 0) for m in (c.get('manpower_monthly') or [])}
-    rev0tot = [r0_by_month.get(mo, 0) for mo in months]
-    rev1tot = [r1_by_month.get(mo, 0) for mo in months]
-    mx = max(rev0tot + rev1tot + [1])
-    W, H = 860, 290
-    left, top, bot = 52, 34, 52
-    plot_w, plot_h = W - left - 30, H - top - bot
-    step = plot_w / max(n, 1)
-    bw = min(18, step * 0.30)
-    baseY = top + plot_h
-    thin = 1  # round 14 — label EVERY month (was thinned on tight axes)
-
-    seg = ''
-    for i in range(n):
-        cx = left + i * step + step / 2
-        h0 = rev0tot[i] / mx * plot_h
-        h1 = rev1tot[i] / mx * plot_h
-        x0, x1 = cx - bw - 2, cx + 2
-        if h0 > 0:
-            seg += f'<rect x="{x0:.1f}" y="{baseY - h0:.1f}" width="{bw:.1f}" height="{h0:.1f}" rx="2" fill="var(--rpt-hair-strong)"/>'
-        if h1 > 0:
-            seg += f'<rect x="{x1:.1f}" y="{baseY - h1:.1f}" width="{bw:.1f}" height="{h1:.1f}" rx="2" fill="var(--rpt-accent)"/>'
-        d = int(round(rev1tot[i] - rev0tot[i]))
-        if rev0tot[i] or rev1tot[i]:
-            col = 'var(--rpt-bad)' if d > 0 else 'var(--rpt-good)' if d < 0 else 'var(--rpt-muted)'
-            seg += (f'<text x="{cx:.1f}" y="{baseY - max(h0, h1) - 6:.1f}" font-size="9" font-weight="800" '
-                    f'fill="{col}" text-anchor="middle">{"+" if d > 0 else ""}{d:,}</text>')
-        if i % thin == 0:
-            ly = baseY + 12
-            seg += (f'<text x="{cx:.1f}" y="{ly:.1f}" font-size="8" fill="var(--rpt-muted)" '
-                    f'text-anchor="end" transform="rotate(-40 {cx:.1f} {ly:.1f})">{_e(months[i])}</text>')
-
-    svg = (f'<div class="chartwrap"><svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;min-width:640px">'
-           f'<line x1="{left}" y1="{baseY}" x2="{W - 30}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
-           f'{seg}</svg></div>')
-    legend = ('<div class="legend"><span><b class="sw-r0"></b>Rev.00 on site</span>'
-              '<span><b class="sw-r1"></b>Rev.01 on site</span>'
-              '<span style="color:var(--rpt-bad)">▲ more than Rev.00</span>'
-              '<span style="color:var(--rpt-good)">▼ fewer than Rev.00</span></div>')
-
-    # Total-man-hours KPIs (round 14) — the trio now reports total planned man-hours (the sum of P6
-    # planned units, so each figure equals what P6 reports), with peak-on-site kept as a note line.
-    peak = c.get('peak') or {}
-    mh = c.get('manhours_total') or {}
-    mh0 = int(round(mh.get('rev0') or 0))
-    mh1 = int(round(mh.get('rev1') or 0))
-    pct = mh.get('pct')
-    pct_txt = '—' if pct is None else f'{"+" if pct > 0 else ""}{pct:.1f}%'
-    pct_cls = ' hot' if (pct or 0) > 0 else ''
-    kpis = (
-        '<div class="mpk">'
-        f'<div class="mpkc"><div class="mpkk">Total man-hours · Rev.00</div><div class="mpkv">{mh0:,}</div>'
-        f'<div class="mpks">from P6 planned units</div></div>'
-        f'<div class="mpkc"><div class="mpkk">Total man-hours · Rev.01</div><div class="mpkv{" hot" if mh1 > mh0 else ""}">{mh1:,}</div>'
-        f'<div class="mpks">from P6 planned units</div></div>'
-        f'<div class="mpkc"><div class="mpkk">Change</div><div class="mpkv{pct_cls}">{pct_txt}</div>'
-        f'<div class="mpks">Rev.00 → Rev.01</div></div></div>')
-    note = ('<div class="sec">Each month shows Rev.00 (grey) and Rev.01 (blue) people on site side by '
-            'side; the number above each pair is the difference (Rev.01 − Rev.00). The total man-hours '
-            'are the sum of P6 planned units, so they match P6. The trade breakdown is the resource-mix '
-            'chart below.</div>')
-    p0 = int(round(peak.get('rev0') or 0))
-    p1 = int(round(peak.get('rev1') or 0))
-    m0 = peak.get('rev0_month')
-    m1 = peak.get('rev1_month')
-    peaknote = ''
-    if peak.get('rev0') or peak.get('rev1'):
-        peaknote = (f'<div class="sec" style="margin-top:2px">Peak on site: <b>{p0:,}</b>'
-                    f'{_e(" in " + m0) if m0 else ""} (Rev.00) → <b>{p1:,}</b>'
-                    f'{_e(" in " + m1) if m1 else ""} (Rev.01).</div>')
-    chart_card = _card('Manpower on site per month',
-                       'Rev.00 vs Rev.01 side by side · the difference labelled',
-                       kpis + note + peaknote + svg + legend)
-
-    # Resource mix — total man-hours by trade, Rev.00 → Rev.01.
     mix = c.get('manhours_by_trade') or []
-    mix_card = ''
+    mt = c.get('manhours_total') or {}
+    other = c.get('other_resources') or {}
+    has_other = bool(other)
+
+    if not c.get('resource_available') or not months:
+        msg = ('Neither revision carries LABOUR resource loading — man-hours are reported as not '
+               'applicable rather than "no change".')
+        if has_other:
+            msg += ' Equipment / material resources are listed below.'
+        return (_card('Manpower', 'labour man-hours, before vs after', _muted(msg))
+                + (_mp_other(other) if has_other else ''))
+
+    # ── Hero: the man-hours DIFFERENCE (Rev.01 − Rev.00), labour only — the headline ──
+    v0 = mt.get('rev0') or 0
+    v1 = mt.get('rev1') or 0
+    diff = mt.get('var') if mt.get('var') is not None else (v1 - v0)
+    pct = mt.get('pct')
+    dcls = 'up' if diff > 0 else 'down' if diff < 0 else 'zero'
+    if v0 == 0 and v1 > 0:
+        pct_txt = 'new'
+    elif pct is None:
+        pct_txt = '—'
+    else:
+        pct_txt = ('+' if pct > 0 else '') + f'{pct:.1f}%'
+    if int(round(diff)) == 0:
+        line = 'Rev.01 plans the <b>same</b> labour man-hours as Rev.00.'
+    else:
+        line = (f'Rev.01 plans <b>{_mh(abs(diff))} {"more" if diff > 0 else "fewer"}</b> labour '
+                'man-hours than Rev.00 — change detected; review the trade and monthly breakdown below.')
+    hero_body = (
+        '<div class="rc-mp-herorow">'
+        f'<div class="rc-mp-big {dcls}">{_mhs(diff)}'
+        '<div class="rc-mp-biglbl">labour man-hours change</div></div>'
+        '<div class="rc-mp-chips">'
+        f'<div class="rc-mp-chip"><div class="rc-k">Labour · Rev.00</div>'
+        f'<div class="rc-v soft">{_mh(v0)}</div></div>'
+        '<div class="rc-mp-arrow">&rarr;</div>'
+        f'<div class="rc-mp-chip"><div class="rc-k">Labour · Rev.01</div>'
+        f'<div class="rc-v soft">{_mh(v1)}</div></div>'
+        f'<div class="rc-mp-chip"><div class="rc-k">Change</div>'
+        f'<div class="rc-v {dcls}">{_e(pct_txt)}</div></div>'
+        '</div></div>'
+        f'<div class="sec">{line}</div>'
+        '<div class="rc-cap"><b>Man-hours = sum of P6 Budgeted Labor Units</b> (resource type = '
+        'Labour). Equipment and material are reported separately below and are <b>not</b> in this '
+        "number, so it ties to P6's Labor Units total for each revision.</div>")
+    hero = _card('Labour man-hours — Rev.00 → Rev.01', 'the change is the headline', hero_body)
+
+    # ── Monthly labour man-hours difference — signed bars around a zero line ──
+    mm = c.get('manpower_monthly') or []
+    r0map = {m.get('month'): m.get('rev0') for m in mm}
+    r1map = {m.get('month'): m.get('rev1') for m in mm}
+    dm = [int(round((r1map.get(mo) or 0) - (r0map.get(mo) or 0))) for mo in months]
+    n = len(months)
+    W = max(760, n * 54)
+    H, L, Rp, T, B = 250, 44, 16, 20, 52
+    half = (H - T - B) / 2.0
+    mid_y = T + half
+    amx = max([abs(x) for x in dm] + [1])
+    step = (W - L - Rp) / n
+    bw = min(22.0, step * 0.5)
+    s = (f'<line x1="{L}" y1="{mid_y:.1f}" x2="{W - Rp}" y2="{mid_y:.1f}" stroke="var(--rpt-ink-soft)"/>'
+         f'<text x="{L - 6}" y="{mid_y + 3:.1f}" font-size="9" fill="var(--rpt-muted)" '
+         f'text-anchor="end">0</text>')
+    for idx, mo in enumerate(months):
+        cx = L + idx * step + step / 2
+        bh = abs(dm[idx]) / amx * half * 0.92
+        if dm[idx] != 0:
+            up = dm[idx] > 0
+            y = (mid_y - bh) if up else mid_y
+            fill = 'var(--rpt-accent)' if up else 'var(--rpt-series-4)'
+            s += (f'<rect x="{cx - bw / 2:.1f}" y="{y:.1f}" width="{bw:.1f}" '
+                  f'height="{max(1.0, bh):.1f}" rx="2" fill="{fill}"/>')
+        ly = H - B + 14
+        s += (f'<text x="{cx:.1f}" y="{ly}" font-size="9" fill="var(--rpt-muted)" text-anchor="end" '
+              f'transform="rotate(-40 {cx:.1f} {ly})">{_e(mo)}</text>')
+    peak = c.get('peak') or {}
+    peak_note = ''
+    if peak.get('rev0') or peak.get('rev1'):
+        m0, m1 = peak.get('rev0_month'), peak.get('rev1_month')
+        peak_note = (f'<div class="sec" style="margin-top:2px">Peak labour: <b>{_mh(peak.get("rev0"))}</b> '
+                     f'mh/month{(" in " + _e(m0)) if m0 else ""} (Rev.00) → <b>{_mh(peak.get("rev1"))}</b> '
+                     f'mh/month{(" in " + _e(m1)) if m1 else ""} (Rev.01). Peak is man-hours per month, '
+                     'not headcount.</div>')
+    month_body = (
+        '<div class="sec">Bars above the line = more labour planned in Rev.01; below = fewer. '
+        'Every month, labour only.</div>'
+        + peak_note
+        + f'<div class="chartwrap" style="overflow:visible"><svg viewBox="0 0 {W} {H}" '
+          f'style="width:100%;height:auto;min-width:640px" role="img" '
+          f'aria-label="Monthly labour man-hours difference">{s}</svg></div>'
+        '<div class="legend"><span><b style="background:var(--rpt-accent)"></b>more than Rev.00</span>'
+        '<span><b style="background:var(--rpt-series-4)"></b>fewer than Rev.00</span></div>')
+    month_card = _card('Labour man-hours by month', 'the change, month by month (Rev.01 − Rev.00)',
+                       month_body)
+
+    # ── Labour man-hours by trade — diverging delta bars (the change is drawn) + exact table ──
+    trade_card = ''
     if mix:
-        def _mhfmt(x):
-            x = x or 0
-            return f'{round(x / 1000)}k' if abs(x) >= 1000 else f'{int(round(x)):,}'
-        mrows = [{'name': t.get('name') or t.get('resource_id'), 'rev0': t.get('rev0'),
-                  'rev1': t.get('rev1'), 'kind': t.get('kind'), 'code': t.get('resource_id')}
-                 for t in mix]
-        mbars = _ba_bars(mrows, _mhfmt)
-        mlegend = ('<div class="legend"><span><b class="sw-r0"></b>Rev.00 man-hours</span>'
-                   '<span><b class="sw-r1"></b>Rev.01 man-hours</span></div>')
-        mix_card = _card('Resource mix — total man-hours by trade', 'Rev.00 → Rev.01',
-                         '<div class="sec">The overall shift in the labour mix — which trades grew or '
-                         'shrank between the two baselines.</div>' + mbars + mlegend)
-    return chart_card + mix_card
+        rows = []
+        for t in mix:
+            v = t.get('var') if t.get('var') is not None else ((t.get('rev1') or 0) - (t.get('rev0') or 0))
+            rows.append({'name': t.get('name') or t.get('resource_id'),
+                         'resource_id': t.get('resource_id'),
+                         'rev0': t.get('rev0') or 0, 'rev1': t.get('rev1') or 0, 'v': v})
+        rows.sort(key=lambda t: -abs(t['v']))
+        tmx = max([abs(t['v']) for t in rows] + [1])
+        bars = ''
+        for t in rows:
+            up = t['v'] > 0
+            w = abs(t['v']) / tmx * 50.0
+            fill = ('left:50%;background:var(--rpt-accent)' if up
+                    else 'right:50%;background:var(--rpt-series-4)')
+            vcls = 'up' if t['v'] > 0 else 'down' if t['v'] < 0 else 'zero'
+            small = f'<small>{_e(t["resource_id"])}</small>' if t['resource_id'] else ''
+            bars += (f'<div class="rc-trow"><div class="rc-tn">{_e(t["name"])}{small}</div>'
+                     f'<div class="rc-tbar"><span class="rc-tmid"></span>'
+                     f'<span class="rc-tfill" style="{fill};width:{w:.1f}%"></span></div>'
+                     f'<div class="rc-tval {vcls}">{_mhs(t["v"])}</div></div>')
+        trows = ''
+        for t in rows:
+            vcls = 'up' if t['v'] > 0 else 'down' if t['v'] < 0 else 'zero'
+            trows += (f'<tr><td class="mono">{_e(t["resource_id"] or "—")}</td><td>{_e(t["name"])}</td>'
+                      f'<td class="n mut">{_mh(t["rev0"])}</td><td class="n new">{_mh(t["rev1"])}</td>'
+                      f'<td class="n"><span class="rc-d {vcls}">{_mhs(t["v"])}</span></td></tr>')
+        thead = ('<tr><th>Resource ID</th><th>Resource</th><th class="n">Rev.00 (mh)</th>'
+                 '<th class="n">Rev.01 (mh)</th><th class="n">Change</th></tr>')
+        caption = (f'<div class="sec" style="margin-top:2px"><b>Per-trade man-hours — exact figures</b> '
+                   f'<span>({len(rows)} labour resource{"" if len(rows) == 1 else "s"})</span></div>')
+        trade_body = (
+            '<div class="sec">One row per labour resource, biggest change first — the same P6 Resource '
+            'Id you see in Primavera. The <b>change</b> is drawn; before/after are in the table below.</div>'
+            f'<div class="rc-tdiv">{bars}</div>'
+            '<div class="legend"><span><b style="background:var(--rpt-accent)"></b>increased</span>'
+            '<span><b style="background:var(--rpt-series-4)"></b>decreased</span>'
+            f'<span>net across all labour trades: <b>{_mhs(diff)} mh</b></span></div>'
+            '<div style="margin-top:12px"></div>' + caption + _tbl(thead, trows))
+        trade_card = _card('Labour man-hours by trade', 'which trades grew or shrank (Rev.01 − Rev.00)',
+                           trade_body)
+
+    return hero + month_card + trade_card + (_mp_other(other) if has_other else '')
 
 
 # ══ 9 · SCOPE & STRUCTURE ══════════════════════════════════════════════════════
@@ -1647,10 +1851,10 @@ _SECTIONS = [
     ('critical', 3,  'Critical Path & Float',  'driving chain, entered/left, float-band shift, negative float', _sec_critical, True),
     ('register', 4,  'Change Register',        'activity-duration changes only · code filter + duration-change analysis', _sec_register, True),
     ('ms',       5,  'Milestones',             'milestone moves by activity', _sec_ms, True),
-    ('cal',      6,  'Calendar',               'working pattern per calendar, before → after', _sec_cal, True),
+    ('cal',      6,  'Calendar',               'working pattern · exception dates · assigned activities by code', _sec_cal, True),
     ('cost',     7,  'Cost & Resources',       'planned-value curve, where the money moved, itemised cost changes', _sec_cost, True),
     ('resource', 8,  'Resource',               'resource assignment changes before → after', _sec_resource, True),
-    ('manpower', 9,  'Manpower',               'monthly histogram stacked by trade with total-headcount line', _sec_manpower, True),
+    ('manpower', 9,  'Manpower',               'labour man-hours, before vs after', _sec_manpower, True),
     ('scope',    10, 'Scope & Structure',      'WBS in Primavera colour-grouping + largest date shifts', _sec_scope, True),
 ]
 
@@ -1921,4 +2125,64 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .p6-l1 { border-left-color: var(--rpt-series-1); } .p6-l2 { border-left-color: var(--rpt-series-5); } .p6-l3 { border-left-color: var(--rpt-accent); } .p6-l4 { border-left-color: var(--rpt-series-4); }
 .p6band.added { outline: 2px solid var(--rpt-good); } .p6band.removed { outline: 2px solid var(--rpt-bad); opacity: .8; text-decoration: line-through; } .p6band.moved { outline: 2px solid var(--rpt-warn); }
 .p6badge { font-size: 8.5px; font-weight: 800; padding: 1px 6px; border-radius: 5px; background: var(--rpt-surface); color: var(--rpt-ink-soft); margin-left: auto; }
+/* ── round-15 Calendar (Option A: section digest + brief + P6 ledger) — mirrors the screen rc-cal* */
+.rc-mut { color: var(--rpt-muted); }
+.rc-caldigest { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; align-items: center; background: var(--rpt-surface-2); border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 8px 13px; margin-bottom: 11px; font-size: 12px; color: var(--rpt-ink); }
+.rc-callegend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 10px; color: var(--rpt-muted); }
+.rc-callegend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+.rc-callegend i.g { background: var(--rpt-good); } .rc-callegend i.r { background: var(--rpt-bad); } .rc-callegend i.a { background: var(--rpt-warn); }
+.rc-calcard { border: 1px solid var(--rpt-edge); border-radius: 11px; padding: 11px 14px; margin-bottom: 11px; page-break-inside: avoid; }
+.rc-calhead { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 3px; page-break-after: avoid; break-after: avoid; }
+.rc-calname { font-size: 13.5px; font-weight: 800; color: var(--rpt-ink); }
+.rc-calmeta { font-size: 10.5px; color: var(--rpt-muted); margin-left: auto; }
+.rc-caltag { font-size: 8.5px; font-weight: 800; padding: 2px 8px; border-radius: 6px; }
+.rc-caltag.chg { background: var(--rpt-warn-bg); color: var(--rpt-warn); }
+.rc-caltag.add { background: var(--rpt-good-bg); color: var(--rpt-good); }
+.rc-caltag.rem { background: var(--rpt-bad-bg); color: var(--rpt-bad); }
+.rc-caltag.ren { background: var(--rpt-accent-soft); color: var(--rpt-accent); }
+.rc-calbrief { font-size: 12.5px; line-height: 1.5; margin: 4px 0; color: var(--rpt-ink); page-break-after: avoid; break-after: avoid; }
+.rc-hl-g { color: var(--rpt-good); font-weight: 700; } .rc-hl-r { color: var(--rpt-bad); font-weight: 700; } .rc-hl-a { color: var(--rpt-warn); font-weight: 700; }
+.rc-calctx { font-size: 11.5px; color: var(--rpt-ink-soft); margin: 5px 0; } .rc-calctx b { color: var(--rpt-ink); }
+.rc-flag { color: var(--rpt-warn); font-weight: 700; }
+.rc-ldg { width: 100%; border-collapse: collapse; margin: 9px 0 4px; font-size: 11.5px; page-break-inside: avoid; }
+.rc-ldg th { text-align: left; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--rpt-muted); font-weight: 800; padding: 6px 10px; border-bottom: 1px solid var(--rpt-edge); }
+.rc-ldg td { padding: 6px 10px; border-bottom: 1px solid var(--rpt-hair); vertical-align: middle; }
+.rc-ldg .rc-lattr { color: var(--rpt-ink-soft); font-weight: 600; width: 32%; }
+.rc-ldg .rc-lrev { text-align: center; width: 19%; font-variant-numeric: tabular-nums; color: var(--rpt-ink); }
+.rc-ldg .rc-lchg { text-align: right; width: 30%; }
+.rc-ldg tr.rc-lband td { background: var(--rpt-surface-2); color: var(--rpt-ink-soft); font-weight: 800; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; }
+.rc-ldg tr.rc-lident td { color: var(--rpt-muted); font-style: italic; }
+.rc-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+.rc-dot.g { background: var(--rpt-good); } .rc-dot.r { background: var(--rpt-bad); } .rc-dot.a { background: var(--rpt-warn); }
+.rc-chg-g { color: var(--rpt-good); font-weight: 700; } .rc-chg-r { color: var(--rpt-bad); font-weight: 700; }
+.rc-chg-a { color: var(--rpt-warn); font-weight: 700; } .rc-chg-n { color: var(--rpt-muted); }
+.rc-calunchanged { padding: 9px 14px; color: var(--rpt-muted); font-size: 12px; background: var(--rpt-surface-2); border: 1px dashed var(--rpt-edge); border-radius: 9px; margin-top: 4px; }
+.rc-calunchanged b { color: var(--rpt-ink-soft); }
+/* ── round-15 Manpower (labour man-hours, difference-first) — NEUTRAL blue(+)/violet(−), never good/bad */
+.rc-mp-herorow { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; margin: 6px 0 4px; }
+.rc-mp-big { font-size: 46px; font-weight: 800; letter-spacing: -1.2px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--rpt-muted); }
+.rc-mp-big.up { color: var(--rpt-accent); } .rc-mp-big.down { color: var(--rpt-series-4); } .rc-mp-big.zero { color: var(--rpt-muted); }
+.rc-mp-biglbl { font-size: 11.5px; font-weight: 700; color: var(--rpt-muted); letter-spacing: 0; margin-top: 7px; }
+.rc-mp-chips { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rc-mp-chip { background: var(--rpt-surface); border: 1px solid var(--rpt-edge); border-radius: 10px; padding: 8px 13px; min-width: 104px; }
+.rc-mp-arrow { color: var(--rpt-muted); font-size: 20px; }
+.rc-k { font-size: 9.5px; color: var(--rpt-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.rc-v { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 5px; line-height: 1; color: var(--rpt-ink); }
+.rc-v.soft { color: var(--rpt-ink-soft); } .rc-v.up { color: var(--rpt-accent); } .rc-v.down { color: var(--rpt-series-4); } .rc-v.zero { color: var(--rpt-muted); }
+.rc-cap { margin-top: 11px; font-size: 11px; color: var(--rpt-muted); background: var(--rpt-surface); border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 8px 11px; } .rc-cap b { color: var(--rpt-ink); }
+.rc-tdiv { padding: 2px 2px 4px 0; }
+.rc-trow { display: grid; grid-template-columns: 160px 1fr 92px; gap: 10px; align-items: center; margin: 6px 0; }
+.rc-tn { font-size: 11.5px; font-weight: 600; text-align: right; color: var(--rpt-ink); min-width: 0; }
+.rc-tn small { display: block; color: var(--rpt-muted); font-weight: 600; font-size: 9px; }
+.rc-tbar { position: relative; height: 20px; background: var(--rpt-surface-2); border-radius: 5px; }
+.rc-tmid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--rpt-edge); }
+.rc-tfill { position: absolute; top: 3px; height: 14px; border-radius: 3px; }
+.rc-tval { font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rc-tval.up { color: var(--rpt-accent); } .rc-tval.down { color: var(--rpt-series-4); } .rc-tval.zero { color: var(--rpt-muted); }
+.rc-d { font-weight: 700; } .rc-d.up { color: var(--rpt-accent); } .rc-d.down { color: var(--rpt-series-4); } .rc-d.zero { color: var(--rpt-muted); }
+.rc-other { display: flex; gap: 12px; flex-wrap: wrap; }
+.rc-obox { flex: 1; min-width: 150px; border: 1px solid var(--rpt-edge); border-radius: 10px; padding: 10px 13px; background: var(--rpt-surface); }
+.rc-ov { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 4px; color: var(--rpt-ink); }
+.rc-ou { font-size: 10.5px; color: var(--rpt-muted); margin-top: 3px; }
+.rc-warn { margin-top: 9px; font-size: 10.5px; color: var(--rpt-warn); background: var(--rpt-warn-bg); border-radius: 8px; padding: 7px 11px; }
 '''

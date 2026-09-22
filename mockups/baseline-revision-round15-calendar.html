@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en" data-appearance="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Revision — Calendar (round 15)</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#ffffff; --ink:#1a2230; --ink-soft:#5a6678; --muted:#8994a5;
+    --edge:#e2e7ee; --edge2:#eef1f6; --accent:#2f6df6; --accent-soft:#eaf1ff;
+    --b0:#9aa6b6; --b0-soft:#eef1f5;
+    --good:#1f9d57; --good-soft:#e7f6ee; --bad:#d5453b; --bad-soft:#fdeceb;
+    --warn:#c8801a; --warn-soft:#fbf1e0; --ren:#6b52d6; --ren-soft:#efeafb;
+    --shadow:0 1px 2px rgba(20,30,50,.05),0 6px 20px rgba(20,30,50,.05);
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:22px 16px 60px}
+  .wrap{max-width:1000px;margin:0 auto}
+  .lead{display:flex;gap:12px;align-items:flex-start;margin-bottom:6px}
+  .secnum{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;
+    display:grid;place-items:center;font-weight:800;font-size:14px}
+  h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--ink-soft);font-size:12.5px;margin:2px 0 0}
+  .note{background:var(--accent-soft);border:1px solid #d3e2ff;border-radius:10px;padding:10px 13px;
+    color:#254a86;font-size:12.5px;margin:14px 0 16px}
+  .note b{color:#173464}
+  /* tabs */
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}
+  .tab{border:1px solid var(--edge);background:var(--panel);border-radius:9px;padding:9px 13px;
+    font-weight:700;font-size:12.5px;color:var(--ink-soft);cursor:pointer;display:flex;gap:8px;align-items:center}
+  .tab .rec{background:var(--good-soft);color:var(--good);font-size:10px;font-weight:800;
+    padding:2px 6px;border-radius:20px;letter-spacing:.3px}
+  .tab.on{border-color:var(--accent);color:var(--ink);box-shadow:0 0 0 2px var(--accent-soft)}
+  .view{display:none} .view.on{display:block}
+  .digest{color:var(--ink-soft);font-size:12.5px;margin:0 0 14px;padding:9px 12px;background:var(--panel);
+    border:1px solid var(--edge);border-radius:9px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:11.5px;color:var(--ink-soft)}
+  .legend i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  /* card */
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;box-shadow:var(--shadow);
+    margin:0 0 14px;overflow:hidden}
+  .chead{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--edge2)}
+  .cname{font-weight:800;font-size:15px}
+  .cname .arr{color:var(--muted);font-weight:600}
+  .tag{font-size:10.5px;font-weight:800;letter-spacing:.3px;padding:3px 8px;border-radius:20px;text-transform:uppercase}
+  .tag.mod{background:var(--warn-soft);color:var(--warn)} .tag.add{background:var(--good-soft);color:var(--good)}
+  .tag.rem{background:var(--bad-soft);color:var(--bad)} .tag.ren{background:var(--ren-soft);color:var(--ren)}
+  .tag.non{background:var(--edge2);color:var(--muted)}
+  .cmeta{margin-left:auto;color:var(--muted);font-size:12px;font-weight:600}
+  .brief{padding:12px 15px 4px;font-size:14.5px;line-height:1.55}
+  .brief b{font-weight:800}
+  .brief .hl-g{color:var(--good);font-weight:700} .brief .hl-r{color:var(--bad);font-weight:700}
+  .brief .hl-a{color:var(--warn);font-weight:700}
+  .cbody{padding:6px 15px 15px}
+  /* ledger table */
+  table.ldg{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:13px}
+  table.ldg th{ text-align:left;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);
+    font-weight:800;padding:6px 10px;border-bottom:1px solid var(--edge)}
+  table.ldg td{padding:7px 10px;border-bottom:1px solid var(--edge2);vertical-align:middle}
+  table.ldg .c-rev{text-align:center;width:20%;font-variant-numeric:tabular-nums}
+  table.ldg .c-attr{color:var(--ink-soft);font-weight:600;width:30%}
+  table.ldg .c-chg{text-align:right;width:30%}
+  .bandlbl td{background:#fafbfd;color:var(--ink-soft);font-weight:800;font-size:10.5px;
+    letter-spacing:.4px;text-transform:uppercase;padding:6px 10px}
+  .chg-g{color:var(--good);font-weight:700} .chg-r{color:var(--bad);font-weight:700}
+  .chg-a{color:var(--warn);font-weight:700} .chg-n{color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:1px}
+  .dot.g{background:var(--good)} .dot.r{background:var(--bad)} .dot.a{background:var(--warn)}
+  .idlist{color:var(--muted);font-size:11.5px}
+  tr.identical td{color:var(--muted);font-style:italic;background:#fcfcfe}
+  /* context row */
+  .ctx{margin:6px 0 2px;padding:9px 12px;border-radius:8px;background:#fafbfd;border:1px solid var(--edge2);
+    font-size:12.5px;color:var(--ink-soft)} .ctx b{color:var(--ink)}
+  .ctx .flag{color:var(--warn);font-weight:700}
+  /* assigned strip */
+  .assign{margin-top:10px;border-top:1px dashed var(--edge);padding-top:11px}
+  .assign-h{display:flex;gap:9px;align-items:center;font-size:12px;color:var(--ink-soft);font-weight:700;margin-bottom:8px}
+  select{font:inherit;font-size:12px;padding:4px 8px;border:1px solid var(--edge);border-radius:7px;background:#fff;color:var(--ink)}
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{background:var(--accent-soft);border:1px solid #d3e2ff;border-radius:20px;padding:4px 10px;font-size:12px;color:#254a86}
+  .chip b{color:#173464}
+  details.ids{margin-top:8px} details.ids summary{cursor:pointer;color:var(--accent);font-size:12px;font-weight:600}
+  .idbox{margin-top:6px;font-family:var(--mono);font-size:11px;color:var(--ink-soft);background:#fafbfd;
+    border:1px solid var(--edge2);border-radius:7px;padding:8px 10px;line-height:1.7}
+  .unchanged-line{padding:10px 14px;color:var(--muted);font-size:12.5px;background:var(--panel);
+    border:1px dashed var(--edge);border-radius:9px}
+  .unchanged-line b{color:var(--ink-soft)}
+  /* ribbon */
+  .ribbon-axis{position:relative;height:26px;margin:6px 0 2px;border-bottom:1px solid var(--edge)}
+  .axl{position:absolute;top:4px;transform:translateX(-50%);font-size:10.5px;color:var(--muted)}
+  .axtick{position:absolute;top:20px;width:1px;height:6px;background:var(--edge)}
+  .density{position:relative;height:16px;background:#fafbfd;border:1px solid var(--edge2);border-radius:5px;margin-bottom:12px}
+  .lane{display:flex;align-items:stretch;border-top:1px solid var(--edge2);min-height:44px}
+  .lane .rail{flex:0 0 220px;padding:8px 12px 8px 0;border-right:1px solid var(--edge2)}
+  .lane .rail .ln{font-weight:800;font-size:13px}
+  .lane .rail .lw{font-size:11px;color:var(--ink-soft);margin-top:2px}
+  .lane .rail .la{font-size:11px;color:var(--muted);margin-top:1px}
+  .lane .track{position:relative;flex:1;margin:8px 0}
+  .mk{position:absolute;top:50%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%}
+  .mk.g{background:var(--good)} .mk.r{background:var(--bad)}
+  .mk.a{height:11px;border-radius:3px;background:var(--warn);transform:translateY(-50%)}
+  .lane.quiet{min-height:30px;color:var(--muted)}
+  .lane.quiet .rail .ln{font-weight:700;color:var(--ink-soft)}
+  .mktick{position:absolute;top:2px;width:2px;height:12px;border-radius:1px}
+  /* feed */
+  .feed-row{display:grid;grid-template-columns:96px 1fr 176px;gap:12px;align-items:start;
+    padding:13px 15px;border-bottom:1px solid var(--edge2);cursor:pointer}
+  .feed-row:hover{background:#fafbff}
+  .feed-row .fs{font-size:13.5px;line-height:1.5}
+  .feed-row .fs .fn{font-weight:800}
+  .feed-row .fsub{color:var(--muted);font-size:12px;margin-top:3px}
+  .feed-right{text-align:right;display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+  .mchip{font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px}
+  .mchip.g{background:var(--good-soft);color:var(--good)} .mchip.r{background:var(--bad-soft);color:var(--bad)}
+  .mchip.a{background:var(--warn-soft);color:var(--warn)}
+  .fcount{color:var(--muted);font-size:11.5px}
+  .caret{color:var(--muted)}
+  .drawer{display:none;grid-column:1/-1;margin-top:10px;padding:11px 13px;background:#fafbfd;
+    border:1px solid var(--edge2);border-radius:9px;font-size:12.5px;color:var(--ink-soft)}
+  .feed-row.open .drawer{display:block}
+  .drawer .dl{margin:3px 0}
+  .foot{color:var(--muted);font-size:11.5px;margin-top:8px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="lead">
+    <div class="secnum">6</div>
+    <div>
+      <h1>Calendar — three ways to present it</h1>
+      <p class="sub">Baseline Revision Comparison · round 15 · same data, three layouts. Pick one and I build it across screen, PDF &amp; Excel.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    Every option keeps what we already agreed: <b>only the changed dates are listed</b> (identical non-working days are counted, not repeated), removed/added calendars <b>explain what happened to their activities</b>, reduced/restored hours are compared with direction (6h→8h), and each calendar shows <b>which activities use it, by activity code</b>. All three stay neutral — <i>change → potential impact → planning review</i>, never a verdict.
+  </div>
+
+  <div class="tabs">
+    <div class="tab on" data-v="ledger">A · Brief + P6 Ledger <span class="rec">RECOMMENDED</span></div>
+    <div class="tab" data-v="ribbon">B · Working-Time Ribbon</div>
+    <div class="tab" data-v="feed">C · Change-Brief feed</div>
+  </div>
+
+  <!-- ============================ A · LEDGER ============================ -->
+  <div class="view on" id="v-ledger">
+    <div class="digest">
+      <span><b>3 modified · 1 added · 1 retired · 2 unchanged</b> — 3 exception dates changed, 1 week re-houred; changes touch 108 activities.</span>
+      <span class="legend"><span><i style="background:var(--good)"></i>made working</span><span><i style="background:var(--bad)"></i>made non-working</span><span><i style="background:var(--warn)"></i>hours changed</span></span>
+    </div>
+
+    <!-- 6 Day Workweek -->
+    <div class="card">
+      <div class="chead">
+        <span class="cname">6 Day Workweek</span>
+        <span class="tag mod">modified</span>
+        <span class="cmeta">used in both revisions · 88 activities</span>
+      </div>
+      <div class="brief">
+        <b>6 Day Workweek</b> — <span class="hl-g">1 day made working</span>, <span class="hl-r">1 day made non-working</span>, and a <span class="hl-a">reduced-hours week restored to full 8h</span>. Working week itself unchanged. Used by 88 activities, mostly Civil.
+      </div>
+      <div class="cbody">
+        <table class="ldg">
+          <thead><tr><th class="c-attr">Attribute</th><th class="c-rev">Rev.00</th><th class="c-rev">Rev.01</th><th class="c-chg">Change</th></tr></thead>
+          <tbody>
+            <tr><td class="c-attr">Working week</td><td class="c-rev">6 d/wk</td><td class="c-rev">6 d/wk</td><td class="c-chg chg-n">unchanged</td></tr>
+            <tr><td class="c-attr">Hours / day</td><td class="c-rev">8 h</td><td class="c-rev">8 h</td><td class="c-chg chg-n">unchanged</td></tr>
+            <tr><td class="c-attr">Hours / week</td><td class="c-rev">48 h</td><td class="c-rev">48 h</td><td class="c-chg chg-n">unchanged</td></tr>
+            <tr><td class="c-attr">Weekly non-working</td><td class="c-rev">Fri</td><td class="c-rev">Fri</td><td class="c-chg chg-n">unchanged</td></tr>
+            <tr class="bandlbl"><td colspan="4">Exception dates — changed only</td></tr>
+            <tr><td class="c-attr"><span class="dot g"></span>07 Jan 2026</td><td class="c-rev">Non-working</td><td class="c-rev">8 h/day</td><td class="c-chg chg-g">made working</td></tr>
+            <tr><td class="c-attr"><span class="dot a"></span>01–07 Mar 2026</td><td class="c-rev">6 h/day</td><td class="c-rev">8 h/day</td><td class="c-chg chg-a">hours 6h → 8h</td></tr>
+            <tr><td class="c-attr"><span class="dot r"></span>23 Sep 2026</td><td class="c-rev">8 h/day</td><td class="c-rev">Non-working</td><td class="c-chg chg-r">made non-working</td></tr>
+            <tr class="identical"><td class="c-attr">+ 4 other exception dates</td><td class="c-rev">identical</td><td class="c-rev">identical</td><td class="c-chg">not listed</td></tr>
+          </tbody>
+        </table>
+        <div class="assign">
+          <div class="assign-h">Assigned — by activity code
+            <select><option>Discipline</option><option>Type of Works</option><option>AGI Phase</option></select>
+          </div>
+          <div class="chips"><span class="chip">Civil <b>40</b></span><span class="chip">Structural <b>30</b></span><span class="chip">MEP <b>18</b></span></div>
+          <details class="ids"><summary>see the 88 activity IDs</summary>
+            <div class="idbox">A1010 · A1020 · A1035 · A1120 · A1250 · A1330 · A1400 · A1455 · A1500 · A1620 · A1700 · A1815 · … (76 more)</div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- Temporary Site Cal (removed) -->
+    <div class="card">
+      <div class="chead">
+        <span class="cname">Temporary Site Cal</span>
+        <span class="tag rem">retired</span>
+        <span class="cmeta">removed in Rev.01</span>
+      </div>
+      <div class="brief"><b>Temporary Site Cal</b> — retired in Rev.01. The 12 activities that used it now run on <b>6 Day Workweek</b>.</div>
+      <div class="cbody">
+        <div class="ctx">Retired in Rev.01 · its <b>12 activities</b> now use <b>6 Day Workweek</b> — consolidated, no work left without a calendar. <span class="flag">Flagged for review.</span></div>
+        <table class="ldg">
+          <thead><tr><th class="c-attr">Attribute</th><th class="c-rev">Rev.00</th><th class="c-rev">Rev.01</th><th class="c-chg">Change</th></tr></thead>
+          <tbody>
+            <tr><td class="c-attr">Working week</td><td class="c-rev">6 d/wk · 8 h</td><td class="c-rev">—</td><td class="c-chg chg-r">removed</td></tr>
+          </tbody>
+        </table>
+        <div class="assign">
+          <div class="assign-h">Assigned in Rev.00 (before retirement)
+            <select><option>Discipline</option><option>Type of Works</option></select>
+          </div>
+          <div class="chips"><span class="chip">Civil <b>7</b></span><span class="chip">Enabling <b>5</b></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Marine Works (added) -->
+    <div class="card">
+      <div class="chead">
+        <span class="cname">Marine Works</span>
+        <span class="tag add">added</span>
+        <span class="cmeta">new in Rev.01 · 8 activities</span>
+      </div>
+      <div class="brief"><b>Marine Works</b> — new 7 d/wk · 10 h/day calendar, now used by 8 activities moved off 6 Day Workweek. A longer working week shortens those durations on paper.</div>
+      <div class="cbody">
+        <div class="ctx">New in Rev.01 · adopted by <b>8 activities</b> moved off <b>6 Day Workweek</b>. A 70 h/wk pattern shortens those activities' durations on paper. <span class="flag">Flagged for review.</span></div>
+        <table class="ldg">
+          <thead><tr><th class="c-attr">Attribute</th><th class="c-rev">Rev.00</th><th class="c-rev">Rev.01</th><th class="c-chg">Change</th></tr></thead>
+          <tbody>
+            <tr><td class="c-attr">Working week</td><td class="c-rev">—</td><td class="c-rev">7 d/wk</td><td class="c-chg chg-g">added</td></tr>
+            <tr><td class="c-attr">Hours / day</td><td class="c-rev">—</td><td class="c-rev">10 h</td><td class="c-chg chg-g">added</td></tr>
+            <tr><td class="c-attr">Hours / week</td><td class="c-rev">—</td><td class="c-rev">70 h</td><td class="c-chg chg-g">added</td></tr>
+          </tbody>
+        </table>
+        <div class="assign">
+          <div class="assign-h">Assigned in Rev.01
+            <select><option>Discipline</option><option>Type of Works</option></select>
+          </div>
+          <div class="chips"><span class="chip">Marine <b>6</b></span><span class="chip">Civil <b>2</b></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="unchanged-line"><b>2 calendars unchanged</b> — National Holidays (210 activities), Standard 5-Day (44). Identical working pattern and non-working dates in both revisions.</div>
+    <div class="foot">A · Brief header (self-explaining) + P6-shaped ledger (verify against Primavera, export to Excel unchanged).</div>
+  </div>
+
+  <!-- ============================ B · RIBBON ============================ -->
+  <div class="view" id="v-ribbon">
+    <div class="digest">
+      <span>One shared project axis · every calendar's changed dates on the same timeline — see <b>when</b> the working-time changes land.</span>
+      <span class="legend"><span><i style="background:var(--good)"></i>made working</span><span><i style="background:var(--bad)"></i>made non-working</span><span><i style="background:var(--warn)"></i>hours changed</span></span>
+    </div>
+    <div class="card"><div class="cbody">
+      <div class="ribbon-axis">
+        <span class="axl" style="left:2%">Jan 26</span><span class="axtick" style="left:2%"></span>
+        <span class="axl" style="left:22%">Apr 26</span><span class="axtick" style="left:22%"></span>
+        <span class="axl" style="left:42%">Jul 26</span><span class="axtick" style="left:42%"></span>
+        <span class="axl" style="left:62%">Oct 26</span><span class="axtick" style="left:62%"></span>
+        <span class="axl" style="left:82%">Jan 27</span><span class="axtick" style="left:82%"></span>
+      </div>
+      <div class="density" title="all calendars' changed dates">
+        <span class="mktick" style="left:5%;background:var(--good)"></span>
+        <span class="mktick" style="left:16%;background:var(--warn)"></span>
+        <span class="mktick" style="left:17%;background:var(--warn)"></span>
+        <span class="mktick" style="left:58%;background:var(--bad)"></span>
+      </div>
+
+      <div class="lane">
+        <div class="rail"><div class="ln">6 Day Workweek <span class="tag mod" style="font-size:9px">mod</span></div>
+          <div class="lw">6 d/wk · 8 h · 48 h/wk → unchanged</div><div class="la">88 activities</div></div>
+        <div class="track">
+          <span class="mk g" style="left:5%" title="07 Jan — made working"></span>
+          <span class="mk a" style="left:16.5%;width:14px" title="01–07 Mar — 6h→8h"></span>
+          <span class="mk r" style="left:58%" title="23 Sep — made non-working"></span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="rail"><div class="ln">Marine Works <span class="tag add" style="font-size:9px">new</span></div>
+          <div class="lw">— → 7 d/wk · 10 h · 70 h/wk</div><div class="la">8 activities (from 6 Day Workweek)</div></div>
+        <div class="track"><span class="mk g" style="left:30%;width:52%;height:9px;border-radius:3px;opacity:.4" title="active window"></span></div>
+      </div>
+      <div class="lane">
+        <div class="rail"><div class="ln">Temporary Site Cal <span class="tag rem" style="font-size:9px">retired</span></div>
+          <div class="lw">6 d/wk · 8 h → removed</div><div class="la">12 activities → 6 Day Workweek</div></div>
+        <div class="track"><span class="mk r" style="left:8%;width:20%;height:9px;border-radius:3px;opacity:.35" title="was active early"></span></div>
+      </div>
+      <div class="lane quiet">
+        <div class="rail"><div class="ln">National Holidays</div><div class="la">no change · 210 activities</div></div>
+        <div class="track"></div>
+      </div>
+      <div class="foot" style="text-align:left;margin-top:12px">Click any lane → drawer with the changed-dates list, identical-count, removed/added context and assigned-by-activity-code (same detail as option A, just revealed on demand).</div>
+    </div></div>
+    <div class="foot">B · One time axis, many calendars — best for spotting <i>when</i> changes cluster (e.g. a re-houred week near a milestone).</div>
+  </div>
+
+  <!-- ============================ C · FEED ============================ -->
+  <div class="view" id="v-feed">
+    <div class="digest">
+      <span>A scannable feed — one plain-language line per calendar, detail one click away.</span>
+      <span class="legend"><span><i style="background:var(--good)"></i>working</span><span><i style="background:var(--bad)"></i>non-working</span><span><i style="background:var(--warn)"></i>hours</span></span>
+    </div>
+    <div class="card">
+      <div class="feed-row open">
+        <span class="tag mod">modified</span>
+        <div><div class="fs"><span class="fn">6 Day Workweek</span> — 1 day made working, 1 day made non-working, and a reduced-hours week restored to full 8h days.</div>
+          <div class="fsub">used by 88 activities, mostly Civil</div>
+          <div class="drawer">
+            <div class="dl"><span class="dot g"></span><b>07 Jan 2026</b> — was non-working, now a working day</div>
+            <div class="dl"><span class="dot a"></span><b>01–07 Mar 2026</b> — hours restored 6h → 8h</div>
+            <div class="dl"><span class="dot r"></span><b>23 Sep 2026</b> — was working, now non-working</div>
+            <div class="dl" style="color:var(--muted);font-style:italic">+ 4 other holidays identical in both revisions — not listed</div>
+            <div class="dl" style="margin-top:7px">Assigned by <b>Discipline</b>: <span class="chip">Civil 40</span> <span class="chip">Structural 30</span> <span class="chip">MEP 18</span></div>
+          </div>
+        </div>
+        <div class="feed-right"><span class="mchip g">+1 working</span><span class="mchip r">−1 non-working</span><span class="mchip a">~1 re-houred</span><span class="fcount">88 activities · mostly Civil ▾</span></div>
+      </div>
+      <div class="feed-row">
+        <span class="tag rem">retired</span>
+        <div><div class="fs"><span class="fn">Temporary Site Cal</span> — retired in Rev.01; its 12 activities now run on 6 Day Workweek, so none lost a calendar.</div>
+          <div class="fsub">flagged for review — consolidation</div></div>
+        <div class="feed-right"><span class="fcount">12 activities → 6 Day Workweek ▸</span></div>
+      </div>
+      <div class="feed-row">
+        <span class="tag add">added</span>
+        <div><div class="fs"><span class="fn">Marine Works</span> — new 7 d/wk · 10h calendar, now used by 8 activities moved off 6 Day Workweek.</div>
+          <div class="fsub">longer week shortens those durations on paper — flagged for review</div></div>
+        <div class="feed-right"><span class="fcount">8 activities · mostly Marine ▸</span></div>
+      </div>
+    </div>
+    <div class="unchanged-line"><b>2 calendars unchanged</b> — National Holidays (210), Standard 5-Day (44).</div>
+    <div class="foot">C · Notification-style feed — fastest skim, everything collapses to one line per calendar.</div>
+  </div>
+
+</div>
+<script>
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on'); document.getElementById('v-'+t.dataset.v).classList.add('on');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }));
+  document.querySelectorAll('.feed-row').forEach(r=>r.addEventListener('click',()=>r.classList.toggle('open')));
+</script>
+</body>
+</html>
