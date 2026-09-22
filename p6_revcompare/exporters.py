@@ -967,54 +967,163 @@ def _cal_narrative(patterns):
     return hdr + _tbl(head, rows) + narr
 
 
+def _cal_timeline_svg(flips):
+    """A horizontal timeline strip marking WHERE in the project the changed calendar dates fall —
+    green tick = became working, red = became non-working, amber = hours changed (a range for a
+    multi-day span). Positions each change by its date within the span of the changes."""
+    from datetime import date as _date
+
+    def _p(iso):
+        try:
+            return _date.fromisoformat(iso)
+        except Exception:
+            return None
+    pts = []
+    for e in flips:
+        s = _p(e.get('iso'))
+        if s:
+            pts.append((s, _p(e.get('iso_end') or e.get('iso')) or s, e.get('change')))
+    if not pts:
+        return ''
+    lo = min(p[0] for p in pts)
+    hi = max(p[1] for p in pts)
+    span = (hi - lo).days or 1
+    W, H = 700, 30
+
+    def x(d):
+        return 8 + (d - lo).days / span * (W - 16)
+    ticks = ''
+    for s, en, chg in pts:
+        col = 'var(--rpt-good)' if chg == 'now working' else 'var(--rpt-bad)' if chg == 'now non-working' else 'var(--rpt-warn)'
+        if en > s:
+            ticks += f'<rect x="{x(s):.1f}" y="8" width="{max(3.0, x(en) - x(s)):.1f}" height="14" rx="2" fill="{col}" opacity="0.55"/>'
+        else:
+            ticks += f'<rect x="{x(s) - 2:.1f}" y="5" width="4" height="20" rx="2" fill="{col}"/>'
+    return (f'<div class="caltl"><div class="caltllab"><span>{_e(lo.strftime("%b %Y"))}</span>'
+            f'<span>{_e(hi.strftime("%b %Y"))}</span></div>'
+            f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto"><rect x="0" y="4" width="{W}" height="22" '
+            f'rx="5" fill="var(--rpt-surface-2)" stroke="var(--rpt-edge)"/>{ticks}</svg></div>')
+
+
+def _cal_assigned_pdf(p):
+    """Which activities use a calendar, by activity code — every dimension's value counts + the
+    activity IDs (comment: know which activities and at which activity code)."""
+    a = p.get('assigned') or {}
+    by_dim = a.get('by_dim') or {}
+    if not a.get('count'):
+        return ''
+    rev = 'Rev.00' if p.get('assigned_rev') == 'rev0' else 'Rev.01'
+    hdr = ('Activities that used it in Rev.00' if p.get('change') == 'removed'
+           else 'Activities using it in Rev.01' if p.get('change') == 'added' else 'Assigned activities')
+    dims = ''
+    for dim, vals in by_dim.items():
+        chips = ''.join(f'<span class="acchip">{_e(v.get("value"))} <b>{_num(v.get("count"))}</b></span>' for v in vals)
+        dims += f'<div class="acdim"><span class="acdimn">{_e(dim)}</span>{chips}</div>'
+    ids = a.get('ids') or []
+    ids_html = ''
+    if ids:
+        shown = ' · '.join(_e(i) for i in ids[:40])
+        more = f' · … ({_num(len(ids) - 40)} more)' if len(ids) > 40 else ''
+        ids_html = f'<div class="acids"><span class="mut">Activity IDs:</span> <span class="idlist">{shown}{more}</span></div>'
+    return (f'<div class="assign"><div class="assignh">{hdr} — by activity code '
+            f'<span class="mut">({_num(a.get("count"))} activities in {rev})</span></div>{dims}{ids_html}</div>')
+
+
 def _sec_cal(report, filters=None):
-    """Comment 5 — Calendar presented clearly from ``calendar_changes.patterns``: one row per
-    calendar (name · Rev.00 pattern · Rev.01 pattern · activities). The 24-hour-calendar 0-days
-    bug is fixed in the engine. Keeps the reassignment summary/callout."""
+    """Round-14 redesign — one CARD per calendar: the working-week change, a timeline strip showing
+    where the changed dates fall, only the real exception-date differences (non-working ⇄ working
+    and reduced/restored hours), and which activities use it by activity code. Identical dates are
+    summarised; renamed/added/removed calendars explain what happened to their activities."""
     cal = report.get('calendar_changes') or {}
     patterns = cal.get('patterns') or []
     reass = cal.get('reassignments') or []
-    if not patterns and not reass:
-        return _card('Working pattern per calendar', 'Rev.00 → Rev.01 · per calendar',
-                     _muted('No calendar reassignments or definition changes.'))
-
-    intro = ('<div class="sec">Each calendar shown as a plain working pattern — days/week · '
-             'hours/day · hours/week — before and after, plus a Mon→Sun working / non-working '
-             'grid with any day whose state changed highlighted (comment 2). A 24-hour calendar '
-             'reads 7 days.</div>')
-    head = ('<div class="calrow calhd"><div>Calendar</div><div>Rev.00 pattern</div>'
-            '<div>Rev.01 pattern</div><div class="ract">Activities</div></div>')
-    rows = ''
-    longer = []
+    if not patterns:
+        return _card('Calendar', 'working pattern · exception dates · assigned activities',
+                     _muted('No calendar definitions available for these revisions.'))
+    reass_from = {}
+    for g in reass:
+        reass_from.setdefault(g.get('from'), []).append(g)
+    tag = {'modified': ('chg', 'modified'), 'renamed': ('ren', 'renamed'),
+           'added': ('add', 'added in Rev.01'), 'removed': ('rem', 'removed in Rev.01'),
+           'unchanged': ('none', 'no change')}
+    longer, cards = [], ''
     for p in patterns:
-        r0, r1 = p.get('rev0'), p.get('rev1')
         chg = p.get('change')
-        chg_lbl = (f'<span class="s"> · {_e(chg)}</span>' if chg and chg != 'unchanged' else '')
-        row = (f'<div class="calrow"><div class="calname">{_e(p.get("name"))}{chg_lbl}</div>'
-               f'<div><span class="pattern">{_cal_pat_txt(r0)}</span></div>'
-               f'<div><span class="pattern r1">{_cal_pat_txt(r1)}</span></div>'
-               f'<div class="ract">{_num(p.get("activities"))}</div></div>')
-        rows += f'<div class="calblk">{row}{_dow_grid_block(p)}</div>'
+        tagcls, taglbl = tag.get(chg, ('chg', chg or 'changed'))
+        r0, r1 = p.get('rev0'), p.get('rev1')
+        p0, p1 = _cal_pat_txt(r0), _cal_pat_txt(r1)
         if r0 and r1 and (r1.get('hpw') or 0) > (r0.get('hpw') or 0):
-            longer.append((p.get('name'), r0, r1, p.get('activities')))
-    body = intro + head + rows + _cal_narrative(patterns)
-
-    if reass:
-        total_re = sum(g.get('count') or 0 for g in reass)
-        top = reass[0]
-        body += (f'<div class="callout"><b>{_num(total_re)} '
-                 f'activit{"y" if total_re == 1 else "ies"}</b> reassigned across '
-                 f'{len(reass)} calendar switch(es) — largest: {_e(top.get("from"))} → '
-                 f'{_e(top.get("to"))} ({_num(top.get("count"))}).</div>')
+            longer.append(p.get('name'))
+        acts = f' (used by {_num(p.get("activities"))} activities)' if p.get('activities') else ''
+        if chg == 'unchanged':
+            cards += (f'<div class="calcard2"><div class="calplain"><span class="caltag none">no change</span>'
+                      f'<b>{_e(p.get("name"))}</b> <span class="mut">— identical working pattern and exception '
+                      f'dates in both revisions{acts}</span></div>{_cal_assigned_pdf(p)}</div>')
+            continue
+        name_html = (f'{_e(p.get("name"))} <span class="mut">&rarr; {_e(p.get("renamed_to"))}</span>'
+                     if chg == 'renamed' else _e(p.get('name')))
+        meta = f'{_num(p.get("activities"))} activities' if p.get('activities') else ''
+        if chg == 'added':
+            week = f'<div class="patrow"><span class="pk">Working week</span><span class="pr1">{p1}</span></div>' if p1 != '&mdash;' else ''
+        elif chg == 'removed':
+            week = f'<div class="patrow"><span class="pk">Working week</span><span class="pr0">{p0}</span></div>' if p0 != '&mdash;' else ''
+        else:
+            same = ' <span class="mut">(unchanged)</span>' if p0 == p1 else ''
+            week = (f'<div class="patrow"><span class="pk">Working week</span><span class="pr0">{p0}</span>'
+                    f'<span class="par">&rarr;</span><span class="pr1">{p1}</span>{same}</div>')
+        ctx = ''
+        if chg == 'removed':
+            dest = sorted(reass_from.get(p.get('name'), []), key=lambda g: -(g.get('count') or 0))
+            dest = dest[0] if dest else None
+            ctx = ('<div class="calctx">Retired in Rev.01.'
+                   + (f' The {_num(dest.get("count"))} activities that used it now use <b>{_e(dest.get("to"))}</b> '
+                      '&mdash; consolidated, no work left without a calendar.' if dest else '') + '</div>')
+        elif chg == 'added':
+            ctx = f'<div class="calctx">New in Rev.01 &mdash; now used by <b>{_num(p.get("activities") or 0)}</b> activities.</div>'
+        flips = [e for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged']
+        tl = _cal_timeline_svg(flips) if chg not in ('added', 'removed') else ''
+        chg_lines = ''
+        for e in flips:
+            c = e.get('change')
+            dot = 'g' if c == 'now working' else 'r' if c == 'now non-working' else 'a'
+            if c == 'now working':
+                desc = 'was <b>non-working</b> in Rev.00 &rarr; now a <b>working day</b> in Rev.01'
+            elif c == 'now non-working':
+                desc = 'was a <b>working day</b> in Rev.00 &rarr; now <b>non-working</b> in Rev.01'
+            else:
+                desc = f'hours changed <b>{_e(e.get("rev0"))} &rarr; {_e(e.get("rev1"))}</b>'
+            chg_lines += (f'<div class="chgline"><span class="cdot {dot}"></span>'
+                          f'<span class="cdt">{_e(e.get("date"))}</span><span class="cdesc">{desc}</span></div>')
+        chg_block = f'<div class="chglist">{chg_lines}</div>' if chg_lines else ''
+        now_w = sum(1 for e in flips if e.get('change') == 'now working')
+        now_n = sum(1 for e in flips if e.get('change') == 'now non-working')
+        hrs = sum(1 for e in flips if 'h →' in str(e.get('change') or ''))
+        identical = sum(1 for e in (p.get('date_exceptions') or []) if e.get('change') == 'unchanged')
+        if now_w or now_n or hrs:
+            chips = ''
+            if now_w:
+                chips += f'<span class="cchip g">{now_w} made working</span>'
+            if now_n:
+                chips += f'<span class="cchip r">{now_n} made non-working</span>'
+            if hrs:
+                chips += f'<span class="cchip a">{hrs} re-houred</span>'
+            extra = (f' <span class="mut">&mdash; {identical} other exception date(s) identical in both '
+                     'revisions (not listed)</span>' if identical else '')
+            summary = f'<div class="calsum"><b>What changed:</b> {chips}{extra}</div>'
+        elif chg not in ('added', 'removed'):
+            note = f'The {identical} exception date(s) are identical in both revisions &mdash; ' if identical else ''
+            summary = f'<div class="calsum mut">{note}working-pattern change only, no exception-date differences.</div>'
+        else:
+            summary = ''
+        cards += (f'<div class="calcard2"><div class="calhd2"><span class="calnm">{name_html}</span>'
+                  f'<span class="caltag {tagcls}">{_e(taglbl)}</span><span class="calmeta">{meta}</span></div>'
+                  f'{week}{ctx}{tl}{chg_block}{summary}{_cal_assigned_pdf(p)}</div>')
+    body = cards
     if longer:
-        names = ', '.join(_e(n) for (n, *_r) in longer)
-        body += ('<div class="callout warn">Longer working week on: ' + names
-                 + ' — a paper acceleration that shortens durations without adding work. '
-                   'Confirm the basis.</div>')
-    return _card('Working pattern per calendar', 'Rev.00 → Rev.01 · per calendar', body)
+        body += ('<div class="callout warn">Longer working week on: ' + ', '.join(_e(n) for n in longer)
+                 + ' &mdash; durations shorten on paper without adding work. Confirm the basis.</div>')
+    return _card('Calendar', 'working pattern · exception dates · assigned activities by code', body)
 
-
-# ══ 7 · COST & RESOURCES ═══════════════════════════════════════════════════════
 
 def _scurve_svg(report):
     c = report.get('curves') or {}
@@ -1684,6 +1793,40 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .dow.off { background: var(--rpt-surface-2); color: var(--rpt-muted); }
 .dow.chg { outline: 2px solid var(--rpt-warn); box-shadow: 0 0 0 1px var(--rpt-warn); }
 .dowchg { font-size: 10.5px; color: var(--rpt-warn); margin-top: 5px; }
+/* round-14 calendar cards */
+.calcard2 { border: 1px solid var(--rpt-edge); border-radius: 11px; padding: 11px 13px; margin-bottom: 10px; page-break-inside: avoid; }
+.calhd2 { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 3px; }
+.calnm { font-size: 13.5px; font-weight: 800; color: var(--rpt-ink); }
+.calmeta { font-size: 10.5px; color: var(--rpt-muted); margin-left: auto; }
+.caltag { font-size: 8.5px; font-weight: 800; padding: 2px 8px; border-radius: 6px; }
+.caltag.chg { background: var(--rpt-warn-bg); color: var(--rpt-warn); }
+.caltag.add { background: var(--rpt-good-bg); color: var(--rpt-good); }
+.caltag.rem { background: var(--rpt-bad-bg); color: var(--rpt-bad); }
+.caltag.ren { background: var(--rpt-accent-soft); color: var(--rpt-accent); }
+.caltag.none { background: var(--rpt-surface-2); color: var(--rpt-muted); }
+.calplain { font-size: 12px; color: var(--rpt-ink-soft); }
+.patrow { display: flex; gap: 8px; align-items: baseline; font-size: 11.5px; margin: 5px 0 2px; flex-wrap: wrap; }
+.patrow .pk { font-size: 9px; text-transform: uppercase; letter-spacing: .03em; font-weight: 800; color: var(--rpt-muted); }
+.patrow .pr0 { color: var(--rpt-ink-soft); } .patrow .pr1 { color: var(--rpt-accent); font-weight: 700; } .patrow .par { color: var(--rpt-muted); }
+.calctx { font-size: 12px; color: var(--rpt-ink-soft); margin: 5px 0; } .calctx b { color: var(--rpt-ink); }
+.caltl { margin: 9px 0 5px; } .caltllab { display: flex; justify-content: space-between; font-size: 8.5px; color: var(--rpt-muted); margin-bottom: 2px; }
+.chglist { display: flex; flex-direction: column; gap: 4px; margin-top: 7px; }
+.chgline { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.cdot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.cdot.g { background: var(--rpt-good); } .cdot.r { background: var(--rpt-bad); } .cdot.a { background: var(--rpt-warn); }
+.chgline .cdt { font-family: ui-monospace, Consolas, monospace; font-size: 11px; color: var(--rpt-ink); min-width: 168px; flex: 0 0 auto; }
+.chgline .cdesc { color: var(--rpt-ink-soft); }
+.calsum { margin-top: 9px; background: var(--rpt-accent-soft); border: 1px solid var(--rpt-edge); border-left: 4px solid var(--rpt-accent); border-radius: 8px; padding: 7px 11px; font-size: 11.5px; color: var(--rpt-ink-soft); }
+.calsum.mut { background: var(--rpt-surface-2); border-left-color: var(--rpt-edge); color: var(--rpt-muted); }
+.cchip { display: inline-block; font-size: 9px; font-weight: 800; border-radius: 999px; padding: 2px 8px; margin-right: 5px; }
+.cchip.g { background: var(--rpt-good-bg); color: var(--rpt-good); } .cchip.r { background: var(--rpt-bad-bg); color: var(--rpt-bad); } .cchip.a { background: var(--rpt-warn-bg); color: var(--rpt-warn); }
+.assign { margin-top: 9px; border-top: 1px dashed var(--rpt-edge); padding-top: 8px; }
+.assignh { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--rpt-muted); margin-bottom: 6px; }
+.acdim { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin: 3px 0; }
+.acdimn { font-size: 10px; font-weight: 700; color: var(--rpt-ink-soft); min-width: 110px; }
+.acchip { display: inline-block; font-size: 11px; background: var(--rpt-surface-2); border: 1px solid var(--rpt-edge); border-radius: 999px; padding: 2px 9px; color: var(--rpt-ink); }
+.acchip b { color: var(--rpt-accent); }
+.acids { margin-top: 6px; font-size: 10.5px; color: var(--rpt-muted); } .acids .idlist { font-family: ui-monospace, Consolas, monospace; color: var(--rpt-ink-soft); }
 /* manpower KPIs (comment 5) */
 .mpk { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 2px 0 10px; }
 .mpkc { border: 1px solid var(--rpt-edge); border-radius: 10px; padding: 9px 11px; background: var(--rpt-surface); }

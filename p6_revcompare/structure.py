@@ -232,7 +232,7 @@ def _date_exceptions(a, b):
             change = f'{h0:g}h → {h1:g}h'
         s, e = g['start'], g['end']
         label = s.strftime('%d %b %Y') if s == e else f"{s.strftime('%d %b %Y')} – {e.strftime('%d %b %Y')}"
-        out.append({'date': label, 'iso': s.isoformat(),
+        out.append({'date': label, 'iso': s.isoformat(), 'iso_end': e.isoformat(),
                     'rev0': _hlabel(h0), 'rev1': _hlabel(h1), 'change': change})
     out.sort(key=lambda x: (x['change'] == 'unchanged', x['iso']))
     return out
@@ -244,6 +244,27 @@ def _cal_by_name(data):
         if getattr(cal, 'name', None):
             out[cal.name] = cal
     return out
+
+
+def _assigned_breakdown(data, cal_name):
+    """Which activities use a calendar, broken down by activity code (comment: know which activities
+    are assigned to each calendar and at which activity code). Returns {count, ids, by_dim} where
+    by_dim maps each activity-code dimension to a count per value (biggest first)."""
+    cals = getattr(data, 'calendars', None) or {}
+    idname = {cid: getattr(c, 'name', None) for cid, c in cals.items()}
+    ids, by_dim = [], {}
+    for a in (getattr(data, 'activities', None) or {}).values():
+        if idname.get(a.get('calendar_id')) != cal_name:
+            continue
+        if a.get('id'):
+            ids.append(a.get('id'))
+        for dim, val in (a.get('activity_codes') or {}).items():
+            if val:
+                by_dim.setdefault(dim, {})[val] = by_dim.setdefault(dim, {}).get(val, 0) + 1
+    by_dim_sorted = {dim: sorted(({'value': v, 'count': c} for v, c in vals.items()),
+                                 key=lambda x: -x['count'])
+                     for dim, vals in by_dim.items()}
+    return {'count': len(ids), 'ids': sorted(ids), 'by_dim': by_dim_sorted}
 
 
 def diff_calendars(rev0, rev1, matched):
@@ -364,10 +385,17 @@ def diff_calendars(rev0, rev1, matched):
         nw0, nw1 = _nw_count(a), _nw_count(b)
         change = ('renamed' if rn else 'removed' if (a and not b) else 'added' if (b and not a)
                   else 'modified' if (p0 != p1 or changed or date_flips) else 'unchanged')
+        # Which activities use this calendar, by activity code — from the revision where it exists
+        # (Rev.01 for renamed/added/modified/unchanged; Rev.00 for a removed calendar).
+        if a and not b:
+            assigned, assigned_rev = _assigned_breakdown(rev0, name), 'rev0'
+        else:
+            assigned, assigned_rev = _assigned_breakdown(rev1, rn or name), 'rev1'
         patterns.append({'name': name, 'renamed_to': rn, 'rev0': p0, 'rev1': p1,
                          'rev0_grid': g0, 'rev1_grid': g1, 'changed_days': changed,
                          'date_exceptions': date_exc,
                          'nonworking_count': {'rev0': nw0, 'rev1': nw1},
+                         'assigned': assigned, 'assigned_rev': assigned_rev,
                          'activities': (u1.get(rn) if rn else u1.get(name)) or u0.get(name) or 0,
                          'change': change})
 

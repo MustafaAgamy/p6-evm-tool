@@ -2994,6 +2994,49 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-rev2lab.r1 { color: var(--accent); }
 
 /* ── Calendar — working-pattern table per calendar (comment 5) ───────────── */
+/* round-14 calendar cards */
+.rc-calcard { border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; margin-bottom: 11px; }
+.rc-calhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.rc-calname { font-size: 14.5px; font-weight: 800; }
+.rc-calmeta { font-size: 11px; color: var(--muted); margin-left: auto; }
+.rc-caltag { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 6px; }
+.rc-caltag.chg { background: var(--warning-bg); color: var(--warning); }
+.rc-caltag.add { background: var(--success-bg); color: var(--success); }
+.rc-caltag.rem { background: var(--danger-bg); color: var(--danger); }
+.rc-caltag.ren { background: var(--accent-soft); color: var(--accent-dark); }
+.rc-caltag.none { background: var(--bg); color: var(--muted); }
+.rc-calplain { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-soft); flex-wrap: wrap; }
+.rc-patrow { display: flex; gap: 8px; align-items: baseline; font-size: 12px; margin: 6px 0 2px; flex-wrap: wrap; }
+.rc-patrow .rc-k { font-size: 10px; text-transform: uppercase; letter-spacing: .03em; font-weight: 800; color: var(--muted); }
+.rc-patrow .rc-r0 { color: var(--ink-soft); } .rc-patrow .rc-r1 { color: var(--accent-dark); font-weight: 700; } .rc-patrow .rc-ar { color: var(--muted); }
+.rc-calctx { font-size: 12.5px; color: var(--ink-soft); margin: 6px 0; } .rc-calctx b { color: var(--text); }
+/* timeline strip */
+.rc-tl { margin: 11px 0 6px; }
+.rc-tllab { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin-bottom: 3px; }
+.rc-tltrack { position: relative; height: 24px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.rc-tltick { position: absolute; top: 3px; bottom: 3px; width: 5px; border-radius: 2px; transform: translateX(-50%); }
+.rc-tltick.g, .rc-tlrange.g { background: var(--success); } .rc-tltick.r, .rc-tlrange.r { background: var(--danger); } .rc-tltick.a, .rc-tlrange.a { background: var(--warning); }
+.rc-tlrange { position: absolute; top: 6px; bottom: 6px; opacity: .55; border-radius: 2px; }
+.rc-chglist { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.rc-chgline { display: flex; align-items: center; gap: 9px; font-size: 12.5px; }
+.rc-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.rc-dot.g { background: var(--success); } .rc-dot.r { background: var(--danger); } .rc-dot.a { background: var(--warning); }
+.rc-chgline .rc-dt { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--text); min-width: 172px; flex: 0 0 auto; }
+.rc-chgline .rc-cdesc { color: var(--ink-soft); }
+.rc-calsummary { margin-top: 10px; background: var(--accent-soft); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 9px; padding: 8px 12px; font-size: 12px; color: var(--ink-soft); }
+.rc-calsummary.rc-mut { background: var(--bg); border-left-color: var(--border); }
+.rc-chip { display: inline-block; font-size: 10px; font-weight: 800; border-radius: 999px; padding: 2px 9px; margin: 0 5px 0 0; }
+.rc-chip.g { background: var(--success-bg); color: var(--success); } .rc-chip.r { background: var(--danger-bg); color: var(--danger); } .rc-chip.a { background: var(--warning-bg); color: var(--warning); }
+/* assigned activities by activity code */
+.rc-assign { margin-top: 11px; border-top: 1px dashed var(--border); padding-top: 9px; }
+.rc-assignh { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rc-caldimsel { font-size: 10px; font-weight: 700; border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; background: var(--card-bg); color: var(--ink-soft); text-transform: none; letter-spacing: 0; }
+.rc-acrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rc-acchip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; color: var(--text); }
+.rc-acchip .cnt { font-weight: 800; color: var(--accent-dark); }
+.rc-acids { margin-top: 7px; font-size: 11px; color: var(--muted); }
+.rc-acids summary { cursor: pointer; color: var(--accent-dark); font-weight: 700; }
+.rc-acids .rc-idlist { font-family: ui-monospace, Consolas, monospace; color: var(--ink-soft); margin-top: 5px; line-height: 1.7; }
 .rc-caltbl { margin-top: 4px; }
 .rc-calrow { display: grid; grid-template-columns: 190px 1fr 1fr 84px; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px solid var(--hair); }
 .rc-calrow.rc-calhdr { border-top: none; font-size: 9.5px; color: var(--muted); font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }

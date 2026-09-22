@@ -511,36 +511,51 @@ def _cal_blocks(report):
                                    'Changed days'],
                        'rows': grid_rows})
 
-    # The specific calendar exception dates of both revisions, compared (comment 3): every
-    # non-working date AND every reduced-hours day in either revision, with its status/hours in
-    # each and whether it changed — 'same', 'now working', 'now non-working', or 'Ah → Bh'.
+    # The specific calendar exception dates that CHANGED between the revisions (round-14): only a
+    # date whose working/non-working state flipped, or whose hours changed (e.g. 6h/day → 8h/day).
+    # Identical ('unchanged') dates are dropped — the reader only wants what moved.
     exc_rows = []
     counts = []
     for p in (cc.get('patterns') or []):
         for e in (p.get('date_exceptions') or []):
-            chg = e.get('change')
-            label = 'same' if chg == 'unchanged' else chg
+            if e.get('change') == 'unchanged':
+                continue
             exc_rows.append([_txt(p.get('name')), _txt(e.get('date')), _txt(e.get('rev0')),
-                             _txt(e.get('rev1')), _txt(label)])
+                             _txt(e.get('rev1')), _txt(e.get('change'))])
         nc = p.get('nonworking_count') or {}
         if nc.get('rev0') is not None or nc.get('rev1') is not None:
             counts.append(f"{p.get('name')}: {_num(nc.get('rev0') or 0)} non-working date(s) in Rev.00 · "
                           f"{_num(nc.get('rev1') or 0)} in Rev.01")
     count_note = (' Per-revision non-working dates — ' + ' · '.join(counts) + '.') if counts else ''
     if exc_rows:
-        blocks.append({'title': 'Calendar exception dates — Rev.00 vs Rev.01',
-                       'note': 'Every specific non-working date AND every reduced-hours day in either revision, with '
-                               'its status/hours in each — a date that flipped working/non-working, or whose hours '
-                               'changed (e.g. 6h/day → 8h/day), is flagged; "same" means unchanged.' + count_note,
+        blocks.append({'title': 'Calendar exception changes — Rev.00 vs Rev.01',
+                       'note': 'Only the specific dates that CHANGED between the revisions — a non-working ⇄ working '
+                               'flip or an hours change (e.g. 6h/day → 8h/day). Identical dates are not listed.'
+                               + count_note,
                        'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change'],
                        'rows': exc_rows})
     elif counts:
-        # Calendars were compared but carry no specific exception dates (parity with screen/PDF).
-        blocks.append({'title': 'Calendar exception dates — Rev.00 vs Rev.01',
-                       'note': 'Neither revision defines any specific non-working exception dates (holidays) on its '
-                               'calendars — only the weekly working pattern applies.' + count_note,
+        # Calendars were compared but no specific exception date changed (parity with screen/PDF).
+        blocks.append({'title': 'Calendar exception changes — Rev.00 vs Rev.01',
+                       'note': 'No specific exception date changed between the revisions — the exception dates '
+                               '(holidays / reduced-hours days) are identical on both calendars.' + count_note,
                        'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change'],
-                       'rows': [['No specific non-working exception dates', '', '', '', '']]})
+                       'rows': [['No changed exception dates', '', '', '', '']]})
+
+    # Assigned activities — by calendar & activity code (round-14): which activities use each
+    # calendar and at which activity code, taken from the revision the calendar exists in.
+    asg_rows = []
+    for p in (cc.get('patterns') or []):
+        by_dim = ((p.get('assigned') or {}).get('by_dim')) or {}
+        for dim, vals in by_dim.items():
+            for v in (vals or []):
+                asg_rows.append([_txt(p.get('name')), _txt(dim), _txt(v.get('value')), _num(v.get('count'))])
+    if asg_rows:
+        blocks.append({'title': 'Assigned activities — by calendar & activity code',
+                       'note': 'Which activities use each calendar, grouped by activity code (from the revision the '
+                               'calendar exists in — Rev.01 for added/renamed/modified, Rev.00 for removed).',
+                       'headers': ['Calendar', 'Activity code (dimension)', 'Value', 'Activities'],
+                       'rows': asg_rows})
     return blocks
 
 

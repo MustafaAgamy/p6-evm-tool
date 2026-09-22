@@ -207,6 +207,19 @@ function renderResults(body) {
   else if (tab === 'findings') wireFindings(body);
   else if (tab === 'register') wireRegister(body);
   else if (tab === 'cost') wireCost(body);
+  else if (tab === 'cal') wireCalendar(body);
+}
+
+// Each calendar card's activity-code dimension selector shows one dimension's chips at a time.
+function wireCalendar(body) {
+  body.querySelectorAll('.rc-caldimsel').forEach(sel => {
+    const card = sel.dataset.card;
+    sel.addEventListener('change', () => {
+      body.querySelectorAll(`.rc-acrow[data-card="${card}"]`).forEach(row => {
+        row.style.display = (row.dataset.dim === sel.value) ? '' : 'none';
+      });
+    });
+  });
 }
 
 // ── shared helpers ─────────────────────────────────────────────────────────────
@@ -992,112 +1005,119 @@ function fmtPattern(p) {
   return parts.length ? parts.join(' · ') : null;
 }
 
+// ══ 6 · Calendar (round-14 redesign — one card per calendar) ═══════════════════
+// Each calendar that changed is its own card: the working-week change, a timeline strip that
+// shows WHERE in the project the changes fall, a plain list of only the REAL differences
+// (non-working ⇄ working, and reduced/restored hours), and which activities use it broken down
+// by activity code. Identical dates are summarised, never listed. Renamed/added/removed calendars
+// explain what happened to their activities.
+function calTimeline(flips) {
+  if (!flips.length) return '';
+  const times = flips.flatMap(e => [Date.parse(e.iso), Date.parse(e.iso_end || e.iso)]).filter(t => !isNaN(t));
+  if (!times.length) return '';
+  let lo = Math.min(...times), hi = Math.max(...times);
+  if (hi <= lo) { lo -= 20 * 864e5; hi += 20 * 864e5; }
+  const span = hi - lo || 1, pos = t => Math.max(0, Math.min(100, (t - lo) / span * 100));
+  const ticks = flips.map(e => {
+    const cls = e.change === 'now working' ? 'g' : e.change === 'now non-working' ? 'r' : 'a';
+    const t0 = Date.parse(e.iso), t1 = Date.parse(e.iso_end || e.iso);
+    if (isNaN(t0)) return '';
+    if (t1 > t0) return `<div class="rc-tlrange ${cls}" style="left:${pos(t0).toFixed(1)}%;width:${Math.max(1, pos(t1) - pos(t0)).toFixed(1)}%" title="${esc(e.date)}"></div>`;
+    return `<div class="rc-tltick ${cls}" style="left:${pos(t0).toFixed(1)}%" title="${esc(e.date)}"></div>`;
+  }).join('');
+  const lab = ms => { try { return new Date(ms).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }); } catch (e) { return ''; } };
+  return `<div class="rc-tl"><div class="rc-tllab"><span>${lab(lo)}</span><span>${lab(hi)}</span></div><div class="rc-tltrack">${ticks}</div></div>`;
+}
+
+function calAssigned(p, pi) {
+  const a = p.assigned || {}, byDim = a.by_dim || {};
+  const dims = Object.keys(byDim);
+  if (!a.count) return '';
+  const rev = p.assigned_rev === 'rev0' ? 'Rev.00' : 'Rev.01';
+  const hdr = p.change === 'removed' ? 'Activities that used it in Rev.00'
+    : p.change === 'added' ? 'Activities using it in Rev.01' : 'Assigned activities';
+  const sel = dims.length > 1
+    ? `<select class="rc-caldimsel" data-card="${pi}">${dims.map(d => `<option>${esc(d)}</option>`).join('')}</select>`
+    : (dims[0] ? `<span class="rc-mut">${esc(dims[0])}</span>` : '');
+  const rows = dims.map((d, di) => {
+    const chips = (byDim[d] || []).map(x => `<span class="rc-acchip">${esc(x.value)} <span class="cnt">${fmtInt(x.count)}</span></span>`).join('');
+    return `<div class="rc-acrow" data-card="${pi}" data-dim="${esc(d)}" style="${di === 0 ? '' : 'display:none'}">${chips || '<span class="rc-mut">no activity codes on these activities</span>'}</div>`;
+  }).join('');
+  const ids = a.ids || [];
+  const idsBlock = ids.length
+    ? `<div class="rc-acids"><details><summary>see the ${fmtInt(ids.length)} activity ID${ids.length === 1 ? '' : 's'}</summary><div class="rc-idlist">${ids.slice(0, 60).map(esc).join(' · ')}${ids.length > 60 ? ` · … (${fmtInt(ids.length - 60)} more)` : ''}</div></details></div>`
+    : '';
+  return `<div class="rc-assign"><div class="rc-assignh">${hdr} — by activity code ${sel} <span class="rc-mut">(${fmtInt(a.count)} activit${a.count === 1 ? 'y' : 'ies'} in ${rev})</span></div>${rows}${idsBlock}</div>`;
+}
+
 function calendarView(r) {
   const cc = r.calendar_changes || {};
   const patterns = cc.patterns || [];
   const reass = cc.reassignments || [];
-  let paperAccel = false;
-
-  // One row per calendar: name · Rev.00 pattern · Rev.01 pattern · activities. The engine's
-  // patterns fix the old 24-hour-calendar 0-days bug — we just render them.
-  // A Mon→Sun working/non-working grid for one revision, changed days ringed (comment 2).
-  const dayGrid = (grid, changedSet, lab, r1) => {
-    if (!grid || !grid.length) return '';
-    const cells = grid.map(g => {
-      const st = g.working ? 'on' : 'off';
-      const chg = changedSet.has(g.day) ? ' chg' : '';
-      return `<span class="rc-dow ${st}${chg}" title="${esc(g.day)}: ${g.working ? 'working' : 'non-working'}">${esc(g.day[0])}</span>`;
-    }).join('');
-    return `<div class="rc-dowrow"><span class="rc-dowlab ${r1 ? 'r1' : ''}">${esc(lab)}</span>${cells}</div>`;
-  };
-  const rows = patterns.map(p => {
-    const p0 = fmtPattern(p.rev0), p1 = fmtPattern(p.rev1);
-    const changed = p.change && p.change !== 'unchanged';
-    if (p.rev0 && p.rev1 && p.rev0.hpw != null && p.rev1.hpw != null && p.rev1.hpw > p.rev0.hpw) paperAccel = true;
-    const sub = p.change === 'renamed' ? `renamed → ${p.renamed_to}` : p.change === 'added' ? 'calendar added' : p.change === 'removed' ? 'calendar removed' : '';
-    const chSet = new Set(p.changed_days || []);
-    const gridBlock = (p.rev0_grid || p.rev1_grid)
-      ? `<div class="rc-dowgrid">${dayGrid(p.rev0_grid, chSet, 'Rev.00')}${dayGrid(p.rev1_grid, chSet, 'Rev.01', true)}`
-        + (chSet.size ? `<div class="rc-dowchg">Changed: <b>${[...chSet].map(esc).join(', ')}</b> now ${(p.rev1_grid || []).find(g => chSet.has(g.day) && !g.working) ? 'non-working' : 'working'}</div>` : '')
-        + `</div>`
-      : '';
-    return `<div class="rc-calblk"><div class="rc-calrow">
-        <div class="rc-calname">${esc(p.name)}${sub ? `<span class="rc-cals">${esc(sub)}</span>` : ''}</div>
-        <div>${p0 ? `<span class="rc-pattern">${escapeHtml(p0)}</span>` : '<span class="rc-mut">—</span>'}</div>
-        <div>${p1 ? `<span class="rc-pattern${changed ? ' r1' : ''}">${escapeHtml(p1)}</span>` : '<span class="rc-mut">—</span>'}</div>
-        <div class="rc-calact">${fmtInt(p.activities || 0)}</div>
-      </div>${gridBlock}</div>`;
-  }).join('');
-  const table = patterns.length
-    ? `<div class="rc-caltbl">
-         <div class="rc-calrow rc-calhdr"><div>Calendar</div><div>Rev.00 pattern</div><div>Rev.01 pattern</div><div class="rc-calact">Activities</div></div>
-         ${rows}</div>`
-    : noData('No calendar definitions available for these revisions.');
-
-  // Per-activity reassignment summary (kept from before — the "N activities moved A → B" signal).
-  const totalReass = reass.reduce((s, g) => s + (g.count || 0), 0);
-  let reassBlock = '';
-  if (reass.length) {
-    const items = reass.map(g => {
-      if (g.from_wd != null && g.to_wd != null && g.to_wd > g.from_wd) paperAccel = true;
-      const shift = (g.from_wd != null && g.to_wd != null && g.to_wd !== g.from_wd)
-        ? ` <span class="rc-mut">(${g.from_wd} → ${g.to_wd} d/wk)</span>` : '';
-      return `<li>${fmtInt(g.count)} activit${g.count === 1 ? 'y' : 'ies'} moved <b>${esc(g.from)} → ${esc(g.to)}</b>${shift}</li>`;
-    }).join('');
-    reassBlock = `<div class="rc-calreass"><div class="rc-sec" style="margin:12px 0 4px">Per-activity calendar reassignments <span class="rc-mut">(${fmtInt(totalReass)} total)</span></div><ul class="rc-callist">${items}</ul></div>`;
+  if (!patterns.length) {
+    return secmark('6', 'Calendar', 'working pattern · exception dates · assigned activities')
+      + `<div class="rc-card"><h3>Calendar</h3>${noData('No calendar definitions available for these revisions.')}</div>`;
   }
-  // The specific NON-WORKING calendar DATES of BOTH revisions, compared (comment 3 — the
-  // comparison must include the dates of non-working days between the two revisions; changed
-  // dates highlighted, e.g. 07 Jan 2026 non-working in Rev.00 → working in Rev.01). The engine
-  // diffs each calendar's actual holiday/exception dates. Every non-working date is listed so
-  // the comparison is always visible, not only when a date flips.
-  const excRows = [];
-  const narrByCal = [];
-  let anyPattern = false, anyFlip = false;
-  patterns.forEach(p => {
-    const ex = p.date_exceptions || [];
-    const nw = p.nonworking_count || {};
-    if (nw.rev0 != null || nw.rev1 != null) anyPattern = true;
-    if (!ex.length) return;
-    ex.forEach(e => {
-      const isHours = /h →/.test(e.change);   // e.g. "6h → 8h"
-      const tag = e.change === 'now working' ? 'add' : e.change === 'now non-working' ? 'rem' : isHours ? 'chg' : '';
-      const label = e.change === 'unchanged' ? 'same' : e.change;
-      if (e.change !== 'unchanged') anyFlip = true;
-      excRows.push(`<tr><td>${esc(p.name)}</td><td class="rc-aid">${esc(e.date)}</td>
-        <td class="${e.rev0 === 'Non-working' ? 'rc-mut' : ''}">${esc(e.rev0)}</td><td class="${e.rev1 === 'Non-working' ? 'rc-new' : ''}">${esc(e.rev1)}</td>
-        <td>${tag ? `<span class="rc-tag ${tag}">${esc(label)}</span>` : `<span class="rc-mut">${esc(label)}</span>`}</td></tr>`);
-    });
-    const nowW = ex.filter(e => e.change === 'now working').map(e => e.date);
-    const nowN = ex.filter(e => e.change === 'now non-working').map(e => e.date);
-    const hrs = ex.filter(e => /h →/.test(e.change));
-    const parts = [];
-    if (nowW.length) parts.push(`<b>${nowW.map(esc).join(', ')}</b> ${nowW.length === 1 ? 'was non-working in Rev.00 and is now a working day' : 'were non-working in Rev.00 and are now working days'} in Rev.01`);
-    if (nowN.length) parts.push(`<b>${nowN.map(esc).join(', ')}</b> ${nowN.length === 1 ? 'was a working day in Rev.00 and is now non-working' : 'were working days in Rev.00 and are now non-working'} in Rev.01`);
-    hrs.forEach(e => parts.push(`<b>${esc(e.date)}</b> changed from ${esc(e.rev0)} to ${esc(e.rev1)}`));
-    if (parts.length) narrByCal.push(`In the <b>${esc(p.name)}</b> calendar, ${parts.join('; ')}.`);
-  });
-  const nwSummary = patterns.filter(p => (p.nonworking_count || {}).rev0 != null || (p.nonworking_count || {}).rev1 != null)
-    .map(p => `<b>${esc(p.name)}</b>: ${fmtInt((p.nonworking_count || {}).rev0 || 0)} non-working date(s) in Rev.00 · ${fmtInt((p.nonworking_count || {}).rev1 || 0)} in Rev.01`).join(' &nbsp;·&nbsp; ');
-  const narr = anyFlip
-    ? `<div class="rc-callout"><b>Calendar date changes:</b><ul class="rc-callist" style="margin:6px 0 0">${narrByCal.map(l => `<li>${l}</li>`).join('')}</ul></div>`
-    : (excRows.length ? '<div class="rc-callout">The calendar exception dates (non-working days and reduced-hours days) are the <b>same</b> in both revisions — none was added, removed or re-houred.</div>' : '');
-  const excBlock = excRows.length
-    ? `<div class="rc-sec" style="margin:14px 0 4px"><b>Calendar exception dates</b> — non-working days &amp; reduced-hours days in either revision, changes highlighted${nwSummary ? ` <span class="rc-mut">(${nwSummary})</span>` : ''}</div>
-       <div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Calendar</th><th>Date</th><th>Rev.00</th><th>Rev.01</th><th>Change</th></tr></thead><tbody>${excRows.join('')}</tbody></table></div>
-       ${narr}`
-    : (anyPattern
-       ? '<div class="rc-callout">Neither revision defines any specific non-working exception dates (holidays) on its calendars — only the weekly working pattern applies.</div>'
-       : '');
+  const reassFrom = {};
+  reass.forEach(g => { (reassFrom[g.from] = reassFrom[g.from] || []).push(g); });
+  let paperAccel = false;
+  const TAG = { modified: ['chg', 'modified'], renamed: ['ren', 'renamed'], added: ['add', 'added in Rev.01'], removed: ['rem', 'removed in Rev.01'], unchanged: ['none', 'no change'] };
 
+  const cards = patterns.map((p, pi) => {
+    const [tagcls, taglbl] = TAG[p.change] || ['chg', p.change || 'changed'];
+    const p0 = fmtPattern(p.rev0), p1 = fmtPattern(p.rev1);
+    if (p.rev0 && p.rev1 && p.rev0.hpw != null && p.rev1.hpw != null && p.rev1.hpw > p.rev0.hpw) paperAccel = true;
+    if (p.change === 'unchanged') {
+      return `<div class="rc-calcard"><div class="rc-calplain"><span class="rc-caltag none">no change</span><b>${esc(p.name)}</b><span class="rc-mut">— identical working pattern and exception dates in both revisions${p.activities ? ` (used by ${fmtInt(p.activities)} activities)` : ''}</span></div>${calAssigned(p, pi)}</div>`;
+    }
+    const nameHtml = p.change === 'renamed' ? `${esc(p.name)} <span class="rc-mut">→ ${esc(p.renamed_to)}</span>` : esc(p.name);
+    const meta = p.activities ? `${fmtInt(p.activities)} activities` : '';
+    let weekRow = '';
+    if (p.change === 'added') weekRow = p1 ? `<div class="rc-patrow"><span class="rc-k">Working week</span><span class="rc-r1">${escapeHtml(p1)}</span></div>` : '';
+    else if (p.change === 'removed') weekRow = p0 ? `<div class="rc-patrow"><span class="rc-k">Working week</span><span class="rc-r0">${escapeHtml(p0)}</span></div>` : '';
+    else weekRow = `<div class="rc-patrow"><span class="rc-k">Working week</span><span class="rc-r0">${escapeHtml(p0 || '—')}</span><span class="rc-ar">→</span><span class="rc-r1">${escapeHtml(p1 || '—')}</span>${(p0 === p1) ? ' <span class="rc-mut">(unchanged)</span>' : ''}</div>`;
+    let ctx = '';
+    if (p.change === 'removed') {
+      const dest = (reassFrom[p.name] || []).slice().sort((x, y) => (y.count || 0) - (x.count || 0))[0];
+      ctx = `<div class="rc-calctx">Retired in Rev.01.${dest ? ` The ${fmtInt(dest.count)} activities that used it now use <b>${esc(dest.to)}</b> — consolidated, no work left without a calendar.` : ''}</div>`;
+    } else if (p.change === 'added') {
+      ctx = `<div class="rc-calctx">New in Rev.01 — now used by <b>${fmtInt(p.activities || 0)}</b> activities.</div>`;
+    }
+    const flips = (p.date_exceptions || []).filter(e => e.change !== 'unchanged');
+    const tl = (p.change !== 'added' && p.change !== 'removed') ? calTimeline(flips) : '';
+    const chgList = flips.map(e => {
+      const dot = e.change === 'now working' ? 'g' : e.change === 'now non-working' ? 'r' : 'a';
+      const desc = e.change === 'now working' ? 'was <b>non-working</b> in Rev.00 → now a <b>working day</b> in Rev.01'
+        : e.change === 'now non-working' ? 'was a <b>working day</b> in Rev.00 → now <b>non-working</b> in Rev.01'
+        : `hours changed <b>${esc(e.rev0)} → ${esc(e.rev1)}</b>`;
+      return `<div class="rc-chgline"><span class="rc-dot ${dot}"></span><span class="rc-dt">${esc(e.date)}</span><span class="rc-cdesc">${desc}</span></div>`;
+    }).join('');
+    const chgBlock = flips.length ? `<div class="rc-chglist">${chgList}</div>` : '';
+    const nowW = flips.filter(e => e.change === 'now working').length;
+    const nowN = flips.filter(e => e.change === 'now non-working').length;
+    const hrs = flips.filter(e => /h →/.test(e.change)).length;
+    const identical = (p.date_exceptions || []).filter(e => e.change === 'unchanged').length;
+    let summary = '';
+    if (nowW || nowN || hrs) {
+      const chips = [];
+      if (nowW) chips.push(`<span class="rc-chip g">${nowW} made working</span>`);
+      if (nowN) chips.push(`<span class="rc-chip r">${nowN} made non-working</span>`);
+      if (hrs) chips.push(`<span class="rc-chip a">${hrs} re-houred</span>`);
+      summary = `<div class="rc-calsummary"><b>What changed:</b> ${chips.join('')}${identical ? ` <span class="rc-mut">— ${identical} other exception date(s) identical in both revisions (not listed)</span>` : ''}</div>`;
+    } else if (p.change !== 'added' && p.change !== 'removed') {
+      summary = `<div class="rc-calsummary rc-mut">${identical ? `The ${identical} exception date(s) are identical in both revisions — ` : ''}working-pattern change only, no exception-date differences.</div>`;
+    }
+    return `<div class="rc-calcard">
+      <div class="rc-calhead"><span class="rc-calname">${nameHtml}</span><span class="rc-caltag ${tagcls}">${esc(taglbl)}</span><span class="rc-calmeta">${meta}</span></div>
+      ${weekRow}${ctx}${tl}${chgBlock}${summary}${calAssigned(p, pi)}</div>`;
+  }).join('');
+
+  const legend = '<div class="rc-legend"><span><i style="background:var(--success)"></i>became working</span><span><i style="background:var(--danger)"></i>became non-working</span><span><i style="background:var(--warning)"></i>hours changed</span></div>';
   const callout = paperAccel
-    ? '<div class="rc-callout warn">A calendar moved to a longer working week (more hours/week) — durations shorten <b>on paper</b> without changing the work. A paper acceleration to confirm (approved basis vs inadvertent reassignment).</div>'
+    ? '<div class="rc-callout warn">A calendar moved to a longer working week (more hours/week) — durations shorten <b>on paper</b> without changing the work. A paper acceleration to confirm.</div>'
     : '';
-
-  const card = `<div class="rc-card"><h3>Working pattern per calendar <span class="rc-n">Rev.00 → Rev.01</span></h3>
-    <div class="rc-sec">Each calendar as a plain working pattern — days/week · hours/day · hours/week — before and after. A 24-hour calendar reads 7 d/wk · 24 h/day · 168 h/wk.</div>
-    ${table}${excBlock}${reassBlock}${callout}</div>`;
-  return secmark('6', 'Calendar', 'working pattern · non-working dates · per-activity reassignments') + card;
+  return secmark('6', 'Calendar', 'working pattern · exception dates · assigned activities by code')
+    + `<div class="rc-card">${cards}${legend}${callout}</div>`;
 }
 
 // ══ 7 · Cost & Resources (comments 8, 9, 10) ═══════════════════════════════════
