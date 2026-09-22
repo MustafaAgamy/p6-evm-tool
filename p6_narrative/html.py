@@ -944,9 +944,8 @@ def _res_hist(labels, values, color):
 
 
 def _resload(p, number, title, meta, cur):
-    """§13 — Manpower + Equipment as the number on site per month: one sub-section each, a
-    labelled histogram and a per-resource totals table. Number-based (men / machines), never
-    raw budgeted units. Twin of ``docx_writer._render_resload``."""
+    """§13 — Manpower (man-hours AND headcount histograms) + Equipment (machines on site), each
+    a labelled histogram with a per-resource totals table. Twin of ``docx._render_resload``."""
     p = p or {}
     if not p.get('available'):
         return ('<p class="note">This schedule carries no manpower or equipment loading in '
@@ -955,16 +954,17 @@ def _resload(p, number, title, meta, cur):
     for i, g in enumerate(p.get('groups') or [], 1):
         out.append('<div class="sub">%s.%d &middot; %s</div>'
                    % (_esc(number), i, _esc(g.get('title'))))
-        # Callout + chart nested in ONE break-inside:avoid figure so the peak line never
-        # orphans from its histogram; `resload-fig` also keeps it with the totals table below.
-        out.append('<div class="calfig resload-fig">'
-                   '<p class="rescap">%s Peak %s in %s (busiest single day %s); total budgeted '
-                   '%s %s across %s.</p><div class="calname">%s</div>%s</div>'
-                   % (_esc(g.get('basis_note') or ''), _esc(_wnum(g.get('peak_val'))),
-                      _esc(g.get('peak_label')), _esc(_wnum(g.get('peak_day_val'))),
-                      _esc(g.get('total_label')), _esc(g.get('total_unit')),
-                      _esc(g.get('window')), _esc(g.get('chart_title') or g.get('unit_label')),
-                      _res_hist(g.get('span'), g.get('values'), g.get('color'))))
+        out.append('<p class="rescap">%s Total budgeted %s %s across %s.</p>'
+                   % (_esc(g.get('basis_note') or ''), _esc(g.get('total_label')),
+                      _esc(g.get('total_unit')), _esc(g.get('window'))))
+        for ch in (g.get('charts') or []):
+            pu = (' ' + ch['peak_unit']) if ch.get('peak_unit') else ''
+            peak = 'Peak %s%s in %s.' % (_wnum(ch.get('peak_val')), _esc(pu),
+                                         _esc(ch.get('peak_label')))
+            out.append('<div class="calfig"><div class="calname">%s</div>%s'
+                       '<div class="rescap">%s</div></div>'
+                       % (_esc(ch.get('chart_title')),
+                          _res_hist(ch.get('span'), ch.get('values'), ch.get('color')), peak))
         heads = g.get('row_headers') or ['Resource', 'Total', 'Peak']
         thead = '<tr>%s</tr>' % ''.join(
             '<th%s>%s</th>' % (' class="num"' if j else '', _esc(h))
@@ -1199,8 +1199,8 @@ table { border-collapse: collapse; }
 .kv td { border:1px solid #cbd8e2; padding:7px 11px; }
 .kv td.k { width:36%; background:#eef3f9; color:#1F4E79; font-weight:700; }
 .dt { width:100%; font-size:12px; break-inside:avoid; page-break-inside:avoid; }
-.dt th { background:#26517d; color:#fff; text-align:left; padding:6px 9px; font-size:10.5px; font-family:Calibri,sans-serif; }
-.dt td { border:1px solid #dbe3ec; padding:6px 9px; }
+.dt th { background:#26517d; color:#fff; text-align:center; vertical-align:middle; padding:6px 9px; font-size:10.5px; font-family:Calibri,sans-serif; overflow-wrap:anywhere; }
+.dt td { border:1px solid #dbe3ec; padding:6px 9px; text-align:center; vertical-align:middle; overflow-wrap:anywhere; word-break:break-word; }
 .dt tr:nth-child(even) td { background:#f7f9fb; }
 .r { text-align:right; }
 .tiles { display:flex; gap:8px; }
@@ -1258,7 +1258,7 @@ table { border-collapse: collapse; }
 .hist .m { font-size:8.5px; color:#8a95a1; margin-top:3px; font-family:Calibri,sans-serif; }
 .reshist .rbar { border-radius:3px 3px 0 0; min-height:1px; }
 .reshist .v { color:#17457a; }
-.dt th.num, .dt td.num { text-align:right; }
+.dt th.num, .dt td.num { text-align:center; }
 .rescap { font-size:10px; color:#5b6472; margin:3px 0 9px; font-family:Calibri,sans-serif; }
 .resload-fig { break-after:avoid; page-break-after:avoid; }
 .wt ul{list-style:none;margin:0;padding-left:22px;}

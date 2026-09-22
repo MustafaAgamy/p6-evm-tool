@@ -44,9 +44,10 @@ MAT_CHART_CAP = 8          # material resources charted individually (top N by t
 EQUIP_COUNT_THRESHOLD = 0.5  # median implied crew below this ⇒ the qty is a plant count
 
 # Discipline hues shared with the rest of the report (see html._RAMP).
-LABOR_HEX = '1F4E79'       # navy
-EQUIP_HEX = '2E9E5B'       # green
-MAT_HEX = 'E8A33D'         # amber
+LABOR_HEX = '1F4E79'       # navy   — manpower man-hours
+LABOR_HEX2 = '2E75B6'      # blue   — manpower number (headcount)
+EQUIP_HEX = '2E9E5B'       # green  — equipment
+MAT_HEX = 'E8A33D'         # amber  — materials
 
 
 # ── resource type + unit reader (isolated; p6_evm untouched) ──────────────────
@@ -222,6 +223,52 @@ def _working_days_in_month(cal, y, m, wstart, wend):
     return n
 
 
+def _wd_spread(qty, ps, pf, cal):
+    """Spread ``qty`` LINEARLY across the activity's working days (per its calendar) and bucket
+    by month — P6's standard resource-usage time distribution, so §13 man-hours and §14 material
+    quantities reproduce P6's Resource Usage Spreadsheet to the figure."""
+    s, f = ps.date(), pf.date()
+    if f < s:
+        f = s
+    days = []
+    d = s
+    while d <= f:
+        if _is_working(cal, d):
+            days.append((d.year, d.month))
+        d += _ONE
+    if not days:                          # calendar marks nothing working — fall back to all days
+        d = s
+        while d <= f:
+            days.append((d.year, d.month))
+            d += _ONE
+    out = defaultdict(float)
+    for k in days:
+        out[k] += qty / len(days)
+    return out
+
+
+def _units_profile(recs, calendars):
+    """Monthly BUDGETED UNITS via linear working-day spread, aggregated across a group's
+    assignments — the exact P6 Resource-Usage figure (man-hours for labour)."""
+    calendars = calendars or {}
+    monthly = defaultdict(float)
+    gmin = gmax = None
+    for r in recs:
+        cal = calendars.get(r.get('cal'))
+        for k, v in _wd_spread(r['qty'], r['ps'], r['pf'], cal).items():
+            monthly[k] += v
+        gmin = r['ps'] if (gmin is None or r['ps'] < gmin) else gmin
+        gmax = r['pf'] if (gmax is None or r['pf'] > gmax) else gmax
+    if not monthly:
+        return None
+    span = _month_span((gmin.year, gmin.month), (gmax.year, gmax.month))
+    values = [round(monthly.get(k, 0.0), 1) for k in span]
+    pi = max(range(len(values)), key=lambda i: values[i])
+    return {'span': [_mlabel(*k) for k in span], 'values': values,
+            'peak_val': values[pi], 'peak_label': _mfull(*span[pi]),
+            'total': sum(r['qty'] for r in recs)}
+
+
 def _dur_hours(act, ps, pf):
     """Activity working-hours: P6 ``planned_duration`` (already in hours on both formats),
     falling back to inclusive calendar days × 8 when it is missing/zero."""
@@ -384,7 +431,8 @@ def _excluded_costmodel(data, meta):
     return n, total
 
 
-def _materials(recs):
+def _materials(recs, calendars):
+    calendars = calendars or {}
     monthly = defaultdict(lambda: defaultdict(float))   # (name, unit) -> {(y,m): qty}
     total = defaultdict(float)
     for r in recs:
@@ -394,9 +442,11 @@ def _materials(recs):
         if not unit:                                    # unit-less ⇒ cost-model (counted separately)
             continue
         key = (r['name'], unit)
-        # P6 places each material's full quantity in the month the activity STARTS (materials are
-        # point-loaded at the activity, not split across a month boundary) — matches P6 exactly.
-        monthly[key][(r['ps'].year, r['ps'].month)] += r['qty']
+        # P6 spreads each quantity across the activity's WORKING days (its Resource Usage
+        # Spreadsheet distribution) — verified to match P6 to the figure.
+        cal = calendars.get(r.get('cal'))
+        for k, v in _wd_spread(r['qty'], r['ps'], r['pf'], cal).items():
+            monthly[key][k] += v
         total[key] += r['qty']
 
     mats = []
@@ -433,41 +483,26 @@ def resource_loading(data, path=None):
     cals = getattr(data, 'calendars', None) or {}
     groups = []
     if labor:
-        p = _profile(labor, 'hours', cals)
-        if p:
-            groups.append(_loading_group(
-                'manpower', 'Manpower', 'Manpower histogram per month', 'No. of men',
-                LABOR_HEX, 'hours', p, 'Total man-hours', 'Peak crew',
-                'The men needed each month — the man-hours in the month ÷ that month’s working '
-                'hours (the sustained crew on site over the working days, not an idle-diluted '
-                'average). Budgeted man-hours total is listed per resource below.'))
+        num = _profile(labor, 'hours', cals)       # headcount (sustained crew, over working days)
+        hrs = _units_profile(labor, cals)          # man-hours (working-day spread = P6)
+        if num and hrs:
+            groups.append(_manpower_group(num, hrs))
     if equip:
         basis = _basis_for_equipment(equip)
-        p = _profile(equip, basis, cals)
-        if p:
-            if basis == 'count':
-                note = ('Equipment is shown as the number of machines on site — the budgeted '
-                        'quantity is a plant count, not hours, so it is loaded directly over the '
-                        'working days.')
-                tcol = 'Total plant loaded'
-            else:
-                note = ('The machines needed each month — equipment-hours in the month ÷ that '
-                        'month’s working hours (the sustained plant on site over the working '
-                        'days).')
-                tcol = 'Total equipment-hours'
-            groups.append(_loading_group(
-                'equipment', 'Equipment', 'Equipment histogram per month', 'No. of equipment',
-                EQUIP_HEX, basis, p, tcol, 'Peak no. on site', note))
+        num = _profile(equip, basis, cals)
+        if num:
+            groups.append(_equipment_group(num, basis))
 
     loading = {
         'available': bool(groups),
         'intro': ('The manpower and equipment loading read from the baseline resource '
-                  'assignments, shown as the number on site per month. Each bar carries its '
-                  'value; every resource’s budgeted total is listed beneath its histogram.'),
+                  'assignments. Manpower is shown both as budgeted man-hours per month (matching '
+                  'P6) and converted to a headcount; equipment as the number of machines on site. '
+                  'Every bar carries its value and each resource’s total is listed below.'),
         'groups': groups,
     }
 
-    mats = _materials(recs)
+    mats = _materials(recs, cals)
     excl_n, excl_total = _excluded_costmodel(data, rmeta)
     materials = {
         'available': bool(mats),
@@ -484,18 +519,45 @@ def resource_loading(data, path=None):
     return {'loading': loading, 'materials': materials}
 
 
-def _loading_group(key, title, chart_title, unit_label, color, basis, p, total_col, peak_col,
-                   basis_note):
+def _manpower_group(num, hrs):
+    """§13.1 Manpower — TWO histograms (man-hours per month = P6, and that converted to a
+    headcount) + the per-resource totals table."""
     return {
-        'key': key, 'title': title, 'chart_title': chart_title, 'unit_label': unit_label,
-        'color': color, 'basis': basis, 'basis_note': basis_note,
-        'span': p['span'], 'values': p['values'],
-        'peak_val': p['peak_val'], 'peak_label': p['peak_label'],
-        'peak_day_val': p['peak_day_val'], 'peak_day_label': p['peak_day_label'],
-        'total_label': _fmt0(p['total']),
-        'total_unit': ('man-hours' if key == 'manpower'
-                       else ('equipment-hours' if basis == 'hours' else 'plant units')),
-        'window': p['window'],
-        'row_headers': ['Resource', total_col, peak_col],
-        'rows': [[nm, _fmt0(tot), _fmt_peak(peak)] for nm, tot, peak in p['rows']],
+        'key': 'manpower', 'title': 'Manpower',
+        'basis_note': ('Read from the Labour resource assignments — budgeted man-hours spread '
+                       'across each activity’s working days (matching P6’s Resource Usage). '
+                       'Shown two ways: the man-hours per month, and that converted to a headcount '
+                       '(a month’s man-hours ÷ its working hours).'),
+        'window': num['window'],
+        'charts': [
+            {'chart_title': 'Manpower — man-hours per month', 'color': LABOR_HEX,
+             'span': hrs['span'], 'values': hrs['values'],
+             'peak_val': hrs['peak_val'], 'peak_label': hrs['peak_label'], 'peak_unit': 'man-hours'},
+            {'chart_title': 'Manpower — number per month', 'color': LABOR_HEX2,
+             'span': num['span'], 'values': num['values'],
+             'peak_val': num['peak_val'], 'peak_label': num['peak_label'], 'peak_unit': ''},
+        ],
+        'total_label': _fmt0(hrs['total']), 'total_unit': 'man-hours',
+        'row_headers': ['Resource', 'Total man-hours', 'Peak number'],
+        'rows': [[nm, _fmt0(tot), _fmt_peak(peak)] for nm, tot, peak in num['rows']],
+    }
+
+
+def _equipment_group(num, basis):
+    """§13.2 Equipment — number of machines on site per month + the per-resource totals table."""
+    tcol = 'Total plant loaded' if basis == 'count' else 'Total equipment-hours'
+    return {
+        'key': 'equipment', 'title': 'Equipment',
+        'basis_note': ('Read from the Non-labour (equipment) resource assignments — the number of '
+                       'machines on site per month, loaded over each activity’s working days.'),
+        'window': num['window'],
+        'charts': [
+            {'chart_title': 'Equipment — number per month', 'color': EQUIP_HEX,
+             'span': num['span'], 'values': num['values'],
+             'peak_val': num['peak_val'], 'peak_label': num['peak_label'], 'peak_unit': ''},
+        ],
+        'total_label': _fmt0(num['total']),
+        'total_unit': ('plant units' if basis == 'count' else 'equipment-hours'),
+        'row_headers': ['Resource', tcol, 'Peak no. on site'],
+        'rows': [[nm, _fmt0(tot), _fmt_peak(peak)] for nm, tot, peak in num['rows']],
     }
