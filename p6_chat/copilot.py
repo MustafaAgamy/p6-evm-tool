@@ -55,7 +55,19 @@ def project_brain(snapshot_id):
         audit = db.get_audit_modules_for_snapshot(sid)
         all_snaps = db.get_project_snapshots(pid)
         delayed = [s for s in all_snaps if s.get('delay_days') is not None]
-        prev_delay = delayed[-2]['delay_days'] if len(delayed) >= 2 else None
+        # Trend = this update vs the previous DISTINCT update period. Re-importing the same
+        # file (documented, e.g. to change category weights) creates another snapshot with the
+        # SAME data_date; comparing to delayed[-2] would then compare same-period re-imports (or
+        # a snapshot to itself). So pick the latest delayed snapshot whose data_date is strictly
+        # earlier than the loaded snapshot's (data_date is a sortable 'YYYY-MM-DD HH:MM:SS' string).
+        cur_dd = result.get('data_date')
+        prev_delay = None
+        if cur_dd is not None:
+            earlier = [s for s in delayed if s.get('data_date') and str(s['data_date']) < str(cur_dd)]
+            if earlier:
+                prev_delay = earlier[-1]['delay_days']
+        if prev_delay is None and len(delayed) >= 2:
+            prev_delay = delayed[-2]['delay_days']   # fallback when the current date is unknown
         from p6_copilot.context import build_context
         ctx = build_context(result, audit=audit, prev_delay=prev_delay)
         # Planned/actual history for the Manager Report S-curve (DB-only — never re-parses).

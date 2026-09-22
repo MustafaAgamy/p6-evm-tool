@@ -717,7 +717,12 @@ function renderTia(tia, insights) {
 
   const ins = Array.isArray(insights) ? insights : [];
   const insHtml = ins.length
-    ? `<ul class="pcp-insights">${ins.map((x) => `<li>${mdInline(String(x && x.text != null ? x.text : x))}</li>`).join('')}</ul>`
+    ? `<ul class="pcp-insights">${ins.map((x) => {
+        x = x || {};
+        const t = x.title != null ? x.title : (x.text != null ? x.text : x);
+        const d = x.detail ? ' — ' + escapeHtml(String(x.detail)) : '';
+        return `<li>${mdInline(String(t))}${d}</li>`;
+      }).join('')}</ul>`
     : '';
 
   wrap.innerHTML =
@@ -921,7 +926,7 @@ function renderWhatif() {
           const dcls = d == null ? 'mut' : (Number(d) < 0 ? 'good' : Number(d) > 0 ? 'bad' : 'mut');
           const fig = d == null ? '—' : (Number(d) > 0 ? '+' : '') + d + ' wd';
           showExact(`<div class="pcp-wi-exactfig">Exact figure (Primavera F9): <b class="${dcls}">${escapeHtml(fig)}</b></div>`
-            + ((im.base_finish || im.impacted_finish) ? `<div class="pcp-wi-basis">${escapeHtml(im.base_finish || '?')} → ${escapeHtml(im.impacted_finish || '?')}</div>` : ''));
+            + ((im.before_finish || im.after_finish) ? `<div class="pcp-wi-basis">${escapeHtml(String(im.before_finish || '?'))} → ${escapeHtml(String(im.after_finish || '?'))}</div>` : ''));
         } else {
           showExact(`<div class="pcp-wi-err">${escapeHtml((r && r.error) || 'Could not read the rescheduled file.')}</div>`);
         }
