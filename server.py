@@ -354,14 +354,6 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_special_catalog(body)
         elif self.path == '/api/special/render':
             self._handle_special_render(body)
-        elif self.path == '/api/special/tiles':
-            self._handle_special_tiles(body)
-        elif self.path == '/api/special/dash-report':
-            self._handle_special_dash_report(body)
-        elif self.path == '/api/special/layout/load':
-            self._handle_special_layout_load(body)
-        elif self.path == '/api/special/layout/save':
-            self._handle_special_layout_save(body)
         elif self.path == '/api/special/pdf':
             self._handle_special_pdf(body)
         elif self.path == '/api/special/doc':
@@ -426,71 +418,6 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_special_render(self, body):
         try:
             self._json(200, {'ok': True, 'html': self._special_html(body)})
-        except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
-
-    def _handle_special_tiles(self, body):
-        try:
-            sys.path.insert(0, resource_path('.'))
-            from p6_special import assemble
-            res = assemble.tiles(self._special_pid(body), body.get('item_ids') or [],
-                                 inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
-                                 mode=body.get('theme') or 'light')
-            self._json(200, {'ok': True, 'tiles': res['tiles'], 'meta': res['meta'],
-                             'theme_css': res.get('theme_css', '')})
-        except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
-
-    def _handle_special_layout_load(self, body):
-        """The saved Studio dashboard layout (order/sizes/titles/letterhead) for a
-        project, or null. Stored per project in project_settings['studio_layout']."""
-        try:
-            pid = self._special_pid(body)
-            layout = db.get_project_settings(pid).get('studio_layout') if pid else None
-            self._json(200, {'ok': True, 'layout': layout})
-        except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
-
-    def _handle_special_layout_save(self, body):
-        try:
-            pid = self._special_pid(body)
-            if not pid:
-                self._json(200, {'ok': False, 'error': 'No project loaded.'})
-                return
-            db.save_project_settings(pid, {'studio_layout': body.get('layout') or {}})
-            self._json(200, {'ok': True})
-        except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
-
-    def _handle_special_dash_report(self, body):
-        """Dashboard-view PDF / preview: wrap the client's rendered .pd-* board
-        HTML with the app stylesheet at the chosen appearance mode (screen==PDF)."""
-        try:
-            sys.path.insert(0, resource_path('.'))
-            from p6_special import dash_render
-            import report_theme
-            mode = report_theme.normalize(body.get('theme'))
-            html = dash_render.build_dashboard_html(
-                body.get('html') or '', mode=mode, title=body.get('title') or 'Dashboard')
-            if body.get('preview'):
-                self._json(200, {'ok': True, 'html': html})
-                return
-            output_path = body.get('output_path')
-            if not output_path:
-                self._json(200, {'ok': False, 'error': 'No output path.'})
-                return
-            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
-                                             encoding='utf-8') as tmp:
-                tmp.write(html)
-                html_path = tmp.name
-            chrome = _find_chrome()
-            out = os.path.abspath(output_path)
-            subprocess.run([chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                            f'--print-to-pdf={out}', '--no-pdf-header-footer',
-                            f'file:///{html_path.replace(os.sep, "/")}'],
-                           check=True, capture_output=True)
-            os.unlink(html_path)
-            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

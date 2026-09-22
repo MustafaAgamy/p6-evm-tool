@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chat:      { title:'AI Chat',                 icon:'ai',        verb:'Open AI Chat',          desc:'Ask a senior planning manager anything about this schedule — offline, grounded in your data.' },
     narrative: { title:'Baseline Narrative',      icon:'doc',       verb:'Generate Narrative',    desc:'A written basis-of-schedule narrative from this programme.' },
     update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its own embedded baseline.' },
-    special:   { title:'Reporting Studio',        icon:'special',   verb:'Open Reporting Studio', desc:"Pick results once — view them as a detailed document or a visual dashboard." },
+    special:   { title:'Reporting Studio',        icon:'special',   verb:'Open Reporting Studio', desc:"Pick results from any feature and build one detailed report — export to Word, PDF or Excel." },
   };
 
   // Compute + render a feature's results (the actual analysis).
