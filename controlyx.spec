@@ -29,6 +29,9 @@ datas = [
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
     ('p6_prodintel',   'p6_prodintel'),   # Productivity & Resource Intelligence engine
     ('productivity_kb', 'productivity_kb'),# Productivity norm KB (component-based JSON data)
+    ('p6_chat',        'p6_chat'),        # Offline AI Chat — package + bundled question
+                                          # library (p6_chat/data/questions.json, read via
+                                          # resource_path); loaded lazily in server.py handlers.
     ('p6_narrative',   'p6_narrative'),    # Baseline Narrative Report — Basis-of-Schedule
                                           # document builder (Word/PDF/HTML). server.py imports
                                           # it deferred inside the /api/narrative handlers, so
@@ -36,6 +39,10 @@ datas = [
     ('p6_calendar',    'p6_calendar'),     # Calendar Audit engine — imported deferred by both
                                           # server.py and p6_narrative/report.py (calendar_audit);
                                           # PyInstaller's graph misses in-function imports, so bundle.
+    ('p6_copilot',     'p6_copilot'),      # AI Copilot expert engine — the chat's Copilot questions
+                                          # (p6_chat.copilot) import it deferred in-function; ship whole.
+    ('p6_claims',      'p6_claims'),       # TIA / claims engine (fragnet, scenarios, exact-impact) —
+                                          # used by the chat's what-if F9 path; deferred imports, bundle.
     ('report_theme.py', '.'),             # Shared report appearance themes — imported at
                                           # runtime by the report renderers (which run after
                                           # sys.path.insert(resource_path('.'))); ship as root
@@ -48,6 +55,8 @@ datas = [
     # extension + data; collect both so `import pymupdf` works in the bundle
     # (its dynamic libs are added to `binaries` below).
     *collect_data_files('pymupdf'),
+    # llama-cpp-python bundled engine — ship its package data (the lib/ dir metadata).
+    *collect_data_files('llama_cpp'),
 ]
 
 # ── Hidden imports pywebview / webview2 needs ──────────────────────────────
@@ -104,6 +113,14 @@ hiddenimports = [
     'p6_prodintel.kb',
     'p6_prodintel.engine',
     *collect_submodules('p6_prodintel'),
+    # Offline AI Chat brain — bundle the llama-cpp-python engine, its numpy dependency,
+    # and the chat-template / cache deps it imports lazily, so the in-process brain
+    # works in the exe with only the model downloaded on first use.
+    'llama_cpp',
+    *collect_submodules('llama_cpp'),
+    'numpy',
+    'diskcache',
+    'jinja2',
     # Baseline Narrative Report — server.py imports p6_narrative lazily in-function
     # (/api/narrative[/docx|/pdf|/html]); force the package + submodules to ship so
     # the report builder, docx/html/chart renderers and the intel layer all bundle.
@@ -122,13 +139,19 @@ try:
     binaries += collect_dynamic_libs('pymupdf')
 except Exception:
     pass
+# llama-cpp-python ships the compiled llama.cpp engine (llama.dll / ggml*.dll under
+# llama_cpp/lib) — collect its dynamic libs so the bundled brain loads in the exe.
+try:
+    binaries += collect_dynamic_libs('llama_cpp')
+except Exception:
+    pass
 
 # Collect EVERY submodule of the in-tree packages so nothing loaded via a deferred /
 # in-function import (server.py loads p6_report and several p6_kb modules lazily) is
 # dropped from the .exe — this bit us before (an empty catalog / missing feature that
 # only showed on the built exe, never in dev or tests). p6_report registers the
 # Global Print-Preview features on import, so its submodules must ship.
-for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare', 'p6_narrative', 'p6_calendar'):
+for _pkg in ('p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare', 'p6_chat', 'p6_narrative', 'p6_calendar', 'p6_copilot', 'p6_claims'):
     try:
         hiddenimports += collect_submodules(_pkg)
     except Exception:
@@ -145,7 +168,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         # Exclude unused heavy packages to keep exe smaller
-        'matplotlib', 'numpy', 'pandas', 'scipy', 'PIL',
+        'matplotlib', 'pandas', 'scipy', 'PIL',   # numpy kept — llama-cpp-python needs it
         'tkinter', '_tkinter',
         'PyQt5', 'PyQt6', 'wx',
     ],

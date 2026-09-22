@@ -1,4 +1,4 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 import json
 import os
 import subprocess
@@ -192,6 +192,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_database_list()
         elif self.path == '/api/prodintel/tree':
             self._handle_prodintel_tree()
+        elif self.path == '/api/chat/library':
+            self._handle_chat_library()
+        elif self.path == '/api/chat/status':
+            self._handle_chat_status()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -356,14 +360,6 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_special_catalog(body)
         elif self.path == '/api/special/render':
             self._handle_special_render(body)
-        elif self.path == '/api/special/tiles':
-            self._handle_special_tiles(body)
-        elif self.path == '/api/special/dash-report':
-            self._handle_special_dash_report(body)
-        elif self.path == '/api/special/layout/load':
-            self._handle_special_layout_load(body)
-        elif self.path == '/api/special/layout/save':
-            self._handle_special_layout_save(body)
         elif self.path == '/api/special/pdf':
             self._handle_special_pdf(body)
         elif self.path == '/api/special/doc':
@@ -382,6 +378,28 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_report_manifest(body)
         elif self.path == '/api/report/render':
             self._handle_report_render(body)
+        elif self.path == '/api/chat/ask':
+            self._handle_chat_ask(body)
+        elif self.path == '/api/chat/setup':
+            self._handle_chat_setup(body)
+        elif self.path == '/api/chat/settings':
+            self._handle_chat_settings(body)
+        elif self.path == '/api/chat/dashboard':
+            self._handle_chat_dashboard(body)
+        elif self.path == '/api/chat/copilot/ask':
+            self._handle_chat_copilot_ask(body)
+        elif self.path == '/api/chat/copilot/tia':
+            self._handle_chat_copilot_tia(body)
+        elif self.path == '/api/chat/copilot/activities':
+            self._handle_chat_copilot_activities(body)
+        elif self.path == '/api/chat/copilot/whatif':
+            self._handle_chat_copilot_whatif(body)
+        elif self.path == '/api/chat/copilot/scenario':
+            self._handle_chat_copilot_scenario(body)
+        elif self.path == '/api/chat/copilot/impact':
+            self._handle_chat_copilot_impact(body)
+        elif self.path == '/api/chat/copilot/report':
+            self._handle_chat_copilot_report(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -420,71 +438,6 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_special_render(self, body):
         try:
             self._json(200, {'ok': True, 'html': self._special_html(body)})
-        except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
-
-    def _handle_special_tiles(self, body):
-        try:
-            sys.path.insert(0, resource_path('.'))
-            from p6_special import assemble
-            res = assemble.tiles(self._special_pid(body), body.get('item_ids') or [],
-                                 inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
-                                 mode=body.get('theme') or 'light')
-            self._json(200, {'ok': True, 'tiles': res['tiles'], 'meta': res['meta'],
-                             'theme_css': res.get('theme_css', '')})
-        except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
-
-    def _handle_special_layout_load(self, body):
-        """The saved Studio dashboard layout (order/sizes/titles/letterhead) for a
-        project, or null. Stored per project in project_settings['studio_layout']."""
-        try:
-            pid = self._special_pid(body)
-            layout = db.get_project_settings(pid).get('studio_layout') if pid else None
-            self._json(200, {'ok': True, 'layout': layout})
-        except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
-
-    def _handle_special_layout_save(self, body):
-        try:
-            pid = self._special_pid(body)
-            if not pid:
-                self._json(200, {'ok': False, 'error': 'No project loaded.'})
-                return
-            db.save_project_settings(pid, {'studio_layout': body.get('layout') or {}})
-            self._json(200, {'ok': True})
-        except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
-
-    def _handle_special_dash_report(self, body):
-        """Dashboard-view PDF / preview: wrap the client's rendered .pd-* board
-        HTML with the app stylesheet at the chosen appearance mode (screen==PDF)."""
-        try:
-            sys.path.insert(0, resource_path('.'))
-            from p6_special import dash_render
-            import report_theme
-            mode = report_theme.normalize(body.get('theme'))
-            html = dash_render.build_dashboard_html(
-                body.get('html') or '', mode=mode, title=body.get('title') or 'Dashboard')
-            if body.get('preview'):
-                self._json(200, {'ok': True, 'html': html})
-                return
-            output_path = body.get('output_path')
-            if not output_path:
-                self._json(200, {'ok': False, 'error': 'No output path.'})
-                return
-            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
-                                             encoding='utf-8') as tmp:
-                tmp.write(html)
-                html_path = tmp.name
-            chrome = _find_chrome()
-            out = os.path.abspath(output_path)
-            subprocess.run([chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                            f'--print-to-pdf={out}', '--no-pdf-header-footer',
-                            f'file:///{html_path.replace(os.sep, "/")}'],
-                           check=True, capture_output=True)
-            os.unlink(html_path)
-            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
@@ -3121,6 +3074,221 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/chat/* — Offline AI Chat ────────────────────────────────────────
+    def _chat_result(self, body):
+        """Resolve the open project's computed result for grounding (DB read path,
+        falling back to a client-supplied result)."""
+        result = body.get('result')
+        snap = body.get('snapshot_id')
+        if not result and snap is not None:
+            pid = db.snapshot_project_id(snap)
+            if pid is not None:
+                result = db.get_project_result(pid)
+        return result
+
+    def _handle_chat_library(self):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, {'ok': True, **p6_chat.get_library()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_status(self):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, {'ok': True, 'brain': p6_chat.brain_status()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_ask(self, body):
+        """Stream the answer as NDJSON: {"delta": "..."} lines while the local brain
+        writes, then a final {"done": true, ...meta} line with charts/source/brain.
+        Streaming keeps long, detailed answers usable (they appear as they're
+        written) even though generation runs locally on the CPU."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            meta, gen = p6_chat.answer_stream(body.get('question'),
+                                              self._chat_result(body) or {},
+                                              role=body.get('role'))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+            return
+        if not meta.get('ok'):
+            self._json(200, meta)
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/x-ndjson')
+        self.send_header('Cache-Control', 'no-cache')
+        self.end_headers()
+
+        def write(obj):
+            self.wfile.write((json.dumps(obj, cls=_Encoder) + '\n').encode())
+            self.wfile.flush()
+        try:
+            for delta in gen:
+                write({'delta': delta})
+        except Exception as exc:
+            try:
+                write({'delta': '\n\n_(stream error: %s)_' % exc})
+            except Exception:
+                return                                    # client gone — nothing to send
+        final = {'done': True}
+        final.update({k: v for k, v in meta.items() if k != 'ok'})
+        try:
+            write(final)
+        except Exception:
+            pass
+
+    def _handle_chat_setup(self, body):
+        """Kick off the one-time model download in the background and return at once;
+        the UI polls /api/chat/status and enables the chat when the brain is ready."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat, threading
+            threading.Thread(target=p6_chat.brain_setup, args=(body.get('model'),),
+                             daemon=True).start()
+            self._json(200, {'ok': True, 'started': True,
+                             'note': 'Downloading the AI brain — this can take several '
+                                     'minutes on first setup. It runs in the background; '
+                                     'the chat enables itself when it finishes.'})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_settings(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            s = p6_chat.save_brain_settings(base_url=body.get('base_url'), model=body.get('model'))
+            self._json(200, {'ok': True, 'settings': s, 'brain': p6_chat.brain_status()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_dashboard(self, body):
+        """Build the in-chat professional dashboard. Re-parses the open snapshot's XML
+        (the report/PDF exception to the DB read path — the charts need the full
+        ScheduleData) and reuses the existing engines; every number is grounded."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+            snap = body.get('snapshot_id')
+            if not xml_path and snap is not None:
+                xml_path = db.get_snapshot_xml_path(snap)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then ask me to build the dashboard.'})
+                return
+            self._json(200, p6_chat.build_dashboard(xml_path=xml_path, snapshot_id=snap))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/chat/copilot/* — Offline AI Chat ▸ the AI Copilot engines ───────
+    def _chat_copilot_xml(self, body):
+        """Resolve the open snapshot's XML the same way _handle_chat_dashboard does
+        (original → cached → best-for-snapshot). Returns the path or None."""
+        xml_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        snap = body.get('snapshot_id')
+        if not xml_path and snap is not None:
+            xml_path = db.get_snapshot_xml_path(snap)
+        return xml_path
+
+    def _handle_chat_copilot_ask(self, body):
+        """Answer one Copilot question (repertoire button or free-typed) for the loaded
+        project, from the DB read path — never re-parses."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.copilot.ask(
+                body.get('snapshot_id'),
+                question_id=body.get('question_id'),
+                question_text=body.get('question_text'),
+                mode=body.get('mode', 'management')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_tia(self, body):
+        """Finish-slip decomposition + ranked insights for the loaded project (DB read path)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.copilot.tia(body.get('snapshot_id')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_activities(self, body):
+        """Activity picker list — re-parses the open snapshot's XML (the report exception)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then try again.'})
+                return
+            self._json(200, p6_chat.copilot.activities(xml_path))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_whatif(self, body):
+        """Instant offline what-if estimate — re-parses the open snapshot's XML."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then try again.'})
+                return
+            self._json(200, p6_chat.copilot.whatif(
+                xml_path, body.get('kind'),
+                activity_id=body.get('activity_id'), days=body.get('days')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_scenario(self, body):
+        """Write a what-if scenario programme for the planner to F9 — re-parses the XML."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then try again.'})
+                return
+            self._json(200, p6_chat.copilot.scenario(
+                xml_path, body.get('kind'),
+                activity_id=body.get('activity_id'), days=body.get('days'),
+                output_path=body.get('output_path', ''), label=body.get('label')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_impact(self, body):
+        """Read P6's exact TIA impact (base vs the F9-rescheduled file) — re-parses both."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Base schedule not found — re-import it and try again.'})
+                return
+            self._json(200, p6_chat.copilot.impact(xml_path, body.get('rescheduled_path', '')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_report(self, body):
+        """Build the Manager Report — preview HTML (default) or a written PDF. The XML is
+        resolved best-effort for the drivers/recovery enrichment (only used when behind)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.copilot.manager_report(
+                body.get('snapshot_id'),
+                xml_path=self._chat_copilot_xml(body),
+                preview=bool(body.get('preview')),
+                output_path=body.get('output_path', ''),
+                meta=body.get('meta')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/narrative ────────────────────────────────────────────────────
     def _handle_narrative(self, body):
         """Baseline Narrative — assemble the Basis-of-Schedule document from the
@@ -3343,4 +3511,8 @@ def make_server():
         db.migrate_history_json(legacy)
 
     db.init_db()
-    return HTTPServer(('127.0.0.1', 0), Handler)
+    # Threaded so a long local-AI generation (the chat streams for minutes on a CPU)
+    # doesn't block every other request — the UI stays responsive during an answer.
+    srv = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    srv.daemon_threads = True
+    return srv

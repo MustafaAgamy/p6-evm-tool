@@ -89,7 +89,29 @@ def test_kpi_grid_availability(temp_db, xml_path):
     pid, sid = _seed(xml_path)
     ctx = SpecialContext(pid, snapshot_id=sid)
     assert _items(ctx)['overview:kpis'].availability(ctx) == 'ready'
-    assert overview.provide(SpecialContext(9999))[0].availability(SpecialContext(9999)) == 'no_data'
+    bad = SpecialContext(9999)
+    assert _items(bad)['overview:kpis'].availability(bad) == 'no_data'
+
+
+# ── project snapshot (the header 'at a glance' chips) ─────────────────────────
+def test_snapshot_keyvals_mirrors_header_chips(temp_db, xml_path):
+    pid, sid = _seed(xml_path)
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    pl = _items(ctx)['overview:snapshot'].produce(ctx)
+    assert pl['kind'] == 'keyvals'
+    kv = dict(pl['pairs'])
+    assert kv['Data date'] == '01 Jan 2026'   # 'DD Mon YYYY', matching the screen's fmtDate
+    assert kv['Activities'] == '10'          # snapshot activity_count, raw like the chip
+    assert kv['Calendars'] == '2'            # snapshot calendar_count
+    assert kv['WBS categories'] == '2'       # len(categories), Construction + Engineering
+
+
+def test_snapshot_availability(temp_db, xml_path):
+    pid, sid = _seed(xml_path)
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    assert _items(ctx)['overview:snapshot'].availability(ctx) == 'ready'
+    bad = SpecialContext(9999)
+    assert _items(bad)['overview:snapshot'].availability(bad) == 'no_data'
 
 
 # ── progress by category ──────────────────────────────────────────────────────
@@ -100,6 +122,29 @@ def test_category_bars_is_chartable_payload(temp_db, xml_path):
     assert pl['kind'] == 'bars'
     assert len(pl['rows']) == 2                        # one row per WBS category
     assert [s['label'] for s in pl['series']] == ['Planned', 'Actual']
+
+
+def test_category_bars_labels_fold_activity_count(temp_db, xml_path):
+    pid, sid = _seed(xml_path)
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    labels = [r['label'] for r in _items(ctx)['overview:categories'].produce(ctx)['rows']]
+    assert 'Construction (50 activities)' in labels   # count folded into the label
+    assert 'Engineering (20 activities)' in labels
+
+
+def test_category_bars_label_shows_manual_override(temp_db, xml_path):
+    pid = db.upsert_project('OV2', 'Override Fixture')
+    sid = db.insert_snapshot(pid, '2026-01-01', str(xml_path), str(xml_path), 'h2', 10, 2)
+    db.insert_metrics(sid, {'pv': 1e6, 'ev': 6e5, 'ac': 7e5, 'spi': 0.6, 'cpi': 0.86,
+                            'delay_days': 5, 'overall_planned_pct': 0.61,
+                            'overall_actual_pct': 0.40, 'variance': -0.21})
+    db.insert_category_metrics(sid, {
+        'Construction': {'weight': 0.8, 'planned_pct': 0.58, 'actual_pct': 0.38,
+                         'bac': 1e6, 'ac': 7e5, 'activity_count': 50, 'overridden': True},
+    })
+    ctx = SpecialContext(pid, snapshot_id=sid)
+    pl = _items(ctx)['overview:categories'].produce(ctx)
+    assert pl['rows'][0]['label'] == 'Construction (50 activities · manual override)'
 
 
 def test_category_bars_availability(temp_db, xml_path):
@@ -114,5 +159,6 @@ def test_both_items_registered_in_catalog(temp_db, xml_path):
     pid, sid = _seed(xml_path)
     ctx = SpecialContext(pid, snapshot_id=sid)
     ids = {i['id'] for g in registry.catalog(ctx) for i in g['items']}
+    assert 'overview:snapshot' in ids
     assert 'overview:kpis' in ids
     assert 'overview:categories' in ids

@@ -24,11 +24,16 @@ FEATURE_TITLE = 'Overview'
 
 
 def _fmt_date(v):
-    """Clean date string (drop any 00:00:00 time tail), matching the screen's fmtDate."""
+    """Format as 'DD Mon YYYY' (e.g. '01 Jan 2026') to match the Overview screen's
+    fmtDate; falls back to the raw date if it can't be parsed."""
     if not v:
         return fmt.DASH
-    s = str(v)
-    return s.split('T')[0].split(' ')[0] if ('T' in s or ' ' in s) else s
+    s = str(v).split('T')[0].split(' ')[0]
+    try:
+        from datetime import datetime
+        return datetime.strptime(s, '%Y-%m-%d').strftime('%d %b %Y')
+    except Exception:
+        return s
 
 
 def _delay_days(ctx):
@@ -74,9 +79,24 @@ def _kpi_grid(ctx):
     ])
 
 
+def _cat_label(name, c):
+    """The category's bar label, folding in the sub-line the screen shows under each
+    name: ``<name> (<N> activities[ · manual override])`` — matching overview.js's
+    ``<span>${c.activity_count} activities${c.overridden ? ' · manual override' : ''}</span>``.
+    The count is dropped only when the stored value is missing."""
+    parts = []
+    n = c.get('activity_count')
+    if n is not None:
+        parts.append(f'{int(n)} activities')
+    if c.get('overridden'):
+        parts.append('manual override')
+    return f'{name} ({" · ".join(parts)})' if parts else name
+
+
 def _category_bars(ctx):
     """Per-category planned/actual bars, matching the screen's Progress-by-category list
-    (values on a literal 0..100 scale, plan + actual per category)."""
+    (values on a literal 0..100 scale, plan + actual per category). Each row's label
+    carries the screen's per-category sub-line (activity count + manual-override flag)."""
     e = ctx.evm or {}
     cats = e.get('categories') or {}
     if not cats:
@@ -84,7 +104,7 @@ def _category_bars(ctx):
     rows = []
     for name, c in cats.items():
         p, a = c.get('planned_pct'), c.get('actual_pct')
-        rows.append({'label': name,
+        rows.append({'label': _cat_label(name, c),
                      'values': [(p or 0) * 100, (a or 0) * 100],
                      'display': [fmt.pct01(p, dp=2), fmt.pct01(a, dp=2)]})
     return P.bars(
@@ -92,6 +112,31 @@ def _category_bars(ctx):
         series=[{'label': 'Planned', 'tone': 'neutral'},
                 {'label': 'Actual', 'tone': 'accent'}],
     )
+
+
+def _count(n):
+    """Integer count as the header chips print it (raw integer, or '—' when absent),
+    matching overview.js's ``${result.activity_count ?? '—'}``."""
+    return fmt.DASH if n is None else f'{int(n)}'
+
+
+def _snapshot(ctx):
+    """The header 'at a glance' chip row as a label/value list — Data date, Activities,
+    Calendars, WBS categories — mirroring overview.js's ``ov-chips`` block."""
+    e = ctx.evm or {}
+    if not e:
+        return P.NO_DATA
+    cats = e.get('categories') or {}
+    return P.keyvals([
+        ('Data date', _fmt_date(e.get('data_date'))),
+        ('Activities', _count(e.get('activity_count'))),
+        ('Calendars', _count(e.get('calendar_count'))),
+        ('WBS categories', f'{len(cats)}'),
+    ])
+
+
+def _snapshot_avail(ctx):
+    return 'ready' if ctx.evm else 'no_data'
 
 
 def _kpis_avail(ctx):
@@ -104,6 +149,8 @@ def _cats_avail(ctx):
 
 def provide(ctx):
     return [
+        Item('overview:snapshot', FEATURE, FEATURE_TITLE, 'Project snapshot',
+             'summary', _snapshot, _snapshot_avail),
         Item('overview:kpis', FEATURE, FEATURE_TITLE, 'Key indicators',
              'kpi', _kpi_grid, _kpis_avail),
         Item('overview:categories', FEATURE, FEATURE_TITLE, 'Progress by category',

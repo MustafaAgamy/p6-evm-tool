@@ -1,6 +1,6 @@
 import { state }                              from './modules/state.js';
 import { initTheme }                          from './modules/theme.js';
-import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel, exportWeatherExcel, exportEvmExcel, exportCopilotExcel, exportDashboardExcel, exportNarrativeExcel, exportOverviewExcel, exportWbsExcel, exportScheduleExcel } from './modules/api.js';
+import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel, exportWeatherExcel, exportEvmExcel, exportDashboardExcel, exportNarrativeExcel, exportOverviewExcel, exportWbsExcel, exportScheduleExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser, renderAudit, renderOosPanel, renderLagPanel } from './modules/audit.js';
 import { renderConstructPanel }               from './modules/construct.js';
@@ -16,7 +16,7 @@ import { renderUpdatePanel }                   from './modules/update.js';
 import { renderSpecialPanel }                  from './modules/special.js';
 import { renderOverview, renderWbs, overviewPrint, wbsPrint } from './modules/overview.js';
 import { renderNarrative, narrativePrint }        from './modules/narrative.js';
-import { renderCopilot, copilotPrint }            from './modules/copilot.js';
+import { renderChat }                             from './modules/chat.js';
 import { printView }                              from './modules/printview.js';
 import { renderSchedule }                       from './modules/gantt.js';
 import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ['evm','Earned Value'], ['oos','Out of Sequence'], ['update','Update Analysis'], ['critpath','Critical Path'],
     ]},
     { group:'Compare & Claims', items:[
-      ['period','Update vs Update'], ['compare','Consultant Review'], ['revcompare','Baseline Revision','revcompare'], ['copilot','AI Copilot · TIA','ai'],
+      ['period','Update vs Update'], ['compare','Consultant Review'], ['revcompare','Baseline Revision','revcompare'], ['chat','AI Chat','ai'],
     ]},
     { group:'Calendars & Weather', items:[
       ['calendar','P6 Calendar Audit','calendar'], ['weather','Bad Weather','weather'],
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     compare:'Consultant Review', revcompare:'Baseline Revision Comparison', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
     update:'Update Analysis', special:'Reporting Studio', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
     narrative:'Baseline Narrative', prodintel:'Productivity & Resource Intelligence',
-    weather:'Bad Weather', copilot:'AI Copilot · TIA' };
+    weather:'Bad Weather', chat:'AI Chat' };
   const navTree = document.getElementById('nav-tree');
   const tnode = (id, label, icon, o = {}) => {
     const dis = o.preview || o.soon;
@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
   //
   // SELF_GATING features collect their own inputs + Run inside their panel
   // (a second file / two revisions / a location), so they skip the generic gate.
-  const SELF_GATING = new Set(['compare', 'revcompare', 'period', 'critpath', 'weather']);
+  const SELF_GATING = new Set(['compare', 'revcompare', 'period', 'critpath', 'weather', 'chat']);
   const FEATURE_META = {
     evm:       { title:'Earned Value',            icon:'evm',       verb:'Run EVM Analysis',      desc:'Planned vs earned value, SPI / CPI and finish delay from this update.' },
     overview:  { title:'Overview',                icon:'overview',  verb:'Show Overview',         desc:'A one-page snapshot of progress and category performance.' },
@@ -136,10 +136,10 @@ document.addEventListener('DOMContentLoaded', () => {
     lag:       { title:'Lag Report',              icon:'lag',       verb:'Run Lag Report',        desc:'Relationship lags and leads, with a justification register.' },
     calendar:  { title:'P6 Calendar Audit',       icon:'calendar',  verb:'Run Calendar Audit',    desc:'Working-time calendars, net working days and comparisons.' },
     construct: { title:'Constructability',        icon:'construct', verb:'Run Constructability',  desc:'Reviews sequencing and logic against the built-in construction knowledge base.' },
-    copilot:   { title:'AI Copilot · TIA',        icon:'ai',        verb:'Run Copilot',           desc:'Deterministic Time-Impact Analysis and insights — offline.' },
+    chat:      { title:'AI Chat',                 icon:'ai',        verb:'Open AI Chat',          desc:'Ask a senior planning manager anything about this schedule, run a time-impact analysis, a what-if, or a manager’s briefing — offline, grounded in your data.' },
     narrative: { title:'Baseline Narrative',      icon:'doc',       verb:'Generate Narrative',    desc:'A written basis-of-schedule narrative from this programme.' },
     update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its own embedded baseline.' },
-    special:   { title:'Reporting Studio',        icon:'special',   verb:'Open Reporting Studio', desc:"Pick results once — view them as a detailed document or a visual dashboard." },
+    special:   { title:'Reporting Studio',        icon:'special',   verb:'Open Reporting Studio', desc:"Pick results from any feature and build one detailed report — export to Word, PDF or Excel." },
   };
 
   // Compute + render a feature's results (the actual analysis).
@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'calendar':   renderCalendar(r.calendar_audit); break;
       case 'weather':    renderWeatherView(r.calendar_audit); break;
       case 'construct':  renderConstructPanel(); break;
-      case 'copilot':    renderCopilot(); break;
+      case 'chat':       renderChat(); break;
       case 'narrative':  renderNarrative(); break;
       case 'update':     renderUpdatePanel(); break;
       case 'special':    renderSpecialPanel(); break;
@@ -286,10 +286,9 @@ document.addEventListener('DOMContentLoaded', () => {
     wbs:      { xls: 'wbs-excel-btn' },
     schedule: { xls: 'sched-excel-btn' },
     narrative:{ xls: 'narr-excel-btn' },
-    copilot:  { xls: 'cp-export-xlsx' },
     special:  { pdf: 'sr-pdf',           xls: 'sr-xls' },
   };
-  // Screen views (Overview, WBS, Dashboard, Narrative, Copilot) print
+  // Screen views (Overview, WBS, Narrative) print
   // through the shared printView() — File ▸ Print gives them the same PDF Preview +
   // Printing Selection picker as the analysis modules. Every feature prints from the
   // menu bar with a section picker; a new view only needs a print-sections provider.
@@ -298,7 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
     overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint },
     wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint },
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
-    copilot:   { module: 'copilot',    title: 'AI Copilot · TIA',       get: copilotPrint },
   };
   function runReport(kind) {
     // Standalone library views (no imported schedule required) print through the shared path too.
@@ -491,7 +489,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // in-panel buttons inside their modules). The schedule button is re-created on every
   // Gantt render, so it is bound by delegation on the static #schedule-body container.
   document.getElementById('evm-excel-btn').addEventListener('click', exportEvmExcel);
-  document.getElementById('cp-export-xlsx').addEventListener('click', exportCopilotExcel);
   document.getElementById('narr-excel-btn').addEventListener('click', exportNarrativeExcel);
   document.getElementById('ov-excel-btn').addEventListener('click', exportOverviewExcel);
   document.getElementById('wbs-excel-btn').addEventListener('click', exportWbsExcel);
