@@ -209,19 +209,15 @@ def _is_working(cal, d):
         return True
 
 
-def _working_days_in_month(ref_cal, y, m, wstart, wend, active_days):
-    """Working days of month ``(y, m)`` that fall inside the project window ``[wstart, wend]`` —
-    the denominator for the sustained-crew figure (man-days ÷ working days = men on site). Uses
-    the group's dominant calendar; with no calendar, falls back to the days that carried work."""
+def _working_days_in_month(cal, y, m, wstart, wend):
+    """Working days of month ``(y, m)`` on calendar ``cal`` that fall inside the project window
+    ``[wstart, wend]`` — the per-assignment denominator for the sustained-crew figure (an
+    assignment's man-days ÷ its own calendar's working days = its crew that month). A missing
+    calendar counts every day, matching how such an assignment is loaded."""
     n = 0
     for dd in range(1, _cal.monthrange(y, m)[1] + 1):
         d = date(y, m, dd)
-        if d < wstart or d > wend:
-            continue
-        if ref_cal is not None:
-            if _is_working(ref_cal, d):
-                n += 1
-        elif d in active_days:
+        if wstart <= d <= wend and _is_working(cal, d):
             n += 1
     return n
 
@@ -301,7 +297,7 @@ def _profile(recs, basis, calendars=None):
     per_res_daily = defaultdict(lambda: defaultdict(float))
     sigma = defaultdict(float)
     names = {}
-    cal_freq = defaultdict(int)
+    loads = []                                   # (crew, cal, {(y,m): working days this activity loads})
     gmin = gmax = None
     for r in recs:
         ps, pf = r['ps'], r['pf']
@@ -321,28 +317,31 @@ def _profile(recs, basis, calendars=None):
         rid = r['rid']
         names[rid] = r['name']
         sigma[rid] += r['qty']
-        cal_freq[r.get('cal')] += 1
+        wd_by_month = defaultdict(int)
         d = s
         while d <= f:
             if _is_working(cal, d):          # load only working days (P6 spreads over working time)
                 daily[d] += crew
                 per_res_daily[rid][d] += crew
+                wd_by_month[(d.year, d.month)] += 1
             d += _ONE
+        if wd_by_month:
+            loads.append((crew, cal, wd_by_month))
     if gmin is None or not daily:
         return None
 
-    # dominant calendar of the group drives the per-month working-day denominator
-    ref_cal = calendars.get(max(cal_freq, key=lambda k: cal_freq[k])) if cal_freq else None
+    # SUSTAINED crew = Σ over assignments of crew × (its working days loaded in the month) ÷ (its
+    # OWN calendar's working days in that month). Per-assignment normalisation keeps numerator and
+    # denominator on the SAME calendar, so a mix of calendars (e.g. a 24-hour calendar beside a
+    # 6-day one) neither inflates nor zeroes a month — the divisor is always ≥ the loaded days.
     wstart, wend = gmin.date(), gmax.date()
-
-    msum = defaultdict(float)
-    for d, v in daily.items():
-        msum[(d.year, d.month)] += v
+    monthly = defaultdict(float)
+    for crew, cal, wd_by_month in loads:
+        for k, loaded in wd_by_month.items():
+            cal_wd = _working_days_in_month(cal, k[0], k[1], wstart, wend) or loaded
+            monthly[k] += crew * loaded / cal_wd
     span = _month_span((gmin.year, gmin.month), (gmax.year, gmax.month))
-    values = []
-    for k in span:
-        wd = _working_days_in_month(ref_cal, k[0], k[1], wstart, wend, daily)
-        values.append(round(msum.get(k, 0.0) / wd, 2) if wd else 0.0)
+    values = [round(monthly.get(k, 0.0), 2) for k in span]
 
     pi = max(range(len(values)), key=lambda i: values[i])
     peak_day = max(daily, key=daily.get)
